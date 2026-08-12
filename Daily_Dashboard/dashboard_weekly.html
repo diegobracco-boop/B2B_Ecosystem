@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Weekly Summary — Despegar</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#f4f5f9;color:#1a1a2e;font-size:13px}
+
+/* ── Header ── */
+header{background:#7C7FFF;padding:0 24px;height:52px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(84,87,217,.3)}
+.logo h1{color:#fff;font-size:20px;font-weight:700}
+
+/* ── Sub-header ── */
+.subheader{background:#5457D9;padding:0 24px;display:flex;align-items:center;justify-content:space-between;height:44px;position:sticky;top:52px;z-index:99;box-shadow:0 2px 6px rgba(0,0,0,.15)}
+
+.lob-tabs{display:flex;gap:4px}
+.lob-tab{padding:6px 16px;border-radius:16px;border:none;background:rgba(255,255,255,.15);color:#fff;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s}
+.lob-tab.active{background:#fff;color:#5457D9}
+.lob-tab:hover:not(.active){background:rgba(255,255,255,.25)}
+
+.right-controls{display:flex;gap:6px;align-items:center}
+.view-btn{padding:5px 14px;border-radius:14px;border:1px solid rgba(255,255,255,.5);background:transparent;color:#fff;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s}
+.view-btn.active{background:rgba(255,255,255,.25);border-color:#fff}
+.view-btn:hover:not(.active){background:rgba(255,255,255,.1)}
+.view-sep{color:rgba(255,255,255,.4);font-size:11px;margin:0 2px}
+.refresh-btn{padding:5px 12px;border-radius:14px;border:1px solid rgba(255,255,255,.5);background:transparent;color:#fff;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;margin-left:8px}
+.refresh-btn:hover{background:rgba(255,255,255,.1)}
+.refresh-btn.spinning{animation:spin .7s linear infinite;pointer-events:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+.view-toggle.hidden{visibility:hidden}
+
+/* ── Loading ── */
+#loading{display:flex;align-items:center;justify-content:center;height:260px;color:#666;font-size:15px;gap:12px}
+.spinner{width:26px;height:26px;border:3px solid #e0e0f0;border-top-color:#7C7FFF;border-radius:50%;animation:spin .8s linear infinite}
+
+/* ── Layout ── */
+.container{padding:10px 25px;width:fit-content;max-width:100%;margin:0 auto}
+.meta-bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;color:#aaa;font-size:10px}
+.sync-info{font-size:10px;color:#aaa}
+
+/* Side-by-side: weekly left, MTD right */
+.tables-row{display:flex;gap:24px;align-items:flex-start}
+.panel-weekly{flex:0 0 auto}
+.panel-mtd{flex:0 0 auto;min-width:320px}
+.sec-title{font-size:10px;font-weight:800;color:#888;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;padding-bottom:4px;border-bottom:2px solid #e0e0f0}
+
+/* ── Weekly Table ── */
+.table-wrap{overflow-x:auto;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,.08)}
+table.ws-table{width:auto;table-layout:fixed;border-collapse:collapse;background:#fff}
+
+thead tr.head-weeks th{
+  background:#7C7FFF;color:#fff;padding:5px 4px;
+  font-size:14px;font-weight:700;text-align:center;
+  border-right:1px solid rgba(255,255,255,.18);width:110px
+}
+thead tr.head-weeks th:first-child{text-align:center;width:72px;min-width:72px;border-right:2px solid rgba(255,255,255,.25)}
+thead tr.head-weeks th:nth-child(2){text-align:left;width:80px;min-width:80px}
+thead tr.head-weeks th.l4w-col{background:#5457D9;border-left:3px solid rgba(255,255,255,.25);width:90px}
+
+td.country-cell{
+  background:#5457D9;color:#fff;font-size:13px;font-weight:700;
+  padding:6px 8px;vertical-align:middle;text-align:center;
+  border-right:2px solid rgba(255,255,255,.2);border-top:0.5px solid rgba(124,127,255,.4);
+  width:72px;min-width:72px
+}
+td.country-cell.total-cell{background:#7C7FFF}
+.country-name{display:flex;flex-direction:column;align-items:center;gap:4px}
+.country-label{font-size:12px;font-weight:700;white-space:nowrap}
+.flag{display:inline-flex;align-items:center;gap:2px}
+.flag img{width:48px;height:34px;border-radius:3px;object-fit:cover;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+.flag-hispa{display:flex;flex-wrap:wrap;justify-content:center;gap:3px;max-width:68px}
+.flag-hispa img{width:28px;height:20px;border-radius:2px;object-fit:cover}
+.flag-globe{font-size:36px;line-height:1}
+
+tr.metric-row td{padding:3px 8px;border-bottom:1px solid #f0f0f8;font-size:13px;text-align:right;vertical-align:middle;width:110px}
+tr.metric-row td.metric-label{text-align:left;color:#444;font-weight:600;padding-left:10px;border-right:2px solid #eee;width:80px;min-width:80px}
+tr.metric-row.ly-row td{color:#888;font-size:12px;background:#fafafe}
+tr.metric-row.ly-row td.metric-label{padding-left:16px;color:#aaa}
+tr.metric-row.group-last td{border-bottom:1px solid rgba(124,127,255,.25)}
+td.l4w-val{background:#f0f0ff;font-weight:700;border-left:3px solid #d4d4f0;width:90px}
+tr.metric-row.ly-row td.l4w-val{background:#eaeaff}
+
+/* ── MTD Table ── */
+.mtd-wrap{border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,.08);overflow:hidden}
+table.mtd-table{width:100%;border-collapse:collapse;background:#fff}
+.mtd-table thead tr.mtd-head th{
+  background:#7C7FFF;color:#fff;padding:5px 8px;
+  font-size:11px;font-weight:700;text-align:center;
+  border-right:1px solid rgba(255,255,255,.18)
+}
+.mtd-table thead tr.mtd-head th:first-child{text-align:center;width:56px;min-width:56px;border-right:2px solid rgba(255,255,255,.25)}
+.mtd-table thead tr.mtd-head th:nth-child(2){text-align:left;width:60px;min-width:60px}
+.mtd-month-badge{font-size:9px;font-weight:600;opacity:.75;display:block}
+td.mtd-country-cell{
+  background:#5457D9;color:#fff;font-size:12px;font-weight:700;
+  padding:5px 6px;vertical-align:middle;text-align:center;
+  border-right:2px solid rgba(255,255,255,.2);border-top:0.5px solid rgba(124,127,255,.4);
+  width:56px;min-width:56px
+}
+td.mtd-country-cell.mtd-total-cell{background:#7C7FFF}
+.mtd-country-name{display:flex;flex-direction:column;align-items:center;gap:3px}
+.mtd-country-label{font-size:11px;font-weight:700;white-space:nowrap}
+.mtd-flag img{width:38px;height:27px;border-radius:2px;object-fit:cover;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.mtd-flag-hispa{display:flex;flex-wrap:wrap;justify-content:center;gap:2px;max-width:56px}
+.mtd-flag-hispa img{width:22px;height:16px;border-radius:2px;object-fit:cover}
+.mtd-flag-globe{font-size:28px;line-height:1}
+tr.mtd-row td{padding:3px 7px;border-bottom:1px solid #f0f0f8;font-size:12px;text-align:right;vertical-align:middle}
+tr.mtd-row td.mtd-metric-label{text-align:left;color:#444;font-weight:600;padding-left:8px;border-right:2px solid #eee;width:60px;min-width:60px}
+tr.mtd-row.mtd-group-last td{border-bottom:1px solid rgba(124,127,255,.25)}
+td.mtd-no-bud{color:#bbb;font-size:11px}
+
+/* ── Value colors ── */
+.pos{color:#16a34a}.neg{color:#dc2626}.neutral{color:#777}
+
+/* ── Error ── */
+#error-box{padding:40px;text-align:center;color:#dc2626;font-size:14px;display:none}
+
+/* ── AI Chat Panel ── */
+.btn-ai-toggle{
+  background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.4);
+  color:#fff;border-radius:20px;padding:6px 14px;font-size:12px;font-weight:700;
+  cursor:pointer;transition:all .2s;white-space:nowrap;margin-left:8px
+}
+.btn-ai-toggle:hover{background:rgba(255,255,255,.28)}
+.btn-ai-toggle.active{background:rgba(255,255,255,.95);color:#5457D9}
+#ai-panel{
+  position:fixed;top:0;right:-400px;width:380px;height:100vh;
+  background:#fff;box-shadow:-4px 0 24px rgba(0,0,0,.18);
+  display:flex;flex-direction:column;z-index:9000;
+  transition:right .3s cubic-bezier(.4,0,.2,1)
+}
+#ai-panel.open{right:0}
+.ai-header{
+  background:linear-gradient(135deg,#5457D9,#7C7FFF);color:#fff;
+  padding:14px 16px 10px;display:flex;flex-direction:column;gap:8px;flex-shrink:0
+}
+.ai-header-top{display:flex;align-items:center;justify-content:space-between}
+.ai-header-title{font-size:14px;font-weight:700}
+.ai-close-btn{
+  background:rgba(255,255,255,.18);border:none;color:#fff;border-radius:50%;
+  width:28px;height:28px;cursor:pointer;font-size:16px;line-height:28px;text-align:center;
+  transition:background .2s
+}
+.ai-close-btn:hover{background:rgba(255,255,255,.32)}
+.ai-agents{display:flex;gap:6px}
+.ai-agent-btn{
+  padding:4px 12px;border-radius:14px;border:1px solid rgba(255,255,255,.45);
+  background:transparent;color:rgba(255,255,255,.8);font-size:11px;font-weight:700;
+  cursor:pointer;transition:all .15s
+}
+.ai-agent-btn.active{background:#fff;color:#5457D9;border-color:#fff}
+.ai-agent-btn:hover:not(.active){background:rgba(255,255,255,.18)}
+.ai-agent-btn.hidden{display:none}
+.ai-msgs{flex:1;overflow-y:auto;padding:12px 12px 6px;display:flex;flex-direction:column;gap:8px}
+.ai-msg{display:flex;flex-direction:column;gap:2px}
+.ai-msg.user{align-items:flex-end}
+.ai-msg.bot{align-items:flex-start}
+.ai-bubble{
+  max-width:90%;padding:8px 11px;border-radius:12px;font-size:12px;line-height:1.45;
+  word-wrap:break-word;white-space:pre-wrap
+}
+.ai-msg.user .ai-bubble{background:#5457D9;color:#fff;border-radius:12px 12px 2px 12px}
+.ai-msg.bot  .ai-bubble{background:#f0f0fa;color:#1a1a2e;border-radius:12px 12px 12px 2px}
+.ai-typing .ai-bubble{color:#888;font-style:italic}
+.ai-pills{display:flex;flex-wrap:wrap;gap:5px;padding:6px 12px;flex-shrink:0}
+.ai-pill{
+  background:#f0f0fa;border:1px solid #d0d0f0;color:#5457D9;
+  border-radius:14px;padding:4px 10px;font-size:11px;font-weight:600;
+  cursor:pointer;transition:all .15s;white-space:nowrap
+}
+.ai-pill:hover{background:#e0e0ff;border-color:#9b9fff}
+.ai-input-row{
+  display:flex;gap:6px;padding:8px 12px 12px;flex-shrink:0;
+  border-top:1px solid #e8e8f5
+}
+#ai-input{
+  flex:1;border:1px solid #d0d0f0;border-radius:10px;
+  padding:7px 10px;font-size:12px;resize:none;height:38px;
+  outline:none;font-family:inherit;transition:border-color .2s;color:#1a1a2e
+}
+#ai-input:focus{border-color:#7C7FFF}
+.ai-send-btn{
+  background:#5457D9;color:#fff;border:none;border-radius:10px;
+  width:38px;height:38px;cursor:pointer;font-size:16px;
+  transition:background .2s;flex-shrink:0
+}
+.ai-send-btn:hover{background:#7C7FFF}
+.ai-send-btn:disabled{background:#bbb;cursor:not-allowed}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo"><h1>Weekly Summary</h1></div>
+  <div style="display:flex;align-items:center;gap:0">
+    <button class="btn-ai-toggle" onclick="toggleAiPanel()">🤖 Consultar IA</button>
+  </div>
+</header>
+
+<div class="subheader">
+  <div class="lob-tabs">
+    <button class="lob-tab active" id="tab-both"  onclick="switchLob('B2B+B2B2C')">B2B + B2B2C</button>
+    <button class="lob-tab"        id="tab-b2b"   onclick="switchLob('B2B')">B2B</button>
+    <button class="lob-tab"        id="tab-b2b2c" onclick="switchLob('B2B2C')">B2B2C</button>
+  </div>
+  <div class="right-controls">
+    <div class="view-toggle" id="view-toggle">
+      <button class="view-btn" id="btn-ri" onclick="switchView('RI')">Recognition Date</button>
+      <span class="view-sep">|</span>
+      <button class="view-btn active" id="btn-gd" onclick="switchView('GD')">Gestion Date</button>
+    </div>
+    <button class="refresh-btn" id="refresh-btn" onclick="refreshData()">↻ Actualizar</button>
+  </div>
+</div>
+
+<div class="container">
+  <div id="loading"><div class="spinner"></div><span>Cargando datos…</span></div>
+  <div id="content" style="display:none">
+    <div class="meta-bar">
+      <span id="meta-updated"></span>
+      <span class="sync-info" id="last-sync-info"></span>
+    </div>
+    <div class="tables-row">
+      <!-- Weekly table -->
+      <div class="panel-weekly">
+        <div class="sec-title">Resumen Semanal</div>
+        <div class="table-wrap">
+          <table class="ws-table">
+            <thead id="ws-thead"></thead>
+            <tbody id="ws-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+      <!-- MTD table(s) -->
+      <div class="panel-mtd" id="panel-mtd" style="display:none">
+        <!-- Single LOB (B2B or B2B2C) -->
+        <div id="mtd-single">
+          <div class="sec-title" id="mtd-title">Performance MTD</div>
+          <div class="mtd-wrap">
+            <table class="mtd-table">
+              <thead id="mtd-thead"></thead>
+              <tbody id="mtd-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+        <!-- Split view (B2B+B2B2C) — side by side -->
+        <div id="mtd-split" style="display:none;gap:16px;align-items:flex-start">
+          <div>
+            <div class="sec-title" id="mtd-title-b2b2c">Performance MTD — B2B2C</div>
+            <div class="mtd-wrap">
+              <table class="mtd-table">
+                <thead id="mtd-thead-b2b2c"></thead>
+                <tbody id="mtd-tbody-b2b2c"></tbody>
+              </table>
+            </div>
+          </div>
+          <div>
+            <div class="sec-title" id="mtd-title-b2b">Performance MTD — B2B</div>
+            <div class="mtd-wrap">
+              <table class="mtd-table">
+                <thead id="mtd-thead-b2b"></thead>
+                <tbody id="mtd-tbody-b2b"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="error-box"></div>
+</div>
+
+<!-- AI Chat Panel -->
+<div id="ai-panel">
+  <div class="ai-header">
+    <div class="ai-header-top">
+      <span class="ai-header-title">🤖 Consultar IA</span>
+      <button class="ai-close-btn" onclick="toggleAiPanel()">✕</button>
+    </div>
+    <div class="ai-agents" id="ai-agents">
+      <button class="ai-agent-btn active" id="ai-btn-bitubee"   onclick="switchAiAgent('bitubee')">BITUBEE</button>
+      <button class="ai-agent-btn"        id="ai-btn-bitubicia" onclick="switchAiAgent('bitubicia')">BITUBICIA</button>
+    </div>
+  </div>
+  <div class="ai-msgs" id="ai-msgs"></div>
+  <div class="ai-pills">
+    <button class="ai-pill" onclick="aiPill('¿Cómo fue la última semana?')">Última semana</button>
+    <button class="ai-pill" onclick="aiPill('¿Cómo está el MTD vs budget?')">MTD vs Budget</button>
+    <button class="ai-pill" onclick="aiPill('¿Cuáles son los países con mejor performance?')">Por país</button>
+    <button class="ai-pill" onclick="aiPill('¿Qué drivers explican el resultado?')">Drivers</button>
+  </div>
+  <div class="ai-input-row">
+    <textarea id="ai-input" placeholder="Hacé tu pregunta…" onkeydown="aiKeydown(event)"></textarea>
+    <button class="ai-send-btn" id="ai-send" onclick="sendAiMessage()">➤</button>
+  </div>
+</div>
+
+<script>
+var _view  = 'GD';
+var _lob   = 'B2B+B2B2C';
+var _cache = {};
+
+// ── Tab / view switches ───────────────────────────────────────
+function switchLob(lob) {
+  _lob = lob;
+  ['both','b2b','b2b2c'].forEach(function(id){
+    document.getElementById('tab-'+id).classList.remove('active');
+  });
+  var map = {'B2B+B2B2C':'both','B2B':'b2b','B2B2C':'b2b2c'};
+  document.getElementById('tab-'+map[lob]).classList.add('active');
+  document.getElementById('view-toggle').classList.toggle('hidden', lob==='B2B2C');
+  updateAiAgent(lob);
+  loadData();
+}
+
+function switchView(v) {
+  _view = v;
+  document.getElementById('btn-gd').classList.toggle('active', v==='GD');
+  document.getElementById('btn-ri').classList.toggle('active', v==='RI');
+  loadData();
+}
+
+function refreshData() {
+  _cache = {};
+  var btn = document.getElementById('refresh-btn');
+  btn.classList.add('spinning');
+  loadData(function(){ btn.classList.remove('spinning'); });
+}
+
+// ── Data load ────────────────────────────────────────────────
+function loadData(cb) {
+  var key = _lob + '_' + _view;
+  if (_cache[key]) { render(_cache[key]); if (cb) cb(); return; }
+  showLoading(true);
+  google.script.run
+    .withSuccessHandler(function(res) {
+      showLoading(false);
+      if (cb) cb();
+      if (!res.success) { showError(res.error); return; }
+      _cache[key] = res;
+      render(res);
+    })
+    .withFailureHandler(function(e) {
+      showLoading(false);
+      if (cb) cb();
+      showError(e.message || String(e));
+    })
+    .getWeeklySummaryData({ view: _view, lob: _lob });
+}
+
+function render(d) {
+  document.getElementById('content').style.display = 'block';
+  document.getElementById('error-box').style.display = 'none';
+  document.getElementById('meta-updated').textContent =
+    'Actualizado: ' + new Date().toLocaleString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  if (d.lastSync && d.lastSync.ts) {
+    var ts = new Date(d.lastSync.ts);
+    document.getElementById('last-sync-info').textContent =
+      'Último sync: ' + ts.toLocaleString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  }
+  renderWeekly(d);
+  renderMTD(d.mtd);
+}
+
+// ── Weekly table ─────────────────────────────────────────────
+var METRICS = [
+  { key:'fvm',   label:'FVM',  fmt:'M',   lyKey:null,       l4wKey:'fvm',   l4wFmt:'pct' },
+  { key:'pctGb', label:'%/GB', fmt:'pct', lyKey:null,       l4wKey:'pctGb', l4wFmt:'pp'  },
+  { key:'rev',   label:'Rev',  fmt:'M',   lyKey:'vsLYrev',  l4wKey:'rev',   l4wFmt:'pct' },
+  { key:'gb',    label:'GB',   fmt:'M',   lyKey:'vsLYgb',   l4wKey:'gb',    l4wFmt:'pct' }
+];
+
+function renderWeekly(d) {
+  var thead = document.getElementById('ws-thead');
+  thead.innerHTML = '';
+  var tr = document.createElement('tr'); tr.className = 'head-weeks';
+  addTh(tr, 'País');
+  addTh(tr, 'Métrica');
+  d.weekLabels.forEach(function(w){ addTh(tr, 'W'+w); });
+  var thL = addTh(tr, 'vs L4W'); thL.className = 'l4w-col';
+  thead.appendChild(tr);
+
+  var tbody = document.getElementById('ws-tbody');
+  tbody.innerHTML = '';
+  d.rows.forEach(function(row) {
+    var isTotal  = row.group === 'TOTAL';
+    var rowspan  = METRICS.reduce(function(n,m){ return n+1+(m.lyKey?1:0); }, 0);
+    var firstRow = true;
+
+    METRICS.forEach(function(m) {
+      var trM = document.createElement('tr'); trM.className = 'metric-row';
+      if (firstRow) {
+        firstRow = false;
+        var tdP = document.createElement('td');
+        tdP.className = 'country-cell'+(isTotal?' total-cell':'');
+        tdP.rowSpan = rowspan;
+        tdP.innerHTML = '<div class="country-name">'+flagHtml(row.flag, row.group, false)
+          +'<span class="country-label">'+row.group+'</span></div>';
+        trM.appendChild(tdP);
+      }
+      var tdL = document.createElement('td'); tdL.className = 'metric-label';
+      tdL.textContent = m.label; trM.appendChild(tdL);
+      row.weeks.forEach(function(w) {
+        var td = document.createElement('td');
+        td.textContent = fmtVal(w[m.key], m.fmt); trM.appendChild(td);
+      });
+      var tdW = document.createElement('td'); tdW.className = 'l4w-val';
+      tdW.innerHTML = fmtChange(row.vsL4W[m.l4wKey], m.l4wFmt); trM.appendChild(tdW);
+      tbody.appendChild(trM);
+
+      if (m.lyKey) {
+        var trLY = document.createElement('tr'); trLY.className = 'metric-row ly-row';
+        var tdLl = document.createElement('td'); tdLl.className = 'metric-label';
+        tdLl.textContent = '% vs LY'; trLY.appendChild(tdLl);
+        row.weeks.forEach(function(w) {
+          var td = document.createElement('td');
+          td.innerHTML = fmtChange(w[m.lyKey], 'pct'); trLY.appendChild(td);
+        });
+        var tdLW = document.createElement('td'); tdLW.className = 'l4w-val';
+        tdLW.innerHTML = '<span class="neutral">—</span>'; trLY.appendChild(tdLW);
+        tbody.appendChild(trLY);
+      }
+    });
+  });
+}
+
+// ── MTD table ────────────────────────────────────────────────
+var MTD_METRICS = [
+  { key:'fvm',   label:'FVM'  },
+  { key:'pctGb', label:'%/GB' },
+  { key:'rev',   label:'Rev'  },
+  { key:'gb',    label:'GB'   }
+];
+
+function renderMTD(mtd) {
+  var panel = document.getElementById('panel-mtd');
+  if (!mtd) { panel.style.display = 'none'; return; }
+  panel.style.display = 'block';
+
+  if (mtd.split) {
+    document.getElementById('mtd-single').style.display = 'none';
+    document.getElementById('mtd-split').style.display  = 'flex';
+    _renderMTDTable_(mtd.b2b2c, 'mtd-thead-b2b2c', 'mtd-tbody-b2b2c', 'mtd-title-b2b2c', 'B2B2C');
+    _renderMTDTable_(mtd.b2b,   'mtd-thead-b2b',   'mtd-tbody-b2b',   'mtd-title-b2b',   'B2B');
+  } else {
+    document.getElementById('mtd-single').style.display = 'block';
+    document.getElementById('mtd-split').style.display  = 'none';
+    _renderMTDTable_(mtd, 'mtd-thead', 'mtd-tbody', 'mtd-title', null);
+  }
+}
+
+function _renderMTDTable_(mtd, theadId, tbodyId, titleId, label) {
+  if (!mtd || !mtd.rows) return;
+  var monthLabel = mtdMonthLabel(mtd.month);
+  document.getElementById(titleId).textContent =
+    'Performance MTD' + (label ? ' — ' + label : '') + ' — ' + monthLabel + ' (' + mtd.daysCount + ' días)';
+
+  var hasBud = mtd.hasBudget;
+
+  var thead = document.getElementById(theadId);
+  thead.innerHTML = '';
+  var tr = document.createElement('tr'); tr.className = 'mtd-head';
+  addTh(tr, 'País'); addTh(tr, 'Métrica'); addTh(tr, 'Actual');
+  if (hasBud) { addTh(tr, 'Budget'); addTh(tr, '% Achiev'); }
+  addTh(tr, 'vs LY');
+  thead.appendChild(tr);
+
+  var tbody = document.getElementById(tbodyId);
+  tbody.innerHTML = '';
+
+  mtd.rows.forEach(function(row) {
+    var isTotal  = row.group === 'TOTAL';
+    var rowspan  = MTD_METRICS.length;
+    var firstRow = true;
+
+    MTD_METRICS.forEach(function(m) {
+      var d   = row[m.key] || {};
+      var trR = document.createElement('tr'); trR.className = 'mtd-row';
+
+      if (firstRow) {
+        firstRow = false;
+        var tdP = document.createElement('td');
+        tdP.className = 'mtd-country-cell' + (isTotal ? ' mtd-total-cell' : '');
+        tdP.rowSpan = rowspan;
+        tdP.innerHTML = '<div class="mtd-country-name">' + flagHtml(row.flag, row.group, true)
+          + '<span class="mtd-country-label">' + row.group + '</span></div>';
+        trR.appendChild(tdP);
+      }
+
+      var tdL = document.createElement('td'); tdL.className = 'mtd-metric-label';
+      tdL.textContent = m.label; trR.appendChild(tdL);
+
+      var fmtType = (m.key === 'pctGb') ? 'pct' : 'M';
+      var tdA = document.createElement('td');
+      tdA.textContent = fmtVal(d.actual, fmtType); trR.appendChild(tdA);
+
+      if (hasBud) {
+        var tdB = document.createElement('td');
+        tdB.innerHTML = (d.budget !== null && d.budget !== undefined)
+          ? fmtVal(d.budget, fmtType) : '<span class="neutral">—</span>';
+        trR.appendChild(tdB);
+
+        var tdAch = document.createElement('td');
+        if (m.key === 'pctGb' || d.achievement === null || d.achievement === undefined) {
+          tdAch.innerHTML = '<span class="neutral">—</span>';
+        } else {
+          var ach = d.achievement;
+          var achCls = ach >= 100 ? 'pos' : ach >= 85 ? 'neutral' : 'neg';
+          tdAch.innerHTML = '<span class="' + achCls + '">' + Math.round(ach) + '%</span>';
+        }
+        trR.appendChild(tdAch);
+      }
+
+      var tdLY = document.createElement('td');
+      tdLY.innerHTML = (m.key === 'pctGb') ? '<span class="neutral">—</span>' : fmtChange(d.vsLY, 'pct');
+      trR.appendChild(tdLY);
+
+      tbody.appendChild(trR);
+    });
+  });
+}
+
+function mtdMonthLabel(ym) {
+  if (!ym) return '';
+  var months = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  var p = ym.split('-');
+  return months[parseInt(p[1])-1] + ' ' + p[0];
+}
+
+// ── Flag helper ───────────────────────────────────────────────
+var HISPA_CODES = ['ar','co','cl','pe','ec'];
+function flagHtml(code, group, small) {
+  if (!code) return '';
+  var base = 'https://flagcdn.com/';
+  var cls  = small ? 'mtd-flag' : 'flag';
+  if (code === 'hispa') {
+    var imgCls = small ? 'mtd-flag-hispa' : 'flag-hispa';
+    return '<span class="'+imgCls+'">'
+      + HISPA_CODES.map(function(c){ return '<img src="'+base+c+'.svg" alt="'+c+'">'; }).join('')
+      + '</span>';
+  }
+  if (code === 'globe') {
+    var gCls = small ? 'mtd-flag-globe' : 'flag-globe';
+    return '<span class="'+gCls+'">🌎</span>';
+  }
+  return '<span class="'+cls+'"><img src="'+base+code+'.svg" alt="'+group+'"></span>';
+}
+
+// ── Format helpers ───────────────────────────────────────────
+function fmtVal(v, fmt) {
+  if (v===null||v===undefined||isNaN(v)) return '—';
+  if (fmt==='M')   return v.toFixed(1);
+  if (fmt==='pct') return v.toFixed(1)+'%';
+  return v.toFixed(1);
+}
+
+function fmtChange(v, fmt) {
+  if (v===null||v===undefined||isNaN(v)) return '<span class="neutral">—</span>';
+  var pos = v>=0, cls = pos?'pos':'neg', arrow = pos?'▲ ':'▼ ';
+  var suffix = fmt==='pp' ? ' pp' : '%';
+  return '<span class="'+cls+'">'+arrow+(pos?'+':'')+Math.round(v)+suffix+'</span>';
+}
+
+function addTh(tr, text) {
+  var th = document.createElement('th'); th.textContent = text; tr.appendChild(th); return th;
+}
+
+function showLoading(show) {
+  document.getElementById('loading').style.display = show ? 'flex' : 'none';
+  if (!show) document.getElementById('content').style.display = 'block';
+}
+
+function showError(msg) {
+  document.getElementById('error-box').style.display = 'block';
+  document.getElementById('error-box').textContent   = '❌ ' + msg;
+  document.getElementById('content').style.display   = 'none';
+}
+
+// ── AI Chat ──────────────────────────────────────────────────
+var _ai = {
+  open: false, agent: 'bitubee',
+  conversationId: null, requestId: null,
+  polling: false, pollTimer: null, unread: 0
+};
+var _aiCfg = null;
+
+function toggleAiPanel() {
+  _ai.open = !_ai.open;
+  document.getElementById('ai-panel').classList.toggle('open', _ai.open);
+  var btn = document.querySelector('.btn-ai-toggle');
+  btn.classList.toggle('active', _ai.open);
+  if (_ai.open) {
+    _ai.unread = 0;
+    btn.textContent = '🤖 Consultar IA';
+    document.getElementById('ai-input').focus();
+  }
+}
+
+function updateAiAgent(lob) {
+  var btnBee   = document.getElementById('ai-btn-bitubee');
+  var btnBicia = document.getElementById('ai-btn-bitubicia');
+  if (lob === 'B2B') {
+    btnBee.classList.remove('hidden'); btnBicia.classList.add('hidden');
+    setAiAgent('bitubee');
+  } else if (lob === 'B2B2C') {
+    btnBee.classList.add('hidden'); btnBicia.classList.remove('hidden');
+    setAiAgent('bitubicia');
+  } else {
+    btnBee.classList.remove('hidden'); btnBicia.classList.remove('hidden');
+    setAiAgent('bitubee');
+  }
+}
+
+function setAiAgent(agent) {
+  _ai.agent = agent;
+  document.getElementById('ai-btn-bitubee').classList.toggle('active', agent === 'bitubee');
+  document.getElementById('ai-btn-bitubicia').classList.toggle('active', agent === 'bitubicia');
+}
+
+function switchAiAgent(agent) {
+  if (_ai.polling) return;
+  setAiAgent(agent);
+  _ai.conversationId = null; _ai.requestId = null;
+  document.getElementById('ai-msgs').innerHTML = '';
+}
+
+function aiPill(text) {
+  document.getElementById('ai-input').value = text;
+  sendAiMessage();
+}
+
+function aiKeydown(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendAiMessage(); }
+}
+
+function aiAddMsg(role, text) {
+  var msgs = document.getElementById('ai-msgs');
+  var div  = document.createElement('div'); div.className = 'ai-msg ' + role;
+  var bub  = document.createElement('div'); bub.className = 'ai-bubble'; bub.textContent = text;
+  div.appendChild(bub); msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function aiAddTyping() {
+  var msgs = document.getElementById('ai-msgs');
+  var div  = document.createElement('div');
+  div.className = 'ai-msg bot ai-typing'; div.id = 'ai-typing';
+  var bub = document.createElement('div'); bub.className = 'ai-bubble'; bub.textContent = '…';
+  div.appendChild(bub); msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function aiRemoveTyping() { var t = document.getElementById('ai-typing'); if (t) t.remove(); }
+
+function sendAiMessage() {
+  var inp = document.getElementById('ai-input');
+  var msg = inp.value.trim();
+  if (!msg || _ai.polling) return;
+  inp.value = '';
+  aiAddMsg('user', msg);
+  aiAddTyping();
+  document.getElementById('ai-send').disabled = true;
+  _ai.polling = true;
+
+  if (_ai.conversationId && _aiCfg) {
+    _aiCallToqan_('/continue_conversation', { user_message: msg, conversation_id: _ai.conversationId });
+  } else {
+    google.script.run
+      .withSuccessHandler(function(res) {
+        if (!res.success) {
+          aiRemoveTyping(); aiAddMsg('bot', '❌ ' + res.error);
+          _ai.polling = false; document.getElementById('ai-send').disabled = false; return;
+        }
+        _aiCfg = res.config;
+        var fullMsg = res.context
+          ? 'CONTEXTO DEL DASHBOARD (JSON):\n' + JSON.stringify(res.context) + '\n\n---\n\n' + msg
+          : msg;
+        _aiCallToqan_('/create_conversation', { user_message: fullMsg });
+      })
+      .withFailureHandler(function(e) {
+        aiRemoveTyping(); aiAddMsg('bot', '❌ ' + (e.message || String(e)));
+        _ai.polling = false; document.getElementById('ai-send').disabled = false;
+      })
+      .wsGetChatContext({ agent: _ai.agent, dashboardParams: { view: _view, lob: _lob } });
+  }
+}
+
+function _aiCallToqan_(endpoint, body) {
+  var params = { user_message: body.user_message, conversation_id: body.conversation_id || null, agent: _ai.agent };
+  var fn = (endpoint === '/create_conversation') ? 'wsToqanCreate' : 'wsToqanContinue';
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (!res.success) { aiRemoveTyping(); aiAddMsg('bot', '❌ ' + res.error); _ai.polling = false; document.getElementById('ai-send').disabled = false; return; }
+      _ai.conversationId = res.conversation_id;
+      _ai.requestId      = res.request_id;
+      startAiPolling();
+    })
+    .withFailureHandler(function(e) { aiRemoveTyping(); aiAddMsg('bot', '❌ ' + (e.message || String(e))); _ai.polling = false; document.getElementById('ai-send').disabled = false; })
+    [fn](params);
+}
+
+function startAiPolling() {
+  if (_ai.pollTimer) clearTimeout(_ai.pollTimer);
+  _ai.pollTimer = setTimeout(pollAiAnswer, 3000);
+}
+
+function pollAiAnswer() {
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (!res.success) { aiRemoveTyping(); aiAddMsg('bot', '❌ ' + res.error); _ai.polling = false; document.getElementById('ai-send').disabled = false; return; }
+      if (res.status === 'pending' || res.status === 'processing') { startAiPolling(); return; }
+      aiRemoveTyping();
+      aiAddMsg('bot', res.answer || '(sin respuesta)');
+      _ai.polling = false; document.getElementById('ai-send').disabled = false;
+      if (!_ai.open) { _ai.unread++; document.querySelector('.btn-ai-toggle').textContent = '🤖 Consultar IA (' + _ai.unread + ')'; }
+    })
+    .withFailureHandler(function(e) { aiRemoveTyping(); aiAddMsg('bot', '❌ ' + (e.message || String(e))); _ai.polling = false; document.getElementById('ai-send').disabled = false; })
+    .wsToqanPoll({ conversation_id: _ai.conversationId, request_id: _ai.requestId, agent: _ai.agent });
+}
+
+window.onload = function() { loadData(); };
+</script>
+</body>
+</html>

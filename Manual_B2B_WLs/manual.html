@@ -1,0 +1,1498 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Manual · B2B Ecosystem · Despegar</title>
+<style>
+:root {
+  --bg:       #0f0520;
+  --surface:  #1a0a3e;
+  --surface2: #2d1269;
+  --accent:   #7C3AED;
+  --accent2:  #A78BFA;
+  --accent3:  #C4B5FD;
+  --text:     #f0ebff;
+  --text2:    rgba(196,181,253,.7);
+  --text3:    rgba(196,181,253,.45);
+  --border:   rgba(196,181,253,.15);
+  --green:    #22c55e;
+  --blue:     #38bdf8;
+  --orange:   #fb923c;
+  --yellow:   #fbbf24;
+  --red:      #f87171;
+  --pink:     #e879f9;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+}
+
+/* ── Sidebar ── */
+#sidebar {
+  width: 240px;
+  min-height: 100vh;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  padding: 28px 0;
+  position: fixed;
+  top: 0; left: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  z-index: 100;
+  overflow-y: auto;
+}
+.sidebar-logo {
+  padding: 0 20px 24px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 16px;
+}
+.sidebar-logo-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--accent3);
+  letter-spacing: .04em;
+}
+.sidebar-logo-sub {
+  font-size: 10px;
+  color: var(--text3);
+  margin-top: 3px;
+}
+.sidebar-section {
+  padding: 6px 20px 3px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--text3);
+  margin-top: 10px;
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 20px;
+  cursor: pointer;
+  font-size: 12.5px;
+  color: var(--text2);
+  border-left: 3px solid transparent;
+  transition: all .15s;
+  text-decoration: none;
+}
+.nav-item:hover { background: rgba(124,58,237,.12); color: var(--text); }
+.nav-item.active { border-left-color: var(--accent2); color: var(--text); background: rgba(124,58,237,.18); font-weight: 600; }
+.nav-icon { font-size: 14px; width: 18px; text-align: center; }
+
+/* ── Main content ── */
+#main {
+  margin-left: 240px;
+  flex: 1;
+  padding: 48px 56px;
+  max-width: 1100px;
+}
+
+/* ── Page header ── */
+.page-header { margin-bottom: 40px; }
+.page-tag {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--accent2);
+  margin-bottom: 10px;
+}
+.page-title {
+  font-size: 32px;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1.15;
+}
+.page-title span { color: var(--accent2); }
+.page-sub {
+  margin-top: 10px;
+  font-size: 14px;
+  color: var(--text2);
+  line-height: 1.6;
+}
+
+/* ── Sections ── */
+.section { display: none; }
+.section.active { display: block; }
+
+/* ── Cards ── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 24px 28px;
+  margin-bottom: 20px;
+}
+.card-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent3);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.card-title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* ── Flow diagram ── */
+.flow-wrap {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  overflow-x: auto;
+  padding: 8px 0 16px;
+}
+.flow-node {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px 16px;
+  min-width: 160px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.flow-node-title {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: var(--accent2);
+  margin-bottom: 4px;
+}
+.flow-node-icon { font-size: 22px; }
+.flow-node-items { display: flex; flex-direction: column; gap: 5px; }
+.flow-item {
+  font-size: 11px;
+  color: var(--text2);
+  background: rgba(124,58,237,.12);
+  border-radius: 5px;
+  padding: 4px 8px;
+  line-height: 1.35;
+}
+.flow-item.highlight { color: var(--text); background: rgba(124,58,237,.25); }
+.flow-item.green  { color: var(--green);  background: rgba(34,197,94,.12); }
+.flow-item.blue   { color: var(--blue);   background: rgba(56,189,248,.12); }
+.flow-item.orange { color: var(--orange); background: rgba(251,146,60,.12); }
+.flow-item.pink   { color: var(--pink);   background: rgba(232,121,249,.12); }
+.flow-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 10px;
+  color: var(--accent2);
+  font-size: 20px;
+  flex-shrink: 0;
+}
+.flow-note {
+  font-size: 10px;
+  color: var(--text3);
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  line-height: 1.4;
+}
+
+/* ── Tables ── */
+.doc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+.doc-table th {
+  text-align: left;
+  padding: 8px 14px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--text3);
+  border-bottom: 1px solid var(--border);
+}
+.doc-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(196,181,253,.07);
+  color: var(--text2);
+  vertical-align: top;
+}
+.doc-table tr:last-child td { border-bottom: none; }
+.doc-table tr:hover td { background: rgba(124,58,237,.06); }
+.doc-table td:first-child { color: var(--text); font-family: monospace; font-size: 11.5px; }
+.tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 700;
+}
+.tag-py   { background: rgba(56,189,248,.15); color: var(--blue); }
+.tag-js   { background: rgba(251,146,60,.15);  color: var(--orange); }
+.tag-html { background: rgba(232,121,249,.15); color: var(--pink); }
+.tag-json { background: rgba(34,197,94,.15);   color: var(--green); }
+.tag-csv  { background: rgba(251,191,36,.15);  color: var(--yellow); }
+.tag-xlsx { background: rgba(124,58,237,.25);  color: var(--accent3); }
+
+/* ── Steps ── */
+.steps { display: flex; flex-direction: column; gap: 0; }
+.step {
+  display: flex;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+.step:last-child { border-bottom: none; }
+.step-num {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.step-body {}
+.step-title { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 5px; }
+.step-desc  { font-size: 12px; color: var(--text2); line-height: 1.55; }
+.code-block {
+  background: rgba(0,0,0,.35);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 10px 14px;
+  font-family: monospace;
+  font-size: 11.5px;
+  color: var(--accent3);
+  margin-top: 8px;
+  line-height: 1.6;
+  white-space: pre;
+}
+
+/* ── Project overview cards ── */
+.proj-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.proj-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 22px 20px;
+  cursor: pointer;
+  transition: all .2s;
+  text-align: left;
+}
+.proj-card:hover {
+  border-color: var(--accent2);
+  background: rgba(124,58,237,.12);
+  transform: translateY(-2px);
+}
+.proj-card-icon { font-size: 28px; margin-bottom: 12px; }
+.proj-card-name { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+.proj-card-desc { font-size: 11.5px; color: var(--text2); line-height: 1.5; }
+.proj-card-tag  { margin-top: 12px; }
+.proj-card-url  { font-size: 10px; color: var(--accent2); margin-top: 8px; text-decoration: none; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── Badges ── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 10.5px;
+  font-weight: 600;
+}
+.badge-active  { background: rgba(34,197,94,.15);   color: var(--green); }
+.badge-manual  { background: rgba(251,146,60,.15);  color: var(--orange); }
+.badge-auto    { background: rgba(56,189,248,.15);  color: var(--blue); }
+
+/* ── Two-column layout ── */
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+@media(max-width:900px){
+  .two-col { grid-template-columns: 1fr; }
+  #sidebar { width: 200px; }
+  #main { margin-left: 200px; padding: 32px 24px; }
+}
+@media(max-width:640px){
+  #sidebar { display: none; }
+  #main { margin-left: 0; }
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 3px; }
+
+/* ── Link ── */
+a.ext-link {
+  color: var(--accent2);
+  text-decoration: none;
+  font-size: 11.5px;
+}
+a.ext-link:hover { text-decoration: underline; }
+
+.alert-box {
+  background: rgba(251,191,36,.08);
+  border: 1px solid rgba(251,191,36,.25);
+  border-radius: 10px;
+  padding: 14px 18px;
+  font-size: 12px;
+  color: var(--yellow);
+  margin-bottom: 16px;
+  line-height: 1.55;
+}
+</style>
+</head>
+<body>
+
+<!-- ── Sidebar ── -->
+<nav id="sidebar">
+  <div class="sidebar-logo">
+    <div class="sidebar-logo-title">🏢 B2B Ecosystem</div>
+    <div class="sidebar-logo-sub">Manual técnico · Despegar · FY27</div>
+  </div>
+
+  <div class="sidebar-section">General</div>
+  <a class="nav-item active" onclick="showSection('overview')">
+    <span class="nav-icon">🗺️</span> Resumen general
+  </a>
+  <a class="nav-item" onclick="showSection('arquitectura')">
+    <span class="nav-icon">⚙️</span> Arquitectura global
+  </a>
+  <a class="nav-item" onclick="showSection('actualizar')">
+    <span class="nav-icon">🔄</span> Cómo actualizar
+  </a>
+
+  <div class="sidebar-section">Proyectos</div>
+  <a class="nav-item" onclick="showSection('proj-inputs')">
+    <span class="nav-icon">🐍</span> Inputs Planning P&L
+  </a>
+  <a class="nav-item" onclick="showSection('proj-pnl')">
+    <span class="nav-icon">📋</span> P&L Accounting
+  </a>
+  <a class="nav-item" onclick="showSection('proj-managerial')">
+    <span class="nav-icon">📈</span> P&L Managerial
+  </a>
+  <a class="nav-item" onclick="showSection('proj-ecosystem')">
+    <span class="nav-icon">🏢</span> B2B Ecosystem Hub
+  </a>
+  <a class="nav-item" onclick="showSection('proj-daily')">
+    <span class="nav-icon">📆</span> Daily Dashboard
+  </a>
+
+  <div class="sidebar-section">Referencia</div>
+  <a class="nav-item" onclick="showSection('archivos')">
+    <span class="nav-icon">📁</span> Archivos & rutas
+  </a>
+  <a class="nav-item" onclick="showSection('links')">
+    <span class="nav-icon">🔗</span> Links & accesos
+  </a>
+</nav>
+
+<!-- ── Main ── -->
+<main id="main">
+
+  <!-- ════════════════════════════════ OVERVIEW ════════════════════════════ -->
+  <div class="section active" id="sec-overview">
+    <div class="page-header">
+      <div class="page-tag">Manual técnico · B2B Ecosystem · FY27</div>
+      <div class="page-title">Resumen <span>General</span></div>
+      <div class="page-sub">Ecosistema de herramientas de análisis financiero para el equipo B2B &amp; WLs de Despegar. Este manual documenta la arquitectura, los flujos de datos y los procedimientos de actualización de cada proyecto.</div>
+    </div>
+
+    <div class="proj-grid">
+      <div class="proj-card" onclick="showSection('proj-inputs')">
+        <div class="proj-card-icon">🐍</div>
+        <div class="proj-card-name">Inputs Planning P&amp;L</div>
+        <div class="proj-card-desc">Motor de datos que <strong>reemplaza a Toqan</strong>. Genera localmente las planas homologadas y publica un <strong>JSON canónico por concepto</strong> (budget/forecast/run rate/actuals) en Drive: la <strong>fuente única</strong> para todas las landings. No tiene landing propia.</div>
+        <div class="proj-card-tag"><span class="badge badge-manual">🐍 Python · fuente de datos</span></div>
+        <a class="proj-card-url" href="https://drive.google.com/drive/folders/1XqQPL_rlS0NRIPUnPfj5nALBTn7kAOQV" target="_blank">↗ Carpeta JSON en Drive</a>
+      </div>
+
+      <div class="proj-card" onclick="showSection('proj-pnl')">
+        <div class="proj-card-icon">📋</div>
+        <div class="proj-card-name">P&amp;L Accounting</div>
+        <div class="proj-card-desc">Landing del P&amp;L Contable (Operating Contribution) B2B + B2B2C · FY27. Baseline vs Goal seleccionable. Se alimenta de Inputs_Planning_PnL (cubos). Las vistas Managerial se movieron a P&amp;L Managerial.</div>
+        <div class="proj-card-tag"><span class="badge badge-manual">🔄 Actualización manual</span></div>
+        <a class="proj-card-url" href="https://script.google.com/a/macros/despegar.com/s/AKfycby9WZK2HfAWx25M5pEMV3nntzJfEvsiT9feMn01zJQkQaI3t2GjTzOIjbFXWexnMuzklQ/exec" target="_blank">↗ Abrir landing</a>
+      </div>
+
+      <div class="proj-card" onclick="showSection('proj-managerial')">
+        <div class="proj-card-icon">📈</div>
+        <div class="proj-card-name">P&amp;L Managerial</div>
+        <div class="proj-card-desc">Landing de las vistas <strong>Gestional (FVM)</strong> B2B2C y B2B, separadas del P&amp;L Accounting. Lee proyecciones gestionales (<code>_pnl_gestional_data.json</code>) y actuals desde Treasure Data (<code>actuals_gestional_upload.py</code>).</div>
+        <div class="proj-card-tag"><span class="badge badge-manual">🔄 Actualización manual</span></div>
+        <a class="proj-card-url" href="https://script.google.com/home/projects/1rB8o8HcnksPBXzi8QJW1zC-XQQ1HqHaowTcWV95SJG6xRbLg5QQ_2mQH/edit" target="_blank">↗ Editor GAS</a>
+      </div>
+
+      <div class="proj-card" onclick="showSection('proj-ecosystem')">
+        <div class="proj-card-icon">🏢</div>
+        <div class="proj-card-name">B2B Ecosystem Hub</div>
+        <div class="proj-card-desc">Portal central del equipo. P&amp;L Managerial con waterfall, evolución, palancas, NR Bridge y PxQ. Datos desde <strong>JSON canónicos en Drive</strong> (mismo origen que Inputs_Planning_PnL). Incluye OKR, Country One Page, Daily, Organigrama y más.</div>
+        <div class="proj-card-tag"><span class="badge badge-manual">🔄 JSON Drive (Inputs_Planning_PnL)</span></div>
+        <a class="proj-card-url" href="https://script.google.com/a/macros/despegar.com/s/AKfycbz52txFQy-5YM2Nil_KxULzPoeZpKyA4z5LUWMGoP_8IilcwSduuwZqPF8ut_LmtceM/exec" target="_blank">↗ Abrir landing</a>
+      </div>
+
+      <div class="proj-card" onclick="showSection('proj-daily')">
+        <div class="proj-card-icon">📆</div>
+        <div class="proj-card-name">Daily Dashboard B2B2C + B2B</div>
+        <div class="proj-card-desc">Performance diaria de WLs (B2B2C) y B2B (GD + RI). Conecta con Treasure Data vía ODBC. KPIs: D-1 Actual, MTD, Budget, LY MTD. Actualización automática 08:00 AM.</div>
+        <div class="proj-card-tag"><span class="badge badge-auto">⚡ Automatizado (Task Scheduler)</span></div>
+        <a class="proj-card-url" href="https://script.google.com/a/macros/despegar.com/s/AKfycbwUC8oHHFuFQA8ZnVsLS8zwxgwJavQMpWWg_QJeo-Dg19jLtlZn5teQj8gSHrVn2CVOvw/exec" target="_blank">↗ Abrir landing</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🧩 Stack tecnológico</div>
+      <table class="doc-table">
+        <thead><tr><th>Capa</th><th>Tecnología</th><th>Uso</th></tr></thead>
+        <tbody>
+          <tr><td>Procesamiento de datos</td><td><span class="tag tag-py">Python</span></td><td>Lee XLSX/CSV, agrega, construye JSONs y los sube a Drive</td></tr>
+          <tr><td>Almacenamiento intermedio</td><td><span class="tag tag-json">JSON en Google Drive</span></td><td>Puente entre Python y Apps Script; se lee on-demand</td></tr>
+          <tr><td>Backend web</td><td><span class="tag tag-js">Google Apps Script</span></td><td>Sirve la webapp y expone la API de datos al frontend</td></tr>
+          <tr><td>Frontend</td><td><span class="tag tag-html">HTML + CSS + JS</span></td><td>Dashboard interactivo renderizado en el browser</td></tr>
+          <tr><td>Deploy</td><td><span class="tag tag-js">clasp</span></td><td>Sincroniza código local → Google Apps Script via CLI</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════ ARQUITECTURA ════════════════════════════ -->
+  <div class="section" id="sec-arquitectura">
+    <div class="page-header">
+      <div class="page-tag">Arquitectura</div>
+      <div class="page-title">Flujo de <span>Datos Global</span></div>
+      <div class="page-sub">El mismo patrón se repite en todos los proyectos: datos brutos → Python → JSON en Drive → Apps Script → Dashboard.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📊 Flujo end-to-end</div>
+      <div class="flow-wrap">
+        <div class="flow-node">
+          <div class="flow-node-icon">📁</div>
+          <div class="flow-node-title">Fuentes</div>
+          <div class="flow-node-items">
+            <div class="flow-item blue">XLSX · Modelos Forecast</div>
+            <div class="flow-item blue">CSV · Actuals contables</div>
+            <div class="flow-item blue">CSV · Budget FY27</div>
+            <div class="flow-item blue">CSV · Run Rate / Forecast plana</div>
+            <div class="flow-item blue">Treasure Data / ODBC (Daily)</div>
+          </div>
+          <div class="flow-note">Archivos guardados en OneDrive / datalake interno</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node">
+          <div class="flow-node-icon">🐍</div>
+          <div class="flow-node-title">Python</div>
+          <div class="flow-node-items">
+            <div class="flow-item orange">pnl_gestional_upload.py</div>
+            <div class="flow-item orange">pnl_contable_upload.py</div>
+            <div class="flow-item orange">pnl_contable_epm_upload.py</div>
+            <div class="flow-item orange">daily_sync_b2b2c.py</div>
+          </div>
+          <div class="flow-note">Lee fuentes → agrega → construye JSON → sube a Drive</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node">
+          <div class="flow-node-icon">☁️</div>
+          <div class="flow-node-title">Google Drive</div>
+          <div class="flow-node-items">
+            <div class="flow-item green">_pnl_gestional_data.json</div>
+            <div class="flow-item green">_pnl_contable_data.json</div>
+            <div class="flow-item green">_pnl_contable_epm_data.json</div>
+            <div class="flow-item green">daily_b2b2c_data.json</div>
+          </div>
+          <div class="flow-note">JSONs pre-agregados; se reescriben en cada run</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node">
+          <div class="flow-node-icon">⚙️</div>
+          <div class="flow-node-title">Apps Script</div>
+          <div class="flow-node-items">
+            <div class="flow-item">Codigo.js</div>
+            <div class="flow-item">Codigo_contable.js</div>
+            <div class="flow-item">Codigo_contable_epm.js</div>
+          </div>
+          <div class="flow-note">Lee JSON de Drive y sirve los datos al frontend via doGet()</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node">
+          <div class="flow-node-icon">🌐</div>
+          <div class="flow-node-title">Landing</div>
+          <div class="flow-node-items">
+            <div class="flow-item pink">dashboard.html</div>
+            <div class="flow-item">Managerial View</div>
+            <div class="flow-item">Contable View</div>
+            <div class="flow-item">Gráficos</div>
+          </div>
+          <div class="flow-note">Webapp pública (dominio despegar.com)</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">🔄 Cuándo re-ejecutar Python</div>
+        <div class="steps">
+          <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-body">
+              <div class="step-title">Al actualizar proyecciones en XLSX</div>
+              <div class="step-desc">Cuando se modifican los Modelos Forecast (WLs, API, HTML) → ejecutar <strong>pnl_gestional_upload.py</strong> y <strong>pnl_contable_upload.py</strong>. Si se actualiza la versión EPM en sistema → ejecutar también <strong>pnl_contable_epm_upload.py</strong></div>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-body">
+              <div class="step-title">Al llegar actuals del mes</div>
+              <div class="step-desc">Cuando se actualizan los CSV de actuals (ej. actuals_fy27) → re-ejecutar ambos scripts Python para incorporar el mes cerrado</div>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-body">
+              <div class="step-title">Al cambiar código Apps Script</div>
+              <div class="step-desc">Modificar los .js o .html y correr: <div class="code-block">clasp push --force</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">⚡ Deploy (clasp)</div>
+        <div class="steps">
+          <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-body">
+              <div class="step-title">Editar código localmente</div>
+              <div class="step-desc">Modificar .js, .html en la carpeta del proyecto en VS Code u otro editor</div>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-body">
+              <div class="step-title">Push a Apps Script</div>
+              <div class="step-desc">Desde la terminal, dentro de la carpeta del proyecto:<div class="code-block">clasp push --force</div></div>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-body">
+              <div class="step-title">Verificar en la landing</div>
+              <div class="step-desc">Recargar la URL de la webapp. No requiere nueva publicación — el deploy HEAD se actualiza automáticamente</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════ ACTUALIZAR ═════════════════════════════ -->
+  <div class="section" id="sec-actualizar">
+    <div class="page-header">
+      <div class="page-tag">Procedimiento</div>
+      <div class="page-title">Cómo <span>Actualizar</span></div>
+      <div class="page-sub">Guía paso a paso para las operaciones más frecuentes del equipo.</div>
+    </div>
+
+    <div class="alert-box">
+      ⚠️ <strong>Importante:</strong> Los tres scripts Python (<code>pnl_gestional_upload.py</code>, <code>pnl_contable_upload.py</code>, <code>pnl_contable_epm_upload.py</code>) son independientes y manejan JSONs separados. Ejecutar uno NO sobreescribe el JSON de los otros.
+    </div>
+
+    <div class="card">
+      <div class="card-title">🔄 Actualizar proyecciones (Modelos Forecast)</div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <div class="step-title">Guardar los XLSX modificados</div>
+            <div class="step-desc">Asegurarse de que los archivos estén cerrados en Excel antes de ejecutar Python:<br>
+              <strong>WLs:</strong> OneDrive → Control de Gestión → B2B &amp; WLs → WLs - Modelo Forecast.xlsx<br>
+              <strong>API:</strong> mismo path → API - Modelo Forecast.xlsx<br>
+              <strong>HTML:</strong> mismo path → HTML - Modelo Forecast.xlsx
+            </div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <div class="step-title">Ejecutar scripts Python</div>
+            <div class="step-desc">En terminal (PowerShell o CMD), desde la carpeta del proyecto:</div>
+            <div class="code-block">cd "...\Proyectos IA\Inputs_Planning_PnL"
+run_all.bat                        REM regenera planas + JSON canónicos (o los builders puntuales)
+python baseline_builder.py         REM arma baseline_actuals+projections.json
+python plana_to_cube.py --upload   REM rearma y sube los cubos que lee P&L Accounting</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <div class="step-title">Verificar output</div>
+            <div class="step-desc">Confirmar que <code>plana_to_cube.py</code> imprima que actualizó los cubos (<code>_pnl_contable_epm_data.json</code> y <code>_pnl_contable_data.json</code>) en Drive. Si hay error de auth de Drive, correr <code>python auth_drive.py</code>.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <div class="step-title">Recargar la landing</div>
+            <div class="step-desc">Los datos se actualizan automáticamente al recargar la URL. No se necesita ningún paso adicional en Apps Script.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🛠️ Modificar el código de la landing</div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <div class="step-title">Editar el archivo correspondiente</div>
+            <div class="step-desc">
+              <strong>Backend EPM (vista visible):</strong> Codigo_contable_epm.js<br>
+              <strong>Backend Model + Accounting (oculta):</strong> Codigo_contable.js<br>
+              <strong>Interfaz:</strong> dashboard.html (todo el frontend en un solo archivo)<br>
+              <strong>Nota:</strong> Codigo_contable.js y Codigo_contable_epm.js comparten namespace en GAS — las funciones de uno son visibles desde el otro
+            </div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <div class="step-title">Push a Apps Script</div>
+            <div class="code-block">cd "...\Proyectos IA\P&L_Accounting"
+clasp push                                         REM sube a @HEAD (/dev, para probar)
+clasp deploy -i AKfycby9WZK... -d "descripcion"    REM re-publica (el publicado queda congelado)</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <div class="step-title">Recargar la landing</div>
+            <div class="step-desc"><code>clasp push</code> actualiza <strong>/dev</strong> (@HEAD). Para que la gente vea el cambio hay que <strong>redeployar el deployment publicado</strong> con <code>clasp deploy -i AKfycby9WZK...</code> — queda congelado en su versión hasta reejecutarlo.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════ PROYECTO: INPUTS PLANNING P&L ══════════════════ -->
+  <div class="section" id="sec-proj-inputs">
+    <div class="page-header">
+      <div class="page-tag">Proyecto · Motor de datos</div>
+      <div class="page-title">Inputs <span>Planning P&amp;L</span></div>
+      <div class="page-sub">Reemplaza a <strong>Toqan</strong> (IA interna): corre el Python localmente para generar las "planas" homologadas y publicar un <strong>JSON canónico por concepto</strong> en Drive. Es la <strong>fuente única de datos</strong> — el objetivo es que budget/forecast/run rate/actuals muestren los mismos números en TODAS las landings (P&amp;L Accounting, Ecosystem Hub, etc.). No tiene landing propia. <strong>Nuevo:</strong> agrega <code>baseline_builder.py</code> (baseline único) y <code>plana_to_cube.py</code> (arma los cubos que lee P&amp;L Accounting).</div>
+    </div>
+
+    <div class="alert-box">
+      ⚠️ <strong>Antes era Toqan:</strong> se subía un CSV/XLSX a Toqan, corría Python y devolvía las planas que alimentaban al Sheet / los dashboards. Ahora ese mismo Python vive acá y se corre local → sin depender del agente, con una única fuente para todos.
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">📍 Datos del proyecto</div>
+        <table class="doc-table">
+          <tbody>
+            <tr><td>Carpeta local</td><td>Inputs_Planning_PnL</td></tr>
+            <tr><td>Tipo</td><td>Python puro (sin Apps Script / sin clasp)</td></tr>
+            <tr><td>Drive folder (JSONs)</td><td><a class="ext-link" href="https://drive.google.com/drive/folders/1XqQPL_rlS0NRIPUnPfj5nALBTn7kAOQV" target="_blank">↗ Abrir</a> <span style="font-family:monospace;font-size:10px">1XqQPL_rlS0...</span></td></tr>
+            <tr><td>Actualización</td><td><span class="badge badge-manual">Manual (run_all.bat)</span></td></tr>
+            <tr><td>Copia en SharePoint</td><td>…\B2B &amp; WLs\Proyectos IA\Inputs_Planning_PnL (con CLAUDE.md + /actualizar)</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card">
+        <div class="card-title">📦 JSON canónicos (en Drive)</div>
+        <table class="doc-table">
+          <thead><tr><th>JSON</th><th>Contenido</th></tr></thead>
+          <tbody>
+            <tr><td>budget.json</td><td>Budget FY27 (12 meses)</td></tr>
+            <tr><td>forecast.json</td><td>Forecast (8 meses)</td></tr>
+            <tr><td>runrate.json</td><td>Run Rate (ventana móvil, 6 meses)</td></tr>
+            <tr><td>lastrunrate.json</td><td>Last Run Rate (4 meses)</td></tr>
+            <tr><td>actuals.json</td><td>Actuals del FY en curso (FY27)</td></tr>
+            <tr><td>actuals_previos_fyNN.json</td><td>Actuals de FYs cerrados, <strong>fraccionado por año fiscal</strong> (fy24 / fy25 / fy26, ~12-13 MB c/u) para lectura liviana</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">⚙️ Flujo de datos</div>
+      <div class="flow-wrap">
+        <div class="flow-node">
+          <div class="flow-node-icon">📄</div>
+          <div class="flow-node-title">Fuentes</div>
+          <div class="flow-node-items">
+            <div class="flow-item blue">CSV Hyperion (Planning-PBI)</div>
+            <div class="flow-item blue">Budget / Forecast / Run Rate</div>
+            <div class="flow-item blue">XLSX Actuals (BITUBIA)</div>
+            <div class="flow-item blue">Reverso AxI.xlsx</div>
+            <div class="flow-item blue">Glosario.xlsx (homologación)</div>
+          </div>
+          <div class="flow-note">Formato Hyperion wide: Account + 12 meses + POV</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node">
+          <div class="flow-node-icon">🐍</div>
+          <div class="flow-node-title">Python</div>
+          <div class="flow-node-items">
+            <div class="flow-item orange highlight">plana_projections_builder.py</div>
+            <div class="flow-item orange highlight">plana_actuals_builder.py</div>
+            <div class="flow-item orange highlight">json_builder.py</div>
+          </div>
+          <div class="flow-note">Parsea POV → homologa con Glosario → melt/groupby → suma Reverso AxI → JSON</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node">
+          <div class="flow-node-icon">☁️</div>
+          <div class="flow-node-title">Google Drive</div>
+          <div class="flow-node-items">
+            <div class="flow-item green">budget / forecast</div>
+            <div class="flow-item green">runrate / lastrunrate</div>
+            <div class="flow-item green">actuals / actuals_previos</div>
+          </div>
+          <div class="flow-note">6 JSON canónicos {meta, cols, rows}. Folder 1XqQPL...</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node">
+          <div class="flow-node-icon">🌐</div>
+          <div class="flow-node-title">Landings</div>
+          <div class="flow-node-items">
+            <div class="flow-item pink">Ecosystem Hub</div>
+            <div class="flow-item pink">P&amp;L Accounting</div>
+            <div class="flow-item">Fuente única</div>
+          </div>
+          <div class="flow-note">Fase 2: cada landing lee estos JSON (misma data en todos lados)</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📁 Archivos del proyecto</div>
+      <table class="doc-table">
+        <thead><tr><th>Archivo</th><th>Tipo</th><th>Rol</th></tr></thead>
+        <tbody>
+          <tr><td>pnl_common.py</td><td><span class="tag tag-py">Python</span></td><td>Helpers compartidos: rutas portables (resuelve OneDrive por usuario), auth Drive scope completo, paths a Glosario / Reverso AxI</td></tr>
+          <tr><td>plana_projections_builder.py</td><td><span class="tag tag-py">Python</span></td><td>Genérico por base: budget / forecast / runrate / lastrunrate. Lee CSV Hyperino, parsea POV, homologa, arma la plana long</td></tr>
+          <tr><td>plana_actuals_builder.py</td><td><span class="tag tag-py">Python</span></td><td>Plana de actuals por año fiscal (combina Abr-Dic del fy-1 + Ene-Mar del fy)</td></tr>
+          <tr><td>json_builder.py</td><td><span class="tag tag-py">Python</span></td><td>Planas → JSON canónico por concepto → sube a Drive. Colapsa canal, agrega sobre Marca, filtra LOBs</td></tr>
+          <tr><td>auth_drive.py</td><td><span class="tag tag-py">Python</span></td><td>Genera token_drive.json (una vez por persona)</td></tr>
+          <tr><td>run_all.bat</td><td><span class="tag tag-js">Batch</span></td><td>Corre todas las planas + json_builder all + sube a Drive</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🧠 Reglas de negocio clave</div>
+      <table class="doc-table">
+        <thead><tr><th>Regla</th><th>Detalle</th></tr></thead>
+        <tbody>
+          <tr><td>SIN PPA (default)</td><td>Se <strong>suma</strong> el ajuste Reverso AxI. Con <code>--con-ppa</code> NO se suma. Proyecciones usan hoja Budget; Actuals por período (RunRate Oct25-Mar26 / Budget Abr26-Mar27), solo sobre meses cerrados</td></tr>
+          <tr><td>Canal</td><td>Solo <strong>B2B</strong> abre MAY / MIN. B2B2C y B2C se colapsan a <code>total</code> en el JSON</td></tr>
+          <tr><td>Agregación</td><td>El JSON agrega sobre Marca (no se incluye). LOBs: solo b2b / b2b2c / b2c</td></tr>
+          <tr><td>Año fiscal</td><td>Abr(N-1) a Mar(N). Proyecciones = FY27 (abr-2026 a mar-2027). Actuals combina 2 archivos calendario</td></tr>
+          <tr><td>Actuals split</td><td><code>actuals.json</code> = FY en curso (mensual) · <code>actuals_previos_fyNN.json</code> = un archivo por FY cerrado (fy24/fy25/fy26, ~12-13 MB c/u) para lectura liviana desde Apps Script</td></tr>
+          <tr><td>Homologación</td><td>Glosario.xlsx (solapas Marca / Paises / Producto / LOB / Linea P&amp;L). Debe dar 0 sin resolver antes de publicar</td></tr>
+          <tr><td>Cols del JSON</td><td>LoB · Canal · Pais · Producto · P&amp;L N1..N6 · Managerial View · Fecha · Monto USD. Formato compacto {meta, cols, rows}</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🔄 Cómo actualizar</div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <div class="step-title">Setup (una vez por persona)</div>
+            <div class="step-desc">Instalar dependencias y autenticar Drive:<div class="code-block">pip install pandas openpyxl google-auth google-auth-oauthlib google-api-python-client
+python auth_drive.py</div></div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <div class="step-title">Correr todo + subir a Drive</div>
+            <div class="step-desc">Desde la carpeta del proyecto:<div class="code-block">cd "C:\Users\diego.bracco\Proyectos IA\Inputs_Planning_PnL"
+run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se corre mensual; FY24/25/26 una sola vez.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <div class="step-title">Verificar salida</div>
+            <div class="step-desc">Confirmar <strong>0 sin resolver</strong> en la homologación y que los 6 JSON reporten <code>[Drive] actualizado</code>. Si falla la auth: <code>python auth_drive.py</code>.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════ PROYECTO: P&L PROJECTIONS ══════════════════════ -->
+  <div class="section" id="sec-proj-pnl">
+    <div class="page-header">
+      <div class="page-tag">Proyecto</div>
+      <div class="page-title">P&amp;L <span>Accounting</span></div>
+      <div class="page-sub">Landing del P&amp;L Contable (hasta Operating Contribution) de B2B + B2B2C · FY27. Muestra un <strong>Baseline vs Goal</strong> seleccionable, con tablas P&amp;L línea a línea, waterfalls (OC Bridge) y charts. <strong>Nota:</strong> antes era "P&amp;L Projections Review" (un solo proyecto con todo); se separó — las vistas <strong>Managerial</strong> (FVM) ahora viven en el proyecto aparte <strong>P&amp;L Managerial</strong> (scriptId 1rB8o8...).</div>
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">📍 Datos del proyecto</div>
+        <table class="doc-table">
+          <tbody>
+            <tr><td>Carpeta local</td><td>P&amp;L_Accounting</td></tr>
+            <tr><td>Carpeta SharePoint</td><td>…\B2B &amp; WLs\Proyectos IA\<strong>P&amp;L Accounting</strong> (código + LEEME.txt con el know-how)</td></tr>
+            <tr><td>Apps Script ID</td><td style="font-family:monospace;font-size:10px">1MdCBNExRuS...</td></tr>
+            <tr><td>URL landing</td><td><a class="ext-link" href="https://script.google.com/a/macros/despegar.com/s/AKfycby9WZK2HfAWx25M5pEMV3nntzJfEvsiT9feMn01zJQkQaI3t2GjTzOIjbFXWexnMuzklQ/exec" target="_blank">↗ Abrir</a></td></tr>
+            <tr><td>Deployment publicado</td><td style="font-family:monospace;font-size:10px">AKfycby9WZK2Hf...</td></tr>
+            <tr><td>Actualización</td><td><span class="badge badge-manual">Manual</span></td></tr>
+            <tr><td>Cubo EPM (visible)</td><td style="font-family:monospace;font-size:10px">ID: 1Rx6YYnFH5S...</td></tr>
+            <tr><td>Cubo Model+Acct (oculto)</td><td style="font-family:monospace;font-size:10px">ID: 1KHXgPykA...</td></tr>
+            <tr><td>Fuente (canónicos)</td><td style="font-family:monospace;font-size:10px">Drive 1XqQPL... (Inputs_Planning_PnL)</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card">
+        <div class="card-title">🎯 Escenarios (Baseline vs Goal)</div>
+        <table class="doc-table">
+          <tbody>
+            <tr><td>Baseline (fijo)</td><td>Actuals (meses cerrados) + Run Rate + Forecast + Budget. Stitch por mes, pre-computado en <code>baseline_actuals+projections.json</code> (lo arma <code>baseline_builder.py</code>). Gapless.</td></tr>
+            <tr><td>Goal (seleccionable)</td><td>Botones arriba a la derecha: <strong>vs Budget</strong> | <strong>vs Forecast</strong> | <strong>vs Run Rate</strong> | <strong>vs Last Run Rate</strong>.<br><small>vs Forecast = <code>forecast.json</code> todo el FY (contiene actuals Abr-Jun + fc Jul-Mar). vs Run Rate = <code>runrate.json</code> todo el FY. vs Last RR = actuals cerrados + lastrunrate.json + forecast.</small></td></tr>
+            <tr><td>Sub-vistas</td><td>B2B + B2B2C (combinado) / B2B / B2B2C · <strong>PxQ</strong> · <strong>Countries YoY</strong>. Filtro país/producto</td></tr>
+            <tr><td>Períodos</td><td>Tabla: Mes / Quarter / Half. Waterfalls: <strong>multiselect de meses</strong> (chips Abr…Mar) + presets H1 / H2 / FY</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">⚙️ Flujo de datos</div>
+      <div class="flow-wrap">
+        <div class="flow-node">
+          <div class="flow-node-icon">🐍</div>
+          <div class="flow-node-title">Inputs_Planning_PnL</div>
+          <div class="flow-node-items">
+            <div class="flow-item orange highlight">plana_*_builder.py</div>
+            <div class="flow-item orange highlight">baseline_builder.py</div>
+            <div class="flow-item orange highlight">json_builder.py</div>
+          </div>
+          <div class="flow-note">Pipeline Python — fuente única (reemplaza a Toqan)</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node">
+          <div class="flow-node-icon">☁️</div>
+          <div class="flow-node-title">JSON canónicos</div>
+          <div class="flow-node-items">
+            <div class="flow-item green">budget / forecast / runrate / lastrunrate</div>
+            <div class="flow-item green">actuals / actuals_previos</div>
+            <div class="flow-item green highlight">baseline_actuals+projections.json</div>
+          </div>
+          <div class="flow-note">Drive folder 1XqQPL... — formato largo {meta,cols,rows}</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node">
+          <div class="flow-node-icon">🔧</div>
+          <div class="flow-node-title">plana_to_cube.py</div>
+          <div class="flow-node-items">
+            <div class="flow-item orange highlight">--upload</div>
+          </div>
+          <div class="flow-note">Adaptador: pivotea los JSON largos al "cubo" que espera la landing</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node">
+          <div class="flow-node-icon">📦</div>
+          <div class="flow-node-title">Cubos (Drive)</div>
+          <div class="flow-node-items">
+            <div class="flow-item green">_pnl_contable_epm_data.json</div>
+            <div class="flow-item green">_pnl_contable_data.json</div>
+          </div>
+          <div class="flow-note">data[lgKey][pais][escenario][N2][mes] — se leen por file ID</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node">
+          <div class="flow-node-icon">🌐</div>
+          <div class="flow-node-title">Landing</div>
+          <div class="flow-node-items">
+            <div class="flow-item pink">P&amp;L Accounting (EPM)</div>
+            <div class="flow-item pink">P&amp;L Model + Accounting (oculta)</div>
+          </div>
+          <div class="flow-note">Refresca solo por lastMod del cubo (datos ≠ deploy)</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🔄 Cómo actualizar</div>
+      <table class="doc-table">
+        <thead><tr><th>Qué cambió</th><th>Pasos</th></tr></thead>
+        <tbody>
+          <tr><td><strong>DATOS</strong> (números)</td><td>1) En <code>Inputs_Planning_PnL</code>: regenerar los JSON (plana_*_builder + baseline_builder + json_builder all, o <code>run_all.bat</code>). 2) <code>python plana_to_cube.py --upload</code> (rearma y sube los cubos). 3) En la landing: <strong>Ctrl+Shift+R</strong>. NO requiere clasp/deploy.</td></tr>
+          <tr><td><strong>CÓDIGO</strong> (.js / .html)</td><td>Desde <code>P&amp;L_Accounting</code>: <code>clasp push</code> (→ /dev) y luego <code>clasp deploy -i AKfycby9WZK... -d "desc"</code>. ⚠️ El deployment publicado queda congelado; SIEMPRE redeployar con <code>-i</code> tras el push.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📁 Archivos del proyecto</div>
+      <table class="doc-table">
+        <thead><tr><th>Archivo</th><th>Tipo</th><th>Rol</th></tr></thead>
+        <tbody>
+          <tr><td>dashboard.html</td><td><span class="tag tag-html">HTML</span></td><td>Frontend completo (vanilla JS + Chart.js): tablas P&amp;L, waterfalls, charts, PxQ, Countries YoY. Vista EPM + Model (oculta)</td></tr>
+          <tr><td>Codigo_contable_epm.js</td><td><span class="tag tag-js">Apps Script</span></td><td>Backend vista "P&amp;L Accounting" (EPM, la visible). <code>computeGroupEPM_</code>: baseline desde escenario 'bl'; goal Budget/Forecast/LastRR. Cablea PxQ, Countries YoY, country-detail</td></tr>
+          <tr><td>Codigo_contable.js</td><td><span class="tag tag-js">Apps Script</span></td><td>Backend "P&amp;L Model + Accounting" (oculta). Helpers compartidos con la vista EPM (jsonScenarioToByPais_, aggregatePaisByGroup_, etc.)</td></tr>
+          <tr><td>Codigo.js</td><td><span class="tag tag-js">Apps Script</span></td><td>Solo <code>doGet</code> (entry point del web app)</td></tr>
+          <tr><td>appsscript.json</td><td><span class="tag tag-js">Manifest</span></td><td>Webapp; ejecuta como quien despliega; acceso DOMAIN</td></tr>
+          <tr><td>plana_to_cube.py</td><td><span class="tag tag-py">Python</span></td><td>(vive en Inputs_Planning_PnL) Adaptador JSON canónicos → cubo. Correr con <code>--upload</code> tras actualizar datos</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🧠 Reglas / gotchas clave</div>
+      <table class="doc-table">
+        <thead><tr><th>Regla</th><th>Detalle</th></tr></thead>
+        <tbody>
+          <tr><td>La landing lee el CUBO, no los JSON</td><td>Existe <code>plana_to_cube.py</code> justamente para pivotear los JSON largos al cubo pre-armado que el frontend ya sabe leer. Datos nuevos = correr <code>plana_to_cube.py --upload</code></td></tr>
+          <tr><td>Baseline único</td><td>Sale de <code>baseline_actuals+projections.json</code> (no lo calcula el Apps Script). Su composición (hasta qué mes es actuals/runrate/forecast) la define baseline_builder.py y se mueve cada mes</td></tr>
+          <tr><td>Gestional (gest / gest_ri)</td><td>Todavía se arrastran del cubo viejo (transitorio). P&amp;L Accounting/EPM es 100% contable, no los usa</td></tr>
+          <tr><td>cost of sales en forecast</td><td>A veces falta en forecast.json — se resuelve upstream en Inputs_Planning_PnL al reprocesar. La landing lo toma como válido</td></tr>
+          <tr><td>Split del proyecto</td><td>Las vistas Managerial (B2B2C/B2B FVM) se movieron a <strong>P&amp;L Managerial</strong>. Este proyecto quedó solo con lo contable (EPM + Model)</td></tr>
+          <tr><td>OC: convención de signo</td><td>COR y S&amp;M vienen con signo negativo en el cubo. Waterfalls y charts suman con el signo del dato (no re-negan)</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ══════════════════════ PROYECTO: P&L MANAGERIAL ═════════════════════════ -->
+  <div class="section" id="sec-proj-managerial">
+    <div class="page-header">
+      <div class="page-tag">Proyecto</div>
+      <div class="page-title">P&amp;L <span>Managerial</span></div>
+      <div class="page-sub">Landing de las vistas <strong>Gestional (FVM)</strong> para B2B2C y B2B. Separado del P&amp;L Accounting en julio 2026. Lee proyecciones desde <code>_pnl_gestional_data.json</code> (generado por el uploader gestional) y actuals desde Treasure Data (ODBC) mediante <code>actuals_gestional_upload.py</code>.</div>
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">📍 Datos del proyecto</div>
+        <table class="doc-table">
+          <tbody>
+            <tr><td>Carpeta local</td><td>P&amp;L_Managerial</td></tr>
+            <tr><td>Apps Script ID</td><td style="font-family:monospace;font-size:10px">1rB8o8HcnksPBXzi8QJW1zC-XQQ1HqHao...</td></tr>
+            <tr><td>URL editor GAS</td><td><a class="ext-link" href="https://script.google.com/home/projects/1rB8o8HcnksPBXzi8QJW1zC-XQQ1HqHaowTcWV95SJG6xRbLg5QQ_2mQH/edit" target="_blank">↗ Abrir editor</a></td></tr>
+            <tr><td>Actualización proyecciones</td><td><span class="badge badge-manual">python pnl_gestional_upload.py</span></td></tr>
+            <tr><td>Actualización actuals</td><td><span class="badge badge-manual">python actuals_gestional_upload.py (requiere VPN)</span></td></tr>
+            <tr><td>JSON gestional (proyecciones)</td><td style="font-family:monospace;font-size:10px">_pnl_gestional_data.json (Drive ID: 1WP0mFep...)</td></tr>
+            <tr><td>JSON actuals gestional</td><td style="font-family:monospace;font-size:10px">_actuals_gestional.json (Drive folder: 1wzudbo7cN9Ibiv...)</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card">
+        <div class="card-title">📦 Fuentes de datos</div>
+        <table class="doc-table">
+          <thead><tr><th>Dato</th><th>Origen</th><th>Script</th></tr></thead>
+          <tbody>
+            <tr><td>Proyecciones (FC / Budget / LY)</td><td>Modelos Forecast XLSX (WLs, API, HTML) → JSON gestional</td><td><code>pnl_gestional_upload.py</code></td></tr>
+            <tr><td>Actuals gestionales</td><td>Treasure Data (ODBC) — B2B2C + B2B GD + B2B RI</td><td><code>actuals_gestional_upload.py</code></td></tr>
+            <tr><td>LY estático</td><td>Embebido en <code>ly_data.js</code></td><td>—</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📁 Archivos del proyecto</div>
+      <table class="doc-table">
+        <thead><tr><th>Archivo</th><th>Tipo</th><th>Rol</th></tr></thead>
+        <tbody>
+          <tr><td>dashboard.html</td><td><span class="tag tag-html">HTML</span></td><td>Frontend vistas gestionales: Managerial View B2B2C y B2B (FVM, waterfall, evolución, palancas, NR Bridge, PxQ). Sin vistas contables (esas quedaron en P&amp;L Accounting)</td></tr>
+          <tr><td>Codigo.js</td><td><span class="tag tag-js">Apps Script</span></td><td>Backend gestional: lee <code>_pnl_gestional_data.json</code> desde Drive y sirve los datos al frontend</td></tr>
+          <tr><td>ly_data.js</td><td><span class="tag tag-js">Apps Script</span></td><td>LY embebido estáticamente (datos históricos FY26)</td></tr>
+          <tr><td>actuals_gestional_upload.py</td><td><span class="tag tag-py">Python</span></td><td><strong>Nuevo.</strong> Consulta Treasure Data (ODBC) para actuals B2B2C + B2B GD + B2B RI (FY27 desde Abr-26). Sube <code>_actuals_gestional.json</code> al folder de Drive <code>1wzudbo7cN9Ibiv...</code>. Requiere VPN + <code>.env</code> con creds ODBC</td></tr>
+          <tr><td>appsscript.json / .clasp.json</td><td><span class="tag tag-js">Manifest</span></td><td>Webapp; executeAs USER_DEPLOYING; acceso DOMAIN</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🔄 Cómo actualizar</div>
+      <table class="doc-table">
+        <thead><tr><th>Qué cambió</th><th>Pasos</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Proyecciones</strong> (modelos XLSX)</td><td>Desde la carpeta del proyecto: <code>python pnl_gestional_upload.py</code> → recarga la landing.</td></tr>
+          <tr><td><strong>Actuals gestionales</strong></td><td>Conectar VPN. Desde la carpeta: <code>python actuals_gestional_upload.py</code> → recarga la landing.</td></tr>
+          <tr><td><strong>Código</strong> (.js / .html)</td><td><code>clasp push</code> (desde P&amp;L_Managerial) + <code>clasp deploy -i &lt;deploymentId&gt; -d "desc"</code>.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ══════════════════════ PROYECTO: B2B ECOSYSTEM HUB ════════════════════ -->
+  <div class="section" id="sec-proj-ecosystem">
+    <div class="page-header">
+      <div class="page-tag">Proyecto</div>
+      <div class="page-title">B2B <span>Ecosystem Hub</span></div>
+      <div class="page-sub">Portal central del equipo B2B &amp; WLs. P&amp;L Managerial con análisis de waterfall, evolución, palancas, NR Bridge y PxQ/PxQxM. <strong>Datos desde JSON canónicos en Drive</strong> (mismo origen que Inputs_Planning_PnL — reemplazó a Toqan). Includes OKR H1 FY27, Country One Page, Daily/Weekly embed, Organigrama y más.</div>
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">📍 Datos del proyecto</div>
+        <table class="doc-table">
+          <tbody>
+            <tr><td>Carpeta local</td><td>Dashboard_B2B_WLs</td></tr>
+            <tr><td>Apps Script ID</td><td style="font-family:monospace;font-size:10px">1fLnpsEh2dBAuPusbO...</td></tr>
+            <tr><td>Spreadsheet ID</td><td style="font-family:monospace;font-size:10px">1RVmTXDyyugCUXJ0f6JG... (solo Organigrama)</td></tr>
+            <tr><td>URL landing</td><td><a class="ext-link" href="https://script.google.com/a/macros/despegar.com/s/AKfycbz52txFQy-5YM2Nil_KxULzPoeZpKyA4z5LUWMGoP_8IilcwSduuwZqPF8ut_LmtceM/exec" target="_blank">↗ Abrir</a></td></tr>
+            <tr><td>Fuente de datos</td><td><span class="badge badge-manual">JSON Drive (Inputs_Planning_PnL)</span></td></tr>
+            <tr><td>JSON IDs</td><td style="font-family:monospace;font-size:10px">baseline / budget / runrate / forecast / ly (actuals_previos_fy26)</td></tr>
+            <tr><td>LAST_ACTUALS_YM</td><td style="font-family:monospace;font-size:10px">2026-07 (actualizar mensual)</td></tr>
+            <tr><td>Trigger pre-cómputo</td><td><span class="badge badge-auto">Cada 5 h (preComputeAll)</span> — solo para warm-up. Auto-invalidación por <code>lastMod</code> Drive: al subir JSONs nuevos, el cache se descarta automáticamente sin correr preComputeAll.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card">
+        <div class="card-title">🗂️ Secciones del hub</div>
+        <table class="doc-table">
+          <tbody>
+            <tr><td>B2B + B2B2C</td><td>P&L Summary, Waterfall por país, Evolución mensual, OC Concept, NR Bridge, PxQ / PxQxM</td></tr>
+            <tr><td>B2B2C</td><td>Mismo análisis filtrado por B2B2C (WLs). Apertura por Brasil / Mexico / Hispa</td></tr>
+            <tr><td>B2B</td><td>Mismo análisis filtrado por B2B. Apertura por Brasil / Mexico / Globales / Hispa. Toggle MAY / MIN</td></tr>
+            <tr><td>OKR B2B2C / OKR B2B</td><td><strong>Nuevo.</strong> OKRs H1 FY27 (Q1+Q2 = Abr-Sep 2026). Tracking vs Goal por KR con pesos. Backend en Codigo_OKR.js</td></tr>
+            <tr><td>Country One Page</td><td><strong>Nuevo.</strong> Vista por país: P&L, OC Concept, NR Bridge para B2B y B2B2C. Backend en Codigo_country_page.js</td></tr>
+            <tr><td>Daily / Weekly</td><td>iframe → Daily Dashboard B2B2C</td></tr>
+            <tr><td>Fixed Cost / Industry / News / Sources / Organigrama</td><td>Secciones informativas del equipo</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">⚙️ Flujo de datos</div>
+      <div class="flow-wrap">
+        <div class="flow-node">
+          <div class="flow-node-icon">🐍</div>
+          <div class="flow-node-title">Inputs_Planning_PnL</div>
+          <div class="flow-node-items">
+            <div class="flow-item orange">plana_*_builder.py</div>
+            <div class="flow-item orange">baseline_builder.py</div>
+            <div class="flow-item orange">json_builder.py</div>
+          </div>
+          <div class="flow-note">Misma fuente única que P&L Accounting (reemplazó a Toqan)</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node">
+          <div class="flow-node-icon">☁️</div>
+          <div class="flow-node-title">JSON canónicos (Drive)</div>
+          <div class="flow-node-items">
+            <div class="flow-item green">baseline_actuals+proj.json</div>
+            <div class="flow-item green">budget / runrate / forecast</div>
+            <div class="flow-item green">actuals_previos_fy26 (LY)</div>
+          </div>
+          <div class="flow-note">Folder 1XqQPL... — mismo que P&L Accounting</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node">
+          <div class="flow-node-icon">⚙️</div>
+          <div class="flow-node-title">Apps Script</div>
+          <div class="flow-node-items">
+            <div class="flow-item">Codigo.js (P&L / WF / PxQ)</div>
+            <div class="flow-item">Codigo_OKR.js</div>
+            <div class="flow-item">Codigo_country_page.js</div>
+            <div class="flow-item">Cache CacheService (6h)</div>
+          </div>
+          <div class="flow-note">Lee JSONs de Drive, pre-agrega, cachea. Expone getAllData() / getOKRData() / getCountryPageData()</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node">
+          <div class="flow-node-icon">🌐</div>
+          <div class="flow-node-title">Landing Hub</div>
+          <div class="flow-node-items">
+            <div class="flow-item pink">dashboard.html</div>
+            <div class="flow-item">P&L + OKR + Country</div>
+          </div>
+          <div class="flow-note">Frontend completo. Daily/Weekly tab embebe Daily Dashboard via iframe</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📁 Archivos del proyecto</div>
+      <table class="doc-table">
+        <thead><tr><th>Archivo</th><th>Tipo</th><th>Rol</th></tr></thead>
+        <tbody>
+          <tr><td>Codigo.js</td><td><span class="tag tag-js">Apps Script</span></td><td>Backend principal: lee JSON canónicos de Drive, pre-agrega con buildMap_/buildManMap_/buildPalancasMap_, computa PnL / Waterfall / Evolución / OC Concept / NR Bridge / PxQ. Cache CacheService (6h). Trigger preComputeAll cada 5h</td></tr>
+          <tr><td>Codigo_OKR.js</td><td><span class="tag tag-js">Apps Script</span></td><td><strong>Nuevo.</strong> OKR H1 FY27: KRs por LoB (B2B2C y B2B) con pesos. Endpoints getOKRData() / getOKRDataFromSpreadsheet(). Lee tab OKR del Spreadsheet</td></tr>
+          <tr><td>Codigo_country_page.js</td><td><span class="tag tag-js">Apps Script</span></td><td><strong>Nuevo.</strong> Country One Page: P&L comparativo, OC Concept Waterfall y NR Bridge por país (all/Brasil/Mexico/etc.). Endpoint getCountryPageData(pais, desde, hasta)</td></tr>
+          <tr><td>dashboard.html</td><td><span class="tag tag-html">HTML</span></td><td>Frontend completo. Secciones: B2B+B2B2C / B2B2C / B2B / OKR / Country One Page / Daily / Weekly / Fixed Cost / Industry / News / Sources / IA Agents / Organigrama. Chart.js 4.4.0</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🧠 Reglas de negocio y arquitectura clave</div>
+      <table class="doc-table">
+        <thead><tr><th>Regla</th><th>Detalle</th></tr></thead>
+        <tbody>
+          <tr><td>Fuente de datos</td><td>JSON canónicos de Drive (Inputs_Planning_PnL). El Spreadsheet 1RVmTXDyyugCUXJ0f6JG... se usa <strong>solo para el tab Organigrama</strong>. Toqan ya no alimenta este dashboard</td></tr>
+          <tr><td>Baseline</td><td>Viene de <code>baseline_actuals+projections.json</code> (pre-computado en Inputs_Planning_PnL). Dentro del código: <code>LAST_ACTUALS_YM</code> (último mes real) y <code>LAST_RR_YM</code> deben actualizarse mensualmente + bump de <code>v:</code> en <code>makeCacheKey_</code> para invalidar el cache viejo.</td></tr>
+          <tr><td>OC</td><td>Operating Contribution = NR + COR + S&amp;M (costos con signo negativo en el JSON)</td></tr>
+          <tr><td>Canal</td><td>B2B2C y B2C siempre normalizados a canal 'all'. B2B abre MAY / MIN</td></tr>
+          <tr><td>Cache</td><td>CacheService (6h TTL), chunking de 90KB. Clave v:23 incluye lob/pais/producto/canal/desde/hasta. Auto-invalidación: si algún JSON de Drive cambió desde la última escritura de cache, el entry se descarta y se recomputa.</td></tr>
+          <tr><td>OKR</td><td>Solo H1 FY27: Q1 (Abr-Jun) + Q2 (Jul-Sep). KRs con pesos distintos por LoB. Definidos en <code>OKR_CONFIG</code> en Codigo_OKR.js</td></tr>
+          <tr><td>PxQ / PxQxM</td><td>Descompone Δ en Volumen (profitGB = ΔGB × %GB_goal) y Precio (margin = Δ%GB × GB_new). PxQxM agrega: Precio · Mix · Interacción por segmento (país × producto)</td></tr>
+          <tr><td>NR Bridge</td><td>Agrupa P&L N2 en 5 grupos + catch-all: Up front+Cust.fees / Back end+Other+Media / Fee SaaS / Revenue taxes / Cancellations / Breakage+Otros</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ══════════════════════ PROYECTO: DAILY DASHBOARD ══════════════════════ -->
+  <div class="section" id="sec-proj-daily">
+    <div class="page-header">
+      <div class="page-tag">Proyecto</div>
+      <div class="page-title">Daily <span>Dashboard B2B2C + B2B</span></div>
+      <div class="page-sub">Dashboard de performance diaria para WLs (B2B2C) y B2B (GD + RI). Se alimenta del datalake Treasure Data vía Python con ODBC. Actualización automática a las 08:00 AM por Windows Task Scheduler.</div>
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">📍 Datos del proyecto</div>
+        <table class="doc-table">
+          <tbody>
+            <tr><td>Carpeta local</td><td>Daily_Dashboard</td></tr>
+            <tr><td>Apps Script ID</td><td style="font-family:monospace;font-size:10px">1zHFbUa-aMfiX9...</td></tr>
+            <tr><td>URL landing</td><td><a class="ext-link" href="https://script.google.com/a/macros/despegar.com/s/AKfycbwUC8oHHFuFQA8ZnVsLS8zwxgwJavQMpWWg_QJeo-Dg19jLtlZn5teQj8gSHrVn2CVOvw/exec" target="_blank">↗ Abrir</a></td></tr>
+            <tr><td>Deployment publicado</td><td style="font-family:monospace;font-size:10px">AKfycbwUC8oHHFuFQA8ZnVs... (NO cambiar)</td></tr>
+            <tr><td>Actualización</td><td><span class="badge badge-auto">Automatizado (Task Scheduler 08:00)</span></td></tr>
+            <tr><td>Drive folder ID (LIVE)</td><td style="font-family:monospace;font-size:10px">1lWzfqweyV6Kz1ERkL85ikFcmzmKwGwwh (owner: gregorio.minetti)</td></tr>
+            <tr><td>JSONs en Drive</td><td style="font-family:monospace;font-size:10px">daily_b2b2c_data.json (~20MB) · daily_b2b_data.json (~6MB)</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card">
+        <div class="card-title">🎯 KPIs y vistas</div>
+        <table class="doc-table">
+          <tbody>
+            <tr><td>D-1 Actual</td><td>Performance del día anterior</td></tr>
+            <tr><td>MTD Actual</td><td>Acumulado mes hasta el día seleccionado</td></tr>
+            <tr><td>Budget mes</td><td>Target mensual de budget</td></tr>
+            <tr><td>LY MTD</td><td>Acumulado mismo período año anterior</td></tr>
+            <tr><td>Filtros</td><td>País, partner, producto. Navegación día a día</td></tr>
+            <tr><td>Gráfico</td><td>Diario actual vs LY</td></tr>
+            <tr><td>Tablas</td><td>Breakdown por partner (top 20), producto, país</td></tr>
+            <tr><td>Vista semanal</td><td>dashboard_weekly.html (semanal / MTD / mensual)</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">⚙️ Flujo de datos</div>
+      <div class="flow-wrap">
+        <div class="flow-node">
+          <div class="flow-node-icon">🗄️</div>
+          <div class="flow-node-title">Treasure Data</div>
+          <div class="flow-node-items">
+            <div class="flow-item blue">raw.b2b_actuals</div>
+            <div class="flow-item blue">raw.b2b_budget_gd</div>
+          </div>
+          <div class="flow-note">Conexión ODBC (DSN: "DataLake Treasure ODBC"). Creds en .env</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node">
+          <div class="flow-node-icon">🐍</div>
+          <div class="flow-node-title">Python</div>
+          <div class="flow-node-items">
+            <div class="flow-item orange">daily_sync_b2b2c.py</div>
+          </div>
+          <div class="flow-note">Windows Task Scheduler 08:00 AM. Ejecutable manualmente también</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node">
+          <div class="flow-node-icon">☁️</div>
+          <div class="flow-node-title">Drive</div>
+          <div class="flow-node-items">
+            <div class="flow-item green">daily_b2b2c_data.json</div>
+          </div>
+          <div class="flow-note">Ventana dinámica: mes anterior + mes actual + LY + budget</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node">
+          <div class="flow-node-icon">🌐</div>
+          <div class="flow-node-title">Landing</div>
+          <div class="flow-node-items">
+            <div class="flow-item pink">Daily Dashboard</div>
+          </div>
+          <div class="flow-note">Embebido en B2B Ecosystem Hub via iframe</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📁 Archivos del proyecto</div>
+      <table class="doc-table">
+        <thead><tr><th>Archivo</th><th>Tipo</th><th>Rol</th></tr></thead>
+        <tbody>
+          <tr><td>daily_sync.py</td><td><span class="tag tag-py">Python</span></td><td>Consulta Treasure Data via ODBC (DSN "DataLake Treasure ODBC"), genera B2B2C + B2B (GD + RI + Budget) JSON y los sube a Drive via Google Drive API (<code>credentials_drive.json + token_drive.json</code>). Requiere VPN</td></tr>
+          <tr><td>auth_drive.py</td><td><span class="tag tag-py">Python</span></td><td>Genera/regenera <code>token_drive.json</code> por navegador. Correr si expira la auth: <code>python auth_drive.py</code></td></tr>
+          <tr><td>Codigo.js</td><td><span class="tag tag-js">Apps Script</span></td><td>Backend: sirve el HTML y expone <code>getRawB2BC()</code> y <code>getRawB2B()</code> que leen los JSON desde Drive con cache auto-invalidante por <code>lastUpdated</code></td></tr>
+          <tr><td>dashboard.html</td><td><span class="tag tag-html">HTML</span></td><td>Frontend daily. Vanilla JS + Chart.js 4.4.0. Métricas: GB / NR / FVM diario + MTD vs LY + budget</td></tr>
+          <tr><td>dashboard_weekly.html</td><td><span class="tag tag-html">HTML</span></td><td>Vista semanal del mismo JSON (weekly / MTD / mensual)</td></tr>
+          <tr><td>appsscript.json / .clasp.json</td><td><span class="tag tag-js">Manifest</span></td><td>Webapp. Scopes: drive.readonly, script.external_request, gmail.send</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🧠 Notas técnicas</div>
+      <table class="doc-table">
+        <thead><tr><th>Tema</th><th>Detalle</th></tr></thead>
+        <tbody>
+          <tr><td>Auth Drive (Python)</td><td>Usa <code>credentials_drive.json + token_drive.json</code> en la carpeta del proyecto con scope <code>drive</code> completo. Si el token expira: <code>python auth_drive.py</code>. El SETUP.md está desactualizado (describe un método viejo)</td></tr>
+          <tr><td>Cache auto-invalidante</td><td><code>loadFile_</code> arma la clave como <code>cacheKey + lastUpdated.getTime()</code>. Al subir un JSON nuevo cambia el timestamp → clave nueva → lee fresco sin esperar el TTL de 6h. No hace falta bumpear cache keys ni redeployar para actualizar datos</td></tr>
+          <tr><td>Datos B2B</td><td>GD (directo) + RI (recibido indirecto) + Budget. Queries alineadas a la versión oficial (country_factor, buy_type_code affiliates, fecha reconocimiento RI, profit sharings Naranja/Turismocity/Banco Chile)</td></tr>
+          <tr><td>Folder Drive LEGACY</td><td><code>1_6X_ZZUZyTzM-cKB...</code> — vacío, sin uso. El activo es <code>1lWzfqweyV6Kz1ERkL85ikFcmzmKwGwwh</code></td></tr>
+          <tr><td>Métricas</td><td>Gross Bookings, Net Revenues, FVM</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════ ARCHIVOS ════════════════════════════════ -->
+  <div class="section" id="sec-archivos">
+    <div class="page-header">
+      <div class="page-tag">Referencia</div>
+      <div class="page-title">Archivos <span>&amp; Rutas</span></div>
+      <div class="page-sub">Mapa completo de todos los archivos del ecosistema, su ubicación y su función.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📂 Inputs Planning P&amp;L (motor de datos)</div>
+      <div class="code-block">C:\Users\diego.bracco\Proyectos IA\Inputs_Planning_PnL\
+  ├── pnl_common.py                  ← Helpers: rutas portables + auth Drive
+  ├── plana_projections_builder.py   ← Planas budget/forecast/runrate/lastrunrate
+  ├── plana_actuals_builder.py       ← Plana actuals por año fiscal
+  ├── json_builder.py                ← Planas → JSON canónico → sube a Drive
+  ├── auth_drive.py                  ← Genera token_drive.json (1 vez por persona)
+  ├── run_all.bat                    ← Corre todo + sube
+  ├── CLAUDE.md / LEEME.txt          ← Doc + slash command /actualizar
+  ├── credentials_drive.json         ← OAuth client (compartido)
+  └── token_drive.json               ← ⚠️ Personal — NO compartir ni versionar</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📂 Fuentes del motor de datos (OneDrive)</div>
+      <div class="code-block">OneDrive → Planning-PBI - Inputs Power Bi\
+  ├── Budget / Forecast / Run Rate\  ← CSV Hyperion (ALL / NA) formato wide + POV
+  └── Actuals\Reverso AxI.xlsx       ← Ajuste AxI (hojas Budget / RunRate)
+OneDrive → Control de Gestión 2026-27 → B2B & WLs → Proyectos IA → BITUBIA\
+  ├── Glosario.xlsx                  ← Homologación (Marca/Paises/Producto/LOB/Linea P&L)
+  └── 00 - Actuals YYYY - Plana Python.xlsx  ← Actuals por año calendario</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📂 P&amp;L Accounting</div>
+      <div class="code-block">Proyectos IA\P&L_Accounting\   (+ copia en SharePoint\Proyectos IA\P&L Accounting)
+  ├── dashboard.html                 ← Frontend completo (EPM + Model oculta)
+  ├── Codigo_contable_epm.js         ← Backend vista P&L Accounting (EPM)
+  ├── Codigo_contable.js             ← Backend P&L Model + Accounting (oculta)
+  ├── Codigo.js                      ← Solo doGet (entry point)
+  ├── appsscript.json / .clasp.json
+  └── LEEME.txt (en la copia SharePoint) ← know-how del proceso
+
+  Datos ← Inputs_Planning_PnL (plana_to_cube.py --upload → cubos en Drive)</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📂 Inputs en OneDrive (Output Toqan)</div>
+      <div class="code-block">OneDrive → Control de Gestión 2026-27 → B2B & WLs → Proyectos IA → BITUBIA → Output Toqan\
+  ├── _pnl_gestional_data.json   ← JSON Managerial (generado por Python, leído por Apps Script)
+  ├── _pnl_contable_data.json    ← JSON Contable  (ídem)
+  ├── actuals_fy27_abr2026_mar2027.csv
+  ├── actuals_fy26_abr2025_mar2026.csv (LY)
+  ├── budget_fy27.csv
+  ├── contable_forecast_plana.xlsx
+  ├── contable_run_rate_plana.csv
+  └── contable_last_run_rate_plana.csv</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📂 XLSX Modelos Forecast</div>
+      <div class="code-block">OneDrive → Control de Gestión 2026-27 → B2B & WLs\
+  ├── WLs - Modelo Forecast.xlsx    ← B2B2C (tab P&L + Base 2026 actuals + Base 2025 LY)
+  ├── API - Modelo Forecast.xlsx    ← B2B Mayoristas (tab P&L + Base RI)
+  └── HTML - Modelo Forecast.xlsx   ← B2B Minoristas (tab P&L)</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📂 Daily Dashboard B2B2C + B2B</div>
+      <div class="code-block">C:\Users\diego.bracco\Proyectos IA\Daily_Dashboard\
+  ├── daily_sync.py          ← Script Python (Task Scheduler 08:00 / correr manual con VPN)
+  ├── auth_drive.py          ← Regenera token_drive.json si expira
+  ├── Codigo.js              ← Backend Apps Script (getRawB2BC(), getRawB2B(), sendDailyEmail_)
+  ├── dashboard.html         ← Frontend daily (vanilla JS + Chart.js 4.4.0)
+  ├── dashboard_weekly.html  ← Vista semanal (weekly / MTD / mensual)
+  ├── appsscript.json
+  ├── .clasp.json
+  ├── credentials_drive.json ← OAuth client (NO compartir)
+  ├── token_drive.json       ← ⚠️ Personal — NO compartir ni versionar
+  ├── .env                   ← Credenciales ODBC Treasure Data
+  └── SETUP.md               ← ⚠️ Desactualizado (describe auth viejo)</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📂 B2B Ecosystem Hub</div>
+      <div class="code-block">C:\Users\diego.bracco\Proyectos IA\Dashboard_B2B_WLs\
+  ├── Codigo.js                ← Backend (getAllData, P&L / Waterfall / PxQ / cache / triggers)
+  ├── Codigo_OKR.js            ← OKR H1 FY27 (KRs con pesos por LoB)
+  ├── Codigo_country_page.js   ← Country One Page (P&L + OC Concept + NR Bridge por país)
+  ├── dashboard.html           ← Frontend completo (Chart.js 4.4.0)
+  ├── appsscript.json
+  └── .clasp.json</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📂 P&amp;L Managerial</div>
+      <div class="code-block">C:\Users\diego.bracco\Proyectos IA\P&L_Managerial\
+  ├── dashboard.html                 ← Frontend vistas gestionales (B2B2C + B2B FVM)
+  ├── Codigo.js                      ← Backend (lee _pnl_gestional_data.json)
+  ├── ly_data.js                     ← LY estático embebido
+  ├── actuals_gestional_upload.py    ← Sube actuals desde Treasure Data (ODBC, VPN requerida)
+  ├── appsscript.json / .clasp.json</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📂 Todos los proyectos</div>
+      <div class="code-block">C:\Users\diego.bracco\Proyectos IA\
+  ├── Inputs_Planning_PnL\   ← Motor de datos (fuente única, reemplaza Toqan)
+  ├── P&L_Accounting\        ← P&L Contable / EPM
+  ├── P&L_Managerial\        ← P&L Gestional (FVM)
+  ├── Dashboard_B2B_WLs\     ← B2B Ecosystem Hub
+  ├── Daily_Dashboard\       ← Daily Dashboard B2B2C + B2B
+  └── Manual_B2B_WLs\        ← Este manual</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════ LINKS ══════════════════════════════════ -->
+  <div class="section" id="sec-links">
+    <div class="page-header">
+      <div class="page-tag">Referencia</div>
+      <div class="page-title">Links <span>&amp; Accesos</span></div>
+      <div class="page-sub">URLs de todas las landings y recursos del ecosistema.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🌐 Landings</div>
+      <table class="doc-table">
+        <thead><tr><th>Proyecto</th><th>URL</th><th>Acceso</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>P&amp;L Accounting</td>
+            <td><a class="ext-link" href="https://script.google.com/a/macros/despegar.com/s/AKfycby9WZK2HfAWx25M5pEMV3nntzJfEvsiT9feMn01zJQkQaI3t2GjTzOIjbFXWexnMuzklQ/exec" target="_blank">↗ Abrir</a></td>
+            <td>Dominio despegar.com</td>
+          </tr>
+          <tr>
+            <td>B2B Ecosystem Hub</td>
+            <td><a class="ext-link" href="https://script.google.com/a/macros/despegar.com/s/AKfycbz52txFQy-5YM2Nil_KxULzPoeZpKyA4z5LUWMGoP_8IilcwSduuwZqPF8ut_LmtceM/exec" target="_blank">↗ Abrir</a></td>
+            <td>Dominio despegar.com</td>
+          </tr>
+          <tr>
+            <td>Daily Dashboard B2B2C</td>
+            <td><a class="ext-link" href="https://script.google.com/a/macros/despegar.com/s/AKfycbwUC8oHHFuFQA8ZnVsLS8zwxgwJavQMpWWg_QJeo-Dg19jLtlZn5teQj8gSHrVn2CVOvw/exec" target="_blank">↗ Abrir</a></td>
+            <td>Dominio despegar.com</td>
+          </tr>
+          <tr>
+            <td>Inputs Planning P&amp;L (JSONs en Drive)</td>
+            <td><a class="ext-link" href="https://drive.google.com/drive/folders/1XqQPL_rlS0NRIPUnPfj5nALBTn7kAOQV" target="_blank">↗ Abrir carpeta</a></td>
+            <td>Sin landing (motor de datos)</td>
+          </tr>
+          <tr>
+            <td>Manual B2B WLs (este doc)</td>
+            <td><em>Ver URL generada al publicar</em></td>
+            <td>Dominio despegar.com</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">⚙️ Apps Script (edición de código)</div>
+      <table class="doc-table">
+        <thead><tr><th>Proyecto</th><th>Editor GAS</th></tr></thead>
+        <tbody>
+          <tr><td>P&amp;L Accounting</td><td><a class="ext-link" href="https://script.google.com/d/1MdCBNExRuSlHcHYKhQgy6TBnTDhRgl2FZ0s649HarM6IDokCVcXSnpP-/edit" target="_blank">↗ Abrir editor</a></td></tr>
+          <tr><td>P&amp;L Managerial</td><td><a class="ext-link" href="https://script.google.com/home/projects/1rB8o8HcnksPBXzi8QJW1zC-XQQ1HqHaowTcWV95SJG6xRbLg5QQ_2mQH/edit" target="_blank">↗ Abrir editor</a></td></tr>
+          <tr><td>B2B Ecosystem Hub</td><td><a class="ext-link" href="https://script.google.com/d/1fLnpsEh2dBAuPusbOD0194SiGZQflPFr1nwG_Wls2cjcvhmffdOPesUd/edit" target="_blank">↗ Abrir editor</a></td></tr>
+          <tr><td>Daily Dashboard B2B2C + B2B</td><td><a class="ext-link" href="https://script.google.com/home/projects/1zHFbUa-aMfiX9idRvhxonW5DuR5LixC478d6CfsD6ZXnU7MMQiFfpo_v/edit" target="_blank">↗ Abrir editor</a></td></tr>
+          <tr><td>Manual B2B WLs</td><td><a class="ext-link" href="https://script.google.com/home/projects/1QWmdd4S9tgnwuUDv3k25ig3ArK9PO8s9jcobHWtm4zPVN_Zlapvies0e/edit" target="_blank">↗ Abrir editor</a></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📌 Comandos frecuentes</div>
+      <table class="doc-table">
+        <thead><tr><th>Acción</th><th>Comando</th></tr></thead>
+        <tbody>
+          <tr><td>Actualizar fuente única (planas + JSON)</td><td><span style="font-family:monospace;font-size:11px">run_all.bat</span> (desde Inputs_Planning_PnL)</td></tr>
+          <tr><td>Auth Drive del motor de datos (1 vez)</td><td><span style="font-family:monospace;font-size:11px">python auth_drive.py</span> (desde Inputs_Planning_PnL)</td></tr>
+          <tr><td>Actualizar datos P&amp;L Accounting</td><td><span style="font-family:monospace;font-size:11px">python plana_to_cube.py --upload</span> (desde Inputs_Planning_PnL, tras regenerar los JSON) + Ctrl+Shift+R</td></tr>
+          <tr><td>Actualizar proyecciones P&amp;L Managerial</td><td><span style="font-family:monospace;font-size:11px">python pnl_gestional_upload.py</span> (desde P&amp;L_Managerial)</td></tr>
+          <tr><td>Actualizar actuals P&amp;L Managerial</td><td><span style="font-family:monospace;font-size:11px">python actuals_gestional_upload.py</span> (desde P&amp;L_Managerial, requiere VPN)</td></tr>
+          <tr><td>Actualizar datos Daily (manual)</td><td><span style="font-family:monospace;font-size:11px">python daily_sync.py</span> (desde Daily_Dashboard, requiere VPN)</td></tr>
+          <tr><td>Deploy código P&amp;L Accounting</td><td><span style="font-family:monospace;font-size:11px">clasp push</span> + <span style="font-family:monospace;font-size:11px">clasp deploy -i AKfycby9WZK...</span> (desde P&amp;L_Accounting)</td></tr>
+          <tr><td>Deploy código P&amp;L Managerial</td><td><span style="font-family:monospace;font-size:11px">clasp push</span> + <span style="font-family:monospace;font-size:11px">clasp deploy -i &lt;deploymentId&gt; -d "desc"</span> (desde P&amp;L_Managerial)</td></tr>
+          <tr><td>Deploy código Ecosystem Hub</td><td><span style="font-family:monospace;font-size:11px">clasp push --force</span> (desde Dashboard_B2B_WLs)</td></tr>
+          <tr><td>Deploy código Daily Dashboard</td><td><span style="font-family:monospace;font-size:11px">clasp push --force</span> + <span style="font-family:monospace;font-size:11px">clasp deploy -i AKfycbwUC8oHH...</span> (desde Daily_Dashboard)</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</main>
+
+<script>
+function showSection(name) {
+  document.querySelectorAll('.section').forEach(function(s){ s.classList.remove('active'); });
+  document.querySelectorAll('.nav-item').forEach(function(n){ n.classList.remove('active'); });
+  var sec = document.getElementById('sec-' + name);
+  if (sec) sec.classList.add('active');
+  event.currentTarget && event.currentTarget.classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+// Activar nav item al hacer click
+document.querySelectorAll('.nav-item').forEach(function(item) {
+  item.addEventListener('click', function() {
+    document.querySelectorAll('.nav-item').forEach(function(n){ n.classList.remove('active'); });
+    this.classList.add('active');
+  });
+});
+</script>
+</body>
+</html>
