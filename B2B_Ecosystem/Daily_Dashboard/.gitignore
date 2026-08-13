@@ -1,0 +1,10 @@
+# Secretos — NO compartir ni versionar ni copiar a OneDrive/Drive
+credentials_drive.json
+token_drive.json
+token_drive.pkl
+token.json
+.env
+
+# Python
+__pycache__/
+*.pyc
