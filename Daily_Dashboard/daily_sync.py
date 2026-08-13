@@ -852,7 +852,7 @@ def agg_actuals(df: pd.DataFrame) -> pd.DataFrame:
 def agg_budget(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     df["fecha"] = pd.to_datetime(
-        df["fecha"], format="%d-%m-%y", dayfirst=True
+        df["fecha"], format="mixed", dayfirst=True
     ).dt.strftime("%Y-%m-%d")
     df = df[df["fecha"].str[:4] == str(TODAY.year)]  # keep current FY only
     # YaVas: GB=0 en los mismos productos que en actuals (revenue queda normal)
