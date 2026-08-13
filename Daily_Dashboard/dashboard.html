@@ -18,6 +18,7 @@
   --surface:   #1A1A2E;
   --elevated:  #2D2D44;
   --segment-bg:#222238;
+  --group-bg:  #1E1E33;
   --border:    rgba(255,255,255,.07);
   --text:      #FFFFFF;
   --text-2:    #B8B8D1;
@@ -43,6 +44,7 @@
   --surface:   #FFFFFF;
   --elevated:  #EBEBF0;
   --segment-bg:#F0F0F6;
+  --group-bg:  #F7F7FC;
   --border:    rgba(0,0,0,.08);
   --text:      #12111E;
   --text-2:    #3D3B52;
@@ -217,12 +219,18 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
 .tcard { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 16px 14px; min-width: 0; }
 .card-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 6px; }
 .card-ttl { font-size: 10px; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: .6px; }
+.bk-exp-ctrl { display: flex; gap: 4px; margin-left: auto; }
+.bk-exp-btn { background: none; border: none; font-size: 10px; font-weight: 600; color: var(--text-3); cursor: pointer; font-family: var(--font); padding: 1px 6px; border-radius: 4px; transition: color 120ms, background 120ms; }
+.bk-exp-btn:hover { color: var(--secondary); background: var(--primary-d); }
+.bk-acct-strip { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.bk-acct-lbl { font-size: 10px; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: .5px; }
 .bk-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .bk-table th { text-align: left; padding: 5px 4px; color: var(--text-3); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; border-bottom: 1px solid var(--border); }
 .bk-table td { padding: 6px 4px; border-bottom: 1px solid var(--border); color: var(--text-2); }
 .bk-table tr:last-child td { border-bottom: none; }
 .bk-table tr:hover td { background: var(--elevated); }
-.bk-table tr.bk-row-group td { border-top: 1px solid var(--border); }
+.bk-table tr.bk-row-group td { border-top: 1px solid var(--border); background: var(--group-bg); }
+.bk-table tr.bk-row-region td { background: var(--elevated); }
 .bk-row-total td { font-weight: 700; background: var(--elevated); position: sticky; top: 0; z-index: 1; border-bottom: 2px solid var(--border); }
 .bk-row-segment td { font-weight: 600; background: var(--segment-bg); border-top: 2px solid var(--border); }
 .bk-name { font-weight: 600; color: var(--text); max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -284,78 +292,8 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
 .dm-btn:hover:not(.active) { border-color: rgba(255,255,255,.35); color: var(--text); }
 .dm-btn.active { background: var(--secondary); color: #fff; border-color: var(--secondary); }
 
-/* ── AI Chat Panel ── */
-.btn-ai-toggle{
-  background:transparent;border:1px solid var(--border);border-radius:20px;
-  padding:5px 14px;font-size:11px;font-weight:700;font-family:var(--font);
-  cursor:pointer;color:var(--text-2);transition:all 150ms var(--ease);white-space:nowrap
-}
-.btn-ai-toggle:hover{border-color:rgba(86,38,233,.4);color:var(--secondary)}
-.btn-ai-toggle.active{background:var(--primary);color:#fff;border-color:var(--primary)}
-#ai-panel{
-  position:fixed;top:0;right:-400px;width:380px;height:100vh;
-  background:var(--surface);box-shadow:-4px 0 24px rgba(0,0,0,.3);
-  display:flex;flex-direction:column;z-index:9000;
-  transition:right .3s cubic-bezier(.4,0,.2,1);border-left:1px solid var(--border)
-}
-#ai-panel.open{right:0}
-.ai-header{
-  background:linear-gradient(135deg,var(--primary),var(--secondary));color:#fff;
-  padding:14px 16px 10px;display:flex;flex-direction:column;gap:8px;flex-shrink:0
-}
-.ai-header-top{display:flex;align-items:center;justify-content:space-between}
-.ai-header-title{font-size:14px;font-weight:700}
-.ai-close-btn{
-  background:rgba(255,255,255,.18);border:none;color:#fff;border-radius:50%;
-  width:28px;height:28px;cursor:pointer;font-size:16px;line-height:28px;text-align:center;
-  transition:background .2s
-}
-.ai-close-btn:hover{background:rgba(255,255,255,.32)}
-.ai-agents{display:flex;gap:6px}
-.ai-agent-btn{
-  padding:4px 12px;border-radius:14px;border:1px solid rgba(255,255,255,.45);
-  background:transparent;color:rgba(255,255,255,.8);font-size:11px;font-weight:700;
-  cursor:pointer;transition:all .15s
-}
-.ai-agent-btn.active{background:#fff;color:var(--primary);border-color:#fff}
-.ai-agent-btn:hover:not(.active){background:rgba(255,255,255,.18)}
-.ai-agent-btn.hidden{display:none}
-.ai-msgs{flex:1;overflow-y:auto;padding:12px 12px 6px;display:flex;flex-direction:column;gap:8px}
-.ai-msg{display:flex;flex-direction:column;gap:2px}
-.ai-msg.user{align-items:flex-end}
-.ai-msg.bot{align-items:flex-start}
-.ai-bubble{
-  max-width:90%;padding:8px 11px;border-radius:12px;font-size:12px;line-height:1.45;
-  word-wrap:break-word;white-space:pre-wrap
-}
-.ai-msg.user .ai-bubble{background:var(--primary);color:#fff;border-radius:12px 12px 2px 12px}
-.ai-msg.bot  .ai-bubble{background:var(--elevated);color:var(--text);border-radius:12px 12px 12px 2px}
-.ai-typing .ai-bubble{color:var(--text-3);font-style:italic}
-.ai-pills{display:flex;flex-wrap:wrap;gap:5px;padding:6px 12px;flex-shrink:0}
-.ai-pill{
-  background:var(--elevated);border:1px solid var(--border);color:var(--secondary);
-  border-radius:14px;padding:4px 10px;font-size:11px;font-weight:600;
-  cursor:pointer;transition:all .15s;white-space:nowrap
-}
-.ai-pill:hover{background:var(--primary-d);border-color:var(--secondary)}
-.ai-input-row{
-  display:flex;gap:6px;padding:8px 12px 12px;flex-shrink:0;
-  border-top:1px solid var(--border)
-}
-#ai-input{
-  flex:1;border:1px solid var(--border);border-radius:10px;
-  padding:7px 10px;font-size:12px;resize:none;height:38px;
-  outline:none;font-family:var(--font);background:var(--elevated);
-  color:var(--text);transition:border-color .2s
-}
-#ai-input:focus{border-color:var(--secondary)}
-.ai-send-btn{
-  background:var(--primary);color:#fff;border:none;border-radius:10px;
-  width:38px;height:38px;cursor:pointer;font-size:16px;
-  transition:background .2s;flex-shrink:0
-}
-.ai-send-btn:hover{background:var(--secondary)}
-.ai-send-btn:disabled{background:var(--elevated);cursor:not-allowed;color:var(--text-3)}
+/* ── Toqan link buttons ── */
+.btn-toqan { text-decoration: none; }
 
 /* ── View Nav (Daily / Weekly) ────────────────────────── */
 .view-nav{display:flex;gap:2px;margin-left:6px}
@@ -507,7 +445,8 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
     <button class="lob-btn active" id="btn-lob-b2bc" onclick="switchLob('b2bc')">B2B2C</button>
     <button class="lob-btn" id="btn-lob-b2b" onclick="switchLob('b2b')">B2B</button>
   </div>
-  <button class="btn-ai-toggle" id="btn-ai-toggle" onclick="toggleAiPanel()" style="display:none">🤖 Consultar IA</button>
+  <a class="btn-action btn-toqan" id="btn-toqan-bicia" href="https://work.toqan.ai/spaces/join/3e38c85f-5349-44c3-9644-3342ff7e32ae" target="_blank" rel="noopener">🤖 Consultar IA</a>
+  <a class="btn-action btn-toqan" id="btn-toqan-bee"   href="https://work.toqan.ai/spaces/join/ff4f36f2-9621-4f28-b5c3-edc50fcbebac" target="_blank" rel="noopener" style="display:none">🤖 Consultar IA</a>
 
   <button class="btn-action" id="btn-email" onclick="runEmail()"     title="Enviar resumen por email">
     <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
@@ -748,6 +687,18 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
   </div>
 
   <!-- BREAKDOWN TABLES -->
+  <div class="bk-acct-strip">
+    <span class="bk-acct-lbl">Accounts:</span>
+    <div class="tab-toggle">
+      <button class="ttab active" onclick="switchPartnerTab(this,'all')">All</button>
+      <button class="ttab" onclick="switchPartnerTab(this,'existing')">Existing</button>
+      <button class="ttab" onclick="switchPartnerTab(this,'new')">New</button>
+    </div>
+    <div class="bk-exp-ctrl">
+      <button class="bk-exp-btn" onclick="expandAllTables(['tbl-gb','tbl-nr','tbl-fvm'],true)">Expand all</button>
+      <button class="bk-exp-btn" onclick="expandAllTables(['tbl-gb','tbl-nr','tbl-fvm'],false)">Collapse all</button>
+    </div>
+  </div>
   <div class="tables-row">
 
     <!-- Gross Bookings -->
@@ -764,14 +715,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
 
     <!-- Net Revenues -->
     <div class="tcard">
-      <div class="card-hdr">
-        <span class="card-ttl">Net Revenues — MTD</span>
-        <div class="tab-toggle">
-          <button class="ttab active" onclick="switchPartnerTab(this,'all')">All</button>
-          <button class="ttab" onclick="switchPartnerTab(this,'existing')">Existing</button>
-          <button class="ttab" onclick="switchPartnerTab(this,'new')">New</button>
-        </div>
-      </div>
+      <div class="card-hdr"><span class="card-ttl">Net Revenues — MTD</span></div>
       <table class="bk-table"><thead><tr>
         <th>País / Partner</th>
         <th style="text-align:right">Actuals</th>
@@ -931,6 +875,12 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
   </div>
 
   <!-- BREAKDOWN TABLES — B2B -->
+  <div class="bk-acct-strip">
+    <div class="bk-exp-ctrl">
+      <button class="bk-exp-btn" onclick="expandAllTables(['b2b-tbl-gb','b2b-tbl-nr','b2b-tbl-fvm'],true)">Expand all</button>
+      <button class="bk-exp-btn" onclick="expandAllTables(['b2b-tbl-gb','b2b-tbl-nr','b2b-tbl-fvm'],false)">Collapse all</button>
+    </div>
+  </div>
   <div class="tables-row">
 
     <!-- Gross Bookings -->
@@ -947,9 +897,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
 
     <!-- Net Revenue -->
     <div class="tcard">
-      <div class="card-hdr">
-        <span class="card-ttl">Net Revenue — MTD</span>
-      </div>
+      <div class="card-hdr"><span class="card-ttl">Net Revenue — MTD</span></div>
       <table class="bk-table"><thead><tr>
         <th>País / Producto</th>
         <th style="text-align:right">Actuals</th>
@@ -1053,35 +1001,6 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
 </div><!-- /view-weekly -->
 
 <!-- AI Chat Panel -->
-<div id="ai-panel">
-  <div class="ai-header">
-    <div class="ai-header-top">
-      <span class="ai-header-title">🤖 Consultar IA</span>
-      <button class="ai-close-btn" onclick="toggleAiPanel()">✕</button>
-    </div>
-    <div class="ai-agents" id="ai-agents">
-      <button class="ai-agent-btn active" id="ai-btn-bitubee"   onclick="switchAiAgent('bitubee')">BITUBEE</button>
-      <button class="ai-agent-btn"        id="ai-btn-bitubicia" onclick="switchAiAgent('bitubicia')">BITUBICIA</button>
-    </div>
-  </div>
-  <div id="ai-wip" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:32px;text-align:center">
-    <div style="font-size:32px">🚧</div>
-    <div style="font-size:13px;font-weight:700;color:var(--text)">Work in progress</div>
-    <div style="font-size:11px;color:var(--text-3);line-height:1.5">La IA para el Weekly<br>está en desarrollo.</div>
-  </div>
-  <div class="ai-msgs" id="ai-msgs" style="display:none"></div>
-  <div class="ai-pills" style="display:none">
-    <button class="ai-pill" onclick="aiPill('¿Cómo va el MTD?')">Cómo va el MTD</button>
-    <button class="ai-pill" onclick="aiPill('¿Cómo está el MTD vs budget?')">MTD vs Budget</button>
-    <button class="ai-pill" onclick="aiPill('¿Cuáles son los países con mejor performance?')">Por país</button>
-    <button class="ai-pill" onclick="aiPill('¿Qué drivers explican el resultado?')">Drivers</button>
-  </div>
-  <div class="ai-input-row" style="display:none">
-    <textarea id="ai-input" placeholder="Hacé tu pregunta…" onkeydown="aiKeydown(event)"></textarea>
-    <button class="ai-send-btn" id="ai-send" onclick="sendAiMessage()">➤</button>
-  </div>
-</div>
-
 <script>
 // ── Raw data (loaded once) ───────────────────────────────────────
 var _rawB2BC = null;
@@ -1848,7 +1767,7 @@ function renderGroupedTable3(tbodyId, groups, opts) {
   regions.forEach(function(reg, ri) {
     var regId = tbodyId + '-r' + ri;
     // Region header row — colapsada por defecto
-    html += '<tr class="bk-row-group" style="background:var(--elevated)">'
+    html += '<tr class="bk-row-group bk-row-region">'
       + '<td><div class="bar-wrap">'
       + '<button class="bk-toggle" onclick="toggleBkGroup(this,\''+regId+'\')">▾</button>'
       + '<span class="rtag '+REGION_TAG_[reg.key]+'" style="margin-right:5px">'+REGION_SHORT_[reg.key]+'</span>'
@@ -1941,6 +1860,15 @@ function toggleBkGroup(btn, groupId) {
   rows.forEach(function(r){ r.style.display = show ? '' : 'none'; });
   btn.textContent = show ? '▾' : '▸';
   btn.classList.toggle('open', show);
+}
+function expandAllTable(tbodyId, expand) {
+  var tbody = document.getElementById(tbodyId);
+  if (!tbody) return;
+  tbody.querySelectorAll('tr[data-grp]').forEach(function(r) { r.style.display = expand ? '' : 'none'; });
+  tbody.querySelectorAll('.bk-toggle').forEach(function(btn) { btn.textContent = expand ? '▾' : '▸'; });
+}
+function expandAllTables(ids, expand) {
+  ids.forEach(function(id) { expandAllTable(id, expand); });
 }
 
 // ── Helpers ─────────────────────────────────────────────────────
@@ -2272,153 +2200,16 @@ if (!Array.prototype.findIndex) {
   Array.prototype.findIndex = function(fn) { for(var i=0;i<this.length;i++) if(fn(this[i],i)) return i; return -1; };
 }
 
-// ── AI Chat ──────────────────────────────────────────────────────
-var _ai = {
-  open: false, agent: 'bitubicia',
-  conversationId: null, requestId: null,
-  polling: false, pollTimer: null, unread: 0,
-  pollDelay: 3000
-};
-var _aiCfg = null;
-
-function toggleAiPanel() {
-  _ai.open = !_ai.open;
-  document.getElementById('ai-panel').classList.toggle('open', _ai.open);
-  document.getElementById('btn-ai-toggle').classList.toggle('active', _ai.open);
-  if (_ai.open) {
-    _ai.unread = 0;
-    document.getElementById('btn-ai-toggle').textContent = '🤖 Consultar IA';
-    document.getElementById('ai-input').focus();
-  }
-}
+// ── Toqan links ──────────────────────────────────────────────────
+var TOQAN_BICIA = 'https://work.toqan.ai/spaces/join/3e38c85f-5349-44c3-9644-3342ff7e32ae';
+var TOQAN_BEE   = 'https://work.toqan.ai/spaces/join/ff4f36f2-9621-4f28-b5c3-edc50fcbebac';
 
 function updateAiAgent(lob) {
-  var btnBee   = document.getElementById('ai-btn-bitubee');
-  var btnBicia = document.getElementById('ai-btn-bitubicia');
-  if (lob === 'b2b') {
-    btnBee.classList.remove('hidden'); btnBicia.classList.add('hidden');
-    setAiAgent('bitubee');
-  } else {
-    btnBee.classList.add('hidden'); btnBicia.classList.remove('hidden');
-    setAiAgent('bitubicia');
-  }
-}
-
-function setAiAgent(agent) {
-  _ai.agent = agent;
-  document.getElementById('ai-btn-bitubee').classList.toggle('active',   agent === 'bitubee');
-  document.getElementById('ai-btn-bitubicia').classList.toggle('active', agent === 'bitubicia');
-}
-
-function switchAiAgent(agent) {
-  if (_ai.polling) return;
-  setAiAgent(agent);
-  _ai.conversationId = null; _ai.requestId = null;
-  document.getElementById('ai-msgs').innerHTML = '';
-}
-
-function aiPill(text) {
-  document.getElementById('ai-input').value = text;
-  sendAiMessage();
-}
-
-function aiKeydown(e) {
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendAiMessage(); }
-}
-
-function aiAddMsg(role, text) {
-  var msgs = document.getElementById('ai-msgs');
-  var div  = document.createElement('div'); div.className = 'ai-msg ' + role;
-  var bub  = document.createElement('div'); bub.className = 'ai-bubble'; bub.textContent = text;
-  div.appendChild(bub); msgs.appendChild(div);
-  msgs.scrollTop = msgs.scrollHeight;
-}
-
-function aiAddTyping() {
-  var msgs = document.getElementById('ai-msgs');
-  var div  = document.createElement('div');
-  div.className = 'ai-msg bot ai-typing'; div.id = 'ai-typing';
-  var bub = document.createElement('div'); bub.className = 'ai-bubble'; bub.textContent = '…';
-  div.appendChild(bub); msgs.appendChild(div);
-  msgs.scrollTop = msgs.scrollHeight;
-}
-
-function aiRemoveTyping() { var t = document.getElementById('ai-typing'); if (t) t.remove(); }
-
-function sendAiMessage() {
-  var inp = document.getElementById('ai-input');
-  var msg = inp.value.trim();
-  if (!msg || _ai.polling) return;
-  inp.value = '';
-  _ai.pollDelay = 3000;
-  aiAddMsg('user', msg);
-  aiAddTyping();
-  document.getElementById('ai-send').disabled = true;
-  _ai.polling = true;
-
-  if (_ai.conversationId && _aiCfg) {
-    _aiCallToqan_('/continue_conversation', { user_message: msg, conversation_id: _ai.conversationId });
-  } else {
-    var dp;
-    if (_activeView === 'weekly') {
-      dp = { source:'weekly', view:_wsView, lob:_wsLob };
-    } else {
-      var vDate = (_lob === 'b2b' && state_b2b.viewDate) ? state_b2b.viewDate
-                                                          : (state.viewDate || null);
-      dp = { source:'daily', lob:_lob, viewDate:vDate, dateModel:_b2bDateModel };
-    }
-    google.script.run
-      .withSuccessHandler(function(res) {
-        if (!res.success) {
-          aiRemoveTyping(); aiAddMsg('bot', '❌ ' + res.error);
-          _ai.polling = false; document.getElementById('ai-send').disabled = false; return;
-        }
-        _aiCfg = res.config;
-        var fullMsg = res.context
-          ? 'CONTEXTO DEL DASHBOARD (JSON):\n' + JSON.stringify(res.context) + '\n\n---\n\n' + msg
-          : msg;
-        _aiCallToqan_('/create_conversation', { user_message: fullMsg });
-      })
-      .withFailureHandler(function(e) {
-        aiRemoveTyping(); aiAddMsg('bot', '❌ ' + (e.message || String(e)));
-        _ai.polling = false; document.getElementById('ai-send').disabled = false;
-      })
-      .wsGetChatContext({ agent: _ai.agent, dashboardParams: dp });
-  }
-}
-
-function _aiCallToqan_(endpoint, body) {
-  var params = { user_message: body.user_message, conversation_id: body.conversation_id || null, agent: _ai.agent };
-  var fn = (endpoint === '/create_conversation') ? 'wsToqanCreate' : 'wsToqanContinue';
-  google.script.run
-    .withSuccessHandler(function(res) {
-      if (!res.success) { aiRemoveTyping(); aiAddMsg('bot', '❌ ' + res.error); _ai.polling = false; document.getElementById('ai-send').disabled = false; return; }
-      _ai.conversationId = res.conversation_id;
-      _ai.requestId      = res.request_id;
-      startAiPolling();
-    })
-    .withFailureHandler(function(e) { aiRemoveTyping(); aiAddMsg('bot', '❌ ' + (e.message || String(e))); _ai.polling = false; document.getElementById('ai-send').disabled = false; })
-    [fn](params);
-}
-
-function startAiPolling() {
-  if (_ai.pollTimer) clearTimeout(_ai.pollTimer);
-  _ai.pollTimer = setTimeout(pollAiAnswer, _ai.pollDelay);
-  _ai.pollDelay = Math.min(Math.round(_ai.pollDelay * 1.6), 12000);
-}
-
-function pollAiAnswer() {
-  google.script.run
-    .withSuccessHandler(function(res) {
-      if (!res.success) { aiRemoveTyping(); aiAddMsg('bot', '❌ ' + res.error); _ai.polling = false; document.getElementById('ai-send').disabled = false; return; }
-      if (res.status === 'pending' || res.status === 'processing') { startAiPolling(); return; }
-      aiRemoveTyping();
-      aiAddMsg('bot', res.answer || '(sin respuesta)');
-      _ai.polling = false; document.getElementById('ai-send').disabled = false;
-      if (!_ai.open) { _ai.unread++; document.getElementById('btn-ai-toggle').textContent = '🤖 Consultar IA (' + _ai.unread + ')'; }
-    })
-    .withFailureHandler(function(e) { aiRemoveTyping(); aiAddMsg('bot', '❌ ' + (e.message || String(e))); _ai.polling = false; document.getElementById('ai-send').disabled = false; })
-    .wsToqanPoll({ conversation_id: _ai.conversationId, request_id: _ai.requestId, agent: _ai.agent });
+  var bee   = document.getElementById('btn-toqan-bee');
+  var bicia = document.getElementById('btn-toqan-bicia');
+  if (!bee || !bicia) return;
+  bee.style.display   = (lob === 'b2b')  ? '' : 'none';
+  bicia.style.display = (lob === 'b2bc') ? '' : 'none';
 }
 
 // ══ MAIN VIEW SWITCH ═══════════════════════════════════════════
@@ -2431,11 +2222,10 @@ function switchMainView(view) {
   document.getElementById('vnav-daily').classList.toggle('active',  view === 'daily');
   document.getElementById('vnav-weekly').classList.toggle('active', view === 'weekly');
   document.getElementById('daily-lob-toggle').style.display = (view === 'daily') ? '' : 'none';
-  document.getElementById('btn-ai-toggle').style.display = (view === 'weekly') ? '' : 'none';
   document.getElementById('topbar-title').textContent = (view === 'weekly') ? 'Weekly Summary' : 'Daily Dashboard';
-  if (view === 'daily' && _ai.open) toggleAiPanel();
+  if (view === 'daily') updateAiAgent(_lob);
+  else _wsUpdateAiAgent(_wsLob);
   if (view === 'weekly' && !_wsLoaded) { _wsLoadData(); }
-  _wsUpdateAiAgent(_wsLob);
 }
 
 // ══ WEEKLY JS ══════════════════════════════════════════════════
@@ -2717,18 +2507,11 @@ function _wsShowError(msg) {
 
 function _wsUpdateAiAgent(lob) {
   if (_activeView !== 'weekly') return;
-  var btnBee   = document.getElementById('ai-btn-bitubee');
-  var btnBicia = document.getElementById('ai-btn-bitubicia');
-  if (lob === 'B2B') {
-    btnBee.classList.remove('hidden'); btnBicia.classList.add('hidden');
-    if (_ai) { _ai.agent = 'bitubee'; _wsSetAiAgentUI('bitubee'); }
-  } else if (lob === 'B2B2C') {
-    btnBee.classList.add('hidden'); btnBicia.classList.remove('hidden');
-    if (_ai) { _ai.agent = 'bitubicia'; _wsSetAiAgentUI('bitubicia'); }
-  } else {
-    btnBee.classList.remove('hidden'); btnBicia.classList.remove('hidden');
-    if (_ai) { _ai.agent = 'bitubee'; _wsSetAiAgentUI('bitubee'); }
-  }
+  var bee   = document.getElementById('btn-toqan-bee');
+  var bicia = document.getElementById('btn-toqan-bicia');
+  if (!bee || !bicia) return;
+  bee.style.display   = (lob === 'B2B'   || lob === 'B2B+B2B2C') ? '' : 'none';
+  bicia.style.display = (lob === 'B2B2C' || lob === 'B2B+B2B2C') ? '' : 'none';
 }
 
 function _wsSetAiAgentUI(agent) {
