@@ -407,6 +407,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
 .flow-jump{background:var(--group-bg);border:1px solid var(--elevated);color:var(--text);border-radius:8px;
   padding:6px 8px;font-size:12px;font-family:inherit;max-width:230px}
 .flow-hint{font-size:11px;color:var(--text-3)}
+.flow-ctl-lbl{font-size:11px;font-weight:700;color:var(--text-2);text-transform:uppercase;letter-spacing:.4px}
 .flow-stage-wrap{display:flex;align-items:center;justify-content:center;padding:24px 16px;
   background:var(--bg);min-height:calc(100vh - 120px)}
 .flow-scaler{position:relative}
@@ -1094,7 +1095,16 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
     <button class="flow-nav-btn" id="flow-next" onclick="flowGo_(1)" title="Siguiente (→)">&#8250;</button>
     <span class="flow-tool-sep"></span>
     <select class="flow-jump" id="flow-jump" onchange="flowShow_(+this.value)"></select>
-    <span class="flow-hint">Usá ← → para navegar. Cada slide es 1280×720 — sacá la captura del recuadro.</span>
+    <span class="flow-tool-sep"></span>
+    <label class="flow-ctl-lbl">Mes</label>
+    <select class="flow-jump" id="flow-month" onchange="flowSetMonth_(this.value)"></select>
+    <label class="flow-ctl-lbl">Goal</label>
+    <select class="flow-jump" id="flow-comp" onchange="flowSetComp_(this.value)">
+      <option value="budget">Budget</option>
+      <option value="runrate">Run Rate</option>
+      <option value="ly">Last Year</option>
+    </select>
+    <span class="flow-hint">← → para navegar · slides 1280×720 dinámicos</span>
   </div>
   <div class="flow-stage-wrap">
     <div class="flow-scaler" id="flow-scaler">
@@ -2761,31 +2771,66 @@ function flowRegionRaw_(regionKey){
 }
 var _FLMF  = {gb:'gross_bookings',nr:'net_revenues',fvm:'fvm'};
 var _FLBMF = {gb:'gross_bookings',nr:'net_revenue', fvm:'fvm'};
+var FLOW_COMP = {
+  budget:  {label:'Budget',    short:'Bud'},
+  runrate: {label:'Run Rate',  short:'RR'},
+  ly:      {label:'Last Year', short:'LY'}
+};
+var _flowMonth = null;          // 'YYYY-MM'
+var _flowComp  = 'budget';      // 'budget' | 'runrate' | 'ly'
 
-// monthly aggregation over all available months: v=actuals, bud=budget
-function flowMonthly_(subRaw, metricKey){
-  var MF=_FLMF[metricKey], BMF=_FLBMF[metricKey];
+// comparison array + field name for the current goal source
+function _flCompArr_(subRaw, compKey){ return compKey==='runrate' ? (subRaw.runrate||[]) : compKey==='ly' ? (subRaw.actuals_ly||[]) : (subRaw.budget||[]); }
+function _flCompField_(metricKey, compKey){ return compKey==='ly' ? _FLMF[metricKey] : _FLBMF[metricKey]; }
+function _flLY_(dateStr){ return (+dateStr.substring(0,4)-1)+dateStr.substring(4); }   // shift year -1
+// view date for the selected month (last actuals date if current month, else last day of month)
+function flowVDate_(){
+  var last=_rawB2BC.meta.last_actuals_date, curM=last.substring(0,7);
+  if(!_flowMonth || _flowMonth===curM) return last;
+  var p=_flowMonth.split('-'), d=new Date(+p[0], +p[1], 0).getDate();
+  return _flowMonth+'-'+(d<10?'0':'')+d;
+}
+
+// monthly aggregation over all available months: v=actuals, bud=goal (comp-aware)
+function flowMonthly_(subRaw, metricKey, compKey){
+  var MF=_FLMF[metricKey], cmpArr=_flCompArr_(subRaw,compKey), cmpF=_flCompField_(metricKey,compKey);
   var mM={}, bM={};
   (subRaw.actuals||[]).forEach(function(r){var m=r.fecha.substring(0,7);mM[m]=(mM[m]||0)+(r[MF]||0);});
-  (subRaw.budget||[]).forEach(function(r){var m=r.fecha.substring(0,7);bM[m]=(bM[m]||0)+(r[BMF]||0);});
+  if(compKey==='ly'){ cmpArr.forEach(function(r){var m=(+r.fecha.substring(0,4)+1)+r.fecha.substring(4,7);bM[m]=(bM[m]||0)+(r[cmpF]||0);}); }
+  else { cmpArr.forEach(function(r){var m=r.fecha.substring(0,7);bM[m]=(bM[m]||0)+(r[cmpF]||0);}); }
   var keys={}; Object.keys(mM).forEach(function(k){keys[k]=1;}); Object.keys(bM).forEach(function(k){keys[k]=1;});
   return Object.keys(keys).sort().map(function(m){ return {date:m+'-01', v:Math.round((mM[m]||0)*100)/100, bud:Math.round((bM[m]||0)*100)/100, ly:0, projected:false}; });
 }
 function flowH1_(monthly){ var b=0,g=0; monthly.forEach(function(m){b+=m.v;g+=m.bud;}); return {base:b,goal:g}; }
 
-// grouped MTD table region→país  (comp: 'budget'|'runrate'). childMax=0 hides children.
+// daily series for the selected month: v=actuals (null if future), bud=goal (comp-aware)
+function flowDaily_(subRaw, metricKey, compKey){
+  var vDate=flowVDate_(), pp=vDate.split('-'), ym=pp[0]+'-'+pp[1];
+  var MF=_FLMF[metricKey], cmpArr=_flCompArr_(subRaw,compKey), cmpF=_flCompField_(metricKey,compKey);
+  var dV={}, dG={};
+  (subRaw.actuals||[]).forEach(function(r){ if(r.fecha.substring(0,7)!==ym||r.fecha>vDate)return; dV[r.fecha]=(dV[r.fecha]||0)+(r[MF]||0); });
+  if(compKey==='ly'){ var lyYM=(+pp[0]-1)+'-'+pp[1];
+    cmpArr.forEach(function(r){ if(r.fecha.substring(0,7)!==lyYM)return; var cur=(+r.fecha.substring(0,4)+1)+r.fecha.substring(4); dG[cur]=(dG[cur]||0)+(r[cmpF]||0); });
+  } else { cmpArr.forEach(function(r){ if(r.fecha.substring(0,7)!==ym)return; dG[r.fecha]=(dG[r.fecha]||0)+(r[cmpF]||0); }); }
+  var days=new Date(+pp[0], +pp[1], 0).getDate(), out=[];
+  for(var d=1; d<=days; d++){ var ds=ym+'-'+(d<10?'0':'')+d, proj=ds>vDate;
+    out.push({date:ds, v:proj?null:Math.round((dV[ds]||0)*100)/100, bud:Math.round((dG[ds]||0)*100)/100, projected:proj}); }
+  return out;
+}
+
+// grouped MTD table region→país / país→partner (comp: 'budget'|'runrate'|'ly'). childMax=0 hides children.
 function flowGroupTable_(subRaw, metricKey, comp, col1, groupByRegion, childMax){
   if(childMax===undefined) childMax=8;
-  var vDate=subRaw.meta.last_actuals_date, mStart=vDate.substring(0,7)+'-01';
-  var MF=_FLMF[metricKey], BMF=_FLBMF[metricKey];
-  var cmp = comp==='runrate' ? (subRaw.runrate||[]) : (subRaw.budget||[]);
+  var vDate=flowVDate_(), mStart=vDate.substring(0,7)+'-01';
+  var lyMode=(comp==='ly'), lyMS=_flLY_(mStart), lyVD=_flLY_(vDate);
+  var MF=_FLMF[metricKey], cmpArr=_flCompArr_(subRaw,comp), cmpF=_flCompField_(metricKey,comp);
   var G={};
   function gk(r){ return groupByRegion ? getRegion_(r.pais) : (r.pais||'Other'); }
   function ck(r){ return groupByRegion ? (r.pais||'Other') : (r.partner||'Other'); }
   function grp(k){ G[k]=G[k]||{base:0,goal:0,ch:{}}; return G[k]; }
   function chi(k,c){ var g=grp(k); g.ch[c]=g.ch[c]||{base:0,goal:0}; return g.ch[c]; }
   (subRaw.actuals||[]).forEach(function(r){ if(r.fecha<mStart||r.fecha>vDate)return; var v=r[MF]||0; grp(gk(r)).base+=v; chi(gk(r),ck(r)).base+=v; });
-  cmp.forEach(function(r){ if(r.fecha<mStart||r.fecha>vDate)return; var v=r[BMF]||0; grp(gk(r)).goal+=v; chi(gk(r),ck(r)).goal+=v; });
+  cmpArr.forEach(function(r){ if(lyMode){ if(r.fecha<lyMS||r.fecha>lyVD)return; } else if(r.fecha<mStart||r.fecha>vDate){ return; } var v=r[cmpF]||0; grp(gk(r)).goal+=v; chi(gk(r),ck(r)).goal+=v; });
   var order = groupByRegion ? ['BR','SAH','NAM'] : Object.keys(G).sort(function(a,b){return G[b].base-G[a].base;});
   function cell(d){ return '<td class="'+(d>=0?'fl-pos':'fl-neg')+'">'+(d>=0?'+':'')+fmtShort(d)+'</td>'; }
   function pct(b,g){ return g!==0 ? (b/g-1)*100 : null; }
@@ -2804,11 +2849,16 @@ function flowGroupTable_(subRaw, metricKey, comp, col1, groupByRegion, childMax)
   return '<table class="fl-tbl"><thead><tr><th>'+(col1||'Región / País')+'</th><th>Baseline</th><th>Delta [$]</th><th>Delta [%]</th></tr></thead><tbody>'+body+'</tbody></table>';
 }
 
-function flowKpiCards_(subRaw, activeMetric){
+function flowKpiCards_(subRaw, activeMetric, compKey){
+  var vDate=flowVDate_(), mStart=vDate.substring(0,7)+'-01';
+  var lyMode=(compKey==='ly'), lyMS=_flLY_(mStart), lyVD=_flLY_(vDate);
   var cards='';
   ['gb','nr','fvm'].forEach(function(mk){
-    var d=compute_(subRaw,mk,subRaw.meta.last_actuals_date,null,null,null,null,'daily',subRaw.budget||[]);
-    var v=d.mtd, g=d.budget, p=g!==0?(v/g-1)*100:null, ok=v>=g;
+    var MF=_FLMF[mk], cmpArr=_flCompArr_(subRaw,compKey), cmpF=_flCompField_(mk,compKey);
+    var v=0, g=0;
+    (subRaw.actuals||[]).forEach(function(r){ if(r.fecha<mStart||r.fecha>vDate)return; v+=(r[MF]||0); });
+    cmpArr.forEach(function(r){ if(lyMode){ if(r.fecha<lyMS||r.fecha>lyVD)return; } else if(r.fecha<mStart||r.fecha>vDate){ return; } g+=(r[cmpF]||0); });
+    var p=g!==0?(v/g-1)*100:null, ok=v>=g;
     cards+='<div class="fl-kpi'+(mk===activeMetric?' hl':'')+'">'
       +'<div class="k-lbl">'+FLOW_MET[mk].label+'</div>'
       +'<div class="k-val" style="color:'+(ok?'var(--fl-green)':'var(--fl-amber)')+'">'+fmt(v)+(ok?' ✓':' !')+'</div>'
@@ -2818,14 +2868,15 @@ function flowKpiCards_(subRaw, activeMetric){
 }
 function flLogo_(){ return '<div class="fl-logo"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>'; }
 function flHead_(title, brand){ return '<div class="fl-head"><div class="fl-title">'+title+'</div><div class="fl-brand">'+(brand||flLogo_())+'</div></div><div class="fl-rule"></div>'; }
-function flLegend_(){ return '<div class="fl-legend"><span><i style="background:#5626e9"></i>Baseline</span><span><i style="background:#c9c9d6"></i>Goal</span></div>'; }
-function flH1box_(h1){ var p=h1.goal!==0?(h1.base/h1.goal-1)*100:null, ok=h1.base>=h1.goal;
-  return '<div class="fl-h1box"><div class="h-lbl">vs Target</div><div class="h-val'+(ok?'':' warn')+'">'+fmt(h1.base)+(ok?' ✓':' !')+'</div><div class="h-tgt">Tgt: '+fmt(h1.goal)+' ('+(p==null?'—':(p>=0?'+':'')+p.toFixed(1)+'%')+')</div></div>'; }
+function flLegend_(goalLbl){ return '<div class="fl-legend"><span><i style="background:#5626e9"></i>Baseline</span><span><i style="background:#c9c9d6"></i>'+(goalLbl||'Goal')+'</span></div>'; }
+function flH1box_(h1, compShort){ var p=h1.goal!==0?(h1.base/h1.goal-1)*100:null, ok=h1.base>=h1.goal;
+  return '<div class="fl-h1box"><div class="h-lbl">vs '+(compShort||'Target')+'</div><div class="h-val'+(ok?'':' warn')+'">'+fmt(h1.base)+(ok?' ✓':' !')+'</div><div class="h-tgt">Tgt: '+fmt(h1.goal)+' ('+(p==null?'—':(p>=0?'+':'')+p.toFixed(1)+'%')+')</div></div>'; }
 
 // per-slide HTML builders. push chart specs to _flowSeries[idx].
 function flowBuildSlide_(def, idx){
   _flowSeries[idx]=[];
-  var vDate=_rawB2BC.meta.last_actuals_date, mesLbl=flowMonthName_(vDate).slice(0,3);
+  var vDate=flowVDate_(), mesLbl=flowMonthName_(vDate);
+  var cmp=_flowComp, cmpLbl=FLOW_COMP[cmp].label, cmpShort=FLOW_COMP[cmp].short;
   if(def.kind==='divider'){
     var rg=FLOW_RG[def.region];
     return '<div class="flow-slide divider">'
@@ -2839,25 +2890,25 @@ function flowBuildSlide_(def, idx){
   if(def.kind==='cover' || def.kind==='monthly'){
     var region = def.kind==='cover' ? null : def.region;
     var sub = flowRegionRaw_(region);
-    var titleTxt = def.kind==='cover' ? 'B2B2C Monthly Performance vs Target' : (FLOW_RG[region].label+' monthly Performance vs Target');
+    var titleTxt = (def.kind==='cover' ? 'B2B2C' : FLOW_RG[region].label)+' Monthly Performance vs '+cmpLbl;
     var brand = region ? ('<span class="fl-flag">'+FLOW_RG[region].flag+'</span>'+flLogo_()) : flLogo_();
     var panels='';
     ['gb','nr','fvm'].forEach(function(mk){
-      var mon=flowMonthly_(sub,mk); var h1=flowH1_(mon); var cid='flc'+idx+'-'+mk;
+      var mon=flowMonthly_(sub,mk,cmp); var h1=flowH1_(mon); var cid='flc'+idx+'-'+mk;
       _flowSeries[idx].push({id:cid, series:mon, gran:'monthly', opts:{labels:true}});
       panels+='<div style="flex:1;display:flex;flex-direction:column;min-height:0">'
-        +'<div class="fl-chart-title">'+FLOW_MET[mk].label+', en $</div>'+flLegend_()
+        +'<div class="fl-chart-title">'+FLOW_MET[mk].label+', en $</div>'+flLegend_(cmpLbl)
         +'<div style="display:flex;gap:10px;align-items:center;flex:1;min-height:0">'
         +'<div class="fl-canvas-wrap" style="flex:1;height:100%"><canvas id="'+cid+'"></canvas></div>'
-        +flH1box_(h1)+'</div></div>';
+        +flH1box_(h1, cmpShort)+'</div></div>';
     });
     var tables='';
     if(def.kind==='cover'){
-      tables=[['gb','GB — MTD vs Bud'],['nr','NR — MTD vs Bud'],['fvm','FVM — MTD vs Bud']].map(function(t){
-        return '<div><div class="fl-tag">'+t[1]+'</div>'+flowGroupTable_(sub,t[0],'budget','Región',true,0)+'</div>'; }).join('');
+      tables=[['gb','GB'],['nr','NR'],['fvm','FVM']].map(function(t){
+        return '<div><div class="fl-tag">'+t[1]+' — MTD vs '+cmpShort+'</div>'+flowGroupTable_(sub,t[0],cmp,'Región',true,0)+'</div>'; }).join('');
     } else {
-      tables=[['nr','NR — MTD vs Bud'],['fvm','FVM — MTD vs Bud']].map(function(t){
-        return '<div><div class="fl-tag">'+t[1]+'</div>'+flowGroupTable_(sub,t[0],'budget','País / Partner',false)+'</div>'; }).join('');
+      tables=[['nr','NR'],['fvm','FVM']].map(function(t){
+        return '<div><div class="fl-tag">'+t[1]+' — MTD vs '+cmpShort+'</div>'+flowGroupTable_(sub,t[0],cmp,'País / Partner',false)+'</div>'; }).join('');
     }
     var body='<div class="fl-body" style="display:flex;gap:22px">'
       +'<div style="flex:1.75;display:flex;flex-direction:column;gap:6px;min-height:0">'+panels+'</div>'
@@ -2866,32 +2917,32 @@ function flowBuildSlide_(def, idx){
   }
   if(def.kind==='okr'){
     var sub=_rawB2BC, mk=def.metric;
-    var titleTxt=FLOW_MET[mk].label+' Performance MTD vs Budget';
-    var dl=compute_(sub,mk,vDate,null,null,null,null,'daily',sub.budget||[]).daily;
+    var titleTxt=mesLbl+' | '+FLOW_MET[mk].label+' Performance MTD vs '+cmpLbl;
+    var dl=flowDaily_(sub,mk,cmp);
     var cid='flc'+idx; _flowSeries[idx].push({id:cid, series:dl, gran:'daily', opts:{labels:true}});
-    var tbl=flowGroupTable_(sub,mk,'budget','Región / País',true);
+    var tbl=flowGroupTable_(sub,mk,cmp,'Región / País',true);
     var body='<div class="fl-body">'
-      +'<div style="display:flex;gap:12px;align-items:center;margin-bottom:8px"><span class="fl-pill bud">vs BUDGET</span><span class="fl-pill okr">OKR — Level 2</span></div>'
+      +'<div style="display:flex;gap:12px;align-items:center;margin-bottom:8px"><span class="fl-pill bud">vs '+cmpLbl.toUpperCase()+'</span><span class="fl-pill okr">OKR — Level 2</span></div>'
       +'<div style="display:flex;gap:18px;height:calc(100% - 44px)">'
-      +'<div style="flex:1.55;display:flex;flex-direction:column;min-height:0">'+flowKpiCards_(sub,mk)
-      +'<div style="font-size:13px;font-weight:700;color:var(--fl-ink2);margin:8px 0 2px">Trend vs Target</div>'
+      +'<div style="flex:1.55;display:flex;flex-direction:column;min-height:0">'+flowKpiCards_(sub,mk,cmp)
+      +'<div style="font-size:13px;font-weight:700;color:var(--fl-ink2);margin:8px 0 2px">Trend vs '+cmpLbl+'</div>'
       +'<div class="fl-canvas-wrap" style="flex:1;min-height:0"><canvas id="'+cid+'"></canvas></div></div>'
-      +'<div style="flex:1;overflow:hidden"><div class="fl-tbl-title">MTD — Performance vs Target</div>'+tbl+'</div>'
+      +'<div style="flex:1;overflow:hidden"><div class="fl-tbl-title">MTD — Performance vs '+cmpLbl+'</div>'+tbl+'</div>'
       +'</div></div>';
     return '<div class="flow-slide">'+flHead_(titleTxt, flLogo_())+body+'</div>';
   }
   if(def.kind==='daily'){
     var region=def.region, sub=flowRegionRaw_(region), mk=def.metric;
-    var titleTxt=mesLbl+' | B2B2C '+FLOW_RG[region].label+' — '+FLOW_MET[mk].label+' Performance MTD vs Budget';
+    var titleTxt=mesLbl+' | B2B2C '+FLOW_RG[region].label+' — '+FLOW_MET[mk].label+' Performance MTD vs '+cmpLbl;
     var brand='<span class="fl-flag">'+FLOW_RG[region].flag+'</span>'+flLogo_();
-    var dl=compute_(sub,mk,vDate,null,null,null,null,'daily',sub.budget||[]).daily;
+    var dl=flowDaily_(sub,mk,cmp);
     var cid='flc'+idx; _flowSeries[idx].push({id:cid, series:dl, gran:'daily', opts:{labels:true}});
-    var tbl=flowGroupTable_(sub,mk,'budget','País / Partner',false);
+    var tbl=flowGroupTable_(sub,mk,cmp,'País / Partner',false);
     var body='<div class="fl-body"><div style="display:flex;gap:18px;height:100%">'
-      +'<div style="flex:1.55;display:flex;flex-direction:column;min-height:0">'+flowKpiCards_(sub,mk)
-      +'<div style="font-size:13px;font-weight:700;color:var(--fl-ink2);margin:8px 0 2px">Trend vs Target</div>'
+      +'<div style="flex:1.55;display:flex;flex-direction:column;min-height:0">'+flowKpiCards_(sub,mk,cmp)
+      +'<div style="font-size:13px;font-weight:700;color:var(--fl-ink2);margin:8px 0 2px">Trend vs '+cmpLbl+'</div>'
       +'<div class="fl-canvas-wrap" style="flex:1;min-height:0"><canvas id="'+cid+'"></canvas></div></div>'
-      +'<div style="flex:1;overflow:hidden"><div class="fl-tbl-title">MTD — Performance vs Target</div>'+tbl+'</div>'
+      +'<div style="flex:1;overflow:hidden"><div class="fl-tbl-title">MTD — Performance vs '+cmpLbl+'</div>'+tbl+'</div>'
       +'</div></div>';
     return '<div class="flow-slide">'+flHead_(titleTxt, brand)+body+'</div>';
   }
@@ -2899,14 +2950,18 @@ function flowBuildSlide_(def, idx){
     var region=def.region, sub=flowRegionRaw_(region);
     var titleTxt=mesLbl+' | B2B2C '+FLOW_RG[region].label+' — GB/NR/FVM Performance MTD';
     var brand='<span class="fl-flag">'+FLOW_RG[region].flag+'</span>'+flLogo_();
-    function triple(comp,tag){
+    function triple(comp,tag,color){
       var cells=['gb','nr','fvm'].map(function(mk){
-        return '<div style="flex:1;overflow:hidden"><div class="fl-tag" style="background:'+(comp==='runrate'?'#5626e9':'#8e5ff3')+'">'+FLOW_MET[mk].short+'</div>'+flowGroupTable_(sub,mk,comp,'País / Partner',false)+'</div>';
+        return '<div style="flex:1;overflow:hidden"><div class="fl-tag" style="background:'+color+'">'+FLOW_MET[mk].short+'</div>'+flowGroupTable_(sub,mk,comp,'País / Partner',false)+'</div>';
       }).join('');
       return '<div style="margin-bottom:6px"><div style="font-size:12px;font-weight:800;color:var(--fl-purple);margin-bottom:3px">'+tag+'</div>'
         +'<div style="display:flex;gap:12px">'+cells+'</div></div>';
     }
-    var body='<div class="fl-body" style="overflow:hidden">'+triple('runrate','vs Run Rate')+triple('budget','vs Budget')+'</div>';
+    // primary = selected goal, secondary = Budget (or Run Rate when Budget is selected)
+    var primary=cmp, secondary=(cmp==='budget'?'runrate':'budget');
+    var body='<div class="fl-body" style="overflow:hidden">'
+      +triple(primary,'vs '+FLOW_COMP[primary].label,'#5626e9')
+      +triple(secondary,'vs '+FLOW_COMP[secondary].label,'#8e5ff3')+'</div>';
     return '<div class="flow-slide">'+flHead_(titleTxt, brand)+body+'</div>';
   }
   return '<div class="flow-slide"></div>';
@@ -2936,9 +2991,20 @@ function flowChart_(spec){
   _flowCharts[spec.id]=ch;
 }
 
+function flowPopulateMonths_(){
+  var sel=document.getElementById('flow-month'); if(!sel) return;
+  var seen={}, months=[];
+  (_rawB2BC.actuals||[]).forEach(function(r){ var m=r.fecha.substring(0,7); if(!seen[m]){seen[m]=1;months.push(m);} });
+  months.sort(function(a,b){ return a<b?1:-1; }); // most recent first
+  sel.innerHTML=months.map(function(m){
+    var p=m.split('-'); return '<option value="'+m+'">'+flowMonthName_(m+'-01')+' '+p[0]+'</option>';
+  }).join('');
+  sel.value=_flowMonth;
+}
 function flowBuild_(){
   if(_flowBuilt) return true;
   if(!_rawB2BC || !_rawB2BC.meta){ return false; }
+  if(!_flowMonth) _flowMonth=_rawB2BC.meta.last_actuals_date.substring(0,7);
   var track=document.getElementById('flow-track');
   var jump=document.getElementById('flow-jump');
   var html='', opts='';
@@ -2946,9 +3012,19 @@ function flowBuild_(){
   track.innerHTML=html;
   jump.innerHTML=opts;
   document.getElementById('flow-total').textContent=FLOW_DECK.length;
+  flowPopulateMonths_();
+  var cs=document.getElementById('flow-comp'); if(cs) cs.value=_flowComp;
   _flowBuilt=true;
   return true;
 }
+function flowRebuild_(){
+  Object.keys(_flowCharts).forEach(function(k){ try{ _flowCharts[k].destroy(); }catch(e){} });
+  _flowCharts={}; _flowSeries={}; _flowDrawn={}; _flowBuilt=false;
+  var idx=_flowIdx;
+  if(flowBuild_()) flowShow_(idx);
+}
+function flowSetMonth_(v){ _flowMonth=v; flowRebuild_(); }
+function flowSetComp_(v){ _flowComp=v; flowRebuild_(); }
 function flowDrawCharts_(idx){
   if(_flowDrawn[idx]) return;
   (_flowSeries[idx]||[]).forEach(function(spec){ flowChart_(spec); });
