@@ -848,3 +848,4 @@ function setupEmailTrigger() {
     .create();
   Logger.log('Trigger creado: scheduledEmailSend corre diariamente a las 9am BsAs.');
 }
+ 
