@@ -391,6 +391,88 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
 #ws-loading{display:flex;align-items:center;justify-content:center;height:260px;color:var(--text-3);font-size:15px;gap:12px}
 .ws-spinner{width:26px;height:26px;border:3px solid var(--elevated);border-top-color:var(--primary);border-radius:50%;animation:spinWs .8s linear infinite}
 #ws-mtd-split{display:none;gap:16px;align-items:flex-start}
+
+/* ══ FLOW SEMANAL ══════════════════════════════════════════════════ */
+#view-flow{--fl-purple:#5626e9;--fl-purple2:#8e5ff3;--fl-green:#16a34a;--fl-red:#dc2626;--fl-amber:#f59e0b;
+  --fl-ink:#1a1a2e;--fl-ink2:#4a4a63;--fl-ink3:#8a8aa0;--fl-gray:#c9c9d6;--fl-line:#e6e6ee;
+  font-family:'Poppins','Montserrat','Segoe UI',sans-serif;}
+.flow-toolbar{display:flex;align-items:center;justify-content:center;gap:14px;padding:10px 16px;
+  background:var(--surface);border-bottom:1px solid var(--elevated);position:sticky;top:0;z-index:5}
+.flow-nav-btn{width:34px;height:34px;border-radius:9px;border:1px solid var(--elevated);background:var(--group-bg);
+  color:var(--text);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.15s}
+.flow-nav-btn:hover{background:var(--primary);color:#fff;border-color:var(--primary)}
+.flow-counter{font-size:13px;color:var(--text-2);min-width:120px;text-align:center;font-weight:600}
+.flow-counter b{color:var(--primary)}
+.flow-tool-sep{width:1px;height:22px;background:var(--elevated)}
+.flow-jump{background:var(--group-bg);border:1px solid var(--elevated);color:var(--text);border-radius:8px;
+  padding:6px 8px;font-size:12px;font-family:inherit;max-width:230px}
+.flow-hint{font-size:11px;color:var(--text-3)}
+.flow-stage-wrap{display:flex;align-items:center;justify-content:center;padding:24px 16px;
+  background:var(--bg);min-height:calc(100vh - 120px)}
+.flow-scaler{position:relative}
+.flow-slide{width:1280px;height:720px;background:#fff;color:var(--fl-ink);position:absolute;top:0;left:0;
+  box-shadow:0 12px 40px rgba(0,0,0,.28);overflow:hidden;display:none;border-radius:6px}
+.flow-slide.active{display:block}
+.flow-slide *{box-sizing:border-box}
+/* content-slide chrome */
+.fl-head{display:flex;align-items:center;justify-content:space-between;padding:26px 40px 0}
+.fl-title{font-size:27px;font-weight:800;color:var(--fl-purple);letter-spacing:-.3px}
+.fl-brand{display:flex;align-items:center;gap:14px}
+.fl-flag{font-size:26px;line-height:1}
+.fl-logo{display:flex;gap:2px;align-items:center}
+.fl-logo i{display:block;width:5px;border-radius:2px;background:var(--fl-purple)}
+.fl-logo i:nth-child(1){height:10px}.fl-logo i:nth-child(2){height:16px}.fl-logo i:nth-child(3){height:22px}
+.fl-logo i:nth-child(4){height:28px;background:var(--fl-purple2)}.fl-logo i:nth-child(5){height:22px;background:var(--fl-purple2)}
+.fl-logo i:nth-child(6){height:16px;background:var(--fl-purple2)}.fl-logo i:nth-child(7){height:10px;background:var(--fl-purple2)}
+.fl-rule{height:2px;background:linear-gradient(90deg,var(--fl-purple),var(--fl-purple2) 40%,transparent);margin:12px 40px 0}
+.fl-body{padding:14px 40px 0;height:calc(720px - 96px)}
+/* pills */
+.fl-pill{display:inline-flex;align-items:center;font-size:12px;font-weight:700;color:#fff;border-radius:6px;padding:5px 14px;letter-spacing:.4px}
+.fl-pill.bud{background:var(--fl-purple)}
+.fl-pill.okr{background:var(--fl-green)}
+/* KPI cards */
+.fl-kpirow{display:flex;gap:14px}
+.fl-kpi{flex:1;border:1.5px solid var(--fl-line);border-radius:12px;padding:10px 14px;background:#fafaff}
+.fl-kpi .k-lbl{font-size:12px;font-weight:700;color:var(--fl-ink2)}
+.fl-kpi .k-val{font-size:24px;font-weight:800;margin-top:2px}
+.fl-kpi .k-tgt{font-size:11px;color:var(--fl-ink3);margin-top:1px}
+.fl-kpi.hl{border-color:var(--fl-purple);background:#f3efff}
+/* chart panels */
+.fl-chart-title{font-size:14px;font-weight:800;color:var(--fl-purple);text-align:center;margin-bottom:2px}
+.fl-legend{display:flex;gap:14px;justify-content:center;font-size:10px;color:var(--fl-ink3);margin-bottom:2px}
+.fl-legend span{display:inline-flex;align-items:center;gap:4px}
+.fl-legend i{width:9px;height:9px;border-radius:2px;display:inline-block}
+.fl-canvas-wrap{position:relative;width:100%}
+/* H1 vs target box */
+.fl-h1box{border:1.5px solid var(--fl-purple2);border-radius:10px;padding:8px 12px;text-align:center;background:#faf8ff;min-width:120px}
+.fl-h1box .h-lbl{font-size:10px;font-weight:700;color:var(--fl-ink2)}
+.fl-h1box .h-val{font-size:22px;font-weight:800;color:var(--fl-green)}
+.fl-h1box .h-val.warn{color:var(--fl-amber)}
+.fl-h1box .h-tgt{font-size:10px;color:var(--fl-ink3)}
+/* tables */
+.fl-tbl{width:100%;border-collapse:collapse;font-size:11px}
+.fl-tbl th{background:var(--fl-purple);color:#fff;font-weight:700;padding:5px 8px;text-align:right;font-size:10px}
+.fl-tbl th:first-child{text-align:left;border-top-left-radius:6px}
+.fl-tbl th:last-child{border-top-right-radius:6px}
+.fl-tbl td{padding:4px 8px;text-align:right;border-bottom:1px solid var(--fl-line);color:var(--fl-ink)}
+.fl-tbl td:first-child{text-align:left;color:var(--fl-ink2)}
+.fl-tbl tr.grp td{background:#f3f1fb;font-weight:700;color:var(--fl-ink)}
+.fl-tbl tr.tot td{background:#eee9fb;font-weight:800;border-top:2px solid var(--fl-purple2)}
+.fl-pos{color:var(--fl-green);font-weight:700}
+.fl-neg{color:var(--fl-red);font-weight:700}
+.fl-tbl-title{background:#fff;border:1.5px solid var(--fl-purple);color:var(--fl-purple);font-weight:800;
+  font-size:13px;text-align:center;padding:6px;border-radius:8px;margin-bottom:6px}
+.fl-tag{display:inline-block;font-size:10px;font-weight:700;color:#fff;background:var(--fl-purple2);border-radius:5px;padding:2px 9px;margin-bottom:4px}
+/* divider slide */
+.flow-slide.divider{background:var(--fl-purple);color:#fff}
+.fl-div-circle{position:absolute;right:-90px;top:20px;width:420px;height:420px;border-radius:50%;background:rgba(255,255,255,.10)}
+.fl-div-ico{position:absolute;right:120px;top:150px;width:150px;height:150px;color:#fff;opacity:.95}
+.fl-div-flag{position:absolute;left:60px;top:250px;font-size:44px}
+.fl-div-title{position:absolute;left:60px;top:305px;font-size:52px;font-weight:800;color:#fff;letter-spacing:-1px}
+.fl-div-logo{position:absolute;left:60px;bottom:52px;display:flex;align-items:center;gap:12px;color:#fff}
+.fl-div-logo .dl-txt{font-weight:800;font-size:22px;line-height:1}
+.fl-div-logo .dl-txt small{display:block;font-weight:500;font-size:11px;opacity:.75;letter-spacing:3px}
+.fl-note{font-size:11px;color:var(--fl-ink3);font-style:italic;margin-top:6px}
 </style>
 </head>
 <body>
@@ -440,6 +522,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
   <div class="view-nav">
     <button class="vnav-btn active" id="vnav-daily"  onclick="switchMainView('daily')">Daily</button>
     <button class="vnav-btn"        id="vnav-weekly" onclick="switchMainView('weekly')">Weekly</button>
+    <button class="vnav-btn"        id="vnav-flow"   onclick="switchMainView('flow')">Flow Semanal</button>
   </div>
   <div id="daily-lob-toggle" class="lob-toggle" style="margin-left:6px">
     <button class="lob-btn active" id="btn-lob-b2bc" onclick="switchLob('b2bc')">B2B2C</button>
@@ -1002,6 +1085,23 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
     <div id="ws-error-box"></div>
   </div>
 </div><!-- /view-weekly -->
+
+<!-- ══ FLOW SEMANAL VIEW ════════════════════════════════════════ -->
+<div id="view-flow" style="display:none">
+  <div class="flow-toolbar">
+    <button class="flow-nav-btn" id="flow-prev" onclick="flowGo_(-1)" title="Anterior (←)">&#8249;</button>
+    <span class="flow-counter"><b id="flow-cur">1</b> / <span id="flow-total">19</span></span>
+    <button class="flow-nav-btn" id="flow-next" onclick="flowGo_(1)" title="Siguiente (→)">&#8250;</button>
+    <span class="flow-tool-sep"></span>
+    <select class="flow-jump" id="flow-jump" onchange="flowShow_(+this.value)"></select>
+    <span class="flow-hint">Usá ← → para navegar. Cada slide es 1280×720 — sacá la captura del recuadro.</span>
+  </div>
+  <div class="flow-stage-wrap">
+    <div class="flow-scaler" id="flow-scaler">
+      <div id="flow-track"></div>
+    </div>
+  </div>
+</div><!-- /view-flow -->
 
 <!-- AI Chat Panel -->
 <script>
@@ -2232,13 +2332,18 @@ function switchMainView(view) {
   _activeView = view;
   document.getElementById('view-daily').style.display   = (view === 'daily')  ? '' : 'none';
   document.getElementById('view-weekly').style.display  = (view === 'weekly') ? '' : 'none';
+  var vf = document.getElementById('view-flow');
+  if (vf) vf.style.display = (view === 'flow') ? '' : 'none';
   document.getElementById('vnav-daily').classList.toggle('active',  view === 'daily');
   document.getElementById('vnav-weekly').classList.toggle('active', view === 'weekly');
+  var vnf = document.getElementById('vnav-flow'); if (vnf) vnf.classList.toggle('active', view === 'flow');
   document.getElementById('daily-lob-toggle').style.display = (view === 'daily') ? '' : 'none';
-  document.getElementById('topbar-title').textContent = (view === 'weekly') ? 'Weekly Summary' : 'Daily Dashboard';
+  document.getElementById('topbar-title').textContent =
+    view === 'weekly' ? 'Weekly Summary' : view === 'flow' ? 'Flow Semanal' : 'Daily Dashboard';
   if (view === 'daily') updateAiAgent(_lob);
-  else _wsUpdateAiAgent(_wsLob);
+  else if (view === 'weekly') _wsUpdateAiAgent(_wsLob);
   if (view === 'weekly' && !_wsLoaded) { _wsLoadData(); }
+  if (view === 'flow') flowOpen_();
 }
 
 // ══ WEEKLY JS ══════════════════════════════════════════════════
@@ -2609,6 +2714,284 @@ function submitEmail() {
     })
     .sendDailyEmailTo(recipients);
 }
+
+// ══ FLOW SEMANAL ════════════════════════════════════════════════════
+var FLOW_MET = {
+  gb:{label:'Gross Bookings', short:'GB'},
+  nr:{label:'Net Revenues',   short:'NR'},
+  fvm:{label:'FVM',           short:'FVM'}
+};
+var FLOW_RG = {
+  BR:  {label:'Brasil', flag:'🇧🇷'},
+  NAM: {label:'MX/US',  flag:'🇲🇽'},
+  SAH: {label:'Hispa',  flag:'🌎'}
+};
+var FLOW_DECK = [
+  {kind:'cover', name:'B2B2C — Resumen mensual'},
+  {kind:'okr', metric:'gb', name:'OKR L2 — Gross Bookings'},
+  {kind:'okr', metric:'nr', name:'OKR L2 — Net Revenues'},
+  {kind:'okr', metric:'fvm', name:'OKR L2 — FVM'},
+  {kind:'divider', region:'BR', name:'— Brasil —'},
+  {kind:'monthly', region:'BR', name:'Brasil — Mensual'},
+  {kind:'daily', region:'BR', metric:'nr', name:'Brasil — NR diario'},
+  {kind:'daily', region:'BR', metric:'fvm', name:'Brasil — FVM diario'},
+  {kind:'tables', region:'BR', name:'Brasil — Tablas GB/NR/FVM'},
+  {kind:'divider', region:'NAM', name:'— MX/US —'},
+  {kind:'monthly', region:'NAM', name:'MX/US — Mensual'},
+  {kind:'daily', region:'NAM', metric:'nr', name:'MX/US — NR diario'},
+  {kind:'daily', region:'NAM', metric:'fvm', name:'MX/US — FVM diario'},
+  {kind:'tables', region:'NAM', name:'MX/US — Tablas GB/NR/FVM'},
+  {kind:'divider', region:'SAH', name:'— Hispa —'},
+  {kind:'monthly', region:'SAH', name:'Hispa — Mensual'},
+  {kind:'daily', region:'SAH', metric:'nr', name:'Hispa — NR diario'},
+  {kind:'daily', region:'SAH', metric:'fvm', name:'Hispa — FVM diario'},
+  {kind:'tables', region:'SAH', name:'Hispa — Tablas GB/NR/FVM'}
+];
+var _flowIdx = 0, _flowCharts = {}, _flowSeries = {}, _flowDrawn = {}, _flowBuilt = false;
+
+function flowMonthName_(vDate){
+  var M=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  return M[parseInt(vDate.split('-')[1])-1];
+}
+function flowRegionRaw_(regionKey){
+  if(!regionKey) return _rawB2BC;
+  function f(arr){ return (arr||[]).filter(function(r){ return getRegion_(r.pais)===regionKey; }); }
+  return { actuals:f(_rawB2BC.actuals), actuals_ly:f(_rawB2BC.actuals_ly),
+           budget:f(_rawB2BC.budget), runrate:f(_rawB2BC.runrate), meta:_rawB2BC.meta };
+}
+var _FLMF  = {gb:'gross_bookings',nr:'net_revenues',fvm:'fvm'};
+var _FLBMF = {gb:'gross_bookings',nr:'net_revenue', fvm:'fvm'};
+
+// monthly aggregation over all available months: v=actuals, bud=budget
+function flowMonthly_(subRaw, metricKey){
+  var MF=_FLMF[metricKey], BMF=_FLBMF[metricKey];
+  var mM={}, bM={};
+  (subRaw.actuals||[]).forEach(function(r){var m=r.fecha.substring(0,7);mM[m]=(mM[m]||0)+(r[MF]||0);});
+  (subRaw.budget||[]).forEach(function(r){var m=r.fecha.substring(0,7);bM[m]=(bM[m]||0)+(r[BMF]||0);});
+  var keys={}; Object.keys(mM).forEach(function(k){keys[k]=1;}); Object.keys(bM).forEach(function(k){keys[k]=1;});
+  return Object.keys(keys).sort().map(function(m){ return {date:m+'-01', v:Math.round((mM[m]||0)*100)/100, bud:Math.round((bM[m]||0)*100)/100, ly:0, projected:false}; });
+}
+function flowH1_(monthly){ var b=0,g=0; monthly.forEach(function(m){b+=m.v;g+=m.bud;}); return {base:b,goal:g}; }
+
+// grouped MTD table region→país  (comp: 'budget'|'runrate'). childMax=0 hides children.
+function flowGroupTable_(subRaw, metricKey, comp, col1, groupByRegion, childMax){
+  if(childMax===undefined) childMax=8;
+  var vDate=subRaw.meta.last_actuals_date, mStart=vDate.substring(0,7)+'-01';
+  var MF=_FLMF[metricKey], BMF=_FLBMF[metricKey];
+  var cmp = comp==='runrate' ? (subRaw.runrate||[]) : (subRaw.budget||[]);
+  var G={};
+  function gk(r){ return groupByRegion ? getRegion_(r.pais) : (r.pais||'Other'); }
+  function ck(r){ return groupByRegion ? (r.pais||'Other') : (r.partner||'Other'); }
+  function grp(k){ G[k]=G[k]||{base:0,goal:0,ch:{}}; return G[k]; }
+  function chi(k,c){ var g=grp(k); g.ch[c]=g.ch[c]||{base:0,goal:0}; return g.ch[c]; }
+  (subRaw.actuals||[]).forEach(function(r){ if(r.fecha<mStart||r.fecha>vDate)return; var v=r[MF]||0; grp(gk(r)).base+=v; chi(gk(r),ck(r)).base+=v; });
+  cmp.forEach(function(r){ if(r.fecha<mStart||r.fecha>vDate)return; var v=r[BMF]||0; grp(gk(r)).goal+=v; chi(gk(r),ck(r)).goal+=v; });
+  var order = groupByRegion ? ['BR','SAH','NAM'] : Object.keys(G).sort(function(a,b){return G[b].base-G[a].base;});
+  function cell(d){ return '<td class="'+(d>=0?'fl-pos':'fl-neg')+'">'+(d>=0?'+':'')+fmtShort(d)+'</td>'; }
+  function pct(b,g){ return g!==0 ? (b/g-1)*100 : null; }
+  function pctCell(b,g){ var p=pct(b,g); return '<td class="'+((b-g)>=0?'fl-pos':'fl-neg')+'">'+(p==null?'—':(p>=0?'+':'')+Math.round(p)+'%')+'</td>'; }
+  var body='',TB=0,TG=0;
+  order.forEach(function(k){ var g=G[k]; if(!g)return; TB+=g.base; TG+=g.goal;
+    var lbl = groupByRegion ? (REGION_LABEL_[k]||k) : k;
+    body+='<tr class="grp"><td>'+lbl+'</td><td>'+fmtShort(g.base)+'</td>'+cell(g.base-g.goal)+pctCell(g.base,g.goal)+'</tr>';
+    var kids=Object.keys(g.ch).map(function(c){return {name:c,base:g.ch[c].base,goal:g.ch[c].goal};})
+      .sort(function(a,b){return b.base-a.base;});
+    if(childMax!==0 && kids.length>1){ kids.slice(0,childMax).forEach(function(c){
+      body+='<tr><td>&nbsp;&nbsp;'+c.name+'</td><td>'+fmtShort(c.base)+'</td>'+cell(c.base-c.goal)+pctCell(c.base,c.goal)+'</tr>';
+    }); }
+  });
+  body+='<tr class="tot"><td>Total</td><td>'+fmtShort(TB)+'</td>'+cell(TB-TG)+pctCell(TB,TG)+'</tr>';
+  return '<table class="fl-tbl"><thead><tr><th>'+(col1||'Región / País')+'</th><th>Baseline</th><th>Delta [$]</th><th>Delta [%]</th></tr></thead><tbody>'+body+'</tbody></table>';
+}
+
+function flowKpiCards_(subRaw, activeMetric){
+  var cards='';
+  ['gb','nr','fvm'].forEach(function(mk){
+    var d=compute_(subRaw,mk,subRaw.meta.last_actuals_date,null,null,null,null,'daily',subRaw.budget||[]);
+    var v=d.mtd, g=d.budget, p=g!==0?(v/g-1)*100:null, ok=v>=g;
+    cards+='<div class="fl-kpi'+(mk===activeMetric?' hl':'')+'">'
+      +'<div class="k-lbl">'+FLOW_MET[mk].label+'</div>'
+      +'<div class="k-val" style="color:'+(ok?'var(--fl-green)':'var(--fl-amber)')+'">'+fmt(v)+(ok?' ✓':' !')+'</div>'
+      +'<div class="k-tgt">Tgt: '+fmt(g)+' ('+(p==null?'—':(p>=0?'+':'')+p.toFixed(2)+'%')+')</div></div>';
+  });
+  return '<div class="fl-kpirow">'+cards+'</div>';
+}
+function flLogo_(){ return '<div class="fl-logo"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>'; }
+function flHead_(title, brand){ return '<div class="fl-head"><div class="fl-title">'+title+'</div><div class="fl-brand">'+(brand||flLogo_())+'</div></div><div class="fl-rule"></div>'; }
+function flLegend_(){ return '<div class="fl-legend"><span><i style="background:#5626e9"></i>Baseline</span><span><i style="background:#c9c9d6"></i>Goal</span></div>'; }
+function flH1box_(h1){ var p=h1.goal!==0?(h1.base/h1.goal-1)*100:null, ok=h1.base>=h1.goal;
+  return '<div class="fl-h1box"><div class="h-lbl">vs Target</div><div class="h-val'+(ok?'':' warn')+'">'+fmt(h1.base)+(ok?' ✓':' !')+'</div><div class="h-tgt">Tgt: '+fmt(h1.goal)+' ('+(p==null?'—':(p>=0?'+':'')+p.toFixed(1)+'%')+')</div></div>'; }
+
+// per-slide HTML builders. push chart specs to _flowSeries[idx].
+function flowBuildSlide_(def, idx){
+  _flowSeries[idx]=[];
+  var vDate=_rawB2BC.meta.last_actuals_date, mesLbl=flowMonthName_(vDate).slice(0,3);
+  if(def.kind==='divider'){
+    var rg=FLOW_RG[def.region];
+    return '<div class="flow-slide divider">'
+      +'<div class="fl-div-circle"></div>'
+      +'<svg class="fl-div-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="10" cy="10" r="6"/><line x1="14.5" y1="14.5" x2="21" y2="21" stroke-width="2.2"/><text x="10" y="13.5" font-size="9" text-anchor="middle" fill="currentColor" stroke="none" font-weight="bold">$</text></svg>'
+      +'<div class="fl-div-flag">'+rg.flag+'</div>'
+      +'<div class="fl-div-title">'+rg.label+' performance</div>'
+      +'<div class="fl-div-logo">'+flLogo_()+'<div class="dl-txt">DESPEGAR<small>GROUP</small></div></div>'
+      +'</div>';
+  }
+  if(def.kind==='cover' || def.kind==='monthly'){
+    var region = def.kind==='cover' ? null : def.region;
+    var sub = flowRegionRaw_(region);
+    var titleTxt = def.kind==='cover' ? 'B2B2C Monthly Performance vs Target' : (FLOW_RG[region].label+' monthly Performance vs Target');
+    var brand = region ? ('<span class="fl-flag">'+FLOW_RG[region].flag+'</span>'+flLogo_()) : flLogo_();
+    var panels='';
+    ['gb','nr','fvm'].forEach(function(mk){
+      var mon=flowMonthly_(sub,mk); var h1=flowH1_(mon); var cid='flc'+idx+'-'+mk;
+      _flowSeries[idx].push({id:cid, series:mon, gran:'monthly', opts:{labels:true}});
+      panels+='<div style="flex:1;display:flex;flex-direction:column;min-height:0">'
+        +'<div class="fl-chart-title">'+FLOW_MET[mk].label+', en $</div>'+flLegend_()
+        +'<div style="display:flex;gap:10px;align-items:center;flex:1;min-height:0">'
+        +'<div class="fl-canvas-wrap" style="flex:1;height:100%"><canvas id="'+cid+'"></canvas></div>'
+        +flH1box_(h1)+'</div></div>';
+    });
+    var tables='';
+    if(def.kind==='cover'){
+      tables=[['gb','GB — MTD vs Bud'],['nr','NR — MTD vs Bud'],['fvm','FVM — MTD vs Bud']].map(function(t){
+        return '<div><div class="fl-tag">'+t[1]+'</div>'+flowGroupTable_(sub,t[0],'budget','Región',true,0)+'</div>'; }).join('');
+    } else {
+      tables=[['nr','NR — MTD vs Bud'],['fvm','FVM — MTD vs Bud']].map(function(t){
+        return '<div><div class="fl-tag">'+t[1]+'</div>'+flowGroupTable_(sub,t[0],'budget','País / Partner',false)+'</div>'; }).join('');
+    }
+    var body='<div class="fl-body" style="display:flex;gap:22px">'
+      +'<div style="flex:1.75;display:flex;flex-direction:column;gap:6px;min-height:0">'+panels+'</div>'
+      +'<div style="flex:1;display:flex;flex-direction:column;gap:8px;overflow:hidden">'+tables+'</div></div>';
+    return '<div class="flow-slide">'+flHead_(titleTxt, brand)+body+'</div>';
+  }
+  if(def.kind==='okr'){
+    var sub=_rawB2BC, mk=def.metric;
+    var titleTxt=FLOW_MET[mk].label+' Performance MTD vs Budget';
+    var dl=compute_(sub,mk,vDate,null,null,null,null,'daily',sub.budget||[]).daily;
+    var cid='flc'+idx; _flowSeries[idx].push({id:cid, series:dl, gran:'daily', opts:{labels:true}});
+    var tbl=flowGroupTable_(sub,mk,'budget','Región / País',true);
+    var body='<div class="fl-body">'
+      +'<div style="display:flex;gap:12px;align-items:center;margin-bottom:8px"><span class="fl-pill bud">vs BUDGET</span><span class="fl-pill okr">OKR — Level 2</span></div>'
+      +'<div style="display:flex;gap:18px;height:calc(100% - 44px)">'
+      +'<div style="flex:1.55;display:flex;flex-direction:column;min-height:0">'+flowKpiCards_(sub,mk)
+      +'<div style="font-size:13px;font-weight:700;color:var(--fl-ink2);margin:8px 0 2px">Trend vs Target</div>'
+      +'<div class="fl-canvas-wrap" style="flex:1;min-height:0"><canvas id="'+cid+'"></canvas></div></div>'
+      +'<div style="flex:1;overflow:hidden"><div class="fl-tbl-title">MTD — Performance vs Target</div>'+tbl+'</div>'
+      +'</div></div>';
+    return '<div class="flow-slide">'+flHead_(titleTxt, flLogo_())+body+'</div>';
+  }
+  if(def.kind==='daily'){
+    var region=def.region, sub=flowRegionRaw_(region), mk=def.metric;
+    var titleTxt=mesLbl+' | B2B2C '+FLOW_RG[region].label+' — '+FLOW_MET[mk].label+' Performance MTD vs Budget';
+    var brand='<span class="fl-flag">'+FLOW_RG[region].flag+'</span>'+flLogo_();
+    var dl=compute_(sub,mk,vDate,null,null,null,null,'daily',sub.budget||[]).daily;
+    var cid='flc'+idx; _flowSeries[idx].push({id:cid, series:dl, gran:'daily', opts:{labels:true}});
+    var tbl=flowGroupTable_(sub,mk,'budget','País / Partner',false);
+    var body='<div class="fl-body"><div style="display:flex;gap:18px;height:100%">'
+      +'<div style="flex:1.55;display:flex;flex-direction:column;min-height:0">'+flowKpiCards_(sub,mk)
+      +'<div style="font-size:13px;font-weight:700;color:var(--fl-ink2);margin:8px 0 2px">Trend vs Target</div>'
+      +'<div class="fl-canvas-wrap" style="flex:1;min-height:0"><canvas id="'+cid+'"></canvas></div></div>'
+      +'<div style="flex:1;overflow:hidden"><div class="fl-tbl-title">MTD — Performance vs Target</div>'+tbl+'</div>'
+      +'</div></div>';
+    return '<div class="flow-slide">'+flHead_(titleTxt, brand)+body+'</div>';
+  }
+  if(def.kind==='tables'){
+    var region=def.region, sub=flowRegionRaw_(region);
+    var titleTxt=mesLbl+' | B2B2C '+FLOW_RG[region].label+' — GB/NR/FVM Performance MTD';
+    var brand='<span class="fl-flag">'+FLOW_RG[region].flag+'</span>'+flLogo_();
+    function triple(comp,tag){
+      var cells=['gb','nr','fvm'].map(function(mk){
+        return '<div style="flex:1;overflow:hidden"><div class="fl-tag" style="background:'+(comp==='runrate'?'#5626e9':'#8e5ff3')+'">'+FLOW_MET[mk].short+'</div>'+flowGroupTable_(sub,mk,comp,'País / Partner',false)+'</div>';
+      }).join('');
+      return '<div style="margin-bottom:6px"><div style="font-size:12px;font-weight:800;color:var(--fl-purple);margin-bottom:3px">'+tag+'</div>'
+        +'<div style="display:flex;gap:12px">'+cells+'</div></div>';
+    }
+    var body='<div class="fl-body" style="overflow:hidden">'+triple('runrate','vs Run Rate')+triple('budget','vs Budget')+'</div>';
+    return '<div class="flow-slide">'+flHead_(titleTxt, brand)+body+'</div>';
+  }
+  return '<div class="flow-slide"></div>';
+}
+
+function flowChart_(spec){
+  if(_flowCharts[spec.id]){ _flowCharts[spec.id].destroy(); delete _flowCharts[spec.id]; }
+  var el=document.getElementById(spec.id); if(!el) return;
+  var s=spec.series, gran=spec.gran, opts=spec.opts||{};
+  var labels=s.map(function(d){return fmtChartLabel_(d.date,gran);});
+  var base  =s.map(function(d){return d.projected?null:d.v;});
+  var goal  =s.map(function(d){return d.bud!=null?d.bud:null;});
+  var ch=new Chart(el.getContext('2d'),{
+    plugins:[_barLabelsPlugin_],
+    data:{labels:labels,datasets:[
+      {type:'bar',label:'Baseline',data:base,backgroundColor:'rgba(86,38,233,.9)',borderRadius:2,order:2,_showLabels:opts.labels!==false,barPercentage:.92,categoryPercentage:.7},
+      {type:'bar',label:'Goal',data:goal,backgroundColor:'rgba(190,190,208,.65)',borderRadius:2,order:3,barPercentage:.92,categoryPercentage:.7}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,
+      plugins:{legend:{display:false},tooltip:{enabled:false}},
+      scales:{
+        x:{grid:{display:false},ticks:{color:'#8a8aa0',font:{size:gran==='daily'?8:10},maxRotation:0,autoSkip:false},border:{color:'transparent'}},
+        y:{display:opts.showY!==false,grid:{color:'rgba(0,0,0,.05)'},ticks:{color:'#8a8aa0',font:{size:9},callback:function(v){return fmtShort(v);}},border:{color:'transparent'}}
+      }}
+  });
+  ch._tvLabelColor='rgba(40,30,80,.9)'; ch._isPct=false;
+  _flowCharts[spec.id]=ch;
+}
+
+function flowBuild_(){
+  if(_flowBuilt) return true;
+  if(!_rawB2BC || !_rawB2BC.meta){ return false; }
+  var track=document.getElementById('flow-track');
+  var jump=document.getElementById('flow-jump');
+  var html='', opts='';
+  FLOW_DECK.forEach(function(def,i){ html+=flowBuildSlide_(def,i); opts+='<option value="'+i+'">'+(i+1)+'. '+def.name+'</option>'; });
+  track.innerHTML=html;
+  jump.innerHTML=opts;
+  document.getElementById('flow-total').textContent=FLOW_DECK.length;
+  _flowBuilt=true;
+  return true;
+}
+function flowDrawCharts_(idx){
+  if(_flowDrawn[idx]) return;
+  (_flowSeries[idx]||[]).forEach(function(spec){ flowChart_(spec); });
+  _flowDrawn[idx]=true;
+}
+function flowShow_(idx){
+  if(!_flowBuilt) return;
+  idx=Math.max(0,Math.min(FLOW_DECK.length-1,idx));
+  _flowIdx=idx;
+  var slides=document.querySelectorAll('#flow-track .flow-slide');
+  slides.forEach(function(s,i){ s.classList.toggle('active', i===idx); });
+  document.getElementById('flow-cur').textContent=idx+1;
+  document.getElementById('flow-jump').value=idx;
+  flowScale_();
+  flowDrawCharts_(idx);
+}
+function flowGo_(step){ flowShow_(_flowIdx+step); }
+function flowScale_(){
+  var wrap=document.querySelector('#view-flow .flow-stage-wrap');
+  var scaler=document.getElementById('flow-scaler');
+  if(!wrap||!scaler) return;
+  var availW=wrap.clientWidth-32, availH=window.innerHeight-120-40;
+  var s=Math.min(availW/1280, availH/720, 1.35); if(!(s>0)) s=0.5;
+  scaler.style.width='1280px'; scaler.style.height='720px';
+  scaler.style.transformOrigin='center center';
+  scaler.style.transform='scale('+s+')';
+  wrap.style.height=(720*s+48)+'px';
+}
+function flowOpen_(){
+  if(!flowBuild_()){
+    document.getElementById('flow-track').innerHTML='<div class="flow-slide active" style="display:flex;align-items:center;justify-content:center;color:#8a8aa0;font-size:16px">Cargando datos… reintentá en unos segundos.</div>';
+    flowScale_();
+    return;
+  }
+  flowShow_(_flowIdx);
+}
+document.addEventListener('keydown', function(e){
+  if(_activeView!=='flow') return;
+  if(e.target && /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
+  if(e.key==='ArrowRight'||e.key==='PageDown'){ e.preventDefault(); flowGo_(1); }
+  else if(e.key==='ArrowLeft'||e.key==='PageUp'){ e.preventDefault(); flowGo_(-1); }
+});
+window.addEventListener('resize', function(){ if(_activeView==='flow') flowScale_(); });
 </script>
 </body>
 </html>
