@@ -1767,7 +1767,8 @@ var _state = {
 };
 
 var _charts = {};
-var _okrMonthly = false;  // false = vista trimestral; true = vista mensual
+var _okrMonthly  = false;  // false = vista trimestral; true = vista mensual
+var _okrNominal  = false;  // false = % cumplimiento;  true = valores nominales (act/bud)
 
 // ══════════════════════════════════════════════════════════
 //  Bootstrap
@@ -4119,8 +4120,10 @@ function loadOKR() {
 
 function toggleOKRView() {
   _okrMonthly = !_okrMonthly;
-  var btn = document.getElementById('okr-toggle');
-  if (btn) btn.textContent = _okrMonthly ? '⇄ Trimestral' : '⇄ Mensual';
+  renderOKR(_state.okr);
+}
+function toggleOKRNominal() {
+  _okrNominal = !_okrNominal;
   renderOKR(_state.okr);
 }
 
@@ -4131,6 +4134,21 @@ function fmtOKR(v) {
   var disp = v > 130 ? 130 : (v < 70 ? 0 : v);
   var cls = disp >= 99.98 ? 'okr-ok' : disp >= 79.98 ? 'okr-warn' : 'okr-bad';
   return '<span class="okr-chip '+cls+'">'+disp.toFixed(0)+'%</span>';
+}
+function fmtOKRNominal(act, bud) {
+  function fmtN(n) {
+    if (n === null || n === undefined) return '—';
+    var abs = Math.abs(n), s = n < 0 ? '-' : '';
+    if (abs < 1000) return s + Math.round(abs);
+    if (abs < 1e6)  return s + (abs/1e3).toFixed(1) + 'K';
+    return s + (abs/1e6).toFixed(1) + 'M';
+  }
+  if (act === null || act === undefined)
+    return '<span style="color:var(--muted2)">—</span>';
+  return '<div style="line-height:1.3;text-align:center">'
+    + '<div style="font-size:11px;font-weight:600;color:var(--text)">' + fmtN(act) + '</div>'
+    + '<div style="font-size:9px;color:var(--muted2)">/ ' + fmtN(bud) + '</div>'
+    + '</div>';
 }
 
 function renderOKR(okr) {
@@ -4151,8 +4169,12 @@ function renderOKR(okr) {
   var html =
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
     +'<span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em">OKR Status FY27</span>'
+    +'<div style="display:flex;gap:6px">'
+    +'<button id="okr-toggle-nom" class="gran-btn" onclick="toggleOKRNominal()" style="font-size:11px">'
+    +(_okrNominal ? '% Cumpl.' : '$/Q Nominal')+'</button>'
     +'<button id="okr-toggle" class="gran-btn" onclick="toggleOKRView()" style="font-size:11px">'
-    +(_okrMonthly ? '⇄ Trimestral' : '⇄ Mensual')+'</button></div>';
+    +(_okrMonthly ? '⇄ Trimestral' : '⇄ Mensual')+'</button>'
+    +'</div></div>';
 
   var lobsToRender = _state.lob === 'b2b2c' ? ['b2b2c']
                    : _state.lob === 'b2b'   ? ['b2b']
@@ -4184,18 +4206,25 @@ function renderOKR(okr) {
       if (_okrMonthly) {
         kr.monthly.forEach(function(v, mi) {
           var qBorder = (mi % 3 === 0) ? ' td-q' : '';
-          html += '<td class="'+qBorder+'">'+fmtOKR(v)+'</td>';
+          var cell = _okrNominal ? fmtOKRNominal(kr.monthlyAct[mi], kr.monthlyBud[mi]) : fmtOKR(v);
+          html += '<td class="'+qBorder+'">'+cell+'</td>';
         });
-        kr.quarterly.forEach(function(v) { html += '<td class="td-q">'+fmtOKR(v)+'</td>'; });
-        html += '<td class="td-q">'+fmtOKR(kr.h1)+'</td>';
+        kr.quarterly.forEach(function(v, qi) {
+          var cell = _okrNominal ? fmtOKRNominal(kr.quarterlyAct[qi], kr.quarterlyBud[qi]) : fmtOKR(v);
+          html += '<td class="td-q">'+cell+'</td>';
+        });
+        html += '<td class="td-q">'+(_okrNominal ? fmtOKRNominal(kr.h1Act, kr.h1Bud) : fmtOKR(kr.h1))+'</td>';
       } else {
-        kr.quarterly.forEach(function(v) { html += '<td class="td-q">'+fmtOKR(v)+'</td>'; });
-        html += '<td class="td-q">'+fmtOKR(kr.h1)+'</td>';
+        kr.quarterly.forEach(function(v, qi) {
+          var cell = _okrNominal ? fmtOKRNominal(kr.quarterlyAct[qi], kr.quarterlyBud[qi]) : fmtOKR(v);
+          html += '<td class="td-q">'+cell+'</td>';
+        });
+        html += '<td class="td-q">'+(_okrNominal ? fmtOKRNominal(kr.h1Act, kr.h1Bud) : fmtOKR(kr.h1))+'</td>';
       }
       html += '</tr>';
     });
 
-    // Total row
+    // Total row — siempre en % (es una puntuación ponderada, no una suma de nominales)
     html += '<tr class="okr-total"><td>Total</td><td></td>';
     if (_okrMonthly) {
       d.totalMonthly.forEach(function(v, mi) {

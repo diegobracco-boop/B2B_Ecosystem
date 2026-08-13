@@ -114,51 +114,57 @@ function computeOKR_() {
     var cfg = OKR_CONFIG[lobKey];
 
     var krRows = cfg.krs.map(function(krDef) {
-      // Achievement mensual
-      var monthly = OKR_FY_PERIODS.map(function(ym) {
-        var a = getVal(lobKey, krDef.kr, ESC_ACT, ym);
-        var b = getVal(lobKey, krDef.kr, ESC_BUD, ym);
+      // Valores crudos mensuales
+      var mAct = OKR_FY_PERIODS.map(function(ym){ return getVal(lobKey, krDef.kr, ESC_ACT, ym); });
+      var mBud = OKR_FY_PERIODS.map(function(ym){ return getVal(lobKey, krDef.kr, ESC_BUD, ym); });
+
+      // Achievement mensual (%)
+      var monthly = mAct.map(function(a, i) {
+        var b = mBud[i];
         if (a===null || b===null || b===0) return null;
         return a / b * 100;
       });
 
-      // Achievement trimestral
-      // cumulative=true → punto final del trimestre (meta acumulada); default → suma mensual
-      var quarterly = OKR_QUARTERS.map(function(q) {
-        if (krDef.cumulative) {
-          var lastYm = q.months[q.months.length - 1];
-          var a = getVal(lobKey, krDef.kr, ESC_ACT, lastYm);
-          var b = getVal(lobKey, krDef.kr, ESC_BUD, lastYm);
-          return (a!==null && b!==null && b!==0) ? a/b*100 : null;
-        }
-        var sumA=0, sumB=0, okA=false, okB=false;
-        q.months.forEach(function(ym) {
-          var a=getVal(lobKey,krDef.kr,ESC_ACT,ym), b=getVal(lobKey,krDef.kr,ESC_BUD,ym);
-          if(a!==null){sumA+=a; okA=true;}
-          if(b!==null){sumB+=b; okB=true;}
-        });
-        return (okA && okB && sumB>0) ? sumA/sumB*100 : null;
+      // Valores crudos trimestrales + achievement %
+      // cumulative=true → punto final del trimestre; default → suma mensual
+      var quarterlyAct = OKR_QUARTERS.map(function(q) {
+        if (krDef.cumulative) return getVal(lobKey, krDef.kr, ESC_ACT, q.months[q.months.length-1]);
+        var sum=0, ok=false;
+        q.months.forEach(function(ym){var v=getVal(lobKey,krDef.kr,ESC_ACT,ym); if(v!==null){sum+=v;ok=true;}});
+        return ok ? sum : null;
+      });
+      var quarterlyBud = OKR_QUARTERS.map(function(q) {
+        if (krDef.cumulative) return getVal(lobKey, krDef.kr, ESC_BUD, q.months[q.months.length-1]);
+        var sum=0, ok=false;
+        q.months.forEach(function(ym){var v=getVal(lobKey,krDef.kr,ESC_BUD,ym); if(v!==null){sum+=v;ok=true;}});
+        return ok ? sum : null;
+      });
+      var quarterly = quarterlyAct.map(function(a, i) {
+        var b = quarterlyBud[i];
+        return (a!==null && b!==null && b!==0) ? a/b*100 : null;
       });
 
-      // Achievement H1
+      // Valores crudos H1 + achievement %
       // cumulative=true → último mes del H1 (septiembre); default → suma H1
-      var h1 = (function() {
-        if (krDef.cumulative) {
-          var lastYm = OKR_FY_PERIODS[OKR_FY_PERIODS.length - 1]; // '2026-09'
-          var a = getVal(lobKey, krDef.kr, ESC_ACT, lastYm);
-          var b = getVal(lobKey, krDef.kr, ESC_BUD, lastYm);
-          return (a!==null && b!==null && b!==0) ? a/b*100 : null;
-        }
-        var sumA=0, sumB=0, okA=false, okB=false;
-        OKR_FY_PERIODS.forEach(function(ym) {
-          var a=getVal(lobKey,krDef.kr,ESC_ACT,ym), b=getVal(lobKey,krDef.kr,ESC_BUD,ym);
-          if(a!==null){sumA+=a; okA=true;}
-          if(b!==null){sumB+=b; okB=true;}
-        });
-        return (okA && okB && sumB>0) ? sumA/sumB*100 : null;
+      var h1ActVal = (function() {
+        if (krDef.cumulative) return getVal(lobKey, krDef.kr, ESC_ACT, OKR_FY_PERIODS[OKR_FY_PERIODS.length-1]);
+        var sum=0, ok=false;
+        OKR_FY_PERIODS.forEach(function(ym){var v=getVal(lobKey,krDef.kr,ESC_ACT,ym); if(v!==null){sum+=v;ok=true;}});
+        return ok ? sum : null;
       })();
+      var h1BudVal = (function() {
+        if (krDef.cumulative) return getVal(lobKey, krDef.kr, ESC_BUD, OKR_FY_PERIODS[OKR_FY_PERIODS.length-1]);
+        var sum=0, ok=false;
+        OKR_FY_PERIODS.forEach(function(ym){var v=getVal(lobKey,krDef.kr,ESC_BUD,ym); if(v!==null){sum+=v;ok=true;}});
+        return ok ? sum : null;
+      })();
+      var h1 = (h1ActVal!==null && h1BudVal!==null && h1BudVal!==0) ? h1ActVal/h1BudVal*100 : null;
 
-      return { label: krDef.label, weight: krDef.weight, monthly: monthly, quarterly: quarterly, h1: h1 };
+      return { label: krDef.label, weight: krDef.weight,
+               monthly: monthly, quarterly: quarterly, h1: h1,
+               monthlyAct: mAct, monthlyBud: mBud,
+               quarterlyAct: quarterlyAct, quarterlyBud: quarterlyBud,
+               h1Act: h1ActVal, h1Bud: h1BudVal };
     });
 
     // Total ponderado mensual = Σ(min(achievement_i,130) × weight_i) / 100
