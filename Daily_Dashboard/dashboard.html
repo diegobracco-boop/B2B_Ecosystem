@@ -1104,6 +1104,9 @@ function compute_(raw, metric, vDate, gl_pai, gl_par, gl_pro, gl_at, gran, compS
   else if(gran==='monthly') daily=aggMonthly_(dM,lyDM,curYM,budDM);
   else {
     daily=Object.keys(dM).sort().map(function(d){return{date:d,v:Math.round(dM[d]*100)/100,ly:Math.round((lyDM[d]||0)*100)/100,bud:Math.round((budDM[d]||0)*100)/100};});
+    var _seenD={}; daily.forEach(function(d){_seenD[d.date]=1;});
+    Object.keys(budDM).forEach(function(d){if(!_seenD[d]){daily.push({date:d,v:0,ly:Math.round((lyDM[d]||0)*100)/100,bud:Math.round(budDM[d]*100)/100});_seenD[d]=1;}});
+    daily.sort(function(a,b){return a.date<b.date?-1:1;});
     var _mDays=new Date(+pp[0],+pp[1],0).getDate(),_mPfx=pp[0]+'-'+pp[1]+'-';
     for(var _d=+(pp[2])+1;_d<=_mDays;_d++){var _ds=_mPfx+(_d<10?'0':'')+_d;daily.push({date:_ds,v:null,ly:null,bud:Math.round((budDMFull[_ds]||0)*100)/100,projected:true});}
   }
@@ -1291,6 +1294,9 @@ function computeB2B_(raw, metric, dateModel, vDate, gl_pai, gl_pro, gl_ch, gl_mk
   else if(gran==='monthly') daily=aggMonthly_(dM,lyDM,curYM,budDM);
   else {
     daily=Object.keys(dM).sort().map(function(d){return{date:d,v:Math.round(dM[d]*100)/100,ly:Math.round((lyDM[d]||0)*100)/100,bud:Math.round((budDM[d]||0)*100)/100};});
+    var _seenD2={}; daily.forEach(function(d){_seenD2[d.date]=1;});
+    Object.keys(budDM).forEach(function(d){if(!_seenD2[d]){daily.push({date:d,v:0,ly:Math.round((lyDM[d]||0)*100)/100,bud:Math.round(budDM[d]*100)/100});_seenD2[d]=1;}});
+    daily.sort(function(a,b){return a.date<b.date?-1:1;});
     var _mDays=new Date(+pp[0],+pp[1],0).getDate(),_mPfx=pp[0]+'-'+pp[1]+'-';
     for(var _d=+(pp[2])+1;_d<=_mDays;_d++){var _ds=_mPfx+(_d<10?'0':'')+_d;daily.push({date:_ds,v:null,ly:null,bud:Math.round((budDMFull[_ds]||0)*100)/100,projected:true});}
   }
