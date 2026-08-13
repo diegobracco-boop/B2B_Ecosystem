@@ -17,6 +17,7 @@
   --bg:        #0F0F1E;
   --surface:   #1A1A2E;
   --elevated:  #2D2D44;
+  --segment-bg:#222238;
   --border:    rgba(255,255,255,.07);
   --text:      #FFFFFF;
   --text-2:    #B8B8D1;
@@ -41,6 +42,7 @@
   --bg:        #F4F4F8;
   --surface:   #FFFFFF;
   --elevated:  #EBEBF0;
+  --segment-bg:#F0F0F6;
   --border:    rgba(0,0,0,.08);
   --text:      #12111E;
   --text-2:    #3D3B52;
@@ -190,9 +192,9 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
 .mc-title { font-size: 11px; font-weight: 700; color: var(--text); text-transform: uppercase; letter-spacing: .5px; min-width: 80px; }
 .mc-kpis { display: flex; gap: 20px; }
 .mc-kpi { display: flex; flex-direction: column; gap: 1px; }
-.mc-kpi-lbl { font-size: 9px; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: .5px; }
-.mc-kpi-val { font-family: var(--mono); font-size: 14px; font-weight: 600; color: var(--text); }
-.mc-kpi-delta { font-family: var(--mono); font-size: 10px; font-weight: 600; }
+.mc-kpi-lbl { font-size: 11px; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: .5px; }
+.mc-kpi-val { font-family: var(--mono); font-size: 17px; font-weight: 600; color: var(--text); }
+.mc-kpi-delta { font-family: var(--mono); font-size: 13px; font-weight: 600; }
 .delta-g { color: var(--success); }
 .delta-r { color: var(--danger); }
 .mc-leg { display: flex; gap: 10px; font-size: 10px; color: var(--text-3); margin-left: auto; }
@@ -222,7 +224,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
 .bk-table tr:hover td { background: var(--elevated); }
 .bk-table tr.bk-row-group td { border-top: 1px solid var(--border); }
 .bk-row-total td { font-weight: 700; background: var(--elevated); position: sticky; top: 0; z-index: 1; border-bottom: 2px solid var(--border); }
-.bk-row-segment td { font-weight: 600; background: var(--card-bg); border-top: 2px solid var(--border); }
+.bk-row-segment td { font-weight: 600; background: var(--segment-bg); border-top: 2px solid var(--border); }
 .bk-name { font-weight: 600; color: var(--text); max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bk-name.bk-group { font-weight: 700; }
 .bk-name.bk-child { font-weight: 500; color: var(--text-2); padding-left: 14px; max-width: 96px; }
@@ -1698,7 +1700,7 @@ var _barLabelsPlugin_ = {
     ctx.font = '10px Poppins, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
-    ctx.fillStyle = chart._tvTickColor || 'rgba(0,0,0,.4)';
+    ctx.fillStyle = chart._tvLabelColor || 'rgba(0,0,0,.8)';
     chart.data.datasets.forEach(function(ds, di) {
       if (ds.type !== 'bar' || ds.hidden || !ds._showLabels) return;
       var meta = chart.getDatasetMeta(di);
@@ -1721,16 +1723,16 @@ function renderChart(key, canvasId, daily, viewDate, accentColor, gran, chartsMa
   gran = gran || 'daily';
   chartsMap = chartsMap || _charts;
   var labels  = daily.map(function(d){ return fmtChartLabel_(d.date, gran); });
-  var vals    = daily.map(function(d){ return d.projected ? d.bud : d.v; });
+  var vals    = daily.map(function(d){ return d.projected ? null : d.v; });
   var lyVals  = daily.map(function(d){ return d.projected ? null : d.ly; });
-  var budVals = daily.map(function(d){ return d.projected ? null : (d.bud != null ? d.bud : 0); });
-  var hasBud  = daily.some(function(d){ return !d.projected && (d.bud||0) > 0; });
+  var budVals = daily.map(function(d){ return d.bud != null ? d.bud : 0; });
+  var hasBud  = daily.some(function(d){ return (d.bud||0) > 0; });
   var todayIdx = gran === 'daily'
     ? daily.map(function(d){ return d.date; }).indexOf(viewDate)
     : daily.length - 1;
   var hex = accentColor.replace('#','');
   var rr = parseInt(hex.substr(0,2),16), gg = parseInt(hex.substr(2,2),16), bb = parseInt(hex.substr(4,2),16);
-  var barColors = daily.map(function(d,i){ return d.projected ? 'rgba('+rr+','+gg+','+bb+',.18)' : (i===todayIdx ? accentColor : 'rgba('+rr+','+gg+','+bb+',.4)'); });
+  var barColors = daily.map(function(d,i){ return i===todayIdx ? accentColor : 'rgba('+rr+','+gg+','+bb+',.4)'; });
   var tv = _getThemeVars();
   var budBg  = daily.map(function(){ return tv.budBarBg;  });
   var budBdr = tv.budBarBdr;
@@ -1777,9 +1779,10 @@ function renderChart(key, canvasId, daily, viewDate, accentColor, gran, chartsMa
       }
     }
   });
-  chart._isLight     = tv.isLight;
-  chart._isPct       = isPct;
-  chart._tvTickColor = tv.tickColor;
+  chart._isLight      = tv.isLight;
+  chart._isPct        = isPct;
+  chart._tvTickColor  = tv.tickColor;
+  chart._tvLabelColor = tv.isLight ? 'rgba(0,0,0,.8)' : 'rgba(255,255,255,.85)';
   chartsMap[key] = chart;
   return chart;
 }
@@ -1847,7 +1850,7 @@ function renderGroupedTable3(tbodyId, groups, opts) {
     // Region header row — colapsada por defecto
     html += '<tr class="bk-row-group" style="background:var(--elevated)">'
       + '<td><div class="bar-wrap">'
-      + '<button class="bk-toggle" onclick="toggleBkGroup(this,\''+regId+'\')">▸</button>'
+      + '<button class="bk-toggle" onclick="toggleBkGroup(this,\''+regId+'\')">▾</button>'
       + '<span class="rtag '+REGION_TAG_[reg.key]+'" style="margin-right:5px">'+REGION_SHORT_[reg.key]+'</span>'
       + '<span class="bk-name bk-group">'+reg.name+'</span>'
       + '</div></td>'
@@ -1856,10 +1859,10 @@ function renderGroupedTable3(tbodyId, groups, opts) {
     // Countries — ocultos hasta expandir región
     reg.countries.forEach(function(g, ci) {
       var cId = regId + '-c' + ci;
-      html += '<tr class="bk-row-group" data-grp="'+regId+'" style="display:none">'
+      html += '<tr class="bk-row-group" data-grp="'+regId+'">'
         + '<td><div class="bar-wrap" style="padding-left:10px">'
         + (g.partners && g.partners.length
-            ? '<button class="bk-toggle" onclick="toggleBkGroup(this,\''+cId+'\')">▸</button>'
+            ? '<button class="bk-toggle" onclick="toggleBkGroup(this,\''+cId+'\')">▾</button>'
             : '<span class="bk-toggle"></span>')
         + '<div class="bk-name bk-group" title="'+g.name+'">'+g.name+'</div>'
         + '</div></td>'
@@ -1871,7 +1874,7 @@ function renderGroupedTable3(tbodyId, groups, opts) {
         var yoy2 = (!skipYoy2 && p.ly) ? Math.round((p.value / p.ly - 1) * 100) : null;
         var cumpl2 = (p.budget > 0) ? Math.round(p.value / p.budget * 100) : null;
         var delta2 = p.value - (p.budget || 0);
-        html += '<tr class="bk-row-child" data-grp="'+cId+'" style="display:none">'
+        html += '<tr class="bk-row-child" data-grp="'+cId+'">'
           + '<td><div class="bar-wrap" style="padding-left:24px">'
           + '<div class="bk-name bk-child" title="'+p.name+'">'+p.name+'</div>'
           + '</div></td>'
@@ -1900,7 +1903,7 @@ function renderGroupedTable(tbodyId, groups, opts) {
     var yoy = (!skipYoy && item.ly) ? Math.round((item.value / item.ly - 1) * 100) : null;
 
     var toggleBtn = (isGroup && item.partners && item.partners.length)
-      ? '<button class="bk-toggle" onclick="toggleBkGroup(this,\''+groupId+'\')">▸</button>'
+      ? '<button class="bk-toggle" onclick="toggleBkGroup(this,\''+groupId+'\')">▾</button>'
       : (isGroup ? '<span class="bk-toggle"></span>' : '');
     var nameCol = '<td><div class="bar-wrap">' + toggleBtn
       + '<div class="bk-name ' + (isGroup?'bk-group':'bk-child') + '" title="'+item.name+'">'+item.name+'</div>'
@@ -1912,7 +1915,7 @@ function renderGroupedTable(tbodyId, groups, opts) {
       + (yoy !== null ? '<span style="color:'+(yoy>=0?'var(--success)':'var(--danger)')+'">'+(yoy>=0?'+':'')+yoy+'%</span>' : '—')
       + '</td>';
 
-    var attrs = isGroup ? '' : ' data-grp="'+groupId+'" style="display:none"';
+    var attrs = isGroup ? '' : ' data-grp="'+groupId+'"';
     return '<tr class="'+(isGroup?'bk-row-group':'bk-row-child')+'"'+attrs+'>' + nameCol + baseCol + deltaCol + cumplCol + yoyCol + '</tr>';
   }
   var totV=0,totLy=0,totBud=0;
@@ -2194,20 +2197,20 @@ function renderGroupedTableB2B_(tbodyId, groups) {
     var segId = tbodyId + '-seg' + si;
     var st = segSum_(seg.groups);
     html += '<tr class="bk-row-segment"><td><div class="bar-wrap">'
-      + '<button class="bk-toggle" onclick="toggleBkGroup(this,\''+segId+'\')">▸</button>'
+      + '<button class="bk-toggle" onclick="toggleBkGroup(this,\''+segId+'\')">▾</button>'
       + '<div class="bk-name bk-group">'+seg.label+'</div>'
       + '</div></td>' + metaCols_(st.v, st.ly, st.bud) + '</tr>';
     seg.groups.forEach(function(g, ci) {
       var cId = segId + '-c' + ci;
-      html += '<tr class="bk-row-group" data-grp="'+segId+'" style="display:none">'
+      html += '<tr class="bk-row-group" data-grp="'+segId+'">'
         + '<td><div class="bar-wrap" style="padding-left:10px">'
         + (g.partners && g.partners.length
-            ? '<button class="bk-toggle" onclick="toggleBkGroup(this,\''+cId+'\')">▸</button>'
+            ? '<button class="bk-toggle" onclick="toggleBkGroup(this,\''+cId+'\')">▾</button>'
             : '<span class="bk-toggle"></span>')
         + '<div class="bk-name bk-group">'+g.name+'</div>'
         + '</div></td>' + metaCols_(g.value, g.ly, g.budget||0) + '</tr>';
       (g.partners||[]).forEach(function(p) {
-        html += '<tr class="bk-row-child" data-grp="'+cId+'" style="display:none">'
+        html += '<tr class="bk-row-child" data-grp="'+cId+'">'
           + '<td><div class="bar-wrap" style="padding-left:24px">'
           + '<div class="bk-name bk-child">'+p.name+'</div>'
           + '</div></td>' + metaCols_(p.value, p.ly, p.budget||0) + '</tr>';
