@@ -772,6 +772,9 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
       <th>NR Actual</th>
       <th>NR Budget</th>
       <th>% Cumpl.</th>
+      <th>FVM Actual</th>
+      <th>FVM Budget</th>
+      <th>% FVM</th>
     </tr></thead>
     <tbody id="b2b-kr-brkdwn-body"></tbody>
   </table>
@@ -1312,18 +1315,18 @@ function computeKRsB2B_(raw, dateModel, vDate) {
   var src=(dateModel==='ri')?raw.b2b_ri:raw.b2b_gd;
   var bud=(dateModel==='ri'?raw.b2b_budget_ri:raw.b2b_budget_gd)||[];
   if(!src)src=[];
-  var nr2=0,nr3=0,bnr2=0,bnr3=0;
+  var nr2=0,nr3=0,bnr2=0,bnr3=0,fvm2=0,fvm3=0,bfvm2=0,bfvm3=0;
   src.forEach(function(r){
     if(r.fecha<mStart||r.fecha>vDate)return;
-    if(isCore_(r.pais))nr2+=(r.net_revenue||0);
-    else               nr3+=(r.net_revenue||0);
+    if(isCore_(r.pais)){nr2+=(r.net_revenue||0);fvm2+=(r.fvm||0);}
+    else               {nr3+=(r.net_revenue||0);fvm3+=(r.fvm||0);}
   });
   bud.forEach(function(r){
     if(r.fecha<mStart||r.fecha>vDate)return;
-    if(isCore_(r.pais))bnr2+=(r.net_revenue||0);
-    else               bnr3+=(r.net_revenue||0);
+    if(isCore_(r.pais)){bnr2+=(r.net_revenue||0);bfvm2+=(r.fvm||0);}
+    else               {bnr3+=(r.net_revenue||0);bfvm3+=(r.fvm||0);}
   });
-  return {kr2:{act:nr2,bud:bnr2},kr3:{act:nr3,bud:bnr3}};
+  return {kr2:{act:nr2,bud:bnr2,fvmAct:fvm2,fvmBud:bfvm2},kr3:{act:nr3,bud:bnr3,fvmAct:fvm3,fvmBud:bfvm3}};
 }
 
 function computeAllB2B_(raw, dm, vDate, gl_pai, gl_pro, gl_ch, gl_mkt, gran, compSrc) {
@@ -2020,10 +2023,14 @@ function renderKRBreakdownB2B_(krs) {
   function pctColor(p){return p===null?'var(--text-3)':p>=100?'var(--success)':p>=80?'#f59e0b':'var(--danger)';}
   var rows=[{lbl:'Core Markets',k:krs.kr2},{lbl:'New Markets',k:krs.kr3}].map(function(d){
     var pct=d.k.bud>0?Math.round(d.k.act/d.k.bud*100):null;
+    var pctF=d.k.fvmBud>0?Math.round(d.k.fvmAct/d.k.fvmBud*100):null;
     return '<tr><td class="krb-lbl">'+d.lbl+'</td>'
       +'<td style="font-size:12px">'+fmtShort(d.k.act)+'</td>'
       +'<td style="font-size:12px">'+fmtShort(d.k.bud)+'</td>'
       +'<td><span class="krb-pct" style="color:'+pctColor(pct)+'">'+(pct!==null?pct+'%':'—')+'</span></td>'
+      +'<td style="font-size:12px">'+fmtShort(d.k.fvmAct)+'</td>'
+      +'<td style="font-size:12px">'+fmtShort(d.k.fvmBud)+'</td>'
+      +'<td><span class="krb-pct" style="color:'+pctColor(pctF)+'">'+(pctF!==null?pctF+'%':'—')+'</span></td>'
       +'</tr>';
   }).join('');
   var el=document.getElementById('b2b-kr-brkdwn-body'); if(el)el.innerHTML=rows;
