@@ -1035,7 +1035,7 @@ function expandCompact_(c) {
   });
 }
 function getPaises_(arr)  { var s={}; arr.forEach(function(r){if(r.pais)s[r.pais]=1;}); return Object.keys(s).sort(); }
-function getPartners_(arr){ var s={}; arr.forEach(function(r){if(r.partner)s[r.partner]=1;}); return Object.keys(s).sort(); }
+function getPartners_(arr){ var s={}; arr.forEach(function(r){if(r.partner&&r.account_type&&r.account_type!=='Unknown')s[r.partner]=1;}); return Object.keys(s).sort(); }
 
 // ── Weekly/Monthly aggregation ───────────────────────────────────
 function weekStart_(ds) {
