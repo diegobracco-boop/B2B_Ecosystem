@@ -17,10 +17,18 @@ DRIVE_SCOPES = ["https://www.googleapis.com/auth/drive"]
 
 # ── Rutas portables ──────────────────────────────────────────────────────────
 def _onedrive_root():
-    """Raíz de OneDrive del usuario (no hardcodeada)."""
-    od = os.environ.get("OneDriveCommercial") or os.environ.get("OneDrive")
+    """Raíz de OneDrive corporativo del usuario (no hardcodeada)."""
+    od = os.environ.get("OneDriveCommercial")
     if not od:
-        od = os.path.join(os.path.expanduser("~"), "OneDrive - despegar365")
+        home = os.path.expanduser("~")
+        # probar nombres conocidos de la carpeta corporativa Despegar
+        for candidate in ("despegar365", "OneDrive - despegar365", "OneDrive - Despegar365"):
+            p = os.path.join(home, candidate)
+            if os.path.isdir(p):
+                od = p
+                break
+    if not od:
+        od = os.environ.get("OneDrive") or os.path.join(os.path.expanduser("~"), "OneDrive")
     return od
 
 
