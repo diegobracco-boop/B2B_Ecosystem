@@ -94,7 +94,8 @@ var ACCOUNTING_FILE_IDS = {
   runrate:  '1UGg60kE397nsGAivtFqI8NX5CVFj1gqO',
   budget:   '1f2JF8pq7gtpxfdkVzbT9wvamn_ny3RBW'
 };
-var DAILY_FOLDER_ID = '1lWzfqweyV6Kz1ERkL85ikFcmzmKwGwwh';
+var DAILY_FOLDER_ID    = '1lWzfqweyV6Kz1ERkL85ikFcmzmKwGwwh';
+var DAILY_B2B2C_FILE_ID = '1Ukcx4e-dwCZ2VqesWwVN_1Jnt6r2AZdX';
 
 // KRs que siguen siendo manuales (leídos desde el sheet)
 var MANUAL_KRS = {
@@ -105,7 +106,7 @@ var MANUAL_KRS = {
 // Lee los JSONs de Drive y devuelve rows {ym, escenario, lob, kr, valor}
 function readOKRFromDrive_() {
   var cache = CacheService.getScriptCache();
-  var CKEY  = 'okr_drive_v1';
+  var CKEY  = 'okr_drive_v3';
   var hit   = cache.get(CKEY);
   if (hit) { try { return JSON.parse(hit); } catch(e) {} }
 
@@ -187,19 +188,15 @@ function readOKRFromDrive_() {
   // ── B2B2C: Hunting NR desde daily_b2b2c_data.json ────────────
   var huntingByMonth = {};
   try {
-    var dailyFolder = DriveApp.getFolderById(DAILY_FOLDER_ID);
-    var dailyFiles  = dailyFolder.getFilesByName('daily_b2b2c_data.json');
-    if (dailyFiles.hasNext()) {
-      var b2bcDaily = JSON.parse(dailyFiles.next().getBlob().getDataAsString());
-      var actRecords = b2bcDaily.actuals || [];
-      actRecords.forEach(function(r) {
-        if (r.account_type !== 'New') return;
-        var ym = String(r.fecha).substring(0,7);
-        if (PERIODS.indexOf(ym) === -1) return;
-        huntingByMonth[ym] = (huntingByMonth[ym]||0) + (Number(r.net_revenues)||0);
-      });
-    }
-  } catch(e) { Logger.log('WARN hunting load failed: '+e.message); }
+    var b2bcDaily  = JSON.parse(DriveApp.getFileById(DAILY_B2B2C_FILE_ID).getBlob().getDataAsString());
+    var actRecords = b2bcDaily.actuals || [];
+    actRecords.forEach(function(r) {
+      if (r.account_type !== 'New') return;
+      var ym = String(r.fecha).substring(0,7);
+      if (PERIODS.indexOf(ym) === -1) return;
+      huntingByMonth[ym] = (huntingByMonth[ym]||0) + (Number(r.net_revenues)||0);
+    });
+  } catch(e) { Logger.log('ERROR hunting load: '+e.message+' | '+e.stack); }
 
   // ── B2B2C: New Account NR (Hunting transaccional) ─────────────
   push('run rate/actuals','b2b2c','new account net revenues', huntingByMonth);
