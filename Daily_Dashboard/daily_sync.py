@@ -27,7 +27,7 @@ warnings.filterwarnings("ignore")
 # 1) CONFIGURACIÓN
 # ==============================================================================
 
-RUTA_ENV   = r"C:\Users\diego.bracco\Proyectos IA\envs\.env"
+RUTA_ENV   = r"C:\Users\gregorio.minetti\claude files\b2b_ecosystem_github\B2B_Ecosystem\Daily_Dashboard\.env"
 DSN_NAME   = "DataLake Treasure ODBC"
 
 DRIVE_FOLDER_ID   = "1lWzfqweyV6Kz1ERkL85ikFcmzmKwGwwh"

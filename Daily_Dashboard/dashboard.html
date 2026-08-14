@@ -1391,15 +1391,16 @@ function computeB2B_(raw, metric, dateModel, vDate, gl_pai, gl_pro, gl_ch, gl_mk
   var MF={gb:'gross_bookings',nr:'net_revenue',fvm:'fvm'}[metric];
   var bud=compSrc||((raw.b2b_budget_gd&&raw.b2b_budget_gd.length)?(dateModel==='ri'?raw.b2b_budget_ri:raw.b2b_budget_gd):[]);
   function matchA(r){if(gl_pai&&r.pais!==gl_pai)return false;if(gl_pro&&r.producto_original!==gl_pro)return false;if(gl_ch&&r.parent_channel!==gl_ch)return false;if(gl_mkt){var mt=isCore_(r.pais)?'Core':'New Markets';if(mt!==gl_mkt)return false;}return true;}
+  function matchBud(r){if(gl_pai&&r.pais!==gl_pai)return false;if(gl_pro&&r.producto!==gl_pro)return false;if(gl_ch&&r.parent_channel!==gl_ch)return false;if(gl_mkt){var mt=isCore_(r.pais)?'Core':'New Markets';if(mt!==gl_mkt)return false;}return true;}
   function sum_(arr,from,to,mFn,f){var t=0;arr.forEach(function(r){if(from&&r.fecha<from)return;if(to&&r.fecha>to)return;if(!mFn(r))return;t+=(r[f]||0);});return t;}
   var d1=sum_(src,vDate,vDate,matchA,MF),mtd=sum_(src,mStart,vDate,matchA,MF);
   var lyD1=sum_(srcLY,lyVD,lyVD,matchA,MF),lyMtd=sum_(srcLY,lyMS,lyVD,matchA,MF);
-  var budget=0; bud.forEach(function(r){if(r.fecha<mStart||r.fecha>vDate)return;if(gl_pai&&r.pais!==gl_pai)return;if(gl_ch&&r.parent_channel!==gl_ch)return;budget+=(r[MF]||0);});
+  var budget=0; bud.forEach(function(r){if(r.fecha<mStart||r.fecha>vDate)return;if(!matchBud(r))return;budget+=(r[MF]||0);});
   var tf=(gran!=='daily')?yearStart:mStart, lyTF=(gran!=='daily')?lyYS:lyMS;
   var dM={},lyDM={},budDM={},budDMFull={};
   src.forEach(function(r){if(r.fecha<tf||r.fecha>vDate||!matchA(r))return;dM[r.fecha]=(dM[r.fecha]||0)+(r[MF]||0);});
   srcLY.forEach(function(r){if(r.fecha<lyTF||!matchA(r))return;var s=String(+r.fecha.substring(0,4)+1)+r.fecha.substring(4);if(s>vDate)return;lyDM[s]=(lyDM[s]||0)+(r[MF]||0);});
-  bud.forEach(function(r){if(r.fecha<tf||!matchA(r))return;budDMFull[r.fecha]=(budDMFull[r.fecha]||0)+(r[MF]||0);if(r.fecha>vDate)return;budDM[r.fecha]=(budDM[r.fecha]||0)+(r[MF]||0);});
+  bud.forEach(function(r){if(r.fecha<tf||!matchBud(r))return;budDMFull[r.fecha]=(budDMFull[r.fecha]||0)+(r[MF]||0);if(r.fecha>vDate)return;budDM[r.fecha]=(budDM[r.fecha]||0)+(r[MF]||0);});
   var daily;
   if(gran==='weekly') daily=aggWeekly_(dM,lyDM,vDate,budDM);
   else if(gran==='rolling7') daily=aggRolling7_(dM,lyDM,vDate,budDM);
