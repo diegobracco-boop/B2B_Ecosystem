@@ -2,6 +2,42 @@
 
 Este repo contiene pipelines de datos y landings de Google Apps Script para el equipo B2B de Despegar. Antes de hacer cualquier cambio, identificá el módulo afectado y seguí el flujo correspondiente.
 
+## Al iniciar una sesión — identificar al usuario
+
+**Al comienzo de cada conversación, preguntá quién es el usuario** (si no se presentó). Los usuarios del equipo son:
+
+- `gregorio.minetti`
+- `diego.bracco`
+- `tiago.harari`
+- `tomas.rombola`
+- `antonella.difranco`
+
+Una vez identificado, verificá si existen sus credenciales en `credenciales/`:
+
+```
+credenciales/
+├── .env                        ← gregorio.minetti (ya existe)
+├── .env.diego.bracco
+├── .env.tiago.harari
+├── .env.tomas.rombola
+└── .env.antonella.difranco
+```
+
+**Si las credenciales del usuario YA existen** → avanzar normalmente usando su archivo `.env.<nombre>`.
+
+**Si NO existen** → pedirle al usuario su usuario y password del Datalake y crear el archivo:
+```
+credenciales/.env.<nombre.apellido>
+```
+Con el formato:
+```
+USER=nombre.apellido@ar.infra.d
+PASSWORD=su_password
+```
+Recordarle que este archivo es local y gitignoreado — nunca se sube al repo.
+
+Una vez creadas las credenciales, actualizar `RUTA_ENV` en `Daily_Dashboard/daily_sync.py` si el usuario va a correr el pipeline diario.
+
 ## Cuando el usuario quiere hacer un cambio
 
 **Siempre preguntá qué módulo va a tocar** si no está claro, y derivá al flujo correcto:
