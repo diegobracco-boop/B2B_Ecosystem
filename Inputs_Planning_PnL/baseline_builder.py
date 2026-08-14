@@ -94,21 +94,19 @@ def _download_json(svc, name):
 
 def build_actuals_json(actuals_xlsx=None, fy=2027):
     """Corre plana_actuals_builder y canonicaliza igual que json_builder -> payload actuals."""
-    tmp = None
-    orig_bitubia = A.BITUBIA
+    bitubia_dir = None
     if actuals_xlsx:
-        # apuntar el lector de actuals a una copia (evita locks de Excel abierto)
+        # copiar al nombre esperado para que read_actuals_file lo encuentre
         tmp = tempfile.mkdtemp(prefix="actuals_src_")
         dst = os.path.join(tmp, f"00 - Actuals {fy-1} - Plana Python.xlsx")
         shutil.copy(actuals_xlsx, dst)
-        A.BITUBIA = tmp
+        bitubia_dir = tmp
         print(f"  actuals source override: {actuals_xlsx}")
     try:
-        plana = A.build(fy)                              # SIN PPA (suma Reverso AxI)
+        plana = A.build(fy, bitubia_dir=bitubia_dir)    # SIN PPA (suma Reverso AxI)
     finally:
-        A.BITUBIA = orig_bitubia
-        if tmp:
-            shutil.rmtree(tmp, ignore_errors=True)
+        if bitubia_dir:
+            shutil.rmtree(bitubia_dir, ignore_errors=True)
     # limpiar el CSV que build() deja en el repo
     yy = str(fy)[-2:]
     csv = os.path.join(DIR, f"actuals_fy{yy}_abr{fy-1}_mar{fy}.csv")

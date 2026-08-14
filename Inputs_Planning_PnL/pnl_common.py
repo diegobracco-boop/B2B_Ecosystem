@@ -107,3 +107,136 @@ def get_drive_service():
     if not creds.valid:
         creds.refresh(Request())
     return build("drive", "v3", credentials=creds)
+
+
+# ── Constantes compartidas ────────────────────────────────────────────────────
+MMM = {"jan": "01", "feb": "02", "mar": "03", "apr": "04", "may": "05", "jun": "06",
+       "jul": "07", "aug": "08", "sep": "09", "oct": "10", "nov": "11", "dec": "12"}
+
+DIM_COLS = ["Marca", "LoB", "Canal", "Pais", "Producto",
+            "P&L N1", "P&L N2", "P&L N3", "P&L N4", "P&L N5", "P&L N6", "P&L Managerial View"]
+OUT_COLS = DIM_COLS + ["Fecha", "Monto USD"]
+LOBS_KEEP = ["b2b", "b2b2c", "b2c"]
+
+EXCL_AXI_MARCA = {"koin", "intercompany", "dfinance"}
+PAIS_AXI_MAP = {
+    "brasil": "brasil", "argentina": "argentina", "mexico": "mexico", "colombia": "colombia",
+    "chile": "chile", "peru": "peru", "ecuador": "ecuador",
+    "others": "others countries", "others countries": "others countries",
+    "ops + rg": "others countries",
+}
+
+
+# ── Helpers compartidos ───────────────────────────────────────────────────────
+def homolog(m, val, idx=0, default=None):
+    if val is None:
+        return default
+    r = m.get(str(val).strip().lower())
+    if not r:
+        return default
+    return r[idx] if idx < len(r) else default
+
+
+def to_num(v):
+    if v is None:
+        return None
+    s = str(v).strip()
+    if s == "" or s.lower() == "#missing":
+        return None
+    try:
+        return float(s)
+    except ValueError:
+        return None
+
+
+def lower_all(df):
+    for c in df.columns:
+        if c != "Monto USD":
+            df[c] = df[c].astype(str).str.lower()
+    return df
+
+
+def load_glosario():
+    import openpyxl
+    wb = openpyxl.load_workbook(get_glosario_path(), read_only=True, data_only=True)
+
+    def sheet_map(name, key_col, val_cols):
+        ws = wb[name]
+        rows = ws.iter_rows(values_only=True)
+        next(rows, None)
+        m = {}
+        for r in rows:
+            if r is None or r[key_col] is None:
+                continue
+            k = str(r[key_col]).strip().lower()
+            m[k] = [(r[c] if c < len(r) and r[c] is not None else None) for c in val_cols]
+        return m
+
+    g = {
+        "marca":    sheet_map("Marca",    0, [1]),
+        "paises":   sheet_map("Paises",   0, [1]),
+        "producto": sheet_map("Producto", 0, [1]),
+        "lob":      sheet_map("LOB",      0, [1, 2]),
+        "linea":    sheet_map("Linea P&L", 0, [1, 2, 3, 4, 5, 6, 7]),
+    }
+    wb.close()
+    return g
+
+
+def add_axi(plana, axi):
+    import pandas as pd
+    if axi is None or axi.empty:
+        return plana
+    combined = pd.concat([plana, axi[OUT_COLS]], ignore_index=True)
+    return combined.groupby(DIM_COLS + ["Fecha"], as_index=False, dropna=False)["Monto USD"].sum()
+
+
+def load_axi_sheet(g, sheet, keep_dates=None):
+    """Lee una hoja del Reverso AxI, homologa y devuelve DataFrame en formato OUT_COLS."""
+    import openpyxl
+    import pandas as pd
+    _NIVELES = ["P&L N1", "P&L N2", "P&L N3", "P&L N4", "P&L N5", "P&L N6", "P&L Managerial View"]
+    wb = openpyxl.load_workbook(get_reverso_axi_path(), read_only=True, data_only=True)
+    ws = wb[sheet]
+    rows = ws.iter_rows(values_only=True)
+    hdr = list(next(rows))
+    idx = {str(h).strip().lower(): j for j, h in enumerate(hdr)}
+    date_cols = {}
+    for j, h in enumerate(hdr):
+        hs = str(h).strip().lower()
+        if len(hs) == 6 and hs[:3] in MMM and hs[3] == "-":
+            fecha = f"20{hs[4:]}-{MMM[hs[:3]]}-01"
+            if keep_dates is None or fecha in keep_dates:
+                date_cols[j] = fecha
+    recs = []
+    for r in rows:
+        if r is None:
+            continue
+        marca_raw = str(r[idx["brand"]]).strip().lower() if r[idx["brand"]] is not None else ""
+        if marca_raw in EXCL_AXI_MARCA:
+            continue
+        base = {
+            "Marca":    homolog(g["marca"], r[idx["brand"]], 0, r[idx["brand"]]),
+            "Producto": homolog(g["producto"], r[idx["product"]], 0, r[idx["product"]]),
+            "Pais":     PAIS_AXI_MAP.get(str(r[idx["country"]]).strip().lower(),
+                                         str(r[idx["country"]]).strip().lower()) if r[idx["country"]] is not None else None,
+            "LoB":      homolog(g["lob"], r[idx["lob"]], 0, None),
+            "Canal":    homolog(g["lob"], r[idx["lob"]], 1, None),
+        }
+        if base["LoB"] is None and r[idx["lob"]] is not None:
+            sp = str(r[idx["lob"]]).split("-", 1)
+            base["LoB"], base["Canal"] = sp[0], (sp[1] if len(sp) > 1 else "Sin Canal")
+        linea = r[idx["linea p&l"]]
+        for i, col in enumerate(_NIVELES):
+            base[col] = homolog(g["linea"], linea, i, linea)
+        for j, fecha in date_cols.items():
+            val = to_num(r[j]) if j < len(r) else None
+            if val:
+                rec = dict(base); rec["Fecha"] = fecha; rec["Monto USD"] = val
+                recs.append(rec)
+    wb.close()
+    if not recs:
+        return pd.DataFrame(columns=OUT_COLS)
+    axi = pd.DataFrame(recs)
+    axi = axi.groupby(DIM_COLS + ["Fecha"], as_index=False, dropna=False)["Monto USD"].sum()
+    return lower_all(axi)

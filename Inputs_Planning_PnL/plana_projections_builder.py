@@ -17,11 +17,16 @@ import sys
 import pandas as pd
 import pnl_common
 
-# Consola Windows (cp1252) → forzar UTF-8 para no crashear con acentos/flechas
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 except Exception:
     pass
+
+from pnl_common import (
+    DIM_COLS, OUT_COLS, LOBS_KEEP,
+    homolog, to_num, lower_all,
+    load_glosario, add_axi, load_axi_sheet,
+)
 
 # ── Meses del año fiscal FY27 (Abr 2026 → Mar 2027) ──────────────────────────
 # OJO: el spec del agente listaba 2025-04..2026-03; se usa 2026-04..2027-03 (FY27)
@@ -46,11 +51,6 @@ BASES = {
                               "Run Rate/LRR - Legal Entity NA.csv"],             "is_forecast": False},
 }
 
-DIM_COLS = ["Marca", "LoB", "Canal", "Pais", "Producto",
-            "P&L N1", "P&L N2", "P&L N3", "P&L N4", "P&L N5", "P&L N6", "P&L Managerial View"]
-OUT_COLS = DIM_COLS + ["Fecha", "Monto USD"]
-LOBS_KEEP = ["b2b", "b2b2c", "b2c"]   # LOBs del dashboard; el resto (dmc/stays/koin/...) se descarta
-
 # ── Filtros de exclusión (Parte 3.6) ─────────────────────────────────────────
 EXCL_MARCA   = {"br_4001", "interco"}
 EXCL_LOBCANAL = {"financial services business", "lob_00"}
@@ -60,52 +60,6 @@ EXCL_LINEA = {
     "intercompany fx", "ndf fixing", "bank charges", "tax penalties", "guarantee charges",
     "neteo fx", "other income/expense non-fx", "other interest expense", "other interest income",
 }
-# Exclusiones extra de la fuente AXI (Parte 4.2)
-EXCL_AXI_MARCA = {"koin", "intercompany", "dfinance"}
-
-PAIS_AXI_MAP = {
-    "brasil": "brasil", "argentina": "argentina", "mexico": "mexico", "colombia": "colombia",
-    "chile": "chile", "peru": "peru", "ecuador": "ecuador",
-    "others": "others countries", "others countries": "others countries",
-    "ops + rg": "others countries",
-}
-
-
-# ── Glosario ─────────────────────────────────────────────────────────────────
-def load_glosario():
-    import openpyxl
-    wb = openpyxl.load_workbook(pnl_common.get_glosario_path(), read_only=True, data_only=True)
-
-    def sheet_map(name, key_col, val_cols):
-        ws = wb[name]
-        rows = ws.iter_rows(values_only=True)
-        next(rows, None)  # header
-        m = {}
-        for r in rows:
-            if r is None or r[key_col] is None:
-                continue
-            k = str(r[key_col]).strip().lower()
-            m[k] = [(r[c] if c < len(r) and r[c] is not None else None) for c in val_cols]
-        return m
-
-    g = {
-        "marca":    sheet_map("Marca",    0, [1]),
-        "paises":   sheet_map("Paises",   0, [1]),
-        "producto": sheet_map("Producto", 0, [1]),
-        "lob":      sheet_map("LOB",      0, [1, 2]),          # -> [LOB, CANAL]
-        "linea":    sheet_map("Linea P&L", 0, [1, 2, 3, 4, 5, 6, 7]),  # -> N1..N6, Managerial
-    }
-    wb.close()
-    return g
-
-
-def homolog(m, val, idx=0, default=None):
-    if val is None:
-        return default
-    r = m.get(str(val).strip().lower())
-    if not r:
-        return default
-    return r[idx] if idx < len(r) else default
 
 
 # ── Parser especial de los CSV (Parte 3.2) ───────────────────────────────────
@@ -126,18 +80,6 @@ def parse_line(contenido):
     meses  = partes[1:13]
     meta   = partes[13].strip('"').split(',')
     return cuenta, meses, meta
-
-
-def to_num(v):
-    if v is None:
-        return None
-    s = str(v).strip()
-    if s == "" or s.lower() == "#missing":
-        return None
-    try:
-        return float(s)
-    except ValueError:
-        return None
 
 
 # ── Lectura + parseo de una base (ALL + NA) ──────────────────────────────────
@@ -201,7 +143,6 @@ def homologate(df, g):
     df["Producto"] = df["Producto"].apply(lambda x: homolog(g["producto"], x, 0, x))
     df["LoB"]      = df["LOB-CANAL"].apply(lambda x: homolog(g["lob"], x, 0, None))
     df["Canal"]    = df["LOB-CANAL"].apply(lambda x: homolog(g["lob"], x, 1, None))
-    # fallback split si no está en glosario
     miss = df["LoB"].isna()
     if miss.any():
         split = df.loc[miss, "LOB-CANAL"].astype(str).str.split("-", n=1, expand=True)
@@ -222,72 +163,6 @@ def melt_and_group(df):
     long = long[long["Monto USD"] != 0]
     grouped = long.groupby(id_vars + ["Fecha"], as_index=False, dropna=False)["Monto USD"].sum()
     return grouped
-
-
-def lower_all(df):
-    for c in df.columns:
-        if c != "Monto USD":
-            df[c] = df[c].astype(str).str.lower()
-    return df
-
-
-# ── Parte 4: Reverso AxI (SIN PPA) ───────────────────────────────────────────
-def load_axi_budget(g):
-    """Hoja 'Budget' del Reverso AxI, homologada al mismo formato que la plana."""
-    import openpyxl
-    wb = openpyxl.load_workbook(pnl_common.get_reverso_axi_path(), read_only=True, data_only=True)
-    ws = wb["Budget"]
-    rows = ws.iter_rows(values_only=True)
-    hdr = list(next(rows))
-    # cols fecha: 'apr-26'.. -> YYYY-MM-DD
-    mmm = {"jan": "01", "feb": "02", "mar": "03", "apr": "04", "may": "05", "jun": "06",
-           "jul": "07", "aug": "08", "sep": "09", "oct": "10", "nov": "11", "dec": "12"}
-    date_cols = {}
-    for j, h in enumerate(hdr):
-        hs = str(h).strip().lower()
-        if len(hs) == 6 and hs[:3] in mmm and hs[3] == "-":
-            date_cols[j] = f"20{hs[4:]}-{mmm[hs[:3]]}-01"
-    idx = {str(h).strip().lower(): j for j, h in enumerate(hdr)}
-    recs = []
-    for r in rows:
-        if r is None:
-            continue
-        marca_raw = str(r[idx["brand"]]).strip().lower() if r[idx["brand"]] is not None else ""
-        if marca_raw in EXCL_AXI_MARCA:
-            continue
-        base = {
-            "Marca":    homolog(g["marca"], r[idx["brand"]], 0, r[idx["brand"]]),
-            "Producto": homolog(g["producto"], r[idx["product"]], 0, r[idx["product"]]),
-            "Pais":     PAIS_AXI_MAP.get(str(r[idx["country"]]).strip().lower(),
-                                        str(r[idx["country"]]).strip().lower()) if r[idx["country"]] is not None else None,
-            "LoB":      homolog(g["lob"], r[idx["lob"]], 0, None),
-            "Canal":    homolog(g["lob"], r[idx["lob"]], 1, None),
-        }
-        linea = r[idx["linea p&l"]]
-        for i, col in enumerate(["P&L N1", "P&L N2", "P&L N3", "P&L N4", "P&L N5", "P&L N6", "P&L Managerial View"]):
-            base[col] = homolog(g["linea"], linea, i, linea)
-        if base["LoB"] is None and r[idx["lob"]] is not None:
-            sp = str(r[idx["lob"]]).split("-", 1)
-            base["LoB"], base["Canal"] = sp[0], (sp[1] if len(sp) > 1 else "Sin Canal")
-        for j, fecha in date_cols.items():
-            val = to_num(r[j]) if j < len(r) else None
-            if val:
-                rec = dict(base); rec["Fecha"] = fecha; rec["Monto USD"] = val
-                recs.append(rec)
-    wb.close()
-    axi = pd.DataFrame(recs)
-    if axi.empty:
-        return axi
-    axi = axi.groupby(DIM_COLS + ["Fecha"], as_index=False, dropna=False)["Monto USD"].sum()
-    return lower_all(axi)
-
-
-def add_axi(plana, axi):
-    """Suma por combinación de dimensiones (existente -> suma; nueva -> fila nueva)."""
-    if axi is None or axi.empty:
-        return plana
-    combined = pd.concat([plana, axi[OUT_COLS]], ignore_index=True)
-    return combined.groupby(DIM_COLS + ["Fecha"], as_index=False, dropna=False)["Monto USD"].sum()
 
 
 # ── Verificación (Parte 5) ───────────────────────────────────────────────────
@@ -318,12 +193,12 @@ def build(base, con_ppa=False):
     df = homologate(df, g)
     plana = melt_and_group(df)
     plana = lower_all(plana)[OUT_COLS]
-    plana = plana[plana["LoB"].isin(LOBS_KEEP)]   # solo LOBs del dashboard (b2b/b2b2c/b2c)
+    plana = plana[plana["LoB"].isin(LOBS_KEEP)]
     if not con_ppa:
-        axi = load_axi_budget(g)
+        axi = load_axi_sheet(g, "Budget")
         if axi is not None and not axi.empty:
             axi = axi[axi["LoB"].isin(LOBS_KEEP)]
-            axi = axi[axi["Fecha"].isin(set(plana["Fecha"].unique()))]   # AXI solo a meses presentes en la base
+            axi = axi[axi["Fecha"].isin(set(plana["Fecha"].unique()))]
         print(f"  reverso AxI (Budget): {0 if axi is None else len(axi):,} filas a sumar")
         plana = add_axi(plana, axi)[OUT_COLS]
     verify(plana)
