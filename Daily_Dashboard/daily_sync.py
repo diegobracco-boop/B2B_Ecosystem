@@ -905,7 +905,15 @@ def agg_b2b_budget(df: pd.DataFrame) -> pd.DataFrame:
         df["fecha"], format="mixed", dayfirst=True
     ).dt.strftime("%Y-%m-%d")
     df = df[df["fecha"].str[:4] == str(TODAY.year)]  # keep current FY only
+    # Map lob_canal → parent_channel so the dashboard channel filter works on budget
+    if "lob_canal" in df.columns:
+        df["parent_channel"] = df["lob_canal"].map({
+            "B2B-MAY": "API",
+            "B2B-MIN": "Agencias afiliadas",
+        })
     group_cols = ["fecha", "pais"]
+    if "parent_channel" in df.columns:
+        group_cols.append("parent_channel")
     if "producto" in df.columns:
         group_cols.append("producto")
     return df.groupby(group_cols, as_index=False).agg(
