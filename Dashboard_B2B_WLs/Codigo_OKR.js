@@ -88,9 +88,146 @@ function readOKRSheet_() {
   return rows;
 }
 
+// ── IDs de archivos contables (accounting folder) ────────────────
+var ACCOUNTING_FILE_IDS = {
+  actuals:  '1PABNf4XVKdj6eXApr5_yP581ZsD_N9e-',
+  runrate:  '1UGg60kE397nsGAivtFqI8NX5CVFj1gqO',
+  budget:   '1f2JF8pq7gtpxfdkVzbT9wvamn_ny3RBW'
+};
+var DAILY_FOLDER_ID = '1lWzfqweyV6Kz1ERkL85ikFcmzmKwGwwh';
+
+// KRs que siguen siendo manuales (leídos desde el sheet)
+var MANUAL_KRS = {
+  'b2b2c': { 'sign new partnership': true },
+  'b2b':   { 'monthly buying agencies': true }
+};
+
+// Lee los JSONs de Drive y devuelve rows {ym, escenario, lob, kr, valor}
+function readOKRFromDrive_() {
+  var cache = CacheService.getScriptCache();
+  var CKEY  = 'okr_drive_v1';
+  var hit   = cache.get(CKEY);
+  if (hit) { try { return JSON.parse(hit); } catch(e) {} }
+
+  var PERIODS     = OKR_FY_PERIODS;
+  var CORE        = {'brasil':true,'mexico':true,'other countries':true};
+  var NON_GEO     = {'ops':true,'rg':true,'ops + rg':true};
+
+  // ── Carga de archivos ─────────────────────────────────────────
+  function loadFile(fileId) {
+    return JSON.parse(DriveApp.getFileById(fileId).getBlob().getDataAsString());
+  }
+  var actualsJson  = loadFile(ACCOUNTING_FILE_IDS.actuals);
+  var runrateJson  = loadFile(ACCOUNTING_FILE_IDS.runrate);
+  var budgetJson   = loadFile(ACCOUNTING_FILE_IDS.budget);
+
+  var actualMonths = actualsJson.meta.fechas.map(function(f){ return f.substring(0,7); });
+
+  // ── Suma Monto USD por mes con filtro ─────────────────────────
+  // cols: [LoB, Canal, Pais, Producto, N1, N2, N3, N4, N5, N6, MV, Fecha, Monto]
+  function sumByMonth(json, filter) {
+    var totals = {};
+    if (!json || !json.rows) return totals;
+    json.rows.forEach(function(row) {
+      if (!filter(row)) return;
+      var ym = String(row[11]).substring(0,7);
+      if (PERIODS.indexOf(ym) === -1) return;
+      totals[ym] = (totals[ym]||0) + (Number(row[12])||0);
+    });
+    return totals;
+  }
+
+  // Combina actuals (meses cerrados) + runrate (meses abiertos)
+  function mergeRR(actMap, rrMap) {
+    var out = {};
+    PERIODS.forEach(function(ym) {
+      if (actualMonths.indexOf(ym) >= 0) {
+        if (actMap[ym] !== undefined) out[ym] = actMap[ym];
+      } else {
+        if (rrMap[ym] !== undefined) out[ym] = rrMap[ym];
+      }
+    });
+    return out;
+  }
+
+  var rows = [];
+  function push(escenario, lob, kr, byMonth) {
+    PERIODS.forEach(function(ym) {
+      if (byMonth[ym] !== undefined) {
+        rows.push({ym:ym, escenario:escenario, lob:lob, kr:kr, valor:byMonth[ym]});
+      }
+    });
+  }
+
+  // ── B2B: NR Core Markets ──────────────────────────────────────
+  var b2bNRCoreF = function(r){ return r[0]==='b2b' && r[6]==='net revenue' && CORE[r[2]]; };
+  push('run rate/actuals','b2b','net revenues core markets', mergeRR(sumByMonth(actualsJson,b2bNRCoreF), sumByMonth(runrateJson,b2bNRCoreF)));
+  push('budget',          'b2b','net revenues core markets', sumByMonth(budgetJson,b2bNRCoreF));
+
+  // ── B2B: NR New Markets ───────────────────────────────────────
+  var b2bNRNewF = function(r){ return r[0]==='b2b' && r[6]==='net revenue' && !CORE[r[2]] && !NON_GEO[r[2]]; };
+  push('run rate/actuals','b2b','net revenues new markets', mergeRR(sumByMonth(actualsJson,b2bNRNewF), sumByMonth(runrateJson,b2bNRNewF)));
+  push('budget',          'b2b','net revenues new markets', sumByMonth(budgetJson,b2bNRNewF));
+
+  // ── B2B: Air NR from Suppliers ───────────────────────────────
+  var b2bAirF = function(r){ return r[0]==='b2b' && r[6]==='net revenue' && r[3]==='flights'; };
+  push('run rate/actuals','b2b','air net revenue from suppliers', mergeRR(sumByMonth(actualsJson,b2bAirF), sumByMonth(runrateJson,b2bAirF)));
+  push('budget',          'b2b','air net revenue from suppliers', sumByMonth(budgetJson,b2bAirF));
+
+  // ── B2B2C: Operating Contribution ────────────────────────────
+  var b2bcOCF = function(r){ return r[0]==='b2b2c' && r[8]==='operating contribution'; };
+  push('run rate/actuals','b2b2c','operating contribution', mergeRR(sumByMonth(actualsJson,b2bcOCF), sumByMonth(runrateJson,b2bcOCF)));
+  push('budget',          'b2b2c','operating contribution', sumByMonth(budgetJson,b2bcOCF));
+
+  // ── B2B2C: NR Total Contable ──────────────────────────────────
+  var b2bcNRF = function(r){ return r[0]==='b2b2c' && r[6]==='net revenue'; };
+  var b2bcNRTotalRR  = mergeRR(sumByMonth(actualsJson,b2bcNRF), sumByMonth(runrateJson,b2bcNRF));
+  var b2bcNRTotalBud = sumByMonth(budgetJson,b2bcNRF);
+
+  // ── B2B2C: Hunting NR desde daily_b2b2c_data.json ────────────
+  var huntingByMonth = {};
+  try {
+    var dailyFolder = DriveApp.getFolderById(DAILY_FOLDER_ID);
+    var dailyFiles  = dailyFolder.getFilesByName('daily_b2b2c_data.json');
+    if (dailyFiles.hasNext()) {
+      var b2bcDaily = JSON.parse(dailyFiles.next().getBlob().getDataAsString());
+      var actRecords = b2bcDaily.actuals || [];
+      actRecords.forEach(function(r) {
+        if (r.account_type !== 'New') return;
+        var ym = String(r.fecha).substring(0,7);
+        if (PERIODS.indexOf(ym) === -1) return;
+        huntingByMonth[ym] = (huntingByMonth[ym]||0) + (Number(r.net_revenues)||0);
+      });
+    }
+  } catch(e) { Logger.log('WARN hunting load failed: '+e.message); }
+
+  // ── B2B2C: New Account NR (Hunting transaccional) ─────────────
+  push('run rate/actuals','b2b2c','new account net revenues', huntingByMonth);
+  // Budget new account: no tenemos split hunting/existing en budget → usamos total NR como referencia
+  push('budget','b2b2c','new account net revenues', b2bcNRTotalBud);
+
+  // ── B2B2C: Existing Account NR = Total Contable − Hunting ─────
+  var existingRR = {};
+  PERIODS.forEach(function(ym) {
+    if (b2bcNRTotalRR[ym] !== undefined) {
+      existingRR[ym] = (b2bcNRTotalRR[ym]||0) - (huntingByMonth[ym]||0);
+    }
+  });
+  push('run rate/actuals','b2b2c','existing account net revenues', existingRR);
+  push('budget',          'b2b2c','existing account net revenues', b2bcNRTotalBud);
+
+  try { cache.put(CKEY, JSON.stringify(rows), 1800); } catch(e) {}
+  return rows;
+}
+
 // Calcular achievement por KR / período
 function computeOKR_() {
-  var rows = readOKRSheet_();
+  // Combina: Drive JSONs (auto) + Sheet (manuales: sign new partnership, buying agencies)
+  var driveRows  = readOKRFromDrive_();
+  var sheetRows  = readOKRSheet_().filter(function(r) {
+    return MANUAL_KRS[r.lob] && MANUAL_KRS[r.lob][r.kr];
+  });
+  var rows = driveRows.concat(sheetRows);
   if (!rows || !rows.length) return null;
 
   // Agregar por lob§kr§escenario§ym
