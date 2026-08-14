@@ -16,7 +16,7 @@ Una vez identificado, verificá si existen sus credenciales en `credenciales/`:
 
 ```
 credenciales/
-├── .env                        ← gregorio.minetti (ya existe)
+├── .env.gregorio.minetti       ← ya existe
 ├── .env.diego.bracco
 ├── .env.tiago.harari
 ├── .env.tomas.rombola
