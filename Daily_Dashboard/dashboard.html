@@ -1185,7 +1185,7 @@ function aggMonthly_(dMap, lyMap, curYM, budMap) {
   var mM={},lyM={},bM={};
   budMap = budMap || {};
   Object.keys(dMap).forEach(function(d){var m=d.substring(0,7);mM[m]=(mM[m]||0)+dMap[d];lyM[m]=(lyM[m]||0)+(lyMap[d]||0);bM[m]=(bM[m]||0)+(budMap[d]||0);});
-  return Object.keys(mM).sort().filter(function(m){return m<curYM;}).map(function(m){return{date:m,v:Math.round(mM[m]*100)/100,ly:Math.round((lyM[m]||0)*100)/100,bud:Math.round((bM[m]||0)*100)/100};});
+  return Object.keys(mM).sort().filter(function(m){return m<=curYM;}).map(function(m){return{date:m,v:Math.round(mM[m]*100)/100,ly:Math.round((lyM[m]||0)*100)/100,bud:Math.round((bM[m]||0)*100)/100};});
 }
 
 // ── compute_ (B2B2C) ────────────────────────────────────────────
