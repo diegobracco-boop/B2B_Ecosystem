@@ -1322,6 +1322,8 @@ function breakdownCountryProduct_(src, srcLY, bud, MF, mStart, vDate, lyMS, lyVD
   bud.forEach(function(r) {
     if (r.fecha<mStart || r.fecha>vDate) return;
     if (gl_pai && r.pais!==gl_pai) return;
+    if (gl_pro && r.producto!==gl_pro) return;
+    if (gl_ch && r.parent_channel!==gl_ch) return;
     if (gl_mkt && (isCore_(r.pais)?'Core':'New Markets')!==gl_mkt) return;
     if (!r.producto) return;
     bucket(b2bPaisGroup_(r.pais||'Other'), b2bProductBucket_(r.producto)).budget += (r[MF]||0);
@@ -1415,16 +1417,16 @@ function computeB2B_(raw, metric, dateModel, vDate, gl_pai, gl_pro, gl_ch, gl_mk
   }
   function brkPP(){
     var map={},lyMap={},bMap={};
-    src.forEach(function(r){if(r.fecha<mStart||r.fecha>vDate)return;if(gl_pai&&r.pais!==gl_pai)return;if(gl_ch&&r.parent_channel!==gl_ch)return;if(gl_mkt&&(isCore_(r.pais)?'Core':'New Markets')!==gl_mkt)return;var k=(r.pais||'Other')+'|||'+(r.producto_original||'Other');map[k]=(map[k]||0)+(r[MF]||0);});
-    srcLY.forEach(function(r){if(r.fecha<lyMS||r.fecha>lyVD)return;if(gl_pai&&r.pais!==gl_pai)return;if(gl_ch&&r.parent_channel!==gl_ch)return;if(gl_mkt&&(isCore_(r.pais)?'Core':'New Markets')!==gl_mkt)return;var k=(r.pais||'Other')+'|||'+(r.producto_original||'Other');lyMap[k]=(lyMap[k]||0)+(r[MF]||0);});
-    bud.forEach(function(r){if(r.fecha<mStart||r.fecha>vDate)return;if(gl_pai&&r.pais!==gl_pai)return;if(gl_ch&&r.parent_channel!==gl_ch)return;if(r.producto){var k=(r.pais||'Other')+'|||'+r.producto;bMap[k]=(bMap[k]||0)+(r[MF]||0);}});
+    src.forEach(function(r){if(r.fecha<mStart||r.fecha>vDate)return;if(gl_pai&&r.pais!==gl_pai)return;if(gl_pro&&r.producto_original!==gl_pro)return;if(gl_ch&&r.parent_channel!==gl_ch)return;if(gl_mkt&&(isCore_(r.pais)?'Core':'New Markets')!==gl_mkt)return;var k=(r.pais||'Other')+'|||'+(r.producto_original||'Other');map[k]=(map[k]||0)+(r[MF]||0);});
+    srcLY.forEach(function(r){if(r.fecha<lyMS||r.fecha>lyVD)return;if(gl_pai&&r.pais!==gl_pai)return;if(gl_pro&&r.producto_original!==gl_pro)return;if(gl_ch&&r.parent_channel!==gl_ch)return;if(gl_mkt&&(isCore_(r.pais)?'Core':'New Markets')!==gl_mkt)return;var k=(r.pais||'Other')+'|||'+(r.producto_original||'Other');lyMap[k]=(lyMap[k]||0)+(r[MF]||0);});
+    bud.forEach(function(r){if(r.fecha<mStart||r.fecha>vDate)return;if(gl_pai&&r.pais!==gl_pai)return;if(gl_pro&&r.producto!==gl_pro)return;if(gl_ch&&r.parent_channel!==gl_ch)return;if(gl_mkt&&(isCore_(r.pais)?'Core':'New Markets')!==gl_mkt)return;if(r.producto){var k=(r.pais||'Other')+'|||'+r.producto;bMap[k]=(bMap[k]||0)+(r[MF]||0);}});
     return Object.keys(map).map(function(k){var sp=k.split('|||');return{pais:sp[0],name:sp[1],value:Math.round(map[k]*100)/100,ly:Math.round((lyMap[k]||0)*100)/100,budget:Math.round((bMap[k]||0)*100)/100};}).sort(function(a,b){return b.value-a.value;});
   }
   function brkPais(){
     var map={},lyMap={},bMap={};
     src.forEach(function(r){if(r.fecha<mStart||r.fecha>vDate)return;if(gl_pai&&r.pais!==gl_pai)return;if(gl_ch&&r.parent_channel!==gl_ch)return;if(gl_mkt&&(isCore_(r.pais)?'Core':'New Markets')!==gl_mkt)return;var k=r.pais||'Other';map[k]=(map[k]||0)+(r[MF]||0);});
     srcLY.forEach(function(r){if(r.fecha<lyMS||r.fecha>lyVD)return;if(gl_pai&&r.pais!==gl_pai)return;if(gl_ch&&r.parent_channel!==gl_ch)return;if(gl_mkt&&(isCore_(r.pais)?'Core':'New Markets')!==gl_mkt)return;var k=r.pais||'Other';lyMap[k]=(lyMap[k]||0)+(r[MF]||0);});
-    bud.forEach(function(r){if(r.fecha<mStart||r.fecha>vDate)return;if(gl_pai&&r.pais!==gl_pai)return;if(gl_ch&&r.parent_channel!==gl_ch)return;var k=r.pais||'Other';bMap[k]=(bMap[k]||0)+(r[MF]||0);});
+    bud.forEach(function(r){if(r.fecha<mStart||r.fecha>vDate)return;if(gl_pai&&r.pais!==gl_pai)return;if(gl_pro&&r.producto!==gl_pro)return;if(gl_ch&&r.parent_channel!==gl_ch)return;if(gl_mkt&&(isCore_(r.pais)?'Core':'New Markets')!==gl_mkt)return;var k=r.pais||'Other';bMap[k]=(bMap[k]||0)+(r[MF]||0);});
     return Object.keys(map).map(function(k){return{name:k,value:Math.round(map[k]*100)/100,ly:Math.round((lyMap[k]||0)*100)/100,budget:Math.round((bMap[k]||0)*100)/100};}).sort(function(a,b){return b.value-a.value;});
   }
   return{viewDate:vDate,curYM:curYM,d1:d1,lyD1:lyD1,mtd:mtd,lyMtd:lyMtd,budget:budget,daily:daily,pais_producto:brkPP().slice(0,30),paises:brkPais()};
