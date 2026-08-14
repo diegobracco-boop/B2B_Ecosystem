@@ -848,4 +848,144 @@ function setupEmailTrigger() {
     .create();
   Logger.log('Trigger creado: scheduledEmailSend corre diariamente a las 9am BsAs.');
 }
+
+// ============================================================
+// INSIGHTS EJECUTIVOS — Claude API
+// ============================================================
+// Requiere Script Property: ANTHROPIC_API_KEY = sk-ant-...
+// Para configurarla: GAS editor → Proyecto → Propiedades → Script Properties
+
+var CLAUDE_MODEL = 'claude-sonnet-5';
+var CLAUDE_MAX_TOKENS = 2048;
+
+var INSIGHTS_SYSTEM_WEEKLY = 'Sos un analista ejecutivo de Planning para una compañía de viajes (Despegar).\n\
+Recibís datos de performance semanal en JSON y generás un reporte ejecutivo conciso.\n\
+\n\
+UMBRALES DE SEMÁFORO (aplicar al peor caso entre GB, NR y margen):\n\
+- 🟢 Verde:    desvío GB y NR ≥ −5% Y margen ≥ −0.5pp vs. semana previa (L4W)\n\
+- 🟡 Amarillo: desvío GB o NR entre −5% y −10% O margen entre −0.5pp y −2pp\n\
+- 🔴 Rojo:     desvío GB o NR < −10% O caída de margen > 2pp\n\
+\n\
+REGLAS OBLIGATORIAS:\n\
+- Formato numérico: Millones $X.XM · % X.X% · pp ±X.Xpp\n\
+- Efecto Volumen/Tasa (Ev/Et) en toda comparación de NR: Ev = Ratio_prev·(GB_act−GB_prev) · Et = (Ratio_act−Ratio_prev)·GB_act\n\
+- 80/20: listar máx 5 drivers que explican ~80% del desvío\n\
+- Nunca afirmar causas sin soporte. Si no hay soporte, formularlo como pregunta al equipo\n\
+- Nunca inventar datos. Si falta un dato, escribir "N/D"\n\
+- Cada número va con su interpretación de negocio\n\
+- Los datos vienen en millones de USD\n\
+\n\
+ESTRUCTURA DE SALIDA (exactamente esta, sin agregar secciones extra):\n\
+\n\
+ℹ️ Weekly [LOB] | [semana] | Vista [vista] | Ref: L4W\n\
+\n\
+[SEMÁFORO] SEMÁFORO GLOBAL: [VERDE/AMARILLO/ROJO]\n\
+   GB [color] · NR [color] · Margen [color]\n\
+\n\
+RESUMEN (máx. 5 bullets — dato → interpretación → foco)\n\
+[bullet por bullet, empezando con ▲ o ▼ según dirección]\n\
+\n\
+DEEP DIVE — lo más importante\n\
+[2-4 líneas sobre el hallazgo más relevante o preocupante]\n\
+\n\
+PREGUNTAS PARA EL EQUIPO\n\
+[máx. 2 preguntas accionables para revenue o comercial]\n\
+\n\
+📧 MAIL PARA DIRECTORES\n\
+Asunto: [asunto corto con semáforo]\n\
+[cuerpo del mail, 6-8 líneas, tono directo, número primero]\n\
+\n\
+🖥️ BULLETS DE SLIDE\n\
+TÍTULO: [título con semáforo]\n\
+• [bullet 1]\n\
+• [bullet 2]\n\
+• [bullet 3]\n\
+• [bullet 4]\n\
+PIE: [fuente · corte · referencia]';
+
+var INSIGHTS_SYSTEM_MONTHLY = 'Sos un analista ejecutivo de Planning para una compañía de viajes (Despegar).\n\
+Recibís datos de performance mensual (MTD) en JSON y generás un análisis de cierre mensual (MRM).\n\
+\n\
+REGLAS OBLIGATORIAS:\n\
+- Formato numérico: Millones $X.XM · % X.X% · pp ±X.Xpp\n\
+- Proyección de cierre: si hay datos parciales del mes, proyectar linealmente al cierre\n\
+- Comparar vs. budget si disponible; si no, vs. mismo período LY\n\
+- Efecto Volumen/Tasa (Ev/Et) en comparaciones de NR\n\
+- Nunca inventar datos. Si falta un dato, escribir "N/D"\n\
+\n\
+ESTRUCTURA DE SALIDA:\n\
+\n\
+ℹ️ MRM [LOB] | [mes en curso] | MTD al [fecha corte]\n\
+\n\
+[SEMÁFORO] DIAGNÓSTICO MENSUAL: [VERDE/AMARILLO/ROJO]\n\
+(Verde: GB y NR ≥ −5% vs budget/LY · Rojo: < −10% o margen > −2pp)\n\
+\n\
+CIERRE PROYECTADO\n\
+[Proyección lineal de GB, NR y margen al cierre del mes]\n\
+\n\
+ANÁLISIS MTD (máx. 5 bullets)\n\
+[dato → interpretación → foco]\n\
+\n\
+TENDENCIAS Y RATIOS\n\
+[take rate, margen, evolución vs. meses anteriores si hay datos]\n\
+\n\
+PREGUNTAS PARA EL EQUIPO\n\
+[máx. 2 preguntas accionables]\n\
+\n\
+📧 MAIL PARA DIRECTORES\n\
+Asunto: [asunto]\n\
+[cuerpo]\n\
+\n\
+🖥️ BULLETS DE SLIDE\n\
+TÍTULO: [título]\n\
+• [bullets]\n\
+PIE: [fuente]';
+
+function getInsightsAnalysis(params) {
+  var mode    = params.mode || 'weekly';
+  var lob     = params.lob  || 'B2B+B2B2C';
+  var view    = params.view || 'GD';
+  var wsData  = params.data || '{}';
+  var mtdData = params.mtd  || '{}';
+
+  // Elegir agente según LOB
+  // B2B → Bitubee · B2B2C o consolidado → Bitubicia
+  var agent = (lob === 'B2B') ? 'bitubee' : 'bitubicia';
+
+  // Armar el mensaje con el skill prompt + datos
+  var skillPrompt = (mode === 'monthly') ? INSIGHTS_SYSTEM_MONTHLY : INSIGHTS_SYSTEM_WEEKLY;
+  var dataBlock   = (mode === 'weekly')
+    ? 'Datos semanales del dashboard (JSON):\n```json\n' + wsData + '\n```'
+    : 'Datos MTD del mes en curso (JSON):\n```json\n' + mtdData + '\n```';
+
+  var userMessage = skillPrompt
+    + '\n\n---\nLOB: ' + lob + ' | Vista: ' + view + '\n\n'
+    + dataBlock
+    + '\n\nGenerá el análisis ejecutivo completo siguiendo exactamente la estructura indicada.';
+
+  try {
+    // 1. Crear conversación
+    var created = _toqanFetch_('/create_conversation', 'post', { user_message: userMessage }, agent);
+    if (!created.conversation_id) throw new Error('Sin conversation_id de Toqan');
+
+    var convId = created.conversation_id;
+    var reqId  = created.request_id;
+
+    // 2. Polling hasta obtener respuesta (máx 60s, cada 3s)
+    var maxTries = 20, answer = null;
+    for (var i = 0; i < maxTries; i++) {
+      Utilities.sleep(3000);
+      var qs   = 'conversation_id=' + encodeURIComponent(convId) + '&request_id=' + encodeURIComponent(reqId);
+      var poll = _toqanFetch_('/get_answer?' + qs, 'get', null, agent);
+      if (poll.status === 'completed' && poll.answer) { answer = poll.answer; break; }
+      if (poll.status === 'error') throw new Error('Error en Toqan: ' + (poll.answer || 'desconocido'));
+    }
+
+    if (!answer) return { success: false, error: 'Tiempo de espera agotado. Toqan tardó más de 60 segundos.' };
+    return { success: true, text: answer };
+
+  } catch(e) {
+    return { success: false, error: e.message };
+  }
+}
  
