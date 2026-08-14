@@ -115,7 +115,7 @@ var MANUAL_KRS = {
 // Lee los JSONs de Drive y devuelve rows {ym, escenario, lob, kr, valor}
 function readOKRFromDrive_() {
   var cache = CacheService.getScriptCache();
-  var CKEY  = 'okr_drive_v4';
+  var CKEY  = 'okr_drive_v5';
   var hit   = cache.get(CKEY);
   if (hit) { try { return JSON.parse(hit); } catch(e) {} }
 
@@ -215,7 +215,7 @@ function readOKRFromDrive_() {
   var huntingBudByMonth = {};
   try {
     var gestJson = JSON.parse(DriveApp.getFileById(GESTIONAL_FILE_ID).getBlob().getDataAsString());
-    var fcRows   = (gestJson.b2b2c || {}).fc || [];
+    var fcRows   = (gestJson.b2b2c || {}).bgt || [];
     fcRows.forEach(function(row) {
       var partner = String(row[1]||'').trim().toLowerCase();
       if (!B2B2C_HUNTING_PARTNERS[partner]) return;
