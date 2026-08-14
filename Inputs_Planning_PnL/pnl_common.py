@@ -11,6 +11,8 @@ import json
 import datetime
 from pathlib import Path
 
+import config as _cfg
+
 _DIR = os.path.dirname(os.path.abspath(__file__))
 DRIVE_SCOPES = ["https://www.googleapis.com/auth/drive"]
 
@@ -34,7 +36,7 @@ def _onedrive_root():
 
 def get_base_dir():
     """Carpeta OneDrive compartida del equipo, resuelta por usuario (no hardcodeada)."""
-    return os.path.join(_onedrive_root(), "Control de Gestión - 2026-27", "B2B & WLs")
+    return os.path.join(_onedrive_root(), _cfg.GESTION_FOLDER, "B2B & WLs")
 
 
 def get_pbi_inputs_dir():
@@ -58,14 +60,9 @@ def get_revision_dir():
     return os.path.join(get_base_dir(), "Proyectos IA", "Codigo - revision P&L")
 
 
-# Versión del modelo Forecast vigente. ACTUALIZAR A MANO cuando el equipo confirme
-# uno nuevo. NO auto-detectar la carpeta más reciente: puede haber borradores/olvidados
-# (ej. 2026.07.21 quedó sin usar). El vigente es el 2026.07.14.
-FORECAST_VERSION = "2026.07.14"
-
 def get_models_dir():
-    """Subcarpeta Forecast del modelo VIGENTE (fija, ver FORECAST_VERSION)."""
-    return os.path.join(get_base_dir(), "Forecast", FORECAST_VERSION)
+    """Subcarpeta Forecast del modelo vigente (ver config.FORECAST_VERSION)."""
+    return os.path.join(get_base_dir(), "Forecast", _cfg.FORECAST_VERSION)
 
 
 # ── Auth Drive (scope completo, compartible por el equipo) ────────────────────

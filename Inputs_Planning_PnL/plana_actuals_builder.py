@@ -21,13 +21,15 @@ try:
 except Exception:
     pass
 
+import config
 from pnl_common import (
     DIM_COLS, OUT_COLS, LOBS_KEEP, MMM,
     homolog, to_num, lower_all,
     load_glosario, add_axi, load_axi_sheet,
 )
 
-BITUBIA = os.path.join(pnl_common.get_base_dir(), "Proyectos IA", "BITUBIA")
+BITUBIA      = os.path.join(pnl_common.get_base_dir(), "Proyectos IA", "BITUBIA")
+AXI_RR_DATES = config.AXI_RR_DATES
 
 NIVELES = ["P&L N1", "P&L N2", "P&L N3", "P&L N4", "P&L N5", "P&L N6", "P&L Managerial View"]
 
@@ -41,9 +43,6 @@ EXCL_LINEA_ACT = {
     "other operating income", "other operating income (expense)", "withholdings tax",
     "- cancelled gb", "cancelled gb", "leases interest",
 }
-
-# AXI actuals por período (Parte 4.1)
-AXI_RR_DATES = {f"2025-{m}-01" for m in ["10", "11", "12"]} | {f"2026-{m}-01" for m in ["01", "02", "03"]}
 
 
 # ── Lectura de un archivo calendario ─────────────────────────────────────────

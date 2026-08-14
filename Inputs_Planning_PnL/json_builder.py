@@ -19,6 +19,7 @@ import json
 import glob
 from collections import OrderedDict
 import pandas as pd
+import config
 import pnl_common
 
 try:
@@ -26,15 +27,14 @@ try:
 except Exception:
     pass
 
-DRIVE_FOLDER_ID = "1XqQPL_rlS0NRIPUnPfj5nALBTn7kAOQV"
+DRIVE_FOLDER_ID = config.DRIVE_FOLDER_ID
+CURRENT_FY      = config.CURRENT_FY
 DIR = os.path.dirname(os.path.abspath(__file__))
 
 COLS_OUT = ["LoB", "Canal", "Pais", "Producto",
             "P&L N1", "P&L N2", "P&L N3", "P&L N4", "P&L N5", "P&L N6", "P&L Managerial View",
             "Fecha", "Monto USD"]
 GROUP = COLS_OUT[:-1]  # todo menos Monto USD
-
-CURRENT_FY = 2027   # año fiscal en curso (actuals.json). Los demás -> actuals_previos.json
 
 CONCEPTS = {
     "budget":          ["plana_budget.csv"],

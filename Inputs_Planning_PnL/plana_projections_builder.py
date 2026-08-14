@@ -22,34 +22,17 @@ try:
 except Exception:
     pass
 
+import config
 from pnl_common import (
     DIM_COLS, OUT_COLS, LOBS_KEEP,
     homolog, to_num, lower_all,
     load_glosario, add_axi, load_axi_sheet,
 )
 
-# ── Meses del año fiscal FY27 (Abr 2026 → Mar 2027) ──────────────────────────
-# OJO: el spec del agente listaba 2025-04..2026-03; se usa 2026-04..2027-03 (FY27)
-# para alinear con la hoja 'Budget' del Reverso AxI (apr-26..mar-27) y con las landings.
-FISCAL_DATES = [
-    "2026-04-01", "2026-05-01", "2026-06-01", "2026-07-01", "2026-08-01", "2026-09-01",
-    "2026-10-01", "2026-11-01", "2026-12-01", "2027-01-01", "2027-02-01", "2027-03-01",
-]
-FORECAST_DROP_DATES = {"2026-04-01", "2026-05-01", "2026-06-01", "2026-07-01"}  # solo Forecast
-
-PBI = pnl_common.get_pbi_inputs_dir()
-BASES = {
-    "budget":      {"files": ["Budget/Budget 2027 - Legal Entity ALL.csv",
-                              "Budget/Budget 2027 - Legal Entity NA.csv"],       "is_forecast": False},
-    "forecast":    {"files": ["Forecast/FQ1 - Legal Entity ALL.csv",
-                              "Forecast/FQ1 - Legal Entity NA.csv"],             "is_forecast": True},
-    "forecast_v2": {"files": ["Forecast/FQ1 - Legal Entity ALL V2.csv",
-                              "Forecast/FQ1 - Legal Entity NA V2.csv"],          "is_forecast": True},
-    "runrate":     {"files": ["Run Rate/RR - Legal Entity ALL - 27.csv",
-                              "Run Rate/RR - Legal Entity NA - 27.csv"],         "is_forecast": False},
-    "lastrunrate": {"files": ["Run Rate/LRR - Legal Entity ALL.csv",
-                              "Run Rate/LRR - Legal Entity NA.csv"],             "is_forecast": False},
-}
+FISCAL_DATES       = config.FISCAL_DATES
+FORECAST_DROP_DATES = config.FORECAST_DROP_DATES
+BASES              = config.BASES
+PBI                = pnl_common.get_pbi_inputs_dir()
 
 # ── Filtros de exclusión (Parte 3.6) ─────────────────────────────────────────
 EXCL_MARCA   = {"br_4001", "interco"}

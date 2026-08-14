@@ -48,24 +48,24 @@ try:
 except Exception:
     pass
 
+import config
 import pandas as pd
 import pnl_common
 import plana_projections_builder as P
 import plana_actuals_builder as A
 
-DIR = os.path.dirname(os.path.abspath(__file__))
-DRIVE_FOLDER_ID = "1XqQPL_rlS0NRIPUnPfj5nALBTn7kAOQV"
-BASELINE_NAME = "baseline_actuals+projections.json"
+DIR             = os.path.dirname(os.path.abspath(__file__))
+DRIVE_FOLDER_ID = config.DRIVE_FOLDER_ID
+BASELINE_NAME   = "baseline_actuals+projections.json"
 
 COLS_OUT = ["LoB", "Canal", "Pais", "Producto",
             "P&L N1", "P&L N2", "P&L N3", "P&L N4", "P&L N5", "P&L N6", "P&L Managerial View",
             "Fecha", "Monto USD"]
 GROUP = COLS_OUT[:-1]
 
-# Composición del FY27 por concepto (mes -> fuente), usada en --rebuild.
-RUNRATE_MONTHS  = {"2026-08-01", "2026-09-01"}
-FORECAST_MONTHS = {"2026-10-01", "2026-11-01", "2026-12-01",
-                   "2027-01-01", "2027-02-01", "2027-03-01"}
+# Composición del FY por concepto (mes -> fuente), usada en --rebuild.
+RUNRATE_MONTHS  = config.RUNRATE_MONTHS
+FORECAST_MONTHS = config.FORECAST_MONTHS
 
 
 def _svc():
