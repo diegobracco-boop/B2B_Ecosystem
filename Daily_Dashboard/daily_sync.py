@@ -311,6 +311,19 @@ SELECT * FROM raw.b2b_budget_ri
 WHERE lob_canal IN ('B2B-MAY', 'B2B-MIN')
 """
 
+B2B2C_RR_QUERY = """
+SELECT * FROM raw.b2brr_gd
+WHERE lob_canal IN ('B2B2C-ON', 'B2B2C-OFF', 'B2B2C-CALL CENTER')
+"""
+B2B_RR_GD_QUERY = """
+SELECT * FROM raw.b2brr_gd
+WHERE lob_canal IN ('B2B-MAY', 'B2B-MIN')
+"""
+B2B_RR_RI_QUERY = """
+SELECT * FROM raw.b2brr_ri
+WHERE lob_canal IN ('B2B-MAY', 'B2B-MIN')
+"""
+
 LOB_CANAL_DIAG_QUERY = f"""
 SELECT lob_canal, COUNT(*) AS n,
        SUM(CAST(net_revenue AS DOUBLE)) AS nr_sum,
@@ -976,6 +989,29 @@ except Exception as e:
     print(f"  WARN B2B budget RI query failed: {e}")
     df_b2b_budget_ri = pd.DataFrame()
 
+print("\n--- Run Rate B2B2C ---")
+try:
+    df_b2bc_rr = clean_budget(fetch(B2B2C_RR_QUERY, "B2B2C Run Rate"))
+    if not df_b2bc_rr.empty and 'partner' in df_b2bc_rr.columns:
+        df_b2bc_rr["stage"] = df_b2bc_rr["partner"].map(cartera_map).fillna("Existing")
+except Exception as e:
+    print(f"  WARN B2B2C RR query failed: {e}")
+    df_b2bc_rr = pd.DataFrame()
+
+print("\n--- Run Rate B2B GD ---")
+try:
+    df_b2b_rr_gd = clean_budget(fetch(B2B_RR_GD_QUERY, "B2B Run Rate GD"))
+except Exception as e:
+    print(f"  WARN B2B RR GD query failed: {e}")
+    df_b2b_rr_gd = pd.DataFrame()
+
+print("\n--- Run Rate B2B RI ---")
+try:
+    df_b2b_rr_ri = clean_budget(fetch(B2B_RR_RI_QUERY, "B2B Run Rate RI"))
+except Exception as e:
+    print(f"  WARN B2B RR RI query failed: {e}")
+    df_b2b_rr_ri = pd.DataFrame()
+
 # ==============================================================================
 # 5) AGREGAR Y CONSTRUIR JSON
 # ==============================================================================
@@ -990,6 +1026,9 @@ df_b2b_ri_agg   = agg_b2b(df_b2b_ri)
 df_b2b_ri_ly_ag = agg_b2b(df_b2b_ri_ly)
 df_b2b_bud_gd   = agg_b2b_budget(df_b2b_budget_gd) if not df_b2b_budget_gd.empty else pd.DataFrame()
 df_b2b_bud_ri   = agg_b2b_budget(df_b2b_budget_ri) if not df_b2b_budget_ri.empty else pd.DataFrame()
+df_b2bc_rr_agg  = agg_budget(df_b2bc_rr)           if not df_b2bc_rr.empty          else pd.DataFrame()
+df_b2b_rr_gd_agg = agg_b2b_budget(df_b2b_rr_gd)   if not df_b2b_rr_gd.empty        else pd.DataFrame()
+df_b2b_rr_ri_agg = agg_b2b_budget(df_b2b_rr_ri)   if not df_b2b_rr_ri.empty        else pd.DataFrame()
 print(f"  Actuals:    {len(df_actuals):,} -> {len(df_act):,} filas")
 print(f"  LY:         {len(df_ly):,} -> {len(df_lya):,} filas")
 print(f"  Budget:     {len(df_budget):,} -> {len(df_bud):,} filas")
@@ -1013,6 +1052,7 @@ b2bc_payload = {
     "actuals":    df_act.to_dict(orient="records"),
     "actuals_ly": df_lya.to_dict(orient="records"),
     "budget":     to_compact(df_bud),
+    "runrate":    to_compact(df_b2bc_rr_agg) if not df_b2bc_rr_agg.empty else {"cols": [], "rows": []},
 }
 
 b2b_payload = {
@@ -1021,8 +1061,10 @@ b2b_payload = {
     "b2b_gd_ly":  to_compact(df_b2b_gd_ly_ag),
     "b2b_ri":     to_compact(df_b2b_ri_agg),
     "b2b_ri_ly":  to_compact(df_b2b_ri_ly_ag),
-    "b2b_budget_gd": df_b2b_bud_gd.to_dict(orient="records") if not df_b2b_bud_gd.empty else [],
-    "b2b_budget_ri": df_b2b_bud_ri.to_dict(orient="records") if not df_b2b_bud_ri.empty else [],
+    "b2b_budget_gd":  df_b2b_bud_gd.to_dict(orient="records")    if not df_b2b_bud_gd.empty    else [],
+    "b2b_budget_ri":  df_b2b_bud_ri.to_dict(orient="records")    if not df_b2b_bud_ri.empty    else [],
+    "b2b_runrate_gd": df_b2b_rr_gd_agg.to_dict(orient="records") if not df_b2b_rr_gd_agg.empty else [],
+    "b2b_runrate_ri": df_b2b_rr_ri_agg.to_dict(orient="records") if not df_b2b_rr_ri_agg.empty else [],
 }
 
 b2bc_str   = json.dumps(b2bc_payload, ensure_ascii=False, separators=(",", ":"))

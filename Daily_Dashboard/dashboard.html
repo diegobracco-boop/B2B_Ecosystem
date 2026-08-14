@@ -2096,7 +2096,9 @@ function recomputeB2B_() {
   var gl_pai = vb2b('b2b-sel-pais')    !== 'all' ? vb2b('b2b-sel-pais')    : null;
   var gl_pro = vb2b('b2b-sel-product') !== 'all' ? vb2b('b2b-sel-product') : null;
   var gl_ch  = vb2b('b2b-sel-channel') !== 'all' ? vb2b('b2b-sel-channel') : null;
-  var compSrc = _b2bComparison === 'runrate' ? (_rawB2B.b2b_runrate || []) : (_b2bDateModel==='ri' ? (_rawB2B.b2b_budget_ri||[]) : (_rawB2B.b2b_budget_gd||[]));
+  var compSrc = _b2bComparison === 'runrate'
+    ? (_b2bDateModel==='ri' ? (_rawB2B.b2b_runrate_ri||[]) : (_rawB2B.b2b_runrate_gd||[]))
+    : (_b2bDateModel==='ri' ? (_rawB2B.b2b_budget_ri||[])  : (_rawB2B.b2b_budget_gd||[]));
   var compLbl = _b2bComparison === 'runrate' ? 'Run Rate' : 'Budget';
   var compKpi = _b2bComparison === 'runrate' ? 'vs RR' : 'vs Bdg';
   ['leg-b2b-gb-comp','leg-b2b-nr-comp','leg-b2b-fvm-comp'].forEach(function(id){var el=document.getElementById(id);if(el)el.textContent=compLbl;});
@@ -2206,7 +2208,11 @@ function switchDateModel(model) {
   _b2bDateModel = model;
   document.getElementById('btn-dm-gd').classList.toggle('active', model==='gd');
   document.getElementById('btn-dm-ri').classList.toggle('active', model==='ri');
-  if (_rawB2B) { recomputeB2B_(); } else { loadB2B(); }
+  if (_rawB2B) {
+    var dates = _allDatesB2B();
+    if (dates.length) state_b2b.viewDate = dates[dates.length - 1];
+    recomputeB2B_();
+  } else { loadB2B(); }
 }
 
 // ── B2B Render ───────────────────────────────────────────────────
