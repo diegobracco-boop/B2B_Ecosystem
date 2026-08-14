@@ -94,8 +94,17 @@ var ACCOUNTING_FILE_IDS = {
   runrate:  '1UGg60kE397nsGAivtFqI8NX5CVFj1gqO',
   budget:   '1f2JF8pq7gtpxfdkVzbT9wvamn_ny3RBW'
 };
-var DAILY_FOLDER_ID    = '1lWzfqweyV6Kz1ERkL85ikFcmzmKwGwwh';
-var DAILY_B2B2C_FILE_ID = '1Ukcx4e-dwCZ2VqesWwVN_1Jnt6r2AZdX';
+var DAILY_FOLDER_ID      = '1lWzfqweyV6Kz1ERkL85ikFcmzmKwGwwh';
+var DAILY_B2B2C_FILE_ID  = '1Ukcx4e-dwCZ2VqesWwVN_1Jnt6r2AZdX';
+var GESTIONAL_FILE_ID    = '1WP0mFepNzc5dpNThqGT5A0Xa3xypVK8I'; // _pnl_gestional_data.json
+
+// Partners clasificados como Hunting/New (canónico, igual que P&L_Managerial)
+var B2B2C_HUNTING_PARTNERS = {
+  'caixa':true,'csu':true,'ypf':true,'cocos':true,'tuplus':true,'vibe':true,
+  'cacau lovers':true,'turismocity':true,'claro':true,'livelo-api-hoteles':true,
+  'invex':true,'bna':true,'banco de chile':true,'itau':true,'tbd':true,
+  'cutc':true,'sams':true,'dotz':true,'xcaret':true
+};
 
 // KRs que siguen siendo manuales (leídos desde el sheet)
 var MANUAL_KRS = {
@@ -106,7 +115,7 @@ var MANUAL_KRS = {
 // Lee los JSONs de Drive y devuelve rows {ym, escenario, lob, kr, valor}
 function readOKRFromDrive_() {
   var cache = CacheService.getScriptCache();
-  var CKEY  = 'okr_drive_v3';
+  var CKEY  = 'okr_drive_v4';
   var hit   = cache.get(CKEY);
   if (hit) { try { return JSON.parse(hit); } catch(e) {} }
 
@@ -200,8 +209,22 @@ function readOKRFromDrive_() {
 
   // ── B2B2C: New Account NR (Hunting transaccional) ─────────────
   push('run rate/actuals','b2b2c','new account net revenues', huntingByMonth);
-  // Budget new account: no tenemos split hunting/existing en budget → usamos total NR como referencia
-  push('budget','b2b2c','new account net revenues', b2bcNRTotalBud);
+
+  // Budget new account: gestional fc filtrado por partners hunting
+  // dims [pais=0, partner=1, produto=2, mes=3], net_revenue = dim(4) + metric_idx(27) = pos 31
+  var huntingBudByMonth = {};
+  try {
+    var gestJson = JSON.parse(DriveApp.getFileById(GESTIONAL_FILE_ID).getBlob().getDataAsString());
+    var fcRows   = (gestJson.b2b2c || {}).fc || [];
+    fcRows.forEach(function(row) {
+      var partner = String(row[1]||'').trim().toLowerCase();
+      if (!B2B2C_HUNTING_PARTNERS[partner]) return;
+      var ym = String(row[3]||'').substring(0,7);
+      if (PERIODS.indexOf(ym) === -1) return;
+      huntingBudByMonth[ym] = (huntingBudByMonth[ym]||0) + (Number(row[31])||0);
+    });
+  } catch(e) { Logger.log('ERROR gestional budget load: '+e.message); }
+  push('budget','b2b2c','new account net revenues', huntingBudByMonth);
 
   // ── B2B2C: Existing Account NR = Total Contable − Hunting ─────
   var existingRR = {};
@@ -211,7 +234,13 @@ function readOKRFromDrive_() {
     }
   });
   push('run rate/actuals','b2b2c','existing account net revenues', existingRR);
-  push('budget',          'b2b2c','existing account net revenues', b2bcNRTotalBud);
+  var existingBud = {};
+  PERIODS.forEach(function(ym) {
+    if (b2bcNRTotalBud[ym] !== undefined) {
+      existingBud[ym] = (b2bcNRTotalBud[ym]||0) - (huntingBudByMonth[ym]||0);
+    }
+  });
+  push('budget','b2b2c','existing account net revenues', existingBud);
 
   try { cache.put(CKEY, JSON.stringify(rows), 1800); } catch(e) {}
   return rows;
