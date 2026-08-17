@@ -28,7 +28,8 @@ warnings.filterwarnings("ignore")
 # 1) CONFIGURACIÓN
 # ==============================================================================
 
-RUTA_ENV   = Path(__file__).resolve().parent.parent / "credenciales" / ".env.gregorio.minetti"
+_win_user  = os.environ.get("USERNAME", "").lower()
+RUTA_ENV   = Path(__file__).resolve().parent.parent / "credenciales" / f".env.{_win_user}"
 DSN_NAME   = "DataLake Treasure ODBC"
 
 DRIVE_FOLDER_ID   = "1lWzfqweyV6Kz1ERkL85ikFcmzmKwGwwh"
