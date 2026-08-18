@@ -489,71 +489,6 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
 .fl-div-logo .dl-txt{font-weight:800;font-size:22px;line-height:1}
 .fl-div-logo .dl-txt small{display:block;font-weight:500;font-size:11px;opacity:.75;letter-spacing:3px}
 .fl-note{font-size:11px;color:var(--fl-ink3);font-style:italic;margin-top:6px}
-
-/* ══ INSIGHTS VIEW ══════════════════════════════════════════════ */
-#view-insights { padding: 24px 28px 48px; max-width: 900px; }
-.ins-page-title { font-size: 22px; font-weight: 800; color: var(--text); margin-bottom: 4px; }
-.ins-page-sub   { font-size: 12px; color: var(--text-3); margin-bottom: 24px; }
-.ins-lob-row    { display: flex; gap: 8px; margin-bottom: 20px; }
-.ins-lob-btn    { background: var(--elevated); border: 1px solid var(--border); border-radius: 20px;
-  color: var(--text-2); font-size: 12px; font-weight: 700; font-family: var(--font);
-  padding: 6px 18px; cursor: pointer; transition: all .15s; }
-.ins-lob-btn:hover { border-color: rgba(86,38,233,.4); color: var(--text); }
-.ins-lob-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
-.ins-mode-row   { display: flex; gap: 8px; margin-bottom: 24px; }
-.ins-mode-btn   { background: var(--elevated); border: 1px solid var(--border); border-radius: 10px;
-  color: var(--text-2); font-size: 12px; font-weight: 600; font-family: var(--font);
-  padding: 8px 20px; cursor: pointer; transition: all .15s; }
-.ins-mode-btn:hover { border-color: rgba(86,38,233,.4); }
-.ins-mode-btn.active { background: var(--primary-d); border-color: var(--primary); color: var(--text); }
-.ins-generate-btn {
-  display: flex; align-items: center; gap: 8px;
-  background: var(--primary); border: none; border-radius: 10px;
-  color: #fff; font-size: 13px; font-weight: 700; font-family: var(--font);
-  padding: 10px 24px; cursor: pointer; transition: background .15s; margin-bottom: 28px;
-}
-.ins-generate-btn:hover { background: var(--secondary); }
-.ins-generate-btn:disabled { opacity: .5; cursor: default; }
-/* Result card */
-.ins-result { background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
-  padding: 24px 28px; display: none; }
-.ins-result.visible { display: block; }
-/* Semáforo */
-.ins-semaforo { display: flex; align-items: center; gap: 12px; margin-bottom: 20px;
-  padding: 14px 18px; border-radius: 10px; font-weight: 700; font-size: 14px; }
-.ins-semaforo.verde   { background: var(--success-l); border: 1px solid rgba(74,222,128,.3); color: var(--success); }
-.ins-semaforo.amarillo{ background: var(--warning-l); border: 1px solid rgba(255,193,7,.3);  color: var(--warning); }
-.ins-semaforo.rojo    { background: var(--danger-l);  border: 1px solid rgba(248,113,113,.3);color: var(--danger); }
-.ins-sem-dot { width: 16px; height: 16px; border-radius: 50%; flex: 0 0 16px; }
-.verde   .ins-sem-dot { background: var(--success); }
-.amarillo .ins-sem-dot{ background: var(--warning); }
-.rojo    .ins-sem-dot { background: var(--danger); }
-.ins-sem-desc { font-size: 12px; font-weight: 400; opacity: .85; margin-top: 2px; }
-/* Section header */
-.ins-sec-hdr { font-size: 10px; font-weight: 800; color: var(--text-3); text-transform: uppercase;
-  letter-spacing: .08em; margin: 20px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
-/* Bullets */
-.ins-bullets { list-style: none; padding: 0; margin: 0 0 4px; }
-.ins-bullets li { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border);
-  font-size: 13px; color: var(--text-2); line-height: 1.5; }
-.ins-bullets li:last-child { border-bottom: none; }
-.ins-bullet-dot { flex: 0 0 6px; width: 6px; height: 6px; border-radius: 50%; background: var(--primary); margin-top: 7px; }
-/* Alertas */
-.ins-alerta { display: flex; gap: 10px; align-items: flex-start; padding: 10px 14px;
-  border-radius: 8px; background: var(--warning-l); border-left: 3px solid var(--warning);
-  font-size: 12px; color: var(--text-2); margin-bottom: 8px; line-height: 1.5; }
-/* Preguntas */
-.ins-preguntas { background: var(--elevated); border-radius: 10px; padding: 14px 18px; }
-.ins-preguntas-title { font-size: 10px; font-weight: 800; color: var(--secondary);
-  text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; }
-.ins-preguntas ol { padding-left: 18px; margin: 0; }
-.ins-preguntas li { font-size: 13px; color: var(--text-2); padding: 4px 0; line-height: 1.5; }
-/* Ctx badge */
-.ins-ctx { font-size: 10px; color: var(--text-3); margin-bottom: 16px; }
-.ins-ctx-warn { color: var(--warning); font-size: 9px; margin-top: 3px; }
-/* placeholder state */
-.ins-placeholder { font-size: 13px; color: var(--text-3); font-style: italic;
-  padding: 40px 0; text-align: center; }
 </style>
 </head>
 <body>
@@ -601,10 +536,9 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
   <div class="topbar-divider"></div>
   <span class="topbar-title" id="topbar-title">Daily Dashboard</span>
   <div class="view-nav">
-    <button class="vnav-btn active" id="vnav-daily"    onclick="switchMainView('daily')">Daily</button>
-    <button class="vnav-btn"        id="vnav-weekly"  onclick="switchMainView('weekly')">Weekly</button>
-    <button class="vnav-btn"        id="vnav-flow"    onclick="switchMainView('flow')">Flow Semanal</button>
-    <button class="vnav-btn"        id="vnav-insights" onclick="switchMainView('insights')" style="border-color:rgba(255,200,0,.5);color:#f5c400">📊 Insights</button>
+    <button class="vnav-btn active" id="vnav-daily"  onclick="switchMainView('daily')">Daily</button>
+    <button class="vnav-btn"        id="vnav-weekly" onclick="switchMainView('weekly')">Weekly</button>
+    <button class="vnav-btn"        id="vnav-flow"   onclick="switchMainView('flow')">Flow Semanal</button>
   </div>
   <div id="daily-lob-toggle" class="lob-toggle" style="margin-left:6px">
     <button class="lob-btn active" id="btn-lob-b2bc" onclick="switchLob('b2bc')">B2B2C</button>
@@ -1227,39 +1161,6 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
   </div>
 </div><!-- /view-flow -->
 
-<!-- ══ INSIGHTS VIEW ════════════════════════════════════════════ -->
-<div id="view-insights" style="display:none">
-  <div id="view-insights-inner">
-    <p class="ins-page-title">📊 Insights Ejecutivos</p>
-    <p class="ins-page-sub">Diagnóstico rápido de performance — generado desde los datos ya cargados del dashboard.</p>
-
-    <!-- LOB selector -->
-    <div class="ins-lob-row">
-      <button class="ins-lob-btn active" id="ins-lob-both"  onclick="insSetLob('B2B+B2B2C')">B2B + B2B2C</button>
-      <button class="ins-lob-btn"        id="ins-lob-b2bc"  onclick="insSetLob('B2B2C')">B2B2C</button>
-      <button class="ins-lob-btn"        id="ins-lob-b2b"   onclick="insSetLob('B2B')">B2B</button>
-    </div>
-
-    <!-- Modo semanal / mensual -->
-    <div class="ins-mode-row">
-      <button class="ins-mode-btn active" id="ins-mode-weekly"  onclick="insSetMode('weekly')">📅 Reporte Semanal</button>
-      <button class="ins-mode-btn"        id="ins-mode-monthly" onclick="insSetMode('monthly')">📆 Análisis Mensual (MRM)</button>
-    </div>
-
-    <button class="ins-generate-btn" id="ins-gen-btn" onclick="insGenerate()">
-      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-      Generar análisis
-    </button>
-
-    <!-- Result -->
-    <div class="ins-result" id="ins-result">
-      <div id="ins-result-body">
-        <div class="ins-placeholder">Presioná "Generar análisis" para ver el diagnóstico.</div>
-      </div>
-    </div>
-  </div>
-</div><!-- /view-insights -->
-
 <!-- AI Chat Panel -->
 <script>
 // ── Raw data (loaded once) ───────────────────────────────────────
@@ -1615,287 +1516,6 @@ function computeAllB2B_(raw, dm, vDate, gl_pai, gl_pro, gl_ch, gl_mkt, gran, com
   });
   return out;
 }
-
-// ══ INSIGHTS LOGIC ══════════════════════════════════════════════
-
-var _insLob  = 'B2B+B2B2C';
-var _insMode = 'weekly';
-
-function insSetLob(lob) {
-  _insLob = lob;
-  ['both','b2bc','b2b'].forEach(function(id){ document.getElementById('ins-lob-'+id).classList.remove('active'); });
-  var map = {'B2B+B2B2C':'both','B2B2C':'b2bc','B2B':'b2b'};
-  document.getElementById('ins-lob-'+map[lob]).classList.add('active');
-}
-
-function insSetMode(mode) {
-  _insMode = mode;
-  document.getElementById('ins-mode-weekly').classList.toggle('active',  mode==='weekly');
-  document.getElementById('ins-mode-monthly').classList.toggle('active', mode==='monthly');
-}
-
-function insOnOpen() {
-  // Sincroniza LOB con el que esté activo en weekly si ya está cargado
-  if (_wsLob) { _insLob = _wsLob; insSetLob(_insLob); }
-}
-
-function insGenerate() {
-  var btn = document.getElementById('ins-gen-btn');
-  btn.disabled = true;
-  btn.innerHTML = '⏳ Cargando datos…';
-
-  var wsKey = _insLob + '_' + (_wsView || 'GD');
-
-  function callClaude(wsData) {
-    btn.innerHTML = '🤖 Analizando con Claude…';
-    var params = {
-      mode: _insMode,
-      lob:  _insLob,
-      view: _wsView || 'GD',
-      data: wsData  ? JSON.stringify({ rows: wsData.rows, weekLabels: wsData.weekLabels }) : '{}',
-      mtd:  wsData && wsData.mtd ? JSON.stringify(wsData.mtd) : '{}'
-    };
-    google.script.run
-      .withSuccessHandler(function(res) {
-        var body = document.getElementById('ins-result-body');
-        if (res && res.success) {
-          body.innerHTML = insFormatText(res.text);
-        } else {
-          body.innerHTML = '<div class="ins-placeholder" style="color:var(--danger)">❌ ' + (res ? res.error : 'Error desconocido') + '</div>';
-        }
-        document.getElementById('ins-result').classList.add('visible');
-        btn.disabled = false;
-        btn.innerHTML = '<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg> Regenerar';
-      })
-      .withFailureHandler(function(e) {
-        document.getElementById('ins-result-body').innerHTML =
-          '<div class="ins-placeholder" style="color:var(--danger)">❌ ' + (e.message || String(e)) + '</div>';
-        document.getElementById('ins-result').classList.add('visible');
-        btn.disabled = false;
-        btn.innerHTML = '<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg> Reintentar';
-      })
-      .getInsightsAnalysis(params);
-  }
-
-  // Si los datos semanales ya están en cache los usa; si no, los carga primero
-  if (_wsCache && _wsCache[wsKey]) {
-    callClaude(_wsCache[wsKey]);
-  } else {
-    google.script.run
-      .withSuccessHandler(function(res) {
-        if (res && res.success) {
-          _wsLoaded = true;
-          _wsCache[wsKey] = res;
-        }
-        callClaude(res && res.success ? res : null);
-      })
-      .withFailureHandler(function(e) {
-        callClaude(null);
-      })
-      .getWeeklySummaryData({ view: _wsView || 'GD', lob: _insLob });
-  }
-}
-
-// Convierte el texto plano de Claude en HTML legible
-function insFormatText(text) {
-  if (!text) return '<div class="ins-placeholder">Sin respuesta.</div>';
-  var escaped = text
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-
-  // Bloques de sección
-  escaped = escaped
-    // Emojis de semáforo como badges
-    .replace(/🟢/g, '<span style="color:var(--success);font-size:16px">🟢</span>')
-    .replace(/🟡/g, '<span style="color:var(--warning);font-size:16px">🟡</span>')
-    .replace(/🔴/g, '<span style="color:var(--danger);font-size:16px">🔴</span>')
-    // Headers de sección en mayúsculas → negrita con borde
-    .replace(/^(ℹ️[^\n]+)/gm, '<div class="ins-ctx">$1</div>')
-    .replace(/^(RESUMEN|DEEP DIVE|PREGUNTAS PARA EL EQUIPO|ANÁLISIS MTD|CIERRE PROYECTADO|TENDENCIAS Y RATIOS|ALERTAS?)(.*)/gm,
-      '<div class="ins-sec-hdr">$1$2</div>')
-    .replace(/^(📧 MAIL PARA DIRECTORES)(.*)/gm,
-      '<div class="ins-sec-hdr" style="margin-top:24px">$1$2</div>')
-    .replace(/^(🖥️ BULLETS DE SLIDE)(.*)/gm,
-      '<div class="ins-sec-hdr" style="margin-top:24px">$1$2</div>')
-    // Línea de semáforo global
-    .replace(/^([▲▼●•]\s.*)/gm, '<div style="display:flex;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;color:var(--text-2)"><div style="width:6px;height:6px;border-radius:50%;background:var(--primary);flex:0 0 6px;margin-top:7px"></div><div>$1</div></div>')
-    // Bullets de slide (•)
-    .replace(/^(TÍTULO:|PIE:)(.*)/gm, '<div style="font-size:12px;font-weight:700;color:var(--text-2);padding:3px 0">$1$2</div>')
-    // Asunto del mail
-    .replace(/^(Asunto:)(.*)/gm, '<div style="font-size:12px;font-weight:700;color:var(--secondary);margin-bottom:4px">$1$2</div>')
-    // Saltos de línea
-    .replace(/\n\n/g, '<br><br>')
-    .replace(/\n/g, '<br>');
-
-  return '<div style="font-size:13px;line-height:1.7;color:var(--text-2)">' + escaped + '</div>';
-}
-
-// ── Reporte Semanal ────────────────────────────────────────────
-
-function insHtmlWeekly(wsData, dailyData) {
-  if (!wsData || !wsData.rows) {
-    // Intenta cargar datos semanales si no están en cache
-    if (!_wsLoaded) return '<div class="ins-placeholder">Los datos semanales aún no se cargaron. Andá a la pestaña "Weekly" primero y volvé.</div>';
-    return '<div class="ins-placeholder">No hay datos disponibles para el LOB seleccionado. Cambiá a la pestaña Weekly y seleccioná el LOB.</div>';
-  }
-
-  var totalRow = null;
-  for (var i = 0; i < wsData.rows.length; i++) {
-    if (wsData.rows[i].group === 'TOTAL') { totalRow = wsData.rows[i]; break; }
-  }
-  if (!totalRow) return '<div class="ins-placeholder">Sin datos TOTAL disponibles.</div>';
-
-  var lastW    = totalRow.weeks[totalRow.weeks.length - 1] || {};
-  var l4w      = totalRow.vsL4W || {};
-  var wkLabels = wsData.weekLabels || [];
-  var lastWkN  = wkLabels.length ? 'W' + wkLabels[wkLabels.length - 1] : 'última semana';
-
-  var revL4W   = l4w.rev   != null ? l4w.rev   : null;
-  var gbL4W    = l4w.gb    != null ? l4w.gb    : null;
-  var fvmL4W   = l4w.fvm   != null ? l4w.fvm   : null;
-  var pctGbL4W = l4w.pctGb != null ? l4w.pctGb : null;
-
-  // ── Semáforo ──
-  // PLACEHOLDER — umbrales a validar con el equipo en segunda iteración
-  // Verde: rev L4W ≥ 0 Y fvm L4W ≥ 0
-  // Amarillo: uno negativo
-  // Rojo: ambos negativos O fvm L4W < –10%
-  var semColor = 'verde', semLabel = 'Semana positiva', semDesc = 'Revenue y FVM por encima del promedio L4W.';
-  if (revL4W !== null && fvmL4W !== null) {
-    if (!( revL4W >= 0) && !(fvmL4W >= 0)) {
-      semColor = 'rojo'; semLabel = 'Semana bajo presión'; semDesc = 'Revenue y FVM por debajo del promedio L4W.';
-    } else if (!(revL4W >= 0) || !(fvmL4W >= 0) || fvmL4W < -10) {
-      semColor = 'amarillo'; semLabel = 'Semana mixta'; semDesc = 'Algún indicador por debajo del promedio L4W — revisar detalle.';
-    }
-  } else {
-    semColor = 'amarillo'; semLabel = 'Sin comparativa'; semDesc = 'Datos L4W no disponibles para semáforo.';
-  }
-
-  // ── Bullets ──
-  var bullets = [];
-  if (revL4W !== null) {
-    var dir = revL4W >= 0 ? 'creció' : 'cayó';
-    bullets.push('Revenue Total ' + dir + ' <strong>' + insSgn(revL4W) + Math.abs(revL4W).toFixed(0) + '%</strong> vs. promedio L4W'
-      + (lastW.rev != null ? ' — USD ' + lastW.rev.toFixed(1) + 'M en ' + lastWkN : '') + '.');
-  }
-  if (gbL4W !== null) {
-    bullets.push('GB Total ' + (gbL4W >= 0 ? 'creció' : 'cayó') + ' <strong>' + insSgn(gbL4W) + Math.abs(gbL4W).toFixed(0) + '%</strong> vs. L4W'
-      + (lastW.gb != null ? ' — USD ' + lastW.gb.toFixed(1) + 'M' : '') + '.');
-  }
-  if (fvmL4W !== null) {
-    bullets.push('FVM ' + (fvmL4W >= 0 ? 'mejoró' : 'cayó') + ' <strong>' + insSgn(fvmL4W) + Math.abs(fvmL4W).toFixed(0) + '%</strong> vs. L4W'
-      + (lastW.fvm != null ? ' — USD ' + lastW.fvm.toFixed(1) + 'M' : '') + '.');
-  }
-  if (pctGbL4W !== null) {
-    bullets.push('Take rate (%GB) ' + (pctGbL4W >= 0 ? 'mejoró' : 'comprimió') + ' <strong>' + insSgn(pctGbL4W) + Math.abs(pctGbL4W).toFixed(1) + ' pp</strong> vs. L4W'
-      + (lastW.pctGb != null ? ' — ' + lastW.pctGb.toFixed(1) + '% en ' + lastWkN : '') + '.');
-  }
-  // vs LY
-  wsData.rows.forEach(function(row) {
-    if (row.group !== 'TOTAL') return;
-    var lyRev = row.vsLYrev, lyGb = row.vsLYgb;
-    if (lyRev != null || lyGb != null) {
-      var parts = [];
-      if (lyRev != null) parts.push('Revenue <strong>' + insSgn(lyRev) + Math.abs(lyRev).toFixed(0) + '%</strong>');
-      if (lyGb  != null) parts.push('GB <strong>' + insSgn(lyGb) + Math.abs(lyGb).toFixed(0) + '%</strong>');
-      bullets.push('vs. Año Anterior: ' + parts.join(' · ') + '.');
-    }
-  });
-
-  // ── Alertas ──
-  // PLACEHOLDER — umbrales a validar con el equipo
-  var alertas = [];
-  if (fvmL4W !== null && fvmL4W < -10)
-    alertas.push('FVM cayó más de 10% vs. L4W — posible presión sobre rentabilidad.');
-  if (pctGbL4W !== null && pctGbL4W < -2)
-    alertas.push('%GB comprimió más de 2 pp vs. L4W — revisar mix de producto o pricing.');
-  if (revL4W !== null && gbL4W !== null && revL4W < 0 && gbL4W > 0)
-    alertas.push('GB crece pero Revenue cae — posible deterioro de take rate o mix desfavorable.');
-  // Concentración de riesgo por mercado (PLACEHOLDER umbral 60%)
-  var lastWkVals = {};
-  wsData.rows.forEach(function(r) {
-    if (r.group !== 'TOTAL' && r.weeks && r.weeks.length) lastWkVals[r.group] = r.weeks[r.weeks.length-1].gb || 0;
-  });
-  var totalGbLastW = 0;
-  Object.keys(lastWkVals).forEach(function(k){ totalGbLastW += lastWkVals[k]; });
-  Object.keys(lastWkVals).forEach(function(k) {
-    if (totalGbLastW > 0 && lastWkVals[k] / totalGbLastW > 0.60)
-      alertas.push('Concentración: ' + k + ' representa >' + Math.round(lastWkVals[k]/totalGbLastW*100) + '% del GB — riesgo de concentración.');
-  });
-
-  // ── Preguntas accionables ──
-  var preguntas = [];
-  if (semColor !== 'verde') {
-    if (revL4W !== null && revL4W < 0) preguntas.push('¿Qué mercado o segmento explica la caída de Revenue esta semana?');
-    if (pctGbL4W !== null && pctGbL4W < 0) preguntas.push('¿La compresión de %GB es por mix de producto, descuentos o cambio de precios?');
-  } else {
-    preguntas.push('¿El crecimiento es impulsado por volumen (más transacciones) o por precio/take rate?');
-    preguntas.push('¿Hay algún mercado por debajo del promedio que pueda mejorarse esta semana?');
-  }
-
-  // ── HTML ──
-  var out = '';
-  // Semáforo
-  out += '<div class="ins-semaforo ' + semColor + '">'
-    + '<div class="ins-sem-dot"></div>'
-    + '<div><div>' + semLabel + '</div><div class="ins-sem-desc">' + semDesc + '</div></div>'
-    + '</div>';
-  // Contexto
-  out += '<div class="ins-ctx">'
-    + 'Período: ' + lastWkN + ' · Vista: ' + (_wsView||'GD') + ' · LOB: ' + _insLob
-    + '<div class="ins-ctx-warn">⚠ Umbrales de semáforo y alertas son placeholders — definir con el equipo en la próxima iteración.</div>'
-    + '</div>';
-  // Bullets
-  out += '<div class="ins-sec-hdr">Resumen ejecutivo</div>';
-  out += '<ul class="ins-bullets">';
-  bullets.forEach(function(b) { out += '<li><div class="ins-bullet-dot"></div><div>' + b + '</div></li>'; });
-  out += '</ul>';
-  // Alertas
-  if (alertas.length) {
-    out += '<div class="ins-sec-hdr">Alertas ⚠️</div>';
-    alertas.forEach(function(a) { out += '<div class="ins-alerta"><span>⚠️</span><span>' + a + '</span></div>'; });
-  }
-  // Preguntas
-  out += '<div class="ins-sec-hdr">Preguntas para revenue &amp; comercial</div>';
-  out += '<div class="ins-preguntas"><ol>';
-  preguntas.forEach(function(q) { out += '<li>' + q + '</li>'; });
-  out += '</ol></div>';
-
-  return out;
-}
-
-// ── Análisis Mensual (MRM) ─────────────────────────────────────
-
-function insHtmlMonthly(dailyData) {
-  // PLACEHOLDER — estructura MRM a definir con el equipo
-  // Se necesita: datos de cierre proyectado, ratios, desvíos de marketing, tendencias
-  // Por ahora muestra el encabezado y la estructura vacía con placeholders explícitos
-  var out = '';
-  out += '<div class="ins-semaforo amarillo">'
-    + '<div class="ins-sem-dot"></div>'
-    + '<div><div>MRM en construcción</div>'
-    + '<div class="ins-sem-desc">La estructura mensual está siendo definida con el equipo.</div></div>'
-    + '</div>';
-  out += '<div class="ins-ctx">LOB: ' + _insLob + ' · Mes en curso</div>';
-
-  out += '<div class="ins-sec-hdr">Estructura del MRM (a definir)</div>';
-  out += '<ul class="ins-bullets">'
-    + '<li><div class="ins-bullet-dot"></div><div>Cierre proyectado vs. Budget — <em>[PLACEHOLDER: requiere datos de proyección de cierre]</em></div></li>'
-    + '<li><div class="ins-bullet-dot"></div><div>Análisis de ratios (take rate, %GB, margen) — <em>[PLACEHOLDER: umbrales a definir]</em></div></li>'
-    + '<li><div class="ins-bullet-dot"></div><div>Desvíos de marketing vs. plan — <em>[PLACEHOLDER: fuente de datos a confirmar]</em></div></li>'
-    + '<li><div class="ins-bullet-dot"></div><div>Tendencias generales vs. LY y budget — <em>[PLACEHOLDER]</em></div></li>'
-    + '</ul>';
-
-  out += '<div class="ins-sec-hdr">Próximos pasos</div>';
-  out += '<div class="ins-preguntas"><ol>'
-    + '<li>Definir con el equipo los umbrales de alerta para cierre mensual.</li>'
-    + '<li>Confirmar la fuente de datos para proyección de cierre (¿modelo_proyeccion.py o manual?).</li>'
-    + '<li>Establecer qué métricas de marketing van aquí y cuáles en otro reporte.</li>'
-    + '</ol></div>';
-
-  return out;
-}
-
-function insSgn(v) { return v >= 0 ? '+' : ''; }
 
 // ── Init ────────────────────────────────────────────────────────
 window.onload = function() {
@@ -2777,26 +2397,20 @@ var _activeView = 'daily';
 
 function switchMainView(view) {
   _activeView = view;
-  document.getElementById('view-daily').style.display    = (view === 'daily')    ? '' : 'none';
-  document.getElementById('view-weekly').style.display   = (view === 'weekly')   ? '' : 'none';
+  document.getElementById('view-daily').style.display   = (view === 'daily')  ? '' : 'none';
+  document.getElementById('view-weekly').style.display  = (view === 'weekly') ? '' : 'none';
   var vf = document.getElementById('view-flow');
   if (vf) vf.style.display = (view === 'flow') ? '' : 'none';
-  var vi = document.getElementById('view-insights');
-  if (vi) vi.style.display = (view === 'insights') ? '' : 'none';
-  document.getElementById('vnav-daily').classList.toggle('active',    view === 'daily');
-  document.getElementById('vnav-weekly').classList.toggle('active',   view === 'weekly');
-  var vnf = document.getElementById('vnav-flow');     if (vnf) vnf.classList.toggle('active', view === 'flow');
-  var vni = document.getElementById('vnav-insights'); if (vni) vni.classList.toggle('active', view === 'insights');
+  document.getElementById('vnav-daily').classList.toggle('active',  view === 'daily');
+  document.getElementById('vnav-weekly').classList.toggle('active', view === 'weekly');
+  var vnf = document.getElementById('vnav-flow'); if (vnf) vnf.classList.toggle('active', view === 'flow');
   document.getElementById('daily-lob-toggle').style.display = (view === 'daily') ? '' : 'none';
   document.getElementById('topbar-title').textContent =
-    view === 'weekly'   ? 'Weekly Summary' :
-    view === 'flow'     ? 'Flow Semanal'   :
-    view === 'insights' ? 'Insights Ejecutivos' : 'Daily Dashboard';
+    view === 'weekly' ? 'Weekly Summary' : view === 'flow' ? 'Flow Semanal' : 'Daily Dashboard';
   if (view === 'daily') updateAiAgent(_lob);
   else if (view === 'weekly') _wsUpdateAiAgent(_wsLob);
   if (view === 'weekly' && !_wsLoaded) { _wsLoadData(); }
   if (view === 'flow') flowOpen_();
-  if (view === 'insights') insOnOpen();
 }
 
 // ══ WEEKLY JS ══════════════════════════════════════════════════

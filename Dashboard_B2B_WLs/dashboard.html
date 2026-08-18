@@ -833,6 +833,14 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
       <div class="bento-arrow">→</div>
     </button>
 
+    <button class="bento-card" style="--i:9" onclick="goToSection('insights')">
+      <div class="bento-kicker">Weekly · AI Insights</div>
+      <div class="bento-icon">💡</div>
+      <div class="bento-name">Insights</div>
+      <div class="bento-desc">Semáforos y bullets ejecutivos por LOB</div>
+      <div class="bento-arrow">→</div>
+    </button>
+
 
     <button class="bento-card" style="--i:12" onclick="openExt('okr.b2b2c')">
       <div class="bento-kicker">Product Tribes</div>
@@ -931,6 +939,7 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
   <button class="lob-tab"        data-lob="pnl_mgr"  onclick="switchLob(this)">📊 P&amp;L Managerial</button>
   <button class="lob-tab"        data-lob="sourcing" onclick="switchLob(this)">🔍 Sources</button>
   <button class="lob-tab"        data-lob="agents"        onclick="switchLob(this)">🤖 IA Agents</button>
+  <button class="lob-tab"        data-lob="insights"      onclick="switchLob(this)">💡 Insights</button>
   <button class="lob-tab"        data-lob="organigrama"   onclick="switchLob(this)">🏢 Organigrama</button>
 </div>
 
@@ -984,6 +993,9 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
     </button>
     <button class="nav-item" id="nav-sourcing" onclick="goToSection('sourcing')">
       <span style="font-size:16px">🔍</span> Sources
+    </button>
+    <button class="nav-item" id="nav-insights" onclick="goToSection('insights')">
+      <span style="font-size:16px">💡</span> Insights
     </button>
   </div>
 </div><!-- /.filters -->
@@ -1414,6 +1426,82 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
   <!-- P&L Managerial View iframe -->
   <div class="sec" id="pnl-mgr-section" style="display:none;padding:0;margin:-20px -28px 0">
     <iframe id="pnl-mgr-frame" src="" style="width:100%;height:calc(100vh - 96px);border:none;display:block;"></iframe>
+  </div>
+
+  <!-- ── Insights semanales ─────────────────────────────────── -->
+  <div class="sec" id="insights-section" style="display:none">
+
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <div>
+        <div style="font-size:18px;font-weight:800;color:var(--text)">Weekly Insights</div>
+        <div id="insights-meta" style="font-size:11px;color:var(--muted);margin-top:2px"></div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="pf-btn" id="ins-tab-b2b2c"     onclick="insSetTab('b2b2c')"       style="font-size:11px;padding:5px 12px;font-weight:800">B2B2C</button>
+        <button class="pf-btn" id="ins-tab-b2b"       onclick="insSetTab('b2b')"         style="font-size:11px;padding:5px 12px">B2B</button>
+        <button class="pf-btn" id="ins-tab-consolidado" onclick="insSetTab('consolidado')" style="font-size:11px;padding:5px 12px">B2B+B2B2C</button>
+        <button class="pf-btn" id="ins-tab-mrm_b2b2c" onclick="insSetTab('mrm_b2b2c')"  style="font-size:11px;padding:5px 12px">MRM B2B2C</button>
+        <button class="pf-btn" id="ins-tab-mrm_b2b"   onclick="insSetTab('mrm_b2b')"    style="font-size:11px;padding:5px 12px">MRM B2B</button>
+      </div>
+    </div>
+
+    <div id="insights-loading" style="color:var(--muted);font-size:13px;padding:40px 0;text-align:center">Cargando insights…</div>
+    <div id="insights-error"   style="display:none;color:#f87171;font-size:13px;padding:40px 0;text-align:center"></div>
+
+    <div id="insights-content" style="display:none">
+
+      <!-- Semáforo global -->
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;padding:16px 20px;background:var(--surface2);border-radius:12px;border:1px solid var(--border)">
+        <div id="ins-semaforo-global" style="font-size:32px;line-height:1"></div>
+        <div>
+          <div id="ins-semaforo-label"  style="font-size:16px;font-weight:800;color:var(--text)"></div>
+          <div id="ins-semaforo-periodo" style="font-size:11px;color:var(--muted);margin-top:2px"></div>
+        </div>
+        <div style="display:flex;gap:16px;margin-left:auto">
+          <div style="text-align:center"><div id="ins-sem-gb"     style="font-size:20px"></div><div style="font-size:10px;color:var(--muted);font-weight:700">GB</div></div>
+          <div style="text-align:center"><div id="ins-sem-nr"     style="font-size:20px"></div><div style="font-size:10px;color:var(--muted);font-weight:700">NR</div></div>
+          <div style="text-align:center"><div id="ins-sem-orders" style="font-size:20px"></div><div style="font-size:10px;color:var(--muted);font-weight:700">Orders</div></div>
+          <div style="text-align:center"><div id="ins-sem-margen" style="font-size:20px"></div><div style="font-size:10px;color:var(--muted);font-weight:700">Margen</div></div>
+        </div>
+      </div>
+
+      <!-- KPIs row -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px">
+        <div style="background:var(--surface2);border-radius:10px;border:1px solid var(--border);padding:14px 16px">
+          <div style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">Gross Bookings</div>
+          <div id="ins-kpi-gb"     style="font-size:20px;font-weight:800;color:var(--text)"></div>
+          <div id="ins-kpi-gb-vs"  style="font-size:11px;color:var(--muted);margin-top:3px"></div>
+        </div>
+        <div style="background:var(--surface2);border-radius:10px;border:1px solid var(--border);padding:14px 16px">
+          <div style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">Net Revenue</div>
+          <div id="ins-kpi-nr"     style="font-size:20px;font-weight:800;color:var(--text)"></div>
+          <div id="ins-kpi-nr-vs"  style="font-size:11px;color:var(--muted);margin-top:3px"></div>
+        </div>
+        <div style="background:var(--surface2);border-radius:10px;border:1px solid var(--border);padding:14px 16px">
+          <div style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">Orders</div>
+          <div id="ins-kpi-orders"    style="font-size:20px;font-weight:800;color:var(--text)"></div>
+          <div id="ins-kpi-orders-vs" style="font-size:11px;color:var(--muted);margin-top:3px"></div>
+        </div>
+        <div style="background:var(--surface2);border-radius:10px;border:1px solid var(--border);padding:14px 16px">
+          <div style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">Margen NR/GB</div>
+          <div id="ins-kpi-margen"    style="font-size:20px;font-weight:800;color:var(--text)"></div>
+          <div id="ins-kpi-margen-vs" style="font-size:11px;color:var(--muted);margin-top:3px"></div>
+        </div>
+      </div>
+
+      <!-- Bullets ejecutivos -->
+      <div style="background:var(--surface2);border-radius:10px;border:1px solid var(--border);padding:16px 20px;margin-bottom:16px">
+        <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px">Resumen ejecutivo</div>
+        <ul id="ins-bullets" style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:8px"></ul>
+      </div>
+
+      <!-- Slide bullets -->
+      <div style="background:var(--surface2);border-radius:10px;border:1px solid var(--border);padding:16px 20px">
+        <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px">Para el slide</div>
+        <ul id="ins-slide-bullets" style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px;font-family:monospace;font-size:12px;color:var(--text)"></ul>
+      </div>
+
+    </div>
   </div>
 
   <!-- Sourcing / Sources -->
@@ -2092,6 +2180,7 @@ function _updateHeader(lob) {
     'b2b':      { main: 'B2B ecosystem - P&L Dashboard <span>B2B</span>',             sub: 'accounting information' },
     'b2b2c':    { main: 'B2B ecosystem - P&L Dashboard <span>B2B2C</span>',           sub: 'accounting information' },
     'sourcing':      { main: 'B2B ecosystem - <span>AI tools &amp; official reports</span>', sub: '' },
+    'insights':      { main: 'B2B ecosystem - <span>Weekly Insights</span>', sub: 'Semáforos y bullets ejecutivos por LOB' },
     'industry':      { main: 'B2B ecosystem - <span>Weekly Industry</span>', sub: 'KPIs de industria' },
     'agents':        { main: 'B2B ecosystem - <span>IA Agents</span>', sub: 'Agentes Toqan' },
     'organigrama':   { main: 'B2B ecosystem - <span>Organigrama</span>', sub: 'Estructura del equipo' },
@@ -2146,7 +2235,8 @@ function switchLob(btn) {
   var isBrasil    = _state.lob === 'brasil';
   var isPnlAcc    = _state.lob === 'pnl';
   var isPnlMgr    = _state.lob === 'pnl_mgr';
-  var isSpecial   = isNews || isFixedCost || isWeekly || isDaily || isSourcing || isIndustry || isAgents || isOrg || isBrasil || isPnlAcc || isPnlMgr;
+  var isInsights  = _state.lob === 'insights';
+  var isSpecial   = isNews || isFixedCost || isWeekly || isDaily || isSourcing || isIndustry || isAgents || isOrg || isBrasil || isPnlAcc || isPnlMgr || isInsights;
   var isPnl       = !isSpecial; // all, b2b, b2b2c
 
   document.getElementById('news-section').style.display      = isNews      ? '' : 'none';
@@ -2160,7 +2250,9 @@ function switchLob(btn) {
   document.getElementById('brasil-section').style.display       = isBrasil    ? '' : 'none';
   document.getElementById('pnl-section').style.display          = isPnlAcc    ? '' : 'none';
   document.getElementById('pnl-mgr-section').style.display      = isPnlMgr    ? '' : 'none';
-  document.querySelector('main').querySelectorAll('.sec:not(#news-section):not(#fixedcost-section):not(#weekly-section):not(#daily-section):not(#sourcing-section):not(#industry-section):not(#agents-section):not(#organigrama-section):not(#brasil-section):not(#pnl-section):not(#pnl-mgr-section):not(#marketing-section):not(#breakdown-section)').forEach(function(s){
+  document.getElementById('insights-section').style.display     = isInsights  ? '' : 'none';
+  if (isInsights && !_insightsData_) loadInsights();
+  document.querySelector('main').querySelectorAll('.sec:not(#news-section):not(#fixedcost-section):not(#weekly-section):not(#daily-section):not(#sourcing-section):not(#industry-section):not(#agents-section):not(#organigrama-section):not(#brasil-section):not(#pnl-section):not(#pnl-mgr-section):not(#marketing-section):not(#breakdown-section):not(#insights-section)').forEach(function(s){
     s.style.display = isSpecial ? 'none' : '';
   });
   var _b2bOnly = isPnl && _state.lob === 'b2b';
@@ -5826,6 +5918,91 @@ function checkWikiPwd() {
     var err = document.getElementById('wiki-err');
     if(err) err.style.display='';
   }
+}
+
+// ── Weekly Insights ───────────────────────────────────────────
+var _insightsData_   = null;
+var _insCurrentTab_  = 'b2b2c';
+
+function loadInsights() {
+  google.script.run
+    .withSuccessHandler(function(json) {
+      try {
+        _insightsData_ = JSON.parse(json);
+        if (_insightsData_.error) { showInsightsError(_insightsData_.error); return; }
+        insRender(_insCurrentTab_);
+        document.getElementById('insights-loading').style.display = 'none';
+        document.getElementById('insights-content').style.display = 'block';
+        var meta = _insightsData_.meta || {};
+        document.getElementById('insights-meta').textContent =
+          'Sem. ' + (meta.semana_inicio||'') + ' → ' + (meta.semana_fin||'') +
+          '  ·  Generado ' + (meta.generated_at||'').slice(0,16).replace('T',' ');
+      } catch(e) { showInsightsError('Error al parsear insights: ' + e.message); }
+    })
+    .withFailureHandler(function(e) { showInsightsError('No se pudieron cargar los insights: ' + e.message); })
+    .getWeeklyInsights();
+}
+
+function showInsightsError(msg) {
+  document.getElementById('insights-loading').style.display = 'none';
+  var el = document.getElementById('insights-error');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+function insSetTab(tab) {
+  _insCurrentTab_ = tab;
+  ['b2b2c','b2b','consolidado','mrm_b2b2c','mrm_b2b'].forEach(function(t) {
+    var btn = document.getElementById('ins-tab-' + t);
+    if (btn) btn.style.fontWeight = (t === tab) ? '800' : '400';
+  });
+  if (_insightsData_) insRender(tab);
+}
+
+function insRender(tab) {
+  var d = _insightsData_;
+  var lob;
+  if      (tab === 'b2b2c')       lob = d.b2b2c;
+  else if (tab === 'b2b')         lob = d.b2b;
+  else if (tab === 'consolidado') lob = d.consolidado;
+  else if (tab === 'mrm_b2b2c')   lob = d.mrm && d.mrm.b2b2c;
+  else if (tab === 'mrm_b2b')     lob = d.mrm && d.mrm.b2b;
+
+  if (!lob) {
+    document.getElementById('ins-bullets').innerHTML = '<li style="color:var(--muted)">Sin datos para este corte.</li>';
+    return;
+  }
+
+  var semMap = { '\u{1F7E2}': 'Verde — OK', '\u{1F7E1}': 'Amarillo — Atención', '\u{1F534}': 'Rojo — Alerta' };
+  document.getElementById('ins-semaforo-global').textContent  = lob.semaforo_global || '⚪';
+  document.getElementById('ins-semaforo-label').textContent   = semMap[lob.semaforo_global] || '';
+  document.getElementById('ins-semaforo-periodo').textContent = (lob.periodo||'') + '  ·  Ref: ' + (lob.referencia||'Budget');
+  document.getElementById('ins-sem-gb').textContent     = (lob.semaforos||{}).gb     || '⚪';
+  document.getElementById('ins-sem-nr').textContent     = (lob.semaforos||{}).nr     || '⚪';
+  document.getElementById('ins-sem-orders').textContent  = (lob.semaforos||{}).orders || '⚪';
+  document.getElementById('ins-sem-margen').textContent  = (lob.semaforos||{}).margen || '⚪';
+
+  var k = lob.kpis || {};
+  function fmt(n)    { return n == null ? '—' : (n/1e6).toFixed(1) + 'M'; }
+  function fmtPct(n) { if (n == null) return '—'; return (n >= 0 ? '+' : '') + n.toFixed(1) + '%'; }
+  function fmtPp(n)  { if (n == null) return '—'; return (n >= 0 ? '+' : '') + n.toFixed(1) + 'pp'; }
+  function col(n)    { return (n == null || n >= 0) ? '#4ade80' : '#f87171'; }
+
+  document.getElementById('ins-kpi-gb').textContent      = fmt(k.gb_actual);
+  document.getElementById('ins-kpi-gb-vs').innerHTML     = '<span style="color:' + col(k.gb_vs_budget_pct) + '">' + fmtPct(k.gb_vs_budget_pct) + ' vs Bgt</span> &nbsp;|&nbsp; <span style="color:' + col(k.gb_vs_ly_pct) + '">' + fmtPct(k.gb_vs_ly_pct) + ' vs LY</span>';
+  document.getElementById('ins-kpi-nr').textContent      = fmt(k.nr_actual);
+  document.getElementById('ins-kpi-nr-vs').innerHTML     = '<span style="color:' + col(k.nr_vs_budget_pct) + '">' + fmtPct(k.nr_vs_budget_pct) + ' vs Bgt</span> &nbsp;|&nbsp; <span style="color:' + col(k.nr_vs_ly_pct) + '">' + fmtPct(k.nr_vs_ly_pct) + ' vs LY</span>';
+  document.getElementById('ins-kpi-orders').textContent  = k.orders_actual ? k.orders_actual.toLocaleString() : '—';
+  document.getElementById('ins-kpi-orders-vs').innerHTML = '<span style="color:' + col(k.orders_vs_budget_pct) + '">' + fmtPct(k.orders_vs_budget_pct) + ' vs Bgt</span> &nbsp;|&nbsp; <span style="color:' + col(k.orders_vs_ly_pct) + '">' + fmtPct(k.orders_vs_ly_pct) + ' vs LY</span>';
+  document.getElementById('ins-kpi-margen').textContent  = k.margen_pct != null ? k.margen_pct.toFixed(1) + '%' : '—';
+  document.getElementById('ins-kpi-margen-vs').innerHTML = '<span style="color:' + col(k.margen_vs_budget_pp) + '">' + fmtPp(k.margen_vs_budget_pp) + ' vs Bgt</span> &nbsp;|&nbsp; <span style="color:' + col(k.margen_vs_ly_pp) + '">' + fmtPp(k.margen_vs_ly_pp) + ' vs LY</span>';
+
+  document.getElementById('ins-bullets').innerHTML = (lob.bullets||[]).map(function(b) {
+    return '<li style="font-size:13px;color:var(--text);padding:6px 10px;background:rgba(255,255,255,.04);border-radius:6px">' + b + '</li>';
+  }).join('');
+  document.getElementById('ins-slide-bullets').innerHTML = (lob.slide_bullets||[]).map(function(b) {
+    return '<li style="padding:3px 0">' + b + '</li>';
+  }).join('');
 }
 </script>
 

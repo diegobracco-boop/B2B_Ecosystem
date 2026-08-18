@@ -1696,3 +1696,16 @@ function getOrgData() {
     return { success: false, error: e.message };
   }
 }
+
+// ── Weekly Insights ───────────────────────────────────────────
+var WEEKLY_INSIGHTS_FILE_ID = '';  // TODO: actualizar con el ID de Drive de weekly_insights.json
+
+function getWeeklyInsights() {
+  if (!WEEKLY_INSIGHTS_FILE_ID) return JSON.stringify({ error: 'File ID not configured' });
+  try {
+    var blob = DriveApp.getFileById(WEEKLY_INSIGHTS_FILE_ID).getBlob();
+    return blob.getDataAsString('UTF-8');
+  } catch(e) {
+    return JSON.stringify({ error: e.toString() });
+  }
+}
