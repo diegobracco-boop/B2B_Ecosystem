@@ -1,23 +1,39 @@
 // P&L Gestional Dashboard — Apps Script Backend v2
 // Data source: _pnl_gestional_data.json (generado por pnl_gestional_upload.py)
-var GESTIONAL_JSON_FILE_ID = '1wvle0UIVZV7ocCSl8OawOfIGVz_It5kh';
-var _gestionalJsonCache_   = null;
+var GESTIONAL_JSON_FILE_ID    = '1wvle0UIVZV7ocCSl8OawOfIGVz_It5kh';
+var GESTIONAL_VR_JSON_FILE_ID = '1Zd1Kzn7CkatOWnzrrfBxr9mDjIVLLKIF'; // pnl_gestional_projections_review.json
+var _gestionalJsonCache_      = null;
+var _gestionalVRJsonCache_    = null;
+
+var _EMPTY_GESTIONAL_ = {
+  b2b2c:   { ac:[], ly:[], bgt:[], rr:[], fc:[], bl:[] },
+  b2b_may: { ac:[], ac_ri:[], ly:[], bgt:[], bgt_ri:[], rr:[], rr_ri:[], fc:[], fc_ri:[], bl:[], bl_ri:[] },
+  b2b_min: { ac:[], ly:[], bgt:[], rr:[], fc:[], bl:[] },
+  actual_months: [],
+  months: []
+};
 
 // ── Carga y cachea el JSON gestional desde Drive ──────────────────────────
-function readGestionalJSON_() {
+// baselineSource: 'bl' → gestional normal | 'vr' → Projection Reviews
+function readGestionalJSON_(baselineSource) {
+  if (baselineSource === 'vr') {
+    if (_gestionalVRJsonCache_) return _gestionalVRJsonCache_;
+    try {
+      var blob = DriveApp.getFileById(GESTIONAL_VR_JSON_FILE_ID).getBlob();
+      _gestionalVRJsonCache_ = JSON.parse(blob.getDataAsString());
+    } catch(e) {
+      Logger.log('readGestionalJSON_ VR error: ' + e);
+      _gestionalVRJsonCache_ = _EMPTY_GESTIONAL_;
+    }
+    return _gestionalVRJsonCache_;
+  }
   if (_gestionalJsonCache_) return _gestionalJsonCache_;
   try {
     var blob = DriveApp.getFileById(GESTIONAL_JSON_FILE_ID).getBlob();
     _gestionalJsonCache_ = JSON.parse(blob.getDataAsString());
   } catch(e) {
     Logger.log('readGestionalJSON_ error: ' + e);
-    _gestionalJsonCache_ = {
-      b2b2c:   { ac:[], ly:[], bgt:[], rr:[], fc:[], bl:[] },
-      b2b_may: { ac:[], ac_ri:[], ly:[], bgt:[], bgt_ri:[], rr:[], rr_ri:[], fc:[], fc_ri:[], bl:[], bl_ri:[] },
-      b2b_min: { ac:[], ly:[], bgt:[], rr:[], fc:[], bl:[] },
-      actual_months: [],
-      months: []
-    };
+    _gestionalJsonCache_ = _EMPTY_GESTIONAL_;
   }
   return _gestionalJsonCache_;
 }
@@ -253,9 +269,10 @@ function doGet() {
 //   produto:   string|array
 // }
 function getData(filters) {
-  var f        = filters || {};
-  var dateType = (f['date_type'] === 'ri') ? 'ri' : 'gd';
-  var json     = readGestionalJSON_();
+  var f              = filters || {};
+  var dateType       = (f['date_type'] === 'ri') ? 'ri' : 'gd';
+  var baselineSrc    = (f['baselineSource'] === 'vr') ? 'vr' : 'bl';
+  var json           = readGestionalJSON_(baselineSrc);
 
   // LOBs a consultar
   var lobTipo = f['lob_tipo'];
@@ -441,6 +458,7 @@ function getFilterOptions() {
 }
 
 function invalidateCache() {
-  _gestionalJsonCache_ = null;
+  _gestionalJsonCache_   = null;
+  _gestionalVRJsonCache_ = null;
   return { ok: true };
 }

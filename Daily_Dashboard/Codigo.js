@@ -850,6 +850,7 @@ function setupEmailTrigger() {
 }
 
 // ============================================================
+<<<<<<< HEAD
 // INSIGHTS EJECUTIVOS — Claude API
 // ============================================================
 // Requiere Script Property: ANTHROPIC_API_KEY = sk-ant-...
@@ -986,6 +987,184 @@ function getInsightsAnalysis(params) {
 
   } catch(e) {
     return { success: false, error: e.message };
+  }
+}
+
+// ============================================================
+// OKR Weekly B2B2C
+// ============================================================
+
+var _OKR_HISPA_PAISES_ = ['Argentina','Colombia','Chile','Peru','Ecuador'];
+var _OKR_MES_LABELS_   = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+var _OKR_REGIONS_      = ['BR','MX/US','HISPA'];
+
+function _okrPaisToRegion_(pais) {
+  if (pais === 'Brasil') return 'BR';
+  if (pais === 'Mexico') return 'MX/US';
+  if (_OKR_HISPA_PAISES_.indexOf(pais) !== -1) return 'HISPA';
+  return 'Globales';
+}
+
+function _okrWeekMonday_(year, week) {
+  var jan4    = new Date(Date.UTC(year, 0, 4));
+  var jan4Day = jan4.getUTCDay() || 7;
+  var w1Mon   = new Date(jan4.getTime() - (jan4Day - 1) * 86400000);
+  return new Date(w1Mon.getTime() + (week - 1) * 7 * 86400000);
+}
+
+function _okrDateRange_(mon, sun) {
+  return mon.getUTCDate() + '/' + _OKR_MES_LABELS_[mon.getUTCMonth()]
+       + '–' + sun.getUTCDate() + '/' + _OKR_MES_LABELS_[sun.getUTCMonth()];
+}
+
+function _okrInitSlot_() {
+  var slot = { existing:{nr:0,fvm:0}, new:{nr:0,fvm:0}, total:{nr:0,fvm:0}, regions:{} };
+  _OKR_REGIONS_.forEach(function(r) {
+    slot.regions[r] = { existing:{nr:0,fvm:0}, new:{nr:0,fvm:0}, total:{nr:0,fvm:0} };
+  });
+  return slot;
+}
+
+function _okrDivSlot_(slot, divisor) {
+  var d = divisor || 1;
+  ['existing','new','total'].forEach(function(k) { slot[k].nr/=d; slot[k].fvm/=d; });
+  _OKR_REGIONS_.forEach(function(r) {
+    ['existing','new','total'].forEach(function(k) {
+      slot.regions[r][k].nr/=d; slot.regions[r][k].fvm/=d;
+    });
+  });
+}
+
+function getOKRWeeklyB2B2C() {
+  try {
+    var raw = loadFile_(B2BC_JSON, B2BC_CACHE_KEY);
+
+    var now      = new Date();
+    var todayYmd = now.getUTCFullYear() + '-' +
+      String(now.getUTCMonth()+1).padStart(2,'0') + '-' +
+      String(now.getUTCDate()).padStart(2,'0');
+    var todayIso = _wsIsoWeek_(todayYmd);
+    var currMon  = _okrWeekMonday_(todayIso.year, todayIso.week);
+
+    // Last 3 closed weeks (i=3,2,1 → oldest→newest)
+    var actualWeeks = [];
+    for (var i = 3; i >= 1; i--) {
+      var mon = new Date(currMon.getTime() - i * 7 * 86400000);
+      var sun = new Date(mon.getTime() + 6 * 86400000);
+      var monYmd = mon.getUTCFullYear() + '-' +
+        String(mon.getUTCMonth()+1).padStart(2,'0') + '-' +
+        String(mon.getUTCDate()).padStart(2,'0');
+      var iso = _wsIsoWeek_(monYmd);
+      actualWeeks.push({ year:iso.year, week:iso.week, label:'W'+iso.week,
+                         dateRange:_okrDateRange_(mon,sun) });
+    }
+
+    // Current + next 2 projected weeks
+    var projWeeks = [];
+    for (var j = 0; j <= 2; j++) {
+      var pMon = new Date(currMon.getTime() + j * 7 * 86400000);
+      var pSun = new Date(pMon.getTime() + 6 * 86400000);
+      var pMonYmd = pMon.getUTCFullYear() + '-' +
+        String(pMon.getUTCMonth()+1).padStart(2,'0') + '-' +
+        String(pMon.getUTCDate()).padStart(2,'0');
+      var pIso = _wsIsoWeek_(pMonYmd);
+      var pYm  = pMon.getUTCFullYear() + '-' + String(pMon.getUTCMonth()+1).padStart(2,'0');
+      projWeeks.push({ year:pIso.year, week:pIso.week, label:'W'+pIso.week+'★',
+                       dateRange:_okrDateRange_(pMon,pSun), ym:pYm });
+    }
+
+    // Aggregate actuals by ISO week × account_type × region
+    var actualWeekData = {};
+    raw.actuals.forEach(function(r) {
+      if (!r.fecha || !r.account_type || r.account_type === 'Unknown') return;
+      var iso  = _wsIsoWeek_(r.fecha);
+      var key  = iso.year + '-' + iso.week;
+      if (!actualWeekData[key]) actualWeekData[key] = _okrInitSlot_();
+      var slot  = actualWeekData[key];
+      var nr    = parseFloat(r.net_revenues) || 0;
+      var fv    = parseFloat(r.fvm) || 0;
+      var atKey = r.account_type === 'Existing' ? 'existing' : 'new';
+      var reg   = r.region;
+      slot[atKey].nr += nr;  slot[atKey].fvm += fv;
+      slot.total.nr  += nr;  slot.total.fvm  += fv;
+      if (_OKR_REGIONS_.indexOf(reg) !== -1) {
+        slot.regions[reg][atKey].nr  += nr;  slot.regions[reg][atKey].fvm  += fv;
+        slot.regions[reg].total.nr   += nr;  slot.regions[reg].total.fvm   += fv;
+      }
+    });
+    Object.keys(actualWeekData).forEach(function(k) { _okrDivSlot_(actualWeekData[k], 1e6); });
+
+    // Aggregate runrate by month × stage × region
+    var rrRows      = _wsExpandCompact_(raw.runrate);
+    var rrMonthData = {};
+    rrRows.forEach(function(r) {
+      if (!r.fecha || r.fecha.length < 7) return;
+      var ym = r.fecha.substring(0,7);
+      if (!rrMonthData[ym]) rrMonthData[ym] = _okrInitSlot_();
+      var slot  = rrMonthData[ym];
+      var nr    = parseFloat(r.net_revenue) || 0;
+      var fv    = parseFloat(r.fvm) || 0;
+      var stKey = (r.stage === 'Existing') ? 'existing' : 'new';
+      var reg   = _okrPaisToRegion_(r.pais);
+      slot[stKey].nr += nr;  slot[stKey].fvm += fv;
+      slot.total.nr  += nr;  slot.total.fvm  += fv;
+      if (_OKR_REGIONS_.indexOf(reg) !== -1) {
+        slot.regions[reg][stKey].nr  += nr;  slot.regions[reg][stKey].fvm  += fv;
+        slot.regions[reg].total.nr   += nr;  slot.regions[reg].total.fvm   += fv;
+      }
+    });
+    Object.keys(rrMonthData).forEach(function(ym) { _okrDivSlot_(rrMonthData[ym], 1e6); });
+
+    // MTD
+    var lastActDate = '';
+    raw.actuals.forEach(function(r) { if (r.fecha > lastActDate) lastActDate = r.fecha; });
+    var mtdYm = lastActDate ? lastActDate.substring(0,7) : '';
+
+    var mtdActuals = _okrInitSlot_();
+    raw.actuals.forEach(function(r) {
+      if (!r.fecha || r.fecha.substring(0,7) !== mtdYm) return;
+      if (!r.account_type || r.account_type === 'Unknown') return;
+      var nr    = parseFloat(r.net_revenues) || 0;
+      var fv    = parseFloat(r.fvm) || 0;
+      var atKey = r.account_type === 'Existing' ? 'existing' : 'new';
+      var reg   = r.region;
+      mtdActuals[atKey].nr += nr;  mtdActuals[atKey].fvm += fv;
+      mtdActuals.total.nr  += nr;  mtdActuals.total.fvm  += fv;
+      if (_OKR_REGIONS_.indexOf(reg) !== -1) {
+        mtdActuals.regions[reg][atKey].nr  += nr;  mtdActuals.regions[reg][atKey].fvm  += fv;
+        mtdActuals.regions[reg].total.nr   += nr;  mtdActuals.regions[reg].total.fvm   += fv;
+      }
+    });
+    _okrDivSlot_(mtdActuals, 1e6);
+
+    var budRows   = _wsExpandCompact_(raw.budget);
+    var mtdBudget = _okrInitSlot_();
+    budRows.forEach(function(r) {
+      if (!r.fecha || r.fecha.substring(0,7) !== mtdYm || r.fecha > lastActDate) return;
+      var nr    = parseFloat(r.net_revenue) || 0;
+      var fv    = parseFloat(r.fvm) || 0;
+      var stKey = (r.stage === 'Existing') ? 'existing' : 'new';
+      var reg   = _okrPaisToRegion_(r.pais);
+      mtdBudget[stKey].nr += nr;  mtdBudget[stKey].fvm += fv;
+      mtdBudget.total.nr  += nr;  mtdBudget.total.fvm  += fv;
+      if (_OKR_REGIONS_.indexOf(reg) !== -1) {
+        mtdBudget.regions[reg][stKey].nr  += nr;  mtdBudget.regions[reg][stKey].fvm  += fv;
+        mtdBudget.regions[reg].total.nr   += nr;  mtdBudget.regions[reg].total.fvm   += fv;
+      }
+    });
+    _okrDivSlot_(mtdBudget, 1e6);
+
+    return {
+      success:             true,
+      actualWeeks:         actualWeeks,
+      projWeeks:           projWeeks,
+      actualWeekData:      actualWeekData,
+      rrMonthData:         rrMonthData,
+      mtd:                 { ym:mtdYm, actuals:mtdActuals, budget:mtdBudget },
+      signNewPartnerships: { actuals:5, budget:7 }
+    };
+  } catch(e) {
+    return { success:false, error:e.message };
   }
 }
  

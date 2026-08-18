@@ -627,7 +627,13 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
     <button class="dt-btn active" id="dt-gd" onclick="switchDateType('gd')">GD</button>
     <button class="dt-btn" id="dt-ri" onclick="switchDateType('ri')">RI</button>
   </div>
+  <div class="dt-switcher" id="baseline-switcher" style="margin-left:12px">
+    <button class="dt-btn active" id="bl-btn-bl" onclick="setBaselineSource('bl')">Run Rate/Actuals</button>
+    <button class="dt-btn" id="bl-btn-vr" onclick="setBaselineSource('vr')">Projection Reviews</button>
+  </div>
 </div>
+
+<div id="actuals-legend" class="actuals-legend" style="display:none;margin:8px 28px 0"></div>
 
 <div class="filters-bar">
   <!-- Left col: País + Producto stacked -->
@@ -2217,6 +2223,55 @@ function toggleGPartner(partner){
   if(_data) renderTrendCharts(_data.months, _data.agg, _data.budget||{}, _data.ly||{});
 }
 
+// ── Baseline source (Run Rate/Actuals vs Projection Reviews) ─────────────
+var _baselineSource = 'bl';
+
+function setBaselineSource(src) {
+  _baselineSource = src;
+  ['bl','vr'].forEach(function(s){
+    var btn = document.getElementById('bl-btn-' + s);
+    if (btn) btn.classList.toggle('active', s === src);
+  });
+  _filtersLoadedForLob = {};   // resetear filtros para que se recargen
+  fetchData();
+}
+
+var _MES_LABEL_SHORT = {
+  '01':'Ene','02':'Feb','03':'Mar','04':'Abr','05':'May','06':'Jun',
+  '07':'Jul','08':'Ago','09':'Sep','10':'Oct','11':'Nov','12':'Dic'
+};
+
+function _ymToShort(ym) {
+  var parts = (ym || '').split('-');
+  if (parts.length < 2) return ym;
+  return _MES_LABEL_SHORT[parts[1]] + '-' + parts[0].slice(2);
+}
+
+var _FY27_YMS = [
+  '2026-04','2026-05','2026-06','2026-07','2026-08','2026-09',
+  '2026-10','2026-11','2026-12','2027-01','2027-02','2027-03'
+];
+
+function updateActualsLegend(actualMonths) {
+  var el = document.getElementById('actuals-legend');
+  if (!el) return;
+  if (!actualMonths || !actualMonths.length) { el.style.display = 'none'; return; }
+  var actSet = {};
+  actualMonths.forEach(function(ym){ actSet[ym] = true; });
+  var projMonths = _FY27_YMS.filter(function(ym){ return !actSet[ym]; });
+
+  var actLabel  = _ymToShort(actualMonths[0]) + ' – ' + _ymToShort(actualMonths[actualMonths.length - 1]);
+  var projLabel = projMonths.length
+    ? _ymToShort(projMonths[0]) + ' – ' + _ymToShort(projMonths[projMonths.length - 1])
+    : '—';
+
+  var srcLabel = _baselineSource === 'vr' ? ' &nbsp;·&nbsp; <strong>Projection Reviews</strong>' : '';
+  el.innerHTML =
+    '<span class="al-item"><span class="al-dot" style="background:#7C3AED"></span>Actuals: <strong>' + actLabel + '</strong></span>' +
+    '<span class="al-item"><span class="al-dot" style="background:#7C3AED;opacity:.35"></span>Proyecciones: <strong>' + projLabel + '</strong>' + srcLabel + '</span>';
+  el.style.display = 'flex';
+}
+
 // ── Filters ────────────────────────────────────────────────────────────────
 function getFilters(){
   var lobTipo;
@@ -2226,11 +2281,12 @@ function getFilters(){
     lobTipo = ['B2B-MIN','B2B-MAY'];
   }
   return {
-    pais:      getPaisValues(),
-    partner:   _activeLob === 'b2b2c' ? getMsValues('ms-partner') : [],
-    produto:   getProductoValues(),
-    lob_tipo:  lobTipo,
-    date_type: _activeLob === 'b2b2c' ? 'gd' : _activeDateType
+    pais:           getPaisValues(),
+    partner:        _activeLob === 'b2b2c' ? getMsValues('ms-partner') : [],
+    produto:        getProductoValues(),
+    lob_tipo:       lobTipo,
+    date_type:      _activeLob === 'b2b2c' ? 'gd' : _activeDateType,
+    baselineSource: _baselineSource
   };
 }
 
@@ -2251,6 +2307,7 @@ function fetchData(){
         fillProductoChips(d.filters['produto'] || []);
         _filtersLoadedForLob[_activeLob] = true;
       }
+      updateActualsLegend(d.actual_months || []);
       render();
       document.getElementById('last-upd').textContent = 'Actualizado: '+new Date().toLocaleTimeString('es-AR');
       document.getElementById('loader').style.display = 'none';

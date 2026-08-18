@@ -117,6 +117,21 @@ td.mtd-no-bud{color:#bbb;font-size:11px}
 /* ── Error ── */
 #error-box{padding:40px;text-align:center;color:#dc2626;font-size:14px;display:none}
 
+/* ── OKR Tables ── */
+table.okr-table{border-collapse:collapse;background:#fff;font-size:12px;width:auto}
+.okr-table thead th{background:#7C7FFF;color:#fff;padding:5px 8px;font-size:11px;font-weight:700;text-align:center;border-right:1px solid rgba(255,255,255,.2);white-space:nowrap}
+.okr-table thead th:first-child{text-align:left;background:#5457D9;width:150px;min-width:150px;border-right:2px solid rgba(255,255,255,.25)}
+.okr-table thead th.okr-proj{background:#5b5ea8}
+.okr-table thead th.okr-mtd{background:#3a3c8a}
+.okr-table tbody td{padding:4px 10px;border-bottom:1px solid #f0f0f8;text-align:right;white-space:nowrap;font-size:12px}
+.okr-table tbody td:first-child{text-align:left;font-weight:600;color:#444;border-right:2px solid #eee;padding-left:8px}
+.okr-table tbody td.okr-proj-val{background:#f5f5ff}
+.okr-table tbody td.okr-mtd-val{background:#eeeeff}
+.okr-table tbody tr:last-child td{border-bottom:none}
+.okr-ach-green{color:#16a34a;font-weight:700}
+.okr-ach-amber{color:#d97706;font-weight:700}
+.okr-ach-red{color:#dc2626;font-weight:700}
+
 /* ── Toqan link buttons ── */
 .btn-toqan{
   background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.4);
@@ -205,15 +220,41 @@ td.mtd-no-bud{color:#bbb;font-size:11px}
         </div>
       </div>
     </div>
+    <!-- OKR Status section (B2B2C only) -->
+    <div id="okr-section" style="display:none;margin-top:28px">
+      <div class="sec-title">OKR Status — B2B2C</div>
+      <div id="okr-loading" style="padding:16px;color:#666;font-size:13px;display:none">Cargando OKRs…</div>
+      <div id="okr-error" style="padding:8px;color:#dc2626;font-size:13px;display:none"></div>
+      <div id="okr-tables" style="display:none">
+        <div style="overflow-x:auto;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,.08);margin-bottom:16px;width:fit-content">
+          <table id="okr-main-table" class="okr-table"></table>
+        </div>
+        <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
+          <div>
+            <div class="sec-title" style="font-size:9px;margin-bottom:4px">New Account NR por Región ($M)</div>
+            <div style="overflow-x:auto;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,.08);width:fit-content">
+              <table id="okr-nr-new-table" class="okr-table"></table>
+            </div>
+          </div>
+          <div>
+            <div class="sec-title" style="font-size:9px;margin-bottom:4px">FVM por Región ($M)</div>
+            <div style="overflow-x:auto;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,.08);width:fit-content">
+              <table id="okr-fvm-table" class="okr-table"></table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
   <div id="error-box"></div>
 </div>
 
 
 <script>
-var _view  = 'GD';
-var _lob   = 'B2B+B2B2C';
-var _cache = {};
+var _view    = 'GD';
+var _lob     = 'B2B+B2B2C';
+var _cache   = {};
+var _okrData = null;
 
 // ── Tab / view switches ───────────────────────────────────────
 function switchLob(lob) {
@@ -236,7 +277,8 @@ function switchView(v) {
 }
 
 function refreshData() {
-  _cache = {};
+  _cache   = {};
+  _okrData = null;
   var btn = document.getElementById('refresh-btn');
   btn.classList.add('spinning');
   loadData(function(){ btn.classList.remove('spinning'); });
@@ -275,6 +317,7 @@ function render(d) {
   }
   renderWeekly(d);
   renderMTD(d.mtd);
+  loadOKRIfNeeded();
 }
 
 // ── Weekly table ─────────────────────────────────────────────
@@ -498,6 +541,211 @@ function updateAiAgent(lob) {
   if (!bee || !bicia) return;
   bee.style.display   = (lob === 'B2B'   || lob === 'B2B+B2B2C') ? '' : 'none';
   bicia.style.display = (lob === 'B2B2C' || lob === 'B2B+B2B2C') ? '' : 'none';
+}
+
+// ── OKR Weekly B2B2C ─────────────────────────────────────────
+
+function loadOKRIfNeeded() {
+  var sec = document.getElementById('okr-section');
+  if (!sec) return;
+  if (_lob !== 'B2B2C') { sec.style.display = 'none'; return; }
+  sec.style.display = 'block';
+  if (_okrData) { renderOKR(_okrData); return; }
+  document.getElementById('okr-loading').style.display = 'block';
+  document.getElementById('okr-tables').style.display  = 'none';
+  document.getElementById('okr-error').style.display   = 'none';
+  google.script.run
+    .withSuccessHandler(function(res) {
+      document.getElementById('okr-loading').style.display = 'none';
+      if (!res || !res.success) {
+        document.getElementById('okr-error').textContent  = '❌ ' + (res ? res.error : 'Error');
+        document.getElementById('okr-error').style.display = 'block';
+        return;
+      }
+      document.getElementById('okr-tables').style.display = 'block';
+      _okrData = res;
+      renderOKR(res);
+    })
+    .withFailureHandler(function(e) {
+      document.getElementById('okr-loading').style.display = 'none';
+      document.getElementById('okr-error').textContent     = '❌ ' + (e.message || String(e));
+      document.getElementById('okr-error').style.display   = 'block';
+    })
+    .getOKRWeeklyB2B2C();
+}
+
+function _okrFmt(v) {
+  if (v === null || v === undefined || isNaN(v)) return '—';
+  return v.toFixed(1);
+}
+
+function _okrAchClass(pct) {
+  if (pct === null || pct === undefined || isNaN(pct)) return '';
+  if (pct >= 100) return 'okr-ach-green';
+  if (pct >= 80)  return 'okr-ach-amber';
+  return 'okr-ach-red';
+}
+
+function _okrMtdLabel(ym) {
+  if (!ym) return '';
+  var p = ym.split('-');
+  var m = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  return m[parseInt(p[1])-1] + ' ' + p[0];
+}
+
+function _okrMakeTh(text, cls) {
+  var th = document.createElement('th');
+  th.innerHTML = text;
+  if (cls) th.className = cls;
+  return th;
+}
+
+function _okrMakeTd(text, cls) {
+  var td = document.createElement('td');
+  td.innerHTML = text;
+  if (cls) td.className = cls;
+  return td;
+}
+
+function _okrAchHtml(pct) {
+  if (pct === null || pct === undefined || isNaN(pct)) return '—';
+  var cls = _okrAchClass(pct);
+  return '<span class="' + cls + '">' + Math.round(pct) + '%</span>';
+}
+
+function renderOKR(d) {
+  var weeks  = d.actualWeeks;
+  var pWeeks = d.projWeeks;
+
+  function wKey(w) { return w.year + '-' + w.week; }
+
+  // ── Main table ──────────────────────────────────────────────
+  var tbl = document.getElementById('okr-main-table');
+  tbl.innerHTML = '';
+
+  var thead = document.createElement('thead');
+
+  // Header row 1: group spans
+  var tr1 = document.createElement('tr');
+  var th0 = _okrMakeTh('KR'); th0.rowSpan = 2; tr1.appendChild(th0);
+  var thAct = _okrMakeTh('Actuals'); thAct.colSpan = 3; tr1.appendChild(thAct);
+  var thPrj = _okrMakeTh('Proyectado (RR)','okr-proj'); thPrj.colSpan = 3; tr1.appendChild(thPrj);
+  var thMtd = _okrMakeTh('MTD ' + _okrMtdLabel(d.mtd.ym),'okr-mtd'); thMtd.colSpan = 3; tr1.appendChild(thMtd);
+  thead.appendChild(tr1);
+
+  // Header row 2: individual week labels
+  var tr2 = document.createElement('tr');
+  weeks.forEach(function(w) {
+    tr2.appendChild(_okrMakeTh(w.label + '<br><span style="font-size:9px;font-weight:400;opacity:.8">' + w.dateRange + '</span>'));
+  });
+  pWeeks.forEach(function(w) {
+    tr2.appendChild(_okrMakeTh(w.label + '<br><span style="font-size:9px;font-weight:400;opacity:.8">' + w.dateRange + '</span>', 'okr-proj'));
+  });
+  ['MTD Act','MTD Bud','% Achiev'].forEach(function(l) {
+    tr2.appendChild(_okrMakeTh(l,'okr-mtd'));
+  });
+  thead.appendChild(tr2);
+  tbl.appendChild(thead);
+
+  var tbody = document.createElement('tbody');
+
+  // Row: Sign New Partnerships
+  var trSNP = document.createElement('tr');
+  trSNP.appendChild(_okrMakeTd('Sign New Partnerships'));
+  weeks.forEach(function(w, i) {
+    var val = (i === weeks.length - 1) ? String(d.signNewPartnerships.actuals) : '—';
+    trSNP.appendChild(_okrMakeTd(val));
+  });
+  pWeeks.forEach(function() { trSNP.appendChild(_okrMakeTd('—','okr-proj-val')); });
+  trSNP.appendChild(_okrMakeTd(String(d.signNewPartnerships.actuals),'okr-mtd-val'));
+  trSNP.appendChild(_okrMakeTd(String(d.signNewPartnerships.budget),'okr-mtd-val'));
+  var snpPct = d.signNewPartnerships.budget > 0
+    ? d.signNewPartnerships.actuals / d.signNewPartnerships.budget * 100 : null;
+  trSNP.appendChild(_okrMakeTd(_okrAchHtml(snpPct),'okr-mtd-val'));
+  tbody.appendChild(trSNP);
+
+  // Rows: NR and FVM metrics
+  var metrics = [
+    { label:'New Account NR ($M)',      accKey:'existing', field:'nr'  },
+    { label:'Existing Account NR ($M)', accKey:'new',      field:'nr'  },
+    { label:'FVM ($M)',                 accKey:'total',    field:'fvm' }
+  ];
+  metrics.forEach(function(m) {
+    var tr = document.createElement('tr');
+    tr.appendChild(_okrMakeTd(m.label));
+
+    weeks.forEach(function(w) {
+      var wData = d.actualWeekData[wKey(w)];
+      var val   = wData ? wData[m.accKey][m.field] : null;
+      tr.appendChild(_okrMakeTd(_okrFmt(val)));
+    });
+    pWeeks.forEach(function(w) {
+      var rr  = d.rrMonthData[w.ym];
+      var val = rr ? rr[m.accKey][m.field] / 4.33 : null;
+      tr.appendChild(_okrMakeTd(_okrFmt(val),'okr-proj-val'));
+    });
+
+    var actVal = d.mtd.actuals[m.accKey][m.field];
+    var budVal = d.mtd.budget[m.accKey][m.field];
+    var achPct = (budVal && budVal !== 0) ? actVal / budVal * 100 : null;
+    tr.appendChild(_okrMakeTd(_okrFmt(actVal),'okr-mtd-val'));
+    tr.appendChild(_okrMakeTd(_okrFmt(budVal),'okr-mtd-val'));
+    tr.appendChild(_okrMakeTd(_okrAchHtml(achPct),'okr-mtd-val'));
+    tbody.appendChild(tr);
+  });
+  tbl.appendChild(tbody);
+
+  // ── Sub-tables ───────────────────────────────────────────────
+  _renderOKRRegionTable_('okr-nr-new-table', d, weeks, pWeeks, 'existing', 'nr');
+  _renderOKRRegionTable_('okr-fvm-table',    d, weeks, pWeeks, 'total',    'fvm');
+}
+
+function _renderOKRRegionTable_(tableId, d, weeks, pWeeks, accKey, field) {
+  var tbl = document.getElementById(tableId);
+  tbl.innerHTML = '';
+
+  function wKey(w) { return w.year + '-' + w.week; }
+
+  var regions = [
+    { label:'Brasil',     key:'BR'    },
+    { label:'MX/US',      key:'MX/US' },
+    { label:'Sudamérica', key:'HISPA' }
+  ];
+
+  var thead = document.createElement('thead');
+  var tr = document.createElement('tr');
+  tr.appendChild(_okrMakeTh('Región'));
+  weeks.forEach(function(w)  { tr.appendChild(_okrMakeTh(w.label)); });
+  pWeeks.forEach(function(w) { tr.appendChild(_okrMakeTh(w.label,'okr-proj')); });
+  ['MTD Act','MTD Bud','%'].forEach(function(l) { tr.appendChild(_okrMakeTh(l,'okr-mtd')); });
+  thead.appendChild(tr);
+  tbl.appendChild(thead);
+
+  var tbody = document.createElement('tbody');
+  regions.forEach(function(reg) {
+    var tr2 = document.createElement('tr');
+    tr2.appendChild(_okrMakeTd(reg.label));
+
+    weeks.forEach(function(w) {
+      var wData = d.actualWeekData[wKey(w)];
+      var val   = wData ? wData.regions[reg.key][accKey][field] : null;
+      tr2.appendChild(_okrMakeTd(_okrFmt(val)));
+    });
+    pWeeks.forEach(function(w) {
+      var rr  = d.rrMonthData[w.ym];
+      var val = rr ? rr.regions[reg.key][accKey][field] / 4.33 : null;
+      tr2.appendChild(_okrMakeTd(_okrFmt(val),'okr-proj-val'));
+    });
+
+    var actVal = d.mtd.actuals.regions[reg.key][accKey][field];
+    var budVal = d.mtd.budget.regions[reg.key][accKey][field];
+    var achPct = (budVal && budVal !== 0) ? actVal / budVal * 100 : null;
+    tr2.appendChild(_okrMakeTd(_okrFmt(actVal),'okr-mtd-val'));
+    tr2.appendChild(_okrMakeTd(_okrFmt(budVal),'okr-mtd-val'));
+    tr2.appendChild(_okrMakeTd(_okrAchHtml(achPct),'okr-mtd-val'));
+    tbody.appendChild(tr2);
+  });
+  tbl.appendChild(tbody);
 }
 
 window.onload = function() { loadData(); };

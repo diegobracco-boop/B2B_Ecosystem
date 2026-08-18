@@ -636,8 +636,13 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
 <div class="lob-switcher" style="display:flex;align-items:center;flex-wrap:wrap;gap:8px">
   <button class="lob-btn" id="lob-contable-epm" onclick="switchLob('contable-epm')">P&amp;L Accounting</button>
   <button class="lob-btn" id="lob-contable" onclick="switchLob('contable')" style="display:none">P&amp;L Model + Accounting</button>
-  <div id="epm-goal-top" style="display:none;align-items:center;gap:6px;margin-left:auto">
-    <span style="font-size:11px;color:var(--muted);font-weight:700">Goal:</span>
+  <div id="epm-goal-top" style="display:none;align-items:center;gap:10px;margin-left:auto">
+    <span style="font-size:11px;color:var(--muted);font-weight:700">Baseline:</span>
+    <div class="prd-toggle">
+      <button id="btn-ebl-actuals" class="prd-btn prd-active" type="button" onclick="setEpmBaselineSource('bl')">Actuals + Projections</button>
+      <button id="btn-ebl-vr" class="prd-btn" type="button" onclick="setEpmBaselineSource('vr')">Projection Reviews</button>
+    </div>
+    <span style="font-size:11px;color:var(--muted);font-weight:700;margin-left:6px">Goal:</span>
     <div class="prd-toggle">
       <button id="btn-egoal-budget" class="prd-btn prd-active" type="button" onclick="setEpmGoalSource('budget')">vs Budget</button>
       <button id="btn-egoal-forecast" class="prd-btn" type="button" onclick="setEpmGoalSource('forecast')">vs Forecast</button>
@@ -1081,7 +1086,8 @@ function getContableFilters(){
     pais:       getMsValues('ms-cont-pais'),
     producto:   getMsValues('ms-cont-producto'),
     lobGroup:   _bgContableView === 'combined' ? null : _bgContableView,
-    goalSource: (_activeLob === 'contable-epm') ? _epmGoalSource : _bgGoalSource
+    goalSource:     (_activeLob === 'contable-epm') ? _epmGoalSource     : _bgGoalSource,
+    baselineSource: (_activeLob === 'contable-epm') ? _epmBaselineSource : 'bl'
   };
 }
 
@@ -1089,6 +1095,14 @@ function setGoalSource(src){
   _bgGoalSource = src;
   document.getElementById('btn-goal-budget').classList.toggle('prd-active', src === 'budget');
   document.getElementById('btn-goal-epm').classList.toggle('prd-active', src === 'epm');
+  debouncedFetchBG();
+}
+
+// EPM view: selector de baseline
+function setEpmBaselineSource(src){
+  _epmBaselineSource = src;
+  document.getElementById('btn-ebl-actuals').classList.toggle('prd-active', src === 'bl');
+  document.getElementById('btn-ebl-vr').classList.toggle('prd-active', src === 'vr');
   debouncedFetchBG();
 }
 
@@ -1922,8 +1936,9 @@ var _bgData           = null;
 var _bgTimer          = null;
 var _bgPeriodMode     = 'q';          // 'q' = quarterly, 'h' = half (H1/H2)
 var _bgContableView   = 'combined';   // 'combined' | 'b2b' | 'b2b2c'
-var _bgGoalSource     = 'budget';     // vista "Model+Accounting": 'budget' | 'epm'
-var _epmGoalSource    = 'budget';     // vista "P&L Accounting" (EPM): 'budget' | 'forecast' | 'runrate' | 'lastrunrate'
+var _bgGoalSource       = 'budget';     // vista "Model+Accounting": 'budget' | 'epm'
+var _epmGoalSource      = 'budget';     // vista "P&L Accounting" (EPM): 'budget' | 'forecast' | 'runrate' | 'lastrunrate'
+var _epmBaselineSource  = 'bl';         // vista EPM baseline: 'bl' (Actuals+Proj) | 'vr' (Projection Reviews)
 var _qSecState        = {};           // secId → true = collapsed
 var _contCharts       = [];           // Chart.js instances for contable charts
 var _contLobCharts    = [];           // Chart.js instances for per-LOB charts in combined view
@@ -1961,7 +1976,7 @@ function fetchBGData(){
               } catch(e) {}
             })
             .withFailureHandler(function(){})
-            [_activeLob === 'contable-epm' ? 'getEPMB2BCountryDetail' : 'getB2BCountryDetail']({label:'Total B2B', pais:null, goalSource: (_activeLob === 'contable-epm' ? _epmGoalSource : _bgGoalSource)});
+            [_activeLob === 'contable-epm' ? 'getEPMB2BCountryDetail' : 'getB2BCountryDetail']({label:'Total B2B', pais:null, goalSource: (_activeLob === 'contable-epm' ? _epmGoalSource : _bgGoalSource), baselineSource: (_activeLob === 'contable-epm' ? _epmBaselineSource : 'bl')});
         }
         document.getElementById('last-upd').textContent = 'Actualizado: '+new Date().toLocaleTimeString('es-AR');
       } catch(e) {
@@ -2189,7 +2204,7 @@ function renderBaselineGoalTable(d){
   var quarters = getActivePeriods_(d.quarters);
   var n = quarters.length;
   var _isEpmLob = (_activeLob === 'contable-epm');
-  var _baselineLbl = _isEpmLob ? 'Baseline (Actuals + Projections)' : 'Actuals + RunRate + Forecast';
+  var _baselineLbl = _isEpmLob ? ('Baseline (' + (_epmBaselineSource === 'vr' ? 'Projection Reviews' : 'Actuals + Projections') + ')') : 'Actuals + RunRate + Forecast';
   var _goalLbl     = _isEpmLob ? _epmGoalLabel() : (_bgGoalSource === 'epm' ? 'EPM' : 'Budget');
   document.getElementById('bg-period-label').textContent = _baselineLbl + '  |  Goal: ' + _goalLbl;
   document.getElementById('bg-scenario-head').innerHTML = buildBGScenHead(n);
@@ -2676,7 +2691,7 @@ function selectB2BCountry(label, paisArr) {
       var det = document.getElementById('cont-b2b-detail');
       if(det) det.innerHTML = '<div style="color:red;font-size:12px">Error: '+(err.message||err)+'</div>';
     })
-    [_activeLob === 'contable-epm' ? 'getEPMB2BCountryDetail' : 'getB2BCountryDetail']({label: label, pais: paisArr, goalSource: (_activeLob === 'contable-epm' ? _epmGoalSource : _bgGoalSource)});
+    [_activeLob === 'contable-epm' ? 'getEPMB2BCountryDetail' : 'getB2BCountryDetail']({label: label, pais: paisArr, goalSource: (_activeLob === 'contable-epm' ? _epmGoalSource : _bgGoalSource), baselineSource: (_activeLob === 'contable-epm' ? _epmBaselineSource : 'bl')});
 }
 
 function sumProductData_(items) {
@@ -2836,7 +2851,7 @@ function selectB2B2CCountry(label, paisArr) {
       var det = document.getElementById('cont-b2b2c-detail');
       if(det) det.innerHTML = '<div style="color:red;font-size:12px">Error: '+(err.message||err)+'</div>';
     })
-    [_activeLob === 'contable-epm' ? 'getEPMB2B2CCountryDetail' : 'getB2B2CCountryDetail']({label: label, pais: paisArr, goalSource: (_activeLob === 'contable-epm' ? _epmGoalSource : _bgGoalSource)});
+    [_activeLob === 'contable-epm' ? 'getEPMB2B2CCountryDetail' : 'getB2B2CCountryDetail']({label: label, pais: paisArr, goalSource: (_activeLob === 'contable-epm' ? _epmGoalSource : _bgGoalSource), baselineSource: (_activeLob === 'contable-epm' ? _epmBaselineSource : 'bl')});
 }
 
 function renderB2B2CCountryDetail(d) {
