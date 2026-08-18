@@ -2,13 +2,15 @@
 """
 weekly_insights.py
 ==================
-Genera weekly_insights.json con semáforos y bullets ejecutivos por LOB.
+Prepara insights_input.json con KPIs y semáforos por LOB.
+Claude genera los bullets narrativos con /generar-insights.
 Se llama desde daily_sync.py al final del sync diario.
 No conecta al Datalake — recibe los DataFrames ya cargados.
 """
 
 import json
 from datetime import date, timedelta, datetime
+from pathlib import Path
 
 import pandas as pd
 
@@ -19,11 +21,10 @@ MESES_ES = {
     9: 'Septiembre', 10: 'Octubre', 11: 'Noviembre', 12: 'Diciembre'
 }
 
-INSIGHTS_FILE_NAME = 'weekly_insights.json'
+INSIGHTS_INPUT_PATH = Path(__file__).resolve().parent / 'insights_input.json'
 
 # Umbrales semáforo (% desviación vs budget)
-THRESHOLDS = {'verde': -2.0, 'amarillo': -8.0}
-# Para margen en pp
+THRESHOLDS    = {'verde': -2.0, 'amarillo': -8.0}
 THRESHOLDS_PP = {'verde': -0.5, 'amarillo': -2.0}
 
 
@@ -117,6 +118,11 @@ def _mes_str(year: int, month: int) -> str:
     return f'{MESES_ES[month]} {year}'
 
 
+def _last_day(year: int, month: int) -> int:
+    import calendar
+    return calendar.monthrange(year, month)[1]
+
+
 # ──────────────────────────────────────────────────────────────
 #  Filtrado por rango de fechas
 # ──────────────────────────────────────────────────────────────
@@ -178,21 +184,38 @@ def _margen(gb, nr):
     return None
 
 
+def _merge_agg(a: dict, b: dict) -> dict:
+    return {
+        'gb':     a.get('gb', 0) + b.get('gb', 0),
+        'nr':     a.get('nr', 0) + b.get('nr', 0),
+        'orders': a.get('orders', 0) + b.get('orders', 0),
+        'fvm':    a.get('fvm', 0) + b.get('fvm', 0),
+    }
+
+
+def _compact_to_df(compact_or_df):
+    if isinstance(compact_or_df, pd.DataFrame):
+        return compact_or_df
+    if isinstance(compact_or_df, dict) and 'cols' in compact_or_df:
+        return pd.DataFrame(compact_or_df['rows'], columns=compact_or_df['cols'])
+    return pd.DataFrame()
+
+
 # ──────────────────────────────────────────────────────────────
-#  Build insight dict for one LOB
+#  Build KPIs for one LOB (no bullets — Claude generates those)
 # ──────────────────────────────────────────────────────────────
 
-def _build_insight(actual: dict, budget: dict, ly: dict, periodo: str, corte: str) -> dict:
-    gb_a = actual.get('gb', 0)
-    nr_a = actual.get('nr', 0)
-    ord_a = actual.get('orders', 0)
+def _build_kpis(actual: dict, budget: dict, ly: dict, periodo: str, corte: str) -> dict:
+    gb_a   = actual.get('gb', 0)
+    nr_a   = actual.get('nr', 0)
+    ord_a  = actual.get('orders', 0)
 
-    gb_b = budget.get('gb', 0)
-    nr_b = budget.get('nr', 0)
-    ord_b = budget.get('orders', 0)
+    gb_b   = budget.get('gb', 0)
+    nr_b   = budget.get('nr', 0)
+    ord_b  = budget.get('orders', 0)
 
-    gb_ly = ly.get('gb', 0)
-    nr_ly = ly.get('nr', 0)
+    gb_ly  = ly.get('gb', 0)
+    nr_ly  = ly.get('nr', 0)
     ord_ly = ly.get('orders', 0)
 
     margen_a  = _margen(gb_a, nr_a)
@@ -204,9 +227,9 @@ def _build_insight(actual: dict, budget: dict, ly: dict, periodo: str, corte: st
     ord_vs_bgt   = _safe_pct(ord_a, ord_b)
     mg_vs_bgt_pp = _safe_pp(margen_a, margen_b)
 
-    gb_vs_ly   = _safe_pct(gb_a, gb_ly)
-    nr_vs_ly   = _safe_pct(nr_a, nr_ly)
-    ord_vs_ly  = _safe_pct(ord_a, ord_ly)
+    gb_vs_ly    = _safe_pct(gb_a, gb_ly)
+    nr_vs_ly    = _safe_pct(nr_a, nr_ly)
+    ord_vs_ly   = _safe_pct(ord_a, ord_ly)
     mg_vs_ly_pp = _safe_pp(margen_a, margen_ly)
 
     semaforos = {
@@ -216,35 +239,6 @@ def _build_insight(actual: dict, budget: dict, ly: dict, periodo: str, corte: st
         'margen': _semaforo_pp(mg_vs_bgt_pp),
     }
 
-    # Bullets ejecutivos
-    bullets = []
-    bullets.append(
-        f'GB {_fmt_m(gb_a)}, {_fmt_pct(gb_vs_bgt)} vs Budget / {_fmt_pct(gb_vs_ly)} vs LY'
-        + (' — tracción por encima del plan.' if (gb_vs_bgt or 0) >= 0 else ' — por debajo del plan.')
-    )
-    bullets.append(
-        f'NR {_fmt_m(nr_a)}, {_fmt_pct(nr_vs_bgt)} vs Budget / {_fmt_pct(nr_vs_ly)} vs LY'
-        + (f' — margen {margen_a:.1f}% ({_fmt_pp(mg_vs_bgt_pp)} vs Budget).' if margen_a is not None else '.')
-    )
-    bullets.append(
-        f'Orders {ord_a:,}, {_fmt_pct(ord_vs_bgt)} vs Budget / {_fmt_pct(ord_vs_ly)} vs LY'
-        + (' — volumen saludable.' if (ord_vs_bgt or 0) >= 0 else ' — volumen bajo plan.')
-    )
-    if margen_a is not None:
-        bullets.append(
-            f'Margen NR/GB: {margen_a:.1f}% ({_fmt_pp(mg_vs_bgt_pp)} vs Budget, {_fmt_pp(mg_vs_ly_pp)} vs LY)'
-            + (' — dentro de rango.' if (mg_vs_bgt_pp or 0) >= -0.5 else ' — revisar tasa/costos.')
-        )
-
-    # Slide bullets
-    slide_bullets = [
-        f'GB {_fmt_m(gb_a)}  {_arrow(gb_vs_bgt)} {_fmt_pct(gb_vs_bgt)} vs Bgt',
-        f'NR {_fmt_m(nr_a)}  {_arrow(nr_vs_bgt)} {_fmt_pct(nr_vs_bgt)} vs Bgt',
-        f'Orders {ord_a:,}  {_arrow(ord_vs_bgt)} {_fmt_pct(ord_vs_bgt)} vs Bgt',
-    ]
-    if margen_a is not None:
-        slide_bullets.append(f'Margen {margen_a:.1f}%  {_arrow(mg_vs_bgt_pp)} {_fmt_pp(mg_vs_bgt_pp)} vs Bgt')
-
     return {
         'semaforo_global': _semaforo_global(semaforos),
         'semaforos':       semaforos,
@@ -252,85 +246,52 @@ def _build_insight(actual: dict, budget: dict, ly: dict, periodo: str, corte: st
         'corte':           corte,
         'referencia':      'Budget',
         'kpis': {
-            'gb_actual':          round(gb_a, 2),
-            'gb_vs_budget_pct':   gb_vs_bgt,
-            'gb_vs_ly_pct':       gb_vs_ly,
-            'nr_actual':          round(nr_a, 2),
-            'nr_vs_budget_pct':   nr_vs_bgt,
-            'nr_vs_ly_pct':       nr_vs_ly,
-            'orders_actual':      ord_a,
+            'gb_actual':            round(gb_a, 2),
+            'gb_budget':            round(gb_b, 2),
+            'gb_ly':                round(gb_ly, 2),
+            'gb_vs_budget_pct':     gb_vs_bgt,
+            'gb_vs_ly_pct':         gb_vs_ly,
+            'nr_actual':            round(nr_a, 2),
+            'nr_budget':            round(nr_b, 2),
+            'nr_ly':                round(nr_ly, 2),
+            'nr_vs_budget_pct':     nr_vs_bgt,
+            'nr_vs_ly_pct':         nr_vs_ly,
+            'orders_actual':        ord_a,
+            'orders_budget':        ord_b,
+            'orders_ly':            ord_ly,
             'orders_vs_budget_pct': ord_vs_bgt,
-            'orders_vs_ly_pct':   ord_vs_ly,
-            'margen_pct':         margen_a,
-            'margen_vs_budget_pp': mg_vs_bgt_pp,
-            'margen_vs_ly_pp':    mg_vs_ly_pp,
+            'orders_vs_ly_pct':     ord_vs_ly,
+            'margen_pct':           margen_a,
+            'margen_budget_pct':    margen_b,
+            'margen_ly_pct':        margen_ly,
+            'margen_vs_budget_pp':  mg_vs_bgt_pp,
+            'margen_vs_ly_pp':      mg_vs_ly_pp,
         },
-        'bullets':       bullets,
-        'slide_bullets': slide_bullets,
+        # bullets y slide_bullets los genera Claude con /generar-insights
+        'bullets':       [],
+        'slide_bullets': [],
     }
-
-
-# ──────────────────────────────────────────────────────────────
-#  Consolidado (B2B + B2B2C)
-# ──────────────────────────────────────────────────────────────
-
-def _merge_agg(a: dict, b: dict) -> dict:
-    return {
-        'gb':     a.get('gb', 0) + b.get('gb', 0),
-        'nr':     a.get('nr', 0) + b.get('nr', 0),
-        'orders': a.get('orders', 0) + b.get('orders', 0),
-        'fvm':    a.get('fvm', 0) + b.get('fvm', 0),
-    }
-
-
-# ──────────────────────────────────────────────────────────────
-#  Upload helper (wraps the drive service from daily_sync)
-# ──────────────────────────────────────────────────────────────
-
-def _upload(payload: dict, drive_folder_id: str, get_drive_service):
-    from googleapiclient.http import MediaInMemoryUpload
-    service  = get_drive_service()
-    content  = json.dumps(payload, ensure_ascii=False, separators=(',', ':')).encode('utf-8')
-    media    = MediaInMemoryUpload(content, mimetype='application/json', resumable=False)
-    filename = INSIGHTS_FILE_NAME
-
-    results  = service.files().list(
-        q=f"name='{filename}' and '{drive_folder_id}' in parents and trashed=false",
-        fields='files(id,name)'
-    ).execute()
-    existing = results.get('files', [])
-
-    if existing:
-        service.files().update(fileId=existing[0]['id'], media_body=media).execute()
-        print(f'  OK Drive: archivo actualizado ({filename})')
-    else:
-        service.files().create(
-            body={'name': filename, 'parents': [drive_folder_id]},
-            media_body=media, fields='id'
-        ).execute()
-        print(f'  OK Drive: archivo creado ({filename})')
 
 
 # ──────────────────────────────────────────────────────────────
 #  Main entry point
 # ──────────────────────────────────────────────────────────────
 
-def generate_and_upload_insights(
+def generate_insights_input(
     df_act, df_lya, df_bud, df_b2bc_rr_agg,
     df_b2b_gd_agg, df_b2b_gd_ly_ag, df_b2b_ri_agg, df_b2b_ri_ly_ag,
     df_b2b_bud_gd, df_b2b_bud_ri, df_b2b_rr_gd_agg, df_b2b_rr_ri_agg,
-    drive_folder_id, get_drive_service, today,
+    today,
 ):
     print('  Calculando períodos...')
 
     # ── Semana anterior completa (lunes–domingo) ──
-    # weekday(): lunes=0 … domingo=6
-    days_since_monday = today.weekday()           # días desde el lunes de esta semana
+    days_since_monday = today.weekday()
     this_monday       = today - timedelta(days=days_since_monday)
-    sem_fin   = this_monday - timedelta(days=1)   # domingo pasado
-    sem_inicio = sem_fin - timedelta(days=6)       # lunes pasado
-    periodo_str = _periodo_str(sem_inicio, sem_fin)
-    corte_str   = sem_fin.strftime('%d/%m/%Y')
+    sem_fin           = this_monday - timedelta(days=1)
+    sem_inicio        = sem_fin - timedelta(days=6)
+    periodo_str       = _periodo_str(sem_inicio, sem_fin)
+    corte_str         = sem_fin.strftime('%d/%m/%Y')
     print(f'  Semana: {sem_inicio} → {sem_fin}')
 
     # ── Mes anterior ──
@@ -345,44 +306,35 @@ def generate_and_upload_insights(
     #  B2B2C — semana
     # ══════════════════════════════════════════════
     print('  Agregando B2B2C semana...')
-    act_w   = _filter_dates(df_act,  'fecha', sem_inicio, sem_fin)
-    ly_w    = _filter_dates(df_lya,  'fecha', sem_inicio - timedelta(days=364), sem_fin - timedelta(days=364))
-    bud_w   = _filter_dates(df_bud,  'fecha', sem_inicio, sem_fin)
+    act_w  = _filter_dates(df_act, 'fecha', sem_inicio, sem_fin)
+    ly_w   = _filter_dates(df_lya, 'fecha', sem_inicio - timedelta(days=364), sem_fin - timedelta(days=364))
+    bud_w  = _filter_dates(df_bud, 'fecha', sem_inicio, sem_fin)
 
-    b2b2c_actual = _agg_b2b2c(act_w, nr_col='net_revenues')
-    b2b2c_ly     = _agg_b2b2c(ly_w,  nr_col='net_revenues')
-    # budget usa net_revenue (sin s)
+    b2b2c_actual  = _agg_b2b2c(act_w, nr_col='net_revenues')
+    b2b2c_ly      = _agg_b2b2c(ly_w,  nr_col='net_revenues')
     b2b2c_bud_agg = {
         'gb':     float(bud_w['gross_bookings'].sum()) if not bud_w.empty else 0,
         'nr':     float(bud_w['net_revenue'].sum())    if not bud_w.empty else 0,
         'orders': int(bud_w['orders'].sum())           if not bud_w.empty else 0,
         'fvm':    float(bud_w['fvm'].sum())            if not bud_w.empty else 0,
     }
-    b2b2c_insight = _build_insight(b2b2c_actual, b2b2c_bud_agg, b2b2c_ly, periodo_str, corte_str)
+    b2b2c_kpis = _build_kpis(b2b2c_actual, b2b2c_bud_agg, b2b2c_ly, periodo_str, corte_str)
 
     # ══════════════════════════════════════════════
     #  B2B — semana (GD + RI)
     # ══════════════════════════════════════════════
     print('  Agregando B2B semana...')
-
-    def _compact_to_df(compact_or_df):
-        if isinstance(compact_or_df, pd.DataFrame):
-            return compact_or_df
-        if isinstance(compact_or_df, dict) and 'cols' in compact_or_df:
-            return pd.DataFrame(compact_or_df['rows'], columns=compact_or_df['cols'])
-        return pd.DataFrame()
-
-    gd_w    = _filter_dates(_compact_to_df(df_b2b_gd_agg),    'fecha', sem_inicio, sem_fin)
-    ri_w    = _filter_dates(_compact_to_df(df_b2b_ri_agg),    'fecha', sem_inicio, sem_fin)
-    gd_ly_w = _filter_dates(_compact_to_df(df_b2b_gd_ly_ag),  'fecha', sem_inicio - timedelta(days=364), sem_fin - timedelta(days=364))
-    ri_ly_w = _filter_dates(_compact_to_df(df_b2b_ri_ly_ag),  'fecha', sem_inicio - timedelta(days=364), sem_fin - timedelta(days=364))
+    gd_w     = _filter_dates(_compact_to_df(df_b2b_gd_agg),   'fecha', sem_inicio, sem_fin)
+    ri_w     = _filter_dates(_compact_to_df(df_b2b_ri_agg),   'fecha', sem_inicio, sem_fin)
+    gd_ly_w  = _filter_dates(_compact_to_df(df_b2b_gd_ly_ag), 'fecha', sem_inicio - timedelta(days=364), sem_fin - timedelta(days=364))
+    ri_ly_w  = _filter_dates(_compact_to_df(df_b2b_ri_ly_ag), 'fecha', sem_inicio - timedelta(days=364), sem_fin - timedelta(days=364))
     bud_gd_w = _filter_dates(_compact_to_df(df_b2b_bud_gd),   'fecha', sem_inicio, sem_fin)
     bud_ri_w = _filter_dates(_compact_to_df(df_b2b_bud_ri),   'fecha', sem_inicio, sem_fin)
 
     b2b_actual = _agg_b2b(gd_w,     ri_w)
     b2b_ly     = _agg_b2b(gd_ly_w,  ri_ly_w)
     b2b_bud    = _agg_b2b(bud_gd_w, bud_ri_w)
-    b2b_insight = _build_insight(b2b_actual, b2b_bud, b2b_ly, periodo_str, corte_str)
+    b2b_kpis   = _build_kpis(b2b_actual, b2b_bud, b2b_ly, periodo_str, corte_str)
 
     # ══════════════════════════════════════════════
     #  Consolidado semana
@@ -391,7 +343,7 @@ def generate_and_upload_insights(
     consol_actual = _merge_agg(b2b2c_actual, b2b_actual)
     consol_bud    = _merge_agg(b2b2c_bud_agg, b2b_bud)
     consol_ly     = _merge_agg(b2b2c_ly, b2b_ly)
-    consol_insight = _build_insight(consol_actual, consol_bud, consol_ly, periodo_str, corte_str)
+    consol_kpis   = _build_kpis(consol_actual, consol_bud, consol_ly, periodo_str, corte_str)
 
     # ══════════════════════════════════════════════
     #  MRM — mes anterior
@@ -400,9 +352,9 @@ def generate_and_upload_insights(
     mrm_periodo_str = mes_anterior_str
     mrm_corte_str   = f'01/{mes_ant_month:02d}/{mes_ant_year} – {_last_day(mes_ant_year, mes_ant_month):02d}/{mes_ant_month:02d}/{mes_ant_year}'
 
-    act_m  = _filter_month(df_act,  'fecha', mes_ant_year, mes_ant_month)
-    ly_m   = _filter_month(df_lya,  'fecha', mes_ant_year - 1, mes_ant_month)
-    bud_m  = _filter_month(df_bud,  'fecha', mes_ant_year, mes_ant_month)
+    act_m  = _filter_month(df_act, 'fecha', mes_ant_year, mes_ant_month)
+    ly_m   = _filter_month(df_lya, 'fecha', mes_ant_year - 1, mes_ant_month)
+    bud_m  = _filter_month(df_bud, 'fecha', mes_ant_year, mes_ant_month)
 
     mrm_b2b2c_actual = _agg_b2b2c(act_m, nr_col='net_revenues')
     mrm_b2b2c_ly     = _agg_b2b2c(ly_m,  nr_col='net_revenues')
@@ -412,28 +364,27 @@ def generate_and_upload_insights(
         'orders': int(bud_m['orders'].sum())           if not bud_m.empty else 0,
         'fvm':    float(bud_m['fvm'].sum())            if not bud_m.empty else 0,
     }
-    mrm_b2b2c_insight = _build_insight(mrm_b2b2c_actual, mrm_b2b2c_bud, mrm_b2b2c_ly, mrm_periodo_str, mrm_corte_str)
+    mrm_b2b2c_kpis = _build_kpis(mrm_b2b2c_actual, mrm_b2b2c_bud, mrm_b2b2c_ly, mrm_periodo_str, mrm_corte_str)
 
-    gd_m     = _filter_month(_compact_to_df(df_b2b_gd_agg),   mes_ant_year, mes_ant_month)
-    ri_m     = _filter_month(_compact_to_df(df_b2b_ri_agg),   mes_ant_year, mes_ant_month)
-    gd_ly_m  = _filter_month(_compact_to_df(df_b2b_gd_ly_ag), mes_ant_year - 1, mes_ant_month)
-    ri_ly_m  = _filter_month(_compact_to_df(df_b2b_ri_ly_ag), mes_ant_year - 1, mes_ant_month)
-    bud_gd_m = _filter_month(_compact_to_df(df_b2b_bud_gd),   mes_ant_year, mes_ant_month)
-    bud_ri_m = _filter_month(_compact_to_df(df_b2b_bud_ri),   mes_ant_year, mes_ant_month)
+    gd_m     = _filter_month(_compact_to_df(df_b2b_gd_agg),   'fecha', mes_ant_year, mes_ant_month)
+    ri_m     = _filter_month(_compact_to_df(df_b2b_ri_agg),   'fecha', mes_ant_year, mes_ant_month)
+    gd_ly_m  = _filter_month(_compact_to_df(df_b2b_gd_ly_ag), 'fecha', mes_ant_year - 1, mes_ant_month)
+    ri_ly_m  = _filter_month(_compact_to_df(df_b2b_ri_ly_ag), 'fecha', mes_ant_year - 1, mes_ant_month)
+    bud_gd_m = _filter_month(_compact_to_df(df_b2b_bud_gd),   'fecha', mes_ant_year, mes_ant_month)
+    bud_ri_m = _filter_month(_compact_to_df(df_b2b_bud_ri),   'fecha', mes_ant_year, mes_ant_month)
 
-    # _filter_month necesita un año como primer arg — fix overload
     mrm_b2b_actual = _agg_b2b(gd_m,     ri_m)
     mrm_b2b_ly     = _agg_b2b(gd_ly_m,  ri_ly_m)
     mrm_b2b_bud    = _agg_b2b(bud_gd_m, bud_ri_m)
-    mrm_b2b_insight = _build_insight(mrm_b2b_actual, mrm_b2b_bud, mrm_b2b_ly, mrm_periodo_str, mrm_corte_str)
+    mrm_b2b_kpis   = _build_kpis(mrm_b2b_actual, mrm_b2b_bud, mrm_b2b_ly, mrm_periodo_str, mrm_corte_str)
 
     mrm_consol_actual = _merge_agg(mrm_b2b2c_actual, mrm_b2b_actual)
     mrm_consol_bud    = _merge_agg(mrm_b2b2c_bud, mrm_b2b_bud)
     mrm_consol_ly     = _merge_agg(mrm_b2b2c_ly, mrm_b2b_ly)
-    mrm_consol_insight = _build_insight(mrm_consol_actual, mrm_consol_bud, mrm_consol_ly, mrm_periodo_str, mrm_corte_str)
+    mrm_consol_kpis   = _build_kpis(mrm_consol_actual, mrm_consol_bud, mrm_consol_ly, mrm_periodo_str, mrm_corte_str)
 
     # ══════════════════════════════════════════════
-    #  Payload final
+    #  Guardar insights_input.json en disco
     # ══════════════════════════════════════════════
     payload = {
         'meta': {
@@ -442,32 +393,20 @@ def generate_and_upload_insights(
             'semana_fin':    str(sem_fin),
             'corte':         str(sem_fin),
             'mes_anterior':  mes_anterior_str,
+            'nota':          'bullets y slide_bullets los genera Claude con /generar-insights',
         },
-        'b2b2c':      b2b2c_insight,
-        'b2b':        b2b_insight,
-        'consolidado': consol_insight,
+        'b2b2c':       b2b2c_kpis,
+        'b2b':         b2b_kpis,
+        'consolidado': consol_kpis,
         'mrm': {
-            'b2b2c':      mrm_b2b2c_insight,
-            'b2b':        mrm_b2b_insight,
-            'consolidado': mrm_consol_insight,
+            'b2b2c':       mrm_b2b2c_kpis,
+            'b2b':         mrm_b2b_kpis,
+            'consolidado': mrm_consol_kpis,
         },
     }
 
-    print('  Subiendo weekly_insights.json a Drive...')
-    _upload(payload, drive_folder_id, get_drive_service)
-    print('  OK Insights generados.')
-
-
-def _last_day(year: int, month: int) -> int:
-    import calendar
-    return calendar.monthrange(year, month)[1]
-
-
-def _filter_month(df: pd.DataFrame, date_col: str, year: int, month: int) -> pd.DataFrame:
-    if df.empty:
-        return df
-    col = df[date_col].copy()
-    if not pd.api.types.is_datetime64_any_dtype(col):
-        col = pd.to_datetime(col, errors='coerce')
-    mask = (col.dt.year == year) & (col.dt.month == month)
-    return df[mask]
+    INSIGHTS_INPUT_PATH.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding='utf-8'
+    )
+    print('  OK insights_input.json guardado en disco.')

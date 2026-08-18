@@ -1160,12 +1160,12 @@ upload_to_drive(b2bc_bytes, JSON_FILE_NAME)
 upload_to_drive(b2b_bytes,  B2B_JSON_FILE_NAME)
 
 # ==============================================================================
-# 7) GENERAR INSIGHTS SEMANALES
+# 7) PREPARAR INPUT PARA INSIGHTS (Claude los genera con /generar-insights)
 # ==============================================================================
-print("\n--- Generando insights semanales ---")
+print("\n--- Preparando insights input ---")
 try:
-    from weekly_insights import generate_and_upload_insights
-    generate_and_upload_insights(
+    from weekly_insights import generate_insights_input
+    generate_insights_input(
         df_act=df_act,
         df_lya=df_lya,
         df_bud=df_bud,
@@ -1178,8 +1178,6 @@ try:
         df_b2b_bud_ri=df_b2b_bud_ri,
         df_b2b_rr_gd_agg=df_b2b_rr_gd_agg,
         df_b2b_rr_ri_agg=df_b2b_rr_ri_agg,
-        drive_folder_id=DRIVE_FOLDER_ID,
-        get_drive_service=_get_drive_service,
         today=TODAY,
     )
 except Exception as e:
