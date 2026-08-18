@@ -1110,13 +1110,19 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
           </div>
           <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
             <div>
-              <div class="ws-sec-title" style="font-size:9px;margin-bottom:4px">New Account NR por Región ($M)</div>
+              <div class="ws-sec-title" style="font-size:9px;margin-bottom:4px">New Account NR por Región — MTD ($M)</div>
               <div style="overflow-x:auto;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,.08);width:fit-content">
                 <table id="ws-okr-nr-new-table" class="ws-okr-table"></table>
               </div>
             </div>
             <div>
-              <div class="ws-sec-title" style="font-size:9px;margin-bottom:4px">FVM por Región ($M)</div>
+              <div class="ws-sec-title" style="font-size:9px;margin-bottom:4px">Existing Account NR por Región — MTD ($M)</div>
+              <div style="overflow-x:auto;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,.08);width:fit-content">
+                <table id="ws-okr-nr-exist-table" class="ws-okr-table"></table>
+              </div>
+            </div>
+            <div>
+              <div class="ws-sec-title" style="font-size:9px;margin-bottom:4px">FVM por Región — MTD ($M)</div>
               <div style="overflow-x:auto;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,.08);width:fit-content">
                 <table id="ws-okr-fvm-table" class="ws-okr-table"></table>
               </div>
@@ -2821,14 +2827,14 @@ function _wsRenderOKR(d) {
   });
   tbl.appendChild(tbody);
 
-  _wsRenderOKRRegionTable_('ws-okr-nr-new-table', d, weeks, pWeeks, 'existing', 'nr');
-  _wsRenderOKRRegionTable_('ws-okr-fvm-table',    d, weeks, pWeeks, 'total',    'fvm');
+  _wsRenderOKRRegionTable_('ws-okr-nr-new-table',  d, 'existing', 'nr');
+  _wsRenderOKRRegionTable_('ws-okr-nr-exist-table', d, 'new',      'nr');
+  _wsRenderOKRRegionTable_('ws-okr-fvm-table',      d, 'total',    'fvm');
 }
 
-function _wsRenderOKRRegionTable_(tableId, d, weeks, pWeeks, accKey, field) {
+function _wsRenderOKRRegionTable_(tableId, d, accKey, field) {
   var tbl = document.getElementById(tableId);
   tbl.innerHTML = '';
-  function wKey(w) { return w.year + '-' + w.week; }
   var regions = [
     { label:'Brasil',     key:'BR'    },
     { label:'MX/US',      key:'MX/US' },
@@ -2837,8 +2843,6 @@ function _wsRenderOKRRegionTable_(tableId, d, weeks, pWeeks, accKey, field) {
   var thead = document.createElement('thead');
   var tr = document.createElement('tr');
   tr.appendChild(_wsOkrTh('Región'));
-  weeks.forEach(function(w)  { tr.appendChild(_wsOkrTh(w.label)); });
-  pWeeks.forEach(function(w) { tr.appendChild(_wsOkrTh(w.label,'ws-okr-proj')); });
   ['MTD Act','MTD Bud','%'].forEach(function(l) { tr.appendChild(_wsOkrTh(l,'ws-okr-mtd')); });
   thead.appendChild(tr);
   tbl.appendChild(thead);
@@ -2846,16 +2850,6 @@ function _wsRenderOKRRegionTable_(tableId, d, weeks, pWeeks, accKey, field) {
   regions.forEach(function(reg) {
     var tr2 = document.createElement('tr');
     tr2.appendChild(_wsOkrTd(reg.label));
-    weeks.forEach(function(w) {
-      var wData = d.actualWeekData[wKey(w)];
-      var val = wData && wData.regions[reg.key] ? wData.regions[reg.key][accKey][field] : null;
-      tr2.appendChild(_wsOkrTd(_wsOkrFmt(val)));
-    });
-    pWeeks.forEach(function(w) {
-      var rr = d.rrMonthData[w.ym];
-      var val = rr && rr.regions[reg.key] ? rr.regions[reg.key][accKey][field] / 4.33 : null;
-      tr2.appendChild(_wsOkrTd(_wsOkrFmt(val),'ws-okr-proj-val'));
-    });
     var actVal = d.mtd.actuals.regions[reg.key] ? d.mtd.actuals.regions[reg.key][accKey][field] : null;
     var budVal = d.mtd.budget.regions[reg.key]  ? d.mtd.budget.regions[reg.key][accKey][field]  : null;
     var achPct = (budVal && budVal !== 0 && actVal !== null) ? actVal / budVal * 100 : null;
