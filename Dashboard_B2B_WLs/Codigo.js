@@ -1698,13 +1698,15 @@ function getOrgData() {
 }
 
 // ── Weekly Insights ───────────────────────────────────────────
-var WEEKLY_INSIGHTS_FILE_ID = '';  // TODO: actualizar con el ID de Drive de weekly_insights.json
+var WEEKLY_INSIGHTS_FOLDER_ID = '1lWzfqweyV6Kz1ERkL85ikFcmzmKwGwwh';
+var WEEKLY_INSIGHTS_FILENAME  = 'weekly_insights.json';
 
 function getWeeklyInsights() {
-  if (!WEEKLY_INSIGHTS_FILE_ID) return JSON.stringify({ error: 'File ID not configured' });
   try {
-    var blob = DriveApp.getFileById(WEEKLY_INSIGHTS_FILE_ID).getBlob();
-    return blob.getDataAsString('UTF-8');
+    var folder = DriveApp.getFolderById(WEEKLY_INSIGHTS_FOLDER_ID);
+    var files  = folder.getFilesByName(WEEKLY_INSIGHTS_FILENAME);
+    if (!files.hasNext()) return JSON.stringify({ error: 'weekly_insights.json no encontrado en Drive. Correr daily_sync.py primero.' });
+    return files.next().getBlob().getDataAsString('UTF-8');
   } catch(e) {
     return JSON.stringify({ error: e.toString() });
   }
