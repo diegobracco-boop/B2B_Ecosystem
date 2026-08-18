@@ -392,6 +392,21 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
 .ws-spinner{width:26px;height:26px;border:3px solid var(--elevated);border-top-color:var(--primary);border-radius:50%;animation:spinWs .8s linear infinite}
 #ws-mtd-split{display:none;gap:16px;align-items:flex-start}
 
+/* ── OKR Status (B2B2C weekly) ── */
+#view-weekly table.ws-okr-table{border-collapse:collapse;background:#fff;font-size:12px;width:auto}
+#view-weekly .ws-okr-table thead th{background:#7C7FFF;color:#fff;padding:5px 8px;font-size:11px;font-weight:700;text-align:center;border-right:1px solid rgba(255,255,255,.2);white-space:nowrap}
+#view-weekly .ws-okr-table thead th:first-child{text-align:left;background:#5457D9;width:150px;min-width:150px;border-right:2px solid rgba(255,255,255,.25)}
+#view-weekly .ws-okr-table thead th.ws-okr-proj{background:#5b5ea8}
+#view-weekly .ws-okr-table thead th.ws-okr-mtd{background:#3a3c8a}
+#view-weekly .ws-okr-table tbody td{padding:4px 10px;border-bottom:1px solid #f0f0f8;text-align:right;white-space:nowrap;font-size:12px}
+#view-weekly .ws-okr-table tbody td:first-child{text-align:left;font-weight:600;color:#444;border-right:2px solid #eee;padding-left:8px}
+#view-weekly .ws-okr-table tbody td.ws-okr-proj-val{background:#f5f5ff}
+#view-weekly .ws-okr-table tbody td.ws-okr-mtd-val{background:#eeeeff}
+#view-weekly .ws-okr-table tbody tr:last-child td{border-bottom:none}
+#view-weekly .ws-okr-ach-green{color:#16a34a;font-weight:700}
+#view-weekly .ws-okr-ach-amber{color:#d97706;font-weight:700}
+#view-weekly .ws-okr-ach-red{color:#dc2626;font-weight:700}
+
 /* ══ FLOW SEMANAL ══════════════════════════════════════════════════ */
 #view-flow{--fl-purple:#5626e9;--fl-purple2:#8e5ff3;--fl-green:#16a34a;--fl-red:#dc2626;--fl-amber:#f59e0b;
   --fl-ink:#1a1a2e;--fl-ink2:#4a4a63;--fl-ink3:#8a8aa0;--fl-gray:#c9c9d6;--fl-line:#e6e6ee;
@@ -1079,6 +1094,31 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
                   <thead id="ws-mtd-thead-b2b"></thead>
                   <tbody id="ws-mtd-tbody-b2b"></tbody>
                 </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- OKR Status (B2B2C only) -->
+      <div id="ws-okr-section" style="display:none;margin-top:28px">
+        <div class="ws-sec-title">OKR Status — B2B2C</div>
+        <div id="ws-okr-loading" style="padding:16px;color:#666;font-size:13px;display:none">Cargando OKRs…</div>
+        <div id="ws-okr-error" style="padding:8px;color:#dc2626;font-size:13px;display:none"></div>
+        <div id="ws-okr-tables" style="display:none">
+          <div style="overflow-x:auto;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,.08);margin-bottom:16px;width:fit-content">
+            <table id="ws-okr-main-table" class="ws-okr-table"></table>
+          </div>
+          <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
+            <div>
+              <div class="ws-sec-title" style="font-size:9px;margin-bottom:4px">New Account NR por Región ($M)</div>
+              <div style="overflow-x:auto;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,.08);width:fit-content">
+                <table id="ws-okr-nr-new-table" class="ws-okr-table"></table>
+              </div>
+            </div>
+            <div>
+              <div class="ws-sec-title" style="font-size:9px;margin-bottom:4px">FVM por Región ($M)</div>
+              <div style="overflow-x:auto;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,.08);width:fit-content">
+                <table id="ws-okr-fvm-table" class="ws-okr-table"></table>
               </div>
             </div>
           </div>
@@ -2393,7 +2433,8 @@ function _wsSwitchView(v) {
 }
 
 function _wsRefreshData() {
-  _wsCache = {};
+  _wsCache   = {};
+  _wsOkrData = null;
   var btn = document.getElementById('ws-refresh-btn');
   btn.classList.add('spinning');
   _wsLoadData(function(){ btn.classList.remove('spinning'); });
@@ -2432,6 +2473,7 @@ function _wsRender(d) {
   }
   _wsRenderWeekly(d);
   _wsRenderMTD(d.mtd);
+  _wsLoadOKRIfNeeded();
 }
 
 // ── Weekly table ───────────────────────────────────────────────
@@ -2656,6 +2698,173 @@ function _wsUpdateAiAgent(lob) {
 function _wsSetAiAgentUI(agent) {
   document.getElementById('ai-btn-bitubee').classList.toggle('active', agent==='bitubee');
   document.getElementById('ai-btn-bitubicia').classList.toggle('active', agent==='bitubicia');
+}
+
+// ── OKR B2B2C ──────────────────────────────────────────────────
+var _wsOkrData = null;
+
+function _wsLoadOKRIfNeeded() {
+  var sec = document.getElementById('ws-okr-section');
+  if (!sec) return;
+  if (_wsLob !== 'B2B2C') { sec.style.display = 'none'; return; }
+  sec.style.display = 'block';
+  if (_wsOkrData) { _wsRenderOKR(_wsOkrData); return; }
+  document.getElementById('ws-okr-loading').style.display = 'block';
+  document.getElementById('ws-okr-tables').style.display  = 'none';
+  document.getElementById('ws-okr-error').style.display   = 'none';
+  google.script.run
+    .withSuccessHandler(function(res) {
+      document.getElementById('ws-okr-loading').style.display = 'none';
+      if (!res || !res.success) {
+        document.getElementById('ws-okr-error').textContent   = '❌ ' + (res ? res.error : 'Error');
+        document.getElementById('ws-okr-error').style.display = 'block';
+        return;
+      }
+      document.getElementById('ws-okr-tables').style.display = 'block';
+      _wsOkrData = res;
+      _wsRenderOKR(res);
+    })
+    .withFailureHandler(function(e) {
+      document.getElementById('ws-okr-loading').style.display = 'none';
+      document.getElementById('ws-okr-error').textContent     = '❌ ' + (e.message || String(e));
+      document.getElementById('ws-okr-error').style.display   = 'block';
+    })
+    .getOKRWeeklyB2B2C();
+}
+
+function _wsOkrFmt(v) {
+  if (v === null || v === undefined || isNaN(v)) return '—';
+  return v.toFixed(1);
+}
+function _wsOkrAchHtml(pct) {
+  if (pct === null || pct === undefined || isNaN(pct)) return '—';
+  var cls = pct >= 100 ? 'ws-okr-ach-green' : pct >= 80 ? 'ws-okr-ach-amber' : 'ws-okr-ach-red';
+  return '<span class="' + cls + '">' + Math.round(pct) + '%</span>';
+}
+function _wsOkrMtdLabel(ym) {
+  if (!ym) return '';
+  var p = ym.split('-'), m = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  return m[parseInt(p[1])-1] + ' ' + p[0];
+}
+function _wsOkrTh(text, cls) {
+  var th = document.createElement('th');
+  th.innerHTML = text; if (cls) th.className = cls; return th;
+}
+function _wsOkrTd(text, cls) {
+  var td = document.createElement('td');
+  td.innerHTML = text; if (cls) td.className = cls; return td;
+}
+
+function _wsRenderOKR(d) {
+  var weeks  = d.actualWeeks;
+  var pWeeks = d.projWeeks;
+  function wKey(w) { return w.year + '-' + w.week; }
+
+  var tbl   = document.getElementById('ws-okr-main-table');
+  tbl.innerHTML = '';
+  var thead = document.createElement('thead');
+
+  var tr1 = document.createElement('tr');
+  var th0 = _wsOkrTh('KR'); th0.rowSpan = 2; tr1.appendChild(th0);
+  var thA = _wsOkrTh('Actuals'); thA.colSpan = 3; tr1.appendChild(thA);
+  var thP = _wsOkrTh('Proyectado (RR)','ws-okr-proj'); thP.colSpan = 3; tr1.appendChild(thP);
+  var thM = _wsOkrTh('MTD ' + _wsOkrMtdLabel(d.mtd.ym),'ws-okr-mtd'); thM.colSpan = 3; tr1.appendChild(thM);
+  thead.appendChild(tr1);
+
+  var tr2 = document.createElement('tr');
+  weeks.forEach(function(w) {
+    tr2.appendChild(_wsOkrTh(w.label + '<br><span style="font-size:9px;font-weight:400;opacity:.8">' + w.dateRange + '</span>'));
+  });
+  pWeeks.forEach(function(w) {
+    tr2.appendChild(_wsOkrTh(w.label + '<br><span style="font-size:9px;font-weight:400;opacity:.8">' + w.dateRange + '</span>','ws-okr-proj'));
+  });
+  ['MTD Act','MTD Bud','% Achiev'].forEach(function(l) { tr2.appendChild(_wsOkrTh(l,'ws-okr-mtd')); });
+  thead.appendChild(tr2);
+  tbl.appendChild(thead);
+
+  var tbody = document.createElement('tbody');
+
+  var trSNP = document.createElement('tr');
+  trSNP.appendChild(_wsOkrTd('Sign New Partnerships'));
+  weeks.forEach(function(w, i) {
+    trSNP.appendChild(_wsOkrTd(i === weeks.length - 1 ? String(d.signNewPartnerships.actuals) : '—'));
+  });
+  pWeeks.forEach(function() { trSNP.appendChild(_wsOkrTd('—','ws-okr-proj-val')); });
+  trSNP.appendChild(_wsOkrTd(String(d.signNewPartnerships.actuals),'ws-okr-mtd-val'));
+  trSNP.appendChild(_wsOkrTd(String(d.signNewPartnerships.budget),'ws-okr-mtd-val'));
+  var snpPct = d.signNewPartnerships.budget > 0 ? d.signNewPartnerships.actuals / d.signNewPartnerships.budget * 100 : null;
+  trSNP.appendChild(_wsOkrTd(_wsOkrAchHtml(snpPct),'ws-okr-mtd-val'));
+  tbody.appendChild(trSNP);
+
+  [
+    { label:'New Account NR ($M)',      accKey:'existing', field:'nr'  },
+    { label:'Existing Account NR ($M)', accKey:'new',      field:'nr'  },
+    { label:'FVM ($M)',                 accKey:'total',    field:'fvm' }
+  ].forEach(function(m) {
+    var tr = document.createElement('tr');
+    tr.appendChild(_wsOkrTd(m.label));
+    weeks.forEach(function(w) {
+      var wData = d.actualWeekData[wKey(w)];
+      tr.appendChild(_wsOkrTd(_wsOkrFmt(wData ? wData[m.accKey][m.field] : null)));
+    });
+    pWeeks.forEach(function(w) {
+      var rr = d.rrMonthData[w.ym];
+      tr.appendChild(_wsOkrTd(_wsOkrFmt(rr ? rr[m.accKey][m.field] / 4.33 : null),'ws-okr-proj-val'));
+    });
+    var actVal = d.mtd.actuals[m.accKey][m.field];
+    var budVal = d.mtd.budget[m.accKey][m.field];
+    var achPct = (budVal && budVal !== 0) ? actVal / budVal * 100 : null;
+    tr.appendChild(_wsOkrTd(_wsOkrFmt(actVal),'ws-okr-mtd-val'));
+    tr.appendChild(_wsOkrTd(_wsOkrFmt(budVal),'ws-okr-mtd-val'));
+    tr.appendChild(_wsOkrTd(_wsOkrAchHtml(achPct),'ws-okr-mtd-val'));
+    tbody.appendChild(tr);
+  });
+  tbl.appendChild(tbody);
+
+  _wsRenderOKRRegionTable_('ws-okr-nr-new-table', d, weeks, pWeeks, 'existing', 'nr');
+  _wsRenderOKRRegionTable_('ws-okr-fvm-table',    d, weeks, pWeeks, 'total',    'fvm');
+}
+
+function _wsRenderOKRRegionTable_(tableId, d, weeks, pWeeks, accKey, field) {
+  var tbl = document.getElementById(tableId);
+  tbl.innerHTML = '';
+  function wKey(w) { return w.year + '-' + w.week; }
+  var regions = [
+    { label:'Brasil',     key:'BR'    },
+    { label:'MX/US',      key:'MX/US' },
+    { label:'Sudamérica', key:'HISPA' }
+  ];
+  var thead = document.createElement('thead');
+  var tr = document.createElement('tr');
+  tr.appendChild(_wsOkrTh('Región'));
+  weeks.forEach(function(w)  { tr.appendChild(_wsOkrTh(w.label)); });
+  pWeeks.forEach(function(w) { tr.appendChild(_wsOkrTh(w.label,'ws-okr-proj')); });
+  ['MTD Act','MTD Bud','%'].forEach(function(l) { tr.appendChild(_wsOkrTh(l,'ws-okr-mtd')); });
+  thead.appendChild(tr);
+  tbl.appendChild(thead);
+  var tbody = document.createElement('tbody');
+  regions.forEach(function(reg) {
+    var tr2 = document.createElement('tr');
+    tr2.appendChild(_wsOkrTd(reg.label));
+    weeks.forEach(function(w) {
+      var wData = d.actualWeekData[wKey(w)];
+      var val = wData && wData.regions[reg.key] ? wData.regions[reg.key][accKey][field] : null;
+      tr2.appendChild(_wsOkrTd(_wsOkrFmt(val)));
+    });
+    pWeeks.forEach(function(w) {
+      var rr = d.rrMonthData[w.ym];
+      var val = rr && rr.regions[reg.key] ? rr.regions[reg.key][accKey][field] / 4.33 : null;
+      tr2.appendChild(_wsOkrTd(_wsOkrFmt(val),'ws-okr-proj-val'));
+    });
+    var actVal = d.mtd.actuals.regions[reg.key] ? d.mtd.actuals.regions[reg.key][accKey][field] : null;
+    var budVal = d.mtd.budget.regions[reg.key]  ? d.mtd.budget.regions[reg.key][accKey][field]  : null;
+    var achPct = (budVal && budVal !== 0 && actVal !== null) ? actVal / budVal * 100 : null;
+    tr2.appendChild(_wsOkrTd(_wsOkrFmt(actVal),'ws-okr-mtd-val'));
+    tr2.appendChild(_wsOkrTd(_wsOkrFmt(budVal),'ws-okr-mtd-val'));
+    tr2.appendChild(_wsOkrTd(_wsOkrAchHtml(achPct),'ws-okr-mtd-val'));
+    tbody.appendChild(tr2);
+  });
+  tbl.appendChild(tbody);
 }
 
 // ══ SYNC SERVER BUTTONS ════════════════════════════════════════
