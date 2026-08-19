@@ -2809,7 +2809,7 @@ function renderB2BCountryDetail(d) {
 
   appendLobWaterfall_(detail, d.label, d.total, splitP);
 
-  // Per-canal + per-product P&L blocks — solo en vista de país individual
+  // Per-canal + per-product P&L blocks
   if (isSingleCountry) {
     var isGlobales = (d.label === 'Globales');
     if (d.may && d.may.total) {
@@ -2820,6 +2820,9 @@ function renderB2BCountryDetail(d) {
       renderPnlBlock_(detail, 'MIN · ' + d.label, quarters, n, d.min.total);
       if (!isGlobales) minProds.forEach(function(p){ renderPnlBlock_(detail, 'MIN · ' + p.label, quarters, n, p.data); });
     }
+  } else {
+    if (d.may && d.may.total) renderPnlBlock_(detail, 'MAY / API · ' + d.label, quarters, n, d.may.total);
+    if (d.min && d.min.total) renderPnlBlock_(detail, 'MIN / HTML · ' + d.label, quarters, n, d.min.total);
   }
 }
 
