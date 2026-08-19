@@ -2036,7 +2036,8 @@ function setBGPeriod(mode){
     mode==='m' ? 'Agrupado por Mes · FY27' :
                  'Agrupado por Quarter · FY27';
   if(_bgData){ renderBaselineGoalTable(_bgData); renderCountryPnlBlocks(_bgData); renderContableCharts(_bgData); }
-  if(_b2bCountryData && _bgContableView === 'b2b') renderB2BCountryDetail(_b2bCountryData);
+  if(_b2bCountryData   && _bgContableView === 'b2b')   renderB2BCountryDetail(_b2bCountryData);
+  if(_b2b2cCountryData && _bgContableView === 'b2b2c') renderB2B2CCountryDetail(_b2b2cCountryData);
 }
 
 function buildBGScenHead(n){
@@ -2608,20 +2609,7 @@ function renderPnlBlock_(container, label, quarters, n, data){
   titleDiv.appendChild(arrSpan);
   titleDiv.appendChild(document.createTextNode(label));
 
-  // Toggle Mes / Quarter / Half local (reutiliza setBGPeriod global)
-  var togDiv = document.createElement('div');
-  togDiv.className = 'prd-toggle';
-  [{m:'m',t:'Mes'},{m:'q',t:'Quarter'},{m:'h',t:'Half'}].forEach(function(o){
-    var b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'prd-btn' + (_bgPeriodMode === o.m ? ' prd-active' : '');
-    b.textContent = o.t;
-    b.onclick = function(ev){ ev.stopPropagation(); setBGPeriod(o.m); };
-    togDiv.appendChild(b);
-  });
-
   hdrRow.appendChild(titleDiv);
-  hdrRow.appendChild(togDiv);
 
   var cardDiv = document.createElement('div');
   cardDiv.className = 'pnl-card';
