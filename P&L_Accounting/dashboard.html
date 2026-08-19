@@ -1096,6 +1096,8 @@ function setGoalSource(src){
   document.getElementById('btn-goal-budget').classList.toggle('prd-active', src === 'budget');
   document.getElementById('btn-goal-epm').classList.toggle('prd-active', src === 'epm');
   debouncedFetchBG();
+  if(_bgContableView === 'b2b')   selectB2BCountry(_b2bCurrentSel.label,     _b2bCurrentSel.pais);
+  if(_bgContableView === 'b2b2c') selectB2B2CCountry(_b2b2cCurrentSel.label, _b2b2cCurrentSel.pais);
 }
 
 // EPM view: selector de baseline
@@ -1104,6 +1106,8 @@ function setEpmBaselineSource(src){
   document.getElementById('btn-ebl-actuals').classList.toggle('prd-active', src === 'bl');
   document.getElementById('btn-ebl-vr').classList.toggle('prd-active', src === 'vr');
   debouncedFetchBG();
+  if(_bgContableView === 'b2b')   selectB2BCountry(_b2bCurrentSel.label,     _b2bCurrentSel.pais);
+  if(_bgContableView === 'b2b2c') selectB2B2CCountry(_b2b2cCurrentSel.label, _b2b2cCurrentSel.pais);
 }
 
 // EPM view: goal seleccionable (baseline siempre Run Rate)
@@ -1115,7 +1119,11 @@ function setEpmGoalSource(src){
   document.getElementById('btn-egoal-lastrunrate').classList.toggle('prd-active', src === 'lastrunrate');
   if (_bgContableView === 'pxq') renderPxQ();
   else if (_bgContableView === 'countries-yoy') renderCountriesYoY();
-  else debouncedFetchBG();
+  else {
+    debouncedFetchBG();
+    if(_bgContableView === 'b2b')   selectB2BCountry(_b2bCurrentSel.label,     _b2bCurrentSel.pais);
+    if(_bgContableView === 'b2b2c') selectB2B2CCountry(_b2b2cCurrentSel.label, _b2b2cCurrentSel.pais);
+  }
 }
 function _epmGoalLabel(){
   return _epmGoalSource === 'forecast'    ? 'Forecast'
@@ -2654,9 +2662,11 @@ function renderPnlBlock_(container, label, quarters, n, data){
 }
 
 // ── B2B Country Detail ──────────────────────────────────────────────────────
-var _b2bCountryData = null;
+var _b2bCountryData   = null;
+var _b2bCurrentSel    = {label:'Total B2B', pais:null};
 
 function selectB2BCountry(label, paisArr) {
+  _b2bCurrentSel = {label:label, pais:paisArr};
   document.querySelectorAll('#cont-b2b-nav .cnt-btn').forEach(function(b){
     b.classList.toggle('cnt-btn-active', b.textContent.trim() === label);
   });
@@ -2815,8 +2825,10 @@ function renderB2BCountryDetail(d) {
 
 // ── B2B2C Country Detail ────────────────────────────────────────────────────
 var _b2b2cCountryData = null;
+var _b2b2cCurrentSel  = {label:'Total B2B2C', pais:null};
 
 function selectB2B2CCountry(label, paisArr) {
+  _b2b2cCurrentSel = {label:label, pais:paisArr};
   document.querySelectorAll('#cont-b2b2c-nav .cnt-btn').forEach(function(b){
     b.classList.toggle('cnt-btn-active', b.textContent.trim() === label);
   });
