@@ -2625,7 +2625,7 @@ function renderPnlBlock_(container, label, quarters, n, data){
   var wrapDiv = document.createElement('div');
   wrapDiv.style.overflowX = 'auto';
 
-  var tableId = 'bg-table-' + label.replace(/[\s+]+/g,'-');
+  var tableId = 'bg-table-' + label.replace(/[\s/+]+/g,'-');
   var tbl = document.createElement('table');
   tbl.className = 'qpnl-table';
   tbl.id = tableId;
