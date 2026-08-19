@@ -190,9 +190,9 @@ def parse_epm_sheet(ws, projection_months):
         y = year_by_col.get(j, _infer_year(m))
         col_to_date[j] = f"{y}-{m:02d}-01"
 
-    # Also check header row for Spanish month names (fallback)
+    # Also check header row for Spanish month names (fallback — only when year/month rows didn't set the column)
     for j, h in enumerate(hdr):
-        if h and h in MONTHS_ES:
+        if h and h in MONTHS_ES and j not in col_to_date:
             m = MONTHS_ES[h]
             y = year_by_col.get(j, _infer_year(m))
             col_to_date[j] = f"{y}-{m:02d}-01"
