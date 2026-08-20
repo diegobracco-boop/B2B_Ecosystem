@@ -218,8 +218,9 @@ function queryB2B_(section, scenarioKey, fPais, fProduto,
 }
 
 // Lightweight per-canal, per-country, per-product monthly data (only GB, NR, NPV)
-function queryB2BCanalDetail_(json, fcKey, bgtKey, fPais, fProduto) {
-  var result = { 'B2B-MIN':{ fc:{}, bgt:{}, ly:{} }, 'B2B-MAY':{ fc:{}, bgt:{}, ly:{} } };
+// blKeyMay/fcstKeyMay: 'bl'|'bl_ri' y 'fc'|'fc_ri' (RI solo aplica a B2B-MAY; MIN siempre GD).
+function queryB2BCanalDetail_(json, blKeyMay, bgtKey, fcstKeyMay, fPais, fProduto) {
+  var result = { 'B2B-MIN':{ fc:{}, bgt:{}, ly:{}, fcst:{} }, 'B2B-MAY':{ fc:{}, bgt:{}, ly:{}, fcst:{} } };
   function procRows(rows, target) {
     (rows||[]).forEach(function(row) {
       var pais=normB2BPais_(row[0]), produto=row[1], ym=row[2];
@@ -235,12 +236,15 @@ function queryB2BCanalDetail_(json, fcKey, bgtKey, fPais, fProduto) {
     });
   }
   var min=json.b2b_min||{}, may=json.b2b_may||{};
-  procRows(min['fc'],   result['B2B-MIN'].fc);
-  procRows(min['bgt'],  result['B2B-MIN'].bgt);
-  procRows(min['ly'],   result['B2B-MIN'].ly);
-  procRows(may[fcKey],  result['B2B-MAY'].fc);
-  procRows(may[bgtKey], result['B2B-MAY'].bgt);
-  procRows(may['ly'],   result['B2B-MAY'].ly);
+  // "fc" = BASELINE (bl), no forecast — nombre heredado por consistencia con el resto del dashboard.
+  procRows(min['bl'],        result['B2B-MIN'].fc);
+  procRows(min['bgt'],       result['B2B-MIN'].bgt);
+  procRows(min['ly'],        result['B2B-MIN'].ly);
+  procRows(min['fc'],        result['B2B-MIN'].fcst);
+  procRows(may[blKeyMay],    result['B2B-MAY'].fc);
+  procRows(may[bgtKey],      result['B2B-MAY'].bgt);
+  procRows(may['ly'],        result['B2B-MAY'].ly);
+  procRows(may[fcstKeyMay],  result['B2B-MAY'].fcst);
   return result;
 }
 
@@ -307,6 +311,8 @@ function getData(filters) {
   var lyPartnerMonthly     = {};  // {partner:{mes:{all metrics}}}
   var bgtPartnerCM         = {};  // {pais:{partner:{mes:{gb,nr,npv}}}}
   var lyPartnerCM          = {};  // {pais:{partner:{mes:{gb,nr,npv}}}}
+  var fcstPartnerMonthly   = {};  // {partner:{mes:{all metrics}}}
+  var fcstPartnerCM        = {};  // {pais:{partner:{mes:{gb,nr,npv}}}}
   var allPaises = {}, allPartners = {}, allProdutos = {};
   var lobsInData = {};
   var fcAgg_farming = {}, bgtAgg_farming = {}, lyAgg_farming = {}, fcstAgg_farming = {};
@@ -329,9 +335,9 @@ function getData(filters) {
                 lyAgg, null, lyPartnerMonthly, lyPartnerCM,
                 {}, {}, {},
                 lyAgg_farming, lyAgg_hunting);
-    // Goal — Forecast (stub vacío hasta que exista la query)
+    // Goal — Forecast
     queryB2B2C_(json.b2b2c, 'fc', fPais, fPartner, fProduto,
-                fcstAgg, null, null, null,
+                fcstAgg, null, fcstPartnerMonthly, fcstPartnerCM,
                 {}, {}, {},
                 fcstAgg_farming, fcstAgg_hunting);
   }
@@ -391,7 +397,7 @@ function getData(filters) {
   };
 
   var b2bCanalDetail = (useMay || useMin)
-    ? queryB2BCanalDetail_(json, blKey, bgtKey, fPais, fProduto)
+    ? queryB2BCanalDetail_(json, blKey, bgtKey, fcKey, fPais, fProduto)
     : null;
 
   return {
@@ -407,6 +413,7 @@ function getData(filters) {
     lyPartnerMonthly:     lyPartnerMonthly,
     budgetPartnerCM:      bgtPartnerCM,
     lyPartnerCM:          lyPartnerCM,
+    forecastPartnerCM:    fcstPartnerCM,
     actual_months:        json.actual_months || [],
     b2bCanalDetail:       b2bCanalDetail,
     forecast:             fcstAgg,

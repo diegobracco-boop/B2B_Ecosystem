@@ -1638,16 +1638,18 @@ function renderDetalle() {
     return out;
   }
 
-  var pcm, bcm, lcm;
+  var pcm, bcm, lcm, fcm;
   if(isB2B){
     var b2bDet = _data.b2bCanalDetail || {};
     pcm = normOther(b2bCanalDetailToPCM_(b2bDet,'fc'));
     bcm = normOther(b2bCanalDetailToPCM_(b2bDet,'bgt'));
     lcm = normOther(b2bCanalDetailToPCM_(b2bDet,'ly'));
+    fcm = normOther(b2bCanalDetailToPCM_(b2bDet,'fcst'));
   } else {
     pcm = normOther(_data.partnerCountryMonthly||{});
     bcm = normOther(_data.budgetPartnerCM||{});
     lcm = normOther(_data.lyPartnerCM||{});
+    fcm = normOther(_data.forecastPartnerCM||{});
   }
 
   // Agrupación de período (Mes / Quarter / Half): reagrupa columnas y usa las etiquetas como "meses"
@@ -1656,8 +1658,16 @@ function renderDetalle() {
     pcm = detalleAggToPeriods_(pcm, _cols);
     bcm = detalleAggToPeriods_(bcm, _cols);
     lcm = detalleAggToPeriods_(lcm, _cols);
+    fcm = detalleAggToPeriods_(fcm, _cols);
     months = _cols.map(function(c){ return c.label; });
   }
+
+  // Fila "Δ …" sigue al selector de Goal (Budget/Forecast/Last Year) de la barra superior;
+  // la fila "YoY%" se mantiene siempre vs Last Year, independiente del Goal elegido.
+  var gcm = _managerialGoal==='forecast' ? fcm : _managerialGoal==='ly' ? lcm : bcm;
+  var goalRowLabel = _managerialGoal==='forecast' ? 'Δ Forecast' : _managerialGoal==='ly' ? 'Δ Last Year' : 'Δ Budget';
+  // Fila antes "FC": ahora toma el nombre del escenario Baseline elegido en el toggle superior.
+  var baselineRowLabel = _baselineSource==='vr' ? 'Projection Reviews' : 'Actuals + Projections';
 
   var mk   = _detalleMetric==='gb'?'gross_bookings':_detalleMetric==='nr'?'net_revenue':'npv';
   var fmt  = _detalleMetric==='gb'?fmtK:fmtM;
@@ -1730,11 +1740,11 @@ function renderDetalle() {
     var h='';
     h+='<tr class="'+trCls+'"'+attrs+'>';
     h+='<td rowspan="3" class="'+nameCls+'"'+nameStyle+'>'+labelHtml+'</td>';
-    h+='<td class="detalle-sub-label"'+subBg+'>FC</td>';
+    h+='<td class="detalle-sub-label"'+subBg+'>'+baselineRowLabel+'</td>';
     mFC.forEach(function(v){ h+='<td>'+(v?fmt(v):'—')+'</td>'; });
     h+='<td class="detalle-td-sep">'+fmt(totFC)+'</td></tr>';
     h+='<tr class="'+subTrCls+'"'+attrs+'>';
-    h+='<td class="detalle-sub-label"'+subBg+'>Δ Bgt</td>';
+    h+='<td class="detalle-sub-label"'+subBg+'>'+goalRowLabel+'</td>';
     mDBgt.forEach(function(v){ h+='<td>'+colorNum(v,fmt,true)+'</td>'; });
     h+='<td class="detalle-td-sep">'+colorNum(totDBgt,fmt,true)+'</td></tr>';
     h+='<tr class="'+subTrCls+'"'+attrs+'>';
@@ -1747,12 +1757,12 @@ function renderDetalle() {
   var html='';
   countries.forEach(function(country){
     var cmap =lkup(pcm,country)||{};
-    var cbmap=lkup(bcm,country)||{};
+    var cgmap=lkup(gcm,country)||{};
     var clmap=lkup(lcm,country)||{};
 
     // Partners con datos (Total ≠ 0 en la métrica actual), con su serie
     var pdata=Object.keys(cmap).map(function(p){
-      var s=seriesFor(cmap[p]||{}, lkup(cbmap,p)||{}, lkup(clmap,p)||{});
+      var s=seriesFor(cmap[p]||{}, lkup(cgmap,p)||{}, lkup(clmap,p)||{});
       return {name:p, s:s, tot:totOf(s)};
     }).filter(function(x){ return x.tot!==0; });
     if(!pdata.length) return;
@@ -1916,6 +1926,7 @@ function setMGGoal(goal){
   document.getElementById('mg-goal-forecast').classList.toggle('prd-active', goal === 'forecast');
   document.getElementById('mg-goal-ly').classList.toggle('prd-active', goal === 'ly');
   if(document.getElementById('tab-baseline').classList.contains('active') && _data) renderManagerialBGTable();
+  if(document.getElementById('tab-detalle').classList.contains('active') && _data) renderDetalle();
 }
 
 function setMGPeriod(mode){
