@@ -2417,6 +2417,8 @@ function renderTrendCharts(months, agg, budgetAgg, lyAgg){
   var lyPartnerMonthly      = (_data && _data.lyPartnerMonthly)      ? _data.lyPartnerMonthly      : {};
   var budgetPartnerCM       = (_data && _data.budgetPartnerCM)       ? _data.budgetPartnerCM       : {};
   var lyPartnerCM           = (_data && _data.lyPartnerCM)           ? _data.lyPartnerCM           : {};
+  var forecastPartnerMonthly = (_data && _data.forecastPartnerMonthly) ? _data.forecastPartnerMonthly : {};
+  var forecastPartnerCM      = (_data && _data.forecastPartnerCM)      ? _data.forecastPartnerCM      : {};
 
   // ── B2B2C chart constants ─────────────────────────────────────────────────
   var HUNTING_LIST = PARTNER_HUNTING_LIST;
@@ -2573,7 +2575,7 @@ function renderTrendCharts(months, agg, budgetAgg, lyAgg){
     return wrap;
   }
 
-  function makeSection(titleText, chartDefs, chartMonths, getRunrate, getBudget, getLy, prefix, sectionCutoffIdx) {
+  function makeSection(titleText, chartDefs, chartMonths, getRunrate, getBudget, getLy, getForecast, prefix, sectionCutoffIdx) {
     var section = document.createElement('div');
     section.style.cssText = 'margin-bottom:28px';
     if(titleText) {
@@ -2588,10 +2590,12 @@ function renderTrendCharts(months, agg, budgetAgg, lyAgg){
       var run     = chartMonths.map(function(m){ return getRunrate(m, def.key, def.divisor); });
       var budgets = chartMonths.map(function(m){ return getBudget(m, def.key, def.divisor); });
       var ly      = chartMonths.map(function(m){ return getLy(m, def.key, def.divisor); });
+      var fcst    = chartMonths.map(function(m){ return getForecast(m, def.key, def.divisor); });
       var datasets = [
         { label:'Actuals + Proj.', data:run,     borderColor:'#7C3AED', backgroundColor:'rgba(124,58,237,.08)', tension:.3, fill:false, borderWidth:2.5, pointRadius:4 },
         { label:'Budget',          data:budgets,  borderColor:'#3B82F6', backgroundColor:'transparent',         tension:.3, fill:false, borderWidth:1.5, borderDash:[5,4], pointRadius:3 },
-        { label:'LY',              data:ly,        borderColor:'#10B981', backgroundColor:'transparent',         tension:.3, fill:false, borderWidth:1.5, borderDash:[3,3], pointRadius:3 }
+        { label:'LY',              data:ly,        borderColor:'#10B981', backgroundColor:'transparent',         tension:.3, fill:false, borderWidth:1.5, borderDash:[3,3], pointRadius:3 },
+        { label:'Forecast',        data:fcst,      borderColor:'#F59E0B', backgroundColor:'transparent',         tension:.3, fill:false, borderWidth:1.5, borderDash:[2,2], pointRadius:3 }
       ];
       var chartWrap = document.createElement('div');
       chartWrap.appendChild(makeChart(prefix+'-'+di, def.label, datasets, chartMonths, {cutoffIdx: sectionCutoffIdx !== undefined ? sectionCutoffIdx : cutoffIdx}));
@@ -2653,6 +2657,16 @@ function renderTrendCharts(months, agg, budgetAgg, lyAgg){
       return found ? total/d : null;
     };
   }
+  function pmFcst(partners){
+    return function(m,k,d){
+      var total=0, found=false;
+      (partners||[]).forEach(function(pname){
+        var fd=lookupKey(forecastPartnerMonthly, pname);
+        if(fd && fd[m] && fd[m][k]!=null){ total+=fd[m][k]; found=true; }
+      });
+      return found ? total/d : null;
+    };
+  }
   // Versiones country-aware: usan el desglose {pais:{partner:{mes:...}}}
   function pmBgtCM(country, partners){
     return function(m,k,d){
@@ -2672,6 +2686,17 @@ function renderTrendCharts(months, agg, budgetAgg, lyAgg){
       (partners||[]).forEach(function(pname){
         var ld=lookupKey(cmap,pname);
         if(ld && ld[m] && ld[m][k]!=null){ total+=ld[m][k]; found=true; }
+      });
+      return found ? total/d : null;
+    };
+  }
+  function pmFcstCM(country, partners){
+    return function(m,k,d){
+      var total=0, found=false;
+      var cmap=lookupKey(forecastPartnerCM,country)||{};
+      (partners||[]).forEach(function(pname){
+        var fd=lookupKey(cmap,pname);
+        if(fd && fd[m] && fd[m][k]!=null){ total+=fd[m][k]; found=true; }
       });
       return found ? total/d : null;
     };
@@ -2845,13 +2870,13 @@ function renderTrendCharts(months, agg, budgetAgg, lyAgg){
 
       // ── 3 summary charts: Total (all partners vs Budget vs LY) ──────────────
       container.appendChild(makeSection('Total',chartDefs,chartMonths,
-        pmRun(allPartners,partnerMonthly),pmBgt(allPartners),pmLY(allPartners),'chart-total-all'));
+        pmRun(allPartners,partnerMonthly),pmBgt(allPartners),pmLY(allPartners),pmFcst(allPartners),'chart-total-all'));
 
       // ── Farming section + delta table ─────────────────────────────────────
       if(farmingPartners.length > 0){
         var fWrap=document.createElement('div'); fWrap.style.marginBottom='28px';
         fWrap.appendChild(makeSection('Farming',chartDefs,chartMonths,
-          pmRun(farmingPartners,partnerMonthly),pmBgt(farmingPartners),pmLY(farmingPartners),'chart-farming'));
+          pmRun(farmingPartners,partnerMonthly),pmBgt(farmingPartners),pmLY(farmingPartners),pmFcst(farmingPartners),'chart-farming'));
         // Build delta table rows
         var claimedSet={};
         var farmTableRows=FARMING_TABLE_NAMED.map(function(g){
@@ -2869,7 +2894,7 @@ function renderTrendCharts(months, agg, budgetAgg, lyAgg){
       if(huntingPartners.length > 0){
         var hWrap=document.createElement('div');
         hWrap.appendChild(makeSection('Onboarding / Hunting',chartDefs,chartMonths,
-          pmRun(huntingPartners,partnerMonthly),pmBgt(huntingPartners),pmLY(huntingPartners),'chart-hunting'));
+          pmRun(huntingPartners,partnerMonthly),pmBgt(huntingPartners),pmLY(huntingPartners),pmFcst(huntingPartners),'chart-hunting'));
         var huntTableRows=huntingPartners.map(function(p){ return {label:p,partners:[p]}; });
         hWrap.appendChild(buildDeltaTable('Onboarding / Hunting',huntTableRows));
         container.appendChild(hWrap);
@@ -2877,7 +2902,7 @@ function renderTrendCharts(months, agg, budgetAgg, lyAgg){
 
     } else if(_gActiveTab === 'other'){
       // ── Other Countries ────────────────────────────────────────────────────
-      var otherData={}, otherBgtData={}, otherLYData={};
+      var otherData={}, otherBgtData={}, otherLYData={}, otherFcstData={};
       function aggOtherCM_(src, dst){
         Object.keys(src).forEach(function(country){
           if(countryNorms.indexOf(normStr(country))>=0) return;
@@ -2897,6 +2922,7 @@ function renderTrendCharts(months, agg, budgetAgg, lyAgg){
       aggOtherCM_(partnerCountryMonthly, otherData);
       aggOtherCM_(budgetPartnerCM,       otherBgtData);
       aggOtherCM_(lyPartnerCM,           otherLYData);
+      aggOtherCM_(forecastPartnerCM,     otherFcstData);
       var avail=Object.keys(otherData);
       if(avail.length===0){
         var msg=document.createElement('div'); msg.style.cssText='color:var(--muted);padding:20px;font-size:12px';
@@ -2910,11 +2936,12 @@ function renderTrendCharts(months, agg, budgetAgg, lyAgg){
           return nb-na;
         });
         shownOther.forEach(function(p,pi){
-          (function(pData,bData,lData){ container.appendChild(makeSection(p,chartDefs,chartMonths,
+          (function(pData,bData,lData,fData){ container.appendChild(makeSection(p,chartDefs,chartMonths,
             function(m,k,d){ var v=pData[m]?pData[m][k]:null; return v!=null?v/d:null; },
             function(m,k,d){ var v=bData&&bData[m]?bData[m][k]:null; return v!=null?v/d:null; },
             function(m,k,d){ var v=lData&&lData[m]?lData[m][k]:null; return v!=null?v/d:null; },
-            'chart-other-'+pi)); })(otherData[p], otherBgtData[p], otherLYData[p]);
+            function(m,k,d){ var v=fData&&fData[m]?fData[m][k]:null; return v!=null?v/d:null; },
+            'chart-other-'+pi)); })(otherData[p], otherBgtData[p], otherLYData[p], otherFcstData[p]);
         });
       }
 
@@ -2937,7 +2964,7 @@ function renderTrendCharts(months, agg, budgetAgg, lyAgg){
         shown.forEach(function(p,pi){
           (function(pData){ container.appendChild(makeSection(p,chartDefs,chartMonths,
             function(m,k,d){ var v=pData[m]?pData[m][k]:null; return v!=null?v/d:null; },
-            pmBgtCM(country,[p]),pmLYCM(country,[p]),'chart-c-'+pi)); })(cData[p]);
+            pmBgtCM(country,[p]),pmLYCM(country,[p]),pmFcstCM(country,[p]),'chart-c-'+pi)); })(cData[p]);
         });
       }
     }
@@ -2976,6 +3003,8 @@ function renderTrendCharts(months, agg, budgetAgg, lyAgg){
     var mayFC  = normB2BCanal((b2bDet&&b2bDet['B2B-MAY']&&b2bDet['B2B-MAY'].fc)  ||{});
     var mayBgt = normB2BCanal((b2bDet&&b2bDet['B2B-MAY']&&b2bDet['B2B-MAY'].bgt) ||{});
     var mayLY  = normB2BCanal((b2bDet&&b2bDet['B2B-MAY']&&b2bDet['B2B-MAY'].ly)  ||{});
+    var minFcst = normB2BCanal((b2bDet&&b2bDet['B2B-MIN']&&b2bDet['B2B-MIN'].fcst)||{});
+    var mayFcst = normB2BCanal((b2bDet&&b2bDet['B2B-MAY']&&b2bDet['B2B-MAY'].fcst)||{});
 
     // sum over products for a given country
     function b2bCtryTotal(canalData, country){
@@ -3052,9 +3081,11 @@ function renderTrendCharts(months, agg, budgetAgg, lyAgg){
         if(!Object.keys(minT).length && !Object.keys(mayT).length) return;
 
         // Combined MIN+MAY
-        var minLYT = b2bCtryTotal(minLY, country);
-        var mayLYT = b2bCtryTotal(mayLY, country);
-        var cFC={}, cBgt={}, cLY={};
+        var minLYT   = b2bCtryTotal(minLY,   country);
+        var mayLYT   = b2bCtryTotal(mayLY,   country);
+        var minFcstT = b2bCtryTotal(minFcst, country);
+        var mayFcstT = b2bCtryTotal(mayFcst, country);
+        var cFC={}, cBgt={}, cLY={}, cFcst={};
         chartMonths.forEach(function(m){
           cFC[m]  = {gross_bookings:((minT[m]||{}).gross_bookings||0)+((mayT[m]||{}).gross_bookings||0),
                      net_revenue:   ((minT[m]||{}).net_revenue||0)   +((mayT[m]||{}).net_revenue||0),
@@ -3065,6 +3096,9 @@ function renderTrendCharts(months, agg, budgetAgg, lyAgg){
           cLY[m]  = {gross_bookings:((minLYT[m]||{}).gross_bookings||0)+((mayLYT[m]||{}).gross_bookings||0),
                      net_revenue:   ((minLYT[m]||{}).net_revenue||0)   +((mayLYT[m]||{}).net_revenue||0),
                      npv:           ((minLYT[m]||{}).npv||0)           +((mayLYT[m]||{}).npv||0)};
+          cFcst[m]= {gross_bookings:((minFcstT[m]||{}).gross_bookings||0)+((mayFcstT[m]||{}).gross_bookings||0),
+                     net_revenue:   ((minFcstT[m]||{}).net_revenue||0)   +((mayFcstT[m]||{}).net_revenue||0),
+                     npv:           ((minFcstT[m]||{}).npv||0)           +((mayFcstT[m]||{}).npv||0)};
         });
 
         container.appendChild(makeSection(
@@ -3072,6 +3106,7 @@ function renderTrendCharts(months, agg, budgetAgg, lyAgg){
           function(m,k,d){ var v=cFC[m]?cFC[m][k]:null;  return v!=null?v/d:null; },
           function(m,k,d){ var v=cBgt[m]?cBgt[m][k]:null; return v!=null?v/d:null; },
           function(m,k,d){ var v=cLY[m]?cLY[m][k]:null;  return v!=null?v/d:null; },
+          function(m,k,d){ var v=cFcst[m]?cFcst[m][k]:null; return v!=null?v/d:null; },
           'b2b-tot-'+ci
         ));
 
@@ -3085,12 +3120,13 @@ function renderTrendCharts(months, agg, budgetAgg, lyAgg){
       // Per-country: MIN and MAY sections each with product delta table
       var b2bCountry = G_TAB_COUNTRY[_gActiveTab] || 'Globales';
       [
-        {label:'Minorista (MIN)', fc:minFC, bgt:minBgt, ly:minLY},
-        {label:'Mayorista (MAY)', fc:mayFC, bgt:mayBgt, ly:mayLY}
+        {label:'Minorista (MIN)', fc:minFC, bgt:minBgt, ly:minLY, fcst:minFcst},
+        {label:'Mayorista (MAY)', fc:mayFC, bgt:mayBgt, ly:mayLY, fcst:mayFcst}
       ].forEach(function(info, cIdx){
-        var cTotal = b2bCtryTotal(info.fc,  b2bCountry);
-        var cBgt   = b2bCtryTotal(info.bgt, b2bCountry);
-        var cLY    = b2bCtryTotal(info.ly,  b2bCountry);
+        var cTotal = b2bCtryTotal(info.fc,   b2bCountry);
+        var cBgt   = b2bCtryTotal(info.bgt,  b2bCountry);
+        var cLY    = b2bCtryTotal(info.ly,   b2bCountry);
+        var cFcst  = b2bCtryTotal(info.fcst, b2bCountry);
         if(!Object.keys(cTotal).length) return;
 
         container.appendChild(makeSection(
@@ -3098,13 +3134,15 @@ function renderTrendCharts(months, agg, budgetAgg, lyAgg){
           function(m,k,d){ var v=cTotal[m]?cTotal[m][k]:null; return v!=null?v/d:null; },
           function(m,k,d){ var v=cBgt[m]?cBgt[m][k]:null;    return v!=null?v/d:null; },
           function(m,k,d){ var v=cLY[m]?cLY[m][k]:null;      return v!=null?v/d:null; },
+          function(m,k,d){ var v=cFcst[m]?cFcst[m][k]:null;  return v!=null?v/d:null; },
           'b2b-c'+cIdx
         ));
 
         // Per-product chart sections (ordered + grouped)
-        var cdata  = lookupKey(info.fc,  b2bCountry)||{};
-        var bdata  = lookupKey(info.bgt, b2bCountry)||{};
-        var lydata = lookupKey(info.ly,  b2bCountry)||{};
+        var cdata  = lookupKey(info.fc,   b2bCountry)||{};
+        var bdata  = lookupKey(info.bgt,  b2bCountry)||{};
+        var lydata = lookupKey(info.ly,   b2bCountry)||{};
+        var fdata  = lookupKey(info.fcst, b2bCountry)||{};
 
         var MIN_FEAT_LOW = ['hotels','flights','packages general','dest. serv.','cruises'];
         var MAY_FEAT_LOW = ['hotels','flights','dest. serv.'];
@@ -3137,38 +3175,42 @@ function renderTrendCharts(months, agg, budgetAgg, lyAgg){
           if (idx < 0) return;
           var pk = allProdKeys[idx];
           var pi = piIdx++;
-          (function(pFC, pBgt, pLY){
+          (function(pFC, pBgt, pLY, pFcst){
             container.appendChild(makeSection(
               (FEAT_LABELS[fl]||pk) + canalTag, chartDefs, chartMonths,
               function(m,k,d){ var v=pFC[m]?pFC[m][k]:null;  return v!=null?v/d:null; },
               function(m,k,d){ var v=pBgt[m]?pBgt[m][k]:null; return v!=null?v/d:null; },
               function(m,k,d){ var v=pLY[m]?pLY[m][k]:null;   return v!=null?v/d:null; },
+              function(m,k,d){ var v=pFcst[m]?pFcst[m][k]:null; return v!=null?v/d:null; },
               'b2b-c'+cIdx+'-p'+pi
             ));
-          })(sumProdData(cdata,[pk]), sumProdData(bdata,[pk]), sumProdData(lydata,[pk]));
+          })(sumProdData(cdata,[pk]), sumProdData(bdata,[pk]), sumProdData(lydata,[pk]), sumProdData(fdata,[pk]));
         });
 
         var restKeys = allProdKeys.filter(function(k){ return featuredLow.indexOf(k.toLowerCase()) < 0; });
         if (restKeys.length) {
-          (function(pFC, pBgt, pLY){
+          (function(pFC, pBgt, pLY, pFcst){
             container.appendChild(makeSection(
               'Rest of ONA' + canalTag, chartDefs, chartMonths,
               function(m,k,d){ var v=pFC[m]?pFC[m][k]:null;  return v!=null?v/d:null; },
               function(m,k,d){ var v=pBgt[m]?pBgt[m][k]:null; return v!=null?v/d:null; },
               function(m,k,d){ var v=pLY[m]?pLY[m][k]:null;   return v!=null?v/d:null; },
+              function(m,k,d){ var v=pFcst[m]?pFcst[m][k]:null; return v!=null?v/d:null; },
               'b2b-c'+cIdx+'-prest'
             ));
-          })(sumProdData(cdata,restKeys), sumProdData(bdata,restKeys), sumProdData(lydata,restKeys));
+          })(sumProdData(cdata,restKeys), sumProdData(bdata,restKeys), sumProdData(lydata,restKeys), sumProdData(fdata,restKeys));
         }
       });
     }
 
   } else {
+    var fallbackFcstAgg = (_data && _data.forecast) ? _data.forecast : {};
     container.appendChild(makeSection(
       null, chartDefs, chartMonths,
       function(m,k,d){ var v=agg[m]?agg[m][k]:null; return v!=null?v/d:null; },
       function(m,k,d){ var v=budgetAgg[m]?budgetAgg[m][k]:null; return v!=null?v/d:null; },
       function(m,k,d){ var v=lyAgg[m]?lyAgg[m][k]:null; return v!=null?v/d:null; },
+      function(m,k,d){ var v=fallbackFcstAgg[m]?fallbackFcstAgg[m][k]:null; return v!=null?v/d:null; },
       'chart-agg'
     ));
   }

@@ -414,6 +414,7 @@ function getData(filters) {
     budgetPartnerCM:      bgtPartnerCM,
     lyPartnerCM:          lyPartnerCM,
     forecastPartnerCM:    fcstPartnerCM,
+    forecastPartnerMonthly: fcstPartnerMonthly,
     actual_months:        json.actual_months || [],
     b2bCanalDetail:       b2bCanalDetail,
     forecast:             fcstAgg,
