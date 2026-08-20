@@ -319,12 +319,12 @@ body.ly-active .v-ly{display:block}
 /* ── Detalle Table ────────────────────────────────────────────── */
 .detalle-table{width:100%;border-collapse:collapse;min-width:900px;font-size:12px}
 #pnl-country-nav .pais-chip{border-radius:6px;padding:3px 11px}
-.detalle-table th{background:#2D1B69;color:#C4B5FD;padding:6px 10px;text-align:right;white-space:nowrap;font-weight:700;letter-spacing:.04em;position:sticky;top:152px;z-index:3}
-.detalle-table th:first-child{text-align:left;min-width:150px;left:0;z-index:5}
-.detalle-table .th-partner{text-align:left;min-width:150px;position:sticky;left:0;z-index:5}
+.detalle-table th{background:#2D1B69;color:#C4B5FD;padding:6px 10px;text-align:right;white-space:nowrap;font-weight:700;letter-spacing:.04em;position:sticky;top:0;z-index:3}
+.detalle-table th:first-child{text-align:left;min-width:190px;left:0;z-index:5}
+.detalle-table .th-partner{text-align:left;min-width:190px;position:sticky;left:0;z-index:5}
 .detalle-country-band td{position:sticky;left:0;z-index:2;background:#241247;color:#C4B5FD;font-weight:800;font-size:11px;text-transform:uppercase;letter-spacing:.06em;padding:7px 10px;text-align:left;border-top:2px solid rgba(196,181,253,.35);border-bottom:1px solid var(--border2)}
-.detalle-partner-cell{position:sticky;left:0;z-index:1;background:var(--surface);text-align:left;vertical-align:middle;padding:5px 10px;border-right:2px solid var(--border2);white-space:nowrap;min-width:150px}
-.detalle-subtotal-cell{position:sticky;left:0;z-index:1;background:rgba(42,16,72,.13);text-align:left;vertical-align:middle;padding:5px 10px;border-right:2px solid var(--border2);white-space:nowrap;min-width:150px;font-weight:700}
+.detalle-partner-cell{position:sticky;left:0;z-index:1;background:var(--surface);text-align:left;vertical-align:middle;padding:5px 10px;border-right:2px solid var(--border2);white-space:nowrap;min-width:190px}
+.detalle-subtotal-cell{position:sticky;left:0;z-index:1;background:rgba(42,16,72,.13);text-align:left;vertical-align:middle;padding:5px 10px;border-right:2px solid var(--border2);white-space:nowrap;min-width:190px;font-weight:700}
 .detalle-partner-row td{padding:5px 10px;text-align:right;border-bottom:1px solid var(--border);font-size:12px}
 .detalle-partner-row:hover td{background:rgba(124,58,237,.05)}
 .detalle-grp-row{cursor:pointer}
@@ -607,7 +607,7 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
 
 <div id="loader"><div class="spinner"></div><p>Cargando P&amp;L RunRate…</p></div>
 
-<header style="position:relative">
+<header>
   <div>
     <div class="logo">Despegar <span>P&amp;L Managerial View</span></div>
     <div class="logo-sub">Finance Dashboard · FY27</div>
@@ -727,7 +727,7 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
 
   <!-- ── Detalle ───────────────────────────────────────────────────────────── -->
   <div class="tab-pane" id="pane-detalle">
-    <div class="pnl-card" style="overflow-x:auto;overflow-y:visible">
+    <div class="pnl-card" style="overflow:auto;max-height:calc(100vh - 300px)">
       <table class="detalle-table" id="detalle-table">
         <thead id="detalle-head"></thead>
         <tbody id="detalle-body"></tbody>
@@ -825,10 +825,11 @@ function updateProductoFilterVis_(){
   // Fila de producto en el pnl-country-nav: solo en B2B
   var prodRow = document.getElementById('pnl-produto-row');
   if(prodRow) prodRow.style.display = (_activeLob === 'b2b') ? 'flex' : 'none';
-  // Partner visible solo en B2B2C Y cuando NO estamos en Detalle
-  var isDetalle = document.getElementById('tab-detalle') && document.getElementById('tab-detalle').classList.contains('active');
+  // Partner visible solo en B2B2C, en el tab P&L (no en Detalle ni en Gráficos: ambos tienen su propio selector de partner)
+  var isDetalle  = document.getElementById('tab-detalle')  && document.getElementById('tab-detalle').classList.contains('active');
+  var isGraficos = document.getElementById('tab-graficos') && document.getElementById('tab-graficos').classList.contains('active');
   var fgPartner = document.getElementById('fg-partner');
-  if(fgPartner) fgPartner.style.display = (_activeLob === 'b2b2c' && !isDetalle) ? '' : 'none';
+  if(fgPartner) fgPartner.style.display = (_activeLob === 'b2b2c' && !isDetalle && !isGraficos) ? '' : 'none';
 }
 
 // ── Tab navigation ─────────────────────────────────────────────────────────
@@ -1572,10 +1573,39 @@ function detalleAggToPeriods_(cm, cols){
   return out;
 }
 
+// B2B: aplana b2bCanalDetail ({canal:{fc/bgt/ly:{pais:{producto:{mes:{...}}}}}})
+// a la misma forma {pais:{entidad:{mes:{...}}}} que usa B2B2C con Partner,
+// donde entidad = "Canal · Producto" (API = B2B-MAY, HTML = B2B-MIN).
+var B2B_CANAL_LABEL = {'B2B-MAY':'API','B2B-MIN':'HTML'};
+function b2bCanalDetailToPCM_(b2bDet, key){
+  var out = {};
+  Object.keys(B2B_CANAL_LABEL).forEach(function(canal){
+    var canalObj = (b2bDet && b2bDet[canal] && b2bDet[canal][key]) || {};
+    Object.keys(canalObj).forEach(function(country){
+      if(!out[country]) out[country] = {};
+      var prods = canalObj[country];
+      Object.keys(prods).forEach(function(prod){
+        var ent = B2B_CANAL_LABEL[canal] + ' · ' + prod;
+        if(!out[country][ent]) out[country][ent] = {};
+        var pd = prods[prod];
+        Object.keys(pd).forEach(function(mes){
+          if(!out[country][ent][mes]) out[country][ent][mes] = {gross_bookings:0,net_revenue:0,npv:0};
+          var s = out[country][ent][mes], src = pd[mes];
+          s.gross_bookings += (src.gross_bookings||0);
+          s.net_revenue    += (src.net_revenue||0);
+          s.npv            += (src.npv||0);
+        });
+      });
+    });
+  });
+  return out;
+}
+
 function renderDetalle() {
   var headEl = document.getElementById('detalle-head');
   var bodyEl = document.getElementById('detalle-body');
   if (!headEl || !bodyEl || !_data) return;
+  var isB2B = (_activeLob === 'b2b');
 
   var months = _data.months || [];
 
@@ -1585,11 +1615,12 @@ function renderDetalle() {
     for(var i=0;i<ks.length;i++) if(normD(ks[i])===n) return obj[ks[i]];
     return null;
   }
-  var OTHER_ALIASES=['other','others','other countries','otros','otro'];
+  var OTHER_ALIASES=['other','others','other countries','otros','otro','globales'];
+  var otherLabel = isB2B ? 'Globales' : 'Other Countries';
   function normOther(cm){
     var out={};
     Object.keys(cm).forEach(function(country){
-      var ck=OTHER_ALIASES.indexOf(normD(country))>=0?'Other Countries':country;
+      var ck=OTHER_ALIASES.indexOf(normD(country))>=0?otherLabel:country;
       if(!out[ck]) out[ck]={};
       var pmap=cm[country];
       Object.keys(pmap).forEach(function(partner){
@@ -1607,9 +1638,17 @@ function renderDetalle() {
     return out;
   }
 
-  var pcm = normOther(_data.partnerCountryMonthly||{});
-  var bcm = normOther(_data.budgetPartnerCM||{});
-  var lcm = normOther(_data.lyPartnerCM||{});
+  var pcm, bcm, lcm;
+  if(isB2B){
+    var b2bDet = _data.b2bCanalDetail || {};
+    pcm = normOther(b2bCanalDetailToPCM_(b2bDet,'fc'));
+    bcm = normOther(b2bCanalDetailToPCM_(b2bDet,'bgt'));
+    lcm = normOther(b2bCanalDetailToPCM_(b2bDet,'ly'));
+  } else {
+    pcm = normOther(_data.partnerCountryMonthly||{});
+    bcm = normOther(_data.budgetPartnerCM||{});
+    lcm = normOther(_data.lyPartnerCM||{});
+  }
 
   // Agrupación de período (Mes / Quarter / Half): reagrupa columnas y usa las etiquetas como "meses"
   if(_managerialBGPeriod !== 'month'){
@@ -1636,7 +1675,7 @@ function renderDetalle() {
     return '<span style="color:'+col+';font-weight:700">'+(v>=0?'+':'')+v.toFixed(1)+'%</span>';
   }
 
-  var COUNTRY_ORDER=['Brasil','Mexico','Argentina','Colombia','Chile','Peru','Ecuador','Other Countries'];
+  var COUNTRY_ORDER=['Brasil','Mexico',otherLabel,'Argentina','Colombia','Chile','Peru','Ecuador','Paraguay','Uruguay'];
   var seen={}, countries=[];
   COUNTRY_ORDER.forEach(function(c){
     var k=Object.keys(pcm).filter(function(x){return normD(x)===normD(c);})[0];
@@ -1647,7 +1686,7 @@ function renderDetalle() {
   });
 
   var colspan = months.length + 3;
-  var hHtml = '<tr><th class="th-partner">Partner</th><th style="min-width:80px;text-align:left;color:rgba(196,181,253,.6);font-weight:600;font-size:10px">Indicador</th>';
+  var hHtml = '<tr><th class="th-partner">'+(isB2B?'Canal / Producto':'Partner')+'</th><th style="min-width:80px;text-align:left;color:rgba(196,181,253,.6);font-weight:600;font-size:10px">Indicador</th>';
   months.forEach(function(m){ hHtml+='<th>'+m+'</th>'; });
   hHtml+='<th class="detalle-td-sep">Total FY</th></tr>';
   headEl.innerHTML = hHtml;
@@ -1718,36 +1757,46 @@ function renderDetalle() {
     }).filter(function(x){ return x.tot!==0; });
     if(!pdata.length) return;
 
-    // Clasificar: Farming nombrado (individual) / Onboarding-Hunting / Rest
-    var named={}, hunting=[], rest=[];
-    pdata.forEach(function(x){
-      if(partnerIsHunting(x.name)){ hunting.push(x); return; }
-      var fl=partnerFarmingNamed(x.name);
-      if(fl){ (named[fl]=named[fl]||[]).push(x); } else { rest.push(x); }
-    });
-
     // Banda de país
     html+='<tr class="detalle-country-band"><td colspan="'+colspan+'">'+country+'</td></tr>';
 
-    // 1) Farming nombrado, discriminado (ordenado por |Total| desc)
-    Object.keys(named).map(function(lbl){
-      var s=sumSeries(named[lbl].map(function(x){return x.s;}));
-      return {lbl:lbl, s:s, tot:totOf(s)};
-    }).sort(function(a,b){return Math.abs(b.tot)-Math.abs(a.tot);})
-      .forEach(function(g){ html+=entityRows(g.lbl, g.s, {}); });
-
-    // 2) Onboarding/Hunting y 3) Rest of Partners (agrupados, desplegables)
-    [{key:'hunt', label:'Onboarding / Hunting', items:hunting},
-     {key:'rest', label:'Rest of Partners',     items:rest}].forEach(function(grp){
-      if(!grp.items.length) return;
-      var cls='detg-'+slug(country)+'-'+grp.key;
-      var gS=sumSeries(grp.items.map(function(x){return x.s;}));
-      var lblHtml='<span class="caret-'+cls+'" style="display:inline-block;width:12px;color:var(--navy3);font-weight:800">▸</span> '+grp.label+' ('+grp.items.length+')';
-      html+=entityRows(lblHtml, gS, {trClass:'detalle-grp-row', attrs:' onclick="toggleDetGroup(\''+cls+'\')"'});
-      grp.items.slice().sort(function(a,b){return Math.abs(b.tot)-Math.abs(a.tot);}).forEach(function(x){
-        html+=entityRows(x.name, x.s, {trClass:'detalle-grp-detail '+cls, hidden:true, nameStyle:'padding-left:26px;font-style:italic;color:var(--muted)'});
+    if(isB2B){
+      // B2B: lista plana Canal · Producto — primero API, luego HTML; dentro de cada canal por |Total| desc
+      var byTotDesc=function(a,b){return Math.abs(b.tot)-Math.abs(a.tot);};
+      var apiRows = pdata.filter(function(x){ return x.name.indexOf('API · ')===0;  }).sort(byTotDesc);
+      var htmlRows= pdata.filter(function(x){ return x.name.indexOf('HTML · ')===0; }).sort(byTotDesc);
+      apiRows.concat(htmlRows).forEach(function(x){
+        html+=entityRows(x.name, x.s, {});
       });
-    });
+    } else {
+      // Clasificar: Farming nombrado (individual) / Onboarding-Hunting / Rest
+      var named={}, hunting=[], rest=[];
+      pdata.forEach(function(x){
+        if(partnerIsHunting(x.name)){ hunting.push(x); return; }
+        var fl=partnerFarmingNamed(x.name);
+        if(fl){ (named[fl]=named[fl]||[]).push(x); } else { rest.push(x); }
+      });
+
+      // 1) Farming nombrado, discriminado (ordenado por |Total| desc)
+      Object.keys(named).map(function(lbl){
+        var s=sumSeries(named[lbl].map(function(x){return x.s;}));
+        return {lbl:lbl, s:s, tot:totOf(s)};
+      }).sort(function(a,b){return Math.abs(b.tot)-Math.abs(a.tot);})
+        .forEach(function(g){ html+=entityRows(g.lbl, g.s, {}); });
+
+      // 2) Onboarding/Hunting y 3) Rest of Partners (agrupados, desplegables)
+      [{key:'hunt', label:'Onboarding / Hunting', items:hunting},
+       {key:'rest', label:'Rest of Partners',     items:rest}].forEach(function(grp){
+        if(!grp.items.length) return;
+        var cls='detg-'+slug(country)+'-'+grp.key;
+        var gS=sumSeries(grp.items.map(function(x){return x.s;}));
+        var lblHtml='<span class="caret-'+cls+'" style="display:inline-block;width:12px;color:var(--navy3);font-weight:800">▸</span> '+grp.label+' ('+grp.items.length+')';
+        html+=entityRows(lblHtml, gS, {trClass:'detalle-grp-row', attrs:' onclick="toggleDetGroup(\''+cls+'\')"'});
+        grp.items.slice().sort(function(a,b){return Math.abs(b.tot)-Math.abs(a.tot);}).forEach(function(x){
+          html+=entityRows(x.name, x.s, {trClass:'detalle-grp-detail '+cls, hidden:true, nameStyle:'padding-left:26px;font-style:italic;color:var(--muted)'});
+        });
+      });
+    }
 
     // 4) Subtotal país (suma de todos los partners con datos)
     html+=entityRows('Total '+country, sumSeries(pdata.map(function(x){return x.s;})), {isSubtotal:true});
