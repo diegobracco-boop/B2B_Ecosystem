@@ -1152,6 +1152,8 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
       <option value="runrate">Run Rate</option>
       <option value="ly">Last Year</option>
     </select>
+    <label class="flow-ctl-lbl">Tier</label>
+    <select class="flow-jump" id="flow-tier" onchange="flowSetTier_(this.value)"><option value="all">Todos</option></select>
     <span class="flow-hint">← → para navegar · slides 1280×720 dinámicos</span>
   </div>
   <div class="flow-stage-wrap">
@@ -2978,11 +2980,31 @@ function flowMonthName_(vDate){
   return M[parseInt(vDate.split('-')[1])-1];
 }
 function flowRegionRaw_(regionKey){
-  if(!regionKey) return _rawB2BC;
-  function f(arr){ return (arr||[]).filter(function(r){ return getRegion_(r.pais)===regionKey; }); }
+  if(!regionKey && !_flowTier) return _rawB2BC;
+  function f(arr){ return (arr||[]).filter(function(r){
+    return (!regionKey || getRegion_(r.pais)===regionKey) && (!_flowTier || getPartnerTier_(r.partner)===_flowTier);
+  }); }
   return { actuals:f(_rawB2BC.actuals), actuals_ly:f(_rawB2BC.actuals_ly),
            budget:f(_rawB2BC.budget), runrate:f(_rawB2BC.runrate), meta:_rawB2BC.meta };
 }
+// ── Tier de partner (fuente separada: partner_tiers.json, solo para Flow Semanal) ──
+var _partnerTierMap = null;   // null = aún no cargado; {} = cargado (puede estar vacío)
+var _flowTier = null;         // tier seleccionado, o null = todos
+function getPartnerTier_(partner){
+  if(!_partnerTierMap) return 'Sin clasificar';
+  return _partnerTierMap[String(partner||'').toLowerCase()] || 'Sin clasificar';
+}
+function getTiers_(){
+  var s={}; Object.keys(_partnerTierMap||{}).forEach(function(k){ s[_partnerTierMap[k]]=1; });
+  return Object.keys(s).sort();
+}
+function flowPopulateTiers_(){
+  var sel=document.getElementById('flow-tier'); if(!sel) return;
+  var tiers=getTiers_();
+  sel.innerHTML='<option value="all">Todos</option>'+tiers.map(function(t){ return '<option value="'+t+'">'+t+'</option>'; }).join('');
+  sel.value=_flowTier||'all';
+}
+function flowSetTier_(v){ _flowTier=(v==='all')?null:v; flowRebuild_(); }
 var _FLMF  = {gb:'gross_bookings',nr:'net_revenues',fvm:'fvm'};
 var _FLBMF = {gb:'gross_bookings',nr:'net_revenue', fvm:'fvm'};
 var FLOW_COMP = {
@@ -3130,7 +3152,7 @@ function flowBuildSlide_(def, idx){
     return '<div class="flow-slide">'+flHead_(titleTxt, brand)+body+'</div>';
   }
   if(def.kind==='okr'){
-    var sub=_rawB2BC, mk=def.metric;
+    var sub=flowRegionRaw_(null), mk=def.metric;
     var titleTxt=mesLbl+' | '+FLOW_MET[mk].label+' Performance MTD vs '+cmpLbl;
     var dl=flowDaily_(sub,mk,cmp);
     var cid='flc'+idx; _flowSeries[idx].push({id:cid, series:dl, gran:'daily', opts:{labels:true}});
@@ -3227,6 +3249,7 @@ function flowBuild_(){
   jump.innerHTML=opts;
   document.getElementById('flow-total').textContent=FLOW_DECK.length;
   flowPopulateMonths_();
+  flowPopulateTiers_();
   var cs=document.getElementById('flow-comp'); if(cs) cs.value=_flowComp;
   _flowBuilt=true;
   return true;
@@ -3267,7 +3290,26 @@ function flowScale_(){
   scaler.style.transform='scale('+s+')';
   wrap.style.height=(720*s+48)+'px';
 }
+var _tierLoading = false;
 function flowOpen_(){
+  if(_partnerTierMap===null){
+    document.getElementById('flow-track').innerHTML='<div class="flow-slide active" style="display:flex;align-items:center;justify-content:center;color:#8a8aa0;font-size:16px">Cargando tiers…</div>';
+    flowScale_();
+    if(!_tierLoading){
+      _tierLoading=true;
+      google.script.run.withSuccessHandler(function(raw){
+        _partnerTierMap={};
+        (raw&&raw.rows||[]).forEach(function(r){ _partnerTierMap[String(r[0]).toLowerCase()]=r[1]; });
+        _tierLoading=false;
+        flowOpen_();
+      }).withFailureHandler(function(){
+        _partnerTierMap={};
+        _tierLoading=false;
+        flowOpen_();
+      }).getPartnerTiers();
+    }
+    return;
+  }
   if(!flowBuild_()){
     document.getElementById('flow-track').innerHTML='<div class="flow-slide active" style="display:flex;align-items:center;justify-content:center;color:#8a8aa0;font-size:16px">Cargando datos… reintentá en unos segundos.</div>';
     flowScale_();

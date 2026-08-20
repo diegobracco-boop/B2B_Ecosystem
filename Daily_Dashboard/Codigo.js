@@ -8,6 +8,8 @@ var B2BC_JSON        = "daily_b2b2c_data.json";
 var B2B_JSON         = "daily_b2b_data.json";
 var B2BC_CACHE_KEY   = "daily_b2bc_v36";
 var B2B_CACHE_KEY    = "daily_b2b_v36";
+var TIER_JSON        = "partner_tiers.json";
+var TIER_CACHE_KEY   = "partner_tiers_v1";
 var CACHE_TTL        = 21600;   // 6 h
 var CACHE_CHUNK      = 90000;
 
@@ -34,6 +36,7 @@ function doGet(e) {
 
 function getRawB2BC() { return loadFile_(B2BC_JSON, B2BC_CACHE_KEY); }
 function getRawB2B()  { return loadFile_(B2B_JSON,  B2B_CACHE_KEY);  }
+function getPartnerTiers() { return loadFile_(TIER_JSON, TIER_CACHE_KEY); }
 
 // ---- Internal helpers ----
 
