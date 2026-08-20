@@ -57,6 +57,7 @@ _XLSX_RENAME = {
     "curency_hedge":       "currency_hedge",
     "media_other_revenue": "media_revenue",
     "producto":            "produto",
+    "fvm":                 "npv",
 }
 
 

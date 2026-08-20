@@ -1101,6 +1101,7 @@ _FC_XLSX_RENAME = {
     "curency_hedge":       "currency_hedge",   # typo in the API "P&L RI" sheet
     "media_other_revenue": "media_revenue",
     "producto":            "produto",
+    "fvm":                 "npv",
 }
 
 
