@@ -414,6 +414,9 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
 .cont-stab{padding:9px 22px;font-size:12px;font-weight:700;border:none;background:transparent;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;transition:all .15s;font-family:inherit;letter-spacing:.03em}
 .cont-stab.cont-stab-active{color:#A78BFA;border-bottom-color:#A78BFA}
 .cont-stab:hover:not(.cont-stab-active){color:#E2E8F0;background:rgba(255,255,255,.04);border-radius:4px 4px 0 0}
+#epm-subtabs-top .cont-stab{border-bottom:none;margin-bottom:0;border-radius:6px;padding:5px 16px}
+#epm-subtabs-top .cont-stab-active{background:rgba(124,58,237,.28);border-bottom-color:transparent}
+#epm-subtabs-top .cont-stab:hover:not(.cont-stab-active){border-radius:6px}
 /* ── Contable disclaimer ──────────────────────────────────────── */
 .cont-disclaimer{display:flex;align-items:flex-start;gap:8px;padding:9px 14px;margin-bottom:14px;background:rgba(234,179,8,.07);border:1px solid rgba(234,179,8,.25);border-radius:6px;font-size:11px;color:#111827;line-height:1.5}
 .cont-disclaimer-icon{font-size:13px;color:#EAB308;flex-shrink:0;margin-top:1px}
@@ -636,6 +639,13 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
 <div class="lob-switcher" style="display:flex;align-items:center;flex-wrap:wrap;gap:8px">
   <button class="lob-btn" id="lob-contable-epm" onclick="switchLob('contable-epm')">P&amp;L Accounting</button>
   <button class="lob-btn" id="lob-contable" onclick="switchLob('contable')" style="display:none">P&amp;L Model + Accounting</button>
+  <div id="epm-subtabs-top" style="display:none;align-items:center;gap:0;margin-left:8px">
+    <button id="cont-stab-combined" class="cont-stab cont-stab-active" type="button" onclick="setContableView('combined')">B2B + B2B2C</button>
+    <button id="cont-stab-b2b"      class="cont-stab"                  type="button" onclick="setContableView('b2b')">B2B</button>
+    <button id="cont-stab-b2b2c"    class="cont-stab"                  type="button" onclick="setContableView('b2b2c')">B2B2C</button>
+    <button id="cont-stab-pxq"      class="cont-stab"                  type="button" onclick="setContableView('pxq')">PxQ</button>
+    <button id="cont-stab-countries-yoy" class="cont-stab"             type="button" onclick="setContableView('countries-yoy')">Countries YoY</button>
+  </div>
   <div id="epm-goal-top" style="display:none;align-items:center;gap:10px;margin-left:auto">
     <span style="font-size:11px;color:var(--muted);font-weight:700">Baseline:</span>
     <div class="prd-toggle">
@@ -649,21 +659,18 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
       <button id="btn-egoal-runrate" class="prd-btn" type="button" onclick="setEpmGoalSource('runrate')">vs Run Rate</button>
       <button id="btn-egoal-lastrunrate" class="prd-btn" type="button" onclick="setEpmGoalSource('lastrunrate')">vs Last RR</button>
     </div>
+    <span style="width:1px;height:18px;background:rgba(255,255,255,.2);margin:0 2px"></span>
+    <div class="prd-toggle">
+      <button id="btn-period-m" class="prd-btn" type="button" onclick="setBGPeriod('m')">Mes</button>
+      <button id="btn-period-q" class="prd-btn prd-active" type="button" onclick="setBGPeriod('q')">Quarter</button>
+      <button id="btn-period-h" class="prd-btn" type="button" onclick="setBGPeriod('h')">Half</button>
+    </div>
   </div>
 </div>
 
 
 <!-- Sección Contable (fuera del tab-pane, se muestra/oculta al cambiar LOB) -->
 <div id="pane-contable" style="display:none;padding:20px 28px">
-
-  <!-- Sub-tabs: B2B+B2B2C / B2B / B2B2C -->
-  <div class="cont-subtabs">
-    <button id="cont-stab-combined" class="cont-stab cont-stab-active" type="button" onclick="setContableView('combined')">B2B + B2B2C</button>
-    <button id="cont-stab-b2b"      class="cont-stab"                  type="button" onclick="setContableView('b2b')">B2B</button>
-    <button id="cont-stab-b2b2c"    class="cont-stab"                  type="button" onclick="setContableView('b2b2c')">B2B2C</button>
-    <button id="cont-stab-pxq"           class="cont-stab" type="button" onclick="setContableView('pxq')">PxQ</button>
-    <button id="cont-stab-countries-yoy" class="cont-stab" type="button" onclick="setContableView('countries-yoy')">Countries YoY</button>
-  </div>
 
   <!-- Disclaimer YaVas + nota modelo (en una sola box) -->
   <div id="cont-disclaimer" class="cont-disclaimer">
@@ -754,11 +761,6 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
           <button id="btn-goal-epm" class="prd-btn" type="button" onclick="setGoalSource('epm')">vs EPM</button>
         </div>
         <span id="epm-baseline-label" style="display:none;font-size:11px;color:var(--muted);font-weight:600">Baseline:&nbsp;<span style="color:#7C3AED;font-weight:700">Actuals + Proj.</span></span>
-        <div class="prd-toggle">
-          <button id="btn-period-m" class="prd-btn" type="button" onclick="setBGPeriod('m')">Mes</button>
-          <button id="btn-period-q" class="prd-btn prd-active" type="button" onclick="setBGPeriod('q')">Quarter</button>
-          <button id="btn-period-h" class="prd-btn" type="button" onclick="setBGPeriod('h')">Half</button>
-        </div>
         <span id="bg-period-label" style="font-size:11px;color:var(--muted)"></span>
       </div>
     </div>
@@ -1055,6 +1057,8 @@ function switchLob(lob){
   if (epmBadge) epmBadge.style.display = (lob === 'contable-epm') ? '' : 'none';
   var goalToggle = document.getElementById('bg-goal-toggle');
   if (goalToggle) goalToggle.style.display = (lob === 'contable-epm') ? 'none' : '';
+  var subtabsTop = document.getElementById('epm-subtabs-top');
+  if (subtabsTop) subtabsTop.style.display = (lob === 'contable-epm') ? 'flex' : 'none';
   var goalTop = document.getElementById('epm-goal-top');
   if (goalTop) goalTop.style.display = (lob === 'contable-epm') ? 'flex' : 'none';
   var epmBaseLbl = document.getElementById('epm-baseline-label');

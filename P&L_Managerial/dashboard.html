@@ -38,12 +38,12 @@ header{
   padding:8px 28px;display:flex;gap:8px;position:sticky;top:72px;z-index:300;
 }
 .lob-btn{
-  background:rgba(255,255,255,.07);border:1px solid rgba(196,181,253,.2);
-  color:rgba(196,181,253,.7);border-radius:20px;padding:5px 20px;
-  cursor:pointer;font-size:12px;font-weight:700;letter-spacing:.04em;transition:all .15s;
+  background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.35);
+  color:rgba(255,255,255,.8);border-radius:22px;padding:7px 26px;
+  cursor:pointer;font-size:13px;font-weight:700;letter-spacing:.04em;transition:all .15s;
 }
-.lob-btn:hover{background:rgba(124,58,237,.25);color:#fff;border-color:rgba(124,58,237,.6)}
-.lob-btn.active{background:#7C3AED;color:#fff;border-color:#7C3AED;box-shadow:0 2px 8px rgba(124,58,237,.4)}
+.lob-btn:hover{background:rgba(255,255,255,.28);color:#fff;border-color:rgba(255,255,255,.6)}
+.lob-btn.active{background:#fff;color:#6D28D9;border-color:#fff;box-shadow:0 2px 12px rgba(0,0,0,.25);font-weight:800}
 
 /* ── GD/RI date-type switcher ─────────────────────────────────── */
 .dt-switcher{
@@ -90,8 +90,7 @@ header{
 .filters-bar{
   background:linear-gradient(90deg,#1E1B4B 0%,#2D2A6E 100%);
   border-bottom:2px solid rgba(124,58,237,.4);
-  padding:14px 28px;display:flex;gap:20px;flex-wrap:wrap;align-items:flex-end;
-  position:sticky;top:113px;z-index:299;
+  padding:10px 28px;display:flex;gap:20px;flex-wrap:wrap;align-items:flex-end;
 }
 .fg{display:flex;flex-direction:column;gap:5px;position:relative}
 .fg label{font-size:9px;font-weight:800;color:rgba(196,181,253,.7);text-transform:uppercase;letter-spacing:.1em}
@@ -319,7 +318,8 @@ body.ly-active .v-ly{display:block}
 
 /* ── Detalle Table ────────────────────────────────────────────── */
 .detalle-table{width:100%;border-collapse:collapse;min-width:900px;font-size:12px}
-.detalle-table th{background:#2D1B69;color:#C4B5FD;padding:6px 10px;text-align:right;white-space:nowrap;font-weight:700;letter-spacing:.04em;position:sticky;top:0;z-index:3}
+#pnl-country-nav .pais-chip{border-radius:6px;padding:3px 11px}
+.detalle-table th{background:#2D1B69;color:#C4B5FD;padding:6px 10px;text-align:right;white-space:nowrap;font-weight:700;letter-spacing:.04em;position:sticky;top:152px;z-index:3}
 .detalle-table th:first-child{text-align:left;min-width:150px;left:0;z-index:5}
 .detalle-table .th-partner{text-align:left;min-width:150px;position:sticky;left:0;z-index:5}
 .detalle-country-band td{position:sticky;left:0;z-index:2;background:#241247;color:#C4B5FD;font-weight:800;font-size:11px;text-transform:uppercase;letter-spacing:.06em;padding:7px 10px;text-align:left;border-top:2px solid rgba(196,181,253,.35);border-bottom:1px solid var(--border2)}
@@ -371,7 +371,7 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
   background:#1E1B4B;padding:0 28px;
   border-bottom:2px solid rgba(124,58,237,.3);
   display:flex;gap:0;
-  position:sticky;top:190px;z-index:298;
+  position:sticky;top:113px;z-index:298;
 }
 .tab-btn{
   background:none;border:none;border-bottom:3px solid transparent;
@@ -607,48 +607,84 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
 
 <div id="loader"><div class="spinner"></div><p>Cargando P&amp;L RunRate…</p></div>
 
-<header>
+<header style="position:relative">
   <div>
     <div class="logo">Despegar <span>P&amp;L Managerial View</span></div>
     <div class="logo-sub">Finance Dashboard · FY27</div>
+  </div>
+  <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;gap:6px;align-items:center">
+    <button class="lob-btn active" id="lob-b2b2c" onclick="switchLob('b2b2c')">B2B2C · Managerial View</button>
+    <button class="lob-btn" id="lob-b2b" onclick="switchLob('b2b')">B2B · Managerial View</button>
   </div>
   <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
     <span id="last-upd"></span>
     <button class="btn-refresh" onclick="showLanding()" style="background:rgba(255,255,255,.12);font-size:10px">⌂ Inicio</button>
     <a href="https://script.google.com/a/macros/despegar.com/s/AKfycbz52txFQy-5YM2Nil_KxULzPoeZpKyA4z5LUWMGoP_8IilcwSduuwZqPF8ut_LmtceM/exec" target="_blank" class="btn-refresh" style="background:rgba(255,255,255,.12);font-size:10px;text-decoration:none">🏠 B2B Ecosystem</a>
-
   </div>
 </header>
 
-<div class="lob-switcher">
-  <button class="lob-btn active" id="lob-b2b2c" onclick="switchLob('b2b2c')">B2B2C · Managerial View</button>
-  <button class="lob-btn" id="lob-b2b" onclick="switchLob('b2b')">B2B · Managerial View</button>
-  <div class="dt-switcher hidden" id="dt-switcher">
+<div class="lob-switcher" style="align-items:center;flex-wrap:wrap">
+  <span style="font-size:11px;color:rgba(196,181,253,.7);font-weight:700">Baseline:</span>
+  <div class="prd-toggle" id="baseline-switcher">
+    <button class="prd-btn prd-active" id="bl-btn-bl" onclick="setBaselineSource('bl')">Actuals + Projections</button>
+    <button class="prd-btn" id="bl-btn-vr" onclick="setBaselineSource('vr')">Projection Reviews</button>
+  </div>
+  <span style="width:1px;height:18px;background:rgba(255,255,255,.2);margin:0 6px"></span>
+  <span style="font-size:11px;color:rgba(196,181,253,.7);font-weight:700">Goal:</span>
+  <div class="prd-toggle">
+    <button id="mg-goal-budget"   class="prd-btn prd-active" type="button" onclick="setMGGoal('budget')">Budget</button>
+    <button id="mg-goal-forecast" class="prd-btn"            type="button" onclick="setMGGoal('forecast')">Forecast</button>
+    <button id="mg-goal-ly"       class="prd-btn"            type="button" onclick="setMGGoal('ly')">Last Year</button>
+  </div>
+  <span style="width:1px;height:18px;background:rgba(255,255,255,.2);margin:0 6px"></span>
+  <div class="prd-toggle">
+    <button id="mg-period-m" class="prd-btn"            type="button" onclick="setMGPeriod('month')">Mes</button>
+    <button id="mg-period-q" class="prd-btn prd-active" type="button" onclick="setMGPeriod('quarter')">Quarter</button>
+    <button id="mg-period-h" class="prd-btn"            type="button" onclick="setMGPeriod('half')">Half</button>
+  </div>
+  <div class="prd-toggle">
+    <button class="prd-btn detalle-metric-btn prd-active" type="button" onclick="switchDetalleMetric('gb',this)">Gross Bookings</button>
+    <button class="prd-btn detalle-metric-btn"            type="button" onclick="switchDetalleMetric('nr',this)">Net Revenue</button>
+    <button class="prd-btn detalle-metric-btn"            type="button" onclick="switchDetalleMetric('npv',this)">FVM</button>
+  </div>
+  <div class="dt-switcher hidden" id="dt-switcher" style="margin-left:auto">
     <button class="dt-btn active" id="dt-gd" onclick="switchDateType('gd')">GD</button>
     <button class="dt-btn" id="dt-ri" onclick="switchDateType('ri')">RI</button>
   </div>
-  <div class="dt-switcher" id="baseline-switcher" style="margin-left:12px">
-    <button class="dt-btn active" id="bl-btn-bl" onclick="setBaselineSource('bl')">Run Rate/Actuals</button>
-    <button class="dt-btn" id="bl-btn-vr" onclick="setBaselineSource('vr')">Projection Reviews</button>
-  </div>
 </div>
 
-<div id="actuals-legend" class="actuals-legend" style="display:none;margin:8px 28px 0"></div>
-
-<div class="filters-bar">
-  <!-- Left col: País + Producto stacked -->
-  <div style="display:flex;flex-direction:column;gap:10px;flex:1;min-width:0">
-    <div class="fg normal-filter">
-      <label>País</label>
+<div class="tab-bar" id="normal-tab-bar" style="flex-wrap:wrap;align-items:center">
+  <button class="tab-btn active" id="tab-baseline" onclick="switchTab('baseline')">P&amp;L - Managerial View</button>
+  <button class="tab-btn" id="tab-graficos" onclick="switchTab('graficos')">Gráficos</button>
+  <button class="tab-btn" id="tab-detalle" onclick="switchTab('detalle')">Detalle</button>
+  <!-- País/Producto chips: visible cuando el tab P&L está activo -->
+  <div id="pnl-country-nav" style="display:flex;flex-direction:column;gap:3px;align-items:flex-start;padding:4px 8px;border-left:1px solid rgba(124,58,237,.3);margin-left:4px">
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+      <span style="font-size:9px;font-weight:800;color:rgba(196,181,253,.55);text-transform:uppercase;letter-spacing:.1em;white-space:nowrap">País</span>
       <div class="pais-chips" id="pais-chips"></div>
     </div>
-    <div class="fg normal-filter" id="fg-produto">
-      <label>Producto</label>
+    <div id="pnl-produto-row" style="display:none;align-items:center;gap:6px;flex-wrap:wrap">
+      <span style="font-size:9px;font-weight:800;color:rgba(196,181,253,.55);text-transform:uppercase;letter-spacing:.1em;white-space:nowrap">Prod.</span>
       <div class="pais-chips" id="produto-chips"></div>
     </div>
   </div>
-  <!-- Right col: Partner (B2B2C only) -->
-  <div class="fg normal-filter" id="fg-partner" style="border-left:1px solid rgba(196,181,253,.15);padding-left:20px;align-self:stretch">
+  <!-- Country sub-tabs (B2B2C only, shown when graficos tab is active) -->
+  <div id="graficos-country-nav" style="display:none;align-items:center;gap:4px;padding:0 8px;border-left:1px solid rgba(124,58,237,.3);margin-left:4px;flex-wrap:wrap">
+    <button class="gtab-btn active" id="gtab-total"     type="button" onclick="switchGTab('total')">Total</button>
+    <button class="gtab-btn"        id="gtab-brasil"    type="button" onclick="switchGTab('brasil')">Brasil</button>
+    <button class="gtab-btn"        id="gtab-mexico"    type="button" onclick="switchGTab('mexico')">México</button>
+    <button class="gtab-btn"        id="gtab-argentina" type="button" onclick="switchGTab('argentina')">Argentina</button>
+    <button class="gtab-btn"        id="gtab-colombia"  type="button" onclick="switchGTab('colombia')">Colombia</button>
+    <button class="gtab-btn"        id="gtab-chile"     type="button" onclick="switchGTab('chile')">Chile</button>
+    <button class="gtab-btn"        id="gtab-peru"      type="button" onclick="switchGTab('peru')">Perú</button>
+    <button class="gtab-btn"        id="gtab-ecuador"   type="button" onclick="switchGTab('ecuador')">Ecuador</button>
+    <button class="gtab-btn"        id="gtab-other"     type="button" onclick="switchGTab('other')">Other Countries</button>
+  </div>
+</div>
+
+<div class="filters-bar">
+  <!-- Partner (B2B2C only) -->
+  <div class="fg normal-filter" id="fg-partner">
     <label>Partner</label>
     <div class="ms-wrap" id="ms-partner">
       <button class="ms-btn" type="button">
@@ -674,23 +710,7 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
   <div id="filter-loading"></div>
 </div>
 
-<div class="tab-bar" id="normal-tab-bar" style="flex-wrap:wrap;align-items:stretch">
-  <button class="tab-btn active" id="tab-baseline" onclick="switchTab('baseline')">P&amp;L - Managerial View</button>
-  <button class="tab-btn" id="tab-graficos" onclick="switchTab('graficos')">Gráficos</button>
-  <button class="tab-btn" id="tab-detalle" onclick="switchTab('detalle')">Detalle</button>
-  <!-- Country sub-tabs (B2B2C only, shown when graficos tab is active) -->
-  <div id="graficos-country-nav" style="display:none;align-items:center;gap:4px;padding:0 8px;border-left:1px solid rgba(124,58,237,.3);margin-left:4px;flex-wrap:wrap">
-    <button class="gtab-btn active" id="gtab-total"     type="button" onclick="switchGTab('total')">Total</button>
-    <button class="gtab-btn"        id="gtab-brasil"    type="button" onclick="switchGTab('brasil')">Brasil</button>
-    <button class="gtab-btn"        id="gtab-mexico"    type="button" onclick="switchGTab('mexico')">México</button>
-    <button class="gtab-btn"        id="gtab-argentina" type="button" onclick="switchGTab('argentina')">Argentina</button>
-    <button class="gtab-btn"        id="gtab-colombia"  type="button" onclick="switchGTab('colombia')">Colombia</button>
-    <button class="gtab-btn"        id="gtab-chile"     type="button" onclick="switchGTab('chile')">Chile</button>
-    <button class="gtab-btn"        id="gtab-peru"      type="button" onclick="switchGTab('peru')">Perú</button>
-    <button class="gtab-btn"        id="gtab-ecuador"   type="button" onclick="switchGTab('ecuador')">Ecuador</button>
-    <button class="gtab-btn"        id="gtab-other"     type="button" onclick="switchGTab('other')">Other Countries</button>
-  </div>
-</div>
+<div id="actuals-legend" class="actuals-legend" style="display:none;margin:0 28px 8px"></div>
 
 <main>
   <div class="tab-pane" id="pane-graficos">
@@ -707,20 +727,7 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
 
   <!-- ── Detalle ───────────────────────────────────────────────────────────── -->
   <div class="tab-pane" id="pane-detalle">
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;padding:4px 0">
-      <div class="prd-toggle">
-        <button class="prd-btn detalle-metric-btn prd-active" type="button" onclick="switchDetalleMetric('gb',this)">Gross Bookings</button>
-        <button class="prd-btn detalle-metric-btn"            type="button" onclick="switchDetalleMetric('nr',this)">Net Revenue</button>
-        <button class="prd-btn detalle-metric-btn"            type="button" onclick="switchDetalleMetric('npv',this)">FVM</button>
-      </div>
-      <div class="prd-toggle">
-        <button id="det-period-m" class="prd-btn prd-active" type="button" onclick="setDetallePeriod('month')">Mes</button>
-        <button id="det-period-q" class="prd-btn"            type="button" onclick="setDetallePeriod('quarter')">Quarter</button>
-        <button id="det-period-h" class="prd-btn"            type="button" onclick="setDetallePeriod('half')">Half</button>
-      </div>
-      <span style="font-size:11px;color:var(--muted)">Total FY27 · Δ vs Budget · YoY%</span>
-    </div>
-    <div class="pnl-card" style="overflow:auto">
+    <div class="pnl-card" style="overflow-x:auto;overflow-y:visible">
       <table class="detalle-table" id="detalle-table">
         <thead id="detalle-head"></thead>
         <tbody id="detalle-body"></tbody>
@@ -730,24 +737,6 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
 
   <!-- ── P&L - Managerial View ────────────────────────────────────────────── -->
   <div class="tab-pane active" id="pane-baseline">
-    <div style="display:flex;gap:16px;align-items:center;margin-bottom:16px;flex-wrap:wrap;padding:4px 0">
-      <div style="display:flex;align-items:center;gap:8px">
-        <span style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Goal</span>
-        <div class="prd-toggle">
-          <button id="mg-goal-budget"   class="prd-btn prd-active" type="button" onclick="setMGGoal('budget')">Budget</button>
-          <button id="mg-goal-forecast" class="prd-btn"            type="button" onclick="setMGGoal('forecast')">Forecast</button>
-          <button id="mg-goal-ly"       class="prd-btn"            type="button" onclick="setMGGoal('ly')">Last Year</button>
-        </div>
-      </div>
-      <div style="display:flex;align-items:center;gap:8px">
-        <span style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Período</span>
-        <div class="prd-toggle">
-          <button id="mg-period-m" class="prd-btn"            type="button" onclick="setMGPeriod('month')">Mes</button>
-          <button id="mg-period-q" class="prd-btn prd-active" type="button" onclick="setMGPeriod('quarter')">Quarter</button>
-          <button id="mg-period-h" class="prd-btn"            type="button" onclick="setMGPeriod('half')">Half</button>
-        </div>
-      </div>
-    </div>
     <div id="mg-tables-container"></div>
   </div>
 </main>
@@ -833,13 +822,13 @@ function hideFilterLoading(){
 // ── Filtro Producto: oculto en B2B2C salvo en la (futura) sección "Partner One
 // Page". En B2B se muestra siempre. Llamar tras cambiar de LOB o de pestaña.
 function updateProductoFilterVis_(){
-  var fg = document.getElementById('fg-produto');
-  if(!fg) return;
-  var activeBtn = document.querySelector('.tab-btn.active');
-  var tabId = activeBtn ? activeBtn.id : '';
-  var show = (_activeLob === 'b2b') ||
-             (_activeLob === 'b2b2c' && tabId === 'tab-partner-onepage');
-  fg.style.display = show ? '' : 'none';
+  // Fila de producto en el pnl-country-nav: solo en B2B
+  var prodRow = document.getElementById('pnl-produto-row');
+  if(prodRow) prodRow.style.display = (_activeLob === 'b2b') ? 'flex' : 'none';
+  // Partner visible solo en B2B2C Y cuando NO estamos en Detalle
+  var isDetalle = document.getElementById('tab-detalle') && document.getElementById('tab-detalle').classList.contains('active');
+  var fgPartner = document.getElementById('fg-partner');
+  if(fgPartner) fgPartner.style.display = (_activeLob === 'b2b2c' && !isDetalle) ? '' : 'none';
 }
 
 // ── Tab navigation ─────────────────────────────────────────────────────────
@@ -850,6 +839,8 @@ function switchTab(name){
   document.getElementById('pane-'+name).classList.add('active');
   var gNav = document.getElementById('graficos-country-nav');
   if(gNav) gNav.style.display = (name === 'graficos' && (_activeLob === 'b2b2c' || _activeLob === 'b2b')) ? 'flex' : 'none';
+  var pNav = document.getElementById('pnl-country-nav');
+  if(pNav) pNav.style.display = (name === 'baseline') ? 'flex' : 'none';
   updateProductoFilterVis_();
   if(name === 'baseline' && _data) renderManagerialBGTable();
   if(name === 'detalle' && _data) renderDetalle();
@@ -1521,7 +1512,7 @@ function periodCols_(months, mode){
   ]);
   return months.map(function(m){ return {label:m, months:[m]}; });
 }
-function detalleCols_(months){ return periodCols_(months, _detallePeriod); }
+function detalleCols_(months){ return periodCols_(months, _managerialBGPeriod); }
 
 // Período de agrupación de las tablas Δ de Farming / Hunting (pestaña Gráficos)
 var _farmDeltaPeriod = 'month'; // 'month' | 'quarter' | 'half'
@@ -1621,7 +1612,7 @@ function renderDetalle() {
   var lcm = normOther(_data.lyPartnerCM||{});
 
   // Agrupación de período (Mes / Quarter / Half): reagrupa columnas y usa las etiquetas como "meses"
-  if(_detallePeriod !== 'month'){
+  if(_managerialBGPeriod !== 'month'){
     var _cols = detalleCols_(months);
     pcm = detalleAggToPeriods_(pcm, _cols);
     bcm = detalleAggToPeriods_(bcm, _cols);
@@ -1884,6 +1875,7 @@ function setMGPeriod(mode){
   document.getElementById('mg-period-q').classList.toggle('prd-active', mode === 'quarter');
   document.getElementById('mg-period-h').classList.toggle('prd-active', mode === 'half');
   if(document.getElementById('tab-baseline').classList.contains('active') && _data) renderManagerialBGTable();
+  if(document.getElementById('tab-detalle').classList.contains('active') && _data) renderDetalle();
 }
 
 function toggleMGSec(secId){
@@ -2179,6 +2171,10 @@ function switchLob(lob){
   // Country nav only visible for B2B2C/B2B when graficos tab is active
   var gNav = document.getElementById('graficos-country-nav');
   if(gNav){ var isGraficosActive=document.getElementById('tab-graficos')&&document.getElementById('tab-graficos').classList.contains('active'); gNav.style.display=((lob==='b2b2c'||lob==='b2b')&&isGraficosActive)?'flex':'none'; }
+  // País nav visible when P&L tab is active
+  var pNav = document.getElementById('pnl-country-nav');
+  var isBaselineActive = document.getElementById('tab-baseline') && document.getElementById('tab-baseline').classList.contains('active');
+  if(pNav) pNav.style.display = isBaselineActive ? 'flex' : 'none';
   // Reset filters on LOB change so they reload with correct options
   _filtersLoadedForLob[lob] = false;
   _paisSelected = []; renderPaisChips();
@@ -2230,7 +2226,7 @@ function setBaselineSource(src) {
   _baselineSource = src;
   ['bl','vr'].forEach(function(s){
     var btn = document.getElementById('bl-btn-' + s);
-    if (btn) btn.classList.toggle('active', s === src);
+    if (btn) btn.classList.toggle('prd-active', s === src);
   });
   _filtersLoadedForLob = {};   // resetear filtros para que se recargen
   fetchData();
