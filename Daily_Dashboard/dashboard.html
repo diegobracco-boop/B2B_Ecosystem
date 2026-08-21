@@ -576,6 +576,10 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
     <select id="sel-partner" onchange="reloadAll()"><option value="all">Todos los partners</option></select>
   </div>
   <div class="fchip">
+    <svg class="fchip-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+    <select id="sel-product" onchange="reloadAll()"><option value="all">Todos los productos</option></select>
+  </div>
+  <div class="fchip">
     <svg class="fchip-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
     <select id="sel-account" onchange="reloadAll()">
       <option value="all">Existing + New</option>
@@ -811,6 +815,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
         <th id="b2bc-th-delta-gb" style="text-align:right">Delta vs BDG</th>
         <th style="text-align:right">Cumpl.</th>
         <th style="text-align:right">YoY</th>
+        <th style="text-align:right">% Tot.</th>
       </tr></thead><tbody id="tbl-gb"></tbody></table>
     </div>
 
@@ -823,6 +828,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
         <th id="b2bc-th-delta-nr" style="text-align:right">Delta vs BDG</th>
         <th style="text-align:right">Cumpl.</th>
         <th style="text-align:right">YoY</th>
+        <th style="text-align:right">% Tot.</th>
       </tr></thead><tbody id="tbl-nr"></tbody></table>
     </div>
 
@@ -835,6 +841,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
         <th id="b2bc-th-delta-fvm" style="text-align:right">Delta vs BDG</th>
         <th style="text-align:right">Cumpl.</th>
         <th style="text-align:right">YoY</th>
+        <th style="text-align:right">% Tot.</th>
       </tr></thead><tbody id="tbl-fvm"></tbody></table>
     </div>
 
@@ -1196,6 +1203,7 @@ function expandCompact_(c) {
 }
 function getPaises_(arr)  { var s={}; arr.forEach(function(r){if(r.pais)s[r.pais]=1;}); return Object.keys(s).sort(); }
 function getPartners_(arr){ var s={}; arr.forEach(function(r){if(r.partner&&r.account_type&&r.account_type!=='Unknown')s[r.partner]=1;}); return Object.keys(s).sort(); }
+function getProducts_(arr){ var s={}; arr.forEach(function(r){if(r.productooriginal)s[r.productooriginal]=1;}); return Object.keys(s).sort(); }
 
 // ── Weekly/Monthly aggregation ───────────────────────────────────
 function weekStart_(ds) {
@@ -1275,7 +1283,7 @@ function compute_(raw, metric, vDate, gl_pai, gl_par, gl_pro, gl_at, gran, compS
 
 // ── Grouped breakdown: país → partner (B2B2C) ──────────────────
 function r2_(x) { return Math.round((x||0)*100)/100; }
-function breakdownCountryPartner_(raw, MF, BMF, mStart, vDate, lyMS, lyVD, gl_pai, gl_par, atReq, pAT, compSrc) {
+function breakdownCountryPartner_(raw, MF, BMF, mStart, vDate, lyMS, lyVD, gl_pai, gl_par, gl_pro, atReq, pAT, compSrc) {
   var pMap = {};
   function bucket(pais, par) {
     pMap[pais] = pMap[pais] || {};
@@ -1286,6 +1294,7 @@ function breakdownCountryPartner_(raw, MF, BMF, mStart, vDate, lyMS, lyVD, gl_pa
     if (r.fecha<mStart || r.fecha>vDate) return;
     if (gl_pai && r.pais!==gl_pai) return;
     if (gl_par && r.partner!==gl_par) return;
+    if (gl_pro && r.productooriginal!==gl_pro) return;
     if (atReq && pAT[r.partner]!==atReq) return;
     bucket(r.pais||'Other', r.partner||'Other').value += (r[MF]||0);
   });
@@ -1293,6 +1302,7 @@ function breakdownCountryPartner_(raw, MF, BMF, mStart, vDate, lyMS, lyVD, gl_pa
     if (r.fecha<lyMS || r.fecha>lyVD) return;
     if (gl_pai && r.pais!==gl_pai) return;
     if (gl_par && r.partner!==gl_par) return;
+    if (gl_pro && r.productooriginal!==gl_pro) return;
     if (atReq && pAT[r.partner]!==atReq) return;
     bucket(r.pais||'Other', r.partner||'Other').ly += (r[MF]||0);
   });
@@ -1300,6 +1310,7 @@ function breakdownCountryPartner_(raw, MF, BMF, mStart, vDate, lyMS, lyVD, gl_pa
     if (r.fecha<mStart || r.fecha>vDate) return;
     if (gl_pai && r.pais!==gl_pai) return;
     if (gl_par && r.partner!==gl_par) return;
+    if (gl_pro && r.producto!==gl_pro) return;
     if (atReq && pAT[r.partner]!==atReq) return;
     bucket(r.pais||'Other', r.partner||'Other').budget += (r[BMF]||0);
   });
@@ -1408,22 +1419,22 @@ function computeKRs_(raw, vDate) {
   return {kr2:kr2,kr3:kr3,kr4:kr4};
 }
 
-function computeAll_(raw, vDate, gl_pai, gl_par, gl_at, gran, tab, compSrc) {
+function computeAll_(raw, vDate, gl_pai, gl_par, gl_pro, gl_at, gran, tab, compSrc) {
   gran = gran||'daily'; var out={};
   var pp=vDate.split('-'), curYM=pp[0]+'-'+pp[1], mStart=curYM+'-01';
   var lyY=String(+pp[0]-1), lyVD=lyY+'-'+pp[1]+'-'+pp[2], lyMS=lyY+'-'+pp[1]+'-01';
   var pAT={}; raw.actuals.forEach(function(r){if(r.partner&&r.account_type)pAT[r.partner]=r.account_type;});
   var atFilter = tab==='existing'?'Existing':(tab==='new'?'New':null);
   var atReq = gl_at || atFilter;
-  var nrGroups = breakdownCountryPartner_(raw, 'net_revenues', 'net_revenue', mStart, vDate, lyMS, lyVD, gl_pai, gl_par, atReq, pAT, compSrc);
+  var nrGroups = breakdownCountryPartner_(raw, 'net_revenues', 'net_revenue', mStart, vDate, lyMS, lyVD, gl_pai, gl_par, gl_pro, atReq, pAT, compSrc);
   var orderCountries = nrGroups.map(function(g){ return g.name; });
   var orderPartnersByCountry = {}; nrGroups.forEach(function(g){ orderPartnersByCountry[g.name] = g.partners.map(function(p){ return p.name; }); });
   ['gb','nr','fvm'].forEach(function(m){
-    var d=compute_(raw,m,vDate,gl_pai,gl_par,null,gl_at,gran,compSrc);
+    var d=compute_(raw,m,vDate,gl_pai,gl_par,gl_pro,gl_at,gran,compSrc);
     var MF ={gb:'gross_bookings',nr:'net_revenues',fvm:'fvm'}[m];
     var BMF={gb:'gross_bookings',nr:'net_revenue', fvm:'fvm'}[m];
     var groups = (m==='nr') ? nrGroups
-      : orderGroups_(breakdownCountryPartner_(raw, MF, BMF, mStart, vDate, lyMS, lyVD, gl_pai, gl_par, atReq, pAT, compSrc), orderCountries, orderPartnersByCountry);
+      : orderGroups_(breakdownCountryPartner_(raw, MF, BMF, mStart, vDate, lyMS, lyVD, gl_pai, gl_par, gl_pro, atReq, pAT, compSrc), orderCountries, orderPartnersByCountry);
     out[m]={viewDate:d.viewDate,curYM:d.curYM,d1:d.d1,lyD1:d.lyD1,mtd:d.mtd,lyMtd:d.lyMtd,budget:d.budget,daily:d.daily,
       groups: groups};
   });
@@ -1531,6 +1542,7 @@ window.onload = function() {
       state.meta       = raw.meta;
       fill('sel-pais',    getPaises_(raw.actuals),   'Todos los países');
       fill('sel-partner', getPartners_(raw.actuals), 'Todos los partners');
+      fill('sel-product', getProducts_(raw.actuals), 'Todos los productos');
       document.getElementById('loader').style.display = 'none';
       document.getElementById('content').classList.add('loaded');
       document.getElementById('sync-info').textContent =
@@ -1576,14 +1588,15 @@ function recomputeB2BC_() {
   var gran   = v('sel-gran')    || 'daily';
   var gl_pai = v('sel-pais')    !== 'all' ? v('sel-pais')    : null;
   var gl_par = v('sel-partner') !== 'all' ? v('sel-partner') : null;
+  var gl_pro = v('sel-product') !== 'all' ? v('sel-product') : null;
   var gl_at  = v('sel-account') !== 'all' ? v('sel-account') : null;
   var compSrc = _b2bcComparison === 'runrate' ? (_rawB2BC.runrate || []) : (_rawB2BC.budget || []);
   var compLbl = _b2bcComparison === 'runrate' ? 'Run Rate' : 'Budget';
   var compKpi = _b2bcComparison === 'runrate' ? 'vs RR' : 'vs Bdg';
   ['leg-b2bc-gb-comp','leg-b2bc-nr-comp','leg-b2bc-fvm-comp'].forEach(function(id){var el=document.getElementById(id);if(el)el.textContent=compLbl;});
   ['mc-gb-bud-lbl','mc-nr-bud-lbl','mc-fvm-bud-lbl'].forEach(function(id){var el=document.getElementById(id);if(el)el.textContent=compKpi;});
-  state.data       = compute_(_rawB2BC, 'nr', state.viewDate, gl_pai, gl_par, null, gl_at, 'daily', compSrc);
-  state.allMetrics = computeAll_(_rawB2BC, state.viewDate, gl_pai, gl_par, gl_at, gran, _partnerTab, compSrc);
+  state.data       = compute_(_rawB2BC, 'nr', state.viewDate, gl_pai, gl_par, gl_pro, gl_at, 'daily', compSrc);
+  state.allMetrics = computeAll_(_rawB2BC, state.viewDate, gl_pai, gl_par, gl_pro, gl_at, gran, _partnerTab, compSrc);
   var _krs=computeKRs_(_rawB2BC, state.viewDate); renderKRs(_krs); renderKRBreakdown_(_krs);
   render(state.data);
   renderMetrics(state.allMetrics);
@@ -1910,31 +1923,35 @@ function renderGroupedTable3(tbodyId, groups, opts) {
   opts = opts || {};
   var tbody = document.getElementById(tbodyId);
   if (!groups || !groups.length) {
-    tbody.innerHTML = '<tr><td colspan="5" style="color:var(--text-3);text-align:center;padding:20px">Sin datos</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" style="color:var(--text-3);text-align:center;padding:20px">Sin datos</td></tr>';
     return;
   }
   var regions = groupByRegion_(groups);
+
+  var totV=0,totLy=0,totBud=0;
+  groups.forEach(function(g){ totV+=g.value; totLy+=g.ly; totBud+=(g.budget||0); });
 
   function metaCols(item, skipYoyOverride) {
     var cumpl = (item.budget > 0) ? Math.round(item.value / item.budget * 100) : null;
     var delta = item.value - (item.budget || 0);
     var skipYoy = skipYoyOverride || (opts.newFlagKey && item[opts.newFlagKey]);
     var yoy = (!skipYoy && item.ly) ? Math.round((item.value / item.ly - 1) * 100) : null;
+    var pct = totV > 0 ? Math.round(item.value / totV * 1000) / 10 : null;
     return ''
       + '<td class="bk-val">'+fmt(item.value)+'</td>'
       + '<td class="bk-yoy"><span style="color:'+(delta>=0?'var(--success)':'var(--danger)')+'">'+(delta>=0?'+':'')+fmt(delta)+'</span></td>'
       + '<td class="bk-yoy"><span style="color:'+cumplColor_(cumpl)+'">'+(cumpl!==null?cumpl+'%':'—')+'</span></td>'
-      + '<td class="bk-yoy">'+(yoy!==null?'<span style="color:'+(yoy>=0?'var(--success)':'var(--danger)')+'">'+(yoy>=0?'+':'')+yoy+'%</span>':'—')+'</td>';
+      + '<td class="bk-yoy">'+(yoy!==null?'<span style="color:'+(yoy>=0?'var(--success)':'var(--danger)')+'">'+(yoy>=0?'+':'')+yoy+'%</span>':'—')+'</td>'
+      + '<td class="bk-yoy" style="color:var(--text-2)">'+(pct!==null?pct+'%':'—')+'</td>';
   }
 
-  var totV=0,totLy=0,totBud=0;
-  groups.forEach(function(g){ totV+=g.value; totLy+=g.ly; totBud+=(g.budget||0); });
   var totDelta=totV-totBud, totCumpl=(totBud>0)?Math.round(totV/totBud*100):null, totYoy=totLy?Math.round((totV/totLy-1)*100):null;
   var html='<tr class="bk-row-total"><td><div class="bar-wrap"><div class="bk-name bk-group">Total</div></div></td>'
     +'<td class="bk-val">'+fmt(totV)+'</td>'
     +'<td class="bk-yoy"><span style="color:'+(totDelta>=0?'var(--success)':'var(--danger)')+'">'+(totDelta>=0?'+':'')+fmt(totDelta)+'</span></td>'
     +'<td class="bk-yoy"><span style="color:'+cumplColor_(totCumpl)+'">'+(totCumpl!==null?totCumpl+'%':'—')+'</span></td>'
     +'<td class="bk-yoy">'+(totYoy!==null?'<span style="color:'+(totYoy>=0?'var(--success)':'var(--danger)')+'">'+(totYoy>=0?'+':'')+totYoy+'%</span>':'—')+'</td>'
+    +'<td class="bk-yoy" style="color:var(--text-2)">100%</td>'
     +'</tr>';
   regions.forEach(function(reg, ri) {
     var regId = tbodyId + '-r' + ri;
@@ -1965,6 +1982,7 @@ function renderGroupedTable3(tbodyId, groups, opts) {
         var yoy2 = (!skipYoy2 && p.ly) ? Math.round((p.value / p.ly - 1) * 100) : null;
         var cumpl2 = (p.budget > 0) ? Math.round(p.value / p.budget * 100) : null;
         var delta2 = p.value - (p.budget || 0);
+        var pct2 = totV > 0 ? Math.round(p.value / totV * 1000) / 10 : null;
         html += '<tr class="bk-row-child" data-grp="'+cId+'">'
           + '<td><div class="bar-wrap" style="padding-left:24px">'
           + '<div class="bk-name bk-child" title="'+p.name+'">'+p.name+'</div>'
@@ -1973,6 +1991,7 @@ function renderGroupedTable3(tbodyId, groups, opts) {
           + '<td class="bk-yoy"><span style="color:'+(delta2>=0?'var(--success)':'var(--danger)')+'">'+(delta2>=0?'+':'')+fmt(delta2)+'</span></td>'
           + '<td class="bk-yoy"><span style="color:'+cumplColor_(cumpl2)+'">'+(cumpl2!==null?cumpl2+'%':'—')+'</span></td>'
           + '<td class="bk-yoy">'+(yoy2!==null?'<span style="color:'+(yoy2>=0?'var(--success)':'var(--danger)')+'">'+(yoy2>=0?'+':'')+yoy2+'%</span>':'—')+'</td>'
+          + '<td class="bk-yoy" style="color:var(--text-2)">'+(pct2!==null?pct2+'%':'—')+'</td>'
           + '</tr>';
       });
     });
