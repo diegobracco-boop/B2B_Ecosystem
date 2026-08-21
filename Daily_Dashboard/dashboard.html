@@ -222,6 +222,9 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
 .bk-exp-ctrl { display: flex; gap: 4px; margin-left: auto; }
 .bk-exp-btn { background: none; border: none; font-size: 10px; font-weight: 600; color: var(--text-3); cursor: pointer; font-family: var(--font); padding: 1px 6px; border-radius: 4px; transition: color 120ms, background 120ms; }
 .bk-exp-btn:hover { color: var(--secondary); background: var(--primary-d); }
+.bk-exp-btn.active { color: var(--secondary); background: var(--primary-d); }
+#b2bc-tables-row .col-pct { display: none; }
+#b2bc-tables-row.show-pct .col-pct { display: table-cell; }
 .bk-acct-strip { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
 .bk-acct-lbl { font-size: 10px; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: .5px; }
 .bk-table { width: 100%; border-collapse: collapse; font-size: 12px; }
@@ -802,9 +805,10 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
     <div class="bk-exp-ctrl" style="margin-left:0">
       <button class="bk-exp-btn" onclick="expandAllTables(['tbl-gb','tbl-nr','tbl-fvm'],true)">Expand all</button>
       <button class="bk-exp-btn" onclick="expandAllTables(['tbl-gb','tbl-nr','tbl-fvm'],false)">Collapse all</button>
+      <button class="bk-exp-btn" id="btn-pct-toggle" onclick="togglePctCol(this)">% Total</button>
     </div>
   </div>
-  <div class="tables-row">
+  <div class="tables-row" id="b2bc-tables-row">
 
     <!-- Gross Bookings -->
     <div class="tcard">
@@ -815,7 +819,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
         <th id="b2bc-th-delta-gb" style="text-align:right">Delta vs BDG</th>
         <th style="text-align:right">Cumpl.</th>
         <th style="text-align:right">YoY</th>
-        <th style="text-align:right">% Tot.</th>
+        <th class="col-pct" style="text-align:right">% Tot.</th>
       </tr></thead><tbody id="tbl-gb"></tbody></table>
     </div>
 
@@ -828,7 +832,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
         <th id="b2bc-th-delta-nr" style="text-align:right">Delta vs BDG</th>
         <th style="text-align:right">Cumpl.</th>
         <th style="text-align:right">YoY</th>
-        <th style="text-align:right">% Tot.</th>
+        <th class="col-pct" style="text-align:right">% Tot.</th>
       </tr></thead><tbody id="tbl-nr"></tbody></table>
     </div>
 
@@ -841,7 +845,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
         <th id="b2bc-th-delta-fvm" style="text-align:right">Delta vs BDG</th>
         <th style="text-align:right">Cumpl.</th>
         <th style="text-align:right">YoY</th>
-        <th style="text-align:right">% Tot.</th>
+        <th class="col-pct" style="text-align:right">% Tot.</th>
       </tr></thead><tbody id="tbl-fvm"></tbody></table>
     </div>
 
@@ -1620,6 +1624,11 @@ function renderKRs(krs) {
 function reload()        { recomputeB2BC_(); }
 function reloadMetrics() { recomputeB2BC_(); }
 function reloadAll()     { recomputeB2BC_(); }
+function togglePctCol(btn) {
+  var row = document.getElementById('b2bc-tables-row');
+  var active = row.classList.toggle('show-pct');
+  btn.classList.toggle('active', active);
+}
 
 // ── Navigation ──────────────────────────────────────────────────
 function _allDatesB2BC() {
@@ -1942,7 +1951,7 @@ function renderGroupedTable3(tbodyId, groups, opts) {
       + '<td class="bk-yoy"><span style="color:'+(delta>=0?'var(--success)':'var(--danger)')+'">'+(delta>=0?'+':'')+fmt(delta)+'</span></td>'
       + '<td class="bk-yoy"><span style="color:'+cumplColor_(cumpl)+'">'+(cumpl!==null?cumpl+'%':'—')+'</span></td>'
       + '<td class="bk-yoy">'+(yoy!==null?'<span style="color:'+(yoy>=0?'var(--success)':'var(--danger)')+'">'+(yoy>=0?'+':'')+yoy+'%</span>':'—')+'</td>'
-      + '<td class="bk-yoy" style="color:var(--text-2)">'+(pct!==null?pct+'%':'—')+'</td>';
+      + '<td class="bk-yoy col-pct" style="color:var(--text-2)">'+(pct!==null?pct+'%':'—')+'</td>';
   }
 
   var totDelta=totV-totBud, totCumpl=(totBud>0)?Math.round(totV/totBud*100):null, totYoy=totLy?Math.round((totV/totLy-1)*100):null;
@@ -1951,7 +1960,7 @@ function renderGroupedTable3(tbodyId, groups, opts) {
     +'<td class="bk-yoy"><span style="color:'+(totDelta>=0?'var(--success)':'var(--danger)')+'">'+(totDelta>=0?'+':'')+fmt(totDelta)+'</span></td>'
     +'<td class="bk-yoy"><span style="color:'+cumplColor_(totCumpl)+'">'+(totCumpl!==null?totCumpl+'%':'—')+'</span></td>'
     +'<td class="bk-yoy">'+(totYoy!==null?'<span style="color:'+(totYoy>=0?'var(--success)':'var(--danger)')+'">'+(totYoy>=0?'+':'')+totYoy+'%</span>':'—')+'</td>'
-    +'<td class="bk-yoy" style="color:var(--text-2)">100%</td>'
+    +'<td class="bk-yoy col-pct" style="color:var(--text-2)">100%</td>'
     +'</tr>';
   regions.forEach(function(reg, ri) {
     var regId = tbodyId + '-r' + ri;
@@ -1991,7 +2000,7 @@ function renderGroupedTable3(tbodyId, groups, opts) {
           + '<td class="bk-yoy"><span style="color:'+(delta2>=0?'var(--success)':'var(--danger)')+'">'+(delta2>=0?'+':'')+fmt(delta2)+'</span></td>'
           + '<td class="bk-yoy"><span style="color:'+cumplColor_(cumpl2)+'">'+(cumpl2!==null?cumpl2+'%':'—')+'</span></td>'
           + '<td class="bk-yoy">'+(yoy2!==null?'<span style="color:'+(yoy2>=0?'var(--success)':'var(--danger)')+'">'+(yoy2>=0?'+':'')+yoy2+'%</span>':'—')+'</td>'
-          + '<td class="bk-yoy" style="color:var(--text-2)">'+(pct2!==null?pct2+'%':'—')+'</td>'
+          + '<td class="bk-yoy col-pct" style="color:var(--text-2)">'+(pct2!==null?pct2+'%':'—')+'</td>'
           + '</tr>';
       });
     });
