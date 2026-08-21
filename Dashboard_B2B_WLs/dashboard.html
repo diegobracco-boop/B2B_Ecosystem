@@ -487,10 +487,12 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
 @property --bento-angle{syntax:'<angle>';initial-value:0deg;inherits:false}
 .home-bento{
   position:relative;width:100%;
-  display:grid;grid-template-columns:repeat(3,1fr);
+  display:grid;grid-template-columns:repeat(2,1fr);
   gap:14px;
 }
 .home-bento .bento-card{min-height:110px}
+/* last card alone in its row (odd total) → span both cols */
+.home-bento .bento-card:last-child:nth-child(odd){grid-column:span 2}
 @keyframes bento-in{
   from{opacity:0;transform:translateY(18px) scale(.97)}
   to{opacity:1;transform:none}
@@ -547,18 +549,23 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
 .bento-card.xl .bento-arrow{font-size:24px;right:20px;bottom:18px}
 .bento-card:hover .bento-arrow{color:#C4B5FD;transform:translateX(4px)}
 
-@media (max-width:1100px){
-  .home-bento{grid-template-columns:repeat(2,1fr)}
-  .bento-card.xl{grid-column:span 2;grid-row:span 1}
+@media (min-width:1600px){
+  .home-bento{grid-template-columns:repeat(3,1fr)}
+  /* last card: alone in row (3n+1 position) → col 1-2 */
+  .home-bento .bento-card:last-child:nth-child(3n+1){grid-column:span 2}
+  /* last card: second in last row (3n+2) → span 2 */
+  .home-bento .bento-card:last-child:nth-child(3n+2){grid-column:span 2}
+  /* clean override: last card fitting exactly → normal */
+  .home-bento .bento-card:last-child:nth-child(3n){grid-column:span 1}
 }
 @media (max-width:860px){
   .home-inner{flex-direction:column;align-items:stretch;gap:32px}
   .home-hero{flex:none;padding-right:0;border-right:none;border-bottom:1px solid rgba(196,181,253,.13);padding-bottom:32px;align-self:auto}
   .home-hero-title{font-size:56px}
-  .home-bento{grid-template-columns:repeat(2,1fr)}
 }
 @media (max-width:540px){
   .home-bento{grid-template-columns:1fr}
+  .home-bento .bento-card:last-child:nth-child(odd){grid-column:span 1}
   .bento-card.xl{grid-column:span 1}
   .home-hero-title{font-size:44px}
   .home-secondary-row{justify-content:flex-start}
