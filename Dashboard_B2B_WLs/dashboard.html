@@ -858,6 +858,14 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
       <div class="bento-arrow">↗</div>
     </button>
 
+    <button class="bento-card" style="--i:14" onclick="openExt('fvm_negativo')">
+      <div class="bento-kicker">Toqan · Analytics</div>
+      <div class="bento-icon">📉</div>
+      <div class="bento-name">FVM Negativo</div>
+      <div class="bento-desc">Dashboard de análisis de FVM negativo</div>
+      <div class="bento-arrow">↗</div>
+    </button>
+
   </div>
   </div><!-- /home-sections -->
   </div><!-- /home-inner -->
@@ -1792,7 +1800,8 @@ var EXTERNAL_LINKS = {
   },
   planning_dashboards: {
     hotels: 'https://script.google.com/a/macros/despegar.com/s/AKfycbweb_02cKi6MwXa9ejfsjLEBWXasN1H9SrwdjENMzVDFGP1Uf_g7un3jXte956KA7zyHQ/exec'
-  }
+  },
+  fvm_negativo: 'https://work.toqan.ai/apps/env-06d7b8e8-fvm-negativo-dashboard-gfik1f7d?standalone=true&env=9a3d280e-8124-4176-adee-3301a30c73b2'
 };
 function openExt(key) {
   var parts = key.split('.'), url = EXTERNAL_LINKS;
