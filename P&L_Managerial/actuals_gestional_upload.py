@@ -49,9 +49,11 @@ DRIVE_SCOPES    = ["https://www.googleapis.com/auth/drive"]
 
 # Forecast comes from the XLSX models (datalake raw.b2bfc1_* is not kept up to
 # date). Update this folder when a newer forecast round is published.
+# NOTA: el equipo dejó de actualizar la carpeta "Forecast" (última: 2026.07.21) y
+# pasó a snapshots semanales en "Run Rate" (ej. "2026.08.18 - W33").
 FC_XLSX_DIR = (
     r"C:\Users\diego.bracco\OneDrive - despegar365"
-    r"\Control de Gestión - 2026-27\B2B & WLs\Forecast\2026.07.14"
+    r"\Control de Gestión - 2026-27\B2B & WLs\Run Rate\2026.08.18 - W33"
 )
 
 TODAY        = date.today()

@@ -2,3 +2,4 @@
 token_drive.json
 __pycache__/
 *.pyc
+_gestional_out/
