@@ -479,6 +479,9 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
 
 /* ── Right sections panel — BENTO + SPOTLIGHT ── */
 .home-sections{flex:1;min-width:0;display:flex;flex-direction:column;gap:20px}
+.home-secondary-row{display:flex;flex-wrap:wrap;gap:8px;padding-top:4px}
+.sec-pill{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:20px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.06);color:rgba(196,181,253,.8);font-size:12px;font-weight:600;cursor:pointer;transition:all .18s;font-family:inherit;letter-spacing:.01em}
+.sec-pill:hover{background:rgba(124,58,237,.25);border-color:rgba(124,58,237,.5);color:#fff}
 @property --bento-angle{syntax:'<angle>';initial-value:0deg;inherits:false}
 .home-bento{
   position:relative;width:100%;
@@ -817,32 +820,7 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
       <div class="bento-arrow">→</div>
     </button>
 
-    <button class="bento-card" style="--i:8" onclick="goToSection('agents')">
-      <div class="bento-kicker">AI &amp; Resources</div>
-      <div class="bento-icon">🤖</div>
-      <div class="bento-name">AI Agents</div>
-      <div class="bento-desc">Agentes de IA — Toqan</div>
-      <div class="bento-arrow">→</div>
-    </button>
-
-    <button class="bento-card" style="--i:8" onclick="goToSection('sourcing')">
-      <div class="bento-kicker">AI &amp; Resources</div>
-      <div class="bento-icon">🔍</div>
-      <div class="bento-name">Sources</div>
-      <div class="bento-desc">PBI Dashboards &amp; Presentations</div>
-      <div class="bento-arrow">→</div>
-    </button>
-
-    <button class="bento-card" style="--i:9" onclick="goToSection('insights')">
-      <div class="bento-kicker">Weekly · AI Insights</div>
-      <div class="bento-icon">💡</div>
-      <div class="bento-name">Insights</div>
-      <div class="bento-desc">Semáforos y bullets ejecutivos por LOB</div>
-      <div class="bento-arrow">→</div>
-    </button>
-
-
-    <button class="bento-card" style="--i:12" onclick="openExt('okr.b2b2c')">
+    <button class="bento-card" style="--i:8" onclick="openExt('okr.b2b2c')">
       <div class="bento-kicker">Product Tribes</div>
       <div class="bento-icon">🎯</div>
       <div class="bento-name">OKR · B2B2C/WLs</div>
@@ -850,7 +828,7 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
       <div class="bento-arrow">↗</div>
     </button>
 
-    <button class="bento-card" style="--i:13" onclick="openExt('okr.b2b')">
+    <button class="bento-card" style="--i:9" onclick="openExt('okr.b2b')">
       <div class="bento-kicker">Product Tribes</div>
       <div class="bento-icon">🎯</div>
       <div class="bento-name">OKR · B2B</div>
@@ -858,7 +836,7 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
       <div class="bento-arrow">↗</div>
     </button>
 
-    <button class="bento-card" style="--i:14" onclick="openExt('fvm_negativo')">
+    <button class="bento-card" style="--i:10" onclick="openExt('fvm_negativo')">
       <div class="bento-kicker">Toqan · Analytics</div>
       <div class="bento-icon">📉</div>
       <div class="bento-name">FVM Negativo</div>
@@ -866,7 +844,23 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
       <div class="bento-arrow">↗</div>
     </button>
 
+    <button class="bento-card" style="--i:11" onclick="openExt('proyecto_rr')">
+      <div class="bento-kicker">Planning · Analytics</div>
+      <div class="bento-icon">📈</div>
+      <div class="bento-name">Proyecto RR</div>
+      <div class="bento-desc">Run Rate — análisis y proyecciones</div>
+      <div class="bento-arrow">↗</div>
+    </button>
+
   </div>
+
+  <!-- Accesos secundarios -->
+  <div class="home-secondary-row">
+    <button class="sec-pill" onclick="goToSection('agents')">🤖 AI Agents</button>
+    <button class="sec-pill" onclick="goToSection('sourcing')">🔍 Sources</button>
+    <button class="sec-pill" onclick="goToSection('insights')">💡 Insights</button>
+  </div>
+
   </div><!-- /home-sections -->
   </div><!-- /home-inner -->
 </div>
@@ -1801,7 +1795,8 @@ var EXTERNAL_LINKS = {
   planning_dashboards: {
     hotels: 'https://script.google.com/a/macros/despegar.com/s/AKfycbweb_02cKi6MwXa9ejfsjLEBWXasN1H9SrwdjENMzVDFGP1Uf_g7un3jXte956KA7zyHQ/exec'
   },
-  fvm_negativo: 'https://work.toqan.ai/apps/env-06d7b8e8-fvm-negativo-dashboard-gfik1f7d?standalone=true&env=9a3d280e-8124-4176-adee-3301a30c73b2'
+  fvm_negativo:  'https://work.toqan.ai/apps/env-06d7b8e8-fvm-negativo-dashboard-gfik1f7d?standalone=true&env=9a3d280e-8124-4176-adee-3301a30c73b2',
+  proyecto_rr:   'https://ownia.despegar.io/runrate-html'
 };
 function openExt(key) {
   var parts = key.split('.'), url = EXTERNAL_LINKS;
