@@ -225,8 +225,14 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
 .bk-exp-btn.active { color: var(--secondary); background: var(--primary-d); }
 #b2bc-tables-row .col-pct { display: none; }
 #b2bc-tables-row.show-pct .col-pct { display: table-cell; }
+#b2bc-tables-row .col-cumpl { display: none; }
+#b2bc-tables-row.show-cumpl .col-cumpl { display: table-cell; }
+.tbl-ctrl-bar { display:flex; align-items:center; gap:12px; margin-bottom:12px; padding:8px 12px; background:var(--surface); border:1px solid var(--border); border-radius:8px; flex-wrap:wrap; }
+.tbl-ctrl-group { display:flex; align-items:center; gap:8px; }
+.tbl-ctrl-lbl { font-size:10px; font-weight:700; color:var(--text-3); text-transform:uppercase; letter-spacing:.07em; white-space:nowrap; }
+.tbl-ctrl-sep { width:1px; height:18px; background:var(--border); flex-shrink:0; }
 .bk-acct-strip { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-.bk-acct-lbl { font-size: 10px; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: .5px; }
+.bk-acct-lbl { font-size: 10px; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing:.5px; }
 .bk-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .bk-table th { text-align: left; padding: 5px 4px; color: var(--text-3); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; border-bottom: 1px solid var(--border); }
 .bk-table td { padding: 6px 4px; border-bottom: 1px solid var(--border); color: var(--text-2); }
@@ -793,19 +799,27 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
   </div>
 
   <!-- BREAKDOWN TABLES -->
-  <div class="bk-acct-strip" style="flex-direction:column;align-items:flex-start">
-    <div style="display:flex;align-items:center;gap:10px">
-      <span class="bk-acct-lbl">Accounts:</span>
+  <div class="tbl-ctrl-bar">
+    <div class="tbl-ctrl-group">
+      <span class="tbl-ctrl-lbl">Accounts</span>
       <div class="tab-toggle">
-        <button class="ttab active" onclick="switchPartnerTab(this,'all')">All</button>
-        <button class="ttab" onclick="switchPartnerTab(this,'existing')">Existing</button>
-        <button class="ttab" onclick="switchPartnerTab(this,'new')">New</button>
+        <button class="ttab active" id="ptab-all"      onclick="switchPartnerTab(this,'all')">All</button>
+        <button class="ttab"        id="ptab-existing" onclick="switchPartnerTab(this,'existing')">Existing</button>
+        <button class="ttab"        id="ptab-new"      onclick="switchPartnerTab(this,'new')">New</button>
       </div>
     </div>
-    <div class="bk-exp-ctrl" style="margin-left:0">
+    <div class="tbl-ctrl-sep"></div>
+    <div class="tbl-ctrl-group">
+      <span class="tbl-ctrl-lbl">Métricas</span>
+      <div class="tab-toggle">
+        <button class="ttab active" id="btn-cumpl-toggle" onclick="toggleCumplCol(this)">% Cumpl.</button>
+        <button class="ttab"        id="btn-pct-toggle"   onclick="togglePctCol(this)">% Total</button>
+      </div>
+    </div>
+    <div class="tbl-ctrl-sep"></div>
+    <div class="tbl-ctrl-group" style="margin-left:auto">
       <button class="bk-exp-btn" onclick="expandAllTables(['tbl-gb','tbl-nr','tbl-fvm'],true)">Expand all</button>
       <button class="bk-exp-btn" onclick="expandAllTables(['tbl-gb','tbl-nr','tbl-fvm'],false)">Collapse all</button>
-      <button class="bk-exp-btn" id="btn-pct-toggle" onclick="togglePctCol(this)">% Total</button>
     </div>
   </div>
   <div class="tables-row" id="b2bc-tables-row">
@@ -817,7 +831,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
         <th>País / Partner</th>
         <th style="text-align:right">Actuals</th>
         <th id="b2bc-th-delta-gb" style="text-align:right">Delta vs BDG</th>
-        <th style="text-align:right">Cumpl.</th>
+        <th class="col-cumpl" style="text-align:right">Cumpl.</th>
         <th style="text-align:right">YoY</th>
         <th class="col-pct" style="text-align:right">% Tot.</th>
       </tr></thead><tbody id="tbl-gb"></tbody></table>
@@ -830,7 +844,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
         <th>País / Partner</th>
         <th style="text-align:right">Actuals</th>
         <th id="b2bc-th-delta-nr" style="text-align:right">Delta vs BDG</th>
-        <th style="text-align:right">Cumpl.</th>
+        <th class="col-cumpl" style="text-align:right">Cumpl.</th>
         <th style="text-align:right">YoY</th>
         <th class="col-pct" style="text-align:right">% Tot.</th>
       </tr></thead><tbody id="tbl-nr"></tbody></table>
@@ -843,7 +857,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
         <th>País / Partner</th>
         <th style="text-align:right">Actuals</th>
         <th id="b2bc-th-delta-fvm" style="text-align:right">Delta vs BDG</th>
-        <th style="text-align:right">Cumpl.</th>
+        <th class="col-cumpl" style="text-align:right">Cumpl.</th>
         <th style="text-align:right">YoY</th>
         <th class="col-pct" style="text-align:right">% Tot.</th>
       </tr></thead><tbody id="tbl-fvm"></tbody></table>
@@ -1629,6 +1643,11 @@ function togglePctCol(btn) {
   var active = row.classList.toggle('show-pct');
   btn.classList.toggle('active', active);
 }
+function toggleCumplCol(btn) {
+  var row = document.getElementById('b2bc-tables-row');
+  var active = row.classList.toggle('show-cumpl');
+  btn.classList.toggle('active', active);
+}
 
 // ── Navigation ──────────────────────────────────────────────────
 function _allDatesB2BC() {
@@ -1949,7 +1968,7 @@ function renderGroupedTable3(tbodyId, groups, opts) {
     return ''
       + '<td class="bk-val">'+fmt(item.value)+'</td>'
       + '<td class="bk-yoy"><span style="color:'+(delta>=0?'var(--success)':'var(--danger)')+'">'+(delta>=0?'+':'')+fmt(delta)+'</span></td>'
-      + '<td class="bk-yoy"><span style="color:'+cumplColor_(cumpl)+'">'+(cumpl!==null?cumpl+'%':'—')+'</span></td>'
+      + '<td class="bk-yoy col-cumpl"><span style="color:'+cumplColor_(cumpl)+'">'+(cumpl!==null?cumpl+'%':'—')+'</span></td>'
       + '<td class="bk-yoy">'+(yoy!==null?'<span style="color:'+(yoy>=0?'var(--success)':'var(--danger)')+'">'+(yoy>=0?'+':'')+yoy+'%</span>':'—')+'</td>'
       + '<td class="bk-yoy col-pct" style="color:var(--text-2)">'+(pct!==null?pct+'%':'—')+'</td>';
   }
@@ -1958,7 +1977,7 @@ function renderGroupedTable3(tbodyId, groups, opts) {
   var html='<tr class="bk-row-total"><td><div class="bar-wrap"><div class="bk-name bk-group">Total</div></div></td>'
     +'<td class="bk-val">'+fmt(totV)+'</td>'
     +'<td class="bk-yoy"><span style="color:'+(totDelta>=0?'var(--success)':'var(--danger)')+'">'+(totDelta>=0?'+':'')+fmt(totDelta)+'</span></td>'
-    +'<td class="bk-yoy"><span style="color:'+cumplColor_(totCumpl)+'">'+(totCumpl!==null?totCumpl+'%':'—')+'</span></td>'
+    +'<td class="bk-yoy col-cumpl"><span style="color:'+cumplColor_(totCumpl)+'">'+(totCumpl!==null?totCumpl+'%':'—')+'</span></td>'
     +'<td class="bk-yoy">'+(totYoy!==null?'<span style="color:'+(totYoy>=0?'var(--success)':'var(--danger)')+'">'+(totYoy>=0?'+':'')+totYoy+'%</span>':'—')+'</td>'
     +'<td class="bk-yoy col-pct" style="color:var(--text-2)">100%</td>'
     +'</tr>';
@@ -1998,7 +2017,7 @@ function renderGroupedTable3(tbodyId, groups, opts) {
           + '</div></td>'
           + '<td class="bk-val">'+fmt(p.value)+'</td>'
           + '<td class="bk-yoy"><span style="color:'+(delta2>=0?'var(--success)':'var(--danger)')+'">'+(delta2>=0?'+':'')+fmt(delta2)+'</span></td>'
-          + '<td class="bk-yoy"><span style="color:'+cumplColor_(cumpl2)+'">'+(cumpl2!==null?cumpl2+'%':'—')+'</span></td>'
+          + '<td class="bk-yoy col-cumpl"><span style="color:'+cumplColor_(cumpl2)+'">'+(cumpl2!==null?cumpl2+'%':'—')+'</span></td>'
           + '<td class="bk-yoy">'+(yoy2!==null?'<span style="color:'+(yoy2>=0?'var(--success)':'var(--danger)')+'">'+(yoy2>=0?'+':'')+yoy2+'%</span>':'—')+'</td>'
           + '<td class="bk-yoy col-pct" style="color:var(--text-2)">'+(pct2!==null?pct2+'%':'—')+'</td>'
           + '</tr>';
