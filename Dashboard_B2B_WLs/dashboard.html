@@ -478,9 +478,9 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
 }
 
 /* ── Right sections panel — BENTO + SPOTLIGHT ── */
-.home-sections{flex:1;min-width:0;display:flex;flex-direction:column;gap:20px}
-.bento-section-label{grid-column:1/-1;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:rgba(196,181,253,.5);padding:10px 2px 2px;border-bottom:1px solid rgba(255,255,255,.07);margin-bottom:2px}
-.bento-section-label:first-child{padding-top:2px}
+.home-sections{flex:1;min-width:0;display:flex;flex-direction:column;gap:24px}
+.bento-group{display:flex;flex-direction:column;gap:8px}
+.bento-section-label{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:rgba(196,181,253,.5);padding:10px 2px 4px;border-bottom:1px solid rgba(255,255,255,.07)}
 .home-secondary-row{display:flex;flex-wrap:wrap;gap:8px;padding-top:4px}
 .sec-pill{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:20px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.06);color:rgba(196,181,253,.8);font-size:12px;font-weight:600;cursor:pointer;transition:all .18s;font-family:inherit;letter-spacing:.01em}
 .sec-pill:hover{background:rgba(124,58,237,.25);border-color:rgba(124,58,237,.5);color:#fff}
@@ -488,7 +488,7 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
 .home-bento{
   position:relative;width:100%;
   display:grid;grid-template-columns:repeat(3,1fr);
-  gap:14px;grid-auto-flow:dense;
+  gap:14px;
 }
 .home-bento .bento-card{min-height:110px}
 @keyframes bento-in{
@@ -761,131 +761,133 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
   </div>
 
   <div class="home-sections">
-  <div class="home-bento" id="home-bento">
+  <div id="home-bento">
 
     <!-- P&L Contable -->
-    <div class="bento-section-label">P&amp;L Contable</div>
-
-    <button class="bento-card" style="--i:0" onclick="goToSection('all')">
-      <div class="bento-kicker">Monthly Results · Accounting</div>
-      <div class="bento-icon">📊</div>
-      <div class="bento-name">B2B + B2B2C</div>
-      <div class="bento-desc">Vista consolidada de todos los canales — P&amp;L completo del ecosistema</div>
-      <div class="bento-arrow">→</div>
-    </button>
-
-    <button class="bento-card" style="--i:1" onclick="goToSection('b2b')">
-      <div class="bento-kicker">Monthly Results</div>
-      <div class="bento-icon" id="home-b2b-icon">💼</div>
-      <div class="bento-name">B2B</div>
-      <div class="bento-desc">Mayoristas y minoristas</div>
-      <div class="bento-arrow">→</div>
-    </button>
-
-    <button class="bento-card" style="--i:2" onclick="goToSection('b2b2c')">
-      <div class="bento-kicker">Monthly Results</div>
-      <div class="bento-icon">🌎</div>
-      <div class="bento-name">B2B2C</div>
-      <div class="bento-desc">White Labels y socios estratégicos</div>
-      <div class="bento-arrow">→</div>
-    </button>
+    <div class="bento-group">
+      <div class="bento-section-label">P&amp;L Contable</div>
+      <div class="home-bento">
+        <button class="bento-card" style="--i:0" onclick="goToSection('all')">
+          <div class="bento-kicker">Monthly Results · Accounting</div>
+          <div class="bento-icon">📊</div>
+          <div class="bento-name">B2B + B2B2C</div>
+          <div class="bento-desc">Vista consolidada de todos los canales — P&amp;L completo del ecosistema</div>
+          <div class="bento-arrow">→</div>
+        </button>
+        <button class="bento-card" style="--i:1" onclick="goToSection('b2b')">
+          <div class="bento-kicker">Monthly Results</div>
+          <div class="bento-icon" id="home-b2b-icon">💼</div>
+          <div class="bento-name">B2B</div>
+          <div class="bento-desc">Mayoristas y minoristas</div>
+          <div class="bento-arrow">→</div>
+        </button>
+        <button class="bento-card" style="--i:2" onclick="goToSection('b2b2c')">
+          <div class="bento-kicker">Monthly Results</div>
+          <div class="bento-icon">🌎</div>
+          <div class="bento-name">B2B2C</div>
+          <div class="bento-desc">White Labels y socios estratégicos</div>
+          <div class="bento-arrow">→</div>
+        </button>
+      </div>
+    </div>
 
     <!-- P&L Revisión -->
-    <div class="bento-section-label">P&amp;L Revisión</div>
-
-    <button class="bento-card" style="--i:3" onclick="goToSection('pnl')">
-      <div class="bento-kicker">P&amp;L · Operating Contribution</div>
-      <div class="bento-icon">📋</div>
-      <div class="bento-name">P&amp;L Contable</div>
-      <div class="bento-desc">Accounting view</div>
-      <div class="bento-arrow">→</div>
-    </button>
-
-    <button class="bento-card" style="--i:4" onclick="goToSection('pnl_mgr')">
-      <div class="bento-kicker">P&amp;L · Managerial</div>
-      <div class="bento-icon">📊</div>
-      <div class="bento-name">P&amp;L Managerial View</div>
-      <div class="bento-desc">FVM View - transactional sources</div>
-      <div class="bento-arrow">→</div>
-    </button>
-
-    <button class="bento-card" style="--i:5" onclick="goToSection('brasil')">
-      <div class="bento-kicker">Performance · Managerial</div>
-      <div class="bento-icon">🌍</div>
-      <div class="bento-name">Country One Pager</div>
-      <div class="bento-desc">Performance por país · B2B + B2B2C</div>
-      <div class="bento-arrow">→</div>
-    </button>
-
-    <button class="bento-card" style="--i:6" onclick="openExt('fvm_negativo')">
-      <div class="bento-kicker">Toqan · Analytics</div>
-      <div class="bento-icon">📉</div>
-      <div class="bento-name">FVM Negativo</div>
-      <div class="bento-desc">Dashboard de análisis de FVM negativo</div>
-      <div class="bento-arrow">↗</div>
-    </button>
+    <div class="bento-group">
+      <div class="bento-section-label">P&amp;L Revisión</div>
+      <div class="home-bento">
+        <button class="bento-card" style="--i:3" onclick="goToSection('pnl')">
+          <div class="bento-kicker">P&amp;L · Operating Contribution</div>
+          <div class="bento-icon">📋</div>
+          <div class="bento-name">P&amp;L Contable</div>
+          <div class="bento-desc">Accounting view</div>
+          <div class="bento-arrow">→</div>
+        </button>
+        <button class="bento-card" style="--i:4" onclick="goToSection('pnl_mgr')">
+          <div class="bento-kicker">P&amp;L · Managerial</div>
+          <div class="bento-icon">📊</div>
+          <div class="bento-name">P&amp;L Managerial View</div>
+          <div class="bento-desc">FVM View - transactional sources</div>
+          <div class="bento-arrow">→</div>
+        </button>
+        <button class="bento-card" style="--i:5" onclick="goToSection('brasil')">
+          <div class="bento-kicker">Performance · Managerial</div>
+          <div class="bento-icon">🌍</div>
+          <div class="bento-name">Country One Pager</div>
+          <div class="bento-desc">Performance por país · B2B + B2B2C</div>
+          <div class="bento-arrow">→</div>
+        </button>
+        <button class="bento-card" style="--i:6" onclick="openExt('fvm_negativo')">
+          <div class="bento-kicker">Toqan · Analytics</div>
+          <div class="bento-icon">📉</div>
+          <div class="bento-name">FVM Negativo</div>
+          <div class="bento-desc">Dashboard de análisis de FVM negativo</div>
+          <div class="bento-arrow">↗</div>
+        </button>
+      </div>
+    </div>
 
     <!-- Planning -->
-    <div class="bento-section-label">Planning</div>
-
-    <button class="bento-card" style="--i:7" onclick="goToSection('daily')">
-      <div class="bento-kicker">Performance · Managerial</div>
-      <div class="bento-icon">📆</div>
-      <div class="bento-name">Daily, Weekly &amp; MTD Performance</div>
-      <div class="bento-desc">Performance diaria, semanal y MTD</div>
-      <div class="bento-arrow">→</div>
-    </button>
-
-    <button class="bento-card" style="--i:8" onclick="openExt('proyecto_rr')">
-      <div class="bento-kicker">Planning · Analytics</div>
-      <div class="bento-icon">📈</div>
-      <div class="bento-name">Proyecto RR</div>
-      <div class="bento-desc">Run Rate — análisis y proyecciones</div>
-      <div class="bento-arrow">↗</div>
-    </button>
+    <div class="bento-group">
+      <div class="bento-section-label">Planning</div>
+      <div class="home-bento">
+        <button class="bento-card" style="--i:7" onclick="goToSection('daily')">
+          <div class="bento-kicker">Performance · Managerial</div>
+          <div class="bento-icon">📆</div>
+          <div class="bento-name">Daily, Weekly &amp; MTD Performance</div>
+          <div class="bento-desc">Performance diaria, semanal y MTD</div>
+          <div class="bento-arrow">→</div>
+        </button>
+        <button class="bento-card" style="--i:8" onclick="openExt('proyecto_rr')">
+          <div class="bento-kicker">Planning · Analytics</div>
+          <div class="bento-icon">📈</div>
+          <div class="bento-name">Proyecto RR</div>
+          <div class="bento-desc">Run Rate — análisis y proyecciones</div>
+          <div class="bento-arrow">↗</div>
+        </button>
+      </div>
+    </div>
 
     <!-- Tableros Equipos -->
-    <div class="bento-section-label">Tableros Equipos</div>
-
-    <button class="bento-card" style="--i:9" onclick="openExt('okr.b2b2c')">
-      <div class="bento-kicker">Product Tribes</div>
-      <div class="bento-icon">🎯</div>
-      <div class="bento-name">OKR · B2B2C/WLs</div>
-      <div class="bento-desc">OKRs de las tribus B2B2C y White Labels</div>
-      <div class="bento-arrow">↗</div>
-    </button>
-
-    <button class="bento-card" style="--i:10" onclick="openExt('okr.b2b')">
-      <div class="bento-kicker">Product Tribes</div>
-      <div class="bento-icon">🎯</div>
-      <div class="bento-name">OKR · B2B</div>
-      <div class="bento-desc">OKRs de las tribus B2B</div>
-      <div class="bento-arrow">↗</div>
-    </button>
-
-    <button class="bento-card" style="--i:11" onclick="goToSection('industry')">
-      <div class="bento-kicker">Performance · Managerial</div>
-      <div class="bento-icon">✈️</div>
-      <div class="bento-name">Weekly Industry</div>
-      <div class="bento-desc">KPIs semanales de industria</div>
-      <div class="bento-arrow">→</div>
-    </button>
-
-    <button class="bento-card" style="--i:12" onclick="goToSection('fixedcost')">
-      <div class="bento-kicker">Monthly Results</div>
-      <div class="bento-icon">💰</div>
-      <div class="bento-name">Fixed Cost</div>
-      <div class="bento-desc">Estructura de costos fijos</div>
-      <div class="bento-arrow">→</div>
-    </button>
-
-    <button class="bento-card" style="--i:13" onclick="openExt('crm.new_accounts')">
-      <div class="bento-kicker">CRM · HubSpot</div>
-      <div class="bento-icon">🤝</div>
-      <div class="bento-name">New Accounts - CRM</div>
-      <div class="bento-desc">Dashboard de nuevas cuentas en HubSpot</div>
-      <div class="bento-arrow">↗</div>
-    </button>
+    <div class="bento-group">
+      <div class="bento-section-label">Tableros Equipos</div>
+      <div class="home-bento">
+        <button class="bento-card" style="--i:9" onclick="openExt('okr.b2b2c')">
+          <div class="bento-kicker">Product Tribes</div>
+          <div class="bento-icon">🎯</div>
+          <div class="bento-name">OKR · B2B2C/WLs</div>
+          <div class="bento-desc">OKRs de las tribus B2B2C y White Labels</div>
+          <div class="bento-arrow">↗</div>
+        </button>
+        <button class="bento-card" style="--i:10" onclick="openExt('okr.b2b')">
+          <div class="bento-kicker">Product Tribes</div>
+          <div class="bento-icon">🎯</div>
+          <div class="bento-name">OKR · B2B</div>
+          <div class="bento-desc">OKRs de las tribus B2B</div>
+          <div class="bento-arrow">↗</div>
+        </button>
+        <button class="bento-card" style="--i:11" onclick="goToSection('industry')">
+          <div class="bento-kicker">Performance · Managerial</div>
+          <div class="bento-icon">✈️</div>
+          <div class="bento-name">Weekly Industry</div>
+          <div class="bento-desc">KPIs semanales de industria</div>
+          <div class="bento-arrow">→</div>
+        </button>
+        <button class="bento-card" style="--i:12" onclick="goToSection('fixedcost')">
+          <div class="bento-kicker">Monthly Results</div>
+          <div class="bento-icon">💰</div>
+          <div class="bento-name">Fixed Cost</div>
+          <div class="bento-desc">Estructura de costos fijos</div>
+          <div class="bento-arrow">→</div>
+        </button>
+        <button class="bento-card" style="--i:13" onclick="openExt('crm.new_accounts')">
+          <div class="bento-kicker">CRM · HubSpot</div>
+          <div class="bento-icon">🤝</div>
+          <div class="bento-name">New Accounts - CRM</div>
+          <div class="bento-desc">Dashboard de nuevas cuentas en HubSpot</div>
+          <div class="bento-arrow">↗</div>
+        </button>
+      </div>
+    </div>
 
   </div>
 
