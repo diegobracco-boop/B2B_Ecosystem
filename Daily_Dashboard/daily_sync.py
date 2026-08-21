@@ -941,9 +941,11 @@ def agg_b2b_budget(df: pd.DataFrame) -> pd.DataFrame:
 
 print(f"\n--- Actuals FY{YEAR_BUDGET} ---")
 df_actuals = clean_actuals(fetch(build_actuals_query(ACTUALS_FROM, YESTERDAY), "Actuals"))
+df_actuals.loc[df_actuals["partner"] == "livelo-api-hoteles", "account_type"] = "New"
 
 print(f"\n--- Actuals LY (FY{str((TODAY.year - 1) % 100).zfill(2)}) ---")
 df_ly = clean_actuals(fetch(build_actuals_query(LY_FROM, LY_TO), "LY"))
+df_ly.loc[df_ly["partner"] == "livelo-api-hoteles", "account_type"] = "New"
 
 print("\n--- Budget ---")
 df_budget = clean_budget(fetch(BUDGET_QUERY, "Budget"))
@@ -996,6 +998,7 @@ try:
     df_b2bc_rr = clean_budget(fetch(B2B2C_RR_QUERY, "B2B2C Run Rate"))
     if not df_b2bc_rr.empty and 'partner' in df_b2bc_rr.columns:
         df_b2bc_rr["stage"] = df_b2bc_rr["partner"].map(cartera_map).fillna("Existing")
+        df_b2bc_rr.loc[df_b2bc_rr["partner"] == "livelo-api-hoteles", "stage"] = "New"
 except Exception as e:
     print(f"  WARN B2B2C RR query failed: {e}")
     df_b2bc_rr = pd.DataFrame()

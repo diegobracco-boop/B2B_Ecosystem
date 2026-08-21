@@ -20,28 +20,8 @@ DRIVE_SCOPES       = ['https://www.googleapis.com/auth/drive']
 
 
 def _get_drive_service():
-    from google.oauth2.credentials import Credentials
-    from google.auth.transport.requests import Request
-    from googleapiclient.discovery import build
-
-    creds_file = BASE_DIR / 'credentials_drive.json'
-    token_file = BASE_DIR / 'token_drive.json'
-
-    if creds_file.exists():
-        from google_auth_oauthlib.flow import InstalledAppFlow
-        creds = None
-        if token_file.exists():
-            creds = Credentials.from_authorized_user_file(str(token_file), DRIVE_SCOPES)
-        if not creds or not creds.valid:
-            if creds and creds.expired and creds.refresh_token:
-                creds.refresh(Request())
-            else:
-                flow  = InstalledAppFlow.from_client_secrets_file(str(creds_file), DRIVE_SCOPES)
-                creds = flow.run_local_server(port=0)
-            token_file.write_text(creds.to_json())
-        return build('drive', 'v3', credentials=creds)
-
-    raise FileNotFoundError('No se encontró credentials_drive.json')
+    from daily_sync import _get_drive_service as _ds_get_drive
+    return _ds_get_drive()
 
 
 def upload():
