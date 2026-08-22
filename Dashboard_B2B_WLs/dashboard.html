@@ -53,6 +53,12 @@ header{
 .lob-tab:hover{color:rgba(255,255,255,.85);background:rgba(255,255,255,.05)}
 .lob-tab.active{color:#C4B5FD;border-bottom-color:#7C3AED;background:rgba(124,58,237,.12)}
 
+/* ── OKR sub-tabs (dentro del pane embebido) ── */
+.okr-subtabs{display:flex;gap:8px;padding:10px 16px;background:#1E1B4B;border-bottom:1px solid rgba(196,181,253,.15)}
+.okr-subtab-btn{padding:8px 16px;border:1px solid rgba(196,181,253,.25);border-radius:7px;background:rgba(255,255,255,.06);color:rgba(255,255,255,.65);cursor:pointer;font-size:12px;font-weight:700;transition:all .15s}
+.okr-subtab-btn:hover{background:rgba(255,255,255,.12);color:#fff}
+.okr-subtab-btn.active{background:#7C3AED;border-color:#7C3AED;color:#fff}
+
 /* ── Filters sidebar ─────────────────────────────────────── */
 .filters{
   position:fixed;left:0;top:85px;bottom:0;width:260px;
@@ -413,7 +419,7 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
   position:fixed;inset:0;z-index:600;
   background:linear-gradient(135deg,#0f0520 0%,#1a0a3e 25%,#2d1269 55%,#5B21B6 100%);
   display:flex;align-items:center;justify-content:center;
-  padding:40px 56px;overflow:hidden;
+  padding:28px 32px;overflow:hidden;
 }
 #home-overlay::before{
   content:'';position:absolute;inset:0;pointer-events:none;
@@ -422,7 +428,7 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
   background-size:48px 48px;
 }
 /* ── Home two-column inner wrapper ── */
-.home-inner{display:flex;flex-direction:row;align-items:stretch;gap:48px;width:100%;max-width:1400px;height:calc(100vh - 80px)}
+.home-inner{display:flex;flex-direction:row;align-items:stretch;gap:48px;width:100%;height:calc(100vh - 56px)}
 
 /* ── Left hero panel ── */
 .home-hero{
@@ -487,12 +493,10 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
 @property --bento-angle{syntax:'<angle>';initial-value:0deg;inherits:false}
 .home-bento{
   position:relative;width:100%;
-  display:grid;grid-template-columns:repeat(2,1fr);
+  display:grid;grid-template-columns:repeat(auto-fill,250px);
   gap:14px;
 }
-.home-bento .bento-card{min-height:110px}
-/* last card alone in its row (odd total) → span both cols */
-.home-bento .bento-card:last-child:nth-child(odd){grid-column:span 2}
+.home-bento .bento-card{min-height:110px;width:250px}
 @keyframes bento-in{
   from{opacity:0;transform:translateY(18px) scale(.97)}
   to{opacity:1;transform:none}
@@ -549,15 +553,6 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
 .bento-card.xl .bento-arrow{font-size:24px;right:20px;bottom:18px}
 .bento-card:hover .bento-arrow{color:#C4B5FD;transform:translateX(4px)}
 
-@media (min-width:1600px){
-  .home-bento{grid-template-columns:repeat(3,1fr)}
-  /* last card: alone in row (3n+1 position) → col 1-2 */
-  .home-bento .bento-card:last-child:nth-child(3n+1){grid-column:span 2}
-  /* last card: second in last row (3n+2) → span 2 */
-  .home-bento .bento-card:last-child:nth-child(3n+2){grid-column:span 2}
-  /* clean override: last card fitting exactly → normal */
-  .home-bento .bento-card:last-child:nth-child(3n){grid-column:span 1}
-}
 @media (max-width:860px){
   #home-overlay{overflow-y:auto;padding:32px 24px}
   .home-inner{flex-direction:column;align-items:stretch;gap:32px;height:auto}
@@ -567,10 +562,16 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
 }
 @media (max-width:540px){
   .home-bento{grid-template-columns:1fr}
-  .home-bento .bento-card:last-child:nth-child(odd){grid-column:span 1}
+  .home-bento .bento-card{width:auto}
   .bento-card.xl{grid-column:span 1}
   .home-hero-title{font-size:44px}
   .home-secondary-row{justify-content:flex-start}
+}
+/* ── Compact nav on short viewports (laptop screens) so the menu needs less internal scroll ── */
+@media (max-height:820px){
+  .nav-links{gap:0;padding:8px 8px 6px}
+  .nav-item{padding:6px 10px}
+  .nav-divider{margin:3px 10px}
 }
 
 .src-section{margin-bottom:32px}
@@ -772,9 +773,9 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
   <div class="home-sections">
   <div id="home-bento">
 
-    <!-- P&L Contable -->
+    <!-- P&L Contable - Operating Contribution -->
     <div class="bento-group">
-      <div class="bento-section-label">P&amp;L Contable</div>
+      <div class="bento-section-label">P&amp;L Contable - Operating Contribution</div>
       <div class="home-bento">
         <button class="bento-card" style="--i:0" onclick="goToSection('all')">
           <div class="bento-kicker">Monthly Results · Accounting</div>
@@ -797,13 +798,6 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
           <div class="bento-desc">White Labels y socios estratégicos</div>
           <div class="bento-arrow">→</div>
         </button>
-      </div>
-    </div>
-
-    <!-- P&L Revisión -->
-    <div class="bento-group">
-      <div class="bento-section-label">P&amp;L Revisión</div>
-      <div class="home-bento">
         <button class="bento-card" style="--i:3" onclick="goToSection('pnl')">
           <div class="bento-kicker">P&amp;L · Operating Contribution</div>
           <div class="bento-icon">📋</div>
@@ -811,42 +805,21 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
           <div class="bento-desc">Accounting view</div>
           <div class="bento-arrow">→</div>
         </button>
-        <button class="bento-card" style="--i:4" onclick="goToSection('pnl_mgr')">
-          <div class="bento-kicker">P&amp;L · Managerial</div>
-          <div class="bento-icon">📊</div>
-          <div class="bento-name">P&amp;L Managerial View</div>
-          <div class="bento-desc">FVM View - transactional sources</div>
-          <div class="bento-arrow">→</div>
-        </button>
-        <button class="bento-card" style="--i:5" onclick="goToSection('brasil')">
+        <button class="bento-card" style="--i:4" onclick="goToSection('brasil')">
           <div class="bento-kicker">Performance · Managerial</div>
           <div class="bento-icon">🌍</div>
           <div class="bento-name">Country One Pager</div>
           <div class="bento-desc">Performance por país · B2B + B2B2C</div>
           <div class="bento-arrow">→</div>
         </button>
-        <button class="bento-card" style="--i:6" onclick="openExt('fvm_negativo')">
-          <div class="bento-kicker">Toqan · Analytics</div>
-          <div class="bento-icon">📉</div>
-          <div class="bento-name">FVM Negativo</div>
-          <div class="bento-desc">Dashboard de análisis de FVM negativo</div>
-          <div class="bento-arrow">↗</div>
-        </button>
-      </div>
-    </div>
-
-    <!-- Planning -->
-    <div class="bento-group">
-      <div class="bento-section-label">Planning</div>
-      <div class="home-bento">
-        <button class="bento-card" style="--i:7" onclick="goToSection('daily')">
-          <div class="bento-kicker">Performance · Managerial</div>
-          <div class="bento-icon">📆</div>
-          <div class="bento-name">Daily, Weekly &amp; MTD Performance</div>
-          <div class="bento-desc">Performance diaria, semanal y MTD</div>
+        <button class="bento-card" style="--i:5" onclick="goToSection('fixedcost')">
+          <div class="bento-kicker">Monthly Results</div>
+          <div class="bento-icon">💰</div>
+          <div class="bento-name">Fixed Cost</div>
+          <div class="bento-desc">Estructura de costos fijos</div>
           <div class="bento-arrow">→</div>
         </button>
-        <button class="bento-card" style="--i:8" onclick="openExt('proyecto_rr')">
+        <button class="bento-card" style="--i:6" onclick="openExt('proyecto_rr')">
           <div class="bento-kicker">Planning · Analytics</div>
           <div class="bento-icon">📈</div>
           <div class="bento-name">Proyecto RR</div>
@@ -856,55 +829,83 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
       </div>
     </div>
 
-    <!-- Tableros Equipos -->
+    <!-- P&L Managerial - FVM view -->
     <div class="bento-group">
-      <div class="bento-section-label">Tableros Equipos</div>
+      <div class="bento-section-label">P&amp;L Managerial - FVM view</div>
       <div class="home-bento">
-        <button class="bento-card" style="--i:9" onclick="openExt('okr.b2b2c')">
-          <div class="bento-kicker">Product Tribes</div>
-          <div class="bento-icon">🎯</div>
-          <div class="bento-name">OKR · B2B2C/WLs</div>
-          <div class="bento-desc">OKRs de las tribus B2B2C y White Labels</div>
+        <button class="bento-card" style="--i:7" onclick="goToSection('daily')">
+          <div class="bento-kicker">Performance · Managerial</div>
+          <div class="bento-icon">📆</div>
+          <div class="bento-name">Daily, Weekly &amp; MTD Performance</div>
+          <div class="bento-desc">Performance diaria, semanal y MTD</div>
+          <div class="bento-arrow">→</div>
+        </button>
+        <button class="bento-card" style="--i:8" onclick="goToSection('pnl_mgr')">
+          <div class="bento-kicker">P&amp;L · Managerial</div>
+          <div class="bento-icon">📊</div>
+          <div class="bento-name">P&amp;L Managerial View</div>
+          <div class="bento-desc">FVM View - transactional sources</div>
+          <div class="bento-arrow">→</div>
+        </button>
+        <button class="bento-card" style="--i:9" onclick="openExt('fvm_negativo')">
+          <div class="bento-kicker">Toqan · Analytics</div>
+          <div class="bento-icon">📉</div>
+          <div class="bento-name">FVM Negativo</div>
+          <div class="bento-desc">Dashboard de análisis de FVM negativo</div>
           <div class="bento-arrow">↗</div>
         </button>
-        <button class="bento-card" style="--i:10" onclick="openExt('okr.b2b')">
-          <div class="bento-kicker">Product Tribes</div>
-          <div class="bento-icon">🎯</div>
-          <div class="bento-name">OKR · B2B</div>
-          <div class="bento-desc">OKRs de las tribus B2B</div>
-          <div class="bento-arrow">↗</div>
-        </button>
-        <button class="bento-card" style="--i:11" onclick="goToSection('industry')">
+        <button class="bento-card" style="--i:10" onclick="goToSection('industry')">
           <div class="bento-kicker">Performance · Managerial</div>
           <div class="bento-icon">✈️</div>
           <div class="bento-name">Weekly Industry</div>
           <div class="bento-desc">KPIs semanales de industria</div>
           <div class="bento-arrow">→</div>
         </button>
-        <button class="bento-card" style="--i:12" onclick="goToSection('fixedcost')">
-          <div class="bento-kicker">Monthly Results</div>
-          <div class="bento-icon">💰</div>
-          <div class="bento-name">Fixed Cost</div>
-          <div class="bento-desc">Estructura de costos fijos</div>
+      </div>
+    </div>
+
+    <!-- Other Products -->
+    <div class="bento-group">
+      <div class="bento-section-label">Other Products</div>
+      <div class="home-bento">
+        <button class="bento-card" style="--i:11" onclick="goToSection('okr')">
+          <div class="bento-kicker">Product Tribes</div>
+          <div class="bento-icon">🎯</div>
+          <div class="bento-name">OKR Products</div>
+          <div class="bento-desc">OKRs de las tribus B2B2C/WLs y B2B</div>
           <div class="bento-arrow">→</div>
         </button>
-        <button class="bento-card" style="--i:13" onclick="openExt('crm.new_accounts')">
+        <button class="bento-card" style="--i:12" onclick="openExt('crm.new_accounts')">
           <div class="bento-kicker">CRM · HubSpot</div>
           <div class="bento-icon">🤝</div>
           <div class="bento-name">New Accounts - CRM</div>
           <div class="bento-desc">Dashboard de nuevas cuentas en HubSpot</div>
           <div class="bento-arrow">↗</div>
         </button>
+        <button class="bento-card" style="--i:13" onclick="goToSection('agents')">
+          <div class="bento-kicker">AI · Toqan</div>
+          <div class="bento-icon">🤖</div>
+          <div class="bento-name">AI Agents</div>
+          <div class="bento-desc">Agentes de IA conectados</div>
+          <div class="bento-arrow">→</div>
+        </button>
+        <button class="bento-card" style="--i:14" onclick="goToSection('sourcing')">
+          <div class="bento-kicker">Data · Fuentes</div>
+          <div class="bento-icon">🔍</div>
+          <div class="bento-name">Sources</div>
+          <div class="bento-desc">AI tools y reportes oficiales</div>
+          <div class="bento-arrow">→</div>
+        </button>
+        <button class="bento-card" style="--i:15" onclick="goToSection('insights')">
+          <div class="bento-kicker">Weekly · Insights</div>
+          <div class="bento-icon">💡</div>
+          <div class="bento-name">Insights</div>
+          <div class="bento-desc">Semáforos y bullets ejecutivos por LOB</div>
+          <div class="bento-arrow">→</div>
+        </button>
       </div>
     </div>
 
-  </div>
-
-  <!-- Accesos secundarios -->
-  <div class="home-secondary-row">
-    <button class="sec-pill" onclick="goToSection('agents')">🤖 AI Agents</button>
-    <button class="sec-pill" onclick="goToSection('sourcing')">🔍 Sources</button>
-    <button class="sec-pill" onclick="goToSection('insights')">💡 Insights</button>
   </div>
 
   </div><!-- /home-sections -->
@@ -989,6 +990,7 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
   <button class="lob-tab"        data-lob="agents"        onclick="switchLob(this)">🤖 IA Agents</button>
   <button class="lob-tab"        data-lob="insights"      onclick="switchLob(this)">💡 Insights</button>
   <button class="lob-tab"        data-lob="organigrama"   onclick="switchLob(this)">🏢 Organigrama</button>
+  <button class="lob-tab"        data-lob="okr"           onclick="switchLob(this)">🎯 OKR</button>
 </div>
 
 <!-- Filters -->
@@ -1029,11 +1031,8 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
       <span style="font-size:16px">✈️</span> Weekly Industry
     </button>
     <div class="nav-divider"></div>
-    <button class="nav-item" onclick="openExt('okr.b2b2c')">
-      <span style="font-size:16px">🎯</span> OKR · B2B2C/WLs
-    </button>
-    <button class="nav-item" onclick="openExt('okr.b2b')">
-      <span style="font-size:16px">🎯</span> OKR · B2B
+    <button class="nav-item" id="nav-okr" onclick="goToSection('okr')">
+      <span style="font-size:16px">🎯</span> OKR Products
     </button>
     <div class="nav-divider"></div>
     <button class="nav-item" id="nav-agents" onclick="goToSection('agents')">
@@ -1338,6 +1337,16 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
   <!-- Weekly Industry iframe -->
   <div class="sec" id="industry-section" style="display:none;padding:0;margin:-20px -28px 0">
     <iframe id="industry-frame" src="" style="width:100%;height:calc(100vh - 96px);border:none;display:block;"></iframe>
+  </div>
+
+  <!-- OKR Products (B2B2C/WLs + B2B, embebidos) -->
+  <div class="sec" id="okr-section" style="display:none;padding:0;margin:-20px -28px 0">
+    <div class="okr-subtabs">
+      <button class="okr-subtab-btn active" id="okr-sub-b2b2c" onclick="setOkrSub('b2b2c')">OKR B2B2C Product</button>
+      <button class="okr-subtab-btn"        id="okr-sub-b2b"   onclick="setOkrSub('b2b')">OKR B2B Product</button>
+    </div>
+    <iframe id="okr-frame-b2b2c" src="" style="width:100%;height:calc(100vh - 96px - 42px);border:none;display:block;"></iframe>
+    <iframe id="okr-frame-b2b"   src="" style="width:100%;height:calc(100vh - 96px - 42px);border:none;display:none;"></iframe>
   </div>
 
   <!-- IA Agents section -->
@@ -2238,7 +2247,8 @@ function _updateHeader(lob) {
     'agents':        { main: 'B2B ecosystem - <span>IA Agents</span>', sub: 'Agentes Toqan' },
     'organigrama':   { main: 'B2B ecosystem - <span>Organigrama</span>', sub: 'Estructura del equipo' },
     'pnl':           { main: 'B2B ecosystem - <span>P&amp;L</span>', sub: 'Accounting view' },
-    'pnl_mgr':       { main: 'B2B ecosystem - <span>P&amp;L Managerial View</span>', sub: 'FVM View - transactional sources' }
+    'pnl_mgr':       { main: 'B2B ecosystem - <span>P&amp;L Managerial View</span>', sub: 'FVM View - transactional sources' },
+    'okr':           { main: 'B2B ecosystem - <span>OKR Products</span>', sub: 'OKR B2B2C/WLs y B2B' }
   };
   var t = titles[lob];
   var titleEl   = document.getElementById('logo-title');
@@ -2246,10 +2256,10 @@ function _updateHeader(lob) {
   var header    = document.querySelector('header');
   var hamburger = document.getElementById('hamburger-btn');
   var filters   = document.querySelector('.filters');
-  var isIframe  = (lob === 'weekly' || lob === 'fixedcost' || lob === 'news' || lob === 'industry' || lob === 'daily' || lob === 'pnl' || lob === 'pnl_mgr');
+  var isIframe  = (lob === 'weekly' || lob === 'fixedcost' || lob === 'news' || lob === 'industry' || lob === 'daily' || lob === 'pnl' || lob === 'pnl_mgr' || lob === 'okr');
   var mainEl    = document.querySelector('main');
-  var iframeIds = ['weekly-frame', 'fixedcost-frame', 'news-frame', 'industry-frame', 'daily-frame', 'pnl-frame', 'pnl-mgr-frame'];
-  var secIds    = ['weekly-section', 'fixedcost-section', 'news-section', 'industry-section', 'daily-section', 'pnl-section', 'pnl-mgr-section'];
+  var iframeIds = ['weekly-frame', 'fixedcost-frame', 'news-frame', 'industry-frame', 'daily-frame', 'pnl-frame', 'pnl-mgr-frame', 'okr-frame-b2b2c', 'okr-frame-b2b'];
+  var secIds    = ['weekly-section', 'fixedcost-section', 'news-section', 'industry-section', 'daily-section', 'pnl-section', 'pnl-mgr-section', 'okr-section'];
   if (isIframe) {
     header.style.display  = 'none';
     hamburger.style.top   = '4px';
@@ -2258,6 +2268,7 @@ function _updateHeader(lob) {
     mainEl.style.maxWidth = 'none';
     mainEl.style.margin   = '0';
     iframeIds.forEach(function(id){ var f=document.getElementById(id); if(f){ f.style.height='100vh'; f.style.width='100%'; } });
+    ['okr-frame-b2b2c','okr-frame-b2b'].forEach(function(id){ var f=document.getElementById(id); if(f) f.style.height='calc(100vh - 42px)'; });
     secIds.forEach(function(id){ var s=document.getElementById(id); if(s){ s.style.margin='0'; s.style.padding='0'; } });
   } else {
     header.style.display  = '';
@@ -2289,9 +2300,11 @@ function switchLob(btn) {
   var isPnlAcc    = _state.lob === 'pnl';
   var isPnlMgr    = _state.lob === 'pnl_mgr';
   var isInsights  = _state.lob === 'insights';
-  var isSpecial   = isNews || isFixedCost || isWeekly || isDaily || isSourcing || isIndustry || isAgents || isOrg || isBrasil || isPnlAcc || isPnlMgr || isInsights;
+  var isOkr       = _state.lob === 'okr';
+  var isSpecial   = isNews || isFixedCost || isWeekly || isDaily || isSourcing || isIndustry || isAgents || isOrg || isBrasil || isPnlAcc || isPnlMgr || isInsights || isOkr;
   var isPnl       = !isSpecial; // all, b2b, b2b2c
 
+  document.getElementById('okr-section').style.display       = isOkr       ? '' : 'none';
   document.getElementById('news-section').style.display      = isNews      ? '' : 'none';
   document.getElementById('fixedcost-section').style.display = isFixedCost ? '' : 'none';
   document.getElementById('weekly-section').style.display    = isWeekly    ? '' : 'none';
@@ -2305,7 +2318,7 @@ function switchLob(btn) {
   document.getElementById('pnl-mgr-section').style.display      = isPnlMgr    ? '' : 'none';
   document.getElementById('insights-section').style.display     = isInsights  ? '' : 'none';
   if (isInsights && !_insightsData_) loadInsights();
-  document.querySelector('main').querySelectorAll('.sec:not(#news-section):not(#fixedcost-section):not(#weekly-section):not(#daily-section):not(#sourcing-section):not(#industry-section):not(#agents-section):not(#organigrama-section):not(#brasil-section):not(#pnl-section):not(#pnl-mgr-section):not(#marketing-section):not(#breakdown-section):not(#insights-section)').forEach(function(s){
+  document.querySelector('main').querySelectorAll('.sec:not(#news-section):not(#fixedcost-section):not(#weekly-section):not(#daily-section):not(#sourcing-section):not(#industry-section):not(#agents-section):not(#organigrama-section):not(#brasil-section):not(#pnl-section):not(#pnl-mgr-section):not(#marketing-section):not(#breakdown-section):not(#insights-section):not(#okr-section)').forEach(function(s){
     s.style.display = isSpecial ? 'none' : '';
   });
   var _b2bOnly = isPnl && _state.lob === 'b2b';
@@ -2371,6 +2384,7 @@ function switchLob(btn) {
   if (isSourcing)  { return; }
   if (isAgents)    { return; }
   if (isOrg)       { if (!_orgLoaded) { _orgLoaded = true; loadOrg(); } return; }
+  if (isOkr)       { loadOkrTab();       return; }
 
   if (_state.lob !== 'b2b') {
     _state.canal = 'all';
@@ -5605,6 +5619,19 @@ function loadIndustryTab() {
   if (_industryLoaded) return;
   _industryLoaded = true;
   document.getElementById('industry-frame').src = EXTERNAL_LINKS.iframes.industry;
+}
+
+var _okrSub = 'b2b2c';
+var _okrLoadedB2b2c = false, _okrLoadedB2b = false;
+function loadOkrTab() { setOkrSub(_okrSub); }
+function setOkrSub(which) {
+  _okrSub = which;
+  document.getElementById('okr-sub-b2b2c').classList.toggle('active', which === 'b2b2c');
+  document.getElementById('okr-sub-b2b').classList.toggle('active', which === 'b2b');
+  document.getElementById('okr-frame-b2b2c').style.display = which === 'b2b2c' ? 'block' : 'none';
+  document.getElementById('okr-frame-b2b').style.display   = which === 'b2b'   ? 'block' : 'none';
+  if (which === 'b2b2c' && !_okrLoadedB2b2c) { _okrLoadedB2b2c = true; document.getElementById('okr-frame-b2b2c').src = EXTERNAL_LINKS.okr.b2b2c; }
+  if (which === 'b2b'   && !_okrLoadedB2b)   { _okrLoadedB2b   = true; document.getElementById('okr-frame-b2b').src   = EXTERNAL_LINKS.okr.b2b; }
 }
 
 var _pnlLoaded = false;
