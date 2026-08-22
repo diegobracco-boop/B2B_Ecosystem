@@ -28,9 +28,10 @@ header{
   position:sticky;top:0;z-index:300;
   box-shadow:0 2px 12px rgba(91,33,182,.4);
 }
-.logo-main{color:#fff;font-size:16px;font-weight:700;text-align:center;letter-spacing:.01em;line-height:1.2}
+#header-logo{position:absolute;left:130px;top:50%;transform:translateY(-50%)}
+.logo-main{color:#fff;font-size:16px;font-weight:700;text-align:left;letter-spacing:.01em;line-height:1.2}
 .logo-main span{color:#C4B5FD}
-.logo-sub{color:rgba(196,181,253,.65);font-size:10px;font-weight:500;text-align:center;letter-spacing:.04em;text-transform:uppercase;margin-top:3px}
+.logo-sub{color:rgba(196,181,253,.65);font-size:10px;font-weight:500;text-align:left;letter-spacing:.04em;text-transform:uppercase;margin-top:3px}
 .header-right{position:absolute;top:8px;right:28px;display:flex;flex-direction:column;align-items:flex-end;gap:6px}
 .header-actions-row{display:flex;gap:8px;align-items:center}
 #last-upd{color:rgba(255,255,255,.5);font-size:11px}
@@ -2248,7 +2249,8 @@ function _updateHeader(lob) {
     'organigrama':   { main: 'B2B ecosystem - <span>Organigrama</span>', sub: 'Estructura del equipo' },
     'pnl':           { main: 'B2B ecosystem - <span>P&amp;L</span>', sub: 'Accounting view' },
     'pnl_mgr':       { main: 'B2B ecosystem - <span>P&amp;L Managerial View</span>', sub: 'FVM View - transactional sources' },
-    'okr':           { main: 'B2B ecosystem - <span>OKR Products</span>', sub: 'OKR B2B2C/WLs y B2B' }
+    'okr':           { main: 'B2B ecosystem - <span>OKR Products</span>', sub: 'OKR B2B2C/WLs y B2B' },
+    'brasil':        { main: 'B2B ecosystem - <span>Country View</span>', sub: '' }
   };
   var t = titles[lob];
   var titleEl   = document.getElementById('logo-title');
@@ -2280,6 +2282,8 @@ function _updateHeader(lob) {
     if (t && titleEl) titleEl.innerHTML = t.main;
     if (subEl)        subEl.textContent = t ? t.sub : '';
   }
+  var refreshBtn = document.getElementById('btn-refresh');
+  if (refreshBtn) refreshBtn.style.display = (lob === 'brasil') ? 'none' : '';
 }
 function switchLob(btn) {
   document.querySelectorAll('.lob-tab').forEach(function(b){ b.classList.remove('active'); });
@@ -3138,7 +3142,7 @@ function _wfTotalDeltaPlugin_(goalTotal, baseTotal) {
       var ctx = chart.ctx;
 
       var delta = baseTotal - goalTotal;
-      var color = delta >= 0 ? '#1a7f37' : '#cf222e';
+      var color = delta >= 0 ? '#10b132' : '#e06666';
       var x1 = goalBar.x, x2 = baseBar.x;
       // Posición fija en el padding superior, por encima del área de barras
       var arrowY = chart.chartArea.top - 14;
@@ -3287,7 +3291,7 @@ function renderWf() {
 
     // Goal bar (solid)
     floats.push([0, goalTotal]);
-    colors.push('rgba(123,45,190,.85)');
+    colors.push('#976cf6');
     wfDeltas.push(goalTotal);
 
     // Delta bars (bridge)
@@ -3295,14 +3299,14 @@ function renderWf() {
       var from = running;
       var to   = running + delta;
       floats.push([Math.min(from,to), Math.max(from,to)]);
-      colors.push(delta >= 0 ? 'rgba(26,127,55,.8)' : 'rgba(207,34,46,.8)');
+      colors.push(delta >= 0 ? '#10b132' : '#e06666');
       wfDeltas.push(delta);
       running = to;
     });
 
     // Baseline bar (solid, blue)
     floats.push([0, baseTotal]);
-    colors.push('#5457D9');
+    colors.push('#550fed');
     wfDeltas.push(baseTotal);
 
     // Y-axis zoom
@@ -3350,7 +3354,7 @@ function renderWf() {
             var val=wfDeltas[i];
             if(!val&&val!==0) return;
             ctx.save();
-            ctx.fillStyle=isEnd?'#1f2328':val>=0?'#1a7f37':'#cf222e';
+            ctx.fillStyle=isEnd?'#1f2328':val>=0?'#10b132':'#e06666';
             ctx.font='bold 10px -apple-system,sans-serif';
             ctx.textAlign='center';
             ctx.fillText(fmtK(val),bar.x,bar.y-5);
@@ -3413,17 +3417,17 @@ function renderWf() {
       var cfloats = [], ccolors = [], cDeltasArr = [], crun = goalTotal_c;
 
       cfloats.push([0, goalTotal_c]);
-      ccolors.push('rgba(123,45,190,.85)');
+      ccolors.push('#976cf6');
       cDeltasArr.push(goalTotal_c);
       concepts_c.forEach(function(c) {
         var dv = c[deltaKey_c], cf = crun, ct = crun + dv;
         cfloats.push([Math.min(cf,ct), Math.max(cf,ct)]);
-        ccolors.push(dv >= 0 ? 'rgba(26,127,55,.8)' : 'rgba(207,34,46,.8)');
+        ccolors.push(dv >= 0 ? '#10b132' : '#e06666');
         cDeltasArr.push(dv);
         crun = ct;
       });
       cfloats.push([0, baseTotal_c]);
-      ccolors.push('#5457D9');
+      ccolors.push('#550fed');
       cDeltasArr.push(baseTotal_c);
 
       var allCY = [goalTotal_c, baseTotal_c], tmpRun = goalTotal_c;
@@ -3480,7 +3484,7 @@ function renderWf() {
               var val2=cDeltasArr[i];
               if(!val2&&val2!==0) return;
               ctx2.save();
-              ctx2.fillStyle=isEnd2?'#1f2328':val2>=0?'#1a7f37':'#cf222e';
+              ctx2.fillStyle=isEnd2?'#1f2328':val2>=0?'#10b132':'#e06666';
               ctx2.font='bold 10px -apple-system,sans-serif';
               ctx2.textAlign='center';
               ctx2.fillText(fmtK(val2),bar2.x,bar2.y-5);
@@ -3527,14 +3531,14 @@ function renderWf() {
       var nrLabels = [goalLabel].concat(nrGroups.map(function(g){return g.label;})).concat([baseLabel]);
       var nrFloats = [], nrColors = [], nrDeltasArr = [], nrRun = goalTotal_nr;
 
-      nrFloats.push([0, goalTotal_nr]); nrColors.push('rgba(123,45,190,.85)'); nrDeltasArr.push(goalTotal_nr);
+      nrFloats.push([0, goalTotal_nr]); nrColors.push('#976cf6'); nrDeltasArr.push(goalTotal_nr);
       nrGroups.forEach(function(g) {
         var dv=g[deltaKey_nr], nf=nrRun, nt=nrRun+dv;
         nrFloats.push([Math.min(nf,nt),Math.max(nf,nt)]);
-        nrColors.push(dv>=0?'rgba(26,127,55,.8)':'rgba(207,34,46,.8)');
+        nrColors.push(dv>=0?'#10b132':'#e06666');
         nrDeltasArr.push(dv); nrRun=nt;
       });
-      nrFloats.push([0, baseTotal_nr]); nrColors.push('#5457D9'); nrDeltasArr.push(baseTotal_nr);
+      nrFloats.push([0, baseTotal_nr]); nrColors.push('#550fed'); nrDeltasArr.push(baseTotal_nr);
 
       var allNrY=[goalTotal_nr, baseTotal_nr], nrTmp=goalTotal_nr;
       nrGroups.forEach(function(g){ nrTmp+=g[deltaKey_nr]; allNrY.push(nrTmp); });
@@ -3586,7 +3590,7 @@ function renderWf() {
               var val3=nrDeltasArr[i];
               if(!val3&&val3!==0) return;
               ctx3.save();
-              ctx3.fillStyle=isEnd3?'#1f2328':val3>=0?'#1a7f37':'#cf222e';
+              ctx3.fillStyle=isEnd3?'#1f2328':val3>=0?'#10b132':'#e06666';
               ctx3.font='bold 10px -apple-system,sans-serif';
               ctx3.textAlign='center';
               ctx3.fillText(fmtK(val3),bar3.x,bar3.y-5);
@@ -4480,14 +4484,14 @@ var CTRY_PERIODS = [
 // Fila 2: Colombia / Chile / Perú / Ecuador / RG
 var BRASIL_COUNTRIES = [
   { id:'Todos',     label:'Todos',     pais:'all',             flag:'🌍' },
-  { id:'Brasil',    label:'Brasil',    pais:'Brasil',          flag:'🇧🇷' },
-  { id:'Mexico',    label:'Mexico',    pais:'Mexico',          flag:'🇲🇽' },
-  { id:'Argentina', label:'Argentina', pais:'Argentina',       flag:'🇦🇷' },
+  { id:'Brasil',    label:'Brasil',    pais:'Brasil',          flag:'🇧🇷', iso:'br' },
+  { id:'Mexico',    label:'Mexico',    pais:'Mexico',          flag:'🇲🇽', iso:'mx' },
+  { id:'Argentina', label:'Argentina', pais:'Argentina',       flag:'🇦🇷', iso:'ar' },
   { id:'Globales',  label:'Globales',  pais:'other countries', flag:'🌐' },
-  { id:'Colombia',  label:'Colombia',  pais:'Colombia',        flag:'🇨🇴' },
-  { id:'Chile',     label:'Chile',     pais:'Chile',           flag:'🇨🇱' },
-  { id:'Peru',      label:'Perú',      pais:'Peru',            flag:'🇵🇪' },
-  { id:'Ecuador',   label:'Ecuador',   pais:'Ecuador',         flag:'🇪🇨' },
+  { id:'Colombia',  label:'Colombia',  pais:'Colombia',        flag:'🇨🇴', iso:'co' },
+  { id:'Chile',     label:'Chile',     pais:'Chile',           flag:'🇨🇱', iso:'cl' },
+  { id:'Peru',      label:'Perú',      pais:'Peru',            flag:'🇵🇪', iso:'pe' },
+  { id:'Ecuador',   label:'Ecuador',   pais:'Ecuador',         flag:'🇪🇨', iso:'ec' },
   { id:'RG',        label:'RG',        pais:'RG',              flag:'🌎' }
 ];
 
@@ -4516,7 +4520,10 @@ function _initBrasilFilters_() {
       var row = idx < 5 ? cRow1 : cRow2;
       var btn = document.createElement('button');
       btn.className = 'ctry-btn' + (c.id === _brasilCountryState.id ? ' active' : '');
-      btn.textContent = c.flag + ' ' + c.label;
+      var flagHtml = c.iso
+        ? '<img src="https://flagcdn.com/20x15/'+c.iso+'.png" alt="" style="width:16px;height:12px;vertical-align:-1px;margin-right:5px;border-radius:2px">'
+        : (c.flag + ' ');
+      btn.innerHTML = flagHtml + c.label;
       btn.onclick = (function(co, b){ return function(){ _ctrySetCountry_(co, b); }; })(c, btn);
       row.appendChild(btn);
     });
@@ -4787,14 +4794,14 @@ function _drawBrasilConceptWf_(chartId, wf, kind, goalKey) {
 
   var labels = [goalLabel].concat(sorted.map(function(c){ return normFn(c.label); })).concat([baseLabel]);
   var floats = [], colors = [], deltas = [], run = goalTotal;
-  floats.push([0, goalTotal]); colors.push('rgba(123,45,190,.85)'); deltas.push(goalTotal);
+  floats.push([0, goalTotal]); colors.push('#976cf6'); deltas.push(goalTotal);
   sorted.forEach(function(c){
     var dv = c[deltaKey], f = run, t = run + dv;
     floats.push([Math.min(f, t), Math.max(f, t)]);
-    colors.push(dv >= 0 ? 'rgba(26,127,55,.8)' : 'rgba(207,34,46,.8)');
+    colors.push(dv >= 0 ? '#10b132' : '#e06666');
     deltas.push(dv); run = t;
   });
-  floats.push([0, baseTotal]); colors.push('#5457D9'); deltas.push(baseTotal);
+  floats.push([0, baseTotal]); colors.push('#550fed'); deltas.push(baseTotal);
 
   var ally = [goalTotal, baseTotal], tmp = goalTotal;
   sorted.forEach(function(c){ tmp += c[deltaKey]; ally.push(tmp); });
@@ -4839,7 +4846,7 @@ function _drawBrasilConceptWf_(chartId, wf, kind, goalKey) {
           var val = deltas[i];
           if (!val && val !== 0) return;
           ctx.save();
-          ctx.fillStyle = isEnd ? '#1f2328' : (val >= 0 ? '#1a7f37' : '#cf222e');
+          ctx.fillStyle = isEnd ? '#1f2328' : (val >= 0 ? '#10b132' : '#e06666');
           ctx.font = 'bold 10px -apple-system,sans-serif';
           ctx.textAlign = 'center';
           ctx.fillText(fmtK(val), bar.x, bar.y - 5);
