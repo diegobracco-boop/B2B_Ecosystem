@@ -34,7 +34,7 @@ header{
 
 /* ── LOB switcher ─────────────────────────────────────────────── */
 .lob-switcher{
-  background:#0f0a1e;border-bottom:1px solid rgba(124,58,237,.3);
+  background:#D8C7FF;border-bottom:1px solid rgba(124,58,237,.3);
   padding:8px 28px;display:flex;gap:8px;position:sticky;top:72px;z-index:300;
 }
 .lob-btn{
@@ -44,6 +44,24 @@ header{
 }
 .lob-btn:hover{background:rgba(124,58,237,.25);color:#fff;border-color:rgba(124,58,237,.6)}
 .lob-btn.active{background:#7C3AED;color:#fff;border-color:#7C3AED;box-shadow:0 2px 8px rgba(124,58,237,.4)}
+
+/* ── Header center tabs (Combined/B2B/B2B2C/Countries YoY) ──────── */
+.header-tab{
+  background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.22);
+  color:rgba(255,255,255,.75);border-radius:20px;padding:6px 16px;
+  cursor:pointer;font-size:11.5px;font-weight:700;letter-spacing:.03em;transition:all .15s;
+}
+.header-tab:hover{background:rgba(255,255,255,.2);color:#fff}
+.header-tab.cont-stab-active{background:#fff;color:#5B21B6;border-color:#fff}
+
+/* ── Period chips (meses/quarters/halves puntuales, debajo del switcher) ── */
+.bg-pchip{
+  background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.3);
+  color:var(--muted);border-radius:14px;padding:3px 11px;
+  font-size:10.5px;font-weight:700;cursor:pointer;transition:all .15s;font-family:inherit;
+}
+.bg-pchip:hover{background:rgba(124,58,237,.2);color:var(--text)}
+.bg-pchip.bg-pchip-active{background:#7C3AED;color:#fff;border-color:#7C3AED}
 
 /* ── GD/RI date-type switcher ─────────────────────────────────── */
 .dt-switcher{
@@ -167,7 +185,7 @@ header{
 .pnl-card-hdr{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
 .pnl-card-title{font-size:13px;font-weight:700;color:var(--navy3)}
 
-.pnl-table{width:100%;border-collapse:collapse;min-width:700px}
+.pnl-table{width:auto;border-collapse:collapse;min-width:700px}
 .pnl-table thead tr.head-canals th{
   background:#7C7FFF;color:#fff;padding:10px 14px;font-size:12px;font-weight:700;
   text-align:center;border-right:2px solid rgba(255,255,255,.18);white-space:nowrap;
@@ -414,9 +432,6 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
 .cont-stab{padding:9px 22px;font-size:12px;font-weight:700;border:none;background:transparent;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;transition:all .15s;font-family:inherit;letter-spacing:.03em}
 .cont-stab.cont-stab-active{color:#A78BFA;border-bottom-color:#A78BFA}
 .cont-stab:hover:not(.cont-stab-active){color:#E2E8F0;background:rgba(255,255,255,.04);border-radius:4px 4px 0 0}
-#epm-subtabs-top .cont-stab{border-bottom:none;margin-bottom:0;border-radius:6px;padding:5px 16px}
-#epm-subtabs-top .cont-stab-active{background:rgba(124,58,237,.28);border-bottom-color:transparent}
-#epm-subtabs-top .cont-stab:hover:not(.cont-stab-active){border-radius:6px}
 /* ── Contable disclaimer ──────────────────────────────────────── */
 .cont-disclaimer{display:flex;align-items:flex-start;gap:8px;padding:9px 14px;margin-bottom:14px;background:rgba(234,179,8,.07);border:1px solid rgba(234,179,8,.25);border-radius:6px;font-size:11px;color:#111827;line-height:1.5}
 .cont-disclaimer-icon{font-size:13px;color:#EAB308;flex-shrink:0;margin-top:1px}
@@ -424,11 +439,12 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
 .cnt-btn{padding:7px 20px;font-size:12px;font-weight:700;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;border-radius:20px;font-family:inherit;transition:all .15s;letter-spacing:.03em}
 .cnt-btn:hover:not(.cnt-btn-active){border-color:#A78BFA;color:#A78BFA}
 .cnt-btn.cnt-btn-active{background:#7C3AED;border-color:#7C3AED;color:#fff}
+.pxq-pill.cont-stab-active{background:#7C3AED;border-color:#7C3AED;color:#fff}
 .cnt-canal-hdr{display:flex;align-items:center;gap:10px;margin:24px 0 4px;padding-bottom:8px;border-bottom:2px solid var(--border)}
 .cnt-canal-badge{font-size:11px;font-weight:800;color:#fff;padding:4px 14px;border-radius:12px;letter-spacing:.06em}
 
 /* ── Quarterly P&L Table ──────────────────────────────────────── */
-.qpnl-table{border-collapse:collapse;width:100%;font-size:12px}
+.qpnl-table{border-collapse:collapse;width:auto;min-width:500px;font-size:12px}
 .qpnl-table th{padding:5px 10px;text-align:center;white-space:nowrap;font-size:12px;border:1px solid var(--border)}
 .qpnl-table td{padding:4px 10px;border:1px solid var(--border);white-space:nowrap;text-align:right}
 .qpnl-table td:first-child{text-align:left;min-width:210px}
@@ -625,8 +641,14 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
 
 <header>
   <div>
-    <div class="logo">Despegar <span>Revisión Runrate</span></div>
+    <div class="logo">P&amp;L Accounting <span>- Actuals &amp; Projections Review</span></div>
     <div class="logo-sub">Finance Dashboard · FY27</div>
+  </div>
+  <div id="header-subtabs" style="display:none;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);align-items:center;gap:6px">
+    <button id="cont-stab-combined" class="header-tab cont-stab-active" type="button" onclick="setContableView('combined')">B2B + B2B2C</button>
+    <button id="cont-stab-b2b"      class="header-tab"                  type="button" onclick="setContableView('b2b')">B2B</button>
+    <button id="cont-stab-b2b2c"    class="header-tab"                  type="button" onclick="setContableView('b2b2c')">B2B2C</button>
+    <button id="cont-stab-countries-yoy" class="header-tab"             type="button" onclick="setContableView('countries-yoy')">Countries YoY</button>
   </div>
   <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
     <span id="last-upd"></span>
@@ -636,17 +658,16 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
   </div>
 </header>
 
-<div class="lob-switcher" style="display:flex;align-items:center;flex-wrap:wrap;gap:8px">
-  <button class="lob-btn" id="lob-contable-epm" onclick="switchLob('contable-epm')">P&amp;L Accounting</button>
+<div class="lob-switcher" style="display:flex;flex-direction:column;gap:6px">
+  <button class="lob-btn" id="lob-contable-epm" onclick="switchLob('contable-epm')" style="display:none">P&amp;L Accounting</button>
   <button class="lob-btn" id="lob-contable" onclick="switchLob('contable')" style="display:none">P&amp;L Model + Accounting</button>
-  <div id="epm-subtabs-top" style="display:none;align-items:center;gap:0;margin-left:8px">
-    <button id="cont-stab-combined" class="cont-stab cont-stab-active" type="button" onclick="setContableView('combined')">B2B + B2B2C</button>
-    <button id="cont-stab-b2b"      class="cont-stab"                  type="button" onclick="setContableView('b2b')">B2B</button>
-    <button id="cont-stab-b2b2c"    class="cont-stab"                  type="button" onclick="setContableView('b2b2c')">B2B2C</button>
-    <button id="cont-stab-pxq"      class="cont-stab"                  type="button" onclick="setContableView('pxq')">PxQ</button>
-    <button id="cont-stab-countries-yoy" class="cont-stab"             type="button" onclick="setContableView('countries-yoy')">Countries YoY</button>
-  </div>
-  <div id="epm-goal-top" style="display:none;align-items:center;gap:10px;margin-left:auto">
+  <div id="epm-goal-top" style="display:none;align-items:center;flex-wrap:wrap;gap:10px">
+    <div class="prd-toggle">
+      <button id="btn-period-m" class="prd-btn" type="button" onclick="setBGPeriod('m')">Mes</button>
+      <button id="btn-period-q" class="prd-btn prd-active" type="button" onclick="setBGPeriod('q')">Quarter</button>
+      <button id="btn-period-h" class="prd-btn" type="button" onclick="setBGPeriod('h')">Half</button>
+    </div>
+    <span style="width:1px;height:18px;background:rgba(0,0,0,.15);margin:0 2px"></span>
     <span style="font-size:11px;color:var(--muted);font-weight:700">Baseline:</span>
     <div class="prd-toggle">
       <button id="btn-ebl-actuals" class="prd-btn prd-active" type="button" onclick="setEpmBaselineSource('bl')">Actuals + Projections</button>
@@ -659,13 +680,8 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
       <button id="btn-egoal-runrate" class="prd-btn" type="button" onclick="setEpmGoalSource('runrate')">vs Run Rate</button>
       <button id="btn-egoal-lastrunrate" class="prd-btn" type="button" onclick="setEpmGoalSource('lastrunrate')">vs Last RR</button>
     </div>
-    <span style="width:1px;height:18px;background:rgba(255,255,255,.2);margin:0 2px"></span>
-    <div class="prd-toggle">
-      <button id="btn-period-m" class="prd-btn" type="button" onclick="setBGPeriod('m')">Mes</button>
-      <button id="btn-period-q" class="prd-btn prd-active" type="button" onclick="setBGPeriod('q')">Quarter</button>
-      <button id="btn-period-h" class="prd-btn" type="button" onclick="setBGPeriod('h')">Half</button>
-    </div>
   </div>
+  <div id="bg-period-chips" style="display:none;flex-wrap:wrap;gap:6px"></div>
 </div>
 
 
@@ -677,6 +693,16 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
     <span class="cont-disclaimer-icon">ℹ</span>
     <span>
       <strong>YaVas</strong> es una cuenta gestionada por cuenta y orden del cliente. <em>Orders</em> y <em>Gross Bookings</em> de productos <em>Packages General</em>, <em>Flights</em> y <em>Hotels</em> no se consolidan en P&amp;L.<span id="cont-disclaimer-model-text" style="display:none"> · Sección para equipo de control de proyecciones durante el armado de proceso. Los ingresos y costos transaccionales se alimentan de los modelos transaccionales (no de la herramienta oficial de publicación EPM Oracle).</span>
+    </span>
+  </div>
+
+  <div id="epm-scenario-note" class="cont-disclaimer" style="display:none;font-size:11px;line-height:1.7">
+    <span class="cont-disclaimer-icon">ℹ</span>
+    <span>
+      <strong>Baseline</strong> = Actuals (meses cerrados) + Run Rate + Forecast
+      &nbsp;·&nbsp; <strong>Budget</strong> = Proyección FY27 (Abr'26–Mar'27)
+      &nbsp;·&nbsp; <strong>Forecast</strong> = Actuals + Forecast
+      &nbsp;·&nbsp; <strong>Last Run Rate</strong> = Run Rate de la proyección anterior
     </span>
   </div>
 
@@ -727,6 +753,7 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
       <button class="cnt-btn" type="button" onclick="selectB2BCountry('Paraguay',['Paraguay'])">Paraguay</button>
       <button class="cnt-btn" type="button" onclick="selectB2BCountry('Uruguay',['Uruguay'])">Uruguay</button>
       <button class="cnt-btn" type="button" onclick="selectB2BCountry('Globales',['Globales'])">Globales</button>
+      <button class="cnt-btn pxq-pill" id="cont-stab-pxq-b2b" type="button" onclick="setContableView('pxq')" style="margin-left:8px">PxQ</button>
     </div>
   </div>
 
@@ -743,6 +770,7 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
       <button class="cnt-btn" type="button" onclick="selectB2B2CCountry('Peru',['Peru'])">Peru</button>
       <button class="cnt-btn" type="button" onclick="selectB2B2CCountry('Ecuador',['Ecuador'])">Ecuador</button>
       <button class="cnt-btn" type="button" onclick="selectB2B2CCountry('Rest of Countries',['Other Countries','Otros','Paraguay','Uruguay','Others'])">Rest of Countries</button>
+      <button class="cnt-btn pxq-pill" id="cont-stab-pxq-b2b2c" type="button" onclick="setContableView('pxq')" style="margin-left:8px">PxQ</button>
     </div>
   </div>
 
@@ -764,15 +792,6 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
         <span id="bg-period-label" style="font-size:11px;color:var(--muted)"></span>
       </div>
     </div>
-    <div id="epm-scenario-note" class="cont-disclaimer" style="display:none;font-size:11px;line-height:1.7">
-      <span class="cont-disclaimer-icon">ℹ</span>
-      <span>
-        <strong>Baseline</strong> = Actuals (meses cerrados) + Run Rate + Forecast
-        &nbsp;·&nbsp; <strong>Budget</strong> = Proyección FY27 (Abr'26–Mar'27)
-        &nbsp;·&nbsp; <strong>Forecast</strong> = Actuals + Forecast
-        &nbsp;·&nbsp; <strong>Last Run Rate</strong> = Run Rate de la proyección anterior
-      </span>
-    </div>
     <div class="pnl-card" id="cont-pnl-card">
       <div class="pnl-card-hdr">
         <span class="pnl-card-title" id="bg-period-title">Agrupado por Quarter · FY27</span>
@@ -788,17 +807,17 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
       </div>
     </div>
     <!-- Waterfall debajo del P&L agregado B2B+B2B2C (solo en vista combinada) -->
-    <div id="cont-waterfall-section" style="margin-top:24px;display:none">
+    <div id="cont-waterfall-section" class="pnl-card" style="margin-top:24px;padding:16px 20px 20px;display:none">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
         <div style="font-size:13px;font-weight:700;color:#334155;letter-spacing:.01em">Operating Contribution Bridge · Baseline vs Goal</div>
         <div id="wf-main-selector"></div>
       </div>
-      <div style="position:relative;height:340px"><canvas id="wf-chart-main"></canvas></div>
+      <div style="position:relative;height:340px;max-width:940px;margin:0 auto"><canvas id="wf-chart-main"></canvas></div>
       <div style="display:flex;gap:20px;flex-wrap:wrap;margin-top:14px;font-size:11px;color:#64748B;align-items:center">
-        <span style="display:flex;align-items:center;gap:5px"><span style="width:11px;height:11px;border-radius:2px;background:rgba(123,45,190,.85);display:inline-block"></span>Goal</span>
-        <span style="display:flex;align-items:center;gap:5px"><span style="width:11px;height:11px;border-radius:2px;background:#5457D9;display:inline-block"></span>Baseline</span>
-        <span style="display:flex;align-items:center;gap:5px"><span style="width:11px;height:11px;border-radius:2px;background:rgba(26,127,55,.8);display:inline-block"></span>Mejor que Goal</span>
-        <span style="display:flex;align-items:center;gap:5px"><span style="width:11px;height:11px;border-radius:2px;background:rgba(207,34,46,.8);display:inline-block"></span>Peor que Goal</span>
+        <span style="display:flex;align-items:center;gap:5px"><span style="width:11px;height:11px;border-radius:2px;background:#976cf6;display:inline-block"></span>Goal</span>
+        <span style="display:flex;align-items:center;gap:5px"><span style="width:11px;height:11px;border-radius:2px;background:#550fed;display:inline-block"></span>Baseline</span>
+        <span style="display:flex;align-items:center;gap:5px"><span style="width:11px;height:11px;border-radius:2px;background:#10b132;display:inline-block"></span>Mejor que Goal</span>
+        <span style="display:flex;align-items:center;gap:5px"><span style="width:11px;height:11px;border-radius:2px;background:#e06666;display:inline-block"></span>Peor que Goal</span>
       </div>
     </div>
   </div>
@@ -1057,10 +1076,12 @@ function switchLob(lob){
   if (epmBadge) epmBadge.style.display = (lob === 'contable-epm') ? '' : 'none';
   var goalToggle = document.getElementById('bg-goal-toggle');
   if (goalToggle) goalToggle.style.display = (lob === 'contable-epm') ? 'none' : '';
-  var subtabsTop = document.getElementById('epm-subtabs-top');
+  var subtabsTop = document.getElementById('header-subtabs');
   if (subtabsTop) subtabsTop.style.display = (lob === 'contable-epm') ? 'flex' : 'none';
   var goalTop = document.getElementById('epm-goal-top');
   if (goalTop) goalTop.style.display = (lob === 'contable-epm') ? 'flex' : 'none';
+  var pchips = document.getElementById('bg-period-chips');
+  if (pchips) pchips.style.display = (lob === 'contable-epm') ? 'flex' : 'none';
   var epmBaseLbl = document.getElementById('epm-baseline-label');
   if (epmBaseLbl) epmBaseLbl.style.display = (lob === 'contable-epm') ? '' : 'none';
   var epmNote = document.getElementById('epm-scenario-note');
@@ -1138,9 +1159,12 @@ function _epmGoalLabel(){
 
 function setContableView(view){
   _bgContableView = view;
-  ['combined','b2b','b2b2c','pxq','countries-yoy'].forEach(function(v){
+  ['combined','b2b','b2b2c','countries-yoy'].forEach(function(v){
     var el = document.getElementById('cont-stab-'+v);
     if(el) el.classList.toggle('cont-stab-active', v===view);
+  });
+  document.querySelectorAll('.pxq-pill').forEach(function(el){
+    el.classList.toggle('cont-stab-active', view==='pxq');
   });
   var _pxqSec = document.getElementById('cont-pxq-sec');
   var _yoySec = document.getElementById('cont-countries-yoy-sec');
@@ -1166,6 +1190,28 @@ function setContableView(view){
   var filtersRow = document.getElementById('cont-filters-row');
   var pnlCard   = document.getElementById('cont-pnl-card');
   var wfSec     = document.getElementById('cont-waterfall-section');
+  // Vista Combinada usa #bg-country-blocks (B2B + B2B2C lado a lado, con gráficos mensuales).
+  // Al salir de Combinada hay que limpiarlo YA (síncrono) — si no, queda mostrando el bloque
+  // viejo (ej. B2B) superpuesto al panel nuevo hasta que el fetch debounced lo repueble.
+  if(view !== 'combined') {
+    var bgBlocks = document.getElementById('bg-country-blocks');
+    if(bgBlocks) {
+      _contLobCharts.forEach(function(c){ try{ c.destroy(); }catch(e){} });
+      _contLobCharts = [];
+      bgBlocks.innerHTML = '';
+    }
+    // Idem #bg-charts-section (gráficos de evolución mensual "Total"): ocultarlo YA si la
+    // vista destino no trae chart propio (B2B2C no lo trae) — si no, queda el de Combinada
+    // (con LY) pegado hasta que renderContableCharts() lo pise.
+    var chartsSec = document.getElementById('bg-charts-section');
+    var chartsGrid = document.getElementById('bg-charts-grid');
+    if(chartsSec && view === 'b2b2c') {
+      _contCharts.forEach(function(c){ try{ c.destroy(); }catch(e){} });
+      _contCharts = [];
+      if(chartsGrid) chartsGrid.innerHTML = '';
+      chartsSec.style.display = 'none';
+    }
+  }
   if(view === 'b2b') {
     if(nav) nav.style.display = '';
     if(nav2c) nav2c.style.display = 'none';
@@ -1447,18 +1493,18 @@ function renderWaterfallChart_(canvasId, bridge) {
   var M = 1e6;
   var labels  = ['Goal'];
   var barData = [[0, bridge.goalOC / M]];
-  var colors  = ['rgba(123,45,190,.85)'];
+  var colors  = ['#976cf6'];
 
   var cum = bridge.goalOC;
   bridge.steps.forEach(function(step) {
     labels.push(step.label);
     barData.push([cum / M, (cum + step.delta) / M]);
-    colors.push(step.delta >= 0 ? 'rgba(26,127,55,.8)' : 'rgba(207,34,46,.8)');
+    colors.push(step.delta >= 0 ? '#10b132' : '#e06666');
     cum += step.delta;
   });
   labels.push('Baseline');
   barData.push([0, bridge.baselineOC / M]);
-  colors.push('#5457D9');
+  colors.push('#550fed');
 
   var wfLabelPlugin = {
     id: 'wfLabels',
@@ -1477,7 +1523,7 @@ function renderWaterfallChart_(canvasId, bridge) {
         var text = isEndBar ? fmtM(raw * M) : ((raw >= 0 ? '+' : '') + fmtM(raw * M));
         var barH = Math.abs(bar.base - bar.y);
         var cy   = (bar.y + bar.base) / 2;
-        ctx.font = 'bold 9px system-ui,sans-serif';
+        ctx.font = 'bold 11px system-ui,sans-serif';
         if (barH >= 16) {
           ctx.fillStyle = '#fff';
           ctx.textBaseline = 'middle';
@@ -1504,7 +1550,7 @@ function renderWaterfallChart_(canvasId, bridge) {
       if (!goalBar || !baseBar) return;
 
       var delta  = bridge.baselineOC - bridge.goalOC;
-      var color  = delta >= 0 ? '#1a7f37' : '#cf222e';
+      var color  = delta >= 0 ? '#10b132' : '#e06666';
       var x1     = goalBar.x;
       var x2     = baseBar.x;
       // Fixed position in the top-padding space, above the chart area
@@ -1537,7 +1583,7 @@ function renderWaterfallChart_(canvasId, bridge) {
 
       // delta label centered above the horizontal line
       var label = (delta >= 0 ? '+' : '') + fmtM(delta);
-      ctx.font = 'bold 10px system-ui,sans-serif';
+      ctx.font = 'bold 12px system-ui,sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'bottom';
       ctx.fillText(label, (x1 + x2) / 2, arrowY - 5);
@@ -1585,8 +1631,8 @@ function renderWaterfallChart_(canvasId, bridge) {
         }
       },
       scales: {
-        x: {grid: {display:false}, ticks: {font:{size:10}, maxRotation:35}},
-        y: {ticks: {callback: function(v){ return fmtM(v * M); }, font:{size:10}}}
+        x: {grid: {display:false}, ticks: {font:{size:11}, maxRotation:35}},
+        y: {ticks: {callback: function(v){ return fmtM(v * M); }, font:{size:11}}}
       }
     }
   });
@@ -1947,6 +1993,7 @@ var _contableData = null;
 var _bgData           = null;
 var _bgTimer          = null;
 var _bgPeriodMode     = 'q';          // 'q' = quarterly, 'h' = half (H1/H2)
+var _bgPeriodSel      = null;          // array de meses/quarters/halves puntuales elegidos, o null = todos
 var _bgContableView   = 'combined';   // 'combined' | 'b2b' | 'b2b2c'
 var _bgGoalSource       = 'budget';     // vista "Model+Accounting": 'budget' | 'epm'
 var _epmGoalSource      = 'budget';     // vista "P&L Accounting" (EPM): 'budget' | 'forecast' | 'runrate' | 'lastrunrate'
@@ -2016,10 +2063,60 @@ function toggleQSec(secId, tableId){
 var Q_LABEL_BG = {'Total FY27':'FY27 Total','H1 FY27':'H1 FY\'27','H2 FY27':'H2 FY\'27'};
 function qlBG(q){ return Q_LABEL_BG[q]||q; }
 
+function _filterPeriods_(full){
+  if(!_bgPeriodSel || !_bgPeriodSel.length) return full.slice();
+  var f = full.filter(function(p){ return _bgPeriodSel.indexOf(p) >= 0; });
+  return f.length ? f : full.slice();
+}
+
 function getActivePeriods_(dQuarters){
-  if(_bgPeriodMode === 'h') return ['H1 FY27','H2 FY27','Total FY27'];
-  if(_bgPeriodMode === 'm') return ALL_MONTHS_ORD_BG;
-  return dQuarters;
+  if(_bgPeriodMode === 'm') return _filterPeriods_(ALL_MONTHS_ORD_BG);
+  var full, totalLabel;
+  if(_bgPeriodMode === 'h'){ full = ['H1 FY27','H2 FY27']; totalLabel = 'Total FY27'; }
+  else { full = dQuarters.slice(0, -1); totalLabel = dQuarters[dQuarters.length-1]; }
+  return _filterPeriods_(full).concat([totalLabel]);
+}
+
+var MONTH_CHIP_LABELS_BG = {
+  'Abr-26':'Abr','May-26':'May','Jun-26':'Jun','Jul-26':'Jul','Ago-26':'Ago','Sep-26':'Sep',
+  'Oct-26':'Oct','Nov-26':'Nov','Dic-26':'Dic','Ene-27':'Ene','Feb-27':'Feb','Mar-27':'Mar'
+};
+
+function renderBGPeriodChips_(){
+  var wrap = document.getElementById('bg-period-chips');
+  if(!wrap) return;
+  var items;
+  if(_bgPeriodMode === 'm') items = ALL_MONTHS_ORD_BG.map(function(p){ return {v:p, l: MONTH_CHIP_LABELS_BG[p]||p}; });
+  else if(_bgPeriodMode === 'q') items = ['Q1 FY27','Q2 FY27','Q3 FY27','Q4 FY27'].map(function(p){ return {v:p, l:p.split(' ')[0]}; });
+  else items = ['H1 FY27','H2 FY27'].map(function(p){ return {v:p, l:p.split(' ')[0]}; });
+  var allActive = !_bgPeriodSel || !_bgPeriodSel.length;
+  var html = '<button type="button" class="bg-pchip'+(allActive?' bg-pchip-active':'')+'" onclick="clearBGPeriodSel_()">Todos</button>';
+  items.forEach(function(it){
+    var sel = !allActive && _bgPeriodSel.indexOf(it.v) >= 0;
+    html += '<button type="button" class="bg-pchip'+(sel?' bg-pchip-active':'')+'" onclick="toggleBGPeriodChip_(\''+it.v+'\')">'+it.l+'</button>';
+  });
+  wrap.innerHTML = html;
+}
+
+function toggleBGPeriodChip_(period){
+  if(!_bgPeriodSel) _bgPeriodSel = [];
+  var i = _bgPeriodSel.indexOf(period);
+  if(i>=0) _bgPeriodSel.splice(i,1); else _bgPeriodSel.push(period);
+  if(!_bgPeriodSel.length) _bgPeriodSel = null;
+  renderBGPeriodChips_();
+  _refreshBGViews_();
+}
+
+function clearBGPeriodSel_(){
+  _bgPeriodSel = null;
+  renderBGPeriodChips_();
+  _refreshBGViews_();
+}
+
+function _refreshBGViews_(){
+  if(_bgData){ renderBaselineGoalTable(_bgData); renderCountryPnlBlocks(_bgData); renderContableCharts(_bgData); }
+  if(_b2bCountryData   && _bgContableView === 'b2b')   renderB2BCountryDetail(_b2bCountryData);
+  if(_b2b2cCountryData && _bgContableView === 'b2b2c') renderB2B2CCountryDetail(_b2b2cCountryData);
 }
 
 function _modeData_(data){
@@ -2040,6 +2137,7 @@ function enrichWithHalves_(qMap){
 
 function setBGPeriod(mode){
   _bgPeriodMode = mode;
+  _bgPeriodSel  = null;
   document.getElementById('btn-period-q').classList.toggle('prd-active', mode==='q');
   document.getElementById('btn-period-h').classList.toggle('prd-active', mode==='h');
   document.getElementById('btn-period-m').classList.toggle('prd-active', mode==='m');
@@ -2047,9 +2145,8 @@ function setBGPeriod(mode){
     mode==='h' ? 'Agrupado por Semestre · FY27' :
     mode==='m' ? 'Agrupado por Mes · FY27' :
                  'Agrupado por Quarter · FY27';
-  if(_bgData){ renderBaselineGoalTable(_bgData); renderCountryPnlBlocks(_bgData); renderContableCharts(_bgData); }
-  if(_b2bCountryData   && _bgContableView === 'b2b')   renderB2BCountryDetail(_b2bCountryData);
-  if(_b2b2cCountryData && _bgContableView === 'b2b2c') renderB2B2CCountryDetail(_b2b2cCountryData);
+  renderBGPeriodChips_();
+  _refreshBGViews_();
 }
 
 function buildBGScenHead(n){
@@ -2877,7 +2974,8 @@ function appendLobWaterfall_(container, lobName, data, splitPalancas) {
   var cvId = 'wf-' + lobKey + '-main';
 
   var wfDiv = document.createElement('div');
-  wfDiv.style.cssText = 'margin:0 0 28px;padding:16px 20px 20px;background:var(--card);border-radius:12px;border:1px solid var(--border)';
+  wfDiv.className = 'pnl-card';
+  wfDiv.style.cssText = 'margin:0 0 28px;padding:16px 20px 20px';
 
   var headerDiv = document.createElement('div');
   headerDiv.style.cssText = 'display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px';
@@ -2891,7 +2989,7 @@ function appendLobWaterfall_(container, lobName, data, splitPalancas) {
   wfDiv.appendChild(headerDiv);
 
   var wrap = document.createElement('div');
-  wrap.style.cssText = 'position:relative;height:300px';
+  wrap.style.cssText = 'position:relative;height:300px;max-width:940px;margin:0 auto';
   var canvas = document.createElement('canvas');
   canvas.id = cvId;
   wrap.appendChild(canvas);
@@ -2900,10 +2998,10 @@ function appendLobWaterfall_(container, lobName, data, splitPalancas) {
   var legendDiv = document.createElement('div');
   legendDiv.style.cssText = 'display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;font-size:10px;color:#64748B;align-items:center';
   legendDiv.innerHTML =
-    '<span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:rgba(123,45,190,.85);display:inline-block"></span>Goal</span>' +
-    '<span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:#5457D9;display:inline-block"></span>Baseline</span>' +
-    '<span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:rgba(26,127,55,.8);display:inline-block"></span>Mejor que Goal</span>' +
-    '<span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:rgba(207,34,46,.8);display:inline-block"></span>Peor que Goal</span>';
+    '<span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:#976cf6;display:inline-block"></span>Goal</span>' +
+    '<span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:#550fed;display:inline-block"></span>Baseline</span>' +
+    '<span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:#10b132;display:inline-block"></span>Mejor que Goal</span>' +
+    '<span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:#e06666;display:inline-block"></span>Peor que Goal</span>';
   wfDiv.appendChild(legendDiv);
 
   var footnoteDiv = document.createElement('div');
@@ -3112,6 +3210,7 @@ function renderCountryPnlBlocks(d){
 }
 
 initMsDropdowns();
+renderBGPeriodChips_();
 </script>
 </body>
 </html>
