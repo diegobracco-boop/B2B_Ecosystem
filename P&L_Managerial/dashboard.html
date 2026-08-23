@@ -34,9 +34,20 @@ header{
 
 /* ── LOB switcher ─────────────────────────────────────────────── */
 .lob-switcher{
-  background:#0f0a1e;border-bottom:1px solid rgba(124,58,237,.3);
-  padding:8px 28px;display:flex;gap:8px;position:sticky;top:72px;z-index:300;
+  background:#D8C7FF;border-bottom:1px solid rgba(124,58,237,.3);
+  padding:8px 28px;display:flex;flex-direction:column;gap:6px;position:sticky;top:110px;z-index:290;
 }
+.mg-selectors-row{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.mg-selectors-row .fg label{color:var(--muted);font-size:11px;text-transform:none;font-weight:700;letter-spacing:normal}
+.mg-selectors-row .ms-btn{background:rgba(124,58,237,.08);border-color:rgba(124,58,237,.3);color:var(--text)}
+.mg-selectors-row .ms-btn:hover,.mg-selectors-row .ms-wrap.open .ms-btn{background:rgba(124,58,237,.18);border-color:#7C3AED}
+.bg-pchip{
+  background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.3);
+  color:var(--muted);border-radius:14px;padding:3px 11px;
+  font-size:10.5px;font-weight:700;cursor:pointer;transition:all .15s;font-family:inherit;
+}
+.bg-pchip:hover{background:rgba(124,58,237,.2);color:var(--text)}
+.bg-pchip.bg-pchip-active{background:#7C3AED;color:#fff;border-color:#7C3AED}
 .lob-btn{
   background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.35);
   color:rgba(255,255,255,.8);border-radius:22px;padding:7px 26px;
@@ -61,13 +72,15 @@ header{
 
 /* ── País chip selector ───────────────────────────────────────── */
 .pais-chips{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+#pais-chips{display:grid;grid-template-columns:repeat(5,auto);grid-auto-flow:row;gap:4px}
+#produto-chips{display:grid;grid-template-columns:repeat(3,auto);grid-auto-flow:row;gap:4px}
 .pais-chip{
-  background:rgba(255,255,255,.07);border:1px solid rgba(196,181,253,.2);
-  color:rgba(196,181,253,.7);border-radius:16px;padding:4px 13px;
+  background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.3);
+  color:var(--muted);border-radius:16px;padding:4px 13px;
   cursor:pointer;font-size:11px;font-weight:700;letter-spacing:.03em;
   transition:all .15s;font-family:inherit;white-space:nowrap;
 }
-.pais-chip:hover{background:rgba(124,58,237,.25);color:#fff;border-color:rgba(124,58,237,.6)}
+.pais-chip:hover{background:rgba(124,58,237,.2);color:var(--text)}
 .pais-chip.pais-chip-active{background:#7C3AED;color:#fff;border-color:#7C3AED}
 
 /* ── Chart range toggle ───────────────────────────────────────── */
@@ -89,9 +102,9 @@ header{
 /* ── Filters bar ─────────────────────────────────────────────── */
 .filters-bar{
   background:linear-gradient(90deg,#1E1B4B 0%,#2D2A6E 100%);
-  border-bottom:2px solid rgba(124,58,237,.4);
-  padding:10px 28px;display:flex;gap:20px;flex-wrap:wrap;align-items:flex-end;
+  padding:0 28px;display:flex;gap:20px;flex-wrap:wrap;align-items:flex-end;
 }
+.filters-bar.loading{padding:10px 28px;border-bottom:2px solid rgba(124,58,237,.4)}
 .fg{display:flex;flex-direction:column;gap:5px;position:relative}
 .fg label{font-size:9px;font-weight:800;color:rgba(196,181,253,.7);text-transform:uppercase;letter-spacing:.1em}
 
@@ -341,9 +354,15 @@ body.ly-active .v-ly{display:block}
 
 /* graficos country sub-tabs */
 .gtab-bar{background:#0f0a1e;border-radius:8px;padding:6px 10px;display:flex;gap:4px;flex-wrap:wrap;margin-bottom:14px}
-.gtab-btn{background:rgba(255,255,255,.07);border:1px solid rgba(196,181,253,.2);color:rgba(196,181,253,.7);border-radius:6px;padding:4px 14px;cursor:pointer;font-size:11px;font-weight:700;letter-spacing:.04em;transition:all .15s}
-.gtab-btn:hover{background:rgba(124,58,237,.25);color:#fff}
+.gtab-btn{
+  background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.3);
+  color:var(--muted);border-radius:16px;padding:4px 13px;
+  cursor:pointer;font-size:11px;font-weight:700;letter-spacing:.03em;
+  transition:all .15s;font-family:inherit;white-space:nowrap;
+}
+.gtab-btn:hover{background:rgba(124,58,237,.2);color:var(--text)}
 .gtab-btn.active{background:#7C3AED;color:#fff;border-color:#7C3AED}
+#gtab-chips{display:grid;grid-template-columns:repeat(5,auto);grid-auto-flow:row;gap:4px}
 .gpartner-chip{display:inline-flex;align-items:center;padding:3px 10px;border-radius:14px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid rgba(124,58,237,.3);background:rgba(124,58,237,.07);color:var(--navy3);transition:all .12s}
 .gpartner-chip:hover{background:rgba(124,58,237,.15)}
 .gpartner-chip.active{background:#7C3AED;color:#fff;border-color:#7C3AED}
@@ -368,19 +387,19 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
 
 /* ── Tabs ────────────────────────────────────────────────────── */
 .tab-bar{
-  background:#1E1B4B;padding:0 28px;
-  border-bottom:2px solid rgba(124,58,237,.3);
+  background:#976CF6;padding:0 28px;
+  border-bottom:2px solid rgba(91,33,182,.3);
   display:flex;gap:0;
-  position:sticky;top:113px;z-index:298;
+  position:sticky;top:72px;z-index:298;
 }
 .tab-btn{
   background:none;border:none;border-bottom:3px solid transparent;
-  color:rgba(196,181,253,.55);padding:11px 22px;
+  color:rgba(255,255,255,.7);padding:11px 22px;
   font-size:11px;font-weight:700;cursor:pointer;
   letter-spacing:.06em;text-transform:uppercase;transition:all .15s;
 }
-.tab-btn:hover{color:#C4B5FD}
-.tab-btn.active{color:#C4B5FD;border-bottom-color:#A78BFA}
+.tab-btn:hover{color:#fff}
+.tab-btn.active{color:#fff;border-bottom-color:#2D1269}
 .tab-pane{display:none}
 .tab-pane.active{display:block}
 
@@ -613,8 +632,8 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
     <div class="logo-sub">Finance Dashboard · FY27</div>
   </div>
   <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;gap:6px;align-items:center">
-    <button class="lob-btn active" id="lob-b2b2c" onclick="switchLob('b2b2c')">B2B2C · Managerial View</button>
     <button class="lob-btn" id="lob-b2b" onclick="switchLob('b2b')">B2B · Managerial View</button>
+    <button class="lob-btn active" id="lob-b2b2c" onclick="switchLob('b2b2c')">B2B2C · Managerial View</button>
   </div>
   <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
     <span id="last-upd"></span>
@@ -623,81 +642,82 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
   </div>
 </header>
 
-<div class="lob-switcher" style="align-items:center;flex-wrap:wrap">
-  <span style="font-size:11px;color:rgba(196,181,253,.7);font-weight:700">Baseline:</span>
-  <div class="prd-toggle" id="baseline-switcher">
-    <button class="prd-btn prd-active" id="bl-btn-bl" onclick="setBaselineSource('bl')">Actuals + Projections</button>
-    <button class="prd-btn" id="bl-btn-vr" onclick="setBaselineSource('vr')">Projection Reviews</button>
-  </div>
-  <span style="width:1px;height:18px;background:rgba(255,255,255,.2);margin:0 6px"></span>
-  <span style="font-size:11px;color:rgba(196,181,253,.7);font-weight:700">Goal:</span>
-  <div class="prd-toggle">
-    <button id="mg-goal-budget"   class="prd-btn prd-active" type="button" onclick="setMGGoal('budget')">Budget</button>
-    <button id="mg-goal-forecast" class="prd-btn"            type="button" onclick="setMGGoal('forecast')">Forecast</button>
-    <button id="mg-goal-ly"       class="prd-btn"            type="button" onclick="setMGGoal('ly')">Last Year</button>
-  </div>
-  <span style="width:1px;height:18px;background:rgba(255,255,255,.2);margin:0 6px"></span>
-  <div class="prd-toggle">
-    <button id="mg-period-m" class="prd-btn"            type="button" onclick="setMGPeriod('month')">Mes</button>
-    <button id="mg-period-q" class="prd-btn prd-active" type="button" onclick="setMGPeriod('quarter')">Quarter</button>
-    <button id="mg-period-h" class="prd-btn"            type="button" onclick="setMGPeriod('half')">Half</button>
-  </div>
-  <div class="prd-toggle">
-    <button class="prd-btn detalle-metric-btn prd-active" type="button" onclick="switchDetalleMetric('gb',this)">Gross Bookings</button>
-    <button class="prd-btn detalle-metric-btn"            type="button" onclick="switchDetalleMetric('nr',this)">Net Revenue</button>
-    <button class="prd-btn detalle-metric-btn"            type="button" onclick="switchDetalleMetric('npv',this)">FVM</button>
-  </div>
-  <div class="dt-switcher hidden" id="dt-switcher" style="margin-left:auto">
-    <button class="dt-btn active" id="dt-gd" onclick="switchDateType('gd')">GD</button>
-    <button class="dt-btn" id="dt-ri" onclick="switchDateType('ri')">RI</button>
-  </div>
-</div>
-
 <div class="tab-bar" id="normal-tab-bar" style="flex-wrap:wrap;align-items:center">
   <button class="tab-btn active" id="tab-baseline" onclick="switchTab('baseline')">P&amp;L - Managerial View</button>
-  <button class="tab-btn" id="tab-graficos" onclick="switchTab('graficos')">Gráficos</button>
+  <button class="tab-btn" id="tab-graficos" onclick="switchTab('graficos')">Trend view</button>
   <button class="tab-btn" id="tab-detalle" onclick="switchTab('detalle')">Detalle</button>
-  <!-- País/Producto chips: visible cuando el tab P&L está activo -->
-  <div id="pnl-country-nav" style="display:flex;flex-direction:column;gap:3px;align-items:flex-start;padding:4px 8px;border-left:1px solid rgba(124,58,237,.3);margin-left:4px">
-    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-      <span style="font-size:9px;font-weight:800;color:rgba(196,181,253,.55);text-transform:uppercase;letter-spacing:.1em;white-space:nowrap">País</span>
+</div>
+
+<div class="lob-switcher">
+  <div class="mg-selectors-row">
+    <div class="prd-toggle">
+      <button id="mg-period-m" class="prd-btn"            type="button" onclick="setMGPeriod('month')">Mes</button>
+      <button id="mg-period-q" class="prd-btn prd-active" type="button" onclick="setMGPeriod('quarter')">Quarter</button>
+      <button id="mg-period-h" class="prd-btn"            type="button" onclick="setMGPeriod('half')">Half</button>
+    </div>
+    <span style="width:1px;height:18px;background:rgba(0,0,0,.15);margin:0 6px"></span>
+    <span style="font-size:11px;color:var(--muted);font-weight:700">Baseline:</span>
+    <div class="prd-toggle" id="baseline-switcher">
+      <button class="prd-btn prd-active" id="bl-btn-bl" onclick="setBaselineSource('bl')">Actuals + Projections</button>
+      <button class="prd-btn" id="bl-btn-vr" onclick="setBaselineSource('vr')">Projection Reviews</button>
+    </div>
+    <span style="width:1px;height:18px;background:rgba(0,0,0,.15);margin:0 6px"></span>
+    <span style="font-size:11px;color:var(--muted);font-weight:700">Goal:</span>
+    <div class="prd-toggle">
+      <button id="mg-goal-budget"   class="prd-btn prd-active" type="button" onclick="setMGGoal('budget')">Budget</button>
+      <button id="mg-goal-forecast" class="prd-btn"            type="button" onclick="setMGGoal('forecast')">Forecast</button>
+      <button id="mg-goal-ly"       class="prd-btn"            type="button" onclick="setMGGoal('ly')">Last Year</button>
+    </div>
+    <span style="width:1px;height:18px;background:rgba(0,0,0,.15);margin:0 6px"></span>
+    <!-- País/Producto chips: visible cuando el tab P&L está activo -->
+    <div id="pnl-country-nav" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+      <span style="font-size:11px;color:var(--muted);font-weight:700">País:</span>
       <div class="pais-chips" id="pais-chips"></div>
+      <div id="pnl-produto-row" style="display:none;align-items:center;gap:6px;flex-wrap:wrap">
+        <span style="font-size:11px;color:var(--muted);font-weight:700;margin-left:6px">Prod.:</span>
+        <div class="pais-chips" id="produto-chips"></div>
+      </div>
     </div>
-    <div id="pnl-produto-row" style="display:none;align-items:center;gap:6px;flex-wrap:wrap">
-      <span style="font-size:9px;font-weight:800;color:rgba(196,181,253,.55);text-transform:uppercase;letter-spacing:.1em;white-space:nowrap">Prod.</span>
-      <div class="pais-chips" id="produto-chips"></div>
+    <!-- Country sub-tabs (Trend view, shown when graficos tab is active) -->
+    <div id="graficos-country-nav" style="display:none;align-items:center;gap:6px;flex-wrap:wrap">
+      <span style="font-size:11px;color:var(--muted);font-weight:700">País:</span>
+      <div class="pais-chips" id="gtab-chips">
+        <button class="gtab-btn active" id="gtab-total"     type="button" onclick="switchGTab('total')">Total</button>
+        <button class="gtab-btn"        id="gtab-brasil"    type="button" onclick="switchGTab('brasil')">Brasil</button>
+        <button class="gtab-btn"        id="gtab-mexico"    type="button" onclick="switchGTab('mexico')">México</button>
+        <button class="gtab-btn"        id="gtab-argentina" type="button" onclick="switchGTab('argentina')">Argentina</button>
+        <button class="gtab-btn"        id="gtab-colombia"  type="button" onclick="switchGTab('colombia')">Colombia</button>
+        <button class="gtab-btn"        id="gtab-chile"     type="button" onclick="switchGTab('chile')">Chile</button>
+        <button class="gtab-btn"        id="gtab-peru"      type="button" onclick="switchGTab('peru')">Perú</button>
+        <button class="gtab-btn"        id="gtab-ecuador"   type="button" onclick="switchGTab('ecuador')">Ecuador</button>
+        <button class="gtab-btn"        id="gtab-other"     type="button" onclick="switchGTab('other')">Other Countries</button>
+      </div>
+    </div>
+    <span style="width:1px;height:18px;background:rgba(0,0,0,.15);margin:0 6px"></span>
+    <!-- Partner (B2B2C only) -->
+    <div class="fg normal-filter" id="fg-partner" style="flex-direction:row;align-items:center;gap:6px">
+      <label style="margin:0">Partner</label>
+      <div class="ms-wrap" id="ms-partner">
+        <button class="ms-btn" type="button">
+          <span class="ms-label">Todos</span>
+          <span class="ms-arrow">▾</span>
+        </button>
+        <div class="ms-panel">
+          <div class="ms-search"><input type="text" placeholder="Buscar…" oninput="filterOptions('ms-partner',this.value)"></div>
+          <div class="ms-options"></div>
+          <div class="ms-footer"><button class="ms-clear" type="button" onclick="clearMs('ms-partner')">Limpiar selección</button></div>
+        </div>
+      </div>
+    </div>
+    <div class="dt-switcher hidden" id="dt-switcher" style="margin-left:auto">
+      <button class="dt-btn active" id="dt-gd" onclick="switchDateType('gd')">GD</button>
+      <button class="dt-btn" id="dt-ri" onclick="switchDateType('ri')">RI</button>
     </div>
   </div>
-  <!-- Country sub-tabs (B2B2C only, shown when graficos tab is active) -->
-  <div id="graficos-country-nav" style="display:none;align-items:center;gap:4px;padding:0 8px;border-left:1px solid rgba(124,58,237,.3);margin-left:4px;flex-wrap:wrap">
-    <button class="gtab-btn active" id="gtab-total"     type="button" onclick="switchGTab('total')">Total</button>
-    <button class="gtab-btn"        id="gtab-brasil"    type="button" onclick="switchGTab('brasil')">Brasil</button>
-    <button class="gtab-btn"        id="gtab-mexico"    type="button" onclick="switchGTab('mexico')">México</button>
-    <button class="gtab-btn"        id="gtab-argentina" type="button" onclick="switchGTab('argentina')">Argentina</button>
-    <button class="gtab-btn"        id="gtab-colombia"  type="button" onclick="switchGTab('colombia')">Colombia</button>
-    <button class="gtab-btn"        id="gtab-chile"     type="button" onclick="switchGTab('chile')">Chile</button>
-    <button class="gtab-btn"        id="gtab-peru"      type="button" onclick="switchGTab('peru')">Perú</button>
-    <button class="gtab-btn"        id="gtab-ecuador"   type="button" onclick="switchGTab('ecuador')">Ecuador</button>
-    <button class="gtab-btn"        id="gtab-other"     type="button" onclick="switchGTab('other')">Other Countries</button>
-  </div>
+  <div id="mg-period-chips" style="display:flex;flex-wrap:wrap;gap:6px"></div>
 </div>
 
 <div class="filters-bar">
-  <!-- Partner (B2B2C only) -->
-  <div class="fg normal-filter" id="fg-partner">
-    <label>Partner</label>
-    <div class="ms-wrap" id="ms-partner">
-      <button class="ms-btn" type="button">
-        <span class="ms-label">Todos</span>
-        <span class="ms-arrow">▾</span>
-      </button>
-      <div class="ms-panel">
-        <div class="ms-search"><input type="text" placeholder="Buscar…" oninput="filterOptions('ms-partner',this.value)"></div>
-        <div class="ms-options"></div>
-        <div class="ms-footer"><button class="ms-clear" type="button" onclick="clearMs('ms-partner')">Limpiar selección</button></div>
-      </div>
-    </div>
-  </div>
   <div class="fg normal-filter" id="fg-canal" style="display:none">
     <label>Canal</label>
     <div style="display:flex;gap:6px">
@@ -727,6 +747,11 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
 
   <!-- ── Detalle ───────────────────────────────────────────────────────────── -->
   <div class="tab-pane" id="pane-detalle">
+    <div class="prd-toggle" style="margin-bottom:12px">
+      <button class="prd-btn detalle-metric-btn prd-active" type="button" onclick="switchDetalleMetric('gb',this)">Gross Bookings</button>
+      <button class="prd-btn detalle-metric-btn"            type="button" onclick="switchDetalleMetric('nr',this)">Net Revenue</button>
+      <button class="prd-btn detalle-metric-btn"            type="button" onclick="switchDetalleMetric('npv',this)">FVM</button>
+    </div>
     <div class="pnl-card" style="overflow:auto;max-height:calc(100vh - 300px)">
       <table class="detalle-table" id="detalle-table">
         <thead id="detalle-head"></thead>
@@ -763,6 +788,7 @@ var _paisSelected = [];           // [] = todos; otherwise array of selected cou
 var _mgSecState = {};             // secId → true = collapsed
 var _managerialGoal = 'budget';   // 'budget' | 'forecast' | 'ly'
 var _managerialBGPeriod = 'quarter'; // 'month' | 'quarter' | 'half'
+var _mgPeriodSel = null;             // array de meses/quarters/halves puntuales elegidos, o null = todos
 var _gActiveTab = 'total';        // 'total'|'brasil'|'mexico'|'argentina'|'colombia'|'chile'|'peru'|'ecuador'|'other'
 var _gSelectedPartners = [];      // [] = all; otherwise list of selected partner names
 
@@ -845,7 +871,23 @@ function switchTab(name){
   updateProductoFilterVis_();
   if(name === 'baseline' && _data) renderManagerialBGTable();
   if(name === 'detalle' && _data) renderDetalle();
+  _updateStickyOffsets_();
 }
+
+// ── Offsets dinámicos de las barras sticky (header → tab-bar → lob-switcher) ──
+// Evita el bug de superposición: la altura de cada barra puede variar (fila de
+// país/producto, sub-tabs de país en Trend view, wrap de chips), así que en vez
+// de "top" fijos en CSS, se recalculan en runtime.
+function _updateStickyOffsets_(){
+  var header = document.querySelector('header');
+  var tabBar = document.getElementById('normal-tab-bar');
+  var lobSwitcher = document.querySelector('.lob-switcher');
+  if(!header || !tabBar || !lobSwitcher) return;
+  var hH = header.offsetHeight;
+  tabBar.style.top = hH + 'px';
+  lobSwitcher.style.top = (hH + tabBar.offsetHeight) + 'px';
+}
+window.addEventListener('resize', _updateStickyOffsets_);
 
 // ── Section collapsed state ────────────────────────────────────────────────
 var _secState = {}; // secId → true (collapsed)
@@ -1905,11 +1947,58 @@ function mgAggPeriod_(data, months){
   return out;
 }
 
+function _mgFilterPeriods_(full){
+  if(!_mgPeriodSel || !_mgPeriodSel.length) return full.slice();
+  var f = full.filter(function(p){ return _mgPeriodSel.indexOf(p) >= 0; });
+  return f.length ? f : full.slice();
+}
+
 function mgGetPeriods_(){
   var mode = _managerialBGPeriod;
-  if(mode === 'month') return (_data.months||[]).concat(['Total FY27']);
-  if(mode === 'half')  return ['H1 FY27','H2 FY27','Total FY27'];
-  return ['Q1 FY27','Q2 FY27','Q3 FY27','Q4 FY27','Total FY27'];
+  if(mode === 'month') return _mgFilterPeriods_(_data.months||[]).concat(['Total FY27']);
+  if(mode === 'half')  return _mgFilterPeriods_(['H1 FY27','H2 FY27']).concat(['Total FY27']);
+  return _mgFilterPeriods_(['Q1 FY27','Q2 FY27','Q3 FY27','Q4 FY27']).concat(['Total FY27']);
+}
+
+var MG_MONTH_CHIP_LABELS = {
+  'Abr-26':'Abr','May-26':'May','Jun-26':'Jun','Jul-26':'Jul','Ago-26':'Ago','Sep-26':'Sep',
+  'Oct-26':'Oct','Nov-26':'Nov','Dic-26':'Dic','Ene-27':'Ene','Feb-27':'Feb','Mar-27':'Mar'
+};
+
+function renderMGPeriodChips_(){
+  var wrap = document.getElementById('mg-period-chips');
+  if(!wrap) return;
+  var items;
+  if(_managerialBGPeriod === 'month') items = (_data && _data.months ? _data.months : MG_MONTHS_ORD).map(function(p){ return {v:p, l: MG_MONTH_CHIP_LABELS[p]||p}; });
+  else if(_managerialBGPeriod === 'half') items = ['H1 FY27','H2 FY27'].map(function(p){ return {v:p, l:p.split(' ')[0]}; });
+  else items = ['Q1 FY27','Q2 FY27','Q3 FY27','Q4 FY27'].map(function(p){ return {v:p, l:p.split(' ')[0]}; });
+  var allActive = !_mgPeriodSel || !_mgPeriodSel.length;
+  var html = '<button type="button" class="bg-pchip'+(allActive?' bg-pchip-active':'')+'" onclick="clearMGPeriodSel_()">Todos</button>';
+  items.forEach(function(it){
+    var sel = !allActive && _mgPeriodSel.indexOf(it.v) >= 0;
+    html += '<button type="button" class="bg-pchip'+(sel?' bg-pchip-active':'')+'" onclick="toggleMGPeriodChip_(\''+it.v+'\')">'+it.l+'</button>';
+  });
+  wrap.innerHTML = html;
+}
+
+function _mgRefreshViews_(){
+  if(document.getElementById('tab-baseline').classList.contains('active') && _data) renderManagerialBGTable();
+  if(document.getElementById('tab-detalle').classList.contains('active') && _data) renderDetalle();
+}
+
+function toggleMGPeriodChip_(period){
+  if(!_mgPeriodSel) _mgPeriodSel = [];
+  var i = _mgPeriodSel.indexOf(period);
+  if(i>=0) _mgPeriodSel.splice(i,1); else _mgPeriodSel.push(period);
+  if(!_mgPeriodSel.length) _mgPeriodSel = null;
+  renderMGPeriodChips_();
+  _mgRefreshViews_();
+}
+
+function clearMGPeriodSel_(){
+  _mgPeriodSel = null;
+  renderMGPeriodChips_();
+  _mgRefreshViews_();
 }
 function mgGoalPeriodLabel_(p){
   if(_managerialGoal !== 'ly') return p;
@@ -1931,11 +2020,12 @@ function setMGGoal(goal){
 
 function setMGPeriod(mode){
   _managerialBGPeriod = mode;
+  _mgPeriodSel = null;
   document.getElementById('mg-period-m').classList.toggle('prd-active', mode === 'month');
   document.getElementById('mg-period-q').classList.toggle('prd-active', mode === 'quarter');
   document.getElementById('mg-period-h').classList.toggle('prd-active', mode === 'half');
-  if(document.getElementById('tab-baseline').classList.contains('active') && _data) renderManagerialBGTable();
-  if(document.getElementById('tab-detalle').classList.contains('active') && _data) renderDetalle();
+  renderMGPeriodChips_();
+  _mgRefreshViews_();
 }
 
 function toggleMGSec(secId){
@@ -2241,6 +2331,7 @@ function switchLob(lob){
   _productoSelected = []; renderProductoChips();
   clearMs('ms-partner');
   reload();
+  _updateStickyOffsets_();
 }
 
 
@@ -2380,6 +2471,8 @@ function fetchData(){
 
 initMsDropdowns();
 updateProductoFilterVis_();   // default LOB = B2B2C → Producto oculto
+renderMGPeriodChips_();
+_updateStickyOffsets_();
 fetchData();
 
 // ── Trend charts ───────────────────────────────────────────────────────────
