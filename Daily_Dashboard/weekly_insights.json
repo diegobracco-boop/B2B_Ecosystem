@@ -1,0 +1,294 @@
+{
+  "meta": {
+    "generated_at": "2026-08-18T17:50:00",
+    "semana_inicio": "2026-08-10",
+    "semana_fin": "2026-08-16",
+    "corte": "2026-08-16",
+    "mes_anterior": "Julio 2026",
+    "generado_por": "Claude (generar-insights)"
+  },
+  "b2b2c": {
+    "semaforo_global": "🟡",
+    "semaforos": {
+      "gb": "🟡",
+      "nr": "🟢",
+      "orders": "🟡",
+      "margen": "🟢"
+    },
+    "periodo": "10–16 Agosto 2026",
+    "corte": "16/08/2026",
+    "referencia": "Budget",
+    "kpis": {
+      "gb_actual": 15396595.0,
+      "gb_budget": 16508349.13,
+      "gb_ly": 10133097.0,
+      "gb_vs_budget_pct": -6.7,
+      "gb_vs_ly_pct": 51.9,
+      "nr_actual": 2128549.0,
+      "nr_budget": 2037142.01,
+      "nr_ly": 1408627.0,
+      "nr_vs_budget_pct": 4.5,
+      "nr_vs_ly_pct": 51.1,
+      "orders_actual": 27068,
+      "orders_budget": 28996,
+      "orders_ly": 19741,
+      "orders_vs_budget_pct": -6.6,
+      "orders_vs_ly_pct": 37.1,
+      "margen_pct": 13.82,
+      "margen_budget_pct": 12.34,
+      "margen_ly_pct": 13.9,
+      "margen_vs_budget_pp": 1.48,
+      "margen_vs_ly_pp": -0.08
+    },
+    "bullets": [
+      "▼ GB $15.4M, −6.7% vs Budget / +51.9% vs LY — volumen por debajo de plan; el shortfall de órdenes (−6.6%) sugiere menor demanda o mix hacia tickets de menor GB promedio. [Comercial]",
+      "▲ NR $2.1M, +4.5% vs Budget / +51.1% vs LY — resultado engañosamente positivo: Et = +$228k por expansión de margen (+1.48pp vs Bgt) compensó el Ev = −$154k por volumen bajo. [Revenue]",
+      "▲ Margen 13.82%, +1.48pp vs Budget / −0.08pp vs LY — expansión de tasa saludable; mantener el monitoreo para confirmar que no es puntual. [Revenue/Costos]",
+      "▼ Orders 27,068, −6.6% vs Budget / +37.1% vs LY — shortfall de órdenes en línea con el GB: pregunta al equipo si hay caída en canales ON u OFF o si hay efecto estacionalidad agosto. [Comercial/Producto]",
+      "⚠ 80/20: el desvío de GB (−$1.1M vs Bgt) concentrado en volumen; NR rescatado por tasa. Foco en recuperar órdenes para la semana siguiente. [Comercial]"
+    ],
+    "slide_bullets": [
+      "GB $15.4M  ▼ −6.7% vs Bgt  /  ▲ +51.9% vs LY",
+      "NR $2.1M  ▲ +4.5% vs Bgt  (Et +$228k | Ev −$154k)",
+      "Margen 13.82%  ▲ +1.48pp vs Bgt  ← expansión de tasa",
+      "Orders 27k  ▼ −6.6% vs Bgt  ← shortfall a monitorear"
+    ]
+  },
+  "b2b": {
+    "semaforo_global": "🟢",
+    "semaforos": {
+      "gb": "🟢",
+      "nr": "🟢",
+      "orders": "🟢",
+      "margen": "🟢"
+    },
+    "periodo": "10–16 Agosto 2026",
+    "corte": "16/08/2026",
+    "referencia": "Budget",
+    "kpis": {
+      "gb_actual": 35840264.0,
+      "gb_budget": 36358814.97,
+      "gb_ly": 24221138.0,
+      "gb_vs_budget_pct": -1.4,
+      "gb_vs_ly_pct": 48.0,
+      "nr_actual": 2914214.0,
+      "nr_budget": 2743681.99,
+      "nr_ly": 1739408.0,
+      "nr_vs_budget_pct": 6.2,
+      "nr_vs_ly_pct": 67.5,
+      "orders_actual": 68908,
+      "orders_budget": 66954,
+      "orders_ly": 69615,
+      "orders_vs_budget_pct": 2.9,
+      "orders_vs_ly_pct": -1.0,
+      "margen_pct": 8.13,
+      "margen_budget_pct": 7.55,
+      "margen_ly_pct": 7.18,
+      "margen_vs_budget_pp": 0.58,
+      "margen_vs_ly_pp": 0.95
+    },
+    "bullets": [
+      "▲ GB $35.8M, −1.4% vs Budget / +48.0% vs LY — prácticamente en plan; shortfall marginal dentro de rango verde. Crecimiento interanual robusto. [Comercial]",
+      "▲ NR $2.9M, +6.2% vs Budget / +67.5% vs LY — outperformance sólido: Et = +$208k por expansión de margen (+0.58pp), Ev = −$37k casi neutro. NR arriba con volumen en línea. [Revenue]",
+      "▲ Margen 8.13%, +0.58pp vs Budget / +0.95pp vs LY — expansión consistente; B2B muestra mejora de mix o negociación de tarifas favorable respecto al año pasado. [Revenue/Costos]",
+      "▲ Orders 68,908, +2.9% vs Budget / −1.0% vs LY — volumen sobre plan; la leve caída vs LY no preocupa dado que la base del año pasado fue alta. [Comercial]",
+      "✅ Semana verde en todas las métricas: B2B es el ancla positiva del consolidado esta semana. [Comercial/Revenue]"
+    ],
+    "slide_bullets": [
+      "GB $35.8M  ▼ −1.4% vs Bgt  /  ▲ +48.0% vs LY",
+      "NR $2.9M  ▲ +6.2% vs Bgt  (Et +$208k | Ev −$37k)",
+      "Margen 8.13%  ▲ +0.58pp vs Bgt  /  +0.95pp vs LY",
+      "Orders 68.9k  ▲ +2.9% vs Bgt  ← semana verde completa"
+    ]
+  },
+  "consolidado": {
+    "semaforo_global": "🟡",
+    "semaforos": {
+      "gb": "🟡",
+      "nr": "🟢",
+      "orders": "🟢",
+      "margen": "🟢"
+    },
+    "periodo": "10–16 Agosto 2026",
+    "corte": "16/08/2026",
+    "referencia": "Budget",
+    "kpis": {
+      "gb_actual": 51236859.0,
+      "gb_budget": 52867164.1,
+      "gb_ly": 34354235.0,
+      "gb_vs_budget_pct": -3.1,
+      "gb_vs_ly_pct": 49.1,
+      "nr_actual": 5042763.0,
+      "nr_budget": 4780824.0,
+      "nr_ly": 3148035.0,
+      "nr_vs_budget_pct": 5.5,
+      "nr_vs_ly_pct": 60.2,
+      "orders_actual": 95976,
+      "orders_budget": 95950,
+      "orders_ly": 89356,
+      "orders_vs_budget_pct": 0.0,
+      "orders_vs_ly_pct": 7.4,
+      "margen_pct": 9.84,
+      "margen_budget_pct": 9.04,
+      "margen_ly_pct": 9.16,
+      "margen_vs_budget_pp": 0.8,
+      "margen_vs_ly_pp": 0.68
+    },
+    "bullets": [
+      "▼ GB $51.2M, −3.1% vs Budget / +49.1% vs LY — amarillo traccionado por B2B2C (−6.7%); B2B casi en plan (−1.4%) y actúa como contrapeso. [Comercial]",
+      "▲ NR $5.0M, +5.5% vs Budget / +60.2% vs LY — outperformance pese al GB bajo: Et = +$410k por expansión de margen (+0.80pp), Ev = −$149k por volumen. Toda la ganancia viene de tasa. [Revenue]",
+      "▲ Margen 9.84%, +0.80pp vs Budget / +0.68pp vs LY — ambos LOBs expandieron margen; señal positiva de mix o condiciones comerciales. [Revenue/Costos]",
+      "▲ Orders 95,976, 0.0% vs Budget / +7.4% vs LY — exactamente en plan; el mix por valor de orden explica el desvío de GB sin shortfall de volumen. [Comercial]",
+      "⚠ Driver del amarillo: B2B2C GB (−$1.1M). Si las órdenes están en plan, mirar ticket promedio o mix de producto. [Comercial/Producto]"
+    ],
+    "slide_bullets": [
+      "GB $51.2M  ▼ −3.1% vs Bgt  /  ▲ +49.1% vs LY",
+      "NR $5.0M  ▲ +5.5% vs Bgt  (Et +$410k | Ev −$149k)",
+      "Margen 9.84%  ▲ +0.80pp vs Bgt  ← expansión ambos LOBs",
+      "Orders 96k  ● 0.0% vs Bgt  /  ▲ +7.4% vs LY"
+    ]
+  },
+  "mrm": {
+    "b2b2c": {
+      "semaforo_global": "🟢",
+      "semaforos": {
+        "gb": "🟢",
+        "nr": "🟢",
+        "orders": "🟢",
+        "margen": "🟢"
+      },
+      "periodo": "Julio 2026",
+      "corte": "01/07/2026 – 31/07/2026",
+      "referencia": "Budget",
+      "kpis": {
+        "gb_actual": 71344016.0,
+        "gb_budget": 66947939.24,
+        "gb_ly": 48489837.0,
+        "gb_vs_budget_pct": 6.6,
+        "gb_vs_ly_pct": 47.1,
+        "nr_actual": 9895101.0,
+        "nr_budget": 8546982.61,
+        "nr_ly": 6879560.0,
+        "nr_vs_budget_pct": 15.8,
+        "nr_vs_ly_pct": 43.8,
+        "orders_actual": 126861,
+        "orders_budget": 113854,
+        "orders_ly": 93832,
+        "orders_vs_budget_pct": 11.4,
+        "orders_vs_ly_pct": 35.2,
+        "margen_pct": 13.87,
+        "margen_budget_pct": 12.77,
+        "margen_ly_pct": 14.19,
+        "margen_vs_budget_pp": 1.1,
+        "margen_vs_ly_pp": -0.32
+      },
+      "bullets": [
+        "▲ GB $71.3M, +6.6% vs Budget / +47.1% vs LY — Julio cierra con fuerte tracción de volumen; outperformance extendido a los tres componentes principales. [Comercial]",
+        "▲ NR $9.9M, +15.8% vs Budget / +43.8% vs LY — doble driver: Ev = margen_LY × ΔGB = 14.19% × +$4.4M = +$624k por volumen extra; Et = +1.10pp × $71.3M = +$784k por expansión de tasa. NR verde con amplitud. [Revenue]",
+        "▲ Margen 13.87%, +1.10pp vs Budget / −0.32pp vs LY — expansión vs plan saludable; leve compresión vs LY (−0.32pp) no preocupa dado el contexto de fuerte crecimiento de volumen. [Revenue/Costos]",
+        "▲ Orders 126,861, +11.4% vs Budget / +35.2% vs LY — enero de outperformance en volumen; tracción sólida en todos los canales. [Comercial/Producto]",
+        "✅ Julio B2B2C: verde completo. Mes cerrado con +$1.3M de NR sobre budget. Resultado para destacar en el MRM. [Revenue]"
+      ],
+      "slide_bullets": [
+        "GB $71.3M  ▲ +6.6% vs Bgt  /  ▲ +47.1% vs LY",
+        "NR $9.9M  ▲ +15.8% vs Bgt  (Ev +$624k | Et +$784k)",
+        "Margen 13.87%  ▲ +1.10pp vs Bgt  /  −0.32pp vs LY",
+        "Orders 127k  ▲ +11.4% vs Bgt  ← mes verde completo"
+      ]
+    },
+    "b2b": {
+      "semaforo_global": "🟢",
+      "semaforos": {
+        "gb": "🟢",
+        "nr": "🟢",
+        "orders": "🟢",
+        "margen": "🟢"
+      },
+      "periodo": "Julio 2026",
+      "corte": "01/07/2026 – 31/07/2026",
+      "referencia": "Budget",
+      "kpis": {
+        "gb_actual": 169348023.0,
+        "gb_budget": 164639212.03,
+        "gb_ly": 115990930.0,
+        "gb_vs_budget_pct": 2.9,
+        "gb_vs_ly_pct": 46.0,
+        "nr_actual": 13312527.0,
+        "nr_budget": 12373538.01,
+        "nr_ly": 8766003.0,
+        "nr_vs_budget_pct": 7.6,
+        "nr_vs_ly_pct": 51.9,
+        "orders_actual": 309371,
+        "orders_budget": 302082,
+        "orders_ly": 302913,
+        "orders_vs_budget_pct": 2.4,
+        "orders_vs_ly_pct": 2.1,
+        "margen_pct": 7.86,
+        "margen_budget_pct": 7.52,
+        "margen_ly_pct": 7.56,
+        "margen_vs_budget_pp": 0.34,
+        "margen_vs_ly_pp": 0.3
+      },
+      "bullets": [
+        "▲ GB $169.3M, +2.9% vs Budget / +46.0% vs LY — Julio cierra sobre plan con volumen consistente; crecimiento YoY de 46% refleja expansión de cartera o mix hacia cuentas de mayor ticket. [Comercial]",
+        "▲ NR $13.3M, +7.6% vs Budget / +51.9% vs LY — Ev = 7.56% × +$4.7M = +$355k por volumen; Et = +0.34pp × $169.3M = +$576k por expansión de tasa. Ambos drivers positivos. [Revenue]",
+        "▲ Margen 7.86%, +0.34pp vs Budget / +0.30pp vs LY — mejora consistente de tasa en B2B; progresión interanual positiva desde los 7.56% de LY. [Revenue/Costos]",
+        "▲ Orders 309,371, +2.4% vs Budget / +2.1% vs LY — volumen en línea con plan e igualando la base de LY, que fue alta. Sin señales de pérdida de participación. [Comercial]",
+        "✅ Julio B2B: verde completo con +$939k de NR sobre budget. Expansión de margen e interanual sólido. Resultado destacable para el MRM. [Revenue]"
+      ],
+      "slide_bullets": [
+        "GB $169.3M  ▲ +2.9% vs Bgt  /  ▲ +46.0% vs LY",
+        "NR $13.3M  ▲ +7.6% vs Bgt  (Ev +$355k | Et +$576k)",
+        "Margen 7.86%  ▲ +0.34pp vs Bgt  /  +0.30pp vs LY",
+        "Orders 309k  ▲ +2.4% vs Bgt  ← mes verde completo"
+      ]
+    },
+    "consolidado": {
+      "semaforo_global": "🟢",
+      "semaforos": {
+        "gb": "🟢",
+        "nr": "🟢",
+        "orders": "🟢",
+        "margen": "🟢"
+      },
+      "periodo": "Julio 2026",
+      "corte": "01/07/2026 – 31/07/2026",
+      "referencia": "Budget",
+      "kpis": {
+        "gb_actual": 240692039.0,
+        "gb_budget": 231587151.27,
+        "gb_ly": 164480767.0,
+        "gb_vs_budget_pct": 3.9,
+        "gb_vs_ly_pct": 46.3,
+        "nr_actual": 23207628.0,
+        "nr_budget": 20920520.62,
+        "nr_ly": 15645563.0,
+        "nr_vs_budget_pct": 10.9,
+        "nr_vs_ly_pct": 48.3,
+        "orders_actual": 436232,
+        "orders_budget": 415936,
+        "orders_ly": 396745,
+        "orders_vs_budget_pct": 4.9,
+        "orders_vs_ly_pct": 10.0,
+        "margen_pct": 9.64,
+        "margen_budget_pct": 9.03,
+        "margen_ly_pct": 9.51,
+        "margen_vs_budget_pp": 0.61,
+        "margen_vs_ly_pp": 0.13
+      },
+      "bullets": [
+        "▲ GB $240.7M, +3.9% vs Budget / +46.3% vs LY — Julio cierra con outperformance consolidado; B2B2C (+6.6%) lidera el upside y B2B (+2.9%) consolida. Crecimiento YoY del 46% en ambos LOBs. [Comercial]",
+        "▲ NR $23.2M, +10.9% vs Budget / +48.3% vs LY — +$2.3M sobre budget: B2B2C aporta +$1.35M y B2B +$0.94M. Ev total +$979k por volumen; Et total +$1.36k por expansión de tasa. [Revenue]",
+        "▲ Margen 9.64%, +0.61pp vs Budget / +0.13pp vs LY — ambos LOBs expandieron margen vs plan; interanual positivo con crecimiento de 46% en escala. [Revenue/Costos]",
+        "▲ Orders 436,232, +4.9% vs Budget / +10.0% vs LY — volumen sobre plan en ambos LOBs; crecimiento YoY del 10% saludable sobre una base que ya era alta. [Comercial]",
+        "✅ Julio consolidado: verde completo. +$2.3M de NR sobre budget, +46% YoY en GB y margen expandido. Julio es el mejor mes del año hasta la fecha. [Revenue/Comercial]"
+      ],
+      "slide_bullets": [
+        "GB $240.7M  ▲ +3.9% vs Bgt  /  ▲ +46.3% vs LY",
+        "NR $23.2M  ▲ +10.9% vs Bgt  (+$2.3M sobre budget)",
+        "Margen 9.64%  ▲ +0.61pp vs Bgt  /  +0.13pp vs LY",
+        "Orders 436k  ▲ +4.9% vs Bgt  ← Julio verde completo"
+      ]
+    }
+  }
+}
