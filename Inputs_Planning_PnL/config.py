@@ -26,11 +26,13 @@ FISCAL_DATES = (
 FORECAST_DROP_DATES = set(FISCAL_DATES[:4])
 
 # Composición del baseline FY
-RUNRATE_MONTHS  = {f"{_FY_PREV}-08-01", f"{_FY_PREV}-09-01"}
-FORECAST_MONTHS = (
-    {f"{_FY_PREV}-{m:02d}-01" for m in range(10, 13)} |
+# RunRate cubre desde Ago(FY-1) hasta el cierre del FY (Mar) -> Forecast no se usa
+# en el baseline (2026-08-24: RunRate es la fuente más actualizada, Forecast desactualizado).
+RUNRATE_MONTHS  = (
+    {f"{_FY_PREV}-{m:02d}-01" for m in range(8, 13)} |
     {f"{CURRENT_FY}-{m:02d}-01" for m in range(1, 4)}
 )
+FORECAST_MONTHS = set()
 
 # AXI actuals: RunRate cubre Oct(FY-2)..Mar(FY-1)
 AXI_RR_DATES = (
