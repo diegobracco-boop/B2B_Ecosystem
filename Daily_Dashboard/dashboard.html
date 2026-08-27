@@ -817,6 +817,14 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
       </div>
     </div>
     <div class="tbl-ctrl-sep"></div>
+    <div class="tbl-ctrl-group">
+      <span class="tbl-ctrl-lbl">Período</span>
+      <div class="tab-toggle">
+        <button class="ttab active" id="btn-tbl-mtd" onclick="switchTblPeriod('mtd')">MTD</button>
+        <button class="ttab"        id="btn-tbl-ytd" onclick="switchTblPeriod('ytd')">YTD</button>
+      </div>
+    </div>
+    <div class="tbl-ctrl-sep"></div>
     <div class="tbl-ctrl-group" style="margin-left:auto">
       <button class="bk-exp-btn" onclick="expandAllTables(['tbl-gb','tbl-nr','tbl-fvm'],true)">Expand all</button>
       <button class="bk-exp-btn" onclick="expandAllTables(['tbl-gb','tbl-nr','tbl-fvm'],false)">Collapse all</button>
@@ -1004,8 +1012,16 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
   </div>
 
   <!-- BREAKDOWN TABLES — B2B -->
-  <div class="bk-acct-strip">
-    <div class="bk-exp-ctrl">
+  <div class="tbl-ctrl-bar">
+    <div class="tbl-ctrl-group">
+      <span class="tbl-ctrl-lbl">Período</span>
+      <div class="tab-toggle">
+        <button class="ttab active" id="btn-b2b-tbl-mtd" onclick="switchTblPeriod('mtd')">MTD</button>
+        <button class="ttab"        id="btn-b2b-tbl-ytd" onclick="switchTblPeriod('ytd')">YTD</button>
+      </div>
+    </div>
+    <div class="tbl-ctrl-sep"></div>
+    <div class="tbl-ctrl-group" style="margin-left:auto">
       <button class="bk-exp-btn" onclick="expandAllTables(['b2b-tbl-gb','b2b-tbl-nr','b2b-tbl-fvm'],true)">Expand all</button>
       <button class="bk-exp-btn" onclick="expandAllTables(['b2b-tbl-gb','b2b-tbl-nr','b2b-tbl-fvm'],false)">Collapse all</button>
     </div>
@@ -1200,6 +1216,7 @@ var _b2bcMarginMode = '$';
 var _b2bMarginMode  = '$';
 var _charts = { gb: null, nr: null, fvm: null };
 var _partnerTab = 'all';
+var gl_tbl_period = 'mtd'; // 'mtd' | 'ytd'
 
 // ── Helpers ─────────────────────────────────────────────────────
 function isCore_(pais) {
@@ -1444,17 +1461,29 @@ function computeAll_(raw, vDate, gl_pai, gl_par, gl_pro, gl_at, gran, tab, compS
   var pAT={}; raw.actuals.forEach(function(r){if(r.partner&&r.account_type)pAT[r.partner]=r.account_type;});
   var atFilter = tab==='existing'?'Existing':(tab==='new'?'New':null);
   var atReq = gl_at || atFilter;
+  var _budSrcB2bc = compSrc || raw.budget || [];
+  var _budMinB2bc = null;
+  _budSrcB2bc.forEach(function(r){ if(r.fecha&&r.fecha.substring(0,4)===pp[0]){if(!_budMinB2bc||r.fecha<_budMinB2bc)_budMinB2bc=r.fecha;} });
+  var ytdStart = _budMinB2bc ? _budMinB2bc.substring(0,7)+'-01' : pp[0]+'-01-01';
+  var lyYS = lyY+'-'+ytdStart.substring(5,7)+'-01';
   var nrGroups = breakdownCountryPartner_(raw, 'net_revenues', 'net_revenue', mStart, vDate, lyMS, lyVD, gl_pai, gl_par, gl_pro, atReq, pAT, compSrc);
   var orderCountries = nrGroups.map(function(g){ return g.name; });
   var orderPartnersByCountry = {}; nrGroups.forEach(function(g){ orderPartnersByCountry[g.name] = g.partners.map(function(p){ return p.name; }); });
+  var nrGroupsYTD = breakdownCountryPartner_(raw, 'net_revenues', 'net_revenue', ytdStart, vDate, lyYS, lyVD, gl_pai, gl_par, gl_pro, atReq, pAT, compSrc);
+  var orderCountriesYTD = nrGroupsYTD.map(function(g){ return g.name; });
+  var orderPartnersByCountryYTD = {}; nrGroupsYTD.forEach(function(g){ orderPartnersByCountryYTD[g.name] = g.partners.map(function(p){ return p.name; }); });
   ['gb','nr','fvm'].forEach(function(m){
     var d=compute_(raw,m,vDate,gl_pai,gl_par,gl_pro,gl_at,gran,compSrc);
     var MF ={gb:'gross_bookings',nr:'net_revenues',fvm:'fvm'}[m];
     var BMF={gb:'gross_bookings',nr:'net_revenue', fvm:'fvm'}[m];
     var groups = (m==='nr') ? nrGroups
       : orderGroups_(breakdownCountryPartner_(raw, MF, BMF, mStart, vDate, lyMS, lyVD, gl_pai, gl_par, gl_pro, atReq, pAT, compSrc), orderCountries, orderPartnersByCountry);
+    var groupsYTD = (m==='nr') ? nrGroupsYTD
+      : orderGroups_(breakdownCountryPartner_(raw, MF, BMF, ytdStart, vDate, lyYS, lyVD, gl_pai, gl_par, gl_pro, atReq, pAT, compSrc), orderCountriesYTD, orderPartnersByCountryYTD);
+    var _MM=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    var _ytdFromLbl = _MM[parseInt(ytdStart.substring(5,7),10)-1];
     out[m]={viewDate:d.viewDate,curYM:d.curYM,d1:d.d1,lyD1:d.lyD1,mtd:d.mtd,lyMtd:d.lyMtd,budget:d.budget,daily:d.daily,
-      groups: groups};
+      groups: groups, groups_ytd: groupsYTD, ytd_from: _ytdFromLbl};
   });
   return out;
 }
@@ -1534,16 +1563,27 @@ function computeAllB2B_(raw, dm, vDate, gl_pai, gl_pro, gl_ch, gl_mkt, gran, com
   var src=(dm==='ri')?raw.b2b_ri:raw.b2b_gd, srcLY=(dm==='ri')?raw.b2b_ri_ly:raw.b2b_gd_ly;
   if(!src)src=[]; if(!srcLY)srcLY=[];
   var bud=compSrc||((raw.b2b_budget_gd&&raw.b2b_budget_gd.length)?(dm==='ri'?raw.b2b_budget_ri:raw.b2b_budget_gd):[]);
+  var _budMinB2b = null;
+  bud.forEach(function(r){ if(r.fecha&&r.fecha.substring(0,4)===pp[0]){if(!_budMinB2b||r.fecha<_budMinB2b)_budMinB2b=r.fecha;} });
+  var ytdStartB2b = _budMinB2b ? _budMinB2b.substring(0,7)+'-01' : pp[0]+'-01-01';
+  var lyYSB2b = lyY+'-'+ytdStartB2b.substring(5,7)+'-01';
   var nrGroups = breakdownCountryProduct_(src, srcLY, bud, 'net_revenue', mStart, vDate, lyMS, lyVD, gl_pai, gl_pro, gl_ch, gl_mkt);
   var orderCountries = nrGroups.map(function(g){ return g.name; });
   var orderPartnersByCountry = {}; nrGroups.forEach(function(g){ orderPartnersByCountry[g.name] = g.partners.map(function(p){ return p.name; }); });
+  var nrGroupsYTD = breakdownCountryProduct_(src, srcLY, bud, 'net_revenue', ytdStartB2b, vDate, lyYSB2b, lyVD, gl_pai, gl_pro, gl_ch, gl_mkt);
+  var orderCountriesYTD = nrGroupsYTD.map(function(g){ return g.name; });
+  var orderPartnersByCountryYTD = {}; nrGroupsYTD.forEach(function(g){ orderPartnersByCountryYTD[g.name] = g.partners.map(function(p){ return p.name; }); });
   ['gb','nr','fvm'].forEach(function(m){
     var d=computeB2B_(raw,m,dm,vDate,gl_pai,gl_pro,gl_ch,gl_mkt,gran,compSrc);
     var MF={gb:'gross_bookings',nr:'net_revenue',fvm:'fvm'}[m];
     var groups = (m==='nr') ? nrGroups
       : orderGroups_(breakdownCountryProduct_(src, srcLY, bud, MF, mStart, vDate, lyMS, lyVD, gl_pai, gl_pro, gl_ch, gl_mkt), orderCountries, orderPartnersByCountry);
+    var groupsYTD = (m==='nr') ? nrGroupsYTD
+      : orderGroups_(breakdownCountryProduct_(src, srcLY, bud, MF, ytdStartB2b, vDate, lyYSB2b, lyVD, gl_pai, gl_pro, gl_ch, gl_mkt), orderCountriesYTD, orderPartnersByCountryYTD);
+    var _MM2=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    var _ytdFromLblB2b = _MM2[parseInt(ytdStartB2b.substring(5,7),10)-1];
     out[m]={viewDate:d.viewDate,curYM:d.curYM,d1:d.d1,lyD1:d.lyD1,mtd:d.mtd,lyMtd:d.lyMtd,budget:d.budget,daily:d.daily,
-      groups: groups};
+      groups: groups, groups_ytd: groupsYTD, ytd_from: _ytdFromLblB2b};
   });
   return out;
 }
@@ -1647,6 +1687,15 @@ function toggleCumplCol(btn) {
   var row = document.getElementById('b2bc-tables-row');
   var active = row.classList.toggle('show-cumpl');
   btn.classList.toggle('active', active);
+}
+function switchTblPeriod(period) {
+  gl_tbl_period = period;
+  ['btn-tbl-mtd','btn-tbl-ytd','btn-b2b-tbl-mtd','btn-b2b-tbl-ytd'].forEach(function(id) {
+    var el = document.getElementById(id); if (!el) return;
+    el.classList.toggle('active', id.indexOf(period) !== -1);
+  });
+  if (state.allMetrics) renderMetrics(state.allMetrics);
+  if (state_b2b.allMetrics) renderB2BMetrics(state_b2b.allMetrics);
 }
 
 // ── Navigation ──────────────────────────────────────────────────
@@ -1771,7 +1820,11 @@ function renderMetrics(all) {
     var isPct = def.key !== 'gb' && _b2bcMarginMode === 'pct';
     if (isPct && all.gb) chartDaily = toPctDaily_(d.daily, all.gb.daily);
     renderChart(def.key, def.chartId, chartDaily, d.viewDate, def.color, gran, undefined, {pctMode:isPct});
-    renderGroupedTable3(def.tblId, d.groups, {newFlagKey:'isNew'});
+    var tblGroups = (gl_tbl_period === 'ytd' && d.groups_ytd) ? d.groups_ytd : d.groups;
+    renderGroupedTable3(def.tblId, tblGroups, {newFlagKey:'isNew'});
+    var periodLbl = gl_tbl_period === 'ytd' ? ('YTD' + (d.ytd_from ? ' ('+d.ytd_from+')' : '')) : 'MTD';
+    var tcard = document.getElementById(def.tblId).closest('.tcard');
+    if (tcard) tcard.querySelector('.card-ttl').textContent = ({gb:'Gross Bookings',nr:'Net Revenues',fvm:'FVM'}[def.key]) + ' — ' + periodLbl;
   });
 }
 
@@ -2419,7 +2472,11 @@ function renderB2BMetrics(all) {
     var isPctB2b = def.key !== 'gb' && _b2bMarginMode === 'pct';
     if (isPctB2b && all.gb) chartDailyB2b = toPctDaily_(d.daily, all.gb.daily);
     renderChart(def.key, def.chartId, chartDailyB2b, d.viewDate, def.color, gran, _b2bCharts, {pctMode:isPctB2b});
-    renderGroupedTableB2B_(def.tblId, d.groups);
+    var tblGroupsB2b = (gl_tbl_period === 'ytd' && d.groups_ytd) ? d.groups_ytd : d.groups;
+    renderGroupedTableB2B_(def.tblId, tblGroupsB2b);
+    var periodLblB2b = gl_tbl_period === 'ytd' ? ('YTD' + (d.ytd_from ? ' ('+d.ytd_from+')' : '')) : 'MTD';
+    var tcardB2b = document.getElementById(def.tblId).closest('.tcard');
+    if (tcardB2b) tcardB2b.querySelector('.card-ttl').textContent = ({gb:'Gross Bookings',nr:'Net Revenue',fvm:'FVM'}[def.key]) + ' — ' + periodLblB2b;
   });
 }
 
