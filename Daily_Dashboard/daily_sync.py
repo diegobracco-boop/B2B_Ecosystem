@@ -508,7 +508,7 @@ _B2B_COMPONENTS_RI = """
         SUM((pnl.discounts_mkt_funds_usd + pnl.media_revenue_usd
              - pnl.mkt_fee_cost_cmr_usd + pnl.fee_income_mkt_cmr_usd)
             / NULLIF(fh.confirmation_gradient,0)) AS media_other_revenue,
-        -SUM(CASE WHEN pr.installments=1 THEN 0
+        -SUM(CASE WHEN pr.installments IN (0, 1, null) THEN 0
                   ELSE pnl.coi_usd / NULLIF(fh.confirmation_gradient,0) END) AS cost_of_installments,
         -SUM(CASE WHEN fh.parent_channel='API' THEN 0
                   ELSE pnl.ccp_usd / NULLIF(fh.confirmation_gradient,0) END) AS credit_card_processing,
@@ -547,7 +547,13 @@ _B2B_COMPONENTS_RI = """
         SUM(pnl.ott_usd / NULLIF(fh.confirmation_gradient,0)) AS other_transactional_taxes,
         SUM(pnl.customer_claims_usd / NULLIF(fh.confirmation_gradient,0)) AS customer_claims,
         SUM(pnl.customer_service_usd / NULLIF(fh.confirmation_gradient,0)) AS customer_service,
-        SUM(pnl.frauds_usd / NULLIF(fh.confirmation_gradient,0)) AS frauds,
+        SUM(
+            CASE
+                WHEN fh.parent_channel = 'API' THEN 0
+                WHEN t.country_code = 'BR'     THEN fh.gestion_gb * -0.0056
+                ELSE                                fh.gestion_gb * -0.0053
+            END
+        ) AS frauds,
         SUM(pnl.financial_result_usd / NULLIF(fh.confirmation_gradient,0)) AS efecto_financiero,
         SUM((pnl.dif_fx_usd + pnl.dif_fx_air_usd) / NULLIF(fh.confirmation_gradient,0)) AS dif_fx,
         SUM((pnl.currency_hedge_usd + pnl.currency_hedge_air_usd) / NULLIF(fh.confirmation_gradient,0)) AS currency_hedge"""
@@ -582,7 +588,7 @@ _B2B_COMPONENTS_GD = """
         -SUM(pnl.loyalty_usd) AS loyalty_usd,
         SUM(pnl.discounts_mkt_funds_usd + pnl.media_revenue_usd
             - pnl.mkt_fee_cost_cmr_usd + pnl.fee_income_mkt_cmr_usd) AS media_other_revenue,
-        -SUM(CASE WHEN pr.installments=1 THEN 0 ELSE pnl.coi_usd END) AS cost_of_installments,
+        -SUM(CASE WHEN pr.installments IN (0, 1, null) THEN 0 ELSE pnl.coi_usd END) AS cost_of_installments,
         -SUM(CASE WHEN fh.parent_channel='API' THEN 0 ELSE pnl.ccp_usd END) AS credit_card_processing,
         SUM(CASE
                 WHEN fh.parent_channel='API' THEN NULL
@@ -621,7 +627,13 @@ _B2B_COMPONENTS_GD = """
         SUM(pnl.ott_usd) AS other_transactional_taxes,
         SUM(pnl.customer_claims_usd) AS customer_claims,
         SUM(pnl.customer_service_usd) AS customer_service,
-        SUM(pnl.frauds_usd) AS frauds,
+        SUM(
+            CASE
+                WHEN fh.parent_channel = 'API' THEN 0
+                WHEN t.country_code = 'BR'     THEN fh.gestion_gb * fh.confirmation_gradient * -0.0056
+                ELSE                                fh.gestion_gb * fh.confirmation_gradient * -0.0053
+            END
+        ) AS frauds,
         SUM(pnl.financial_result_usd) AS efecto_financiero,
         SUM(pnl.dif_fx_usd + pnl.dif_fx_air_usd) AS dif_fx,
         SUM(pnl.currency_hedge_usd + pnl.currency_hedge_air_usd) AS currency_hedge"""
