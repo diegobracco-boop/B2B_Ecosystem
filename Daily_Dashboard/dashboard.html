@@ -710,6 +710,9 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
         <button class="dm-btn" id="btn-b2bc-comp-rr" onclick="switchComparison('b2bc','runrate')">Run Rate</button>
       </div>
     </div>
+    <div class="dm-toggle" style="margin-left:8px">
+      <button class="dm-btn" id="btn-b2c-b2bc" onclick="toggleB2C('b2bc')" title="Mostrar línea de referencia B2C (eje derecho)">vs B2C</button>
+    </div>
   </div>
 
   <!-- KPI CARDS — GB / NR / FVM -->
@@ -922,6 +925,9 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
         <button class="dm-btn active" id="btn-b2b-comp-bud" onclick="switchComparison('b2b','budget')">Budget</button>
         <button class="dm-btn" id="btn-b2b-comp-rr" onclick="switchComparison('b2b','runrate')">Run Rate</button>
       </div>
+    </div>
+    <div class="dm-toggle" style="margin-left:8px">
+      <button class="dm-btn" id="btn-b2c-b2b" onclick="toggleB2C('b2b')" title="Mostrar línea de referencia B2C (eje derecho)">vs B2C</button>
     </div>
   </div>
 
@@ -1214,6 +1220,9 @@ var _rawB2B  = null;
 var state = { viewDate: null, data: null, meta: null, allMetrics: null };
 var _b2bcMarginMode = '$';
 var _b2bMarginMode  = '$';
+// Línea de referencia B2C (toggle "vs B2C") — un flag por vista.
+var _showB2C_b2bc = false;
+var _showB2C_b2b  = false;
 var _charts = { gb: null, nr: null, fvm: null };
 var _partnerTab = 'all';
 var gl_tbl_period = 'mtd'; // 'mtd' | 'ytd'
@@ -1277,6 +1286,38 @@ function aggMonthly_(dMap, lyMap, curYM, budMap) {
   budMap = budMap || {};
   Object.keys(dMap).forEach(function(d){var m=d.substring(0,7);mM[m]=(mM[m]||0)+dMap[d];lyM[m]=(lyM[m]||0)+(lyMap[d]||0);bM[m]=(bM[m]||0)+(budMap[d]||0);});
   return Object.keys(mM).sort().filter(function(m){return m<=curYM;}).map(function(m){return{date:m,v:Math.round(mM[m]*100)/100,ly:Math.round((lyM[m]||0)*100)/100,bud:Math.round((bM[m]||0)*100)/100};});
+}
+
+// ── B2C (línea de referencia opcional "vs B2C") ─────────────────
+// El payload trae raw.b2c = {cols, rows} agregado por (fecha, país). Es un
+// total macro de B2C: la línea ignora los filtros de partner/producto/canal
+// (taxonomías distintas a B2B) y muestra el total B2C por fecha. Se dibuja en
+// un eje Y secundario porque los números de B2C son mucho mayores.
+function _b2cRows_(raw) {
+  if (!raw || !raw.b2c || !raw.b2c.cols || !raw.b2c.cols.length) return [];
+  if (raw._b2cExpanded) return raw._b2cExpanded;
+  var cols = raw.b2c.cols;
+  raw._b2cExpanded = raw.b2c.rows.map(function(row){
+    var o = {}; cols.forEach(function(c,i){ o[c] = row[i]; }); return o;
+  });
+  return raw._b2cExpanded;
+}
+function computeB2C_(raw, metric, vDate, gran) {
+  var rows = _b2cRows_(raw);
+  if (!rows.length) return null;
+  var MF = {gb:'gross_bookings', nr:'net_revenues', fvm:'fvm'}[metric];
+  var pp = vDate.split('-'), curYM = pp[0]+'-'+pp[1];
+  var mStart = curYM+'-01', yearStart = pp[0]+'-01-01';
+  var tf = (gran !== 'daily') ? yearStart : mStart;
+  var dM = {}, empty = {};
+  rows.forEach(function(r){
+    if (r.fecha < tf || r.fecha > vDate) return;
+    dM[r.fecha] = (dM[r.fecha]||0) + (r[MF]||0);
+  });
+  if (gran === 'weekly')   return aggWeekly_(dM, empty, vDate, empty);
+  if (gran === 'rolling7') return aggRolling7_(dM, empty, vDate, empty);
+  if (gran === 'monthly')  return aggMonthly_(dM, empty, curYM, empty);
+  return Object.keys(dM).sort().map(function(d){ return {date:d, v:Math.round(dM[d]*100)/100}; });
 }
 
 // ── compute_ (B2B2C) ────────────────────────────────────────────
@@ -1770,6 +1811,20 @@ function switchB2bMarginMode(el, mode) {
   el.classList.add('active');
   if (state_b2b.allMetrics) renderB2BMetrics(state_b2b.allMetrics);
 }
+// Toggle línea de referencia B2C en los evolutivos (un botón por vista).
+function toggleB2C(view) {
+  if (view === 'b2b') {
+    _showB2C_b2b = !_showB2C_b2b;
+    var bb = document.getElementById('btn-b2c-b2b');
+    if (bb) bb.classList.toggle('active', _showB2C_b2b);
+    if (state_b2b.allMetrics) renderB2BMetrics(state_b2b.allMetrics);
+  } else {
+    _showB2C_b2bc = !_showB2C_b2bc;
+    var bc = document.getElementById('btn-b2c-b2bc');
+    if (bc) bc.classList.toggle('active', _showB2C_b2bc);
+    if (state.allMetrics) renderMetrics(state.allMetrics);
+  }
+}
 
 function renderMetrics(all) {
   var gran = v('sel-gran') || 'daily';
@@ -1819,7 +1874,8 @@ function renderMetrics(all) {
     var chartDaily = d.daily;
     var isPct = def.key !== 'gb' && _b2bcMarginMode === 'pct';
     if (isPct && all.gb) chartDaily = toPctDaily_(d.daily, all.gb.daily);
-    renderChart(def.key, def.chartId, chartDaily, d.viewDate, def.color, gran, undefined, {pctMode:isPct});
+    var b2cSeries = (_showB2C_b2bc && !isPct) ? computeB2C_(_rawB2BC, def.key, d.viewDate, gran) : null;
+    renderChart(def.key, def.chartId, chartDaily, d.viewDate, def.color, gran, undefined, {pctMode:isPct, b2c:b2cSeries});
     var tblGroups = (gl_tbl_period === 'ytd' && d.groups_ytd) ? d.groups_ytd : d.groups;
     renderGroupedTable3(def.tblId, tblGroups, {newFlagKey:'isNew'});
     var periodLbl = gl_tbl_period === 'ytd' ? ('YTD' + (d.ytd_from ? ' ('+d.ytd_from+')' : '')) : 'MTD';
@@ -1912,6 +1968,10 @@ function renderChart(key, canvasId, daily, viewDate, accentColor, gran, chartsMa
   var lyVals  = daily.map(function(d){ return d.projected ? null : d.ly; });
   var budVals = daily.map(function(d){ return d.bud != null ? d.bud : 0; });
   var hasBud  = daily.some(function(d){ return (d.bud||0) > 0; });
+  // Línea de referencia B2C (eje Y secundario). opts.b2c = [{date,v}] alineado por fecha.
+  var b2cMap  = {}; (opts.b2c || []).forEach(function(p){ b2cMap[p.date] = p.v; });
+  var hasB2C  = !!(opts.b2c && opts.b2c.length);
+  var b2cVals = daily.map(function(d){ return (d.date in b2cMap) ? b2cMap[d.date] : null; });
   var todayIdx = gran === 'daily'
     ? daily.map(function(d){ return d.date; }).indexOf(viewDate)
     : daily.length - 1;
@@ -1926,7 +1986,7 @@ function renderChart(key, canvasId, daily, viewDate, accentColor, gran, chartsMa
 
   // Fast path: update data in-place — no canvas teardown, no re-layout
   var existing = chartsMap[key];
-  if (existing && existing._isLight === tv.isLight && existing._isPct === isPct) {
+  if (existing && existing._isLight === tv.isLight && existing._isPct === isPct && existing._hasB2C === hasB2C) {
     var ds = existing.data.datasets;
     existing.data.labels  = labels;
     ds[0].data            = vals;
@@ -1935,6 +1995,7 @@ function renderChart(key, canvasId, daily, viewDate, accentColor, gran, chartsMa
     ds[2].data            = budVals;
     ds[2].backgroundColor = budBg;
     ds[2].hidden          = !hasBud;
+    if (hasB2C && ds[3]) ds[3].data = b2cVals;
     existing.update('none');
     return existing;
   }
@@ -1942,30 +2003,38 @@ function renderChart(key, canvasId, daily, viewDate, accentColor, gran, chartsMa
   // Full create (first render, theme change, or pct mode change)
   if (existing) existing.destroy();
   var ctx = document.getElementById(canvasId).getContext('2d');
+  var _datasets = [
+    { type:'bar',  label:'Actual', data:vals,    backgroundColor:barColors, borderRadius:3, order:2, _showLabels:true },
+    { type:'line', label:'LY',     data:lyVals,  borderColor:'#16a34a', backgroundColor:'transparent', borderWidth:1.5, pointRadius:0, tension:0.3, order:1 },
+    { type:'bar',  label:'Budget', data:budVals, backgroundColor:budBg, borderColor:budBdr, borderWidth:1, borderRadius:3, order:2, hidden:!hasBud }
+  ];
+  if (hasB2C) {
+    _datasets.push({ type:'line', label:'B2C', data:b2cVals, yAxisID:'yB2C',
+      borderColor:'#f59e0b', backgroundColor:'transparent', borderWidth:1.5,
+      borderDash:[5,3], pointRadius:0, tension:0.3, order:0, spanGaps:true });
+  }
+  var _scales = {
+    x: { grid: { display: false }, ticks: { color: tv.tickColor, font: { size: 9, family: 'Poppins' }, maxRotation: 0 }, border: { color: 'transparent' } },
+    y: { grid: { color: tv.gridColor }, ticks: { color: tv.tickColor, font: { size: 9, family: 'Poppins' }, callback: function(v){ return fmtAxis_(v); } }, border: { color: 'transparent' } }
+  };
+  if (hasB2C) {
+    _scales.yB2C = { position:'right', grid:{ drawOnChartArea:false }, ticks:{ color:'#f59e0b', font:{ size:9, family:'Poppins' }, callback:function(v){ return fmtShort(v); } }, border:{ color:'transparent' } };
+  }
   var chart = new Chart(ctx, {
     plugins: [_barLabelsPlugin_],
-    data: {
-      labels: labels,
-      datasets: [
-        { type:'bar',  label:'Actual', data:vals,    backgroundColor:barColors, borderRadius:3, order:2, _showLabels:true },
-        { type:'line', label:'LY',     data:lyVals,  borderColor:'#16a34a', backgroundColor:'transparent', borderWidth:1.5, pointRadius:0, tension:0.3, order:1 },
-        { type:'bar',  label:'Budget', data:budVals, backgroundColor:budBg, borderColor:budBdr, borderWidth:1, borderRadius:3, order:2, hidden:!hasBud }
-      ]
-    },
+    data: { labels: labels, datasets: _datasets },
     options: {
       responsive: true,
       plugins: {
         legend: { display: false },
         tooltip: { enabled: false }
       },
-      scales: {
-        x: { grid: { display: false }, ticks: { color: tv.tickColor, font: { size: 9, family: 'Poppins' }, maxRotation: 0 }, border: { color: 'transparent' } },
-        y: { grid: { color: tv.gridColor }, ticks: { color: tv.tickColor, font: { size: 9, family: 'Poppins' }, callback: function(v){ return fmtAxis_(v); } }, border: { color: 'transparent' } }
-      }
+      scales: _scales
     }
   });
   chart._isLight      = tv.isLight;
   chart._isPct        = isPct;
+  chart._hasB2C       = hasB2C;
   chart._tvTickColor  = tv.tickColor;
   chart._tvLabelColor = tv.isLight ? 'rgba(0,0,0,.8)' : 'rgba(255,255,255,.85)';
   chartsMap[key] = chart;
@@ -2471,7 +2540,8 @@ function renderB2BMetrics(all) {
     var chartDailyB2b = d.daily;
     var isPctB2b = def.key !== 'gb' && _b2bMarginMode === 'pct';
     if (isPctB2b && all.gb) chartDailyB2b = toPctDaily_(d.daily, all.gb.daily);
-    renderChart(def.key, def.chartId, chartDailyB2b, d.viewDate, def.color, gran, _b2bCharts, {pctMode:isPctB2b});
+    var b2cSeriesB2b = (_showB2C_b2b && !isPctB2b) ? computeB2C_(_rawB2B, def.key, d.viewDate, gran) : null;
+    renderChart(def.key, def.chartId, chartDailyB2b, d.viewDate, def.color, gran, _b2bCharts, {pctMode:isPctB2b, b2c:b2cSeriesB2b});
     var tblGroupsB2b = (gl_tbl_period === 'ytd' && d.groups_ytd) ? d.groups_ytd : d.groups;
     renderGroupedTableB2B_(def.tblId, tblGroupsB2b);
     var periodLblB2b = gl_tbl_period === 'ytd' ? ('YTD' + (d.ytd_from ? ' ('+d.ytd_from+')' : '')) : 'MTD';

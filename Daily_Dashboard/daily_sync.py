@@ -831,6 +831,93 @@ GROUP BY 1, 2, 3, 4, 5
 """)
 
 
+# ------------------------------------------------------------------------------
+# B2C — serie de referencia (línea opcional "vs B2C" en los evolutivos).
+# Query provista y validada por el equipo (julio 2026). Solo se parametriza el
+# rango de confirmation_date; el resto de los filtros de fecha son cotas de los
+# joins y se dejan tal cual. En Python se agrega a (fecha, país) con las 3
+# métricas que consume el dashboard: gb, net_revenues y FVM (margenVAr_conAA).
+# ------------------------------------------------------------------------------
+def build_b2c_query(date_from: date, date_to: date) -> str:
+    return f"""
+SELECT
+    t.confirmation_date AS Fecha,
+
+    CASE
+        WHEN t.agency_code IN (
+            'AG00058325','AG00058612','AG00058617','AG00058618','AG00058619',
+            'AG00058620','AG00060920','AG00060921','AG00060922','AG00063172',
+            'AG00063211','AG00064343','AG00064344')
+        THEN 'AR'
+        WHEN t.channel = 'puntosbonus-pe'
+        THEN 'AR'
+        WHEN t.country_code IN ('AR','CO','EC','PE','BR','CL','MX','US')
+        THEN t.country_code
+        ELSE 'OT'
+    END AS Pais,
+
+    SUM(b.gb_without_distorted_taxes_usd)                               AS gb,
+    SUM(b.net_revenues_usd
+        + COALESCE(be.correccion_be, 0)
+        + COALESCE(mkt.monto_usd, 0))                                    AS net_revenues,
+    SUM(b.margin_variable_net_usd
+        + COALESCE(be.correccion_be, 0)
+        + COALESCE(d.mktg_funds_usd, 0)
+        + COALESCE(mkt.monto_usd, 0))                                    AS margenVAr_conAA
+
+FROM data.analytics.bi_pnlop_fact_current_model b
+
+    INNER JOIN analytics.bi_transactional_fact_products p
+        ON CAST(p.product_id AS VARCHAR) = CAST(b.product_id AS VARCHAR)
+
+    INNER JOIN analytics.bi_transactional_fact_transactions t
+        ON t.transaction_code = p.transaction_code
+
+    LEFT JOIN data.tmp.correccion_be be
+        ON CAST(be.product_id AS VARCHAR) = CAST(b.product_id AS VARCHAR)
+
+    LEFT JOIN data.tmp.mktg_funds d
+        ON CAST(d.product_id AS VARCHAR) = CAST(b.product_id AS VARCHAR)
+
+    LEFT JOIN data.tmp.mkt_funds_bd1 mkt
+        ON CAST(mkt.product_id AS VARCHAR) = CAST(p.product_id AS VARCHAR)
+
+    LEFT JOIN data.analytics.bi_pnlop_fact_pricing_model pr
+        ON CAST(pr.product_id AS VARCHAR) = CAST(p.product_id AS VARCHAR)
+        AND pr.date_reservation_year_month >= '2023-01'
+
+WHERE
+    b.date_reservation_year_month  >= '2023-01'
+    AND p.reservation_year_month_period >= '2023'
+    AND t.reservation_year_month_period >= '2023'
+    AND p.reservation_year_month   >= DATE('2023-01-01')
+    AND t.reservation_year_month   >= DATE('2023-01-01')
+    AND t.confirmation_date        >= DATE('{date_from}')
+    AND t.confirmation_date        <= DATE('{date_to}')
+    AND p.is_confirmed_flg = 1
+    AND (t.line_of_business = 'B2C' OR t.channel = 'puntosbonus-pe')
+    AND b.gb_without_distorted_taxes_usd > 0
+    AND t.channel <> 'internal-travel'
+
+GROUP BY 1, 2
+ORDER BY 1, 2
+"""
+
+
+def agg_b2c(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.copy()
+    df.columns = [c.lower().strip() for c in df.columns]
+    df["fecha"] = pd.to_datetime(df["fecha"]).dt.strftime("%Y-%m-%d")
+    df["gross_bookings"] = pd.to_numeric(df["gb"],              errors="coerce").fillna(0)
+    df["net_revenues"]   = pd.to_numeric(df["net_revenues"],    errors="coerce").fillna(0)
+    df["fvm"]            = pd.to_numeric(df["margenvar_conaa"], errors="coerce").fillna(0)
+    return df.groupby(["fecha", "pais"], as_index=False).agg(
+        gross_bookings=("gross_bookings", "sum"),
+        net_revenues  =("net_revenues",   "sum"),
+        fvm           =("fvm",            "sum"),
+    ).round({"gross_bookings": 2, "net_revenues": 2, "fvm": 2})
+
+
 # ==============================================================================
 # 4) FETCH & CLEAN
 # ==============================================================================
@@ -1029,6 +1116,13 @@ except Exception as e:
     print(f"  WARN B2B RR RI query failed: {e}")
     df_b2b_rr_ri = pd.DataFrame()
 
+print("\n--- B2C (referencia) ---")
+try:
+    df_b2c = agg_b2c(fetch(build_b2c_query(ACTUALS_FROM, YESTERDAY), "B2C"))
+except Exception as e:
+    print(f"  WARN B2C query failed: {e}")
+    df_b2c = pd.DataFrame(columns=["fecha", "pais", "gross_bookings", "net_revenues", "fvm"])
+
 # ==============================================================================
 # 5) AGREGAR Y CONSTRUIR JSON
 # ==============================================================================
@@ -1064,17 +1158,21 @@ META = {
     "ly_to":             str(LY_TO),
 }
 
+b2c_compact = to_compact(df_b2c) if not df_b2c.empty else {"cols": [], "rows": []}
+
 b2bc_payload = {
     "meta":       META,
     "actuals":    df_act.to_dict(orient="records"),
     "actuals_ly": df_lya.to_dict(orient="records"),
     "budget":     to_compact(df_bud),
     "runrate":    to_compact(df_b2bc_rr_agg) if not df_b2bc_rr_agg.empty else {"cols": [], "rows": []},
+    "b2c":        b2c_compact,
 }
 
 b2b_payload = {
     "meta":       META,
     "b2b_gd":     to_compact(df_b2b_gd_agg),
+    "b2c":        b2c_compact,
     "b2b_gd_ly":  to_compact(df_b2b_gd_ly_ag),
     "b2b_ri":     to_compact(df_b2b_ri_agg),
     "b2b_ri_ly":  to_compact(df_b2b_ri_ly_ag),
