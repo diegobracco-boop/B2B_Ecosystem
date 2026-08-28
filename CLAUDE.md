@@ -72,3 +72,9 @@ Ver [CONTEXT-MAP.md](./CONTEXT-MAP.md) para el diagrama completo. En resumen:
 - `/actualizar` — regenerar planas + JSONs canónicos (Inputs_Planning_PnL)
 - `/sincronizar` — forzar sync manual del Daily Dashboard
 - `/clasp-push` — deployar cualquier landing GAS a producción
+
+## Auditoría automática de código
+
+Antes de correr `/clasp-push` o `/actualizar`, y después de cualquier cambio grande en un pipeline (`Inputs_Planning_PnL`, `Daily_Dashboard`) o en una landing GAS, invocá al subagente `auditor-de-codigo` sobre el módulo tocado. Corre la skill `code-audit` (calidad de código, integridad de datos, seguridad de credenciales, consistencia pipelines↔landings) y devuelve hallazgos antes de publicar. Si reporta hallazgos bloqueantes, avisá al usuario y esperá confirmación antes de seguir con el deploy.
+
+El usuario también puede pedir una auditoría en cualquier momento ("auditar", "revisar integridad de datos", "chequear credenciales") — en ese caso invocá `auditor-de-codigo` directamente con el alcance que indique (repo completo o un módulo puntual).
