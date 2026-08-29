@@ -680,6 +680,7 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
       <button id="btn-egoal-forecast" class="prd-btn" type="button" onclick="setEpmGoalSource('forecast')">vs Forecast</button>
       <button id="btn-egoal-runrate" class="prd-btn" type="button" onclick="setEpmGoalSource('runrate')">vs Run Rate</button>
       <button id="btn-egoal-lastrunrate" class="prd-btn" type="button" onclick="setEpmGoalSource('lastrunrate')">vs Last RR</button>
+      <button id="btn-egoal-lastyear" class="prd-btn" type="button" onclick="setEpmGoalSource('lastyear')">vs Last Year</button>
     </div>
   </div>
   <div id="bg-period-chips" style="display:none;flex-wrap:wrap;gap:6px"></div>
@@ -704,6 +705,7 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
       &nbsp;·&nbsp; <strong>Budget</strong> = Proyección FY27 (Abr'26–Mar'27)
       &nbsp;·&nbsp; <strong>Forecast</strong> = Actuals + Forecast
       &nbsp;·&nbsp; <strong>Last Run Rate</strong> = Run Rate de la proyección anterior
+      &nbsp;·&nbsp; <strong>Last Year</strong> = FY26 real (Abr'25–Mar'26), alineado mes a mes contra FY27
     </span>
   </div>
 
@@ -1150,6 +1152,7 @@ function setEpmGoalSource(src){
   document.getElementById('btn-egoal-forecast').classList.toggle('prd-active', src === 'forecast');
   document.getElementById('btn-egoal-runrate').classList.toggle('prd-active', src === 'runrate');
   document.getElementById('btn-egoal-lastrunrate').classList.toggle('prd-active', src === 'lastrunrate');
+  document.getElementById('btn-egoal-lastyear').classList.toggle('prd-active', src === 'lastyear');
   if (_bgContableView === 'pxq') renderPxQ();
   else if (_bgContableView === 'countries-yoy') renderCountriesYoY();
   else {
@@ -1162,6 +1165,7 @@ function _epmGoalLabel(){
   return _epmGoalSource === 'forecast'    ? 'Forecast'
        : _epmGoalSource === 'runrate'     ? 'Run Rate'
        : _epmGoalSource === 'lastrunrate' ? 'Last Run Rate'
+       : _epmGoalSource === 'lastyear'    ? 'Last Year'
        : 'Budget';
 }
 function _epmBaselineLabel(){
