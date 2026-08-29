@@ -1099,7 +1099,10 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
     <!-- Baseline -->
     <div class="fg">
       <label>Baseline</label>
-      <div class="pf-baseline">Actuals + Run Rate</div>
+      <select id="f-baseline-bar" onchange="switchBaselineBar()">
+        <option value="baseline">Actuals + Projections</option>
+        <option value="forecast">Forecast</option>
+      </select>
     </div>
 
     <!-- Goal -->
@@ -1904,6 +1907,7 @@ var _state = {
   lob:             'all',
   canal:           'all',
   goal:            'budget',
+  baselineSource:  'baseline',  // 'baseline' (Actuals + Projections) | 'forecast' (forecast.json entero)
   evoMetric:       'gb',
   evoGranularity:  'M',   // 'M' | 'Q' | 'H' | 'Y'
   bkdView:         'pais', // 'pais' | 'producto'
@@ -2451,7 +2455,8 @@ function getParams() {
     producto: _selectedProducto,
     desde:    desde,
     hasta:    hasta,
-    canal:    _state.lob === 'b2b' ? _state.canal : 'all'
+    canal:    _state.lob === 'b2b' ? _state.canal : 'all',
+    baselineSource: _state.baselineSource || 'baseline'
   };
 }
 
@@ -2649,6 +2654,15 @@ function switchGoalBar() {
   if (_state.pnl) renderPnL();
   if (_state.wf)  renderWf();
   if (_state.evo) renderEvo();
+}
+// Baseline: cambia la fuente server-side (baseline.json vs forecast.json) → re-fetch.
+function switchBaselineBar() {
+  var sel = document.getElementById('f-baseline-bar');
+  _state.baselineSource = sel.value;
+  reload();
+}
+function _baselineLabel() {
+  return _state.baselineSource === 'forecast' ? 'Forecast' : 'Actuals + Projections';
 }
 // Nominal format toggle
 function switchNumFmt(btn) {
@@ -3222,7 +3236,7 @@ function renderWf() {
 
   // Update section title
   document.getElementById('wf-title').textContent =
-    'Varianza vs '+ goalLabel +' por Grupo — Baseline: Actuals + Run Rate — ' + _periodLabel_();
+    'Varianza vs '+ goalLabel +' por Grupo — Baseline: ' + _baselineLabel() + ' — ' + _periodLabel_();
 
   // Groups from backend
   var groups = d.groups || [];
@@ -3850,7 +3864,7 @@ function renderEvo() {
     document.getElementById('evo-subtitle').textContent =
       'Evolución '+({'M':'mensual','Q':'trimestral','H':'semestral','Y':'anual'}[gran]||'mensual')+
       ' · '+MONTH_LABELS[fp[1]]+" '"+fp[0].slice(2)+
-      ' → '+MONTH_LABELS[lp[1]]+" '"+lp[0].slice(2)+' · Actuals + Run Rate';
+      ' → '+MONTH_LABELS[lp[1]]+" '"+lp[0].slice(2)+' · '+_baselineLabel();
   }
 
   // Datasets — single bar series with per-bar color + fake RR entry for legend
@@ -4604,7 +4618,7 @@ function loadBrasil() {
       _renderBrasil_();
     })
     .withFailureHandler(onErr)
-    .getCountryPageData({ pais: country.pais, desde: period.desde, hasta: period.hasta });
+    .getCountryPageData({ pais: country.pais, desde: period.desde, hasta: period.hasta, baselineSource: _state.baselineSource || 'baseline' });
 }
 
 function _renderBrasil_() {

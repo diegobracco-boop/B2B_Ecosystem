@@ -122,13 +122,14 @@ function _getJsonsLastMod_() {
 
 function makeCacheKey_(p) {
   return JSON.stringify({
-    v:        23,
+    v:        24,
     lob:      p.lob      || 'all',
     pais:     p.pais     || 'all',
     producto: p.producto || 'all',
     canal:    p.canal    || 'all',
     desde:    p.desde    || '',
-    hasta:    p.hasta    || ''
+    hasta:    p.hasta    || '',
+    bl:       p.baselineSource || 'baseline'
   });
 }
 
@@ -216,24 +217,28 @@ function getAllData(params) {
   var fcRows   = readJson_(JSON_IDS.forecast);
   var lyRows   = readJson_(JSON_IDS.ly);
 
+  // Baseline seleccionable: 'baseline' (Actuals + Projections) | 'forecast' (forecast.json entero:
+  // actuals de meses cerrados + fc el resto). Todos los base*Map se arman de blRows.
+  var blRows = (p.baselineSource === 'forecast') ? fcRows : baseRows;
+
   // actMap = baseline (todo FY27 blended); blendedFromMaps_(baseMap, …) usa baseline completo
-  var baseMap    = buildMap_(baseRows);
+  var baseMap    = buildMap_(blRows);
   var rrMap      = buildMap_(rrRows);
   var budMap     = buildMap_(budRows);
   var fcMap      = buildMap_(fcRows);
   var lyMap      = buildMap_(lyRows);
-  var baseManMap = buildManMap_(baseRows);
+  var baseManMap = buildManMap_(blRows);
   var rrManMap   = buildManMap_(rrRows);
   var budManMap  = buildManMap_(budRows);
   var lyManMap   = buildManMap_(lyRows);
-  var baseNrN2   = buildNrN2Map_(baseRows);
+  var baseNrN2   = buildNrN2Map_(blRows);
   var rrNrN2     = buildNrN2Map_(rrRows);
   var budNrN2    = buildNrN2Map_(budRows);
   var lyNrN2     = buildNrN2Map_(lyRows);
-  var basePalMap = buildPalancasMap_(baseRows);
+  var basePalMap = buildPalancasMap_(blRows);
   var rrPalMap   = buildPalancasMap_(rrRows);
   var budPalMap  = buildPalancasMap_(budRows);
-  var filters    = buildFilters_(baseRows);
+  var filters    = buildFilters_(baseRows);   // dropdowns siempre desde baseline (estable)
 
   var b2cP = { lob:'b2c', pais:p.pais, canal:'all', producto:p.producto };
   var result = {

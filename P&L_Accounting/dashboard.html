@@ -671,6 +671,7 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
     <span style="font-size:11px;color:var(--muted);font-weight:700">Baseline:</span>
     <div class="prd-toggle">
       <button id="btn-ebl-actuals" class="prd-btn prd-active" type="button" onclick="setEpmBaselineSource('bl')">Actuals + Projections</button>
+      <button id="btn-ebl-fc" class="prd-btn" type="button" onclick="setEpmBaselineSource('fc')">Forecast</button>
       <button id="btn-ebl-vr" class="prd-btn" type="button" onclick="setEpmBaselineSource('vr')">Projection Reviews</button>
     </div>
     <span style="font-size:11px;color:var(--muted);font-weight:700;margin-left:6px">Goal:</span>
@@ -834,7 +835,7 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
   <!-- ── Análisis PxQ · descomposición OC/GB Baseline vs Goal ─────────────── -->
   <div class="sec" id="cont-pxq-sec" style="display:none">
     <div class="sec-title" style="margin-bottom:6px">Análisis PxQ · Baseline vs Goal</div>
-    <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Descompone el Δ de <b>OC / GB</b> (Operating Contribution sobre Gross Bookings) entre <b>Baseline</b> (Actuals + Forecast) y <b>Goal</b> (Budget), FY27, en efectos <b>Margen (P)</b>, <b>Mix</b> y <b>Cruce/Overhead</b>. Volumen (Q) es neutro sobre el ratio; se muestra su efecto en OC absoluto abajo.</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Descompone el Δ de <b>OC / GB</b> (Operating Contribution sobre Gross Bookings) entre <b>Baseline</b> (<span id="pxq-bl-lbl">Actuals + Projections</span>) y <b>Goal</b> (Budget), FY27, en efectos <b>Margen (P)</b>, <b>Mix</b> y <b>Cruce/Overhead</b>. Volumen (Q) es neutro sobre el ratio; se muestra su efecto en OC absoluto abajo.</div>
     <div class="pnl-card">
       <div class="pnl-card-hdr"><span class="pnl-card-title">Resumen · Total B2B + B2B2C · FY27</span></div>
       <div id="pxq-summary" style="padding:16px"></div>
@@ -845,7 +846,7 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
   <!-- ── Countries YoY · cards de crecimiento por país ────────────────────── -->
   <div class="sec" id="cont-countries-yoy-sec" style="display:none">
     <div class="sec-title" style="margin-bottom:6px">Countries YoY · Baseline FY27 vs LY</div>
-    <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Crecimiento interanual por país — Baseline (Actuals + Forecast) FY27 vs Last Year — en Gross Bookings, Net Revenues y Operating Contribution. H1 = Abr–Sep · H2 = Oct–Mar · FY = año fiscal completo.</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Crecimiento interanual por país — Baseline (<span id="yoy-bl-lbl">Actuals + Projections</span>) FY27 vs Last Year — en Gross Bookings, Net Revenues y Operating Contribution. H1 = Abr–Sep · H2 = Oct–Mar · FY = año fiscal completo.</div>
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px">
       <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">LOB</span>
       <div class="prd-toggle" id="yoy-lob-toggle">
@@ -1129,10 +1130,17 @@ function setGoalSource(src){
 function setEpmBaselineSource(src){
   _epmBaselineSource = src;
   document.getElementById('btn-ebl-actuals').classList.toggle('prd-active', src === 'bl');
+  document.getElementById('btn-ebl-fc').classList.toggle('prd-active', src === 'fc');
   document.getElementById('btn-ebl-vr').classList.toggle('prd-active', src === 'vr');
-  debouncedFetchBG();
-  if(_bgContableView === 'b2b')   selectB2BCountry(_b2bCurrentSel.label,     _b2bCurrentSel.pais);
-  if(_bgContableView === 'b2b2c') selectB2B2CCountry(_b2b2cCurrentSel.label, _b2b2cCurrentSel.pais);
+  var _bl = document.getElementById('epm-baseline-label');
+  if (_bl) _bl.innerHTML = 'Baseline:&nbsp;<span style="color:#7C3AED;font-weight:700">' + _epmBaselineLabel() + '</span>';
+  if (_bgContableView === 'pxq') renderPxQ();
+  else if (_bgContableView === 'countries-yoy') renderCountriesYoY();
+  else {
+    debouncedFetchBG();
+    if(_bgContableView === 'b2b')   selectB2BCountry(_b2bCurrentSel.label,     _b2bCurrentSel.pais);
+    if(_bgContableView === 'b2b2c') selectB2B2CCountry(_b2b2cCurrentSel.label, _b2b2cCurrentSel.pais);
+  }
 }
 
 // EPM view: goal seleccionable (baseline siempre Run Rate)
@@ -1155,6 +1163,11 @@ function _epmGoalLabel(){
        : _epmGoalSource === 'runrate'     ? 'Run Rate'
        : _epmGoalSource === 'lastrunrate' ? 'Last Run Rate'
        : 'Budget';
+}
+function _epmBaselineLabel(){
+  return _epmBaselineSource === 'fc' ? 'Forecast'
+       : _epmBaselineSource === 'vr' ? 'Projection Reviews'
+       : 'Actuals + Projections';
 }
 
 function setContableView(view){
@@ -1997,7 +2010,7 @@ var _bgPeriodSel      = null;          // array de meses/quarters/halves puntual
 var _bgContableView   = 'combined';   // 'combined' | 'b2b' | 'b2b2c'
 var _bgGoalSource       = 'budget';     // vista "Model+Accounting": 'budget' | 'epm'
 var _epmGoalSource      = 'budget';     // vista "P&L Accounting" (EPM): 'budget' | 'forecast' | 'runrate' | 'lastrunrate'
-var _epmBaselineSource  = 'bl';         // vista EPM baseline: 'bl' (Actuals+Proj) | 'vr' (Projection Reviews)
+var _epmBaselineSource  = 'bl';         // vista EPM baseline: 'bl' (Actuals+Proj) | 'fc' (Forecast entero) | 'vr' (Projection Reviews)
 var _qSecState        = {};           // secId → true = collapsed
 var _contCharts       = [];           // Chart.js instances for contable charts
 var _contLobCharts    = [];           // Chart.js instances for per-LOB charts in combined view
@@ -2314,7 +2327,7 @@ function renderBaselineGoalTable(d){
   var quarters = getActivePeriods_(d.quarters);
   var n = quarters.length;
   var _isEpmLob = (_activeLob === 'contable-epm');
-  var _baselineLbl = _isEpmLob ? ('Baseline (' + (_epmBaselineSource === 'vr' ? 'Projection Reviews' : 'Actuals + Projections') + ')') : 'Actuals + RunRate + Forecast';
+  var _baselineLbl = _isEpmLob ? ('Baseline (' + _epmBaselineLabel() + ')') : 'Actuals + RunRate + Forecast';
   var _goalLbl     = _isEpmLob ? _epmGoalLabel() : (_bgGoalSource === 'epm' ? 'EPM' : 'Budget');
   document.getElementById('bg-period-label').textContent = _baselineLbl + '  |  Goal: ' + _goalLbl;
   document.getElementById('bg-scenario-head').innerHTML = buildBGScenHead(n);
@@ -2411,12 +2424,13 @@ function renderPxQ(){
   if(!sec) return;
   if(typeof _activeLob !== 'undefined' && _activeLob !== 'contable-epm'){ sec.style.display='none'; return; }
   sec.style.display = '';
+  var _bll = document.getElementById('pxq-bl-lbl'); if(_bll) _bll.textContent = _epmBaselineLabel();
   document.getElementById('pxq-summary').innerHTML = '<span style="color:var(--muted);font-size:12px">Calculando…</span>';
   document.getElementById('pxq-tables').innerHTML = '';
   google.script.run
     .withSuccessHandler(function(a){ try{ _renderPxQ_(a); }catch(e){ document.getElementById('pxq-summary').innerHTML='<span style="color:#CF222E;font-size:12px">Error PxQ: '+e+'</span>'; } })
     .withFailureHandler(function(err){ document.getElementById('pxq-summary').innerHTML='<span style="color:#CF222E;font-size:12px">Error: '+((err&&err.message)||err)+'</span>'; })
-    .getEPMPxQAnalysis({ goalSource: _epmGoalSource });
+    .getEPMPxQAnalysis({ goalSource: _epmGoalSource, baselineSource: _epmBaselineSource });
 }
 function _pxqDecomp_(total, segs){
   var GBb=total.gb_base, GBg=total.gb_goal, OCb=total.oc_base, OCg=total.oc_goal;
@@ -2496,12 +2510,13 @@ function renderCountriesYoY(){
   if(!sec) return;
   if(typeof _activeLob !== 'undefined' && _activeLob !== 'contable-epm'){ sec.style.display='none'; return; }
   sec.style.display='';
+  var _bll = document.getElementById('yoy-bl-lbl'); if(_bll) _bll.textContent = _epmBaselineLabel();
   var cont = document.getElementById('yoy-cards');
   cont.innerHTML='<span style="color:var(--muted);font-size:12px">Calculando…</span>';
   google.script.run
     .withSuccessHandler(function(a){ try{ _renderYoY_(a); }catch(e){ cont.innerHTML='<span style="color:#CF222E;font-size:12px">Error YoY: '+e+'</span>'; } })
     .withFailureHandler(function(err){ cont.innerHTML='<span style="color:#CF222E;font-size:12px">Error: '+((err&&err.message)||err)+'</span>'; })
-    .getEPMCountriesYoY(_yoyLob, _epmGoalSource);
+    .getEPMCountriesYoY(_yoyLob, _epmGoalSource, _epmBaselineSource);
 }
 function _fmtExecUSD_(v){
   if(v==null||isNaN(v)) return '—';
