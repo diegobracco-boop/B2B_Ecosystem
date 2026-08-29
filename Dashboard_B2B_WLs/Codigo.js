@@ -122,7 +122,7 @@ function _getJsonsLastMod_() {
 
 function makeCacheKey_(p) {
   return JSON.stringify({
-    v:        24,
+    v:        25,
     lob:      p.lob      || 'all',
     pais:     p.pais     || 'all',
     producto: p.producto || 'all',
@@ -238,6 +238,8 @@ function getAllData(params) {
   var basePalMap = buildPalancasMap_(blRows);
   var rrPalMap   = buildPalancasMap_(rrRows);
   var budPalMap  = buildPalancasMap_(budRows);
+  var fcPalMap   = buildPalancasMap_(fcRows);
+  var lyPalMap   = buildPalancasMap_(lyRows);
   var filters    = buildFilters_(baseRows);   // dropdowns siempre desde baseline (estable)
 
   var b2cP = { lob:'b2c', pais:p.pais, canal:'all', producto:p.producto };
@@ -250,7 +252,7 @@ function getAllData(params) {
     compPnl    : computeCompPnL_(p, baseMap, rrMap, budMap, lyMap, fcMap),
     ocConceptWf: computeOcConceptWf_(p, baseManMap, rrManMap, budManMap, lyManMap),
     nrBridgeWf : computeNRBridgeWf_(p, baseNrN2,   rrNrN2,   budNrN2,   lyNrN2),
-    pxqData    : computePxQ_(p, baseMap, rrMap, budMap, basePalMap, rrPalMap, budPalMap)
+    pxqData    : computePxQ_(p, baseMap, rrMap, budMap, basePalMap, rrPalMap, budPalMap, fcMap, fcPalMap, lyMap, lyPalMap)
   };
 
   writeResultCache_(key, result);
@@ -285,6 +287,8 @@ function preComputeAll() {
   var basePalMap = buildPalancasMap_(baseRows);
   var rrPalMap   = buildPalancasMap_(rrRows);
   var budPalMap  = buildPalancasMap_(budRows);
+  var fcPalMap   = buildPalancasMap_(fcRows);
+  var lyPalMap   = buildPalancasMap_(lyRows);
   var filters    = buildFilters_(baseRows);
 
   var lobs       = ['all', 'b2b', 'b2b2c'];
@@ -309,7 +313,7 @@ function preComputeAll() {
         compPnl : computeCompPnL_(p, baseMap, rrMap, budMap, lyMap, fcMap),
         ocConceptWf: isAllPais ? computeOcConceptWf_(p, baseManMap, rrManMap, budManMap, lyManMap) : null,
         nrBridgeWf : isAllPais ? computeNRBridgeWf_(p, baseNrN2,   rrNrN2,   budNrN2,   lyNrN2)   : null,
-        pxqData    : isAllPais ? computePxQ_(p, baseMap, rrMap, budMap, basePalMap, rrPalMap, budPalMap) : null
+        pxqData    : isAllPais ? computePxQ_(p, baseMap, rrMap, budMap, basePalMap, rrPalMap, budPalMap, fcMap, fcPalMap, lyMap, lyPalMap) : null
       };
 
       writeResultCache_(key, result);
@@ -339,7 +343,7 @@ function preComputeAll() {
         compPnl : computeCompPnL_(p, baseMap, rrMap, budMap, lyMap, fcMap),
         ocConceptWf: computeOcConceptWf_(p, baseManMap, rrManMap, budManMap, lyManMap),
         nrBridgeWf : computeNRBridgeWf_(p, baseNrN2,   rrNrN2,   budNrN2,   lyNrN2),
-        pxqData    : computePxQ_(p, baseMap, rrMap, budMap, basePalMap, rrPalMap, budPalMap)
+        pxqData    : computePxQ_(p, baseMap, rrMap, budMap, basePalMap, rrPalMap, budPalMap, fcMap, fcPalMap, lyMap, lyPalMap)
       });
       count++;
 
@@ -1147,13 +1151,36 @@ function buildPalancasMap_(rows) {
 }
 
 // PxQ rediseñado: por país → bloques B2B, B2B2C y consolidado (B2B+B2B2C = suma de efectos).
-// Cada bloque trae 2 matrices concepto×producto:
-//   · profitGB (efecto VOLUMEN) = ΔGB × %GB_goal
-//   · margin   (efecto PRECIO)  = Δ%GB × GB_new
-// Goal = Budget (referencia). Nuevo = Actuals+RunRate (blended). profitGB + margin = Δ total exacto.
-function computePxQ_(p, actMap, rrMap, budMap, actPalMap, rrPalMap, budPalMap) {
+// Descompone Δ(palanca) entre NUEVO (baseline seleccionado) y GOAL en 3 efectos aditivos:
+//   · profitGB   (VOLUMEN)     = ΔGB · %GB_goal
+//   · margin     (PRECIO puro) = Δ%GB · GB_goal
+//   · interaction (INTERACC.)  = Δ%GB · ΔGB
+//   profitGB + margin + interaction = Δ total exacto.
+// Devuelve un dict { budget, runRate, forecast, lastYear } — el frontend elige según el
+// selector de Goal. El baseline lo define baseMap/basePalMap (selector Actuals+Proj / Forecast).
+function computePxQ_(p, actMap, rrMap, budMap, actPalMap, rrPalMap, budPalMap, fcMap, fcPalMap, lyMap, lyPalMap) {
+  var GOALS = [
+    { key:'budget',   gMap:budMap,          gPal:budPalMap,             shift:false },
+    { key:'runRate',  gMap:rrMap,           gPal:rrPalMap,              shift:false },
+    { key:'forecast', gMap:fcMap || budMap, gPal:fcPalMap || budPalMap, shift:false },
+    { key:'lastYear', gMap:lyMap || budMap, gPal:lyPalMap || budPalMap, shift:true  }
+  ];
+  var palN3Maps = [budPalMap, actPalMap, rrPalMap, fcPalMap, lyPalMap].filter(function(m){ return !!m; });
+  // El lado NUEVO (baseline) no depende del goal: se computa una vez y se reusa en los 4 goals.
+  var newCache = {};
+  var out = {};
+  GOALS.forEach(function(G) {
+    out[G.key] = _pxqForGoal_(p, actMap, rrMap, budMap, actPalMap, rrPalMap, budPalMap,
+                              G.gMap, G.gPal, G.shift, palN3Maps, newCache);
+  });
+  return out;
+}
+
+function _pxqForGoal_(p, actMap, rrMap, budMap, actPalMap, rrPalMap, budPalMap, goalMap, goalPalMap, goalShift, palN3Maps, newCache) {
   var desde = p.desde || '2020-01';
   var hasta = p.hasta || '2030-12';
+  var gDesde = goalShift ? shiftYear_(desde, -1) : desde;
+  var gHasta = goalShift ? shiftYear_(hasta, -1) : hasta;
   var nc = _PALANCAS_GROUPS_.length;
   var prodLabels = _PXQ_PROD_DEFS_.map(function(d){ return d.label; }).concat(['ONA']);
   var np = prodLabels.length;
@@ -1171,72 +1198,100 @@ function computePxQ_(p, actMap, rrMap, budMap, actPalMap, rrPalMap, budPalMap) {
     });
   }
 
+  // Lado NUEVO (baseline blended): independiente del goal → cacheado por (lobN, gf) en newCache.
+  function newBlock(lobN, gf) {
+    var ck = lobN + '|' + JSON.stringify(gf || {});
+    if (newCache[ck]) return newCache[ck];
+    var lobCanal = (lobN === 'b2b2c') ? 'all' : (p.canal || 'all');
+    var baseF = { lob:lobN, pais:p.pais, canal:lobCanal, producto:p.producto, desde:desde, hasta:hasta };
+    var gbNew = new Array(np), palNew = [];
+    for (var i=0;i<nc;i++) palNew.push(new Array(np));
+    var sumGbNew=0, sumPalNew=[];
+    for (var i=0;i<nc;i++) sumPalNew.push(0);
+    _PXQ_PROD_DEFS_.forEach(function(pd, pi) {
+      var pf = Object.assign({}, baseF, { producto: pd.key });
+      var gN = (blendedFromMaps_(actMap, rrMap, budMap, pf, gf)['gross bookings']) || 0;
+      var pN = palAmts(blendedFromMaps_(actPalMap, rrPalMap, budPalMap, pf, gf));
+      gbNew[pi]=gN; sumGbNew+=gN;
+      for (var i=0;i<nc;i++){ palNew[i][pi]=pN[i]; sumPalNew[i]+=pN[i]; }
+    });
+    var totN  = (blendedFromMaps_(actMap, rrMap, budMap, baseF, gf)['gross bookings']) || 0;
+    var totPN = palAmts(blendedFromMaps_(actPalMap, rrPalMap, budPalMap, baseF, gf));
+    gbNew[onaIdx]=totN-sumGbNew;
+    for (var i=0;i<nc;i++) palNew[i][onaIdx]=totPN[i]-sumPalNew[i];
+    newCache[ck] = { gbNew:gbNew, palNew:palNew };
+    return newCache[ck];
+  }
+
   // Valores crudos por producto: gbNew/gbGoal (por producto) y palNew/palGoal (palanca×producto)
   function rawBlock(lobN, gf) {
     var lobCanal = (lobN === 'b2b2c') ? 'all' : (p.canal || 'all');
     var baseF = { lob:lobN, pais:p.pais, canal:lobCanal, producto:p.producto, desde:desde, hasta:hasta };
-    var gbNew = new Array(np), gbGoal = new Array(np);
-    var palNew = [], palGoal = [];
-    for (var i=0;i<nc;i++){ palNew.push(new Array(np)); palGoal.push(new Array(np)); }
-    var sumGbNew=0, sumGbGoal=0, sumPalNew=[], sumPalGoal=[];
-    for (var i=0;i<nc;i++){ sumPalNew.push(0); sumPalGoal.push(0); }
+    var nb = newBlock(lobN, gf);
+    var gbNew = nb.gbNew.slice();
+    var palNew = nb.palNew.map(function(r){ return r.slice(); });
+    var gbGoal = new Array(np), palGoal = [];
+    for (var i=0;i<nc;i++) palGoal.push(new Array(np));
+    var sumGbGoal=0, sumPalGoal=[];
+    for (var i=0;i<nc;i++) sumPalGoal.push(0);
 
     _PXQ_PROD_DEFS_.forEach(function(pd, pi) {
       var pf = Object.assign({}, baseF, { producto: pd.key });
-      var gN = (blendedFromMaps_(actMap, rrMap, budMap, pf, gf)['gross bookings']) || 0;
-      var gG = (queryMap_(budMap, pf, gf, desde, hasta)['gross bookings']) || 0;
-      var pN = palAmts(blendedFromMaps_(actPalMap, rrPalMap, budPalMap, pf, gf));
-      var pG = palAmts(queryMap_(budPalMap, pf, gf, desde, hasta));
-      gbNew[pi]=gN; gbGoal[pi]=gG; sumGbNew+=gN; sumGbGoal+=gG;
-      for (var i=0;i<nc;i++){ palNew[i][pi]=pN[i]; palGoal[i][pi]=pG[i]; sumPalNew[i]+=pN[i]; sumPalGoal[i]+=pG[i]; }
+      var gG = (queryMap_(goalMap, pf, gf, gDesde, gHasta)['gross bookings']) || 0;
+      var pG = palAmts(queryMap_(goalPalMap, pf, gf, gDesde, gHasta));
+      gbGoal[pi]=gG; sumGbGoal+=gG;
+      for (var i=0;i<nc;i++){ palGoal[i][pi]=pG[i]; sumPalGoal[i]+=pG[i]; }
     });
 
     // ONA = total país/LOB − suma de productos conocidos
-    var totN  = (blendedFromMaps_(actMap, rrMap, budMap, baseF, gf)['gross bookings']) || 0;
-    var totG  = (queryMap_(budMap, baseF, gf, desde, hasta)['gross bookings']) || 0;
-    var totPN = palAmts(blendedFromMaps_(actPalMap, rrPalMap, budPalMap, baseF, gf));
-    var totPG = palAmts(queryMap_(budPalMap, baseF, gf, desde, hasta));
-    gbNew[onaIdx]=totN-sumGbNew; gbGoal[onaIdx]=totG-sumGbGoal;
-    for (var i=0;i<nc;i++){ palNew[i][onaIdx]=totPN[i]-sumPalNew[i]; palGoal[i][onaIdx]=totPG[i]-sumPalGoal[i]; }
+    var totG  = (queryMap_(goalMap, baseF, gf, gDesde, gHasta)['gross bookings']) || 0;
+    var totPG = palAmts(queryMap_(goalPalMap, baseF, gf, gDesde, gHasta));
+    gbGoal[onaIdx]=totG-sumGbGoal;
+    for (var i=0;i<nc;i++) palGoal[i][onaIdx]=totPG[i]-sumPalGoal[i];
 
     return { gbNew:gbNew, gbGoal:gbGoal, palNew:palNew, palGoal:palGoal };
   }
 
-  // De crudo → matrices de efecto (profitGB = volumen, margin = precio)
+  // De crudo → matrices de efecto, descomposición 3-way aditiva de Δ(palanca):
+  //   profitGB (VOLUMEN)      = ΔGB · %GB_goal
+  //   margin   (PRECIO puro)  = Δ%GB · GB_goal
+  //   interaction (INTERACC.) = Δ%GB · ΔGB
+  //   profitGB + margin + interaction = Δ(palanca) exacto
   function effects(raw) {
-    var profitGB = [], margin = [];
+    var profitGB = [], margin = [], interaction = [];
     var dGB = raw.gbNew.map(function(v,i){ return v - raw.gbGoal[i]; });
     for (var i=0;i<nc;i++){
-      var pgRow=new Array(np), mRow=new Array(np);
+      var pgRow=new Array(np), mRow=new Array(np), iRow=new Array(np);
       for (var pi=0;pi<np;pi++){
         var gN=raw.gbNew[pi], gG=raw.gbGoal[pi];
         var pctG = gG ? raw.palGoal[i][pi]/gG : 0;
         var pctN = gN ? raw.palNew[i][pi]/gN  : 0;
-        pgRow[pi] = dGB[pi] * pctG;          // VOLUMEN: ΔGB × %GB goal
-        mRow[pi]  = (pctN - pctG) * gN;      // PRECIO:  Δ%GB × GB nuevo
+        pgRow[pi] = dGB[pi] * pctG;            // VOLUMEN:     ΔGB   · %GB goal
+        mRow[pi]  = (pctN - pctG) * gG;        // PRECIO puro:  Δ%GB · GB goal
+        iRow[pi]  = (pctN - pctG) * dGB[pi];   // INTERACCIÓN:  Δ%GB · ΔGB
       }
-      profitGB.push(pgRow); margin.push(mRow);
+      profitGB.push(pgRow); margin.push(mRow); interaction.push(iRow);
     }
-    return { profitGB:profitGB, margin:margin, dGB:dGB, gbNew:raw.gbNew };
+    return { profitGB:profitGB, margin:margin, interaction:interaction, dGB:dGB, gbNew:raw.gbNew };
   }
 
   // Suma celda a celda de dos efectos (para consolidado B2B+B2B2C)
   function sumEffects(a, b) {
     if (!a) return b; if (!b) return a;
-    var pg=[], mg=[], dGB=new Array(np), gbNew=new Array(np);
+    var pg=[], mg=[], ig=[], dGB=new Array(np), gbNew=new Array(np);
     for (var pi=0;pi<np;pi++){ dGB[pi]=a.dGB[pi]+b.dGB[pi]; gbNew[pi]=a.gbNew[pi]+b.gbNew[pi]; }
     for (var i=0;i<nc;i++){
-      var r1=new Array(np), r2=new Array(np);
-      for (var pi=0;pi<np;pi++){ r1[pi]=a.profitGB[i][pi]+b.profitGB[i][pi]; r2[pi]=a.margin[i][pi]+b.margin[i][pi]; }
-      pg.push(r1); mg.push(r2);
+      var r1=new Array(np), r2=new Array(np), r3=new Array(np);
+      for (var pi=0;pi<np;pi++){ r1[pi]=a.profitGB[i][pi]+b.profitGB[i][pi]; r2[pi]=a.margin[i][pi]+b.margin[i][pi]; r3[pi]=a.interaction[i][pi]+b.interaction[i][pi]; }
+      pg.push(r1); mg.push(r2); ig.push(r3);
     }
-    return { profitGB:pg, margin:mg, dGB:dGB, gbNew:gbNew };
+    return { profitGB:pg, margin:mg, interaction:ig, dGB:dGB, gbNew:gbNew };
   }
 
   function sum(arr){ return arr.reduce(function(s,v){return s+v;},0); }
 
   // Mapeo palanca → N3 (dominante), de los datos
-  var palN3 = _palancaN3_([budPalMap, actPalMap, rrPalMap]);
+  var palN3 = _palancaN3_(palN3Maps);
   var _N3_ORDER_ = ['net revenue','cost of revenue','sales & marketing'];
   var _N3_LBL_   = { 'net revenue':'Net Revenue', 'cost of revenue':'Cost of Revenue', 'sales & marketing':'Sales & Marketing' };
 
@@ -1245,12 +1300,14 @@ function computePxQ_(p, actMap, rrMap, budMap, actPalMap, rrPalMap, budPalMap) {
     var concepts = _PALANCAS_GROUPS_.map(function(pg,i){
       var pgT = sum(eff.profitGB[i]);
       var mgT = sum(eff.margin[i]);
-      return { label:pg.label, profitGB:pgT, margin:mgT, delta:pgT+mgT };
+      var iT  = sum(eff.interaction[i]);
+      return { label:pg.label, profitGB:pgT, margin:mgT, interaction:iT, delta:pgT+mgT+iT };
     });
     var tP = sum(concepts.map(function(c){return c.profitGB;}));
     var tM = sum(concepts.map(function(c){return c.margin;}));
+    var tI = sum(concepts.map(function(c){return c.interaction;}));
     var node = { country:clabel, gbDelta:sum(eff.dGB), concepts:concepts,
-                 totProfitGB:tP, totMargin:tM, totDelta:tP+tM };
+                 totProfitGB:tP, totMargin:tM, totInteraction:tI, totDelta:tP+tM+tI };
     if (childList && childList.length)
       node.children = childList.map(function(ch){ return packCountry(ch.label, ch.eff, null); });
     return node;
@@ -1259,26 +1316,28 @@ function computePxQ_(p, actMap, rrMap, budMap, actPalMap, rrPalMap, budPalMap) {
   function packLob(label, countries) {
     var tP = sum(countries.map(function(c){return c.totProfitGB;}));
     var tM = sum(countries.map(function(c){return c.totMargin;}));
+    var tI = sum(countries.map(function(c){return c.totInteraction;}));
     // total LOB por palanca (suma sobre países) → agrupar por N3
     var byN3map = {};
     _PALANCAS_GROUPS_.forEach(function(pg,i){
       var pgi = sum(countries.map(function(c){return c.concepts[i].profitGB;}));
       var mgi = sum(countries.map(function(c){return c.concepts[i].margin;}));
+      var iti = sum(countries.map(function(c){return c.concepts[i].interaction;}));
       var n3 = palN3[i] || '';
-      if (!byN3map[n3]) byN3map[n3] = { profitGB:0, margin:0 };
-      byN3map[n3].profitGB += pgi; byN3map[n3].margin += mgi;
+      if (!byN3map[n3]) byN3map[n3] = { profitGB:0, margin:0, interaction:0 };
+      byN3map[n3].profitGB += pgi; byN3map[n3].margin += mgi; byN3map[n3].interaction += iti;
     });
     var byN3 = [];
     _N3_ORDER_.forEach(function(n3){
-      if (byN3map[n3]) { var o=byN3map[n3]; byN3.push({ label:_N3_LBL_[n3], profitGB:o.profitGB, margin:o.margin, delta:o.profitGB+o.margin }); delete byN3map[n3]; }
+      if (byN3map[n3]) { var o=byN3map[n3]; byN3.push({ label:_N3_LBL_[n3], profitGB:o.profitGB, margin:o.margin, interaction:o.interaction, delta:o.profitGB+o.margin+o.interaction }); delete byN3map[n3]; }
     });
     Object.keys(byN3map).forEach(function(n3){
       var o=byN3map[n3]; var lbl = n3 ? (n3.charAt(0).toUpperCase()+n3.slice(1)) : 'Otros';
-      byN3.push({ label:lbl, profitGB:o.profitGB, margin:o.margin, delta:o.profitGB+o.margin });
+      byN3.push({ label:lbl, profitGB:o.profitGB, margin:o.margin, interaction:o.interaction, delta:o.profitGB+o.margin+o.interaction });
     });
     return { lob:label, countries:countries, byN3:byN3,
              gbDelta: sum(countries.map(function(c){return c.gbDelta;})),
-             totProfitGB:tP, totMargin:tM, totDelta:tP+tM };
+             totProfitGB:tP, totMargin:tM, totInteraction:tI, totDelta:tP+tM+tI };
   }
   function lobLabel(lobN){ return lobN==='b2b' ? 'B2B' : (lobN==='b2b2c' ? 'B2B2C' : lobN); }
 

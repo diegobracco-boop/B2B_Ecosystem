@@ -413,6 +413,9 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
 .nav-item.active{background:rgba(124,58,237,.35);color:#C4B5FD}
 .nav-item .nav-icon{font-size:15px;width:20px;text-align:center;flex-shrink:0}
 .nav-divider{height:1px;background:rgba(196,181,253,.12);margin:6px 10px}
+.nav-sublabel{font-size:9.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:rgba(196,181,253,.6);padding:8px 10px 3px}
+.nav-item.nav-sub{padding-left:20px;font-size:11.5px;font-weight:500;color:rgba(255,255,255,.55)}
+.nav-item.nav-sub:hover{color:#fff}
 .nav-filters-wrap{padding:14px 14px 16px;display:flex;flex-direction:column;gap:16px}
 
 /* ── Home overlay / Landing ── */
@@ -911,12 +914,47 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
     <div class="bento-group">
       <div class="bento-section-label">Optimization</div>
       <div class="home-bento">
-        <button class="bento-card" style="--i:16" onclick="goToSection('optimization')">
-          <div class="bento-kicker">Ops · Agentes</div>
-          <div class="bento-icon">⚙️</div>
-          <div class="bento-name">Optimization</div>
-          <div class="bento-desc">Incidencias/BRG · Integraciones API · Alta de credenciales</div>
-          <div class="bento-arrow">→</div>
+        <button class="bento-card" style="--i:16" onclick="openExt('agents.optimization.incidencias')">
+          <div class="bento-kicker">Ops · Incidencias</div>
+          <div class="bento-icon">🚨</div>
+          <div class="bento-name">Incidencias</div>
+          <div class="bento-desc">Gestión de incidencias</div>
+          <div class="bento-arrow">↗</div>
+        </button>
+        <button class="bento-card" style="--i:17" onclick="openExt('agents.optimization.nuitee')">
+          <div class="bento-kicker">Ops · Incidencias</div>
+          <div class="bento-icon">🏨</div>
+          <div class="bento-name">Nuitee</div>
+          <div class="bento-desc">Incidencias Nuitee</div>
+          <div class="bento-arrow">↗</div>
+        </button>
+        <button class="bento-card" style="--i:18" onclick="openExt('agents.optimization.brg_hdo')">
+          <div class="bento-kicker">Ops · BRG</div>
+          <div class="bento-icon">💬</div>
+          <div class="bento-name">BRG HDO</div>
+          <div class="bento-desc">Best Rate Guarantee</div>
+          <div class="bento-arrow">↗</div>
+        </button>
+        <button class="bento-card" style="--i:19" onclick="openExt('agents.optimization.apps_status')">
+          <div class="bento-kicker">Integraciones API</div>
+          <div class="bento-icon">🔌</div>
+          <div class="bento-name">Apps status integraciones</div>
+          <div class="bento-desc">Estado de integraciones</div>
+          <div class="bento-arrow">↗</div>
+        </button>
+        <button class="bento-card" style="--i:20" onclick="openExt('agents.optimization.dash_conectores')">
+          <div class="bento-kicker">Integraciones API</div>
+          <div class="bento-icon">📊</div>
+          <div class="bento-name">Dash Conectores</div>
+          <div class="bento-desc">Metabase · WIP Optimization</div>
+          <div class="bento-arrow">↗</div>
+        </button>
+        <button class="bento-card" style="--i:21" onclick="openExt('agents.optimization.alta_credenciales')">
+          <div class="bento-kicker">Alta Credenciales</div>
+          <div class="bento-icon">🔑</div>
+          <div class="bento-name">Alta Credenciales</div>
+          <div class="bento-desc">Agente de alta de credenciales</div>
+          <div class="bento-arrow">↗</div>
         </button>
       </div>
     </div>
@@ -1003,7 +1041,6 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
   <button class="lob-tab"        data-lob="pnl_mgr"  onclick="switchLob(this)">📊 P&amp;L Managerial</button>
   <button class="lob-tab"        data-lob="sourcing" onclick="switchLob(this)">🔍 Sources</button>
   <button class="lob-tab"        data-lob="agents"        onclick="switchLob(this)">🤖 IA Agents</button>
-  <button class="lob-tab"        data-lob="optimization"  onclick="switchLob(this)">⚙️ Optimization</button>
   <button class="lob-tab"        data-lob="insights"      onclick="switchLob(this)">💡 Insights</button>
   <button class="lob-tab"        data-lob="organigrama"   onclick="switchLob(this)">🏢 Organigrama</button>
   <button class="lob-tab"        data-lob="okr"           onclick="switchLob(this)">🎯 OKR</button>
@@ -1054,9 +1091,14 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
     <button class="nav-item" id="nav-agents" onclick="goToSection('agents')">
       <span style="font-size:16px">🤖</span> AI Agents
     </button>
-    <button class="nav-item" id="nav-optimization" onclick="goToSection('optimization')">
-      <span style="font-size:16px">⚙️</span> Optimization
-    </button>
+    <div class="nav-sublabel">⚙️ Optimization</div>
+    <button class="nav-item nav-sub" onclick="openExt('agents.optimization.incidencias')"><span style="font-size:15px">🚨</span> Incidencias</button>
+    <button class="nav-item nav-sub" onclick="openExt('agents.optimization.nuitee')"><span style="font-size:15px">🏨</span> Nuitee</button>
+    <button class="nav-item nav-sub" onclick="openExt('agents.optimization.brg_hdo')"><span style="font-size:15px">💬</span> BRG HDO</button>
+    <button class="nav-item nav-sub" onclick="openExt('agents.optimization.apps_status')"><span style="font-size:15px">🔌</span> Apps status integraciones</button>
+    <button class="nav-item nav-sub" onclick="openExt('agents.optimization.dash_conectores')"><span style="font-size:15px">📊</span> Dash Conectores</button>
+    <button class="nav-item nav-sub" onclick="openExt('agents.optimization.alta_credenciales')"><span style="font-size:15px">🔑</span> Alta Credenciales</button>
+    <div class="nav-divider"></div>
     <button class="nav-item" id="nav-sourcing" onclick="goToSection('sourcing')">
       <span style="font-size:16px">🔍</span> Sources
     </button>
@@ -1444,55 +1486,6 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
       </div>
     </div>
 
-  </div>
-
-  <!-- Optimization (movido desde AI Agents al menú principal) -->
-  <div class="sec" id="optimization-section" style="display:none">
-    <div class="src-section">
-      <div class="src-section-title">⚙️ Optimization</div>
-
-      <div style="font-size:10px;font-weight:800;color:var(--muted2);text-transform:uppercase;letter-spacing:.08em;margin:2px 0 10px">Incidencias / BRG</div>
-      <div class="src-grid" style="margin-bottom:18px">
-        <div class="src-card">
-          <div class="src-card-icon">🚨</div>
-          <div class="src-card-body"><div class="src-card-name">Incidencias</div><div class="src-card-sub">Gestión de incidencias</div></div>
-          <a class="src-card-link" onclick="openExt('agents.optimization.incidencias')">Abrir</a>
-        </div>
-        <div class="src-card">
-          <div class="src-card-icon">🏨</div>
-          <div class="src-card-body"><div class="src-card-name">Nuitee</div><div class="src-card-sub">Incidencias Nuitee</div></div>
-          <a class="src-card-link" onclick="openExt('agents.optimization.nuitee')">Abrir</a>
-        </div>
-        <div class="src-card">
-          <div class="src-card-icon">💬</div>
-          <div class="src-card-body"><div class="src-card-name">BRG HDO</div><div class="src-card-sub">Best Rate Guarantee</div></div>
-          <a class="src-card-link" onclick="openExt('agents.optimization.brg_hdo')">Abrir</a>
-        </div>
-      </div>
-
-      <div style="font-size:10px;font-weight:800;color:var(--muted2);text-transform:uppercase;letter-spacing:.08em;margin:2px 0 10px">Integraciones API</div>
-      <div class="src-grid" style="margin-bottom:18px">
-        <div class="src-card">
-          <div class="src-card-icon">🔌</div>
-          <div class="src-card-body"><div class="src-card-name">Apps status integraciones</div><div class="src-card-sub">Estado de integraciones</div></div>
-          <a class="src-card-link" onclick="openExt('agents.optimization.apps_status')">Abrir</a>
-        </div>
-        <div class="src-card">
-          <div class="src-card-icon">📊</div>
-          <div class="src-card-body"><div class="src-card-name">Dash Conectores</div><div class="src-card-sub">Metabase · WIP Optimization</div></div>
-          <a class="src-card-link" onclick="openExt('agents.optimization.dash_conectores')">Abrir</a>
-        </div>
-      </div>
-
-      <div style="font-size:10px;font-weight:800;color:var(--muted2);text-transform:uppercase;letter-spacing:.08em;margin:2px 0 10px">Alta Credenciales</div>
-      <div class="src-grid">
-        <div class="src-card">
-          <div class="src-card-icon">🔑</div>
-          <div class="src-card-body"><div class="src-card-name">Agente Alta Credenciales</div><div class="src-card-sub">Alta de credenciales</div></div>
-          <a class="src-card-link" onclick="openExt('agents.optimization.alta_credenciales')">Abrir</a>
-        </div>
-      </div>
-    </div>
   </div>
 
   <!-- News iframe -->
@@ -2271,7 +2264,6 @@ function _updateHeader(lob) {
     'insights':      { main: 'B2B ecosystem - <span>Weekly Insights</span>', sub: 'Semáforos y bullets ejecutivos por LOB' },
     'industry':      { main: 'B2B ecosystem - <span>Weekly Industry</span>', sub: 'KPIs de industria' },
     'agents':        { main: 'B2B ecosystem - <span>IA Agents</span>', sub: 'Agentes Toqan' },
-    'optimization':  { main: 'B2B ecosystem - <span>Optimization</span>', sub: 'Incidencias · Integraciones · Credenciales' },
     'organigrama':   { main: 'B2B ecosystem - <span>Organigrama</span>', sub: 'Estructura del equipo' },
     'pnl':           { main: 'B2B ecosystem - <span>P&amp;L</span>', sub: 'Accounting view' },
     'pnl_mgr':       { main: 'B2B ecosystem - <span>P&amp;L Managerial View</span>', sub: 'FVM View - transactional sources' },
@@ -2325,14 +2317,13 @@ function switchLob(btn) {
   var isSourcing  = _state.lob === 'sourcing';
   var isIndustry  = _state.lob === 'industry';
   var isAgents    = _state.lob === 'agents';
-  var isOptim     = _state.lob === 'optimization';
   var isOrg       = _state.lob === 'organigrama';
   var isBrasil    = _state.lob === 'brasil';
   var isPnlAcc    = _state.lob === 'pnl';
   var isPnlMgr    = _state.lob === 'pnl_mgr';
   var isInsights  = _state.lob === 'insights';
   var isOkr       = _state.lob === 'okr';
-  var isSpecial   = isNews || isFixedCost || isWeekly || isDaily || isSourcing || isIndustry || isAgents || isOptim || isOrg || isBrasil || isPnlAcc || isPnlMgr || isInsights || isOkr;
+  var isSpecial   = isNews || isFixedCost || isWeekly || isDaily || isSourcing || isIndustry || isAgents || isOrg || isBrasil || isPnlAcc || isPnlMgr || isInsights || isOkr;
   var isPnl       = !isSpecial; // all, b2b, b2b2c
 
   document.getElementById('okr-section').style.display       = isOkr       ? '' : 'none';
@@ -2343,14 +2334,13 @@ function switchLob(btn) {
   document.getElementById('sourcing-section').style.display  = isSourcing  ? '' : 'none';
   document.getElementById('industry-section').style.display  = isIndustry  ? '' : 'none';
   document.getElementById('agents-section').style.display       = isAgents    ? '' : 'none';
-  document.getElementById('optimization-section').style.display = isOptim     ? '' : 'none';
   document.getElementById('organigrama-section').style.display  = isOrg       ? '' : 'none';
   document.getElementById('brasil-section').style.display       = isBrasil    ? '' : 'none';
   document.getElementById('pnl-section').style.display          = isPnlAcc    ? '' : 'none';
   document.getElementById('pnl-mgr-section').style.display      = isPnlMgr    ? '' : 'none';
   document.getElementById('insights-section').style.display     = isInsights  ? '' : 'none';
   if (isInsights && !_insightsData_) loadInsights();
-  document.querySelector('main').querySelectorAll('.sec:not(#news-section):not(#fixedcost-section):not(#weekly-section):not(#daily-section):not(#sourcing-section):not(#industry-section):not(#agents-section):not(#optimization-section):not(#organigrama-section):not(#brasil-section):not(#pnl-section):not(#pnl-mgr-section):not(#marketing-section):not(#breakdown-section):not(#insights-section):not(#okr-section)').forEach(function(s){
+  document.querySelector('main').querySelectorAll('.sec:not(#news-section):not(#fixedcost-section):not(#weekly-section):not(#daily-section):not(#sourcing-section):not(#industry-section):not(#agents-section):not(#organigrama-section):not(#brasil-section):not(#pnl-section):not(#pnl-mgr-section):not(#marketing-section):not(#breakdown-section):not(#insights-section):not(#okr-section)').forEach(function(s){
     s.style.display = isSpecial ? 'none' : '';
   });
   var _b2bOnly = isPnl && _state.lob === 'b2b';
@@ -2456,6 +2446,7 @@ function switchGoal() {
   if (_state.pnl) renderPnL();
   if (_state.wf)  renderWf();
   if (_state.evo) renderEvo();
+  renderPxQ();
 }
 
 function _autoGoal_() {
@@ -2675,9 +2666,12 @@ function toggleProdPanelBar(e) {
 function switchGoalBar() {
   var sel = document.getElementById('f-goal-bar');
   _state.goal = sel.value;
+  var topSel = document.getElementById('f-goal');
+  if (topSel) topSel.value = _state.goal;
   if (_state.pnl) renderPnL();
   if (_state.wf)  renderWf();
   if (_state.evo) renderEvo();
+  renderPxQ();
 }
 // Baseline: cambia la fuente server-side (baseline.json vs forecast.json) → re-fetch.
 function switchBaselineBar() {
@@ -2824,7 +2818,9 @@ function renderPxQ() {
   if (!show) return;
 
   var cont = document.getElementById('pxq-content');
-  var d    = _state.pxqData;
+  var pxq  = _state.pxqData;
+  // pxqData ahora es { budget, runRate, forecast, lastYear } (uno por goal). Compat: formato viejo plano.
+  var d    = pxq && (pxq.lobs ? pxq : (pxq[_state.goal] || pxq.budget));
   if (!d || !d.lobs || !d.lobs.length) {
     cont.innerHTML = '<p style="color:var(--muted2);padding:16px 0">Sin datos Palancas disponibles para el período seleccionado.</p>';
     return;
@@ -2842,10 +2838,10 @@ function renderPxQ() {
   function leafRows(node, parentId, depth) {
     var h = '';
     h += '<tr class="pxq-leaf pxq-driver depth' + depth + '" data-parent="' + parentId + '" style="display:none">';
-    h += '<td>Gross Bookings · ΔGB</td>' + cell(null, true) + cell(null, true) + cell(node.gbDelta) + '</tr>';
+    h += '<td>Gross Bookings · ΔGB</td>' + cell(null, true) + cell(null, true) + cell(null, true) + cell(node.gbDelta) + '</tr>';
     node.concepts.forEach(function(cp){
       h += '<tr class="pxq-leaf depth' + depth + '" data-parent="' + parentId + '" style="display:none">';
-      h += '<td>' + _escHtml(cp.label) + '</td>' + cell(cp.profitGB) + cell(cp.margin) + cell(cp.delta) + '</tr>';
+      h += '<td>' + _escHtml(cp.label) + '</td>' + cell(cp.profitGB) + cell(cp.margin) + cell(cp.interaction) + cell(cp.delta) + '</tr>';
     });
     return h;
   }
@@ -2855,7 +2851,7 @@ function renderPxQ() {
     var pAttr  = parentId ? ' data-parent="' + parentId + '"' : '';
     var h = '<tr id="' + id + '" class="pxq-node depth' + depth + '"' + pAttr + hidden + ' onclick="pxqToggle(this)">';
     h += '<td><span class="pxq-caret">⊕</span>' + _escHtml(node.country) + '</td>';
-    h += cell(node.totProfitGB) + cell(node.totMargin) + cell(node.totDelta) + '</tr>';
+    h += cell(node.totProfitGB) + cell(node.totMargin) + cell(node.totInteraction) + cell(node.totDelta) + '</tr>';
     if (node.children && node.children.length) {
       node.children.forEach(function(ch, chi){ h += nodeRows(ch, id + '_' + chi, id, depth + 1); });
     } else {
@@ -2864,8 +2860,10 @@ function renderPxQ() {
     return h;
   }
 
+  var newLabel = _baselineLabel ? _baselineLabel() : 'Act+RR';
   var html = '<div class="pxq-legend">Profit GB = ΔGB × %GB ' + _escHtml(goalLabel) +
-             ' (volumen) · Margin = Δ%GB × GB Act+RR (precio) · Δ Total = Profit GB + Margin</div>';
+             ' (volumen) · Margin = Δ%GB × GB ' + _escHtml(goalLabel) + ' (precio) · Interac. = Δ%GB × ΔGB · ' +
+             'Δ Total = Profit GB + Margin + Interac. &nbsp;·&nbsp; Nuevo = ' + _escHtml(newLabel) + ' vs Goal = ' + _escHtml(goalLabel) + '</div>';
 
   d.lobs.forEach(function(lobBlk, li){
     var isCons = lobBlk.lob.indexOf('+') >= 0;
@@ -2875,22 +2873,22 @@ function renderPxQ() {
 
     // Tabla principal (izquierda): países colapsables
     html += '<div class="pxq-main"><table class="pxq-tbl pxq-summary"><thead><tr>';
-    html += '<th>País / Concepto</th><th>Profit GB</th><th>Margin</th><th>Δ Total</th>';
+    html += '<th>País / Concepto</th><th>Profit GB</th><th>Margin</th><th title="Δ%GB × ΔGB">Interac.</th><th>Δ Total</th>';
     html += '</tr></thead><tbody>';
     lobBlk.countries.forEach(function(c, ci){
       html += nodeRows(c, 'r' + li + '_' + ci, '', 0);
     });
     html += '<tr class="pxq-total"><td>TOTAL ' + _escHtml(lobBlk.lob) + '</td>';
-    html += cell(lobBlk.totProfitGB) + cell(lobBlk.totMargin) + cell(lobBlk.totDelta) + '</tr>';
+    html += cell(lobBlk.totProfitGB) + cell(lobBlk.totMargin) + cell(lobBlk.totInteraction) + cell(lobBlk.totDelta) + '</tr>';
     html += '</tbody></table></div>';
 
     // Resumen por concepto P&L N3 (derecha)
     html += '<div class="pxq-byn3"><div class="pxq-byn3-title">Impacto por concepto P&amp;L</div>';
-    html += '<table class="pxq-tbl"><thead><tr><th>Concepto</th><th>Profit GB</th><th>Margin</th><th>Δ Total</th></tr></thead><tbody>';
+    html += '<table class="pxq-tbl"><thead><tr><th>Concepto</th><th>Profit GB</th><th>Margin</th><th title="Δ%GB × ΔGB">Interac.</th><th>Δ Total</th></tr></thead><tbody>';
     (lobBlk.byN3 || []).forEach(function(n){
-      html += '<tr><td>' + _escHtml(n.label) + '</td>' + cell(n.profitGB) + cell(n.margin) + cell(n.delta) + '</tr>';
+      html += '<tr><td>' + _escHtml(n.label) + '</td>' + cell(n.profitGB) + cell(n.margin) + cell(n.interaction) + cell(n.delta) + '</tr>';
     });
-    html += '<tr class="pxq-total"><td>TOTAL</td>' + cell(lobBlk.totProfitGB) + cell(lobBlk.totMargin) + cell(lobBlk.totDelta) + '</tr>';
+    html += '<tr class="pxq-total"><td>TOTAL</td>' + cell(lobBlk.totProfitGB) + cell(lobBlk.totMargin) + cell(lobBlk.totInteraction) + cell(lobBlk.totDelta) + '</tr>';
     html += '</tbody></table></div>';
 
     html += '</div></div>';
@@ -2917,7 +2915,7 @@ function renderPxQ() {
       html += '<div class="pxq-lob' + (isCons ? ' cons' : '') + '">';
       html += '<div class="pxq-lob-title">' + _escHtml(lobBlk.lob) + '</div>';
       html += '<table class="pxq-tbl pxqm-tbl"><thead><tr>';
-      html += '<th>Palanca / País / Producto</th><th>%GB ' + _escHtml(goalLabel) + '</th><th>%GB Act+RR</th>' +
+      html += '<th>Palanca / País / Producto</th><th>%GB ' + _escHtml(goalLabel) + '</th><th title="' + _escHtml(newLabel) + '">%GB Nuevo</th>' +
               '<th>Δ %GB</th><th title="Σ wᵢ·Δrᵢ">Precio</th>' +
               '<th title="Σ rᵢ·Δwᵢ">Mix</th><th title="Σ Δwᵢ·Δrᵢ">Interac.</th>';
       html += '</tr></thead><tbody>';
