@@ -907,6 +907,20 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
       </div>
     </div>
 
+    <!-- Optimization -->
+    <div class="bento-group">
+      <div class="bento-section-label">Optimization</div>
+      <div class="home-bento">
+        <button class="bento-card" style="--i:16" onclick="goToSection('optimization')">
+          <div class="bento-kicker">Ops · Agentes</div>
+          <div class="bento-icon">⚙️</div>
+          <div class="bento-name">Optimization</div>
+          <div class="bento-desc">Incidencias/BRG · Integraciones API · Alta de credenciales</div>
+          <div class="bento-arrow">→</div>
+        </button>
+      </div>
+    </div>
+
   </div>
 
   </div><!-- /home-sections -->
@@ -989,6 +1003,7 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
   <button class="lob-tab"        data-lob="pnl_mgr"  onclick="switchLob(this)">📊 P&amp;L Managerial</button>
   <button class="lob-tab"        data-lob="sourcing" onclick="switchLob(this)">🔍 Sources</button>
   <button class="lob-tab"        data-lob="agents"        onclick="switchLob(this)">🤖 IA Agents</button>
+  <button class="lob-tab"        data-lob="optimization"  onclick="switchLob(this)">⚙️ Optimization</button>
   <button class="lob-tab"        data-lob="insights"      onclick="switchLob(this)">💡 Insights</button>
   <button class="lob-tab"        data-lob="organigrama"   onclick="switchLob(this)">🏢 Organigrama</button>
   <button class="lob-tab"        data-lob="okr"           onclick="switchLob(this)">🎯 OKR</button>
@@ -1038,6 +1053,9 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
     <div class="nav-divider"></div>
     <button class="nav-item" id="nav-agents" onclick="goToSection('agents')">
       <span style="font-size:16px">🤖</span> AI Agents
+    </button>
+    <button class="nav-item" id="nav-optimization" onclick="goToSection('optimization')">
+      <span style="font-size:16px">⚙️</span> Optimization
     </button>
     <button class="nav-item" id="nav-sourcing" onclick="goToSection('sourcing')">
       <span style="font-size:16px">🔍</span> Sources
@@ -1426,6 +1444,10 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
       </div>
     </div>
 
+  </div>
+
+  <!-- Optimization (movido desde AI Agents al menú principal) -->
+  <div class="sec" id="optimization-section" style="display:none">
     <div class="src-section">
       <div class="src-section-title">⚙️ Optimization</div>
 
@@ -1471,7 +1493,6 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
         </div>
       </div>
     </div>
-
   </div>
 
   <!-- News iframe -->
@@ -2250,6 +2271,7 @@ function _updateHeader(lob) {
     'insights':      { main: 'B2B ecosystem - <span>Weekly Insights</span>', sub: 'Semáforos y bullets ejecutivos por LOB' },
     'industry':      { main: 'B2B ecosystem - <span>Weekly Industry</span>', sub: 'KPIs de industria' },
     'agents':        { main: 'B2B ecosystem - <span>IA Agents</span>', sub: 'Agentes Toqan' },
+    'optimization':  { main: 'B2B ecosystem - <span>Optimization</span>', sub: 'Incidencias · Integraciones · Credenciales' },
     'organigrama':   { main: 'B2B ecosystem - <span>Organigrama</span>', sub: 'Estructura del equipo' },
     'pnl':           { main: 'B2B ecosystem - <span>P&amp;L</span>', sub: 'Accounting view' },
     'pnl_mgr':       { main: 'B2B ecosystem - <span>P&amp;L Managerial View</span>', sub: 'FVM View - transactional sources' },
@@ -2303,13 +2325,14 @@ function switchLob(btn) {
   var isSourcing  = _state.lob === 'sourcing';
   var isIndustry  = _state.lob === 'industry';
   var isAgents    = _state.lob === 'agents';
+  var isOptim     = _state.lob === 'optimization';
   var isOrg       = _state.lob === 'organigrama';
   var isBrasil    = _state.lob === 'brasil';
   var isPnlAcc    = _state.lob === 'pnl';
   var isPnlMgr    = _state.lob === 'pnl_mgr';
   var isInsights  = _state.lob === 'insights';
   var isOkr       = _state.lob === 'okr';
-  var isSpecial   = isNews || isFixedCost || isWeekly || isDaily || isSourcing || isIndustry || isAgents || isOrg || isBrasil || isPnlAcc || isPnlMgr || isInsights || isOkr;
+  var isSpecial   = isNews || isFixedCost || isWeekly || isDaily || isSourcing || isIndustry || isAgents || isOptim || isOrg || isBrasil || isPnlAcc || isPnlMgr || isInsights || isOkr;
   var isPnl       = !isSpecial; // all, b2b, b2b2c
 
   document.getElementById('okr-section').style.display       = isOkr       ? '' : 'none';
@@ -2320,13 +2343,14 @@ function switchLob(btn) {
   document.getElementById('sourcing-section').style.display  = isSourcing  ? '' : 'none';
   document.getElementById('industry-section').style.display  = isIndustry  ? '' : 'none';
   document.getElementById('agents-section').style.display       = isAgents    ? '' : 'none';
+  document.getElementById('optimization-section').style.display = isOptim     ? '' : 'none';
   document.getElementById('organigrama-section').style.display  = isOrg       ? '' : 'none';
   document.getElementById('brasil-section').style.display       = isBrasil    ? '' : 'none';
   document.getElementById('pnl-section').style.display          = isPnlAcc    ? '' : 'none';
   document.getElementById('pnl-mgr-section').style.display      = isPnlMgr    ? '' : 'none';
   document.getElementById('insights-section').style.display     = isInsights  ? '' : 'none';
   if (isInsights && !_insightsData_) loadInsights();
-  document.querySelector('main').querySelectorAll('.sec:not(#news-section):not(#fixedcost-section):not(#weekly-section):not(#daily-section):not(#sourcing-section):not(#industry-section):not(#agents-section):not(#organigrama-section):not(#brasil-section):not(#pnl-section):not(#pnl-mgr-section):not(#marketing-section):not(#breakdown-section):not(#insights-section):not(#okr-section)').forEach(function(s){
+  document.querySelector('main').querySelectorAll('.sec:not(#news-section):not(#fixedcost-section):not(#weekly-section):not(#daily-section):not(#sourcing-section):not(#industry-section):not(#agents-section):not(#optimization-section):not(#organigrama-section):not(#brasil-section):not(#pnl-section):not(#pnl-mgr-section):not(#marketing-section):not(#breakdown-section):not(#insights-section):not(#okr-section)').forEach(function(s){
     s.style.display = isSpecial ? 'none' : '';
   });
   var _b2bOnly = isPnl && _state.lob === 'b2b';
