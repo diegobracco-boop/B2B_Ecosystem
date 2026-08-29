@@ -904,10 +904,19 @@ ORDER BY 1, 2
 """
 
 
+# El query de B2C emite el país en ISO-2; el resto del pipeline usa nombres
+# completos. Se normaliza acá para que el JSON sea joinable por `pais`.
+B2C_PAIS_MAP = {
+    "AR": "Argentina", "BR": "Brasil", "CO": "Colombia", "EC": "Ecuador",
+    "PE": "Peru", "CL": "Chile", "MX": "Mexico", "US": "USA", "OT": "Other Countries",
+}
+
+
 def agg_b2c(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     df.columns = [c.lower().strip() for c in df.columns]
     df["fecha"] = pd.to_datetime(df["fecha"]).dt.strftime("%Y-%m-%d")
+    df["pais"]  = df["pais"].map(B2C_PAIS_MAP).fillna(df["pais"])
     df["gross_bookings"] = pd.to_numeric(df["gb"],              errors="coerce").fillna(0)
     df["net_revenues"]   = pd.to_numeric(df["net_revenues"],    errors="coerce").fillna(0)
     df["fvm"]            = pd.to_numeric(df["margenvar_conaa"], errors="coerce").fillna(0)
@@ -1123,6 +1132,13 @@ except Exception as e:
     print(f"  WARN B2C query failed: {e}")
     df_b2c = pd.DataFrame(columns=["fecha", "pais", "gross_bookings", "net_revenues", "fvm"])
 
+print("\n--- B2C LY (referencia) ---")
+try:
+    df_b2c_ly = agg_b2c(fetch(build_b2c_query(LY_FROM, LY_TO), "B2C LY"))
+except Exception as e:
+    print(f"  WARN B2C LY query failed: {e}")
+    df_b2c_ly = pd.DataFrame(columns=["fecha", "pais", "gross_bookings", "net_revenues", "fvm"])
+
 # ==============================================================================
 # 5) AGREGAR Y CONSTRUIR JSON
 # ==============================================================================
@@ -1158,7 +1174,8 @@ META = {
     "ly_to":             str(LY_TO),
 }
 
-b2c_compact = to_compact(df_b2c) if not df_b2c.empty else {"cols": [], "rows": []}
+b2c_compact    = to_compact(df_b2c)    if not df_b2c.empty    else {"cols": [], "rows": []}
+b2c_ly_compact = to_compact(df_b2c_ly) if not df_b2c_ly.empty else {"cols": [], "rows": []}
 
 b2bc_payload = {
     "meta":       META,
@@ -1167,12 +1184,14 @@ b2bc_payload = {
     "budget":     to_compact(df_bud),
     "runrate":    to_compact(df_b2bc_rr_agg) if not df_b2bc_rr_agg.empty else {"cols": [], "rows": []},
     "b2c":        b2c_compact,
+    "b2c_ly":     b2c_ly_compact,
 }
 
 b2b_payload = {
     "meta":       META,
     "b2b_gd":     to_compact(df_b2b_gd_agg),
     "b2c":        b2c_compact,
+    "b2c_ly":     b2c_ly_compact,
     "b2b_gd_ly":  to_compact(df_b2b_gd_ly_ag),
     "b2b_ri":     to_compact(df_b2b_ri_agg),
     "b2b_ri_ly":  to_compact(df_b2b_ri_ly_ag),

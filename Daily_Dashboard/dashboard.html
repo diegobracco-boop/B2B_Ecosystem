@@ -254,6 +254,15 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
 .bk-toggle.open { transform: rotate(90deg); }
 .bk-toggle:hover { color: var(--text); }
 
+/* ── Benchmark B2C ─────────────────────────────────────── */
+.bench-sub { font-size: 10px; color: var(--text-3); font-weight: 600; }
+#bench-tbl-a td.bk-val, #bench-tbl-a td.bk-yoy { text-align: right; }
+#bench-tbl-a .bk-row-child td { background: var(--surface); }
+.bench-share-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.bench-share-lbl { font-size: 11px; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: .05em; width: 130px; flex-shrink: 0; }
+.bench-share-bar { flex: 1; display: flex; height: 24px; border-radius: 6px; overflow: hidden; background: var(--elevated); }
+.bench-share-seg { display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; transition: width .3s var(--ease); }
+
 /* ── Region tags ───────────────────────────────────────── */
 .rtag { font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 4px; flex-shrink: 0; letter-spacing: .3px; text-transform: uppercase; }
 .rtag-sah { background: rgba(86,38,233,.15); color: var(--secondary); }
@@ -546,6 +555,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
   <span class="topbar-title" id="topbar-title">Daily Dashboard</span>
   <div class="view-nav">
     <button class="vnav-btn active" id="vnav-daily"  onclick="switchMainView('daily')">Daily</button>
+    <button class="vnav-btn"        id="vnav-bench"  onclick="switchMainView('benchmark')">Benchmark B2C</button>
     <button class="vnav-btn"        id="vnav-weekly" onclick="switchMainView('weekly')">Weekly</button>
     <button class="vnav-btn"        id="vnav-flow"   onclick="switchMainView('flow')">Flow Semanal</button>
   </div>
@@ -1073,6 +1083,58 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
   </div>
 </div><!-- /section-b2b -->
 </div><!-- /view-daily -->
+
+<!-- ══ BENCHMARK B2C VIEW ═══════════════════════════════════════ -->
+<div id="view-benchmark" style="display:none">
+ <div class="content">
+  <div class="section-hdr-row">
+    <div class="section-hdr">Benchmark · B2B2C · B2B · B2C</div>
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+      <div class="tab-toggle">
+        <button class="ttab active" id="bench-per-mtd" onclick="setBenchPeriod('mtd')">MTD</button>
+        <button class="ttab"        id="bench-per-ytd" onclick="setBenchPeriod('ytd')">YTD</button>
+      </div>
+      <span id="bench-range" class="bench-sub"></span>
+    </div>
+  </div>
+
+  <div class="tcard" style="margin-bottom:16px">
+    <div class="card-hdr">
+      <span class="card-ttl">Totales · Márgenes · Crecimiento YoY</span>
+      <span class="bench-sub">B2B en base generación (GD) · Δpp = margen vs B2C (referencia)</span>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="bk-table" id="bench-tbl-a">
+        <thead><tr>
+          <th>Negocio</th>
+          <th style="text-align:right">GB</th><th style="text-align:right">NR</th><th style="text-align:right">FVM</th>
+          <th style="text-align:right">NR%</th><th style="text-align:right">FVM%</th>
+          <th style="text-align:right">Δpp NR</th><th style="text-align:right">Δpp FVM</th>
+          <th style="text-align:right">YoY GB</th><th style="text-align:right">YoY NR</th><th style="text-align:right">YoY FVM</th>
+        </tr></thead>
+        <tbody id="bench-tbl-a-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="tcard" style="margin-bottom:16px">
+    <div class="card-hdr">
+      <span class="card-ttl">Evolución indexada · base 100 = primer mes del año</span>
+      <div class="tab-toggle">
+        <button class="ttab active" id="bench-idx-gb"  onclick="setBenchIdxMetric('gb')">GB</button>
+        <button class="ttab"        id="bench-idx-nr"  onclick="setBenchIdxMetric('nr')">NR</button>
+        <button class="ttab"        id="bench-idx-fvm" onclick="setBenchIdxMetric('fvm')">FVM</button>
+      </div>
+    </div>
+    <div style="height:300px"><canvas id="bench-idx-chart"></canvas></div>
+  </div>
+
+  <div class="tcard">
+    <div class="card-hdr"><span class="card-ttl">Participación en el total (B2B2C + B2B + B2C)</span></div>
+    <div id="bench-share"></div>
+  </div>
+ </div>
+</div>
 
 <!-- ══ WEEKLY VIEW ══════════════════════════════════════════════ -->
 <div id="view-weekly" style="display:none">
@@ -2260,6 +2322,7 @@ function toggleTheme() {
   applyTheme(current === 'light' ? 'dark' : 'light');
   if (state.allMetrics) renderMetrics(state.allMetrics);
   if (state_b2b.allMetrics) renderB2BMetrics(state_b2b.allMetrics);
+  if (_activeView === 'benchmark' && _benchData) renderBenchIndexChart_();
 }
 
 // ── LOB switch ───────────────────────────────────────────────────
@@ -2573,20 +2636,281 @@ var _activeView = 'daily';
 
 function switchMainView(view) {
   _activeView = view;
-  document.getElementById('view-daily').style.display   = (view === 'daily')  ? '' : 'none';
-  document.getElementById('view-weekly').style.display  = (view === 'weekly') ? '' : 'none';
+  document.getElementById('view-daily').style.display     = (view === 'daily')     ? '' : 'none';
+  document.getElementById('view-benchmark').style.display = (view === 'benchmark') ? '' : 'none';
+  document.getElementById('view-weekly').style.display    = (view === 'weekly')    ? '' : 'none';
   var vf = document.getElementById('view-flow');
   if (vf) vf.style.display = (view === 'flow') ? '' : 'none';
   document.getElementById('vnav-daily').classList.toggle('active',  view === 'daily');
+  document.getElementById('vnav-bench').classList.toggle('active',  view === 'benchmark');
   document.getElementById('vnav-weekly').classList.toggle('active', view === 'weekly');
   var vnf = document.getElementById('vnav-flow'); if (vnf) vnf.classList.toggle('active', view === 'flow');
   document.getElementById('daily-lob-toggle').style.display = (view === 'daily') ? '' : 'none';
   document.getElementById('topbar-title').textContent =
-    view === 'weekly' ? 'Weekly Summary' : view === 'flow' ? 'Flow Semanal' : 'Daily Dashboard';
+    view === 'weekly' ? 'Weekly Summary' : view === 'flow' ? 'Flow Semanal'
+    : view === 'benchmark' ? 'Benchmark B2C' : 'Daily Dashboard';
   if (view === 'daily') updateAiAgent(_lob);
   else if (view === 'weekly') _wsUpdateAiAgent(_wsLob);
   if (view === 'weekly' && !_wsLoaded) { _wsLoadData(); }
   if (view === 'flow') flowOpen_();
+  if (view === 'benchmark') renderBenchmark_();
+}
+
+// ══ BENCHMARK B2C ══════════════════════════════════════════════
+var _benchPeriod     = 'mtd';   // 'mtd' | 'ytd'
+var _benchIdxMetric  = 'gb';    // 'gb' | 'nr' | 'fvm'
+var _benchChart      = null;
+var _benchData       = null;
+var _benchB2BLoading = false;
+
+var BENCH_BIZ = [
+  { key: 'b2b2c', label: 'B2B2C', color: '#5626e9' },
+  { key: 'b2b',   label: 'B2B',   color: '#0891b2' },
+  { key: 'b2c',   label: 'B2C',   color: '#f59e0b' }
+];
+
+function _b2cLyRows_(raw) {
+  if (!raw || !raw.b2c_ly || !raw.b2c_ly.cols || !raw.b2c_ly.cols.length) return [];
+  if (raw._b2cLyExpanded) return raw._b2cLyExpanded;
+  raw._b2cLyExpanded = expandCompact_(raw.b2c_ly);
+  return raw._b2cLyExpanded;
+}
+
+// { cur, ly, nr } — filas y nombre del campo NR (net_revenues plural en actuals/b2c, singular en b2b)
+function _benchRows_(biz) {
+  if (biz === 'b2b2c') return { cur: (_rawB2BC.actuals || []), ly: (_rawB2BC.actuals_ly || []), nr: 'net_revenues' };
+  if (biz === 'b2b')   return { cur: (_rawB2B ? (_rawB2B.b2b_gd || []) : []), ly: (_rawB2B ? (_rawB2B.b2b_gd_ly || []) : []), nr: 'net_revenue' };
+  return { cur: _b2cRows_(_rawB2BC), ly: _b2cLyRows_(_rawB2BC), nr: 'net_revenues' };
+}
+
+// Una sola pasada: total + desglose por país, filtrado por [from,to].
+function _benchAgg_(rows, from, to, nrField) {
+  var total = { gb: 0, nr: 0, fvm: 0 }, byP = {};
+  for (var i = 0; i < rows.length; i++) {
+    var r = rows[i];
+    if (r.fecha < from || r.fecha > to) continue;
+    var gb = +r.gross_bookings || 0, nr = +r[nrField] || 0, fv = +r.fvm || 0;
+    total.gb += gb; total.nr += nr; total.fvm += fv;
+    var p = r.pais || 'N/D';
+    var o = byP[p] || (byP[p] = { gb: 0, nr: 0, fvm: 0 });
+    o.gb += gb; o.nr += nr; o.fvm += fv;
+  }
+  return { total: total, byP: byP };
+}
+
+function _benchMetrics_(cur, ly) {
+  return {
+    gb: cur.gb, nr: cur.nr, fvm: cur.fvm,
+    nrPct:  cur.gb ? cur.nr  / cur.gb : 0,
+    fvmPct: cur.gb ? cur.fvm / cur.gb : 0,
+    yoyGb:  ly.gb  ? (cur.gb  / ly.gb  - 1) : null,
+    yoyNr:  ly.nr  ? (cur.nr  / ly.nr  - 1) : null,
+    yoyFvm: ly.fvm ? (cur.fvm / ly.fvm - 1) : null
+  };
+}
+
+function _benchRange_() {
+  var to = (_rawB2BC && _rawB2BC.meta) ? _rawB2BC.meta.last_actuals_date : '';
+  if (!to) return null;
+  var from   = (_benchPeriod === 'ytd') ? (to.slice(0, 4) + '-01-01') : (to.slice(0, 7) + '-01');
+  var lyTo   = (parseInt(to.slice(0, 4), 10)   - 1) + to.slice(4);
+  var lyFrom = (parseInt(from.slice(0, 4), 10) - 1) + from.slice(4);
+  return { from: from, to: to, lyFrom: lyFrom, lyTo: lyTo };
+}
+
+function _benchIndexSeries_(to) {
+  var yStart = to.slice(0, 4) + '-01-01', res = {};
+  BENCH_BIZ.forEach(function(b) {
+    var rr = _benchRows_(b.key), dM = {};
+    var field = (_benchIdxMetric === 'gb') ? 'gross_bookings' : (_benchIdxMetric === 'nr' ? rr.nr : 'fvm');
+    rr.cur.forEach(function(r) {
+      if (r.fecha < yStart || r.fecha > to) return;
+      var m = r.fecha.substring(0, 7);
+      dM[m] = (dM[m] || 0) + (+r[field] || 0);
+    });
+    var months = Object.keys(dM).sort();
+    var base = months.length ? dM[months[0]] : 0;
+    res[b.key] = months.map(function(m) { return { m: m, v: base ? dM[m] / base * 100 : null }; });
+  });
+  return res;
+}
+
+var _ZERO3 = { gb: 0, nr: 0, fvm: 0 };
+
+function computeBenchmark_() {
+  var rg = _benchRange_();
+  if (!rg) return null;
+
+  var out = { range: rg, biz: {}, byPais: {}, paises: [] }, paisSet = {};
+  BENCH_BIZ.forEach(function(b) {
+    var rr  = _benchRows_(b.key);
+    var cur = _benchAgg_(rr.cur, rg.from,   rg.to,   rr.nr);
+    var ly  = _benchAgg_(rr.ly,  rg.lyFrom, rg.lyTo, rr.nr);
+    out.biz[b.key] = _benchMetrics_(cur.total, ly.total);
+    out.byPais[b.key] = {};
+    Object.keys(cur.byP).forEach(function(p) {
+      paisSet[p] = 1;
+      out.byPais[b.key][p] = _benchMetrics_(cur.byP[p], ly.byP[p] || _ZERO3);
+    });
+  });
+  out.paises = Object.keys(paisSet).sort();
+
+  var tot = { gb: 0, nr: 0, fvm: 0 };
+  BENCH_BIZ.forEach(function(b) { ['gb', 'nr', 'fvm'].forEach(function(m) { tot[m] += out.biz[b.key][m]; }); });
+  var b2c = out.biz.b2c;
+  BENCH_BIZ.forEach(function(b) {
+    var bb = out.biz[b.key];
+    bb.share = { gb: tot.gb ? bb.gb / tot.gb : 0, nr: tot.nr ? bb.nr / tot.nr : 0, fvm: tot.fvm ? bb.fvm / tot.fvm : 0 };
+    bb.dpp   = { nr: bb.nrPct - b2c.nrPct, fvm: bb.fvmPct - b2c.fvmPct };
+  });
+
+  out.index = _benchIndexSeries_(rg.to);
+  return out;
+}
+
+function _bPct1_(v) { return (v == null) ? '—' : (v * 100).toFixed(1) + '%'; }
+function _bPp1_(v)  { return (v == null) ? '—' : (v >= 0 ? '+' : '') + (v * 100).toFixed(1) + 'pp'; }
+function _bYoy0_(v) { return (v == null) ? '—' : (v >= 0 ? '+' : '') + Math.round(v * 100) + '%'; }
+function _bClr_(v)  { return (v == null) ? '' : (v >= 0 ? 'color:var(--success)' : 'color:var(--danger)'); }
+
+function _benchRow_(cells, cls, dataAttr) {
+  return '<tr class="' + (cls || '') + '"' + (dataAttr || '') + '>' + cells + '</tr>';
+}
+
+function renderBenchTableA_(d) {
+  var html = '';
+  BENCH_BIZ.forEach(function(b) {
+    var m = d.biz[b.key], isRef = (b.key === 'b2c'), gid = 'benchg-' + b.key;
+    html += _benchRow_(
+      '<td><span class="bar-wrap"><button class="bk-toggle" onclick="benchToggle(this,\'' + gid + '\')">▸</button>'
+        + '<span class="bk-name bk-group" style="color:' + b.color + '">' + b.label + '</span></span></td>'
+      + '<td class="bk-val">' + fmt(m.gb) + '</td><td class="bk-val">' + fmt(m.nr) + '</td><td class="bk-val">' + fmt(m.fvm) + '</td>'
+      + '<td class="bk-val">' + _bPct1_(m.nrPct) + '</td><td class="bk-val">' + _bPct1_(m.fvmPct) + '</td>'
+      + '<td class="bk-yoy" style="' + (isRef ? '' : _bClr_(m.dpp.nr))  + '">' + (isRef ? '—' : _bPp1_(m.dpp.nr))  + '</td>'
+      + '<td class="bk-yoy" style="' + (isRef ? '' : _bClr_(m.dpp.fvm)) + '">' + (isRef ? '—' : _bPp1_(m.dpp.fvm)) + '</td>'
+      + '<td class="bk-yoy" style="' + _bClr_(m.yoyGb)  + '">' + _bYoy0_(m.yoyGb)  + '</td>'
+      + '<td class="bk-yoy" style="' + _bClr_(m.yoyNr)  + '">' + _bYoy0_(m.yoyNr)  + '</td>'
+      + '<td class="bk-yoy" style="' + _bClr_(m.yoyFvm) + '">' + _bYoy0_(m.yoyFvm) + '</td>',
+      'bk-row-group', ' data-grp="' + gid + '"');
+
+    var bp = d.byPais[b.key];
+    Object.keys(bp).sort(function(x, y) { return bp[y].gb - bp[x].gb; }).forEach(function(p) {
+      var pm = bp[p], b2cP = d.byPais.b2c[p];
+      var ppNr  = (isRef || !b2cP) ? null : pm.nrPct  - b2cP.nrPct;
+      var ppFvm = (isRef || !b2cP) ? null : pm.fvmPct - b2cP.fvmPct;
+      html += _benchRow_(
+        '<td><span class="bk-name bk-child">' + p + '</span></td>'
+        + '<td class="bk-val">' + fmt(pm.gb) + '</td><td class="bk-val">' + fmt(pm.nr) + '</td><td class="bk-val">' + fmt(pm.fvm) + '</td>'
+        + '<td class="bk-val">' + _bPct1_(pm.nrPct) + '</td><td class="bk-val">' + _bPct1_(pm.fvmPct) + '</td>'
+        + '<td class="bk-yoy" style="' + _bClr_(ppNr)  + '">' + _bPp1_(ppNr)  + '</td>'
+        + '<td class="bk-yoy" style="' + _bClr_(ppFvm) + '">' + _bPp1_(ppFvm) + '</td>'
+        + '<td class="bk-yoy" style="' + _bClr_(pm.yoyGb)  + '">' + _bYoy0_(pm.yoyGb)  + '</td>'
+        + '<td class="bk-yoy" style="' + _bClr_(pm.yoyNr)  + '">' + _bYoy0_(pm.yoyNr)  + '</td>'
+        + '<td class="bk-yoy" style="' + _bClr_(pm.yoyFvm) + '">' + _bYoy0_(pm.yoyFvm) + '</td>',
+        'bk-row-child', ' data-child="' + gid + '" style="display:none"');
+    });
+  });
+  document.getElementById('bench-tbl-a-body').innerHTML = html;
+}
+
+function benchToggle(btn, gid) {
+  btn.classList.toggle('open');
+  var open = btn.classList.contains('open');
+  var rows = document.querySelectorAll('tr.bk-row-child[data-child="' + gid + '"]');
+  for (var i = 0; i < rows.length; i++) rows[i].style.display = open ? '' : 'none';
+}
+
+function renderBenchIndexChart_() {
+  if (!_benchData) return;
+  _benchData.index = _benchIndexSeries_(_benchData.range.to);
+  var idx = _benchData.index, tv = _getThemeVars();
+  var mset = {};
+  BENCH_BIZ.forEach(function(b) { (idx[b.key] || []).forEach(function(p) { mset[p.m] = 1; }); });
+  var months = Object.keys(mset).sort();
+  var ML = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+  var labels = months.map(function(m) { var p = m.split('-'); return ML[+p[1] - 1] + " '" + p[0].slice(2); });
+  var datasets = BENCH_BIZ.map(function(b) {
+    var byM = {}; (idx[b.key] || []).forEach(function(p) { byM[p.m] = p.v; });
+    return {
+      label: b.label, data: months.map(function(m) { return (m in byM) ? byM[m] : null; }),
+      borderColor: b.color, backgroundColor: 'transparent', borderWidth: 2,
+      borderDash: b.key === 'b2c' ? [5, 3] : [], pointRadius: 2, pointBackgroundColor: b.color, tension: .25, spanGaps: true
+    };
+  });
+  if (_benchChart) _benchChart.destroy();
+  _benchChart = new Chart(document.getElementById('bench-idx-chart').getContext('2d'), {
+    type: 'line',
+    data: { labels: labels, datasets: datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: true, position: 'bottom', labels: { color: tv.tickColor, font: { size: 11 }, boxWidth: 14 } },
+        tooltip: {
+          backgroundColor: tv.ttBg, titleColor: tv.ttTitle, bodyColor: tv.ttBody, borderColor: tv.ttBorder, borderWidth: 1,
+          callbacks: { label: function(c) { return c.dataset.label + ': ' + (c.parsed.y == null ? '—' : c.parsed.y.toFixed(0)); } }
+        }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: tv.tickColor, font: { size: 10 } } },
+        y: {
+          grid: { color: tv.gridColor }, ticks: { color: tv.tickColor, font: { size: 10 } },
+          title: { display: true, text: 'Índice (base 100)', color: tv.tickColor, font: { size: 10 } }
+        }
+      }
+    }
+  });
+}
+
+function renderBenchShare_(d) {
+  var METS = [{ k: 'gb', l: 'Gross Bookings' }, { k: 'nr', l: 'Net Revenues' }, { k: 'fvm', l: 'FVM' }];
+  var html = '';
+  METS.forEach(function(mt) {
+    html += '<div class="bench-share-row"><div class="bench-share-lbl">' + mt.l + '</div><div class="bench-share-bar">';
+    BENCH_BIZ.forEach(function(b) {
+      var s = d.biz[b.key].share[mt.k];
+      if (s <= 0) return;
+      html += '<span class="bench-share-seg" style="width:' + (s * 100).toFixed(1) + '%;background:' + b.color + '" '
+        + 'title="' + b.label + ': ' + (s * 100).toFixed(1) + '%">'
+        + (s > 0.08 ? (b.label + ' ' + (s * 100).toFixed(0) + '%') : '') + '</span>';
+    });
+    html += '</div></div>';
+  });
+  document.getElementById('bench-share').innerHTML = html;
+}
+
+function renderBenchmark_() {
+  if (!_rawB2BC) return;
+  if (!_rawB2B && !_benchB2BLoading) {
+    _benchB2BLoading = true;
+    google.script.run
+      .withSuccessHandler(function(raw) {
+        raw.b2b_gd = expandCompact_(raw.b2b_gd); raw.b2b_gd_ly = expandCompact_(raw.b2b_gd_ly);
+        raw.b2b_ri = expandCompact_(raw.b2b_ri); raw.b2b_ri_ly = expandCompact_(raw.b2b_ri_ly);
+        _rawB2B = raw; _benchB2BLoading = false;
+        if (_activeView === 'benchmark') renderBenchmark_();
+      })
+      .withFailureHandler(function() { _benchB2BLoading = false; })
+      .getRawB2B();
+  }
+  _benchData = computeBenchmark_();
+  if (!_benchData) return;
+  renderBenchTableA_(_benchData);
+  renderBenchIndexChart_();
+  renderBenchShare_(_benchData);
+  document.getElementById('bench-range').textContent =
+    (_benchPeriod === 'ytd' ? 'YTD' : 'MTD') + ' · ' + fmtDate(_benchData.range.from) + ' → ' + fmtDate(_benchData.range.to);
+}
+
+function setBenchPeriod(p) {
+  _benchPeriod = p;
+  document.getElementById('bench-per-mtd').classList.toggle('active', p === 'mtd');
+  document.getElementById('bench-per-ytd').classList.toggle('active', p === 'ytd');
+  renderBenchmark_();
+}
+function setBenchIdxMetric(m) {
+  _benchIdxMetric = m;
+  ['gb', 'nr', 'fvm'].forEach(function(k) { document.getElementById('bench-idx-' + k).classList.toggle('active', k === m); });
+  renderBenchIndexChart_();
 }
 
 // ══ WEEKLY JS ══════════════════════════════════════════════════
