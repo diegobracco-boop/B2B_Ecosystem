@@ -47,13 +47,16 @@ var OKR_KR_ALIASES = {
 var OKR_FILE_ID = '1cEidr8aoYgm4S7ugm05Wv-SMnz8GbtUj';
 
 // Lee okr.json de Drive y devuelve rows {ym, escenario, lob, kr, valor}
+// Cache key incluye el lastUpdated del archivo → cuando okr_builder.py sube una
+// versión nueva, la landing la toma en el próximo request (no hay que esperar TTL).
 function readOKRJson_() {
   var cache = CacheService.getScriptCache();
-  var cKey  = 'okr_json_v1';
+  var file  = DriveApp.getFileById(OKR_FILE_ID);
+  var cKey  = 'okr_json_v2_' + file.getLastUpdated().getTime();
   var hit   = cache.get(cKey);
   if (hit) { try { return JSON.parse(hit); } catch(e) {} }
 
-  var json = JSON.parse(DriveApp.getFileById(OKR_FILE_ID).getBlob().getDataAsString());
+  var json = JSON.parse(file.getBlob().getDataAsString());
   var cols = json.cols;
   var iP = cols.indexOf('Periodo'), iE = cols.indexOf('Escenario'),
       iL = cols.indexOf('LoB'), iK = cols.indexOf('KR'), iV = cols.indexOf('Valor');
@@ -69,7 +72,7 @@ function readOKRJson_() {
     };
   });
 
-  try { cache.put(cKey, JSON.stringify(rows), 1800); } catch(e) {}
+  try { cache.put(cKey, JSON.stringify(rows), 21600); } catch(e) {}  // 6h; el key se invalida solo por ts
   return rows;
 }
 
