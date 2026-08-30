@@ -19,9 +19,11 @@ Genera okr.json combinando cuatro fuentes:
   3. KRs manuales del GSheet "Input_OKR" (Sign New Partnership; Air Net Revenue
      from suppliers — manual hasta definir fuente, 2026-08-25).
 
-  4. KR "Monthly Buying Agencies" (B2B): flat xlsx agencias_okr.xlsx llenado a
-     mano (el estado de la orden en el datalake muta → hay que congelar el
-     snapshot mensual). Vida útil hasta Sep-2026; Oct-2026 cambia la lógica.
+  4. KR "Monthly Buying Agencies" (B2B): tracker en OneDrive
+     (OKR/Agencies_tracker_okr.xlsx, formato ancho, fila Pais='Total') llenado a
+     mano por el equipo — el estado de la orden en el datalake muta con el tiempo
+     y hay que congelar el conteo del snapshot mensual.
+     Vida útil hasta Sep-2026; desde Oct-2026 cambia la lógica.
 
 Mismo criterio que Dashboard_B2B_WLs/Codigo_OKR.js (computeOKR_), consolidado acá para
 que la landing deje de calcular todo en vivo y solo lea este JSON.
@@ -56,10 +58,12 @@ OKR_FILE_ID        = "1cEidr8aoYgm4S7ugm05Wv-SMnz8GbtUj"   # okr.json (output)
 SHEET_ID    = "1RVmTXDyyugCUXJ0f6JG_croNxWNLlOLm4eAs8F52u2c"
 SHEET_RANGE = "Input_OKR"
 
-# KR "Monthly Buying Agencies" (B2B): flat xlsx llenado a mano (periodo|escenario|valor).
-# El estado de la orden en el datalake muta con el tiempo → hay que congelar el
-# snapshot de cada mes. Indicador con vida hasta Sep-2026; Oct-2026 cambia la lógica.
-AGENCIAS_FLAT = os.path.join(DIR, "agencias_okr.xlsx")
+# KR "Monthly Buying Agencies" (B2B): tracker en OneDrive llenado a mano por el
+# equipo. El estado de la orden en el datalake muta con el tiempo → hay que
+# congelar el conteo del snapshot mensual. Formato ancho: filas escenario×pais,
+# columnas = meses. Se lee solo la fila Pais='Total'.
+# Indicador con vida hasta Sep-2026; desde Oct-2026 cambia la lógica.
+AGENCIAS_TRACKER = os.path.join(pnl_common.get_base_dir(), "OKR", "Agencies_tracker_okr.xlsx")
 
 COLS_OUT = ["Periodo", "Escenario", "LoB", "Pais", "Producto", "KR", "Valor"]
 
@@ -330,37 +334,62 @@ def _norm_periodo(v):
     return None
 
 
+# escenario del tracker → escenario canónico del OKR
+_AGENCIAS_ESC = {
+    "actuals":          "Run Rate/Actuals",
+    "run rate/actuals": "Run Rate/Actuals",
+    "budget":           "Budget",
+}
+
+
 def _read_agencias_flat():
-    """KR 'Monthly Buying Agencies' (B2B, peso 20) — se carga a mano en
-    AGENCIAS_FLAT (agencias_okr.xlsx: periodo | escenario | valor) porque el
-    estado de la orden en el datalake muta con el tiempo y hay que congelar el
-    snapshot mensual. Vida útil hasta Sep-2026; Oct-2026 cambia la lógica."""
-    if not os.path.exists(AGENCIAS_FLAT):
-        print(f"  [Agencias] {os.path.basename(AGENCIAS_FLAT)} no existe — KR sin datos")
+    """KR 'Monthly Buying Agencies' (B2B, peso 20) — del tracker en OneDrive
+    (AGENCIAS_TRACKER), formato ancho: filas escenario×pais, columnas = meses.
+    Se toma solo la fila Pais='Total'. El estado de la orden en el datalake muta
+    con el tiempo → hay que congelar el conteo del snapshot mensual.
+    Vida útil hasta Sep-2026; desde Oct-2026 cambia la lógica."""
+    if not os.path.exists(AGENCIAS_TRACKER):
+        print(f"  [Agencias] no encontrado: {AGENCIAS_TRACKER} — KR sin datos")
         return []
     import openpyxl
-    wb = openpyxl.load_workbook(AGENCIAS_FLAT, read_only=True, data_only=True)
-    ws = wb["agencias"] if "agencias" in wb.sheetnames else wb.active
+    wb = openpyxl.load_workbook(AGENCIAS_TRACKER, read_only=True, data_only=True)
+    ws = wb.active
+    it = ws.iter_rows(values_only=True)
+    header = next(it, None)
+    if not header:
+        wb.close(); return []
+    # header: ['escenario', 'Pais', <mes1>, <mes2>, ...] → columna idx → periodo
+    col_periodo = {}
+    for ci in range(2, len(header)):
+        p = _norm_periodo(header[ci]) if header[ci] is not None else None
+        if p:
+            col_periodo[ci] = p
+
     rows, skipped = [], 0
-    for i, r in enumerate(ws.iter_rows(values_only=True)):
-        if i == 0 or not r or r[0] is None:
+    for r in it:
+        if not r or r[0] is None:
             continue
-        periodo   = _norm_periodo(r[0])
-        escenario = str(r[1] or "").strip()
-        valor_raw = r[2] if len(r) > 2 else None
-        if periodo is None or escenario == "" or valor_raw in (None, ""):
+        esc_raw = str(r[0]).strip().lower()
+        pais    = str(r[1] or "").strip().lower()
+        if pais != "total":
+            continue
+        escenario = _AGENCIAS_ESC.get(esc_raw)
+        if escenario is None:
             skipped += 1
             continue
-        try:
-            valor = float(valor_raw)
-        except (TypeError, ValueError):
-            skipped += 1
-            continue
-        rows.append([periodo, escenario, "B2B", "Total", "Total",
-                     "Monthly Buying Agencies", round(valor, 2)])
+        for ci, periodo in col_periodo.items():
+            v = r[ci] if ci < len(r) else None
+            if v in (None, ""):
+                continue
+            try:
+                valor = round(float(v))
+            except (TypeError, ValueError):
+                continue
+            rows.append([periodo, escenario, "B2B", "Total", "Total",
+                         "Monthly Buying Agencies", valor])
     wb.close()
-    print(f"  [Agencias] {len(rows)} filas de {os.path.basename(AGENCIAS_FLAT)}"
-          + (f" ({skipped} sin valor/incompletas)" if skipped else ""))
+    print(f"  [Agencias] {len(rows)} filas de {os.path.basename(AGENCIAS_TRACKER)}"
+          + (f" ({skipped} escenarios no reconocidos)" if skipped else ""))
     return rows
 
 
