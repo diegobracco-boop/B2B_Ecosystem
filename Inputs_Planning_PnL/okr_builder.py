@@ -1,6 +1,6 @@
 """
 okr_builder.py
-Genera okr.json combinando tres fuentes:
+Genera okr.json combinando cuatro fuentes:
 
   1. KRs B2B2C Op.Contribution + B2B NR Core/New Markets (mismo input contable
      que usa la landing P&L_Accounting)
@@ -16,9 +16,12 @@ Genera okr.json combinando tres fuentes:
        <- daily_b2b2c_data.json .runrate (stage=='New'), fallback .budget → Hunting "Run Rate/Actuals", meses proyectados
        Existing = Total B2B2C NR contable (fuente 1) − Hunting.
 
-  3. KRs manuales (Sign New Partnership, Monthly Buying Agencies, Air Net Revenue
-     from suppliers — este último manual hasta definir fuente, 2026-08-25)
-       <- GSheet "Input_OKR"  (se conservan tal como están)
+  3. KRs manuales del GSheet "Input_OKR" (Sign New Partnership; Air Net Revenue
+     from suppliers — manual hasta definir fuente, 2026-08-25).
+
+  4. KR "Monthly Buying Agencies" (B2B): flat xlsx agencias_okr.xlsx llenado a
+     mano (el estado de la orden en el datalake muta → hay que congelar el
+     snapshot mensual). Vida útil hasta Sep-2026; Oct-2026 cambia la lógica.
 
 Mismo criterio que Dashboard_B2B_WLs/Codigo_OKR.js (computeOKR_), consolidado acá para
 que la landing deje de calcular todo en vivo y solo lea este JSON.
@@ -28,7 +31,7 @@ Uso:
     python okr_builder.py --no-upload
 """
 
-import os, sys, io, json, argparse
+import os, sys, io, json, re, argparse
 from collections import defaultdict
 
 try:
@@ -53,6 +56,11 @@ OKR_FILE_ID        = "1cEidr8aoYgm4S7ugm05Wv-SMnz8GbtUj"   # okr.json (output)
 SHEET_ID    = "1RVmTXDyyugCUXJ0f6JG_croNxWNLlOLm4eAs8F52u2c"
 SHEET_RANGE = "Input_OKR"
 
+# KR "Monthly Buying Agencies" (B2B): flat xlsx llenado a mano (periodo|escenario|valor).
+# El estado de la orden en el datalake muta con el tiempo → hay que congelar el
+# snapshot de cada mes. Indicador con vida hasta Sep-2026; Oct-2026 cambia la lógica.
+AGENCIAS_FLAT = os.path.join(DIR, "agencias_okr.xlsx")
+
 COLS_OUT = ["Periodo", "Escenario", "LoB", "Pais", "Producto", "KR", "Valor"]
 
 # ── Segmentación de mercados B2B (2026-08-30 — Diego) ──
@@ -61,13 +69,11 @@ COLS_OUT = ["Periodo", "Escenario", "LoB", "Pais", "Producto", "KR", "Valor"]
 #   New Markets  = TODO lo demás, incluido OPS/RG (su NR debería tender a cero).
 CORE_MARKETS = {"brasil", "mexico", "other countries", "others countries"}
 
-# KRs que vienen del GSheet (manuales) — el resto se calcula
-# Air Net Revenue from suppliers: manual hasta que el equipo defina de dónde sale
-# (2026-08-25). Monthly Buying Agencies: manual hoy, pasa a Metabase cuando se
-# defina carpeta/formato del export.
+# KRs que vienen del GSheet Input_OKR (manuales) — el resto se calcula.
+# Air Net Revenue from suppliers: manual hasta que el equipo defina de dónde sale (2026-08-25).
+# Monthly Buying Agencies: NO va acá — se lee de AGENCIAS_FLAT (ver _read_agencias_flat).
 MANUAL_KRS = {
     "Sign New Partnership",
-    "Monthly Buying Agencies",
     "Air Net Revenue from suppliers",
 }
 
@@ -301,9 +307,66 @@ def _parse_valor_sheet(raw):
                 return None
 
 
+def _norm_periodo(v):
+    """datetime | '2026-04' | '2026-04-01' | '1/4/2026' → 'YYYY-MM-01'  (None si no parsea)."""
+    import datetime as _dt
+    if isinstance(v, (_dt.datetime, _dt.date)):
+        return f"{v.year:04d}-{v.month:02d}-01"
+    s = str(v).strip()
+    m = re.match(r"^(\d{4})-(\d{1,2})(?:-\d{1,2})?$", s)
+    if m:
+        return f"{int(m.group(1)):04d}-{int(m.group(2)):02d}-01"
+    parts = s.replace("-", "/").split("/")
+    if len(parts) == 3:
+        try:
+            a, b, c = (int(x) for x in parts)
+            if a > 1000:              # Y/m/d
+                y, mo = a, b
+            else:                     # d/m/Y
+                y, mo = (c + 2000 if c < 100 else c), b
+            return f"{y:04d}-{mo:02d}-01"
+        except ValueError:
+            pass
+    return None
+
+
+def _read_agencias_flat():
+    """KR 'Monthly Buying Agencies' (B2B, peso 20) — se carga a mano en
+    AGENCIAS_FLAT (agencias_okr.xlsx: periodo | escenario | valor) porque el
+    estado de la orden en el datalake muta con el tiempo y hay que congelar el
+    snapshot mensual. Vida útil hasta Sep-2026; Oct-2026 cambia la lógica."""
+    if not os.path.exists(AGENCIAS_FLAT):
+        print(f"  [Agencias] {os.path.basename(AGENCIAS_FLAT)} no existe — KR sin datos")
+        return []
+    import openpyxl
+    wb = openpyxl.load_workbook(AGENCIAS_FLAT, read_only=True, data_only=True)
+    ws = wb["agencias"] if "agencias" in wb.sheetnames else wb.active
+    rows, skipped = [], 0
+    for i, r in enumerate(ws.iter_rows(values_only=True)):
+        if i == 0 or not r or r[0] is None:
+            continue
+        periodo   = _norm_periodo(r[0])
+        escenario = str(r[1] or "").strip()
+        valor_raw = r[2] if len(r) > 2 else None
+        if periodo is None or escenario == "" or valor_raw in (None, ""):
+            skipped += 1
+            continue
+        try:
+            valor = float(valor_raw)
+        except (TypeError, ValueError):
+            skipped += 1
+            continue
+        rows.append([periodo, escenario, "B2B", "Total", "Total",
+                     "Monthly Buying Agencies", round(valor, 2)])
+    wb.close()
+    print(f"  [Agencias] {len(rows)} filas de {os.path.basename(AGENCIAS_FLAT)}"
+          + (f" ({skipped} sin valor/incompletas)" if skipped else ""))
+    return rows
+
+
 def _read_manual_krs(token_file):
-    """Lee del GSheet Input_OKR solo los KRs manuales (Sign New Partnership,
-    Monthly Buying Agencies, Air Net Revenue from suppliers)."""
+    """Lee del GSheet Input_OKR los KRs manuales de MANUAL_KRS
+    (Sign New Partnership, Air Net Revenue from suppliers)."""
     raw_rows = _read_sheet(token_file)
     SKIP = {"periodo", "escenario", "lob", "kr", "", None}
     rows = []
@@ -364,8 +427,9 @@ def build(upload=True):
         last_actual_ym,
     )
     rows_manual   = _read_manual_krs(token_file)
+    rows_agencias = _read_agencias_flat()
 
-    all_rows = rows_baseline + rows_budget + rows_hunting + rows_manual
+    all_rows = rows_baseline + rows_budget + rows_hunting + rows_manual + rows_agencias
 
     # Resumen
     print(f"\n  Total filas: {len(all_rows):,}")
