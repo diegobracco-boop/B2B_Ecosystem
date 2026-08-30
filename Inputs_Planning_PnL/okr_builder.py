@@ -55,11 +55,11 @@ SHEET_RANGE = "Input_OKR"
 
 COLS_OUT = ["Periodo", "Escenario", "LoB", "Pais", "Producto", "KR", "Valor"]
 
-# ── Segmentación de mercados B2B (idéntico a Dashboard_B2B_WLs/Codigo_OKR.js) ──
-# New Markets = cualquier país que no sea Core ni NON_GEO (no es lista fija:
-# así, p.ej., "globales"/"others countries" caen en New, "rg" queda excluido).
-CORE_MARKETS    = {"brasil", "mexico", "other countries"}
-NON_GEO_MARKETS = {"ops", "rg", "ops + rg"}
+# ── Segmentación de mercados B2B (2026-08-30 — Diego) ──
+#   Core Markets = Brasil + Mexico + Others Countries (el canónico lo emite
+#                  "others countries"; se aceptan ambas grafías).
+#   New Markets  = TODO lo demás, incluido OPS/RG (su NR debería tender a cero).
+CORE_MARKETS = {"brasil", "mexico", "other countries", "others countries"}
 
 # KRs que vienen del GSheet (manuales) — el resto se calcula
 # Air Net Revenue from suppliers: manual hasta que el equipo defina de dónde sale
@@ -211,8 +211,8 @@ def _compute_from_canonical(canon_data, scen_label):
     Calcula desde un JSON canónico (baseline o budget) — mismo input que usa la
     landing P&L_Accounting:
       - B2B2C Op. Contribution   (N5 = 'operating contribution', lob = b2b2c)
-      - B2B NR Core Markets      (N3 = 'net revenue', lob = b2b, pais ∈ CORE)
-      - B2B NR New Markets       (N3 = 'net revenue', lob = b2b, pais ∈ NEW)
+      - B2B NR Core Markets      (N3 = 'net revenue', lob = b2b, pais ∈ CORE_MARKETS)
+      - B2B NR New Markets       (N3 = 'net revenue', lob = b2b, pais ∉ CORE_MARKETS — incluye OPS/RG)
     Air Net Revenue from suppliers NO se calcula acá: es manual (Input_OKR)
     hasta que el equipo defina la fuente (2026-08-25).
     Devuelve además (no como KR propio) el total B2B2C Net Revenue por mes,
@@ -248,7 +248,7 @@ def _compute_from_canonical(canon_data, scen_label):
         if lob == "b2b" and n3 == "net revenue":
             if pais in CORE_MARKETS:
                 nr_core[fecha] += monto
-            elif pais not in NON_GEO_MARKETS:
+            else:
                 nr_new[fecha] += monto
 
     rows = []
