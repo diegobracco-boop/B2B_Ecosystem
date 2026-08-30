@@ -7,9 +7,13 @@ Genera okr.json combinando tres fuentes:
        <- baseline_actuals+projections.json  → "Run Rate/Actuals"
        <- budget.json                        → "Budget"
 
-  2. KRs B2B2C Hunting/Farming (New / Existing Account Net Revenues) — híbrido:
-       <- daily_b2b2c_data.json (transaccional, account_type=='New') → Hunting "Run Rate/Actuals"
-       <- _pnl_gestional_data.json (bgt, filtrado HUNTING_PARTNERS)  → Hunting "Budget"
+  2. KRs B2B2C Hunting/Farming (New / Existing Account Net Revenues):
+       Definición única de "hunting" = flag New/Existing de daily_b2b2c_data.json
+       (account_type en actuals, stage en budget/runrate). 2026-08-30: se descartó
+       la lista HUNTING_PARTNERS (coincidía ~2% con el flag para budget).
+       <- daily_b2b2c_data.json .budget (stage=='New')                 → Hunting "Budget"
+       <- daily_b2b2c_data.json .actuals (account_type=='New')          → Hunting "Run Rate/Actuals", meses cerrados
+       <- daily_b2b2c_data.json .runrate (stage=='New'), fallback .budget → Hunting "Run Rate/Actuals", meses proyectados
        Existing = Total B2B2C NR contable (fuente 1) − Hunting.
 
   3. KRs manuales (Sign New Partnership, Monthly Buying Agencies, Air Net Revenue
@@ -40,7 +44,7 @@ OUTPUT_NAME     = "okr.json"
 DRIVE_FOLDER_ID = config.DRIVE_FOLDER_ID
 
 # ── IDs Drive ──────────────────────────────────────────────────────────────────
-GESTIONAL_FILE_ID  = "1wvle0UIVZV7ocCSl8OawOfIGVz_It5kh"   # _pnl_gestional_data.json
+GESTIONAL_FILE_ID  = "1wvle0UIVZV7ocCSl8OawOfIGVz_It5kh"   # _pnl_gestional_data.json (solo para 'last_actual_ym' = corte de actuals)
 BASELINE_FILE_ID   = "1Su36jhCMdNgC6nixxX5TyvtCI4ESG2Tv"   # baseline_actuals+projections.json
 BUDGET_FILE_ID     = "1f2JF8pq7gtpxfdkVzbT9wvamn_ny3RBW"   # budget.json
 DAILY_B2B2C_FILE_ID = "1Ukcx4e-dwCZ2VqesWwVN_1Jnt6r2AZdX"  # daily_b2b2c_data.json (transaccional)
@@ -51,31 +55,11 @@ SHEET_RANGE = "Input_OKR"
 
 COLS_OUT = ["Periodo", "Escenario", "LoB", "Pais", "Producto", "KR", "Valor"]
 
-# ── Hunting partners (mismo criterio que P&L Managerial Codigo.js) ─────────────
-HUNTING_PARTNERS = {
-    "caixa", "csu", "ypf", "cocos", "tuplus", "vibe", "cacau lovers",
-    "turismocity", "claro", "livelo-api-hoteles", "invex", "bna",
-    "banco de chile", "itau", "tbd", "cutc", "sams", "dotz",
-}
-
 # ── Segmentación de mercados B2B (idéntico a Dashboard_B2B_WLs/Codigo_OKR.js) ──
 # New Markets = cualquier país que no sea Core ni NON_GEO (no es lista fija:
 # así, p.ej., "globales"/"others countries" caen en New, "rg" queda excluido).
 CORE_MARKETS    = {"brasil", "mexico", "other countries"}
 NON_GEO_MARKETS = {"ops", "rg", "ops + rg"}
-
-# ── Gestional: METRIC_COLS idéntico a actuals_gestional_upload.py ─────────────
-_GESTIONAL_METRICS = [
-    "orders", "gross_bookings", "up_front_incentives", "fees",
-    "commercial_discounts", "income_from_outsourced_services", "cancellations",
-    "cost_of_installments", "credit_card_processing", "white_labels_api",
-    "other_incentives", "revenue_tax", "back_end_incentives", "breakage_revenue",
-    "media_revenue", "errors", "other_transactional_taxes", "customer_claims",
-    "customer_service", "affiliates", "intercompany_usd", "operations",
-    "vendor_commissions", "frauds", "efecto_financiero", "dif_fx",
-    "currency_hedge", "net_revenue", "npv",
-]
-_NR_IDX = 4 + _GESTIONAL_METRICS.index("net_revenue")   # = 31
 
 # KRs que vienen del GSheet (manuales) — el resto se calcula
 # Air Net Revenue from suppliers: manual hasta que el equipo defina de dónde sale
@@ -143,50 +127,80 @@ def _ym_to_periodo(ym):
     return ym + "-01"
 
 
-def _compute_b2b2c_hunting_farming(gest_json, daily_json, nr_b2b2c_by_scen):
+def _daily_new_by_periodo(block, nr_field="net_revenue"):
+    """daily_b2b2c_data.json bloque {cols,rows} → {periodo: NR de cuentas 'New'}.
+    Los bloques budget/runrate traen el flag en la columna 'stage'."""
+    cols = block.get("cols", [])
+    rows = block.get("rows", [])
+    if not cols or not rows:
+        return {}
+    try:
+        iF, iS, iN = cols.index("fecha"), cols.index("stage"), cols.index(nr_field)
+    except ValueError:
+        return {}
+    out = defaultdict(float)
+    for r in rows:
+        if str(r[iS]) == "New":
+            out[_ym_to_periodo(str(r[iF])[:7])] += float(r[iN] or 0)
+    return out
+
+
+def _compute_b2b2c_hunting_farming(daily_json, nr_b2b2c_by_scen, last_actual_ym):
     """
-    Devuelve rows OKR para New (Hunting) / Existing (Farming) Account Net Revenues.
-    Híbrido, mismo criterio que Dashboard_B2B_WLs/Codigo_OKR.js:
-      - Run Rate/Actuals: Hunting = daily_b2b2c_data.json (transaccional, account_type=='New').
-      - Budget: Hunting = _pnl_gestional_data.json (bgt), filtrado por HUNTING_PARTNERS.
-      - Existing = Total B2B2C NR contable (nr_b2b2c_by_scen) − Hunting, por escenario/mes.
+    Devuelve rows OKR para New (Hunting) / Existing (Farming) Account Net Revenues B2B2C.
+
+    Definición única de "hunting" = flag New/Existing de daily_b2b2c_data.json
+    (account_type en .actuals, stage en .budget/.runrate). 2026-08-30: se descartó
+    la lista HUNTING_PARTNERS (coincidía ~2% con el flag para budget).
+
+      · Budget           : Hunting = daily_b2b2c.budget (stage=='New')
+      · Run Rate/Actuals :
+          - meses <= last_actual_ym : daily_b2b2c.actuals (account_type=='New')
+          - meses  > last_actual_ym : daily_b2b2c.runrate (stage=='New'),
+                                      fallback daily_b2b2c.budget si el mes no está en runrate
+      · Existing = Total B2B2C NR contable (nr_b2b2c_by_scen) − Hunting, por escenario/mes.
     """
-    hunting_act = defaultdict(float)
+    corte = _ym_to_periodo(last_actual_ym)   # 'YYYY-MM-01'
+
+    act_new = defaultdict(float)
     for r in daily_json.get("actuals", []):
         if str(r.get("account_type", "")) != "New":
             continue
         ym = str(r.get("fecha", ""))[:7]
-        if not ym:
-            continue
-        hunting_act[_ym_to_periodo(ym)] += float(r.get("net_revenues") or 0)
+        if ym:
+            act_new[_ym_to_periodo(ym)] += float(r.get("net_revenues") or 0)
 
-    hunting_bud = defaultdict(float)
-    for row in gest_json.get("b2b2c", {}).get("bgt", []):
-        if len(row) <= _NR_IDX:
-            continue
-        partner = str(row[1] or "").strip().lower()
-        if partner not in HUNTING_PARTNERS:
-            continue
-        ym = str(row[3] or "").strip()
-        hunting_bud[_ym_to_periodo(ym)] += float(row[_NR_IDX] or 0)
+    bud_new = _daily_new_by_periodo(daily_json.get("budget", {}))
+    rr_new  = _daily_new_by_periodo(daily_json.get("runrate", {}))
 
-    HUNTING_BY_SCEN = {"Run Rate/Actuals": hunting_act, "Budget": hunting_bud}
+    def hunting_rr(periodo):
+        if periodo <= corte:
+            return act_new.get(periodo, 0.0)
+        if periodo in rr_new:
+            return rr_new[periodo]
+        return bud_new.get(periodo, 0.0)
+
+    HUNTING_BY_SCEN = {
+        "Run Rate/Actuals": hunting_rr,
+        "Budget":           lambda periodo: bud_new.get(periodo, 0.0),
+    }
 
     rows = []
-    for scen_label, hunting_by_periodo in HUNTING_BY_SCEN.items():
+    for scen_label, hunting_fn in HUNTING_BY_SCEN.items():
         total_by_periodo = nr_b2b2c_by_scen.get(scen_label, {})
-        for periodo in sorted(set(total_by_periodo) | set(hunting_by_periodo)):
+        for periodo in sorted(total_by_periodo):
             total = total_by_periodo.get(periodo)
             if total is None:
                 continue   # sin total contable ese mes -> no calculamos Existing
-            hunting = hunting_by_periodo.get(periodo, 0.0)
+            hunting = hunting_fn(periodo)
             farming = total - hunting
             rows.append([periodo, scen_label, "B2B2C", "Total", "Total",
                          "New Account Net Revenues", round(hunting, 2)])
             rows.append([periodo, scen_label, "B2B2C", "Total", "Total",
                          "Existing Account Net Revenues", round(farming, 2)])
 
-    print(f"  [Hunting/Farming] B2B2C NR: {len(rows)} filas ({len(set(r[0] for r in rows))} meses)")
+    n_meses = len(set(r[0] for r in rows))
+    print(f"  [Hunting/Farming] B2B2C NR: {len(rows)} filas ({n_meses} meses) · corte actuals = {last_actual_ym}")
     return rows
 
 
@@ -336,12 +350,18 @@ def build(upload=True):
     budget_data   = _download_json(svc, BUDGET_FILE_ID,      "budget.json")
     daily_json    = _download_json(svc, DAILY_B2B2C_FILE_ID, "daily_b2b2c_data.json")
 
+    last_actual_ym = gest_json.get("last_actual_ym")
+    if not last_actual_ym:
+        sys.exit("gestional JSON sin 'last_actual_ym' — no puedo determinar el corte de actuals.")
+    print(f"  corte de actuals (gestional.last_actual_ym): {last_actual_ym}")
+
     print("\n--- Calculando KRs ---")
     rows_baseline, nr_b2b2c_baseline = _compute_from_canonical(baseline_data, "Run Rate/Actuals")
     rows_budget,   nr_b2b2c_budget   = _compute_from_canonical(budget_data,   "Budget")
     rows_hunting  = _compute_b2b2c_hunting_farming(
-        gest_json, daily_json,
+        daily_json,
         {"Run Rate/Actuals": nr_b2b2c_baseline, "Budget": nr_b2b2c_budget},
+        last_actual_ym,
     )
     rows_manual   = _read_manual_krs(token_file)
 
