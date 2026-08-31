@@ -3425,12 +3425,17 @@ function renderWf() {
     tbl.innerHTML = th+tb;
 
     if (isOc && hasConcepts) {
-      var goalKey_c   = goalKey === 'forecast' ? 'budget' : goalKey;
+      var goalKey_c   = goalKey;
+      // forecast.json no cubre meses ya cerrados (ver FORECAST_DROP_DATES en el pipeline):
+      // si el período seleccionado cae entero en meses sin forecast, fcTotal === 0 y el
+      // bridge degrada a Budget en bloque para no mezclar ancla total vs escalones.
+      if (goalKey_c === 'forecast' && !ocwf.fcTotal) goalKey_c = 'budget';
       var goalTotal_c = goalKey_c === 'lastYear' ? (ocwf.lyTotal || 0)
                       : goalKey_c === 'budget'   ? ocwf.budTotal
+                      : goalKey_c === 'forecast' ? (ocwf.fcTotal || ocwf.budTotal)
                       : (ocwf.rrTotal || ocwf.budTotal);
       var baseTotal_c = ocwf.baseTotal;
-      var deltaKey_c  = goalKey_c === 'lastYear' ? 'deltaVsLY' : goalKey_c === 'budget' ? 'deltaVsBud' : 'deltaVsRR';
+      var deltaKey_c  = goalKey_c === 'lastYear' ? 'deltaVsLY' : goalKey_c === 'budget' ? 'deltaVsBud' : goalKey_c === 'forecast' ? 'deltaVsForecast' : 'deltaVsRR';
 
       var concepts_c = ocwf.concepts.slice().sort(function(a,b){
         return Math.abs(b[deltaKey_c]) - Math.abs(a[deltaKey_c]);
@@ -3490,7 +3495,7 @@ function renderWf() {
                 if (isEnd) return ' '+fmtK(val);
                 var lines=[' Δ total: '+fmtK(val)];
                 var cpt=concepts_c[idx-1];
-                var dk=goalKey_c==='lastYear'?'deltaVsLY':goalKey_c==='budget'?'deltaVsBud':'deltaVsRR';
+                var dk=deltaKey_c;
                 if (cpt&&cpt.components&&cpt.components.length>1) {
                   cpt.components.forEach(function(c){
                     lines.push('  '+fmtK(c[dk])+'  '+c.label);
@@ -3532,7 +3537,7 @@ function renderWf() {
 
       var cTotCols = concepts_c.map(function(c){return _normOcLabel_(c.label);}).concat(['Total']);
       var cBVals   = concepts_c.map(function(c){return c.baseline;}).concat([baseTotal_c]);
-      var cGVals   = concepts_c.map(function(c){return goalKey_c==='lastYear'?c.lastYear:goalKey_c==='budget'?c.budget:c.runRate;}).concat([goalTotal_c]);
+      var cGVals   = concepts_c.map(function(c){return goalKey_c==='lastYear'?c.lastYear:goalKey_c==='budget'?c.budget:goalKey_c==='forecast'?c.forecast:c.runRate;}).concat([goalTotal_c]);
       var cDVals   = concepts_c.map(function(c){return c[deltaKey_c];}).concat([baseTotal_c - goalTotal_c]);
       var cPVals   = cGVals.map(function(g,i){return g!==0?(cDVals[i]/Math.abs(g))*100:null;});
 
@@ -3553,12 +3558,15 @@ function renderWf() {
     }
 
     if (isNr && hasNrBridge) {
-      var goalKey_nr   = goalKey === 'forecast' ? 'budget' : goalKey;
+      var goalKey_nr   = goalKey;
+      // idem OC bridge: período 100% en meses sin forecast → degradar a Budget en bloque
+      if (goalKey_nr === 'forecast' && !nrBwf.fcTotal) goalKey_nr = 'budget';
       var goalTotal_nr = goalKey_nr === 'lastYear' ? (nrBwf.lyTotal || 0)
                        : goalKey_nr === 'budget'   ? nrBwf.budTotal
+                       : goalKey_nr === 'forecast' ? (nrBwf.fcTotal || nrBwf.budTotal)
                        : (nrBwf.rrTotal || nrBwf.budTotal);
       var baseTotal_nr = nrBwf.baseTotal;
-      var deltaKey_nr  = goalKey_nr === 'lastYear' ? 'deltaVsLY' : goalKey_nr === 'budget' ? 'deltaVsBud' : 'deltaVsRR';
+      var deltaKey_nr  = goalKey_nr === 'lastYear' ? 'deltaVsLY' : goalKey_nr === 'budget' ? 'deltaVsBud' : goalKey_nr === 'forecast' ? 'deltaVsForecast' : 'deltaVsRR';
 
       var nrGroups = nrBwf.groups.slice().sort(function(a,b){
         return Math.abs(b[deltaKey_nr]) - Math.abs(a[deltaKey_nr]);
@@ -3599,7 +3607,7 @@ function renderWf() {
                 if (isEnd) return ' '+fmtK(val);
                 var lines=[' Δ total: '+fmtK(val)];
                 var grp=nrGroups[idx-1];
-                var dk=goalKey_nr==='lastYear'?'deltaVsLY':goalKey_nr==='budget'?'deltaVsBud':'deltaVsRR';
+                var dk=deltaKey_nr;
                 if (grp&&grp.components&&grp.components.length>1) {
                   grp.components.forEach(function(c){
                     lines.push('  · '+c.label+': '+fmtK(c[dk]));
@@ -3638,7 +3646,7 @@ function renderWf() {
 
       var nrTblCols = nrGroups.map(function(g){return g.label;}).concat(['Total']);
       var nrBVals   = nrGroups.map(function(g){return g.baseline;}).concat([baseTotal_nr]);
-      var nrGVals   = nrGroups.map(function(g){return goalKey_nr==='lastYear'?g.lastYear:goalKey_nr==='budget'?g.budget:g.runRate;}).concat([goalTotal_nr]);
+      var nrGVals   = nrGroups.map(function(g){return goalKey_nr==='lastYear'?g.lastYear:goalKey_nr==='budget'?g.budget:goalKey_nr==='forecast'?g.forecast:g.runRate;}).concat([goalTotal_nr]);
       var nrDVals   = nrGroups.map(function(g){return g[deltaKey_nr];}).concat([baseTotal_nr-goalTotal_nr]);
       var nrPVals   = nrGVals.map(function(g,i){return g!==0?(nrDVals[i]/Math.abs(g))*100:null;});
 

@@ -122,7 +122,7 @@ function _getJsonsLastMod_() {
 
 function makeCacheKey_(p) {
   return JSON.stringify({
-    v:        25,
+    v:        26,
     lob:      p.lob      || 'all',
     pais:     p.pais     || 'all',
     producto: p.producto || 'all',
@@ -230,10 +230,12 @@ function getAllData(params) {
   var baseManMap = buildManMap_(blRows);
   var rrManMap   = buildManMap_(rrRows);
   var budManMap  = buildManMap_(budRows);
+  var fcManMap   = buildManMap_(fcRows);
   var lyManMap   = buildManMap_(lyRows);
   var baseNrN2   = buildNrN2Map_(blRows);
   var rrNrN2     = buildNrN2Map_(rrRows);
   var budNrN2    = buildNrN2Map_(budRows);
+  var fcNrN2     = buildNrN2Map_(fcRows);
   var lyNrN2     = buildNrN2Map_(lyRows);
   var basePalMap = buildPalancasMap_(blRows);
   var rrPalMap   = buildPalancasMap_(rrRows);
@@ -250,8 +252,8 @@ function getAllData(params) {
     evo        : computeEvo_(p,    baseMap, rrMap, budMap, lyMap, fcMap),
     b2cEvo     : computeEvo_(b2cP, baseMap, rrMap, budMap, lyMap, fcMap),
     compPnl    : computeCompPnL_(p, baseMap, rrMap, budMap, lyMap, fcMap),
-    ocConceptWf: computeOcConceptWf_(p, baseManMap, rrManMap, budManMap, lyManMap),
-    nrBridgeWf : computeNRBridgeWf_(p, baseNrN2,   rrNrN2,   budNrN2,   lyNrN2),
+    ocConceptWf: computeOcConceptWf_(p, baseManMap, rrManMap, budManMap, lyManMap, fcManMap),
+    nrBridgeWf : computeNRBridgeWf_(p, baseNrN2,   rrNrN2,   budNrN2,   lyNrN2,   fcNrN2),
     pxqData    : computePxQ_(p, baseMap, rrMap, budMap, basePalMap, rrPalMap, budPalMap, fcMap, fcPalMap, lyMap, lyPalMap)
   };
 
@@ -279,10 +281,12 @@ function preComputeAll() {
   var baseManMap = buildManMap_(baseRows);
   var rrManMap   = buildManMap_(rrRows);
   var budManMap  = buildManMap_(budRows);
+  var fcManMap   = buildManMap_(fcRows);
   var lyManMap   = buildManMap_(lyRows);
   var baseNrN2   = buildNrN2Map_(baseRows);
   var rrNrN2     = buildNrN2Map_(rrRows);
   var budNrN2    = buildNrN2Map_(budRows);
+  var fcNrN2     = buildNrN2Map_(fcRows);
   var lyNrN2     = buildNrN2Map_(lyRows);
   var basePalMap = buildPalancasMap_(baseRows);
   var rrPalMap   = buildPalancasMap_(rrRows);
@@ -311,8 +315,8 @@ function preComputeAll() {
         evo     : computeEvo_(p,    baseMap, rrMap, budMap, lyMap, fcMap),
         b2cEvo  : computeEvo_(b2cP, baseMap, rrMap, budMap, lyMap, fcMap),
         compPnl : computeCompPnL_(p, baseMap, rrMap, budMap, lyMap, fcMap),
-        ocConceptWf: isAllPais ? computeOcConceptWf_(p, baseManMap, rrManMap, budManMap, lyManMap) : null,
-        nrBridgeWf : isAllPais ? computeNRBridgeWf_(p, baseNrN2,   rrNrN2,   budNrN2,   lyNrN2)   : null,
+        ocConceptWf: isAllPais ? computeOcConceptWf_(p, baseManMap, rrManMap, budManMap, lyManMap, fcManMap) : null,
+        nrBridgeWf : isAllPais ? computeNRBridgeWf_(p, baseNrN2,   rrNrN2,   budNrN2,   lyNrN2,   fcNrN2)   : null,
         pxqData    : isAllPais ? computePxQ_(p, baseMap, rrMap, budMap, basePalMap, rrPalMap, budPalMap, fcMap, fcPalMap, lyMap, lyPalMap) : null
       };
 
@@ -341,8 +345,8 @@ function preComputeAll() {
         evo     : computeEvo_(p,    baseMap, rrMap, budMap, lyMap, fcMap),
         b2cEvo  : computeEvo_({ lob:'b2c', pais:'all', canal:'all', producto:'all' }, baseMap, rrMap, budMap, lyMap, fcMap),
         compPnl : computeCompPnL_(p, baseMap, rrMap, budMap, lyMap, fcMap),
-        ocConceptWf: computeOcConceptWf_(p, baseManMap, rrManMap, budManMap, lyManMap),
-        nrBridgeWf : computeNRBridgeWf_(p, baseNrN2,   rrNrN2,   budNrN2,   lyNrN2),
+        ocConceptWf: computeOcConceptWf_(p, baseManMap, rrManMap, budManMap, lyManMap, fcManMap),
+        nrBridgeWf : computeNRBridgeWf_(p, baseNrN2,   rrNrN2,   budNrN2,   lyNrN2,   fcNrN2),
         pxqData    : computePxQ_(p, baseMap, rrMap, budMap, basePalMap, rrPalMap, budPalMap, fcMap, fcPalMap, lyMap, lyPalMap)
       });
       count++;
@@ -358,8 +362,8 @@ function preComputeAll() {
             evo     : computeEvo_(pb,    baseMap, rrMap, budMap, lyMap, fcMap),
             b2cEvo  : null,
             compPnl : computeCompPnL_(pb, baseMap, rrMap, budMap, lyMap, fcMap),
-            ocConceptWf: computeOcConceptWf_(pb, baseManMap, rrManMap, budManMap, lyManMap),
-            nrBridgeWf : computeNRBridgeWf_(pb, baseNrN2,   rrNrN2,   budNrN2,   lyNrN2),
+            ocConceptWf: computeOcConceptWf_(pb, baseManMap, rrManMap, budManMap, lyManMap, fcManMap),
+            nrBridgeWf : computeNRBridgeWf_(pb, baseNrN2,   rrNrN2,   budNrN2,   lyNrN2,   fcNrN2),
             pxqData    : null
           });
           count++;
@@ -944,7 +948,8 @@ function computeWf_(p, actMap, rrMap, budMap, actPrevMap, fcMap) {
   return result;
 }
 
-function computeOcConceptWf_(p, actManMap, rrManMap, budManMap, lyManMap) {
+function computeOcConceptWf_(p, actManMap, rrManMap, budManMap, lyManMap, fcManMap) {
+  fcManMap = fcManMap || budManMap;   // fallback: sin forecast, el ancla es Budget
   var pWithCanal = (p.canal && p.canal !== 'all') ? Object.assign({}, p) : p;
   var yoyFilter  = Object.assign({}, pWithCanal);
   if (p.desde) yoyFilter.desde = shiftYear_(p.desde, -1);
@@ -953,32 +958,37 @@ function computeOcConceptWf_(p, actManMap, rrManMap, budManMap, lyManMap) {
   var blended = blendedFromMaps_(actManMap, rrManMap, budManMap, pWithCanal, null);
   var bud     = queryMap_(budManMap, pWithCanal, null, p.desde,        p.hasta);
   var rr      = queryMap_(rrManMap,  pWithCanal, null, p.desde,        p.hasta);
+  var fc      = queryMap_(fcManMap,  pWithCanal, null, p.desde,        p.hasta);
   var ly      = lyManMap ? queryMap_(lyManMap, yoyFilter, null, yoyFilter.desde, yoyFilter.hasta) : {};
 
   // Detail maps (concept slot = "mv¶n2")
   var actDet  = { map: actManMap.detailMap, lastYm: actManMap.lastYm };
   var rrDet   = { map: rrManMap.detailMap,  lastYm: rrManMap.lastYm };
   var budDet  = { map: budManMap.detailMap, lastYm: budManMap.lastYm };
+  var fcDet   = { map: fcManMap.detailMap,  lastYm: fcManMap.lastYm };
   var lyDet   = lyManMap ? { map: lyManMap.detailMap, lastYm: lyManMap.lastYm } : null;
   var blendedDet = blendedFromMaps_(actDet, rrDet, budDet, pWithCanal, null);
   var budDetQ    = queryMap_(budDet, pWithCanal, null, p.desde,        p.hasta);
   var rrDetQ     = queryMap_(rrDet,  pWithCanal, null, p.desde,        p.hasta);
+  var fcDetQ     = queryMap_(fcDet,  pWithCanal, null, p.desde,        p.hasta);
   var lyDetQ     = lyDet ? queryMap_(lyDet, yoyFilter, null, yoyFilter.desde, yoyFilter.hasta) : {};
 
   var conceptSet = {};
-  [blended, bud, rr].forEach(function(obj) {
+  [blended, bud, rr, fc].forEach(function(obj) {
     Object.keys(obj).forEach(function(k) { if (k) conceptSet[k] = true; });
   });
 
-  var baseTotal = 0, budTotal = 0, rrTotal = 0, lyTotal = 0;
+  var baseTotal = 0, budTotal = 0, rrTotal = 0, fcTotal = 0, lyTotal = 0;
   var concepts = Object.keys(conceptSet).map(function(mv) {
     var aVal = blended[mv] || 0;
     var bVal = bud[mv]     || 0;
     var rVal = rr[mv]      || 0;
+    var fVal = fc[mv]      || 0;
     var lVal = ly[mv]      || 0;
     baseTotal += aVal;
     budTotal  += bVal;
     rrTotal   += rVal;
+    fcTotal   += fVal;
     lyTotal   += lVal;
 
     // Build components: detail keys that start with "mv¶"
@@ -986,18 +996,18 @@ function computeOcConceptWf_(p, actManMap, rrManMap, budManMap, lyManMap) {
     var compKeys = Object.keys(blendedDet).filter(function(k){ return k.indexOf(prefix) === 0; });
     var comps = compKeys.map(function(k) {
       var n3label = k.slice(prefix.length);
-      var cA = blendedDet[k] || 0, cB = budDetQ[k] || 0, cR = rrDetQ[k] || 0, cL = lyDetQ[k] || 0;
+      var cA = blendedDet[k] || 0, cB = budDetQ[k] || 0, cR = rrDetQ[k] || 0, cF = fcDetQ[k] || 0, cL = lyDetQ[k] || 0;
       return { label: n3label.charAt(0).toUpperCase()+n3label.slice(1),
-               baseline: cA, budget: cB, runRate: cR, lastYear: cL,
-               deltaVsBud: cA-cB, deltaVsRR: cA-cR, deltaVsLY: cA-cL };
+               baseline: cA, budget: cB, runRate: cR, forecast: cF, lastYear: cL,
+               deltaVsBud: cA-cB, deltaVsRR: cA-cR, deltaVsForecast: cA-cF, deltaVsLY: cA-cL };
     });
     comps.sort(function(a,b){ return Math.abs(b.deltaVsBud)-Math.abs(a.deltaVsBud); });
 
-    return { label: mv, baseline: aVal, budget: bVal, runRate: rVal, lastYear: lVal,
-             deltaVsBud: aVal-bVal, deltaVsRR: aVal-rVal, deltaVsLY: aVal-lVal, components: comps };
+    return { label: mv, baseline: aVal, budget: bVal, runRate: rVal, forecast: fVal, lastYear: lVal,
+             deltaVsBud: aVal-bVal, deltaVsRR: aVal-rVal, deltaVsForecast: aVal-fVal, deltaVsLY: aVal-lVal, components: comps };
   });
 
-  return { baseTotal: baseTotal, budTotal: budTotal, rrTotal: rrTotal, lyTotal: lyTotal, concepts: concepts };
+  return { baseTotal: baseTotal, budTotal: budTotal, rrTotal: rrTotal, fcTotal: fcTotal, lyTotal: lyTotal, concepts: concepts };
 }
 
 var _NR_BRIDGE_GROUPS_ = [
@@ -1008,7 +1018,8 @@ var _NR_BRIDGE_GROUPS_ = [
   { label: 'Cancellations',                  pats: ['cancellat'] }
 ];
 
-function computeNRBridgeWf_(p, actNrN2Map, rrNrN2Map, budNrN2Map, lyNrN2Map) {
+function computeNRBridgeWf_(p, actNrN2Map, rrNrN2Map, budNrN2Map, lyNrN2Map, fcNrN2Map) {
+  fcNrN2Map = fcNrN2Map || budNrN2Map;   // fallback: sin forecast, el ancla es Budget
   var pWithCanal = (p.canal && p.canal !== 'all') ? Object.assign({}, p) : p;
   var yoyFilter  = Object.assign({}, pWithCanal);
   if (p.desde) yoyFilter.desde = shiftYear_(p.desde, -1);
@@ -1017,49 +1028,51 @@ function computeNRBridgeWf_(p, actNrN2Map, rrNrN2Map, budNrN2Map, lyNrN2Map) {
   var blended = blendedFromMaps_(actNrN2Map, rrNrN2Map, budNrN2Map, pWithCanal, null);
   var bud     = queryMap_(budNrN2Map, pWithCanal, null, p.desde,        p.hasta);
   var rr      = queryMap_(rrNrN2Map,  pWithCanal, null, p.desde,        p.hasta);
+  var fc      = queryMap_(fcNrN2Map,  pWithCanal, null, p.desde,        p.hasta);
   var ly      = lyNrN2Map ? queryMap_(lyNrN2Map, yoyFilter, null, yoyFilter.desde, yoyFilter.hasta) : {};
 
   var allKeys = {};
-  [blended, bud, rr].forEach(function(obj){ Object.keys(obj).forEach(function(k){ allKeys[k]=true; }); });
+  [blended, bud, rr, fc].forEach(function(obj){ Object.keys(obj).forEach(function(k){ allKeys[k]=true; }); });
 
   // Match the 5 defined groups
   var groupedKeys = {};
   var groups = _NR_BRIDGE_GROUPS_.map(function(g) {
-    var aVal=0, bVal=0, rVal=0, lVal=0, comps=[];
+    var aVal=0, bVal=0, rVal=0, fVal=0, lVal=0, comps=[];
     Object.keys(allKeys).forEach(function(k){
       if (g.pats.some(function(pat){ return k.indexOf(pat)>=0; })) {
-        var kA=blended[k]||0, kB=bud[k]||0, kR=rr[k]||0, kL=ly[k]||0;
-        aVal+=kA; bVal+=kB; rVal+=kR; lVal+=kL;
+        var kA=blended[k]||0, kB=bud[k]||0, kR=rr[k]||0, kF=fc[k]||0, kL=ly[k]||0;
+        aVal+=kA; bVal+=kB; rVal+=kR; fVal+=kF; lVal+=kL;
         comps.push({ label:k.charAt(0).toUpperCase()+k.slice(1),
-                     baseline:kA, budget:kB, runRate:kR, lastYear:kL,
-                     deltaVsBud:kA-kB, deltaVsRR:kA-kR, deltaVsLY:kA-kL });
+                     baseline:kA, budget:kB, runRate:kR, forecast:kF, lastYear:kL,
+                     deltaVsBud:kA-kB, deltaVsRR:kA-kR, deltaVsForecast:kA-kF, deltaVsLY:kA-kL });
         groupedKeys[k]=true;
       }
     });
-    return { label:g.label, baseline:aVal, budget:bVal, runRate:rVal, lastYear:lVal,
-             deltaVsBud:aVal-bVal, deltaVsRR:aVal-rVal, deltaVsLY:aVal-lVal, components:comps };
+    return { label:g.label, baseline:aVal, budget:bVal, runRate:rVal, forecast:fVal, lastYear:lVal,
+             deltaVsBud:aVal-bVal, deltaVsRR:aVal-rVal, deltaVsForecast:aVal-fVal, deltaVsLY:aVal-lVal, components:comps };
   });
 
   // Catch-all: breakage + anything unmatched → "Breakage + Otros"
-  var oA=0, oB=0, oR=0, oL=0, oComps=[];
+  var oA=0, oB=0, oR=0, oF=0, oL=0, oComps=[];
   Object.keys(allKeys).forEach(function(k){
     if (!groupedKeys[k]){
-      var kA=blended[k]||0, kB=bud[k]||0, kR=rr[k]||0, kL=ly[k]||0;
-      oA+=kA; oB+=kB; oR+=kR; oL+=kL;
+      var kA=blended[k]||0, kB=bud[k]||0, kR=rr[k]||0, kF=fc[k]||0, kL=ly[k]||0;
+      oA+=kA; oB+=kB; oR+=kR; oF+=kF; oL+=kL;
       oComps.push({ label:k.charAt(0).toUpperCase()+k.slice(1),
-                    baseline:kA, budget:kB, runRate:kR, lastYear:kL,
-                    deltaVsBud:kA-kB, deltaVsRR:kA-kR, deltaVsLY:kA-kL });
+                    baseline:kA, budget:kB, runRate:kR, forecast:kF, lastYear:kL,
+                    deltaVsBud:kA-kB, deltaVsRR:kA-kR, deltaVsForecast:kA-kF, deltaVsLY:kA-kL });
     }
   });
-  groups.push({ label:'Breakage + Otros', baseline:oA, budget:oB, runRate:oR, lastYear:oL,
-                deltaVsBud:oA-oB, deltaVsRR:oA-oR, deltaVsLY:oA-oL, components:oComps });
+  groups.push({ label:'Breakage + Otros', baseline:oA, budget:oB, runRate:oR, forecast:oF, lastYear:oL,
+                deltaVsBud:oA-oB, deltaVsRR:oA-oR, deltaVsForecast:oA-oF, deltaVsLY:oA-oL, components:oComps });
 
   var baseTotal=Object.keys(blended).reduce(function(s,k){return s+(blended[k]||0);},0);
   var budTotal =Object.keys(bud).reduce(function(s,k){return s+(bud[k]||0);},0);
   var rrTotal  =Object.keys(rr).reduce(function(s,k){return s+(rr[k]||0);},0);
+  var fcTotal  =Object.keys(fc).reduce(function(s,k){return s+(fc[k]||0);},0);
   var lyTotal  =Object.keys(ly).reduce(function(s,k){ return s+(ly[k]||0); },0);
 
-  return { baseTotal:baseTotal, budTotal:budTotal, rrTotal:rrTotal, lyTotal:lyTotal, groups:groups };
+  return { baseTotal:baseTotal, budTotal:budTotal, rrTotal:rrTotal, fcTotal:fcTotal, lyTotal:lyTotal, groups:groups };
 }
 
 // ══════════════════════════════════════════════════════════════

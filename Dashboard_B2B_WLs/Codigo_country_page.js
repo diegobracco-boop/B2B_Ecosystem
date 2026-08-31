@@ -15,7 +15,7 @@ var CTRY_QUARTERS = [
 var CTRY_PAISES = ['all','Brasil','Mexico','Argentina','other countries','Colombia','Chile','Peru','Ecuador','RG'];
 
 function _ctryPageCacheKey_(pais, desde, hasta, bl) {
-  return JSON.stringify({ v:23, ctry:1, pais:pais, desde:desde, hasta:hasta, bl: bl || 'baseline' });
+  return JSON.stringify({ v:24, ctry:1, pais:pais, desde:desde, hasta:hasta, bl: bl || 'baseline' });
 }
 
 // Computa resultado country-page usando mapas ya cargados (lo llaman tanto
