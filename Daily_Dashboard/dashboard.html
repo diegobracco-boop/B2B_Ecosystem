@@ -256,12 +256,9 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
 
 /* ── Benchmark B2C ─────────────────────────────────────── */
 .bench-sub { font-size: 10px; color: var(--text-3); font-weight: 600; }
-#bench-tbl-a td.bk-val, #bench-tbl-a td.bk-yoy { text-align: right; }
-#bench-tbl-a .bk-row-child td { background: var(--surface); }
-.bench-share-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
-.bench-share-lbl { font-size: 11px; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: .05em; width: 130px; flex-shrink: 0; }
-.bench-share-bar { flex: 1; display: flex; height: 24px; border-radius: 6px; overflow: hidden; background: var(--elevated); }
-.bench-share-seg { display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; transition: width .3s var(--ease); }
+#bench-yoy-tbl td.bk-val, #bench-yoy-tbl td.bk-yoy,
+#bench-bizshare-tbl td.bk-val { text-align: right; }
+#bench-yoy-tbl .bk-row-child td { background: var(--surface); }
 
 /* ── Region tags ───────────────────────────────────────── */
 .rtag { font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 4px; flex-shrink: 0; letter-spacing: .3px; text-transform: uppercase; }
@@ -1098,40 +1095,65 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
     </div>
   </div>
 
+  <div class="fbar" id="bench-fbar">
+    <span class="fbar-label">Filtro</span>
+    <div class="fchip">
+      <svg class="fchip-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      <select id="bench-sel-pais" onchange="setBenchPais()"><option value="all">Todos los países</option></select>
+    </div>
+  </div>
+
   <div class="tcard" style="margin-bottom:16px">
     <div class="card-hdr">
-      <span class="card-ttl">Totales · Márgenes · Crecimiento YoY</span>
-      <span class="bench-sub">B2B en base generación (GD) · Δpp = margen vs B2C (referencia)</span>
+      <span class="card-ttl" id="bench-met-ttl">Totales · Márgenes · YoY</span>
+      <div class="tab-toggle">
+        <button class="ttab active" id="bench-met-gb"     onclick="setBenchMetric('gb')">GB</button>
+        <button class="ttab"        id="bench-met-nr"     onclick="setBenchMetric('nr')">NR</button>
+        <button class="ttab"        id="bench-met-fvm"    onclick="setBenchMetric('fvm')">FVM</button>
+        <button class="ttab"        id="bench-met-nrpct"  onclick="setBenchMetric('nrPct')">NR%</button>
+        <button class="ttab"        id="bench-met-fvmpct" onclick="setBenchMetric('fvmPct')">FVM%</button>
+      </div>
     </div>
-    <div style="overflow-x:auto">
-      <table class="bk-table" id="bench-tbl-a">
+    <div class="bench-sub" id="bench-met-sub" style="margin:-8px 0 10px">B2B en base generación (GD)</div>
+    <div style="height:300px"><canvas id="bench-met-chart"></canvas></div>
+    <div style="overflow-x:auto;margin-top:16px">
+      <table class="bk-table" id="bench-yoy-tbl">
         <thead><tr>
           <th>Negocio</th>
-          <th style="text-align:right">GB</th><th style="text-align:right">NR</th><th style="text-align:right">FVM</th>
+          <th style="text-align:right">YoY GB</th><th style="text-align:right">YoY NR</th><th style="text-align:right">YoY FVM</th>
           <th style="text-align:right">NR%</th><th style="text-align:right">FVM%</th>
           <th style="text-align:right">Δpp NR</th><th style="text-align:right">Δpp FVM</th>
-          <th style="text-align:right">YoY GB</th><th style="text-align:right">YoY NR</th><th style="text-align:right">YoY FVM</th>
         </tr></thead>
-        <tbody id="bench-tbl-a-body"></tbody>
+        <tbody id="bench-yoy-body"></tbody>
+      </table>
+    </div>
+    <div style="overflow-x:auto;margin-top:16px">
+      <table class="bk-table" id="bench-bizshare-tbl">
+        <thead><tr>
+          <th>Negocio</th>
+          <th style="text-align:right">GB share</th><th style="text-align:right">NR share</th><th style="text-align:right">FVM share</th>
+        </tr></thead>
+        <tbody id="bench-bizshare-body"></tbody>
       </table>
     </div>
   </div>
 
-  <div class="tcard" style="margin-bottom:16px">
+  <div class="tcard">
     <div class="card-hdr">
-      <span class="card-ttl">Evolución indexada · base 100 = primer mes del año</span>
-      <div class="tab-toggle">
-        <button class="ttab active" id="bench-idx-gb"  onclick="setBenchIdxMetric('gb')">GB</button>
-        <button class="ttab"        id="bench-idx-nr"  onclick="setBenchIdxMetric('nr')">NR</button>
-        <button class="ttab"        id="bench-idx-fvm" onclick="setBenchIdxMetric('fvm')">FVM</button>
+      <span class="card-ttl" id="bench-idx-ttl">Evolución indexada · base 100 = primer mes del año</span>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <div class="tab-toggle">
+          <button class="ttab active" id="bench-idx-gb"  onclick="setBenchIdxMetric('gb')">GB</button>
+          <button class="ttab"        id="bench-idx-nr"  onclick="setBenchIdxMetric('nr')">NR</button>
+          <button class="ttab"        id="bench-idx-fvm" onclick="setBenchIdxMetric('fvm')">FVM</button>
+        </div>
+        <div class="tab-toggle">
+          <button class="ttab active" id="bench-idx-mode-cy"   onclick="setBenchIdxMode('cy')">Base 100 (año)</button>
+          <button class="ttab"        id="bench-idx-mode-pace" onclick="setBenchIdxMode('pace')">Pace L7d vs prom. 2M</button>
+        </div>
       </div>
     </div>
     <div style="height:300px"><canvas id="bench-idx-chart"></canvas></div>
-  </div>
-
-  <div class="tcard">
-    <div class="card-hdr"><span class="card-ttl">Participación en el total (B2B2C + B2B + B2C)</span></div>
-    <div id="bench-share"></div>
   </div>
  </div>
 </div>
@@ -2322,7 +2344,7 @@ function toggleTheme() {
   applyTheme(current === 'light' ? 'dark' : 'light');
   if (state.allMetrics) renderMetrics(state.allMetrics);
   if (state_b2b.allMetrics) renderB2BMetrics(state_b2b.allMetrics);
-  if (_activeView === 'benchmark' && _benchData) renderBenchIndexChart_();
+  if (_activeView === 'benchmark' && _benchData) { renderBenchMetricChart_(); renderBenchIndexChart_(); }
 }
 
 // ── LOB switch ───────────────────────────────────────────────────
@@ -2657,9 +2679,12 @@ function switchMainView(view) {
 }
 
 // ══ BENCHMARK B2C ══════════════════════════════════════════════
-var _benchPeriod     = 'mtd';   // 'mtd' | 'ytd'
-var _benchIdxMetric  = 'gb';    // 'gb' | 'nr' | 'fvm'
-var _benchChart      = null;
+var _benchPeriod     = 'mtd';   // 'mtd' | 'ytd'   → tablas YoY + share
+var _benchIdxMetric  = 'gb';    // 'gb' | 'nr' | 'fvm'   → chart indexado
+var _benchIdxMode    = 'cy';    // 'cy' (base 100 = ene, mensual) | 'pace' (L7d vs prom. 8 sem.)
+var _benchMetric     = 'gb';    // 'gb'|'nr'|'fvm'|'nrPct'|'fvmPct'   → line-chart bloque 1
+var _benchPais       = null;    // string país | null
+var _benchCharts     = {};      // { metric, idx }
 var _benchData       = null;
 var _benchB2BLoading = false;
 
@@ -2668,6 +2693,7 @@ var BENCH_BIZ = [
   { key: 'b2b',   label: 'B2B',   color: '#0891b2' },
   { key: 'b2c',   label: 'B2C',   color: '#f59e0b' }
 ];
+var _BENCH_ML = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
 function _b2cLyRows_(raw) {
   if (!raw || !raw.b2c_ly || !raw.b2c_ly.cols || !raw.b2c_ly.cols.length) return [];
@@ -2683,15 +2709,16 @@ function _benchRows_(biz) {
   return { cur: _b2cRows_(_rawB2BC), ly: _b2cLyRows_(_rawB2BC), nr: 'net_revenues' };
 }
 
-// Una sola pasada: total + desglose por país, filtrado por [from,to].
-function _benchAgg_(rows, from, to, nrField) {
+// Una sola pasada: total + desglose por país, filtrado por [from,to] y país.
+function _benchAgg_(rows, from, to, nrField, paisFilter) {
   var total = { gb: 0, nr: 0, fvm: 0 }, byP = {};
   for (var i = 0; i < rows.length; i++) {
     var r = rows[i];
     if (r.fecha < from || r.fecha > to) continue;
+    var p = r.pais || 'N/D';
+    if (paisFilter && p !== paisFilter) continue;
     var gb = +r.gross_bookings || 0, nr = +r[nrField] || 0, fv = +r.fvm || 0;
     total.gb += gb; total.nr += nr; total.fvm += fv;
-    var p = r.pais || 'N/D';
     var o = byP[p] || (byP[p] = { gb: 0, nr: 0, fvm: 0 });
     o.gb += gb; o.nr += nr; o.fvm += fv;
   }
@@ -2718,19 +2745,73 @@ function _benchRange_() {
   return { from: from, to: to, lyFrom: lyFrom, lyTo: lyTo };
 }
 
+// Serie mensual (año calendario → último mes de actuals) por negocio, para el line-chart
+// del bloque 1. Ignora MTD/YTD. metric ∈ {gb,nr,fvm,nrPct,fvmPct}. Devuelve { key: [{x:'YYYY-MM', v}] }.
+function _benchMetricSeries_(metric) {
+  var to = (_rawB2BC && _rawB2BC.meta) ? _rawB2BC.meta.last_actuals_date : '';
+  var yStart = to.slice(0, 4) + '-01-01', res = {};
+  BENCH_BIZ.forEach(function(b) {
+    var rr = _benchRows_(b.key), M = {};
+    rr.cur.forEach(function(r) {
+      if (r.fecha < yStart || r.fecha > to) return;
+      if (_benchPais && (r.pais || 'N/D') !== _benchPais) return;
+      var m = r.fecha.substring(0, 7);
+      var o = M[m] || (M[m] = { gb: 0, nr: 0, fvm: 0 });
+      o.gb += +r.gross_bookings || 0;
+      o.nr += +r[rr.nr] || 0;
+      o.fvm += +r.fvm || 0;
+    });
+    res[b.key] = Object.keys(M).sort().map(function(m) {
+      var o = M[m], v;
+      if (metric === 'nrPct')       v = o.gb ? o.nr / o.gb : null;
+      else if (metric === 'fvmPct') v = o.gb ? o.fvm / o.gb : null;
+      else v = o[metric];
+      return { x: m, v: v };
+    });
+  });
+  return res;
+}
+
+// Pace: rolling-7d del metric indexado al promedio semanal de las ≤8 semanas-lunes previas
+// completas. metric ∈ {gb,nr,fvm}. Valor 100 = ritmo = promedio de los ~2 meses anteriores.
+function _benchPaceSeries_(metric) {
+  var vDate = (_rawB2BC && _rawB2BC.meta) ? _rawB2BC.meta.last_actuals_date : '';
+  var cw = vDate ? weekStart_(vDate) : '';
+  var res = {};
+  BENCH_BIZ.forEach(function(b) {
+    var rr = _benchRows_(b.key);
+    var field = (metric === 'gb') ? 'gross_bookings' : (metric === 'nr' ? rr.nr : 'fvm');
+    var dMap = {};
+    rr.cur.forEach(function(r) {
+      if (_benchPais && (r.pais || 'N/D') !== _benchPais) return;
+      dMap[r.fecha] = (dMap[r.fecha] || 0) + (+r[field] || 0);
+    });
+    var wk = {};
+    Object.keys(dMap).forEach(function(d) { var w = weekStart_(d); wk[w] = (wk[w] || 0) + dMap[d]; });
+    var weeks = Object.keys(wk).sort().filter(function(w) { return w < cw; }).slice(-8);
+    var base = weeks.length ? weeks.reduce(function(s, w) { return s + wk[w]; }, 0) / weeks.length : 0;
+    var win = aggRolling7_(dMap, {}, vDate);
+    res[b.key] = base ? win.map(function(w) { return { x: w.date, v: w.v / base * 100 }; }) : [];
+  });
+  return res;
+}
+
+// Serie del chart indexado — despacha por modo. Devuelve { key: [{x, v}] }.
 function _benchIndexSeries_(to) {
+  if (_benchIdxMode === 'pace') return _benchPaceSeries_(_benchIdxMetric);
   var yStart = to.slice(0, 4) + '-01-01', res = {};
   BENCH_BIZ.forEach(function(b) {
     var rr = _benchRows_(b.key), dM = {};
     var field = (_benchIdxMetric === 'gb') ? 'gross_bookings' : (_benchIdxMetric === 'nr' ? rr.nr : 'fvm');
     rr.cur.forEach(function(r) {
       if (r.fecha < yStart || r.fecha > to) return;
+      if (_benchPais && (r.pais || 'N/D') !== _benchPais) return;
       var m = r.fecha.substring(0, 7);
       dM[m] = (dM[m] || 0) + (+r[field] || 0);
     });
     var months = Object.keys(dM).sort();
     var base = months.length ? dM[months[0]] : 0;
-    res[b.key] = months.map(function(m) { return { m: m, v: base ? dM[m] / base * 100 : null }; });
+    res[b.key] = months.map(function(m) { return { x: m, v: base ? dM[m] / base * 100 : null }; });
   });
   return res;
 }
@@ -2744,8 +2825,8 @@ function computeBenchmark_() {
   var out = { range: rg, biz: {}, byPais: {}, paises: [] }, paisSet = {};
   BENCH_BIZ.forEach(function(b) {
     var rr  = _benchRows_(b.key);
-    var cur = _benchAgg_(rr.cur, rg.from,   rg.to,   rr.nr);
-    var ly  = _benchAgg_(rr.ly,  rg.lyFrom, rg.lyTo, rr.nr);
+    var cur = _benchAgg_(rr.cur, rg.from,   rg.to,   rr.nr, _benchPais);
+    var ly  = _benchAgg_(rr.ly,  rg.lyFrom, rg.lyTo, rr.nr, _benchPais);
     out.biz[b.key] = _benchMetrics_(cur.total, ly.total);
     out.byPais[b.key] = {};
     Object.keys(cur.byP).forEach(function(p) {
@@ -2777,20 +2858,20 @@ function _benchRow_(cells, cls, dataAttr) {
   return '<tr class="' + (cls || '') + '"' + (dataAttr || '') + '>' + cells + '</tr>';
 }
 
-function renderBenchTableA_(d) {
+// Tabla YoY: crecimiento + márgenes + Δpp vs B2C. Colapsable por país. Driven por MTD/YTD.
+function renderBenchYoyTable_(d) {
   var html = '';
   BENCH_BIZ.forEach(function(b) {
     var m = d.biz[b.key], isRef = (b.key === 'b2c'), gid = 'benchg-' + b.key;
     html += _benchRow_(
       '<td><span class="bar-wrap"><button class="bk-toggle" onclick="benchToggle(this,\'' + gid + '\')">▸</button>'
         + '<span class="bk-name bk-group" style="color:' + b.color + '">' + b.label + '</span></span></td>'
-      + '<td class="bk-val">' + fmt(m.gb) + '</td><td class="bk-val">' + fmt(m.nr) + '</td><td class="bk-val">' + fmt(m.fvm) + '</td>'
-      + '<td class="bk-val">' + _bPct1_(m.nrPct) + '</td><td class="bk-val">' + _bPct1_(m.fvmPct) + '</td>'
-      + '<td class="bk-yoy" style="' + (isRef ? '' : _bClr_(m.dpp.nr))  + '">' + (isRef ? '—' : _bPp1_(m.dpp.nr))  + '</td>'
-      + '<td class="bk-yoy" style="' + (isRef ? '' : _bClr_(m.dpp.fvm)) + '">' + (isRef ? '—' : _bPp1_(m.dpp.fvm)) + '</td>'
       + '<td class="bk-yoy" style="' + _bClr_(m.yoyGb)  + '">' + _bYoy0_(m.yoyGb)  + '</td>'
       + '<td class="bk-yoy" style="' + _bClr_(m.yoyNr)  + '">' + _bYoy0_(m.yoyNr)  + '</td>'
-      + '<td class="bk-yoy" style="' + _bClr_(m.yoyFvm) + '">' + _bYoy0_(m.yoyFvm) + '</td>',
+      + '<td class="bk-yoy" style="' + _bClr_(m.yoyFvm) + '">' + _bYoy0_(m.yoyFvm) + '</td>'
+      + '<td class="bk-val">' + _bPct1_(m.nrPct) + '</td><td class="bk-val">' + _bPct1_(m.fvmPct) + '</td>'
+      + '<td class="bk-yoy" style="' + (isRef ? '' : _bClr_(m.dpp.nr))  + '">' + (isRef ? '—' : _bPp1_(m.dpp.nr))  + '</td>'
+      + '<td class="bk-yoy" style="' + (isRef ? '' : _bClr_(m.dpp.fvm)) + '">' + (isRef ? '—' : _bPp1_(m.dpp.fvm)) + '</td>',
       'bk-row-group', ' data-grp="' + gid + '"');
 
     var bp = d.byPais[b.key];
@@ -2799,18 +2880,30 @@ function renderBenchTableA_(d) {
       var ppNr  = (isRef || !b2cP) ? null : pm.nrPct  - b2cP.nrPct;
       var ppFvm = (isRef || !b2cP) ? null : pm.fvmPct - b2cP.fvmPct;
       html += _benchRow_(
-        '<td><span class="bk-name bk-child">' + p + '</span></td>'
-        + '<td class="bk-val">' + fmt(pm.gb) + '</td><td class="bk-val">' + fmt(pm.nr) + '</td><td class="bk-val">' + fmt(pm.fvm) + '</td>'
-        + '<td class="bk-val">' + _bPct1_(pm.nrPct) + '</td><td class="bk-val">' + _bPct1_(pm.fvmPct) + '</td>'
-        + '<td class="bk-yoy" style="' + _bClr_(ppNr)  + '">' + _bPp1_(ppNr)  + '</td>'
-        + '<td class="bk-yoy" style="' + _bClr_(ppFvm) + '">' + _bPp1_(ppFvm) + '</td>'
+        '<td><span class="bk-name bk-child">' + (b2bPaisLabel_ ? b2bPaisLabel_(p) : p) + '</span></td>'
         + '<td class="bk-yoy" style="' + _bClr_(pm.yoyGb)  + '">' + _bYoy0_(pm.yoyGb)  + '</td>'
         + '<td class="bk-yoy" style="' + _bClr_(pm.yoyNr)  + '">' + _bYoy0_(pm.yoyNr)  + '</td>'
-        + '<td class="bk-yoy" style="' + _bClr_(pm.yoyFvm) + '">' + _bYoy0_(pm.yoyFvm) + '</td>',
+        + '<td class="bk-yoy" style="' + _bClr_(pm.yoyFvm) + '">' + _bYoy0_(pm.yoyFvm) + '</td>'
+        + '<td class="bk-val">' + _bPct1_(pm.nrPct) + '</td><td class="bk-val">' + _bPct1_(pm.fvmPct) + '</td>'
+        + '<td class="bk-yoy" style="' + _bClr_(ppNr)  + '">' + _bPp1_(ppNr)  + '</td>'
+        + '<td class="bk-yoy" style="' + _bClr_(ppFvm) + '">' + _bPp1_(ppFvm) + '</td>',
         'bk-row-child', ' data-child="' + gid + '" style="display:none"');
     });
   });
-  document.getElementById('bench-tbl-a-body').innerHTML = html;
+  document.getElementById('bench-yoy-body').innerHTML = html;
+}
+
+// Tabla de participación por negocio (GB / NR / FVM). Driven por MTD/YTD.
+function renderBenchBizShareTable_(d) {
+  var html = '';
+  BENCH_BIZ.forEach(function(b) {
+    var s = d.biz[b.key].share;
+    html += '<tr><td><span class="bk-name bk-group" style="color:' + b.color + '">' + b.label + '</span></td>'
+      + '<td class="bk-val">' + _bPct1_(s.gb) + '</td><td class="bk-val">' + _bPct1_(s.nr) + '</td><td class="bk-val">' + _bPct1_(s.fvm) + '</td></tr>';
+  });
+  html += '<tr class="bk-row-group"><td><span class="bk-name bk-group">Total</span></td>'
+    + '<td class="bk-val">' + _bPct1_(1) + '</td><td class="bk-val">' + _bPct1_(1) + '</td><td class="bk-val">' + _bPct1_(1) + '</td></tr>';
+  document.getElementById('bench-bizshare-body').innerHTML = html;
 }
 
 function benchToggle(btn, gid) {
@@ -2820,25 +2913,24 @@ function benchToggle(btn, gid) {
   for (var i = 0; i < rows.length; i++) rows[i].style.display = open ? '' : 'none';
 }
 
-function renderBenchIndexChart_() {
-  if (!_benchData) return;
-  _benchData.index = _benchIndexSeries_(_benchData.range.to);
-  var idx = _benchData.index, tv = _getThemeVars();
+// Line-chart bloque 1 — evolución mensual por métrica (GB/NR/FVM/NR%/FVM%), 3 negocios.
+function renderBenchMetricChart_() {
+  var ser = _benchMetricSeries_(_benchMetric), tv = _getThemeVars();
+  var isPct = (_benchMetric === 'nrPct' || _benchMetric === 'fvmPct');
   var mset = {};
-  BENCH_BIZ.forEach(function(b) { (idx[b.key] || []).forEach(function(p) { mset[p.m] = 1; }); });
+  BENCH_BIZ.forEach(function(b) { (ser[b.key] || []).forEach(function(p) { mset[p.x] = 1; }); });
   var months = Object.keys(mset).sort();
-  var ML = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-  var labels = months.map(function(m) { var p = m.split('-'); return ML[+p[1] - 1] + " '" + p[0].slice(2); });
+  var labels = months.map(function(m) { var p = m.split('-'); return _BENCH_ML[+p[1] - 1] + " '" + p[0].slice(2); });
   var datasets = BENCH_BIZ.map(function(b) {
-    var byM = {}; (idx[b.key] || []).forEach(function(p) { byM[p.m] = p.v; });
+    var byM = {}; (ser[b.key] || []).forEach(function(p) { byM[p.x] = p.v; });
     return {
       label: b.label, data: months.map(function(m) { return (m in byM) ? byM[m] : null; }),
       borderColor: b.color, backgroundColor: 'transparent', borderWidth: 2,
       borderDash: b.key === 'b2c' ? [5, 3] : [], pointRadius: 2, pointBackgroundColor: b.color, tension: .25, spanGaps: true
     };
   });
-  if (_benchChart) _benchChart.destroy();
-  _benchChart = new Chart(document.getElementById('bench-idx-chart').getContext('2d'), {
+  if (_benchCharts.metric) _benchCharts.metric.destroy();
+  _benchCharts.metric = new Chart(document.getElementById('bench-met-chart').getContext('2d'), {
     type: 'line',
     data: { labels: labels, datasets: datasets },
     options: {
@@ -2847,35 +2939,109 @@ function renderBenchIndexChart_() {
         legend: { display: true, position: 'bottom', labels: { color: tv.tickColor, font: { size: 11 }, boxWidth: 14 } },
         tooltip: {
           backgroundColor: tv.ttBg, titleColor: tv.ttTitle, bodyColor: tv.ttBody, borderColor: tv.ttBorder, borderWidth: 1,
-          callbacks: { label: function(c) { return c.dataset.label + ': ' + (c.parsed.y == null ? '—' : c.parsed.y.toFixed(0)); } }
+          callbacks: { label: function(c) {
+            return c.dataset.label + ': ' + (c.parsed.y == null ? '—' : (isPct ? (c.parsed.y * 100).toFixed(1) + '%' : fmtShort(c.parsed.y)));
+          } }
+        }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: tv.tickColor, font: { size: 10 } } },
+        y: {
+          grid: { color: tv.gridColor },
+          ticks: { color: tv.tickColor, font: { size: 10 }, callback: function(val) { return isPct ? (val * 100).toFixed(0) + '%' : fmtShort(val); } },
+          title: { display: true, text: isPct ? 'NR% / FVM%' : 'USD', color: tv.tickColor, font: { size: 10 } }
+        }
+      }
+    }
+  });
+  var sub = document.getElementById('bench-met-sub');
+  if (sub) {
+    var ld = (_rawB2BC && _rawB2BC.meta) ? _rawB2BC.meta.last_actuals_date : '';
+    sub.textContent = 'B2B en base generación (GD) · último mes parcial (datos al ' + (ld ? fmtDate(ld) : '—') + ')';
+  }
+}
+
+function renderBenchIndexChart_() {
+  if (!_benchData) return;
+  var isPace = (_benchIdxMode === 'pace');
+  var idx = _benchIndexSeries_(_benchData.range.to);
+  _benchData.index = idx;
+  var tv = _getThemeVars();
+  var pad = function(n) { return (n < 10 ? '0' : '') + n; };
+  var winLbl = function(x, endOnly) {
+    var s = x.split('-'), d0 = new Date(+s[0], +s[1] - 1, +s[2]), d1 = new Date(d0);
+    d1.setDate(d0.getDate() + 6);
+    var e = pad(d1.getDate()) + '/' + pad(d1.getMonth() + 1);
+    return endOnly ? e : (pad(d0.getDate()) + '/' + pad(d0.getMonth() + 1) + ' – ' + e);
+  };
+  var xset = {};
+  BENCH_BIZ.forEach(function(b) { (idx[b.key] || []).forEach(function(p) { xset[p.x] = 1; }); });
+  var xs = Object.keys(xset).sort();
+  var labels = xs.map(function(x) {
+    if (!isPace) { var p = x.split('-'); return _BENCH_ML[+p[1] - 1] + " '" + p[0].slice(2); }
+    return winLbl(x, true);
+  });
+  var datasets = BENCH_BIZ.map(function(b) {
+    var byX = {}; (idx[b.key] || []).forEach(function(p) { byX[p.x] = p.v; });
+    return {
+      label: b.label, data: xs.map(function(x) { return (x in byX) ? byX[x] : null; }),
+      borderColor: b.color, backgroundColor: 'transparent', borderWidth: 2,
+      borderDash: b.key === 'b2c' ? [5, 3] : [], pointRadius: 2, pointBackgroundColor: b.color, tension: .25, spanGaps: true
+    };
+  });
+  if (isPace) {
+    datasets.push({
+      label: 'Base (prom. 8 sem.)', data: xs.map(function() { return 100; }),
+      borderColor: tv.tickColor, backgroundColor: 'transparent', borderWidth: 1,
+      borderDash: [4, 4], pointRadius: 0, tension: 0, spanGaps: true
+    });
+  }
+  if (_benchCharts.idx) _benchCharts.idx.destroy();
+  _benchCharts.idx = new Chart(document.getElementById('bench-idx-chart').getContext('2d'), {
+    type: 'line',
+    data: { labels: labels, datasets: datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: true, position: 'bottom', labels: { color: tv.tickColor, font: { size: 11 }, boxWidth: 14 } },
+        tooltip: {
+          backgroundColor: tv.ttBg, titleColor: tv.ttTitle, bodyColor: tv.ttBody, borderColor: tv.ttBorder, borderWidth: 1,
+          callbacks: {
+            title: function(items) {
+              if (!items.length) return '';
+              return isPace ? winLbl(xs[items[0].dataIndex], false) : items[0].label;
+            },
+            label: function(c) { return c.dataset.label + ': ' + (c.parsed.y == null ? '—' : c.parsed.y.toFixed(0)); }
+          }
         }
       },
       scales: {
         x: { grid: { display: false }, ticks: { color: tv.tickColor, font: { size: 10 } } },
         y: {
           grid: { color: tv.gridColor }, ticks: { color: tv.tickColor, font: { size: 10 } },
-          title: { display: true, text: 'Índice (base 100)', color: tv.tickColor, font: { size: 10 } }
+          title: { display: true, text: isPace ? 'Pace vs prom. 8 sem. (=100)' : 'Índice (base 100)', color: tv.tickColor, font: { size: 10 } }
         }
       }
     }
   });
+  var ttl = document.getElementById('bench-idx-ttl');
+  if (ttl) ttl.textContent = isPace
+    ? 'Pace · rolling 7 días vs promedio semanal de los 2 meses previos'
+    : 'Evolución indexada · base 100 = primer mes del año';
 }
 
-function renderBenchShare_(d) {
-  var METS = [{ k: 'gb', l: 'Gross Bookings' }, { k: 'nr', l: 'Net Revenues' }, { k: 'fvm', l: 'FVM' }];
-  var html = '';
-  METS.forEach(function(mt) {
-    html += '<div class="bench-share-row"><div class="bench-share-lbl">' + mt.l + '</div><div class="bench-share-bar">';
-    BENCH_BIZ.forEach(function(b) {
-      var s = d.biz[b.key].share[mt.k];
-      if (s <= 0) return;
-      html += '<span class="bench-share-seg" style="width:' + (s * 100).toFixed(1) + '%;background:' + b.color + '" '
-        + 'title="' + b.label + ': ' + (s * 100).toFixed(1) + '%">'
-        + (s > 0.08 ? (b.label + ' ' + (s * 100).toFixed(0) + '%') : '') + '</span>';
-    });
-    html += '</div></div>';
-  });
-  document.getElementById('bench-share').innerHTML = html;
+function _benchPopulatePais_() {
+  var paisSet = {};
+  (_rawB2BC.actuals || []).forEach(function(r) { if (r.pais) paisSet[r.pais] = 1; });
+  _b2cRows_(_rawB2BC).forEach(function(r) { if (r.pais) paisSet[r.pais] = 1; });
+  if (_rawB2B && _rawB2B.b2b_gd) _rawB2B.b2b_gd.forEach(function(r) { if (r.pais) paisSet[r.pais] = 1; });
+  var prev = v('bench-sel-pais');
+  fill('bench-sel-pais', Object.keys(paisSet).sort(), 'Todos los países', b2bPaisLabel_);
+  var sel = document.getElementById('bench-sel-pais');
+  if (sel && prev && prev !== 'all') {
+    sel.value = prev;
+    if (sel.value !== prev) _benchPais = null;
+  }
 }
 
 function renderBenchmark_() {
@@ -2892,11 +3058,13 @@ function renderBenchmark_() {
       .withFailureHandler(function() { _benchB2BLoading = false; })
       .getRawB2B();
   }
+  _benchPopulatePais_();
   _benchData = computeBenchmark_();
   if (!_benchData) return;
-  renderBenchTableA_(_benchData);
+  renderBenchMetricChart_();
+  renderBenchYoyTable_(_benchData);
+  renderBenchBizShareTable_(_benchData);
   renderBenchIndexChart_();
-  renderBenchShare_(_benchData);
   document.getElementById('bench-range').textContent =
     (_benchPeriod === 'ytd' ? 'YTD' : 'MTD') + ' · ' + fmtDate(_benchData.range.from) + ' → ' + fmtDate(_benchData.range.to);
 }
@@ -2907,9 +3075,26 @@ function setBenchPeriod(p) {
   document.getElementById('bench-per-ytd').classList.toggle('active', p === 'ytd');
   renderBenchmark_();
 }
+function setBenchPais() {
+  var val = v('bench-sel-pais');
+  _benchPais = (val === 'all') ? null : val;
+  renderBenchmark_();
+}
+function setBenchMetric(m) {
+  _benchMetric = m;
+  var ids = { gb: 'bench-met-gb', nr: 'bench-met-nr', fvm: 'bench-met-fvm', nrPct: 'bench-met-nrpct', fvmPct: 'bench-met-fvmpct' };
+  Object.keys(ids).forEach(function(k) { document.getElementById(ids[k]).classList.toggle('active', k === m); });
+  renderBenchMetricChart_();
+}
 function setBenchIdxMetric(m) {
   _benchIdxMetric = m;
   ['gb', 'nr', 'fvm'].forEach(function(k) { document.getElementById('bench-idx-' + k).classList.toggle('active', k === m); });
+  renderBenchIndexChart_();
+}
+function setBenchIdxMode(mode) {
+  _benchIdxMode = mode;
+  document.getElementById('bench-idx-mode-cy').classList.toggle('active', mode === 'cy');
+  document.getElementById('bench-idx-mode-pace').classList.toggle('active', mode === 'pace');
   renderBenchIndexChart_();
 }
 
