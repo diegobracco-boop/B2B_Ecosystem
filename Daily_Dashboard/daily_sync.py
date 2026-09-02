@@ -1291,30 +1291,6 @@ print("\n--- Subiendo a Google Drive ---")
 upload_to_drive(b2bc_bytes, JSON_FILE_NAME)
 upload_to_drive(b2b_bytes,  B2B_JSON_FILE_NAME)
 
-# ==============================================================================
-# 7) PREPARAR INPUT PARA INSIGHTS (Claude los genera con /generar-insights)
-# ==============================================================================
-print("\n--- Preparando insights input ---")
-try:
-    from weekly_insights import generate_insights_input
-    generate_insights_input(
-        df_act=df_act,
-        df_lya=df_lya,
-        df_bud=df_bud,
-        df_b2bc_rr_agg=df_b2bc_rr_agg,
-        df_b2b_gd_agg=df_b2b_gd_agg,
-        df_b2b_gd_ly_ag=df_b2b_gd_ly_ag,
-        df_b2b_ri_agg=df_b2b_ri_agg,
-        df_b2b_ri_ly_ag=df_b2b_ri_ly_ag,
-        df_b2b_bud_gd=df_b2b_bud_gd,
-        df_b2b_bud_ri=df_b2b_bud_ri,
-        df_b2b_rr_gd_agg=df_b2b_rr_gd_agg,
-        df_b2b_rr_ri_agg=df_b2b_rr_ri_agg,
-        today=TODAY,
-    )
-except Exception as e:
-    print(f"  WARN insights: {e}")
-
 # El email diario lo envía automáticamente el trigger de GAS (scheduledEmailSend).
 # Para configurar el trigger por primera vez: abrir el editor de GAS y correr setupEmailTrigger().
 

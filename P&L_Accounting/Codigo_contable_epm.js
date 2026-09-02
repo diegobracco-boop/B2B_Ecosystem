@@ -176,7 +176,6 @@ function computeGroupEPM_(actualsByPais, rrContByPais, budgetByPais, forecastByP
   var forecast = aggregatePaisByGroup_(forecastByPais, paisGroup);
   var budget   = aggregatePaisByGroup_(budgetByPais,   paisGroup);
   var lrr      = opts.lrr      ? aggregatePaisByGroup_(opts.lrr, paisGroup)      : {};
-  var ly       = opts.ly       ? aggregatePaisByGroup_(opts.ly, paisGroup)       : {};
   var baseline = opts.baseline ? aggregatePaisByGroup_(opts.baseline, paisGroup) : null;
 
   var lrrMaxIdx = _epmScenMaxIdx_(lrr);
@@ -189,7 +188,6 @@ function computeGroupEPM_(actualsByPais, rrContByPais, budgetByPais, forecastByP
       if (scen === 'budget')            src = budget;                              // budget = todo el FY
       else if (scen === 'runrate')      src = rrCont;                             // runrate = todo el FY
       else if (scen === 'forecast')     src = forecast;                           // forecast = todo el FY (forecast.json tiene actuals Apr-Jun + fc Jul-Mar)
-      else if (scen === 'lastyear')     src = ly;                                  // LY = FY26 completo (ym-shift a labels FY27), todos los meses
       else if (idx <= cutoffIdx)        src = actuals;                             // meses cerrados (lastrunrate)
       else if (scen === 'lastrunrate')  src = (idx <= lrrMaxIdx) ? lrr : forecast; // LRR y luego forecast
       else                              src = forecast;                           // fallback
@@ -275,7 +273,7 @@ function getEPMBaselineGoalData(filtersJson) {
     lyByPais       = jsonScenarioToByPaisForProd_(jData, lgKey, 'ly',  ALL_YM_LY_BG, userProduto);
   }
 
-  var _epmOpts = { goal: goalSource, lrr: lrrByPais, baseline: blByPais, ly: lyByPais };
+  var _epmOpts = { goal: goalSource, lrr: lrrByPais, baseline: blByPais };
   var total = computeGroupEPM_(actualsByPais, rrContByPais, budgetByPais, forecastByPais, cutoffIdx, userPais, _epmOpts);
 
   var byCountry = {};
@@ -293,7 +291,6 @@ function getEPMBaselineGoalData(filtersJson) {
       cutoffIdx, null,
       { goal: goalSource,
         lrr:      jsonScenarioToByPais_(jData, lg, 'lrr',        ALL_YM_BG),
-        ly:       jsonScenarioToByPais_(jData, lg, 'ly',         ALL_YM_LY_BG),
         baseline: jsonScenarioToByPais_(jData, lg, baselineScen, ALL_YM_BG) }
     );
   }
@@ -377,12 +374,11 @@ function _pxqSeg_(G) {
 }
 function _pxqGroup_(jData, lgKey, paisGroup, cutoffIdx, prodArr, goalSource, baselineScen) {
   baselineScen = baselineScen || 'bl';
-  var ac, rr, bg, fc, lrr, ly, bl;
+  var ac, rr, bg, fc, lrr, bl;
   if (prodArr && prodArr.length) {
     ac  = jsonScenarioToByPaisForProd_(jData, lgKey, 'ac',  ALL_YM_BG, prodArr);
     rr  = jsonScenarioToByPaisForProd_(jData, lgKey, 'rr',  ALL_YM_BG, prodArr);
     lrr = jsonScenarioToByPaisForProd_(jData, lgKey, 'lrr', ALL_YM_BG, prodArr);
-    ly  = jsonScenarioToByPaisForProd_(jData, lgKey, 'ly',  ALL_YM_LY_BG, prodArr);
     bl  = jsonScenarioToByPaisForProd_(jData, lgKey, baselineScen, ALL_YM_BG, prodArr);
     bg  = jsonScenarioToByPaisForProd_(jData, lgKey, 'bg',  ALL_YM_BG, prodArr);
     fc  = jsonScenarioToByPaisForProd_(jData, lgKey, 'fc',  ALL_YM_BG, prodArr);
@@ -390,12 +386,11 @@ function _pxqGroup_(jData, lgKey, paisGroup, cutoffIdx, prodArr, goalSource, bas
     ac  = jsonScenarioToByPais_(jData, lgKey, 'ac',  ALL_YM_BG);
     rr  = jsonScenarioToByPais_(jData, lgKey, 'rr',  ALL_YM_BG);
     lrr = jsonScenarioToByPais_(jData, lgKey, 'lrr', ALL_YM_BG);
-    ly  = jsonScenarioToByPais_(jData, lgKey, 'ly',  ALL_YM_LY_BG);
     bl  = jsonScenarioToByPais_(jData, lgKey, baselineScen, ALL_YM_BG);
     bg  = jsonScenarioToByPais_(jData, lgKey, 'bg',  ALL_YM_BG);
     fc  = jsonScenarioToByPais_(jData, lgKey, 'fc',  ALL_YM_BG);
   }
-  return _pxqSeg_(computeGroupEPM_(ac, rr, bg, fc, cutoffIdx, paisGroup, { goal: goalSource || 'budget', lrr: lrr, ly: ly, baseline: bl }));
+  return _pxqSeg_(computeGroupEPM_(ac, rr, bg, fc, cutoffIdx, paisGroup, { goal: goalSource || 'budget', lrr: lrr, baseline: bl }));
 }
 
 function getEPMPxQAnalysis(filtersJson) {
@@ -487,7 +482,7 @@ function getEPMCountriesYoY(lobGroup, goalSourceArg, baselineSourceArg) {
     };
   }
   function metrics(paisGroup, name) {
-    var G     = computeGroupEPM_(ac, rr, bg, fc, cutoffIdx, paisGroup, { goal: goalSource, lrr: lrr, ly: ly, baseline: bl });
+    var G     = computeGroupEPM_(ac, rr, bg, fc, cutoffIdx, paisGroup, { goal: goalSource, lrr: lrr, baseline: bl });
     var cur   = G.baseline.ct_monthly;
     var bud   = G.goal.ct_monthly;
     var lyAgg = aggregatePaisByGroup_(ly, paisGroup);
@@ -520,12 +515,11 @@ function getEPMB2BCountryDetail(paisGroupJson) {
 
   function comp(lgKey, prodArr) {
     var hasProd = prodArr && prodArr.length > 0;
-    var actualsByPais, rrContByPais, lrrByPais, lyByPais, blByPais, budgetByPais, forecastByPais;
+    var actualsByPais, rrContByPais, lrrByPais, blByPais, budgetByPais, forecastByPais;
     if (hasProd) {
       actualsByPais  = jsonScenarioToByPaisForProd_(jData, lgKey, 'ac',          ALL_YM_BG, prodArr);
       rrContByPais   = jsonScenarioToByPaisForProd_(jData, lgKey, 'rr',          ALL_YM_BG, prodArr);
       lrrByPais      = jsonScenarioToByPaisForProd_(jData, lgKey, 'lrr',         ALL_YM_BG, prodArr);
-      lyByPais       = jsonScenarioToByPaisForProd_(jData, lgKey, 'ly',          ALL_YM_LY_BG, prodArr);
       blByPais       = jsonScenarioToByPaisForProd_(jData, lgKey, baselineScen,  ALL_YM_BG, prodArr);
       budgetByPais   = jsonScenarioToByPaisForProd_(jData, lgKey, 'bg',          ALL_YM_BG, prodArr);
       forecastByPais = jsonScenarioToByPaisForProd_(jData, lgKey, 'fc',          ALL_YM_BG, prodArr);
@@ -533,12 +527,11 @@ function getEPMB2BCountryDetail(paisGroupJson) {
       actualsByPais  = jsonScenarioToByPais_(jData, lgKey, 'ac',         ALL_YM_BG);
       rrContByPais   = jsonScenarioToByPais_(jData, lgKey, 'rr',         ALL_YM_BG);
       lrrByPais      = jsonScenarioToByPais_(jData, lgKey, 'lrr',        ALL_YM_BG);
-      lyByPais       = jsonScenarioToByPais_(jData, lgKey, 'ly',         ALL_YM_LY_BG);
       blByPais       = jsonScenarioToByPais_(jData, lgKey, baselineScen, ALL_YM_BG);
       budgetByPais   = jsonScenarioToByPais_(jData, lgKey, 'bg',         ALL_YM_BG);
       forecastByPais = jsonScenarioToByPais_(jData, lgKey, 'fc',         ALL_YM_BG);
     }
-    return computeGroupEPM_(actualsByPais, rrContByPais, budgetByPais, forecastByPais, cutoffIdx, paisArr, { goal: goalSource, lrr: lrrByPais, ly: lyByPais, baseline: blByPais });
+    return computeGroupEPM_(actualsByPais, rrContByPais, budgetByPais, forecastByPais, cutoffIdx, paisArr, { goal: goalSource, lrr: lrrByPais, baseline: blByPais });
   }
 
   var MAY_FEATURED    = ['hotels', 'flights', 'dest. serv.'];
@@ -605,12 +598,11 @@ function getEPMB2BCountryDetail(paisGroupJson) {
 
   function compForPais(lgKey, prodArr, pArr) {
     var hasProd = prodArr && prodArr.length > 0;
-    var actualsByPais2, rrContByPais2, lrrByPais2, lyByPais2, blByPais2, budgetByPais2, forecastByPais2;
+    var actualsByPais2, rrContByPais2, lrrByPais2, blByPais2, budgetByPais2, forecastByPais2;
     if (hasProd) {
       actualsByPais2  = jsonScenarioToByPaisForProd_(jData, lgKey, 'ac',  ALL_YM_BG, prodArr);
       rrContByPais2   = jsonScenarioToByPaisForProd_(jData, lgKey, 'rr',  ALL_YM_BG, prodArr);
       lrrByPais2      = jsonScenarioToByPaisForProd_(jData, lgKey, 'lrr', ALL_YM_BG, prodArr);
-      lyByPais2       = jsonScenarioToByPaisForProd_(jData, lgKey, 'ly',  ALL_YM_LY_BG, prodArr);
       blByPais2       = jsonScenarioToByPaisForProd_(jData, lgKey, baselineScen, ALL_YM_BG, prodArr);
       budgetByPais2   = jsonScenarioToByPaisForProd_(jData, lgKey, 'bg',  ALL_YM_BG, prodArr);
       forecastByPais2 = jsonScenarioToByPaisForProd_(jData, lgKey, 'fc',  ALL_YM_BG, prodArr);
@@ -618,12 +610,11 @@ function getEPMB2BCountryDetail(paisGroupJson) {
       actualsByPais2  = jsonScenarioToByPais_(jData, lgKey, 'ac',  ALL_YM_BG);
       rrContByPais2   = jsonScenarioToByPais_(jData, lgKey, 'rr',  ALL_YM_BG);
       lrrByPais2      = jsonScenarioToByPais_(jData, lgKey, 'lrr', ALL_YM_BG);
-      lyByPais2       = jsonScenarioToByPais_(jData, lgKey, 'ly',  ALL_YM_LY_BG);
       blByPais2       = jsonScenarioToByPais_(jData, lgKey, baselineScen, ALL_YM_BG);
       budgetByPais2   = jsonScenarioToByPais_(jData, lgKey, 'bg',  ALL_YM_BG);
       forecastByPais2 = jsonScenarioToByPais_(jData, lgKey, 'fc',  ALL_YM_BG);
     }
-    return computeGroupEPM_(actualsByPais2, rrContByPais2, budgetByPais2, forecastByPais2, cutoffIdx, pArr, { goal: goalSource, lrr: lrrByPais2, ly: lyByPais2, baseline: blByPais2 });
+    return computeGroupEPM_(actualsByPais2, rrContByPais2, budgetByPais2, forecastByPais2, cutoffIdx, pArr, { goal: goalSource, lrr: lrrByPais2, baseline: blByPais2 });
   }
 
   var mayAvailAll     = getAvailProds('b2b_may');
@@ -693,12 +684,11 @@ function getEPMB2B2CCountryDetail(paisGroupJson) {
   var actualsByPais  = jsonScenarioToByPais_(jData, 'b2b2c', 'ac',         ALL_YM_BG);
   var rrContByPais   = jsonScenarioToByPais_(jData, 'b2b2c', 'rr',         ALL_YM_BG);
   var lrrByPais      = jsonScenarioToByPais_(jData, 'b2b2c', 'lrr',        ALL_YM_BG);
-  var lyByPais       = jsonScenarioToByPais_(jData, 'b2b2c', 'ly',         ALL_YM_LY_BG);
   var blByPais       = jsonScenarioToByPais_(jData, 'b2b2c', baselineScen, ALL_YM_BG);
   var budgetByPais   = jsonScenarioToByPais_(jData, 'b2b2c', 'bg',         ALL_YM_BG);
   var forecastByPais = jsonScenarioToByPais_(jData, 'b2b2c', 'fc',         ALL_YM_BG);
 
-  var totalData = computeGroupEPM_(actualsByPais, rrContByPais, budgetByPais, forecastByPais, cutoffIdx, paisArr, { goal: goalSource, lrr: lrrByPais, ly: lyByPais, baseline: blByPais });
+  var totalData = computeGroupEPM_(actualsByPais, rrContByPais, budgetByPais, forecastByPais, cutoffIdx, paisArr, { goal: goalSource, lrr: lrrByPais, baseline: blByPais });
 
   return JSON.stringify({
     quarters: QUARTER_ORDER_BG,

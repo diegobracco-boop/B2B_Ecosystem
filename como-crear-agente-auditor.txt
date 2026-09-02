@@ -1,0 +1,167 @@
+CÓMO CREAR UN AGENTE AUDITOR DE CÓDIGO PARA CUALQUIER PROYECTO
+================================================================
+Basado en el agente `auditor-de-codigo` del ecosistema B2B Despegar.
+Fecha de referencia: 2026-09-02
+
+
+1. QUÉ ES UN AGENTE EN CLAUDE CODE
+-----------------------------------
+Un agente es un subagente especializado definido en un archivo Markdown dentro de:
+
+    .claude/agents/<nombre-del-agente>.md
+
+Claude Code lo invoca automáticamente según el `description` del archivo, o
+manualmente cuando el coordinador (tú o Claude) llama al Agent tool con ese nombre.
+
+
+2. ESTRUCTURA DEL ARCHIVO DEL AGENTE
+--------------------------------------
+El archivo tiene dos partes: frontmatter YAML + cuerpo de instrucciones.
+
+Ejemplo mínimo:
+
+    ---
+    name: auditor-de-codigo
+    description: <cuándo usar este agente — es lo que lee Claude para decidir invocarlo>
+    model: sonnet
+    tools: Read, Grep, Glob, Bash
+    ---
+
+    <instrucciones de comportamiento en lenguaje natural>
+
+FRONTMATTER — campos relevantes:
+  - name        : identificador único del agente (kebab-case)
+  - description : CRÍTICO. Debe decir explícitamente en qué situaciones se invoca.
+                  Claude lo lee para decidir si usar el agente o no.
+  - model       : modelo a usar (sonnet = equilibrio calidad/velocidad, haiku = rápido)
+  - tools       : herramientas permitidas (solo las necesarias — principio mínimo privilegio)
+
+Para un auditor de solo-lectura, las herramientas suficientes son:
+    Read, Grep, Glob, Bash
+
+
+3. CÓMO ADAPTAR EL AGENTE A OTRO PROYECTO
+-------------------------------------------
+Hay cuatro cosas que cambiar/definir para tu proyecto:
+
+A) DESCRIPTION (el trigger de invocación)
+   Describí en qué momentos del flujo de trabajo debe activarse el auditor.
+   Ejemplos:
+   - "Usar antes de hacer deploy a producción"
+   - "Usar después de cambios en el módulo de facturación"
+   - "Usar cuando el usuario pida auditar o chequear credenciales"
+
+B) EJES DE AUDITORÍA
+   El agente B2B audita cuatro ejes. Adaptá los ejes a tu dominio:
+
+   Eje genérico           → Ejemplo B2B              → Tu proyecto (completar)
+   ──────────────────     ──────────────────────      ──────────────────────────
+   Calidad de código      Calidad de código           ___________________
+   Seguridad/credenciales No hardcodear creds Datalake ___________________
+   Integridad de datos    JSONs pipelines↔landings    ___________________
+   Consistencia modular   Pipelines vs GAS landings   ___________________
+
+   El eje de mayor costo de falla merece instrucción explícita de ser exhaustivo.
+   En B2B son credenciales e integridad de datos (afectan P&L en producción).
+
+C) DOCUMENTOS DE CONTEXTO QUE EL AGENTE DEBE LEER PRIMERO
+   El agente B2B lee CLAUDE.md y CONTEXT-MAP.md para entender la arquitectura
+   antes de auditar. En tu proyecto, identificá los equivalentes:
+   - Archivo con reglas del proyecto (CLAUDE.md, CONTRIBUTING.md, etc.)
+   - Diagrama o descripción de arquitectura (CONTEXT-MAP.md, ARCHITECTURE.md, etc.)
+   - Reglas de negocio críticas que no deben romperse
+
+D) ALCANCE POR DEFECTO
+   Si el usuario no especifica módulo, ¿qué audita? Todo el repo, o un módulo clave.
+   En B2B el default es todo el repo.
+
+
+4. INSTRUCCIONES DE COMPORTAMIENTO (cuerpo del archivo)
+---------------------------------------------------------
+El cuerpo debe responder estas preguntas:
+
+  1. ¿Qué documentos leer antes de empezar?
+  2. ¿Cuál es el alcance por defecto?
+  3. ¿Cuáles son los ejes de auditoría y en qué orden?
+  4. ¿Qué eje tiene mayor prioridad/exhaustividad?
+  5. ¿Qué formato tiene el reporte? (hallazgos con archivo+línea, sin prosa genérica)
+  6. ¿Cómo cierra el reporte? (lista de hallazgos bloqueantes — aunque esté vacía)
+
+El agente NO corrige código — solo reporta. Esa restricción es importante para
+que el usuario pueda revisar antes de que se aplique cualquier cambio.
+
+
+5. INTEGRACIÓN CON CLAUDE.MD (automatización)
+-----------------------------------------------
+Para que el agente se invoque automáticamente (no solo cuando el usuario lo pide),
+agregar en CLAUDE.md del proyecto una regla como:
+
+    ## Auditoría automática de código
+    Antes de correr `/deploy` o `/actualizar`, invocá al subagente `auditor-de-codigo`
+    sobre el módulo tocado. Si reporta hallazgos bloqueantes, avisá al usuario
+    y esperá confirmación antes de seguir con el deploy.
+
+Esto le da a Claude (el coordinador) la instrucción de invocar el agente
+en los momentos críticos sin que el usuario tenga que pedirlo.
+
+
+6. EJEMPLO COMPLETO PARA UN PROYECTO GENÉRICO
+-----------------------------------------------
+Supongamos un proyecto con un pipeline ETL en Python y una API en Node.
+
+Archivo: .claude/agents/auditor-de-codigo.md
+
+    ---
+    name: auditor-de-codigo
+    description: Auditor de código del proyecto XYZ — usar antes de cualquier
+      deploy a producción, después de cambios en el pipeline ETL o en la API,
+      o cuando el usuario pida auditar, revisar integridad, o chequear credenciales.
+      Reporta hallazgos por eje (calidad, credenciales, integridad ETL↔API, tests).
+    model: sonnet
+    tools: Read, Grep, Glob, Bash
+    ---
+
+    Sos el auditor de código del proyecto XYZ. Reportás hallazgos — no corregís
+    código a menos que el usuario lo pida explícitamente después de ver el reporte.
+
+    Antes de auditar:
+    1. Leé CLAUDE.md y ARCHITECTURE.md para entender el flujo ETL→API y las reglas críticas.
+    2. Si el usuario no especificó módulo, asumí alcance = todo el repo.
+
+    Auditá estos cuatro ejes en orden:
+    1. Calidad de código — patrones problemáticos, dead code, complejidad innecesaria.
+    2. Seguridad/credenciales — no hardcodear API keys, tokens, passwords. Buscar
+       con grep cualquier literal que parezca credencial fuera de archivos .env.
+    3. Integridad de datos — que el schema que produce el ETL coincida con lo que
+       consume la API. Revisá contratos de datos entre módulos.
+    4. Cobertura de tests — que los cambios recientes tengan tests asociados.
+
+    Sé exhaustivo en credenciales e integridad de datos — son los ejes de mayor
+    costo si fallan en producción.
+
+    Reportá hallazgos concretos con archivo+línea. Sin prosa genérica.
+
+    Cerrá siempre con la lista de "hallazgos bloqueantes" aunque esté vacía
+    (decilo explícitamente: "sin hallazgos bloqueantes").
+
+
+7. CHECKLIST PARA CREAR TU AGENTE
+------------------------------------
+[ ] Crear .claude/agents/<nombre>.md
+[ ] Frontmatter: name, description (trigger claro), model, tools (mínimos necesarios)
+[ ] Cuerpo: documentos a leer, ejes, prioridades, formato de reporte, cierre
+[ ] Agregar regla en CLAUDE.md para invocación automática en momentos críticos
+[ ] Probar invocándolo manualmente: "auditá el módulo X"
+[ ] Verificar que el description activa el agente en los contextos correctos
+
+
+8. NOTAS IMPORTANTES
+---------------------
+- El `description` es lo más crítico: Claude lo lee para decidir si invocar
+  el agente. Debe ser específico sobre los momentos de activación.
+- Usá solo las herramientas necesarias (Read, Grep, Glob, Bash para solo-lectura).
+  No agregues Edit/Write a un auditor — no debe poder modificar código.
+- La restricción "no corregís código a menos que el usuario lo pida" es una
+  buena práctica para cualquier auditor: separá diagnóstico de intervención.
+- Los hallazgos bloqueantes son los que detendrían un deploy. Definí con claridad
+  qué cuenta como bloqueante en tu dominio.
