@@ -900,13 +900,6 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
           <div class="bento-desc">AI tools y reportes oficiales</div>
           <div class="bento-arrow">→</div>
         </button>
-        <button class="bento-card" style="--i:15" onclick="goToSection('insights')">
-          <div class="bento-kicker">Weekly · Insights</div>
-          <div class="bento-icon">💡</div>
-          <div class="bento-name">Insights</div>
-          <div class="bento-desc">Semáforos y bullets ejecutivos por LOB</div>
-          <div class="bento-arrow">→</div>
-        </button>
       </div>
     </div>
 
@@ -1041,7 +1034,6 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
   <button class="lob-tab"        data-lob="pnl_mgr"  onclick="switchLob(this)">📊 P&amp;L Managerial</button>
   <button class="lob-tab"        data-lob="sourcing" onclick="switchLob(this)">🔍 Sources</button>
   <button class="lob-tab"        data-lob="agents"        onclick="switchLob(this)">🤖 IA Agents</button>
-  <button class="lob-tab"        data-lob="insights"      onclick="switchLob(this)">💡 Insights</button>
   <button class="lob-tab"        data-lob="organigrama"   onclick="switchLob(this)">🏢 Organigrama</button>
   <button class="lob-tab"        data-lob="okr"           onclick="switchLob(this)">🎯 OKR</button>
 </div>
@@ -1101,9 +1093,6 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
     <div class="nav-divider"></div>
     <button class="nav-item" id="nav-sourcing" onclick="goToSection('sourcing')">
       <span style="font-size:16px">🔍</span> Sources
-    </button>
-    <button class="nav-item" id="nav-insights" onclick="goToSection('insights')">
-      <span style="font-size:16px">💡</span> Insights
     </button>
   </div>
 </div><!-- /.filters -->
@@ -1589,6 +1578,11 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
           <div class="src-card-icon">📰</div>
           <div class="src-card-body"><div class="src-card-name">News</div><div class="src-card-sub">Novedades y actualizaciones del equipo</div></div>
           <a class="src-card-link" href="#" onclick="goToSection('news');return false;">Abrir</a>
+        </div>
+        <div class="src-card">
+          <div class="src-card-icon">💡</div>
+          <div class="src-card-body"><div class="src-card-name">Insights</div><div class="src-card-sub">Semáforos y bullets ejecutivos por LOB</div></div>
+          <a class="src-card-link" href="#" onclick="goToSection('insights');return false;">Abrir</a>
         </div>
       </div>
     </div>
