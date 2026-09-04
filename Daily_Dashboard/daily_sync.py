@@ -972,11 +972,28 @@ def agg_actuals(df: pd.DataFrame) -> pd.DataFrame:
     ).round({"gross_bookings": 2, "net_revenues": 2, "fvm": 2})
 
 
+def _parse_fecha_budget(s: pd.Series) -> pd.Series:
+    """El datalake devuelve 'fecha' como ISO 'YYYY-MM-DD' (raw.b2b_budget_gd,
+    raw.b2brr_gd/ri) casi siempre, pero a veces como 'DD/MM/YYYY' (con barras).
+    NO usar pd.to_datetime(..., format='mixed', dayfirst=True) a secas: para un
+    string ISO sin ambiguedad (guiones, anio primero) pandas igual aplica
+    dayfirst y SWAPEA mes/dia cuando el dia es <=12 ('2026-09-01' -> '2026-01-09').
+    Eso vacia los dias 1-12 de cada mes en Run Rate (su tabla arranca en un mes
+    reciente: los dias que "piden prestado" un mes que no existe en la tabla
+    quedan en cero). Bug encontrado 2026-09-04 (commit que lo agrego: 1207e0c).
+    Fix: el formato ISO (con guiones) se parsea derecho, sin dayfirst; dayfirst
+    solo se aplica al formato ambiguo con barras."""
+    s = s.astype(str).str.strip()
+    iso = s.str.match(r"^\d{4}-\d{1,2}-\d{1,2}$")
+    out = pd.Series(pd.NaT, index=s.index, dtype="datetime64[ns]")
+    out.loc[iso]  = pd.to_datetime(s[iso],  format="%Y-%m-%d", errors="coerce")
+    out.loc[~iso] = pd.to_datetime(s[~iso], dayfirst=True,     errors="coerce")
+    return out
+
+
 def agg_budget(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
-    df["fecha"] = pd.to_datetime(
-        df["fecha"], format="mixed", dayfirst=True
-    ).dt.strftime("%Y-%m-%d")
+    df["fecha"] = _parse_fecha_budget(df["fecha"]).dt.strftime("%Y-%m-%d")
     df = df[df["fecha"].str[:4] == str(TODAY.year)]  # keep current FY only
     # YaVas: GB=0 en los mismos productos que en actuals (revenue queda normal)
     _yavas_gb0 = (
@@ -1024,9 +1041,7 @@ def to_compact(df: pd.DataFrame) -> dict:
 
 def agg_b2b_budget(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
-    df["fecha"] = pd.to_datetime(
-        df["fecha"], format="mixed", dayfirst=True
-    ).dt.strftime("%Y-%m-%d")
+    df["fecha"] = _parse_fecha_budget(df["fecha"]).dt.strftime("%Y-%m-%d")
     df = df[df["fecha"].str[:4] == str(TODAY.year)]  # keep current FY only
     # Map lob_canal → parent_channel so the dashboard channel filter works on budget
     if "lob_canal" in df.columns:
