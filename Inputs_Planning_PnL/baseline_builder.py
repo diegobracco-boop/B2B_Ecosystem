@@ -156,6 +156,40 @@ def promote_month(month, actuals_xlsx, upload):
     _emit(svc, fid, payload, upload)
 
 
+def _check_month_config_(rr, fc):
+    """RUNRATE_MONTHS/FORECAST_MONTHS (config.py) son un set de meses A MANO que
+    decide qué fuente usa cada mes del baseline en --rebuild. Si la composición
+    real cambia (runrate.json empieza/termina en otro lado) y nadie actualiza
+    config.py, el mes queda con 0 filas en el baseline SIN NINGÚN aviso — mismo
+    patrón silencioso que ya rompió 3 veces en este pipeline (diciembre perdido
+    del parser EPM, 'Last Year' siempre en cero, la reversión del clasp pull).
+    No frena --rebuild (FORECAST_MONTHS=set() hoy es una decisión de negocio a
+    propósito), pero avisa fuerte para que no pase desapercibido."""
+    def _months_in(payload):
+        fi = payload["cols"].index("Fecha")
+        return {r[fi] for r in payload["rows"]}
+
+    rr_real, fc_real = _months_in(rr), _months_in(fc)
+    any_warn = False
+    for name, configured, real, fname in [
+        ("RUNRATE_MONTHS",  RUNRATE_MONTHS,  rr_real, "runrate.json"),
+        ("FORECAST_MONTHS", FORECAST_MONTHS, fc_real, "forecast.json"),
+    ]:
+        missing = sorted(configured - real)  # config dice usar el mes, pero el archivo no lo tiene
+        extra   = sorted(real - configured)  # el archivo cubre meses que el config no usa
+        if missing:
+            any_warn = True
+            print(f"  [WARN CONFIG] {name} incluye {missing} pero {fname} no tiene esos "
+                  f"meses -> quedarian con 0 filas en el baseline.")
+        if extra:
+            any_warn = True
+            print(f"  [WARN CONFIG] {fname} tiene datos para {extra} que {name} NO usa "
+                  f"-> revisar si config.py quedo desactualizado.")
+    if not any_warn:
+        print("  [OK] RUNRATE_MONTHS/FORECAST_MONTHS coinciden con runrate.json/forecast.json.")
+    return any_warn
+
+
 def rebuild(actuals_xlsx, upload):
     svc = _svc()
     fid, old = _download_json(svc, BASELINE_NAME)
@@ -163,6 +197,7 @@ def rebuild(actuals_xlsx, upload):
     act = build_actuals_json(actuals_xlsx)
     _, rr = _download_json(svc, "runrate.json")
     _, fc = _download_json(svc, "forecast.json")
+    _check_month_config_(rr, fc)
     act_months = set(act["meta"]["fechas"])  # meses cerrados disponibles
     rows = [r for r in act["rows"] if r[FI] in act_months]
     rows += [r for r in rr["rows"] if r[FI] in RUNRATE_MONTHS]
