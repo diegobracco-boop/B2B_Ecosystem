@@ -2,6 +2,8 @@
 
 Este repo contiene pipelines de datos y landings de Google Apps Script para el equipo B2B de Despegar. Antes de hacer cualquier cambio, identificá el módulo afectado y seguí el flujo correspondiente.
 
+**Onboarding de una persona nueva del equipo:** mandarla a la capa "Guía del equipo" del manual (`Manual_B2B_WLs` → Empezá por acá / Glosario / ¿Qué landing uso? / Recetas por tarea / Quién hace qué). Para dirección: la capa "Para dirección" (Panorama + Arquitectura global).
+
 ## Al iniciar una sesión — identificar al usuario
 
 **Al comienzo de cada conversación, preguntá quién es el usuario** (si no se presentó). Los usuarios del equipo son:

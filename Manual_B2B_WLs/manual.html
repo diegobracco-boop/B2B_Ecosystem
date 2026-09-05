@@ -376,18 +376,32 @@ a.ext-link:hover { text-decoration: underline; }
     <div class="sidebar-logo-sub">Manual técnico · Despegar · FY27</div>
   </div>
 
-  <div class="sidebar-section">General</div>
+  <div class="sidebar-section">Para dirección</div>
   <a class="nav-item active" onclick="showSection('overview')">
-    <span class="nav-icon">🗺️</span> Resumen general
+    <span class="nav-icon">🧭</span> Panorama
   </a>
   <a class="nav-item" onclick="showSection('arquitectura')">
     <span class="nav-icon">⚙️</span> Arquitectura global
   </a>
-  <a class="nav-item" onclick="showSection('actualizar')">
-    <span class="nav-icon">🔄</span> Cómo actualizar
+
+  <div class="sidebar-section">Guía del equipo</div>
+  <a class="nav-item" onclick="showSection('empezar')">
+    <span class="nav-icon">📖</span> Empezá por acá
+  </a>
+  <a class="nav-item" onclick="showSection('glosario')">
+    <span class="nav-icon">📓</span> Glosario
+  </a>
+  <a class="nav-item" onclick="showSection('que-landing')">
+    <span class="nav-icon">🧩</span> ¿Qué landing uso?
+  </a>
+  <a class="nav-item" onclick="showSection('recetas')">
+    <span class="nav-icon">🍳</span> Recetas por tarea
+  </a>
+  <a class="nav-item" onclick="showSection('responsables')">
+    <span class="nav-icon">👥</span> Quién hace qué
   </a>
 
-  <div class="sidebar-section">Proyectos</div>
+  <div class="sidebar-section">Referencia operativa</div>
   <a class="nav-item" onclick="showSection('proj-inputs')">
     <span class="nav-icon">🐍</span> Inputs Planning P&L
   </a>
@@ -406,8 +420,9 @@ a.ext-link:hover { text-decoration: underline; }
   <a class="nav-item" onclick="showSection('proj-manual')">
     <span class="nav-icon">📖</span> Manual B2B WLs
   </a>
-
-  <div class="sidebar-section">Referencia</div>
+  <a class="nav-item" onclick="showSection('actualizar')">
+    <span class="nav-icon">🔄</span> Actualizar datos (detalle)
+  </a>
   <a class="nav-item" onclick="showSection('archivos')">
     <span class="nav-icon">📁</span> Archivos & rutas
   </a>
@@ -419,12 +434,36 @@ a.ext-link:hover { text-decoration: underline; }
 <!-- ── Main ── -->
 <main id="main">
 
-  <!-- ════════════════════════════════ OVERVIEW ════════════════════════════ -->
+  <!-- ════════════════════════════════ PANORAMA ════════════════════════════ -->
   <div class="section active" id="sec-overview">
     <div class="page-header">
-      <div class="page-tag">Manual técnico · B2B Ecosystem · FY27</div>
-      <div class="page-title">Resumen <span>General</span></div>
-      <div class="page-sub">Ecosistema de herramientas de análisis financiero para el equipo B2B &amp; WLs de Despegar. Este manual documenta la arquitectura, los flujos de datos y los procedimientos de actualización de cada proyecto.</div>
+      <div class="page-tag">Manual técnico · B2B Ecosystem · FY27 (Abr-2026 → Mar-2027)</div>
+      <div class="page-title">Ecosistema <span>B2B &amp; WLs</span></div>
+      <div class="page-sub">Un set de herramientas de <strong>autoservicio</strong> para que Planning y Finanzas B2B analicen performance, varianzas y pace &mdash; sin depender de extracciones manuales. Este manual documenta la arquitectura, los flujos de datos y los procedimientos de cada pieza.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🎯 Qué preguntas responde</div>
+      <table class="doc-table">
+        <tbody>
+          <tr><td>¿Cómo venimos vs Budget / Forecast / Run Rate?</td><td>Por país, producto y canal, mes a mes, B2B y B2B2C. → <strong>P&amp;L Accounting</strong>, <strong>Hub</strong></td></tr>
+          <tr><td>¿La varianza es de precio o de volumen?</td><td>Descomposición <strong>PxQ</strong> del delta baseline vs goal por segmento. → <strong>P&amp;L Accounting</strong>, <strong>Hub</strong></td></tr>
+          <tr><td>¿Cómo se arma el Net Revenue / FVM, línea por línea?</td><td><strong>NR Bridge</strong> y <strong>waterfall</strong> entre dos escenarios. → <strong>P&amp;L Managerial</strong>, <strong>Hub</strong></td></tr>
+          <tr><td>¿Cuál es el pace diario?</td><td>D-1, MTD, vs Budget del mes, vs LY. Todas las mañanas 08:00. → <strong>Daily Dashboard</strong></td></tr>
+          <tr><td>¿Cierra igual el P&amp;L contable y el gestional?</td><td>La misma performance como líneas de P&amp;L (contable) y como FVM (managerial). → <strong>P&amp;L Accounting</strong> vs <strong>P&amp;L Managerial</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🧭 Cómo leer este manual</div>
+      <table class="doc-table">
+        <tbody>
+          <tr><td><strong>Para dirección</strong></td><td>Panorama + Arquitectura global. Qué es, qué resuelve, en qué estado está. Sin comandos ni IDs.</td></tr>
+          <tr><td><strong>Guía del equipo</strong></td><td>Onboarding: empezá por acá, glosario, qué landing uso, recetas por tarea, quién hace qué.</td></tr>
+          <tr><td><strong>Referencia operativa</strong></td><td>El detalle de cada módulo: IDs de Drive/deployment, scripts, gotchas, cómo actualizar y deployar.</td></tr>
+        </tbody>
+      </table>
     </div>
 
     <div class="proj-grid">
@@ -487,6 +526,289 @@ a.ext-link:hover { text-decoration: underline; }
           <tr><td>Backend web</td><td><span class="tag tag-js">Google Apps Script</span></td><td>Sirve la webapp y expone la API de datos al frontend</td></tr>
           <tr><td>Frontend</td><td><span class="tag tag-html">HTML + CSS + JS</span></td><td>Dashboard interactivo renderizado en el browser</td></tr>
           <tr><td>Deploy</td><td><span class="tag tag-js">clasp</span></td><td>Sincroniza código local → Google Apps Script via CLI</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════ EMPEZÁ POR ACÁ ═══════════════════════════ -->
+  <div class="section" id="sec-empezar">
+    <div class="page-header">
+      <div class="page-tag">Guía del equipo · Onboarding</div>
+      <div class="page-title">Empezá <span>por acá</span></div>
+      <div class="page-sub">Si es tu primer contacto con el ecosistema, seguí este orden. Toma ~30 minutos y te deja listo para usar las landings y entender de dónde salen los números.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🚶 Recorrido sugerido</div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <div class="step-title">Leé el Panorama y la Arquitectura global</div>
+            <div class="step-desc">Qué resuelve el ecosistema, las 6 piezas, y el flujo Datalake → Python → Drive → Apps Script → landing. No hace falta entender el detalle técnico todavía.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <div class="step-title">Pasá por el Glosario</div>
+            <div class="step-desc">Los términos que se repiten: <strong>contable vs gestional</strong>, <strong>baseline vs goal</strong>, GB / NR / OC / FVM, B2B GD/RI, escenarios. Sin esto, las tablas de P&amp;L no se leen.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <div class="step-title">Abrí las 5 landings desde el Hub</div>
+            <div class="step-desc">Entrá al <strong>B2B Ecosystem Hub</strong> y navegá cada dashboard con la sección "¿Qué landing uso?" al lado. Probá cambiar Baseline y Goal, filtrar por país, abrir un waterfall.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <div class="step-title">Mirá "Quién hace qué"</div>
+            <div class="step-desc">Quién es dueño de cada módulo, quién corre los updates y en qué máquina. A quién le escribís si un número se ve raro.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">5</div>
+          <div class="step-body">
+            <div class="step-title">Cuando tengas que actualizar algo</div>
+            <div class="step-desc">Andá a <strong>Recetas por tarea</strong> (qué corro cuando cierra un mes / sale un forecast nuevo / hay que tocar un dashboard) y de ahí a la <strong>Referencia operativa</strong> del módulo puntual.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="alert-box">
+      💡 El ecosistema es de <strong>autoservicio</strong>: no hace falta pedirle a nadie que "saque un reporte". Si la pregunta es de performance / varianza / pace B2B, casi seguro ya está en alguna landing.
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════ GLOSARIO ═════════════════════════════ -->
+  <div class="section" id="sec-glosario">
+    <div class="page-header">
+      <div class="page-tag">Guía del equipo</div>
+      <div class="page-title">Glosario</div>
+      <div class="page-sub">Los términos que aparecen en las landings y en el resto del manual.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">💰 Métricas de P&amp;L</div>
+      <table class="doc-table">
+        <tbody>
+          <tr><td><strong>GB</strong> · Gross Bookings</td><td>Volumen bruto transaccionado.</td></tr>
+          <tr><td><strong>NR</strong> · Net Revenue</td><td>Ingreso neto (GB menos descuentos, incentivos, impuestos de revenue, cancelaciones, etc.).</td></tr>
+          <tr><td><strong>OC</strong> · Operating Contribution</td><td>NR + Cost of Revenue + Sales &amp; Marketing (los costos entran con signo negativo). Es la línea principal del P&amp;L contable.</td></tr>
+          <tr><td><strong>FVM</strong></td><td>Financial Value Margin — la métrica de la vista gestional/managerial (en el código figura como <code>npv</code>).</td></tr>
+          <tr><td><strong>Revenue margin</strong></td><td>NR / GB, en %.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📊 Las dos vistas del P&amp;L</div>
+      <table class="doc-table">
+        <tbody>
+          <tr><td><strong>Contable</strong></td><td>El P&amp;L con las líneas estándar de accounting (Operating Contribution). Lo usa Finanzas / Planning. Landing: <strong>P&amp;L Accounting</strong>. Pipeline de datos: <code>Inputs_Planning_PnL</code>.</td></tr>
+          <tr><td><strong>Gestional</strong> (managerial)</td><td>La misma performance vista como FVM, con waterfall de palancas y NR Bridge. Lo usa Planning / Gerencia. Landing: <strong>P&amp;L Managerial</strong>. Pipeline propio: <code>actuals_gestional_upload.py</code>.</td></tr>
+          <tr><td colspan="2" style="color:var(--text3)">Son la misma realidad de negocio contada de dos formas — no dos fuentes que se contradicen. Los pipelines son independientes a propósito.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🧭 Escenarios (Baseline y Goal)</div>
+      <table class="doc-table">
+        <tbody>
+          <tr><td><strong>Baseline</strong></td><td>La "foto realista": actuals de los meses cerrados + la mejor proyección disponible para los abiertos (run rate → forecast → budget según el mes). Es contra lo que se compara.</td></tr>
+          <tr><td><strong>Goal</strong></td><td>El objetivo elegido para comparar: se selecciona en la landing entre Budget, Forecast o Last Year.</td></tr>
+          <tr><td><strong>Budget</strong></td><td>El presupuesto oficial FY27 (12 meses), fijo.</td></tr>
+          <tr><td><strong>Forecast</strong></td><td>La última proyección revisada. Contable: sale de CSV Hyperion. Gestional: sale de los Modelos Forecast en Excel.</td></tr>
+          <tr><td><strong>Run Rate</strong></td><td>Proyección de corto plazo basada en el pace reciente.</td></tr>
+          <tr><td><strong>Last Run Rate</strong> · LRR</td><td>El run rate del corte anterior (para ver cómo se movió la proyección).</td></tr>
+          <tr><td><strong>Last Year</strong> · LY</td><td>El FY anterior completo (FY26: Abr-2025 → Mar-2026), real.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🏷️ Segmentos</div>
+      <table class="doc-table">
+        <tbody>
+          <tr><td><strong>B2B2C</strong> / <strong>WLs</strong></td><td>White Labels — partners que venden con su marca sobre la plataforma de Despegar.</td></tr>
+          <tr><td><strong>B2B</strong></td><td>Venta a otras empresas. Se abre en MAY (mayoristas) y MIN (minoristas).</td></tr>
+          <tr><td><strong>GD</strong> · Gross Demand</td><td>Base "directa" — fecha de transacción.</td></tr>
+          <tr><td><strong>RI</strong> · Recibido Indirecto</td><td>Base sobre fecha de check-in / reconocimiento. Solo aplica a B2B-MAY, que tiene doble base (GD y RI).</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🔬 Técnicas de análisis</div>
+      <table class="doc-table">
+        <tbody>
+          <tr><td><strong>Waterfall</strong></td><td>Gráfico de puente: descompone la diferencia entre dos números (ej. Baseline vs Goal) en sus componentes, barra por barra.</td></tr>
+          <tr><td><strong>PxQ</strong> / PxQxM</td><td>Descompone el delta de OC/GB en Precio (margen), Cantidad (volumen) y, en PxQxM, Mix e Interacción — por LOB, canal, país y producto.</td></tr>
+          <tr><td><strong>NR Bridge</strong></td><td>Agrupa las ~27 líneas N2 del Net Revenue en 5-6 grupos legibles y muestra el puente entre escenarios.</td></tr>
+          <tr><td><strong>Countries YoY</strong></td><td>Cards por país con GB/NR/OC y variación año contra año (H1 / H2 / FY), con benchmark de Budget.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">⚙️ Términos técnicos</div>
+      <table class="doc-table">
+        <tbody>
+          <tr><td>Año fiscal / <strong>FY27</strong></td><td>Despegar cierra en marzo. FY27 = Abril 2026 a Marzo 2027.</td></tr>
+          <tr><td><strong>Plana</strong></td><td>Tabla "larga" homologada (una fila por combinación de dimensiones + mes + monto) que arma el pipeline contable antes de construir los JSON.</td></tr>
+          <tr><td><strong>Homologación</strong></td><td>Mapear los códigos crudos del datalake / Excel a las dimensiones estándar (país, producto, línea de P&amp;L) usando el Glosario.</td></tr>
+          <tr><td>JSON <strong>canónico</strong></td><td>El archivo de datos "fuente de verdad" por escenario que publica <code>Inputs_Planning_PnL</code> en Drive. Todas las landings contables deberían leer de acá.</td></tr>
+          <tr><td><strong>Cubo</strong></td><td>Un JSON con estructura <code>data[lob][país][escenario][línea][mes]</code> que arma <code>plana_to_cube.py</code> a partir de los canónicos, para la vista contable oculta.</td></tr>
+          <tr><td><strong>@HEAD</strong> vs deployment publicado</td><td><code>clasp push</code> sube a <code>@HEAD</code> (la URL <code>/dev</code>, para probar). La URL <code>/exec</code> que usa el negocio queda <strong>congelada</strong> hasta hacer <code>clasp deploy -i &lt;id&gt;</code>. Saltear ese paso = "publiqué" pero nadie ve el cambio.</td></tr>
+          <tr><td><strong>clasp</strong></td><td>CLI de Google para sincronizar código local ↔ Apps Script.</td></tr>
+          <tr><td><strong>Toqan</strong></td><td>IA interna de Despegar. Hasta mediados de 2026 armaba las planas; se reemplazó por el pipeline local <code>Inputs_Planning_PnL</code>.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════ ¿QUÉ LANDING USO? ════════════════════════ -->
+  <div class="section" id="sec-que-landing">
+    <div class="page-header">
+      <div class="page-tag">Guía del equipo</div>
+      <div class="page-title">¿Qué landing <span>uso?</span></div>
+      <div class="page-sub">Todas las landings se abren desde el <strong>B2B Ecosystem Hub</strong>. Esta tabla es para saber a cuál ir según lo que necesitás.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🧩 Según la pregunta</div>
+      <table class="doc-table">
+        <thead><tr><th>Necesito…</th><th>Landing</th><th>Nota</th></tr></thead>
+        <tbody>
+          <tr><td>El P&amp;L contable completo (OC), Baseline vs Goal, waterfalls, PxQ, Countries YoY</td><td><strong>P&amp;L Accounting</strong></td><td>La vista principal para Finanzas y para revisiones de P&amp;L</td></tr>
+          <tr><td>FVM, palancas, NR Bridge, evolución mensual gestional</td><td><strong>P&amp;L Managerial</strong></td><td>La vista "managerial". B2B2C y B2B por separado</td></tr>
+          <tr><td>Seguimiento de OKR, Country One Page, performance por partner, y acceso a todo lo demás</td><td><strong>B2B Ecosystem Hub</strong></td><td>El portal — la puerta de entrada</td></tr>
+          <tr><td>Pace del día / del mes en curso, vs Budget y vs LY</td><td><strong>Daily Dashboard</strong></td><td>Se actualiza solo a las 08:00. Vista diaria y vista semanal</td></tr>
+          <tr><td>Entender de dónde sale un número o cómo se actualiza algo</td><td><strong>Manual B2B WLs</strong></td><td>Este documento</td></tr>
+          <tr><td>Los datos crudos (JSON) para otro análisis</td><td><em>Inputs Planning P&amp;L</em></td><td>No es una landing — es la carpeta de Drive con los JSON canónicos</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="alert-box">
+      ⚠️ <strong>P&amp;L Accounting</strong> y <strong>P&amp;L Managerial</strong> pueden mostrar números levemente distintos para "lo mismo": es la diferencia contable vs gestional (ver Glosario), no un error. Si la diferencia es grande, avisá — ahí sí puede ser un problema de datos.
+    </div>
+  </div>
+
+  <!-- ═════════════════════════ RECETAS POR TAREA ═════════════════════════ -->
+  <div class="section" id="sec-recetas">
+    <div class="page-header">
+      <div class="page-tag">Guía del equipo</div>
+      <div class="page-title">Recetas <span>por tarea</span></div>
+      <div class="page-sub">Qué correr según lo que pasó. El detalle fino de cada script está en la Referencia operativa del módulo.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📅 Cerró un mes (llegaron los actuals)</div>
+      <table class="doc-table">
+        <tbody>
+          <tr><td>Contable (P&amp;L Accounting)</td><td>Desde <code>Inputs_Planning_PnL</code>: <code>run_all.bat</code> → <code>python baseline_builder.py</code> → <code>python plana_to_cube.py --upload</code>. Recargar la landing (Ctrl+Shift+R). Sin deploy.</td></tr>
+          <tr><td>Gestional (P&amp;L Managerial)</td><td>Desde <code>P&amp;L_Managerial</code>, con VPN: <code>python actuals_gestional_upload.py</code>. Un solo run.</td></tr>
+          <tr><td>Daily</td><td>Se incorpora solo en el run automático de las 08:00.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📈 Salió una ronda nueva de Forecast (Modelos XLSX)</div>
+      <table class="doc-table">
+        <tbody>
+          <tr><td>Gestional</td><td>Actualizar <code>FC_XLSX_DIR</code> en <code>actuals_gestional_upload.py</code> a la carpeta semanal nueva → correr el script (con VPN).</td></tr>
+          <tr><td>Contable</td><td>El forecast contable NO sale de esos XLSX (sale de CSV Hyperion). Se actualiza upstream en <code>Inputs_Planning_PnL</code> al reprocesar.</td></tr>
+          <tr><td>Preview de un WIP sin publicar</td><td><code>python projections_gestional_builder.py --wip-folder "&lt;ruta&gt;"</code> (gestional) / <code>projections_validation_builder.py</code> (contable). Muestra el borrador en la vista "Projection Review".</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🎨 Hay que cambiar algo del dashboard (visual o lógica)</div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <div class="step-title">Editar el archivo local</div>
+            <div class="step-desc">Los <code>.js</code> / <code>.html</code> están en la carpeta del módulo. Commitear a git primero.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <div class="step-title">Publicar</div>
+            <div class="step-desc"><code>clasp push</code> (o <code>--force</code>) + <code>clasp deploy -i &lt;deploymentId&gt;</code>. El segundo paso NO es opcional — ver "Comandos frecuentes" para el ID de cada landing.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <div class="step-title">Verificar en la URL /exec</div>
+            <div class="step-desc">No en <code>/dev</code>. Recargar y confirmar que el cambio se ve.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🔎 Un número se ve mal</div>
+      <table class="doc-table">
+        <tbody>
+          <tr><td>¿Contable vs gestional?</td><td>Una diferencia chica entre P&amp;L Accounting y Managerial es esperable. Grande = avisar.</td></tr>
+          <tr><td>¿Está viejo el dato?</td><td>Revisar cuándo se corrió el pipeline (las landings muestran "Actualizado: …"). Si el mes cerró y no está, falta correr la receta "Cerró un mes".</td></tr>
+          <tr><td>¿Cambió pero no se ve?</td><td>Casi siempre es cache del navegador (Ctrl+Shift+R) o que faltó el <code>clasp deploy -i</code> tras el push.</td></tr>
+          <tr><td>¿Falta un mes entero / da cero un escenario?</td><td>Puede ser config desalineada (<code>RUNRATE_MONTHS</code> / <code>FORECAST_MONTHS</code> en <code>config.py</code>). Ver la Referencia operativa de Inputs Planning P&amp;L.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="alert-box">
+      🔌 Los scripts que consultan el Datalake (<code>actuals_gestional_upload.py</code>, <code>daily_sync.py</code>) <strong>necesitan VPN</strong>. Un error de conexión / SSL casi siempre es eso, no un bug del código.
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════ QUIÉN HACE QUÉ ══════════════════════════ -->
+  <div class="section" id="sec-responsables">
+    <div class="page-header">
+      <div class="page-tag">Guía del equipo</div>
+      <div class="page-title">Quién <span>hace qué</span></div>
+      <div class="page-sub">Dueño y operación de cada módulo. A quién escribirle si algo no anda.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">👥 Por módulo</div>
+      <table class="doc-table">
+        <thead><tr><th>Módulo</th><th>Cómo se actualiza</th><th>Corre en…</th></tr></thead>
+        <tbody>
+          <tr><td>Inputs Planning P&amp;L</td><td>Manual, con el cierre mensual (equipo de Planning)</td><td>La máquina de quien lo corre (rutas locales en el script)</td></tr>
+          <tr><td>P&amp;L Accounting</td><td>Datos: al reprocesar Inputs_Planning_PnL. Código: manual + deploy</td><td>—</td></tr>
+          <tr><td>P&amp;L Managerial</td><td>Datos: <code>actuals_gestional_upload.py</code> manual (VPN). Código: manual + deploy</td><td>La máquina de Diego (<code>RUTA_ENV</code> / <code>FC_XLSX_DIR</code> hardcodeadas — pendiente de portar)</td></tr>
+          <tr><td>B2B Ecosystem Hub</td><td>Datos: JSON canónicos de Drive (automático por <code>lastMod</code>). Código: manual + deploy</td><td>—</td></tr>
+          <tr><td>Daily Dashboard</td><td><strong>Automático</strong>: Windows Task Scheduler, 08:00</td><td>La máquina de Gregorio Minetti</td></tr>
+          <tr><td>Manual B2B WLs</td><td>Manual — se edita <code>manual.html</code> a mano al cambiar cualquier otro módulo</td><td>—</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="alert-box">
+      ⚠️ Puntos únicos de falla conocidos (auditoría 2026-09): el Daily depende del Task Scheduler en <strong>una</strong> máquina; el pipeline gestional tiene rutas hardcodeadas a <strong>una</strong> persona. Están documentados y en la lista de "a reforzar" del Panorama.
+    </div>
+
+    <div class="card">
+      <div class="card-title">🔑 Accesos que hacen falta</div>
+      <table class="doc-table">
+        <tbody>
+          <tr><td>Ver las landings</td><td>Cuenta <code>@despegar.com</code> (las webapps están restringidas al dominio)</td></tr>
+          <tr><td>Correr los pipelines Python</td><td>Credenciales del Datalake (<code>.env</code>, por persona) + VPN + auth de Google Drive (<code>python auth_drive.py</code>, una vez)</td></tr>
+          <tr><td>Deployar código</td><td><code>clasp login</code> con la cuenta <code>@despegar.com</code></td></tr>
         </tbody>
       </table>
     </div>
@@ -635,9 +957,9 @@ a.ext-link:hover { text-decoration: underline; }
   <!-- ══════════════════════════════ ACTUALIZAR ═════════════════════════════ -->
   <div class="section" id="sec-actualizar">
     <div class="page-header">
-      <div class="page-tag">Procedimiento</div>
-      <div class="page-title">Cómo <span>Actualizar</span></div>
-      <div class="page-sub">Guía paso a paso para las operaciones más frecuentes del equipo.</div>
+      <div class="page-tag">Referencia operativa · Procedimiento</div>
+      <div class="page-title">Actualizar datos <span>(detalle)</span></div>
+      <div class="page-sub">El paso a paso completo. Para la versión corta "qué corro cuando pasa X", ver <strong>Recetas por tarea</strong>.</div>
     </div>
 
     <div class="alert-box">
