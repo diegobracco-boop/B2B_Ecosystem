@@ -1282,11 +1282,12 @@ function filterOptions(id, q){
   });
 }
 
-function clearMs(id){
+function clearMs(id, doReload){
   var wrap=document.getElementById(id);
   wrap.querySelectorAll('.ms-option:not(.ms-all) input').forEach(function(c){ c.checked=false; });
   wrap.querySelector('input[value="__all__"]').checked=true;
-  updateMsLabel(id); reload();
+  updateMsLabel(id);
+  if(doReload !== false) reload();
 }
 
 function updateMsLabel(id){
@@ -1911,7 +1912,6 @@ function renderPalancasTable(months,agg,budgetAgg,lyAgg,headEl,bodyEl){
 
 // ── Main render ────────────────────────────────────────────────────────────
 function render(){
-  console.log('[PNL_MGR_DEBUG] render() called', {activeLob: _activeLob, dataLobTipo: _data && _data.filters && _data.filters.lob_tipo});
   var months=_data.months, agg=_data.agg, budgetAgg=_data.budget||{}, lyAgg=_data.ly||{};
   var totals={};
   ['orders','gross_bookings','net_revenue','npv'].forEach(function(k){
@@ -2303,7 +2303,6 @@ document.addEventListener('mousemove', function(e){
 })();
 
 function switchLob(lob){
-  console.log('[PNL_MGR_DEBUG] switchLob called', {lob: lob, prevActiveLob: _activeLob});
   _activeLob = lob;
   document.getElementById('lob-b2b2c').classList.toggle('active', lob === 'b2b2c');
   document.getElementById('lob-b2b').classList.toggle('active', lob === 'b2b');
@@ -2332,8 +2331,7 @@ function switchLob(lob){
   _filtersLoadedForLob[lob] = false;
   _paisSelected = []; renderPaisChips();
   _productoSelected = []; renderProductoChips();
-  clearMs('ms-partner');
-  console.log('[PNL_MGR_DEBUG] switchLob about to reload()', {activeLob: _activeLob});
+  clearMs('ms-partner', false); // switchLob ya dispara su propio reload() abajo — no duplicar el fetch
   reload();
   _updateStickyOffsets_();
 }
@@ -2452,18 +2450,13 @@ function fetchData(){
   var reqLob = _activeLob;
   var reqId  = ++_fetchSeq;
   var reqFilters = getFilters();
-  console.log('[PNL_MGR_DEBUG] request', {reqId: reqId, reqLob: reqLob, lob_tipo: reqFilters.lob_tipo});
   google.script.run
     .withSuccessHandler(function(d){
       // Si mientras esperábamos esta respuesta se disparó otro fetchData() (ej. el
       // usuario cambió de tab B2B2C/B2B), esta ya quedó obsoleta — descartarla. Sin
       // este chequeo, una respuesta vieja que llega después de una más nueva puede
       // pisar los datos ya renderizados del LOB actual con los del LOB anterior.
-      if (reqId !== _fetchSeq) {
-        console.log('[PNL_MGR_DEBUG] DISCARDED (stale)', {reqId: reqId, currentSeq: _fetchSeq, respLobTipo: d.filters && d.filters.lob_tipo});
-        return;
-      }
-      console.log('[PNL_MGR_DEBUG] APPLIED', {reqId: reqId, reqLob: reqLob, activeLobNow: _activeLob, respLobTipo: d.filters && d.filters.lob_tipo, aggFirstMonth: d.months && d.months[0], aggGB: d.agg && d.months && d.agg[d.months[0]] && d.agg[d.months[0]].gross_bookings});
+      if (reqId !== _fetchSeq) return;
       _data = d;
       if (!_filtersLoadedForLob[reqLob]) {
         fillPaisChips(d.filters['pais'] || []);
