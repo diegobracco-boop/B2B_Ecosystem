@@ -9,9 +9,13 @@
   --bg:       #0f0520;
   --surface:  #1a0a3e;
   --surface2: #2d1269;
-  --accent:   #7C3AED;
-  --accent2:  #A78BFA;
-  --accent3:  #C4B5FD;
+  --accent:   #976cf6;              /* LILA-3 oficial Despegar */
+  --accent2:  #a780ff;              /* LILA-4 oficial Despegar */
+  --accent3:  #c4b5fd;              /* tint UI (sin código oficial exacto) */
+  --accent-a06: rgba(151,108,246,.09);
+  --accent-a12: rgba(151,108,246,.14);
+  --accent-a25: rgba(151,108,246,.26);
+  --accent-a33: rgba(151,108,246,.34);
   --text:     #f0ebff;
   --text2:    rgba(196,181,253,.7);
   --text3:    rgba(196,181,253,.62);
@@ -85,8 +89,8 @@ body {
   transition: all .15s;
   text-decoration: none;
 }
-.nav-item:hover { background: rgba(124,58,237,.12); color: var(--text); }
-.nav-item.active { border-left-color: var(--accent2); color: var(--accent3); background: rgba(124,58,237,.33); font-weight: 600; }
+.nav-item:hover { background: var(--accent-a12); color: var(--text); }
+.nav-item.active { border-left-color: var(--accent2); color: var(--accent3); background: var(--accent-a33); font-weight: 600; }
 .nav-icon { font-size: 14px; width: 18px; text-align: center; }
 
 /* ── Main content ── */
@@ -183,12 +187,12 @@ body {
 .flow-item {
   font-size: 11px;
   color: var(--text2);
-  background: rgba(124,58,237,.12);
+  background: var(--accent-a12);
   border-radius: 5px;
   padding: 4px 8px;
   line-height: 1.35;
 }
-.flow-item.highlight { color: var(--text); background: rgba(124,58,237,.25); }
+.flow-item.highlight { color: var(--text); background: var(--accent-a25); }
 .flow-item.green  { color: var(--green);  background: rgba(34,197,94,.12); }
 .flow-item.blue   { color: var(--blue);   background: rgba(56,189,248,.12); }
 .flow-item.orange { color: var(--orange); background: rgba(251,146,60,.12); }
@@ -228,14 +232,21 @@ body {
   border-bottom: 1px solid var(--border);
 }
 .doc-table td {
-  padding: 10px 14px;
-  border-bottom: 1px solid rgba(196,181,253,.07);
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--border);
   color: var(--text2);
   vertical-align: top;
+  line-height: 1.5;
 }
 .doc-table tr:last-child td { border-bottom: none; }
-.doc-table tr:hover td { background: rgba(124,58,237,.06); }
-.doc-table td:first-child { color: var(--text); font-family: monospace; font-size: 11.5px; }
+.doc-table tr:hover td { background: var(--accent-a06); }
+.doc-table td:first-child {
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: inset 2px 0 0 var(--accent-a33);
+}
+.mono-id { font-family: "SFMono-Regular", ui-monospace, Menlo, Consolas, monospace; font-size: 10px; word-break: break-all; color: var(--text2); }
+.cmd { font-family: "SFMono-Regular", ui-monospace, Menlo, Consolas, monospace; font-size: 11px; }
 .tag {
   display: inline-block;
   padding: 2px 8px;
@@ -248,7 +259,7 @@ body {
 .tag-html { background: rgba(232,121,249,.15); color: var(--pink); }
 .tag-json { background: rgba(34,197,94,.15);   color: var(--green); }
 .tag-csv  { background: rgba(251,191,36,.15);  color: var(--yellow); }
-.tag-xlsx { background: rgba(124,58,237,.25);  color: var(--accent3); }
+.tag-xlsx { background: var(--accent-a25);  color: var(--accent3); }
 
 /* ── Steps ── */
 .steps { display: flex; flex-direction: column; gap: 0; }
@@ -307,7 +318,7 @@ body {
 }
 .proj-card:hover {
   border-color: var(--accent2);
-  background: rgba(124,58,237,.12);
+  background: var(--accent-a12);
   transform: translateY(-2px);
 }
 .proj-card-icon { font-size: 28px; margin-bottom: 12px; }
@@ -1062,7 +1073,7 @@ clasp deploy -i AKfycby9WZK2HfAWx25M5pEMV3nntzJfEvsiT9feMn01zJQkQaI3t2GjTzOIjbFX
           <tbody>
             <tr><td>Carpeta local</td><td>Inputs_Planning_PnL</td></tr>
             <tr><td>Tipo</td><td>Python puro (sin Apps Script / sin clasp)</td></tr>
-            <tr><td>Drive folder (JSONs)</td><td><a class="ext-link" href="https://drive.google.com/drive/folders/1XqQPL_rlS0NRIPUnPfj5nALBTn7kAOQV" target="_blank">↗ Abrir</a> <span style="font-family:monospace;font-size:10px">1XqQPL_rlS0...</span></td></tr>
+            <tr><td>Drive folder (JSONs)</td><td><a class="ext-link" href="https://drive.google.com/drive/folders/1XqQPL_rlS0NRIPUnPfj5nALBTn7kAOQV" target="_blank">↗ Abrir</a> <span class="mono-id">1XqQPL_rlS0...</span></td></tr>
             <tr><td>Actualización</td><td><span class="badge badge-manual">Manual (run_all.bat)</span></td></tr>
             <tr><td>Copia en SharePoint</td><td>…\B2B &amp; WLs\Proyectos IA\Inputs_Planning_PnL (con CLAUDE.md + /actualizar)</td></tr>
           </tbody>
@@ -1211,13 +1222,13 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
           <tbody>
             <tr><td>Carpeta local</td><td>P&amp;L_Accounting</td></tr>
             <tr><td>Carpeta SharePoint</td><td>…\B2B &amp; WLs\Proyectos IA\<strong>P&amp;L Accounting</strong> (código + LEEME.txt con el know-how)</td></tr>
-            <tr><td>Apps Script ID</td><td style="font-family:monospace;font-size:10px">1MdCBNExRuS...</td></tr>
+            <tr><td>Apps Script ID</td><td class="mono-id">1MdCBNExRuS...</td></tr>
             <tr><td>URL landing</td><td><a class="ext-link" href="https://script.google.com/a/macros/despegar.com/s/AKfycby9WZK2HfAWx25M5pEMV3nntzJfEvsiT9feMn01zJQkQaI3t2GjTzOIjbFXWexnMuzklQ/exec" target="_blank">↗ Abrir</a></td></tr>
-            <tr><td>Deployment publicado</td><td style="font-family:monospace;font-size:10px">AKfycby9WZK2Hf...</td></tr>
+            <tr><td>Deployment publicado</td><td class="mono-id">AKfycby9WZK2Hf...</td></tr>
             <tr><td>Actualización</td><td><span class="badge badge-manual">Manual</span></td></tr>
-            <tr><td>Cubo EPM (visible)</td><td style="font-family:monospace;font-size:10px">ID: 1Rx6YYnFH5S...</td></tr>
-            <tr><td>Cubo Model+Acct (oculto)</td><td style="font-family:monospace;font-size:10px">ID: 1KHXgPykA...</td></tr>
-            <tr><td>Fuente (canónicos)</td><td style="font-family:monospace;font-size:10px">Drive 1XqQPL... (Inputs_Planning_PnL)</td></tr>
+            <tr><td>Cubo EPM (visible)</td><td class="mono-id">ID: 1Rx6YYnFH5S...</td></tr>
+            <tr><td>Cubo Model+Acct (oculto)</td><td class="mono-id">ID: 1KHXgPykA...</td></tr>
+            <tr><td>Fuente (canónicos)</td><td class="mono-id">Drive 1XqQPL... (Inputs_Planning_PnL)</td></tr>
           </tbody>
         </table>
       </div>
@@ -1346,12 +1357,12 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
         <table class="doc-table">
           <tbody>
             <tr><td>Carpeta local</td><td>P&amp;L_Managerial</td></tr>
-            <tr><td>Apps Script ID</td><td style="font-family:monospace;font-size:10px">1rB8o8HcnksPBXzi8QJW1zC-XQQ1HqHao...</td></tr>
+            <tr><td>Apps Script ID</td><td class="mono-id">1rB8o8HcnksPBXzi8QJW1zC-XQQ1HqHao...</td></tr>
             <tr><td>URL editor GAS</td><td><a class="ext-link" href="https://script.google.com/home/projects/1rB8o8HcnksPBXzi8QJW1zC-XQQ1HqHaowTcWV95SJG6xRbLg5QQ_2mQH/edit" target="_blank">↗ Abrir editor</a></td></tr>
             <tr><td>Actualización actuals + proyecciones</td><td><span class="badge badge-manual">python actuals_gestional_upload.py (requiere VPN)</span> — un solo run actualiza todo (actuals ODBC + forecast XLSX)</td></tr>
             <tr><td>Preview proyección WIP (sin publicar)</td><td><span class="badge badge-manual">python projections_gestional_builder.py --wip-folder "&lt;ruta&gt;"</span></td></tr>
-            <tr><td>JSON gestional (actuals+proyecciones)</td><td style="font-family:monospace;font-size:10px">_actuals_gestional.json (fileId: 1wvle0UIVZV7ocCSl8OawOfIGVz_It5kh)</td></tr>
-            <tr><td>JSON projection review (WIP)</td><td style="font-family:monospace;font-size:10px">pnl_gestional_projections_review.json (fileId: 1Zd1Kzn7CkatOWnzrrfBxr9mDjIVLLKIF)</td></tr>
+            <tr><td>JSON gestional (actuals+proyecciones)</td><td class="mono-id">_actuals_gestional.json (fileId: 1wvle0UIVZV7ocCSl8OawOfIGVz_It5kh)</td></tr>
+            <tr><td>JSON projection review (WIP)</td><td class="mono-id">pnl_gestional_projections_review.json (fileId: 1Zd1Kzn7CkatOWnzrrfBxr9mDjIVLLKIF)</td></tr>
           </tbody>
         </table>
       </div>
@@ -1411,12 +1422,12 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
         <table class="doc-table">
           <tbody>
             <tr><td>Carpeta local</td><td>Dashboard_B2B_WLs</td></tr>
-            <tr><td>Apps Script ID</td><td style="font-family:monospace;font-size:10px">1fLnpsEh2dBAuPusbO...</td></tr>
-            <tr><td>Spreadsheet ID</td><td style="font-family:monospace;font-size:10px">1RVmTXDyyugCUXJ0f6JG... (solo Organigrama)</td></tr>
+            <tr><td>Apps Script ID</td><td class="mono-id">1fLnpsEh2dBAuPusbO...</td></tr>
+            <tr><td>Spreadsheet ID</td><td class="mono-id">1RVmTXDyyugCUXJ0f6JG... (solo Organigrama)</td></tr>
             <tr><td>URL landing</td><td><a class="ext-link" href="https://script.google.com/a/macros/despegar.com/s/AKfycbz52txFQy-5YM2Nil_KxULzPoeZpKyA4z5LUWMGoP_8IilcwSduuwZqPF8ut_LmtceM/exec" target="_blank">↗ Abrir</a></td></tr>
             <tr><td>Fuente de datos</td><td><span class="badge badge-manual">JSON Drive (Inputs_Planning_PnL)</span></td></tr>
-            <tr><td>JSON IDs</td><td style="font-family:monospace;font-size:10px">baseline / budget / runrate / forecast / ly (actuals_previos_fy26)</td></tr>
-            <tr><td>LAST_ACTUALS_YM</td><td style="font-family:monospace;font-size:10px">2026-07 (actualizar mensual)</td></tr>
+            <tr><td>JSON IDs</td><td class="mono-id">baseline / budget / runrate / forecast / ly (actuals_previos_fy26)</td></tr>
+            <tr><td>LAST_ACTUALS_YM</td><td class="mono-id">2026-07 (actualizar mensual)</td></tr>
             <tr><td>Trigger pre-cómputo</td><td><span class="badge badge-auto">Cada 5 h (preComputeAll)</span> — solo para warm-up. Auto-invalidación por <code>lastMod</code> Drive: al subir JSONs nuevos, el cache se descarta automáticamente sin correr preComputeAll.</td></tr>
           </tbody>
         </table>
@@ -1531,12 +1542,12 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
         <table class="doc-table">
           <tbody>
             <tr><td>Carpeta local</td><td>Daily_Dashboard</td></tr>
-            <tr><td>Apps Script ID</td><td style="font-family:monospace;font-size:10px">1zHFbUa-aMfiX9...</td></tr>
+            <tr><td>Apps Script ID</td><td class="mono-id">1zHFbUa-aMfiX9...</td></tr>
             <tr><td>URL landing</td><td><a class="ext-link" href="https://script.google.com/a/macros/despegar.com/s/AKfycbwMR3zk1r4uwui8vGtcmz0OwmeehC5JM8cuJRE3H-GQMfvxXWGTkYQ3R2nVjMyeAdX_1A/exec" target="_blank">↗ Abrir</a></td></tr>
-            <tr><td>Deployment publicado</td><td style="font-family:monospace;font-size:10px">AKfycbwMR3zk1r4uwui8vGtcmz0OwmeehC5JM8cuJRE3H-GQMfvxXWGTkYQ3R2nVjMyeAdX_1A</td></tr>
+            <tr><td>Deployment publicado</td><td class="mono-id">AKfycbwMR3zk1r4uwui8vGtcmz0OwmeehC5JM8cuJRE3H-GQMfvxXWGTkYQ3R2nVjMyeAdX_1A</td></tr>
             <tr><td>Actualización</td><td><span class="badge badge-auto">Automatizado (Task Scheduler 08:00)</span></td></tr>
-            <tr><td>Drive folder ID (LIVE)</td><td style="font-family:monospace;font-size:10px">1lWzfqweyV6Kz1ERkL85ikFcmzmKwGwwh (owner: gregorio.minetti)</td></tr>
-            <tr><td>JSONs en Drive</td><td style="font-family:monospace;font-size:10px">daily_b2b2c_data.json (~20MB) · daily_b2b_data.json (~6MB)</td></tr>
+            <tr><td>Drive folder ID (LIVE)</td><td class="mono-id">1lWzfqweyV6Kz1ERkL85ikFcmzmKwGwwh (owner: gregorio.minetti)</td></tr>
+            <tr><td>JSONs en Drive</td><td class="mono-id">daily_b2b2c_data.json (~20MB) · daily_b2b_data.json (~6MB)</td></tr>
           </tbody>
         </table>
       </div>
@@ -1645,9 +1656,9 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
         <table class="doc-table">
           <tbody>
             <tr><td>Carpeta local</td><td>Manual_B2B_WLs</td></tr>
-            <tr><td>Apps Script ID</td><td style="font-family:monospace;font-size:10px">1QWmdd4S9tgnwuUDv3k25ig3ArK9PO8s9jcobHWtm4zPVN_Zlapvies0e</td></tr>
+            <tr><td>Apps Script ID</td><td class="mono-id">1QWmdd4S9tgnwuUDv3k25ig3ArK9PO8s9jcobHWtm4zPVN_Zlapvies0e</td></tr>
             <tr><td>URL landing</td><td><a class="ext-link" href="https://script.google.com/a/macros/despegar.com/s/AKfycbwq2nohZ-c3w-OqvO1H_op4yATn6yDN4qRO9mI8gs1VkO9Jn9lCcQeTsNAceCpydJiHzg/exec" target="_blank">↗ Abrir</a></td></tr>
-            <tr><td>Deployment publicado</td><td style="font-family:monospace;font-size:10px">AKfycbwq2nohZ-c3w-OqvO1H_op4yATn6yDN4qRO9mI8gs1VkO9Jn9lCcQeTsNAceCpydJiHzg</td></tr>
+            <tr><td>Deployment publicado</td><td class="mono-id">AKfycbwq2nohZ-c3w-OqvO1H_op4yATn6yDN4qRO9mI8gs1VkO9Jn9lCcQeTsNAceCpydJiHzg</td></tr>
             <tr><td>Actualización</td><td><span class="badge badge-manual">Manual — se mantiene el contenido a mano</span></td></tr>
             <tr><td>Datos en runtime</td><td>Ninguno. No lee Drive ni Datalake.</td></tr>
             <tr><td>Copia SharePoint</td><td>OneDrive → Control de Gestión 2026-27 → B2B &amp; WLs → Proyectos IA (sincronizar a mano)</td></tr>
@@ -1873,17 +1884,17 @@ OneDrive → Control de Gestión 2026-27 → B2B & WLs → Proyectos IA → BITU
       <table class="doc-table">
         <thead><tr><th>Acción</th><th>Comando</th></tr></thead>
         <tbody>
-          <tr><td>Actualizar fuente única (planas + JSON)</td><td><span style="font-family:monospace;font-size:11px">run_all.bat</span> (desde Inputs_Planning_PnL)</td></tr>
-          <tr><td>Auth Drive del motor de datos (1 vez)</td><td><span style="font-family:monospace;font-size:11px">python auth_drive.py</span> (desde Inputs_Planning_PnL)</td></tr>
-          <tr><td>Actualizar datos P&amp;L Accounting</td><td><span style="font-family:monospace;font-size:11px">python plana_to_cube.py --upload</span> (desde Inputs_Planning_PnL, tras regenerar los JSON) + Ctrl+Shift+R</td></tr>
-          <tr><td>Actualizar actuals + proyecciones P&amp;L Managerial</td><td><span style="font-family:monospace;font-size:11px">python actuals_gestional_upload.py</span> (desde P&amp;L_Managerial, requiere VPN)</td></tr>
-          <tr><td>Preview proyección WIP P&amp;L Managerial</td><td><span style="font-family:monospace;font-size:11px">python projections_gestional_builder.py --wip-folder "&lt;ruta&gt;"</span> (desde P&amp;L_Managerial)</td></tr>
-          <tr><td>Actualizar datos Daily (manual)</td><td><span style="font-family:monospace;font-size:11px">python daily_sync.py</span> (desde Daily_Dashboard, requiere VPN)</td></tr>
-          <tr><td>Deploy código P&amp;L Accounting</td><td><span style="font-family:monospace;font-size:11px">clasp push</span> + <span style="font-family:monospace;font-size:11px">clasp deploy -i AKfycby9WZK2HfAWx25M5pEMV3nntzJfEvsiT9feMn01zJQkQaI3t2GjTzOIjbFXWexnMuzklQ</span> (desde P&amp;L_Accounting)</td></tr>
-          <tr><td>Deploy código P&amp;L Managerial</td><td><span style="font-family:monospace;font-size:11px">clasp push</span> + <span style="font-family:monospace;font-size:11px">clasp deploy -i AKfycbxHyP4uIh02zTQbQ7ZFbyByCVIYuREuiMJ74PnKhQbNGbWknCG2jxOtt_onafQcg5g4 -d "desc"</span> (desde P&amp;L_Managerial)</td></tr>
-          <tr><td>Deploy código Ecosystem Hub</td><td><span style="font-family:monospace;font-size:11px">clasp push --force</span> + <span style="font-family:monospace;font-size:11px">clasp deploy -i AKfycbz52txFQy-5YM2Nil_KxULzPoeZpKyA4z5LUWMGoP_8IilcwSduuwZqPF8ut_LmtceM</span> (desde Dashboard_B2B_WLs) — ⚠️ antes faltaba el paso de redeploy acá</td></tr>
-          <tr><td>Deploy código Daily Dashboard</td><td><span style="font-family:monospace;font-size:11px">clasp push --force</span> + <span style="font-family:monospace;font-size:11px">clasp deploy -i AKfycbwMR3zk1r4uwui8vGtcmz0OwmeehC5JM8cuJRE3H-GQMfvxXWGTkYQ3R2nVjMyeAdX_1A</span> (desde Daily_Dashboard)</td></tr>
-          <tr><td>Deploy código Manual B2B WLs (este manual)</td><td><span style="font-family:monospace;font-size:11px">clasp push --force</span> + <span style="font-family:monospace;font-size:11px">clasp deploy -i AKfycbwq2nohZ-c3w-OqvO1H_op4yATn6yDN4qRO9mI8gs1VkO9Jn9lCcQeTsNAceCpydJiHzg</span> (desde Manual_B2B_WLs)</td></tr>
+          <tr><td>Actualizar fuente única (planas + JSON)</td><td><span class="cmd">run_all.bat</span> (desde Inputs_Planning_PnL)</td></tr>
+          <tr><td>Auth Drive del motor de datos (1 vez)</td><td><span class="cmd">python auth_drive.py</span> (desde Inputs_Planning_PnL)</td></tr>
+          <tr><td>Actualizar datos P&amp;L Accounting</td><td><span class="cmd">python plana_to_cube.py --upload</span> (desde Inputs_Planning_PnL, tras regenerar los JSON) + Ctrl+Shift+R</td></tr>
+          <tr><td>Actualizar actuals + proyecciones P&amp;L Managerial</td><td><span class="cmd">python actuals_gestional_upload.py</span> (desde P&amp;L_Managerial, requiere VPN)</td></tr>
+          <tr><td>Preview proyección WIP P&amp;L Managerial</td><td><span class="cmd">python projections_gestional_builder.py --wip-folder "&lt;ruta&gt;"</span> (desde P&amp;L_Managerial)</td></tr>
+          <tr><td>Actualizar datos Daily (manual)</td><td><span class="cmd">python daily_sync.py</span> (desde Daily_Dashboard, requiere VPN)</td></tr>
+          <tr><td>Deploy código P&amp;L Accounting</td><td><span class="cmd">clasp push</span> + <span class="cmd">clasp deploy -i AKfycby9WZK2HfAWx25M5pEMV3nntzJfEvsiT9feMn01zJQkQaI3t2GjTzOIjbFXWexnMuzklQ</span> (desde P&amp;L_Accounting)</td></tr>
+          <tr><td>Deploy código P&amp;L Managerial</td><td><span class="cmd">clasp push</span> + <span class="cmd">clasp deploy -i AKfycbxHyP4uIh02zTQbQ7ZFbyByCVIYuREuiMJ74PnKhQbNGbWknCG2jxOtt_onafQcg5g4 -d "desc"</span> (desde P&amp;L_Managerial)</td></tr>
+          <tr><td>Deploy código Ecosystem Hub</td><td><span class="cmd">clasp push --force</span> + <span class="cmd">clasp deploy -i AKfycbz52txFQy-5YM2Nil_KxULzPoeZpKyA4z5LUWMGoP_8IilcwSduuwZqPF8ut_LmtceM</span> (desde Dashboard_B2B_WLs) — ⚠️ antes faltaba el paso de redeploy acá</td></tr>
+          <tr><td>Deploy código Daily Dashboard</td><td><span class="cmd">clasp push --force</span> + <span class="cmd">clasp deploy -i AKfycbwMR3zk1r4uwui8vGtcmz0OwmeehC5JM8cuJRE3H-GQMfvxXWGTkYQ3R2nVjMyeAdX_1A</span> (desde Daily_Dashboard)</td></tr>
+          <tr><td>Deploy código Manual B2B WLs (este manual)</td><td><span class="cmd">clasp push --force</span> + <span class="cmd">clasp deploy -i AKfycbwq2nohZ-c3w-OqvO1H_op4yATn6yDN4qRO9mI8gs1VkO9Jn9lCcQeTsNAceCpydJiHzg</span> (desde Manual_B2B_WLs)</td></tr>
         </tbody>
       </table>
     </div>
