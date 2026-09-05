@@ -774,6 +774,7 @@ var _targetMode = null; // null | 'budget'
 var _deltaData     = null;
 var _deltaExpanded = {};
 var _activeLob      = 'b2b2c'; // 'b2b2c' | 'b2b'
+var _fetchSeq       = 0; // incrementado en cada fetchData(); descarta respuestas de google.script.run que lleguen fuera de orden (ej. cambiar de tab antes de que responda el fetch anterior)
 var _reloadTimer    = null;
 var _contTimer      = null;
 function debouncedReload(){ clearTimeout(_reloadTimer); _reloadTimer = setTimeout(function(){ reload(); }, 600); }
@@ -2445,14 +2446,21 @@ function reload(){
 function fetchData(){
   showFilterLoading();
   document.getElementById('loader').style.display='flex';
+  var reqLob = _activeLob;
+  var reqId  = ++_fetchSeq;
   google.script.run
     .withSuccessHandler(function(d){
+      // Si mientras esperábamos esta respuesta se disparó otro fetchData() (ej. el
+      // usuario cambió de tab B2B2C/B2B), esta ya quedó obsoleta — descartarla. Sin
+      // este chequeo, una respuesta vieja que llega después de una más nueva puede
+      // pisar los datos ya renderizados del LOB actual con los del LOB anterior.
+      if (reqId !== _fetchSeq) return;
       _data = d;
-      if (!_filtersLoadedForLob[_activeLob]) {
+      if (!_filtersLoadedForLob[reqLob]) {
         fillPaisChips(d.filters['pais'] || []);
         fillMs('ms-partner', (d.filters['partner'] || []).slice().sort());
         fillProductoChips(d.filters['produto'] || []);
-        _filtersLoadedForLob[_activeLob] = true;
+        _filtersLoadedForLob[reqLob] = true;
       }
       updateActualsLegend(d.actual_months || []);
       render();
@@ -2461,6 +2469,7 @@ function fetchData(){
       hideFilterLoading();
     })
     .withFailureHandler(function(err){
+      if (reqId !== _fetchSeq) return;
       document.getElementById('loader').style.display = 'none';
       hideFilterLoading();
       document.querySelector('main').innerHTML = '<div class="error-msg">Error cargando datos: '+(err.message||err)+'</div>';
