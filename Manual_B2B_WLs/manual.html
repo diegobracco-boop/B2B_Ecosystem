@@ -484,6 +484,9 @@ a.ext-link:hover { text-decoration: underline; }
   <a class="nav-item" onclick="showSection('actualizar')">
     <span class="nav-icon">🔄</span> Actualizar datos (detalle)
   </a>
+  <a class="nav-item" onclick="showSection('agentes')">
+    <span class="nav-icon">🔍</span> Agentes de auditoría
+  </a>
   <a class="nav-item" onclick="showSection('archivos')">
     <span class="nav-icon">📁</span> Archivos & rutas
   </a>
@@ -1758,6 +1761,61 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
 
     <div class="alert-box">
       ⚠️ Deuda conocida (auditoría 2026-09-05): cada <code>deploymentId</code>/Drive ID está hardcodeado 4-5 veces dentro de <code>manual.html</code> sin fuente única; agregar un módulo requiere tocar el archivo en ~6 puntos. No hay generación desde una fuente estructurada.
+    </div>
+  </div>
+
+  <!-- ═══════════════════════ AGENTES DE AUDITORÍA ════════════════════════ -->
+  <div class="section" id="sec-agentes">
+    <div class="page-header">
+      <div class="page-tag">Referencia operativa</div>
+      <div class="page-title">Agentes <span>de auditoría</span></div>
+      <div class="page-sub">El repo tiene 4 agentes de auditoría en <code>.claude/agents/</code>, cada uno con su skill en <code>.agents/skills/</code>. Revisan y reportan — <strong>no corrigen código</strong> salvo que se les pida explícitamente después del reporte.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🔍 Los 4 agentes</div>
+      <table class="doc-table">
+        <thead><tr><th>Agente</th><th>Skill</th><th>Qué revisa</th></tr></thead>
+        <tbody>
+          <tr><td>auditor-de-codigo</td><td class="mono-id">code-audit</td><td>Calidad de código, integridad de datos en los pipelines, seguridad de credenciales, consistencia pipelines↔landings. El que corre automático antes de un <code>/clasp-push</code> o <code>/actualizar</code>.</td></tr>
+          <tr><td>calidad-de-procesos</td><td class="mono-id">process-quality-audit</td><td>Orden / claridad / escalabilidad / integridad / eficiencia de CÓMO se trabaja — no del código. Límites hardcodeados, pasos que dependen de memoria humana, automatización rota con fallback silencioso. Para cada gap propone el check más barato que lo detectaría.</td></tr>
+          <tr><td>ux-designer</td><td class="mono-id">ux-consistency-review</td><td>Estética, paleta oficial Despegar, consistencia visual entre dashboards, tipografía, jerarquía, accesibilidad (teclado, contraste), responsive, elección de gráfico, plantillas de email. Arranca con un veredicto si se declara para qué se usa la página.</td></tr>
+          <tr><td>data-engineer</td><td class="mono-id">data-source-consistency-review</td><td>Mapeo de fuentes crudas → JSON → landing, duplicidad entre pipelines (contable vs gestional), formato homogéneo de los JSON canónicos, parseo de fechas, y staleness de documentación (scripts renombrados, IDs viejos, bugs marcados "pendiente" ya arreglados).</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">▶️ Cómo se corren</div>
+      <table class="doc-table">
+        <tbody>
+          <tr><td>Automático</td><td><code>auditor-de-codigo</code> corre solo antes de <code>/clasp-push</code> y <code>/actualizar</code>, y después de un cambio grande en un pipeline o landing (regla en <code>CLAUDE.md</code> raíz).</td></tr>
+          <tr><td>A pedido</td><td>Pedir "auditar", "revisar UX", "revisar procesos", "cómo se conectan los datos" con el alcance (repo completo o un módulo). Claude lanza el agente que corresponda.</td></tr>
+          <tr><td>Invocación técnica</td><td>En este entorno los agentes custom NO son invocables por <code>subagent_type</code> — se lanzan como <code>general-purpose</code> diciéndoles que lean su <code>.md</code> + su <code>SKILL.md</code>. Detalle en <code>como-crear-agente-auditor.txt</code> (raíz).</td></tr>
+          <tr><td>Salida</td><td>Reporte por eje + lista de <strong>hallazgos bloqueantes</strong> (o "mejoras propuestas" en UX). Si hay bloqueantes, Claude avisa y espera confirmación antes de deployar.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="alert-box info">
+      💡 Si la sesión está cerca del límite de uso, correr los agentes de a 1-2, no los 4 juntos (cada uno son ~100-140k tokens).
+    </div>
+
+    <div class="card">
+      <div class="card-title">📁 Archivos</div>
+      <div class="code-block">.claude/agents/
+  ├── auditor-de-codigo.md
+  ├── calidad-de-procesos.md
+  ├── ux-designer.md
+  └── data-engineer.md
+
+.agents/skills/
+  ├── code-audit/SKILL.md
+  ├── process-quality-audit/SKILL.md
+  ├── ux-consistency-review/SKILL.md   ← incluye la paleta oficial Despegar embebida
+  └── data-source-consistency-review/SKILL.md
+
+como-crear-agente-auditor.txt          ← cómo armar uno nuevo + lecciones de uso</div>
     </div>
   </div>
 

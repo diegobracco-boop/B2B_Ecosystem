@@ -5,7 +5,13 @@ description: Revisión de estética y consistencia visual entre los dashboards d
 
 # UX Consistency Review — B2B Ecosystem
 
-Revisión de todos los dashboards o de uno puntual, en cuatro ejes. Esta skill no corrige HTML/CSS — devuelve hallazgos y una lista de mejoras propuestas concretas para que el usuario decida cuáles aplicar.
+Revisión de todos los dashboards o de uno puntual, en seis ejes. Esta skill no corrige HTML/CSS — devuelve hallazgos y una lista de mejoras propuestas concretas para que el usuario decida cuáles aplicar.
+
+## Veredicto primero (si el usuario dijo para qué se usa la página)
+
+Cuando el usuario declara un uso ("esto lo van a usar para capacitar", "lo presento al VP", "es un dashboard de finanzas de uso diario"), **arrancá el reporte con un veredicto de 2-3 líneas**: ¿el diseño y la experiencia están **aprobados para ese uso**, o hay algo que todavía falla? Si hay bloqueantes, listarlos ahí, numerados, antes del reporte por eje. El resto del reporte es el detalle.
+
+Un hallazgo es **bloqueante para el uso declarado** si rompe la tarea principal de ese usuario (ej. "no se puede navegar en mobile" bloquea "capacitar al equipo que abre desde el celular"; "el diagrama central no se lee proyectado" bloquea "presentar a dirección"). Todo lo demás es pulido.
 
 ## Paleta oficial Despegar (referencia — no inventar otros tonos)
 
@@ -41,11 +47,13 @@ Señalar explícitamente cuándo el mismo componente visual se ve o se comporta 
 - Familias de fuente, tamaños de título/cuerpo, y unidades de padding/margin usadas en cada dashboard — señalar si divergen sin razón entre proyectos que deberían sentirse parte del mismo ecosistema.
 - Uso de `!important`, estilos inline vs. clases — no es un hallazgo de código (eso es `auditor-de-codigo`), pero sí de mantenibilidad del diseño si dificulta aplicar la paleta de forma consistente después.
 
-## Eje 4 — Jerarquía visual y legibilidad
+## Eje 4 — Jerarquía visual, legibilidad y accesibilidad
 
-- Contraste texto/fondo suficiente, especialmente con los tonos claros de la paleta (`#fff2f2`, `#ccf3ee` @33%, `#a780ff` @44%) usados como fondo — verificar que el texto encima siga siendo legible.
-- Tamaños de fuente demasiado chicos para datos críticos (montos, deltas).
-- Uso del color como único indicador (sin ícono/texto de apoyo) donde afecte accesibilidad (daltonismo rojo/verde es el caso típico en dashboards financieros).
+- **Contraste** texto/fondo suficiente (AA = 4.5:1 para texto normal, 3:1 para ≥18px o bold). Chequear especialmente: los tokens de "texto terciario/tenue" (`--text3` y similares — suelen quedar en 4-4.5:1) usados a tamaño de cuerpo o en texto proyectable; los tonos claros de la paleta (`#fff2f2`, `#ccf3ee` @33%, `#a780ff` @44%) usados como fondo. Estimar el ratio real sobre el fondo efectivo, no asumir.
+- **Tamaños de fuente** demasiado chicos para datos críticos (montos, deltas) o para texto que se proyecta en una reunión (epígrafes de diagramas, notas al pie de charts).
+- **Color como único indicador** (sin ícono/texto de apoyo) donde afecte daltonismo rojo/verde — el caso típico en dashboards financieros.
+- **Operable por teclado**: los elementos clickeables que NO son `<a href>`/`<button>` (ej. `<div onclick>`, `<a onclick>` sin href) no son focusables ni responden a Enter/Espacio. Señalarlo — para un doc de onboarding o algo que se presenta, la navegación tiene que funcionar sin mouse. Chequear también que haya un estado `:focus-visible` visible.
+- **Responsive / mobile**: buscar `@media` que **escondan la navegación o contenido sin reemplazo** (`#sidebar{display:none}` sin hamburguesa ni fallback es un bug funcional, no un detalle). Confirmar que abajo de ~640px la página sigue siendo navegable y legible.
 
 ## Eje 5 — Elección de gráfico y diseño de tablas
 
@@ -64,11 +72,10 @@ Alcance específico: `Daily_Dashboard/Codigo.js` (`_emailHtml_`, enviado vía `M
 
 ## Reporte final
 
-Un heading por eje (`## Paleta de color`, `## Consistencia entre proyectos`, `## Tipografía y espaciado`, `## Jerarquía visual y legibilidad`, `## Elección de gráfico y diseño de tablas`, `## Plantillas de email`). Hallazgos con archivo+línea+valor concreto (no "revisar los colores").
-
-Cerrar con una lista aparte de **mejoras propuestas**, priorizada:
-- **Alto impacto**: rompe la identidad de marca o la legibilidad (color fuera de paleta en un elemento visible, contraste insuficiente).
-- **Medio**: inconsistencia entre proyectos que un usuario que usa varios dashboards notaría.
-- **Bajo**: pulido (espaciado, detalles tipográficos).
+1. **Veredicto** (si hay uso declarado — ver arriba): 2-3 líneas + lista numerada de bloqueantes.
+2. Un heading por eje (`## Paleta de color`, `## Consistencia entre proyectos`, `## Tipografía y espaciado`, `## Jerarquía visual, legibilidad y accesibilidad`, `## Elección de gráfico y diseño de tablas`, `## Plantillas de email`). Hallazgos con archivo+línea+valor concreto (no "revisar los colores").
+3. **Mejoras propuestas**, separadas explícitamente en dos grupos:
+   - **Bloquea el uso declarado** (o, si no hay uso declarado: **Alto impacto** — rompe identidad de marca o legibilidad). Hacer antes de usar la página para eso.
+   - **Pulido** — inconsistencia entre proyectos (Medio) y detalles (Bajo). Puede esperar.
 
 Cada mejora propuesta: qué cambiar, dónde (archivo+línea/selector), y a qué valor de la paleta oficial mapea (si aplica). No aplicar los cambios — son propuestas para que el usuario decida.

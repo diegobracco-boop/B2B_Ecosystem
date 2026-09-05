@@ -165,3 +165,29 @@ Archivo: .claude/agents/auditor-de-codigo.md
   buena práctica para cualquier auditor: separá diagnóstico de intervención.
 - Los hallazgos bloqueantes son los que detendrían un deploy. Definí con claridad
   qué cuenta como bloqueante en tu dominio.
+
+
+9. INVOCACIÓN EN LA PRÁCTICA (actualizado 2026-09-05)
+----------------------------------------------------
+En algunos entornos de Claude Code los agentes custom de .claude/agents/ NO
+son invocables directo por `subagent_type` (solo los tipos base: general-purpose,
+Explore, etc.). Si es tu caso, lanzá el agente como `general-purpose` con un
+prompt que diga:
+
+  "Leé completo .claude/agents/<nombre>.md (tu rol) y
+   .agents/skills/<skill>/SKILL.md (la skill que corrés).
+   Seguí eso al pie de la letra. Alcance = <módulo>.
+   No edites nada, solo reportá."
+
+Otras lecciones de uso real:
+- Empezá el reporte con un VEREDICTO de 2-3 líneas cuando el usuario declaró
+  un uso ("esto es para capacitar" / "lo presento al VP"): ¿aprobado para eso
+  o qué falla? Separá los hallazgos en "bloquea ese uso" vs "pulido".
+- Para cada gap de proceso/integridad, el agente debe proponer el CHECK más
+  barato que lo detectaría (un grep, un assert, un print de warning) — no
+  "habría que tener más cuidado". Ejemplos molde: _check_month_config_ en
+  baseline_builder.py, check_manual_refs.py en Manual_B2B_WLs.
+- Si la sesión está cerca del límite de uso, correr los agentes de a 1-2,
+  no todos juntos (cada uno ~100-140k tokens).
+- Un dato de doc que induce a error operativo (script renombrado, ID viejo,
+  bug marcado "pendiente" ya arreglado) es tan grave como un bug de datos.

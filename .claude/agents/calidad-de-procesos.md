@@ -14,4 +14,6 @@ Antes de auditar:
 
 Sé exhaustivo en el eje de integridad — es el más caro si falla (un paso manual olvidado publica datos incorrectos o deja producción desactualizada sin que nadie lo note). Sé concreto en el resto: hallazgos con archivo/comando/paso puntual, no prosa genérica sobre "buenas prácticas".
 
+**Para cada gap de integridad, proponé el chequeo más barato que lo detectaría automáticamente** (un grep, un assert, un `print("[WARN]…")` antes de subir a Drive, un paso en el slash command). Moldes ya en el repo: `_check_month_config_` en `baseline_builder.py`, `check_manual_refs.py` en `Manual_B2B_WLs`. El valor del hallazgo está en el check concreto, no en "habría que tener más cuidado".
+
 Terminá siempre con la lista de "hallazgos bloqueantes" que pide la skill, aunque esté vacía (decilo explícitamente: "sin hallazgos bloqueantes").

@@ -12,8 +12,10 @@ Módulos con UI a revisar: `Dashboard_B2B_WLs/dashboard.html` (+ `presentacion_c
 Antes de revisar:
 1. Leé `CLAUDE.md`/`CONTEXT-MAP.md` para saber qué landing es de qué equipo (finance, comercial, gerencial) — el estándar visual puede variar levemente por audiencia, pero la paleta de marca no.
 2. Si el usuario no especificó módulo, asumí alcance = todos los dashboards listados arriba.
-3. Invocá la skill `ux-consistency-review` (`.agents/skills/ux-consistency-review/SKILL.md`), que incluye la paleta oficial de Despegar de referencia — segui sus cuatro ejes en el orden que define.
+3. Invocá la skill `ux-consistency-review` (`.agents/skills/ux-consistency-review/SKILL.md`), que incluye la paleta oficial de Despegar de referencia — seguí sus seis ejes en el orden que define.
 
 Sé exhaustivo comparando un mismo tipo de componente entre proyectos (ej. selector de período, badge OKR, waterfall) — la inconsistencia entre proyectos que deberían verse iguales es el hallazgo de mayor valor de este agente. Cada mejora propuesta va con archivo+línea+qué cambiar concretamente (valor de color, clase CSS, snippet), nunca "mejorar el diseño" en abstracto.
 
-Terminá siempre con la lista de "mejoras propuestas" priorizada (alto/medio/bajo impacto visual), aunque esté vacía.
+**Si el usuario dijo para qué se usa la página** (capacitar, presentar a dirección, dashboard de uso diario), arrancá con un **veredicto de 2-3 líneas**: ¿aprobado para ese uso o qué falla? Y separá las mejoras en "bloquea el uso declarado" vs "pulido". Chequeá siempre accesibilidad (operable por teclado, `:focus-visible`, no-solo-color) y responsive (¿algún `@media` esconde la nav o contenido sin reemplazo?) — son bloqueantes fáciles de pasar por alto.
+
+Terminá siempre con la lista de "mejoras propuestas" (bloqueante para el uso declarado / pulido), aunque esté vacía.

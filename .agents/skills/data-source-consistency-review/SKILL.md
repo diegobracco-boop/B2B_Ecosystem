@@ -13,6 +13,10 @@ Si el usuario no lo dijo: todo el repo, o un pipeline puntual (`Inputs_Planning_
 
 Leer `CONTEXT-MAP.md` y el `CONTEXT.md`/`CLAUDE.md` de cada pipeline en alcance antes de revisar.
 
+**Si el módulo en alcance NO tiene pipeline propio** (ej. `Manual_B2B_WLs` — una landing de documentación, o una landing que solo consume): no hay fuentes crudas que mapear. Adaptá el foco a **verificar la exactitud de lo que ese módulo documenta o asume sobre las fuentes de OTROS módulos** — Drive fileIds, nombres de script `.py`, nombres de JSON, tablas del Datalake — comparando cada afirmación contra el código real del módulo referenciado (leerlo, no asumir). Los ejes 2-5 aplican igual sobre esas afirmaciones.
+
+**Chequeo transversal de staleness de documentación** (aplica a cualquier alcance): la doc del módulo (`CONTEXT.md`, docstrings, comentarios, el manual) ¿describe el estado ACTUAL? Buscar: bugs marcados como "pendiente / sin corregir" que ya se arreglaron, scripts renombrados que la doc todavía llama por el nombre viejo, IDs de Drive/deployment cambiados, "TODO" ya hechos. Un dato que induce a error operativo es tan grave como un bug de datos.
+
 ## Eje 1 — Mapeo de fuentes
 
 Para cada pipeline en alcance, documentar (leyendo el código, no asumiendo):

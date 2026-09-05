@@ -39,6 +39,8 @@ Este es el eje de mayor costo si falla — un paso manual salteado publica datos
 - Automatización que existe pero está rota con fallback manual silencioso (ej. si un GitHub Action de deploy falla y el equipo compensa corriendo el comando a mano sin arreglar la automatización — verificar estado de `.github/workflows/*.yml` si existen, con `gh run list` o revisando el YAML).
 - Doble fuente de verdad para la misma decisión de proceso (ej. `RUNRATE_MONTHS`/`FORECAST_MONTHS` en `config.py` vs. lo que realmente contienen `runrate.json`/`forecast.json` — ver si ya existe una verificación como `_check_month_config_` en `baseline_builder.py`, y si el patrón debería replicarse en otros pipelines que tengan el mismo tipo de configuración manual).
 
+**Para CADA gap de integridad que encuentres, proponé el chequeo más barato que lo detectaría automáticamente** — un `grep` de nombres citados vs. archivos reales, un `assert` sobre el output, un `print("[WARN] ...")` antes de subir a Drive, un paso en el slash command. Ejemplos ya implementados en el repo que sirven de molde: `_check_month_config_` en `baseline_builder.py` (avisa si la config manual quedó desalineada con los JSON), `check_manual_refs.py` en `Manual_B2B_WLs` (grepea los `.py` citados en el manual y falla si alguno no existe). El valor del hallazgo está en el check concreto, no en "habría que tener más cuidado".
+
 ## Eje 5 — Eficiencia
 
 - Pasos redundantes o repetidos manualmente entre módulos que podrían compartir un script/comando único.

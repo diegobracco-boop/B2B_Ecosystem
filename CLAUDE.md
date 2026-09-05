@@ -81,6 +81,19 @@ Ver [CONTEXT-MAP.md](./CONTEXT-MAP.md) para el diagrama completo. En resumen:
 
 ## Auditoría automática de código
 
-Antes de correr `/clasp-push` o `/actualizar`, y después de cualquier cambio grande en un pipeline (`Inputs_Planning_PnL`, `Daily_Dashboard`) o en una landing GAS, invocá al subagente `auditor-de-codigo` sobre el módulo tocado. Corre la skill `code-audit` (calidad de código, integridad de datos, seguridad de credenciales, consistencia pipelines↔landings) y devuelve hallazgos antes de publicar. Si reporta hallazgos bloqueantes, avisá al usuario y esperá confirmación antes de seguir con el deploy.
+Antes de correr `/clasp-push` o `/actualizar`, y después de cualquier cambio grande en un pipeline (`Inputs_Planning_PnL`, `Daily_Dashboard`) o en una landing GAS, corré la auditoría del agente `auditor-de-codigo` sobre el módulo tocado. Corre la skill `code-audit` (calidad de código, integridad de datos, seguridad de credenciales, consistencia pipelines↔landings) y devuelve hallazgos antes de publicar. Si reporta hallazgos bloqueantes, avisá al usuario y esperá confirmación antes de seguir con el deploy.
 
-El usuario también puede pedir una auditoría en cualquier momento ("auditar", "revisar integridad de datos", "chequear credenciales") — en ese caso invocá `auditor-de-codigo` directamente con el alcance que indique (repo completo o un módulo puntual).
+El usuario también puede pedir una auditoría en cualquier momento ("auditar", "revisar integridad de datos", "chequear credenciales", "revisar UX", "revisar procesos", "cómo se conectan los datos") — en ese caso corré el agente que corresponda con el alcance que indique.
+
+### Agentes de auditoría del repo (`.claude/agents/`)
+
+| Agente | Skill | Para qué |
+|---|---|---|
+| `auditor-de-codigo` | `code-audit` | Calidad de código, integridad de datos, credenciales, consistencia pipelines↔landings |
+| `calidad-de-procesos` | `process-quality-audit` | Orden / claridad / escalabilidad / integridad / eficiencia de CÓMO se trabaja (no del código) |
+| `ux-designer` | `ux-consistency-review` | Estética, paleta oficial Despegar, consistencia visual entre dashboards, accesibilidad |
+| `data-engineer` | `data-source-consistency-review` | Mapeo de fuentes, duplicidad entre pipelines, formato homogéneo, staleness de doc |
+
+**Cómo invocarlos en este entorno:** los agentes custom de `.claude/agents/` **NO son invocables por `subagent_type`** acá — lanzalos como `general-purpose` con un prompt que diga: "leé completo `.claude/agents/<nombre>.md` (tu rol) y `.agents/skills/<skill>/SKILL.md` (la skill que corrés), y seguí eso al pie de la letra; alcance = <módulo>; no edites nada, solo reportá".
+
+**Si la sesión está cerca del límite de uso:** correr los agentes de a 1 o 2, no los 4 juntos (cada uno son ~100-140k tokens; correr 4 en paralelo puede cortar la sesión a mitad).
