@@ -67,10 +67,12 @@ El ecosistema tiene dos capas: **pipelines** (Python, generan los datos) y **lan
 - **Deploy GAS**: `cd P&L_Managerial && clasp push` + `clasp deploy -i <deploymentId>` (ver `/clasp-push` para el ID vigente — el deploy NO es automático)
 - **Doc detallada**: [CONTEXT.md](./P&L_Managerial/CONTEXT.md)
 
-### Manual_B2B_WLs — carga manual de datos
+### Manual_B2B_WLs — manual técnico del ecosistema
 - **Stack**: GAS + HTML
-- **Propósito**: interfaz para ingresar datos B2B WLs manualmente cuando no hay pipeline automatizado
-- **Deploy**: `cd Manual_B2B_WLs && clasp push`
+- **Propósito**: landing GAS de **solo lectura** (`doGet` sirve `manual.html` estático — sin formularios, sin `doPost`, no ingresa ni carga datos). Documenta arquitectura, flujos de datos y procedimientos de actualización/deploy de todos los módulos del repo. Se embebe en el Ecosystem Hub.
+- **Input**: ninguno en runtime. Su contenido se mantiene a mano — al cambiar el proceso de cualquier módulo, actualizar también `Manual_B2B_WLs/manual.html` (ver regla en `CLAUDE.md`).
+- **Deploy**: `cd Manual_B2B_WLs && clasp push --force` + `clasp deploy -i <deploymentId>` (ver `/clasp-push`)
+- **Doc detallada**: [CONTEXT.md](./Manual_B2B_WLs/CONTEXT.md)
 
 ## Credenciales
 

@@ -68,6 +68,6 @@ clasp deploy -i AKfycbxHyP4uIh02zTQbQ7ZFbyByCVIYuREuiMJ74PnKhQbNGbWknCG2jxOtt_on
 
 ## Gotchas
 
-- El bug de fechas `pd.to_datetime(..., format="mixed", dayfirst=True)` (ver `CLAUDE.md` raíz) está/estuvo en `_budget_ym()` de `actuals_gestional_upload.py` — afecta el bucketeo mensual de budget y run-rate si la fecha viene en ISO con día ≤12.
+- El bug de fechas `pd.to_datetime(..., format="mixed", dayfirst=True)` (ver `CLAUDE.md` raíz) estuvo en `_budget_ym()` de `actuals_gestional_upload.py` y **se corrigió el 2026-09-04** con el helper `_parse_fecha_budget()` (separa el caso ISO explícito del resto). Afectaba el bucketeo mensual de budget y run-rate cuando la fecha venía en ISO con día ≤12. Si tocás el parseo de fechas de este script, no volver al patrón `format="mixed"`.
 - No hay ningún comando único que encadene "actualizar `FC_XLSX_DIR`" + correr el script + `clasp push` + `clasp deploy -i` — es un candidato a slash command dedicado si el flujo se vuelve más frecuente.
 - Este módulo no tiene backup automático antes de sobreescribir `_actuals_gestional.json` en Drive — si una query del Datalake devuelve 0 filas a mitad de corrida (VPN caída, cambio de esquema), el script sube igual el resultado.
