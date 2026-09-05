@@ -403,6 +403,9 @@ a.ext-link:hover { text-decoration: underline; }
   <a class="nav-item" onclick="showSection('proj-daily')">
     <span class="nav-icon">📆</span> Daily Dashboard
   </a>
+  <a class="nav-item" onclick="showSection('proj-manual')">
+    <span class="nav-icon">📖</span> Manual B2B WLs
+  </a>
 
   <div class="sidebar-section">Referencia</div>
   <a class="nav-item" onclick="showSection('archivos')">
@@ -465,7 +468,7 @@ a.ext-link:hover { text-decoration: underline; }
         <a class="proj-card-url" href="https://script.google.com/a/macros/despegar.com/s/AKfycbwMR3zk1r4uwui8vGtcmz0OwmeehC5JM8cuJRE3H-GQMfvxXWGTkYQ3R2nVjMyeAdX_1A/exec" target="_blank">↗ Abrir landing</a>
       </div>
 
-      <div class="proj-card" onclick="showSection('overview')">
+      <div class="proj-card" onclick="showSection('proj-manual')">
         <div class="proj-card-icon">📖</div>
         <div class="proj-card-name">Manual B2B WLs</div>
         <div class="proj-card-desc">Este manual. Landing GAS de <strong>solo lectura</strong> (sin formularios ni carga de datos) que documenta la arquitectura, flujos y procedimientos de todos los módulos del ecosistema. Se embebe en el Ecosystem Hub.</div>
@@ -1207,8 +1210,8 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
           <tbody>
             <tr><td>Carpeta local</td><td>Daily_Dashboard</td></tr>
             <tr><td>Apps Script ID</td><td style="font-family:monospace;font-size:10px">1zHFbUa-aMfiX9...</td></tr>
-            <tr><td>URL landing</td><td><a class="ext-link" href="https://script.google.com/a/macros/despegar.com/s/AKfycbwUC8oHHFuFQA8ZnVsLS8zwxgwJavQMpWWg_QJeo-Dg19jLtlZn5teQj8gSHrVn2CVOvw/exec" target="_blank">↗ Abrir</a></td></tr>
-            <tr><td>Deployment publicado</td><td style="font-family:monospace;font-size:10px">AKfycbwUC8oHHFuFQA8ZnVs... (NO cambiar)</td></tr>
+            <tr><td>URL landing</td><td><a class="ext-link" href="https://script.google.com/a/macros/despegar.com/s/AKfycbwMR3zk1r4uwui8vGtcmz0OwmeehC5JM8cuJRE3H-GQMfvxXWGTkYQ3R2nVjMyeAdX_1A/exec" target="_blank">↗ Abrir</a></td></tr>
+            <tr><td>Deployment publicado</td><td style="font-family:monospace;font-size:10px">AKfycbwMR3zk1r4uwui8vGtcmz0OwmeehC5JM8cuJRE3H-GQMfvxXWGTkYQ3R2nVjMyeAdX_1A</td></tr>
             <tr><td>Actualización</td><td><span class="badge badge-auto">Automatizado (Task Scheduler 08:00)</span></td></tr>
             <tr><td>Drive folder ID (LIVE)</td><td style="font-family:monospace;font-size:10px">1lWzfqweyV6Kz1ERkL85ikFcmzmKwGwwh (owner: gregorio.minetti)</td></tr>
             <tr><td>JSONs en Drive</td><td style="font-family:monospace;font-size:10px">daily_b2b2c_data.json (~20MB) · daily_b2b_data.json (~6MB)</td></tr>
@@ -1306,6 +1309,59 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
     </div>
   </div>
 
+  <!-- ══════════════════════ PROYECTO: MANUAL B2B WLS ══════════════════════ -->
+  <div class="section" id="sec-proj-manual">
+    <div class="page-header">
+      <div class="page-tag">Proyecto · Documentación</div>
+      <div class="page-title">Manual <span>B2B WLs</span></div>
+      <div class="page-sub">Este manual. Landing GAS de <strong>solo lectura</strong> (<code>doGet</code> sirve <code>manual.html</code> estático — sin formularios, sin <code>doPost</code>, no carga ni ingresa datos). Documenta la arquitectura, flujos y procedimientos de todos los módulos del ecosistema. Se embebe en el Ecosystem Hub.</div>
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">📍 Datos del proyecto</div>
+        <table class="doc-table">
+          <tbody>
+            <tr><td>Carpeta local</td><td>Manual_B2B_WLs</td></tr>
+            <tr><td>Apps Script ID</td><td style="font-family:monospace;font-size:10px">1QWmdd4S9tgnwuUDv3k25ig3ArK9PO8s9jcobHWtm4zPVN_Zlapvies0e</td></tr>
+            <tr><td>URL landing</td><td><a class="ext-link" href="https://script.google.com/a/macros/despegar.com/s/AKfycbwq2nohZ-c3w-OqvO1H_op4yATn6yDN4qRO9mI8gs1VkO9Jn9lCcQeTsNAceCpydJiHzg/exec" target="_blank">↗ Abrir</a></td></tr>
+            <tr><td>Deployment publicado</td><td style="font-family:monospace;font-size:10px">AKfycbwq2nohZ-c3w-OqvO1H_op4yATn6yDN4qRO9mI8gs1VkO9Jn9lCcQeTsNAceCpydJiHzg</td></tr>
+            <tr><td>Actualización</td><td><span class="badge badge-manual">Manual — se mantiene el contenido a mano</span></td></tr>
+            <tr><td>Datos en runtime</td><td>Ninguno. No lee Drive ni Datalake.</td></tr>
+            <tr><td>Copia SharePoint</td><td>OneDrive → Control de Gestión 2026-27 → B2B &amp; WLs → Proyectos IA (sincronizar a mano)</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card">
+        <div class="card-title">🗂️ Archivos del proyecto</div>
+        <table class="doc-table">
+          <thead><tr><th>Archivo</th><th>Rol</th></tr></thead>
+          <tbody>
+            <tr><td>manual.html</td><td>Todo el contenido (una sola página, CSS + JS inline). Navegación por <code>showSection(name)</code></td></tr>
+            <tr><td>Codigo.js</td><td>Solo <code>doGet()</code> → devuelve <code>manual.html</code></td></tr>
+            <tr><td>check_manual_refs.py</td><td>Grepea los <code>.py</code> citados en el manual y avisa si alguno no existe en el repo (chequeo anti-drift; correr antes de deployar)</td></tr>
+            <tr><td>CONTEXT.md</td><td>Doc del módulo</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🔄 Cómo actualizar</div>
+      <table class="doc-table">
+        <thead><tr><th>Qué cambió</th><th>Pasos</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Contenido del manual</strong></td><td>Editar <code>manual.html</code> a mano. Correr <code>python check_manual_refs.py</code> (verifica que los scripts citados existan). Después: <code>clasp push --force</code> + <code>clasp deploy -i AKfycbwq2nohZ-c3w-OqvO1H_op4yATn6yDN4qRO9mI8gs1VkO9Jn9lCcQeTsNAceCpydJiHzg</code> desde <code>Manual_B2B_WLs</code>.</td></tr>
+          <tr><td><strong>Cambió algo en OTRO módulo</strong></td><td>Regla del <code>CLAUDE.md</code>: al cambiar el proceso, los IDs de Drive/deployment, los nombres de script o la arquitectura de cualquier módulo → actualizar también <code>manual.html</code>. No se actualiza solo.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="alert-box">
+      ⚠️ Deuda conocida (auditoría 2026-09-05): cada <code>deploymentId</code>/Drive ID está hardcodeado 4-5 veces dentro de <code>manual.html</code> sin fuente única; agregar un módulo requiere tocar el archivo en ~6 puntos. No hay generación desde una fuente estructurada.
+    </div>
+  </div>
+
   <!-- ════════════════════════════ ARCHIVOS ════════════════════════════════ -->
   <div class="section" id="sec-archivos">
     <div class="page-header">
@@ -1317,15 +1373,20 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
     <div class="card">
       <div class="card-title">📂 Inputs Planning P&amp;L (motor de datos)</div>
       <div class="code-block">C:\Users\diego.bracco\Proyectos IA\Inputs_Planning_PnL\
-  ├── pnl_common.py                  ← Helpers: rutas portables + auth Drive
-  ├── plana_projections_builder.py   ← Planas budget/forecast/runrate/lastrunrate
-  ├── plana_actuals_builder.py       ← Plana actuals por año fiscal
-  ├── json_builder.py                ← Planas → JSON canónico → sube a Drive
-  ├── auth_drive.py                  ← Genera token_drive.json (1 vez por persona)
-  ├── run_all.bat                    ← Corre todo + sube
-  ├── CLAUDE.md / LEEME.txt          ← Doc + slash command /actualizar
-  ├── credentials_drive.json         ← OAuth client (compartido)
-  └── token_drive.json               ← ⚠️ Personal — NO compartir ni versionar</div>
+  ├── pnl_common.py                     ← Helpers: rutas portables + auth Drive
+  ├── config.py                         ← Rutas, folder IDs, RUNRATE_MONTHS / FORECAST_MONTHS
+  ├── plana_projections_builder.py      ← Planas budget/forecast/runrate/lastrunrate
+  ├── plana_actuals_builder.py          ← Plana actuals por año fiscal
+  ├── json_builder.py                   ← Planas → 5 JSON canónicos → sube a Drive
+  ├── baseline_builder.py               ← Arma baseline_actuals+projections.json
+  ├── plana_to_cube.py                  ← JSON canónicos → cubos contables (_pnl_contable*.json)
+  ├── okr_builder.py                    ← Arma okr.json para el Ecosystem Hub
+  ├── projections_validation_builder.py ← Vista "Projection Review" contable (--wip-folder)
+  ├── auth_drive.py                     ← Genera token_drive.json (1 vez por persona)
+  ├── run_all.bat                       ← Corre planas + json_builder + baseline_builder + sube
+  ├── CLAUDE.md / CONTEXT.md            ← Doc + slash command /actualizar
+  ├── credentials_drive.json            ← OAuth client (compartido)
+  └── token_drive.json                  ← ⚠️ Personal — NO compartir ni versionar</div>
     </div>
 
     <div class="card">
@@ -1443,13 +1504,18 @@ OneDrive → Control de Gestión 2026-27 → B2B & WLs → Proyectos IA → BITU
             <td>Dominio despegar.com</td>
           </tr>
           <tr>
+            <td>P&amp;L Managerial</td>
+            <td><a class="ext-link" href="https://script.google.com/a/macros/despegar.com/s/AKfycbxHyP4uIh02zTQbQ7ZFbyByCVIYuREuiMJ74PnKhQbNGbWknCG2jxOtt_onafQcg5g4/exec" target="_blank">↗ Abrir</a></td>
+            <td>Dominio despegar.com</td>
+          </tr>
+          <tr>
             <td>B2B Ecosystem Hub</td>
             <td><a class="ext-link" href="https://script.google.com/a/macros/despegar.com/s/AKfycbz52txFQy-5YM2Nil_KxULzPoeZpKyA4z5LUWMGoP_8IilcwSduuwZqPF8ut_LmtceM/exec" target="_blank">↗ Abrir</a></td>
             <td>Dominio despegar.com</td>
           </tr>
           <tr>
-            <td>Daily Dashboard B2B2C</td>
-            <td><a class="ext-link" href="https://script.google.com/a/macros/despegar.com/s/AKfycbwUC8oHHFuFQA8ZnVsLS8zwxgwJavQMpWWg_QJeo-Dg19jLtlZn5teQj8gSHrVn2CVOvw/exec" target="_blank">↗ Abrir</a></td>
+            <td>Daily Dashboard B2B2C + B2B</td>
+            <td><a class="ext-link" href="https://script.google.com/a/macros/despegar.com/s/AKfycbwMR3zk1r4uwui8vGtcmz0OwmeehC5JM8cuJRE3H-GQMfvxXWGTkYQ3R2nVjMyeAdX_1A/exec" target="_blank">↗ Abrir</a></td>
             <td>Dominio despegar.com</td>
           </tr>
           <tr>
@@ -1459,7 +1525,7 @@ OneDrive → Control de Gestión 2026-27 → B2B & WLs → Proyectos IA → BITU
           </tr>
           <tr>
             <td>Manual B2B WLs (este doc)</td>
-            <td><em>Ver URL generada al publicar</em></td>
+            <td><a class="ext-link" href="https://script.google.com/a/macros/despegar.com/s/AKfycbwq2nohZ-c3w-OqvO1H_op4yATn6yDN4qRO9mI8gs1VkO9Jn9lCcQeTsNAceCpydJiHzg/exec" target="_blank">↗ Abrir</a></td>
             <td>Dominio despegar.com</td>
           </tr>
         </tbody>
