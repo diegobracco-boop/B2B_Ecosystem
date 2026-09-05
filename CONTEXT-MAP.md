@@ -69,7 +69,7 @@ El ecosistema tiene dos capas: **pipelines** (Python, generan los datos) y **lan
 
 ### Manual_B2B_WLs — manual técnico del ecosistema
 - **Stack**: GAS + HTML
-- **Propósito**: landing GAS de **solo lectura** (`doGet` sirve `manual.html` estático — sin formularios, sin `doPost`, no ingresa ni carga datos). Documenta arquitectura, flujos de datos y procedimientos de actualización/deploy de todos los módulos del repo. Se embebe en el Ecosystem Hub.
+- **Propósito**: landing GAS de **solo lectura** (`doGet` sirve `manual.html` estático — sin formularios, sin `doPost`, no ingresa ni carga datos). Documenta arquitectura, flujos de datos y procedimientos de actualización/deploy de todos los módulos del repo. Hoy se abre como link externo desde el Hub; a futuro embebido via iframe (falta el `manual-frame` en `Dashboard_B2B_WLs/dashboard.html`). El `setXFrameOptionsMode(ALLOWALL)` de su `Codigo.js` ya lo deja listo para embeber.
 - **Input**: ninguno en runtime. Su contenido se mantiene a mano — al cambiar el proceso de cualquier módulo, actualizar también `Manual_B2B_WLs/manual.html` (ver regla en `CLAUDE.md`).
 - **Deploy**: `cd Manual_B2B_WLs && clasp push --force` + `clasp deploy -i <deploymentId>` (ver `/clasp-push`)
 - **Doc detallada**: [CONTEXT.md](./Manual_B2B_WLs/CONTEXT.md)

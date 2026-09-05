@@ -1,6 +1,6 @@
 # Manual B2B WLs
 
-Landing GAS que sirve el **manual técnico del ecosistema B2B**: arquitectura, flujos de datos, IDs de Drive, y procedimientos de actualización/deploy de cada módulo del repo. Se embebe dentro del Ecosystem Hub (`setXFrameOptionsMode(ALLOWALL)`).
+Landing GAS que sirve el **manual técnico del ecosistema B2B**: arquitectura, flujos de datos, IDs de Drive, y procedimientos de actualización/deploy de cada módulo del repo. Hoy se abre como **link externo** desde el Hub. `Codigo.js` ya tiene `setXFrameOptionsMode(ALLOWALL)`, así que está listo para embeberlo — falta agregar el `manual-frame` en `Dashboard_B2B_WLs/dashboard.html` (pendiente, a futuro).
 
 ## Stack
 
