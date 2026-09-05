@@ -1911,6 +1911,7 @@ function renderPalancasTable(months,agg,budgetAgg,lyAgg,headEl,bodyEl){
 
 // ── Main render ────────────────────────────────────────────────────────────
 function render(){
+  console.log('[PNL_MGR_DEBUG] render() called', {activeLob: _activeLob, dataLobTipo: _data && _data.filters && _data.filters.lob_tipo});
   var months=_data.months, agg=_data.agg, budgetAgg=_data.budget||{}, lyAgg=_data.ly||{};
   var totals={};
   ['orders','gross_bookings','net_revenue','npv'].forEach(function(k){
@@ -2302,6 +2303,7 @@ document.addEventListener('mousemove', function(e){
 })();
 
 function switchLob(lob){
+  console.log('[PNL_MGR_DEBUG] switchLob called', {lob: lob, prevActiveLob: _activeLob});
   _activeLob = lob;
   document.getElementById('lob-b2b2c').classList.toggle('active', lob === 'b2b2c');
   document.getElementById('lob-b2b').classList.toggle('active', lob === 'b2b');
@@ -2331,6 +2333,7 @@ function switchLob(lob){
   _paisSelected = []; renderPaisChips();
   _productoSelected = []; renderProductoChips();
   clearMs('ms-partner');
+  console.log('[PNL_MGR_DEBUG] switchLob about to reload()', {activeLob: _activeLob});
   reload();
   _updateStickyOffsets_();
 }
@@ -2448,13 +2451,19 @@ function fetchData(){
   document.getElementById('loader').style.display='flex';
   var reqLob = _activeLob;
   var reqId  = ++_fetchSeq;
+  var reqFilters = getFilters();
+  console.log('[PNL_MGR_DEBUG] request', {reqId: reqId, reqLob: reqLob, lob_tipo: reqFilters.lob_tipo});
   google.script.run
     .withSuccessHandler(function(d){
       // Si mientras esperábamos esta respuesta se disparó otro fetchData() (ej. el
       // usuario cambió de tab B2B2C/B2B), esta ya quedó obsoleta — descartarla. Sin
       // este chequeo, una respuesta vieja que llega después de una más nueva puede
       // pisar los datos ya renderizados del LOB actual con los del LOB anterior.
-      if (reqId !== _fetchSeq) return;
+      if (reqId !== _fetchSeq) {
+        console.log('[PNL_MGR_DEBUG] DISCARDED (stale)', {reqId: reqId, currentSeq: _fetchSeq, respLobTipo: d.filters && d.filters.lob_tipo});
+        return;
+      }
+      console.log('[PNL_MGR_DEBUG] APPLIED', {reqId: reqId, reqLob: reqLob, activeLobNow: _activeLob, respLobTipo: d.filters && d.filters.lob_tipo, aggFirstMonth: d.months && d.months[0], aggGB: d.agg && d.months && d.agg[d.months[0]] && d.agg[d.months[0]].gross_bookings});
       _data = d;
       if (!_filtersLoadedForLob[reqLob]) {
         fillPaisChips(d.filters['pais'] || []);
@@ -2474,7 +2483,7 @@ function fetchData(){
       hideFilterLoading();
       document.querySelector('main').innerHTML = '<div class="error-msg">Error cargando datos: '+(err.message||err)+'</div>';
     })
-    .getData(getFilters());
+    .getData(reqFilters);
 }
 
 
