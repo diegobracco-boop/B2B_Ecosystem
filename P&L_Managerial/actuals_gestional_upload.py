@@ -999,6 +999,19 @@ def _proy_ym(m) -> str:
     return f"{y}-{mm:02d}"
 
 
+def _parse_fecha_budget(s: pd.Series) -> pd.Series:
+    """Parsea 'fecha' sin el bug de pd.to_datetime(format='mixed', dayfirst=True):
+    ese combo invierte silenciosamente día/mes en fechas ISO (YYYY-MM-DD) cuando
+    el día es <=12. Mismo bug confirmado y corregido en Daily_Dashboard/daily_sync.py
+    (ver CLAUDE.md, regla de fechas) — separa el caso ISO explícito del resto."""
+    s = s.astype(str).str.strip()
+    iso = s.str.match(r"^\d{4}-\d{1,2}-\d{1,2}$")
+    out = pd.Series(pd.NaT, index=s.index, dtype="datetime64[ns]")
+    out.loc[iso]  = pd.to_datetime(s[iso],  format="%Y-%m-%d", errors="coerce")
+    out.loc[~iso] = pd.to_datetime(s[~iso], dayfirst=True,     errors="coerce")
+    return out
+
+
 def _budget_ym(df: pd.DataFrame, ym_from_proyectado: bool) -> pd.DataFrame:
     """Add a 'ym' column: from `no_mes_proyectado` (forecast) or `fecha` (budget/RR)."""
     if ym_from_proyectado:
@@ -1006,7 +1019,7 @@ def _budget_ym(df: pd.DataFrame, ym_from_proyectado: bool) -> pd.DataFrame:
         df = df.dropna(subset=["ym"])
         df["ym"] = df["ym"].apply(_proy_ym)
     else:
-        df["ym"] = pd.to_datetime(df["fecha"], format="mixed", dayfirst=True).dt.strftime("%Y-%m")
+        df["ym"] = _parse_fecha_budget(df["fecha"]).dt.strftime("%Y-%m")
     return df
 
 

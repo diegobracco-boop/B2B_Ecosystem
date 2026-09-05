@@ -601,8 +601,8 @@ a.ext-link:hover { text-decoration: underline; }
           <div class="step">
             <div class="step-num">3</div>
             <div class="step-body">
-              <div class="step-title">Verificar en la landing</div>
-              <div class="step-desc">Recargar la URL de la webapp. No requiere nueva publicación — el deploy HEAD se actualiza automáticamente</div>
+              <div class="step-title">Redeployar a producción (obligatorio)</div>
+              <div class="step-desc">⚠️ <code>clasp push</code> solo actualiza el deployment <strong>@HEAD</strong> (la URL <code>/dev</code>, para probar). La URL <code>/exec</code> que usa el negocio queda <strong>congelada</strong> hasta correr <code>clasp deploy -i &lt;deploymentId&gt; -d "desc"</code> con el ID de esa landing (ver tabla en "Comandos frecuentes"). Recién ahí, recargar la URL <code>/exec</code> para confirmar.</div>
             </div>
           </div>
         </div>
@@ -1004,10 +1004,10 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
             <tr><td>Carpeta local</td><td>P&amp;L_Managerial</td></tr>
             <tr><td>Apps Script ID</td><td style="font-family:monospace;font-size:10px">1rB8o8HcnksPBXzi8QJW1zC-XQQ1HqHao...</td></tr>
             <tr><td>URL editor GAS</td><td><a class="ext-link" href="https://script.google.com/home/projects/1rB8o8HcnksPBXzi8QJW1zC-XQQ1HqHaowTcWV95SJG6xRbLg5QQ_2mQH/edit" target="_blank">↗ Abrir editor</a></td></tr>
-            <tr><td>Actualización proyecciones</td><td><span class="badge badge-manual">python pnl_gestional_upload.py</span></td></tr>
-            <tr><td>Actualización actuals</td><td><span class="badge badge-manual">python actuals_gestional_upload.py (requiere VPN)</span></td></tr>
-            <tr><td>JSON gestional (proyecciones)</td><td style="font-family:monospace;font-size:10px">_pnl_gestional_data.json (Drive ID: 1WP0mFep...)</td></tr>
-            <tr><td>JSON actuals gestional</td><td style="font-family:monospace;font-size:10px">_actuals_gestional.json (Drive folder: 1wzudbo7cN9Ibiv...)</td></tr>
+            <tr><td>Actualización actuals + proyecciones</td><td><span class="badge badge-manual">python actuals_gestional_upload.py (requiere VPN)</span> — un solo run actualiza todo (actuals ODBC + forecast XLSX)</td></tr>
+            <tr><td>Preview proyección WIP (sin publicar)</td><td><span class="badge badge-manual">python projections_gestional_builder.py --wip-folder "&lt;ruta&gt;"</span></td></tr>
+            <tr><td>JSON gestional (actuals+proyecciones)</td><td style="font-family:monospace;font-size:10px">_actuals_gestional.json (fileId: 1wvle0UIVZV7ocCSl8OawOfIGVz_It5kh)</td></tr>
+            <tr><td>JSON projection review (WIP)</td><td style="font-family:monospace;font-size:10px">pnl_gestional_projections_review.json (fileId: 1Zd1Kzn7CkatOWnzrrfBxr9mDjIVLLKIF)</td></tr>
           </tbody>
         </table>
       </div>
@@ -1016,9 +1016,10 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
         <table class="doc-table">
           <thead><tr><th>Dato</th><th>Origen</th><th>Script</th></tr></thead>
           <tbody>
-            <tr><td>Proyecciones (FC / Budget / LY)</td><td>Modelos Forecast XLSX (WLs, API, HTML) → JSON gestional</td><td><code>pnl_gestional_upload.py</code></td></tr>
-            <tr><td>Actuals gestionales</td><td>Treasure Data (ODBC) — B2B2C + B2B GD + B2B RI</td><td><code>actuals_gestional_upload.py</code></td></tr>
-            <tr><td>LY estático</td><td>Embebido en <code>ly_data.js</code></td><td>—</td></tr>
+            <tr><td>Forecast (FC)</td><td>Modelos Forecast XLSX (WLs, API, HTML) → JSON gestional</td><td><code>actuals_gestional_upload.py</code> (lee <code>FC_XLSX_DIR</code>)</td></tr>
+            <tr><td>Actuals / LY / Budget / Run rate</td><td>Treasure Data (ODBC) — B2B2C + B2B GD + B2B RI</td><td><code>actuals_gestional_upload.py</code></td></tr>
+            <tr><td>Proyección WIP (preview, sin publicar)</td><td>Excel de un WIP folder aparte</td><td><code>projections_gestional_builder.py --wip-folder</code></td></tr>
+            <tr><td>LY estático en <code>ly_data.js</code></td><td colspan="2">⚠️ No usado — nada en <code>Codigo.js</code>/<code>dashboard.html</code> lo referencia. El LY real que se ve en la landing es el dinámico que calcula <code>actuals_gestional_upload.py</code> en cada run.</td></tr>
           </tbody>
         </table>
       </div>
@@ -1030,9 +1031,10 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
         <thead><tr><th>Archivo</th><th>Tipo</th><th>Rol</th></tr></thead>
         <tbody>
           <tr><td>dashboard.html</td><td><span class="tag tag-html">HTML</span></td><td>Frontend vistas gestionales: Managerial View B2B2C y B2B (FVM, waterfall, evolución, palancas, NR Bridge, PxQ). Sin vistas contables (esas quedaron en P&amp;L Accounting)</td></tr>
-          <tr><td>Codigo.js</td><td><span class="tag tag-js">Apps Script</span></td><td>Backend gestional: lee <code>_pnl_gestional_data.json</code> desde Drive y sirve los datos al frontend</td></tr>
-          <tr><td>ly_data.js</td><td><span class="tag tag-js">Apps Script</span></td><td>LY embebido estáticamente (datos históricos FY26)</td></tr>
-          <tr><td>actuals_gestional_upload.py</td><td><span class="tag tag-py">Python</span></td><td><strong>Nuevo.</strong> Consulta Treasure Data (ODBC) para actuals B2B2C + B2B GD + B2B RI (FY27 desde Abr-26). Sube <code>_actuals_gestional.json</code> al folder de Drive <code>1wzudbo7cN9Ibiv...</code>. Requiere VPN + <code>.env</code> con creds ODBC</td></tr>
+          <tr><td>Codigo.js</td><td><span class="tag tag-js">Apps Script</span></td><td>Backend gestional: lee <code>_actuals_gestional.json</code> (o <code>pnl_gestional_projections_review.json</code> según el toggle) desde Drive y sirve los datos al frontend</td></tr>
+          <tr><td>ly_data.js</td><td><span class="tag tag-js">Apps Script</span></td><td>⚠️ No usado actualmente — LY estático de FY26, pero nada lo referencia. El LY real viene de <code>actuals_gestional_upload.py</code>. Candidato a borrar</td></tr>
+          <tr><td>actuals_gestional_upload.py</td><td><span class="tag tag-py">Python</span></td><td>Consulta Treasure Data (ODBC) para actuals/LY/budget/run-rate B2B2C + B2B GD + B2B RI (FY27 desde Abr-26), y lee los modelos Forecast XLSX para el forecast. Sube <code>_actuals_gestional.json</code> al folder de Drive <code>1wzudbo7cN9Ibiv...</code>. Requiere VPN + <code>.env</code> con creds ODBC</td></tr>
+          <tr><td>projections_gestional_builder.py</td><td><span class="tag tag-py">Python</span></td><td>Herramienta de preview aparte (no forma parte del refresh regular): toma actuals del JSON principal + una proyección WIP en Excel (<code>--wip-folder</code>) y arma <code>pnl_gestional_projections_review.json</code></td></tr>
           <tr><td>appsscript.json / .clasp.json</td><td><span class="tag tag-js">Manifest</span></td><td>Webapp; executeAs USER_DEPLOYING; acceso DOMAIN</td></tr>
         </tbody>
       </table>
@@ -1043,8 +1045,8 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
       <table class="doc-table">
         <thead><tr><th>Qué cambió</th><th>Pasos</th></tr></thead>
         <tbody>
-          <tr><td><strong>Proyecciones</strong> (modelos XLSX)</td><td>Desde la carpeta del proyecto: <code>python pnl_gestional_upload.py</code> → recarga la landing.</td></tr>
-          <tr><td><strong>Actuals gestionales</strong></td><td>Conectar VPN. Desde la carpeta: <code>python actuals_gestional_upload.py</code> → recarga la landing.</td></tr>
+          <tr><td><strong>Actuals + proyecciones (Forecast XLSX)</strong></td><td>Conectar VPN. Si hay un corte nuevo, actualizar <code>FC_XLSX_DIR</code> en <code>actuals_gestional_upload.py</code> a la carpeta semanal vigente. Desde la carpeta: <code>python actuals_gestional_upload.py</code> → recarga la landing. Un solo run cubre actuals, LY, budget, run-rate y forecast.</td></tr>
+          <tr><td><strong>Preview de una proyección WIP</strong> (sin publicar)</td><td>Desde la carpeta: <code>python projections_gestional_builder.py --wip-folder "&lt;ruta del WIP&gt;"</code> → recarga la landing con el toggle "Projection Review".</td></tr>
           <tr><td><strong>Código</strong> (.js / .html)</td><td><code>clasp push</code> (desde P&amp;L_Managerial) + <code>clasp deploy -i &lt;deploymentId&gt; -d "desc"</code>.</td></tr>
         </tbody>
       </table>
@@ -1462,13 +1464,13 @@ OneDrive → Control de Gestión 2026-27 → B2B & WLs → Proyectos IA → BITU
           <tr><td>Actualizar fuente única (planas + JSON)</td><td><span style="font-family:monospace;font-size:11px">run_all.bat</span> (desde Inputs_Planning_PnL)</td></tr>
           <tr><td>Auth Drive del motor de datos (1 vez)</td><td><span style="font-family:monospace;font-size:11px">python auth_drive.py</span> (desde Inputs_Planning_PnL)</td></tr>
           <tr><td>Actualizar datos P&amp;L Accounting</td><td><span style="font-family:monospace;font-size:11px">python plana_to_cube.py --upload</span> (desde Inputs_Planning_PnL, tras regenerar los JSON) + Ctrl+Shift+R</td></tr>
-          <tr><td>Actualizar proyecciones P&amp;L Managerial</td><td><span style="font-family:monospace;font-size:11px">python pnl_gestional_upload.py</span> (desde P&amp;L_Managerial)</td></tr>
-          <tr><td>Actualizar actuals P&amp;L Managerial</td><td><span style="font-family:monospace;font-size:11px">python actuals_gestional_upload.py</span> (desde P&amp;L_Managerial, requiere VPN)</td></tr>
+          <tr><td>Actualizar actuals + proyecciones P&amp;L Managerial</td><td><span style="font-family:monospace;font-size:11px">python actuals_gestional_upload.py</span> (desde P&amp;L_Managerial, requiere VPN)</td></tr>
+          <tr><td>Preview proyección WIP P&amp;L Managerial</td><td><span style="font-family:monospace;font-size:11px">python projections_gestional_builder.py --wip-folder "&lt;ruta&gt;"</span> (desde P&amp;L_Managerial)</td></tr>
           <tr><td>Actualizar datos Daily (manual)</td><td><span style="font-family:monospace;font-size:11px">python daily_sync.py</span> (desde Daily_Dashboard, requiere VPN)</td></tr>
-          <tr><td>Deploy código P&amp;L Accounting</td><td><span style="font-family:monospace;font-size:11px">clasp push</span> + <span style="font-family:monospace;font-size:11px">clasp deploy -i AKfycby9WZK...</span> (desde P&amp;L_Accounting)</td></tr>
-          <tr><td>Deploy código P&amp;L Managerial</td><td><span style="font-family:monospace;font-size:11px">clasp push</span> + <span style="font-family:monospace;font-size:11px">clasp deploy -i &lt;deploymentId&gt; -d "desc"</span> (desde P&amp;L_Managerial)</td></tr>
-          <tr><td>Deploy código Ecosystem Hub</td><td><span style="font-family:monospace;font-size:11px">clasp push --force</span> (desde Dashboard_B2B_WLs)</td></tr>
-          <tr><td>Deploy código Daily Dashboard</td><td><span style="font-family:monospace;font-size:11px">clasp push --force</span> + <span style="font-family:monospace;font-size:11px">clasp deploy -i AKfycbwUC8oHH...</span> (desde Daily_Dashboard)</td></tr>
+          <tr><td>Deploy código P&amp;L Accounting</td><td><span style="font-family:monospace;font-size:11px">clasp push</span> + <span style="font-family:monospace;font-size:11px">clasp deploy -i AKfycby9WZK2HfAWx25M5pEMV3nntzJfEvsiT9feMn01zJQkQaI3t2GjTzOIjbFXWexnMuzklQ</span> (desde P&amp;L_Accounting)</td></tr>
+          <tr><td>Deploy código P&amp;L Managerial</td><td><span style="font-family:monospace;font-size:11px">clasp push</span> + <span style="font-family:monospace;font-size:11px">clasp deploy -i AKfycbxHyP4uIh02zTQbQ7ZFbyByCVIYuREuiMJ74PnKhQbNGbWknCG2jxOtt_onafQcg5g4 -d "desc"</span> (desde P&amp;L_Managerial)</td></tr>
+          <tr><td>Deploy código Ecosystem Hub</td><td><span style="font-family:monospace;font-size:11px">clasp push --force</span> + <span style="font-family:monospace;font-size:11px">clasp deploy -i AKfycbz52txFQy-5YM2Nil_KxULzPoeZpKyA4z5LUWMGoP_8IilcwSduuwZqPF8ut_LmtceM</span> (desde Dashboard_B2B_WLs) — ⚠️ antes faltaba el paso de redeploy acá</td></tr>
+          <tr><td>Deploy código Daily Dashboard</td><td><span style="font-family:monospace;font-size:11px">clasp push --force</span> + <span style="font-family:monospace;font-size:11px">clasp deploy -i AKfycbwMR3zk1r4uwui8vGtcmz0OwmeehC5JM8cuJRE3H-GQMfvxXWGTkYQ3R2nVjMyeAdX_1A</span> (desde Daily_Dashboard)</td></tr>
         </tbody>
       </table>
     </div>

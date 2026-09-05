@@ -1,5 +1,5 @@
 // P&L Gestional Dashboard — Apps Script Backend v2
-// Data source: _pnl_gestional_data.json (generado por pnl_gestional_upload.py)
+// Data source: _actuals_gestional.json (generado por actuals_gestional_upload.py; mismo fileId que el _pnl_gestional_data.json original, solo cambió el nombre)
 var GESTIONAL_JSON_FILE_ID    = '1wvle0UIVZV7ocCSl8OawOfIGVz_It5kh';
 var GESTIONAL_VR_JSON_FILE_ID = '1Zd1Kzn7CkatOWnzrrfBxr9mDjIVLLKIF'; // pnl_gestional_projections_review.json
 var _gestionalJsonCache_      = null;

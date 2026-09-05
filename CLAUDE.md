@@ -58,6 +58,7 @@ Una vez creadas las credenciales, actualizar `RUTA_ENV` en `Daily_Dashboard/dail
 - **`git push` no publica las landings GAS**. Son independientes — siempre recordar el `/clasp-push` después del commit.
 - **Verificar antes de commitear** que `credenciales/` no esté staged (`git status`).
 - **No correr `clasp push` desde la raíz** del repo — siempre desde la carpeta del módulo específico.
+- **Nunca usar `pd.to_datetime(serie, format="mixed", dayfirst=True)` para parsear fechas.** Ese combo invierte silenciosamente día/mes en fechas ISO (`YYYY-MM-DD`) cuando el día es ≤12 — ya rompió dos veces en este repo: `Daily_Dashboard/daily_sync.py` (fix: `_parse_fecha_budget`) y `P&L_Managerial/actuals_gestional_upload.py:1009` (fix: `_parse_fecha_budget`, mismo patrón). Si una fecha puede venir en más de un formato, separar explícitamente el caso ISO (`format="%Y-%m-%d"`) del resto (`dayfirst=True`) en vez de dejar que pandas adivine.
 - **Un `clasp pull` puede traer código VIEJO de Apps Script y pisar commits ya mergeados a `main`.** Antes de commitear después de un `clasp pull`, correr `git diff` y revisar que no borre nada inesperado — nunca commitearlo junto con otro cambio no relacionado sin mirar el diff completo. Ya pasó una vez (2026-09-02): un `clasp pull` en `P&L_Accounting` mezclado con un chore de "eliminar insights" trajo una versión de `Codigo_contable_epm.js` anterior a un feature ya publicado (`a3068c1`, "vs Last Year") y lo borró sin que el commit lo mencionara — nadie lo notó hasta días después.
 
 ## Arquitectura resumida

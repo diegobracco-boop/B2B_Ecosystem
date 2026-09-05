@@ -26,6 +26,8 @@ El ecosistema tiene dos capas: **pipelines** (Python, generan los datos) y **lan
 └───────────────┘ └──────────────┘ └──────────────┘ └──────────────┘
 ```
 
+⚠️ Este diagrama simplifica de más: **P&L_Managerial no lee del pool común de Drive que alimentan `Inputs_Planning_PnL`/`Daily_Dashboard`** — tiene su propio pipeline Python (`actuals_gestional_upload.py`), un tercer pipeline no dibujado arriba, que consulta el Datalake y los modelos Forecast XLSX directamente y publica su propio JSON. Ver el módulo más abajo para el detalle.
+
 ## Módulos
 
 ### Inputs_Planning_PnL — pipeline de planning
@@ -58,10 +60,12 @@ El ecosistema tiene dos capas: **pipelines** (Python, generan los datos) y **lan
 - **Deploy**: `cd P&L_Accounting && clasp push`
 
 ### P&L_Managerial — vista gerencial del P&L
-- **Stack**: GAS + HTML + Python (`actuals_gestional_upload.py`)
-- **Input**: JSONs canónicos de Inputs_Planning_PnL
+- **Stack**: GAS + HTML + Python (`actuals_gestional_upload.py`, `projections_gestional_builder.py`)
+- **Input**: **NO** son los JSONs canónicos de Inputs_Planning_PnL — tiene su propio pipeline "gestional", independiente y paralelo al "contable": `actuals_gestional_upload.py` consulta el Datalake (ODBC) directo para actuals/LY/budget/run-rate, y lee los modelos Forecast XLSX (WLs/API/HTML) para el forecast. Sube todo a `_actuals_gestional.json` en Drive. `projections_gestional_builder.py --wip-folder <ruta>` es una herramienta aparte que arma una vista de preview (`pnl_gestional_projections_review.json`) con números de un WIP sin publicar.
+- **Dependencia cruzada (poco obvia)**: `Inputs_Planning_PnL/okr_builder.py` LEE el JSON gestional de este módulo (mismo fileId que `_actuals_gestional.json`) — pero solo el campo `last_actual_ym`, para saber el corte de mes cerrado al construir `okr.json` de `Dashboard_B2B_WLs`. Es la única conexión real entre este módulo y `Inputs_Planning_PnL`, y va en sentido contrario al que sugiere el diagrama de arriba.
 - **Usuarios**: equipo gerencial — vista agregada para toma de decisiones
-- **Deploy GAS**: `cd P&L_Managerial && clasp push`
+- **Deploy GAS**: `cd P&L_Managerial && clasp push` + `clasp deploy -i <deploymentId>` (ver `/clasp-push` para el ID vigente — el deploy NO es automático)
+- **Doc detallada**: [CONTEXT.md](./P&L_Managerial/CONTEXT.md)
 
 ### Manual_B2B_WLs — carga manual de datos
 - **Stack**: GAS + HTML
