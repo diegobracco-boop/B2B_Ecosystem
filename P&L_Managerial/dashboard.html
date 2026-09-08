@@ -683,6 +683,13 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
       <button id="mg-goal-ly"       class="prd-btn"            type="button" onclick="setMGGoal('ly')">Last Year</button>
     </div>
     <span style="width:1px;height:18px;background:rgba(0,0,0,.15);margin:0 6px"></span>
+    <span style="font-size:11px;color:var(--muted);font-weight:700">Escala:</span>
+    <div class="prd-toggle">
+      <button id="mg-scale-M"   class="prd-btn prd-active" type="button" onclick="setMGNumScale('M')">M</button>
+      <button id="mg-scale-K"   class="prd-btn"            type="button" onclick="setMGNumScale('K')">K</button>
+      <button id="mg-scale-raw" class="prd-btn"            type="button" onclick="setMGNumScale('raw')">Enteros</button>
+    </div>
+    <span style="width:1px;height:18px;background:rgba(0,0,0,.15);margin:0 6px"></span>
     <!-- País/Producto chips: visible cuando el tab P&L está activo -->
     <div id="pnl-country-nav" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
       <span style="font-size:11px;color:var(--muted);font-weight:700">País:</span>
@@ -808,6 +815,7 @@ var _paisSelected = [];           // [] = todos; otherwise array of selected cou
 var _mgSecState = {};             // secId → true = collapsed
 var _managerialGoal = 'budget';   // 'budget' | 'forecast' | 'ly'
 var _managerialBGPeriod = 'quarter'; // 'month' | 'quarter' | 'half'
+var _numScale = 'M';                 // 'M' | 'K' | 'raw' — escala de valores nominales
 var _mgPeriodSel = null;             // array de meses/quarters/halves puntuales elegidos, o null = todos
 var _gActiveTab = 'total';        // 'total'|'brasil'|'mexico'|'argentina'|'colombia'|'chile'|'peru'|'ecuador'|'other'
 var _gSelectedPartners = [];      // [] = all; otherwise list of selected partner names
@@ -998,8 +1006,17 @@ var PALANCAS_ROWS = [
 ];
 
 // ── Formatters ─────────────────────────────────────────────────────────────
+function _grp(n){ return String(n).replace(/\B(?=(\d{3})+(?!\d))/g,'.'); }
+// Escala nominal activa: divisor / sufijo / decimales para charts.
+function _scaleCfg(){
+  return _numScale==='K'   ? {d:1e3, u:'K', dec:1}
+       : _numScale==='raw' ? {d:1,   u:'',  dec:0}
+       :                      {d:1e6, u:'M', dec:2};
+}
 function fmtM(v){
   if (v===null||isNaN(v)) return '—';
+  if (_numScale==='K')   return _grp(Math.round(v/1e3))+'K';
+  if (_numScale==='raw') return _grp(Math.round(v));
   var abs=Math.abs(v);
   return abs>=1e6?(v/1e6).toFixed(1)+'M':abs>=1e3?(v/1e3).toFixed(0)+'K':v.toFixed(0);
 }
@@ -1734,7 +1751,9 @@ function renderDetalle() {
   var baselineRowLabel = _baselineSource==='vr' ? 'Projection Reviews' : 'Actuals + Projections';
 
   var mk   = _detalleMetric==='gb'?'gross_bookings':_detalleMetric==='nr'?'net_revenue':'npv';
-  var fmt  = _detalleMetric==='gb'?fmtK:fmtM;
+  // GB usa fmtK (2 decimales de M) sólo en la escala por defecto 'M'; con K/Enteros
+  // sigue el selector como el resto de los valores nominales.
+  var fmt  = (_detalleMetric==='gb' && _numScale==='M') ? fmtK : fmtM;
   var dfmt = _detalleMetric==='gb'?'K':'M';
 
   function colorNum(v, fmtFn, showPlus) {
@@ -2042,6 +2061,15 @@ function setMGGoal(goal){
   document.getElementById('mg-goal-ly').classList.toggle('prd-active', goal === 'ly');
   if(document.getElementById('tab-baseline').classList.contains('active') && _data) renderManagerialBGTable();
   if(document.getElementById('tab-detalle').classList.contains('active') && _data) renderDetalle();
+}
+
+function setMGNumScale(scale){
+  _numScale = scale;
+  ['M','K','raw'].forEach(function(s){
+    var btn = document.getElementById('mg-scale-'+s);
+    if(btn) btn.classList.toggle('prd-active', s === scale);
+  });
+  if(_data) render();  // repinta tabla P&L + Detalle + Trend (según pestaña activa)
 }
 
 function setMGPeriod(mode){
@@ -2715,10 +2743,14 @@ function renderTrendCharts(months, agg, budgetAgg, lyAgg){
   budgetAgg = budgetAgg || {};
   lyAgg     = lyAgg || {};
 
+  var SC   = _scaleCfg();
+  var _uSx = SC.u ? ' ($'+SC.u+')' : ' ($)';
+  // Formatea un valor YA dividido por SC.d (ejes/tooltips de los charts).
+  function _fmtScaled(v){ return _numScale==='raw' ? '$'+_grp(Math.round(v)) : '$'+v.toFixed(SC.dec)+SC.u; }
   var chartDefs = [
-    { key:'gross_bookings', label:'Gross Bookings ($M)', divisor:1e6 },
-    { key:'net_revenue',    label:'Net Revenue ($M)',    divisor:1e6 },
-    { key:'npv',            label:'FVM ($M)',            divisor:1e6 }
+    { key:'gross_bookings', label:'Gross Bookings'+_uSx, divisor:SC.d },
+    { key:'net_revenue',    label:'Net Revenue'+_uSx,    divisor:SC.d },
+    { key:'npv',            label:'FVM'+_uSx,            divisor:SC.d }
   ];
 
   // Destroy all previous charts
@@ -2816,14 +2848,14 @@ function renderTrendCharts(months, agg, budgetAgg, lyAgg){
                   var lyM=m.replace(/-(\d{2})$/,function(_,y){ return '-'+(parseInt(y,10)-1); });
                   dsLbl='LY ('+lyM+')';
                 }
-                return dsLbl+': $'+v.toFixed(2)+'M';
+                return dsLbl+': '+_fmtScaled(v);
               }
             }
           }
         },
         scales:{
           x:{ grid:{color:'rgba(0,0,0,.05)'}, ticks:{ font:{size:opts.smallX?8:10}, maxRotation: opts.smallX?45:0 } },
-          y:{ grid:{color:'rgba(0,0,0,.05)'}, ticks:{font:{size:10}, callback:function(v){ return '$'+v.toFixed(2)+'M'; }} }
+          y:{ grid:{color:'rgba(0,0,0,.05)'}, ticks:{font:{size:10}, callback:function(v){ return _fmtScaled(v); }} }
         }
       }
     });
@@ -2931,7 +2963,7 @@ function renderTrendCharts(months, agg, budgetAgg, lyAgg){
         function(m,k,d){ return getRunrate(m,k,d); },
         function(m,k,d){ return getBudget(m,k,d); },
         def.key, def.divisor,
-        function(a,b){ if(a===null||b===null) return null; var d=a-b; return {pos:d>=0,str:(d>=0?'+':'')+d.toFixed(1)}; },
+        function(a,b){ if(a===null||b===null) return null; var d=a-b; var s=d>=0?'+':''; return {pos:d>=0,str:s+(_numScale==='M'?d.toFixed(1):_grp(Math.round(d)))}; },
         di === 0
       ));
       chartWrap.appendChild(makeDeltaRow('Δ%Bgt', chartMonths,
