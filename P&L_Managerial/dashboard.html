@@ -2302,9 +2302,8 @@ function renderManagerialBGTable(){
 var VSACC_MAP = [
   { label:'Orders',                    mgr:['orders'],                       acc:['n1|orders domestic','n1|orders international'] },
   { label:'Gross Bookings',            mgr:['gross_bookings'],               acc:['n1|gross bookings domestic','n1|gross bookings international'] },
-  { label:'Up Front Incentives',       mgr:['up_front_incentives'],          acc:['n1|up front incentives'] },
-  { label:'Fees',                      mgr:['fees'],                         acc:['n1|fees'] },
-  { label:'Commercial Discounts',      mgr:['commercial_discounts'],         acc:['n1|commercial discounts'] },
+  { label:'Up Front + Fees + Comm. Disc.', mgr:['up_front_incentives','fees','commercial_discounts'],
+                                       acc:['n1|up front incentives','n1|fees','n1|commercial discounts'] },
   { label:'Cancellations',             mgr:['cancellations'],                acc:['n1|cancellations'] },
   { label:'Back End Incentives',       mgr:['back_end_incentives'],          acc:['n1|back end incentives'] },
   { label:'Other Incentives',          mgr:['other_incentives'],             acc:['n1|other incentives','n1|gds','n1|vcc'] },
@@ -2320,12 +2319,12 @@ var VSACC_MAP = [
   { label:'Errors',                    mgr:['errors'],                       acc:['n1|errors'] },
   { label:'Other Transactional Taxes', mgr:['other_transactional_taxes'],    acc:['n1|other transactional taxes'] },
   { label:'Frauds',                    mgr:['frauds'],                       acc:['n1|frauds'] },
-  { label:'Operations',                mgr:['operations'],                   acc:['n1|operations'] },
   { label:'Intercompany',              mgr:['intercompany_usd'],             acc:['n1|intercompany transactions'] },
   { label:'White Labels / API',        mgr:['white_labels_api'],             acc:['n1|white labels / api'] },
-  { label:'Vendor Commissions',        mgr:['vendor_commissions'],           acc:['n1|conectores','n1|telesales'], note:'revisar el mapeo' },
+  { label:'Vendor Commissions',        mgr:['vendor_commissions'],           acc:['n1|conectores','n1|telesales'], note:'Acc = conectores + telesales; Mgr no lo abre (0)' },
   { label:'Affiliates',                mgr:['affiliates'],                   acc:['n1|affiliates'] },
-  { label:'FX (Efecto Fin + Dif FX + Hedge)', mgr:['efecto_financiero','dif_fx','currency_hedge'], acc:[], note:'Accounting no expone FX a este nivel — revisar' },
+  { label:'Efecto Financiero',         mgr:['efecto_financiero'],            acc:[] },
+  { label:'Dif FX + Hedge  vs  Cost of Sales as Principal', mgr:['dif_fx','currency_hedge'], acc:['n1|cost of sales as principal'], note:'fee bimonetario Argentina' },
   { label:'» FVM  vs  Gross Profit',   mgr:['npv'],                          acc:['n4|gross profit'], sub:true, note:'conceptos distintos — solo referencia' }
 ];
 
@@ -2376,7 +2375,7 @@ function _vsAccSum_(dict, keys, mes){
 
 // Líneas Accounting sin equivalente Managerial que igual se muestran (fila extra,
 // Managerial = 0). El resto de las accounting-only se ocultan (decisión de Diego).
-var VSACC_ACC_KEEP = ['n1|cost of sales as principal', 'n1|channels-personnel/expenses'];
+var VSACC_ACC_KEEP = ['n1|channels-personnel/expenses'];
 
 function _vsAccTable_(L){
   var months = L.months || [];
