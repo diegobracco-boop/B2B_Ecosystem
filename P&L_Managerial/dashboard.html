@@ -2349,92 +2349,69 @@ function _vsAccSum_(dict, keys, mes){
   return t;
 }
 
-function renderVsAcc_(){
-  var c = document.getElementById('vsacc-container');
-  var D = _vsAccData;
-  if(!D){ return; }
-  var months = D.months || [];
-  var mgr = D.mgr || {}, acc = D.acc || {};
+// Líneas Accounting sin equivalente Managerial que igual se muestran (fila extra,
+// Managerial = 0). El resto de las accounting-only se ocultan (decisión de Diego).
+var VSACC_ACC_KEEP = ['n1|cost of sales as principal', 'n1|channels-personnel/expenses'];
 
-  if(!months.length){
-    c.innerHTML = '<div style="padding:24px;color:var(--muted)">No hay meses cerrados en común.<br>'
-      + 'Managerial: '+(D.mgrAllMonths||[]).join(', ')+' ('+Object.keys(D.mgr||{}).length+' líneas)<br>'
-      + 'Accounting: '+(D.accAllMonths||[]).join(', ')+' ('+Object.keys(D.acc||{}).length+' líneas)<br>'
-      + 'Si Accounting está atrás, correr <code>/actualizar</code> en Inputs_Planning_PnL. '
-      + '<button type="button" onclick="fetchVsAcc_(true)" style="margin-left:8px;font-size:11px;padding:3px 10px;cursor:pointer">↻ recargar</button></div>';
-    return;
-  }
+function _vsAccTable_(L){
+  var months = L.months || [];
+  var mgr = L.mgr || {}, acc = L.acc || {};
+  var head = '<div class="pnl-card" style="margin-bottom:4px;padding:8px 14px;font-weight:700">'+escHtml(L.label)
+    + ' <span style="font-weight:400;color:var(--muted);font-size:11px">· Managerial '+escHtml(L.mgrLabel)
+    + ' · '+(months.join(', ')||'sin meses en común')+'</span></div>';
+  if(!months.length) return head + '<div class="pnl-card" style="padding:12px;color:var(--muted);margin-bottom:14px">Sin meses cerrados en común.</div>';
 
   var cols = months.concat(['Total']);
-  function cell(v){ var s=fmtM(v); return '<td style="text-align:right'+(v<0?';color:var(--red)':'')+'">'+s+'</td>'; }
-  function sumRow(getVal){ return cols.map(function(col){
-    return col==='Total' ? months.reduce(function(s,m){ return s+getVal(m); },0) : getVal(col);
-  }); }
+  function cell(v){ return '<td style="text-align:right'+(v<0?';color:var(--red)':'')+'">'+fmtM(v)+'</td>'; }
+  function sumRow(get){ return cols.map(function(col){ return col==='Total' ? months.reduce(function(s,m){return s+get(m);},0) : get(col); }); }
+  function tr(label, accV, mgrV, note, style){
+    var dV = mgrV.map(function(v,i){ return v-accV[i]; });
+    return '<tr'+(style?' style="'+style+'"':'')+'><td class="th-lbl">'+escHtml(label)
+      + (note?' <span style="color:var(--red);font-size:10px">('+escHtml(note)+')</span>':'')+'</td>'
+      + accV.map(cell).join('')+'<td class="th-sep"></td>'
+      + mgrV.map(cell).join('')+'<td class="th-sep"></td>'
+      + dV.map(cell).join('')+'</tr>';
+  }
 
-  var mapped = {};  // marca qué claves acc / métricas mgr ya están en el mapa
-  VSACC_MAP.forEach(function(row){
-    (row.acc||[]).forEach(function(k){ mapped['acc:'+k]=true; });
-    (row.mgr||[]).forEach(function(k){ mapped['mgr:'+k]=true; });
-  });
-
-  var _mgrK = Object.keys(mgr).length, _accK = Object.keys(acc).length;
-  var h = '';
-  h += '<div style="padding:6px 16px;font-size:11px;color:var(--muted);background:rgba(42,16,72,.05);border-radius:6px;margin-bottom:8px">'
-     + 'diag · meses='+months.join('/')+' · mgr keys='+_mgrK+' ('+Object.keys(mgr).slice(0,4).join(', ')+'…)'
-     + ' · acc keys='+_accK+' ('+Object.keys(acc).slice(0,4).join(', ')+'…) '
-     + '<button type="button" onclick="fetchVsAcc_(true)" style="margin-left:8px;font-size:10px;padding:2px 8px;cursor:pointer">↻ recargar</button></div>';
-  h += '<div class="pnl-card" style="margin-bottom:10px;padding:12px 16px">'
-     + '<b>Managerial vs Accounting</b> — reales, meses cerrados ('+months.join(', ')+'). '
-     + 'B2B + B2B2C, Total (sin filtro país/producto). Managerial = actuals <code>ac</code> — RI en B2B-MAY, GD en MIN/B2B2C. '
-     + 'Accounting = <code>actuals.json</code> canónico, línea P&L N1'
-     + (D.accMeta && D.accMeta.fechas ? ' ('+D.accMeta.fechas.length+' meses)' : '') + '.'
-     + '<br><span style="color:var(--muted);font-size:11px">⚠ El mapeo de líneas (<code>VSACC_MAP</code>) es un borrador. Revisá las filas de abajo y decime cuáles quedan / cómo se mapean.</span>'
-     + '</div>';
-
-  h += '<div class="pnl-card" style="overflow-x:auto"><table class="qpnl-table" style="min-width:720px">';
-  h += '<thead><tr><th class="th-lbl"></th>'
-     + '<th class="th-baseline" colspan="'+cols.length+'">ACCOUNTING (baseline)</th><th class="th-sep"></th>'
-     + '<th class="th-goal" colspan="'+cols.length+'">MANAGERIAL (goal)</th><th class="th-sep"></th>'
-     + '<th class="th-delta" colspan="'+cols.length+'">Δ (Mgr − Acc)</th></tr>';
-  h += '<tr><th class="th-lbl">Línea</th>';
+  var h = head + '<div class="pnl-card" style="overflow-x:auto;margin-bottom:16px"><table class="qpnl-table" style="min-width:680px"><thead>';
+  h += '<tr><th class="th-lbl"></th><th class="th-baseline" colspan="'+cols.length+'">ACCOUNTING</th><th class="th-sep"></th>'
+     + '<th class="th-goal" colspan="'+cols.length+'">MANAGERIAL</th><th class="th-sep"></th>'
+     + '<th class="th-delta" colspan="'+cols.length+'">Δ (Mgr − Acc)</th></tr><tr><th class="th-lbl">Línea</th>';
   for(var g=0; g<3; g++){ cols.forEach(function(col){ h+='<th'+(col==='Total'?' class="th-total-b"':'')+'>'+col+'</th>'; }); if(g<2) h+='<th class="th-sep"></th>'; }
   h += '</tr></thead><tbody>';
 
   VSACC_MAP.forEach(function(row){
-    var accV = sumRow(function(m){ return _vsAccSum_(acc, row.acc, m); });
-    var mgrV = sumRow(function(m){ return _vsAccSum_(mgr, row.mgr, m); });
-    var dV   = mgrV.map(function(v,i){ return v - accV[i]; });
-    h += '<tr'+(row.sub?' style="font-weight:700;background:rgba(42,16,72,.05)"':'')+'>';
-    h += '<td class="th-lbl">'+escHtml(row.label)+(row.note?' <span style="color:var(--red);font-size:10px">('+escHtml(row.note)+')</span>':'')+'</td>';
-    h += accV.map(cell).join('') + '<td class="th-sep"></td>';
-    h += mgrV.map(cell).join('') + '<td class="th-sep"></td>';
-    h += dV.map(cell).join('');
-    h += '</tr>';
+    h += tr(row.label,
+            sumRow(function(m){ return _vsAccSum_(acc, row.acc, m); }),
+            sumRow(function(m){ return _vsAccSum_(mgr, row.mgr, m); }),
+            row.note,
+            row.sub ? 'font-weight:700;background:rgba(42,16,72,.05)' : '');
   });
-  h += '</tbody></table></div>';
+  VSACC_ACC_KEEP.forEach(function(k){
+    if(!acc[k]) return;
+    h += tr(k.replace(/^n1\|/,'') + ' — solo Accounting',
+            sumRow(function(m){ return (acc[k]||{})[m]||0; }),
+            cols.map(function(){ return 0; }),
+            '', 'color:var(--muted)');
+  });
+  return h + '</tbody></table></div>';
+}
 
-  // ── Líneas sin mapear ──────────────────────────────────────────────────
-  var accOnly = Object.keys(acc).filter(function(k){ return k.indexOf('n1|')===0 && !mapped['acc:'+k]; }).sort();
-  var METRIC_ALL = ['orders','gross_bookings','up_front_incentives','fees','commercial_discounts','income_from_outsourced_services','cancellations','cost_of_installments','credit_card_processing','white_labels_api','other_incentives','revenue_tax','back_end_incentives','breakage_revenue','media_revenue','errors','other_transactional_taxes','customer_claims','customer_service','affiliates','intercompany_usd','operations','vendor_commissions','frauds','efecto_financiero','dif_fx','currency_hedge','net_revenue','npv'];
-  var mgrOnly = METRIC_ALL.filter(function(k){ return !mapped['mgr:'+k] && mgr[k]; });
-
-  function miniTable(title, items, dict, keyfn){
-    if(!items.length) return '';
-    var s = '<div class="pnl-card" style="margin-top:10px;overflow-x:auto"><div style="padding:8px 12px;font-weight:700">'+title+'</div>'
-          + '<table class="qpnl-table" style="min-width:520px"><thead><tr><th class="th-lbl">Línea</th>'
-          + months.map(function(m){ return '<th>'+m+'</th>'; }).join('') + '<th class="th-total-b">Total</th></tr></thead><tbody>';
-    items.forEach(function(it){
-      var vals = months.map(function(m){ return (dict[keyfn(it)]||{})[m]||0; });
-      s += '<tr><td class="th-lbl">'+escHtml(it.replace(/^n[0-9]\|/,''))+'</td>'
-         + vals.map(function(v){ return '<td style="text-align:right'+(v<0?';color:var(--red)':'')+'">'+fmtM(v)+'</td>'; }).join('')
-         + '<td style="text-align:right;font-weight:700">'+fmtM(vals.reduce(function(a,b){return a+b;},0))+'</td></tr>';
-    });
-    return s + '</tbody></table></div>';
+function renderVsAcc_(){
+  var c = document.getElementById('vsacc-container');
+  var D = _vsAccData;
+  if(!D || !D.lobs){
+    c.innerHTML = '<div class="error-msg" style="padding:24px">Sin datos. '
+      + '<button type="button" onclick="fetchVsAcc_(true)" style="margin-left:8px;font-size:11px;padding:3px 10px;cursor:pointer">↻ recargar</button></div>';
+    return;
   }
-
-  h += miniTable('Accounting sin línea Managerial (definir mapeo o dejar fuera)', accOnly, acc, function(k){ return k; });
-  h += miniTable('Managerial sin línea Accounting (calculadas / gestionales)', mgrOnly, mgr, function(k){ return k; });
-
+  var h = '<div class="pnl-card" style="margin-bottom:10px;padding:12px 16px">'
+    + '<b>Managerial vs Accounting</b> — reales, meses cerrados, por LOB. '
+    + 'Accounting = <code>actuals.json</code> canónico (P&L N1). Managerial = actuals gestional ('
+    + 'B2B-MAY en RI, B2B-MIN y B2B2C en GD).'
+    + '<br><span style="color:var(--muted);font-size:11px">⚠ <code>VSACC_MAP</code> es un borrador — decime qué filas ajustar.</span> '
+    + '<button type="button" onclick="fetchVsAcc_(true)" style="margin-left:8px;font-size:10px;padding:2px 8px;cursor:pointer">↻ recargar</button></div>';
+  ['b2b2c','may','min'].forEach(function(lk){ if(D.lobs[lk]) h += _vsAccTable_(D.lobs[lk]); });
   c.innerHTML = h;
 }
 

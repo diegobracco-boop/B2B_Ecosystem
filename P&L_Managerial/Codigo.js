@@ -502,7 +502,7 @@ function getVsAccounting(filtersJson) {
   try {
     var t1 = DriveApp.getFileById(GESTIONAL_JSON_FILE_ID).getLastUpdated().getTime();
     var t2 = DriveApp.getFileById(ACC_ACTUALS_FILE_ID).getLastUpdated().getTime();
-    ck = 'vsacc_v3_' + t1 + '_' + t2;  // ⚠ bumpear el vN al cambiar la lógica de _computeVsAccounting_
+    ck = 'vsacc_v4_' + t1 + '_' + t2;  // ⚠ bumpear el vN al cambiar la lógica de _computeVsAccounting_
     var hit = cache.get(ck);
     if (hit) return JSON.parse(hit);
   } catch (e) { Logger.log('getVsAccounting cache probe: ' + e); }
@@ -514,61 +514,65 @@ function getVsAccounting(filtersJson) {
 
 function _computeVsAccounting_() {
   var json = readGestionalJSON_('bl');
+  var FY = YM_ORDER.map(function(y){ return YM_LABEL[y]; });
 
-  // ── Managerial actuals: RI en B2B-MAY (ac_ri), GD en B2B-MIN y B2B2C (no tienen RI) ──
-  var mgr = {};  // {metric: {mes: val}}
-  queryB2B2C_(json.b2b2c, 'ac', [], [], [], mgr,
-              null, null, null, null, null, null, null, null);
-  var mgrMay = {}, mgrMin = {};
-  queryB2B_(json.b2b_may, 'ac_ri', [], [], mgrMay, null, null);
-  queryB2B_(json.b2b_min, 'ac',    [], [], mgrMin, null, null);
-  mergeAgg_(mgrMay, mgr);
-  mergeAgg_(mgrMin, mgr);
-
-  // mgr/mgrMay/mgrMin vienen de addMetrics_ como {mes:{metric}} — transponer a
-  // {metric:{mes}} (que es lo que espera el frontend, igual que `acc`).
-  var mgrMonths = {};
-  var mgrT = {};
-  Object.keys(mgr).forEach(function(mes){
-    mgrMonths[mes] = true;
-    Object.keys(mgr[mes]).forEach(function(metric){
-      if (!mgrT[metric]) mgrT[metric] = {};
-      mgrT[metric][mes] = (mgrT[metric][mes] || 0) + mgr[mes][metric];
+  // ── Managerial actuals por LOB — {metric:{mes}} + set de meses ──
+  // B2B-MAY usa ac_ri (RI); B2B-MIN y B2B2C usan ac (GD, no tienen RI).
+  function mgrFor(lob, scen) {
+    var raw = {};
+    if (lob === 'b2b2c') {
+      queryB2B2C_(json.b2b2c, scen, [], [], [], raw, null,null,null,null,null,null,null,null);
+    } else {
+      queryB2B_(json['b2b_' + lob], scen, [], [], raw, null, null);
+    }
+    var t = {}, mm = {};
+    Object.keys(raw).forEach(function(mes){
+      mm[mes] = true;
+      Object.keys(raw[mes]).forEach(function(k){
+        if (!t[k]) t[k] = {};
+        t[k][mes] = (t[k][mes] || 0) + raw[mes][k];
+      });
     });
-  });
+    return { data: t, months: mm };
+  }
+  var M = {
+    b2b2c: mgrFor('b2b2c', 'ac'),
+    may:   mgrFor('may',   'ac_ri'),
+    min:   mgrFor('min',   'ac')
+  };
 
-  // ── Accounting: actuals.json → P&L N1 (para conciliar) + N3/N4 (subtotales) × mes ──
-  var acc = {};        // {'n1|<val>'|'n3|<val>'|'n4|<val>': {mes: val}}
+  // ── Accounting por LOB — actuals.json, P&L N1 + N3/N4, split por LoB×Canal ──
+  var A = { b2b2c: {}, may: {}, min: {} };
   var accMonths = {};
   var aj  = readAccActualsJSON_();
   var cix = {};
   (aj.cols || []).forEach(function(c, i){ cix[c] = i; });
-  var iLob = cix['LoB'], iN1 = cix['P&L N1'], iN3 = cix['P&L N3'], iN4 = cix['P&L N4'],
-      iFecha = cix['Fecha'], iMonto = cix['Monto USD'];
+  var iLob = cix['LoB'], iCanal = cix['Canal'], iN1 = cix['P&L N1'],
+      iN3 = cix['P&L N3'], iN4 = cix['P&L N4'], iFecha = cix['Fecha'], iMonto = cix['Monto USD'];
   (aj.rows || []).forEach(function(r){
-    var lob = String(r[iLob] || '').toLowerCase();
-    if (lob !== 'b2b' && lob !== 'b2b2c') return;
+    var lob = String(r[iLob] || '').toLowerCase(), canal = String(r[iCanal] || '').toLowerCase();
+    var bucket = (lob === 'b2b2c') ? 'b2b2c'
+               : (lob === 'b2b' && canal === 'may') ? 'may'
+               : (lob === 'b2b' && canal === 'min') ? 'min' : null;
+    if (!bucket) return;
     var mes = _accMes_(r[iFecha]); if (!mes) return;
-    var val = (+r[iMonto] || 0);
+    var val = (+r[iMonto] || 0), dst = A[bucket];
     [['n1', r[iN1]], ['n3', r[iN3]], ['n4', r[iN4]]].forEach(function(p){
       var k = p[0] + '|' + String(p[1] || '(sin ' + p[0] + ')').toLowerCase();
-      if (!acc[k]) acc[k] = {};
-      acc[k][mes] = (acc[k][mes] || 0) + val;
+      if (!dst[k]) dst[k] = {};
+      dst[k][mes] = (dst[k][mes] || 0) + val;
     });
     accMonths[mes] = true;
   });
 
-  // meses cerrados = intersección Managerial ∩ Accounting, en orden fiscal
-  var months = YM_ORDER.map(function(ym){ return YM_LABEL[ym]; })
-    .filter(function(m){ return mgrMonths[m] && accMonths[m]; });
-
+  function isect(mm){ return FY.filter(function(m){ return mm[m] && accMonths[m]; }); }
   return {
-    months:       months,
-    mgr:          mgrT,
-    acc:          acc,
-    mgrAllMonths: YM_ORDER.map(function(ym){ return YM_LABEL[ym]; }).filter(function(m){ return mgrMonths[m]; }),
-    accAllMonths: YM_ORDER.map(function(ym){ return YM_LABEL[ym]; }).filter(function(m){ return accMonths[m]; }),
-    accMeta:      aj.meta || {}
+    accMeta: aj.meta || {},
+    lobs: {
+      b2b2c: { label: 'B2B2C',     mgrLabel: 'ac (GD)',    months: isect(M.b2b2c.months), mgr: M.b2b2c.data, acc: A.b2b2c },
+      may:   { label: 'B2B · MAY', mgrLabel: 'ac_ri (RI)', months: isect(M.may.months),   mgr: M.may.data,   acc: A.may },
+      min:   { label: 'B2B · MIN', mgrLabel: 'ac (GD)',    months: isect(M.min.months),   mgr: M.min.data,   acc: A.min }
+    }
   };
 }
 
