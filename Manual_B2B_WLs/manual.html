@@ -1417,7 +1417,7 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
     <div class="page-header">
       <div class="page-tag">Proyecto</div>
       <div class="page-title">P&amp;L <span>Managerial</span></div>
-      <div class="page-sub">Landing de las vistas <strong>Gestional (FVM)</strong> para B2B2C y B2B. Separado del P&amp;L Accounting en julio 2026. Lee <code>_actuals_gestional.json</code> — actuals (Treasure Data / ODBC) + proyecciones (Modelos Forecast XLSX), todo generado por <code>actuals_gestional_upload.py</code> en un solo run. Ver <code>P&amp;L_Managerial/CONTEXT.md</code>.</div>
+      <div class="page-sub">Landing de las vistas <strong>Gestional (FVM)</strong> para B2B2C y B2B. Separado del P&amp;L Accounting en julio 2026. Lee <code>_actuals_gestional.json</code> — actuals (Treasure Data / ODBC) + proyecciones (Modelos Forecast XLSX), todo generado por <code>actuals_gestional_upload.py</code> en un solo run. Incluye una vista top-level <strong>"Managerial vs Accounting"</strong> que concilia los reales gestionales contra los contables línea por línea (lee <code>actuals.json</code> canónico de Inputs_Planning_PnL, solo lectura). Ver <code>P&amp;L_Managerial/CONTEXT.md</code>.</div>
     </div>
 
     <div class="two-col">
@@ -1441,7 +1441,8 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
           <thead><tr><th>Dato</th><th>Origen</th><th>Script</th></tr></thead>
           <tbody>
             <tr><td>Forecast (FC)</td><td>Modelos Forecast XLSX (WLs, API, HTML) → JSON gestional</td><td><code>actuals_gestional_upload.py</code> (lee <code>FC_XLSX_DIR</code>)</td></tr>
-            <tr><td>Actuals / LY / Budget / Run rate</td><td>Treasure Data (ODBC) — B2B2C + B2B GD + B2B RI</td><td><code>actuals_gestional_upload.py</code></td></tr>
+            <tr><td>Actuals / LY / Budget / Run rate</td><td>Treasure Data (ODBC) — B2B2C + B2B GD + B2B RI. Las queries B2B GD/RI están <strong>alineadas a <code>daily_sync.py</code></strong> (versión oficial): RI reconoce por check-in para todo <code>parent_channel='API'</code>; B2B-MIN tiene serie RI (toggle RI aplica a MIN); fórmulas de componentes idénticas al Daily (GB/NR/FVM coinciden al centavo)</td><td><code>actuals_gestional_upload.py</code></td></tr>
+            <tr><td>Reconciliación (vista "Managerial vs Accounting")</td><td><code>actuals.json</code> canónico — folder Drive <code>1XqQPL...</code> (fileId <code>1PABNf4XVKdj6eXApr5_yP581ZsD_N9e-</code>), lo genera Inputs_Planning_PnL</td><td><code>Codigo.js</code> → <code>getVsAccounting()</code> (solo lectura, NO toca pipelines)</td></tr>
             <tr><td>Proyección WIP (preview, sin publicar)</td><td>Excel de un WIP folder aparte</td><td><code>projections_gestional_builder.py --wip-folder</code></td></tr>
             <tr><td>LY estático en <code>ly_data.js</code></td><td colspan="2">⚠️ No usado — nada en <code>Codigo.js</code>/<code>dashboard.html</code> lo referencia. El LY real que se ve en la landing es el dinámico que calcula <code>actuals_gestional_upload.py</code> en cada run.</td></tr>
           </tbody>
@@ -1454,10 +1455,10 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
       <table class="doc-table">
         <thead><tr><th>Archivo</th><th>Tipo</th><th>Rol</th></tr></thead>
         <tbody>
-          <tr><td>dashboard.html</td><td><span class="tag tag-html">HTML</span></td><td>Frontend vistas gestionales: Managerial View B2B2C y B2B (FVM, waterfall, evolución, palancas, NR Bridge, PxQ). Sin vistas contables (esas quedaron en P&amp;L Accounting)</td></tr>
-          <tr><td>Codigo.js</td><td><span class="tag tag-js">Apps Script</span></td><td>Backend gestional: lee <code>_actuals_gestional.json</code> (o <code>pnl_gestional_projections_review.json</code> según el toggle) desde Drive y sirve los datos al frontend</td></tr>
+          <tr><td>dashboard.html</td><td><span class="tag tag-html">HTML</span></td><td>Frontend vistas gestionales: Managerial View B2B2C y B2B (FVM, waterfall, evolución, palancas, NR Bridge, PxQ) + vista top-level <strong>Managerial vs Accounting</strong> (conciliación por LOB, con selector país/producto). Sin vistas contables (esas quedaron en P&amp;L Accounting)</td></tr>
+          <tr><td>Codigo.js</td><td><span class="tag tag-js">Apps Script</span></td><td>Backend gestional: lee <code>_actuals_gestional.json</code> (o <code>pnl_gestional_projections_review.json</code> según el toggle) desde Drive y sirve los datos al frontend. <code>getVsAccounting()</code> arma la conciliación contra <code>actuals.json</code> canónico (cache 6 h por LOB/filtro)</td></tr>
           <tr><td>ly_data.js</td><td><span class="tag tag-js">Apps Script</span></td><td>⚠️ No usado actualmente — LY estático de FY26, pero nada lo referencia. El LY real viene de <code>actuals_gestional_upload.py</code>. Candidato a borrar</td></tr>
-          <tr><td>actuals_gestional_upload.py</td><td><span class="tag tag-py">Python</span></td><td>Consulta Treasure Data (ODBC) para actuals/LY/budget/run-rate B2B2C + B2B GD + B2B RI (FY27 desde Abr-26), y lee los modelos Forecast XLSX para el forecast. Sube <code>_actuals_gestional.json</code> al folder de Drive <code>1wzudbo7cN9Ibiv...</code>. Requiere VPN + <code>.env</code> con creds ODBC</td></tr>
+          <tr><td>actuals_gestional_upload.py</td><td><span class="tag tag-py">Python</span></td><td>Consulta Treasure Data (ODBC) para actuals/LY/budget/run-rate B2B2C + B2B GD + B2B RI (FY27 desde Abr-26), y lee los modelos Forecast XLSX para el forecast. Sube <code>_actuals_gestional.json</code> al folder de Drive <code>1wzudbo7cN9Ibiv...</code>. Requiere VPN + <code>.env</code> con creds ODBC. <strong>Queries B2B GD/RI alineadas a <code>daily_sync.py</code></strong> — al tocarlas, comparar contra <code>_B2B_COMPONENTS_*</code> / <code>_COUNTRY_FACTORS_*</code> del Daily (ver <code>CONTEXT.md</code>)</td></tr>
           <tr><td>projections_gestional_builder.py</td><td><span class="tag tag-py">Python</span></td><td>Herramienta de preview aparte (no forma parte del refresh regular): toma actuals del JSON principal + una proyección WIP en Excel (<code>--wip-folder</code>) y arma <code>pnl_gestional_projections_review.json</code></td></tr>
           <tr><td>appsscript.json / .clasp.json</td><td><span class="tag tag-js">Manifest</span></td><td>Webapp; executeAs USER_DEPLOYING; acceso DOMAIN</td></tr>
         </tbody>
