@@ -777,7 +777,7 @@ a.ext-link:hover { text-decoration: underline; }
       <div class="card-title">📅 Cerró un mes (llegaron los actuals)</div>
       <table class="doc-table">
         <tbody>
-          <tr><td>Contable (P&amp;L Accounting)</td><td>Desde <code>Inputs_Planning_PnL</code>: <code>run_all.bat</code> → <code>python baseline_builder.py</code> → <code>python plana_to_cube.py --upload</code>. Recargar la landing (Ctrl+Shift+R). Sin deploy.</td></tr>
+          <tr><td>Contable (P&amp;L Accounting)</td><td>Desde <code>Inputs_Planning_PnL</code>: <code>run_all.bat</code> → <code>python baseline_builder.py --promote-month AAAA-MM-01</code> (el mes que cerró) → <code>python plana_to_cube.py --upload</code>. Recargar la landing (Ctrl+Shift+R). Sin deploy.</td></tr>
           <tr><td>Gestional (P&amp;L Managerial)</td><td>Desde <code>P&amp;L_Managerial</code>, con VPN: <code>python actuals_gestional_upload.py</code>. Un solo run.</td></tr>
           <tr><td>Daily</td><td>Se incorpora solo en el run automático de las 08:00.</td></tr>
         </tbody>
@@ -978,7 +978,7 @@ a.ext-link:hover { text-decoration: underline; }
             <div class="step-num">1</div>
             <div class="step-body">
               <div class="step-title">Datos de P&amp;L Accounting (contable)</div>
-              <div class="step-desc">Cuando cambian los CSV Hyperion o llega el actuals de un mes cerrado → desde <code>Inputs_Planning_PnL</code>: <code>run_all.bat</code> (regenera los 6 JSON canónicos) + <code>python baseline_builder.py</code> + <code>python plana_to_cube.py --upload</code>. La vista visible (EPM) lee los canónicos directo.</div>
+              <div class="step-desc">Cuando cambian los CSV Hyperion o llega el actuals de un mes cerrado → desde <code>Inputs_Planning_PnL</code>: <code>run_all.bat</code> (regenera los 6 JSON canónicos) + <code>python baseline_builder.py --promote-month AAAA-MM-01</code> (el mes que cerró) + <code>python plana_to_cube.py --upload</code>. La vista visible (EPM) lee los canónicos directo; el cubo alimenta la vista "Model + Accounting".</div>
             </div>
           </div>
           <div class="step">
@@ -1066,9 +1066,10 @@ a.ext-link:hover { text-decoration: underline; }
             <div class="step-title">Ejecutar scripts Python</div>
             <div class="step-desc">En terminal (PowerShell o CMD), desde la carpeta del proyecto:</div>
             <div class="code-block">cd "...\Proyectos IA\Inputs_Planning_PnL"
-run_all.bat                        REM regenera planas + JSON canónicos (o los builders puntuales)
-python baseline_builder.py         REM arma baseline_actuals+projections.json
-python plana_to_cube.py --upload   REM rearma y sube los cubos que lee P&L Accounting</div>
+run_all.bat                                      REM regenera planas + 6 JSON canónicos
+python baseline_builder.py --promote-month AAAA-MM-01   REM promueve el mes cerrado (run-rate -> actual)
+python plana_to_cube.py --upload                 REM rearma y sube los cubos que lee P&L Accounting</div>
+            <div class="step-desc" style="margin-top:6px">El <code>--promote-month</code> es el 1&ordm; del mes que cerró (ej. <code>2026-08-01</code>). Ya no hace falta <code>--actuals-xlsx</code>: lee el <code>...- V2.xlsx</code> por config. <code>baseline_builder</code> deja el JSON en la raíz del módulo, que es de donde lo toma <code>plana_to_cube.py</code>.</div>
           </div>
         </div>
         <div class="step">
@@ -1375,7 +1376,7 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
       <table class="doc-table">
         <thead><tr><th>Qué cambió</th><th>Pasos</th></tr></thead>
         <tbody>
-          <tr><td><strong>DATOS</strong> (números)</td><td>1) En <code>Inputs_Planning_PnL</code>: regenerar los JSON (plana_*_builder + baseline_builder + json_builder all, o <code>run_all.bat</code>). 2) <code>python plana_to_cube.py --upload</code> (rearma y sube los cubos). 3) En la landing: <strong>Ctrl+Shift+R</strong>. NO requiere clasp/deploy.</td></tr>
+          <tr><td><strong>DATOS</strong> (números)</td><td>1) En <code>Inputs_Planning_PnL</code>: <code>run_all.bat</code> (planas + json_builder all) + <code>python baseline_builder.py --promote-month AAAA-MM-01</code> si cerró un mes. 2) <code>python plana_to_cube.py --upload</code> (rearma y sube los cubos). 3) En la landing: <strong>Ctrl+Shift+R</strong>. NO requiere clasp/deploy.</td></tr>
           <tr><td><strong>CÓDIGO</strong> (.js / .html)</td><td>Desde <code>P&amp;L_Accounting</code>: <code>clasp push</code> (→ /dev) y luego <code>clasp deploy -i AKfycby9WZK... -d "desc"</code>. ⚠️ El deployment publicado queda congelado; SIEMPRE redeployar con <code>-i</code> tras el push.</td></tr>
         </tbody>
       </table>

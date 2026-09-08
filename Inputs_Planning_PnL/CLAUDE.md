@@ -45,8 +45,11 @@ CSV crudos (OneDrive\Planning-PBI - Inputs Power Bi)
 - `json_builder.py` — planas → JSON canónico → Drive.
 - `baseline_builder.py` — arma/actualiza `baseline_actuals+projections.json` (NO lo hace json_builder).
   Es la línea de tiempo FY27 = actuals[Abr..corte] + runrate[Ago,Sep] + forecast[Oct..Mar].
-  Mensual: `python baseline_builder.py --promote-month YYYY-MM-01 --actuals-xlsx <Excel con el mes cerrado>`
-  (reemplaza solo ese mes, run-rate→actual, y deja el resto idéntico). `--rebuild` reconstruye entero.
+  Mensual: `python baseline_builder.py --promote-month YYYY-MM-01`
+  (reemplaza solo ese mes, run-rate→actual, y deja el resto idéntico). Ya NO hace falta
+  `--actuals-xlsx`: el default lee el V2 de `config.ACTUALS_FILENAMES`, que trae el mes cerrado.
+  `--rebuild` reconstruye entero. Escribe en `_baseline_out/` **y** en la raíz del módulo
+  (de la raíz lo lee `plana_to_cube.py`).
 - `auth_drive.py` / `run_all.bat` / `LEEME.txt`.
 - Secretos (NO versionar ni compartir): `credentials_drive.json` (client OAuth, compartido) y `token_drive.json` (personal, cada uno el suyo).
 

@@ -214,9 +214,14 @@ def _emit(svc, fid, payload, upload):
     outdir = os.path.join(DIR, "_baseline_out")
     os.makedirs(outdir, exist_ok=True)
     local = os.path.join(outdir, BASELINE_NAME)
+    txt = json.dumps(payload, ensure_ascii=False, separators=(",", ":"), default=str)
     with open(local, "w", encoding="utf-8") as f:
-        json.dump(payload, f, ensure_ascii=False, separators=(",", ":"), default=str)
-    print(f"\nlocal -> {local} ({os.path.getsize(local)/1e6:.2f} MB, {payload['meta']['filas']:,} filas)")
+        f.write(txt)
+    # También en la raíz del módulo, junto a los demás canónicos: es de ahí que
+    # plana_to_cube.py lee el escenario 'bl' (si no, agarra una copia vieja).
+    with open(os.path.join(DIR, BASELINE_NAME), "w", encoding="utf-8") as f:
+        f.write(txt)
+    print(f"\nlocal -> {local} (+ copia en la raíz) ({os.path.getsize(local)/1e6:.2f} MB, {payload['meta']['filas']:,} filas)")
     if upload:
         from googleapiclient.http import MediaFileUpload
         media = MediaFileUpload(local, mimetype="application/json", resumable=True)
