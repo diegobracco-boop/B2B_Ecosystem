@@ -494,6 +494,25 @@ function _accMes_(fecha) {
 }
 
 function getVsAccounting(filtersJson) {
+  // Cache del RESULTADO agregado (chico) — parsear los 2 JSON multi-MB de Drive
+  // + agregar tarda varios segundos. Clave por lastUpdated de ambos archivos
+  // fuente → se auto-invalida cuando corre un sync nuevo.
+  var cache = CacheService.getScriptCache();
+  var ck = null;
+  try {
+    var t1 = DriveApp.getFileById(GESTIONAL_JSON_FILE_ID).getLastUpdated().getTime();
+    var t2 = DriveApp.getFileById(ACC_ACTUALS_FILE_ID).getLastUpdated().getTime();
+    ck = 'vsacc_' + t1 + '_' + t2;
+    var hit = cache.get(ck);
+    if (hit) return JSON.parse(hit);
+  } catch (e) { Logger.log('getVsAccounting cache probe: ' + e); }
+
+  var out = _computeVsAccounting_();
+  if (ck) { try { cache.put(ck, JSON.stringify(out), 21600); } catch (e) {} }  // 6 h
+  return out;
+}
+
+function _computeVsAccounting_() {
   var json = readGestionalJSON_('bl');
 
   // ── Managerial: escenario 'ac' (Total = b2b2c + b2b_may + b2b_min) ──

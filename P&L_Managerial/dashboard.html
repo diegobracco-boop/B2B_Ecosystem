@@ -619,6 +619,19 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
         </div>
       </div>
 
+      <div class="home-section-group">
+        <div class="home-section-label">Conciliación <small>&nbsp;·&nbsp; reales Managerial vs Accounting</small></div>
+        <div class="home-bento">
+          <button class="bento-card" style="--i:2" onclick="goToView('vsacc')">
+            <div class="bento-kicker">Reales · meses cerrados</div>
+            <div class="bento-icon">⚖️</div>
+            <div class="bento-name">Managerial vs Accounting</div>
+            <div class="bento-desc">Comparación línea por línea de P&amp;L · B2B + B2B2C</div>
+            <div class="bento-arrow">→</div>
+          </button>
+        </div>
+      </div>
+
     </div>
   </div>
 </div>
@@ -634,6 +647,7 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
   <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;gap:6px;align-items:center">
     <button class="lob-btn" id="lob-b2b" onclick="switchLob('b2b')">B2B · Managerial View</button>
     <button class="lob-btn active" id="lob-b2b2c" onclick="switchLob('b2b2c')">B2B2C · Managerial View</button>
+    <button class="lob-btn" id="lob-vsacc" onclick="enterVsAcc()">Managerial vs Accounting</button>
   </div>
   <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
     <span id="last-upd"></span>
@@ -646,7 +660,6 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
   <button class="tab-btn active" id="tab-baseline" onclick="switchTab('baseline')">P&amp;L - Managerial View</button>
   <button class="tab-btn" id="tab-graficos" onclick="switchTab('graficos')">Trend view</button>
   <button class="tab-btn" id="tab-detalle" onclick="switchTab('detalle')">Detalle</button>
-  <button class="tab-btn" id="tab-vsacc" onclick="switchTab('vsacc')">Managerial vs Accounting</button>
 </div>
 
 <div class="lob-switcher">
@@ -879,7 +892,6 @@ function switchTab(name){
   if(name === 'baseline' && _data) renderManagerialBGTable();
   if(name === 'detalle' && _data) renderDetalle();
   if(name === 'graficos' && _data) { try{ renderTrendCharts(_data.months||[], _data.agg||{}, _data.budget||{}, _data.ly||{}); }catch(e){ if(window.console) console.error('[render:trend]', e); } }
-  if(name === 'vsacc') fetchVsAcc_();
   _updateStickyOffsets_();
 }
 
@@ -2427,6 +2439,8 @@ function goToView(target){
     switchLob('b2b');
   } else if(target === 'b2b2c'){
     switchLob('b2b2c');
+  } else if(target === 'vsacc'){
+    enterVsAcc();
   }
 }
 
@@ -2448,7 +2462,39 @@ document.addEventListener('mousemove', function(e){
   }
 })();
 
+// ── Modo "Managerial vs Accounting" — vista top-level, fuera de los tabs B2B/B2B2C ──
+var _vsAccMode = false;
+function _vsAccChrome_(on){
+  ['normal-tab-bar','actuals-legend'].forEach(function(id){ var e=document.getElementById(id); if(e) e.style.display = on ? 'none' : ''; });
+  var lobSw = document.querySelector('.lob-switcher'); if(lobSw) lobSw.style.display = on ? 'none' : '';
+  var filt  = document.querySelector('.filters-bar');  if(filt)  filt.style.display  = on ? 'none' : '';
+  document.querySelectorAll('.tab-pane').forEach(function(p){
+    if(on) p.classList.toggle('active', p.id === 'pane-vsacc');
+  });
+  var b = document.getElementById('lob-vsacc'); if(b) b.classList.toggle('active', on);
+  if(on){
+    document.getElementById('lob-b2b').classList.remove('active');
+    document.getElementById('lob-b2b2c').classList.remove('active');
+  }
+}
+function enterVsAcc(){
+  _vsAccMode = true;
+  document.getElementById('home-overlay').style.display = 'none';
+  _vsAccChrome_(true);
+  _updateStickyOffsets_();
+  fetchVsAcc_();
+}
+function exitVsAcc_(){
+  if(!_vsAccMode) return;
+  _vsAccMode = false;
+  _vsAccChrome_(false);
+  // dejar la pestaña P&L activa; switchLob/switchTab se encargan del resto
+  document.querySelectorAll('.tab-pane').forEach(function(p){ p.classList.toggle('active', p.id === 'pane-baseline'); });
+  document.querySelectorAll('.tab-btn').forEach(function(t){ t.classList.toggle('active', t.id === 'tab-baseline'); });
+}
+
 function switchLob(lob){
+  exitVsAcc_();
   _activeLob = lob;
   document.getElementById('lob-b2b2c').classList.toggle('active', lob === 'b2b2c');
   document.getElementById('lob-b2b').classList.toggle('active', lob === 'b2b');
