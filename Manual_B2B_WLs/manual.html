@@ -1173,7 +1173,7 @@ clasp deploy -i AKfycby9WZK2HfAWx25M5pEMV3nntzJfEvsiT9feMn01zJQkQaI3t2GjTzOIjbFX
           <div class="flow-node-items">
             <div class="flow-item blue">CSV Hyperion (Planning-PBI)</div>
             <div class="flow-item blue">Budget / Forecast / Run Rate</div>
-            <div class="flow-item blue">XLSX Actuals (BITUBIA)</div>
+            <div class="flow-item blue">XLSX Actuals (Planning-PBI\Actuals)</div>
             <div class="flow-item blue">Reverso AxI.xlsx</div>
             <div class="flow-item blue">Glosario.xlsx (homologación)</div>
           </div>
@@ -1851,10 +1851,13 @@ como-crear-agente-auditor.txt          ← cómo armar uno nuevo + lecciones de 
       <div class="card-title">📂 Fuentes del motor de datos (OneDrive)</div>
       <div class="code-block">OneDrive → Planning-PBI - Inputs Power Bi\
   ├── Budget / Forecast / Run Rate\  ← CSV Hyperion (ALL / NA) formato wide + POV
-  └── Actuals\Reverso AxI.xlsx       ← Ajuste AxI (hojas Budget / RunRate)
+  └── Actuals\
+      ├── 00 - Actuals YYYY - Plana Python*.xlsx  ← Actuals por año calendario (solapa POWERBI)
+      │      nombre exacto por año en config.ACTUALS_FILENAMES (2026 = "...- V2.xlsx")
+      └── Reverso AxI.xlsx           ← Ajuste AxI (hojas Budget / RunRate)
 OneDrive → Control de Gestión 2026-27 → B2B & WLs → Proyectos IA → BITUBIA\
-  ├── Glosario.xlsx                  ← Homologación (Marca/Paises/Producto/LOB/Linea P&L)
-  └── 00 - Actuals YYYY - Plana Python.xlsx  ← Actuals por año calendario</div>
+  └── Glosario.xlsx                  ← Homologación (Marca/Paises/Producto/LOB/Linea P&L)
+     (BITUBIA ya NO se usa para actuals — Toqan discontinuado, 2026-09. Solo queda el Glosario.)</div>
     </div>
 
     <div class="card">

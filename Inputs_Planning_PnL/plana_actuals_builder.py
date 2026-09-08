@@ -28,7 +28,6 @@ from pnl_common import (
     load_glosario, add_axi, load_axi_sheet,
 )
 
-BITUBIA      = os.path.join(pnl_common.get_base_dir(), "Proyectos IA", "BITUBIA")
 AXI_RR_DATES = config.AXI_RR_DATES
 
 NIVELES = ["P&L N1", "P&L N2", "P&L N3", "P&L N4", "P&L N5", "P&L N6", "P&L Managerial View"]
@@ -46,16 +45,27 @@ EXCL_LINEA_ACT = {
 
 
 # ── Lectura de un archivo calendario ─────────────────────────────────────────
-def read_actuals_file(year, wanted_dates, bitubia_dir=None):
-    bitubia = bitubia_dir or BITUBIA
-    path = os.path.join(bitubia, f"00 - Actuals {year} - Plana Python.xlsx")
+def read_actuals_file(year, wanted_dates, override_dir=None):
+    # override_dir: carpeta con el xlsx nombrado con el patrón default
+    # (lo usa baseline_builder.py para inyectar un Excel puntual). Sin override,
+    # la ruta canónica sale de config/pnl_common (<Planning-PBI>\Actuals\...).
+    if override_dir:
+        path = os.path.join(override_dir, config.ACTUALS_FILENAME_DEFAULT.format(year=year))
+    else:
+        path = pnl_common.get_actuals_file(year)
     if not os.path.exists(path):
         print(f"  (falta {os.path.basename(path)} -> se omite ese tramo)")
         return [], []
+    import datetime as _dtm
+    _mt = _dtm.datetime.fromtimestamp(os.path.getmtime(path)).strftime("%Y-%m-%d %H:%M")
+    print(f"  fuente actuals {year}: {os.path.basename(path)}  (mod {_mt})")
     import openpyxl
     wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
     sheet = None
-    for sn in wb.sheetnames:
+    # Preferir la solapa exacta "POWERBI" si está; si no, heurística por headers.
+    exact = [sn for sn in wb.sheetnames if sn.strip().lower() == "powerbi"]
+    candidates = exact + [sn for sn in wb.sheetnames if sn not in exact]
+    for sn in candidates:
         if any(k in sn.strip().lower() for k in ("ajuste", "adj")):
             continue
         ws = wb[sn]
@@ -126,12 +136,12 @@ def load_axi_actuals(g):
 
 
 # ── Build ────────────────────────────────────────────────────────────────────
-def build(fy, con_ppa=False, bitubia_dir=None):
+def build(fy, con_ppa=False, override_dir=None):
     print(f"=== plana actuals FY{fy} ({'CON' if con_ppa else 'SIN'} PPA) ===")
     prev_dates = [f"{fy-1}-{m:02d}-01" for m in range(4, 13)]   # Abr-Dic (fy-1)
     cur_dates  = [f"{fy}-{m:02d}-01" for m in (1, 2, 3)]        # Ene-Mar (fy)
-    r1, d1 = read_actuals_file(fy - 1, set(prev_dates), bitubia_dir)
-    r2, d2 = read_actuals_file(fy,     set(cur_dates),  bitubia_dir)
+    r1, d1 = read_actuals_file(fy - 1, set(prev_dates), override_dir)
+    r2, d2 = read_actuals_file(fy,     set(cur_dates),  override_dir)
     recs = r1 + r2
     all_dates = d1 + d2
     if not recs:

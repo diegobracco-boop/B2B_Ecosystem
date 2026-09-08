@@ -52,6 +52,18 @@ def get_reverso_axi_path():
     return os.path.join(get_pbi_inputs_dir(), "Actuals", "Reverso AxI.xlsx")
 
 
+def get_actuals_dir():
+    """Carpeta de los '00 - Actuals YYYY - Plana Python*.xlsx' (reales contables)."""
+    return os.path.join(get_pbi_inputs_dir(), "Actuals")
+
+
+def get_actuals_file(year):
+    """Ruta del xlsx de actuals para un año CALENDARIO (nombre exacto vía config)."""
+    year = int(year)
+    fn = _cfg.ACTUALS_FILENAMES.get(year, _cfg.ACTUALS_FILENAME_DEFAULT.format(year=year))
+    return os.path.join(get_actuals_dir(), fn)
+
+
 def get_toqan_dir():
     return os.path.join(get_base_dir(), "Proyectos IA", "BITUBIA", "Output Toqan")
 

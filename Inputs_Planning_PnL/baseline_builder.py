@@ -22,8 +22,8 @@ DOS MODOS:
 FUENTES:
   - ACTUALS: se generan con plana_actuals_builder (misma homologación/exclusiones/Reverso AxI
     que Abr-Jun) a partir del Excel '00 - Actuals 2026 - Plana Python*.xlsx'.
-    Por default usa el que lee el pipeline (BITUBIA). Con --actuals-xlsx <ruta> se puede
-    apuntar a otro (ej. el 'V2' en Planning-PBI\\Actuals que trae el mes recién cerrado).
+    Por default usa el que lee el pipeline (config.ACTUALS_FILENAMES en
+    <Planning-PBI>\\Actuals). Con --actuals-xlsx <ruta> se puede apuntar a otro.
   - RUNRATE / FORECAST: se toman de los JSON canónicos ya publicados en Drive (runrate.json,
     forecast.json). No se regeneran acá (usar run_all.bat si hay que actualizarlos).
 
@@ -94,19 +94,19 @@ def _download_json(svc, name):
 
 def build_actuals_json(actuals_xlsx=None, fy=2027):
     """Corre plana_actuals_builder y canonicaliza igual que json_builder -> payload actuals."""
-    bitubia_dir = None
+    override_dir = None
     if actuals_xlsx:
         # copiar al nombre esperado para que read_actuals_file lo encuentre
         tmp = tempfile.mkdtemp(prefix="actuals_src_")
-        dst = os.path.join(tmp, f"00 - Actuals {fy-1} - Plana Python.xlsx")
+        dst = os.path.join(tmp, config.ACTUALS_FILENAME_DEFAULT.format(year=fy - 1))
         shutil.copy(actuals_xlsx, dst)
-        bitubia_dir = tmp
+        override_dir = tmp
         print(f"  actuals source override: {actuals_xlsx}")
     try:
-        plana = A.build(fy, bitubia_dir=bitubia_dir)    # SIN PPA (suma Reverso AxI)
+        plana = A.build(fy, override_dir=override_dir)    # SIN PPA (suma Reverso AxI)
     finally:
-        if bitubia_dir:
-            shutil.rmtree(bitubia_dir, ignore_errors=True)
+        if override_dir:
+            shutil.rmtree(override_dir, ignore_errors=True)
     # limpiar el CSV que build() deja en el repo
     yy = str(fy)[-2:]
     csv = os.path.join(DIR, f"actuals_fy{yy}_abr{fy-1}_mar{fy}.csv")

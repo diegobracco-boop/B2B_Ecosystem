@@ -30,9 +30,13 @@ CSV crudos (OneDrive\Planning-PBI - Inputs Power Bi)
 - **Canal**: solo **B2B** abre MAY/MIN; **B2B2C y B2C** se colapsan a `total` (en el JSON).
 - **JSON agregado sobre Marca** (no se incluye).
 - **Año fiscal = Abr(N-1) a Mar(N).** Proyecciones = FY27 (abr-2026 a mar-2027).
-  Actuals por FY combina 2 archivos calendario (`00 - Actuals YYYY - Plana Python.xlsx`
-  en `...\B2B & WLs\Proyectos IA\BITUBIA`): Abr-Dic del (fy-1) + Ene-Mar del (fy).
-- Homologación con `...\BITUBIA\Glosario.xlsx` (solapas Marca/Paises/Producto/LOB/Linea P&L).
+  Actuals por FY combina 2 archivos calendario en `Planning-PBI - Inputs Power Bi\Actuals\`
+  (solapa **POWERBI**): Abr-Dic del (fy-1) + Ene-Mar del (fy). El nombre exacto del xlsx
+  por año calendario está en `config.ACTUALS_FILENAMES` (hoy 2026 = `00 - Actuals 2026 - Plana Python - V2.xlsx`;
+  los años que no figuran usan el patrón `00 - Actuals YYYY - Plana Python.xlsx`).
+  **Ya NO se usa la carpeta `BITUBIA` para actuals** (Toqan discontinuado, 2026-09) — el equipo
+  publica el xlsx directo en `Planning-PBI\Actuals\`.
+- Homologación con `...\B2B & WLs\Proyectos IA\BITUBIA\Glosario.xlsx` (solapas Marca/Paises/Producto/LOB/Linea P&L) — el Glosario **sí** sigue en BITUBIA.
 
 ## Archivos
 - `pnl_common.py` — rutas portables (resuelve OneDrive por usuario) + auth Drive scope completo.
