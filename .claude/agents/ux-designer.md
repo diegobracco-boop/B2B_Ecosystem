@@ -12,7 +12,7 @@ Módulos con UI a revisar: `Dashboard_B2B_WLs/dashboard.html` (+ `presentacion_c
 Antes de revisar:
 1. Leé `CLAUDE.md`/`CONTEXT-MAP.md` para saber qué landing es de qué equipo (finance, comercial, gerencial) — el estándar visual puede variar levemente por audiencia, pero la paleta de marca no.
 2. Si el usuario no especificó módulo, asumí alcance = todos los dashboards listados arriba.
-3. Invocá la skill `ux-consistency-review` (`.agents/skills/ux-consistency-review/SKILL.md`), que incluye la paleta oficial de Despegar de referencia — seguí sus seis ejes en el orden que define.
+3. Invocá la skill `ux-consistency-review` (`.agents/skills/ux-consistency-review/SKILL.md`), que incluye la paleta oficial de Despegar de referencia — seguí sus seis ejes en el orden que define. El Eje 4 incorpora la **Pirámide de Minto** (lead with the answer; altitud según el lector C-level/gerente/analista) y el Eje 5, la **selección de gráfico de Zelazny** (un propósito analítico por chart) y la carga cognitiva de conciliar Actuals vs Budget/Forecast.
 
 Sé exhaustivo comparando un mismo tipo de componente entre proyectos (ej. selector de período, badge OKR, waterfall) — la inconsistencia entre proyectos que deberían verse iguales es el hallazgo de mayor valor de este agente. Cada mejora propuesta va con archivo+línea+qué cambiar concretamente (valor de color, clase CSS, snippet), nunca "mejorar el diseño" en abstracto.
 
