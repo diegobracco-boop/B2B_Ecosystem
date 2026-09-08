@@ -13,8 +13,9 @@ var JSON_IDS = {
   ly:       '1zd5gnMFztKiCSgeY-VmsfVOr0LQ6ftGI'   // actuals_previos_fy26.json
 };
 // Actualizar cuando se regenera baseline_actuals+projections.json
-var LAST_ACTUALS_YM = '2026-07';   // último mes con actuals reales
-var LAST_RR_YM      = '2026-09';   // último mes de RunRate en el baseline
+// (+ bump de v: en makeCacheKey_ acá y en Codigo_country_page.js para invalidar el cache)
+var LAST_ACTUALS_YM = '2026-08';   // último mes con actuals reales
+var LAST_RR_YM      = '2026-09';   // 1er mes proyectado del baseline (informativo, no se usa en la lógica)
 
 // ── Grupos P&L Summary por LoB ────────────────────────────────
 var CANAL_GROUPS_BY_LOB = {
@@ -122,7 +123,7 @@ function _getJsonsLastMod_() {
 
 function makeCacheKey_(p) {
   return JSON.stringify({
-    v:        26,
+    v:        27,
     lob:      p.lob      || 'all',
     pais:     p.pais     || 'all',
     producto: p.producto || 'all',
