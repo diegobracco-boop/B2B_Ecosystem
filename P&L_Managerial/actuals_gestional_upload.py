@@ -649,10 +649,10 @@ pnl_filtered AS (
 base_metrics AS (
     SELECT
         CAST(
-            CASE WHEN fh.partner_id IN ('AG72472','expedia','AG00044461','AG00101284')
+            CASE WHEN fh.parent_channel = 'API'
                  THEN YEAR(p.checkin_date) ELSE YEAR(fh.recognition_date) END
         AS VARCHAR) AS anio_ri,
-        CASE WHEN fh.partner_id IN ('AG72472','expedia','AG00044461','AG00101284')
+        CASE WHEN fh.parent_channel = 'API'
              THEN MONTH(p.checkin_date) ELSE MONTH(fh.recognition_date) END AS mes_ri,
         fh.line_of_business_code AS lob,
         fh.parent_channel,
@@ -764,7 +764,7 @@ base_metrics AS (
     LEFT JOIN data.analytics.bi_transactional_fact_products_current_state cs
         ON fh.product_id = cs.product_id
     WHERE
-        CASE WHEN fh.partner_id IN ('AG72472','expedia','AG00044461','AG00101284')
+        CASE WHEN fh.parent_channel = 'API'
              THEN p.checkin_date ELSE fh.recognition_date END
              BETWEEN CAST('{date_from}' AS DATE) AND CAST('{date_to}' AS DATE)
         AND fh.partition_period > '2024-01-01'
@@ -776,12 +776,12 @@ base_metrics AS (
             AND (p.product_cancel_date < p.checkin_date OR p.product_cancel_date IS NULL)
         )
     GROUP BY
-        CASE WHEN fh.partner_id IN ('AG72472','expedia','AG00044461','AG00101284')
+        CASE WHEN fh.parent_channel = 'API'
              THEN YEAR(p.checkin_date) ELSE YEAR(fh.recognition_date) END,
-        CASE WHEN fh.partner_id IN ('AG72472','expedia','AG00044461','AG00101284')
+        CASE WHEN fh.parent_channel = 'API'
              THEN MONTH(p.checkin_date) ELSE MONTH(fh.recognition_date) END,
         fh.gestion_date,
-        CASE WHEN fh.partner_id IN ('AG72472','expedia','AG00044461','AG00101284')
+        CASE WHEN fh.parent_channel = 'API'
              THEN p.checkin_date ELSE fh.recognition_date END,
         fh.line_of_business_code, fh.parent_channel,
         CASE WHEN fh.partner_id IN ('AP12142','AP12961','AP12767','AP12539','AP12792',
