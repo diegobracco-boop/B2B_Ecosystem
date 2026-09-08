@@ -15,9 +15,10 @@ DRIVE_FOLDER_ID = "1XqQPL_rlS0NRIPUnPfj5nALBTn7kAOQV"
 # 2026-09). Ahora los xlsx viven en <OneDrive>\Planning-PBI - Inputs Power Bi\Actuals\.
 # Nombre exacto del xlsx por AÑO CALENDARIO; si un año no figura acá se usa el
 # patrón default. Solapa siempre "POWERBI".
-# ⚠️ Si el equipo publica una versión nueva del archivo (V3, V4, ...) HAY QUE
-#    actualizar el nombre acá — el pipeline NO avisa si lee una versión vieja
-#    (sí imprime el nombre + mtime del archivo que abrió, revisar esa línea).
+# El equipo SOBRESCRIBE este mismo archivo cada mes — el nombre no cambia
+# ("- V2" es fijo, no hay V3/V4). El pipeline imprime nombre + mtime del xlsx
+# que abrió: si el mtime quedó viejo, es que OneDrive no sincronizó (no un
+# cambio de nombre).
 ACTUALS_FILENAMES = {
     2026: "00 - Actuals 2026 - Plana Python - V2.xlsx",
 }
