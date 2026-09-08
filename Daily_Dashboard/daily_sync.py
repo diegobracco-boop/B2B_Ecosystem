@@ -972,11 +972,17 @@ def agg_actuals(df: pd.DataFrame) -> pd.DataFrame:
     ).round({"gross_bookings": 2, "net_revenues": 2, "fvm": 2})
 
 
-def agg_budget(df: pd.DataFrame) -> pd.DataFrame:
+def agg_budget(df: pd.DataFrame, date_format: str = None) -> pd.DataFrame:
     df = df.copy()
-    df["fecha"] = pd.to_datetime(
-        df["fecha"], format="mixed", dayfirst=True
-    ).dt.strftime("%Y-%m-%d")
+    # Budget (raw.b2b_budget_gd) llega en D/M/YYYY sin padding -> requiere dayfirst=True.
+    # Run Rate (raw.b2brr_gd) llega ya en YYYY-MM-DD -> parsear explícito para no
+    # que "mixed"+dayfirst invierta día/mes cuando ambos son <=12 (ej. 2026-09-07 -> 2026-07-09).
+    if date_format:
+        df["fecha"] = pd.to_datetime(df["fecha"], format=date_format).dt.strftime("%Y-%m-%d")
+    else:
+        df["fecha"] = pd.to_datetime(
+            df["fecha"], format="mixed", dayfirst=True
+        ).dt.strftime("%Y-%m-%d")
     df = df[df["fecha"].str[:4] == str(TODAY.year)]  # keep current FY only
     # YaVas: GB=0 en los mismos productos que en actuals (revenue queda normal)
     _yavas_gb0 = (
@@ -1022,11 +1028,15 @@ def to_compact(df: pd.DataFrame) -> dict:
     return {"cols": list(df.columns), "rows": df.values.tolist()}
 
 
-def agg_b2b_budget(df: pd.DataFrame) -> pd.DataFrame:
+def agg_b2b_budget(df: pd.DataFrame, date_format: str = None) -> pd.DataFrame:
     df = df.copy()
-    df["fecha"] = pd.to_datetime(
-        df["fecha"], format="mixed", dayfirst=True
-    ).dt.strftime("%Y-%m-%d")
+    # Ver comentario en agg_budget: Budget (D/M/YYYY) vs Run Rate (YYYY-MM-DD ya explícito).
+    if date_format:
+        df["fecha"] = pd.to_datetime(df["fecha"], format=date_format).dt.strftime("%Y-%m-%d")
+    else:
+        df["fecha"] = pd.to_datetime(
+            df["fecha"], format="mixed", dayfirst=True
+        ).dt.strftime("%Y-%m-%d")
     df = df[df["fecha"].str[:4] == str(TODAY.year)]  # keep current FY only
     # Map lob_canal → parent_channel so the dashboard channel filter works on budget
     if "lob_canal" in df.columns:
@@ -1153,9 +1163,9 @@ df_b2b_ri_agg   = agg_b2b(df_b2b_ri)
 df_b2b_ri_ly_ag = agg_b2b(df_b2b_ri_ly)
 df_b2b_bud_gd   = agg_b2b_budget(df_b2b_budget_gd) if not df_b2b_budget_gd.empty else pd.DataFrame()
 df_b2b_bud_ri   = agg_b2b_budget(df_b2b_budget_ri) if not df_b2b_budget_ri.empty else pd.DataFrame()
-df_b2bc_rr_agg  = agg_budget(df_b2bc_rr)           if not df_b2bc_rr.empty          else pd.DataFrame()
-df_b2b_rr_gd_agg = agg_b2b_budget(df_b2b_rr_gd)   if not df_b2b_rr_gd.empty        else pd.DataFrame()
-df_b2b_rr_ri_agg = agg_b2b_budget(df_b2b_rr_ri)   if not df_b2b_rr_ri.empty        else pd.DataFrame()
+df_b2bc_rr_agg  = agg_budget(df_b2bc_rr, date_format="%Y-%m-%d")           if not df_b2bc_rr.empty          else pd.DataFrame()
+df_b2b_rr_gd_agg = agg_b2b_budget(df_b2b_rr_gd, date_format="%Y-%m-%d")   if not df_b2b_rr_gd.empty        else pd.DataFrame()
+df_b2b_rr_ri_agg = agg_b2b_budget(df_b2b_rr_ri, date_format="%Y-%m-%d")   if not df_b2b_rr_ri.empty        else pd.DataFrame()
 print(f"  Actuals:    {len(df_actuals):,} -> {len(df_act):,} filas")
 print(f"  LY:         {len(df_ly):,} -> {len(df_lya):,} filas")
 print(f"  Budget:     {len(df_budget):,} -> {len(df_bud):,} filas")
