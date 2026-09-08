@@ -8,7 +8,7 @@ var _gestionalVRJsonCache_    = null;
 var _EMPTY_GESTIONAL_ = {
   b2b2c:   { ac:[], ly:[], bgt:[], rr:[], fc:[], bl:[] },
   b2b_may: { ac:[], ac_ri:[], ly:[], bgt:[], bgt_ri:[], rr:[], rr_ri:[], fc:[], fc_ri:[], bl:[], bl_ri:[] },
-  b2b_min: { ac:[], ly:[], bgt:[], rr:[], fc:[], bl:[] },
+  b2b_min: { ac:[], ac_ri:[], ly:[], bgt:[], bgt_ri:[], rr:[], rr_ri:[], fc:[], fc_ri:[], bl:[], bl_ri:[] },
   actual_months: [],
   months: []
 };
@@ -218,7 +218,8 @@ function queryB2B_(section, scenarioKey, fPais, fProduto,
 }
 
 // Lightweight per-canal, per-country, per-product monthly data (only GB, NR, NPV)
-// blKeyMay/fcstKeyMay: 'bl'|'bl_ri' y 'fc'|'fc_ri' (RI solo aplica a B2B-MAY; MIN siempre GD).
+// blKey/fcstKey: 'bl'|'bl_ri' y 'fc'|'fc_ri' según el toggle GD/RI (aplica a MAY y MIN;
+// B2B2C tiene fecha única). Nombres *May heredados; los valores son las claves generales.
 function queryB2BCanalDetail_(json, blKeyMay, bgtKey, fcstKeyMay, fPais, fProduto) {
   var result = { 'B2B-MIN':{ fc:{}, bgt:{}, ly:{}, fcst:{} }, 'B2B-MAY':{ fc:{}, bgt:{}, ly:{}, fcst:{} } };
   function procRows(rows, target) {
@@ -237,10 +238,10 @@ function queryB2BCanalDetail_(json, blKeyMay, bgtKey, fcstKeyMay, fPais, fProdut
   }
   var min=json.b2b_min||{}, may=json.b2b_may||{};
   // "fc" = BASELINE (bl), no forecast — nombre heredado por consistencia con el resto del dashboard.
-  procRows(min['bl'],        result['B2B-MIN'].fc);
-  procRows(min['bgt'],       result['B2B-MIN'].bgt);
-  procRows(min['ly'],        result['B2B-MIN'].ly);
-  procRows(min['fc'],        result['B2B-MIN'].fcst);
+  procRows(min[blKeyMay],   result['B2B-MIN'].fc);
+  procRows(min[bgtKey],     result['B2B-MIN'].bgt);
+  procRows(min['ly'],       result['B2B-MIN'].ly);
+  procRows(min[fcstKeyMay], result['B2B-MIN'].fcst);
   procRows(may[blKeyMay],    result['B2B-MAY'].fc);
   procRows(may[bgtKey],      result['B2B-MAY'].bgt);
   procRows(may['ly'],        result['B2B-MAY'].ly);
@@ -288,7 +289,7 @@ function getData(filters) {
   var useMay   = lobArr.indexOf('B2B-MAY') >= 0;
   var useMin   = lobArr.indexOf('B2B-MIN') >= 0;
 
-  // Escenarios (RI solo existe para b2b_may):
+  // Escenarios (RI existe para b2b_may y b2b_min; b2b2c tiene fecha única):
   //   primaria  = baseline (bl)  → se devuelve como `agg`
   //   goals     = budget (bgt) / forecast (fc) / last year (ly)
   var blKey  = dateType === 'ri' ? 'bl_ri'  : 'bl';
@@ -356,10 +357,10 @@ function getData(filters) {
 
   if (useMin) {
     lobsInData['B2B-MIN'] = true;
-    queryB2B_(json.b2b_min, 'bl',  fPais, fProduto, fcAgg_min,   allPaises, allProdutos);
-    queryB2B_(json.b2b_min, 'bgt', fPais, fProduto, bgtAgg_min,  {}, {});
-    queryB2B_(json.b2b_min, 'ly',  fPais, fProduto, lyAgg_min,   {}, {});
-    queryB2B_(json.b2b_min, 'fc',  fPais, fProduto, fcstAgg_min, {}, {});
+    queryB2B_(json.b2b_min, blKey,  fPais, fProduto, fcAgg_min,   allPaises, allProdutos);
+    queryB2B_(json.b2b_min, bgtKey, fPais, fProduto, bgtAgg_min,  {}, {});
+    queryB2B_(json.b2b_min, 'ly',   fPais, fProduto, lyAgg_min,   {}, {});
+    queryB2B_(json.b2b_min, fcKey,  fPais, fProduto, fcstAgg_min, {}, {});
     mergeAgg_(fcAgg_min,   fcAgg);
     mergeAgg_(bgtAgg_min,  bgtAgg);
     mergeAgg_(lyAgg_min,   lyAgg);
@@ -519,7 +520,7 @@ function getVsAccounting(filtersJson) {
   try {
     var t1 = DriveApp.getFileById(GESTIONAL_JSON_FILE_ID).getLastUpdated().getTime();
     var t2 = DriveApp.getFileById(ACC_ACTUALS_FILE_ID).getLastUpdated().getTime();
-    ck = 'vsacc_v5_' + t1 + '_' + t2 + '_' + Utilities.base64EncodeWebSafe(sig);
+    ck = 'vsacc_v6_' + t1 + '_' + t2 + '_' + Utilities.base64EncodeWebSafe(sig);
     var hit = cache.get(ck);
     if (hit) return JSON.parse(hit);
   } catch (e) { Logger.log('getVsAccounting cache probe: ' + e); }
@@ -558,10 +559,12 @@ function _computeVsAccounting_(f) {
     });
     return { data: t, months: mm };
   }
+  // RI donde exista (B2B-MAY check-in API, B2B-MIN recognition_date); B2B2C tiene
+  // una sola fecha (GD = RI), así que va 'ac'.
   var M = {
     b2b2c: mgrFor('b2b2c', 'ac'),
     may:   mgrFor('may',   'ac_ri'),
-    min:   mgrFor('min',   'ac')
+    min:   mgrFor('min',   'ac_ri')
   };
 
   // ── Accounting por LOB — actuals.json, P&L N1 + N3/N4, split por LoB×Canal ──
@@ -602,9 +605,9 @@ function _computeVsAccounting_(f) {
     selPais:  selPais,
     selProd:  selProd,
     lobs: {
-      b2b2c: { label: 'B2B2C',     mgrLabel: 'ac (GD)',    months: isect(M.b2b2c.months), mgr: M.b2b2c.data, acc: A.b2b2c },
-      may:   { label: 'B2B · MAY', mgrLabel: 'ac_ri (RI)', months: isect(M.may.months),   mgr: M.may.data,   acc: A.may },
-      min:   { label: 'B2B · MIN', mgrLabel: 'ac (GD)',    months: isect(M.min.months),   mgr: M.min.data,   acc: A.min }
+      b2b2c: { label: 'B2B2C',     mgrLabel: 'ac (fecha única)', months: isect(M.b2b2c.months), mgr: M.b2b2c.data, acc: A.b2b2c },
+      may:   { label: 'B2B · MAY', mgrLabel: 'ac_ri (RI)',      months: isect(M.may.months),   mgr: M.may.data,   acc: A.may },
+      min:   { label: 'B2B · MIN', mgrLabel: 'ac_ri (RI)',      months: isect(M.min.months),   mgr: M.min.data,   acc: A.min }
     }
   };
 }

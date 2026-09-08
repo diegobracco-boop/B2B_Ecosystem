@@ -9,16 +9,16 @@ uploads _actuals_gestional.json to Google Drive.
 
 Scenario model (per LOB group) — mirrors P&L Accounting (baseline + goal):
   ac      actuals (real, closed FY27 months only)
-  ac_ri   actuals on RI basis            (B2B-MAY only)
+  ac_ri   actuals on RI basis            (B2B-MAY: check-in para API; B2B-MIN: recognition_date)
   ly      last year (real prior period, ym shifted +1y)
   bgt     budget GD  (full FY27, datalake raw.b2b_budget_gd)
-  bgt_ri  budget RI  (full FY27, datalake raw.b2b_budget_ri; B2B-MAY only)
+  bgt_ri  budget RI  (full FY27, datalake raw.b2b_budget_ri; B2B-MAY y B2B-MIN)
   rr      run rate   (near-term, raw.b2brr_gd; Aug-Oct)  — raw rows for stitch
-  rr_ri   run rate RI (raw.b2brr_ri; B2B-MAY only)
+  rr_ri   run rate RI (raw.b2brr_ri; B2B-MAY y B2B-MIN)
   fc      forecast GOAL = actuals ≤ Jun + forecast projection Jul-Mar
-  fc_ri   forecast goal on RI basis (B2B-MAY only)
+  fc_ri   forecast goal on RI basis (B2B-MAY del modelo "P&L RI"; B2B-MIN reusa la proyección GD)
   bl      baseline   = ac (closed) then rr → fc → bgt per future month
-  bl_ri   baseline on RI basis            (B2B-MAY only)
+  bl_ri   baseline on RI basis            (B2B-MAY y B2B-MIN)
 
 The dashboard "goal" selector maps to: budget→bgt, forecast→fc, lastyear→ly.
 Forecast comes from the XLSX models in FC_XLSX_DIR (API→MAY, HTML→MIN, WLs→B2B2C),
@@ -1275,6 +1275,7 @@ rr_b2b2c  = _build_b2b2c_budget_rows(df_rr_b2b2c)
 rr_may    = _build_b2b_budget_rows(df_rr_gd, lob_filter="B2B-MAY")
 rr_may_ri = _build_b2b_budget_rows(df_rr_ri, lob_filter="B2B-MAY")
 rr_min    = _build_b2b_budget_rows(df_rr_gd, lob_filter="B2B-MIN")
+rr_min_ri = _build_b2b_budget_rows(df_rr_ri, lob_filter="B2B-MIN")
 
 # B2B2C
 ac_b2b2c  = _build_b2b2c_rows(df_b2b2c)                                             # actuals (closed)
@@ -1295,19 +1296,26 @@ bl_may_ri  = _stitch_baseline(ac_may_ri, rr_may_ri, fcraw_may_ri, bgt_may_ri, ym
 fc_may     = _stitch_forecast(ac_may,    fcraw_may,    ym_idx=2)
 fc_may_ri  = _stitch_forecast(ac_may_ri, fcraw_may_ri, ym_idx=2)
 
-# B2B MIN (GD basis only)
-ac_min  = _build_b2b_rows(df_b2b_gd, "anio_gd", "mes_gd", channel_filter="Agencias afiliadas")
+# B2B MIN (GD + RI basis; RI de Agencias afiliadas = recognition_date, no check-in)
+ac_min     = _build_b2b_rows(df_b2b_gd, "anio_gd", "mes_gd", channel_filter="Agencias afiliadas")
+ac_min_ri  = _build_b2b_rows(df_b2b_ri, "anio_ri", "mes_ri", channel_filter="Agencias afiliadas")
 ly_min  = _build_b2b_rows(df_b2b_gd_ly, "anio_gd", "mes_gd", channel_filter="Agencias afiliadas",
                           filter_set=LY_FULL_SET, ym_shift_years=1)
-bgt_min = _build_b2b_budget_rows(df_b2b_budget_gd, lob_filter="B2B-MIN")
-bl_min  = _stitch_baseline(ac_min, rr_min, fcraw_min, bgt_min, ym_idx=2)
-fc_min  = _stitch_forecast(ac_min, fcraw_min, ym_idx=2)
+bgt_min    = _build_b2b_budget_rows(df_b2b_budget_gd, lob_filter="B2B-MIN")
+bgt_min_ri = _build_b2b_budget_rows(df_b2b_budget_ri, lob_filter="B2B-MIN")
+# El modelo HTML no tiene solapa "P&L RI" → para el forecast del baseline RI se
+# reusa la proyección GD (es proyección; no hay variante RI del forecast de MIN).
+fcraw_min_ri = fcraw_min
+bl_min     = _stitch_baseline(ac_min,    rr_min,    fcraw_min,    bgt_min,    ym_idx=2)
+bl_min_ri  = _stitch_baseline(ac_min_ri, rr_min_ri, fcraw_min_ri, bgt_min_ri, ym_idx=2)
+fc_min     = _stitch_forecast(ac_min,    fcraw_min,    ym_idx=2)
+fc_min_ri  = _stitch_forecast(ac_min_ri, fcraw_min_ri, ym_idx=2)
 
 actual_months = sorted(CLOSED_SET)
 print(f"  actual_months: {actual_months}  (last actual = {LAST_ACTUAL_YM})")
 print(f"  b2b2c:   ac={len(ac_b2b2c):,}  rr={len(rr_b2b2c):,}  fc={len(fc_b2b2c):,}  bl={len(bl_b2b2c):,}  bgt={len(bgt_b2b2c):,}  ly={len(ly_b2b2c):,}")
 print(f"  b2b_may: ac={len(ac_may):,}  ac_ri={len(ac_may_ri):,}  rr={len(rr_may):,}  fc={len(fc_may):,}  bl={len(bl_may):,}  bl_ri={len(bl_may_ri):,}  bgt={len(bgt_may):,}  bgt_ri={len(bgt_may_ri):,}  ly={len(ly_may):,}")
-print(f"  b2b_min: ac={len(ac_min):,}  rr={len(rr_min):,}  fc={len(fc_min):,}  bl={len(bl_min):,}  bgt={len(bgt_min):,}  ly={len(ly_min):,}")
+print(f"  b2b_min: ac={len(ac_min):,}  ac_ri={len(ac_min_ri):,}  rr={len(rr_min):,}  rr_ri={len(rr_min_ri):,}  fc={len(fc_min):,}  fc_ri={len(fc_min_ri):,}  bl={len(bl_min):,}  bl_ri={len(bl_min_ri):,}  bgt={len(bgt_min):,}  bgt_ri={len(bgt_min_ri):,}  ly={len(ly_min):,}")
 
 output = {
     "updated_at":    datetime.now().isoformat(timespec="seconds"),
@@ -1328,8 +1336,10 @@ output = {
         "bl": bl_may, "bl_ri": bl_may_ri,
     },
     "b2b_min": {
-        "ac": ac_min, "ly": ly_min, "bgt": bgt_min,
-        "rr": rr_min, "fc": fc_min, "bl": bl_min,
+        "ac": ac_min, "ac_ri": ac_min_ri, "ly": ly_min,
+        "bgt": bgt_min, "bgt_ri": bgt_min_ri,
+        "rr": rr_min, "rr_ri": rr_min_ri, "fc": fc_min, "fc_ri": fc_min_ri,
+        "bl": bl_min, "bl_ri": bl_min_ri,
     },
 }
 
