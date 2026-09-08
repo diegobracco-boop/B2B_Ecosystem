@@ -646,6 +646,7 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
   <button class="tab-btn active" id="tab-baseline" onclick="switchTab('baseline')">P&amp;L - Managerial View</button>
   <button class="tab-btn" id="tab-graficos" onclick="switchTab('graficos')">Trend view</button>
   <button class="tab-btn" id="tab-detalle" onclick="switchTab('detalle')">Detalle</button>
+  <button class="tab-btn" id="tab-vsacc" onclick="switchTab('vsacc')">Managerial vs Accounting</button>
 </div>
 
 <div class="lob-switcher">
@@ -764,6 +765,11 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
   <div class="tab-pane active" id="pane-baseline">
     <div id="mg-tables-container"></div>
   </div>
+
+  <!-- ── Managerial vs Accounting ─────────────────────────────────────────── -->
+  <div class="tab-pane" id="pane-vsacc">
+    <div id="vsacc-container"><div style="padding:24px;color:var(--muted)">Cargando…</div></div>
+  </div>
 </main>
 
 
@@ -873,6 +879,7 @@ function switchTab(name){
   if(name === 'baseline' && _data) renderManagerialBGTable();
   if(name === 'detalle' && _data) renderDetalle();
   if(name === 'graficos' && _data) { try{ renderTrendCharts(_data.months||[], _data.agg||{}, _data.budget||{}, _data.ly||{}); }catch(e){ if(window.console) console.error('[render:trend]', e); } }
+  if(name === 'vsacc') fetchVsAcc_();
   _updateStickyOffsets_();
 }
 
@@ -2272,6 +2279,140 @@ function renderManagerialBGTable(){
       _buildMGPanel_(container, p.agg, p.goal, p.title, periods, n, isLast, goalLabel);
     });
   }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//  Managerial vs Accounting — comparación de REALES (meses cerrados)
+//  Accounting (BASELINE) = actuals.json canónico · Managerial (GOAL) = escenario 'ac'.
+//  VSACC_MAP: mapeo línea Managerial ↔ P&L N2/N3/N4 de Accounting. ⚠ BORRADOR —
+//  Diego lo revisa y define qué filas quedan. Prefijos acc: 'n2|', 'n3|', 'n4|'.
+// ══════════════════════════════════════════════════════════════════════════
+var VSACC_MAP = [
+  { label:'Orders',                    mgr:['orders'],                        acc:['n2|orders'] },
+  { label:'Gross Bookings',            mgr:['gross_bookings'],                acc:['n2|gross bookings'] },
+  { label:'Up Front Incentives',       mgr:['up_front_incentives'],           acc:['n2|up front incentives'] },
+  { label:'Fees + Commercial Disc.',   mgr:['fees','commercial_discounts'],   acc:['n2|customer fees & charges'] },
+  { label:'Cancellations',             mgr:['cancellations'],                 acc:['n2|cancellations'] },
+  { label:'Back End Incentives',       mgr:['back_end_incentives'],           acc:['n2|back end incentives'] },
+  { label:'Other Incentives',          mgr:['other_incentives'],              acc:['n2|other incentives'] },
+  { label:'Breakage Revenue',          mgr:['breakage_revenue'],              acc:['n2|breakage revenue'] },
+  { label:'Media Revenue',             mgr:['media_revenue'],                 acc:['n2|media & other revenue'] },
+  { label:'Income Outsourced Svcs',    mgr:['income_from_outsourced_services'], acc:['n2|income from outsourced services'] },
+  { label:'Revenue Tax',               mgr:['revenue_tax'],                   acc:['n2|revenue taxes'] },
+  { label:'» Net Revenue (subtotal)',  mgr:['net_revenue'],                   acc:['n3|net revenue'], sub:true },
+  { label:'Cost of Installments',      mgr:['cost_of_installments'],          acc:['n2|cost of installments'] },
+  { label:'Credit Card Processing',    mgr:['credit_card_processing'],        acc:['n2|credit card processing'] },
+  { label:'Customer Claims',           mgr:['customer_claims'],               acc:['n2|customer claims'] },
+  { label:'Customer Service',          mgr:['customer_service'],              acc:[], note:'sin N2 equivalente claro — revisar' },
+  { label:'Errors',                    mgr:['errors'],                        acc:['n2|errors'] },
+  { label:'Other Transactional Taxes', mgr:['other_transactional_taxes'],     acc:['n2|other transactional taxes'] },
+  { label:'Frauds',                    mgr:['frauds'],                        acc:['n2|frauds'] },
+  { label:'Intercompany',              mgr:['intercompany_usd'],              acc:['n2|intercompany transactions'] },
+  { label:'Operations',                mgr:['operations'],                    acc:[], note:'sin N2 equivalente claro — revisar' },
+  { label:'Third Party Commissions',   mgr:['white_labels_api','vendor_commissions','affiliates'], acc:['n2|third party commissions'] },
+  { label:'FX (Efecto Fin + Dif FX + Hedge)', mgr:['efecto_financiero','dif_fx','currency_hedge'], acc:[], note:'Accounting suele llevar FX bajo la línea — revisar' },
+  { label:'» FVM  vs  Gross Profit',   mgr:['npv'],                          acc:['n4|gross profit'], sub:true, note:'conceptos distintos — solo referencia' }
+];
+
+var _vsAccData = null;
+
+function fetchVsAcc_(){
+  var c = document.getElementById('vsacc-container');
+  if(!c) return;
+  if(_vsAccData){ renderVsAcc_(); return; }
+  c.innerHTML = '<div style="padding:24px;color:var(--muted)">Cargando comparación…</div>';
+  google.script.run
+    .withSuccessHandler(function(d){ _vsAccData = d; try{ renderVsAcc_(); }catch(e){ c.innerHTML = '<div class="error-msg" style="padding:24px">Error render: '+(e.message||e)+'</div>'; if(window.console) console.error('[vsacc]', e); } })
+    .withFailureHandler(function(e){ c.innerHTML = '<div class="error-msg" style="padding:24px">Error: '+((e&&e.message)||e)+'</div>'; })
+    .getVsAccounting({});
+}
+
+function _vsAccSum_(dict, keys, mes){
+  var t = 0;
+  (keys||[]).forEach(function(k){ if(dict[k] && dict[k][mes]!=null) t += dict[k][mes]; });
+  return t;
+}
+
+function renderVsAcc_(){
+  var c = document.getElementById('vsacc-container');
+  var D = _vsAccData;
+  if(!D){ return; }
+  var months = D.months || [];
+  var mgr = D.mgr || {}, acc = D.acc || {};
+
+  if(!months.length){
+    c.innerHTML = '<div style="padding:24px;color:var(--muted)">No hay meses cerrados en común. '
+      + 'Managerial: '+(D.mgrAllMonths||[]).join(', ')+' · Accounting: '+(D.accAllMonths||[]).join(', ')
+      + '.<br>Si Accounting está atrás, correr <code>/actualizar</code> en Inputs_Planning_PnL.</div>';
+    return;
+  }
+
+  var cols = months.concat(['Total']);
+  function cell(v){ var s=fmtM(v); return '<td style="text-align:right'+(v<0?';color:var(--red)':'')+'">'+s+'</td>'; }
+  function sumRow(getVal){ return cols.map(function(col){
+    return col==='Total' ? months.reduce(function(s,m){ return s+getVal(m); },0) : getVal(col);
+  }); }
+
+  var mapped = {};  // marca qué claves acc / métricas mgr ya están en el mapa
+  VSACC_MAP.forEach(function(row){
+    (row.acc||[]).forEach(function(k){ mapped['acc:'+k]=true; });
+    (row.mgr||[]).forEach(function(k){ mapped['mgr:'+k]=true; });
+  });
+
+  var h = '';
+  h += '<div class="pnl-card" style="margin-bottom:10px;padding:12px 16px">'
+     + '<b>Managerial vs Accounting</b> — reales, meses cerrados ('+months.join(', ')+'). '
+     + 'B2B + B2B2C, Total (sin filtro país/producto). Managerial = escenario <code>ac</code> (GD). '
+     + 'Accounting = <code>actuals.json</code> canónico'
+     + (D.accMeta && D.accMeta.fechas ? ' ('+D.accMeta.fechas.length+' meses)' : '') + '.'
+     + '<br><span style="color:var(--muted);font-size:11px">⚠ El mapeo de líneas (<code>VSACC_MAP</code>) es un borrador. Revisá las filas de abajo y decime cuáles quedan / cómo se mapean.</span>'
+     + '</div>';
+
+  h += '<div class="pnl-card" style="overflow-x:auto"><table class="qpnl-table" style="min-width:720px">';
+  h += '<thead><tr><th class="th-lbl"></th>'
+     + '<th class="th-baseline" colspan="'+cols.length+'">ACCOUNTING (baseline)</th><th class="th-sep"></th>'
+     + '<th class="th-goal" colspan="'+cols.length+'">MANAGERIAL (goal)</th><th class="th-sep"></th>'
+     + '<th class="th-delta" colspan="'+cols.length+'">Δ (Mgr − Acc)</th></tr>';
+  h += '<tr><th class="th-lbl">Línea</th>';
+  for(var g=0; g<3; g++){ cols.forEach(function(col){ h+='<th'+(col==='Total'?' class="th-total-b"':'')+'>'+col+'</th>'; }); if(g<2) h+='<th class="th-sep"></th>'; }
+  h += '</tr></thead><tbody>';
+
+  VSACC_MAP.forEach(function(row){
+    var accV = sumRow(function(m){ return _vsAccSum_(acc, row.acc, m); });
+    var mgrV = sumRow(function(m){ return _vsAccSum_(mgr, row.mgr, m); });
+    var dV   = mgrV.map(function(v,i){ return v - accV[i]; });
+    h += '<tr'+(row.sub?' style="font-weight:700;background:rgba(42,16,72,.05)"':'')+'>';
+    h += '<td class="th-lbl">'+escHtml(row.label)+(row.note?' <span style="color:var(--red);font-size:10px">('+escHtml(row.note)+')</span>':'')+'</td>';
+    accV.forEach(cell); h+='<td class="th-sep"></td>';
+    mgrV.forEach(cell); h+='<td class="th-sep"></td>';
+    dV.forEach(cell);
+    h += '</tr>';
+  });
+  h += '</tbody></table></div>';
+
+  // ── Líneas sin mapear ──────────────────────────────────────────────────
+  var accOnly = Object.keys(acc).filter(function(k){ return k.indexOf('n2|')===0 && !mapped['acc:'+k]; }).sort();
+  var METRIC_ALL = ['orders','gross_bookings','up_front_incentives','fees','commercial_discounts','income_from_outsourced_services','cancellations','cost_of_installments','credit_card_processing','white_labels_api','other_incentives','revenue_tax','back_end_incentives','breakage_revenue','media_revenue','errors','other_transactional_taxes','customer_claims','customer_service','affiliates','intercompany_usd','operations','vendor_commissions','frauds','efecto_financiero','dif_fx','currency_hedge','net_revenue','npv'];
+  var mgrOnly = METRIC_ALL.filter(function(k){ return !mapped['mgr:'+k] && mgr[k]; });
+
+  function miniTable(title, items, dict, keyfn){
+    if(!items.length) return '';
+    var s = '<div class="pnl-card" style="margin-top:10px;overflow-x:auto"><div style="padding:8px 12px;font-weight:700">'+title+'</div>'
+          + '<table class="qpnl-table" style="min-width:520px"><thead><tr><th class="th-lbl">Línea</th>'
+          + months.map(function(m){ return '<th>'+m+'</th>'; }).join('') + '<th class="th-total-b">Total</th></tr></thead><tbody>';
+    items.forEach(function(it){
+      var vals = months.map(function(m){ return (dict[keyfn(it)]||{})[m]||0; });
+      s += '<tr><td class="th-lbl">'+escHtml(it.replace(/^n2\|/,''))+'</td>'
+         + vals.map(function(v){ return '<td style="text-align:right'+(v<0?';color:var(--red)':'')+'">'+fmtM(v)+'</td>'; }).join('')
+         + '<td style="text-align:right;font-weight:700">'+fmtM(vals.reduce(function(a,b){return a+b;},0))+'</td></tr>';
+    });
+    return s + '</tbody></table></div>';
+  }
+
+  h += miniTable('Accounting sin línea Managerial (definir mapeo o dejar fuera)', accOnly, acc, function(k){ return k; });
+  h += miniTable('Managerial sin línea Accounting (calculadas / gestionales)', mgrOnly, mgr, function(k){ return k; });
+
+  c.innerHTML = h;
 }
 
 // ── LOB switcher ───────────────────────────────────────────────────────────

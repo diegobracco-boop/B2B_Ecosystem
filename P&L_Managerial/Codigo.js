@@ -465,8 +465,88 @@ function getFilterOptions() {
   };
 }
 
+// ══════════════════════════════════════════════════════════════════════════
+//  Managerial vs Accounting — comparación de REALES, meses cerrados
+// ──────────────────────────────────────────────────────────────────────────
+//  Accounting = actuals.json canónico de Inputs_Planning_PnL
+//  (Drive folder 1XqQPL..., mismo archivo que alimenta el cubo de P&L Accounting).
+//  Managerial  = escenario 'ac' (+ 'ac_ri' para b2b_may) de _actuals_gestional.json.
+//  Solo Total B2B + B2B2C (v1, sin filtro país/producto). GD basis (ac, no ac_ri).
+// ══════════════════════════════════════════════════════════════════════════
+var ACC_ACTUALS_FILE_ID = '1PABNf4XVKdj6eXApr5_yP581ZsD_N9e-'; // actuals.json
+var _accActualsCache_   = null;
+
+function readAccActualsJSON_() {
+  if (_accActualsCache_) return _accActualsCache_;
+  try {
+    var blob = DriveApp.getFileById(ACC_ACTUALS_FILE_ID).getBlob();
+    _accActualsCache_ = JSON.parse(blob.getDataAsString());
+  } catch (e) {
+    Logger.log('readAccActualsJSON_ error: ' + e);
+    _accActualsCache_ = { cols: [], rows: [], meta: {} };
+  }
+  return _accActualsCache_;
+}
+
+// 'YYYY-MM-01' (o 'YYYY-MM-...') → 'Abr-26'
+function _accMes_(fecha) {
+  return YM_LABEL[String(fecha || '').slice(0, 7)] || null;
+}
+
+function getVsAccounting(filtersJson) {
+  var json = readGestionalJSON_('bl');
+
+  // ── Managerial: escenario 'ac' (Total = b2b2c + b2b_may + b2b_min) ──
+  var mgr = {};  // {metric: {mes: val}}
+  queryB2B2C_(json.b2b2c, 'ac', [], [], [], mgr,
+              null, null, null, null, null, null, null, null);
+  var mgrMay = {}, mgrMin = {};
+  queryB2B_(json.b2b_may, 'ac', [], [], mgrMay, null, null);
+  queryB2B_(json.b2b_min, 'ac', [], [], mgrMin, null, null);
+  mergeAgg_(mgrMay, mgr);
+  mergeAgg_(mgrMin, mgr);
+
+  var mgrMonths = {};
+  Object.keys(mgr).forEach(function(mes){ mgrMonths[mes] = true; });
+
+  // ── Accounting: actuals.json → P&L N2/N3/N4 × mes, b2b + b2b2c ──
+  var acc = {};        // {'n2|<val>'|'n3|<val>'|'n4|<val>': {mes: val}}
+  var accMonths = {};
+  var aj  = readAccActualsJSON_();
+  var cix = {};
+  (aj.cols || []).forEach(function(c, i){ cix[c] = i; });
+  var iLob = cix['LoB'], iN2 = cix['P&L N2'], iN3 = cix['P&L N3'], iN4 = cix['P&L N4'],
+      iFecha = cix['Fecha'], iMonto = cix['Monto USD'];
+  (aj.rows || []).forEach(function(r){
+    var lob = String(r[iLob] || '').toLowerCase();
+    if (lob !== 'b2b' && lob !== 'b2b2c') return;
+    var mes = _accMes_(r[iFecha]); if (!mes) return;
+    var val = (+r[iMonto] || 0);
+    [['n2', r[iN2]], ['n3', r[iN3]], ['n4', r[iN4]]].forEach(function(p){
+      var k = p[0] + '|' + String(p[1] || '(sin ' + p[0] + ')').toLowerCase();
+      if (!acc[k]) acc[k] = {};
+      acc[k][mes] = (acc[k][mes] || 0) + val;
+    });
+    accMonths[mes] = true;
+  });
+
+  // meses cerrados = intersección Managerial ∩ Accounting, en orden fiscal
+  var months = YM_ORDER.map(function(ym){ return YM_LABEL[ym]; })
+    .filter(function(m){ return mgrMonths[m] && accMonths[m]; });
+
+  return {
+    months:       months,
+    mgr:          mgr,
+    acc:          acc,
+    mgrAllMonths: YM_ORDER.map(function(ym){ return YM_LABEL[ym]; }).filter(function(m){ return mgrMonths[m]; }),
+    accAllMonths: YM_ORDER.map(function(ym){ return YM_LABEL[ym]; }).filter(function(m){ return accMonths[m]; }),
+    accMeta:      aj.meta || {}
+  };
+}
+
 function invalidateCache() {
   _gestionalJsonCache_   = null;
   _gestionalVRJsonCache_ = null;
+  _accActualsCache_      = null;
   return { ok: true };
 }
