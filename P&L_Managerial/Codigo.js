@@ -525,23 +525,32 @@ function _computeVsAccounting_() {
   mergeAgg_(mgrMay, mgr);
   mergeAgg_(mgrMin, mgr);
 
+  // mgr/mgrMay/mgrMin vienen de addMetrics_ como {mes:{metric}} — transponer a
+  // {metric:{mes}} (que es lo que espera el frontend, igual que `acc`).
   var mgrMonths = {};
-  Object.keys(mgr).forEach(function(mes){ mgrMonths[mes] = true; });
+  var mgrT = {};
+  Object.keys(mgr).forEach(function(mes){
+    mgrMonths[mes] = true;
+    Object.keys(mgr[mes]).forEach(function(metric){
+      if (!mgrT[metric]) mgrT[metric] = {};
+      mgrT[metric][mes] = (mgrT[metric][mes] || 0) + mgr[mes][metric];
+    });
+  });
 
-  // ── Accounting: actuals.json → P&L N2/N3/N4 × mes, b2b + b2b2c ──
-  var acc = {};        // {'n2|<val>'|'n3|<val>'|'n4|<val>': {mes: val}}
+  // ── Accounting: actuals.json → P&L N1 (para conciliar) + N3/N4 (subtotales) × mes ──
+  var acc = {};        // {'n1|<val>'|'n3|<val>'|'n4|<val>': {mes: val}}
   var accMonths = {};
   var aj  = readAccActualsJSON_();
   var cix = {};
   (aj.cols || []).forEach(function(c, i){ cix[c] = i; });
-  var iLob = cix['LoB'], iN2 = cix['P&L N2'], iN3 = cix['P&L N3'], iN4 = cix['P&L N4'],
+  var iLob = cix['LoB'], iN1 = cix['P&L N1'], iN3 = cix['P&L N3'], iN4 = cix['P&L N4'],
       iFecha = cix['Fecha'], iMonto = cix['Monto USD'];
   (aj.rows || []).forEach(function(r){
     var lob = String(r[iLob] || '').toLowerCase();
     if (lob !== 'b2b' && lob !== 'b2b2c') return;
     var mes = _accMes_(r[iFecha]); if (!mes) return;
     var val = (+r[iMonto] || 0);
-    [['n2', r[iN2]], ['n3', r[iN3]], ['n4', r[iN4]]].forEach(function(p){
+    [['n1', r[iN1]], ['n3', r[iN3]], ['n4', r[iN4]]].forEach(function(p){
       var k = p[0] + '|' + String(p[1] || '(sin ' + p[0] + ')').toLowerCase();
       if (!acc[k]) acc[k] = {};
       acc[k][mes] = (acc[k][mes] || 0) + val;
@@ -555,7 +564,7 @@ function _computeVsAccounting_() {
 
   return {
     months:       months,
-    mgr:          mgr,
+    mgr:          mgrT,
     acc:          acc,
     mgrAllMonths: YM_ORDER.map(function(ym){ return YM_LABEL[ym]; }).filter(function(m){ return mgrMonths[m]; }),
     accAllMonths: YM_ORDER.map(function(ym){ return YM_LABEL[ym]; }).filter(function(m){ return accMonths[m]; }),

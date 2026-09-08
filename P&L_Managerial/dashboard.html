@@ -2300,29 +2300,32 @@ function renderManagerialBGTable(){
 //  Diego lo revisa y define qué filas quedan. Prefijos acc: 'n2|', 'n3|', 'n4|'.
 // ══════════════════════════════════════════════════════════════════════════
 var VSACC_MAP = [
-  { label:'Orders',                    mgr:['orders'],                        acc:['n2|orders'] },
-  { label:'Gross Bookings',            mgr:['gross_bookings'],                acc:['n2|gross bookings'] },
-  { label:'Up Front Incentives',       mgr:['up_front_incentives'],           acc:['n2|up front incentives'] },
-  { label:'Fees + Commercial Disc.',   mgr:['fees','commercial_discounts'],   acc:['n2|customer fees & charges'] },
-  { label:'Cancellations',             mgr:['cancellations'],                 acc:['n2|cancellations'] },
-  { label:'Back End Incentives',       mgr:['back_end_incentives'],           acc:['n2|back end incentives'] },
-  { label:'Other Incentives',          mgr:['other_incentives'],              acc:['n2|other incentives'] },
-  { label:'Breakage Revenue',          mgr:['breakage_revenue'],              acc:['n2|breakage revenue'] },
-  { label:'Media Revenue',             mgr:['media_revenue'],                 acc:['n2|media & other revenue'] },
-  { label:'Income Outsourced Svcs',    mgr:['income_from_outsourced_services'], acc:['n2|income from outsourced services'] },
-  { label:'Revenue Tax',               mgr:['revenue_tax'],                   acc:['n2|revenue taxes'] },
-  { label:'» Net Revenue (subtotal)',  mgr:['net_revenue'],                   acc:['n3|net revenue'], sub:true },
-  { label:'Cost of Installments',      mgr:['cost_of_installments'],          acc:['n2|cost of installments'] },
-  { label:'Credit Card Processing',    mgr:['credit_card_processing'],        acc:['n2|credit card processing'] },
-  { label:'Customer Claims',           mgr:['customer_claims'],               acc:['n2|customer claims'] },
-  { label:'Customer Service',          mgr:['customer_service'],              acc:[], note:'sin N2 equivalente claro — revisar' },
-  { label:'Errors',                    mgr:['errors'],                        acc:['n2|errors'] },
-  { label:'Other Transactional Taxes', mgr:['other_transactional_taxes'],     acc:['n2|other transactional taxes'] },
-  { label:'Frauds',                    mgr:['frauds'],                        acc:['n2|frauds'] },
-  { label:'Intercompany',              mgr:['intercompany_usd'],              acc:['n2|intercompany transactions'] },
-  { label:'Operations',                mgr:['operations'],                    acc:[], note:'sin N2 equivalente claro — revisar' },
-  { label:'Third Party Commissions',   mgr:['white_labels_api','vendor_commissions','affiliates'], acc:['n2|third party commissions'] },
-  { label:'FX (Efecto Fin + Dif FX + Hedge)', mgr:['efecto_financiero','dif_fx','currency_hedge'], acc:[], note:'Accounting suele llevar FX bajo la línea — revisar' },
+  { label:'Orders',                    mgr:['orders'],                       acc:['n1|orders domestic','n1|orders international'] },
+  { label:'Gross Bookings',            mgr:['gross_bookings'],               acc:['n1|gross bookings domestic','n1|gross bookings international'] },
+  { label:'Up Front Incentives',       mgr:['up_front_incentives'],          acc:['n1|up front incentives'] },
+  { label:'Fees',                      mgr:['fees'],                         acc:['n1|fees'] },
+  { label:'Commercial Discounts',      mgr:['commercial_discounts'],         acc:['n1|commercial discounts'] },
+  { label:'Cancellations',             mgr:['cancellations'],                acc:['n1|cancellations'] },
+  { label:'Back End Incentives',       mgr:['back_end_incentives'],          acc:['n1|back end incentives'] },
+  { label:'Other Incentives',          mgr:['other_incentives'],             acc:['n1|other incentives','n1|gds','n1|vcc'] },
+  { label:'Breakage Revenue',          mgr:['breakage_revenue'],             acc:['n1|breakage revenue'] },
+  { label:'Media Revenue',             mgr:['media_revenue'],                acc:['n1|media & other revenue - media solutions'] },
+  { label:'Income Outsourced Svcs',    mgr:['income_from_outsourced_services'], acc:['n1|income from outsourced services'] },
+  { label:'Revenue Tax',               mgr:['revenue_tax'],                  acc:['n1|revenue taxes'] },
+  { label:'» Net Revenue (subtotal)',  mgr:['net_revenue'],                  acc:['n3|net revenue'], sub:true },
+  { label:'Cost of Installments',      mgr:['cost_of_installments'],         acc:['n1|cost of installments'] },
+  { label:'Credit Card Processing',    mgr:['credit_card_processing'],       acc:['n1|credit card processing'] },
+  { label:'Customer Claims',           mgr:['customer_claims'],              acc:['n1|customer claims'] },
+  { label:'Customer Service',          mgr:['customer_service'],             acc:['n1|customer service'] },
+  { label:'Errors',                    mgr:['errors'],                       acc:['n1|errors'] },
+  { label:'Other Transactional Taxes', mgr:['other_transactional_taxes'],    acc:['n1|other transactional taxes'] },
+  { label:'Frauds',                    mgr:['frauds'],                       acc:['n1|frauds'] },
+  { label:'Operations',                mgr:['operations'],                   acc:['n1|operations'] },
+  { label:'Intercompany',              mgr:['intercompany_usd'],             acc:['n1|intercompany transactions'] },
+  { label:'White Labels / API',        mgr:['white_labels_api'],             acc:['n1|white labels / api'] },
+  { label:'Vendor Commissions',        mgr:['vendor_commissions'],           acc:['n1|conectores','n1|telesales'], note:'revisar el mapeo' },
+  { label:'Affiliates',                mgr:['affiliates'],                   acc:['n1|affiliates'] },
+  { label:'FX (Efecto Fin + Dif FX + Hedge)', mgr:['efecto_financiero','dif_fx','currency_hedge'], acc:[], note:'Accounting no expone FX a este nivel — revisar' },
   { label:'» FVM  vs  Gross Profit',   mgr:['npv'],                          acc:['n4|gross profit'], sub:true, note:'conceptos distintos — solo referencia' }
 ];
 
@@ -2375,7 +2378,7 @@ function renderVsAcc_(){
   h += '<div class="pnl-card" style="margin-bottom:10px;padding:12px 16px">'
      + '<b>Managerial vs Accounting</b> — reales, meses cerrados ('+months.join(', ')+'). '
      + 'B2B + B2B2C, Total (sin filtro país/producto). Managerial = escenario <code>ac</code> (GD). '
-     + 'Accounting = <code>actuals.json</code> canónico'
+     + 'Accounting = <code>actuals.json</code> canónico, línea P&L N1'
      + (D.accMeta && D.accMeta.fechas ? ' ('+D.accMeta.fechas.length+' meses)' : '') + '.'
      + '<br><span style="color:var(--muted);font-size:11px">⚠ El mapeo de líneas (<code>VSACC_MAP</code>) es un borrador. Revisá las filas de abajo y decime cuáles quedan / cómo se mapean.</span>'
      + '</div>';
@@ -2403,7 +2406,7 @@ function renderVsAcc_(){
   h += '</tbody></table></div>';
 
   // ── Líneas sin mapear ──────────────────────────────────────────────────
-  var accOnly = Object.keys(acc).filter(function(k){ return k.indexOf('n2|')===0 && !mapped['acc:'+k]; }).sort();
+  var accOnly = Object.keys(acc).filter(function(k){ return k.indexOf('n1|')===0 && !mapped['acc:'+k]; }).sort();
   var METRIC_ALL = ['orders','gross_bookings','up_front_incentives','fees','commercial_discounts','income_from_outsourced_services','cancellations','cost_of_installments','credit_card_processing','white_labels_api','other_incentives','revenue_tax','back_end_incentives','breakage_revenue','media_revenue','errors','other_transactional_taxes','customer_claims','customer_service','affiliates','intercompany_usd','operations','vendor_commissions','frauds','efecto_financiero','dif_fx','currency_hedge','net_revenue','npv'];
   var mgrOnly = METRIC_ALL.filter(function(k){ return !mapped['mgr:'+k] && mgr[k]; });
 
@@ -2414,7 +2417,7 @@ function renderVsAcc_(){
           + months.map(function(m){ return '<th>'+m+'</th>'; }).join('') + '<th class="th-total-b">Total</th></tr></thead><tbody>';
     items.forEach(function(it){
       var vals = months.map(function(m){ return (dict[keyfn(it)]||{})[m]||0; });
-      s += '<tr><td class="th-lbl">'+escHtml(it.replace(/^n2\|/,''))+'</td>'
+      s += '<tr><td class="th-lbl">'+escHtml(it.replace(/^n[0-9]\|/,''))+'</td>'
          + vals.map(function(v){ return '<td style="text-align:right'+(v<0?';color:var(--red)':'')+'">'+fmtM(v)+'</td>'; }).join('')
          + '<td style="text-align:right;font-weight:700">'+fmtM(vals.reduce(function(a,b){return a+b;},0))+'</td></tr>';
     });
