@@ -493,37 +493,60 @@ function _accMes_(fecha) {
   return YM_LABEL[String(fecha || '').slice(0, 7)] || null;
 }
 
+// País canónico para conciliar (Managerial y Accounting usan strings distintos)
+var _VSA_PAIS_CANON = {
+  'argentina':'Argentina','brasil':'Brasil','brazil':'Brasil','chile':'Chile','colombia':'Colombia',
+  'ecuador':'Ecuador','mexico':'Mexico','méxico':'Mexico','peru':'Peru','perú':'Peru',
+  'other countries':'Otros','others countries':'Otros','globales':'Otros','other':'Otros',
+  'otros':'Otros','otro':'Otros','rg':'Otros','paraguay':'Otros','uruguay':'Otros','n/d':'Otros'
+};
+function _vsaPaisCanon_(p){
+  var k = String(p || '').trim().toLowerCase();
+  return _VSA_PAIS_CANON[k] || (k ? k.charAt(0).toUpperCase() + k.slice(1) : 'Otros');
+}
+// canónico → strings crudos que ven las queries Managerial (para el filtro fPais)
+var _VSA_PAIS_RAW = {
+  'Argentina':['argentina'], 'Brasil':['brasil'], 'Chile':['chile'], 'Colombia':['colombia'],
+  'Ecuador':['ecuador'], 'Mexico':['mexico'], 'Peru':['peru'],
+  'Otros':['other countries','others countries','globales','otros','otro','uruguay','paraguay','rg','n/d']
+};
+
 function getVsAccounting(filtersJson) {
-  // Cache del RESULTADO agregado (chico) — parsear los 2 JSON multi-MB de Drive
-  // + agregar tarda varios segundos. Clave por lastUpdated de ambos archivos
-  // fuente → se auto-invalida cuando corre un sync nuevo.
+  var f = (filtersJson && typeof filtersJson === 'object') ? filtersJson : {};
+  var sig = JSON.stringify([(f.pais||[]).slice().sort(), (f.produto||[]).slice().sort()]);
   var cache = CacheService.getScriptCache();
   var ck = null;
   try {
     var t1 = DriveApp.getFileById(GESTIONAL_JSON_FILE_ID).getLastUpdated().getTime();
     var t2 = DriveApp.getFileById(ACC_ACTUALS_FILE_ID).getLastUpdated().getTime();
-    ck = 'vsacc_v4_' + t1 + '_' + t2;  // ⚠ bumpear el vN al cambiar la lógica de _computeVsAccounting_
+    ck = 'vsacc_v5_' + t1 + '_' + t2 + '_' + Utilities.base64EncodeWebSafe(sig);
     var hit = cache.get(ck);
     if (hit) return JSON.parse(hit);
   } catch (e) { Logger.log('getVsAccounting cache probe: ' + e); }
 
-  var out = _computeVsAccounting_();
+  var out = _computeVsAccounting_(f);
   if (ck) { try { cache.put(ck, JSON.stringify(out), 21600); } catch (e) {} }  // 6 h
   return out;
 }
 
-function _computeVsAccounting_() {
+function _computeVsAccounting_(f) {
+  f = f || {};
   var json = readGestionalJSON_('bl');
   var FY = YM_ORDER.map(function(y){ return YM_LABEL[y]; });
 
+  // ── Filtros: país canónico + producto (lowercase) ──
+  var selPais = (f.pais || []).map(function(s){ return String(s); });           // ['Argentina', 'Otros', ...]
+  var selProd = (f.produto || []).map(function(s){ return String(s).toLowerCase(); });
+  var fPaisMgr = [];
+  selPais.forEach(function(cp){ (_VSA_PAIS_RAW[cp] || [cp.toLowerCase()]).forEach(function(r){ fPaisMgr.push(r); }); });
+
   // ── Managerial actuals por LOB — {metric:{mes}} + set de meses ──
-  // B2B-MAY usa ac_ri (RI); B2B-MIN y B2B2C usan ac (GD, no tienen RI).
   function mgrFor(lob, scen) {
     var raw = {};
     if (lob === 'b2b2c') {
-      queryB2B2C_(json.b2b2c, scen, [], [], [], raw, null,null,null,null,null,null,null,null);
+      queryB2B2C_(json.b2b2c, scen, fPaisMgr, [], selProd, raw, null,null,null,null,null,null,null,null);
     } else {
-      queryB2B_(json['b2b_' + lob], scen, [], [], raw, null, null);
+      queryB2B_(json['b2b_' + lob], scen, fPaisMgr, selProd, raw, null, null);
     }
     var t = {}, mm = {};
     Object.keys(raw).forEach(function(mes){
@@ -544,17 +567,23 @@ function _computeVsAccounting_() {
   // ── Accounting por LOB — actuals.json, P&L N1 + N3/N4, split por LoB×Canal ──
   var A = { b2b2c: {}, may: {}, min: {} };
   var accMonths = {};
+  var paisOpts = {}, prodOpts = {};
   var aj  = readAccActualsJSON_();
   var cix = {};
   (aj.cols || []).forEach(function(c, i){ cix[c] = i; });
-  var iLob = cix['LoB'], iCanal = cix['Canal'], iN1 = cix['P&L N1'],
-      iN3 = cix['P&L N3'], iN4 = cix['P&L N4'], iFecha = cix['Fecha'], iMonto = cix['Monto USD'];
+  var iLob = cix['LoB'], iCanal = cix['Canal'], iPais = cix['Pais'], iProd = cix['Producto'],
+      iN1 = cix['P&L N1'], iN3 = cix['P&L N3'], iN4 = cix['P&L N4'], iFecha = cix['Fecha'], iMonto = cix['Monto USD'];
   (aj.rows || []).forEach(function(r){
     var lob = String(r[iLob] || '').toLowerCase(), canal = String(r[iCanal] || '').toLowerCase();
     var bucket = (lob === 'b2b2c') ? 'b2b2c'
                : (lob === 'b2b' && canal === 'may') ? 'may'
                : (lob === 'b2b' && canal === 'min') ? 'min' : null;
     if (!bucket) return;
+    var cp = _vsaPaisCanon_(r[iPais]);
+    var prd = String(r[iProd] || '').toLowerCase();
+    paisOpts[cp] = true; if (prd) prodOpts[prd] = true;
+    if (selPais.length && selPais.indexOf(cp) < 0) return;
+    if (selProd.length && selProd.indexOf(prd) < 0) return;
     var mes = _accMes_(r[iFecha]); if (!mes) return;
     var val = (+r[iMonto] || 0), dst = A[bucket];
     [['n1', r[iN1]], ['n3', r[iN3]], ['n4', r[iN4]]].forEach(function(p){
@@ -567,7 +596,11 @@ function _computeVsAccounting_() {
 
   function isect(mm){ return FY.filter(function(m){ return mm[m] && accMonths[m]; }); }
   return {
-    accMeta: aj.meta || {},
+    accMeta:  aj.meta || {},
+    paisOpts: ['Argentina','Brasil','Mexico','Colombia','Chile','Peru','Ecuador','Otros'].filter(function(p){ return paisOpts[p]; }),
+    prodOpts: Object.keys(prodOpts).sort(),
+    selPais:  selPais,
+    selProd:  selProd,
     lobs: {
       b2b2c: { label: 'B2B2C',     mgrLabel: 'ac (GD)',    months: isect(M.b2b2c.months), mgr: M.b2b2c.data, acc: A.b2b2c },
       may:   { label: 'B2B · MAY', mgrLabel: 'ac_ri (RI)', months: isect(M.may.months),   mgr: M.may.data,   acc: A.may },

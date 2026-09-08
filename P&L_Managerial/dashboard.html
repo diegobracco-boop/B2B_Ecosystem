@@ -2330,17 +2330,42 @@ var VSACC_MAP = [
 ];
 
 var _vsAccData = null;
+var _vsAccPais = [];   // país canónico seleccionado ('Argentina', 'Otros', …)
+var _vsAccProd = [];   // producto lowercase seleccionado
 
 function fetchVsAcc_(force){
   var c = document.getElementById('vsacc-container');
   if(!c) return;
   if(_vsAccData && !force){ renderVsAcc_(); return; }
   _vsAccData = null;
-  c.innerHTML = '<div style="padding:24px;color:var(--muted)">Cargando comparación… (primera carga: ~10 s, parsea 2 JSON de Drive)</div>';
+  var tbl = document.getElementById('vsacc-tables');
+  if(tbl) tbl.innerHTML = '<div style="padding:20px;color:var(--muted)">Cargando…</div>';
+  else c.innerHTML = '<div style="padding:24px;color:var(--muted)">Cargando comparación… (primera carga: ~10 s, parsea 2 JSON de Drive)</div>';
   google.script.run
     .withSuccessHandler(function(d){ _vsAccData = d; try{ renderVsAcc_(); }catch(e){ c.innerHTML = '<div class="error-msg" style="padding:24px">Error render: '+(e.message||e)+'</div>'; if(window.console) console.error('[vsacc]', e); } })
     .withFailureHandler(function(e){ c.innerHTML = '<div class="error-msg" style="padding:24px">Error backend: '+((e&&e.message)||e)+'</div>'; })
-    .getVsAccounting({});
+    .getVsAccounting({ pais: _vsAccPais, produto: _vsAccProd });
+}
+
+function _vsAccToggle_(which, val){
+  var arr = which === 'pais' ? _vsAccPais : _vsAccProd;
+  var i = arr.indexOf(val);
+  if(i >= 0) arr.splice(i,1); else arr.push(val);
+  fetchVsAcc_(true);
+}
+function _vsAccClear_(which){
+  if(which === 'pais') _vsAccPais = []; else _vsAccProd = [];
+  fetchVsAcc_(true);
+}
+function _vsAccChips_(label, which, opts, sel){
+  var h = '<div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin:4px 0">'
+    + '<span style="font-size:11px;color:var(--muted);font-weight:700;min-width:64px">'+label+'</span>'
+    + '<button type="button" class="bg-pchip'+(sel.length?'':' bg-pchip-active')+'" onclick="_vsAccClear_(\''+which+'\')">Todos</button>';
+  (opts||[]).forEach(function(o){
+    var on = sel.indexOf(o) >= 0;
+    h += '<button type="button" class="bg-pchip'+(on?' bg-pchip-active':'')+'" onclick="_vsAccToggle_(\''+which+'\',\''+String(o).replace(/'/g,"\\'")+'\')">'+escHtml(o)+'</button>';
+  });
+  return h + '</div>';
 }
 
 function _vsAccSum_(dict, keys, mes){
@@ -2363,36 +2388,41 @@ function _vsAccTable_(L){
 
   var cols = months.concat(['Total']);
   function cell(v){ return '<td style="text-align:right'+(v<0?';color:var(--red)':'')+'">'+fmtM(v)+'</td>'; }
+  function pcell(v){ return '<td style="text-align:right'+(v<0?';color:var(--red)':'')+'">'+(v==null||!isFinite(v)?'—':(v>=0?'+':'')+v.toFixed(0)+'%')+'</td>'; }
   function sumRow(get){ return cols.map(function(col){ return col==='Total' ? months.reduce(function(s,m){return s+get(m);},0) : get(col); }); }
-  function tr(label, accV, mgrV, note, style){
-    var dV = mgrV.map(function(v,i){ return v-accV[i]; });
+  // baseV = Managerial (baseline), goalV = Accounting (goal). Δ = base − goal. Δ% = Δ / |goal|.
+  function tr(label, baseV, goalV, note, style, pctDash){
+    var dV = baseV.map(function(v,i){ return v-goalV[i]; });
+    var pV = dV.map(function(dv,i){ return pctDash || Math.abs(goalV[i])<1e-9 ? null : dv/Math.abs(goalV[i])*100; });
     return '<tr'+(style?' style="'+style+'"':'')+'><td class="th-lbl">'+escHtml(label)
       + (note?' <span style="color:var(--red);font-size:10px">('+escHtml(note)+')</span>':'')+'</td>'
-      + accV.map(cell).join('')+'<td class="th-sep"></td>'
-      + mgrV.map(cell).join('')+'<td class="th-sep"></td>'
-      + dV.map(cell).join('')+'</tr>';
+      + baseV.map(cell).join('')+'<td class="th-sep"></td>'
+      + goalV.map(cell).join('')+'<td class="th-sep"></td>'
+      + dV.map(cell).join('')+'<td class="th-sep"></td>'
+      + pV.map(pcell).join('')+'</tr>';
   }
 
-  var h = head + '<div class="pnl-card" style="overflow-x:auto;margin-bottom:16px"><table class="qpnl-table" style="min-width:680px"><thead>';
-  h += '<tr><th class="th-lbl"></th><th class="th-baseline" colspan="'+cols.length+'">ACCOUNTING</th><th class="th-sep"></th>'
-     + '<th class="th-goal" colspan="'+cols.length+'">MANAGERIAL</th><th class="th-sep"></th>'
-     + '<th class="th-delta" colspan="'+cols.length+'">Δ (Mgr − Acc)</th></tr><tr><th class="th-lbl">Línea</th>';
-  for(var g=0; g<3; g++){ cols.forEach(function(col){ h+='<th'+(col==='Total'?' class="th-total-b"':'')+'>'+col+'</th>'; }); if(g<2) h+='<th class="th-sep"></th>'; }
+  var h = head + '<div class="pnl-card" style="overflow-x:auto;margin-bottom:16px"><table class="qpnl-table" style="min-width:820px"><thead>';
+  h += '<tr><th class="th-lbl"></th><th class="th-baseline" colspan="'+cols.length+'">MANAGERIAL (baseline)</th><th class="th-sep"></th>'
+     + '<th class="th-goal" colspan="'+cols.length+'">ACCOUNTING (goal)</th><th class="th-sep"></th>'
+     + '<th class="th-delta" colspan="'+cols.length+'">Δ (Mgr − Acc)</th><th class="th-sep"></th>'
+     + '<th class="th-delta" colspan="'+cols.length+'">Δ %</th></tr><tr><th class="th-lbl">Línea</th>';
+  for(var g=0; g<4; g++){ cols.forEach(function(col){ h+='<th'+(col==='Total'?' class="th-total-b"':'')+'>'+col+'</th>'; }); if(g<3) h+='<th class="th-sep"></th>'; }
   h += '</tr></thead><tbody>';
 
   VSACC_MAP.forEach(function(row){
     h += tr(row.label,
-            sumRow(function(m){ return _vsAccSum_(acc, row.acc, m); }),
             sumRow(function(m){ return _vsAccSum_(mgr, row.mgr, m); }),
+            sumRow(function(m){ return _vsAccSum_(acc, row.acc, m); }),
             row.note,
             row.sub ? 'font-weight:700;background:rgba(42,16,72,.05)' : '');
   });
   VSACC_ACC_KEEP.forEach(function(k){
     if(!acc[k]) return;
     h += tr(k.replace(/^n1\|/,'') + ' — solo Accounting',
-            sumRow(function(m){ return (acc[k]||{})[m]||0; }),
             cols.map(function(){ return 0; }),
-            '', 'color:var(--muted)');
+            sumRow(function(m){ return (acc[k]||{})[m]||0; }),
+            '', 'color:var(--muted)', true);
   });
   return h + '</tbody></table></div>';
 }
@@ -2405,13 +2435,22 @@ function renderVsAcc_(){
       + '<button type="button" onclick="fetchVsAcc_(true)" style="margin-left:8px;font-size:11px;padding:3px 10px;cursor:pointer">↻ recargar</button></div>';
     return;
   }
+  // sincronizar selección con lo que el backend efectivamente aplicó
+  if(D.selPais) _vsAccPais = D.selPais;
+  if(D.selProd) _vsAccProd = D.selProd;
+
   var h = '<div class="pnl-card" style="margin-bottom:10px;padding:12px 16px">'
     + '<b>Managerial vs Accounting</b> — reales, meses cerrados, por LOB. '
     + 'Accounting = <code>actuals.json</code> canónico (P&L N1). Managerial = actuals gestional ('
     + 'B2B-MAY en RI, B2B-MIN y B2B2C en GD).'
     + '<br><span style="color:var(--muted);font-size:11px">⚠ <code>VSACC_MAP</code> es un borrador — decime qué filas ajustar.</span> '
-    + '<button type="button" onclick="fetchVsAcc_(true)" style="margin-left:8px;font-size:10px;padding:2px 8px;cursor:pointer">↻ recargar</button></div>';
+    + '<button type="button" onclick="fetchVsAcc_(true)" style="margin-left:8px;font-size:10px;padding:2px 8px;cursor:pointer">↻ recargar</button>'
+    + _vsAccChips_('País', 'pais', D.paisOpts || [], _vsAccPais)
+    + _vsAccChips_('Producto', 'prod', D.prodOpts || [], _vsAccProd)
+    + '</div>';
+  h += '<div id="vsacc-tables">';
   ['b2b2c','may','min'].forEach(function(lk){ if(D.lobs[lk]) h += _vsAccTable_(D.lobs[lk]); });
+  h += '</div>';
   c.innerHTML = h;
 }
 
