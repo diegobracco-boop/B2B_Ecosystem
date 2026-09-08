@@ -2320,9 +2320,10 @@ var VSACC_MAP = [
   { label:'Other Transactional Taxes', mgr:['other_transactional_taxes'],    acc:['n1|other transactional taxes'] },
   { label:'Frauds',                    mgr:['frauds'],                       acc:['n1|frauds'] },
   { label:'Intercompany',              mgr:['intercompany_usd'],             acc:['n1|intercompany transactions'] },
-  { label:'White Labels / API',        mgr:['white_labels_api'],             acc:['n1|white labels / api'] },
-  { label:'Vendor Commissions',        mgr:['vendor_commissions'],           acc:['n1|conectores','n1|telesales'], note:'Acc = conectores + telesales; Mgr no lo abre (0)' },
-  { label:'Affiliates',                mgr:['affiliates'],                   acc:['n1|affiliates'] },
+  { label:'Third Party Commissions',   mgr:['white_labels_api','affiliates'],
+                                       acc:['n1|affiliates','n1|white labels / api','n1|conectores','n1|telesales'] },
+  { label:'Vendor Commissions  vs  Channels Personnel Exp.', mgr:['vendor_commissions'],
+                                       acc:['n1|channels-personnel/expenses'], note:'comisión de vendedores presenciales; Mgr no lo abre (0)' },
   { label:'Efecto Financiero',         mgr:['efecto_financiero'],            acc:[] },
   { label:'Dif FX + Hedge  vs  Cost of Sales as Principal', mgr:['dif_fx','currency_hedge'], acc:['n1|cost of sales as principal'], note:'fee bimonetario Argentina' },
   { label:'» FVM  vs  Gross Profit',   mgr:['npv'],                          acc:['n4|gross profit'], sub:true, note:'conceptos distintos — solo referencia' }
@@ -2375,7 +2376,7 @@ function _vsAccSum_(dict, keys, mes){
 
 // Líneas Accounting sin equivalente Managerial que igual se muestran (fila extra,
 // Managerial = 0). El resto de las accounting-only se ocultan (decisión de Diego).
-var VSACC_ACC_KEEP = ['n1|channels-personnel/expenses'];
+var VSACC_ACC_KEEP = [];
 
 function _vsAccTable_(L){
   var months = L.months || [];
