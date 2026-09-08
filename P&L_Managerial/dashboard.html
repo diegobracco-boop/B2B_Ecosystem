@@ -872,6 +872,7 @@ function switchTab(name){
   updateProductoFilterVis_();
   if(name === 'baseline' && _data) renderManagerialBGTable();
   if(name === 'detalle' && _data) renderDetalle();
+  if(name === 'graficos' && _data) { try{ renderTrendCharts(_data.months||[], _data.agg||{}, _data.budget||{}, _data.ly||{}); }catch(e){ if(window.console) console.error('[render:trend]', e); } }
   _updateStickyOffsets_();
 }
 
@@ -1912,18 +1913,22 @@ function renderPalancasTable(months,agg,budgetAgg,lyAgg,headEl,bodyEl){
 
 // ── Main render ────────────────────────────────────────────────────────────
 function render(){
-  var months=_data.months, agg=_data.agg, budgetAgg=_data.budget||{}, lyAgg=_data.ly||{};
-  var totals={};
-  ['orders','gross_bookings','net_revenue','npv'].forEach(function(k){
-    totals[k]=months.reduce(function(s,m){ return s+(agg[m]?(agg[m][k]||0):0);},0);
-  });
-  renderKPIs(months,totals);
+  if(!_data) return;
+  var months=_data.months||[], agg=_data.agg||{}, budgetAgg=_data.budget||{}, lyAgg=_data.ly||{};
   var _pl=document.getElementById('period-label');
   if(_pl) _pl.textContent=months.length===0?'':months.length===1?months[0]:months[0]+' → '+months[months.length-1];
-  renderPnlTable(months,agg,budgetAgg,lyAgg);
-  renderTrendCharts(months,agg,budgetAgg,lyAgg);
-  if(document.getElementById('tab-baseline').classList.contains('active')) renderManagerialBGTable();
-  if(document.getElementById('tab-detalle').classList.contains('active')) renderDetalle();
+
+  // Cada sección se renderiza aislada: un error en una (típicamente renderTrendCharts,
+  // que es código centrado en B2B2C) NO debe impedir que se repinte la tabla de P&L.
+  // Antes esto tapaba el bug B2B/B2B2C: render() abortaba antes de renderManagerialBGTable.
+  function safe(label, fn){ try{ fn(); }catch(e){ if(window.console) console.error('[render:'+label+']', e); } }
+  var isTab=function(id){ var el=document.getElementById(id); return el && el.classList.contains('active'); };
+
+  // La tabla de P&L (pestaña por defecto) primero y siempre.
+  safe('pnl', renderManagerialBGTable);
+  // Detalle y Trend: solo si su pestaña está visible (lazy — no construir Chart.js oculto).
+  if(isTab('tab-detalle')) safe('detalle', renderDetalle);
+  if(isTab('tab-graficos')) safe('trend', function(){ renderTrendCharts(months,agg,budgetAgg,lyAgg); });
 }
 
 // ── Baseline vs Goal (Managerial) ──────────────────────────────────────────
@@ -2440,6 +2445,7 @@ function getFilters(){
 }
 
 function reload(){
+  clearTimeout(_reloadTimer);  // matar cualquier debouncedReload pendiente — evita un fetch fantasma que después descarta la respuesta buena
   document.getElementById('loader').style.display='flex';
   fetchData();
 }
@@ -2457,6 +2463,7 @@ function fetchData(){
       // este chequeo, una respuesta vieja que llega después de una más nueva puede
       // pisar los datos ya renderizados del LOB actual con los del LOB anterior.
       if (reqId !== _fetchSeq) return;
+      if (reqLob !== _activeLob) return;  // cambiaste de LOB mientras esto viajaba — descartar para no pintar datos del LOB anterior
       _data = d;
       if (!_filtersLoadedForLob[reqLob]) {
         fillPaisChips(d.filters['pais'] || []);
