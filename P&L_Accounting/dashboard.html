@@ -682,6 +682,13 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
       <button id="btn-egoal-lastrunrate" class="prd-btn" type="button" onclick="setEpmGoalSource('lastrunrate')">vs Last RR</button>
       <button id="btn-egoal-lastyear" class="prd-btn" type="button" onclick="setEpmGoalSource('lastyear')">vs Last Year</button>
     </div>
+    <span style="width:1px;height:18px;background:rgba(0,0,0,.15);margin:0 2px"></span>
+    <span style="font-size:11px;color:var(--muted);font-weight:700">Escala:</span>
+    <div class="prd-toggle">
+      <button id="btn-scale-M"   class="prd-btn prd-active" type="button" onclick="setNumScale('M')">M</button>
+      <button id="btn-scale-K"   class="prd-btn"            type="button" onclick="setNumScale('K')">K</button>
+      <button id="btn-scale-raw" class="prd-btn"            type="button" onclick="setNumScale('raw')">Enteros</button>
+    </div>
   </div>
   <div id="bg-period-chips" style="display:none;flex-wrap:wrap;gap:6px"></div>
 </div>
@@ -757,6 +764,14 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
       <button class="cnt-btn" type="button" onclick="selectB2BCountry('Uruguay',['Uruguay'])">Uruguay</button>
       <button class="cnt-btn" type="button" onclick="selectB2BCountry('Globales',['Globales'])">Globales</button>
       <button class="cnt-btn pxq-pill" id="cont-stab-pxq-b2b" type="button" onclick="setContableView('pxq')" style="margin-left:8px">PxQ</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:10px">
+      <span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Canal</span>
+      <div class="prd-toggle">
+        <button id="btn-canal-total" class="prd-btn prd-active" type="button" onclick="setB2BCanalFilter('total')">Total</button>
+        <button id="btn-canal-may"   class="prd-btn"            type="button" onclick="setB2BCanalFilter('may')">MAY</button>
+        <button id="btn-canal-min"   class="prd-btn"            type="button" onclick="setB2BCanalFilter('min')">MIN</button>
+      </div>
     </div>
   </div>
 
@@ -890,6 +905,8 @@ var _reloadTimer    = null;
 function debouncedReload(){ clearTimeout(_reloadTimer); _reloadTimer = setTimeout(function(){ reload(); }, 600); }
 var _bgFiltersInitialized = false;
 var ALL_MONTHS_ORD_BG = ['Abr-26','May-26','Jun-26','Jul-26','Ago-26','Sep-26','Oct-26','Nov-26','Dic-26','Ene-27','Feb-27','Mar-27'];
+var _b2bCanalFilter = 'total'; // 'total' | 'may' | 'min'
+var _numScale = 'M'; // 'M' | 'K' | 'raw'
 
 // ── Tab navigation ─────────────────────────────────────────────────────────
 // ── Formatters ─────────────────────────────────────────────────────────────
@@ -2136,6 +2153,24 @@ function _refreshBGViews_(){
   if(_b2b2cCountryData && _bgContableView === 'b2b2c') renderB2B2CCountryDetail(_b2b2cCountryData);
 }
 
+function setB2BCanalFilter(canal) {
+  _b2bCanalFilter = canal;
+  ['total','may','min'].forEach(function(c){
+    var btn = document.getElementById('btn-canal-'+c);
+    if(btn) btn.classList.toggle('prd-active', c===canal);
+  });
+  if(_b2bCountryData) renderB2BCountryDetail(_b2bCountryData);
+}
+
+function setNumScale(scale) {
+  _numScale = scale;
+  ['M','K','raw'].forEach(function(s){
+    var btn = document.getElementById('btn-scale-'+s);
+    if(btn) btn.classList.toggle('prd-active', s===scale);
+  });
+  _refreshBGViews_();
+}
+
 function _modeData_(data){
   if(_bgPeriodMode !== 'm') return data;
   return {
@@ -2185,8 +2220,13 @@ function buildBGQHead(quarters, n){
   return h;
 }
 
-// Formatos fijos para P&L Accounting: nominales siempre en M, Orders siempre en K
-function fmtMM(v){ return (v===null||isNaN(v))?'—':(v/1e6).toFixed(1)+'M'; }
+// Formatos fijos para P&L Accounting: nominales respetan _numScale, Orders siempre en K
+function fmtMM(v){
+  if(v===null||isNaN(v)) return '—';
+  if(_numScale==='K') return Math.round(v/1e3).toString().replace(/\B(?=(\d{3})+(?!\d))/g,'.')+'K';
+  if(_numScale==='raw') return Math.round(v).toString().replace(/\B(?=(\d{3})+(?!\d))/g,'.');
+  return (v/1e6).toFixed(1)+'M';
+}
 function fmtKK(v){ return (v===null||isNaN(v))?'—':(v/1e3).toFixed(0)+'K'; }
 
 function fillBGBody(tbody, quarters, baseline, goal, tableId){
@@ -2581,12 +2621,26 @@ function renderContableCharts(d){
   var grid    = document.getElementById('bg-charts-grid');
   if(!section || !grid) return;
 
-  var chartData = d && d.chart && d.chart.total;
+  var chartData;
+  if (_bgContableView === 'b2b' && _b2bCanalFilter !== 'total') {
+    var _cD = d[_b2bCanalFilter] && d[_b2bCanalFilter].total;
+    if (_cD && _cD.baseline && _cD.baseline.rr_monthly) {
+      var _blS = buildChartFromMonthly_JS_(_cD.baseline.rr_monthly, _cD.baseline.ct_monthly);
+      var _bgS = buildChartFromMonthly_JS_(_cD.goal.rr_monthly, _cD.goal.ct_monthly);
+      chartData = {baseline:{}, budget:{}, ly:{}};
+      CONT_CHART_DEFS.forEach(function(def){
+        chartData.baseline[def.key] = _blS.map(function(s){ return s[def.key]; });
+        chartData.budget[def.key]   = _bgS.map(function(s){ return s[def.key]; });
+        chartData.ly[def.key]       = _CONT_MONTHS_ORD.map(function(){ return null; });
+      });
+    }
+  }
+  if (!chartData) chartData = d && d.chart && d.chart.total;
   if(!chartData){ section.style.display = 'none'; return; }
   section.style.display = '';
 
   // Labels eje X: sólo el mes, sin año ('Abr', 'May', ...)
-  var labels = (d.chart.months || []).map(function(m){ return m.split('-')[0]; });
+  var labels = ((d.chart && d.chart.months) || _CONT_MONTHS_ORD).map(function(m){ return m.split('-')[0]; });
 
   // Destruir charts anteriores
   _contCharts.forEach(function(c){ try{ c.destroy(); }catch(e){} });
@@ -2607,12 +2661,14 @@ function renderContableCharts(d){
     wrap.appendChild(canvas);
     grid.appendChild(wrap);
 
-    var divisor = 1e6;
-    function toM(arr){ return (arr||[]).map(function(v){ return v ? +(v/divisor).toFixed(2) : null; }); }
+    var divisor   = _numScale === 'K' ? 1e3 : _numScale === 'raw' ? 1 : 1e6;
+    var scaleUnit = _numScale === 'K' ? 'K' : _numScale === 'raw' ? '' : 'M';
+    var scaleDec  = _numScale === 'raw' ? 0 : 2;
+    function toUnit(arr){ return (arr||[]).map(function(v){ return v ? +(v/divisor).toFixed(scaleDec) : null; }); }
 
-    var baseVals   = toM(chartData.baseline[def.key]);
-    var budgetVals = toM(chartData.budget[def.key]);
-    var lyVals     = toM(chartData.ly[def.key]);
+    var baseVals   = toUnit(chartData.baseline[def.key]);
+    var budgetVals = toUnit(chartData.budget[def.key]);
+    var lyVals     = toUnit(chartData.ly[def.key]);
     var hasLY      = lyVals.some(function(v){ return v !== null; });
     var ds = [
       {
@@ -2650,13 +2706,13 @@ function renderContableCharts(d){
           tooltip:{
             mode:'index', intersect:false,
             callbacks:{
-              label:function(ctx){ return ctx.dataset.label+': $'+(def.key==='net revenue' ? (+ctx.parsed.y).toFixed(1) : ctx.parsed.y)+'M'; }
+              label:function(ctx){ return ctx.dataset.label+': $'+ctx.parsed.y+scaleUnit; }
             }
           }
         },
         scales:{
           x:{ ticks:{ color:tickColor, font:{size:10} }, grid:{ color:gridColor } },
-          y:{ ticks:{ color:tickColor, font:{size:10}, callback:function(v){ return def.key==='net revenue' ? '$'+(+v).toFixed(1)+'M' : '$'+v+'M'; } }, grid:{ color:gridColor } }
+          y:{ ticks:{ color:tickColor, font:{size:10}, callback:function(v){ return '$'+v+scaleUnit; } }, grid:{ color:gridColor } }
         }
       }
     });
@@ -2844,7 +2900,7 @@ function renderB2BCountryDetail(d) {
   var n = quarters.length;
 
   // Total P&L
-  renderPnlBlock_(detail, 'Total ' + d.label, quarters, n, d.total);
+  if (_b2bCanalFilter === 'total') renderPnlBlock_(detail, 'Total ' + d.label, quarters, n, d.total);
 
   // Build 3-way waterfall split: Iniciativas / Palancas MAY / Palancas MIN
   var splitP = null;
@@ -2927,22 +2983,24 @@ function renderB2BCountryDetail(d) {
     splitP = [{label:'MIN', data: d.min.total}, {label:'MAY', data: d.may.total}];
   }
 
-  appendLobWaterfall_(detail, d.label, d.total, splitP);
+  if (_b2bCanalFilter === 'total') appendLobWaterfall_(detail, d.label, d.total, splitP);
 
   // Per-canal + per-product P&L blocks
+  var _showMAY = _b2bCanalFilter === 'total' || _b2bCanalFilter === 'may';
+  var _showMIN = _b2bCanalFilter === 'total' || _b2bCanalFilter === 'min';
   if (isSingleCountry) {
     var isGlobales = (d.label === 'Globales');
-    if (d.may && d.may.total) {
+    if (_showMAY && d.may && d.may.total) {
       renderPnlBlock_(detail, 'MAY · ' + d.label, quarters, n, d.may.total);
       if (!isGlobales) mayProds.forEach(function(p){ renderPnlBlock_(detail, 'MAY · ' + p.label, quarters, n, p.data); });
     }
-    if (d.min && d.min.total) {
+    if (_showMIN && d.min && d.min.total) {
       renderPnlBlock_(detail, 'MIN · ' + d.label, quarters, n, d.min.total);
       if (!isGlobales) minProds.forEach(function(p){ renderPnlBlock_(detail, 'MIN · ' + p.label, quarters, n, p.data); });
     }
   } else {
-    if (d.may && d.may.total) renderPnlBlock_(detail, 'MAY / API · ' + d.label, quarters, n, d.may.total);
-    if (d.min && d.min.total) renderPnlBlock_(detail, 'MIN / HTML · ' + d.label, quarters, n, d.min.total);
+    if (_showMAY && d.may && d.may.total) renderPnlBlock_(detail, 'MAY / API · ' + d.label, quarters, n, d.may.total);
+    if (_showMIN && d.min && d.min.total) renderPnlBlock_(detail, 'MIN / HTML · ' + d.label, quarters, n, d.min.total);
   }
 }
 
