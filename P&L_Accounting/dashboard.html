@@ -2679,7 +2679,7 @@ function renderContableCharts(d){
       },
       {
         label: (_activeLob === 'contable-epm') ? _epmGoalLabel() : (_bgGoalSource === 'epm' ? 'EPM' : 'Budget'),
-        data: toM(chartData.budget[def.key]),
+        data: budgetVals,
         borderColor:'#EAB308', backgroundColor:'transparent',
         fill:false, tension:.35, pointRadius:3, pointHoverRadius:5, borderWidth:2,
         borderDash:[6,3]
@@ -3157,7 +3157,10 @@ function renderLobMonthlyCharts_(container, lobName, lobData, lyAgg) {
     wrap.appendChild(cvs);
     grid.appendChild(wrap);
 
-    function toM(arr){ return (arr||[]).map(function(v){ return v ? +(v/1e6).toFixed(2) : null; }); }
+    var _div2  = _numScale === 'K' ? 1e3 : _numScale === 'raw' ? 1 : 1e6;
+    var _sU2   = _numScale === 'K' ? 'K' : _numScale === 'raw' ? '' : 'M';
+    var _sD2   = _numScale === 'raw' ? 0 : 2;
+    function toM(arr){ return (arr||[]).map(function(v){ return v ? +(v/_div2).toFixed(_sD2) : null; }); }
     var baseVals = toM(chartData.baseline[def.key]);
     var budgVals = toM(chartData.budget[def.key]);
     var lyVals   = toM(chartData.ly[def.key]);
@@ -3187,12 +3190,12 @@ function renderLobMonthlyCharts_(container, lobName, lobData, lyAgg) {
           legend:{ display:true, position:'bottom', labels:{ color:tickColor, font:{size:10}, boxWidth:24, padding:8 } },
           tooltip:{
             mode:'index', intersect:false,
-            callbacks:{ label:function(ctx){ return ctx.dataset.label+': $'+ctx.parsed.y+'M'; } }
+            callbacks:{ label:function(ctx){ return ctx.dataset.label+': $'+ctx.parsed.y+_sU2; } }
           }
         },
         scales:{
           x:{ ticks:{ color:tickColor, font:{size:10} }, grid:{ color:gridColor } },
-          y:{ ticks:{ color:tickColor, font:{size:10}, callback:function(v){ return '$'+v+'M'; } }, grid:{ color:gridColor } }
+          y:{ ticks:{ color:tickColor, font:{size:10}, callback:function(v){ return '$'+v+_sU2; } }, grid:{ color:gridColor } }
         }
       }
     });
