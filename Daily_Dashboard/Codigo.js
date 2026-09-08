@@ -86,12 +86,8 @@ function cacheGet_(key) {
 }
 
 // ============================================================
-// Weekly Summary — data + AI endpoints
+// Weekly Summary — data
 // ============================================================
-
-var TOQAN_BASE    = 'https://api.coco.prod.toqan.ai/api';
-var BITUBEE_KEY   = 'sk_1c310a2cc99bcedf5a11ef6af31c16a72459ac77c0939fe1f7e0abe2a4d5f9dfc3a7e34384af4724d92a81078e3faeb3f74ecf7aa767d53345df2e0d6e9a';
-var BITUBICIA_KEY = 'sk_2cb8e619437f5932978b4714bd544497d9e8f988e793ff415769ea4d101c6c4e627d61bf81c754fd7ffd3883808ab29a3cda253bfb311f670212e1837b5b';
 
 var WS_HISPA  = ['Argentina','Colombia','Chile','Peru','Ecuador'];
 var WS_GROUPS = ['TOTAL','Brasil','Mexico','Hispa','Globales'];
@@ -421,138 +417,6 @@ function _wsComputeMTD_(actRows, budRows, lyRows) {
     };
   });
   return { month:lastYM, daysCount:Object.keys(actDays).length, hasBudget:hasBudget, rows:rows };
-}
-
-// ---- Toqan proxy (server-side UrlFetchApp avoids CORS) ----
-
-function _toqanFetch_(endpoint, method, body, agent) {
-  var apiKey = (agent === 'bitubicia') ? BITUBICIA_KEY : BITUBEE_KEY;
-  var opts = { method: method, headers: { 'X-Api-Key': apiKey }, muteHttpExceptions: true };
-  if (body) { opts.contentType = 'application/json'; opts.payload = JSON.stringify(body); }
-  var resp = UrlFetchApp.fetch(TOQAN_BASE + endpoint, opts);
-  var code = resp.getResponseCode();
-  var text = resp.getContentText();
-  if (code < 200 || code >= 300) throw new Error('HTTP ' + code + ': ' + text.slice(0, 200));
-  return JSON.parse(text);
-}
-
-function wsToqanCreate(params) {
-  try {
-    var data = _toqanFetch_('/create_conversation', 'post', { user_message: params.user_message }, params.agent);
-    if (!data.conversation_id) throw new Error('Sin conversation_id');
-    return { success: true, conversation_id: data.conversation_id, request_id: data.request_id };
-  } catch(e) { return { success: false, error: e.message }; }
-}
-
-function wsToqanContinue(params) {
-  try {
-    var data = _toqanFetch_('/continue_conversation', 'post',
-      { user_message: params.user_message, conversation_id: params.conversation_id }, params.agent);
-    if (!data.conversation_id) throw new Error('Sin conversation_id');
-    return { success: true, conversation_id: data.conversation_id, request_id: data.request_id };
-  } catch(e) { return { success: false, error: e.message }; }
-}
-
-function wsToqanPoll(params) {
-  try {
-    var qs = 'conversation_id=' + encodeURIComponent(params.conversation_id) +
-             '&request_id='     + encodeURIComponent(params.request_id);
-    var data = _toqanFetch_('/get_answer?' + qs, 'get', null, params.agent);
-    return { success: true, status: data.status, answer: data.answer };
-  } catch(e) { return { success: false, error: e.message }; }
-}
-
-// ---- AI Chat context endpoint ----
-
-function wsGetChatContext(params) {
-  try {
-    var p  = params || {};
-    var dp = p.dashboardParams || {};
-    var ctx = (dp.source === 'daily') ? _buildDailyContext_(dp) : _buildWSContext_(dp);
-    return {
-      success: true,
-      context: ctx,
-      config: { base: TOQAN_BASE, bitubeeKey: BITUBEE_KEY, bitubiciaKey: BITUBICIA_KEY }
-    };
-  } catch(e) {
-    return { success: false, error: e.message };
-  }
-}
-
-// ---- Context builders ----
-
-function _buildWSContext_(params) {
-  try {
-    var data = getWeeklySummaryData(params);
-    if (!data || !data.success) return null;
-    return {
-      fuente:'weekly', lob:data.lob, view:data.view, semanas:data.weekLabels,
-      resumen: data.rows.map(function(r) {
-        var last = r.weeks.length ? r.weeks[r.weeks.length-1] : {};
-        return { grupo:r.group, ult_sem:{sem:last.semana,gb:last.gb,rev:last.rev,fvm:last.fvm},
-                 vs_l4w:r.vsL4W, vs_ly_gb:last.vsLYgb, vs_ly_rev:last.vsLYrev };
-      }),
-      mtd: data.mtd ? {
-        mes:data.mtd.month, dias:data.mtd.daysCount,
-        grupos: (data.mtd.rows||[]).map(function(r){return{grupo:r.group,gb:r.gb,rev:r.rev,fvm:r.fvm};})
-      } : null
-    };
-  } catch(e) { return null; }
-}
-
-function _buildDailyContext_(dp) {
-  try {
-    var lob      = dp.lob      || 'b2bc';
-    var viewDate = dp.viewDate || null;
-    var dm       = dp.dateModel || 'gd';
-    if (!viewDate) return null;
-
-    var mStart = viewDate.substring(0,7)+'-01';
-    var lyY    = String(parseInt(viewDate.substring(0,4))-1);
-    var lyVD   = lyY+viewDate.substring(4);
-    var lyMS   = lyY+'-'+viewDate.substring(5,7)+'-01';
-
-    function sumRange_(arr, from, to, gbF, revF) {
-      var t={gb:0,rev:0,fvm:0};
-      arr.forEach(function(r) {
-        if (r.fecha<from||r.fecha>to) return;
-        t.gb  += parseFloat(r[gbF]  || r.gross_bookings || 0)||0;
-        t.rev += parseFloat(r[revF] || r.net_revenues   || 0)||0;
-        t.fvm += parseFloat(r.fvm   || 0)||0;
-      });
-      return t;
-    }
-
-    if (lob === 'b2bc') {
-      var raw  = loadFile_(B2BC_JSON, B2BC_CACHE_KEY);
-      var bud  = _wsExpandCompact_(raw.budget);
-      var act  = sumRange_(raw.actuals,    mStart,viewDate,'gross_bookings','net_revenues');
-      var ly   = sumRange_(raw.actuals_ly, lyMS,  lyVD,   'gross_bookings','net_revenues');
-      var bdg  = sumRange_(bud,            mStart,viewDate,'gross_bookings','net_revenue');
-      var pm={};
-      raw.actuals.forEach(function(r){if(r.fecha<mStart||r.fecha>viewDate)return;pm[r.pais]=(pm[r.pais]||0)+(r.net_revenues||0);});
-      var topP=Object.keys(pm).sort(function(a,b){return pm[b]-pm[a];}).slice(0,5).map(function(p){return{pais:p,nr:pm[p]};});
-      return { fuente:'daily', lob:'B2B2C', fecha:viewDate,
-               mtd_gb:{actual:act.gb,ly:ly.gb,budget:bdg.gb}, mtd_rev:{actual:act.rev,ly:ly.rev,budget:bdg.rev},
-               mtd_fvm:{actual:act.fvm,ly:ly.fvm,budget:bdg.fvm}, top_paises:topP,
-               generado:raw.meta.generated_at, datos_al:raw.meta.last_actuals_date };
-    } else {
-      var rawB  = loadFile_(B2B_JSON, B2B_CACHE_KEY);
-      var src   = _wsExpandCompact_((dm==='ri') ? rawB.b2b_ri    : rawB.b2b_gd);
-      var srcLY = _wsExpandCompact_((dm==='ri') ? rawB.b2b_ri_ly : rawB.b2b_gd_ly);
-      var bud2  = (dm==='ri' ? rawB.b2b_budget_ri : rawB.b2b_budget_gd) || [];
-      var act2  = sumRange_(src,   mStart,viewDate,'gross_bookings','net_revenue');
-      var ly2   = sumRange_(srcLY, lyMS,  lyVD,   'gross_bookings','net_revenue');
-      var bdg2  = sumRange_(bud2,  mStart,viewDate,'gross_bookings','net_revenue');
-      var pm2={};
-      src.forEach(function(r){if(r.fecha<mStart||r.fecha>viewDate)return;pm2[r.pais]=(pm2[r.pais]||0)+(r.net_revenue||0);});
-      var topP2=Object.keys(pm2).sort(function(a,b){return pm2[b]-pm2[a];}).slice(0,5).map(function(p){return{pais:p,nr:pm2[p]};});
-      return { fuente:'daily', lob:'B2B', fecha:viewDate, date_model:dm,
-               mtd_gb:{actual:act2.gb,ly:ly2.gb,budget:bdg2.gb}, mtd_rev:{actual:act2.rev,ly:ly2.rev,budget:bdg2.rev},
-               mtd_fvm:{actual:act2.fvm,ly:ly2.fvm,budget:bdg2.fvm}, top_paises:topP2,
-               generado:rawB.meta.generated_at, datos_al:rawB.meta.last_actuals_date };
-    }
-  } catch(e) { return null; }
 }
 
 // ============================================================
