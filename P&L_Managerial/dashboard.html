@@ -2377,7 +2377,7 @@ function renderVsAcc_(){
   var h = '';
   h += '<div class="pnl-card" style="margin-bottom:10px;padding:12px 16px">'
      + '<b>Managerial vs Accounting</b> — reales, meses cerrados ('+months.join(', ')+'). '
-     + 'B2B + B2B2C, Total (sin filtro país/producto). Managerial = escenario <code>ac</code> (GD). '
+     + 'B2B + B2B2C, Total (sin filtro país/producto). Managerial = actuals <code>ac</code> — RI en B2B-MAY, GD en MIN/B2B2C. '
      + 'Accounting = <code>actuals.json</code> canónico, línea P&L N1'
      + (D.accMeta && D.accMeta.fechas ? ' ('+D.accMeta.fechas.length+' meses)' : '') + '.'
      + '<br><span style="color:var(--muted);font-size:11px">⚠ El mapeo de líneas (<code>VSACC_MAP</code>) es un borrador. Revisá las filas de abajo y decime cuáles quedan / cómo se mapean.</span>'

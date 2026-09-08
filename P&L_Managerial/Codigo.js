@@ -502,7 +502,7 @@ function getVsAccounting(filtersJson) {
   try {
     var t1 = DriveApp.getFileById(GESTIONAL_JSON_FILE_ID).getLastUpdated().getTime();
     var t2 = DriveApp.getFileById(ACC_ACTUALS_FILE_ID).getLastUpdated().getTime();
-    ck = 'vsacc_' + t1 + '_' + t2;
+    ck = 'vsacc_v3_' + t1 + '_' + t2;  // ⚠ bumpear el vN al cambiar la lógica de _computeVsAccounting_
     var hit = cache.get(ck);
     if (hit) return JSON.parse(hit);
   } catch (e) { Logger.log('getVsAccounting cache probe: ' + e); }
@@ -515,13 +515,13 @@ function getVsAccounting(filtersJson) {
 function _computeVsAccounting_() {
   var json = readGestionalJSON_('bl');
 
-  // ── Managerial: escenario 'ac' (Total = b2b2c + b2b_may + b2b_min) ──
+  // ── Managerial actuals: RI en B2B-MAY (ac_ri), GD en B2B-MIN y B2B2C (no tienen RI) ──
   var mgr = {};  // {metric: {mes: val}}
   queryB2B2C_(json.b2b2c, 'ac', [], [], [], mgr,
               null, null, null, null, null, null, null, null);
   var mgrMay = {}, mgrMin = {};
-  queryB2B_(json.b2b_may, 'ac', [], [], mgrMay, null, null);
-  queryB2B_(json.b2b_min, 'ac', [], [], mgrMin, null, null);
+  queryB2B_(json.b2b_may, 'ac_ri', [], [], mgrMay, null, null);
+  queryB2B_(json.b2b_min, 'ac',    [], [], mgrMin, null, null);
   mergeAgg_(mgrMay, mgr);
   mergeAgg_(mgrMin, mgr);
 
