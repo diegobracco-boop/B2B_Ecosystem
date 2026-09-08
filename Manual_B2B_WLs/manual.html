@@ -1780,7 +1780,7 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
         <tbody>
           <tr><td>auditor-de-codigo</td><td class="mono-id">code-audit</td><td>Calidad de código, integridad de datos en los pipelines, seguridad de credenciales, consistencia pipelines↔landings. El que corre automático antes de un <code>/clasp-push</code> o <code>/actualizar</code>.</td></tr>
           <tr><td>calidad-de-procesos</td><td class="mono-id">process-quality-audit</td><td>Orden / claridad / escalabilidad / integridad / eficiencia de CÓMO se trabaja — no del código. Límites hardcodeados, pasos que dependen de memoria humana, automatización rota con fallback silencioso. Para cada gap propone el check más barato que lo detectaría.</td></tr>
-          <tr><td>ux-designer</td><td class="mono-id">ux-consistency-review</td><td>Estética, paleta oficial Despegar, consistencia visual entre dashboards, tipografía, jerarquía, accesibilidad (teclado, contraste), responsive, elección de gráfico, plantillas de email. Arranca con un veredicto si se declara para qué se usa la página.</td></tr>
+          <tr><td>ux-designer</td><td class="mono-id">ux-consistency-review</td><td>Estética, paleta oficial Despegar, consistencia visual entre dashboards, tipografía, jerarquía, accesibilidad (teclado, contraste), responsive, elección de gráfico, plantillas de email. Aplica <strong>Pirámide de Minto</strong> (lead with the answer; altitud según el lector C-level/gerente/analista) y <strong>selección de gráfico de Zelazny</strong> (un propósito analítico por chart; nada de 3D ni exceso de gauges) + carga cognitiva de conciliar Actuals vs Budget/Forecast. Arranca con un veredicto si se declara para qué se usa la página. <em>Es revisor, no generativo.</em></td></tr>
           <tr><td>data-engineer</td><td class="mono-id">data-source-consistency-review</td><td>Mapeo de fuentes crudas → JSON → landing, duplicidad entre pipelines (contable vs gestional), formato homogéneo de los JSON canónicos, parseo de fechas, y staleness de documentación (scripts renombrados, IDs viejos, bugs marcados "pendiente" ya arreglados).</td></tr>
         </tbody>
       </table>
@@ -1813,7 +1813,7 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
 .agents/skills/
   ├── code-audit/SKILL.md
   ├── process-quality-audit/SKILL.md
-  ├── ux-consistency-review/SKILL.md   ← incluye la paleta oficial Despegar embebida
+  ├── ux-consistency-review/SKILL.md   ← paleta oficial Despegar + Minto (Eje 4) + Zelazny (Eje 5)
   └── data-source-consistency-review/SKILL.md
 
 como-crear-agente-auditor.txt          ← cómo armar uno nuevo + lecciones de uso</div>
