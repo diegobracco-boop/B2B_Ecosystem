@@ -27,9 +27,20 @@ function doGet(e) {
       return ContentService.createTextOutput('ERROR: ' + ex.message);
     }
   }
+  if (e && e.parameter && e.parameter.view === 'tracker') {
+    return HtmlService.createHtmlOutputFromFile('tracker')
+      .setTitle('Daily Tracker B2B')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1')
+      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  }
   return HtmlService.createHtmlOutputFromFile('dashboard')
     .setTitle('Dashboard — Despegar')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+// URL propia del deployment + ?view=tracker — la usa el iframe de la vista Tracker
+function getTrackerUrl() {
+  return ScriptApp.getService().getUrl() + '?view=tracker';
 }
 
 // ---- Public API (called from browser via google.script.run) ----
@@ -893,4 +904,151 @@ function getOKRWeeklyB2B2C() {
     return { success:false, error:e.message };
   }
 }
- 
+
+// ============================================================
+// Daily Tracker B2B — backend (vista embebida vía iframe ?view=tracker)
+// Reusa DRIVE_FOLDER_ID y B2B_JSON ya definidos arriba.
+// ============================================================
+
+var AGENCIAS_JSON      = 'agencias_okr.json';
+var BUDGET_SHEET_ID    = '1xm4VvoRUv7d1c_rcP1JYOgBNKczqXrAmtxoNCuCkiQE';
+var BUDGET_SHEET_NAME  = 'Slide 1 KR Agencias';
+var AIR_NR_SHEET_NAME  = 'Air NR from suppliers';
+
+// Mapeo nombre en la hoja de budget → label en el frontend (AG_GROUPS)
+var BUDGET_COUNTRY_MAP = {
+  'Total':       'TOTAL',
+  'Brasil':      'Brasil',
+  'Mexico':      'Mexico',
+  'Argentina':   'Argentina',
+  'Colombia':    'Colombia',
+  'Chile':       'Chile',
+  'Globales':    'Globales',
+  'Peru':        'Peru',
+  'EC + UY + PY':'Ecua / Uru / Par'
+};
+
+// Boot del tracker — mismo JSON b2b que el dashboard, con caché compartida
+function getB2BData() { return loadFile_(B2B_JSON, B2B_CACHE_KEY); }
+
+function getBudgetAgencias_() {
+  var ss    = SpreadsheetApp.openById(BUDGET_SHEET_ID);
+  var sheet = ss.getSheetByName(BUDGET_SHEET_NAME);
+  // X=col 24, AQ=col 43 → 20 cols; fila 8 encabezados + filas 9-18 datos → 11 filas
+  var data  = sheet.getRange(8, 24, 11, 20).getValues();
+
+  var today    = new Date();
+  var curYear  = today.getFullYear();
+  var curMonth = today.getMonth(); // 0-indexed
+
+  var monthCol = -1;
+  for (var i = 1; i < data[0].length; i++) {
+    var h = data[0][i];
+    if (h instanceof Date && h.getFullYear() === curYear && h.getMonth() === curMonth) {
+      monthCol = i;
+      break;
+    }
+  }
+  if (monthCol === -1) return {};
+
+  var budget = {};
+  for (var r = 1; r < data.length; r++) {
+    var rawName = String(data[r][0]).trim();
+    var label   = BUDGET_COUNTRY_MAP[rawName];
+    if (label) budget[label] = Number(data[r][monthCol]) || 0;
+  }
+  return budget;
+}
+
+function getAirNRData() {
+  var ss    = SpreadsheetApp.openById(BUDGET_SHEET_ID);
+  var sheet = ss.getSheetByName(AIR_NR_SHEET_NAME);
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { actual: 0, budget: 0 };
+
+  // Col A-H → row indices 0-7
+  // C(2)=Seguimiento, E(4)=tipo/Baseline, F(5)=mes, G(6)=año, H(7)=Pais
+  var data = sheet.getRange(2, 1, lastRow - 1, 8).getValues();
+
+  var today    = new Date();
+  var curYear  = today.getFullYear();
+  var curMonth = today.getMonth() + 1; // 1-indexed
+
+  function parseMes(v)  { return (v instanceof Date) ? v.getMonth() + 1 : (Number(v) || 0); }
+  function parseAnio(v) { return (v instanceof Date) ? v.getFullYear() : (Number(v) || 0); }
+
+  var colE_counts = {};
+  for (var i = 0; i < data.length; i++) {
+    var t = String(data[i][4]).trim();
+    if (t !== 'Goal' && t !== 'Goal2') {
+      colE_counts[t] = (colE_counts[t] || 0) + 1;
+    }
+  }
+
+  var GOAL_TYPES = { 'Goal': true, 'Goal2': true };
+  var realesType = 'Reales'; // default
+  var maxCount = 0;
+  for (var t in colE_counts) {
+    if (!GOAL_TYPES[t] && colE_counts[t] > maxCount) {
+      maxCount = colE_counts[t];
+      realesType = t;
+    }
+  }
+
+  var mesTotals = {};
+  for (var i = 0; i < data.length; i++) {
+    var tipo = String(data[i][4]).trim();
+    if (tipo !== realesType) continue;
+    var val = Number(data[i][2]) || 0;
+    var m = parseMes(data[i][5]), a = parseAnio(data[i][6]);
+    var key = a + '-' + m;
+    mesTotals[key] = (mesTotals[key] || 0) + val;
+  }
+
+  var latestRealesMes = 0, latestRealesAnio = 0, maxTotal = -Infinity;
+  for (var key in mesTotals) {
+    var parts = key.split('-');
+    var a = Number(parts[0]), m = Number(parts[1]);
+    var total = mesTotals[key];
+    if (total > maxTotal) { maxTotal = total; latestRealesMes = m; latestRealesAnio = a; }
+  }
+
+  var targetMes  = latestRealesMes  || (curMonth > 1 ? curMonth - 1 : 12);
+  var targetAnio = latestRealesAnio || (curMonth > 1 ? curYear : curYear - 1);
+
+  var actual = 0, budget = 0;
+  var byCountry = {};
+  for (var i = 0; i < data.length; i++) {
+    var row         = data[i];
+    var seguimiento = Number(row[2]) || 0;
+    var tipo        = String(row[4]).trim();
+    var mes         = parseMes(row[5]);
+    var anio        = parseAnio(row[6]);
+    var pais        = String(row[7]).trim();
+
+    if (tipo === realesType && mes === targetMes && anio === targetAnio) {
+      actual += seguimiento;
+      if (pais && !pais.startsWith('#') && pais.toLowerCase() !== 'false' && pais !== '0') {
+        byCountry[pais] = byCountry[pais] || { actual: 0, budget: 0 };
+        byCountry[pais].actual += seguimiento;
+      }
+    } else if (tipo === 'Goal2' && mes === curMonth && anio === curYear) {
+      if (!pais || pais.startsWith('#') || pais.toLowerCase() === 'false' || pais === '0') continue;
+      budget += seguimiento;
+      byCountry[pais] = byCountry[pais] || { actual: 0, budget: 0 };
+      byCountry[pais].budget += seguimiento;
+    }
+  }
+
+  return { actual: actual, budget: budget, byCountry: byCountry };
+}
+
+function getAgenciasOKR() {
+  var folder  = DriveApp.getFolderById(DRIVE_FOLDER_ID);
+  var files   = folder.getFilesByName(AGENCIAS_JSON);
+  if (!files.hasNext()) throw new Error('Archivo no encontrado: ' + AGENCIAS_JSON);
+  var content = files.next().getBlob().getDataAsString('UTF-8');
+  var payload = JSON.parse(content);
+  payload.budget = getBudgetAgencias_();
+  return payload;
+}
