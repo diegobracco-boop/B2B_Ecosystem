@@ -1062,13 +1062,25 @@ def agg_b2b_budget(df: pd.DataFrame) -> pd.DataFrame:
     ).round({"gross_bookings": 2, "net_revenue": 2, "fvm": 2})
 
 
+# Partners que el equipo cuenta como "New / onboarding" aunque la cartera de
+# ComDev no los marque asi (nombre distinto, alta reciente sin actualizar, etc.).
+# Se fuerza a New en TODAS las fuentes: actuals, LY y proyecciones (budget/runrate).
+FORCE_NEW_PARTNERS = {"livelo-api-hoteles", "xcaret", "didi"}
+
+
+def _apply_force_new(df: pd.DataFrame) -> None:
+    """account_type = 'New' para los partners de FORCE_NEW_PARTNERS (match normalizado)."""
+    m = df["partner"].astype(str).str.strip().str.lower().isin(FORCE_NEW_PARTNERS)
+    df.loc[m, "account_type"] = "New"
+
+
 print(f"\n--- Actuals FY{YEAR_BUDGET} ---")
 df_actuals = clean_actuals(fetch(build_actuals_query(ACTUALS_FROM, YESTERDAY), "Actuals"))
-df_actuals.loc[df_actuals["partner"] == "livelo-api-hoteles", "account_type"] = "New"
+_apply_force_new(df_actuals)
 
 print(f"\n--- Actuals LY (FY{str((TODAY.year - 1) % 100).zfill(2)}) ---")
 df_ly = clean_actuals(fetch(build_actuals_query(LY_FROM, LY_TO), "LY"))
-df_ly.loc[df_ly["partner"] == "livelo-api-hoteles", "account_type"] = "New"
+_apply_force_new(df_ly)
 
 print("\n--- Budget ---")
 df_budget = clean_budget(fetch(BUDGET_QUERY, "Budget"))
@@ -1092,7 +1104,7 @@ try:
         for k, v in zip(df_cartera["partner_homologado_2"], df_cartera["stage"])
     }
     # Overrides de negocio (la cartera de ComDev no los marca New, el equipo si):
-    for _p in ("livelo-api-hoteles", "xcaret"):
+    for _p in FORCE_NEW_PARTNERS:
         cartera_map[_p] = "New"
     df_budget["stage"] = _map_stage(df_budget["partner"], cartera_map)
     print(f"  Hunting: {(df_budget['stage']=='Existing').sum():,} filas | Farming: {(df_budget['stage']=='New').sum():,} filas")
