@@ -2162,7 +2162,7 @@ function setB2BCanalFilter(canal) {
     var btn = document.getElementById('btn-canal-'+c);
     if(btn) btn.classList.toggle('prd-active', c===canal);
   });
-  if(_b2bCountryData) renderB2BCountryDetail(_b2bCountryData);
+  _refreshBGViews_();
 }
 
 function setNumScale(scale) {

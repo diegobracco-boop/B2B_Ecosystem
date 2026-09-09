@@ -355,6 +355,21 @@ function preComputeAll() {
           });
           count++;
         });
+        // b2b × país específico × canal='all' (rango trimestral + filtro de país)
+        CTRY_PAISES.filter(function(p){ return p !== 'all'; }).forEach(function(pais) {
+          var pb = { lob:'b2b', pais:pais, producto:'all', canal:'all', desde:qt.desde, hasta:qt.hasta };
+          writeResultCache_(makeCacheKey_(pb), {
+            filters : filters,
+            pnl     : computePnL_(pb,    baseMap, rrMap, budMap, lyMap, fcMap),
+            wf      : computeWf_(pb,     baseMap, rrMap, budMap, lyMap, fcMap),
+            evo     : computeEvo_(pb,    baseMap, rrMap, budMap, lyMap, fcMap),
+            b2cEvo  : null,
+            compPnl : computeCompPnL_(pb, baseMap, rrMap, budMap, lyMap, fcMap),
+            ocConceptWf: null,
+            nrBridgeWf : null
+          });
+          count++;
+        });
       }
     });
   });
