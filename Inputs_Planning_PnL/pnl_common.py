@@ -35,8 +35,20 @@ def _onedrive_root():
 
 
 def get_base_dir():
-    """Carpeta OneDrive compartida del equipo, resuelta por usuario (no hardcodeada)."""
-    return os.path.join(_onedrive_root(), _cfg.GESTION_FOLDER, "B2B & WLs")
+    """Carpeta OneDrive compartida del equipo, resuelta por usuario (no hardcodeada).
+
+    Soporta dos estructuras de carpetas:
+      - Vieja: <onedrive>/Control de Gestión - 2026-27/B2B & WLs
+      - Nueva: <onedrive>/Control de Gestión - Documentos/Planeamiento/2026-27/B2B & WLs
+    """
+    root = _onedrive_root()
+    fy_tag = _cfg.GESTION_FOLDER.replace("Control de Gestión - ", "")  # e.g. "2026-27"
+    # Intentar estructura nueva primero
+    new_path = os.path.join(root, "Control de Gestión - Documentos", "Planeamiento", fy_tag, "B2B & WLs")
+    if os.path.isdir(new_path):
+        return new_path
+    # Fallback a estructura vieja
+    return os.path.join(root, _cfg.GESTION_FOLDER, "B2B & WLs")
 
 
 def get_pbi_inputs_dir():

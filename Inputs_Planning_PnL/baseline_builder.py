@@ -38,6 +38,8 @@ import os
 import sys
 import io
 import json
+import gzip
+import base64
 import shutil
 import argparse
 import tempfile
@@ -54,9 +56,10 @@ import pnl_common
 import plana_projections_builder as P
 import plana_actuals_builder as A
 
-DIR             = os.path.dirname(os.path.abspath(__file__))
-DRIVE_FOLDER_ID = config.DRIVE_FOLDER_ID
-BASELINE_NAME   = "baseline_actuals+projections.json"
+DIR                        = os.path.dirname(os.path.abspath(__file__))
+DRIVE_FOLDER_ID            = config.DRIVE_FOLDER_ID
+DRIVE_FOLDER_ID_COMPRESSED = "1TnjyRYrm_JKptnelgpQlAi5ky8Q1TyAy"
+BASELINE_NAME              = "baseline_actuals+projections.json"
 
 COLS_OUT = ["LoB", "Canal", "Pais", "Producto",
             "P&L N1", "P&L N2", "P&L N3", "P&L N4", "P&L N5", "P&L N6", "P&L Managerial View",
@@ -223,11 +226,24 @@ def _emit(svc, fid, payload, upload):
         f.write(txt)
     print(f"\nlocal -> {local} (+ copia en la raíz) ({os.path.getsize(local)/1e6:.2f} MB, {payload['meta']['filas']:,} filas)")
     if upload:
-        from googleapiclient.http import MediaFileUpload
+        from googleapiclient.http import MediaFileUpload, MediaInMemoryUpload
         media = MediaFileUpload(local, mimetype="application/json", resumable=True)
         res = svc.files().update(fileId=fid, media_body=media,
                                  fields="id,size,modifiedTime").execute()
         print(f"[Drive] actualizado {BASELINE_NAME}: {res}")
+
+        # Carpeta comprimida — gzip(level=9) → base64 → .txt
+        compressed = base64.b64encode(gzip.compress(txt.encode("utf-8"), compresslevel=9)).decode("ascii")
+        cmedia = MediaInMemoryUpload(compressed.encode("ascii"), mimetype="text/plain", resumable=False)
+        q = f"name='{BASELINE_NAME}' and '{DRIVE_FOLDER_ID_COMPRESSED}' in parents and trashed=false"
+        ex = svc.files().list(q=q, fields="files(id,name)").execute().get("files", [])
+        if ex:
+            svc.files().update(fileId=ex[0]["id"], media_body=cmedia).execute()
+            print(f"[Drive-compressed] actualizado {BASELINE_NAME}")
+        else:
+            svc.files().create(body={"name": BASELINE_NAME, "parents": [DRIVE_FOLDER_ID_COMPRESSED]},
+                               media_body=cmedia, fields="id").execute()
+            print(f"[Drive-compressed] creado {BASELINE_NAME}")
     else:
         print("(--no-upload: no se subió a Drive)")
 

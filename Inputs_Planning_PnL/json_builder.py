@@ -17,6 +17,8 @@ import re
 import sys
 import json
 import glob
+import gzip
+import base64
 from collections import OrderedDict
 import pandas as pd
 import config
@@ -27,8 +29,9 @@ try:
 except Exception:
     pass
 
-DRIVE_FOLDER_ID = config.DRIVE_FOLDER_ID
-CURRENT_FY      = config.CURRENT_FY
+DRIVE_FOLDER_ID            = config.DRIVE_FOLDER_ID
+DRIVE_FOLDER_ID_COMPRESSED = "1TnjyRYrm_JKptnelgpQlAi5ky8Q1TyAy"
+CURRENT_FY                 = config.CURRENT_FY
 DIR = os.path.dirname(os.path.abspath(__file__))
 
 COLS_OUT = ["LoB", "Canal", "Pais", "Producto",
@@ -131,6 +134,8 @@ def build(concept, upload=True):
 def _upload(name, data):
     from googleapiclient.http import MediaInMemoryUpload
     svc = pnl_common.get_drive_service()
+
+    # Carpeta original — JSON sin modificar
     media = MediaInMemoryUpload(data, mimetype="application/json", resumable=False)
     q = f"name='{name}' and '{DRIVE_FOLDER_ID}' in parents and trashed=false"
     ex = svc.files().list(q=q, fields="files(id,name)").execute().get("files", [])
@@ -141,6 +146,27 @@ def _upload(name, data):
         svc.files().create(body={"name": name, "parents": [DRIVE_FOLDER_ID]},
                            media_body=media, fields="id").execute()
         print(f"  [Drive] creado {name}")
+
+    # Carpeta comprimida — gzip(level=9) → base64 → .txt
+    _upload_compressed(name, data, svc)
+
+
+def _upload_compressed(name, data, svc):
+    """Sube data comprimido (gzip level 9 → base64) como .txt a DRIVE_FOLDER_ID_COMPRESSED."""
+    from googleapiclient.http import MediaInMemoryUpload
+    compressed = base64.b64encode(gzip.compress(data, compresslevel=9)).decode("ascii")
+    txt_bytes = compressed.encode("ascii")
+    txt_name = name  # mismo nombre que el JSON original
+    media = MediaInMemoryUpload(txt_bytes, mimetype="text/plain", resumable=False)
+    q = f"name='{txt_name}' and '{DRIVE_FOLDER_ID_COMPRESSED}' in parents and trashed=false"
+    ex = svc.files().list(q=q, fields="files(id,name)").execute().get("files", [])
+    if ex:
+        svc.files().update(fileId=ex[0]["id"], media_body=media).execute()
+        print(f"  [Drive-compressed] actualizado {txt_name}")
+    else:
+        svc.files().create(body={"name": txt_name, "parents": [DRIVE_FOLDER_ID_COMPRESSED]},
+                           media_body=media, fields="id").execute()
+        print(f"  [Drive-compressed] creado {txt_name}")
 
 
 def _delete_if_exists(name):
