@@ -1073,14 +1073,28 @@ df_ly.loc[df_ly["partner"] == "livelo-api-hoteles", "account_type"] = "New"
 print("\n--- Budget ---")
 df_budget = clean_budget(fetch(BUDGET_QUERY, "Budget"))
 
+def _map_stage(partner_series: pd.Series, cmap: dict) -> pd.Series:
+    """Clasifica New/Existing joineando por nombre de partner NORMALIZADO
+    (strip + lower). raw.b2brr_gd, raw.b2b_budget_gd y la cartera de ComDev
+    difieren en capitalizacion para el mismo partner ('Turismocity' vs
+    'TurismoCity', 'Elo'/'ELO', 'Visa'/'VISA', 'Itau card'/'Itau Card'): un
+    .map() case-sensitive los tiraba a 'Existing' (bug: TurismoCity ~110k/mes
+    quedaba fuera de 'New Account Net Revenues' B2B2C)."""
+    return partner_series.astype(str).str.strip().str.lower().map(cmap).fillna("Existing")
+
+
 print("\n--- Cartera (stage para budget) ---")
+cartera_map = {}
 try:
     df_cartera = fetch(CARTERA_QUERY, "Cartera")
-    cartera_map = dict(zip(df_cartera["partner_homologado_2"], df_cartera["stage"]))
-    cartera_map["Livelo-API-Hoteles"] = "New"
-    cartera_map["livelo-api-hoteles"] = "New"
-    cartera_map["Xcaret"] = "New"
-    df_budget["stage"] = df_budget["partner"].map(cartera_map).fillna("Existing")
+    cartera_map = {
+        str(k).strip().lower(): v
+        for k, v in zip(df_cartera["partner_homologado_2"], df_cartera["stage"])
+    }
+    # Overrides de negocio (la cartera de ComDev no los marca New, el equipo si):
+    for _p in ("livelo-api-hoteles", "xcaret"):
+        cartera_map[_p] = "New"
+    df_budget["stage"] = _map_stage(df_budget["partner"], cartera_map)
     print(f"  Hunting: {(df_budget['stage']=='Existing').sum():,} filas | Farming: {(df_budget['stage']=='New').sum():,} filas")
 except Exception as e:
     print(f"  WARN cartera query failed: {e}")
@@ -1120,8 +1134,7 @@ print("\n--- Run Rate B2B2C ---")
 try:
     df_b2bc_rr = clean_budget(fetch(B2B2C_RR_QUERY, "B2B2C Run Rate"))
     if not df_b2bc_rr.empty and 'partner' in df_b2bc_rr.columns:
-        df_b2bc_rr["stage"] = df_b2bc_rr["partner"].map(cartera_map).fillna("Existing")
-        df_b2bc_rr.loc[df_b2bc_rr["partner"] == "livelo-api-hoteles", "stage"] = "New"
+        df_b2bc_rr["stage"] = _map_stage(df_b2bc_rr["partner"], cartera_map)
 except Exception as e:
     print(f"  WARN B2B2C RR query failed: {e}")
     df_b2bc_rr = pd.DataFrame()
