@@ -1065,7 +1065,7 @@ def agg_b2b_budget(df: pd.DataFrame) -> pd.DataFrame:
 # Partners que el equipo cuenta como "New / onboarding" aunque la cartera de
 # ComDev no los marque asi (nombre distinto, alta reciente sin actualizar, etc.).
 # Se fuerza a New en TODAS las fuentes: actuals, LY y proyecciones (budget/runrate).
-FORCE_NEW_PARTNERS = {"livelo-api-hoteles", "xcaret", "didi"}
+FORCE_NEW_PARTNERS = {"livelo-api-hoteles", "xcaret", "didi", "bonda"}
 
 
 def _apply_force_new(df: pd.DataFrame) -> None:
