@@ -342,6 +342,7 @@ function getEPMBaselineGoalData(filtersJson) {
     by_lob:     byLob,
     lob_ly:     lobLY,
     chart:      chart,
+    actuals_cutoff: (cutoffIdx >= 0 ? ALL_MONTHS_ORD_BG[cutoffIdx] : null),  // último mes con Actuals cargados
     filters:    buildBGFiltersFromJSON_(jData, lgKeyFromGroup_(lobGroup, {}))
   };
 }

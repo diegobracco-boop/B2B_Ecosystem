@@ -869,6 +869,7 @@ function getBaselineGoalData(filtersJson) {
     by_lob:     byLob,
     lob_ly:     lobLY,
     chart:      chart,
+    actuals_cutoff: actualsCutoff,  // último mes con Actuals cargados
     filters:    buildBGFiltersFromJSON_(jData, lgKeyFromGroup_(lobGroup, {}))
   };
 }

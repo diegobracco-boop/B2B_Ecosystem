@@ -668,13 +668,13 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
       <button id="btn-period-h" class="prd-btn" type="button" onclick="setBGPeriod('h')">Half</button>
     </div>
     <span style="width:1px;height:18px;background:rgba(0,0,0,.15);margin:0 2px"></span>
-    <span style="font-size:11px;color:var(--muted);font-weight:700">Baseline:</span>
+    <span style="font-size:11px;color:#3a4048;font-weight:700">Baseline:</span>
     <div class="prd-toggle">
       <button id="btn-ebl-actuals" class="prd-btn prd-active" type="button" onclick="setEpmBaselineSource('bl')">Actuals + Projections</button>
       <button id="btn-ebl-fc" class="prd-btn" type="button" onclick="setEpmBaselineSource('fc')">Forecast</button>
       <button id="btn-ebl-vr" class="prd-btn" type="button" onclick="setEpmBaselineSource('vr')">Projection Reviews</button>
     </div>
-    <span style="font-size:11px;color:var(--muted);font-weight:700;margin-left:6px">Goal:</span>
+    <span style="font-size:11px;color:#3a4048;font-weight:700;margin-left:6px">Goal:</span>
     <div class="prd-toggle">
       <button id="btn-egoal-budget" class="prd-btn prd-active" type="button" onclick="setEpmGoalSource('budget')">vs Budget</button>
       <button id="btn-egoal-forecast" class="prd-btn" type="button" onclick="setEpmGoalSource('forecast')">vs Forecast</button>
@@ -683,7 +683,7 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
       <button id="btn-egoal-lastyear" class="prd-btn" type="button" onclick="setEpmGoalSource('lastyear')">vs Last Year</button>
     </div>
     <span style="width:1px;height:18px;background:rgba(0,0,0,.15);margin:0 2px"></span>
-    <span style="font-size:11px;color:var(--muted);font-weight:700">Escala:</span>
+    <span style="font-size:11px;color:#3a4048;font-weight:700">Unidades:</span>
     <div class="prd-toggle">
       <button id="btn-scale-M"   class="prd-btn prd-active" type="button" onclick="setNumScale('M')">M</button>
       <button id="btn-scale-K"   class="prd-btn"            type="button" onclick="setNumScale('K')">K</button>
@@ -708,6 +708,7 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
   <div id="epm-scenario-note" class="cont-disclaimer" style="display:none;font-size:11px;line-height:1.7">
     <span class="cont-disclaimer-icon">ℹ</span>
     <span>
+      <strong>Datos reales (Actuals) cargados hasta <span id="epm-actuals-cutoff">s/d</span>.</strong> Los meses posteriores son proyección.<br>
       <strong>Baseline</strong> = Actuals (meses cerrados) + Run Rate + Forecast
       &nbsp;·&nbsp; <strong>Budget</strong> = Proyección FY27 (Abr'26–Mar'27)
       &nbsp;·&nbsp; <strong>Forecast</strong> = Actuals + Forecast
@@ -2044,6 +2045,8 @@ function fetchBGData(){
     .withSuccessHandler(function(d){
       try {
         _bgData = d;
+        var _acEl = document.getElementById('epm-actuals-cutoff');
+        if (_acEl) _acEl.textContent = d.actuals_cutoff || 's/d';
         if (!_bgFiltersInitialized) {
           fillMs('ms-cont-lob',      d.filters['lob']      ||[]);
           fillMs('ms-cont-canal',    d.filters['canal']     ||[]);
