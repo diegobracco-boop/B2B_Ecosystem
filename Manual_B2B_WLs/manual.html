@@ -511,7 +511,7 @@ a.ext-link:hover { text-decoration: underline; }
       <table class="doc-table">
         <tbody>
           <tr><td>¿Cómo venimos vs Budget / Forecast / Run Rate?</td><td>Por país, producto y canal, mes a mes, B2B y B2B2C. → <strong>P&amp;L Accounting</strong>, <strong>Hub</strong></td></tr>
-          <tr><td>¿La varianza es de precio o de volumen?</td><td>Descomposición <strong>PxQ</strong> del delta baseline vs goal por segmento. → <strong>P&amp;L Accounting</strong>, <strong>Hub</strong></td></tr>
+          <tr><td>¿La varianza es de precio o de volumen?</td><td>Descomposición <strong>PxQ</strong> del delta baseline vs goal por segmento. → <strong>P&amp;L Accounting</strong></td></tr>
           <tr><td>¿Cómo se arma el Net Revenue / FVM, línea por línea?</td><td><strong>NR Bridge</strong> y <strong>waterfall</strong> entre dos escenarios. → <strong>P&amp;L Managerial</strong>, <strong>Hub</strong></td></tr>
           <tr><td>¿Cuál es el pace diario?</td><td>D-1, MTD, vs Budget del mes, vs LY. Todas las mañanas 08:00. → <strong>Daily Dashboard</strong></td></tr>
           <tr><td>¿Cierra igual el P&amp;L contable y el gestional?</td><td>La misma performance como líneas de P&amp;L (contable) y como FVM (managerial). → <strong>P&amp;L Accounting</strong> vs <strong>P&amp;L Managerial</strong></td></tr>
@@ -558,7 +558,7 @@ a.ext-link:hover { text-decoration: underline; }
       <div class="proj-card" onclick="showSection('proj-ecosystem')">
         <div class="proj-card-icon">🏢</div>
         <div class="proj-card-name">B2B Ecosystem Hub</div>
-        <div class="proj-card-desc">Portal central del equipo. P&amp;L Managerial con waterfall, evolución, palancas, NR Bridge y PxQ. Datos desde <strong>JSON canónicos en Drive</strong> (mismo origen que Inputs_Planning_PnL). Incluye OKR, Country One Page, Daily, Organigrama y más.</div>
+        <div class="proj-card-desc">Portal central del equipo. P&amp;L Managerial con waterfall, evolución, OC Concept y NR Bridge. Datos desde <strong>JSON canónicos en Drive</strong> (mismo origen que Inputs_Planning_PnL). Incluye OKR, Country One Page, Daily, Organigrama y más.</div>
         <div class="proj-card-tag"><span class="badge badge-manual">🔄 JSON Drive (Inputs_Planning_PnL)</span></div>
         <a class="proj-card-url" href="https://script.google.com/a/macros/despegar.com/s/AKfycbz52txFQy-5YM2Nil_KxULzPoeZpKyA4z5LUWMGoP_8IilcwSduuwZqPF8ut_LmtceM/exec" target="_blank">↗ Abrir landing</a>
       </div>
@@ -713,7 +713,7 @@ a.ext-link:hover { text-decoration: underline; }
       <table class="doc-table">
         <tbody>
           <tr><td><strong>Waterfall</strong></td><td>Gráfico de puente: descompone la diferencia entre dos números (ej. Baseline vs Goal) en sus componentes, barra por barra.</td></tr>
-          <tr><td><strong>PxQ</strong> / PxQxM</td><td>Descompone el delta de OC/GB en Precio (margen), Cantidad (volumen) y, en PxQxM, Mix e Interacción — por LOB, canal, país y producto.</td></tr>
+          <tr><td><strong>PxQ</strong> / PxQxM</td><td>Descompone el delta de OC/GB en Precio (margen), Cantidad (volumen) y, en PxQxM, Mix e Interacción — por LOB, canal, país y producto. <em>Disponible solo en P&amp;L Accounting.</em></td></tr>
           <tr><td><strong>NR Bridge</strong></td><td>Agrupa las ~27 líneas N2 del Net Revenue en 5-6 grupos legibles y muestra el puente entre escenarios.</td></tr>
           <tr><td><strong>Countries YoY</strong></td><td>Cards por país con GB/NR/OC y variación año contra año (H1 / H2 / FY), con benchmark de Budget.</td></tr>
         </tbody>
@@ -1456,7 +1456,7 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
       <table class="doc-table">
         <thead><tr><th>Archivo</th><th>Tipo</th><th>Rol</th></tr></thead>
         <tbody>
-          <tr><td>dashboard.html</td><td><span class="tag tag-html">HTML</span></td><td>Frontend vistas gestionales: Managerial View B2B2C y B2B (FVM, waterfall, evolución, palancas, NR Bridge, PxQ) + vista top-level <strong>Managerial vs Accounting</strong> (conciliación por LOB, con selector país/producto). Sin vistas contables (esas quedaron en P&amp;L Accounting)</td></tr>
+          <tr><td>dashboard.html</td><td><span class="tag tag-html">HTML</span></td><td>Frontend vistas gestionales: Managerial View B2B2C y B2B (FVM, waterfall, evolución, palancas, NR Bridge) + vista top-level <strong>Managerial vs Accounting</strong> (conciliación por LOB, con selector país/producto). Sin vistas contables (esas quedaron en P&amp;L Accounting)</td></tr>
           <tr><td>Codigo.js</td><td><span class="tag tag-js">Apps Script</span></td><td>Backend gestional: lee <code>_actuals_gestional.json</code> (o <code>pnl_gestional_projections_review.json</code> según el toggle) desde Drive y sirve los datos al frontend. <code>getVsAccounting()</code> arma la conciliación contra <code>actuals.json</code> canónico (cache 6 h por LOB/filtro)</td></tr>
           <tr><td>ly_data.js</td><td><span class="tag tag-js">Apps Script</span></td><td>⚠️ No usado actualmente — LY estático de FY26, pero nada lo referencia. El LY real viene de <code>actuals_gestional_upload.py</code>. Candidato a borrar</td></tr>
           <tr><td>actuals_gestional_upload.py</td><td><span class="tag tag-py">Python</span></td><td>Consulta Treasure Data (ODBC) para actuals/LY/budget/run-rate B2B2C + B2B GD + B2B RI (FY27 desde Abr-26), y lee los modelos Forecast XLSX para el forecast. Sube <code>_actuals_gestional.json</code> al folder de Drive <code>1wzudbo7cN9Ibiv...</code>. Requiere VPN + <code>.env</code> con creds ODBC. <strong>Queries B2B GD/RI alineadas a <code>daily_sync.py</code></strong> — al tocarlas, comparar contra <code>_B2B_COMPONENTS_*</code> / <code>_COUNTRY_FACTORS_*</code> del Daily (ver <code>CONTEXT.md</code>)</td></tr>
@@ -1484,7 +1484,7 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
     <div class="page-header">
       <div class="page-tag">Proyecto</div>
       <div class="page-title">B2B <span>Ecosystem Hub</span></div>
-      <div class="page-sub">Portal central del equipo B2B &amp; WLs. P&amp;L Managerial con análisis de waterfall, evolución, palancas, NR Bridge y PxQ/PxQxM. <strong>Datos desde JSON canónicos en Drive</strong> (mismo origen que Inputs_Planning_PnL — reemplazó a Toqan). Includes OKR H1 FY27, Country One Page, Daily/Weekly embed, Organigrama y más.</div>
+      <div class="page-sub">Portal central del equipo B2B &amp; WLs. P&amp;L Managerial con análisis de waterfall, evolución, OC Concept y NR Bridge. <strong>Datos desde JSON canónicos en Drive</strong> (mismo origen que Inputs_Planning_PnL — reemplazó a Toqan). Includes OKR H1 FY27, Country One Page, Daily/Weekly embed, Organigrama y más.</div>
     </div>
 
     <div class="two-col">
@@ -1507,7 +1507,7 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
         <div class="card-title">🗂️ Secciones del hub</div>
         <table class="doc-table">
           <tbody>
-            <tr><td>B2B + B2B2C</td><td>P&L Summary, Waterfall por país, Evolución mensual, OC Concept, NR Bridge, PxQ / PxQxM</td></tr>
+            <tr><td>B2B + B2B2C</td><td>P&L Summary, Waterfall por país, Evolución mensual, OC Concept, NR Bridge</td></tr>
             <tr><td>B2B2C</td><td>Mismo análisis filtrado por B2B2C (WLs). Apertura por Brasil / Mexico / Hispa</td></tr>
             <tr><td>B2B</td><td>Mismo análisis filtrado por B2B. Apertura por Brasil / Mexico / Globales / Hispa. Toggle MAY / MIN</td></tr>
             <tr><td>OKR B2B2C / OKR B2B</td><td><strong>Nuevo.</strong> OKRs H1 FY27 (Q1+Q2 = Abr-Sep 2026). Tracking vs Goal por KR con pesos. Backend en Codigo_OKR.js</td></tr>
@@ -1548,7 +1548,7 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
           <div class="flow-node-icon">⚙️</div>
           <div class="flow-node-title">Apps Script</div>
           <div class="flow-node-items">
-            <div class="flow-item">Codigo.js (P&L / WF / PxQ)</div>
+            <div class="flow-item">Codigo.js (P&L / WF / Evolución)</div>
             <div class="flow-item">Codigo_OKR.js</div>
             <div class="flow-item">Codigo_country_page.js</div>
             <div class="flow-item">Cache CacheService (6h)</div>
@@ -1573,7 +1573,7 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
       <table class="doc-table">
         <thead><tr><th>Archivo</th><th>Tipo</th><th>Rol</th></tr></thead>
         <tbody>
-          <tr><td>Codigo.js</td><td><span class="tag tag-js">Apps Script</span></td><td>Backend principal: lee JSON canónicos de Drive, pre-agrega con buildMap_/buildManMap_/buildPalancasMap_, computa PnL / Waterfall / Evolución / OC Concept / NR Bridge / PxQ. Cache CacheService (6h). Trigger preComputeAll cada 5h</td></tr>
+          <tr><td>Codigo.js</td><td><span class="tag tag-js">Apps Script</span></td><td>Backend principal: lee JSON canónicos de Drive, pre-agrega con buildMap_/buildManMap_/buildNrN2Map_, computa PnL / Waterfall / Evolución / OC Concept / NR Bridge. Cache CacheService (6h). Trigger preComputeAll cada 5h</td></tr>
           <tr><td>Codigo_OKR.js</td><td><span class="tag tag-js">Apps Script</span></td><td><strong>Nuevo.</strong> OKR H1 FY27: KRs por LoB (B2B2C y B2B) con pesos. Endpoints getOKRData() / getOKRDataFromSpreadsheet(). Lee tab OKR del Spreadsheet</td></tr>
           <tr><td>Codigo_country_page.js</td><td><span class="tag tag-js">Apps Script</span></td><td><strong>Nuevo.</strong> Country One Page: P&L comparativo, OC Concept Waterfall y NR Bridge por país (all/Brasil/Mexico/etc.). Endpoint getCountryPageData(pais, desde, hasta)</td></tr>
           <tr><td>dashboard.html</td><td><span class="tag tag-html">HTML</span></td><td>Frontend completo. Secciones: B2B+B2B2C / B2B2C / B2B / OKR / Country One Page / Daily / Weekly / Fixed Cost / Industry / News / Sources / IA Agents / Organigrama. Chart.js 4.4.0</td></tr>
@@ -1590,9 +1590,8 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
           <tr><td>Baseline</td><td>Viene de <code>baseline_actuals+projections.json</code> (pre-computado en Inputs_Planning_PnL). Dentro del código: <code>LAST_ACTUALS_YM</code> (último mes real) y <code>LAST_RR_YM</code> deben actualizarse mensualmente + bump de <code>v:</code> en <code>makeCacheKey_</code> para invalidar el cache viejo.</td></tr>
           <tr><td>OC</td><td>Operating Contribution = NR + COR + S&amp;M (costos con signo negativo en el JSON)</td></tr>
           <tr><td>Canal</td><td>B2B2C y B2C siempre normalizados a canal 'all'. B2B abre MAY / MIN</td></tr>
-          <tr><td>Cache</td><td>CacheService (6h TTL), chunking de 90KB. Clave versionada (<code>makeCacheKey_</code>, <code>v:</code> se bumpea a mano al cambiar la lógica de agregación — hoy <code>v:26</code>) + lob/pais/producto/canal/desde/hasta. Country One Page usa su propia clave (<code>v:24</code>). Auto-invalidación: si algún JSON de Drive cambió desde la última escritura de cache, el entry se descarta y se recomputa.</td></tr>
+          <tr><td>Cache</td><td>CacheService (6h TTL), chunking de 90KB. Clave versionada (<code>makeCacheKey_</code>, <code>v:</code> se bumpea a mano al cambiar la lógica de agregación — hoy <code>v:28</code>) + lob/pais/producto/canal/desde/hasta. Country One Page usa su propia clave (<code>v:25</code>). Auto-invalidación: si algún JSON de Drive cambió desde la última escritura de cache, el entry se descarta y se recomputa.</td></tr>
           <tr><td>OKR</td><td>Solo H1 FY27: Q1 (Abr-Jun) + Q2 (Jul-Sep). KRs con pesos distintos por LoB. Definidos en <code>OKR_CONFIG</code> en Codigo_OKR.js</td></tr>
-          <tr><td>PxQ / PxQxM</td><td>Descompone Δ en Volumen (profitGB = ΔGB × %GB_goal) y Precio (margin = Δ%GB × GB_new). PxQxM agrega: Precio · Mix · Interacción por segmento (país × producto)</td></tr>
           <tr><td>NR Bridge</td><td>Agrupa P&L N2 en 5 grupos + catch-all: Up front+Cust.fees / Back end+Other+Media / Fee SaaS / Revenue taxes / Cancellations / Breakage+Otros</td></tr>
         </tbody>
       </table>
@@ -1915,7 +1914,7 @@ OneDrive → Control de Gestión 2026-27 → B2B & WLs → Proyectos IA → BITU
     <div class="card">
       <div class="card-title">📂 B2B Ecosystem Hub</div>
       <div class="code-block">C:\Users\diego.bracco\Proyectos IA\Dashboard_B2B_WLs\
-  ├── Codigo.js                ← Backend (getAllData, P&L / Waterfall / PxQ / cache / triggers)
+  ├── Codigo.js                ← Backend (getAllData, P&L / Waterfall / Evolución / cache / triggers)
   ├── Codigo_OKR.js            ← OKR H1 FY27 (KRs con pesos por LoB)
   ├── Codigo_country_page.js   ← Country One Page (P&L + OC Concept + NR Bridge por país)
   ├── dashboard.html           ← Frontend completo (Chart.js 4.4.0)
