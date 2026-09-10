@@ -2704,6 +2704,17 @@ function renderVsAcc_(){
       + 'B2B-MAY y B2B-MIN en RI; B2B2C tiene fecha única).';
   var draft = isPR
     ? '<div style="margin-top:6px;padding:6px 10px;border:1px solid var(--red);background:var(--red-bg);border-radius:6px;font-size:11px">⚠ <b>BORRADOR</b> — la query "revenue por GD" no aplica los signos de las líneas de costo que sí aplica el gestional. Los subtotales (NR, FVM) son confiables; las líneas individuales, revisar.</div>'
+      + '<details style="margin-top:6px;font-size:11px"><summary style="cursor:pointer;color:var(--muted);font-weight:700">¿Por qué difieren las dos queries?</summary>'
+      + '<div style="padding:6px 0 0 12px;line-height:1.7;color:var(--text)">'
+      + '<b>1. Fuente del NR/FVM.</b> Gestional lo arma línea por línea desde <code>pnl.*_usd</code> + un <code>country_factor</code> de 5 decimales por país·canal·producto. Revenue por GD toma <code>dev.nr_rev</code>/<code>dev.fvm_rev</code> <i>ya calculados</i> por el modelo <code>b2b_rev_pnl_sales_detail</code> (otros supuestos de corte y agrupación).<br>'
+      + '<b>2. Split del revenue margin.</b> Gestional separa up front / fees / commercial discounts; el modelo de revenue los mete juntos en <code>rm_rev</code>. Las líneas no comparan 1:1, pero <i>sumadas</i> cierran.<br>'
+      + '<b>3. Signos de costos.</b> La query de Revenue por GD hace <code>SUM(...)</code> sin negar; el gestional hace <code>-SUM(...)</code>. Por eso el Δ por línea de costo está roto hasta reconciliar.<br>'
+      + '<b>4. <code>country_factor</code>.</b> Gestional escala commission/fee/discount por 0.21–1.11 según país (Chile API Hoteles = 0.22, "Other" = 1.11). Revenue por GD no aplica ese ajuste salvo lo que ya venga en <code>dev.*</code>.<br>'
+      + '<b>5. Grain / spine.</b> Gestional = 1 fila por producto de <code>sales_recognition</code>. Revenue por GD parte de <code>transactional_fact_charges</code> con una ventana de <code>reservation_date</code> distinta → explica el Δ ~0.1% de GB y parte del de orders.<br>'
+      + '<b>6. Mapeo país/canal.</b> Gestional mueve a "Chile" ciertos <code>partner_id</code> + todo <code>country_code=CL</code>; Revenue por GD usa <code>tr.site</code> directo (por eso Chile MAY sale casi vacío). <code>lob_channel</code> NULL cae a MAY.<br>'
+      + '<b>7. Líneas faltantes.</b> Revenue por GD no trae <code>white_labels_api</code>, <code>vendor_commissions</code>, <code>back_end_incentives</code>, etc. → salen 0; su detalle no cierra contra su propio NR.<br>'
+      + '<span style="color:var(--muted)">Detalle completo: <code>P&amp;L_Managerial/reconciliacion_actuals_gd_vs_revenue.md</code></span>'
+      + '</div></details>'
     : '<div style="margin-top:6px;padding:6px 10px;border:1px solid var(--red);background:var(--red-bg);border-radius:6px;font-size:11px">⚠ <b>BORRADOR</b> — <code>VSACC_MAP</code> (mapeo línea Managerial ↔ P&L N1 Accounting) está sin cerrar.</div>';
 
   var paisOpts = (isPR && _revGdData && _revGdData.paisOpts && _revGdData.paisOpts.length) ? _revGdData.paisOpts : (D.paisOpts || []);
