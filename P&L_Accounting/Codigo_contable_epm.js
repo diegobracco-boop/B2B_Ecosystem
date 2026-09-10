@@ -432,8 +432,8 @@ function getEPMPxQAnalysis(filtersJson) {
     });
   });
   var byProduct = Object.keys(prodSet).map(function (prod) {
-    var may = _pxqGroup_(jData, 'b2b_may', null, cutoffIdx, [prod], goalSource);
-    var min = _pxqGroup_(jData, 'b2b_min', null, cutoffIdx, [prod], goalSource);
+    var may = _pxqGroup_(jData, 'b2b_may', null, cutoffIdx, [prod], goalSource, baselineScen);
+    var min = _pxqGroup_(jData, 'b2b_min', null, cutoffIdx, [prod], goalSource, baselineScen);
     var lbl = prod.charAt(0).toUpperCase() + prod.slice(1);
     return { name: 'B2B · ' + lbl, seg: {
       gb_base: may.gb_base + min.gb_base, gb_goal: may.gb_goal + min.gb_goal,

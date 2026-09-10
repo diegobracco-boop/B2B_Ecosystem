@@ -13,7 +13,12 @@ var CANONICAL_IDS_ = {
   ly:  '1zd5gnMFztKiCSgeY-VmsfVOr0LQ6ftGI'   // actuals_previos_fy26.json
 };
 
-// País canónico (lowercase) → etiqueta del cubo
+// País canónico (lowercase) → etiqueta del cubo.
+// assembleCanonicals_ DESCARTA filas cuyo Pais no esté acá (`if (!pais) return;`),
+// así que cualquier valor emitido por algún canónico tiene que estar mapeado o
+// se pierde en silencio de todas las vistas EPM. Paraguay/Uruguay/Otros van a
+// 'Globales' (misma convención que REGION_GROUPS_EPM y PAIS_GROUPS_BG). 'globales'
+// es el label que ya emite runrate.json en español.
 var PAIS_MAP_CT_ = {
   'argentina':       'Argentina',
   'brasil':          'Brasil',
@@ -24,7 +29,11 @@ var PAIS_MAP_CT_ = {
   'peru':            'Peru',
   'rg':              'RG',
   'others countries':'Globales',
-  'other countries': 'Globales'
+  'other countries': 'Globales',
+  'globales':        'Globales',
+  'paraguay':        'Globales',
+  'uruguay':         'Globales',
+  'otros':           'Globales'
 };
 
 // LoB/Canal → array de lgKeys que agrega esa fila (mismo criterio que plana_to_cube.py)
