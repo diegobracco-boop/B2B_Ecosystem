@@ -2368,6 +2368,24 @@ function _vsAccSetMode_(m){
   renderVsAcc_();
 }
 
+function _vsAccSetScale_(scale){
+  _numScale = scale;
+  if(_vsAccMode === 'planrev' && _revGdData){
+    var sec = document.getElementById('revgd-section');
+    if(sec){ sec.innerHTML = _revGdTableHtml_(_revGdData); return; }
+  }
+  renderVsAcc_();
+}
+function _vsAccScaleChips_(){
+  var opt = [['M','M'],['K','K'],['raw','Enteros']];
+  var h = '<div style="display:flex;gap:4px;align-items:center;margin:4px 0">'
+    + '<span style="font-size:11px;color:var(--muted);font-weight:700;min-width:64px">Unidades</span>';
+  opt.forEach(function(o){
+    h += '<button type="button" class="bg-pchip'+(_numScale===o[0]?' bg-pchip-active':'')+'" onclick="_vsAccSetScale_(\''+o[0]+'\')">'+o[1]+'</button>';
+  });
+  return h + '</div>';
+}
+
 function fetchVsAcc_(force){
   var c = document.getElementById('vsacc-container');
   if(!c) return;
@@ -2661,6 +2679,7 @@ function renderVsAcc_(){
     + '<button type="button" onclick="'+reloadJs+'" style="margin-left:8px;font-size:10px;padding:2px 8px;cursor:pointer">↻ recargar</button>'
     + _vsAccChips_('País', 'pais', paisOpts, _vsAccPais)
     + _vsAccChips_('Producto', 'prod', prodOpts, _vsAccProd)
+    + _vsAccScaleChips_()
     + '</div>';
 
   if(isPR){
