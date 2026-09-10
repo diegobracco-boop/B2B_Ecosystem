@@ -2360,6 +2360,13 @@ var VSACC_MAP = [
 var _vsAccData = null;
 var _vsAccPais = [];   // país canónico seleccionado ('Argentina', 'Otros', …)
 var _vsAccProd = [];   // producto lowercase seleccionado
+var _vsAccMode = 'mgracc';   // 'mgracc' = Managerial vs Accounting | 'planrev' = Planning vs Revenue (GD)
+
+function _vsAccSetMode_(m){
+  if(m === _vsAccMode) return;
+  _vsAccMode = m;
+  renderVsAcc_();
+}
 
 function fetchVsAcc_(force){
   var c = document.getElementById('vsacc-container');
@@ -2379,11 +2386,11 @@ function _vsAccToggle_(which, val){
   var arr = which === 'pais' ? _vsAccPais : _vsAccProd;
   var i = arr.indexOf(val);
   if(i >= 0) arr.splice(i,1); else arr.push(val);
-  fetchVsAcc_(true);
+  if(_vsAccMode === 'planrev'){ _revGdData = null; renderVsAcc_(); } else fetchVsAcc_(true);
 }
 function _vsAccClear_(which){
   if(which === 'pais') _vsAccPais = []; else _vsAccProd = [];
-  fetchVsAcc_(true);
+  if(_vsAccMode === 'planrev'){ _revGdData = null; renderVsAcc_(); } else fetchVsAcc_(true);
 }
 function _vsAccChips_(label, which, opts, sel){
   var h = '<div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin:4px 0">'
@@ -2503,10 +2510,10 @@ var _revGdData = null;
 function fetchRevGd_(){
   var sec = document.getElementById('revgd-section');
   if(!sec) return;
-  sec.innerHTML = '<div class="pnl-card" style="padding:12px;color:var(--muted);margin-bottom:14px">Cargando Revenue por GD…</div>';
+  sec.innerHTML = '<div class="pnl-card" style="padding:12px;color:var(--muted);margin-bottom:14px">Cargando Revenue por GD… (primera carga: ~10 s)</div>';
   google.script.run
-    .withSuccessHandler(function(d){ _revGdData = d; try{ sec.innerHTML = _revGdTableHtml_(d); }catch(e){ sec.innerHTML = '<div class="error-msg" style="padding:16px">Error render Revenue GD: '+(e.message||e)+'</div>'; } })
-    .withFailureHandler(function(e){ sec.innerHTML = '<div class="error-msg" style="padding:16px">Error backend Revenue GD: '+((e&&e.message)||e)+'</div>'; })
+    .withSuccessHandler(function(d){ _revGdData = d; try{ if(_vsAccMode === 'planrev') renderVsAcc_(); }catch(e){ sec.innerHTML = '<div class="error-msg" style="padding:16px">Error render Revenue GD: '+(e.message||e)+'</div>'; } })
+    .withFailureHandler(function(e){ var s=document.getElementById('revgd-section'); if(s) s.innerHTML = '<div class="error-msg" style="padding:16px">Error backend Revenue GD: '+((e&&e.message)||e)+'</div>'; })
     .getRevenueGDVsGestional({ pais: _vsAccPais, produto: _vsAccProd });
 }
 
@@ -2558,25 +2565,52 @@ function renderVsAcc_(){
       + '<button type="button" onclick="fetchVsAcc_(true)" style="margin-left:8px;font-size:11px;padding:3px 10px;cursor:pointer">↻ recargar</button></div>';
     return;
   }
-  // sincronizar selección con lo que el backend efectivamente aplicó
-  if(D.selPais) _vsAccPais = D.selPais;
-  if(D.selProd) _vsAccProd = D.selProd;
+  var isPR = _vsAccMode === 'planrev';
+  // sincronizar selección con lo que el backend efectivamente aplicó (solo en el modo cuyo backend respondió)
+  if(!isPR && D.selPais) _vsAccPais = D.selPais;
+  if(!isPR && D.selProd) _vsAccProd = D.selProd;
+  if(isPR && _revGdData){
+    if(_revGdData.selPais) _vsAccPais = _revGdData.selPais;
+    if(_revGdData.selProd) _vsAccProd = _revGdData.selProd;
+  }
+  var reloadJs = isPR ? '(_revGdData=null,renderVsAcc_())' : 'fetchVsAcc_(true)';
+
+  var modeToggle = '<div style="display:flex;gap:6px;margin:0 0 8px">'
+    + '<button type="button" class="bg-pchip'+(!isPR?' bg-pchip-active':'')+'" onclick="_vsAccSetMode_(\'mgracc\')">Managerial vs Accounting</button>'
+    + '<button type="button" class="bg-pchip'+(isPR?' bg-pchip-active':'')+'" onclick="_vsAccSetMode_(\'planrev\')">Planning vs Revenue</button>'
+    + '</div>';
+
+  var desc = isPR
+    ? '<b>Planning vs Revenue</b> — B2B por GD (<code>gestion_date</code>), meses cerrados, Total B2B. '
+      + 'Izq = escenario <code>ac</code> del pipeline gestional · Der = <code>revenue_gd.json</code> (modelo de revenue).'
+      + '<br><span style="color:var(--muted);font-size:11px">⚠ BORRADOR — revisá el mapeo de líneas y los signos de las líneas de costo.</span>'
+    : '<b>Managerial vs Accounting</b> — reales, meses cerrados, por LOB. '
+      + 'Accounting = <code>actuals.json</code> canónico (P&L N1). Managerial = actuals gestional ('
+      + 'B2B-MAY y B2B-MIN en RI; B2B2C tiene fecha única).'
+      + '<br><span style="color:var(--muted);font-size:11px">⚠ <code>VSACC_MAP</code> es un borrador — decime qué filas ajustar.</span>';
+
+  var paisOpts = (isPR && _revGdData && _revGdData.paisOpts && _revGdData.paisOpts.length) ? _revGdData.paisOpts : (D.paisOpts || []);
+  var prodOpts = (isPR && _revGdData && _revGdData.prodOpts && _revGdData.prodOpts.length) ? _revGdData.prodOpts : (D.prodOpts || []);
 
   var h = '<div class="pnl-card" style="margin-bottom:10px;padding:12px 16px">'
-    + '<b>Managerial vs Accounting</b> — reales, meses cerrados, por LOB. '
-    + 'Accounting = <code>actuals.json</code> canónico (P&L N1). Managerial = actuals gestional ('
-    + 'B2B-MAY y B2B-MIN en RI; B2B2C tiene fecha única).'
-    + '<br><span style="color:var(--muted);font-size:11px">⚠ <code>VSACC_MAP</code> es un borrador — decime qué filas ajustar.</span> '
-    + '<button type="button" onclick="fetchVsAcc_(true)" style="margin-left:8px;font-size:10px;padding:2px 8px;cursor:pointer">↻ recargar</button>'
-    + _vsAccChips_('País', 'pais', D.paisOpts || [], _vsAccPais)
-    + _vsAccChips_('Producto', 'prod', D.prodOpts || [], _vsAccProd)
+    + modeToggle + desc
+    + '<button type="button" onclick="'+reloadJs+'" style="margin-left:8px;font-size:10px;padding:2px 8px;cursor:pointer">↻ recargar</button>'
+    + _vsAccChips_('País', 'pais', paisOpts, _vsAccPais)
+    + _vsAccChips_('Producto', 'prod', prodOpts, _vsAccProd)
     + '</div>';
+
+  if(isPR){
+    h += '<div id="revgd-section"><div class="pnl-card" style="padding:12px;color:var(--muted)">Cargando Revenue por GD…</div></div>';
+    c.innerHTML = h;
+    if(_revGdData) document.getElementById('revgd-section').innerHTML = _revGdTableHtml_(_revGdData);
+    else fetchRevGd_();
+    return;
+  }
+
   h += '<div id="vsacc-tables">';
   ['b2b2c','may','min'].forEach(function(lk){ if(D.lobs[lk]) h += _vsAccTable_(D.lobs[lk]); });
   h += '</div>';
-  h += '<div id="revgd-section" style="margin-top:22px"></div>';
   c.innerHTML = h;
-  fetchRevGd_();  // sub-sección: B2B actuals GD (gestional) vs Revenue por GD (usa los mismos chips país/producto)
 }
 
 // ── LOB switcher ───────────────────────────────────────────────────────────
