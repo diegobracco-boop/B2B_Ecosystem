@@ -2340,35 +2340,50 @@ function renderManagerialBGTable(){
 //  VSACC_MAP: mapeo línea Managerial ↔ P&L N2/N3/N4 de Accounting. ⚠ BORRADOR —
 //  Diego lo revisa y define qué filas quedan. Prefijos acc: 'n2|', 'n3|', 'n4|'.
 // ══════════════════════════════════════════════════════════════════════════
+// `group` ordena las filas en 3 bloques visuales (ver PNL_GROUP_LABELS):
+// 'pre' = volumen (sin header) · 'palancas' = negociables por el negocio · 'regional' = resto
+// (estructurales/país) · 'subtotal' = Net Revenue/FVM, al final de todo (spec de Diego 2026-09-10).
 var VSACC_MAP = [
-  { label:'Orders',                    mgr:['orders'],                       acc:['n1|orders domestic','n1|orders international'] },
-  { label:'Gross Bookings',            mgr:['gross_bookings'],               acc:['n1|gross bookings domestic','n1|gross bookings international'] },
+  { label:'Orders',                    mgr:['orders'],                       acc:['n1|orders domestic','n1|orders international'], group:'pre' },
+  { label:'Gross Bookings',            mgr:['gross_bookings'],               acc:['n1|gross bookings domestic','n1|gross bookings international'], group:'pre' },
+
   { label:'Up Front + Fees + Comm. Disc.', mgr:['up_front_incentives','fees','commercial_discounts'],
-                                       acc:['n1|up front incentives','n1|fees','n1|commercial discounts'] },
-  { label:'Cancellations',             mgr:['cancellations'],                acc:['n1|cancellations'] },
-  { label:'Back End Incentives',       mgr:['back_end_incentives'],          acc:['n1|back end incentives'] },
-  { label:'Other Incentives',          mgr:['other_incentives'],             acc:['n1|other incentives','n1|gds','n1|vcc'] },
-  { label:'Breakage Revenue',          mgr:['breakage_revenue'],             acc:['n1|breakage revenue'] },
-  { label:'Media Revenue',             mgr:['media_revenue'],                acc:['n1|media & other revenue - media solutions'] },
-  { label:'Income Outsourced Svcs',    mgr:['income_from_outsourced_services'], acc:['n1|income from outsourced services'] },
-  { label:'Revenue Tax',               mgr:['revenue_tax'],                  acc:['n1|revenue taxes'] },
-  { label:'» Net Revenue (subtotal)',  mgr:['net_revenue'],                  acc:['n3|net revenue'], sub:true },
-  { label:'Cost of Installments',      mgr:['cost_of_installments'],         acc:['n1|cost of installments'] },
-  { label:'Credit Card Processing',    mgr:['credit_card_processing'],       acc:['n1|credit card processing'] },
-  { label:'Customer Claims',           mgr:['customer_claims'],              acc:['n1|customer claims'] },
-  { label:'Customer Service',          mgr:['customer_service'],             acc:['n1|customer service'] },
-  { label:'Errors',                    mgr:['errors'],                       acc:['n1|errors'] },
-  { label:'Other Transactional Taxes', mgr:['other_transactional_taxes'],    acc:['n1|other transactional taxes'] },
-  { label:'Frauds',                    mgr:['frauds'],                       acc:['n1|frauds'] },
-  { label:'Intercompany',              mgr:['intercompany_usd'],             acc:['n1|intercompany transactions'] },
+                                       acc:['n1|up front incentives','n1|fees','n1|commercial discounts'], group:'palancas' },
+  { label:'Cancellations',             mgr:['cancellations'],                acc:['n1|cancellations'], group:'palancas' },
+  { label:'Cost of Installments',      mgr:['cost_of_installments'],         acc:['n1|cost of installments'], group:'palancas' },
+  { label:'Credit Card Processing',    mgr:['credit_card_processing'],       acc:['n1|credit card processing'], group:'palancas' },
   { label:'Third Party Commissions',   mgr:['white_labels_api','affiliates'],
-                                       acc:['n1|affiliates','n1|white labels / api','n1|conectores','n1|telesales'] },
+                                       acc:['n1|affiliates','n1|white labels / api','n1|conectores','n1|telesales'], group:'palancas' },
+
+  { label:'Back End Incentives',       mgr:['back_end_incentives'],          acc:['n1|back end incentives'], group:'regional' },
+  { label:'Other Incentives',          mgr:['other_incentives'],             acc:['n1|other incentives','n1|gds','n1|vcc'], group:'regional' },
+  { label:'Breakage Revenue',          mgr:['breakage_revenue'],             acc:['n1|breakage revenue'], group:'regional' },
+  { label:'Media Revenue',             mgr:['media_revenue'],                acc:['n1|media & other revenue - media solutions'], group:'regional' },
+  { label:'Income Outsourced Svcs',    mgr:['income_from_outsourced_services'], acc:['n1|income from outsourced services'], group:'regional' },
+  { label:'Revenue Tax',               mgr:['revenue_tax'],                  acc:['n1|revenue taxes'], group:'regional' },
+  { label:'Customer Claims',           mgr:['customer_claims'],              acc:['n1|customer claims'], group:'regional' },
+  { label:'Customer Service',          mgr:['customer_service'],             acc:['n1|customer service'], group:'regional' },
+  { label:'Errors',                    mgr:['errors'],                       acc:['n1|errors'], group:'regional' },
+  { label:'Other Transactional Taxes', mgr:['other_transactional_taxes'],    acc:['n1|other transactional taxes'], group:'regional' },
+  { label:'Frauds',                    mgr:['frauds'],                       acc:['n1|frauds'], group:'regional' },
+  { label:'Intercompany',              mgr:['intercompany_usd'],             acc:['n1|intercompany transactions'], group:'regional' },
   { label:'Vendor Commissions  vs  Channels Personnel Exp.', mgr:['vendor_commissions'],
-                                       acc:['n1|channels-personnel/expenses'], note:'comisión de vendedores presenciales; Mgr no lo abre (0)' },
-  { label:'Efecto Financiero',         mgr:['efecto_financiero'],            acc:[] },
-  { label:'Dif FX + Hedge  vs  Cost of Sales as Principal', mgr:['dif_fx','currency_hedge'], acc:['n1|cost of sales as principal'], note:'fee bimonetario Argentina' },
-  { label:'» FVM  vs  Gross Profit',   mgr:['npv'],                          acc:['n4|gross profit'], sub:true, note:'conceptos distintos — solo referencia' }
+                                       acc:['n1|channels-personnel/expenses'], note:'comisión de vendedores presenciales; Mgr no lo abre (0)', group:'regional' },
+  { label:'Efecto Financiero',         mgr:['efecto_financiero'],            acc:[], group:'regional' },
+  { label:'Dif FX + Hedge  vs  Cost of Sales as Principal', mgr:['dif_fx','currency_hedge'], acc:['n1|cost of sales as principal'], note:'fee bimonetario Argentina', group:'regional' },
+
+  { label:'» Net Revenue (subtotal)',  mgr:['net_revenue'],                  acc:['n3|net revenue'], sub:true, group:'subtotal' },
+  { label:'» FVM  vs  Gross Profit',   mgr:['npv'],                          acc:['n4|gross profit'], sub:true, note:'conceptos distintos — solo referencia', group:'subtotal' }
 ];
+
+// Labels de los headers de sección insertados entre grupos (null/'pre' = sin header).
+var PNL_GROUP_LABELS = { palancas:'Palancas de Negocio', regional:'Variables Regionales', subtotal:'Subtotales' };
+function _pnlGroupHeaderRow_(group, cols){
+  var label = PNL_GROUP_LABELS[group];
+  if(!label) return '';
+  var span = 1 + cols.length*4 + 3;
+  return '<tr><td colspan="'+span+'" style="font-weight:800;padding:6px 8px;background:rgba(42,16,72,.10);border-top:1px solid var(--border)">'+escHtml(label)+'</td></tr>';
+}
 
 var _vsAccData = null;
 var _vsAccPais = [];   // país canónico seleccionado ('Argentina', 'Otros', …)
@@ -2481,7 +2496,9 @@ function _vsAccTable_(L){
   for(var g=0; g<4; g++){ cols.forEach(function(col){ h+='<th'+(col==='Total'?' class="th-total-b"':'')+'>'+col+'</th>'; }); if(g<3) h+='<th class="th-sep"></th>'; }
   h += '</tr></thead><tbody>';
 
+  var _lastGroup = null;
   VSACC_MAP.forEach(function(row){
+    if(row.group !== _lastGroup){ h += _pnlGroupHeaderRow_(row.group, cols); _lastGroup = row.group; }
     h += tr(row.label,
             sumRow(function(m){ return _vsAccSum_(mgr, row.mgr, m); }),
             sumRow(function(m){ return _vsAccSum_(acc, row.acc, m); }),
@@ -2505,36 +2522,40 @@ function _vsAccTable_(L){
 //  Izq = escenario 'ac' (GD) de b2b_may+b2b_min · Der = revenue_gd.json
 //  ⚠ BORRADOR — el mapeo de las ~30 líneas y los signos los revisa Diego.
 // ══════════════════════════════════════════════════════════════════════════
+// Mismo criterio de grupos que VSACC_MAP (ver PNL_GROUP_LABELS más arriba).
 var REVGD_ROWS = [
-  { k:'orders',                          label:'Orders' },
-  { k:'gross_bookings',                  label:'Gross Bookings' },
-  { k:'up_front_incentives',             label:'Up Front Incentives' },
-  { k:'fees',                            label:'Fees' },
-  { k:'commercial_discounts',            label:'Commercial Discounts' },
-  { k:'income_from_outsourced_services', label:'Income Outsourced Svcs' },
-  { k:'cancellations',                   label:'Cancellations' },
-  { k:'cost_of_installments',            label:'Cost of Installments' },
-  { k:'credit_card_processing',          label:'Credit Card Processing' },
-  { k:'white_labels_api',               label:'White Labels / API' },
-  { k:'other_incentives',               label:'Other Incentives' },
-  { k:'revenue_tax',                    label:'Revenue Tax' },
-  { k:'back_end_incentives',            label:'Back End Incentives' },
-  { k:'breakage_revenue',               label:'Breakage Revenue' },
-  { k:'media_revenue',                  label:'Media Revenue' },
-  { k:'errors',                         label:'Errors' },
-  { k:'other_transactional_taxes',      label:'Other Transactional Taxes' },
-  { k:'customer_claims',                label:'Customer Claims' },
-  { k:'customer_service',               label:'Customer Service' },
-  { k:'affiliates',                     label:'Affiliates' },
-  { k:'intercompany_usd',               label:'Intercompany' },
-  { k:'operations',                     label:'Operations' },
-  { k:'vendor_commissions',             label:'Vendor Commissions' },
-  { k:'frauds',                         label:'Frauds' },
-  { k:'efecto_financiero',              label:'Efecto Financiero' },
-  { k:'dif_fx',                         label:'Dif FX' },
-  { k:'currency_hedge',                 label:'Currency Hedge' },
-  { k:'net_revenue',                    label:'» Net Revenue', sub:true },
-  { k:'npv',                            label:'» FVM', sub:true }
+  { k:'orders',                          label:'Orders', group:'pre' },
+  { k:'gross_bookings',                  label:'Gross Bookings', group:'pre' },
+
+  { k:'up_front_incentives',             label:'Up Front Incentives', group:'palancas' },
+  { k:'fees',                            label:'Fees', group:'palancas' },
+  { k:'commercial_discounts',            label:'Commercial Discounts', group:'palancas' },
+  { k:'cancellations',                   label:'Cancellations', group:'palancas' },
+  { k:'cost_of_installments',            label:'Cost of Installments', group:'palancas' },
+  { k:'credit_card_processing',          label:'Credit Card Processing', group:'palancas' },
+  { k:'white_labels_api',               label:'White Labels / API', group:'palancas' },
+  { k:'affiliates',                     label:'Affiliates', group:'palancas' },
+
+  { k:'income_from_outsourced_services', label:'Income Outsourced Svcs', group:'regional' },
+  { k:'other_incentives',               label:'Other Incentives', group:'regional' },
+  { k:'revenue_tax',                    label:'Revenue Tax', group:'regional' },
+  { k:'back_end_incentives',            label:'Back End Incentives', group:'regional' },
+  { k:'breakage_revenue',               label:'Breakage Revenue', group:'regional' },
+  { k:'media_revenue',                  label:'Media Revenue', group:'regional' },
+  { k:'errors',                         label:'Errors', group:'regional' },
+  { k:'other_transactional_taxes',      label:'Other Transactional Taxes', group:'regional' },
+  { k:'customer_claims',                label:'Customer Claims', group:'regional' },
+  { k:'customer_service',               label:'Customer Service', group:'regional' },
+  { k:'intercompany_usd',               label:'Intercompany', group:'regional' },
+  { k:'operations',                     label:'Operations', group:'regional' },
+  { k:'vendor_commissions',             label:'Vendor Commissions', group:'regional' },
+  { k:'frauds',                         label:'Frauds', group:'regional' },
+  { k:'efecto_financiero',              label:'Efecto Financiero', group:'regional' },
+  { k:'dif_fx',                         label:'Dif FX', group:'regional' },
+  { k:'currency_hedge',                 label:'Currency Hedge', group:'regional' },
+
+  { k:'net_revenue',                    label:'» Net Revenue', sub:true, group:'subtotal' },
+  { k:'npv',                            label:'» FVM', sub:true, group:'subtotal' }
 ];
 var REVGD_EXTRA_ROWS = [
   { k:'rev_gb',         label:'rev_gb (modelo)',        extra:true },
@@ -2605,7 +2626,11 @@ function _revGdTableHtml_(D){
       + '<th class="th-delta" colspan="'+cols.length+'">Δ %</th></tr><tr><th class="th-lbl">Línea</th>';
     for(var g=0; g<4; g++){ cols.forEach(function(col){ t+='<th'+(col==='Total'?' class="th-total-b"':'')+'>'+col+'</th>'; }); if(g<3) t+='<th class="th-sep"></th>'; }
     t += '</tr></thead><tbody>';
-    REVGD_ROWS.forEach(function(row){ t += tr(row); });
+    var _lastGroup = null;
+    REVGD_ROWS.forEach(function(row){
+      if(row.group !== _lastGroup){ t += _pnlGroupHeaderRow_(row.group, cols); _lastGroup = row.group; }
+      t += tr(row);
+    });
     REVGD_EXTRA_ROWS.forEach(function(row){ t += tr(row); });
     return t + '</tbody></table></div>';
   }
