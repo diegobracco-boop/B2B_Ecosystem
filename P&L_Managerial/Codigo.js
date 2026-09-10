@@ -664,6 +664,11 @@ function getRevenueGDVsGestional(filtersJson) {
 
 // Suma NR (idx 27) y FVM (idx 28) del escenario 'ac' de una sección B2B gestional,
 // por país canónico y mes, para un canal fijo ('MAY'|'MIN'). Filtro país + producto.
+// Los 8 países del cuadro resumen; cualquier otro cae en 'Otros' para que el
+// TOTAL del resumen cuadre con la fila Net Revenue del detalle.
+var _REVGD_PAIS8 = ['Argentina','Brasil','Mexico','Colombia','Chile','Peru','Ecuador','Otros'];
+function _revGdPais8_(cp){ return _REVGD_PAIS8.indexOf(cp) >= 0 ? cp : 'Otros'; }
+
 function _gestB2BByPaisNRFVM_(section, canal, fPaisRaw, selProd, out) {
   var rows = (section && section.ac) || [];
   var iNR = 3 + METRIC_COLS.indexOf('net_revenue');
@@ -672,7 +677,7 @@ function _gestB2BByPaisNRFVM_(section, canal, fPaisRaw, selProd, out) {
     var pais = normB2BPais_(row[0]), produto = row[1], ym = row[2];
     if (!matchFilter_(pais, fPaisRaw) || !matchFilter_(produto, selProd)) return;
     var mes = YM_LABEL[ym]; if (!mes) return;
-    var cp = _vsaPaisCanon_(pais);
+    var cp = _revGdPais8_(_vsaPaisCanon_(pais));
     if (!out[cp])        out[cp] = {};
     if (!out[cp][canal]) out[cp][canal] = { net_revenue: {}, npv: {} };
     var o = out[cp][canal];
@@ -705,16 +710,17 @@ function _computeRevenueGD_(f) {
 
   // ── Derecha: revenue_gd.json ──  rows = [pais, canal, produto, ym, ...metrics]
   var rj = readRevenueGdJSON_();
-  var metrics = rj.metrics || METRIC_COLS;
+  var metrics = (rj.metrics && rj.metrics.length) ? rj.metrics : METRIC_COLS;
   var extra   = rj.metrics_extra || [];
   var allM    = metrics.concat(extra);
   var OFF     = 4;                                   // pais, canal, produto, ym
-  var iNRrev  = OFF + metrics.indexOf('net_revenue');
-  var iFVrev  = OFF + metrics.indexOf('npv');
+  var _iNR = metrics.indexOf('net_revenue'), _iFV = metrics.indexOf('npv');
+  var iNRrev  = _iNR >= 0 ? OFF + _iNR : OFF + METRIC_COLS.indexOf('net_revenue');
+  var iFVrev  = _iFV >= 0 ? OFF + _iFV : OFF + METRIC_COLS.indexOf('npv');
   var paisOpts = {}, prodOpts = {}, canalOpts = {};
   var rev = {}, revMonths = {}, pcRev = {};
   (rj.rows || []).forEach(function(r){
-    var cp  = String(r[0]);                          // ya canónico (revenue_gd_builder.py)
+    var cp  = _revGdPais8_(String(r[0]));            // ya canónico (revenue_gd_builder.py); clamp a los 8
     var cn  = String(r[1] || 'MAY');
     var prd = String(r[2] || '');
     var ym  = String(r[3] || '');
@@ -737,7 +743,7 @@ function _computeRevenueGD_(f) {
   var months = FY.filter(function(m){ return mgrMonths[m] && revMonths[m]; });
 
   // ── Cuadro resumen país × canal: NR + FVM por mes (el frontend elige mes o acumulado) ──
-  var PAIS_ORDER = ['Argentina','Brasil','Mexico','Colombia','Chile','Peru','Ecuador','Otros'];
+  var PAIS_ORDER = _REVGD_PAIS8;
   var CANAL_ORDER = ['MAY','MIN'];
   var summary = [];
   PAIS_ORDER.forEach(function(p){

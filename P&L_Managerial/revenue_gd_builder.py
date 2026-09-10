@@ -53,7 +53,7 @@ MAPEO revenue-GD query  ->  METRIC_COLS  (BORRADOR — revisar con números real
 """
 
 import os, sys, json, argparse
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -334,7 +334,7 @@ def _get_drive_service():
 
     clasprc = Path.home() / ".clasprc.json"
     tok = _json.loads(clasprc.read_text())["tokens"]["default"]
-    expiry = datetime.fromtimestamp(tok["expiry_date"] / 1000)
+    expiry = datetime.fromtimestamp(tok["expiry_date"] / 1000, tz=timezone.utc)
     creds  = Credentials(
         token=tok["access_token"], refresh_token=tok["refresh_token"],
         token_uri="https://oauth2.googleapis.com/token",
@@ -355,6 +355,9 @@ def upload_to_drive(json_bytes: bytes):
         fields="files(id,name)",
     ).execute()
     existing = results.get("files", [])
+    if len(existing) > 1:
+        print(f"  [WARN] {len(existing)} archivos '{JSON_FILE_NAME}' en la carpeta — se actualiza {existing[0]['id']}; "
+              f"la landing puede leer otro. Dejar uno solo.")
     if existing:
         service.files().update(fileId=existing[0]["id"], media_body=media).execute()
         print(f"  OK Drive: actualizado ({JSON_FILE_NAME})  id={existing[0]['id']}")
@@ -382,10 +385,18 @@ def main(upload: bool = True):
     con.close()
     df.columns = [c.lower() for c in df.columns]
     print(f"  OK {len(df):,} filas crudas")
+    if df.empty:
+        sys.exit("La query devolvió 0 filas — VPN caída o cambio de esquema. NO se sube nada.")
 
     # ── normalizar ──
-    df["ym"] = pd.to_datetime(df["gestion_date"]).dt.strftime("%Y-%m")
+    _dt = pd.to_datetime(df["gestion_date"], format="%Y-%m-%d", errors="coerce")
+    if _dt.isna().any():
+        sys.exit(f"{_dt.isna().sum()} filas con gestion_date no parseable — abortando.")
+    df["ym"] = _dt.dt.strftime("%Y-%m")
     df = df[df["ym"].isin(CLOSED_SET)]
+    _n_canal_nan = df["lob_channel"].isna().sum()
+    if _n_canal_nan:
+        print(f"  [WARN] {_n_canal_nan:,} filas con lob_channel NULL (parent_channel != API/AFF) → contadas como MAY")
     df["pais_c"]   = df["pais"].map(_canon_pais)
     df["canal_c"]  = df["lob_channel"].map(_canon_canal)
     df["produto_c"] = df["original_product"].map(_canon_prod)
@@ -407,6 +418,9 @@ def main(upload: bool = True):
             vals.append(round(float(r[src]) if src else 0.0, 4))
         vals += [round(float(r[c]), 4) for c in METRICS_EXTRA]
         rows.append([r["pais_c"], r["canal_c"], r["produto_c"], r["ym"]] + vals)
+
+    if not rows:
+        sys.exit("0 filas tras filtrar meses cerrados — NO se sube nada.")
 
     actual_months = sorted({r[3] for r in rows})
     out = {

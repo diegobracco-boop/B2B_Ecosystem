@@ -456,7 +456,10 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
 
 /* ── Quarterly P&L Table ──────────────────────────────────────── */
 .qpnl-table{border-collapse:collapse;width:100%;font-size:12px}
-.qpnl-table th{padding:5px 10px;text-align:center;white-space:nowrap;font-size:12px;border:1px solid var(--border)}
+.qpnl-table th{padding:5px 10px;text-align:center;white-space:nowrap;font-size:12px;border:1px solid var(--border);background:var(--surface)}
+.qpnl-table thead th{position:sticky;z-index:2}
+.qpnl-table thead tr:first-child th{top:0}
+.qpnl-table thead tr:nth-child(2) th{top:27px}
 .qpnl-table td{padding:4px 10px;border:1px solid var(--border);white-space:nowrap;text-align:right}
 .qpnl-table td:first-child{text-align:left;min-width:210px}
 .cell-pct{display:block;font-size:9px;color:#94A3B8;margin-top:1px}
@@ -1018,7 +1021,9 @@ function fmtM(v){
   if (_numScale==='K')   return _grp(Math.round(v/1e3))+'K';
   if (_numScale==='raw') return _grp(Math.round(v));
   // M: TODOS los nominales en millones (sin auto-escalar a K los valores chicos)
-  return (v/1e6).toFixed(2)+'M';
+  var m = v/1e6;
+  if (Math.abs(m) < 0.005) return '0.00M';   // evita "-0.00M"
+  return m.toFixed(2)+'M';
 }
 function fmtK(v){
   if (v===null||isNaN(v)) return '—';
@@ -2063,12 +2068,20 @@ function setMGGoal(goal){
   if(document.getElementById('tab-detalle').classList.contains('active') && _data) renderDetalle();
 }
 
-function setMGNumScale(scale){
+// Sincroniza _numScale y el estado activo de LOS DOS grupos de botones de escala
+// (mg-scale-* de la Managerial View y vsacc-scale-* de la vista comparativa).
+function _applyNumScale_(scale){
   _numScale = scale;
-  ['M','K','raw'].forEach(function(s){
-    var btn = document.getElementById('mg-scale-'+s);
-    if(btn) btn.classList.toggle('prd-active', s === scale);
+  ['mg-scale-','vsacc-scale-'].forEach(function(pfx){
+    ['M','K','raw'].forEach(function(s){
+      var btn = document.getElementById(pfx + s);
+      if(btn) btn.classList.toggle('prd-active', s === scale);
+    });
   });
+}
+
+function setMGNumScale(scale){
+  _applyNumScale_(scale);
   if(_data) render();  // repinta tabla P&L + Detalle + Trend (según pestaña activa)
 }
 
@@ -2369,21 +2382,23 @@ function _vsAccSetMode_(m){
 }
 
 function _vsAccSetScale_(scale){
-  _numScale = scale;
+  _applyNumScale_(scale);
   if(_vsAccMode === 'planrev' && _revGdData){
     var sec = document.getElementById('revgd-section');
     if(sec){ sec.innerHTML = _revGdTableHtml_(_revGdData); return; }
   }
   renderVsAcc_();
 }
+// Mismo componente que mg-scale-* (prd-toggle/prd-btn) — un solo estilo para "Unidades" en la landing.
 function _vsAccScaleChips_(){
   var opt = [['M','M'],['K','K'],['raw','Enteros']];
-  var h = '<div style="display:flex;gap:4px;align-items:center;margin:4px 0">'
-    + '<span style="font-size:11px;color:var(--muted);font-weight:700;min-width:64px">Unidades</span>';
+  var h = '<div style="display:flex;gap:6px;align-items:center;margin:4px 0">'
+    + '<span style="font-size:11px;color:var(--muted);font-weight:700;min-width:64px">Unidades</span>'
+    + '<div class="prd-toggle">';
   opt.forEach(function(o){
-    h += '<button type="button" class="bg-pchip'+(_numScale===o[0]?' bg-pchip-active':'')+'" onclick="_vsAccSetScale_(\''+o[0]+'\')">'+o[1]+'</button>';
+    h += '<button id="vsacc-scale-'+o[0]+'" type="button" class="prd-btn'+(_numScale===o[0]?' prd-active':'')+'" onclick="_vsAccSetScale_(\''+o[0]+'\')">'+o[1]+'</button>';
   });
-  return h + '</div>';
+  return h + '</div></div>';
 }
 
 function fetchVsAcc_(force){
@@ -2396,7 +2411,10 @@ function fetchVsAcc_(force){
   else c.innerHTML = '<div style="padding:24px;color:var(--muted)">Cargando comparación… (primera carga: ~10 s, parsea 2 JSON de Drive)</div>';
   google.script.run
     .withSuccessHandler(function(d){ _vsAccData = d; try{ renderVsAcc_(); }catch(e){ c.innerHTML = '<div class="error-msg" style="padding:24px">Error render: '+(e.message||e)+'</div>'; if(window.console) console.error('[vsacc]', e); } })
-    .withFailureHandler(function(e){ c.innerHTML = '<div class="error-msg" style="padding:24px">Error backend: '+((e&&e.message)||e)+'</div>'; })
+    .withFailureHandler(function(e){
+      if(_vsAccMode === 'planrev'){ renderVsAcc_(); return; }  // planrev no depende de este backend
+      c.innerHTML = '<div class="error-msg" style="padding:24px">Error backend: '+((e&&e.message)||e)+'</div>';
+    })
     .getVsAccounting({ pais: _vsAccPais, produto: _vsAccProd });
 }
 
@@ -2537,7 +2555,7 @@ function _revGdSetMonth_(m){
 function fetchRevGd_(){
   var sec = document.getElementById('revgd-section');
   if(!sec) return;
-  sec.innerHTML = '<div class="pnl-card" style="padding:12px;color:var(--muted);margin-bottom:14px">Cargando Revenue por GD… (primera carga: ~10 s)</div>';
+  sec.innerHTML = '<div class="pnl-card" style="padding:12px;color:var(--muted);margin-bottom:14px">Cargando comparación… (primera carga: ~10 s)</div>';
   google.script.run
     .withSuccessHandler(function(d){ _revGdData = d; try{ if(_vsAccMode === 'planrev') renderVsAcc_(); }catch(e){ sec.innerHTML = '<div class="error-msg" style="padding:16px">Error render Revenue GD: '+(e.message||e)+'</div>'; } })
     .withFailureHandler(function(e){ var s=document.getElementById('revgd-section'); if(s) s.innerHTML = '<div class="error-msg" style="padding:16px">Error backend Revenue GD: '+((e&&e.message)||e)+'</div>'; })
@@ -2549,12 +2567,12 @@ function _revGdTableHtml_(D){
   var months = D.months || [];
   var mgr = D.mgr || {}, rev = D.rev || {};
   var upd = D.updatedAt ? (' · revenue_gd.json ' + escHtml(String(D.updatedAt).slice(0,16))) : '';
-  var head = '<div class="pnl-card" style="margin-bottom:4px;padding:8px 14px;font-weight:700">B2B · actuals GD (gestional) vs Revenue por GD'
+  var head = '<div class="pnl-card" style="margin-bottom:4px;padding:8px 14px;font-weight:700">Actuals GD (gestional) vs Revenue por GD'
     + ' <span style="font-weight:400;color:var(--muted);font-size:11px">· Total B2B · '
-    + (months.join(', ') || 'sin meses en común') + upd + '</span>'
-    + '<br><span style="color:var(--muted);font-size:11px">⚠ BORRADOR — la query "revenue por GD" NO aplica los signos que sí aplica el gestional en las líneas de costo; revisá el mapeo. '
-    + 'Sin fuente en la query (siempre 0): ' + escHtml((D.zeroMetrics||[]).join(', ') || '—') + '.</span></div>';
-  if(!months.length) return head + '<div class="pnl-card" style="padding:12px;color:var(--muted);margin-bottom:14px">Sin meses cerrados en común. ¿Corriste <code>revenue_gd_builder.py</code>?</div>';
+    + (months.join(', ') || 'sin meses en común') + upd
+    + (D.zeroMetrics && D.zeroMetrics.length ? ' · sin fuente en la query (siempre 0): ' + escHtml(D.zeroMetrics.join(', ')) : '')
+    + '</span></div>';
+  if(!months.length) return head + '<div class="pnl-card" style="padding:12px;color:var(--muted);margin-bottom:14px">Sin meses cerrados en común — todavía no hay <code>revenue_gd.json</code> generado.</div>';
 
   // ── Cuadro resumen: país × canal, NR + FVM, gestional vs revGD, Δ ──
   if(_revGdMonth !== 'all' && months.indexOf(_revGdMonth) < 0) _revGdMonth = 'all';
@@ -2598,16 +2616,17 @@ function _revGdTableHtml_(D){
 function _revGdSummaryHtml_(summary, allMonths, sumMonths){
   if(!summary.length) return '';
   var MAT_ABS = 50000, MAT_PCT = 5;
+  var MAT_BG = 'color-mix(in srgb, var(--red) 13%, transparent)';
   function s_(o){ return (sumMonths||[]).reduce(function(a,m){ return a + ((o||{})[m] || 0); }, 0); }
   function money(v){ return '<td style="text-align:right'+(v<0?';color:var(--red)':'')+'">'+fmtM(v)+'</td>'; }
   function dcell(d, base){
     var pct = Math.abs(base) < 1e-9 ? null : d/Math.abs(base)*100;
     var mat = Math.abs(d) >= MAT_ABS && pct != null && Math.abs(pct) >= MAT_PCT;
-    var txt = fmtM(d) + (pct==null ? '' : ' <span style="font-size:10px;opacity:.7">('+(pct>=0?'+':'')+pct.toFixed(0)+'%)</span>');
-    return '<td style="text-align:right'+(mat?';background:rgba(207,34,46,.14);font-weight:700;color:var(--red)':(d<0?';color:var(--red)':''))+'">'+txt+'</td>';
+    var txt = fmtM(d) + (pct==null ? '' : ' <span style="font-size:11px">('+(pct>=0?'+':'')+pct.toFixed(0)+'%)</span>');
+    return '<td style="text-align:right'+(mat?';background:'+MAT_BG+';font-weight:700;color:var(--red)':(d<0?';color:var(--red)':''))+'">'+txt+'</td>';
   }
   // selector de mes
-  var chips = '<div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin:4px 0">'
+  var chips = '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:4px 0">'
     + '<span style="font-size:11px;color:var(--muted);font-weight:700;min-width:64px">Mes</span>'
     + '<button type="button" class="bg-pchip'+(_revGdMonth==='all'?' bg-pchip-active':'')+'" onclick="_revGdSetMonth_(\'all\')">Acumulado</button>';
   (allMonths||[]).forEach(function(m){
@@ -2618,12 +2637,12 @@ function _revGdSummaryHtml_(summary, allMonths, sumMonths){
   var per = _revGdMonth === 'all' ? ('acumulado ' + (sumMonths||[]).join(', ')) : _revGdMonth;
   var h = '<div class="pnl-card" style="margin-bottom:6px;padding:8px 14px">'
     + '<span style="font-weight:700">Resumen país × canal</span> <span style="color:var(--muted);font-size:11px">· '+escHtml(per)
-    + ' — en <span style="background:rgba(207,34,46,.14);padding:0 4px">rojo</span> las diferencias materiales (|Δ| ≥ '+fmtM(MAT_ABS)+' y |Δ%| ≥ '+MAT_PCT+'%)</span>'
+    + ' — en <span style="background:'+MAT_BG+';padding:0 4px">rojo</span> las diferencias materiales (|Δ| ≥ 50K y |Δ%| ≥ '+MAT_PCT+'%)</span>'
     + chips + '</div>';
   h += '<div class="pnl-card" style="overflow-x:auto;margin-bottom:4px"><table class="qpnl-table" style="min-width:760px"><thead>'
     + '<tr><th class="th-lbl">País</th><th>Canal</th>'
-    + '<th class="th-baseline" colspan="3">NET REVENUE</th><th class="th-sep"></th>'
-    + '<th class="th-goal" colspan="3">FVM</th></tr>'
+    + '<th colspan="3" style="font-weight:800;border-bottom:2px solid var(--border)">NET REVENUE</th><th class="th-sep"></th>'
+    + '<th colspan="3" style="font-weight:800;border-bottom:2px solid var(--border)">FVM</th></tr>'
     + '<tr><th class="th-lbl"></th><th></th>'
     + '<th>Gest</th><th>RevGD</th><th>Δ</th><th class="th-sep"></th><th>Gest</th><th>RevGD</th><th>Δ</th></tr>'
     + '</thead><tbody>';
@@ -2645,12 +2664,14 @@ function _revGdSummaryHtml_(summary, allMonths, sumMonths){
 function renderVsAcc_(){
   var c = document.getElementById('vsacc-container');
   var D = _vsAccData;
-  if(!D || !D.lobs){
+  var isPR = _vsAccMode === 'planrev';
+  // "Actuals GD vs Revenue" tiene pipeline propio (revenue_gd.json) → no depende de getVsAccounting.
+  if(!isPR && (!D || !D.lobs)){
     c.innerHTML = '<div class="error-msg" style="padding:24px">Sin datos. '
       + '<button type="button" onclick="fetchVsAcc_(true)" style="margin-left:8px;font-size:11px;padding:3px 10px;cursor:pointer">↻ recargar</button></div>';
     return;
   }
-  var isPR = _vsAccMode === 'planrev';
+  if(!D) D = { lobs:{}, paisOpts:[], prodOpts:[] };
   // sincronizar selección con lo que el backend efectivamente aplicó (solo en el modo cuyo backend respondió)
   if(!isPR && D.selPais) _vsAccPais = D.selPais;
   if(!isPR && D.selProd) _vsAccProd = D.selProd;
@@ -2660,26 +2681,31 @@ function renderVsAcc_(){
   }
   var reloadJs = isPR ? '(_revGdData=null,renderVsAcc_())' : 'fetchVsAcc_(true)';
 
-  var modeToggle = '<div style="display:flex;gap:6px;margin:0 0 8px">'
-    + '<button type="button" class="bg-pchip'+(!isPR?' bg-pchip-active':'')+'" onclick="_vsAccSetMode_(\'mgracc\')">Managerial vs Accounting</button>'
-    + '<button type="button" class="bg-pchip'+(isPR?' bg-pchip-active':'')+'" onclick="_vsAccSetMode_(\'planrev\')">Planning vs Revenue</button>'
+  // Toggle de modo = control primario → patrón .prd-toggle/.prd-btn como el resto de la landing
+  var modeToggle = '<div style="display:flex;gap:6px;align-items:center;margin:0 0 8px">'
+    + '<span style="font-size:11px;color:var(--muted);font-weight:700;min-width:64px">Vista</span>'
+    + '<div class="prd-toggle">'
+    + '<button type="button" class="prd-btn'+(!isPR?' prd-active':'')+'" onclick="_vsAccSetMode_(\'mgracc\')">Managerial vs Accounting</button>'
+    + '<button type="button" class="prd-btn'+(isPR?' prd-active':'')+'" onclick="_vsAccSetMode_(\'planrev\')">Actuals GD vs Revenue</button>'
+    + '</div>'
+    + '<button type="button" onclick="'+reloadJs+'" style="margin-left:auto;font-size:10px;padding:2px 8px;cursor:pointer">↻ recargar</button>'
     + '</div>';
 
   var desc = isPR
-    ? '<b>Planning vs Revenue</b> — B2B por GD (<code>gestion_date</code>), meses cerrados, Total B2B. '
-      + 'Izq = escenario <code>ac</code> del pipeline gestional · Der = <code>revenue_gd.json</code> (modelo de revenue).'
-      + '<br><span style="color:var(--muted);font-size:11px">⚠ BORRADOR — revisá el mapeo de líneas y los signos de las líneas de costo.</span>'
+    ? '<b>Actuals GD vs Revenue</b> — B2B por GD (<code>gestion_date</code>), meses cerrados, Total B2B. '
+      + 'Izq = escenario <code>ac</code> (reales) del pipeline gestional · Der = <code>revenue_gd.json</code> (modelo de revenue).'
     : '<b>Managerial vs Accounting</b> — reales, meses cerrados, por LOB. '
       + 'Accounting = <code>actuals.json</code> canónico (P&L N1). Managerial = actuals gestional ('
-      + 'B2B-MAY y B2B-MIN en RI; B2B2C tiene fecha única).'
-      + '<br><span style="color:var(--muted);font-size:11px">⚠ <code>VSACC_MAP</code> es un borrador — decime qué filas ajustar.</span>';
+      + 'B2B-MAY y B2B-MIN en RI; B2B2C tiene fecha única).';
+  var draft = isPR
+    ? '<div style="margin-top:6px;padding:6px 10px;border:1px solid var(--red);background:var(--red-bg);border-radius:6px;font-size:11px">⚠ <b>BORRADOR</b> — la query "revenue por GD" no aplica los signos de las líneas de costo que sí aplica el gestional. Los subtotales (NR, FVM) son confiables; las líneas individuales, revisar.</div>'
+    : '<div style="margin-top:6px;padding:6px 10px;border:1px solid var(--red);background:var(--red-bg);border-radius:6px;font-size:11px">⚠ <b>BORRADOR</b> — <code>VSACC_MAP</code> (mapeo línea Managerial ↔ P&L N1 Accounting) está sin cerrar.</div>';
 
   var paisOpts = (isPR && _revGdData && _revGdData.paisOpts && _revGdData.paisOpts.length) ? _revGdData.paisOpts : (D.paisOpts || []);
   var prodOpts = (isPR && _revGdData && _revGdData.prodOpts && _revGdData.prodOpts.length) ? _revGdData.prodOpts : (D.prodOpts || []);
 
   var h = '<div class="pnl-card" style="margin-bottom:10px;padding:12px 16px">'
-    + modeToggle + desc
-    + '<button type="button" onclick="'+reloadJs+'" style="margin-left:8px;font-size:10px;padding:2px 8px;cursor:pointer">↻ recargar</button>'
+    + modeToggle + desc + draft
     + _vsAccChips_('País', 'pais', paisOpts, _vsAccPais)
     + _vsAccChips_('Producto', 'prod', prodOpts, _vsAccProd)
     + _vsAccScaleChips_()
