@@ -2583,31 +2583,36 @@ function _revGdTableHtml_(D){
   function cell(v, cnt){ if(cnt) return '<td style="text-align:right">'+(v==null||isNaN(v)?'—':_grp(Math.round(v)))+'</td>'; return '<td style="text-align:right'+(v<0?';color:var(--red)':'')+'">'+fmtM(v)+'</td>'; }
   function pcell(v){ return '<td style="text-align:right'+(v!=null&&v<0?';color:var(--red)':'')+'">'+(v==null||!isFinite(v)?'—':(v>=0?'+':'')+v.toFixed(0)+'%')+'</td>'; }
   function series(dict,k){ return cols.map(function(col){ return col==='Total' ? months.reduce(function(s,m){ return s+(((dict[k]||{})[m])||0); },0) : (((dict[k]||{})[col])||0); }); }
-  function tr(row){
-    var cnt = row.k === 'orders';
-    var L = series(mgr, row.k), R = series(rev, row.k);
-    var dV = L.map(function(v,i){ return v-R[i]; });
-    var pV = dV.map(function(dv,i){ return Math.abs(R[i])<1e-9 ? null : dv/Math.abs(R[i])*100; });
-    var st = row.sub ? 'font-weight:700;background:rgba(42,16,72,.05)' : (row.extra ? 'color:var(--muted)' : '');
-    return '<tr'+(st?' style="'+st+'"':'')+'><td class="th-lbl">'+escHtml(row.label)+'</td>'
-      + L.map(function(v){return cell(v,cnt);}).join('')+'<td class="th-sep"></td>'
-      + R.map(function(v){return cell(v,cnt);}).join('')+'<td class="th-sep"></td>'
-      + dV.map(function(v){return cell(v,cnt);}).join('')+'<td class="th-sep"></td>'
-      + pV.map(pcell).join('')+'</tr>';
+  function detailTable(entry){
+    var mgrD = entry.mgr || {}, revD = entry.rev || {};
+    function tr(row){
+      var cnt = row.k === 'orders';
+      var L = series(mgrD, row.k), R = series(revD, row.k);
+      var dV = L.map(function(v,i){ return v-R[i]; });
+      var pV = dV.map(function(dv,i){ return Math.abs(R[i])<1e-9 ? null : dv/Math.abs(R[i])*100; });
+      var st = row.sub ? 'font-weight:700;background:rgba(42,16,72,.05)' : (row.extra ? 'color:var(--muted)' : '');
+      return '<tr'+(st?' style="'+st+'"':'')+'><td class="th-lbl">'+escHtml(row.label)+'</td>'
+        + L.map(function(v){return cell(v,cnt);}).join('')+'<td class="th-sep"></td>'
+        + R.map(function(v){return cell(v,cnt);}).join('')+'<td class="th-sep"></td>'
+        + dV.map(function(v){return cell(v,cnt);}).join('')+'<td class="th-sep"></td>'
+        + pV.map(pcell).join('')+'</tr>';
+    }
+    var t = '<div class="pnl-card" style="margin:14px 0 4px;padding:8px 14px;font-weight:700">Detalle P&L — '+escHtml(entry.label)+'</div>'
+      + '<div class="pnl-card" style="overflow-x:auto;margin-bottom:12px"><table class="qpnl-table" style="min-width:820px"><thead>'
+      + '<tr><th class="th-lbl"></th><th class="th-baseline" colspan="'+cols.length+'">GESTIONAL ac (GD)</th><th class="th-sep"></th>'
+      + '<th class="th-goal" colspan="'+cols.length+'">REVENUE por GD</th><th class="th-sep"></th>'
+      + '<th class="th-delta" colspan="'+cols.length+'">Δ (Gest − RevGD)</th><th class="th-sep"></th>'
+      + '<th class="th-delta" colspan="'+cols.length+'">Δ %</th></tr><tr><th class="th-lbl">Línea</th>';
+    for(var g=0; g<4; g++){ cols.forEach(function(col){ t+='<th'+(col==='Total'?' class="th-total-b"':'')+'>'+col+'</th>'; }); if(g<3) t+='<th class="th-sep"></th>'; }
+    t += '</tr></thead><tbody>';
+    REVGD_ROWS.forEach(function(row){ t += tr(row); });
+    REVGD_EXTRA_ROWS.forEach(function(row){ t += tr(row); });
+    return t + '</tbody></table></div>';
   }
 
-  var h = head + sumHtml
-    + '<div class="pnl-card" style="margin:14px 0 4px;padding:8px 14px;font-weight:700">Detalle P&L — Total B2B</div>'
-    + '<div class="pnl-card" style="overflow-x:auto;margin-bottom:16px"><table class="qpnl-table" style="min-width:820px"><thead>';
-  h += '<tr><th class="th-lbl"></th><th class="th-baseline" colspan="'+cols.length+'">GESTIONAL ac (GD)</th><th class="th-sep"></th>'
-     + '<th class="th-goal" colspan="'+cols.length+'">REVENUE por GD</th><th class="th-sep"></th>'
-     + '<th class="th-delta" colspan="'+cols.length+'">Δ (Gest − RevGD)</th><th class="th-sep"></th>'
-     + '<th class="th-delta" colspan="'+cols.length+'">Δ %</th></tr><tr><th class="th-lbl">Línea</th>';
-  for(var g=0; g<4; g++){ cols.forEach(function(col){ h+='<th'+(col==='Total'?' class="th-total-b"':'')+'>'+col+'</th>'; }); if(g<3) h+='<th class="th-sep"></th>'; }
-  h += '</tr></thead><tbody>';
-  REVGD_ROWS.forEach(function(row){ h += tr(row); });
-  REVGD_EXTRA_ROWS.forEach(function(row){ h += tr(row); });
-  return h + '</tbody></table></div>';
+  var detail = (D.detail && D.detail.length) ? D.detail : [{ label:'Total B2B', mgr:mgr, rev:rev }];
+  var h = head + sumHtml + detail.map(detailTable).join('');
+  return h;
 }
 
 // Cuadro resumen país × canal — NR y FVM, gestional vs revGD, con Δ.

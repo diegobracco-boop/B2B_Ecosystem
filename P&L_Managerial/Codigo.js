@@ -652,7 +652,7 @@ function getRevenueGDVsGestional(filtersJson) {
     var t1 = DriveApp.getFileById(GESTIONAL_JSON_FILE_ID).getLastUpdated().getTime();
     var rf = _revGdFile_();
     var t2 = rf ? rf.getLastUpdated().getTime() : 0;
-    ck = 'revgd_v2_' + t1 + '_' + t2 + '_' + Utilities.base64EncodeWebSafe(sig);
+    ck = 'revgd_v3_' + t1 + '_' + t2 + '_' + Utilities.base64EncodeWebSafe(sig);
     var hit = cache.get(ck);
     if (hit) return JSON.parse(hit);
   } catch (e) { Logger.log('getRevenueGDVsGestional cache probe: ' + e); }
@@ -691,17 +691,27 @@ function _computeRevenueGD_(f) {
   var selPais = (f.pais || []).map(function(s){ return String(s); });               // canónico: ['Argentina','Otros',...]
   var selProd = (f.produto || []).map(function(s){ return String(s).toLowerCase(); });
 
-  // ── Izquierda: gestional B2B 'ac' (GD), MAY + MIN ──
+  // ── Izquierda: gestional B2B 'ac' (GD), por canal ──
   var json = readGestionalJSON_('bl');
   var fPaisMgr = [];
   selPais.forEach(function(cp){ (_VSA_PAIS_RAW[cp] || [cp.toLowerCase()]).forEach(function(r){ fPaisMgr.push(r); }); });
-  var mgrAgg = {};
-  queryB2B_(json.b2b_may, 'ac', fPaisMgr, selProd, mgrAgg, null, null);
-  queryB2B_(json.b2b_min, 'ac', fPaisMgr, selProd, mgrAgg, null, null);
-  var mgr = {}, mgrMonths = {};
-  Object.keys(mgrAgg).forEach(function(mes){
-    mgrMonths[mes] = true;
-    METRIC_COLS.forEach(function(m){ if (!mgr[m]) mgr[m] = {}; mgr[m][mes] = (mgr[m][mes] || 0) + (mgrAgg[mes][m] || 0); });
+  var mgrMonths = {};
+  // aggAgg {mes:{metric}} → {metric:{mes}}
+  function _transposeAgg_(agg) {
+    var out = {};
+    Object.keys(agg).forEach(function(mes){
+      mgrMonths[mes] = true;
+      METRIC_COLS.forEach(function(m){ if (!out[m]) out[m] = {}; out[m][mes] = (out[m][mes] || 0) + (agg[mes][m] || 0); });
+    });
+    return out;
+  }
+  var mgrMayAgg = {}, mgrMinAgg = {};
+  queryB2B_(json.b2b_may, 'ac', fPaisMgr, selProd, mgrMayAgg, null, null);
+  queryB2B_(json.b2b_min, 'ac', fPaisMgr, selProd, mgrMinAgg, null, null);
+  var mgrMay = _transposeAgg_(mgrMayAgg), mgrMin = _transposeAgg_(mgrMinAgg);
+  var mgr = {};
+  [mgrMay, mgrMin].forEach(function(src){
+    Object.keys(src).forEach(function(m){ if (!mgr[m]) mgr[m] = {}; Object.keys(src[m]).forEach(function(mes){ mgr[m][mes] = (mgr[m][mes] || 0) + src[m][mes]; }); });
   });
   // breakdown país × canal (solo NR + FVM) — lado gestional
   var pcMgr = {};
@@ -718,7 +728,7 @@ function _computeRevenueGD_(f) {
   var iNRrev  = _iNR >= 0 ? OFF + _iNR : OFF + METRIC_COLS.indexOf('net_revenue');
   var iFVrev  = _iFV >= 0 ? OFF + _iFV : OFF + METRIC_COLS.indexOf('npv');
   var paisOpts = {}, prodOpts = {}, canalOpts = {};
-  var rev = {}, revMonths = {}, pcRev = {};
+  var rev = {}, revMay = {}, revMin = {}, revMonths = {}, pcRev = {};
   (rj.rows || []).forEach(function(r){
     var cp  = _revGdPais8_(String(r[0]));            // ya canónico (revenue_gd_builder.py); clamp a los 8
     var cn  = String(r[1] || 'MAY');
@@ -729,9 +739,13 @@ function _computeRevenueGD_(f) {
     if (selProd.length && selProd.indexOf(prd.toLowerCase()) < 0) return;
     var mes = YM_LABEL[ym]; if (!mes) return;
     revMonths[mes] = true;
+    var dstC = cn === 'MIN' ? revMin : revMay;
     allM.forEach(function(m, i){
-      if (!rev[m]) rev[m] = {};
-      rev[m][mes] = (rev[m][mes] || 0) + (r[OFF + i] || 0);
+      if (!rev[m])  rev[m]  = {};
+      if (!dstC[m]) dstC[m] = {};
+      var val = (r[OFF + i] || 0);
+      rev[m][mes]  = (rev[m][mes]  || 0) + val;
+      dstC[m][mes] = (dstC[m][mes] || 0) + val;
     });
     if (!pcRev[cp])     pcRev[cp] = {};
     if (!pcRev[cp][cn]) pcRev[cp][cn] = { net_revenue: {}, npv: {} };
@@ -766,6 +780,11 @@ function _computeRevenueGD_(f) {
     months:       months,
     mgr:          mgr,
     rev:          rev,
+    detail:       [                        // detalle P&L: Total + por canal
+      { label: 'Total B2B',    mgr: mgr,    rev: rev    },
+      { label: 'B2B · MAY (API)', mgr: mgrMay, rev: revMay },
+      { label: 'B2B · MIN (AFF)', mgr: mgrMin, rev: revMin }
+    ],
     summary:      summary,                 // [{pais,canal, nrGest:{mes},nrRev:{mes}, fvmGest:{mes},fvmRev:{mes}}]
     paisOpts:     PAIS_ORDER.filter(function(p){ return paisOpts[p]; }),
     canalOpts:    CANAL_ORDER.filter(function(c){ return canalOpts[c]; }),
