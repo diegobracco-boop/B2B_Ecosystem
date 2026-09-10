@@ -2506,6 +2506,13 @@ var REVGD_EXTRA_ROWS = [
 ];
 
 var _revGdData = null;
+var _revGdMonth = 'all';   // 'all' = acumulado | 'Abr-26' etc = un mes puntual
+
+function _revGdSetMonth_(m){
+  _revGdMonth = m;
+  var sec = document.getElementById('revgd-section');
+  if(sec && _revGdData) sec.innerHTML = _revGdTableHtml_(_revGdData);
+}
 
 function fetchRevGd_(){
   var sec = document.getElementById('revgd-section');
@@ -2530,7 +2537,9 @@ function _revGdTableHtml_(D){
   if(!months.length) return head + '<div class="pnl-card" style="padding:12px;color:var(--muted);margin-bottom:14px">Sin meses cerrados en común. ¿Corriste <code>revenue_gd_builder.py</code>?</div>';
 
   // ── Cuadro resumen: país × canal, NR + FVM, gestional vs revGD, Δ ──
-  var sumHtml = _revGdSummaryHtml_(D.summary || [], months);
+  if(_revGdMonth !== 'all' && months.indexOf(_revGdMonth) < 0) _revGdMonth = 'all';
+  var sumMonths = _revGdMonth === 'all' ? months : [_revGdMonth];
+  var sumHtml = _revGdSummaryHtml_(D.summary || [], months, sumMonths);
 
   var cols = months.concat(['Total']);
   function cell(v){ return '<td style="text-align:right'+(v<0?';color:var(--red)':'')+'">'+fmtM(v)+'</td>'; }
@@ -2563,10 +2572,12 @@ function _revGdTableHtml_(D){
 }
 
 // Cuadro resumen país × canal — NR y FVM, gestional vs revGD, con Δ.
+// `allMonths` = meses disponibles (para el selector) · `sumMonths` = subset a sumar.
 // Marca en rojo las celdas con diferencia MATERIAL (|Δ| ≥ 50k y |Δ%| ≥ 5%).
-function _revGdSummaryHtml_(summary, months){
+function _revGdSummaryHtml_(summary, allMonths, sumMonths){
   if(!summary.length) return '';
   var MAT_ABS = 50000, MAT_PCT = 5;
+  function s_(o){ return (sumMonths||[]).reduce(function(a,m){ return a + ((o||{})[m] || 0); }, 0); }
   function money(v){ return '<td style="text-align:right'+(v<0?';color:var(--red)':'')+'">'+fmtM(v)+'</td>'; }
   function dcell(d, base){
     var pct = Math.abs(base) < 1e-9 ? null : d/Math.abs(base)*100;
@@ -2574,8 +2585,20 @@ function _revGdSummaryHtml_(summary, months){
     var txt = fmtM(d) + (pct==null ? '' : ' <span style="font-size:10px;opacity:.7">('+(pct>=0?'+':'')+pct.toFixed(0)+'%)</span>');
     return '<td style="text-align:right'+(mat?';background:rgba(207,34,46,.14);font-weight:700;color:var(--red)':(d<0?';color:var(--red)':''))+'">'+txt+'</td>';
   }
-  var h = '<div class="pnl-card" style="margin-bottom:6px;padding:8px 14px;font-weight:700">Resumen país × canal · '+escHtml(months.join(', '))
-    + ' <span style="font-weight:400;color:var(--muted);font-size:11px">— en <span style="background:rgba(207,34,46,.14);padding:0 4px">rojo</span> las diferencias materiales (|Δ| ≥ '+fmtM(MAT_ABS)+' y |Δ%| ≥ '+MAT_PCT+'%)</span></div>';
+  // selector de mes
+  var chips = '<div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin:4px 0">'
+    + '<span style="font-size:11px;color:var(--muted);font-weight:700;min-width:64px">Mes</span>'
+    + '<button type="button" class="bg-pchip'+(_revGdMonth==='all'?' bg-pchip-active':'')+'" onclick="_revGdSetMonth_(\'all\')">Acumulado</button>';
+  (allMonths||[]).forEach(function(m){
+    chips += '<button type="button" class="bg-pchip'+(_revGdMonth===m?' bg-pchip-active':'')+'" onclick="_revGdSetMonth_(\''+m+'\')">'+escHtml(m)+'</button>';
+  });
+  chips += '</div>';
+
+  var per = _revGdMonth === 'all' ? ('acumulado ' + (sumMonths||[]).join(', ')) : _revGdMonth;
+  var h = '<div class="pnl-card" style="margin-bottom:6px;padding:8px 14px">'
+    + '<span style="font-weight:700">Resumen país × canal</span> <span style="color:var(--muted);font-size:11px">· '+escHtml(per)
+    + ' — en <span style="background:rgba(207,34,46,.14);padding:0 4px">rojo</span> las diferencias materiales (|Δ| ≥ '+fmtM(MAT_ABS)+' y |Δ%| ≥ '+MAT_PCT+'%)</span>'
+    + chips + '</div>';
   h += '<div class="pnl-card" style="overflow-x:auto;margin-bottom:4px"><table class="qpnl-table" style="min-width:760px"><thead>'
     + '<tr><th class="th-lbl">País</th><th>Canal</th>'
     + '<th class="th-baseline" colspan="3">NET REVENUE</th><th class="th-sep"></th>'
@@ -2585,10 +2608,12 @@ function _revGdSummaryHtml_(summary, months){
     + '</thead><tbody>';
   var tNRg=0,tNRv=0,tFVg=0,tFVv=0;
   summary.forEach(function(r){
-    tNRg+=r.nr_gest; tNRv+=r.nr_rev; tFVg+=r.fvm_gest; tFVv+=r.fvm_rev;
+    var nrG=s_(r.nrGest), nrV=s_(r.nrRev), fvG=s_(r.fvmGest), fvV=s_(r.fvmRev);
+    if(Math.abs(nrG)<1 && Math.abs(nrV)<1 && Math.abs(fvG)<1 && Math.abs(fvV)<1) return;
+    tNRg+=nrG; tNRv+=nrV; tFVg+=fvG; tFVv+=fvV;
     h += '<tr><td class="th-lbl">'+escHtml(r.pais)+'</td><td>'+escHtml(r.canal)+'</td>'
-      + money(r.nr_gest)+money(r.nr_rev)+dcell(r.nr_delta, r.nr_rev)+'<td class="th-sep"></td>'
-      + money(r.fvm_gest)+money(r.fvm_rev)+dcell(r.fvm_delta, r.fvm_rev)+'</tr>';
+      + money(nrG)+money(nrV)+dcell(nrG-nrV, nrV)+'<td class="th-sep"></td>'
+      + money(fvG)+money(fvV)+dcell(fvG-fvV, fvV)+'</tr>';
   });
   h += '<tr style="font-weight:800;background:rgba(42,16,72,.06)"><td class="th-lbl">TOTAL B2B</td><td></td>'
     + money(tNRg)+money(tNRv)+dcell(tNRg-tNRv, tNRv)+'<td class="th-sep"></td>'

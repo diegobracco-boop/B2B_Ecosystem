@@ -652,7 +652,7 @@ function getRevenueGDVsGestional(filtersJson) {
     var t1 = DriveApp.getFileById(GESTIONAL_JSON_FILE_ID).getLastUpdated().getTime();
     var rf = _revGdFile_();
     var t2 = rf ? rf.getLastUpdated().getTime() : 0;
-    ck = 'revgd_v1_' + t1 + '_' + t2 + '_' + Utilities.base64EncodeWebSafe(sig);
+    ck = 'revgd_v2_' + t1 + '_' + t2 + '_' + Utilities.base64EncodeWebSafe(sig);
     var hit = cache.get(ck);
     if (hit) return JSON.parse(hit);
   } catch (e) { Logger.log('getRevenueGDVsGestional cache probe: ' + e); }
@@ -736,22 +736,18 @@ function _computeRevenueGD_(f) {
   var FY = YM_ORDER.map(function(y){ return YM_LABEL[y]; });
   var months = FY.filter(function(m){ return mgrMonths[m] && revMonths[m]; });
 
-  // ── Cuadro resumen país × canal: NR + FVM, gestional vs revGD, Δ ──
+  // ── Cuadro resumen país × canal: NR + FVM por mes (el frontend elige mes o acumulado) ──
   var PAIS_ORDER = ['Argentina','Brasil','Mexico','Colombia','Chile','Peru','Ecuador','Otros'];
   var CANAL_ORDER = ['MAY','MIN'];
-  function _sumMonths(o, k){ return months.reduce(function(s,m){ return s + (((o||{})[k]||{})[m] || 0); }, 0); }
   var summary = [];
   PAIS_ORDER.forEach(function(p){
     CANAL_ORDER.forEach(function(cn){
       var g = (pcMgr[p] || {})[cn], v = (pcRev[p] || {})[cn];
       if (!g && !v) return;
-      var gNR = _sumMonths(g, 'net_revenue'), vNR = _sumMonths(v, 'net_revenue');
-      var gFV = _sumMonths(g, 'npv'),         vFV = _sumMonths(v, 'npv');
-      if (Math.abs(gNR) < 1 && Math.abs(vNR) < 1 && Math.abs(gFV) < 1 && Math.abs(vFV) < 1) return;
       summary.push({
         pais: p, canal: cn,
-        nr_gest: gNR, nr_rev: vNR, nr_delta: gNR - vNR,
-        fvm_gest: gFV, fvm_rev: vFV, fvm_delta: gFV - vFV
+        nrGest:  (g && g.net_revenue) || {}, nrRev:  (v && v.net_revenue) || {},
+        fvmGest: (g && g.npv)         || {}, fvmRev: (v && v.npv)         || {}
       });
     });
   });
@@ -764,7 +760,7 @@ function _computeRevenueGD_(f) {
     months:       months,
     mgr:          mgr,
     rev:          rev,
-    summary:      summary,                 // [{pais,canal, nr_gest,nr_rev,nr_delta, fvm_gest,fvm_rev,fvm_delta}]
+    summary:      summary,                 // [{pais,canal, nrGest:{mes},nrRev:{mes}, fvmGest:{mes},fvmRev:{mes}}]
     paisOpts:     PAIS_ORDER.filter(function(p){ return paisOpts[p]; }),
     canalOpts:    CANAL_ORDER.filter(function(c){ return canalOpts[c]; }),
     prodOpts:     Object.keys(prodOpts).sort(),
