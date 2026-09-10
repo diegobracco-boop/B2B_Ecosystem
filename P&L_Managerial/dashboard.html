@@ -2529,6 +2529,9 @@ function _revGdTableHtml_(D){
     + 'Sin fuente en la query (siempre 0): ' + escHtml((D.zeroMetrics||[]).join(', ') || '—') + '.</span></div>';
   if(!months.length) return head + '<div class="pnl-card" style="padding:12px;color:var(--muted);margin-bottom:14px">Sin meses cerrados en común. ¿Corriste <code>revenue_gd_builder.py</code>?</div>';
 
+  // ── Cuadro resumen: país × canal, NR + FVM, gestional vs revGD, Δ ──
+  var sumHtml = _revGdSummaryHtml_(D.summary || [], months);
+
   var cols = months.concat(['Total']);
   function cell(v){ return '<td style="text-align:right'+(v<0?';color:var(--red)':'')+'">'+fmtM(v)+'</td>'; }
   function pcell(v){ return '<td style="text-align:right'+(v!=null&&v<0?';color:var(--red)':'')+'">'+(v==null||!isFinite(v)?'—':(v>=0?'+':'')+v.toFixed(0)+'%')+'</td>'; }
@@ -2545,7 +2548,9 @@ function _revGdTableHtml_(D){
       + pV.map(pcell).join('')+'</tr>';
   }
 
-  var h = head + '<div class="pnl-card" style="overflow-x:auto;margin-bottom:16px"><table class="qpnl-table" style="min-width:820px"><thead>';
+  var h = head + sumHtml
+    + '<div class="pnl-card" style="margin:14px 0 4px;padding:8px 14px;font-weight:700">Detalle P&L — Total B2B</div>'
+    + '<div class="pnl-card" style="overflow-x:auto;margin-bottom:16px"><table class="qpnl-table" style="min-width:820px"><thead>';
   h += '<tr><th class="th-lbl"></th><th class="th-baseline" colspan="'+cols.length+'">GESTIONAL ac (GD)</th><th class="th-sep"></th>'
      + '<th class="th-goal" colspan="'+cols.length+'">REVENUE por GD</th><th class="th-sep"></th>'
      + '<th class="th-delta" colspan="'+cols.length+'">Δ (Gest − RevGD)</th><th class="th-sep"></th>'
@@ -2554,6 +2559,40 @@ function _revGdTableHtml_(D){
   h += '</tr></thead><tbody>';
   REVGD_ROWS.forEach(function(row){ h += tr(row); });
   REVGD_EXTRA_ROWS.forEach(function(row){ h += tr(row); });
+  return h + '</tbody></table></div>';
+}
+
+// Cuadro resumen país × canal — NR y FVM, gestional vs revGD, con Δ.
+// Marca en rojo las celdas con diferencia MATERIAL (|Δ| ≥ 50k y |Δ%| ≥ 5%).
+function _revGdSummaryHtml_(summary, months){
+  if(!summary.length) return '';
+  var MAT_ABS = 50000, MAT_PCT = 5;
+  function money(v){ return '<td style="text-align:right'+(v<0?';color:var(--red)':'')+'">'+fmtM(v)+'</td>'; }
+  function dcell(d, base){
+    var pct = Math.abs(base) < 1e-9 ? null : d/Math.abs(base)*100;
+    var mat = Math.abs(d) >= MAT_ABS && pct != null && Math.abs(pct) >= MAT_PCT;
+    var txt = fmtM(d) + (pct==null ? '' : ' <span style="font-size:10px;opacity:.7">('+(pct>=0?'+':'')+pct.toFixed(0)+'%)</span>');
+    return '<td style="text-align:right'+(mat?';background:rgba(207,34,46,.14);font-weight:700;color:var(--red)':(d<0?';color:var(--red)':''))+'">'+txt+'</td>';
+  }
+  var h = '<div class="pnl-card" style="margin-bottom:6px;padding:8px 14px;font-weight:700">Resumen país × canal · '+escHtml(months.join(', '))
+    + ' <span style="font-weight:400;color:var(--muted);font-size:11px">— en <span style="background:rgba(207,34,46,.14);padding:0 4px">rojo</span> las diferencias materiales (|Δ| ≥ '+fmtM(MAT_ABS)+' y |Δ%| ≥ '+MAT_PCT+'%)</span></div>';
+  h += '<div class="pnl-card" style="overflow-x:auto;margin-bottom:4px"><table class="qpnl-table" style="min-width:760px"><thead>'
+    + '<tr><th class="th-lbl">País</th><th>Canal</th>'
+    + '<th class="th-baseline" colspan="3">NET REVENUE</th><th class="th-sep"></th>'
+    + '<th class="th-goal" colspan="3">FVM</th></tr>'
+    + '<tr><th class="th-lbl"></th><th></th>'
+    + '<th>Gest</th><th>RevGD</th><th>Δ</th><th class="th-sep"></th><th>Gest</th><th>RevGD</th><th>Δ</th></tr>'
+    + '</thead><tbody>';
+  var tNRg=0,tNRv=0,tFVg=0,tFVv=0;
+  summary.forEach(function(r){
+    tNRg+=r.nr_gest; tNRv+=r.nr_rev; tFVg+=r.fvm_gest; tFVv+=r.fvm_rev;
+    h += '<tr><td class="th-lbl">'+escHtml(r.pais)+'</td><td>'+escHtml(r.canal)+'</td>'
+      + money(r.nr_gest)+money(r.nr_rev)+dcell(r.nr_delta, r.nr_rev)+'<td class="th-sep"></td>'
+      + money(r.fvm_gest)+money(r.fvm_rev)+dcell(r.fvm_delta, r.fvm_rev)+'</tr>';
+  });
+  h += '<tr style="font-weight:800;background:rgba(42,16,72,.06)"><td class="th-lbl">TOTAL B2B</td><td></td>'
+    + money(tNRg)+money(tNRv)+dcell(tNRg-tNRv, tNRv)+'<td class="th-sep"></td>'
+    + money(tFVg)+money(tFVv)+dcell(tFVg-tFVv, tFVv)+'</tr>';
   return h + '</tbody></table></div>';
 }
 

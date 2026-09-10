@@ -147,6 +147,14 @@ def _canon_prod(p):
     return PROD_MAP.get(str(p or "").strip().lower(), str(p or "").strip() or "ONA")
 
 
+# lob_channel de la query -> canal del P&L gestional (MAY = Mayoristas/API, MIN = Minoristas/Agencias afiliadas)
+CANAL_MAP = {"b2b-api": "MAY", "b2b-aff": "MIN"}
+
+
+def _canon_canal(c):
+    return CANAL_MAP.get(str(c or "").strip().lower(), "MAY")
+
+
 # ── QUERY ─────────────────────────────────────────────────────────────────────
 def build_query(fecha_desde: date, fecha_hasta: date) -> str:
     return f"""
@@ -379,6 +387,7 @@ def main(upload: bool = True):
     df["ym"] = pd.to_datetime(df["gestion_date"]).dt.strftime("%Y-%m")
     df = df[df["ym"].isin(CLOSED_SET)]
     df["pais_c"]   = df["pais"].map(_canon_pais)
+    df["canal_c"]  = df["lob_channel"].map(_canon_canal)
     df["produto_c"] = df["original_product"].map(_canon_prod)
 
     all_cols = list(QUERY_TO_METRIC.keys()) + METRICS_EXTRA
@@ -387,7 +396,7 @@ def main(upload: bool = True):
             df[c] = 0.0
         df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0.0)
 
-    g = df.groupby(["pais_c", "produto_c", "ym"], as_index=False)[all_cols].sum()
+    g = df.groupby(["pais_c", "canal_c", "produto_c", "ym"], as_index=False)[all_cols].sum()
 
     zero_metrics = [m for m in METRIC_COLS if m not in QUERY_TO_METRIC.values()]
     rows = []
@@ -397,9 +406,9 @@ def main(upload: bool = True):
             src = next((qc for qc, mm in QUERY_TO_METRIC.items() if mm == m), None)
             vals.append(round(float(r[src]) if src else 0.0, 4))
         vals += [round(float(r[c]), 4) for c in METRICS_EXTRA]
-        rows.append([r["pais_c"], r["produto_c"], r["ym"]] + vals)
+        rows.append([r["pais_c"], r["canal_c"], r["produto_c"], r["ym"]] + vals)
 
-    actual_months = sorted({r[2] for r in rows})
+    actual_months = sorted({r[3] for r in rows})
     out = {
         "updated_at":    datetime.now().isoformat(timespec="seconds"),
         "actuals_from":  str(ACTUALS_FROM),
@@ -409,10 +418,12 @@ def main(upload: bool = True):
         "metrics":       METRIC_COLS,
         "metrics_extra": METRICS_EXTRA,
         "zero_metrics":  zero_metrics,   # métricas sin fuente en la query (siempre 0)
-        "rows":          rows,           # [pais_canon, produto_gest, ym, ...29 METRIC_COLS, ...4 extra]
+        "row_schema":    ["pais", "canal", "produto", "ym"] + METRIC_COLS + METRICS_EXTRA,
+        "rows":          rows,           # [pais_canon, canal(MAY|MIN), produto_gest, ym, ...29 METRIC_COLS, ...4 extra]
     }
     payload = json.dumps(out, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
-    print(f"\n  filas agregadas: {len(rows):,}   meses: {actual_months}")
+    print(f"\n  filas agregadas: {len(rows):,}  (pais x canal x producto x mes)   meses: {actual_months}")
+    print(f"  canales: {sorted({r[1] for r in rows})}   países: {sorted({r[0] for r in rows})}")
     print(f"  métricas sin fuente (0): {zero_metrics}")
     print(f"  JSON: {len(payload)/1024:.1f} KB")
 

@@ -662,6 +662,25 @@ function getRevenueGDVsGestional(filtersJson) {
   return out;
 }
 
+// Suma NR (idx 27) y FVM (idx 28) del escenario 'ac' de una sección B2B gestional,
+// por país canónico y mes, para un canal fijo ('MAY'|'MIN'). Filtro país + producto.
+function _gestB2BByPaisNRFVM_(section, canal, fPaisRaw, selProd, out) {
+  var rows = (section && section.ac) || [];
+  var iNR = 3 + METRIC_COLS.indexOf('net_revenue');
+  var iFV = 3 + METRIC_COLS.indexOf('npv');
+  rows.forEach(function(row) {
+    var pais = normB2BPais_(row[0]), produto = row[1], ym = row[2];
+    if (!matchFilter_(pais, fPaisRaw) || !matchFilter_(produto, selProd)) return;
+    var mes = YM_LABEL[ym]; if (!mes) return;
+    var cp = _vsaPaisCanon_(pais);
+    if (!out[cp])        out[cp] = {};
+    if (!out[cp][canal]) out[cp][canal] = { net_revenue: {}, npv: {} };
+    var o = out[cp][canal];
+    o.net_revenue[mes] = (o.net_revenue[mes] || 0) + (row[iNR] || 0);
+    o.npv[mes]         = (o.npv[mes]         || 0) + (row[iFV] || 0);
+  });
+}
+
 function _computeRevenueGD_(f) {
   f = f || {};
   var selPais = (f.pais || []).map(function(s){ return String(s); });               // canónico: ['Argentina','Otros',...]
@@ -679,31 +698,63 @@ function _computeRevenueGD_(f) {
     mgrMonths[mes] = true;
     METRIC_COLS.forEach(function(m){ if (!mgr[m]) mgr[m] = {}; mgr[m][mes] = (mgr[m][mes] || 0) + (mgrAgg[mes][m] || 0); });
   });
+  // breakdown país × canal (solo NR + FVM) — lado gestional
+  var pcMgr = {};
+  _gestB2BByPaisNRFVM_(json.b2b_may, 'MAY', fPaisMgr, selProd, pcMgr);
+  _gestB2BByPaisNRFVM_(json.b2b_min, 'MIN', fPaisMgr, selProd, pcMgr);
 
-  // ── Derecha: revenue_gd.json ──
+  // ── Derecha: revenue_gd.json ──  rows = [pais, canal, produto, ym, ...metrics]
   var rj = readRevenueGdJSON_();
   var metrics = rj.metrics || METRIC_COLS;
   var extra   = rj.metrics_extra || [];
   var allM    = metrics.concat(extra);
-  var paisOpts = {}, prodOpts = {};
-  var rev = {}, revMonths = {};
+  var OFF     = 4;                                   // pais, canal, produto, ym
+  var iNRrev  = OFF + metrics.indexOf('net_revenue');
+  var iFVrev  = OFF + metrics.indexOf('npv');
+  var paisOpts = {}, prodOpts = {}, canalOpts = {};
+  var rev = {}, revMonths = {}, pcRev = {};
   (rj.rows || []).forEach(function(r){
-    var cp  = String(r[0]);                 // ya canónico (revenue_gd_builder.py)
-    var prd = String(r[1] || '');
-    var ym  = String(r[2] || '');
-    paisOpts[cp] = true; if (prd) prodOpts[prd.toLowerCase()] = true;
+    var cp  = String(r[0]);                          // ya canónico (revenue_gd_builder.py)
+    var cn  = String(r[1] || 'MAY');
+    var prd = String(r[2] || '');
+    var ym  = String(r[3] || '');
+    paisOpts[cp] = true; canalOpts[cn] = true; if (prd) prodOpts[prd.toLowerCase()] = true;
     if (selPais.length && selPais.indexOf(cp) < 0) return;
     if (selProd.length && selProd.indexOf(prd.toLowerCase()) < 0) return;
     var mes = YM_LABEL[ym]; if (!mes) return;
     revMonths[mes] = true;
     allM.forEach(function(m, i){
       if (!rev[m]) rev[m] = {};
-      rev[m][mes] = (rev[m][mes] || 0) + (r[3 + i] || 0);
+      rev[m][mes] = (rev[m][mes] || 0) + (r[OFF + i] || 0);
     });
+    if (!pcRev[cp])     pcRev[cp] = {};
+    if (!pcRev[cp][cn]) pcRev[cp][cn] = { net_revenue: {}, npv: {} };
+    pcRev[cp][cn].net_revenue[mes] = (pcRev[cp][cn].net_revenue[mes] || 0) + (r[iNRrev] || 0);
+    pcRev[cp][cn].npv[mes]         = (pcRev[cp][cn].npv[mes]         || 0) + (r[iFVrev] || 0);
   });
 
   var FY = YM_ORDER.map(function(y){ return YM_LABEL[y]; });
   var months = FY.filter(function(m){ return mgrMonths[m] && revMonths[m]; });
+
+  // ── Cuadro resumen país × canal: NR + FVM, gestional vs revGD, Δ ──
+  var PAIS_ORDER = ['Argentina','Brasil','Mexico','Colombia','Chile','Peru','Ecuador','Otros'];
+  var CANAL_ORDER = ['MAY','MIN'];
+  function _sumMonths(o, k){ return months.reduce(function(s,m){ return s + (((o||{})[k]||{})[m] || 0); }, 0); }
+  var summary = [];
+  PAIS_ORDER.forEach(function(p){
+    CANAL_ORDER.forEach(function(cn){
+      var g = (pcMgr[p] || {})[cn], v = (pcRev[p] || {})[cn];
+      if (!g && !v) return;
+      var gNR = _sumMonths(g, 'net_revenue'), vNR = _sumMonths(v, 'net_revenue');
+      var gFV = _sumMonths(g, 'npv'),         vFV = _sumMonths(v, 'npv');
+      if (Math.abs(gNR) < 1 && Math.abs(vNR) < 1 && Math.abs(gFV) < 1 && Math.abs(vFV) < 1) return;
+      summary.push({
+        pais: p, canal: cn,
+        nr_gest: gNR, nr_rev: vNR, nr_delta: gNR - vNR,
+        fvm_gest: gFV, fvm_rev: vFV, fvm_delta: gFV - vFV
+      });
+    });
+  });
 
   return {
     updatedAt:    rj.updated_at || null,
@@ -713,7 +764,9 @@ function _computeRevenueGD_(f) {
     months:       months,
     mgr:          mgr,
     rev:          rev,
-    paisOpts:     ['Argentina','Brasil','Mexico','Colombia','Chile','Peru','Ecuador','Otros'].filter(function(p){ return paisOpts[p]; }),
+    summary:      summary,                 // [{pais,canal, nr_gest,nr_rev,nr_delta, fvm_gest,fvm_rev,fvm_delta}]
+    paisOpts:     PAIS_ORDER.filter(function(p){ return paisOpts[p]; }),
+    canalOpts:    CANAL_ORDER.filter(function(c){ return canalOpts[c]; }),
     prodOpts:     Object.keys(prodOpts).sort(),
     selPais:      selPais,
     selProd:      selProd
