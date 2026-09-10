@@ -1017,8 +1017,8 @@ function fmtM(v){
   if (v===null||isNaN(v)) return '—';
   if (_numScale==='K')   return _grp(Math.round(v/1e3))+'K';
   if (_numScale==='raw') return _grp(Math.round(v));
-  var abs=Math.abs(v);
-  return abs>=1e6?(v/1e6).toFixed(1)+'M':abs>=1e3?(v/1e3).toFixed(0)+'K':v.toFixed(0);
+  // M: TODOS los nominales en millones (sin auto-escalar a K los valores chicos)
+  return (v/1e6).toFixed(2)+'M';
 }
 function fmtK(v){
   if (v===null||isNaN(v)) return '—';
@@ -2440,18 +2440,18 @@ function _vsAccTable_(L){
   if(!months.length) return head + '<div class="pnl-card" style="padding:12px;color:var(--muted);margin-bottom:14px">Sin meses cerrados en común.</div>';
 
   var cols = months.concat(['Total']);
-  function cell(v){ return '<td style="text-align:right'+(v<0?';color:var(--red)':'')+'">'+fmtM(v)+'</td>'; }
+  function cell(v, cnt){ if(cnt) return '<td style="text-align:right">'+(v==null||isNaN(v)?'—':_grp(Math.round(v)))+'</td>'; return '<td style="text-align:right'+(v<0?';color:var(--red)':'')+'">'+fmtM(v)+'</td>'; }
   function pcell(v){ return '<td style="text-align:right'+(v<0?';color:var(--red)':'')+'">'+(v==null||!isFinite(v)?'—':(v>=0?'+':'')+v.toFixed(0)+'%')+'</td>'; }
   function sumRow(get){ return cols.map(function(col){ return col==='Total' ? months.reduce(function(s,m){return s+get(m);},0) : get(col); }); }
   // baseV = Managerial (baseline), goalV = Accounting (goal). Δ = base − goal. Δ% = Δ / |goal|.
-  function tr(label, baseV, goalV, note, style, pctDash){
+  function tr(label, baseV, goalV, note, style, pctDash, cnt){
     var dV = baseV.map(function(v,i){ return v-goalV[i]; });
     var pV = dV.map(function(dv,i){ return pctDash || Math.abs(goalV[i])<1e-9 ? null : dv/Math.abs(goalV[i])*100; });
     return '<tr'+(style?' style="'+style+'"':'')+'><td class="th-lbl">'+escHtml(label)
       + (note?' <span style="color:var(--red);font-size:10px">('+escHtml(note)+')</span>':'')+'</td>'
-      + baseV.map(cell).join('')+'<td class="th-sep"></td>'
-      + goalV.map(cell).join('')+'<td class="th-sep"></td>'
-      + dV.map(cell).join('')+'<td class="th-sep"></td>'
+      + baseV.map(function(v){return cell(v,cnt);}).join('')+'<td class="th-sep"></td>'
+      + goalV.map(function(v){return cell(v,cnt);}).join('')+'<td class="th-sep"></td>'
+      + dV.map(function(v){return cell(v,cnt);}).join('')+'<td class="th-sep"></td>'
       + pV.map(pcell).join('')+'</tr>';
   }
 
@@ -2468,7 +2468,9 @@ function _vsAccTable_(L){
             sumRow(function(m){ return _vsAccSum_(mgr, row.mgr, m); }),
             sumRow(function(m){ return _vsAccSum_(acc, row.acc, m); }),
             row.note,
-            row.sub ? 'font-weight:700;background:rgba(42,16,72,.05)' : '');
+            row.sub ? 'font-weight:700;background:rgba(42,16,72,.05)' : '',
+            false,
+            row.mgr && row.mgr.indexOf('orders') >= 0);
   });
   VSACC_ACC_KEEP.forEach(function(k){
     if(!acc[k]) return;
@@ -2560,18 +2562,19 @@ function _revGdTableHtml_(D){
   var sumHtml = _revGdSummaryHtml_(D.summary || [], months, sumMonths);
 
   var cols = months.concat(['Total']);
-  function cell(v){ return '<td style="text-align:right'+(v<0?';color:var(--red)':'')+'">'+fmtM(v)+'</td>'; }
+  function cell(v, cnt){ if(cnt) return '<td style="text-align:right">'+(v==null||isNaN(v)?'—':_grp(Math.round(v)))+'</td>'; return '<td style="text-align:right'+(v<0?';color:var(--red)':'')+'">'+fmtM(v)+'</td>'; }
   function pcell(v){ return '<td style="text-align:right'+(v!=null&&v<0?';color:var(--red)':'')+'">'+(v==null||!isFinite(v)?'—':(v>=0?'+':'')+v.toFixed(0)+'%')+'</td>'; }
   function series(dict,k){ return cols.map(function(col){ return col==='Total' ? months.reduce(function(s,m){ return s+(((dict[k]||{})[m])||0); },0) : (((dict[k]||{})[col])||0); }); }
   function tr(row){
+    var cnt = row.k === 'orders';
     var L = series(mgr, row.k), R = series(rev, row.k);
     var dV = L.map(function(v,i){ return v-R[i]; });
     var pV = dV.map(function(dv,i){ return Math.abs(R[i])<1e-9 ? null : dv/Math.abs(R[i])*100; });
     var st = row.sub ? 'font-weight:700;background:rgba(42,16,72,.05)' : (row.extra ? 'color:var(--muted)' : '');
     return '<tr'+(st?' style="'+st+'"':'')+'><td class="th-lbl">'+escHtml(row.label)+'</td>'
-      + L.map(cell).join('')+'<td class="th-sep"></td>'
-      + R.map(cell).join('')+'<td class="th-sep"></td>'
-      + dV.map(cell).join('')+'<td class="th-sep"></td>'
+      + L.map(function(v){return cell(v,cnt);}).join('')+'<td class="th-sep"></td>'
+      + R.map(function(v){return cell(v,cnt);}).join('')+'<td class="th-sep"></td>'
+      + dV.map(function(v){return cell(v,cnt);}).join('')+'<td class="th-sep"></td>'
       + pV.map(pcell).join('')+'</tr>';
   }
 
