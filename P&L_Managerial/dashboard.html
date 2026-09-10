@@ -2455,6 +2455,101 @@ function _vsAccTable_(L){
   return h + '</tbody></table></div>';
 }
 
+// ══════════════════════════════════════════════════════════════════════════
+//  Sub-sección: B2B actuals GD (gestional) vs Revenue por GD
+//  Izq = escenario 'ac' (GD) de b2b_may+b2b_min · Der = revenue_gd.json
+//  ⚠ BORRADOR — el mapeo de las ~30 líneas y los signos los revisa Diego.
+// ══════════════════════════════════════════════════════════════════════════
+var REVGD_ROWS = [
+  { k:'orders',                          label:'Orders' },
+  { k:'gross_bookings',                  label:'Gross Bookings' },
+  { k:'up_front_incentives',             label:'Up Front Incentives' },
+  { k:'fees',                            label:'Fees' },
+  { k:'commercial_discounts',            label:'Commercial Discounts' },
+  { k:'income_from_outsourced_services', label:'Income Outsourced Svcs' },
+  { k:'cancellations',                   label:'Cancellations' },
+  { k:'cost_of_installments',            label:'Cost of Installments' },
+  { k:'credit_card_processing',          label:'Credit Card Processing' },
+  { k:'white_labels_api',               label:'White Labels / API' },
+  { k:'other_incentives',               label:'Other Incentives' },
+  { k:'revenue_tax',                    label:'Revenue Tax' },
+  { k:'back_end_incentives',            label:'Back End Incentives' },
+  { k:'breakage_revenue',               label:'Breakage Revenue' },
+  { k:'media_revenue',                  label:'Media Revenue' },
+  { k:'errors',                         label:'Errors' },
+  { k:'other_transactional_taxes',      label:'Other Transactional Taxes' },
+  { k:'customer_claims',                label:'Customer Claims' },
+  { k:'customer_service',               label:'Customer Service' },
+  { k:'affiliates',                     label:'Affiliates' },
+  { k:'intercompany_usd',               label:'Intercompany' },
+  { k:'operations',                     label:'Operations' },
+  { k:'vendor_commissions',             label:'Vendor Commissions' },
+  { k:'frauds',                         label:'Frauds' },
+  { k:'efecto_financiero',              label:'Efecto Financiero' },
+  { k:'dif_fx',                         label:'Dif FX' },
+  { k:'currency_hedge',                 label:'Currency Hedge' },
+  { k:'net_revenue',                    label:'» Net Revenue', sub:true },
+  { k:'npv',                            label:'» FVM', sub:true }
+];
+var REVGD_EXTRA_ROWS = [
+  { k:'rev_gb',         label:'rev_gb (modelo)',        extra:true },
+  { k:'revenue_margin', label:'revenue_margin (modelo)',extra:true },
+  { k:'agency_fee',     label:'agency_fee (MIN)',       extra:true },
+  { k:'bad_debt',       label:'bad_debt',               extra:true }
+];
+
+var _revGdData = null;
+
+function fetchRevGd_(){
+  var sec = document.getElementById('revgd-section');
+  if(!sec) return;
+  sec.innerHTML = '<div class="pnl-card" style="padding:12px;color:var(--muted);margin-bottom:14px">Cargando Revenue por GD…</div>';
+  google.script.run
+    .withSuccessHandler(function(d){ _revGdData = d; try{ sec.innerHTML = _revGdTableHtml_(d); }catch(e){ sec.innerHTML = '<div class="error-msg" style="padding:16px">Error render Revenue GD: '+(e.message||e)+'</div>'; } })
+    .withFailureHandler(function(e){ sec.innerHTML = '<div class="error-msg" style="padding:16px">Error backend Revenue GD: '+((e&&e.message)||e)+'</div>'; })
+    .getRevenueGDVsGestional({ pais: _vsAccPais, produto: _vsAccProd });
+}
+
+function _revGdTableHtml_(D){
+  D = D || {};
+  var months = D.months || [];
+  var mgr = D.mgr || {}, rev = D.rev || {};
+  var upd = D.updatedAt ? (' · revenue_gd.json ' + escHtml(String(D.updatedAt).slice(0,16))) : '';
+  var head = '<div class="pnl-card" style="margin-bottom:4px;padding:8px 14px;font-weight:700">B2B · actuals GD (gestional) vs Revenue por GD'
+    + ' <span style="font-weight:400;color:var(--muted);font-size:11px">· Total B2B · '
+    + (months.join(', ') || 'sin meses en común') + upd + '</span>'
+    + '<br><span style="color:var(--muted);font-size:11px">⚠ BORRADOR — la query "revenue por GD" NO aplica los signos que sí aplica el gestional en las líneas de costo; revisá el mapeo. '
+    + 'Sin fuente en la query (siempre 0): ' + escHtml((D.zeroMetrics||[]).join(', ') || '—') + '.</span></div>';
+  if(!months.length) return head + '<div class="pnl-card" style="padding:12px;color:var(--muted);margin-bottom:14px">Sin meses cerrados en común. ¿Corriste <code>revenue_gd_builder.py</code>?</div>';
+
+  var cols = months.concat(['Total']);
+  function cell(v){ return '<td style="text-align:right'+(v<0?';color:var(--red)':'')+'">'+fmtM(v)+'</td>'; }
+  function pcell(v){ return '<td style="text-align:right'+(v!=null&&v<0?';color:var(--red)':'')+'">'+(v==null||!isFinite(v)?'—':(v>=0?'+':'')+v.toFixed(0)+'%')+'</td>'; }
+  function series(dict,k){ return cols.map(function(col){ return col==='Total' ? months.reduce(function(s,m){ return s+(((dict[k]||{})[m])||0); },0) : (((dict[k]||{})[col])||0); }); }
+  function tr(row){
+    var L = series(mgr, row.k), R = series(rev, row.k);
+    var dV = L.map(function(v,i){ return v-R[i]; });
+    var pV = dV.map(function(dv,i){ return Math.abs(R[i])<1e-9 ? null : dv/Math.abs(R[i])*100; });
+    var st = row.sub ? 'font-weight:700;background:rgba(42,16,72,.05)' : (row.extra ? 'color:var(--muted)' : '');
+    return '<tr'+(st?' style="'+st+'"':'')+'><td class="th-lbl">'+escHtml(row.label)+'</td>'
+      + L.map(cell).join('')+'<td class="th-sep"></td>'
+      + R.map(cell).join('')+'<td class="th-sep"></td>'
+      + dV.map(cell).join('')+'<td class="th-sep"></td>'
+      + pV.map(pcell).join('')+'</tr>';
+  }
+
+  var h = head + '<div class="pnl-card" style="overflow-x:auto;margin-bottom:16px"><table class="qpnl-table" style="min-width:820px"><thead>';
+  h += '<tr><th class="th-lbl"></th><th class="th-baseline" colspan="'+cols.length+'">GESTIONAL ac (GD)</th><th class="th-sep"></th>'
+     + '<th class="th-goal" colspan="'+cols.length+'">REVENUE por GD</th><th class="th-sep"></th>'
+     + '<th class="th-delta" colspan="'+cols.length+'">Δ (Gest − RevGD)</th><th class="th-sep"></th>'
+     + '<th class="th-delta" colspan="'+cols.length+'">Δ %</th></tr><tr><th class="th-lbl">Línea</th>';
+  for(var g=0; g<4; g++){ cols.forEach(function(col){ h+='<th'+(col==='Total'?' class="th-total-b"':'')+'>'+col+'</th>'; }); if(g<3) h+='<th class="th-sep"></th>'; }
+  h += '</tr></thead><tbody>';
+  REVGD_ROWS.forEach(function(row){ h += tr(row); });
+  REVGD_EXTRA_ROWS.forEach(function(row){ h += tr(row); });
+  return h + '</tbody></table></div>';
+}
+
 function renderVsAcc_(){
   var c = document.getElementById('vsacc-container');
   var D = _vsAccData;
@@ -2479,7 +2574,9 @@ function renderVsAcc_(){
   h += '<div id="vsacc-tables">';
   ['b2b2c','may','min'].forEach(function(lk){ if(D.lobs[lk]) h += _vsAccTable_(D.lobs[lk]); });
   h += '</div>';
+  h += '<div id="revgd-section" style="margin-top:22px"></div>';
   c.innerHTML = h;
+  fetchRevGd_();  // sub-sección: B2B actuals GD (gestional) vs Revenue por GD (usa los mismos chips país/producto)
 }
 
 // ── LOB switcher ───────────────────────────────────────────────────────────

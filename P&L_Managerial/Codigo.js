@@ -612,9 +612,118 @@ function _computeVsAccounting_(f) {
   };
 }
 
+// ══════════════════════════════════════════════════════════════════════════
+//  Sub-sección: B2B actuals GD (gestional) vs Revenue por GD
+// ──────────────────────────────────────────────────────────────────────────
+//  Izquierda  = escenario 'ac' de b2b_may + b2b_min de _actuals_gestional.json
+//               (basis gestion_date = GD; NO 'ac_ri').
+//  Derecha    = revenue_gd.json (revenue_gd_builder.py): modelo de revenue B2B
+//               (bi_transactional_fact_* + b2b_rev_pnl_sales_detail), basis GD.
+//  Total B2B, meses cerrados, con filtro país (canónico) + producto.
+// ══════════════════════════════════════════════════════════════════════════
+var REVENUE_GD_FOLDER_ID = '1wzudbo7cN9Ibiv_2OA-V0_B_un4JcJp6'; // misma carpeta que _actuals_gestional.json
+var REVENUE_GD_JSON_NAME  = 'revenue_gd.json';
+var _revGdCache_ = null;
+
+function _revGdFile_() {
+  var it = DriveApp.getFolderById(REVENUE_GD_FOLDER_ID).getFilesByName(REVENUE_GD_JSON_NAME);
+  return it.hasNext() ? it.next() : null;
+}
+
+function readRevenueGdJSON_() {
+  if (_revGdCache_) return _revGdCache_;
+  var empty = { rows: [], metrics: METRIC_COLS, metrics_extra: [], zero_metrics: [], updated_at: null };
+  try {
+    var f = _revGdFile_();
+    _revGdCache_ = f ? JSON.parse(f.getBlob().getDataAsString()) : empty;
+  } catch (e) {
+    Logger.log('readRevenueGdJSON_ error: ' + e);
+    _revGdCache_ = empty;
+  }
+  return _revGdCache_;
+}
+
+function getRevenueGDVsGestional(filtersJson) {
+  var f = (filtersJson && typeof filtersJson === 'object') ? filtersJson : {};
+  var sig = JSON.stringify([(f.pais || []).slice().sort(), (f.produto || []).slice().sort()]);
+  var cache = CacheService.getScriptCache();
+  var ck = null;
+  try {
+    var t1 = DriveApp.getFileById(GESTIONAL_JSON_FILE_ID).getLastUpdated().getTime();
+    var rf = _revGdFile_();
+    var t2 = rf ? rf.getLastUpdated().getTime() : 0;
+    ck = 'revgd_v1_' + t1 + '_' + t2 + '_' + Utilities.base64EncodeWebSafe(sig);
+    var hit = cache.get(ck);
+    if (hit) return JSON.parse(hit);
+  } catch (e) { Logger.log('getRevenueGDVsGestional cache probe: ' + e); }
+
+  var out = _computeRevenueGD_(f);
+  if (ck) { try { cache.put(ck, JSON.stringify(out), 21600); } catch (e) {} }  // 6 h
+  return out;
+}
+
+function _computeRevenueGD_(f) {
+  f = f || {};
+  var selPais = (f.pais || []).map(function(s){ return String(s); });               // canónico: ['Argentina','Otros',...]
+  var selProd = (f.produto || []).map(function(s){ return String(s).toLowerCase(); });
+
+  // ── Izquierda: gestional B2B 'ac' (GD), MAY + MIN ──
+  var json = readGestionalJSON_('bl');
+  var fPaisMgr = [];
+  selPais.forEach(function(cp){ (_VSA_PAIS_RAW[cp] || [cp.toLowerCase()]).forEach(function(r){ fPaisMgr.push(r); }); });
+  var mgrAgg = {};
+  queryB2B_(json.b2b_may, 'ac', fPaisMgr, selProd, mgrAgg, null, null);
+  queryB2B_(json.b2b_min, 'ac', fPaisMgr, selProd, mgrAgg, null, null);
+  var mgr = {}, mgrMonths = {};
+  Object.keys(mgrAgg).forEach(function(mes){
+    mgrMonths[mes] = true;
+    METRIC_COLS.forEach(function(m){ if (!mgr[m]) mgr[m] = {}; mgr[m][mes] = (mgr[m][mes] || 0) + (mgrAgg[mes][m] || 0); });
+  });
+
+  // ── Derecha: revenue_gd.json ──
+  var rj = readRevenueGdJSON_();
+  var metrics = rj.metrics || METRIC_COLS;
+  var extra   = rj.metrics_extra || [];
+  var allM    = metrics.concat(extra);
+  var paisOpts = {}, prodOpts = {};
+  var rev = {}, revMonths = {};
+  (rj.rows || []).forEach(function(r){
+    var cp  = String(r[0]);                 // ya canónico (revenue_gd_builder.py)
+    var prd = String(r[1] || '');
+    var ym  = String(r[2] || '');
+    paisOpts[cp] = true; if (prd) prodOpts[prd.toLowerCase()] = true;
+    if (selPais.length && selPais.indexOf(cp) < 0) return;
+    if (selProd.length && selProd.indexOf(prd.toLowerCase()) < 0) return;
+    var mes = YM_LABEL[ym]; if (!mes) return;
+    revMonths[mes] = true;
+    allM.forEach(function(m, i){
+      if (!rev[m]) rev[m] = {};
+      rev[m][mes] = (rev[m][mes] || 0) + (r[3 + i] || 0);
+    });
+  });
+
+  var FY = YM_ORDER.map(function(y){ return YM_LABEL[y]; });
+  var months = FY.filter(function(m){ return mgrMonths[m] && revMonths[m]; });
+
+  return {
+    updatedAt:    rj.updated_at || null,
+    metrics:      metrics,
+    metricsExtra: extra,
+    zeroMetrics:  rj.zero_metrics || [],
+    months:       months,
+    mgr:          mgr,
+    rev:          rev,
+    paisOpts:     ['Argentina','Brasil','Mexico','Colombia','Chile','Peru','Ecuador','Otros'].filter(function(p){ return paisOpts[p]; }),
+    prodOpts:     Object.keys(prodOpts).sort(),
+    selPais:      selPais,
+    selProd:      selProd
+  };
+}
+
 function invalidateCache() {
   _gestionalJsonCache_   = null;
   _gestionalVRJsonCache_ = null;
   _accActualsCache_      = null;
+  _revGdCache_           = null;
   return { ok: true };
 }
