@@ -5992,8 +5992,8 @@ function _cierrePnLHTML(pnlData, goal){
 function _cierreSlide(title, inner){
   return '<div class="cierre-slide"><div class="cierre-slide-title">'+title+'</div>'+inner+'</div>';
 }
-var _cierreBusy = false;   // guard de reentrancia (una generación a la vez)
 var _cierreOpen = false;   // overlay visible
+var _cierreGen  = 0;       // token de generación: invalida respuestas tardías al cerrar/regenerar
 var _cierreSnap = null;    // snapshot del estado real del dashboard (se restaura al cerrar)
 
 // Meses disponibles para el cierre: desde Abr hasta el último con actuals, más reciente primero.
@@ -6028,28 +6028,33 @@ function _cierreOcBarImg(evo, fyLbl){
   var holder = document.getElementById('cierre-canvas-holder');
   holder.innerHTML = '<canvas width="1040" height="430"></canvas>';
   var cv = holder.querySelector('canvas');
-  var ch = new Chart(cv, {
-    type: 'bar',
-    data: { labels: labels, datasets: [
-      { label:'OC Actuals + Run Rate', data:actuals, backgroundColor:'#2D2A6E', borderRadius:3, categoryPercentage:0.72, barPercentage:0.92 },
-      { label:'OC Budget',             data:budget,  backgroundColor:'#B9BCF0', borderRadius:3, categoryPercentage:0.72, barPercentage:0.92 }
-    ]},
-    options: {
-      responsive:false, animation:false,
-      plugins: {
-        legend: { display:true, position:'top', labels:{ font:{size:12}, usePointStyle:true, boxWidth:12, padding:16 } },
-        title:  { display:true, text:'B2B2C — Operating Contribution vs Budget | '+fyLbl, font:{size:15, weight:'bold'}, color:'#2D2A6E', padding:{bottom:12} }
-      },
-      scales: {
-        x: { grid:{ display:false }, ticks:{ font:{size:10}, color:'#57606a' } },
-        y: { beginAtZero:true, grid:{ color:'rgba(0,0,0,.06)' },
-             ticks:{ font:{size:10}, color:'#57606a', callback:function(v){ return fmtK(v); } },
-             title:{ display:true, text:'Operating Contribution (USD)', font:{size:11}, color:'#57606a' } }
+  var ch = null, img = '';
+  try {
+    ch = new Chart(cv, {
+      type: 'bar',
+      data: { labels: labels, datasets: [
+        { label:'OC Actuals + Run Rate', data:actuals, backgroundColor:'#2D2A6E', borderRadius:3, categoryPercentage:0.72, barPercentage:0.92 },
+        { label:'OC Budget',             data:budget,  backgroundColor:'#B9BCF0', borderRadius:3, categoryPercentage:0.72, barPercentage:0.92 }
+      ]},
+      options: {
+        responsive:false, animation:false,
+        plugins: {
+          legend: { display:true, position:'top', labels:{ font:{size:12}, usePointStyle:true, boxWidth:12, padding:16 } },
+          title:  { display:true, text:'B2B2C — Operating Contribution vs Budget | '+fyLbl, font:{size:15, weight:'bold'}, color:'#2D2A6E', padding:{bottom:12} }
+        },
+        scales: {
+          x: { grid:{ display:false }, ticks:{ font:{size:10}, color:'#57606a' } },
+          y: { beginAtZero:true, grid:{ color:'rgba(0,0,0,.06)' },
+               ticks:{ font:{size:10}, color:'#57606a', callback:function(v){ return fmtK(v); } },
+               title:{ display:true, text:'Operating Contribution (USD)', font:{size:11}, color:'#57606a' } }
+        }
       }
-    }
-  });
-  var img = ch.toBase64Image('image/png', 1);
-  ch.destroy(); holder.innerHTML = '';
+    });
+    img = ch.toBase64Image('image/png', 1);
+  } finally {
+    if (ch) ch.destroy();
+    holder.innerHTML = '';
+  }
   return img;
 }
 
@@ -6074,8 +6079,7 @@ function openCierreSlides(){
 
 // (Re)genera las 5 slides para el mes elegido en el desplegable.
 function _cierreGenerate(){
-  if (_cierreBusy) return;
-  _cierreBusy = true;
+  var myGen = ++_cierreGen;                 // token de esta generación
   var selEl = document.getElementById('cierre-mes-sel');
   if (selEl) selEl.disabled = true;
   var body  = document.getElementById('cierre-body');
@@ -6083,7 +6087,6 @@ function _cierreGenerate(){
 
   var ytdStart = FY26_MONTHS[0];
   var refMonth = (selEl && selEl.value) ? selEl.value : (_defaultPeriod || ytdStart);
-  if (refMonth < ytdStart) refMonth = ytdStart;
   var h1Start = FY26_MONTHS[0], h1End = FY26_MONTHS[5];  // Abr–Sep
   var mesLbl  = _cierreMonthShort(refMonth);
   var fyLbl   = _cierreFYLabel(refMonth);
@@ -6094,6 +6097,10 @@ function _cierreGenerate(){
     _cierreFetch(base, ytdStart, refMonth),
     _cierreFetch(base, h1Start,  h1End)
   ]).then(function(res){
+    // Descartar respuestas tardías: overlay cerrado o superadas por otra generación.
+    // Sin este guard, un fetch que resuelve DESPUÉS de cerrar mutaría _state y la
+    // tabla PnL real del dashboard, pisando el estado ya restaurado por closeCierreSlides.
+    if (!_cierreOpen || myGen !== _cierreGen) return;
     var mes=res[0], ytd=res[1], h1=res[2];
     var slides = [];
     slides.push(_cierreSlide(mesLbl + ' vs. Budget',   _cierrePnLHTML(mes.pnl, 'budget')));
@@ -6112,20 +6119,17 @@ function _cierreGenerate(){
            : '<div style="padding:20px;color:#999">Gráfico no disponible.</div>') +
       '<div class="cierre-cap">Operating Contribution mensual · Actuals + Run Rate vs Budget · '+fyLbl+' (Abr → Mar)</div>'));
 
-    if (_cierreOpen) body.innerHTML = slides.join('');
-    _cierreDone();
+    body.innerHTML = slides.join('');
+    if (selEl) selEl.disabled = false;
   }).catch(function(e){
-    if (_cierreOpen) body.innerHTML = '<div class="cierre-loading" style="color:#c0392b">No se pudieron generar las slides: '+((e&&e.message)?e.message:e)+'</div>';
-    _cierreDone();
+    if (!_cierreOpen || myGen !== _cierreGen) return;
+    body.innerHTML = '<div class="cierre-loading" style="color:#c0392b">No se pudieron generar las slides: '+((e&&e.message)?e.message:e)+'</div>';
+    if (selEl) selEl.disabled = false;
   });
-}
-function _cierreDone(){
-  _cierreBusy = false;
-  var selEl = document.getElementById('cierre-mes-sel');
-  if (selEl) selEl.disabled = false;
 }
 function closeCierreSlides(){
   _cierreOpen = false;
+  _cierreGen++;   // invalida cualquier generación pendiente (que no pise el estado ya restaurado)
   document.getElementById('cierre-overlay').style.display = 'none';
   // Restaurar el estado real del dashboard (se mutó _state durante la generación).
   if (_cierreSnap){
