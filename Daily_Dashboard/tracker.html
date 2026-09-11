@@ -1,0 +1,2733 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Daily Tracker B2B</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;
+    background: #ffffff;
+    color: #1f2937;
+    min-height: 100vh;
+    font-size: 13px;
+  }
+
+  /* ── Header ── */
+  .header {
+    background: linear-gradient(135deg, #1e1452 0%, #550FED 100%);
+    border-bottom: none;
+    padding: 13px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    box-shadow: 0 2px 8px rgba(85,15,237,0.25);
+  }
+  .header h1 {
+    font-size: 15px;
+    font-weight: 700;
+    color: #ffffff;
+    letter-spacing: 0.4px;
+  }
+  .header .meta-info { font-size: 11px; color: rgba(255,255,255,0.65); margin-left: auto; }
+
+  /* ── Tabs ── */
+  .tabs {
+    background: #ffffff;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 0 20px;
+    display: flex;
+    gap: 2px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  .tab-btn {
+    padding: 11px 18px;
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+    color: #6b7280;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.2px;
+    transition: color 0.15s, border-color 0.15s;
+    white-space: nowrap;
+  }
+  .tab-btn:hover { color: #550FED; }
+  .tab-btn.active { color: #550FED; border-bottom-color: #550FED; font-weight: 700; }
+  .tab-separator {
+    width: 1px;
+    background: #e5e7eb;
+    margin: 8px 6px;
+  }
+
+  /* ── Country filter buttons ── */
+  .country-filter-bar {
+    background: #ffffff;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 8px 20px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-wrap: wrap;
+  }
+  .country-filter-bar label {
+    font-size: 10px;
+    color: #9ca3af;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-right: 6px;
+  }
+  .country-btn {
+    padding: 4px 13px;
+    border-radius: 20px;
+    border: 1.5px solid #e5e7eb;
+    background: #f9fafb;
+    color: #4b5563;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .country-btn:hover { border-color: #7c3aed; color: #550FED; background: #faf7ff; }
+  .country-btn.active {
+    background: linear-gradient(135deg, #550FED, #7c3aed);
+    color: #fff;
+    border-color: transparent;
+    box-shadow: 0 2px 6px rgba(85,15,237,0.35);
+    font-weight: 600;
+  }
+  .country-sep-bar  { color: #e5e7eb; font-size: 16px; margin: 0 4px; user-select: none; }
+  .country-group-lbl { font-size: 11px; color: #6b7280; font-weight: 700; text-transform: uppercase;
+                       letter-spacing: 0.4px; margin-right: 2px; }
+
+  /* ── Filters ── */
+  .filters {
+    background: #ffffff;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 9px 20px;
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .filter-group { display: flex; align-items: center; gap: 8px; }
+  .filter-group label { font-size: 10px; color: #9ca3af; font-weight: 700; white-space: nowrap; text-transform: uppercase; letter-spacing: 0.8px; }
+  .filter-group select {
+    background: #f9fafb;
+    border: 1.5px solid #e5e7eb;
+    color: #1f2937;
+    border-radius: 8px;
+    padding: 5px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .filter-group select:focus { border-color: #550FED; background: #fff; }
+  .btn-clear {
+    background: #f9fafb;
+    border: 1.5px solid #e5e7eb;
+    color: #9ca3af;
+    border-radius: 8px;
+    padding: 5px 11px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-clear:hover { color: #550FED; border-color: #550FED; background: #faf7ff; }
+
+  /* ── Spinner ── */
+  .spinner-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 400px;
+    gap: 16px;
+    color: #6b7280;
+  }
+  .spinner {
+    width: 36px; height: 36px;
+    border: 3px solid #e5e7eb;
+    border-top-color: #550FED;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Error ── */
+  .error-box {
+    margin: 20px;
+    padding: 16px;
+    background: #FEF2F2;
+    border: 1px solid #FCA5A5;
+    border-radius: 8px;
+    color: #DC2626;
+    font-size: 13px;
+    display: none;
+  }
+
+  /* ── Main content (chart + pivot) ── */
+  .main {
+    padding: 16px 20px;
+    display: none;
+  }
+  .main.visible { display: block; }
+
+  .content-row {
+    display: flex;
+    gap: 16px;
+    align-items: stretch;
+  }
+
+  /* ── Chart panel ── */
+  .chart-panel {
+    flex: 0 0 70%;
+    background: #FFFFFF;
+    border: none;
+    border-top: 3px solid #550FED;
+    border-radius: 10px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 4px 16px rgba(85,15,237,0.06);
+  }
+  .panel-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #1f2937;
+    margin-bottom: 3px;
+  }
+  .chart-title {
+    font-size: 20px;
+    font-weight: 800;
+    color: #550FED;
+    margin-bottom: 2px;
+    letter-spacing: -0.3px;
+  }
+  .chart-subtitle {
+    font-size: 12px;
+    color: #7c3aed;
+    font-weight: 500;
+    margin-bottom: 14px;
+    letter-spacing: 0.2px;
+  }
+  .panel-subtitle {
+    font-size: 11px;
+    color: #6b7280;
+    margin-bottom: 14px;
+  }
+  .chart-container { position: relative; flex: 1; min-height: 200px; }
+
+  /* ── Pivot panel (sidebar) ── */
+  .pivot-panel {
+    flex: 0 0 30%;
+    background: #FFFFFF;
+    border: none;
+    border-top: 3px solid #550FED;
+    border-radius: 10px;
+    padding: 10px 8px;
+    overflow-x: auto;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 4px 16px rgba(85,15,237,0.06);
+  }
+
+  /* ── Pivot table (shared) ── */
+  .pivot-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  .pivot-table thead th {
+    background: linear-gradient(to bottom, #ede9fe, #f3f0fe);
+    color: #550FED;
+    font-weight: 700;
+    padding: 5px 6px;
+    text-align: right;
+    border-bottom: 2px solid #7c3aed;
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  .pivot-table thead th:first-child { text-align: left; max-width: 70px; }
+  .pivot-table tbody tr:hover { background: #faf7ff; }
+  .pivot-table td {
+    padding: 3px 6px;
+    border-bottom: 1px solid #f3f4f6;
+    text-align: right;
+    white-space: nowrap;
+    color: #374151;
+  }
+  .pivot-table td:first-child {
+    text-align: left;
+    max-width: 70px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Country row */
+  .row-country td {
+    background: #F3F0FE;
+    font-weight: 700;
+    color: #550FED;
+    cursor: pointer;
+  }
+  .row-country td:first-child { padding-left: 8px; }
+  .country-toggle { margin-right: 6px; font-size: 10px; color: #9ca3af; user-select: none; }
+
+  /* Product group row */
+  .row-product-group td {
+    background: #FAF8FF;
+    font-weight: 600;
+    color: #374151;
+    cursor: pointer;
+  }
+  .row-product-group td:first-child { padding-left: 20px; }
+  .row-product-group.hidden { display: none; }
+  .product-group-toggle { margin-right: 6px; font-size: 10px; color: #9ca3af; user-select: none; }
+
+  /* Product detail row */
+  .row-product td { color: #4b5563; }
+  .row-product td:first-child { padding-left: 38px; color: #6b7280; font-style: italic; }
+  .row-product.hidden { display: none; }
+
+  /* Total row */
+  .row-total td {
+    font-weight: 700;
+    color: #1f2937;
+    border-top: 2px solid #550FED;
+    background: #F9FAFB;
+  }
+
+  /* Color cells */
+  .cell-red    { color: #E82525 !important; font-weight: 600; }
+  .cell-yellow { color: #B45309 !important; font-weight: 600; }
+  .cell-green  { color: #599E6B !important; font-weight: 600; }
+  .cell-neg    { color: #E82525 !important; }
+  .cell-pos    { color: #599E6B !important; }
+
+  /* ── Tables view (multi-metric, no chart) ── */
+  .tables-content {
+    padding: 10px 14px;
+    display: none;
+  }
+  .tables-content.visible { display: block; }
+  .tables-view-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #550FED;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #550FED;
+  }
+  .tables-row {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+  }
+  .table-block {
+    flex: 1;
+    background: #FFFFFF;
+    border: none;
+    min-width: 0;
+    border-top: 3px solid #550FED;
+    border-radius: 10px;
+    padding: 8px 8px;
+    overflow-x: auto;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 4px 16px rgba(85,15,237,0.06);
+  }
+  .table-block .panel-title {
+    margin-bottom: 6px;
+    font-size: 12px;
+  }
+  /* Wider columns for standalone tables */
+  .table-block .pivot-table thead th:first-child { max-width: 110px; }
+  .table-block .pivot-table td:first-child { max-width: 110px; }
+
+  /* Tabla principal KRs — letra más grande */
+  #statusKRsTable { font-size: 15px; }
+  #statusKRsTable thead th { font-size: 12px; padding: 7px 8px; }
+  #statusKRsTable tbody tr td { padding: 7px 8px; font-size: 15px !important; }
+  #statusKRsTable { width: 100%; }
+  #statusKRsTable td:first-child { font-weight: 600; }
+
+  /* ── Status KRs view ── */
+  /* ── Weekly view ── */
+  .weekly-content { display: none; }
+  .weekly-content.visible { display: block; }
+
+  /* ── Slides navigation mode ── */
+  .slides-mode-btn {
+    margin-left: 12px;
+    padding: 5px 13px; background: rgba(255,255,255,.13);
+    border: 1.5px solid rgba(255,255,255,.45); color: #fff;
+    border-radius: 20px; font-size: 11px; font-weight: 700;
+    cursor: pointer; letter-spacing: 0.4px; transition: background .15s;
+  }
+  .slides-mode-btn:hover { background: rgba(255,255,255,.26); }
+  .slides-mode-btn.active { background: rgba(255,255,255,.28); }
+
+  .slides-nav-bar {
+    display: none;
+    background: linear-gradient(90deg, #1e1452 0%, #550FED 100%);
+    padding: 8px 20px; align-items: center; gap: 10px;
+    box-shadow: 0 2px 8px rgba(85,15,237,.3);
+  }
+  .slides-nav-bar.active { display: flex; }
+  .slides-nav-btn {
+    background: rgba(255,255,255,.15); border: 1.5px solid rgba(255,255,255,.4);
+    color: #fff; border-radius: 50%; width: 32px; height: 32px;
+    font-size: 18px; font-weight: 700; cursor: pointer; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+    transition: background .15s; flex-shrink: 0;
+  }
+  .slides-nav-btn:hover:not(:disabled) { background: rgba(255,255,255,.3); }
+  .slides-nav-btn:disabled { opacity: .3; cursor: default; }
+  .slides-nav-counter {
+    color: rgba(255,255,255,.7); font-size: 12px; font-weight: 700;
+    min-width: 50px; text-align: center; flex-shrink: 0;
+  }
+  .slides-nav-title { color: #fff; font-size: 13px; font-weight: 600; }
+  .slides-nav-exit {
+    margin-left: auto; padding: 4px 12px;
+    background: rgba(255,255,255,.12); border: 1.5px solid rgba(255,255,255,.4);
+    color: #fff; border-radius: 16px; font-size: 11px; font-weight: 700;
+    cursor: pointer; transition: background .15s;
+  }
+  .slides-nav-exit:hover { background: rgba(255,255,255,.25); }
+  .slides-nav-dots { display: flex; gap: 5px; align-items: center; }
+  .slides-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: rgba(255,255,255,.3); cursor: pointer; transition: background .15s, transform .15s;
+  }
+  .slides-dot.active { background: #fff; transform: scale(1.3); }
+  .slides-dot.cover  { width: 18px; height: 4px; border-radius: 2px; }
+  .slides-dot.cover.active { transform: scale(1); }
+  /* ── Slides presentation mode ── */
+  #slidesFrame  { display: contents; }
+  #slideContent { display: contents; }
+
+  body.slides-mode {
+    background: #111827 !important;
+    height: 100vh;
+    overflow: hidden;
+  }
+  /* Hide everything except the nav bar and slide frame */
+  body.slides-mode .header             { display: none !important; }
+  body.slides-mode .tabs               { display: none !important; }
+  body.slides-mode .country-filter-bar { display: none !important; }
+  body.slides-mode .filters            { display: none !important; }
+  /* Nav bar: fixed at top in slides mode */
+  body.slides-mode .slides-nav-bar {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 9999;
+  }
+  /* Stage: full area below nav bar */
+  body.slides-mode #slidesFrame {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    position: fixed;
+    top: 50px;
+    left: 0; right: 0; bottom: 0;
+    background: #111827;
+  }
+  /* The 16:9 white slide — width drives everything */
+  body.slides-mode #slideContent {
+    display: block !important;
+    position: relative;
+    aspect-ratio: 16 / 9;
+    /* Pick the smaller of: full-stage-height-as-width, or viewport width */
+    width: min(calc((100vh - 50px - 20px) * 16 / 9), calc(100vw - 20px));
+    background: #ffffff;
+    border-radius: 6px;
+    box-shadow: 0 16px 64px rgba(0,0,0,0.85);
+    overflow-y: hidden;
+    overflow-x: hidden;
+  }
+
+  /* Footer wastes vertical space in slides — hide it */
+  body.slides-mode .footer { display: none !important; }
+
+  /* Weekly view: scale down to fit without scroll */
+  body.slides-mode #weeklyContent {
+    zoom: 0.80;
+  }
+  body.slides-mode #weeklyContent .tables-view-title {
+    padding: 6px 14px 4px;
+    margin-bottom: 0;
+  }
+  body.slides-mode #weeklyContent .weekly-section-row         { padding: 6px 14px; }
+  body.slides-mode #weeklyContent .weekly-section-row:first-child { padding-top: 8px; }
+  body.slides-mode #weeklyContent .weekly-section-row:last-child  { padding-bottom: 8px; }
+  body.slides-mode #weeklyContent .weekly-card-title          { padding: 5px 10px 3px; }
+  body.slides-mode #weeklyContent .weekly-table th,
+  body.slides-mode #weeklyContent .weekly-table td            { padding: 3px 5px; }
+  body.slides-mode #weeklyContent .weekly-table thead th      { padding: 3px 6px; }
+  body.slides-mode #weeklyContent .widget-table td            { padding: 3px 8px; }
+  body.slides-mode #weeklyContent .proj-table td,
+  body.slides-mode #weeklyContent .proj-table th              { padding: 3px 7px; }
+
+  /* ── Cover slides ── */
+  #slideCover { display: none; }
+  body.slides-mode #slideCover.active {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%; height: 100%;
+    background: linear-gradient(135deg, #1e1452 0%, #550FED 100%);
+    border-radius: 6px;
+    position: absolute; top: 0; left: 0;
+  }
+  .slide-cover-title {
+    color: #fff;
+    font-size: 40px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    margin-bottom: 12px;
+  }
+  .slide-cover-subtitle {
+    color: rgba(255,255,255,0.65);
+    font-size: 15px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+  }
+  /* layout */
+  .weekly-section-row {
+    display: flex;
+    gap: 12px;
+    padding: 12px 20px;
+    align-items: flex-start;
+  }
+  .weekly-section-row:first-child { padding-top: 16px; }
+  .weekly-section-row:last-child  { padding-bottom: 24px; }
+  .weekly-main-wrap { flex: 7; min-width: 0; overflow: hidden; }
+  .weekly-widget-card {
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* card */
+  .weekly-card {
+    background: #fff;
+    border-radius: 10px;
+    border-top: 3px solid #550FED;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 4px 16px rgba(85,15,237,0.06);
+    overflow: hidden;
+  }
+  .weekly-card-title {
+    padding: 10px 14px 6px;
+    font-size: 10px;
+    font-weight: 700;
+    color: #7c3aed;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    border-bottom: 1px solid #f3f0fe;
+    background: linear-gradient(to right, #faf7ff, #fff);
+  }
+  .weekly-card-scroll { overflow-x: auto; }
+
+  /* table */
+  .weekly-table { border-collapse: collapse; width: 100%; table-layout: fixed; }
+  .weekly-table th, .weekly-table td { padding: 5px 8px; font-size: 0.82rem; white-space: nowrap; }
+  .weekly-table thead th {
+    text-align: center;
+    font-weight: 700;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    border-bottom: 2px solid #7c3aed;
+    background: linear-gradient(to bottom, #ede9fe, #f3f0fe);
+    color: #550FED;
+    padding: 6px 8px;
+  }
+  .weekly-table thead th:first-child { text-align: left; }
+  .weekly-table tbody tr:hover td { background: #faf7ff !important; }
+  .weekly-metric-label { font-weight: 700; text-align: left; color: #1f2937; padding-left: 8px; }
+  .weekly-yoy-label    { text-align: left; color: #9ca3af; font-size: 0.73rem; padding-left: 18px; }
+  .weekly-metric-val   { background: #fff; }
+  .weekly-metric-val.metric-group-sep td { border-top: 2px solid #f3f0fe; }
+  .weekly-metric-yoy   { background: #fafafa; }
+  .weekly-cell-val     { text-align: right; font-variant-numeric: tabular-nums; }
+
+  /* WXX vs L4W widget */
+  .widget-table { border-collapse: collapse; width: 100%; }
+  .widget-table td { padding: 5px 12px; font-size: 0.80rem; white-space: nowrap; }
+  .widget-metric-lbl { font-weight: 700; color: #1f2937; }
+  .widget-pct-lbl    { color: #9ca3af; font-size: 0.72rem; padding-left: 20px !important; }
+  .widget-val        { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+  .widget-nom-pos    { color: #059669; }
+  .widget-nom-neg    { color: #dc2626; }
+  .widget-pct-pos    { color: #059669; font-size: 0.75rem; }
+  .widget-pct-neg    { color: #dc2626; font-size: 0.75rem; }
+  .widget-pct-neu    { color: #6b7280; font-size: 0.75rem; }
+  .widget-group-sep td { border-top: 2px solid #f3f0fe; }
+  .widget-pct-row td  { background: #fafafa; }
+
+  /* Proyección mensual widget */
+  .weekly-proj-card { flex: 2; min-width: 0; }
+  .proj-table { border-collapse: collapse; width: 100%; }
+  .proj-table td  { padding: 6px 12px; font-size: 0.80rem; white-space: nowrap; }
+  .proj-table thead th {
+    padding: 5px 12px;
+    font-size: 10px;
+    font-weight: 700;
+    color: #7c3aed;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    border-bottom: 1px solid #f3f0fe;
+    background: linear-gradient(to right, #faf7ff, #fff);
+    text-align: right;
+    white-space: nowrap;
+  }
+  .proj-table thead th:first-child { text-align: left; }
+  .proj-table tbody tr:hover td { background: #faf7ff !important; }
+  .proj-table .widget-group-sep td { border-top: 2px solid #f3f0fe; }
+
+  .agencias-content {
+    padding: 16px 20px;
+    display: none;
+  }
+  .agencias-content.visible { display: block; }
+  .kr-month-filter-bar { display:flex; align-items:center; gap:8px; padding:10px 20px 0; }
+  .kr-warning-tag { display:inline-block; font-size:0.7rem; background:#fef3c7; color:#92400e; border:1px solid #fcd34d; border-radius:4px; padding:1px 5px; margin-left:6px; vertical-align:middle; }
+  .kr-extra-tag {
+    font-size: 9px;
+    background: #e5e7eb;
+    color: #6b7280;
+    border-radius: 3px;
+    padding: 1px 4px;
+    margin-left: 6px;
+    vertical-align: middle;
+    font-weight: 500;
+    letter-spacing: 0.2px;
+  }
+  .row-kr-extra td {
+    color: #9ca3af;
+    border-top: 1px dashed #e5e7eb;
+  }
+  .row-kr-total td {
+    font-weight: 700;
+    color: #1f2937;
+    border-top: 2px solid #550FED;
+    background: #F9FAFB;
+  }
+  .status-krs-meta {
+    font-size: 11px;
+    color: #6b7280;
+    margin-bottom: 12px;
+  }
+
+  /* ── KR Detail Grid ── */
+  .kr-detail-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-top: 22px;
+    align-items: flex-start;
+  }
+  .kr-detail-column {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    flex: 1 1 220px;
+    min-width: 200px;
+  }
+  .kr-detail-column .kr-detail-box {
+    flex: none;
+    min-width: unset;
+  }
+  .kr-detail-box {
+    flex: 1 1 220px;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 12px 14px;
+    min-width: 200px;
+    box-shadow: 0 2px 6px rgba(99,102,241,0.07);
+  }
+  .kr-detail-header {
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: #1e1b4b;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 3px solid #6366f1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    letter-spacing: 0.01em;
+  }
+  .kr-num-badge {
+    background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+    color: #fff;
+    border-radius: 6px;
+    padding: 4px 12px;
+    font-size: 0.95rem;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    box-shadow: 0 2px 4px rgba(99,102,241,0.35);
+    white-space: normal;
+    line-height: 1.3;
+  }
+  .kr-detail-title {
+    font-size: 0.72rem;
+    font-weight: 900;
+    color: #6366f1;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    flex-shrink: 0;
+  }
+  .kr-detail-table td, .kr-detail-table th {
+    font-size: 0.85rem;
+    padding: 4px 6px;
+  }
+  .kr-detail-table th {
+    font-weight: 600;
+    color: #6b7280;
+    background: #f9fafb;
+    font-size: 0.75rem;
+  }
+  .kr-detail-table td:first-child, .kr-detail-table th:first-child {
+    max-width: 80px;
+    width: 80px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .kr-detail-total td {
+    border-top: 2px solid #e5e7eb;
+    background: #f5f3ff;
+    font-size: 0.85rem;
+  }
+
+  /* ── KR Data Range badges ── */
+  .status-krs-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .kr-data-range {
+    display: inline-block;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    color: #1d4ed8;
+    border-radius: 20px;
+    padding: 3px 12px;
+    font-size: 0.72rem;
+    font-weight: 500;
+  }
+  .kr-data-range-sec {
+    background: #f0fdf4;
+    border-color: #bbf7d0;
+    color: #15803d;
+  }
+
+  /* ── Footer ── */
+  .footer {
+    padding: 12px 20px;
+    font-size: 11px;
+    color: #9ca3af;
+    border-top: 1px solid #F3F4F6;
+    margin-top: 16px;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Daily Tracker B2B</h1>
+  <span class="meta-info" id="metaInfo">Cargando...</span>
+  <button class="slides-mode-btn" id="slidesModeBtn" onclick="toggleSlidesMode()">▶ Slides</button>
+</div>
+
+<div class="slides-nav-bar" id="slidesNavBar">
+  <button class="slides-nav-btn" id="slidesPrev" onclick="slidePrev()" disabled>&#8592;</button>
+  <span class="slides-nav-counter" id="slidesCounter">1 / 11</span>
+  <span class="slides-nav-title" id="slidesTitle"></span>
+  <div class="slides-nav-dots" id="slidesDots"></div>
+  <button class="slides-nav-btn" id="slidesNext" onclick="slideNext()">&#8594;</button>
+  <button class="slides-nav-exit" onclick="toggleSlidesMode()">✕ Salir</button>
+</div>
+
+<div class="tabs" id="tabs">
+  <button class="tab-btn active" data-tab="nr_ri">NR (RI)</button>
+  <button class="tab-btn" data-tab="gb_ri">GB (RI)</button>
+  <button class="tab-btn" data-tab="fvm_ri">FVM (RI)</button>
+  <button class="tab-btn" data-tab="nr_gd">NR (GD)</button>
+  <button class="tab-btn" data-tab="gb_gd">GB (GD)</button>
+  <button class="tab-btn" data-tab="fvm_gd">FVM (GD)</button>
+  <div class="tab-separator"></div>
+  <button class="tab-btn" data-tab="tables_gd">Tablas GD</button>
+  <button class="tab-btn" data-tab="tables_ri">Tablas RI</button>
+  <div class="tab-separator"></div>
+  <button class="tab-btn" data-tab="weekly_gd">Semanas GD</button>
+  <button class="tab-btn" data-tab="weekly_ri">Semanas RI</button>
+  <div class="tab-separator"></div>
+  <button class="tab-btn" data-tab="agencias">Status KRs</button>
+</div>
+
+<div class="country-filter-bar" id="countryFilterBar">
+  <label>País</label>
+  <button class="country-btn active" data-country="">Todos</button>
+  <span class="country-sep-bar">|</span>
+  <button class="country-btn" data-country="CORE_MARKETS">Core Markets</button>
+  <button class="country-btn" data-country="NEW_MARKETS">New Markets</button>
+  <span class="country-sep-bar">|</span>
+  <button class="country-btn" data-country="Brasil">Brasil</button>
+  <button class="country-btn" data-country="Mexico">Mexico</button>
+  <button class="country-btn" data-country="Colombia">Colombia</button>
+  <button class="country-btn" data-country="Argentina">Argentina</button>
+  <button class="country-btn" data-country="Globales">Globales</button>
+  <button class="country-btn" data-country="ROW">ROW</button>
+  <button class="country-btn" data-country="Chile">Chile</button>
+  <button class="country-btn" data-country="Peru">Peru</button>
+  <button class="country-btn" data-country="Ecuador">Ecuador</button>
+  <button class="country-btn" data-country="Uruguay">Uruguay</button>
+  <button class="country-btn" data-country="Paraguay">Paraguay</button>
+</div>
+
+<div class="filters">
+  <div class="filter-group">
+    <label>Canal</label>
+    <select id="filterChannel">
+      <option value="">Todos</option>
+      <option value="API">API</option>
+      <option value="Agencias afiliadas">Agencias afiliadas</option>
+    </select>
+  </div>
+  <div class="filter-group" id="filterGroupGoal">
+    <label>Meta</label>
+    <select id="filterGoal">
+      <option value="budget">Budget</option>
+      <option value="rr">Run Rate</option>
+    </select>
+  </div>
+  <div id="filterGroupCountry" style="display:none"></div>
+  <div class="filter-group" id="filterGroupCountryAgencias" style="display:none">
+    <label>País</label>
+    <select id="filterCountryAgencias">
+      <option value="">Todos</option>
+      <option value="Brasil">Brasil</option>
+      <option value="Mexico">Mexico</option>
+      <option value="Argentina">Argentina</option>
+      <option value="Colombia">Colombia</option>
+      <option value="Chile">Chile</option>
+      <option value="Globales">Globales</option>
+      <option value="Peru">Peru</option>
+      <option value="Ecua/Uru/Par">Ecua / Uru / Par</option>
+    </select>
+  </div>
+  <div class="filter-group" id="filterGroupMonth">
+    <label>Mes</label>
+    <select id="filterMonth">
+      <option value="">Año completo</option>
+    </select>
+  </div>
+  <button class="btn-clear" id="btnClear">✕ Limpiar</button>
+</div>
+
+<div id="slidesFrame"><div id="slideContent">
+<div id="spinnerWrap" class="spinner-wrap">
+  <div class="spinner"></div>
+  <span>Cargando datos...</span>
+</div>
+
+<div class="error-box" id="errorBox"></div>
+
+<!-- Vista con gráfico + tabla lateral -->
+<div class="main" id="mainContent">
+  <div class="content-row">
+    <div class="chart-panel">
+      <div class="chart-title" id="chartTitle"></div>
+      <div class="chart-subtitle" id="chartSubtitle"></div>
+      <div class="chart-container">
+        <canvas id="mainChart"></canvas>
+      </div>
+    </div>
+    <div class="pivot-panel">
+      <div class="panel-title" id="pivotTitle">Performance YTD</div>
+      <table class="pivot-table" id="pivotTable">
+        <thead>
+          <tr>
+            <th style="min-width:80px">País / Producto</th>
+            <th id="pivotHeaderActuals">Actuals<br>MTD ($K)</th>
+            <th id="pivotHeaderDelta">Delta<br>($K)</th>
+            <th>Cumpl.</th>
+            <th>YoY</th>
+          </tr>
+        </thead>
+        <tbody id="pivotBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Vista con 3 tablas (sin gráfico) -->
+<div class="tables-content" id="tablesContent">
+  <div class="tables-view-title" id="tablesViewTitle">Tablas por Fecha de Gestión</div>
+  <div class="tables-row">
+
+    <div class="table-block">
+      <div class="panel-title">Gross Bookings ($M)</div>
+      <table class="pivot-table">
+        <thead>
+          <tr>
+            <th style="min-width:100px">País / Producto</th>
+            <th>Actuals<br>MTD ($M)</th>
+            <th>Delta<br>($M)</th>
+            <th>Cumpl.</th>
+            <th>YoY</th>
+          </tr>
+        </thead>
+        <tbody id="pivotBodyGB_t"></tbody>
+      </table>
+    </div>
+
+    <div class="table-block">
+      <div class="panel-title">Net Revenues ($K)</div>
+      <table class="pivot-table">
+        <thead>
+          <tr>
+            <th style="min-width:100px">País / Producto</th>
+            <th>Actuals<br>MTD ($K)</th>
+            <th>Delta<br>($K)</th>
+            <th>Cumpl.</th>
+            <th>YoY</th>
+          </tr>
+        </thead>
+        <tbody id="pivotBodyNR_t"></tbody>
+      </table>
+    </div>
+
+    <div class="table-block">
+      <div class="panel-title">FVM ($K)</div>
+      <table class="pivot-table">
+        <thead>
+          <tr>
+            <th style="min-width:100px">País / Producto</th>
+            <th>Actuals<br>MTD ($K)</th>
+            <th>Delta<br>($K)</th>
+            <th>Cumpl.</th>
+            <th>YoY</th>
+          </tr>
+        </thead>
+        <tbody id="pivotBodyFVM_t"></tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+<!-- Vista Semanas -->
+<div class="weekly-content" id="weeklyContent">
+  <div class="tables-view-title" id="weeklyTitle">Performance Semanal</div>
+  <div id="weeklyTablesContainer"></div>
+</div>
+
+
+<!-- Vista Status KRs -->
+<div class="agencias-content" id="agenciasContent">
+  <div class="tables-view-title" id="statusKRsTitle">Status KRs</div>
+  <div class="kr-month-filter-bar">
+    <div class="filter-group">
+      <label>Mes</label>
+      <select id="filterMonthKRs"></select>
+    </div>
+  </div>
+  <div id="statusKRsSpinner" class="spinner-wrap" style="height:200px;display:none">
+    <div class="spinner"></div><span>Cargando KRs...</span>
+  </div>
+  <div id="statusKRsError" class="error-box"></div>
+  <div id="statusKRsWrap" style="display:none">
+    <div class="status-krs-meta" id="statusKRsMeta"></div>
+    <div class="table-block" style="width:100%">
+      <table class="pivot-table" id="statusKRsTable">
+        <thead>
+          <tr>
+            <th style="min-width:210px;text-align:left">KR</th>
+            <th style="color:#6b7280">Peso</th>
+            <th>Actual MTD</th>
+            <th>Budget MTD</th>
+            <th>Cumpl.</th>
+          </tr>
+        </thead>
+        <tbody id="statusKRsBody"></tbody>
+      </table>
+    </div>
+    <div class="kr-detail-grid" id="statusKRsDetailGrid"></div>
+  </div>
+</div>
+
+<div id="slideCover">
+  <div class="slide-cover-title" id="slideCoverTitle"></div>
+  <div class="slide-cover-subtitle" id="slideCoverSubtitle"></div>
+</div>
+
+<div class="footer">* ROW = Peru, Ecuador, Chile, Paraguay y Uruguay</div>
+</div></div><!-- /slideContent /slidesFrame -->
+
+<script>
+// ─────────────────────────────────────────────
+//  Constantes
+// ─────────────────────────────────────────────
+const METRICS = {
+  'nr':  { label: 'Net Revenues',             field: 'net_revenue',    unit: '$K', inMillions: false },
+  'gb':  { label: 'Gross Bookings',            field: 'gross_bookings', unit: '$M', inMillions: true  },
+  'fvm': { label: 'Financial Variable Margin', field: 'fvm',            unit: '$K', inMillions: false }
+};
+
+const TAB_DATA = {
+  'nr_ri':     { metric: 'nr',  dateType: 'ri', label: 'NR (Recognition Date)' },
+  'gb_ri':     { metric: 'gb',  dateType: 'ri', label: 'GB (Recognition Date)' },
+  'fvm_ri':    { metric: 'fvm', dateType: 'ri', label: 'FVM (Recognition Date)' },
+  'nr_gd':     { metric: 'nr',  dateType: 'gd', label: 'NR (Gestion Date)' },
+  'gb_gd':     { metric: 'gb',  dateType: 'gd', label: 'GB (Gestion Date)' },
+  'fvm_gd':    { metric: 'fvm', dateType: 'gd', label: 'FVM (Gestion Date)' },
+  'tables_gd': { dateType: 'gd', label: 'Tablas (Gestion Date)' },
+  'tables_ri': { dateType: 'ri', label: 'Tablas (Recognition Date)' }
+};
+
+const COUNTRY_GROUPS = {
+  'Brasil':    ['Brasil'],
+  'Mexico':    ['Mexico'],
+  'Globales':  ['Other Countries'],
+  'Colombia':  ['Colombia'],
+  'Argentina': ['Argentina'],
+  'ROW':       ['Peru', 'Ecuador', 'Chile', 'Uruguay', 'Paraguay'],
+  'Chile':     ['Chile'],
+  'Peru':      ['Peru'],
+  'Ecuador':   ['Ecuador'],
+  'Uruguay':   ['Uruguay'],
+  'Paraguay':  ['Paraguay'],
+};
+
+const MARKET_GROUPS = {
+  'CORE_MARKETS': ['Brasil', 'Mexico', 'Globales'],
+  'NEW_MARKETS':  ['Colombia', 'Argentina', 'ROW']
+};
+
+const PRODUCT_GROUPS = {
+  'Hotel':    ['Hotel', 'Hotels'],
+  'Air':      ['Air', 'Flights', 'Flight'],
+  'Packages': ['Packages', 'Packages General', 'Package'],
+  'ONA':      ['Cars', 'Vacation Rentals', 'D. Services', 'Dest. Serv.',
+               'Insurance', 'Financial Services', 'Cruises', 'Buses',
+               'Ancillaries', 'Bundles', 'Other']
+};
+const PRODUCT_GROUP_ORDER = ['Hotel', 'Air', 'Packages', 'ONA'];
+
+const MONTH_NAMES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+// ─────────────────────────────────────────────
+//  Estado
+// ─────────────────────────────────────────────
+let rawData       = null;
+let chartInst     = null;
+let activeTab     = 'nr_ri';
+let activeCountry = '';
+let collapseState = {};
+let agenciasData  = null;
+let agenciasState = 'idle'; // idle | loading | loaded | error
+const _KR1_ACT_PATCH = { 'Brasil': 5050, 'Mexico': 2255, 'Argentina': 580, 'Colombia': 1291, 'Chile': 212, 'Globales': 171, 'Peru': 183, 'Ecua / Uru / Par': 29 }; // parche temporal — quitar cuando se pida
+const _KR1_BUD_PATCH = { 'Brasil': 4870, 'Mexico': 2108, 'Argentina': 577, 'Colombia': 1283, 'Chile': 206, 'Globales': 164, 'Peru': 207, 'Ecua / Uru / Par': 31 }; // parche temporal — quitar cuando se pida
+      const _KR1_TOTAL_ACT = 9750; // parche temporal — quitar cuando se pida
+      const _KR1_TOTAL_BUD = 9282; // parche temporal — quitar cuando se pida
+let airNRData     = null;
+let airNRState    = 'idle'; // idle | loading | loaded | error
+
+// ─────────────────────────────────────────────
+//  Helpers
+// ─────────────────────────────────────────────
+function unpack(compact) {
+  if (!compact || !compact.cols || !compact.rows) return [];
+  return compact.rows.map(r => {
+    const obj = {};
+    compact.cols.forEach((c, i) => { obj[c] = r[i]; });
+    return obj;
+  });
+}
+
+function toK(val) { return (val || 0) / 1e3; }
+function toM(val) { return (val || 0) / 1e6; }
+
+function fmtK(val) {
+  if (val === null || val === undefined || isNaN(val)) return '—';
+  return '$ ' + Math.round(val).toLocaleString('es-AR') + ' K';
+}
+
+function fmtKc(val) {
+  if (val === null || val === undefined || isNaN(val)) return '—';
+  return Math.round(val).toLocaleString('es-AR') + ' K';
+}
+
+function fmtMc(val) {
+  if (val === null || val === undefined || isNaN(val)) return '—';
+  return val.toFixed(2) + ' M';
+}
+
+function fmtPct(val) {
+  if (val === null || val === undefined || isNaN(val) || !isFinite(val)) return '—';
+  return (val * 100).toFixed(0) + '%';
+}
+
+function yoyIcon(val) {
+  if (val === null || val === undefined || isNaN(val) || !isFinite(val)) return '—';
+  const pct = val * 100;
+  let icon;
+  if (pct < 0)   icon = '▼';
+  else if (pct < 10) icon = '▶';
+  else           icon = '▲';
+  return icon + ' ' + Math.abs(pct).toFixed(0) + '%';
+}
+
+function toYM(dateStr) {
+  return dateStr ? dateStr.substring(0, 7) : '';
+}
+
+function buildMonthList(data) {
+  const yms = new Set();
+  function scanCompact(obj) {
+    if (!obj || !obj.cols || !obj.rows) return;
+    const fi = obj.cols.indexOf('fecha');
+    if (fi < 0) return;
+    obj.rows.forEach(r => { if (r[fi]) yms.add(r[fi].substring(0, 7)); });
+  }
+  function scanRecords(arr) {
+    if (!Array.isArray(arr)) return;
+    arr.forEach(r => { if (r.fecha) yms.add(r.fecha.substring(0, 7)); });
+  }
+  scanCompact(data.b2b_ri);   scanCompact(data.b2b_gd);
+  scanCompact(data.b2b_ri_ly); scanCompact(data.b2b_gd_ly);
+  scanRecords(data.b2b_budget_ri);  scanRecords(data.b2b_budget_gd);
+  scanRecords(data.b2b_runrate_ri); scanRecords(data.b2b_runrate_gd);
+  return [...yms].sort();
+}
+
+function countryGroupFor(pais) {
+  for (const [group, countries] of Object.entries(COUNTRY_GROUPS)) {
+    if (countries.map(c => c.toLowerCase()).includes((pais || '').toLowerCase())) return group;
+  }
+  return null;
+}
+
+function productGroupFor(prod) {
+  const p = (prod || '').toLowerCase();
+  for (const [group, prods] of Object.entries(PRODUCT_GROUPS)) {
+    if (prods.some(x => x.toLowerCase() === p)) return group;
+  }
+  return 'ONA';
+}
+
+// ─────────────────────────────────────────────
+//  Data access helpers
+// ─────────────────────────────────────────────
+function getActuals(dateType) {
+  if (!rawData) return [];
+  return unpack(dateType === 'ri' ? rawData.b2b_ri : rawData.b2b_gd);
+}
+
+function getActualsLY(dateType) {
+  if (!rawData) return [];
+  return unpack(dateType === 'ri' ? rawData.b2b_ri_ly : rawData.b2b_gd_ly);
+}
+
+function getGoal(dateType, goalType) {
+  if (!rawData) return [];
+  if (goalType === 'rr') {
+    const key = dateType === 'ri' ? 'b2b_runrate_ri' : 'b2b_runrate_gd';
+    return rawData[key] || [];
+  }
+  const key = dateType === 'ri' ? 'b2b_budget_ri' : 'b2b_budget_gd';
+  return rawData[key] || [];
+}
+
+// ─────────────────────────────────────────────
+//  Filtering
+// ─────────────────────────────────────────────
+function getPeriodBounds(monthFilter, meta) {
+  if (monthFilter) {
+    const from = monthFilter + '-01';
+    const [y, m] = monthFilter.split('-').map(Number);
+    const lastDay = new Date(y, m, 0).getDate();
+    const monthEnd = monthFilter + '-' + String(lastDay).padStart(2, '0');
+    const cutoff = monthEnd < meta.last_actuals_date ? monthEnd : meta.last_actuals_date;
+    return { from, cutoff, goalFrom: from, goalCutoff: monthEnd };
+  }
+  const year = meta.last_actuals_date.substring(0, 4);
+  return {
+    from:        meta.actuals_from,
+    cutoff:      meta.last_actuals_date,
+    goalFrom:    meta.actuals_from,
+    goalCutoff:  year + '-12-31'
+  };
+}
+
+function getCountriesForGroup(countryGroup) {
+  if (MARKET_GROUPS[countryGroup]) {
+    return MARKET_GROUPS[countryGroup].flatMap(g => COUNTRY_GROUPS[g] || []);
+  }
+  return COUNTRY_GROUPS[countryGroup] || [];
+}
+
+function filterByPeriod(rows, channel, countryGroup, from, cutoff) {
+  return rows.filter(r => {
+    if (channel && r.parent_channel !== channel) return false;
+    if (countryGroup) {
+      const countries = getCountriesForGroup(countryGroup);
+      if (!countries.some(c => (r.pais || '').toLowerCase() === c.toLowerCase())) return false;
+    }
+    const f = r.fecha;
+    if (f < from || f > cutoff) return false;
+    return true;
+  });
+}
+
+function shiftYear(dateStr, delta) {
+  return String(parseInt(dateStr.substring(0, 4)) + delta) + dateStr.substring(4);
+}
+
+// ─────────────────────────────────────────────
+//  Chart data builder
+// ─────────────────────────────────────────────
+function buildChartData(dateType, metricField, channel, countryGroup, monthFilter, inMillions) {
+  const meta = rawData.meta;
+  const { from, cutoff, goalFrom, goalCutoff } = getPeriodBounds(monthFilter, meta);
+
+  const actuals  = getActuals(dateType);
+  const goalRows = getGoal(dateType, document.getElementById('filterGoal').value);
+
+  const filtAct  = filterByPeriod(actuals,  channel, countryGroup, from, cutoff)
+                    .filter(r => countryGroupFor(r.pais) !== null);
+  const filtGoal = filterByPeriod(goalRows, channel, countryGroup, goalFrom, goalCutoff)
+                    .filter(r => countryGroupFor(r.pais) !== null);
+
+  const actByDate  = {};
+  filtAct.forEach(r => {
+    actByDate[r.fecha] = (actByDate[r.fecha] || 0) + (r[metricField] || 0);
+  });
+  const goalByDate = {};
+  filtGoal.forEach(r => {
+    goalByDate[r.fecha] = (goalByDate[r.fecha] || 0) + (r[metricField] || 0);
+  });
+
+  const allDates = [...new Set([...Object.keys(actByDate), ...Object.keys(goalByDate)])].sort();
+  if (allDates.length === 0) return null;
+
+  const convert = inMillions ? toM : toK;
+
+  return {
+    labels:  allDates,
+    actuals: allDates.map(d => convert(actByDate[d] || 0)),
+    goal:    allDates.map(d => goalByDate[d] !== undefined ? convert(goalByDate[d]) : null)
+  };
+}
+
+// ─────────────────────────────────────────────
+//  Chart rendering
+// ─────────────────────────────────────────────
+function renderChart(tab, channel, countryGroup, monthFilter) {
+  const { metric, dateType, label } = TAB_DATA[tab];
+  const { field, inMillions, unit } = METRICS[metric];
+
+  const dateTypeLabel = TAB_DATA[tab].dateType === 'ri' ? 'Recognition Date' : 'Gestion Date';
+  document.getElementById('chartTitle').textContent = METRICS[metric].label + '  —  ' + dateTypeLabel;
+
+  const filterParts = [];
+  const goalSel = document.getElementById('filterGoal');
+  filterParts.push('Meta: ' + goalSel.options[goalSel.selectedIndex].text);
+  if (channel)      filterParts.push('Canal: ' + channel);
+  if (countryGroup) filterParts.push('País: ' + countryGroup);
+  filterParts.push(monthFilter ? formatYM(monthFilter) : 'Año completo');
+  document.getElementById('chartSubtitle').textContent = filterParts.join('  •  ');
+
+  // Update pivot table header units
+  const unitLabel = inMillions ? '$M' : '$K';
+  document.getElementById('pivotHeaderActuals').innerHTML = 'Actuals<br>MTD (' + unitLabel + ')';
+  document.getElementById('pivotHeaderDelta').innerHTML   = 'Delta<br>(' + unitLabel + ')';
+
+  const data = buildChartData(dateType, field, channel, countryGroup, monthFilter, inMillions);
+
+  const ctx = document.getElementById('mainChart').getContext('2d');
+  if (chartInst) { chartInst.destroy(); chartInst = null; }
+
+  if (!data) {
+    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    ctx.fillStyle = '#9ca3af';
+    ctx.textAlign = 'center';
+    ctx.font = '13px Segoe UI, sans-serif';
+    ctx.fillText('Sin datos para los filtros seleccionados', ctx.canvas.width / 2, 160);
+    return;
+  }
+
+  const tickLabels = data.labels.map((d, i) => {
+    if (i % 7 === 0) {
+      const parts = d.split('-');
+      return parts[2] + '/' + parts[1];
+    }
+    return '';
+  });
+
+  const goalLabel = document.getElementById('filterGoal').options[document.getElementById('filterGoal').selectedIndex].text;
+
+  // Formatter for datalabels on actuals bars
+  const dlFormatter = inMillions
+    ? v => (v === null || v === undefined) ? '' : v.toFixed(1) + ' M'
+    : v => (v === null || v === undefined) ? '' : Math.round(v).toLocaleString('es-AR') + ' K';
+
+  // Y-axis tick formatter
+  const yTickFmt = inMillions
+    ? v => v.toFixed(1) + ' M'
+    : v => '$ ' + Math.round(v).toLocaleString('es-AR') + ' K';
+
+  // Tooltip label formatter
+  const tooltipFmt = (item) => {
+    const v = item.raw;
+    if (v === null || v === undefined) return item.dataset.label + ': —';
+    if (inMillions) return item.dataset.label + ': ' + v.toFixed(2) + ' M';
+    return item.dataset.label + ': $ ' + Math.round(v).toLocaleString('es-AR') + ' K';
+  };
+
+  chartInst = new Chart(ctx, {
+    plugins: [ChartDataLabels],
+    data: {
+      labels: tickLabels,
+      datasets: [
+        {
+          type: 'bar',
+          label: goalLabel,
+          data: data.goal,
+          backgroundColor: 'rgba(180, 180, 180, 0.55)',
+          borderColor: 'rgba(150, 150, 150, 0.8)',
+          borderWidth: 0,
+          borderRadius: 2,
+          order: 2,
+          yAxisID: 'y',
+          datalabels: {
+            display: 'auto',
+            anchor: 'end',
+            align: 'top',
+            formatter: dlFormatter,
+            font: { size: 10, weight: '600' },
+            color: '#9ca3af',
+            padding: { bottom: 2 }
+          }
+        },
+        {
+          type: 'bar',
+          label: METRICS[metric].label,
+          data: data.actuals,
+          backgroundColor: 'rgba(85, 15, 237, 0.75)',
+          borderColor: 'rgba(85, 15, 237, 1)',
+          borderWidth: 0,
+          borderRadius: 2,
+          order: 1,
+          yAxisID: 'y',
+          datalabels: {
+            display: (ctx) => {
+              const v = ctx.dataset.data[ctx.dataIndex];
+              return v !== null && v !== undefined && v !== 0;
+            },
+            anchor: 'end',
+            align: 'top',
+            formatter: dlFormatter,
+            font: { size: 10, weight: '600' },
+            color: '#550FED',
+            padding: { bottom: 2 }
+          }
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      layout: { padding: { top: 20 } },
+      plugins: {
+        legend: {
+          labels: { color: '#6b7280', font: { size: 11 }, boxWidth: 12 }
+        },
+        tooltip: {
+          backgroundColor: '#FFFFFF',
+          borderColor: '#e5e7eb',
+          borderWidth: 1,
+          titleColor: '#1f2937',
+          bodyColor: '#4b5563',
+          callbacks: {
+            title: (items) => {
+              const idx = items[0].dataIndex;
+              return data.labels[idx];
+            },
+            label: tooltipFmt
+          }
+        },
+        datalabels: {}
+      },
+      scales: {
+        x: {
+          ticks: { color: '#9ca3af', font: { size: 10 }, maxRotation: 45, minRotation: 0 },
+          grid: { color: 'rgba(0,0,0,0.05)' }
+        },
+        y: {
+          ticks: {
+            color: '#9ca3af', font: { size: 10 },
+            callback: yTickFmt
+          },
+          grid: { color: 'rgba(0,0,0,0.06)' }
+        }
+      }
+    }
+  });
+}
+
+// ─────────────────────────────────────────────
+//  Pivot data builder (shared)
+// ─────────────────────────────────────────────
+function buildPivotData(dateType, metricField, channel, countryGroup, monthFilter) {
+  const meta = rawData.meta;
+  const { from, cutoff } = getPeriodBounds(monthFilter, meta);
+  const lyFrom   = shiftYear(from,   -1);
+  const lyCutoff = shiftYear(cutoff, -1);
+
+  const actuals   = filterByPeriod(getActuals(dateType),   channel, countryGroup, from,   cutoff);
+  const goalAll   = filterByPeriod(getGoal(dateType, document.getElementById('filterGoal').value), channel, countryGroup, from, cutoff);
+  const actualsLY = filterByPeriod(getActualsLY(dateType), channel, countryGroup, lyFrom, lyCutoff);
+
+  const groups = {};
+  const countryOrder = countryGroup ? (MARKET_GROUPS[countryGroup] || [countryGroup]) : Object.keys(COUNTRY_GROUPS);
+  countryOrder.forEach(g => { groups[g] = {}; });
+
+  function accum(rows, isGoal, isLY) {
+    rows.forEach(r => {
+      // filterByPeriod ya filtró por countryGroup; usarlo directamente evita que
+      // countryGroupFor devuelva el grupo padre (ej 'ROW') para sub-países (ej 'Chile')
+      const g = (MARKET_GROUPS[countryGroup]) ? countryGroupFor(r.pais) : (countryGroup || countryGroupFor(r.pais));
+      if (!g) return;
+      if (!groups[g]) return;
+      const rawProd = (isGoal ? r.producto : r.producto_original) || 'Other';
+      const pg = productGroupFor(rawProd);
+      if (!groups[g][pg]) groups[g][pg] = {};
+      if (!groups[g][pg][rawProd]) groups[g][pg][rawProd] = { act: 0, goal: 0, ly: 0 };
+      const val = (r[metricField] || 0);
+      if (isLY)        groups[g][pg][rawProd].ly   += val;
+      else if (isGoal) groups[g][pg][rawProd].goal += val;
+      else             groups[g][pg][rawProd].act  += val;
+    });
+  }
+
+  accum(actuals,   false, false);
+  accum(goalAll,   true,  false);
+  accum(actualsLY, false, true);
+
+  return groups;
+}
+
+// ─────────────────────────────────────────────
+//  Color helpers
+// ─────────────────────────────────────────────
+function formatYM(ym) {
+  const [y, m] = ym.split('-');
+  return MONTH_NAMES[parseInt(m) - 1] + ' ' + y;
+}
+
+function cumplColor(pct) {
+  if (!isFinite(pct) || isNaN(pct)) return '';
+  if (pct < 0.80) return 'cell-red';
+  if (pct < 1.00) return 'cell-yellow';
+  return 'cell-green';
+}
+
+function deltaColor(delta) {
+  if (delta < 0) return 'cell-neg';
+  if (delta > 0) return 'cell-pos';
+  return '';
+}
+
+function yoyColor(val) {
+  if (val === null || val === undefined || isNaN(val) || !isFinite(val)) return '';
+  return val < 0 ? 'cell-neg' : 'cell-pos';
+}
+
+// ─────────────────────────────────────────────
+//  Pivot table renderer (sidebar, collapsible)
+// ─────────────────────────────────────────────
+function renderPivot(tab, channel, countryGroup, monthFilter) {
+  const { metric, dateType } = TAB_DATA[tab];
+  const { field, inMillions } = METRICS[metric];
+  const groups = buildPivotData(dateType, field, channel, countryGroup, monthFilter);
+
+  const convert = inMillions ? toM : toK;
+  const fmt     = inMillions ? fmtMc : fmtKc;
+
+  const body = document.getElementById('pivotBody');
+  body.innerHTML = '';
+
+  let totalAct = 0, totalGoal = 0, totalLY = 0;
+  const countryOrder = countryGroup ? (MARKET_GROUPS[countryGroup] || [countryGroup]) : Object.keys(COUNTRY_GROUPS);
+
+  countryOrder.forEach(countryName => {
+    const pgMap = groups[countryName] || {};
+
+    let ctAct = 0, ctGoal = 0, ctLY = 0;
+    PRODUCT_GROUP_ORDER.forEach(pg => {
+      Object.values(pgMap[pg] || {}).forEach(({ act, goal, ly }) => {
+        ctAct += act; ctGoal += goal; ctLY += ly;
+      });
+    });
+    if (ctAct === 0 && ctGoal === 0 && !countryGroup) return;
+
+    totalAct += ctAct; totalGoal += ctGoal; totalLY += ctLY;
+
+    const ctDelta = convert(ctAct - ctGoal);
+    const ctCumpl = ctGoal ? ctAct / ctGoal : null;
+    const ctYoY   = ctLY  ? (ctAct / ctLY) - 1 : null;
+    const isCountryCollapsed = collapseState[countryName] !== false;
+
+    const trC = document.createElement('tr');
+    trC.className = 'row-country';
+    trC.dataset.country = countryName;
+    trC.innerHTML = `
+      <td title="${countryName}"><span class="country-toggle">${isCountryCollapsed ? '▶' : '▼'}</span>${countryName}</td>
+      <td>${fmt(convert(ctAct))}</td>
+      <td class="${deltaColor(ctDelta)}">${fmt(ctDelta)}</td>
+      <td class="${cumplColor(ctCumpl)}">${fmtPct(ctCumpl)}</td>
+      <td class="${yoyColor(ctYoY)}">${yoyIcon(ctYoY)}</td>
+    `;
+    trC.addEventListener('click', () => toggleCountry(countryName));
+    body.appendChild(trC);
+
+    PRODUCT_GROUP_ORDER.forEach(pgName => {
+      const prods = pgMap[pgName] || {};
+      let pgAct = 0, pgGoal = 0, pgLY = 0;
+      Object.values(prods).forEach(({ act, goal, ly }) => {
+        pgAct += act; pgGoal += goal; pgLY += ly;
+      });
+      if (pgAct === 0 && pgGoal === 0) return;
+
+      const pgKey = countryName + '::' + pgName;
+      const isPGCollapsed = collapseState[pgKey] !== false;
+      const pgDelta = convert(pgAct - pgGoal);
+      const pgCumpl = pgGoal ? pgAct / pgGoal : null;
+      const pgYoY   = pgLY  ? (pgAct / pgLY) - 1 : null;
+
+      const trPG = document.createElement('tr');
+      trPG.className = 'row-product-group' + (isCountryCollapsed ? ' hidden' : '');
+      trPG.dataset.country = countryName;
+      trPG.dataset.pgkey   = pgKey;
+      trPG.innerHTML = `
+        <td title="${pgName}"><span class="product-group-toggle">${isPGCollapsed ? '▶' : '▼'}</span>${pgName}</td>
+        <td>${fmt(convert(pgAct))}</td>
+        <td class="${deltaColor(pgDelta)}">${fmt(pgDelta)}</td>
+        <td class="${cumplColor(pgCumpl)}">${fmtPct(pgCumpl)}</td>
+        <td class="${yoyColor(pgYoY)}">${yoyIcon(pgYoY)}</td>
+      `;
+      trPG.addEventListener('click', e => { e.stopPropagation(); toggleProductGroup(pgKey); });
+      body.appendChild(trPG);
+
+      Object.keys(prods).sort((a, b) => a.localeCompare(b)).forEach(prod => {
+        const { act, goal, ly } = prods[prod];
+        const delta = convert(act - goal);
+        const cumpl = goal ? act / goal : null;
+        const yoy   = ly  ? (act / ly) - 1 : null;
+        const isHidden = isCountryCollapsed || isPGCollapsed;
+        const trP = document.createElement('tr');
+        trP.className = 'row-product' + (isHidden ? ' hidden' : '');
+        trP.dataset.country = countryName;
+        trP.dataset.pgkey   = pgKey;
+        trP.innerHTML = `
+          <td title="${prod}">${prod}</td>
+          <td>${fmt(convert(act))}</td>
+          <td class="${deltaColor(delta)}">${fmt(delta)}</td>
+          <td class="${cumplColor(cumpl)}">${fmtPct(cumpl)}</td>
+          <td class="${yoyColor(yoy)}">${yoyIcon(yoy)}</td>
+        `;
+        body.appendChild(trP);
+      });
+    });
+  });
+
+  const tDelta = convert(totalAct - totalGoal);
+  const tCumpl = totalGoal ? totalAct / totalGoal : null;
+  const tYoY   = totalLY  ? (totalAct / totalLY) - 1 : null;
+  const trT = document.createElement('tr');
+  trT.className = 'row-total';
+  trT.innerHTML = `
+    <td>TOTAL</td>
+    <td>${fmt(convert(totalAct))}</td>
+    <td class="${deltaColor(tDelta)}">${fmt(tDelta)}</td>
+    <td class="${cumplColor(tCumpl)}">${fmtPct(tCumpl)}</td>
+    <td class="${yoyColor(tYoY)}">${yoyIcon(tYoY)}</td>
+  `;
+  body.appendChild(trT);
+}
+
+// ─────────────────────────────────────────────
+//  Tables view renderer (3 tablas, sin gráfico)
+// ─────────────────────────────────────────────
+function renderTableBody(bodyEl, groups, inMillions, countryGroup) {
+  const convert = inMillions ? toM : toK;
+  const fmt     = inMillions ? fmtMc : fmtKc;
+
+  bodyEl.innerHTML = '';
+
+  let totalAct = 0, totalGoal = 0, totalLY = 0;
+  const countryOrder = countryGroup ? (MARKET_GROUPS[countryGroup] || [countryGroup]) : Object.keys(COUNTRY_GROUPS);
+
+  countryOrder.forEach(countryName => {
+    const pgMap = groups[countryName] || {};
+
+    let ctAct = 0, ctGoal = 0, ctLY = 0;
+    PRODUCT_GROUP_ORDER.forEach(pg => {
+      Object.values(pgMap[pg] || {}).forEach(({ act, goal, ly }) => {
+        ctAct += act; ctGoal += goal; ctLY += ly;
+      });
+    });
+    if (ctAct === 0 && ctGoal === 0 && !countryGroup) return;
+
+    totalAct += ctAct; totalGoal += ctGoal; totalLY += ctLY;
+
+    const ctDelta = convert(ctAct - ctGoal);
+    const ctCumpl = ctGoal ? ctAct / ctGoal : null;
+    const ctYoY   = ctLY  ? (ctAct / ctLY) - 1 : null;
+
+    // País row (no collapsible in tables view)
+    const trC = document.createElement('tr');
+    trC.className = 'row-country';
+    trC.innerHTML = `
+      <td title="${countryName}">${countryName}</td>
+      <td>${fmt(convert(ctAct))}</td>
+      <td class="${deltaColor(ctDelta)}">${fmt(ctDelta)}</td>
+      <td class="${cumplColor(ctCumpl)}">${fmtPct(ctCumpl)}</td>
+      <td class="${yoyColor(ctYoY)}">${yoyIcon(ctYoY)}</td>
+    `;
+    bodyEl.appendChild(trC);
+
+    PRODUCT_GROUP_ORDER.forEach(pgName => {
+      const prods = pgMap[pgName] || {};
+      let pgAct = 0, pgGoal = 0, pgLY = 0;
+      Object.values(prods).forEach(({ act, goal, ly }) => {
+        pgAct += act; pgGoal += goal; pgLY += ly;
+      });
+      if (pgAct === 0 && pgGoal === 0) return;
+
+      const pgDelta = convert(pgAct - pgGoal);
+      const pgCumpl = pgGoal ? pgAct / pgGoal : null;
+      const pgYoY   = pgLY  ? (pgAct / pgLY) - 1 : null;
+
+      const trPG = document.createElement('tr');
+      trPG.className = 'row-product-group';
+      trPG.innerHTML = `
+        <td title="${pgName}" style="padding-left:20px">${pgName}</td>
+        <td>${fmt(convert(pgAct))}</td>
+        <td class="${deltaColor(pgDelta)}">${fmt(pgDelta)}</td>
+        <td class="${cumplColor(pgCumpl)}">${fmtPct(pgCumpl)}</td>
+        <td class="${yoyColor(pgYoY)}">${yoyIcon(pgYoY)}</td>
+      `;
+      bodyEl.appendChild(trPG);
+    });
+  });
+
+  const tDelta = convert(totalAct - totalGoal);
+  const tCumpl = totalGoal ? totalAct / totalGoal : null;
+  const tYoY   = totalLY  ? (totalAct / totalLY) - 1 : null;
+  const trT = document.createElement('tr');
+  trT.className = 'row-total';
+  trT.innerHTML = `
+    <td>TOTAL</td>
+    <td>${fmt(convert(totalAct))}</td>
+    <td class="${deltaColor(tDelta)}">${fmt(tDelta)}</td>
+    <td class="${cumplColor(tCumpl)}">${fmtPct(tCumpl)}</td>
+    <td class="${yoyColor(tYoY)}">${yoyIcon(tYoY)}</td>
+  `;
+  bodyEl.appendChild(trT);
+}
+
+function renderTablesView(dateType, channel, countryGroup, monthFilter) {
+  const gbGroups  = buildPivotData(dateType, METRICS.gb.field,  channel, countryGroup, monthFilter);
+  const nrGroups  = buildPivotData(dateType, METRICS.nr.field,  channel, countryGroup, monthFilter);
+  const fvmGroups = buildPivotData(dateType, METRICS.fvm.field, channel, countryGroup, monthFilter);
+
+  renderTableBody(document.getElementById('pivotBodyGB_t'),  gbGroups,  true,  countryGroup);
+  renderTableBody(document.getElementById('pivotBodyNR_t'),  nrGroups,  false, countryGroup);
+  renderTableBody(document.getElementById('pivotBodyFVM_t'), fvmGroups, false, countryGroup);
+}
+
+// ─────────────────────────────────────────────
+//  Collapse/expand (sidebar pivot only)
+// ─────────────────────────────────────────────
+function toggleCountry(countryName) {
+  const isCurrentlyCollapsed = collapseState[countryName] !== false;
+  collapseState[countryName] = !isCurrentlyCollapsed;
+
+  document.querySelectorAll(`#pivotBody .row-product-group[data-country="${countryName}"]`).forEach(tr => {
+    tr.classList.toggle('hidden', !isCurrentlyCollapsed);
+  });
+  if (isCurrentlyCollapsed === false) {
+    document.querySelectorAll(`#pivotBody .row-product[data-country="${countryName}"]`).forEach(tr => {
+      tr.classList.add('hidden');
+    });
+  }
+  const countryRow = document.querySelector(`#pivotBody .row-country[data-country="${countryName}"]`);
+  if (countryRow) {
+    const span = countryRow.querySelector('.country-toggle');
+    if (span) span.textContent = isCurrentlyCollapsed ? '▼' : '▶';
+  }
+}
+
+function toggleProductGroup(pgKey) {
+  const isCurrentlyCollapsed = collapseState[pgKey] !== false;
+  collapseState[pgKey] = !isCurrentlyCollapsed;
+
+  document.querySelectorAll(`#pivotBody .row-product[data-pgkey="${pgKey}"]`).forEach(tr => {
+    tr.classList.toggle('hidden', !isCurrentlyCollapsed);
+  });
+  const pgRow = document.querySelector(`#pivotBody .row-product-group[data-pgkey="${pgKey}"]`);
+  if (pgRow) {
+    const span = pgRow.querySelector('.product-group-toggle');
+    if (span) span.textContent = isCurrentlyCollapsed ? '▼' : '▶';
+  }
+}
+
+// ─────────────────────────────────────────────
+//  Status KRs — country constants
+// ─────────────────────────────────────────────
+const AG_GROUPS = [
+  { label: 'Brasil',           keys: ['Brasil'] },
+  { label: 'Mexico',           keys: ['Mexico'] },
+  { label: 'Argentina',        keys: ['Argentina'] },
+  { label: 'Colombia',         keys: ['Colombia'] },
+  { label: 'Chile',            keys: ['Chile'] },
+  { label: 'Globales',         keys: ['Other Countries', 'Usa', 'Panama', 'España'] },
+  { label: 'Peru',             keys: ['Peru'] },
+  { label: 'Ecua / Uru / Par', keys: ['Ecuador', 'Uruguay', 'Paraguay'] }
+];
+
+// ─────────────────────────────────────────────
+//  Status KRs — data helpers
+// ─────────────────────────────────────────────
+
+// Usa filterByPeriod + getPeriodBounds (misma infraestructura que NR/FVM tabs)
+// countryGroupNames: claves de COUNTRY_GROUPS, ej ['Brasil','Mexico','Globales']
+// metricField: 'net_revenue' | 'fvm'
+// monthFilter: 'YYYY-MM' o null para mes actual
+function _resolveYM(monthFilter) {
+  if (monthFilter) return monthFilter;
+  var today = new Date();
+  return today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
+}
+
+function computeMetricMTD(countryGroupNames, metricField, monthFilter) {
+  if (!rawData) return { actual: 0, budget: 0 };
+  var bounds = getPeriodBounds(_resolveYM(monthFilter), rawData.meta);
+
+  var actual = 0, budget = 0;
+  countryGroupNames.forEach(function(groupName) {
+    var actRows  = filterByPeriod(getActuals('ri'), null, groupName, bounds.from, bounds.cutoff);
+    var budRows  = filterByPeriod(getGoal('ri', 'budget'), null, groupName, bounds.from, bounds.cutoff);
+    actRows.forEach(function(r)  { actual += (r[metricField] || 0); });
+    budRows.forEach(function(r)  { budget += (r[metricField] || 0); });
+  });
+  return { actual: actual, budget: budget };
+}
+
+function computeMetricMTDByCountry(groupNames, metricField, monthFilter) {
+  if (!rawData) return {};
+  var bounds = getPeriodBounds(_resolveYM(monthFilter), rawData.meta);
+  var result = {};
+  groupNames.forEach(function(groupName) {
+    var actRows = filterByPeriod(getActuals('ri'), null, groupName, bounds.from, bounds.cutoff);
+    var budRows = filterByPeriod(getGoal('ri', 'budget'), null, groupName, bounds.from, bounds.cutoff);
+    var act = 0, bud = 0;
+    actRows.forEach(function(r) { act += (r[metricField] || 0); });
+    budRows.forEach(function(r) { bud += (r[metricField] || 0); });
+    result[groupName] = { actual: act, budget: bud };
+  });
+  return result;
+}
+
+function computeMetricForPaisList(paisList, metricField, monthFilter) {
+  if (!rawData) return { actual: 0, budget: 0 };
+  var bounds = getPeriodBounds(_resolveYM(monthFilter), rawData.meta);
+  var paisLower = paisList.map(function(p) { return p.toLowerCase(); });
+  function matchRows(rows, from, cutoff) {
+    return rows.filter(function(r) {
+      if (r.fecha < from || r.fecha > cutoff) return false;
+      return paisLower.indexOf((r.pais || '').toLowerCase()) !== -1;
+    });
+  }
+  var actRows = matchRows(getActuals('ri'), bounds.from, bounds.cutoff);
+  var budRows = matchRows(getGoal('ri', 'budget'), bounds.from, bounds.cutoff);
+  var actual = 0, budget = 0;
+  actRows.forEach(function(r) { actual += (r[metricField] || 0); });
+  budRows.forEach(function(r) { budget += (r[metricField] || 0); });
+  return { actual: actual, budget: budget };
+}
+
+function fmtKRVal(val, unit) {
+  if (val === null || val === undefined || isNaN(val)) return '—';
+  if (unit === 'int') return Math.round(val).toLocaleString('es-AR');
+  if (unit === '$M')  return '$ ' + val.toFixed(2) + ' M';
+  return String(val);
+}
+
+// ─────────────────────────────────────────────
+//  Weekly view — helpers y render
+// ─────────────────────────────────────────────
+const _MESES_SHORT = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+function _getMonday(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00');
+  const day = d.getDay();
+  d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day));
+  return d.toISOString().slice(0, 10);
+}
+
+function _addDays(dateStr, n) {
+  const d = new Date(dateStr + 'T12:00:00');
+  d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+function _isoWeek(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00');
+  d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7);
+  const w1 = new Date(d.getFullYear(), 0, 4);
+  return 1 + Math.round(((d - w1) / 86400000 - 3 + (w1.getDay() + 6) % 7) / 7);
+}
+
+function _fmtWeekLabel(mon, sun) {
+  const dM = new Date(mon + 'T12:00:00');
+  const dS = new Date(sun + 'T12:00:00');
+  const wn = _isoWeek(mon);
+  const range = (dM.getMonth() === dS.getMonth())
+    ? dM.getDate() + ' - ' + dS.getDate() + ' ' + _MESES_SHORT[dS.getMonth()]
+    : dM.getDate() + ' ' + _MESES_SHORT[dM.getMonth()] + ' → ' + dS.getDate() + ' ' + _MESES_SHORT[dS.getMonth()];
+  return 'Sem ' + wn + ' | ' + range;
+}
+
+function _sumWeek(rows, from, to, field) {
+  return rows.reduce(function(s, r) {
+    return (r.fecha >= from && r.fecha <= to) ? s + (Number(r[field]) || 0) : s;
+  }, 0);
+}
+
+function _buildWeeklyTable(weeks, firstRRIdx, allActuals, allRunrate, allLY, dateType, channel, countryGroup) {
+  const METRICS_W = [
+    { label: 'GB ($M)',  valKey: 'gb',  yoyKey: 'yGB',  fmt: function(v) { return fmtMc(toM(v)); } },
+    { label: 'NR ($K)',  valKey: 'nr',  yoyKey: 'yNR',  fmt: function(v) { return fmtKc(toK(v)); } },
+    { label: 'FVM ($K)', valKey: 'fvm', yoyKey: 'yFVM', fmt: function(v) { return fmtKc(toK(v)); } },
+  ];
+
+  const weekData = weeks.map(function(w, i) {
+    const rows  = w.isReal ? allActuals : allRunrate;
+    const lyMon = shiftYear(w.mon, -1);
+    const lySun = shiftYear(w.sun, -1);
+
+    const fr   = filterByPeriod(rows,  channel || null, countryGroup || null, w.mon, w.sun);
+    const frLY = filterByPeriod(allLY, channel || null, countryGroup || null, lyMon, lySun);
+
+    function sum(arr, field) { return arr.reduce(function(s, r) { return s + (Number(r[field]) || 0); }, 0); }
+
+    const gb  = sum(fr,   'gross_bookings');
+    const nr  = sum(fr,   'net_revenue');
+    const fvm = sum(fr,   'fvm');
+    const gbLY  = sum(frLY, 'gross_bookings');
+    const nrLY  = sum(frLY, 'net_revenue');
+    const fvmLY = sum(frLY, 'fvm');
+
+    return {
+      w,
+      isSep: i === firstRRIdx,
+      gb, nr, fvm,
+      yGB:  gbLY  ? gb  / gbLY  - 1 : null,
+      yNR:  nrLY  ? nr  / nrLY  - 1 : null,
+      yFVM: fvmLY ? fvm / fvmLY - 1 : null,
+    };
+  });
+
+  const table = document.createElement('table');
+  table.className = 'pivot-table weekly-table';
+  table.style.marginBottom = '0';
+
+  // Header
+  const thead = document.createElement('thead');
+  const trH   = document.createElement('tr');
+  const thLbl = document.createElement('th');
+  thLbl.style.cssText = 'text-align:left;min-width:80px';
+  trH.appendChild(thLbl);
+  weekData.forEach(function(wd) {
+    const th = document.createElement('th');
+    if (wd.isSep) th.style.borderLeft = '2px solid #374151';
+    th.textContent = 'S' + _isoWeek(wd.w.mon);
+    trH.appendChild(th);
+  });
+  thead.appendChild(trH);
+  table.appendChild(thead);
+
+  // Body
+  const tbody = document.createElement('tbody');
+  METRICS_W.forEach(function(m, mi) {
+    // Valor
+    const trV = document.createElement('tr');
+    trV.className = 'weekly-metric-val' + (mi > 0 ? ' metric-group-sep' : '');
+    const tdL = document.createElement('td');
+    tdL.className = 'weekly-metric-label';
+    tdL.textContent = m.label;
+    trV.appendChild(tdL);
+    weekData.forEach(function(wd) {
+      const td = document.createElement('td');
+      td.className = 'weekly-cell-val';
+      if (wd.isSep) td.style.borderLeft = '2px solid #374151';
+      td.textContent = wd[m.valKey] ? m.fmt(wd[m.valKey]) : '—';
+      trV.appendChild(td);
+    });
+    tbody.appendChild(trV);
+
+    // YoY
+    const trY = document.createElement('tr');
+    trY.className = 'weekly-metric-yoy';
+    const tdYL = document.createElement('td');
+    tdYL.className = 'weekly-yoy-label';
+    tdYL.textContent = 'YoY';
+    trY.appendChild(tdYL);
+    weekData.forEach(function(wd) {
+      const td = document.createElement('td');
+      td.className = yoyColor(wd[m.yoyKey]);
+      if (wd.isSep) td.style.borderLeft = '2px solid #374151';
+      td.innerHTML = yoyIcon(wd[m.yoyKey]);
+      trY.appendChild(td);
+    });
+    tbody.appendChild(trY);
+  });
+
+  table.appendChild(tbody);
+  return table;
+}
+
+function _buildProjectionWidget(allActuals, allGoal, allLY, channel, countryGroup) {
+  const today = new Date().toISOString().slice(0, 10);
+  const yr = today.slice(0, 4), mo = today.slice(5, 7);
+  const monthStart = yr + '-' + mo + '-01';
+  const daysInMonth = new Date(parseInt(yr), parseInt(mo), 0).getDate();
+  const monthEnd = yr + '-' + mo + '-' + String(daysInMonth).padStart(2, '0');
+  const yesterday = _addDays(today, -1);
+  const daysElapsed = Math.max(1, Math.round((new Date(yesterday) - new Date(monthStart)) / 86400000) + 1);
+
+  const lyYr = String(parseInt(yr) - 1);
+  const lyDaysInMonth = new Date(parseInt(lyYr), parseInt(mo), 0).getDate();
+  const lyMonthStart = lyYr + '-' + mo + '-01';
+  const lyMonthEnd   = lyYr + '-' + mo + '-' + String(lyDaysInMonth).padStart(2, '0');
+
+  function sum(arr, f) { return arr.reduce(function(s, r) { return s + (Number(r[f]) || 0); }, 0); }
+
+  const mtd = filterByPeriod(allActuals, channel || null, countryGroup || null, monthStart, yesterday);
+  const tgt = filterByPeriod(allGoal,    channel || null, countryGroup || null, monthStart, monthEnd);
+  const ly  = filterByPeriod(allLY,      channel || null, countryGroup || null, lyMonthStart, lyMonthEnd);
+
+  const factor = daysInMonth / daysElapsed;
+  const metrics = [
+    { label: 'Gross Bookings',
+      proj: sum(mtd, 'gross_bookings') * factor,
+      tgt:  sum(tgt, 'gross_bookings'),
+      ly:   sum(ly,  'gross_bookings'),
+      fmt:  function(v) { return fmtMc(toM(v)); } },
+    { label: 'Net Revenues',
+      proj: sum(mtd, 'net_revenue') * factor,
+      tgt:  sum(tgt, 'net_revenue'),
+      ly:   sum(ly,  'net_revenue'),
+      fmt:  function(v) { return fmtKc(toK(v)); } },
+    { label: 'FVM',
+      proj: sum(mtd, 'fvm') * factor,
+      tgt:  sum(tgt, 'fvm'),
+      ly:   sum(ly,  'fvm'),
+      fmt:  function(v) { return fmtKc(toK(v)); } },
+  ];
+
+  const card = document.createElement('div');
+  card.className = 'weekly-card weekly-widget-card weekly-proj-card';
+
+  const titleEl = document.createElement('div');
+  titleEl.className = 'weekly-card-title';
+  const MON = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  titleEl.textContent = 'Proy. ' + MON[parseInt(mo) - 1] + ' · vs Target & YoY  (' + daysElapsed + '/' + daysInMonth + ' días)';
+  card.appendChild(titleEl);
+
+  const table = document.createElement('table');
+  table.className = 'proj-table';
+
+  const thead = document.createElement('thead');
+  thead.innerHTML = '<tr><th></th><th>Proyección</th><th>vs Target</th><th>YoY</th></tr>';
+  table.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+  metrics.forEach(function(m, i) {
+    const vs  = m.tgt ? m.proj / m.tgt - 1 : null;
+    const yoy = m.ly  ? m.proj / m.ly  - 1 : null;
+    function pctStr(v) { return v !== null ? ((v >= 0 ? '+' : '') + (v * 100).toFixed(0) + '%') : '—'; }
+    function pctCls(v) { return v === null ? 'widget-pct-neu' : (v >= 0 ? 'widget-nom-pos' : 'widget-nom-neg'); }
+    const tr = document.createElement('tr');
+    tr.className = i > 0 ? 'widget-group-sep' : '';
+    tr.innerHTML =
+      '<td class="widget-metric-lbl">' + m.label + '</td>' +
+      '<td class="widget-val">' + m.fmt(m.proj) + '</td>' +
+      '<td class="widget-val ' + pctCls(vs)  + '">' + pctStr(vs)  + '</td>' +
+      '<td class="widget-val ' + pctCls(yoy) + '">' + pctStr(yoy) + '</td>';
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  const scroll = document.createElement('div');
+  scroll.style.overflowX = 'auto';
+  scroll.appendChild(table);
+  card.appendChild(scroll);
+  return card;
+}
+
+function _buildCompWidget(weeks, allActuals, channel, countryGroup) {
+  const realWeeks = weeks.filter(function(w) { return w.isReal; });
+  const wxx = realWeeks[realWeeks.length - 1];
+
+  function sum(arr, field) { return arr.reduce(function(s, r) { return s + (Number(r[field]) || 0); }, 0); }
+  function wkSum(w, field) { return sum(filterByPeriod(allActuals, channel || null, countryGroup || null, w.mon, w.sun), field); }
+
+  const wxxGB  = wkSum(wxx, 'gross_bookings');
+  const wxxNR  = wkSum(wxx, 'net_revenue');
+  const wxxFVM = wkSum(wxx, 'fvm');
+
+  let sumGB = 0, sumNR = 0, sumFVM = 0;
+  realWeeks.forEach(function(w) {
+    sumGB  += wkSum(w, 'gross_bookings');
+    sumNR  += wkSum(w, 'net_revenue');
+    sumFVM += wkSum(w, 'fvm');
+  });
+  const n = realWeeks.length || 1;
+  const avgGB = sumGB / n, avgNR = sumNR / n, avgFVM = sumFVM / n;
+
+  const metrics = [
+    { label: 'Gross Bookings', nom: wxxGB - avgGB, pct: avgGB ? (wxxGB / avgGB - 1) : null, fmtN: function(v) { return (v >= 0 ? '+' : '') + fmtMc(toM(v)); } },
+    { label: 'Net Revenues',   nom: wxxNR - avgNR, pct: avgNR ? (wxxNR / avgNR - 1) : null, fmtN: function(v) { return (v >= 0 ? '+' : '') + fmtKc(toK(v)); } },
+    { label: 'FVM',            nom: wxxFVM - avgFVM, pct: avgFVM ? (wxxFVM / avgFVM - 1) : null, fmtN: function(v) { return (v >= 0 ? '+' : '') + fmtKc(toK(v)); } },
+  ];
+
+  const card = document.createElement('div');
+  card.className = 'weekly-card weekly-widget-card';
+
+  const title = document.createElement('div');
+  title.className = 'weekly-card-title';
+  title.textContent = 'Sem ' + _isoWeek(wxx.mon) + ' vs L4W';
+  card.appendChild(title);
+
+  const table = document.createElement('table');
+  table.className = 'widget-table';
+
+  metrics.forEach(function(m, i) {
+    const posNom = m.nom >= 0;
+    const posPct = m.pct !== null && m.pct >= 0;
+
+    const trN = document.createElement('tr');
+    trN.className = i > 0 ? 'widget-group-sep' : '';
+    trN.innerHTML =
+      '<td class="widget-metric-lbl">' + m.label + '</td>' +
+      '<td class="widget-val ' + (posNom ? 'widget-nom-pos' : 'widget-nom-neg') + '">' + m.fmtN(m.nom) + '</td>';
+    table.appendChild(trN);
+
+    const trP = document.createElement('tr');
+    trP.className = 'widget-pct-row';
+    const pctStr = m.pct !== null ? ((m.pct >= 0 ? '+' : '') + (m.pct * 100).toFixed(0) + '%') : '—';
+    trP.innerHTML =
+      '<td class="widget-pct-lbl">vs promedio L4W</td>' +
+      '<td class="widget-val ' + (m.pct === null ? 'widget-pct-neu' : (posPct ? 'widget-pct-pos' : 'widget-pct-neg')) + '">' + pctStr + '</td>';
+    table.appendChild(trP);
+  });
+
+  card.appendChild(table);
+  return card;
+}
+
+function renderWeeklyView(dateType, countryGroup) {
+  if (!rawData) return;
+
+  document.getElementById('weeklyTitle').textContent =
+    'Performance Semanal — ' + (dateType === 'gd' ? 'Gestion Date' : 'Recognition Date');
+
+  const today      = new Date().toISOString().slice(0, 10);
+  const thisMonday = _getMonday(today);
+
+  const weeks = [];
+  for (let i = 4; i >= 1; i--) {
+    const mon = _addDays(thisMonday, -7 * i);
+    weeks.push({ mon, sun: _addDays(mon, 6), isReal: true });
+  }
+  for (let i = 0; i <= 3; i++) {
+    const mon = _addDays(thisMonday, 7 * i);
+    weeks.push({ mon, sun: _addDays(mon, 6), isReal: false });
+  }
+
+  const firstRRIdx = weeks.findIndex(function(w) { return !w.isReal; });
+  const allActuals = getActuals(dateType);
+  const allRunrate = getGoal(dateType, 'rr');
+  const allLY      = getActualsLY(dateType);
+
+  const sections = [
+    { label: 'Total',              channel: null },
+    { label: 'API',                channel: 'API' },
+    { label: 'Agencias afiliadas', channel: 'Agencias afiliadas' },
+  ];
+
+  const container = document.getElementById('weeklyTablesContainer');
+  container.innerHTML = '';
+
+  function _makeTableCard(sec) {
+    const card = document.createElement('div');
+    card.className = 'weekly-card';
+    const title = document.createElement('div');
+    title.className = 'weekly-card-title';
+    title.textContent = sec.label;
+    const scroll = document.createElement('div');
+    scroll.className = 'weekly-card-scroll';
+    scroll.appendChild(_buildWeeklyTable(weeks, firstRRIdx, allActuals, allRunrate, allLY, dateType, sec.channel, countryGroup));
+    card.appendChild(title);
+    card.appendChild(scroll);
+    return card;
+  }
+
+  sections.forEach(function(sec) {
+    const row = document.createElement('div');
+    row.className = 'weekly-section-row';
+
+    const wrap = document.createElement('div');
+    wrap.className = 'weekly-main-wrap';
+    wrap.appendChild(_makeTableCard(sec));
+    row.appendChild(wrap);
+
+    row.appendChild(_buildCompWidget(weeks, allActuals, sec.channel, countryGroup));
+    row.appendChild(_buildProjectionWidget(allActuals, allRunrate, allLY, sec.channel, countryGroup));
+    container.appendChild(row);
+  });
+}
+
+// ─────────────────────────────────────────────
+//  Status KRs — load + render
+// ─────────────────────────────────────────────
+function loadAgencias() {
+  if (agenciasState === 'loading' || agenciasState === 'loaded') return;
+  agenciasState = 'loading';
+  google.script.run
+    .withSuccessHandler(function(data) {
+      agenciasData  = data;
+      agenciasState = 'loaded';
+      renderStatusKRs();
+    })
+    .withFailureHandler(function(err) {
+      agenciasState = 'error';
+      const box = document.getElementById('statusKRsError');
+      box.style.display = 'block';
+      box.textContent = 'Error al cargar agencias: ' + (err.message || err);
+      renderStatusKRs();
+    })
+    .getAgenciasOKR();
+}
+
+function loadAirNR() {
+  if (airNRState === 'loading' || airNRState === 'loaded') return;
+  airNRState = 'loading';
+  google.script.run
+    .withSuccessHandler(function(data) {
+      airNRData  = data;
+      airNRState = 'loaded';
+      renderStatusKRs();
+    })
+    .withFailureHandler(function(err) {
+      airNRState = 'error';
+      renderStatusKRs();
+    })
+    .getAirNRData();
+}
+
+function renderStatusKRs() {
+  // Determinar si todavía cargando datos críticos (agencias)
+  const spinner = document.getElementById('statusKRsSpinner');
+  const wrap    = document.getElementById('statusKRsWrap');
+
+  if (agenciasState === 'loading' || agenciasState === 'idle') {
+    spinner.style.display = 'flex';
+    wrap.style.display    = 'none';
+    return;
+  }
+
+  spinner.style.display = 'none';
+
+  // ── Mes seleccionado ─────────────────────────────────────────
+  var today   = new Date();
+  var _curYM  = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
+  var selKRMes = document.getElementById('filterMonthKRs');
+  var krYM    = (selKRMes && selKRMes.value) ? selKRMes.value : _curYM;
+  var isCurrentMonth = (krYM === _curYM);
+
+  document.getElementById('statusKRsTitle').textContent =
+    'Status KRs — ' + formatYM(krYM) + (isCurrentMonth ? ' (MTD)' : ' (mes completo)');
+
+  // Actualizar cabeceras de la tabla
+  var thActual = document.querySelector('#statusKRsTable thead th:nth-child(3)');
+  var thBudget = document.querySelector('#statusKRsTable thead th:nth-child(4)');
+  if (thActual) thActual.textContent = isCurrentMonth ? 'Actual MTD' : 'Actual';
+  if (thBudget) thBudget.textContent = isCurrentMonth ? 'Budget MTD' : 'Budget';
+
+  // Cartel de rango de datos
+  var metaEl = document.getElementById('statusKRsMeta');
+  metaEl.innerHTML = '';
+
+  if (rawData && rawData.meta) {
+    var bounds = getPeriodBounds(krYM, rawData.meta);
+    var rangeSpan = document.createElement('span');
+    rangeSpan.className = 'kr-data-range';
+    rangeSpan.innerHTML = '&#128197; Datos: <strong>' + bounds.from + '</strong> → <strong>' + bounds.cutoff + '</strong>';
+    metaEl.appendChild(rangeSpan);
+  }
+  if (agenciasData && agenciasData.meta) {
+    var agSpan = document.createElement('span');
+    agSpan.className = 'kr-data-range kr-data-range-sec';
+    agSpan.innerHTML = '&#128337; KR1 Agencias: <strong>' + agenciasData.meta.fecha_ini + '</strong> → <strong>' + agenciasData.meta.fecha_fin + '</strong>';
+    metaEl.appendChild(agSpan);
+  }
+
+  // ── KR1: Agencies L4W ─────────────────────────────────────────
+  // Suma desde los mismos países que el detail box para garantizar identidad
+  var kr1Act = null, kr1Bud = null;
+  if (agenciasData && agenciasData.data) {
+    var _kr1Countries = ['Brasil', 'Mexico', 'Argentina', 'Colombia', 'Chile', 'Globales', 'Peru', 'Ecua / Uru / Par'];
+    var _kr1SumAct = 0, _kr1SumBud = 0;
+    _kr1Countries.forEach(function(c) {
+      var d = agenciasData.data[c];
+      if (!d) return;
+      _kr1SumAct += (_KR1_ACT_PATCH[c] !== undefined ? _KR1_ACT_PATCH[c] : (d['Total'] || 0));
+      var b = (_KR1_BUD_PATCH[c] !== undefined) ? _KR1_BUD_PATCH[c] : (agenciasData.budget && agenciasData.budget[c]);
+      if (b !== null && b !== undefined && !isNaN(b)) _kr1SumBud += b;
+    });
+    kr1Act = (typeof _KR1_TOTAL_ACT !== 'undefined') ? _KR1_TOTAL_ACT : _kr1SumAct;
+    kr1Bud = (typeof _KR1_TOTAL_BUD !== 'undefined') ? _KR1_TOTAL_BUD : (_kr1SumBud > 0 ? _kr1SumBud : null);
+  }
+
+  // ── KR2: NR Core Markets (Brasil + Mexico + Globales) ────────
+  var kr2 = computeMetricMTD(['Brasil', 'Mexico', 'Globales'], 'net_revenue', krYM);
+
+  // ── KR3: NR New Markets (Argentina + Colombia + ROW) ─────────
+  var kr3 = computeMetricMTD(['Argentina', 'Colombia', 'ROW'], 'net_revenue', krYM);
+
+  // ── KR4: Air NR from suppliers ────────────────────────────────
+  var kr4Act = null, kr4Bud = null;
+  if (airNRState === 'loaded' && airNRData) {
+    kr4Act = airNRData.actual || 0;
+    kr4Bud = airNRData.budget || 0;
+  }
+
+  // ── KR5: FVM MTD — todos los países (extra KR) ───────────────
+  var kr5 = computeMetricMTD(Object.keys(COUNTRY_GROUPS), 'fvm', krYM);
+
+  // ── Cumplimiento ─────────────────────────────────────────────
+  function cumpl(act, bud) {
+    if (act === null || bud === null || !bud) return null;
+    return act / bud;
+  }
+
+  function cap(c) { return c !== null ? Math.min(c, 1.30) : null; }
+
+  var kr1c = cap(cumpl(kr1Act, kr1Bud));
+  var kr2c = cap(cumpl(kr2.actual, kr2.budget));
+  var kr3c = cap(cumpl(kr3.actual, kr3.budget));
+  var kr4c = (airNRState === 'loaded') ? cap(cumpl(kr4Act, kr4Bud)) : null;
+  var kr5c = cap(cumpl(kr5.actual, kr5.budget));
+
+  // Overall = promedio ponderado KR1–KR4 (normaliza si KR4 aún no cargó)
+  var _krWeights = [
+    { c: kr1c, w: 0.20 },
+    { c: kr2c, w: 0.40 },
+    { c: kr3c, w: 0.20 },
+    { c: kr4c, w: 0.20 }
+  ];
+  var _wSum = 0, _wCumpl = 0;
+  _krWeights.forEach(function(kr) {
+    if (kr.c !== null) { _wSum += kr.w; _wCumpl += kr.c * kr.w; }
+  });
+  var overall = _wSum > 0 ? Math.min(_wCumpl / _wSum, 1.30) : null;
+
+  // ── Render tabla ─────────────────────────────────────────────
+  var tbody = document.getElementById('statusKRsBody');
+  tbody.innerHTML = '';
+
+  function makeKRRow(name, peso, actVal, budVal, cumplVal, unit, isExtra) {
+    var tr = document.createElement('tr');
+    tr.className = isExtra ? 'row-kr-extra' : '';
+
+    var actStr   = fmtKRVal(actVal, unit);
+    var budStr   = fmtKRVal(budVal, unit);
+    var cumplStr = cumplVal === null ? '—' : (cumplVal * 100).toFixed(0) + '%';
+    var cumplCls = cumplColor(cumplVal);
+    var pesoStr  = peso !== null ? peso : '—';
+
+    tr.innerHTML =
+      '<td style="text-align:left">' + name + '</td>' +
+      '<td style="color:#6b7280;font-size:0.78rem">' + pesoStr + '</td>' +
+      '<td>' + actStr + '</td>' +
+      '<td>' + budStr + '</td>' +
+      '<td class="' + cumplCls + '">' + cumplStr + '</td>';
+    return tr;
+  }
+
+  // KR1 — warning: agencias siempre refleja últimos 30 días reales
+  tbody.appendChild(makeKRRow(
+    'Agencies L4W <span class="kr-warning-tag" title="Los datos de agencias siempre son los últimos 30 días reales — no varía con el filtro de mes">L4W real</span>',
+    '20%', kr1Act, kr1Bud, kr1c, 'int', false
+  ));
+
+  // KR2
+  tbody.appendChild(makeKRRow(
+    'NR Core Markets $M', '40%',
+    kr2.actual > 0 || kr2.budget > 0 ? toM(kr2.actual) : null,
+    kr2.actual > 0 || kr2.budget > 0 ? toM(kr2.budget) : null,
+    kr2c, '$M', false
+  ));
+
+  // KR3
+  tbody.appendChild(makeKRRow(
+    'NR New Markets $M', '20%',
+    kr3.actual > 0 || kr3.budget > 0 ? toM(kr3.actual) : null,
+    kr3.actual > 0 || kr3.budget > 0 ? toM(kr3.budget) : null,
+    kr3c, '$M', false
+  ));
+
+  // KR4: puede estar cargando
+  if (airNRState === 'loading' || airNRState === 'idle') {
+    var trKR4 = document.createElement('tr');
+    trKR4.innerHTML =
+      '<td style="text-align:left">Air Net Revenue $M <span class="kr-warning-tag" title="Air NR refleja el último mes disponible en el sheet — no varía con el filtro de mes">mes fijo</span></td>' +
+      '<td style="color:#6b7280;font-size:0.78rem">20%</td>' +
+      '<td colspan="3" style="text-align:center;color:#9ca3af;font-style:italic">Cargando...</td>';
+    tbody.appendChild(trKR4);
+  } else {
+    tbody.appendChild(makeKRRow(
+      'Air Net Revenue $M <span class="kr-warning-tag" title="Air NR refleja el último mes disponible en el sheet — no varía con el filtro de mes">mes fijo</span>',
+      '20%',
+      kr4Act !== null ? toM(kr4Act) : null,
+      kr4Bud !== null ? toM(kr4Bud) : null,
+      kr4c, '$M', false
+    ));
+  }
+
+  // KR5 (extra — no entra en el overall)
+  tbody.appendChild(makeKRRow(
+    'Financial Variable Margin $M', null,
+    kr5.actual !== 0 || kr5.budget !== 0 ? toM(kr5.actual) : null,
+    kr5.actual !== 0 || kr5.budget !== 0 ? toM(kr5.budget) : null,
+    kr5c, '$M', true
+  ));
+
+  // Overall ponderado KR1–KR4
+  var trTotal = document.createElement('tr');
+  trTotal.className = 'row-kr-total';
+  var overallStr = overall !== null ? (overall * 100).toFixed(0) + '%' : '—';
+  var overallCls = overall !== null ? cumplColor(overall) : '';
+  trTotal.innerHTML =
+    '<td style="text-align:left">OVERALL (KR1–KR4)</td>' +
+    '<td style="color:#6b7280;font-size:0.78rem">100%</td>' +
+    '<td>—</td>' +
+    '<td>—</td>' +
+    '<td class="' + overallCls + '">' + overallStr + '</td>';
+  tbody.appendChild(trTotal);
+
+  // ── Detail boxes por país ─────────────────────────────────────
+  renderKRDetailBoxes(krYM);
+
+  wrap.style.display = 'block';
+}
+
+// Country detail definitions for KR breakdown tables
+var NR_CORE_DETAIL = [
+  { name: 'Brasil',       pais: ['Brasil'] },
+  { name: 'Mexico',       pais: ['Mexico'] },
+  { name: 'Globales',     pais: ['Other Countries'] }
+];
+var NR_NEW_DETAIL = [
+  { name: 'Argentina',    pais: ['Argentina'] },
+  { name: 'Colombia',     pais: ['Colombia'] },
+  { name: 'Chile',        pais: ['Chile'] },
+  { name: 'Peru',         pais: ['Peru'] },
+  { name: 'Ecua/Uru/Par', pais: ['Ecuador', 'Uruguay', 'Paraguay'] }
+];
+var FVM_DETAIL = [
+  { name: 'Brasil',       pais: ['Brasil'] },
+  { name: 'Mexico',       pais: ['Mexico'] },
+  { name: 'Globales',     pais: ['Other Countries'] },
+  { name: 'Argentina',    pais: ['Argentina'] },
+  { name: 'Colombia',     pais: ['Colombia'] },
+  { name: 'Chile',        pais: ['Chile'] },
+  { name: 'Peru',         pais: ['Peru'] },
+  { name: 'Ecua/Uru/Par', pais: ['Ecuador', 'Uruguay', 'Paraguay'] }
+];
+
+function renderKRDetailBoxes(monthFilter) {
+  var grid = document.getElementById('statusKRsDetailGrid');
+  grid.innerHTML = '';
+
+  function makeDetailBox(krNum, title, rows, unit, totalOverride) {
+    var box = document.createElement('div');
+    box.className = 'kr-detail-box';
+    var tableRows = rows.map(function(r) {
+      var actStr = fmtKRVal(r.actual, unit);
+      var budStr = fmtKRVal(r.budget, unit);
+      var c = (r.budget && r.actual !== null) ? r.actual / r.budget : null;
+      var cls = cumplColor(c);
+      var cStr = c !== null ? (c * 100).toFixed(0) + '%' : '—';
+      return '<tr><td style="text-align:left">' + r.name + '</td><td>' + actStr + '</td><td>' + budStr + '</td><td class="' + cls + '">' + cStr + '</td></tr>';
+    }).join('');
+    // Fila total
+    var totalAct = 0, totalBud = 0, hasAct = false, hasBud = false;
+    rows.forEach(function(r) {
+      if (r.actual !== null && r.actual !== undefined && !isNaN(r.actual)) { totalAct += r.actual; hasAct = true; }
+      if (r.budget !== null && r.budget !== undefined && !isNaN(r.budget)) { totalBud += r.budget; hasBud = true; }
+    });
+    if (totalOverride) { totalAct = totalOverride.act; totalBud = totalOverride.bud; hasAct = true; hasBud = true; }
+    var tc = (hasBud && totalBud) ? Math.min(totalAct / totalBud, 1.30) : null;
+    var tActStr = hasAct ? fmtKRVal(totalAct, unit) : '—';
+    var tBudStr = hasBud ? fmtKRVal(totalBud, unit) : '—';
+    var tCls = cumplColor(tc);
+    var tCStr = tc !== null ? (tc * 100).toFixed(0) + '%' : '—';
+    var totalRow = '<tr class="kr-detail-total"><td style="text-align:left;font-weight:700">TOTAL</td><td><strong>' + tActStr + '</strong></td><td><strong>' + tBudStr + '</strong></td><td class="' + tCls + '"><strong>' + tCStr + '</strong></td></tr>';
+    box.innerHTML =
+      '<div class="kr-detail-header"><span class="kr-num-badge">' + title + '</span></div>' +
+      '<table class="pivot-table kr-detail-table">' +
+      '<thead><tr><th style="text-align:left;min-width:90px">País</th><th>Actual</th><th>Budget</th><th>Cumpl.</th></tr></thead>' +
+      '<tbody>' + totalRow + tableRows + '</tbody></table>';
+    return box;
+  }
+
+  // KR1 — Agencias L4W
+  if (agenciasData && agenciasData.data) {
+    var kr1Order = ['Brasil', 'Mexico', 'Argentina', 'Colombia', 'Chile', 'Globales', 'Peru', 'Ecua / Uru / Par'];
+    var kr1Rows = [];
+    kr1Order.forEach(function(country) {
+      var d = agenciasData.data[country];
+      if (!d) return;
+      var act = (_KR1_ACT_PATCH[country] !== undefined) ? _KR1_ACT_PATCH[country] : (d['Total'] || 0);
+      var bud = (_KR1_BUD_PATCH[country] !== undefined) ? _KR1_BUD_PATCH[country] : ((agenciasData.budget && agenciasData.budget[country]) || null);
+      kr1Rows.push({ name: country, actual: act, budget: bud });
+    });
+    grid.appendChild(makeDetailBox(1, 'Agencies L4W', kr1Rows, 'int', {act: _KR1_TOTAL_ACT, bud: _KR1_TOTAL_BUD}));
+  }
+
+  // KR2 + KR3 — columna vertical NR Core encima de NR New
+  var col23 = document.createElement('div');
+  col23.className = 'kr-detail-column';
+
+  var kr2Rows = NR_CORE_DETAIL.map(function(def) {
+    var d = computeMetricForPaisList(def.pais, 'net_revenue', monthFilter);
+    return { name: def.name, actual: toM(d.actual), budget: toM(d.budget) };
+  });
+  col23.appendChild(makeDetailBox(2, 'NR Core Markets $M', kr2Rows, '$M'));
+
+  var kr3Rows = NR_NEW_DETAIL.map(function(def) {
+    var d = computeMetricForPaisList(def.pais, 'net_revenue', monthFilter);
+    return { name: def.name, actual: toM(d.actual), budget: toM(d.budget) };
+  });
+  col23.appendChild(makeDetailBox(3, 'NR New Markets $M', kr3Rows, '$M'));
+  grid.appendChild(col23);
+
+  // KR4 — Air Net Revenue por país (col H del sheet)
+  if (airNRState === 'loaded' && airNRData) {
+    var kr4Rows = [];
+    var byC = airNRData.byCountry || {};
+    var kr4Countries = Object.keys(byC).sort();
+    var _kr4Exclude = ['Ecuador', 'Globales'];
+    if (kr4Countries.length > 0) {
+      kr4Countries.forEach(function(pais) {
+        if (_kr4Exclude.indexOf(pais) !== -1) return;
+        var d = byC[pais];
+        kr4Rows.push({ name: pais, actual: toM(d.actual || 0), budget: toM(d.budget || 0) });
+      });
+    } else {
+      kr4Rows = [{ name: 'Total', actual: toM(airNRData.actual || 0), budget: toM(airNRData.budget || 0) }];
+    }
+    grid.appendChild(makeDetailBox(4, 'Air Net Revenue $M', kr4Rows, '$M'));
+  } else if (airNRState === 'loading' || airNRState === 'idle') {
+    var box4 = document.createElement('div');
+    box4.className = 'kr-detail-box';
+    box4.innerHTML =
+      '<div class="kr-detail-header"><span class="kr-num-badge">Air Net Revenue $M</span></div>' +
+      '<div style="color:#9ca3af;font-size:0.75rem;font-style:italic;padding:8px 0">Cargando...</div>';
+    grid.appendChild(box4);
+  }
+
+  // KR5 — FVM por país
+  var kr5Rows = FVM_DETAIL.map(function(def) {
+    var d = computeMetricForPaisList(def.pais, 'fvm', monthFilter);
+    return { name: def.name, actual: toM(d.actual), budget: toM(d.budget) };
+  });
+  grid.appendChild(makeDetailBox(5, 'Financial Variable Margin $M', kr5Rows, '$M'));
+}
+
+// ─────────────────────────────────────────────
+//  Render dispatcher
+// ─────────────────────────────────────────────
+function setAgenciasFilters(show) {
+  // En Status KRs, ocultamos todos los filtros (los KRs son agregados sin filtros)
+  document.getElementById('filterGroupGoal').style.display            = show ? 'none' : '';
+  document.getElementById('filterGroupMonth').style.display           = show ? 'none' : '';
+  document.getElementById('countryFilterBar').style.display           = show ? 'none' : '';
+  document.getElementById('filterGroupCountryAgencias').style.display = 'none';
+  // El filtro de Canal también se oculta en Status KRs
+  document.querySelector('.filter-group:first-child').style.display   = show ? 'none' : '';
+  document.getElementById('btnClear').style.display                   = show ? 'none' : '';
+}
+
+function render() {
+  const isTablesView   = activeTab === 'tables_gd' || activeTab === 'tables_ri';
+  const isAgenciasView = activeTab === 'agencias';
+  const isWeeklyView   = activeTab === 'weekly_gd' || activeTab === 'weekly_ri';
+
+  document.getElementById('agenciasContent').classList.toggle('visible', isAgenciasView);
+  document.getElementById('weeklyContent').classList.toggle('visible', isWeeklyView);
+
+  if (isAgenciasView) {
+    setAgenciasFilters(true);
+    document.getElementById('mainContent').classList.remove('visible');
+    document.getElementById('tablesContent').classList.remove('visible');
+    if (agenciasState === 'idle') loadAgencias();
+    if (airNRState === 'idle')    loadAirNR();
+    renderStatusKRs();
+    return;
+  }
+
+  if (isWeeklyView) {
+    setAgenciasFilters(false);
+    document.getElementById('mainContent').classList.remove('visible');
+    document.getElementById('tablesContent').classList.remove('visible');
+    if (rawData) renderWeeklyView(activeTab === 'weekly_gd' ? 'gd' : 'ri', activeCountry);
+    return;
+  }
+
+  setAgenciasFilters(false);
+
+  if (!rawData) return;
+  const channel      = document.getElementById('filterChannel').value;
+  const countryGroup = activeCountry;
+  const monthFilter  = document.getElementById('filterMonth').value;
+
+  document.getElementById('mainContent').classList.toggle('visible', !isTablesView);
+  document.getElementById('tablesContent').classList.toggle('visible', isTablesView);
+
+  if (isTablesView) {
+    const dateType = TAB_DATA[activeTab].dateType;
+    const titleEl  = document.getElementById('tablesViewTitle');
+    titleEl.textContent = activeTab === 'tables_gd'
+      ? 'Tablas por Fecha de Gestión' + (monthFilter ? '  —  ' + formatYM(monthFilter) : '')
+      : 'Tablas por Fecha de Reconocimiento' + (monthFilter ? '  —  ' + formatYM(monthFilter) : '');
+    renderTablesView(dateType, channel, countryGroup, monthFilter);
+  } else {
+    renderChart(activeTab, channel, countryGroup, monthFilter);
+    renderPivot(activeTab, channel, countryGroup, monthFilter);
+  }
+}
+
+// ─────────────────────────────────────────────
+//  Initialization
+// ─────────────────────────────────────────────
+function initDashboard(data) {
+  rawData = data;
+  Object.keys(COUNTRY_GROUPS).forEach(g => { collapseState[g] = false; });
+  const meta = data.meta;
+
+  document.getElementById('metaInfo').textContent =
+    'Actuals al ' + meta.last_actuals_date + '  •  Generado: ' + meta.generated_at.replace('T', ' ');
+
+  const months = buildMonthList(data);
+  const sel = document.getElementById('filterMonth');
+  months.forEach(ym => {
+    const opt = document.createElement('option');
+    opt.value = ym;
+    opt.textContent = formatYM(ym);
+    sel.appendChild(opt);
+  });
+  const today = new Date();
+  const curYM = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2,'0');
+  if (months.includes(curYM)) sel.value = curYM;
+
+  // Poblar selector de mes del Status KRs con los mismos meses
+  const selKR = document.getElementById('filterMonthKRs');
+  months.forEach(ym => {
+    const opt = document.createElement('option');
+    opt.value = ym;
+    opt.textContent = formatYM(ym);
+    selKR.appendChild(opt);
+  });
+  if (months.includes(curYM)) selKR.value = curYM;
+
+  document.getElementById('spinnerWrap').style.display = 'none';
+
+  render();
+}
+
+function showError(err) {
+  document.getElementById('spinnerWrap').style.display = 'none';
+  const box = document.getElementById('errorBox');
+  box.style.display = 'block';
+  box.textContent = 'Error al cargar datos: ' + (err.message || err);
+}
+
+// ─────────────────────────────────────────────
+//  Event listeners
+// ─────────────────────────────────────────────
+document.getElementById('tabs').addEventListener('click', e => {
+  const btn = e.target.closest('.tab-btn');
+  if (!btn) return;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  activeTab = btn.dataset.tab;
+  render();
+});
+
+['filterChannel','filterGoal','filterMonth','filterCountryAgencias'].forEach(id => {
+  document.getElementById(id).addEventListener('change', render);
+});
+document.querySelectorAll('.country-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    activeCountry = btn.dataset.country;
+    document.querySelectorAll('.country-btn').forEach(function(b) {
+      b.classList.toggle('active', b.dataset.country === activeCountry);
+    });
+    render();
+  });
+});
+document.getElementById('filterMonthKRs').addEventListener('change', renderStatusKRs);
+
+document.getElementById('btnClear').addEventListener('click', () => {
+  document.getElementById('filterChannel').value         = '';
+  document.getElementById('filterGoal').value            = 'budget';
+  document.getElementById('filterMonth').value           = '';
+  document.getElementById('filterCountryAgencias').value = '';
+  activeCountry = '';
+  document.querySelectorAll('.country-btn').forEach(function(b) {
+    b.classList.toggle('active', b.dataset.country === '');
+  });
+  render();
+});
+
+// ─────────────────────────────────────────────
+//  Slides navigation
+// ─────────────────────────────────────────────
+var _isSlidesMode = false;
+var _slideIdx     = 0;
+
+const SLIDE_ORDER = [
+  { tab: 'agencias',   title: 'Status KRs'                                                     },
+  { isCover: true,     title: 'Recognition Date', subtitle: 'Gross Bookings · Net Revenue · FVM' },
+  { tab: 'gb_ri',      title: 'Gross Bookings — RI'                                             },
+  { tab: 'nr_ri',      title: 'Net Revenue — RI'                                                },
+  { tab: 'fvm_ri',     title: 'FVM — RI'                                                        },
+  { tab: 'tables_ri',  title: 'Tablas RI'                                                       },
+  { isCover: true,     title: 'Gestion Date',     subtitle: 'Gross Bookings · Net Revenue · FVM' },
+  { tab: 'gb_gd',      title: 'Gross Bookings — GD'                                             },
+  { tab: 'nr_gd',      title: 'Net Revenue — GD'                                                },
+  { tab: 'fvm_gd',     title: 'FVM — GD'                                                        },
+  { tab: 'tables_gd',  title: 'Tablas GD'                                                       },
+];
+
+function toggleSlidesMode() {
+  _isSlidesMode = !_isSlidesMode;
+  document.body.classList.toggle('slides-mode', _isSlidesMode);
+  var btn = document.getElementById('slidesModeBtn');
+  var nav = document.getElementById('slidesNavBar');
+  if (_isSlidesMode) {
+    btn.classList.add('active');
+    btn.textContent = '⏸ Slides';
+    nav.classList.add('active');
+    _buildSlidesDots();
+    _goToSlide(_slideIdx);
+  } else {
+    btn.classList.remove('active');
+    btn.textContent = '▶ Slides';
+    nav.classList.remove('active');
+  }
+}
+
+function _buildSlidesDots() {
+  var container = document.getElementById('slidesDots');
+  container.innerHTML = '';
+  SLIDE_ORDER.forEach(function(s, i) {
+    var dot = document.createElement('div');
+    dot.className = 'slides-dot' + (s.isCover ? ' cover' : '') + (i === _slideIdx ? ' active' : '');
+    dot.title = s.title;
+    dot.onclick = (function(idx) { return function() { _goToSlide(idx); }; })(i);
+    container.appendChild(dot);
+  });
+}
+
+function _goToSlide(idx) {
+  _slideIdx = idx;
+  var slide = SLIDE_ORDER[idx];
+  var coverEl = document.getElementById('slideCover');
+
+  if (slide.isCover) {
+    // Hide all content, show cover
+    document.getElementById('mainContent').classList.remove('visible');
+    document.getElementById('tablesContent').classList.remove('visible');
+    document.getElementById('weeklyContent').classList.remove('visible');
+    document.getElementById('agenciasContent').classList.remove('visible');
+    document.getElementById('slideCoverTitle').textContent    = slide.title;
+    document.getElementById('slideCoverSubtitle').textContent = slide.subtitle || '';
+    coverEl.classList.add('active');
+  } else {
+    coverEl.classList.remove('active');
+    activeTab = slide.tab;
+    document.querySelectorAll('.tab-btn').forEach(function(b) {
+      b.classList.toggle('active', b.dataset.tab === slide.tab);
+    });
+    render();
+  }
+
+  // update nav bar
+  document.getElementById('slidesCounter').textContent = (idx + 1) + ' / ' + SLIDE_ORDER.length;
+  document.getElementById('slidesTitle').textContent   = slide.title;
+  document.getElementById('slidesPrev').disabled       = idx === 0;
+  document.getElementById('slidesNext').disabled       = idx === SLIDE_ORDER.length - 1;
+  // update dots
+  document.querySelectorAll('.slides-dot').forEach(function(d, i) {
+    d.classList.toggle('active', i === idx);
+  });
+}
+
+function slideNext() {
+  if (_slideIdx < SLIDE_ORDER.length - 1) _goToSlide(_slideIdx + 1);
+}
+function slidePrev() {
+  if (_slideIdx > 0) _goToSlide(_slideIdx - 1);
+}
+
+document.addEventListener('keydown', function(e) {
+  if (!_isSlidesMode) return;
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown')  slideNext();
+  if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')    slidePrev();
+  if (e.key === 'Escape') toggleSlidesMode();
+});
+
+// ─────────────────────────────────────────────
+//  Boot
+// ─────────────────────────────────────────────
+window.addEventListener('load', () => {
+  google.script.run
+    .withSuccessHandler(initDashboard)
+    .withFailureHandler(showError)
+    .getB2BData();
+});
+</script>
+</body>
+</html>

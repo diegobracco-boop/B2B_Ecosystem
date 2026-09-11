@@ -9,16 +9,16 @@ uploads _actuals_gestional.json to Google Drive.
 
 Scenario model (per LOB group) — mirrors P&L Accounting (baseline + goal):
   ac      actuals (real, closed FY27 months only)
-  ac_ri   actuals on RI basis            (B2B-MAY only)
+  ac_ri   actuals on RI basis            (B2B-MAY: check-in para API; B2B-MIN: recognition_date)
   ly      last year (real prior period, ym shifted +1y)
   bgt     budget GD  (full FY27, datalake raw.b2b_budget_gd)
-  bgt_ri  budget RI  (full FY27, datalake raw.b2b_budget_ri; B2B-MAY only)
+  bgt_ri  budget RI  (full FY27, datalake raw.b2b_budget_ri; B2B-MAY y B2B-MIN)
   rr      run rate   (near-term, raw.b2brr_gd; Aug-Oct)  — raw rows for stitch
-  rr_ri   run rate RI (raw.b2brr_ri; B2B-MAY only)
+  rr_ri   run rate RI (raw.b2brr_ri; B2B-MAY y B2B-MIN)
   fc      forecast GOAL = actuals ≤ Jun + forecast projection Jul-Mar
-  fc_ri   forecast goal on RI basis (B2B-MAY only)
+  fc_ri   forecast goal on RI basis (B2B-MAY del modelo "P&L RI"; B2B-MIN reusa la proyección GD)
   bl      baseline   = ac (closed) then rr → fc → bgt per future month
-  bl_ri   baseline on RI basis            (B2B-MAY only)
+  bl_ri   baseline on RI basis            (B2B-MAY y B2B-MIN)
 
 The dashboard "goal" selector maps to: budget→bgt, forecast→fc, lastyear→ly.
 Forecast comes from the XLSX models in FC_XLSX_DIR (API→MAY, HTML→MIN, WLs→B2B2C),
@@ -396,11 +396,11 @@ country_factors AS (
         ('CO','API','Hoteles',0.688685),('CL','API','Hoteles',0.217122),
         ('PE','API','Hoteles',1.000000),('EC','API','Hoteles',1.000000),
         ('BR','Agencias afiliadas','Hoteles',0.958768),('MX','Agencias afiliadas','Hoteles',0.877965),
-        ('O','Agencias afiliadas','Hoteles',0.735475),('AR','Agencias afiliadas','Hoteles',0.628661),
+        ('O','Agencias afiliadas','Hoteles',0.735475),('AR','Agencias afiliadas','Hoteles',0.900000),
         ('CO','Agencias afiliadas','Hoteles',0.768379),('CL','Agencias afiliadas','Hoteles',0.877266),
         ('PE','Agencias afiliadas','Hoteles',0.894839),('EC','Agencias afiliadas','Hoteles',0.911666),
         ('BR','Agencias afiliadas','Carrito',0.992196),('MX','Agencias afiliadas','Carrito',0.898147),
-        ('O','Agencias afiliadas','Carrito',1.000000),('AR','Agencias afiliadas','Carrito',0.914833),
+        ('O','Agencias afiliadas','Carrito',1.000000),('AR','Agencias afiliadas','Carrito',0.964833),
         ('CO','Agencias afiliadas','Carrito',0.953590),('CL','Agencias afiliadas','Carrito',0.985575),
         ('PE','Agencias afiliadas','Carrito',0.995007),('EC','Agencias afiliadas','Carrito',0.793758),
         ('BR','Agencias afiliadas','Vuelos',1.000000),('MX','Agencias afiliadas','Vuelos',0.947329),
@@ -494,7 +494,7 @@ base_metrics AS (
         -SUM(pnl.loyalty_usd) AS loyalty_usd,
         SUM(pnl.discounts_mkt_funds_usd + pnl.media_revenue_usd
             - pnl.mkt_fee_cost_cmr_usd + pnl.fee_income_mkt_cmr_usd) AS media_other_revenue,
-        -SUM(CASE WHEN pr.installments = 1 THEN 0 ELSE pnl.coi_usd END) AS cost_of_installments,
+        -SUM(CASE WHEN pr.installments IN (0, 1, null) THEN 0 ELSE pnl.coi_usd END) AS cost_of_installments,
         -SUM(CASE WHEN fh.parent_channel = 'API' THEN 0 ELSE pnl.ccp_usd END) AS credit_card_processing,
         SUM(CASE
                 WHEN fh.parent_channel = 'API' THEN NULL
@@ -537,7 +537,11 @@ base_metrics AS (
         SUM(pnl.ott_usd) AS other_transactional_taxes,
         SUM(pnl.customer_claims_usd) AS customer_claims,
         SUM(pnl.customer_service_usd) AS customer_service,
-        SUM(pnl.frauds_usd) AS frauds,
+        SUM(CASE
+                WHEN fh.parent_channel = 'API' THEN 0
+                WHEN t.country_code = 'BR'     THEN fh.gestion_gb * fh.confirmation_gradient * -0.0056
+                ELSE                                fh.gestion_gb * fh.confirmation_gradient * -0.0053
+            END) AS frauds,
         SUM(pnl.financial_result_usd) AS efecto_financiero,
         SUM(pnl.dif_fx_usd + pnl.dif_fx_air_usd) AS dif_fx,
         SUM(pnl.currency_hedge_usd + pnl.currency_hedge_air_usd) AS currency_hedge
@@ -630,15 +634,53 @@ FROM base_metrics
 
 def build_b2b_ri_query(date_from: date, date_to: date) -> str:
     return f"""
-WITH country_factors AS (
-    SELECT DISTINCT country_code,
-        CASE country_code
-            WHEN 'BR' THEN 1 WHEN 'MX' THEN 1 WHEN 'CO' THEN 1
-            WHEN 'CL' THEN 1 WHEN 'US' THEN 1 WHEN 'PA' THEN 1
-            ELSE 1
-        END AS country_factor
-    FROM data.analytics.bi_sales_fact_sales_recognition
-    WHERE partition_period > '2024-01-01'
+WITH conectores AS (
+    SELECT agencias.ap_code,
+        MAX(agencias.conector)                        AS conector,
+        MAX(COALESCE(pay_type, 'NA'))                 AS pay_type,
+        MAX(COALESCE(CAST(mulltiplier AS DOUBLE), 0)) AS mulltiplier
+    FROM data.raw.b2b_dim_ap_by_conector agencias
+    LEFT JOIN data.raw.b2b_dim_api_conectors conectores
+        ON agencias.conector = conectores.conector
+    GROUP BY 1
+),
+
+country_factors AS (
+    SELECT pais_key, channel_key, producto_key, country_factor
+    FROM (VALUES
+        ('BR','API','Hoteles',1.00000),('MX','API','Hoteles',1.00000),
+        ('O','API','Hoteles',1.11000),('AR','API','Hoteles',0.76244),
+        ('CO','API','Hoteles',0.73907),('CL','API','Hoteles',0.22390),
+        ('PE','API','Hoteles',1.00000),('EC','API','Hoteles',1.00000),
+        ('BR','Agencias afiliadas','Hoteles',0.95877),('MX','Agencias afiliadas','Hoteles',0.87797),
+        ('O','Agencias afiliadas','Hoteles',0.73548),('AR','Agencias afiliadas','Hoteles',0.90000),
+        ('CO','Agencias afiliadas','Hoteles',0.76838),('CL','Agencias afiliadas','Hoteles',0.87727),
+        ('PE','Agencias afiliadas','Hoteles',0.89484),('EC','Agencias afiliadas','Hoteles',0.91167),
+        ('BR','Agencias afiliadas','Carrito',0.99220),('MX','Agencias afiliadas','Carrito',0.89815),
+        ('O','Agencias afiliadas','Carrito',1.00000),('AR','Agencias afiliadas','Carrito',0.96483),
+        ('CO','Agencias afiliadas','Carrito',0.95359),('CL','Agencias afiliadas','Carrito',0.98558),
+        ('PE','Agencias afiliadas','Carrito',0.99501),('EC','Agencias afiliadas','Carrito',0.79376),
+        ('BR','Agencias afiliadas','Vuelos',1.00000),('MX','Agencias afiliadas','Vuelos',0.94733),
+        ('O','Agencias afiliadas','Vuelos',1.00000),('AR','Agencias afiliadas','Vuelos',0.96537),
+        ('CO','Agencias afiliadas','Vuelos',0.99966),('CL','Agencias afiliadas','Vuelos',1.00000),
+        ('PE','Agencias afiliadas','Vuelos',1.00000),('EC','Agencias afiliadas','Vuelos',1.00000),
+        ('BR','Agencias afiliadas','Actividades',0.91233),('MX','Agencias afiliadas','Actividades',0.95807),
+        ('O','Agencias afiliadas','Actividades',1.00000),('AR','Agencias afiliadas','Actividades',0.96810),
+        ('CO','Agencias afiliadas','Actividades',0.96395),('CL','Agencias afiliadas','Actividades',1.00000),
+        ('PE','Agencias afiliadas','Actividades',1.00000),('EC','Agencias afiliadas','Actividades',1.00000),
+        ('BR','Agencias afiliadas','Asistencia al viajero',1.00000),
+        ('MX','Agencias afiliadas','Asistencia al viajero',1.00000),
+        ('O','Agencias afiliadas','Asistencia al viajero',1.00000),
+        ('AR','Agencias afiliadas','Asistencia al viajero',0.90533),
+        ('CO','Agencias afiliadas','Asistencia al viajero',1.00000),
+        ('CL','Agencias afiliadas','Asistencia al viajero',1.00000),
+        ('PE','Agencias afiliadas','Asistencia al viajero',1.00000),
+        ('EC','Agencias afiliadas','Asistencia al viajero',1.00000),
+        ('BR','Agencias afiliadas','Autos',0.81590),('MX','Agencias afiliadas','Autos',0.83090),
+        ('O','Agencias afiliadas','Autos',1.00000),('AR','Agencias afiliadas','Autos',0.91091),
+        ('CO','Agencias afiliadas','Autos',0.88923),('CL','Agencias afiliadas','Autos',0.55251),
+        ('PE','Agencias afiliadas','Autos',0.93104),('EC','Agencias afiliadas','Autos',1.00000)
+    ) AS t(pais_key, channel_key, producto_key, country_factor)
 ),
 
 pnl_filtered AS (
@@ -649,10 +691,10 @@ pnl_filtered AS (
 base_metrics AS (
     SELECT
         CAST(
-            CASE WHEN fh.partner_id IN ('AG72472','expedia','AG00044461','AG00101284')
+            CASE WHEN fh.parent_channel = 'API'
                  THEN YEAR(p.checkin_date) ELSE YEAR(fh.recognition_date) END
         AS VARCHAR) AS anio_ri,
-        CASE WHEN fh.partner_id IN ('AG72472','expedia','AG00044461','AG00101284')
+        CASE WHEN fh.parent_channel = 'API'
              THEN MONTH(p.checkin_date) ELSE MONTH(fh.recognition_date) END AS mes_ri,
         fh.line_of_business_code AS lob,
         fh.parent_channel,
@@ -691,7 +733,7 @@ base_metrics AS (
         COUNT(DISTINCT t.transaction_code) AS orders,
         SUM((pnl.commission_net_usd / NULLIF(fh.confirmation_gradient, 0))
             * CASE WHEN fh.partner_id IN ('AG72472','expedia','AG00044461','AG00101284') THEN 0.25
-                   ELSE cf.country_factor END) AS up_front_incentives,
+                   ELSE COALESCE(cf.country_factor, 1.0) END) AS up_front_incentives,
         SUM(((pnl.fee_net_usd + pnl.coi_interest_usd) / NULLIF(fh.confirmation_gradient, 0)
              - CASE
                  WHEN fh.parent_channel = 'Agencias afiliadas' AND fh.country_code = 'BR'
@@ -702,10 +744,10 @@ base_metrics AS (
                  THEN pnl.affiliates_usd / NULLIF(fh.confirmation_gradient, 0)
                  ELSE 0 END)
             * CASE WHEN fh.partner_id IN ('AG72472','expedia','AG00044461','AG00101284') THEN 0.25
-                   ELSE cf.country_factor END) AS fees,
+                   ELSE COALESCE(cf.country_factor, 1.0) END) AS fees,
         -SUM((pnl.discounts_net_usd / NULLIF(fh.confirmation_gradient, 0))
              * CASE WHEN fh.partner_id IN ('AG72472','expedia','AG00044461','AG00101284') THEN 0.25
-                    ELSE cf.country_factor END) AS commercial_discounts,
+                    ELSE COALESCE(cf.country_factor, 1.0) END) AS commercial_discounts,
         SUM((pnl.other_incentives_air_usd + pnl.other_incentives_non_air_usd)
             / NULLIF(fh.confirmation_gradient, 0)) AS other_incentives,
         SUM(pnl.revenue_taxes_usd / NULLIF(fh.confirmation_gradient, 0)) AS revenue_tax,
@@ -717,39 +759,71 @@ base_metrics AS (
         SUM((pnl.discounts_mkt_funds_usd + pnl.media_revenue_usd
              - pnl.mkt_fee_cost_cmr_usd + pnl.fee_income_mkt_cmr_usd)
             / NULLIF(fh.confirmation_gradient, 0)) AS media_other_revenue,
-        -SUM(CASE WHEN pr.installments = 1 THEN 0
+        -SUM(CASE WHEN pr.installments IN (0, 1, null) THEN 0
                   ELSE pnl.coi_usd / NULLIF(fh.confirmation_gradient, 0) END) AS cost_of_installments,
         -SUM(CASE WHEN fh.parent_channel = 'API' THEN 0
                   ELSE pnl.ccp_usd / NULLIF(fh.confirmation_gradient, 0) END) AS credit_card_processing,
         SUM(CASE
                 WHEN fh.parent_channel = 'API' THEN NULL
-                WHEN fh.country_code = 'BR' AND fh.buy_type_code = 'Carrito'
+                WHEN fh.country_code = 'BR' AND fh.buy_type_code IN ('Carrito','Vuelos')
                      AND p.product_type = 'Vuelos'
                 THEN -(pr.net_commission_partner * pr.conversion_rate)
                 WHEN fh.country_code = 'BR' AND fh.buy_type_code = 'Carrito' THEN 0
                 ELSE -(pnl.affiliates_usd / NULLIF(fh.confirmation_gradient, 0))
                      + CASE WHEN fh.country_code = 'BR' AND fh.buy_type_code != 'Vuelos'
                             THEN pnl.affiliates_usd / NULLIF(fh.confirmation_gradient, 0) ELSE 0 END
-            END) AS affiliates,
+            END
+            * CASE WHEN fh.country_code = 'MX' AND fh.parent_channel = 'Agencias afiliadas'
+                        AND fh.buy_type_code = 'Carrito' THEN 0.75 ELSE 1.0 END
+        ) AS affiliates,
         SUM(CASE
                 WHEN fh.partner_id IN ('AG72472','expedia','AG00044461','AG00101284') THEN 0
                 WHEN fh.parent_channel = 'API'
-                THEN -pnl.affiliates_usd / NULLIF(fh.confirmation_gradient, 0)
+                THEN fh.gestion_gb * CASE fh.country_code
+                        WHEN 'BR' THEN -0.0042 WHEN 'MX' THEN -0.0050
+                        WHEN 'AR' THEN -0.0120 WHEN 'CO' THEN -0.0100
+                        WHEN 'CL' THEN -0.03405 WHEN 'PE' THEN -0.0160
+                        WHEN 'EC' THEN  0.0000
+                        ELSE -0.0070 END
                 ELSE NULL
-            END) AS white_labels_api,
+            END
+            - CASE
+                WHEN fh.parent_channel = 'API' AND con.pay_type = 'TX'
+                    THEN COALESCE(con.mulltiplier, 0)
+                         * COALESCE(TRY_CAST(fh.confirmation_gradient AS DECIMAL(5,5)), 1)
+                WHEN fh.parent_channel = 'API' AND con.pay_type = 'GB'
+                    THEN COALESCE(con.mulltiplier * fh.gestion_gb, 0)
+                         * COALESCE(TRY_CAST(fh.confirmation_gradient AS DECIMAL(5,5)), 1)
+                ELSE 0
+            END
+        ) AS white_labels_api,
         -SUM(pnl.mkt_cost_net_usd / NULLIF(fh.confirmation_gradient, 0)) AS mkt_usd,
         SUM(pnl.errors_usd / NULLIF(fh.confirmation_gradient, 0)) AS errors,
         SUM(pnl.ott_usd / NULLIF(fh.confirmation_gradient, 0)) AS other_transactional_taxes,
         SUM(pnl.customer_claims_usd / NULLIF(fh.confirmation_gradient, 0)) AS customer_claims,
         SUM(pnl.customer_service_usd / NULLIF(fh.confirmation_gradient, 0)) AS customer_service,
-        SUM(pnl.frauds_usd / NULLIF(fh.confirmation_gradient, 0)) AS frauds,
+        SUM(CASE
+                WHEN fh.parent_channel = 'API' THEN 0
+                WHEN t.country_code = 'BR'     THEN fh.gestion_gb * -0.0056
+                ELSE                                fh.gestion_gb * -0.0053
+            END) AS frauds,
         SUM(pnl.financial_result_usd / NULLIF(fh.confirmation_gradient, 0)) AS efecto_financiero,
         SUM((pnl.dif_fx_usd + pnl.dif_fx_air_usd) / NULLIF(fh.confirmation_gradient, 0)) AS dif_fx,
         SUM((pnl.currency_hedge_usd + pnl.currency_hedge_air_usd)
             / NULLIF(fh.confirmation_gradient, 0)) AS currency_hedge
 
     FROM data.analytics.bi_sales_fact_sales_recognition fh
-    INNER JOIN country_factors cf ON fh.country_code = cf.country_code
+    LEFT JOIN country_factors cf
+        ON CASE WHEN fh.country_code IN ('BR','MX','AR','CO','CL','PE','EC')
+                THEN fh.country_code ELSE 'O' END = cf.pais_key
+        AND fh.parent_channel = cf.channel_key
+        AND CASE
+               WHEN fh.buy_type_code = 'Alquileres' THEN 'Hoteles'
+               WHEN fh.buy_type_code IN ('Traslados','Circuito','Servicios en Destino') THEN 'Actividades'
+               WHEN fh.buy_type_code IN ('Hoteles','Carrito','Vuelos','Actividades',
+                                          'Asistencia al viajero','Autos') THEN fh.buy_type_code
+               ELSE NULL
+           END = cf.producto_key
     LEFT JOIN pnl_filtered pnl ON fh.product_id = pnl.product_id
     LEFT JOIN data.analytics.bi_transactional_fact_products p
         ON fh.product_id = p.product_id AND p.reservation_year_month >= CAST('2024-01-01' AS DATE)
@@ -763,8 +837,9 @@ base_metrics AS (
         ON CAST(fh.transaction_code AS VARCHAR) = cr.id AND cr.last_version = true
     LEFT JOIN data.analytics.bi_transactional_fact_products_current_state cs
         ON fh.product_id = cs.product_id
+    LEFT JOIN conectores con ON fh.partner_id = con.ap_code
     WHERE
-        CASE WHEN fh.partner_id IN ('AG72472','expedia','AG00044461','AG00101284')
+        CASE WHEN fh.parent_channel = 'API'
              THEN p.checkin_date ELSE fh.recognition_date END
              BETWEEN CAST('{date_from}' AS DATE) AND CAST('{date_to}' AS DATE)
         AND fh.partition_period > '2024-01-01'
@@ -776,12 +851,12 @@ base_metrics AS (
             AND (p.product_cancel_date < p.checkin_date OR p.product_cancel_date IS NULL)
         )
     GROUP BY
-        CASE WHEN fh.partner_id IN ('AG72472','expedia','AG00044461','AG00101284')
+        CASE WHEN fh.parent_channel = 'API'
              THEN YEAR(p.checkin_date) ELSE YEAR(fh.recognition_date) END,
-        CASE WHEN fh.partner_id IN ('AG72472','expedia','AG00044461','AG00101284')
+        CASE WHEN fh.parent_channel = 'API'
              THEN MONTH(p.checkin_date) ELSE MONTH(fh.recognition_date) END,
         fh.gestion_date,
-        CASE WHEN fh.partner_id IN ('AG72472','expedia','AG00044461','AG00101284')
+        CASE WHEN fh.parent_channel = 'API'
              THEN p.checkin_date ELSE fh.recognition_date END,
         fh.line_of_business_code, fh.parent_channel,
         CASE WHEN fh.partner_id IN ('AP12142','AP12961','AP12767','AP12539','AP12792',
@@ -999,6 +1074,19 @@ def _proy_ym(m) -> str:
     return f"{y}-{mm:02d}"
 
 
+def _parse_fecha_budget(s: pd.Series) -> pd.Series:
+    """Parsea 'fecha' sin el bug de pd.to_datetime(format='mixed', dayfirst=True):
+    ese combo invierte silenciosamente día/mes en fechas ISO (YYYY-MM-DD) cuando
+    el día es <=12. Mismo bug confirmado y corregido en Daily_Dashboard/daily_sync.py
+    (ver CLAUDE.md, regla de fechas) — separa el caso ISO explícito del resto."""
+    s = s.astype(str).str.strip()
+    iso = s.str.match(r"^\d{4}-\d{1,2}-\d{1,2}$")
+    out = pd.Series(pd.NaT, index=s.index, dtype="datetime64[ns]")
+    out.loc[iso]  = pd.to_datetime(s[iso],  format="%Y-%m-%d", errors="coerce")
+    out.loc[~iso] = pd.to_datetime(s[~iso], dayfirst=True,     errors="coerce")
+    return out
+
+
 def _budget_ym(df: pd.DataFrame, ym_from_proyectado: bool) -> pd.DataFrame:
     """Add a 'ym' column: from `no_mes_proyectado` (forecast) or `fecha` (budget/RR)."""
     if ym_from_proyectado:
@@ -1006,7 +1094,7 @@ def _budget_ym(df: pd.DataFrame, ym_from_proyectado: bool) -> pd.DataFrame:
         df = df.dropna(subset=["ym"])
         df["ym"] = df["ym"].apply(_proy_ym)
     else:
-        df["ym"] = pd.to_datetime(df["fecha"], format="mixed", dayfirst=True).dt.strftime("%Y-%m")
+        df["ym"] = _parse_fecha_budget(df["fecha"]).dt.strftime("%Y-%m")
     return df
 
 
@@ -1262,6 +1350,7 @@ rr_b2b2c  = _build_b2b2c_budget_rows(df_rr_b2b2c)
 rr_may    = _build_b2b_budget_rows(df_rr_gd, lob_filter="B2B-MAY")
 rr_may_ri = _build_b2b_budget_rows(df_rr_ri, lob_filter="B2B-MAY")
 rr_min    = _build_b2b_budget_rows(df_rr_gd, lob_filter="B2B-MIN")
+rr_min_ri = _build_b2b_budget_rows(df_rr_ri, lob_filter="B2B-MIN")
 
 # B2B2C
 ac_b2b2c  = _build_b2b2c_rows(df_b2b2c)                                             # actuals (closed)
@@ -1282,19 +1371,26 @@ bl_may_ri  = _stitch_baseline(ac_may_ri, rr_may_ri, fcraw_may_ri, bgt_may_ri, ym
 fc_may     = _stitch_forecast(ac_may,    fcraw_may,    ym_idx=2)
 fc_may_ri  = _stitch_forecast(ac_may_ri, fcraw_may_ri, ym_idx=2)
 
-# B2B MIN (GD basis only)
-ac_min  = _build_b2b_rows(df_b2b_gd, "anio_gd", "mes_gd", channel_filter="Agencias afiliadas")
+# B2B MIN (GD + RI basis; RI de Agencias afiliadas = recognition_date, no check-in)
+ac_min     = _build_b2b_rows(df_b2b_gd, "anio_gd", "mes_gd", channel_filter="Agencias afiliadas")
+ac_min_ri  = _build_b2b_rows(df_b2b_ri, "anio_ri", "mes_ri", channel_filter="Agencias afiliadas")
 ly_min  = _build_b2b_rows(df_b2b_gd_ly, "anio_gd", "mes_gd", channel_filter="Agencias afiliadas",
                           filter_set=LY_FULL_SET, ym_shift_years=1)
-bgt_min = _build_b2b_budget_rows(df_b2b_budget_gd, lob_filter="B2B-MIN")
-bl_min  = _stitch_baseline(ac_min, rr_min, fcraw_min, bgt_min, ym_idx=2)
-fc_min  = _stitch_forecast(ac_min, fcraw_min, ym_idx=2)
+bgt_min    = _build_b2b_budget_rows(df_b2b_budget_gd, lob_filter="B2B-MIN")
+bgt_min_ri = _build_b2b_budget_rows(df_b2b_budget_ri, lob_filter="B2B-MIN")
+# El modelo HTML no tiene solapa "P&L RI" → para el forecast del baseline RI se
+# reusa la proyección GD (es proyección; no hay variante RI del forecast de MIN).
+fcraw_min_ri = fcraw_min
+bl_min     = _stitch_baseline(ac_min,    rr_min,    fcraw_min,    bgt_min,    ym_idx=2)
+bl_min_ri  = _stitch_baseline(ac_min_ri, rr_min_ri, fcraw_min_ri, bgt_min_ri, ym_idx=2)
+fc_min     = _stitch_forecast(ac_min,    fcraw_min,    ym_idx=2)
+fc_min_ri  = _stitch_forecast(ac_min_ri, fcraw_min_ri, ym_idx=2)
 
 actual_months = sorted(CLOSED_SET)
 print(f"  actual_months: {actual_months}  (last actual = {LAST_ACTUAL_YM})")
 print(f"  b2b2c:   ac={len(ac_b2b2c):,}  rr={len(rr_b2b2c):,}  fc={len(fc_b2b2c):,}  bl={len(bl_b2b2c):,}  bgt={len(bgt_b2b2c):,}  ly={len(ly_b2b2c):,}")
 print(f"  b2b_may: ac={len(ac_may):,}  ac_ri={len(ac_may_ri):,}  rr={len(rr_may):,}  fc={len(fc_may):,}  bl={len(bl_may):,}  bl_ri={len(bl_may_ri):,}  bgt={len(bgt_may):,}  bgt_ri={len(bgt_may_ri):,}  ly={len(ly_may):,}")
-print(f"  b2b_min: ac={len(ac_min):,}  rr={len(rr_min):,}  fc={len(fc_min):,}  bl={len(bl_min):,}  bgt={len(bgt_min):,}  ly={len(ly_min):,}")
+print(f"  b2b_min: ac={len(ac_min):,}  ac_ri={len(ac_min_ri):,}  rr={len(rr_min):,}  rr_ri={len(rr_min_ri):,}  fc={len(fc_min):,}  fc_ri={len(fc_min_ri):,}  bl={len(bl_min):,}  bl_ri={len(bl_min_ri):,}  bgt={len(bgt_min):,}  bgt_ri={len(bgt_min_ri):,}  ly={len(ly_min):,}")
 
 output = {
     "updated_at":    datetime.now().isoformat(timespec="seconds"),
@@ -1315,8 +1411,10 @@ output = {
         "bl": bl_may, "bl_ri": bl_may_ri,
     },
     "b2b_min": {
-        "ac": ac_min, "ly": ly_min, "bgt": bgt_min,
-        "rr": rr_min, "fc": fc_min, "bl": bl_min,
+        "ac": ac_min, "ac_ri": ac_min_ri, "ly": ly_min,
+        "bgt": bgt_min, "bgt_ri": bgt_min_ri,
+        "rr": rr_min, "rr_ri": rr_min_ri, "fc": fc_min, "fc_ri": fc_min_ri,
+        "bl": bl_min, "bl_ri": bl_min_ri,
     },
 }
 

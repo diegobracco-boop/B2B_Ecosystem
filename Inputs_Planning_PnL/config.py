@@ -10,6 +10,20 @@ CURRENT_FY = 2027
 FORECAST_VERSION = "2026.07.14"   # actualizar cuando el equipo confirme un nuevo modelo
 DRIVE_FOLDER_ID = "1XqQPL_rlS0NRIPUnPfj5nALBTn7kAOQV"
 
+# ── Actuals: fuente de los reales contables ───────────────────────────────────
+# El equipo dejó de usar la carpeta BITUBIA para actuals (Toqan discontinuado,
+# 2026-09). Ahora los xlsx viven en <OneDrive>\Planning-PBI - Inputs Power Bi\Actuals\.
+# Nombre exacto del xlsx por AÑO CALENDARIO; si un año no figura acá se usa el
+# patrón default. Solapa siempre "POWERBI".
+# El equipo SOBRESCRIBE este mismo archivo cada mes — el nombre no cambia
+# ("- V2" es fijo, no hay V3/V4). El pipeline imprime nombre + mtime del xlsx
+# que abrió: si el mtime quedó viejo, es que OneDrive no sincronizó (no un
+# cambio de nombre).
+ACTUALS_FILENAMES = {
+    2026: "00 - Actuals 2026 - Plana Python - V2.xlsx",
+}
+ACTUALS_FILENAME_DEFAULT = "00 - Actuals {year} - Plana Python.xlsx"
+
 # ── Derivados del FY (no editar) ──────────────────────────────────────────────
 _FY_PREV = CURRENT_FY - 1
 _FY_SHORT = str(CURRENT_FY)[-2:]

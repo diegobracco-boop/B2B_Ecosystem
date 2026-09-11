@@ -30,9 +30,13 @@ CSV crudos (OneDrive\Planning-PBI - Inputs Power Bi)
 - **Canal**: solo **B2B** abre MAY/MIN; **B2B2C y B2C** se colapsan a `total` (en el JSON).
 - **JSON agregado sobre Marca** (no se incluye).
 - **Año fiscal = Abr(N-1) a Mar(N).** Proyecciones = FY27 (abr-2026 a mar-2027).
-  Actuals por FY combina 2 archivos calendario (`00 - Actuals YYYY - Plana Python.xlsx`
-  en `...\B2B & WLs\Proyectos IA\BITUBIA`): Abr-Dic del (fy-1) + Ene-Mar del (fy).
-- Homologación con `...\BITUBIA\Glosario.xlsx` (solapas Marca/Paises/Producto/LOB/Linea P&L).
+  Actuals por FY combina 2 archivos calendario en `Planning-PBI - Inputs Power Bi\Actuals\`
+  (solapa **POWERBI**): Abr-Dic del (fy-1) + Ene-Mar del (fy). El nombre exacto del xlsx
+  por año calendario está en `config.ACTUALS_FILENAMES` (hoy 2026 = `00 - Actuals 2026 - Plana Python - V2.xlsx`;
+  los años que no figuran usan el patrón `00 - Actuals YYYY - Plana Python.xlsx`).
+  **Ya NO se usa la carpeta `BITUBIA` para actuals** (Toqan discontinuado, 2026-09) — el equipo
+  publica el xlsx directo en `Planning-PBI\Actuals\`.
+- Homologación con `...\B2B & WLs\Proyectos IA\BITUBIA\Glosario.xlsx` (solapas Marca/Paises/Producto/LOB/Linea P&L) — el Glosario **sí** sigue en BITUBIA.
 
 ## Archivos
 - `pnl_common.py` — rutas portables (resuelve OneDrive por usuario) + auth Drive scope completo.
@@ -41,8 +45,11 @@ CSV crudos (OneDrive\Planning-PBI - Inputs Power Bi)
 - `json_builder.py` — planas → JSON canónico → Drive.
 - `baseline_builder.py` — arma/actualiza `baseline_actuals+projections.json` (NO lo hace json_builder).
   Es la línea de tiempo FY27 = actuals[Abr..corte] + runrate[Ago,Sep] + forecast[Oct..Mar].
-  Mensual: `python baseline_builder.py --promote-month YYYY-MM-01 --actuals-xlsx <Excel con el mes cerrado>`
-  (reemplaza solo ese mes, run-rate→actual, y deja el resto idéntico). `--rebuild` reconstruye entero.
+  Mensual: `python baseline_builder.py --promote-month YYYY-MM-01`
+  (reemplaza solo ese mes, run-rate→actual, y deja el resto idéntico). Ya NO hace falta
+  `--actuals-xlsx`: el default lee el V2 de `config.ACTUALS_FILENAMES`, que trae el mes cerrado.
+  `--rebuild` reconstruye entero. Escribe en `_baseline_out/` **y** en la raíz del módulo
+  (de la raíz lo lee `plana_to_cube.py`).
 - `auth_drive.py` / `run_all.bat` / `LEEME.txt`.
 - Secretos (NO versionar ni compartir): `credentials_drive.json` (client OAuth, compartido) y `token_drive.json` (personal, cada uno el suyo).
 

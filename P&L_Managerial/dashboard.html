@@ -456,7 +456,10 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
 
 /* ── Quarterly P&L Table ──────────────────────────────────────── */
 .qpnl-table{border-collapse:collapse;width:100%;font-size:12px}
-.qpnl-table th{padding:5px 10px;text-align:center;white-space:nowrap;font-size:12px;border:1px solid var(--border)}
+.qpnl-table th{padding:5px 10px;text-align:center;white-space:nowrap;font-size:12px;border:1px solid var(--border);background:var(--surface)}
+.qpnl-table thead th{position:sticky;z-index:2}
+.qpnl-table thead tr:first-child th{top:0}
+.qpnl-table thead tr:nth-child(2) th{top:27px}
 .qpnl-table td{padding:4px 10px;border:1px solid var(--border);white-space:nowrap;text-align:right}
 .qpnl-table td:first-child{text-align:left;min-width:210px}
 .cell-pct{display:block;font-size:9px;color:#94A3B8;margin-top:1px}
@@ -619,6 +622,19 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
         </div>
       </div>
 
+      <div class="home-section-group">
+        <div class="home-section-label">Conciliación <small>&nbsp;·&nbsp; reales Managerial vs Accounting</small></div>
+        <div class="home-bento">
+          <button class="bento-card" style="--i:2" onclick="goToView('vsacc')">
+            <div class="bento-kicker">Reales · meses cerrados</div>
+            <div class="bento-icon">⚖️</div>
+            <div class="bento-name">Managerial vs Accounting</div>
+            <div class="bento-desc">Comparación línea por línea de P&amp;L · B2B + B2B2C</div>
+            <div class="bento-arrow">→</div>
+          </button>
+        </div>
+      </div>
+
     </div>
   </div>
 </div>
@@ -634,6 +650,7 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
   <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;gap:6px;align-items:center">
     <button class="lob-btn" id="lob-b2b" onclick="switchLob('b2b')">B2B · Managerial View</button>
     <button class="lob-btn active" id="lob-b2b2c" onclick="switchLob('b2b2c')">B2B2C · Managerial View</button>
+    <button class="lob-btn" id="lob-vsacc" onclick="enterVsAcc()">Managerial vs Accounting</button>
   </div>
   <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
     <span id="last-upd"></span>
@@ -667,6 +684,13 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
       <button id="mg-goal-budget"   class="prd-btn prd-active" type="button" onclick="setMGGoal('budget')">Budget</button>
       <button id="mg-goal-forecast" class="prd-btn"            type="button" onclick="setMGGoal('forecast')">Forecast</button>
       <button id="mg-goal-ly"       class="prd-btn"            type="button" onclick="setMGGoal('ly')">Last Year</button>
+    </div>
+    <span style="width:1px;height:18px;background:rgba(0,0,0,.15);margin:0 6px"></span>
+    <span style="font-size:11px;color:var(--muted);font-weight:700">Escala:</span>
+    <div class="prd-toggle">
+      <button id="mg-scale-M"   class="prd-btn prd-active" type="button" onclick="setMGNumScale('M')">M</button>
+      <button id="mg-scale-K"   class="prd-btn"            type="button" onclick="setMGNumScale('K')">K</button>
+      <button id="mg-scale-raw" class="prd-btn"            type="button" onclick="setMGNumScale('raw')">Enteros</button>
     </div>
     <span style="width:1px;height:18px;background:rgba(0,0,0,.15);margin:0 6px"></span>
     <!-- País/Producto chips: visible cuando el tab P&L está activo -->
@@ -764,6 +788,11 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
   <div class="tab-pane active" id="pane-baseline">
     <div id="mg-tables-container"></div>
   </div>
+
+  <!-- ── Managerial vs Accounting ─────────────────────────────────────────── -->
+  <div class="tab-pane" id="pane-vsacc">
+    <div id="vsacc-container"><div style="padding:24px;color:var(--muted)">Cargando…</div></div>
+  </div>
 </main>
 
 
@@ -774,6 +803,7 @@ var _targetMode = null; // null | 'budget'
 var _deltaData     = null;
 var _deltaExpanded = {};
 var _activeLob      = 'b2b2c'; // 'b2b2c' | 'b2b'
+var _fetchSeq       = 0; // incrementado en cada fetchData(); descarta respuestas de google.script.run que lleguen fuera de orden (ej. cambiar de tab antes de que responda el fetch anterior)
 var _reloadTimer    = null;
 var _contTimer      = null;
 function debouncedReload(){ clearTimeout(_reloadTimer); _reloadTimer = setTimeout(function(){ reload(); }, 600); }
@@ -788,6 +818,7 @@ var _paisSelected = [];           // [] = todos; otherwise array of selected cou
 var _mgSecState = {};             // secId → true = collapsed
 var _managerialGoal = 'budget';   // 'budget' | 'forecast' | 'ly'
 var _managerialBGPeriod = 'quarter'; // 'month' | 'quarter' | 'half'
+var _numScale = 'M';                 // 'M' | 'K' | 'raw' — escala de valores nominales
 var _mgPeriodSel = null;             // array de meses/quarters/halves puntuales elegidos, o null = todos
 var _gActiveTab = 'total';        // 'total'|'brasil'|'mexico'|'argentina'|'colombia'|'chile'|'peru'|'ecuador'|'other'
 var _gSelectedPartners = [];      // [] = all; otherwise list of selected partner names
@@ -871,6 +902,7 @@ function switchTab(name){
   updateProductoFilterVis_();
   if(name === 'baseline' && _data) renderManagerialBGTable();
   if(name === 'detalle' && _data) renderDetalle();
+  if(name === 'graficos' && _data) { try{ renderTrendCharts(_data.months||[], _data.agg||{}, _data.budget||{}, _data.ly||{}); }catch(e){ if(window.console) console.error('[render:trend]', e); } }
   _updateStickyOffsets_();
 }
 
@@ -977,10 +1009,21 @@ var PALANCAS_ROWS = [
 ];
 
 // ── Formatters ─────────────────────────────────────────────────────────────
+function _grp(n){ return String(n).replace(/\B(?=(\d{3})+(?!\d))/g,'.'); }
+// Escala nominal activa: divisor / sufijo / decimales para charts.
+function _scaleCfg(){
+  return _numScale==='K'   ? {d:1e3, u:'K', dec:1}
+       : _numScale==='raw' ? {d:1,   u:'',  dec:0}
+       :                      {d:1e6, u:'M', dec:2};
+}
 function fmtM(v){
   if (v===null||isNaN(v)) return '—';
-  var abs=Math.abs(v);
-  return abs>=1e6?(v/1e6).toFixed(1)+'M':abs>=1e3?(v/1e3).toFixed(0)+'K':v.toFixed(0);
+  if (_numScale==='K')   return _grp(Math.round(v/1e3))+'K';
+  if (_numScale==='raw') return _grp(Math.round(v));
+  // M: TODOS los nominales en millones (sin auto-escalar a K los valores chicos)
+  var m = v/1e6;
+  if (Math.abs(m) < 0.005) return '0.00M';   // evita "-0.00M"
+  return m.toFixed(2)+'M';
 }
 function fmtK(v){
   if (v===null||isNaN(v)) return '—';
@@ -1281,11 +1324,12 @@ function filterOptions(id, q){
   });
 }
 
-function clearMs(id){
+function clearMs(id, doReload){
   var wrap=document.getElementById(id);
   wrap.querySelectorAll('.ms-option:not(.ms-all) input').forEach(function(c){ c.checked=false; });
   wrap.querySelector('input[value="__all__"]').checked=true;
-  updateMsLabel(id); reload();
+  updateMsLabel(id);
+  if(doReload !== false) reload();
 }
 
 function updateMsLabel(id){
@@ -1712,7 +1756,9 @@ function renderDetalle() {
   var baselineRowLabel = _baselineSource==='vr' ? 'Projection Reviews' : 'Actuals + Projections';
 
   var mk   = _detalleMetric==='gb'?'gross_bookings':_detalleMetric==='nr'?'net_revenue':'npv';
-  var fmt  = _detalleMetric==='gb'?fmtK:fmtM;
+  // GB usa fmtK (2 decimales de M) sólo en la escala por defecto 'M'; con K/Enteros
+  // sigue el selector como el resto de los valores nominales.
+  var fmt  = (_detalleMetric==='gb' && _numScale==='M') ? fmtK : fmtM;
   var dfmt = _detalleMetric==='gb'?'K':'M';
 
   function colorNum(v, fmtFn, showPlus) {
@@ -1910,18 +1956,22 @@ function renderPalancasTable(months,agg,budgetAgg,lyAgg,headEl,bodyEl){
 
 // ── Main render ────────────────────────────────────────────────────────────
 function render(){
-  var months=_data.months, agg=_data.agg, budgetAgg=_data.budget||{}, lyAgg=_data.ly||{};
-  var totals={};
-  ['orders','gross_bookings','net_revenue','npv'].forEach(function(k){
-    totals[k]=months.reduce(function(s,m){ return s+(agg[m]?(agg[m][k]||0):0);},0);
-  });
-  renderKPIs(months,totals);
+  if(!_data) return;
+  var months=_data.months||[], agg=_data.agg||{}, budgetAgg=_data.budget||{}, lyAgg=_data.ly||{};
   var _pl=document.getElementById('period-label');
   if(_pl) _pl.textContent=months.length===0?'':months.length===1?months[0]:months[0]+' → '+months[months.length-1];
-  renderPnlTable(months,agg,budgetAgg,lyAgg);
-  renderTrendCharts(months,agg,budgetAgg,lyAgg);
-  if(document.getElementById('tab-baseline').classList.contains('active')) renderManagerialBGTable();
-  if(document.getElementById('tab-detalle').classList.contains('active')) renderDetalle();
+
+  // Cada sección se renderiza aislada: un error en una (típicamente renderTrendCharts,
+  // que es código centrado en B2B2C) NO debe impedir que se repinte la tabla de P&L.
+  // Antes esto tapaba el bug B2B/B2B2C: render() abortaba antes de renderManagerialBGTable.
+  function safe(label, fn){ try{ fn(); }catch(e){ if(window.console) console.error('[render:'+label+']', e); } }
+  var isTab=function(id){ var el=document.getElementById(id); return el && el.classList.contains('active'); };
+
+  // La tabla de P&L (pestaña por defecto) primero y siempre.
+  safe('pnl', renderManagerialBGTable);
+  // Detalle y Trend: solo si su pestaña está visible (lazy — no construir Chart.js oculto).
+  if(isTab('tab-detalle')) safe('detalle', renderDetalle);
+  if(isTab('tab-graficos')) safe('trend', function(){ renderTrendCharts(months,agg,budgetAgg,lyAgg); });
 }
 
 // ── Baseline vs Goal (Managerial) ──────────────────────────────────────────
@@ -2016,6 +2066,23 @@ function setMGGoal(goal){
   document.getElementById('mg-goal-ly').classList.toggle('prd-active', goal === 'ly');
   if(document.getElementById('tab-baseline').classList.contains('active') && _data) renderManagerialBGTable();
   if(document.getElementById('tab-detalle').classList.contains('active') && _data) renderDetalle();
+}
+
+// Sincroniza _numScale y el estado activo de LOS DOS grupos de botones de escala
+// (mg-scale-* de la Managerial View y vsacc-scale-* de la vista comparativa).
+function _applyNumScale_(scale){
+  _numScale = scale;
+  ['mg-scale-','vsacc-scale-'].forEach(function(pfx){
+    ['M','K','raw'].forEach(function(s){
+      var btn = document.getElementById(pfx + s);
+      if(btn) btn.classList.toggle('prd-active', s === scale);
+    });
+  });
+}
+
+function setMGNumScale(scale){
+  _applyNumScale_(scale);
+  if(_data) render();  // repinta tabla P&L + Detalle + Trend (según pestaña activa)
 }
 
 function setMGPeriod(mode){
@@ -2267,6 +2334,438 @@ function renderManagerialBGTable(){
   }
 }
 
+// ══════════════════════════════════════════════════════════════════════════
+//  Managerial vs Accounting — comparación de REALES (meses cerrados)
+//  Accounting (BASELINE) = actuals.json canónico · Managerial (GOAL) = escenario 'ac'.
+//  VSACC_MAP: mapeo línea Managerial ↔ P&L N2/N3/N4 de Accounting. ⚠ BORRADOR —
+//  Diego lo revisa y define qué filas quedan. Prefijos acc: 'n2|', 'n3|', 'n4|'.
+// ══════════════════════════════════════════════════════════════════════════
+// `group` ordena las filas en 3 bloques visuales (ver PNL_GROUP_LABELS):
+// 'pre' = volumen (sin header) · 'palancas' = negociables por el negocio · 'regional' = resto
+// (estructurales/país) · 'subtotal' = Net Revenue/FVM, al final de todo (spec de Diego 2026-09-10).
+var VSACC_MAP = [
+  { label:'Orders',                    mgr:['orders'],                       acc:['n1|orders domestic','n1|orders international'], group:'pre' },
+  { label:'Gross Bookings',            mgr:['gross_bookings'],               acc:['n1|gross bookings domestic','n1|gross bookings international'], group:'pre' },
+
+  { label:'Up Front + Fees + Comm. Disc.', mgr:['up_front_incentives','fees','commercial_discounts'],
+                                       acc:['n1|up front incentives','n1|fees','n1|commercial discounts'], group:'palancas' },
+  { label:'Cancellations',             mgr:['cancellations'],                acc:['n1|cancellations'], group:'palancas' },
+  { label:'Cost of Installments',      mgr:['cost_of_installments'],         acc:['n1|cost of installments'], group:'palancas' },
+  { label:'Credit Card Processing',    mgr:['credit_card_processing'],       acc:['n1|credit card processing'], group:'palancas' },
+  { label:'Third Party Commissions',   mgr:['white_labels_api','affiliates'],
+                                       acc:['n1|affiliates','n1|white labels / api','n1|conectores','n1|telesales'], group:'palancas' },
+
+  { label:'Back End Incentives',       mgr:['back_end_incentives'],          acc:['n1|back end incentives'], group:'regional' },
+  { label:'Other Incentives',          mgr:['other_incentives'],             acc:['n1|other incentives','n1|gds','n1|vcc'], group:'regional' },
+  { label:'Breakage Revenue',          mgr:['breakage_revenue'],             acc:['n1|breakage revenue'], group:'regional' },
+  { label:'Media Revenue',             mgr:['media_revenue'],                acc:['n1|media & other revenue - media solutions'], group:'regional' },
+  { label:'Income Outsourced Svcs',    mgr:['income_from_outsourced_services'], acc:['n1|income from outsourced services'], group:'regional' },
+  { label:'Revenue Tax',               mgr:['revenue_tax'],                  acc:['n1|revenue taxes'], group:'regional' },
+  { label:'Customer Claims',           mgr:['customer_claims'],              acc:['n1|customer claims'], group:'regional' },
+  { label:'Customer Service',          mgr:['customer_service'],             acc:['n1|customer service'], group:'regional' },
+  { label:'Errors',                    mgr:['errors'],                       acc:['n1|errors'], group:'regional' },
+  { label:'Other Transactional Taxes', mgr:['other_transactional_taxes'],    acc:['n1|other transactional taxes'], group:'regional' },
+  { label:'Frauds',                    mgr:['frauds'],                       acc:['n1|frauds'], group:'regional' },
+  { label:'Intercompany',              mgr:['intercompany_usd'],             acc:['n1|intercompany transactions'], group:'regional' },
+  { label:'Vendor Commissions  vs  Channels Personnel Exp.', mgr:['vendor_commissions'],
+                                       acc:['n1|channels-personnel/expenses'], note:'comisión de vendedores presenciales; Mgr no lo abre (0)', group:'regional' },
+  { label:'Efecto Financiero',         mgr:['efecto_financiero'],            acc:[], group:'regional' },
+  { label:'Dif FX + Hedge  vs  Cost of Sales as Principal', mgr:['dif_fx','currency_hedge'], acc:['n1|cost of sales as principal'], note:'fee bimonetario Argentina', group:'regional' },
+
+  { label:'» Net Revenue (subtotal)',  mgr:['net_revenue'],                  acc:['n3|net revenue'], sub:true, group:'subtotal' },
+  { label:'» FVM  vs  Gross Profit',   mgr:['npv'],                          acc:['n4|gross profit'], sub:true, note:'conceptos distintos — solo referencia', group:'subtotal' }
+];
+
+// Labels de los headers de sección insertados entre grupos (null/'pre' = sin header).
+var PNL_GROUP_LABELS = { palancas:'Palancas de Negocio', regional:'Variables Regionales', subtotal:'Subtotales' };
+function _pnlGroupHeaderRow_(group, cols){
+  var label = PNL_GROUP_LABELS[group];
+  if(!label) return '';
+  var span = 1 + cols.length*4 + 3;
+  return '<tr><td colspan="'+span+'" style="font-weight:800;padding:6px 8px;background:rgba(42,16,72,.10);border-top:1px solid var(--border)">'+escHtml(label)+'</td></tr>';
+}
+
+var _vsAccData = null;
+var _vsAccPais = [];   // país canónico seleccionado ('Argentina', 'Otros', …)
+var _vsAccProd = [];   // producto lowercase seleccionado
+var _vsAccMode = 'mgracc';   // 'mgracc' = Managerial vs Accounting | 'planrev' = Planning vs Revenue (GD)
+
+function _vsAccSetMode_(m){
+  if(m === _vsAccMode) return;
+  _vsAccMode = m;
+  renderVsAcc_();
+}
+
+function _vsAccSetScale_(scale){
+  _applyNumScale_(scale);
+  if(_vsAccMode === 'planrev' && _revGdData){
+    var sec = document.getElementById('revgd-section');
+    if(sec){ sec.innerHTML = _revGdTableHtml_(_revGdData); return; }
+  }
+  renderVsAcc_();
+}
+// Mismo componente que mg-scale-* (prd-toggle/prd-btn) — un solo estilo para "Unidades" en la landing.
+function _vsAccScaleChips_(){
+  var opt = [['M','M'],['K','K'],['raw','Enteros']];
+  var h = '<div style="display:flex;gap:6px;align-items:center;margin:4px 0">'
+    + '<span style="font-size:11px;color:var(--muted);font-weight:700;min-width:64px">Unidades</span>'
+    + '<div class="prd-toggle">';
+  opt.forEach(function(o){
+    h += '<button id="vsacc-scale-'+o[0]+'" type="button" class="prd-btn'+(_numScale===o[0]?' prd-active':'')+'" onclick="_vsAccSetScale_(\''+o[0]+'\')">'+o[1]+'</button>';
+  });
+  return h + '</div></div>';
+}
+
+function fetchVsAcc_(force){
+  var c = document.getElementById('vsacc-container');
+  if(!c) return;
+  if(_vsAccData && !force){ renderVsAcc_(); return; }
+  _vsAccData = null;
+  var tbl = document.getElementById('vsacc-tables');
+  if(tbl) tbl.innerHTML = '<div style="padding:20px;color:var(--muted)">Cargando…</div>';
+  else c.innerHTML = '<div style="padding:24px;color:var(--muted)">Cargando comparación… (primera carga: ~10 s, parsea 2 JSON de Drive)</div>';
+  google.script.run
+    .withSuccessHandler(function(d){ _vsAccData = d; try{ renderVsAcc_(); }catch(e){ c.innerHTML = '<div class="error-msg" style="padding:24px">Error render: '+(e.message||e)+'</div>'; if(window.console) console.error('[vsacc]', e); } })
+    .withFailureHandler(function(e){
+      if(_vsAccMode === 'planrev'){ renderVsAcc_(); return; }  // planrev no depende de este backend
+      c.innerHTML = '<div class="error-msg" style="padding:24px">Error backend: '+((e&&e.message)||e)+'</div>';
+    })
+    .getVsAccounting({ pais: _vsAccPais, produto: _vsAccProd });
+}
+
+function _vsAccToggle_(which, val){
+  var arr = which === 'pais' ? _vsAccPais : _vsAccProd;
+  var i = arr.indexOf(val);
+  if(i >= 0) arr.splice(i,1); else arr.push(val);
+  if(_vsAccMode === 'planrev'){ _revGdData = null; renderVsAcc_(); } else fetchVsAcc_(true);
+}
+function _vsAccClear_(which){
+  if(which === 'pais') _vsAccPais = []; else _vsAccProd = [];
+  if(_vsAccMode === 'planrev'){ _revGdData = null; renderVsAcc_(); } else fetchVsAcc_(true);
+}
+function _vsAccChips_(label, which, opts, sel){
+  var h = '<div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin:4px 0">'
+    + '<span style="font-size:11px;color:var(--muted);font-weight:700;min-width:64px">'+label+'</span>'
+    + '<button type="button" class="bg-pchip'+(sel.length?'':' bg-pchip-active')+'" onclick="_vsAccClear_(\''+which+'\')">Todos</button>';
+  (opts||[]).forEach(function(o){
+    var on = sel.indexOf(o) >= 0;
+    h += '<button type="button" class="bg-pchip'+(on?' bg-pchip-active':'')+'" onclick="_vsAccToggle_(\''+which+'\',\''+String(o).replace(/'/g,"\\'")+'\')">'+escHtml(o)+'</button>';
+  });
+  return h + '</div>';
+}
+
+function _vsAccSum_(dict, keys, mes){
+  var t = 0;
+  (keys||[]).forEach(function(k){ if(dict[k] && dict[k][mes]!=null) t += dict[k][mes]; });
+  return t;
+}
+
+// Líneas Accounting sin equivalente Managerial que igual se muestran (fila extra,
+// Managerial = 0). El resto de las accounting-only se ocultan (decisión de Diego).
+var VSACC_ACC_KEEP = [];
+
+function _vsAccTable_(L){
+  var months = L.months || [];
+  var mgr = L.mgr || {}, acc = L.acc || {};
+  var head = '<div class="pnl-card" style="margin-bottom:4px;padding:8px 14px;font-weight:700">'+escHtml(L.label)
+    + ' <span style="font-weight:400;color:var(--muted);font-size:11px">· Managerial '+escHtml(L.mgrLabel)
+    + ' · '+(months.join(', ')||'sin meses en común')+'</span></div>';
+  if(!months.length) return head + '<div class="pnl-card" style="padding:12px;color:var(--muted);margin-bottom:14px">Sin meses cerrados en común.</div>';
+
+  var cols = months.concat(['Total']);
+  function cell(v, cnt){ if(cnt) return '<td style="text-align:right">'+(v==null||isNaN(v)?'—':_grp(Math.round(v)))+'</td>'; return '<td style="text-align:right'+(v<0?';color:var(--red)':'')+'">'+fmtM(v)+'</td>'; }
+  function pcell(v){ return '<td style="text-align:right'+(v<0?';color:var(--red)':'')+'">'+(v==null||!isFinite(v)?'—':(v>=0?'+':'')+v.toFixed(0)+'%')+'</td>'; }
+  function sumRow(get){ return cols.map(function(col){ return col==='Total' ? months.reduce(function(s,m){return s+get(m);},0) : get(col); }); }
+  // baseV = Managerial (baseline), goalV = Accounting (goal). Δ = base − goal. Δ% = Δ / |goal|.
+  function tr(label, baseV, goalV, note, style, pctDash, cnt){
+    var dV = baseV.map(function(v,i){ return v-goalV[i]; });
+    var pV = dV.map(function(dv,i){ return pctDash || Math.abs(goalV[i])<1e-9 ? null : dv/Math.abs(goalV[i])*100; });
+    return '<tr'+(style?' style="'+style+'"':'')+'><td class="th-lbl">'+escHtml(label)
+      + (note?' <span style="color:var(--red);font-size:10px">('+escHtml(note)+')</span>':'')+'</td>'
+      + baseV.map(function(v){return cell(v,cnt);}).join('')+'<td class="th-sep"></td>'
+      + goalV.map(function(v){return cell(v,cnt);}).join('')+'<td class="th-sep"></td>'
+      + dV.map(function(v){return cell(v,cnt);}).join('')+'<td class="th-sep"></td>'
+      + pV.map(pcell).join('')+'</tr>';
+  }
+
+  var h = head + '<div class="pnl-card" style="overflow-x:auto;margin-bottom:16px"><table class="qpnl-table" style="min-width:820px"><thead>';
+  h += '<tr><th class="th-lbl"></th><th class="th-baseline" colspan="'+cols.length+'">MANAGERIAL (baseline)</th><th class="th-sep"></th>'
+     + '<th class="th-goal" colspan="'+cols.length+'">ACCOUNTING (goal)</th><th class="th-sep"></th>'
+     + '<th class="th-delta" colspan="'+cols.length+'">Δ (Mgr − Acc)</th><th class="th-sep"></th>'
+     + '<th class="th-delta" colspan="'+cols.length+'">Δ %</th></tr><tr><th class="th-lbl">Línea</th>';
+  for(var g=0; g<4; g++){ cols.forEach(function(col){ h+='<th'+(col==='Total'?' class="th-total-b"':'')+'>'+col+'</th>'; }); if(g<3) h+='<th class="th-sep"></th>'; }
+  h += '</tr></thead><tbody>';
+
+  var _lastGroup = null;
+  VSACC_MAP.forEach(function(row){
+    if(row.group !== _lastGroup){ h += _pnlGroupHeaderRow_(row.group, cols); _lastGroup = row.group; }
+    h += tr(row.label,
+            sumRow(function(m){ return _vsAccSum_(mgr, row.mgr, m); }),
+            sumRow(function(m){ return _vsAccSum_(acc, row.acc, m); }),
+            row.note,
+            row.sub ? 'font-weight:700;background:rgba(42,16,72,.05)' : '',
+            false,
+            row.mgr && row.mgr.indexOf('orders') >= 0);
+  });
+  VSACC_ACC_KEEP.forEach(function(k){
+    if(!acc[k]) return;
+    h += tr(k.replace(/^n1\|/,'') + ' — solo Accounting',
+            cols.map(function(){ return 0; }),
+            sumRow(function(m){ return (acc[k]||{})[m]||0; }),
+            '', 'color:var(--muted)', true);
+  });
+  return h + '</tbody></table></div>';
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//  Sub-sección: B2B actuals GD (gestional) vs Revenue por GD
+//  Izq = escenario 'ac' (GD) de b2b_may+b2b_min · Der = revenue_gd.json
+//  ⚠ BORRADOR — el mapeo de las ~30 líneas y los signos los revisa Diego.
+// ══════════════════════════════════════════════════════════════════════════
+// Mismo criterio de grupos que VSACC_MAP (ver PNL_GROUP_LABELS más arriba).
+var REVGD_ROWS = [
+  { k:'orders',                          label:'Orders', group:'pre' },
+  { k:'gross_bookings',                  label:'Gross Bookings', group:'pre' },
+
+  { k:'up_front_incentives',             label:'Up Front Incentives', group:'palancas' },
+  { k:'fees',                            label:'Fees', group:'palancas' },
+  { k:'commercial_discounts',            label:'Commercial Discounts', group:'palancas' },
+  { k:'cancellations',                   label:'Cancellations', group:'palancas' },
+  { k:'cost_of_installments',            label:'Cost of Installments', group:'palancas' },
+  { k:'credit_card_processing',          label:'Credit Card Processing', group:'palancas' },
+  { k:'white_labels_api',               label:'White Labels / API', group:'palancas' },
+  { k:'affiliates',                     label:'Affiliates', group:'palancas' },
+
+  { k:'income_from_outsourced_services', label:'Income Outsourced Svcs', group:'regional' },
+  { k:'other_incentives',               label:'Other Incentives', group:'regional' },
+  { k:'revenue_tax',                    label:'Revenue Tax', group:'regional' },
+  { k:'back_end_incentives',            label:'Back End Incentives', group:'regional' },
+  { k:'breakage_revenue',               label:'Breakage Revenue', group:'regional' },
+  { k:'media_revenue',                  label:'Media Revenue', group:'regional' },
+  { k:'errors',                         label:'Errors', group:'regional' },
+  { k:'other_transactional_taxes',      label:'Other Transactional Taxes', group:'regional' },
+  { k:'customer_claims',                label:'Customer Claims', group:'regional' },
+  { k:'customer_service',               label:'Customer Service', group:'regional' },
+  { k:'intercompany_usd',               label:'Intercompany', group:'regional' },
+  { k:'operations',                     label:'Operations', group:'regional' },
+  { k:'vendor_commissions',             label:'Vendor Commissions', group:'regional' },
+  { k:'frauds',                         label:'Frauds', group:'regional' },
+  { k:'efecto_financiero',              label:'Efecto Financiero', group:'regional' },
+  { k:'dif_fx',                         label:'Dif FX', group:'regional' },
+  { k:'currency_hedge',                 label:'Currency Hedge', group:'regional' },
+
+  { k:'net_revenue',                    label:'» Net Revenue', sub:true, group:'subtotal' },
+  { k:'npv',                            label:'» FVM', sub:true, group:'subtotal' }
+];
+var REVGD_EXTRA_ROWS = [
+  { k:'rev_gb',         label:'rev_gb (modelo)',        extra:true },
+  { k:'revenue_margin', label:'revenue_margin (modelo)',extra:true },
+  { k:'agency_fee',     label:'agency_fee (MIN)',       extra:true },
+  { k:'bad_debt',       label:'bad_debt',               extra:true }
+];
+
+var _revGdData = null;
+var _revGdMonth = 'all';   // 'all' = acumulado | 'Abr-26' etc = un mes puntual
+
+function _revGdSetMonth_(m){
+  _revGdMonth = m;
+  var sec = document.getElementById('revgd-section');
+  if(sec && _revGdData) sec.innerHTML = _revGdTableHtml_(_revGdData);
+}
+
+function fetchRevGd_(){
+  var sec = document.getElementById('revgd-section');
+  if(!sec) return;
+  sec.innerHTML = '<div class="pnl-card" style="padding:12px;color:var(--muted);margin-bottom:14px">Cargando comparación… (primera carga: ~10 s)</div>';
+  google.script.run
+    .withSuccessHandler(function(d){ _revGdData = d; try{ if(_vsAccMode === 'planrev') renderVsAcc_(); }catch(e){ sec.innerHTML = '<div class="error-msg" style="padding:16px">Error render Revenue GD: '+(e.message||e)+'</div>'; } })
+    .withFailureHandler(function(e){ var s=document.getElementById('revgd-section'); if(s) s.innerHTML = '<div class="error-msg" style="padding:16px">Error backend Revenue GD: '+((e&&e.message)||e)+'</div>'; })
+    .getRevenueGDVsGestional({ pais: _vsAccPais, produto: _vsAccProd });
+}
+
+function _revGdTableHtml_(D){
+  D = D || {};
+  var months = D.months || [];
+  var mgr = D.mgr || {}, rev = D.rev || {};
+  var upd = D.updatedAt ? (' · revenue_gd.json ' + escHtml(String(D.updatedAt).slice(0,16))) : '';
+  var head = '<div class="pnl-card" style="margin-bottom:4px;padding:8px 14px;font-weight:700">Actuals GD (gestional) vs Revenue por GD'
+    + ' <span style="font-weight:400;color:var(--muted);font-size:11px">· Total B2B · '
+    + (months.join(', ') || 'sin meses en común') + upd
+    + (D.zeroMetrics && D.zeroMetrics.length ? ' · sin fuente en la query (siempre 0): ' + escHtml(D.zeroMetrics.join(', ')) : '')
+    + '</span></div>';
+  if(!months.length) return head + '<div class="pnl-card" style="padding:12px;color:var(--muted);margin-bottom:14px">Sin meses cerrados en común — todavía no hay <code>revenue_gd.json</code> generado.</div>';
+
+  // ── Cuadro resumen: país × canal, NR + FVM, gestional vs revGD, Δ ──
+  if(_revGdMonth !== 'all' && months.indexOf(_revGdMonth) < 0) _revGdMonth = 'all';
+  var sumMonths = _revGdMonth === 'all' ? months : [_revGdMonth];
+  var sumHtml = _revGdSummaryHtml_(D.summary || [], months, sumMonths);
+
+  var cols = months.concat(['Total']);
+  function cell(v, cnt){ if(cnt) return '<td style="text-align:right">'+(v==null||isNaN(v)?'—':_grp(Math.round(v)))+'</td>'; return '<td style="text-align:right'+(v<0?';color:var(--red)':'')+'">'+fmtM(v)+'</td>'; }
+  function pcell(v){ return '<td style="text-align:right'+(v!=null&&v<0?';color:var(--red)':'')+'">'+(v==null||!isFinite(v)?'—':(v>=0?'+':'')+v.toFixed(0)+'%')+'</td>'; }
+  function series(dict,k){ return cols.map(function(col){ return col==='Total' ? months.reduce(function(s,m){ return s+(((dict[k]||{})[m])||0); },0) : (((dict[k]||{})[col])||0); }); }
+  function detailTable(entry){
+    var mgrD = entry.mgr || {}, revD = entry.rev || {};
+    function tr(row){
+      var cnt = row.k === 'orders';
+      var L = series(mgrD, row.k), R = series(revD, row.k);
+      var dV = L.map(function(v,i){ return v-R[i]; });
+      var pV = dV.map(function(dv,i){ return Math.abs(R[i])<1e-9 ? null : dv/Math.abs(R[i])*100; });
+      var st = row.sub ? 'font-weight:700;background:rgba(42,16,72,.05)' : (row.extra ? 'color:var(--muted)' : '');
+      return '<tr'+(st?' style="'+st+'"':'')+'><td class="th-lbl">'+escHtml(row.label)+'</td>'
+        + L.map(function(v){return cell(v,cnt);}).join('')+'<td class="th-sep"></td>'
+        + R.map(function(v){return cell(v,cnt);}).join('')+'<td class="th-sep"></td>'
+        + dV.map(function(v){return cell(v,cnt);}).join('')+'<td class="th-sep"></td>'
+        + pV.map(pcell).join('')+'</tr>';
+    }
+    var t = '<div class="pnl-card" style="margin:14px 0 4px;padding:8px 14px;font-weight:700">Detalle P&L — '+escHtml(entry.label)+'</div>'
+      + '<div class="pnl-card" style="overflow-x:auto;margin-bottom:12px"><table class="qpnl-table" style="min-width:820px"><thead>'
+      + '<tr><th class="th-lbl"></th><th class="th-baseline" colspan="'+cols.length+'">GESTIONAL ac (GD)</th><th class="th-sep"></th>'
+      + '<th class="th-goal" colspan="'+cols.length+'">REVENUE por GD</th><th class="th-sep"></th>'
+      + '<th class="th-delta" colspan="'+cols.length+'">Δ (Gest − RevGD)</th><th class="th-sep"></th>'
+      + '<th class="th-delta" colspan="'+cols.length+'">Δ %</th></tr><tr><th class="th-lbl">Línea</th>';
+    for(var g=0; g<4; g++){ cols.forEach(function(col){ t+='<th'+(col==='Total'?' class="th-total-b"':'')+'>'+col+'</th>'; }); if(g<3) t+='<th class="th-sep"></th>'; }
+    t += '</tr></thead><tbody>';
+    var _lastGroup = null;
+    REVGD_ROWS.forEach(function(row){
+      if(row.group !== _lastGroup){ t += _pnlGroupHeaderRow_(row.group, cols); _lastGroup = row.group; }
+      t += tr(row);
+    });
+    REVGD_EXTRA_ROWS.forEach(function(row){ t += tr(row); });
+    return t + '</tbody></table></div>';
+  }
+
+  var detail = (D.detail && D.detail.length) ? D.detail : [{ label:'Total B2B', mgr:mgr, rev:rev }];
+  var h = head + sumHtml + detail.map(detailTable).join('');
+  return h;
+}
+
+// Cuadro resumen país × canal — NR y FVM, gestional vs revGD, con Δ.
+// `allMonths` = meses disponibles (para el selector) · `sumMonths` = subset a sumar.
+// Marca en rojo las celdas con diferencia MATERIAL (|Δ| ≥ 50k y |Δ%| ≥ 5%).
+function _revGdSummaryHtml_(summary, allMonths, sumMonths){
+  if(!summary.length) return '';
+  var MAT_ABS = 50000, MAT_PCT = 5;
+  var MAT_BG = 'color-mix(in srgb, var(--red) 13%, transparent)';
+  function s_(o){ return (sumMonths||[]).reduce(function(a,m){ return a + ((o||{})[m] || 0); }, 0); }
+  function money(v){ return '<td style="text-align:right'+(v<0?';color:var(--red)':'')+'">'+fmtM(v)+'</td>'; }
+  function dcell(d, base){
+    var pct = Math.abs(base) < 1e-9 ? null : d/Math.abs(base)*100;
+    var mat = Math.abs(d) >= MAT_ABS && pct != null && Math.abs(pct) >= MAT_PCT;
+    var txt = fmtM(d) + (pct==null ? '' : ' <span style="font-size:11px">('+(pct>=0?'+':'')+pct.toFixed(0)+'%)</span>');
+    return '<td style="text-align:right'+(mat?';background:'+MAT_BG+';font-weight:700;color:var(--red)':(d<0?';color:var(--red)':''))+'">'+txt+'</td>';
+  }
+  // selector de mes
+  var chips = '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:4px 0">'
+    + '<span style="font-size:11px;color:var(--muted);font-weight:700;min-width:64px">Mes</span>'
+    + '<button type="button" class="bg-pchip'+(_revGdMonth==='all'?' bg-pchip-active':'')+'" onclick="_revGdSetMonth_(\'all\')">Acumulado</button>';
+  (allMonths||[]).forEach(function(m){
+    chips += '<button type="button" class="bg-pchip'+(_revGdMonth===m?' bg-pchip-active':'')+'" onclick="_revGdSetMonth_(\''+m+'\')">'+escHtml(m)+'</button>';
+  });
+  chips += '</div>';
+
+  var per = _revGdMonth === 'all' ? ('acumulado ' + (sumMonths||[]).join(', ')) : _revGdMonth;
+  var h = '<div class="pnl-card" style="margin-bottom:6px;padding:8px 14px">'
+    + '<span style="font-weight:700">Resumen país × canal</span> <span style="color:var(--muted);font-size:11px">· '+escHtml(per)
+    + ' — en <span style="background:'+MAT_BG+';padding:0 4px">rojo</span> las diferencias materiales (|Δ| ≥ 50K y |Δ%| ≥ '+MAT_PCT+'%)</span>'
+    + chips + '</div>';
+  h += '<div class="pnl-card" style="overflow-x:auto;margin-bottom:4px"><table class="qpnl-table" style="min-width:760px"><thead>'
+    + '<tr><th class="th-lbl">País</th><th>Canal</th>'
+    + '<th colspan="3" style="font-weight:800;border-bottom:2px solid var(--border)">NET REVENUE</th><th class="th-sep"></th>'
+    + '<th colspan="3" style="font-weight:800;border-bottom:2px solid var(--border)">FVM</th></tr>'
+    + '<tr><th class="th-lbl"></th><th></th>'
+    + '<th>Gest</th><th>RevGD</th><th>Δ</th><th class="th-sep"></th><th>Gest</th><th>RevGD</th><th>Δ</th></tr>'
+    + '</thead><tbody>';
+  var tNRg=0,tNRv=0,tFVg=0,tFVv=0;
+  summary.forEach(function(r){
+    var nrG=s_(r.nrGest), nrV=s_(r.nrRev), fvG=s_(r.fvmGest), fvV=s_(r.fvmRev);
+    if(Math.abs(nrG)<1 && Math.abs(nrV)<1 && Math.abs(fvG)<1 && Math.abs(fvV)<1) return;
+    tNRg+=nrG; tNRv+=nrV; tFVg+=fvG; tFVv+=fvV;
+    h += '<tr><td class="th-lbl">'+escHtml(r.pais)+'</td><td>'+escHtml(r.canal)+'</td>'
+      + money(nrG)+money(nrV)+dcell(nrG-nrV, nrV)+'<td class="th-sep"></td>'
+      + money(fvG)+money(fvV)+dcell(fvG-fvV, fvV)+'</tr>';
+  });
+  h += '<tr style="font-weight:800;background:rgba(42,16,72,.06)"><td class="th-lbl">TOTAL B2B</td><td></td>'
+    + money(tNRg)+money(tNRv)+dcell(tNRg-tNRv, tNRv)+'<td class="th-sep"></td>'
+    + money(tFVg)+money(tFVv)+dcell(tFVg-tFVv, tFVv)+'</tr>';
+  return h + '</tbody></table></div>';
+}
+
+function renderVsAcc_(){
+  var c = document.getElementById('vsacc-container');
+  var D = _vsAccData;
+  var isPR = _vsAccMode === 'planrev';
+  // "Actuals GD vs Revenue" tiene pipeline propio (revenue_gd.json) → no depende de getVsAccounting.
+  if(!isPR && (!D || !D.lobs)){
+    c.innerHTML = '<div class="error-msg" style="padding:24px">Sin datos. '
+      + '<button type="button" onclick="fetchVsAcc_(true)" style="margin-left:8px;font-size:11px;padding:3px 10px;cursor:pointer">↻ recargar</button></div>';
+    return;
+  }
+  if(!D) D = { lobs:{}, paisOpts:[], prodOpts:[] };
+  // sincronizar selección con lo que el backend efectivamente aplicó (solo en el modo cuyo backend respondió)
+  if(!isPR && D.selPais) _vsAccPais = D.selPais;
+  if(!isPR && D.selProd) _vsAccProd = D.selProd;
+  if(isPR && _revGdData){
+    if(_revGdData.selPais) _vsAccPais = _revGdData.selPais;
+    if(_revGdData.selProd) _vsAccProd = _revGdData.selProd;
+  }
+  var reloadJs = isPR ? '(_revGdData=null,renderVsAcc_())' : 'fetchVsAcc_(true)';
+
+  // Toggle de modo = control primario → patrón .prd-toggle/.prd-btn como el resto de la landing
+  var modeToggle = '<div style="display:flex;gap:6px;align-items:center;margin:0 0 8px">'
+    + '<span style="font-size:11px;color:var(--muted);font-weight:700;min-width:64px">Vista</span>'
+    + '<div class="prd-toggle">'
+    + '<button type="button" class="prd-btn'+(!isPR?' prd-active':'')+'" onclick="_vsAccSetMode_(\'mgracc\')">Managerial vs Accounting</button>'
+    + '<button type="button" class="prd-btn'+(isPR?' prd-active':'')+'" onclick="_vsAccSetMode_(\'planrev\')">Actuals GD vs Revenue</button>'
+    + '</div>'
+    + '<button type="button" onclick="'+reloadJs+'" style="margin-left:auto;font-size:10px;padding:2px 8px;cursor:pointer">↻ recargar</button>'
+    + '</div>';
+
+  var desc = isPR
+    ? '<b>Actuals GD vs Revenue</b> — B2B por GD (<code>gestion_date</code>), meses cerrados, Total B2B. '
+      + 'Izq = escenario <code>ac</code> (reales) del pipeline gestional · Der = <code>revenue_gd.json</code> (modelo de revenue).'
+    : '<b>Managerial vs Accounting</b> — reales, meses cerrados, por LOB. '
+      + 'Accounting = <code>actuals.json</code> canónico (P&L N1). Managerial = actuals gestional ('
+      + 'B2B-MAY y B2B-MIN en RI; B2B2C tiene fecha única).';
+  var draft = isPR
+    ? '<div style="margin-top:6px;padding:6px 10px;border:1px solid var(--red);background:var(--red-bg);border-radius:6px;font-size:11px">⚠ <b>BORRADOR</b> — la query "revenue por GD" no aplica los signos de las líneas de costo que sí aplica el gestional. Los subtotales (NR, FVM) son confiables; las líneas individuales, revisar.</div>'
+      + '<details style="margin-top:6px;font-size:11px"><summary style="cursor:pointer;color:var(--muted);font-weight:700">¿Por qué difieren las dos queries?</summary>'
+      + '<div style="padding:6px 0 0 12px;line-height:1.7;color:var(--text)">'
+      + '<b>1. Fuente del NR/FVM.</b> Gestional lo arma línea por línea desde <code>pnl.*_usd</code> + un <code>country_factor</code> de 5 decimales por país·canal·producto. Revenue por GD toma <code>dev.nr_rev</code>/<code>dev.fvm_rev</code> <i>ya calculados</i> por el modelo <code>b2b_rev_pnl_sales_detail</code> (otros supuestos de corte y agrupación).<br>'
+      + '<b>2. Split del revenue margin.</b> Gestional separa up front / fees / commercial discounts; el modelo de revenue los mete juntos en <code>rm_rev</code>. Las líneas no comparan 1:1, pero <i>sumadas</i> cierran.<br>'
+      + '<b>3. Signos de costos.</b> La query de Revenue por GD hace <code>SUM(...)</code> sin negar; el gestional hace <code>-SUM(...)</code>. Por eso el Δ por línea de costo está roto hasta reconciliar.<br>'
+      + '<b>4. <code>country_factor</code>.</b> Gestional escala commission/fee/discount por 0.21–1.11 según país (Chile API Hoteles = 0.22, "Other" = 1.11). Revenue por GD no aplica ese ajuste salvo lo que ya venga en <code>dev.*</code>.<br>'
+      + '<b>5. Grain / spine.</b> Gestional = 1 fila por producto de <code>sales_recognition</code>. Revenue por GD parte de <code>transactional_fact_charges</code> con una ventana de <code>reservation_date</code> distinta → explica el Δ ~0.1% de GB y parte del de orders.<br>'
+      + '<b>6. Mapeo país/canal.</b> Gestional mueve a "Chile" ciertos <code>partner_id</code> + todo <code>country_code=CL</code>; Revenue por GD usa <code>tr.site</code> directo (por eso Chile MAY sale casi vacío). <code>lob_channel</code> NULL cae a MAY.<br>'
+      + '<b>7. Líneas faltantes.</b> Revenue por GD no trae <code>white_labels_api</code>, <code>vendor_commissions</code>, <code>back_end_incentives</code>, etc. → salen 0; su detalle no cierra contra su propio NR.<br>'
+      + '<span style="color:var(--muted)">Detalle completo: <code>P&amp;L_Managerial/reconciliacion_actuals_gd_vs_revenue.md</code></span>'
+      + '</div></details>'
+    : '<div style="margin-top:6px;padding:6px 10px;border:1px solid var(--red);background:var(--red-bg);border-radius:6px;font-size:11px">⚠ <b>BORRADOR</b> — <code>VSACC_MAP</code> (mapeo línea Managerial ↔ P&L N1 Accounting) está sin cerrar.</div>';
+
+  var paisOpts = (isPR && _revGdData && _revGdData.paisOpts && _revGdData.paisOpts.length) ? _revGdData.paisOpts : (D.paisOpts || []);
+  var prodOpts = (isPR && _revGdData && _revGdData.prodOpts && _revGdData.prodOpts.length) ? _revGdData.prodOpts : (D.prodOpts || []);
+
+  var h = '<div class="pnl-card" style="margin-bottom:10px;padding:12px 16px">'
+    + modeToggle + desc + draft
+    + _vsAccChips_('País', 'pais', paisOpts, _vsAccPais)
+    + _vsAccChips_('Producto', 'prod', prodOpts, _vsAccProd)
+    + _vsAccScaleChips_()
+    + '</div>';
+
+  if(isPR){
+    h += '<div id="revgd-section"><div class="pnl-card" style="padding:12px;color:var(--muted)">Cargando Revenue por GD…</div></div>';
+    c.innerHTML = h;
+    if(_revGdData) document.getElementById('revgd-section').innerHTML = _revGdTableHtml_(_revGdData);
+    else fetchRevGd_();
+    return;
+  }
+
+  h += '<div id="vsacc-tables">';
+  ['b2b2c','may','min'].forEach(function(lk){ if(D.lobs[lk]) h += _vsAccTable_(D.lobs[lk]); });
+  h += '</div>';
+  c.innerHTML = h;
+}
+
 // ── LOB switcher ───────────────────────────────────────────────────────────
 // ── Landing navigation ──────────────────────────────────────────────────────
 function showLanding(){
@@ -2279,6 +2778,8 @@ function goToView(target){
     switchLob('b2b');
   } else if(target === 'b2b2c'){
     switchLob('b2b2c');
+  } else if(target === 'vsacc'){
+    enterVsAcc();
   }
 }
 
@@ -2300,7 +2801,39 @@ document.addEventListener('mousemove', function(e){
   }
 })();
 
+// ── Modo "Managerial vs Accounting" — vista top-level, fuera de los tabs B2B/B2B2C ──
+var _vsAccMode = false;
+function _vsAccChrome_(on){
+  ['normal-tab-bar','actuals-legend'].forEach(function(id){ var e=document.getElementById(id); if(e) e.style.display = on ? 'none' : ''; });
+  var lobSw = document.querySelector('.lob-switcher'); if(lobSw) lobSw.style.display = on ? 'none' : '';
+  var filt  = document.querySelector('.filters-bar');  if(filt)  filt.style.display  = on ? 'none' : '';
+  document.querySelectorAll('.tab-pane').forEach(function(p){
+    if(on) p.classList.toggle('active', p.id === 'pane-vsacc');
+  });
+  var b = document.getElementById('lob-vsacc'); if(b) b.classList.toggle('active', on);
+  if(on){
+    document.getElementById('lob-b2b').classList.remove('active');
+    document.getElementById('lob-b2b2c').classList.remove('active');
+  }
+}
+function enterVsAcc(){
+  _vsAccMode = true;
+  document.getElementById('home-overlay').style.display = 'none';
+  _vsAccChrome_(true);
+  _updateStickyOffsets_();
+  fetchVsAcc_();
+}
+function exitVsAcc_(){
+  if(!_vsAccMode) return;
+  _vsAccMode = false;
+  _vsAccChrome_(false);
+  // dejar la pestaña P&L activa; switchLob/switchTab se encargan del resto
+  document.querySelectorAll('.tab-pane').forEach(function(p){ p.classList.toggle('active', p.id === 'pane-baseline'); });
+  document.querySelectorAll('.tab-btn').forEach(function(t){ t.classList.toggle('active', t.id === 'tab-baseline'); });
+}
+
 function switchLob(lob){
+  exitVsAcc_();
   _activeLob = lob;
   document.getElementById('lob-b2b2c').classList.toggle('active', lob === 'b2b2c');
   document.getElementById('lob-b2b').classList.toggle('active', lob === 'b2b');
@@ -2329,7 +2862,7 @@ function switchLob(lob){
   _filtersLoadedForLob[lob] = false;
   _paisSelected = []; renderPaisChips();
   _productoSelected = []; renderProductoChips();
-  clearMs('ms-partner');
+  clearMs('ms-partner', false); // switchLob ya dispara su propio reload() abajo — no duplicar el fetch
   reload();
   _updateStickyOffsets_();
 }
@@ -2438,6 +2971,7 @@ function getFilters(){
 }
 
 function reload(){
+  clearTimeout(_reloadTimer);  // matar cualquier debouncedReload pendiente — evita un fetch fantasma que después descarta la respuesta buena
   document.getElementById('loader').style.display='flex';
   fetchData();
 }
@@ -2445,14 +2979,23 @@ function reload(){
 function fetchData(){
   showFilterLoading();
   document.getElementById('loader').style.display='flex';
+  var reqLob = _activeLob;
+  var reqId  = ++_fetchSeq;
+  var reqFilters = getFilters();
   google.script.run
     .withSuccessHandler(function(d){
+      // Si mientras esperábamos esta respuesta se disparó otro fetchData() (ej. el
+      // usuario cambió de tab B2B2C/B2B), esta ya quedó obsoleta — descartarla. Sin
+      // este chequeo, una respuesta vieja que llega después de una más nueva puede
+      // pisar los datos ya renderizados del LOB actual con los del LOB anterior.
+      if (reqId !== _fetchSeq) return;
+      if (reqLob !== _activeLob) return;  // cambiaste de LOB mientras esto viajaba — descartar para no pintar datos del LOB anterior
       _data = d;
-      if (!_filtersLoadedForLob[_activeLob]) {
+      if (!_filtersLoadedForLob[reqLob]) {
         fillPaisChips(d.filters['pais'] || []);
         fillMs('ms-partner', (d.filters['partner'] || []).slice().sort());
         fillProductoChips(d.filters['produto'] || []);
-        _filtersLoadedForLob[_activeLob] = true;
+        _filtersLoadedForLob[reqLob] = true;
       }
       updateActualsLegend(d.actual_months || []);
       render();
@@ -2461,11 +3004,12 @@ function fetchData(){
       hideFilterLoading();
     })
     .withFailureHandler(function(err){
+      if (reqId !== _fetchSeq) return;
       document.getElementById('loader').style.display = 'none';
       hideFilterLoading();
       document.querySelector('main').innerHTML = '<div class="error-msg">Error cargando datos: '+(err.message||err)+'</div>';
     })
-    .getData(getFilters());
+    .getData(reqFilters);
 }
 
 
@@ -2483,10 +3027,14 @@ function renderTrendCharts(months, agg, budgetAgg, lyAgg){
   budgetAgg = budgetAgg || {};
   lyAgg     = lyAgg || {};
 
+  var SC   = _scaleCfg();
+  var _uSx = SC.u ? ' ($'+SC.u+')' : ' ($)';
+  // Formatea un valor YA dividido por SC.d (ejes/tooltips de los charts).
+  function _fmtScaled(v){ return _numScale==='raw' ? '$'+_grp(Math.round(v)) : '$'+v.toFixed(SC.dec)+SC.u; }
   var chartDefs = [
-    { key:'gross_bookings', label:'Gross Bookings ($M)', divisor:1e6 },
-    { key:'net_revenue',    label:'Net Revenue ($M)',    divisor:1e6 },
-    { key:'npv',            label:'FVM ($M)',            divisor:1e6 }
+    { key:'gross_bookings', label:'Gross Bookings'+_uSx, divisor:SC.d },
+    { key:'net_revenue',    label:'Net Revenue'+_uSx,    divisor:SC.d },
+    { key:'npv',            label:'FVM'+_uSx,            divisor:SC.d }
   ];
 
   // Destroy all previous charts
@@ -2584,14 +3132,14 @@ function renderTrendCharts(months, agg, budgetAgg, lyAgg){
                   var lyM=m.replace(/-(\d{2})$/,function(_,y){ return '-'+(parseInt(y,10)-1); });
                   dsLbl='LY ('+lyM+')';
                 }
-                return dsLbl+': $'+v.toFixed(2)+'M';
+                return dsLbl+': '+_fmtScaled(v);
               }
             }
           }
         },
         scales:{
           x:{ grid:{color:'rgba(0,0,0,.05)'}, ticks:{ font:{size:opts.smallX?8:10}, maxRotation: opts.smallX?45:0 } },
-          y:{ grid:{color:'rgba(0,0,0,.05)'}, ticks:{font:{size:10}, callback:function(v){ return '$'+v.toFixed(2)+'M'; }} }
+          y:{ grid:{color:'rgba(0,0,0,.05)'}, ticks:{font:{size:10}, callback:function(v){ return _fmtScaled(v); }} }
         }
       }
     });
@@ -2699,7 +3247,7 @@ function renderTrendCharts(months, agg, budgetAgg, lyAgg){
         function(m,k,d){ return getRunrate(m,k,d); },
         function(m,k,d){ return getBudget(m,k,d); },
         def.key, def.divisor,
-        function(a,b){ if(a===null||b===null) return null; var d=a-b; return {pos:d>=0,str:(d>=0?'+':'')+d.toFixed(1)}; },
+        function(a,b){ if(a===null||b===null) return null; var d=a-b; var s=d>=0?'+':''; return {pos:d>=0,str:s+(_numScale==='M'?d.toFixed(1):_grp(Math.round(d)))}; },
         di === 0
       ));
       chartWrap.appendChild(makeDeltaRow('Δ%Bgt', chartMonths,

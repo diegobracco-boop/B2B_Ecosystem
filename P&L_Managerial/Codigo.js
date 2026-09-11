@@ -1,5 +1,5 @@
 // P&L Gestional Dashboard — Apps Script Backend v2
-// Data source: _pnl_gestional_data.json (generado por pnl_gestional_upload.py)
+// Data source: _actuals_gestional.json (generado por actuals_gestional_upload.py; mismo fileId que el _pnl_gestional_data.json original, solo cambió el nombre)
 var GESTIONAL_JSON_FILE_ID    = '1wvle0UIVZV7ocCSl8OawOfIGVz_It5kh';
 var GESTIONAL_VR_JSON_FILE_ID = '1Zd1Kzn7CkatOWnzrrfBxr9mDjIVLLKIF'; // pnl_gestional_projections_review.json
 var _gestionalJsonCache_      = null;
@@ -8,7 +8,7 @@ var _gestionalVRJsonCache_    = null;
 var _EMPTY_GESTIONAL_ = {
   b2b2c:   { ac:[], ly:[], bgt:[], rr:[], fc:[], bl:[] },
   b2b_may: { ac:[], ac_ri:[], ly:[], bgt:[], bgt_ri:[], rr:[], rr_ri:[], fc:[], fc_ri:[], bl:[], bl_ri:[] },
-  b2b_min: { ac:[], ly:[], bgt:[], rr:[], fc:[], bl:[] },
+  b2b_min: { ac:[], ac_ri:[], ly:[], bgt:[], bgt_ri:[], rr:[], rr_ri:[], fc:[], fc_ri:[], bl:[], bl_ri:[] },
   actual_months: [],
   months: []
 };
@@ -218,7 +218,8 @@ function queryB2B_(section, scenarioKey, fPais, fProduto,
 }
 
 // Lightweight per-canal, per-country, per-product monthly data (only GB, NR, NPV)
-// blKeyMay/fcstKeyMay: 'bl'|'bl_ri' y 'fc'|'fc_ri' (RI solo aplica a B2B-MAY; MIN siempre GD).
+// blKey/fcstKey: 'bl'|'bl_ri' y 'fc'|'fc_ri' según el toggle GD/RI (aplica a MAY y MIN;
+// B2B2C tiene fecha única). Nombres *May heredados; los valores son las claves generales.
 function queryB2BCanalDetail_(json, blKeyMay, bgtKey, fcstKeyMay, fPais, fProduto) {
   var result = { 'B2B-MIN':{ fc:{}, bgt:{}, ly:{}, fcst:{} }, 'B2B-MAY':{ fc:{}, bgt:{}, ly:{}, fcst:{} } };
   function procRows(rows, target) {
@@ -237,10 +238,10 @@ function queryB2BCanalDetail_(json, blKeyMay, bgtKey, fcstKeyMay, fPais, fProdut
   }
   var min=json.b2b_min||{}, may=json.b2b_may||{};
   // "fc" = BASELINE (bl), no forecast — nombre heredado por consistencia con el resto del dashboard.
-  procRows(min['bl'],        result['B2B-MIN'].fc);
-  procRows(min['bgt'],       result['B2B-MIN'].bgt);
-  procRows(min['ly'],        result['B2B-MIN'].ly);
-  procRows(min['fc'],        result['B2B-MIN'].fcst);
+  procRows(min[blKeyMay],   result['B2B-MIN'].fc);
+  procRows(min[bgtKey],     result['B2B-MIN'].bgt);
+  procRows(min['ly'],       result['B2B-MIN'].ly);
+  procRows(min[fcstKeyMay], result['B2B-MIN'].fcst);
   procRows(may[blKeyMay],    result['B2B-MAY'].fc);
   procRows(may[bgtKey],      result['B2B-MAY'].bgt);
   procRows(may['ly'],        result['B2B-MAY'].ly);
@@ -288,7 +289,7 @@ function getData(filters) {
   var useMay   = lobArr.indexOf('B2B-MAY') >= 0;
   var useMin   = lobArr.indexOf('B2B-MIN') >= 0;
 
-  // Escenarios (RI solo existe para b2b_may):
+  // Escenarios (RI existe para b2b_may y b2b_min; b2b2c tiene fecha única):
   //   primaria  = baseline (bl)  → se devuelve como `agg`
   //   goals     = budget (bgt) / forecast (fc) / last year (ly)
   var blKey  = dateType === 'ri' ? 'bl_ri'  : 'bl';
@@ -356,10 +357,10 @@ function getData(filters) {
 
   if (useMin) {
     lobsInData['B2B-MIN'] = true;
-    queryB2B_(json.b2b_min, 'bl',  fPais, fProduto, fcAgg_min,   allPaises, allProdutos);
-    queryB2B_(json.b2b_min, 'bgt', fPais, fProduto, bgtAgg_min,  {}, {});
-    queryB2B_(json.b2b_min, 'ly',  fPais, fProduto, lyAgg_min,   {}, {});
-    queryB2B_(json.b2b_min, 'fc',  fPais, fProduto, fcstAgg_min, {}, {});
+    queryB2B_(json.b2b_min, blKey,  fPais, fProduto, fcAgg_min,   allPaises, allProdutos);
+    queryB2B_(json.b2b_min, bgtKey, fPais, fProduto, bgtAgg_min,  {}, {});
+    queryB2B_(json.b2b_min, 'ly',   fPais, fProduto, lyAgg_min,   {}, {});
+    queryB2B_(json.b2b_min, fcKey,  fPais, fProduto, fcstAgg_min, {}, {});
     mergeAgg_(fcAgg_min,   fcAgg);
     mergeAgg_(bgtAgg_min,  bgtAgg);
     mergeAgg_(lyAgg_min,   lyAgg);
@@ -465,8 +466,338 @@ function getFilterOptions() {
   };
 }
 
+// ══════════════════════════════════════════════════════════════════════════
+//  Managerial vs Accounting — comparación de REALES, meses cerrados
+// ──────────────────────────────────────────────────────────────────────────
+//  Accounting = actuals.json canónico de Inputs_Planning_PnL
+//  (Drive folder 1XqQPL..., mismo archivo que alimenta el cubo de P&L Accounting).
+//  Managerial  = escenario 'ac' (+ 'ac_ri' para b2b_may) de _actuals_gestional.json.
+//  Solo Total B2B + B2B2C (v1, sin filtro país/producto). GD basis (ac, no ac_ri).
+// ══════════════════════════════════════════════════════════════════════════
+var ACC_ACTUALS_FILE_ID = '1PABNf4XVKdj6eXApr5_yP581ZsD_N9e-'; // actuals.json
+var _accActualsCache_   = null;
+
+function readAccActualsJSON_() {
+  if (_accActualsCache_) return _accActualsCache_;
+  try {
+    var blob = DriveApp.getFileById(ACC_ACTUALS_FILE_ID).getBlob();
+    _accActualsCache_ = JSON.parse(blob.getDataAsString());
+  } catch (e) {
+    Logger.log('readAccActualsJSON_ error: ' + e);
+    _accActualsCache_ = { cols: [], rows: [], meta: {} };
+  }
+  return _accActualsCache_;
+}
+
+// 'YYYY-MM-01' (o 'YYYY-MM-...') → 'Abr-26'
+function _accMes_(fecha) {
+  return YM_LABEL[String(fecha || '').slice(0, 7)] || null;
+}
+
+// País canónico para conciliar (Managerial y Accounting usan strings distintos)
+var _VSA_PAIS_CANON = {
+  'argentina':'Argentina','brasil':'Brasil','brazil':'Brasil','chile':'Chile','colombia':'Colombia',
+  'ecuador':'Ecuador','mexico':'Mexico','méxico':'Mexico','peru':'Peru','perú':'Peru',
+  'other countries':'Otros','others countries':'Otros','globales':'Otros','other':'Otros',
+  'otros':'Otros','otro':'Otros','rg':'Otros','paraguay':'Otros','uruguay':'Otros','n/d':'Otros'
+};
+function _vsaPaisCanon_(p){
+  var k = String(p || '').trim().toLowerCase();
+  return _VSA_PAIS_CANON[k] || (k ? k.charAt(0).toUpperCase() + k.slice(1) : 'Otros');
+}
+// canónico → strings crudos que ven las queries Managerial (para el filtro fPais)
+var _VSA_PAIS_RAW = {
+  'Argentina':['argentina'], 'Brasil':['brasil'], 'Chile':['chile'], 'Colombia':['colombia'],
+  'Ecuador':['ecuador'], 'Mexico':['mexico'], 'Peru':['peru'],
+  'Otros':['other countries','others countries','globales','otros','otro','uruguay','paraguay','rg','n/d']
+};
+
+function getVsAccounting(filtersJson) {
+  var f = (filtersJson && typeof filtersJson === 'object') ? filtersJson : {};
+  var sig = JSON.stringify([(f.pais||[]).slice().sort(), (f.produto||[]).slice().sort()]);
+  var cache = CacheService.getScriptCache();
+  var ck = null;
+  try {
+    var t1 = DriveApp.getFileById(GESTIONAL_JSON_FILE_ID).getLastUpdated().getTime();
+    var t2 = DriveApp.getFileById(ACC_ACTUALS_FILE_ID).getLastUpdated().getTime();
+    ck = 'vsacc_v6_' + t1 + '_' + t2 + '_' + Utilities.base64EncodeWebSafe(sig);
+    var hit = cache.get(ck);
+    if (hit) return JSON.parse(hit);
+  } catch (e) { Logger.log('getVsAccounting cache probe: ' + e); }
+
+  var out = _computeVsAccounting_(f);
+  if (ck) { try { cache.put(ck, JSON.stringify(out), 21600); } catch (e) {} }  // 6 h
+  return out;
+}
+
+function _computeVsAccounting_(f) {
+  f = f || {};
+  var json = readGestionalJSON_('bl');
+  var FY = YM_ORDER.map(function(y){ return YM_LABEL[y]; });
+
+  // ── Filtros: país canónico + producto (lowercase) ──
+  var selPais = (f.pais || []).map(function(s){ return String(s); });           // ['Argentina', 'Otros', ...]
+  var selProd = (f.produto || []).map(function(s){ return String(s).toLowerCase(); });
+  var fPaisMgr = [];
+  selPais.forEach(function(cp){ (_VSA_PAIS_RAW[cp] || [cp.toLowerCase()]).forEach(function(r){ fPaisMgr.push(r); }); });
+
+  // ── Managerial actuals por LOB — {metric:{mes}} + set de meses ──
+  function mgrFor(lob, scen) {
+    var raw = {};
+    if (lob === 'b2b2c') {
+      queryB2B2C_(json.b2b2c, scen, fPaisMgr, [], selProd, raw, null,null,null,null,null,null,null,null);
+    } else {
+      queryB2B_(json['b2b_' + lob], scen, fPaisMgr, selProd, raw, null, null);
+    }
+    var t = {}, mm = {};
+    Object.keys(raw).forEach(function(mes){
+      mm[mes] = true;
+      Object.keys(raw[mes]).forEach(function(k){
+        if (!t[k]) t[k] = {};
+        t[k][mes] = (t[k][mes] || 0) + raw[mes][k];
+      });
+    });
+    return { data: t, months: mm };
+  }
+  // RI donde exista (B2B-MAY check-in API, B2B-MIN recognition_date); B2B2C tiene
+  // una sola fecha (GD = RI), así que va 'ac'.
+  var M = {
+    b2b2c: mgrFor('b2b2c', 'ac'),
+    may:   mgrFor('may',   'ac_ri'),
+    min:   mgrFor('min',   'ac_ri')
+  };
+
+  // ── Accounting por LOB — actuals.json, P&L N1 + N3/N4, split por LoB×Canal ──
+  var A = { b2b2c: {}, may: {}, min: {} };
+  var accMonths = {};
+  var paisOpts = {}, prodOpts = {};
+  var aj  = readAccActualsJSON_();
+  var cix = {};
+  (aj.cols || []).forEach(function(c, i){ cix[c] = i; });
+  var iLob = cix['LoB'], iCanal = cix['Canal'], iPais = cix['Pais'], iProd = cix['Producto'],
+      iN1 = cix['P&L N1'], iN3 = cix['P&L N3'], iN4 = cix['P&L N4'], iFecha = cix['Fecha'], iMonto = cix['Monto USD'];
+  (aj.rows || []).forEach(function(r){
+    var lob = String(r[iLob] || '').toLowerCase(), canal = String(r[iCanal] || '').toLowerCase();
+    var bucket = (lob === 'b2b2c') ? 'b2b2c'
+               : (lob === 'b2b' && canal === 'may') ? 'may'
+               : (lob === 'b2b' && canal === 'min') ? 'min' : null;
+    if (!bucket) return;
+    var cp = _vsaPaisCanon_(r[iPais]);
+    var prd = String(r[iProd] || '').toLowerCase();
+    paisOpts[cp] = true; if (prd) prodOpts[prd] = true;
+    if (selPais.length && selPais.indexOf(cp) < 0) return;
+    if (selProd.length && selProd.indexOf(prd) < 0) return;
+    var mes = _accMes_(r[iFecha]); if (!mes) return;
+    var val = (+r[iMonto] || 0), dst = A[bucket];
+    [['n1', r[iN1]], ['n3', r[iN3]], ['n4', r[iN4]]].forEach(function(p){
+      var k = p[0] + '|' + String(p[1] || '(sin ' + p[0] + ')').toLowerCase();
+      if (!dst[k]) dst[k] = {};
+      dst[k][mes] = (dst[k][mes] || 0) + val;
+    });
+    accMonths[mes] = true;
+  });
+
+  function isect(mm){ return FY.filter(function(m){ return mm[m] && accMonths[m]; }); }
+  return {
+    accMeta:  aj.meta || {},
+    paisOpts: ['Argentina','Brasil','Mexico','Colombia','Chile','Peru','Ecuador','Otros'].filter(function(p){ return paisOpts[p]; }),
+    prodOpts: Object.keys(prodOpts).sort(),
+    selPais:  selPais,
+    selProd:  selProd,
+    lobs: {
+      b2b2c: { label: 'B2B2C',     mgrLabel: 'ac (fecha única)', months: isect(M.b2b2c.months), mgr: M.b2b2c.data, acc: A.b2b2c },
+      may:   { label: 'B2B · MAY', mgrLabel: 'ac_ri (RI)',      months: isect(M.may.months),   mgr: M.may.data,   acc: A.may },
+      min:   { label: 'B2B · MIN', mgrLabel: 'ac_ri (RI)',      months: isect(M.min.months),   mgr: M.min.data,   acc: A.min }
+    }
+  };
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//  Sub-sección: B2B actuals GD (gestional) vs Revenue por GD
+// ──────────────────────────────────────────────────────────────────────────
+//  Izquierda  = escenario 'ac' de b2b_may + b2b_min de _actuals_gestional.json
+//               (basis gestion_date = GD; NO 'ac_ri').
+//  Derecha    = revenue_gd.json (revenue_gd_builder.py): modelo de revenue B2B
+//               (bi_transactional_fact_* + b2b_rev_pnl_sales_detail), basis GD.
+//  Total B2B, meses cerrados, con filtro país (canónico) + producto.
+// ══════════════════════════════════════════════════════════════════════════
+var REVENUE_GD_FOLDER_ID = '1wzudbo7cN9Ibiv_2OA-V0_B_un4JcJp6'; // misma carpeta que _actuals_gestional.json
+var REVENUE_GD_JSON_NAME  = 'revenue_gd.json';
+var _revGdCache_ = null;
+
+function _revGdFile_() {
+  var it = DriveApp.getFolderById(REVENUE_GD_FOLDER_ID).getFilesByName(REVENUE_GD_JSON_NAME);
+  return it.hasNext() ? it.next() : null;
+}
+
+function readRevenueGdJSON_() {
+  if (_revGdCache_) return _revGdCache_;
+  var empty = { rows: [], metrics: METRIC_COLS, metrics_extra: [], zero_metrics: [], updated_at: null };
+  try {
+    var f = _revGdFile_();
+    _revGdCache_ = f ? JSON.parse(f.getBlob().getDataAsString()) : empty;
+  } catch (e) {
+    Logger.log('readRevenueGdJSON_ error: ' + e);
+    _revGdCache_ = empty;
+  }
+  return _revGdCache_;
+}
+
+function getRevenueGDVsGestional(filtersJson) {
+  var f = (filtersJson && typeof filtersJson === 'object') ? filtersJson : {};
+  var sig = JSON.stringify([(f.pais || []).slice().sort(), (f.produto || []).slice().sort()]);
+  var cache = CacheService.getScriptCache();
+  var ck = null;
+  try {
+    var t1 = DriveApp.getFileById(GESTIONAL_JSON_FILE_ID).getLastUpdated().getTime();
+    var rf = _revGdFile_();
+    var t2 = rf ? rf.getLastUpdated().getTime() : 0;
+    ck = 'revgd_v3_' + t1 + '_' + t2 + '_' + Utilities.base64EncodeWebSafe(sig);
+    var hit = cache.get(ck);
+    if (hit) return JSON.parse(hit);
+  } catch (e) { Logger.log('getRevenueGDVsGestional cache probe: ' + e); }
+
+  var out = _computeRevenueGD_(f);
+  if (ck) { try { cache.put(ck, JSON.stringify(out), 21600); } catch (e) {} }  // 6 h
+  return out;
+}
+
+// Suma NR (idx 27) y FVM (idx 28) del escenario 'ac' de una sección B2B gestional,
+// por país canónico y mes, para un canal fijo ('MAY'|'MIN'). Filtro país + producto.
+// Los 8 países del cuadro resumen; cualquier otro cae en 'Otros' para que el
+// TOTAL del resumen cuadre con la fila Net Revenue del detalle.
+var _REVGD_PAIS8 = ['Argentina','Brasil','Mexico','Colombia','Chile','Peru','Ecuador','Otros'];
+function _revGdPais8_(cp){ return _REVGD_PAIS8.indexOf(cp) >= 0 ? cp : 'Otros'; }
+
+function _gestB2BByPaisNRFVM_(section, canal, fPaisRaw, selProd, out) {
+  var rows = (section && section.ac) || [];
+  var iNR = 3 + METRIC_COLS.indexOf('net_revenue');
+  var iFV = 3 + METRIC_COLS.indexOf('npv');
+  rows.forEach(function(row) {
+    var pais = normB2BPais_(row[0]), produto = row[1], ym = row[2];
+    if (!matchFilter_(pais, fPaisRaw) || !matchFilter_(produto, selProd)) return;
+    var mes = YM_LABEL[ym]; if (!mes) return;
+    var cp = _revGdPais8_(_vsaPaisCanon_(pais));
+    if (!out[cp])        out[cp] = {};
+    if (!out[cp][canal]) out[cp][canal] = { net_revenue: {}, npv: {} };
+    var o = out[cp][canal];
+    o.net_revenue[mes] = (o.net_revenue[mes] || 0) + (row[iNR] || 0);
+    o.npv[mes]         = (o.npv[mes]         || 0) + (row[iFV] || 0);
+  });
+}
+
+function _computeRevenueGD_(f) {
+  f = f || {};
+  var selPais = (f.pais || []).map(function(s){ return String(s); });               // canónico: ['Argentina','Otros',...]
+  var selProd = (f.produto || []).map(function(s){ return String(s).toLowerCase(); });
+
+  // ── Izquierda: gestional B2B 'ac' (GD), por canal ──
+  var json = readGestionalJSON_('bl');
+  var fPaisMgr = [];
+  selPais.forEach(function(cp){ (_VSA_PAIS_RAW[cp] || [cp.toLowerCase()]).forEach(function(r){ fPaisMgr.push(r); }); });
+  var mgrMonths = {};
+  // aggAgg {mes:{metric}} → {metric:{mes}}
+  function _transposeAgg_(agg) {
+    var out = {};
+    Object.keys(agg).forEach(function(mes){
+      mgrMonths[mes] = true;
+      METRIC_COLS.forEach(function(m){ if (!out[m]) out[m] = {}; out[m][mes] = (out[m][mes] || 0) + (agg[mes][m] || 0); });
+    });
+    return out;
+  }
+  var mgrMayAgg = {}, mgrMinAgg = {};
+  queryB2B_(json.b2b_may, 'ac', fPaisMgr, selProd, mgrMayAgg, null, null);
+  queryB2B_(json.b2b_min, 'ac', fPaisMgr, selProd, mgrMinAgg, null, null);
+  var mgrMay = _transposeAgg_(mgrMayAgg), mgrMin = _transposeAgg_(mgrMinAgg);
+  var mgr = {};
+  [mgrMay, mgrMin].forEach(function(src){
+    Object.keys(src).forEach(function(m){ if (!mgr[m]) mgr[m] = {}; Object.keys(src[m]).forEach(function(mes){ mgr[m][mes] = (mgr[m][mes] || 0) + src[m][mes]; }); });
+  });
+  // breakdown país × canal (solo NR + FVM) — lado gestional
+  var pcMgr = {};
+  _gestB2BByPaisNRFVM_(json.b2b_may, 'MAY', fPaisMgr, selProd, pcMgr);
+  _gestB2BByPaisNRFVM_(json.b2b_min, 'MIN', fPaisMgr, selProd, pcMgr);
+
+  // ── Derecha: revenue_gd.json ──  rows = [pais, canal, produto, ym, ...metrics]
+  var rj = readRevenueGdJSON_();
+  var metrics = (rj.metrics && rj.metrics.length) ? rj.metrics : METRIC_COLS;
+  var extra   = rj.metrics_extra || [];
+  var allM    = metrics.concat(extra);
+  var OFF     = 4;                                   // pais, canal, produto, ym
+  var _iNR = metrics.indexOf('net_revenue'), _iFV = metrics.indexOf('npv');
+  var iNRrev  = _iNR >= 0 ? OFF + _iNR : OFF + METRIC_COLS.indexOf('net_revenue');
+  var iFVrev  = _iFV >= 0 ? OFF + _iFV : OFF + METRIC_COLS.indexOf('npv');
+  var paisOpts = {}, prodOpts = {}, canalOpts = {};
+  var rev = {}, revMay = {}, revMin = {}, revMonths = {}, pcRev = {};
+  (rj.rows || []).forEach(function(r){
+    var cp  = _revGdPais8_(String(r[0]));            // ya canónico (revenue_gd_builder.py); clamp a los 8
+    var cn  = String(r[1] || 'MAY');
+    var prd = String(r[2] || '');
+    var ym  = String(r[3] || '');
+    paisOpts[cp] = true; canalOpts[cn] = true; if (prd) prodOpts[prd.toLowerCase()] = true;
+    if (selPais.length && selPais.indexOf(cp) < 0) return;
+    if (selProd.length && selProd.indexOf(prd.toLowerCase()) < 0) return;
+    var mes = YM_LABEL[ym]; if (!mes) return;
+    revMonths[mes] = true;
+    var dstC = cn === 'MIN' ? revMin : revMay;
+    allM.forEach(function(m, i){
+      if (!rev[m])  rev[m]  = {};
+      if (!dstC[m]) dstC[m] = {};
+      var val = (r[OFF + i] || 0);
+      rev[m][mes]  = (rev[m][mes]  || 0) + val;
+      dstC[m][mes] = (dstC[m][mes] || 0) + val;
+    });
+    if (!pcRev[cp])     pcRev[cp] = {};
+    if (!pcRev[cp][cn]) pcRev[cp][cn] = { net_revenue: {}, npv: {} };
+    pcRev[cp][cn].net_revenue[mes] = (pcRev[cp][cn].net_revenue[mes] || 0) + (r[iNRrev] || 0);
+    pcRev[cp][cn].npv[mes]         = (pcRev[cp][cn].npv[mes]         || 0) + (r[iFVrev] || 0);
+  });
+
+  var FY = YM_ORDER.map(function(y){ return YM_LABEL[y]; });
+  var months = FY.filter(function(m){ return mgrMonths[m] && revMonths[m]; });
+
+  // ── Cuadro resumen país × canal: NR + FVM por mes (el frontend elige mes o acumulado) ──
+  var PAIS_ORDER = _REVGD_PAIS8;
+  var CANAL_ORDER = ['MAY','MIN'];
+  var summary = [];
+  PAIS_ORDER.forEach(function(p){
+    CANAL_ORDER.forEach(function(cn){
+      var g = (pcMgr[p] || {})[cn], v = (pcRev[p] || {})[cn];
+      if (!g && !v) return;
+      summary.push({
+        pais: p, canal: cn,
+        nrGest:  (g && g.net_revenue) || {}, nrRev:  (v && v.net_revenue) || {},
+        fvmGest: (g && g.npv)         || {}, fvmRev: (v && v.npv)         || {}
+      });
+    });
+  });
+
+  return {
+    updatedAt:    rj.updated_at || null,
+    metrics:      metrics,
+    metricsExtra: extra,
+    zeroMetrics:  rj.zero_metrics || [],
+    months:       months,
+    mgr:          mgr,
+    rev:          rev,
+    detail:       [                        // detalle P&L: Total + por canal
+      { label: 'Total B2B',    mgr: mgr,    rev: rev    },
+      { label: 'B2B · MAY (API)', mgr: mgrMay, rev: revMay },
+      { label: 'B2B · MIN (AFF)', mgr: mgrMin, rev: revMin }
+    ],
+    summary:      summary,                 // [{pais,canal, nrGest:{mes},nrRev:{mes}, fvmGest:{mes},fvmRev:{mes}}]
+    paisOpts:     PAIS_ORDER.filter(function(p){ return paisOpts[p]; }),
+    canalOpts:    CANAL_ORDER.filter(function(c){ return canalOpts[c]; }),
+    prodOpts:     Object.keys(prodOpts).sort(),
+    selPais:      selPais,
+    selProd:      selProd
+  };
+}
+
 function invalidateCache() {
   _gestionalJsonCache_   = null;
   _gestionalVRJsonCache_ = null;
+  _accActualsCache_      = null;
+  _revGdCache_           = null;
   return { ok: true };
 }

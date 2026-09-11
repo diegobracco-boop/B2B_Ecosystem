@@ -259,49 +259,6 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
 .bkd-total-row .bkd-prod-lbl{color:var(--text)}
 .bkd-grand-total td{background:rgba(84,87,217,.22)!important;font-size:12px!important;font-weight:800!important}
 .bkd-prod-row:last-child td{border-bottom:2px solid var(--border2)}
-/* ── PxQ / PxQxM tables ─────────────────────────────────── */
-.pxq-legend{font-size:10px;color:var(--muted2);margin-bottom:16px;padding:6px 10px;background:var(--surface2);border-radius:6px;display:inline-block}
-.pxq-lob{margin-bottom:22px}
-.pxq-lob-title{font-size:12px;font-weight:800;color:var(--desp-purple);margin-bottom:7px;text-transform:uppercase;letter-spacing:.08em}
-.pxq-lob.cons .pxq-lob-title{color:#b45309}
-.pxq-lob.cons{background:rgba(251,191,36,.06);border-left:3px solid #fbbf24;border-radius:6px;padding:10px 12px}
-.pxq-lob-wrap{display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap}
-.pxq-main{flex:1 1 560px;min-width:0;max-width:640px}
-.pxq-byn3{flex:0 0 auto;width:330px}
-.pxq-byn3-title{font-size:10px;font-weight:800;color:var(--muted2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
-.pxq-tbl{border-collapse:collapse;font-size:11px;white-space:nowrap;width:100%}
-.pxq-tbl thead th{background:var(--surface2);color:var(--muted2);padding:5px 9px;font-weight:600;font-size:10px;text-transform:uppercase;border-bottom:1px solid var(--border);text-align:right}
-.pxq-tbl thead th:first-child{text-align:left;min-width:170px}
-.pxq-tbl td{padding:4px 9px;border-bottom:1px solid var(--border);text-align:right;font-size:11px}
-.pxq-tbl td:first-child{text-align:left;font-weight:600;color:var(--muted)}
-/* nodos colapsables (país / sub-país) */
-.pxq-node{cursor:pointer;transition:background .12s}
-.pxq-node:hover td{background:#ece6f7}
-.pxq-node.depth0 td{background:var(--surface2);font-weight:800;color:var(--text);border-bottom:1px solid var(--border2)}
-.pxq-node.depth1 td{background:rgba(123,45,190,.03);font-weight:700;color:var(--text)}
-.pxq-node.depth1 td:first-child{padding-left:24px}
-.pxq-caret{display:inline-block;width:15px;color:var(--desp-purple);font-weight:700;margin-right:5px}
-/* hojas (Gross Bookings + palancas) */
-.pxq-leaf td:first-child{font-weight:500;color:var(--muted)}
-.pxq-leaf.depth1 td:first-child{padding-left:26px}
-.pxq-leaf.depth2 td:first-child{padding-left:44px}
-.pxq-tbl tr.pxq-driver td{background:rgba(123,45,190,.04);font-weight:700}
-.pxq-tbl tr.pxq-driver td:first-child{color:var(--desp-purple)}
-.pxq-tbl tr.pxq-total td{font-weight:800;background:rgba(67,97,194,.08);color:var(--text);border-top:2px solid var(--border2)}
-.pxq-tbl tr.pxq-total td:first-child{color:var(--text)}
-.pxq-tbl tr:last-child td{border-bottom:none}
-.pxq-pos{color:#1a7f37 !important;font-weight:700;background:rgba(26,127,55,.09)}
-.pxq-neg{color:#cf222e !important;font-weight:700;background:rgba(207,34,46,.09)}
-.pxq-zero{color:var(--muted2)}
-/* PxQxM en %GB */
-.pxqm-block{margin-top:28px;padding-top:18px;border-top:2px dashed var(--border2)}
-.pxqm-head{font-size:14px;font-weight:800;color:var(--text);margin-bottom:14px}
-.pxqm-head span{display:block;font-size:10px;font-weight:600;color:var(--muted2);margin-top:3px}
-.pxqm-tbl{max-width:680px}
-.pxqm-tbl thead th:first-child{min-width:170px}
-/* subtotal por N3 */
-.pxqm-n3row td{background:rgba(91,33,182,.07);font-weight:700;color:var(--text);border-top:1px solid var(--border2)}
-.pxqm-n3row td:first-child{color:var(--desp-purple);padding-left:14px}
 /* ── Sync admin panel ────────────────────────────────────── */
 .sync-admin-wrap{position:relative}
 .sync-admin-toggle{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);color:#fff;border-radius:6px;padding:5px 10px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px;white-space:nowrap}
@@ -1311,12 +1268,6 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
     </div>
   </div>
 
-  <!-- PxQ / PxQxM — Palancas analysis -->
-  <div class="sec" id="pxq-section" style="display:none">
-    <div class="sec-title">Análisis PxQ — Palancas · Volumen (Profit GB) y Precio (Margin)</div>
-    <div id="pxq-content"></div>
-  </div>
-
   <!-- Country & Product Breakdown (B2B only) -->
   <div class="sec" id="breakdown-section" style="display:none">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:4px">
@@ -2127,7 +2078,6 @@ function loadAll() {
         _state.compPnl      = d.compPnl      || null;
         _state.ocConceptWf  = d.ocConceptWf  || null;
         _state.nrBridgeWf   = d.nrBridgeWf   || null;
-        _state.pxqData      = d.pxqData       || null;
         render(); hideLoader();
       } catch(err) {
         onErr(err);
@@ -2153,7 +2103,6 @@ function reload() {
     _state.compPnl     = hit.compPnl     || null;
     _state.ocConceptWf = hit.ocConceptWf || null;
     _state.nrBridgeWf  = hit.nrBridgeWf  || null;
-    _state.pxqData     = hit.pxqData     || null;
     render(); hideLoader();
     return;
   }
@@ -2178,7 +2127,6 @@ function reload() {
       _state.compPnl     = d.compPnl     || null;
       _state.ocConceptWf = d.ocConceptWf || null;
       _state.nrBridgeWf  = d.nrBridgeWf  || null;
-      _state.pxqData     = d.pxqData     || null;
       render(); hideLoader();
       _preloadOtherLobs_(p); // warm cache for other LOB tabs in background
     })
@@ -2430,7 +2378,6 @@ function switchGoal() {
   if (_state.pnl) renderPnL();
   if (_state.wf)  renderWf();
   if (_state.evo) renderEvo();
-  renderPxQ();
 }
 
 function _autoGoal_() {
@@ -2655,7 +2602,6 @@ function switchGoalBar() {
   if (_state.pnl) renderPnL();
   if (_state.wf)  renderWf();
   if (_state.evo) renderEvo();
-  renderPxQ();
 }
 // Baseline: cambia la fuente server-side (baseline.json vs forecast.json) → re-fetch.
 function switchBaselineBar() {
@@ -2793,188 +2739,6 @@ function renderCompPnL() {
   bodyEl.innerHTML = html;
 }
 
-function renderPxQ() {
-  var sec = document.getElementById('pxq-section');
-  if (!sec) return;
-  var lob = _state.lob;
-  var show = (lob === 'all' || lob === 'b2b' || lob === 'b2b2c');
-  sec.style.display = show ? '' : 'none';
-  if (!show) return;
-
-  var cont = document.getElementById('pxq-content');
-  var pxq  = _state.pxqData;
-  // pxqData ahora es { budget, runRate, forecast, lastYear } (uno por goal). Compat: formato viejo plano.
-  var d    = pxq && (pxq.lobs ? pxq : (pxq[_state.goal] || pxq.budget));
-  if (!d || !d.lobs || !d.lobs.length) {
-    cont.innerHTML = '<p style="color:var(--muted2);padding:16px 0">Sin datos Palancas disponibles para el período seleccionado.</p>';
-    return;
-  }
-
-  var goalLabel = _state.goal === 'budget' ? 'Budget' : _state.goal === 'lastYear' ? 'Last Year' : _state.goal === 'forecast' ? 'Forecast' : 'Run Rate';
-
-  function cell(v, dash) {
-    if (dash || v === null || v === undefined || isNaN(v)) return '<td class="pxq-zero">—</td>';
-    var cls = Math.abs(v) < 0.5 ? 'pxq-zero' : (v > 0 ? 'pxq-pos' : 'pxq-neg');
-    return '<td class="' + cls + '">' + fmtK(v) + '</td>';
-  }
-
-  // Filas de hojas (Gross Bookings driver + palancas) bajo un nodo
-  function leafRows(node, parentId, depth) {
-    var h = '';
-    h += '<tr class="pxq-leaf pxq-driver depth' + depth + '" data-parent="' + parentId + '" style="display:none">';
-    h += '<td>Gross Bookings · ΔGB</td>' + cell(null, true) + cell(null, true) + cell(null, true) + cell(node.gbDelta) + '</tr>';
-    node.concepts.forEach(function(cp){
-      h += '<tr class="pxq-leaf depth' + depth + '" data-parent="' + parentId + '" style="display:none">';
-      h += '<td>' + _escHtml(cp.label) + '</td>' + cell(cp.profitGB) + cell(cp.margin) + cell(cp.interaction) + cell(cp.delta) + '</tr>';
-    });
-    return h;
-  }
-  // Fila de nodo (país o sub-país) + sus descendientes
-  function nodeRows(node, id, parentId, depth) {
-    var hidden = parentId ? ' style="display:none"' : '';
-    var pAttr  = parentId ? ' data-parent="' + parentId + '"' : '';
-    var h = '<tr id="' + id + '" class="pxq-node depth' + depth + '"' + pAttr + hidden + ' onclick="pxqToggle(this)">';
-    h += '<td><span class="pxq-caret">⊕</span>' + _escHtml(node.country) + '</td>';
-    h += cell(node.totProfitGB) + cell(node.totMargin) + cell(node.totInteraction) + cell(node.totDelta) + '</tr>';
-    if (node.children && node.children.length) {
-      node.children.forEach(function(ch, chi){ h += nodeRows(ch, id + '_' + chi, id, depth + 1); });
-    } else {
-      h += leafRows(node, id, depth + 1);
-    }
-    return h;
-  }
-
-  var newLabel = _baselineLabel ? _baselineLabel() : 'Act+RR';
-  var html = '<div class="pxq-legend">Profit GB = ΔGB × %GB ' + _escHtml(goalLabel) +
-             ' (volumen) · Margin = Δ%GB × GB ' + _escHtml(goalLabel) + ' (precio) · Interac. = Δ%GB × ΔGB · ' +
-             'Δ Total = Profit GB + Margin + Interac. &nbsp;·&nbsp; Nuevo = ' + _escHtml(newLabel) + ' vs Goal = ' + _escHtml(goalLabel) + '</div>';
-
-  d.lobs.forEach(function(lobBlk, li){
-    var isCons = lobBlk.lob.indexOf('+') >= 0;
-    html += '<div class="pxq-lob' + (isCons ? ' cons' : '') + '">';
-    html += '<div class="pxq-lob-title">' + _escHtml(lobBlk.lob) + '</div>';
-    html += '<div class="pxq-lob-wrap">';
-
-    // Tabla principal (izquierda): países colapsables
-    html += '<div class="pxq-main"><table class="pxq-tbl pxq-summary"><thead><tr>';
-    html += '<th>País / Concepto</th><th>Profit GB</th><th>Margin</th><th title="Δ%GB × ΔGB">Interac.</th><th>Δ Total</th>';
-    html += '</tr></thead><tbody>';
-    lobBlk.countries.forEach(function(c, ci){
-      html += nodeRows(c, 'r' + li + '_' + ci, '', 0);
-    });
-    html += '<tr class="pxq-total"><td>TOTAL ' + _escHtml(lobBlk.lob) + '</td>';
-    html += cell(lobBlk.totProfitGB) + cell(lobBlk.totMargin) + cell(lobBlk.totInteraction) + cell(lobBlk.totDelta) + '</tr>';
-    html += '</tbody></table></div>';
-
-    // Resumen por concepto P&L N3 (derecha)
-    html += '<div class="pxq-byn3"><div class="pxq-byn3-title">Impacto por concepto P&amp;L</div>';
-    html += '<table class="pxq-tbl"><thead><tr><th>Concepto</th><th>Profit GB</th><th>Margin</th><th title="Δ%GB × ΔGB">Interac.</th><th>Δ Total</th></tr></thead><tbody>';
-    (lobBlk.byN3 || []).forEach(function(n){
-      html += '<tr><td>' + _escHtml(n.label) + '</td>' + cell(n.profitGB) + cell(n.margin) + cell(n.interaction) + cell(n.delta) + '</tr>';
-    });
-    html += '<tr class="pxq-total"><td>TOTAL</td>' + cell(lobBlk.totProfitGB) + cell(lobBlk.totMargin) + cell(lobBlk.totInteraction) + cell(lobBlk.totDelta) + '</tr>';
-    html += '</tbody></table></div>';
-
-    html += '</div></div>';
-  });
-
-  // ── PxQxM en %GB: descomposición de la variación del %GB de cada palanca ──
-  if (d.pxqm && d.pxqm.lobs && d.pxqm.lobs.length) {
-    function pctCell(v){
-      if (v === null || v === undefined || isNaN(v)) return '<td class="pxq-zero">—</td>';
-      return '<td>' + (v*100).toFixed(2) + '%</td>';
-    }
-    function ppCell(v){
-      if (v === null || v === undefined || isNaN(v)) return '<td class="pxq-zero">—</td>';
-      var pp = v*100;
-      var cls = Math.abs(pp) < 0.005 ? 'pxq-zero' : (pp > 0 ? 'pxq-pos' : 'pxq-neg');
-      return '<td class="' + cls + '">' + (pp >= 0 ? '+' : '') + pp.toFixed(2) + ' pp</td>';
-    }
-
-    html += '<div class="pxqm-block">';
-    html += '<div class="pxqm-head">Análisis PxQxM en %GB <span>descomposición de la variación del %GB · Δ%GB = Precio + Mix + Interacción · abrí cada palanca para ver el aporte por país y producto</span></div>';
-
-    d.pxqm.lobs.forEach(function(lobBlk, li){
-      var isCons = lobBlk.lob.indexOf('+') >= 0;
-      html += '<div class="pxq-lob' + (isCons ? ' cons' : '') + '">';
-      html += '<div class="pxq-lob-title">' + _escHtml(lobBlk.lob) + '</div>';
-      html += '<table class="pxq-tbl pxqm-tbl"><thead><tr>';
-      html += '<th>Palanca / País / Producto</th><th>%GB ' + _escHtml(goalLabel) + '</th><th title="' + _escHtml(newLabel) + '">%GB Nuevo</th>' +
-              '<th>Δ %GB</th><th title="Σ wᵢ·Δrᵢ">Precio</th>' +
-              '<th title="Σ rᵢ·Δwᵢ">Mix</th><th title="Σ Δwᵢ·Δrᵢ">Interac.</th>';
-      html += '</tr></thead><tbody>';
-      lobBlk.rows.forEach(function(r, ri){
-        var pid = 'pm' + li + '_' + ri;
-        // fila palanca (nivel 0, colapsable)
-        html += '<tr id="' + pid + '" class="pxq-node depth0" onclick="pxqToggle(this)">';
-        html += '<td><span class="pxq-caret">⊕</span>' + _escHtml(r.label) + '</td>';
-        html += pctCell(r.pctGoal) + pctCell(r.pctNew) + ppCell(r.dPct) + ppCell(r.price) + ppCell(r.mix) + ppCell(r.interaction);
-        html += '</tr>';
-        (r.countries || []).forEach(function(c, ci){
-          var cid = pid + '_' + ci;
-          // fila país (nivel 1, colapsable)
-          html += '<tr id="' + cid + '" class="pxq-node depth1" data-parent="' + pid + '" style="display:none" onclick="pxqToggle(this)">';
-          html += '<td><span class="pxq-caret">⊕</span>' + _escHtml(c.country) + '</td>';
-          html += '<td class="pxq-zero">—</td><td class="pxq-zero">—</td>' + ppCell(c.dPct) + ppCell(c.price) + ppCell(c.mix) + ppCell(c.interaction);
-          html += '</tr>';
-          (c.products || []).forEach(function(pp){
-            // fila producto (nivel 2, hoja)
-            html += '<tr class="pxq-leaf depth2" data-parent="' + cid + '" style="display:none">';
-            html += '<td>' + _escHtml(pp.product) + '</td>';
-            html += '<td class="pxq-zero">—</td><td class="pxq-zero">—</td>' + ppCell(pp.dPct) + ppCell(pp.price) + ppCell(pp.mix) + ppCell(pp.interaction);
-            html += '</tr>';
-          });
-        });
-      });
-      // Subtotales por concepto P&L N3
-      (lobBlk.byN3 || []).forEach(function(n){
-        html += '<tr class="pxqm-n3row"><td>' + _escHtml(n.label) + '</td>';
-        html += pctCell(n.pctGoal) + pctCell(n.pctNew) + ppCell(n.dPct) + ppCell(n.price) + ppCell(n.mix) + ppCell(n.interaction);
-        html += '</tr>';
-      });
-      // Total palancas
-      if (lobBlk.total) {
-        var t = lobBlk.total;
-        html += '<tr class="pxq-total"><td>' + _escHtml(t.label) + '</td>';
-        html += pctCell(t.pctGoal) + pctCell(t.pctNew) + ppCell(t.dPct) + ppCell(t.price) + ppCell(t.mix) + ppCell(t.interaction);
-        html += '</tr>';
-      }
-      html += '</tbody></table></div>';
-    });
-    html += '</div>';
-  }
-
-  cont.innerHTML = html;
-}
-
-// Expandir/colapsar un nodo (país o sub-país) en las tablas del PxQ — soporta anidación
-function pxqToggle(row) {
-  var id = row.id;
-  var open = !row.classList.contains('open');
-  row.classList.toggle('open', open);
-  var caret = row.querySelector('.pxq-caret');
-  if (caret) caret.textContent = open ? '⊖' : '⊕';
-  var kids = document.querySelectorAll('[data-parent="' + id + '"]');
-  for (var i = 0; i < kids.length; i++) {
-    if (open) {
-      kids[i].style.display = '';
-    } else {
-      kids[i].style.display = 'none';
-      _pxqCollapse(kids[i]);  // colapsar descendientes al cerrar el padre
-    }
-  }
-}
-function _pxqCollapse(row) {
-  if (!row.id) return;
-  if (row.classList.contains('open')) {
-    row.classList.remove('open');
-    var caret = row.querySelector('.pxq-caret');
-    if (caret) caret.textContent = '⊕';
-  }
-  var kids = document.querySelectorAll('[data-parent="' + row.id + '"]');
-  for (var i = 0; i < kids.length; i++) { kids[i].style.display = 'none'; _pxqCollapse(kids[i]); }
-}
-
 function render() {
   renderPnL();
   renderWf();
@@ -2982,7 +2746,6 @@ function render() {
   renderEvo();
   renderDrilldown();
   renderCompPnL();
-  renderPxQ();
   document.getElementById('last-upd').textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-AR');
 }
 

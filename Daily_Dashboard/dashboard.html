@@ -555,6 +555,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
     <button class="vnav-btn"        id="vnav-bench"  onclick="switchMainView('benchmark')">Benchmark B2C</button>
     <button class="vnav-btn"        id="vnav-weekly" onclick="switchMainView('weekly')">Weekly</button>
     <button class="vnav-btn"        id="vnav-flow"   onclick="switchMainView('flow')">Flow Semanal</button>
+    <button class="vnav-btn"        id="vnav-tracker" onclick="switchMainView('tracker')">Daily B2B Tracker</button>
   </div>
   <div id="daily-lob-toggle" class="lob-toggle" style="margin-left:6px">
     <button class="lob-btn active" id="btn-lob-b2bc" onclick="switchLob('b2bc')">B2B2C</button>
@@ -1289,6 +1290,11 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
     </div>
   </div>
 </div><!-- /view-flow -->
+
+<div id="view-tracker" style="display:none">
+  <iframe id="tracker-iframe" title="Daily B2B Tracker"
+          style="width:100%;height:calc(100vh - 52px);border:0;display:block;background:#fff"></iframe>
+</div><!-- /view-tracker -->
 
 <!-- AI Chat Panel -->
 <script>
@@ -2659,19 +2665,40 @@ function switchMainView(view) {
   document.getElementById('view-weekly').style.display    = (view === 'weekly')    ? '' : 'none';
   var vf = document.getElementById('view-flow');
   if (vf) vf.style.display = (view === 'flow') ? '' : 'none';
+  var vt = document.getElementById('view-tracker');
+  if (vt) vt.style.display = (view === 'tracker') ? '' : 'none';
   document.getElementById('vnav-daily').classList.toggle('active',  view === 'daily');
   document.getElementById('vnav-bench').classList.toggle('active',  view === 'benchmark');
   document.getElementById('vnav-weekly').classList.toggle('active', view === 'weekly');
   var vnf = document.getElementById('vnav-flow'); if (vnf) vnf.classList.toggle('active', view === 'flow');
+  var vnt = document.getElementById('vnav-tracker'); if (vnt) vnt.classList.toggle('active', view === 'tracker');
   document.getElementById('daily-lob-toggle').style.display = (view === 'daily') ? '' : 'none';
   document.getElementById('topbar-title').textContent =
     view === 'weekly' ? 'Weekly Summary' : view === 'flow' ? 'Flow Semanal'
+    : view === 'tracker' ? 'Daily B2B Tracker'
     : view === 'benchmark' ? 'Benchmark B2C' : 'Daily Dashboard';
   if (view === 'daily') updateAiAgent(_lob);
   else if (view === 'weekly') _wsUpdateAiAgent(_wsLob);
   if (view === 'weekly' && !_wsLoaded) { _wsLoadData(); }
   if (view === 'flow') flowOpen_();
+  if (view === 'tracker') trackerOpen_();
   if (view === 'benchmark') renderBenchmark_();
+}
+
+// ── Daily B2B Tracker (iframe embebido, misma deployment ?view=tracker) ──
+var _trackerLoaded = false;
+function trackerOpen_() {
+  if (_trackerLoaded) return;
+  _trackerLoaded = true;
+  google.script.run
+    .withSuccessHandler(function(url) {
+      document.getElementById('tracker-iframe').src = url;
+    })
+    .withFailureHandler(function(err) {
+      _trackerLoaded = false;
+      console.error('No se pudo cargar el Daily B2B Tracker:', err);
+    })
+    .getTrackerUrl();
 }
 
 // ══ BENCHMARK B2C ══════════════════════════════════════════════

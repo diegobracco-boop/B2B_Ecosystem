@@ -972,17 +972,28 @@ def agg_actuals(df: pd.DataFrame) -> pd.DataFrame:
     ).round({"gross_bookings": 2, "net_revenues": 2, "fvm": 2})
 
 
-def agg_budget(df: pd.DataFrame, date_format: str = None) -> pd.DataFrame:
+def _parse_fecha_budget(s: pd.Series) -> pd.Series:
+    """El datalake devuelve 'fecha' como ISO 'YYYY-MM-DD' (raw.b2b_budget_gd,
+    raw.b2brr_gd/ri) casi siempre, pero a veces como 'DD/MM/YYYY' (con barras).
+    NO usar pd.to_datetime(..., format='mixed', dayfirst=True) a secas: para un
+    string ISO sin ambiguedad (guiones, anio primero) pandas igual aplica
+    dayfirst y SWAPEA mes/dia cuando el dia es <=12 ('2026-09-01' -> '2026-01-09').
+    Eso vacia los dias 1-12 de cada mes en Run Rate (su tabla arranca en un mes
+    reciente: los dias que "piden prestado" un mes que no existe en la tabla
+    quedan en cero). Bug encontrado 2026-09-04 (commit que lo agrego: 1207e0c).
+    Fix: el formato ISO (con guiones) se parsea derecho, sin dayfirst; dayfirst
+    solo se aplica al formato ambiguo con barras."""
+    s = s.astype(str).str.strip()
+    iso = s.str.match(r"^\d{4}-\d{1,2}-\d{1,2}$")
+    out = pd.Series(pd.NaT, index=s.index, dtype="datetime64[ns]")
+    out.loc[iso]  = pd.to_datetime(s[iso],  format="%Y-%m-%d", errors="coerce")
+    out.loc[~iso] = pd.to_datetime(s[~iso], dayfirst=True,     errors="coerce")
+    return out
+
+
+def agg_budget(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
-    # Budget (raw.b2b_budget_gd) llega en D/M/YYYY sin padding -> requiere dayfirst=True.
-    # Run Rate (raw.b2brr_gd) llega ya en YYYY-MM-DD -> parsear explícito para no
-    # que "mixed"+dayfirst invierta día/mes cuando ambos son <=12 (ej. 2026-09-07 -> 2026-07-09).
-    if date_format:
-        df["fecha"] = pd.to_datetime(df["fecha"], format=date_format).dt.strftime("%Y-%m-%d")
-    else:
-        df["fecha"] = pd.to_datetime(
-            df["fecha"], format="mixed", dayfirst=True
-        ).dt.strftime("%Y-%m-%d")
+    df["fecha"] = _parse_fecha_budget(df["fecha"]).dt.strftime("%Y-%m-%d")
     df = df[df["fecha"].str[:4] == str(TODAY.year)]  # keep current FY only
     # YaVas: GB=0 en los mismos productos que en actuals (revenue queda normal)
     _yavas_gb0 = (
@@ -1028,15 +1039,9 @@ def to_compact(df: pd.DataFrame) -> dict:
     return {"cols": list(df.columns), "rows": df.values.tolist()}
 
 
-def agg_b2b_budget(df: pd.DataFrame, date_format: str = None) -> pd.DataFrame:
+def agg_b2b_budget(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
-    # Ver comentario en agg_budget: Budget (D/M/YYYY) vs Run Rate (YYYY-MM-DD ya explícito).
-    if date_format:
-        df["fecha"] = pd.to_datetime(df["fecha"], format=date_format).dt.strftime("%Y-%m-%d")
-    else:
-        df["fecha"] = pd.to_datetime(
-            df["fecha"], format="mixed", dayfirst=True
-        ).dt.strftime("%Y-%m-%d")
+    df["fecha"] = _parse_fecha_budget(df["fecha"]).dt.strftime("%Y-%m-%d")
     df = df[df["fecha"].str[:4] == str(TODAY.year)]  # keep current FY only
     # Map lob_canal → parent_channel so the dashboard channel filter works on budget
     if "lob_canal" in df.columns:
@@ -1057,25 +1062,51 @@ def agg_b2b_budget(df: pd.DataFrame, date_format: str = None) -> pd.DataFrame:
     ).round({"gross_bookings": 2, "net_revenue": 2, "fvm": 2})
 
 
+# Partners que el equipo cuenta como "New / onboarding" aunque la cartera de
+# ComDev no los marque asi (nombre distinto, alta reciente sin actualizar, etc.).
+# Se fuerza a New en TODAS las fuentes: actuals, LY y proyecciones (budget/runrate).
+FORCE_NEW_PARTNERS = {"livelo-api-hoteles", "xcaret", "didi", "bonda"}
+
+
+def _apply_force_new(df: pd.DataFrame) -> None:
+    """account_type = 'New' para los partners de FORCE_NEW_PARTNERS (match normalizado)."""
+    m = df["partner"].astype(str).str.strip().str.lower().isin(FORCE_NEW_PARTNERS)
+    df.loc[m, "account_type"] = "New"
+
+
 print(f"\n--- Actuals FY{YEAR_BUDGET} ---")
 df_actuals = clean_actuals(fetch(build_actuals_query(ACTUALS_FROM, YESTERDAY), "Actuals"))
-df_actuals.loc[df_actuals["partner"] == "livelo-api-hoteles", "account_type"] = "New"
+_apply_force_new(df_actuals)
 
 print(f"\n--- Actuals LY (FY{str((TODAY.year - 1) % 100).zfill(2)}) ---")
 df_ly = clean_actuals(fetch(build_actuals_query(LY_FROM, LY_TO), "LY"))
-df_ly.loc[df_ly["partner"] == "livelo-api-hoteles", "account_type"] = "New"
+_apply_force_new(df_ly)
 
 print("\n--- Budget ---")
 df_budget = clean_budget(fetch(BUDGET_QUERY, "Budget"))
 
+def _map_stage(partner_series: pd.Series, cmap: dict) -> pd.Series:
+    """Clasifica New/Existing joineando por nombre de partner NORMALIZADO
+    (strip + lower). raw.b2brr_gd, raw.b2b_budget_gd y la cartera de ComDev
+    difieren en capitalizacion para el mismo partner ('Turismocity' vs
+    'TurismoCity', 'Elo'/'ELO', 'Visa'/'VISA', 'Itau card'/'Itau Card'): un
+    .map() case-sensitive los tiraba a 'Existing' (bug: TurismoCity ~110k/mes
+    quedaba fuera de 'New Account Net Revenues' B2B2C)."""
+    return partner_series.astype(str).str.strip().str.lower().map(cmap).fillna("Existing")
+
+
 print("\n--- Cartera (stage para budget) ---")
+cartera_map = {}
 try:
     df_cartera = fetch(CARTERA_QUERY, "Cartera")
-    cartera_map = dict(zip(df_cartera["partner_homologado_2"], df_cartera["stage"]))
-    cartera_map["Livelo-API-Hoteles"] = "New"
-    cartera_map["livelo-api-hoteles"] = "New"
-    cartera_map["Xcaret"] = "New"
-    df_budget["stage"] = df_budget["partner"].map(cartera_map).fillna("Existing")
+    cartera_map = {
+        str(k).strip().lower(): v
+        for k, v in zip(df_cartera["partner_homologado_2"], df_cartera["stage"])
+    }
+    # Overrides de negocio (la cartera de ComDev no los marca New, el equipo si):
+    for _p in FORCE_NEW_PARTNERS:
+        cartera_map[_p] = "New"
+    df_budget["stage"] = _map_stage(df_budget["partner"], cartera_map)
     print(f"  Hunting: {(df_budget['stage']=='Existing').sum():,} filas | Farming: {(df_budget['stage']=='New').sum():,} filas")
 except Exception as e:
     print(f"  WARN cartera query failed: {e}")
@@ -1115,8 +1146,7 @@ print("\n--- Run Rate B2B2C ---")
 try:
     df_b2bc_rr = clean_budget(fetch(B2B2C_RR_QUERY, "B2B2C Run Rate"))
     if not df_b2bc_rr.empty and 'partner' in df_b2bc_rr.columns:
-        df_b2bc_rr["stage"] = df_b2bc_rr["partner"].map(cartera_map).fillna("Existing")
-        df_b2bc_rr.loc[df_b2bc_rr["partner"] == "livelo-api-hoteles", "stage"] = "New"
+        df_b2bc_rr["stage"] = _map_stage(df_b2bc_rr["partner"], cartera_map)
 except Exception as e:
     print(f"  WARN B2B2C RR query failed: {e}")
     df_b2bc_rr = pd.DataFrame()
@@ -1163,9 +1193,9 @@ df_b2b_ri_agg   = agg_b2b(df_b2b_ri)
 df_b2b_ri_ly_ag = agg_b2b(df_b2b_ri_ly)
 df_b2b_bud_gd   = agg_b2b_budget(df_b2b_budget_gd) if not df_b2b_budget_gd.empty else pd.DataFrame()
 df_b2b_bud_ri   = agg_b2b_budget(df_b2b_budget_ri) if not df_b2b_budget_ri.empty else pd.DataFrame()
-df_b2bc_rr_agg  = agg_budget(df_b2bc_rr, date_format="%Y-%m-%d")           if not df_b2bc_rr.empty          else pd.DataFrame()
-df_b2b_rr_gd_agg = agg_b2b_budget(df_b2b_rr_gd, date_format="%Y-%m-%d")   if not df_b2b_rr_gd.empty        else pd.DataFrame()
-df_b2b_rr_ri_agg = agg_b2b_budget(df_b2b_rr_ri, date_format="%Y-%m-%d")   if not df_b2b_rr_ri.empty        else pd.DataFrame()
+df_b2bc_rr_agg  = agg_budget(df_b2bc_rr)           if not df_b2bc_rr.empty          else pd.DataFrame()
+df_b2b_rr_gd_agg = agg_b2b_budget(df_b2b_rr_gd)   if not df_b2b_rr_gd.empty        else pd.DataFrame()
+df_b2b_rr_ri_agg = agg_b2b_budget(df_b2b_rr_ri)   if not df_b2b_rr_ri.empty        else pd.DataFrame()
 print(f"  Actuals:    {len(df_actuals):,} -> {len(df_act):,} filas")
 print(f"  LY:         {len(df_ly):,} -> {len(df_lya):,} filas")
 print(f"  Budget:     {len(df_budget):,} -> {len(df_bud):,} filas")

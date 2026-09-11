@@ -22,8 +22,8 @@ DOS MODOS:
 FUENTES:
   - ACTUALS: se generan con plana_actuals_builder (misma homologación/exclusiones/Reverso AxI
     que Abr-Jun) a partir del Excel '00 - Actuals 2026 - Plana Python*.xlsx'.
-    Por default usa el que lee el pipeline (BITUBIA). Con --actuals-xlsx <ruta> se puede
-    apuntar a otro (ej. el 'V2' en Planning-PBI\\Actuals que trae el mes recién cerrado).
+    Por default usa el que lee el pipeline (config.ACTUALS_FILENAMES en
+    <Planning-PBI>\\Actuals). Con --actuals-xlsx <ruta> se puede apuntar a otro.
   - RUNRATE / FORECAST: se toman de los JSON canónicos ya publicados en Drive (runrate.json,
     forecast.json). No se regeneran acá (usar run_all.bat si hay que actualizarlos).
 
@@ -38,6 +38,8 @@ import os
 import sys
 import io
 import json
+import gzip
+import base64
 import shutil
 import argparse
 import tempfile
@@ -54,9 +56,10 @@ import pnl_common
 import plana_projections_builder as P
 import plana_actuals_builder as A
 
-DIR             = os.path.dirname(os.path.abspath(__file__))
-DRIVE_FOLDER_ID = config.DRIVE_FOLDER_ID
-BASELINE_NAME   = "baseline_actuals+projections.json"
+DIR                        = os.path.dirname(os.path.abspath(__file__))
+DRIVE_FOLDER_ID            = config.DRIVE_FOLDER_ID
+DRIVE_FOLDER_ID_COMPRESSED = "1TnjyRYrm_JKptnelgpQlAi5ky8Q1TyAy"
+BASELINE_NAME              = "baseline_actuals+projections.json"
 
 COLS_OUT = ["LoB", "Canal", "Pais", "Producto",
             "P&L N1", "P&L N2", "P&L N3", "P&L N4", "P&L N5", "P&L N6", "P&L Managerial View",
@@ -94,19 +97,19 @@ def _download_json(svc, name):
 
 def build_actuals_json(actuals_xlsx=None, fy=2027):
     """Corre plana_actuals_builder y canonicaliza igual que json_builder -> payload actuals."""
-    bitubia_dir = None
+    override_dir = None
     if actuals_xlsx:
         # copiar al nombre esperado para que read_actuals_file lo encuentre
         tmp = tempfile.mkdtemp(prefix="actuals_src_")
-        dst = os.path.join(tmp, f"00 - Actuals {fy-1} - Plana Python.xlsx")
+        dst = os.path.join(tmp, config.ACTUALS_FILENAME_DEFAULT.format(year=fy - 1))
         shutil.copy(actuals_xlsx, dst)
-        bitubia_dir = tmp
+        override_dir = tmp
         print(f"  actuals source override: {actuals_xlsx}")
     try:
-        plana = A.build(fy, bitubia_dir=bitubia_dir)    # SIN PPA (suma Reverso AxI)
+        plana = A.build(fy, override_dir=override_dir)    # SIN PPA (suma Reverso AxI)
     finally:
-        if bitubia_dir:
-            shutil.rmtree(bitubia_dir, ignore_errors=True)
+        if override_dir:
+            shutil.rmtree(override_dir, ignore_errors=True)
     # limpiar el CSV que build() deja en el repo
     yy = str(fy)[-2:]
     csv = os.path.join(DIR, f"actuals_fy{yy}_abr{fy-1}_mar{fy}.csv")
@@ -156,6 +159,40 @@ def promote_month(month, actuals_xlsx, upload):
     _emit(svc, fid, payload, upload)
 
 
+def _check_month_config_(rr, fc):
+    """RUNRATE_MONTHS/FORECAST_MONTHS (config.py) son un set de meses A MANO que
+    decide qué fuente usa cada mes del baseline en --rebuild. Si la composición
+    real cambia (runrate.json empieza/termina en otro lado) y nadie actualiza
+    config.py, el mes queda con 0 filas en el baseline SIN NINGÚN aviso — mismo
+    patrón silencioso que ya rompió 3 veces en este pipeline (diciembre perdido
+    del parser EPM, 'Last Year' siempre en cero, la reversión del clasp pull).
+    No frena --rebuild (FORECAST_MONTHS=set() hoy es una decisión de negocio a
+    propósito), pero avisa fuerte para que no pase desapercibido."""
+    def _months_in(payload):
+        fi = payload["cols"].index("Fecha")
+        return {r[fi] for r in payload["rows"]}
+
+    rr_real, fc_real = _months_in(rr), _months_in(fc)
+    any_warn = False
+    for name, configured, real, fname in [
+        ("RUNRATE_MONTHS",  RUNRATE_MONTHS,  rr_real, "runrate.json"),
+        ("FORECAST_MONTHS", FORECAST_MONTHS, fc_real, "forecast.json"),
+    ]:
+        missing = sorted(configured - real)  # config dice usar el mes, pero el archivo no lo tiene
+        extra   = sorted(real - configured)  # el archivo cubre meses que el config no usa
+        if missing:
+            any_warn = True
+            print(f"  [WARN CONFIG] {name} incluye {missing} pero {fname} no tiene esos "
+                  f"meses -> quedarian con 0 filas en el baseline.")
+        if extra:
+            any_warn = True
+            print(f"  [WARN CONFIG] {fname} tiene datos para {extra} que {name} NO usa "
+                  f"-> revisar si config.py quedo desactualizado.")
+    if not any_warn:
+        print("  [OK] RUNRATE_MONTHS/FORECAST_MONTHS coinciden con runrate.json/forecast.json.")
+    return any_warn
+
+
 def rebuild(actuals_xlsx, upload):
     svc = _svc()
     fid, old = _download_json(svc, BASELINE_NAME)
@@ -163,6 +200,7 @@ def rebuild(actuals_xlsx, upload):
     act = build_actuals_json(actuals_xlsx)
     _, rr = _download_json(svc, "runrate.json")
     _, fc = _download_json(svc, "forecast.json")
+    _check_month_config_(rr, fc)
     act_months = set(act["meta"]["fechas"])  # meses cerrados disponibles
     rows = [r for r in act["rows"] if r[FI] in act_months]
     rows += [r for r in rr["rows"] if r[FI] in RUNRATE_MONTHS]
@@ -179,15 +217,33 @@ def _emit(svc, fid, payload, upload):
     outdir = os.path.join(DIR, "_baseline_out")
     os.makedirs(outdir, exist_ok=True)
     local = os.path.join(outdir, BASELINE_NAME)
+    txt = json.dumps(payload, ensure_ascii=False, separators=(",", ":"), default=str)
     with open(local, "w", encoding="utf-8") as f:
-        json.dump(payload, f, ensure_ascii=False, separators=(",", ":"), default=str)
-    print(f"\nlocal -> {local} ({os.path.getsize(local)/1e6:.2f} MB, {payload['meta']['filas']:,} filas)")
+        f.write(txt)
+    # También en la raíz del módulo, junto a los demás canónicos: es de ahí que
+    # plana_to_cube.py lee el escenario 'bl' (si no, agarra una copia vieja).
+    with open(os.path.join(DIR, BASELINE_NAME), "w", encoding="utf-8") as f:
+        f.write(txt)
+    print(f"\nlocal -> {local} (+ copia en la raíz) ({os.path.getsize(local)/1e6:.2f} MB, {payload['meta']['filas']:,} filas)")
     if upload:
-        from googleapiclient.http import MediaFileUpload
+        from googleapiclient.http import MediaFileUpload, MediaInMemoryUpload
         media = MediaFileUpload(local, mimetype="application/json", resumable=True)
         res = svc.files().update(fileId=fid, media_body=media,
                                  fields="id,size,modifiedTime").execute()
         print(f"[Drive] actualizado {BASELINE_NAME}: {res}")
+
+        # Carpeta comprimida — gzip(level=9) → base64 → .txt
+        compressed = base64.b64encode(gzip.compress(txt.encode("utf-8"), compresslevel=9)).decode("ascii")
+        cmedia = MediaInMemoryUpload(compressed.encode("ascii"), mimetype="text/plain", resumable=False)
+        q = f"name='{BASELINE_NAME}' and '{DRIVE_FOLDER_ID_COMPRESSED}' in parents and trashed=false"
+        ex = svc.files().list(q=q, fields="files(id,name)").execute().get("files", [])
+        if ex:
+            svc.files().update(fileId=ex[0]["id"], media_body=cmedia).execute()
+            print(f"[Drive-compressed] actualizado {BASELINE_NAME}")
+        else:
+            svc.files().create(body={"name": BASELINE_NAME, "parents": [DRIVE_FOLDER_ID_COMPRESSED]},
+                               media_body=cmedia, fields="id").execute()
+            print(f"[Drive-compressed] creado {BASELINE_NAME}")
     else:
         print("(--no-upload: no se subió a Drive)")
 

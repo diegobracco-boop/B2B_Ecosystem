@@ -35,8 +35,20 @@ def _onedrive_root():
 
 
 def get_base_dir():
-    """Carpeta OneDrive compartida del equipo, resuelta por usuario (no hardcodeada)."""
-    return os.path.join(_onedrive_root(), _cfg.GESTION_FOLDER, "B2B & WLs")
+    """Carpeta OneDrive compartida del equipo, resuelta por usuario (no hardcodeada).
+
+    Soporta dos estructuras de carpetas:
+      - Vieja: <onedrive>/Control de Gestión - 2026-27/B2B & WLs
+      - Nueva: <onedrive>/Control de Gestión - Documentos/Planeamiento/2026-27/B2B & WLs
+    """
+    root = _onedrive_root()
+    fy_tag = _cfg.GESTION_FOLDER.replace("Control de Gestión - ", "")  # e.g. "2026-27"
+    # Intentar estructura nueva primero
+    new_path = os.path.join(root, "Control de Gestión - Documentos", "Planeamiento", fy_tag, "B2B & WLs")
+    if os.path.isdir(new_path):
+        return new_path
+    # Fallback a estructura vieja
+    return os.path.join(root, _cfg.GESTION_FOLDER, "B2B & WLs")
 
 
 def get_pbi_inputs_dir():
@@ -50,6 +62,18 @@ def get_glosario_path():
 
 def get_reverso_axi_path():
     return os.path.join(get_pbi_inputs_dir(), "Actuals", "Reverso AxI.xlsx")
+
+
+def get_actuals_dir():
+    """Carpeta de los '00 - Actuals YYYY - Plana Python*.xlsx' (reales contables)."""
+    return os.path.join(get_pbi_inputs_dir(), "Actuals")
+
+
+def get_actuals_file(year):
+    """Ruta del xlsx de actuals para un año CALENDARIO (nombre exacto vía config)."""
+    year = int(year)
+    fn = _cfg.ACTUALS_FILENAMES.get(year, _cfg.ACTUALS_FILENAME_DEFAULT.format(year=year))
+    return os.path.join(get_actuals_dir(), fn)
 
 
 def get_toqan_dir():
