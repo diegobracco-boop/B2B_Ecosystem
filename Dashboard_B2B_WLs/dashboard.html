@@ -967,6 +967,7 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
       </div>
     </div>
       <button class="btn btn-ghost" id="btn-refresh" onclick="forceRefresh()">⟳ Actualizar</button>
+      <button class="btn btn-ghost" id="btn-cierre-slides" onclick="openCierreSlides()" style="display:none" title="Arma las slides del cierre de mes (vs Budget/Forecast/Run Rate, YTD, H1 y evolución OC) listas para imprimir o guardar como PDF">📸 Slides cierre de mes</button>
     </div>
 
     <div class="ai-links" id="ai-links" style="display:none;flex-direction:row;gap:8px;flex-wrap:wrap;justify-content:flex-end">
@@ -2305,6 +2306,10 @@ function switchLob(btn) {
   // Ajustar padding main y filters visibility
   document.querySelector('.filters').style.display = '';  // siempre visible (es el nav)
   if (isSpecial) document.querySelector('main').style.paddingLeft = '28px';
+
+  // Botón "Slides cierre de mes" — solo en la vista B2B2C
+  var cierreBtn = document.getElementById('btn-cierre-slides');
+  if (cierreBtn) cierreBtn.style.display = (_state.lob === 'b2b2c') ? '' : 'none';
 
   // Botones "Consultar IA" = links directos a agentes Toqan (solo en P&L tabs)
   var aiLinks = document.getElementById('ai-links');
@@ -5909,6 +5914,153 @@ function insRender(tab) {
   <div id="presentation-loading" style="flex:1;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.6);font-size:15px;font-family:sans-serif;">Cargando presentación…</div>
   <iframe id="presentation-frame" srcdoc="" style="flex:1;border:none;width:100%;display:block;"></iframe>
 </div>
+
+<!-- ══ Cierre de Mes — Slides (vista imprimible) ══════════════ -->
+<style>
+#cierre-overlay{display:none;position:fixed;inset:0;z-index:99998;background:#e9edf3;flex-direction:column;overflow:auto}
+#cierre-toolbar{position:sticky;top:0;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 20px;background:#2D2A6E;color:#fff;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.25);z-index:2}
+#cierre-toolbar .cierre-ttl{font-size:13px;font-weight:700;letter-spacing:.04em}
+#cierre-toolbar .cierre-actions{display:flex;gap:8px}
+#cierre-toolbar button{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:6px;color:#fff;padding:7px 16px;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit}
+#cierre-toolbar button.primary{background:#7C3AED;border-color:#7C3AED}
+#cierre-body{padding:24px;display:flex;flex-direction:column;align-items:center;gap:24px}
+.cierre-loading{color:#5457D9;font-size:15px;padding:60px;font-weight:600;text-align:center}
+.cierre-slide{background:#fff;width:1120px;max-width:100%;border-radius:10px;box-shadow:0 4px 18px rgba(0,0,0,.14);padding:26px 30px;box-sizing:border-box}
+.cierre-slide-title{font-size:19px;font-weight:800;color:#2D2A6E;margin:0 0 16px;padding-bottom:10px;border-bottom:3px solid #5457D9}
+.cierre-subt{font-size:13px;font-weight:700;color:#5457D9;margin:0 0 8px}
+.cierre-two{display:grid;grid-template-columns:1fr 1fr;gap:22px;align-items:start}
+.cierre-slide .pnl-card{overflow-x:auto}
+.cierre-chart-img{width:100%;height:auto;display:block}
+.cierre-cap{font-size:11px;color:#57606a;margin-top:8px;font-style:italic}
+@media print{
+  @page{size:A4 landscape;margin:8mm}
+  body>*:not(#cierre-overlay){display:none !important}
+  #cierre-overlay{display:block !important;position:static;background:#fff;overflow:visible}
+  #cierre-toolbar{display:none !important}
+  #cierre-body{padding:0;gap:0}
+  .cierre-slide{box-shadow:none;border-radius:0;width:100%;max-width:100%;padding:6mm 4mm;page-break-after:always;break-after:page}
+  .cierre-slide:last-child{page-break-after:auto;break-after:auto}
+}
+</style>
+<div id="cierre-overlay">
+  <div id="cierre-toolbar">
+    <span class="cierre-ttl">📸 Slides Cierre de Mes — B2B2C</span>
+    <div class="cierre-actions">
+      <button class="primary" onclick="window.print()">🖨️ Imprimir / Guardar PDF</button>
+      <button onclick="closeCierreSlides()">✕ Cerrar</button>
+    </div>
+  </div>
+  <div id="cierre-body"></div>
+</div>
+<script>
+function _cierreMonthShort(ym){
+  var p = ym.split('-'); return (MONTH_LABELS[p[1]]||'').slice(0,3) + " '" + p[0].slice(2);
+}
+function _cierreFYLabel(ym){
+  return 'FY' + _fyOf(ym).split('-')[1];  // _fyOf('2026-08') -> '2026-27' -> 'FY27'
+}
+function _cierreFetch(base, desde, hasta){
+  return new Promise(function(resolve, reject){
+    var p  = Object.assign({}, base, {desde:desde, hasta:hasta});
+    var ck = JSON.stringify(p);
+    if (_dataCache[ck]) { resolve(_dataCache[ck]); return; }
+    if (IS_DEMO) { reject(new Error('no disponible en modo demo')); return; }
+    google.script.run
+      .withSuccessHandler(function(d){ _dataCache[ck]=d; resolve(d); })
+      .withFailureHandler(reject)
+      .getAllData(p);
+  });
+}
+// Reutiliza renderPnL para máxima fidelidad: setea estado, renderiza en la tabla real y clona el HTML.
+function _cierrePnLHTML(pnlData, goal){
+  if (!pnlData) return '<div style="padding:20px;color:#999">Sin datos para este período.</div>';
+  _state.pnl = pnlData; _state.goal = goal;
+  renderPnL();
+  var head = document.getElementById('pnl-head').innerHTML;
+  var body = document.getElementById('pnl-body').innerHTML;
+  return '<div class="pnl-card"><table class="pnl-table"><thead><tr class="head-canals">'+head+'</tr></thead><tbody>'+body+'</tbody></table></div>';
+}
+function _cierreSlide(title, inner){
+  return '<div class="cierre-slide"><div class="cierre-slide-title">'+title+'</div>'+inner+'</div>';
+}
+var _cierreBusy = false;   // guard de reentrancia
+var _cierreOpen = false;   // overlay visible
+
+// Restaura el estado real del dashboard tras mutar _state durante la generación.
+// Repone el goal + sincroniza los <select>, y reconstruye _state.pnl/evo desde
+// los filtros vigentes vía reload() (no desde un snapshot congelado), para no
+// pisar la selección del usuario si navegó mientras se generaban las slides.
+function _cierreFinish(snap){
+  _cierreBusy = false;
+  _state.goal = snap.goal;
+  var gb = document.getElementById('f-goal-bar'); if (gb) gb.value = snap.goal;
+  var gt = document.getElementById('f-goal');     if (gt) gt.value = snap.goal;
+  try { reload(); }
+  catch(_){ _state.pnl = snap.pnl; _state.evo = snap.evo; try { render(); } catch(__){} }
+}
+function openCierreSlides(){
+  if (_state.lob !== 'b2b2c' || _cierreBusy) return;
+  _cierreBusy = true;
+  _cierreOpen = true;
+  var overlay = document.getElementById('cierre-overlay');
+  var body    = document.getElementById('cierre-body');
+  overlay.style.display = 'flex';
+  body.innerHTML = '<div class="cierre-loading">⏳ Generando slides del cierre…</div>';
+
+  var snap = { goal:_state.goal, pnl:_state.pnl, evo:_state.evo };
+  var base = { lob:'b2b2c', pais:'all', producto:'all', canal:'all', baselineSource:(_state.baselineSource||'baseline') };
+  var sel  = (_state.selectedPeriods||[]).slice().sort();
+  var ytdStart = FY26_MONTHS[0];
+  var refMonth = sel.length ? sel[sel.length-1] : (_defaultPeriod || ytdStart);
+  if (refMonth < ytdStart) refMonth = ytdStart;   // guard defensivo (rango YTD válido)
+  var h1Start  = FY26_MONTHS[0], h1End = FY26_MONTHS[5];  // Abr–Sep
+  var mesLbl   = _cierreMonthShort(refMonth);
+  var fyLbl    = _cierreFYLabel(refMonth);
+
+  Promise.all([
+    _cierreFetch(base, refMonth, refMonth),
+    _cierreFetch(base, ytdStart, refMonth),
+    _cierreFetch(base, h1Start,  h1End)
+  ]).then(function(res){
+    var mes=res[0], ytd=res[1], h1=res[2];
+    var slides = [];
+    slides.push(_cierreSlide(mesLbl + ' vs. Budget',   _cierrePnLHTML(mes.pnl, 'budget')));
+    slides.push(_cierreSlide(mesLbl + ' vs. Forecast', _cierrePnLHTML(mes.pnl, 'forecast')));
+    slides.push(_cierreSlide(mesLbl + ' vs. Run Rate', _cierrePnLHTML(mes.pnl, 'runRate')));
+    slides.push(_cierreSlide('YTD ' + fyLbl + ' & H1 vs. Budget',
+      '<div class="cierre-two">'+
+        '<div><div class="cierre-subt">YTD vs Budget ('+fyLbl+')</div>'+_cierrePnLHTML(ytd.pnl,'budget')+'</div>'+
+        '<div><div class="cierre-subt">H1 vs Budget (Abr–Sep)</div>'+_cierrePnLHTML(h1.pnl,'budget')+'</div>'+
+      '</div>'));
+
+    // Slide 5: gráfico OC vs Budget por mes (dd-chart-oc). Render con evo del mes + goal budget, capturar como imagen.
+    _state.evo = mes.evo; _state.goal = 'budget';
+    renderDrilldown();
+    setTimeout(function(){
+      try {
+        var ch  = _charts['dd-chart-oc'];
+        var img = (ch && ch.toBase64Image)
+          ? '<img class="cierre-chart-img" src="'+ch.toBase64Image('image/png',1)+'" alt="Evolución OC B2B2C vs Budget">'
+          : '<div style="padding:20px;color:#999">Gráfico no disponible.</div>';
+        slides.push(_cierreSlide('Evolución OC B2B2C vs Budget por mes',
+          img + '<div class="cierre-cap">Operating Contribution mensual · Actuals + Budget · '+fyLbl+' (Abr \''+ytdStart.slice(2,4)+' → Mar)</div>'));
+      } catch(err){ /* si falla la captura igual mostramos las 4 tablas */ }
+      _cierreFinish(snap);
+      if (_cierreOpen) body.innerHTML = slides.join('');
+    }, 450);
+  }).catch(function(e){
+    _cierreFinish(snap);
+    if (_cierreOpen) body.innerHTML = '<div class="cierre-loading" style="color:#c0392b">No se pudieron generar las slides: '+((e&&e.message)?e.message:e)+'</div>';
+  });
+}
+function closeCierreSlides(){
+  _cierreOpen = false;
+  document.getElementById('cierre-overlay').style.display = 'none';
+}
+document.addEventListener('keydown', function(e){
+  if (e.key === 'Escape'){ var o=document.getElementById('cierre-overlay'); if (o && o.style.display!=='none') closeCierreSlides(); }
+});
+</script>
 
 </body>
 </html>
