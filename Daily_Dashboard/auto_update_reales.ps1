@@ -13,7 +13,15 @@ así nunca se publica a producción algo que vino de una corrida de datos rota.
 Ver Daily_Dashboard/logs/ para el historial de corridas.
 #>
 
-$ErrorActionPreference = "Stop"
+# NO usar "Stop" acá: con *>> $logFile (mezcla stdout+stderr), PowerShell 5.1 envuelve
+# cada línea de stderr de un ejecutable nativo en un ErrorRecord — y "Stop" la trata
+# como error terminante aunque el proceso haya salido con exit code 0. git commit/push
+# (y a veces clasp) escriben su resumen normal por stderr, así que un push EXITOSO
+# cortaba el script ahí mismo, salteándose clasp push/deploy sin que nadie lo notara
+# (bug real, 2026-09-12: el log mostraba "NativeCommandError" con el propio mensaje de
+# éxito de git como texto). Cada paso ya chequea $LASTEXITCODE a mano — es esa
+# comprobación la que debe frenar la corrida, no $ErrorActionPreference.
+$ErrorActionPreference = "Continue"
 
 $repoRoot   = Split-Path $PSScriptRoot -Parent
 $dashDir    = Join-Path $repoRoot "Daily_Dashboard"
