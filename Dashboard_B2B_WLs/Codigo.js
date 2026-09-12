@@ -1446,8 +1446,13 @@ function _cierreSlideHeader_(slide, title, width, headline) {
   return 108;
 }
 
+// Nombre SIN "_" final a propósito: google.script.run no puede invocar funciones
+// que terminen (ni empiecen) con guión bajo — las trata como privadas, igual que
+// el editor. Si esto vuelve a llevar "_", el botón del webapp rompe silenciosamente
+// (TypeError "...is not a function" recién al hacer clic, deja el botón colgado en
+// "Generando…" para siempre porque el success/failure handler nunca llega a correr).
 // payload = { mesLbl, fyLbl, mes:{pnl}, ytd:{pnl}, h1:{pnl}, headlines:{budget,forecast,runRate}, chartImgBase64 }
-function buildCierreSlidesDeck_(payload) {
+function buildCierreSlidesDeck(payload) {
   payload = payload || {};
   var pres = SlidesApp.create('Cierre ' + (payload.mesLbl || '') + ' — B2B2C — ' + new Date().toISOString().slice(0, 16).replace('T', ' '));
   var w = pres.getPageWidth(), h = pres.getPageHeight();
@@ -1487,11 +1492,12 @@ function buildCierreSlidesDeck_(payload) {
   return { url: pres.getUrl(), id: pres.getId() };
 }
 
-// Función sin "_" final a propósito: las que terminan en "_" son "privadas" por
-// convención y Apps Script las oculta del desplegable "Seleccionar función" (▶ Run)
-// del editor — por eso buildCierreSlidesDeck_ no aparecía ahí para autorizar el
-// scope "presentations" a mano. Correr ESTA una vez desde el editor (▶ Run, no desde
-// el webapp) dispara la pantalla de autorización real. Después se puede borrar el
+// Función sin "_" final a propósito (ver nota arriba de buildCierreSlidesDeck):
+// mientras esta función se llamaba buildCierreSlidesDeck_ (con "_"), ni aparecía en
+// el desplegable "Seleccionar función" del editor NI era invocable desde
+// google.script.run — de ahí el botón colgado en el webapp. Correr ESTA una vez
+// desde el editor (▶ Run, no desde el webapp) dispara la pantalla de autorización
+// real. Después se puede borrar el
 // archivo de prueba que crea en Drive.
 function autorizarGoogleSlides() {
   var pres = SlidesApp.create('TEST autorización Slides — borrar');

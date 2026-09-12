@@ -6242,24 +6242,35 @@ function _cierreGenerate(){
   });
 }
 // Manda el último set de datos generado (mismo pnl/headlines/imagen que se ve en el
-// preview HTML) al servidor, que arma un Google Slides real (buildCierreSlidesDeck_
+// preview HTML) al servidor, que arma un Google Slides real (buildCierreSlidesDeck
 // en Código.js) y devuelve la URL. No recalcula nada — exporta lo que ya está en pantalla.
+// IMPORTANTE: buildCierreSlidesDeck NO puede terminar en "_" — google.script.run no
+// puede invocar funciones "privadas" (ni el editor las muestra en el desplegable de
+// Run). Si se renombra con "_" por error, esto tira un TypeError síncrono y el botón
+// queda colgado en "Generando…" para siempre porque el try/catch de abajo es lo único
+// que lo destraba (ya pasó una vez, 2026-09-12).
 function _cierreExportSlides(){
   if (!_cierreLastPayload) return;
   if (IS_DEMO) { alert('Exportar a Google Slides no está disponible en modo demo.'); return; }
   var btn = document.getElementById('cierre-export-btn');
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Generando deck…'; }
-  google.script.run
-    .withSuccessHandler(function(res){
-      if (btn) { btn.disabled = false; btn.textContent = '📤 Enviar a Google Slides'; }
-      if (res && res.url) window.open(res.url, '_blank');
-      else alert('El servidor no devolvió la URL del deck.');
-    })
-    .withFailureHandler(function(e){
-      if (btn) { btn.disabled = false; btn.textContent = '📤 Enviar a Google Slides'; }
-      alert('No se pudo generar el deck de Google Slides: ' + ((e&&e.message)||e));
-    })
-    .buildCierreSlidesDeck_(_cierreLastPayload);
+  function reset(){ if (btn) { btn.disabled = false; btn.textContent = '📤 Enviar a Google Slides'; } }
+  try {
+    google.script.run
+      .withSuccessHandler(function(res){
+        reset();
+        if (res && res.url) window.open(res.url, '_blank');
+        else alert('El servidor no devolvió la URL del deck.');
+      })
+      .withFailureHandler(function(e){
+        reset();
+        alert('No se pudo generar el deck de Google Slides: ' + ((e&&e.message)||e));
+      })
+      .buildCierreSlidesDeck(_cierreLastPayload);
+  } catch(e) {
+    reset();
+    alert('Error al llamar al servidor: ' + (e.message || e));
+  }
 }
 
 function closeCierreSlides(){
