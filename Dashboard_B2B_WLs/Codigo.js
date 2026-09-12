@@ -1486,3 +1486,14 @@ function buildCierreSlidesDeck_(payload) {
 
   return { url: pres.getUrl(), id: pres.getId() };
 }
+
+// Función sin "_" final a propósito: las que terminan en "_" son "privadas" por
+// convención y Apps Script las oculta del desplegable "Seleccionar función" (▶ Run)
+// del editor — por eso buildCierreSlidesDeck_ no aparecía ahí para autorizar el
+// scope "presentations" a mano. Correr ESTA una vez desde el editor (▶ Run, no desde
+// el webapp) dispara la pantalla de autorización real. Después se puede borrar el
+// archivo de prueba que crea en Drive.
+function autorizarGoogleSlides() {
+  var pres = SlidesApp.create('TEST autorización Slides — borrar');
+  Logger.log('OK, autorizado. Presentación de prueba: ' + pres.getUrl());
+}
