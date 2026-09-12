@@ -100,6 +100,10 @@ body {
   padding: 48px 56px;
   max-width: 1360px;
 }
+/* Gantt necesita el ancho completo del monitor — celdas de calendario más
+   grandes que el resto de las páginas (texto/tablas), que sí se leen mejor
+   acotadas. Se activa por JS (showSection) solo mientras esa sección está abierta. */
+#main.main-wide { max-width: none; }
 
 /* ── Page header ── */
 .page-header { margin-bottom: 40px; }
@@ -310,14 +314,23 @@ body {
 .gantt-cal-nav { background: var(--surface2); color: var(--text2); border: 1px solid var(--border); border-radius: 8px; width: 30px; height: 30px; font-size: 15px; cursor: pointer; }
 .gantt-cal-nav:hover { color: var(--text); border-color: var(--accent2); }
 .gantt-cal-wrap { overflow-x: auto; }
-.gantt-cal-head { display: grid; grid-template-columns: repeat(7,1fr); gap: 6px; margin-bottom: 6px; min-width: 600px; }
-.gantt-cal-head > div { text-align: center; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--text3); padding: 4px 0; }
-.gantt-cal-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 6px; min-width: 600px; }
-.gantt-cal-cell { min-height: 88px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 6px; display: flex; flex-direction: column; gap: 3px; }
+/* 5 columnas lun-vie a igual ancho (1fr); sáb/dom angostas — solo necesitan
+   el ancho del label "SÁB"/"DOM", no llevan tareas. */
+.gantt-cal-head { display: grid; grid-template-columns: repeat(5,1fr) 76px 76px; gap: 10px; margin-bottom: 8px; min-width: 600px; }
+.gantt-cal-head > div { text-align: center; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--text3); padding: 4px 0; }
+.gantt-cal-grid { display: grid; grid-template-columns: repeat(5,1fr) 76px 76px; gap: 10px; min-width: 600px; }
+/* Alto fijo (no min-height) para que todas las celdas lun-vie midan lo
+   mismo siempre — calibrado para el caso con más tareas simultáneas del
+   año (ej. 7/9/2026, 2 tareas el mismo día), no solo para semanas livianas. */
+.gantt-cal-cell { height: 104px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 5px; }
 .gantt-cal-cell.gantt-cal-today { border-color: var(--accent2); box-shadow: 0 0 0 1px var(--accent2) inset; }
 .gantt-cal-cell.gantt-cal-empty { background: transparent; border-color: transparent; }
-.gantt-cal-daynum { font-size: 11px; font-weight: 700; color: var(--text2); }
-.gantt-cal-tag { font-size: 9.5px; font-weight: 700; padding: 2px 5px; border-radius: 4px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gantt-cal-daynum { font-size: 14px; font-weight: 700; color: var(--text2); }
+.gantt-cal-tag { font-size: 11px; font-weight: 700; padding: 3px 7px; border-radius: 4px; line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gantt-cal-cell.gantt-cal-off { background: var(--surface); align-items: center; }
+.gantt-cal-off-x { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 800; color: var(--text3); opacity: .45; }
+.gantt-cal-cell.gantt-cal-holiday { background: rgba(248,113,113,.14); border-color: rgba(248,113,113,.4); }
+.gantt-cal-holiday-mark { color: var(--red); font-size: 8px; vertical-align: middle; }
 .gantt-legend { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; font-size: 11px; color: var(--text3); margin-top: 14px; }
 .gantt-legend-dot { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 6px; vertical-align: -2px; }
 .step-title { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 5px; }
@@ -922,7 +935,7 @@ a.ext-link:hover { text-decoration: underline; }
       <div class="gantt-legend" id="gantt-legend"></div>
     </div>
 
-    <div class="alert-box info">ℹ️ "Día hábil" cuenta días de semana (lun-vie), sin excluir feriados — a ajustar a mano si un feriado corre la fecha ese mes.</div>
+    <div class="alert-box info">ℹ️ "Día hábil" cuenta días de semana (lun-vie) excluyendo los feriados nacionales de Argentina marcados en rojo. Los ítems semanales (lun/mar/vie) y mensuales por posición (3er/4to jueves) no se recalculan si caen en feriado — ajustar a mano en ese caso.</div>
   </div>
 
   <!-- ════════════════════════════ ARQUITECTURA ════════════════════════════ -->
@@ -2099,6 +2112,7 @@ function showSection(name) {
   document.querySelectorAll('.nav-item').forEach(function(n){ n.classList.remove('active'); });
   var sec = document.getElementById('sec-' + name);
   if (sec) sec.classList.add('active');
+  document.getElementById('main').classList.toggle('main-wide', name === 'gantt');
   // Marcar el nav-item de esta sección — sirve tanto si el click vino de un nav-item
   // como de una proj-card del overview (no depender del global implícito `event`).
   document.querySelectorAll('.nav-item').forEach(function(n){
@@ -2140,9 +2154,37 @@ var GANTT_ITEMS = [
   { label:'Reuniones semanales B2B y B2B2C — N2',                           color:'#22c55e', rule:{ type:'weekday', weekday:5 } },
   { label:'Reunión semanal B2B2C Hispa & Brasil — N3',                      color:'#e879f9', rule:{ type:'weekday', weekday:2 } },
   { label:'Entrega material MRM (mensual de resultados)',                   color:'#fbbf24', rule:{ type:'nth-weekday', n:4, weekday:4 } },
-  { label:'Reunión revisión cierre contable con Contabilidad',              color:'#f87171', rule:{ type:'nth-bizday', n:5 } },
+  { label:'Reunión revisión cierre contable con Contabilidad',              color:'#2dd4bf', rule:{ type:'nth-bizday', n:5 } },
   { label:'Envío cierre transaccional vs. Run Rate de palancas de negocio', color:'#a780ff', rule:{ type:'nth-bizday', n:1 } }
 ];
+// Feriados nacionales Argentina (Ley 27.399 + decreto de días no laborables
+// con fines turísticos), fechas ya resueltas para los trasladables — cubre
+// solo el rango del Gantt (abril'26 → marzo'27). Los ítems de arriba (reglas
+// de weekday/nth-bizday) no excluyen feriados automáticamente — esto es solo
+// el resaltado visual del día.
+var GANTT_HOLIDAYS_AR = {
+  '2026-04-02': 'Día del Veterano y de los Caídos en la Guerra de Malvinas',
+  '2026-04-03': 'Viernes Santo',
+  '2026-05-01': 'Día del Trabajador',
+  '2026-05-25': 'Día de la Revolución de Mayo',
+  '2026-06-15': 'Paso a la Inmortalidad del Gral. Güemes (trasladado del 17/6)',
+  '2026-06-20': 'Día de la Bandera (Gral. Belgrano)',
+  '2026-07-09': 'Día de la Independencia',
+  '2026-08-17': 'Paso a la Inmortalidad del Gral. San Martín',
+  '2026-10-12': 'Día del Respeto a la Diversidad Cultural',
+  '2026-11-23': 'Día de la Soberanía Nacional (trasladado del 20/11)',
+  '2026-12-07': 'Día no laborable con fines turísticos (puente)',
+  '2026-12-08': 'Inmaculada Concepción de María',
+  '2026-12-25': 'Navidad',
+  '2027-01-01': 'Año Nuevo',
+  '2027-02-08': 'Carnaval',
+  '2027-02-09': 'Carnaval',
+  '2027-03-24': 'Día Nacional de la Memoria por la Verdad y la Justicia'
+};
+function _ganttHolidayName(y, m, day){
+  var mm = String(m + 1).padStart(2, '0'), dd = String(day).padStart(2, '0');
+  return GANTT_HOLIDAYS_AR[y + '-' + mm + '-' + dd] || null;
+}
 var GANTT_DOW = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];   // semana arranca lunes
 var _ganttIdx = 0;
 
@@ -2155,7 +2197,7 @@ function _ganttNthBizDay(y, m, n){
   var count = 0, d = new Date(y, m, 1);
   while (d.getMonth() === m) {
     var wd = d.getDay();
-    if (wd !== 0 && wd !== 6) { count++; if (count === n) return d.getDate(); }
+    if (wd !== 0 && wd !== 6 && !_ganttHolidayName(y, m, d.getDate())) { count++; if (count === n) return d.getDate(); }
     d.setDate(d.getDate() + 1);
   }
   return null;
@@ -2205,10 +2247,19 @@ function ganttRenderMonth(idx){
   for (var day = 1; day <= daysInMonth; day++) {
     var items = byDay[day] || [];
     var isToday = isCurrentMonth && today.getDate() === day;
-    grid += '<div class="gantt-cal-cell' + (isToday ? ' gantt-cal-today' : '') + '"><div class="gantt-cal-daynum">' + day + '</div>';
-    items.forEach(function(it){
-      grid += '<div class="gantt-cal-tag" style="background:' + it.color + '26;color:' + it.color + '" title="' + it.label + '">' + it.label + '</div>';
-    });
+    var col = (leadBlanks + day - 1) % 7;      // 0=Lun..4=Vie, 5=Sáb, 6=Dom
+    var isWeekend = col === 5 || col === 6;
+    var holidayName = isWeekend ? null : _ganttHolidayName(y, m, day);
+    var cls = 'gantt-cal-cell' + (isToday ? ' gantt-cal-today' : '') + (isWeekend ? ' gantt-cal-off' : '') + (holidayName ? ' gantt-cal-holiday' : '');
+    var daynumHtml = day + (holidayName ? ' <span class="gantt-cal-holiday-mark" title="Feriado: ' + holidayName + '">●</span>' : '');
+    grid += '<div class="' + cls + '"><div class="gantt-cal-daynum">' + daynumHtml + '</div>';
+    if (isWeekend) {
+      grid += '<div class="gantt-cal-off-x" title="No laborable">✕</div>';
+    } else {
+      items.forEach(function(it){
+        grid += '<div class="gantt-cal-tag" style="background:' + it.color + '3d;color:' + it.color + '" title="' + it.label + '">' + it.label + '</div>';
+      });
+    }
     grid += '</div>';
   }
   var trailBlanks = (7 - ((leadBlanks + daysInMonth) % 7)) % 7;
@@ -2223,7 +2274,7 @@ function ganttRenderMonth(idx){
   sel.innerHTML = GANTT_MONTHS.map(function(mo, i){ return '<option value="' + i + '">' + mo.label + '</option>'; }).join('');
   document.getElementById('gantt-legend').innerHTML = GANTT_ITEMS.map(function(it){
     return '<span><span class="gantt-legend-dot" style="background:' + it.color + '"></span>' + it.label + '</span>';
-  }).join('');
+  }).join('') + '<span><span class="gantt-legend-dot" style="background:#f87171"></span>Feriado nacional (Argentina)</span>';
   var def = ganttDefaultIndex();
   sel.value = def;
   ganttRenderMonth(def);
