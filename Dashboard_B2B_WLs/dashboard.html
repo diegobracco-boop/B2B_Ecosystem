@@ -5933,6 +5933,10 @@ function insRender(tab) {
 .cierre-slide{background:#fff;width:1120px;max-width:100%;border-radius:10px;box-shadow:0 4px 18px rgba(0,0,0,.14);padding:26px 30px;box-sizing:border-box}
 .cierre-slide-title{font-size:19px;font-weight:800;color:#2D2A6E;margin:0 0 16px;padding-bottom:10px;border-bottom:3px solid #5457D9}
 .cierre-subt{font-size:13px;font-weight:700;color:#5457D9;margin:0 0 8px}
+.cierre-headline{font-size:14px;font-weight:700;padding:9px 14px;border-radius:8px;margin:0 0 14px}
+.cierre-hl-pos{background:#eafaf0;color:#16a34a}
+.cierre-hl-neg{background:#fdecea;color:#c0392b}
+.cierre-hl-neu{background:#f3f4f6;color:#57606a}
 .cierre-two{display:grid;grid-template-columns:1fr 1fr;gap:22px;align-items:start}
 .cierre-slide .pnl-card{overflow-x:auto}
 .cierre-chart-img{width:100%;height:auto;display:block}
@@ -5993,6 +5997,66 @@ function _cierrePnLHTML(pnlData, goal){
 function _cierreSlide(title, inner){
   return '<div class="cierre-slide"><div class="cierre-slide-title">'+title+'</div>'+inner+'</div>';
 }
+
+// ── Highlight (Minto): 1 headline "conclusión primero" arriba de cada tabla ────
+// Sin LLM — reglas fijas de materialidad, mismo criterio que Loyalty
+// (_revGdSummaryHtml_ en Loyalty_Ecosystem): hace falta |Δ abs| Y |Δ%| por encima
+// del umbral para que un driver cuente como relevante. Si se necesita más
+// adelante una redacción más rica, este es el punto para conectar un LLM que
+// solo redacte el texto a partir de estos mismos números — no que decida qué es material.
+var CIERRE_MAT_ABS = { oc:50000, nr:100000, gb:200000 };   // umbral $ por métrica
+var CIERRE_MAT_PCT = 5;                                     // umbral % (ambos tienen que cumplirse)
+var CIERRE_METRIC_LABEL = { gb:'Gross Bookings', nr:'Net Revenues', oc:'Operating Contribution' };
+
+function _cierreGoalFields_(goal){
+  return goal==='forecast' ? {abs:'varFcAbs', pct:'varFcPct'}
+       : goal==='runRate'  ? {abs:'varRRAbs', pct:'varRRPct'}
+       : {abs:'varBudAbs', pct:'varBudPct'};
+}
+function _cierreGoalLabel_(goal){
+  return goal==='forecast' ? 'Forecast' : goal==='runRate' ? 'Run Rate' : 'Budget';
+}
+
+// Variación de OC vs. goal (columna Total) + driver(es) materiales entre GB/NR, si los hay.
+function _cierreHeadline_(pnlData, goal){
+  if (!pnlData || !pnlData.rows) return null;
+  var groups = pnlData.groups || [];
+  var totalIdx = groups.indexOf('Total'); if (totalIdx < 0) totalIdx = groups.length - 1;
+  if (totalIdx < 0) return null;
+  var f = _cierreGoalFields_(goal), goalLbl = _cierreGoalLabel_(goal);
+
+  function metric(id){
+    var row = pnlData.rows.filter(function(r){ return r.id===id; })[0];
+    var col = row && row.cols[totalIdx];
+    if (!col || col[f.abs] == null) return null;
+    var abs = col[f.abs], pct = col[f.pct];
+    return { id:id, abs:abs, pct:pct,
+      material: Math.abs(abs) >= (CIERRE_MAT_ABS[id]||50000) && pct!=null && Math.abs(pct) >= CIERRE_MAT_PCT };
+  }
+
+  var oc = metric('oc');
+  if (!oc) return null;
+
+  var text = 'OC ' + (oc.abs>=0?'por encima':'por debajo') + ' de ' + goalLbl +
+    ' en ' + fmtK(Math.abs(oc.abs)) + (oc.pct!=null ? ' (' + (oc.pct>=0?'+':'') + oc.pct.toFixed(1) + '%)' : '');
+
+  var drivers = ['gb','nr'].map(metric).filter(function(m){ return m && m.material; })
+                            .sort(function(a,b){ return Math.abs(b.abs)-Math.abs(a.abs); });
+  if (drivers.length){
+    text += ' — impulsado por ' + drivers.map(function(m){
+      return CIERRE_METRIC_LABEL[m.id] + ' ' + (m.abs>=0?'+':'-') + fmtK(Math.abs(m.abs));
+    }).join(' y ');
+  }
+  return { text:text, material:oc.material, positive:oc.abs>=0 };
+}
+
+function _cierreHeadlineHTML_(pnlData, goal){
+  var h = _cierreHeadline_(pnlData, goal);
+  if (!h) return '';
+  var cls = !h.material ? 'cierre-hl-neu' : (h.positive ? 'cierre-hl-pos' : 'cierre-hl-neg');
+  return '<div class="cierre-headline '+cls+'">'+h.text+'</div>';
+}
+
 var _cierreOpen = false;   // overlay visible
 var _cierreGen  = 0;       // token de generación: invalida respuestas tardías al cerrar/regenerar
 var _cierreSnap = null;    // snapshot del estado real del dashboard (se restaura al cerrar)
@@ -6136,9 +6200,9 @@ function _cierreGenerate(){
     _state.lob = CIERRE_DATA_LOB;
     var mes=res[0], ytd=res[1], h1=res[2];
     var slides = [];
-    slides.push(_cierreSlide(mesLbl + ' vs. Budget',   _cierrePnLHTML(mes.pnl, 'budget')));
-    slides.push(_cierreSlide(mesLbl + ' vs. Forecast', _cierrePnLHTML(mes.pnl, 'forecast')));
-    slides.push(_cierreSlide(mesLbl + ' vs. Run Rate', _cierrePnLHTML(mes.pnl, 'runRate')));
+    slides.push(_cierreSlide(mesLbl + ' vs. Budget',   _cierreHeadlineHTML_(mes.pnl,'budget')   + _cierrePnLHTML(mes.pnl, 'budget')));
+    slides.push(_cierreSlide(mesLbl + ' vs. Forecast', _cierreHeadlineHTML_(mes.pnl,'forecast') + _cierrePnLHTML(mes.pnl, 'forecast')));
+    slides.push(_cierreSlide(mesLbl + ' vs. Run Rate', _cierreHeadlineHTML_(mes.pnl,'runRate')  + _cierrePnLHTML(mes.pnl, 'runRate')));
     slides.push(_cierreSlide('YTD ' + fyLbl + ' & H1 vs. Budget',
       '<div class="cierre-two">'+
         '<div><div class="cierre-subt">YTD vs Budget ('+fyLbl+')</div>'+_cierrePnLHTML(ytd.pnl,'budget')+'</div>'+
