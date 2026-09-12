@@ -5934,21 +5934,10 @@ function insRender(tab) {
 .cierre-loading{color:#5457D9;font-size:15px;padding:60px;font-weight:600;text-align:center}
 .cierre-slide{background:#fff;width:1120px;max-width:100%;border-radius:10px;box-shadow:0 4px 18px rgba(0,0,0,.14);padding:26px 30px;box-sizing:border-box}
 .cierre-slide-title{font-size:19px;font-weight:800;color:#2D2A6E;margin:0 0 16px;padding-bottom:10px;border-bottom:3px solid #5457D9}
-.cierre-subt{font-size:13px;font-weight:700;color:#5457D9;margin:0 0 8px}
 .cierre-headline{font-size:14px;font-weight:700;padding:9px 14px;border-radius:8px;margin:0 0 14px}
 .cierre-hl-pos{background:#eafaf0;color:#16a34a}
 .cierre-hl-neg{background:#fdecea;color:#c0392b}
 .cierre-hl-neu{background:#f3f4f6;color:#57606a}
-/* Lado a lado (pedido explícito — apiladas se ven chicas: cambia la proporción del
-   slide y Google Slides la encaja más chica en la página panorámica). La causa real
-   del desborde (bug 2026-09-12) era .pnl-table{min-width:600px} (pensado para el
-   dashboard a pantalla completa) — no entra en una columna de ~520px. Fix acá:
-   min-width:0 en los hijos del grid (si no, un grid item nunca se achica por debajo
-   del ancho mínimo de su contenido) + zoom en .pnl-card para achicar la tabla entera
-   (fuentes, paddings, min-width incluido) sin tocar el CSS del dashboard real. */
-.cierre-two{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}
-.cierre-two > div{min-width:0}
-.cierre-two .pnl-card{zoom:.62}
 .cierre-divider{height:320px;display:flex;align-items:center;justify-content:center;background:#2D2A6E;padding:0}
 .cierre-divider-title{font-size:36px;font-weight:800;color:#fff;text-align:center}
 .cierre-slide .pnl-card{overflow-x:auto}
@@ -6241,11 +6230,8 @@ function _cierreGenerate(){
       slides.push(_cierreSlide(mesLbl + ' vs. Budget',   _cierreHeadlineHTML_(mes.pnl,'budget')   + _cierrePnLHTML(mes.pnl, 'budget')));
       slides.push(_cierreSlide(mesLbl + ' vs. Forecast', _cierreHeadlineHTML_(mes.pnl,'forecast') + _cierrePnLHTML(mes.pnl, 'forecast')));
       slides.push(_cierreSlide(mesLbl + ' vs. Run Rate', _cierreHeadlineHTML_(mes.pnl,'runRate')  + _cierrePnLHTML(mes.pnl, 'runRate')));
-      slides.push(_cierreSlide('YTD ' + fyLbl + ' & H1 vs. Budget',
-        '<div class="cierre-two">'+
-          '<div><div class="cierre-subt">YTD vs Budget ('+fyLbl+')</div>'+_cierrePnLHTML(ytd.pnl,'budget')+'</div>'+
-          '<div><div class="cierre-subt">H1 vs Budget (Abr–Sep)</div>'+_cierrePnLHTML(h1.pnl,'budget')+'</div>'+
-        '</div>'));
+      slides.push(_cierreSlide('YTD ' + fyLbl + ' vs. Budget',        _cierrePnLHTML(ytd.pnl,'budget')));
+      slides.push(_cierreSlide('H1 (Abr–Sep) ' + fyLbl + ' vs. Budget', _cierrePnLHTML(h1.pnl,'budget')));
 
       // Gráfico OC vs Budget por mes (barras OC $ + líneas ratio OC/GB %), evo es full-FY.
       var img = _cierreOcBarImg(mes.evo, fyLbl, refMonth, scope.label);
