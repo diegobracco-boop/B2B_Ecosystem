@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>P&L Dashboard</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <style>
 :root{
   --bg:#f4f5f7;--surface:#fff;--surface2:#f8f9fa;
@@ -6204,7 +6205,6 @@ function _cierreGenerate(){
     // datos son de B2B2C (CIERRE_DATA_LOB), hay que pisarlo antes de renderizar.
     _state.lob = CIERRE_DATA_LOB;
     var mes=res[0], ytd=res[1], h1=res[2];
-    var hlBudget = _cierreHeadline_(mes.pnl,'budget'), hlForecast = _cierreHeadline_(mes.pnl,'forecast'), hlRunRate = _cierreHeadline_(mes.pnl,'runRate');
     var slides = [];
     slides.push(_cierreSlide(mesLbl + ' vs. Budget',   _cierreHeadlineHTML_(mes.pnl,'budget')   + _cierrePnLHTML(mes.pnl, 'budget')));
     slides.push(_cierreSlide(mesLbl + ' vs. Forecast', _cierreHeadlineHTML_(mes.pnl,'forecast') + _cierrePnLHTML(mes.pnl, 'forecast')));
@@ -6225,14 +6225,9 @@ function _cierreGenerate(){
     body.innerHTML = slides.join('');
     if (selEl) selEl.disabled = false;
 
-    // Guardado para "Enviar a Google Slides" — se manda tal cual lo que ya se ve acá
-    // (mismos pnl/headlines/imagen), sin recalcular nada del lado del servidor.
-    _cierreLastPayload = {
-      mesLbl: mesLbl, fyLbl: fyLbl,
-      mes: { pnl: mes.pnl }, ytd: { pnl: ytd.pnl }, h1: { pnl: h1.pnl },
-      headlines: { budget: hlBudget, forecast: hlForecast, runRate: hlRunRate },
-      chartImgBase64: img || null
-    };
+    // "Enviar a Google Slides" captura estas mismas slides tal cual quedaron en el DOM
+    // (html2canvas, ver _cierreExportSlides) — acá solo guardamos el título del deck.
+    _cierreLastPayload = { mesLbl: mesLbl, fyLbl: fyLbl };
     var expBtn = document.getElementById('cierre-export-btn');
     if (expBtn) expBtn.disabled = false;
   }).catch(function(e){
@@ -6241,35 +6236,56 @@ function _cierreGenerate(){
     if (selEl) selEl.disabled = false;
   });
 }
-// Manda el último set de datos generado (mismo pnl/headlines/imagen que se ve en el
-// preview HTML) al servidor, que arma un Google Slides real (buildCierreSlidesDeck
-// en Código.js) y devuelve la URL. No recalcula nada — exporta lo que ya está en pantalla.
-// IMPORTANTE: buildCierreSlidesDeck NO puede terminar en "_" — google.script.run no
-// puede invocar funciones "privadas" (ni el editor las muestra en el desplegable de
-// Run). Si se renombra con "_" por error, esto tira un TypeError síncrono y el botón
-// queda colgado en "Generando…" para siempre porque el try/catch de abajo es lo único
-// que lo destraba (ya pasó una vez, 2026-09-12).
+// Captura cada .cierre-slide del preview HTML TAL CUAL se ve (mismos colores, chips,
+// bordes, banderas) con html2canvas, en vez de reconstruir el diseño con la API nativa
+// de Slides (que no tiene forma de replicar CSS 1:1 — ver charla 2026-09-12). scale:2
+// para que el texto no salga borroso en la slide. useCORS:true porque las banderas de
+// país salen de flagcdn.com (cross-origin) — si ese host no manda CORS, ESA captura
+// puntual puede fallar; se resuelve a null y buildCierreSlidesDeck la saltea en vez de
+// tirar abajo el export entero.
+function _cierreCaptureSlideImages_(){
+  var els = Array.prototype.slice.call(document.querySelectorAll('#cierre-body .cierre-slide'));
+  return Promise.all(els.map(function(el){
+    return html2canvas(el, { scale:2, useCORS:true, backgroundColor:'#ffffff' })
+      .then(function(canvas){ return { img: canvas.toDataURL('image/png'), w: canvas.width, h: canvas.height }; })
+      .catch(function(e){ console.error('[cierre] no se pudo capturar una slide para Google Slides', e); return null; });
+  }));
+}
+
+// Arma el deck: captura las slides como están en pantalla y se las manda a
+// buildCierreSlidesDeck (Código.js), que solo las inserta como imagen — no recalcula
+// ni reconstruye nada. IMPORTANTE: buildCierreSlidesDeck NO puede terminar en "_" —
+// google.script.run no puede invocar funciones "privadas" (ni el editor las muestra
+// en el desplegable de Run). Si se renombra con "_" por error, esto tira un TypeError
+// síncrono y el botón queda colgado en "Generando…" para siempre porque el try/catch
+// de abajo es lo único que lo destraba (ya pasó una vez, 2026-09-12).
 function _cierreExportSlides(){
   if (!_cierreLastPayload) return;
   if (IS_DEMO) { alert('Exportar a Google Slides no está disponible en modo demo.'); return; }
   var btn = document.getElementById('cierre-export-btn');
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ Generando deck…'; }
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Capturando slides…'; }
   function reset(){ if (btn) { btn.disabled = false; btn.textContent = '📤 Enviar a Google Slides'; } }
   try {
-    google.script.run
-      .withSuccessHandler(function(res){
-        reset();
-        if (res && res.url) window.open(res.url, '_blank');
-        else alert('El servidor no devolvió la URL del deck.');
-      })
-      .withFailureHandler(function(e){
-        reset();
-        alert('No se pudo generar el deck de Google Slides: ' + ((e&&e.message)||e));
-      })
-      .buildCierreSlidesDeck(_cierreLastPayload);
+    _cierreCaptureSlideImages_().then(function(images){
+      if (btn) btn.textContent = '⏳ Generando deck…';
+      google.script.run
+        .withSuccessHandler(function(res){
+          reset();
+          if (res && res.url) window.open(res.url, '_blank');
+          else alert('El servidor no devolvió la URL del deck.');
+        })
+        .withFailureHandler(function(e){
+          reset();
+          alert('No se pudo generar el deck de Google Slides: ' + ((e&&e.message)||e));
+        })
+        .buildCierreSlidesDeck({ mesLbl:_cierreLastPayload.mesLbl, fyLbl:_cierreLastPayload.fyLbl, slideImages:images });
+    }).catch(function(e){
+      reset();
+      alert('No se pudieron capturar las slides: ' + (e.message || e));
+    });
   } catch(e) {
     reset();
-    alert('Error al llamar al servidor: ' + (e.message || e));
+    alert('Error al exportar: ' + (e.message || e));
   }
 }
 

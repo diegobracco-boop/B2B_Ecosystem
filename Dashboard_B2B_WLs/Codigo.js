@@ -1380,80 +1380,24 @@ function getWeeklyInsights() {
 
 // ══════════════════════════════════════════════════════════════
 //  "Slides cierre de mes" → export a Google Slides real
-//  El cliente ya calculó todo (pnl/headlines/imagen del gráfico, ver
-//  _cierreGenerate en dashboard.html) — acá solo se arma el deck con
-//  SlidesApp a partir de ese mismo payload, sin recalcular nada.
-//  Primera versión ("armar el flow"): 1 tabla nativa por escenario con los
-//  valores Actual por columna (Orders/GB/NR/OC) + el headline arriba; la
-//  comparación vs. Goal en $/% ya está en el texto del headline. YTD y H1
-//  van en slides separados (no lado a lado como en el preview HTML) para
-//  no pelear con el ancho de 2 tablas nativas en la misma slide.
+//  2026-09-12: la v1 armaba tablas NATIVAS con SlidesApp, reconstruyendo el diseño
+//  desde cero — resultado: perdía los chips de color, flechas, filas de %GB y
+//  banderas del HTML real (SlidesApp no "hereda" CSS, cada estilo hay que
+//  codearlo de nuevo). v2 (esta): el cliente captura cada .cierre-slide TAL CUAL
+//  se ve con html2canvas (_cierreCaptureSlideImages_ en dashboard.html) y acá
+//  solo se insertan esas imágenes, una por slide — mismo diseño exacto, a costa
+//  de que ya no es una tabla editable en Slides (es una foto).
 // ══════════════════════════════════════════════════════════════
-var CIERRE_HL_COLORS_ = {
-  pos: { bg:'#EAFAF0', fg:'#16A34A' },
-  neg: { bg:'#FDECEA', fg:'#C0392B' },
-  neu: { bg:'#F3F4F6', fg:'#57606A' }
-};
-
-function _cierreFmtCell_(n, fmt) {
-  if (n == null || isNaN(n)) return '—';
-  var abs = Math.abs(n), s = n < 0 ? '-' : '';
-  if (fmt === 'K') return s + (abs/1e3).toFixed(1) + 'K';
-  return s + '$' + (abs/1e6).toFixed(1) + 'M';
-}
-
-// Tabla nativa de Slides: filas = métricas (pnlData.rows), columnas = grupos + header.
-function _cierrePnlTable_(slide, pnlData, left, top, width) {
-  var groups = (pnlData && pnlData.groups) || [];
-  var rows   = (pnlData && pnlData.rows)   || [];
-  if (!rows.length || !groups.length) return top;
-
-  var nRows = rows.length + 1, nCols = groups.length + 1;
-  var rowH  = 26;
-  var table = slide.insertTable(nRows, nCols, left, top, width, rowH * nRows);
-
-  table.getCell(0, 0).getText().setText('Métrica');
-  groups.forEach(function(g, i) { table.getCell(0, i + 1).getText().setText(String(g)); });
-  rows.forEach(function(r, ri) {
-    table.getCell(ri + 1, 0).getText().setText(r.label);
-    (r.cols || []).forEach(function(c, ci) {
-      table.getCell(ri + 1, ci + 1).getText().setText(_cierreFmtCell_(c.actual, r.fmt));
-    });
-  });
-
-  for (var rr = 0; rr < nRows; rr++) {
-    for (var cc = 0; cc < nCols; cc++) {
-      var cell = table.getCell(rr, cc);
-      var st   = cell.getText().getTextStyle();
-      st.setFontSize(11);
-      if (rr === 0) { st.setBold(true).setForegroundColor('#FFFFFF'); cell.getFill().setSolidFill('#2D2A6E'); }
-    }
-  }
-  return top + rowH * nRows + 18;
-}
-
-// Título + headline (callout de color, mismo criterio de materialidad que el cliente)
-// arriba de la slide; devuelve el "top" donde debe arrancar el contenido siguiente.
-function _cierreSlideHeader_(slide, title, width, headline) {
-  slide.insertTextBox(title, 40, 24, width - 80, 34)
-       .getText().getTextStyle().setFontSize(22).setBold(true).setForegroundColor('#2D2A6E');
-  if (!headline || !headline.text) return 70;
-  var colors = CIERRE_HL_COLORS_[headline.material ? (headline.positive ? 'pos' : 'neg') : 'neu'];
-  var box = slide.insertTextBox(headline.text, 40, 66, width - 80, 32);
-  box.getFill().setSolidFill(colors.bg);
-  box.getBorder().setTransparent();
-  box.getText().getTextStyle().setFontSize(13).setBold(true).setForegroundColor(colors.fg);
-  return 108;
-}
 
 // Nombre SIN "_" final a propósito: google.script.run no puede invocar funciones
 // que terminen (ni empiecen) con guión bajo — las trata como privadas, igual que
 // el editor. Si esto vuelve a llevar "_", el botón del webapp rompe silenciosamente
 // (TypeError "...is not a function" recién al hacer clic, deja el botón colgado en
 // "Generando…" para siempre porque el success/failure handler nunca llega a correr).
-// payload = { mesLbl, fyLbl, mes:{pnl}, ytd:{pnl}, h1:{pnl}, headlines:{budget,forecast,runRate}, chartImgBase64 }
+// payload = { mesLbl, fyLbl, slideImages: [{img:'data:image/png;base64,...', w, h} | null, ...] }
 function buildCierreSlidesDeck(payload) {
   payload = payload || {};
+  var images = payload.slideImages || [];
   var pres = SlidesApp.create('Cierre ' + (payload.mesLbl || '') + ' — B2B2C — ' + new Date().toISOString().slice(0, 16).replace('T', ' '));
   var w = pres.getPageWidth(), h = pres.getPageHeight();
   var defaultSlide = pres.getSlides()[0];
@@ -1465,40 +1409,34 @@ function buildCierreSlidesDeck(payload) {
        .getText().getTextStyle().setFontSize(15).setForegroundColor('#5457D9');
   defaultSlide.remove();   // sacamos el slide default (layout con placeholders) recién con >=1 slide ya creado
 
-  [['budget','Budget'], ['forecast','Forecast'], ['runRate','Run Rate']].forEach(function(pair) {
+  var margin = 30;
+  images.forEach(function(entry) {
     var slide = pres.appendSlide(SlidesApp.PredefinedLayout.BLANK);
-    var hl    = payload.headlines && payload.headlines[pair[0]];
-    var top   = _cierreSlideHeader_(slide, (payload.mesLbl || '') + ' vs. ' + pair[1], w, hl);
-    _cierrePnlTable_(slide, payload.mes && payload.mes.pnl, 40, top, w - 80);
+    if (!entry || !entry.img) {
+      slide.insertTextBox('No se pudo capturar esta slide (revisar consola del navegador).', 40, h/2 - 12, w - 80, 24)
+           .getText().getTextStyle().setFontSize(14).setForegroundColor('#C0392B');
+      return;
+    }
+    var b64  = String(entry.img).replace(/^data:image\/png;base64,/, '');
+    var blob = Utilities.newBlob(Utilities.base64Decode(b64), 'image/png', 'slide.png');
+    // Ajusta al área disponible preservando el aspect ratio real de la captura
+    // (las slides no miden todas lo mismo: la de YTD+H1 es más alta que las demás).
+    var availW = w - margin*2, availH = h - margin*2;
+    var ratio  = entry.w && entry.h ? entry.w/entry.h : (availW/availH);
+    var imgW = availW, imgH = imgW/ratio;
+    if (imgH > availH) { imgH = availH; imgW = imgH*ratio; }
+    var left = (w - imgW)/2, top = (h - imgH)/2;
+    slide.insertImage(blob, left, top, imgW, imgH);
   });
-
-  var slideYtd = pres.appendSlide(SlidesApp.PredefinedLayout.BLANK);
-  var topYtd   = _cierreSlideHeader_(slideYtd, 'YTD ' + (payload.fyLbl || '') + ' vs. Budget', w, null);
-  _cierrePnlTable_(slideYtd, payload.ytd && payload.ytd.pnl, 40, topYtd, w - 80);
-
-  var slideH1 = pres.appendSlide(SlidesApp.PredefinedLayout.BLANK);
-  var topH1   = _cierreSlideHeader_(slideH1, 'H1 (Abr–Sep) vs. Budget', w, null);
-  _cierrePnlTable_(slideH1, payload.h1 && payload.h1.pnl, 40, topH1, w - 80);
-
-  if (payload.chartImgBase64) {
-    var slideChart = pres.appendSlide(SlidesApp.PredefinedLayout.BLANK);
-    _cierreSlideHeader_(slideChart, 'Evolución OC B2B2C vs Budget por mes', w, null);
-    var b64  = String(payload.chartImgBase64).replace(/^data:image\/png;base64,/, '');
-    var blob = Utilities.newBlob(Utilities.base64Decode(b64), 'image/png', 'oc.png');
-    var imgW = w - 120, imgH = imgW * 430 / 1040;   // mismo aspect ratio que el canvas del cliente
-    slideChart.insertImage(blob, 60, 70, imgW, imgH);
-  }
 
   return { url: pres.getUrl(), id: pres.getId() };
 }
 
 // Función sin "_" final a propósito (ver nota arriba de buildCierreSlidesDeck):
-// mientras esta función se llamaba buildCierreSlidesDeck_ (con "_"), ni aparecía en
-// el desplegable "Seleccionar función" del editor NI era invocable desde
-// google.script.run — de ahí el botón colgado en el webapp. Correr ESTA una vez
-// desde el editor (▶ Run, no desde el webapp) dispara la pantalla de autorización
-// real. Después se puede borrar el
-// archivo de prueba que crea en Drive.
+// las que terminan en "_" ni aparecen en el desplegable "Seleccionar función" del
+// editor NI son invocables desde google.script.run. Correr ESTA una vez desde el
+// editor (▶ Run, no desde el webapp) dispara la pantalla de autorización real del
+// scope "presentations". Después se puede borrar el archivo de prueba que crea en Drive.
 function autorizarGoogleSlides() {
   var pres = SlidesApp.create('TEST autorización Slides — borrar');
   Logger.log('OK, autorizado. Presentación de prueba: ' + pres.getUrl());
