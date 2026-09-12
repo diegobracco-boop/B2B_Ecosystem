@@ -1409,13 +1409,10 @@ function buildCierreSlidesDeck(payload) {
        .getText().getTextStyle().setFontSize(15).setForegroundColor('#5457D9');
   defaultSlide.remove();   // sacamos el slide default (layout con placeholders) recién con >=1 slide ya creado
 
-  // 3 divisores de sección (Consolidado/B2B/B2B2C, en ese orden) — hoy solo B2B2C
-  // tiene contenido real atrás; Consolidado y B2B quedan como divisor "vacío" hasta
-  // que se audite/sume ese scope (ver charla 2026-09-11/12).
-  _cierreDividerSlide_(pres, w, h, 'B2B + B2B2C');
-  _cierreDividerSlide_(pres, w, h, 'B2B');
-  _cierreDividerSlide_(pres, w, h, 'B2B2C');
-
+  // Cada imagen ya viene en el orden correcto desde el cliente (divisores incluidos —
+  // _cierreDividerHTML_ en dashboard.html los arma con la misma clase .cierre-slide,
+  // así que _cierreCaptureSlideImages_ los captura igual que al resto). Acá no hay que
+  // distinguir divisor de slide real, solo insertar cada imagen en su propia slide.
   var margin = 30;
   images.forEach(function(entry) {
     var slide = pres.appendSlide(SlidesApp.PredefinedLayout.BLANK);
@@ -1437,18 +1434,6 @@ function buildCierreSlidesDeck(payload) {
   });
 
   return { url: pres.getUrl(), id: pres.getId() };
-}
-
-// Slide "divisor de sección": fondo lila sólido + título grande centrado.
-function _cierreDividerSlide_(pres, w, h, title) {
-  var slide = pres.appendSlide(SlidesApp.PredefinedLayout.BLANK);
-  var bg = slide.insertShape(SlidesApp.ShapeType.RECTANGLE, 0, 0, w, h);
-  bg.getFill().setSolidFill('#2D2A6E');
-  bg.getBorder().setTransparent();
-  var box = slide.insertTextBox(title, 40, h/2 - 30, w - 80, 60);
-  box.getText().getTextStyle().setFontSize(34).setBold(true).setForegroundColor('#FFFFFF');
-  box.getText().getParagraphStyle().setParagraphAlignment(SlidesApp.ParagraphAlignment.CENTER);
-  return slide;
 }
 
 // Función sin "_" final a propósito (ver nota arriba de buildCierreSlidesDeck):
