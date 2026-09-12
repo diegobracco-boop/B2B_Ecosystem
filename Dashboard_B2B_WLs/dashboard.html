@@ -5939,11 +5939,16 @@ function insRender(tab) {
 .cierre-hl-pos{background:#eafaf0;color:#16a34a}
 .cierre-hl-neg{background:#fdecea;color:#c0392b}
 .cierre-hl-neu{background:#f3f4f6;color:#57606a}
-/* flex column (no grid 1fr): un grid item no se achica por debajo del ancho mínimo
-   de su contenido por default, así que con la tabla PnL al lado de la otra el par
-   terminaba más ancho que el slide y se salía del padding (bug 2026-09-12). Apiladas
-   full-width, cada tabla usa el mismo ancho que ya funciona bien en las otras slides. */
-.cierre-two{display:flex;flex-direction:column;gap:18px}
+/* Lado a lado (pedido explícito — apiladas se ven chicas: cambia la proporción del
+   slide y Google Slides la encaja más chica en la página panorámica). La causa real
+   del desborde (bug 2026-09-12) era .pnl-table{min-width:600px} (pensado para el
+   dashboard a pantalla completa) — no entra en una columna de ~520px. Fix acá:
+   min-width:0 en los hijos del grid (si no, un grid item nunca se achica por debajo
+   del ancho mínimo de su contenido) + zoom en .pnl-card para achicar la tabla entera
+   (fuentes, paddings, min-width incluido) sin tocar el CSS del dashboard real. */
+.cierre-two{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}
+.cierre-two > div{min-width:0}
+.cierre-two .pnl-card{zoom:.62}
 .cierre-divider{height:320px;display:flex;align-items:center;justify-content:center;background:#2D2A6E;padding:0}
 .cierre-divider-title{font-size:36px;font-weight:800;color:#fff;text-align:center}
 .cierre-slide .pnl-card{overflow-x:auto}
