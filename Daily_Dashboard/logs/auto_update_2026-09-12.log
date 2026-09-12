@@ -1,0 +1,92 @@
+[2026-09-12 11:12:01] === Inicio actualización de reales ===
+[2026-09-12 11:12:01] Corriendo daily_sync.py...
+[2026-09-12]  Actuals: 2026-01-01->2026-09-11  |  LY: 2025-01-01->2025-09-11  |  Budget FY: 26/27
+
+--- Actuals FY26 ---
+  > Actuals ...
+  OK 79,967 filas
+
+--- Actuals LY (FY25) ---
+  > LY ...
+  OK 66,628 filas
+
+--- Budget ---
+  > Budget ...
+  OK 261,594 filas
+
+--- Cartera (stage para budget) ---
+  > Cartera ...
+  OK 64 filas
+  Hunting: 183,836 filas | Farming: 77,758 filas
+
+--- B2B GD ---
+  > B2B GD actuals ...
+  OK 18,429 filas
+  > B2B GD LY ...
+  OK 17,489 filas
+
+--- B2B RI ---
+  > B2B RI actuals ...
+  OK 18,082 filas
+  > B2B RI LY ...
+  OK 17,191 filas
+
+--- Budget LOB diagnostic ---
+  > lob_canal values ...
+  OK 5 filas
+  lob_canal='B2B-MAY': 10,962 rows | NR=6,213,047 | GB=117,081,579
+  lob_canal='B2B-MIN': 14,679 rows | NR=11,006,909 | GB=109,131,606
+  lob_canal='B2B2C-CALL CENTER': 3,645 rows | NR=951,466 | GB=5,939,114
+  lob_canal='B2B2C-OFF': 2,574 rows | NR=1,292,847 | GB=8,313,986
+  lob_canal='B2B2C-ON': 50,166 rows | NR=24,459,761 | GB=229,158,283
+
+--- B2B Budget GD ---
+  > B2B Budget GD ...
+  OK 115,773 filas
+
+--- B2B Budget RI ---
+  > B2B Budget RI ...
+  OK 32,911 filas
+
+--- Run Rate B2B2C ---
+  > B2B2C Run Rate ...
+  OK 145,516 filas
+
+--- Run Rate B2B GD ---
+  > B2B Run Rate GD ...
+  OK 23,251 filas
+
+--- Run Rate B2B RI ---
+  > B2B Run Rate RI ...
+  OK 39,110 filas
+
+--- B2C (referencia) ---
+  > B2C ...
+  OK 2,286 filas
+
+--- B2C LY (referencia) ---
+  > B2C LY ...
+  OK 2,286 filas
+
+--- Agregando ---
+  Actuals:    79,967 -> 43,564 filas
+  LY:         66,628 -> 34,863 filas
+  Budget:     261,594 -> 96,490 filas
+  B2B GD:     18,429 -> 18,429 filas
+  B2B GD LY:  17,489 -> 17,489 filas
+  B2B RI:     18,082 -> 18,082 filas
+  B2B RI LY:  17,191 -> 17,191 filas
+  B2B Budget GD: 115,773 -> 13,751 filas
+  B2B Budget RI: 32,911 -> 13,751 filas
+
+B2B2C JSON: 27749 KB  (actuals=43,564 | ly=34,863 | budget=96,490)
+B2B JSON:   13849 KB  (gd=18,429 | gd_ly=17,489 | ri=18,082 | ri_ly=17,191)
+
+--- Subiendo a Google Drive ---
+  OK Drive: archivo actualizado (daily_b2b2c_data.json)
+  OK Drive: archivo actualizado (daily_b2b_data.json)
+
+OK Completado: 12-09-2026 00:00
+[2026-09-12 11:18:10] daily_sync.py OK
+[2026-09-12 11:18:10] Cambios detectados en Daily_Dashboard/:
+[2026-09-12 11:18:10] ?? Daily_Dashboard/logs/
