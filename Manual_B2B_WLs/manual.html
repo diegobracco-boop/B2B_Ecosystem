@@ -303,14 +303,23 @@ body {
 }
 .doc-table td.note { color: var(--text2); font-size: 12px; font-weight: 400; box-shadow: none; }
 
-/* ── Gantt (calendario recurrente FY) ── */
-.gantt-table th.gantt-month { text-align: center; font-size: 9.5px; padding: 8px 3px; white-space: nowrap; }
-.gantt-table td.gantt-cell { text-align: center; padding: 7px 3px; }
-.gantt-bar { display: inline-block; width: 100%; height: 14px; border-radius: 3px; }
-.gantt-bar-weekly  { background: var(--blue); }
-.gantt-bar-monthly { background: var(--accent2); }
-.gantt-legend { display: flex; flex-wrap: wrap; gap: 18px; align-items: center; font-size: 11px; color: var(--text3); margin-top: 12px; }
-.gantt-legend-dot { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -2px; }
+/* ── Gantt (calendario mensual FY, con selector) ── */
+.gantt-cal-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+.gantt-cal-title { font-size: 15px; font-weight: 800; color: var(--accent3); }
+.gantt-cal-select { background: var(--surface2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font-size: 12px; font-family: inherit; cursor: pointer; }
+.gantt-cal-nav { background: var(--surface2); color: var(--text2); border: 1px solid var(--border); border-radius: 8px; width: 30px; height: 30px; font-size: 15px; cursor: pointer; }
+.gantt-cal-nav:hover { color: var(--text); border-color: var(--accent2); }
+.gantt-cal-wrap { overflow-x: auto; }
+.gantt-cal-head { display: grid; grid-template-columns: repeat(7,1fr); gap: 6px; margin-bottom: 6px; min-width: 700px; }
+.gantt-cal-head > div { text-align: center; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--text3); padding: 4px 0; }
+.gantt-cal-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 6px; min-width: 700px; }
+.gantt-cal-cell { min-height: 88px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 6px; display: flex; flex-direction: column; gap: 3px; }
+.gantt-cal-cell.gantt-cal-today { border-color: var(--accent2); box-shadow: 0 0 0 1px var(--accent2) inset; }
+.gantt-cal-cell.gantt-cal-empty { background: transparent; border-color: transparent; }
+.gantt-cal-daynum { font-size: 11px; font-weight: 700; color: var(--text2); }
+.gantt-cal-tag { font-size: 9.5px; font-weight: 700; padding: 2px 5px; border-radius: 4px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gantt-legend { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; font-size: 11px; color: var(--text3); margin-top: 14px; }
+.gantt-legend-dot { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 6px; vertical-align: -2px; }
 .step-title { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 5px; }
 .step-desc  { font-size: 12px; color: var(--text2); line-height: 1.55; }
 .code-block {
@@ -895,66 +904,22 @@ a.ext-link:hover { text-decoration: underline; }
     <div class="page-header">
       <div class="page-tag">Guía del equipo</div>
       <div class="page-title">Gantt <span>FY27 (Abr'26 → Mar'27)</span></div>
-      <div class="page-sub">Calendario recurrente de entregables y reuniones del equipo B2B &amp; WLs, alineado al año fiscal Prosus (abril a marzo). Todos los items se repiten los 12 meses del año fiscal.</div>
+      <div class="page-sub">Guía de entregables día a día para los analistas del equipo B2B &amp; WLs — qué toca cada día del mes, alineado al año fiscal Prosus (abril a marzo).</div>
     </div>
 
     <div class="card">
-      <div class="card-title">📅 Calendario recurrente FY27</div>
-      <div style="overflow-x:auto">
-        <table class="doc-table gantt-table">
-          <thead>
-            <tr>
-              <th style="min-width:280px">Item</th>
-              <th style="min-width:170px">Cuándo</th>
-              <th class="gantt-month">Abr'26</th><th class="gantt-month">May'26</th><th class="gantt-month">Jun'26</th>
-              <th class="gantt-month">Jul'26</th><th class="gantt-month">Ago'26</th><th class="gantt-month">Sep'26</th>
-              <th class="gantt-month">Oct'26</th><th class="gantt-month">Nov'26</th><th class="gantt-month">Dic'26</th>
-              <th class="gantt-month">Ene'27</th><th class="gantt-month">Feb'27</th><th class="gantt-month">Mar'27</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>Carga de Run Rate en EPM — proyecciones 12 meses</td>
-              <td>3er jueves de cada mes</td>
-              <td class="gantt-cell" colspan="12"><span class="gantt-bar gantt-bar-monthly"></span></td>
-            </tr>
-            <tr>
-              <td>Actualización resultados semanales</td>
-              <td>Todos los lunes</td>
-              <td class="gantt-cell" colspan="12"><span class="gantt-bar gantt-bar-weekly"></span></td>
-            </tr>
-            <tr>
-              <td>Reuniones semanales B2B y B2B2C — N2</td>
-              <td>Todos los viernes</td>
-              <td class="gantt-cell" colspan="12"><span class="gantt-bar gantt-bar-weekly"></span></td>
-            </tr>
-            <tr>
-              <td>Reunión semanal B2B2C Hispa &amp; Brasil — N3</td>
-              <td>Todos los martes</td>
-              <td class="gantt-cell" colspan="12"><span class="gantt-bar gantt-bar-weekly"></span></td>
-            </tr>
-            <tr>
-              <td>Entrega material MRM (mensual de resultados)</td>
-              <td>4to jueves de cada mes</td>
-              <td class="gantt-cell" colspan="12"><span class="gantt-bar gantt-bar-monthly"></span></td>
-            </tr>
-            <tr>
-              <td>Reunión revisión cierre contable con Contabilidad</td>
-              <td>5to día hábil de cada mes</td>
-              <td class="gantt-cell" colspan="12"><span class="gantt-bar gantt-bar-monthly"></span></td>
-            </tr>
-            <tr>
-              <td>Envío cierre transaccional vs. Run Rate de palancas de negocio</td>
-              <td>1er día hábil de cada mes</td>
-              <td class="gantt-cell" colspan="12"><span class="gantt-bar gantt-bar-monthly"></span></td>
-            </tr>
-          </tbody>
-        </table>
+      <div class="gantt-cal-toolbar">
+        <div class="gantt-cal-title" id="gantt-cal-title">—</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button type="button" class="gantt-cal-nav" onclick="ganttShift(-1)" title="Mes anterior">‹</button>
+          <select class="gantt-cal-select" id="gantt-cal-select" onchange="ganttRenderMonth(+this.value)"></select>
+          <button type="button" class="gantt-cal-nav" onclick="ganttShift(1)" title="Mes siguiente">›</button>
+        </div>
       </div>
-      <div class="gantt-legend">
-        <span><span class="gantt-legend-dot gantt-bar-weekly"></span>Cadencia semanal</span>
-        <span><span class="gantt-legend-dot gantt-bar-monthly"></span>Cadencia mensual</span>
+      <div class="gantt-cal-wrap">
+        <div id="gantt-cal-container"></div>
       </div>
+      <div class="gantt-legend" id="gantt-legend"></div>
     </div>
 
     <div class="alert-box info">ℹ️ "Día hábil" cuenta días de semana (lun-vie), sin excluir feriados — a ajustar a mano si un feriado corre la fecha ese mes.</div>
@@ -2150,6 +2115,119 @@ document.querySelectorAll('.nav-item, .proj-card').forEach(function(el){
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); el.click(); }
   });
 });
+
+// ── Gantt: calendario mensual FY27 (Abr'26 → Mar'27), 1 mes a la vez ────────
+// Guía día a día para analistas — no un Gantt de barras: cada item recurrente
+// (semanal o mensual) se resuelve a fechas de calendario reales por mes.
+var GANTT_MONTHS = [
+  { y:2026, m:3,  label:"Abril '26" },
+  { y:2026, m:4,  label:"Mayo '26" },
+  { y:2026, m:5,  label:"Junio '26" },
+  { y:2026, m:6,  label:"Julio '26" },
+  { y:2026, m:7,  label:"Agosto '26" },
+  { y:2026, m:8,  label:"Septiembre '26" },
+  { y:2026, m:9,  label:"Octubre '26" },
+  { y:2026, m:10, label:"Noviembre '26" },
+  { y:2026, m:11, label:"Diciembre '26" },
+  { y:2027, m:0,  label:"Enero '27" },
+  { y:2027, m:1,  label:"Febrero '27" },
+  { y:2027, m:2,  label:"Marzo '27" }
+];
+// rule.weekday usa Date.getDay(): 0=Dom..6=Sáb.
+var GANTT_ITEMS = [
+  { label:'Carga de Run Rate en EPM — proyecciones 12 meses',               color:'#fb923c', rule:{ type:'nth-weekday', n:3, weekday:4 } },
+  { label:'Actualización resultados semanales',                             color:'#38bdf8', rule:{ type:'weekday', weekday:1 } },
+  { label:'Reuniones semanales B2B y B2B2C — N2',                           color:'#22c55e', rule:{ type:'weekday', weekday:5 } },
+  { label:'Reunión semanal B2B2C Hispa & Brasil — N3',                      color:'#e879f9', rule:{ type:'weekday', weekday:2 } },
+  { label:'Entrega material MRM (mensual de resultados)',                   color:'#fbbf24', rule:{ type:'nth-weekday', n:4, weekday:4 } },
+  { label:'Reunión revisión cierre contable con Contabilidad',              color:'#f87171', rule:{ type:'nth-bizday', n:5 } },
+  { label:'Envío cierre transaccional vs. Run Rate de palancas de negocio', color:'#a780ff', rule:{ type:'nth-bizday', n:1 } }
+];
+var GANTT_DOW = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];   // semana arranca lunes
+var _ganttIdx = 0;
+
+function _ganttWeekdaysInMonth(y, m, weekday){
+  var out = [], d = new Date(y, m, 1);
+  while (d.getMonth() === m) { if (d.getDay() === weekday) out.push(d.getDate()); d.setDate(d.getDate() + 1); }
+  return out;
+}
+function _ganttNthBizDay(y, m, n){
+  var count = 0, d = new Date(y, m, 1);
+  while (d.getMonth() === m) {
+    var wd = d.getDay();
+    if (wd !== 0 && wd !== 6) { count++; if (count === n) return d.getDate(); }
+    d.setDate(d.getDate() + 1);
+  }
+  return null;
+}
+function _ganttDatesForItem(item, y, m){
+  var r = item.rule;
+  if (r.type === 'weekday') return _ganttWeekdaysInMonth(y, m, r.weekday);
+  if (r.type === 'nth-weekday') { var days = _ganttWeekdaysInMonth(y, m, r.weekday); return days[r.n - 1] ? [days[r.n - 1]] : []; }
+  if (r.type === 'nth-bizday') { var d = _ganttNthBizDay(y, m, r.n); return d ? [d] : []; }
+  return [];
+}
+
+function ganttDefaultIndex(){
+  var today = new Date();
+  for (var i = 0; i < GANTT_MONTHS.length; i++) {
+    if (today.getFullYear() === GANTT_MONTHS[i].y && today.getMonth() === GANTT_MONTHS[i].m) return i;
+  }
+  return 0;
+}
+
+function ganttShift(delta){
+  var next = _ganttIdx + delta;
+  if (next < 0 || next >= GANTT_MONTHS.length) return;
+  document.getElementById('gantt-cal-select').value = next;
+  ganttRenderMonth(next);
+}
+
+function ganttRenderMonth(idx){
+  _ganttIdx = idx;
+  var mo = GANTT_MONTHS[idx], y = mo.y, m = mo.m;
+  document.getElementById('gantt-cal-title').textContent = mo.label;
+
+  var byDay = {};
+  GANTT_ITEMS.forEach(function(item){
+    _ganttDatesForItem(item, y, m).forEach(function(day){ (byDay[day] = byDay[day] || []).push(item); });
+  });
+
+  var today = new Date();
+  var isCurrentMonth = today.getFullYear() === y && today.getMonth() === m;
+  var firstDow = new Date(y, m, 1).getDay();            // 0=Dom..6=Sáb
+  var leadBlanks = (firstDow === 0) ? 6 : firstDow - 1; // grilla arranca lunes
+  var daysInMonth = new Date(y, m + 1, 0).getDate();
+
+  var head = '<div class="gantt-cal-head">' + GANTT_DOW.map(function(d){ return '<div>' + d + '</div>'; }).join('') + '</div>';
+  var grid = '<div class="gantt-cal-grid">';
+  for (var i = 0; i < leadBlanks; i++) grid += '<div class="gantt-cal-cell gantt-cal-empty"></div>';
+  for (var day = 1; day <= daysInMonth; day++) {
+    var items = byDay[day] || [];
+    var isToday = isCurrentMonth && today.getDate() === day;
+    grid += '<div class="gantt-cal-cell' + (isToday ? ' gantt-cal-today' : '') + '"><div class="gantt-cal-daynum">' + day + '</div>';
+    items.forEach(function(it){
+      grid += '<div class="gantt-cal-tag" style="background:' + it.color + '26;color:' + it.color + '" title="' + it.label + '">' + it.label + '</div>';
+    });
+    grid += '</div>';
+  }
+  var trailBlanks = (7 - ((leadBlanks + daysInMonth) % 7)) % 7;
+  for (var j = 0; j < trailBlanks; j++) grid += '<div class="gantt-cal-cell gantt-cal-empty"></div>';
+  grid += '</div>';
+
+  document.getElementById('gantt-cal-container').innerHTML = head + grid;
+}
+
+(function ganttInit(){
+  var sel = document.getElementById('gantt-cal-select');
+  sel.innerHTML = GANTT_MONTHS.map(function(mo, i){ return '<option value="' + i + '">' + mo.label + '</option>'; }).join('');
+  document.getElementById('gantt-legend').innerHTML = GANTT_ITEMS.map(function(it){
+    return '<span><span class="gantt-legend-dot" style="background:' + it.color + '"></span>' + it.label + '</span>';
+  }).join('');
+  var def = ganttDefaultIndex();
+  sel.value = def;
+  ganttRenderMonth(def);
+})();
 </script>
 </body>
 </html>
