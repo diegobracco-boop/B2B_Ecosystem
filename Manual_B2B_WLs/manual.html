@@ -1514,6 +1514,7 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
             <tr><td>Country One Page</td><td><strong>Nuevo.</strong> Vista por país: P&L, OC Concept, NR Bridge para B2B y B2B2C. Backend en Codigo_country_page.js</td></tr>
             <tr><td>Daily / Weekly</td><td>iframe → Daily Dashboard B2B2C</td></tr>
             <tr><td>Fixed Cost / Industry / News / Sources / Organigrama</td><td>Secciones informativas del equipo</td></tr>
+            <tr><td>📸 Slides Cierre de Mes</td><td><strong>Nuevo.</strong> Botón en B2B + B2B2C: preview imprimible (Consolidado/B2B/B2B2C) + export a Google Slides real. Ver card debajo.</td></tr>
           </tbody>
         </table>
       </div>
@@ -1577,6 +1578,21 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
           <tr><td>Codigo_OKR.js</td><td><span class="tag tag-js">Apps Script</span></td><td><strong>Nuevo.</strong> OKR H1 FY27: KRs por LoB (B2B2C y B2B) con pesos. Endpoints getOKRData() / getOKRDataFromSpreadsheet(). Lee tab OKR del Spreadsheet</td></tr>
           <tr><td>Codigo_country_page.js</td><td><span class="tag tag-js">Apps Script</span></td><td><strong>Nuevo.</strong> Country One Page: P&L comparativo, OC Concept Waterfall y NR Bridge por país (all/Brasil/Mexico/etc.). Endpoint getCountryPageData(pais, desde, hasta)</td></tr>
           <tr><td>dashboard.html</td><td><span class="tag tag-html">HTML</span></td><td>Frontend completo. Secciones: B2B+B2B2C / B2B2C / B2B / OKR / Country One Page / Daily / Weekly / Fixed Cost / Industry / News / Sources / IA Agents / Organigrama. Chart.js 4.4.0</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📸 Slides Cierre de Mes (+ export a Google Slides)</div>
+      <div class="page-sub" style="margin-bottom:14px">Botón en la pestaña <strong>B2B + B2B2C (Consolidado)</strong>. Arma un preview imprimible con las tablas P&amp;L de los 3 scopes — cada uno atrás de su propio divisor de sección — y desde ahí se puede exportar a un Google Slides real. <span class="badge badge-manual">🆕 2026-09</span></div>
+      <table class="doc-table">
+        <tbody>
+          <tr><td>Estructura</td><td>3 divisores de sección, en orden: <strong>B2B + B2B2C</strong> (Consolidado, columnas WL's/MAY/MIN/Total — mismo <code>CANAL_GROUPS_BY_LOB['all']</code> que el resto del hub) · <strong>B2B</strong> (por país) · <strong>B2B2C</strong> (por país). Cada uno con 6 slides: mes vs Budget / vs Forecast / vs Run Rate, YTD, H1, y evolución OC (Chart.js).</td></tr>
+          <tr><td>Headline (Minto)</td><td>Arriba de las 3 slides de escenario, un callout de color con la variación de OC vs. el goal + el/los driver(es) de GB/NR si son "materiales". <strong>Sin LLM</strong> — reglas fijas de materialidad (<code>CIERRE_MAT_ABS</code>/<code>CIERRE_MAT_PCT</code>, mismo criterio que Loyalty_Ecosystem): hace falta |Δ abs| Y |Δ%| por encima del umbral para contar. Verde/rojo si es material, gris si no.</td></tr>
+          <tr><td>Exportar a Google Slides</td><td>El cliente captura cada <code>.cierre-slide</code> (divisores incluidos) TAL CUAL se ve con <a class="ext-link" href="https://html2canvas.hertzen.com/" target="_blank">html2canvas</a> (CDN jsdelivr, <code>scale:2</code>, <code>useCORS:true</code>) y se las manda a <code>buildCierreSlidesDeck</code> (Código.js), que solo las inserta como imagen — ajustando cada una al área de la página preservando su aspect ratio real. Mismo diseño exacto que el preview; ya no es una tabla editable en Slides (es una foto). El deck se crea en el Drive del usuario que hace click (<code>executeAs: USER_ACCESSING</code>).</td></tr>
+          <tr><td class="note" colspan="2">⚠️ Requiere el scope OAuth <code>presentations</code> (agregado a <code>appsscript.json</code>). La primera vez que alguien use el botón, si el webapp queda colgado en "⏳ Generando deck…" para siempre, es porque el iframe sandboxeado del <code>/exec</code>/<code>/dev</code> no pudo mostrar la pantalla de autorización — solución: correr <code>autorizarGoogleSlides()</code> una vez desde el editor de Apps Script (▶ Run, no desde el webapp), aceptar el permiso, y reintentar. Después se puede borrar la presentación de prueba que crea en Drive.</td></tr>
+          <tr><td class="note" colspan="2">⚠️ Las banderas de país (Brasil/Mexico/Hispa) salen de <code>flagcdn.com</code>, cross-origin — si ese host no manda CORS, la captura de <em>esa</em> slide puntual puede fallar; se resuelve a un mensaje de error en esa slide en vez de romper el export completo.</td></tr>
+          <tr><td>Código relevante</td><td><code>dashboard.html</code>: <code>_cierreGenerate</code>, <code>CIERRE_ACTIVE_SCOPES</code>, <code>_cierreHeadline_</code>, <code>_cierreCaptureSlideImages_</code>, <code>_cierreExportSlides</code> · <code>Código.js</code>: <code>buildCierreSlidesDeck</code> (nombre SIN "_" final a propósito — <code>google.script.run</code> no puede invocar funciones "privadas"), <code>autorizarGoogleSlides</code>.</td></tr>
         </tbody>
       </table>
     </div>
