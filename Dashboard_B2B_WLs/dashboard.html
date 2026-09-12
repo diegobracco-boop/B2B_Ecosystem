@@ -967,7 +967,7 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
       </div>
     </div>
       <button class="btn btn-ghost" id="btn-refresh" onclick="forceRefresh()">⟳ Actualizar</button>
-      <button class="btn btn-ghost" id="btn-cierre-slides" onclick="openCierreSlides()" style="display:none" title="Arma las slides del cierre de mes — Consolidado B2B+B2B2C, B2B y B2B2C por separado (vs Budget/Forecast/Run Rate, YTD, H1 y evolución OC) listas para imprimir o guardar como PDF">📸 Slides cierre de mes</button>
+      <button class="btn btn-ghost" id="btn-cierre-slides" onclick="openCierreSlides()" style="display:none" title="Arma las slides del cierre de mes para B2B2C (vs Budget/Forecast/Run Rate, YTD, H1 y evolución OC) listas para imprimir o guardar como PDF">📸 Slides cierre de mes</button>
     </div>
 
     <div class="ai-links" id="ai-links" style="display:none;flex-direction:row;gap:8px;flex-wrap:wrap;justify-content:flex-end">
@@ -2307,10 +2307,10 @@ function switchLob(btn) {
   document.querySelector('.filters').style.display = '';  // siempre visible (es el nav)
   if (isSpecial) document.querySelector('main').style.paddingLeft = '28px';
 
-  // Botón "Slides cierre de mes" — en las 3 vistas de P&L (Consolidado/B2B/B2B2C);
-  // el flujo arma las 3 igual sin importar desde cuál se abrió (ver openCierreSlides).
+  // Botón "Slides cierre de mes" — vive en la vista Consolidado (B2B+B2B2C) pero por
+  // ahora arma solo las slides de B2B2C (ver CIERRE_BTN_LOB/CIERRE_DATA_LOB más abajo).
   var cierreBtn = document.getElementById('btn-cierre-slides');
-  if (cierreBtn) cierreBtn.style.display = (CIERRE_LOBS.indexOf(_state.lob) >= 0) ? '' : 'none';
+  if (cierreBtn) cierreBtn.style.display = (_state.lob === CIERRE_BTN_LOB) ? '' : 'none';
 
   // Botones "Consultar IA" = links directos a agentes Toqan (solo en P&L tabs)
   var aiLinks = document.getElementById('ai-links');
@@ -5949,7 +5949,7 @@ function insRender(tab) {
 </style>
 <div id="cierre-overlay">
   <div id="cierre-toolbar">
-    <span class="cierre-ttl">📸 Slides Cierre de Mes — Consolidado · B2B · B2B2C</span>
+    <span class="cierre-ttl">📸 Slides Cierre de Mes — B2B2C</span>
     <div class="cierre-mes">
       <label for="cierre-mes-sel">Mes de cierre</label>
       <select id="cierre-mes-sel" onchange="_cierreGenerate()"></select>
@@ -5997,15 +5997,12 @@ var _cierreOpen = false;   // overlay visible
 var _cierreGen  = 0;       // token de generación: invalida respuestas tardías al cerrar/regenerar
 var _cierreSnap = null;    // snapshot del estado real del dashboard (se restaura al cerrar)
 
-// Scopes que arma cada corrida: consolidado + los 2 LoB por separado (mismo orden en que
-// se muestran las slides). Los 3 valores de "key" son los mismos lob que ya entiende
-// getAllData/computePnL_/computeEvo_ ('all' = B2B + B2B2C consolidado).
-var CIERRE_SCOPES = [
-  { key:'all',   label:'Consolidado B2B + B2B2C' },
-  { key:'b2b',   label:'B2B' },
-  { key:'b2b2c', label:'B2B2C' }
-];
-var CIERRE_LOBS = CIERRE_SCOPES.map(function(s){ return s.key; });
+// 2026-09-11 (Diego): el botón se mueve a la pestaña "B2B + B2B2C" (Consolidado, lob='all'),
+// pero por ahora arma solo las slides de B2B2C — quedan pendientes de auditar/reestructurar
+// antes de sumar Consolidado y B2B. Por eso el lob del botón (dónde vive) y el lob de los
+// datos (qué arma) son 2 constantes separadas en vez de coincidir como antes.
+var CIERRE_BTN_LOB  = 'all';
+var CIERRE_DATA_LOB = 'b2b2c';
 
 // Meses disponibles para el cierre: desde Abr hasta el último con actuals, más reciente primero.
 function _cierreMonthsAvailable(){
@@ -6088,10 +6085,11 @@ function _cierreOcBarImg(evo, fyLbl, refMonth, scopeLabel){
 }
 
 function openCierreSlides(){
-  if (CIERRE_LOBS.indexOf(_state.lob) < 0 || _cierreOpen) return;
+  if (_state.lob !== CIERRE_BTN_LOB || _cierreOpen) return;
   _cierreOpen = true;
-  // lob se guarda porque _cierreGenerate() lo pisa (recorre los 3 scopes) para que
-  // pnlGroupLabel()/renderShare() rendericen cada tabla con el lob correcto.
+  // lob se guarda porque _cierreGenerate() lo pisa a CIERRE_DATA_LOB (para que
+  // pnlGroupLabel()/renderShare() rendericen la tabla con el lob correcto, ya que el
+  // botón vive en una pestaña distinta a los datos que arma) y hay que restaurarlo al cerrar.
   _cierreSnap = { lob:_state.lob, goal:_state.goal, pnl:_state.pnl, evo:_state.evo };
   document.getElementById('cierre-overlay').style.display = 'flex';
 
@@ -6108,8 +6106,7 @@ function openCierreSlides(){
   _cierreGenerate();
 }
 
-// (Re)genera las 5 slides × 3 scopes (Consolidado/B2B/B2B2C = 15 slides) para el mes
-// elegido en el desplegable, en ese orden (consolidado primero, después cada uno separado).
+// (Re)genera las 5 slides de B2B2C (CIERRE_DATA_LOB) para el mes elegido en el desplegable.
 function _cierreGenerate(){
   var myGen = ++_cierreGen;                 // token de esta generación
   var selEl = document.getElementById('cierre-mes-sel');
@@ -6122,46 +6119,38 @@ function _cierreGenerate(){
   var h1Start = FY26_MONTHS[0], h1End = FY26_MONTHS[5];  // Abr–Sep
   var mesLbl  = _cierreMonthShort(refMonth);
   var fyLbl   = _cierreFYLabel(refMonth);
-  var baselineSrc = _state.baselineSource || 'baseline';
+  var base    = { lob:CIERRE_DATA_LOB, pais:'all', producto:'all', canal:'all', baselineSource:(_state.baselineSource||'baseline') };
 
-  // 3 fetches (mes/YTD/H1) por cada scope -> 9 en total, en el mismo orden que CIERRE_SCOPES.
-  var fetches = [];
-  CIERRE_SCOPES.forEach(function(scope){
-    var base = { lob:scope.key, pais:'all', producto:'all', canal:'all', baselineSource:baselineSrc };
-    fetches.push(_cierreFetch(base, refMonth, refMonth));
-    fetches.push(_cierreFetch(base, ytdStart, refMonth));
-    fetches.push(_cierreFetch(base, h1Start,  h1End));
-  });
-
-  Promise.all(fetches).then(function(res){
+  Promise.all([
+    _cierreFetch(base, refMonth, refMonth),
+    _cierreFetch(base, ytdStart, refMonth),
+    _cierreFetch(base, h1Start,  h1End)
+  ]).then(function(res){
     // Descartar respuestas tardías: overlay cerrado o superadas por otra generación.
     // Sin este guard, un fetch que resuelve DESPUÉS de cerrar mutaría _state y la
     // tabla PnL real del dashboard, pisando el estado ya restaurado por closeCierreSlides.
     if (!_cierreOpen || myGen !== _cierreGen) return;
+    // pnlGroupLabel()/renderShare() (dentro de renderPnL(), vía _cierrePnLHTML) leen
+    // _state.lob — el botón vive en la pestaña Consolidado (CIERRE_BTN_LOB) pero los
+    // datos son de B2B2C (CIERRE_DATA_LOB), hay que pisarlo antes de renderizar.
+    _state.lob = CIERRE_DATA_LOB;
+    var mes=res[0], ytd=res[1], h1=res[2];
     var slides = [];
-    CIERRE_SCOPES.forEach(function(scope, i){
-      var mes = res[i*3], ytd = res[i*3+1], h1 = res[i*3+2];
-      // pnlGroupLabel()/renderShare() (dentro de renderPnL(), vía _cierrePnLHTML) leen
-      // _state.lob para decidir columnas/etiquetas — hay que pisarlo antes de cada scope.
-      _state.lob = scope.key;
-      var pref = scope.label + ' — ';
+    slides.push(_cierreSlide(mesLbl + ' vs. Budget',   _cierrePnLHTML(mes.pnl, 'budget')));
+    slides.push(_cierreSlide(mesLbl + ' vs. Forecast', _cierrePnLHTML(mes.pnl, 'forecast')));
+    slides.push(_cierreSlide(mesLbl + ' vs. Run Rate', _cierrePnLHTML(mes.pnl, 'runRate')));
+    slides.push(_cierreSlide('YTD ' + fyLbl + ' & H1 vs. Budget',
+      '<div class="cierre-two">'+
+        '<div><div class="cierre-subt">YTD vs Budget ('+fyLbl+')</div>'+_cierrePnLHTML(ytd.pnl,'budget')+'</div>'+
+        '<div><div class="cierre-subt">H1 vs Budget (Abr–Sep)</div>'+_cierrePnLHTML(h1.pnl,'budget')+'</div>'+
+      '</div>'));
 
-      slides.push(_cierreSlide(pref + mesLbl + ' vs. Budget',   _cierrePnLHTML(mes.pnl, 'budget')));
-      slides.push(_cierreSlide(pref + mesLbl + ' vs. Forecast', _cierrePnLHTML(mes.pnl, 'forecast')));
-      slides.push(_cierreSlide(pref + mesLbl + ' vs. Run Rate', _cierrePnLHTML(mes.pnl, 'runRate')));
-      slides.push(_cierreSlide(pref + 'YTD ' + fyLbl + ' & H1 vs. Budget',
-        '<div class="cierre-two">'+
-          '<div><div class="cierre-subt">YTD vs Budget ('+fyLbl+')</div>'+_cierrePnLHTML(ytd.pnl,'budget')+'</div>'+
-          '<div><div class="cierre-subt">H1 vs Budget (Abr–Sep)</div>'+_cierrePnLHTML(h1.pnl,'budget')+'</div>'+
-        '</div>'));
-
-      // Gráfico OC vs Budget por mes (barras OC $ + líneas ratio OC/GB %), evo es full-FY.
-      var img = _cierreOcBarImg(mes.evo, fyLbl, refMonth, scope.label);
-      slides.push(_cierreSlide(pref + 'Evolución OC vs Budget por mes',
-        (img ? '<img class="cierre-chart-img" src="'+img+'" alt="Evolución OC '+scope.label+' vs Budget">'
-             : '<div style="padding:20px;color:#999">Gráfico no disponible.</div>') +
-        '<div class="cierre-cap">OC mensual en USD (barras) y ratio OC/GB en % (líneas) · Actuals hasta el mes de cierre vs Budget full FY · '+fyLbl+' (Abr → Mar)</div>'));
-    });
+    // Slide 5: gráfico OC vs Budget por mes (barras OC $ + líneas ratio OC/GB %), evo es full-FY.
+    var img = _cierreOcBarImg(mes.evo, fyLbl, refMonth, 'B2B2C');
+    slides.push(_cierreSlide('Evolución OC B2B2C vs Budget por mes',
+      (img ? '<img class="cierre-chart-img" src="'+img+'" alt="Evolución OC B2B2C vs Budget">'
+           : '<div style="padding:20px;color:#999">Gráfico no disponible.</div>') +
+      '<div class="cierre-cap">OC mensual en USD (barras) y ratio OC/GB en % (líneas) · Actuals hasta el mes de cierre vs Budget full FY · '+fyLbl+' (Abr → Mar)</div>'));
 
     body.innerHTML = slides.join('');
     if (selEl) selEl.disabled = false;
