@@ -968,7 +968,7 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
       </div>
     </div>
       <button class="btn btn-ghost" id="btn-refresh" onclick="forceRefresh()">⟳ Actualizar</button>
-      <button class="btn btn-ghost" id="btn-cierre-slides" onclick="openCierreSlides()" style="display:none" title="Arma las slides del cierre de mes para B2B y B2B2C por separado (vs Budget/Forecast/Run Rate, YTD, H1 y evolución OC) listas para imprimir o guardar como PDF">📸 Slides cierre de mes</button>
+      <button class="btn btn-ghost" id="btn-cierre-slides" onclick="openCierreSlides()" style="display:none" title="Arma las slides del cierre de mes — Consolidado, B2B y B2B2C por separado (vs Budget/Forecast/Run Rate, YTD, H1 y evolución OC) listas para imprimir o guardar como PDF">📸 Slides cierre de mes</button>
     </div>
 
     <div class="ai-links" id="ai-links" style="display:none;flex-direction:row;gap:8px;flex-wrap:wrap;justify-content:flex-end">
@@ -2309,7 +2309,8 @@ function switchLob(btn) {
   if (isSpecial) document.querySelector('main').style.paddingLeft = '28px';
 
   // Botón "Slides cierre de mes" — vive en la vista Consolidado (B2B+B2B2C) y arma
-  // B2B + B2B2C por separado (ver CIERRE_BTN_LOB/CIERRE_ACTIVE_SCOPES más abajo).
+  // los 3 scopes por separado: Consolidado, B2B y B2B2C (ver CIERRE_BTN_LOB/
+  // CIERRE_ACTIVE_SCOPES más abajo).
   var cierreBtn = document.getElementById('btn-cierre-slides');
   if (cierreBtn) cierreBtn.style.display = (_state.lob === CIERRE_BTN_LOB) ? '' : 'none';
 
@@ -5956,7 +5957,7 @@ function insRender(tab) {
 </style>
 <div id="cierre-overlay">
   <div id="cierre-toolbar">
-    <span class="cierre-ttl">📸 Slides Cierre de Mes — B2B · B2B2C</span>
+    <span class="cierre-ttl">📸 Slides Cierre de Mes — Consolidado · B2B · B2B2C</span>
     <div class="cierre-mes">
       <label for="cierre-mes-sel">Mes de cierre</label>
       <select id="cierre-mes-sel" onchange="_cierreGenerate()"></select>
@@ -6072,12 +6073,13 @@ var _cierreGen  = 0;       // token de generación: invalida respuestas tardías
 var _cierreSnap = null;    // snapshot del estado real del dashboard (se restaura al cerrar)
 
 // 2026-09-11/12 (Diego): el botón vive en la pestaña "B2B + B2B2C" (Consolidado,
-// lob='all') pero arma las slides de B2B y B2B2C por separado, cada uno atrás de su
-// propio divisor — Consolidado todavía no tiene contenido propio (queda su divisor
-// vacío hasta que se defina qué mostrar ahí). Por eso el lob del botón (dónde vive)
-// y los scopes con contenido real son cosas separadas.
+// lob='all') y arma las slides de los 3 scopes por separado, cada uno atrás de su
+// propio divisor. Consolidado (lob='all') usa el mismo computePnL_ que ya arma sus
+// columnas por canal (WL's/MAY/MIN/Total, ver CANAL_GROUPS_BY_LOB['all'] en Código.js)
+// en vez de por país — no hace falta lógica nueva, solo pasarle lob:'all'.
 var CIERRE_BTN_LOB = 'all';
 var CIERRE_ACTIVE_SCOPES = [
+  { key:'all',   label:'B2B + B2B2C' },
   { key:'b2b',   label:'B2B' },
   { key:'b2b2c', label:'B2B2C' }
 ];
@@ -6184,9 +6186,8 @@ function openCierreSlides(){
   _cierreGenerate();
 }
 
-// (Re)genera el preview completo para el mes elegido: divisor "B2B + B2B2C" (vacío,
-// Consolidado todavía no tiene contenido propio) + divisor "B2B" con sus 5 slides +
-// divisor "B2B2C" con sus 5 slides.
+// (Re)genera el preview completo para el mes elegido: un divisor + 5 slides por cada
+// scope de CIERRE_ACTIVE_SCOPES, en ese orden (Consolidado, B2B, B2B2C).
 function _cierreGenerate(){
   var myGen = ++_cierreGen;                 // token de esta generación
   var selEl = document.getElementById('cierre-mes-sel');
@@ -6219,7 +6220,7 @@ function _cierreGenerate(){
     // tabla PnL real del dashboard, pisando el estado ya restaurado por closeCierreSlides.
     if (!_cierreOpen || myGen !== _cierreGen) return;
 
-    var slides = [ _cierreDividerHTML_('B2B + B2B2C') ];   // Consolidado: divisor sin contenido, por ahora
+    var slides = [];
 
     CIERRE_ACTIVE_SCOPES.forEach(function(scope, i){
       var mes = res[i*3], ytd = res[i*3+1], h1 = res[i*3+2];
