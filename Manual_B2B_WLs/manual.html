@@ -302,6 +302,15 @@ body {
   margin-top: 1px;
 }
 .doc-table td.note { color: var(--text2); font-size: 12px; font-weight: 400; box-shadow: none; }
+
+/* ── Gantt (calendario recurrente FY) ── */
+.gantt-table th.gantt-month { text-align: center; font-size: 9.5px; padding: 8px 3px; white-space: nowrap; }
+.gantt-table td.gantt-cell { text-align: center; padding: 7px 3px; }
+.gantt-bar { display: inline-block; width: 100%; height: 14px; border-radius: 3px; }
+.gantt-bar-weekly  { background: var(--blue); }
+.gantt-bar-monthly { background: var(--accent2); }
+.gantt-legend { display: flex; flex-wrap: wrap; gap: 18px; align-items: center; font-size: 11px; color: var(--text3); margin-top: 12px; }
+.gantt-legend-dot { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -2px; }
 .step-title { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 5px; }
 .step-desc  { font-size: 12px; color: var(--text2); line-height: 1.55; }
 .code-block {
@@ -460,6 +469,9 @@ a.ext-link:hover { text-decoration: underline; }
   </a>
   <a class="nav-item" onclick="showSection('responsables')">
     <span class="nav-icon">👥</span> Quién hace qué
+  </a>
+  <a class="nav-item" onclick="showSection('gantt')">
+    <span class="nav-icon">📅</span> Gantt
   </a>
 
   <div class="sidebar-section">Referencia operativa</div>
@@ -876,6 +888,76 @@ a.ext-link:hover { text-decoration: underline; }
         </tbody>
       </table>
     </div>
+  </div>
+
+  <!-- ════════════════════════════ GANTT ════════════════════════════ -->
+  <div class="section" id="sec-gantt">
+    <div class="page-header">
+      <div class="page-tag">Guía del equipo</div>
+      <div class="page-title">Gantt <span>FY27 (Abr'26 → Mar'27)</span></div>
+      <div class="page-sub">Calendario recurrente de entregables y reuniones del equipo B2B &amp; WLs, alineado al año fiscal Prosus (abril a marzo). Todos los items se repiten los 12 meses del año fiscal.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📅 Calendario recurrente FY27</div>
+      <div style="overflow-x:auto">
+        <table class="doc-table gantt-table">
+          <thead>
+            <tr>
+              <th style="min-width:280px">Item</th>
+              <th style="min-width:170px">Cuándo</th>
+              <th class="gantt-month">Abr'26</th><th class="gantt-month">May'26</th><th class="gantt-month">Jun'26</th>
+              <th class="gantt-month">Jul'26</th><th class="gantt-month">Ago'26</th><th class="gantt-month">Sep'26</th>
+              <th class="gantt-month">Oct'26</th><th class="gantt-month">Nov'26</th><th class="gantt-month">Dic'26</th>
+              <th class="gantt-month">Ene'27</th><th class="gantt-month">Feb'27</th><th class="gantt-month">Mar'27</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Carga de Run Rate en EPM — proyecciones 12 meses</td>
+              <td>3er jueves de cada mes</td>
+              <td class="gantt-cell" colspan="12"><span class="gantt-bar gantt-bar-monthly"></span></td>
+            </tr>
+            <tr>
+              <td>Actualización resultados semanales</td>
+              <td>Todos los lunes</td>
+              <td class="gantt-cell" colspan="12"><span class="gantt-bar gantt-bar-weekly"></span></td>
+            </tr>
+            <tr>
+              <td>Reuniones semanales B2B y B2B2C — N2</td>
+              <td>Todos los viernes</td>
+              <td class="gantt-cell" colspan="12"><span class="gantt-bar gantt-bar-weekly"></span></td>
+            </tr>
+            <tr>
+              <td>Reunión semanal B2B2C Hispa &amp; Brasil — N3</td>
+              <td>Todos los martes</td>
+              <td class="gantt-cell" colspan="12"><span class="gantt-bar gantt-bar-weekly"></span></td>
+            </tr>
+            <tr>
+              <td>Entrega material MRM (mensual de resultados)</td>
+              <td>4to jueves de cada mes</td>
+              <td class="gantt-cell" colspan="12"><span class="gantt-bar gantt-bar-monthly"></span></td>
+            </tr>
+            <tr>
+              <td>Reunión revisión cierre contable con Contabilidad</td>
+              <td>5to día hábil de cada mes</td>
+              <td class="gantt-cell" colspan="12"><span class="gantt-bar gantt-bar-monthly"></span></td>
+            </tr>
+            <tr>
+              <td>Envío cierre transaccional vs. Run Rate de palancas de negocio</td>
+              <td>1er día hábil de cada mes</td>
+              <td class="gantt-cell" colspan="12"><span class="gantt-bar gantt-bar-monthly"></span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="gantt-legend">
+        <span><span class="gantt-legend-dot gantt-bar-weekly"></span>Cadencia semanal</span>
+        <span><span class="gantt-legend-dot gantt-bar-monthly"></span>Cadencia mensual</span>
+      </div>
+    </div>
+
+    <div class="alert-box info">ℹ️ "Día hábil" cuenta días de semana (lun-vie), sin excluir feriados — a ajustar a mano si un feriado corre la fecha ese mes.</div>
   </div>
 
   <!-- ════════════════════════════ ARQUITECTURA ════════════════════════════ -->
