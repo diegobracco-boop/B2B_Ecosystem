@@ -1398,16 +1398,23 @@ function getWeeklyInsights() {
 function buildCierreSlidesDeck(payload) {
   payload = payload || {};
   var images = payload.slideImages || [];
-  var pres = SlidesApp.create('Cierre ' + (payload.mesLbl || '') + ' — B2B2C — ' + new Date().toISOString().slice(0, 16).replace('T', ' '));
+  var pres = SlidesApp.create('Cierre ' + (payload.mesLbl || '') + ' — ' + new Date().toISOString().slice(0, 16).replace('T', ' '));
   var w = pres.getPageWidth(), h = pres.getPageHeight();
   var defaultSlide = pres.getSlides()[0];
 
   var title = pres.appendSlide(SlidesApp.PredefinedLayout.BLANK);
-  title.insertTextBox('Cierre de Mes — B2B2C', 40, h/2 - 60, w - 80, 50)
+  title.insertTextBox('Cierre de Mes', 40, h/2 - 60, w - 80, 50)
        .getText().getTextStyle().setFontSize(30).setBold(true).setForegroundColor('#2D2A6E');
   title.insertTextBox((payload.mesLbl || '') + ' · ' + (payload.fyLbl || ''), 40, h/2 + 2, w - 80, 34)
        .getText().getTextStyle().setFontSize(15).setForegroundColor('#5457D9');
   defaultSlide.remove();   // sacamos el slide default (layout con placeholders) recién con >=1 slide ya creado
+
+  // 3 divisores de sección (Consolidado/B2B/B2B2C, en ese orden) — hoy solo B2B2C
+  // tiene contenido real atrás; Consolidado y B2B quedan como divisor "vacío" hasta
+  // que se audite/sume ese scope (ver charla 2026-09-11/12).
+  _cierreDividerSlide_(pres, w, h, 'B2B + B2B2C');
+  _cierreDividerSlide_(pres, w, h, 'B2B');
+  _cierreDividerSlide_(pres, w, h, 'B2B2C');
 
   var margin = 30;
   images.forEach(function(entry) {
@@ -1430,6 +1437,18 @@ function buildCierreSlidesDeck(payload) {
   });
 
   return { url: pres.getUrl(), id: pres.getId() };
+}
+
+// Slide "divisor de sección": fondo lila sólido + título grande centrado.
+function _cierreDividerSlide_(pres, w, h, title) {
+  var slide = pres.appendSlide(SlidesApp.PredefinedLayout.BLANK);
+  var bg = slide.insertShape(SlidesApp.ShapeType.RECTANGLE, 0, 0, w, h);
+  bg.getFill().setSolidFill('#2D2A6E');
+  bg.getBorder().setTransparent();
+  var box = slide.insertTextBox(title, 40, h/2 - 30, w - 80, 60);
+  box.getText().getTextStyle().setFontSize(34).setBold(true).setForegroundColor('#FFFFFF');
+  box.getText().getParagraphStyle().setParagraphAlignment(SlidesApp.ParagraphAlignment.CENTER);
+  return slide;
 }
 
 // Función sin "_" final a propósito (ver nota arriba de buildCierreSlidesDeck):
