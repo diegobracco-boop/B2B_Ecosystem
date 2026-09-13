@@ -360,49 +360,55 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
 #view-weekly .ws-tables-row{display:flex;gap:24px;align-items:flex-start}
 #view-weekly .ws-panel-weekly{flex:0 0 auto}
 #view-weekly .ws-panel-mtd{flex:0 0 auto;min-width:320px}
-#view-weekly .ws-sec-title{font-size:10px;font-weight:800;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;padding-bottom:4px;border-bottom:2px solid var(--border)}
-#view-weekly .ws-table-wrap{overflow-x:auto;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,.12)}
-#view-weekly table.ws-table{width:auto;table-layout:fixed;border-collapse:collapse;background:var(--surface)}
-#view-weekly thead tr.head-weeks th{background:#7C7FFF;color:#fff;padding:5px 4px;font-size:14px;font-weight:700;text-align:center;border-right:1px solid rgba(255,255,255,.18);width:110px}
-#view-weekly thead tr.head-weeks th:first-child{text-align:center;width:72px;min-width:72px;border-right:2px solid rgba(255,255,255,.25)}
-#view-weekly thead tr.head-weeks th:nth-child(2){text-align:left;width:80px;min-width:80px}
-#view-weekly thead tr.head-weeks th.l4w-col{background:#5457D9;border-left:3px solid rgba(255,255,255,.25);width:90px}
-#view-weekly td.country-cell{background:#5457D9;color:#fff;font-size:13px;font-weight:700;padding:6px 8px;vertical-align:middle;text-align:center;border-right:2px solid rgba(255,255,255,.2);border-top:0.5px solid rgba(124,127,255,.4);width:72px;min-width:72px}
-#view-weekly td.country-cell.total-cell{background:#7C7FFF}
-#view-weekly .ws-country-name{display:flex;flex-direction:column;align-items:center;gap:4px}
-#view-weekly .ws-country-label{font-size:12px;font-weight:700;white-space:nowrap}
-#view-weekly .ws-flag span,.ws-flag img{width:48px;height:34px;border-radius:3px;object-fit:cover;box-shadow:0 1px 4px rgba(0,0,0,.3)}
-#view-weekly .ws-flag-hispa{display:flex;flex-wrap:wrap;justify-content:center;gap:3px;max-width:68px}
-#view-weekly .ws-flag-hispa img{width:28px;height:20px;border-radius:2px;object-fit:cover}
-#view-weekly .ws-flag-globe{font-size:36px;line-height:1}
-#view-weekly tr.ws-metric-row td{padding:3px 8px;border-bottom:1px solid var(--border);font-size:13px;text-align:right;vertical-align:middle;width:110px;background:var(--surface);color:var(--text)}
-#view-weekly tr.ws-metric-row td.ws-metric-label{text-align:left;color:var(--text-2);font-weight:600;padding-left:10px;border-right:2px solid var(--border);width:80px;min-width:80px}
-#view-weekly tr.ws-metric-row.ws-ly-row td{color:var(--text-3);font-size:12px;background:var(--elevated)}
-#view-weekly tr.ws-metric-row.ws-ly-row td.ws-metric-label{padding-left:16px;color:var(--text-3)}
-#view-weekly tr.ws-metric-row.ws-group-last td{border-bottom:1px solid rgba(124,127,255,.25)}
-#view-weekly td.l4w-val{background:var(--elevated);font-weight:700;border-left:3px solid var(--border);width:90px}
-#view-weekly tr.ws-metric-row.ws-ly-row td.l4w-val{background:var(--elevated)}
+/* En Flow (slide 1280x720 fijo) los paneles no crecen libre — ocupan el espacio
+   disponible y scrollean adentro (uncapped al imprimir, ver .fl-scroll-tbl). */
+#view-flow .ws-tables-row{display:flex;gap:16px;flex:1;min-height:0}
+#view-flow .ws-panel-weekly{flex:1.3;min-width:0;min-height:0;display:flex;flex-direction:column}
+#view-flow .ws-panel-mtd{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column}
+#view-flow .ws-table-wrap,#view-flow .ws-mtd-wrap{flex:1;min-height:0;overflow-y:auto}
+#view-weekly .ws-sec-title,#view-flow .ws-sec-title{font-size:10px;font-weight:800;color:var(--text-3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;padding-bottom:4px;border-bottom:2px solid var(--border)}
+#view-weekly .ws-table-wrap,#view-flow .ws-table-wrap{overflow-x:auto;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,.12)}
+#view-weekly table.ws-table,#view-flow table.ws-table{width:auto;table-layout:fixed;border-collapse:collapse;background:var(--surface)}
+#view-weekly thead tr.head-weeks th,#view-flow thead tr.head-weeks th{background:#7C7FFF;color:#fff;padding:5px 4px;font-size:14px;font-weight:700;text-align:center;border-right:1px solid rgba(255,255,255,.18);width:110px}
+#view-weekly thead tr.head-weeks th:first-child,#view-flow thead tr.head-weeks th:first-child{text-align:center;width:72px;min-width:72px;border-right:2px solid rgba(255,255,255,.25)}
+#view-weekly thead tr.head-weeks th:nth-child(2),#view-flow thead tr.head-weeks th:nth-child(2){text-align:left;width:80px;min-width:80px}
+#view-weekly thead tr.head-weeks th.l4w-col,#view-flow thead tr.head-weeks th.l4w-col{background:#5457D9;border-left:3px solid rgba(255,255,255,.25);width:90px}
+#view-weekly td.country-cell,#view-flow td.country-cell{background:#5457D9;color:#fff;font-size:13px;font-weight:700;padding:6px 8px;vertical-align:middle;text-align:center;border-right:2px solid rgba(255,255,255,.2);border-top:0.5px solid rgba(124,127,255,.4);width:72px;min-width:72px}
+#view-weekly td.country-cell.total-cell,#view-flow td.country-cell.total-cell{background:#7C7FFF}
+#view-weekly .ws-country-name,#view-flow .ws-country-name{display:flex;flex-direction:column;align-items:center;gap:4px}
+#view-weekly .ws-country-label,#view-flow .ws-country-label{font-size:12px;font-weight:700;white-space:nowrap}
+#view-weekly .ws-flag span,.ws-flag img,#view-flow .ws-flag span,.ws-flag img{width:48px;height:34px;border-radius:3px;object-fit:cover;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+#view-weekly .ws-flag-hispa,#view-flow .ws-flag-hispa{display:flex;flex-wrap:wrap;justify-content:center;gap:3px;max-width:68px}
+#view-weekly .ws-flag-hispa img,#view-flow .ws-flag-hispa img{width:28px;height:20px;border-radius:2px;object-fit:cover}
+#view-weekly .ws-flag-globe,#view-flow .ws-flag-globe{font-size:36px;line-height:1}
+#view-weekly tr.ws-metric-row td,#view-flow tr.ws-metric-row td{padding:3px 8px;border-bottom:1px solid var(--border);font-size:13px;text-align:right;vertical-align:middle;width:110px;background:var(--surface);color:var(--text)}
+#view-weekly tr.ws-metric-row td.ws-metric-label,#view-flow tr.ws-metric-row td.ws-metric-label{text-align:left;color:var(--text-2);font-weight:600;padding-left:10px;border-right:2px solid var(--border);width:80px;min-width:80px}
+#view-weekly tr.ws-metric-row.ws-ly-row td,#view-flow tr.ws-metric-row.ws-ly-row td{color:var(--text-3);font-size:12px;background:var(--elevated)}
+#view-weekly tr.ws-metric-row.ws-ly-row td.ws-metric-label,#view-flow tr.ws-metric-row.ws-ly-row td.ws-metric-label{padding-left:16px;color:var(--text-3)}
+#view-weekly tr.ws-metric-row.ws-group-last td,#view-flow tr.ws-metric-row.ws-group-last td{border-bottom:1px solid rgba(124,127,255,.25)}
+#view-weekly td.l4w-val,#view-flow td.l4w-val{background:var(--elevated);font-weight:700;border-left:3px solid var(--border);width:90px}
+#view-weekly tr.ws-metric-row.ws-ly-row td.l4w-val,#view-flow tr.ws-metric-row.ws-ly-row td.l4w-val{background:var(--elevated)}
 /* MTD table */
-#view-weekly .ws-mtd-wrap{border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,.12);overflow:hidden}
-#view-weekly table.ws-mtd-table{width:100%;border-collapse:collapse;background:var(--surface)}
-#view-weekly .ws-mtd-table thead tr.mtd-head th{background:#7C7FFF;color:#fff;padding:5px 8px;font-size:11px;font-weight:700;text-align:center;border-right:1px solid rgba(255,255,255,.18)}
-#view-weekly .ws-mtd-table thead tr.mtd-head th:first-child{text-align:center;width:56px;min-width:56px;border-right:2px solid rgba(255,255,255,.25)}
-#view-weekly .ws-mtd-table thead tr.mtd-head th:nth-child(2){text-align:left;width:60px;min-width:60px}
-#view-weekly td.ws-mtd-country-cell{background:#5457D9;color:#fff;font-size:12px;font-weight:700;padding:5px 6px;vertical-align:middle;text-align:center;border-right:2px solid rgba(255,255,255,.2);border-top:0.5px solid rgba(124,127,255,.4);width:56px;min-width:56px}
-#view-weekly td.ws-mtd-country-cell.ws-mtd-total-cell{background:#7C7FFF}
-#view-weekly .ws-mtd-country-name{display:flex;flex-direction:column;align-items:center;gap:3px}
-#view-weekly .ws-mtd-country-label{font-size:11px;font-weight:700;white-space:nowrap}
-#view-weekly .ws-mtd-flag img{width:38px;height:27px;border-radius:2px;object-fit:cover;box-shadow:0 1px 3px rgba(0,0,0,.3)}
-#view-weekly .ws-mtd-flag-hispa{display:flex;flex-wrap:wrap;justify-content:center;gap:2px;max-width:56px}
-#view-weekly .ws-mtd-flag-hispa img{width:22px;height:16px;border-radius:2px;object-fit:cover}
-#view-weekly .ws-mtd-flag-globe{font-size:28px;line-height:1}
-#view-weekly tr.ws-mtd-row td{padding:3px 7px;border-bottom:1px solid var(--border);font-size:12px;text-align:right;vertical-align:middle;background:var(--surface);color:var(--text)}
-#view-weekly tr.ws-mtd-row td.ws-mtd-metric-label{text-align:left;color:var(--text-2);font-weight:600;padding-left:8px;border-right:2px solid var(--border);width:60px;min-width:60px}
-#view-weekly tr.ws-mtd-row.ws-mtd-group-last td{border-bottom:1px solid rgba(124,127,255,.25)}
-#view-weekly td.ws-mtd-no-bud{color:var(--text-3);font-size:11px}
-#view-weekly .ws-pos{color:var(--success)}
-#view-weekly .ws-neg{color:var(--danger)}
-#view-weekly .ws-neutral{color:var(--text-3)}
+#view-weekly .ws-mtd-wrap,#view-flow .ws-mtd-wrap{border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,.12);overflow:hidden}
+#view-weekly table.ws-mtd-table,#view-flow table.ws-mtd-table{width:100%;border-collapse:collapse;background:var(--surface)}
+#view-weekly .ws-mtd-table thead tr.mtd-head th,#view-flow .ws-mtd-table thead tr.mtd-head th{background:#7C7FFF;color:#fff;padding:5px 8px;font-size:11px;font-weight:700;text-align:center;border-right:1px solid rgba(255,255,255,.18)}
+#view-weekly .ws-mtd-table thead tr.mtd-head th:first-child,#view-flow .ws-mtd-table thead tr.mtd-head th:first-child{text-align:center;width:56px;min-width:56px;border-right:2px solid rgba(255,255,255,.25)}
+#view-weekly .ws-mtd-table thead tr.mtd-head th:nth-child(2),#view-flow .ws-mtd-table thead tr.mtd-head th:nth-child(2){text-align:left;width:60px;min-width:60px}
+#view-weekly td.ws-mtd-country-cell,#view-flow td.ws-mtd-country-cell{background:#5457D9;color:#fff;font-size:12px;font-weight:700;padding:5px 6px;vertical-align:middle;text-align:center;border-right:2px solid rgba(255,255,255,.2);border-top:0.5px solid rgba(124,127,255,.4);width:56px;min-width:56px}
+#view-weekly td.ws-mtd-country-cell.ws-mtd-total-cell,#view-flow td.ws-mtd-country-cell.ws-mtd-total-cell{background:#7C7FFF}
+#view-weekly .ws-mtd-country-name,#view-flow .ws-mtd-country-name{display:flex;flex-direction:column;align-items:center;gap:3px}
+#view-weekly .ws-mtd-country-label,#view-flow .ws-mtd-country-label{font-size:11px;font-weight:700;white-space:nowrap}
+#view-weekly .ws-mtd-flag img,#view-flow .ws-mtd-flag img{width:38px;height:27px;border-radius:2px;object-fit:cover;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+#view-weekly .ws-mtd-flag-hispa,#view-flow .ws-mtd-flag-hispa{display:flex;flex-wrap:wrap;justify-content:center;gap:2px;max-width:56px}
+#view-weekly .ws-mtd-flag-hispa img,#view-flow .ws-mtd-flag-hispa img{width:22px;height:16px;border-radius:2px;object-fit:cover}
+#view-weekly .ws-mtd-flag-globe,#view-flow .ws-mtd-flag-globe{font-size:28px;line-height:1}
+#view-weekly tr.ws-mtd-row td,#view-flow tr.ws-mtd-row td{padding:3px 7px;border-bottom:1px solid var(--border);font-size:12px;text-align:right;vertical-align:middle;background:var(--surface);color:var(--text)}
+#view-weekly tr.ws-mtd-row td.ws-mtd-metric-label,#view-flow tr.ws-mtd-row td.ws-mtd-metric-label{text-align:left;color:var(--text-2);font-weight:600;padding-left:8px;border-right:2px solid var(--border);width:60px;min-width:60px}
+#view-weekly tr.ws-mtd-row.ws-mtd-group-last td,#view-flow tr.ws-mtd-row.ws-mtd-group-last td{border-bottom:1px solid rgba(124,127,255,.25)}
+#view-weekly td.ws-mtd-no-bud,#view-flow td.ws-mtd-no-bud{color:var(--text-3);font-size:11px}
+#view-weekly .ws-pos,#view-flow .ws-pos{color:var(--success)}
+#view-weekly .ws-neg,#view-flow .ws-neg{color:var(--danger)}
+#view-weekly .ws-neutral,#view-flow .ws-neutral{color:var(--text-3)}
 #ws-error-box{padding:40px;text-align:center;color:var(--danger);font-size:14px;display:none}
 #ws-loading{display:flex;align-items:center;justify-content:center;height:260px;color:var(--text-3);font-size:15px;gap:12px}
 .ws-spinner{width:26px;height:26px;border:3px solid var(--elevated);border-top-color:var(--primary);border-radius:50%;animation:spinWs .8s linear infinite}
@@ -448,18 +454,28 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
   .topbar,.flow-toolbar,#flow-zoom-warn,#daily-lob-toggle{display:none!important}
   #view-flow,.flow-stage-wrap{background:#fff!important}
   .flow-stage-wrap{padding:0!important;gap:0!important}
-  /* En impresion las tablas ya no tienen cap de filas (ver _flowPrinting en JS) —
-     un slide con mucho detalle pais/partner puede necesitar mas de 1 pagina, por
-     eso height:auto en vez de fijar 720px: mejor que se extienda a que se pierdan
-     filas sin forma de verlas (antes quedaban con scroll muerto + "+N mas" fantasma). */
-  .flow-frame{width:1280px!important;height:auto!important;min-height:720px!important;margin:0 auto!important;
+  /* Un slide con mucho detalle (pais/partner, o Weekly con 5 paises x 5 semanas)
+     puede necesitar mas de 1 pagina — sin page-break-inside:avoid, para que fluya
+     a la pagina siguiente en vez de cortarse en el borde (Chrome clippea si el
+     contenido no entra en 1 pagina Y se le pide "avoid" al mismo tiempo). */
+  .flow-frame{width:1280px!important;margin:0 auto!important;
     box-shadow:none!important;border-radius:0!important;
-    page-break-after:always;page-break-inside:avoid}
+    page-break-after:always}
   .flow-frame:last-child{page-break-after:auto}
-  .flow-slide{transform:none!important;height:auto!important;min-height:720px!important}
-  .fl-body{height:auto!important;min-height:calc(720px - 96px)!important}
-  .fl-scroll-tbl{overflow:visible!important;min-height:0!important}
 }
+/* Reglas compartidas por impresion (activadas via beforeprint/afterprint) Y por
+   "Enviar a Google Slides" (_flowExportSlides) — ambas son capturas estaticas de
+   una sola vez donde no tiene sentido el scroll interno ni el cap de filas de
+   flowGroupTable_ (ver _flowPrinting). Sin esto, "Enviar a Google Slides" capturaba
+   con html2canvas solo lo que entraba VISIBLE en el scroll on-screen (bug real,
+   2026-09-13: las tablas de Weekly/pais-partner quedaban cortadas a la mitad en el
+   deck de Slides aunque en impresion ya funcionaban bien). */
+#view-flow.flow-exporting .flow-frame{height:auto!important;min-height:720px!important}
+#view-flow.flow-exporting .flow-slide{transform:none!important;height:auto!important;min-height:720px!important}
+#view-flow.flow-exporting .fl-body{height:auto!important;min-height:calc(720px - 96px)!important}
+#view-flow.flow-exporting .fl-scroll-tbl{overflow:visible!important;min-height:0!important}
+#view-flow.flow-exporting .ws-table-wrap,#view-flow.flow-exporting .ws-mtd-wrap{overflow:visible!important;min-height:0!important}
+#view-flow.flow-exporting .ws-panel-weekly,#view-flow.flow-exporting .ws-panel-mtd,#view-flow.flow-exporting .ws-tables-row{min-height:0!important}
 .flow-stage-wrap{display:flex;flex-direction:column;align-items:center;gap:26px;padding:24px 16px;
   background:var(--bg)}
 .flow-frame{position:relative;overflow:hidden;flex:0 0 auto;border-radius:6px;
@@ -3234,8 +3250,8 @@ var _WS_METRICS = [
   { key:'gb',    label:'GB',   fmt:'M',   lyKey:'vsLYgb',  l4wKey:'gb',    l4wFmt:'pct' }
 ];
 
-function _wsRenderWeekly(d) {
-  var thead = document.getElementById('ws-thead');
+function _wsRenderWeekly(d, theadId, tbodyId) {
+  var thead = document.getElementById(theadId || 'ws-thead');
   thead.innerHTML = '';
   var tr = document.createElement('tr'); tr.className = 'head-weeks';
   _wsAddTh(tr, 'País'); _wsAddTh(tr, 'Métrica');
@@ -3243,7 +3259,7 @@ function _wsRenderWeekly(d) {
   var thL = _wsAddTh(tr, 'vs L4W'); thL.className = 'l4w-col';
   thead.appendChild(tr);
 
-  var tbody = document.getElementById('ws-tbody');
+  var tbody = document.getElementById(tbodyId || 'ws-tbody');
   tbody.innerHTML = '';
   d.rows.forEach(function(row) {
     var isTotal  = row.group === 'TOTAL';
@@ -3713,7 +3729,14 @@ var FLOW_DECK = [
   {kind:'monthly', region:'SAH', name:'Hispa — Mensual'},
   {kind:'daily', region:'SAH', metric:'nr', name:'Hispa — NR diario'},
   {kind:'daily', region:'SAH', metric:'fvm', name:'Hispa — FVM diario'},
-  {kind:'tables', region:'SAH', name:'Hispa — Tablas GB/NR/FVM'}
+  {kind:'tables', region:'SAH', name:'Hispa — Tablas GB/NR/FVM'},
+  {kind:'divider', flag:'WK', title:'Weekly Summary', name:'— Weekly —'},
+  {kind:'weekly', lob:'B2B+B2B2C', view:'GD', name:'Weekly — B2B+B2B2C (GD)'},
+  {kind:'weekly', lob:'B2B+B2B2C', view:'RI', name:'Weekly — B2B+B2B2C (RI)'},
+  {kind:'weekly', lob:'B2B',       view:'GD', name:'Weekly — B2B (GD)'},
+  {kind:'weekly', lob:'B2B',       view:'RI', name:'Weekly — B2B (RI)'},
+  {kind:'weekly', lob:'B2B2C',     view:'GD', name:'Weekly — B2B2C (GD)'},
+  {kind:'weekly', lob:'B2B2C',     view:'RI', name:'Weekly — B2B2C (RI)'}
 ];
 var _flowCharts = {}, _flowSeries = {}, _flowDrawn = {}, _flowBuilt = false;
 
@@ -3880,12 +3903,14 @@ function flowBuildSlide_(def, idx){
   var vDate=flowVDate_(), mesLbl=flowMonthName_(vDate);
   var cmp=_flowComp, cmpLbl=FLOW_COMP[cmp].label, cmpShort=FLOW_COMP[cmp].short;
   if(def.kind==='divider'){
-    var rg=FLOW_RG[def.region];
+    var rg=def.region?FLOW_RG[def.region]:null;
+    var flag=def.flag||(rg&&rg.flag)||'';
+    var divTitle=def.title||((rg?rg.label:'')+' performance');
     return '<div class="flow-slide divider">'
       +'<div class="fl-div-circle"></div>'
       +'<svg class="fl-div-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="10" cy="10" r="6"/><line x1="14.5" y1="14.5" x2="21" y2="21" stroke-width="2.2"/><text x="10" y="13.5" font-size="9" text-anchor="middle" fill="currentColor" stroke="none" font-weight="bold">$</text></svg>'
-      +'<div class="fl-div-flag">'+rg.flag+'</div>'
-      +'<div class="fl-div-title">'+rg.label+' performance</div>'
+      +'<div class="fl-div-flag">'+flag+'</div>'
+      +'<div class="fl-div-title">'+divTitle+'</div>'
       +'<div class="fl-div-logo">'+flLogo_()+'<div class="dl-txt">DESPEGAR<small>GROUP</small></div></div>'
       +'</div>';
   }
@@ -3972,6 +3997,44 @@ function flowBuildSlide_(def, idx){
       +triple(secondary,'vs '+FLOW_COMP[secondary].label,'#8e5ff3')+'</div>';
     return '<div class="flow-slide">'+flHead_(titleTxt, brand)+body+'</div>';
   }
+  if(def.kind==='weekly'){
+    var lob=def.lob, view=def.view;
+    var wd=_wsCache[lob+'_'+view];
+    var lobLbl=(lob==='B2B+B2B2C')?'B2B + B2B2C':lob;
+    var titleTxt='Weekly Summary — '+lobLbl+' ('+view+')';
+    if(!wd || !wd.rows){
+      return '<div class="flow-slide">'+flHead_(titleTxt, flLogo_())
+        +'<div class="fl-body" style="display:flex;align-items:center;justify-content:center;color:var(--fl-ink3);font-size:14px">No se pudieron cargar los datos de Weekly para esta combinación.</div></div>';
+    }
+    // Mismo markup/CSS (ws-table, ws-mtd-table, etc.) que la vista nativa "Weekly" —
+    // las tablas quedan vacías acá (thead/tbody con id único por slide) y se llenan
+    // después, vía flowRenderWeeklyTables_() (llama a _wsRenderWeekly/_wsRenderMTDTable_,
+    // las mismas funciones que usa la vista nativa) una vez que el HTML ya está en el DOM.
+    var mtdPanel;
+    if(wd.mtd && wd.mtd.split){
+      mtdPanel='<div style="display:flex;gap:16px;flex:1;min-height:0">'
+        +'<div style="flex:1;min-width:0;display:flex;flex-direction:column">'
+          +'<div class="ws-sec-title" id="flws-mtdtitle-'+idx+'-b2b2c">Performance MTD — B2B2C</div>'
+          +'<div class="ws-mtd-wrap"><table class="ws-mtd-table"><thead id="flws-mtdthead-'+idx+'-b2b2c"></thead><tbody id="flws-mtdtbody-'+idx+'-b2b2c"></tbody></table></div>'
+        +'</div>'
+        +'<div style="flex:1;min-width:0;display:flex;flex-direction:column">'
+          +'<div class="ws-sec-title" id="flws-mtdtitle-'+idx+'-b2b">Performance MTD — B2B</div>'
+          +'<div class="ws-mtd-wrap"><table class="ws-mtd-table"><thead id="flws-mtdthead-'+idx+'-b2b"></thead><tbody id="flws-mtdtbody-'+idx+'-b2b"></tbody></table></div>'
+        +'</div></div>';
+    } else {
+      mtdPanel='<div class="ws-sec-title" id="flws-mtdtitle-'+idx+'">Performance MTD</div>'
+        +'<div class="ws-mtd-wrap"><table class="ws-mtd-table"><thead id="flws-mtdthead-'+idx+'"></thead><tbody id="flws-mtdtbody-'+idx+'"></tbody></table></div>';
+    }
+    var body='<div class="fl-body" style="display:flex;flex-direction:column">'
+      +'<div class="ws-tables-row">'
+        +'<div class="ws-panel-weekly">'
+          +'<div class="ws-sec-title">Resumen Semanal</div>'
+          +'<div class="ws-table-wrap"><table class="ws-table"><thead id="flws-thead-'+idx+'"></thead><tbody id="flws-tbody-'+idx+'"></tbody></table></div>'
+        +'</div>'
+        +'<div class="ws-panel-mtd">'+mtdPanel+'</div>'
+      +'</div></div>';
+    return '<div class="flow-slide">'+flHead_(titleTxt, flLogo_())+body+'</div>';
+  }
   return '<div class="flow-slide"></div>';
 }
 
@@ -4029,9 +4092,28 @@ function flowBuild_(){
   flowPopulateMonths_();
   flowPopulateTiers_();
   var cs=document.getElementById('flow-comp'); if(cs) cs.value=_flowComp;
+  flowRenderWeeklyTables_();
   _flowBuilt=true;
   flowSetupObserver_();
   return true;
+}
+// Los slides "weekly" salen con tablas vacías (thead/tbody con id unico por slide) —
+// se llenan acá, ya con el HTML en el DOM, reusando las mismas _wsRenderWeekly/
+// _wsRenderMTDTable_ que arma la vista nativa "Weekly" (mismo formato exacto:
+// columnas por semana, filas de %vs LY, banderas, flechas).
+function flowRenderWeeklyTables_(){
+  FLOW_DECK.forEach(function(def, idx){
+    if(def.kind!=='weekly') return;
+    var wd=_wsCache[def.lob+'_'+def.view];
+    if(!wd || !wd.rows) return;
+    _wsRenderWeekly(wd, 'flws-thead-'+idx, 'flws-tbody-'+idx);
+    if(wd.mtd && wd.mtd.split){
+      _wsRenderMTDTable_(wd.mtd.b2b2c, 'flws-mtdthead-'+idx+'-b2b2c', 'flws-mtdtbody-'+idx+'-b2b2c', 'flws-mtdtitle-'+idx+'-b2b2c', 'B2B2C');
+      _wsRenderMTDTable_(wd.mtd.b2b,   'flws-mtdthead-'+idx+'-b2b',   'flws-mtdtbody-'+idx+'-b2b',   'flws-mtdtitle-'+idx+'-b2b',   'B2B');
+    } else if(wd.mtd){
+      _wsRenderMTDTable_(wd.mtd, 'flws-mtdthead-'+idx, 'flws-mtdtbody-'+idx, 'flws-mtdtitle-'+idx, null);
+    }
+  });
 }
 // Contador de pagina tipo Google Slides — sigue el scroll y marca el slide actual.
 var _flowCurrentIdx=0, _flowIO=null;
@@ -4098,6 +4180,33 @@ function flowScale_(){
   if(warn) warn.style.display=(s<0.85)?'':'none';
 }
 var _tierLoading = false;
+// Los slides "weekly" reusan _wsCache (misma cache que la vista nativa "Weekly") —
+// si el usuario ya visitó esa vista antes, esto no pega ningún fetch nuevo. Los
+// combos que falten se piden una sola vez; no dependen de mes/comp/tier de Flow,
+// así que no hace falta re-pedirlos en cada flowRebuild_.
+var FLOW_WEEKLY_COMBOS=[
+  {lob:'B2B+B2B2C',view:'GD'},{lob:'B2B+B2B2C',view:'RI'},
+  {lob:'B2B',view:'GD'},{lob:'B2B',view:'RI'},
+  {lob:'B2B2C',view:'GD'},{lob:'B2B2C',view:'RI'}
+];
+var _flowWeeklyReady=false;
+function flowFetchWeeklyData_(cb){
+  var pending=FLOW_WEEKLY_COMBOS.filter(function(c){ return !_wsCache[c.lob+'_'+c.view]; });
+  if(!pending.length){ cb(); return; }
+  var done=0;
+  pending.forEach(function(c){
+    google.script.run
+      .withSuccessHandler(function(res){
+        if(res && res.success) _wsCache[c.lob+'_'+c.view]=res;
+        done++; if(done===pending.length) cb();
+      })
+      .withFailureHandler(function(e){
+        console.error('[flow] no se pudo cargar Weekly '+c.lob+'/'+c.view+':', e);
+        done++; if(done===pending.length) cb();
+      })
+      .getWeeklySummaryData({view:c.view, lob:c.lob});
+  });
+}
 function flowOpen_(){
   if(_partnerTierMap===null){
     document.getElementById('flow-track').innerHTML='<div style="padding:60px;text-align:center;color:#6b6b85;font-size:16px">Cargando tiers…</div>';
@@ -4117,6 +4226,11 @@ function flowOpen_(){
     }
     return;
   }
+  if(!_flowWeeklyReady){
+    document.getElementById('flow-track').innerHTML='<div style="padding:60px;text-align:center;color:#6b6b85;font-size:16px">Cargando datos semanales…</div>';
+    flowFetchWeeklyData_(function(){ _flowWeeklyReady=true; flowOpen_(); });
+    return;
+  }
   if(!flowBuild_()){
     document.getElementById('flow-track').innerHTML='<div style="padding:60px;text-align:center;color:#6b6b85;font-size:16px">Cargando datos… reintentá en unos segundos.</div>';
     return;
@@ -4128,11 +4242,13 @@ window.addEventListener('resize', function(){ if(_activeView==='flow') flowScale
 window.addEventListener('beforeprint', function(){
   if(_activeView!=='flow') return;
   _flowPrinting=true;
+  document.getElementById('view-flow').classList.add('flow-exporting');
   flowRebuild_();
 });
 window.addEventListener('afterprint', function(){
   if(!_flowPrinting) return;
   _flowPrinting=false;
+  document.getElementById('view-flow').classList.remove('flow-exporting');
   flowRebuild_();
 });
 
@@ -4159,25 +4275,42 @@ function _flowExportSlides(){
   _flowExporting=true;
   var btn=document.getElementById('flow-export-btn');
   function setBtn(txt,disabled){ if(btn){ btn.textContent=txt; btn.disabled=!!disabled; } }
-  function reset(){ _flowExporting=false; setBtn('📤 Enviar a Google Slides', false); }
-  setBtn('⏳ Capturando slides…', true);
-  _flowCaptureSlideImages_().then(function(images){
-    setBtn('⏳ Generando deck…', true);
-    google.script.run
-      .withSuccessHandler(function(res){
-        reset();
-        if(res && res.url) window.open(res.url, '_blank');
-        else alert('El servidor no devolvió la URL del deck.');
-      })
-      .withFailureHandler(function(e){
-        reset();
-        alert('No se pudo generar el deck de Google Slides: ' + ((e&&e.message)||e));
-      })
-      .buildFlowSlidesDeck({ title:'Flow Semanal', slideImages:images });
-  }).catch(function(e){
-    reset();
-    alert('No se pudieron capturar las slides: ' + (e.message||e));
-  });
+  function reset(){
+    _flowExporting=false;
+    _flowPrinting=false;
+    document.getElementById('view-flow').classList.remove('flow-exporting');
+    flowRebuild_();
+    setBtn('📤 Enviar a Google Slides', false);
+  }
+  setBtn('⏳ Preparando…', true);
+  // Mismo modo "exportando" que usa la impresión (.flow-exporting + _flowPrinting):
+  // sin esto, html2canvas capturaba solo lo que entraba VISIBLE en el scroll interno
+  // de las tablas (Weekly, país/partner), cortando el resto del deck de Slides.
+  _flowPrinting=true;
+  document.getElementById('view-flow').classList.add('flow-exporting');
+  flowRebuild_();
+  // Esperar a que el rebuild + resize de charts (doble rAF en flowDrawAllCharts_)
+  // termine de asentar el layout antes de capturar.
+  requestAnimationFrame(function(){ requestAnimationFrame(function(){ requestAnimationFrame(function(){
+    setBtn('⏳ Capturando slides…', true);
+    _flowCaptureSlideImages_().then(function(images){
+      setBtn('⏳ Generando deck…', true);
+      google.script.run
+        .withSuccessHandler(function(res){
+          reset();
+          if(res && res.url) window.open(res.url, '_blank');
+          else alert('El servidor no devolvió la URL del deck.');
+        })
+        .withFailureHandler(function(e){
+          reset();
+          alert('No se pudo generar el deck de Google Slides: ' + ((e&&e.message)||e));
+        })
+        .buildFlowSlidesDeck({ title:'Flow Semanal', slideImages:images });
+    }).catch(function(e){
+      reset();
+      alert('No se pudieron capturar las slides: ' + (e.message||e));
+    });
+  }); }); });
 }
 document.addEventListener('keydown', function(e){
   if(_activeView!=='flow') return;
