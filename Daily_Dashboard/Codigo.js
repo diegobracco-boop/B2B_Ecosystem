@@ -1052,3 +1052,55 @@ function getAgenciasOKR() {
   payload.budget = getBudgetAgencias_();
   return payload;
 }
+
+// ============================================================
+// Flow Semanal — "Enviar a Google Slides"
+// Mismo patrón que Dashboard_B2B_WLs (Slides cierre de mes): el cliente captura
+// cada .flow-slide TAL CUAL se ve con html2canvas y acá solo se insertan esas
+// imágenes, una por slide — no se reconstruye nada con la API nativa de Slides
+// (SlidesApp no hereda CSS).
+// ============================================================
+
+// Nombre SIN "_" final a propósito: google.script.run no invoca funciones que
+// terminen (ni empiecen) con guión bajo — el editor las trata como privadas.
+// payload = { title, slideImages: [{img:'data:image/png;base64,...', w, h} | null, ...] }
+function buildFlowSlidesDeck(payload) {
+  payload = payload || {};
+  var images = payload.slideImages || [];
+  var pres = SlidesApp.create((payload.title || 'Flow Semanal') + ' — ' + new Date().toISOString().slice(0, 16).replace('T', ' '));
+  var w = pres.getPageWidth(), h = pres.getPageHeight();
+  var defaultSlide = pres.getSlides()[0];
+  var margin = 20;
+
+  images.forEach(function(entry) {
+    var slide = pres.appendSlide(SlidesApp.PredefinedLayout.BLANK);
+    if (!entry || !entry.img) {
+      slide.insertTextBox('No se pudo capturar esta slide (revisar consola del navegador).', 40, h/2 - 12, w - 80, 24)
+           .getText().getTextStyle().setFontSize(14).setForegroundColor('#C0392B');
+      return;
+    }
+    var b64  = String(entry.img).replace(/^data:image\/png;base64,/, '');
+    var blob = Utilities.newBlob(Utilities.base64Decode(b64), 'image/png', 'slide.png');
+    var availW = w - margin*2, availH = h - margin*2;
+    var ratio  = entry.w && entry.h ? entry.w/entry.h : (availW/availH);
+    var imgW = availW, imgH = imgW/ratio;
+    if (imgH > availH) { imgH = availH; imgW = imgH*ratio; }
+    var left = (w - imgW)/2, top = (h - imgH)/2;
+    slide.insertImage(blob, left, top, imgW, imgH);
+  });
+
+  if (images.length > 0) defaultSlide.remove(); // el default requiere >=1 slide ya insertada
+
+  return { url: pres.getUrl(), id: pres.getId() };
+}
+
+// Función sin "_" final (ver nota arriba): correrla UNA VEZ desde el editor de Apps
+// Script (▶ Run, no desde el webapp) para disparar la pantalla de autorización real
+// del scope "presentations" — cada proyecto de Apps Script autoriza sus scopes por
+// separado, así que esto es necesario acá aunque ya se haya autorizado en otro
+// proyecto (ej. Dashboard_B2B_WLs). Después se puede borrar la presentación de
+// prueba que crea en Drive.
+function autorizarGoogleSlides() {
+  var pres = SlidesApp.create('TEST autorización Slides — borrar');
+  Logger.log('OK, autorizado. Presentación de prueba: ' + pres.getUrl());
+}
