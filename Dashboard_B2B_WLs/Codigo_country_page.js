@@ -15,7 +15,7 @@ var CTRY_QUARTERS = [
 var CTRY_PAISES = ['all','Brasil','Mexico','Argentina','other countries','Colombia','Chile','Peru','Ecuador','RG'];
 
 function _ctryPageCacheKey_(pais, desde, hasta, bl) {
-  return JSON.stringify({ v:26, ctry:1, pais:pais, desde:desde, hasta:hasta, bl: bl || 'baseline' });
+  return JSON.stringify({ v:27, ctry:1, pais:pais, desde:desde, hasta:hasta, bl: bl || 'baseline' });
 }
 
 // Computa resultado country-page usando mapas ya cargados (lo llaman tanto
@@ -36,11 +36,13 @@ function _computeCountryPageResult_(pais, desde, hasta,
     },
     b2bData: {
       ocConceptWf: computeOcConceptWf_(pB2b,   baseManMap, rrManMap, budManMap, lyManMap),
-      nrBridgeWf:  computeNRBridgeWf_ (pB2b,   baseNrN2,   rrNrN2,   budNrN2,   lyNrN2)
+      nrBridgeWf:  computeNRBridgeWf_ (pB2b,   baseNrN2,   rrNrN2,   budNrN2,   lyNrN2),
+      evo:         computeEvo_(pB2b,   baseMap, rrMap, budMap, lyMap, fcMap)
     },
     b2b2cData: {
       ocConceptWf: computeOcConceptWf_(pB2b2c, baseManMap, rrManMap, budManMap, lyManMap),
-      nrBridgeWf:  computeNRBridgeWf_ (pB2b2c, baseNrN2,   rrNrN2,   budNrN2,   lyNrN2)
+      nrBridgeWf:  computeNRBridgeWf_ (pB2b2c, baseNrN2,   rrNrN2,   budNrN2,   lyNrN2),
+      evo:         computeEvo_(pB2b2c, baseMap, rrMap, budMap, lyMap, fcMap)
     }
   };
 }

@@ -4606,40 +4606,57 @@ function _renderBrasilWf_() {
   });
 }
 
-// Evolución mensual del país seleccionado — 3 charts separados (GB / NR / OC),
-// B2B + B2B2C combinado, mismo criterio (Actuals+RR vs Goal) que el chart principal.
+// Evolución mensual del país seleccionado — 3 charts (GB / NR / OC) apilados
+// verticalmente (uno abajo del otro), separados por línea de negocio: B2B y B2B2C.
+// Mismo criterio (Actuals+RR vs Goal) que el chart principal.
 function _renderBrasilEvo_() {
   var container = document.getElementById('brasil-evo-grid');
   if (!container) return;
   container.innerHTML = '';
 
-  var d = _brasilState.allData && _brasilState.allData.evo;
   var c = _brasilCountry_();
   var goalLabel = _state.goal==='budget' ? 'Budget' : _state.goal==='lastYear' ? 'Last Year' : _state.goal==='forecast' ? 'Forecast' : 'Run Rate';
 
   var titleEl = document.createElement('div');
   titleEl.className = 'sec-title';
   titleEl.style.cssText = 'margin:4px 0 10px';
-  titleEl.textContent = 'Evolución mensual — B2B + B2B2C' + (c ? ' · ' + c.label : '');
+  titleEl.textContent = 'Evolución mensual' + (c ? ' · ' + c.label : '');
   container.appendChild(titleEl);
 
-  var grid = document.createElement('div');
-  grid.style.cssText = 'display:grid;grid-template-columns:repeat(3,minmax(260px,1fr));gap:16px';
-  container.appendChild(grid);
-
   var METRICS = [
-    { id:'gb', label:'Gross Bookings',   canvasId:'chart-ctry-evo-gb' },
-    { id:'nr', label:'Net Revenues',     canvasId:'chart-ctry-evo-nr' },
-    { id:'oc', label:'Op. Contribution', canvasId:'chart-ctry-evo-oc' }
+    { id:'gb', label:'Gross Bookings' },
+    { id:'nr', label:'Net Revenues' },
+    { id:'oc', label:'Op. Contribution' }
   ];
-  METRICS.forEach(function(mdef) {
-    var card = document.createElement('div');
-    card.className = 'chart-card';
-    card.innerHTML =
-      '<h3>' + mdef.label + '<small>Actuals+RR vs ' + goalLabel + '</small></h3>' +
-      '<div class="chart-wrap"><canvas id="' + mdef.canvasId + '"></canvas></div>';
-    grid.appendChild(card);
-    _drawEvoMetricChart_(mdef.canvasId, d, mdef.id);
+
+  var SECTIONS = [
+    { key:'b2b',   title:'B2B',   data:_brasilState.b2bData   },
+    { key:'b2b2c', title:'B2B2C', data:_brasilState.b2b2cData }
+  ];
+
+  SECTIONS.forEach(function(sec) {
+    var secTitle = document.createElement('div');
+    secTitle.className = 'sec-title';
+    secTitle.style.cssText = 'margin:14px 0 10px';
+    secTitle.textContent = sec.title;
+    container.appendChild(secTitle);
+
+    // Una sola columna → los 3 charts quedan uno abajo del otro, a ancho completo.
+    var grid = document.createElement('div');
+    grid.style.cssText = 'display:grid;grid-template-columns:1fr;gap:16px';
+    container.appendChild(grid);
+
+    var evo = sec.data && sec.data.evo;
+    METRICS.forEach(function(mdef) {
+      var canvasId = 'chart-ctry-evo-' + sec.key + '-' + mdef.id;
+      var card = document.createElement('div');
+      card.className = 'chart-card';
+      card.innerHTML =
+        '<h3>' + mdef.label + '<small>Actuals+RR vs ' + goalLabel + '</small></h3>' +
+        '<div class="chart-wrap"><canvas id="' + canvasId + '"></canvas></div>';
+      grid.appendChild(card);
+      _drawEvoMetricChart_(canvasId, evo, mdef.id);
+    });
   });
 }
 
