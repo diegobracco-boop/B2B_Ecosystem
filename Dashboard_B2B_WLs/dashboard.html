@@ -3562,13 +3562,14 @@ function _groupEvo(d, m, gbM, goalKey) {
   var gran = _state.evoGranularity || 'M';
   var goalArr = m[goalKey] || m.budget;
   var gbAct   = gbM ? gbM.actuals : null;
+  var gbBud   = gbM ? gbM.budget  : null;
   var groups = [], gmap = {};
 
   d.periods.forEach(function(ym, i) {
     var key = _granKey(ym, gran);
     if (!gmap[key]) {
       gmap[key] = { key:key, label:_granLabel(ym,gran),
-        actuals:0, goal:0, budget:0, runRate:0, forecast:0, gbAct:0, lyAct:0,
+        actuals:0, goal:0, budget:0, runRate:0, forecast:0, gbAct:0, gbBud:0, lyAct:0,
         hasAct:false, hasGoal:false, hasRR:false, hasFc:false, lyCount:0, isFY27:false };
       groups.push(key);
     }
@@ -3582,6 +3583,7 @@ function _groupEvo(d, m, gbM, goalKey) {
     var fcVal=m.forecast?m.forecast[i]:null;
     if(fcVal!==null&&fcVal!==undefined&&fcVal!==0){ g.forecast+=fcVal; g.hasFc=true; }
     if(gbAct&&gbAct[i]!==null&&gbAct[i]!==undefined) g.gbAct+=gbAct[i];
+    if(gbBud&&gbBud[i]!==null&&gbBud[i]!==undefined) g.gbBud+=gbBud[i];
     // LY: same month previous año — viene precalculado del backend (m.lastYear)
     var lyVal = m.lastYear ? m.lastYear[i] : null;
     if(lyVal!==null&&lyVal!==undefined){
@@ -3599,6 +3601,7 @@ function _groupEvo(d, m, gbM, goalKey) {
       runRate:  (g.hasRR && !g.hasAct) ? g.runRate : null,
       forecast: g.hasFc ? g.forecast : null,
       gbAct:    g.gbAct   || null,
+      gbBud:    g.gbBud   || null,
       lyAct:    g.lyCount>0 ? g.lyAct : null,
       isFY27:   g.isFY27
     };
@@ -3609,7 +3612,8 @@ function _groupEvo(d, m, gbM, goalKey) {
 // Construye labels/datasets/scales para un gráfico de evolución (barras Actuals+RR
 // vs Goal, + línea %GB para NR/OC, + línea Last Year opcional). Reutilizado por el
 // chart principal (renderEvo) y por los charts de evolución del Country One Page.
-function _evoChartCfg_(d, metricId) {
+function _evoChartCfg_(d, metricId, opts) {
+  opts = opts || {};
   if (!d || !d.metrics) return null;
   var m = d.metrics.filter(function(x){ return x.id===metricId; })[0];
   if (!m) return null;
@@ -3633,11 +3637,17 @@ function _evoChartCfg_(d, metricId) {
   });
 
   // %GB line — only for NR and OC, only for actuals months
-  var pctGbData = null;
+  var pctGbData = null;   // ratio %GB de actuals (línea histórica)
+  var pctGbBud  = null;   // ratio %GB de budget (solo en modo dualPctGb)
   if ((metricId==='nr'||metricId==='oc') && gbM) {
     pctGbData = grps.map(function(g){
       return (g.gbAct&&g.gbAct!==0&&g.actuals!==null) ? g.actuals/g.gbAct*100 : null;
     });
+    if (opts.dualPctGb) {
+      pctGbBud = grps.map(function(g){
+        return (g.gbBud&&g.gbBud!==0&&g.budget!==null) ? g.budget/g.gbBud*100 : null;
+      });
+    }
   }
 
   // Datasets — single bar series with per-bar color + fake RR entry for legend
@@ -3647,14 +3657,40 @@ function _evoChartCfg_(d, metricId) {
     { label:goalLabel,          data:goalPlot,  backgroundColor:'rgba(140,149,159,.3)', borderRadius:4, order:3, type:'bar', yAxisID:'y' }
   ];
   if (pctGbData) {
-    datasets.unshift({
-      label: metricId==='nr'?'NR %GB':'OC %GB',
-      data:  pctGbData,
-      type:'line', yAxisID:'y2',
-      borderColor:'#f59e0b', backgroundColor:'rgba(245,158,11,.08)',
-      pointBackgroundColor:'#f59e0b', pointRadius:3, pointHoverRadius:5,
-      borderWidth:2, tension:0.35, fill:false, order:1
-    });
+    var _pctPrefix = metricId==='nr' ? 'NR' : 'OC';
+    if (opts.dualPctGb) {
+      // Dos líneas punteadas de %GB, con color igual al de las barras que representan:
+      //  · Actuals → morado (#5457D9, como la barra de actuals)
+      //  · Budget  → gris   (#8c95a9, como la barra de goal/budget)
+      // _pctLabel/_pctColor/_pctPos los usa el plugin topLabels para dibujar etiquetas.
+      datasets.unshift({
+        label: _pctPrefix+' %GB Budget',
+        data:  pctGbBud,
+        type:'line', yAxisID:'y2',
+        borderColor:'#8c95a9', backgroundColor:'rgba(140,149,159,.08)',
+        pointBackgroundColor:'#8c95a9', pointRadius:3, pointHoverRadius:5,
+        borderWidth:2, borderDash:[5,3], tension:0.35, fill:false, spanGaps:true, order:1,
+        _pctLabel:true, _pctColor:'#8c95a9', _pctPos:'below'
+      });
+      datasets.unshift({
+        label: _pctPrefix+' %GB Actuals',
+        data:  pctGbData,
+        type:'line', yAxisID:'y2',
+        borderColor:'#5457D9', backgroundColor:'rgba(84,87,217,.08)',
+        pointBackgroundColor:'#5457D9', pointRadius:3, pointHoverRadius:5,
+        borderWidth:2, borderDash:[5,3], tension:0.35, fill:false, spanGaps:true, order:1,
+        _pctLabel:true, _pctColor:'#5457D9', _pctPos:'above'
+      });
+    } else {
+      datasets.unshift({
+        label: _pctPrefix+' %GB',
+        data:  pctGbData,
+        type:'line', yAxisID:'y2',
+        borderColor:'#f59e0b', backgroundColor:'rgba(245,158,11,.08)',
+        pointBackgroundColor:'#f59e0b', pointRadius:3, pointHoverRadius:5,
+        borderWidth:2, tension:0.35, fill:false, order:1
+      });
+    }
   }
   if (_state.evoShowLY && _state.goal!=='lastYear') {
     datasets.push({
@@ -3682,7 +3718,7 @@ function _evoChartCfg_(d, metricId) {
     scales.y2={
       position:'right',
       grid:{drawOnChartArea:false},
-      ticks:{color:'#f59e0b',font:{size:10},callback:function(v){return v.toFixed(1)+'%';}}
+      ticks:{color: opts.dualPctGb ? '#57606a' : '#f59e0b',font:{size:10},callback:function(v){return v.toFixed(1)+'%';}}
     };
   }
 
@@ -3691,11 +3727,12 @@ function _evoChartCfg_(d, metricId) {
 
 // Dibuja un chart de evolución "standalone" (sin título/badge/subtítulo propios en el DOM
 // del card principal) en el canvas indicado. Usado por el Country One Page.
-function _drawEvoMetricChart_(canvasId, d, metricId) {
+function _drawEvoMetricChart_(canvasId, d, metricId, opts) {
+  opts = opts || {};
   destroyChart(canvasId);
   var canvasEl = document.getElementById(canvasId);
   if (!canvasEl) return;
-  var cfg = _evoChartCfg_(d, metricId);
+  var cfg = _evoChartCfg_(d, metricId, opts);
   if (!cfg) {
     var wrap = canvasEl.parentNode;
     if (wrap) wrap.innerHTML = '<div style="text-align:center;padding:32px;color:var(--muted);font-size:12px">Sin datos</div>';
@@ -3722,17 +3759,33 @@ function _drawEvoMetricChart_(canvasId, d, metricId) {
       afterDatasetsDraw:function(chart){
         var ctx=chart.ctx;
         chart.data.datasets.forEach(function(ds,di){
-          if(ds.label!=='Actuals') return;
-          chart.getDatasetMeta(di).data.forEach(function(bar,i){
-            var val=ds.data[i];
-            if(val===null||val===undefined||val===0) return;
-            ctx.save();
-            ctx.fillStyle='#1f2328';
-            ctx.font='bold 10px -apple-system,sans-serif';
-            ctx.textAlign='center';
-            ctx.fillText(fmtK(val),bar.x,bar.y-4);
-            ctx.restore();
-          });
+          // Etiquetas sobre las barras de Actuals
+          if(ds.label==='Actuals'){
+            chart.getDatasetMeta(di).data.forEach(function(bar,i){
+              var val=ds.data[i];
+              if(val===null||val===undefined||val===0) return;
+              ctx.save();
+              ctx.fillStyle='#1f2328';
+              ctx.font='bold 10px -apple-system,sans-serif';
+              ctx.textAlign='center';
+              ctx.fillText(fmtK(val),bar.x,bar.y-4);
+              ctx.restore();
+            });
+            return;
+          }
+          // Etiquetas sobre las líneas de %GB (Actuals / Budget)
+          if(ds._pctLabel){
+            chart.getDatasetMeta(di).data.forEach(function(pt,i){
+              var val=ds.data[i];
+              if(val===null||val===undefined) return;
+              ctx.save();
+              ctx.fillStyle=ds._pctColor||'#57606a';
+              ctx.font='bold 9px -apple-system,sans-serif';
+              ctx.textAlign='center';
+              ctx.fillText(val.toFixed(1)+'%', pt.x, pt.y + (ds._pctPos==='below'?12:-6));
+              ctx.restore();
+            });
+          }
         });
       }
     }]
@@ -4655,7 +4708,7 @@ function _renderBrasilEvo_() {
         '<h3>' + mdef.label + '<small>Actuals+RR vs ' + goalLabel + '</small></h3>' +
         '<div class="chart-wrap"><canvas id="' + canvasId + '"></canvas></div>';
       grid.appendChild(card);
-      _drawEvoMetricChart_(canvasId, evo, mdef.id);
+      _drawEvoMetricChart_(canvasId, evo, mdef.id, { dualPctGb:true });
     });
   });
 }
