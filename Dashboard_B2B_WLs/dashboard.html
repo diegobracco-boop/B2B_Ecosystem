@@ -239,6 +239,18 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
 .chart-card h3{font-size:13px;font-weight:700;margin-bottom:2px}
 .chart-card h3 small{display:block;font-weight:400;color:var(--muted);font-size:11px;margin-bottom:10px}
 .chart-wrap{position:relative;height:240px}
+/* Cajitas de crecimiento YoY debajo de cada chart de evolución (Country One Page) */
+.evo-yoy{margin-top:12px;display:flex;flex-direction:column;gap:5px}
+.evo-yoy-row{display:flex;align-items:stretch;gap:8px}
+.evo-yoy-lbl{flex:0 0 84px;display:flex;align-items:center;font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;line-height:1.15}
+.evo-yoy-boxes{flex:1;display:grid;gap:4px}
+.evo-yoy-box{border:1px solid var(--border);border-radius:6px;padding:3px 1px;text-align:center;background:var(--surface2)}
+.evo-yoy-box .m{display:block;font-size:8px;color:var(--muted2);text-transform:uppercase;line-height:1.2}
+.evo-yoy-box .v{display:block;font-size:10px;font-weight:700;color:var(--muted);line-height:1.3}
+.evo-yoy-box.pos{background:var(--green-bg);border-color:var(--green-bg)}
+.evo-yoy-box.pos .v{color:var(--green)}
+.evo-yoy-box.neg{background:var(--red-bg);border-color:var(--red-bg)}
+.evo-yoy-box.neg .v{color:var(--red)}
 .mini-tbl{width:100%;border-collapse:collapse;margin-top:12px;font-size:11px}
 .mini-tbl th{background:var(--surface2);color:var(--muted2);padding:5px 10px;text-align:right;font-weight:600;text-transform:uppercase;font-size:10px;border-bottom:1px solid var(--border)}
 .mini-tbl th:first-child{text-align:left}
@@ -4718,6 +4730,8 @@ function _renderBrasilEvo_() {
     container.appendChild(grid);
 
     var evo = sec.data && sec.data.evo;
+    var gbObj = (evo && evo.metrics) ? evo.metrics.filter(function(x){ return x.id==='gb'; })[0] : null;
+    var goalKey = _state.goal==='budget' ? 'budget' : _state.goal==='lastYear' ? 'budget' : _state.goal==='forecast' ? 'forecast' : 'runRate';
     METRICS.forEach(function(mdef) {
       var canvasId = 'chart-ctry-evo-' + sec.key + '-' + mdef.id;
       var card = document.createElement('div');
@@ -4727,8 +4741,35 @@ function _renderBrasilEvo_() {
         '<div class="chart-wrap"><canvas id="' + canvasId + '"></canvas></div>';
       grid.appendChild(card);
       _drawEvoMetricChart_(canvasId, evo, mdef.id, { dualPctGb:true });
+
+      // Cajitas de crecimiento YoY (una por mes): primero baseline (Act+RR) vs LY,
+      // después budget vs LY. Usan el mismo agrupamiento que las barras del chart.
+      var mObj = (evo && evo.metrics) ? evo.metrics.filter(function(x){ return x.id===mdef.id; })[0] : null;
+      if (evo && mObj) {
+        var grps = _groupEvo(evo, mObj, gbObj, goalKey);
+        var yoy = document.createElement('div');
+        yoy.className = 'evo-yoy';
+        yoy.innerHTML =
+          _evoYoyRow_('YoY Act+RR', grps, function(g){ var bv = g.actuals!==null ? g.actuals : g.runRate; return (bv!==null && g.lyAct) ? (bv/g.lyAct-1) : null; }) +
+          _evoYoyRow_('YoY Budget', grps, function(g){ return (g.budget!==null && g.lyAct) ? (g.budget/g.lyAct-1) : null; });
+        card.appendChild(yoy);
+      }
     });
   });
+}
+
+// Fila de cajitas de crecimiento YoY (una por período) para los charts de evolución
+// del Country One Page. valFn(g) devuelve la tasa (ej. 0.23) o null.
+function _evoYoyRow_(label, grps, valFn) {
+  var boxes = grps.map(function(g){
+    var v = valFn(g);
+    var na = (v===null || v===undefined || isNaN(v));
+    var cls = na ? 'evo-yoy-box' : (v>=0 ? 'evo-yoy-box pos' : 'evo-yoy-box neg');
+    var txt = na ? '—' : (v>=0?'+':'') + Math.round(v*100) + '%';
+    return '<div class="'+cls+'"><span class="m">'+g.label+'</span><span class="v">'+txt+'</span></div>';
+  }).join('');
+  return '<div class="evo-yoy-row"><span class="evo-yoy-lbl">'+label+'</span>'
+       + '<div class="evo-yoy-boxes" style="grid-template-columns:repeat('+grps.length+',minmax(0,1fr))">'+boxes+'</div></div>';
 }
 
 // Normaliza etiqueta de concepto OC para alinear con el naming del NR bridge
