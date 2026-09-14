@@ -4724,9 +4724,9 @@ function _renderBrasilEvo_() {
     secTitle.textContent = sec.title;
     container.appendChild(secTitle);
 
-    // Una sola columna → los 3 charts quedan uno abajo del otro, a ancho completo.
+    // Una sola columna al 70% del ancho → los 3 charts quedan uno abajo del otro.
     var grid = document.createElement('div');
-    grid.style.cssText = 'display:grid;grid-template-columns:1fr;gap:16px';
+    grid.style.cssText = 'display:grid;grid-template-columns:70%;gap:16px';
     container.appendChild(grid);
 
     var evo = sec.data && sec.data.evo;
