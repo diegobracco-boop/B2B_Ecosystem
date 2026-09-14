@@ -1078,7 +1078,7 @@ function computeNRBridgeWf_(p, actNrN2Map, rrNrN2Map, budNrN2Map, lyNrN2Map, fcN
 }
 
 // ══════════════════════════════════════════════════════════════
-//  Evolución mensual (siempre Abr 2025 → último mes disponible)
+//  Evolución mensual (siempre Abr 2026 → último mes disponible)
 // ══════════════════════════════════════════════════════════════
 function computeEvo_(p, actMap, rrMap, budMap, actPrevMap, fcMap) {
   var METRICS = [
@@ -1087,7 +1087,7 @@ function computeEvo_(p, actMap, rrMap, budMap, actPrevMap, fcMap) {
     { id:'oc', n3:null,             label:'Op. Contribution' }
   ];
 
-  var START = '2025-04';
+  var START = '2026-04';
 
   // Recolectar todos los períodos disponibles desde START
   // actPrevMap cubre FY24/25/26 (meses anteriores a 2026-04); actMap cubre FY27
@@ -1108,7 +1108,7 @@ function computeEvo_(p, actMap, rrMap, budMap, actPrevMap, fcMap) {
   var result = { periods: periods, metrics: [] };
 
   METRICS.forEach(function(m) {
-    var actByMonth = {}, budByMonth = {}, rrByMonth = {}, fcByMonth = {};
+    var actByMonth = {}, budByMonth = {}, rrByMonth = {}, fcByMonth = {}, lyByMonth = {};
     periods.forEach(function(ym) {
       // Para FY27 (>= 2026-04): actMap = baseline (contiene todo el FY27 blended)
       // Para períodos históricos: actPrevMap
@@ -1121,6 +1121,13 @@ function computeEvo_(p, actMap, rrMap, budMap, actPrevMap, fcMap) {
       budByMonth[ym] = m.n3 ? (b[m.n3] ||0) : calcOC(b);
       rrByMonth[ym]  = m.n3 ? (r[m.n3] ||0) : calcOC(r);
       fcByMonth[ym]  = m.n3 ? (fc[m.n3]||0) : calcOC(fc);
+
+      // Last Year: mismo mes del año anterior. START ya no incluye el año previo
+      // en `periods`, así que se calcula acá con el mismo criterio de fuente que actSrc.
+      var lyYm  = shiftYear_(ym, -1);
+      var lySrc = (lyYm >= '2026-04') ? actMap : (actPrevMap || actMap);
+      var ly    = queryMap_(lySrc, baseFilter, null, lyYm, lyYm);
+      lyByMonth[ym] = m.n3 ? (ly[m.n3]||0) : calcOC(ly);
     });
     result.metrics.push({
       id:       m.id,
@@ -1128,7 +1135,8 @@ function computeEvo_(p, actMap, rrMap, budMap, actPrevMap, fcMap) {
       actuals:  periods.map(function(ym){ return actByMonth[ym]||null; }),
       budget:   periods.map(function(ym){ return budByMonth[ym]||null; }),
       runRate:  periods.map(function(ym){ return rrByMonth[ym] ||null; }),
-      forecast: periods.map(function(ym){ return fcByMonth[ym] ||null; })
+      forecast: periods.map(function(ym){ return fcByMonth[ym] ||null; }),
+      lastYear: periods.map(function(ym){ return lyByMonth[ym] ||null; })
     });
   });
 

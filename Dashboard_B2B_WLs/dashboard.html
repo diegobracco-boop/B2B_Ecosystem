@@ -1219,9 +1219,14 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
             <button class="mtab"        data-id="nr" onclick="switchEvo(this)">Net Revenues</button>
             <button class="mtab"        data-id="oc" onclick="switchEvo(this)">Op. Contribution</button>
           </div>
+          <!-- Last Year toggle -->
+          <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:#57606a;cursor:pointer;user-select:none" title="Superpone la serie Last Year al gráfico de evolución">
+            <input type="checkbox" id="evo-ly-toggle" onchange="toggleEvoLY(this)" style="cursor:pointer">
+            Incluir Last Year
+          </label>
         </div>
       </div>
-      <div class="evo-subtitle" id="evo-subtitle">Evolución mensual · Abr 2025 → último dato disponible</div>
+      <div class="evo-subtitle" id="evo-subtitle">Evolución mensual · Abr 2026 → último dato disponible</div>
       <div class="evo-wrap"><canvas id="chart-evo"></canvas></div>
       <div id="evo-yoy-table" style="overflow-x:auto;margin-top:6px"></div>
       <div id="evo-ctry-table" style="overflow-x:auto;margin-top:10px"></div>
@@ -1723,6 +1728,9 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
       <div style="text-align:center;padding:32px;color:var(--muted)">Seleccioná un período para cargar…</div>
     </div>
 
+    <!-- ── Evolución mensual por métrica (GB / NR / OC) ── -->
+    <div id="brasil-evo-grid" style="margin-top:24px"></div>
+
   </div>
 
   <div class="sec" id="organigrama-section" style="display:none">
@@ -1861,6 +1869,7 @@ var _state = {
   baselineSource:  'baseline',  // 'baseline' (Actuals + Projections) | 'forecast' (forecast.json entero)
   evoMetric:       'gb',
   evoGranularity:  'M',   // 'M' | 'Q' | 'H' | 'Y'
+  evoShowLY:       false, // incluir serie "Last Year" en el gráfico de evolución
   bkdView:         'pais', // 'pais' | 'producto'
   numFmt:          'M',   // 'M' | 'K' | 'raw'
   selectedPeriods: [],  // se inicializa al recibir lastActuals del backend
@@ -2396,6 +2405,11 @@ function switchEvo(btn) {
   document.querySelectorAll('.mtab').forEach(function(b){ b.classList.remove('active'); });
   btn.classList.add('active');
   _state.evoMetric = btn.dataset.id;
+  if (_state.evo) renderEvo();
+}
+
+function toggleEvoLY(cb) {
+  _state.evoShowLY = cb.checked;
   if (_state.evo) renderEvo();
 }
 
@@ -3568,11 +3582,10 @@ function _groupEvo(d, m, gbM, goalKey) {
     var fcVal=m.forecast?m.forecast[i]:null;
     if(fcVal!==null&&fcVal!==undefined&&fcVal!==0){ g.forecast+=fcVal; g.hasFc=true; }
     if(gbAct&&gbAct[i]!==null&&gbAct[i]!==undefined) g.gbAct+=gbAct[i];
-    // LY: same month previous year
-    var lyYm=(parseInt(ym.split('-')[0])-1)+'-'+ym.split('-')[1];
-    var lyIdx=d.periods.indexOf(lyYm);
-    if(lyIdx>=0&&m.actuals[lyIdx]!==null&&m.actuals[lyIdx]!==undefined){
-      g.lyAct+=m.actuals[lyIdx]; g.lyCount++;
+    // LY: same month previous año — viene precalculado del backend (m.lastYear)
+    var lyVal = m.lastYear ? m.lastYear[i] : null;
+    if(lyVal!==null&&lyVal!==undefined){
+      g.lyAct+=lyVal; g.lyCount++;
     }
   });
 
@@ -3593,18 +3606,17 @@ function _groupEvo(d, m, gbM, goalKey) {
 }
 
 // ── Evolution chart ────────────────────────────────────────
-function renderEvo() {
-  var d = _state.evo;
-  if (!d) return;
-  var m = d.metrics.filter(function(x){ return x.id===_state.evoMetric; })[0];
-  if (!m) return;
+// Construye labels/datasets/scales para un gráfico de evolución (barras Actuals+RR
+// vs Goal, + línea %GB para NR/OC, + línea Last Year opcional). Reutilizado por el
+// chart principal (renderEvo) y por los charts de evolución del Country One Page.
+function _evoChartCfg_(d, metricId) {
+  if (!d || !d.metrics) return null;
+  var m = d.metrics.filter(function(x){ return x.id===metricId; })[0];
+  if (!m) return null;
   var gbM = d.metrics.filter(function(x){ return x.id==='gb'; })[0];
-
-  document.getElementById('evo-title').textContent = m.label;
 
   var goalKey   = _state.goal==='budget' ? 'budget' : _state.goal==='lastYear' ? 'budget' : _state.goal==='forecast' ? 'forecast' : 'runRate';
   var goalLabel = _state.goal==='budget' ? 'Budget' : _state.goal==='lastYear' ? 'Last Year' : _state.goal==='forecast' ? 'Forecast' : 'Run Rate';
-  var gran      = _state.evoGranularity || 'M';
 
   var grps = _groupEvo(d, m, gbM, goalKey);
   var labels   = grps.map(function(g){ return g.label; });
@@ -3622,11 +3634,120 @@ function renderEvo() {
 
   // %GB line — only for NR and OC, only for actuals months
   var pctGbData = null;
-  if ((_state.evoMetric==='nr'||_state.evoMetric==='oc') && gbM) {
+  if ((metricId==='nr'||metricId==='oc') && gbM) {
     pctGbData = grps.map(function(g){
       return (g.gbAct&&g.gbAct!==0&&g.actuals!==null) ? g.actuals/g.gbAct*100 : null;
     });
   }
+
+  // Datasets — single bar series with per-bar color + fake RR entry for legend
+  var datasets = [
+    { label:'Actuals',          data:mainData,  backgroundColor:mainColors,            borderRadius:4, order:2, type:'bar', yAxisID:'y' },
+    { label:'Run Rate (proj.)', data:grps.map(function(){return null;}), backgroundColor:'rgba(139,92,246,.65)', borderRadius:0, barThickness:0, order:2, type:'bar', yAxisID:'y' },
+    { label:goalLabel,          data:goalPlot,  backgroundColor:'rgba(140,149,159,.3)', borderRadius:4, order:3, type:'bar', yAxisID:'y' }
+  ];
+  if (pctGbData) {
+    datasets.unshift({
+      label: metricId==='nr'?'NR %GB':'OC %GB',
+      data:  pctGbData,
+      type:'line', yAxisID:'y2',
+      borderColor:'#f59e0b', backgroundColor:'rgba(245,158,11,.08)',
+      pointBackgroundColor:'#f59e0b', pointRadius:3, pointHoverRadius:5,
+      borderWidth:2, tension:0.35, fill:false, order:1
+    });
+  }
+  if (_state.evoShowLY && _state.goal!=='lastYear') {
+    datasets.push({
+      label: 'Last Year', data: grps.map(function(g){ return g.lyAct; }),
+      type:'line', yAxisID:'y',
+      borderColor:'#8c95a9', backgroundColor:'rgba(140,149,159,.12)',
+      pointBackgroundColor:'#8c95a9', pointRadius:2, pointHoverRadius:4,
+      borderWidth:2, borderDash:[5,3], tension:0.3, fill:false, order:1
+    });
+  }
+
+  // Scales
+  var scales = {
+    x:{
+      grid:{color:'rgba(0,0,0,.03)'},
+      ticks:{color:'#57606a',font:{size:10},
+        callback:function(value,index){ return labels[index]; }}
+    },
+    y:{
+      grid:{color:'rgba(0,0,0,.06)'},
+      ticks:{color:'#57606a',font:{size:10},callback:function(v){return fmtK(v);}}
+    }
+  };
+  if (pctGbData) {
+    scales.y2={
+      position:'right',
+      grid:{drawOnChartArea:false},
+      ticks:{color:'#f59e0b',font:{size:10},callback:function(v){return v.toFixed(1)+'%';}}
+    };
+  }
+
+  return { m:m, grps:grps, labels:labels, datasets:datasets, scales:scales, goalLabel:goalLabel };
+}
+
+// Dibuja un chart de evolución "standalone" (sin título/badge/subtítulo propios en el DOM
+// del card principal) en el canvas indicado. Usado por el Country One Page.
+function _drawEvoMetricChart_(canvasId, d, metricId) {
+  destroyChart(canvasId);
+  var canvasEl = document.getElementById(canvasId);
+  if (!canvasEl) return;
+  var cfg = _evoChartCfg_(d, metricId);
+  if (!cfg) {
+    var wrap = canvasEl.parentNode;
+    if (wrap) wrap.innerHTML = '<div style="text-align:center;padding:32px;color:var(--muted);font-size:12px">Sin datos</div>';
+    return;
+  }
+  _charts[canvasId] = new Chart(canvasEl, {
+    type:'bar',
+    data:{ labels:cfg.labels, datasets:cfg.datasets },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{labels:{color:'#57606a',font:{size:11},boxWidth:12,
+          filter:function(item){ return item.text !== 'Run Rate (proj.)'; }
+        }},
+        tooltip:{callbacks:{label:function(c){
+          if(c.dataset.yAxisID==='y2') return ' '+c.dataset.label+': '+(c.raw!==null?c.raw.toFixed(1)+'%':'—');
+          return ' '+c.dataset.label+': '+fmtK(c.raw);
+        }}}
+      },
+      scales:cfg.scales
+    },
+    plugins:[{
+      id:'topLabels',
+      afterDatasetsDraw:function(chart){
+        var ctx=chart.ctx;
+        chart.data.datasets.forEach(function(ds,di){
+          if(ds.label!=='Actuals') return;
+          chart.getDatasetMeta(di).data.forEach(function(bar,i){
+            var val=ds.data[i];
+            if(val===null||val===undefined||val===0) return;
+            ctx.save();
+            ctx.fillStyle='#1f2328';
+            ctx.font='bold 10px -apple-system,sans-serif';
+            ctx.textAlign='center';
+            ctx.fillText(fmtK(val),bar.x,bar.y-4);
+            ctx.restore();
+          });
+        });
+      }
+    }]
+  });
+}
+
+function renderEvo() {
+  var d = _state.evo;
+  if (!d) return;
+  var gran = _state.evoGranularity || 'M';
+  var cfg  = _evoChartCfg_(d, _state.evoMetric);
+  if (!cfg) return;
+  var m = cfg.m, grps = cfg.grps, goalLabel = cfg.goalLabel;
+
+  document.getElementById('evo-title').textContent = m.label;
 
   // Badge: last group with data (actuals or RR) and budget
   var badge = document.getElementById('evo-badge');
@@ -3652,80 +3773,7 @@ function renderEvo() {
       ' → '+MONTH_LABELS[lp[1]]+" '"+lp[0].slice(2)+' · '+_baselineLabel();
   }
 
-  // Datasets — single bar series with per-bar color + fake RR entry for legend
-  var datasets = [
-    { label:'Actuals',          data:mainData,  backgroundColor:mainColors,            borderRadius:4, order:2, type:'bar', yAxisID:'y' },
-    { label:'Run Rate (proj.)', data:grps.map(function(){return null;}), backgroundColor:'rgba(139,92,246,.65)', borderRadius:0, barThickness:0, order:2, type:'bar', yAxisID:'y' },
-    { label:goalLabel,          data:goalPlot,  backgroundColor:'rgba(140,149,159,.3)', borderRadius:4, order:3, type:'bar', yAxisID:'y' }
-  ];
-  if (pctGbData) {
-    datasets.unshift({
-      label: _state.evoMetric==='nr'?'NR %GB':'OC %GB',
-      data:  pctGbData,
-      type:'line', yAxisID:'y2',
-      borderColor:'#f59e0b', backgroundColor:'rgba(245,158,11,.08)',
-      pointBackgroundColor:'#f59e0b', pointRadius:3, pointHoverRadius:5,
-      borderWidth:2, tension:0.35, fill:false, order:1
-    });
-  }
-
-  // Scales
-  var scales = {
-    x:{
-      grid:{color:'rgba(0,0,0,.03)'},
-      ticks:{color:'#57606a',font:{size:10},
-        callback:function(value,index){ return labels[index]; }}
-    },
-    y:{
-      grid:{color:'rgba(0,0,0,.06)'},
-      ticks:{color:'#57606a',font:{size:10},callback:function(v){return fmtK(v);}}
-    }
-  };
-  if (pctGbData) {
-    scales.y2={
-      position:'right',
-      grid:{drawOnChartArea:false},
-      ticks:{color:'#f59e0b',font:{size:10},callback:function(v){return v.toFixed(1)+'%';}}
-    };
-  }
-
-  destroyChart('chart-evo');
-  _charts['chart-evo'] = new Chart(document.getElementById('chart-evo'), {
-    type:'bar',
-    data:{ labels:labels, datasets:datasets },
-    options:{
-      responsive:true, maintainAspectRatio:false,
-      plugins:{
-        legend:{labels:{color:'#57606a',font:{size:11},boxWidth:12,
-          filter:function(item){ return item.text !== 'Run Rate (proj.)'; }
-        }},
-        tooltip:{callbacks:{label:function(c){
-          if(c.dataset.yAxisID==='y2') return ' '+c.dataset.label+': '+(c.raw!==null?c.raw.toFixed(1)+'%':'—');
-          return ' '+c.dataset.label+': '+fmtK(c.raw);
-        }}}
-      },
-      scales:scales
-    },
-    plugins:[{
-      id:'topLabels',
-      afterDatasetsDraw:function(chart){
-        var ctx=chart.ctx;
-        chart.data.datasets.forEach(function(ds,di){
-          if(ds.label!=='Actuals') return;
-          chart.getDatasetMeta(di).data.forEach(function(bar,i){
-            var val=ds.data[i];
-            if(val===null||val===undefined||val===0) return;
-            ctx.save();
-            ctx.fillStyle='#1f2328';
-            ctx.font='bold 10px -apple-system,sans-serif';
-            ctx.textAlign='center';
-            ctx.fillText(fmtK(val),bar.x,bar.y-4);
-            ctx.restore();
-          });
-        });
-      }
-    }]
-  });
+  _drawEvoMetricChart_('chart-evo', d, _state.evoMetric);
 
   // Clear legacy bar-aligned YoY row (now unified into the country table)
   var tblEl = document.getElementById('evo-yoy-table');
@@ -3761,12 +3809,10 @@ function renderEvo() {
   var totalMData = { actuals:[], runRate:[], budget:[], lyAct:[] };
   ctryPeriods.forEach(function(ym) {
     var pi   = evoPeriods.indexOf(ym);
-    var lyYm = (parseInt(ym.split('-')[0])-1)+'-'+ym.split('-')[1];
-    var lyPi = evoPeriods.indexOf(lyYm);
     totalMData.actuals.push(pi  >= 0 && m.actuals ? m.actuals[pi]  : null);
     totalMData.runRate.push(pi  >= 0 && m.runRate ? m.runRate[pi]  : null);
     totalMData.budget.push (pi  >= 0 && m.budget  ? m.budget[pi]   : null);
-    totalMData.lyAct.push  (lyPi >= 0 && m.actuals ? m.actuals[lyPi] : null);
+    totalMData.lyAct.push  (pi  >= 0 && m.lastYear ? m.lastYear[pi] : null);
   });
 
   // Header
@@ -3867,14 +3913,11 @@ function renderDrilldown() {
 
     var budgetArr = extractSeries(m.budget);
 
-    // Last year: look up same months one year prior in d.periods
-    var lyArr = fy27Months.map(function(ym) {
-      if (!d.periods) return null;
-      var parts = ym.split('-');
-      var lyYm = (parseInt(parts[0]) - 1) + '-' + parts[1];
-      var lyIdx = d.periods.indexOf(lyYm);
-      if (lyIdx < 0) return null;
-      return (m.actuals && m.actuals[lyIdx] !== undefined) ? m.actuals[lyIdx] : null;
+    // Last year: viene precalculado del backend (m.lastYear), alineado a d.periods
+    var lyArr = fy27Months.map(function(ym, i) {
+      var idx = periodIndices[i];
+      if (idx < 0 || !m.lastYear) return null;
+      return (m.lastYear[idx] !== undefined) ? m.lastYear[idx] : null;
     });
     var hasLY = lyArr.some(function(v){ return v !== null; });
     if (!hasLY) lyArr = null;
@@ -4388,6 +4431,8 @@ function loadBrasil() {
     '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--muted)">Cargando…</div>';
   document.getElementById('brasil-tb').innerHTML =
     '<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--muted)">Cargando…</td></tr>';
+  document.getElementById('brasil-evo-grid').innerHTML =
+    '<div style="text-align:center;padding:40px;color:var(--muted)">Cargando…</div>';
 
   if (IS_DEMO) {
     setTimeout(function() { _renderBrasil_(); }, 400);
@@ -4409,6 +4454,7 @@ function loadBrasil() {
 function _renderBrasil_() {
   _renderBrasilSummary_();
   _renderBrasilWf_();
+  _renderBrasilEvo_();
 }
 
 function _chipVsBgt_(v) {
@@ -4557,6 +4603,43 @@ function _renderBrasilWf_() {
       grid.appendChild(card);
       _drawBrasilConceptWf_(def.id, wf, def.kind, 'budget');
     });
+  });
+}
+
+// Evolución mensual del país seleccionado — 3 charts separados (GB / NR / OC),
+// B2B + B2B2C combinado, mismo criterio (Actuals+RR vs Goal) que el chart principal.
+function _renderBrasilEvo_() {
+  var container = document.getElementById('brasil-evo-grid');
+  if (!container) return;
+  container.innerHTML = '';
+
+  var d = _brasilState.allData && _brasilState.allData.evo;
+  var c = _brasilCountry_();
+  var goalLabel = _state.goal==='budget' ? 'Budget' : _state.goal==='lastYear' ? 'Last Year' : _state.goal==='forecast' ? 'Forecast' : 'Run Rate';
+
+  var titleEl = document.createElement('div');
+  titleEl.className = 'sec-title';
+  titleEl.style.cssText = 'margin:4px 0 10px';
+  titleEl.textContent = 'Evolución mensual — B2B + B2B2C' + (c ? ' · ' + c.label : '');
+  container.appendChild(titleEl);
+
+  var grid = document.createElement('div');
+  grid.style.cssText = 'display:grid;grid-template-columns:repeat(3,minmax(260px,1fr));gap:16px';
+  container.appendChild(grid);
+
+  var METRICS = [
+    { id:'gb', label:'Gross Bookings',   canvasId:'chart-ctry-evo-gb' },
+    { id:'nr', label:'Net Revenues',     canvasId:'chart-ctry-evo-nr' },
+    { id:'oc', label:'Op. Contribution', canvasId:'chart-ctry-evo-oc' }
+  ];
+  METRICS.forEach(function(mdef) {
+    var card = document.createElement('div');
+    card.className = 'chart-card';
+    card.innerHTML =
+      '<h3>' + mdef.label + '<small>Actuals+RR vs ' + goalLabel + '</small></h3>' +
+      '<div class="chart-wrap"><canvas id="' + mdef.canvasId + '"></canvas></div>';
+    grid.appendChild(card);
+    _drawEvoMetricChart_(mdef.canvasId, d, mdef.id);
   });
 }
 
@@ -5074,10 +5157,10 @@ function demoEvo(p) {
   var pScale = (p.pais&&p.pais!=='all')?0.25:1;
   var s = scale*pScale;
 
-  // Always Apr 2025 → Jun 2026 (simulated last run rate month)
+  // Always Apr 2026 → Jun 2027 (simulated last run rate month)
   var periods=[];
-  for(var m=4;m<=12;m++) periods.push('2025-'+String(m).padStart(2,'0'));
-  for(var m=1;m<=6; m++) periods.push('2026-'+String(m).padStart(2,'0'));
+  for(var m=4;m<=12;m++) periods.push('2026-'+String(m).padStart(2,'0'));
+  for(var m=1;m<=6; m++) periods.push('2027-'+String(m).padStart(2,'0'));
 
   var fyBoundary = '2026-04'; // budget/rr start
   function serie(base,noise,trend){
@@ -5089,12 +5172,15 @@ function demoEvo(p) {
       return +(base*(1+Math.sin(i*.6)*noise+(i*trend))*s).toFixed(0);
     });
   }
+  function lySerie(base,noise,trend){
+    return periods.map(function(_,i){ return +(base*.88*(1+Math.sin(i*.6)*noise+(i*trend))*s).toFixed(0); });
+  }
   return {
     periods:periods,
     metrics:[
-      {id:'gb',label:'Gross Bookings',   actuals:serie(30e6,.18,.018),  budget:goalSerie(28e6,.10,.015),  runRate:goalSerie(29e6,.12,.016)},
-      {id:'nr',label:'Net Revenues',     actuals:serie(3.8e6,.20,.020), budget:goalSerie(3.4e6,.10,.015), runRate:goalSerie(3.6e6,.12,.018)},
-      {id:'oc',label:'Op. Contribution', actuals:serie(0.85e6,.30,.025),budget:goalSerie(0.75e6,.15,.020),runRate:goalSerie(0.80e6,.22,.022)}
+      {id:'gb',label:'Gross Bookings',   actuals:serie(30e6,.18,.018),  budget:goalSerie(28e6,.10,.015),  runRate:goalSerie(29e6,.12,.016), lastYear:lySerie(30e6,.18,.018)},
+      {id:'nr',label:'Net Revenues',     actuals:serie(3.8e6,.20,.020), budget:goalSerie(3.4e6,.10,.015), runRate:goalSerie(3.6e6,.12,.018), lastYear:lySerie(3.8e6,.20,.020)},
+      {id:'oc',label:'Op. Contribution', actuals:serie(0.85e6,.30,.025),budget:goalSerie(0.75e6,.15,.020),runRate:goalSerie(0.80e6,.22,.022), lastYear:lySerie(0.85e6,.30,.025)}
     ]
   };
 }
