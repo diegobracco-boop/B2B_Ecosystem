@@ -4749,9 +4749,12 @@ function _renderBrasilEvo_() {
         var grps = _groupEvo(evo, mObj, gbObj, goalKey);
         var yoy = document.createElement('div');
         yoy.className = 'evo-yoy';
+        // YoY = (actual - añoPasado) / |añoPasado|. El Math.abs() en el denominador es
+        // clave: con base negativa (típico en OC) la fórmula ingenua (v/prev-1) invierte
+        // el signo. Mismo criterio que el resto del dashboard (badge vs budget/LY).
         yoy.innerHTML =
-          _evoYoyRow_('YoY Act+RR', grps, function(g){ var bv = g.actuals!==null ? g.actuals : g.runRate; return (bv!==null && g.lyAct) ? (bv/g.lyAct-1) : null; }) +
-          _evoYoyRow_('YoY Budget', grps, function(g){ return (g.budget!==null && g.lyAct) ? (g.budget/g.lyAct-1) : null; });
+          _evoYoyRow_('YoY Act+RR', grps, function(g){ var bv = g.actuals!==null ? g.actuals : g.runRate; return (bv!==null && g.lyAct) ? ((bv-g.lyAct)/Math.abs(g.lyAct)) : null; }) +
+          _evoYoyRow_('YoY Budget', grps, function(g){ return (g.budget!==null && g.lyAct) ? ((g.budget-g.lyAct)/Math.abs(g.lyAct)) : null; });
         card.appendChild(yoy);
       }
     });
