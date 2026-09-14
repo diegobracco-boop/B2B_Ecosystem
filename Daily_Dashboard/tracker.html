@@ -2232,7 +2232,11 @@ function renderStatusKRs() {
   }
 
   // ── KR5: FVM MTD — todos los países (extra KR) ───────────────
-  var kr5 = computeMetricMTD(Object.keys(COUNTRY_GROUPS), 'fvm', krYM);
+  // OJO: NO usar Object.keys(COUNTRY_GROUPS): 'ROW' ya agrupa Peru/Ecuador/Chile/
+  // Uruguay/Paraguay, que también están como grupos individuales → los contaba dos
+  // veces e inflaba el total. Core + New cubre cada país una sola vez (== total del
+  // detalle FVM de abajo).
+  var kr5 = computeMetricMTD(MARKET_GROUPS.CORE_MARKETS.concat(MARKET_GROUPS.NEW_MARKETS), 'fvm', krYM);
 
   // ── Cumplimiento ─────────────────────────────────────────────
   function cumpl(act, bud) {
