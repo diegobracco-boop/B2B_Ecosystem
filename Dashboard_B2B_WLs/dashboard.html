@@ -4489,9 +4489,9 @@ var CTRY_GRANS = [
 ];
 
 // Estado activo — se actualiza con los click handlers
-var _brasilPeriodState  = null;           // se inicializa en _initBrasilFilters_
-var _brasilCountryState = BRASIL_COUNTRIES[0];
-var _ctryGranState      = 'M';
+var _brasilPeriodState    = null;           // se inicializa en _initBrasilFilters_
+var _brasilCountrySelected = ['Todos'];     // array de ids de BRASIL_COUNTRIES — multi-select
+var _ctryGranState        = 'M';
 
 function _initBrasilFilters_() {
   // Período default: el quarter que contiene el último mes con actuals
@@ -4513,12 +4513,13 @@ function _initBrasilFilters_() {
     BRASIL_COUNTRIES.forEach(function(c, idx) {
       var row = idx < 5 ? cRow1 : cRow2;
       var btn = document.createElement('button');
-      btn.className = 'ctry-btn' + (c.id === _brasilCountryState.id ? ' active' : '');
+      btn.className = 'ctry-btn' + (_brasilCountrySelected.indexOf(c.id) >= 0 ? ' active' : '');
+      btn.dataset.cid = c.id;
       var flagHtml = c.iso
         ? '<img src="https://flagcdn.com/20x15/'+c.iso+'.png" alt="" style="width:16px;height:12px;vertical-align:-1px;margin-right:5px;border-radius:2px">'
         : (c.flag + ' ');
       btn.innerHTML = flagHtml + c.label;
-      btn.onclick = (function(co, b){ return function(){ _ctrySetCountry_(co, b); }; })(c, btn);
+      btn.onclick = (function(co, b){ return function(){ _ctryToggleCountry_(co, b); }; })(c, btn);
       row.appendChild(btn);
     });
   }
@@ -4558,13 +4559,24 @@ function _initBrasilFilters_() {
   }
 }
 
-function _ctrySetCountry_(countryObj, btn) {
-  _brasilCountryState = countryObj;
+// Multi-select de países: "Todos" es mutuamente excluyente con países específicos
+// (elegir uno desmarca el otro); entre países específicos, el click hace toggle.
+function _ctryToggleCountry_(countryObj, btn) {
+  if (countryObj.id === 'Todos') {
+    _brasilCountrySelected = ['Todos'];
+  } else {
+    _brasilCountrySelected = _brasilCountrySelected.filter(function(id){ return id !== 'Todos'; });
+    var idx = _brasilCountrySelected.indexOf(countryObj.id);
+    if (idx >= 0) _brasilCountrySelected.splice(idx, 1);
+    else          _brasilCountrySelected.push(countryObj.id);
+    if (!_brasilCountrySelected.length) _brasilCountrySelected = ['Todos']; // nunca 0 países seleccionados
+  }
   ['ctry-country-row1','ctry-country-row2'].forEach(function(id) {
     var row = document.getElementById(id);
-    if (row) row.querySelectorAll('.ctry-btn').forEach(function(b){ b.classList.remove('active'); });
+    if (row) row.querySelectorAll('.ctry-btn').forEach(function(b) {
+      b.classList.toggle('active', _brasilCountrySelected.indexOf(b.dataset.cid) >= 0);
+    });
   });
-  btn.classList.add('active');
   loadBrasil();
 }
 
@@ -4589,11 +4601,30 @@ function _ctrySetGran_(granObj, btn) {
 
 // Accesores de compatibilidad (usados por _renderBrasil*_)
 function _brasilQuarter_() { return _brasilPeriodState || CTRY_PERIODS[3]; }
-function _brasilCountry_()  { return _brasilCountryState; }
+
+// Devuelve un objeto { pais, label, flag } — si hay 1 país seleccionado, el objeto
+// original de BRASIL_COUNTRIES tal cual; si hay varios, uno sintético que junta los
+// `pais` reales con '|' (queryMap_ en Codigo.js ya soporta ese formato multi-valor).
+function _brasilCountry_() {
+  var objs = _brasilCountrySelected
+    .map(function(id){ return BRASIL_COUNTRIES.filter(function(c){ return c.id===id; })[0]; })
+    .filter(Boolean);
+  if (!objs.length) objs = [BRASIL_COUNTRIES[0]];
+  if (objs.length === 1) return objs[0];
+
+  // Orden canónico (el de BRASIL_COUNTRIES, no el de click) — así "Brasil+Mexico" y
+  // "Mexico+Brasil" arman el mismo string de pais/label y comparten cache key.
+  objs = objs.slice().sort(function(a,b){ return BRASIL_COUNTRIES.indexOf(a)-BRASIL_COUNTRIES.indexOf(b); });
+
+  var label = objs.length <= 3
+    ? objs.map(function(o){ return o.label; }).join(' + ')
+    : objs.length + ' países';
+  return { id:'multi', label:label, flag:'🌐', pais: objs.map(function(o){ return o.pais; }).join('|') };
+}
 
 function loadBrasil() {
   var period  = _brasilPeriodState;
-  var country = _brasilCountryState;
+  var country = _brasilCountry_();
   if (!period || !country) return;
 
   _brasilState.allData   = null;
