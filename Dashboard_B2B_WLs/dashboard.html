@@ -3797,6 +3797,20 @@ function _drawEvoMetricChart_(canvasId, d, metricId, opts) {
             });
             return;
           }
+          // Etiquetas sobre la barra de Goal (Budget/Run Rate/Forecast/Last Year)
+          if(ds.label===cfg.goalLabel){
+            chart.getDatasetMeta(di).data.forEach(function(bar,i){
+              var val=ds.data[i];
+              if(val===null||val===undefined||val===0) return;
+              ctx.save();
+              ctx.fillStyle='#8c95a9';
+              ctx.font='bold 10px -apple-system,sans-serif';
+              ctx.textAlign='center';
+              ctx.fillText(fmtK(val),bar.x,bar.y-4);
+              ctx.restore();
+            });
+            return;
+          }
           // Etiquetas sobre las líneas de %GB (Actuals / Budget), con fondo para legibilidad
           if(ds._pctLabel){
             chart.getDatasetMeta(di).data.forEach(function(pt,i){
@@ -3856,7 +3870,7 @@ function renderEvo() {
       ' → '+MONTH_LABELS[lp[1]]+" '"+lp[0].slice(2)+' · '+_baselineLabel();
   }
 
-  _drawEvoMetricChart_('chart-evo', d, _state.evoMetric);
+  _drawEvoMetricChart_('chart-evo', d, _state.evoMetric, { dualPctGb:true });
 
   // Clear legacy bar-aligned YoY row (now unified into the country table)
   var tblEl = document.getElementById('evo-yoy-table');
