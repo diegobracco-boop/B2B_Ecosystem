@@ -1718,6 +1718,13 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
           <div class="ctry-btn-row" id="ctry-period-row2"></div>
         </div>
       </div>
+      <!-- Separador -->
+      <div style="width:1px;background:var(--border);align-self:stretch;flex-shrink:0;margin:0 2px"></div>
+      <!-- Vista (granularidad de columnas del chart de Evolución) -->
+      <div style="flex-shrink:0">
+        <div class="ctry-filter-label">Vista</div>
+        <div class="ctry-btn-row" id="ctry-gran-row"></div>
+      </div>
     </div>
 
     <!-- ── Cuadro resumen ── -->
@@ -3570,8 +3577,8 @@ function _granLabel(ym, gran) {
 }
 
 // Aggregate evo data by granularity; returns array of group objects
-function _groupEvo(d, m, gbM, goalKey) {
-  var gran = _state.evoGranularity || 'M';
+function _groupEvo(d, m, gbM, goalKey, granOverride) {
+  var gran = granOverride || _state.evoGranularity || 'M';
   var goalArr = m[goalKey] || m.budget;
   var gbAct   = gbM ? gbM.actuals : null;
   var gbBud   = gbM ? gbM.budget  : null;
@@ -3634,7 +3641,7 @@ function _evoChartCfg_(d, metricId, opts) {
   var goalKey   = _state.goal==='budget' ? 'budget' : _state.goal==='lastYear' ? 'budget' : _state.goal==='forecast' ? 'forecast' : 'runRate';
   var goalLabel = _state.goal==='budget' ? 'Budget' : _state.goal==='lastYear' ? 'Last Year' : _state.goal==='forecast' ? 'Forecast' : 'Run Rate';
 
-  var grps = _groupEvo(d, m, gbM, goalKey);
+  var grps = _groupEvo(d, m, gbM, goalKey, opts.granularity);
   var labels   = grps.map(function(g){ return g.label; });
   var goalPlot = _state.goal==='lastYear'
     ? grps.map(function(g){ return g.lyAct; })
@@ -4470,9 +4477,19 @@ var BRASIL_COUNTRIES = [
   { id:'RG',        label:'RG',        pais:'RG',              flag:'🌎' }
 ];
 
+// Vista (granularidad de columnas del chart de Evolución) — independiente del
+// toggle M/Q/H/Y del chart principal (_state.evoGranularity), para que cambiar
+// uno no afecte al otro.
+var CTRY_GRANS = [
+  { id:'M', label:'Mes' },
+  { id:'Q', label:'Quarter' },
+  { id:'H', label:'Half' }
+];
+
 // Estado activo — se actualiza con los click handlers
 var _brasilPeriodState  = null;           // se inicializa en _initBrasilFilters_
 var _brasilCountryState = BRASIL_COUNTRIES[0];
+var _ctryGranState      = 'M';
 
 function _initBrasilFilters_() {
   // Período default: el quarter que contiene el último mes con actuals
@@ -4525,6 +4542,18 @@ function _initBrasilFilters_() {
       row.appendChild(btn);
     });
   }
+
+  // Botones de vista (granularidad)
+  var gRow = document.getElementById('ctry-gran-row');
+  if (gRow && !gRow.firstChild) {
+    CTRY_GRANS.forEach(function(g) {
+      var btn = document.createElement('button');
+      btn.className = 'ctry-btn' + (g.id === _ctryGranState ? ' active' : '');
+      btn.textContent = g.label;
+      btn.onclick = (function(gr, b){ return function(){ _ctrySetGran_(gr, b); }; })(g, btn);
+      gRow.appendChild(btn);
+    });
+  }
 }
 
 function _ctrySetCountry_(countryObj, btn) {
@@ -4545,6 +4574,15 @@ function _ctrySetPeriod_(periodObj, btn) {
   });
   btn.classList.add('active');
   loadBrasil();
+}
+
+// Solo re-agrupa/redibuja con los datos ya cargados — no hace falta pedirlos de nuevo.
+function _ctrySetGran_(granObj, btn) {
+  _ctryGranState = granObj.id;
+  var row = document.getElementById('ctry-gran-row');
+  if (row) row.querySelectorAll('.ctry-btn').forEach(function(b){ b.classList.remove('active'); });
+  btn.classList.add('active');
+  _renderBrasilEvo_();
 }
 
 // Accesores de compatibilidad (usados por _renderBrasil*_)
@@ -4790,13 +4828,13 @@ function _renderBrasilEvo_() {
         '<h3>' + mdef.label + '<small>Actuals+RR vs ' + goalLabel + '</small></h3>' +
         '<div class="chart-wrap"><canvas id="' + canvasId + '"></canvas></div>';
       grid.appendChild(card);
-      _drawEvoMetricChart_(canvasId, evo, mdef.id, { dualPctGb:true });
+      _drawEvoMetricChart_(canvasId, evo, mdef.id, { dualPctGb:true, granularity:_ctryGranState });
 
       // Cajitas de crecimiento YoY (una por mes): primero baseline (Act+RR) vs LY,
       // después budget vs LY. Usan el mismo agrupamiento que las barras del chart.
       var mObj = (evo && evo.metrics) ? evo.metrics.filter(function(x){ return x.id===mdef.id; })[0] : null;
       if (evo && mObj) {
-        var grps = _groupEvo(evo, mObj, gbObj, goalKey);
+        var grps = _groupEvo(evo, mObj, gbObj, goalKey, _ctryGranState);
         var yoy = document.createElement('div');
         yoy.className = 'evo-yoy';
         // YoY = (actual - añoPasado) / |añoPasado|. El Math.abs() en el denominador es
