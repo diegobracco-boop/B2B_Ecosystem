@@ -75,18 +75,37 @@ El ecosistema tiene dos capas: **pipelines** (Python, generan los datos) y **lan
 - **Deploy**: `cd Manual_B2B_WLs && clasp push --force` + `clasp deploy -i <deploymentId>` (ver `/clasp-push`)
 - **Doc detallada**: [CONTEXT.md](./Manual_B2B_WLs/CONTEXT.md)
 
-### lob_country_one_pagera — one-pager combinado por país (LoB)
+### lob_country_one_pagera — one-pager combinado por LoB+País
 - **Stack**: GAS + HTML
-- **Input**: combina los tres orígenes existentes, sin pipeline propio —
-  JSONs canónicos de `Inputs_Planning_PnL` (contable, mensual), `_actuals_gestional.json`
-  de `P&L_Managerial` (gerencial, mensual) y `daily_b2b2c_data.json` / `daily_b2b_data.json`
-  de `Daily_Dashboard` (operativo, daily/weekly)
-- **Propósito**: vista tipo "country one pager" que junta en una sola pantalla, por país,
-  lo contable y lo gestional en las tres cadencias (daily, weekly, monthly) — hoy repartido
-  entre `P&L_Accounting`, `P&L_Managerial` y `Dashboard_B2B_WLs`/`Daily_Dashboard`
-- **Usuarios**: a definir (candidato: dirección / seguimiento ejecutivo por país)
-- **Deploy**: `cd lob_country_one_pagera && clasp push`
+- **Input**: sin pipeline propio y **sin leer JSONs de Drive directamente** — consume las
+  otras 3 landings como **Apps Script Libraries** (`dependencies.libraries` en `appsscript.json`,
+  pineado a una versión numérica de cada una, mismo patrón que `clasp deploy -i <id>`):
+  - `DashboardB2BWLs.getCountryPageData()` → evolución mensual GB/NR/OC por LoB+país (FY27)
+  - `PnLManagerial.getData()` → partners, hunting/farming (gestional)
+  - `DailyDashboard.getWeeklySummaryData()` → pulso semanal por país
+  Se eligió reusar funciones públicas (sin `_` final) en vez de duplicar la lógica de
+  agregación, para que los números coincidan siempre con los de esas 3 landings. Al
+  actualizar el código de alguna de ellas, hay que correr `clasp version` ahí y bumpear el
+  número en `lob_country_one_pagera/appsscript.json`, si no el one-pager sigue sirviendo
+  la versión vieja.
+- **`executeAs: USER_DEPLOYING`** (a diferencia de `Dashboard_B2B_WLs`, que es
+  `USER_ACCESSING`): necesario porque las libraries corren con la identidad de quien
+  ejecuta el script TOP-LEVEL (no con la del dueño de cada proyecto-library), y
+  `P&L_Managerial`/`Daily_Dashboard` asumen `USER_DEPLOYING` porque sus JSONs de Drive no
+  están compartidos con todo el equipo — con `USER_ACCESSING` cualquier director sin
+  acceso directo a esos Drive files vería errores de permisos.
+- **Propósito**: vista tipo "country one pager" para el VP comercial / director comercial
+  de una sola combinación LoB+País (un director tiene B2B2C Brasil, otro B2B Brasil —
+  nunca ambas LoB del mismo país). Combina en una pantalla lo contable-gerencial mensual,
+  partners/hunting-farming, y el pulso semanal — hoy repartido entre `P&L_Accounting`,
+  `P&L_Managerial`, `Dashboard_B2B_WLs` y `Daily_Dashboard`.
+  **v1 (piloto B2B2C Brasil, 2026-09-14)**: sin sección de OKR (el `okr.json` de
+  `Inputs_Planning_PnL` solo filtra por LoB, no por país — pendiente si se necesita).
+- **Usuarios**: directores comerciales por LoB+país (piloto: B2B2C Brasil)
+- **Deploy**: `cd lob_country_one_pagera && clasp push --force` (el manifest tiene
+  `dependencies.libraries`, clasp pide `--force` para pushearlo) + `clasp deploy -i <id>`
 - **Script ID**: `1jApagpx41_eeLc3T51J_t3KUp7JqzA595rvV3mH3cEtDyTDkLT2gK9rp`
+- **Deployment id (prod)**: `AKfycbytMGsghl1TweKpYgMV2uhjTr--a9jpWkd2G3faZrF0DixD7UNu2qAq8Tbhlv_PCo0t`
 
 ## Credenciales
 
