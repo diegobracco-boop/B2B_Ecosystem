@@ -3739,15 +3739,17 @@ function _evoChartCfg_(d, metricId, opts) {
       grid:{drawOnChartArea:false},
       ticks:{color: opts.dualPctGb ? '#57606a' : '#f59e0b',font:{size:10},callback:function(v){return v.toFixed(1)+'%';}}
     };
-    // En modo dual, el eje % arranca en un piso fijo por métrica (OC=0%, NR=3%) —
-    // no en el mínimo de los datos — y el techo se ajusta al máximo real con un margen.
+    // En modo dual, el eje % arranca en un piso fijo por métrica (OC=0%, NR=3%) en vez
+    // del mínimo de los datos — salvo que haya valores por debajo de ese piso (OC
+    // negativo), en cuyo caso el eje baja hasta el mínimo real para no cortar la línea.
     if (opts.dualPctGb) {
       var _pctVals = (pctGbData||[]).concat(pctGbBud||[]).filter(function(v){ return v!==null && v!==undefined && !isNaN(v); });
       if (_pctVals.length) {
-        var _pmax    = Math.max.apply(null,_pctVals);
-        var _axisMin = metricId==='oc' ? 0 : metricId==='nr' ? 3 : 0;
-        var _pad     = Math.max((_pmax-_axisMin)*0.15, 1);
-        scales.y2.min = _axisMin;
+        var _pmax  = Math.max.apply(null,_pctVals);
+        var _pmin  = Math.min.apply(null,_pctVals);
+        var _floor = metricId==='oc' ? 0 : metricId==='nr' ? 3 : 0;
+        var _pad   = Math.max((_pmax-Math.min(_pmin,_floor))*0.15, 1);
+        scales.y2.min = +((_pmin < _floor ? _pmin-_pad : _floor).toFixed(2));
         scales.y2.max = +(_pmax+_pad).toFixed(2);
       }
     }
