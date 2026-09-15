@@ -1250,8 +1250,17 @@ var MKT_COUNTRIES = [
     gf:{ lobFilter:'b2b', paisFilter:'mexico',          paisExclude:null } },
   { id:'other',  label:'Globales',
     gf:{ lobFilter:'b2b', paisFilter:'other countries', paisExclude:null } },
-  { id:'hispa',  label:'Hispa',
-    gf:{ lobFilter:'b2b', paisFilter:null, paisExclude:['brasil','mexico','other countries','ops','rg','ops + rg'] } },
+  // Hispa desagregado país por país (antes era una sola fila 'hispa' por exclusión)
+  { id:'argentina', label:'Argentina',
+    gf:{ lobFilter:'b2b', paisFilter:'argentina', paisExclude:null } },
+  { id:'colombia',  label:'Colombia',
+    gf:{ lobFilter:'b2b', paisFilter:'colombia',  paisExclude:null } },
+  { id:'chile',     label:'Chile',
+    gf:{ lobFilter:'b2b', paisFilter:'chile',     paisExclude:null } },
+  { id:'peru',      label:'Peru',
+    gf:{ lobFilter:'b2b', paisFilter:'peru',      paisExclude:null } },
+  { id:'ecuador',   label:'Ecuador',
+    gf:{ lobFilter:'b2b', paisFilter:'ecuador',   paisExclude:null } },
   { id:'total',  label:'Total',
     gf:{ lobFilter:'b2b', paisFilter:null, paisExclude:null } }
 ];
