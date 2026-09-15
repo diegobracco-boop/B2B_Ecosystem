@@ -1,2 +1,5 @@
 # Credenciales — nunca versionar
 credenciales/
+
+# Config local de Claude Code (personal, no versionar)
+.claude/settings.local.json
