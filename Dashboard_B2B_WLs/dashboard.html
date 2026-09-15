@@ -3885,33 +3885,68 @@ function renderEvo() {
   var evoPeriods  = _state.evo && _state.evo.periods || [];
   if (!ctryPeriods || !ctryPeriods.length) { ctryEl.innerHTML=''; return; }
 
-  // Helper: render one YoY row from monthly arrays { actuals, runRate, budget, lyAct }
-  function _yoyRow_(label, mData, bold) {
+  // Extrae el valor "vigente" de un mes (actuals → RR → budget) + su tag
+  function _pickVal_(data, i) {
+    var act=data.actuals[i], rr=data.runRate[i], bud=data.budget[i];
+    var val = act!==null ? act : (rr!==null ? rr : bud);
+    var tag = act!==null ? '' : (rr!==null ? 'RR' : 'Bud');
+    return { val:val, tag:tag };
+  }
+
+  // Helper: render one YoY row from monthly arrays { actuals, runRate, budget, lyAct }.
+  // Para OC, cada celda muestra 2 líneas: nominal/%GB, y debajo YoY nominal / Δpp del %GB
+  // (gbData = mismas 4 series pero de Gross Bookings, para armar el ratio).
+  function _yoyRow_(label, mData, bold, gbData) {
     var style = bold ? 'font-weight:700;border-top:2px solid var(--border)' : '';
     var row = '<tr style="'+style+'"><td>'+label+'</td>';
+    var showRatio = (_state.evoMetric === 'oc' && gbData);
     ctryPeriods.forEach(function(ym, i) {
-      var act=mData.actuals[i], rr=mData.runRate[i], bud=mData.budget[i], ly=mData.lyAct[i];
-      var val  = act!==null ? act : (rr!==null ? rr : bud);
-      var tag  = act!==null ? '' : (rr!==null ? 'RR' : 'Bud');
+      var p    = _pickVal_(mData, i);
+      var val  = p.val, tag = p.tag, ly = mData.lyAct[i];
       var yoy  = (val!==null&&val!==0&&ly!==null&&ly!==0) ? (val-ly)/Math.abs(ly)*100 : null;
-      var txt   = yoy!==null ? ((yoy>=0?'▲ +':'▼ ')+Math.round(yoy)+'%') : '—';
-      var color = yoy!==null ? (yoy>=0?'var(--green)':'var(--red)') : 'var(--muted2)';
-      row += '<td style="color:'+color+'">'+txt+
-        (tag?'<span style="color:rgba(139,92,246,.85);font-size:8px;display:block;line-height:1">'+tag+'</span>':'')+
-        '</td>';
+
+      if (showRatio) {
+        var gp    = _pickVal_(gbData, i);
+        var gbVal = gp.val, gbLy = gbData.lyAct[i];
+        var ratio   = (val!==null && gbVal) ? val/Math.abs(gbVal)*100 : null;
+        var lyRatio = (ly!==null  && gbLy)  ? ly/Math.abs(gbLy)*100   : null;
+        var deltaPp = (ratio!==null && lyRatio!==null) ? ratio-lyRatio : null;
+
+        var line1 = (val!==null?fmtK(val):'—') + ' / ' + (ratio!==null?ratio.toFixed(1)+'%':'—');
+        var yoyTxt = yoy!==null ? ((yoy>=0?'+':'')+Math.round(yoy)+'%') : '—';
+        var ppTxt  = deltaPp!==null ? ((deltaPp>=0?'+':'')+deltaPp.toFixed(1)+'pp') : '—';
+        var color  = yoy!==null ? (yoy>=0?'var(--green)':'var(--red)') : 'var(--muted2)';
+        row += '<td>'+
+          '<span style="display:block;color:var(--muted)">'+line1+'</span>'+
+          '<span style="display:block;color:'+color+'">'+yoyTxt+' / '+ppTxt+'</span>'+
+          (tag?'<span style="color:rgba(139,92,246,.85);font-size:8px;display:block;line-height:1">'+tag+'</span>':'')+
+          '</td>';
+      } else {
+        var txt   = yoy!==null ? ((yoy>=0?'▲ +':'▼ ')+Math.round(yoy)+'%') : '—';
+        var color = yoy!==null ? (yoy>=0?'var(--green)':'var(--red)') : 'var(--muted2)';
+        row += '<td style="color:'+color+'">'+txt+
+          (tag?'<span style="color:rgba(139,92,246,.85);font-size:8px;display:block;line-height:1">'+tag+'</span>':'')+
+          '</td>';
+      }
     });
     return row + '</tr>';
   }
 
   // Build Total row data from global evo metric (monthly, no gran aggregation)
-  var totalMData = { actuals:[], runRate:[], budget:[], lyAct:[] };
-  ctryPeriods.forEach(function(ym) {
-    var pi   = evoPeriods.indexOf(ym);
-    totalMData.actuals.push(pi  >= 0 && m.actuals ? m.actuals[pi]  : null);
-    totalMData.runRate.push(pi  >= 0 && m.runRate ? m.runRate[pi]  : null);
-    totalMData.budget.push (pi  >= 0 && m.budget  ? m.budget[pi]   : null);
-    totalMData.lyAct.push  (pi  >= 0 && m.lastYear ? m.lastYear[pi] : null);
-  });
+  var gbM = d.metrics.filter(function(x){ return x.id==='gb'; })[0];
+  function _buildTotalMData_(metric) {
+    var out = { actuals:[], runRate:[], budget:[], lyAct:[] };
+    ctryPeriods.forEach(function(ym) {
+      var pi = evoPeriods.indexOf(ym);
+      out.actuals.push(pi >= 0 && metric && metric.actuals  ? metric.actuals[pi]  : null);
+      out.runRate.push(pi >= 0 && metric && metric.runRate  ? metric.runRate[pi]  : null);
+      out.budget.push (pi >= 0 && metric && metric.budget   ? metric.budget[pi]   : null);
+      out.lyAct.push  (pi >= 0 && metric && metric.lastYear ? metric.lastYear[pi] : null);
+    });
+    return out;
+  }
+  var totalMData   = _buildTotalMData_(m);
+  var totalGbMData = _buildTotalMData_(gbM);
 
   // Header
   var ctryHtml = '<div style="font-size:9px;font-weight:800;color:var(--muted2);text-transform:uppercase;'+
@@ -3924,14 +3959,14 @@ function renderEvo() {
   ctryHtml += '</tr></thead><tbody>';
 
   // Total row (bold, first)
-  ctryHtml += _yoyRow_('Total', totalMData, true);
+  ctryHtml += _yoyRow_('Total', totalMData, true, totalGbMData);
 
   // Country rows
   if (byCtry && byCtry.length) {
     byCtry.forEach(function(country){
       var mData = country.metrics[_state.evoMetric];
       if (!mData) return;
-      ctryHtml += _yoyRow_(country.label, mData, false);
+      ctryHtml += _yoyRow_(country.label, mData, false, country.metrics['gb']);
     });
   }
 
