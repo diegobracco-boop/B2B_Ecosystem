@@ -42,20 +42,18 @@ function getOnePagerData(params) {
   var pais = PAISES.indexOf(p.pais) >= 0 ? p.pais : 'Brasil';
   var lob  = (p.lob === 'b2b') ? 'b2b' : 'b2b2c';
 
-  return {
-    pais:      pais,
-    lob:       lob,
-    evolucion: _getEvolucion_(pais, lob),
-    partners:  _getPartners_(pais, lob),
-    semanal:   _getSemanal_(pais, lob)
-  };
-}
-
-// ── Evolución mensual GB/NR/OC (Dashboard_B2B_WLs) ──────────────
-function _getEvolucion_(pais, lob) {
-  var cp = DashboardB2BWLs.getCountryPageData({ pais: pais, desde: FY_START, hasta: FY_END });
+  // Un solo round-trip a Dashboard_B2B_WLs para evo + los 2 waterfalls
+  var cp      = DashboardB2BWLs.getCountryPageData({ pais: pais, desde: FY_START, hasta: FY_END });
   var lobData = (lob === 'b2b') ? cp.b2bData : cp.b2b2cData;
-  return (lobData && lobData.evo) ? lobData.evo : null;
+
+  return {
+    pais:       pais,
+    lob:        lob,
+    evolucion:  lobData ? lobData.evo : null,
+    waterfalls: lobData ? { oc: lobData.ocConceptWf, nr: lobData.nrBridgeWf } : null,
+    partners:   _getPartners_(pais, lob),
+    semanal:    _getSemanal_(pais, lob)
+  };
 }
 
 // ── Partners + Hunting/Farming (P&L_Managerial gestional) ───────

@@ -50,6 +50,11 @@
     .muted{color:var(--muted)}
     .empty{padding:24px;text-align:center;color:var(--muted);font-size:13px}
     .week-flag{font-size:11px;color:var(--muted)}
+    .wf-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    @media (max-width:800px){.wf-grid{grid-template-columns:1fr}}
+    .wf-card canvas{max-height:220px}
+    .wf-table{margin-top:10px;font-size:12px}
+    .wf-table th,.wf-table td{padding:5px 8px}
   </style>
 </head>
 <body>
@@ -76,6 +81,8 @@
 <script>
 var STATE = { pais: 'Brasil', lob: 'b2b2c', evoMetric: 'nr' };
 var evoChart = null;
+var _charts = {};
+function destroyChart_(id) { if (_charts[id]) { _charts[id].destroy(); delete _charts[id]; } }
 
 function boot() {
   google.script.run.withSuccessHandler(function (filters) {
@@ -122,12 +129,15 @@ function render(data) {
   var html = '';
   html += renderKpis(data.evolucion);
   html += renderEvoSection(data.evolucion);
+  html += renderWaterfallsSection(data.waterfalls);
   html += renderPartners(data.partners, data.lob);
   html += renderSemanal(data.semanal);
   document.getElementById('main').innerHTML = html;
 
   renderEvoChart(data.evolucion);
   wireEvoTabs(data.evolucion);
+  drawWaterfall_('oc', data.waterfalls && data.waterfalls.oc, 'oc');
+  drawWaterfall_('nr', data.waterfalls && data.waterfalls.nr, 'nr');
 }
 
 // ── KPIs ──────────────────────────────────────────────────────
@@ -205,6 +215,160 @@ function renderEvoChart(evo) {
       scales: { y: { ticks: { callback: function (v) { return '$' + (v / 1e6).toFixed(1) + 'M'; } } } }
     }
   });
+}
+
+// ── P&L Bridge: NR Bridge + OC Waterfall (Budget → Actuals+RR) ──
+// Mismo criterio visual que Dashboard_B2B_WLs (_drawBrasilConceptWf_ / _wfTotalDeltaPlugin_):
+// colores oficiales Despegar — Goal lila #976cf6, Baseline lila #550fed, delta +/- #10b132/#e06666.
+function _normOcLabel_(raw) {
+  return ((raw || '').toLowerCase().indexOf('outsourced') >= 0) ? 'Fee SaaS' : raw;
+}
+
+function renderWaterfallsSection(wf) {
+  if (!wf || (!wf.oc && !wf.nr)) return '';
+  return '' +
+    '<div class="sec-title">P&amp;L Bridge <span class="pill">Budget → Actuals+RR</span></div>' +
+    '<div class="wf-grid">' +
+      '<div class="card wf-card"><div class="sec-title" style="margin-top:0">Net Revenue Bridge</div>' +
+        '<canvas id="wfc-nr" height="110"></canvas><div class="wf-table" id="wft-nr"></div></div>' +
+      '<div class="card wf-card"><div class="sec-title" style="margin-top:0">Operating Contribution Waterfall</div>' +
+        '<canvas id="wfc-oc" height="110"></canvas><div class="wf-table" id="wft-oc"></div></div>' +
+    '</div>';
+}
+
+function _wfTotalDeltaPlugin_(goalTotal, baseTotal) {
+  return {
+    id: 'wfTotalDelta',
+    beforeLayout: function (chart) {
+      var lay = chart.options.layout || (chart.options.layout = {});
+      var pad = lay.padding;
+      if (typeof pad !== 'object' || pad === null) { pad = { top: 0, right: 0, bottom: 0, left: 0 }; lay.padding = pad; }
+      pad.top = Math.max(pad.top || 0, 34);
+    },
+    afterDatasetsDraw: function (chart) {
+      var meta = chart.getDatasetMeta(0);
+      if (!meta || !meta.data || !meta.data.length) return;
+      var goalBar = meta.data[0], baseBar = meta.data[meta.data.length - 1];
+      if (!goalBar || !baseBar) return;
+      var ctx = chart.ctx;
+      var delta = baseTotal - goalTotal;
+      var color = delta >= 0 ? '#10b132' : '#e06666';
+      var x1 = goalBar.x, x2 = baseBar.x;
+      var arrowY = chart.chartArea.top - 14;
+
+      ctx.save();
+      ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 1.5;
+      var LEG_GAP = 18;
+      var legY1 = Math.max(goalBar.y - LEG_GAP, arrowY);
+      var legY2 = Math.max(baseBar.y - LEG_GAP, arrowY);
+      ctx.setLineDash([3, 2]);
+      ctx.beginPath(); ctx.moveTo(x1, arrowY); ctx.lineTo(x1, legY1); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x2, arrowY); ctx.lineTo(x2, legY2); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.beginPath(); ctx.moveTo(x1, arrowY); ctx.lineTo(x2, arrowY); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(x2, arrowY); ctx.lineTo(x2 - 8, arrowY - 4); ctx.lineTo(x2 - 8, arrowY + 4);
+      ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(x1, arrowY - 5); ctx.lineTo(x1, arrowY + 5); ctx.stroke();
+      var label = (delta >= 0 ? '+' : '') + fmtM(delta);
+      ctx.font = 'bold 10px -apple-system,sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+      ctx.fillText(label, (x1 + x2) / 2, arrowY - 5);
+      ctx.restore();
+    }
+  };
+}
+
+function drawWaterfall_(chartId, wf, kind) {
+  destroyChart_('wfc-' + chartId);
+  var canvasEl = document.getElementById('wfc-' + chartId);
+  var tblEl    = document.getElementById('wft-' + chartId);
+  if (!canvasEl) return;
+
+  var itemsKey = (kind === 'oc') ? 'concepts' : 'groups';
+  var items    = wf && wf[itemsKey];
+  if (!wf || !items || !items.length) {
+    var wrap = canvasEl.parentNode;
+    if (wrap) wrap.innerHTML = '<div class="muted" style="text-align:center;padding:24px">Sin datos por concepto</div>';
+    return;
+  }
+
+  var goalTotal = wf.budTotal;
+  var baseTotal = wf.baseTotal;
+  var normFn    = (kind === 'oc') ? _normOcLabel_ : function (x) { return x; };
+  var sorted    = items.slice().sort(function (a, b) { return Math.abs(b.deltaVsBud) - Math.abs(a.deltaVsBud); });
+
+  var labels = ['Budget'].concat(sorted.map(function (c) { return normFn(c.label); })).concat(['Actuals+RR']);
+  var floats = [], colors = [], deltas = [], run = goalTotal;
+  floats.push([0, goalTotal]); colors.push('#976cf6'); deltas.push(goalTotal);
+  sorted.forEach(function (c) {
+    var dv = c.deltaVsBud, f = run, t = run + dv;
+    floats.push([Math.min(f, t), Math.max(f, t)]);
+    colors.push(dv >= 0 ? '#10b132' : '#e06666');
+    deltas.push(dv); run = t;
+  });
+  floats.push([0, baseTotal]); colors.push('#550fed'); deltas.push(baseTotal);
+
+  var ally = [goalTotal, baseTotal], tmp = goalTotal;
+  sorted.forEach(function (c) { tmp += c.deltaVsBud; ally.push(tmp); });
+  var yMin = Math.min.apply(null, ally), yMax = Math.max.apply(null, ally);
+  var pad = (Math.abs(yMax - yMin) * 0.12) || (Math.abs(yMax) * 0.15) || 1;
+  yMin -= pad; yMax += pad;
+
+  _charts['wfc-' + chartId] = new Chart(canvasEl, {
+    type: 'bar',
+    data: { labels: labels, datasets: [{ data: floats, backgroundColor: colors, borderRadius: 3, borderSkipped: false }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: function (ctx) {
+          var idx = ctx.dataIndex, val = deltas[idx];
+          var isEnd = (idx === 0 || idx === labels.length - 1);
+          if (isEnd) return ' ' + fmtM(val);
+          var lines = [' Δ vs Budget: ' + fmtM(val)];
+          var it = sorted[idx - 1];
+          if (it && it.components && it.components.length > 1) {
+            it.components.forEach(function (c) { lines.push('  · ' + c.label + ': ' + fmtM(c.deltaVsBud)); });
+          }
+          return lines;
+        } } }
+      },
+      scales: {
+        x: { grid: { color: 'rgba(0,0,0,.04)' }, ticks: { color: '#57606a', font: { size: 10 } } },
+        y: { min: yMin, max: yMax, grid: { color: 'rgba(0,0,0,.06)' },
+             ticks: { color: '#57606a', font: { size: 10 }, callback: function (v) { return fmtM(v); } } }
+      }
+    },
+    plugins: [{
+      id: 'wfLabels-' + chartId,
+      afterDatasetsDraw: function (chart) {
+        var ctx = chart.ctx;
+        chart.data.datasets[0].data.forEach(function (raw, i) {
+          var bar = chart.getDatasetMeta(0).data[i];
+          var isEnd = (i === 0 || i === labels.length - 1);
+          var val = deltas[i];
+          if (!val && val !== 0) return;
+          ctx.save();
+          ctx.fillStyle = isEnd ? '#1c1233' : (val >= 0 ? '#10b132' : '#e06666');
+          ctx.font = 'bold 10px -apple-system,sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(fmtM(val), bar.x, bar.y - 5);
+          ctx.restore();
+        });
+      }
+    }, _wfTotalDeltaPlugin_(goalTotal, baseTotal)]
+  });
+
+  if (!tblEl) return;
+  var cols  = sorted.map(function (c) { return normFn(c.label); }).concat(['Total']);
+  var dVals = sorted.map(function (c) { return c.deltaVsBud; }).concat([baseTotal - goalTotal]);
+  var th = '<table><thead><tr><th></th>' + cols.map(function (c) { return '<th>' + c + '</th>'; }).join('') + '</tr></thead>';
+  var row = '<tbody><tr><td>Δ vs Budget</td>' + dVals.map(function (v) {
+    var sign = (v == null) ? '' : (v >= 0 ? '+' : '-');
+    return '<td><span class="chip ' + chipClass(v) + '">' + sign + fmtM(Math.abs(v)) + '</span></td>';
+  }).join('') + '</tr></tbody></table>';
+  tblEl.innerHTML = th + row;
 }
 
 // ── Partners / Hunting-Farming ──────────────────────────────────
