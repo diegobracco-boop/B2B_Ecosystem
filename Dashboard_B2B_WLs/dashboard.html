@@ -3732,14 +3732,15 @@ function _evoChartCfg_(d, metricId, opts) {
       grid:{drawOnChartArea:false},
       ticks:{color: opts.dualPctGb ? '#57606a' : '#f59e0b',font:{size:10},callback:function(v){return v.toFixed(1)+'%';}}
     };
-    // En modo dual, ajustamos el eje % al rango real de los datos (en vez de 0–100%)
-    // para que las líneas de Actuals y Budget se separen y sean legibles.
+    // En modo dual, el eje % arranca en un piso fijo por métrica (OC=0%, NR=3%) —
+    // no en el mínimo de los datos — y el techo se ajusta al máximo real con un margen.
     if (opts.dualPctGb) {
       var _pctVals = (pctGbData||[]).concat(pctGbBud||[]).filter(function(v){ return v!==null && v!==undefined && !isNaN(v); });
       if (_pctVals.length) {
-        var _pmin = Math.min.apply(null,_pctVals), _pmax = Math.max.apply(null,_pctVals);
-        var _pad  = Math.max((_pmax-_pmin)*0.45, 0.4);
-        scales.y2.min = Math.max(0, +(_pmin-_pad).toFixed(2));
+        var _pmax    = Math.max.apply(null,_pctVals);
+        var _axisMin = metricId==='oc' ? 0 : metricId==='nr' ? 3 : 0;
+        var _pad     = Math.max((_pmax-_axisMin)*0.15, 1);
+        scales.y2.min = _axisMin;
         scales.y2.max = +(_pmax+_pad).toFixed(2);
       }
     }
