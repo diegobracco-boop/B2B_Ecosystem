@@ -17,16 +17,17 @@ El ecosistema tiene dos capas: **pipelines** (Python, generan los datos) y **lan
                        ▼                  ▼
               Google Drive (fuente única de verdad)
                        │
-        ┌──────────────┼──────────────────┬──────────────────┐
-        ▼              ▼                  ▼                  ▼
-┌───────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
-│ P&L Accounting│ │P&L Managerial│ │Dashboard B2B │ │ Manual B2B   │
-│   (GAS+HTML)  │ │  (GAS+HTML)  │ │    WLs       │ │     WLs      │
-│ vista contable│ │vista gerencial│ │  (GAS+HTML)  │ │  (GAS+HTML)  │
-└───────────────┘ └──────────────┘ └──────────────┘ └──────────────┘
+        ┌──────────────┼──────────────────┬──────────────────┬──────────────────┐
+        ▼              ▼                  ▼                  ▼                  ▼
+┌───────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌────────────────┐
+│ P&L Accounting│ │P&L Managerial│ │Dashboard B2B │ │ Manual B2B   │ │ LoB_Country_One│
+│   (GAS+HTML)  │ │  (GAS+HTML)  │ │    WLs       │ │     WLs      │ │ Pager (GAS+HTML)│
+│ vista contable│ │vista gerencial│ │  (GAS+HTML)  │ │  (GAS+HTML)  │ │ contable+gerenc.│
+└───────────────┘ └──────────────┘ └──────────────┘ └──────────────┘ │ +daily/weekly   │
+                                                                       └────────────────┘
 ```
 
-⚠️ Este diagrama simplifica de más: **P&L_Managerial no lee del pool común de Drive que alimentan `Inputs_Planning_PnL`/`Daily_Dashboard`** — tiene su propio pipeline Python (`actuals_gestional_upload.py`), un tercer pipeline no dibujado arriba, que consulta el Datalake y los modelos Forecast XLSX directamente y publica su propio JSON. Ver el módulo más abajo para el detalle.
+⚠️ Este diagrama simplifica de más: **P&L_Managerial no lee del pool común de Drive que alimentan `Inputs_Planning_PnL`/`Daily_Dashboard`** — tiene su propio pipeline Python (`actuals_gestional_upload.py`), un tercer pipeline no dibujado arriba, que consulta el Datalake y los modelos Forecast XLSX directamente y publica su propio JSON. Ver el módulo más abajo para el detalle. **`lob_country_one_pagera` es el único landing que lee de los tres orígenes a la vez** (Inputs_Planning_PnL, Daily_Dashboard y el JSON gestional de P&L_Managerial) — no tiene pipeline propio, solo agrega/combina lo que ya publican los otros tres.
 
 ## Módulos
 
@@ -74,6 +75,19 @@ El ecosistema tiene dos capas: **pipelines** (Python, generan los datos) y **lan
 - **Deploy**: `cd Manual_B2B_WLs && clasp push --force` + `clasp deploy -i <deploymentId>` (ver `/clasp-push`)
 - **Doc detallada**: [CONTEXT.md](./Manual_B2B_WLs/CONTEXT.md)
 
+### lob_country_one_pagera — one-pager combinado por país (LoB)
+- **Stack**: GAS + HTML
+- **Input**: combina los tres orígenes existentes, sin pipeline propio —
+  JSONs canónicos de `Inputs_Planning_PnL` (contable, mensual), `_actuals_gestional.json`
+  de `P&L_Managerial` (gerencial, mensual) y `daily_b2b2c_data.json` / `daily_b2b_data.json`
+  de `Daily_Dashboard` (operativo, daily/weekly)
+- **Propósito**: vista tipo "country one pager" que junta en una sola pantalla, por país,
+  lo contable y lo gestional en las tres cadencias (daily, weekly, monthly) — hoy repartido
+  entre `P&L_Accounting`, `P&L_Managerial` y `Dashboard_B2B_WLs`/`Daily_Dashboard`
+- **Usuarios**: a definir (candidato: dirección / seguimiento ejecutivo por país)
+- **Deploy**: `cd lob_country_one_pagera && clasp push`
+- **Script ID**: `1jApagpx41_eeLc3T51J_t3KUp7JqzA595rvV3mH3cEtDyTDkLT2gK9rp`
+
 ## Credenciales
 
 Todas las credenciales viven en `credenciales/` (gitignoreado). Ver cada módulo para el detalle de qué archivo necesita.
@@ -81,6 +95,7 @@ Todas las credenciales viven en `credenciales/` (gitignoreado). Ver cada módulo
 ## Estado actual
 
 - **En producción**: Daily_Dashboard, Dashboard_B2B_WLs, P&L_Accounting, P&L_Managerial, Manual_B2B_WLs
+- **En construcción**: `lob_country_one_pagera` (scaffold creado 2026-09-14, sin lógica de negocio todavía)
 - **En construcción (Fase 2)**: repuntear las landings de P&L y Dashboard_B2B_WLs a los JSONs canónicos de Inputs_Planning_PnL como fuente única (hoy algunas todavía leen de fuentes propias)
 
 ## Relación clasp ↔ GitHub
