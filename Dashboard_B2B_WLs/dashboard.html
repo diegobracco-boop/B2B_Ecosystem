@@ -3894,12 +3894,12 @@ function renderEvo() {
   }
 
   // Helper: render one YoY row from monthly arrays { actuals, runRate, budget, lyAct }.
-  // Para OC, cada celda muestra 2 líneas: nominal/%GB, y debajo YoY nominal / Δpp del %GB
+  // Para OC y NR, cada celda muestra 2 líneas: nominal/%GB, y debajo YoY nominal / Δpp del %GB
   // (gbData = mismas 4 series pero de Gross Bookings, para armar el ratio).
   function _yoyRow_(label, mData, bold, gbData) {
     var style = bold ? 'font-weight:700;border-top:2px solid var(--border)' : '';
     var row = '<tr style="'+style+'"><td>'+label+'</td>';
-    var showRatio = (_state.evoMetric === 'oc' && gbData);
+    var showRatio = ((_state.evoMetric === 'oc' || _state.evoMetric === 'nr') && gbData);
     ctryPeriods.forEach(function(ym, i) {
       var p    = _pickVal_(mData, i);
       var val  = p.val, tag = p.tag, ly = mData.lyAct[i];
