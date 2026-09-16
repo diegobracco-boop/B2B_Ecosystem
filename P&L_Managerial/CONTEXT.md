@@ -55,7 +55,7 @@ El selector Goal de la landing mapea: budget→`bgt`, forecast→`fc`, lastyear�
 ## Credenciales y configuración manual
 
 - **`RUTA_ENV`** (`actuals_gestional_upload.py:44`) apunta a `C:\Users\diego.bracco\Proyectos IA\envs\.env` — hardcodeado a la máquina de Diego. Si otra persona corre este script, hay que cambiar esta ruta a mano (no está cubierto por el checklist de onboarding del `CLAUDE.md` raíz, que solo menciona `Daily_Dashboard`).
-- **`FC_XLSX_DIR`** (línea 54-57) apunta a la carpeta semanal vigente del Forecast/Run Rate (ej. `2026.08.18 - W33`), también hardcodeada a OneDrive de Diego. **Hay que actualizarla a mano cada vez que se publica un nuevo corte** — el script no avisa si quedó apuntando a una carpeta vieja.
+- **`FC_XLSX_DIR`** (línea ~54) apunta a la carpeta del corte de Forecast vigente (hoy `Forecast\2026.07.14`), también hardcodeada a OneDrive de Diego. **Hay que actualizarla a mano cada vez que se publica un nuevo corte** — el script no avisa si quedó apuntando a una carpeta vieja.
 - Credenciales Drive: si existe `credentials_drive.json`/`token_drive.json` en esta carpeta, se usan esas; si no, cae a las credenciales de `clasp` (`~/.clasprc.json`).
 
 ## Deploy
