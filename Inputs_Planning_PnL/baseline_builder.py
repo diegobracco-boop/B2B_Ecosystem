@@ -117,6 +117,13 @@ def build_actuals_json(actuals_xlsx=None, fy=2027):
         try: os.remove(csv)
         except Exception: pass
     df = plana.copy()
+    # Misma regla de negocio que json_builder.py:_process() — país RG es una
+    # contrapartida/reverso, no un país real, para esta línea puntual. Si no se
+    # aplica acá (2026-09-17: faltaba), el monto de RG cancela el de Argentina y
+    # Cost of Sales as Principal sale en $0 para los meses de actuals del baseline.
+    mask = (df["Pais"].astype(str).str.lower() == "rg") & \
+           (df["P&L N1"].astype(str).str.lower() == "cost of sales as principal")
+    df.loc[mask, "Monto USD"] = 0
     df["Canal"] = df["Canal"].where(df["LoB"].astype(str).str.lower() == "b2b", "total")
     df["Monto USD"] = pd.to_numeric(df["Monto USD"], errors="coerce").fillna(0).round(2)
     df = df.groupby(GROUP, as_index=False, dropna=False)["Monto USD"].sum()
