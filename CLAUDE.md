@@ -53,7 +53,7 @@ Una vez creadas las credenciales, actualizar `RUTA_ENV` en `Daily_Dashboard/dail
 | `P&L_Accounting/` | Implementar → `/clasp-push` |
 | `P&L_Managerial/` | Implementar → `/clasp-push` |
 | `Manual_B2B_WLs/` | Implementar → `python Manual_B2B_WLs/check_manual_refs.py` → `/clasp-push` |
-| `lob_country_one_pagera/` | Implementar → `/clasp-push` (combina JSONs de Inputs_Planning_PnL + Daily_Dashboard + P&L_Managerial, sin pipeline propio) |
+| `lob_country_one_pager/` | Implementar → `/clasp-push` (combina JSONs de Inputs_Planning_PnL + Daily_Dashboard + P&L_Managerial, sin pipeline propio) |
 
 **Al cambiar el proceso, los IDs de Drive/deployment, los nombres de script o la arquitectura de CUALQUIER módulo, actualizar también `Manual_B2B_WLs/manual.html`** — no se actualiza solo, y ya se desincronizó (scripts fantasma, IDs viejos). Correr `python Manual_B2B_WLs/check_manual_refs.py` antes de deployar el manual (chequea que los `.py` citados existan en el repo).
 

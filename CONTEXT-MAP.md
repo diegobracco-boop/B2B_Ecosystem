@@ -27,7 +27,7 @@ El ecosistema tiene dos capas: **pipelines** (Python, generan los datos) y **lan
                                                                        └────────────────┘
 ```
 
-⚠️ Este diagrama simplifica de más: **P&L_Managerial no lee del pool común de Drive que alimentan `Inputs_Planning_PnL`/`Daily_Dashboard`** — tiene su propio pipeline Python (`actuals_gestional_upload.py`), un tercer pipeline no dibujado arriba, que consulta el Datalake y los modelos Forecast XLSX directamente y publica su propio JSON. Ver el módulo más abajo para el detalle. **`lob_country_one_pagera` es el único landing que lee de los tres orígenes a la vez** (Inputs_Planning_PnL, Daily_Dashboard y el JSON gestional de P&L_Managerial) — no tiene pipeline propio, solo agrega/combina lo que ya publican los otros tres.
+⚠️ Este diagrama simplifica de más: **P&L_Managerial no lee del pool común de Drive que alimentan `Inputs_Planning_PnL`/`Daily_Dashboard`** — tiene su propio pipeline Python (`actuals_gestional_upload.py`), un tercer pipeline no dibujado arriba, que consulta el Datalake y los modelos Forecast XLSX directamente y publica su propio JSON. Ver el módulo más abajo para el detalle. **`lob_country_one_pager` es el único landing que lee de los tres orígenes a la vez** (Inputs_Planning_PnL, Daily_Dashboard y el JSON gestional de P&L_Managerial) — no tiene pipeline propio, solo agrega/combina lo que ya publican los otros tres.
 
 ## Módulos
 
@@ -75,7 +75,7 @@ El ecosistema tiene dos capas: **pipelines** (Python, generan los datos) y **lan
 - **Deploy**: `cd Manual_B2B_WLs && clasp push --force` + `clasp deploy -i <deploymentId>` (ver `/clasp-push`)
 - **Doc detallada**: [CONTEXT.md](./Manual_B2B_WLs/CONTEXT.md)
 
-### lob_country_one_pagera — one-pager combinado por LoB+País
+### lob_country_one_pager — one-pager combinado por LoB+País
 - **Stack**: GAS + HTML
 - **Input**: sin pipeline propio y **sin leer JSONs de Drive directamente** — consume las
   otras 3 landings como **Apps Script Libraries** (`dependencies.libraries` en `appsscript.json`,
@@ -86,7 +86,7 @@ El ecosistema tiene dos capas: **pipelines** (Python, generan los datos) y **lan
   Se eligió reusar funciones públicas (sin `_` final) en vez de duplicar la lógica de
   agregación, para que los números coincidan siempre con los de esas 3 landings. Al
   actualizar el código de alguna de ellas, hay que correr `clasp version` ahí y bumpear el
-  número en `lob_country_one_pagera/appsscript.json`, si no el one-pager sigue sirviendo
+  número en `lob_country_one_pager/appsscript.json`, si no el one-pager sigue sirviendo
   la versión vieja.
 - **`executeAs: USER_DEPLOYING`** (a diferencia de `Dashboard_B2B_WLs`, que es
   `USER_ACCESSING`): necesario porque las libraries corren con la identidad de quien
@@ -102,7 +102,7 @@ El ecosistema tiene dos capas: **pipelines** (Python, generan los datos) y **lan
   **v1 (piloto B2B2C Brasil, 2026-09-14)**: sin sección de OKR (el `okr.json` de
   `Inputs_Planning_PnL` solo filtra por LoB, no por país — pendiente si se necesita).
 - **Usuarios**: directores comerciales por LoB+país (piloto: B2B2C Brasil)
-- **Deploy**: `cd lob_country_one_pagera && clasp push --force` (el manifest tiene
+- **Deploy**: `cd lob_country_one_pager && clasp push --force` (el manifest tiene
   `dependencies.libraries`, clasp pide `--force` para pushearlo) + `clasp deploy -i <id>`
 - **Script ID**: `1jApagpx41_eeLc3T51J_t3KUp7JqzA595rvV3mH3cEtDyTDkLT2gK9rp`
 - **Deployment id (prod)**: `AKfycbytMGsghl1TweKpYgMV2uhjTr--a9jpWkd2G3faZrF0DixD7UNu2qAq8Tbhlv_PCo0t`
@@ -114,7 +114,7 @@ Todas las credenciales viven en `credenciales/` (gitignoreado). Ver cada módulo
 ## Estado actual
 
 - **En producción**: Daily_Dashboard, Dashboard_B2B_WLs, P&L_Accounting, P&L_Managerial, Manual_B2B_WLs
-- **En construcción**: `lob_country_one_pagera` (scaffold creado 2026-09-14, sin lógica de negocio todavía)
+- **En construcción**: `lob_country_one_pager` (scaffold creado 2026-09-14, sin lógica de negocio todavía)
 - **En construcción (Fase 2)**: repuntear las landings de P&L y Dashboard_B2B_WLs a los JSONs canónicos de Inputs_Planning_PnL como fuente única (hoy algunas todavía leen de fuentes propias)
 
 ## Relación clasp ↔ GitHub
