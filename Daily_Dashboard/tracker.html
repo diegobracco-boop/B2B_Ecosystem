@@ -6,6 +6,8 @@
 <title>Daily Tracker B2B</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -403,6 +405,51 @@
     cursor: pointer; transition: background .15s;
   }
   .slides-nav-exit:hover { background: rgba(255,255,255,.25); }
+
+  /* ── Export button + menu ── */
+  .slides-export-wrap { position: relative; flex-shrink: 0; }
+  .slides-nav-export {
+    padding: 4px 12px;
+    background: rgba(255,255,255,.12); border: 1.5px solid rgba(255,255,255,.4);
+    color: #fff; border-radius: 6px; font-size: 12px; font-weight: 700;
+    cursor: pointer; transition: background .15s; white-space: nowrap;
+  }
+  .slides-nav-export:hover { background: rgba(255,255,255,.25); }
+  .slides-export-menu {
+    display: none; position: absolute; top: calc(100% + 6px); right: 0;
+    background: #fff; border-radius: 8px; overflow: hidden;
+    box-shadow: 0 8px 24px rgba(0,0,0,.28); min-width: 210px; z-index: 60;
+  }
+  .slides-export-menu.open { display: block; }
+  .slides-export-menu button {
+    display: block; width: 100%; text-align: left; border: 0; background: #fff;
+    color: #1e1452; font-size: 13px; font-weight: 600; padding: 11px 14px;
+    cursor: pointer; transition: background .12s;
+  }
+  .slides-export-menu button:hover { background: #f2efff; }
+  .slides-export-menu button + button { border-top: 1px solid #eee; }
+
+  /* ── Export progress overlay ── */
+  .slides-export-overlay {
+    display: none; position: fixed; inset: 0; z-index: 200;
+    background: rgba(17,24,39,.72); align-items: center; justify-content: center;
+  }
+  .slides-export-overlay.active { display: flex; }
+  .slides-export-card {
+    background: #fff; border-radius: 14px; padding: 28px 34px; text-align: center;
+    box-shadow: 0 12px 40px rgba(0,0,0,.35); min-width: 280px;
+    display: flex; flex-direction: column; align-items: center; gap: 14px;
+  }
+  .slides-export-msg { color: #1e1452; font-size: 14px; font-weight: 600; }
+  .slides-export-link {
+    color: #550FED; font-size: 13px; font-weight: 700; text-decoration: none;
+  }
+  .slides-export-link:hover { text-decoration: underline; }
+  .slides-export-close {
+    padding: 7px 18px; background: #550FED; color: #fff; border: 0;
+    border-radius: 7px; font-size: 13px; font-weight: 700; cursor: pointer;
+  }
+  .slides-export-close:hover { background: #4409c9; }
   .slides-nav-dots { display: flex; gap: 5px; align-items: center; }
   .slides-dot {
     width: 6px; height: 6px; border-radius: 50%;
@@ -758,7 +805,23 @@
   <span class="slides-nav-title" id="slidesTitle"></span>
   <div class="slides-nav-dots" id="slidesDots"></div>
   <button class="slides-nav-btn" id="slidesNext" onclick="slideNext()">&#8594;</button>
+  <div class="slides-export-wrap">
+    <button class="slides-nav-export" id="slidesExportBtn" onclick="toggleExportMenu(event)">⬇ Exportar</button>
+    <div class="slides-export-menu" id="slidesExportMenu">
+      <button type="button" onclick="exportSlidesPDF()">📄 Descargar PDF</button>
+      <button type="button" onclick="exportSlidesToGoogle()">🖼️ Enviar a Google Slides</button>
+    </div>
+  </div>
   <button class="slides-nav-exit" onclick="toggleSlidesMode()">✕ Salir</button>
+</div>
+
+<div class="slides-export-overlay" id="slidesExportOverlay">
+  <div class="slides-export-card">
+    <div class="spinner"></div>
+    <div class="slides-export-msg" id="slidesExportMsg">Preparando…</div>
+    <a class="slides-export-link" id="slidesExportLink" href="#" target="_blank" rel="noopener" style="display:none">Abrir en Google Slides ↗</a>
+    <button type="button" class="slides-export-close" id="slidesExportClose" onclick="hideExportOverlay()" style="display:none">Cerrar</button>
+  </div>
 </div>
 
 <div class="tabs" id="tabs">
@@ -2718,10 +2781,185 @@ function slidePrev() {
 
 document.addEventListener('keydown', function(e) {
   if (!_isSlidesMode) return;
+  // No capturar teclas mientras el overlay de export está activo
+  if (document.getElementById('slidesExportOverlay').classList.contains('active')) return;
   if (e.key === 'ArrowRight' || e.key === 'ArrowDown')  slideNext();
   if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')    slidePrev();
   if (e.key === 'Escape') toggleSlidesMode();
 });
+
+// ─────────────────────────────────────────────
+//  Export de slides (PDF / Google Slides)
+// ─────────────────────────────────────────────
+var _exporting = false;
+
+function toggleExportMenu(e) {
+  if (e) e.stopPropagation();
+  document.getElementById('slidesExportMenu').classList.toggle('open');
+}
+function _closeExportMenu() {
+  document.getElementById('slidesExportMenu').classList.remove('open');
+}
+document.addEventListener('click', function(e) {
+  var wrap = document.querySelector('.slides-export-wrap');
+  if (wrap && !wrap.contains(e.target)) _closeExportMenu();
+});
+
+function _sleep(ms) { return new Promise(function(r) { setTimeout(r, ms); }); }
+
+function showExportOverlay(msg) {
+  document.getElementById('slidesExportMsg').textContent   = msg || 'Preparando…';
+  document.getElementById('slidesExportLink').style.display  = 'none';
+  document.getElementById('slidesExportClose').style.display = 'none';
+  document.querySelector('.slides-export-card .spinner').style.display = '';
+  document.getElementById('slidesExportOverlay').classList.add('active');
+}
+function updateExportOverlay(msg) {
+  document.getElementById('slidesExportMsg').textContent = msg;
+}
+function hideExportOverlay() {
+  document.getElementById('slidesExportOverlay').classList.remove('active');
+}
+function _exportDone(msg, url) {
+  document.querySelector('.slides-export-card .spinner').style.display = 'none';
+  updateExportOverlay(msg);
+  if (url) {
+    var link = document.getElementById('slidesExportLink');
+    link.href = url;
+    link.style.display = '';
+  }
+  document.getElementById('slidesExportClose').style.display = '';
+}
+
+// Asegura que agencias / Air NR estén cargados antes de capturar (sin spinners).
+// Si al vencer el timeout siguen cargando, LANZA error: mejor abortar que
+// exportar números a medio cargar al equipo comercial.
+async function _ensureSlidesDataLoaded() {
+  if (agenciasState === 'idle') loadAgencias();
+  if (airNRState   === 'idle') loadAirNR();
+  var t0 = Date.now();
+  while ((agenciasState === 'idle' || agenciasState === 'loading' ||
+          airNRState   === 'idle' || airNRState   === 'loading') &&
+         (Date.now() - t0) < 12000) {
+    await _sleep(200);
+  }
+  var pending = [];
+  if (agenciasState === 'idle' || agenciasState === 'loading') pending.push('Status KRs (agencias)');
+  if (airNRState   === 'idle' || airNRState   === 'loading') pending.push('Air NR');
+  if (pending.length) {
+    throw new Error('Los datos todavía se están cargando (' + pending.join(', ') +
+                    '). Esperá unos segundos y reintentá — no se exporta un estado parcial.');
+  }
+}
+
+// Recorre todas las slides y devuelve [{img, w, h} | {img:null}] (16:9).
+// opts.jpeg = true → PNG pesado se reemplaza por JPEG (para la ruta de Google
+// Slides, que manda todo en un solo google.script.run y tiene límite de tamaño).
+async function _captureAllSlides(onProgress, opts) {
+  opts = opts || {};
+  var entered = false;
+  if (!_isSlidesMode) { toggleSlidesMode(); entered = true; }
+  var prevIdx = _slideIdx;
+
+  // Desactivar animación de Chart.js para capturar el estado final
+  var animBackup = (window.Chart) ? Chart.defaults.animation : undefined;
+  if (window.Chart) Chart.defaults.animation = false;
+
+  await _ensureSlidesDataLoaded();
+
+  var el = document.getElementById('slideContent');
+  var slides = [];
+  try {
+    for (var i = 0; i < SLIDE_ORDER.length; i++) {
+      _goToSlide(i);
+      await _sleep(500); // dejar asentar layout + charts
+      try {
+        var canvas = await html2canvas(el, {
+          scale: opts.jpeg ? 1.3 : 1.5, backgroundColor: '#ffffff', useCORS: true, logging: false
+        });
+        var img = opts.jpeg ? canvas.toDataURL('image/jpeg', 0.85)
+                            : canvas.toDataURL('image/png');
+        slides.push({ img: img, w: canvas.width, h: canvas.height });
+      } catch (capErr) {
+        // Una slide rota NO debe abortar toda la export: mandamos null y el
+        // backend inserta un placeholder ("No se pudo capturar esta slide").
+        console.error('Falló la captura de la slide ' + (i + 1), capErr);
+        slides.push({ img: null });
+      }
+      if (onProgress) onProgress(i + 1, SLIDE_ORDER.length);
+    }
+  } finally {
+    if (window.Chart) Chart.defaults.animation = animBackup;
+    _goToSlide(prevIdx);
+    if (entered) toggleSlidesMode();
+  }
+  return slides;
+}
+
+// ── Descargar como PDF (16:9 landscape, una slide por página) ──
+async function exportSlidesPDF() {
+  if (_exporting) return;
+  _closeExportMenu();
+  _exporting = true;
+  try {
+    showExportOverlay('Capturando slides…');
+    var slides = await _captureAllSlides(function(done, total) {
+      updateExportOverlay('Capturando slides… ' + done + ' / ' + total);
+    });
+    updateExportOverlay('Armando el PDF…');
+    var jsPDFCtor = (window.jspdf && window.jspdf.jsPDF) ? window.jspdf.jsPDF : window.jsPDF;
+    var PW = 1280, PH = 720; // página 16:9
+    var pdf = new jsPDFCtor({ orientation: 'landscape', unit: 'pt', format: [PW, PH] });
+    for (var i = 0; i < slides.length; i++) {
+      if (i > 0) pdf.addPage([PW, PH], 'landscape');
+      if (!slides[i].img) {
+        pdf.setFontSize(16);
+        pdf.text('Slide ' + (i + 1) + ' no disponible (falló la captura).', PW / 2, PH / 2, { align: 'center' });
+        continue;
+      }
+      // fit preservando aspect-ratio, centrado
+      var ratio = slides[i].w / slides[i].h;
+      var iw = PW, ih = iw / ratio;
+      if (ih > PH) { ih = PH; iw = ih * ratio; }
+      pdf.addImage(slides[i].img, 'PNG', (PW - iw) / 2, (PH - ih) / 2, iw, ih);
+    }
+    var fname = 'Daily_Tracker_B2B_' + new Date().toISOString().slice(0, 10) + '.pdf';
+    pdf.save(fname);
+    _exportDone('PDF descargado ✓');
+  } catch (err) {
+    _exportDone('Error al generar el PDF: ' + (err && err.message ? err.message : err));
+  } finally {
+    _exporting = false;
+  }
+}
+
+// ── Enviar a Google Slides (pisa SIEMPRE la presentación fija) ──
+async function exportSlidesToGoogle() {
+  if (_exporting) return;
+  _closeExportMenu();
+  _exporting = true;
+  try {
+    showExportOverlay('Capturando slides…');
+    var slides = await _captureAllSlides(function(done, total) {
+      updateExportOverlay('Capturando slides… ' + done + ' / ' + total);
+    }, { jpeg: true });
+    updateExportOverlay('Subiendo a Google Slides… (esto puede tardar)');
+    google.script.run
+      .withSuccessHandler(function(res) {
+        _exporting = false;
+        _exportDone('Listo ✓ ' + res.count + ' slides en Google Slides.', res.url);
+      })
+      .withFailureHandler(function(err) {
+        _exporting = false;
+        _exportDone('Error al enviar a Google Slides: ' +
+                    (err && err.message ? err.message : err));
+      })
+      .exportToGoogleSlides({ slides: slides });
+  } catch (err) {
+    _exporting = false;
+    _exportDone('Error al capturar las slides: ' + (err && err.message ? err.message : err));
+  }
+}
 
 // ─────────────────────────────────────────────
 //  Boot

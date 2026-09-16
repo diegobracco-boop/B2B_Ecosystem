@@ -1094,6 +1094,61 @@ function buildFlowSlidesDeck(payload) {
   return { url: pres.getUrl(), id: pres.getId() };
 }
 
+// ============================================================
+// Daily Tracker B2B — "Enviar a Google Slides"
+// SIEMPRE pisa esta presentación fija: se borran las slides que había y se
+// reemplazan con las nuevas (una imagen 16:9 por slide). Mismo patrón de
+// captura que buildFlowSlidesDeck, pero sobre un deck existente (openById).
+// payload = { slides: [{img:'data:image/png;base64,...', w, h} | null, ...] }
+// ============================================================
+var TRACKER_SLIDES_PRESENTATION_ID = '1LOyWHSd2indzmOLreGQayconb_pnghCvFVlRO6NjsV0';
+
+function exportToGoogleSlides(payload) {
+  payload = payload || {};
+  var slides = payload.slides || [];
+  if (!slides.length) throw new Error('No se recibió ninguna slide para exportar.');
+
+  // El deck es FIJO y compartido: serializar para que dos exports simultáneas
+  // no se pisen a mitad de borrado.
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) {
+    throw new Error('Hay otra exportación en curso sobre la misma presentación. Reintentá en unos segundos.');
+  }
+
+  try {
+    var pres = SlidesApp.openById(TRACKER_SLIDES_PRESENTATION_ID);
+    var w = pres.getPageWidth(), h = pres.getPageHeight();
+
+    // Insertar las nuevas ANTES de borrar las viejas (el deck nunca queda vacío)
+    var existing = pres.getSlides();
+
+    slides.forEach(function(entry) {
+      var slide = pres.appendSlide(SlidesApp.PredefinedLayout.BLANK);
+      if (!entry || !entry.img) {
+        slide.insertTextBox('No se pudo capturar esta slide (revisar consola del navegador).',
+                            40, h/2 - 12, w - 80, 24)
+             .getText().getTextStyle().setFontSize(14).setForegroundColor('#C0392B');
+        return;
+      }
+      var mime = (String(entry.img).match(/^data:(image\/\w+);base64,/) || [])[1] || 'image/png';
+      var b64  = String(entry.img).replace(/^data:image\/\w+;base64,/, '');
+      var blob = Utilities.newBlob(Utilities.base64Decode(b64), mime, 'slide');
+      var ratio = entry.w && entry.h ? entry.w/entry.h : (w/h);
+      var imgW = w, imgH = imgW/ratio;
+      if (imgH > h) { imgH = h; imgW = imgH*ratio; }
+      slide.insertImage(blob, (w - imgW)/2, (h - imgH)/2, imgW, imgH);
+    });
+
+    for (var j = 0; j < existing.length; j++) existing[j].remove();
+
+    var url = pres.getUrl();
+    pres.saveAndClose();
+    return { ok: true, count: slides.length, url: url };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 // Función sin "_" final (ver nota arriba): correrla UNA VEZ desde el editor de Apps
 // Script (▶ Run, no desde el webapp) para disparar la pantalla de autorización real
 // del scope "presentations" — cada proyecto de Apps Script autoriza sus scopes por

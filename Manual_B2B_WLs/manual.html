@@ -1769,7 +1769,8 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
           <tr><td>Codigo.js</td><td><span class="tag tag-js">Apps Script</span></td><td>Backend: sirve el HTML y expone <code>getRawB2BC()</code> y <code>getRawB2B()</code> que leen los JSON desde Drive con cache auto-invalidante por <code>lastUpdated</code></td></tr>
           <tr><td>dashboard.html</td><td><span class="tag tag-html">HTML</span></td><td>Frontend daily. Vanilla JS + Chart.js 4.4.0. Métricas: GB / NR / FVM diario + MTD vs LY + budget</td></tr>
           <tr><td>dashboard_weekly.html</td><td><span class="tag tag-html">HTML</span></td><td>Vista semanal del mismo JSON (weekly / MTD / mensual)</td></tr>
-          <tr><td>appsscript.json / .clasp.json</td><td><span class="tag tag-js">Manifest</span></td><td>Webapp. Scopes: drive.readonly, gmail.send</td></tr>
+          <tr><td>tracker.html</td><td><span class="tag tag-html">HTML</span></td><td>Daily B2B Tracker (Status KRs, GB/NR/FVM por RI y GD). Se sirve desde el mismo deployment con <code>?view=tracker</code> y se embebe como iframe en el tab "Daily B2B Tracker" del Hub. Tiene <strong>modo Slides</strong> con export a PDF / Google Slides — ver card debajo. <strong>Copia idéntica</strong> en el proyecto standalone <code>Daily_Tracker_B2B</code> (mantener sincronizadas)</td></tr>
+          <tr><td>appsscript.json / .clasp.json</td><td><span class="tag tag-js">Manifest</span></td><td>Webapp. Scopes: drive.readonly, gmail.send, spreadsheets, <code>presentations</code> (este último para el export del Tracker a Google Slides)</td></tr>
         </tbody>
       </table>
     </div>
@@ -1784,6 +1785,22 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
           <tr><td>Datos B2B</td><td>GD (directo) + RI (recibido indirecto) + Budget. Queries alineadas a la versión oficial (country_factor, buy_type_code affiliates, fecha reconocimiento RI, profit sharings Naranja/Turismocity/Banco Chile)</td></tr>
           <tr><td>Folder Drive LEGACY</td><td><code>1_6X_ZZUZyTzM-cKB...</code> — vacío, sin uso. El activo es <code>1lWzfqweyV6Kz1ERkL85ikFcmzmKwGwwh</code></td></tr>
           <tr><td>Métricas</td><td>Gross Bookings, Net Revenues, FVM</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📸 Daily B2B Tracker — Modo Slides + export (PDF / Google Slides)</div>
+      <div class="page-sub" style="margin-bottom:14px">Dentro del <strong>Daily B2B Tracker</strong> (<code>tracker.html</code>), el botón <strong>▶ Slides</strong> entra a modo presentación (11 slides 16:9: Status KRs, portadas RI/GD, GB/NR/FVM y Tablas). En esa barra hay un botón <strong>⬇ Exportar</strong> con dos opciones: <strong>Descargar PDF</strong> y <strong>Enviar a Google Slides</strong>. <span class="badge badge-manual">🆕 2026-09</span></div>
+      <table class="doc-table">
+        <tbody>
+          <tr><td>Cómo captura</td><td>El cliente recorre las 11 slides y captura cada <code>#slideContent</code> TAL CUAL se ve con <a class="ext-link" href="https://html2canvas.hertzen.com/" target="_blank">html2canvas</a> (CDN jsdelivr) — desactiva la animación de Chart.js para tomar el estado final. No se reconstruye nada nativo en Slides: son imágenes (fotos), no tablas editables.</td></tr>
+          <tr><td>Descargar PDF</td><td>Arma un PDF 16:9 landscape con <a class="ext-link" href="https://github.com/parallax/jsPDF" target="_blank">jsPDF</a> (CDN), una slide por página. 100% del lado del cliente, sin permisos ni backend.</td></tr>
+          <tr><td>Enviar a Google Slides</td><td>Captura en JPEG (para no pasarse del límite de tamaño de <code>google.script.run</code>) y manda todo a <code>exportToGoogleSlides({slides})</code> (Codigo.js). <strong>SIEMPRE pisa la MISMA presentación fija</strong>: <code>1LOyWHSd2indzmOLreGQayconb_pnghCvFVlRO6NjsV0</code>. Inserta las nuevas ANTES de borrar las viejas (el deck nunca queda vacío) y usa <code>LockService</code> para serializar exports simultáneas.</td></tr>
+          <tr><td class="note" colspan="2">⚠️ La presentación fija se <strong>sobrescribe completa</strong> en cada export: se borran todas las slides anteriores. Quien use el botón tiene que tener permiso de <strong>edición</strong> sobre ese deck (el webapp corre con <code>executeAs: USER_DEPLOYING</code>).</td></tr>
+          <tr><td class="note" colspan="2">⚠️ Requiere el scope OAuth <code>presentations</code>. Ya está en ambos <code>appsscript.json</code>. La primera vez en <code>Daily_Tracker_B2B</code> (donde el scope es nuevo) hay que correr <code>autorizarGoogleSlides()</code> una vez desde el editor (▶ Run) y aceptar el permiso; después se puede borrar la presentación de prueba que crea.</td></tr>
+          <tr><td class="note" colspan="2">⚠️ Si los datos async (Status KRs / Air NR) todavía están cargando, el export <strong>aborta con error visible</strong> en vez de exportar números a medio cargar. Si una slide puntual no se puede capturar, esa slide sale con un placeholder y el resto se exporta igual.</td></tr>
+          <tr><td>Código relevante</td><td><code>tracker.html</code>: <code>toggleSlidesMode</code>, <code>_captureAllSlides</code>, <code>_ensureSlidesDataLoaded</code>, <code>exportSlidesPDF</code>, <code>exportSlidesToGoogle</code> · <code>Codigo.js</code>: <code>exportToGoogleSlides</code>, <code>autorizarGoogleSlides</code> (nombres SIN "_" a propósito — <code>google.script.run</code> no invoca funciones "privadas"). <strong>Todo duplicado idéntico en <code>Daily_Tracker_B2B</code></strong>: cambiar una copia = cambiar la otra + <code>/clasp-push</code> a los dos.</td></tr>
         </tbody>
       </table>
     </div>
