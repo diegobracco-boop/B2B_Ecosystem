@@ -20,6 +20,7 @@ import sys
 import io
 import json
 import argparse
+from collections import defaultdict
 import pandas as pd
 import openpyxl
 
@@ -112,6 +113,61 @@ MONTHS_ES = {
 
 def _infer_year(month_num):
     return FY_PREV if month_num >= 4 else config.CURRENT_FY
+
+
+# WLs - Modelo Forecast.xlsx dejó de tener solapa EPM (2026-09-16): el modelo
+# pasó a un único formato "P&L" (long: una fila por pais/partner/producto/viaje/mes,
+# métricas en columnas — mismo formato que ya lee projections_gestional_builder.py).
+# Mismos conceptos que antes veníamos tomando de la matriz EPM, solo que acá vienen
+# en columnas en vez de en filas por concepto.
+WLS_PNL_SHEET = "P&L"
+WLS_METRIC_COLS = [
+    "orders", "gross_bookings", "up_front_incentives", "fees",
+    "commercial_discounts", "cancellations", "cost_of_installments",
+    "credit_card_processing", "white_labels_api", "affiliates",
+]
+
+
+def parse_wls_pnl_sheet(path, projection_months):
+    df = pd.read_excel(path, sheet_name=WLS_PNL_SHEET, dtype=str)
+    df.columns = [str(c).strip().lower() for c in df.columns]
+
+    required = {"pais", "viaje", "producto", "lob_canal", "mes_proyectado"}
+    missing = required - set(df.columns)
+    if missing:
+        print(f"  AVISO: solapa '{WLS_PNL_SHEET}' sin columnas {sorted(missing)} — se omite")
+        return []
+
+    df["_mm"] = pd.to_numeric(df["mes_proyectado"], errors="coerce")
+    df = df.dropna(subset=["_mm"])
+    df["fecha"] = df["_mm"].apply(lambda m: f"{_infer_year(int(m))}-{int(m):02d}-01")
+    df = df[df["fecha"].isin(projection_months)]
+
+    metric_cols = [c for c in WLS_METRIC_COLS if c in df.columns]
+    for c in metric_cols:
+        df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0.0)
+
+    id_cols = ["pais", "viaje", "producto", "lob_canal", "fecha"]
+    df = df.groupby(id_cols, as_index=False)[metric_cols].sum()
+
+    recs = []
+    for _, row in df.iterrows():
+        for c in metric_cols:
+            amount = row[c]
+            if not amount:
+                continue
+            recs.append({
+                "concepto":  c,
+                "viaje":     row["viaje"] or "",
+                "pais":      row["pais"] or "",
+                "producto":  row["producto"] or "",
+                "lob_canal": row["lob_canal"] or "",
+                "fecha":     row["fecha"],
+                "monto":     float(amount),
+            })
+    meses = sorted(df["fecha"].unique())
+    print(f"    {len(recs)} filas con conceptos target ({len(meses)} meses: {meses})")
+    return recs
 
 
 def find_epm_sheet(wb):
@@ -346,14 +402,17 @@ def load_wip_data(wip_folder, projection_months):
             print(f"  AVISO: no encontré {fname}")
             continue
         print(f"\n  Leyendo {fname}...")
-        wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
-        ws = find_epm_sheet(wb)
-        if ws is None:
-            print(f"  AVISO: no hay solapa EPM en {fname}")
+        if fname == "WLs - Modelo Forecast.xlsx":
+            recs = parse_wls_pnl_sheet(path, projection_months)
+        else:
+            wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
+            ws = find_epm_sheet(wb)
+            if ws is None:
+                print(f"  AVISO: no hay solapa EPM en {fname}")
+                wb.close()
+                continue
+            recs = parse_epm_sheet(ws, projection_months)
             wb.close()
-            continue
-        recs = parse_epm_sheet(ws, projection_months)
-        wb.close()
         all_recs.extend(recs)
 
     if not all_recs:
@@ -433,17 +492,30 @@ def build(wip_folder, projection_months, upload, baseline_json_path=None):
     rows = baseline["rows"]
     FI   = cols.index("Fecha")
     N1I  = cols.index("P&L N1")
+    LOI  = cols.index("LoB")
     print(f"  Baseline           : {len(rows):,} filas")
 
     # Load WIP model data for all projection months
     model_df = load_wip_data(wip_folder, projection_months)
     new_rows = model_df.values.tolist()
 
-    # Override: remove baseline rows for all projection months × target P&L N1
-    removed = [r for r in rows if r[FI] in projection_months
-               and str(r[N1I]).lower() in TARGET_N1_OVERRIDE]
-    kept    = [r for r in rows if not (r[FI] in projection_months
-               and str(r[N1I]).lower() in TARGET_N1_OVERRIDE)]
+    # Meses efectivamente cubiertos por el modelo, por LoB — un modelo (ej. WLs) puede
+    # no llegar a proyectar todo projection_months (ver 2026-09-16: WLs solo trae 3 de
+    # los 8 meses esta semana). Solo pisamos baseline en los meses donde SÍ hay
+    # reemplazo; el resto queda con el baseline anterior en vez de quedar vacío.
+    covered_by_lob = defaultdict(set)
+    for lob, fecha in zip(model_df["LoB"], model_df["Fecha"]):
+        covered_by_lob[lob].add(fecha)
+    for lob, meses in covered_by_lob.items():
+        faltantes = sorted(projection_months - meses)
+        if faltantes:
+            print(f"  AVISO: {lob} no trae datos del modelo para {faltantes} — se conserva baseline ahí")
+
+    def _overridable(r):
+        return r[FI] in covered_by_lob.get(r[LOI], set()) and str(r[N1I]).lower() in TARGET_N1_OVERRIDE
+
+    removed = [r for r in rows if _overridable(r)]
+    kept    = [r for r in rows if not _overridable(r)]
 
     print(f"\n  Baseline rows eliminadas ({len(projection_months)} meses): {len(removed):,}")
     print(f"  Baseline rows conservadas                              : {len(kept):,}")
