@@ -199,10 +199,10 @@ function computeGroupEPM_(actualsByPais, rrContByPais, budgetByPais, forecastByP
     ALL_MONTHS_ORD_BG.forEach(function(m, idx){
       var src;
       if (scen === 'budget')            src = budget;                              // budget = todo el FY
-      else if (scen === 'runrate')      src = rrCont;                             // runrate = todo el FY
       else if (scen === 'forecast')     src = forecast;                           // forecast = todo el FY (forecast.json tiene actuals Apr-Jun + fc Jul-Mar)
       else if (scen === 'lastyear')     src = lastyear;                           // FY26 completo, mismo mes fiscal
-      else if (idx <= cutoffIdx)        src = actuals;                             // meses cerrados (lastrunrate)
+      else if (idx <= cutoffIdx)        src = actuals;                             // meses cerrados (runrate/lastrunrate)
+      else if (scen === 'runrate')      src = rrCont;                             // runrate.json solo cubre desde el corte en adelante, no trae reales (2026-09-16)
       else if (scen === 'lastrunrate')  src = (idx <= lrrMaxIdx) ? lrr : forecast; // LRR y luego forecast
       else                              src = forecast;                           // fallback
       Object.keys(src).forEach(function(n2){

@@ -94,10 +94,17 @@ test('forecast: todo el FY viene de forecast (sin blend con actuals)', () => {
   ns.ALL_MONTHS_ORD_BG.forEach((m, i) => assert.strictEqual(got[m], 400 + i));
 });
 
-test('runrate: todo el FY viene de run rate continuo (sin blend con actuals)', () => {
-  const G = ns.computeGroupEPM_(actuals, rr, budget, forecast, 5, null, { goal: 'runrate' });
+test('runrate: meses cerrados (<=cutoff) toman actuals, el resto toma run rate continuo', () => {
+  // Bug real (2026-09-16): runrate.json solo cubre desde el corte del FY en adelante,
+  // nunca tiene reales de los meses ya cerrados. Antes el código usaba rrCont para
+  // TODO el FY sin mirar cutoffIdx -> meses cerrados salian en 0/vacio en vez de reales.
+  const cutoffIdx = 5;
+  const G = ns.computeGroupEPM_(actuals, rr, budget, forecast, cutoffIdx, null, { goal: 'runrate' });
   const got = G.goal.ct_monthly['gross bookings'];
-  ns.ALL_MONTHS_ORD_BG.forEach((m, i) => assert.strictEqual(got[m], 200 + i));
+  ns.ALL_MONTHS_ORD_BG.forEach((m, i) => {
+    const esperado = i <= cutoffIdx ? 100 + i : 200 + i;   // actuals hasta el corte, rr despues
+    assert.strictEqual(got[m], esperado, `mes ${m} (idx ${i})`);
+  });
 });
 
 test('lastrunrate: meses cerrados (<=cutoff) toman actuals, el rango con lrr toma lrr, y despues del ultimo mes con lrr cae a forecast', () => {
