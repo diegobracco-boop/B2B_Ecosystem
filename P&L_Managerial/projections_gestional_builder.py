@@ -194,10 +194,15 @@ def _upload_vr(local_path: str, svc):
 
 def _stitch_vr(existing_bl: list, xlsx_rows: list, actual_months: set, ym_idx: int) -> list:
     """
-    Combina actuals del bl existente (meses cerrados) + rows del XLSX (solo meses de proyección).
-    Los meses de proyección del bl existente se descartan.
+    Combina actuals del bl existente (meses cerrados) + rows del XLSX (meses de proyección
+    que el WIP sí cubre). Un WIP que no llegue a cubrir todo el resto del FY (ej. WLs
+    proyectando solo 3 meses en vez de los que faltan hasta Mar) NO descarta esos meses:
+    quedan con el bl existente en vez de vacíos (2026-09-16, mismo bug que en
+    projections_validation_builder.py de Inputs_Planning_PnL).
     """
-    out = [r for r in existing_bl if r[ym_idx] in actual_months]
+    xlsx_proj_months = {r[ym_idx] for r in xlsx_rows if r[ym_idx] not in actual_months}
+    out = [r for r in existing_bl
+           if r[ym_idx] in actual_months or r[ym_idx] not in xlsx_proj_months]
     out.extend([r for r in xlsx_rows if r[ym_idx] not in actual_months])
     return out
 
