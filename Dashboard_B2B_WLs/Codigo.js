@@ -35,7 +35,8 @@ var CANAL_GROUPS_BY_LOB = {
     { id:'brasil', label:'Brasil',          lobFilter:'b2b', canalFilter:null, paisFilter:'brasil',          paisExclude:null, lobExclude:null },
     { id:'mexico', label:'Mexico',          lobFilter:'b2b', canalFilter:null, paisFilter:'mexico',          paisExclude:null, lobExclude:null },
     { id:'other',  label:'Globales', lobFilter:'b2b', canalFilter:null, paisFilter:'other countries', paisExclude:null, lobExclude:null },
-    { id:'hispa',  label:'Hispa',           lobFilter:'b2b', canalFilter:null, paisFilter:null, paisExclude:['brasil','mexico','other countries'], lobExclude:null },
+    { id:'hispa',  label:'Hispa',           lobFilter:'b2b', canalFilter:null, paisFilter:null, paisExclude:['brasil','mexico','other countries','ops','rg','ops + rg'], lobExclude:null },
+    { id:'opsrg',  label:'OPS+RG',          lobFilter:'b2b', canalFilter:null, paisFilter:null, paisExclude:null, paisMultiFilter:['ops','rg','ops + rg'], lobExclude:null },
     { id:'total',  label:'Total',           lobFilter:'b2b', canalFilter:null, paisFilter:null, paisExclude:null, lobExclude:null }
   ]
 };
@@ -1249,8 +1250,17 @@ var MKT_COUNTRIES = [
     gf:{ lobFilter:'b2b', paisFilter:'mexico',          paisExclude:null } },
   { id:'other',  label:'Globales',
     gf:{ lobFilter:'b2b', paisFilter:'other countries', paisExclude:null } },
-  { id:'hispa',  label:'Hispa',
-    gf:{ lobFilter:'b2b', paisFilter:null, paisExclude:['brasil','mexico','other countries','ops','rg','ops + rg'] } },
+  // Hispa desagregado país por país (antes era una sola fila 'hispa' por exclusión)
+  { id:'argentina', label:'Argentina',
+    gf:{ lobFilter:'b2b', paisFilter:'argentina', paisExclude:null } },
+  { id:'colombia',  label:'Colombia',
+    gf:{ lobFilter:'b2b', paisFilter:'colombia',  paisExclude:null } },
+  { id:'chile',     label:'Chile',
+    gf:{ lobFilter:'b2b', paisFilter:'chile',     paisExclude:null } },
+  { id:'peru',      label:'Peru',
+    gf:{ lobFilter:'b2b', paisFilter:'peru',      paisExclude:null } },
+  { id:'ecuador',   label:'Ecuador',
+    gf:{ lobFilter:'b2b', paisFilter:'ecuador',   paisExclude:null } },
   { id:'total',  label:'Total',
     gf:{ lobFilter:'b2b', paisFilter:null, paisExclude:null } }
 ];
