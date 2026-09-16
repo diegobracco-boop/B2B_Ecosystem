@@ -4414,6 +4414,11 @@ function fmtMain(n,fmt){
   if(nf==='raw') return s+_withComma_(Math.round(abs),0);
   return s+(abs/1e6).toFixed(1)+'M';
 }
+function fmtInt(n){
+  if(n===null||n===undefined||isNaN(n)) return '—';
+  var abs=Math.abs(n),s=n<0?'-':'';
+  return s+_withComma_(Math.round(abs),0);
+}
 function fmtK(n){
   if(n===null||n===undefined||isNaN(n)) return '—';
   var abs=Math.abs(n),s=n<0?'-':'';
@@ -5349,14 +5354,14 @@ function renderMktTable(d, groups, colW) {
 
     // Row 1: Media Revenue actual
     html += '<tr class="row-sub'+(isTotal?' row-main':'')+'"><td class="pnl-section-cell" rowspan="8"'+borderTop+'>'
-          + pnlGroupLabel(c.label) + '</td><td class="row-sub-label">Media Revenue $K</td>';
-    agg.forEach(function(g){ html += '<td>'+fmtMain(g.medActual,'K')+'</td>'; });
-    html += '<td><strong>'+fmtMain(totMedAct,'K')+'</strong></td></tr>';
+          + pnlGroupLabel(c.label) + '</td><td class="row-sub-label">Media Revenue $</td>';
+    agg.forEach(function(g){ html += '<td>'+fmtInt(g.medActual)+'</td>'; });
+    html += '<td><strong>'+fmtInt(totMedAct)+'</strong></td></tr>';
 
     // Row 2: Media Budget nominal
-    html += '<tr class="row-sub"><td class="row-sub-label">Budget $K</td>';
-    agg.forEach(function(g){ html += '<td>'+fmtMain(g.medBudget,'K')+'</td>'; });
-    html += '<td><strong>'+fmtMain(totMedBud,'K')+'</strong></td></tr>';
+    html += '<tr class="row-sub"><td class="row-sub-label">Budget $</td>';
+    agg.forEach(function(g){ html += '<td>'+fmtInt(g.medBudget)+'</td>'; });
+    html += '<td><strong>'+fmtInt(totMedBud)+'</strong></td></tr>';
 
     // Row 3: Media vs Budget
     html += '<tr class="row-sub"><td class="row-sub-label">vs Budget</td>';
@@ -5377,14 +5382,14 @@ function renderMktTable(d, groups, colW) {
     html += '<td>'+chip(p)+'</td></tr>';
 
     // Row 5: Marketing Cost actual (abs)
-    html += '<tr class="row-sub row-pctgb"><td class="row-sub-label">Mkt Cost $K</td>';
-    agg.forEach(function(g){ html += '<td>'+fmtMain(Math.abs(g.mktActual||0),'K')+'</td>'; });
-    html += '<td><strong>'+fmtMain(Math.abs(totMktAct),'K')+'</strong></td></tr>';
+    html += '<tr class="row-sub row-pctgb"><td class="row-sub-label">Mkt Cost $</td>';
+    agg.forEach(function(g){ html += '<td>'+fmtInt(Math.abs(g.mktActual||0))+'</td>'; });
+    html += '<td><strong>'+fmtInt(Math.abs(totMktAct))+'</strong></td></tr>';
 
     // Row 6: Mkt Budget nominal (abs)
-    html += '<tr class="row-sub row-pctgb"><td class="row-sub-label">Budget $K</td>';
-    agg.forEach(function(g){ html += '<td>'+fmtMain(Math.abs(g.mktBudget||0),'K')+'</td>'; });
-    html += '<td><strong>'+fmtMain(Math.abs(totMktBud),'K')+'</strong></td></tr>';
+    html += '<tr class="row-sub row-pctgb"><td class="row-sub-label">Budget $</td>';
+    agg.forEach(function(g){ html += '<td>'+fmtInt(Math.abs(g.mktBudget||0))+'</td>'; });
+    html += '<td><strong>'+fmtInt(Math.abs(totMktBud))+'</strong></td></tr>';
 
     // Row 7: Mkt vs Budget
     html += '<tr class="row-sub row-pctgb"><td class="row-sub-label">vs Budget</td>';
