@@ -36,8 +36,15 @@ FISCAL_DATES = (
     [f"{CURRENT_FY}-{m:02d}-01" for m in range(1, 4)]
 )
 
-# Forecast: los primeros 4 meses del FY aún no están proyectados → se excluyen
-FORECAST_DROP_DATES = set(FISCAL_DATES[:4])
+# Forecast: forecast.json compone ACTUALS (meses ya cerrados, hasta el cutoff) + el
+# modelo Forecast crudo (cutoff+1 .. Mar). Editar FORECAST_ACTUALS_CUTOFF cuando cierre
+# un nuevo mes (json_builder.py concepto 'forecast' hace el blend; ver su docstring).
+FORECAST_ACTUALS_CUTOFF = "2026-06-01"
+FORECAST_ACTUALS_MONTHS = set(FISCAL_DATES[:FISCAL_DATES.index(FORECAST_ACTUALS_CUTOFF) + 1])
+
+# Meses que se excluyen del modelo Forecast crudo porque forecast.json los reemplaza
+# por ACTUALS (mismo set que FORECAST_ACTUALS_MONTHS).
+FORECAST_DROP_DATES = FORECAST_ACTUALS_MONTHS
 
 # Composición del baseline FY
 # RunRate cubre desde Ago(FY-1) hasta el cierre del FY (Mar) -> Forecast no se usa

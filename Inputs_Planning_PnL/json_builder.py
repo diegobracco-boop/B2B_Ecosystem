@@ -9,6 +9,10 @@ Reglas:
 - Se sube a la carpeta Drive DRIVE_FOLDER_ID como <concepto>.json.
 - 'actuals_previos' se FRACCIONA por año fiscal: emite un JSON por FY cerrado
   (actuals_previos_fyNN.json), para lecturas más livianas desde Apps Script.
+- 'forecast' compone ACTUALS (meses en config.FORECAST_ACTUALS_MONTHS, hoy Abr-Jun'26)
+  + el modelo Forecast crudo (resto del FY, Jul'26-Mar'27). Requiere que existan los CSV
+  de actuals del FY en curso (correr plana_actuals_builder.py <CURRENT_FY> primero; en
+  run_all.bat ya está en ese orden). Editar el corte en config.FORECAST_ACTUALS_CUTOFF.
 
 Uso:  python json_builder.py <concepto|all> [--no-upload]
 """
@@ -128,6 +132,19 @@ def build(concept, upload=True):
         return results
 
     df = _process(load_concept(concept))
+
+    if concept == "forecast" and config.FORECAST_ACTUALS_MONTHS:
+        act = _process(load_concept("actuals"))
+        act = act[act["Fecha"].isin(config.FORECAST_ACTUALS_MONTHS)]
+        cubiertos = set(act["Fecha"].unique())
+        faltan = sorted(config.FORECAST_ACTUALS_MONTHS - cubiertos)
+        if faltan:
+            print(f"  [WARN] forecast: FORECAST_ACTUALS_MONTHS incluye {faltan} pero "
+                  f"actuals.json no tiene esos meses -> quedarian SIN datos en forecast.json.")
+        print(f"  forecast += actuals para {sorted(cubiertos)} ({len(act):,} filas)")
+        df = pd.concat([df[~df["Fecha"].isin(config.FORECAST_ACTUALS_MONTHS)], act],
+                        ignore_index=True)
+
     return _emit(f"{concept}.json", concept, df, upload)
 
 

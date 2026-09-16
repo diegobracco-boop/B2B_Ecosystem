@@ -37,12 +37,20 @@ CSV crudos (OneDrive\Planning-PBI - Inputs Power Bi)
   **Ya NO se usa la carpeta `BITUBIA` para actuals** (Toqan discontinuado, 2026-09) — el equipo
   publica el xlsx directo en `Planning-PBI\Actuals\`.
 - Homologación con `...\B2B & WLs\Proyectos IA\BITUBIA\Glosario.xlsx` (solapas Marca/Paises/Producto/LOB/Linea P&L) — el Glosario **sí** sigue en BITUBIA.
+- **`forecast.json` compone ACTUALS + Forecast** (2026-09-15): meses en `config.FORECAST_ACTUALS_MONTHS`
+  (hoy Abr-Jun'26, corte en `config.FORECAST_ACTUALS_CUTOFF`) salen de ACTUALS del FY en curso;
+  el resto (Jul'26-Mar'27) sale del modelo Forecast crudo. Lo arma `json_builder.py` al construir
+  el concepto `forecast` (no `plana_projections_builder.py`). **Requiere que existan los CSV de
+  actuals del FY en curso** (`plana_actuals_builder.py <CURRENT_FY>` antes; en `run_all.bat` ya
+  está en ese orden) — si no existen, `json_builder.py forecast` corta con error. Mover el corte
+  un mes: editar `FORECAST_ACTUALS_CUTOFF` en `config.py` y volver a correr `/actualizar`.
 
 ## Archivos
 - `pnl_common.py` — rutas portables (resuelve OneDrive por usuario) + auth Drive scope completo.
 - `plana_projections_builder.py` — planas budget/forecast/RR/LRR (genérico por base).
 - `plana_actuals_builder.py` — plana actuals por año fiscal.
-- `json_builder.py` — planas → JSON canónico → Drive.
+- `json_builder.py` — planas → JSON canónico → Drive. Para `forecast`, además hace el blend
+  con actuals descrito arriba (lee los CSV `actuals_fy*` ya generados, no re-corre el builder).
 - `baseline_builder.py` — arma/actualiza `baseline_actuals+projections.json` (NO lo hace json_builder).
   Es la línea de tiempo FY27 = actuals[Abr..corte] + runrate[Ago,Sep] + forecast[Oct..Mar].
   Mensual: `python baseline_builder.py --promote-month YYYY-MM-01`
