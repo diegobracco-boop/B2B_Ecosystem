@@ -143,6 +143,19 @@ def parse_wls_pnl_sheet(path, projection_months):
     df["fecha"] = df["_mm"].apply(lambda m: f"{_infer_year(int(m))}-{int(m):02d}-01")
     df = df[df["fecha"].isin(projection_months)]
 
+    # La solapa entera es SIEMPRE B2B2C (WLs no tiene otro LOB) — la columna lob_canal
+    # viene rota en algunas filas (2026-09-17: 33 filas nuevas con el nombre del producto
+    # pegado ahí en vez de "B2B2C", típico de un arrastre de fórmula mal hecho en el
+    # Excel). Si se confía en esa columna, esas filas fallan el homolog de LOB y se
+    # descartan en silencio (~$885K de White Labels/API perdidos esa semana). Se ignora
+    # la columna y se fuerza "B2B2C" siempre.
+    bad_lob = df["lob_canal"].astype(str).str.strip() != "B2B2C"
+    if bad_lob.any():
+        print(f"  AVISO: {int(bad_lob.sum())} filas con lob_canal distinto de 'B2B2C' "
+              f"(dato roto en el Excel, ej. {df.loc[bad_lob, 'lob_canal'].iloc[0]!r}) "
+              f"-> se fuerza B2B2C de todos modos, no se descartan")
+    df["lob_canal"] = "B2B2C"
+
     metric_cols = [c for c in WLS_METRIC_COLS if c in df.columns]
     for c in metric_cols:
         df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0.0)
