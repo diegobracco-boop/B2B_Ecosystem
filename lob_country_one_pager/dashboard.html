@@ -410,7 +410,7 @@ function renderWaterfalls(wf) {
   var head = '' +
     '<div class="sec-head">' +
       '<div class="sec-title">P&amp;L Bridge <span class="pill">contable · Budget → Actuals+RR</span></div>' +
-      drillBtn(LINKS.pnlDash, '📒 Ver detalle en P&L Dashboard') +
+      drillBtn(LINKS.pnlDash + '?section=b2b', '📒 Ver detalle · Monthly Results B2B') +
     '</div>';
   if (!wf || (!wf.oc && !wf.nr)) {
     return '<div class="sec">' + head + '<div class="empty">Sin datos de bridge para este país.</div></div>';
