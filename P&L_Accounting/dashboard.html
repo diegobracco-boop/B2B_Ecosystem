@@ -455,6 +455,7 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
 .th-delta{background:#F0FDF4;color:#166534;font-weight:800}
 .th-sep,.td-sep{width:4px;background:var(--border);padding:0!important;border:none}
 .th-total-b,.th-total-g,.th-total-d{background:rgba(0,0,0,.05)!important}
+.th-scen-sub{display:block;font-size:9px;font-weight:700;letter-spacing:.03em;opacity:.75;margin-top:1px}
 .td-total-b,.td-total-g,.td-total-d{background:rgba(0,0,0,.04)!important}
 .qpnl-subtotal td{font-weight:800}
 .qpnl-sec-hdr td{transition:background .15s}
@@ -2106,12 +2107,20 @@ function _filterPeriods_(full){
   return f.length ? f : full.slice();
 }
 
+// Cuando hay 2+ períodos activos (meses, quarters o semestres), se agrega una columna
+// extra con el total de exactamente esos períodos — no un "Total FY27" fijo, sino la
+// suma de lo que el usuario tiene seleccionado (ej: Sep+Oct+Nov). _bgPeriodTotalMembers
+// guarda esos períodos reales para que getQVal() los sume bajo TOTAL_PERIOD_LABEL.
+var TOTAL_PERIOD_LABEL = 'Total Período';
+var _bgPeriodTotalMembers = null;
+
 function getActivePeriods_(dQuarters){
-  if(_bgPeriodMode === 'm') return _filterPeriods_(ALL_MONTHS_ORD_BG);
-  var full, totalLabel;
-  if(_bgPeriodMode === 'h'){ full = ['H1 FY27','H2 FY27']; totalLabel = 'Total FY27'; }
-  else { full = dQuarters.slice(0, -1); totalLabel = dQuarters[dQuarters.length-1]; }
-  return _filterPeriods_(full).concat([totalLabel]);
+  var real;
+  if(_bgPeriodMode === 'm')      real = _filterPeriods_(ALL_MONTHS_ORD_BG);
+  else if(_bgPeriodMode === 'h') real = _filterPeriods_(['H1 FY27','H2 FY27']);
+  else                           real = _filterPeriods_(dQuarters.slice(0, -1));
+  _bgPeriodTotalMembers = real.length > 1 ? real : null;
+  return _bgPeriodTotalMembers ? real.concat([TOTAL_PERIOD_LABEL]) : real;
 }
 
 var MONTH_CHIP_LABELS_BG = {
@@ -2205,10 +2214,13 @@ function setBGPeriod(mode){
 }
 
 function buildBGScenHead(n){
+  var _isEpmLob = (_activeLob === 'contable-epm');
+  var blSub = (_isEpmLob ? _epmBaselineLabel() : 'Actuals + RunRate + Forecast').toUpperCase();
+  var goSub = (_isEpmLob ? _epmGoalLabel() : (_bgGoalSource === 'epm' ? 'EPM' : 'Budget')).toUpperCase();
   return '<th class="th-lbl"></th>'+
-    '<th class="th-baseline" colspan="'+n+'">BASELINE</th>'+
+    '<th class="th-baseline" colspan="'+n+'">BASELINE<span class="th-scen-sub">'+blSub+'</span></th>'+
     '<th class="th-sep"></th>'+
-    '<th class="th-goal" colspan="'+n+'">GOAL</th>'+
+    '<th class="th-goal" colspan="'+n+'">GOAL<span class="th-scen-sub">'+goSub+'</span></th>'+
     '<th class="th-sep"></th>'+
     '<th class="th-delta" colspan="'+n+'">DELTA (B-G)</th>';
 }
@@ -2238,8 +2250,14 @@ function fillBGBody(tbody, quarters, baseline, goal, tableId){
   var n   = quarters.length;
   var gbBQ = enrichWithHalves_(bRR['gross_bookings']||{});
   var gbGQ = enrichWithHalves_(gRR['gross_bookings']||{});
+  if(_bgPeriodTotalMembers){
+    gbBQ[TOTAL_PERIOD_LABEL] = _bgPeriodTotalMembers.reduce(function(s,p){ return s+(gbBQ[p]||0); },0);
+    gbGQ[TOTAL_PERIOD_LABEL] = _bgPeriodTotalMembers.reduce(function(s,p){ return s+(gbGQ[p]||0); },0);
+  }
 
   function getQVal(node, q, rr, ct){
+    if(q===TOTAL_PERIOD_LABEL)
+      return (_bgPeriodTotalMembers||[]).reduce(function(s,p){ return s+getQVal(node,p,rr,ct); },0);
     if(q==='H1 FY27') return getQVal(node,'Q1 FY27',rr,ct)+getQVal(node,'Q2 FY27',rr,ct);
     if(q==='H2 FY27') return getQVal(node,'Q3 FY27',rr,ct)+getQVal(node,'Q4 FY27',rr,ct);
     if(node.source==='rr'){
