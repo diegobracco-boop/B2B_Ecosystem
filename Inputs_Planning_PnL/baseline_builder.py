@@ -209,6 +209,11 @@ def rebuild(actuals_xlsx, upload):
     _, fc = _download_json(svc, "forecast.json")
     _check_month_config_(rr, fc)
     act_months = set(act["meta"]["fechas"])  # meses cerrados disponibles
+    overlap = act_months & (RUNRATE_MONTHS | FORECAST_MONTHS)
+    if overlap:
+        sys.exit(f"RUNRATE_MONTHS/FORECAST_MONTHS se solapan con actuals en {sorted(overlap)} "
+                  f"-> quedarian filas duplicadas (actuals + runrate/forecast del mismo mes). "
+                  f"Actualizar config.py: sacar esos meses de RUNRATE_MONTHS/FORECAST_MONTHS.")
     rows = [r for r in act["rows"] if r[FI] in act_months]
     rows += [r for r in rr["rows"] if r[FI] in RUNRATE_MONTHS]
     rows += [r for r in fc["rows"] if r[FI] in FORECAST_MONTHS]

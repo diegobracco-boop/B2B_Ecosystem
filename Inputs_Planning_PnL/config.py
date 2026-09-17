@@ -47,10 +47,13 @@ FORECAST_ACTUALS_MONTHS = set(FISCAL_DATES[:FISCAL_DATES.index(FORECAST_ACTUALS_
 FORECAST_DROP_DATES = FORECAST_ACTUALS_MONTHS
 
 # Composición del baseline FY
-# RunRate cubre desde Ago(FY-1) hasta el cierre del FY (Mar) -> Forecast no se usa
-# en el baseline (2026-08-24: RunRate es la fuente más actualizada, Forecast desactualizado).
+# RunRate cubre desde el mes siguiente al último actual cerrado hasta el cierre del FY
+# (Mar) -> Forecast no se usa en el baseline (2026-08-24: RunRate es la fuente más
+# actualizada, Forecast desactualizado). Mover el arranque cuando cierre un nuevo mes
+# (agosto cerró 2026-09-16: arrancaba en Ago, dejaba Ago duplicado con los actuals del
+# propio baseline — rebuild() no dedupea, solo concatena actuals+runrate+forecast).
 RUNRATE_MONTHS  = (
-    {f"{_FY_PREV}-{m:02d}-01" for m in range(8, 13)} |
+    {f"{_FY_PREV}-{m:02d}-01" for m in range(9, 13)} |
     {f"{CURRENT_FY}-{m:02d}-01" for m in range(1, 4)}
 )
 FORECAST_MONTHS = set()
