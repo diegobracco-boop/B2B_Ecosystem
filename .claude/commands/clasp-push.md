@@ -14,6 +14,7 @@ Sube el código fuente local al proyecto de Google Apps Script correspondiente.
 | P&L Managerial | `P&L_Managerial/` | Vista gerencial del P&L | `AKfycbxHyP4uIh02zTQbQ7ZFbyByCVIYuREuiMJ74PnKhQbNGbWknCG2jxOtt_onafQcg5g4` |
 | Manual B2B WLs | `Manual_B2B_WLs/` | Manual técnico del ecosistema (landing de solo lectura) | `AKfycbwq2nohZ-c3w-OqvO1H_op4yATn6yDN4qRO9mI8gs1VkO9Jn9lCcQeTsNAceCpydJiHzg` |
 | Daily Dashboard | `Daily_Dashboard/` | Dashboard operativo diario | `AKfycbwMR3zk1r4uwui8vGtcmz0OwmeehC5JM8cuJRE3H-GQMfvxXWGTkYQ3R2nVjMyeAdX_1A` |
+| Country One Pager | `lob_country_one_pager/` | One-pager de performance por país (embebido en "Detail By Country" del hub) | `AKfycbytMGsghl1TweKpYgMV2uhjTr--a9jpWkd2G3faZrF0DixD7UNu2qAq8Tbhlv_PCo0t` |
 
 Estos IDs se confirmaron corriendo `clasp deployments` en cada carpeta (2026-09-04) — son la fuente de verdad, no un valor copiado de otro doc. Si cambia (alguien crea un deployment nuevo en vez de redeployar el existente con `-i`), correr `clasp deployments` de nuevo en esa carpeta y actualizar esta tabla.
 
