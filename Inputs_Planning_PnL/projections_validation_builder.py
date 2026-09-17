@@ -126,6 +126,10 @@ WLS_METRIC_COLS = [
     "commercial_discounts", "cancellations", "cost_of_installments",
     "credit_card_processing", "white_labels_api", "affiliates",
 ]
+# Cost of Sales as Principal para WLs no es una columna propia de la solapa "P&L" —
+# se arma igual que _cosp_rr en Codigo_contable.js (P&L Accounting): dif_fx + currency_hedge
+# (pedido de Diego, 2026-09-17).
+WLS_COSP_COLS = ["dif_fx", "currency_hedge"]
 
 # Regla de negocio (2026-09-17, pedido de Diego): el partner Ya Vas/YaVas no debe
 # contar para Orders/Gross Bookings en Packages General, Flights y Hotels — el resto
@@ -166,6 +170,15 @@ def parse_wls_pnl_sheet(path, projection_months):
     metric_cols = [c for c in WLS_METRIC_COLS if c in df.columns]
     for c in metric_cols:
         df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0.0)
+
+    cosp_cols = [c for c in WLS_COSP_COLS if c in df.columns]
+    if cosp_cols:
+        for c in cosp_cols:
+            df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0.0)
+        df["cost_of_sales_as_principal"] = sum(df[c] for c in cosp_cols)
+        metric_cols.append("cost_of_sales_as_principal")
+    else:
+        print(f"  AVISO: solapa '{WLS_PNL_SHEET}' sin {WLS_COSP_COLS} -> no se arma Cost of Sales as Principal")
 
     if "partner" in df.columns:
         excl = (
