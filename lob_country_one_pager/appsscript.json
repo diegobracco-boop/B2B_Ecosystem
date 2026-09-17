@@ -5,19 +5,13 @@
       {
         "userSymbol": "DashboardB2BWLs",
         "libraryId": "1fLnpsEh2dBAuPusbOD0194SiGZQflPFr1nwG_Wls2cjcvhmffdOPesUd",
-        "version": "144",
-        "developmentMode": false
-      },
-      {
-        "userSymbol": "PnLManagerial",
-        "libraryId": "1rB8o8HcnksPBXzi8QJW1zC-XQQ1HqHaowTcWV95SJG6xRbLg5QQ_2mQH",
-        "version": "30",
+        "version": "155",
         "developmentMode": false
       },
       {
         "userSymbol": "DailyDashboard",
         "libraryId": "1zHFbUa-aMfiX9idRvhxonW5DuR5LixC478d6CfsD6ZXnU7MMQiFfpo_v",
-        "version": "215",
+        "version": "223",
         "developmentMode": false
       }
     ]

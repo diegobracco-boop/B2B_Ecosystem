@@ -15,62 +15,86 @@
     header{background:var(--lila-1);color:#fff;padding:16px 24px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
     header h1{font-size:18px;margin:0;font-weight:700;letter-spacing:.01em}
     header .sub{font-size:12px;opacity:.85}
-    .filters{background:var(--lila-bg);padding:10px 24px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+    .filters{background:var(--lila-bg);padding:10px 24px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
     .filters label{font-size:12px;color:var(--ink);font-weight:600;margin-right:4px}
     .filters select{padding:6px 10px;border-radius:8px;border:1px solid var(--lila-4);background:#fff;font-size:13px;font-weight:600;color:var(--ink)}
+    .pais-tabs{display:flex;gap:6px;flex-wrap:wrap}
+    .pais-tab{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--lila-4);background:#fff;color:var(--ink);font-weight:600;font-size:12.5px;padding:5px 12px;border-radius:20px;cursor:pointer;line-height:1}
+    .pais-tab:hover{border-color:var(--lila-1)}
+    .pais-tab.active{background:var(--lila-1);color:#fff;border-color:var(--lila-1)}
+    .pais-tab .flag{font-size:14px}
+    .pais-tab .flag-img{width:18px;height:13px;border-radius:2px;object-fit:cover;display:block;box-shadow:0 0 0 1px rgba(0,0,0,.08)}
+    .lob-tabs{display:flex;gap:6px}
+    .lob-tab{border:1px solid var(--lila-4);background:#fff;color:var(--lila-1);font-weight:700;font-size:12px;padding:6px 14px;border-radius:20px;cursor:pointer}
+    .lob-tab.active{background:var(--lila-1);color:#fff;border-color:var(--lila-1)}
+    .lob-tab:disabled{opacity:.55;cursor:not-allowed}
+    .lob-tab .soon{font-size:9px;font-weight:700;margin-left:5px;opacity:.8;text-transform:uppercase}
     .filters .lastupd{margin-left:auto;font-size:11px;color:var(--muted)}
-    main{padding:20px 24px 60px;max-width:1200px;margin:0 auto}
-    .sec-title{font-size:14px;font-weight:700;color:var(--ink);margin:24px 0 10px;display:flex;align-items:center;gap:8px}
+    main{padding:20px 24px 60px;max-width:1100px;margin:0 auto}
+    .sec{margin-bottom:28px}
+    .sec-head{display:flex;align-items:center;gap:10px;margin:0 0 12px;flex-wrap:wrap}
+    .sec-title{font-size:15px;font-weight:800;color:var(--ink);display:flex;align-items:center;gap:8px}
     .sec-title .pill{background:var(--lila-bg);color:var(--lila-1);font-size:11px;padding:2px 8px;border-radius:20px;font-weight:700}
-    .kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+    .sec-note{font-size:11px;color:var(--muted)}
+    .view-toggle{display:inline-flex;border:1px solid var(--lila-4);border-radius:20px;overflow:hidden}
+    .view-toggle button{border:none;background:#fff;color:var(--lila-1);font-weight:700;font-size:11px;padding:4px 12px;cursor:pointer}
+    .view-toggle button.active{background:var(--lila-1);color:#fff}
+    .drill{margin-left:auto;border:1px solid var(--lila-4);background:#fff;color:var(--lila-1);font-weight:700;font-size:12px;padding:6px 14px;border-radius:20px;cursor:pointer;text-decoration:none;white-space:nowrap}
+    .drill:hover{background:var(--lila-1);color:#fff}
+    .drill-row{display:flex;gap:8px;justify-content:flex-end;margin:-4px 0 12px;flex-wrap:wrap}
+    .gest-block{margin-bottom:16px}
+    .gest-lbl{font-size:12px;font-weight:700;color:var(--lila-1);text-transform:uppercase;letter-spacing:.04em;margin:0 0 8px}
+    .kpi-row{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+    @media (max-width:760px){.kpi-row{grid-template-columns:1fr}}
     .kpi-card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}
-    .kpi-card .label{font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.03em}
-    .kpi-card .value{font-size:26px;font-weight:800;margin:6px 0 4px;color:var(--ink)}
-    .kpi-card .deltas{display:flex;gap:10px;font-size:12px}
-    .chip{padding:2px 8px;border-radius:20px;font-weight:700}
+    .kpi-card .label{font-size:12px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.03em}
+    .kpi-card .period{font-size:11px;color:var(--muted);font-weight:600}
+    .kpi-card .value{font-size:28px;font-weight:800;margin:8px 0 6px;color:var(--ink)}
+    .kpi-card .deltas{display:flex;gap:8px;font-size:12px;flex-wrap:wrap}
+    .chip{padding:2px 8px;border-radius:20px;font-weight:700;font-size:11px}
     .chip.pos{background:var(--verde-bg);color:var(--verde)}
     .chip.neg{background:var(--rojo-bg);color:var(--rojo)}
     .chip.flat{background:#eee;color:var(--muted)}
-    .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}
-    .tabs{display:flex;gap:8px;margin-bottom:12px}
-    .tab-btn{border:1px solid var(--lila-4);background:#fff;color:var(--lila-1);font-weight:700;font-size:12px;padding:6px 14px;border-radius:20px;cursor:pointer}
-    .tab-btn.active{background:var(--lila-1);color:#fff;border-color:var(--lila-1)}
-    canvas{max-height:280px}
-    table{width:100%;border-collapse:collapse;font-size:13px}
-    th,td{padding:8px 10px;text-align:right;border-bottom:1px solid var(--line)}
-    th:first-child,td:first-child{text-align:left}
-    th{color:var(--muted);font-weight:700;font-size:11px;text-transform:uppercase}
-    tr:last-child td{border-bottom:none}
-    .two-col{display:grid;grid-template-columns:1.3fr 1fr;gap:16px}
-    @media (max-width:800px){.two-col{grid-template-columns:1fr}}
-    .hf-row{display:flex;gap:14px;margin-bottom:14px}
-    .hf-box{flex:1;background:var(--page);border-radius:10px;padding:10px 14px}
-    .hf-box .t{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase}
-    .hf-box .v{font-size:18px;font-weight:800;margin-top:4px}
+    .empty{padding:24px;text-align:center;color:var(--muted);font-size:13px;background:var(--card);border:1px solid var(--line);border-radius:12px}
     .muted{color:var(--muted)}
-    .empty{padding:24px;text-align:center;color:var(--muted);font-size:13px}
-    .week-flag{font-size:11px;color:var(--muted)}
+    .cap{font-size:11.5px;color:var(--muted);margin-bottom:8px}
+    .agent-card{display:block;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;text-decoration:none;color:var(--ink);transition:border-color .12s,box-shadow .12s}
+    .agent-card:hover{border-color:var(--lila-4);box-shadow:0 2px 10px rgba(85,15,237,.08)}
+    .agent-name{font-size:16px;font-weight:800;color:var(--lila-1)}
+    .agent-desc{font-size:12.5px;color:var(--muted);margin:6px 0 10px}
+    .agent-go{font-size:12px;font-weight:700;color:var(--lila-1)}
+    .warn{background:#fff8e6;border:1px solid #f2d98c;color:#8a6d1a;font-size:11.5px;padding:8px 12px;border-radius:8px;margin-bottom:12px}
+    .mix-tbl{width:100%;border-collapse:collapse;font-size:13px;margin-top:14px}
+    .mix-tbl th,.mix-tbl td{padding:7px 10px;text-align:right;border-bottom:1px solid var(--line)}
+    .mix-tbl th:first-child,.mix-tbl td:first-child{text-align:left}
+    .mix-tbl th{color:var(--muted);font-weight:700;font-size:11px;text-transform:uppercase}
+    .mix-tbl tr:last-child td{border-bottom:none}
     .wf-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
     @media (max-width:800px){.wf-grid{grid-template-columns:1fr}}
-    .wf-card canvas{max-height:220px}
-    .wf-table{margin-top:10px;font-size:12px}
-    .wf-table th,.wf-table td{padding:5px 8px}
+    .wf-card .wf-sub{font-size:13px;font-weight:700;color:var(--ink);margin-bottom:8px}
+    .wf-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:10px}
+    .wf-table th,.wf-table td{padding:5px 8px;text-align:right;border-bottom:1px solid var(--line)}
+    .wf-table th:first-child,.wf-table td:first-child{text-align:left}
+    .wf-table th{color:var(--muted);font-weight:700;font-size:11px}
+    .wf-table tr:last-child td{border-bottom:none}
   </style>
 </head>
 <body>
 
 <header>
   <div>
-    <h1>Country One Pager</h1>
-    <div class="sub">Resumen contable + gerencial + pulso operativo, por LoB y país</div>
+    <h1>Country One Pager · B2B</h1>
+    <div class="sub">Paneo ejecutivo por país — gestional (MTD) + contable, con acceso al detalle</div>
   </div>
 </header>
 
 <div class="filters">
   <label>País</label>
-  <select id="selPais"></select>
+  <div class="pais-tabs" id="paisTabs"></div>
   <label>LoB</label>
-  <select id="selLob"></select>
+  <div class="lob-tabs" id="lobTabs"></div>
+  <label>Mes</label>
+  <select id="selMonth"></select>
   <span class="lastupd" id="lastUpd"></span>
 </div>
 
@@ -79,27 +103,76 @@
 </main>
 
 <script>
-var STATE = { pais: 'Brasil', lob: 'b2b2c', evoMetric: 'nr' };
-var evoChart = null;
+var STATE = { pais: 'Globales', lob: 'b2b', ym: '', evoMetric: 'nr' };
+var _data = null;
+
+// Banderas por país. En Windows los emoji de bandera no renderizan (muestran
+// "BR/MX/…"), así que usamos imágenes de flagcdn; Globales va con 🌎.
+var PAIS_CODE = {
+  'Brasil': 'br', 'Mexico': 'mx', 'Argentina': 'ar',
+  'Colombia': 'co', 'Chile': 'cl', 'Peru': 'pe', 'Ecuador': 'ec'
+};
+function flagHtml(p) {
+  if (p === 'Globales') return '<span class="flag">🌎</span>';
+  var code = PAIS_CODE[p];
+  return code
+    ? '<img class="flag-img" src="https://flagcdn.com/32x24/' + code + '.png" alt="' + p + '">'
+    : '<span class="flag">🏳️</span>';
+}
+
+// Tableros destino para el drill-down "Ver detalle →".
+var LINKS = {
+  gestional: 'https://script.google.com/a/macros/despegar.com/s/AKfycbwMR3zk1r4uwui8vGtcmz0OwmeehC5JM8cuJRE3H-GQMfvxXWGTkYQ3R2nVjMyeAdX_1A/exec',
+  contable:  'https://script.google.com/a/macros/despegar.com/s/AKfycby9WZK2HfAWx25M5pEMV3nntzJfEvsiT9feMn01zJQkQaI3t2GjTzOIjbFXWexnMuzklQ/exec',
+  pnlDash:   'https://script.google.com/a/macros/despegar.com/s/AKfycbz52txFQy-5YM2Nil_KxULzPoeZpKyA4z5LUWMGoP_8IilcwSduuwZqPF8ut_LmtceM/exec',
+  hoteles:   'https://script.google.com/a/macros/despegar.com/s/AKfycbweb_02cKi6MwXa9ejfsjLEBWXasN1H9SrwdjENMzVDFGP1Uf_g7un3jXte956KA7zyHQ/exec',
+  vuelos:    'https://script.google.com/a/macros/despegar.com/s/AKfycbx2IWc3e3stAV3u8hH1Q53JEiS9FUEgsBnCx_VFtMTOZ8_Z5TLNyXZjoy2iPiybQBkQIg/exec',
+  bituboss:  'https://work.toqan.ai/spaces/join/8187233d-f29a-48f8-84fe-81056762bbc1',
+  bitubia:   'https://work.toqan.ai/spaces/join/68733215-f56b-4c8e-92b0-570bf0b3af17',
+  bitubee:   'https://work.toqan.ai/spaces/join/72cb9711-fb6b-4d0a-bb26-c393e141b6a9'
+};
+var _paretoChart = null;
 var _charts = {};
 function destroyChart_(id) { if (_charts[id]) { _charts[id].destroy(); delete _charts[id]; } }
 
 function boot() {
   google.script.run.withSuccessHandler(function (filters) {
-    var selPais = document.getElementById('selPais');
-    var selLob  = document.getElementById('selLob');
+    var paisTabs = document.getElementById('paisTabs');
     filters.paises.forEach(function (p) {
-      var o = document.createElement('option'); o.value = p; o.textContent = p;
-      selPais.appendChild(o);
+      var b = document.createElement('button');
+      b.className = 'pais-tab' + (p === STATE.pais ? ' active' : '');
+      b.innerHTML = flagHtml(p) + p;
+      b.onclick = function () {
+        if (STATE.pais === p) return;
+        STATE.pais = p;
+        document.querySelectorAll('.pais-tab').forEach(function (x) { x.classList.remove('active'); });
+        b.classList.add('active');
+        load();
+      };
+      paisTabs.appendChild(b);
     });
+
+    var selMonth = document.getElementById('selMonth');
+    selMonth.onchange = function () { STATE.ym = selMonth.value; load(); };
+
+    var tabs = document.getElementById('lobTabs');
     filters.lobs.forEach(function (l) {
-      var o = document.createElement('option'); o.value = l.id; o.textContent = l.label;
-      selLob.appendChild(o);
+      var b = document.createElement('button');
+      b.className = 'lob-tab' + (l.id === STATE.lob ? ' active' : '');
+      b.textContent = l.label;
+      if (!l.enabled) {
+        b.disabled = true;
+        b.innerHTML = l.label + '<span class="soon">próximamente</span>';
+      } else {
+        b.onclick = function () {
+          STATE.lob = l.id;
+          document.querySelectorAll('.lob-tab').forEach(function (x) { x.classList.remove('active'); });
+          b.classList.add('active');
+          load();
+        };
+      }
+      tabs.appendChild(b);
     });
-    selPais.value = STATE.pais;
-    selLob.value  = STATE.lob;
-    selPais.onchange = function () { STATE.pais = selPais.value; load(); };
-    selLob.onchange  = function () { STATE.lob  = selLob.value;  load(); };
     load();
   }).withFailureHandler(showError).getFilters();
 }
@@ -109,7 +182,22 @@ function load() {
   google.script.run
     .withSuccessHandler(render)
     .withFailureHandler(showError)
-    .getOnePagerData({ pais: STATE.pais, lob: STATE.lob });
+    .getOnePagerData({ pais: STATE.pais, lob: STATE.lob, ym: STATE.ym });
+}
+
+// Rellena el selector de mes con los meses disponibles y fija el elegido.
+function syncMonths(months, ym) {
+  var sel = document.getElementById('selMonth');
+  var current = (months || []).join(',');
+  if (sel.getAttribute('data-months') !== current) {
+    sel.innerHTML = '';
+    (months || []).forEach(function (m) {
+      var o = document.createElement('option'); o.value = m; o.textContent = monthLabel(m);
+      sel.appendChild(o);
+    });
+    sel.setAttribute('data-months', current);
+  }
+  if (ym) { sel.value = ym; STATE.ym = ym; }
 }
 
 function showError(err) {
@@ -117,122 +205,224 @@ function showError(err) {
     '<div class="empty">Error al cargar datos: ' + (err && err.message ? err.message : err) + '</div>';
 }
 
-function fmtM(v) { return (v == null) ? '—' : '$' + (v / 1e6).toFixed(2) + 'M'; }
-function fmtK(v) { return (v == null) ? '—' : (v / 1e3).toFixed(1) + 'K'; }
-function fmtPct(v) { return (v == null) ? '—' : (v >= 0 ? '+' : '') + v.toFixed(1) + '%'; }
-function chipClass(v) { return (v == null) ? 'flat' : (v >= 0 ? 'pos' : 'neg'); }
+// ── formato ───────────────────────────────────────────────────
+function fmtM(v) { return (v == null) ? '—' : '$' + (v / 1e6).toFixed(2) + 'M'; }        // valor nominal
+function fmtMM(v){ return (v == null) ? '—' : '$' + (v).toFixed(2) + 'M'; }               // ya en millones
+function fmtPct(v){ return (v == null) ? '—' : (v >= 0 ? '+' : '') + v.toFixed(1) + '%'; }
+function chipClass(v){ return (v == null) ? 'flat' : (v >= 0 ? 'pos' : 'neg'); }
+
+function kpiCard(label, period, valueStr, vsB, vsLY) {
+  return '' +
+    '<div class="kpi-card">' +
+      '<div class="label">' + label + (period ? ' <span class="period">· ' + period + '</span>' : '') + '</div>' +
+      '<div class="value">' + valueStr + '</div>' +
+      '<div class="deltas">' +
+        '<span class="chip ' + chipClass(vsB)  + '">vs Budget ' + fmtPct(vsB)  + '</span>' +
+        '<span class="chip ' + chipClass(vsLY) + '">vs LY ' + fmtPct(vsLY) + '</span>' +
+      '</div>' +
+    '</div>';
+}
+
+function drillBtn(url, txt) {
+  return '<a class="drill" href="' + url + '" target="_blank" rel="noopener">' + txt + ' →</a>';
+}
 
 function render(data) {
+  _data = data;
+  syncMonths(data.months, data.ym);
   document.getElementById('lastUpd').textContent =
-    data.pais + ' · ' + (data.lob === 'b2b2c' ? 'B2B2C' : 'B2B') + ' · generado ' + new Date().toLocaleString('es-AR');
+    data.pais + ' · B2B · ' + monthLabel(data.ym) + ' · generado ' + new Date().toLocaleString('es-AR');
 
   var html = '';
-  html += renderKpis(data.evolucion);
-  html += renderEvoSection(data.evolucion);
-  html += renderWaterfallsSection(data.waterfalls);
-  html += renderPartners(data.partners, data.lob);
-  html += renderSemanal(data.semanal);
+  html += renderGestional(data.gestional, data.pais, data.ym);
+  html += renderContable(data.contable);
+  html += renderEvo(data.evo);
+  html += renderWaterfalls(data.contable && data.contable.waterfalls);
+  html += renderMix(data.mix);
+  html += renderDudas();
   document.getElementById('main').innerHTML = html;
 
-  renderEvoChart(data.evolucion);
-  wireEvoTabs(data.evolucion);
-  drawWaterfall_('oc', data.waterfalls && data.waterfalls.oc, 'oc');
-  drawWaterfall_('nr', data.waterfalls && data.waterfalls.nr, 'nr');
+  drawEvo(data.evo, STATE.evoMetric);
+  var wf = data.contable && data.contable.waterfalls;
+  drawWaterfall_('nr', wf && wf.nr, 'nr');
+  drawWaterfall_('oc', wf && wf.oc, 'oc');
+  drawPareto(data.mix);
 }
 
-// ── KPIs ──────────────────────────────────────────────────────
-function lastActualIdx_(metric) {
-  for (var i = metric.actuals.length - 1; i >= 0; i--) {
-    if (metric.actuals[i] != null) return i;
+// ── Sección 1 · GESTIONAL (GB / NR / FVM) — GD y RI ────────────
+function renderGestional(gest, pais, ym) {
+  var g = gest && (gest.gd || gest.ri);
+  var note = (g ? (monthLabel(g.month) + ' · ' + g.daysCount + ' días con actuals') : monthLabel(ym));
+  var head = '' +
+    '<div class="sec-head">' +
+      '<div class="sec-title">Gestional <span class="pill">Daily · GD y RI</span></div>' +
+      (note ? '<span class="sec-note">' + note + '</span>' : '') +
+      drillBtn(LINKS.gestional, '📅 Ver detalle en Daily') +
+    '</div>';
+
+  function block(label, gv) {
+    if (!gv || !gv.metrics) {
+      return '<div class="gest-block"><div class="gest-lbl">' + label + '</div>' +
+             '<div class="empty">Sin datos gestionales para este mes.</div></div>';
+    }
+    var cards = gv.metrics.map(function (m) {
+      return kpiCard(m.label, null, fmtMM(m.actual), m.vsBudget, m.vsLY);
+    }).join('');
+    return '<div class="gest-block"><div class="gest-lbl">' + label + '</div>' +
+           '<div class="kpi-row">' + cards + '</div></div>';
   }
-  return -1;
+
+  return '<div class="sec">' + head +
+    block('Por Gestion Date (GD)',     gest && gest.gd) +
+    block('Por Recognition Date (RI)', gest && gest.ri) +
+    '</div>';
 }
 
-function renderKpis(evo) {
-  if (!evo) return '<div class="empty">Sin datos de evolución para este LoB/país.</div>';
-  var cards = evo.metrics.map(function (m) {
-    var idx = lastActualIdx_(m);
-    if (idx < 0) return '';
-    var a = m.actuals[idx], b = m.budget[idx], ly = m.lastYear[idx];
-    var vsB  = (b  ? (a - b) / Math.abs(b)  * 100 : null);
-    var vsLY = (ly ? (a - ly) / Math.abs(ly) * 100 : null);
-    var period = evo.periods[idx];
-    return '' +
-      '<div class="kpi-card">' +
-        '<div class="label">' + m.label + ' · ' + period + '</div>' +
-        '<div class="value">' + fmtM(a) + '</div>' +
-        '<div class="deltas">' +
-          '<span class="chip ' + chipClass(vsB)  + '">vs Budget ' + fmtPct(vsB)  + '</span>' +
-          '<span class="chip ' + chipClass(vsLY) + '">vs LY ' + fmtPct(vsLY) + '</span>' +
-        '</div>' +
-      '</div>';
+// ── Sección 2 · CONTABLE (GB / NR / OC) — mes seleccionado ─────
+function renderContable(c) {
+  var isRR  = c && c.basis === 'RR';
+  var basis = isRR ? 'Run Rate' : 'actual';
+  var head = '' +
+    '<div class="sec-head">' +
+      '<div class="sec-title">Contable <span class="pill">P&amp;L · ' + (c ? monthLabel(c.ym) : '') + ' · ' + basis + '</span></div>' +
+      drillBtn(LINKS.contable, '📒 Ver detalle en P&L') +
+    '</div>';
+
+  if (!c || !c.metrics) {
+    return '<div class="sec">' + head + '<div class="empty">Sin datos contables para este mes.</div></div>';
+  }
+
+  var badge = isRR
+    ? '<div class="warn">El mes ' + monthLabel(c.ym) + ' todavía no tiene cierre contable: se muestran valores de <strong>Run Rate</strong>.</div>'
+    : '';
+
+  var cards = c.metrics.map(function (m) {
+    return kpiCard(m.label, null, fmtM(m.value), m.vsBudget, m.vsLY);
   }).join('');
-  return '<div class="sec-title">Headline KPIs <span class="pill">último mes cerrado</span></div><div class="kpi-row">' + cards + '</div>';
+
+  return '<div class="sec">' + head + badge + '<div class="kpi-row">' + cards + '</div></div>';
 }
 
-// ── Evolución (chart) ─────────────────────────────────────────
-function renderEvoSection(evo) {
-  if (!evo) return '';
-  var tabs = evo.metrics.map(function (m) {
-    return '<button class="tab-btn' + (m.id === STATE.evoMetric ? ' active' : '') + '" data-metric="' + m.id + '">' + m.label + '</button>';
-  }).join('');
-  return '' +
-    '<div class="sec-title">Evolución mensual FY27 <span class="pill">actual vs budget vs LY</span></div>' +
-    '<div class="card"><div class="tabs">' + tabs + '</div><canvas id="evoCanvas" height="90"></canvas></div>';
+// ── Sección · Evolución mensual (GB/NR/OC, Actual+RR vs Budget, YoY) ─
+function renderEvo(evo) {
+  var METS = [{ id:'gb', label:'GB' }, { id:'nr', label:'NR' }, { id:'oc', label:'OC' }];
+  var toggle = '<div class="view-toggle">' + METS.map(function (m) {
+    return '<button data-evom="' + m.id + '" class="' + (STATE.evoMetric === m.id ? 'active' : '') +
+           '" onclick="switchEvoMetric(\'' + m.id + '\')">' + m.label + '</button>';
+  }).join('') + '</div>';
+
+  var head = '' +
+    '<div class="sec-head">' +
+      '<div class="sec-title">Evolución mensual <span class="pill">contable + RR · vs Budget · YoY</span></div>' +
+      toggle +
+      drillBtn(LINKS.contable, '📒 Ver detalle en P&L') +
+    '</div>';
+
+  if (!evo) return '<div class="sec">' + head + '<div class="empty">Sin datos de evolución.</div></div>';
+
+  return '<div class="sec">' + head +
+    '<div class="card">' +
+      '<div class="cap">Los números sobre la línea <strong>Actual + RR</strong> son el crecimiento <strong>YoY</strong> (vs Last Year) — no son la comparación vs Budget.</div>' +
+      '<div style="position:relative;height:300px"><canvas id="evoCanvas"></canvas></div>' +
+    '</div></div>';
 }
 
-function wireEvoTabs(evo) {
-  if (!evo) return;
-  document.querySelectorAll('.tab-btn[data-metric]').forEach(function (btn) {
-    btn.onclick = function () {
-      STATE.evoMetric = btn.getAttribute('data-metric');
-      document.querySelectorAll('.tab-btn[data-metric]').forEach(function (b) { b.classList.remove('active'); });
-      btn.classList.add('active');
-      renderEvoChart(evo);
-    };
+function switchEvoMetric(id) {
+  STATE.evoMetric = id;
+  document.querySelectorAll('[data-evom]').forEach(function (b) {
+    b.classList.toggle('active', b.getAttribute('data-evom') === id);
   });
+  drawEvo(_data && _data.evo, id);
 }
 
-function renderEvoChart(evo) {
-  if (!evo) return;
-  var m = evo.metrics.filter(function (x) { return x.id === STATE.evoMetric; })[0];
-  if (!m) return;
-  var ctx = document.getElementById('evoCanvas').getContext('2d');
-  if (evoChart) evoChart.destroy();
-  evoChart = new Chart(ctx, {
+function drawEvo(evo, metricId) {
+  destroyChart_('evoCanvas');
+  if (!evo || !evo[metricId]) return;
+  var el = document.getElementById('evoCanvas');
+  if (!el) return;
+
+  var m = evo[metricId];
+  var labels = (evo.periods || []).map(monthLabel);
+  var yoy = m.yoy || [];
+
+  // Etiquetas de crecimiento YoY sobre cada punto de la línea Actual+RR.
+  var yoyLabels = {
+    id: 'yoyLabels',
+    afterDatasetsDraw: function (chart) {
+      var meta = chart.getDatasetMeta(0);
+      if (!meta || meta.hidden) return;
+      var ctx = chart.ctx;
+      meta.data.forEach(function (pt, i) {
+        var v = yoy[i];
+        if (v == null) return;
+        ctx.save();
+        ctx.fillStyle = v >= 0 ? '#029687' : '#fa503f';
+        ctx.font = 'bold 9px -apple-system,sans-serif';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+        ctx.fillText((v >= 0 ? '+' : '') + v.toFixed(0) + '%', pt.x, pt.y - 6);
+        ctx.restore();
+      });
+    }
+  };
+
+  _charts['evoCanvas'] = new Chart(el, {
     type: 'line',
     data: {
-      labels: evo.periods,
+      labels: labels,
       datasets: [
-        { label: 'Actual',    data: m.actuals,  borderColor: '#550fed', backgroundColor: '#550fed', tension: .25, spanGaps: true },
-        { label: 'Budget',    data: m.budget,   borderColor: '#976cf6', borderDash: [6, 4], tension: .25, spanGaps: true },
-        { label: 'Last Year', data: m.lastYear, borderColor: '#a3a3a3', borderDash: [2, 3], tension: .25, spanGaps: true }
+        { label: 'Actual + RR', data: m.actual,   borderColor: '#550fed', backgroundColor: '#550fed', pointRadius: 3, borderWidth: 2.5, tension: .25, spanGaps: true, order: 1 },
+        { label: 'Budget',      data: m.budget,   borderColor: '#a780ff', borderDash: [6, 4], pointRadius: 0, borderWidth: 2, tension: .25, spanGaps: true, order: 2 },
+        { label: 'Last Year',   data: m.lastYear, borderColor: '#b0b0b0', borderDash: [2, 3], pointRadius: 0, borderWidth: 1.5, tension: .25, spanGaps: true, order: 3 }
       ]
     },
     options: {
       responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 11 } } } },
-      scales: { y: { ticks: { callback: function (v) { return '$' + (v / 1e6).toFixed(1) + 'M'; } } } }
-    }
+      layout: { padding: { top: 20 } },
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 11 } } },
+        tooltip: { mode: 'index', intersect: false, callbacks: {
+          label: function (ctx) { return ' ' + ctx.dataset.label + ': ' + fmtM(ctx.raw); },
+          afterBody: function (items) {
+            var i = items[0].dataIndex, v = yoy[i];
+            return (v == null) ? '' : 'YoY: ' + (v >= 0 ? '+' : '') + v.toFixed(1) + '%';
+          }
+        } }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: '#57606a', font: { size: 10 } } },
+        y: { ticks: { callback: function (v) { return fmtM(v); }, font: { size: 10 } }, grid: { color: 'rgba(0,0,0,.05)' } }
+      }
+    },
+    plugins: [yoyLabels]
   });
 }
 
-// ── P&L Bridge: NR Bridge + OC Waterfall (Budget → Actuals+RR) ──
-// Mismo criterio visual que Dashboard_B2B_WLs (_drawBrasilConceptWf_ / _wfTotalDeltaPlugin_):
-// colores oficiales Despegar — Goal lila #976cf6, Baseline lila #550fed, delta +/- #10b132/#e06666.
+// ── Sección · P&L Bridge (NR Bridge + OC Waterfall, vs Budget) ──
+// Misma data (getCountryPageData.b2bData) y mismo criterio visual que la
+// sección B2B de Dashboard_B2B_WLs → coinciden siempre. Baseline =
+// actuals cerrados + RR en meses futuros.
 function _normOcLabel_(raw) {
   return ((raw || '').toLowerCase().indexOf('outsourced') >= 0) ? 'Fee SaaS' : raw;
 }
 
-function renderWaterfallsSection(wf) {
-  if (!wf || (!wf.oc && !wf.nr)) return '';
+function renderWaterfalls(wf) {
+  var head = '' +
+    '<div class="sec-head">' +
+      '<div class="sec-title">P&amp;L Bridge <span class="pill">contable · Budget → Actuals+RR</span></div>' +
+      drillBtn(LINKS.pnlDash, '📒 Ver detalle en P&L Dashboard') +
+    '</div>';
+  if (!wf || (!wf.oc && !wf.nr)) {
+    return '<div class="sec">' + head + '<div class="empty">Sin datos de bridge para este país.</div></div>';
+  }
   return '' +
-    '<div class="sec-title">P&amp;L Bridge <span class="pill">Budget → Actuals+RR</span></div>' +
-    '<div class="wf-grid">' +
-      '<div class="card wf-card"><div class="sec-title" style="margin-top:0">Net Revenue Bridge</div>' +
-        '<canvas id="wfc-nr" height="110"></canvas><div class="wf-table" id="wft-nr"></div></div>' +
-      '<div class="card wf-card"><div class="sec-title" style="margin-top:0">Operating Contribution Waterfall</div>' +
-        '<canvas id="wfc-oc" height="110"></canvas><div class="wf-table" id="wft-oc"></div></div>' +
+    '<div class="sec">' + head +
+      '<div class="wf-grid">' +
+        '<div class="card wf-card"><div class="wf-sub">Net Revenue Bridge</div>' +
+          '<div style="position:relative;height:240px"><canvas id="wfc-nr"></canvas></div><div id="wft-nr"></div></div>' +
+        '<div class="card wf-card"><div class="wf-sub">Operating Contribution Waterfall</div>' +
+          '<div style="position:relative;height:240px"><canvas id="wfc-oc"></canvas></div><div id="wft-oc"></div></div>' +
+      '</div>' +
     '</div>';
 }
 
@@ -363,7 +553,7 @@ function drawWaterfall_(chartId, wf, kind) {
   if (!tblEl) return;
   var cols  = sorted.map(function (c) { return normFn(c.label); }).concat(['Total']);
   var dVals = sorted.map(function (c) { return c.deltaVsBud; }).concat([baseTotal - goalTotal]);
-  var th = '<table><thead><tr><th></th>' + cols.map(function (c) { return '<th>' + c + '</th>'; }).join('') + '</tr></thead>';
+  var th = '<table class="wf-table"><thead><tr><th></th>' + cols.map(function (c) { return '<th>' + c + '</th>'; }).join('') + '</tr></thead>';
   var row = '<tbody><tr><td>Δ vs Budget</td>' + dVals.map(function (v) {
     var sign = (v == null) ? '' : (v >= 0 ? '+' : '-');
     return '<td><span class="chip ' + chipClass(v) + '">' + sign + fmtM(Math.abs(v)) + '</span></td>';
@@ -371,66 +561,155 @@ function drawWaterfall_(chartId, wf, kind) {
   tblEl.innerHTML = th + row;
 }
 
-// ── Partners / Hunting-Farming ──────────────────────────────────
-function renderPartners(p, lob) {
-  if (!p || !p.lastMonth) return '';
-  var hf = '';
-  if (lob === 'b2b2c' && p.hunting && p.farming) {
-    hf = '' +
-      '<div class="hf-row">' +
-        '<div class="hf-box"><div class="t">Hunting NR (' + p.lastMonth + ')</div><div class="v">' + fmtM(p.hunting.nr) + '</div></div>' +
-        '<div class="hf-box"><div class="t">Farming NR (' + p.lastMonth + ')</div><div class="v">' + fmtM(p.farming.nr) + '</div></div>' +
-      '</div>';
-  }
-  var totalsRow = function (label, t) {
-    if (!t) return '';
-    return '<tr><td>' + label + '</td><td>' + fmtM(t.gb) + '</td><td>' + fmtM(t.nr) + '</td><td>' + fmtM(t.npv) + '</td></tr>';
-  };
-  var totalsTable = '' +
-    '<table><thead><tr><th>' + p.lastMonth + '</th><th>Gross Bookings</th><th>Net Revenue</th><th>NPV</th></tr></thead><tbody>' +
-    totalsRow('Actual', p.actual) + totalsRow('Budget', p.budget) + totalsRow('Last Year', p.lastYear) +
-    '</tbody></table>';
+// ── Sección 3 · MIX Canal × Producto (Pareto, GB, FY27 acum) ───
+function fmtRatio(v) { return (v == null) ? '—' : v.toFixed(1) + '%'; }
 
-  var partnersRows = (p.topPartners || []).map(function (row) {
-    return '<tr><td>' + row.partner + '</td><td>' + fmtM(row.net_revenue) + '</td><td>' + fmtM(row.gross_bookings) + '</td></tr>';
-  }).join('');
-  var partnersTable = partnersRows ? '' +
-    '<table><thead><tr><th>Partner</th><th>Net Revenue</th><th>Gross Bookings</th></tr></thead><tbody>' + partnersRows + '</tbody></table>'
-    : '<div class="muted">Sin partners para este corte.</div>';
+function renderMix(mix) {
+  var head = '' +
+    '<div class="sec-head">' +
+      '<div class="sec-title">Mix Canal × Producto <span class="pill">contable · GB · FY27 acum</span></div>' +
+      drillBtn(LINKS.hoteles, '🏨 Tablero de Hoteles') +
+    '</div>' +
+    '<div class="drill-row">' +
+      drillBtn(LINKS.vuelos, '✈️ Tablero de Vuelos') +
+    '</div>';
+
+  if (!mix || !mix.items || !mix.items.length) {
+    return '<div class="sec">' + head + '<div class="empty">Sin datos de mix canal/producto para este país.</div></div>';
+  }
+
+  // Ratios a nivel país (agregado), como referencia arriba del gráfico
+  var summary = '' +
+    '<div class="deltas" style="margin-bottom:12px">' +
+      '<span class="chip flat">NR/GB país: ' + fmtRatio(mix.totalNrGb) + '</span>' +
+      '<span class="chip ' + chipClass(mix.totalOcGb) + '">OC/GB país: ' + fmtRatio(mix.totalOcGb) + '</span>' +
+    '</div>';
 
   return '' +
-    '<div class="sec-title">Partners <span class="pill">P&amp;L Managerial · gestional</span></div>' +
-    '<div class="two-col">' +
-      '<div class="card">' + hf + totalsTable + '</div>' +
-      '<div class="card"><div class="sec-title" style="margin-top:0">Top 10 partners por NR</div>' + partnersTable + '</div>' +
+    '<div class="sec">' + head +
+      '<div class="card">' +
+        summary +
+        '<div style="position:relative;height:340px"><canvas id="paretoCanvas"></canvas></div>' +
+      '</div>' +
     '</div>';
 }
 
-// ── Pulso semanal ────────────────────────────────────────────
-function renderSemanal(s) {
-  if (!s || !s.row) return '';
-  var row = s.row;
-  var head = s.weekLabels.map(function (w) { return '<th>Sem. ' + w + '</th>'; }).join('');
-  function metricRow(label, key, fmt) {
-    var cells = row.weeks.map(function (w) { return '<td>' + fmt(w[key]) + '</td>'; }).join('');
-    return '<tr><td>' + label + '</td>' + cells + '</tr>';
-  }
-  var vsl4w = row.vsL4W || {};
-  var chips = ['gb', 'rev', 'fvm'].map(function (k) {
-    var label = { gb: 'GB', rev: 'NR', fvm: 'FVM' }[k];
-    return '<span class="chip ' + chipClass(vsl4w[k]) + '">' + label + ' vs L4W ' + fmtPct(vsl4w[k]) + '</span>';
-  }).join(' ');
+function drawPareto(mix) {
+  if (_paretoChart) { _paretoChart.destroy(); _paretoChart = null; }
+  if (!mix || !mix.items || !mix.items.length) return;
+  var el = document.getElementById('paretoCanvas');
+  if (!el) return;
 
-  return '' +
-    '<div class="sec-title">Pulso semanal <span class="pill">Daily Dashboard</span></div>' +
-    '<div class="card">' +
-      '<div style="margin-bottom:10px">' + chips + '</div>' +
-      '<table><thead><tr><th>Millones USD</th>' + head + '</tr></thead><tbody>' +
-        metricRow('Gross Bookings', 'gb',  function(v){return fmtM(v*1e6);}) +
-        metricRow('Net Revenue',    'rev', function(v){return fmtM(v*1e6);}) +
-        metricRow('FVM',            'fvm', function(v){return fmtM(v*1e6);}) +
-      '</tbody></table>' +
+  var labels = mix.items.map(function (it) { return it.label; });
+  var gb     = mix.items.map(function (it) { return it.gb; });
+  // Para las líneas de ratio: solo mostramos combos con margen dentro de
+  // ±30% (los outliers fuera de ese rango se ocultan para no estirar la
+  // escala, así se ve la variación fina de 0.1%–3%). Las barras GB no se tocan.
+  var RATIO_CAP = 30;
+  function clip(v) { return (v != null && v >= -RATIO_CAP && v <= RATIO_CAP) ? v : null; }
+  var nrGb   = mix.items.map(function (it) { return clip(it.nrGb); });
+  var ocGb   = mix.items.map(function (it) { return clip(it.ocGb); });
+
+  // Rango ajustado por métrica: cada margen usa TODO el alto del gráfico, así
+  // 1pp vs 5pp se ve marcado (si compartieran escala se aplastarían).
+  function rng(arr) {
+    var v = arr.filter(function (x) { return x != null; });
+    if (!v.length) return { min: undefined, max: undefined };
+    var mn = Math.min.apply(null, v), mx = Math.max.apply(null, v);
+    if (mn === mx) { return { min: mn - 1, max: mx + 1 }; }
+    var pad = (mx - mn) * 0.30;
+    return { min: mn - pad, max: mx + pad };
+  }
+  var nrR = rng(nrGb), ocR = rng(ocGb);
+
+  // Etiquetas de % sobre cada punto de las líneas de margen.
+  var ratioLabels = {
+    id: 'ratioLabels',
+    afterDatasetsDraw: function (chart) {
+      var ctx = chart.ctx;
+      [1, 2].forEach(function (di) {
+        var ds = chart.data.datasets[di];
+        var meta = chart.getDatasetMeta(di);
+        if (!meta || meta.hidden) return;
+        meta.data.forEach(function (pt, i) {
+          var v = ds.data[i];
+          if (v == null) return;
+          ctx.save();
+          ctx.fillStyle = ds.borderColor;
+          ctx.font = 'bold 10px -apple-system,sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = (di === 2) ? 'bottom' : 'top';
+          ctx.fillText(v.toFixed(1) + '%', pt.x, pt.y + (di === 2 ? -7 : 7));
+          ctx.restore();
+        });
+      });
+    }
+  };
+
+  _paretoChart = new Chart(el, {
+    data: {
+      labels: labels,
+      datasets: [
+        { type: 'bar',  label: 'Gross Bookings', data: gb, yAxisID: 'y',
+          backgroundColor: '#e3d7ff', borderRadius: 3, order: 3 },
+        { type: 'line', label: 'NR/GB', data: nrGb, yAxisID: 'yNr',
+          borderColor: '#029687', backgroundColor: '#029687', pointRadius: 4, borderWidth: 2.5, tension: .2, order: 1, spanGaps: true },
+        { type: 'line', label: 'OC/GB', data: ocGb, yAxisID: 'yOc',
+          borderColor: '#550fed', backgroundColor: '#550fed', pointRadius: 4, borderWidth: 2.5, tension: .2, order: 2, spanGaps: true }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      layout: { padding: { top: 22 } },
+      plugins: {
+        legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 11 } } },
+        tooltip: { callbacks: { label: function (ctx) {
+          return (ctx.dataset.yAxisID === 'y')
+            ? ' ' + ctx.dataset.label + ': ' + fmtM(ctx.raw)
+            : ' ' + ctx.dataset.label + ': ' + (ctx.raw == null ? '—' : ctx.raw.toFixed(1) + '%');
+        } } }
+      },
+      scales: {
+        x:   { ticks: { color: '#57606a', font: { size: 10 }, maxRotation: 40, minRotation: 40 }, grid: { display: false } },
+        y:   { position: 'left', ticks: { callback: function (v) { return fmtM(v); }, font: { size: 10 } }, grid: { color: 'rgba(0,0,0,.05)' } },
+        // Ejes de margen independientes y OCULTOS (solo para escalar cada línea a su rango)
+        yNr: { position: 'right', display: false, min: nrR.min, max: nrR.max },
+        yOc: { position: 'right', display: false, min: ocR.min, max: ocR.max }
+      }
+    },
+    plugins: [ratioLabels]
+  });
+}
+
+// ── Sección · Evacuá tus dudas (agentes de IA) ─────────────────
+function renderDudas() {
+  var head = '' +
+    '<div class="sec-head">' +
+      '<div class="sec-title">¿Dudas? Consultá a los agentes <span class="pill">mayor detalle</span></div>' +
     '</div>';
+  var agents = [
+    { name: '🧭 BITUBOSS', desc: 'Consulta general — te orienta hacia el área o el agente correcto', url: LINKS.bituboss },
+    { name: '📊 BITUBIA',  desc: 'Información contable',  url: LINKS.bitubia  },
+    { name: '🐝 BITUBEE',  desc: 'Información gestional', url: LINKS.bitubee  }
+  ];
+  var cards = agents.map(function (a) {
+    return '<a class="agent-card" href="' + a.url + '" target="_blank" rel="noopener">' +
+             '<div class="agent-name">' + a.name + '</div>' +
+             '<div class="agent-desc">' + a.desc + '</div>' +
+             '<div class="agent-go">Consultar →</div>' +
+           '</a>';
+  }).join('');
+  return '<div class="sec">' + head + '<div class="kpi-row">' + cards + '</div></div>';
+}
+
+// 'YYYY-MM' → 'Mmm-AA'
+function monthLabel(ym) {
+  if (!ym) return '';
+  var parts = String(ym).split('-');
+  if (parts.length < 2) return ym;
+  var mons = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  var mi = parseInt(parts[1], 10) - 1;
+  return (mons[mi] || parts[1]) + '-' + parts[0].slice(2);
 }
 
 boot();

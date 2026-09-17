@@ -47,6 +47,51 @@ function _computeCountryPageResult_(pais, desde, hasta,
   };
 }
 
+// ── Mix B2B canal × producto (contable) ─────────────────────────
+// Devuelve GB / NR / OC por combinación canal (may/min) × producto para
+// B2B, acumulado en [desde, hasta] (default: FY27 hasta el último mes real).
+// Misma fuente/criterio que el resto del contable (calcOC = NR + cost of
+// revenue + S&M) para que los ratios coincidan con la sección B2B.
+// Pensado para lob_country_one_pager (ratios OC/GB y NR/GB por producto).
+function getB2BCanalProductoMix(params) {
+  var pais  = (params && params.pais)  || 'all';
+  var desde = (params && params.desde) || '2026-04';
+  var hasta = (params && params.hasta) || LAST_ACTUALS_YM;
+
+  var key    = JSON.stringify({ v:1, cpMix:1, pais:pais, desde:desde, hasta:hasta });
+  var cached = readResultCache_(key);
+  if (cached) return cached;
+
+  var baseMap = buildMap_(readJson_(JSON_IDS.baseline));
+  var rrMap   = buildMap_(readJson_(JSON_IDS.runrate));
+  var budMap  = buildMap_(readJson_(JSON_IDS.budget));
+
+  // Enumerar productos B2B presentes en la data (evita hardcodear la taxonomía)
+  var prodSet = {};
+  Object.keys(baseMap.map).forEach(function(k) {
+    var p = k.split('§');            // lob§canal§pais§producto§n3§ym
+    if (p[0] === 'b2b' && p[3] && p[3] !== 'all') prodSet[p[3]] = true;
+  });
+  var productos = Object.keys(prodSet).sort();
+
+  var CANALS = [{ key:'may', label:'MAY' }, { key:'min', label:'MIN' }];
+  var items  = [];
+  CANALS.forEach(function(c) {
+    productos.forEach(function(prod) {
+      var gf  = { lob:'b2b', pais:pais, canal:c.key, producto:prod, desde:desde, hasta:hasta };
+      var agg = blendedFromMaps_(baseMap, rrMap, budMap, gf, null);
+      var gb  = agg['gross bookings'] || 0;
+      var nr  = agg['net revenue']    || 0;
+      var oc  = calcOC(agg);
+      if (gb || nr || oc) items.push({ canal:c.label, producto:prod, gb:gb, nr:nr, oc:oc });
+    });
+  });
+
+  var result = { pais:pais, desde:desde, hasta:hasta, lastActuals:LAST_ACTUALS_YM, items:items };
+  writeResultCache_(key, result);
+  return result;
+}
+
 // Llamada del frontend: 1 round-trip en vez de 3 × getAllData()
 function getCountryPageData(params) {
   var pais  = (params && params.pais)  || 'all';
