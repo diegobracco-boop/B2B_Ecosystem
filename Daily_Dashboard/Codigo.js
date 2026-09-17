@@ -430,6 +430,108 @@ function _wsComputeMTD_(actRows, budRows, lyRows) {
   return { month:lastYM, daysCount:Object.keys(actDays).length, hasBudget:hasBudget, rows:rows };
 }
 
+// ---- Per-country MTD (público, para lob_country_one_pager) ----
+// Mismo criterio que _wsComputeMTD_ pero para UN país aislado
+// (Brasil, Mexico, Argentina, Colombia, Chile, Peru, Ecuador) — sin
+// el agrupamiento regional "Hispa" de getWeeklySummaryData. Devuelve
+// GB / NR (rev) / FVM month-to-date, en millones (/1e6).
+function getCountryMTD(params) {
+  try {
+    var view = (params && params.view) || 'GD';
+    var lob  = (params && params.lob)  || 'B2B';
+    var pais = (params && params.pais) || '';
+    var ym   = (params && params.ym)   || '';   // opcional: mes puntual 'YYYY-MM' (default: último con actuals)
+    if (!pais) return { success:false, error:'pais requerido' };
+
+    var b2bcRaw = loadFile_(B2BC_JSON, B2BC_CACHE_KEY);
+    var b2bRaw  = loadFile_(B2B_JSON,  B2B_CACHE_KEY);
+
+    var actRows = _wsGetActuals_(lob, view, b2bcRaw, b2bRaw);
+    var budRows = _wsGetBudget_(lob, view, b2bcRaw, b2bRaw);
+    var lyRows  = _wsGetLY_(lob, view, b2bcRaw, b2bRaw);
+
+    var mtd = _wsComputeMTDPais_(actRows, budRows, lyRows, pais, ym);
+    if (!mtd) return { success:false, error:'sin datos MTD para ' + pais + (ym ? ' ('+ym+')' : '') };
+
+    return { success:true, view:view, lob:lob, pais:pais, mtd:mtd,
+             lastSync:{ ts:(b2bcRaw.meta || {}).generated_at || null } };
+  } catch(e) {
+    return { success:false, error:e.message };
+  }
+}
+
+function _wsComputeMTDPais_(actRows, budRows, lyRows, pais, targetYm) {
+  var lastYM = targetYm || '';
+  if (!lastYM) {
+    actRows.forEach(function(r) { var ym=r.fecha.substring(0,7); if(ym>lastYM) lastYM=ym; });
+  }
+  if (!lastYM) return null;
+  // Si se pidió un mes puntual sin actuals, no hay MTD para ese mes.
+  if (targetYm) {
+    var has = false;
+    for (var k=0; k<actRows.length; k++) { if (actRows[k].fecha.substring(0,7)===targetYm) { has=true; break; } }
+    if (!has) return null;
+  }
+
+  var lyYM = (parseInt(lastYM.split('-')[0])-1) + '-' + lastYM.split('-')[1];
+
+  var lastActDate = '';
+  actRows.forEach(function(r) {
+    if (r.fecha.substring(0,7)===lastYM && r.fecha>lastActDate) lastActDate=r.fecha;
+  });
+
+  var actAgg = _wsAggMonthly_(actRows);
+  var lastLYDate = lastActDate ? lyYM+'-'+lastActDate.split('-')[2] : '';
+  var lyActAgg = _wsAggMonthly_((lyRows||[]).filter(function(r) {
+    if (r.fecha.substring(0,7)!==lyYM) return true;
+    return lastLYDate ? r.fecha<=lastLYDate : true;
+  }));
+
+  var actDays = {};
+  actRows.filter(function(r){return r.fecha.substring(0,7)===lastYM;})
+         .forEach(function(r){actDays[r.fecha]=true;});
+
+  var zero = { gb:0, rev:0, fvm:0 };
+
+  // `pais` puede ser un país individual O un grupo agregado
+  // (TOTAL / Brasil / Mexico / Hispa / Globales — ver WS_GROUPS).
+  var isGroup = (WS_GROUPS.indexOf(pais) >= 0);
+  function resolve_(agg, ym) {
+    return isGroup ? _wsMonthGroupVals_(agg, ym, pais)
+                   : ((agg[ym] && agg[ym][pais]) || zero);
+  }
+  var act = resolve_(actAgg,   lastYM);
+  var ly  = resolve_(lyActAgg, lyYM);
+
+  // budget acumulado hasta lastActDate, por país; luego resolver país/grupo.
+  var budByPais = {};
+  (budRows||[]).forEach(function(r) {
+    if (!r.pais || r.fecha.substring(0,7)!==lastYM || r.fecha>lastActDate) return;
+    if (!budByPais[r.pais]) budByPais[r.pais] = { gb:0, rev:0, fvm:0 };
+    budByPais[r.pais].gb += r.gb; budByPais[r.pais].rev += r.rev; budByPais[r.pais].fvm += r.fvm;
+  });
+  var hasBudget = Object.keys(budByPais).length > 0;
+  var bud = null;
+  if (hasBudget) {
+    if (isGroup) { var w = {}; w[lastYM] = budByPais; bud = _wsMonthGroupVals_(w, lastYM, pais); }
+    else         { bud = budByPais[pais] || zero; }
+  }
+
+  function pct_(a,b) { return (b&&b!==0)?(a-b)/Math.abs(b)*100:null; }
+  function ach_(a,b) { return (b&&b!==0)?a/b*100:null; }
+
+  return {
+    month:     lastYM,
+    daysCount: Object.keys(actDays).length,
+    hasBudget: !!bud,
+    pais:      pais,
+    gb:  {actual:act.gb/1e6,  budget:bud?bud.gb/1e6:null,  vsLY:pct_(act.gb, ly.gb),  achievement:bud?ach_(act.gb, bud.gb):null},
+    rev: {actual:act.rev/1e6, budget:bud?bud.rev/1e6:null, vsLY:pct_(act.rev,ly.rev), achievement:bud?ach_(act.rev,bud.rev):null},
+    fvm: {actual:act.fvm/1e6, budget:bud?bud.fvm/1e6:null, vsLY:pct_(act.fvm,ly.fvm), achievement:bud?ach_(act.fvm,bud.fvm):null},
+    pctGb:{actual:act.gb?act.fvm/act.gb*100:0, budget:(bud&&bud.gb)?bud.fvm/bud.gb*100:null, vsLY:null, achievement:null}
+  };
+}
+
 // ============================================================
 // Daily Email
 // ============================================================

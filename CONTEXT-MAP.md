@@ -77,31 +77,44 @@ El ecosistema tiene dos capas: **pipelines** (Python, generan los datos) y **lan
 
 ### lob_country_one_pager — one-pager combinado por LoB+País
 - **Stack**: GAS + HTML
-- **Input**: sin pipeline propio y **sin leer JSONs de Drive directamente** — consume las
-  otras 3 landings como **Apps Script Libraries** (`dependencies.libraries` en `appsscript.json`,
+- **Input**: sin pipeline propio y **sin leer JSONs de Drive directamente** — consume dos
+  landings como **Apps Script Libraries** (`dependencies.libraries` en `appsscript.json`,
   pineado a una versión numérica de cada una, mismo patrón que `clasp deploy -i <id>`):
-  - `DashboardB2BWLs.getCountryPageData()` → evolución mensual GB/NR/OC por LoB+país (FY27)
-  - `PnLManagerial.getData()` → partners, hunting/farming (gestional)
-  - `DailyDashboard.getWeeklySummaryData()` → pulso semanal por país
+  - `DashboardB2BWLs` (v155) — **contable**:
+    - `getCountryPageData()` → evo mensual GB/NR/OC + waterfalls (ocConceptWf/nrBridgeWf) por país (FY27)
+    - `getB2BCanalProductoMix()` → GB/NR/OC por canal (MAY/MIN) × producto, para el mix (ratios OC/GB y NR/GB, mismo `calcOC` que la sección B2B)
+  - `DailyDashboard` (v223) — **gestional**:
+    - `getCountryMTD({pais,view,ym})` → GB/NR/FVM del mes por país (GD y RI), mes puntual o último con actuals; soporta grupos (Globales/Hispa/TOTAL)
+  - **Ya NO usa `PnLManagerial`** (se removió del manifest): el mix pasó a la fuente contable
+    de `Dashboard_B2B_WLs` para que OC/GB y NR/GB salgan del mismo lugar que el resto del contable.
   Se eligió reusar funciones públicas (sin `_` final) en vez de duplicar la lógica de
-  agregación, para que los números coincidan siempre con los de esas 3 landings. Al
+  agregación, para que los números coincidan siempre con los de esas landings. Al
   actualizar el código de alguna de ellas, hay que correr `clasp version` ahí y bumpear el
   número en `lob_country_one_pager/appsscript.json`, si no el one-pager sigue sirviendo
-  la versión vieja.
+  la versión vieja. `getCountryMTD` (Daily) y `getB2BCanalProductoMix` (B2B WLs) son
+  funciones públicas agregadas **específicamente para este one-pager**.
 - **`executeAs: USER_DEPLOYING`** (a diferencia de `Dashboard_B2B_WLs`, que es
   `USER_ACCESSING`): necesario porque las libraries corren con la identidad de quien
   ejecuta el script TOP-LEVEL (no con la del dueño de cada proyecto-library), y
   `P&L_Managerial`/`Daily_Dashboard` asumen `USER_DEPLOYING` porque sus JSONs de Drive no
   están compartidos con todo el equipo — con `USER_ACCESSING` cualquier director sin
   acceso directo a esos Drive files vería errores de permisos.
-- **Propósito**: vista tipo "country one pager" para el VP comercial / director comercial
-  de una sola combinación LoB+País (un director tiene B2B2C Brasil, otro B2B Brasil —
-  nunca ambas LoB del mismo país). Combina en una pantalla lo contable-gerencial mensual,
-  partners/hunting-farming, y el pulso semanal — hoy repartido entre `P&L_Accounting`,
-  `P&L_Managerial`, `Dashboard_B2B_WLs` y `Daily_Dashboard`.
-  **v1 (piloto B2B2C Brasil, 2026-09-14)**: sin sección de OKR (el `okr.json` de
-  `Inputs_Planning_PnL` solo filtra por LoB, no por país — pendiente si se necesita).
-- **Usuarios**: directores comerciales por LoB+país (piloto: B2B2C Brasil)
+- **Propósito**: vista tipo "country one pager" para la dirección comercial de un país
+  (hoy **solo B2B**; B2B2C queda como pestaña "próximamente"). Paneo ejecutivo que se enfoca
+  en **un mismo mes** (selector de mes: contable = actuals si el mes cerró, o Run Rate si no)
+  y dirige al detalle de otros tableros/agentes. Secciones:
+  - **Gestional** — GB/NR/FVM del mes, mostrando **GD y RI** juntos (Daily).
+  - **Contable** — GB/NR/OC del mes (actual o RR) + **gráfico evolutivo** mensual (GB/NR/OC con
+    toggle; Actual+RR / Budget / Last Year + crecimiento YoY) + **waterfalls** NR y OC vs Budget
+    (mismos que la sección B2B de `Dashboard_B2B_WLs`, misma función → coinciden siempre).
+  - **Mix Canal × Producto** — Pareto de GB por canal×producto (contable) con líneas de margen
+    NR/GB y OC/GB.
+  - Botones de drill-down (Daily, P&L, P&L Dashboard, Tableros de Hoteles/Vuelos) y sección de
+    **agentes IA** (BITUBOSS/BITUBIA/BITUBEE) para consultas.
+  - Selector de **país** con banderas, incluye **Globales** (bucket discreto "other countries",
+    excluye OPS/RG y Uruguay/Paraguay).
+  - Sin sección de OKR (el `okr.json` de `Inputs_Planning_PnL` solo filtra por LoB, no por país).
+- **Usuarios**: dirección comercial B2B por país (arranque: Globales)
 - **Deploy**: `cd lob_country_one_pager && clasp push --force` (el manifest tiene
   `dependencies.libraries`, clasp pide `--force` para pushearlo) + `clasp deploy -i <id>`
 - **Script ID**: `1jApagpx41_eeLc3T51J_t3KUp7JqzA595rvV3mH3cEtDyTDkLT2gK9rp`
@@ -113,8 +126,7 @@ Todas las credenciales viven en `credenciales/` (gitignoreado). Ver cada módulo
 
 ## Estado actual
 
-- **En producción**: Daily_Dashboard, Dashboard_B2B_WLs, P&L_Accounting, P&L_Managerial, Manual_B2B_WLs
-- **En construcción**: `lob_country_one_pager` (scaffold creado 2026-09-14, sin lógica de negocio todavía)
+- **En producción**: Daily_Dashboard, Dashboard_B2B_WLs, P&L_Accounting, P&L_Managerial, Manual_B2B_WLs, `lob_country_one_pager` (B2B, en prod desde 2026-09-17)
 - **En construcción (Fase 2)**: repuntear las landings de P&L y Dashboard_B2B_WLs a los JSONs canónicos de Inputs_Planning_PnL como fuente única (hoy algunas todavía leen de fuentes propias)
 
 ## Relación clasp ↔ GitHub
