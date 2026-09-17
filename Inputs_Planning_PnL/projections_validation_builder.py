@@ -127,6 +127,13 @@ WLS_METRIC_COLS = [
     "credit_card_processing", "white_labels_api", "affiliates",
 ]
 
+# Regla de negocio (2026-09-17, pedido de Diego): el partner Ya Vas/YaVas no debe
+# contar para Orders/Gross Bookings en Packages General, Flights y Hotels — el resto
+# de sus métricas (white_labels_api, etc.) y sus otros productos (Cars, Dest. Serv.)
+# quedan igual.
+WLS_EXCLUDE_ORDERS_GB_PARTNERS  = {"ya vas", "yavas"}
+WLS_EXCLUDE_ORDERS_GB_PRODUCTOS = {"packages general", "flights", "hotels"}
+
 
 def parse_wls_pnl_sheet(path, projection_months):
     df = pd.read_excel(path, sheet_name=WLS_PNL_SHEET, dtype=str)
@@ -159,6 +166,20 @@ def parse_wls_pnl_sheet(path, projection_months):
     metric_cols = [c for c in WLS_METRIC_COLS if c in df.columns]
     for c in metric_cols:
         df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0.0)
+
+    if "partner" in df.columns:
+        excl = (
+            df["partner"].astype(str).str.strip().str.lower().isin(WLS_EXCLUDE_ORDERS_GB_PARTNERS) &
+            df["producto"].astype(str).str.strip().str.lower().isin(WLS_EXCLUDE_ORDERS_GB_PRODUCTOS)
+        )
+        if excl.any():
+            print(f"  AVISO: excluyendo Orders/Gross Bookings de {int(excl.sum())} filas "
+                  f"(partner Ya Vas/YaVas, Packages General/Flights/Hotels)")
+            for c in ("orders", "gross_bookings"):
+                if c in df.columns:
+                    df.loc[excl, c] = 0.0
+    else:
+        print("  AVISO: solapa 'P&L' sin columna 'partner' -> no se pudo aplicar la exclusion Ya Vas")
 
     id_cols = ["pais", "viaje", "producto", "lob_canal", "fecha"]
     df = df.groupby(id_cols, as_index=False)[metric_cols].sum()
