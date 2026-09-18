@@ -758,7 +758,7 @@ def build_b2b_ri_query(date_from: date, date_to: date) -> str:
     return (_B2B_CTEs_RI + """
 base_metrics AS (
     SELECT
-        CASE WHEN fh.parent_channel = 'API'
+        CASE WHEN fh.parent_channel = 'API' AND fh.buy_type_code = 'Hoteles'
              THEN p.checkin_date ELSE fh.recognition_date END AS fecha_reconocimiento,
         fh.parent_channel,"""
         + _B2B_PAIS_CASE
@@ -769,7 +769,7 @@ base_metrics AS (
         + _B2B_COMPONENTS_RI
         + _B2B_JOINS_RI + f"""
     WHERE
-        CASE WHEN fh.parent_channel = 'API'
+        CASE WHEN fh.parent_channel = 'API' AND fh.buy_type_code = 'Hoteles'
              THEN p.checkin_date ELSE fh.recognition_date END
              BETWEEN CAST('{date_from}' AS DATE) AND CAST('{date_to}' AS DATE)
         AND fh.partition_period > '2024-01-01'
@@ -780,7 +780,7 @@ base_metrics AS (
             AND (p.product_cancel_date < p.checkin_date OR p.product_cancel_date IS NULL)
         )
     GROUP BY
-        CASE WHEN fh.parent_channel = 'API'
+        CASE WHEN fh.parent_channel = 'API' AND fh.buy_type_code = 'Hoteles'
              THEN p.checkin_date ELSE fh.recognition_date END,"""
         + _B2B_GROUP_DIMS + """
 )
