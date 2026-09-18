@@ -1062,6 +1062,35 @@ function getBudgetAgencias_() {
   return budget;
 }
 
+// Agencias REALES por país desde "Slide 1 KR Agencias": col D = país
+// (EC+UY+PY agrupado, igual que el slide), col Q = nº de agencias reales.
+// Reemplaza el parche hardcodeado del frontend (_KR1_ACT_PATCH / _KR1_TOTAL_ACT).
+// Reutiliza BUDGET_COUNTRY_MAP: las filas que no están en el mapa
+// ('PE + EC + UY + PY', 'Ecuador', 'Uruguay', 'Paraguay') se saltean solas.
+function getRealesAgencias_() {
+  var ss    = SpreadsheetApp.openById(BUDGET_SHEET_ID);
+  var sheet = ss.getSheetByName(BUDGET_SHEET_NAME);
+  var last  = sheet.getLastRow();
+  if (last < 9) return {};
+  // Desde fila 9 (fila 8 = encabezado). D = col 4 … Q = col 17 → 14 columnas.
+  // Cap defensivo + corte en la primera fila con col D vacía (fin del bloque),
+  // para no barrer el resto de la hoja ni tomar otra tabla con nombres de país.
+  var nRows = Math.min(last - 8, 20);
+  var data  = sheet.getRange(9, 4, nRows, 14).getValues();
+  var out = {};
+  for (var r = 0; r < data.length; r++) {
+    var rawName = String(data[r][0]).trim();     // col D
+    if (rawName === '') break;                    // fin del bloque de agencias
+    var label = BUDGET_COUNTRY_MAP[rawName];
+    if (!label) continue;
+    var q = data[r][13];                          // col Q
+    if (q === '' || q === null) continue;         // mes sin cargar → deja el fallback del frontend
+    var num = Number(q);
+    if (!isNaN(num)) out[label] = num;
+  }
+  return out;
+}
+
 function getAirNRData() {
   var ss    = SpreadsheetApp.openById(BUDGET_SHEET_ID);
   var sheet = ss.getSheetByName(AIR_NR_SHEET_NAME);
@@ -1152,6 +1181,7 @@ function getAgenciasOKR() {
   var content = files.next().getBlob().getDataAsString('UTF-8');
   var payload = JSON.parse(content);
   payload.budget = getBudgetAgencias_();
+  payload.reales = getRealesAgencias_();
   return payload;
 }
 

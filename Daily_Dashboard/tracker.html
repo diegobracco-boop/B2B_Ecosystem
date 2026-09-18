@@ -1103,9 +1103,9 @@ let activeCountry = '';
 let collapseState = {};
 let agenciasData  = null;
 let agenciasState = 'idle'; // idle | loading | loaded | error
-const _KR1_ACT_PATCH = { 'Brasil': 5049, 'Mexico': 2220, 'Argentina': 573, 'Colombia': 1297, 'Chile': 215, 'Globales': 170, 'Peru': 180, 'Ecua / Uru / Par': 29 }; // parche temporal — quitar cuando se pida
+// Agencias REALES: ahora salen del gdoc "Slide 1 KR Agencias" (col D país + col Q nº)
+// vía backend getRealesAgencias_() → agenciasData.reales. Ya no se hardcodean acá.
 const _KR1_BUD_PATCH = { 'Brasil': 4870, 'Mexico': 2108, 'Argentina': 577, 'Colombia': 1283, 'Chile': 206, 'Globales': 164, 'Peru': 207, 'Ecua / Uru / Par': 36 }; // parche temporal — quitar cuando se pida
-      const _KR1_TOTAL_ACT = 9713; // parche temporal — quitar cuando se pida
       const _KR1_TOTAL_BUD = 9282; // parche temporal — quitar cuando se pida
 let airNRData     = null;
 let airNRState    = 'idle'; // idle | loading | loaded | error
@@ -2273,11 +2273,11 @@ function renderStatusKRs() {
     _kr1Countries.forEach(function(c) {
       var d = agenciasData.data[c];
       if (!d) return;
-      _kr1SumAct += (_KR1_ACT_PATCH[c] !== undefined ? _KR1_ACT_PATCH[c] : (d['Total'] || 0));
+      _kr1SumAct += ((agenciasData.reales && agenciasData.reales[c] !== undefined) ? agenciasData.reales[c] : (d['Total'] || 0));
       var b = (_KR1_BUD_PATCH[c] !== undefined) ? _KR1_BUD_PATCH[c] : (agenciasData.budget && agenciasData.budget[c]);
       if (b !== null && b !== undefined && !isNaN(b)) _kr1SumBud += b;
     });
-    kr1Act = (typeof _KR1_TOTAL_ACT !== 'undefined') ? _KR1_TOTAL_ACT : _kr1SumAct;
+    kr1Act = (agenciasData.reales && agenciasData.reales['TOTAL'] !== undefined) ? agenciasData.reales['TOTAL'] : _kr1SumAct;
     kr1Bud = (typeof _KR1_TOTAL_BUD !== 'undefined') ? _KR1_TOTAL_BUD : (_kr1SumBud > 0 ? _kr1SumBud : null);
   }
 
@@ -2485,11 +2485,14 @@ function renderKRDetailBoxes(monthFilter) {
     kr1Order.forEach(function(country) {
       var d = agenciasData.data[country];
       if (!d) return;
-      var act = (_KR1_ACT_PATCH[country] !== undefined) ? _KR1_ACT_PATCH[country] : (d['Total'] || 0);
+      var act = (agenciasData.reales && agenciasData.reales[country] !== undefined) ? agenciasData.reales[country] : (d['Total'] || 0);
       var bud = (_KR1_BUD_PATCH[country] !== undefined) ? _KR1_BUD_PATCH[country] : ((agenciasData.budget && agenciasData.budget[country]) || null);
       kr1Rows.push({ name: country, actual: act, budget: bud });
     });
-    grid.appendChild(makeDetailBox(1, 'Agencies L4W', kr1Rows, 'int', {act: _KR1_TOTAL_ACT, bud: _KR1_TOTAL_BUD}));
+    var _kr1TotalAct = (agenciasData.reales && agenciasData.reales['TOTAL'] !== undefined)
+      ? agenciasData.reales['TOTAL']
+      : kr1Rows.reduce(function(s, r){ return s + (r.actual || 0); }, 0);
+    grid.appendChild(makeDetailBox(1, 'Agencies L4W', kr1Rows, 'int', {act: _kr1TotalAct, bud: _KR1_TOTAL_BUD}));
   }
 
   // KR2 + KR3 — columna vertical NR Core encima de NR New
