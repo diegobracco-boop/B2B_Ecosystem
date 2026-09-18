@@ -512,6 +512,9 @@ a.ext-link:hover { text-decoration: underline; }
   <a class="nav-item" onclick="showSection('proj-daily')">
     <span class="nav-icon">📆</span> Daily Dashboard
   </a>
+  <a class="nav-item" onclick="showSection('proj-country')">
+    <span class="nav-icon">🗺️</span> Country One Pager (B2B)
+  </a>
   <a class="nav-item" onclick="showSection('proj-manual')">
     <span class="nav-icon">📖</span> Manual B2B WLs
   </a>
@@ -592,7 +595,7 @@ a.ext-link:hover { text-decoration: underline; }
       <div class="proj-card" onclick="showSection('proj-ecosystem')">
         <div class="proj-card-icon">🏢</div>
         <div class="proj-card-name">B2B Ecosystem Hub</div>
-        <div class="proj-card-desc">Portal central del equipo. P&amp;L Managerial con waterfall, evolución, OC Concept y NR Bridge. Datos desde <strong>JSON canónicos en Drive</strong> (mismo origen que Inputs_Planning_PnL). Incluye OKR, Country One Page, Daily, Organigrama y más.</div>
+        <div class="proj-card-desc">Portal central del equipo. P&amp;L Managerial con waterfall, evolución, OC Concept y NR Bridge. Datos desde <strong>JSON canónicos en Drive</strong> (mismo origen que Inputs_Planning_PnL). Incluye OKR, Country One Page, Detail By Country, Daily, Organigrama y más.</div>
         <div class="proj-card-tag"><span class="badge badge-manual">🔄 JSON Drive (Inputs_Planning_PnL)</span></div>
         <a class="proj-card-url" href="https://script.google.com/a/macros/despegar.com/s/AKfycbz52txFQy-5YM2Nil_KxULzPoeZpKyA4z5LUWMGoP_8IilcwSduuwZqPF8ut_LmtceM/exec" target="_blank">↗ Abrir landing</a>
       </div>
@@ -603,6 +606,14 @@ a.ext-link:hover { text-decoration: underline; }
         <div class="proj-card-desc">Performance diaria de WLs (B2B2C) y B2B (GD + RI). Conecta con Treasure Data vía ODBC. KPIs: D-1 Actual, MTD, Budget, LY MTD. Actualización automática 08:00 AM.</div>
         <div class="proj-card-tag"><span class="badge badge-auto">⚡ Automatizado (Task Scheduler)</span></div>
         <a class="proj-card-url" href="https://script.google.com/a/macros/despegar.com/s/AKfycbwMR3zk1r4uwui8vGtcmz0OwmeehC5JM8cuJRE3H-GQMfvxXWGTkYQ3R2nVjMyeAdX_1A/exec" target="_blank">↗ Abrir landing</a>
+      </div>
+
+      <div class="proj-card" onclick="showSection('proj-country')">
+        <div class="proj-card-icon">🗺️</div>
+        <div class="proj-card-name">Country One Pager (B2B)</div>
+        <div class="proj-card-desc">Landing standalone tipo "one pager" para la dirección comercial de un país. Sin pipeline propio: consume <strong>Dashboard_B2B_WLs</strong> y <strong>Daily_Dashboard</strong> como Apps Script Libraries. Embebido como tab "Detail By Country" dentro del B2B Ecosystem Hub, y también accesible standalone. Hoy solo B2B (B2B2C "próximamente").</div>
+        <div class="proj-card-tag"><span class="badge badge-manual">🔗 Libraries (sin JSON propio)</span></div>
+        <a class="proj-card-url" href="https://script.google.com/a/macros/despegar.com/s/AKfycbytMGsghl1TweKpYgMV2uhjTr--a9jpWkd2G3faZrF0DixD7UNu2qAq8Tbhlv_PCo0t/exec" target="_blank">↗ Abrir landing</a>
       </div>
 
       <div class="proj-card" onclick="showSection('proj-manual')">
@@ -657,7 +668,7 @@ a.ext-link:hover { text-decoration: underline; }
         <div class="step">
           <div class="step-num">3</div>
           <div class="step-body">
-            <div class="step-title">Abrí las 5 landings desde el Hub</div>
+            <div class="step-title">Abrí las 6 landings desde el Hub</div>
             <div class="step-desc">Entrá al <strong>B2B Ecosystem Hub</strong> y navegá cada dashboard con la sección "¿Qué landing uso?" al lado. Probá cambiar Baseline y Goal, filtrar por país, abrir un waterfall.</div>
           </div>
         </div>
@@ -787,6 +798,7 @@ a.ext-link:hover { text-decoration: underline; }
           <tr><td>El P&amp;L contable completo (OC), Baseline vs Goal, waterfalls, PxQ, Countries YoY</td><td><strong>P&amp;L Accounting</strong></td><td>La vista principal para Finanzas y para revisiones de P&amp;L</td></tr>
           <tr><td>FVM, palancas, NR Bridge, evolución mensual gestional</td><td><strong>P&amp;L Managerial</strong></td><td>La vista "managerial". B2B2C y B2B por separado</td></tr>
           <tr><td>Seguimiento de OKR, Country One Page, performance por partner, y acceso a todo lo demás</td><td><strong>B2B Ecosystem Hub</strong></td><td>El portal — la puerta de entrada</td></tr>
+          <tr><td>Panorama ejecutivo de un país B2B en un solo mes (gestional + contable + mix, con drill-down)</td><td><strong>Country One Pager (B2B)</strong></td><td>Tab "Detail By Country" del Hub, o standalone. Hoy solo B2B</td></tr>
           <tr><td>Pace del día / del mes en curso, vs Budget y vs LY</td><td><strong>Daily Dashboard</strong></td><td>Se actualiza solo a las 08:00. Vista diaria y vista semanal</td></tr>
           <tr><td>Entender de dónde sale un número o cómo se actualiza algo</td><td><strong>Manual B2B WLs</strong></td><td>Este documento</td></tr>
           <tr><td>Los datos crudos (JSON) para otro análisis</td><td><em>Inputs Planning P&amp;L</em></td><td>No es una landing — es la carpeta de Drive con los JSON canónicos</td></tr>
@@ -1570,7 +1582,7 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
     <div class="page-header">
       <div class="page-tag">Proyecto</div>
       <div class="page-title">B2B <span>Ecosystem Hub</span></div>
-      <div class="page-sub">Portal central del equipo B2B &amp; WLs. P&amp;L Managerial con análisis de waterfall, evolución, OC Concept y NR Bridge. <strong>Datos desde JSON canónicos en Drive</strong> (mismo origen que Inputs_Planning_PnL — reemplazó a Toqan). Includes OKR H1 FY27, Country One Page, Daily/Weekly embed, Organigrama y más.</div>
+      <div class="page-sub">Portal central del equipo B2B &amp; WLs. P&amp;L Managerial con análisis de waterfall, evolución, OC Concept y NR Bridge. <strong>Datos desde JSON canónicos en Drive</strong> (mismo origen que Inputs_Planning_PnL — reemplazó a Toqan). Includes OKR H1 FY27, Country One Page, Detail By Country, Daily/Weekly embed, Organigrama y más.</div>
     </div>
 
     <div class="two-col">
@@ -1597,7 +1609,8 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
             <tr><td>B2B2C</td><td>Mismo análisis filtrado por B2B2C (WLs). Apertura por Brasil / Mexico / Hispa</td></tr>
             <tr><td>B2B</td><td>Mismo análisis filtrado por B2B. Apertura por Brasil / Mexico / Globales / Hispa / OPS+RG (en el Cuadro Resumen P&L, OPS+RG es columna propia; Hispa ya no lo incluye). Toggle MAY / MIN</td></tr>
             <tr><td>OKR B2B2C / OKR B2B</td><td><strong>Nuevo.</strong> OKRs H1 FY27 (Q1+Q2 = Abr-Sep 2026). Tracking vs Goal por KR con pesos. Backend en Codigo_OKR.js</td></tr>
-            <tr><td>Country One Page</td><td><strong>Nuevo.</strong> Vista por país: P&L, OC Concept, NR Bridge para B2B y B2B2C. Backend en Codigo_country_page.js</td></tr>
+            <tr><td>Country One Page</td><td>Vista por país: P&L, OC Concept, NR Bridge para B2B y B2B2C. Backend en Codigo_country_page.js</td></tr>
+            <tr><td>Detail By Country</td><td><strong>Nuevo (2026-09-17).</strong> Embebe la landing standalone <code>lob_country_one_pager</code> vía iframe (mismo patrón que Daily/Weekly/P&L), carga lazy al entrar. No confundir con "Country One Page" de arriba (esa es una sección propia del Hub con datos JSON; esta es otra landing GAS entera embebida). URL en <code>EXTERNAL_LINKS.iframes.detailcountry</code>. El botón "P&L Bridge" de esa landing vuelve al Hub con <code>?section=b2b</code> (el Hub lee el querystring al cargar y salta directo a esa sección).</td></tr>
             <tr><td>Daily / Weekly</td><td>iframe → Daily Dashboard B2B2C</td></tr>
             <tr><td>Fixed Cost / Industry / News / Sources / Organigrama</td><td>Secciones informativas del equipo</td></tr>
             <tr><td>📸 Slides Cierre de Mes</td><td><strong>Nuevo.</strong> Botón en B2B + B2B2C: preview imprimible (Consolidado/B2B/B2B2C) + export a Google Slides real. Ver card debajo.</td></tr>
@@ -1832,6 +1845,96 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
     </div>
   </div>
 
+  <!-- ══════════════════ PROYECTO: COUNTRY ONE PAGER (B2B) ═══════════════════ -->
+  <div class="section" id="sec-proj-country">
+    <div class="page-header">
+      <div class="page-tag">Proyecto <span class="badge badge-manual">🆕 En prod desde 2026-09-17</span></div>
+      <div class="page-title">Country One Pager <span>(B2B)</span></div>
+      <div class="page-sub">Vista tipo "one pager" para la dirección comercial de un país (hoy <strong>solo B2B</strong>; B2B2C queda como pestaña "próximamente"). Paneo ejecutivo de <strong>un solo mes</strong> con drill-down al detalle de otros tableros. Se accede embebido como tab <strong>"Detail By Country"</strong> del B2B Ecosystem Hub, o standalone.</div>
+    </div>
+
+    <div class="alert-box info">
+      ℹ️ <strong>Sin pipeline propio y sin leer JSONs de Drive directamente.</strong> Consume <code>Dashboard_B2B_WLs</code> y <code>Daily_Dashboard</code> como <strong>Apps Script Libraries</strong> (pineadas a una versión numérica en <code>appsscript.json</code>, mismo patrón que <code>clasp deploy -i</code>), reusando sus funciones públicas en vez de duplicar la lógica de agregación — así los números coinciden siempre con esas dos landings.
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">📍 Datos del proyecto</div>
+        <table class="doc-table">
+          <tbody>
+            <tr><td>Carpeta local</td><td>lob_country_one_pager</td></tr>
+            <tr><td>Apps Script ID</td><td class="mono-id">1jApagpx41_eeLc3T51J_t3KUp7JqzA595rvV3mH3cEtDyTDkLT2gK9rp</td></tr>
+            <tr><td>Deployment id (prod)</td><td class="mono-id">AKfycbytMGsghl1TweKpYgMV2uhjTr--a9jpWkd2G3faZrF0DixD7UNu2qAq8Tbhlv_PCo0t</td></tr>
+            <tr><td>URL landing</td><td><a class="ext-link" href="https://script.google.com/a/macros/despegar.com/s/AKfycbytMGsghl1TweKpYgMV2uhjTr--a9jpWkd2G3faZrF0DixD7UNu2qAq8Tbhlv_PCo0t/exec" target="_blank">↗ Abrir</a></td></tr>
+            <tr><td>Fuente de datos</td><td><span class="badge badge-manual">🔗 Apps Script Libraries</span> — sin JSON propio</td></tr>
+            <tr><td>Deploy</td><td><code>cd lob_country_one_pager && clasp push --force</code> (el manifest tiene <code>dependencies.libraries</code>, clasp pide <code>--force</code>) + <code>clasp deploy -i &lt;id&gt;</code></td></tr>
+            <tr><td>Usuarios</td><td>Dirección comercial B2B por país (arranque: Globales)</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card">
+        <div class="card-title">🗂️ Secciones de la landing</div>
+        <table class="doc-table">
+          <tbody>
+            <tr><td>Gestional</td><td>GB/NR/FVM del mes, GD y RI juntos (vía library Daily_Dashboard)</td></tr>
+            <tr><td>Contable</td><td>GB/NR/OC del mes (actual o RR) + evolutivo mensual (toggle Actual+RR / Budget / Last Year + YoY) + waterfalls NR y OC vs Budget (mismos que la sección B2B del Hub)</td></tr>
+            <tr><td>Mix Canal × Producto</td><td>Pareto de GB por canal×producto (contable) con líneas de margen NR/GB y OC/GB</td></tr>
+            <tr><td>Selector de país</td><td>Con banderas, incluye Globales (bucket "other countries", excluye OPS/RG y Uruguay/Paraguay)</td></tr>
+            <tr><td>Drill-down</td><td>Botones a Daily, P&L, P&L Dashboard, Tableros de Hoteles/Vuelos, y sección de agentes IA (BITUBOSS/BITUBIA/BITUBEE). El botón "P&L Bridge" abre el Hub con <code>?section=b2b</code></td></tr>
+            <tr><td>Sin sección OKR</td><td><code>okr.json</code> de Inputs_Planning_PnL solo filtra por LoB, no por país</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">⚙️ Flujo de datos</div>
+      <div class="flow-wrap">
+        <div class="flow-node">
+          <div class="flow-node-icon">🏢</div>
+          <div class="flow-node-title">Dashboard_B2B_WLs</div>
+          <div class="flow-node-items">
+            <div class="flow-item">getCountryPageData()</div>
+            <div class="flow-item">getB2BCanalProductoMix()</div>
+          </div>
+          <div class="flow-note">Library "DashboardB2BWLs" (pineada, hoy v155) — datos contables: evo GB/NR/OC + waterfalls por país, y mix canal×producto</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node">
+          <div class="flow-node-icon">📆</div>
+          <div class="flow-node-title">Daily_Dashboard</div>
+          <div class="flow-node-items">
+            <div class="flow-item">getCountryMTD()</div>
+          </div>
+          <div class="flow-note">Library "DailyDashboard" (pineada, hoy v223) — GB/NR/FVM del mes por país (GD/RI)</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node">
+          <div class="flow-node-icon">🌐</div>
+          <div class="flow-node-title">lob_country_one_pager</div>
+          <div class="flow-node-items">
+            <div class="flow-item pink">dashboard.html</div>
+          </div>
+          <div class="flow-note">Frontend propio. También embebido en el Hub como tab "Detail By Country"</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🧠 Reglas de negocio y arquitectura clave</div>
+      <table class="doc-table">
+        <thead><tr><th>Regla</th><th>Detalle</th></tr></thead>
+        <tbody>
+          <tr><td>Libraries, no duplicar lógica</td><td>Reusa funciones públicas (sin <code>_</code> final) de las dos landings en vez de reimplementar la agregación, para que los números coincidan siempre. <code>getCountryMTD</code> (Daily) y <code>getB2BCanalProductoMix</code> (B2B WLs) se agregaron <strong>específicamente para este one-pager</strong></td></tr>
+          <tr><td>Versión pineada</td><td>Al actualizar el código de <code>Dashboard_B2B_WLs</code> o <code>Daily_Dashboard</code>, hay que correr <code>clasp version</code> ahí y bumpear el número en <code>lob_country_one_pager/appsscript.json</code> — si no, el one-pager sigue sirviendo la versión vieja de la library</td></tr>
+          <tr><td>Ya NO usa PnLManagerial</td><td>Se removió del manifest — el mix pasó a la fuente contable de <code>Dashboard_B2B_WLs</code> para que OC/GB y NR/GB salgan del mismo lugar que el resto del contable</td></tr>
+          <tr><td><code>executeAs: USER_DEPLOYING</code></td><td>A diferencia de <code>Dashboard_B2B_WLs</code> (<code>USER_ACCESSING</code>): necesario porque las libraries corren con la identidad de quien ejecuta el script top-level, y <code>P&L_Managerial</code>/<code>Daily_Dashboard</code> asumen <code>USER_DEPLOYING</code> porque sus JSONs de Drive no están compartidos con todo el equipo</td></tr>
+          <tr><td>Único landing que cruza los 3 orígenes</td><td>Es el único que lee de Inputs_Planning_PnL (contable, vía library), Daily_Dashboard (gestional, vía library) y — antes de este cambio — P&L_Managerial a la vez</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
   <!-- ══════════════════════ PROYECTO: MANUAL B2B WLS ══════════════════════ -->
   <div class="section" id="sec-proj-manual">
     <div class="page-header">
@@ -2047,6 +2150,20 @@ OneDrive → Control de Gestión 2026-27 → B2B & WLs → Proyectos IA → BITU
     </div>
 
     <div class="card">
+      <div class="card-title">📂 Country One Pager (B2B)</div>
+      <div class="code-block">C:\Users\diego.bracco\Proyectos IA\B2B_Ecosystem\lob_country_one_pager\
+  ├── Codigo.js          ← Backend liviano: llama a las libraries, sin lógica propia de agregación
+  ├── dashboard.html     ← Frontend one-pager (Gestional/Contable/Mix, selector país, drill-down)
+  ├── appsscript.json    ← dependencies.libraries: DashboardB2BWLs (pineada) + DailyDashboard (pineada)
+  └── .clasp.json
+
+  Sin pipeline propio, sin JSON de Drive: todo llega vía Apps Script Libraries
+  (getCountryPageData / getB2BCanalProductoMix de Dashboard_B2B_WLs; getCountryMTD
+  de Daily_Dashboard). Al bumpear versión de esas landings, actualizar el número
+  pineado acá o el one-pager sigue sirviendo datos viejos.</div>
+    </div>
+
+    <div class="card">
       <div class="card-title">📂 P&amp;L Managerial</div>
       <div class="code-block">C:\Users\diego.bracco\Proyectos IA\P&L_Managerial\
   ├── dashboard.html                    ← Frontend vistas gestionales (B2B2C + B2B FVM)
@@ -2060,13 +2177,14 @@ OneDrive → Control de Gestión 2026-27 → B2B & WLs → Proyectos IA → BITU
 
     <div class="card">
       <div class="card-title">📂 Todos los proyectos</div>
-      <div class="code-block">C:\Users\diego.bracco\Proyectos IA\
-  ├── Inputs_Planning_PnL\   ← Motor de datos (fuente única, reemplaza Toqan)
-  ├── P&L_Accounting\        ← P&L Contable / EPM
-  ├── P&L_Managerial\        ← P&L Gestional (FVM)
-  ├── Dashboard_B2B_WLs\     ← B2B Ecosystem Hub
-  ├── Daily_Dashboard\       ← Daily Dashboard B2B2C + B2B
-  └── Manual_B2B_WLs\        ← Este manual</div>
+      <div class="code-block">C:\Users\diego.bracco\Proyectos IA\B2B_Ecosystem\
+  ├── Inputs_Planning_PnL\    ← Motor de datos (fuente única, reemplaza Toqan)
+  ├── P&L_Accounting\         ← P&L Contable / EPM
+  ├── P&L_Managerial\         ← P&L Gestional (FVM)
+  ├── Dashboard_B2B_WLs\      ← B2B Ecosystem Hub
+  ├── Daily_Dashboard\        ← Daily Dashboard B2B2C + B2B
+  ├── lob_country_one_pager\  ← Country One Pager (B2B) — libraries, sin pipeline propio
+  └── Manual_B2B_WLs\         ← Este manual</div>
     </div>
   </div>
 
@@ -2104,6 +2222,11 @@ OneDrive → Control de Gestión 2026-27 → B2B & WLs → Proyectos IA → BITU
             <td>Dominio despegar.com</td>
           </tr>
           <tr>
+            <td>Country One Pager (B2B)</td>
+            <td><a class="ext-link" href="https://script.google.com/a/macros/despegar.com/s/AKfycbytMGsghl1TweKpYgMV2uhjTr--a9jpWkd2G3faZrF0DixD7UNu2qAq8Tbhlv_PCo0t/exec" target="_blank">↗ Abrir</a></td>
+            <td>Dominio despegar.com</td>
+          </tr>
+          <tr>
             <td>Inputs Planning P&amp;L (JSONs en Drive)</td>
             <td><a class="ext-link" href="https://drive.google.com/drive/folders/1XqQPL_rlS0NRIPUnPfj5nALBTn7kAOQV" target="_blank">↗ Abrir carpeta</a></td>
             <td>Sin landing (motor de datos)</td>
@@ -2126,6 +2249,7 @@ OneDrive → Control de Gestión 2026-27 → B2B & WLs → Proyectos IA → BITU
           <tr><td>P&amp;L Managerial</td><td><a class="ext-link" href="https://script.google.com/home/projects/1rB8o8HcnksPBXzi8QJW1zC-XQQ1HqHaowTcWV95SJG6xRbLg5QQ_2mQH/edit" target="_blank">↗ Abrir editor</a></td></tr>
           <tr><td>B2B Ecosystem Hub</td><td><a class="ext-link" href="https://script.google.com/d/1fLnpsEh2dBAuPusbOD0194SiGZQflPFr1nwG_Wls2cjcvhmffdOPesUd/edit" target="_blank">↗ Abrir editor</a></td></tr>
           <tr><td>Daily Dashboard B2B2C + B2B</td><td><a class="ext-link" href="https://script.google.com/home/projects/1zHFbUa-aMfiX9idRvhxonW5DuR5LixC478d6CfsD6ZXnU7MMQiFfpo_v/edit" target="_blank">↗ Abrir editor</a></td></tr>
+          <tr><td>Country One Pager (B2B)</td><td><a class="ext-link" href="https://script.google.com/home/projects/1jApagpx41_eeLc3T51J_t3KUp7JqzA595rvV3mH3cEtDyTDkLT2gK9rp/edit" target="_blank">↗ Abrir editor</a></td></tr>
           <tr><td>Manual B2B WLs</td><td><a class="ext-link" href="https://script.google.com/home/projects/1QWmdd4S9tgnwuUDv3k25ig3ArK9PO8s9jcobHWtm4zPVN_Zlapvies0e/edit" target="_blank">↗ Abrir editor</a></td></tr>
         </tbody>
       </table>
