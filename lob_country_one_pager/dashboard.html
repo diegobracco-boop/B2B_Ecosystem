@@ -34,11 +34,12 @@
     .sec{margin-bottom:28px}
     .sec-head{display:flex;align-items:center;gap:10px;margin:0 0 12px;flex-wrap:wrap}
     .sec-title{font-size:15px;font-weight:800;color:var(--ink);display:flex;align-items:center;gap:8px}
-    .sec-title .pill{background:var(--lila-bg);color:var(--lila-1);font-size:11px;padding:2px 8px;border-radius:20px;font-weight:700}
+    .pill{background:var(--lila-bg);color:var(--lila-1);font-size:11px;padding:2px 8px;border-radius:20px;font-weight:700}
     .sec-note{font-size:11px;color:var(--muted)}
     .view-toggle{display:inline-flex;border:1px solid var(--lila-4);border-radius:20px;overflow:hidden}
     .view-toggle button{border:none;background:#fff;color:var(--lila-1);font-weight:700;font-size:11px;padding:4px 12px;cursor:pointer}
     .view-toggle button.active{background:var(--lila-1);color:#fff}
+    .view-toggle button:disabled{opacity:.35;cursor:not-allowed}
     .drill{margin-left:auto;border:1px solid var(--lila-4);background:#fff;color:var(--lila-1);font-weight:700;font-size:12px;padding:6px 14px;border-radius:20px;cursor:pointer;text-decoration:none;white-space:nowrap}
     .drill:hover{background:var(--lila-1);color:#fff}
     .drill-row{display:flex;gap:8px;justify-content:flex-end;margin:-4px 0 12px;flex-wrap:wrap}
@@ -46,6 +47,7 @@
     .gest-lbl{font-size:12px;font-weight:700;color:var(--lila-1);text-transform:uppercase;letter-spacing:.04em;margin:0 0 8px}
     .kpi-row{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
     @media (max-width:760px){.kpi-row{grid-template-columns:1fr}}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px}
     .kpi-card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}
     .kpi-card .label{font-size:12px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.03em}
     .kpi-card .period{font-size:11px;color:var(--muted);font-weight:600}
@@ -103,7 +105,7 @@
 </main>
 
 <script>
-var STATE = { pais: 'Globales', lob: 'b2b', ym: '', evoMetric: 'nr' };
+var STATE = { pais: 'Globales', lob: 'b2b', ym: '', evoMetric: 'nr', evoGranularity: 'month', evoMode: 'nominal' };
 var _data = null;
 
 // Banderas por país. En Windows los emoji de bandera no renderizan (muestran
@@ -237,7 +239,7 @@ function render(data) {
   html += renderGestional(data.gestional, data.pais, data.ym);
   html += renderContable(data.contable);
   html += renderEvo(data.evo);
-  html += renderWaterfalls(data.contable && data.contable.waterfalls);
+  html += renderWaterfalls(data.contable);
   html += renderMix(data.mix);
   html += renderDudas();
   document.getElementById('main').innerHTML = html;
@@ -303,18 +305,84 @@ function renderContable(c) {
   return '<div class="sec">' + head + badge + '<div class="kpi-row">' + cards + '</div></div>';
 }
 
-// ── Sección · Evolución mensual (GB/NR/OC, Actual+RR vs Budget, YoY) ─
+// ── Sección · Evolución (GB/NR/OC, Actual+RR vs Budget, YoY) ────
+// Agrupable por Mes / Quarter / Half (STATE.evoGranularity) — mismo
+// agrupamiento aplica al gráfico y a la tabla de abajo.
+var EVO_GRAN = {
+  month:   { label: 'Mes',     size: 1 },
+  quarter: { label: 'Quarter', size: 3 },
+  half:    { label: 'Half',    size: 6 }
+};
+
+// Arma los grupos de índices [from,to) sobre evo.periods según el tamaño
+// del granularity (1/3/6 meses), asumiendo periods en orden de año fiscal
+// (Abr→Mar), igual convención que P&L Accounting (H1 Abr–Sep / H2 Oct–Mar).
+function _evoGroups_(periods, granularity) {
+  var size = (EVO_GRAN[granularity] || EVO_GRAN.month).size;
+  var groups = [];
+  for (var i = 0; i < periods.length; i += size) {
+    var to = Math.min(i + size, periods.length);
+    var label = (size === 1) ? monthLabel(periods[i])
+              : monthLabel(periods[i]) + '–' + monthLabel(periods[to - 1]);
+    groups.push({ from: i, to: to, label: label });
+  }
+  return groups;
+}
+
+// Suma una serie mensual {actual,budget,lastYear} sobre los grupos y
+// recalcula YoY sobre los totales (no promedia los % mensuales). Un grupo
+// sin NINGÚN mes con dato (ej. FY todavía no llega ahí / sin RR) da `null`
+// en vez de 0 — si no, un período sin datos se leería como "$0.00M" real.
+function _evoAggregate_(m, groups) {
+  function sum(arr, from, to) {
+    var slice = (arr || []).slice(from, to);
+    var hasVal = false, total = 0;
+    slice.forEach(function (v) { if (v != null) { hasVal = true; total += v; } });
+    return hasVal ? total : null;
+  }
+  var actual = [], budget = [], lastYear = [], yoy = [];
+  groups.forEach(function (g) {
+    var a = sum(m.actual, g.from, g.to);
+    var b = sum(m.budget, g.from, g.to);
+    var ly = sum(m.lastYear, g.from, g.to);
+    actual.push(a); budget.push(b); lastYear.push(ly);
+    yoy.push((a != null && ly) ? (a - ly) / Math.abs(ly) * 100 : null);
+  });
+  return { label: m.label, actual: actual, budget: budget, lastYear: lastYear, yoy: yoy };
+}
+
+// %GB no aplica a GB mismo (sería siempre 100%) — mientras el metric
+// seleccionado sea 'gb', el modo efectivo cae a nominal aunque STATE.evoMode
+// haya quedado en 'pctgb' de una métrica anterior (así no hay que resetearlo
+// al volver a NR/OC).
+function _evoEffMode_() {
+  return (STATE.evoMetric === 'gb') ? 'nominal' : STATE.evoMode;
+}
+
 function renderEvo(evo) {
   var METS = [{ id:'gb', label:'GB' }, { id:'nr', label:'NR' }, { id:'oc', label:'OC' }];
-  var toggle = '<div class="view-toggle">' + METS.map(function (m) {
+  var metricToggle = '<div class="view-toggle">' + METS.map(function (m) {
     return '<button data-evom="' + m.id + '" class="' + (STATE.evoMetric === m.id ? 'active' : '') +
            '" onclick="switchEvoMetric(\'' + m.id + '\')">' + m.label + '</button>';
   }).join('') + '</div>';
+  var granToggle = '<div class="view-toggle">' + Object.keys(EVO_GRAN).map(function (g) {
+    return '<button data-evog="' + g + '" class="' + (STATE.evoGranularity === g ? 'active' : '') +
+           '" onclick="switchEvoGranularity(\'' + g + '\')">' + EVO_GRAN[g].label + '</button>';
+  }).join('') + '</div>';
+  var effMode    = _evoEffMode_();
+  var gbSelected = STATE.evoMetric === 'gb';
+  var modeToggle = '<div class="view-toggle">' +
+    '<button data-evomode="nominal" class="' + (effMode === 'nominal' ? 'active' : '') +
+      '" onclick="switchEvoMode(\'nominal\')">$</button>' +
+    '<button data-evomode="pctgb" class="' + (effMode === 'pctgb' ? 'active' : '') + '"' +
+      (gbSelected ? ' disabled title="No aplica a GB"' : '') +
+      ' onclick="switchEvoMode(\'pctgb\')">%GB</button>' +
+  '</div>';
 
   var head = '' +
     '<div class="sec-head">' +
-      '<div class="sec-title">Evolución mensual <span class="pill">contable + RR · vs Budget · YoY</span></div>' +
-      toggle +
+      '<div class="sec-title">Evolución <span class="pill">contable + RR · vs Budget · YoY</span></div>' +
+      metricToggle + granToggle + modeToggle +
       drillBtn(LINKS.contable, '📒 Ver detalle en P&L') +
     '</div>';
 
@@ -322,9 +390,47 @@ function renderEvo(evo) {
 
   return '<div class="sec">' + head +
     '<div class="card">' +
-      '<div class="cap">Los números sobre la línea <strong>Actual + RR</strong> son el crecimiento <strong>YoY</strong> (vs Last Year) — no son la comparación vs Budget.</div>' +
+      '<div class="cap">Barras: <strong>Actual + RR</strong> vs <strong>Budget</strong>, con su valor encima de cada una. Arriba de cada par, el call-out del <strong>delta vs Budget</strong>. NR y OC se pueden ver en <strong>$</strong> o como <strong>%GB</strong>. Current Year, Last Year y crecimiento <strong>YoY</strong> de Gross Bookings, Net Revenues y Operating Contribution, en la tabla debajo.</div>' +
       '<div style="position:relative;height:300px"><canvas id="evoCanvas"></canvas></div>' +
+    '</div>' +
+    '<div class="card" id="evoLYTable">' +
+      renderEvoLYTable(evo) +
     '</div></div>';
+}
+
+// Tabla Current Year / Last Year / YoY para GB / NR / OC — siempre las 3
+// métricas juntas, independiente de cuál esté seleccionada en el toggle
+// del gráfico. Respeta el mismo granularity (mes/quarter/half).
+function renderEvoLYTable(evo) {
+  var ids = ['gb', 'nr', 'oc'].filter(function (id) { return evo[id]; });
+  if (!ids.length) return '<div class="empty">Sin datos de Last Year.</div>';
+
+  var periods = evo.periods || [];
+  var groups  = _evoGroups_(periods, STATE.evoGranularity);
+  var cols    = groups.map(function (g) { return g.label; });
+
+  var rows = ids.map(function (id) {
+    var agg = _evoAggregate_(evo[id], groups);
+    var cells = groups.map(function (g, i) {
+      var cy = agg.actual[i], ly = agg.lastYear[i], yv = agg.yoy[i];
+      if (cy == null && ly == null) return '<td>—</td>';
+      var yoyHtml = (yv == null) ? '' :
+        ' <span style="color:' + (yv >= 0 ? 'var(--verde)' : 'var(--rojo)') + ';font-weight:700">(' +
+        (yv >= 0 ? '+' : '') + yv.toFixed(0) + '%)</span>';
+      return '<td>' +
+        '<div>' + (cy == null ? '—' : fmtM(cy)) + '</div>' +
+        '<div style="color:var(--muted);font-size:10px">LY ' + fmtM(ly) + yoyHtml + '</div>' +
+      '</td>';
+    }).join('');
+    return '<tr><td>' + evo[id].label + '</td>' + cells + '</tr>';
+  }).join('');
+
+  return '<div class="cap">Current Year vs Last Year <span class="pill">nominal · YoY</span></div>' +
+    '<div style="overflow-x:auto">' +
+      '<table class="wf-table"><thead><tr><th></th>' +
+        cols.map(function (c) { return '<th>' + c + '</th>'; }).join('') +
+      '</tr></thead><tbody>' + rows + '</tbody></table>' +
+    '</div>';
 }
 
 function switchEvoMetric(id) {
@@ -332,7 +438,46 @@ function switchEvoMetric(id) {
   document.querySelectorAll('[data-evom]').forEach(function (b) {
     b.classList.toggle('active', b.getAttribute('data-evom') === id);
   });
+  // %GB no aplica a GB — deshabilitar el botón y reflejar el modo efectivo
+  // (nominal) en el toggle, sin perder STATE.evoMode por si vuelve a NR/OC.
+  var effMode = _evoEffMode_();
+  document.querySelectorAll('[data-evomode]').forEach(function (b) {
+    var mode = b.getAttribute('data-evomode');
+    b.classList.toggle('active', mode === effMode);
+    if (mode === 'pctgb') b.disabled = (id === 'gb');
+  });
   drawEvo(_data && _data.evo, id);
+}
+
+function switchEvoMode(mode) {
+  if (STATE.evoMetric === 'gb') return;   // %GB deshabilitado para GB
+  STATE.evoMode = mode;
+  document.querySelectorAll('[data-evomode]').forEach(function (b) {
+    b.classList.toggle('active', b.getAttribute('data-evomode') === mode);
+  });
+  drawEvo(_data && _data.evo, STATE.evoMetric);
+}
+
+function switchEvoGranularity(g) {
+  STATE.evoGranularity = g;
+  document.querySelectorAll('[data-evog]').forEach(function (b) {
+    b.classList.toggle('active', b.getAttribute('data-evog') === g);
+  });
+  drawEvo(_data && _data.evo, STATE.evoMetric);
+  var tblEl = document.getElementById('evoLYTable');
+  if (tblEl && _data && _data.evo) tblEl.innerHTML = renderEvoLYTable(_data.evo);
+}
+
+// Convierte una serie agregada {actual,budget} a % sobre GB (mismo grupo).
+// null si no hay dato de la métrica o el GB del grupo es 0/null.
+function _evoToPctGb_(agg, gbAgg) {
+  function toPct(arr, gbArr) {
+    return arr.map(function (v, i) {
+      var gbv = gbArr[i];
+      return (v != null && gbv) ? v / gbv * 100 : null;
+    });
+  }
+  return { label: agg.label, actual: toPct(agg.actual, gbAgg.actual), budget: toPct(agg.budget, gbAgg.budget) };
 }
 
 function drawEvo(evo, metricId) {
@@ -341,75 +486,124 @@ function drawEvo(evo, metricId) {
   var el = document.getElementById('evoCanvas');
   if (!el) return;
 
-  var m = evo[metricId];
-  var labels = (evo.periods || []).map(monthLabel);
-  var yoy = m.yoy || [];
+  var groups  = _evoGroups_(evo.periods || [], STATE.evoGranularity);
+  var raw     = _evoAggregate_(evo[metricId], groups);
+  var pctMode = (_evoEffMode_() === 'pctgb');
+  var m       = pctMode ? _evoToPctGb_(raw, _evoAggregate_(evo.gb, groups)) : raw;
+  var labels  = groups.map(function (g) { return g.label; });
 
-  // Etiquetas de crecimiento YoY sobre cada punto de la línea Actual+RR.
-  var yoyLabels = {
-    id: 'yoyLabels',
+  function fmtVal(v) {
+    if (v == null) return '—';
+    return pctMode ? v.toFixed(1) + '%' : fmtM(v);
+  }
+
+  // Etiquetas de dato (valor nominal o %GB, según el modo) sobre cada barra.
+  var barValueLabels = {
+    id: 'barValueLabels',
     afterDatasetsDraw: function (chart) {
-      var meta = chart.getDatasetMeta(0);
-      if (!meta || meta.hidden) return;
       var ctx = chart.ctx;
-      meta.data.forEach(function (pt, i) {
-        var v = yoy[i];
-        if (v == null) return;
+      chart.data.datasets.forEach(function (ds, di) {
+        var meta = chart.getDatasetMeta(di);
+        if (!meta || meta.hidden) return;
+        meta.data.forEach(function (bar, i) {
+          var v = ds.data[i];
+          if (v == null) return;
+          ctx.save();
+          ctx.fillStyle = '#1c1233';
+          ctx.font = '9px -apple-system,sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = v >= 0 ? 'bottom' : 'top';
+          ctx.fillText(fmtVal(v), bar.x, bar.y + (v >= 0 ? -4 : 4));
+          ctx.restore();
+        });
+      });
+    }
+  };
+
+  // Call-out por período: delta vs Budget, por encima de las etiquetas de
+  // dato de cada barra (para no pisarlas). Nominal: "+$X.XXM (+Y%)".
+  // %GB: en puntos porcentuales ("+2.3pp"), no tiene sentido un "% del %".
+  var deltaCallouts = {
+    id: 'deltaCallouts',
+    afterDatasetsDraw: function (chart) {
+      var metaA = chart.getDatasetMeta(0), metaB = chart.getDatasetMeta(1);
+      if (!metaA || !metaB || metaA.hidden || metaB.hidden) return;
+      var ctx = chart.ctx;
+      metaA.data.forEach(function (barA, i) {
+        var av = m.actual[i], bv = m.budget[i];
+        if (av == null || bv == null) return;
+        var delta = av - bv;
+        var barB  = metaB.data[i];
+        // Math.min de .y Y .base de ambas barras: para valores negativos el
+        // "techo" real de la barra es .base (línea de cero), no .y (la punta,
+        // que en ese caso queda más abajo en pixeles). Cubre positivo, negativo
+        // y mixto (relevante para OC, que puede ser negativo).
+        var topY  = Math.min(barA.y, barA.base, barB.y, barB.base);
+        var label;
+        if (pctMode) {
+          label = (delta >= 0 ? '+' : '-') + Math.abs(delta).toFixed(1) + 'pp';
+        } else {
+          var pct = bv ? (delta / Math.abs(bv) * 100) : null;
+          // Signo ANTES del $ ("-$0.24M", no "$-0.24M" que da fmtM con negativos).
+          label = (delta >= 0 ? '+$' : '-$') + (Math.abs(delta) / 1e6).toFixed(2) + 'M' +
+            (pct == null ? '' : ' (' + (pct >= 0 ? '+' : '') + pct.toFixed(0) + '%)');
+        }
         ctx.save();
-        ctx.fillStyle = v >= 0 ? '#029687' : '#fa503f';
+        ctx.fillStyle = delta >= 0 ? '#10b132' : '#e06666';
         ctx.font = 'bold 9px -apple-system,sans-serif';
         ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-        ctx.fillText((v >= 0 ? '+' : '') + v.toFixed(0) + '%', pt.x, pt.y - 6);
+        // -16 en vez de -6: deja lugar para la etiqueta de dato de barValueLabels
+        // (que queda justo arriba/abajo de la punta de cada barra individual).
+        ctx.fillText(label, (barA.x + barB.x) / 2, topY - 16);
         ctx.restore();
       });
     }
   };
 
   _charts['evoCanvas'] = new Chart(el, {
-    type: 'line',
+    type: 'bar',
     data: {
       labels: labels,
       datasets: [
-        { label: 'Actual + RR', data: m.actual,   borderColor: '#550fed', backgroundColor: '#550fed', pointRadius: 3, borderWidth: 2.5, tension: .25, spanGaps: true, order: 1 },
-        { label: 'Budget',      data: m.budget,   borderColor: '#a780ff', borderDash: [6, 4], pointRadius: 0, borderWidth: 2, tension: .25, spanGaps: true, order: 2 },
-        { label: 'Last Year',   data: m.lastYear, borderColor: '#b0b0b0', borderDash: [2, 3], pointRadius: 0, borderWidth: 1.5, tension: .25, spanGaps: true, order: 3 }
+        { label: 'Actual + RR', data: m.actual, backgroundColor: '#550fed', borderRadius: 3 },
+        { label: 'Budget',      data: m.budget, backgroundColor: '#c9b6ff', borderRadius: 3 }
       ]
     },
     options: {
       responsive: true, maintainAspectRatio: false,
-      layout: { padding: { top: 20 } },
+      layout: { padding: { top: 34 } },
       interaction: { mode: 'index', intersect: false },
       plugins: {
         legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 11 } } },
         tooltip: { mode: 'index', intersect: false, callbacks: {
-          label: function (ctx) { return ' ' + ctx.dataset.label + ': ' + fmtM(ctx.raw); },
-          afterBody: function (items) {
-            var i = items[0].dataIndex, v = yoy[i];
-            return (v == null) ? '' : 'YoY: ' + (v >= 0 ? '+' : '') + v.toFixed(1) + '%';
-          }
+          label: function (ctx) { return ' ' + ctx.dataset.label + ': ' + fmtVal(ctx.raw); }
         } }
       },
       scales: {
         x: { grid: { display: false }, ticks: { color: '#57606a', font: { size: 10 } } },
-        y: { ticks: { callback: function (v) { return fmtM(v); }, font: { size: 10 } }, grid: { color: 'rgba(0,0,0,.05)' } }
+        y: { ticks: { callback: function (v) { return fmtVal(v); }, font: { size: 10 } }, grid: { color: 'rgba(0,0,0,.05)' } }
       }
     },
-    plugins: [yoyLabels]
+    plugins: [barValueLabels, deltaCallouts]
   });
 }
 
 // ── Sección · P&L Bridge (NR Bridge + OC Waterfall, vs Budget) ──
 // Misma data (getCountryPageData.b2bData) y mismo criterio visual que la
-// sección B2B de Dashboard_B2B_WLs → coinciden siempre. Baseline =
-// actuals cerrados + RR en meses futuros.
+// sección B2B de Dashboard_B2B_WLs → coinciden siempre. Acotado al mismo
+// mes `ym` que el resto de la página (Budget del mes vs Actual/RR del mes,
+// según si cerró o no) — NO es un acumulado del año.
 function _normOcLabel_(raw) {
   return ((raw || '').toLowerCase().indexOf('outsourced') >= 0) ? 'Fee SaaS' : raw;
 }
 
-function renderWaterfalls(wf) {
+function renderWaterfalls(c) {
+  var wf    = c && c.waterfalls;
+  var isRR  = c && c.basis === 'RR';
+  var basis = isRR ? 'Run Rate' : 'Actual';
   var head = '' +
     '<div class="sec-head">' +
-      '<div class="sec-title">P&amp;L Bridge <span class="pill">contable · Budget → Actuals+RR</span></div>' +
+      '<div class="sec-title">P&amp;L Bridge <span class="pill">contable · ' + (c ? monthLabel(c.ym) : '') + ' · Budget → ' + basis + '</span></div>' +
       drillBtn(LINKS.pnlDash + '?section=b2b', '📒 Ver detalle · Monthly Results B2B') +
     '</div>';
   if (!wf || (!wf.oc && !wf.nr)) {

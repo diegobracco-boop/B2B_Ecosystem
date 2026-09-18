@@ -75,7 +75,7 @@ function getOnePagerData(params) {
       gd: _getGestionalMTD_(pais, 'GD', ym),
       ri: _getGestionalMTD_(pais, 'RI', ym)
     },
-    contable: _buildContableCards_(base, ym),
+    contable: _buildContableCards_(base, ym, pais),
     evo:      _buildEvo_(base),
     mix:      _getMix_(pais)
   };
@@ -180,7 +180,9 @@ function _getMix_(pais) {
 }
 
 // ── Sección 2 · CONTABLE (Dashboard_B2B_WLs) ────────────────────
-// Base: evo mensual GB/NR/OC + waterfalls + meses seleccionables.
+// Base: evo mensual GB/NR/OC + meses seleccionables (rango FY27 completo,
+// necesario para el gráfico de Evolución). Los waterfalls NO salen de acá
+// — van aparte, acotados al mes seleccionado (ver _buildContableWaterfalls_).
 function _getContableBase_(pais) {
   var paisCt = CONTABLE_PAIS[pais] || pais;   // Globales → 'other countries'
   var cp  = DashboardB2BWLs.getCountryPageData({ pais: paisCt, desde: FY_START, hasta: FY_END });
@@ -204,16 +206,28 @@ function _getContableBase_(pais) {
     periods:       evo.periods,
     metrics:       evo.metrics,
     lastActualsYm: lastActualsYm,
-    months:        months,
-    // Mismos waterfalls que la sección B2B de Dashboard_B2B_WLs (misma función
-    // fuente → coinciden siempre). Baseline = actuals cerrados + RR en meses futuros.
-    waterfalls:    b2b ? { oc: b2b.ocConceptWf, nr: b2b.nrBridgeWf } : null
+    months:        months
   };
+}
+
+// Waterfalls (NR Bridge + OC Waterfall) acotados al mes `ym` — mismo mes
+// que el resto de la página ("Toda la página habla sobre UN mismo mes").
+// Llamada aparte de _getContableBase_ porque esa usa el rango FY27 completo
+// (para el gráfico de Evolución) y acá necesitamos desde=hasta=ym puntual.
+// Mismas funciones fuente que la sección B2B de Dashboard_B2B_WLs → los
+// números siempre coinciden. Baseline = actuals si el mes cerró, RR si no.
+function _buildContableWaterfalls_(pais, ym) {
+  if (!ym) return null;
+  var paisCt = CONTABLE_PAIS[pais] || pais;
+  var cp  = DashboardB2BWLs.getCountryPageData({ pais: paisCt, desde: ym, hasta: ym });
+  var b2b = cp && cp.b2bData;
+  if (!b2b) return null;
+  return { oc: b2b.ocConceptWf, nr: b2b.nrBridgeWf };
 }
 
 // Tarjetas del mes `ym`: si el mes está cerrado → actuals contables; si aún
 // no cerró → Run Rate. Así toda la página habla del mismo mes.
-function _buildContableCards_(base, ym) {
+function _buildContableCards_(base, ym, pais) {
   if (!base || !ym) return null;
   var idx = base.periods.indexOf(ym);
   if (idx < 0) return null;
@@ -236,7 +250,7 @@ function _buildContableCards_(base, ym) {
     return { id: m.id, label: m.label, value: val, vsBudget: vsB, vsLY: vsLY };
   });
 
-  return { ym: ym, basis: basis, metrics: cards, waterfalls: base.waterfalls };
+  return { ym: ym, basis: basis, metrics: cards, waterfalls: _buildContableWaterfalls_(pais, ym) };
 }
 
 // evo.metrics[].actuals viene BLENDED (actuals+RR+forecast) para todo el FY27,
