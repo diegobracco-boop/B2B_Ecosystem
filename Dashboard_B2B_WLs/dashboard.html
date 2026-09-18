@@ -835,6 +835,13 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
           <div class="bento-desc">KPIs semanales de industria</div>
           <div class="bento-arrow">→</div>
         </button>
+        <button class="bento-card" style="--i:15" onclick="goToSection('detailcountry')">
+          <div class="bento-kicker">Performance · Managerial</div>
+          <div class="bento-icon">🌍</div>
+          <div class="bento-name">Detail By Country</div>
+          <div class="bento-desc">Performance por país</div>
+          <div class="bento-arrow">→</div>
+        </button>
       </div>
     </div>
 
@@ -1928,6 +1935,17 @@ window.addEventListener('DOMContentLoaded', function(){
   // El picker se construye definitivamente en populateFilters() con el default correcto
   updateCanalVisibility();
   loadAll();
+
+  // Deep-link: si la URL trae ?section=xxx (ej. desde "Detail By Country" → botón
+  // "Ver detalle · Monthly Results B2B"), saltar directo a esa sección en vez del home.
+  try {
+    if (typeof google !== 'undefined' && google.script && google.script.url) {
+      google.script.url.getLocation(function(loc){
+        var sec = loc && loc.parameter && loc.parameter.section;
+        if (sec) goToSection(sec);
+      });
+    }
+  } catch(e){}
 
   // Spotlight: el glow sigue el cursor dentro de cada card del bento
   var bento = document.getElementById('home-bento');
