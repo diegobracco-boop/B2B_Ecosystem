@@ -993,6 +993,46 @@
   </div>
 </div>
 
+<!-- Vista split: misma tabla por canal (Agencias afiliadas | API) — solo para slides -->
+<div class="tables-content" id="splitContent">
+  <div class="tables-view-title" id="splitViewTitle"></div>
+  <div class="tables-row">
+
+    <div class="table-block">
+      <div class="panel-title" id="splitTitleL">Agencias afiliadas</div>
+      <table class="pivot-table">
+        <thead>
+          <tr>
+            <th style="min-width:100px">País / Producto</th>
+            <th id="splitHeadActL">Actuals<br>MTD</th>
+            <th id="splitHeadDeltaL">Delta</th>
+            <th>Cumpl.</th>
+            <th>YoY</th>
+          </tr>
+        </thead>
+        <tbody id="pivotBodySplitL"></tbody>
+      </table>
+    </div>
+
+    <div class="table-block">
+      <div class="panel-title" id="splitTitleR">API</div>
+      <table class="pivot-table">
+        <thead>
+          <tr>
+            <th style="min-width:100px">País / Producto</th>
+            <th id="splitHeadActR">Actuals<br>MTD</th>
+            <th id="splitHeadDeltaR">Delta</th>
+            <th>Cumpl.</th>
+            <th>YoY</th>
+          </tr>
+        </thead>
+        <tbody id="pivotBodySplitR"></tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+
 <!-- Vista Semanas -->
 <div class="weekly-content" id="weeklyContent">
   <div class="tables-view-title" id="weeklyTitle">Performance Semanal</div>
@@ -2564,6 +2604,8 @@ function render() {
   const isAgenciasView = activeTab === 'agencias';
   const isWeeklyView   = activeTab === 'weekly_gd' || activeTab === 'weekly_ri';
 
+  // La vista split solo se usa en modo Slides; en render normal siempre se oculta.
+  document.getElementById('splitContent').classList.remove('visible');
   document.getElementById('agenciasContent').classList.toggle('visible', isAgenciasView);
   document.getElementById('weeklyContent').classList.toggle('visible', isWeeklyView);
 
@@ -2709,7 +2751,40 @@ const SLIDE_ORDER = [
   { tab: 'nr_gd',      title: 'Net Revenue — GD'                                                },
   { tab: 'fvm_gd',     title: 'FVM — GD'                                                        },
   { tab: 'tables_gd',  title: 'Tablas GD'                                                       },
+  { isCover: true,     title: 'API & HTML Metrics - By Gestion Date',     subtitle: 'Agencias afiliadas vs API' },
+  { split: true, metric: 'gb',  dateType: 'gd', title: 'Gross Bookings — GD · Agencias vs API' },
+  { split: true, metric: 'nr',  dateType: 'gd', title: 'Net Revenue — GD · Agencias vs API'    },
+  { split: true, metric: 'fvm', dateType: 'gd', title: 'FVM — GD · Agencias vs API'            },
+  { isCover: true,     title: 'API & HTML Metrics - By Recognition Date', subtitle: 'Agencias afiliadas vs API' },
+  { split: true, metric: 'gb',  dateType: 'ri', title: 'Gross Bookings — RI · Agencias vs API' },
+  { split: true, metric: 'nr',  dateType: 'ri', title: 'Net Revenue — RI · Agencias vs API'    },
+  { split: true, metric: 'fvm', dateType: 'ri', title: 'FVM — RI · Agencias vs API'            },
 ];
+
+// Slide split: la misma tabla de una métrica, filtrada por dos canales
+// (izq = Agencias afiliadas, der = API), para la fecha indicada ('gd' | 'ri').
+function _renderSplitSlide(metric, dateType) {
+  var m = METRICS[metric];
+  var monthFilter = document.getElementById('filterMonth').value;
+  var cg = activeCountry;
+  var gL = buildPivotData(dateType, m.field, 'Agencias afiliadas', cg, monthFilter);
+  var gR = buildPivotData(dateType, m.field, 'API', cg, monthFilter);
+  renderTableBody(document.getElementById('pivotBodySplitL'), gL, m.inMillions, cg);
+  renderTableBody(document.getElementById('pivotBodySplitR'), gR, m.inMillions, cg);
+
+  var dtLabel = (dateType === 'gd') ? 'Fecha de Gestión' : 'Fecha de Reconocimiento';
+  document.getElementById('splitViewTitle').textContent =
+    m.label + ' (' + m.unit + ') — ' + dtLabel +
+    (monthFilter ? '  —  ' + formatYM(monthFilter) : '');
+  document.getElementById('splitTitleL').textContent = 'Agencias afiliadas';
+  document.getElementById('splitTitleR').textContent = 'API';
+  var actHdr   = 'Actuals<br>MTD (' + m.unit + ')';
+  var deltaHdr = 'Delta<br>(' + m.unit + ')';
+  document.getElementById('splitHeadActL').innerHTML   = actHdr;
+  document.getElementById('splitHeadActR').innerHTML   = actHdr;
+  document.getElementById('splitHeadDeltaL').innerHTML = deltaHdr;
+  document.getElementById('splitHeadDeltaR').innerHTML = deltaHdr;
+}
 
 function toggleSlidesMode() {
   _isSlidesMode = !_isSlidesMode;
@@ -2726,6 +2801,8 @@ function toggleSlidesMode() {
     btn.classList.remove('active');
     btn.textContent = '▶ Slides';
     nav.classList.remove('active');
+    document.getElementById('slideCover').classList.remove('active');
+    render(); // restaurar vista normal (oculta portada/split al salir)
   }
 }
 
@@ -2745,6 +2822,7 @@ function _goToSlide(idx) {
   _slideIdx = idx;
   var slide = SLIDE_ORDER[idx];
   var coverEl = document.getElementById('slideCover');
+  document.getElementById('splitContent').classList.remove('visible');
 
   if (slide.isCover) {
     // Hide all content, show cover
@@ -2755,6 +2833,15 @@ function _goToSlide(idx) {
     document.getElementById('slideCoverTitle').textContent    = slide.title;
     document.getElementById('slideCoverSubtitle').textContent = slide.subtitle || '';
     coverEl.classList.add('active');
+  } else if (slide.split) {
+    // Slide split: misma tabla por canal (Agencias afiliadas | API)
+    coverEl.classList.remove('active');
+    document.getElementById('mainContent').classList.remove('visible');
+    document.getElementById('tablesContent').classList.remove('visible');
+    document.getElementById('weeklyContent').classList.remove('visible');
+    document.getElementById('agenciasContent').classList.remove('visible');
+    _renderSplitSlide(slide.metric, slide.dateType);
+    document.getElementById('splitContent').classList.add('visible');
   } else {
     coverEl.classList.remove('active');
     activeTab = slide.tab;
