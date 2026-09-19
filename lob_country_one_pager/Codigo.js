@@ -213,16 +213,35 @@ function _getContableBase_(pais) {
 // Waterfalls (NR Bridge + OC Waterfall) acotados al mes `ym` — mismo mes
 // que el resto de la página ("Toda la página habla sobre UN mismo mes").
 // Llamada aparte de _getContableBase_ porque esa usa el rango FY27 completo
-// (para el gráfico de Evolución) y acá necesitamos desde=hasta=ym puntual.
-// Mismas funciones fuente que la sección B2B de Dashboard_B2B_WLs → los
-// números siempre coinciden. Baseline = actuals si el mes cerró, RR si no.
+// (para el gráfico de Evolución, que SÍ está pre-calentado en
+// Dashboard_B2B_WLs/preComputeAll vía CTRY_QUARTERS — FY/H1/H2/Q1-Q4).
+// Un rango desde=hasta=ym puntual NO matchea ninguno de esos pre-warms, así
+// que cada país/mes nuevo es un cache MISS del lado de Dashboard_B2B_WLs:
+// relee los 5 JSON de Drive + arma ~13 mapas desde cero (mismo costo que
+// tenía Marketing antes de pre-calentarlo — ver auditoría 2026-09-18).
+// No podemos pre-calentar esto barato desde Dashboard_B2B_WLs (agregar
+// país×mes a su preComputeAll multiplicaría ese trigger x2-3 y arriesga el
+// límite de 6 min de GAS, compartido con TODO el Hub). Mitigación acotada a
+// este módulo: cachear el resultado acá mismo (país+mes), así el primer
+// usuario que ve una combinación paga el costo una vez y el resto de la
+// sesión/equipo la recibe instantánea hasta que expire (6h, mismo TTL que
+// usa Marketing en Dashboard_B2B_WLs).
+var _WF_CACHE_TTL_S = 21600;   // 6h — mismo criterio que RESULT_CACHE_MAX_S en Dashboard_B2B_WLs
 function _buildContableWaterfalls_(pais, ym) {
   if (!ym) return null;
   var paisCt = CONTABLE_PAIS[pais] || pais;
+
+  var sc  = CacheService.getScriptCache();
+  var key = 'wf_' + paisCt + '_' + ym;
+  var hit = sc.get(key);
+  if (hit) { try { return JSON.parse(hit); } catch (e) {} }
+
   var cp  = DashboardB2BWLs.getCountryPageData({ pais: paisCt, desde: ym, hasta: ym });
   var b2b = cp && cp.b2bData;
   if (!b2b) return null;
-  return { oc: b2b.ocConceptWf, nr: b2b.nrBridgeWf };
+  var result = { oc: b2b.ocConceptWf, nr: b2b.nrBridgeWf };
+  try { sc.put(key, JSON.stringify(result), _WF_CACHE_TTL_S); } catch (e) {}
+  return result;
 }
 
 // Tarjetas del mes `ym`: si el mes está cerrado → actuals contables; si aún
