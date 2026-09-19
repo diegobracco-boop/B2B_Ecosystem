@@ -224,6 +224,8 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
 #mkt-table thead tr.head-canals th:first-child{width:85px!important;min-width:85px!important}
 #mkt-table td.row-sub-label{width:105px!important;min-width:105px!important}
 #mkt-table thead tr.head-canals th:nth-child(2){width:105px!important;min-width:105px!important;text-align:left}
+/* Línea divisoria completa (todas las columnas) entre bloques de país */
+#mkt-table tr.mkt-row-divider td{border-top:2px solid var(--border2)}
 
 /* ── Chips ───────────────────────────────────────────────── */
 .chip{display:inline-flex;align-items:center;gap:2px;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap}
@@ -2445,6 +2447,7 @@ function switchGoal() {
   if (_state.pnl) renderPnL();
   if (_state.wf)  renderWf();
   if (_state.evo) renderEvo();
+  if (_mktData)   renderMarketing(_mktData);
 }
 
 function _autoGoal_() {
@@ -2674,6 +2677,7 @@ function switchGoalBar() {
   if (_state.pnl) renderPnL();
   if (_state.wf)  renderWf();
   if (_state.evo) renderEvo();
+  if (_mktData)   renderMarketing(_mktData);
 }
 // Baseline: cambia la fuente server-side (baseline.json vs forecast.json) → re-fetch.
 function switchBaselineBar() {
@@ -5265,7 +5269,8 @@ function mktGroups(gran) {
 }
 
 function mktAggregate(c, groups) {
-  var keys = ['medActual','medBudget','medLY','mktActual','mktBudget','mktLY'];
+  var keys = ['medActual','medBudget','medRunRate','medForecast','medLY',
+              'mktActual','mktBudget','mktRunRate','mktForecast','mktLY'];
   return groups.map(function(g) {
     var agg = { label: g.label };
     keys.forEach(function(k){ agg[k] = 0; });
@@ -5275,6 +5280,26 @@ function mktAggregate(c, groups) {
     });
     return agg;
   });
+}
+
+// Escenario de comparación atado al mismo selector Goal que el resto del
+// dashboard (f-goal-bar / _state.goal) — reemplaza los pares fijos
+// Budget/LastYear por una única referencia elegible.
+function mktGoalKey(prefix) {   // prefix: 'med' | 'mkt'
+  var g = _state.goal;
+  if (g === 'lastYear') return prefix + 'LY';
+  if (g === 'forecast') return prefix + 'Forecast';
+  if (g === 'runRate')  return prefix + 'RunRate';
+  return prefix + 'Budget';
+}
+function mktGoalLabel() {
+  var g = _state.goal;
+  return g === 'lastYear' ? 'Last Year' : g === 'forecast' ? 'Forecast' : g === 'runRate' ? 'Run Rate' : 'Budget';
+}
+function mktChipDelta(n) {
+  if (n === null || n === undefined || isNaN(n)) return '<span style="color:var(--muted2)">—</span>';
+  var cls = n >= 0 ? 'chip-pos' : 'chip-neg', ico = n >= 0 ? '▲ +' : '▼ ';
+  return '<span class="chip ' + cls + '">' + ico + fmtInt(Math.abs(n)) + '</span>';
 }
 
 function switchMktGran(btn) {
@@ -5317,25 +5342,61 @@ function renderMktChart(d, groups) {
   }
   if (!total) return;
 
+  var goalLbl  = mktGoalLabel();
+  var mktGoalK = mktGoalKey('mkt');
+  var medGoalK = mktGoalKey('med');
+
   var agg    = mktAggregate(total, groups);
   var labels = agg.map(function(g){ return g.label; });
   var mktAct = agg.map(function(g){ return Math.abs(g.mktActual); });
-  var mktBud = agg.map(function(g){ return Math.abs(g.mktBudget); });
+  var mktGoal= agg.map(function(g){ return Math.abs(g[mktGoalK]); });
   var medAct = agg.map(function(g){ return g.medActual; });
-  var medBud = agg.map(function(g){ return g.medBudget; });
+  var medGoal= agg.map(function(g){ return g[medGoalK]; });
+
+  // Etiquetas de dato: barras (valor arriba/abajo de la punta) y líneas
+  // (valor arriba de cada punto), reutilizando fmtK para que combine con
+  // el eje y el tooltip.
+  var mktDataLabels = {
+    id: 'mktDataLabels',
+    afterDatasetsDraw: function (chart) {
+      var ctx = chart.ctx;
+      chart.data.datasets.forEach(function (ds, di) {
+        var meta = chart.getDatasetMeta(di);
+        if (!meta || meta.hidden) return;
+        var isLine = ds.type === 'line';
+        meta.data.forEach(function (el, i) {
+          var v = ds.data[i];
+          if (v == null) return;
+          ctx.save();
+          ctx.font = '9px -apple-system,sans-serif';
+          ctx.textAlign = 'center';
+          if (isLine) {
+            ctx.fillStyle = ds.borderColor || '#57606a';
+            ctx.textBaseline = 'bottom';
+            ctx.fillText(fmtK(v), el.x, el.y - 6);
+          } else {
+            ctx.fillStyle = '#57606a';
+            ctx.textBaseline = v >= 0 ? 'bottom' : 'top';
+            ctx.fillText(fmtK(v), el.x, el.y + (v >= 0 ? -4 : 4));
+          }
+          ctx.restore();
+        });
+      });
+    }
+  };
 
   destroyChart('chart-mkt');
   _charts['chart-mkt'] = new Chart(document.getElementById('chart-mkt'), {
     type: 'bar',
     data: { labels: labels, datasets: [
-      { label:'Marketing Cost (Act+RR)', data:mktAct, backgroundColor:'rgba(207,34,46,.75)', borderRadius:3, order:2, yAxisID:'y' },
-      { label:'Marketing Budget',        data:mktBud, backgroundColor:'rgba(207,34,46,.2)',  borderRadius:3, order:3, yAxisID:'y' },
-      { label:'Media Revenue (Act+RR)',  data:medAct, type:'line', yAxisID:'y2', borderColor:'#5457D9', backgroundColor:'rgba(84,87,217,.08)', pointBackgroundColor:'#5457D9', pointRadius:3, borderWidth:2, tension:0.3, fill:false, order:1 },
-      { label:'Media Revenue Budget',    data:medBud, type:'line', yAxisID:'y2', borderColor:'rgba(84,87,217,.4)', backgroundColor:'transparent', pointRadius:2, borderWidth:1.5, borderDash:[4,3], tension:0.3, fill:false, order:1 }
+      { label:'Marketing Cost (Act+RR)',      data:mktAct,  backgroundColor:'rgba(207,34,46,.75)', borderRadius:3, order:2, yAxisID:'y' },
+      { label:'Marketing '+goalLbl,           data:mktGoal, backgroundColor:'rgba(207,34,46,.2)',  borderRadius:3, order:3, yAxisID:'y' },
+      { label:'Media Revenue (Act+RR)',       data:medAct,  type:'line', yAxisID:'y2', borderColor:'#5457D9', backgroundColor:'rgba(84,87,217,.08)', pointBackgroundColor:'#5457D9', pointRadius:3, borderWidth:2, tension:0.3, fill:false, order:1 },
+      { label:'Media Revenue '+goalLbl,       data:medGoal, type:'line', yAxisID:'y2', borderColor:'rgba(84,87,217,.4)', backgroundColor:'transparent', pointRadius:2, borderWidth:1.5, borderDash:[4,3], tension:0.3, fill:false, order:1 }
     ]},
     options: {
       responsive:true, maintainAspectRatio:false,
-      layout: { padding: { left: 190 } },
+      layout: { padding: { left: 190, top: 20 } },
       plugins: {
         legend:{ labels:{ color:'#57606a', font:{size:11}, boxWidth:12 } },
         tooltip:{ callbacks:{ label:function(c){ return ' '+c.dataset.label+': '+fmtK(c.raw); } } }
@@ -5347,7 +5408,8 @@ function renderMktChart(d, groups) {
               title:{display:true,text:'($)',color:'#57606a',font:{size:9}},
               ticks:{color:'#57606a',font:{size:10},callback:function(v){return fmtK(v);}} }
       }
-    }
+    },
+    plugins: [mktDataLabels]
   });
 }
 
@@ -5364,8 +5426,11 @@ function renderMktTable(d, groups, colW) {
   var table = document.getElementById('mkt-table');
   if (table) table.style.tableLayout = 'fixed';
 
-  var ORDER = ['brasil','mexico','other','argentina','colombia','chile','peru','ecuador','total'];
-  var html  = '';
+  var ORDER   = ['total','brasil','mexico','other','argentina','colombia','chile','peru','ecuador','opsrg'];
+  var goalLbl = mktGoalLabel();
+  var medGK   = mktGoalKey('med');
+  var mktGK   = mktGoalKey('mkt');
+  var html    = '';
 
   ORDER.forEach(function(cid, gi) {
     var c = null;
@@ -5375,69 +5440,69 @@ function renderMktTable(d, groups, colW) {
     if (!c) return;
     var agg     = mktAggregate(c, groups);
     var isTotal = cid === 'total';
-    var borderTop = gi > 0 ? ' style="border-top:2px solid var(--border2)"' : '';
+    // Línea divisoria completa (toda la fila, no solo la celda de país) entre
+    // cada bloque de país — no en el primero (Total, ahora arriba de todo).
+    var dividerCls = gi > 0 ? ' mkt-row-divider' : '';
 
-    var totMedAct=0, totMedBud=0, totMedLY=0, totMktAct=0, totMktBud=0, totMktLY=0;
+    var totMedAct=0, totMedGoal=0, totMktAct=0, totMktGoal=0;
     agg.forEach(function(g) {
-      totMedAct+=g.medActual; totMedBud+=g.medBudget; totMedLY+=g.medLY;
-      totMktAct+=g.mktActual; totMktBud+=g.mktBudget; totMktLY+=g.mktLY;
+      totMedAct+=g.medActual; totMedGoal+=g[medGK];
+      totMktAct+=g.mktActual; totMktGoal+=g[mktGK];
     });
 
     // Row 1: Media Revenue actual
-    html += '<tr class="row-sub'+(isTotal?' row-main':'')+'"><td class="pnl-section-cell" rowspan="8"'+borderTop+'>'
+    html += '<tr class="row-sub'+(isTotal?' row-main':'')+dividerCls+'"><td class="pnl-section-cell" rowspan="8">'
           + pnlGroupLabel(c.label) + '</td><td class="row-sub-label">Media Revenue $</td>';
     agg.forEach(function(g){ html += '<td>'+fmtInt(g.medActual)+'</td>'; });
     html += '<td><strong>'+fmtInt(totMedAct)+'</strong></td></tr>';
 
-    // Row 2: Media Budget nominal
-    html += '<tr class="row-sub"><td class="row-sub-label">Budget $</td>';
-    agg.forEach(function(g){ html += '<td>'+fmtInt(g.medBudget)+'</td>'; });
-    html += '<td><strong>'+fmtInt(totMedBud)+'</strong></td></tr>';
+    // Row 2: Media <Goal> nominal — Goal atado a _state.goal (Budget/Run Rate/Forecast/Last Year)
+    html += '<tr class="row-sub"><td class="row-sub-label">'+goalLbl+' $</td>';
+    agg.forEach(function(g){ html += '<td>'+fmtInt(g[medGK])+'</td>'; });
+    html += '<td><strong>'+fmtInt(totMedGoal)+'</strong></td></tr>';
 
-    // Row 3: Media vs Budget
-    html += '<tr class="row-sub"><td class="row-sub-label">vs Budget</td>';
+    // Row 3: Media Δ nominal vs Goal
+    html += '<tr class="row-sub"><td class="row-sub-label">Δ vs '+goalLbl+'</td>';
     agg.forEach(function(g) {
-      var pct = g.medBudget ? (g.medActual-g.medBudget)/Math.abs(g.medBudget)*100 : null;
+      var delta = g.medActual - g[medGK];
+      html += '<td>'+mktChipDelta(delta)+'</td>';
+    });
+    html += '<td>'+mktChipDelta(totMedAct-totMedGoal)+'</td></tr>';
+
+    // Row 4: Media vs Goal %
+    html += '<tr class="row-sub"><td class="row-sub-label">vs '+goalLbl+' %</td>';
+    agg.forEach(function(g) {
+      var pct = g[medGK] ? (g.medActual-g[medGK])/Math.abs(g[medGK])*100 : null;
       html += '<td>'+chip(pct)+'</td>';
     });
-    var p = totMedBud ? (totMedAct-totMedBud)/Math.abs(totMedBud)*100 : null;
+    var p = totMedGoal ? (totMedAct-totMedGoal)/Math.abs(totMedGoal)*100 : null;
     html += '<td>'+chip(p)+'</td></tr>';
 
-    // Row 4: Media vs LY
-    html += '<tr class="row-sub"><td class="row-sub-label">vs LY %</td>';
-    agg.forEach(function(g) {
-      var pct = g.medLY ? (g.medActual-g.medLY)/Math.abs(g.medLY)*100 : null;
-      html += '<td>'+chip(pct)+'</td>';
-    });
-    var p = totMedLY ? (totMedAct-totMedLY)/Math.abs(totMedLY)*100 : null;
-    html += '<td>'+chip(p)+'</td></tr>';
-
-    // Row 5: Marketing Cost actual (abs)
+    // Row 5: Marketing Cost actual — signo tal cual viene de la base (costo = negativo)
     html += '<tr class="row-sub row-pctgb"><td class="row-sub-label">Mkt Cost $</td>';
-    agg.forEach(function(g){ html += '<td>'+fmtInt(Math.abs(g.mktActual||0))+'</td>'; });
-    html += '<td><strong>'+fmtInt(Math.abs(totMktAct))+'</strong></td></tr>';
+    agg.forEach(function(g){ html += '<td>'+fmtInt(g.mktActual||0)+'</td>'; });
+    html += '<td><strong>'+fmtInt(totMktAct)+'</strong></td></tr>';
 
-    // Row 6: Mkt Budget nominal (abs)
-    html += '<tr class="row-sub row-pctgb"><td class="row-sub-label">Budget $</td>';
-    agg.forEach(function(g){ html += '<td>'+fmtInt(Math.abs(g.mktBudget||0))+'</td>'; });
-    html += '<td><strong>'+fmtInt(Math.abs(totMktBud))+'</strong></td></tr>';
+    // Row 6: Mkt <Goal> nominal — mismo criterio de signo
+    html += '<tr class="row-sub row-pctgb"><td class="row-sub-label">'+goalLbl+' $</td>';
+    agg.forEach(function(g){ html += '<td>'+fmtInt(g[mktGK]||0)+'</td>'; });
+    html += '<td><strong>'+fmtInt(totMktGoal)+'</strong></td></tr>';
 
-    // Row 7: Mkt vs Budget
-    html += '<tr class="row-sub row-pctgb"><td class="row-sub-label">vs Budget</td>';
+    // Row 7: Mkt Δ nominal vs Goal
+    html += '<tr class="row-sub row-pctgb"><td class="row-sub-label">Δ vs '+goalLbl+'</td>';
     agg.forEach(function(g) {
-      var pct = g.mktBudget ? (g.mktActual-g.mktBudget)/Math.abs(g.mktBudget)*100 : null;
+      var delta = g.mktActual - g[mktGK];
+      html += '<td>'+mktChipDelta(delta)+'</td>';
+    });
+    html += '<td>'+mktChipDelta(totMktAct-totMktGoal)+'</td></tr>';
+
+    // Row 8: Mkt vs Goal %
+    html += '<tr class="row-sub row-pctgb"><td class="row-sub-label">vs '+goalLbl+' %</td>';
+    agg.forEach(function(g) {
+      var pct = g[mktGK] ? (g.mktActual-g[mktGK])/Math.abs(g[mktGK])*100 : null;
       html += '<td>'+chip(pct)+'</td>';
     });
-    var p = totMktBud ? (totMktAct-totMktBud)/Math.abs(totMktBud)*100 : null;
-    html += '<td>'+chip(p)+'</td></tr>';
-
-    // Row 8: Mkt vs LY
-    html += '<tr class="row-sub row-pctgb"><td class="row-sub-label">vs LY %</td>';
-    agg.forEach(function(g) {
-      var pct = g.mktLY ? (g.mktActual-g.mktLY)/Math.abs(g.mktLY)*100 : null;
-      html += '<td>'+chip(pct)+'</td>';
-    });
-    var p = totMktLY ? (totMktAct-totMktLY)/Math.abs(totMktLY)*100 : null;
+    var p = totMktGoal ? (totMktAct-totMktGoal)/Math.abs(totMktGoal)*100 : null;
     html += '<td>'+chip(p)+'</td></tr>';
   });
   document.getElementById('mkt-body').innerHTML = html;
@@ -5454,21 +5519,27 @@ function demoMarketingData() {
     { id:'colombia',  label:'Colombia',  medBase: 0.14e6, mktBase:-0.22e6 },
     { id:'chile',     label:'Chile',     medBase: 0.11e6, mktBase:-0.18e6 },
     { id:'peru',      label:'Peru',      medBase: 0.08e6, mktBase:-0.13e6 },
-    { id:'ecuador',   label:'Ecuador',   medBase: 0.05e6, mktBase:-0.08e6 }
+    { id:'ecuador',   label:'Ecuador',   medBase: 0.05e6, mktBase:-0.08e6 },
+    { id:'opsrg',     label:'OPS+RG',    medBase: 0.03e6, mktBase:-0.05e6 }
   ];
+  var MKEYS = ['medActual','medBudget','medRunRate','medForecast','medLY',
+               'mktActual','mktBudget','mktRunRate','mktForecast','mktLY'];
   var byCountry = specs.map(function(s) {
-    var medAct=[], medBud=[], medLY=[], mktAct=[], mktBud=[], mktLY=[];
+    var series = {}; MKEYS.forEach(function(k){ series[k] = []; });
     months.forEach(function(_, i) {
       var ma = wave(s.medBase, 0.15, i);
       var ka = wave(s.mktBase, 0.12, i);
-      medAct.push(ma); medBud.push(ma*0.92); medLY.push(ma*0.80);
-      mktAct.push(ka); mktBud.push(ka*1.04); mktLY.push(ka*1.08);
+      series.medActual.push(ma);   series.medBudget.push(ma*0.92);
+      series.medRunRate.push(ma*0.97); series.medForecast.push(ma*0.95); series.medLY.push(ma*0.80);
+      series.mktActual.push(ka);   series.mktBudget.push(ka*1.04);
+      series.mktRunRate.push(ka*1.01); series.mktForecast.push(ka*1.02); series.mktLY.push(ka*1.08);
     });
-    return { id:s.id, label:s.label, medActual:medAct, medBudget:medBud, medLY:medLY, mktActual:mktAct, mktBudget:mktBud, mktLY:mktLY };
+    return Object.assign({ id:s.id, label:s.label }, series);
   });
-  var tot = { id:'total', label:'Total', medActual:[], medBudget:[], medLY:[], mktActual:[], mktBudget:[], mktLY:[] };
+  var tot = { id:'total', label:'Total' };
+  MKEYS.forEach(function(k){ tot[k] = []; });
   months.forEach(function(_, i) {
-    ['medActual','medBudget','medLY','mktActual','mktBudget','mktLY'].forEach(function(k) {
+    MKEYS.forEach(function(k) {
       tot[k][i] = byCountry.reduce(function(s,c){ return s+(c[k][i]||0); }, 0);
     });
   });

@@ -191,7 +191,7 @@ function writeResultCache_(key, value) {
 function clearAllCache() {
   _jsonCache_ = {};   // resetea cache en memoria de esta instancia
   var sc = CacheService.getScriptCache();
-  sc.removeAll(['okr_json_v1', 'mkt_b2b', _MOD_CACHE_KEY_]);  // fuerza re-check de mod times
+  sc.removeAll(['okr_json_v1', 'mkt_b2b_v3', _MOD_CACHE_KEY_]);  // fuerza re-check de mod times
   Logger.log('Cache cleared: ' + new Date());
 }
 
@@ -285,6 +285,23 @@ function preComputeAll() {
   var fcNrN2     = buildNrN2Map_(fcRows);
   var lyNrN2     = buildNrN2Map_(lyRows);
   var filters    = buildFilters_(baseRows);
+
+  // Marketing & Media Investment: antes se computaba en frío (sin pre-warm) y
+  // releía los 5 JSON de Drive por su cuenta en cada request de usuario — acá
+  // reusa los rows ya leídos arriba (sin I/O extra) y deja el resultado
+  // cacheado bajo la misma key que lee getMarketingData(), para que quede
+  // tibio igual que el resto del dashboard (TTL 6h, este trigger cada 5h).
+  try {
+    var baseN2 = buildN2Map_(baseRows);
+    var budN2  = buildN2Map_(budRows);
+    var rrN2   = buildN2Map_(rrRows);
+    var fcN2   = buildN2Map_(fcRows);
+    var lyN2   = buildN2Map_(lyRows);
+    var mktResult = computeMarketingData_(baseN2, budN2, rrN2, fcN2, lyN2);
+    CacheService.getScriptCache().put('mkt_b2b_v3', JSON.stringify(mktResult), RESULT_CACHE_MAX_S);
+  } catch (e) {
+    Logger.log('preComputeAll: WARN Marketing no se pudo pre-calentar — ' + e.message);
+  }
 
   var lobs       = ['all', 'b2b', 'b2b2c'];
   var paisesList = ['all'].concat(filters.pais || []);
@@ -1261,38 +1278,52 @@ var MKT_COUNTRIES = [
     gf:{ lobFilter:'b2b', paisFilter:'peru',      paisExclude:null } },
   { id:'ecuador',   label:'Ecuador',
     gf:{ lobFilter:'b2b', paisFilter:'ecuador',   paisExclude:null } },
+  // Mismo bucket que 'opsrg' en el resto del dashboard (Cuadro Resumen P&L) —
+  // OPS y RG siempre se agrupan juntos, nunca por separado (paisMultiFilter).
+  { id:'opsrg', label:'OPS+RG',
+    gf:{ lobFilter:'b2b', paisFilter:null, paisExclude:null, paisMultiFilter:['ops','rg','ops + rg'] } },
   { id:'total',  label:'Total',
     gf:{ lobFilter:'b2b', paisFilter:null, paisExclude:null } }
 ];
 
-function computeMarketingData_(baselineN2, budN2, prevN2) {
+// Trae los 4 escenarios de referencia (Budget/RunRate/Forecast/LastYear) para
+// que la tabla/gráfico puedan atarse al mismo selector Goal que el resto del
+// dashboard (f-goal-bar / _state.goal), en vez de mostrar Budget y LY siempre
+// juntos como comparaciones fijas.
+function computeMarketingData_(baselineN2, budN2, rrN2, fcN2, prevN2) {
   var b2bBase = { lob:'b2b', pais:'all', canal:'all', producto:'all' };
 
   var byCountry = MKT_COUNTRIES.map(function(c) {
-    var medAct=[], medBud=[], medLY=[];
-    var mktAct=[], mktBud=[], mktLY=[];
+    var medAct=[], medBud=[], medRR=[], medFc=[], medLY=[];
+    var mktAct=[], mktBud=[], mktRR=[], mktFc=[], mktLY=[];
 
     MKT_FY27_MONTHS.forEach(function(ym) {
       var n2Src = baselineN2;   // baseline ya tiene la fuente correcta por mes
       var lyYm  = shiftYear_(ym, -1);
 
-      var dA = queryMap_(n2Src,  b2bBase, c.gf, ym,   ym);
-      var dB = queryMap_(budN2,  b2bBase, c.gf, ym,   ym);
+      var dA = queryMap_(n2Src, b2bBase, c.gf, ym, ym);
+      var dB = queryMap_(budN2, b2bBase, c.gf, ym, ym);
+      var dR = queryMap_(rrN2,  b2bBase, c.gf, ym, ym);
+      var dF = queryMap_(fcN2,  b2bBase, c.gf, ym, ym);
       // LY viene de actuals previos (FY26, abr 2025 – mar 2026)
       var dY = queryMap_(prevN2, b2bBase, c.gf, lyYm, lyYm);
 
       mktAct.push(dA['marketing-direct']     || 0);
       mktBud.push(dB['marketing-direct']     || 0);
+      mktRR.push( dR['marketing-direct']     || 0);
+      mktFc.push( dF['marketing-direct']     || 0);
       mktLY.push( dY['marketing-direct']     || 0);
       medAct.push(dA['media & other revenue']|| 0);
       medBud.push(dB['media & other revenue']|| 0);
+      medRR.push( dR['media & other revenue']|| 0);
+      medFc.push( dF['media & other revenue']|| 0);
       medLY.push( dY['media & other revenue']|| 0);
     });
 
     return {
       id: c.id, label: c.label,
-      medActual: medAct, medBudget: medBud, medLY: medLY,
-      mktActual: mktAct, mktBudget: mktBud, mktLY: mktLY
+      medActual: medAct, medBudget: medBud, medRunRate: medRR, medForecast: medFc, medLY: medLY,
+      mktActual: mktAct, mktBudget: mktBud, mktRunRate: mktRR, mktForecast: mktFc, mktLY: mktLY
     };
   });
 
@@ -1302,18 +1333,25 @@ function computeMarketingData_(baselineN2, budN2, prevN2) {
 function getMarketingData() {
   try {
     var sc  = CacheService.getScriptCache();
-    var hit = sc.get('mkt_b2b');
+    // v3: agregó Run Rate/Forecast como referencia (atado al selector Goal) —
+    // bumpear esta clave cada vez que cambie MKT_COUNTRIES o la agregación,
+    // si no la cache vieja (6h TTL) tapa el cambio.
+    var hit = sc.get('mkt_b2b_v3');
     if (hit) { try { return JSON.parse(hit); } catch(e) {} }
 
     var baseRows = readJson_(JSON_IDS.baseline);
     var budRows  = readJson_(JSON_IDS.budget);
+    var rrRows   = readJson_(JSON_IDS.runrate);
+    var fcRows   = readJson_(JSON_IDS.forecast);
     var prevRows = readJson_(JSON_IDS.ly);
     var baselineN2 = buildN2Map_(baseRows);
     var budN2      = buildN2Map_(budRows);
+    var rrN2       = buildN2Map_(rrRows);
+    var fcN2       = buildN2Map_(fcRows);
     var prevN2     = buildN2Map_(prevRows);
 
-    var result = computeMarketingData_(baselineN2, budN2, prevN2);
-    try { sc.put('mkt_b2b', JSON.stringify(result), RESULT_CACHE_MAX_S); } catch(e) {}
+    var result = computeMarketingData_(baselineN2, budN2, rrN2, fcN2, prevN2);
+    try { sc.put('mkt_b2b_v3', JSON.stringify(result), RESULT_CACHE_MAX_S); } catch(e) {}
     return result;
   } catch(e) {
     return { success:false, error:e.message };
