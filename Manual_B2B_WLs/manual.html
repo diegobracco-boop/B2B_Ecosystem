@@ -492,6 +492,9 @@ a.ext-link:hover { text-decoration: underline; }
   <a class="nav-item" onclick="showSection('responsables')">
     <span class="nav-icon">👥</span> Quién hace qué
   </a>
+  <a class="nav-item" onclick="showSection('plan-equipo')">
+    <span class="nav-icon">🗺️</span> Plan Equipo B2B
+  </a>
   <a class="nav-item" onclick="showSection('gantt')">
     <span class="nav-icon">📅</span> Gantt
   </a>
@@ -921,6 +924,68 @@ a.ext-link:hover { text-decoration: underline; }
           <tr><td>Deployar código</td><td><code>clasp login</code> con la cuenta <code>@despegar.com</code></td></tr>
         </tbody>
       </table>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════ PLAN EQUIPO B2B ═══════════════════════ -->
+  <div class="section" id="sec-plan-equipo">
+    <div class="page-header">
+      <div class="page-tag">Guía del equipo</div>
+      <div class="page-title">Plan <span>Equipo B2B</span></div>
+      <div class="page-sub">Quién es quién y cuáles son las tareas recurrentes del equipo B2B &amp; WLs.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">👥 Equipo</div>
+      <table class="doc-table">
+        <thead><tr><th>Nombre</th><th>Rol</th><th>Área</th></tr></thead>
+        <tbody>
+          <tr><td>Diego Bracco</td><td>Manager</td><td>B2B + B2B2C</td></tr>
+          <tr><td>Tiago Harari</td><td>Analista</td><td>B2B2C</td></tr>
+          <tr><td>Gregorio Minetti</td><td>Analista</td><td>B2B2C</td></tr>
+          <tr><td>Antonella Di Franco</td><td>Analista</td><td>B2B</td></tr>
+          <tr><td>Tomas Rombola</td><td>Analista</td><td>B2B</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🗺️ Tareas recurrentes</div>
+      <table class="doc-table">
+        <thead><tr><th>Tarea</th><th>Dónde se hace hoy</th></tr></thead>
+        <tbody>
+          <tr><td>Proyección de Run Rate</td><td><code>Inputs_Planning_PnL/plana_projections_builder.py runrate</code> + <code>json_builder.py</code> (JSON canónico) · Projections Review contable/gestional (<code>projections_validation_builder.py</code> / <code>projections_gestional_builder.py</code>, <code>--wip-folder</code> sobre los Modelos Forecast de la carpeta Run Rate semanal)</td></tr>
+          <tr><td>Control de cierre</td><td><code>Inputs_Planning_PnL/baseline_builder.py --promote-month AAAA-MM-01</code> (pasa el mes de Run Rate a Actual) + verificación de la plana de actuals del FY en curso</td></tr>
+          <tr><td>Seguimiento semanal</td><td><strong>Daily Dashboard</strong> (vista diaria/semanal, pace vs Budget y LY) · <strong>Daily B2B Tracker</strong> (Status KRs, modo Slides con export a PDF/Google Slides)</td></tr>
+          <tr><td>Armado y seguimiento OKR Producto B2B / B2B2C</td><td>Tabs <strong>OKR B2B Product</strong> / <strong>OKR B2B2C Product</strong> embebidos en el Hub — <code>Codigo_OKR.js</code>, <code>OKR_CONFIG</code> (H1 FY27, Q1+Q2)</td></tr>
+          <tr><td>Seguimiento P&amp;L Operativo con BI para su mejora</td><td><strong>P&amp;L Accounting</strong> / <strong>P&amp;L Managerial</strong> — vista "Managerial vs Accounting" del Hub para detectar diferencias entre los dos modelos y oportunidades de mejora</td></tr>
+          <tr><td>Armado de P&amp;L WLs Profit Sharing</td><td><span class="badge badge-manual">sin landing propia hoy</span> — a construir</td></tr>
+          <tr><td>Análisis de cierre contable</td><td>Entendimiento de todas las líneas P&amp;L + costos fijos + sumas y saldos, con charlas a los interlocutores de cada área — proceso manual, no automatizado hoy</td></tr>
+          <tr><td>Armado de modelo de proyecciones automático</td><td><strong>Inputs_Planning_PnL</strong> (reemplazo de Toqan) — iteración con el equipo de Planning para ajustar <code>Glosario.xlsx</code> y reglas de negocio a medida que cambian los datos fuente</td></tr>
+          <tr><td>Seguimiento OKRs de Plan Estratégico B2B / B2B2C</td><td><span class="badge badge-manual">sin tablero dedicado hoy</span> — distinto de los OKR de producto de la fila de arriba (esos son de features/entregables; estos son del plan estratégico del área)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🤖 Propuesta AI — Equipo recomendado <span class="badge badge-manual">2026-09-18</span></div>
+      <div class="page-sub" style="margin-bottom:14px">En base a todo lo montado y documentado en el B2B Ecosystem (3 pipelines Python, 6 landings GAS, SPOFs ya identificados en "Quién hace qué"), recomiendo un equipo de <strong>6 analistas</strong> — los 4 actuales más 2 roles nuevos — reportando al manager.</div>
+      <table class="doc-table">
+        <thead><tr><th>Rol</th><th>Cant.</th><th>Foco</th></tr></thead>
+        <tbody>
+          <tr><td>Analista B2B2C</td><td>2 <span class="badge badge-manual">actual</span></td><td>Proyección de Run Rate, control de cierre y seguimiento semanal de WLs</td></tr>
+          <tr><td>Analista B2B</td><td>2 <span class="badge badge-manual">actual</span></td><td>Mismas tareas recurrentes para B2B (MAY/MIN, países)</td></tr>
+          <tr><td>Analista de Datos / Ingeniería</td><td>1 <span class="badge badge-auto">nuevo</span></td><td>Confiabilidad de pipelines y landings: deploys (<code>clasp push</code>/<code>deploy</code>), cache y performance (como el pre-warm de Marketing o el fix de waterfalls de hoy), y resolver los puntos únicos de falla ya documentados (Daily en la máquina de Gregorio, Managerial en la de Diego)</td></tr>
+          <tr><td>Analista de Planeamiento Estratégico</td><td>1 <span class="badge badge-auto">nuevo</span></td><td>Escenarios de mediano plazo y síntesis cross-LoB para dirección — hoy no hay nadie dedicado a esto, recae en el manager encima de la gestión del equipo</td></tr>
+        </tbody>
+      </table>
+      <div class="alert-box info" style="margin-top:14px">
+        ℹ️ El rol de Datos/Ingeniería es el de mayor apalancamiento: sin él, cada feature nueva del ecosystem le resta tiempo de análisis al resto del equipo. Es un perfil distinto al de un analista FP&amp;A tradicional (más cerca de un data/analytics engineer) — capacitar a alguien del equipo actual vs. contratar afuera cambia el timeline de cubrirlo.
+      </div>
+    </div>
+
+    <div class="alert-box info">
+      ℹ️ Esta sección es de contenido manual (quién está en el equipo, qué hace) — no se genera de ningún dato ni pipeline. Actualizarla a mano cuando cambie el equipo o las tareas recurrentes.
     </div>
   </div>
 
