@@ -1195,7 +1195,7 @@ function getAgenciasOKR() {
 
 // Nombre SIN "_" final a propósito: google.script.run no invoca funciones que
 // terminen (ni empiecen) con guión bajo — el editor las trata como privadas.
-// payload = { title, slideImages: [{img:'data:image/png;base64,...', w, h} | null, ...] }
+// payload = { title, slideImages: [{img:'data:image/png|jpeg;base64,...', w, h} | null, ...] }
 function buildFlowSlidesDeck(payload) {
   payload = payload || {};
   var images = payload.slideImages || [];
@@ -1211,8 +1211,9 @@ function buildFlowSlidesDeck(payload) {
            .getText().getTextStyle().setFontSize(14).setForegroundColor('#C0392B');
       return;
     }
-    var b64  = String(entry.img).replace(/^data:image\/png;base64,/, '');
-    var blob = Utilities.newBlob(Utilities.base64Decode(b64), 'image/png', 'slide.png');
+    var mime = (String(entry.img).match(/^data:(image\/\w+);base64,/) || [])[1] || 'image/png';
+    var b64  = String(entry.img).replace(/^data:image\/\w+;base64,/, '');
+    var blob = Utilities.newBlob(Utilities.base64Decode(b64), mime, 'slide');
     var availW = w - margin*2, availH = h - margin*2;
     var ratio  = entry.w && entry.h ? entry.w/entry.h : (availW/availH);
     var imgW = availW, imgH = imgW/ratio;

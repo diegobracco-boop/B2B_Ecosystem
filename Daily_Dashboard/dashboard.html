@@ -1330,7 +1330,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
     <select class="flow-jump" id="flow-tier" onchange="flowSetTier_(this.value)"><option value="all">Todos</option></select>
     <span class="flow-tool-sep"></span>
     <button class="flow-pdf-btn" onclick="window.print()" title="Abre el diálogo de impresión — elegí 'Guardar como PDF'">⭳ Descargar PDF</button>
-    <button class="flow-pdf-btn" id="flow-export-btn" onclick="_flowExportSlides()" title="Genera un Google Slides real con estas mismas slides (captura tal cual se ven, como imagen)">📤 Enviar a Google Slides</button>
+    <button class="flow-pdf-btn" id="flow-export-btn" onclick="_flowExportSlides()" title="Genera un Google Slides real con estas slides + las del Daily B2B Tracker (captura tal cual se ven, como imagen)">📤 Enviar a Google Slides (B2B2C + B2B)</button>
     <span class="flow-hint">Scroll o ↑/↓ para navegar · saltá directo con el selector</span>
   </div>
   <div class="flow-zoom-warn" id="flow-zoom-warn" style="display:none">⚠ Ventana angosta — maximizá el navegador para mejor legibilidad al proyectar</div>
@@ -2742,15 +2742,32 @@ var _trackerLoaded = false;
 function trackerOpen_() {
   if (_trackerLoaded) return;
   _trackerLoaded = true;
-  google.script.run
-    .withSuccessHandler(function(url) {
-      document.getElementById('tracker-iframe').src = url;
-    })
-    .withFailureHandler(function(err) {
-      _trackerLoaded = false;
-      console.error('No se pudo cargar el Daily B2B Tracker:', err);
-    })
-    .getTrackerUrl();
+  _trackerEnsureLoaded_().catch(function(){ _trackerLoaded = false; });
+}
+
+// Promesa compartida: resuelve cuando el iframe del Tracker terminó de cargar
+// (src seteado + evento load disparado). La usa tanto trackerOpen_() (al abrir
+// el tab a mano) como _flowExportSlides() (necesita el iframe listo para poder
+// capturar sus slides aunque el usuario nunca haya abierto ese tab).
+var _trackerReadyPromise = null;
+function _trackerEnsureLoaded_() {
+  if (_trackerReadyPromise) return _trackerReadyPromise;
+  var iframe = document.getElementById('tracker-iframe');
+  _trackerReadyPromise = new Promise(function(resolve, reject) {
+    iframe.addEventListener('load', function onLoad() {
+      iframe.removeEventListener('load', onLoad);
+      resolve();
+    });
+    google.script.run
+      .withSuccessHandler(function(url) { iframe.src = url; })
+      .withFailureHandler(function(err) {
+        _trackerReadyPromise = null; // permitir reintentar
+        console.error('No se pudo cargar el Daily B2B Tracker:', err);
+        reject(err);
+      })
+      .getTrackerUrl();
+  });
+  return _trackerReadyPromise;
 }
 
 // ══ BENCHMARK B2C ══════════════════════════════════════════════
@@ -4259,16 +4276,73 @@ window.addEventListener('afterprint', function(){
 // capturar (para que salga a resolucion nativa 1280x720, no ya achicado) y se
 // restaura con flowScale_() al terminar.
 var _flowExporting=false;
-function _flowCaptureSlideImages_(){
+// opts.jpeg=true reduce el peso (ver misma razón documentada en tracker.html
+// _captureAllSlides: el export combinado manda todo en un solo google.script.run,
+// que tiene límite de tamaño — con ~26 slides B2B2C + 17 B2B, PNG a scale:2 en
+// las dos tandas se vuelve pesado).
+function _flowCaptureSlideImages_(opts){
+  opts=opts||{};
   var slides=Array.prototype.slice.call(document.querySelectorAll('#flow-track .flow-slide'));
   slides.forEach(function(s){ s.style.transform='none'; });
   return Promise.all(slides.map(function(el){
-    return html2canvas(el, { scale:2, useCORS:true, backgroundColor:'#ffffff' })
-      .then(function(canvas){ return { img:canvas.toDataURL('image/png'), w:canvas.width, h:canvas.height }; })
+    return html2canvas(el, { scale: opts.jpeg?1.5:2, useCORS:true, backgroundColor:'#ffffff' })
+      .then(function(canvas){
+        var img = opts.jpeg ? canvas.toDataURL('image/jpeg', 0.85) : canvas.toDataURL('image/png');
+        return { img:img, w:canvas.width, h:canvas.height };
+      })
       .catch(function(e){ console.error('[flow] no se pudo capturar un slide para Slides', e); return null; });
   })).then(function(images){ flowScale_(); return images; })
     .catch(function(e){ flowScale_(); throw e; });
 }
+// Dibuja una slide "divisora" (16:9, mismo formato {img,w,h} que una slide
+// capturada) para separar visualmente las secciones B2B2C / B2B dentro del
+// deck combinado — sin esto quedan 30+ slides mezcladas sin indicación de a
+// qué LOB pertenece cada una.
+function _flowMakeDividerImage_(title){
+  var canvas=document.createElement('canvas');
+  canvas.width=1280; canvas.height=720;
+  var ctx=canvas.getContext('2d');
+  ctx.fillStyle='#5626e9';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle='#ffffff';
+  ctx.font='bold 64px Arial, sans-serif';
+  ctx.textAlign='center';
+  ctx.textBaseline='middle';
+  ctx.fillText(title, canvas.width/2, canvas.height/2);
+  return { img:canvas.toDataURL('image/png'), w:canvas.width, h:canvas.height };
+}
+
+// Captura las slides del Daily B2B Tracker (iframe embebido, mismo origen) vía
+// su propia _captureAllSlides(). El iframe vive dentro de #view-tracker, oculto
+// con display:none mientras el tab activo es "flow" — con display:none el
+// navegador no le da layout al iframe (mide 0x0 adentro), así que hay que
+// mostrarlo temporalmente (fuera de pantalla, no oculto) para que Chart.js y
+// html2canvas midan bien el contenido.
+async function _flowCaptureTrackerSlides_(onProgress){
+  await _trackerEnsureLoaded_();
+  var vt=document.getElementById('view-tracker');
+  vt.style.display='block';
+  vt.style.position='fixed';
+  vt.style.left='-10000px';
+  vt.style.top='0';
+  try {
+    var win=document.getElementById('tracker-iframe').contentWindow;
+    if(!win || typeof win._captureAllSlides!=='function'){
+      throw new Error('El Daily B2B Tracker todavía no terminó de cargar — reintentá en unos segundos.');
+    }
+    return await win._captureAllSlides(onProgress, { jpeg:true });
+  } finally {
+    // No restaurar un display "capturado" antes de empezar: si el usuario
+    // navegó al tab Tracker en el medio (la captura tarda varios segundos),
+    // switchMainView() ya pisó estos estilos — hay que resolver el estado
+    // final según la vista activa AHORA, no según la de hace unos segundos.
+    vt.style.position='';
+    vt.style.left='';
+    vt.style.top='';
+    vt.style.display=(_activeView==='tracker') ? '' : 'none';
+  }
+}
+
 function _flowExportSlides(){
   if(_flowExporting) return;
   if(!_flowBuilt){ alert('Esperá a que termine de cargar el deck.'); return; }
@@ -4280,7 +4354,7 @@ function _flowExportSlides(){
     _flowPrinting=false;
     document.getElementById('view-flow').classList.remove('flow-exporting');
     flowRebuild_();
-    setBtn('📤 Enviar a Google Slides', false);
+    setBtn('📤 Enviar a Google Slides (B2B2C + B2B)', false);
   }
   setBtn('⏳ Preparando…', true);
   // Mismo modo "exportando" que usa la impresión (.flow-exporting + _flowPrinting):
@@ -4292,20 +4366,28 @@ function _flowExportSlides(){
   // Esperar a que el rebuild + resize de charts (doble rAF en flowDrawAllCharts_)
   // termine de asentar el layout antes de capturar.
   requestAnimationFrame(function(){ requestAnimationFrame(function(){ requestAnimationFrame(function(){
-    setBtn('⏳ Capturando slides…', true);
-    _flowCaptureSlideImages_().then(function(images){
-      setBtn('⏳ Generando deck…', true);
-      google.script.run
-        .withSuccessHandler(function(res){
-          reset();
-          if(res && res.url) window.open(res.url, '_blank');
-          else alert('El servidor no devolvió la URL del deck.');
-        })
-        .withFailureHandler(function(e){
-          reset();
-          alert('No se pudo generar el deck de Google Slides: ' + ((e&&e.message)||e));
-        })
-        .buildFlowSlidesDeck({ title:'Flow Semanal', slideImages:images });
+    setBtn('⏳ Capturando slides B2B2C…', true);
+    _flowCaptureSlideImages_({ jpeg:true }).then(function(b2bcImages){
+      setBtn('⏳ Capturando slides B2B…', true);
+      return _flowCaptureTrackerSlides_(function(done,total){
+        setBtn('⏳ Capturando slides B2B… '+done+'/'+total, true);
+      }).then(function(b2bImages){
+        var allImages=[_flowMakeDividerImage_('B2B2C')].concat(
+          b2bcImages, [_flowMakeDividerImage_('B2B')], b2bImages
+        );
+        setBtn('⏳ Generando deck…', true);
+        google.script.run
+          .withSuccessHandler(function(res){
+            reset();
+            if(res && res.url) window.open(res.url, '_blank');
+            else alert('El servidor no devolvió la URL del deck.');
+          })
+          .withFailureHandler(function(e){
+            reset();
+            alert('No se pudo generar el deck de Google Slides: ' + ((e&&e.message)||e));
+          })
+          .buildFlowSlidesDeck({ title:'Flow Semanal — B2B2C + B2B', slideImages:allImages });
+      });
     }).catch(function(e){
       reset();
       alert('No se pudieron capturar las slides: ' + (e.message||e));
