@@ -389,6 +389,14 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
 #view-weekly tr.ws-metric-row.ws-group-last td,#view-flow tr.ws-metric-row.ws-group-last td{border-bottom:1px solid rgba(124,127,255,.25)}
 #view-weekly td.l4w-val,#view-flow td.l4w-val{background:var(--elevated);font-weight:700;border-left:3px solid var(--border);width:90px}
 #view-weekly tr.ws-metric-row.ws-ly-row td.l4w-val,#view-flow tr.ws-metric-row.ws-ly-row td.l4w-val{background:var(--elevated)}
+/* Flow Semanal (a diferencia del tab Weekly nativo, que tiene toda la altura
+   de la pantalla) tiene la tabla acotada a los 720px fijos de la slide — con
+   5 grupos (TOTAL+Brasil+Mexico+Hispa+Globales) x 6 filas cada uno, la altura
+   por defecto (padding 3px + 13px/12px de fuente) se pasaba por ~35-60px del
+   alto disponible y el último grupo (Globales) quedaba cortado sin aviso.
+   Achicando un poco padding/fuente entra completo. */
+#view-flow .ws-panel-weekly tr.ws-metric-row td{padding:1.5px 8px;font-size:12px}
+#view-flow .ws-panel-weekly tr.ws-metric-row.ws-ly-row td{font-size:11px}
 /* MTD table */
 #view-weekly .ws-mtd-wrap,#view-flow .ws-mtd-wrap{border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,.12);overflow:hidden}
 #view-weekly table.ws-mtd-table,#view-flow table.ws-mtd-table{width:100%;border-collapse:collapse;background:var(--surface)}
@@ -571,7 +579,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
   padding:14px;display:flex;flex-direction:column;box-shadow:0 1px 4px rgba(0,0,0,.06),0 4px 16px rgba(85,15,237,.06)}
 #view-flow .b2b-chart-title{font-size:18px;font-weight:800;color:#550FED;margin-bottom:2px;letter-spacing:-.3px}
 #view-flow .b2b-chart-subtitle{font-size:11px;color:#7c3aed;font-weight:500;margin-bottom:10px}
-#view-flow .b2b-chart-container{position:relative;flex:1;min-height:0}
+#view-flow .b2b-chart-container{position:relative;flex:1;min-height:0;min-width:0;overflow:hidden}
 #view-flow .b2b-pivot-panel{flex:0 0 32%;min-width:0;background:#fff;border-top:3px solid #550FED;border-radius:10px;
   padding:10px 8px;overflow-y:auto;box-shadow:0 1px 4px rgba(0,0,0,.06),0 4px 16px rgba(85,15,237,.06)}
 #view-flow .b2b-panel-title{font-size:12px;font-weight:700;color:#1f2937;margin-bottom:5px}
