@@ -395,8 +395,9 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
    por defecto (padding 3px + 13px/12px de fuente) se pasaba por ~35-60px del
    alto disponible y el último grupo (Globales) quedaba cortado sin aviso.
    Achicando un poco padding/fuente entra completo. */
-#view-flow .ws-panel-weekly tr.ws-metric-row td{padding:1.5px 8px;font-size:12px}
-#view-flow .ws-panel-weekly tr.ws-metric-row.ws-ly-row td{font-size:11px}
+#view-flow .ws-panel-weekly tr.ws-metric-row td{padding:1px 8px;font-size:11px;line-height:1.15}
+#view-flow .ws-panel-weekly tr.ws-metric-row.ws-ly-row td{font-size:10px}
+#view-flow .ws-panel-weekly thead tr.head-weeks th{padding:2px 4px;font-size:11px}
 /* MTD table */
 #view-weekly .ws-mtd-wrap,#view-flow .ws-mtd-wrap{border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,.12);overflow:hidden}
 #view-weekly table.ws-mtd-table,#view-flow table.ws-mtd-table{width:100%;border-collapse:collapse;background:var(--surface)}
@@ -584,12 +585,15 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
   padding:10px 8px;overflow-y:auto;box-shadow:0 1px 4px rgba(0,0,0,.06),0 4px 16px rgba(85,15,237,.06)}
 #view-flow .b2b-panel-title{font-size:12px;font-weight:700;color:#1f2937;margin-bottom:5px}
 
-#view-flow .b2b-pivot-table{width:100%;border-collapse:collapse;font-size:11px}
+#view-flow .b2b-pivot-table{width:100%;border-collapse:collapse;font-size:10px}
 #view-flow .b2b-pivot-table thead th{background:linear-gradient(to bottom,#ede9fe,#f3f0fe);color:#550FED;font-weight:700;
-  padding:4px 6px;text-align:right;border-bottom:2px solid #7c3aed;white-space:nowrap;font-size:10px;
+  padding:2px 6px;text-align:right;border-bottom:2px solid #7c3aed;white-space:nowrap;font-size:9px;
   text-transform:uppercase;letter-spacing:.3px}
 #view-flow .b2b-pivot-table thead th:first-child{text-align:left}
-#view-flow .b2b-pivot-table td{padding:3px 6px;border-bottom:1px solid #f3f4f6;text-align:right;white-space:nowrap;color:#374151}
+/* País/producto + KRs — con 6 países x hasta 4 grupos de producto + TOTAL, el
+   tamaño original (padding 3px + fuente 11px) se pasaba del alto disponible y
+   cortaba ROW/TOTAL al final sin aviso (mismo problema que Resumen Semanal). */
+#view-flow .b2b-pivot-table td{padding:1.5px 6px;line-height:1.15;border-bottom:1px solid #f3f4f6;text-align:right;white-space:nowrap;color:#374151}
 #view-flow .b2b-pivot-table td:first-child{text-align:left;max-width:120px;overflow:hidden;text-overflow:ellipsis}
 #view-flow .b2b-pivot-table .row-country td{background:#F3F0FE;font-weight:700;color:#550FED}
 #view-flow .b2b-pivot-table .row-country td:first-child{padding-left:8px}
@@ -4940,6 +4944,16 @@ function _flowCaptureSlideImages_(opts){
   opts=opts||{};
   var slides=Array.prototype.slice.call(document.querySelectorAll('#flow-track .flow-slide'));
   slides.forEach(function(s){ s.style.transform='none'; });
+  // Resetear el scroll de todos los contenedores internos con overflow-y:auto
+  // (tablas país/partner, Resumen Semanal, etc.) antes de capturar — si el
+  // usuario los scrolleó mientras navegaba el deck en pantalla, esa posición
+  // quedaba "pegada" en la imagen exportada, cortando el principio de la
+  // tabla en vez del final.
+  document.querySelectorAll(
+    '#flow-track .ws-table-wrap, #flow-track .ws-mtd-wrap, #flow-track .fl-scroll-tbl, '
+    +'#flow-track .b2b-fl-body, #flow-track .b2b-pivot-panel, #flow-track .b2b-table-block, '
+    +'#flow-track .b2b-kr-detail-grid'
+  ).forEach(function(s){ s.scrollTop=0; });
   return Promise.all(slides.map(function(el){
     return html2canvas(el, { scale: opts.jpeg?1.5:2, useCORS:true, backgroundColor:'#ffffff' })
       .then(function(canvas){
