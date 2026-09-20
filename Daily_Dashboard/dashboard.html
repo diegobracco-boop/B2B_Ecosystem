@@ -4951,20 +4951,23 @@ function _flowExportSlides(){
   function setBtn(txt,disabled){ if(btn){ btn.textContent=txt; btn.disabled=!!disabled; } }
   function reset(){
     _flowExporting=false;
-    _flowPrinting=false;
-    document.getElementById('view-flow').classList.remove('flow-exporting');
-    flowRebuild_();
     setBtn('📤 Enviar a Google Slides (B2B2C + B2B)', false);
   }
   setBtn('⏳ Preparando…', true);
-  // Mismo modo "exportando" que usa la impresión (.flow-exporting + _flowPrinting):
-  // sin esto, html2canvas capturaba solo lo que entraba VISIBLE en el scroll interno
-  // de las tablas (Weekly, país/partner), cortando el resto del deck de Slides.
-  _flowPrinting=true;
-  document.getElementById('view-flow').classList.add('flow-exporting');
-  flowRebuild_();
-  // Esperar a que el rebuild + resize de charts (doble rAF en flowDrawAllCharts_)
-  // termine de asentar el layout antes de capturar.
+  // A propósito NO se activa el modo "exportando" (.flow-exporting + _flowPrinting)
+  // que sí usa el botón de PDF: ese modo saca el tope de filas de las tablas para
+  // que no se corten en una impresión de varias páginas (ahí una slide puede crecer
+  // más alto sin problema, cada una es su propia página). Pero acá cada slide se
+  // inserta como UNA imagen en una página de tamaño FIJO (720x405pt) — si al
+  // capturar se deja crecer más alto que los 720px nominales, buildFlowSlidesDeck
+  // igual preserva el aspect ratio real de la imagen (correcto), y el resultado es
+  // una imagen angosta y chica centrada con mucho margen en los costados (bug real
+  // encontrado 2026-09-20: casi todas las slides con tablas largas quedaban con
+  // ratio entre 0.56 y 1.46 en vez de 1.7778, confirmado inspeccionando el deck
+  // real vía la API de Slides). Capturando el estado NORMAL (con el tope de filas
+  // "+N más" que ya existe para la vista en pantalla) cada slide se queda en sus
+  // 720px fijos y el ratio de la imagen sale siempre 16:9 — a costa de truncar
+  // tablas muy largas igual que ya se truncan scrolleando en pantalla.
   requestAnimationFrame(function(){ requestAnimationFrame(function(){ requestAnimationFrame(function(){
     setBtn('⏳ Capturando slides…', true);
     _flowCaptureSlideImages_({ jpeg:true }).then(function(images){
