@@ -4547,15 +4547,9 @@ function trkRenderTableBody_(bodyEl, groups, inMillions, cg){
         +'<td class="'+trkCumplColor_(pgCumpl)+'">'+trkFmtPct_(pgCumpl)+'</td>'
         +'<td class="'+trkYoyColor_(pgYoY)+'">'+trkYoyIcon_(pgYoY)+'</td>';
       bodyEl.appendChild(trPG);
-      Object.keys(prods).sort(function(a,b2){return a.localeCompare(b2);}).forEach(function(prod){
-        var e=prods[prod], delta=conv(e.act-e.goal), cumpl=trkCumplRatio_(e.act,e.goal), yoy=e.ly?(e.act/e.ly-1):null;
-        var trP=document.createElement('tr'); trP.className='row-product';
-        trP.innerHTML='<td title="'+prod+'">'+prod+'</td><td>'+fmt(conv(e.act))+'</td>'
-          +'<td class="'+trkDeltaColor_(delta)+'">'+fmt(delta)+'</td>'
-          +'<td class="'+trkCumplColor_(cumpl)+'">'+trkFmtPct_(cumpl)+'</td>'
-          +'<td class="'+trkYoyColor_(yoy)+'">'+trkYoyIcon_(yoy)+'</td>';
-        bodyEl.appendChild(trP);
-      });
+      // Sin drill-down de producto crudo bajo cada grupo (Hotel→Hoteles, Air→Flights,
+      // etc.) — a pedido de Diego, alcanza con los 4 grupos (Hotel/Flights/Packages/ONA)
+      // por país; el nivel raw casi siempre repetía el mismo total con otro nombre.
     });
   });
   var tDelta=conv(totalAct-totalGoal), tCumpl=trkCumplRatio_(totalAct,totalGoal), tYoY=totalLY?(totalAct/totalLY-1):null;
@@ -4743,14 +4737,24 @@ function flowFetchB2BExtras_(cb){
 }
 // Pasada post-build (mismo patrón que flowRenderWeeklyTables_): llena charts/
 // tablas/KRs de las slides B2B una vez que su HTML placeholder ya está en el DOM.
+// monthFilter/goalType/goalLabel de los charts B2B quedan en variables de módulo
+// porque la creación del chart en sí NO pasa por acá (ver flowDrawCharts_) — se
+// difiere al mismo momento que ya usan monthly/daily de B2B2C (dentro de
+// flowDrawAllCharts_, después de que flowScale_ le dio tamaño final al layout).
+// Crearlo acá (dentro de flowBuild_, antes de flowScale_) es lo que causaba que
+// las barras quedaran comprimidas arriba del todo: Chart.js medía el contenedor
+// con su tamaño intermedio/sin asentar y el resize() posterior no recalculaba
+// bien la geometría de las barras (mismo síntoma que motivó el fix de charts
+// de B2B2C — acá se resuelve alineando el timing, no solo con resize()).
+var _flowB2BMonthFilter=null, _flowB2BGoalType='budget', _flowB2BGoalLabel='Budget';
 function flowRenderB2BSlides_(){
   if(!_rawB2B || !_rawB2B.meta) return;
-  var goalType='budget', goalLabel='Budget';
   var curYM=trkCurYM_();
-  var monthFilter=_rawB2B.meta.last_actuals_date && _rawB2B.meta.last_actuals_date.substring(0,7)===curYM ? curYM : null;
+  _flowB2BMonthFilter=_rawB2B.meta.last_actuals_date && _rawB2B.meta.last_actuals_date.substring(0,7)===curYM ? curYM : null;
+  var monthFilter=_flowB2BMonthFilter, goalType=_flowB2BGoalType;
   FLOW_DECK.forEach(function(def, idx){
     if(def.kind==='b2b_krs'){ trkRenderStatusKRs_(idx); return; }
-    if(def.kind==='b2b_chart'){ trkRenderChart_(idx, def.tab, null, null, monthFilter, goalType, goalLabel); trkRenderPivotForChart_(idx, def.tab, null, null, monthFilter, goalType); return; }
+    if(def.kind==='b2b_chart'){ trkRenderPivotForChart_(idx, def.tab, null, null, monthFilter, goalType); return; }
     if(def.kind==='b2b_tables'){ trkRenderTablesView_(idx, def.dateType, null, null, monthFilter, goalType); return; }
     if(def.kind==='b2b_split'){ trkRenderSplitSlide_(idx, def.metric, def.dateType, null, monthFilter, goalType); return; }
   });
@@ -4786,6 +4790,10 @@ function flowSetComp_(v){ _flowComp=v; flowRebuild_(); }
 function flowDrawCharts_(idx){
   if(_flowDrawn[idx]) return;
   (_flowSeries[idx]||[]).forEach(function(spec){ flowChart_(spec); });
+  var def=FLOW_DECK[idx];
+  if(def && def.kind==='b2b_chart'){
+    trkRenderChart_(idx, def.tab, null, null, _flowB2BMonthFilter, _flowB2BGoalType, _flowB2BGoalLabel);
+  }
   _flowDrawn[idx]=true;
 }
 function flowDrawAllCharts_(){
