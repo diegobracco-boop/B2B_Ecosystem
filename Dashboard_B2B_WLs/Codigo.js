@@ -1458,11 +1458,13 @@ function buildCierreSlidesDeck(payload) {
   var w = pres.getPageWidth(), h = pres.getPageHeight();
   var defaultSlide = pres.getSlides()[0];
 
+  // Paleta de Flow Semanal (Daily_Dashboard, --fl-purple/--fl-purple2) — a pedido
+  // de Diego, para que la carátula coincida entre ambos decks.
   var title = pres.appendSlide(SlidesApp.PredefinedLayout.BLANK);
   title.insertTextBox('Cierre de Mes', 40, h/2 - 60, w - 80, 50)
-       .getText().getTextStyle().setFontSize(30).setBold(true).setForegroundColor('#2D2A6E');
+       .getText().getTextStyle().setFontSize(30).setBold(true).setForegroundColor('#5626e9');
   title.insertTextBox((payload.mesLbl || '') + ' · ' + (payload.fyLbl || ''), 40, h/2 + 2, w - 80, 34)
-       .getText().getTextStyle().setFontSize(15).setForegroundColor('#5457D9');
+       .getText().getTextStyle().setFontSize(15).setForegroundColor('#8e5ff3');
   defaultSlide.remove();   // sacamos el slide default (layout con placeholders) recién con >=1 slide ya creado
 
   // Cada imagen ya viene en el orden correcto desde el cliente (divisores incluidos —
