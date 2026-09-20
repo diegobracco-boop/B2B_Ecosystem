@@ -475,7 +475,13 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
 #view-flow.flow-exporting .flow-slide{transform:none!important;height:auto!important;min-height:720px!important}
 #view-flow.flow-exporting .fl-body{height:auto!important;min-height:calc(720px - 96px)!important}
 #view-flow.flow-exporting .fl-scroll-tbl{overflow:visible!important;min-height:0!important}
-#view-flow.flow-exporting .ws-table-wrap,#view-flow.flow-exporting .ws-mtd-wrap{overflow:visible!important;min-height:0!important}
+/* overflow-y (no overflow a secas) a propósito: .ws-mtd-wrap en el layout
+   split (Performance MTD — B2B2C | B2B, dos paneles flex:1 lado a lado)
+   necesita seguir conteniendo el ancho — liberar también overflow-x hacía
+   que la tabla más ancha que su mitad del panel se derramara sobre la tabla
+   vecina (se veían superpuestas). Solo hace falta liberar el alto para que
+   no se corten filas al exportar/imprimir. */
+#view-flow.flow-exporting .ws-table-wrap,#view-flow.flow-exporting .ws-mtd-wrap{overflow-y:visible!important;overflow-x:hidden!important;min-height:0!important}
 #view-flow.flow-exporting .ws-panel-weekly,#view-flow.flow-exporting .ws-panel-mtd,#view-flow.flow-exporting .ws-tables-row{min-height:0!important}
 .flow-stage-wrap{display:flex;flex-direction:column;align-items:center;gap:26px;padding:24px 16px;
   background:var(--bg)}
