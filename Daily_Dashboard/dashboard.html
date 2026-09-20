@@ -2156,22 +2156,27 @@ var _barLabelsPlugin_ = {
     ctx.save();
     ctx.font = '10px Poppins, sans-serif';
     ctx.textAlign = 'center';
-    ctx.textBaseline = 'bottom';
-    ctx.fillStyle = chart._tvLabelColor || 'rgba(0,0,0,.8)';
     chart.data.datasets.forEach(function(ds, di) {
-      if (ds.type !== 'bar' || ds.hidden || !ds._showLabels) return;
+      var isBar = ds.type === 'bar', isLine = ds.type === 'line';
+      if ((!isBar && !isLine) || ds.hidden || !ds._showLabels) return;
       var meta = chart.getDatasetMeta(di);
       if (meta.hidden) return;
-      var lastRight = -Infinity; // evita que labels consecutivos se pisen cuando las barras estan muy juntas
-      meta.data.forEach(function(bar, idx) {
-        if (!bar || bar.width < 6) return;
+      // Etiquetas de línea (ej. Last Year) van arriba del punto y con el color de
+      // la propia línea, para distinguirlas de las de barra (color genérico) sin
+      // agregar una leyenda — mismo criterio que ya usa el resto del dashboard.
+      ctx.fillStyle = isLine ? (ds.borderColor || chart._tvLabelColor || 'rgba(0,0,0,.8)') : (chart._tvLabelColor || 'rgba(0,0,0,.8)');
+      ctx.textBaseline = isLine ? 'alphabetic' : 'bottom';
+      var lastRight = -Infinity; // evita que labels consecutivos se pisen cuando las barras/puntos estan muy juntos
+      meta.data.forEach(function(el, idx) {
+        if (!el) return;
+        if (isBar && el.width < 6) return;
         var v = ds.data[idx];
         if (v == null || Math.abs(+v) < 0.001) return;
         var label = chart._isPct ? (+v).toFixed(1)+'%' : fmtShort(+v);
         var halfW = ctx.measureText(label).width / 2;
-        if (bar.x - halfW < lastRight + 2) return;
-        ctx.fillText(label, bar.x, bar.y - 2);
-        lastRight = bar.x + halfW;
+        if (el.x - halfW < lastRight + 2) return;
+        ctx.fillText(label, el.x, el.y - (isLine ? 6 : 2));
+        lastRight = el.x + halfW;
       });
     });
     ctx.restore();
@@ -2228,7 +2233,7 @@ function renderChart(key, canvasId, daily, viewDate, accentColor, gran, chartsMa
   var ctx = document.getElementById(canvasId).getContext('2d');
   var _datasets = [
     { type:'bar',  label:'Actual', data:vals,    backgroundColor:barColors, borderRadius:3, order:2, _showLabels:true },
-    { type:'line', label:'LY',     data:lyVals,  borderColor:'#16a34a', backgroundColor:'transparent', borderWidth:1.5, pointRadius:0, tension:0.3, order:1 },
+    { type:'line', label:'LY',     data:lyVals,  borderColor:'#16a34a', backgroundColor:'transparent', borderWidth:1.5, pointRadius:0, tension:0.3, order:1, _showLabels:true },
     { type:'bar',  label:'Budget', data:budVals, backgroundColor:budBg, borderColor:budBdr, borderWidth:1, borderRadius:3, order:2, hidden:!hasBud, _showLabels:true }
   ];
   if (hasB2C) {
