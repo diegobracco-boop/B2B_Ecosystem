@@ -110,9 +110,18 @@ def conectar():
 def fetch(query: str, label: str) -> pd.DataFrame:
     print(f"  > {label} ...")
     con = conectar()
-    df  = pd.read_sql(query, con)
-    con.close()
+    try:
+        df = pd.read_sql(query, con)
+    finally:
+        con.close()
     print(f"  OK {len(df):,} filas")
+    # Mismo guardrail que ya usa revenue_gd_builder.py (script hermano de este
+    # módulo): sin esto, una query que vuelve vacía a mitad de corrida (VPN
+    # caída, tabla renombrada) no rompía nada — el pipeline seguía y subía el
+    # JSON con esa sección en 0, pisando el archivo bueno de producción. Cortar
+    # acá, antes de armar nada, es más seguro que validar recién al final.
+    if df.empty:
+        sys.exit(f"'{label}' devolvió 0 filas — VPN caída o cambio de esquema. NO se sube nada.")
     return df
 
 
@@ -689,10 +698,10 @@ pnl_filtered AS (
 base_metrics AS (
     SELECT
         CAST(
-            CASE WHEN fh.parent_channel = 'API'
+            CASE WHEN fh.parent_channel = 'API' AND fh.buy_type_code = 'Hoteles'
                  THEN YEAR(p.checkin_date) ELSE YEAR(fh.recognition_date) END
         AS VARCHAR) AS anio_ri,
-        CASE WHEN fh.parent_channel = 'API'
+        CASE WHEN fh.parent_channel = 'API' AND fh.buy_type_code = 'Hoteles'
              THEN MONTH(p.checkin_date) ELSE MONTH(fh.recognition_date) END AS mes_ri,
         fh.line_of_business_code AS lob,
         fh.parent_channel,
@@ -837,24 +846,23 @@ base_metrics AS (
         ON fh.product_id = cs.product_id
     LEFT JOIN conectores con ON fh.partner_id = con.ap_code
     WHERE
-        CASE WHEN fh.parent_channel = 'API'
+        CASE WHEN fh.parent_channel = 'API' AND fh.buy_type_code = 'Hoteles'
              THEN p.checkin_date ELSE fh.recognition_date END
              BETWEEN CAST('{date_from}' AS DATE) AND CAST('{date_to}' AS DATE)
         AND fh.partition_period > '2024-01-01'
         AND fh.line_of_business_code = 'B2B'
-        AND fh.lob_gestion IN ('stg__sales_b2bnohoteldo','stg_sales__b2bhoteldo')
         AND NOT (
             fh.parent_channel = 'API'
             AND COALESCE(cs.product_state, fh.product_status) = 'Cancelado'
             AND (p.product_cancel_date < p.checkin_date OR p.product_cancel_date IS NULL)
         )
     GROUP BY
-        CASE WHEN fh.parent_channel = 'API'
+        CASE WHEN fh.parent_channel = 'API' AND fh.buy_type_code = 'Hoteles'
              THEN YEAR(p.checkin_date) ELSE YEAR(fh.recognition_date) END,
-        CASE WHEN fh.parent_channel = 'API'
+        CASE WHEN fh.parent_channel = 'API' AND fh.buy_type_code = 'Hoteles'
              THEN MONTH(p.checkin_date) ELSE MONTH(fh.recognition_date) END,
         fh.gestion_date,
-        CASE WHEN fh.parent_channel = 'API'
+        CASE WHEN fh.parent_channel = 'API' AND fh.buy_type_code = 'Hoteles'
              THEN p.checkin_date ELSE fh.recognition_date END,
         fh.line_of_business_code, fh.parent_channel,
         CASE WHEN fh.partner_id IN ('AP12142','AP12961','AP12767','AP12539','AP12792',
@@ -1389,6 +1397,22 @@ print(f"  actual_months: {actual_months}  (last actual = {LAST_ACTUAL_YM})")
 print(f"  b2b2c:   ac={len(ac_b2b2c):,}  rr={len(rr_b2b2c):,}  fc={len(fc_b2b2c):,}  bl={len(bl_b2b2c):,}  bgt={len(bgt_b2b2c):,}  ly={len(ly_b2b2c):,}")
 print(f"  b2b_may: ac={len(ac_may):,}  ac_ri={len(ac_may_ri):,}  rr={len(rr_may):,}  fc={len(fc_may):,}  bl={len(bl_may):,}  bl_ri={len(bl_may_ri):,}  bgt={len(bgt_may):,}  bgt_ri={len(bgt_may_ri):,}  ly={len(ly_may):,}")
 print(f"  b2b_min: ac={len(ac_min):,}  ac_ri={len(ac_min_ri):,}  rr={len(rr_min):,}  rr_ri={len(rr_min_ri):,}  fc={len(fc_min):,}  fc_ri={len(fc_min_ri):,}  bl={len(bl_min):,}  bl_ri={len(bl_min_ri):,}  bgt={len(bgt_min):,}  bgt_ri={len(bgt_min_ri):,}  ly={len(ly_min):,}")
+
+# El fetch() vacío ya corta la corrida, pero una query puede volver con FILAS y
+# aun así faltarle un mes completo (ej. un join que no matcheó nada para ese
+# mes puntual) — eso no lo detecta el guardrail de fetch(). Chequeo liviano,
+# no bloqueante (WARN, no aborta): capaz de haber meses legítimamente en cero
+# para algún escenario puntual, así que no vale la pena arriesgar un falso
+# positivo que corte una corrida buena.
+def _check_months_present(rows, ym_idx, label):
+    present = {r[ym_idx] for r in rows}
+    missing = [m for m in actual_months if m not in present]
+    if missing:
+        print(f"  [WARN] '{label}' no tiene ninguna fila para {missing} — revisar antes de confiar en la subida.")
+
+_check_months_present(ac_b2b2c, 3, "ac_b2b2c")
+_check_months_present(ac_may,   2, "ac_may")
+_check_months_present(ac_min,   2, "ac_min")
 
 output = {
     "updated_at":    datetime.now().isoformat(timespec="seconds"),

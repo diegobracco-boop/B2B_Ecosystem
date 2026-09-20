@@ -1594,8 +1594,10 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
             <tr><td>URL editor GAS</td><td><a class="ext-link" href="https://script.google.com/home/projects/1rB8o8HcnksPBXzi8QJW1zC-XQQ1HqHaowTcWV95SJG6xRbLg5QQ_2mQH/edit" target="_blank">↗ Abrir editor</a></td></tr>
             <tr><td>Actualización actuals + proyecciones</td><td><span class="badge badge-manual">python actuals_gestional_upload.py (requiere VPN)</span> — un solo run actualiza todo (actuals ODBC + forecast XLSX)</td></tr>
             <tr><td>Preview proyección WIP (sin publicar)</td><td><span class="badge badge-manual">python projections_gestional_builder.py --wip-folder "&lt;ruta&gt;"</span></td></tr>
+            <tr><td>Actualización revenue GD (modo "Actuals GD vs Revenue")</td><td><span class="badge badge-manual">python revenue_gd_builder.py (requiere VPN)</span> — tool aparte, correr a mano cuando haga falta refrescar (no forma parte del refresh regular)</td></tr>
             <tr><td>JSON gestional (actuals+proyecciones)</td><td class="mono-id">_actuals_gestional.json (fileId: 1wvle0UIVZV7ocCSl8OawOfIGVz_It5kh)</td></tr>
             <tr><td>JSON projection review (WIP)</td><td class="mono-id">pnl_gestional_projections_review.json (fileId: 1Zd1Kzn7CkatOWnzrrfBxr9mDjIVLLKIF)</td></tr>
+            <tr><td>JSON revenue GD</td><td class="mono-id">revenue_gd.json (fileId: 1gLerphm9YJZ_-aKW7J566a9QcNbIQOCz)</td></tr>
           </tbody>
         </table>
       </div>
@@ -1608,6 +1610,7 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
             <tr><td>Actuals / LY / Budget / Run rate</td><td>Treasure Data (ODBC) — B2B2C + B2B GD + B2B RI. Las queries B2B GD/RI están <strong>alineadas a <code>daily_sync.py</code></strong> (versión oficial): RI reconoce por check-in para todo <code>parent_channel='API'</code>; B2B-MIN tiene serie RI (toggle RI aplica a MIN); fórmulas de componentes idénticas al Daily (GB/NR/FVM coinciden al centavo)</td><td><code>actuals_gestional_upload.py</code></td></tr>
             <tr><td>Reconciliación (vista "Managerial vs Accounting")</td><td><code>actuals.json</code> canónico — folder Drive <code>1XqQPL...</code> (fileId <code>1PABNf4XVKdj6eXApr5_yP581ZsD_N9e-</code>), lo genera Inputs_Planning_PnL</td><td><code>Codigo.js</code> → <code>getVsAccounting()</code> (solo lectura, NO toca pipelines)</td></tr>
             <tr><td>Proyección WIP (preview, sin publicar)</td><td>Excel de un WIP folder aparte</td><td><code>projections_gestional_builder.py --wip-folder</code></td></tr>
+            <tr><td>Revenue GD (modo "Actuals GD vs Revenue")</td><td>Treasure Data (ODBC) — modelo de revenue B2B independiente (<code>bi_transactional_fact_*</code> + <code>lake.b2b_rev_pnl_sales_detail</code> + <code>lake.b2b_b2b2c_revenue_pnl_model</code>, basis <code>gestion_date</code>). Mapeo de líneas P&amp;L en <strong>borrador</strong> — ver <code>CONTEXT.md</code> del módulo y <code>reconciliacion_actuals_gd_vs_revenue.md</code></td><td><code>revenue_gd_builder.py</code> (tool aparte, no forma parte del refresh regular)</td></tr>
             <tr><td>LY estático en <code>ly_data.js</code></td><td colspan="2">⚠️ No usado — nada en <code>Codigo.js</code>/<code>dashboard.html</code> lo referencia. El LY real que se ve en la landing es el dinámico que calcula <code>actuals_gestional_upload.py</code> en cada run.</td></tr>
           </tbody>
         </table>
@@ -2239,6 +2242,7 @@ OneDrive → Control de Gestión 2026-27 → B2B & WLs → Proyectos IA → BITU
   ├── ly_data.js                        ← ⚠️ LY estático NO usado (nada lo referencia) — candidato a borrar
   ├── actuals_gestional_upload.py       ← Actuals ODBC + forecast XLSX en un run (VPN requerida)
   ├── projections_gestional_builder.py  ← Preview de un WIP forecast (--wip-folder), tool aparte
+  ├── revenue_gd_builder.py             ← Sube revenue_gd.json (modelo de revenue B2B, basis gestion_date) para el modo "Actuals GD vs Revenue" — tool aparte, correr a mano cuando haga falta refrescar
   ├── CONTEXT.md                        ← Doc detallada del módulo
   ├── appsscript.json / .clasp.json</div>
     </div>
