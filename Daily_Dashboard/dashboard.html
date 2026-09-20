@@ -1554,9 +1554,9 @@ function compute_(raw, metric, vDate, gl_pai, gl_par, gl_pro, gl_at, gran, compS
   var _cSrc = compSrc || raw.budget || [];
   var budget=0; _cSrc.forEach(function(r){if(r.fecha<mStart||r.fecha>vDate)return;if(matchB(r))budget+=(r[BMF]||0);});
   var tf=(gran!=='daily')?yearStart:mStart, lyTF=(gran!=='daily')?lyYS:lyMS;
-  var dM={},lyDM={},budDM={},budDMFull={};
+  var dM={},lyDM={},lyDMFull={},budDM={},budDMFull={};
   raw.actuals.forEach(function(r){if(r.fecha<tf||r.fecha>vDate||!matchA(r))return;dM[r.fecha]=(dM[r.fecha]||0)+(r[MF]||0);});
-  raw.actuals_ly.forEach(function(r){if(r.fecha<lyTF||!matchA(r))return;var s=String(+r.fecha.substring(0,4)+1)+r.fecha.substring(4);if(s>vDate)return;lyDM[s]=(lyDM[s]||0)+(r[MF]||0);});
+  raw.actuals_ly.forEach(function(r){if(r.fecha<lyTF||!matchA(r))return;var s=String(+r.fecha.substring(0,4)+1)+r.fecha.substring(4);lyDMFull[s]=(lyDMFull[s]||0)+(r[MF]||0);if(s>vDate)return;lyDM[s]=(lyDM[s]||0)+(r[MF]||0);});
   _cSrc.forEach(function(r){if(r.fecha<tf||!matchB(r))return;budDMFull[r.fecha]=(budDMFull[r.fecha]||0)+(r[BMF]||0);if(r.fecha>vDate)return;budDM[r.fecha]=(budDM[r.fecha]||0)+(r[BMF]||0);});
   var daily;
   if(gran==='weekly') daily=aggWeekly_(dM,lyDM,vDate,budDM);
@@ -1568,7 +1568,7 @@ function compute_(raw, metric, vDate, gl_pai, gl_par, gl_pro, gl_at, gran, compS
     Object.keys(budDM).forEach(function(d){if(!_seenD[d]){daily.push({date:d,v:0,ly:Math.round((lyDM[d]||0)*100)/100,bud:Math.round(budDM[d]*100)/100});_seenD[d]=1;}});
     daily.sort(function(a,b){return a.date<b.date?-1:1;});
     var _mDays=new Date(+pp[0],+pp[1],0).getDate(),_mPfx=pp[0]+'-'+pp[1]+'-';
-    for(var _d=+(pp[2])+1;_d<=_mDays;_d++){var _ds=_mPfx+(_d<10?'0':'')+_d;daily.push({date:_ds,v:null,ly:null,bud:Math.round((budDMFull[_ds]||0)*100)/100,projected:true});}
+    for(var _d=+(pp[2])+1;_d<=_mDays;_d++){var _ds=_mPfx+(_d<10?'0':'')+_d;daily.push({date:_ds,v:null,ly:Math.round((lyDMFull[_ds]||0)*100)/100,bud:Math.round((budDMFull[_ds]||0)*100)/100,projected:true});}
   }
   return {viewDate:vDate,curYM:curYM,d1:d1,lyD1:lyD1,mtd:mtd,lyMtd:lyMtd,budget:budget,daily:daily};
 }
@@ -1762,9 +1762,9 @@ function computeB2B_(raw, metric, dateModel, vDate, gl_pai, gl_pro, gl_ch, gl_mk
   var lyD1=sum_(srcLY,lyVD,lyVD,matchA,MF),lyMtd=sum_(srcLY,lyMS,lyVD,matchA,MF);
   var budget=0; bud.forEach(function(r){if(r.fecha<mStart||r.fecha>vDate)return;if(!matchBud(r))return;budget+=(r[MF]||0);});
   var tf=(gran!=='daily')?yearStart:mStart, lyTF=(gran!=='daily')?lyYS:lyMS;
-  var dM={},lyDM={},budDM={},budDMFull={};
+  var dM={},lyDM={},lyDMFull={},budDM={},budDMFull={};
   src.forEach(function(r){if(r.fecha<tf||r.fecha>vDate||!matchA(r))return;dM[r.fecha]=(dM[r.fecha]||0)+(r[MF]||0);});
-  srcLY.forEach(function(r){if(r.fecha<lyTF||!matchA(r))return;var s=String(+r.fecha.substring(0,4)+1)+r.fecha.substring(4);if(s>vDate)return;lyDM[s]=(lyDM[s]||0)+(r[MF]||0);});
+  srcLY.forEach(function(r){if(r.fecha<lyTF||!matchA(r))return;var s=String(+r.fecha.substring(0,4)+1)+r.fecha.substring(4);lyDMFull[s]=(lyDMFull[s]||0)+(r[MF]||0);if(s>vDate)return;lyDM[s]=(lyDM[s]||0)+(r[MF]||0);});
   bud.forEach(function(r){if(r.fecha<tf||!matchBud(r))return;budDMFull[r.fecha]=(budDMFull[r.fecha]||0)+(r[MF]||0);if(r.fecha>vDate)return;budDM[r.fecha]=(budDM[r.fecha]||0)+(r[MF]||0);});
   var daily;
   if(gran==='weekly') daily=aggWeekly_(dM,lyDM,vDate,budDM);
@@ -1776,7 +1776,7 @@ function computeB2B_(raw, metric, dateModel, vDate, gl_pai, gl_pro, gl_ch, gl_mk
     Object.keys(budDM).forEach(function(d){if(!_seenD2[d]){daily.push({date:d,v:0,ly:Math.round((lyDM[d]||0)*100)/100,bud:Math.round(budDM[d]*100)/100});_seenD2[d]=1;}});
     daily.sort(function(a,b){return a.date<b.date?-1:1;});
     var _mDays=new Date(+pp[0],+pp[1],0).getDate(),_mPfx=pp[0]+'-'+pp[1]+'-';
-    for(var _d=+(pp[2])+1;_d<=_mDays;_d++){var _ds=_mPfx+(_d<10?'0':'')+_d;daily.push({date:_ds,v:null,ly:null,bud:Math.round((budDMFull[_ds]||0)*100)/100,projected:true});}
+    for(var _d=+(pp[2])+1;_d<=_mDays;_d++){var _ds=_mPfx+(_d<10?'0':'')+_d;daily.push({date:_ds,v:null,ly:Math.round((lyDMFull[_ds]||0)*100)/100,bud:Math.round((budDMFull[_ds]||0)*100)/100,projected:true});}
   }
   function brkPP(){
     var map={},lyMap={},bMap={};
@@ -2185,7 +2185,10 @@ function renderChart(key, canvasId, daily, viewDate, accentColor, gran, chartsMa
   chartsMap = chartsMap || _charts;
   var labels  = daily.map(function(d){ return fmtChartLabel_(d.date, gran); });
   var vals    = daily.map(function(d){ return d.projected ? null : d.v; });
-  var lyVals  = daily.map(function(d){ return d.projected ? null : d.ly; });
+  // ly, igual que bud: se extiende a los días futuros del mes (antes se ponía en
+  // null como los actuals, pero acá SÍ hay dato real — es el año pasado, no una
+  // proyección) — a pedido de Diego, mismo tratamiento que ya tenía Goal.
+  var lyVals  = daily.map(function(d){ return d.ly; });
   var budVals = daily.map(function(d){ return d.bud != null ? d.bud : 0; });
   var hasBud  = daily.some(function(d){ return (d.bud||0) > 0; });
   // Línea de referencia B2C (eje Y secundario). opts.b2c = [{date,v}] alineado por fecha.
