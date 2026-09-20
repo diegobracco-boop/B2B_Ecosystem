@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <style>
 /* ── Tokens — dark ─────────────────────────────────────── */
@@ -552,6 +553,69 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
 .fl-div-logo{position:absolute;left:60px;bottom:52px;display:flex;align-items:center;gap:12px;color:#fff}
 .fl-div-logo .dl-txt{font-weight:800;font-size:22px;line-height:1}
 .fl-div-logo .dl-txt small{display:block;font-weight:500;font-size:11px;opacity:.75;letter-spacing:3px}
+
+/* ── B2B — port nativo del Daily B2B Tracker (slides b2b_krs/b2b_chart/
+   b2b_tables/b2b_split dentro de Flow Semanal). Clases con prefijo b2b- (no
+   reusa nombres genéricos de tracker.html como .pivot-table para no pisar/
+   heredar estilos de otras partes del dashboard) — colores y layout portados
+   tal cual del Tracker original. ── */
+#view-flow .b2b-fl-body{overflow-y:auto}
+#view-flow .b2b-content-row{display:flex;gap:16px;align-items:stretch;height:100%;min-height:0}
+#view-flow .b2b-chart-panel{flex:0 0 68%;min-width:0;background:#fff;border-top:3px solid #550FED;border-radius:10px;
+  padding:14px;display:flex;flex-direction:column;box-shadow:0 1px 4px rgba(0,0,0,.06),0 4px 16px rgba(85,15,237,.06)}
+#view-flow .b2b-chart-title{font-size:18px;font-weight:800;color:#550FED;margin-bottom:2px;letter-spacing:-.3px}
+#view-flow .b2b-chart-subtitle{font-size:11px;color:#7c3aed;font-weight:500;margin-bottom:10px}
+#view-flow .b2b-chart-container{position:relative;flex:1;min-height:0}
+#view-flow .b2b-pivot-panel{flex:0 0 32%;min-width:0;background:#fff;border-top:3px solid #550FED;border-radius:10px;
+  padding:10px 8px;overflow-y:auto;box-shadow:0 1px 4px rgba(0,0,0,.06),0 4px 16px rgba(85,15,237,.06)}
+#view-flow .b2b-panel-title{font-size:12px;font-weight:700;color:#1f2937;margin-bottom:5px}
+
+#view-flow .b2b-pivot-table{width:100%;border-collapse:collapse;font-size:11px}
+#view-flow .b2b-pivot-table thead th{background:linear-gradient(to bottom,#ede9fe,#f3f0fe);color:#550FED;font-weight:700;
+  padding:4px 6px;text-align:right;border-bottom:2px solid #7c3aed;white-space:nowrap;font-size:10px;
+  text-transform:uppercase;letter-spacing:.3px}
+#view-flow .b2b-pivot-table thead th:first-child{text-align:left}
+#view-flow .b2b-pivot-table td{padding:3px 6px;border-bottom:1px solid #f3f4f6;text-align:right;white-space:nowrap;color:#374151}
+#view-flow .b2b-pivot-table td:first-child{text-align:left;max-width:120px;overflow:hidden;text-overflow:ellipsis}
+#view-flow .b2b-pivot-table .row-country td{background:#F3F0FE;font-weight:700;color:#550FED}
+#view-flow .b2b-pivot-table .row-country td:first-child{padding-left:8px}
+#view-flow .b2b-pivot-table .row-product-group td{background:#FAF8FF;font-weight:600;color:#374151}
+#view-flow .b2b-pivot-table .row-product-group td:first-child{padding-left:18px}
+#view-flow .b2b-pivot-table .row-product td{color:#4b5563}
+#view-flow .b2b-pivot-table .row-product td:first-child{padding-left:32px;color:#6b7280;font-style:italic}
+#view-flow .b2b-pivot-table .row-total td{font-weight:700;color:#1f2937;border-top:2px solid #550FED;background:#F9FAFB}
+#view-flow .b2b-pivot-table .cell-red{color:#E82525!important;font-weight:600}
+#view-flow .b2b-pivot-table .cell-yellow{color:#B45309!important;font-weight:600}
+#view-flow .b2b-pivot-table .cell-green{color:#599E6B!important;font-weight:600}
+#view-flow .b2b-pivot-table .cell-neg{color:#E82525!important}
+#view-flow .b2b-pivot-table .cell-pos{color:#599E6B!important}
+
+#view-flow .b2b-tables-row{display:flex;gap:8px;align-items:flex-start;height:100%}
+#view-flow .b2b-table-block{flex:1;min-width:0;background:#fff;border-top:3px solid #550FED;border-radius:10px;
+  padding:8px;overflow-y:auto;box-shadow:0 1px 4px rgba(0,0,0,.06),0 4px 16px rgba(85,15,237,.06)}
+#view-flow .b2b-table-block .b2b-pivot-table td:first-child{max-width:150px}
+
+#view-flow .b2b-status-krs-meta{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+#view-flow .b2b-kr-data-range{display:inline-block;background:#eff6ff;border:1px solid #bfdbfe;color:#1d4ed8;
+  border-radius:20px;padding:3px 12px;font-size:11px;font-weight:500}
+#view-flow .b2b-kr-data-range-sec{background:#f0fdf4;border-color:#bbf7d0;color:#15803d}
+#view-flow .b2b-status-krs-table{font-size:14px}
+#view-flow .b2b-status-krs-table thead th{font-size:11px;padding:6px 8px}
+#view-flow .b2b-status-krs-table tbody tr td{padding:6px 8px;font-size:14px!important}
+#view-flow .b2b-status-krs-table td:first-child{font-weight:600;text-align:left;max-width:none}
+#view-flow .b2b-pivot-table .row-kr-extra td{color:#9ca3af;border-top:1px dashed #e5e7eb}
+#view-flow .b2b-pivot-table .row-kr-total td{font-weight:700;color:#1f2937;border-top:2px solid #550FED;background:#F9FAFB}
+
+#view-flow .b2b-kr-detail-grid{display:flex;flex-wrap:wrap;gap:12px;margin-top:16px;align-items:flex-start}
+#view-flow .b2b-kr-detail-box{flex:1 1 220px;background:#fff;border:1px solid #e5e7eb;border-radius:10px;
+  padding:10px 12px;min-width:200px;box-shadow:0 2px 6px rgba(99,102,241,.07)}
+#view-flow .b2b-kr-detail-header{font-size:12px;font-weight:800;color:#1e1b4b;margin-bottom:8px;padding-bottom:6px;
+  border-bottom:3px solid #6366f1;display:flex;align-items:center;gap:8px}
+#view-flow .b2b-kr-num-badge{background:linear-gradient(135deg,#6366f1 0%,#4f46e5 100%);color:#fff;border-radius:6px;
+  padding:3px 10px;font-size:13px;font-weight:800;box-shadow:0 2px 4px rgba(99,102,241,.35)}
+#view-flow .b2b-kr-detail-table td,#view-flow .b2b-kr-detail-table th{font-size:11px;padding:3px 6px}
+#view-flow .b2b-kr-detail-table th{font-weight:600;color:#6b7280;background:#f9fafb}
+#view-flow .b2b-pivot-table .kr-detail-total td{border-top:2px solid #e5e7eb;background:#f5f3ff;font-size:11px}
 </style>
 </head>
 <body>
@@ -2738,36 +2802,23 @@ function switchMainView(view) {
 }
 
 // ── Daily B2B Tracker (iframe embebido, misma deployment ?view=tracker) ──
+// Nota: Flow Semanal YA NO depende de este iframe para el export a Slides —
+// las slides B2B se portaron nativas a #flow-track (ver sección "B2B — port
+// nativo a Flow Semanal" más abajo). Este iframe sigue existiendo solo para
+// el tab standalone "Daily B2B Tracker".
 var _trackerLoaded = false;
 function trackerOpen_() {
   if (_trackerLoaded) return;
   _trackerLoaded = true;
-  _trackerEnsureLoaded_().catch(function(){ _trackerLoaded = false; });
-}
-
-// Promesa compartida: resuelve cuando el iframe del Tracker terminó de cargar
-// (src seteado + evento load disparado). La usa tanto trackerOpen_() (al abrir
-// el tab a mano) como _flowExportSlides() (necesita el iframe listo para poder
-// capturar sus slides aunque el usuario nunca haya abierto ese tab).
-var _trackerReadyPromise = null;
-function _trackerEnsureLoaded_() {
-  if (_trackerReadyPromise) return _trackerReadyPromise;
-  var iframe = document.getElementById('tracker-iframe');
-  _trackerReadyPromise = new Promise(function(resolve, reject) {
-    iframe.addEventListener('load', function onLoad() {
-      iframe.removeEventListener('load', onLoad);
-      resolve();
-    });
-    google.script.run
-      .withSuccessHandler(function(url) { iframe.src = url; })
-      .withFailureHandler(function(err) {
-        _trackerReadyPromise = null; // permitir reintentar
-        console.error('No se pudo cargar el Daily B2B Tracker:', err);
-        reject(err);
-      })
-      .getTrackerUrl();
-  });
-  return _trackerReadyPromise;
+  google.script.run
+    .withSuccessHandler(function(url) {
+      document.getElementById('tracker-iframe').src = url;
+    })
+    .withFailureHandler(function(err) {
+      _trackerLoaded = false;
+      console.error('No se pudo cargar el Daily B2B Tracker:', err);
+    })
+    .getTrackerUrl();
 }
 
 // ══ BENCHMARK B2C ══════════════════════════════════════════════
@@ -3753,7 +3804,30 @@ var FLOW_DECK = [
   {kind:'weekly', lob:'B2B',       view:'GD', name:'Weekly — B2B (GD)'},
   {kind:'weekly', lob:'B2B',       view:'RI', name:'Weekly — B2B (RI)'},
   {kind:'weekly', lob:'B2B2C',     view:'GD', name:'Weekly — B2B2C (GD)'},
-  {kind:'weekly', lob:'B2B2C',     view:'RI', name:'Weekly — B2B2C (RI)'}
+  {kind:'weekly', lob:'B2B2C',     view:'RI', name:'Weekly — B2B2C (RI)'},
+
+  // ── B2B — port nativo del Daily B2B Tracker (mismas 19 slides que su modo
+  // "▶ Slides", ver tracker.html SLIDE_ORDER) ─────────────────────────────
+  {kind:'divider', flag:'B2B', title:'B2B — Daily Tracker', name:'— B2B —'},
+  {kind:'b2b_krs', name:'B2B — Status KRs'},
+  {kind:'divider', flag:'RI', title:'Recognition Date', name:'B2B — Recognition Date'},
+  {kind:'b2b_chart', tab:'gb_ri',  name:'B2B — Gross Bookings RI'},
+  {kind:'b2b_chart', tab:'nr_ri',  name:'B2B — Net Revenue RI'},
+  {kind:'b2b_chart', tab:'fvm_ri', name:'B2B — FVM RI'},
+  {kind:'b2b_tables', dateType:'ri', name:'B2B — Tablas RI'},
+  {kind:'divider', flag:'GD', title:'Gestion Date', name:'B2B — Gestion Date'},
+  {kind:'b2b_chart', tab:'gb_gd',  name:'B2B — Gross Bookings GD'},
+  {kind:'b2b_chart', tab:'nr_gd',  name:'B2B — Net Revenue GD'},
+  {kind:'b2b_chart', tab:'fvm_gd', name:'B2B — FVM GD'},
+  {kind:'b2b_tables', dateType:'gd', name:'B2B — Tablas GD'},
+  {kind:'divider', flag:'API', title:'API & HTML — Gestion Date', name:'B2B — API vs Agencias (GD)'},
+  {kind:'b2b_split', metric:'gb',  dateType:'gd', name:'B2B — GB GD · Agencias vs API'},
+  {kind:'b2b_split', metric:'nr',  dateType:'gd', name:'B2B — NR GD · Agencias vs API'},
+  {kind:'b2b_split', metric:'fvm', dateType:'gd', name:'B2B — FVM GD · Agencias vs API'},
+  {kind:'divider', flag:'API', title:'API & HTML — Recognition Date', name:'B2B — API vs Agencias (RI)'},
+  {kind:'b2b_split', metric:'gb',  dateType:'ri', name:'B2B — GB RI · Agencias vs API'},
+  {kind:'b2b_split', metric:'nr',  dateType:'ri', name:'B2B — NR RI · Agencias vs API'},
+  {kind:'b2b_split', metric:'fvm', dateType:'ri', name:'B2B — FVM RI · Agencias vs API'}
 ];
 var _flowCharts = {}, _flowSeries = {}, _flowDrawn = {}, _flowBuilt = false;
 
@@ -4052,6 +4126,71 @@ function flowBuildSlide_(def, idx){
       +'</div></div>';
     return '<div class="flow-slide">'+flHead_(titleTxt, flLogo_())+body+'</div>';
   }
+  // ── B2B — port nativo del Daily B2B Tracker. Igual que 'weekly', el HTML acá
+  // solo arma contenedores vacíos con ids únicos por slide (b2b-*-IDX) — el
+  // contenido real (charts/tablas/KRs) se llena después vía flowRenderB2BSlides_()
+  // una vez que este HTML ya está en el DOM (mismo patrón que flowRenderWeeklyTables_).
+  if(def.kind==='b2b_krs'){
+    var body='<div class="fl-body b2b-fl-body" style="overflow-y:auto">'
+      +'<div class="b2b-status-krs-meta" id="b2b-krsMeta-'+idx+'"></div>'
+      +'<table class="b2b-pivot-table b2b-status-krs-table"><thead><tr>'
+        +'<th style="text-align:left;min-width:210px">KR</th><th>Peso</th><th>Actual MTD</th><th>Budget MTD</th><th>Cumpl.</th>'
+      +'</tr></thead><tbody id="b2b-krsBody-'+idx+'"></tbody></table>'
+      +'<div class="b2b-kr-detail-grid" id="b2b-krsDetailGrid-'+idx+'"></div>'
+      +'</div>';
+    return '<div class="flow-slide">'+flHead_('B2B — Status KRs', flLogo_())+body+'</div>';
+  }
+  if(def.kind==='b2b_chart'){
+    var tabLbl=B2B_TRK_TAB_DATA[def.tab].label;
+    var body='<div class="fl-body b2b-fl-body">'
+      +'<div class="b2b-content-row">'
+        +'<div class="b2b-chart-panel">'
+          +'<div class="b2b-chart-title" id="b2b-chartTitle-'+idx+'"></div>'
+          +'<div class="b2b-chart-subtitle" id="b2b-chartSubtitle-'+idx+'"></div>'
+          +'<div class="b2b-chart-container"><canvas id="b2b-chart-'+idx+'"></canvas></div>'
+        +'</div>'
+        +'<div class="b2b-pivot-panel">'
+          +'<div class="b2b-panel-title">Performance</div>'
+          +'<table class="b2b-pivot-table"><thead><tr>'
+            +'<th style="min-width:80px">País / Producto</th><th id="b2b-pivotHeadA-'+idx+'">Actuals<br>MTD</th>'
+            +'<th id="b2b-pivotHeadD-'+idx+'">Delta</th><th>Cumpl.</th><th>YoY</th>'
+          +'</tr></thead><tbody id="b2b-pivotBody-'+idx+'"></tbody></table>'
+        +'</div>'
+      +'</div></div>';
+    return '<div class="flow-slide">'+flHead_(tabLbl, flLogo_())+body+'</div>';
+  }
+  if(def.kind==='b2b_tables'){
+    var dtLbl=(def.dateType==='ri')?'Tablas por Fecha de Reconocimiento':'Tablas por Fecha de Gestión';
+    function _b2bTblBlock(lbl, unit, tbodyId){
+      return '<div class="b2b-table-block"><div class="b2b-panel-title">'+lbl+' ('+unit+')</div>'
+        +'<table class="b2b-pivot-table"><thead><tr>'
+          +'<th style="min-width:100px">País / Producto</th><th>Actuals<br>MTD ('+unit+')</th>'
+          +'<th>Delta<br>('+unit+')</th><th>Cumpl.</th><th>YoY</th>'
+        +'</tr></thead><tbody id="'+tbodyId+'"></tbody></table></div>';
+    }
+    var body='<div class="fl-body b2b-fl-body"><div class="b2b-tables-row">'
+      +_b2bTblBlock('Gross Bookings','$M','b2b-pivotGB-'+idx)
+      +_b2bTblBlock('Net Revenues','$K','b2b-pivotNR-'+idx)
+      +_b2bTblBlock('FVM','$K','b2b-pivotFVM-'+idx)
+      +'</div></div>';
+    return '<div class="flow-slide">'+flHead_(dtLbl, flLogo_())+body+'</div>';
+  }
+  if(def.kind==='b2b_split'){
+    var m=B2B_TRK_METRICS[def.metric];
+    var dtLbl2=(def.dateType==='ri')?'Fecha de Reconocimiento':'Fecha de Gestión';
+    function _b2bSplitBlock(lbl, tbodyId, actId, deltaId){
+      return '<div class="b2b-table-block"><div class="b2b-panel-title">'+lbl+'</div>'
+        +'<table class="b2b-pivot-table"><thead><tr>'
+          +'<th style="min-width:100px">País / Producto</th><th id="'+actId+'">Actuals<br>MTD</th>'
+          +'<th id="'+deltaId+'">Delta</th><th>Cumpl.</th><th>YoY</th>'
+        +'</tr></thead><tbody id="'+tbodyId+'"></tbody></table></div>';
+    }
+    var body='<div class="fl-body b2b-fl-body"><div class="b2b-tables-row">'
+      +_b2bSplitBlock('Agencias afiliadas','b2b-splitL-'+idx,'b2b-splitActL-'+idx,'b2b-splitDeltaL-'+idx)
+      +_b2bSplitBlock('API','b2b-splitR-'+idx,'b2b-splitActR-'+idx,'b2b-splitDeltaR-'+idx)
+      +'</div></div>';
+    return '<div class="flow-slide">'+flHead_(m.label+' ('+m.unit+') — '+dtLbl2, flLogo_())+body+'</div>';
+  }
   return '<div class="flow-slide"></div>';
 }
 
@@ -4110,6 +4249,7 @@ function flowBuild_(){
   flowPopulateTiers_();
   var cs=document.getElementById('flow-comp'); if(cs) cs.value=_flowComp;
   flowRenderWeeklyTables_();
+  flowRenderB2BSlides_();
   _flowBuilt=true;
   flowSetupObserver_();
   return true;
@@ -4132,6 +4272,490 @@ function flowRenderWeeklyTables_(){
     }
   });
 }
+
+// ════════════════════════════════════════════════════════════════════════
+// B2B — port nativo del Daily B2B Tracker a Flow Semanal
+// ════════════════════════════════════════════════════════════════════════
+// Port (no reescritura) de la lógica de tracker.html (constantes, helpers de
+// datos/formato, charts, pivots, tablas, split Agencias-vs-API y Status KRs)
+// para que las 19 slides de su modo "▶ Slides" (SLIDE_ORDER) sean nativas del
+// deck scrolleable de Flow Semanal, no un iframe aparte. Prefijo B2B_TRK_/trk
+// en todo para no pisar identificadores existentes de dashboard.html (varios
+// nombres de tracker.html, como METRICS/render/toK, son genéricos y ya están
+// usados acá con otro significado). A diferencia de tracker.html (que lee
+// filtros de selects en el DOM), acá los filtros son fijos por slide: Meta =
+// Budget, Canal = Todos, Mes = mes actual (mismo default que tracker.html usa
+// al abrir por primera vez, ver initDashboard() ahí).
+var B2B_TRK_METRICS = {
+  nr:  { label:'Net Revenues',             field:'net_revenue',    unit:'$K', inMillions:false },
+  gb:  { label:'Gross Bookings',           field:'gross_bookings', unit:'$M', inMillions:true  },
+  fvm: { label:'Financial Variable Margin',field:'fvm',            unit:'$K', inMillions:false }
+};
+var B2B_TRK_TAB_DATA = {
+  nr_ri:  { metric:'nr',  dateType:'ri', label:'NR (Recognition Date)' },
+  gb_ri:  { metric:'gb',  dateType:'ri', label:'GB (Recognition Date)' },
+  fvm_ri: { metric:'fvm', dateType:'ri', label:'FVM (Recognition Date)' },
+  nr_gd:  { metric:'nr',  dateType:'gd', label:'NR (Gestion Date)' },
+  gb_gd:  { metric:'gb',  dateType:'gd', label:'GB (Gestion Date)' },
+  fvm_gd: { metric:'fvm', dateType:'gd', label:'FVM (Gestion Date)' }
+};
+var B2B_TRK_COUNTRY_GROUPS = {
+  Brasil:['Brasil'], Mexico:['Mexico'], Globales:['Other Countries'], Colombia:['Colombia'],
+  Argentina:['Argentina'], ROW:['Peru','Ecuador','Chile','Uruguay','Paraguay'],
+  Chile:['Chile'], Peru:['Peru'], Ecuador:['Ecuador'], Uruguay:['Uruguay'], Paraguay:['Paraguay']
+};
+var B2B_TRK_MARKET_GROUPS = {
+  CORE_MARKETS:['Brasil','Mexico','Globales'], NEW_MARKETS:['Colombia','Argentina','ROW']
+};
+var B2B_TRK_PRODUCT_GROUPS = {
+  Hotel:['Hotel','Hotels'], Air:['Air','Flights','Flight'], Packages:['Packages','Packages General','Package'],
+  ONA:['Cars','Vacation Rentals','D. Services','Dest. Serv.','Insurance','Financial Services','Cruises','Buses','Ancillaries','Bundles','Other']
+};
+var B2B_TRK_PRODUCT_GROUP_ORDER = ['Hotel','Air','Packages','ONA'];
+var B2B_TRK_MONTH_NAMES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+var B2B_TRK_AG_GROUPS = [
+  { label:'Brasil', keys:['Brasil'] }, { label:'Mexico', keys:['Mexico'] }, { label:'Argentina', keys:['Argentina'] },
+  { label:'Colombia', keys:['Colombia'] }, { label:'Chile', keys:['Chile'] },
+  { label:'Globales', keys:['Other Countries','Usa','Panama','España'] }, { label:'Peru', keys:['Peru'] },
+  { label:'Ecua / Uru / Par', keys:['Ecuador','Uruguay','Paraguay'] }
+];
+var B2B_TRK_NR_CORE_DETAIL = [
+  { name:'Brasil', pais:['Brasil'] }, { name:'Mexico', pais:['Mexico'] }, { name:'Globales', pais:['Other Countries'] }
+];
+var B2B_TRK_NR_NEW_DETAIL = [
+  { name:'Argentina', pais:['Argentina'] }, { name:'Colombia', pais:['Colombia'] }, { name:'Chile', pais:['Chile'] },
+  { name:'Peru', pais:['Peru'] }, { name:'Ecua/Uru/Par', pais:['Ecuador','Uruguay','Paraguay'] }
+];
+var B2B_TRK_FVM_DETAIL = B2B_TRK_NR_CORE_DETAIL.concat(B2B_TRK_NR_NEW_DETAIL);
+// Parches temporales de KR1 (Agencies L4W) — mismo valor que tracker.html, ver
+// nota ahí ("parche temporal — quitar cuando se pida").
+var _B2B_KR1_BUD_PATCH = { Brasil:4870, Mexico:2108, Argentina:577, Colombia:1283, Chile:206, Globales:164, Peru:207, 'Ecua / Uru / Par':36 };
+var _B2B_KR1_TOTAL_BUD = 9282;
+
+// ── Data access (sobre _rawB2B, ya expandido por expandCompact_ al cargar
+// la página — a diferencia de tracker.html no hace falta unpack()) ──
+function trkGetActuals_(dateType){ return (_rawB2B && (dateType==='ri'?_rawB2B.b2b_ri:_rawB2B.b2b_gd)) || []; }
+function trkGetActualsLY_(dateType){ return (_rawB2B && (dateType==='ri'?_rawB2B.b2b_ri_ly:_rawB2B.b2b_gd_ly)) || []; }
+function trkGetGoal_(dateType, goalType){
+  if(!_rawB2B) return [];
+  if(goalType==='rr') return (dateType==='ri'?_rawB2B.b2b_runrate_ri:_rawB2B.b2b_runrate_gd) || [];
+  return (dateType==='ri'?_rawB2B.b2b_budget_ri:_rawB2B.b2b_budget_gd) || [];
+}
+function trkCurYM_(){ var d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
+function trkGetPeriodBounds_(monthFilter){
+  var meta=_rawB2B.meta;
+  if(monthFilter){
+    var from=monthFilter+'-01';
+    var p=monthFilter.split('-').map(Number), lastDay=new Date(p[0],p[1],0).getDate();
+    var monthEnd=monthFilter+'-'+String(lastDay).padStart(2,'0');
+    var cutoff=(monthEnd<meta.last_actuals_date)?monthEnd:meta.last_actuals_date;
+    return { from:from, cutoff:cutoff, goalFrom:from, goalCutoff:monthEnd };
+  }
+  var year=meta.last_actuals_date.substring(0,4);
+  return { from:meta.actuals_from, cutoff:meta.last_actuals_date, goalFrom:meta.actuals_from, goalCutoff:year+'-12-31' };
+}
+function trkGetCountriesForGroup_(cg){
+  if(B2B_TRK_MARKET_GROUPS[cg]){
+    var out=[]; B2B_TRK_MARKET_GROUPS[cg].forEach(function(g){ out=out.concat(B2B_TRK_COUNTRY_GROUPS[g]||[]); }); return out;
+  }
+  return B2B_TRK_COUNTRY_GROUPS[cg] || [];
+}
+function trkFilterByPeriod_(rows, channel, cg, from, cutoff){
+  return rows.filter(function(r){
+    if(channel && r.parent_channel!==channel) return false;
+    if(cg){
+      var countries=trkGetCountriesForGroup_(cg);
+      if(!countries.some(function(c){ return (r.pais||'').toLowerCase()===c.toLowerCase(); })) return false;
+    }
+    return !(r.fecha<from || r.fecha>cutoff);
+  });
+}
+function trkShiftYear_(dateStr, delta){ return String(parseInt(dateStr.substring(0,4),10)+delta)+dateStr.substring(4); }
+function trkCountryGroupFor_(pais){
+  var p=(pais||'').toLowerCase();
+  for(var g in B2B_TRK_COUNTRY_GROUPS){ if(B2B_TRK_COUNTRY_GROUPS[g].some(function(c){return c.toLowerCase()===p;})) return g; }
+  return null;
+}
+function trkProductGroupFor_(prod){
+  var p=(prod||'').toLowerCase();
+  for(var g in B2B_TRK_PRODUCT_GROUPS){ if(B2B_TRK_PRODUCT_GROUPS[g].some(function(x){return x.toLowerCase()===p;})) return g; }
+  return 'ONA';
+}
+function trkFormatYM_(ym){ var p=ym.split('-'); return B2B_TRK_MONTH_NAMES[parseInt(p[1],10)-1]+' '+p[0]; }
+
+// ── Formato / color (copiados tal cual de tracker.html) ──
+function trkToK_(v){ return (v||0)/1e3; }
+function trkToM_(v){ return (v||0)/1e6; }
+function trkFmtKc_(v){ return (v===null||v===undefined||isNaN(v))?'—':Math.round(v).toLocaleString('es-AR')+' K'; }
+function trkFmtMc_(v){ return (v===null||v===undefined||isNaN(v))?'—':v.toFixed(2)+' M'; }
+function trkFmtPct_(v){ return (v===null||v===undefined||isNaN(v)||!isFinite(v))?'—':(v*100).toFixed(0)+'%'; }
+function trkYoyIcon_(v){
+  if(v===null||v===undefined||isNaN(v)||!isFinite(v)) return '—';
+  var pct=v*100, icon=(pct<0)?'▼':(pct<10)?'▶':'▲';
+  return icon+' '+Math.abs(pct).toFixed(0)+'%';
+}
+function trkFmtKRVal_(val, unit){
+  if(val===null||val===undefined||isNaN(val)) return '—';
+  if(unit==='int') return Math.round(val).toLocaleString('es-AR');
+  if(unit==='$M')  return '$ '+val.toFixed(2)+' M';
+  return String(val);
+}
+function trkCumplColor_(pct){
+  if(pct===null||pct===undefined||!isFinite(pct)||isNaN(pct)) return '';
+  if(pct<0.80) return 'cell-red'; if(pct<1.00) return 'cell-yellow'; return 'cell-green';
+}
+function trkCumplRatio_(act, goal){
+  if(act===null||act===undefined||!goal) return null;
+  return 1+(act-goal)/Math.abs(goal);
+}
+function trkDeltaColor_(d){ return d<0?'cell-neg':(d>0?'cell-pos':''); }
+function trkYoyColor_(v){ return (v===null||v===undefined||isNaN(v)||!isFinite(v))?'':(v<0?'cell-neg':'cell-pos'); }
+
+// ── Chart data + render ──
+function trkBuildChartData_(dateType, metricField, channel, cg, monthFilter, goalType, inMillions){
+  var b=trkGetPeriodBounds_(monthFilter);
+  var actuals=trkGetActuals_(dateType), goalRows=trkGetGoal_(dateType, goalType);
+  var filtAct=trkFilterByPeriod_(actuals, channel, cg, b.from, b.cutoff).filter(function(r){return trkCountryGroupFor_(r.pais)!==null;});
+  var filtGoal=trkFilterByPeriod_(goalRows, channel, cg, b.goalFrom, b.goalCutoff).filter(function(r){return trkCountryGroupFor_(r.pais)!==null;});
+  var actByDate={}, goalByDate={};
+  filtAct.forEach(function(r){ actByDate[r.fecha]=(actByDate[r.fecha]||0)+(r[metricField]||0); });
+  filtGoal.forEach(function(r){ goalByDate[r.fecha]=(goalByDate[r.fecha]||0)+(r[metricField]||0); });
+  var allDates={}; Object.keys(actByDate).forEach(function(d){allDates[d]=1;}); Object.keys(goalByDate).forEach(function(d){allDates[d]=1;});
+  allDates=Object.keys(allDates).sort();
+  if(!allDates.length) return null;
+  var conv=inMillions?trkToM_:trkToK_;
+  return {
+    labels:allDates,
+    actuals:allDates.map(function(d){return conv(actByDate[d]||0);}),
+    goal:allDates.map(function(d){return goalByDate[d]!==undefined?conv(goalByDate[d]):null;})
+  };
+}
+function trkRenderChart_(idx, tab, channel, cg, monthFilter, goalType, goalLabel){
+  var td=B2B_TRK_TAB_DATA[tab], m=B2B_TRK_METRICS[td.metric];
+  var dtLbl=td.dateType==='ri'?'Recognition Date':'Gestion Date';
+  var titleEl=document.getElementById('b2b-chartTitle-'+idx); if(titleEl) titleEl.textContent=m.label+'  —  '+dtLbl;
+  var filterParts=['Meta: '+goalLabel];
+  if(channel) filterParts.push('Canal: '+channel);
+  if(cg) filterParts.push('País: '+cg);
+  filterParts.push(monthFilter?trkFormatYM_(monthFilter):'Año completo');
+  var subEl=document.getElementById('b2b-chartSubtitle-'+idx); if(subEl) subEl.textContent=filterParts.join('  •  ');
+  var unitLabel=m.inMillions?'$M':'$K';
+  var hA=document.getElementById('b2b-pivotHeadA-'+idx); if(hA) hA.innerHTML='Actuals<br>MTD ('+unitLabel+')';
+  var hD=document.getElementById('b2b-pivotHeadD-'+idx); if(hD) hD.innerHTML='Delta<br>('+unitLabel+')';
+
+  var data=trkBuildChartData_(td.dateType, m.field, channel, cg, monthFilter, goalType, m.inMillions);
+  var canvasEl=document.getElementById('b2b-chart-'+idx);
+  if(!canvasEl) return;
+  var chartKey='b2b'+idx;
+  if(_flowCharts[chartKey]){ try{ _flowCharts[chartKey].destroy(); }catch(e){} delete _flowCharts[chartKey]; }
+  if(!data){ return; }
+
+  var tickLabels=data.labels.map(function(d,i){
+    if(i%7===0){ var p=d.split('-'); return p[2]+'/'+p[1]; }
+    return '';
+  });
+  var dlFormatter=m.inMillions
+    ? function(v){ return (v===null||v===undefined)?'':v.toFixed(1)+' M'; }
+    : function(v){ return (v===null||v===undefined)?'':Math.round(v).toLocaleString('es-AR')+' K'; };
+  var yTickFmt=m.inMillions
+    ? function(v){ return v.toFixed(1)+' M'; }
+    : function(v){ return '$ '+Math.round(v).toLocaleString('es-AR')+' K'; };
+  var tooltipFmt=function(item){
+    var v=item.raw;
+    if(v===null||v===undefined) return item.dataset.label+': —';
+    return m.inMillions ? item.dataset.label+': '+v.toFixed(2)+' M' : item.dataset.label+': $ '+Math.round(v).toLocaleString('es-AR')+' K';
+  };
+  var ch=new Chart(canvasEl.getContext('2d'), {
+    plugins:[ChartDataLabels],
+    data:{ labels:tickLabels, datasets:[
+      { type:'bar', label:goalLabel, data:data.goal, backgroundColor:'rgba(180,180,180,.55)', borderColor:'rgba(150,150,150,.8)', borderWidth:0, borderRadius:2, order:2, yAxisID:'y',
+        datalabels:{ display:'auto', anchor:'end', align:'top', formatter:dlFormatter, font:{size:10,weight:'600'}, color:'#9ca3af', padding:{bottom:2} } },
+      { type:'bar', label:m.label, data:data.actuals, backgroundColor:'rgba(85,15,237,.75)', borderColor:'rgba(85,15,237,1)', borderWidth:0, borderRadius:2, order:1, yAxisID:'y',
+        datalabels:{ display:function(c){ var v=c.dataset.data[c.dataIndex]; return v!==null&&v!==undefined&&v!==0; }, anchor:'end', align:'top', formatter:dlFormatter, font:{size:10,weight:'600'}, color:'#550FED', padding:{bottom:2} } }
+    ]},
+    options:{ responsive:true, maintainAspectRatio:false, interaction:{mode:'index',intersect:false}, layout:{padding:{top:20}},
+      plugins:{ legend:{labels:{color:'#6b7280',font:{size:11},boxWidth:12}},
+        tooltip:{ backgroundColor:'#fff', borderColor:'#e5e7eb', borderWidth:1, titleColor:'#1f2937', bodyColor:'#4b5563',
+          callbacks:{ title:function(items){ return data.labels[items[0].dataIndex]; }, label:tooltipFmt } },
+        datalabels:{} },
+      scales:{
+        x:{ ticks:{color:'#9ca3af',font:{size:10},maxRotation:45,minRotation:0}, grid:{color:'rgba(0,0,0,.05)'} },
+        y:{ ticks:{color:'#9ca3af',font:{size:10},callback:yTickFmt}, grid:{color:'rgba(0,0,0,.06)'} }
+      }
+    }
+  });
+  _flowCharts[chartKey]=ch;
+}
+
+// ── Pivot data + render ──
+function trkBuildPivotData_(dateType, metricField, channel, cg, monthFilter, goalType){
+  var b=trkGetPeriodBounds_(monthFilter);
+  var lyFrom=trkShiftYear_(b.from,-1), lyCutoff=trkShiftYear_(b.cutoff,-1);
+  var actuals=trkFilterByPeriod_(trkGetActuals_(dateType), channel, cg, b.from, b.cutoff);
+  var goalAll=trkFilterByPeriod_(trkGetGoal_(dateType, goalType), channel, cg, b.from, b.cutoff);
+  var actualsLY=trkFilterByPeriod_(trkGetActualsLY_(dateType), channel, cg, lyFrom, lyCutoff);
+  var groups={};
+  var countryOrder=cg?(B2B_TRK_MARKET_GROUPS[cg]||[cg]):Object.keys(B2B_TRK_COUNTRY_GROUPS);
+  countryOrder.forEach(function(g){ groups[g]={}; });
+  function accum(rows, isGoal, isLY){
+    rows.forEach(function(r){
+      var g=(B2B_TRK_MARKET_GROUPS[cg]) ? trkCountryGroupFor_(r.pais) : (cg || trkCountryGroupFor_(r.pais));
+      if(!g || !groups[g]) return;
+      var rawProd=(isGoal ? r.producto : r.producto_original) || 'Other';
+      var pg=trkProductGroupFor_(rawProd);
+      groups[g][pg]=groups[g][pg]||{};
+      groups[g][pg][rawProd]=groups[g][pg][rawProd]||{act:0,goal:0,ly:0};
+      var val=r[metricField]||0;
+      if(isLY) groups[g][pg][rawProd].ly+=val;
+      else if(isGoal) groups[g][pg][rawProd].goal+=val;
+      else groups[g][pg][rawProd].act+=val;
+    });
+  }
+  accum(actuals,false,false); accum(goalAll,true,false); accum(actualsLY,false,true);
+  return groups;
+}
+function trkRenderTableBody_(bodyEl, groups, inMillions, cg){
+  if(!bodyEl) return;
+  var conv=inMillions?trkToM_:trkToK_, fmt=inMillions?trkFmtMc_:trkFmtKc_;
+  bodyEl.innerHTML='';
+  var totalAct=0, totalGoal=0, totalLY=0;
+  var countryOrder=cg?(B2B_TRK_MARKET_GROUPS[cg]||[cg]):Object.keys(B2B_TRK_COUNTRY_GROUPS);
+  countryOrder.forEach(function(countryName){
+    var pgMap=groups[countryName]||{};
+    var ctAct=0, ctGoal=0, ctLY=0;
+    B2B_TRK_PRODUCT_GROUP_ORDER.forEach(function(pg){
+      Object.keys(pgMap[pg]||{}).forEach(function(k){ var e=pgMap[pg][k]; ctAct+=e.act; ctGoal+=e.goal; ctLY+=e.ly; });
+    });
+    if(ctAct===0 && ctGoal===0 && !cg) return;
+    totalAct+=ctAct; totalGoal+=ctGoal; totalLY+=ctLY;
+    var ctDelta=conv(ctAct-ctGoal), ctCumpl=trkCumplRatio_(ctAct,ctGoal), ctYoY=ctLY?(ctAct/ctLY-1):null;
+    var trC=document.createElement('tr'); trC.className='row-country';
+    trC.innerHTML='<td title="'+countryName+'">'+countryName+'</td><td>'+fmt(conv(ctAct))+'</td>'
+      +'<td class="'+trkDeltaColor_(ctDelta)+'">'+fmt(ctDelta)+'</td>'
+      +'<td class="'+trkCumplColor_(ctCumpl)+'">'+trkFmtPct_(ctCumpl)+'</td>'
+      +'<td class="'+trkYoyColor_(ctYoY)+'">'+trkYoyIcon_(ctYoY)+'</td>';
+    bodyEl.appendChild(trC);
+    B2B_TRK_PRODUCT_GROUP_ORDER.forEach(function(pgName){
+      var prods=pgMap[pgName]||{};
+      var pgAct=0, pgGoal=0, pgLY=0;
+      Object.keys(prods).forEach(function(k){ var e=prods[k]; pgAct+=e.act; pgGoal+=e.goal; pgLY+=e.ly; });
+      if(pgAct===0 && pgGoal===0) return;
+      var pgDelta=conv(pgAct-pgGoal), pgCumpl=trkCumplRatio_(pgAct,pgGoal), pgYoY=pgLY?(pgAct/pgLY-1):null;
+      var trPG=document.createElement('tr'); trPG.className='row-product-group';
+      trPG.innerHTML='<td title="'+pgName+'">'+pgName+'</td><td>'+fmt(conv(pgAct))+'</td>'
+        +'<td class="'+trkDeltaColor_(pgDelta)+'">'+fmt(pgDelta)+'</td>'
+        +'<td class="'+trkCumplColor_(pgCumpl)+'">'+trkFmtPct_(pgCumpl)+'</td>'
+        +'<td class="'+trkYoyColor_(pgYoY)+'">'+trkYoyIcon_(pgYoY)+'</td>';
+      bodyEl.appendChild(trPG);
+      Object.keys(prods).sort(function(a,b2){return a.localeCompare(b2);}).forEach(function(prod){
+        var e=prods[prod], delta=conv(e.act-e.goal), cumpl=trkCumplRatio_(e.act,e.goal), yoy=e.ly?(e.act/e.ly-1):null;
+        var trP=document.createElement('tr'); trP.className='row-product';
+        trP.innerHTML='<td title="'+prod+'">'+prod+'</td><td>'+fmt(conv(e.act))+'</td>'
+          +'<td class="'+trkDeltaColor_(delta)+'">'+fmt(delta)+'</td>'
+          +'<td class="'+trkCumplColor_(cumpl)+'">'+trkFmtPct_(cumpl)+'</td>'
+          +'<td class="'+trkYoyColor_(yoy)+'">'+trkYoyIcon_(yoy)+'</td>';
+        bodyEl.appendChild(trP);
+      });
+    });
+  });
+  var tDelta=conv(totalAct-totalGoal), tCumpl=trkCumplRatio_(totalAct,totalGoal), tYoY=totalLY?(totalAct/totalLY-1):null;
+  var trT=document.createElement('tr'); trT.className='row-total';
+  trT.innerHTML='<td>TOTAL</td><td>'+fmt(conv(totalAct))+'</td>'
+    +'<td class="'+trkDeltaColor_(tDelta)+'">'+fmt(tDelta)+'</td>'
+    +'<td class="'+trkCumplColor_(tCumpl)+'">'+trkFmtPct_(tCumpl)+'</td>'
+    +'<td class="'+trkYoyColor_(tYoY)+'">'+trkYoyIcon_(tYoY)+'</td>';
+  bodyEl.appendChild(trT);
+}
+function trkRenderPivotForChart_(idx, tab, channel, cg, monthFilter, goalType){
+  var td=B2B_TRK_TAB_DATA[tab], m=B2B_TRK_METRICS[td.metric];
+  var groups=trkBuildPivotData_(td.dateType, m.field, channel, cg, monthFilter, goalType);
+  trkRenderTableBody_(document.getElementById('b2b-pivotBody-'+idx), groups, m.inMillions, cg);
+}
+function trkRenderTablesView_(idx, dateType, channel, cg, monthFilter, goalType){
+  ['gb','nr','fvm'].forEach(function(mk){
+    var m=B2B_TRK_METRICS[mk];
+    var groups=trkBuildPivotData_(dateType, m.field, channel, cg, monthFilter, goalType);
+    var tbodyId = mk==='gb' ? 'b2b-pivotGB-'+idx : mk==='nr' ? 'b2b-pivotNR-'+idx : 'b2b-pivotFVM-'+idx;
+    trkRenderTableBody_(document.getElementById(tbodyId), groups, m.inMillions, cg);
+  });
+}
+function trkRenderSplitSlide_(idx, metric, dateType, cg, monthFilter, goalType){
+  var m=B2B_TRK_METRICS[metric];
+  var gL=trkBuildPivotData_(dateType, m.field, 'Agencias afiliadas', cg, monthFilter, goalType);
+  var gR=trkBuildPivotData_(dateType, m.field, 'API', cg, monthFilter, goalType);
+  trkRenderTableBody_(document.getElementById('b2b-splitL-'+idx), gL, m.inMillions, cg);
+  trkRenderTableBody_(document.getElementById('b2b-splitR-'+idx), gR, m.inMillions, cg);
+  var actHdr='Actuals<br>MTD ('+m.unit+')', deltaHdr='Delta<br>('+m.unit+')';
+  var elA=document.getElementById('b2b-splitActL-'+idx); if(elA) elA.innerHTML=actHdr;
+  var elB=document.getElementById('b2b-splitActR-'+idx); if(elB) elB.innerHTML=actHdr;
+  var elC=document.getElementById('b2b-splitDeltaL-'+idx); if(elC) elC.innerHTML=deltaHdr;
+  var elD=document.getElementById('b2b-splitDeltaR-'+idx); if(elD) elD.innerHTML=deltaHdr;
+}
+
+// ── Status KRs (usa _flowAgenciasData/_flowAirNRData, ver flowFetchB2BExtras_) ──
+function trkComputeMetricMTD_(countryGroupNames, metricField, monthFilter){
+  var b=trkGetPeriodBounds_(monthFilter||trkCurYM_());
+  var actual=0, budget=0;
+  countryGroupNames.forEach(function(g){
+    trkFilterByPeriod_(trkGetActuals_('ri'), null, g, b.from, b.cutoff).forEach(function(r){ actual+=(r[metricField]||0); });
+    trkFilterByPeriod_(trkGetGoal_('ri','budget'), null, g, b.from, b.cutoff).forEach(function(r){ budget+=(r[metricField]||0); });
+  });
+  return { actual:actual, budget:budget };
+}
+function trkRenderStatusKRs_(idx){
+  var krYM=trkCurYM_();
+  var ag=_flowAgenciasData, air=_flowAirNRData;
+
+  var metaEl=document.getElementById('b2b-krsMeta-'+idx);
+  if(metaEl){
+    metaEl.innerHTML='';
+    var bounds=trkGetPeriodBounds_(krYM);
+    var rangeSpan=document.createElement('span'); rangeSpan.className='b2b-kr-data-range';
+    rangeSpan.innerHTML='&#128197; Datos: <strong>'+bounds.from+'</strong> &rarr; <strong>'+bounds.cutoff+'</strong>';
+    metaEl.appendChild(rangeSpan);
+    if(ag && ag.meta){
+      var agSpan=document.createElement('span'); agSpan.className='b2b-kr-data-range b2b-kr-data-range-sec';
+      agSpan.innerHTML='&#128337; KR1 Agencias: <strong>'+ag.meta.fecha_ini+'</strong> &rarr; <strong>'+ag.meta.fecha_fin+'</strong>';
+      metaEl.appendChild(agSpan);
+    }
+  }
+
+  // KR1: Agencies L4W
+  var kr1Act=null, kr1Bud=null;
+  if(ag && ag.data){
+    var kr1Countries=['Brasil','Mexico','Argentina','Colombia','Chile','Globales','Peru','Ecua / Uru / Par'];
+    var sumAct=0, sumBud=0;
+    kr1Countries.forEach(function(c){
+      var d=ag.data[c]; if(!d) return;
+      sumAct += (ag.reales && ag.reales[c]!==undefined) ? ag.reales[c] : (d.Total||0);
+      var bVal=(_B2B_KR1_BUD_PATCH[c]!==undefined) ? _B2B_KR1_BUD_PATCH[c] : (ag.budget && ag.budget[c]);
+      if(bVal!==null && bVal!==undefined && !isNaN(bVal)) sumBud+=bVal;
+    });
+    kr1Act=(ag.reales && ag.reales.TOTAL!==undefined) ? ag.reales.TOTAL : sumAct;
+    kr1Bud=(_B2B_KR1_TOTAL_BUD!==undefined) ? _B2B_KR1_TOTAL_BUD : (sumBud>0?sumBud:null);
+  }
+  // KR2/KR3: NR Core/New Markets
+  var kr2=trkComputeMetricMTD_(['Brasil','Mexico','Globales'],'net_revenue',krYM);
+  var kr3=trkComputeMetricMTD_(['Argentina','Colombia','ROW'],'net_revenue',krYM);
+  // KR4: Air NR
+  var kr4Act=null, kr4Bud=null;
+  if(air){ kr4Act=air.actual||0; kr4Bud=air.budget||0; }
+  // KR5: FVM MTD todos los países (extra, no entra al overall)
+  var kr5=trkComputeMetricMTD_(B2B_TRK_MARKET_GROUPS.CORE_MARKETS.concat(B2B_TRK_MARKET_GROUPS.NEW_MARKETS),'fvm',krYM);
+
+  function cumpl(act,bud){ return (act===null||bud===null||!bud) ? null : 1+(act-bud)/Math.abs(bud); }
+  function cap(c){ return c!==null ? Math.min(c,1.30) : null; }
+  var kr1c=cap(cumpl(kr1Act,kr1Bud)), kr2c=cap(cumpl(kr2.actual,kr2.budget)), kr3c=cap(cumpl(kr3.actual,kr3.budget));
+  var kr4c=air ? cap(cumpl(kr4Act,kr4Bud)) : null;
+  var kr5c=cap(cumpl(kr5.actual,kr5.budget));
+  var weights=[{c:kr1c,w:.20},{c:kr2c,w:.40},{c:kr3c,w:.20},{c:kr4c,w:.20}];
+  var wSum=0, wCumpl=0;
+  weights.forEach(function(k){ if(k.c!==null){ wSum+=k.w; wCumpl+=k.c*k.w; } });
+  var overall=wSum>0 ? Math.min(wCumpl/wSum,1.30) : null;
+
+  var tbody=document.getElementById('b2b-krsBody-'+idx);
+  if(tbody){
+    tbody.innerHTML='';
+    function row(name,peso,act,bud,c,unit,extra){
+      var tr=document.createElement('tr'); tr.className=extra?'row-kr-extra':'';
+      tr.innerHTML='<td style="text-align:left">'+name+'</td>'
+        +'<td style="color:#6b7280;font-size:.78rem">'+(peso!==null?peso:'—')+'</td>'
+        +'<td>'+trkFmtKRVal_(act,unit)+'</td><td>'+trkFmtKRVal_(bud,unit)+'</td>'
+        +'<td class="'+trkCumplColor_(c)+'">'+(c===null?'—':(c*100).toFixed(0)+'%')+'</td>';
+      return tr;
+    }
+    tbody.appendChild(row('Agencies L4W','20%',kr1Act,kr1Bud,kr1c,'int',false));
+    tbody.appendChild(row('NR Core Markets $M','40%', (kr2.actual>0||kr2.budget>0)?trkToM_(kr2.actual):null, (kr2.actual>0||kr2.budget>0)?trkToM_(kr2.budget):null, kr2c,'$M',false));
+    tbody.appendChild(row('NR New Markets $M','20%', (kr3.actual>0||kr3.budget>0)?trkToM_(kr3.actual):null, (kr3.actual>0||kr3.budget>0)?trkToM_(kr3.budget):null, kr3c,'$M',false));
+    tbody.appendChild(row('Air Net Revenue $M','20%', air?(kr4Act!==null?trkToM_(kr4Act):null):null, air?(kr4Bud!==null?trkToM_(kr4Bud):null):null, kr4c,'$M', false));
+    tbody.appendChild(row('Financial Variable Margin $M', null, (kr5.actual!==0||kr5.budget!==0)?trkToM_(kr5.actual):null, (kr5.actual!==0||kr5.budget!==0)?trkToM_(kr5.budget):null, kr5c,'$M',true));
+    var trTotal=document.createElement('tr'); trTotal.className='row-kr-total';
+    trTotal.innerHTML='<td style="text-align:left">OVERALL (KR1–KR4)</td><td style="color:#6b7280;font-size:.78rem">100%</td>'
+      +'<td>—</td><td>—</td><td class="'+(overall!==null?trkCumplColor_(overall):'')+'">'+(overall!==null?(overall*100).toFixed(0)+'%':'—')+'</td>';
+    tbody.appendChild(trTotal);
+  }
+
+  // Detail boxes
+  var grid=document.getElementById('b2b-krsDetailGrid-'+idx);
+  if(grid){
+    grid.innerHTML='';
+    function detailBox(title, rows, unit){
+      var box=document.createElement('div'); box.className='b2b-kr-detail-box';
+      var rowsHtml=rows.map(function(r){
+        var c=trkCumplRatio_(r.actual,r.budget);
+        return '<tr><td style="text-align:left">'+r.name+'</td><td>'+trkFmtKRVal_(r.actual,unit)+'</td><td>'+trkFmtKRVal_(r.budget,unit)+'</td>'
+          +'<td class="'+trkCumplColor_(c)+'">'+(c!==null?(c*100).toFixed(0)+'%':'—')+'</td></tr>';
+      }).join('');
+      var totalAct=0, totalBud=0, hasAct=false, hasBud=false;
+      rows.forEach(function(r){
+        if(r.actual!==null && r.actual!==undefined && !isNaN(r.actual)){ totalAct+=r.actual; hasAct=true; }
+        if(r.budget!==null && r.budget!==undefined && !isNaN(r.budget)){ totalBud+=r.budget; hasBud=true; }
+      });
+      var tc=(hasBud && totalBud) ? Math.min(trkCumplRatio_(totalAct,totalBud),1.30) : null;
+      var totalRow='<tr class="kr-detail-total"><td style="text-align:left;font-weight:700">TOTAL</td>'
+        +'<td><strong>'+(hasAct?trkFmtKRVal_(totalAct,unit):'—')+'</strong></td>'
+        +'<td><strong>'+(hasBud?trkFmtKRVal_(totalBud,unit):'—')+'</strong></td>'
+        +'<td class="'+trkCumplColor_(tc)+'"><strong>'+(tc!==null?(tc*100).toFixed(0)+'%':'—')+'</strong></td></tr>';
+      box.innerHTML='<div class="b2b-kr-detail-header"><span class="b2b-kr-num-badge">'+title+'</span></div>'
+        +'<table class="b2b-pivot-table b2b-kr-detail-table"><thead><tr><th style="text-align:left;min-width:90px">País</th><th>Actual</th><th>Budget</th><th>Cumpl.</th></tr></thead>'
+        +'<tbody>'+totalRow+rowsHtml+'</tbody></table>';
+      return box;
+    }
+    var nrCoreRows=B2B_TRK_NR_CORE_DETAIL.map(function(d){ var r=trkComputeMetricForPaisList_(d.pais,'net_revenue',krYM); return {name:d.name,actual:trkToM_(r.actual),budget:trkToM_(r.budget)}; });
+    var nrNewRows=B2B_TRK_NR_NEW_DETAIL.map(function(d){ var r=trkComputeMetricForPaisList_(d.pais,'net_revenue',krYM); return {name:d.name,actual:trkToM_(r.actual),budget:trkToM_(r.budget)}; });
+    var fvmRows=B2B_TRK_FVM_DETAIL.map(function(d){ var r=trkComputeMetricForPaisList_(d.pais,'fvm',krYM); return {name:d.name,actual:trkToM_(r.actual),budget:trkToM_(r.budget)}; });
+    grid.appendChild(detailBox('KR2 — NR Core Markets', nrCoreRows, '$M'));
+    grid.appendChild(detailBox('KR3 — NR New Markets', nrNewRows, '$M'));
+    grid.appendChild(detailBox('KR5 — FVM por país', fvmRows, '$M'));
+  }
+}
+function trkComputeMetricForPaisList_(paisList, metricField, monthFilter){
+  var b=trkGetPeriodBounds_(monthFilter);
+  var paisLower=paisList.map(function(p){return p.toLowerCase();});
+  function matchRows(rows){
+    return rows.filter(function(r){
+      if(r.fecha<b.from || r.fecha>b.cutoff) return false;
+      return paisLower.indexOf((r.pais||'').toLowerCase())!==-1;
+    });
+  }
+  var actual=0, budget=0;
+  matchRows(trkGetActuals_('ri')).forEach(function(r){ actual+=(r[metricField]||0); });
+  matchRows(trkGetGoal_('ri','budget')).forEach(function(r){ budget+=(r[metricField]||0); });
+  return { actual:actual, budget:budget };
+}
+
+// ── Fetch de datos extra (agencias OKR + Air NR) necesarios solo para el
+// slide "Status KRs" — _rawB2B ya se precarga en paralelo al abrir la página
+// (ver arriba, getRawB2B()); esto son 2 fetches nuevos, gateados igual que
+// Weekly (_flowWeeklyReady) desde flowOpen_(). ──
+var _flowB2BReady=false, _flowAgenciasData=null, _flowAirNRData=null, _flowB2BRetries=0;
+function flowFetchB2BExtras_(cb){
+  var pending=2;
+  function done(){ if(--pending<=0) cb(); }
+  google.script.run
+    .withSuccessHandler(function(d){ _flowAgenciasData=d; done(); })
+    .withFailureHandler(function(e){ console.error('[flow] getAgenciasOKR falló:', e); _flowAgenciasData=null; done(); })
+    .getAgenciasOKR();
+  google.script.run
+    .withSuccessHandler(function(d){ _flowAirNRData=d; done(); })
+    .withFailureHandler(function(e){ console.error('[flow] getAirNRData falló:', e); _flowAirNRData=null; done(); })
+    .getAirNRData();
+}
+// Pasada post-build (mismo patrón que flowRenderWeeklyTables_): llena charts/
+// tablas/KRs de las slides B2B una vez que su HTML placeholder ya está en el DOM.
+function flowRenderB2BSlides_(){
+  if(!_rawB2B || !_rawB2B.meta) return;
+  var goalType='budget', goalLabel='Budget';
+  var curYM=trkCurYM_();
+  var monthFilter=_rawB2B.meta.last_actuals_date && _rawB2B.meta.last_actuals_date.substring(0,7)===curYM ? curYM : null;
+  FLOW_DECK.forEach(function(def, idx){
+    if(def.kind==='b2b_krs'){ trkRenderStatusKRs_(idx); return; }
+    if(def.kind==='b2b_chart'){ trkRenderChart_(idx, def.tab, null, null, monthFilter, goalType, goalLabel); trkRenderPivotForChart_(idx, def.tab, null, null, monthFilter, goalType); return; }
+    if(def.kind==='b2b_tables'){ trkRenderTablesView_(idx, def.dateType, null, null, monthFilter, goalType); return; }
+    if(def.kind==='b2b_split'){ trkRenderSplitSlide_(idx, def.metric, def.dateType, null, monthFilter, goalType); return; }
+  });
+}
+
 // Contador de pagina tipo Google Slides — sigue el scroll y marca el slide actual.
 var _flowCurrentIdx=0, _flowIO=null;
 function flowSetupObserver_(){
@@ -4248,6 +4872,30 @@ function flowOpen_(){
     flowFetchWeeklyData_(function(){ _flowWeeklyReady=true; flowOpen_(); });
     return;
   }
+  if(!_rawB2B || !_rawB2B.meta){
+    // _rawB2B se precarga en paralelo al abrir la página (getRawB2B(), ver arriba)
+    // — puede no estar listo todavía; reintentar hasta que llegue, sin pegar un
+    // fetch nuevo (ya está en curso). Esa precarga tiene withFailureHandler silencioso
+    // (no vuelve a intentar sola) — si falla, acá quedaríamos esperando para siempre
+    // sin este tope: después de ~20 intentos (~8s) se corta el polling pasivo y se
+    // ofrece un reintento manual real (loadB2B(), que sí tiene showError).
+    _flowB2BRetries++;
+    if(_flowB2BRetries>20){
+      document.getElementById('flow-track').innerHTML=
+        '<div style="padding:60px;text-align:center;color:#6b6b85;font-size:16px">No se pudieron cargar los datos B2B.<br>'
+        +'<button onclick="_flowB2BRetries=0;loadB2B();flowOpen_()" style="margin-top:14px;padding:8px 18px;border-radius:8px;border:none;background:var(--primary);color:#fff;cursor:pointer;font-size:14px">Reintentar</button></div>';
+      return;
+    }
+    document.getElementById('flow-track').innerHTML='<div style="padding:60px;text-align:center;color:#6b6b85;font-size:16px">Cargando datos B2B…</div>';
+    setTimeout(flowOpen_, 400);
+    return;
+  }
+  _flowB2BRetries=0;
+  if(!_flowB2BReady){
+    document.getElementById('flow-track').innerHTML='<div style="padding:60px;text-align:center;color:#6b6b85;font-size:16px">Cargando KRs B2B…</div>';
+    flowFetchB2BExtras_(function(){ _flowB2BReady=true; flowOpen_(); });
+    return;
+  }
   if(!flowBuild_()){
     document.getElementById('flow-track').innerHTML='<div style="padding:60px;text-align:center;color:#6b6b85;font-size:16px">Cargando datos… reintentá en unos segundos.</div>';
     return;
@@ -4280,6 +4928,10 @@ var _flowExporting=false;
 // _captureAllSlides: el export combinado manda todo en un solo google.script.run,
 // que tiene límite de tamaño — con ~26 slides B2B2C + 17 B2B, PNG a scale:2 en
 // las dos tandas se vuelve pesado).
+// Todas las slides (B2B2C + Weekly + B2B, esta última portada nativa — ver
+// sección "B2B — port nativo a Flow Semanal" más abajo) viven como .flow-slide
+// dentro de #flow-track, así que un solo pase de captura las trae a todas —
+// ya no hace falta ningún puente con el iframe del Tracker.
 function _flowCaptureSlideImages_(opts){
   opts=opts||{};
   var slides=Array.prototype.slice.call(document.querySelectorAll('#flow-track .flow-slide'));
@@ -4293,54 +4945,6 @@ function _flowCaptureSlideImages_(opts){
       .catch(function(e){ console.error('[flow] no se pudo capturar un slide para Slides', e); return null; });
   })).then(function(images){ flowScale_(); return images; })
     .catch(function(e){ flowScale_(); throw e; });
-}
-// Dibuja una slide "divisora" (16:9, mismo formato {img,w,h} que una slide
-// capturada) para separar visualmente las secciones B2B2C / B2B dentro del
-// deck combinado — sin esto quedan 30+ slides mezcladas sin indicación de a
-// qué LOB pertenece cada una.
-function _flowMakeDividerImage_(title){
-  var canvas=document.createElement('canvas');
-  canvas.width=1280; canvas.height=720;
-  var ctx=canvas.getContext('2d');
-  ctx.fillStyle='#5626e9';
-  ctx.fillRect(0,0,canvas.width,canvas.height);
-  ctx.fillStyle='#ffffff';
-  ctx.font='bold 64px Arial, sans-serif';
-  ctx.textAlign='center';
-  ctx.textBaseline='middle';
-  ctx.fillText(title, canvas.width/2, canvas.height/2);
-  return { img:canvas.toDataURL('image/png'), w:canvas.width, h:canvas.height };
-}
-
-// Captura las slides del Daily B2B Tracker (iframe embebido, mismo origen) vía
-// su propia _captureAllSlides(). El iframe vive dentro de #view-tracker, oculto
-// con display:none mientras el tab activo es "flow" — con display:none el
-// navegador no le da layout al iframe (mide 0x0 adentro), así que hay que
-// mostrarlo temporalmente (fuera de pantalla, no oculto) para que Chart.js y
-// html2canvas midan bien el contenido.
-async function _flowCaptureTrackerSlides_(onProgress){
-  await _trackerEnsureLoaded_();
-  var vt=document.getElementById('view-tracker');
-  vt.style.display='block';
-  vt.style.position='fixed';
-  vt.style.left='-10000px';
-  vt.style.top='0';
-  try {
-    var win=document.getElementById('tracker-iframe').contentWindow;
-    if(!win || typeof win._captureAllSlides!=='function'){
-      throw new Error('El Daily B2B Tracker todavía no terminó de cargar — reintentá en unos segundos.');
-    }
-    return await win._captureAllSlides(onProgress, { jpeg:true });
-  } finally {
-    // No restaurar un display "capturado" antes de empezar: si el usuario
-    // navegó al tab Tracker en el medio (la captura tarda varios segundos),
-    // switchMainView() ya pisó estos estilos — hay que resolver el estado
-    // final según la vista activa AHORA, no según la de hace unos segundos.
-    vt.style.position='';
-    vt.style.left='';
-    vt.style.top='';
-    vt.style.display=(_activeView==='tracker') ? '' : 'none';
-  }
 }
 
 function _flowExportSlides(){
@@ -4366,28 +4970,20 @@ function _flowExportSlides(){
   // Esperar a que el rebuild + resize de charts (doble rAF en flowDrawAllCharts_)
   // termine de asentar el layout antes de capturar.
   requestAnimationFrame(function(){ requestAnimationFrame(function(){ requestAnimationFrame(function(){
-    setBtn('⏳ Capturando slides B2B2C…', true);
-    _flowCaptureSlideImages_({ jpeg:true }).then(function(b2bcImages){
-      setBtn('⏳ Capturando slides B2B…', true);
-      return _flowCaptureTrackerSlides_(function(done,total){
-        setBtn('⏳ Capturando slides B2B… '+done+'/'+total, true);
-      }).then(function(b2bImages){
-        var allImages=[_flowMakeDividerImage_('B2B2C')].concat(
-          b2bcImages, [_flowMakeDividerImage_('B2B')], b2bImages
-        );
-        setBtn('⏳ Generando deck…', true);
-        google.script.run
-          .withSuccessHandler(function(res){
-            reset();
-            if(res && res.url) window.open(res.url, '_blank');
-            else alert('El servidor no devolvió la URL del deck.');
-          })
-          .withFailureHandler(function(e){
-            reset();
-            alert('No se pudo generar el deck de Google Slides: ' + ((e&&e.message)||e));
-          })
-          .buildFlowSlidesDeck({ title:'Flow Semanal — B2B2C + B2B', slideImages:allImages });
-      });
+    setBtn('⏳ Capturando slides…', true);
+    _flowCaptureSlideImages_({ jpeg:true }).then(function(images){
+      setBtn('⏳ Generando deck…', true);
+      google.script.run
+        .withSuccessHandler(function(res){
+          reset();
+          if(res && res.url) window.open(res.url, '_blank');
+          else alert('El servidor no devolvió la URL del deck.');
+        })
+        .withFailureHandler(function(e){
+          reset();
+          alert('No se pudo generar el deck de Google Slides: ' + ((e&&e.message)||e));
+        })
+        .buildFlowSlidesDeck({ title:'Flow Semanal — B2B2C + B2B', slideImages:images });
     }).catch(function(e){
       reset();
       alert('No se pudieron capturar las slides: ' + (e.message||e));
