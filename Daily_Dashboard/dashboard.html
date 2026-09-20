@@ -2229,7 +2229,7 @@ function renderChart(key, canvasId, daily, viewDate, accentColor, gran, chartsMa
   var _datasets = [
     { type:'bar',  label:'Actual', data:vals,    backgroundColor:barColors, borderRadius:3, order:2, _showLabels:true },
     { type:'line', label:'LY',     data:lyVals,  borderColor:'#16a34a', backgroundColor:'transparent', borderWidth:1.5, pointRadius:0, tension:0.3, order:1 },
-    { type:'bar',  label:'Budget', data:budVals, backgroundColor:budBg, borderColor:budBdr, borderWidth:1, borderRadius:3, order:2, hidden:!hasBud }
+    { type:'bar',  label:'Budget', data:budVals, backgroundColor:budBg, borderColor:budBdr, borderWidth:1, borderRadius:3, order:2, hidden:!hasBud, _showLabels:true }
   ];
   if (hasB2C) {
     _datasets.push({ type:'line', label:'B2C', data:b2cVals, yAxisID:'yB2C',
