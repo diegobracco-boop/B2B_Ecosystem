@@ -43,7 +43,14 @@ MONTH_START      = date(TODAY.year, TODAY.month, 1)
 
 ACTUALS_FROM = date(TODAY.year, 1, 1)
 LY_FROM      = date(TODAY.year - 1, 1, 1)
-LY_TO        = YESTERDAY.replace(year=YESTERDAY.year - 1)
+# Hasta fin del mes en curso (año pasado), no solo "ayer" — el dashboard extiende
+# la serie de LY en los gráficos de Daily hasta fin de mes (como ya hacía Goal),
+# y para eso hace falta el dato real de esos días, no solo hasta la fecha
+# equivalente a la del corte de actuals.
+if TODAY.month == 12:
+    LY_TO = date(TODAY.year - 1, 12, 31)
+else:
+    LY_TO = date(TODAY.year - 1, TODAY.month + 1, 1) - timedelta(days=1)
 
 # Nombres de mes en español — budget incluye todos los meses ene->actual
 MESES_ES = {
