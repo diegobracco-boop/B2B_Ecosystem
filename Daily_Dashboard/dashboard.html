@@ -4103,32 +4103,18 @@ function flowBuildSlide_(def, idx){
       return '<div class="flow-slide">'+flHead_(titleTxt, flLogo_())
         +'<div class="fl-body" style="display:flex;align-items:center;justify-content:center;color:var(--fl-ink3);font-size:14px">No se pudieron cargar los datos de Weekly para esta combinación.</div></div>';
     }
-    // Mismo markup/CSS (ws-table, ws-mtd-table, etc.) que la vista nativa "Weekly" —
-    // las tablas quedan vacías acá (thead/tbody con id único por slide) y se llenan
-    // después, vía flowRenderWeeklyTables_() (llama a _wsRenderWeekly/_wsRenderMTDTable_,
-    // las mismas funciones que usa la vista nativa) una vez que el HTML ya está en el DOM.
-    var mtdPanel;
-    if(wd.mtd && wd.mtd.split){
-      mtdPanel='<div style="display:flex;gap:16px;flex:1;min-height:0">'
-        +'<div style="flex:1;min-width:0;display:flex;flex-direction:column">'
-          +'<div class="ws-sec-title" id="flws-mtdtitle-'+idx+'-b2b2c">Performance MTD — B2B2C</div>'
-          +'<div class="ws-mtd-wrap"><table class="ws-mtd-table"><thead id="flws-mtdthead-'+idx+'-b2b2c"></thead><tbody id="flws-mtdtbody-'+idx+'-b2b2c"></tbody></table></div>'
-        +'</div>'
-        +'<div style="flex:1;min-width:0;display:flex;flex-direction:column">'
-          +'<div class="ws-sec-title" id="flws-mtdtitle-'+idx+'-b2b">Performance MTD — B2B</div>'
-          +'<div class="ws-mtd-wrap"><table class="ws-mtd-table"><thead id="flws-mtdthead-'+idx+'-b2b"></thead><tbody id="flws-mtdtbody-'+idx+'-b2b"></tbody></table></div>'
-        +'</div></div>';
-    } else {
-      mtdPanel='<div class="ws-sec-title" id="flws-mtdtitle-'+idx+'">Performance MTD</div>'
-        +'<div class="ws-mtd-wrap"><table class="ws-mtd-table"><thead id="flws-mtdthead-'+idx+'"></thead><tbody id="flws-mtdtbody-'+idx+'"></tbody></table></div>';
-    }
+    // Mismo markup/CSS (ws-table, etc.) que la vista nativa "Weekly" — la tabla
+    // queda vacía acá (thead/tbody con id único por slide) y se llena después,
+    // vía flowRenderWeeklyTables_() (llama a _wsRenderWeekly, la misma función
+    // que usa la vista nativa) una vez que el HTML ya está en el DOM.
+    // A pedido de Diego: solo el "Resumen Semanal" (tabla por semana) — sin el
+    // panel "Performance MTD" de la derecha.
     var body='<div class="fl-body" style="display:flex;flex-direction:column">'
       +'<div class="ws-tables-row">'
-        +'<div class="ws-panel-weekly">'
+        +'<div class="ws-panel-weekly" style="flex:1">'
           +'<div class="ws-sec-title">Resumen Semanal</div>'
           +'<div class="ws-table-wrap"><table class="ws-table"><thead id="flws-thead-'+idx+'"></thead><tbody id="flws-tbody-'+idx+'"></tbody></table></div>'
         +'</div>'
-        +'<div class="ws-panel-mtd">'+mtdPanel+'</div>'
       +'</div></div>';
     return '<div class="flow-slide">'+flHead_(titleTxt, flLogo_())+body+'</div>';
   }
@@ -4260,22 +4246,18 @@ function flowBuild_(){
   flowSetupObserver_();
   return true;
 }
-// Los slides "weekly" salen con tablas vacías (thead/tbody con id unico por slide) —
-// se llenan acá, ya con el HTML en el DOM, reusando las mismas _wsRenderWeekly/
-// _wsRenderMTDTable_ que arma la vista nativa "Weekly" (mismo formato exacto:
-// columnas por semana, filas de %vs LY, banderas, flechas).
+// Los slides "weekly" salen con la tabla vacía (thead/tbody con id unico por
+// slide) — se llena acá, ya con el HTML en el DOM, reusando la misma
+// _wsRenderWeekly que arma la vista nativa "Weekly" (mismo formato exacto:
+// columnas por semana, filas de %vs LY, banderas, flechas). El panel
+// "Performance MTD" se sacó del slide (a pedido de Diego) — no hace falta
+// llamar a _wsRenderMTDTable_ acá.
 function flowRenderWeeklyTables_(){
   FLOW_DECK.forEach(function(def, idx){
     if(def.kind!=='weekly') return;
     var wd=_wsCache[def.lob+'_'+def.view];
     if(!wd || !wd.rows) return;
     _wsRenderWeekly(wd, 'flws-thead-'+idx, 'flws-tbody-'+idx);
-    if(wd.mtd && wd.mtd.split){
-      _wsRenderMTDTable_(wd.mtd.b2b2c, 'flws-mtdthead-'+idx+'-b2b2c', 'flws-mtdtbody-'+idx+'-b2b2c', 'flws-mtdtitle-'+idx+'-b2b2c', 'B2B2C');
-      _wsRenderMTDTable_(wd.mtd.b2b,   'flws-mtdthead-'+idx+'-b2b',   'flws-mtdtbody-'+idx+'-b2b',   'flws-mtdtitle-'+idx+'-b2b',   'B2B');
-    } else if(wd.mtd){
-      _wsRenderMTDTable_(wd.mtd, 'flws-mtdthead-'+idx, 'flws-mtdtbody-'+idx, 'flws-mtdtitle-'+idx, null);
-    }
   });
 }
 
