@@ -316,6 +316,13 @@
   .cell-neg    { color: #E82525 !important; }
   .cell-pos    { color: #599E6B !important; }
 
+  /* Cumplimiento Status KRs — fondo pastel en vez de color en la letra.
+     Clases propias (no se tocan cell-red/yellow/green, que las siguen usando
+     las tablas pivote NR/GB/FVM con color de letra). */
+  .kr-cumpl-red    { background: #fbe0e0 !important; color: #a01a1a; font-weight: 600; }
+  .kr-cumpl-yellow { background: #fdf1cf !important; color: #8a5a00; font-weight: 600; }
+  .kr-cumpl-green  { background: #d9f2e1 !important; color: #2f7d4f; font-weight: 600; }
+
   /* ── Tables view (multi-metric, no chart) ── */
   .tables-content {
     padding: 10px 14px;
@@ -1552,6 +1559,17 @@ function cumplColor(pct) {
   return 'cell-green';
 }
 
+// Igual que cumplColor pero devuelve clases de FONDO pastel. Se usa solo en las
+// celdas de cumplimiento de Status KRs (tabla resumen + detail boxes). Las tablas
+// pivote NR/GB/FVM siguen usando cumplColor (color en la letra).
+function cumplBg(pct) {
+  if (pct === null || pct === undefined) return '';
+  if (!isFinite(pct) || isNaN(pct)) return '';
+  if (pct < 0.80) return 'kr-cumpl-red';
+  if (pct < 1.00) return 'kr-cumpl-yellow';
+  return 'kr-cumpl-green';
+}
+
 // Cumplimiento robusto ante budget negativo. Equivale a act/goal cuando goal>0,
 // pero al usar |goal| el signo lo marca el delta (real - budget), así que si el
 // real es MEJOR que un budget negativo el % da bueno (>100%) en vez de negativo.
@@ -1870,7 +1888,7 @@ function computeMetricMTDByCountry(groupNames, metricField, monthFilter) {
 }
 
 function computeMetricForPaisList(paisList, metricField, monthFilter) {
-  if (!rawData) return { actual: 0, budget: 0 };
+  if (!rawData) return { actual: 0, budget: 0, ly: 0 };
   var bounds = getPeriodBounds(_resolveYM(monthFilter), rawData.meta);
   var paisLower = paisList.map(function(p) { return p.toLowerCase(); });
   function matchRows(rows, from, cutoff) {
@@ -1881,10 +1899,14 @@ function computeMetricForPaisList(paisList, metricField, monthFilter) {
   }
   var actRows = matchRows(getActuals('ri'), bounds.from, bounds.cutoff);
   var budRows = matchRows(getGoal('ri', 'budget'), bounds.from, bounds.cutoff);
-  var actual = 0, budget = 0;
+  // Año anterior: mismo país y mismo tramo temporal (MTD) corrido -1 año,
+  // igual que buildPivotData (shiftYear sobre from/cutoff).
+  var lyRows  = matchRows(getActualsLY('ri'), shiftYear(bounds.from, -1), shiftYear(bounds.cutoff, -1));
+  var actual = 0, budget = 0, ly = 0;
   actRows.forEach(function(r) { actual += (r[metricField] || 0); });
   budRows.forEach(function(r) { budget += (r[metricField] || 0); });
-  return { actual: actual, budget: budget };
+  lyRows.forEach(function(r)  { ly     += (r[metricField] || 0); });
+  return { actual: actual, budget: budget, ly: ly };
 }
 
 function fmtKRVal(val, unit) {
@@ -2389,7 +2411,7 @@ function renderStatusKRs() {
     var actStr   = fmtKRVal(actVal, unit);
     var budStr   = fmtKRVal(budVal, unit);
     var cumplStr = cumplVal === null ? '—' : (cumplVal * 100).toFixed(0) + '%';
-    var cumplCls = cumplColor(cumplVal);
+    var cumplCls = cumplBg(cumplVal);
     var pesoStr  = peso !== null ? peso : '—';
 
     tr.innerHTML =
@@ -2453,7 +2475,7 @@ function renderStatusKRs() {
   var trTotal = document.createElement('tr');
   trTotal.className = 'row-kr-total';
   var overallStr = overall !== null ? (overall * 100).toFixed(0) + '%' : '—';
-  var overallCls = overall !== null ? cumplColor(overall) : '';
+  var overallCls = overall !== null ? cumplBg(overall) : '';
   trTotal.innerHTML =
     '<td style="text-align:left">OVERALL (KR1–KR4)</td>' +
     '<td style="color:#6b7280;font-size:0.78rem">100%</td>' +
@@ -2496,34 +2518,47 @@ function renderKRDetailBoxes(monthFilter) {
   var grid = document.getElementById('statusKRsDetailGrid');
   grid.innerHTML = '';
 
-  function makeDetailBox(krNum, title, rows, unit, totalOverride) {
+  function makeDetailBox(krNum, title, rows, unit, totalOverride, showYoY) {
     var box = document.createElement('div');
     box.className = 'kr-detail-box';
     var tableRows = rows.map(function(r) {
       var actStr = fmtKRVal(r.actual, unit);
       var budStr = fmtKRVal(r.budget, unit);
       var c = cumplRatio(r.actual, r.budget);
-      var cls = cumplColor(c);
+      var cls = cumplBg(c);
       var cStr = c !== null ? (c * 100).toFixed(0) + '%' : '—';
-      return '<tr><td style="text-align:left">' + r.name + '</td><td>' + actStr + '</td><td>' + budStr + '</td><td class="' + cls + '">' + cStr + '</td></tr>';
+      var yoyCell = '';
+      if (showYoY) {
+        // Solo LY > 0: con base negativa (posible en FVM) el % de crecimiento
+        // queda sin sentido (signo/magnitud engañosos) → se muestra '—'.
+        var yoy = (r.ly !== null && r.ly !== undefined && r.ly > 0) ? (r.actual / r.ly - 1) : null;
+        yoyCell = '<td class="' + yoyColor(yoy) + '">' + yoyIcon(yoy) + '</td>';
+      }
+      return '<tr><td style="text-align:left">' + r.name + '</td><td>' + actStr + '</td><td>' + budStr + '</td><td class="' + cls + '">' + cStr + '</td>' + yoyCell + '</tr>';
     }).join('');
     // Fila total
-    var totalAct = 0, totalBud = 0, hasAct = false, hasBud = false;
+    var totalAct = 0, totalBud = 0, totalLY = 0, hasAct = false, hasBud = false, hasLY = false;
     rows.forEach(function(r) {
       if (r.actual !== null && r.actual !== undefined && !isNaN(r.actual)) { totalAct += r.actual; hasAct = true; }
       if (r.budget !== null && r.budget !== undefined && !isNaN(r.budget)) { totalBud += r.budget; hasBud = true; }
+      if (r.ly     !== null && r.ly     !== undefined && !isNaN(r.ly))     { totalLY  += r.ly;     hasLY  = true; }
     });
     if (totalOverride) { totalAct = totalOverride.act; totalBud = totalOverride.bud; hasAct = true; hasBud = true; }
     var tc = (hasBud && totalBud) ? Math.min(cumplRatio(totalAct, totalBud), 1.30) : null;
     var tActStr = hasAct ? fmtKRVal(totalAct, unit) : '—';
     var tBudStr = hasBud ? fmtKRVal(totalBud, unit) : '—';
-    var tCls = cumplColor(tc);
+    var tCls = cumplBg(tc);
     var tCStr = tc !== null ? (tc * 100).toFixed(0) + '%' : '—';
-    var totalRow = '<tr class="kr-detail-total"><td style="text-align:left;font-weight:700">TOTAL</td><td><strong>' + tActStr + '</strong></td><td><strong>' + tBudStr + '</strong></td><td class="' + tCls + '"><strong>' + tCStr + '</strong></td></tr>';
+    var tYoyCell = '';
+    if (showYoY) {
+      var tYoy = (hasLY && totalLY > 0) ? (totalAct / totalLY - 1) : null;
+      tYoyCell = '<td class="' + yoyColor(tYoy) + '"><strong>' + yoyIcon(tYoy) + '</strong></td>';
+    }
+    var totalRow = '<tr class="kr-detail-total"><td style="text-align:left;font-weight:700">TOTAL</td><td><strong>' + tActStr + '</strong></td><td><strong>' + tBudStr + '</strong></td><td class="' + tCls + '"><strong>' + tCStr + '</strong></td>' + tYoyCell + '</tr>';
     box.innerHTML =
       '<div class="kr-detail-header"><span class="kr-num-badge">' + title + '</span></div>' +
       '<table class="pivot-table kr-detail-table">' +
-      '<thead><tr><th style="text-align:left;min-width:90px">País</th><th>Actual</th><th>Budget</th><th>Cumpl.</th></tr></thead>' +
+      '<thead><tr><th style="text-align:left;min-width:90px">País</th><th>Actual</th><th>Budget</th><th>Cumpl.</th>' + (showYoY ? '<th>YoY</th>' : '') + '</tr></thead>' +
       '<tbody>' + totalRow + tableRows + '</tbody></table>';
     return box;
   }
@@ -2551,15 +2586,15 @@ function renderKRDetailBoxes(monthFilter) {
 
   var kr2Rows = NR_CORE_DETAIL.map(function(def) {
     var d = computeMetricForPaisList(def.pais, 'net_revenue', monthFilter);
-    return { name: def.name, actual: toM(d.actual), budget: toM(d.budget) };
+    return { name: def.name, actual: toM(d.actual), budget: toM(d.budget), ly: toM(d.ly) };
   });
-  col23.appendChild(makeDetailBox(2, 'NR Core Markets $M', kr2Rows, '$M'));
+  col23.appendChild(makeDetailBox(2, 'NR Core Markets $M', kr2Rows, '$M', null, true));
 
   var kr3Rows = NR_NEW_DETAIL.map(function(def) {
     var d = computeMetricForPaisList(def.pais, 'net_revenue', monthFilter);
-    return { name: def.name, actual: toM(d.actual), budget: toM(d.budget) };
+    return { name: def.name, actual: toM(d.actual), budget: toM(d.budget), ly: toM(d.ly) };
   });
-  col23.appendChild(makeDetailBox(3, 'NR New Markets $M', kr3Rows, '$M'));
+  col23.appendChild(makeDetailBox(3, 'NR New Markets $M', kr3Rows, '$M', null, true));
   grid.appendChild(col23);
 
   // KR4 — Air Net Revenue por país (col H del sheet)
@@ -2590,9 +2625,9 @@ function renderKRDetailBoxes(monthFilter) {
   // KR5 — FVM por país
   var kr5Rows = FVM_DETAIL.map(function(def) {
     var d = computeMetricForPaisList(def.pais, 'fvm', monthFilter);
-    return { name: def.name, actual: toM(d.actual), budget: toM(d.budget) };
+    return { name: def.name, actual: toM(d.actual), budget: toM(d.budget), ly: toM(d.ly) };
   });
-  grid.appendChild(makeDetailBox(5, 'Financial Variable Margin $M', kr5Rows, '$M'));
+  grid.appendChild(makeDetailBox(5, 'Financial Variable Margin $M', kr5Rows, '$M', null, true));
 }
 
 // ─────────────────────────────────────────────
