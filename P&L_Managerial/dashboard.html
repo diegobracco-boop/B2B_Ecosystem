@@ -716,6 +716,15 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
         <button class="gtab-btn"        id="gtab-ecuador"   type="button" onclick="switchGTab('ecuador')">Ecuador</button>
         <button class="gtab-btn"        id="gtab-other"     type="button" onclick="switchGTab('other')">Other Countries</button>
       </div>
+      <div id="gtab-produto-row" style="display:none;align-items:center;gap:6px;flex-wrap:wrap">
+        <span style="font-size:11px;color:var(--muted);font-weight:700;margin-left:10px">Prod.:</span>
+        <div class="pais-chips" id="gtab-produto-chips"></div>
+      </div>
+    </div>
+    <!-- Country chips (Detalle, independiente de Managerial View/Trend view) -->
+    <div id="detalle-country-nav" style="display:none;align-items:center;gap:6px;flex-wrap:wrap">
+      <span style="font-size:11px;color:var(--muted);font-weight:700">País:</span>
+      <div class="pais-chips" id="detalle-pais-chips"></div>
     </div>
     <span style="width:1px;height:18px;background:rgba(0,0,0,.15);margin:0 6px"></span>
     <!-- Partner (B2B2C only) -->
@@ -807,11 +816,15 @@ var _fetchSeq       = 0; // incrementado en cada fetchData(); descarta respuesta
 var _reloadTimer    = null;
 var _contTimer      = null;
 function debouncedReload(){ clearTimeout(_reloadTimer); _reloadTimer = setTimeout(function(){ reload(); }, 600); }
+var _gReloadTimer = null;
+function debouncedReloadG(){ clearTimeout(_gReloadTimer); _gReloadTimer = setTimeout(function(){ fetchDataG(); }, 600); }
 var _activeDateType = 'gd';    // 'gd' | 'ri'
 var _pnlAgg = 'month'; // 'month' | 'quarter' | 'half'
 
 // Filters populated per-LOB (reset when switching LOBs)
 var _filtersLoadedForLob = {};
+var _gFiltersLoadedForLob = {}; // idem, para el fetch propio de Trend view (_dataG)
+var _dFiltersLoadedForLob = {}; // idem, para el fetch propio de Detalle (_dataD)
 var _bgFiltersInitialized = false;
 var _activeCanal = 'all';         // 'all' | 'may' | 'min'
 var _paisSelected = [];           // [] = todos; otherwise array of selected country names
@@ -822,6 +835,24 @@ var _numScale = 'M';                 // 'M' | 'K' | 'raw' — escala de valores 
 var _mgPeriodSel = null;             // array de meses/quarters/halves puntuales elegidos, o null = todos
 var _gActiveTab = 'total';        // 'total'|'brasil'|'mexico'|'argentina'|'colombia'|'chile'|'peru'|'ecuador'|'other'
 var _gSelectedPartners = [];      // [] = all; otherwise list of selected partner names
+
+// ── Filtros independientes por vista (2026-09-20, a pedido de Diego) ───────
+// Managerial View sigue usando _data/_paisSelected/_productoSelected/ms-partner
+// tal cual (sin cambios, para minimizar riesgo). Trend view y Detalle tienen
+// su PROPIO fetch al servidor (_dataG/_dataD) y su propio estado de filtro —
+// así filtrar país en una vista no afecta a las otras. País/Partner de Trend
+// view ya eran 100% client-side (_gActiveTab/_gSelectedPartners, sin tocar) —
+// lo único que faltaba era que su fetch no viniera acotado por el país/partner
+// de Managerial View. Producto sí se resuelve server-side (no hay breakdown
+// por producto en el agregado plano de Trend view). Detalle ya trae el
+// breakdown completo por país (partnerCountryMonthly) así que su filtro de
+// país es 100% client-side también (_paisSelectedD, sin refetch).
+var _dataG = null;                // Trend view — su propio _data
+var _productoSelectedG = [];      // Trend view — filtro de producto (server-side, fetch propio)
+var _gFetchSeq = 0;
+var _dataD = null;                // Detalle — su propio _data
+var _paisSelectedD = [];          // Detalle — filtro de país (client-side, sin refetch)
+var _dFetchSeq = 0;
 
 var MES_LABEL_C = {
   4:'Abr-26', 5:'May-26', 6:'Jun-26',
@@ -882,6 +913,9 @@ function updateProductoFilterVis_(){
   // Fila de producto en el pnl-country-nav: solo en B2B
   var prodRow = document.getElementById('pnl-produto-row');
   if(prodRow) prodRow.style.display = (_activeLob === 'b2b') ? 'flex' : 'none';
+  // Ídem chips de producto propios de Trend view — mismo criterio (solo B2B).
+  var gProdRow = document.getElementById('gtab-produto-row');
+  if(gProdRow) gProdRow.style.display = (_activeLob === 'b2b') ? 'flex' : 'none';
   // Partner visible solo en B2B2C, en el tab P&L (no en Detalle ni en Gráficos: ambos tienen su propio selector de partner)
   var isDetalle  = document.getElementById('tab-detalle')  && document.getElementById('tab-detalle').classList.contains('active');
   var isGraficos = document.getElementById('tab-graficos') && document.getElementById('tab-graficos').classList.contains('active');
@@ -899,10 +933,16 @@ function switchTab(name){
   if(gNav) gNav.style.display = (name === 'graficos' && (_activeLob === 'b2b2c' || _activeLob === 'b2b')) ? 'flex' : 'none';
   var pNav = document.getElementById('pnl-country-nav');
   if(pNav) pNav.style.display = (name === 'baseline') ? 'flex' : 'none';
+  var dNav = document.getElementById('detalle-country-nav');
+  if(dNav) dNav.style.display = (name === 'detalle') ? 'flex' : 'none';
   updateProductoFilterVis_();
+  // Managerial View sigue leyendo _data (sin cambios). Trend view y Detalle
+  // tienen su propio fetch (_dataG/_dataD) — si todavía no cargaron (primera
+  // visita a la pestaña, o quedaron invalidados por un cambio de LOB/fecha/
+  // baseline), se piden ahora; si ya están, solo se re-renderiza.
   if(name === 'baseline' && _data) renderManagerialBGTable();
-  if(name === 'detalle' && _data) renderDetalle();
-  if(name === 'graficos' && _data) { try{ renderTrendCharts(_data.months||[], _data.agg||{}, _data.budget||{}, _data.ly||{}); }catch(e){ if(window.console) console.error('[render:trend]', e); } }
+  if(name === 'detalle'){ if(_dataD) renderDetalle(); else fetchDataD(); }
+  if(name === 'graficos'){ if(_dataG){ try{ renderTrendCharts(_dataG.months||[], _dataG.agg||{}, _dataG.budget||{}, _dataG.ly||{}); }catch(e){ if(window.console) console.error('[render:trend]', e); } } else { fetchDataG(); } }
   _updateStickyOffsets_();
 }
 
@@ -1132,7 +1172,7 @@ function toggleTarget(mode){
   var bl = document.getElementById('btn-vs-ly');
   if(bb) bb.classList.toggle('active', _targetMode === 'budget');
   if(bl) bl.classList.toggle('active', _targetMode === 'ly');
-  if(_data) renderTrendCharts(_data.months, _data.agg, _data.budget||{}, _data.ly||{});
+  if(_dataG) renderTrendCharts(_dataG.months, _dataG.agg, _dataG.budget||{}, _dataG.ly||{});
 }
 
 // ── Target cell helpers ────────────────────────────────────────────────────
@@ -1266,6 +1306,84 @@ function renderProductoChips(){
 }
 
 function getProductoValues(){ return _productoSelected.slice(); }
+
+// ── Producto chip selector — Trend view (independiente del de Managerial View) ──
+function fillGraficosProductoChips(values){
+  var norm = function(s){ return String(s||'').trim().toLowerCase(); };
+  var orderNorm = _PRODUTO_ORDER.map(norm);
+  var ordered = _PRODUTO_ORDER.filter(function(p){ return (values||[]).some(function(v){ return norm(v)===norm(p); }); });
+  var orderedNorms = ordered.map(norm);
+  var rest = (values||[]).filter(function(v){ return orderedNorms.indexOf(norm(v)) < 0; }).sort();
+  values = ordered.concat(rest);
+  var container = document.getElementById('gtab-produto-chips');
+  if(!container) return;
+  container.innerHTML = '';
+  var allBtn = document.createElement('button');
+  allBtn.type = 'button';
+  allBtn.className = 'pais-chip' + (_productoSelectedG.length === 0 ? ' pais-chip-active' : '');
+  allBtn.textContent = 'Todos';
+  allBtn.onclick = function(){ _productoSelectedG = []; renderGraficosProductoChips(); debouncedReloadG(); };
+  container.appendChild(allBtn);
+  (values || []).forEach(function(v){
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.dataset.val = v;
+    btn.className = 'pais-chip' + (_productoSelectedG.indexOf(v) >= 0 ? ' pais-chip-active' : '');
+    btn.textContent = v;
+    btn.onclick = function(){
+      var idx = _productoSelectedG.indexOf(v);
+      if(idx >= 0) _productoSelectedG.splice(idx, 1); else _productoSelectedG.push(v);
+      renderGraficosProductoChips(); debouncedReloadG();
+    };
+    container.appendChild(btn);
+  });
+}
+function renderGraficosProductoChips(){
+  var container = document.getElementById('gtab-produto-chips');
+  if(!container) return;
+  container.querySelectorAll('.pais-chip').forEach(function(btn){
+    if(!btn.dataset.val) btn.classList.toggle('pais-chip-active', _productoSelectedG.length === 0);
+    else btn.classList.toggle('pais-chip-active', _productoSelectedG.indexOf(btn.dataset.val) >= 0);
+  });
+}
+
+// ── País chip selector — Detalle (client-side, sin refetch: el breakdown por
+// país ya viene completo en _dataD, solo se filtra qué países mostrar) ──────
+function fillDetallePaisChips(values){
+  var ordered = _PAIS_ORDER.filter(function(p){ return (values||[]).indexOf(p) >= 0; });
+  var rest    = (values||[]).filter(function(p){ return _PAIS_ORDER.indexOf(p) < 0; }).sort();
+  values = ordered.concat(rest);
+  var container = document.getElementById('detalle-pais-chips');
+  if(!container) return;
+  container.innerHTML = '';
+  var allBtn = document.createElement('button');
+  allBtn.type = 'button';
+  allBtn.className = 'pais-chip' + (_paisSelectedD.length === 0 ? ' pais-chip-active' : '');
+  allBtn.textContent = 'Todos';
+  allBtn.onclick = function(){ _paisSelectedD = []; renderDetallePaisChips(); renderDetalle(); };
+  container.appendChild(allBtn);
+  (values || []).forEach(function(v){
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.dataset.val = v;
+    btn.className = 'pais-chip' + (_paisSelectedD.indexOf(v) >= 0 ? ' pais-chip-active' : '');
+    btn.textContent = v;
+    btn.onclick = function(){
+      var idx = _paisSelectedD.indexOf(v);
+      if(idx >= 0) _paisSelectedD.splice(idx, 1); else _paisSelectedD.push(v);
+      renderDetallePaisChips(); renderDetalle();
+    };
+    container.appendChild(btn);
+  });
+}
+function renderDetallePaisChips(){
+  var container = document.getElementById('detalle-pais-chips');
+  if(!container) return;
+  container.querySelectorAll('.pais-chip').forEach(function(btn){
+    if(!btn.dataset.val) btn.classList.toggle('pais-chip-active', _paisSelectedD.length === 0);
+    else btn.classList.toggle('pais-chip-active', _paisSelectedD.indexOf(btn.dataset.val) >= 0);
+  });
+}
 
 
 var _contableIds = ['ms-cont-lob','ms-cont-canal','ms-cont-pais','ms-cont-producto'];
@@ -1605,7 +1723,7 @@ function detalleCols_(months){ return periodCols_(months, _managerialBGPeriod); 
 var _farmDeltaPeriod = 'month'; // 'month' | 'quarter' | 'half'
 function setFarmDeltaPeriod(mode){
   _farmDeltaPeriod = mode;
-  if(_data) renderTrendCharts(_data.months, _data.agg, _data.budget||{}, _data.ly||{});
+  if(_dataG) renderTrendCharts(_dataG.months, _dataG.agg, _dataG.budget||{}, _dataG.ly||{});
 }
 
 // ── Clasificación de partners (fuente única, usada en Gráficos y Detalle) ──
@@ -1690,10 +1808,10 @@ function b2bCanalDetailToPCM_(b2bDet, key){
 function renderDetalle() {
   var headEl = document.getElementById('detalle-head');
   var bodyEl = document.getElementById('detalle-body');
-  if (!headEl || !bodyEl || !_data) return;
+  if (!headEl || !bodyEl || !_dataD) return;
   var isB2B = (_activeLob === 'b2b');
 
-  var months = _data.months || [];
+  var months = _dataD.months || [];
 
   function normD(s){ return String(s||'').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,''); }
   function lkup(obj, name){
@@ -1726,16 +1844,16 @@ function renderDetalle() {
 
   var pcm, bcm, lcm, fcm;
   if(isB2B){
-    var b2bDet = _data.b2bCanalDetail || {};
+    var b2bDet = _dataD.b2bCanalDetail || {};
     pcm = normOther(b2bCanalDetailToPCM_(b2bDet,'fc'));
     bcm = normOther(b2bCanalDetailToPCM_(b2bDet,'bgt'));
     lcm = normOther(b2bCanalDetailToPCM_(b2bDet,'ly'));
     fcm = normOther(b2bCanalDetailToPCM_(b2bDet,'fcst'));
   } else {
-    pcm = normOther(_data.partnerCountryMonthly||{});
-    bcm = normOther(_data.budgetPartnerCM||{});
-    lcm = normOther(_data.lyPartnerCM||{});
-    fcm = normOther(_data.forecastPartnerCM||{});
+    pcm = normOther(_dataD.partnerCountryMonthly||{});
+    bcm = normOther(_dataD.budgetPartnerCM||{});
+    lcm = normOther(_dataD.lyPartnerCM||{});
+    fcm = normOther(_dataD.forecastPartnerCM||{});
   }
 
   // Agrupación de período (Mes / Quarter / Half): reagrupa columnas y usa las etiquetas como "meses"
@@ -1782,6 +1900,12 @@ function renderDetalle() {
   Object.keys(pcm).forEach(function(c){
     if(!seen[normD(c)]){seen[normD(c)]=1;countries.push(c);}
   });
+  // Filtro de país propio de Detalle (client-side — _dataD ya trae el breakdown
+  // completo por país, independiente de lo filtrado en Managerial View/Trend view).
+  if(_paisSelectedD.length){
+    var _selD = _paisSelectedD.map(normD);
+    countries = countries.filter(function(c){ return _selD.indexOf(normD(c)) >= 0; });
+  }
 
   var colspan = months.length + 3;
   var hHtml = '<tr><th class="th-partner">'+(isB2B?'Canal / Producto':'Partner')+'</th><th style="min-width:80px;text-align:left;color:rgba(196,181,253,.6);font-weight:600;font-size:10px">Indicador</th>';
@@ -1969,9 +2093,11 @@ function render(){
 
   // La tabla de P&L (pestaña por defecto) primero y siempre.
   safe('pnl', renderManagerialBGTable);
-  // Detalle y Trend: solo si su pestaña está visible (lazy — no construir Chart.js oculto).
-  if(isTab('tab-detalle')) safe('detalle', renderDetalle);
-  if(isTab('tab-graficos')) safe('trend', function(){ renderTrendCharts(months,agg,budgetAgg,lyAgg); });
+  // Detalle y Trend: solo si su pestaña está visible Y ya tienen su propio
+  // _dataD/_dataG cargado (lazy — no construir Chart.js oculto, y no pintar
+  // con datos de otra pestaña si todavía no llegó el fetch propio).
+  if(isTab('tab-detalle') && _dataD) safe('detalle', renderDetalle);
+  if(isTab('tab-graficos') && _dataG) safe('trend', function(){ renderTrendCharts(_dataG.months||[], _dataG.agg||{}, _dataG.budget||{}, _dataG.ly||{}); });
 }
 
 // ── Baseline vs Goal (Managerial) ──────────────────────────────────────────
@@ -2033,7 +2159,7 @@ function renderMGPeriodChips_(){
 
 function _mgRefreshViews_(){
   if(document.getElementById('tab-baseline').classList.contains('active') && _data) renderManagerialBGTable();
-  if(document.getElementById('tab-detalle').classList.contains('active') && _data) renderDetalle();
+  if(document.getElementById('tab-detalle').classList.contains('active') && _dataD) renderDetalle();
 }
 
 function toggleMGPeriodChip_(period){
@@ -2065,7 +2191,7 @@ function setMGGoal(goal){
   document.getElementById('mg-goal-forecast').classList.toggle('prd-active', goal === 'forecast');
   document.getElementById('mg-goal-ly').classList.toggle('prd-active', goal === 'ly');
   if(document.getElementById('tab-baseline').classList.contains('active') && _data) renderManagerialBGTable();
-  if(document.getElementById('tab-detalle').classList.contains('active') && _data) renderDetalle();
+  if(document.getElementById('tab-detalle').classList.contains('active') && _dataD) renderDetalle();
 }
 
 // Sincroniza _numScale y el estado activo de LOS DOS grupos de botones de escala
@@ -2832,6 +2958,19 @@ function exitVsAcc_(){
   document.querySelectorAll('.tab-btn').forEach(function(t){ t.classList.toggle('active', t.id === 'tab-baseline'); });
 }
 
+// Invalida _dataG/_dataD (fetch propio de Trend view/Detalle) cuando cambia
+// algo que SÍ es compartido entre las 3 vistas (LOB, GD/RI, Baseline source):
+// esos sí tienen que llegar al servidor de nuevo. Si la pestaña afectada está
+// visible ahora mismo, se refetchea al toque; si no, queda invalidada y se
+// pide sola la próxima vez que el usuario la abra (switchTab ya lo maneja).
+function _invalidatePanesOnSharedChange_(){
+  _dataG = null; _dataD = null;
+  var isGraficosActive = document.getElementById('tab-graficos') && document.getElementById('tab-graficos').classList.contains('active');
+  var isDetalleActive  = document.getElementById('tab-detalle')  && document.getElementById('tab-detalle').classList.contains('active');
+  if(isGraficosActive) fetchDataG();
+  if(isDetalleActive)  fetchDataD();
+}
+
 function switchLob(lob){
   exitVsAcc_();
   _activeLob = lob;
@@ -2860,10 +2999,15 @@ function switchLob(lob){
   if(pNav) pNav.style.display = isBaselineActive ? 'flex' : 'none';
   // Reset filters on LOB change so they reload with correct options
   _filtersLoadedForLob[lob] = false;
+  _gFiltersLoadedForLob[lob] = false;
+  _dFiltersLoadedForLob[lob] = false;
   _paisSelected = []; renderPaisChips();
   _productoSelected = []; renderProductoChips();
+  _productoSelectedG = [];
+  _paisSelectedD = [];
   clearMs('ms-partner', false); // switchLob ya dispara su propio reload() abajo — no duplicar el fetch
   reload();
+  _invalidatePanesOnSharedChange_();
   _updateStickyOffsets_();
 }
 
@@ -2873,6 +3017,7 @@ function switchDateType(dt){
   document.getElementById('dt-gd').classList.toggle('active', dt === 'gd');
   document.getElementById('dt-ri').classList.toggle('active', dt === 'ri');
   reload(false);
+  _invalidatePanesOnSharedChange_();
 }
 
 function switchCanal(canal){
@@ -2881,6 +3026,7 @@ function switchCanal(canal){
   document.getElementById('canal-may').classList.toggle('active', canal === 'may');
   document.getElementById('canal-min').classList.toggle('active', canal === 'min');
   reload();
+  _invalidatePanesOnSharedChange_();
 }
 
 var G_TAB_COUNTRY = {brasil:'Brasil',mexico:'Mexico',argentina:'Argentina',colombia:'Colombia',chile:'Chile',peru:'Peru',ecuador:'Ecuador'};
@@ -2891,7 +3037,7 @@ function switchGTab(tab){
   document.querySelectorAll('.gtab-btn').forEach(function(b){ b.classList.remove('active'); });
   var btn = document.getElementById('gtab-'+tab);
   if(btn) btn.classList.add('active');
-  if(_data) renderTrendCharts(_data.months, _data.agg, _data.budget||{}, _data.ly||{});
+  if(_dataG) renderTrendCharts(_dataG.months, _dataG.agg, _dataG.budget||{}, _dataG.ly||{});
 }
 
 function toggleGPartner(partner){
@@ -2900,7 +3046,7 @@ function toggleGPartner(partner){
   document.querySelectorAll('.gpartner-chip').forEach(function(c){
     c.classList.toggle('active', _gSelectedPartners.indexOf(c.dataset.partner) >= 0);
   });
-  if(_data) renderTrendCharts(_data.months, _data.agg, _data.budget||{}, _data.ly||{});
+  if(_dataG) renderTrendCharts(_dataG.months, _dataG.agg, _dataG.budget||{}, _dataG.ly||{});
 }
 
 // ── Baseline source (Run Rate/Actuals vs Projection Reviews) ─────────────
@@ -2913,7 +3059,10 @@ function setBaselineSource(src) {
     if (btn) btn.classList.toggle('prd-active', s === src);
   });
   _filtersLoadedForLob = {};   // resetear filtros para que se recargen
+  _gFiltersLoadedForLob = {};
+  _dFiltersLoadedForLob = {};
   fetchData();
+  _invalidatePanesOnSharedChange_();
 }
 
 var _MES_LABEL_SHORT = {
@@ -3012,6 +3161,73 @@ function fetchData(){
     .getData(reqFilters);
 }
 
+// ── Trend view — fetch independiente ────────────────────────────────────────
+// pais/partner SIEMPRE [] (todo el breakdown) porque _gActiveTab/_gSelectedPartners
+// ya filtran client-side sobre ese breakdown completo (sin tocar esa lógica
+// existente) — si se mandaran acá el país/partner de Managerial View, ese
+// breakdown vendría acotado y los gtab-btn de otros países quedarían vacíos.
+function getFiltersGraficos(){
+  var f = getFilters();
+  f.pais = [];
+  f.partner = [];
+  f.produto = _productoSelectedG.slice();
+  return f;
+}
+function fetchDataG(){
+  var reqLob = _activeLob;
+  var reqId  = ++_gFetchSeq;
+  google.script.run
+    .withSuccessHandler(function(d){
+      if (reqId !== _gFetchSeq) return;
+      if (reqLob !== _activeLob) return;
+      _dataG = d;
+      if (!_gFiltersLoadedForLob[reqLob]) {
+        fillGraficosProductoChips(d.filters['produto'] || []);
+        _gFiltersLoadedForLob[reqLob] = true;
+      }
+      try{ renderTrendCharts(_dataG.months||[], _dataG.agg||{}, _dataG.budget||{}, _dataG.ly||{}); }
+      catch(e){ if(window.console) console.error('[render:trend]', e); }
+    })
+    .withFailureHandler(function(err){
+      if (reqId !== _gFetchSeq) return;
+      if(window.console) console.error('[fetchDataG]', err);
+    })
+    .getData(getFiltersGraficos());
+}
+
+// ── Detalle — fetch independiente ───────────────────────────────────────────
+// pais/partner/produto SIEMPRE [] (todo el breakdown) — Detalle ya trae el
+// desglose completo por país×partner×mes (partnerCountryMonthly) y filtra país
+// client-side (_paisSelectedD, ver renderDetalle/fillDetallePaisChips), no
+// necesita refetch por país.
+function getFiltersDetalle(){
+  var f = getFilters();
+  f.pais = [];
+  f.partner = [];
+  f.produto = [];
+  return f;
+}
+function fetchDataD(){
+  var reqLob = _activeLob;
+  var reqId  = ++_dFetchSeq;
+  google.script.run
+    .withSuccessHandler(function(d){
+      if (reqId !== _dFetchSeq) return;
+      if (reqLob !== _activeLob) return;
+      _dataD = d;
+      if (!_dFiltersLoadedForLob[reqLob]) {
+        fillDetallePaisChips(d.filters['pais'] || []);
+        _dFiltersLoadedForLob[reqLob] = true;
+      }
+      try{ renderDetalle(); }
+      catch(e){ if(window.console) console.error('[render:detalle]', e); }
+    })
+    .withFailureHandler(function(err){
+      if (reqId !== _dFetchSeq) return;
+      if(window.console) console.error('[fetchDataD]', err);
+    })
+    .getData(getFiltersDetalle());
+}
 
 initMsDropdowns();
 updateProductoFilterVis_();   // default LOB = B2B2C → Producto oculto
@@ -3044,7 +3260,7 @@ function renderTrendCharts(months, agg, budgetAgg, lyAgg){
   container.innerHTML = '';
 
   // Compute cutoff index: last month with actual data (before projections start)
-  var actualMonths = (_data && _data.actual_months) ? _data.actual_months : [];
+  var actualMonths = (_dataG && _dataG.actual_months) ? _dataG.actual_months : [];
   var actualLabelSet = {};
   actualMonths.forEach(function(ym) {
     var n = parseInt(ym.split('-')[1]);
@@ -3052,14 +3268,17 @@ function renderTrendCharts(months, agg, budgetAgg, lyAgg){
     if(lbl) actualLabelSet[lbl] = true;
   });
 
-  var partnerMonthly        = (_data && _data.partnerMonthly)        ? _data.partnerMonthly        : {};
-  var partnerCountryMonthly = (_data && _data.partnerCountryMonthly) ? _data.partnerCountryMonthly : {};
-  var budgetPartnerMonthly  = (_data && _data.budgetPartnerMonthly)  ? _data.budgetPartnerMonthly  : {};
-  var lyPartnerMonthly      = (_data && _data.lyPartnerMonthly)      ? _data.lyPartnerMonthly      : {};
-  var budgetPartnerCM       = (_data && _data.budgetPartnerCM)       ? _data.budgetPartnerCM       : {};
-  var lyPartnerCM           = (_data && _data.lyPartnerCM)           ? _data.lyPartnerCM           : {};
-  var forecastPartnerMonthly = (_data && _data.forecastPartnerMonthly) ? _data.forecastPartnerMonthly : {};
-  var forecastPartnerCM      = (_data && _data.forecastPartnerCM)      ? _data.forecastPartnerCM      : {};
+  // _dataG (no _data): este breakdown por partner tiene que venir del fetch
+  // propio de Trend view — si se leyera de _data (Managerial View) quedaría
+  // acotado por el país/producto/partner filtrado ahí.
+  var partnerMonthly        = (_dataG && _dataG.partnerMonthly)        ? _dataG.partnerMonthly        : {};
+  var partnerCountryMonthly = (_dataG && _dataG.partnerCountryMonthly) ? _dataG.partnerCountryMonthly : {};
+  var budgetPartnerMonthly  = (_dataG && _dataG.budgetPartnerMonthly)  ? _dataG.budgetPartnerMonthly  : {};
+  var lyPartnerMonthly      = (_dataG && _dataG.lyPartnerMonthly)      ? _dataG.lyPartnerMonthly      : {};
+  var budgetPartnerCM       = (_dataG && _dataG.budgetPartnerCM)       ? _dataG.budgetPartnerCM       : {};
+  var lyPartnerCM           = (_dataG && _dataG.lyPartnerCM)           ? _dataG.lyPartnerCM           : {};
+  var forecastPartnerMonthly = (_dataG && _dataG.forecastPartnerMonthly) ? _dataG.forecastPartnerMonthly : {};
+  var forecastPartnerCM      = (_dataG && _dataG.forecastPartnerCM)      ? _dataG.forecastPartnerCM      : {};
 
   // ── B2B2C chart constants ─────────────────────────────────────────────────
   var HUNTING_LIST = PARTNER_HUNTING_LIST;
@@ -3615,7 +3834,7 @@ function renderTrendCharts(months, agg, budgetAgg, lyAgg){
     // ── B2B Gráficos: por Canal y Producto ────────────────────────────────────
     document.getElementById('graficos-partner-filter').style.display='none';
 
-    var b2bDet = _data && _data.b2bCanalDetail;
+    var b2bDet = _dataG && _dataG.b2bCanalDetail;
     var OTHER_ALIASES_B2B = ['other','others','otros','otro','other countries','globales'];
 
     function normB2BCanal(canalObj){
@@ -3845,7 +4064,7 @@ function renderTrendCharts(months, agg, budgetAgg, lyAgg){
     }
 
   } else {
-    var fallbackFcstAgg = (_data && _data.forecast) ? _data.forecast : {};
+    var fallbackFcstAgg = (_dataG && _dataG.forecast) ? _dataG.forecast : {};
     container.appendChild(makeSection(
       null, chartDefs, chartMonths,
       function(m,k,d){ var v=agg[m]?agg[m][k]:null; return v!=null?v/d:null; },
