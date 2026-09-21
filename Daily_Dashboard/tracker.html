@@ -316,12 +316,20 @@
   .cell-neg    { color: #E82525 !important; }
   .cell-pos    { color: #599E6B !important; }
 
-  /* Cumplimiento Status KRs — fondo pastel en vez de color en la letra.
-     Clases propias (no se tocan cell-red/yellow/green, que las siguen usando
-     las tablas pivote NR/GB/FVM con color de letra). */
-  .kr-cumpl-red    { background: #fbe0e0 !important; color: #a01a1a; font-weight: 600; }
-  .kr-cumpl-yellow { background: #fdf1cf !important; color: #8a5a00; font-weight: 600; }
-  .kr-cumpl-green  { background: #d9f2e1 !important; color: #2f7d4f; font-weight: 600; }
+  /* Cumplimiento Status KRs — chip con fondo pastel + recuadro punteado en un
+     tono más fuerte del mismo color. Clases propias (no se tocan
+     cell-red/yellow/green, que las siguen usando las pivote NR/GB/FVM). */
+  .kr-cumpl-chip {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 5px;
+    border: 1.5px dashed;   /* color lo pone la clase de color de abajo */
+    font-weight: 600;
+    line-height: 1.4;
+  }
+  .kr-cumpl-red    { background: #fbe0e0; color: #a01a1a; border-color: #d34a4a; }
+  .kr-cumpl-yellow { background: #fdf1cf; color: #8a5a00; border-color: #c99a2e; }
+  .kr-cumpl-green  { background: #d9f2e1; color: #2f7d4f; border-color: #4fae74; }
 
   /* ── Tables view (multi-metric, no chart) ── */
   .tables-content {
@@ -530,6 +538,15 @@
   body.slides-mode #weeklyContent .widget-table td            { padding: 3px 8px; }
   body.slides-mode #weeklyContent .proj-table td,
   body.slides-mode #weeklyContent .proj-table th              { padding: 3px 7px; }
+
+  /* Status KRs en slides: ocultar el filtro de mes (queda el contexto de la
+     página main), alinear los carteles de período a la derecha, y escalar el
+     contenido para que entren todas las filas — New Markets es la caja más alta
+     de la grilla y sus últimos países se recortaban con el overflow del slide. */
+  body.slides-mode .kr-month-filter-bar { display: none !important; }
+  body.slides-mode .status-krs-meta     { justify-content: flex-end; margin-bottom: 8px; }
+  body.slides-mode #agenciasContent     { zoom: 0.80; }
+  body.slides-mode #agenciasContent .kr-detail-grid { margin-top: 12px; }
 
   /* ── Cover slides ── */
   #slideCover { display: none; }
@@ -1570,6 +1587,15 @@ function cumplBg(pct) {
   return 'kr-cumpl-green';
 }
 
+// Celda <td> de cumplimiento como chip (fondo pastel + recuadro punteado).
+// Si no hay cumplimiento (—) se muestra sin chip. bold=true envuelve en <strong>.
+function cumplCellHtml(pct, text, bold) {
+  var inner = bold ? '<strong>' + text + '</strong>' : text;
+  var cls = cumplBg(pct);
+  if (!cls) return '<td>' + inner + '</td>';
+  return '<td><span class="kr-cumpl-chip ' + cls + '">' + inner + '</span></td>';
+}
+
 // Cumplimiento robusto ante budget negativo. Equivale a act/goal cuando goal>0,
 // pero al usar |goal| el signo lo marca el delta (real - budget), así que si el
 // real es MEJOR que un budget negativo el % da bueno (>100%) en vez de negativo.
@@ -2411,7 +2437,6 @@ function renderStatusKRs() {
     var actStr   = fmtKRVal(actVal, unit);
     var budStr   = fmtKRVal(budVal, unit);
     var cumplStr = cumplVal === null ? '—' : (cumplVal * 100).toFixed(0) + '%';
-    var cumplCls = cumplBg(cumplVal);
     var pesoStr  = peso !== null ? peso : '—';
 
     tr.innerHTML =
@@ -2419,7 +2444,7 @@ function renderStatusKRs() {
       '<td style="color:#6b7280;font-size:0.78rem">' + pesoStr + '</td>' +
       '<td>' + actStr + '</td>' +
       '<td>' + budStr + '</td>' +
-      '<td class="' + cumplCls + '">' + cumplStr + '</td>';
+      cumplCellHtml(cumplVal, cumplStr, false);
     return tr;
   }
 
@@ -2475,13 +2500,12 @@ function renderStatusKRs() {
   var trTotal = document.createElement('tr');
   trTotal.className = 'row-kr-total';
   var overallStr = overall !== null ? (overall * 100).toFixed(0) + '%' : '—';
-  var overallCls = overall !== null ? cumplBg(overall) : '';
   trTotal.innerHTML =
     '<td style="text-align:left">OVERALL (KR1–KR4)</td>' +
     '<td style="color:#6b7280;font-size:0.78rem">100%</td>' +
     '<td>—</td>' +
     '<td>—</td>' +
-    '<td class="' + overallCls + '">' + overallStr + '</td>';
+    cumplCellHtml(overall, overallStr, false);
   tbody.appendChild(trTotal);
 
   // ── Detail boxes por país ─────────────────────────────────────
@@ -2521,12 +2545,13 @@ function renderKRDetailBoxes(monthFilter) {
   function makeDetailBox(krNum, title, rows, unit, totalOverride, showYoY) {
     var box = document.createElement('div');
     box.className = 'kr-detail-box';
+    // Con showYoY (tablas NR/FVM) se muestran solo Actual · Cumpl · YoY (sin
+    // Budget); el cumplimiento se sigue calculando con el budget igual.
     var tableRows = rows.map(function(r) {
       var actStr = fmtKRVal(r.actual, unit);
-      var budStr = fmtKRVal(r.budget, unit);
       var c = cumplRatio(r.actual, r.budget);
-      var cls = cumplBg(c);
       var cStr = c !== null ? (c * 100).toFixed(0) + '%' : '—';
+      var budCell = showYoY ? '' : '<td>' + fmtKRVal(r.budget, unit) + '</td>';
       var yoyCell = '';
       if (showYoY) {
         // Solo LY > 0: con base negativa (posible en FVM) el % de crecimiento
@@ -2534,7 +2559,7 @@ function renderKRDetailBoxes(monthFilter) {
         var yoy = (r.ly !== null && r.ly !== undefined && r.ly > 0) ? (r.actual / r.ly - 1) : null;
         yoyCell = '<td class="' + yoyColor(yoy) + '">' + yoyIcon(yoy) + '</td>';
       }
-      return '<tr><td style="text-align:left">' + r.name + '</td><td>' + actStr + '</td><td>' + budStr + '</td><td class="' + cls + '">' + cStr + '</td>' + yoyCell + '</tr>';
+      return '<tr><td style="text-align:left">' + r.name + '</td><td>' + actStr + '</td>' + budCell + cumplCellHtml(c, cStr, false) + yoyCell + '</tr>';
     }).join('');
     // Fila total
     var totalAct = 0, totalBud = 0, totalLY = 0, hasAct = false, hasBud = false, hasLY = false;
@@ -2547,18 +2572,18 @@ function renderKRDetailBoxes(monthFilter) {
     var tc = (hasBud && totalBud) ? Math.min(cumplRatio(totalAct, totalBud), 1.30) : null;
     var tActStr = hasAct ? fmtKRVal(totalAct, unit) : '—';
     var tBudStr = hasBud ? fmtKRVal(totalBud, unit) : '—';
-    var tCls = cumplBg(tc);
     var tCStr = tc !== null ? (tc * 100).toFixed(0) + '%' : '—';
+    var tBudCell = showYoY ? '' : '<td><strong>' + tBudStr + '</strong></td>';
     var tYoyCell = '';
     if (showYoY) {
       var tYoy = (hasLY && totalLY > 0) ? (totalAct / totalLY - 1) : null;
       tYoyCell = '<td class="' + yoyColor(tYoy) + '"><strong>' + yoyIcon(tYoy) + '</strong></td>';
     }
-    var totalRow = '<tr class="kr-detail-total"><td style="text-align:left;font-weight:700">TOTAL</td><td><strong>' + tActStr + '</strong></td><td><strong>' + tBudStr + '</strong></td><td class="' + tCls + '"><strong>' + tCStr + '</strong></td>' + tYoyCell + '</tr>';
+    var totalRow = '<tr class="kr-detail-total"><td style="text-align:left;font-weight:700">TOTAL</td><td><strong>' + tActStr + '</strong></td>' + tBudCell + cumplCellHtml(tc, tCStr, true) + tYoyCell + '</tr>';
     box.innerHTML =
       '<div class="kr-detail-header"><span class="kr-num-badge">' + title + '</span></div>' +
       '<table class="pivot-table kr-detail-table">' +
-      '<thead><tr><th style="text-align:left;min-width:90px">País</th><th>Actual</th><th>Budget</th><th>Cumpl.</th>' + (showYoY ? '<th>YoY</th>' : '') + '</tr></thead>' +
+      '<thead><tr><th style="text-align:left;min-width:90px">País</th><th>Actual</th>' + (showYoY ? '' : '<th>Budget</th>') + '<th>Cumpl.</th>' + (showYoY ? '<th>YoY</th>' : '') + '</tr></thead>' +
       '<tbody>' + totalRow + tableRows + '</tbody></table>';
     return box;
   }
