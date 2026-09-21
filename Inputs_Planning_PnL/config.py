@@ -39,7 +39,7 @@ FISCAL_DATES = (
 # Forecast: forecast.json compone ACTUALS (meses ya cerrados, hasta el cutoff) + el
 # modelo Forecast crudo (cutoff+1 .. Mar). Editar FORECAST_ACTUALS_CUTOFF cuando cierre
 # un nuevo mes (json_builder.py concepto 'forecast' hace el blend; ver su docstring).
-FORECAST_ACTUALS_CUTOFF = "2026-06-01"
+FORECAST_ACTUALS_CUTOFF = "2026-07-01"
 FORECAST_ACTUALS_MONTHS = set(FISCAL_DATES[:FISCAL_DATES.index(FORECAST_ACTUALS_CUTOFF) + 1])
 
 # Meses que se excluyen del modelo Forecast crudo porque forecast.json los reemplaza

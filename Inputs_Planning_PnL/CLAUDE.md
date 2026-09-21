@@ -38,8 +38,8 @@ CSV crudos (OneDrive\Planning-PBI - Inputs Power Bi)
   publica el xlsx directo en `Planning-PBI\Actuals\`.
 - Homologación con `...\B2B & WLs\Proyectos IA\BITUBIA\Glosario.xlsx` (solapas Marca/Paises/Producto/LOB/Linea P&L) — el Glosario **sí** sigue en BITUBIA.
 - **`forecast.json` compone ACTUALS + Forecast** (2026-09-15): meses en `config.FORECAST_ACTUALS_MONTHS`
-  (hoy Abr-Jun'26, corte en `config.FORECAST_ACTUALS_CUTOFF`) salen de ACTUALS del FY en curso;
-  el resto (Jul'26-Mar'27) sale del modelo Forecast crudo. Lo arma `json_builder.py` al construir
+  (hoy Abr-Jul'26, corte en `config.FORECAST_ACTUALS_CUTOFF`) salen de ACTUALS del FY en curso;
+  el resto (Ago'26-Mar'27) sale del modelo Forecast crudo. Lo arma `json_builder.py` al construir
   el concepto `forecast` (no `plana_projections_builder.py`). **Requiere que existan los CSV de
   actuals del FY en curso** (`plana_actuals_builder.py <CURRENT_FY>` antes; en `run_all.bat` ya
   está en ese orden) — si no existen, `json_builder.py forecast` corta con error. Mover el corte

@@ -9,8 +9,8 @@ Reglas:
 - Se sube a la carpeta Drive DRIVE_FOLDER_ID como <concepto>.json.
 - 'actuals_previos' se FRACCIONA por año fiscal: emite un JSON por FY cerrado
   (actuals_previos_fyNN.json), para lecturas más livianas desde Apps Script.
-- 'forecast' compone ACTUALS (meses en config.FORECAST_ACTUALS_MONTHS, hoy Abr-Jun'26)
-  + el modelo Forecast crudo (resto del FY, Jul'26-Mar'27). Requiere que existan los CSV
+- 'forecast' compone ACTUALS (meses en config.FORECAST_ACTUALS_MONTHS, hoy Abr-Jul'26)
+  + el modelo Forecast crudo (resto del FY, Ago'26-Mar'27). Requiere que existan los CSV
   de actuals del FY en curso (correr plana_actuals_builder.py <CURRENT_FY> primero; en
   run_all.bat ya está en ese orden). Editar el corte en config.FORECAST_ACTUALS_CUTOFF.
 
