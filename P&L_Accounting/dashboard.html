@@ -1289,6 +1289,12 @@ function setContableView(view){
 // type:'subtotal' = subtotal acumulado (running sum de todos los rows anteriores)
 // excludeSum:true = la línea se muestra pero no entra al running total (Orders, GB)
 // Claves ct en minúsculas — coinciden exactamente con columna "P&L N2" del Forecast sheet
+// Orden de regiones y desglose de Hispa para las vistas multi-país B2B.
+// Constante única — la usan el split de waterfall, el detalle por región y la
+// matriz "Δ por país vs Goal". Si el pipeline agrega un país/región, tocar acá.
+var B2B_REGION_ORDER    = ['Brasil','Globales','Mexico','Hispa','RG - COI'];
+var B2B_HISPA_COUNTRIES = ['Argentina','Colombia','Chile','Peru','Ecuador'];
+
 var CONTABLE_PNL_STRUCTURE = [
   {type:'row', label:'Orders',        source:'rr', key:'orders',        excludeSum:true, noPct:true},
   {type:'row', label:'Gross Bookings',source:'rr', key:'gross_bookings',excludeSum:true, noPct:true},
@@ -1743,8 +1749,8 @@ function buildB2BRegionSplits_(b2bData) {
   var iniciativasDetails  = iniciativasMAYItems.map(function(p){ return {label:'MAY · '+p.label, data:p.data}; })
                              .concat(iniciativasMINItems.map(function(p){ return {label:'MIN · '+p.label, data:p.data}; }));
   var iniciativasSplit = {label:'Iniciativas', data:sumProductData_(iniciativasItems), customDetails:iniciativasDetails};
-  var REGION_ORDER    = ['Brasil','Globales','Mexico','Hispa','RG - COI'];
-  var HISPA_COUNTRIES = ['Argentina','Colombia','Chile','Peru','Ecuador'];
+  var REGION_ORDER    = B2B_REGION_ORDER;
+  var HISPA_COUNTRIES = B2B_HISPA_COUNTRIES;
   var mayRegMap = {}, minRegMap = {};
   ((b2bData.may && b2bData.may.by_region)||[]).forEach(function(r){ mayRegMap[r.label] = r; });
   ((b2bData.min && b2bData.min.by_region)||[]).forEach(function(r){ minRegMap[r.label] = r; });
@@ -2946,8 +2952,8 @@ function renderB2BCountryDetail(d) {
                                .concat(iniciativasMINItems.map(function(p){ return {label: 'MIN · ' + p.label, data: p.data}; }));
     var iniciativasSplit    = {label: 'Iniciativas', data: sumProductData_(iniciativasItems), customDetails: iniciativasDetails};
 
-    var REGION_ORDER    = ['Brasil', 'Globales', 'Mexico', 'Hispa', 'RG - COI'];
-    var HISPA_COUNTRIES = ['Argentina', 'Colombia', 'Chile', 'Peru', 'Ecuador'];
+    var REGION_ORDER    = B2B_REGION_ORDER;
+    var HISPA_COUNTRIES = B2B_HISPA_COUNTRIES;
     var mayRegMap = {}, minRegMap = {};
     ((d.may && d.may.by_region) || []).forEach(function(r){ mayRegMap[r.label] = r; });
     ((d.min && d.min.by_region) || []).forEach(function(r){ minRegMap[r.label] = r; });
@@ -3022,7 +3028,194 @@ function renderB2BCountryDetail(d) {
   } else {
     if (_showMAY && d.may && d.may.total) renderPnlBlock_(detail, 'MAY / API · ' + d.label, quarters, n, d.may.total);
     if (_showMIN && d.min && d.min.total) renderPnlBlock_(detail, 'MIN / HTML · ' + d.label, quarters, n, d.min.total);
+    renderCountryDeltaMatrix_(detail, d, quarters);
   }
+}
+
+// ── Δ por país vs Goal (vista multi-país B2B) ───────────────────────────────
+// Tabla auxiliar debajo de los bloques por canal: filas = líneas del P&L,
+// columnas = países, valores = delta (Baseline − Goal) ACUMULADO sobre los
+// meses/períodos filtrados. Sirve para ver qué países generan más delta.
+// Toda la lógica de suma replica fillBGBody() para cuadrar con la tabla principal.
+function _pnlQVal_(node, q, rr, ct){
+  if(q==='H1 FY27') return _pnlQVal_(node,'Q1 FY27',rr,ct)+_pnlQVal_(node,'Q2 FY27',rr,ct);
+  if(q==='H2 FY27') return _pnlQVal_(node,'Q3 FY27',rr,ct)+_pnlQVal_(node,'Q4 FY27',rr,ct);
+  if(node.source==='rr'){
+    if(node.key==='_upfront_fees_rr')
+      return ((rr['up_front_incentives']&&rr['up_front_incentives'][q])||0) +
+             ((rr['_cfc_rr']&&rr['_cfc_rr'][q])||0);
+    return (rr[node.key]&&rr[node.key][q])||0;
+  }
+  return (ct[node.key]&&ct[node.key][q])||0;
+}
+
+// Recorre CONTABLE_PNL_STRUCTURE igual que fillBGBody y devuelve el delta
+// acumulado por línea del P&L para un país. Orders/GB no entran al subtotal
+// (excludeSum), summaries suman al running y subtotals lo muestran. Cada summary
+// emite además una fila por cada sub-línea (kind 'sub') para poder desplegarla.
+// El orden de filas es idéntico entre países (misma estructura) → alineación OK.
+function _countryDeltaRows_(cData, accPeriods){
+  var md=_modeData_(cData);
+  var bRR=md.baseline.rr||{}, bCT=md.baseline.ct||{}, gRR=md.goal.rr||{}, gCT=md.goal.ct||{};
+  function acc(node,rr,ct){ var s=0; accPeriods.forEach(function(q){ s+=_pnlQVal_(node,q,rr,ct); }); return s; }
+  var rows=[], runB=0, runG=0;
+  CONTABLE_PNL_STRUCTURE.forEach(function(node){
+    if(node.type==='row'){
+      var b=acc(node,bRR,bCT), g=acc(node,gRR,gCT);
+      if(!node.excludeSum){ runB+=b; runG+=g; }
+      rows.push({label:node.label, kind:'row', isOrders:(node.key==='orders'), delta:b-g});
+    } else if(node.type==='summary'){
+      var b=0,g=0;
+      node.keys.forEach(function(k){ b+=acc(k,bRR,bCT); g+=acc(k,gRR,gCT); });
+      runB+=b; runG+=g;
+      rows.push({label:node.label, kind:'summary', secId:node.id, delta:b-g});
+      node.keys.forEach(function(k){
+        rows.push({label:k.label, kind:'sub', secId:node.id, isRR:(k.source==='rr'),
+                   delta:acc(k,bRR,bCT)-acc(k,gRR,gCT)});
+      });
+    } else if(node.type==='subtotal'){
+      rows.push({label:node.label, kind:'subtotal', delta:runB-runG});
+    }
+  });
+  return rows;
+}
+
+// Arma la lista ordenada de países desde by_region (Hispa desglosado país por país).
+function _collectB2BCountries_(d){
+  var mayRegMap={}, minRegMap={};
+  ((d.may&&d.may.by_region)||[]).forEach(function(r){ mayRegMap[r.label]=r; });
+  ((d.min&&d.min.by_region)||[]).forEach(function(r){ minRegMap[r.label]=r; });
+  var out=[];
+  B2B_REGION_ORDER.forEach(function(lbl){
+    if(lbl==='Hispa'){
+      var mayC={}, minC={};
+      ((mayRegMap['Hispa']&&mayRegMap['Hispa'].countries)||[]).forEach(function(c){ mayC[c.label]=c.data; });
+      ((minRegMap['Hispa']&&minRegMap['Hispa'].countries)||[]).forEach(function(c){ minC[c.label]=c.data; });
+      B2B_HISPA_COUNTRIES.forEach(function(cn){
+        if(!mayC[cn] && !minC[cn]) return;
+        out.push({label:cn, may:mayC[cn]||null, min:minC[cn]||null});
+      });
+    } else {
+      var mr=mayRegMap[lbl], nr=minRegMap[lbl];
+      if((mr&&mr.data)||(nr&&nr.data)) out.push({label:lbl, may:(mr&&mr.data)||null, min:(nr&&nr.data)||null});
+    }
+  });
+  return out;
+}
+
+// Resuelve la data del país según el filtro de canal activo (total = MAY+MIN).
+function _canalCountryData_(entry){
+  if(_b2bCanalFilter==='may') return entry.may;
+  if(_b2bCanalFilter==='min') return entry.min;
+  var parts=[];
+  if(entry.may) parts.push({data:entry.may});
+  if(entry.min) parts.push({data:entry.min});
+  return parts.length ? sumProductData_(parts) : null;
+}
+
+// Colapsa/expande las sub-líneas de un summary dentro de la matriz de deltas.
+var _cdmSeq = 0;
+function toggleDeltaSec_(tableId, secId){
+  var tbl=document.getElementById(tableId); if(!tbl) return;
+  var hdr=tbl.querySelector('tr[data-dhdr="'+secId+'"]');
+  var collapsed = hdr && hdr.getAttribute('data-collapsed')==='1';
+  tbl.querySelectorAll('tr[data-dsec="'+secId+'"]').forEach(function(r){ r.style.display = collapsed ? '' : 'none'; });
+  if(hdr){
+    hdr.setAttribute('data-collapsed', collapsed ? '0' : '1');
+    var a=hdr.querySelector('.cdm-arr'); if(a) a.textContent = collapsed ? '▾' : '▸';
+  }
+}
+
+function renderCountryDeltaMatrix_(container, d, quarters){
+  // Períodos a acumular = los meses/quarters realmente filtrados (sin la col Total).
+  var accPeriods = _bgPeriodTotalMembers ? _bgPeriodTotalMembers.slice()
+                 : quarters.filter(function(q){ return q!==TOTAL_PERIOD_LABEL; });
+  if(!accPeriods.length) return;
+
+  var countries = _collectB2BCountries_(d).map(function(e){
+    return {label:e.label, data:_canalCountryData_(e)};
+  }).filter(function(e){ return e.data; });
+  if(countries.length < 2) return;  // nada que comparar
+
+  var perCountryRows = countries.map(function(c){ return _countryDeltaRows_(c.data, accPeriods); });
+  var template = perCountryRows[0];
+
+  // Total autoritativo: delta del total del canal (mismo dato que la tabla
+  // principal "Total B2B"), no la suma de las columnas mostradas. Así reconcilia
+  // aunque el JSON traiga un país/región fuera de las listas de arriba.
+  var totalCanalData = _canalCountryData_({
+    may:(d.may&&d.may.total)||null,
+    min:(d.min&&d.min.total)||null
+  });
+  var totalRows = totalCanalData ? _countryDeltaRows_(totalCanalData, accPeriods) : null;
+
+  var canalLbl = _b2bCanalFilter==='may' ? 'MAY / API'
+               : _b2bCanalFilter==='min' ? 'MIN / HTML' : 'MAY + MIN';
+  var perLbl = accPeriods.map(function(q){ return MONTH_CHIP_LABELS_BG[q] || qlBG(q); }).join(' + ');
+
+  var secDiv=document.createElement('div'); secDiv.className='sec'; secDiv.style.marginTop='16px';
+
+  var hdrRow=document.createElement('div');
+  hdrRow.style.cssText='display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px';
+  var titleDiv=document.createElement('div');
+  titleDiv.className='sec-title';
+  titleDiv.style.cssText='cursor:pointer;display:flex;align-items:center;gap:6px;margin-bottom:0';
+  var arrSpan=document.createElement('span'); arrSpan.className='cont-arrow'; arrSpan.textContent='▾';
+  titleDiv.appendChild(arrSpan);
+  titleDiv.appendChild(document.createTextNode('Δ por país vs Goal · '+canalLbl));
+  hdrRow.appendChild(titleDiv);
+  var perSpan=document.createElement('span');
+  perSpan.style.cssText='font-size:11px;color:var(--muted)';
+  perSpan.textContent=(accPeriods.length>1 ? 'Acumulado · ' : '')+perLbl;
+  hdrRow.appendChild(perSpan);
+
+  var cardDiv=document.createElement('div'); cardDiv.className='pnl-card';
+  var noteDiv=document.createElement('div');
+  noteDiv.style.cssText='font-size:11px;color:var(--muted);padding:10px 14px 0';
+  noteDiv.innerHTML='Delta = <b>Baseline − Goal</b> por país (verde = mejor que goal · rojo = peor). '+
+    (accPeriods.length>1 ? 'Suma de los meses filtrados.' : 'Mes/período filtrado.')+
+    ' Tocá una línea con <span style="font-size:9px">▸</span> para abrir su detalle.';
+  cardDiv.appendChild(noteDiv);
+
+  var tableId='cdm-'+(_cdmSeq++);
+  var wrapDiv=document.createElement('div'); wrapDiv.style.cssText='overflow-x:auto;padding:10px 14px 14px';
+  var html='<table class="delta-table" id="'+tableId+'"><thead><tr><th>Concepto</th>';
+  countries.forEach(function(c){ html+='<th>'+c.label+'</th>'; });
+  html+='<th class="td-total-col">Total</th></tr></thead><tbody>';
+  template.forEach(function(row, ri){
+    var isSub=(row.kind==='sub'), isSummary=(row.kind==='summary'), emph=isSummary||(row.kind==='subtotal');
+    var trAttrs='', tdStyle='', labelHtml=row.label;
+    if(isSub){
+      trAttrs=' data-dsec="'+row.secId+'" style="display:none"';
+      tdStyle=' style="padding-left:20px;font-weight:400"';
+      if(row.isRR) labelHtml='<span style="font-size:9px;background:#EDE9FE;color:#6D28D9;border-radius:3px;padding:1px 3px;margin-right:4px">RR</span>'+row.label;
+    } else if(isSummary){
+      trAttrs=' data-dhdr="'+row.secId+'" data-collapsed="1" style="cursor:pointer;font-weight:700" onclick="toggleDeltaSec_(\''+tableId+'\',\''+row.secId+'\')"';
+      tdStyle=' style="font-weight:700"';
+      labelHtml='<span class="cdm-arr" style="font-size:9px;margin-right:4px">▸</span>'+row.label;
+    } else if(emph){
+      trAttrs=' style="font-weight:700"'; tdStyle=' style="font-weight:700"';
+    }
+    html+='<tr'+trAttrs+'><td'+tdStyle+'>'+labelHtml+'</td>';
+    var sumShown=0;
+    countries.forEach(function(c, ci){
+      var dv=perCountryRows[ci][ri].delta; sumShown+=dv;
+      var f=row.isOrders?fmtKK(dv):fmtMM(dv);
+      html+='<td class="'+(dv<0?'td-neg':'td-pos')+'">'+(dv>=0?'+':'')+f+'</td>';
+    });
+    var totalDelta=totalRows ? totalRows[ri].delta : sumShown;
+    var ft=row.isOrders?fmtKK(totalDelta):fmtMM(totalDelta);
+    html+='<td class="td-total-col '+(totalDelta<0?'td-neg':'td-pos')+'">'+(totalDelta>=0?'+':'')+ft+'</td>';
+    html+='</tr>';
+  });
+  html+='</tbody></table>';
+  wrapDiv.innerHTML=html;
+  cardDiv.appendChild(wrapDiv);
+
+  (function(cd,arr){ var collapsed=false; titleDiv.onclick=function(){ collapsed=!collapsed; cd.style.display=collapsed?'none':''; arr.textContent=collapsed?'▸':'▾'; }; })(cardDiv,arrSpan);
+
+  secDiv.appendChild(hdrRow); secDiv.appendChild(cardDiv);
+  container.appendChild(secDiv);
 }
 
 // ── B2B2C Country Detail ────────────────────────────────────────────────────
