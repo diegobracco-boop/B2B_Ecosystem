@@ -76,11 +76,6 @@ BASES = {
                   "Forecast/FQ1 - Legal Entity NA.csv"],
         "is_forecast": True,
     },
-    "forecast_v2": {
-        "files": ["Forecast/FQ1 - Legal Entity ALL V2.csv",
-                  "Forecast/FQ1 - Legal Entity NA V2.csv"],
-        "is_forecast": True,
-    },
     "runrate": {
         "files": [f"Run Rate/RR - Legal Entity ALL - {_FY_SHORT}.csv",
                   f"Run Rate/RR - Legal Entity NA - {_FY_SHORT}.csv"],

@@ -46,7 +46,6 @@ GROUP = COLS_OUT[:-1]  # todo menos Monto USD
 CONCEPTS = {
     "budget":          ["plana_budget.csv"],
     "forecast":        ["plana_forecast.csv"],
-    "forecast_v2":     ["plana_forecast_v2.csv"],
     "runrate":         ["plana_runrate.csv"],
     "lastrunrate":     ["plana_lastrunrate.csv"],
     "actuals":         None,   # FY en curso (CURRENT_FY)
