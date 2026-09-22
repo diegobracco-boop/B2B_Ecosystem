@@ -3978,12 +3978,16 @@ function renderEvo() {
         var deltaPp = (ratio!==null && lyRatio!==null) ? ratio-lyRatio : null;
 
         var line1 = (val!==null?fmtK(val):'—') + ' / ' + (ratio!==null?ratio.toFixed(1)+'%':'—');
-        var yoyTxt = yoy!==null ? ((yoy>=0?'+':'')+Math.round(yoy)+'%') : '—';
-        var ppTxt  = deltaPp!==null ? ((deltaPp>=0?'+':'')+deltaPp.toFixed(1)+'pp') : '—';
-        var color  = yoy!==null ? (yoy>=0?'var(--green)':'var(--red)') : 'var(--muted2)';
+        var yoyTxt   = yoy!==null ? ((yoy>=0?'+':'')+Math.round(yoy)+'%') : '—';
+        var ppTxt    = deltaPp!==null ? ((deltaPp>=0?'+':'')+deltaPp.toFixed(1)+'pp') : '—';
+        // Cada número con su propio color según su propio signo — el % puede ser
+        // positivo mientras el pp (participación sobre GB) cae, y viceversa; no tiene
+        // sentido pintar el pp del color del %.
+        var yoyColor = yoy!==null ? (yoy>=0?'var(--green)':'var(--red)') : 'var(--muted2)';
+        var ppColor  = deltaPp!==null ? (deltaPp>=0?'var(--green)':'var(--red)') : 'var(--muted2)';
         row += '<td>'+
           '<span style="display:block;color:var(--muted)">'+line1+'</span>'+
-          '<span style="display:block;color:'+color+'">'+yoyTxt+' / '+ppTxt+'</span>'+
+          '<span style="display:block"><span style="color:'+yoyColor+'">'+yoyTxt+'</span> / <span style="color:'+ppColor+'">'+ppTxt+'</span></span>'+
           (tag?'<span style="color:rgba(139,92,246,.85);font-size:8px;display:block;line-height:1">'+tag+'</span>':'')+
           '</td>';
       } else {
