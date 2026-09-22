@@ -3025,6 +3025,7 @@ function renderB2BCountryDetail(d) {
       renderPnlBlock_(detail, 'MIN · ' + d.label, quarters, n, d.min.total);
       if (!isGlobales) minProds.forEach(function(p){ renderPnlBlock_(detail, 'MIN · ' + p.label, quarters, n, p.data); });
     }
+    renderProductDeltaMatrix_(detail, d, quarters);
   } else {
     if (_showMAY && d.may && d.may.total) renderPnlBlock_(detail, 'MAY / API · ' + d.label, quarters, n, d.may.total);
     if (_showMIN && d.min && d.min.total) renderPnlBlock_(detail, 'MIN / HTML · ' + d.label, quarters, n, d.min.total);
@@ -3081,23 +3082,26 @@ function _countryDeltaRows_(cData, accPeriods){
 }
 
 // Arma la lista ordenada de países desde by_region (Hispa desglosado país por país).
+// Usa dataFull (total del país, incl. iniciativas) para que el delta cuadre con
+// el detalle del país; cae a data (palancas) solo si el backend aún no lo trae.
 function _collectB2BCountries_(d){
   var mayRegMap={}, minRegMap={};
   ((d.may&&d.may.by_region)||[]).forEach(function(r){ mayRegMap[r.label]=r; });
   ((d.min&&d.min.by_region)||[]).forEach(function(r){ minRegMap[r.label]=r; });
+  function full(x){ return x ? (x.dataFull || x.data) : null; }
   var out=[];
   B2B_REGION_ORDER.forEach(function(lbl){
     if(lbl==='Hispa'){
       var mayC={}, minC={};
-      ((mayRegMap['Hispa']&&mayRegMap['Hispa'].countries)||[]).forEach(function(c){ mayC[c.label]=c.data; });
-      ((minRegMap['Hispa']&&minRegMap['Hispa'].countries)||[]).forEach(function(c){ minC[c.label]=c.data; });
+      ((mayRegMap['Hispa']&&mayRegMap['Hispa'].countries)||[]).forEach(function(c){ mayC[c.label]=full(c); });
+      ((minRegMap['Hispa']&&minRegMap['Hispa'].countries)||[]).forEach(function(c){ minC[c.label]=full(c); });
       B2B_HISPA_COUNTRIES.forEach(function(cn){
         if(!mayC[cn] && !minC[cn]) return;
         out.push({label:cn, may:mayC[cn]||null, min:minC[cn]||null});
       });
     } else {
       var mr=mayRegMap[lbl], nr=minRegMap[lbl];
-      if((mr&&mr.data)||(nr&&nr.data)) out.push({label:lbl, may:(mr&&mr.data)||null, min:(nr&&nr.data)||null});
+      if(full(mr)||full(nr)) out.push({label:lbl, may:full(mr), min:full(nr)});
     }
   });
   return out;
@@ -3126,31 +3130,44 @@ function toggleDeltaSec_(tableId, secId){
   }
 }
 
-function renderCountryDeltaMatrix_(container, d, quarters){
-  // Períodos a acumular = los meses/quarters realmente filtrados (sin la col Total).
+// Etiqueta del canal activo para los títulos de las matrices de delta.
+function _canalMatrixLbl_(){
+  return _b2bCanalFilter==='may' ? 'MAY / API'
+       : _b2bCanalFilter==='min' ? 'MIN / HTML' : 'MAY + MIN';
+}
+
+// Total autoritativo del canal para un país/detalle (mismo dato que el bloque
+// total de arriba) — reconcilia aunque falte alguna columna en las listas.
+function _canalTotalData_(d){
+  return _canalCountryData_({ may:(d.may&&d.may.total)||null, min:(d.min&&d.min.total)||null });
+}
+
+// Productos disponibles según el canal filtrado. En 'total' se prefija el canal
+// para desambiguar (MAY · Flights vs MIN · Cruises).
+function _collectB2BProducts_(d){
+  var may=(d.may&&d.may.products)||[], min=(d.min&&d.min.products)||[];
+  if(_b2bCanalFilter==='may') return may.map(function(p){ return {label:p.label, data:p.data}; });
+  if(_b2bCanalFilter==='min') return min.map(function(p){ return {label:p.label, data:p.data}; });
+  var out=[];
+  may.forEach(function(p){ out.push({label:'MAY · '+p.label, data:p.data}); });
+  min.forEach(function(p){ out.push({label:'MIN · '+p.label, data:p.data}); });
+  return out;
+}
+
+// Renderer genérico de matriz de deltas: filas = líneas del P&L (summaries
+// desplegables), columnas = opts.cols [{label,data}], + columna Total autoritativa
+// (opts.totalData). Valores = delta Baseline − Goal acumulado por los meses filtrados.
+function _renderDeltaMatrix_(container, opts){
   var accPeriods = _bgPeriodTotalMembers ? _bgPeriodTotalMembers.slice()
-                 : quarters.filter(function(q){ return q!==TOTAL_PERIOD_LABEL; });
+                 : opts.quarters.filter(function(q){ return q!==TOTAL_PERIOD_LABEL; });
   if(!accPeriods.length) return;
 
-  var countries = _collectB2BCountries_(d).map(function(e){
-    return {label:e.label, data:_canalCountryData_(e)};
-  }).filter(function(e){ return e.data; });
-  if(countries.length < 2) return;  // nada que comparar
+  var cols = (opts.cols||[]).filter(function(c){ return c.data; });
+  if(cols.length < 2) return;  // nada que comparar
 
-  var perCountryRows = countries.map(function(c){ return _countryDeltaRows_(c.data, accPeriods); });
-  var template = perCountryRows[0];
-
-  // Total autoritativo: delta del total del canal (mismo dato que la tabla
-  // principal "Total B2B"), no la suma de las columnas mostradas. Así reconcilia
-  // aunque el JSON traiga un país/región fuera de las listas de arriba.
-  var totalCanalData = _canalCountryData_({
-    may:(d.may&&d.may.total)||null,
-    min:(d.min&&d.min.total)||null
-  });
-  var totalRows = totalCanalData ? _countryDeltaRows_(totalCanalData, accPeriods) : null;
-
-  var canalLbl = _b2bCanalFilter==='may' ? 'MAY / API'
-               : _b2bCanalFilter==='min' ? 'MIN / HTML' : 'MAY + MIN';
+  var perColRows = cols.map(function(c){ return _countryDeltaRows_(c.data, accPeriods); });
+  var template = perColRows[0];
+  var totalRows = opts.totalData ? _countryDeltaRows_(opts.totalData, accPeriods) : null;
   var perLbl = accPeriods.map(function(q){ return MONTH_CHIP_LABELS_BG[q] || qlBG(q); }).join(' + ');
 
   var secDiv=document.createElement('div'); secDiv.className='sec'; secDiv.style.marginTop='16px';
@@ -3162,7 +3179,7 @@ function renderCountryDeltaMatrix_(container, d, quarters){
   titleDiv.style.cssText='cursor:pointer;display:flex;align-items:center;gap:6px;margin-bottom:0';
   var arrSpan=document.createElement('span'); arrSpan.className='cont-arrow'; arrSpan.textContent='▾';
   titleDiv.appendChild(arrSpan);
-  titleDiv.appendChild(document.createTextNode('Δ por país vs Goal · '+canalLbl));
+  titleDiv.appendChild(document.createTextNode(opts.title));
   hdrRow.appendChild(titleDiv);
   var perSpan=document.createElement('span');
   perSpan.style.cssText='font-size:11px;color:var(--muted)';
@@ -3172,7 +3189,7 @@ function renderCountryDeltaMatrix_(container, d, quarters){
   var cardDiv=document.createElement('div'); cardDiv.className='pnl-card';
   var noteDiv=document.createElement('div');
   noteDiv.style.cssText='font-size:11px;color:var(--muted);padding:10px 14px 0';
-  noteDiv.innerHTML='Delta = <b>Baseline − Goal</b> por país (verde = mejor que goal · rojo = peor). '+
+  noteDiv.innerHTML='Delta = <b>Baseline − Goal</b> por '+(opts.entityWord||'columna')+' (verde = mejor que goal · rojo = peor). '+
     (accPeriods.length>1 ? 'Suma de los meses filtrados.' : 'Mes/período filtrado.')+
     ' Tocá una línea con <span style="font-size:9px">▸</span> para abrir su detalle.';
   cardDiv.appendChild(noteDiv);
@@ -3180,7 +3197,7 @@ function renderCountryDeltaMatrix_(container, d, quarters){
   var tableId='cdm-'+(_cdmSeq++);
   var wrapDiv=document.createElement('div'); wrapDiv.style.cssText='overflow-x:auto;padding:10px 14px 14px';
   var html='<table class="delta-table" id="'+tableId+'"><thead><tr><th>Concepto</th>';
-  countries.forEach(function(c){ html+='<th>'+c.label+'</th>'; });
+  cols.forEach(function(c){ html+='<th>'+c.label+'</th>'; });
   html+='<th class="td-total-col">Total</th></tr></thead><tbody>';
   template.forEach(function(row, ri){
     var isSub=(row.kind==='sub'), isSummary=(row.kind==='summary'), emph=isSummary||(row.kind==='subtotal');
@@ -3198,8 +3215,8 @@ function renderCountryDeltaMatrix_(container, d, quarters){
     }
     html+='<tr'+trAttrs+'><td'+tdStyle+'>'+labelHtml+'</td>';
     var sumShown=0;
-    countries.forEach(function(c, ci){
-      var dv=perCountryRows[ci][ri].delta; sumShown+=dv;
+    cols.forEach(function(c, ci){
+      var dv=perColRows[ci][ri].delta; sumShown+=dv;
       var f=row.isOrders?fmtKK(dv):fmtMM(dv);
       html+='<td class="'+(dv<0?'td-neg':'td-pos')+'">'+(dv>=0?'+':'')+f+'</td>';
     });
@@ -3216,6 +3233,28 @@ function renderCountryDeltaMatrix_(container, d, quarters){
 
   secDiv.appendChild(hdrRow); secDiv.appendChild(cardDiv);
   container.appendChild(secDiv);
+}
+
+// Multi-país (Total B2B / grupo): columnas = países.
+function renderCountryDeltaMatrix_(container, d, quarters){
+  _renderDeltaMatrix_(container, {
+    quarters: quarters,
+    cols: _collectB2BCountries_(d).map(function(e){ return {label:e.label, data:_canalCountryData_(e)}; }),
+    totalData: _canalTotalData_(d),
+    title: 'Δ por país vs Goal · '+_canalMatrixLbl_(),
+    entityWord: 'país'
+  });
+}
+
+// Un solo país: columnas = productos de ese país según el canal.
+function renderProductDeltaMatrix_(container, d, quarters){
+  _renderDeltaMatrix_(container, {
+    quarters: quarters,
+    cols: _collectB2BProducts_(d),
+    totalData: _canalTotalData_(d),
+    title: 'Δ por producto vs Goal · '+d.label+' · '+_canalMatrixLbl_(),
+    entityWord: 'producto'
+  });
 }
 
 // ── B2B2C Country Detail ────────────────────────────────────────────────────

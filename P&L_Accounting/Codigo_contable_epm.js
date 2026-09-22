@@ -593,7 +593,13 @@ function getEPMB2BCountryDetail(paisGroupJson) {
     return REGION_GROUPS_EPM.map(function(rg) {
       var subPais = allPais ? rg.pais : rg.pais.filter(function(p){ return paisArr.indexOf(p) >= 0; });
       if (subPais.length === 0) return null;
-      var result = {label: rg.label, data: compForPais(lgKey, palancaProds, subPais)};
+      // data = solo palancas (waterfall). dataFull = total incl. iniciativas,
+      // para que la tabla "Δ por país vs Goal" cuadre con el detalle del país.
+      var result = {
+        label: rg.label,
+        data: compForPais(lgKey, palancaProds, subPais),
+        dataFull: compForPais(lgKey, null, subPais)
+      };
       if (rg.byProduct) {
         result.products = palancaProds.map(function(prod) {
           var lbl = PALANCA_PROD_LABELS[prod.toLowerCase()] || (prod.charAt(0).toUpperCase() + prod.slice(1));
@@ -602,7 +608,7 @@ function getEPMB2BCountryDetail(paisGroupJson) {
       }
       if (rg.byCountry) {
         result.countries = subPais.map(function(p) {
-          return {label: p, data: compForPais(lgKey, palancaProds, [p])};
+          return {label: p, data: compForPais(lgKey, palancaProds, [p]), dataFull: compForPais(lgKey, null, [p])};
         });
       }
       return result;
