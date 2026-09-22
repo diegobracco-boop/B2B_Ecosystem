@@ -1007,7 +1007,7 @@ function getB2BCountryDetail(paisGroupJson) {
   var PALANCA_PROD_LABELS = {};
   [MAY_FEAT_LABELS, MIN_FEAT_LABELS].forEach(function(m){ Object.keys(m).forEach(function(k){ PALANCA_PROD_LABELS[k] = m[k]; }); });
 
-  function compForPais(lgKey, prodArr, pArr) {
+  function compForPais(lgKey, prodArr, pArr, useCTForRR) {
     var hasProd = prodArr && prodArr.length > 0;
     var actualsByPais2, rrContByPais2, budgetByPais2, forecastByPais2;
     if (hasProd) {
@@ -1024,7 +1024,10 @@ function getB2BCountryDetail(paisGroupJson) {
     var rrDataLocal2 = (lgKey === 'b2b_may')
       ? (hasProd ? jsonGestRIToRRDataForProd_(jData, lgKey, prodArr) : jsonGestRIToRRData_(jData, lgKey))
       : (hasProd ? jsonGestToRRDataForProd_(jData, lgKey, prodArr)   : jsonGestToRRData_(jData, lgKey));
-    return computeGroupWithAgg_(actualsByPais2, rrContByPais2, budgetByPais2, forecastByPais2, rrDataLocal2, cutoffIdx, pArr, false);
+    // useCTForRR: false (default) = blend gestional Q2-Q4, para las palancas del
+    // waterfall. true = 100% contable (mismo criterio que comp()), para dataFull
+    // de la tabla "Δ por país vs Goal" — así cuadra exacto con el detalle del país.
+    return computeGroupWithAgg_(actualsByPais2, rrContByPais2, budgetByPais2, forecastByPais2, rrDataLocal2, cutoffIdx, pArr, !!useCTForRR);
   }
 
   var mayAvailAll     = getAvailProds('b2b_may');
@@ -1039,7 +1042,14 @@ function getB2BCountryDetail(paisGroupJson) {
     return REGION_GROUPS_B2B.map(function(rg) {
       var subPais = allPais ? rg.pais : rg.pais.filter(function(p){ return paisArr.indexOf(p) >= 0; });
       if (subPais.length === 0) return null;
-      var result = {label: rg.label, data: compForPais(lgKey, palancaProds, subPais)};
+      // data = solo palancas (lo que consume el waterfall de palancas).
+      // dataFull = total del país/región INCLUYENDO iniciativas — lo usa la
+      // tabla "Δ por país vs Goal" para cuadrar con el detalle del país.
+      var result = {
+        label: rg.label,
+        data: compForPais(lgKey, palancaProds, subPais),
+        dataFull: compForPais(lgKey, null, subPais, true)
+      };
       if (rg.byProduct) {
         result.products = palancaProds.map(function(prod) {
           var lbl = PALANCA_PROD_LABELS[prod.toLowerCase()] || (prod.charAt(0).toUpperCase() + prod.slice(1));
@@ -1048,7 +1058,7 @@ function getB2BCountryDetail(paisGroupJson) {
       }
       if (rg.byCountry) {
         result.countries = subPais.map(function(p) {
-          return {label: p, data: compForPais(lgKey, palancaProds, [p])};
+          return {label: p, data: compForPais(lgKey, palancaProds, [p]), dataFull: compForPais(lgKey, null, [p], true)};
         });
       }
       return result;
