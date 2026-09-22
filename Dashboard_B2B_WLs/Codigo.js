@@ -28,7 +28,8 @@ var CANAL_GROUPS_BY_LOB = {
   'b2b2c': [
     { id:'brasil', label:'Brasil', lobFilter:'b2b2c', canalFilter:null, paisFilter:'brasil', paisExclude:null, lobExclude:null },
     { id:'mexico', label:'Mexico', lobFilter:'b2b2c', canalFilter:null, paisFilter:'mexico', paisExclude:null, lobExclude:null },
-    { id:'hispa',  label:'Hispa',  lobFilter:'b2b2c', canalFilter:null, paisFilter:null, paisExclude:['brasil','mexico'], lobExclude:null },
+    { id:'hispa',  label:'Hispa',  lobFilter:'b2b2c', canalFilter:null, paisFilter:null, paisExclude:['brasil','mexico','ops','rg','ops + rg'], lobExclude:null },
+    { id:'opsrg',  label:'OPS+RG', lobFilter:'b2b2c', canalFilter:null, paisFilter:null, paisExclude:null, paisMultiFilter:['ops','rg','ops + rg'], lobExclude:null },
     { id:'total',  label:'Total',  lobFilter:'b2b2c', canalFilter:null, paisFilter:null, paisExclude:null, lobExclude:null }
   ],
   'b2b': [
