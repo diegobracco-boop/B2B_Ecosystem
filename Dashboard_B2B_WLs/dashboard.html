@@ -3780,18 +3780,33 @@ function _evoChartCfg_(d, metricId, opts) {
       grid:{drawOnChartArea:false},
       ticks:{color: opts.dualPctGb ? '#57606a' : '#f59e0b',font:{size:10},callback:function(v){return v.toFixed(1)+'%';}}
     };
-    // En modo dual, el eje % arranca en un piso fijo por métrica (OC=0%, NR=3%) en vez
-    // del mínimo de los datos — salvo que haya valores por debajo de ese piso (OC
-    // negativo), en cuyo caso el eje baja hasta el mínimo real para no cortar la línea.
+    // En modo dual las líneas de %GB (eje y2) y las barras (eje y) comparten el alto del
+    // chart y se pisaban. Se separan en dos franjas: las barras (y sus etiquetas) usan la
+    // parte de abajo (hasta ~58% del alto) y las líneas de %GB + sus etiquetas la de
+    // arriba (~72%–94%). Los ticks de y2 por debajo de la franja de datos se ocultan,
+    // porque ahí no hay líneas y el eje solo confundiría.
     if (opts.dualPctGb) {
-      var _pctVals = (pctGbData||[]).concat(pctGbBud||[]).filter(function(v){ return v!==null && v!==undefined && !isNaN(v); });
+      var _isNum = function(v){ return v!==null && v!==undefined && !isNaN(v); };
+      var _barVals = mainData.concat(goalPlot);
+      if (_state.evoShowLY && _state.goal!=='lastYear') _barVals = _barVals.concat(grps.map(function(g){ return g.lyAct; }));
+      _barVals = _barVals.filter(_isNum);
+      if (_barVals.length) {
+        var _bmax = Math.max.apply(null,_barVals);
+        var _bmin = Math.min(0, Math.min.apply(null,_barVals));
+        if (_bmax > _bmin) {
+          scales.y.min = _bmin < 0 ? _bmin*1.1 : 0;
+          scales.y.max = _bmin + (_bmax-_bmin)/0.58;
+        }
+      }
+      var _pctVals = (pctGbData||[]).concat(pctGbBud||[]).filter(_isNum);
       if (_pctVals.length) {
-        var _pmax  = Math.max.apply(null,_pctVals);
-        var _pmin  = Math.min.apply(null,_pctVals);
-        var _floor = metricId==='oc' ? 0 : metricId==='nr' ? 3 : 0;
-        var _pad   = Math.max((_pmax-Math.min(_pmin,_floor))*0.15, 1);
-        scales.y2.min = +((_pmin < _floor ? _pmin-_pad : _floor).toFixed(2));
-        scales.y2.max = +(_pmax+_pad).toFixed(2);
+        var _pmax = Math.max.apply(null,_pctVals);
+        var _pmin = Math.min.apply(null,_pctVals);
+        var _span = Math.max(_pmax-_pmin, 1);                 // franja de datos = 22% del alto
+        var _R    = _span/0.22;
+        scales.y2.max = +(_pmax + _R*0.06).toFixed(3);
+        scales.y2.min = +(_pmax + _R*0.06 - _R).toFixed(3);
+        scales.y2.ticks.callback = function(v){ return v >= _pmin - _span*0.3 ? v.toFixed(1)+'%' : ''; };
       }
     }
   }
