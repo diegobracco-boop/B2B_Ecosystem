@@ -52,12 +52,12 @@ Las siguientes ejecuciones son silenciosas.
 
 ---
 
-## Paso 5 — Actualizar reales (proceso MANUAL, no hay Task Scheduler)
+## Paso 5 — Actualizar reales
 
-No hay ninguna tarea programada de Windows corriendo esto solo — se confirmó
-(2026-09-22) que no existe en ninguna máquina revisada, y el historial de git
-muestra corridas manuales de distintas personas en horarios distintos, no un
-cron real. Cuando haga falta refrescar los datos:
+Gregorio y Tiago tienen Task Scheduler configurado en sus máquinas (trigger
+diario 08:00 hs) para correr `auto_update_reales.ps1` solos. **En esta máquina
+no hay tarea programada** (verificado 2026-09-22) — acá es proceso manual.
+Cuando haga falta refrescar los datos desde esta máquina:
 
 ```powershell
 cd Daily_Dashboard
@@ -69,9 +69,14 @@ de código en `Daily_Dashboard/`) → `clasp push` → `clasp deploy -i` al
 deployment de producción. Cada paso corta la cadena si el anterior falla, así
 que nunca publica datos rotos. El log queda en `Daily_Dashboard/logs/`.
 
-Si en algún momento el equipo decide automatizarlo con Task Scheduler, ver la
-guía de `schtasks /create` (pedirle a Claude Code que la arme) — trigger diario,
-acción `powershell.exe -File auto_update_reales.ps1`.
+Si no hay logs nuevos en varios días (revisar `Daily_Dashboard/logs/` y
+`git log --grep="auto-update"`), puede ser que las tareas de Gregorio/Tiago
+se hayan trabado (VPN, credenciales vencidas, laptop apagada) — confirmarlo
+con ellos antes de asumir que el dato en Drive está al día.
+
+Para configurar Task Scheduler en una máquina nueva: `schtasks /create` con
+trigger diario y acción `powershell.exe -File auto_update_reales.ps1`
+(pedirle a Claude Code que arme el comando exacto).
 
 ---
 
