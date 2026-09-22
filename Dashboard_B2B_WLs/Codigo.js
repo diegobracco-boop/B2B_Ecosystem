@@ -1158,8 +1158,17 @@ function computeEvo_(p, actMap, rrMap, budMap, actPrevMap, fcMap) {
     });
   });
 
-  // Per-country YoY breakdown (FY27 only, RG excluded)
-  var CTRY_EVO_DEFS_ = [
+  // Per-country YoY breakdown (FY27 only).
+  // Para B2B usa los mismos grupos que el Cuadro Resumen P&L / Waterfall (WF_GROUPS_BY_LOB.b2b):
+  // Brasil, Mexico, Globales, Hispa, OPS+RG. El resto de LoBs (B2B2C, all) mantiene el
+  // desglose genérico con Argentina propia (no coincide con ningún cuadro de esos LoBs).
+  var CTRY_EVO_DEFS_ = (p.lob === 'b2b') ? [
+    { label:'Brasil',   gf:{ paisFilter:'brasil',          paisExclude:null } },
+    { label:'Mexico',   gf:{ paisFilter:'mexico',          paisExclude:null } },
+    { label:'Globales', gf:{ paisFilter:'other countries', paisExclude:null } },
+    { label:'Hispa',    gf:{ paisFilter:null, paisExclude:['brasil','mexico','other countries','ops','rg','ops + rg'] } },
+    { label:'OPS+RG',   gf:{ paisMultiFilter:['ops','rg','ops + rg'] } }
+  ] : [
     { label:'Brasil',            gf:{ paisFilter:'brasil',    paisExclude:null } },
     { label:'Mexico',            gf:{ paisFilter:'mexico',    paisExclude:null } },
     { label:'Argentina',         gf:{ paisFilter:'argentina', paisExclude:null } },
