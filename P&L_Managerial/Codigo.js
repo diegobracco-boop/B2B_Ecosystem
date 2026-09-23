@@ -273,7 +273,80 @@ function doGet() {
 //   partner:   string|array  (solo B2B2C)
 //   produto:   string|array
 // }
+// CacheService (6h) — 2026-09-23. getData() alimenta las 3 pestañas (Managerial View,
+// Gráficos, Detalle) y no tenía NADA de cache: cada llamada releía+reparseaba el JSON
+// gestional (~7MB) de Drive y corría hasta 12 pasadas de agregación (queryB2B2C_/
+// queryB2B_ × hasta 4 escenarios × hasta 3 LoBs) desde cero. _gestionalJsonCache_ no
+// ayuda acá — solo vive dentro de una misma ejecución de Apps Script, y cada
+// google.script.run es una ejecución nueva. Mismo patrón que getVsAccounting/
+// getRevenueGDVsGestional (invalidación por mtime del JSON), con chunking (como
+// writeResultCache_ en Dashboard_B2B_WLs) porque el breakdown completo por
+// partner×país×mes puede superar el límite de 100KB por valor de CacheService.
+var GETDATA_CACHE_CHUNK_SIZE = 90000; // 90KB por chunk
+
+function _readGetDataCache_(key) {
+  var sc = CacheService.getScriptCache();
+  var meta = sc.get(key + '_meta');
+  if (meta) {
+    try {
+      var m = JSON.parse(meta);
+      var parts = [];
+      for (var i = 0; i < m.chunks; i++) {
+        var c = sc.get(key + '_c' + i);
+        if (!c) return null;   // chunk expirado → recalcular
+        parts.push(c);
+      }
+      return JSON.parse(parts.join(''));
+    } catch (e) { return null; }
+  }
+  var hit = sc.get(key);
+  if (hit) { try { return JSON.parse(hit); } catch (e) {} }
+  return null;
+}
+
+function _writeGetDataCache_(key, value) {
+  var json = JSON.stringify(value);
+  var sc = CacheService.getScriptCache();
+  try {
+    if (json.length <= GETDATA_CACHE_CHUNK_SIZE) {
+      sc.put(key, json, 21600);
+    } else {
+      var pairs = {};
+      var nChunks = Math.ceil(json.length / GETDATA_CACHE_CHUNK_SIZE);
+      pairs[key + '_meta'] = JSON.stringify({ chunks: nChunks });
+      for (var i = 0; i < nChunks; i++) {
+        pairs[key + '_c' + i] = json.slice(i * GETDATA_CACHE_CHUNK_SIZE, (i + 1) * GETDATA_CACHE_CHUNK_SIZE);
+      }
+      sc.putAll(pairs, 21600);
+    }
+  } catch (e) {}
+}
+
 function getData(filters) {
+  var f = (filters && typeof filters === 'object') ? filters : {};
+  var sig = JSON.stringify({
+    pais:           (f.pais    || []).slice().sort(),
+    partner:        (f.partner || []).slice().sort(),
+    produto:        (f.produto || []).slice().sort(),
+    lob_tipo:       (Array.isArray(f.lob_tipo) ? f.lob_tipo.slice().sort() : f.lob_tipo) || null,
+    date_type:      f.date_type      || 'gd',
+    baselineSource: f.baselineSource || 'bl'
+  });
+  var ck = null;
+  try {
+    var t1 = DriveApp.getFileById(GESTIONAL_JSON_FILE_ID).getLastUpdated().getTime();
+    var t2 = DriveApp.getFileById(GESTIONAL_VR_JSON_FILE_ID).getLastUpdated().getTime();
+    ck = 'getdata_v1_' + t1 + '_' + t2 + '_' + Utilities.base64EncodeWebSafe(sig);
+    var hit = _readGetDataCache_(ck);
+    if (hit) return hit;
+  } catch (e) { Logger.log('getData cache probe: ' + e); }
+
+  var out = _computeGetData_(f);
+  if (ck) _writeGetDataCache_(ck, out);
+  return out;
+}
+
+function _computeGetData_(filters) {
   var f              = filters || {};
   var dateType       = (f['date_type'] === 'ri') ? 'ri' : 'gd';
   var baselineSrc    = (f['baselineSource'] === 'vr') ? 'vr' : 'bl';
