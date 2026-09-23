@@ -571,7 +571,7 @@ a.ext-link:hover { text-decoration: underline; }
     </div>
 
     <div class="proj-grid">
-      <div class="proj-card" onclick="showSection('proj-inputs')">
+      <div class="proj-card" tabindex="0" role="button" onclick="showSection('proj-inputs')">
         <div class="proj-card-icon">🐍</div>
         <div class="proj-card-name">Inputs Planning P&amp;L</div>
         <div class="proj-card-desc">Motor de datos que <strong>reemplaza a Toqan</strong>. Genera localmente las planas homologadas y publica un <strong>JSON canónico por concepto</strong> (budget/forecast/run rate/actuals) en Drive: la <strong>fuente única</strong> para todas las landings. No tiene landing propia.</div>
@@ -579,7 +579,7 @@ a.ext-link:hover { text-decoration: underline; }
         <a class="proj-card-url" href="https://drive.google.com/drive/folders/1XqQPL_rlS0NRIPUnPfj5nALBTn7kAOQV" target="_blank">↗ Carpeta JSON en Drive</a>
       </div>
 
-      <div class="proj-card" onclick="showSection('proj-pnl')">
+      <div class="proj-card" tabindex="0" role="button" onclick="showSection('proj-pnl')">
         <div class="proj-card-icon">📋</div>
         <div class="proj-card-name">P&amp;L Accounting</div>
         <div class="proj-card-desc">Landing del P&amp;L Contable (Operating Contribution) B2B + B2B2C · FY27. Baseline vs Goal seleccionable. Se alimenta de Inputs_Planning_PnL (la vista visible lee los JSON canónicos directo; la vista oculta lee el cubo). Las vistas Managerial se movieron a P&amp;L Managerial.</div>
@@ -587,7 +587,7 @@ a.ext-link:hover { text-decoration: underline; }
         <a class="proj-card-url" href="https://script.google.com/a/macros/despegar.com/s/AKfycby9WZK2HfAWx25M5pEMV3nntzJfEvsiT9feMn01zJQkQaI3t2GjTzOIjbFXWexnMuzklQ/exec" target="_blank">↗ Abrir landing</a>
       </div>
 
-      <div class="proj-card" onclick="showSection('proj-managerial')">
+      <div class="proj-card" tabindex="0" role="button" onclick="showSection('proj-managerial')">
         <div class="proj-card-icon">📈</div>
         <div class="proj-card-name">P&amp;L Managerial</div>
         <div class="proj-card-desc">Landing de las vistas <strong>Gestional (FVM)</strong> B2B2C y B2B, separadas del P&amp;L Accounting. Lee <code>_actuals_gestional.json</code> (actuals + proyecciones, generado por <code>actuals_gestional_upload.py</code> desde Treasure Data + Modelos Forecast XLSX).</div>
@@ -595,7 +595,7 @@ a.ext-link:hover { text-decoration: underline; }
         <a class="proj-card-url" href="https://script.google.com/home/projects/1rB8o8HcnksPBXzi8QJW1zC-XQQ1HqHaowTcWV95SJG6xRbLg5QQ_2mQH/edit" target="_blank">↗ Editor GAS</a>
       </div>
 
-      <div class="proj-card" onclick="showSection('proj-ecosystem')">
+      <div class="proj-card" tabindex="0" role="button" onclick="showSection('proj-ecosystem')">
         <div class="proj-card-icon">🏢</div>
         <div class="proj-card-name">B2B Ecosystem Hub</div>
         <div class="proj-card-desc">Portal central del equipo. P&amp;L Managerial con waterfall, evolución, OC Concept y NR Bridge. Datos desde <strong>JSON canónicos en Drive</strong> (mismo origen que Inputs_Planning_PnL). Incluye OKR, Country One Page, Detail By Country, Daily, Organigrama y más.</div>
@@ -603,7 +603,7 @@ a.ext-link:hover { text-decoration: underline; }
         <a class="proj-card-url" href="https://script.google.com/a/macros/despegar.com/s/AKfycbz52txFQy-5YM2Nil_KxULzPoeZpKyA4z5LUWMGoP_8IilcwSduuwZqPF8ut_LmtceM/exec" target="_blank">↗ Abrir landing</a>
       </div>
 
-      <div class="proj-card" onclick="showSection('proj-daily')">
+      <div class="proj-card" tabindex="0" role="button" onclick="showSection('proj-daily')">
         <div class="proj-card-icon">📆</div>
         <div class="proj-card-name">Daily Dashboard B2B2C + B2B</div>
         <div class="proj-card-desc">Performance diaria de WLs (B2B2C) y B2B (GD + RI). Conecta con Treasure Data vía ODBC. KPIs: D-1 Actual, MTD, Budget, LY MTD. Actualización automática 08:00 AM.</div>
@@ -611,7 +611,7 @@ a.ext-link:hover { text-decoration: underline; }
         <a class="proj-card-url" href="https://script.google.com/a/macros/despegar.com/s/AKfycbwMR3zk1r4uwui8vGtcmz0OwmeehC5JM8cuJRE3H-GQMfvxXWGTkYQ3R2nVjMyeAdX_1A/exec" target="_blank">↗ Abrir landing</a>
       </div>
 
-      <div class="proj-card" onclick="showSection('proj-country')">
+      <div class="proj-card" tabindex="0" role="button" onclick="showSection('proj-country')">
         <div class="proj-card-icon">🗺️</div>
         <div class="proj-card-name">Country One Pager (B2B)</div>
         <div class="proj-card-desc">Landing standalone tipo "one pager" para la dirección comercial de un país. Sin pipeline propio: consume <strong>Dashboard_B2B_WLs</strong> y <strong>Daily_Dashboard</strong> como Apps Script Libraries. Embebido como tab "Detail By Country" dentro del B2B Ecosystem Hub, y también accesible standalone. Hoy solo B2B (B2B2C "próximamente").</div>
@@ -619,7 +619,7 @@ a.ext-link:hover { text-decoration: underline; }
         <a class="proj-card-url" href="https://script.google.com/a/macros/despegar.com/s/AKfycbytMGsghl1TweKpYgMV2uhjTr--a9jpWkd2G3faZrF0DixD7UNu2qAq8Tbhlv_PCo0t/exec" target="_blank">↗ Abrir landing</a>
       </div>
 
-      <div class="proj-card" onclick="showSection('proj-manual')">
+      <div class="proj-card" tabindex="0" role="button" onclick="showSection('proj-manual')">
         <div class="proj-card-icon">📖</div>
         <div class="proj-card-name">Manual B2B WLs</div>
         <div class="proj-card-desc">Este manual. Landing GAS de <strong>solo lectura</strong> (sin formularios ni carga de datos) que documenta la arquitectura, flujos y procedimientos de todos los módulos del ecosistema. Hoy se abre como link externo desde el Hub; a futuro, embebido via iframe.</div>
@@ -2364,6 +2364,15 @@ function showSection(name) {
   });
   window.scrollTo(0, 0);
 }
+
+// Accesibilidad: las .proj-card (home) son <div tabindex="0" role="button" onclick="...">,
+// no <button> reales — sin esto, Enter/Espacio no las activa por teclado.
+document.addEventListener('keydown', function(e) {
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.classList.contains('proj-card')) {
+    e.preventDefault();
+    e.target.click();
+  }
+});
 
 // Nav y proj-cards operables por teclado (Tab para enfocar, Enter/Espacio para activar).
 document.querySelectorAll('.nav-item, .proj-card').forEach(function(el){
