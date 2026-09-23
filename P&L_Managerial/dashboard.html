@@ -584,6 +584,7 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
   .home-hero{flex:none;border-right:none;border-bottom:1px solid rgba(196,181,253,.13);padding-right:0;padding-bottom:28px}
   .home-bento-3col{grid-template-columns:repeat(2,1fr)}
 }
+:focus-visible{outline:2px solid var(--accent2);outline-offset:-2px;border-radius:4px}
 </style>
 </head>
 <body>
@@ -1477,6 +1478,15 @@ function getMsValues(id){
 }
 
 // ── Section collapse (PNL) ─────────────────────────────────────────────────
+// Accesibilidad: las filas de sección son <tr tabindex="0" role="button" onclick="...">,
+// no <button> reales — sin esto, Enter/Espacio no las activa por teclado.
+document.addEventListener('keydown', function(e) {
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.tagName === 'TR' && e.target.hasAttribute('onclick')) {
+    e.preventDefault();
+    e.target.click();
+  }
+});
+
 function toggleSec(secId){
   _secState[secId] = !_secState[secId];
   if(_data) renderPnlTable(_data.months, _data.agg, _data.budget||{}, _data.ly||{});
@@ -1608,7 +1618,7 @@ function renderPnlTable(months,agg,budgetAgg,lyAgg){
     } else if(sec.collapsible){
       var isCollapsed=_secState[sec.id];
       var collCls=isCollapsed?' pnl-sec-collapsed':'';
-      html+='<tr class="pnl-sec-hdr '+sec.cls+collCls+'" data-pnl-hdr="'+sec.id+'" onclick="toggleSec(\''+sec.id+'\')">';
+      html+='<tr class="pnl-sec-hdr '+sec.cls+collCls+'" data-pnl-hdr="'+sec.id+'" tabindex="0" role="button" onclick="toggleSec(\''+sec.id+'\')">';
       html+='<td colspan="'+colCount+'">'+sec.label+'</td></tr>';
       if(!isCollapsed){
         sec.rows.forEach(function(row){ html+=renderRow(row,sec.id,''); });
@@ -1646,7 +1656,7 @@ function renderPctTable(months,agg,budgetAgg,lyAgg){
       lastSec=row.section;
       var isCollapsedPct = _pctSecState[row.section];
       var collapseClass = isCollapsedPct ? ' pct-sec-collapsed' : '';
-      html+='<tr class="pct-section-header'+collapseClass+'" data-pct-sec="'+escHtml(row.section)+'" onclick="togglePctSec(\''+row.section.replace(/'/g,"\\'")+'\')">';
+      html+='<tr class="pct-section-header'+collapseClass+'" data-pct-sec="'+escHtml(row.section)+'" tabindex="0" role="button" onclick="togglePctSec(\''+row.section.replace(/'/g,"\\'")+'\')">';
       html+='<td colspan="'+(months.length+2)+'">'+row.section+'</td></tr>';
     }
     var isCollapsedPct = _pctSecState[row.section];
