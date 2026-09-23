@@ -545,8 +545,10 @@
      de la grilla y sus últimos países se recortaban con el overflow del slide. */
   body.slides-mode .kr-month-filter-bar { display: none !important; }
   body.slides-mode .status-krs-meta     { justify-content: flex-end; margin-bottom: 8px; }
-  body.slides-mode #agenciasContent     { zoom: 0.80; }
-  body.slides-mode #agenciasContent .kr-detail-grid { margin-top: 12px; }
+  body.slides-mode #agenciasContent,
+  body.slides-mode #agenciasH2Content   { zoom: 0.80; }
+  body.slides-mode #agenciasContent .kr-detail-grid,
+  body.slides-mode #agenciasH2Content .kr-detail-grid { margin-top: 12px; }
 
   /* ── Cover slides ── */
   #slideCover { display: none; }
@@ -3073,7 +3075,8 @@ var _isSlidesMode = false;
 var _slideIdx     = 0;
 
 const SLIDE_ORDER = [
-  { tab: 'agencias',   title: 'Status KRs'                                                     },
+  { tab: 'agencias',    title: 'Status KRs H1'                                                  },
+  { tab: 'agencias_h2', title: 'Status KRs H2'                                                  },
   { isCover: true,     title: 'Recognition Date', subtitle: 'Gross Bookings · Net Revenue · FVM' },
   { tab: 'gb_ri',      title: 'Gross Bookings — RI'                                             },
   { tab: 'nr_ri',      title: 'Net Revenue — RI'                                                },
