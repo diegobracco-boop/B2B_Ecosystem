@@ -4350,8 +4350,10 @@ function fmtOKR(v) {
   // Cap 130% / floor: < 70% → 0%
   var disp = v > 130 ? 130 : (v < 70 ? 0 : v);
   var shown = disp.toFixed(0);  // % redondeado que se muestra
-  // Verde si el % MOSTRADO redondea a 100 (aunque sea 99,x), para que se lea claro.
-  var cls = Number(shown) >= 100 ? 'okr-ok' : disp >= 79.98 ? 'okr-warn' : 'okr-bad';
+  // El color sigue al número MOSTRADO (redondeado): 100 → verde, 80–99 → amarillo,
+  // <80 → rojo. Así un 99,5 ("100%") sale verde y un 79,6 ("80%") sale amarillo.
+  var shownN = Number(shown);
+  var cls = shownN >= 100 ? 'okr-ok' : shownN >= 80 ? 'okr-warn' : 'okr-bad';
   return '<span class="okr-chip '+cls+'">'+shown+'%</span>';
 }
 function fmtOKRNominal(act, bud) {
