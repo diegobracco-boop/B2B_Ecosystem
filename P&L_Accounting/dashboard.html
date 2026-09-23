@@ -3123,12 +3123,9 @@ var _cdmSeq = 0;
 function toggleDeltaSec_(tableId, secId){
   var tbl=document.getElementById(tableId); if(!tbl) return;
   var hdr=tbl.querySelector('tr[data-dhdr="'+secId+'"]');
-  var collapsed = hdr && hdr.getAttribute('data-collapsed')==='1';
+  var collapsed = hdr ? hdr.classList.contains('q-collapsed') : true;
   tbl.querySelectorAll('tr[data-dsec="'+secId+'"]').forEach(function(r){ r.style.display = collapsed ? '' : 'none'; });
-  if(hdr){
-    hdr.setAttribute('data-collapsed', collapsed ? '0' : '1');
-    var a=hdr.querySelector('.cdm-arr'); if(a) a.textContent = collapsed ? '▾' : '▸';
-  }
+  if(hdr) hdr.classList.toggle('q-collapsed', !collapsed);
 }
 
 // Etiqueta del canal activo para los títulos de las matrices de delta.
@@ -3196,34 +3193,41 @@ function _renderDeltaMatrix_(container, opts){
   cardDiv.appendChild(noteDiv);
 
   var tableId='cdm-'+(_cdmSeq++);
-  var wrapDiv=document.createElement('div'); wrapDiv.style.cssText='overflow-x:auto;padding:10px 14px 14px';
-  var html='<table class="delta-table" id="'+tableId+'"><thead><tr><th>Concepto</th>';
+  var nCols = cols.length + 1; // columnas de valores + Total
+  var wrapDiv=document.createElement('div'); wrapDiv.style.overflowX='auto';
+  var html='<table class="qpnl-table" id="'+tableId+'"><thead>';
+  // Banner de sección (mismo look que BASELINE/GOAL/DELTA de las tablas de arriba)
+  html+='<tr><th class="th-lbl"></th><th class="th-delta" colspan="'+nCols+'">DELTA · Baseline − Goal</th></tr>';
+  html+='<tr><th class="th-lbl">Concepto</th>';
   cols.forEach(function(c){ html+='<th>'+c.label+'</th>'; });
-  html+='<th class="td-total-col">Total</th></tr></thead><tbody>';
+  html+='<th class="td-total-d">Total</th></tr></thead><tbody>';
   template.forEach(function(row, ri){
-    var isSub=(row.kind==='sub'), isSummary=(row.kind==='summary'), emph=isSummary||(row.kind==='subtotal');
-    var trAttrs='', tdStyle='', labelHtml=row.label;
+    var isSub=(row.kind==='sub'), isSummary=(row.kind==='summary'), isSubtotal=(row.kind==='subtotal');
+    var trClass='qpnl-row', trAttrs='', firstTd;
     if(isSub){
       trAttrs=' data-dsec="'+row.secId+'" style="display:none"';
-      tdStyle=' style="padding-left:20px;font-weight:400"';
-      if(row.isRR) labelHtml='<span style="font-size:9px;background:#EDE9FE;color:#6D28D9;border-radius:3px;padding:1px 3px;margin-right:4px">RR</span>'+row.label;
+      var badge = row.isRR ? '<span style="font-size:9px;background:#EDE9FE;color:#6D28D9;border-radius:3px;padding:1px 3px;margin-right:4px">RR</span>' : '';
+      firstTd='<td style="padding-left:24px;font-weight:400">'+badge+row.label+'</td>';
     } else if(isSummary){
-      trAttrs=' data-dhdr="'+row.secId+'" data-collapsed="1" style="cursor:pointer;font-weight:700" onclick="toggleDeltaSec_(\''+tableId+'\',\''+row.secId+'\')"';
-      tdStyle=' style="font-weight:700"';
-      labelHtml='<span class="cdm-arr" style="font-size:9px;margin-right:4px">▸</span>'+row.label;
-    } else if(emph){
-      trAttrs=' style="font-weight:700"'; tdStyle=' style="font-weight:700"';
+      trClass='qpnl-subtotal qpnl-sec-hdr q-collapsed';
+      trAttrs=' data-dhdr="'+row.secId+'" style="cursor:pointer" onclick="toggleDeltaSec_(\''+tableId+'\',\''+row.secId+'\')"';
+      firstTd='<td style="text-align:left"><span class="cont-arrow" style="margin-right:4px;font-size:9px">▸</span>'+row.label+'</td>';
+    } else if(isSubtotal){
+      trClass='qpnl-row qpnl-subtotal';
+      firstTd='<td style="text-align:left">'+row.label+'</td>';
+    } else {
+      firstTd='<td style="font-weight:700;color:var(--navy3)">'+row.label+'</td>';
     }
-    html+='<tr'+trAttrs+'><td'+tdStyle+'>'+labelHtml+'</td>';
+    html+='<tr class="'+trClass+'"'+trAttrs+'>'+firstTd;
     var sumShown=0;
     cols.forEach(function(c, ci){
       var dv=perColRows[ci][ri].delta; sumShown+=dv;
       var f=row.isOrders?fmtKK(dv):fmtMM(dv);
-      html+='<td class="'+(dv<0?'td-neg':'td-pos')+'">'+(dv>=0?'+':'')+f+'</td>';
+      html+='<td style="color:'+(dv<0?'#DC2626':'#15803D')+'">'+(dv>=0?'+':'')+f+'</td>';
     });
     var totalDelta=totalRows ? totalRows[ri].delta : sumShown;
     var ft=row.isOrders?fmtKK(totalDelta):fmtMM(totalDelta);
-    html+='<td class="td-total-col '+(totalDelta<0?'td-neg':'td-pos')+'">'+(totalDelta>=0?'+':'')+ft+'</td>';
+    html+='<td class="td-total-d" style="color:'+(totalDelta<0?'#DC2626':'#15803D')+';font-weight:700">'+(totalDelta>=0?'+':'')+ft+'</td>';
     html+='</tr>';
   });
   html+='</tbody></table>';
