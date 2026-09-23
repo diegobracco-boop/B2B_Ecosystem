@@ -720,6 +720,7 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
 .oc-toggle:hover{background:var(--desp-purple);color:#fff;border-color:var(--desp-purple)}
 .oc-area-tag{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted2);margin-top:5px;padding:2px 8px;background:var(--surface2);border-radius:6px;border:1px solid var(--border);text-align:center}
 .oc-empty{color:var(--muted2);font-size:13px;text-align:center;padding:40px}
+:focus-visible{outline:2px solid var(--accent2);outline-offset:-2px;border-radius:4px}
 </style>
 </head>
 <body>
@@ -1163,7 +1164,7 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
   </div><!-- /pnl-filters-bar -->
 
   <!-- Excel-style group toggle button for filters -->
-  <div id="filters-toggle" onclick="toggleFiltersPanel()" title="Expandir / colapsar filtros">
+  <div id="filters-toggle" tabindex="0" role="button" aria-label="Expandir o colapsar filtros" onclick="toggleFiltersPanel()" title="Expandir / colapsar filtros">
     <div id="ftoggle-sign">+</div>
     <span id="ftoggle-lbl">Filtros</span>
   </div>
@@ -2606,6 +2607,15 @@ function togglePeriodPanel(e) {
     panel.style.display = 'none';
   }
 }
+
+// Accesibilidad: #filters-toggle es un <div tabindex="0" role="button">, no un
+// <button> real — sin esto, Enter/Espacio no lo activa por teclado.
+document.addEventListener('keydown', function(e) {
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.id === 'filters-toggle') {
+    e.preventDefault();
+    toggleFiltersPanel();
+  }
+});
 
 function toggleFiltersPanel() {
   _state.filtersExpanded = !_state.filtersExpanded;
