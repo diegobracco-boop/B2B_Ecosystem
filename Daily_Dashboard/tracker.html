@@ -863,7 +863,8 @@
   <button class="tab-btn" data-tab="weekly_gd">Semanas GD</button>
   <button class="tab-btn" data-tab="weekly_ri">Semanas RI</button>
   <div class="tab-separator"></div>
-  <button class="tab-btn" data-tab="agencias">Status KRs</button>
+  <button class="tab-btn" data-tab="agencias">Status KRs H1</button>
+  <button class="tab-btn" data-tab="agencias_h2">Status KRs H2</button>
 </div>
 
 <div class="country-filter-bar" id="countryFilterBar">
@@ -1067,7 +1068,7 @@
 
 <!-- Vista Status KRs -->
 <div class="agencias-content" id="agenciasContent">
-  <div class="tables-view-title" id="statusKRsTitle">Status KRs</div>
+  <div class="tables-view-title" id="statusKRsTitle">Status KRs H1</div>
   <div class="kr-month-filter-bar">
     <div class="filter-group">
       <label>Mes</label>
@@ -1095,6 +1096,40 @@
       </table>
     </div>
     <div class="kr-detail-grid" id="statusKRsDetailGrid"></div>
+  </div>
+</div>
+
+<!-- Vista Status KRs — H2 (Oct–Mar) -->
+<div class="agencias-content" id="agenciasH2Content">
+  <div class="tables-view-title" id="statusKRsH2Title">Status KRs H2</div>
+  <div class="kr-month-filter-bar">
+    <div class="filter-group">
+      <label>Mes</label>
+      <select id="filterMonthKRsH2"></select>
+    </div>
+  </div>
+  <div id="statusKRsH2Spinner" class="spinner-wrap" style="height:200px;display:none">
+    <div class="spinner"></div><span>Cargando KRs...</span>
+  </div>
+  <div id="statusKRsH2Error" class="error-box"></div>
+  <div id="statusKRsH2Wrap" style="display:none">
+    <div class="status-krs-meta" id="statusKRsH2Meta"></div>
+    <div class="table-block" style="width:100%">
+      <table class="pivot-table" id="statusKRsH2Table">
+        <thead>
+          <tr>
+            <th style="min-width:210px;text-align:left">KR</th>
+            <th style="color:#6b7280">Peso</th>
+            <th>Actual MTD</th>
+            <th>Budget MTD</th>
+            <th>Cumpl.</th>
+          </tr>
+        </thead>
+        <tbody id="statusKRsH2Body"></tbody>
+      </table>
+    </div>
+    <div style="font-size:0.78rem;color:#9ca3af;margin-top:10px">Targets provisorios = Budget MTD · "Accelerate Recurrence" es TBD (definición y datos pendientes).</div>
+    <div class="kr-detail-grid" id="statusKRsH2DetailGrid"></div>
   </div>
 </div>
 
@@ -2337,7 +2372,7 @@ function renderStatusKRs() {
   var isCurrentMonth = (krYM === _curYM);
 
   document.getElementById('statusKRsTitle').textContent =
-    'Status KRs — ' + formatYM(krYM) + (isCurrentMonth ? ' (MTD)' : ' (mes completo)');
+    'Status KRs H1 — ' + formatYM(krYM) + (isCurrentMonth ? ' (MTD)' : ' (mes completo)');
 
   // Actualizar cabeceras de la tabla
   var thActual = document.querySelector('#statusKRsTable thead th:nth-child(3)');
@@ -2657,6 +2692,212 @@ function renderKRDetailBoxes(monthFilter) {
 }
 
 // ─────────────────────────────────────────────
+//  Status KRs H2 (Oct–Mar)
+// ─────────────────────────────────────────────
+// KRs del H2: Net Revenues (total), FVM API, FVM HTML (=Agencias afiliadas) y
+// NR de productos Flights + Dest. Serv. Misma fuente y bounds MTD que el H1
+// (getActuals/getGoal 'ri', getPeriodBounds). Targets provisorios = Budget MTD.
+// "New Products Growth" = NR de Flights (Air) + Dest. Serv. Se aceptan TODAS las
+// variantes de nombre que usa el ecosistema (ver PRODUCT_GROUPS) porque el budget
+// NO viene normalizado (puede traer 'Air'/'D. Services') mientras que actuals trae
+// 'Flights'/'Dest. Serv.'. Si se filtrara por string exacto, el budget caería a 0.
+var B2B_H2_NR_PRODS_TRK = { 'Air': 1, 'Flights': 1, 'Flight': 1, 'D. Services': 1, 'Dest. Serv.': 1 };
+
+function computeKRH2Metric_(monthFilter, metricField, predAct, predBud) {
+  if (!rawData) return { actual: 0, budget: 0 };
+  var bounds = getPeriodBounds(_resolveYM(monthFilter), rawData.meta);
+  var actual = 0, budget = 0;
+  getActuals('ri').forEach(function(r) {
+    if (r.fecha < bounds.from || r.fecha > bounds.cutoff) return;
+    if (predAct && !predAct(r)) return;
+    actual += (r[metricField] || 0);
+  });
+  getGoal('ri', 'budget').forEach(function(r) {
+    if (r.fecha < bounds.from || r.fecha > bounds.cutoff) return;
+    if (predBud && !predBud(r)) return;
+    budget += (r[metricField] || 0);
+  });
+  return { actual: actual, budget: budget };
+}
+
+function renderStatusKRsH2() {
+  var spinner = document.getElementById('statusKRsH2Spinner');
+  var wrap    = document.getElementById('statusKRsH2Wrap');
+  if (!rawData) { spinner.style.display = 'flex'; wrap.style.display = 'none'; return; }
+  spinner.style.display = 'none';
+
+  var today  = new Date();
+  var _curYM = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
+  var selMes = document.getElementById('filterMonthKRsH2');
+  var krYM   = (selMes && selMes.value) ? selMes.value : _curYM;
+  var isCurrentMonth = (krYM === _curYM);
+
+  document.getElementById('statusKRsH2Title').textContent =
+    'Status KRs H2 — ' + formatYM(krYM) + (isCurrentMonth ? ' (MTD)' : ' (mes completo)');
+  var thA = document.querySelector('#statusKRsH2Table thead th:nth-child(3)');
+  var thB = document.querySelector('#statusKRsH2Table thead th:nth-child(4)');
+  if (thA) thA.textContent = isCurrentMonth ? 'Actual MTD' : 'Actual';
+  if (thB) thB.textContent = isCurrentMonth ? 'Budget MTD' : 'Budget';
+
+  var metaEl = document.getElementById('statusKRsH2Meta');
+  metaEl.innerHTML = '';
+  if (rawData.meta) {
+    var bounds = getPeriodBounds(krYM, rawData.meta);
+    var span = document.createElement('span');
+    span.className = 'kr-data-range';
+    span.innerHTML = '&#128197; Datos: <strong>' + bounds.from + '</strong> &rarr; <strong>' + bounds.cutoff + '</strong>';
+    metaEl.appendChild(span);
+  }
+
+  var isAPI  = function(r){ return r.parent_channel === 'API'; };
+  var isHTML = function(r){ return r.parent_channel === 'Agencias afiliadas'; };
+  var isNPa  = function(r){ return B2B_H2_NR_PRODS_TRK[r.producto_original]; };
+  var isNPb  = function(r){ return B2B_H2_NR_PRODS_TRK[r.producto]; };
+
+  var nr      = computeKRH2Metric_(krYM, 'net_revenue', null, null);
+  var fvmApi  = computeKRH2Metric_(krYM, 'fvm', isAPI, isAPI);
+  var fvmHtml = computeKRH2Metric_(krYM, 'fvm', isHTML, isHTML);
+  var nrfd    = computeKRH2Metric_(krYM, 'net_revenue', isNPa, isNPb);
+
+  function cumpl(act, bud) { return (bud && bud !== 0) ? Math.min(1 + (act - bud) / Math.abs(bud), 1.30) : null; }
+  var nrC = cumpl(nr.actual, nr.budget), apiC = cumpl(fvmApi.actual, fvmApi.budget),
+      htmlC = cumpl(fvmHtml.actual, fvmHtml.budget), npC = cumpl(nrfd.actual, nrfd.budget);
+
+  var tbody = document.getElementById('statusKRsH2Body');
+  tbody.innerHTML = '';
+  function row(name, peso, d, cVal) {
+    var hasData = (d.actual !== 0 || d.budget !== 0);
+    var actStr = hasData ? fmtKRVal(toM(d.actual), '$M') : '—';
+    var budStr = hasData ? fmtKRVal(toM(d.budget), '$M') : '—';
+    var cStr   = cVal !== null ? (cVal * 100).toFixed(0) + '%' : '—';
+    var tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td style="text-align:left">' + name + '</td>' +
+      '<td style="color:#6b7280;font-size:0.78rem">' + peso + '</td>' +
+      '<td>' + actStr + '</td>' +
+      '<td>' + budStr + '</td>' +
+      cumplCellHtml(cVal, cStr, false);
+    return tr;
+  }
+  tbody.appendChild(row('Net Revenues $M',        '30%', nr,      nrC));
+  tbody.appendChild(row('API FVM $M',             '20%', fvmApi,  apiC));
+  tbody.appendChild(row('HTML FVM $M',            '20%', fvmHtml, htmlC));
+  tbody.appendChild(row('New Products Growth $M', '15%', nrfd,    npC));
+
+  // Accelerate Recurrence — TBD (placeholder, definición y datos pendientes)
+  var trTBD = document.createElement('tr');
+  trTBD.innerHTML =
+    '<td style="text-align:left">Accelerate Recurrence <span class="kr-warning-tag" title="Definición y datos pendientes">TBD</span></td>' +
+    '<td style="color:#6b7280;font-size:0.78rem">15%</td>' +
+    '<td colspan="3" style="text-align:center;color:#9ca3af;font-style:italic">Pendiente de definición</td>';
+  tbody.appendChild(trTBD);
+
+  // Overall ponderado — normaliza sobre los KRs con cumplimiento disponible
+  // (excluye Accelerate Recurrence mientras sea TBD).
+  var weights = [ {c:nrC,w:0.30}, {c:apiC,w:0.20}, {c:htmlC,w:0.20}, {c:npC,w:0.15} ];
+  var wSum = 0, wCump = 0;
+  weights.forEach(function(k){ if (k.c !== null) { wSum += k.w; wCump += k.c * k.w; } });
+  var overall = wSum > 0 ? Math.min(wCump / wSum, 1.30) : null;
+  var overallStr = overall !== null ? (overall * 100).toFixed(0) + '%' : '—';
+  var trTotal = document.createElement('tr');
+  trTotal.className = 'row-kr-total';
+  trTotal.innerHTML =
+    '<td style="text-align:left">OVERALL <span style="color:#9ca3af;font-weight:400;font-size:0.72rem">(excl. TBD)</span></td>' +
+    '<td style="color:#6b7280;font-size:0.78rem">85%</td>' +
+    '<td>—</td><td>—</td>' +
+    cumplCellHtml(overall, overallStr, false);
+  tbody.appendChild(trTotal);
+
+  renderStatusKRsH2DetailBoxes_(krYM);
+  wrap.style.display = 'block';
+}
+
+// Igual que computeMetricForPaisList pero con predicado por fila (canal/producto).
+function computeKRH2ForPaisList_(paisList, metricField, predAct, predBud, monthFilter) {
+  if (!rawData) return { actual: 0, budget: 0, ly: 0 };
+  var bounds = getPeriodBounds(_resolveYM(monthFilter), rawData.meta);
+  var paisLower = paisList.map(function(p){ return p.toLowerCase(); });
+  function inPais(r){ return paisLower.indexOf((r.pais || '').toLowerCase()) !== -1; }
+  var actual = 0, budget = 0, ly = 0;
+  getActuals('ri').forEach(function(r){
+    if (r.fecha < bounds.from || r.fecha > bounds.cutoff) return;
+    if (!inPais(r) || (predAct && !predAct(r))) return;
+    actual += (r[metricField] || 0);
+  });
+  getGoal('ri', 'budget').forEach(function(r){
+    if (r.fecha < bounds.from || r.fecha > bounds.cutoff) return;
+    if (!inPais(r) || (predBud && !predBud(r))) return;
+    budget += (r[metricField] || 0);
+  });
+  var lyFrom = shiftYear(bounds.from, -1), lyCut = shiftYear(bounds.cutoff, -1);
+  getActualsLY('ri').forEach(function(r){
+    if (r.fecha < lyFrom || r.fecha > lyCut) return;
+    if (!inPais(r) || (predAct && !predAct(r))) return;
+    ly += (r[metricField] || 0);
+  });
+  return { actual: actual, budget: budget, ly: ly };
+}
+
+function renderStatusKRsH2DetailBoxes_(monthFilter) {
+  var grid = document.getElementById('statusKRsH2DetailGrid');
+  if (!grid) return;
+  grid.innerHTML = '';
+
+  function makeBox(title, rows) {
+    var box = document.createElement('div');
+    box.className = 'kr-detail-box';
+    var unit = '$M';
+    var bodyRows = rows.map(function(r){
+      var c = cumplRatio(r.actual, r.budget);
+      var cStr = c !== null ? (c * 100).toFixed(0) + '%' : '—';
+      var yoy = (r.ly !== null && r.ly !== undefined && r.ly > 0) ? (r.actual / r.ly - 1) : null;
+      return '<tr><td style="text-align:left">' + r.name + '</td><td>' + fmtKRVal(r.actual, unit) + '</td>' +
+             cumplCellHtml(c, cStr, false) + '<td class="' + yoyColor(yoy) + '">' + yoyIcon(yoy) + '</td></tr>';
+    }).join('');
+    var tAct = 0, tBud = 0, tLY = 0, hAct = false, hBud = false, hLY = false;
+    rows.forEach(function(r){
+      if (r.actual != null && !isNaN(r.actual)) { tAct += r.actual; hAct = true; }
+      if (r.budget != null && !isNaN(r.budget)) { tBud += r.budget; hBud = true; }
+      if (r.ly     != null && !isNaN(r.ly))     { tLY  += r.ly;     hLY  = true; }
+    });
+    var tc = (hBud && tBud) ? Math.min(cumplRatio(tAct, tBud), 1.30) : null;
+    var tCStr = tc !== null ? (tc * 100).toFixed(0) + '%' : '—';
+    var tYoy = (hLY && tLY > 0) ? (tAct / tLY - 1) : null;
+    var totalRow = '<tr class="kr-detail-total"><td style="text-align:left;font-weight:700">TOTAL</td><td><strong>' +
+      (hAct ? fmtKRVal(tAct, unit) : '—') + '</strong></td>' + cumplCellHtml(tc, tCStr, true) +
+      '<td class="' + yoyColor(tYoy) + '"><strong>' + yoyIcon(tYoy) + '</strong></td></tr>';
+    box.innerHTML =
+      '<div class="kr-detail-header"><span class="kr-num-badge">' + title + '</span></div>' +
+      '<table class="pivot-table kr-detail-table">' +
+      '<thead><tr><th style="text-align:left;min-width:90px">País</th><th>Actual</th><th>Cumpl.</th><th>YoY</th></tr></thead>' +
+      '<tbody>' + totalRow + bodyRows + '</tbody></table>';
+    return box;
+  }
+
+  function rowsFor(metricField, predAct, predBud) {
+    return FVM_DETAIL.map(function(def){
+      var d = computeKRH2ForPaisList_(def.pais, metricField, predAct, predBud, monthFilter);
+      return { name: def.name, actual: toM(d.actual), budget: toM(d.budget), ly: toM(d.ly) };
+    });
+  }
+  var isAPI  = function(r){ return r.parent_channel === 'API'; };
+  var isHTML = function(r){ return r.parent_channel === 'Agencias afiliadas'; };
+  var isNPa  = function(r){ return B2B_H2_NR_PRODS_TRK[r.producto_original]; };
+  var isNPb  = function(r){ return B2B_H2_NR_PRODS_TRK[r.producto]; };
+
+  grid.appendChild(makeBox('Net Revenues $M',        rowsFor('net_revenue', null,  null)));
+  grid.appendChild(makeBox('API FVM $M',             rowsFor('fvm',         isAPI,  isAPI)));
+  grid.appendChild(makeBox('HTML FVM $M',            rowsFor('fvm',         isHTML, isHTML)));
+  grid.appendChild(makeBox('New Products Growth $M', rowsFor('net_revenue', isNPa,  isNPb)));
+
+  var tbd = document.createElement('div');
+  tbd.className = 'kr-detail-box';
+  tbd.innerHTML = '<div class="kr-detail-header"><span class="kr-num-badge">Accelerate Recurrence</span></div>' +
+    '<div style="padding:14px;color:#9ca3af;font-style:italic;font-size:0.8rem">TBD — definición y datos pendientes.</div>';
+  grid.appendChild(tbd);
+}
+
+// ─────────────────────────────────────────────
 //  Render dispatcher
 // ─────────────────────────────────────────────
 function setAgenciasFilters(show) {
@@ -2671,13 +2912,15 @@ function setAgenciasFilters(show) {
 }
 
 function render() {
-  const isTablesView   = activeTab === 'tables_gd' || activeTab === 'tables_ri';
-  const isAgenciasView = activeTab === 'agencias';
-  const isWeeklyView   = activeTab === 'weekly_gd' || activeTab === 'weekly_ri';
+  const isTablesView    = activeTab === 'tables_gd' || activeTab === 'tables_ri';
+  const isAgenciasView  = activeTab === 'agencias';
+  const isAgenciasH2View= activeTab === 'agencias_h2';
+  const isWeeklyView    = activeTab === 'weekly_gd' || activeTab === 'weekly_ri';
 
   // La vista split solo se usa en modo Slides; en render normal siempre se oculta.
   document.getElementById('splitContent').classList.remove('visible');
   document.getElementById('agenciasContent').classList.toggle('visible', isAgenciasView);
+  document.getElementById('agenciasH2Content').classList.toggle('visible', isAgenciasH2View);
   document.getElementById('weeklyContent').classList.toggle('visible', isWeeklyView);
 
   if (isAgenciasView) {
@@ -2687,6 +2930,14 @@ function render() {
     if (agenciasState === 'idle') loadAgencias();
     if (airNRState === 'idle')    loadAirNR();
     renderStatusKRs();
+    return;
+  }
+
+  if (isAgenciasH2View) {
+    setAgenciasFilters(true);
+    document.getElementById('mainContent').classList.remove('visible');
+    document.getElementById('tablesContent').classList.remove('visible');
+    renderStatusKRsH2();
     return;
   }
 
@@ -2754,6 +3005,16 @@ function initDashboard(data) {
   });
   if (months.includes(curYM)) selKR.value = curYM;
 
+  // Poblar selector de mes del Status KRs H2 con los mismos meses
+  const selKRH2 = document.getElementById('filterMonthKRsH2');
+  months.forEach(ym => {
+    const opt = document.createElement('option');
+    opt.value = ym;
+    opt.textContent = formatYM(ym);
+    selKRH2.appendChild(opt);
+  });
+  if (months.includes(curYM)) selKRH2.value = curYM;
+
   document.getElementById('spinnerWrap').style.display = 'none';
 
   render();
@@ -2791,6 +3052,7 @@ document.querySelectorAll('.country-btn').forEach(function(btn) {
   });
 });
 document.getElementById('filterMonthKRs').addEventListener('change', renderStatusKRs);
+document.getElementById('filterMonthKRsH2').addEventListener('change', renderStatusKRsH2);
 
 document.getElementById('btnClear').addEventListener('click', () => {
   document.getElementById('filterChannel').value         = '';
@@ -2901,6 +3163,7 @@ function _goToSlide(idx) {
     document.getElementById('tablesContent').classList.remove('visible');
     document.getElementById('weeklyContent').classList.remove('visible');
     document.getElementById('agenciasContent').classList.remove('visible');
+    document.getElementById('agenciasH2Content').classList.remove('visible');
     document.getElementById('slideCoverTitle').textContent    = slide.title;
     document.getElementById('slideCoverSubtitle').textContent = slide.subtitle || '';
     coverEl.classList.add('active');
@@ -2911,6 +3174,7 @@ function _goToSlide(idx) {
     document.getElementById('tablesContent').classList.remove('visible');
     document.getElementById('weeklyContent').classList.remove('visible');
     document.getElementById('agenciasContent').classList.remove('visible');
+    document.getElementById('agenciasH2Content').classList.remove('visible');
     _renderSplitSlide(slide.metric, slide.dateType);
     document.getElementById('splitContent').classList.add('visible');
   } else {
