@@ -1019,39 +1019,92 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
 <div class="content" id="section-b2b" style="display:none">
 
   <!-- KR SECTION — B2B -->
-  <div class="section-hdr">KRs</div>
-  <div class="kr-row">
-    <div class="kr-card">
-      <div class="kr-lbl">KR2 · NR Core Markets</div>
-      <div class="kr-pct" id="b2b-kr2-pct">—</div>
-      <div class="kr-sub">
-        <div class="kr-sub-item"><span class="kr-sub-lbl">Actual</span><span id="b2b-kr2-act">—</span></div>
-        <div class="kr-sub-item"><span class="kr-sub-lbl">Budget</span><span id="b2b-kr2-bud">—</span></div>
+  <div class="section-hdr-row">
+    <span class="section-hdr">KRs</span>
+    <div class="dm-group">
+      <span class="dm-group-lbl">Half FY27</span>
+      <div class="dm-toggle">
+        <button class="dm-btn active" id="btn-b2b-kr-h1" onclick="setB2BKrHalf('h1')">H1</button>
+        <button class="dm-btn"        id="btn-b2b-kr-h2" onclick="setB2BKrHalf('h2')">H2</button>
       </div>
     </div>
-    <div class="kr-card">
-      <div class="kr-lbl">KR3 · NR New Markets</div>
-      <div class="kr-pct" id="b2b-kr3-pct">—</div>
-      <div class="kr-sub">
-        <div class="kr-sub-item"><span class="kr-sub-lbl">Actual</span><span id="b2b-kr3-act">—</span></div>
-        <div class="kr-sub-item"><span class="kr-sub-lbl">Budget</span><span id="b2b-kr3-bud">—</span></div>
-      </div>
-    </div>
+    <div style="min-width:80px"></div>
   </div>
 
-  <!-- KR BREAKDOWN — por market -->
-  <table class="kr-brkdwn">
-    <thead><tr>
-      <th>Market</th>
-      <th>NR Actual</th>
-      <th>NR Budget</th>
-      <th>% Cumpl.</th>
-      <th>FVM Actual</th>
-      <th>FVM Budget</th>
-      <th>% FVM</th>
-    </tr></thead>
-    <tbody id="b2b-kr-brkdwn-body"></tbody>
-  </table>
+  <!-- H1 (Abr–Sep): KRs actuales -->
+  <div id="b2b-kr-h1">
+    <div class="kr-row">
+      <div class="kr-card">
+        <div class="kr-lbl">KR2 · NR Core Markets</div>
+        <div class="kr-pct" id="b2b-kr2-pct">—</div>
+        <div class="kr-sub">
+          <div class="kr-sub-item"><span class="kr-sub-lbl">Actual</span><span id="b2b-kr2-act">—</span></div>
+          <div class="kr-sub-item"><span class="kr-sub-lbl">Budget</span><span id="b2b-kr2-bud">—</span></div>
+        </div>
+      </div>
+      <div class="kr-card">
+        <div class="kr-lbl">KR3 · NR New Markets</div>
+        <div class="kr-pct" id="b2b-kr3-pct">—</div>
+        <div class="kr-sub">
+          <div class="kr-sub-item"><span class="kr-sub-lbl">Actual</span><span id="b2b-kr3-act">—</span></div>
+          <div class="kr-sub-item"><span class="kr-sub-lbl">Budget</span><span id="b2b-kr3-bud">—</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- KR BREAKDOWN — por market -->
+    <table class="kr-brkdwn">
+      <thead><tr>
+        <th>Market</th>
+        <th>NR Actual</th>
+        <th>NR Budget</th>
+        <th>% Cumpl.</th>
+        <th>FVM Actual</th>
+        <th>FVM Budget</th>
+        <th>% FVM</th>
+      </tr></thead>
+      <tbody id="b2b-kr-brkdwn-body"></tbody>
+    </table>
+  </div>
+
+  <!-- H2 (Oct–Mar): KRs nuevos -->
+  <div id="b2b-kr-h2" style="display:none">
+    <div class="kr-row">
+      <div class="kr-card">
+        <div class="kr-lbl">Net Revenues</div>
+        <div class="kr-pct" id="b2b-h2-nr-pct">—</div>
+        <div class="kr-sub">
+          <div class="kr-sub-item"><span class="kr-sub-lbl">Actual</span><span id="b2b-h2-nr-act">—</span></div>
+          <div class="kr-sub-item"><span class="kr-sub-lbl">Budget</span><span id="b2b-h2-nr-bud">—</span></div>
+        </div>
+      </div>
+      <div class="kr-card">
+        <div class="kr-lbl">FVM · API</div>
+        <div class="kr-pct" id="b2b-h2-fvmapi-pct">—</div>
+        <div class="kr-sub">
+          <div class="kr-sub-item"><span class="kr-sub-lbl">Actual</span><span id="b2b-h2-fvmapi-act">—</span></div>
+          <div class="kr-sub-item"><span class="kr-sub-lbl">Budget</span><span id="b2b-h2-fvmapi-bud">—</span></div>
+        </div>
+      </div>
+      <div class="kr-card">
+        <div class="kr-lbl">FVM · HTML</div>
+        <div class="kr-pct" id="b2b-h2-fvmhtml-pct">—</div>
+        <div class="kr-sub">
+          <div class="kr-sub-item"><span class="kr-sub-lbl">Actual</span><span id="b2b-h2-fvmhtml-act">—</span></div>
+          <div class="kr-sub-item"><span class="kr-sub-lbl">Budget</span><span id="b2b-h2-fvmhtml-bud">—</span></div>
+        </div>
+      </div>
+      <div class="kr-card">
+        <div class="kr-lbl">NR · Flights + D. Serv.</div>
+        <div class="kr-pct" id="b2b-h2-nrfd-pct">—</div>
+        <div class="kr-sub">
+          <div class="kr-sub-item"><span class="kr-sub-lbl">Actual</span><span id="b2b-h2-nrfd-act">—</span></div>
+          <div class="kr-sub-item"><span class="kr-sub-lbl">Budget</span><span id="b2b-h2-nrfd-bud">—</span></div>
+        </div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--text-3);margin-top:6px">Targets provisorios = Budget MTD (pendiente de reemplazar por los targets del H2).</div>
+  </div>
 
   <!-- METRICAS — B2B -->
   <div class="section-hdr-row">
@@ -1813,6 +1866,43 @@ function computeKRsB2B_(raw, dateModel, vDate) {
   });
   return {kr2:{act:nr2,bud:bnr2,fvmAct:fvm2,fvmBud:bfvm2},kr3:{act:nr3,bud:bnr3,fvmAct:fvm3,fvmBud:bfvm3}};
 }
+// KRs del H2 (Oct–Mar). Misma lógica MTD que computeKRsB2B_ (suma sobre el mes
+// hasta vDate), pero agrupando por: NR total, FVM API, FVM HTML (=Agencias
+// afiliadas) y NR de productos Flights + Dest. Serv. Actual desde src, "budget"
+// (target provisorio) desde bud — se reemplaza cuando lleguen los targets reales.
+var B2B_H2_NR_PRODS = {'Flights':1, 'Dest. Serv.':1};
+function computeKRsB2BH2_(raw, dateModel, vDate) {
+  var pp=vDate.split('-'), mStart=pp[0]+'-'+pp[1]+'-01';
+  var src=(dateModel==='ri')?raw.b2b_ri:raw.b2b_gd;
+  var bud=(dateModel==='ri'?raw.b2b_budget_ri:raw.b2b_budget_gd)||[];
+  if(!src)src=[];
+  var a={nr:0,fvmApi:0,fvmHtml:0,nrfd:0}, b={nr:0,fvmApi:0,fvmHtml:0,nrfd:0};
+  src.forEach(function(r){
+    if(r.fecha<mStart||r.fecha>vDate)return;
+    var nr=r.net_revenue||0, fv=r.fvm||0;
+    a.nr+=nr;
+    // FVM sólo se atribuye a API o HTML (=Agencias afiliadas); si el Datalake
+    // trajera otro parent_channel su FVM no entra en ninguna card (por diseño:
+    // son cards por canal, no una partición garantizada del FVM total).
+    if(r.parent_channel==='API')                    a.fvmApi+=fv;
+    else if(r.parent_channel==='Agencias afiliadas') a.fvmHtml+=fv;
+    if(B2B_H2_NR_PRODS[r.producto_original])         a.nrfd+=nr;
+  });
+  bud.forEach(function(r){
+    if(r.fecha<mStart||r.fecha>vDate)return;
+    var nr=r.net_revenue||0, fv=r.fvm||0;
+    b.nr+=nr;
+    if(r.parent_channel==='API')                    b.fvmApi+=fv;
+    else if(r.parent_channel==='Agencias afiliadas') b.fvmHtml+=fv;
+    if(B2B_H2_NR_PRODS[r.producto])                  b.nrfd+=nr;
+  });
+  return {
+    nr:     {act:a.nr,      bud:b.nr},
+    fvmApi: {act:a.fvmApi,  bud:b.fvmApi},
+    fvmHtml:{act:a.fvmHtml, bud:b.fvmHtml},
+    nrfd:   {act:a.nrfd,    bud:b.nrfd}
+  };
+}
 
 function computeAllB2B_(raw, dm, vDate, gl_pai, gl_pro, gl_ch, gl_mkt, gran, compSrc) {
   gran=gran||'daily'; var out={};
@@ -2556,6 +2646,7 @@ function recomputeB2B_() {
   state_b2b.data       = computeB2B_(_rawB2B, 'nr', _b2bDateModel, state_b2b.viewDate, gl_pai, gl_pro, gl_ch, _b2bMarket, 'daily', compSrc);
   state_b2b.allMetrics = computeAllB2B_(_rawB2B, _b2bDateModel, state_b2b.viewDate, gl_pai, gl_pro, gl_ch, _b2bMarket, gran, compSrc);
   var _krsB2B=computeKRsB2B_(_rawB2B, 'ri', state_b2b.viewDate); renderKRsB2B(_krsB2B); renderKRBreakdownB2B_(_krsB2B);
+  var _krsB2BH2=computeKRsB2BH2_(_rawB2B, 'ri', state_b2b.viewDate); renderKRsB2BH2_(_krsB2BH2);
   renderB2B(state_b2b.data);
   renderB2BMetrics(state_b2b.allMetrics);
 }
@@ -2572,6 +2663,32 @@ function renderKRsB2B(krs) {
     document.getElementById(d.a).textContent=fmt(k.act);
     document.getElementById(d.b).textContent=fmt(k.bud);
   });
+}
+
+function renderKRsB2BH2_(krs) {
+  function pctColor(p){return p===null?'var(--text-2)':p>=100?'var(--success)':p>=80?'#f59e0b':'var(--danger)';}
+  [{key:'nr',     p:'b2b-h2-nr-pct',     a:'b2b-h2-nr-act',     b:'b2b-h2-nr-bud'},
+   {key:'fvmApi', p:'b2b-h2-fvmapi-pct', a:'b2b-h2-fvmapi-act', b:'b2b-h2-fvmapi-bud'},
+   {key:'fvmHtml',p:'b2b-h2-fvmhtml-pct',a:'b2b-h2-fvmhtml-act',b:'b2b-h2-fvmhtml-bud'},
+   {key:'nrfd',   p:'b2b-h2-nrfd-pct',   a:'b2b-h2-nrfd-act',   b:'b2b-h2-nrfd-bud'}].forEach(function(d){
+    var k=krs[d.key]; if(!k)return;
+    var pct=k.bud>0?Math.round(k.act/k.bud*100):null;
+    var el=document.getElementById(d.p);
+    if(el){ el.textContent=pct!==null?pct+'%':'—'; el.style.color=pctColor(pct); }
+    var ea=document.getElementById(d.a); if(ea)ea.textContent=fmt(k.act);
+    var eb=document.getElementById(d.b); if(eb)eb.textContent=fmt(k.bud);
+  });
+}
+
+var _b2bKrHalf='h1';
+function setB2BKrHalf(h){
+  _b2bKrHalf=h;
+  var b1=document.getElementById('btn-b2b-kr-h1'), b2=document.getElementById('btn-b2b-kr-h2');
+  if(b1)b1.classList.toggle('active',h==='h1');
+  if(b2)b2.classList.toggle('active',h==='h2');
+  var c1=document.getElementById('b2b-kr-h1'), c2=document.getElementById('b2b-kr-h2');
+  if(c1)c1.style.display=(h==='h1')?'':'none';
+  if(c2)c2.style.display=(h==='h2')?'':'none';
 }
 
 function renderKRBreakdown_(krs) {
