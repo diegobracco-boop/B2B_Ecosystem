@@ -15,6 +15,8 @@ Scheduler  : Windows Task Scheduler → daily 08:00 AM
 
 import os
 import json
+import gzip
+import base64
 from pathlib import Path
 import warnings
 from datetime import date, timedelta, datetime
@@ -2150,7 +2152,7 @@ def upload_to_drive(json_bytes: bytes, filename: str, folder_id: str = DRIVE_FOL
     media   = MediaInMemoryUpload(json_bytes, mimetype="application/json", resumable=False)
 
     results  = service.files().list(
-        q=f"name='{filename}' and '{folder_id}' in parents and trashed=false",
+        q=f"name='{filename}' and '{folder_id}' in parents and mimeType='application/json' and trashed=false",
         fields="files(id,name)"
     ).execute()
     existing = results.get("files", [])
@@ -2164,6 +2166,32 @@ def upload_to_drive(json_bytes: bytes, filename: str, folder_id: str = DRIVE_FOL
             media_body=media, fields="id"
         ).execute()
         print(f"  OK Drive: archivo creado ({filename})")
+
+
+def upload_compressed_to_drive(json_bytes: bytes, filename: str, folder_id: str):
+    """Sube json_bytes comprimido (gzip nivel 9 → base64 → text/plain) a folder_id."""
+    from googleapiclient.http import MediaInMemoryUpload
+
+    compressed = base64.b64encode(gzip.compress(json_bytes, compresslevel=9)).decode("ascii")
+    txt_bytes  = compressed.encode("ascii")
+    service    = _get_drive_service()
+    media      = MediaInMemoryUpload(txt_bytes, mimetype="text/plain", resumable=False)
+
+    results  = service.files().list(
+        q=f"name='{filename}' and '{folder_id}' in parents and mimeType='text/plain' and trashed=false",
+        fields="files(id,name)"
+    ).execute()
+    existing = results.get("files", [])
+
+    if existing:
+        service.files().update(fileId=existing[0]["id"], media_body=media).execute()
+        print(f"  OK Drive [comprimido]: archivo actualizado ({filename})")
+    else:
+        service.files().create(
+            body={"name": filename, "parents": [folder_id]},
+            media_body=media, fields="id"
+        ).execute()
+        print(f"  OK Drive [comprimido]: archivo creado ({filename})")
 
 
 print("\n--- P&L Managerial GD 2026 ---")
@@ -2219,7 +2247,9 @@ upload_to_drive(b2b_bytes,  B2B_JSON_FILE_NAME)
 
 print("\n--- Subiendo a Drive (Managerial) ---")
 upload_to_drive(pnl_gd_bytes, GD_JSON_NAME, MANAGERIAL_DRIVE_FOLDER_ID)
+upload_compressed_to_drive(pnl_gd_bytes, GD_JSON_NAME, MANAGERIAL_DRIVE_FOLDER_ID)
 upload_to_drive(pnl_ri_bytes, RI_JSON_NAME, MANAGERIAL_DRIVE_FOLDER_ID)
+upload_compressed_to_drive(pnl_ri_bytes, RI_JSON_NAME, MANAGERIAL_DRIVE_FOLDER_ID)
 
 # El email diario lo envía automáticamente el trigger de GAS (scheduledEmailSend).
 # Para configurar el trigger por primera vez: abrir el editor de GAS y correr setupEmailTrigger().
