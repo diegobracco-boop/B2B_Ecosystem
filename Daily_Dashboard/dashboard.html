@@ -50,7 +50,7 @@
   --border:    rgba(0,0,0,.08);
   --text:      #12111E;
   --text-2:    #3D3B52;
-  --text-3:    #8F8FA8;
+  --text-3:    #6B6B85; /* oscurecido 2026-09-22: #8F8FA8 daba ~2.87:1 sobre --bg a 10-11px, falla AA */
   --success:   #16a34a;
   --success-l: rgba(22,163,74,.10);
   --danger:    #dc2626;
@@ -634,6 +634,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
 #view-flow .b2b-kr-detail-table td,#view-flow .b2b-kr-detail-table th{font-size:11px;padding:3px 6px}
 #view-flow .b2b-kr-detail-table th{font-weight:600;color:#6b7280;background:#f9fafb}
 #view-flow .b2b-pivot-table .kr-detail-total td{border-top:2px solid #e5e7eb;background:#f5f3ff;font-size:11px}
+:focus-visible{outline:2px solid var(--primary);outline-offset:-2px;border-radius:4px}
 </style>
 </head>
 <body>

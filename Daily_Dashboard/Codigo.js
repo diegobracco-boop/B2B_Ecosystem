@@ -741,18 +741,21 @@ function _emailHtml_(vDate, kb, mb, k2, m2) {
       +'letter-spacing:.7px;border-bottom:2px solid #5626e9;padding-bottom:5px;margin:20px 0 12px;">'+txt+'</div>';
   }
 
+  // Stack web-safe explícito en body y en los 2 td principales — sin esto, Outlook
+  // desktop (motor Word) puede caer a Times New Roman por no tener font-family propio.
+  var EMAIL_FONT = "font-family:Arial,Helvetica,sans-serif;";
   var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"></head>'
-    +'<body style="margin:0;padding:16px;background:#f1f5f9;">'
+    +'<body style="margin:0;padding:16px;background:#f1f5f9;'+EMAIL_FONT+'">'
     +'<table width="100%" cellpadding="0" cellspacing="0" style="max-width:580px;margin:0 auto;">'
 
     // ── Header ──
-    +'<tr><td style="background:#1e293b;border-radius:10px 10px 0 0;padding:22px 28px;">'
+    +'<tr><td style="background:#1e293b;border-radius:10px 10px 0 0;padding:22px 28px;'+EMAIL_FONT+'">'
     +'<div style="font-size:16px;font-weight:800;color:#fff;">Planning B2B &amp; B2B2C Daily Dashboard</div>'
     +'<div style="font-size:12px;color:#94a3b8;margin-top:3px;">'+_eFmtDate_(vDate)+'</div>'
     +'</td></tr>'
 
     // ── Body ──
-    +'<tr><td style="background:#fff;border-radius:0 0 10px 10px;padding:20px 28px 24px;">'
+    +'<tr><td style="background:#fff;border-radius:0 0 10px 10px;padding:20px 28px 24px;'+EMAIL_FONT+'">'
 
     // B2B2C
     +sectionTitle('B2B2C')
