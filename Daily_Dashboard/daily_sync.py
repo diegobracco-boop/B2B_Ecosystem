@@ -36,6 +36,12 @@ DRIVE_FOLDER_ID   = "1lWzfqweyV6Kz1ERkL85ikFcmzmKwGwwh"
 JSON_FILE_NAME    = "daily_b2b2c_data.json"
 B2B_JSON_FILE_NAME = "daily_b2b_data.json"
 
+MANAGERIAL_DRIVE_FOLDER_ID = "16Bnx1bb5M1so0n5-IB8WEUUUz9cNAWVE"
+GD_JSON_NAME  = "pnl_managerial_GD_2026.json"
+GD_FROM       = date(2026, 1, 1)
+RI_H1_FROM    = date(2026, 4, 1)
+RI_H2_FROM    = date(2026, 10, 1)
+
 # Fechas — historial desde ene del año en curso
 TODAY            = date.today()
 YESTERDAY        = TODAY - timedelta(days=1)
@@ -60,6 +66,13 @@ MESES_ES = {
 }
 YEAR_BUDGET      = TODAY.strftime("%y")                          # '26'
 YEAR_BUDGET_NEXT = str((TODAY.year + 1) % 100).zfill(2)         # '27'
+
+if TODAY.month < 10:
+    RI_JSON_NAME = "pnl_managerial_ri_abr26_sep26_h127.json"
+    RI_FROM      = RI_H1_FROM
+else:
+    RI_JSON_NAME = "pnl_managerial_ri_sep26_mar27_h227.json"
+    RI_FROM      = RI_H2_FROM
 
 print(f"[{TODAY}]  Actuals: {ACTUALS_FROM}->{YESTERDAY}  |  LY: {LY_FROM}->{LY_TO}  |  Budget FY: {YEAR_BUDGET}/{YEAR_BUDGET_NEXT}")
 
@@ -919,6 +932,804 @@ B2C_PAIS_MAP = {
 }
 
 
+# ==============================================================================
+# P&L Managerial — GD (Fecha de Gestión) · 2026
+# Período: GD_FROM → ayer. Se sube a MANAGERIAL_DRIVE_FOLDER_ID.
+# ==============================================================================
+_PNL_GD_QUERY_TEMPLATE = """
+WITH conectores AS (
+    SELECT
+        agencias.ap_code,
+        MAX(agencias.conector)                        AS conector,
+        MAX(COALESCE(pay_type, 'NA'))                 AS pay_type,
+        MAX(COALESCE(CAST(mulltiplier AS DOUBLE), 0)) AS mulltiplier
+    FROM data.raw.b2b_dim_ap_by_conector agencias
+    LEFT JOIN data.raw.b2b_dim_api_conectors conectores
+        ON agencias.conector = conectores.conector
+    GROUP BY 1
+),
+
+country_factors AS (
+    SELECT pais_key, channel_key, producto_key, country_factor
+    FROM (VALUES
+        ('BR', 'API', 'Hoteles', 1.000000),
+        ('MX', 'API', 'Hoteles', 1.000000),
+        ('O',  'API', 'Hoteles', 1.110000),
+        ('AR', 'API', 'Hoteles', 0.761148),
+        ('CO', 'API', 'Hoteles', 0.688685),
+        ('CL', 'API', 'Hoteles', 0.217122),
+        ('PE', 'API', 'Hoteles', 1.000000),
+        ('EC', 'API', 'Hoteles', 1.000000),
+        ('BR', 'Agencias afiliadas', 'Hoteles', 0.958768),
+        ('MX', 'Agencias afiliadas', 'Hoteles', 0.877965),
+        ('O',  'Agencias afiliadas', 'Hoteles', 0.735475),
+        ('AR', 'Agencias afiliadas', 'Hoteles', 0.90000),
+        ('CO', 'Agencias afiliadas', 'Hoteles', 0.768379),
+        ('CL', 'Agencias afiliadas', 'Hoteles', 0.877266),
+        ('PE', 'Agencias afiliadas', 'Hoteles', 0.894839),
+        ('EC', 'Agencias afiliadas', 'Hoteles', 0.911666),
+        ('BR', 'Agencias afiliadas', 'Carrito', 0.992196),
+        ('MX', 'Agencias afiliadas', 'Carrito', 0.898147),
+        ('O',  'Agencias afiliadas', 'Carrito', 1.000000),
+        ('AR', 'Agencias afiliadas', 'Carrito', 0.964833),
+        ('CO', 'Agencias afiliadas', 'Carrito', 0.953590),
+        ('CL', 'Agencias afiliadas', 'Carrito', 0.985575),
+        ('PE', 'Agencias afiliadas', 'Carrito', 0.995007),
+        ('EC', 'Agencias afiliadas', 'Carrito', 0.793758),
+        ('BR', 'Agencias afiliadas', 'Vuelos',  1.000000),
+        ('MX', 'Agencias afiliadas', 'Vuelos',  0.947329),
+        ('O',  'Agencias afiliadas', 'Vuelos',  1.000000),
+        ('AR', 'Agencias afiliadas', 'Vuelos',  0.965374),
+        ('CO', 'Agencias afiliadas', 'Vuelos',  0.999665),
+        ('CL', 'Agencias afiliadas', 'Vuelos',  1.000000),
+        ('PE', 'Agencias afiliadas', 'Vuelos',  1.000000),
+        ('EC', 'Agencias afiliadas', 'Vuelos',  1.000000),
+        ('BR', 'Agencias afiliadas', 'Actividades', 0.912335),
+        ('MX', 'Agencias afiliadas', 'Actividades', 0.958075),
+        ('O',  'Agencias afiliadas', 'Actividades', 1.000000),
+        ('AR', 'Agencias afiliadas', 'Actividades', 0.968103),
+        ('CO', 'Agencias afiliadas', 'Actividades', 0.963957),
+        ('CL', 'Agencias afiliadas', 'Actividades', 1.000000),
+        ('PE', 'Agencias afiliadas', 'Actividades', 1.000000),
+        ('EC', 'Agencias afiliadas', 'Actividades', 1.000000),
+        ('BR', 'Agencias afiliadas', 'Asistencia al viajero', 1.000000),
+        ('MX', 'Agencias afiliadas', 'Asistencia al viajero', 1.000000),
+        ('O',  'Agencias afiliadas', 'Asistencia al viajero', 1.000000),
+        ('AR', 'Agencias afiliadas', 'Asistencia al viajero', 0.905338),
+        ('CO', 'Agencias afiliadas', 'Asistencia al viajero', 1.000000),
+        ('CL', 'Agencias afiliadas', 'Asistencia al viajero', 1.000000),
+        ('PE', 'Agencias afiliadas', 'Asistencia al viajero', 1.000000),
+        ('EC', 'Agencias afiliadas', 'Asistencia al viajero', 1.000000),
+        ('BR', 'Agencias afiliadas', 'Autos', 0.815906),
+        ('MX', 'Agencias afiliadas', 'Autos', 0.830909),
+        ('O',  'Agencias afiliadas', 'Autos', 1.000000),
+        ('AR', 'Agencias afiliadas', 'Autos', 0.910915),
+        ('CO', 'Agencias afiliadas', 'Autos', 0.889231),
+        ('CL', 'Agencias afiliadas', 'Autos', 0.552513),
+        ('PE', 'Agencias afiliadas', 'Autos', 0.931042),
+        ('EC', 'Agencias afiliadas', 'Autos', 1.000000)
+    ) AS t(pais_key, channel_key, producto_key, country_factor)
+),
+
+pnl_filtered AS (
+    SELECT * FROM data.analytics.bi_pnlop_fact_current_model
+    WHERE line_of_business = 'B2B'
+        AND date_reservation_year_month > '2024-01'
+),
+
+base_metrics AS (
+    SELECT
+        CAST(YEAR(fh.gestion_date) AS VARCHAR) AS anio_gd,
+        MONTH(fh.gestion_date) AS mes_gd,
+        fh.gestion_date        AS fecha_gestion,
+        fh.line_of_business_code AS lob,
+        fh.parent_channel,
+        fh.channel,
+        fh.partner_id,
+        p.gateway,
+        p.flight_validatin_carrier AS codigo_aerolinea,
+        CASE
+            WHEN fh.partner_id IN ('AP12142','AP12961','AP12767','AP12539','AP12792',
+                'AP12149','AP12148','AG00015606','AP13029','AP13030',
+                'AP13091','AP13104','AG00015611') THEN 'Paraguay'
+            WHEN fh.partner_id = 'AP13248' OR fh.country_code = 'CL' THEN 'Chile'
+            WHEN fh.country_code IN ('MX','BR','CO','AR','EC','PE','UY') THEN
+                CASE fh.country_code
+                    WHEN 'MX' THEN 'Mexico' WHEN 'BR' THEN 'Brasil'
+                    WHEN 'CO' THEN 'Colombia' WHEN 'AR' THEN 'Argentina'
+                    WHEN 'EC' THEN 'Ecuador' WHEN 'PE' THEN 'Peru'
+                    WHEN 'UY' THEN 'Uruguay'
+                END
+            ELSE 'Other Countries'
+        END AS pais,
+        CASE
+            WHEN fh.buy_type_code = 'Actividades'           THEN 'Dest. Serv.'
+            WHEN fh.buy_type_code = 'Alquileres'            THEN 'Vacation Rentals'
+            WHEN fh.buy_type_code = 'Asistencia al viajero' THEN 'Insurance'
+            WHEN fh.buy_type_code = 'Autos'                 THEN 'Cars'
+            WHEN fh.buy_type_code = 'Carrito'               THEN 'Packages General'
+            WHEN fh.buy_type_code = 'Hoteles'               THEN 'Hotels'
+            WHEN fh.buy_type_code = 'Traslados'             THEN 'Dest. Serv.'
+            WHEN fh.buy_type_code = 'Vuelos'                THEN 'Flights'
+            WHEN fh.buy_type_code = 'Circuito'              THEN 'Dest. Serv.'
+            WHEN fh.buy_type_code = 'Servicios en Destino'  THEN 'Dest. Serv.'
+            ELSE fh.buy_type_code
+        END AS producto_original,
+        p.product_type,
+        CASE WHEN cr.shopping_flow_source = 'CART' THEN 'CART' ELSE 'CONVENCIONAL' END AS shopping_flow_source,
+        CASE WHEN fh.trip_type_code = 'Nac' THEN 'Domestic'
+             WHEN fh.trip_type_code = 'Int' THEN 'International'
+             ELSE fh.trip_type_code END AS viaje,
+
+        MAX(fh.confirmation_gradient) AS gradient,
+        SUM(fh.gestion_gb * fh.confirmation_gradient) AS gross_bookings,
+        COUNT(DISTINCT t.transaction_code) AS orders,
+
+        SUM(
+            pnl.commission_net_usd
+            * CASE WHEN fh.partner_id IN ('AG72472','expedia','AG00044461','AG00101284') THEN 0.25
+                   ELSE COALESCE(cf.country_factor, 1.0) END
+        ) AS up_front_incentives,
+
+        SUM(
+            ((pnl.fee_net_usd + pnl.coi_interest_usd)
+             - CASE
+                 WHEN fh.parent_channel = 'Agencias afiliadas' AND fh.country_code = 'BR'
+                      AND fh.buy_type_code = 'Carrito' AND p.product_type != 'Vuelos'
+                 THEN pr.net_commission_partner * pr.conversion_rate
+                 WHEN fh.parent_channel = 'Agencias afiliadas' AND fh.country_code = 'BR'
+                      AND fh.buy_type_code != 'Vuelos' AND fh.buy_type_code != 'Carrito'
+                 THEN pnl.affiliates_usd
+                 ELSE 0
+               END)
+            * CASE WHEN fh.partner_id IN ('AG72472','expedia','AG00044461','AG00101284') THEN 0.25
+                   ELSE COALESCE(cf.country_factor, 1.0) END
+        ) AS fees,
+
+        -SUM(
+            pnl.discounts_net_usd
+            * CASE WHEN fh.partner_id IN ('AG72472','expedia','AG00044461','AG00101284') THEN 0.25
+                   ELSE COALESCE(cf.country_factor, 1.0) END
+        ) AS commercial_discounts,
+
+        SUM(pnl.other_incentives_air_usd + pnl.other_incentives_non_air_usd) AS other_incentives,
+        SUM(pnl.revenue_taxes_usd) AS revenue_tax,
+        SUM(pnl.backend_air_usd + pnl.backend_non_air_usd) AS back_end_incentives,
+        -SUM(pnl.cancellations_usd) AS cancellations,
+        SUM(pnl.breakage_revenue_usd) AS breakage_revenue,
+        -SUM(pnl.loyalty_usd) AS loyalty_usd,
+        SUM(pnl.discounts_mkt_funds_usd + pnl.media_revenue_usd
+            - pnl.mkt_fee_cost_cmr_usd + pnl.fee_income_mkt_cmr_usd) AS media_other_revenue,
+
+        -SUM(CASE WHEN pr.installments IN (0, 1, null) THEN 0 ELSE pnl.coi_usd END) AS cost_of_installments,
+
+        -SUM(CASE WHEN fh.parent_channel = 'API' THEN 0 ELSE pnl.ccp_usd END) AS credit_card_processing,
+
+        SUM(
+            CASE
+                WHEN fh.parent_channel = 'API' THEN NULL
+                WHEN fh.country_code = 'BR' AND fh.buy_type_code in ('Carrito','Vuelos') AND p.product_type = 'Vuelos'
+                THEN -(pr.net_commission_partner * pr.conversion_rate)
+                WHEN fh.country_code = 'BR' AND fh.buy_type_code = 'Carrito' THEN 0
+                ELSE -pnl.affiliates_usd +
+                     CASE WHEN fh.country_code = 'BR' AND fh.buy_type_code != 'Vuelos'
+                          THEN pnl.affiliates_usd ELSE 0 END
+            END
+            * CASE
+                WHEN fh.country_code   = 'MX'
+                 AND fh.parent_channel = 'Agencias afiliadas'
+                 AND fh.buy_type_code  = 'Carrito'
+                THEN 0.75
+                ELSE 1.0
+              END
+        ) AS affiliates,
+
+        SUM(
+            CASE
+                WHEN fh.partner_id IN ('AG72472','expedia','AG00044461','AG00101284')
+                THEN 0
+                WHEN fh.parent_channel = 'API'
+                THEN fh.gestion_gb * fh.confirmation_gradient
+                     * CASE fh.country_code
+                           WHEN 'BR' THEN -0.0048
+                           WHEN 'MX' THEN -0.0055
+                           WHEN 'AR' THEN -0.0120
+                           WHEN 'CO' THEN -0.0100
+                           WHEN 'CL' THEN -0.034048
+                           WHEN 'PE' THEN -0.0160
+                           WHEN 'EC' THEN  0.0000
+                           ELSE CASE WHEN fh.country_code IN ('US','PA','UY') THEN -0.0075
+                                     ELSE -0.0070 END
+                       END
+                ELSE NULL
+            END
+            - CASE
+                WHEN fh.parent_channel = 'API' AND con.pay_type = 'TX'
+                    THEN COALESCE(con.mulltiplier, 0)
+                         * COALESCE(TRY_CAST(fh.confirmation_gradient AS DECIMAL(5,5)), 1)
+                WHEN fh.parent_channel = 'API' AND con.pay_type = 'GB'
+                    THEN COALESCE(con.mulltiplier * fh.gestion_gb, 0)
+                         * COALESCE(TRY_CAST(fh.confirmation_gradient AS DECIMAL(5,5)), 1)
+                ELSE 0
+            END
+        ) AS white_labels_api,
+
+        -SUM(pnl.mkt_cost_net_usd) AS mkt_usd,
+        SUM(pnl.errors_usd) AS errors,
+        SUM(pnl.ott_usd) AS other_transactional_taxes,
+        SUM(pnl.customer_claims_usd) AS customer_claims,
+        SUM(pnl.customer_service_usd) AS customer_service,
+
+        SUM(
+            CASE
+                WHEN fh.parent_channel = 'API' THEN 0
+                WHEN t.country_code = 'BR' THEN (fh.gestion_gb * fh.confirmation_gradient) * -0.0056
+                ELSE (fh.gestion_gb * fh.confirmation_gradient) * -0.0053
+            END
+        ) AS frauds,
+
+        SUM(pnl.financial_result_usd) AS efecto_financiero,
+        SUM(pnl.dif_fx_usd + pnl.dif_fx_air_usd) AS dif_fx,
+        SUM(pnl.currency_hedge_usd + pnl.currency_hedge_air_usd) AS currency_hedge
+
+    FROM data.analytics.bi_sales_fact_sales_recognition fh
+
+    LEFT JOIN country_factors cf
+        ON CASE WHEN fh.country_code IN ('BR','MX','AR','CO','CL','PE','EC') THEN fh.country_code ELSE 'O' END = cf.pais_key
+        AND fh.parent_channel = cf.channel_key
+        AND CASE
+               WHEN fh.buy_type_code = 'Alquileres' THEN 'Hoteles'
+               WHEN fh.buy_type_code IN ('Traslados','Circuito','Servicios en Destino') THEN 'Actividades'
+               WHEN fh.buy_type_code IN ('Hoteles','Carrito','Vuelos','Actividades','Asistencia al viajero','Autos') THEN fh.buy_type_code
+               ELSE NULL
+           END = cf.producto_key
+
+    LEFT JOIN pnl_filtered pnl ON fh.product_id = pnl.product_id
+
+    LEFT JOIN data.analytics.bi_transactional_fact_products p
+        ON fh.product_id = p.product_id
+        AND p.reservation_year_month >= CAST('2024-01-01' AS DATE)
+
+    LEFT JOIN data.analytics.bi_transactional_fact_transactions t
+        ON CAST(pnl.transaction_code AS VARCHAR) = t.transaction_code
+        AND t.reservation_year_month >= CAST('2024-01-01' AS DATE)
+
+    LEFT JOIN data.lake.channels_bo_product pr
+        ON pr.transaction_id = fh.origin_product_id
+        AND pr.status = 'EMITTED'
+        AND pr.payment_methods NOT IN ('AGENCY_ACCOUNT','CURRENT_ACCOUNT')
+
+    LEFT JOIN data.lake.chewie_reservation cr
+        ON CAST(fh.transaction_code AS VARCHAR) = cr.id
+        AND cr.last_version = true
+
+    LEFT JOIN conectores con
+        ON fh.partner_id = con.ap_code
+
+    WHERE
+        fh.gestion_date >= CAST({{FechaDesde}} AS DATE)
+        AND fh.gestion_date <= CAST({{FechaHasta}} AS DATE)
+        AND fh.partition_period > '2024-01-01'
+        AND fh.line_of_business_code = 'B2B'
+        AND fh.lob_gestion IN ('stg__sales_b2bnohoteldo','stg_sales__b2bhoteldo')
+
+    GROUP BY
+        date_format(fh.gestion_date,    '%Y-%m'),
+        date_format(fh.recognition_date,'%Y-%m'),
+        fh.brand,
+        YEAR(fh.gestion_date), MONTH(fh.gestion_date), YEAR(fh.recognition_date), MONTH(fh.recognition_date), fh.gestion_date,
+        fh.line_of_business_code, fh.parent_channel, fh.channel, fh.partner_id,
+        p.gateway, p.flight_validatin_carrier,
+        CASE
+            WHEN fh.partner_id IN ('AP12142','AP12961','AP12767','AP12539','AP12792','AP12149','AP12148','AG00015606','AP13029','AP13030','AP13091','AP13104','AG00015611') THEN 'Paraguay'
+            WHEN fh.partner_id = 'AP13248' OR fh.country_code = 'CL' THEN 'Chile'
+            WHEN fh.country_code IN ('MX','BR','CO','AR','EC','PE','UY') THEN
+                CASE fh.country_code WHEN 'MX' THEN 'Mexico' WHEN 'BR' THEN 'Brasil' WHEN 'CO' THEN 'Colombia' WHEN 'AR' THEN 'Argentina' WHEN 'EC' THEN 'Ecuador' WHEN 'PE' THEN 'Peru' WHEN 'UY' THEN 'Uruguay' END
+            ELSE 'Other Countries'
+        END,
+        CASE
+            WHEN fh.buy_type_code = 'Actividades' THEN 'Dest. Serv.' WHEN fh.buy_type_code = 'Alquileres' THEN 'Vacation Rentals'
+            WHEN fh.buy_type_code = 'Asistencia al viajero' THEN 'Insurance' WHEN fh.buy_type_code = 'Autos' THEN 'Cars'
+            WHEN fh.buy_type_code = 'Carrito' THEN 'Packages General' WHEN fh.buy_type_code = 'Hoteles' THEN 'Hotels'
+            WHEN fh.buy_type_code = 'Traslados' THEN 'Dest. Serv.' WHEN fh.buy_type_code = 'Vuelos' THEN 'Flights'
+            WHEN fh.buy_type_code = 'Circuito' THEN 'Dest. Serv.' WHEN fh.buy_type_code = 'Servicios en Destino' THEN 'Dest. Serv.'
+            ELSE fh.buy_type_code
+        END,
+        p.product_type, cr.shopping_flow_source,
+        CASE WHEN fh.trip_type_code = 'Nac' THEN 'Domestic' WHEN fh.trip_type_code = 'Int' THEN 'International' ELSE fh.trip_type_code END
+)
+
+SELECT
+    anio_gd,
+    mes_gd,
+    fecha_gestion,
+    lob,
+    pais,
+    producto_original,
+    parent_channel,
+    partner_id,
+    product_type,
+    gateway,
+    codigo_aerolinea,
+    shopping_flow_source,
+    viaje,
+    gradient, gross_bookings, orders,
+    up_front_incentives, fees, commercial_discounts,
+    cancellations,
+    other_incentives, back_end_incentives, media_other_revenue,
+    breakage_revenue, revenue_tax, loyalty_usd,
+    cost_of_installments, credit_card_processing,
+    white_labels_api, affiliates, mkt_usd, frauds, errors,
+    other_transactional_taxes, customer_claims, customer_service,
+    efecto_financiero, dif_fx, currency_hedge,
+    (
+        COALESCE(up_front_incentives, 0) + COALESCE(fees, 0)
+        + COALESCE(commercial_discounts, 0) + COALESCE(other_incentives, 0)
+        + COALESCE(revenue_tax, 0) + COALESCE(back_end_incentives, 0)
+        + COALESCE(cancellations, 0) + COALESCE(breakage_revenue, 0)
+        + COALESCE(loyalty_usd, 0) + COALESCE(media_other_revenue, 0)
+    ) AS net_revenue,
+    (
+        COALESCE(up_front_incentives, 0) + COALESCE(fees, 0)
+        + COALESCE(commercial_discounts, 0) + COALESCE(other_incentives, 0)
+        + COALESCE(revenue_tax, 0) + COALESCE(back_end_incentives, 0)
+        + COALESCE(cancellations, 0) + COALESCE(breakage_revenue, 0)
+        + COALESCE(loyalty_usd, 0) + COALESCE(media_other_revenue, 0)
+        + COALESCE(cost_of_installments, 0) + COALESCE(credit_card_processing, 0)
+        + COALESCE(affiliates, 0) + COALESCE(white_labels_api, 0)
+        + COALESCE(mkt_usd, 0) + COALESCE(errors, 0)
+        + COALESCE(other_transactional_taxes, 0) + COALESCE(customer_claims, 0)
+        + COALESCE(customer_service, 0) + COALESCE(frauds, 0)
+        + COALESCE(efecto_financiero, 0) + COALESCE(dif_fx, 0)
+        + COALESCE(currency_hedge, 0)
+    ) AS fvm
+FROM base_metrics
+"""
+
+
+def build_pnl_managerial_gd_query(date_from: date, date_to: date) -> str:
+    return (
+        _PNL_GD_QUERY_TEMPLATE
+        .replace("{{FechaDesde}}", f"'{date_from}'")
+        .replace("{{FechaHasta}}", f"'{date_to}'")
+    )
+
+
+# ==============================================================================
+# P&L Managerial — RI (Reconocimiento de Ingresos) · H1 FY27 / H2 FY27
+# H1: abr-sep 2026 → archivo pnl_managerial_ri_abr26_sep26_h127.json (se congela en oct)
+# H2: oct 2026-mar 2027 → archivo pnl_managerial_ri_sep26_mar27_h227.json
+# Ambos van a MANAGERIAL_DRIVE_FOLDER_ID.
+# ==============================================================================
+_PNL_RI_QUERY_TEMPLATE = """
+WITH conectores AS (
+    SELECT
+        agencias.ap_code,
+        MAX(agencias.conector)                        AS conector,
+        MAX(COALESCE(pay_type, 'NA'))                 AS pay_type,
+        MAX(COALESCE(CAST(mulltiplier AS DOUBLE), 0)) AS mulltiplier
+    FROM data.raw.b2b_dim_ap_by_conector agencias
+    LEFT JOIN data.raw.b2b_dim_api_conectors conectores
+        ON agencias.conector = conectores.conector
+    GROUP BY 1
+),
+
+country_factors AS (
+    SELECT pais_key, channel_key, producto_key, country_factor
+    FROM (VALUES
+        ('BR', 'API', 'Hoteles', 1.00000),
+        ('MX', 'API', 'Hoteles', 1.00000),
+        ('O',  'API', 'Hoteles', 1.11000),
+        ('AR', 'API', 'Hoteles', 0.76244),
+        ('CO', 'API', 'Hoteles', 0.73907),
+        ('CL', 'API', 'Hoteles', 0.22390),
+        ('PE', 'API', 'Hoteles', 1.00000),
+        ('EC', 'API', 'Hoteles', 1.00000),
+        ('BR', 'Agencias afiliadas', 'Hoteles', 0.95877),
+        ('MX', 'Agencias afiliadas', 'Hoteles', 0.87797),
+        ('O',  'Agencias afiliadas', 'Hoteles', 0.73548),
+        ('AR', 'Agencias afiliadas', 'Hoteles', 0.90000),
+        ('CO', 'Agencias afiliadas', 'Hoteles', 0.76838),
+        ('CL', 'Agencias afiliadas', 'Hoteles', 0.87727),
+        ('PE', 'Agencias afiliadas', 'Hoteles', 0.89484),
+        ('EC', 'Agencias afiliadas', 'Hoteles', 0.91167),
+        ('BR', 'Agencias afiliadas', 'Carrito', 0.99220),
+        ('MX', 'Agencias afiliadas', 'Carrito', 0.89815),
+        ('O',  'Agencias afiliadas', 'Carrito', 1.00000),
+        ('AR', 'Agencias afiliadas', 'Carrito', 0.96483),
+        ('CO', 'Agencias afiliadas', 'Carrito', 0.95359),
+        ('CL', 'Agencias afiliadas', 'Carrito', 0.98558),
+        ('PE', 'Agencias afiliadas', 'Carrito', 0.99501),
+        ('EC', 'Agencias afiliadas', 'Carrito', 0.79376),
+        ('BR', 'Agencias afiliadas', 'Vuelos',  1.00000),
+        ('MX', 'Agencias afiliadas', 'Vuelos',  0.94733),
+        ('O',  'Agencias afiliadas', 'Vuelos',  1.00000),
+        ('AR', 'Agencias afiliadas', 'Vuelos',  0.96537),
+        ('CO', 'Agencias afiliadas', 'Vuelos',  0.99966),
+        ('CL', 'Agencias afiliadas', 'Vuelos',  1.00000),
+        ('PE', 'Agencias afiliadas', 'Vuelos',  1.00000),
+        ('EC', 'Agencias afiliadas', 'Vuelos',  1.00000),
+        ('BR', 'Agencias afiliadas', 'Actividades', 0.91233),
+        ('MX', 'Agencias afiliadas', 'Actividades', 0.95807),
+        ('O',  'Agencias afiliadas', 'Actividades', 1.00000),
+        ('AR', 'Agencias afiliadas', 'Actividades', 0.96810),
+        ('CO', 'Agencias afiliadas', 'Actividades', 0.96395),
+        ('CL', 'Agencias afiliadas', 'Actividades', 1.00000),
+        ('PE', 'Agencias afiliadas', 'Actividades', 1.00000),
+        ('EC', 'Agencias afiliadas', 'Actividades', 1.00000),
+        ('BR', 'Agencias afiliadas', 'Asistencia al viajero', 1.00000),
+        ('MX', 'Agencias afiliadas', 'Asistencia al viajero', 1.00000),
+        ('O',  'Agencias afiliadas', 'Asistencia al viajero', 1.00000),
+        ('AR', 'Agencias afiliadas', 'Asistencia al viajero', 0.90533),
+        ('CO', 'Agencias afiliadas', 'Asistencia al viajero', 1.00000),
+        ('CL', 'Agencias afiliadas', 'Asistencia al viajero', 1.00000),
+        ('PE', 'Agencias afiliadas', 'Asistencia al viajero', 1.00000),
+        ('EC', 'Agencias afiliadas', 'Asistencia al viajero', 1.00000),
+        ('BR', 'Agencias afiliadas', 'Autos', 0.81590),
+        ('MX', 'Agencias afiliadas', 'Autos', 0.83090),
+        ('O',  'Agencias afiliadas', 'Autos', 1.00000),
+        ('AR', 'Agencias afiliadas', 'Autos', 0.91091),
+        ('CO', 'Agencias afiliadas', 'Autos', 0.88923),
+        ('CL', 'Agencias afiliadas', 'Autos', 0.55251),
+        ('PE', 'Agencias afiliadas', 'Autos', 0.93104),
+        ('EC', 'Agencias afiliadas', 'Autos', 1.00000)
+    ) AS t(pais_key, channel_key, producto_key, country_factor)
+),
+
+pnl_filtered AS (
+    SELECT * FROM data.analytics.bi_pnlop_fact_current_model
+    WHERE line_of_business = 'B2B'
+        AND date_reservation_year_month > '2024-01'
+),
+
+base_metrics AS (
+    SELECT
+        CAST(
+            CASE WHEN fh.parent_channel = 'API'
+                 THEN YEAR(p.checkin_date)
+                 ELSE YEAR(fh.recognition_date) END
+        AS VARCHAR) AS anio_ri,
+
+        CASE WHEN fh.parent_channel = 'API'
+             THEN MONTH(p.checkin_date)
+             ELSE MONTH(fh.recognition_date) END AS mes_ri,
+
+        fh.gestion_date AS fecha_gestion,
+
+        CASE WHEN fh.parent_channel = 'API'
+             THEN p.checkin_date
+             ELSE fh.recognition_date END AS fecha_reconocimiento,
+
+        p.gateway,
+        fh.partner_id,
+        p.product_type,
+        cr.shopping_flow_source,
+        p.flight_validatin_carrier AS codigo_aerolinea,
+
+        fh.line_of_business_code AS lob,
+        fh.parent_channel,
+        CASE
+            WHEN fh.partner_id IN ('AP12142','AP12961','AP12767','AP12539','AP12792',
+                'AP12149','AP12148','AG00015606','AP13029','AP13030',
+                'AP13091','AP13104','AG00015611') THEN 'Paraguay'
+            WHEN fh.partner_id = 'AP13248' OR fh.country_code = 'CL' THEN 'Chile'
+            WHEN fh.country_code IN ('MX','BR','CO','AR','EC','PE','UY') THEN
+                CASE fh.country_code
+                    WHEN 'MX' THEN 'Mexico' WHEN 'BR' THEN 'Brasil'
+                    WHEN 'CO' THEN 'Colombia' WHEN 'AR' THEN 'Argentina'
+                    WHEN 'EC' THEN 'Ecuador' WHEN 'PE' THEN 'Peru'
+                    WHEN 'UY' THEN 'Uruguay'
+                END
+            ELSE 'Other Countries'
+        END AS pais,
+        CASE
+            WHEN fh.buy_type_code = 'Actividades'           THEN 'Dest. Serv.'
+            WHEN fh.buy_type_code = 'Alquileres'            THEN 'Vacation Rentals'
+            WHEN fh.buy_type_code = 'Asistencia al viajero' THEN 'Insurance'
+            WHEN fh.buy_type_code = 'Autos'                 THEN 'Cars'
+            WHEN fh.buy_type_code = 'Carrito'               THEN 'Packages General'
+            WHEN fh.buy_type_code = 'Hoteles'               THEN 'Hotels'
+            WHEN fh.buy_type_code = 'Traslados'             THEN 'Dest. Serv.'
+            WHEN fh.buy_type_code = 'Vuelos'                THEN 'Flights'
+            WHEN fh.buy_type_code = 'Circuito'              THEN 'Dest. Serv.'
+            WHEN fh.buy_type_code = 'Servicios en Destino'  THEN 'Dest. Serv.'
+            ELSE fh.buy_type_code
+        END AS producto_original,
+        CASE WHEN fh.trip_type_code = 'Nac' THEN 'Domestic'
+             WHEN fh.trip_type_code = 'Int' THEN 'International'
+             ELSE fh.trip_type_code END AS viaje,
+        fh.product_status,
+
+        MAX(fh.confirmation_gradient) AS gradient,
+        SUM(fh.gestion_gb) AS gross_bookings,
+        COUNT(DISTINCT t.transaction_code) AS orders,
+
+        SUM(
+            (pnl.commission_net_usd / NULLIF(fh.confirmation_gradient, 0))
+            * CASE WHEN fh.partner_id IN ('AG72472','expedia','AG00044461','AG00101284') THEN 0.25
+                   ELSE COALESCE(cf.country_factor, 1.0) END
+        ) AS up_front_incentives,
+
+        SUM(
+            ((pnl.fee_net_usd + pnl.coi_interest_usd) / NULLIF(fh.confirmation_gradient, 0)
+             - CASE
+                 WHEN fh.parent_channel = 'Agencias afiliadas' AND fh.country_code = 'BR'
+                      AND fh.buy_type_code IN ('Carrito') AND p.product_type != 'Vuelos'
+                 THEN pr.net_commission_partner * pr.conversion_rate
+                 WHEN fh.parent_channel = 'Agencias afiliadas' AND fh.country_code = 'BR'
+                      AND fh.buy_type_code != 'Vuelos' AND fh.buy_type_code != 'Carrito'
+                 THEN pnl.affiliates_usd / NULLIF(fh.confirmation_gradient, 0)
+                 ELSE 0
+               END)
+            * CASE WHEN fh.partner_id IN ('AG72472','expedia','AG00044461','AG00101284') THEN 0.25
+                   ELSE COALESCE(cf.country_factor, 1.0) END
+        ) AS fees,
+
+        -SUM(
+            (pnl.discounts_net_usd / NULLIF(fh.confirmation_gradient, 0))
+            * CASE WHEN fh.partner_id IN ('AG72472','expedia','AG00044461','AG00101284') THEN 0.25
+                   ELSE COALESCE(cf.country_factor, 1.0) END
+        ) AS commercial_discounts,
+
+        SUM((pnl.other_incentives_air_usd + pnl.other_incentives_non_air_usd)
+            / NULLIF(fh.confirmation_gradient, 0)) AS other_incentives,
+        SUM(pnl.revenue_taxes_usd / NULLIF(fh.confirmation_gradient, 0)) AS revenue_tax,
+        SUM((pnl.backend_air_usd + pnl.backend_non_air_usd)
+            / NULLIF(fh.confirmation_gradient, 0)) AS back_end_incentives,
+        -SUM(pnl.cancellations_usd / NULLIF(fh.confirmation_gradient, 0)) AS cancellations,
+        SUM(pnl.breakage_revenue_usd / NULLIF(fh.confirmation_gradient, 0)) AS breakage_revenue,
+        -SUM(pnl.loyalty_usd / NULLIF(fh.confirmation_gradient, 0)) AS loyalty_usd,
+        SUM((pnl.discounts_mkt_funds_usd + pnl.media_revenue_usd
+             - pnl.mkt_fee_cost_cmr_usd + pnl.fee_income_mkt_cmr_usd)
+            / NULLIF(fh.confirmation_gradient, 0)) AS media_other_revenue,
+
+        -SUM(CASE WHEN pr.installments IN (0, 1, null) THEN 0
+                  ELSE pnl.coi_usd / NULLIF(fh.confirmation_gradient, 0) END) AS cost_of_installments,
+
+        -SUM(CASE WHEN fh.parent_channel = 'API' THEN 0
+                  ELSE pnl.ccp_usd / NULLIF(fh.confirmation_gradient, 0) END) AS credit_card_processing,
+
+        SUM(
+            CASE
+                WHEN fh.parent_channel = 'API' THEN NULL
+                WHEN fh.country_code = 'BR' AND fh.buy_type_code IN ('Carrito','Vuelos')
+                     AND p.product_type = 'Vuelos'
+                THEN -(pr.net_commission_partner * pr.conversion_rate)
+                WHEN fh.country_code = 'BR' AND fh.buy_type_code = 'Carrito' THEN 0
+                ELSE -(pnl.affiliates_usd / NULLIF(fh.confirmation_gradient, 0)) +
+                     CASE WHEN fh.country_code = 'BR' AND fh.buy_type_code != 'Vuelos'
+                          THEN pnl.affiliates_usd / NULLIF(fh.confirmation_gradient, 0)
+                          ELSE 0 END
+            END
+            * CASE
+                WHEN fh.country_code   = 'MX'
+                 AND fh.parent_channel = 'Agencias afiliadas'
+                 AND fh.buy_type_code  = 'Carrito'
+                THEN 0.75
+                ELSE 1.0
+              END
+        ) AS affiliates,
+
+        SUM(
+            CASE
+                WHEN fh.partner_id IN ('AG72472','expedia','AG00044461','AG00101284') THEN 0
+                WHEN fh.parent_channel = 'API'
+                THEN fh.gestion_gb * CASE fh.country_code
+                        WHEN 'BR' THEN -0.0042
+                        WHEN 'MX' THEN -0.0050
+                        WHEN 'AR' THEN -0.0120
+                        WHEN 'CO' THEN -0.0100
+                        WHEN 'CL' THEN -0.03405
+                        WHEN 'PE' THEN -0.0160
+                        WHEN 'EC' THEN  0.0000
+                        ELSE -0.0070
+                     END
+                ELSE NULL
+            END
+            - CASE
+                WHEN fh.parent_channel = 'API' AND con.pay_type = 'TX'
+                    THEN COALESCE(con.mulltiplier, 0)
+                         * COALESCE(TRY_CAST(fh.confirmation_gradient AS DECIMAL(5,5)), 1)
+                WHEN fh.parent_channel = 'API' AND con.pay_type = 'GB'
+                    THEN COALESCE(con.mulltiplier * fh.gestion_gb, 0)
+                         * COALESCE(TRY_CAST(fh.confirmation_gradient AS DECIMAL(5,5)), 1)
+                ELSE 0
+            END
+        ) AS white_labels_api,
+
+        -SUM(pnl.mkt_cost_net_usd / NULLIF(fh.confirmation_gradient, 0)) AS mkt_usd,
+        SUM(pnl.errors_usd / NULLIF(fh.confirmation_gradient, 0)) AS errors,
+        SUM(pnl.ott_usd / NULLIF(fh.confirmation_gradient, 0)) AS other_transactional_taxes,
+        SUM(pnl.customer_claims_usd / NULLIF(fh.confirmation_gradient, 0)) AS customer_claims,
+        SUM(pnl.customer_service_usd / NULLIF(fh.confirmation_gradient, 0)) AS customer_service,
+
+        SUM(
+            CASE
+                WHEN fh.parent_channel = 'API' THEN 0
+                WHEN t.country_code = 'BR'     THEN fh.gestion_gb * -0.0056
+                ELSE                                fh.gestion_gb * -0.0053
+            END
+        ) AS frauds,
+
+        SUM(pnl.financial_result_usd / NULLIF(fh.confirmation_gradient, 0)) AS efecto_financiero,
+        SUM((pnl.dif_fx_usd + pnl.dif_fx_air_usd)
+            / NULLIF(fh.confirmation_gradient, 0)) AS dif_fx,
+        SUM((pnl.currency_hedge_usd + pnl.currency_hedge_air_usd)
+            / NULLIF(fh.confirmation_gradient, 0)) AS currency_hedge
+
+    FROM data.analytics.bi_sales_fact_sales_recognition fh
+
+    LEFT JOIN country_factors cf
+        ON CASE WHEN fh.country_code IN ('BR','MX','AR','CO','CL','PE','EC')
+                THEN fh.country_code ELSE 'O' END = cf.pais_key
+        AND fh.parent_channel = cf.channel_key
+        AND CASE
+               WHEN fh.buy_type_code = 'Alquileres' THEN 'Hoteles'
+               WHEN fh.buy_type_code IN ('Traslados','Circuito','Servicios en Destino') THEN 'Actividades'
+               WHEN fh.buy_type_code IN ('Hoteles','Carrito','Vuelos','Actividades',
+                                          'Asistencia al viajero','Autos') THEN fh.buy_type_code
+               ELSE NULL
+           END = cf.producto_key
+
+    LEFT JOIN pnl_filtered pnl ON fh.product_id = pnl.product_id
+
+    LEFT JOIN data.analytics.bi_transactional_fact_products p
+        ON fh.product_id = p.product_id
+        AND p.reservation_year_month >= CAST('2024-01-01' AS DATE)
+
+    LEFT JOIN data.analytics.bi_transactional_fact_transactions t
+        ON CAST(pnl.transaction_code AS VARCHAR) = t.transaction_code
+        AND t.reservation_year_month >= CAST('2024-01-01' AS DATE)
+
+    LEFT JOIN data.lake.channels_bo_product pr
+        ON pr.transaction_id = fh.origin_product_id
+        AND pr.status = 'EMITTED'
+        AND pr.payment_methods NOT IN ('AGENCY_ACCOUNT','CURRENT_ACCOUNT')
+
+    LEFT JOIN data.lake.chewie_reservation cr
+        ON CAST(fh.transaction_code AS VARCHAR) = cr.id
+        AND cr.last_version = true
+
+    LEFT JOIN data.analytics.bi_transactional_fact_products_current_state cs
+        ON fh.product_id = cs.product_id
+
+    LEFT JOIN conectores con
+        ON fh.partner_id = con.ap_code
+
+    WHERE
+        CASE WHEN fh.parent_channel = 'API'
+             THEN p.checkin_date
+             ELSE fh.recognition_date END
+             BETWEEN CAST({{FechaDesde}} AS DATE) AND CAST({{FechaHasta}} AS DATE)
+
+        AND fh.partition_period > '2024-01-01'
+        AND fh.line_of_business_code = 'B2B'
+        AND NOT (
+            fh.parent_channel = 'API'
+            AND COALESCE(cs.product_state, fh.product_status) = 'Cancelado'
+            AND (p.product_cancel_date < p.checkin_date OR p.product_cancel_date IS NULL)
+        )
+
+    GROUP BY
+        CASE WHEN fh.parent_channel = 'API' THEN YEAR(p.checkin_date)  ELSE YEAR(fh.recognition_date)  END,
+        CASE WHEN fh.parent_channel = 'API' THEN MONTH(p.checkin_date) ELSE MONTH(fh.recognition_date) END,
+        fh.gestion_date,
+        CASE WHEN fh.parent_channel = 'API' THEN p.checkin_date ELSE fh.recognition_date END,
+        p.gateway,
+        fh.partner_id,
+        p.flight_validatin_carrier,
+        p.product_type,
+        cr.shopping_flow_source,
+        fh.line_of_business_code,
+        fh.parent_channel,
+        CASE
+            WHEN fh.partner_id IN ('AP12142','AP12961','AP12767','AP12539','AP12792',
+                'AP12149','AP12148','AG00015606','AP13029','AP13030',
+                'AP13091','AP13104','AG00015611') THEN 'Paraguay'
+            WHEN fh.partner_id = 'AP13248' OR fh.country_code = 'CL' THEN 'Chile'
+            WHEN fh.country_code IN ('MX','BR','CO','AR','EC','PE','UY') THEN
+                CASE fh.country_code
+                    WHEN 'MX' THEN 'Mexico' WHEN 'BR' THEN 'Brasil'
+                    WHEN 'CO' THEN 'Colombia' WHEN 'AR' THEN 'Argentina'
+                    WHEN 'EC' THEN 'Ecuador' WHEN 'PE' THEN 'Peru'
+                    WHEN 'UY' THEN 'Uruguay'
+                END
+            ELSE 'Other Countries'
+        END,
+        CASE
+            WHEN fh.buy_type_code = 'Actividades'           THEN 'Dest. Serv.'
+            WHEN fh.buy_type_code = 'Alquileres'            THEN 'Vacation Rentals'
+            WHEN fh.buy_type_code = 'Asistencia al viajero' THEN 'Insurance'
+            WHEN fh.buy_type_code = 'Autos'                 THEN 'Cars'
+            WHEN fh.buy_type_code = 'Carrito'               THEN 'Packages General'
+            WHEN fh.buy_type_code = 'Hoteles'               THEN 'Hotels'
+            WHEN fh.buy_type_code = 'Traslados'             THEN 'Dest. Serv.'
+            WHEN fh.buy_type_code = 'Vuelos'                THEN 'Flights'
+            WHEN fh.buy_type_code = 'Circuito'              THEN 'Dest. Serv.'
+            WHEN fh.buy_type_code = 'Servicios en Destino'  THEN 'Dest. Serv.'
+            ELSE fh.buy_type_code
+        END,
+        CASE WHEN fh.trip_type_code = 'Nac' THEN 'Domestic'
+             WHEN fh.trip_type_code = 'Int' THEN 'International'
+             ELSE fh.trip_type_code END,
+        fh.product_status
+)
+
+SELECT
+    anio_ri,
+    mes_ri,
+    fecha_gestion,
+    fecha_reconocimiento,
+    gateway,
+    lob,
+    partner_id,
+    pais,
+    producto_original,
+    parent_channel,
+    product_type,
+    shopping_flow_source,
+    codigo_aerolinea,
+    viaje,
+    product_status,
+    gradient,
+    gross_bookings,
+    orders,
+    up_front_incentives,
+    fees,
+    commercial_discounts,
+    other_incentives,
+    revenue_tax,
+    back_end_incentives,
+    cancellations,
+    breakage_revenue,
+    loyalty_usd,
+    media_other_revenue,
+    cost_of_installments,
+    credit_card_processing,
+    white_labels_api,
+    affiliates,
+    mkt_usd,
+    errors,
+    other_transactional_taxes,
+    customer_claims,
+    customer_service,
+    frauds,
+    efecto_financiero,
+    dif_fx,
+    currency_hedge,
+    (
+        COALESCE(up_front_incentives, 0) + COALESCE(fees, 0)
+        + COALESCE(commercial_discounts, 0) + COALESCE(other_incentives, 0)
+        + COALESCE(revenue_tax, 0) + COALESCE(back_end_incentives, 0)
+        + COALESCE(cancellations, 0) + COALESCE(breakage_revenue, 0)
+        + COALESCE(loyalty_usd, 0) + COALESCE(media_other_revenue, 0)
+    ) AS net_revenue,
+    (
+        COALESCE(up_front_incentives, 0) + COALESCE(fees, 0)
+        + COALESCE(commercial_discounts, 0) + COALESCE(other_incentives, 0)
+        + COALESCE(revenue_tax, 0) + COALESCE(back_end_incentives, 0)
+        + COALESCE(cancellations, 0) + COALESCE(breakage_revenue, 0)
+        + COALESCE(loyalty_usd, 0) + COALESCE(media_other_revenue, 0)
+        + COALESCE(cost_of_installments, 0) + COALESCE(credit_card_processing, 0)
+        + COALESCE(affiliates, 0) + COALESCE(white_labels_api, 0)
+        + COALESCE(mkt_usd, 0) + COALESCE(errors, 0)
+        + COALESCE(other_transactional_taxes, 0) + COALESCE(customer_claims, 0)
+        + COALESCE(customer_service, 0) + COALESCE(frauds, 0)
+        + COALESCE(efecto_financiero, 0) + COALESCE(dif_fx, 0)
+        + COALESCE(currency_hedge, 0)
+    ) AS fvm
+FROM base_metrics
+"""
+
+
+def build_pnl_managerial_ri_query(date_from: date, date_to: date) -> str:
+    return (
+        _PNL_RI_QUERY_TEMPLATE
+        .replace("{{FechaDesde}}", f"'{date_from}'")
+        .replace("{{FechaHasta}}", f"'{date_to}'")
+    )
+
+
 def agg_b2c(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     df.columns = [c.lower().strip() for c in df.columns]
@@ -1039,6 +1850,27 @@ def agg_b2b(df: pd.DataFrame) -> pd.DataFrame:
         net_revenue   =("net_revenue",     "sum"),
         fvm           =("fvm",             "sum"),
     )
+
+
+def clean_managerial(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.copy()
+    for col in ("fecha_gestion", "fecha_reconocimiento"):
+        if col in df.columns:
+            df[col] = pd.to_datetime(df[col], errors="coerce").dt.strftime("%Y-%m-%d")
+    numeric_cols = [
+        "gradient", "gross_bookings", "orders",
+        "up_front_incentives", "fees", "commercial_discounts", "other_incentives",
+        "revenue_tax", "back_end_incentives", "cancellations", "breakage_revenue",
+        "loyalty_usd", "media_other_revenue", "cost_of_installments",
+        "credit_card_processing", "white_labels_api", "affiliates", "mkt_usd",
+        "errors", "other_transactional_taxes", "customer_claims", "customer_service",
+        "frauds", "efecto_financiero", "dif_fx", "currency_hedge",
+        "net_revenue", "fvm",
+    ]
+    for col in numeric_cols:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0).round(2)
+    return df
 
 
 def to_compact(df: pd.DataFrame) -> dict:
@@ -1311,14 +2143,14 @@ def _get_drive_service():
     return build("drive", "v3", credentials=creds)
 
 
-def upload_to_drive(json_bytes: bytes, filename: str):
+def upload_to_drive(json_bytes: bytes, filename: str, folder_id: str = DRIVE_FOLDER_ID):
     from googleapiclient.http import MediaInMemoryUpload
 
     service = _get_drive_service()
     media   = MediaInMemoryUpload(json_bytes, mimetype="application/json", resumable=False)
 
     results  = service.files().list(
-        q=f"name='{filename}' and '{DRIVE_FOLDER_ID}' in parents and trashed=false",
+        q=f"name='{filename}' and '{folder_id}' in parents and trashed=false",
         fields="files(id,name)"
     ).execute()
     existing = results.get("files", [])
@@ -1328,15 +2160,66 @@ def upload_to_drive(json_bytes: bytes, filename: str):
         print(f"  OK Drive: archivo actualizado ({filename})")
     else:
         service.files().create(
-            body={"name": filename, "parents": [DRIVE_FOLDER_ID]},
+            body={"name": filename, "parents": [folder_id]},
             media_body=media, fields="id"
         ).execute()
         print(f"  OK Drive: archivo creado ({filename})")
 
 
+print("\n--- P&L Managerial GD 2026 ---")
+try:
+    df_pnl_gd = clean_managerial(fetch(build_pnl_managerial_gd_query(GD_FROM, YESTERDAY), "P&L Managerial GD"))
+except Exception as e:
+    print(f"  WARN P&L Managerial GD query failed: {e}")
+    df_pnl_gd = pd.DataFrame()
+
+print(f"\n--- P&L Managerial RI ({RI_JSON_NAME}) ---")
+try:
+    df_pnl_ri = clean_managerial(fetch(build_pnl_managerial_ri_query(RI_FROM, YESTERDAY), "P&L Managerial RI"))
+except Exception as e:
+    print(f"  WARN P&L Managerial RI query failed: {e}")
+    df_pnl_ri = pd.DataFrame()
+
+# ==============================================================================
+# 5b) CONSTRUIR JSONs MANAGERIAL
+# ==============================================================================
+
+pnl_gd_payload = {
+    "meta": {
+        "generated_at": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+        "data_from":    str(GD_FROM),
+        "data_to":      str(YESTERDAY),
+        "vista":        "gestion_date",
+    },
+    "data": to_compact(df_pnl_gd) if not df_pnl_gd.empty else {"cols": [], "rows": []},
+}
+
+pnl_ri_payload = {
+    "meta": {
+        "generated_at": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+        "data_from":    str(RI_FROM),
+        "data_to":      str(YESTERDAY),
+        "vista":        "recognition_date",
+    },
+    "data": to_compact(df_pnl_ri) if not df_pnl_ri.empty else {"cols": [], "rows": []},
+}
+
+pnl_gd_bytes = json.dumps(pnl_gd_payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+pnl_ri_bytes = json.dumps(pnl_ri_payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+print(f"  GD JSON:  {len(pnl_gd_bytes)//1024:.0f} KB  ({len(df_pnl_gd):,} filas)")
+print(f"  RI JSON:  {len(pnl_ri_bytes)//1024:.0f} KB  ({len(df_pnl_ri):,} filas)")
+
+# ==============================================================================
+# 6) SUBIR A GOOGLE DRIVE
+# ==============================================================================
+
 print("\n--- Subiendo a Google Drive ---")
 upload_to_drive(b2bc_bytes, JSON_FILE_NAME)
 upload_to_drive(b2b_bytes,  B2B_JSON_FILE_NAME)
+
+print("\n--- Subiendo a Drive (Managerial) ---")
+upload_to_drive(pnl_gd_bytes, GD_JSON_NAME, MANAGERIAL_DRIVE_FOLDER_ID)
+upload_to_drive(pnl_ri_bytes, RI_JSON_NAME, MANAGERIAL_DRIVE_FOLDER_ID)
 
 # El email diario lo envía automáticamente el trigger de GAS (scheduledEmailSend).
 # Para configurar el trigger por primera vez: abrir el editor de GAS y correr setupEmailTrigger().
