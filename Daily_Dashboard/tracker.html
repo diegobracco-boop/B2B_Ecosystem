@@ -550,6 +550,22 @@
   body.slides-mode #agenciasContent .kr-detail-grid,
   body.slides-mode #agenciasH2Content .kr-detail-grid { margin-top: 12px; }
 
+  /* Slides: la tabla principal de KRs se leía muy chica → columna KR al 60%
+     (210px→126px) y letra más grande en toda la tabla. */
+  body.slides-mode #statusKRsTable th:first-child,
+  body.slides-mode #statusKRsTable td:first-child,
+  body.slides-mode #statusKRsH2Table th:first-child,
+  body.slides-mode #statusKRsH2Table td:first-child {
+    min-width: 126px !important; max-width: 126px !important; width: 126px !important;
+    white-space: normal !important;
+  }
+  body.slides-mode #statusKRsTable th,
+  body.slides-mode #statusKRsTable td,
+  body.slides-mode #statusKRsH2Table th,
+  body.slides-mode #statusKRsH2Table td {
+    font-size: 1.15rem !important; padding: 8px 12px !important;
+  }
+
   /* ── Cover slides ── */
   #slideCover { display: none; }
   body.slides-mode #slideCover.active {
