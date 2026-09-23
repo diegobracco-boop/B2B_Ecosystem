@@ -53,17 +53,38 @@ function getFilters() {
 // Toda la página habla sobre UN mismo mes (params.ym). Default: último
 // mes real cerrado. Gestional muestra GD y RI del mes; contable muestra
 // actuals si el mes está cerrado, o Run Rate si todavía no cerró.
+//
+// Default sin ym explícito (2026-09-22, a pedido de Diego): mes EN CURSO a
+// partir del día 4 del mes — los primeros 3 días sigue mostrando el mes
+// anterior (dato del mes nuevo todavía muy parcial). Si ese mes calendario
+// todavía no está en `months` (RunRate/actuals no llegaron), cae al
+// comportamiento viejo (último mes con actuals, o el último disponible).
+function _currentDefaultYm_() {
+  var tz  = Session.getScriptTimeZone();
+  var now = new Date();
+  var day = parseInt(Utilities.formatDate(now, tz, 'd'), 10);
+  var y   = parseInt(Utilities.formatDate(now, tz, 'yyyy'), 10);
+  var m   = parseInt(Utilities.formatDate(now, tz, 'M'), 10); // 1-12
+  if (day < 4) {
+    m -= 1;
+    if (m === 0) { m = 12; y -= 1; }
+  }
+  return y + '-' + (m < 10 ? '0' : '') + m + '-01';
+}
+
 function getOnePagerData(params) {
   var p    = params || {};
   var pais = PAISES.indexOf(p.pais) >= 0 ? p.pais : 'Globales';
   var lob  = 'b2b';   // B2B2C llega en otra iteración
 
   // Base contable (1 sola llamada) → meses seleccionables, corte real, waterfalls.
-  var base   = _getContableBase_(pais);
-  var months = base ? base.months : [];
-  var lastAc = base ? base.lastActualsYm : null;
+  var base    = _getContableBase_(pais);
+  var months  = base ? base.months : [];
+  var lastAc  = base ? base.lastActualsYm : null;
+  var calenYm = _currentDefaultYm_();
   var ym = (p.ym && months.indexOf(p.ym) >= 0) ? p.ym
-         : (lastAc || (months.length ? months[months.length - 1] : null));
+         : (months.indexOf(calenYm) >= 0 ? calenYm
+         : (lastAc || (months.length ? months[months.length - 1] : null)));
 
   return {
     pais:          pais,
