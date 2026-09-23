@@ -480,7 +480,12 @@ var _PAIS_VALUE_NORM_ = {
   'others countries' : 'other countries',
   'otros países'     : 'other countries',
   'otros paises'     : 'other countries',
-  'other'            : 'other countries'
+  'other'            : 'other countries',
+  // 'globales' viene del Reverso AxI (runrate.json B2B, ~13 filas/-$13.5K) — sin esto
+  // caía en "Hispa" (no matcheaba paisFilter:'other countries' ni las exclusiones de
+  // Hispa). 'koin' del mismo origen queda deliberadamente sin normalizar (Diego,
+  // 2026-09-22: no aplica a este proceso).
+  'globales'         : 'other countries'
 };
 
 // Canal normalization: b2b2c y b2c siempre usan 'all' (sin apertura de canal)
