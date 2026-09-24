@@ -1018,7 +1018,8 @@ function getOKRWeeklyB2B2C() {
 var AGENCIAS_JSON      = 'agencias_okr.json';
 var BUDGET_SHEET_ID    = '1xm4VvoRUv7d1c_rcP1JYOgBNKczqXrAmtxoNCuCkiQE';
 var BUDGET_SHEET_NAME  = 'Slide 1 KR Agencias';
-var AIR_NR_SHEET_NAME  = 'Air NR from suppliers';
+var AIR_NR_SHEET_ID    = '1xm4VvoRUv7d1c_rcP1JYOgBNKczqXrAmtxoNCuCkiQE'; // mismo gdoc que agencias
+var AIR_NR_SHEET_NAME  = 'Slide 1 Evolucion'; // caja "Air Net Revenue from Suppliers" P37:S44
 
 // Mapeo nombre en la hoja de budget → label en el frontend (AG_GROUPS)
 var BUDGET_COUNTRY_MAP = {
@@ -1036,31 +1037,30 @@ var BUDGET_COUNTRY_MAP = {
 // Boot del tracker — mismo JSON b2b que el dashboard, con caché compartida
 function getB2BData() { return loadFile_(B2B_JSON, B2B_CACHE_KEY); }
 
+// Budget/target de Agencias por país desde "Slide 1 KR Agencias": col D = país
+// (mismo bloque que reales), col R = budget del mes ("<Mes> BDG"). Reemplaza el
+// parche hardcodeado del frontend (_KR1_BUD_PATCH / _KR1_TOTAL_BUD): la fila
+// 'Total' → 'TOTAL' trae el total autoritativo del sheet (los subtotales por país
+// se solapan —'Peru' vs 'PE + EC + UY + PY'— y sumarlos duplicaría).
 function getBudgetAgencias_() {
   var ss    = SpreadsheetApp.openById(BUDGET_SHEET_ID);
   var sheet = ss.getSheetByName(BUDGET_SHEET_NAME);
-  // X=col 24, AQ=col 43 → 20 cols; fila 8 encabezados + filas 9-18 datos → 11 filas
-  var data  = sheet.getRange(8, 24, 11, 20).getValues();
-
-  var today    = new Date();
-  var curYear  = today.getFullYear();
-  var curMonth = today.getMonth(); // 0-indexed
-
-  var monthCol = -1;
-  for (var i = 1; i < data[0].length; i++) {
-    var h = data[0][i];
-    if (h instanceof Date && h.getFullYear() === curYear && h.getMonth() === curMonth) {
-      monthCol = i;
-      break;
-    }
-  }
-  if (monthCol === -1) return {};
-
+  var last  = sheet.getLastRow();
+  if (last < 9) return {};
+  // Desde fila 9 (fila 8 = encabezado). D = col 4 … R = col 18 → 15 columnas
+  // (índice 14 = col R). Corte en la primera fila con col D vacía (fin del bloque).
+  var nRows = Math.min(last - 8, 20);
+  var data  = sheet.getRange(9, 4, nRows, 15).getValues();
   var budget = {};
-  for (var r = 1; r < data.length; r++) {
-    var rawName = String(data[r][0]).trim();
-    var label   = BUDGET_COUNTRY_MAP[rawName];
-    if (label) budget[label] = Number(data[r][monthCol]) || 0;
+  for (var r = 0; r < data.length; r++) {
+    var rawName = String(data[r][0]).trim();      // col D
+    if (rawName === '') break;                     // fin del bloque de agencias
+    var label = BUDGET_COUNTRY_MAP[rawName];
+    if (!label) continue;
+    var v = data[r][14];                           // col R
+    if (v === '' || v === null) continue;          // mes sin cargar → deja el fallback
+    var num = Number(v);
+    if (!isNaN(num)) budget[label] = num;
   }
   return budget;
 }
@@ -1094,84 +1094,43 @@ function getRealesAgencias_() {
   return out;
 }
 
+// Air Net Revenue desde la caja "Air Net Revenue from Suppliers" de la hoja
+// "Slide 1 Evolucion" (P37:S44): P=país, Q=Actuals, R=Budget, S=Cumpl.
+//   fila 37 = header · fila 38 = Total · filas 39-44 = países.
+// La caja muestra $M; la celda puede guardar el valor en millones (1.22) o en
+// dólares (1.220.000). Detectamos la escala una vez (por el máximo del bloque) y
+// devolvemos siempre en dólares para que el frontend aplique su toM() habitual.
 function getAirNRData() {
-  var ss    = SpreadsheetApp.openById(BUDGET_SHEET_ID);
+  var ss    = SpreadsheetApp.openById(AIR_NR_SHEET_ID);
   var sheet = ss.getSheetByName(AIR_NR_SHEET_NAME);
-  var lastRow = sheet.getLastRow();
-  if (lastRow < 2) return { actual: 0, budget: 0 };
+  if (!sheet) return { actual: 0, budget: 0, byCountry: {} };
 
-  // Col A-H → row indices 0-7
-  // C(2)=Seguimiento, E(4)=tipo/Baseline, F(5)=mes, G(6)=año, H(7)=Pais
-  var data = sheet.getRange(2, 1, lastRow - 1, 8).getValues();
+  // P37:S44 → getRange(fila 37, col 16 = P, 8 filas, 4 cols)
+  var data = sheet.getRange(37, 16, 8, 4).getValues();
 
-  var today    = new Date();
-  var curYear  = today.getFullYear();
-  var curMonth = today.getMonth() + 1; // 1-indexed
+  // Escala: si el mayor valor absoluto del bloque es chico, está en millones.
+  var maxAbs = 0;
+  for (var i = 1; i < data.length; i++) {
+    maxAbs = Math.max(maxAbs, Math.abs(Number(data[i][1]) || 0), Math.abs(Number(data[i][2]) || 0));
+  }
+  var factor = (maxAbs > 0 && maxAbs < 1000) ? 1e6 : 1;
 
-  function parseMes(v)  { return (v instanceof Date) ? v.getMonth() + 1 : (Number(v) || 0); }
-  function parseAnio(v) { return (v instanceof Date) ? v.getFullYear() : (Number(v) || 0); }
-
-  var colE_counts = {};
-  for (var i = 0; i < data.length; i++) {
-    var t = String(data[i][4]).trim();
-    if (t !== 'Goal' && t !== 'Goal2') {
-      colE_counts[t] = (colE_counts[t] || 0) + 1;
+  var actual = 0, budget = 0, byCountry = {};
+  for (var r = 1; r < data.length; r++) {          // saltea el header (r=0)
+    var pais = String(data[r][0]).trim();          // col P
+    if (pais === '') continue;
+    var act = (Number(data[r][1]) || 0) * factor;  // col Q
+    var bud = (Number(data[r][2]) || 0) * factor;  // col R
+    if (pais.toLowerCase() === 'total') {
+      actual = act; budget = bud;
+    } else {
+      byCountry[pais] = { actual: act, budget: bud };
     }
   }
 
-  var GOAL_TYPES = { 'Goal': true, 'Goal2': true };
-  var realesType = 'Reales'; // default
-  var maxCount = 0;
-  for (var t in colE_counts) {
-    if (!GOAL_TYPES[t] && colE_counts[t] > maxCount) {
-      maxCount = colE_counts[t];
-      realesType = t;
-    }
-  }
-
-  var mesTotals = {};
-  for (var i = 0; i < data.length; i++) {
-    var tipo = String(data[i][4]).trim();
-    if (tipo !== realesType) continue;
-    var val = Number(data[i][2]) || 0;
-    var m = parseMes(data[i][5]), a = parseAnio(data[i][6]);
-    var key = a + '-' + m;
-    mesTotals[key] = (mesTotals[key] || 0) + val;
-  }
-
-  var latestRealesMes = 0, latestRealesAnio = 0, maxTotal = -Infinity;
-  for (var key in mesTotals) {
-    var parts = key.split('-');
-    var a = Number(parts[0]), m = Number(parts[1]);
-    var total = mesTotals[key];
-    if (total > maxTotal) { maxTotal = total; latestRealesMes = m; latestRealesAnio = a; }
-  }
-
-  var targetMes  = latestRealesMes  || (curMonth > 1 ? curMonth - 1 : 12);
-  var targetAnio = latestRealesAnio || (curMonth > 1 ? curYear : curYear - 1);
-
-  var actual = 0, budget = 0;
-  var byCountry = {};
-  for (var i = 0; i < data.length; i++) {
-    var row         = data[i];
-    var seguimiento = Number(row[2]) || 0;
-    var tipo        = String(row[4]).trim();
-    var mes         = parseMes(row[5]);
-    var anio        = parseAnio(row[6]);
-    var pais        = String(row[7]).trim();
-
-    if (tipo === realesType && mes === targetMes && anio === targetAnio) {
-      actual += seguimiento;
-      if (pais && !pais.startsWith('#') && pais.toLowerCase() !== 'false' && pais !== '0') {
-        byCountry[pais] = byCountry[pais] || { actual: 0, budget: 0 };
-        byCountry[pais].actual += seguimiento;
-      }
-    } else if (tipo === 'Goal2' && mes === curMonth && anio === curYear) {
-      if (!pais || pais.startsWith('#') || pais.toLowerCase() === 'false' || pais === '0') continue;
-      budget += seguimiento;
-      byCountry[pais] = byCountry[pais] || { actual: 0, budget: 0 };
-      byCountry[pais].budget += seguimiento;
-    }
+  // Fallback: si no vino la fila Total, sumamos los países.
+  if (!actual && !budget) {
+    for (var k in byCountry) { actual += byCountry[k].actual; budget += byCountry[k].budget; }
   }
 
   return { actual: actual, budget: budget, byCountry: byCountry };
@@ -1183,8 +1142,11 @@ function getAgenciasOKR() {
   if (!files.hasNext()) throw new Error('Archivo no encontrado: ' + AGENCIAS_JSON);
   var content = files.next().getBlob().getDataAsString('UTF-8');
   var payload = JSON.parse(content);
-  payload.budget = getBudgetAgencias_();
-  payload.reales = getRealesAgencias_();
+  // Budget/reales salen del gdoc: si el sheet se renombra/mueve/pierde permiso,
+  // degradamos solo esos campos ({}) en vez de tumbar todo el payload de agencias
+  // (los actuals vienen del JSON de Drive y deben seguir mostrándose).
+  try { payload.budget = getBudgetAgencias_(); } catch (e) { payload.budget = {}; }
+  try { payload.reales = getRealesAgencias_(); } catch (e) { payload.reales = {}; }
   return payload;
 }
 

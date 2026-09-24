@@ -1228,8 +1228,9 @@ let agenciasData  = null;
 let agenciasState = 'idle'; // idle | loading | loaded | error
 // Agencias REALES: ahora salen del gdoc "Slide 1 KR Agencias" (col D país + col Q nº)
 // vía backend getRealesAgencias_() → agenciasData.reales. Ya no se hardcodean acá.
-const _KR1_BUD_PATCH = { 'Brasil': 4870, 'Mexico': 2108, 'Argentina': 577, 'Colombia': 1283, 'Chile': 206, 'Globales': 164, 'Peru': 207, 'Ecua / Uru / Par': 36 }; // parche temporal — quitar cuando se pida
-      const _KR1_TOTAL_BUD = 9282; // parche temporal — quitar cuando se pida
+// Budget de Agencias: ahora sale del gdoc "Slide 1 KR Agencias" col R ("<Mes> BDG")
+// vía backend getBudgetAgencias_() → agenciasData.budget. El total lo trae la fila
+// 'Total' → agenciasData.budget['TOTAL'] (los subtotales por país se solapan, no sumar).
 let airNRData     = null;
 let airNRState    = 'idle'; // idle | loading | loaded | error
 
@@ -2431,11 +2432,11 @@ function renderStatusKRs() {
       var d = agenciasData.data[c];
       if (!d) return;
       _kr1SumAct += ((agenciasData.reales && agenciasData.reales[c] !== undefined) ? agenciasData.reales[c] : (d['Total'] || 0));
-      var b = (_KR1_BUD_PATCH[c] !== undefined) ? _KR1_BUD_PATCH[c] : (agenciasData.budget && agenciasData.budget[c]);
+      var b = agenciasData.budget && agenciasData.budget[c];
       if (b !== null && b !== undefined && !isNaN(b)) _kr1SumBud += b;
     });
     kr1Act = (agenciasData.reales && agenciasData.reales['TOTAL'] !== undefined) ? agenciasData.reales['TOTAL'] : _kr1SumAct;
-    kr1Bud = (typeof _KR1_TOTAL_BUD !== 'undefined') ? _KR1_TOTAL_BUD : (_kr1SumBud > 0 ? _kr1SumBud : null);
+    kr1Bud = (agenciasData.budget && agenciasData.budget['TOTAL'] !== undefined) ? agenciasData.budget['TOTAL'] : (_kr1SumBud > 0 ? _kr1SumBud : null);
   }
 
   // ── KR2: NR Core Markets (Brasil + Mexico + Globales) ────────
@@ -2655,13 +2656,14 @@ function renderKRDetailBoxes(monthFilter) {
       var d = agenciasData.data[country];
       if (!d) return;
       var act = (agenciasData.reales && agenciasData.reales[country] !== undefined) ? agenciasData.reales[country] : (d['Total'] || 0);
-      var bud = (_KR1_BUD_PATCH[country] !== undefined) ? _KR1_BUD_PATCH[country] : ((agenciasData.budget && agenciasData.budget[country]) || null);
+      var bud = (agenciasData.budget && agenciasData.budget[country] !== undefined) ? agenciasData.budget[country] : null;
       kr1Rows.push({ name: country, actual: act, budget: bud });
     });
     var _kr1TotalAct = (agenciasData.reales && agenciasData.reales['TOTAL'] !== undefined)
       ? agenciasData.reales['TOTAL']
       : kr1Rows.reduce(function(s, r){ return s + (r.actual || 0); }, 0);
-    grid.appendChild(makeDetailBox(1, 'Agencies L4W', kr1Rows, 'int', {act: _kr1TotalAct, bud: _KR1_TOTAL_BUD}));
+    var _kr1TotalBud = (agenciasData.budget && agenciasData.budget['TOTAL'] !== undefined) ? agenciasData.budget['TOTAL'] : null;
+    grid.appendChild(makeDetailBox(1, 'Agencies L4W', kr1Rows, 'int', {act: _kr1TotalAct, bud: _kr1TotalBud}));
   }
 
   // KR2 + KR3 — columna vertical NR Core encima de NR New
@@ -2681,15 +2683,15 @@ function renderKRDetailBoxes(monthFilter) {
   col23.appendChild(makeDetailBox(3, 'NR New Markets $M', kr3Rows, '$M', null, true));
   grid.appendChild(col23);
 
-  // KR4 — Air Net Revenue por país (col H del sheet)
+  // KR4 — Air Net Revenue por país (caja "Slide 1 Evolucion" P37:S44)
   if (airNRState === 'loaded' && airNRData) {
     var kr4Rows = [];
     var byC = airNRData.byCountry || {};
     var kr4Countries = Object.keys(byC).sort();
-    var _kr4Exclude = ['Ecuador', 'Globales'];
+    var _kr4Exclude = ['ecuador', 'globales']; // comparación normalizada (trim+lower)
     if (kr4Countries.length > 0) {
       kr4Countries.forEach(function(pais) {
-        if (_kr4Exclude.indexOf(pais) !== -1) return;
+        if (_kr4Exclude.indexOf(String(pais).trim().toLowerCase()) !== -1) return;
         var d = byC[pais];
         kr4Rows.push({ name: pais, actual: toM(d.actual || 0), budget: toM(d.budget || 0) });
       });
