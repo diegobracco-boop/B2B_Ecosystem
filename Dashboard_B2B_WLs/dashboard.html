@@ -6617,81 +6617,72 @@ function _cierreMonthLong(ym){
   var p = ym.split('-'); return (MONTH_LABELS[p[1]]||'') + " '" + p[0].slice(2);
 }
 
-// Gráfico NR u OC por mes — barras ($, Actuals vs Budget) + líneas (ratio vs GB %).
-// Imagen PNG standalone. refMonth = mes de cierre: los actuals reales sólo llegan
-// hasta ahí; los meses POSTERIORES quedan vacíos (NO se muestra proyección de Run
-// Rate — no hay dato real todavía). El Budget va todo el FY.
-// metricId: 'nr' (Net Revenues) u 'oc' (Operating Contribution) — mismo layout y
-// paleta para ambos, solo cambian label/título (2026-09-23: antes solo existía OC).
-var CIERRE_METRIC_CFG_ = {
-  oc: { label:'Operating Contribution', axisTitle:'Operating Contribution (USD)' },
-  nr: { label:'Net Revenues',           axisTitle:'Net Revenues (USD)' }
-};
-function _cierreMetricBarImg_(evo, metricId, fyLbl, refMonth, scopeLabel){
-  if (!evo || !evo.metrics) return '';
-  var cfg = CIERRE_METRIC_CFG_[metricId];
-  var valM = evo.metrics.filter(function(x){ return x.id === metricId; })[0];
-  if (!valM) return '';
-  var gbM = evo.metrics.filter(function(x){ return x.id === 'gb'; })[0];
-  var periods = evo.periods || [];
-  var refIdx  = FY26_MONTHS.indexOf(refMonth);
-  var actualAt = function(metric, ym, k){
-    if (!metric) return null;
-    if (refIdx >= 0 && k > refIdx) return null;              // vacío después del mes de cierre
-    var i = periods.indexOf(ym);
-    return (i >= 0 && metric.actuals && metric.actuals[i] != null) ? metric.actuals[i] : null;
-  };
-  var budgetAt = function(metric, ym){
-    if (!metric) return null;
-    var i = periods.indexOf(ym);
-    return (i >= 0 && metric.budget && metric.budget[i] != null) ? metric.budget[i] : null;
-  };
-  var valAct = FY26_MONTHS.map(function(ym,k){ return actualAt(valM, ym, k); });
-  var valBud = FY26_MONTHS.map(function(ym){   return budgetAt(valM, ym); });
-  var gbAct  = FY26_MONTHS.map(function(ym,k){ return actualAt(gbM, ym, k); });
-  var gbBud  = FY26_MONTHS.map(function(ym){   return budgetAt(gbM, ym); });
-  var ratio = function(v, gb){ return (v != null && gb) ? (v / gb * 100) : null; };
-  var ratioAct = FY26_MONTHS.map(function(_,k){ return ratio(valAct[k], gbAct[k]); });
-  var ratioBud = FY26_MONTHS.map(function(_,k){ return ratio(valBud[k], gbBud[k]); });
-  var labels = FY26_MONTHS.map(function(ym){ var p = ym.split('-'); return MONTH_LABELS[p[1]].slice(0,3) + " '" + p[0].slice(2); });
-  var ratioLbl = metricId.toUpperCase() + '/GB';
+// ── Evolutivos NR/OC — reutiliza renderEvo (chart real de Evolution + tabla YoY por
+// país), no un chart aparte: mismo patrón que _cierrePnLHTML (setea _state, renderiza
+// en el DOM real, extrae). 2026-09-23: reemplaza el chart standalone que había antes
+// (a pedido de Diego: "los que tenemos en el dashboard, no los que tenemos ahora").
+// La imagen sale de chart.toBase64Image() (no de capturar el canvas vivo con
+// html2canvas) para que la .cierre-slide final sea HTML plano (img + tabla) — mismo
+// motivo que ya usaba el chart custom: _cierreCaptureSlideImages_ solo necesita
+// rasterizar imágenes/tablas estáticas, no re-capturar un canvas interactivo.
+function _cierreEvoHTML_(evo, metricId, goal){
+  if (!evo || !evo.metrics) return '<div style="padding:20px;color:#999">Sin datos de evolución para este período.</div>';
+  _state.evo = evo; _state.evoMetric = metricId; _state.goal = goal;
+  _state.evoGranularity = 'M'; _state.evoShowLY = false;
+  renderEvo();
+  var chart = _charts['chart-evo'];
+  var img = chart ? chart.toBase64Image('image/png', 1) : '';
+  var ctryEl = document.getElementById('evo-ctry-table');
+  var tblHtml = ctryEl ? ctryEl.innerHTML : '';
+  return (img ? '<img class="cierre-chart-img" src="'+img+'" alt="Evolución '+CIERRE_METRIC_LABEL[metricId]+'">'
+              : '<div style="padding:20px;color:#999">Gráfico no disponible.</div>')
+       + (tblHtml ? '<div style="margin-top:10px;overflow-x:auto">'+tblHtml+'</div>' : '');
+}
 
-  var holder = document.getElementById('cierre-canvas-holder');
-  holder.innerHTML = '<canvas width="1040" height="430"></canvas>';
-  var cv = holder.querySelector('canvas');
-  var ch = null, img = '';
-  try {
-    ch = new Chart(cv, {
-      type: 'bar',
-      data: { labels: labels, datasets: [
-        { type:'bar',  label:cfg.label+' Actuals', data:valAct,   backgroundColor:'#2D2A6E', borderRadius:3, categoryPercentage:0.72, barPercentage:0.92, yAxisID:'y',  order:3 },
-        { type:'bar',  label:cfg.label+' Budget',  data:valBud,   backgroundColor:'#B9BCF0', borderRadius:3, categoryPercentage:0.72, barPercentage:0.92, yAxisID:'y',  order:3 },
-        { type:'line', label:ratioLbl+' Actuals',  data:ratioAct, borderColor:'#E8703A', backgroundColor:'#E8703A', borderWidth:2.5, pointRadius:2.5, tension:0.3, spanGaps:false, yAxisID:'y2', order:1 },
-        { type:'line', label:ratioLbl+' Budget',   data:ratioBud, borderColor:'#9AA0A6', backgroundColor:'#9AA0A6', borderWidth:2, pointRadius:2, borderDash:[5,4], tension:0.3, spanGaps:true, yAxisID:'y2', order:2 }
-      ]},
-      options: {
-        responsive:false, animation:false,
-        plugins: {
-          legend: { display:true, position:'top', labels:{ font:{size:12}, usePointStyle:true, boxWidth:12, padding:16 } },
-          title:  { display:true, text:scopeLabel+' — '+cfg.label+' vs Budget | '+fyLbl, font:{size:15, weight:'bold'}, color:'#2D2A6E', padding:{bottom:12} }
-        },
-        scales: {
-          x:  { grid:{ display:false }, ticks:{ font:{size:10}, color:'#57606a' } },
-          y:  { position:'left', beginAtZero:true, grid:{ color:'rgba(0,0,0,.06)' },
-                ticks:{ font:{size:10}, color:'#57606a', callback:function(v){ return fmtK(v); } },
-                title:{ display:true, text:cfg.axisTitle, font:{size:11}, color:'#57606a' } },
-          y2: { position:'right', beginAtZero:true, grid:{ drawOnChartArea:false },
-                ticks:{ font:{size:10}, color:'#E8703A', callback:function(v){ return v.toFixed(1)+'%'; } },
-                title:{ display:true, text:ratioLbl+' (%)', font:{size:11}, color:'#E8703A' } }
-        }
-      }
-    });
-    img = ch.toBase64Image('image/png', 1);
-  } finally {
-    if (ch) ch.destroy();
-    holder.innerHTML = '';
+// ── Bridge OC (por concepto) — reutiliza renderWf, mismo patrón. goal:'budget'|
+// 'forecast' (renderWf ya degrada solo a Budget si el mes no tiene Forecast — ver
+// FORECAST_DROP_DATES). 2026-09-23.
+function _cierreOcBridgeHTML_(mesData, refMonth, goal){
+  if (!mesData || !mesData.ocConceptWf || !mesData.ocConceptWf.concepts || !mesData.ocConceptWf.concepts.length) {
+    return '<div style="padding:20px;color:#999">Sin datos de Bridge OC para este período.</div>';
   }
-  return img;
+  _state.wf = mesData.wf; _state.ocConceptWf = mesData.ocConceptWf; _state.nrBridgeWf = mesData.nrBridgeWf;
+  _state.goal = goal; _state.selectedPeriods = [refMonth];
+  renderWf();
+  var chart = _charts['wfc-oc-concept'];
+  var img = chart ? chart.toBase64Image('image/png', 1) : '';
+  var tbl = document.getElementById('wft-oc-concept');
+  var tblHtml = tbl ? tbl.outerHTML : '';
+  return (img ? '<img class="cierre-chart-img" src="'+img+'" alt="Bridge OC">'
+              : '<div style="padding:20px;color:#999">Gráfico no disponible.</div>')
+       + (tblHtml ? '<div style="margin-top:10px;overflow-x:auto">'+tblHtml+'</div>' : '');
+}
+
+// ── OKR — reutiliza renderOKR, mismo patrón. Se pide 1 sola vez (no depende del mes
+// de cierre ni cambia por scope, solo cambia qué LOB(s) mostrar). Se le saca la fila
+// de toggles (% Cumpl./Mensual) porque no aplica a un slide estático. 2026-09-23.
+function _cierreFetchOKR_(){
+  return new Promise(function(resolve){
+    if (_state.okr) { resolve(_state.okr); return; }
+    if (IS_DEMO) { resolve(null); return; }
+    google.script.run
+      .withSuccessHandler(function(res){ resolve((res && res.success) ? res.okr : null); })
+      .withFailureHandler(function(){ resolve(null); })
+      .getOKRData();
+  });
+}
+function _cierreOkrHTML_(okr, lobKey){
+  if (!okr) return '<div style="padding:20px;color:#999">Sin datos de OKR.</div>';
+  var savedLob = _state.lob;
+  _state.lob = lobKey;
+  renderOKR(okr);
+  _state.lob = savedLob;
+  var col = document.getElementById('okr-col');
+  if (!col) return '<div style="padding:20px;color:#999">Sin datos de OKR.</div>';
+  var clone = col.cloneNode(true);
+  var btnRow = clone.querySelector('div');   // fila de toggles (% Cumpl. / Mensual) — no aplica acá
+  if (btnRow && btnRow.querySelector('button')) btnRow.remove();
+  return clone.innerHTML;
 }
 
 function openCierreSlides(){
@@ -6728,53 +6719,55 @@ function _cierreGenerate(){
   var body  = document.getElementById('cierre-body');
   body.innerHTML = '<div class="cierre-loading">⏳ Generando slides del cierre…</div>';
 
-  var ytdStart = FY26_MONTHS[0];
-  var refMonth = (selEl && selEl.value) ? selEl.value : (_defaultPeriod || ytdStart);
-  var h1Start = FY26_MONTHS[0], h1End = FY26_MONTHS[5];  // Abr–Sep
+  var refMonth = (selEl && selEl.value) ? selEl.value : (_defaultPeriod || FY26_MONTHS[0]);
   var mesLbl  = _cierreMonthShort(refMonth);
-  var fyLbl   = _cierreFYLabel(refMonth);
+  var fyLbl   = _cierreFYLabel(refMonth);   // usado en _cierreLastPayload (título del deck exportado)
   var baselineSrc = _state.baselineSource || 'baseline';
 
-  // 3 fetches (mes/YTD/H1) por cada scope activo -> 6 en total, mismo orden que CIERRE_ACTIVE_SCOPES.
-  var fetches = [];
-  CIERRE_ACTIVE_SCOPES.forEach(function(scope){
+  // Reestructurado 2026-09-23 al orden del status semanal manual ("B2B, WLs - W38"):
+  // OKRs → Cuadro resumen (vs Budget/Forecast) → Evolutivos (NR/OC) → Bridge OC
+  // (vs Budget/Forecast). Sale YTD/H1 como slides fijas (ya no se piden 3 rangos por
+  // scope, solo 1 fetch del mes) — si hace falta ese corte, se puede pedir aparte
+  // desde el selector de período del dashboard normal.
+  var fetches = CIERRE_ACTIVE_SCOPES.map(function(scope){
     var base = { lob:scope.key, pais:'all', producto:'all', canal:'all', baselineSource:baselineSrc };
-    fetches.push(_cierreFetch(base, refMonth, refMonth));
-    fetches.push(_cierreFetch(base, ytdStart, refMonth));
-    fetches.push(_cierreFetch(base, h1Start,  h1End));
+    return _cierreFetch(base, refMonth, refMonth);
   });
 
-  Promise.all(fetches).then(function(res){
+  Promise.all([_cierreFetchOKR_()].concat(fetches)).then(function(all){
     // Descartar respuestas tardías: overlay cerrado o superadas por otra generación.
     // Sin este guard, un fetch que resuelve DESPUÉS de cerrar mutaría _state y la
     // tabla PnL real del dashboard, pisando el estado ya restaurado por closeCierreSlides.
     if (!_cierreOpen || myGen !== _cierreGen) return;
 
-    var slides = [];
+    var okrData = all[0];
+    var res     = all.slice(1);
+    var slides  = [];
 
     CIERRE_ACTIVE_SCOPES.forEach(function(scope, i){
-      var mes = res[i*3], ytd = res[i*3+1], h1 = res[i*3+2];
-      // pnlGroupLabel()/renderShare() (dentro de renderPnL(), vía _cierrePnLHTML) leen
-      // _state.lob — hay que pisarlo antes de renderizar cada scope.
+      var mes = res[i];
+      // pnlGroupLabel()/renderShare() (dentro de renderPnL(), vía _cierrePnLHTML) y
+      // renderWf()/renderOKR() leen _state.lob — hay que pisarlo antes de cada scope.
       _state.lob = scope.key;
 
       slides.push(_cierreDividerHTML_(scope.label));
+
+      // 1) OKRs cumplimiento
+      slides.push(_cierreSlide('OKRs ' + scope.label, _cierreOkrHTML_(okrData, scope.key)));
+
+      // 2) Cuadro resumen vs Budget / vs Forecast
       slides.push(_cierreSlide(mesLbl + ' vs. Budget',   _cierreHeadlineHTML_(mes.pnl,'budget')   + _cierrePnLHTML(mes.pnl, 'budget')));
       slides.push(_cierreSlide(mesLbl + ' vs. Forecast', _cierreHeadlineHTML_(mes.pnl,'forecast') + _cierrePnLHTML(mes.pnl, 'forecast')));
-      slides.push(_cierreSlide(mesLbl + ' vs. Run Rate', _cierreHeadlineHTML_(mes.pnl,'runRate')  + _cierrePnLHTML(mes.pnl, 'runRate')));
-      slides.push(_cierreSlide('YTD ' + fyLbl + ' vs. Budget',        _cierrePnLHTML(ytd.pnl,'budget')));
-      slides.push(_cierreSlide('H1 (Abr–Sep) ' + fyLbl + ' vs. Budget', _cierrePnLHTML(h1.pnl,'budget')));
 
-      // Gráficos NR y OC vs Budget por mes (barras $ + líneas ratio vs GB %), evo es full-FY.
-      // NR agregado 2026-09-23 — antes solo estaba OC.
+      // 3) Evolutivos NR y OC — los del dashboard (renderEvo), no un chart aparte.
       ['nr', 'oc'].forEach(function(metricId){
-        var mLabel = CIERRE_METRIC_CFG_[metricId].label;
-        var img = _cierreMetricBarImg_(mes.evo, metricId, fyLbl, refMonth, scope.label);
-        slides.push(_cierreSlide('Evolución ' + mLabel + ' ' + scope.label + ' vs Budget por mes',
-          (img ? '<img class="cierre-chart-img" src="'+img+'" alt="Evolución '+mLabel+' '+scope.label+' vs Budget">'
-               : '<div style="padding:20px;color:#999">Gráfico no disponible.</div>') +
-          '<div class="cierre-cap">'+mLabel+' mensual en USD (barras) y ratio '+metricId.toUpperCase()+'/GB en % (líneas) · Actuals hasta el mes de cierre vs Budget full FY · '+fyLbl+' (Abr → Mar)</div>'));
+        slides.push(_cierreSlide('Evolución ' + CIERRE_METRIC_LABEL[metricId] + ' ' + scope.label,
+          _cierreEvoHTML_(mes.evo, metricId, 'budget')));
       });
+
+      // 4) Bridge OC (por concepto) vs Budget / vs Forecast
+      slides.push(_cierreSlide('Bridge OC ' + scope.label + ' vs. Budget',   _cierreOcBridgeHTML_(mes, refMonth, 'budget')));
+      slides.push(_cierreSlide('Bridge OC ' + scope.label + ' vs. Forecast', _cierreOcBridgeHTML_(mes, refMonth, 'forecast')));
     });
 
     body.innerHTML = slides.join('');
