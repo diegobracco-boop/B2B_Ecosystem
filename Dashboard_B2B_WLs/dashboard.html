@@ -6631,6 +6631,11 @@ function _cierreEvoHTML_(evo, metricId, goal){
   _state.evoGranularity = 'M'; _state.evoShowLY = false;
   renderEvo();
   var chart = _charts['chart-evo'];
+  // El chart real de Evolution tiene animación (a diferencia del chart custom que
+  // había antes, que la traía desactivada) — sin forzar un redibujado sincrónico acá,
+  // toBase64Image() captura el canvas ANTES de que la animación termine de dibujar
+  // y sale en blanco. update('none') = redibuja ya, sin animación.
+  if (chart) chart.update('none');
   var img = chart ? chart.toBase64Image('image/png', 1) : '';
   var ctryEl = document.getElementById('evo-ctry-table');
   var tblHtml = ctryEl ? ctryEl.innerHTML : '';
@@ -6650,6 +6655,7 @@ function _cierreOcBridgeHTML_(mesData, refMonth, goal){
   _state.goal = goal; _state.selectedPeriods = [refMonth];
   renderWf();
   var chart = _charts['wfc-oc-concept'];
+  if (chart) chart.update('none');   // mismo fix que _cierreEvoHTML_ — sin esto sale en blanco
   var img = chart ? chart.toBase64Image('image/png', 1) : '';
   var tbl = document.getElementById('wft-oc-concept');
   var tblHtml = tbl ? tbl.outerHTML : '';
