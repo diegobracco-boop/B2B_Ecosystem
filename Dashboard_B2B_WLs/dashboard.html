@@ -6617,13 +6617,21 @@ function _cierreMonthLong(ym){
   var p = ym.split('-'); return (MONTH_LABELS[p[1]]||'') + " '" + p[0].slice(2);
 }
 
-// Gráfico OC por mes — barras (OC $, Actuals vs Budget) + líneas (ratio OC/GB %). Imagen PNG standalone.
-// refMonth = mes de cierre: los actuals reales sólo llegan hasta ahí; los meses POSTERIORES quedan
-// vacíos (NO se muestra proyección de Run Rate — no hay OC real todavía). El Budget va todo el FY.
-function _cierreOcBarImg(evo, fyLbl, refMonth, scopeLabel){
+// Gráfico NR u OC por mes — barras ($, Actuals vs Budget) + líneas (ratio vs GB %).
+// Imagen PNG standalone. refMonth = mes de cierre: los actuals reales sólo llegan
+// hasta ahí; los meses POSTERIORES quedan vacíos (NO se muestra proyección de Run
+// Rate — no hay dato real todavía). El Budget va todo el FY.
+// metricId: 'nr' (Net Revenues) u 'oc' (Operating Contribution) — mismo layout y
+// paleta para ambos, solo cambian label/título (2026-09-23: antes solo existía OC).
+var CIERRE_METRIC_CFG_ = {
+  oc: { label:'Operating Contribution', axisTitle:'Operating Contribution (USD)' },
+  nr: { label:'Net Revenues',           axisTitle:'Net Revenues (USD)' }
+};
+function _cierreMetricBarImg_(evo, metricId, fyLbl, refMonth, scopeLabel){
   if (!evo || !evo.metrics) return '';
-  var ocM = evo.metrics.filter(function(x){ return x.id === 'oc'; })[0];
-  if (!ocM) return '';
+  var cfg = CIERRE_METRIC_CFG_[metricId];
+  var valM = evo.metrics.filter(function(x){ return x.id === metricId; })[0];
+  if (!valM) return '';
   var gbM = evo.metrics.filter(function(x){ return x.id === 'gb'; })[0];
   var periods = evo.periods || [];
   var refIdx  = FY26_MONTHS.indexOf(refMonth);
@@ -6638,14 +6646,15 @@ function _cierreOcBarImg(evo, fyLbl, refMonth, scopeLabel){
     var i = periods.indexOf(ym);
     return (i >= 0 && metric.budget && metric.budget[i] != null) ? metric.budget[i] : null;
   };
-  var ocAct = FY26_MONTHS.map(function(ym,k){ return actualAt(ocM, ym, k); });
-  var ocBud = FY26_MONTHS.map(function(ym){   return budgetAt(ocM, ym); });
-  var gbAct = FY26_MONTHS.map(function(ym,k){ return actualAt(gbM, ym, k); });
-  var gbBud = FY26_MONTHS.map(function(ym){   return budgetAt(gbM, ym); });
-  var ratio = function(oc, gb){ return (oc != null && gb) ? (oc / gb * 100) : null; };
-  var ocgbAct = FY26_MONTHS.map(function(_,k){ return ratio(ocAct[k], gbAct[k]); });
-  var ocgbBud = FY26_MONTHS.map(function(_,k){ return ratio(ocBud[k], gbBud[k]); });
+  var valAct = FY26_MONTHS.map(function(ym,k){ return actualAt(valM, ym, k); });
+  var valBud = FY26_MONTHS.map(function(ym){   return budgetAt(valM, ym); });
+  var gbAct  = FY26_MONTHS.map(function(ym,k){ return actualAt(gbM, ym, k); });
+  var gbBud  = FY26_MONTHS.map(function(ym){   return budgetAt(gbM, ym); });
+  var ratio = function(v, gb){ return (v != null && gb) ? (v / gb * 100) : null; };
+  var ratioAct = FY26_MONTHS.map(function(_,k){ return ratio(valAct[k], gbAct[k]); });
+  var ratioBud = FY26_MONTHS.map(function(_,k){ return ratio(valBud[k], gbBud[k]); });
   var labels = FY26_MONTHS.map(function(ym){ var p = ym.split('-'); return MONTH_LABELS[p[1]].slice(0,3) + " '" + p[0].slice(2); });
+  var ratioLbl = metricId.toUpperCase() + '/GB';
 
   var holder = document.getElementById('cierre-canvas-holder');
   holder.innerHTML = '<canvas width="1040" height="430"></canvas>';
@@ -6655,25 +6664,25 @@ function _cierreOcBarImg(evo, fyLbl, refMonth, scopeLabel){
     ch = new Chart(cv, {
       type: 'bar',
       data: { labels: labels, datasets: [
-        { type:'bar',  label:'OC Actuals',    data:ocAct,   backgroundColor:'#2D2A6E', borderRadius:3, categoryPercentage:0.72, barPercentage:0.92, yAxisID:'y',  order:3 },
-        { type:'bar',  label:'OC Budget',     data:ocBud,   backgroundColor:'#B9BCF0', borderRadius:3, categoryPercentage:0.72, barPercentage:0.92, yAxisID:'y',  order:3 },
-        { type:'line', label:'OC/GB Actuals', data:ocgbAct, borderColor:'#E8703A', backgroundColor:'#E8703A', borderWidth:2.5, pointRadius:2.5, tension:0.3, spanGaps:false, yAxisID:'y2', order:1 },
-        { type:'line', label:'OC/GB Budget',  data:ocgbBud, borderColor:'#9AA0A6', backgroundColor:'#9AA0A6', borderWidth:2, pointRadius:2, borderDash:[5,4], tension:0.3, spanGaps:true, yAxisID:'y2', order:2 }
+        { type:'bar',  label:cfg.label+' Actuals', data:valAct,   backgroundColor:'#2D2A6E', borderRadius:3, categoryPercentage:0.72, barPercentage:0.92, yAxisID:'y',  order:3 },
+        { type:'bar',  label:cfg.label+' Budget',  data:valBud,   backgroundColor:'#B9BCF0', borderRadius:3, categoryPercentage:0.72, barPercentage:0.92, yAxisID:'y',  order:3 },
+        { type:'line', label:ratioLbl+' Actuals',  data:ratioAct, borderColor:'#E8703A', backgroundColor:'#E8703A', borderWidth:2.5, pointRadius:2.5, tension:0.3, spanGaps:false, yAxisID:'y2', order:1 },
+        { type:'line', label:ratioLbl+' Budget',   data:ratioBud, borderColor:'#9AA0A6', backgroundColor:'#9AA0A6', borderWidth:2, pointRadius:2, borderDash:[5,4], tension:0.3, spanGaps:true, yAxisID:'y2', order:2 }
       ]},
       options: {
         responsive:false, animation:false,
         plugins: {
           legend: { display:true, position:'top', labels:{ font:{size:12}, usePointStyle:true, boxWidth:12, padding:16 } },
-          title:  { display:true, text:scopeLabel+' — Operating Contribution vs Budget | '+fyLbl, font:{size:15, weight:'bold'}, color:'#2D2A6E', padding:{bottom:12} }
+          title:  { display:true, text:scopeLabel+' — '+cfg.label+' vs Budget | '+fyLbl, font:{size:15, weight:'bold'}, color:'#2D2A6E', padding:{bottom:12} }
         },
         scales: {
           x:  { grid:{ display:false }, ticks:{ font:{size:10}, color:'#57606a' } },
           y:  { position:'left', beginAtZero:true, grid:{ color:'rgba(0,0,0,.06)' },
                 ticks:{ font:{size:10}, color:'#57606a', callback:function(v){ return fmtK(v); } },
-                title:{ display:true, text:'Operating Contribution (USD)', font:{size:11}, color:'#57606a' } },
+                title:{ display:true, text:cfg.axisTitle, font:{size:11}, color:'#57606a' } },
           y2: { position:'right', beginAtZero:true, grid:{ drawOnChartArea:false },
                 ticks:{ font:{size:10}, color:'#E8703A', callback:function(v){ return v.toFixed(1)+'%'; } },
-                title:{ display:true, text:'OC / GB (%)', font:{size:11}, color:'#E8703A' } }
+                title:{ display:true, text:ratioLbl+' (%)', font:{size:11}, color:'#E8703A' } }
         }
       }
     });
@@ -6756,12 +6765,16 @@ function _cierreGenerate(){
       slides.push(_cierreSlide('YTD ' + fyLbl + ' vs. Budget',        _cierrePnLHTML(ytd.pnl,'budget')));
       slides.push(_cierreSlide('H1 (Abr–Sep) ' + fyLbl + ' vs. Budget', _cierrePnLHTML(h1.pnl,'budget')));
 
-      // Gráfico OC vs Budget por mes (barras OC $ + líneas ratio OC/GB %), evo es full-FY.
-      var img = _cierreOcBarImg(mes.evo, fyLbl, refMonth, scope.label);
-      slides.push(_cierreSlide('Evolución OC ' + scope.label + ' vs Budget por mes',
-        (img ? '<img class="cierre-chart-img" src="'+img+'" alt="Evolución OC '+scope.label+' vs Budget">'
-             : '<div style="padding:20px;color:#999">Gráfico no disponible.</div>') +
-        '<div class="cierre-cap">OC mensual en USD (barras) y ratio OC/GB en % (líneas) · Actuals hasta el mes de cierre vs Budget full FY · '+fyLbl+' (Abr → Mar)</div>'));
+      // Gráficos NR y OC vs Budget por mes (barras $ + líneas ratio vs GB %), evo es full-FY.
+      // NR agregado 2026-09-23 — antes solo estaba OC.
+      ['nr', 'oc'].forEach(function(metricId){
+        var mLabel = CIERRE_METRIC_CFG_[metricId].label;
+        var img = _cierreMetricBarImg_(mes.evo, metricId, fyLbl, refMonth, scope.label);
+        slides.push(_cierreSlide('Evolución ' + mLabel + ' ' + scope.label + ' vs Budget por mes',
+          (img ? '<img class="cierre-chart-img" src="'+img+'" alt="Evolución '+mLabel+' '+scope.label+' vs Budget">'
+               : '<div style="padding:20px;color:#999">Gráfico no disponible.</div>') +
+          '<div class="cierre-cap">'+mLabel+' mensual en USD (barras) y ratio '+metricId.toUpperCase()+'/GB en % (líneas) · Actuals hasta el mes de cierre vs Budget full FY · '+fyLbl+' (Abr → Mar)</div>'));
+      });
     });
 
     body.innerHTML = slides.join('');
