@@ -1026,6 +1026,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
       <div class="dm-toggle">
         <button class="dm-btn active" id="btn-b2b-kr-h1" onclick="setB2BKrHalf('h1')">H1</button>
         <button class="dm-btn"        id="btn-b2b-kr-h2" onclick="setB2BKrHalf('h2')">H2</button>
+        <button class="dm-btn"        id="btn-b2b-kr-globales" onclick="setB2BKrHalf('globales')">Globales</button>
       </div>
     </div>
     <div style="min-width:80px"></div>
@@ -1104,6 +1105,12 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
       </div>
     </div>
     <div style="font-size:11px;color:var(--text-3);margin-top:6px">Targets provisorios = Budget MTD (pendiente de reemplazar por los targets del H2).</div>
+  </div>
+
+  <!-- Globales (H2 FY27): Global B2B API Hoteles -->
+  <div id="b2b-kr-globales" style="display:none">
+    <div class="kr-row" id="b2b-kr-globales-row"></div>
+    <div id="b2b-kr-globales-sub" style="font-size:11px;color:var(--text-3);margin-top:6px"></div>
   </div>
 
   <!-- METRICAS — B2B -->
@@ -2647,6 +2654,7 @@ function recomputeB2B_() {
   state_b2b.allMetrics = computeAllB2B_(_rawB2B, _b2bDateModel, state_b2b.viewDate, gl_pai, gl_pro, gl_ch, _b2bMarket, gran, compSrc);
   var _krsB2B=computeKRsB2B_(_rawB2B, 'ri', state_b2b.viewDate); renderKRsB2B(_krsB2B); renderKRBreakdownB2B_(_krsB2B);
   var _krsB2BH2=computeKRsB2BH2_(_rawB2B, 'ri', state_b2b.viewDate); renderKRsB2BH2_(_krsB2BH2);
+  if(_globalesTargets) renderKRsGlobales_();
   renderB2B(state_b2b.data);
   renderB2BMetrics(state_b2b.allMetrics);
 }
@@ -2683,12 +2691,77 @@ function renderKRsB2BH2_(krs) {
 var _b2bKrHalf='h1';
 function setB2BKrHalf(h){
   _b2bKrHalf=h;
-  var b1=document.getElementById('btn-b2b-kr-h1'), b2=document.getElementById('btn-b2b-kr-h2');
+  var b1=document.getElementById('btn-b2b-kr-h1'), b2=document.getElementById('btn-b2b-kr-h2'), b3=document.getElementById('btn-b2b-kr-globales');
   if(b1)b1.classList.toggle('active',h==='h1');
   if(b2)b2.classList.toggle('active',h==='h2');
-  var c1=document.getElementById('b2b-kr-h1'), c2=document.getElementById('b2b-kr-h2');
+  if(b3)b3.classList.toggle('active',h==='globales');
+  var c1=document.getElementById('b2b-kr-h1'), c2=document.getElementById('b2b-kr-h2'), c3=document.getElementById('b2b-kr-globales');
   if(c1)c1.style.display=(h==='h1')?'':'none';
   if(c2)c2.style.display=(h==='h2')?'':'none';
+  if(c3)c3.style.display=(h==='globales')?'':'none';
+  if(h==='globales') loadGlobalesTargets_();
+}
+
+// ── KRs Globales (Global B2B API Hoteles, targets H2 FY27 desde JSON en Drive) ──
+var _globalesTargets=null;
+function loadGlobalesTargets_(){
+  if(_globalesTargets){ renderKRsGlobales_(); return; }
+  var cont=document.getElementById('b2b-kr-globales-row');
+  if(cont)cont.innerHTML='<div style="color:var(--text-3);font-size:12px;padding:8px">Cargando targets de Globales…</div>';
+  google.script.run
+    .withSuccessHandler(function(d){ _globalesTargets=d; renderKRsGlobales_(); })
+    .withFailureHandler(function(){ var c=document.getElementById('b2b-kr-globales-row'); if(c)c.innerHTML='<div style="color:var(--danger);font-size:12px;padding:8px">No se pudieron cargar los targets de Globales (globales_kr_targets.json).</div>'; })
+    .getGlobalesKRTargets();
+}
+
+// Agregado NR/GB de Globales API Hoteles (país "Other Countries", canal API,
+// producto Hotel) para un mes — mismo filtro que el tab "KRs Globales".
+function computeGlobalesApiHotelMonth_(raw, ym){
+  var src=raw.b2b_ri||[]; var pp=ym.split('-');
+  var from=ym+'-01', to=ym+'-'+String(new Date(+pp[0],+pp[1],0).getDate()).padStart(2,'0');
+  var nr=0, gb=0;
+  src.forEach(function(r){
+    if(r.fecha<from||r.fecha>to)return;
+    if((r.pais||'').toLowerCase()!=='other countries')return;
+    if(r.parent_channel!=='API')return;
+    var p=r.producto_original||''; if(p!=='Hotel'&&p!=='Hotels')return;
+    nr+=(r.net_revenue||0); gb+=(r.gross_bookings||0);
+  });
+  return {nr:nr, gb:gb};
+}
+
+function globalesRefYM_(meses, viewDate){
+  var vym=String(viewDate||'').substring(0,7);
+  if(meses.indexOf(vym)!==-1) return vym;
+  var cand=null; meses.forEach(function(m){ if(m<=vym) cand=m; });
+  return cand || meses[0];
+}
+
+function renderKRsGlobales_(){
+  var cont=document.getElementById('b2b-kr-globales-row'), sub=document.getElementById('b2b-kr-globales-sub');
+  if(!cont) return;
+  if(!_globalesTargets || !_globalesTargets.krs){
+    cont.innerHTML='<div style="color:var(--text-3);font-size:12px;padding:8px">Cargando targets de Globales…</div>'; return;
+  }
+  var meta=_globalesTargets.meta||{}, meses=meta.meses||[], labels=meta.meses_label||meses;
+  var refYM=globalesRefYM_(meses, state_b2b.viewDate), idx=meses.indexOf(refYM);
+  var agg=_rawB2B?computeGlobalesApiHotelMonth_(_rawB2B, refYM):{nr:0,gb:0};
+  function pctColor(p){return p===null?'var(--text-2)':p>=100?'var(--success)':p>=80?'#f59e0b':'var(--danger)';}
+  function fmtVal(v,unit){ if(v===null||v===undefined)return '—'; if(unit==='$M')return '$'+v.toFixed(1)+'M'; if(unit==='Share %'||unit==='%')return v.toFixed(1)+'%'; return Number(v).toLocaleString('es-AR'); }
+  cont.innerHTML=_globalesTargets.krs.map(function(kr){
+    var t=kr.targets?kr.targets[refYM]:null, a=null;
+    if(kr.id==='gb_b2b_api_hoteles')            a=agg.gb!==0?agg.gb/1e6:null;
+    else if(kr.id==='net_revenues_pct_api_hoteles') a=agg.gb>0?agg.nr/agg.gb*100:null;
+    var pct=(a!==null&&t!=null&&t!==0)?Math.round(a/t*100):null;
+    return '<div class="kr-card">'+
+      '<div class="kr-lbl">'+kr.name+'</div>'+
+      '<div class="kr-pct" style="color:'+pctColor(pct)+'">'+(pct!==null?pct+'%':'—')+'</div>'+
+      '<div class="kr-sub">'+
+        '<div class="kr-sub-item"><span class="kr-sub-lbl">Actual</span><span>'+fmtVal(a,kr.unit)+'</span></div>'+
+        '<div class="kr-sub-item"><span class="kr-sub-lbl">Target</span><span>'+fmtVal(t,kr.unit)+'</span></div>'+
+      '</div></div>';
+  }).join('');
+  if(sub) sub.textContent='Mes de referencia: '+(labels[idx]||refYM)+'  ·  actual = daily (canal API · producto Hoteles · país Globales); KRs sin fuente muestran solo target.';
 }
 
 function renderKRBreakdown_(krs) {

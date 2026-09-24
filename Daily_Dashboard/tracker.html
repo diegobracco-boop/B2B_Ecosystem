@@ -1166,14 +1166,9 @@
   <div id="globalesError" class="error-box"></div>
   <div id="globalesWrap" style="display:none">
     <div class="status-krs-meta" id="globalesMeta"></div>
-    <div class="table-block" style="width:100%;overflow:auto">
-      <table class="pivot-table" id="globalesTable">
-        <thead><tr id="globalesHead"></tr></thead>
-        <tbody id="globalesBody"></tbody>
-      </table>
-    </div>
+    <div class="kr-detail-grid" id="globalesCards"></div>
     <div style="font-size:0.78rem;color:#9ca3af;margin-top:10px">
-      Targets del OKR H2 FY27 (fuente: <em>globales_kr_targets.json</em>). Los KRs marcados <strong>*</strong> son critical, gestionados por TTPP (peso 0%). El <strong>actual</strong> y el <strong>cumplimiento</strong> se agregarán cuando definamos la fuente de cada métrica.
+      Targets del OKR H2 FY27 (fuente: <em>globales_kr_targets.json</em>). Los KRs marcados <strong>*</strong> son critical, gestionados por TTPP (peso 0%). El <strong>actual</strong> se computa desde el daily (canal API · producto Hoteles · país Globales) en los KRs con fuente definida; el resto queda pendiente.
     </div>
   </div>
 </div>
@@ -2982,9 +2977,36 @@ function loadGlobales() {
 
 function fmtGlobalTarget(v, unit) {
   if (v === null || v === undefined || v === '') return '—';
-  if (unit === '$M') return '$' + v + 'M';
-  if (unit === 'Share %' || unit === '%') return v + '%';
+  if (unit === '$M') return '$' + Number(v).toFixed(1) + 'M';
+  if (unit === 'Share %' || unit === '%') return Number(v).toFixed(1) + '%';
   return Number(v).toLocaleString('es-AR'); // # Partners / # Hoteles
+}
+
+// Agregado mensual de Globales API Hoteles: NR y GB (raw) por país "Other
+// Countries", canal API, producto Hotel — para los KRs con fuente cableada.
+function globalesApiHotelByMonth_(meses) {
+  var out = {};
+  meses.forEach(function(ym){ out[ym] = { nr: 0, gb: 0 }; });
+  if (!rawData) return out;
+  getActuals('ri').forEach(function(r){
+    var ym = String(r.fecha || '').substring(0, 7);
+    if (!out[ym]) return;
+    if ((r.pais || '').toLowerCase() !== 'other countries') return;
+    if (r.parent_channel !== 'API') return;
+    var p = r.producto_original || '';
+    if (p !== 'Hotel' && p !== 'Hotels') return;
+    out[ym].nr += (r.net_revenue    || 0);
+    out[ym].gb += (r.gross_bookings || 0);
+  });
+  return out;
+}
+
+// Actual del KR para un mes (o null si el KR no tiene fuente cableada / sin datos).
+function globalesActual_(krId, ym, agg) {
+  var d = agg[ym]; if (!d) return null;
+  if (krId === 'gb_b2b_api_hoteles')          return d.gb !== 0 ? toM(d.gb) : null;        // $M
+  if (krId === 'net_revenues_pct_api_hoteles') return d.gb > 0 ? (d.nr / d.gb * 100) : null; // %
+  return null; // KRs sin fuente definida
 }
 
 function renderGlobales() {
@@ -3010,31 +3032,38 @@ function renderGlobales() {
   var meses  = meta.meses || [];
   var labels = meta.meses_label || meses;
 
-  var head = document.getElementById('globalesHead');
-  var h = '<th style="min-width:230px;text-align:left">KR</th>' +
-          '<th style="color:#6b7280">Peso</th><th>Unidad</th>';
-  labels.forEach(function(l){ h += '<th>' + l + '</th>'; });
-  head.innerHTML = h;
-
   document.getElementById('globalesMeta').innerHTML =
     '&#127760; ' + (meta.titulo || 'KRs Globales') +
     (meta.periodo ? ' — <strong>' + meta.periodo + '</strong>' : '') +
     (meta.actualizado ? ' · act. ' + meta.actualizado : '');
 
-  var body = document.getElementById('globalesBody');
-  body.innerHTML = '';
+  var agg  = globalesApiHotelByMonth_(meses);
+  var grid = document.getElementById('globalesCards');
+  grid.innerHTML = '';
+
   globalesData.krs.forEach(function(kr){
-    var tr = document.createElement('tr');
+    var box  = document.createElement('div');
+    box.className = 'kr-detail-box';
     var peso = kr.critical_ttpp ? '0%*' : Math.round((kr.weight || 0) * 100) + '%';
-    var cells = '<td style="text-align:left">' + kr.name + '</td>' +
-                '<td style="color:#6b7280;font-size:0.78rem">' + peso + '</td>' +
-                '<td style="color:#6b7280;font-size:0.78rem">' + (kr.unit || '') + '</td>';
-    meses.forEach(function(ym){
-      var t = kr.targets ? kr.targets[ym] : null;
-      cells += '<td>' + fmtGlobalTarget(t, kr.unit) + '</td>';
-    });
-    tr.innerHTML = cells;
-    body.appendChild(tr);
+
+    var rows = meses.map(function(ym, i){
+      var t   = kr.targets ? kr.targets[ym] : null;
+      var a   = globalesActual_(kr.id, ym, agg);
+      var rat = (a !== null && t != null && t !== 0) ? (a / t) : null;
+      var cStr = rat !== null ? Math.round(rat * 100) + '%' : '—';
+      return '<tr><td style="text-align:left">' + (labels[i] || ym) + '</td>' +
+             '<td>' + fmtGlobalTarget(t, kr.unit) + '</td>' +
+             '<td>' + (a !== null ? fmtGlobalTarget(a, kr.unit) : '—') + '</td>' +
+             cumplCellHtml(rat, cStr, false) + '</tr>';
+    }).join('');
+
+    box.innerHTML =
+      '<div class="kr-detail-header"><span class="kr-num-badge">' + kr.name + '</span>' +
+      '<span style="margin-left:auto;color:#6b7280;font-size:0.72rem">' + peso + ' · ' + (kr.unit || '') + '</span></div>' +
+      '<table class="pivot-table kr-detail-table">' +
+      '<thead><tr><th style="text-align:left;min-width:64px">Mes</th><th>Target</th><th>Actual</th><th>Cumpl.</th></tr></thead>' +
+      '<tbody>' + rows + '</tbody></table>';
+    grid.appendChild(box);
   });
   wrap.style.display = 'block';
 }
