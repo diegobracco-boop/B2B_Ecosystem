@@ -888,6 +888,7 @@
   <div class="tab-separator"></div>
   <button class="tab-btn" data-tab="agencias">Status KRs H1</button>
   <button class="tab-btn" data-tab="agencias_h2">Status KRs H2</button>
+  <button class="tab-btn" data-tab="globales">KRs Globales</button>
 </div>
 
 <div class="country-filter-bar" id="countryFilterBar">
@@ -1156,6 +1157,22 @@
   </div>
 </div>
 
+<!-- Vista KRs Globales — Global B2B API Hoteles (targets H2 FY27) -->
+<div class="agencias-content" id="globalesContent">
+  <div class="tables-view-title" id="globalesTitle">KRs Globales — Global B2B API Hoteles</div>
+  <div id="globalesSpinner" class="spinner-wrap" style="height:200px;display:none">
+    <div class="spinner"></div><span>Cargando targets...</span>
+  </div>
+  <div id="globalesError" class="error-box"></div>
+  <div id="globalesWrap" style="display:none">
+    <div class="status-krs-meta" id="globalesMeta"></div>
+    <div class="kr-detail-grid" id="globalesCards"></div>
+    <div style="font-size:0.78rem;color:#9ca3af;margin-top:10px">
+      Targets del OKR H2 FY27 (fuente: <em>globales_kr_targets.json</em>). Los KRs marcados <strong>*</strong> son critical, gestionados por TTPP (peso 0%). El <strong>actual</strong> se computa desde el daily (canal API · producto Hoteles · país Globales) en los KRs con fuente definida; el resto queda pendiente.
+    </div>
+  </div>
+</div>
+
 <div id="slideCover">
   <div class="slide-cover-title" id="slideCoverTitle"></div>
   <div class="slide-cover-subtitle" id="slideCoverSubtitle"></div>
@@ -1233,6 +1250,8 @@ let agenciasState = 'idle'; // idle | loading | loaded | error
 // 'Total' → agenciasData.budget['TOTAL'] (los subtotales por país se solapan, no sumar).
 let airNRData     = null;
 let airNRState    = 'idle'; // idle | loading | loaded | error
+let globalesData  = null;
+let globalesState = 'idle'; // idle | loading | loaded | error
 
 // ─────────────────────────────────────────────
 //  Helpers
@@ -2915,11 +2934,138 @@ function renderStatusKRsH2DetailBoxes_(monthFilter) {
   grid.appendChild(makeBox('HTML FVM $M',            rowsFor('fvm',         isHTML, isHTML)));
   grid.appendChild(makeBox('New Products Growth $M', rowsFor('net_revenue', isNPa,  isNPb)));
 
-  var tbd = document.createElement('div');
-  tbd.className = 'kr-detail-box';
-  tbd.innerHTML = '<div class="kr-detail-header"><span class="kr-num-badge">Accelerate Recurrence</span></div>' +
-    '<div style="padding:14px;color:#9ca3af;font-style:italic;font-size:0.8rem">TBD — definición y datos pendientes.</div>';
-  grid.appendChild(tbd);
+  // Accelerate Recurrence — formato propuesto (datos pendientes de cálculo):
+  // agencias que compraron 1 / 2 / 3+ semanas distintas dentro del mes, por país.
+  var recBox = document.createElement('div');
+  recBox.className = 'kr-detail-box';
+  var recBuckets = ['1 semana', '2 semanas', '3 o más semanas'];
+  var recHead = '<thead><tr><th style="text-align:left;min-width:90px">País</th>' +
+    recBuckets.map(function(b){ return '<th>' + b + '</th>'; }).join('') + '</tr></thead>';
+  var recPlaceholder = recBuckets.map(function(){ return '<td style="color:#9ca3af">—</td>'; }).join('');
+  var recTotalRow = '<tr class="kr-detail-total"><td style="text-align:left;font-weight:700">TOTAL</td>' +
+    recBuckets.map(function(){ return '<td><strong style="color:#9ca3af">—</strong></td>'; }).join('') + '</tr>';
+  var recBodyRows = FVM_DETAIL.map(function(def){
+    return '<tr><td style="text-align:left">' + def.name + '</td>' + recPlaceholder + '</tr>';
+  }).join('');
+  recBox.innerHTML =
+    '<div class="kr-detail-header"><span class="kr-num-badge">Accelerate Recurrence</span>' +
+    '<span class="kr-warning-tag" title="Formato propuesto — cálculo de datos pendiente" style="margin-left:6px">datos TBD</span></div>' +
+    '<div style="padding:2px 2px 8px;color:#6b7280;font-size:0.72rem">Agencias que compraron 1 / 2 / 3+ semanas distintas en el mes, por país.</div>' +
+    '<table class="pivot-table kr-detail-table">' + recHead +
+    '<tbody>' + recTotalRow + recBodyRows + '</tbody></table>';
+  grid.appendChild(recBox);
+}
+
+// ─────────────────────────────────────────────
+//  KRs Globales — Global B2B API Hoteles (targets H2 FY27)
+// ─────────────────────────────────────────────
+function loadGlobales() {
+  if (globalesState === 'loading' || globalesState === 'loaded') return;
+  globalesState = 'loading';
+  google.script.run
+    .withSuccessHandler(function(data) {
+      globalesData  = data;
+      globalesState = 'loaded';
+      renderGlobales();
+    })
+    .withFailureHandler(function(err) {
+      globalesState = 'error';
+      renderGlobales();
+    })
+    .getGlobalesKRTargets();
+}
+
+function fmtGlobalTarget(v, unit) {
+  if (v === null || v === undefined || v === '') return '—';
+  if (unit === '$M') return '$' + Number(v).toFixed(1) + 'M';
+  if (unit === 'Share %' || unit === '%') return Number(v).toFixed(1) + '%';
+  return Number(v).toLocaleString('es-AR'); // # Partners / # Hoteles
+}
+
+// Agregado mensual de Globales API Hoteles: NR y GB (raw) por país "Other
+// Countries", canal API, producto Hotel — para los KRs con fuente cableada.
+function globalesApiHotelByMonth_(meses) {
+  var out = {};
+  meses.forEach(function(ym){ out[ym] = { nr: 0, gb: 0 }; });
+  if (!rawData) return out;
+  getActuals('ri').forEach(function(r){
+    var ym = String(r.fecha || '').substring(0, 7);
+    if (!out[ym]) return;
+    if ((r.pais || '').toLowerCase() !== 'other countries') return;
+    if (r.parent_channel !== 'API') return;
+    var p = r.producto_original || '';
+    if (p !== 'Hotel' && p !== 'Hotels') return;
+    out[ym].nr += (r.net_revenue    || 0);
+    out[ym].gb += (r.gross_bookings || 0);
+  });
+  return out;
+}
+
+// Actual del KR para un mes (o null si el KR no tiene fuente cableada / sin datos).
+function globalesActual_(krId, ym, agg) {
+  var d = agg[ym]; if (!d) return null;
+  if (krId === 'gb_b2b_api_hoteles')          return d.gb !== 0 ? toM(d.gb) : null;        // $M
+  if (krId === 'net_revenues_pct_api_hoteles') return d.gb > 0 ? (d.nr / d.gb * 100) : null; // %
+  return null; // KRs sin fuente definida
+}
+
+function renderGlobales() {
+  var spinner = document.getElementById('globalesSpinner');
+  var wrap    = document.getElementById('globalesWrap');
+  var errEl   = document.getElementById('globalesError');
+  errEl.textContent = '';
+  errEl.style.display = 'none';
+
+  if (globalesState === 'idle' || globalesState === 'loading') {
+    spinner.style.display = 'flex'; wrap.style.display = 'none'; return;
+  }
+  spinner.style.display = 'none';
+
+  if (globalesState === 'error' || !globalesData || !globalesData.krs) {
+    wrap.style.display = 'none';
+    errEl.textContent = 'No se pudieron cargar los targets de Globales (globales_kr_targets.json en Drive).';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  var meta   = globalesData.meta || {};
+  var meses  = meta.meses || [];
+  var labels = meta.meses_label || meses;
+
+  document.getElementById('globalesMeta').innerHTML =
+    '&#127760; ' + (meta.titulo || 'KRs Globales') +
+    (meta.periodo ? ' — <strong>' + meta.periodo + '</strong>' : '') +
+    (meta.actualizado ? ' · act. ' + meta.actualizado : '');
+
+  var agg  = globalesApiHotelByMonth_(meses);
+  var grid = document.getElementById('globalesCards');
+  grid.innerHTML = '';
+
+  globalesData.krs.forEach(function(kr){
+    var box  = document.createElement('div');
+    box.className = 'kr-detail-box';
+    var peso = kr.critical_ttpp ? '0%*' : Math.round((kr.weight || 0) * 100) + '%';
+
+    var rows = meses.map(function(ym, i){
+      var t   = kr.targets ? kr.targets[ym] : null;
+      var a   = globalesActual_(kr.id, ym, agg);
+      var rat = (a !== null && t != null && t !== 0) ? (a / t) : null;
+      var cStr = rat !== null ? Math.round(rat * 100) + '%' : '—';
+      return '<tr><td style="text-align:left">' + (labels[i] || ym) + '</td>' +
+             '<td>' + fmtGlobalTarget(t, kr.unit) + '</td>' +
+             '<td>' + (a !== null ? fmtGlobalTarget(a, kr.unit) : '—') + '</td>' +
+             cumplCellHtml(rat, cStr, false) + '</tr>';
+    }).join('');
+
+    box.innerHTML =
+      '<div class="kr-detail-header"><span class="kr-num-badge">' + kr.name + '</span>' +
+      '<span style="margin-left:auto;color:#6b7280;font-size:0.72rem">' + peso + ' · ' + (kr.unit || '') + '</span></div>' +
+      '<table class="pivot-table kr-detail-table">' +
+      '<thead><tr><th style="text-align:left;min-width:64px">Mes</th><th>Target</th><th>Actual</th><th>Cumpl.</th></tr></thead>' +
+      '<tbody>' + rows + '</tbody></table>';
+    grid.appendChild(box);
+  });
+  wrap.style.display = 'block';
 }
 
 // ─────────────────────────────────────────────
@@ -2940,12 +3086,14 @@ function render() {
   const isTablesView    = activeTab === 'tables_gd' || activeTab === 'tables_ri';
   const isAgenciasView  = activeTab === 'agencias';
   const isAgenciasH2View= activeTab === 'agencias_h2';
+  const isGlobalesView  = activeTab === 'globales';
   const isWeeklyView    = activeTab === 'weekly_gd' || activeTab === 'weekly_ri';
 
   // La vista split solo se usa en modo Slides; en render normal siempre se oculta.
   document.getElementById('splitContent').classList.remove('visible');
   document.getElementById('agenciasContent').classList.toggle('visible', isAgenciasView);
   document.getElementById('agenciasH2Content').classList.toggle('visible', isAgenciasH2View);
+  document.getElementById('globalesContent').classList.toggle('visible', isGlobalesView);
   document.getElementById('weeklyContent').classList.toggle('visible', isWeeklyView);
 
   if (isAgenciasView) {
@@ -2963,6 +3111,15 @@ function render() {
     document.getElementById('mainContent').classList.remove('visible');
     document.getElementById('tablesContent').classList.remove('visible');
     renderStatusKRsH2();
+    return;
+  }
+
+  if (isGlobalesView) {
+    setAgenciasFilters(true);
+    document.getElementById('mainContent').classList.remove('visible');
+    document.getElementById('tablesContent').classList.remove('visible');
+    if (globalesState === 'idle') loadGlobales();
+    renderGlobales();
     return;
   }
 

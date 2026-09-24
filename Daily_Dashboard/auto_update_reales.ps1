@@ -50,6 +50,17 @@ function Fail($msg) {
 Log "=== Inicio actualización de reales ==="
 
 # ------------------------------------------------------------------
+# 0) Traer main actualizado ANTES de correr nada. Sin esto, la copia local
+#    quedaba atrasada y la corrida usaba un daily_sync.py viejo (bug real,
+#    2026-09-24: 149 commits atrás, LY solo hasta "ayer" -> línea LY en 0 el
+#    resto del mes) y encima clasp push pisaba producción con código viejo.
+# ------------------------------------------------------------------
+Log "git pull --ff-only origin main..."
+git -C $repoRoot pull --ff-only origin main *>> $logFile
+if ($LASTEXITCODE -ne 0) { Fail "git pull falló (¿cambios locales en conflicto o divergencia con origin/main?). No se corre con código desactualizado." }
+Log "git pull OK"
+
+# ------------------------------------------------------------------
 # 1) Refrescar datos (Datalake -> Drive JSON). No toca código versionado.
 # ------------------------------------------------------------------
 Set-Location $repoRoot
