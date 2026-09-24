@@ -6617,6 +6617,28 @@ function _cierreMonthLong(ym){
   var p = ym.split('-'); return (MONTH_LABELS[p[1]]||'') + " '" + p[0].slice(2);
 }
 
+// Fuerza un chart Chart.js ya creado (vivo, responsive, animado) a un tamaño fijo y
+// sin animación antes de capturarlo con toBase64Image(). Sin esto salía en blanco:
+// - chart.update() normal es asíncrono/animado — la captura llegaba antes de que
+//   se terminara de dibujar.
+// - responsive:true depende del tamaño CSS del contenedor en pantalla (vía
+//   ResizeObserver) — un canvas detrás del overlay de Cierre de Mes, o medido antes
+//   de que el observer corra, puede quedar en 0x0 y no hay nada que capturar.
+// resize(w,h) fija el tamaño explícito del canvas (bypassea el ResizeObserver);
+// update('none') redibuja ya mismo, sin animación. El chart vivo queda mutado
+// (responsive:false, tamaño fijo) — se restaura solo al cerrar Cierre de Mes,
+// que ya hace reload() (mismo trade-off que el resto del feature: pisa _state real,
+// se restaura al cerrar).
+function _cierreForceRenderImg_(chart, w, h){
+  try {
+    chart.options.responsive = false;
+    chart.options.animation  = false;
+    chart.resize(w || 1040, h || 430);
+    chart.update('none');
+    return chart.toBase64Image('image/png', 1);
+  } catch (e) { if (window.console) console.error('[cierre] forceRenderImg', e); return ''; }
+}
+
 // ── Evolutivos NR/OC — reutiliza renderEvo (chart real de Evolution + tabla YoY por
 // país), no un chart aparte: mismo patrón que _cierrePnLHTML (setea _state, renderiza
 // en el DOM real, extrae). 2026-09-23: reemplaza el chart standalone que había antes
@@ -6631,12 +6653,7 @@ function _cierreEvoHTML_(evo, metricId, goal){
   _state.evoGranularity = 'M'; _state.evoShowLY = false;
   renderEvo();
   var chart = _charts['chart-evo'];
-  // El chart real de Evolution tiene animación (a diferencia del chart custom que
-  // había antes, que la traía desactivada) — sin forzar un redibujado sincrónico acá,
-  // toBase64Image() captura el canvas ANTES de que la animación termine de dibujar
-  // y sale en blanco. update('none') = redibuja ya, sin animación.
-  if (chart) chart.update('none');
-  var img = chart ? chart.toBase64Image('image/png', 1) : '';
+  var img = chart ? _cierreForceRenderImg_(chart) : '';
   var ctryEl = document.getElementById('evo-ctry-table');
   var tblHtml = ctryEl ? ctryEl.innerHTML : '';
   return (img ? '<img class="cierre-chart-img" src="'+img+'" alt="Evolución '+CIERRE_METRIC_LABEL[metricId]+'">'
@@ -6655,8 +6672,7 @@ function _cierreOcBridgeHTML_(mesData, refMonth, goal){
   _state.goal = goal; _state.selectedPeriods = [refMonth];
   renderWf();
   var chart = _charts['wfc-oc-concept'];
-  if (chart) chart.update('none');   // mismo fix que _cierreEvoHTML_ — sin esto sale en blanco
-  var img = chart ? chart.toBase64Image('image/png', 1) : '';
+  var img = chart ? _cierreForceRenderImg_(chart) : '';
   var tbl = document.getElementById('wft-oc-concept');
   var tblHtml = tbl ? tbl.outerHTML : '';
   return (img ? '<img class="cierre-chart-img" src="'+img+'" alt="Bridge OC">'
@@ -6679,10 +6695,11 @@ function _cierreFetchOKR_(){
 }
 function _cierreOkrHTML_(okr, lobKey){
   if (!okr) return '<div style="padding:20px;color:#999">Sin datos de OKR.</div>';
-  var savedLob = _state.lob;
+  var savedLob = _state.lob, savedMonthly = _okrMonthly;
   _state.lob = lobKey;
+  _okrMonthly = true;   // a pedido de Diego: el slide de Cierre de Mes siempre con apertura por mes
   renderOKR(okr);
-  _state.lob = savedLob;
+  _state.lob = savedLob; _okrMonthly = savedMonthly;
   var col = document.getElementById('okr-col');
   if (!col) return '<div style="padding:20px;color:#999">Sin datos de OKR.</div>';
   var clone = col.cloneNode(true);
