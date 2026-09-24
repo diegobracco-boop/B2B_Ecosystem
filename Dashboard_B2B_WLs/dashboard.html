@@ -6459,10 +6459,26 @@ function insRender(tab) {
 .cierre-hl-pos{background:#eafaf0;color:#16a34a}
 .cierre-hl-neg{background:#fdecea;color:#c0392b}
 .cierre-hl-neu{background:#f3f4f6;color:#57606a}
-/* Paleta de Flow Semanal (Daily_Dashboard, --fl-purple/--fl-purple2) — a pedido
-   de Diego, para que las carátulas de sección coincidan entre ambos decks. */
-.cierre-divider{height:320px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#5626e9,#8e5ff3);padding:0}
-.cierre-divider-title{font-size:36px;font-weight:800;color:#fff;text-align:center}
+/* Paleta y diseño de Flow Semanal (Daily_Dashboard: --fl-purple/--fl-purple2,
+   .flow-slide.divider) — a pedido de Diego, para que las carátulas de sección
+   coincidan entre ambos decks. Rediseñado 2026-09-24: la versión anterior (320px de
+   alto contra 1120px de ancho, ratio ~3.5:1) hacía que Google Slides la redujera a
+   una tira angosta flotando en medio de la página — un slide normal es ~16:9, no
+   3.5:1. Ahora 1120x630 (16:9, mismo criterio que .flow-slide de Flow Semanal,
+   1280x720), fondo sólido (no gradiente) + círculo decorativo + logo de barras, igual
+   estructura que .flow-slide.divider, escalada a este ancho. */
+.cierre-divider{width:1120px;height:630px;position:relative;overflow:hidden;background:#5626e9;padding:0;box-sizing:border-box}
+.cierre-div-circle{position:absolute;right:-80px;top:20px;width:370px;height:370px;border-radius:50%;background:rgba(255,255,255,.10)}
+.cierre-divider-title{position:absolute;left:64px;top:250px;font-size:46px;font-weight:800;color:#fff;letter-spacing:-1px;max-width:820px}
+.cierre-divider-sub{position:absolute;left:64px;top:310px;font-size:16px;font-weight:600;color:rgba(255,255,255,.75)}
+.cierre-div-logo{position:absolute;left:64px;bottom:48px;display:flex;align-items:center;gap:12px;color:#fff}
+.cierre-div-logo .cdl-bars{display:flex;gap:2px;align-items:center}
+.cierre-div-logo .cdl-bars i{display:block;width:5px;border-radius:2px;background:#5626e9}
+.cierre-div-logo .cdl-bars i:nth-child(1){height:10px}.cierre-div-logo .cdl-bars i:nth-child(2){height:16px}.cierre-div-logo .cdl-bars i:nth-child(3){height:22px}
+.cierre-div-logo .cdl-bars i:nth-child(4){height:28px;background:#8e5ff3}.cierre-div-logo .cdl-bars i:nth-child(5){height:22px;background:#8e5ff3}
+.cierre-div-logo .cdl-bars i:nth-child(6){height:16px;background:#8e5ff3}.cierre-div-logo .cdl-bars i:nth-child(7){height:10px;background:#8e5ff3}
+.cierre-div-logo .cdl-txt{font-weight:800;font-size:18px;line-height:1}
+.cierre-div-logo .cdl-txt small{display:block;font-weight:500;font-size:9px;opacity:.75;letter-spacing:2.5px;margin-top:2px}
 .cierre-slide .pnl-card{overflow-x:auto}
 .cierre-chart-img{width:100%;height:auto;display:block}
 .cierre-cap{font-size:11px;color:#57606a;margin-top:8px;font-style:italic}
@@ -6520,13 +6536,44 @@ function _cierrePnLHTML(pnlData, goal){
   var body = document.getElementById('pnl-body').innerHTML;
   return '<div class="pnl-card"><table class="pnl-table"><thead><tr class="head-canals">'+head+'</tr></thead><tbody>'+body+'</tbody></table></div>';
 }
-// Slide "divisor de sección" (fondo lila + título centrado) — mismo class .cierre-slide
-// para que _cierreCaptureSlideImages_ la capture igual que al resto (ver export a Slides).
-function _cierreDividerHTML_(title){
-  return '<div class="cierre-slide cierre-divider"><div class="cierre-divider-title">'+title+'</div></div>';
+// Slide "divisor de sección" — mismo class .cierre-slide para que
+// _cierreCaptureSlideImages_ la capture igual que al resto (ver export a Slides).
+// Estructura calcada de .flow-slide.divider (Flow Semanal, Daily_Dashboard): círculo
+// decorativo + título grande + logo de barras — ver comentario del CSS (.cierre-divider).
+function _cierreDividerHTML_(title, subtitle){
+  return '<div class="cierre-slide cierre-divider">'
+       +   '<div class="cierre-div-circle"></div>'
+       +   '<div class="cierre-divider-title">'+title+'</div>'
+       +   (subtitle ? '<div class="cierre-divider-sub">'+subtitle+'</div>' : '')
+       +   '<div class="cierre-div-logo">'
+       +     '<div class="cdl-bars"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>'
+       +     '<div class="cdl-txt">DESPEGAR<small>GROUP</small></div>'
+       +   '</div>'
+       + '</div>';
 }
 function _cierreSlide(title, inner){
   return '<div class="cierre-slide"><div class="cierre-slide-title">'+title+'</div>'+inner+'</div>';
+}
+
+// Post-proceso 2026-09-24: la tabla de países de Evolutivos (evo-yoy-tbl, pensada para
+// el ancho completo de la página normal del Hub, no para 1120px) se cortaba a la
+// derecha en vez de entrar completa. Corre 1 sola vez, después de insertar todas las
+// slides en el DOM (necesita medir scrollWidth real) — achica con transform:scale
+// cualquier <table> más ancha que el contenido del slide, en vez de dejarla cortada
+// por overflow. Genérico (no hardcodeado a evo-yoy-tbl) por si algún día otra tabla
+// tiene el mismo problema (ej. muchos países/productos en el Bridge OC).
+function _cierreFitWideTables_(){
+  var AVAIL = 1040;   // ancho de contenido del slide: 1120px - padding 30px*2, con margen
+  document.querySelectorAll('#cierre-body .cierre-slide table').forEach(function(tbl){
+    var natural = tbl.scrollWidth;
+    if (natural > AVAIL && natural > 0) {
+      var scale = AVAIL / natural;
+      tbl.style.transformOrigin = 'top left';
+      tbl.style.transform = 'scale(' + scale.toFixed(3) + ')';
+      var wrap = tbl.parentElement;
+      if (wrap) { wrap.style.overflow = 'visible'; wrap.style.height = (tbl.offsetHeight * scale) + 'px'; }
+    }
+  });
 }
 
 // ── Highlight (Minto): 1 headline "conclusión primero" arriba de cada tabla ────
@@ -6617,48 +6664,54 @@ function _cierreMonthLong(ym){
   var p = ym.split('-'); return (MONTH_LABELS[p[1]]||'') + " '" + p[0].slice(2);
 }
 
-// Fuerza un chart Chart.js ya creado (vivo, responsive, animado) a un tamaño fijo y
-// sin animación antes de capturarlo con toBase64Image(). Sin esto salía en blanco:
-// - chart.update() normal es asíncrono/animado — la captura llegaba antes de que
-//   se terminara de dibujar.
-// - responsive:true depende del tamaño CSS del contenedor en pantalla (vía
-//   ResizeObserver) — un canvas detrás del overlay de Cierre de Mes, o medido antes
-//   de que el observer corra, puede quedar en 0x0 y no hay nada que capturar.
-// resize(w,h) fija el tamaño explícito del canvas (bypassea el ResizeObserver);
-// update('none') redibuja ya mismo, sin animación. El chart vivo queda mutado
-// (responsive:false, tamaño fijo) — se restaura solo al cerrar Cierre de Mes,
-// que ya hace reload() (mismo trade-off que el resto del feature: pisa _state real,
-// se restaura al cerrar).
-function _cierreForceRenderImg_(chart, w, h){
+// Captura un canvas Chart.js vivo con html2canvas (misma técnica que ya usa
+// _cierreCaptureSlideImages_ para el export final) en vez de chart.toBase64Image().
+// 2026-09-24: dos intentos previos con toBase64Image() (forzar update('none'), después
+// forzar resize+responsive:false+update('none')) seguían saliendo en blanco — sin
+// consola de browser a mano no pude confirmar la causa exacta, así que en vez de
+// seguir iterando a ciegas sobre lo mismo cambio de mecanismo: html2canvas lee los
+// píxeles que el canvas YA tiene pintados en el momento de la captura (no depende del
+// pipeline de render/animación interno de Chart.js), y se espera a 2 frames reales
+// (doble requestAnimationFrame) antes de capturar para darle tiempo a terminar
+// cualquier paint pendiente. resize()+responsive:false sigue por las dudas (cubre el
+// caso de un canvas en 0x0 por el contenedor). Async — por eso _cierreEvoHTML_/
+// _cierreOcBridgeHTML_ pasan a devolver Promise, y _cierreGenerate encadena los pasos
+// en orden estricto (dos capturas en paralelo pisarían el mismo _state/canvas).
+function _cierreNextFrame_(){
+  return new Promise(function(resolve){
+    requestAnimationFrame(function(){ requestAnimationFrame(resolve); });
+  });
+}
+function _cierreCanvasImg_(chart, canvasId, w, h){
+  var el = document.getElementById(canvasId);
+  if (!chart || !el) return Promise.resolve('');
   try {
     chart.options.responsive = false;
     chart.options.animation  = false;
     chart.resize(w || 1040, h || 430);
-    chart.update('none');
-    return chart.toBase64Image('image/png', 1);
-  } catch (e) { if (window.console) console.error('[cierre] forceRenderImg', e); return ''; }
+  } catch (e) {}
+  return _cierreNextFrame_().then(function(){
+    return html2canvas(el, { scale:2, backgroundColor:'#ffffff' });
+  }).then(function(canvas){ return canvas.toDataURL('image/png'); })
+    .catch(function(e){ if (window.console) console.error('[cierre] canvas capture', canvasId, e); return ''; });
 }
 
 // ── Evolutivos NR/OC — reutiliza renderEvo (chart real de Evolution + tabla YoY por
 // país), no un chart aparte: mismo patrón que _cierrePnLHTML (setea _state, renderiza
 // en el DOM real, extrae). 2026-09-23: reemplaza el chart standalone que había antes
 // (a pedido de Diego: "los que tenemos en el dashboard, no los que tenemos ahora").
-// La imagen sale de chart.toBase64Image() (no de capturar el canvas vivo con
-// html2canvas) para que la .cierre-slide final sea HTML plano (img + tabla) — mismo
-// motivo que ya usaba el chart custom: _cierreCaptureSlideImages_ solo necesita
-// rasterizar imágenes/tablas estáticas, no re-capturar un canvas interactivo.
 function _cierreEvoHTML_(evo, metricId, goal){
-  if (!evo || !evo.metrics) return '<div style="padding:20px;color:#999">Sin datos de evolución para este período.</div>';
+  if (!evo || !evo.metrics) return Promise.resolve('<div style="padding:20px;color:#999">Sin datos de evolución para este período.</div>');
   _state.evo = evo; _state.evoMetric = metricId; _state.goal = goal;
   _state.evoGranularity = 'M'; _state.evoShowLY = false;
   renderEvo();
-  var chart = _charts['chart-evo'];
-  var img = chart ? _cierreForceRenderImg_(chart) : '';
   var ctryEl = document.getElementById('evo-ctry-table');
   var tblHtml = ctryEl ? ctryEl.innerHTML : '';
-  return (img ? '<img class="cierre-chart-img" src="'+img+'" alt="Evolución '+CIERRE_METRIC_LABEL[metricId]+'">'
-              : '<div style="padding:20px;color:#999">Gráfico no disponible.</div>')
-       + (tblHtml ? '<div style="margin-top:10px;overflow-x:auto">'+tblHtml+'</div>' : '');
+  return _cierreCanvasImg_(_charts['chart-evo'], 'chart-evo').then(function(img){
+    return (img ? '<img class="cierre-chart-img" src="'+img+'" alt="Evolución '+CIERRE_METRIC_LABEL[metricId]+'">'
+                : '<div style="padding:20px;color:#999">Gráfico no disponible.</div>')
+         + (tblHtml ? '<div style="margin-top:10px;overflow-x:auto">'+tblHtml+'</div>' : '');
+  });
 }
 
 // ── Bridge OC (por concepto) — reutiliza renderWf, mismo patrón. goal:'budget'|
@@ -6666,18 +6719,18 @@ function _cierreEvoHTML_(evo, metricId, goal){
 // FORECAST_DROP_DATES). 2026-09-23.
 function _cierreOcBridgeHTML_(mesData, refMonth, goal){
   if (!mesData || !mesData.ocConceptWf || !mesData.ocConceptWf.concepts || !mesData.ocConceptWf.concepts.length) {
-    return '<div style="padding:20px;color:#999">Sin datos de Bridge OC para este período.</div>';
+    return Promise.resolve('<div style="padding:20px;color:#999">Sin datos de Bridge OC para este período.</div>');
   }
   _state.wf = mesData.wf; _state.ocConceptWf = mesData.ocConceptWf; _state.nrBridgeWf = mesData.nrBridgeWf;
   _state.goal = goal; _state.selectedPeriods = [refMonth];
   renderWf();
-  var chart = _charts['wfc-oc-concept'];
-  var img = chart ? _cierreForceRenderImg_(chart) : '';
   var tbl = document.getElementById('wft-oc-concept');
   var tblHtml = tbl ? tbl.outerHTML : '';
-  return (img ? '<img class="cierre-chart-img" src="'+img+'" alt="Bridge OC">'
-              : '<div style="padding:20px;color:#999">Gráfico no disponible.</div>')
-       + (tblHtml ? '<div style="margin-top:10px;overflow-x:auto">'+tblHtml+'</div>' : '');
+  return _cierreCanvasImg_(_charts['wfc-oc-concept'], 'wfc-oc-concept').then(function(img){
+    return (img ? '<img class="cierre-chart-img" src="'+img+'" alt="Bridge OC">'
+                : '<div style="padding:20px;color:#999">Gráfico no disponible.</div>')
+         + (tblHtml ? '<div style="margin-top:10px;overflow-x:auto">'+tblHtml+'</div>' : '');
+  });
 }
 
 // ── OKR — reutiliza renderOKR, mismo patrón. Se pide 1 sola vez (no depende del mes
@@ -6765,42 +6818,69 @@ function _cierreGenerate(){
 
     var okrData = all[0];
     var res     = all.slice(1);
-    var slides  = [];
 
+    // Lista de "pasos" (uno por slide), no las slides en sí — cada paso es una función
+    // que puede devolver un string (síncrono) o una Promise<string> (Evolutivos/Bridge,
+    // que ahora capturan con html2canvas — ver _cierreCanvasImg_). Se ejecutan en orden
+    // estricto, uno atrás del otro: _cierreEvoHTML_/_cierreOcBridgeHTML_/_cierreOkrHTML_
+    // pisan _state y el canvas compartido del dashboard antes de renderizar — si dos
+    // corrieran en paralelo (Promise.all) se pisarían entre sí.
+    var steps = [];
     CIERRE_ACTIVE_SCOPES.forEach(function(scope, i){
       var mes = res[i];
-      // pnlGroupLabel()/renderShare() (dentro de renderPnL(), vía _cierrePnLHTML) y
-      // renderWf()/renderOKR() leen _state.lob — hay que pisarlo antes de cada scope.
-      _state.lob = scope.key;
-
-      slides.push(_cierreDividerHTML_(scope.label));
+      steps.push(function(){
+        // pnlGroupLabel()/renderShare() (dentro de renderPnL(), vía _cierrePnLHTML) y
+        // renderWf()/renderOKR() leen _state.lob — hay que pisarlo antes de cada scope.
+        _state.lob = scope.key;
+        return _cierreDividerHTML_(scope.label, mesLbl);
+      });
 
       // 1) OKRs cumplimiento
-      slides.push(_cierreSlide('OKRs ' + scope.label, _cierreOkrHTML_(okrData, scope.key)));
+      steps.push(function(){ return _cierreSlide('OKRs ' + scope.label, _cierreOkrHTML_(okrData, scope.key)); });
 
       // 2) Cuadro resumen vs Budget / vs Forecast
-      slides.push(_cierreSlide(mesLbl + ' vs. Budget',   _cierreHeadlineHTML_(mes.pnl,'budget')   + _cierrePnLHTML(mes.pnl, 'budget')));
-      slides.push(_cierreSlide(mesLbl + ' vs. Forecast', _cierreHeadlineHTML_(mes.pnl,'forecast') + _cierrePnLHTML(mes.pnl, 'forecast')));
+      steps.push(function(){ return _cierreSlide(mesLbl + ' vs. Budget',   _cierreHeadlineHTML_(mes.pnl,'budget')   + _cierrePnLHTML(mes.pnl, 'budget')); });
+      steps.push(function(){ return _cierreSlide(mesLbl + ' vs. Forecast', _cierreHeadlineHTML_(mes.pnl,'forecast') + _cierrePnLHTML(mes.pnl, 'forecast')); });
 
       // 3) Evolutivos NR y OC — los del dashboard (renderEvo), no un chart aparte.
       ['nr', 'oc'].forEach(function(metricId){
-        slides.push(_cierreSlide('Evolución ' + CIERRE_METRIC_LABEL[metricId] + ' ' + scope.label,
-          _cierreEvoHTML_(mes.evo, metricId, 'budget')));
+        steps.push(function(){
+          return _cierreEvoHTML_(mes.evo, metricId, 'budget').then(function(html){
+            return _cierreSlide('Evolución ' + CIERRE_METRIC_LABEL[metricId] + ' ' + scope.label, html);
+          });
+        });
       });
 
       // 4) Bridge OC (por concepto) vs Budget / vs Forecast
-      slides.push(_cierreSlide('Bridge OC ' + scope.label + ' vs. Budget',   _cierreOcBridgeHTML_(mes, refMonth, 'budget')));
-      slides.push(_cierreSlide('Bridge OC ' + scope.label + ' vs. Forecast', _cierreOcBridgeHTML_(mes, refMonth, 'forecast')));
+      ['budget', 'forecast'].forEach(function(goal){
+        steps.push(function(){
+          return _cierreOcBridgeHTML_(mes, refMonth, goal).then(function(html){
+            return _cierreSlide('Bridge OC ' + scope.label + ' vs. ' + (goal === 'budget' ? 'Budget' : 'Forecast'), html);
+          });
+        });
+      });
     });
 
-    body.innerHTML = slides.join('');
-    if (selEl) selEl.disabled = false;
+    var slides = [];
+    var chain = Promise.resolve();
+    steps.forEach(function(step){
+      chain = chain.then(function(){
+        return Promise.resolve(step()).then(function(html){ slides.push(html); });
+      });
+    });
 
-    // "Enviar a Google Slides" captura estas mismas slides tal cual quedaron en el DOM
-    // (html2canvas, ver _cierreExportSlides) — acá solo guardamos el título del deck.
-    _cierreLastPayload = { mesLbl: mesLbl, fyLbl: fyLbl };
-    var expBtn = document.getElementById('cierre-export-btn');
-    if (expBtn) expBtn.disabled = false;
+    return chain.then(function(){
+      if (!_cierreOpen || myGen !== _cierreGen) return;
+      body.innerHTML = slides.join('');
+      _cierreFitWideTables_();   // achica cualquier tabla más ancha que el slide (ver comentario en la función)
+      if (selEl) selEl.disabled = false;
+
+      // "Enviar a Google Slides" captura estas mismas slides tal cual quedaron en el DOM
+      // (html2canvas, ver _cierreExportSlides) — acá solo guardamos el título del deck.
+      _cierreLastPayload = { mesLbl: mesLbl, fyLbl: fyLbl };
+      var expBtn = document.getElementById('cierre-export-btn');
+      if (expBtn) expBtn.disabled = false;
+    });
   }).catch(function(e){
     if (!_cierreOpen || myGen !== _cierreGen) return;
     body.innerHTML = '<div class="cierre-loading" style="color:#c0392b">No se pudieron generar las slides: '+((e&&e.message)?e.message:e)+'</div>';
