@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OKRs Tribu Producto · H1 FY27</title>
+<style>
+:root{
+  --bg:#f4f5f7;--surface:#fff;--surface2:#f8f9fa;
+  --border:#e8e0f0;--border2:#d5c8e8;
+  --navy:#1a0a2e;--navy2:#2a1048;
+  --accent:#7b2dbe;--accent2:#9b4dde;
+  --desp-purple:#7b2dbe;
+  --green:#1a7f37;--green-bg:#d4f4dd;
+  --red:#cf222e;--red-bg:#ffd8d3;
+  --text:#1f2328;--muted:#57606a;--muted2:#8c959f;
+  --radius:8px;--shadow:0 1px 4px rgba(0,0,0,.08),0 4px 16px rgba(0,0,0,.06);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,'Segoe UI',sans-serif;font-size:15px;min-height:100vh}
+
+/* ── Header ─────────────────────────────────────────────── */
+header{
+  background:linear-gradient(90deg,#5B21B6 0%,#6D28D9 40%,#7C3AED 100%);
+  padding:0 28px;height:72px;display:flex;align-items:center;justify-content:space-between;
+  position:sticky;top:0;z-index:300;
+  box-shadow:0 2px 12px rgba(91,33,182,.4);
+}
+.logo-wrap{display:flex;flex-direction:column;gap:2px}
+.logo-main{color:#fff;font-size:15px;font-weight:700;letter-spacing:.01em}
+.logo-main span{color:#C4B5FD}
+.logo-sub{color:rgba(196,181,253,.65);font-size:10px;font-weight:500;letter-spacing:.05em;text-transform:uppercase}
+.header-right{display:flex;align-items:center;gap:10px}
+#last-upd{color:rgba(255,255,255,.5);font-size:11px}
+
+/* ── Botones ─────────────────────────────────────────────── */
+.btn{border:none;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:12px;font-weight:600}
+.btn-ghost{background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.25)}
+.btn-ghost:hover{background:rgba(255,255,255,.25)}
+.gran-btn{padding:4px 10px;border-radius:4px;border:none;background:transparent;color:var(--muted);cursor:pointer;font-size:11px;font-weight:700;letter-spacing:.04em;transition:all .15s}
+.gran-btn.active{background:var(--desp-purple);color:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.gran-btn:hover:not(.active){background:rgba(0,0,0,.05)}
+.gran-toggle{display:flex;gap:2px;background:var(--surface2);border-radius:6px;padding:2px;border:1px solid var(--border)}
+
+/* ── Main ────────────────────────────────────────────────── */
+main{padding:40px 48px;max-width:2200px;margin:0 auto}
+.sec-title{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid var(--border)}
+
+/* ── OKR tables ───────────────────────────────────────────── */
+.okr-wrap{display:flex;flex-direction:column;gap:28px}
+.okr-nom-wrap{margin-top:8px}
+.okr-table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);overflow:auto}
+.okr-lob-hdr{background:#5457D9;color:#fff;padding:18px 22px;font-size:17px;font-weight:700;display:flex;align-items:center;justify-content:space-between;border-radius:var(--radius) var(--radius) 0 0}
+.okr-table{width:100%;border-collapse:collapse;font-size:16px;table-layout:fixed}
+.okr-table th{background:#7C7FFF;color:#fff;padding:16px 10px;text-align:center;font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-right:1px solid rgba(255,255,255,.15)}
+.okr-table th:nth-child(3){text-align:left;width:320px;padding-left:22px}
+.okr-table th:nth-child(1),.okr-table th:nth-child(2){width:130px;text-align:center}
+.okr-table th:nth-child(4){width:70px;text-align:center}
+.okr-table th:nth-child(n+5){width:135px}
+.okr-table th.th-q{background:#5457D9;border-left:2px solid rgba(255,255,255,.25)}
+.okr-table td{height:64px;padding:0 10px;text-align:center;border-bottom:1px solid var(--border);border-right:1px solid var(--border);font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.okr-table td:nth-child(1),.okr-table td:nth-child(2){color:var(--muted2);font-size:14px}
+.okr-table td:nth-child(3){text-align:left;font-weight:500;padding-left:22px;color:var(--text);white-space:normal;overflow:visible;text-overflow:unset;padding-top:10px;padding-bottom:10px;line-height:1.4}
+.okr-table td.td-q{border-left:2px solid var(--border2);font-weight:700}
+.okr-table tr.okr-total td{font-weight:800;border-top:2px solid var(--border2);background:rgba(84,87,217,.04)}
+.okr-table tr:last-child td{border-bottom:none}
+.okr-table tbody tr:hover{background:var(--surface2)}
+
+/* ── Chips de cumplimiento ───────────────────────────────── */
+.okr-chip{display:inline-block;padding:5px 14px;border-radius:20px;font-size:14px;font-weight:700;letter-spacing:.01em}
+.okr-ok  {background:#d4f4dd;color:#16a34a}
+.okr-warn{background:#fff7cd;color:#92650a}
+.okr-bad {background:#ffd8d3;color:#cf222e}
+.okr-tbd {background:#f0f0f0;color:#8c959f;font-style:italic}
+
+/* ── Badge ritmo (en fila KR) ───────────────────────────── */
+.okr-ritmo-badge{display:inline-flex;align-items:center;gap:3px;margin-left:6px;padding:2px 7px;border-radius:20px;background:#ede9fe;color:#6D28D9;font-size:10px;font-weight:700;vertical-align:middle;white-space:nowrap;letter-spacing:.03em}
+
+/* ── Leyenda ─────────────────────────────────────────────── */
+.okr-legend{display:flex;align-items:flex-start;flex-wrap:wrap;gap:12px 24px;margin-bottom:24px;padding:16px 20px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow)}
+.okr-legend-group{display:flex;flex-direction:column;gap:6px}
+.okr-legend-group-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted2);margin-bottom:2px}
+.okr-legend-pills{display:flex;gap:8px;flex-wrap:wrap}
+.okr-legend-pill{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600}
+.okr-legend-pill.ok  {background:#d4f4dd;color:#16a34a}
+.okr-legend-pill.warn{background:#fff7cd;color:#92650a}
+.okr-legend-pill.bad {background:#ffd8d3;color:#cf222e}
+.okr-legend-divider{width:1px;background:var(--border);align-self:stretch;margin:0 8px}
+.okr-legend-ritmo-box{display:flex;flex-direction:column;gap:6px;max-width:420px}
+.okr-legend-ritmo-box p{font-size:12px;color:var(--muted);line-height:1.6}
+.okr-legend-ritmo-box strong{color:var(--text)}
+.okr-legend-ritmo-months{display:flex;gap:4px;flex-wrap:wrap;margin-top:2px}
+.okr-legend-ritmo-month{font-size:11px;padding:2px 8px;border-radius:4px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);font-weight:600}
+.okr-legend-ritmo-month span{color:var(--desp-purple);font-weight:700}
+
+/* ── Separador entre tabla % y tabla nominal ────────────── */
+.okr-nom-wrap{margin-top:12px}
+.okr-nom-hdr{display:flex;align-items:center;gap:10px;padding:12px 22px;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius) var(--radius) 0 0;border-bottom:none}
+.okr-nom-hdr svg{opacity:.5}
+
+/* ── Panel de fuentes (colapsable) ──────────────────────── */
+.okr-sources{border-top:1px solid var(--border);font-size:12px;color:var(--muted)}
+.okr-sources summary{cursor:pointer;list-style:none;user-select:none;display:flex;align-items:center;gap:8px;padding:10px 22px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2);transition:color .15s}
+.okr-sources summary::-webkit-details-marker{display:none}
+.okr-sources summary:hover{color:var(--desp-purple)}
+.okr-sources[open] summary{color:var(--desp-purple);border-bottom:1px solid var(--border)}
+.okr-sources-body{padding:14px 22px 16px;display:flex;flex-direction:column;gap:10px}
+.okr-source-item{display:flex;flex-direction:column;gap:4px}
+.okr-source-label{font-size:11px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:6px}
+.okr-source-label .kr-num{background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:1px 6px;font-size:10px;color:var(--muted)}
+.okr-source-desc{font-size:12px;color:var(--muted);padding-left:2px;line-height:1.6}
+.okr-source-desc pre{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px;margin-top:6px;overflow-x:auto;max-height:180px;overflow-y:auto}
+.okr-source-desc code{font-family:'SF Mono',Consolas,monospace;font-size:10.5px;white-space:pre;color:var(--text)}
+.okr-source-desc a{color:var(--desp-purple);font-weight:600;text-decoration:none}
+.okr-source-desc a:hover{text-decoration:underline}
+
+/* ── Placeholder / loader ────────────────────────────────── */
+.okr-placeholder{background:var(--surface);border:2px dashed var(--border2);border-radius:var(--radius);padding:60px 24px;text-align:center;color:var(--muted2);font-size:13px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px}
+.okr-placeholder .icon{font-size:32px}
+.spinner{width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--desp-purple);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-wrap">
+    <div class="logo-main">OKRs <span>Tribu Producto</span></div>
+    <div class="logo-sub">H1 FY27 · Abril — Septiembre 2026</div>
+  </div>
+  <div class="header-right">
+    <span id="last-upd"></span>
+    <div class="gran-toggle" id="view-toggle">
+      <button class="gran-btn active" onclick="setView('q')">Trimestral</button>
+      <button class="gran-btn"        onclick="setView('m')">Mensual</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="sec-title">OKR Status FY27</div>
+
+  <div class="okr-legend">
+    <div class="okr-legend-group">
+      <div class="okr-legend-group-title">Colores de cumplimiento</div>
+      <div class="okr-legend-pills">
+        <span class="okr-legend-pill ok">&#10003; En camino &mdash; &ge;100%</span>
+        <span class="okr-legend-pill warn">&#9888; En riesgo &mdash; &ge;80%</span>
+        <span class="okr-legend-pill bad">&#10007; Atrasado &mdash; &lt;80%</span>
+      </div>
+    </div>
+    <div class="okr-legend-divider"></div>
+    <div class="okr-legend-ritmo-box">
+      <div class="okr-legend-group-title"><span class="okr-ritmo-badge" style="margin-left:0">↗ ritmo</span>&nbsp; KRs con evaluación por avance proporcional</div>
+      <p>Para estos KRs el color <strong>no compara contra el objetivo final</strong>, sino contra el avance esperado al mes actual. En junio (3/6 del período), alcanzar el 52% sobre un objetivo del 100% equivale a ir al <strong>104% del ritmo</strong> → verde.</p>
+      <div class="okr-legend-ritmo-months">
+        <span class="okr-legend-ritmo-month">Abr <span>1/6</span></span>
+        <span class="okr-legend-ritmo-month">May <span>2/6</span></span>
+        <span class="okr-legend-ritmo-month">Jun <span>3/6</span></span>
+        <span class="okr-legend-ritmo-month">Jul <span>4/6</span></span>
+        <span class="okr-legend-ritmo-month">Ago <span>5/6</span></span>
+        <span class="okr-legend-ritmo-month">Sep <span>6/6</span></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="okr-wrap" id="okr-root">
+    <div class="okr-placeholder"><div class="spinner"></div><span>Cargando…</span></div>
+  </div>
+</main>
+
+<script>
+// ── Estado ────────────────────────────────────────────────────
+var _okr     = null;
+var _monthly = false;   // false = trimestral, true = mensual
+
+var MON_SHORT = ['Abr','May','Jun','Jul','Ago','Sep'];
+var OWNER     = 'Ezequiel Yaya';
+
+// ── Inicialización ────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', function() {
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (res && res.success) {
+        _okr = res.okr;
+        renderOKR();
+        if (res.meta && res.meta.generated_at) {
+          document.getElementById('last-upd').textContent = 'Actualizado: ' + res.meta.generated_at.replace('T',' ');
+        }
+      } else {
+        showError(res ? res.error : 'Error desconocido');
+      }
+    })
+    .withFailureHandler(function(e) { showError(e.message || e); })
+    .getOKRData();
+});
+
+// ── Toggle vista ──────────────────────────────────────────────
+function setView(v) {
+  _monthly = (v === 'm');
+  document.querySelectorAll('#view-toggle .gran-btn').forEach(function(b, i) {
+    b.classList.toggle('active', (i === 0) ? !_monthly : _monthly);
+  });
+  renderOKR();
+}
+
+// ── OKRs con evaluación por ritmo (avance esperado proporcional al mes) ──
+var OKR_RITMO = [
+  'Share usuarios Growth (2.8% → 17%)',
+  'Volumen canje puntos/millas (+15%)',
+  'Acumulación/Cashback puntos/millas (+5%)',
+  '4 capacidades UI flexible y configurable',
+  'Capabilities de autogestión'
+];
+var MON_TOTAL = 6;
+
+// ── KRs sin métrica real (muestran TBD) ──────────────────────
+var OKR_TBD = [
+  'Capabilities de autogestión'
+];
+
+// ── Formatear chip de % ────────────────────────────────────────
+function clsOKR(v) {
+  return v >= 99.98 ? 'okr-ok' : v >= 79.98 ? 'okr-warn' : 'okr-bad';
+}
+function fmtOKR(v, isTbd) {
+  if (isTbd) return '<span class="okr-chip okr-tbd">TBD</span>';
+  if (v === null || v === undefined || isNaN(v))
+    return '<span style="color:var(--muted2)">—</span>';
+  return '<span class="okr-chip '+clsOKR(v)+'">'+Math.round(v)+'%</span>';
+}
+function fmtOKRritmo(v, monIdx, isTbd) {
+  if (isTbd) return '<span class="okr-chip okr-tbd">TBD</span>';
+  if (v === null || v === undefined || isNaN(v))
+    return '<span style="color:var(--muted2)">—</span>';
+  var progresoEsperado = (monIdx + 1) / MON_TOTAL;
+  var avanceRelativo = (v / 100) / progresoEsperado * 100;
+  return '<span class="okr-chip '+clsOKR(avanceRelativo)+'">'+Math.round(v)+'%</span>';
+}
+
+// ── Formatear número nominal (actual / target) ──────────────────
+function fmtNum(v) {
+  if (v === null || v === undefined || isNaN(v)) return null;
+  var r = Math.round(v);
+  if (Math.abs(v - r) < 0.005) return r.toLocaleString('es-AR');
+  return v.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function fmtNominal(actual, target, isTbd) {
+  if (isTbd) return '<span style="color:var(--muted2)">TBD</span>';
+  var a = fmtNum(actual);
+  if (a === null) return '<span style="color:var(--muted2)">—</span>';
+  var t = fmtNum(target);
+  return '<span style="font-size:13px">'+a+(t !== null ? ' <span style="color:var(--muted2)">/ '+t+'</span>' : '')+'</span>';
+}
+
+// ── Construir thead ───────────────────────────────────────────
+function buildThead(d) {
+  var h = '<thead><tr><th>Owner</th><th>Nro KR</th><th>KR</th><th>Peso</th>';
+  if (_monthly) {
+    MON_SHORT.forEach(function(ml, mi) {
+      h += '<th class="'+(mi % 3 === 0 ? 'th-q' : '')+'">'+ml+'</th>';
+    });
+    h += '<th class="th-q">Q1</th><th class="th-q">Q2</th>';
+  } else {
+    d.quarters.forEach(function(q) { h += '<th class="th-q">'+q+'</th>'; });
+  }
+  return h + '</tr></thead>';
+}
+
+// ── Render principal ──────────────────────────────────────────
+function renderOKR() {
+  var root = document.getElementById('okr-root');
+  if (!_okr) {
+    root.innerHTML = '<div class="okr-placeholder"><div class="icon">📋</div><span>Sin datos disponibles</span></div>';
+    return;
+  }
+
+  var html = '';
+  Object.keys(_okr).forEach(function(lobKey) {
+    var d = _okr[lobKey];
+    if (!d) return;
+
+    html += '<div class="okr-table-wrap">'
+          + '<div class="okr-lob-hdr">'+d.label+'</div>';
+
+    // ── Tabla % ──────────────────────────────────────────────
+    html += '<table class="okr-table">'+buildThead(d)+'<tbody>';
+    d.krs.forEach(function(kr, ki) {
+      var isTbd = OKR_TBD.indexOf(kr.label) !== -1;
+      var isRitmo = OKR_RITMO.indexOf(kr.label) !== -1;
+      var ritmoBadge = isRitmo ? '<span class="okr-ritmo-badge">↗ ritmo</span>' : '';
+      html += '<tr><td>'+OWNER+'</td>'
+            + '<td style="color:var(--muted2)">KR'+(ki+1)+'</td>'
+            + '<td>'+kr.label+ritmoBadge+'</td>'
+            + '<td style="color:var(--muted2);font-size:12px">'+kr.weight+'%</td>';
+      if (_monthly) {
+        kr.monthly.forEach(function(v, mi) {
+          var cls = (mi % 3 === 0) ? ' td-q' : '';
+          var chip = isRitmo ? fmtOKRritmo(v, mi, isTbd) : fmtOKR(v, isTbd);
+          html += '<td class="'+cls+'">'+chip+'</td>';
+        });
+        kr.quarterly.forEach(function(v, qi) { html += '<td class="td-q">'+fmtOKR(v, isTbd)+'</td>'; });
+      } else {
+        kr.quarterly.forEach(function(v, qi) { html += '<td class="td-q">'+fmtOKR(v, isTbd)+'</td>'; });
+      }
+      html += '</tr>';
+    });
+    // Fila total (nunca TBD)
+    html += '<tr class="okr-total"><td></td><td></td><td>Total</td><td></td>';
+    if (_monthly) {
+      d.totalMonthly.forEach(function(v, mi) {
+        html += '<td class="'+(mi % 3 === 0 ? 'td-q' : '')+'">'+fmtOKR(v, false)+'</td>';
+      });
+      d.totalQuarterly.forEach(function(v) { html += '<td class="td-q">'+fmtOKR(v, false)+'</td>'; });
+    } else {
+      d.totalQuarterly.forEach(function(v) { html += '<td class="td-q">'+fmtOKR(v, false)+'</td>'; });
+    }
+    html += '</tr></tbody></table>';
+
+    // Panel de fuentes (dentro del wrap de %)
+    html += '<details class="okr-sources">'
+          + '<summary>&#128269; Fuentes de datos</summary>'
+          + '<div class="okr-sources-body">';
+    d.krs.forEach(function(kr, ki) {
+      html += '<div class="okr-source-item">'
+            + '<div class="okr-source-label"><span class="kr-num">KR'+(ki+1)+'</span>'+kr.label+'</div>'
+            + '<div class="okr-source-desc">'+(kr.source || '<em>Sin descripción.</em>')+'</div>'
+            + '</div>';
+    });
+    html += '</div></details></div>';   // cierra okr-table-wrap de %
+
+    // ── Tabla nominal — wrapper propio ────────────────────────
+    html += '<div class="okr-nom-wrap"><div class="okr-table-wrap">'
+          + '<div class="okr-nom-hdr">'
+          + '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="12" height="12" rx="1"/><path d="M5 8h6M5 11h4M5 5h6"/></svg>'
+          + 'Valores nominales &nbsp;<span style="font-weight:400;letter-spacing:0;text-transform:none;font-size:11px;color:var(--muted2)">(actual&thinsp;/&thinsp;objetivo)</span>'
+          + '</div>';
+    html += '<table class="okr-table">'+buildThead(d)+'<tbody>';
+    d.krs.forEach(function(kr, ki) {
+      var isTbd = OKR_TBD.indexOf(kr.label) !== -1;
+      var unitSuffix = kr.unit ? ' <span style="color:var(--muted2);font-weight:400;font-size:13px">· '+kr.unit+'</span>' : '';
+      html += '<tr><td>'+OWNER+'</td>'
+            + '<td style="color:var(--muted2)">KR'+(ki+1)+'</td>'
+            + '<td>'+kr.label+unitSuffix+'</td>'
+            + '<td style="color:var(--muted2);font-size:12px">'+kr.weight+'%</td>';
+      if (_monthly) {
+        kr.monthly.forEach(function(v, mi) {
+          var cls = (mi % 3 === 0) ? ' td-q' : '';
+          html += '<td class="'+cls+'">'+fmtNominal(kr.actualMonthly[mi], kr.budgetMonthly[mi], isTbd)+'</td>';
+        });
+        kr.quarterly.forEach(function(v, qi) {
+          html += '<td class="td-q">'+fmtNominal(kr.actualQuarterly[qi], kr.budgetQuarterly[qi], isTbd)+'</td>';
+        });
+      } else {
+        kr.quarterly.forEach(function(v, qi) {
+          html += '<td class="td-q">'+fmtNominal(kr.actualQuarterly[qi], kr.budgetQuarterly[qi], isTbd)+'</td>';
+        });
+      }
+      html += '</tr>';
+    });
+    html += '</tbody></table></div></div>';
+  });
+
+  root.innerHTML = html;
+}
+
+// ── Error ─────────────────────────────────────────────────────
+function showError(msg) {
+  document.getElementById('okr-root').innerHTML =
+    '<div class="okr-placeholder"><div class="icon">⚠️</div><span style="color:var(--red)">Error: '+msg+'</span></div>';
+}
+</script>
+</body>
+</html>

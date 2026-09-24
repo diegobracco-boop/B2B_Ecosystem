@@ -17,17 +17,16 @@ El ecosistema tiene dos capas: **pipelines** (Python, generan los datos) y **lan
                        ▼                  ▼
               Google Drive (fuente única de verdad)
                        │
-        ┌──────────────┼──────────────────┬──────────────────┬──────────────────┐
-        ▼              ▼                  ▼                  ▼                  ▼
-┌───────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌────────────────┐
-│ P&L Accounting│ │P&L Managerial│ │Dashboard B2B │ │ Manual B2B   │ │ LoB_Country_One│
-│   (GAS+HTML)  │ │  (GAS+HTML)  │ │    WLs       │ │     WLs      │ │ Pager (GAS+HTML)│
-│ vista contable│ │vista gerencial│ │  (GAS+HTML)  │ │  (GAS+HTML)  │ │ contable+gerenc.│
-└───────────────┘ └──────────────┘ └──────────────┘ └──────────────┘ │ +daily/weekly   │
-                                                                       └────────────────┘
+        ┌──────────────┼──────────────────┬──────────────────┐
+        ▼              ▼                  ▼                  ▼
+┌───────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+│ P&L Accounting│ │P&L Managerial│ │Dashboard B2B │ │ Manual B2B   │ │ OKR Producto │
+│   (GAS+HTML)  │ │  (GAS+HTML)  │ │    WLs       │ │     WLs      │ │   B2B2C      │
+│ vista contable│ │vista gerencial│ │  (GAS+HTML)  │ │  (GAS+HTML)  │ │ (Py+GAS+HTML)│
+└───────────────┘ └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘
 ```
 
-⚠️ Este diagrama simplifica de más: **P&L_Managerial no lee del pool común de Drive que alimentan `Inputs_Planning_PnL`/`Daily_Dashboard`** — tiene su propio pipeline Python (`actuals_gestional_upload.py`), un tercer pipeline no dibujado arriba, que consulta el Datalake y los modelos Forecast XLSX directamente y publica su propio JSON. Ver el módulo más abajo para el detalle. **`lob_country_one_pager` es el único landing que lee de los tres orígenes a la vez** (Inputs_Planning_PnL, Daily_Dashboard y el JSON gestional de P&L_Managerial) — no tiene pipeline propio, solo agrega/combina lo que ya publican los otros tres.
+`OKR_Producto_B2B2C` es además su propio pipeline (Python → Datalake), no solo landing — se embebe como `<iframe>` dentro de `Dashboard_B2B_WLs/dashboard.html`.
 
 ## Módulos
 
@@ -61,64 +60,24 @@ El ecosistema tiene dos capas: **pipelines** (Python, generan los datos) y **lan
 - **Deploy**: `cd P&L_Accounting && clasp push`
 
 ### P&L_Managerial — vista gerencial del P&L
-- **Stack**: GAS + HTML + Python (`actuals_gestional_upload.py`, `projections_gestional_builder.py`)
-- **Input**: **NO** son los JSONs canónicos de Inputs_Planning_PnL — tiene su propio pipeline "gestional", independiente y paralelo al "contable": `actuals_gestional_upload.py` consulta el Datalake (ODBC) directo para actuals/LY/budget/run-rate, y lee los modelos Forecast XLSX (WLs/API/HTML) para el forecast. Sube todo a `_actuals_gestional.json` en Drive. `projections_gestional_builder.py --wip-folder <ruta>` es una herramienta aparte que arma una vista de preview (`pnl_gestional_projections_review.json`) con números de un WIP sin publicar.
-- **Dependencia cruzada (poco obvia)**: `Inputs_Planning_PnL/okr_builder.py` LEE el JSON gestional de este módulo (mismo fileId que `_actuals_gestional.json`) — pero solo el campo `last_actual_ym`, para saber el corte de mes cerrado al construir `okr.json` de `Dashboard_B2B_WLs`. Es la única conexión real entre este módulo y `Inputs_Planning_PnL`, y va en sentido contrario al que sugiere el diagrama de arriba.
+- **Stack**: GAS + HTML + Python (`actuals_gestional_upload.py`)
+- **Input**: JSONs canónicos de Inputs_Planning_PnL
 - **Usuarios**: equipo gerencial — vista agregada para toma de decisiones
-- **Deploy GAS**: `cd P&L_Managerial && clasp push` + `clasp deploy -i <deploymentId>` (ver `/clasp-push` para el ID vigente — el deploy NO es automático)
-- **Doc detallada**: [CONTEXT.md](./P&L_Managerial/CONTEXT.md)
+- **Deploy GAS**: `cd P&L_Managerial && clasp push`
 
-### Manual_B2B_WLs — manual técnico del ecosistema
+### Manual_B2B_WLs — carga manual de datos
 - **Stack**: GAS + HTML
-- **Propósito**: landing GAS de **solo lectura** (`doGet` sirve `manual.html` estático — sin formularios, sin `doPost`, no ingresa ni carga datos). Documenta arquitectura, flujos de datos y procedimientos de actualización/deploy de todos los módulos del repo. Hoy se abre como link externo desde el Hub; a futuro embebido via iframe (falta el `manual-frame` en `Dashboard_B2B_WLs/dashboard.html`). El `setXFrameOptionsMode(ALLOWALL)` de su `Codigo.js` ya lo deja listo para embeber.
-- **Input**: ninguno en runtime. Su contenido se mantiene a mano — al cambiar el proceso de cualquier módulo, actualizar también `Manual_B2B_WLs/manual.html` (ver regla en `CLAUDE.md`).
-- **Deploy**: `cd Manual_B2B_WLs && clasp push --force` + `clasp deploy -i <deploymentId>` (ver `/clasp-push`)
-- **Doc detallada**: [CONTEXT.md](./Manual_B2B_WLs/CONTEXT.md)
+- **Propósito**: interfaz para ingresar datos B2B WLs manualmente cuando no hay pipeline automatizado
+- **Deploy**: `cd Manual_B2B_WLs && clasp push`
 
-### lob_country_one_pager — one-pager combinado por LoB+País
-- **Stack**: GAS + HTML
-- **Input**: sin pipeline propio y **sin leer JSONs de Drive directamente** — consume dos
-  landings como **Apps Script Libraries** (`dependencies.libraries` en `appsscript.json`,
-  pineado a una versión numérica de cada una, mismo patrón que `clasp deploy -i <id>`):
-  - `DashboardB2BWLs` (v155) — **contable**:
-    - `getCountryPageData()` → evo mensual GB/NR/OC + waterfalls (ocConceptWf/nrBridgeWf) por país (FY27)
-    - `getB2BCanalProductoMix()` → GB/NR/OC por canal (MAY/MIN) × producto, para el mix (ratios OC/GB y NR/GB, mismo `calcOC` que la sección B2B)
-  - `DailyDashboard` (v223) — **gestional**:
-    - `getCountryMTD({pais,view,ym})` → GB/NR/FVM del mes por país (GD y RI), mes puntual o último con actuals; soporta grupos (Globales/Hispa/TOTAL)
-  - **Ya NO usa `PnLManagerial`** (se removió del manifest): el mix pasó a la fuente contable
-    de `Dashboard_B2B_WLs` para que OC/GB y NR/GB salgan del mismo lugar que el resto del contable.
-  Se eligió reusar funciones públicas (sin `_` final) en vez de duplicar la lógica de
-  agregación, para que los números coincidan siempre con los de esas landings. Al
-  actualizar el código de alguna de ellas, hay que correr `clasp version` ahí y bumpear el
-  número en `lob_country_one_pager/appsscript.json`, si no el one-pager sigue sirviendo
-  la versión vieja. `getCountryMTD` (Daily) y `getB2BCanalProductoMix` (B2B WLs) son
-  funciones públicas agregadas **específicamente para este one-pager**.
-- **`executeAs: USER_DEPLOYING`** (a diferencia de `Dashboard_B2B_WLs`, que es
-  `USER_ACCESSING`): necesario porque las libraries corren con la identidad de quien
-  ejecuta el script TOP-LEVEL (no con la del dueño de cada proyecto-library), y
-  `P&L_Managerial`/`Daily_Dashboard` asumen `USER_DEPLOYING` porque sus JSONs de Drive no
-  están compartidos con todo el equipo — con `USER_ACCESSING` cualquier director sin
-  acceso directo a esos Drive files vería errores de permisos.
-- **Propósito**: vista tipo "country one pager" para la dirección comercial de un país
-  (hoy **solo B2B**; B2B2C queda como pestaña "próximamente"). Paneo ejecutivo que se enfoca
-  en **un mismo mes** (selector de mes: contable = actuals si el mes cerró, o Run Rate si no)
-  y dirige al detalle de otros tableros/agentes. Secciones:
-  - **Gestional** — GB/NR/FVM del mes, mostrando **GD y RI** juntos (Daily).
-  - **Contable** — GB/NR/OC del mes (actual o RR) + **gráfico evolutivo** mensual (GB/NR/OC con
-    toggle; Actual+RR / Budget / Last Year + crecimiento YoY) + **waterfalls** NR y OC vs Budget
-    (mismos que la sección B2B de `Dashboard_B2B_WLs`, misma función → coinciden siempre).
-  - **Mix Canal × Producto** — Pareto de GB por canal×producto (contable) con líneas de margen
-    NR/GB y OC/GB.
-  - Botones de drill-down (Daily, P&L, P&L Dashboard, Tableros de Hoteles/Vuelos) y sección de
-    **agentes IA** (BITUBOSS/BITUBIA/BITUBEE) para consultas.
-  - Selector de **país** con banderas, incluye **Globales** (bucket discreto "other countries",
-    excluye OPS/RG y Uruguay/Paraguay).
-  - Sin sección de OKR (el `okr.json` de `Inputs_Planning_PnL` solo filtra por LoB, no por país).
-- **Usuarios**: dirección comercial B2B por país (arranque: Globales)
-- **Deploy**: `cd lob_country_one_pager && clasp push --force` (el manifest tiene
-  `dependencies.libraries`, clasp pide `--force` para pushearlo) + `clasp deploy -i <id>`
-- **Script ID**: `1jApagpx41_eeLc3T51J_t3KUp7JqzA595rvV3mH3cEtDyTDkLT2gK9rp`
-- **Deployment id (prod)**: `AKfycbytMGsghl1TweKpYgMV2uhjTr--a9jpWkd2G3faZrF0DixD7UNu2qAq8Tbhlv_PCo0t`
+### OKR_Producto_B2B2C — OKRs Tribu Producto B2B2C
+- **Stack**: Python + GAS + HTML
+- **Trigger**: automático, Windows Task Scheduler, 08:00 hs (igual que Daily_Dashboard)
+- **Input**: Datalake Treasure Data (ODBC), Google Sheet P&L (KR6), JSONs de Drive de Inputs_Planning_PnL (KR6)
+- **Output**: `okr_data.js` embebido en el propio deployment GAS (no un JSON separado en Drive)
+- **Deploy**: `okr_sync.py` hace `clasp push --force` + `clasp deploy --deploymentId <fijo>` automáticamente al final de cada corrida
+- **Consumido por**: embebido como `<iframe>` en `Dashboard_B2B_WLs/dashboard.html` (`EXTERNAL_LINKS.okr.b2b2c`)
+- **Doc detallada**: [CLAUDE.md](./OKR_Producto_B2B2C/CLAUDE.md) · [SETUP.md](./OKR_Producto_B2B2C/SETUP.md)
 
 ## Credenciales
 
@@ -126,7 +85,7 @@ Todas las credenciales viven en `credenciales/` (gitignoreado). Ver cada módulo
 
 ## Estado actual
 
-- **En producción**: Daily_Dashboard, Dashboard_B2B_WLs, P&L_Accounting, P&L_Managerial, Manual_B2B_WLs, `lob_country_one_pager` (B2B, en prod desde 2026-09-17)
+- **En producción**: Daily_Dashboard, Dashboard_B2B_WLs, P&L_Accounting, P&L_Managerial, Manual_B2B_WLs, OKR_Producto_B2B2C
 - **En construcción (Fase 2)**: repuntear las landings de P&L y Dashboard_B2B_WLs a los JSONs canónicos de Inputs_Planning_PnL como fuente única (hoy algunas todavía leen de fuentes propias)
 
 ## Relación clasp ↔ GitHub
