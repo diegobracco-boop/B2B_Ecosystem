@@ -2915,11 +2915,26 @@ function renderStatusKRsH2DetailBoxes_(monthFilter) {
   grid.appendChild(makeBox('HTML FVM $M',            rowsFor('fvm',         isHTML, isHTML)));
   grid.appendChild(makeBox('New Products Growth $M', rowsFor('net_revenue', isNPa,  isNPb)));
 
-  var tbd = document.createElement('div');
-  tbd.className = 'kr-detail-box';
-  tbd.innerHTML = '<div class="kr-detail-header"><span class="kr-num-badge">Accelerate Recurrence</span></div>' +
-    '<div style="padding:14px;color:#9ca3af;font-style:italic;font-size:0.8rem">TBD — definición y datos pendientes.</div>';
-  grid.appendChild(tbd);
+  // Accelerate Recurrence — formato propuesto (datos pendientes de cálculo):
+  // agencias que compraron 1 / 2 / 3+ semanas distintas dentro del mes, por país.
+  var recBox = document.createElement('div');
+  recBox.className = 'kr-detail-box';
+  var recBuckets = ['1 semana', '2 semanas', '3 o más semanas'];
+  var recHead = '<thead><tr><th style="text-align:left;min-width:90px">País</th>' +
+    recBuckets.map(function(b){ return '<th>' + b + '</th>'; }).join('') + '</tr></thead>';
+  var recPlaceholder = recBuckets.map(function(){ return '<td style="color:#9ca3af">—</td>'; }).join('');
+  var recTotalRow = '<tr class="kr-detail-total"><td style="text-align:left;font-weight:700">TOTAL</td>' +
+    recBuckets.map(function(){ return '<td><strong style="color:#9ca3af">—</strong></td>'; }).join('') + '</tr>';
+  var recBodyRows = FVM_DETAIL.map(function(def){
+    return '<tr><td style="text-align:left">' + def.name + '</td>' + recPlaceholder + '</tr>';
+  }).join('');
+  recBox.innerHTML =
+    '<div class="kr-detail-header"><span class="kr-num-badge">Accelerate Recurrence</span>' +
+    '<span class="kr-warning-tag" title="Formato propuesto — cálculo de datos pendiente" style="margin-left:6px">datos TBD</span></div>' +
+    '<div style="padding:2px 2px 8px;color:#6b7280;font-size:0.72rem">Agencias que compraron 1 / 2 / 3+ semanas distintas en el mes, por país.</div>' +
+    '<table class="pivot-table kr-detail-table">' + recHead +
+    '<tbody>' + recTotalRow + recBodyRows + '</tbody></table>';
+  grid.appendChild(recBox);
 }
 
 // ─────────────────────────────────────────────
