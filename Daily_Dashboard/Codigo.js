@@ -1147,6 +1147,15 @@ function getAgenciasOKR() {
   // (los actuals vienen del JSON de Drive y deben seguir mostrándose).
   try { payload.budget = getBudgetAgencias_(); } catch (e) { payload.budget = {}; }
   try { payload.reales = getRealesAgencias_(); } catch (e) { payload.reales = {}; }
+  // Rango del KR1 (L4W): siempre dinámico = últimos 30 días terminando ayer
+  // (día en curso -1). Se sobreescribe acá para no depender del meta —posiblemente
+  // viejo— del JSON de Drive, que se genera fuera de este pipeline.
+  var tz  = Session.getScriptTimeZone();
+  var fin = new Date(); fin.setDate(fin.getDate() - 1);        // ayer
+  var ini = new Date(fin); ini.setDate(ini.getDate() - 30);    // 30 días antes de ayer
+  payload.meta = payload.meta || {};
+  payload.meta.fecha_ini = Utilities.formatDate(ini, tz, 'yyyy-MM-dd');
+  payload.meta.fecha_fin = Utilities.formatDate(fin, tz, 'yyyy-MM-dd');
   return payload;
 }
 
