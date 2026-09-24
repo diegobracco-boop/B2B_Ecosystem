@@ -1016,6 +1016,8 @@ function getOKRWeeklyB2B2C() {
 // ============================================================
 
 var AGENCIAS_JSON      = 'agencias_okr.json';
+var GLOBALES_KR_JSON   = 'globales_kr_targets.json'; // targets OKR H2 FY27 de "Global B2B API Hoteles"
+var GLOBALES_KR_CACHE  = 'globales_kr_v1';
 var BUDGET_SHEET_ID    = '1xm4VvoRUv7d1c_rcP1JYOgBNKczqXrAmtxoNCuCkiQE';
 var BUDGET_SHEET_NAME  = 'Slide 1 KR Agencias';
 var AIR_NR_SHEET_ID    = '1xm4VvoRUv7d1c_rcP1JYOgBNKczqXrAmtxoNCuCkiQE'; // mismo gdoc que agencias
@@ -1157,6 +1159,13 @@ function getAgenciasOKR() {
   payload.meta.fecha_ini = Utilities.formatDate(ini, tz, 'yyyy-MM-dd');
   payload.meta.fecha_fin = Utilities.formatDate(fin, tz, 'yyyy-MM-dd');
   return payload;
+}
+
+// Targets de los KRs de Globales ("Global B2B API Hoteles", H2 FY27). Datos en
+// Drive (globales_kr_targets.json), se definen una vez por semestre y se editan
+// a mano sin tocar código. El 'actual' de cada KR se cablea aparte (fuente TBD).
+function getGlobalesKRTargets() {
+  return loadFile_(GLOBALES_KR_JSON, GLOBALES_KR_CACHE);
 }
 
 // ============================================================

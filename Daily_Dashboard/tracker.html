@@ -888,6 +888,7 @@
   <div class="tab-separator"></div>
   <button class="tab-btn" data-tab="agencias">Status KRs H1</button>
   <button class="tab-btn" data-tab="agencias_h2">Status KRs H2</button>
+  <button class="tab-btn" data-tab="globales">KRs Globales</button>
 </div>
 
 <div class="country-filter-bar" id="countryFilterBar">
@@ -1156,6 +1157,27 @@
   </div>
 </div>
 
+<!-- Vista KRs Globales — Global B2B API Hoteles (targets H2 FY27) -->
+<div class="agencias-content" id="globalesContent">
+  <div class="tables-view-title" id="globalesTitle">KRs Globales — Global B2B API Hoteles</div>
+  <div id="globalesSpinner" class="spinner-wrap" style="height:200px;display:none">
+    <div class="spinner"></div><span>Cargando targets...</span>
+  </div>
+  <div id="globalesError" class="error-box"></div>
+  <div id="globalesWrap" style="display:none">
+    <div class="status-krs-meta" id="globalesMeta"></div>
+    <div class="table-block" style="width:100%;overflow:auto">
+      <table class="pivot-table" id="globalesTable">
+        <thead><tr id="globalesHead"></tr></thead>
+        <tbody id="globalesBody"></tbody>
+      </table>
+    </div>
+    <div style="font-size:0.78rem;color:#9ca3af;margin-top:10px">
+      Targets del OKR H2 FY27 (fuente: <em>globales_kr_targets.json</em>). Los KRs marcados <strong>*</strong> son critical, gestionados por TTPP (peso 0%). El <strong>actual</strong> y el <strong>cumplimiento</strong> se agregarán cuando definamos la fuente de cada métrica.
+    </div>
+  </div>
+</div>
+
 <div id="slideCover">
   <div class="slide-cover-title" id="slideCoverTitle"></div>
   <div class="slide-cover-subtitle" id="slideCoverSubtitle"></div>
@@ -1233,6 +1255,8 @@ let agenciasState = 'idle'; // idle | loading | loaded | error
 // 'Total' → agenciasData.budget['TOTAL'] (los subtotales por país se solapan, no sumar).
 let airNRData     = null;
 let airNRState    = 'idle'; // idle | loading | loaded | error
+let globalesData  = null;
+let globalesState = 'idle'; // idle | loading | loaded | error
 
 // ─────────────────────────────────────────────
 //  Helpers
@@ -2938,6 +2962,84 @@ function renderStatusKRsH2DetailBoxes_(monthFilter) {
 }
 
 // ─────────────────────────────────────────────
+//  KRs Globales — Global B2B API Hoteles (targets H2 FY27)
+// ─────────────────────────────────────────────
+function loadGlobales() {
+  if (globalesState === 'loading' || globalesState === 'loaded') return;
+  globalesState = 'loading';
+  google.script.run
+    .withSuccessHandler(function(data) {
+      globalesData  = data;
+      globalesState = 'loaded';
+      renderGlobales();
+    })
+    .withFailureHandler(function(err) {
+      globalesState = 'error';
+      renderGlobales();
+    })
+    .getGlobalesKRTargets();
+}
+
+function fmtGlobalTarget(v, unit) {
+  if (v === null || v === undefined || v === '') return '—';
+  if (unit === '$M') return '$' + v + 'M';
+  if (unit === 'Share %' || unit === '%') return v + '%';
+  return Number(v).toLocaleString('es-AR'); // # Partners / # Hoteles
+}
+
+function renderGlobales() {
+  var spinner = document.getElementById('globalesSpinner');
+  var wrap    = document.getElementById('globalesWrap');
+  var errEl   = document.getElementById('globalesError');
+  errEl.textContent = '';
+  errEl.style.display = 'none';
+
+  if (globalesState === 'idle' || globalesState === 'loading') {
+    spinner.style.display = 'flex'; wrap.style.display = 'none'; return;
+  }
+  spinner.style.display = 'none';
+
+  if (globalesState === 'error' || !globalesData || !globalesData.krs) {
+    wrap.style.display = 'none';
+    errEl.textContent = 'No se pudieron cargar los targets de Globales (globales_kr_targets.json en Drive).';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  var meta   = globalesData.meta || {};
+  var meses  = meta.meses || [];
+  var labels = meta.meses_label || meses;
+
+  var head = document.getElementById('globalesHead');
+  var h = '<th style="min-width:230px;text-align:left">KR</th>' +
+          '<th style="color:#6b7280">Peso</th><th>Unidad</th>';
+  labels.forEach(function(l){ h += '<th>' + l + '</th>'; });
+  head.innerHTML = h;
+
+  document.getElementById('globalesMeta').innerHTML =
+    '&#127760; ' + (meta.titulo || 'KRs Globales') +
+    (meta.periodo ? ' — <strong>' + meta.periodo + '</strong>' : '') +
+    (meta.actualizado ? ' · act. ' + meta.actualizado : '');
+
+  var body = document.getElementById('globalesBody');
+  body.innerHTML = '';
+  globalesData.krs.forEach(function(kr){
+    var tr = document.createElement('tr');
+    var peso = kr.critical_ttpp ? '0%*' : Math.round((kr.weight || 0) * 100) + '%';
+    var cells = '<td style="text-align:left">' + kr.name + '</td>' +
+                '<td style="color:#6b7280;font-size:0.78rem">' + peso + '</td>' +
+                '<td style="color:#6b7280;font-size:0.78rem">' + (kr.unit || '') + '</td>';
+    meses.forEach(function(ym){
+      var t = kr.targets ? kr.targets[ym] : null;
+      cells += '<td>' + fmtGlobalTarget(t, kr.unit) + '</td>';
+    });
+    tr.innerHTML = cells;
+    body.appendChild(tr);
+  });
+  wrap.style.display = 'block';
+}
+
+// ─────────────────────────────────────────────
 //  Render dispatcher
 // ─────────────────────────────────────────────
 function setAgenciasFilters(show) {
@@ -2955,12 +3057,14 @@ function render() {
   const isTablesView    = activeTab === 'tables_gd' || activeTab === 'tables_ri';
   const isAgenciasView  = activeTab === 'agencias';
   const isAgenciasH2View= activeTab === 'agencias_h2';
+  const isGlobalesView  = activeTab === 'globales';
   const isWeeklyView    = activeTab === 'weekly_gd' || activeTab === 'weekly_ri';
 
   // La vista split solo se usa en modo Slides; en render normal siempre se oculta.
   document.getElementById('splitContent').classList.remove('visible');
   document.getElementById('agenciasContent').classList.toggle('visible', isAgenciasView);
   document.getElementById('agenciasH2Content').classList.toggle('visible', isAgenciasH2View);
+  document.getElementById('globalesContent').classList.toggle('visible', isGlobalesView);
   document.getElementById('weeklyContent').classList.toggle('visible', isWeeklyView);
 
   if (isAgenciasView) {
@@ -2978,6 +3082,15 @@ function render() {
     document.getElementById('mainContent').classList.remove('visible');
     document.getElementById('tablesContent').classList.remove('visible');
     renderStatusKRsH2();
+    return;
+  }
+
+  if (isGlobalesView) {
+    setAgenciasFilters(true);
+    document.getElementById('mainContent').classList.remove('visible');
+    document.getElementById('tablesContent').classList.remove('visible');
+    if (globalesState === 'idle') loadGlobales();
+    renderGlobales();
     return;
   }
 
