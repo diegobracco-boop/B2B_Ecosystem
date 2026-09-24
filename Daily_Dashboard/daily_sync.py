@@ -17,6 +17,7 @@ import os
 import json
 import gzip
 import base64
+import time
 from pathlib import Path
 import warnings
 from datetime import date, timedelta, datetime
@@ -101,7 +102,7 @@ def conectar():
 
 COLS_ACTUALS = [
     "fecha", "pais", "productooriginal", "channel", "partner", "viaje",
-    "account_type", "region",
+    "account_type", "region", "tier",
     "orders", "gross_bookings", "net_revenues", "fvm"
 ]
 
@@ -149,6 +150,7 @@ SELECT
     END AS viaje,
     COALESCE(di.stage, 'Unknown') AS account_type,
     COALESCE(di.region, 'Unknown') AS region,
+    COALESCE(di.estatus_tier, 'Unknown') AS tier,
     COUNT(DISTINCT t.transaction_code) AS orders,
     SUM(CASE WHEN t.channel IN ('yavas-callcenter','yavas-wl','yavas-agencias')
               AND t.purchase_type IN ('Carrito','Hoteles','Alquileres','Vuelos')
@@ -238,7 +240,8 @@ LEFT JOIN (
         partner_id,
         MAX(partner_homologado_2) AS partner_homologado_2,
         MAX(stage)                AS stage,
-        MAX(region)               AS region
+        MAX(region)               AS region,
+        MAX(estatus_tier)         AS estatus_tier
     FROM raw.comdev_cartera_b2b2c_historic
     WHERE partner_id IS NOT NULL AND LOWER(is_current) = 'true'
     GROUP BY partner_id
@@ -265,7 +268,7 @@ WHERE pnl.date_reservation_year_month >= '2023-01'
   AND t.confirmation_date <= DATE('{date_to}')
   AND p.is_confirmed_flg = 1
   AND t.line_of_business = 'B2B2C'
-GROUP BY 1, 2, 3, 4, 5, 6, 7, 8
+GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9
 ),
 
 with_ps AS (
@@ -298,7 +301,7 @@ with_ps AS (
 )
 
 SELECT
-    fecha, pais, productooriginal, channel, partner, viaje, account_type, region,
+    fecha, pais, productooriginal, channel, partner, viaje, account_type, region, tier,
     orders,
     gross_bookings,
     net_revenues,
@@ -316,9 +319,9 @@ SELECT * FROM raw.b2b_budget_gd
 WHERE lob_canal IN ('B2B2C-ON', 'B2B2C-OFF', 'B2B2C-CALL CENTER')
 """
 
-# Stage para budget: join por partner_homologado_2 (igual que la query de KRs)
+# Stage/tier para budget: join por partner_homologado_2 (igual que la query de KRs)
 CARTERA_QUERY = """
-SELECT partner_homologado_2, MAX(stage) AS stage
+SELECT partner_homologado_2, MAX(stage) AS stage, MAX(estatus_tier) AS estatus_tier
 FROM raw.comdev_cartera_b2b2c_historic
 WHERE partner_homologado_2 IS NOT NULL
   AND LOWER(is_current) = 'true'
@@ -1751,13 +1754,28 @@ def agg_b2c(df: pd.DataFrame) -> pd.DataFrame:
 # 4) FETCH & CLEAN
 # ==============================================================================
 
-def fetch(query: str, label: str) -> pd.DataFrame:
+def fetch(query: str, label: str, retries: int = 3) -> pd.DataFrame:
+    """Reintenta con conexion nueva ante cortes transitorios de red/VPN hacia el
+    Datalake (visto 2026-09-24: 'abandoned by client', 'Failure when receiving
+    data from the peer', fallos de SSL handshake — todos intermitentes, no
+    reproducibles con la misma query/conexion; una conexion nueva los resuelve)."""
     print(f"  > {label} ...")
-    con = conectar()
-    df  = pd.read_sql(query, con)
-    con.close()
-    print(f"  OK {len(df):,} filas")
-    return df
+    last_err = None
+    for attempt in range(1, retries + 1):
+        try:
+            con = conectar()
+            try:
+                df = pd.read_sql(query, con)
+            finally:
+                con.close()
+            print(f"  OK {len(df):,} filas" + (f" (intento {attempt})" if attempt > 1 else ""))
+            return df
+        except Exception as e:
+            last_err = e
+            if attempt < retries:
+                print(f"  WARN {label} intento {attempt} fallo ({e}); reintentando...")
+            time.sleep(5)
+    raise last_err
 
 
 def clean_actuals(df: pd.DataFrame) -> pd.DataFrame:
@@ -1783,7 +1801,7 @@ def clean_budget(df: pd.DataFrame) -> pd.DataFrame:
 
 def agg_actuals(df: pd.DataFrame) -> pd.DataFrame:
     return df.groupby(
-        ["fecha", "pais", "productooriginal", "partner", "account_type", "region"], as_index=False
+        ["fecha", "pais", "productooriginal", "partner", "account_type", "region", "tier"], as_index=False
     ).agg(
         orders        =("orders",        "sum"),
         gross_bookings=("gross_bookings", "sum"),
@@ -1824,6 +1842,8 @@ def agg_budget(df: pd.DataFrame) -> pd.DataFrame:
     group_cols = ["fecha", "pais", "producto", "partner"]
     if "stage" in df.columns:
         group_cols.append("stage")
+    if "tier" in df.columns:
+        group_cols.append("tier")
     return df.groupby(group_cols, as_index=False).agg(
         orders        =("orders",         "sum"),
         gross_bookings=("gross_bookings",  "sum"),
@@ -1936,22 +1956,34 @@ def _map_stage(partner_series: pd.Series, cmap: dict) -> pd.Series:
     return partner_series.astype(str).str.strip().str.lower().map(cmap).fillna("Existing")
 
 
-print("\n--- Cartera (stage para budget) ---")
+def _map_tier(partner_series: pd.Series, tmap: dict) -> pd.Series:
+    """Idem _map_stage pero para estatus_tier (join por nombre de partner normalizado)."""
+    return partner_series.astype(str).str.strip().str.lower().map(tmap).fillna("Unknown")
+
+
+print("\n--- Cartera (stage/tier para budget) ---")
 cartera_map = {}
+tier_map = {}
 try:
     df_cartera = fetch(CARTERA_QUERY, "Cartera")
     cartera_map = {
         str(k).strip().lower(): v
         for k, v in zip(df_cartera["partner_homologado_2"], df_cartera["stage"])
     }
+    tier_map = {
+        str(k).strip().lower(): v
+        for k, v in zip(df_cartera["partner_homologado_2"], df_cartera["estatus_tier"])
+    }
     # Overrides de negocio (la cartera de ComDev no los marca New, el equipo si):
     for _p in FORCE_NEW_PARTNERS:
         cartera_map[_p] = "New"
     df_budget["stage"] = _map_stage(df_budget["partner"], cartera_map)
+    df_budget["tier"]  = _map_tier(df_budget["partner"], tier_map)
     print(f"  Hunting: {(df_budget['stage']=='Existing').sum():,} filas | Farming: {(df_budget['stage']=='New').sum():,} filas")
 except Exception as e:
     print(f"  WARN cartera query failed: {e}")
     df_budget["stage"] = "Existing"
+    df_budget["tier"]  = "Unknown"
 
 print("\n--- B2B GD ---")
 df_b2b_gd    = clean_b2b(fetch(build_b2b_gd_query(ACTUALS_FROM, YESTERDAY), "B2B GD actuals"))
@@ -1988,6 +2020,7 @@ try:
     df_b2bc_rr = clean_budget(fetch(B2B2C_RR_QUERY, "B2B2C Run Rate"))
     if not df_b2bc_rr.empty and 'partner' in df_b2bc_rr.columns:
         df_b2bc_rr["stage"] = _map_stage(df_b2bc_rr["partner"], cartera_map)
+        df_b2bc_rr["tier"]  = _map_tier(df_b2bc_rr["partner"], tier_map)
 except Exception as e:
     print(f"  WARN B2B2C RR query failed: {e}")
     df_b2bc_rr = pd.DataFrame()

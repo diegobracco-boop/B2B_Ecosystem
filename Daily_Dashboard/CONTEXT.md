@@ -8,7 +8,6 @@ Script Python que corre diariamente y publica los datos operativos de B2B2C y B2
 - **`dashboard.html` / `dashboard_weekly.html`** — frontend GAS que lee los JSON de Drive y los presenta al equipo.
 - **`Codigo.js`** — Apps Script backend del dashboard.
 - **`auth_drive.py`** — setup inicial de credenciales OAuth Drive (correr una sola vez por persona).
-- **`tier_sync.py`** — script standalone, independiente de `daily_sync.py`. Trae el mapeo partner→tier desde el Datalake y sube `partner_tiers.json` a la misma carpeta de Drive. Solo lo consume el tab **"Flow Semanal"** de `dashboard.html` (filtro por tier, vía `Codigo.js:getPartnerTiers()`). No corre automático — hay que ejecutarlo a mano (`python tier_sync.py`) cuando haga falta refrescar la clasificación.
 
 ## Flujo de datos
 
@@ -39,6 +38,10 @@ Las credenciales OAuth de Drive (`credentials_drive.json` + `token_drive.json`) 
 3. Obtener `credentials_drive.json` de Google Cloud Console (proyecto DailyDashboard, OAuth desktop)
 4. Correr `python auth_drive.py` — abre el navegador, autorizás una vez, queda guardado en `token_drive.json`
 5. Programar `daily_sync.py` en Windows Task Scheduler: diariamente a las 08:00
+
+## Tier de partners (B2B2C)
+
+Cada fila B2B2C (`actuals`/`budget`/`runrate`) trae el campo `tier` (desde `raw.comdev_cartera_b2b2c_historic.estatus_tier`, joineado por partner en `daily_sync.py`). El tab "Flow Semanal" de `dashboard.html` lo lee directo de los datos (filtro por Tier) — no depende de ningún archivo ni script aparte.
 
 ## Gotchas
 

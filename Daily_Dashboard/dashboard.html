@@ -3927,6 +3927,7 @@ var FLOW_DECK = [
   {kind:'okr', metric:'gb', name:'OKR L2 — Gross Bookings'},
   {kind:'okr', metric:'nr', name:'OKR L2 — Net Revenues'},
   {kind:'okr', metric:'fvm', name:'OKR L2 — FVM'},
+  {kind:'b2b2c_krs', name:'B2B2C — Status KRs'},
   {kind:'divider', region:'BR', name:'— Brasil —'},
   {kind:'monthly', region:'BR', name:'Brasil — Mensual'},
   {kind:'daily', region:'BR', metric:'nr', name:'Brasil — NR diario'},
@@ -3942,6 +3943,7 @@ var FLOW_DECK = [
   {kind:'daily', region:'SAH', metric:'nr', name:'Hispa — NR diario'},
   {kind:'daily', region:'SAH', metric:'fvm', name:'Hispa — FVM diario'},
   {kind:'tables', region:'SAH', name:'Hispa — Tablas GB/NR/FVM'},
+  {kind:'tables', region:'SAH', tier:true, name:'Hispa — Tablas GB/NR/FVM por Tier'},
   {kind:'divider', flag:'WK', title:'Weekly Summary', name:'— Weekly —'},
   {kind:'weekly', lob:'B2B+B2B2C', view:'GD', name:'Weekly — B2B+B2B2C (GD)'},
   {kind:'weekly', lob:'B2B+B2B2C', view:'RI', name:'Weekly — B2B+B2B2C (RI)'},
@@ -3982,20 +3984,19 @@ function flowMonthName_(vDate){
 function flowRegionRaw_(regionKey){
   if(!regionKey && !_flowTier) return _rawB2BC;
   function f(arr){ return (arr||[]).filter(function(r){
-    return (!regionKey || getRegion_(r.pais)===regionKey) && (!_flowTier || getPartnerTier_(r.partner)===_flowTier);
+    return (!regionKey || getRegion_(r.pais)===regionKey) && (!_flowTier || (r.tier||'Unknown')===_flowTier);
   }); }
   return { actuals:f(_rawB2BC.actuals), actuals_ly:f(_rawB2BC.actuals_ly),
            budget:f(_rawB2BC.budget), runrate:f(_rawB2BC.runrate), meta:_rawB2BC.meta };
 }
-// ── Tier de partner (fuente separada: partner_tiers.json, solo para Flow Semanal) ──
-var _partnerTierMap = null;   // null = aún no cargado; {} = cargado (puede estar vacío)
+// ── Tier de partner: viaja inline en cada fila (campo "tier", desde
+// raw.comdev_cartera_b2b2c_historic.estatus_tier, ver daily_sync.py) — ya no
+// depende de partner_tiers.json / tier_sync.py (deprecado, ver CONTEXT.md). ──
 var _flowTier = null;         // tier seleccionado, o null = todos
-function getPartnerTier_(partner){
-  if(!_partnerTierMap) return 'Sin clasificar';
-  return _partnerTierMap[String(partner||'').toLowerCase()] || 'Sin clasificar';
-}
 function getTiers_(){
-  var s={}; Object.keys(_partnerTierMap||{}).forEach(function(k){ s[_partnerTierMap[k]]=1; });
+  var s={};
+  (_rawB2BC&&_rawB2BC.actuals||[]).forEach(function(r){ s[r.tier||'Unknown']=1; });
+  (_rawB2BC&&_rawB2BC.budget||[]).forEach(function(r){ s[r.tier||'Unknown']=1; });
   return Object.keys(s).sort();
 }
 function flowPopulateTiers_(){
@@ -4060,7 +4061,7 @@ function flowDaily_(subRaw, metricKey, compKey){
 // grouped MTD table region→país / país→partner (comp: 'budget'|'runrate'|'ly'). childMax=0 hides children.
 // topMax limita las filas de nivel superior (país, cuando groupByRegion=false) — antes no tenía
 // límite ni aviso: si no entraban en el slide (720px, overflow hidden) desaparecían sin indicio.
-function flowGroupTable_(subRaw, metricKey, comp, col1, groupByRegion, childMax, topMax){
+function flowGroupTable_(subRaw, metricKey, comp, col1, groupByRegion, childMax, topMax, keyBy){
   // Al imprimir/exportar a PDF no hay forma de scrollear ni de "+N mas" —
   // se muestra la lista completa sin cap (childMax/topMax explicitos, ej. el
   // childMax=0 del slide cover, siguen respetandose igual).
@@ -4070,7 +4071,7 @@ function flowGroupTable_(subRaw, metricKey, comp, col1, groupByRegion, childMax,
   var lyMode=(comp==='ly'), lyMS=_flLY_(mStart), lyVD=_flLY_(vDate);
   var MF=_FLMF[metricKey], cmpArr=_flCompArr_(subRaw,comp), cmpF=_flCompField_(metricKey,comp);
   var G={};
-  function gk(r){ return groupByRegion ? getRegion_(r.pais) : (r.pais||'Other'); }
+  function gk(r){ return keyBy==='tier' ? (r.tier||'Unknown') : groupByRegion ? getRegion_(r.pais) : (r.pais||'Other'); }
   function ck(r){ return groupByRegion ? (r.pais||'Other') : (r.partner||'Other'); }
   function grp(k){ G[k]=G[k]||{base:0,goal:0,ch:{}}; return G[k]; }
   function chi(k,c){ var g=grp(k); g.ch[c]=g.ch[c]||{base:0,goal:0}; return g.ch[c]; }
@@ -4097,6 +4098,28 @@ function flowGroupTable_(subRaw, metricKey, comp, col1, groupByRegion, childMax,
   if(orderFull.length>order.length){ body+='<tr class="fl-more"><td>+'+(orderFull.length-order.length)+' más</td><td colspan="3"></td></tr>'; }
   body+='<tr class="tot"><td>Total</td><td>'+fmtShort(TB)+'</td>'+cell(TB-TG)+pctCell(TB,TG)+'</tr>';
   return '<table class="fl-tbl"><thead><tr><th>'+(col1||'Región / País')+'</th><th>Baseline</th><th>Delta [$]</th><th>Delta [%]</th></tr></thead><tbody>'+body+'</tbody></table>';
+}
+
+// Suma actual/comparación MTD para el slide 'b2b2c_krs', filtrando por
+// stage (New/Existing/'all') y opcionalmente por región. account_type
+// (actuals) y stage (budget/runrate) son el mismo concepto con nombre de
+// columna distinto según la fuente (ver daily_sync.py: di.stage / _map_stage).
+function flowKRSum_(subRaw, stageWant, metricKey, comp, regionKey){
+  var vDate=flowVDate_(), mStart=vDate.substring(0,7)+'-01';
+  var lyMode=(comp==='ly'), lyMS=_flLY_(mStart), lyVD=_flLY_(vDate);
+  var MF=_FLMF[metricKey], cmpArr=_flCompArr_(subRaw,comp), cmpF=_flCompField_(metricKey,comp);
+  function want(r){
+    var isNew=((r.account_type!==undefined ? r.account_type : r.stage)==='New');
+    var stageOk=(stageWant==='all') ? true : (stageWant==='New' ? isNew : !isNew);
+    return stageOk && (!regionKey || getRegion_(r.pais)===regionKey);
+  }
+  var act=0, bud=0;
+  (subRaw.actuals||[]).forEach(function(r){ if(r.fecha<mStart||r.fecha>vDate||!want(r)) return; act+=(r[MF]||0); });
+  cmpArr.forEach(function(r){
+    if(lyMode){ if(r.fecha<lyMS||r.fecha>lyVD) return; } else if(r.fecha<mStart||r.fecha>vDate){ return; }
+    if(!want(r)) return; bud+=(r[cmpF]||0);
+  });
+  return {actual:act, budget:bud};
 }
 
 // Igual que fmt() global pero con 1 decimal (fmt() usa 2) — el resto de Flow
@@ -4213,11 +4236,12 @@ function flowBuildSlide_(def, idx){
   }
   if(def.kind==='tables'){
     var region=def.region, sub=flowRegionRaw_(region);
-    var titleTxt=mesLbl+' | B2B2C '+FLOW_RG[region].label+' — GB/NR/FVM Performance MTD';
+    var byTier=!!def.tier, col1Lbl=byTier?'Tier / Partner':'País / Partner';
+    var titleTxt=mesLbl+' | B2B2C '+FLOW_RG[region].label+(byTier?' (por Tier)':'')+' — GB/NR/FVM Performance MTD';
     var brand='<span class="fl-flag">'+FLOW_RG[region].flag+'</span>'+flLogo_();
     function triple(comp,tag,color){
       var cells=['gb','nr','fvm'].map(function(mk){
-        return '<div class="fl-scroll-tbl" style="flex:1;min-width:0;min-height:0;overflow-y:auto"><div class="fl-tag" style="background:'+color+'">'+FLOW_MET[mk].short+'</div>'+flowGroupTable_(sub,mk,comp,'País / Partner',false)+'</div>';
+        return '<div class="fl-scroll-tbl" style="flex:1;min-width:0;min-height:0;overflow-y:auto"><div class="fl-tag" style="background:'+color+'">'+FLOW_MET[mk].short+'</div>'+flowGroupTable_(sub,mk,comp,col1Lbl,false,undefined,undefined,byTier?'tier':undefined)+'</div>';
       }).join('');
       return '<div style="flex:1;min-width:0;min-height:0;display:flex;flex-direction:column">'
         +'<div style="font-size:12px;font-weight:800;color:var(--fl-purple);margin-bottom:3px">'+tag+'</div>'
@@ -4231,6 +4255,35 @@ function flowBuildSlide_(def, idx){
       +triple(primary,'vs '+FLOW_COMP[primary].label,'#5626e9')
       +triple(secondary,'vs '+FLOW_COMP[secondary].label,'#8e5ff3')+'</div>';
     return '<div class="flow-slide">'+flHead_(titleTxt, brand)+body+'</div>';
+  }
+  if(def.kind==='b2b2c_krs'){
+    // Status KRs B2B2C: New/Existing Account NR + FVM, MTD vs cmp seleccionado
+    // (Budget/Run Rate/LY, mismo toggle que el resto de Flow Semanal), con
+    // apertura por región (Brasil/MX-US/Hispa) igual que la slide 15 de la PPT.
+    // "Sign New Partnership" queda afuera: es conteo manual de CRM (ver slide
+    // 16), no existe en ninguna fuente automatizada (igual que KR1 en el
+    // OKR_Producto_B2B2C, que también lo declara simulado/manual).
+    var titleTxt=mesLbl+' | B2B2C — Status KRs MTD vs '+cmpLbl;
+    var rowsDef=[
+      {label:'New Account Net Revenues',      metric:'nr',  stage:'New'},
+      {label:'Existing Account Net Revenues', metric:'nr',  stage:'Existing'},
+      {label:'Financial Variable Margin',     metric:'fvm', stage:'all'}
+    ];
+    var regions=['BR','NAM','SAH'];
+    function pctOf(a,b){ return b ? (a/b)*100 : null; }
+    function cumplCell(a,b){ var p=pctOf(a,b); return '<td class="'+(p!=null&&p>=100?'fl-pos':'fl-neg')+'">'+(p==null?'—':Math.round(p)+'%')+'</td>'; }
+    var body='';
+    rowsDef.forEach(function(rd){
+      var tot=flowKRSum_(_rawB2BC,rd.stage,rd.metric,cmp,null);
+      body+='<tr class="grp"><td style="text-align:left">'+rd.label+'</td><td>'+flFmt_(tot.actual)+'</td><td>'+flFmt_(tot.budget)+'</td>'+cumplCell(tot.actual,tot.budget)+'</tr>';
+      regions.forEach(function(rg){
+        var s=flowKRSum_(_rawB2BC,rd.stage,rd.metric,cmp,rg);
+        body+='<tr><td style="text-align:left">&nbsp;&nbsp;'+FLOW_RG[rg].label+'</td><td>'+flFmt_(s.actual)+'</td><td>'+flFmt_(s.budget)+'</td>'+cumplCell(s.actual,s.budget)+'</tr>';
+      });
+    });
+    var tableHtml='<table class="fl-tbl"><thead><tr><th>KR</th><th>Actual MTD</th><th>Budget MTD</th><th>Cumpl.</th></tr></thead><tbody>'+body+'</tbody></table>';
+    var bodyHtml='<div class="fl-body"><div class="fl-scroll-tbl" style="height:100%;overflow-y:auto">'+tableHtml+'</div></div>';
+    return '<div class="flow-slide">'+flHead_(titleTxt, flLogo_())+bodyHtml+'</div>';
   }
   if(def.kind==='weekly'){
     var lob=def.lob, view=def.view;
@@ -4954,7 +5007,6 @@ function flowScale_(){
   var warn=document.getElementById('flow-zoom-warn');
   if(warn) warn.style.display=(s<0.85)?'':'none';
 }
-var _tierLoading = false;
 // Los slides "weekly" reusan _wsCache (misma cache que la vista nativa "Weekly") —
 // si el usuario ya visitó esa vista antes, esto no pega ningún fetch nuevo. Los
 // combos que falten se piden una sola vez; no dependen de mes/comp/tier de Flow,
@@ -4983,24 +5035,6 @@ function flowFetchWeeklyData_(cb){
   });
 }
 function flowOpen_(){
-  if(_partnerTierMap===null){
-    document.getElementById('flow-track').innerHTML='<div style="padding:60px;text-align:center;color:#6b6b85;font-size:16px">Cargando tiers…</div>';
-    if(!_tierLoading){
-      _tierLoading=true;
-      google.script.run.withSuccessHandler(function(raw){
-        _partnerTierMap={};
-        (raw&&raw.rows||[]).forEach(function(r){ _partnerTierMap[String(r[0]).toLowerCase()]=r[1]; });
-        _tierLoading=false;
-        flowOpen_();
-      }).withFailureHandler(function(err){
-        _partnerTierMap={};
-        _tierLoading=false;
-        console.error('No se pudo cargar partner_tiers.json — el filtro de Tier queda vacío:', err);
-        flowOpen_();
-      }).getPartnerTiers();
-    }
-    return;
-  }
   if(!_flowWeeklyReady){
     document.getElementById('flow-track').innerHTML='<div style="padding:60px;text-align:center;color:#6b6b85;font-size:16px">Cargando datos semanales…</div>';
     flowFetchWeeklyData_(function(){ _flowWeeklyReady=true; flowOpen_(); });
