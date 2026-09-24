@@ -6455,6 +6455,9 @@ function insRender(tab) {
 .cierre-loading{color:#5457D9;font-size:15px;padding:60px;font-weight:600;text-align:center}
 .cierre-slide{background:#fff;width:1120px;max-width:100%;border-radius:10px;box-shadow:0 4px 18px rgba(0,0,0,.14);padding:26px 30px;box-sizing:border-box}
 .cierre-slide-title{font-size:19px;font-weight:800;color:#2D2A6E;margin:0 0 16px;padding-bottom:10px;border-bottom:3px solid #5457D9}
+/* Se captura sola para el export (ver _cierreCaptureSlideImages_) — padding propio
+   chico para que el contenido no quede pegado al borde de la imagen resultante. */
+.cierre-slide-body{padding:2px 2px 6px}
 .cierre-headline{font-size:14px;font-weight:700;padding:9px 14px;border-radius:8px;margin:0 0 14px}
 .cierre-hl-pos{background:#eafaf0;color:#16a34a}
 .cierre-hl-neg{background:#fdecea;color:#c0392b}
@@ -6552,7 +6555,11 @@ function _cierreDividerHTML_(title, subtitle){
        + '</div>';
 }
 function _cierreSlide(title, inner){
-  return '<div class="cierre-slide"><div class="cierre-slide-title">'+title+'</div>'+inner+'</div>';
+  // .cierre-slide-body separado del título — 2026-09-24: para el export a Slides el
+  // título sale como cuadro de texto nativo editable (ver _cierreCaptureSlideImages_ /
+  // buildCierreSlidesDeck), no horneado en la imagen. Así además la imagen (gráfico +
+  // tabla) usa más alto de página real, en vez de compartirlo con el título.
+  return '<div class="cierre-slide"><div class="cierre-slide-title">'+title+'</div><div class="cierre-slide-body">'+inner+'</div></div>';
 }
 
 // Post-proceso 2026-09-24: la tabla de países de Evolutivos (evo-yoy-tbl, pensada para
@@ -6682,16 +6689,21 @@ function _cierreNextFrame_(){
     requestAnimationFrame(function(){ requestAnimationFrame(resolve); });
   });
 }
+// 2026-09-24: agrandado 1040x430→1280x520 y scale 2→3 (a pedido de Diego: en Slides
+// los charts de Evolutivos/Bridge se veían chicos/poco nítidos). Con el título ahora
+// afuera de la imagen (cuadro de texto nativo, ver _cierreSlide/buildCierreSlidesDeck)
+// hay más alto de página disponible para la imagen — vale la pena que el chart entre
+// con más resolución de base en vez de agrandarse solo al estirar una imagen chica.
 function _cierreCanvasImg_(chart, canvasId, w, h){
   var el = document.getElementById(canvasId);
   if (!chart || !el) return Promise.resolve('');
   try {
     chart.options.responsive = false;
     chart.options.animation  = false;
-    chart.resize(w || 1040, h || 430);
+    chart.resize(w || 1280, h || 520);
   } catch (e) {}
   return _cierreNextFrame_().then(function(){
-    return html2canvas(el, { scale:2, backgroundColor:'#ffffff' });
+    return html2canvas(el, { scale:3, backgroundColor:'#ffffff' });
   }).then(function(canvas){ return canvas.toDataURL('image/png'); })
     .catch(function(e){ if (window.console) console.error('[cierre] canvas capture', canvasId, e); return ''; });
 }
@@ -6894,11 +6906,23 @@ function _cierreGenerate(){
 // país salen de flagcdn.com (cross-origin) — si ese host no manda CORS, ESA captura
 // puntual puede fallar; se resuelve a null y buildCierreSlidesDeck la saltea en vez de
 // tirar abajo el export entero.
+// 2026-09-24: si la slide tiene .cierre-slide-title (todas menos los divisores), se
+// captura SOLO .cierre-slide-body (sin el título) y el texto del título se manda aparte
+// — buildCierreSlidesDeck lo inserta como cuadro de texto nativo editable en Slides, y
+// usa el alto que el título ya no ocupa para agrandar la imagen (gráfico/tabla). Los
+// divisores no tienen .cierre-slide-body → se capturan enteros, como antes (su "título"
+// es parte del diseño de la carátula, no un texto plano para editar aparte).
 function _cierreCaptureSlideImages_(){
   var els = Array.prototype.slice.call(document.querySelectorAll('#cierre-body .cierre-slide'));
   return Promise.all(els.map(function(el){
-    return html2canvas(el, { scale:2, useCORS:true, backgroundColor:'#ffffff' })
-      .then(function(canvas){ return { img: canvas.toDataURL('image/png'), w: canvas.width, h: canvas.height }; })
+    var titleEl   = el.querySelector('.cierre-slide-title');
+    var bodyEl    = el.querySelector('.cierre-slide-body');
+    var captureEl = bodyEl || el;
+    return html2canvas(captureEl, { scale:2, useCORS:true, backgroundColor:'#ffffff' })
+      .then(function(canvas){
+        return { img: canvas.toDataURL('image/png'), w: canvas.width, h: canvas.height,
+                 title: titleEl ? titleEl.textContent : null };
+      })
       .catch(function(e){ console.error('[cierre] no se pudo capturar una slide para Google Slides', e); return null; });
   }));
 }

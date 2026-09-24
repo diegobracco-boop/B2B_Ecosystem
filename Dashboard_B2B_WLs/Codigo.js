@@ -1486,7 +1486,14 @@ function buildCierreSlidesDeck(payload) {
   // _cierreDividerHTML_ en dashboard.html los arma con la misma clase .cierre-slide,
   // así que _cierreCaptureSlideImages_ los captura igual que al resto). Acá no hay que
   // distinguir divisor de slide real, solo insertar cada imagen en su propia slide.
-  var margin = 30;
+  //
+  // 2026-09-24: entry.title (si viene — no viene en los divisores, que no tienen
+  // .cierre-slide-title separado) se inserta como cuadro de texto NATIVO editable en
+  // vez de venir horneado en la imagen (antes _cierreCaptureSlideImages_ capturaba
+  // .cierre-slide entero, título incluido) — a pedido de Diego, para poder retocar
+  // cualquier título en Slides sin regenerar. El resto de la altura de página, la que
+  // el título deja libre, queda para la imagen (gráfico/tabla) — ver TITLE_H.
+  var margin = 30, TITLE_H = 46;
   images.forEach(function(entry) {
     var slide = pres.appendSlide(SlidesApp.PredefinedLayout.BLANK);
     if (!entry || !entry.img) {
@@ -1494,15 +1501,22 @@ function buildCierreSlidesDeck(payload) {
            .getText().getTextStyle().setFontSize(14).setForegroundColor('#C0392B');
       return;
     }
+    var titleTop = margin;
+    if (entry.title) {
+      var tb = slide.insertTextBox(entry.title, margin, titleTop, w - margin*2, TITLE_H);
+      tb.getText().getTextStyle().setFontSize(20).setBold(true).setForegroundColor('#2D2A6E');
+      tb.getBorder().setTransparent();
+    }
+    var imgTop = titleTop + (entry.title ? TITLE_H + 8 : 0);
     var b64  = String(entry.img).replace(/^data:image\/png;base64,/, '');
     var blob = Utilities.newBlob(Utilities.base64Decode(b64), 'image/png', 'slide.png');
-    // Ajusta al área disponible preservando el aspect ratio real de la captura
-    // (las slides no miden todas lo mismo: la de YTD+H1 es más alta que las demás).
-    var availW = w - margin*2, availH = h - margin*2;
+    // Ajusta al área disponible (debajo del título, si hay) preservando el aspect
+    // ratio real de la captura (las slides no miden todas lo mismo).
+    var availW = w - margin*2, availH = h - imgTop - margin;
     var ratio  = entry.w && entry.h ? entry.w/entry.h : (availW/availH);
     var imgW = availW, imgH = imgW/ratio;
     if (imgH > availH) { imgH = availH; imgW = imgH*ratio; }
-    var left = (w - imgW)/2, top = (h - imgH)/2;
+    var left = (w - imgW)/2, top = imgTop + (availH - imgH)/2;
     slide.insertImage(blob, left, top, imgW, imgH);
   });
 
