@@ -1695,6 +1695,22 @@ function yoyColor(val) {
   return val < 0 ? 'cell-neg' : 'cell-pos';
 }
 
+// Celda YoY con fallback a delta absoluto: cuando el LY es <= 0 el ratio
+// (act/ly - 1) es engañoso — invierte el signo y explota el % (ej. de -$7K a
+// +$24K daría "-442%"). En ese caso mostramos el crecimiento en absoluto
+// (act - ly) con flecha, en la unidad de la métrica. Si LY > 0, YoY % normal.
+function yoyCellHtml(act, ly, convert, fmt) {
+  if (ly === null || ly === undefined || isNaN(ly)) return '<td>' + yoyIcon(null) + '</td>';
+  if (ly > 0) {
+    var r = (act / ly) - 1;
+    return '<td class="' + yoyColor(r) + '">' + yoyIcon(r) + '</td>';
+  }
+  var dv    = convert(act - ly);
+  var arrow = dv > 0 ? '▲' : (dv < 0 ? '▼' : '▶');
+  return '<td class="' + deltaColor(dv) + '" title="Crecimiento YoY en absoluto (base LY ≤ 0: el % no aplica)">' +
+         arrow + ' ' + fmt(Math.abs(dv)) + '</td>';
+}
+
 // ─────────────────────────────────────────────
 //  Pivot table renderer (sidebar, collapsible)
 // ─────────────────────────────────────────────
@@ -1738,7 +1754,7 @@ function renderPivot(tab, channel, countryGroup, monthFilter) {
       <td>${fmt(convert(ctAct))}</td>
       <td class="${deltaColor(ctDelta)}">${fmt(ctDelta)}</td>
       <td class="${cumplColor(ctCumpl)}">${fmtPct(ctCumpl)}</td>
-      <td class="${yoyColor(ctYoY)}">${yoyIcon(ctYoY)}</td>
+      ${yoyCellHtml(ctAct, ctLY, convert, fmt)}
     `;
     trC.addEventListener('click', () => toggleCountry(countryName));
     body.appendChild(trC);
@@ -1766,7 +1782,7 @@ function renderPivot(tab, channel, countryGroup, monthFilter) {
         <td>${fmt(convert(pgAct))}</td>
         <td class="${deltaColor(pgDelta)}">${fmt(pgDelta)}</td>
         <td class="${cumplColor(pgCumpl)}">${fmtPct(pgCumpl)}</td>
-        <td class="${yoyColor(pgYoY)}">${yoyIcon(pgYoY)}</td>
+        ${yoyCellHtml(pgAct, pgLY, convert, fmt)}
       `;
       trPG.addEventListener('click', e => { e.stopPropagation(); toggleProductGroup(pgKey); });
       body.appendChild(trPG);
@@ -1786,7 +1802,7 @@ function renderPivot(tab, channel, countryGroup, monthFilter) {
           <td>${fmt(convert(act))}</td>
           <td class="${deltaColor(delta)}">${fmt(delta)}</td>
           <td class="${cumplColor(cumpl)}">${fmtPct(cumpl)}</td>
-          <td class="${yoyColor(yoy)}">${yoyIcon(yoy)}</td>
+          ${yoyCellHtml(act, ly, convert, fmt)}
         `;
         body.appendChild(trP);
       });
@@ -1803,7 +1819,7 @@ function renderPivot(tab, channel, countryGroup, monthFilter) {
     <td>${fmt(convert(totalAct))}</td>
     <td class="${deltaColor(tDelta)}">${fmt(tDelta)}</td>
     <td class="${cumplColor(tCumpl)}">${fmtPct(tCumpl)}</td>
-    <td class="${yoyColor(tYoY)}">${yoyIcon(tYoY)}</td>
+    ${yoyCellHtml(totalAct, totalLY, convert, fmt)}
   `;
   body.appendChild(trT);
 }
@@ -1845,7 +1861,7 @@ function renderTableBody(bodyEl, groups, inMillions, countryGroup) {
       <td>${fmt(convert(ctAct))}</td>
       <td class="${deltaColor(ctDelta)}">${fmt(ctDelta)}</td>
       <td class="${cumplColor(ctCumpl)}">${fmtPct(ctCumpl)}</td>
-      <td class="${yoyColor(ctYoY)}">${yoyIcon(ctYoY)}</td>
+      ${yoyCellHtml(ctAct, ctLY, convert, fmt)}
     `;
     bodyEl.appendChild(trC);
 
@@ -1868,7 +1884,7 @@ function renderTableBody(bodyEl, groups, inMillions, countryGroup) {
         <td>${fmt(convert(pgAct))}</td>
         <td class="${deltaColor(pgDelta)}">${fmt(pgDelta)}</td>
         <td class="${cumplColor(pgCumpl)}">${fmtPct(pgCumpl)}</td>
-        <td class="${yoyColor(pgYoY)}">${yoyIcon(pgYoY)}</td>
+        ${yoyCellHtml(pgAct, pgLY, convert, fmt)}
       `;
       bodyEl.appendChild(trPG);
     });
@@ -1884,7 +1900,7 @@ function renderTableBody(bodyEl, groups, inMillions, countryGroup) {
     <td>${fmt(convert(totalAct))}</td>
     <td class="${deltaColor(tDelta)}">${fmt(tDelta)}</td>
     <td class="${cumplColor(tCumpl)}">${fmtPct(tCumpl)}</td>
-    <td class="${yoyColor(tYoY)}">${yoyIcon(tYoY)}</td>
+    ${yoyCellHtml(totalAct, totalLY, convert, fmt)}
   `;
   bodyEl.appendChild(trT);
 }
