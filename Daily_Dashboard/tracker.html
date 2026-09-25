@@ -578,22 +578,34 @@
   body.slides-mode #agenciasH2Content   { zoom: 0.80; }
   body.slides-mode #agenciasContent .kr-detail-grid,
   body.slides-mode #agenciasH2Content .kr-detail-grid { margin-top: 12px; }
-  /* KRs Globales en slides: 7 cards en 2 filas (4 + 3) más grandes que la
-     grilla auto-fill, y centradas verticalmente para no dejar vacía la mitad
-     inferior del slide. El título queda arriba; el bloque de cards se centra en
-     el espacio restante (globalesWrap tiene display inline por JS → !important). */
+  /* KRs Globales en slides: 7 cards en 2 filas (4 + 3) que LLENAN el alto del
+     slide (sin espacio muerto arriba/abajo). El grid ocupa el espacio restante
+     bajo el título; las filas se reparten en partes iguales y cada card estira
+     su contenido (header arriba, tira mensual abajo). globalesWrap tiene display
+     inline por JS → !important. Fuentes un poco más grandes para el tamaño mayor. */
   body.slides-mode #globalesContent {
     display: flex; flex-direction: column; height: 100%; box-sizing: border-box;
   }
   body.slides-mode #globalesWrap {
-    display: flex !important; flex-direction: column; justify-content: center;
-    flex: 1 1 auto; min-height: 0;
+    display: flex !important; flex-direction: column; flex: 1 1 auto; min-height: 0;
   }
   body.slides-mode #globalesContent .glob-grid {
     grid-template-columns: repeat(4, 1fr);
+    grid-auto-rows: 1fr;
     gap: 16px;
-    margin-top: 14px;
+    margin: 14px 0 0;
+    flex: 1 1 auto;
+    min-height: 0;
   }
+  body.slides-mode #globalesContent .glob-card {
+    display: flex; flex-direction: column; justify-content: space-between;
+  }
+  body.slides-mode #globalesContent .glob-name        { font-size: 15px; }
+  body.slides-mode #globalesContent .glob-range .to   { font-size: 26px; }
+  body.slides-mode #globalesContent .glob-range .from { font-size: 17px; }
+  body.slides-mode #globalesContent .glob-m .v        { font-size: 13px; }
+  body.slides-mode #globalesContent .glob-m .l        { font-size: 10px; }
+  body.slides-mode #globalesContent .glob-m .a        { font-size: 10px; }
 
   /* Slides: tabla principal de KRs con proporciones fijas de columna
      (KR 50% · Peso 10% · Actual 10% · Budget 10% · Cumpl. 20%) y letra más grande. */
