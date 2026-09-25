@@ -3375,6 +3375,11 @@ function renderWf() {
         }, _wfTotalDeltaPlugin_(goalTotal_c, baseTotal_c)]
       });
 
+      // Export nativo a Slides (Codigo_CierreDeck.js): el waterfall se redibuja con formas,
+      // así que se guardan acá los mismos datos con los que se armó el chart.
+      if (_charts['wfc-oc-concept']) _charts['wfc-oc-concept']._cierreSpec = {
+        labels:clabels, floats:cfloats, colors:ccolors, deltas:cDeltasArr,
+        yMin:cyMin, yMax:cyMax, goalTotal:goalTotal_c, baseTotal:baseTotal_c };
       var cTotCols = concepts_c.map(function(c){return _normOcLabel_(c.label);}).concat(['Total']);
       var cBVals   = concepts_c.map(function(c){return c.baseline;}).concat([baseTotal_c]);
       var cGVals   = concepts_c.map(function(c){return goalKey_c==='lastYear'?c.lastYear:goalKey_c==='budget'?c.budget:goalKey_c==='forecast'?c.forecast:c.runRate;}).concat([goalTotal_c]);
@@ -6479,9 +6484,12 @@ function insRender(tab) {
 .cierre-loading{color:#5457D9;font-size:15px;padding:60px;font-weight:600;text-align:center}
 .cierre-slide{background:#fff;width:1120px;max-width:100%;border-radius:10px;box-shadow:0 4px 18px rgba(0,0,0,.14);padding:26px 30px;box-sizing:border-box}
 .cierre-slide-title{font-size:19px;font-weight:800;color:#2D2A6E;margin:0 0 16px;padding-bottom:10px;border-bottom:3px solid #5457D9}
-/* Se captura sola para el export (ver _cierreCaptureSlideImages_) — padding propio
+/* Se captura sola para el export (ver _cierreCaptureOne_) — padding propio
    chico para que el contenido no quede pegado al borde de la imagen resultante. */
 .cierre-slide-body{padding:2px 2px 6px}
+/* 2026-09-25: el Cuadro resumen va a la mitad izquierda de la slide (panel Highlights a la
+   derecha) → se captura más angosto para que la letra no quede chica al achicarse. */
+.cierre-slide-body.cierre-body-narrow{width:700px;max-width:100%;margin:0 auto}
 .cierre-headline{font-size:14px;font-weight:700;padding:9px 14px;border-radius:8px;margin:0 0 14px}
 .cierre-hl-pos{background:#eafaf0;color:#16a34a}
 .cierre-hl-neg{background:#fdecea;color:#c0392b}
@@ -6507,6 +6515,12 @@ function insRender(tab) {
 .cierre-div-logo .cdl-txt{font-weight:800;font-size:18px;line-height:1}
 .cierre-div-logo .cdl-txt small{display:block;font-weight:500;font-size:9px;opacity:.75;letter-spacing:2.5px;margin-top:2px}
 .cierre-slide .pnl-card{overflow-x:auto}
+/* 2026-09-25: sin scroll dentro de los slides — con overflow:auto el contenedor queda con
+   scrollbar (le come alto/ancho) y html2canvas dibuja la última fila encima del bloque
+   siguiente o la corta (OKRs: 'Total' pisado por el header del LoB siguiente; Evolutivos:
+   última fila de país cortada). */
+.cierre-slide .okr-table-wrap,.cierre-slide .cierre-tbl-wrap{overflow:visible}
+.cierre-slide .okr-table-wrap{margin-bottom:14px}
 .cierre-chart-img{width:100%;height:auto;display:block}
 .cierre-cap{font-size:11px;color:#57606a;margin-top:8px;font-style:italic}
 @media print{
@@ -6564,11 +6578,11 @@ function _cierrePnLHTML(pnlData, goal){
   return '<div class="pnl-card"><table class="pnl-table"><thead><tr class="head-canals">'+head+'</tr></thead><tbody>'+body+'</tbody></table></div>';
 }
 // Slide "divisor de sección" — mismo class .cierre-slide para que
-// _cierreCaptureSlideImages_ la capture igual que al resto (ver export a Slides).
+// _cierreCaptureOne_ la capture igual que al resto (ver export a Slides).
 // Estructura calcada de .flow-slide.divider (Flow Semanal, Daily_Dashboard): círculo
 // decorativo + título grande + logo de barras — ver comentario del CSS (.cierre-divider).
 function _cierreDividerHTML_(title, subtitle){
-  return '<div class="cierre-slide cierre-divider">'
+  return '<div class="cierre-slide cierre-divider" data-kind="divider">'
        +   '<div class="cierre-div-circle"></div>'
        +   '<div class="cierre-divider-title">'+title+'</div>'
        +   (subtitle ? '<div class="cierre-divider-sub">'+subtitle+'</div>' : '')
@@ -6578,12 +6592,28 @@ function _cierreDividerHTML_(title, subtitle){
        +   '</div>'
        + '</div>';
 }
-function _cierreSlide(title, inner){
+function _cierreEsc_(s){
+  return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function _cierreSlide(title, inner, opts){
   // .cierre-slide-body separado del título — 2026-09-24: para el export a Slides el
-  // título sale como cuadro de texto nativo editable (ver _cierreCaptureSlideImages_ /
-  // buildCierreSlidesDeck), no horneado en la imagen. Así además la imagen (gráfico +
+  // título sale como cuadro de texto nativo editable (ver _cierreCaptureOne_ /
+  // Codigo_CierreDeck.js), no horneado en la imagen. Así además la imagen (gráfico +
   // tabla) usa más alto de página real, en vez de compartirlo con el título.
-  return '<div class="cierre-slide"><div class="cierre-slide-title">'+title+'</div><div class="cierre-slide-body">'+inner+'</div></div>';
+  // 2026-09-25: opts.kind ('resumen' | 'content') y opts.highlight ({text,material,positive},
+  // de _cierreHeadline_). En 'resumen' el headline NO va dentro de la imagen: se muestra en
+  // el preview afuera del body (no se captura) y viaja como dato para el panel "Highlights"
+  // nativo del deck; el body se captura angosto (tabla a la mitad izquierda de la slide).
+  opts = opts || {};
+  var kind = opts.kind || 'content';
+  var h = opts.highlight;
+  var tone = h ? (!h.material ? 'neu' : (h.positive ? 'pos' : 'neg')) : '';
+  var attrs = ' data-kind="'+kind+'"'
+            + (h ? ' data-highlight="'+_cierreEsc_(h.text)+'" data-hl-tone="'+tone+'"' : '');
+  var hlPreview = h ? '<div class="cierre-headline cierre-hl-'+tone+'">'+h.text+'</div>' : '';
+  var bodyCls = 'cierre-slide-body' + (kind === 'resumen' ? ' cierre-body-narrow' : '');
+  return '<div class="cierre-slide"'+attrs+'><div class="cierre-slide-title">'+title+'</div>'
+       + hlPreview + '<div class="'+bodyCls+'">'+inner+'</div></div>';
 }
 
 // Post-proceso 2026-09-24: la tabla de países de Evolutivos (evo-yoy-tbl, pensada para
@@ -6593,17 +6623,30 @@ function _cierreSlide(title, inner){
 // cualquier <table> más ancha que el contenido del slide, en vez de dejarla cortada
 // por overflow. Genérico (no hardcodeado a evo-yoy-tbl) por si algún día otra tabla
 // tiene el mismo problema (ej. muchos países/productos en el Bridge OC).
+// 2026-09-25: ya NO usa transform:scale. html2canvas no respeta bien el transform en
+// tablas: la dibujaba a tamaño original sobre un contenedor achicado → la última fila
+// (Total de OKRs, último país de Evolutivos) quedaba encima del bloque siguiente o
+// cortada, y la tabla escalada dejaba una franja vacía a la derecha. Además el umbral
+// fijo de 1040px escalaba tablas que ya entraban (OKR mide el 100% del slide, ~1058px).
+// Ahora: se mide el ancho REAL disponible y, si una tabla no entra, se achica la
+// tipografía y el padding de las celdas (cambio de layout real, que html2canvas sí copia).
 function _cierreFitWideTables_(){
-  var AVAIL = 1040;   // ancho de contenido del slide: 1120px - padding 30px*2, con margen
-  document.querySelectorAll('#cierre-body .cierre-slide table').forEach(function(tbl){
-    var natural = tbl.scrollWidth;
-    if (natural > AVAIL && natural > 0) {
-      var scale = AVAIL / natural;
-      tbl.style.transformOrigin = 'top left';
-      tbl.style.transform = 'scale(' + scale.toFixed(3) + ')';
-      var wrap = tbl.parentElement;
-      if (wrap) { wrap.style.overflow = 'visible'; wrap.style.height = (tbl.offsetHeight * scale) + 'px'; }
-    }
+  document.querySelectorAll('#cierre-body .cierre-slide-body').forEach(function(body){
+    var avail = body.clientWidth;
+    if (!avail) return;
+    body.querySelectorAll('table').forEach(function(tbl){
+      for (var step = 0; step < 10 && tbl.scrollWidth > avail + 1; step++) {
+        var els = [tbl].concat(Array.prototype.slice.call(tbl.querySelectorAll('*')));
+        els.forEach(function(el){
+          var cs = getComputedStyle(el);
+          el.style.fontSize = (parseFloat(cs.fontSize) * 0.93).toFixed(2) + 'px';
+          if (el.tagName === 'TD' || el.tagName === 'TH') {
+            el.style.paddingLeft  = (parseFloat(cs.paddingLeft)  * 0.85).toFixed(2) + 'px';
+            el.style.paddingRight = (parseFloat(cs.paddingRight) * 0.85).toFixed(2) + 'px';
+          }
+        });
+      }
+    });
   });
 }
 
@@ -6696,7 +6739,7 @@ function _cierreMonthLong(ym){
 }
 
 // Captura un canvas Chart.js vivo con html2canvas (misma técnica que ya usa
-// _cierreCaptureSlideImages_ para el export final) en vez de chart.toBase64Image().
+// _cierreCaptureOne_ para el export final) en vez de chart.toBase64Image().
 // 2026-09-24: dos intentos previos con toBase64Image() (forzar update('none'), después
 // forzar resize+responsive:false+update('none')) seguían saliendo en blanco — sin
 // consola de browser a mano no pude confirmar la causa exacta, así que en vez de
@@ -6715,7 +6758,7 @@ function _cierreNextFrame_(){
 }
 // 2026-09-24: agrandado 1040x430→1280x520 y scale 2→3 (a pedido de Diego: en Slides
 // los charts de Evolutivos/Bridge se veían chicos/poco nítidos). Con el título ahora
-// afuera de la imagen (cuadro de texto nativo, ver _cierreSlide/buildCierreSlidesDeck)
+// afuera de la imagen (cuadro de texto nativo, ver _cierreSlide/Codigo_CierreDeck.js)
 // hay más alto de página disponible para la imagen — vale la pena que el chart entre
 // con más resolución de base en vez de agrandarse solo al estirar una imagen chica.
 function _cierreCanvasImg_(chart, canvasId, w, h){
@@ -6725,6 +6768,11 @@ function _cierreCanvasImg_(chart, canvasId, w, h){
     chart.options.responsive = false;
     chart.options.animation  = false;
     chart.resize(w || 1280, h || 520);
+    // 2026-09-25: la animación inicial (la que arranca al crear el chart) sigue corriendo
+    // aunque se apague options.animation → se capturaban barras a mitad de camino.
+    // stop() la corta y update('none') pinta el estado final sin animar.
+    chart.stop();
+    chart.update('none');
   } catch (e) {}
   return _cierreNextFrame_().then(function(){
     return html2canvas(el, { scale:3, backgroundColor:'#ffffff' });
@@ -6743,10 +6791,11 @@ function _cierreEvoHTML_(evo, metricId, goal){
   renderEvo();
   var ctryEl = document.getElementById('evo-ctry-table');
   var tblHtml = ctryEl ? ctryEl.innerHTML : '';
+  var chartRef = _cierreStashChart_('evo', _charts['chart-evo']);
   return _cierreCanvasImg_(_charts['chart-evo'], 'chart-evo').then(function(img){
-    return (img ? '<img class="cierre-chart-img" src="'+img+'" alt="Evolución '+CIERRE_METRIC_LABEL[metricId]+'">'
+    return chartRef + (img ? '<img class="cierre-chart-img" src="'+img+'" alt="Evolución '+CIERRE_METRIC_LABEL[metricId]+'">'
                 : '<div style="padding:20px;color:#999">Gráfico no disponible.</div>')
-         + (tblHtml ? '<div style="margin-top:10px;overflow-x:auto">'+tblHtml+'</div>' : '');
+         + (tblHtml ? '<div class="cierre-tbl-wrap" style="margin-top:10px">'+tblHtml+'</div>' : '');
   });
 }
 
@@ -6762,10 +6811,11 @@ function _cierreOcBridgeHTML_(mesData, refMonth, goal){
   renderWf();
   var tbl = document.getElementById('wft-oc-concept');
   var tblHtml = tbl ? tbl.outerHTML : '';
+  var chartRef = _cierreStashChart_('bridge', _charts['wfc-oc-concept']);
   return _cierreCanvasImg_(_charts['wfc-oc-concept'], 'wfc-oc-concept').then(function(img){
-    return (img ? '<img class="cierre-chart-img" src="'+img+'" alt="Bridge OC">'
+    return chartRef + (img ? '<img class="cierre-chart-img" src="'+img+'" alt="Bridge OC">'
                 : '<div style="padding:20px;color:#999">Gráfico no disponible.</div>')
-         + (tblHtml ? '<div style="margin-top:10px;overflow-x:auto">'+tblHtml+'</div>' : '');
+         + (tblHtml ? '<div class="cierre-tbl-wrap" style="margin-top:10px">'+tblHtml+'</div>' : '');
   });
 }
 
@@ -6890,8 +6940,9 @@ function _cierreGenerate(){
       steps.push(function(){ return _cierreSlide('OKRs ' + scope.label, _cierreOkrHTML_(okrData, scope.key)); });
 
       // 2) Cuadro resumen vs Budget / vs Forecast
-      steps.push(function(){ return _cierreSlide(mesLbl + ' vs. Budget',   _cierreHeadlineHTML_(mes.pnl,'budget')   + _cierrePnLHTML(mes.pnl, 'budget')); });
-      steps.push(function(){ return _cierreSlide(mesLbl + ' vs. Forecast', _cierreHeadlineHTML_(mes.pnl,'forecast') + _cierrePnLHTML(mes.pnl, 'forecast')); });
+      // 2026-09-25: el headline va al panel "Highlights" del deck (ver _cierreSlide), no arriba de la tabla.
+      steps.push(function(){ return _cierreSlide(mesLbl + ' vs. Budget',   _cierrePnLHTML(mes.pnl, 'budget'),   { kind:'resumen', highlight:_cierreHeadline_(mes.pnl,'budget') }); });
+      steps.push(function(){ return _cierreSlide(mesLbl + ' vs. Forecast', _cierrePnLHTML(mes.pnl, 'forecast'), { kind:'resumen', highlight:_cierreHeadline_(mes.pnl,'forecast') }); });
 
       // 3) Evolutivos NR y OC — los del dashboard (renderEvo), no un chart aparte.
       ['nr', 'oc'].forEach(function(metricId){
@@ -6938,69 +6989,168 @@ function _cierreGenerate(){
     if (selEl) selEl.disabled = false;
   });
 }
-// Captura cada .cierre-slide del preview HTML TAL CUAL se ve (mismos colores, chips,
-// bordes, banderas) con html2canvas, en vez de reconstruir el diseño con la API nativa
-// de Slides (que no tiene forma de replicar CSS 1:1 — ver charla 2026-09-12). scale:2
-// para que el texto no salga borroso en la slide. useCORS:true porque las banderas de
-// país salen de flagcdn.com (cross-origin) — si ese host no manda CORS, ESA captura
-// puntual puede fallar; se resuelve a null y buildCierreSlidesDeck la saltea en vez de
-// tirar abajo el export entero.
-// 2026-09-24: si la slide tiene .cierre-slide-title (todas menos los divisores), se
-// captura SOLO .cierre-slide-body (sin el título) y el texto del título se manda aparte
-// — buildCierreSlidesDeck lo inserta como cuadro de texto nativo editable en Slides, y
-// usa el alto que el título ya no ocupa para agrandar la imagen (gráfico/tabla). Los
-// divisores no tienen .cierre-slide-body → se capturan enteros, como antes (su "título"
-// es parte del diseño de la carátula, no un texto plano para editar aparte).
-function _cierreCaptureSlideImages_(){
-  var els = Array.prototype.slice.call(document.querySelectorAll('#cierre-body .cierre-slide'));
-  return Promise.all(els.map(function(el){
-    var titleEl   = el.querySelector('.cierre-slide-title');
-    var bodyEl    = el.querySelector('.cierre-slide-body');
-    var captureEl = bodyEl || el;
-    return html2canvas(captureEl, { scale:2, useCORS:true, backgroundColor:'#ffffff' })
-      .then(function(canvas){
-        return { img: canvas.toDataURL('image/png'), w: canvas.width, h: canvas.height,
-                 title: titleEl ? titleEl.textContent : null };
-      })
-      .catch(function(e){ console.error('[cierre] no se pudo capturar una slide para Google Slides', e); return null; });
-  }));
+// ── Export a Google Slides NATIVO (2026-09-25) ────────────────────────────
+// Los GRÁFICOS (Evolutivos, waterfall del Bridge) se construyen en el servidor
+// (Codigo_CierreDeck.js) con formas nativas, editables "como armados a mano", a partir de los
+// datos de los charts (guardados al generar, ver _cierreStashChart_). Las TABLAS van como
+// imagen (html2canvas, como antes). Una llamada al servidor por slide: ninguna se acerca al
+// límite de 6 min de Apps Script. Si una slide nativa falla, va entera como imagen.
+
+var _cierreChartSpecs = {};   // id → spec del chart (se llena al generar el preview)
+var _cierreChartSeq   = 0;
+
+function _cdColor_(css){
+  if (!css || typeof css !== 'string') return null;
+  var s = css.trim();
+  if (s === 'transparent') return null;
+  var m = s.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+  if (m) { var h = m[1].length === 3 ? m[1].replace(/(.)/g,'$1$1') : m[1]; return { hex:'#'+h.toUpperCase(), alpha:1 }; }
+  m = s.match(/^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*(?:,\s*([\d.]+)\s*)?\)$/i);
+  if (!m) return null;
+  var a = m[4] === undefined ? 1 : parseFloat(m[4]);
+  if (a === 0) return null;
+  var hex = '#' + [m[1],m[2],m[3]].map(function(v){ return ('0' + Math.round(+v).toString(16)).slice(-2); }).join('').toUpperCase();
+  return { hex:hex, alpha:a };
 }
 
-// Arma el deck: captura las slides como están en pantalla y se las manda a
-// buildCierreSlidesDeck (Código.js), que solo las inserta como imagen — no recalcula
-// ni reconstruye nada. IMPORTANTE: buildCierreSlidesDeck NO puede terminar en "_" —
-// google.script.run no puede invocar funciones "privadas" (ni el editor las muestra
-// en el desplegable de Run). Si se renombra con "_" por error, esto tira un TypeError
-// síncrono y el botón queda colgado en "Generando…" para siempre porque el try/catch
-// de abajo es lo único que lo destraba (ya pasó una vez, 2026-09-12).
+// Guarda el spec del chart que se acaba de renderizar y devuelve un marcador oculto para la slide.
+function _cierreStashChart_(kind, chart){
+  var spec = null;
+  try { spec = kind === 'bridge' ? _cierreWfSpec_(chart) : _cierreComboSpec_(chart); } catch(e) { spec = null; }
+  if (!spec) return '';
+  var id = 'cc' + (++_cierreChartSeq);
+  _cierreChartSpecs[id] = spec;
+  return '<span class="cierre-chart-ref" data-chart-id="'+id+'" data-chart-kind="'+kind+'" hidden></span>';
+}
+
+function _cierreWfSpec_(chart){
+  var s = chart && chart._cierreSpec;
+  if (!s) return null;
+  var n = s.labels.length, d = s.baseTotal - s.goalTotal;
+  return {
+    type:'waterfall', labels:s.labels.slice(), floats:s.floats.map(function(f){ return [f[0], f[1]]; }),
+    colors:s.colors.map(_cdColor_),
+    texts:s.deltas.map(function(v){ return fmtK(v); }),
+    textColors:s.deltas.map(function(v,i){ return (i===0||i===n-1) ? '#1F2328' : (v>=0 ? '#10B132' : '#E06666'); }),
+    yMin:s.yMin, yMax:s.yMax, totalDelta:d, totalText:(d>=0?'+':'') + fmtK(d)
+  };
+}
+
+function _cierreComboSpec_(chart){
+  if (!chart || !chart.data) return null;
+  var labels = (chart.data.labels || []).map(String);
+  var ds = chart.data.datasets || [];
+  var bars = ds.filter(function(d){
+    return (d.type === 'bar' || !d.type) && d.barThickness !== 0 && (d.data||[]).some(function(v){ return v != null; });
+  }).map(function(d){
+    var colors = labels.map(function(_, i){ return _cdColor_(Array.isArray(d.backgroundColor) ? d.backgroundColor[i] : d.backgroundColor); });
+    var legend = colors.filter(Boolean)[0] || { hex:'#5457D9', alpha:1 };
+    return { label:d.label, values:d.data.slice(), colors:colors, legendColor:legend,
+             texts:d.data.map(function(v){ return v == null ? '' : fmtK(v); }) };
+  });
+  var lines = ds.filter(function(d){ return d.type === 'line'; }).map(function(d){
+    return { label:d.label, values:d.data.slice(), color:_cdColor_(d.borderColor) || { hex:'#5457D9', alpha:1 },
+             dash:!!(d.borderDash && d.borderDash.length), pos:d._pctPos || 'above',
+             texts:d.data.map(function(v){ return v == null ? '' : v.toFixed(1) + '%'; }) };
+  });
+  return { type:'combo', labels:labels, bars:bars, lines:lines };
+}
+
+// Captura un elemento del preview como imagen PNG (scale 2, igual que el export anterior).
+function _cierreCaptureEl_(node){
+  return html2canvas(node, { scale:2, useCORS:true, backgroundColor:'#ffffff' }).then(function(canvas){
+    return { img:canvas.toDataURL('image/png'), w:canvas.width, h:canvas.height };
+  });
+}
+
+// Plan de export de una slide del preview → Promise<{fn, args}> para google.script.run:
+//   · divisor                       → nativo
+//   · Cuadro resumen                → tabla como imagen + panel Highlights nativo
+//   · Evolutivos / Bridge (con chart) → gráfico nativo + tabla como imagen
+//   · OKRs y el resto               → slide entera como imagen (header nativo)
+function _cierreSlidePlan_(el, info){
+  var kind  = el.getAttribute('data-kind');
+  if (kind === 'divider') {
+    var t = el.querySelector('.cierre-divider-title'), s2 = el.querySelector('.cierre-divider-sub');
+    return Promise.resolve({ fn:'cierreDeckAddSlide', args:[info.id,
+      { kind:'divider', title:t ? t.textContent : '', sub:s2 ? s2.textContent : '' }, info.w, info.h] });
+  }
+  var title = (el.querySelector('.cierre-slide-title') || {}).textContent || '';
+  var body  = el.querySelector('.cierre-slide-body');
+  if (kind === 'resumen' && body) {
+    return _cierreCaptureEl_(body).then(function(img){
+      return { fn:'cierreDeckAddSlide', args:[info.id, { kind:'resumen', title:title, tableImg:img,
+        highlight:el.getAttribute('data-highlight') || null, hlTone:el.getAttribute('data-hl-tone') || null }, info.w, info.h] };
+    });
+  }
+  var ref   = body && body.querySelector('.cierre-chart-ref');
+  var chart = ref ? _cierreChartSpecs[ref.getAttribute('data-chart-id')] : null;
+  if (chart) {
+    var tblWrap = body.querySelector('.cierre-tbl-wrap');
+    return (tblWrap ? _cierreCaptureEl_(tblWrap) : Promise.resolve(null)).then(function(img){
+      return { fn:'cierreDeckAddSlide', args:[info.id, { kind:ref.getAttribute('data-chart-kind') === 'bridge' ? 'bridge' : 'evo',
+        title:title, chart:chart, tableImg:img }, info.w, info.h] };
+    });
+  }
+  return _cierreCaptureOne_(el).then(function(img){ return { fn:'cierreDeckAddImageSlide', args:[info.id, img] }; });
+}
+
+// Captura UNA slide como imagen (respaldo cuando la versión nativa falla).
+function _cierreCaptureOne_(el){
+  var titleEl = el.querySelector('.cierre-slide-title');
+  var captureEl = el.querySelector('.cierre-slide-body') || el;
+  return html2canvas(captureEl, { scale:2, useCORS:true, backgroundColor:'#ffffff' }).then(function(canvas){
+    return { img:canvas.toDataURL('image/png'), w:canvas.width, h:canvas.height,
+             title:titleEl ? titleEl.textContent : null, kind:el.getAttribute('data-kind') || 'content' };
+  });
+}
+
+function _cierreRun_(fn){
+  var args = Array.prototype.slice.call(arguments, 1);
+  return new Promise(function(resolve, reject){
+    var r = google.script.run.withSuccessHandler(resolve).withFailureHandler(reject);
+    r[fn].apply(r, args);
+  });
+}
+
+// IMPORTANTE: las funciones de servidor (cierreDeckStart / cierreDeckAddSlide /
+// cierreDeckAddImageSlide) NO pueden terminar en "_" — google.script.run no invoca
+// funciones "privadas" (ya pasó una vez, 2026-09-12: el botón quedaba colgado).
 function _cierreExportSlides(){
   if (!_cierreLastPayload) return;
   if (IS_DEMO) { alert('Exportar a Google Slides no está disponible en modo demo.'); return; }
   var btn = document.getElementById('cierre-export-btn');
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ Capturando slides…'; }
+  function status(t){ if (btn) btn.textContent = t; }
   function reset(){ if (btn) { btn.disabled = false; btn.textContent = '📤 Enviar a Google Slides'; } }
-  try {
-    _cierreCaptureSlideImages_().then(function(images){
-      if (btn) btn.textContent = '⏳ Generando deck…';
-      google.script.run
-        .withSuccessHandler(function(res){
-          reset();
-          if (res && res.url) window.open(res.url, '_blank');
-          else alert('El servidor no devolvió la URL del deck.');
-        })
-        .withFailureHandler(function(e){
-          reset();
-          alert('No se pudo generar el deck de Google Slides: ' + ((e&&e.message)||e));
-        })
-        .buildCierreSlidesDeck({ mesLbl:_cierreLastPayload.mesLbl, fyLbl:_cierreLastPayload.fyLbl, slideImages:images });
-    }).catch(function(e){
-      reset();
-      alert('No se pudieron capturar las slides: ' + (e.message || e));
+  if (btn) btn.disabled = true;
+  status('⏳ Creando deck…');
+  var els = Array.prototype.slice.call(document.querySelectorAll('#cierre-body .cierre-slide'));
+  var fallbacks = [];
+  _cierreRun_('cierreDeckStart', { mesLbl:_cierreLastPayload.mesLbl, fyLbl:_cierreLastPayload.fyLbl }).then(function(info){
+    var chain = Promise.resolve();
+    els.forEach(function(el, i){
+      chain = chain.then(function(){
+        status('⏳ Slide ' + (i+1) + '/' + els.length + '…');
+        var p;
+        try {
+          p = _cierreSlidePlan_(el, info).then(function(plan){ return _cierreRun_.apply(null, [plan.fn].concat(plan.args)); });
+        } catch(e) { p = Promise.reject(e); }
+        return p.catch(function(err){
+          if (window.console) console.warn('[cierre] slide ' + (i+1) + ' nativa falló → va como imagen', err);
+          fallbacks.push(i+1);
+          return _cierreCaptureOne_(el).then(function(img){ return _cierreRun_('cierreDeckAddImageSlide', info.id, img); });
+        });
+      });
     });
-  } catch(e) {
+    return chain.then(function(){
+      reset();
+      if (fallbacks.length && window.console) console.warn('[cierre] slides exportadas como imagen:', fallbacks.join(', '));
+      window.open(info.url, '_blank');
+    });
+  }).catch(function(e){
     reset();
-    alert('Error al exportar: ' + (e.message || e));
-  }
+    alert('No se pudo generar el deck de Google Slides: ' + ((e && e.message) || e));
+  });
 }
 
 function closeCierreSlides(){

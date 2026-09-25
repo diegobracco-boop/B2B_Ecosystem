@@ -1451,79 +1451,14 @@ function getWeeklyInsights() {
 
 // ══════════════════════════════════════════════════════════════
 //  "Slides cierre de mes" → export a Google Slides real
-//  2026-09-12: la v1 armaba tablas NATIVAS con SlidesApp, reconstruyendo el diseño
-//  desde cero — resultado: perdía los chips de color, flechas, filas de %GB y
-//  banderas del HTML real (SlidesApp no "hereda" CSS, cada estilo hay que
-//  codearlo de nuevo). v2 (esta): el cliente captura cada .cierre-slide TAL CUAL
-//  se ve con html2canvas (_cierreCaptureSlideImages_ en dashboard.html) y acá
-//  solo se insertan esas imágenes, una por slide — mismo diseño exacto, a costa
-//  de que ya no es una tabla editable en Slides (es una foto).
+//  Historia: v1 (2026-09-12) tablas nativas con SlidesApp reconstruyendo el diseño a mano
+//  (perdía chips/colores); v2 insertaba cada slide como imagen (html2canvas), sin edición.
+//  v3 (2026-09-25, actual): objetos NATIVOS editables construidos con Slides API a partir
+//  de las tablas del DOM (con sus colores) y los datos de los charts — ver
+//  Codigo_CierreDeck.js (cierreDeckStart / cierreDeckAddSlide / cierreDeckAddImageSlide).
 // ══════════════════════════════════════════════════════════════
 
-// Nombre SIN "_" final a propósito: google.script.run no puede invocar funciones
-// que terminen (ni empiecen) con guión bajo — las trata como privadas, igual que
-// el editor. Si esto vuelve a llevar "_", el botón del webapp rompe silenciosamente
-// (TypeError "...is not a function" recién al hacer clic, deja el botón colgado en
-// "Generando…" para siempre porque el success/failure handler nunca llega a correr).
-// payload = { mesLbl, fyLbl, slideImages: [{img:'data:image/png;base64,...', w, h} | null, ...] }
-function buildCierreSlidesDeck(payload) {
-  payload = payload || {};
-  var images = payload.slideImages || [];
-  var pres = SlidesApp.create('Cierre ' + (payload.mesLbl || '') + ' — ' + new Date().toISOString().slice(0, 16).replace('T', ' '));
-  var w = pres.getPageWidth(), h = pres.getPageHeight();
-  var defaultSlide = pres.getSlides()[0];
-
-  // Paleta de Flow Semanal (Daily_Dashboard, --fl-purple/--fl-purple2) — a pedido
-  // de Diego, para que la carátula coincida entre ambos decks.
-  var title = pres.appendSlide(SlidesApp.PredefinedLayout.BLANK);
-  title.insertTextBox('Cierre de Mes', 40, h/2 - 60, w - 80, 50)
-       .getText().getTextStyle().setFontSize(30).setBold(true).setForegroundColor('#5626e9');
-  title.insertTextBox((payload.mesLbl || '') + ' · ' + (payload.fyLbl || ''), 40, h/2 + 2, w - 80, 34)
-       .getText().getTextStyle().setFontSize(15).setForegroundColor('#8e5ff3');
-  defaultSlide.remove();   // sacamos el slide default (layout con placeholders) recién con >=1 slide ya creado
-
-  // Cada imagen ya viene en el orden correcto desde el cliente (divisores incluidos —
-  // _cierreDividerHTML_ en dashboard.html los arma con la misma clase .cierre-slide,
-  // así que _cierreCaptureSlideImages_ los captura igual que al resto). Acá no hay que
-  // distinguir divisor de slide real, solo insertar cada imagen en su propia slide.
-  //
-  // 2026-09-24: entry.title (si viene — no viene en los divisores, que no tienen
-  // .cierre-slide-title separado) se inserta como cuadro de texto NATIVO editable en
-  // vez de venir horneado en la imagen (antes _cierreCaptureSlideImages_ capturaba
-  // .cierre-slide entero, título incluido) — a pedido de Diego, para poder retocar
-  // cualquier título en Slides sin regenerar. El resto de la altura de página, la que
-  // el título deja libre, queda para la imagen (gráfico/tabla) — ver TITLE_H.
-  var margin = 30, TITLE_H = 46;
-  images.forEach(function(entry) {
-    var slide = pres.appendSlide(SlidesApp.PredefinedLayout.BLANK);
-    if (!entry || !entry.img) {
-      slide.insertTextBox('No se pudo capturar esta slide (revisar consola del navegador).', 40, h/2 - 12, w - 80, 24)
-           .getText().getTextStyle().setFontSize(14).setForegroundColor('#C0392B');
-      return;
-    }
-    var titleTop = margin;
-    if (entry.title) {
-      var tb = slide.insertTextBox(entry.title, margin, titleTop, w - margin*2, TITLE_H);
-      tb.getText().getTextStyle().setFontSize(20).setBold(true).setForegroundColor('#2D2A6E');
-      tb.getBorder().setTransparent();
-    }
-    var imgTop = titleTop + (entry.title ? TITLE_H + 8 : 0);
-    var b64  = String(entry.img).replace(/^data:image\/png;base64,/, '');
-    var blob = Utilities.newBlob(Utilities.base64Decode(b64), 'image/png', 'slide.png');
-    // Ajusta al área disponible (debajo del título, si hay) preservando el aspect
-    // ratio real de la captura (las slides no miden todas lo mismo).
-    var availW = w - margin*2, availH = h - imgTop - margin;
-    var ratio  = entry.w && entry.h ? entry.w/entry.h : (availW/availH);
-    var imgW = availW, imgH = imgW/ratio;
-    if (imgH > availH) { imgH = availH; imgW = imgH*ratio; }
-    var left = (w - imgW)/2, top = imgTop + (availH - imgH)/2;
-    slide.insertImage(blob, left, top, imgW, imgH);
-  });
-
-  return { url: pres.getUrl(), id: pres.getId() };
-}
-
-// Función sin "_" final a propósito (ver nota arriba de buildCierreSlidesDeck):
+// Función sin "_" final a propósito (ver nota en Codigo_CierreDeck.js):
 // las que terminan en "_" ni aparecen en el desplegable "Seleccionar función" del
 // editor NI son invocables desde google.script.run. Correr ESTA una vez desde el
 // editor (▶ Run, no desde el webapp) dispara la pantalla de autorización real del
