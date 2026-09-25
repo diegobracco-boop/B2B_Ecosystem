@@ -353,11 +353,11 @@
   .glob-m .v { font-size: 11.5px; font-weight: 600; color: #374151; margin-top: 2px; }
   .glob-m .v.empty { color: #d1d5db; }
   .glob-m.act { background: #faf7ff; }
-  .glob-m .a { font-size: 9px; font-weight: 700; margin-top: 2px; }
+  .glob-m .a { font-size: 11px; font-weight: 700; margin-top: 3px; padding-top: 3px; border-top: 1px solid #eee9fb; }
   .glob-m .a.red { color: #a01a1a; }
   .glob-m .a.yellow { color: #8a5a00; }
   .glob-m .a.green { color: #2f7d4f; }
-  .glob-m .a.neutral { color: #6b7280; }
+  .glob-m .a.neutral { color: #c3c9d4; font-weight: 600; }
   .glob-pend { margin: 14px 0 4px; font-size: 11px; color: #b6a6e6; font-style: italic; }
 
   /* ── Tables view (multi-metric, no chart) ── */
@@ -589,6 +589,11 @@
   body.slides-mode #globalesWrap {
     display: flex !important; flex-direction: column; flex: 1 1 auto; min-height: 0;
   }
+  /* #globalesCards es el contenedor entre el wrap y el grid: debe crecer y ser
+     flex para que el grid (y con él las cards) llene el alto del slide. */
+  body.slides-mode #globalesContent #globalesCards {
+    flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column;
+  }
   body.slides-mode #globalesContent .glob-grid {
     grid-template-columns: repeat(4, 1fr);
     grid-auto-rows: 1fr;
@@ -605,7 +610,7 @@
   body.slides-mode #globalesContent .glob-range .from { font-size: 17px; }
   body.slides-mode #globalesContent .glob-m .v        { font-size: 13px; }
   body.slides-mode #globalesContent .glob-m .l        { font-size: 10px; }
-  body.slides-mode #globalesContent .glob-m .a        { font-size: 10px; }
+  body.slides-mode #globalesContent .glob-m .a        { font-size: 12.5px; }
 
   /* Slides: tabla principal de KRs con proporciones fijas de columna
      (KR 50% · Peso 10% · Actual 10% · Budget 10% · Cumpl. 20%) y letra más grande. */
@@ -3153,18 +3158,19 @@ function renderGlobales() {
       '<span class="to">' + fmtGlobalTarget(last, kr.unit) + '</span>' +
       '<span class="glob-delta ' + dCls + '">' + dTxt + '</span></div>';
 
+    // Cada mes: label, target y —siempre— el valor real abajo (con "—" donde
+    // todavía no hay actual cableado), así cada card muestra target y real.
     var strip = '<div class="glob-strip">' + meses.map(function(ym, i){
       var t   = kr.targets ? kr.targets[ym] : null;
       var a   = globalesActual_(kr.id, ym, agg);
       var rat = (a !== null && typeof t === 'number' && t !== 0) ? (a / t) : null;
       var vCls = (t === null || t === undefined || t === '') ? 'v empty' : 'v';
-      var extra = a !== null
-        ? '<div class="a ' + globCumplClass_(rat) + '">' + fmtGlobalTarget(a, kr.unit) +
-          (rat !== null ? ' ' + Math.round(rat * 100) + '%' : '') + '</div>'
-        : '';
+      var aCls = a !== null ? globCumplClass_(rat) : 'neutral';
+      var aTxt = a !== null ? fmtGlobalTarget(a, kr.unit) : '—';
       return '<div class="glob-m' + (a !== null ? ' act' : '') + '">' +
              '<div class="l">' + (labels[i] || ym) + '</div>' +
-             '<div class="' + vCls + '">' + fmtGlobalTarget(t, kr.unit) + '</div>' + extra + '</div>';
+             '<div class="' + vCls + '">' + fmtGlobalTarget(t, kr.unit) + '</div>' +
+             '<div class="a ' + aCls + '">' + aTxt + '</div></div>';
     }).join('') + '</div>';
 
     return '<div class="glob-card">' + head + range + strip + '</div>';
