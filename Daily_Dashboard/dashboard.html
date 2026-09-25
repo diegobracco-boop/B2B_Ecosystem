@@ -4175,8 +4175,11 @@ function flowGroupTable_(subRaw, metricKey, comp, col1, groupByRegion, childMax,
     var g=grp(k); var e=g.ch[c]=g.ch[c]||{base:0,goal:0,tier:tier,_tierSrcActual:false,_tierDate:''};
     if(isActual && tier!=='Unknown' && (!e._tierSrcActual || fecha>=e._tierDate)){
       e.tier=tier; e._tierSrcActual=true; e._tierDate=fecha;
-    } else if(!e._tierSrcActual && (!e.tier || e.tier==='Unknown') && tier!=='Unknown'){
-      e.tier=tier; // sin ningún tier real de actuals todavía — usamos el fallback de budget/runrate
+    } else if(!isActual && !e._tierSrcActual && tier!=='Unknown' && (!e._tierDate || fecha>=e._tierDate)){
+      // sin ningún tier real de actuals todavía — fallback de budget/runrate, también por
+      // fecha más reciente (si hay más de una fila por partner, ej. runrate diario con
+      // cambio de cartera mid-mes, no queda a merced del orden de iteración del array)
+      e.tier=tier; e._tierDate=fecha;
     }
     return e;
   }
