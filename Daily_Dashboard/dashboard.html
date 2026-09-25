@@ -4162,29 +4162,19 @@ function flowGroupTable_(subRaw, metricKey, comp, col1, groupByRegion, childMax,
   function gk(r){ return groupByRegion ? getRegion_(r.pais) : (r.pais||'Other'); }
   function ck(r){ return groupByRegion ? (r.pais||'Other') : (r.partner||'Other'); }
   function grp(k){ G[k]=G[k]||{base:0,goal:0,ch:{}}; return G[k]; }
-  // El tier de actuals (estatus_tier real, por transacción) manda SIEMPRE sobre el de
-  // budget/runrate (mapeado por nombre de partner contra la cartera vigente — falla fácil
-  // si el nombre no matchea, cae a 'Unknown', y ni siquiera matchea es 100% confiable si el
-  // partner cambió de tier respecto a la cartera vigente). budget/runrate solo se usa como
-  // fallback si ESE partner no tiene ningún dato de actuals en el período. Y si el propio
-  // partner cambia de tier DENTRO del mes (actuals de distintas fechas con distinto tier —
-  // pasa, ver daily_sync.py estatus_tier histórico), nos quedamos con el de la fecha más
-  // reciente, no con "lo último que vino en el array" (antes dependía del orden de iteración,
-  // lo cual podía terminar mezclando el tier equivocado bajo un mismo partner).
-  function chi(k,c,tier,fecha,isActual){
-    var g=grp(k); var e=g.ch[c]=g.ch[c]||{base:0,goal:0,tier:tier,_tierSrcActual:false,_tierDate:''};
-    if(isActual && tier!=='Unknown' && (!e._tierSrcActual || fecha>=e._tierDate)){
-      e.tier=tier; e._tierSrcActual=true; e._tierDate=fecha;
-    } else if(!isActual && !e._tierSrcActual && tier!=='Unknown' && (!e._tierDate || fecha>=e._tierDate)){
-      // sin ningún tier real de actuals todavía — fallback de budget/runrate, también por
-      // fecha más reciente (si hay más de una fila por partner, ej. runrate diario con
-      // cambio de cartera mid-mes, no queda a merced del orden de iteración del array)
-      e.tier=tier; e._tierDate=fecha;
-    }
-    return e;
+  function chi(k,c){ var g=grp(k); g.ch[c]=g.ch[c]||{base:0,goal:0}; return g.ch[c]; }
+  (subRaw.actuals||[]).forEach(function(r){ if(r.fecha<mStart||r.fecha>vDate)return; var v=r[MF]||0; grp(gk(r)).base+=v; chi(gk(r),ck(r)).base+=v; });
+  cmpArr.forEach(function(r){ if(lyMode){ if(r.fecha<lyMS||r.fecha>lyVD)return; } else if(r.fecha<mStart||r.fecha>vDate){ return; } var v=r[cmpF]||0; grp(gk(r)).goal+=v; chi(gk(r),ck(r)).goal+=v; });
+  // El tier de un partner es SOLO el de la cartera vigente (mapeado por nombre contra la
+  // cartera en daily_sync.py, _map_tier) — nada que ver con actuals ni con qué comparador
+  // (Budget/Run Rate/Last Year) esté elegido arriba. Ese mapeo viaja en las filas de
+  // budget/runrate (campo "tier"); se arma un lookup partner->tier aparte, independiente
+  // de cmpArr, para que el tier no cambie según el toggle de comparación.
+  var tierByPartner={};
+  if(!groupByRegion){
+    (subRaw.budget||[]).forEach(function(r){ if(r.partner && r.tier && r.tier!=='Unknown') tierByPartner[r.partner]=r.tier; });
+    (subRaw.runrate||[]).forEach(function(r){ if(r.partner && r.tier && r.tier!=='Unknown' && !tierByPartner[r.partner]) tierByPartner[r.partner]=r.tier; });
   }
-  (subRaw.actuals||[]).forEach(function(r){ if(r.fecha<mStart||r.fecha>vDate)return; var v=r[MF]||0; grp(gk(r)).base+=v; chi(gk(r),ck(r),r.tier||'Unknown',r.fecha,true).base+=v; });
-  cmpArr.forEach(function(r){ if(lyMode){ if(r.fecha<lyMS||r.fecha>lyVD)return; } else if(r.fecha<mStart||r.fecha>vDate){ return; } var v=r[cmpF]||0; grp(gk(r)).goal+=v; chi(gk(r),ck(r),r.tier||'Unknown',r.fecha,false).goal+=v; });
   var orderFull = groupByRegion ? ['BR','SAH','NAM'] : Object.keys(G).sort(function(a,b){return G[b].base-G[a].base;});
   var order = (topMax && orderFull.length>topMax) ? orderFull.slice(0,topMax) : orderFull;
   function cell(d){ return '<td class="'+(d>=0?'fl-pos':'fl-neg')+'">'+(d>=0?'+':'')+fmtShort(d)+'</td>'; }
@@ -4195,7 +4185,7 @@ function flowGroupTable_(subRaw, metricKey, comp, col1, groupByRegion, childMax,
   orderFull.forEach(function(k){ var g=G[k]; if(!g)return; TB+=g.base; TG+=g.goal; }); // totales siempre sobre TODO, aunque se trunque lo visible
   order.forEach(function(k,pIdx){ var g=G[k]; if(!g)return;
     var lbl = groupByRegion ? (REGION_LABEL_[k]||k) : k;
-    var kids=Object.keys(g.ch).map(function(c){return {name:c,base:g.ch[c].base,goal:g.ch[c].goal,tier:g.ch[c].tier};})
+    var kids=Object.keys(g.ch).map(function(c){return {name:c,base:g.ch[c].base,goal:g.ch[c].goal,tier:tierByPartner[c]||'Unknown'};})
       .sort(function(a,b){return b.base-a.base;});
     if(groupByRegion){
       // región→país: sigue siendo lista plana con cap (childMax/"+N más"), sin acordeón — no hay
