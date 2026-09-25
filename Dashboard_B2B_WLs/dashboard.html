@@ -346,13 +346,13 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
 /* ── OKR tables ───────────────────────────────────────────── */
 .okr-table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);overflow:auto;margin-bottom:10px}
 .okr-lob-hdr{background:#5457D9;color:#fff;padding:7px 12px;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:space-between}
-.okr-table{width:100%;border-collapse:collapse;font-size:11px}
+.okr-table{width:100%;border-collapse:collapse;font-size:11px;table-layout:fixed}
 .okr-table th{background:#7C7FFF;color:#fff;padding:5px 8px;text-align:center;font-weight:700;font-size:10px;white-space:nowrap;border-right:1px solid rgba(255,255,255,.15)}
-.okr-table th:first-child{text-align:left;min-width:140px}
-.okr-table th:nth-child(2){width:36px;text-align:center}
+.okr-table th:first-child{text-align:left;width:27%}
+.okr-table th:nth-child(2){width:42px;text-align:center}
 .okr-table th.th-q{background:#5457D9;border-left:2px solid rgba(255,255,255,.25)}
 .okr-table td{padding:5px 8px;text-align:center;border-bottom:1px solid var(--border);border-right:1px solid var(--border);font-size:11px}
-.okr-table td:first-child{text-align:left;font-weight:500;padding-left:10px;color:var(--text)}
+.okr-table td:first-child{text-align:left;font-weight:500;padding-left:10px;color:var(--text);word-break:break-word}
 .okr-table td.td-q{border-left:2px solid var(--border2);font-weight:700}
 .okr-table tr.okr-total td{font-weight:800;border-top:2px solid var(--border2);background:rgba(84,87,217,.04)}
 .okr-chip{display:inline-block;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700}
@@ -4365,16 +4365,23 @@ function fmtOKR(v) {
   var cls = shownN >= 100 ? 'okr-ok' : shownN >= 80 ? 'okr-warn' : 'okr-bad';
   return '<span class="okr-chip '+cls+'">'+shown+'%</span>';
 }
-function fmtOKRNominal(act, bud) {
+function fmtOKRNominal(act, bud, pct) {
   function fmtN(n) {
     if (n === null || n === undefined) return '—';
     var abs = Math.abs(n), s = n < 0 ? '-' : '';
+    if (pct) return s + abs.toFixed(2) + '%';   // KR en % (ej. NR %GB): 2 decimales
     if (abs < 1000) return s + Math.round(abs);
     if (abs < 1e6)  return s + (abs/1e3).toFixed(1) + 'K';
     return s + (abs/1e6).toFixed(1) + 'M';
   }
-  if (act === null || act === undefined)
-    return '<span style="color:var(--muted2)">—</span>';
+  if (act === null || act === undefined) {
+    // Sin actual pero con target (ej. KR cuyo actual todavía no se cargó): mostrar el target.
+    if (bud === null || bud === undefined) return '<span style="color:var(--muted2)">—</span>';
+    return '<div style="line-height:1.3;text-align:center">'
+      + '<div style="font-size:11px;color:var(--muted2)">—</div>'
+      + '<div style="font-size:9px;color:var(--muted2)">/ ' + fmtN(bud) + '</div>'
+      + '</div>';
+  }
   return '<div style="line-height:1.3;text-align:center">'
     + '<div style="font-size:11px;font-weight:600;color:var(--text)">' + fmtN(act) + '</div>'
     + '<div style="font-size:9px;color:var(--muted2)">/ ' + fmtN(bud) + '</div>'
@@ -4412,9 +4419,10 @@ function renderOKR(okr) {
     +(_okrMonthly ? '⇄ Trimestral' : '⇄ Mensual')+'</button>'
     +'</div></div>';
 
+  // 'globales' (Globales B2B API) solo existe en H2 → en H1 okr['globales'] es undefined y se omite.
   var lobsToRender = _state.lob === 'b2b2c' ? ['b2b2c']
-                   : _state.lob === 'b2b'   ? ['b2b']
-                   : ['b2b2c','b2b'];
+                   : _state.lob === 'b2b'   ? ['b2b','globales']
+                   : ['b2b2c','b2b','globales'];
   lobsToRender.forEach(function(lobKey) {
     var d = okr[lobKey];
     if (!d) return;
@@ -4443,20 +4451,20 @@ function renderOKR(okr) {
       if (_okrMonthly) {
         kr.monthly.forEach(function(v, mi) {
           var qBorder = (mi % 3 === 0) ? ' td-q' : '';
-          var cell = _okrNominal ? fmtOKRNominal(kr.monthlyAct[mi], kr.monthlyBud[mi]) : fmtOKR(v);
+          var cell = _okrNominal ? fmtOKRNominal(kr.monthlyAct[mi], kr.monthlyBud[mi], kr.pct) : fmtOKR(v);
           html += '<td class="'+qBorder+'">'+cell+'</td>';
         });
         kr.quarterly.forEach(function(v, qi) {
-          var cell = _okrNominal ? fmtOKRNominal(kr.quarterlyAct[qi], kr.quarterlyBud[qi]) : fmtOKR(v);
+          var cell = _okrNominal ? fmtOKRNominal(kr.quarterlyAct[qi], kr.quarterlyBud[qi], kr.pct) : fmtOKR(v);
           html += '<td class="td-q">'+cell+'</td>';
         });
-        html += '<td class="td-q">'+(_okrNominal ? fmtOKRNominal(kr.halfAct, kr.halfBud) : fmtOKR(kr.half))+'</td>';
+        html += '<td class="td-q">'+(_okrNominal ? fmtOKRNominal(kr.halfAct, kr.halfBud, kr.pct) : fmtOKR(kr.half))+'</td>';
       } else {
         kr.quarterly.forEach(function(v, qi) {
-          var cell = _okrNominal ? fmtOKRNominal(kr.quarterlyAct[qi], kr.quarterlyBud[qi]) : fmtOKR(v);
+          var cell = _okrNominal ? fmtOKRNominal(kr.quarterlyAct[qi], kr.quarterlyBud[qi], kr.pct) : fmtOKR(v);
           html += '<td class="td-q">'+cell+'</td>';
         });
-        html += '<td class="td-q">'+(_okrNominal ? fmtOKRNominal(kr.halfAct, kr.halfBud) : fmtOKR(kr.half))+'</td>';
+        html += '<td class="td-q">'+(_okrNominal ? fmtOKRNominal(kr.halfAct, kr.halfBud, kr.pct) : fmtOKR(kr.half))+'</td>';
       }
       html += '</tr>';
     });

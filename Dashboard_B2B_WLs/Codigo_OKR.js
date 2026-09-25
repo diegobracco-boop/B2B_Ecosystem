@@ -27,7 +27,8 @@ var OKR_CONFIG_H1 = {
 };
 
 // H2 FY27 (oct-26 → mar-27). Definido 2026-09-24. Targets: Budget contable, salvo
-// Deploy New Partnership / Unique Buyers / Accelerate Recurrence (fijos en okr_builder.py).
+// Deploy New Partnership / Unique Buyers / Accelerate Recurrence (target y actual desde
+// la sheet Input_OKR; el actual pasará a queries más adelante).
 // Hunting/Existing Account NR: sin datos ene-mar 2027 hasta que el Datalake tenga ese budget.
 var OKR_CONFIG_H2 = {
   'b2b2c': {
@@ -48,6 +49,19 @@ var OKR_CONFIG_H2 = {
       { kr: 'operating contribution html',    label: 'Operating Contribution HTML (MIN)',    weight: 20 },
       { kr: 'new product growth',             label: 'New Product Growth (WIP)',             weight: 15 },
       { kr: 'accelerate recurrence',          label: 'Accelerate Recurrence',                weight: 15 }
+    ]
+  },
+  // Globales B2B API (Others Countries · canal API · Hoteles). Los conteos son stocks →
+  // cumulative (último mes). NR %GB es un ratio → avg + pct. Los dos de GB son WIP.
+  'globales': {
+    label: 'Globales B2B API',
+    krs: [
+      { kr: 'accelerate hunting partners api',             label: 'Accelerate Hunting Partners API',                    weight: 30, cumulative: true },
+      { kr: 'hoteles directos vendidos destino latam',     label: 'Hoteles Directos vendidos destino LATAM',            weight: 20, cumulative: true },
+      { kr: 'gb b2b api hoteles - destino latam',          label: 'GB B2B API Hoteles - destino LATAM (WIP)',           weight: 10 },
+      { kr: 'hoteles directos vendidos destino no latam',  label: 'Hoteles Directos vendidos destino NO LATAM',         weight: 20, cumulative: true },
+      { kr: 'gb b2b api hoteles - destino no latam',       label: 'GB B2B API Hoteles - destino NO LATAM (WIP)',        weight: 5 },
+      { kr: 'net revenue api hoteles %gb',                 label: 'Net Revenue API Hoteles %GB',                        weight: 15, avg: true, pct: true }
     ]
   }
 };
@@ -84,7 +98,10 @@ var OKR_KR_ALIASES = {
   'op. contribution':    'operating contribution',
   'op contribution':     'operating contribution',
   'operating contrib':   'operating contribution',
-  'oc':                  'operating contribution'
+  'oc':                  'operating contribution',
+  // Grafía cargada en la sheet Input_OKR → nombre canónico de OKR_CONFIG_H2
+  'hoteles directo vendidos destino latam':    'hoteles directos vendidos destino latam',
+  'hoteles directo vendidos destino no latam': 'hoteles directos vendidos destino no latam'
 };
 
 // okr.json canónico (Inputs_Planning_PnL/okr_builder.py) — fuente única, ya trae
@@ -163,42 +180,32 @@ function computeOKR_(halfKey, rows) {
         return a / b * 100;
       });
 
+      // Agregación de un conjunto de meses (trimestre o semestre):
+      //   cumulative → punto final (stock: partners, hoteles, deploys)
+      //   avg        → promedio de los meses con dato (ratios, ej. NR %GB)
+      //   default    → suma mensual
+      function aggMonths_(esc, months) {
+        if (krDef.cumulative) return getVal(lobKey, krDef.kr, esc, months[months.length-1]);
+        var sum=0, n=0;
+        months.forEach(function(ym){ var v=getVal(lobKey, krDef.kr, esc, ym); if (v!==null) { sum+=v; n++; } });
+        if (!n) return null;
+        return krDef.avg ? sum / n : sum;
+      }
+
       // Valores crudos trimestrales + achievement %
-      // cumulative=true → punto final del trimestre; default → suma mensual
-      var quarterlyAct = quarters.map(function(q) {
-        if (krDef.cumulative) return getVal(lobKey, krDef.kr, ESC_ACT, q.months[q.months.length-1]);
-        var sum=0, ok=false;
-        q.months.forEach(function(ym){var v=getVal(lobKey,krDef.kr,ESC_ACT,ym); if(v!==null){sum+=v;ok=true;}});
-        return ok ? sum : null;
-      });
-      var quarterlyBud = quarters.map(function(q) {
-        if (krDef.cumulative) return getVal(lobKey, krDef.kr, ESC_BUD, q.months[q.months.length-1]);
-        var sum=0, ok=false;
-        q.months.forEach(function(ym){var v=getVal(lobKey,krDef.kr,ESC_BUD,ym); if(v!==null){sum+=v;ok=true;}});
-        return ok ? sum : null;
-      });
+      var quarterlyAct = quarters.map(function(q) { return aggMonths_(ESC_ACT, q.months); });
+      var quarterlyBud = quarters.map(function(q) { return aggMonths_(ESC_BUD, q.months); });
       var quarterly = quarterlyAct.map(function(a, i) {
         var b = quarterlyBud[i];
         return (a!==null && b!==null && b!==0) ? a/b*100 : null;
       });
 
       // Valores crudos del semestre + achievement %
-      // cumulative=true → último mes del semestre; default → suma del semestre
-      var halfActVal = (function() {
-        if (krDef.cumulative) return getVal(lobKey, krDef.kr, ESC_ACT, periods[periods.length-1]);
-        var sum=0, ok=false;
-        periods.forEach(function(ym){var v=getVal(lobKey,krDef.kr,ESC_ACT,ym); if(v!==null){sum+=v;ok=true;}});
-        return ok ? sum : null;
-      })();
-      var halfBudVal = (function() {
-        if (krDef.cumulative) return getVal(lobKey, krDef.kr, ESC_BUD, periods[periods.length-1]);
-        var sum=0, ok=false;
-        periods.forEach(function(ym){var v=getVal(lobKey,krDef.kr,ESC_BUD,ym); if(v!==null){sum+=v;ok=true;}});
-        return ok ? sum : null;
-      })();
+      var halfActVal = aggMonths_(ESC_ACT, periods);
+      var halfBudVal = aggMonths_(ESC_BUD, periods);
       var halfPct = (halfActVal!==null && halfBudVal!==null && halfBudVal!==0) ? halfActVal/halfBudVal*100 : null;
 
-      return { label: krDef.label, weight: krDef.weight,
+      return { label: krDef.label, weight: krDef.weight, pct: !!krDef.pct,
                monthly: monthly, quarterly: quarterly, half: halfPct,
                monthlyAct: mAct, monthlyBud: mBud,
                quarterlyAct: quarterlyAct, quarterlyBud: quarterlyBud,

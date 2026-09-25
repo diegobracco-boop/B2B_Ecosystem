@@ -79,33 +79,29 @@ CORE_MARKETS = {"brasil", "mexico", "other countries", "others countries"}
 MANUAL_KRS = {
     "Sign New Partnership",
     "Air Net Revenue from suppliers",
-    # H2 FY27 (oct-26 → mar-27): el actual lo carga el equipo en Input_OKR; el target
-    # es fijo por semestre y vive en H2_FIXED_TARGETS (las filas Budget de la sheet
-    # para estos KRs se ignoran para no duplicar).
+    # H2 FY27 (oct-26 → mar-27): target Y actual salen de Input_OKR (definido 2026-09-24).
+    # A futuro el actual pasará a calcularse con queries; el target seguirá en la sheet.
     "Deploy New Partnership",
     "Unique Buyers",
     "Accelerate Recurrence",
+    # Globales B2B API (H2): conteos, LoB='Globales' en la sheet (target y actual).
+    # Los KRs "GB B2B API Hoteles - destino LATAM / NO LATAM" son WIP (sin fuente definida).
+    "Accelerate Hunting Partners API",
+    "Hoteles Directos vendidos destino LATAM",
+    "Hoteles Directos vendidos destino NO LATAM",
+    # Grafía tal cual quedó cargada en la sheet (singular, "Vendidos" con V mayúscula).
+    "Hoteles Directo Vendidos destino LATAM",
+    "Hoteles Directo Vendidos destino NO LATAM",
 }
+MANUAL_KRS_LC = {k.lower() for k in MANUAL_KRS}   # el match es case-insensitive
 
-# Targets fijos H2 FY27 (definidos 2026-09-24). (LoB, KR) → valor por mes, en orden H2_MONTHS.
-#   Deploy New Partnership es acumulado (el valor de cada mes es el total a esa fecha).
-#   New Product Growth (B2B) es WIP: sin target ni actual hasta definir la lógica.
-H2_MONTHS = ["2026-10", "2026-11", "2026-12", "2027-01", "2027-02", "2027-03"]
-H2_FIXED_TARGETS = {
-    ("B2B2C", "Deploy New Partnership"): [2, 4, 5, 6, 8, 10],
-    ("B2B2C", "Unique Buyers"):          [103000, 127000, 99000, 134000, 114000, 137000],
-    ("B2B",   "Accelerate Recurrence"):  [3300, 3200, 2900, 3800, 3500, 4100],
-}
-FIXED_TARGET_KRS = {kr for (_lob, kr) in H2_FIXED_TARGETS}
+# En la sheet estos KRs vienen con LoB='B2B'; el OKR los agrupa en 'Globales'.
+GLOBALES_KRS_LC = {k.lower() for k in MANUAL_KRS if k.lower().startswith(("accelerate hunting", "hoteles directo"))}
 
-
-def _fixed_target_rows():
-    rows = []
-    for (lob, kr), vals in H2_FIXED_TARGETS.items():
-        for ym, v in zip(H2_MONTHS, vals):
-            rows.append([_ym_to_periodo(ym), "Budget", lob, "Total", "Total", kr, v])
-    print(f"  [Targets fijos H2] {len(rows)} filas ({len(H2_FIXED_TARGETS)} KRs)")
-    return rows
+# Globales B2B API Hoteles = país Others Countries + canal API ('may') + producto Hotels
+# (misma definición que el tab "KRs Globales" del Daily).
+GLOBALES_PAISES    = {"others countries", "other countries"}
+GLOBALES_PRODUCTOS = {"hotels", "hotel"}
 
 
 # ── Drive helpers ──────────────────────────────────────────────────────────────
@@ -280,6 +276,8 @@ def _compute_from_canonical(canon_data, scen_label):
     nr_new     = defaultdict(float)   # B2B NR New Markets
     nr_b2b2c   = defaultdict(float)   # B2B2C NR total (no es KR propio)
     nr_b2b     = defaultdict(float)   # B2B NR total (H2: KR "Net Revenues B2B")
+    glob_nr    = defaultdict(float)   # Globales API Hoteles NR  (H2: KR "Net Revenue API Hoteles %GB")
+    glob_gb    = defaultdict(float)   # Globales API Hoteles GB
     oc_api     = defaultdict(float)   # B2B OC canal 'may' = API (H2)
     oc_html    = defaultdict(float)   # B2B OC canal 'min' = HTML (H2)
 
@@ -297,6 +295,13 @@ def _compute_from_canonical(canon_data, scen_label):
         if lob == "b2b2c" and n3 == "net revenue":
             nr_b2b2c[fecha] += monto
 
+        if (lob == "b2b" and str(r[iC]).lower() == "may" and pais in GLOBALES_PAISES
+                and str(r[cols.index("Producto")]).lower() in GLOBALES_PRODUCTOS):
+            if n3 == "net revenue":
+                glob_nr[fecha] += monto
+            elif n3 == "gross bookings":
+                glob_gb[fecha] += monto
+
         if lob == "b2b" and n5 == "operating contribution":
             canal = str(r[iC]).lower()
             if canal == "may":
@@ -313,7 +318,11 @@ def _compute_from_canonical(canon_data, scen_label):
 
     rows = []
     for fecha in sorted(set(list(op_cont) + list(nr_core) + list(nr_new)
-                            + list(nr_b2b) + list(oc_api) + list(oc_html))):
+                            + list(nr_b2b) + list(oc_api) + list(oc_html) + list(glob_gb))):
+        if glob_gb.get(fecha):
+            rows.append([fecha, scen_label, "Globales", "Others Countries", "Hotels",
+                         "Net Revenue API Hoteles %GB",
+                         round(glob_nr.get(fecha, 0.0) / glob_gb[fecha] * 100, 4)])
         if fecha in nr_b2b:
             rows.append([fecha, scen_label, "B2B", "Total", "Total",
                          "Net Revenues B2B", round(nr_b2b[fecha], 2)])
@@ -470,10 +479,10 @@ def _read_manual_krs(token_file):
         if str(periodo_raw).strip().lower() in SKIP or str(escenario).strip().lower() in SKIP:
             skipped += 1
             continue
-        if kr not in MANUAL_KRS:
+        if str(kr).strip().lower() not in MANUAL_KRS_LC:
             continue
-        if kr in FIXED_TARGET_KRS and str(escenario).strip().lower() == "budget":
-            continue   # el target de estos KRs es fijo (H2_FIXED_TARGETS)
+        if str(kr).strip().lower() in GLOBALES_KRS_LC:
+            lob = "Globales"
         # Solo el total (Pais=Total, Producto=Total) — si alguien agrega detalle
         # por país/producto en la sheet, no lo sumamos para evitar duplicar.
         if str(pais).strip().lower() != "total" or str(producto).strip().lower() != "total":
@@ -486,7 +495,20 @@ def _read_manual_krs(token_file):
             continue
         rows.append([periodo, escenario, lob, pais, producto, kr, valor])
 
-    print(f"  [GSheet manual] {len(rows)} filas")
+    # Filas repetidas en la sheet (mismo periodo/escenario/lob/pais/producto/kr): la landing
+    # SUMA por clave, así que un duplicado dobla el valor (ej. Unique Buyers Budget cargado
+    # dos veces, 2026-09-24). Se queda la última y se avisa si los valores difieren.
+    dedup = {}
+    for r in rows:
+        key = tuple(str(x).strip().lower() for x in r[:6])
+        if key in dedup and dedup[key][6] != r[6]:
+            print(f"  WARN duplicado con valores distintos en Input_OKR: {r[5]} {r[0]} {r[1]}: "
+                  f"{dedup[key][6]} vs {r[6]} (se usa {r[6]})")
+        dedup[key] = r
+    n_dup = len(rows) - len(dedup)
+    rows = list(dedup.values())
+
+    print(f"  [GSheet manual] {len(rows)} filas" + (f" ({n_dup} duplicadas descartadas)" if n_dup else ""))
     return rows
 
 
@@ -520,9 +542,7 @@ def build(upload=True):
     rows_manual   = _read_manual_krs(token_file)
     rows_agencias = _read_agencias_flat()
 
-    rows_fixed    = _fixed_target_rows()
-
-    all_rows = rows_baseline + rows_budget + rows_hunting + rows_manual + rows_agencias + rows_fixed
+    all_rows = rows_baseline + rows_budget + rows_hunting + rows_manual + rows_agencias
 
     # Resumen
     print(f"\n  Total filas: {len(all_rows):,}")
