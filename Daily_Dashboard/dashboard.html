@@ -4006,11 +4006,13 @@ var FLOW_DECK = [
   {kind:'daily', region:'BR', metric:'nr', name:'Brasil — NR diario'},
   {kind:'daily', region:'BR', metric:'fvm', name:'Brasil — FVM diario'},
   {kind:'tables', region:'BR', name:'Brasil — Tablas GB/NR/FVM'},
+  {kind:'tables', region:'BR', tier:true, name:'Brasil — Tablas GB/NR/FVM por Tier'},
   {kind:'divider', region:'NAM', name:'— MX/US —'},
   {kind:'monthly', region:'NAM', name:'MX/US — Mensual'},
   {kind:'daily', region:'NAM', metric:'nr', name:'MX/US — NR diario'},
   {kind:'daily', region:'NAM', metric:'fvm', name:'MX/US — FVM diario'},
   {kind:'tables', region:'NAM', name:'MX/US — Tablas GB/NR/FVM'},
+  {kind:'tables', region:'NAM', tier:true, name:'MX/US — Tablas GB/NR/FVM por Tier'},
   {kind:'divider', region:'SAH', name:'— Hispa —'},
   {kind:'monthly', region:'SAH', name:'Hispa — Mensual'},
   {kind:'daily', region:'SAH', metric:'nr', name:'Hispa — NR diario'},
@@ -4173,6 +4175,65 @@ function flowGroupTable_(subRaw, metricKey, comp, col1, groupByRegion, childMax,
   return '<table class="fl-tbl"><thead><tr><th>'+(col1||'Región / País')+'</th><th>Baseline</th><th>Delta [$]</th><th>Delta [%]</th></tr></thead><tbody>'+body+'</tbody></table>';
 }
 
+// Igual que flowGroupTable_ pero con un nivel extra: País → Tier → Partner (Diego pidió que
+// las tablas de tier no pierdan el país por el camino). País ordena por baseline igual que
+// siempre (cap topMax); tier no se cap-ea (son pocos por país); partner se cap-ea igual que
+// flowGroupTable_ (childMax, "+N más"). El subtotal de tier solo se muestra si el país tiene
+// más de un tier — si es uno solo, ir directo a los partners no pierde información.
+function flowGroupTable3_(subRaw, metricKey, comp, col1, childMax, topMax){
+  if(childMax===undefined) childMax=_flowPrinting?Infinity:8;
+  if(topMax===undefined) topMax=_flowPrinting?0:12;
+  var vDate=flowVDate_(), mStart=vDate.substring(0,7)+'-01';
+  var lyMode=(comp==='ly'), lyMS=_flLY_(mStart), lyVD=_flLY_(vDate);
+  var MF=_FLMF[metricKey], cmpArr=_flCompArr_(subRaw,comp), cmpF=_flCompField_(metricKey,comp);
+  var G={};
+  function grp(k){ G[k]=G[k]||{base:0,goal:0,tiers:{}}; return G[k]; }
+  function tier(g,tk){ g.tiers[tk]=g.tiers[tk]||{base:0,goal:0,partners:{}}; return g.tiers[tk]; }
+  function partner(t,pk){ t.partners[pk]=t.partners[pk]||{base:0,goal:0}; return t.partners[pk]; }
+  (subRaw.actuals||[]).forEach(function(r){
+    if(r.fecha<mStart||r.fecha>vDate)return; var v=r[MF]||0;
+    var g=grp(r.pais||'Other'); g.base+=v;
+    var t=tier(g,r.tier||'Unknown'); t.base+=v;
+    partner(t,r.partner||'Other').base+=v;
+  });
+  cmpArr.forEach(function(r){
+    if(lyMode){ if(r.fecha<lyMS||r.fecha>lyVD)return; } else if(r.fecha<mStart||r.fecha>vDate){ return; }
+    var v=r[cmpF]||0;
+    var g=grp(r.pais||'Other'); g.goal+=v;
+    var t=tier(g,r.tier||'Unknown'); t.goal+=v;
+    partner(t,r.partner||'Other').goal+=v;
+  });
+  var orderFull=Object.keys(G).sort(function(a,b){return G[b].base-G[a].base;});
+  var order=(topMax && orderFull.length>topMax) ? orderFull.slice(0,topMax) : orderFull;
+  function cell(d){ return '<td class="'+(d>=0?'fl-pos':'fl-neg')+'">'+(d>=0?'+':'')+fmtShort(d)+'</td>'; }
+  function pct(b,g){ return g!==0 ? (b/g-1)*100 : null; }
+  function pctCell(b,g){ var p=pct(b,g); return '<td class="'+((b-g)>=0?'fl-pos':'fl-neg')+'">'+(p==null?'—':(p>=0?'+':'')+Math.round(p)+'%')+'</td>'; }
+  var body='',TB=0,TG=0;
+  orderFull.forEach(function(k){ var g=G[k]; TB+=g.base; TG+=g.goal; });
+  order.forEach(function(k){
+    var g=G[k];
+    body+='<tr class="grp"><td>'+k+'</td><td>'+fmtShort(g.base)+'</td>'+cell(g.base-g.goal)+pctCell(g.base,g.goal)+'</tr>';
+    var tiers=Object.keys(g.tiers).map(function(tn){return {name:tn,base:g.tiers[tn].base,goal:g.tiers[tn].goal,partners:g.tiers[tn].partners};})
+      .sort(function(a,b){return b.base-a.base;});
+    var showTier=tiers.length>1;
+    tiers.forEach(function(t){
+      if(showTier){ body+='<tr><td style="font-weight:700">&nbsp;&nbsp;'+t.name+'</td><td>'+fmtShort(t.base)+'</td>'+cell(t.base-t.goal)+pctCell(t.base,t.goal)+'</tr>'; }
+      var partners=Object.keys(t.partners).map(function(pn){return {name:pn,base:t.partners[pn].base,goal:t.partners[pn].goal};})
+        .sort(function(a,b){return b.base-a.base;});
+      var indent=showTier?'&nbsp;&nbsp;&nbsp;&nbsp;':'&nbsp;&nbsp;';
+      if(childMax!==0 && partners.length>1){
+        partners.slice(0,childMax).forEach(function(p){
+          body+='<tr><td>'+indent+p.name+'</td><td>'+fmtShort(p.base)+'</td>'+cell(p.base-p.goal)+pctCell(p.base,p.goal)+'</tr>';
+        });
+        if(partners.length>childMax){ body+='<tr class="fl-more"><td>'+indent+'+'+(partners.length-childMax)+' más</td><td colspan="3"></td></tr>'; }
+      }
+    });
+  });
+  if(orderFull.length>order.length){ body+='<tr class="fl-more"><td>+'+(orderFull.length-order.length)+' más</td><td colspan="3"></td></tr>'; }
+  body+='<tr class="tot"><td>Total</td><td>'+fmtShort(TB)+'</td>'+cell(TB-TG)+pctCell(TB,TG)+'</tr>';
+  return '<table class="fl-tbl"><thead><tr><th>'+(col1||'País / Tier / Partner')+'</th><th>Baseline</th><th>Delta [$]</th><th>Delta [%]</th></tr></thead><tbody>'+body+'</tbody></table>';
+}
+
 // Suma actual/comparación MTD para el slide 'b2b2c_krs', filtrando por
 // stage (New/Existing/'all') y opcionalmente por región. account_type
 // (actuals) y stage (budget/runrate) son el mismo concepto con nombre de
@@ -4309,12 +4370,13 @@ function flowBuildSlide_(def, idx){
   }
   if(def.kind==='tables'){
     var region=def.region, sub=flowRegionRaw_(region);
-    var byTier=!!def.tier, col1Lbl=byTier?'Tier / Partner':'País / Partner';
+    var byTier=!!def.tier, col1Lbl=byTier?'País / Tier / Partner':'País / Partner';
     var titleTxt=mesLbl+' | B2B2C '+FLOW_RG[region].label+(byTier?' (por Tier)':'')+' — GB/NR/FVM Performance MTD';
     var brand='<span class="fl-flag">'+FLOW_RG[region].flag+'</span>'+flLogo_();
     function triple(comp,tag,color){
       var cells=['gb','nr','fvm'].map(function(mk){
-        return '<div class="fl-scroll-tbl" style="flex:1;min-width:0;min-height:0;overflow-y:auto"><div class="fl-tag" style="background:'+color+'">'+FLOW_MET[mk].short+'</div>'+flowGroupTable_(sub,mk,comp,col1Lbl,false,undefined,undefined,byTier?'tier':undefined)+'</div>';
+        var tblHtml=byTier ? flowGroupTable3_(sub,mk,comp,col1Lbl) : flowGroupTable_(sub,mk,comp,col1Lbl,false);
+        return '<div class="fl-scroll-tbl" style="flex:1;min-width:0;min-height:0;overflow-y:auto"><div class="fl-tag" style="background:'+color+'">'+FLOW_MET[mk].short+'</div>'+tblHtml+'</div>';
       }).join('');
       return '<div style="flex:1;min-width:0;min-height:0;display:flex;flex-direction:column">'
         +'<div style="font-size:12px;font-weight:800;color:var(--fl-purple);margin-bottom:3px">'+tag+'</div>'
