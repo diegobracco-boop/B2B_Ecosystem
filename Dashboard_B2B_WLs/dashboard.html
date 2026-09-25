@@ -1922,6 +1922,7 @@ var _state = {
 
 var _charts = {};
 var _okrMonthly  = false;  // false = vista trimestral; true = vista mensual
+var _okrHalf     = null;   // 'H1' | 'H2' — null hasta que llega getOKRData() (default por fecha)
 var _okrNominal  = false;  // false = % cumplimiento;  true = valores nominales (act/bud)
 
 // ══════════════════════════════════════════════════════════
@@ -4328,13 +4329,21 @@ function loadOKR() {
   if (IS_DEMO) { renderOKR(null); return; }
   google.script.run
     .withSuccessHandler(function(res) {
-      _state.okr = (res && res.success) ? res.okr : null;
+      _state.okrAll = (res && res.success) ? (res.okrByHalf || null) : null;
+      if (!_okrHalf) _okrHalf = (res && res.defaultHalf) || 'H1';
+      _state.okr = _state.okrAll ? _state.okrAll[_okrHalf] : ((res && res.success) ? res.okr : null);
       renderOKR(_state.okr);
     })
     .withFailureHandler(function() { renderOKR(null); })
     .getOKRData();
 }
 
+function setOKRHalf(h) {
+  if (!_state.okrAll || !_state.okrAll[h]) return;
+  _okrHalf = h;
+  _state.okr = _state.okrAll[h];
+  renderOKR(_state.okr);
+}
 function toggleOKRView() {
   _okrMonthly = !_okrMonthly;
   renderOKR(_state.okr);
@@ -4384,13 +4393,19 @@ function renderOKR(okr) {
     return;
   }
 
-  // Etiquetas de meses — solo H1 FY27 (Abr–Sep)
-  var MON_SHORT = ['Abr','May','Jun','Jul','Ago','Sep'];
+  // Etiquetas de meses: salen del semestre que viene en los datos (periods = ['2026-10', ...])
+  var _MES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  function monLabel_(ym){ return _MES[parseInt(String(ym).substring(5,7),10)-1] || ym; }
+  var _halfSel = _okrHalf || 'H1';
+  var _halfBtn = function(h){
+    return '<button class="gran-btn'+(h===_halfSel?' active':'')+'" onclick="setOKRHalf(\''+h+'\')" style="font-size:11px">'+h+'</button>';
+  };
 
   var html =
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
-    +'<span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em">OKR Status FY27</span>'
+    +'<span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em">OKR Status FY27 · '+_halfSel+'</span>'
     +'<div style="display:flex;gap:6px">'
+    +(_state.okrAll ? _halfBtn('H1')+_halfBtn('H2') : '')
     +'<button id="okr-toggle-nom" class="gran-btn" onclick="toggleOKRNominal()" style="font-size:11px">'
     +(_okrNominal ? '% Cumpl.' : '$/Q Nominal')+'</button>'
     +'<button id="okr-toggle" class="gran-btn" onclick="toggleOKRView()" style="font-size:11px">'
@@ -4409,14 +4424,15 @@ function renderOKR(okr) {
 
     if (_okrMonthly) {
       // 12 meses + 4 Q separators
-      MON_SHORT.forEach(function(ml, mi) {
+      d.periods.forEach(function(ym, mi) {
         var qBorder = (mi % 3 === 0) ? ' th-q' : '';
-        html += '<th class="'+qBorder+'">'+ml+'</th>';
+        html += '<th class="'+qBorder+'">'+monLabel_(ym)+'</th>';
       });
-      html += '<th class="th-q">Q1</th><th class="th-q">Q2</th><th class="th-q">H1</th>';
+      d.quarters.forEach(function(q) { html += '<th class="th-q">'+q+'</th>'; });
+      html += '<th class="th-q">'+d.half+'</th>';
     } else {
       d.quarters.forEach(function(q) { html += '<th class="th-q">'+q+'</th>'; });
-      html += '<th class="th-q">H1</th>';
+      html += '<th class="th-q">'+d.half+'</th>';
     }
     html += '</tr></thead><tbody>';
 
@@ -4434,13 +4450,13 @@ function renderOKR(okr) {
           var cell = _okrNominal ? fmtOKRNominal(kr.quarterlyAct[qi], kr.quarterlyBud[qi]) : fmtOKR(v);
           html += '<td class="td-q">'+cell+'</td>';
         });
-        html += '<td class="td-q">'+(_okrNominal ? fmtOKRNominal(kr.h1Act, kr.h1Bud) : fmtOKR(kr.h1))+'</td>';
+        html += '<td class="td-q">'+(_okrNominal ? fmtOKRNominal(kr.halfAct, kr.halfBud) : fmtOKR(kr.half))+'</td>';
       } else {
         kr.quarterly.forEach(function(v, qi) {
           var cell = _okrNominal ? fmtOKRNominal(kr.quarterlyAct[qi], kr.quarterlyBud[qi]) : fmtOKR(v);
           html += '<td class="td-q">'+cell+'</td>';
         });
-        html += '<td class="td-q">'+(_okrNominal ? fmtOKRNominal(kr.h1Act, kr.h1Bud) : fmtOKR(kr.h1))+'</td>';
+        html += '<td class="td-q">'+(_okrNominal ? fmtOKRNominal(kr.halfAct, kr.halfBud) : fmtOKR(kr.half))+'</td>';
       }
       html += '</tr>';
     });
@@ -4453,10 +4469,10 @@ function renderOKR(okr) {
         html += '<td class="'+qBorder+'">'+fmtOKR(v)+'</td>';
       });
       d.totalQuarterly.forEach(function(v) { html += '<td class="td-q">'+fmtOKR(v)+'</td>'; });
-      html += '<td class="td-q">'+fmtOKR(d.h1Total)+'</td>';
+      html += '<td class="td-q">'+fmtOKR(d.halfTotal)+'</td>';
     } else {
       d.totalQuarterly.forEach(function(v) { html += '<td class="td-q">'+fmtOKR(v)+'</td>'; });
-      html += '<td class="td-q">'+fmtOKR(d.h1Total)+'</td>';
+      html += '<td class="td-q">'+fmtOKR(d.halfTotal)+'</td>';
     }
     html += '</tr></tbody></table></div>';
   });

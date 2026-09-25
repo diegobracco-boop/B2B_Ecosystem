@@ -1829,6 +1829,24 @@ def _parse_fecha_budget(s: pd.Series) -> pd.Series:
     return out
 
 
+def agg_okr_stage_nr(df: pd.DataFrame) -> pd.DataFrame:
+    """Bloque chico para okr_builder.py (Hunting / Existing Account Net Revenues, B2B2C):
+    NR por mes x stage (New/Existing) del AÑO FISCAL COMPLETO (abr -> mar siguiente).
+    agg_budget() recorta al año calendario en curso (lo consume el Daily, que suma budget
+    sin tope de fecha en varios lugares), asi que ene-mar del FY quedaban afuera del JSON.
+    Esto NO cambia lo que ve el Daily: va en claves aparte (okr_budget / okr_runrate)."""
+    if df.empty or "stage" not in df.columns:
+        return pd.DataFrame(columns=["fecha", "stage", "net_revenue"])
+    df = df.copy()
+    f = _parse_fecha_budget(df["fecha"])
+    fy0 = TODAY.year if TODAY.month >= 4 else TODAY.year - 1
+    df = df[(f >= pd.Timestamp(fy0, 4, 1)) & (f <= pd.Timestamp(fy0 + 1, 3, 31))]
+    df["fecha"] = f.loc[df.index].dt.strftime("%Y-%m-01")
+    return (df.groupby(["fecha", "stage"], as_index=False)
+              .agg(net_revenue=("net_revenue", "sum"))
+              .round({"net_revenue": 2}))
+
+
 def agg_budget(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     df["fecha"] = _parse_fecha_budget(df["fecha"]).dt.strftime("%Y-%m-%d")
@@ -2068,6 +2086,8 @@ df_b2b_ri_ly_ag = agg_b2b(df_b2b_ri_ly)
 df_b2b_bud_gd   = agg_b2b_budget(df_b2b_budget_gd) if not df_b2b_budget_gd.empty else pd.DataFrame()
 df_b2b_bud_ri   = agg_b2b_budget(df_b2b_budget_ri) if not df_b2b_budget_ri.empty else pd.DataFrame()
 df_b2bc_rr_agg  = agg_budget(df_b2bc_rr)           if not df_b2bc_rr.empty          else pd.DataFrame()
+df_okr_bud      = agg_okr_stage_nr(df_budget)
+df_okr_rr       = agg_okr_stage_nr(df_b2bc_rr)
 df_b2b_rr_gd_agg = agg_b2b_budget(df_b2b_rr_gd)   if not df_b2b_rr_gd.empty        else pd.DataFrame()
 df_b2b_rr_ri_agg = agg_b2b_budget(df_b2b_rr_ri)   if not df_b2b_rr_ri.empty        else pd.DataFrame()
 print(f"  Actuals:    {len(df_actuals):,} -> {len(df_act):,} filas")
@@ -2097,6 +2117,8 @@ b2bc_payload = {
     "actuals_ly": df_lya.to_dict(orient="records"),
     "budget":     to_compact(df_bud),
     "runrate":    to_compact(df_b2bc_rr_agg) if not df_b2bc_rr_agg.empty else {"cols": [], "rows": []},
+    "okr_budget":  to_compact(df_okr_bud),   # NR por mes x stage, FY completo -> okr_builder.py
+    "okr_runrate": to_compact(df_okr_rr),
     "b2c":        b2c_compact,
     "b2c_ly":     b2c_ly_compact,
 }

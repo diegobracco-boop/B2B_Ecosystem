@@ -79,7 +79,33 @@ CORE_MARKETS = {"brasil", "mexico", "other countries", "others countries"}
 MANUAL_KRS = {
     "Sign New Partnership",
     "Air Net Revenue from suppliers",
+    # H2 FY27 (oct-26 → mar-27): el actual lo carga el equipo en Input_OKR; el target
+    # es fijo por semestre y vive en H2_FIXED_TARGETS (las filas Budget de la sheet
+    # para estos KRs se ignoran para no duplicar).
+    "Deploy New Partnership",
+    "Unique Buyers",
+    "Accelerate Recurrence",
 }
+
+# Targets fijos H2 FY27 (definidos 2026-09-24). (LoB, KR) → valor por mes, en orden H2_MONTHS.
+#   Deploy New Partnership es acumulado (el valor de cada mes es el total a esa fecha).
+#   New Product Growth (B2B) es WIP: sin target ni actual hasta definir la lógica.
+H2_MONTHS = ["2026-10", "2026-11", "2026-12", "2027-01", "2027-02", "2027-03"]
+H2_FIXED_TARGETS = {
+    ("B2B2C", "Deploy New Partnership"): [2, 4, 5, 6, 8, 10],
+    ("B2B2C", "Unique Buyers"):          [103000, 127000, 99000, 134000, 114000, 137000],
+    ("B2B",   "Accelerate Recurrence"):  [3300, 3200, 2900, 3800, 3500, 4100],
+}
+FIXED_TARGET_KRS = {kr for (_lob, kr) in H2_FIXED_TARGETS}
+
+
+def _fixed_target_rows():
+    rows = []
+    for (lob, kr), vals in H2_FIXED_TARGETS.items():
+        for ym, v in zip(H2_MONTHS, vals):
+            rows.append([_ym_to_periodo(ym), "Budget", lob, "Total", "Total", kr, v])
+    print(f"  [Targets fijos H2] {len(rows)} filas ({len(H2_FIXED_TARGETS)} KRs)")
+    return rows
 
 
 # ── Drive helpers ──────────────────────────────────────────────────────────────
@@ -180,8 +206,11 @@ def _compute_b2b2c_hunting_farming(daily_json, nr_b2b2c_by_scen, last_actual_ym)
         if ym:
             act_new[_ym_to_periodo(ym)] += float(r.get("net_revenues") or 0)
 
-    bud_new = _daily_new_by_periodo(daily_json.get("budget", {}))
-    rr_new  = _daily_new_by_periodo(daily_json.get("runrate", {}))
+    # okr_budget / okr_runrate: bloques del FY completo (abr -> mar) que emite daily_sync.py
+    # (los .budget / .runrate del Daily se recortan al año calendario → sin ene-mar). Fallback
+    # a los bloques viejos si el JSON diario todavía no los trae.
+    bud_new = _daily_new_by_periodo(daily_json.get("okr_budget") or daily_json.get("budget", {}))
+    rr_new  = _daily_new_by_periodo(daily_json.get("okr_runrate") or daily_json.get("runrate", {}))
 
     def hunting_rr(periodo):
         if periodo <= corte:
@@ -195,6 +224,13 @@ def _compute_b2b2c_hunting_farming(daily_json, nr_b2b2c_by_scen, last_actual_ym)
         "Budget":           lambda periodo: bud_new.get(periodo, 0.0),
     }
 
+    # Cobertura: raw.b2b_budget_gd / raw.b2brr_gd solo llegan hasta dic-2026. Sin dato del
+    # flag New/Existing NO se emite el mes (hunting=0 haría que Existing = NR total).
+    def covered(scen_label, periodo):
+        if scen_label == "Budget":
+            return periodo in bud_new
+        return periodo <= corte or periodo in rr_new or periodo in bud_new
+
     rows = []
     for scen_label, hunting_fn in HUNTING_BY_SCEN.items():
         total_by_periodo = nr_b2b2c_by_scen.get(scen_label, {})
@@ -202,6 +238,8 @@ def _compute_b2b2c_hunting_farming(daily_json, nr_b2b2c_by_scen, last_actual_ym)
             total = total_by_periodo.get(periodo)
             if total is None:
                 continue   # sin total contable ese mes -> no calculamos Existing
+            if not covered(scen_label, periodo):
+                continue
             hunting = hunting_fn(periodo)
             farming = total - hunting
             rows.append([periodo, scen_label, "B2B2C", "Total", "Total",
@@ -235,11 +273,15 @@ def _compute_from_canonical(canon_data, scen_label):
     iP   = cols.index("Pais")
     iF   = cols.index("Fecha")
     iM   = cols.index("Monto USD")
+    iC   = cols.index("Canal")
 
     op_cont    = defaultdict(float)   # B2B2C Op.Contribution
     nr_core    = defaultdict(float)   # B2B NR Core Markets
     nr_new     = defaultdict(float)   # B2B NR New Markets
     nr_b2b2c   = defaultdict(float)   # B2B2C NR total (no es KR propio)
+    nr_b2b     = defaultdict(float)   # B2B NR total (H2: KR "Net Revenues B2B")
+    oc_api     = defaultdict(float)   # B2B OC canal 'may' = API (H2)
+    oc_html    = defaultdict(float)   # B2B OC canal 'min' = HTML (H2)
 
     for r in canon_data["rows"]:
         lob   = str(r[iL]).lower()
@@ -255,14 +297,32 @@ def _compute_from_canonical(canon_data, scen_label):
         if lob == "b2b2c" and n3 == "net revenue":
             nr_b2b2c[fecha] += monto
 
+        if lob == "b2b" and n5 == "operating contribution":
+            canal = str(r[iC]).lower()
+            if canal == "may":
+                oc_api[fecha] += monto
+            elif canal == "min":
+                oc_html[fecha] += monto
+
         if lob == "b2b" and n3 == "net revenue":
+            nr_b2b[fecha] += monto
             if pais in CORE_MARKETS:
                 nr_core[fecha] += monto
             else:
                 nr_new[fecha] += monto
 
     rows = []
-    for fecha in sorted(set(list(op_cont) + list(nr_core) + list(nr_new))):
+    for fecha in sorted(set(list(op_cont) + list(nr_core) + list(nr_new)
+                            + list(nr_b2b) + list(oc_api) + list(oc_html))):
+        if fecha in nr_b2b:
+            rows.append([fecha, scen_label, "B2B", "Total", "Total",
+                         "Net Revenues B2B", round(nr_b2b[fecha], 2)])
+        if fecha in oc_api:
+            rows.append([fecha, scen_label, "B2B", "Total", "API",
+                         "Operating Contribution API", round(oc_api[fecha], 2)])
+        if fecha in oc_html:
+            rows.append([fecha, scen_label, "B2B", "Total", "HTML",
+                         "Operating Contribution HTML", round(oc_html[fecha], 2)])
         if fecha in op_cont:
             rows.append([fecha, scen_label, "B2B2C", "Total", "Total",
                          "Op. Contribution", round(op_cont[fecha], 2)])
@@ -412,6 +472,8 @@ def _read_manual_krs(token_file):
             continue
         if kr not in MANUAL_KRS:
             continue
+        if kr in FIXED_TARGET_KRS and str(escenario).strip().lower() == "budget":
+            continue   # el target de estos KRs es fijo (H2_FIXED_TARGETS)
         # Solo el total (Pais=Total, Producto=Total) — si alguien agrega detalle
         # por país/producto en la sheet, no lo sumamos para evitar duplicar.
         if str(pais).strip().lower() != "total" or str(producto).strip().lower() != "total":
@@ -458,7 +520,9 @@ def build(upload=True):
     rows_manual   = _read_manual_krs(token_file)
     rows_agencias = _read_agencias_flat()
 
-    all_rows = rows_baseline + rows_budget + rows_hunting + rows_manual + rows_agencias
+    rows_fixed    = _fixed_target_rows()
+
+    all_rows = rows_baseline + rows_budget + rows_hunting + rows_manual + rows_agencias + rows_fixed
 
     # Resumen
     print(f"\n  Total filas: {len(all_rows):,}")

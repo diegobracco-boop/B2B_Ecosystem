@@ -2,8 +2,10 @@
 //  OKR — Configuración y cómputo
 // ══════════════════════════════════════════════════════════════
 
-// Definición de KRs y pesos por LoB
-var OKR_CONFIG = {
+// Definición de KRs y pesos por LoB, por semestre.
+//   cumulative: true → el trimestre/semestre toma el punto final (no la suma mensual).
+//   El label de un KR sin lógica definida lleva "(WIP)": no tiene datos y queda en "—".
+var OKR_CONFIG_H1 = {
   'b2b2c': {
     label: 'White Labels',
     krs: [
@@ -24,13 +26,58 @@ var OKR_CONFIG = {
   }
 };
 
-// OKRs aplican solo H1 FY27: Abril → Septiembre 2026
-var OKR_QUARTERS = [
-  { label:'Q1', months:['2026-04','2026-05','2026-06'] },
-  { label:'Q2', months:['2026-07','2026-08','2026-09'] }
-];
+// H2 FY27 (oct-26 → mar-27). Definido 2026-09-24. Targets: Budget contable, salvo
+// Deploy New Partnership / Unique Buyers / Accelerate Recurrence (fijos en okr_builder.py).
+// Hunting/Existing Account NR: sin datos ene-mar 2027 hasta que el Datalake tenga ese budget.
+var OKR_CONFIG_H2 = {
+  'b2b2c': {
+    label: 'White Labels',
+    krs: [
+      { kr: 'deploy new partnership',         label: 'Deploy New Partnership',         weight: 20, cumulative: true },
+      { kr: 'unique buyers',                  label: 'Unique Buyers',                  weight: 15 },
+      { kr: 'existing account net revenues',  label: 'Existing Account Net Revenues',  weight: 25 },
+      { kr: 'new account net revenues',       label: 'Hunting Net Revenue',            weight: 15 },
+      { kr: 'operating contribution',         label: 'Operating Contribution',         weight: 25 }
+    ]
+  },
+  'b2b': {
+    label: 'B2B',
+    krs: [
+      { kr: 'net revenues b2b',               label: 'Net Revenue',                          weight: 30 },
+      { kr: 'operating contribution api',     label: 'Operating Contribution API (MAY)',     weight: 20 },
+      { kr: 'operating contribution html',    label: 'Operating Contribution HTML (MIN)',    weight: 20 },
+      { kr: 'new product growth',             label: 'New Product Growth (WIP)',             weight: 15 },
+      { kr: 'accelerate recurrence',          label: 'Accelerate Recurrence',                weight: 15 }
+    ]
+  }
+};
 
-var OKR_FY_PERIODS = ['2026-04','2026-05','2026-06','2026-07','2026-08','2026-09'];
+// Semestres FY27 (el FY arranca en abril). Q1 abr-jun · Q2 jul-sep · Q3 oct-dic · Q4 ene-mar.
+var OKR_HALVES = {
+  'H1': {
+    label: 'H1',
+    config: OKR_CONFIG_H1,
+    quarters: [
+      { label:'Q1', months:['2026-04','2026-05','2026-06'] },
+      { label:'Q2', months:['2026-07','2026-08','2026-09'] }
+    ],
+    periods: ['2026-04','2026-05','2026-06','2026-07','2026-08','2026-09']
+  },
+  'H2': {
+    label: 'H2',
+    config: OKR_CONFIG_H2,
+    quarters: [
+      { label:'Q3', months:['2026-10','2026-11','2026-12'] },
+      { label:'Q4', months:['2027-01','2027-02','2027-03'] }
+    ],
+    periods: ['2026-10','2026-11','2026-12','2027-01','2027-02','2027-03']
+  }
+};
+
+// Semestre que abre por defecto: H2 desde el 1-oct-2026.
+function okrDefaultHalf_() {
+  return (new Date() >= new Date(2026, 9, 1)) ? 'H2' : 'H1';
+}
 
 // Aliases para normalizar variantes de KR al nombre canónico del OKR_CONFIG
 var OKR_KR_ALIASES = {
@@ -77,8 +124,11 @@ function readOKRJson_() {
 }
 
 // Calcular achievement por KR / período
-function computeOKR_() {
-  var rows = readOKRJson_();
+function computeOKR_(halfKey, rows) {
+  var half     = OKR_HALVES[halfKey];
+  var cfgAll   = half.config;
+  var periods  = half.periods;
+  var quarters = half.quarters;
   if (!rows || !rows.length) return null;
 
   // Agregar por lob§kr§escenario§ym
@@ -98,13 +148,13 @@ function computeOKR_() {
 
   var result = {};
 
-  Object.keys(OKR_CONFIG).forEach(function(lobKey) {
-    var cfg = OKR_CONFIG[lobKey];
+  Object.keys(cfgAll).forEach(function(lobKey) {
+    var cfg = cfgAll[lobKey];
 
     var krRows = cfg.krs.map(function(krDef) {
       // Valores crudos mensuales
-      var mAct = OKR_FY_PERIODS.map(function(ym){ return getVal(lobKey, krDef.kr, ESC_ACT, ym); });
-      var mBud = OKR_FY_PERIODS.map(function(ym){ return getVal(lobKey, krDef.kr, ESC_BUD, ym); });
+      var mAct = periods.map(function(ym){ return getVal(lobKey, krDef.kr, ESC_ACT, ym); });
+      var mBud = periods.map(function(ym){ return getVal(lobKey, krDef.kr, ESC_BUD, ym); });
 
       // Achievement mensual (%)
       var monthly = mAct.map(function(a, i) {
@@ -115,13 +165,13 @@ function computeOKR_() {
 
       // Valores crudos trimestrales + achievement %
       // cumulative=true → punto final del trimestre; default → suma mensual
-      var quarterlyAct = OKR_QUARTERS.map(function(q) {
+      var quarterlyAct = quarters.map(function(q) {
         if (krDef.cumulative) return getVal(lobKey, krDef.kr, ESC_ACT, q.months[q.months.length-1]);
         var sum=0, ok=false;
         q.months.forEach(function(ym){var v=getVal(lobKey,krDef.kr,ESC_ACT,ym); if(v!==null){sum+=v;ok=true;}});
         return ok ? sum : null;
       });
-      var quarterlyBud = OKR_QUARTERS.map(function(q) {
+      var quarterlyBud = quarters.map(function(q) {
         if (krDef.cumulative) return getVal(lobKey, krDef.kr, ESC_BUD, q.months[q.months.length-1]);
         var sum=0, ok=false;
         q.months.forEach(function(ym){var v=getVal(lobKey,krDef.kr,ESC_BUD,ym); if(v!==null){sum+=v;ok=true;}});
@@ -132,32 +182,32 @@ function computeOKR_() {
         return (a!==null && b!==null && b!==0) ? a/b*100 : null;
       });
 
-      // Valores crudos H1 + achievement %
-      // cumulative=true → último mes del H1 (septiembre); default → suma H1
-      var h1ActVal = (function() {
-        if (krDef.cumulative) return getVal(lobKey, krDef.kr, ESC_ACT, OKR_FY_PERIODS[OKR_FY_PERIODS.length-1]);
+      // Valores crudos del semestre + achievement %
+      // cumulative=true → último mes del semestre; default → suma del semestre
+      var halfActVal = (function() {
+        if (krDef.cumulative) return getVal(lobKey, krDef.kr, ESC_ACT, periods[periods.length-1]);
         var sum=0, ok=false;
-        OKR_FY_PERIODS.forEach(function(ym){var v=getVal(lobKey,krDef.kr,ESC_ACT,ym); if(v!==null){sum+=v;ok=true;}});
+        periods.forEach(function(ym){var v=getVal(lobKey,krDef.kr,ESC_ACT,ym); if(v!==null){sum+=v;ok=true;}});
         return ok ? sum : null;
       })();
-      var h1BudVal = (function() {
-        if (krDef.cumulative) return getVal(lobKey, krDef.kr, ESC_BUD, OKR_FY_PERIODS[OKR_FY_PERIODS.length-1]);
+      var halfBudVal = (function() {
+        if (krDef.cumulative) return getVal(lobKey, krDef.kr, ESC_BUD, periods[periods.length-1]);
         var sum=0, ok=false;
-        OKR_FY_PERIODS.forEach(function(ym){var v=getVal(lobKey,krDef.kr,ESC_BUD,ym); if(v!==null){sum+=v;ok=true;}});
+        periods.forEach(function(ym){var v=getVal(lobKey,krDef.kr,ESC_BUD,ym); if(v!==null){sum+=v;ok=true;}});
         return ok ? sum : null;
       })();
-      var h1 = (h1ActVal!==null && h1BudVal!==null && h1BudVal!==0) ? h1ActVal/h1BudVal*100 : null;
+      var halfPct = (halfActVal!==null && halfBudVal!==null && halfBudVal!==0) ? halfActVal/halfBudVal*100 : null;
 
       return { label: krDef.label, weight: krDef.weight,
-               monthly: monthly, quarterly: quarterly, h1: h1,
+               monthly: monthly, quarterly: quarterly, half: halfPct,
                monthlyAct: mAct, monthlyBud: mBud,
                quarterlyAct: quarterlyAct, quarterlyBud: quarterlyBud,
-               h1Act: h1ActVal, h1Bud: h1BudVal };
+               halfAct: halfActVal, halfBud: halfBudVal };
     });
 
     // Total ponderado mensual = Σ(min(achievement_i,130) × weight_i) / 100
     // Cada KR capeado al 130% de cumplimiento
-    var totalMonthly = OKR_FY_PERIODS.map(function(ym, i) {
+    var totalMonthly = periods.map(function(ym, i) {
       var wS = 0, hasAny = false;
       krRows.forEach(function(kr) {
         if (kr.monthly[i] !== null) { wS += (kr.monthly[i] < 70 ? 0 : Math.min(kr.monthly[i], 130)) * kr.weight; hasAny = true; }
@@ -166,7 +216,7 @@ function computeOKR_() {
     });
 
     // Total ponderado trimestral = Σ(min(achievement_i,130) × weight_i) / 100
-    var totalQuarterly = OKR_QUARTERS.map(function(q, qi) {
+    var totalQuarterly = quarters.map(function(q, qi) {
       var wS = 0, hasAny = false;
       krRows.forEach(function(kr) {
         if (kr.quarterly[qi] !== null) { wS += (kr.quarterly[qi] < 70 ? 0 : Math.min(kr.quarterly[qi], 130)) * kr.weight; hasAny = true; }
@@ -174,33 +224,39 @@ function computeOKR_() {
       return hasAny ? wS / 100 : null;
     });
 
-    // Total ponderado H1 = Σ(min(h1_i,130) × weight_i) / 100
-    var h1Total = (function() {
+    // Total ponderado del semestre = Σ(min(half_i,130) × weight_i) / 100
+    var halfTotal = (function() {
       var wS=0, hasAny=false;
       krRows.forEach(function(kr) {
-        if (kr.h1 !== null) { wS += (kr.h1 < 70 ? 0 : Math.min(kr.h1, 130)) * kr.weight; hasAny = true; }
+        if (kr.half !== null) { wS += (kr.half < 70 ? 0 : Math.min(kr.half, 130)) * kr.weight; hasAny = true; }
       });
       return hasAny ? wS / 100 : null;
     })();
 
     result[lobKey] = {
       label:          cfg.label,
-      quarters:       OKR_QUARTERS.map(function(q){ return q.label; }),
-      periods:        OKR_FY_PERIODS,
+      half:           half.label,
+      quarters:       quarters.map(function(q){ return q.label; }),
+      periods:        periods,
       krs:            krRows,
       totalMonthly:   totalMonthly,
       totalQuarterly: totalQuarterly,
-      h1Total:        h1Total
+      halfTotal:        halfTotal
     };
   });
 
   return result;
 }
 
-// Punto de entrada público
+// Punto de entrada público. Devuelve ambos semestres (una sola lectura de okr.json)
+// y el que abre por defecto. `okr` = el semestre por defecto (compatibilidad).
 function getOKRData() {
   try {
-    return { success: true, okr: computeOKR_() };
+    var rows = readOKRJson_();
+    var byHalf = {};
+    Object.keys(OKR_HALVES).forEach(function(h){ byHalf[h] = computeOKR_(h, rows); });
+    var def = okrDefaultHalf_();
+    return { success: true, okr: byHalf[def], okrByHalf: byHalf, defaultHalf: def };
   } catch(e) {
     return { success: false, error: e.message };
   }
@@ -223,7 +279,9 @@ function diagOKR() {
   Logger.log('Periodos unicos: '   + JSON.stringify(Object.keys(uniqueYms).sort()));
   Logger.log('Primeras 5 filas: '  + JSON.stringify(rows.slice(0,5)));
 
-  var okr = computeOKR_();
-  Logger.log('computeOKR_ retorna null: ' + (okr === null));
-  if (okr) Logger.log('LOBs en resultado: ' + JSON.stringify(Object.keys(okr)));
+  Object.keys(OKR_HALVES).forEach(function(h) {
+    var okr = computeOKR_(h, rows);
+    Logger.log(h + ' → computeOKR_ retorna null: ' + (okr === null));
+    if (okr) Logger.log(h + ' → LOBs en resultado: ' + JSON.stringify(Object.keys(okr)));
+  });
 }
