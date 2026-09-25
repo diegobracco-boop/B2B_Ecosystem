@@ -333,6 +333,30 @@ body {
 .gantt-cal-holiday-mark { color: var(--red); font-size: 8px; vertical-align: middle; }
 .gantt-legend { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; font-size: 11px; color: var(--text3); margin-top: 14px; }
 .gantt-legend-dot { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 6px; vertical-align: -2px; }
+
+/* ── Matriz importancia / urgencia (Eisenhower), debajo del Gantt ── */
+.eis-grid { display: grid; grid-template-columns: 34px 1fr 1fr; grid-template-rows: auto 1fr 1fr; gap: 10px; }
+.eis-axis { font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--text3); display: flex; align-items: center; justify-content: center; }
+.eis-axis-row { writing-mode: vertical-rl; transform: rotate(180deg); }
+.eis-quad { border: 1px solid var(--border); border-left-width: 4px; border-radius: 10px; padding: 14px 16px; background: var(--surface2); min-height: 150px; }
+.eis-quad-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
+.eis-quad-action { font-size: 16px; font-weight: 800; }
+.eis-quad-tag { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--text3); white-space: nowrap; }
+.eis-quad-desc { font-size: 12px; color: var(--text2); margin-bottom: 10px; }
+.eis-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
+.eis-list li { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; color: var(--text); line-height: 1.35; }
+.eis-list li .gantt-legend-dot { flex: none; margin-top: 3px; }
+.eis-when { display: block; font-size: 11px; color: var(--text3); }
+.eis-empty { font-size: 12px; color: var(--text3); font-style: italic; }
+.eis-do    { border-left-color: var(--red); }    .eis-do    .eis-quad-action { color: var(--red); }
+.eis-plan  { border-left-color: var(--blue); }   .eis-plan  .eis-quad-action { color: var(--blue); }
+.eis-deleg { border-left-color: var(--yellow); } .eis-deleg .eis-quad-action { color: var(--yellow); }
+.eis-later { border-left-color: var(--text3); }  .eis-later .eis-quad-action { color: var(--text2); }
+@media (max-width: 640px) {
+  .eis-grid { grid-template-columns: 1fr; grid-template-rows: none; }
+  .eis-axis { display: none; }
+  .eis-quad-tag { white-space: normal; }
+}
 .step-title { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 5px; }
 .step-desc  { font-size: 12px; color: var(--text2); line-height: 1.55; }
 .code-block {
@@ -1010,6 +1034,22 @@ a.ext-link:hover { text-decoration: underline; }
         <div id="gantt-cal-container"></div>
       </div>
       <div class="gantt-legend" id="gantt-legend"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🧭 Matriz importancia / urgencia</div>
+      <div class="page-sub" style="margin:0 0 14px">Dónde cae cada entregable del Gantt y qué hacer con él. Los ítems con color salen de la misma lista que el calendario de arriba; los de marcador hueco son proyectos sin fecha fija.</div>
+      <div class="eis-grid" id="eis-grid">
+        <div></div>
+        <div class="eis-axis">Urgente</div>
+        <div class="eis-axis">No urgente</div>
+        <div class="eis-axis eis-axis-row">Importante</div>
+        <div class="eis-quad eis-do" id="eis-q-do"></div>
+        <div class="eis-quad eis-plan" id="eis-q-plan"></div>
+        <div class="eis-axis eis-axis-row">No importante</div>
+        <div class="eis-quad eis-deleg" id="eis-q-deleg"></div>
+        <div class="eis-quad eis-later" id="eis-q-later"></div>
+      </div>
     </div>
 
     <div class="alert-box info">ℹ️ "Día hábil" cuenta días de semana (lun-vie) excluyendo los feriados nacionales de Argentina marcados en rojo. Los ítems semanales (lun/mar/vie) y mensuales por posición (3er/4to jueves) no se recalculan si caen en feriado — ajustar a mano en ese caso.</div>
@@ -2412,15 +2452,28 @@ var GANTT_MONTHS = [
   { y:2027, m:2,  label:"Marzo '27" }
 ];
 // rule.weekday usa Date.getDay(): 0=Dom..6=Sáb.
+// quad = cuadrante de la matriz importancia/urgencia (debajo del Gantt):
+//   'do' Importante+Urgente · 'plan' Importante+No urgente · 'deleg' Urgente+No importante · 'later' ninguno
 var GANTT_ITEMS = [
-  { label:'Carga de Run Rate en EPM — proyecciones 12 meses',               color:'#fb923c', rule:{ type:'nth-weekday', n:3, weekday:4 } },
-  { label:'Actualización resultados semanales',                             color:'#38bdf8', rule:{ type:'weekday', weekday:1 } },
-  { label:'Reuniones semanales B2B y B2B2C — N2',                           color:'#22c55e', rule:{ type:'weekday', weekday:5 } },
-  { label:'Reunión semanal B2B2C Hispa & Brasil — N3',                      color:'#e879f9', rule:{ type:'weekday', weekday:2 } },
-  { label:'Entrega material MRM (mensual de resultados)',                   color:'#fbbf24', rule:{ type:'nth-weekday', n:4, weekday:4 } },
-  { label:'Reunión revisión cierre contable con Contabilidad',              color:'#2dd4bf', rule:{ type:'nth-bizday', n:5 } },
-  { label:'Envío cierre transaccional vs. Run Rate de palancas de negocio', color:'#a780ff', rule:{ type:'nth-bizday', n:1 } }
+  { label:'Carga de Run Rate en EPM — proyecciones 12 meses',               color:'#fb923c', quad:'do',    rule:{ type:'nth-weekday', n:3, weekday:4 } },
+  { label:'Actualización resultados semanales',                             color:'#38bdf8', quad:'plan',  rule:{ type:'weekday', weekday:1 } },
+  { label:'Reuniones semanales B2B y B2B2C — N2',                           color:'#22c55e', quad:'plan',  rule:{ type:'weekday', weekday:5 } },
+  { label:'Reunión semanal B2B2C Hispa & Brasil — N3',                      color:'#e879f9', quad:'deleg', rule:{ type:'weekday', weekday:2 } },
+  { label:'Entrega material MRM (mensual de resultados)',                   color:'#fbbf24', quad:'do',    rule:{ type:'nth-weekday', n:4, weekday:4 } },
+  { label:'Reunión revisión cierre contable con Contabilidad',              color:'#2dd4bf', quad:'do',    rule:{ type:'nth-bizday', n:5 } },
+  { label:'Envío cierre transaccional vs. Run Rate de palancas de negocio', color:'#a780ff', quad:'do',    rule:{ type:'nth-bizday', n:1 } }
 ];
+// Ítems solo de la matriz (proyectos sin fecha fija en el calendario — no aparecen en el Gantt).
+var EIS_EXTRA = [
+  { label:'Modelo de Run Rate automático',                          quad:'do', when:'Proyecto' },
+  { label:'Modelo de proyecciones GB B2B para Over Comisiones',     quad:'do', when:'Proyecto' }
+];
+var EIS_QUADS = {
+  'do':    { action:'Hacerlo',             tag:'Importante · Urgente',       desc:'Tiene fecha fija y pesa en el cierre o en la dirección: va primero.' },
+  'plan':  { action:'Planificar entrega',  tag:'Importante · No urgente',    desc:'Recurrente y previsible: agendarlo y prepararlo con tiempo.' },
+  'deleg': { action:'Delegarlo',           tag:'Urgente · No importante',    desc:'Tiene fecha pero lo puede llevar otra persona del equipo.' },
+  'later': { action:'Postergar',           tag:'No importante · No urgente', desc:'Puede esperar: se retoma cuando lo demás está al día.' }
+};
 // Feriados nacionales Argentina (Ley 27.399 + decreto de días no laborables
 // con fines turísticos), fechas ya resueltas para los trasladables — cubre
 // solo el rango del Gantt (abril'26 → marzo'27). Los ítems de arriba (reglas
@@ -2542,7 +2595,39 @@ function ganttRenderMonth(idx){
   var def = ganttDefaultIndex();
   sel.value = def;
   ganttRenderMonth(def);
+  eisRender();
 })();
+
+// Frecuencia legible a partir de la regla del Gantt (ej. "3er jueves del mes").
+function eisWhen(rule){
+  var DAYS = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+  var ORD  = ['', '1er', '2do', '3er', '4to', '5to'];
+  if (rule.type === 'weekday')     return 'Todos los ' + DAYS[rule.weekday];
+  if (rule.type === 'nth-weekday') return ORD[rule.n] + ' ' + DAYS[rule.weekday] + ' del mes';
+  if (rule.type === 'nth-bizday')  return ORD[rule.n] + ' día hábil del mes';
+  return '';
+}
+function eisRender(){
+  Object.keys(EIS_QUADS).forEach(function(q){
+    var el = document.getElementById('eis-q-' + q);
+    if (!el) return;
+    var meta  = EIS_QUADS[q];
+    var items = GANTT_ITEMS.filter(function(it){ return it.quad === q; }).map(function(it){
+      return '<li><span class="gantt-legend-dot" style="background:' + it.color + '"></span><span>' + it.label
+           + '<span class="eis-when">' + eisWhen(it.rule) + '</span></span></li>';
+    }).concat(EIS_EXTRA.filter(function(it){ return it.quad === q; }).map(function(it){
+      // proyectos sin fecha: marcador hueco (no tienen color en el calendario)
+      return '<li><span class="gantt-legend-dot" style="background:transparent;border:1.5px solid var(--text2)"></span><span>' + it.label
+           + '<span class="eis-when">' + it.when + '</span></span></li>';
+    }));
+    var list  = items.length
+      ? '<ul class="eis-list">' + items.join('') + '</ul>'
+      : '<div class="eis-empty">Sin entregables en este cuadrante.</div>';
+    el.innerHTML = '<div class="eis-quad-head"><span class="eis-quad-action">' + meta.action + '</span>'
+                 + '<span class="eis-quad-tag">' + meta.tag + '</span></div>'
+                 + '<div class="eis-quad-desc">' + meta.desc + '</div>' + list;
+  });
+}
 </script>
 </body>
 </html>
