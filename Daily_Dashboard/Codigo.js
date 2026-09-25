@@ -680,7 +680,10 @@ function _emailMTDB2B_(raw, mStart, vDate, lyMS, lyVD) {
 // ── HTML ─────────────────────────────────────────────────────────
 
 function _emailHtml_(vDate, kb, mb, k2, m2) {
-  var DASHBOARD_URL = 'https://script.google.com/macros/s/AKfycbwUC8oHHFuFQA8ZnVsLS8zwxgwJavQMpWWg_QJeo-Dg19jLtlZn5teQj8gSHrVn2CVOvw/exec';
+  // Deployment de produccion (el mismo que se redeploya en cada clasp deploy -i) — antes
+  // apuntaba a un deploymentId huerfano nunca actualizado, asi que el boton "Ver dashboard"
+  // del mail siempre mostraba una version vieja (encontrado 2026-09-25).
+  var DASHBOARD_URL = 'https://script.google.com/macros/s/AKfycbwMR3zk1r4uwui8vGtcmz0OwmeehC5JM8cuJRE3H-GQMfvxXWGTkYQ3R2nVjMyeAdX_1A/exec';
 
   function ach(act, bud) { return bud>0 ? Math.round(act/bud*100)+'%' : '—'; }
   function col(act, bud) {

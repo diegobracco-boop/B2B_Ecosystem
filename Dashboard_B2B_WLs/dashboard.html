@@ -1792,8 +1792,13 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
 // ══════════════════════════════════════════════════════════
 var EXTERNAL_LINKS = {
   iframes: {
+    // "daily" y "weekly" son la MISMA app (Daily_Dashboard/dashboard.html): "Flow Semanal"
+    // es un tab adentro de ese mismo HTML, no un deployment aparte. "weekly" apuntaba a un
+    // deploymentId huérfano que nadie redeployaba hace tiempo — quien entraba a la pestaña
+    // "Weekly" del Hub veía una versión vieja congelada, sin ninguno de los fixes que se
+    // publicaban en "daily" (encontrado 2026-09-25, reportado 4 veces antes de dar con esto).
     daily:     'https://script.google.com/a/macros/despegar.com/s/AKfycbwMR3zk1r4uwui8vGtcmz0OwmeehC5JM8cuJRE3H-GQMfvxXWGTkYQ3R2nVjMyeAdX_1A/exec',
-    weekly:    'https://script.google.com/a/macros/despegar.com/s/AKfycbwUC8oHHFuFQA8ZnVsLS8zwxgwJavQMpWWg_QJeo-Dg19jLtlZn5teQj8gSHrVn2CVOvw/exec',
+    weekly:    'https://script.google.com/a/macros/despegar.com/s/AKfycbwMR3zk1r4uwui8vGtcmz0OwmeehC5JM8cuJRE3H-GQMfvxXWGTkYQ3R2nVjMyeAdX_1A/exec',
     fixedcost: 'https://script.google.com/a/macros/despegar.com/s/AKfycbylpy8kbuTVgiDg6xgmtrR-VemvRZlzfMMXcWnnWOjg3U0eUCmPF3XwQRuqPk-hDqRTpg/exec',
     industry:  'https://script.google.com/a/despegar.com/macros/s/AKfycbwL40pCC0y_jmTxLh9xxicIoMmHTwP2EZk8eE4KC9yzR68RdHlhvdi5x8C105pmsHl_/exec?page=industria',
     pnl:       'https://script.google.com/a/macros/despegar.com/s/AKfycby9WZK2HfAWx25M5pEMV3nntzJfEvsiT9feMn01zJQkQaI3t2GjTzOIjbFXWexnMuzklQ/exec',
