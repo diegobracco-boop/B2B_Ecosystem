@@ -4480,17 +4480,19 @@ function renderOKR(okr) {
     });
 
     // Total row — siempre en % (es una puntuación ponderada, no una suma de nominales)
+    // Total: promedio ponderado sobre los KRs con dato; el tooltip dice qué % del peso cubre.
+    var covTip = function(c){ return (c === undefined || c === null) ? '' : ' title="Peso con dato: '+Math.round(c)+'%"'; };
     html += '<tr class="okr-total"><td>Total</td><td></td>';
     if (_okrMonthly) {
       d.totalMonthly.forEach(function(v, mi) {
         var qBorder = (mi % 3 === 0) ? ' td-q' : '';
-        html += '<td class="'+qBorder+'">'+fmtOKR(v)+'</td>';
+        html += '<td class="'+qBorder+'"'+covTip(d.covMonthly && d.covMonthly[mi])+'>'+fmtOKR(v)+'</td>';
       });
-      d.totalQuarterly.forEach(function(v) { html += '<td class="td-q">'+fmtOKR(v)+'</td>'; });
-      html += '<td class="td-q">'+fmtOKR(d.halfTotal)+'</td>';
+      d.totalQuarterly.forEach(function(v, qi) { html += '<td class="td-q"'+covTip(d.covQuarterly && d.covQuarterly[qi])+'>'+fmtOKR(v)+'</td>'; });
+      html += '<td class="td-q"'+covTip(d.halfCov)+'>'+fmtOKR(d.halfTotal)+'</td>';
     } else {
-      d.totalQuarterly.forEach(function(v) { html += '<td class="td-q">'+fmtOKR(v)+'</td>'; });
-      html += '<td class="td-q">'+fmtOKR(d.halfTotal)+'</td>';
+      d.totalQuarterly.forEach(function(v, qi) { html += '<td class="td-q"'+covTip(d.covQuarterly && d.covQuarterly[qi])+'>'+fmtOKR(v)+'</td>'; });
+      html += '<td class="td-q"'+covTip(d.halfCov)+'>'+fmtOKR(d.halfTotal)+'</td>';
     }
     html += '</tr></tbody></table></div>';
   });

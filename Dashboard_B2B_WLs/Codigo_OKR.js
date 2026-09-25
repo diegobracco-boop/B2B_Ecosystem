@@ -181,30 +181,39 @@ function computeOKR_(halfKey, rows) {
         return a / b * 100;
       });
 
-      // Agregación de un conjunto de meses (trimestre o semestre):
-      //   cumulative → punto final (stock: partners, hoteles, deploys)
+      // Agregación de un conjunto de meses (trimestre o semestre). Actual y Budget se comparan
+      // sobre los MISMOS meses: los que tienen actual (y budget) cargado. Así un período en curso
+      // mide lo transcurrido y no actual parcial vs budget completo (auditoría 2026-09-25).
+      //   cumulative → último mes CON actual del período, y el budget de ese mismo mes
+      //                (stock: partners, hoteles, deploys). Antes tomaba el último mes del
+      //                período y quedaba en null hasta cargar diciembre/marzo.
       //   avg        → promedio de los meses con dato (ratios, ej. NR %GB)
-      //   default    → suma mensual
-      function aggMonths_(esc, months) {
-        if (krDef.cumulative) return getVal(lobKey, krDef.kr, esc, months[months.length-1]);
-        var sum=0, n=0;
-        months.forEach(function(ym){ var v=getVal(lobKey, krDef.kr, esc, ym); if (v!==null) { sum+=v; n++; } });
-        if (!n) return null;
-        return krDef.avg ? sum / n : sum;
+      //   default    → suma de los meses con dato
+      function aggPair_(months) {
+        var both = months.filter(function(ym) {
+          return getVal(lobKey, krDef.kr, ESC_ACT, ym) !== null && getVal(lobKey, krDef.kr, ESC_BUD, ym) !== null;
+        });
+        if (!both.length) return { a: null, b: null };
+        if (krDef.cumulative) {
+          var last = both[both.length - 1];
+          return { a: getVal(lobKey, krDef.kr, ESC_ACT, last), b: getVal(lobKey, krDef.kr, ESC_BUD, last) };
+        }
+        var sa = 0, sb = 0;
+        both.forEach(function(ym) { sa += getVal(lobKey, krDef.kr, ESC_ACT, ym); sb += getVal(lobKey, krDef.kr, ESC_BUD, ym); });
+        return krDef.avg ? { a: sa / both.length, b: sb / both.length } : { a: sa, b: sb };
       }
+      function pctOf_(p) { return (p.a !== null && p.b !== null && p.b !== 0) ? p.a / p.b * 100 : null; }
 
       // Valores crudos trimestrales + achievement %
-      var quarterlyAct = quarters.map(function(q) { return aggMonths_(ESC_ACT, q.months); });
-      var quarterlyBud = quarters.map(function(q) { return aggMonths_(ESC_BUD, q.months); });
-      var quarterly = quarterlyAct.map(function(a, i) {
-        var b = quarterlyBud[i];
-        return (a!==null && b!==null && b!==0) ? a/b*100 : null;
-      });
+      var qPairs = quarters.map(function(q) { return aggPair_(q.months); });
+      var quarterlyAct = qPairs.map(function(p) { return p.a; });
+      var quarterlyBud = qPairs.map(function(p) { return p.b; });
+      var quarterly = qPairs.map(pctOf_);
 
       // Valores crudos del semestre + achievement %
-      var halfActVal = aggMonths_(ESC_ACT, periods);
-      var halfBudVal = aggMonths_(ESC_BUD, periods);
-      var halfPct = (halfActVal!==null && halfBudVal!==null && halfBudVal!==0) ? halfActVal/halfBudVal*100 : null;
+      var hPair = aggPair_(periods);
+      var halfActVal = hPair.a, halfBudVal = hPair.b;
+      var halfPct = pctOf_(hPair);
 
       return { label: krDef.label, weight: krDef.weight, pct: !!krDef.pct,
                monthly: monthly, quarterly: quarterly, half: halfPct,
@@ -213,33 +222,25 @@ function computeOKR_(halfKey, rows) {
                halfAct: halfActVal, halfBud: halfBudVal };
     });
 
-    // Total ponderado mensual = Σ(min(achievement_i,130) × weight_i) / 100
-    // Cada KR capeado al 130% de cumplimiento
-    var totalMonthly = periods.map(function(ym, i) {
-      var wS = 0, hasAny = false;
+    // Total ponderado = Σ(score_i × peso_i) / Σ(peso_i de los KRs CON dato), donde score_i es el
+    // cumplimiento capeado a 130% y 0 si queda debajo de 70%. Los KRs sin dato (WIP o sin cargar)
+    // no entran al denominador — decisión de Diego 2026-09-25, mismo criterio que el Flow del Daily.
+    // cov = % del peso total que tiene dato (se muestra como tooltip en la fila Total).
+    function weighted_(getPct) {
+      var wS = 0, wUsed = 0, wAll = 0;
       krRows.forEach(function(kr) {
-        if (kr.monthly[i] !== null) { wS += (kr.monthly[i] < 70 ? 0 : Math.min(kr.monthly[i], 130)) * kr.weight; hasAny = true; }
+        wAll += kr.weight;
+        var p = getPct(kr);
+        if (p !== null) { wS += (p < 70 ? 0 : Math.min(p, 130)) * kr.weight; wUsed += kr.weight; }
       });
-      return hasAny ? wS / 100 : null;
-    });
-
-    // Total ponderado trimestral = Σ(min(achievement_i,130) × weight_i) / 100
-    var totalQuarterly = quarters.map(function(q, qi) {
-      var wS = 0, hasAny = false;
-      krRows.forEach(function(kr) {
-        if (kr.quarterly[qi] !== null) { wS += (kr.quarterly[qi] < 70 ? 0 : Math.min(kr.quarterly[qi], 130)) * kr.weight; hasAny = true; }
-      });
-      return hasAny ? wS / 100 : null;
-    });
-
-    // Total ponderado del semestre = Σ(min(half_i,130) × weight_i) / 100
-    var halfTotal = (function() {
-      var wS=0, hasAny=false;
-      krRows.forEach(function(kr) {
-        if (kr.half !== null) { wS += (kr.half < 70 ? 0 : Math.min(kr.half, 130)) * kr.weight; hasAny = true; }
-      });
-      return hasAny ? wS / 100 : null;
-    })();
+      return { total: wUsed ? wS / wUsed : null, cov: wAll ? wUsed / wAll * 100 : 0 };
+    }
+    var tM = periods.map(function(ym, i) { return weighted_(function(kr) { return kr.monthly[i]; }); });
+    var tQ = quarters.map(function(q, qi) { return weighted_(function(kr) { return kr.quarterly[qi]; }); });
+    var tH = weighted_(function(kr) { return kr.half; });
+    var totalMonthly   = tM.map(function(t) { return t.total; });
+    var totalQuarterly = tQ.map(function(t) { return t.total; });
+    var halfTotal      = tH.total;
 
     result[lobKey] = {
       label:          cfg.label,
@@ -249,7 +250,10 @@ function computeOKR_(halfKey, rows) {
       krs:            krRows,
       totalMonthly:   totalMonthly,
       totalQuarterly: totalQuarterly,
-      halfTotal:        halfTotal
+      halfTotal:      halfTotal,
+      covMonthly:     tM.map(function(t) { return t.cov; }),
+      covQuarterly:   tQ.map(function(t) { return t.cov; }),
+      halfCov:        tH.cov
     };
   });
 

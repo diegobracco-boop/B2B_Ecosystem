@@ -127,6 +127,12 @@ main{padding:40px 48px;max-width:2200px;margin:0 auto}
   <div class="logo-wrap">
     <div class="logo-main">OKRs <span>Tribu Producto</span></div>
     <div class="logo-sub">H1 FY27 · Abril — Septiembre 2026</div>
+    <!-- Aviso (auditoría 2026-09-25): el pipeline okr_sync.py solo calcula H1; desde octubre
+         el tablero sigue mostrando H1 hasta que la tribu Producto defina los KRs de H2. -->
+    <div id="h2-pending" style="display:none;margin-top:6px;font-size:12px;font-weight:700;color:#b45309;background:#fff7cd;border:1px solid #fcd34d;border-radius:6px;padding:4px 10px">
+      ⚠️ H2 FY27 (oct–mar) pendiente: los KRs del segundo semestre todavía no están definidos. Se muestra el cierre de H1.
+    </div>
+    <script>(function(){ var t=new Date(); if (t >= new Date(2026, 9, 1)) document.getElementById('h2-pending').style.display='block'; })();</script>
   </div>
   <div class="header-right">
     <span id="last-upd"></span>
