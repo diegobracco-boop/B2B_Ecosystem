@@ -347,17 +347,17 @@
   .glob-delta.up { background: #e7f6ec; color: #2f7d4f; }
   .glob-delta.down { background: #fdecec; color: #c0392b; }
   .glob-delta.flat { background: #eef0f2; color: #6b7280; }
-  .glob-strip { display: grid; grid-template-columns: repeat(6, 1fr); gap: 3px; margin-top: 10px; }
-  .glob-m { text-align: center; padding: 4px 0 3px; border-radius: 7px; }
-  .glob-m .l { font-size: 9px; color: #9ca3af; text-transform: uppercase; letter-spacing: .3px; }
-  .glob-m .v { font-size: 11.5px; font-weight: 600; color: #374151; margin-top: 2px; }
-  .glob-m .v.empty { color: #d1d5db; }
-  .glob-m.act { background: #faf7ff; }
-  .glob-m .a { font-size: 9px; font-weight: 700; margin-top: 2px; }
-  .glob-m .a.red { color: #a01a1a; }
-  .glob-m .a.yellow { color: #8a5a00; }
-  .glob-m .a.green { color: #2f7d4f; }
-  .glob-m .a.neutral { color: #6b7280; }
+  /* Mini-cuadro con fila Target y fila Actual por mes (meses en columnas). */
+  .glob-mini { display: grid; grid-template-columns: auto repeat(6, minmax(0, 1fr)); gap: 3px 5px; margin-top: 10px; align-items: center; }
+  .glob-mini-mh { font-size: 9px; color: #9ca3af; text-transform: uppercase; letter-spacing: .3px; text-align: center; }
+  .glob-mini-rl { font-size: 9px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: .3px; text-align: left; padding-right: 4px; }
+  .glob-mini-t  { font-size: 11.5px; font-weight: 600; color: #374151; text-align: center; }
+  .glob-mini-t.empty { color: #d1d5db; }
+  .glob-mini-a  { font-size: 11px; font-weight: 600; color: #9ca3af; text-align: center; }
+  .glob-mini-a.red { color: #a01a1a; }
+  .glob-mini-a.yellow { color: #8a5a00; }
+  .glob-mini-a.green { color: #2f7d4f; }
+  .glob-mini-a.neutral { color: #6b7280; }
   .glob-pend { margin: 14px 0 4px; font-size: 11px; color: #b6a6e6; font-style: italic; }
 
   /* ── Tables view (multi-metric, no chart) ── */
@@ -587,25 +587,24 @@
     display: flex; flex-direction: column; height: 100%; box-sizing: border-box;
   }
   body.slides-mode #globalesWrap {
-    display: flex !important; flex-direction: column; flex: 1 1 auto; min-height: 0;
+    display: flex !important; flex-direction: column; justify-content: center;
+    flex: 1 1 auto; min-height: 0;
   }
   body.slides-mode #globalesContent .glob-grid {
-    grid-template-columns: repeat(4, 1fr);
-    grid-auto-rows: 1fr;
-    gap: 16px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px 18px;
     margin: 14px 0 0;
-    flex: 1 1 auto;
-    min-height: 0;
   }
-  body.slides-mode #globalesContent .glob-card {
-    display: flex; flex-direction: column; justify-content: space-between;
-  }
+  /* En slides ocultamos el "recorrido" (redundante con la fila Target, que ya
+     muestra el primer y último valor) para dar lugar a las 3 filas de cards. */
+  body.slides-mode #globalesContent .glob-range       { display: none; }
   body.slides-mode #globalesContent .glob-name        { font-size: 15px; }
   body.slides-mode #globalesContent .glob-range .to   { font-size: 26px; }
   body.slides-mode #globalesContent .glob-range .from { font-size: 17px; }
-  body.slides-mode #globalesContent .glob-m .v        { font-size: 13px; }
-  body.slides-mode #globalesContent .glob-m .l        { font-size: 10px; }
-  body.slides-mode #globalesContent .glob-m .a        { font-size: 10px; }
+  body.slides-mode #globalesContent .glob-mini-t      { font-size: 13px; }
+  body.slides-mode #globalesContent .glob-mini-mh     { font-size: 10px; }
+  body.slides-mode #globalesContent .glob-mini-rl     { font-size: 10px; }
+  body.slides-mode #globalesContent .glob-mini-a      { font-size: 12.5px; }
 
   /* Slides: tabla principal de KRs con proporciones fijas de columna
      (KR 50% · Peso 10% · Actual 10% · Budget 10% · Cumpl. 20%) y letra más grande. */
@@ -3153,19 +3152,24 @@ function renderGlobales() {
       '<span class="to">' + fmtGlobalTarget(last, kr.unit) + '</span>' +
       '<span class="glob-delta ' + dCls + '">' + dTxt + '</span></div>';
 
-    var strip = '<div class="glob-strip">' + meses.map(function(ym, i){
-      var t   = kr.targets ? kr.targets[ym] : null;
-      var a   = globalesActual_(kr.id, ym, agg);
-      var rat = (a !== null && typeof t === 'number' && t !== 0) ? (a / t) : null;
-      var vCls = (t === null || t === undefined || t === '') ? 'v empty' : 'v';
-      var extra = a !== null
-        ? '<div class="a ' + globCumplClass_(rat) + '">' + fmtGlobalTarget(a, kr.unit) +
-          (rat !== null ? ' ' + Math.round(rat * 100) + '%' : '') + '</div>'
-        : '';
-      return '<div class="glob-m' + (a !== null ? ' act' : '') + '">' +
-             '<div class="l">' + (labels[i] || ym) + '</div>' +
-             '<div class="' + vCls + '">' + fmtGlobalTarget(t, kr.unit) + '</div>' + extra + '</div>';
-    }).join('') + '</div>';
+    // Mini-cuadro: meses en columnas, con una fila Target y una fila Actual.
+    var mhRow = '<div class="glob-mini-mh"></div>' +
+      meses.map(function(ym, i){ return '<div class="glob-mini-mh">' + (labels[i] || ym) + '</div>'; }).join('');
+    var tRow = '<div class="glob-mini-rl">Target</div>' +
+      meses.map(function(ym){
+        var t = kr.targets ? kr.targets[ym] : null;
+        var e = (t === null || t === undefined || t === '') ? ' empty' : '';
+        return '<div class="glob-mini-t' + e + '">' + fmtGlobalTarget(t, kr.unit) + '</div>';
+      }).join('');
+    var aRow = '<div class="glob-mini-rl">Actual</div>' +
+      meses.map(function(ym){
+        var t   = kr.targets ? kr.targets[ym] : null;
+        var a   = globalesActual_(kr.id, ym, agg);
+        var rat = (a !== null && typeof t === 'number' && t !== 0) ? (a / t) : null;
+        var cls = a !== null ? globCumplClass_(rat) : '';
+        return '<div class="glob-mini-a ' + cls + '">' + (a !== null ? fmtGlobalTarget(a, kr.unit) : '—') + '</div>';
+      }).join('');
+    var strip = '<div class="glob-mini">' + mhRow + tRow + aRow + '</div>';
 
     return '<div class="glob-card">' + head + range + strip + '</div>';
   }).join('');
