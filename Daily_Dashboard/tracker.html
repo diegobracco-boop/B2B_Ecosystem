@@ -347,7 +347,13 @@
   .glob-delta.up { background: #e7f6ec; color: #2f7d4f; }
   .glob-delta.down { background: #fdecec; color: #c0392b; }
   .glob-delta.flat { background: #eef0f2; color: #6b7280; }
-  .glob-strip { display: grid; grid-template-columns: repeat(6, 1fr); gap: 3px; margin-top: 10px; }
+  .glob-leg { display: flex; gap: 12px; justify-content: flex-end; align-items: center; margin-top: 8px; font-size: 8.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; }
+  .glob-leg .t { color: #374151; }
+  .glob-leg .t::before, .glob-leg .r::before { content: ''; display: inline-block; width: 7px; height: 7px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
+  .glob-leg .t::before { background: #6b7280; }
+  .glob-leg .r { color: #9ca3af; }
+  .glob-leg .r::before { background: #cbd0da; }
+  .glob-strip { display: grid; grid-template-columns: repeat(6, 1fr); gap: 3px; margin-top: 4px; }
   .glob-m { text-align: center; padding: 4px 0 3px; border-radius: 7px; }
   .glob-m .l { font-size: 9px; color: #9ca3af; text-transform: uppercase; letter-spacing: .3px; }
   .glob-m .v { font-size: 11.5px; font-weight: 600; color: #374151; margin-top: 2px; }
@@ -587,12 +593,13 @@
     display: flex; flex-direction: column; height: 100%; box-sizing: border-box;
   }
   body.slides-mode #globalesWrap {
-    display: flex !important; flex-direction: column; flex: 1 1 auto; min-height: 0;
+    display: flex !important; flex-direction: column; justify-content: center;
+    flex: 1 1 auto; min-height: 0;
   }
-  /* #globalesCards es el contenedor entre el wrap y el grid: debe crecer y ser
-     flex para que el grid (y con él las cards) llene el alto del slide. */
+  /* #globalesCards ocupa ~70% del alto del slide (72% del wrap ≈ 70% del slide),
+     centrado por el wrap; el grid estira las cards para llenar ese bloque. */
   body.slides-mode #globalesContent #globalesCards {
-    flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column;
+    flex: 0 1 auto; height: 76%; min-height: 0; display: flex; flex-direction: column;
   }
   body.slides-mode #globalesContent .glob-grid {
     grid-template-columns: repeat(4, 1fr);
@@ -3158,6 +3165,10 @@ function renderGlobales() {
       '<span class="to">' + fmtGlobalTarget(last, kr.unit) + '</span>' +
       '<span class="glob-delta ' + dCls + '">' + dTxt + '</span></div>';
 
+    // Rótulo mínimo para entender las dos filas de cada mes (target arriba,
+    // real abajo).
+    var legend = '<div class="glob-leg"><span class="t">Target</span><span class="r">Real</span></div>';
+
     // Cada mes: label, target y —siempre— el valor real abajo (con "—" donde
     // todavía no hay actual cableado), así cada card muestra target y real.
     var strip = '<div class="glob-strip">' + meses.map(function(ym, i){
@@ -3173,7 +3184,7 @@ function renderGlobales() {
              '<div class="a ' + aCls + '">' + aTxt + '</div></div>';
     }).join('') + '</div>';
 
-    return '<div class="glob-card">' + head + range + strip + '</div>';
+    return '<div class="glob-card">' + head + range + legend + strip + '</div>';
   }).join('');
 
   grid.innerHTML = '<div class="glob-grid">' + cards + '</div>';
