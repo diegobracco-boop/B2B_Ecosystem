@@ -331,6 +331,35 @@
   .kr-cumpl-yellow { background: #fdf1cf; color: #8a5a00; border-color: #c99a2e; }
   .kr-cumpl-green  { background: #d9f2e1; color: #2f7d4f; border-color: #4fae74; }
 
+  /* ── KRs Globales: cards por KR (recorrido del semestre + strip mensual) ── */
+  .glob-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; margin-top: 6px; }
+  .glob-card { background: #fff; border: 1px solid #ece9fb; border-radius: 14px; padding: 14px 16px 12px; box-shadow: 0 1px 3px rgba(80,40,180,.06); }
+  .glob-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+  .glob-name { font-weight: 700; font-size: 13px; color: #1f2937; line-height: 1.25; }
+  .glob-unit { font-size: 10px; color: #9ca3af; margin-top: 2px; text-transform: uppercase; letter-spacing: .3px; }
+  .glob-peso { background: #f0ecfe; color: #550FED; font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+  .glob-peso.crit { background: #f3f4f6; color: #7c3aed; }
+  .glob-range { display: flex; align-items: baseline; gap: 8px; margin: 12px 0 4px; }
+  .glob-range .from { font-size: 15px; font-weight: 600; color: #9ca3af; }
+  .glob-range .arrow { color: #c4b5fd; font-size: 14px; }
+  .glob-range .to { font-size: 22px; font-weight: 800; color: #550FED; letter-spacing: -.5px; }
+  .glob-delta { font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 999px; margin-left: auto; }
+  .glob-delta.up { background: #e7f6ec; color: #2f7d4f; }
+  .glob-delta.down { background: #fdecec; color: #c0392b; }
+  .glob-delta.flat { background: #eef0f2; color: #6b7280; }
+  .glob-strip { display: grid; grid-template-columns: repeat(6, 1fr); gap: 3px; margin-top: 10px; }
+  .glob-m { text-align: center; padding: 4px 0 3px; border-radius: 7px; }
+  .glob-m .l { font-size: 9px; color: #9ca3af; text-transform: uppercase; letter-spacing: .3px; }
+  .glob-m .v { font-size: 11.5px; font-weight: 600; color: #374151; margin-top: 2px; }
+  .glob-m .v.empty { color: #d1d5db; }
+  .glob-m.act { background: #faf7ff; }
+  .glob-m .a { font-size: 9px; font-weight: 700; margin-top: 2px; }
+  .glob-m .a.red { color: #a01a1a; }
+  .glob-m .a.yellow { color: #8a5a00; }
+  .glob-m .a.green { color: #2f7d4f; }
+  .glob-m .a.neutral { color: #6b7280; }
+  .glob-pend { margin: 14px 0 4px; font-size: 11px; color: #b6a6e6; font-style: italic; }
+
   /* ── Tables view (multi-metric, no chart) ── */
   .tables-content {
     padding: 10px 14px;
@@ -546,9 +575,11 @@
   body.slides-mode .kr-month-filter-bar { display: none !important; }
   body.slides-mode .status-krs-meta     { justify-content: flex-end; margin-bottom: 8px; }
   body.slides-mode #agenciasContent,
-  body.slides-mode #agenciasH2Content   { zoom: 0.80; }
+  body.slides-mode #agenciasH2Content,
+  body.slides-mode #globalesContent     { zoom: 0.80; }
   body.slides-mode #agenciasContent .kr-detail-grid,
   body.slides-mode #agenciasH2Content .kr-detail-grid { margin-top: 12px; }
+  body.slides-mode #globalesContent .glob-grid { margin-top: 12px; }
 
   /* Slides: tabla principal de KRs con proporciones fijas de columna
      (KR 50% · Peso 10% · Actual 10% · Budget 10% · Cumpl. 20%) y letra más grande. */
@@ -1166,7 +1197,7 @@
   <div id="globalesError" class="error-box"></div>
   <div id="globalesWrap" style="display:none">
     <div class="status-krs-meta" id="globalesMeta"></div>
-    <div class="kr-detail-grid" id="globalesCards"></div>
+    <div id="globalesCards"></div>
     <div style="font-size:0.78rem;color:#9ca3af;margin-top:10px">
       Targets del OKR H2 FY27 (fuente: <em>globales_kr_targets.json</em>). Los KRs marcados <strong>*</strong> son critical, gestionados por TTPP (peso 0%). El <strong>actual</strong> se computa desde el daily (canal API · producto Hoteles · país Globales) en los KRs con fuente definida; el resto queda pendiente.
     </div>
@@ -3055,32 +3086,65 @@ function renderGlobales() {
 
   var agg  = globalesApiHotelByMonth_(meses);
   var grid = document.getElementById('globalesCards');
-  grid.innerHTML = '';
 
-  globalesData.krs.forEach(function(kr){
-    var box  = document.createElement('div');
-    box.className = 'kr-detail-box';
-    var peso = kr.critical_ttpp ? '0%*' : Math.round((kr.weight || 0) * 100) + '%';
+  // Clase de color (red/yellow/green) para el cumplimiento del actual — mismos
+  // umbrales que cumplBg, pero devuelve el sufijo suelto para las clases .a.*
+  function globCumplClass_(rat){
+    if (rat === null || rat === undefined || !isFinite(rat) || isNaN(rat)) return 'neutral';
+    if (rat < 0.80) return 'red';
+    if (rat < 1.00) return 'yellow';
+    return 'green';
+  }
 
-    var rows = meses.map(function(ym, i){
+  // Una card por KR: header (nombre + unidad + peso), recorrido del semestre
+  // (target inicial → final + Δ%) y una tira con el target de cada mes; el mes
+  // con actual cableado se resalta con su % de cumplimiento.
+  var cards = globalesData.krs.map(function(kr){
+    var peso = kr.critical_ttpp
+      ? '<span class="glob-peso crit">0% · TTPP</span>'
+      : '<span class="glob-peso">' + Math.round((kr.weight || 0) * 100) + '%</span>';
+
+    var head = '<div class="glob-head"><div>' +
+      '<div class="glob-name">' + kr.name + '</div>' +
+      '<div class="glob-unit">' + (kr.unit || '') + '</div></div>' + peso + '</div>';
+
+    // Valores de target definidos (para recorrido inicial→final).
+    var tv = meses.map(function(ym){ var t = kr.targets ? kr.targets[ym] : null; return (typeof t === 'number') ? t : null; });
+    var nums = tv.filter(function(x){ return x !== null; });
+
+    if (nums.length === 0) {
+      return '<div class="glob-card">' + head +
+             '<div class="glob-pend">Target pendiente de definición</div></div>';
+    }
+
+    var first = nums[0], last = nums[nums.length - 1];
+    var dl  = first !== 0 ? (last - first) / Math.abs(first) * 100 : 0;
+    var dCls = Math.abs(dl) < 0.5 ? 'flat' : (dl > 0 ? 'up' : 'down');
+    var dTxt = (dl > 0 ? '+' : '') + Math.round(dl) + '% H2';
+    var range = '<div class="glob-range">' +
+      '<span class="from">' + fmtGlobalTarget(first, kr.unit) + '</span>' +
+      '<span class="arrow">→</span>' +
+      '<span class="to">' + fmtGlobalTarget(last, kr.unit) + '</span>' +
+      '<span class="glob-delta ' + dCls + '">' + dTxt + '</span></div>';
+
+    var strip = '<div class="glob-strip">' + meses.map(function(ym, i){
       var t   = kr.targets ? kr.targets[ym] : null;
       var a   = globalesActual_(kr.id, ym, agg);
-      var rat = (a !== null && t != null && t !== 0) ? (a / t) : null;
-      var cStr = rat !== null ? Math.round(rat * 100) + '%' : '—';
-      return '<tr><td style="text-align:left">' + (labels[i] || ym) + '</td>' +
-             '<td>' + fmtGlobalTarget(t, kr.unit) + '</td>' +
-             '<td>' + (a !== null ? fmtGlobalTarget(a, kr.unit) : '—') + '</td>' +
-             cumplCellHtml(rat, cStr, false) + '</tr>';
-    }).join('');
+      var rat = (a !== null && typeof t === 'number' && t !== 0) ? (a / t) : null;
+      var vCls = (t === null || t === undefined || t === '') ? 'v empty' : 'v';
+      var extra = a !== null
+        ? '<div class="a ' + globCumplClass_(rat) + '">' + fmtGlobalTarget(a, kr.unit) +
+          (rat !== null ? ' ' + Math.round(rat * 100) + '%' : '') + '</div>'
+        : '';
+      return '<div class="glob-m' + (a !== null ? ' act' : '') + '">' +
+             '<div class="l">' + (labels[i] || ym) + '</div>' +
+             '<div class="' + vCls + '">' + fmtGlobalTarget(t, kr.unit) + '</div>' + extra + '</div>';
+    }).join('') + '</div>';
 
-    box.innerHTML =
-      '<div class="kr-detail-header"><span class="kr-num-badge">' + kr.name + '</span>' +
-      '<span style="margin-left:auto;color:#6b7280;font-size:0.72rem">' + peso + ' · ' + (kr.unit || '') + '</span></div>' +
-      '<table class="pivot-table kr-detail-table">' +
-      '<thead><tr><th style="text-align:left;min-width:64px">Mes</th><th>Target</th><th>Actual</th><th>Cumpl.</th></tr></thead>' +
-      '<tbody>' + rows + '</tbody></table>';
-    grid.appendChild(box);
-  });
+    return '<div class="glob-card">' + head + range + strip + '</div>';
+  }).join('');
+
+  grid.innerHTML = '<div class="glob-grid">' + cards + '</div>';
   wrap.style.display = 'block';
 }
 
@@ -3273,6 +3337,7 @@ var _slideIdx     = 0;
 const SLIDE_ORDER = [
   { tab: 'agencias',    title: 'Status KRs H1'                                                  },
   { tab: 'agencias_h2', title: 'Status KRs H2'                                                  },
+  { tab: 'globales',    title: 'KRs Globales'                                                   },
   { isCover: true,     title: 'Recognition Date', subtitle: 'Gross Bookings · Net Revenue · FVM' },
   { tab: 'gb_ri',      title: 'Gross Bookings — RI'                                             },
   { tab: 'nr_ri',      title: 'Net Revenue — RI'                                                },
@@ -3363,6 +3428,7 @@ function _goToSlide(idx) {
     document.getElementById('weeklyContent').classList.remove('visible');
     document.getElementById('agenciasContent').classList.remove('visible');
     document.getElementById('agenciasH2Content').classList.remove('visible');
+    document.getElementById('globalesContent').classList.remove('visible');
     document.getElementById('slideCoverTitle').textContent    = slide.title;
     document.getElementById('slideCoverSubtitle').textContent = slide.subtitle || '';
     coverEl.classList.add('active');
@@ -3374,6 +3440,7 @@ function _goToSlide(idx) {
     document.getElementById('weeklyContent').classList.remove('visible');
     document.getElementById('agenciasContent').classList.remove('visible');
     document.getElementById('agenciasH2Content').classList.remove('visible');
+    document.getElementById('globalesContent').classList.remove('visible');
     _renderSplitSlide(slide.metric, slide.dateType);
     document.getElementById('splitContent').classList.add('visible');
   } else {
@@ -3461,15 +3528,20 @@ function _exportDone(msg, url) {
 async function _ensureSlidesDataLoaded() {
   if (agenciasState === 'idle') loadAgencias();
   if (airNRState   === 'idle') loadAirNR();
+  if (globalesState === 'idle') loadGlobales();
   var t0 = Date.now();
   while ((agenciasState === 'idle' || agenciasState === 'loading' ||
-          airNRState   === 'idle' || airNRState   === 'loading') &&
+          airNRState   === 'idle' || airNRState   === 'loading' ||
+          globalesState === 'idle' || globalesState === 'loading') &&
          (Date.now() - t0) < 12000) {
     await _sleep(200);
   }
   var pending = [];
   if (agenciasState === 'idle' || agenciasState === 'loading') pending.push('Status KRs (agencias)');
   if (airNRState   === 'idle' || airNRState   === 'loading') pending.push('Air NR');
+  // Globales puede quedar en 'error' (targets no disponibles); eso NO bloquea la
+  // export — la slide muestra su propio mensaje de error. Solo bloqueamos si sigue cargando.
+  if (globalesState === 'idle' || globalesState === 'loading') pending.push('KRs Globales');
   if (pending.length) {
     throw new Error('Los datos todavía se están cargando (' + pending.join(', ') +
                     '). Esperá unos segundos y reintentá — no se exporta un estado parcial.');
