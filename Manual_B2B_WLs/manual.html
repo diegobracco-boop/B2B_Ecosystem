@@ -545,6 +545,9 @@ a.ext-link:hover { text-decoration: underline; }
   <a class="nav-item" onclick="showSection('proj-country')">
     <span class="nav-icon">🗺️</span> Country One Pager (B2B)
   </a>
+  <a class="nav-item" onclick="showSection('proj-runrate')">
+    <span class="nav-icon">🚀</span> Proyecto Run Rate
+  </a>
   <a class="nav-item" onclick="showSection('proj-manual')">
     <span class="nav-icon">📖</span> Manual B2B WLs
   </a>
@@ -644,6 +647,14 @@ a.ext-link:hover { text-decoration: underline; }
         <div class="proj-card-desc">Landing standalone tipo "one pager" para la dirección comercial de un país. Sin pipeline propio: consume <strong>Dashboard_B2B_WLs</strong> y <strong>Daily_Dashboard</strong> como Apps Script Libraries. Embebido como tab "Detail By Country" dentro del B2B Ecosystem Hub, y también accesible standalone. Hoy solo B2B (B2B2C "próximamente").</div>
         <div class="proj-card-tag"><span class="badge badge-manual">🔗 Libraries (sin JSON propio)</span></div>
         <a class="proj-card-url" href="https://script.google.com/a/macros/despegar.com/s/AKfycbytMGsghl1TweKpYgMV2uhjTr--a9jpWkd2G3faZrF0DixD7UNu2qAq8Tbhlv_PCo0t/exec" target="_blank">↗ Abrir landing</a>
+      </div>
+
+      <div class="proj-card" tabindex="0" role="button" onclick="showSection('proj-runrate')">
+        <div class="proj-card-icon">🚀</div>
+        <div class="proj-card-name">Proyecto Run Rate</div>
+        <div class="proj-card-desc">Plataforma de <strong>proyección automática</strong> del P&amp;L B2B y B2B2C: lo que antes eran 4 a 6 días de Excel, ahora en <strong>un click</strong>. Lógica tradicional + Machine Learning, ajustes y propuestas de los comerciales en la misma herramienta.</div>
+        <div class="proj-card-tag"><span class="badge badge-auto">⚡ En uso · en desarrollo</span></div>
+        <a class="proj-card-url" href="https://ownia.despegar.io/runrate-html" target="_blank">↗ Abrir app</a>
       </div>
 
       <div class="proj-card" tabindex="0" role="button" onclick="showSection('proj-manual')">
@@ -1150,13 +1161,147 @@ a.ext-link:hover { text-decoration: underline; }
           <tr><td>1</td><td><strong>Drill de tasa sobre GB en FVM</strong>: vista que descomponga la variación de la tasa FVM/GB por partner en las líneas proyectadas (COI, CCP, Cancellations, Up fronts, Fees, TPC).</td><td>Es la consulta comercial recurrente y el mismo paso que hace el equipo a mano en el control de líneas. Self-service = menos consultas por Slack.</td></tr>
           <tr><td>2</td><td><strong>Control real vs proyectado por línea</strong> con alertas de desvío (mismo criterio de materialidad que las Slides de cierre).</td><td>Hoy se baja a la línea solo cuando algo llama la atención en GB/NR/FVM; una alerta lo haría sistemático.</td></tr>
           <tr><td>3</td><td><strong>Cerrar la migración de Power BI</strong> y dar de baja los tableros viejos.</td><td>Mientras convivan, se mantienen dos lugares con los mismos números.</td></tr>
-          <tr><td>4</td><td><strong>Documentar la app Proyecto Run Rate</strong> (repo, dueño, cómo se actualiza) en este manual.</td><td>Es la pieza que más tiempo consume y hoy no está documentada acá — riesgo de punto único de falla.</td></tr>
+          <tr><td>4</td><td><strong>Documentar la app Proyecto Run Rate</strong> (repo, dueño, cómo se actualiza) en este manual.</td><td>✅ Hecho 2026-09-25: ver sección <strong>Proyecto Run Rate</strong>.</td></tr>
         </tbody>
       </table>
     </div>
 
     <div class="alert-box info">
       ℹ️ Relevado con el equipo B2B2C (Tiago Harari) el 2026-09-25. Validar con el equipo B2B y actualizar a mano cuando cambie la forma de trabajo.
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════ PROYECTO RUN RATE ═══════════════════════════ -->
+  <div class="section" id="sec-proj-runrate">
+    <div class="page-header">
+      <div class="page-tag">Proyecto estratégico · Proyecciones B2B &amp; B2B2C</div>
+      <div class="page-title">Proyecto <span>Run Rate</span></div>
+      <div class="page-sub">Plataforma de <strong>proyección automática del P&amp;L</strong> para B2B y B2B2C. Reemplaza los modelos Run Rate en Excel por una herramienta web con datos conectados, visualización integrada, ajustes y trabajo colaborativo con los equipos comerciales. <strong>Proyección en un solo click.</strong></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">👥 Ficha del proyecto</div>
+      <table class="doc-table">
+        <tbody>
+          <tr><td>Liderado por</td><td><strong>Tiago Harari</strong> y <strong>Gregorio Minetti</strong></td></tr>
+          <tr><td>Estado</td><td><span class="badge badge-auto">En uso</span> y en desarrollo continuo — es hoy el proyecto donde el equipo invierte más tiempo de desarrollo.</td></tr>
+          <tr><td>Alcance</td><td>Las tres líneas de negocio que proyecta el equipo:<br>
+            • <strong>HTML / B2B</strong> — agencias afiliadas.<br>
+            • <strong>B2B2C / White Labels</strong> — por partner y país.<br>
+            • <strong>API</strong> — canal API de B2B, con vista por fecha de gestión y por fecha de reconocimiento.</td></tr>
+          <tr><td>Acceso</td><td><a class="ext-link" href="https://ownia.despegar.io/runrate-html" target="_blank">ownia.despegar.io/runrate-html</a> — también linkeada desde el <strong>B2B Ecosystem Hub</strong>.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">🐢 Antes · modelo en Excel</div>
+        <div class="page-sub" style="margin-bottom:12px"><strong>4 a 6 días</strong> de trabajo manual por cada proyección.</div>
+        <table class="doc-table">
+          <tbody>
+            <tr><td><strong>2–3 días</strong><br>Armado</td><td>Descargas manuales desde Metabase, info de EPM bajada de SharePoint, modificación manual de todos los parámetros mes a mes.</td></tr>
+            <tr><td><strong>1–2 días</strong><br>Ajustes</td><td>Alineación con equipos comerciales, poco tiempo para validar los números finales, poca granularidad por falta de tiempo.</td></tr>
+            <tr><td><strong>1 día</strong><br>Distribución</td><td>Proceso manual para abrir la proyección mensual en días.</td></tr>
+          </tbody>
+        </table>
+        <div class="alert-box" style="margin-top:12px">
+          ⚠️ <strong>Dolores:</strong> sin visibilidad de cambios ni tendencias · lento para arrancar y se trababa · sin trabajo en simultáneo · archivos que no sincronizaban · tiempos muertos esperando cargas · difícil comparar contra Budget, Forecast o el último Run Rate.
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">⚡ Ahora · plataforma</div>
+        <div class="page-sub" style="margin-bottom:12px">Se elige el horizonte y la proyección sale en <strong>un click</strong>.</div>
+        <table class="doc-table">
+          <tbody>
+            <tr><td>🔌 Datos conectados</td><td>Se conecta sola a los datos transaccionales (mes en curso) y contables. Nada de descargas manuales.</td></tr>
+            <tr><td>🧠 Tradicional + ML</td><td>La lógica de proyección del Excel, potenciada con <strong>Machine Learning</strong>.</td></tr>
+            <tr><td>📊 Visualización integrada</td><td>P&amp;L en OC y FVM con filtros por país, marca, producto, LOB y partner, más gráficos de Net Revenue y margen.</td></tr>
+            <tr><td>🎛️ Ajustes incluidos</td><td>Los ajustes se hacen en la misma herramienta, sin volver al Excel.</td></tr>
+            <tr><td>⏱️ Más tiempo para lo que importa</td><td>El tiempo que antes se iba en armar, ahora va a revisar y ajustar → <strong>mucha mejor granularidad</strong>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🧩 Módulos de la herramienta</div>
+      <table class="doc-table">
+        <thead><tr><th>Módulo</th><th>Qué hace</th></tr></thead>
+        <tbody>
+          <tr><td><strong>1 · Inicio</strong></td><td>Puerta de entrada: se elige la línea de negocio (HTML/B2B, B2B2C o API) y se pueden abrir las versiones ya guardadas.</td></tr>
+          <tr><td><strong>2 · Configuración</strong></td><td>Se define desde qué mes se proyecta y cuántos meses hacia adelante. Es todo lo que hay que decidir antes del click.</td></tr>
+          <tr><td><strong>3 · Resultado</strong></td><td>El P&amp;L proyectado, en <strong>OC</strong> y en <strong>FVM</strong>, con filtros por país, marca, producto, LOB y partner, gráficos, y comparación directa contra <strong>Budget, Run Rate oficial, Forecast y Last Year</strong>.</td></tr>
+          <tr><td><strong>4 · Ajustes</strong></td><td>Se corrigen las palancas del P&amp;L (por ejemplo Up fronts + Fees, COI, Cancellations) en <strong>puntos porcentuales sobre el GB</strong>, viendo el impacto al instante. Incluye una <strong>caja de preguntas</strong>: se escribe "coi brasil noviembre" y la herramienta lleva directo a esa celda.</td></tr>
+          <tr><td><strong>5 · Versiones y propuestas</strong></td><td>Cada proyección se guarda como una <strong>versión</strong> (una foto fija de los números). Sobre esa versión, los equipos comerciales pueden <strong>sugerir cambios</strong>, y Planning los aprueba, rechaza o revierte desde su panel. Queda el historial de quién propuso qué y cuándo.</td></tr>
+          <tr><td><strong>6 · Descargas</strong></td><td>Excel del P&amp;L proyectado y archivo en formato <strong>EPM</strong>, listo para la carga mensual del Run Rate.</td></tr>
+          <tr><td><strong>7 · Pruebas</strong></td><td>Mide qué tan acertado es el modelo: se para en meses pasados, proyecta como si fuera ese momento y compara contra lo que realmente pasó. Acceso restringido.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🤝 Una herramienta colaborativa</div>
+      <div class="page-sub" style="margin-bottom:14px">La proyección deja de ser un Excel que arma una persona y se convierte en un espacio compartido entre Planning y los dueños del negocio.</div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <div class="step-title">Planning genera la proyección</div>
+            <div class="step-desc">Un click sobre los datos ya conectados. La versión preliminar está disponible mucho antes que con el Excel.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <div class="step-title">Se guarda y se comparte una versión</div>
+            <div class="step-desc">Todos miran los mismos números: la versión queda congelada tal como se generó.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <div class="step-title">Comerciales y owners proponen ajustes</div>
+            <div class="step-desc">Entran a la versión, sugieren cambios sobre las palancas y dejan su propuesta registrada, sin poder romper nada del resto de la herramienta.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <div class="step-title">Planning revisa y cierra</div>
+            <div class="step-desc">Aprueba, rechaza o revierte cada propuesta desde su panel, y descarga el resultado final para EPM.</div>
+          </div>
+        </div>
+      </div>
+      <div class="alert-box info" style="margin-top:14px">
+        ℹ️ Mejora la comunicación con los distintos equipos durante la semana del mes dedicada a elaborar las proyecciones, y permite trabajar en simultáneo en vez de pasarse un archivo.
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🎯 Por qué facilita todo</div>
+      <table class="doc-table">
+        <thead><tr><th>Eje</th><th>Antes</th><th>Ahora</th></tr></thead>
+        <tbody>
+          <tr><td><strong>⚡ Velocidad</strong></td><td>4 a 6 días manuales</td><td><strong>1 click</strong> — de días a minutos</td></tr>
+          <tr><td><strong>🔍 Granularidad</strong></td><td>Poca, por falta de tiempo</td><td>País, marca, producto, LOB y partner</td></tr>
+          <tr><td><strong>👁️ Visibilidad</strong></td><td>Sin ver cambios ni tendencias</td><td>Cambios, tendencias y comparación vs Budget / Forecast / Run Rate / LY a la vista. Visibilidad del <strong>OC de forma sistemática y anticipada</strong>, también para Revenue y los equipos comerciales</td></tr>
+          <tr><td><strong>🤝 Colaboración</strong></td><td>Un archivo, una persona a la vez</td><td>Trabajo en simultáneo, propuestas registradas y revisión de Planning</td></tr>
+          <tr><td><strong>🎯 Accuracy</strong></td><td>Poco tiempo para validar</td><td>Proyecciones más conscientes (más tiempo de control y revisión) + ML + medición de accuracy en "Pruebas"</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🔗 Cómo se conecta con el ecosistema</div>
+      <table class="doc-table">
+        <tbody>
+          <tr><td>Datos</td><td>Usa los mismos reales y objetivos que el resto del ecosistema: los goals de Budget y Forecast salen de <strong>Inputs Planning P&amp;L</strong>, así los números de la proyección son comparables con las landings.</td></tr>
+          <tr><td>Salida</td><td>El Run Rate que sale de la herramienta es el que se carga en EPM (ver <strong>Gantt</strong>: carga de Run Rate en EPM, 3er jueves de cada mes).</td></tr>
+          <tr><td>Dónde vive</td><td>Es una aplicación propia, fuera de este repo. El Hub tiene el link directo.</td></tr>
+        </tbody>
+      </table>
     </div>
   </div>
 
