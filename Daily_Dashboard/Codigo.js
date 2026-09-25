@@ -1272,3 +1272,40 @@ function autorizarGoogleSlides() {
   var pres = SlidesApp.create('TEST autorización Slides — borrar');
   Logger.log('OK, autorizado. Presentación de prueba: ' + pres.getUrl());
 }
+
+
+// ============================================================
+// KRs manuales B2B2C para "B2B2C — Status KRs" (Flow Semanal)
+// ============================================================
+// Sign New Partnership (H1), Deploy New Partnership y Unique Buyers (H2): target y actual
+// mensuales cargados a mano en la sheet Input_OKR. Se leen del okr.json que arma
+// Inputs_Planning_PnL/okr_builder.py (misma fuente que el OKR del Hub). La webapp corre
+// como USER_DEPLOYING, así que tiene acceso al archivo aunque esté en otra carpeta.
+var OKR_JSON_FILE_ID = '1cEidr8aoYgm4S7ugm05Wv-SMnz8GbtUj';
+var OKR_MANUAL_B2B2C = { 'sign new partnership':'sign', 'deploy new partnership':'deploy', 'unique buyers':'ub' };
+
+// Devuelve { updated, data: { sign|deploy|ub: { 'YYYY-MM': { act, bud } } } }
+function getOKRManualB2B2C() {
+  var file = DriveApp.getFileById(OKR_JSON_FILE_ID);
+  var cache = CacheService.getScriptCache();
+  var key = 'okr_manual_b2bc_v1_' + file.getLastUpdated().getTime();   // se invalida solo al subir un okr.json nuevo
+  var hit = cache.get(key);
+  if (hit) { try { return JSON.parse(hit); } catch (e) {} }
+  var j = JSON.parse(file.getBlob().getDataAsString());
+  var c = j.cols, iP = c.indexOf('Periodo'), iE = c.indexOf('Escenario'), iL = c.indexOf('LoB'),
+      iK = c.indexOf('KR'), iV = c.indexOf('Valor');
+  var data = {};
+  (j.rows || []).forEach(function(r) {
+    if (String(r[iL]).trim().toLowerCase() !== 'b2b2c') return;
+    var k = OKR_MANUAL_B2B2C[String(r[iK]).trim().toLowerCase()];
+    if (!k) return;
+    var ym  = String(r[iP]).substring(0, 7);
+    var esc = String(r[iE]).toLowerCase().indexOf('budget') >= 0 ? 'bud' : 'act';
+    data[k] = data[k] || {};
+    data[k][ym] = data[k][ym] || {};
+    data[k][ym][esc] = (data[k][ym][esc] || 0) + (Number(r[iV]) || 0);
+  });
+  var payload = { updated: file.getLastUpdated().toISOString(), data: data };
+  try { cache.put(key, JSON.stringify(payload), 21600); } catch (e) {}
+  return payload;
+}

@@ -4330,33 +4330,17 @@ function flowBuildSlide_(def, idx){
     return '<div class="flow-slide">'+flHead_(titleTxt, brand)+body+'</div>';
   }
   if(def.kind==='b2b2c_krs'){
-    // Status KRs B2B2C: New/Existing Account NR + FVM, MTD vs cmp seleccionado
-    // (Budget/Run Rate/LY, mismo toggle que el resto de Flow Semanal), con
-    // apertura por región (Brasil/MX-US/Hispa) igual que la slide 15 de la PPT.
-    // "Sign New Partnership" queda afuera: es conteo manual de CRM (ver slide
-    // 16), no existe en ninguna fuente automatizada (igual que KR1 en el
-    // OKR_Producto_B2B2C, que también lo declara simulado/manual).
-    var titleTxt=mesLbl+' | B2B2C — Status KRs MTD vs '+cmpLbl;
-    var rowsDef=[
-      {label:'New Account Net Revenues',      metric:'nr',  stage:'New'},
-      {label:'Existing Account Net Revenues', metric:'nr',  stage:'Existing'},
-      {label:'Financial Variable Margin',     metric:'fvm', stage:'all'}
-    ];
-    var regions=['BR','NAM','SAH'];
-    function pctOf(a,b){ return b ? (a/b)*100 : null; }
-    function cumplCell(a,b){ var p=pctOf(a,b); return '<td class="'+(p!=null&&p>=100?'fl-pos':'fl-neg')+'">'+(p==null?'—':Math.round(p)+'%')+'</td>'; }
-    var body='';
-    rowsDef.forEach(function(rd){
-      var tot=flowKRSum_(_rawB2BC,rd.stage,rd.metric,cmp,null);
-      body+='<tr class="grp"><td style="text-align:left">'+rd.label+'</td><td>'+flFmt_(tot.actual)+'</td><td>'+flFmt_(tot.budget)+'</td>'+cumplCell(tot.actual,tot.budget)+'</tr>';
-      regions.forEach(function(rg){
-        var s=flowKRSum_(_rawB2BC,rd.stage,rd.metric,cmp,rg);
-        body+='<tr><td style="text-align:left">&nbsp;&nbsp;'+FLOW_RG[rg].label+'</td><td>'+flFmt_(s.actual)+'</td><td>'+flFmt_(s.budget)+'</td>'+cumplCell(s.actual,s.budget)+'</tr>';
-      });
-    });
-    var tableHtml='<table class="fl-tbl"><thead><tr><th>KR</th><th>Actual MTD</th><th>Budget MTD</th><th>Cumpl.</th></tr></thead><tbody>'+body+'</tbody></table>';
-    var bodyHtml='<div class="fl-body"><div class="fl-scroll-tbl" style="height:100%;overflow-y:auto">'+tableHtml+'</div></div>';
-    return '<div class="flow-slide">'+flHead_(titleTxt, flLogo_())+bodyHtml+'</div>';
+    // 2026-09-25: mismo formato que "B2B — Status KRs" (tabla KR/Peso/Actual/Budget/Cumpl.
+    // + OVERALL ponderado + cuadros de detalle), con los KRs del OKR B2B2C de cada semestre
+    // (switch H1/H2). Se llena después vía flowRenderB2B2CKRs_() (necesita el DOM armado).
+    var body='<div class="fl-body b2b-fl-body" style="overflow-y:auto">'
+      +'<div class="b2b-status-krs-meta" id="b2c-krsMeta-'+idx+'"></div>'
+      +'<table class="b2b-pivot-table b2b-status-krs-table"><thead><tr>'
+        +'<th style="text-align:left;min-width:210px">KR</th><th>Peso</th><th>Actual MTD</th><th>Budget MTD</th><th>Cumpl.</th>'
+      +'</tr></thead><tbody id="b2c-krsBody-'+idx+'"></tbody></table>'
+      +'<div class="b2b-kr-detail-grid" id="b2c-krsDetailGrid-'+idx+'"></div>'
+      +'</div>';
+    return '<div class="flow-slide">'+flHead_('<span id="b2c-krsTitle-'+idx+'">'+mesLbl+' | B2B2C — Status KRs</span>', flLogo_())+body+'</div>';
   }
   if(def.kind==='weekly'){
     var lob=def.lob, view=def.view;
@@ -4506,6 +4490,7 @@ function flowBuild_(){
   var cs=document.getElementById('flow-comp'); if(cs) cs.value=_flowComp;
   flowRenderWeeklyTables_();
   flowRenderB2BSlides_();
+  flowRenderB2B2CKRs_();
   _flowBuilt=true;
   flowSetupObserver_();
   return true;
@@ -4838,6 +4823,115 @@ function trkRenderSplitSlide_(idx, metric, dateType, cg, monthFilter, goalType){
   var elD=document.getElementById('b2b-splitDeltaR-'+idx); if(elD) elD.innerHTML=deltaHdr;
 }
 
+// ── B2B2C — Status KRs (formato de "B2B — Status KRs") ──────────────────────
+// KRs y pesos del OKR B2B2C por semestre (mismos que Dashboard_B2B_WLs/Codigo_OKR.js).
+//   src 'nr'     → Net Revenue MTD del Daily por stage (New = Hunting, Existing = Farming)
+//   src 'fvm'    → FVM MTD: proxy de Operating Contribution (el Daily no tiene OC; decisión
+//                  de Diego 2026-09-25)
+//   src 'manual' → valor MENSUAL de Input_OKR (okr.json): Sign/Deploy New Partnership es
+//                  acumulado al mes; Unique Buyers es del mes.
+// Comparación siempre contra Budget, igual que B2B. OVERALL = promedio ponderado de los KRs
+// con dato (renormaliza pesos), cada KR capeado a 130% — mismo criterio que B2B en el Flow.
+var FL_B2C_KRS = {
+  H1: [
+    { id:'sign',  label:'Sign New Partnership',            w:.20, src:'manual', unit:'int' },
+    { id:'new',   label:'New Account Net Revenues $M',     w:.15, src:'nr', stage:'New' },
+    { id:'exist', label:'Existing Account Net Revenues $M',w:.50, src:'nr', stage:'Existing' },
+    { id:'oc',    label:'Operating Contribution $M <span style="color:#6b7280;font-size:.72rem">(proxy FVM MTD)</span>', w:.15, src:'fvm' }
+  ],
+  H2: [
+    { id:'deploy',label:'Deploy New Partnership',          w:.20, src:'manual', unit:'int' },
+    { id:'ub',    label:'Unique Buyers',                   w:.15, src:'manual', unit:'int' },
+    { id:'exist', label:'Existing Account Net Revenues $M',w:.25, src:'nr', stage:'Existing' },
+    { id:'new',   label:'Hunting Net Revenue $M',          w:.15, src:'nr', stage:'New' },
+    { id:'oc',    label:'Operating Contribution $M <span style="color:#6b7280;font-size:.72rem">(proxy FVM MTD)</span>', w:.25, src:'fvm' }
+  ]
+};
+var _flB2CKrHalf=null;   // 'H1' | 'H2' elegido con el switch; null = según el mes que se mira
+function flB2CKrSetHalf_(h){
+  _flB2CKrHalf=h;
+  FLOW_DECK.forEach(function(d, i){ if(d.kind==='b2b2c_krs') flRenderB2CKRs_(i); });
+}
+function flowRenderB2B2CKRs_(){
+  if(!_rawB2BC) return;
+  FLOW_DECK.forEach(function(d, i){ if(d.kind==='b2b2c_krs') flRenderB2CKRs_(i); });
+}
+function flRenderB2CKRs_(idx){
+  var vDate=flowVDate_(), ym=vDate.substring(0,7), mStart=ym+'-01';
+  var half=_flB2CKrHalf || (ym < '2026-10' ? 'H1' : 'H2');   // FY27: H1 = abr–sep 2026
+  var man=(_flowOKRManualB2BC && _flowOKRManualB2BC.data) || {};
+
+  var titleEl=document.getElementById('b2c-krsTitle-'+idx);
+  if(titleEl) titleEl.textContent=flowMonthName_(vDate)+' | B2B2C — Status KRs '+half+' FY27';
+
+  var metaEl=document.getElementById('b2c-krsMeta-'+idx);
+  if(metaEl){
+    var btn=function(h){
+      var on=(h===half);
+      return '<button onclick="flB2CKrSetHalf_(\''+h+'\')" style="border:1px solid #550FED;border-radius:6px;padding:2px 10px;font-weight:700;cursor:pointer;'
+        +(on?'background:#550FED;color:#fff':'background:#fff;color:#550FED')+'">'+h+'</button>';
+    };
+    metaEl.innerHTML='<span class="b2b-kr-data-range">&#128197; Datos: <strong>'+mStart+'</strong> &rarr; <strong>'+vDate+'</strong></span>'
+      +'<span class="b2b-kr-data-range b2b-kr-data-range-sec">&#9998; Partnerships / Unique Buyers: valor del mes (Input_OKR)</span>'
+      +'<span data-html2canvas-ignore="true" style="display:inline-flex;gap:4px;align-items:center">'+btn('H1')+btn('H2')+'</span>';
+  }
+
+  function cumpl(a,b){ return (a===null||a===undefined||b===null||b===undefined||!b) ? null : Math.min(1+(a-b)/Math.abs(b), 1.30); }
+  var rows=FL_B2C_KRS[half].map(function(k){
+    var act=null, bud=null;
+    if(k.src==='manual'){
+      var m=man[k.id] && man[k.id][ym];
+      if(m){ act=(m.act!==undefined)?m.act:null; bud=(m.bud!==undefined)?m.bud:null; }
+    } else {
+      var sum=flowKRSum_(_rawB2BC, k.src==='nr' ? k.stage : 'all', k.src==='nr' ? 'nr' : 'fvm', 'budget', null);
+      if(sum.actual || sum.budget){ act=trkToM_(sum.actual); bud=trkToM_(sum.budget); }
+    }
+    return { k:k, act:act, bud:bud, c:cumpl(act,bud) };
+  });
+  var wSum=0, wC=0;
+  rows.forEach(function(r){ if(r.c!==null){ wSum+=r.k.w; wC+=r.c*r.k.w; } });
+  var overall=wSum>0 ? Math.min(wC/wSum, 1.30) : null;
+
+  var tbody=document.getElementById('b2c-krsBody-'+idx);
+  if(tbody){
+    var html=rows.map(function(r){
+      var unit=r.k.unit || '$M';
+      return '<tr><td style="text-align:left">'+r.k.label+'</td>'
+        +'<td style="color:#6b7280;font-size:.78rem">'+Math.round(r.k.w*100)+'%</td>'
+        +'<td>'+trkFmtKRVal_(r.act,unit)+'</td><td>'+trkFmtKRVal_(r.bud,unit)+'</td>'
+        +'<td class="'+trkCumplColor_(r.c)+'">'+(r.c===null?'—':(r.c*100).toFixed(0)+'%')+'</td></tr>';
+    }).join('');
+    html+='<tr class="row-kr-total"><td style="text-align:left">OVERALL ('+half+')</td><td style="color:#6b7280;font-size:.78rem">100%</td>'
+      +'<td>—</td><td>—</td><td class="'+(overall!==null?trkCumplColor_(overall):'')+'">'+(overall!==null?(overall*100).toFixed(0)+'%':'—')+'</td></tr>';
+    tbody.innerHTML=html;
+  }
+
+  // Detalle por región (Brasil / MX-US / Hispa) de los KRs que salen del Daily.
+  var grid=document.getElementById('b2c-krsDetailGrid-'+idx);
+  if(grid){
+    function box(title, stage, metric){
+      var regs=['BR','NAM','SAH'].map(function(rg){
+        var s2=flowKRSum_(_rawB2BC, stage, metric, 'budget', rg);
+        return { name:FLOW_RG[rg].label, act:trkToM_(s2.actual), bud:trkToM_(s2.budget) };
+      });
+      var tA=0, tB=0; regs.forEach(function(r){ tA+=r.act; tB+=r.bud; });
+      var tc=tB ? Math.min(trkCumplRatio_(tA,tB),1.30) : null;
+      var body=regs.map(function(r){
+        var c=trkCumplRatio_(r.act,r.bud);
+        return '<tr><td style="text-align:left">'+r.name+'</td><td>'+trkFmtKRVal_(r.act,'$M')+'</td><td>'+trkFmtKRVal_(r.bud,'$M')+'</td>'
+          +'<td class="'+trkCumplColor_(c)+'">'+(c!==null?(c*100).toFixed(0)+'%':'—')+'</td></tr>';
+      }).join('');
+      return '<div class="b2b-kr-detail-box"><div class="b2b-kr-detail-header"><span class="b2b-kr-num-badge">'+title+'</span></div>'
+        +'<table class="b2b-pivot-table b2b-kr-detail-table"><thead><tr><th style="text-align:left;min-width:90px">Región</th><th>Actual</th><th>Budget</th><th>Cumpl.</th></tr></thead>'
+        +'<tbody><tr class="kr-detail-total"><td style="text-align:left;font-weight:700">TOTAL</td><td><strong>'+trkFmtKRVal_(tA,'$M')+'</strong></td><td><strong>'+trkFmtKRVal_(tB,'$M')+'</strong></td>'
+        +'<td class="'+trkCumplColor_(tc)+'"><strong>'+(tc!==null?(tc*100).toFixed(0)+'%':'—')+'</strong></td></tr>'+body+'</tbody></table></div>';
+    }
+    grid.innerHTML=box(half==='H1' ? 'New Account NR' : 'Hunting NR', 'New', 'nr')
+      +box('Existing Account NR', 'Existing', 'nr')
+      +box('FVM (proxy OC)', 'all', 'fvm');
+  }
+}
+
 // ── Status KRs (usa _flowAgenciasData/_flowAirNRData, ver flowFetchB2BExtras_) ──
 function trkComputeMetricMTD_(countryGroupNames, metricField, monthFilter){
   var b=trkGetPeriodBounds_(monthFilter||trkCurYM_());
@@ -4975,9 +5069,14 @@ function trkComputeMetricForPaisList_(paisList, metricField, monthFilter){
 // (ver arriba, getRawB2B()); esto son 2 fetches nuevos, gateados igual que
 // Weekly (_flowWeeklyReady) desde flowOpen_(). ──
 var _flowB2BReady=false, _flowAgenciasData=null, _flowAirNRData=null, _flowB2BRetries=0;
+var _flowOKRManualB2BC=null;   // KRs manuales B2B2C (Input_OKR vía okr.json), ver getOKRManualB2B2C
 function flowFetchB2BExtras_(cb){
-  var pending=2;
+  var pending=3;
   function done(){ if(--pending<=0) cb(); }
+  google.script.run
+    .withSuccessHandler(function(d){ _flowOKRManualB2BC=d; done(); })
+    .withFailureHandler(function(e){ console.error('[flow] getOKRManualB2B2C falló:', e); _flowOKRManualB2BC=null; done(); })
+    .getOKRManualB2B2C();
   google.script.run
     .withSuccessHandler(function(d){ _flowAgenciasData=d; done(); })
     .withFailureHandler(function(e){ console.error('[flow] getAgenciasOKR falló:', e); _flowAgenciasData=null; done(); })
