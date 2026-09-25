@@ -6772,28 +6772,43 @@ function _cierreOcBridgeHTML_(mesData, refMonth, goal){
 // ── OKR — reutiliza renderOKR, mismo patrón. Se pide 1 sola vez (no depende del mes
 // de cierre ni cambia por scope, solo cambia qué LOB(s) mostrar). Se le saca la fila
 // de toggles (% Cumpl./Mensual) porque no aplica a un slide estático. 2026-09-23.
+// Devuelve {H1:okr, H2:okr} (ambos semestres). El slide elige el semestre según el MES DE CIERRE
+// (no el que esté seleccionado en pantalla): el cierre de septiembre, hecho en octubre, es H1.
 function _cierreFetchOKR_(){
   return new Promise(function(resolve){
-    if (_state.okr) { resolve(_state.okr); return; }
+    if (_state.okrAll) { resolve(_state.okrAll); return; }
     if (IS_DEMO) { resolve(null); return; }
     google.script.run
-      .withSuccessHandler(function(res){ resolve((res && res.success) ? res.okr : null); })
+      .withSuccessHandler(function(res){
+        if (res && res.success) _state.okrAll = res.okrByHalf || null;
+        resolve((res && res.success) ? (res.okrByHalf || null) : null);
+      })
       .withFailureHandler(function(){ resolve(null); })
       .getOKRData();
   });
 }
-function _cierreOkrHTML_(okr, lobKey){
-  if (!okr) return '<div style="padding:20px;color:#999">Sin datos de OKR.</div>';
-  var savedLob = _state.lob, savedMonthly = _okrMonthly;
+function _cierreOkrHTML_(okrAll, lobKey){
+  var noData = '<div style="padding:20px;color:#999">Sin datos de OKR.</div>';
+  if (!okrAll) return noData;
+  var selEl = document.getElementById('cierre-mes-sel');
+  var mes   = selEl ? selEl.value : '';                       // 'YYYY-MM'
+  var half  = (mes && mes < '2026-10') ? 'H1' : 'H2';         // FY27: H1 = abr-sep 2026, H2 = oct-26 → mar-27
+  var okr   = okrAll[half] || okrAll[half === 'H1' ? 'H2' : 'H1'];
+  if (!okr) return noData;
+  var savedLob = _state.lob, savedMonthly = _okrMonthly, savedHalf = _okrHalf;
   _state.lob = lobKey;
+  _okrHalf = okrAll[half] ? half : (half === 'H1' ? 'H2' : 'H1');
   _okrMonthly = true;   // a pedido de Diego: el slide de Cierre de Mes siempre con apertura por mes
   renderOKR(okr);
-  _state.lob = savedLob; _okrMonthly = savedMonthly;
+  _state.lob = savedLob; _okrMonthly = savedMonthly; _okrHalf = savedHalf;
   var col = document.getElementById('okr-col');
-  if (!col) return '<div style="padding:20px;color:#999">Sin datos de OKR.</div>';
+  if (!col) return noData;
   var clone = col.cloneNode(true);
-  var btnRow = clone.querySelector('div');   // fila de toggles (% Cumpl. / Mensual) — no aplica acá
-  if (btnRow && btnRow.querySelector('button')) btnRow.remove();
+  // Primera fila = título "OKR Status FY27 · H1/H2" + botones. Se sacan solo los botones
+  // (% Cumpl. / Mensual / H1-H2), no aplican a un slide estático; el título se conserva.
+  var hdr = clone.querySelector('div');
+  var btns = hdr ? hdr.querySelector('div') : null;
+  if (btns && btns.querySelector('button')) btns.remove();
   return clone.innerHTML;
 }
 

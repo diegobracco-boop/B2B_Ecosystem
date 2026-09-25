@@ -95,6 +95,14 @@ MANUAL_KRS = {
 }
 MANUAL_KRS_LC = {k.lower() for k in MANUAL_KRS}   # el match es case-insensitive
 
+# Grafías alternativas de la sheet → nombre canónico. Se normaliza ANTES del dedupe y del
+# emit: si no, "Directo Vendidos" y "Directos vendidos" son claves distintas, pasan el dedupe
+# y la landing (que las mapea al mismo KR) las suma → valor doble.
+KR_CANON = {
+    "hoteles directo vendidos destino latam":    "Hoteles Directos vendidos destino LATAM",
+    "hoteles directo vendidos destino no latam": "Hoteles Directos vendidos destino NO LATAM",
+}
+
 # En la sheet estos KRs vienen con LoB='B2B'; el OKR los agrupa en 'Globales'.
 GLOBALES_KRS_LC = {k.lower() for k in MANUAL_KRS if k.lower().startswith(("accelerate hunting", "hoteles directo"))}
 
@@ -361,9 +369,14 @@ def _parse_date_sheet(raw):
 
 
 def _parse_valor_sheet(raw):
-    s = str(raw).strip()
+    """Valor de la sheet (locale es-AR: '.' miles, ',' decimales) → número, o None si no se puede leer.
+    Tolera '%', '$' y espacios ('85,5%', '$ 1.000'). Un '.' seguido de 1-2 dígitos ('5.2', '12.5')
+    NO puede ser separador de miles (los grupos son de 3), así que es un decimal con punto."""
+    s = str(raw).strip().replace("%", "").replace("$", "").replace(" ", "")
     if not s:
         return None
+    if "," not in s and re.fullmatch(r"-?\d+\.\d{1,2}", s):
+        return float(s)
     if "," in s:
         s = s.replace(".", "").replace(",", ".")
         try:
@@ -469,6 +482,7 @@ def _read_manual_krs(token_file):
     SKIP = {"periodo", "escenario", "lob", "kr", "", None}
     rows = []
     skipped = 0
+    unparsed = []   # filas de KRs manuales con fecha o valor ilegible (antes se descartaban en silencio)
     for r in raw_rows:
         if len(r) < 7:
             skipped += 1
@@ -483,6 +497,7 @@ def _read_manual_krs(token_file):
             continue
         if str(kr).strip().lower() in GLOBALES_KRS_LC:
             lob = "Globales"
+        kr = KR_CANON.get(str(kr).strip().lower(), str(kr).strip())
         # Solo el total (Pais=Total, Producto=Total) — si alguien agrega detalle
         # por país/producto en la sheet, no lo sumamos para evitar duplicar.
         if str(pais).strip().lower() != "total" or str(producto).strip().lower() != "total":
@@ -492,6 +507,7 @@ def _read_manual_krs(token_file):
         valor   = _parse_valor_sheet(valor_raw)
         if periodo is None or valor is None:
             skipped += 1
+            unparsed.append((kr, periodo_raw, escenario, valor_raw))
             continue
         rows.append([periodo, escenario, lob, pais, producto, kr, valor])
 
@@ -509,6 +525,10 @@ def _read_manual_krs(token_file):
     rows = list(dedup.values())
 
     print(f"  [GSheet manual] {len(rows)} filas" + (f" ({n_dup} duplicadas descartadas)" if n_dup else ""))
+    if unparsed:
+        print(f"  WARN {len(unparsed)} filas de KRs manuales con fecha/valor ilegible en Input_OKR (descartadas):")
+        for kr_, per_, esc_, val_ in unparsed[:8]:
+            print(f"       {kr_} | {per_} | {esc_} | valor={val_!r}")
     return rows
 
 

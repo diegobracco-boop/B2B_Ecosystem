@@ -99,7 +99,8 @@ var OKR_KR_ALIASES = {
   'op contribution':     'operating contribution',
   'operating contrib':   'operating contribution',
   'oc':                  'operating contribution',
-  // Grafía cargada en la sheet Input_OKR → nombre canónico de OKR_CONFIG_H2
+  // Grafía que puede traer un okr.json viejo (cargada en la sheet) → nombre canónico de OKR_CONFIG_H2.
+  // okr_builder.py ya normaliza estos nombres; el alias cubre archivos generados antes.
   'hoteles directo vendidos destino latam':    'hoteles directos vendidos destino latam',
   'hoteles directo vendidos destino no latam': 'hoteles directos vendidos destino no latam'
 };
@@ -116,7 +117,7 @@ var OKR_FILE_ID = '1cEidr8aoYgm4S7ugm05Wv-SMnz8GbtUj';
 function readOKRJson_() {
   var cache = CacheService.getScriptCache();
   var file  = DriveApp.getFileById(OKR_FILE_ID);
-  var cKey  = 'okr_json_v2_' + file.getLastUpdated().getTime();
+  var cKey  = 'okr_json_v3_' + file.getLastUpdated().getTime();   // v3: cachea filas ya normalizadas con OKR_KR_ALIASES (H2)
   var hit   = cache.get(cKey);
   if (hit) { try { return JSON.parse(hit); } catch(e) {} }
 
