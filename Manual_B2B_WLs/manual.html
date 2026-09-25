@@ -1038,7 +1038,7 @@ a.ext-link:hover { text-decoration: underline; }
 
     <div class="card">
       <div class="card-title">🧭 Matriz importancia / urgencia</div>
-      <div class="page-sub" style="margin:0 0 14px">Dónde cae cada entregable del Gantt y qué hacer con él. Los ítems y sus colores salen de la misma lista que el calendario de arriba.</div>
+      <div class="page-sub" style="margin:0 0 14px">Dónde cae cada entregable del Gantt y qué hacer con él. Los ítems con color salen de la misma lista que el calendario de arriba; los de marcador hueco son proyectos sin fecha fija.</div>
       <div class="eis-grid" id="eis-grid">
         <div></div>
         <div class="eis-axis">Urgente</div>
@@ -2463,6 +2463,11 @@ var GANTT_ITEMS = [
   { label:'Reunión revisión cierre contable con Contabilidad',              color:'#2dd4bf', quad:'do',    rule:{ type:'nth-bizday', n:5 } },
   { label:'Envío cierre transaccional vs. Run Rate de palancas de negocio', color:'#a780ff', quad:'do',    rule:{ type:'nth-bizday', n:1 } }
 ];
+// Ítems solo de la matriz (proyectos sin fecha fija en el calendario — no aparecen en el Gantt).
+var EIS_EXTRA = [
+  { label:'Modelo de Run Rate automático',                          quad:'do', when:'Proyecto' },
+  { label:'Modelo de proyecciones GB B2B para Over Comisiones',     quad:'do', when:'Proyecto' }
+];
 var EIS_QUADS = {
   'do':    { action:'Hacerlo',             tag:'Importante · Urgente',       desc:'Tiene fecha fija y pesa en el cierre o en la dirección: va primero.' },
   'plan':  { action:'Planificar entrega',  tag:'Importante · No urgente',    desc:'Recurrente y previsible: agendarlo y prepararlo con tiempo.' },
@@ -2607,13 +2612,17 @@ function eisRender(){
     var el = document.getElementById('eis-q-' + q);
     if (!el) return;
     var meta  = EIS_QUADS[q];
-    var items = GANTT_ITEMS.filter(function(it){ return it.quad === q; });
+    var items = GANTT_ITEMS.filter(function(it){ return it.quad === q; }).map(function(it){
+      return '<li><span class="gantt-legend-dot" style="background:' + it.color + '"></span><span>' + it.label
+           + '<span class="eis-when">' + eisWhen(it.rule) + '</span></span></li>';
+    }).concat(EIS_EXTRA.filter(function(it){ return it.quad === q; }).map(function(it){
+      // proyectos sin fecha: marcador hueco (no tienen color en el calendario)
+      return '<li><span class="gantt-legend-dot" style="background:transparent;border:1.5px solid var(--text2)"></span><span>' + it.label
+           + '<span class="eis-when">' + it.when + '</span></span></li>';
+    }));
     var list  = items.length
-      ? '<ul class="eis-list">' + items.map(function(it){
-          return '<li><span class="gantt-legend-dot" style="background:' + it.color + '"></span><span>' + it.label
-               + '<span class="eis-when">' + eisWhen(it.rule) + '</span></span></li>';
-        }).join('') + '</ul>'
-      : '<div class="eis-empty">Sin entregables del Gantt en este cuadrante.</div>';
+      ? '<ul class="eis-list">' + items.join('') + '</ul>'
+      : '<div class="eis-empty">Sin entregables en este cuadrante.</div>';
     el.innerHTML = '<div class="eis-quad-head"><span class="eis-quad-action">' + meta.action + '</span>'
                  + '<span class="eis-quad-tag">' + meta.tag + '</span></div>'
                  + '<div class="eis-quad-desc">' + meta.desc + '</div>' + list;
