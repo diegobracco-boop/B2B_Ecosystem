@@ -522,6 +522,9 @@ a.ext-link:hover { text-decoration: underline; }
   <a class="nav-item" onclick="showSection('gantt')">
     <span class="nav-icon">📅</span> Gantt
   </a>
+  <a class="nav-item" onclick="showSection('dia-a-dia')">
+    <span class="nav-icon">☕</span> Día a día del equipo
+  </a>
 
   <div class="sidebar-section">Referencia operativa</div>
   <a class="nav-item" onclick="showSection('proj-inputs')">
@@ -1053,6 +1056,104 @@ a.ext-link:hover { text-decoration: underline; }
     </div>
 
     <div class="alert-box info">ℹ️ "Día hábil" cuenta días de semana (lun-vie) excluyendo los feriados nacionales de Argentina marcados en rojo. Los ítems semanales (lun/mar/vie) y mensuales por posición (3er/4to jueves) no se recalculan si caen en feriado — ajustar a mano en ese caso.</div>
+  </div>
+
+  <!-- ═════════════════════════ DÍA A DÍA DEL EQUIPO ═════════════════════════ -->
+  <div class="section" id="sec-dia-a-dia">
+    <div class="page-header">
+      <div class="page-tag">Guía del equipo · Relevamiento 2026-09-25</div>
+      <div class="page-title">Día a día <span>del equipo</span></div>
+      <div class="page-sub">Cómo trabaja hoy el equipo de Planning B2B &amp; WLs más allá de las fechas fijas del Gantt: qué se hace cada semana, con qué herramientas, y qué parte sigue siendo manual. Sirve para priorizar qué automatizar.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🗓️ Semana tipo</div>
+      <table class="doc-table">
+        <thead><tr><th>Cuándo</th><th>Qué se hace</th><th>Con qué</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Todos los días</strong></td><td>Las bases reales y los JSON del ecosistema se actualizan solos con los pipelines, a horario fijo. El equipo parte de esos datos ya refrescados.</td><td>Pipelines Python → Drive → landings (<strong>Daily Dashboard</strong>, <strong>Flow Semanal</strong>, Hub)</td></tr>
+          <tr><td><strong>Lunes y viernes</strong></td><td>Slides de performance semanal para las reuniones semanales: <strong>B2B</strong> por tipo de producto y <strong>B2B2C</strong> por partner.</td><td>Screenshots de las landings → deck</td></tr>
+          <tr><td><strong>Resto de la semana</strong></td><td>Desarrollo de automatizaciones y del propio ecosistema con IA (Claude Code). Hoy buena parte de ese tiempo va a la app de <strong>Run Rate automático con ML</strong>.</td><td>Claude Code · este repo · app Proyecto Run Rate</td></tr>
+          <tr><td><strong>Continuo</strong></td><td>Respuesta a consultas de los equipos comerciales B2B2C (~5 por semana).</td><td>Slack</td></tr>
+          <tr><td><strong>Cierre de mes</strong></td><td>Slides de cierre contable.</td><td>Botón <strong>📸 Slides cierre de mes</strong> (ya cubierto, ver Referencia operativa)</td></tr>
+          <tr><td><strong>Transversal</strong></td><td>Entender y controlar las líneas del P&amp;L que el equipo proyecta (ver card abajo).</td><td>P&amp;L Accounting / Managerial</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📊 Slides de performance semanal (lunes y viernes)</div>
+      <table class="doc-table">
+        <tbody>
+          <tr><td>Qué muestran</td><td><strong>GB, NR y FVM</strong> por región (<strong>Hispa, Norteamérica, Brasil</strong>) y por partner (B2B2C) / tipo de producto (B2B).</td></tr>
+          <tr><td>Quién las arma</td><td>El equipo B2B arma las de B2B; el equipo B2B2C, las de B2B2C.</td></tr>
+          <tr><td>Cómo se arman hoy</td><td>Screenshots de las vistas del ecosistema (Flow Semanal / Daily) pegados en el deck. El tab Flow Semanal se mantiene como está.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🔎 Control de las líneas del P&amp;L proyectadas</div>
+      <table class="doc-table">
+        <tbody>
+          <tr><td>Líneas que proyecta el equipo</td><td><strong>GB</strong> · <strong>COI</strong> · <strong>CCP</strong> · <strong>Cancellations</strong> · <strong>Up fronts</strong> · <strong>Fees</strong> · <strong>TPC</strong> (Third Party Commissions)</td></tr>
+          <tr><td>Cómo se controla</td><td>1) Real vs proyectado a nivel agregado: <strong>GB, NR y FVM</strong>. 2) Para entender la performance con más granularidad, se baja a las <strong>líneas proyectadas</strong> de arriba y se ve cuál explica el desvío.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">💬 Consultas de equipos comerciales B2B2C</div>
+      <table class="doc-table">
+        <tbody>
+          <tr><td>Canal y volumen</td><td>Slack · ~5 por semana</td></tr>
+          <tr><td>Preguntas típicas</td><td>
+            • ¿Cómo viene la performance de X (partner, región, producto)?<br>
+            • Dudas sobre el P&amp;L (qué incluye una línea, de dónde sale un número).<br>
+            • ¿Por qué cayó la <strong>tasa sobre GB en FVM</strong>?<br>
+            • Correcciones.
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🚚 Migración Power BI → Ecosistema <span class="badge badge-manual">en curso</span></div>
+      <table class="doc-table">
+        <tbody>
+          <tr><td>Qué se migra</td><td><strong>Todas</strong> las visualizaciones que hoy viven en Power BI pasan al ecosistema, principalmente al <strong>Daily Dashboard</strong> y al tab <strong>Flow Semanal</strong>.</td></tr>
+          <tr><td>Fuente de datos</td><td>Las mismas que ya usan las landings: bases reales del ecosistema + JSON en Drive. No hay una fuente aparte para Power BI.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🤖 App Proyecto Run Rate (ML) <span class="badge badge-auto">en uso</span></div>
+      <table class="doc-table">
+        <tbody>
+          <tr><td>Qué es</td><td>App de Run Rate automático con machine learning. Es el proyecto "Modelo de Run Rate automático" de la matriz del Gantt.</td></tr>
+          <tr><td>Dónde vive</td><td><strong>Fuera de este repo</strong>. El Hub la linkea como <code>proyecto_rr</code> → <a class="ext-link" href="https://ownia.despegar.io/runrate-html" target="_blank">ownia.despegar.io/runrate-html</a>.</td></tr>
+          <tr><td>Costo hoy</td><td>Es donde más tiempo de desarrollo se va actualmente.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🎯 Candidatos a automatizar <span class="badge badge-manual">propuesta</span></div>
+      <table class="doc-table">
+        <thead><tr><th>#</th><th>Qué</th><th>Por qué</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td><strong>Drill de tasa sobre GB en FVM</strong>: vista que descomponga la variación de la tasa FVM/GB por partner en las líneas proyectadas (COI, CCP, Cancellations, Up fronts, Fees, TPC).</td><td>Es la consulta comercial recurrente y el mismo paso que hace el equipo a mano en el control de líneas. Self-service = menos consultas por Slack.</td></tr>
+          <tr><td>2</td><td><strong>Control real vs proyectado por línea</strong> con alertas de desvío (mismo criterio de materialidad que las Slides de cierre).</td><td>Hoy se baja a la línea solo cuando algo llama la atención en GB/NR/FVM; una alerta lo haría sistemático.</td></tr>
+          <tr><td>3</td><td><strong>Cerrar la migración de Power BI</strong> y dar de baja los tableros viejos.</td><td>Mientras convivan, se mantienen dos lugares con los mismos números.</td></tr>
+          <tr><td>4</td><td><strong>Documentar la app Proyecto Run Rate</strong> (repo, dueño, cómo se actualiza) en este manual.</td><td>Es la pieza que más tiempo consume y hoy no está documentada acá — riesgo de punto único de falla.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="alert-box info">
+      ℹ️ Relevado con el equipo B2B2C (Tiago Harari) el 2026-09-25. Validar con el equipo B2B y actualizar a mano cuando cambie la forma de trabajo.
+    </div>
   </div>
 
   <!-- ════════════════════════════ ARQUITECTURA ════════════════════════════ -->
