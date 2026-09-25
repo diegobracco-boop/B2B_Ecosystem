@@ -42,8 +42,6 @@ B2B_JSON_FILE_NAME = "daily_b2b_data.json"
 MANAGERIAL_DRIVE_FOLDER_ID = "16Bnx1bb5M1so0n5-IB8WEUUUz9cNAWVE"
 GD_JSON_NAME  = "pnl_managerial_GD_2026.json"
 GD_FROM       = date(2026, 1, 1)
-RI_H1_FROM    = date(2026, 4, 1)
-RI_H2_FROM    = date(2026, 10, 1)
 
 # Fechas — historial desde ene del año en curso
 TODAY            = date.today()
@@ -70,12 +68,29 @@ MESES_ES = {
 YEAR_BUDGET      = TODAY.strftime("%y")                          # '26'
 YEAR_BUDGET_NEXT = str((TODAY.year + 1) % 100).zfill(2)         # '27'
 
-if TODAY.month < 10:
-    RI_JSON_NAME = "pnl_managerial_ri_abr26_sep26_h127.json"
-    RI_FROM      = RI_H1_FROM
-else:
-    RI_JSON_NAME = "pnl_managerial_ri_sep26_mar27_h227.json"
-    RI_FROM      = RI_H2_FROM
+# P&L Managerial RI: un JSON por semestre fiscal (H1 = abr–sep, H2 = oct–mar). El semestre
+# se define por YESTERDAY (último día con datos), no por TODAY: así la corrida del 1-oct
+# completa H1 con el 30-sep (antes se perdía) y enero–marzo sigue yendo a H2 (antes volvía
+# a elegir H1 y pisaba el archivo del semestre cerrado). Fix 2026-09-25 (auditoría).
+def _ri_half(d):
+    """(inicio del semestre fiscal que contiene d, 1|2, año fiscal FYxx)."""
+    if 4 <= d.month <= 9:
+        return date(d.year, 4, 1), 1, (d.year + 1) % 100
+    y0 = d.year if d.month >= 10 else d.year - 1
+    return date(y0, 10, 1), 2, (y0 + 1) % 100
+
+def _ri_json_name(start, half, fy):
+    # Nombres ya publicados (los lee un consumidor fuera de este repo): se mantienen tal cual.
+    legacy = {(2026, 1): "pnl_managerial_ri_abr26_sep26_h127.json",
+              (2026, 2): "pnl_managerial_ri_sep26_mar27_h227.json"}
+    if (start.year, half) in legacy:
+        return legacy[(start.year, half)]
+    y1, y2 = start.year % 100, (start.year + (0 if half == 1 else 1)) % 100
+    return (f"pnl_managerial_ri_abr{y1:02d}_sep{y1:02d}_h1{fy:02d}.json" if half == 1
+            else f"pnl_managerial_ri_oct{y1:02d}_mar{y2:02d}_h2{fy:02d}.json")
+
+RI_FROM, _RI_HALF, _RI_FY = _ri_half(YESTERDAY)
+RI_JSON_NAME = _ri_json_name(RI_FROM, _RI_HALF, _RI_FY)
 
 print(f"[{TODAY}]  Actuals: {ACTUALS_FROM}->{YESTERDAY}  |  LY: {LY_FROM}->{LY_TO}  |  Budget FY: {YEAR_BUDGET}/{YEAR_BUDGET_NEXT}")
 
