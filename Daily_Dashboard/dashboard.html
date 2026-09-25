@@ -4162,15 +4162,26 @@ function flowGroupTable_(subRaw, metricKey, comp, col1, groupByRegion, childMax,
   function gk(r){ return groupByRegion ? getRegion_(r.pais) : (r.pais||'Other'); }
   function ck(r){ return groupByRegion ? (r.pais||'Other') : (r.partner||'Other'); }
   function grp(k){ G[k]=G[k]||{base:0,goal:0,ch:{}}; return G[k]; }
-  // El tier de actuals (estatus_tier real, por transacción) y el de budget/runrate (mapeado
-  // por nombre de partner contra la cartera vigente) pueden no coincidir para un mismo
-  // partner — y budget/runrate cae a 'Unknown' fácil (no matchea el nombre). Si ya tenemos
-  // un tier real para ese partner, no lo pisamos con 'Unknown' (si no, casi todos los
-  // partners terminaban en 'Unknown' y la agrupación por tier nunca se disparaba).
-  function chi(k,c,tier){ var g=grp(k); g.ch[c]=g.ch[c]||{base:0,goal:0,tier:tier};
-    if(tier!=='Unknown' || !g.ch[c].tier) g.ch[c].tier=tier; return g.ch[c]; }
-  (subRaw.actuals||[]).forEach(function(r){ if(r.fecha<mStart||r.fecha>vDate)return; var v=r[MF]||0; grp(gk(r)).base+=v; chi(gk(r),ck(r),r.tier||'Unknown').base+=v; });
-  cmpArr.forEach(function(r){ if(lyMode){ if(r.fecha<lyMS||r.fecha>lyVD)return; } else if(r.fecha<mStart||r.fecha>vDate){ return; } var v=r[cmpF]||0; grp(gk(r)).goal+=v; chi(gk(r),ck(r),r.tier||'Unknown').goal+=v; });
+  // El tier de actuals (estatus_tier real, por transacción) manda SIEMPRE sobre el de
+  // budget/runrate (mapeado por nombre de partner contra la cartera vigente — falla fácil
+  // si el nombre no matchea, cae a 'Unknown', y ni siquiera matchea es 100% confiable si el
+  // partner cambió de tier respecto a la cartera vigente). budget/runrate solo se usa como
+  // fallback si ESE partner no tiene ningún dato de actuals en el período. Y si el propio
+  // partner cambia de tier DENTRO del mes (actuals de distintas fechas con distinto tier —
+  // pasa, ver daily_sync.py estatus_tier histórico), nos quedamos con el de la fecha más
+  // reciente, no con "lo último que vino en el array" (antes dependía del orden de iteración,
+  // lo cual podía terminar mezclando el tier equivocado bajo un mismo partner).
+  function chi(k,c,tier,fecha,isActual){
+    var g=grp(k); var e=g.ch[c]=g.ch[c]||{base:0,goal:0,tier:tier,_tierSrcActual:false,_tierDate:''};
+    if(isActual && tier!=='Unknown' && (!e._tierSrcActual || fecha>=e._tierDate)){
+      e.tier=tier; e._tierSrcActual=true; e._tierDate=fecha;
+    } else if(!e._tierSrcActual && (!e.tier || e.tier==='Unknown') && tier!=='Unknown'){
+      e.tier=tier; // sin ningún tier real de actuals todavía — usamos el fallback de budget/runrate
+    }
+    return e;
+  }
+  (subRaw.actuals||[]).forEach(function(r){ if(r.fecha<mStart||r.fecha>vDate)return; var v=r[MF]||0; grp(gk(r)).base+=v; chi(gk(r),ck(r),r.tier||'Unknown',r.fecha,true).base+=v; });
+  cmpArr.forEach(function(r){ if(lyMode){ if(r.fecha<lyMS||r.fecha>lyVD)return; } else if(r.fecha<mStart||r.fecha>vDate){ return; } var v=r[cmpF]||0; grp(gk(r)).goal+=v; chi(gk(r),ck(r),r.tier||'Unknown',r.fecha,false).goal+=v; });
   var orderFull = groupByRegion ? ['BR','SAH','NAM'] : Object.keys(G).sort(function(a,b){return G[b].base-G[a].base;});
   var order = (topMax && orderFull.length>topMax) ? orderFull.slice(0,topMax) : orderFull;
   function cell(d){ return '<td class="'+(d>=0?'fl-pos':'fl-neg')+'">'+(d>=0?'+':'')+fmtShort(d)+'</td>'; }
