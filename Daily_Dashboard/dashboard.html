@@ -556,8 +556,8 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
 .fl-tbl tr.fl-more td{font-style:italic;font-weight:400;color:var(--fl-ink3);border-bottom:1px solid var(--fl-line)}
 .fl-tbl tr.grp:hover td, .fl-tbl tr[onclick]:hover td{background:#e9e4fb}
 .fl-acc-caret{display:inline-block;width:10px;color:var(--fl-purple2)}
-.fl-pos{color:var(--fl-green);font-weight:700}
-.fl-neg{color:var(--fl-red);font-weight:700}
+.fl-pos{color:var(--fl-green)!important;font-weight:700}
+.fl-neg{color:var(--fl-red)!important;font-weight:700}
 .fl-tbl-title{background:#fff;border:1.5px solid var(--fl-purple);color:var(--fl-purple);font-weight:800;
   font-size:13px;text-align:center;padding:6px;border-radius:8px;margin-bottom:6px}
 .fl-tag{display:inline-block;font-size:10px;font-weight:700;color:#fff;background:var(--fl-purple2);border-radius:5px;padding:2px 9px;margin-bottom:4px}
@@ -1471,8 +1471,6 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
       <option value="runrate">Run Rate</option>
       <option value="ly">Last Year</option>
     </select>
-    <label class="flow-ctl-lbl">Tier</label>
-    <select class="flow-jump" id="flow-tier" onchange="flowSetTier_(this.value)"><option value="all">Todos</option></select>
     <span class="flow-tool-sep"></span>
     <button class="flow-pdf-btn" onclick="window.print()" title="Abre el diálogo de impresión — elegí 'Guardar como PDF'">⭳ Descargar PDF</button>
     <button class="flow-pdf-btn" id="flow-export-btn" onclick="_flowExportSlides()" title="Genera un Google Slides real con estas slides + las del Daily B2B Tracker (captura tal cual se ven, como imagen)">📤 Enviar a Google Slides (B2B2C + B2B)</button>
@@ -4056,30 +4054,17 @@ function flowMonthName_(vDate){
   return M[parseInt(vDate.split('-')[1])-1];
 }
 function flowRegionRaw_(regionKey){
-  if(!regionKey && !_flowTier) return _rawB2BC;
-  function f(arr){ return (arr||[]).filter(function(r){
-    return (!regionKey || getRegion_(r.pais)===regionKey) && (!_flowTier || (r.tier||'Unknown')===_flowTier);
-  }); }
+  if(!regionKey) return _rawB2BC;
+  function f(arr){ return (arr||[]).filter(function(r){ return getRegion_(r.pais)===regionKey; }); }
   return { actuals:f(_rawB2BC.actuals), actuals_ly:f(_rawB2BC.actuals_ly),
            budget:f(_rawB2BC.budget), runrate:f(_rawB2BC.runrate), meta:_rawB2BC.meta };
 }
 // ── Tier de partner: viaja inline en cada fila (campo "tier", desde
 // raw.comdev_cartera_b2b2c_historic.estatus_tier, ver daily_sync.py) — ya no
-// depende de partner_tiers.json / tier_sync.py (deprecado, ver CONTEXT.md). ──
-var _flowTier = null;         // tier seleccionado, o null = todos
-function getTiers_(){
-  var s={};
-  (_rawB2BC&&_rawB2BC.actuals||[]).forEach(function(r){ s[r.tier||'Unknown']=1; });
-  (_rawB2BC&&_rawB2BC.budget||[]).forEach(function(r){ s[r.tier||'Unknown']=1; });
-  return Object.keys(s).sort();
-}
-function flowPopulateTiers_(){
-  var sel=document.getElementById('flow-tier'); if(!sel) return;
-  var tiers=getTiers_();
-  sel.innerHTML='<option value="all">Todos</option>'+tiers.map(function(t){ return '<option value="'+t+'">'+t+'</option>'; }).join('');
-  sel.value=_flowTier||'all';
-}
-function flowSetTier_(v){ _flowTier=(v==='all')?null:v; flowRebuild_(); }
+// depende de partner_tiers.json / tier_sync.py (deprecado, ver CONTEXT.md). El
+// filtro global por Tier (dropdown "Tier" arriba del deck) se sacó: ahora la
+// agrupación por Tier vive adentro de cada tabla País/Partner (acordeón, ver
+// flowGroupTable_), que reemplaza y mejora lo que hacía el filtro. ──
 var _FLMF  = {gb:'gross_bookings',nr:'net_revenues',fvm:'fvm'};
 var _FLBMF = {gb:'gross_bookings',nr:'net_revenue', fvm:'fvm'};
 var FLOW_COMP = {
@@ -4177,7 +4162,13 @@ function flowGroupTable_(subRaw, metricKey, comp, col1, groupByRegion, childMax,
   function gk(r){ return groupByRegion ? getRegion_(r.pais) : (r.pais||'Other'); }
   function ck(r){ return groupByRegion ? (r.pais||'Other') : (r.partner||'Other'); }
   function grp(k){ G[k]=G[k]||{base:0,goal:0,ch:{}}; return G[k]; }
-  function chi(k,c,tier){ var g=grp(k); g.ch[c]=g.ch[c]||{base:0,goal:0,tier:tier}; g.ch[c].tier=tier; return g.ch[c]; }
+  // El tier de actuals (estatus_tier real, por transacción) y el de budget/runrate (mapeado
+  // por nombre de partner contra la cartera vigente) pueden no coincidir para un mismo
+  // partner — y budget/runrate cae a 'Unknown' fácil (no matchea el nombre). Si ya tenemos
+  // un tier real para ese partner, no lo pisamos con 'Unknown' (si no, casi todos los
+  // partners terminaban en 'Unknown' y la agrupación por tier nunca se disparaba).
+  function chi(k,c,tier){ var g=grp(k); g.ch[c]=g.ch[c]||{base:0,goal:0,tier:tier};
+    if(tier!=='Unknown' || !g.ch[c].tier) g.ch[c].tier=tier; return g.ch[c]; }
   (subRaw.actuals||[]).forEach(function(r){ if(r.fecha<mStart||r.fecha>vDate)return; var v=r[MF]||0; grp(gk(r)).base+=v; chi(gk(r),ck(r),r.tier||'Unknown').base+=v; });
   cmpArr.forEach(function(r){ if(lyMode){ if(r.fecha<lyMS||r.fecha>lyVD)return; } else if(r.fecha<mStart||r.fecha>vDate){ return; } var v=r[cmpF]||0; grp(gk(r)).goal+=v; chi(gk(r),ck(r),r.tier||'Unknown').goal+=v; });
   var orderFull = groupByRegion ? ['BR','SAH','NAM'] : Object.keys(G).sort(function(a,b){return G[b].base-G[a].base;});
@@ -4563,7 +4554,6 @@ function flowBuild_(){
   jump.innerHTML=opts;
   document.getElementById('flow-total').textContent=FLOW_DECK.length;
   flowPopulateMonths_();
-  flowPopulateTiers_();
   var cs=document.getElementById('flow-comp'); if(cs) cs.value=_flowComp;
   flowRenderWeeklyTables_();
   flowRenderB2BSlides_();
