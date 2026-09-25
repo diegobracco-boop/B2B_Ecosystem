@@ -575,11 +575,25 @@
   body.slides-mode .kr-month-filter-bar { display: none !important; }
   body.slides-mode .status-krs-meta     { justify-content: flex-end; margin-bottom: 8px; }
   body.slides-mode #agenciasContent,
-  body.slides-mode #agenciasH2Content,
-  body.slides-mode #globalesContent     { zoom: 0.80; }
+  body.slides-mode #agenciasH2Content   { zoom: 0.80; }
   body.slides-mode #agenciasContent .kr-detail-grid,
   body.slides-mode #agenciasH2Content .kr-detail-grid { margin-top: 12px; }
-  body.slides-mode #globalesContent .glob-grid { margin-top: 12px; }
+  /* KRs Globales en slides: 7 cards en 2 filas (4 + 3) más grandes que la
+     grilla auto-fill, y centradas verticalmente para no dejar vacía la mitad
+     inferior del slide. El título queda arriba; el bloque de cards se centra en
+     el espacio restante (globalesWrap tiene display inline por JS → !important). */
+  body.slides-mode #globalesContent {
+    display: flex; flex-direction: column; height: 100%; box-sizing: border-box;
+  }
+  body.slides-mode #globalesWrap {
+    display: flex !important; flex-direction: column; justify-content: center;
+    flex: 1 1 auto; min-height: 0;
+  }
+  body.slides-mode #globalesContent .glob-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-top: 14px;
+  }
 
   /* Slides: tabla principal de KRs con proporciones fijas de columna
      (KR 50% · Peso 10% · Actual 10% · Budget 10% · Cumpl. 20%) y letra más grande. */
