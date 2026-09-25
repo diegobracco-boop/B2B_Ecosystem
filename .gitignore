@@ -3,3 +3,9 @@ credenciales/
 
 # Config local de Claude Code (personal, no versionar)
 .claude/settings.local.json
+
+# Scripts personales de cada usuario (no versionar)
+Daily_Dashboard/run_*.py
+Daily_Dashboard/NOTAS_*.md
+Daily_Dashboard/credentials_drive.json
+Daily_Dashboard/token_drive.json
