@@ -3835,15 +3835,18 @@ function _wsRenderOKR(d) {
 
   var tbody = document.createElement('tbody');
 
+  // Partnerships: valor mensual de Input_OKR (okr.json); H1 = Sign, H2 = Deploy. Sin dato → '—'.
+  var snp = d.signNewPartnerships || {};
+  var snpTxt = function(v){ return (v === null || v === undefined) ? '—' : String(v); };
   var trSNP = document.createElement('tr');
-  trSNP.appendChild(_wsOkrTd('Sign New Partnerships'));
+  trSNP.appendChild(_wsOkrTd(snp.label || 'Sign New Partnerships'));
   weeks.forEach(function(w, i) {
-    trSNP.appendChild(_wsOkrTd(i === weeks.length - 1 ? String(d.signNewPartnerships.actuals) : '—'));
+    trSNP.appendChild(_wsOkrTd(i === weeks.length - 1 ? snpTxt(snp.actuals) : '—'));
   });
   pWeeks.forEach(function() { trSNP.appendChild(_wsOkrTd('—','ws-okr-proj-val')); });
-  trSNP.appendChild(_wsOkrTd(String(d.signNewPartnerships.actuals),'ws-okr-mtd-val'));
-  trSNP.appendChild(_wsOkrTd(String(d.signNewPartnerships.budget),'ws-okr-mtd-val'));
-  var snpPct = d.signNewPartnerships.budget > 0 ? d.signNewPartnerships.actuals / d.signNewPartnerships.budget * 100 : null;
+  trSNP.appendChild(_wsOkrTd(snpTxt(snp.actuals),'ws-okr-mtd-val'));
+  trSNP.appendChild(_wsOkrTd(snpTxt(snp.budget),'ws-okr-mtd-val'));
+  var snpPct = (snp.budget > 0 && snp.actuals !== null && snp.actuals !== undefined) ? snp.actuals / snp.budget * 100 : null;
   trSNP.appendChild(_wsOkrTd(_wsOkrAchHtml(snpPct),'ws-okr-mtd-val'));
   tbody.appendChild(trSNP);
 
@@ -4450,7 +4453,7 @@ function flowBuildSlide_(def, idx){
       +'</tr></thead><tbody id="b2b-krsBody-'+idx+'"></tbody></table>'
       +'<div class="b2b-kr-detail-grid" id="b2b-krsDetailGrid-'+idx+'"></div>'
       +'</div>';
-    return '<div class="flow-slide">'+flHead_('B2B — Status KRs', flLogo_())+body+'</div>';
+    return '<div class="flow-slide">'+flHead_('<span id="b2b-krsTitle-'+idx+'">B2B — Status KRs</span>', flLogo_())+body+'</div>';
   }
   if(def.kind==='b2b_chart'){
     var tabLbl=B2B_TRK_TAB_DATA[def.tab].label;
@@ -4635,10 +4638,6 @@ var B2B_TRK_NR_NEW_DETAIL = [
   { name:'Peru', pais:['Peru'] }, { name:'Ecua/Uru/Par', pais:['Ecuador','Uruguay','Paraguay'] }
 ];
 var B2B_TRK_FVM_DETAIL = B2B_TRK_NR_CORE_DETAIL.concat(B2B_TRK_NR_NEW_DETAIL);
-// Parches temporales de KR1 (Agencies L4W) — mismo valor que tracker.html, ver
-// nota ahí ("parche temporal — quitar cuando se pida").
-var _B2B_KR1_BUD_PATCH = { Brasil:4870, Mexico:2108, Argentina:577, Colombia:1283, Chile:206, Globales:164, Peru:207, 'Ecua / Uru / Par':36 };
-var _B2B_KR1_TOTAL_BUD = 9282;
 
 // ── Data access (sobre _rawB2B, ya expandido por expandCompact_ al cargar
 // la página — a diferencia de tracker.html no hace falta unpack()) ──
@@ -5013,9 +5012,39 @@ function trkComputeMetricMTD_(countryGroupNames, metricField, monthFilter){
   });
   return { actual:actual, budget:budget };
 }
+// Semestre elegido con el switch del slide (null = según el mes que se mira). FY27: H1 = abr–sep.
+var _flB2BKrHalf=null;
+function flB2BKrSetHalf_(h){
+  _flB2BKrHalf=h;
+  FLOW_DECK.forEach(function(d, i){ if(d.kind==='b2b_krs') trkRenderStatusKRs_(i); });
+}
+// MTD por lista de países (null = todos) y canal (null = todos; 'API' = MAY, 'Agencias afiliadas' = HTML/MIN).
+function trkMTDByChannel_(paisList, channel, metricField, monthFilter){
+  var b=trkGetPeriodBounds_(monthFilter);
+  var paisLower=paisList ? paisList.map(function(p){return p.toLowerCase();}) : null;
+  function ok(r){
+    if(r.fecha<b.from || r.fecha>b.cutoff) return false;
+    if(channel && r.parent_channel!==channel) return false;
+    return !paisLower || paisLower.indexOf((r.pais||'').toLowerCase())!==-1;
+  }
+  var actual=0, budget=0;
+  trkGetActuals_('ri').forEach(function(r){ if(ok(r)) actual+=(r[metricField]||0); });
+  trkGetGoal_('ri','budget').forEach(function(r){ if(ok(r)) budget+=(r[metricField]||0); });
+  return { actual:actual, budget:budget };
+}
+// Status KRs B2B del Flow. H1 FY27: Agencies L4W 20 / NR Core 40 / NR New 20 / Air NR 20.
+// H2 FY27 (mismos KRs y pesos que el OKR del Hub, Codigo_OKR.js): NR 30 / OC API 20 /
+// OC HTML 20 / New Product Growth 15 (WIP) / Accelerate Recurrence 15. En H2, OC por canal
+// usa FVM MTD como proxy (el Daily no tiene OC — decisión de Diego 2026-09-25) y Accelerate
+// Recurrence es el valor mensual de Input_OKR (okr.json). Cumpl. = 1+(act−bud)/|bud|, cap 130%;
+// OVERALL renormaliza sobre los KRs con dato.
 function trkRenderStatusKRs_(idx){
   var krYM=trkCurYM_();
+  var half=_flB2BKrHalf || (krYM < '2026-10' ? 'H1' : 'H2');
   var ag=_flowAgenciasData, air=_flowAirNRData;
+
+  var titleEl=document.getElementById('b2b-krsTitle-'+idx);
+  if(titleEl) titleEl.textContent='B2B — Status KRs '+half+' FY27';
 
   var metaEl=document.getElementById('b2b-krsMeta-'+idx);
   if(metaEl){
@@ -5024,64 +5053,92 @@ function trkRenderStatusKRs_(idx){
     var rangeSpan=document.createElement('span'); rangeSpan.className='b2b-kr-data-range';
     rangeSpan.innerHTML='&#128197; Datos: <strong>'+bounds.from+'</strong> &rarr; <strong>'+bounds.cutoff+'</strong>';
     metaEl.appendChild(rangeSpan);
-    if(ag && ag.meta){
+    if(half==='H1' && ag && ag.meta){
       var agSpan=document.createElement('span'); agSpan.className='b2b-kr-data-range b2b-kr-data-range-sec';
       agSpan.innerHTML='&#128337; KR1 Agencias: <strong>'+ag.meta.fecha_ini+'</strong> &rarr; <strong>'+ag.meta.fecha_fin+'</strong>';
       metaEl.appendChild(agSpan);
     }
-  }
-
-  // KR1: Agencies L4W
-  var kr1Act=null, kr1Bud=null;
-  if(ag && ag.data){
-    var kr1Countries=['Brasil','Mexico','Argentina','Colombia','Chile','Globales','Peru','Ecua / Uru / Par'];
-    var sumAct=0, sumBud=0;
-    kr1Countries.forEach(function(c){
-      var d=ag.data[c]; if(!d) return;
-      sumAct += (ag.reales && ag.reales[c]!==undefined) ? ag.reales[c] : (d.Total||0);
-      var bVal=(_B2B_KR1_BUD_PATCH[c]!==undefined) ? _B2B_KR1_BUD_PATCH[c] : (ag.budget && ag.budget[c]);
-      if(bVal!==null && bVal!==undefined && !isNaN(bVal)) sumBud+=bVal;
+    if(half==='H2'){
+      var mSpan=document.createElement('span'); mSpan.className='b2b-kr-data-range b2b-kr-data-range-sec';
+      mSpan.innerHTML='&#9998; Accelerate Recurrence: valor del mes (Input_OKR)';
+      metaEl.appendChild(mSpan);
+    }
+    var sw=document.createElement('span');
+    sw.setAttribute('data-html2canvas-ignore','true');
+    sw.style.cssText='display:inline-flex;gap:4px;align-items:center';
+    ['H1','H2'].forEach(function(h){
+      var on=(h===half), bt=document.createElement('button');
+      bt.textContent=h;
+      bt.style.cssText='border:1px solid #550FED;border-radius:6px;padding:2px 10px;font-weight:700;cursor:pointer;'+(on?'background:#550FED;color:#fff':'background:#fff;color:#550FED');
+      bt.onclick=function(){ flB2BKrSetHalf_(h); };
+      sw.appendChild(bt);
     });
-    kr1Act=(ag.reales && ag.reales.TOTAL!==undefined) ? ag.reales.TOTAL : sumAct;
-    kr1Bud=(_B2B_KR1_TOTAL_BUD!==undefined) ? _B2B_KR1_TOTAL_BUD : (sumBud>0?sumBud:null);
+    metaEl.appendChild(sw);
   }
-  // KR2/KR3: NR Core/New Markets
-  var kr2=trkComputeMetricMTD_(['Brasil','Mexico','Globales'],'net_revenue',krYM);
-  var kr3=trkComputeMetricMTD_(['Argentina','Colombia','ROW'],'net_revenue',krYM);
-  // KR4: Air NR
-  var kr4Act=null, kr4Bud=null;
-  if(air){ kr4Act=air.actual||0; kr4Bud=air.budget||0; }
-  // KR5: FVM MTD todos los países (extra, no entra al overall)
-  var kr5=trkComputeMetricMTD_(B2B_TRK_MARKET_GROUPS.CORE_MARKETS.concat(B2B_TRK_MARKET_GROUPS.NEW_MARKETS),'fvm',krYM);
 
-  function cumpl(act,bud){ return (act===null||bud===null||!bud) ? null : 1+(act-bud)/Math.abs(bud); }
+  function cumpl(act,bud){ return (act===null||act===undefined||bud===null||bud===undefined||!bud) ? null : 1+(act-bud)/Math.abs(bud); }
   function cap(c){ return c!==null ? Math.min(c,1.30) : null; }
-  var kr1c=cap(cumpl(kr1Act,kr1Bud)), kr2c=cap(cumpl(kr2.actual,kr2.budget)), kr3c=cap(cumpl(kr3.actual,kr3.budget));
-  var kr4c=air ? cap(cumpl(kr4Act,kr4Bud)) : null;
-  var kr5c=cap(cumpl(kr5.actual,kr5.budget));
-  var weights=[{c:kr1c,w:.20},{c:kr2c,w:.40},{c:kr3c,w:.20},{c:kr4c,w:.20}];
+  function mOrNull(r){ return (r.actual||r.budget) ? { a:trkToM_(r.actual), b:trkToM_(r.budget) } : { a:null, b:null }; }
+
+  var rows=[], extraRows=[];
+  if(half==='H1'){
+    // KR1: Agencies L4W — reales y budget desde la sheet "Slide 1 KR Agencias" (igual que tracker.html;
+    // el total lo trae la fila 'TOTAL', los subtotales por país se solapan).
+    var kr1Act=null, kr1Bud=null;
+    if(ag && ag.data){
+      var kr1Countries=['Brasil','Mexico','Argentina','Colombia','Chile','Globales','Peru','Ecua / Uru / Par'];
+      var sumAct=0, sumBud=0;
+      kr1Countries.forEach(function(c){
+        var d=ag.data[c]; if(!d) return;
+        sumAct += (ag.reales && ag.reales[c]!==undefined) ? ag.reales[c] : (d.Total||0);
+        var bVal=ag.budget && ag.budget[c];
+        if(bVal!==null && bVal!==undefined && !isNaN(bVal)) sumBud+=bVal;
+      });
+      kr1Act=(ag.reales && ag.reales.TOTAL!==undefined) ? ag.reales.TOTAL : sumAct;
+      kr1Bud=(ag.budget && ag.budget.TOTAL!==undefined && ag.budget.TOTAL!==null) ? ag.budget.TOTAL : (sumBud>0?sumBud:null);
+    }
+    var kr2=mOrNull(trkComputeMetricMTD_(['Brasil','Mexico','Globales'],'net_revenue',krYM));
+    var kr3=mOrNull(trkComputeMetricMTD_(['Argentina','Colombia','ROW'],'net_revenue',krYM));
+    rows.push({ name:'Agencies L4W', w:.20, a:kr1Act, b:kr1Bud, unit:'int' });
+    rows.push({ name:'NR Core Markets $M', w:.40, a:kr2.a, b:kr2.b, unit:'$M' });
+    rows.push({ name:'NR New Markets $M', w:.20, a:kr3.a, b:kr3.b, unit:'$M' });
+    rows.push({ name:'Air Net Revenue $M', w:.20, a:air?trkToM_(air.actual||0):null, b:air?trkToM_(air.budget||0):null, unit:'$M' });
+    var kr5=mOrNull(trkComputeMetricMTD_(B2B_TRK_MARKET_GROUPS.CORE_MARKETS.concat(B2B_TRK_MARKET_GROUPS.NEW_MARKETS),'fvm',krYM));
+    extraRows.push({ name:'Financial Variable Margin $M', w:null, a:kr5.a, b:kr5.b, unit:'$M' });
+  } else {
+    var nr=mOrNull(trkMTDByChannel_(null, null, 'net_revenue', krYM));
+    var ocApi=mOrNull(trkMTDByChannel_(null, 'API', 'fvm', krYM));
+    var ocHtml=mOrNull(trkMTDByChannel_(null, 'Agencias afiliadas', 'fvm', krYM));
+    var man=(_flowOKRManualB2BC && _flowOKRManualB2BC.data) || {};
+    var rec=man.recur && man.recur[krYM];
+    var px=' <span style="color:#6b7280;font-size:.72rem">(proxy FVM MTD)</span>';
+    rows.push({ name:'Net Revenue $M', w:.30, a:nr.a, b:nr.b, unit:'$M' });
+    rows.push({ name:'Operating Contribution API (MAY) $M'+px, w:.20, a:ocApi.a, b:ocApi.b, unit:'$M' });
+    rows.push({ name:'Operating Contribution HTML (MIN) $M'+px, w:.20, a:ocHtml.a, b:ocHtml.b, unit:'$M' });
+    rows.push({ name:'New Product Growth <span style="color:#6b7280;font-size:.72rem">(WIP)</span>', w:.15, a:null, b:null, unit:'$M' });
+    rows.push({ name:'Accelerate Recurrence', w:.15, a:rec&&rec.act!==undefined?rec.act:null, b:rec&&rec.bud!==undefined?rec.bud:null, unit:'int' });
+  }
+  rows.forEach(function(r){ r.c=cap(cumpl(r.a,r.b)); });
+  extraRows.forEach(function(r){ r.c=cap(cumpl(r.a,r.b)); });
   var wSum=0, wCumpl=0;
-  weights.forEach(function(k){ if(k.c!==null){ wSum+=k.w; wCumpl+=k.c*k.w; } });
+  rows.forEach(function(k){ if(k.c!==null){ wSum+=k.w; wCumpl+=k.c*k.w; } });
   var overall=wSum>0 ? Math.min(wCumpl/wSum,1.30) : null;
 
   var tbody=document.getElementById('b2b-krsBody-'+idx);
   if(tbody){
     tbody.innerHTML='';
-    function row(name,peso,act,bud,c,unit,extra){
+    function row(r, extra){
       var tr=document.createElement('tr'); tr.className=extra?'row-kr-extra':'';
-      tr.innerHTML='<td style="text-align:left">'+name+'</td>'
-        +'<td style="color:#6b7280;font-size:.78rem">'+(peso!==null?peso:'—')+'</td>'
-        +'<td>'+trkFmtKRVal_(act,unit)+'</td><td>'+trkFmtKRVal_(bud,unit)+'</td>'
-        +'<td class="'+trkCumplColor_(c)+'">'+(c===null?'—':(c*100).toFixed(0)+'%')+'</td>';
+      tr.innerHTML='<td style="text-align:left">'+r.name+'</td>'
+        +'<td style="color:#6b7280;font-size:.78rem">'+(r.w!==null?Math.round(r.w*100)+'%':'—')+'</td>'
+        +'<td>'+trkFmtKRVal_(r.a,r.unit)+'</td><td>'+trkFmtKRVal_(r.b,r.unit)+'</td>'
+        +'<td class="'+trkCumplColor_(r.c)+'">'+(r.c===null?'—':(r.c*100).toFixed(0)+'%')+'</td>';
       return tr;
     }
-    tbody.appendChild(row('Agencies L4W','20%',kr1Act,kr1Bud,kr1c,'int',false));
-    tbody.appendChild(row('NR Core Markets $M','40%', (kr2.actual>0||kr2.budget>0)?trkToM_(kr2.actual):null, (kr2.actual>0||kr2.budget>0)?trkToM_(kr2.budget):null, kr2c,'$M',false));
-    tbody.appendChild(row('NR New Markets $M','20%', (kr3.actual>0||kr3.budget>0)?trkToM_(kr3.actual):null, (kr3.actual>0||kr3.budget>0)?trkToM_(kr3.budget):null, kr3c,'$M',false));
-    tbody.appendChild(row('Air Net Revenue $M','20%', air?(kr4Act!==null?trkToM_(kr4Act):null):null, air?(kr4Bud!==null?trkToM_(kr4Bud):null):null, kr4c,'$M', false));
-    tbody.appendChild(row('Financial Variable Margin $M', null, (kr5.actual!==0||kr5.budget!==0)?trkToM_(kr5.actual):null, (kr5.actual!==0||kr5.budget!==0)?trkToM_(kr5.budget):null, kr5c,'$M',true));
+    rows.forEach(function(r){ tbody.appendChild(row(r,false)); });
+    extraRows.forEach(function(r){ tbody.appendChild(row(r,true)); });
     var trTotal=document.createElement('tr'); trTotal.className='row-kr-total';
-    trTotal.innerHTML='<td style="text-align:left">OVERALL (KR1–KR4)</td><td style="color:#6b7280;font-size:.78rem">100%</td>'
+    trTotal.innerHTML='<td style="text-align:left">OVERALL ('+half+')</td><td style="color:#6b7280;font-size:.78rem">100%</td>'
       +'<td>—</td><td>—</td><td class="'+(overall!==null?trkCumplColor_(overall):'')+'">'+(overall!==null?(overall*100).toFixed(0)+'%':'—')+'</td>';
     tbody.appendChild(trTotal);
   }
@@ -5090,15 +5147,15 @@ function trkRenderStatusKRs_(idx){
   var grid=document.getElementById('b2b-krsDetailGrid-'+idx);
   if(grid){
     grid.innerHTML='';
-    function detailBox(title, rows, unit){
+    function detailBox(title, rws, unit){
       var box=document.createElement('div'); box.className='b2b-kr-detail-box';
-      var rowsHtml=rows.map(function(r){
+      var rowsHtml=rws.map(function(r){
         var c=trkCumplRatio_(r.actual,r.budget);
         return '<tr><td style="text-align:left">'+r.name+'</td><td>'+trkFmtKRVal_(r.actual,unit)+'</td><td>'+trkFmtKRVal_(r.budget,unit)+'</td>'
           +'<td class="'+trkCumplColor_(c)+'">'+(c!==null?(c*100).toFixed(0)+'%':'—')+'</td></tr>';
       }).join('');
       var totalAct=0, totalBud=0, hasAct=false, hasBud=false;
-      rows.forEach(function(r){
+      rws.forEach(function(r){
         if(r.actual!==null && r.actual!==undefined && !isNaN(r.actual)){ totalAct+=r.actual; hasAct=true; }
         if(r.budget!==null && r.budget!==undefined && !isNaN(r.budget)){ totalBud+=r.budget; hasBud=true; }
       });
@@ -5112,12 +5169,21 @@ function trkRenderStatusKRs_(idx){
         +'<tbody>'+totalRow+rowsHtml+'</tbody></table>';
       return box;
     }
-    var nrCoreRows=B2B_TRK_NR_CORE_DETAIL.map(function(d){ var r=trkComputeMetricForPaisList_(d.pais,'net_revenue',krYM); return {name:d.name,actual:trkToM_(r.actual),budget:trkToM_(r.budget)}; });
-    var nrNewRows=B2B_TRK_NR_NEW_DETAIL.map(function(d){ var r=trkComputeMetricForPaisList_(d.pais,'net_revenue',krYM); return {name:d.name,actual:trkToM_(r.actual),budget:trkToM_(r.budget)}; });
-    var fvmRows=B2B_TRK_FVM_DETAIL.map(function(d){ var r=trkComputeMetricForPaisList_(d.pais,'fvm',krYM); return {name:d.name,actual:trkToM_(r.actual),budget:trkToM_(r.budget)}; });
-    grid.appendChild(detailBox('KR2 — NR Core Markets', nrCoreRows, '$M'));
-    grid.appendChild(detailBox('KR3 — NR New Markets', nrNewRows, '$M'));
-    grid.appendChild(detailBox('KR5 — FVM por país', fvmRows, '$M'));
+    if(half==='H1'){
+      var nrCoreRows=B2B_TRK_NR_CORE_DETAIL.map(function(d){ var r=trkComputeMetricForPaisList_(d.pais,'net_revenue',krYM); return {name:d.name,actual:trkToM_(r.actual),budget:trkToM_(r.budget)}; });
+      var nrNewRows=B2B_TRK_NR_NEW_DETAIL.map(function(d){ var r=trkComputeMetricForPaisList_(d.pais,'net_revenue',krYM); return {name:d.name,actual:trkToM_(r.actual),budget:trkToM_(r.budget)}; });
+      var fvmRows=B2B_TRK_FVM_DETAIL.map(function(d){ var r=trkComputeMetricForPaisList_(d.pais,'fvm',krYM); return {name:d.name,actual:trkToM_(r.actual),budget:trkToM_(r.budget)}; });
+      grid.appendChild(detailBox('KR2 — NR Core Markets', nrCoreRows, '$M'));
+      grid.appendChild(detailBox('KR3 — NR New Markets', nrNewRows, '$M'));
+      grid.appendChild(detailBox('KR5 — FVM por país', fvmRows, '$M'));
+    } else {
+      function byCountry(channel, metric){
+        return B2B_TRK_FVM_DETAIL.map(function(d){ var r=trkMTDByChannel_(d.pais, channel, metric, krYM); return {name:d.name,actual:trkToM_(r.actual),budget:trkToM_(r.budget)}; });
+      }
+      grid.appendChild(detailBox('Net Revenue por país', byCountry(null,'net_revenue'), '$M'));
+      grid.appendChild(detailBox('FVM API (proxy OC)', byCountry('API','fvm'), '$M'));
+      grid.appendChild(detailBox('FVM HTML (proxy OC)', byCountry('Agencias afiliadas','fvm'), '$M'));
+    }
   }
 }
 function trkComputeMetricForPaisList_(paisList, metricField, monthFilter){

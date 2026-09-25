@@ -1003,7 +1003,7 @@ function getOKRWeeklyB2B2C() {
       actualWeekData:      actualWeekData,
       rrMonthData:         rrMonthData,
       mtd:                 { ym:mtdYm, actuals:mtdActuals, budget:mtdBudget },
-      signNewPartnerships: { actuals:5, budget:7 }
+      signNewPartnerships: _okrPartnershipsKR_(mtdYm)
     };
   } catch(e) {
     return { success:false, error:e.message };
@@ -1285,13 +1285,15 @@ function autorizarGoogleSlides() {
 // Inputs_Planning_PnL/okr_builder.py (misma fuente que el OKR del Hub). La webapp corre
 // como USER_DEPLOYING, así que tiene acceso al archivo aunque esté en otra carpeta.
 var OKR_JSON_FILE_ID = '1cEidr8aoYgm4S7ugm05Wv-SMnz8GbtUj';
-var OKR_MANUAL_B2B2C = { 'sign new partnership':'sign', 'deploy new partnership':'deploy', 'unique buyers':'ub' };
+// clave → [LoB, KR] de okr.json. 'recur' (B2B) lo usa el slide "B2B — Status KRs" en H2.
+var OKR_MANUAL_KRS = { sign:['b2b2c','sign new partnership'], deploy:['b2b2c','deploy new partnership'],
+                       ub:['b2b2c','unique buyers'], recur:['b2b','accelerate recurrence'] };
 
 // Devuelve { updated, data: { sign|deploy|ub: { 'YYYY-MM': { act, bud } } } }
 function getOKRManualB2B2C() {
   var file = DriveApp.getFileById(OKR_JSON_FILE_ID);
   var cache = CacheService.getScriptCache();
-  var key = 'okr_manual_b2bc_v1_' + file.getLastUpdated().getTime();   // se invalida solo al subir un okr.json nuevo
+  var key = 'okr_manual_b2bc_v2_' + file.getLastUpdated().getTime();   // se invalida solo al subir un okr.json nuevo
   var hit = cache.get(key);
   if (hit) { try { return JSON.parse(hit); } catch (e) {} }
   var j = JSON.parse(file.getBlob().getDataAsString());
@@ -1299,8 +1301,10 @@ function getOKRManualB2B2C() {
       iK = c.indexOf('KR'), iV = c.indexOf('Valor');
   var data = {};
   (j.rows || []).forEach(function(r) {
-    if (String(r[iL]).trim().toLowerCase() !== 'b2b2c') return;
-    var k = OKR_MANUAL_B2B2C[String(r[iK]).trim().toLowerCase()];
+    var lob = String(r[iL]).trim().toLowerCase(), kr = String(r[iK]).trim().toLowerCase(), k = null;
+    Object.keys(OKR_MANUAL_KRS).forEach(function(key) {
+      if (OKR_MANUAL_KRS[key][0] === lob && OKR_MANUAL_KRS[key][1] === kr) k = key;
+    });
     if (!k) return;
     var ym  = String(r[iP]).substring(0, 7);
     var esc = String(r[iE]).toLowerCase().indexOf('budget') >= 0 ? 'bud' : 'act';
@@ -1311,4 +1315,19 @@ function getOKRManualB2B2C() {
   var payload = { updated: file.getLastUpdated().toISOString(), data: data };
   try { cache.put(key, JSON.stringify(payload), 21600); } catch (e) {}
   return payload;
+}
+
+
+// KR de partnerships del OKR B2B2C para "OKR Weekly B2B2C" (antes fijo en 5/7, auditoría
+// 2026-09-25): H1 FY27 = Sign New Partnership, H2 = Deploy New Partnership. Valor mensual
+// (acumulado al mes) cargado en Input_OKR, vía okr.json (getOKRManualB2B2C). Sin dato → null.
+function _okrPartnershipsKR_(ym) {
+  var h2 = !!ym && ym >= '2026-10';
+  var out = { label: h2 ? 'Deploy New Partnership' : 'Sign New Partnerships', actuals: null, budget: null };
+  try {
+    var d = getOKRManualB2B2C().data[h2 ? 'deploy' : 'sign'];
+    var m = d && d[ym];
+    if (m) { out.actuals = (m.act !== undefined) ? m.act : null; out.budget = (m.bud !== undefined) ? m.bud : null; }
+  } catch (e) { Logger.log('_okrPartnershipsKR_: ' + e.message); }
+  return out;
 }
