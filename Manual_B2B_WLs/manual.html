@@ -522,6 +522,9 @@ a.ext-link:hover { text-decoration: underline; }
   <a class="nav-item" onclick="showSection('gantt')">
     <span class="nav-icon">📅</span> Gantt
   </a>
+  <a class="nav-item" onclick="showSection('dia-a-dia')">
+    <span class="nav-icon">☕</span> Día a día del equipo
+  </a>
 
   <div class="sidebar-section">Referencia operativa</div>
   <a class="nav-item" onclick="showSection('proj-inputs')">
@@ -577,7 +580,7 @@ a.ext-link:hover { text-decoration: underline; }
           <tr><td>¿Cómo venimos vs Budget / Forecast / Run Rate?</td><td>Por país, producto y canal, mes a mes, B2B y B2B2C. → <strong>P&amp;L Accounting</strong>, <strong>Hub</strong></td></tr>
           <tr><td>¿La varianza es de precio o de volumen?</td><td>Descomposición <strong>PxQ</strong> del delta baseline vs goal por segmento. → <strong>P&amp;L Accounting</strong></td></tr>
           <tr><td>¿Cómo se arma el Net Revenue / FVM, línea por línea?</td><td><strong>NR Bridge</strong> y <strong>waterfall</strong> entre dos escenarios. → <strong>P&amp;L Managerial</strong>, <strong>Hub</strong></td></tr>
-          <tr><td>¿Cuál es el pace diario?</td><td>D-1, MTD, vs Budget del mes, vs LY. Todas las mañanas 08:00. → <strong>Daily Dashboard</strong></td></tr>
+          <tr><td>¿Cuál es el pace diario?</td><td>D-1, MTD, vs Budget del mes, vs LY. Todas las mañanas 9:45. → <strong>Daily Dashboard</strong></td></tr>
           <tr><td>¿Cierra igual el P&amp;L contable y el gestional?</td><td>La misma performance como líneas de P&amp;L (contable) y como FVM (managerial). → <strong>P&amp;L Accounting</strong> vs <strong>P&amp;L Managerial</strong></td></tr>
         </tbody>
       </table>
@@ -630,7 +633,7 @@ a.ext-link:hover { text-decoration: underline; }
       <div class="proj-card" tabindex="0" role="button" onclick="showSection('proj-daily')">
         <div class="proj-card-icon">📆</div>
         <div class="proj-card-name">Daily Dashboard B2B2C + B2B</div>
-        <div class="proj-card-desc">Performance diaria de WLs (B2B2C) y B2B (GD + RI). Conecta con Treasure Data vía ODBC. KPIs: D-1 Actual, MTD, Budget, LY MTD. Actualización automática 08:00 AM.</div>
+        <div class="proj-card-desc">Performance diaria de WLs (B2B2C) y B2B (GD + RI). Conecta con Treasure Data vía ODBC. KPIs: D-1 Actual, MTD, Budget, LY MTD. Actualización automática 9:45 AM.</div>
         <div class="proj-card-tag"><span class="badge badge-auto">⚡ Automatizado (Task Scheduler)</span></div>
         <a class="proj-card-url" href="https://script.google.com/a/macros/despegar.com/s/AKfycbwMR3zk1r4uwui8vGtcmz0OwmeehC5JM8cuJRE3H-GQMfvxXWGTkYQ3R2nVjMyeAdX_1A/exec" target="_blank">↗ Abrir landing</a>
       </div>
@@ -826,7 +829,7 @@ a.ext-link:hover { text-decoration: underline; }
           <tr><td>FVM, palancas, NR Bridge, evolución mensual gestional</td><td><strong>P&amp;L Managerial</strong></td><td>La vista "managerial". B2B2C y B2B por separado</td></tr>
           <tr><td>Seguimiento de OKR, Country One Page, performance por partner, y acceso a todo lo demás</td><td><strong>B2B Ecosystem Hub</strong></td><td>El portal — la puerta de entrada</td></tr>
           <tr><td>Panorama ejecutivo de un país B2B en un solo mes (gestional + contable + mix, con drill-down)</td><td><strong>Country One Pager (B2B)</strong></td><td>Tab "Detail By Country" del Hub, o standalone. Hoy solo B2B</td></tr>
-          <tr><td>Pace del día / del mes en curso, vs Budget y vs LY</td><td><strong>Daily Dashboard</strong></td><td>Se actualiza solo a las 08:00. Vista diaria y vista semanal</td></tr>
+          <tr><td>Pace del día / del mes en curso, vs Budget y vs LY</td><td><strong>Daily Dashboard</strong></td><td>Se actualiza solo a las 9:45. Vista diaria y vista semanal</td></tr>
           <tr><td>Entender de dónde sale un número o cómo se actualiza algo</td><td><strong>Manual B2B WLs</strong></td><td>Este documento</td></tr>
           <tr><td>Los datos crudos (JSON) para otro análisis</td><td><em>Inputs Planning P&amp;L</em></td><td>No es una landing — es la carpeta de Drive con los JSON canónicos</td></tr>
         </tbody>
@@ -852,7 +855,7 @@ a.ext-link:hover { text-decoration: underline; }
         <tbody>
           <tr><td>Contable (P&amp;L Accounting)</td><td>Desde <code>Inputs_Planning_PnL</code>: <code>run_all.bat</code> → <code>python baseline_builder.py --promote-month AAAA-MM-01</code> (el mes que cerró) → <code>python plana_to_cube.py --upload</code>. Recargar la landing (Ctrl+Shift+R). Sin deploy.</td></tr>
           <tr><td>Gestional (P&amp;L Managerial)</td><td>Desde <code>P&amp;L_Managerial</code>, con VPN: <code>python actuals_gestional_upload.py</code>. Un solo run.</td></tr>
-          <tr><td>Daily</td><td>Se incorpora solo en el run automático de las 08:00.</td></tr>
+          <tr><td>Daily</td><td>Se incorpora solo en el run automático de las 9:45.</td></tr>
         </tbody>
       </table>
     </div>
@@ -929,7 +932,7 @@ a.ext-link:hover { text-decoration: underline; }
           <tr><td>P&amp;L Accounting</td><td>Datos: al reprocesar Inputs_Planning_PnL. Código: manual + deploy</td><td>—</td></tr>
           <tr><td>P&amp;L Managerial</td><td>Datos: <code>actuals_gestional_upload.py</code> manual (VPN). Código: manual + deploy</td><td>La máquina de Diego (<code>RUTA_ENV</code> / <code>FC_XLSX_DIR</code> hardcodeadas — pendiente de portar)</td></tr>
           <tr><td>B2B Ecosystem Hub</td><td>Datos: JSON canónicos de Drive (automático por <code>lastMod</code>). Código: manual + deploy</td><td>—</td></tr>
-          <tr><td>Daily Dashboard</td><td><strong>Automático</strong>: Windows Task Scheduler, 08:00</td><td>La máquina de Gregorio Minetti</td></tr>
+          <tr><td>Daily Dashboard</td><td><strong>Automático</strong>: Windows Task Scheduler, 9:45</td><td>La máquina de Tiago Harari</td></tr>
           <tr><td>Manual B2B WLs</td><td>Manual — se edita <code>manual.html</code> a mano al cambiar cualquier otro módulo</td><td>—</td></tr>
         </tbody>
       </table>
@@ -937,6 +940,10 @@ a.ext-link:hover { text-decoration: underline; }
 
     <div class="alert-box">
       ⚠️ Puntos únicos de falla conocidos (auditoría 2026-09): el Daily depende del Task Scheduler en <strong>una</strong> máquina; el pipeline gestional tiene rutas hardcodeadas a <strong>una</strong> persona. Están documentados y en la lista de "a reforzar" del Panorama.
+    </div>
+
+    <div class="alert-box info">
+      🕘 <strong>Actualización 2026-09-25:</strong> el <strong>Daily Dashboard</strong> se actualiza automáticamente <strong>todos los días a las 9:45 AM</strong>, desde la máquina de <strong>Tiago Harari</strong>.
     </div>
 
     <div class="card">
@@ -999,7 +1006,7 @@ a.ext-link:hover { text-decoration: underline; }
         <tbody>
           <tr><td>Analista B2B2C</td><td>2 <span class="badge badge-manual">actual</span></td><td>Proyección de Run Rate, control de cierre y seguimiento semanal de WLs</td></tr>
           <tr><td>Analista B2B</td><td>2 <span class="badge badge-manual">actual</span></td><td>Mismas tareas recurrentes para B2B (MAY/MIN, países)</td></tr>
-          <tr><td>Analista de Datos / Ingeniería</td><td>1 <span class="badge badge-auto">nuevo</span></td><td>Confiabilidad de pipelines y landings: deploys (<code>clasp push</code>/<code>deploy</code>), cache y performance (como el pre-warm de Marketing o el fix de waterfalls de hoy), y resolver los puntos únicos de falla ya documentados (Daily en la máquina de Gregorio, Managerial en la de Diego)</td></tr>
+          <tr><td>Analista de Datos / Ingeniería</td><td>1 <span class="badge badge-auto">nuevo</span></td><td>Confiabilidad de pipelines y landings: deploys (<code>clasp push</code>/<code>deploy</code>), cache y performance (como el pre-warm de Marketing o el fix de waterfalls de hoy), y resolver los puntos únicos de falla ya documentados (Daily en la máquina de Tiago, Managerial en la de Diego)</td></tr>
           <tr><td>Analista de Planeamiento Estratégico</td><td>1 <span class="badge badge-auto">nuevo</span></td><td>Escenarios de mediano plazo y síntesis cross-LoB para dirección — hoy no hay nadie dedicado a esto, recae en el manager encima de la gestión del equipo</td></tr>
         </tbody>
       </table>
@@ -1053,6 +1060,104 @@ a.ext-link:hover { text-decoration: underline; }
     </div>
 
     <div class="alert-box info">ℹ️ "Día hábil" cuenta días de semana (lun-vie) excluyendo los feriados nacionales de Argentina marcados en rojo. Los ítems semanales (lun/mar/vie) y mensuales por posición (3er/4to jueves) no se recalculan si caen en feriado — ajustar a mano en ese caso.</div>
+  </div>
+
+  <!-- ═════════════════════════ DÍA A DÍA DEL EQUIPO ═════════════════════════ -->
+  <div class="section" id="sec-dia-a-dia">
+    <div class="page-header">
+      <div class="page-tag">Guía del equipo · Relevamiento 2026-09-25</div>
+      <div class="page-title">Día a día <span>del equipo</span></div>
+      <div class="page-sub">Cómo trabaja hoy el equipo de Planning B2B &amp; WLs más allá de las fechas fijas del Gantt: qué se hace cada semana, con qué herramientas, y qué parte sigue siendo manual. Sirve para priorizar qué automatizar.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🗓️ Semana tipo</div>
+      <table class="doc-table">
+        <thead><tr><th>Cuándo</th><th>Qué se hace</th><th>Con qué</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Todos los días</strong></td><td>Las bases reales y los JSON del ecosistema se actualizan solos con los pipelines, a horario fijo. El equipo parte de esos datos ya refrescados. El <strong>Daily Dashboard</strong> se actualiza automáticamente a las <strong>9:45 AM</strong> desde la máquina de Tiago Harari.</td><td>Pipelines Python → Drive → landings (<strong>Daily Dashboard</strong>, <strong>Flow Semanal</strong>, Hub)</td></tr>
+          <tr><td><strong>Lunes y viernes</strong></td><td>Slides de performance semanal para las reuniones semanales: <strong>B2B</strong> por tipo de producto y <strong>B2B2C</strong> por partner.</td><td>Screenshots de las landings → deck</td></tr>
+          <tr><td><strong>Resto de la semana</strong></td><td>Desarrollo de automatizaciones y del propio ecosistema con IA (Claude Code). Hoy buena parte de ese tiempo va a la app de <strong>Run Rate automático con ML</strong>.</td><td>Claude Code · este repo · app Proyecto Run Rate</td></tr>
+          <tr><td><strong>Continuo</strong></td><td>Respuesta a consultas de los equipos comerciales B2B2C (~5 por semana).</td><td>Slack</td></tr>
+          <tr><td><strong>Cierre de mes</strong></td><td>Slides de cierre contable.</td><td>Botón <strong>📸 Slides cierre de mes</strong> (ya cubierto, ver Referencia operativa)</td></tr>
+          <tr><td><strong>Transversal</strong></td><td>Entender y controlar las líneas del P&amp;L que el equipo proyecta (ver card abajo).</td><td>P&amp;L Accounting / Managerial</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📊 Slides de performance semanal (lunes y viernes)</div>
+      <table class="doc-table">
+        <tbody>
+          <tr><td>Qué muestran</td><td><strong>GB, NR y FVM</strong> por región (<strong>Hispa, Norteamérica, Brasil</strong>) y por partner (B2B2C) / tipo de producto (B2B).</td></tr>
+          <tr><td>Quién las arma</td><td>El equipo B2B arma las de B2B; el equipo B2B2C, las de B2B2C.</td></tr>
+          <tr><td>Cómo se arman hoy</td><td>Screenshots de las vistas del ecosistema (Flow Semanal / Daily) pegados en el deck. El tab Flow Semanal se mantiene como está.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🔎 Control de las líneas del P&amp;L proyectadas</div>
+      <table class="doc-table">
+        <tbody>
+          <tr><td>Líneas que proyecta el equipo</td><td><strong>GB</strong> · <strong>COI</strong> · <strong>CCP</strong> · <strong>Cancellations</strong> · <strong>Up fronts</strong> · <strong>Fees</strong> · <strong>TPC</strong> (Third Party Commissions)</td></tr>
+          <tr><td>Cómo se controla</td><td>1) Real vs proyectado a nivel agregado: <strong>GB, NR y FVM</strong>. 2) Para entender la performance con más granularidad, se baja a las <strong>líneas proyectadas</strong> de arriba y se ve cuál explica el desvío.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">💬 Consultas de equipos comerciales B2B2C</div>
+      <table class="doc-table">
+        <tbody>
+          <tr><td>Canal y volumen</td><td>Slack · ~5 por semana</td></tr>
+          <tr><td>Preguntas típicas</td><td>
+            • ¿Cómo viene la performance de X (partner, región, producto)?<br>
+            • Dudas sobre el P&amp;L (qué incluye una línea, de dónde sale un número).<br>
+            • ¿Por qué cayó la <strong>tasa sobre GB en FVM</strong>?<br>
+            • Correcciones.
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🚚 Migración Power BI → Ecosistema <span class="badge badge-manual">en curso</span></div>
+      <table class="doc-table">
+        <tbody>
+          <tr><td>Qué se migra</td><td><strong>Todas</strong> las visualizaciones que hoy viven en Power BI pasan al ecosistema, principalmente al <strong>Daily Dashboard</strong> y al tab <strong>Flow Semanal</strong>.</td></tr>
+          <tr><td>Fuente de datos</td><td>Las mismas que ya usan las landings: bases reales del ecosistema + JSON en Drive. No hay una fuente aparte para Power BI.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🤖 App Proyecto Run Rate (ML) <span class="badge badge-auto">en uso</span></div>
+      <table class="doc-table">
+        <tbody>
+          <tr><td>Qué es</td><td>App de Run Rate automático con machine learning. Es el proyecto "Modelo de Run Rate automático" de la matriz del Gantt.</td></tr>
+          <tr><td>Dónde vive</td><td><strong>Fuera de este repo</strong>. El Hub la linkea como <code>proyecto_rr</code> → <a class="ext-link" href="https://ownia.despegar.io/runrate-html" target="_blank">ownia.despegar.io/runrate-html</a>.</td></tr>
+          <tr><td>Costo hoy</td><td>Es donde más tiempo de desarrollo se va actualmente.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🎯 Candidatos a automatizar <span class="badge badge-manual">propuesta</span></div>
+      <table class="doc-table">
+        <thead><tr><th>#</th><th>Qué</th><th>Por qué</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td><strong>Drill de tasa sobre GB en FVM</strong>: vista que descomponga la variación de la tasa FVM/GB por partner en las líneas proyectadas (COI, CCP, Cancellations, Up fronts, Fees, TPC).</td><td>Es la consulta comercial recurrente y el mismo paso que hace el equipo a mano en el control de líneas. Self-service = menos consultas por Slack.</td></tr>
+          <tr><td>2</td><td><strong>Control real vs proyectado por línea</strong> con alertas de desvío (mismo criterio de materialidad que las Slides de cierre).</td><td>Hoy se baja a la línea solo cuando algo llama la atención en GB/NR/FVM; una alerta lo haría sistemático.</td></tr>
+          <tr><td>3</td><td><strong>Cerrar la migración de Power BI</strong> y dar de baja los tableros viejos.</td><td>Mientras convivan, se mantienen dos lugares con los mismos números.</td></tr>
+          <tr><td>4</td><td><strong>Documentar la app Proyecto Run Rate</strong> (repo, dueño, cómo se actualiza) en este manual.</td><td>Es la pieza que más tiempo consume y hoy no está documentada acá — riesgo de punto único de falla.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="alert-box info">
+      ℹ️ Relevado con el equipo B2B2C (Tiago Harari) el 2026-09-25. Validar con el equipo B2B y actualizar a mano cuando cambie la forma de trabajo.
+    </div>
   </div>
 
   <!-- ════════════════════════════ ARQUITECTURA ════════════════════════════ -->
@@ -1169,7 +1274,7 @@ a.ext-link:hover { text-decoration: underline; }
             <div class="step-num">3</div>
             <div class="step-body">
               <div class="step-title">Datos del Daily Dashboard</div>
-              <div class="step-desc">Corre solo (Task Scheduler 08:00). Manual: desde <code>Daily_Dashboard</code>: <code>python daily_sync.py</code> (requiere VPN).</div>
+              <div class="step-desc">Corre solo (Task Scheduler 9:45). Manual: desde <code>Daily_Dashboard</code>: <code>python daily_sync.py</code> (requiere VPN).</div>
             </div>
           </div>
           <div class="step">
@@ -1835,7 +1940,7 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
     <div class="page-header">
       <div class="page-tag">Proyecto</div>
       <div class="page-title">Daily <span>Dashboard B2B2C + B2B</span></div>
-      <div class="page-sub">Dashboard de performance diaria para WLs (B2B2C) y B2B (GD + RI). Se alimenta del datalake Treasure Data vía Python con ODBC. Actualización automática a las 08:00 AM por Windows Task Scheduler.</div>
+      <div class="page-sub">Dashboard de performance diaria para WLs (B2B2C) y B2B (GD + RI). Se alimenta del datalake Treasure Data vía Python con ODBC. Actualización automática a las 9:45 AM por Windows Task Scheduler.</div>
     </div>
 
     <div class="two-col">
@@ -1847,7 +1952,7 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
             <tr><td>Apps Script ID</td><td class="mono-id">1zHFbUa-aMfiX9...</td></tr>
             <tr><td>URL landing</td><td><a class="ext-link" href="https://script.google.com/a/macros/despegar.com/s/AKfycbwMR3zk1r4uwui8vGtcmz0OwmeehC5JM8cuJRE3H-GQMfvxXWGTkYQ3R2nVjMyeAdX_1A/exec" target="_blank">↗ Abrir</a></td></tr>
             <tr><td>Deployment publicado</td><td class="mono-id">AKfycbwMR3zk1r4uwui8vGtcmz0OwmeehC5JM8cuJRE3H-GQMfvxXWGTkYQ3R2nVjMyeAdX_1A</td></tr>
-            <tr><td>Actualización</td><td><span class="badge badge-auto">Automatizado (Task Scheduler 08:00)</span></td></tr>
+            <tr><td>Actualización</td><td><span class="badge badge-auto">Automatizado (Task Scheduler 9:45)</span></td></tr>
             <tr><td>Drive folder ID (LIVE)</td><td class="mono-id">1lWzfqweyV6Kz1ERkL85ikFcmzmKwGwwh (owner: gregorio.minetti)</td></tr>
             <tr><td>JSONs en Drive</td><td class="mono-id">daily_b2b2c_data.json (~20MB) · daily_b2b_data.json (~6MB) · globales_kr_targets.json (targets OKR H2 Globales — edición manual, ver abajo)<br><small>Dentro de <code>daily_b2b2c_data.json</code> hay dos bloques aditivos, <code>okr_budget</code> y <code>okr_runrate</code> (NR por mes × stage New/Existing, año fiscal Abr→Mar completo). Los consume <code>okr_builder.py</code> para Hunting / Existing del OKR; el Daily no los usa. Existen porque <code>agg_budget</code> recorta <code>budget</code>/<code>runrate</code> al año calendario en curso y dejaba afuera Ene–Mar.</small></td></tr>
           </tbody>
@@ -1892,7 +1997,7 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
           <div class="flow-node-items">
             <div class="flow-item orange">daily_sync.py</div>
           </div>
-          <div class="flow-note">Windows Task Scheduler 08:00 AM. Ejecutable manualmente también</div>
+          <div class="flow-note">Windows Task Scheduler 9:45 AM. Ejecutable manualmente también</div>
         </div>
         <div class="flow-arrow">→</div>
         <div class="flow-node">
@@ -2247,7 +2352,7 @@ OneDrive → Control de Gestión 2026-27 → B2B & WLs → Proyectos IA → BITU
     <div class="card">
       <div class="card-title">📂 Daily Dashboard B2B2C + B2B</div>
       <div class="code-block">C:\Users\diego.bracco\Proyectos IA\Daily_Dashboard\
-  ├── daily_sync.py          ← Script Python (Task Scheduler 08:00 / correr manual con VPN)
+  ├── daily_sync.py          ← Script Python (Task Scheduler 9:45 / correr manual con VPN)
   ├── auth_drive.py          ← Regenera token_drive.json si expira
   ├── Codigo.js              ← Backend Apps Script (getRawB2BC(), getRawB2B(), sendDailyEmail_)
   ├── dashboard.html         ← Frontend daily (vanilla JS + Chart.js 4.4.0)
