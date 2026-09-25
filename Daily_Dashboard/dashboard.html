@@ -554,6 +554,8 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
 .fl-tbl tr.grp td{background:#f3f1fb;font-weight:700;color:var(--fl-ink)}
 .fl-tbl tr.tot td{background:#eee9fb;font-weight:800;border-top:2px solid var(--fl-purple2)}
 .fl-tbl tr.fl-more td{font-style:italic;font-weight:400;color:var(--fl-ink3);border-bottom:1px solid var(--fl-line)}
+.fl-tbl tr.grp:hover td, .fl-tbl tr[onclick]:hover td{background:#e9e4fb}
+.fl-acc-caret{display:inline-block;width:10px;color:var(--fl-purple2)}
 .fl-pos{color:var(--fl-green);font-weight:700}
 .fl-neg{color:var(--fl-red);font-weight:700}
 .fl-tbl-title{background:#fff;border:1.5px solid var(--fl-purple);color:var(--fl-purple);font-weight:800;
@@ -4006,19 +4008,16 @@ var FLOW_DECK = [
   {kind:'daily', region:'BR', metric:'nr', name:'Brasil — NR diario'},
   {kind:'daily', region:'BR', metric:'fvm', name:'Brasil — FVM diario'},
   {kind:'tables', region:'BR', name:'Brasil — Tablas GB/NR/FVM'},
-  {kind:'tables', region:'BR', tier:true, name:'Brasil — Tablas GB/NR/FVM por Tier'},
   {kind:'divider', region:'NAM', name:'— MX/US —'},
   {kind:'monthly', region:'NAM', name:'MX/US — Mensual'},
   {kind:'daily', region:'NAM', metric:'nr', name:'MX/US — NR diario'},
   {kind:'daily', region:'NAM', metric:'fvm', name:'MX/US — FVM diario'},
   {kind:'tables', region:'NAM', name:'MX/US — Tablas GB/NR/FVM'},
-  {kind:'tables', region:'NAM', tier:true, name:'MX/US — Tablas GB/NR/FVM por Tier'},
   {kind:'divider', region:'SAH', name:'— Hispa —'},
   {kind:'monthly', region:'SAH', name:'Hispa — Mensual'},
   {kind:'daily', region:'SAH', metric:'nr', name:'Hispa — NR diario'},
   {kind:'daily', region:'SAH', metric:'fvm', name:'Hispa — FVM diario'},
   {kind:'tables', region:'SAH', name:'Hispa — Tablas GB/NR/FVM'},
-  {kind:'tables', region:'SAH', tier:true, name:'Hispa — Tablas GB/NR/FVM por Tier'},
   {kind:'divider', flag:'WK', title:'Weekly Summary', name:'— Weekly —'},
   {kind:'weekly', lob:'B2B+B2B2C', view:'GD', name:'Weekly — B2B+B2B2C (GD)'},
   {kind:'weekly', lob:'B2B+B2B2C', view:'RI', name:'Weekly — B2B+B2B2C (RI)'},
@@ -4133,105 +4132,121 @@ function flowDaily_(subRaw, metricKey, compKey){
   return out;
 }
 
-// grouped MTD table region→país / país→partner (comp: 'budget'|'runrate'|'ly'). childMax=0 hides children.
-// topMax limita las filas de nivel superior (país, cuando groupByRegion=false) — antes no tenía
-// límite ni aviso: si no entraban en el slide (720px, overflow hidden) desaparecían sin indicio.
-function flowGroupTable_(subRaw, metricKey, comp, col1, groupByRegion, childMax, topMax, keyBy){
-  // Al imprimir/exportar a PDF no hay forma de scrollear ni de "+N mas" —
-  // se muestra la lista completa sin cap (childMax/topMax explicitos, ej. el
-  // childMax=0 del slide cover, siguen respetandose igual).
+// Acordeón genérico de las tablas de Flow: clickear una fila "toggle" (data-key) muestra/oculta
+// sus hijos directos (data-parent=esa key), en cascada — cerrar un padre colapsa también lo que
+// haya quedado abierto adentro, para que la próxima vez que se abra arranque limpio. Se usa para
+// no listar los partners "en frío" (antes era una lista de +N filas o un "+28 más" que escondía
+// el resto) — ahora arrancan colapsados en Tier y el usuario abre solo lo que le interesa, viendo
+// SIEMPRE la lista completa del tier al expandir (sin cap).
+var _flAccUid=0;
+// true mientras se arma el deck de "Enviar a Google Slides" (_flowExportSlides) — a
+// diferencia de _flowPrinting (PDF, expande TODO sin límite porque cada slide es su
+// propia página) acá cada slide se captura como una imagen de aspect ratio fijo
+// 16:9 (ver comentario en _flowExportSlides), así que abrir país→tier→partner
+// completo puede volver a estirar la tabla y romper esa relación (bug ya resuelto
+// una vez, 2026-09-20). Este modo abre solo el nivel de País (ve subtotales de
+// Tier, o los partners con el mismo cap de antes si el país tiene un solo tier)
+// y no revienta el alto de la imagen.
+var _flowSlidesExporting=false;
+function flAccToggle_(tr){
+  var key=tr.getAttribute('data-key'); if(!key) return;
+  var opening=tr.getAttribute('data-open')!=='1';
+  tr.setAttribute('data-open', opening?'1':'0');
+  var car=tr.querySelector('.fl-acc-caret'); if(car) car.textContent=opening?'▾':'▸';
+  document.querySelectorAll('tr[data-parent="'+key+'"]').forEach(function(k){
+    k.style.display=opening?'table-row':'none';
+    if(!opening && k.getAttribute('data-key') && k.getAttribute('data-open')==='1'){
+      k.setAttribute('data-open','0');
+      var c2=k.querySelector('.fl-acc-caret'); if(c2) c2.textContent='▸';
+      document.querySelectorAll('tr[data-parent="'+k.getAttribute('data-key')+'"]').forEach(function(g){ g.style.display='none'; });
+    }
+  });
+}
+// grouped MTD table region→país (childMax cap+aviso "+N más") / país→tier→partner (comp:
+// 'budget'|'runrate'|'ly'). childMax=0 hides children (región→país). En país→partner, el nivel
+// de Tier es un acordeón (país y tier arrancan colapsados, clic para abrir) y los partners NUNCA
+// se cap-ean — al abrir un tier se ve la lista completa, así sea de 30 partners. Si un país tiene
+// un solo tier, se salta ese nivel intermedio (abrir el país va directo a los partners).
+function flowGroupTable_(subRaw, metricKey, comp, col1, groupByRegion, childMax, topMax){
   if(childMax===undefined) childMax=_flowPrinting?Infinity:8;
-  if(topMax===undefined) topMax=_flowPrinting?0:(groupByRegion?0:12);
+  if(topMax===undefined) topMax=0; // sin cap: los países ahora arrancan colapsados (1 fila c/u), no hace falta truncar la lista
   var vDate=flowVDate_(), mStart=vDate.substring(0,7)+'-01';
   var lyMode=(comp==='ly'), lyMS=_flLY_(mStart), lyVD=_flLY_(vDate);
   var MF=_FLMF[metricKey], cmpArr=_flCompArr_(subRaw,comp), cmpF=_flCompField_(metricKey,comp);
   var G={};
-  function gk(r){ return keyBy==='tier' ? (r.tier||'Unknown') : groupByRegion ? getRegion_(r.pais) : (r.pais||'Other'); }
+  function gk(r){ return groupByRegion ? getRegion_(r.pais) : (r.pais||'Other'); }
   function ck(r){ return groupByRegion ? (r.pais||'Other') : (r.partner||'Other'); }
   function grp(k){ G[k]=G[k]||{base:0,goal:0,ch:{}}; return G[k]; }
-  function chi(k,c){ var g=grp(k); g.ch[c]=g.ch[c]||{base:0,goal:0}; return g.ch[c]; }
-  (subRaw.actuals||[]).forEach(function(r){ if(r.fecha<mStart||r.fecha>vDate)return; var v=r[MF]||0; grp(gk(r)).base+=v; chi(gk(r),ck(r)).base+=v; });
-  cmpArr.forEach(function(r){ if(lyMode){ if(r.fecha<lyMS||r.fecha>lyVD)return; } else if(r.fecha<mStart||r.fecha>vDate){ return; } var v=r[cmpF]||0; grp(gk(r)).goal+=v; chi(gk(r),ck(r)).goal+=v; });
+  function chi(k,c,tier){ var g=grp(k); g.ch[c]=g.ch[c]||{base:0,goal:0,tier:tier}; g.ch[c].tier=tier; return g.ch[c]; }
+  (subRaw.actuals||[]).forEach(function(r){ if(r.fecha<mStart||r.fecha>vDate)return; var v=r[MF]||0; grp(gk(r)).base+=v; chi(gk(r),ck(r),r.tier||'Unknown').base+=v; });
+  cmpArr.forEach(function(r){ if(lyMode){ if(r.fecha<lyMS||r.fecha>lyVD)return; } else if(r.fecha<mStart||r.fecha>vDate){ return; } var v=r[cmpF]||0; grp(gk(r)).goal+=v; chi(gk(r),ck(r),r.tier||'Unknown').goal+=v; });
   var orderFull = groupByRegion ? ['BR','SAH','NAM'] : Object.keys(G).sort(function(a,b){return G[b].base-G[a].base;});
   var order = (topMax && orderFull.length>topMax) ? orderFull.slice(0,topMax) : orderFull;
   function cell(d){ return '<td class="'+(d>=0?'fl-pos':'fl-neg')+'">'+(d>=0?'+':'')+fmtShort(d)+'</td>'; }
   function pct(b,g){ return g!==0 ? (b/g-1)*100 : null; }
   function pctCell(b,g){ var p=pct(b,g); return '<td class="'+((b-g)>=0?'fl-pos':'fl-neg')+'">'+(p==null?'—':(p>=0?'+':'')+Math.round(p)+'%')+'</td>'; }
+  var tblUid=(_flAccUid++);
   var body='',TB=0,TG=0;
   orderFull.forEach(function(k){ var g=G[k]; if(!g)return; TB+=g.base; TG+=g.goal; }); // totales siempre sobre TODO, aunque se trunque lo visible
-  order.forEach(function(k){ var g=G[k]; if(!g)return;
+  order.forEach(function(k,pIdx){ var g=G[k]; if(!g)return;
     var lbl = groupByRegion ? (REGION_LABEL_[k]||k) : k;
-    body+='<tr class="grp"><td>'+lbl+'</td><td>'+fmtShort(g.base)+'</td>'+cell(g.base-g.goal)+pctCell(g.base,g.goal)+'</tr>';
-    var kids=Object.keys(g.ch).map(function(c){return {name:c,base:g.ch[c].base,goal:g.ch[c].goal};})
+    var kids=Object.keys(g.ch).map(function(c){return {name:c,base:g.ch[c].base,goal:g.ch[c].goal,tier:g.ch[c].tier};})
       .sort(function(a,b){return b.base-a.base;});
-    if(childMax!==0 && kids.length>1){ kids.slice(0,childMax).forEach(function(c){
-      body+='<tr><td>&nbsp;&nbsp;'+c.name+'</td><td>'+fmtShort(c.base)+'</td>'+cell(c.base-c.goal)+pctCell(c.base,c.goal)+'</tr>';
+    if(groupByRegion){
+      // región→país: sigue siendo lista plana con cap (childMax/"+N más"), sin acordeón — no hay
+      // "tier" a nivel país y la cantidad de países ya es chica.
+      body+='<tr class="grp"><td>'+lbl+'</td><td>'+fmtShort(g.base)+'</td>'+cell(g.base-g.goal)+pctCell(g.base,g.goal)+'</tr>';
+      if(childMax!==0 && kids.length>1){ kids.slice(0,childMax).forEach(function(c){
+        body+='<tr><td>&nbsp;&nbsp;'+c.name+'</td><td>'+fmtShort(c.base)+'</td>'+cell(c.base-c.goal)+pctCell(c.base,c.goal)+'</tr>';
+      });
+      if(kids.length>childMax){ body+='<tr class="fl-more"><td>&nbsp;&nbsp;+'+(kids.length-childMax)+' más</td><td colspan="3"></td></tr>'; }
+      }
+      return;
+    }
+    // país→partner: acordeón país→(tier)→partner, colapsado por default.
+    //  - PDF (_flowPrinting): todo forzado abierto, sin cap (cada slide es su propia página).
+    //  - Slides (_flowSlidesExporting): solo el país se fuerza abierto (ve subtotales de Tier,
+    //    o partners con el viejo cap childMax si el país tiene 1 solo tier) — NO se abren los
+    //    partners dentro de cada tier, para no romper el aspect ratio fijo de la imagen.
+    var paisKey='fl'+tblUid+'p'+pIdx;
+    var fullOpen=_flowPrinting, summaryOpen=_flowSlidesExporting, paisOpen=fullOpen||summaryOpen;
+    var openP=paisOpen?'1':'0', dispP=paisOpen?'table-row':'none', caretP=paisOpen?'▾':'▸';
+    var openT=fullOpen?'1':'0', dispT=fullOpen?'table-row':'none', caretT=fullOpen?'▾':'▸';
+    body+='<tr class="grp" data-key="'+paisKey+'" data-open="'+openP+'" onclick="flAccToggle_(this)" style="cursor:pointer">'
+      +'<td><span class="fl-acc-caret">'+caretP+'</span> '+lbl+'</td><td>'+fmtShort(g.base)+'</td>'+cell(g.base-g.goal)+pctCell(g.base,g.goal)+'</tr>';
+    var byTier={};
+    kids.forEach(function(c){ (byTier[c.tier]=byTier[c.tier]||[]).push(c); });
+    var tierNames=Object.keys(byTier).sort(function(a,b){
+      var sa=byTier[a].reduce(function(s,x){return s+x.base;},0), sb=byTier[b].reduce(function(s,x){return s+x.base;},0);
+      return sb-sa;
     });
-    if(kids.length>childMax){ body+='<tr class="fl-more"><td>&nbsp;&nbsp;+'+(kids.length-childMax)+' más</td><td colspan="3"></td></tr>'; }
+    var multiTier=tierNames.length>1 && kids.length>1;
+    if(!multiTier){
+      // sin nivel de tier que absorba el corte — el cap "+N más" (childMax) se mantiene
+      // solo durante el export a Slides (summaryOpen), igual que el comportamiento viejo;
+      // interactivo y PDF siempre muestran todos los partners.
+      var capThis=summaryOpen && !fullOpen && kids.length>childMax;
+      var shown=capThis ? kids.slice(0,childMax) : kids;
+      shown.forEach(function(c){
+        body+='<tr data-parent="'+paisKey+'" style="display:'+dispP+'"><td>&nbsp;&nbsp;'+c.name+'</td><td>'+fmtShort(c.base)+'</td>'+cell(c.base-c.goal)+pctCell(c.base,c.goal)+'</tr>';
+      });
+      if(capThis){ body+='<tr class="fl-more" data-parent="'+paisKey+'" style="display:'+dispP+'"><td>&nbsp;&nbsp;+'+(kids.length-childMax)+' más</td><td colspan="3"></td></tr>'; }
+    } else {
+      tierNames.forEach(function(tn,tIdx){
+        var tKids=byTier[tn], tBase=0,tGoal=0; tKids.forEach(function(c){tBase+=c.base;tGoal+=c.goal;});
+        var tierKey=paisKey+'t'+tIdx;
+        body+='<tr data-parent="'+paisKey+'" data-key="'+tierKey+'" data-open="'+openT+'" onclick="event.stopPropagation();flAccToggle_(this)" style="display:'+dispP+';cursor:pointer;font-weight:700">'
+          +'<td>&nbsp;&nbsp;<span class="fl-acc-caret">'+caretT+'</span> '+tn+' <span style="font-weight:400;color:var(--fl-ink3)">('+tKids.length+')</span></td>'
+          +'<td>'+fmtShort(tBase)+'</td>'+cell(tBase-tGoal)+pctCell(tBase,tGoal)+'</tr>';
+        tKids.forEach(function(c){
+          body+='<tr data-parent="'+tierKey+'" style="display:'+dispT+'"><td>&nbsp;&nbsp;&nbsp;&nbsp;'+c.name+'</td><td>'+fmtShort(c.base)+'</td>'+cell(c.base-c.goal)+pctCell(c.base,c.goal)+'</tr>';
+        });
+      });
     }
   });
   if(orderFull.length>order.length){ body+='<tr class="fl-more"><td>+'+(orderFull.length-order.length)+' más</td><td colspan="3"></td></tr>'; }
   body+='<tr class="tot"><td>Total</td><td>'+fmtShort(TB)+'</td>'+cell(TB-TG)+pctCell(TB,TG)+'</tr>';
   return '<table class="fl-tbl"><thead><tr><th>'+(col1||'Región / País')+'</th><th>Baseline</th><th>Delta [$]</th><th>Delta [%]</th></tr></thead><tbody>'+body+'</tbody></table>';
-}
-
-// Igual que flowGroupTable_ pero con un nivel extra: País → Tier → Partner (Diego pidió que
-// las tablas de tier no pierdan el país por el camino). País ordena por baseline igual que
-// siempre (cap topMax); tier no se cap-ea (son pocos por país); partner se cap-ea igual que
-// flowGroupTable_ (childMax, "+N más"). El subtotal de tier solo se muestra si el país tiene
-// más de un tier — si es uno solo, ir directo a los partners no pierde información.
-function flowGroupTable3_(subRaw, metricKey, comp, col1, childMax, topMax){
-  if(childMax===undefined) childMax=_flowPrinting?Infinity:8;
-  if(topMax===undefined) topMax=_flowPrinting?0:12;
-  var vDate=flowVDate_(), mStart=vDate.substring(0,7)+'-01';
-  var lyMode=(comp==='ly'), lyMS=_flLY_(mStart), lyVD=_flLY_(vDate);
-  var MF=_FLMF[metricKey], cmpArr=_flCompArr_(subRaw,comp), cmpF=_flCompField_(metricKey,comp);
-  var G={};
-  function grp(k){ G[k]=G[k]||{base:0,goal:0,tiers:{}}; return G[k]; }
-  function tier(g,tk){ g.tiers[tk]=g.tiers[tk]||{base:0,goal:0,partners:{}}; return g.tiers[tk]; }
-  function partner(t,pk){ t.partners[pk]=t.partners[pk]||{base:0,goal:0}; return t.partners[pk]; }
-  (subRaw.actuals||[]).forEach(function(r){
-    if(r.fecha<mStart||r.fecha>vDate)return; var v=r[MF]||0;
-    var g=grp(r.pais||'Other'); g.base+=v;
-    var t=tier(g,r.tier||'Unknown'); t.base+=v;
-    partner(t,r.partner||'Other').base+=v;
-  });
-  cmpArr.forEach(function(r){
-    if(lyMode){ if(r.fecha<lyMS||r.fecha>lyVD)return; } else if(r.fecha<mStart||r.fecha>vDate){ return; }
-    var v=r[cmpF]||0;
-    var g=grp(r.pais||'Other'); g.goal+=v;
-    var t=tier(g,r.tier||'Unknown'); t.goal+=v;
-    partner(t,r.partner||'Other').goal+=v;
-  });
-  var orderFull=Object.keys(G).sort(function(a,b){return G[b].base-G[a].base;});
-  var order=(topMax && orderFull.length>topMax) ? orderFull.slice(0,topMax) : orderFull;
-  function cell(d){ return '<td class="'+(d>=0?'fl-pos':'fl-neg')+'">'+(d>=0?'+':'')+fmtShort(d)+'</td>'; }
-  function pct(b,g){ return g!==0 ? (b/g-1)*100 : null; }
-  function pctCell(b,g){ var p=pct(b,g); return '<td class="'+((b-g)>=0?'fl-pos':'fl-neg')+'">'+(p==null?'—':(p>=0?'+':'')+Math.round(p)+'%')+'</td>'; }
-  var body='',TB=0,TG=0;
-  orderFull.forEach(function(k){ var g=G[k]; TB+=g.base; TG+=g.goal; });
-  order.forEach(function(k){
-    var g=G[k];
-    body+='<tr class="grp"><td>'+k+'</td><td>'+fmtShort(g.base)+'</td>'+cell(g.base-g.goal)+pctCell(g.base,g.goal)+'</tr>';
-    var tiers=Object.keys(g.tiers).map(function(tn){return {name:tn,base:g.tiers[tn].base,goal:g.tiers[tn].goal,partners:g.tiers[tn].partners};})
-      .sort(function(a,b){return b.base-a.base;});
-    var showTier=tiers.length>1;
-    tiers.forEach(function(t){
-      if(showTier){ body+='<tr><td style="font-weight:700">&nbsp;&nbsp;'+t.name+'</td><td>'+fmtShort(t.base)+'</td>'+cell(t.base-t.goal)+pctCell(t.base,t.goal)+'</tr>'; }
-      var partners=Object.keys(t.partners).map(function(pn){return {name:pn,base:t.partners[pn].base,goal:t.partners[pn].goal};})
-        .sort(function(a,b){return b.base-a.base;});
-      var indent=showTier?'&nbsp;&nbsp;&nbsp;&nbsp;':'&nbsp;&nbsp;';
-      if(childMax!==0 && partners.length>1){
-        partners.slice(0,childMax).forEach(function(p){
-          body+='<tr><td>'+indent+p.name+'</td><td>'+fmtShort(p.base)+'</td>'+cell(p.base-p.goal)+pctCell(p.base,p.goal)+'</tr>';
-        });
-        if(partners.length>childMax){ body+='<tr class="fl-more"><td>'+indent+'+'+(partners.length-childMax)+' más</td><td colspan="3"></td></tr>'; }
-      }
-    });
-  });
-  if(orderFull.length>order.length){ body+='<tr class="fl-more"><td>+'+(orderFull.length-order.length)+' más</td><td colspan="3"></td></tr>'; }
-  body+='<tr class="tot"><td>Total</td><td>'+fmtShort(TB)+'</td>'+cell(TB-TG)+pctCell(TB,TG)+'</tr>';
-  return '<table class="fl-tbl"><thead><tr><th>'+(col1||'País / Tier / Partner')+'</th><th>Baseline</th><th>Delta [$]</th><th>Delta [%]</th></tr></thead><tbody>'+body+'</tbody></table>';
 }
 
 // Suma actual/comparación MTD para el slide 'b2b2c_krs', filtrando por
@@ -4327,7 +4342,7 @@ function flowBuildSlide_(def, idx){
         return '<div class="fl-scroll-tbl" style="flex:1;min-width:0;min-height:0;overflow-y:auto"><div class="fl-tag">'+t[1]+' — MTD vs '+cmpShort+'</div>'+flowGroupTable_(sub,t[0],cmp,'Región',true,0)+'</div>'; }).join('');
     } else {
       tables=[['nr','NR'],['fvm','FVM']].map(function(t){
-        return '<div class="fl-scroll-tbl" style="flex:1;min-width:0;min-height:0;overflow-y:auto"><div class="fl-tag">'+t[1]+' — MTD vs '+cmpShort+'</div>'+flowGroupTable_(sub,t[0],cmp,'País / Partner',false)+'</div>'; }).join('');
+        return '<div class="fl-scroll-tbl" style="flex:1;min-width:0;min-height:0;overflow-y:auto"><div class="fl-tag">'+t[1]+' — MTD vs '+cmpShort+'</div>'+flowGroupTable_(sub,t[0],cmp,'País / Tier / Partner',false)+'</div>'; }).join('');
     }
     var body='<div class="fl-body" style="display:flex;gap:22px">'
       +'<div style="flex:1.75;min-width:0;display:flex;flex-direction:column;gap:6px;min-height:0">'+panels+'</div>'
@@ -4359,7 +4374,7 @@ function flowBuildSlide_(def, idx){
     var brand='<span class="fl-flag">'+FLOW_RG[region].flag+'</span>'+flLogo_();
     var dl=flowDaily_(sub,mk,cmp);
     var cid='flc'+idx; _flowSeries[idx].push({id:cid, series:dl, gran:'daily', opts:{labels:true}});
-    var tbl=flowGroupTable_(sub,mk,tblComp,'País / Partner',false);
+    var tbl=flowGroupTable_(sub,mk,tblComp,'País / Tier / Partner',false);
     var body='<div class="fl-body"><div style="display:flex;gap:18px;height:100%">'
       +'<div style="flex:1.55;min-width:0;display:flex;flex-direction:column;min-height:0">'+flowKpiCards_(sub,mk,cmp)
       +'<div style="font-size:13px;font-weight:700;color:var(--fl-ink2);margin:8px 0 2px">Trend vs '+cmpLbl+'</div>'
@@ -4370,12 +4385,12 @@ function flowBuildSlide_(def, idx){
   }
   if(def.kind==='tables'){
     var region=def.region, sub=flowRegionRaw_(region);
-    var byTier=!!def.tier, col1Lbl=byTier?'País / Tier / Partner':'País / Partner';
-    var titleTxt=mesLbl+' | B2B2C '+FLOW_RG[region].label+(byTier?' (por Tier)':'')+' — GB/NR/FVM Performance MTD';
+    var col1Lbl='País / Tier / Partner';
+    var titleTxt=mesLbl+' | B2B2C '+FLOW_RG[region].label+' — GB/NR/FVM Performance MTD';
     var brand='<span class="fl-flag">'+FLOW_RG[region].flag+'</span>'+flLogo_();
     function triple(comp,tag,color){
       var cells=['gb','nr','fvm'].map(function(mk){
-        var tblHtml=byTier ? flowGroupTable3_(sub,mk,comp,col1Lbl) : flowGroupTable_(sub,mk,comp,col1Lbl,false);
+        var tblHtml=flowGroupTable_(sub,mk,comp,col1Lbl,false);
         return '<div class="fl-scroll-tbl" style="flex:1;min-width:0;min-height:0;overflow-y:auto"><div class="fl-tag" style="background:'+color+'">'+FLOW_MET[mk].short+'</div>'+tblHtml+'</div>';
       }).join('');
       return '<div style="flex:1;min-width:0;min-height:0;display:flex;flex-direction:column">'
@@ -5367,23 +5382,24 @@ function _flowExportSlides(){
   function setBtn(txt,disabled){ if(btn){ btn.textContent=txt; btn.disabled=!!disabled; } }
   function reset(){
     _flowExporting=false;
+    _flowSlidesExporting=false;
+    flowRebuild_();
     setBtn('📤 Enviar a Google Slides (B2B2C + B2B)', false);
   }
   setBtn('⏳ Preparando…', true);
-  // A propósito NO se activa el modo "exportando" (.flow-exporting + _flowPrinting)
-  // que sí usa el botón de PDF: ese modo saca el tope de filas de las tablas para
-  // que no se corten en una impresión de varias páginas (ahí una slide puede crecer
-  // más alto sin problema, cada una es su propia página). Pero acá cada slide se
-  // inserta como UNA imagen en una página de tamaño FIJO (720x405pt) — si al
-  // capturar se deja crecer más alto que los 720px nominales, buildFlowSlidesDeck
-  // igual preserva el aspect ratio real de la imagen (correcto), y el resultado es
-  // una imagen angosta y chica centrada con mucho margen en los costados (bug real
-  // encontrado 2026-09-20: casi todas las slides con tablas largas quedaban con
-  // ratio entre 0.56 y 1.46 en vez de 1.7778, confirmado inspeccionando el deck
-  // real vía la API de Slides). Capturando el estado NORMAL (con el tope de filas
-  // "+N más" que ya existe para la vista en pantalla) cada slide se queda en sus
-  // 720px fijos y el ratio de la imagen sale siempre 16:9 — a costa de truncar
-  // tablas muy largas igual que ya se truncan scrolleando en pantalla.
+  // NO se activa el modo "exportando" del PDF (_flowPrinting): ese modo abre TODO sin
+  // límite (país→tier→partner completo), y acá cada slide se inserta como UNA imagen en
+  // una página de tamaño FIJO (720x405pt) — si al capturar la tabla crece más alto que
+  // los 720px nominales, buildFlowSlidesDeck igual preserva el aspect ratio real de la
+  // imagen (correcto), y el resultado es una imagen angosta y chica centrada con mucho
+  // margen en los costados (bug real encontrado 2026-09-20: casi todas las slides con
+  // tablas largas quedaban con ratio entre 0.56 y 1.46 en vez de 1.7778). Por eso acá se
+  // usa _flowSlidesExporting en su lugar: abre el nivel de País (subtotales de Tier, o
+  // partners con el viejo cap si el país tiene 1 solo tier) pero NO expande los partners
+  // dentro de cada tier — dato visible sin volver a estirar la imagen fuera de 16:9. El
+  // acordeón interactivo (pantalla) arranca colapsado y no se toca acá.
+  _flowSlidesExporting=true;
+  flowRebuild_();
   requestAnimationFrame(function(){ requestAnimationFrame(function(){ requestAnimationFrame(function(){
     setBtn('⏳ Capturando slides…', true);
     _flowCaptureSlideImages_({ jpeg:true }).then(function(images){
