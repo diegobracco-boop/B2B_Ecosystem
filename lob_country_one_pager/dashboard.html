@@ -182,11 +182,15 @@ function boot() {
   }).withFailureHandler(showError).getFilters();
 }
 
+// Token de request: una respuesta lenta de un país/mes anterior no pisa la del actual
+// (auditoría 2026-09-25).
+var _loadSeq = 0;
 function load() {
+  var mySeq = ++_loadSeq;
   document.getElementById('main').innerHTML = '<div class="empty">Cargando…</div>';
   google.script.run
-    .withSuccessHandler(render)
-    .withFailureHandler(showError)
+    .withSuccessHandler(function (d) { if (mySeq === _loadSeq) render(d); })
+    .withFailureHandler(function (e) { if (mySeq === _loadSeq) showError(e); })
     .getOnePagerData({ pais: STATE.pais, lob: STATE.lob, ym: STATE.ym });
 }
 

@@ -69,7 +69,9 @@ function _currentDefaultYm_() {
     m -= 1;
     if (m === 0) { m = 12; y -= 1; }
   }
-  return y + '-' + (m < 10 ? '0' : '') + m + '-01';
+  // 'YYYY-MM', igual que evo.periods / months (antes devolvía 'YYYY-MM-01' y nunca matcheaba:
+  // el one-pager siempre abría en el último mes con actuals — auditoría 2026-09-25).
+  return y + '-' + (m < 10 ? '0' : '') + m;
 }
 
 function getOnePagerData(params) {

@@ -22,8 +22,10 @@ function readGestionalJSON_(baselineSource) {
       var blob = DriveApp.getFileById(GESTIONAL_VR_JSON_FILE_ID).getBlob();
       _gestionalVRJsonCache_ = JSON.parse(blob.getDataAsString());
     } catch(e) {
+      // Antes devolvía _EMPTY_GESTIONAL_ y ese resultado vacío quedaba cacheado 6 h con la clave
+      // del mtime (pantalla en cero). Ahora el error llega al cliente (auditoría 2026-09-25).
       Logger.log('readGestionalJSON_ VR error: ' + e);
-      _gestionalVRJsonCache_ = _EMPTY_GESTIONAL_;
+      throw new Error('No se pudo leer el JSON de Projection Reviews de Drive: ' + e.message);
     }
     return _gestionalVRJsonCache_;
   }
@@ -33,7 +35,7 @@ function readGestionalJSON_(baselineSource) {
     _gestionalJsonCache_ = JSON.parse(blob.getDataAsString());
   } catch(e) {
     Logger.log('readGestionalJSON_ error: ' + e);
-    _gestionalJsonCache_ = _EMPTY_GESTIONAL_;
+    throw new Error('No se pudo leer el JSON gestional de Drive: ' + e.message);
   }
   return _gestionalJsonCache_;
 }

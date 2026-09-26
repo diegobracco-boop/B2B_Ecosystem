@@ -2156,9 +2156,14 @@ function loadAll() {
   loadOKR();
 }
 
+// Token de request: si el usuario cambia filtros rápido, una respuesta lenta de una consulta
+// anterior no pisa el estado de la actual (antes se veían filtros de B con números de A —
+// auditoría 2026-09-25). La respuesta se guarda igual en la caché del cliente.
+var _reloadSeq = 0;
 function reload() {
   var p   = getParams();
   var ck  = JSON.stringify(p);
+  var mySeq = ++_reloadSeq;
 
   // Client-side cache hit → render instantly, no server call
   if (_dataCache[ck]) {
@@ -2187,6 +2192,7 @@ function reload() {
   google.script.run
     .withSuccessHandler(function(d){
       _dataCache[ck] = d;   // store in client cache
+      if (mySeq !== _reloadSeq) return;   // llegó tarde: ya hay otra consulta más nueva
       _state.pnl    = d.pnl;
       _state.wf     = d.wf;
       _state.evo    = d.evo;
@@ -2197,7 +2203,7 @@ function reload() {
       render(); hideLoader();
       _preloadOtherLobs_(p); // warm cache for other LOB tabs in background
     })
-    .withFailureHandler(onErr)
+    .withFailureHandler(function(e){ if (mySeq === _reloadSeq) onErr(e); })
     .getAllData(p);
 }
 

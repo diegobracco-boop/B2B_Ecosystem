@@ -1879,7 +1879,8 @@ function renderDetalle() {
   // Fila "Δ …" sigue al selector de Goal (Budget/Forecast/Last Year) de la barra superior;
   // la fila "YoY%" se mantiene siempre vs Last Year, independiente del Goal elegido.
   var gcm = _managerialGoal==='forecast' ? fcm : _managerialGoal==='ly' ? lcm : bcm;
-  var goalRowLabel = _managerialGoal==='forecast' ? 'Δ Forecast' : _managerialGoal==='ly' ? 'Δ Last Year' : 'Δ Budget';
+  // En RI el Last Year sigue siendo GD (el JSON gestional no trae serie LY en RI): se rotula.
+  var goalRowLabel = _managerialGoal==='forecast' ? 'Δ Forecast' : _managerialGoal==='ly' ? ('Δ Last Year' + (_activeDateType==='ri' ? ' (GD)' : '')) : 'Δ Budget';
   // Fila antes "FC": ahora toma el nombre del escenario Baseline elegido en el toggle superior.
   var baselineRowLabel = _baselineSource==='vr' ? 'Projection Reviews' : 'Actuals + Projections';
 

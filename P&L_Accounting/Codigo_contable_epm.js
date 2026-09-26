@@ -130,15 +130,56 @@ function assembleCanonicals_() {
   return { data: data, data_by_prod: dbp, products: products, actual_months: actualMonths };
 }
 
+// Caché del ensamblado de canónicos que SOBREVIVE entre llamadas (auditoría 2026-09-25): las
+// variables globales de arriba no persisten entre ejecuciones de google.script.run, así que cada
+// llamada releía y parseaba ~75 MB de Drive. Se guarda gzip+base64 en CacheService, partido en
+// trozos de 90 KB (límite 100 KB por clave), con clave = máximo lastMod de los canónicos: cuando
+// cambia cualquier JSON la clave cambia y se reensambla solo. TTL 6 h.
+var EPM_CACHE_PREFIX_ = 'epm_asm_v1_';
+var EPM_CACHE_CHUNK_  = 90000;
+
+function _epmCacheGet_(mod) {
+  try {
+    var c = CacheService.getScriptCache(), base = EPM_CACHE_PREFIX_ + mod;
+    var n = parseInt(c.get(base + '_n') || '0', 10);
+    if (!n) return null;
+    var keys = [];
+    for (var i = 0; i < n; i++) keys.push(base + '_' + i);
+    var got = c.getAll(keys), parts = [];
+    for (var k = 0; k < keys.length; k++) { if (!got[keys[k]]) return null; parts.push(got[keys[k]]); }
+    var blob = Utilities.newBlob(Utilities.base64Decode(parts.join('')), 'application/x-gzip');
+    return JSON.parse(Utilities.ungzip(blob).getDataAsString());
+  } catch (e) { Logger.log('_epmCacheGet_: ' + e); return null; }
+}
+
+function _epmCachePut_(mod, obj) {
+  try {
+    var gz  = Utilities.gzip(Utilities.newBlob(JSON.stringify(obj), 'application/json'));
+    var b64 = Utilities.base64Encode(gz.getBytes());
+    var n   = Math.ceil(b64.length / EPM_CACHE_CHUNK_);
+    if (n > 900) { Logger.log('_epmCachePut_: demasiado grande (' + n + ' trozos), no se cachea'); return; }
+    var base = EPM_CACHE_PREFIX_ + mod, put = {};
+    for (var i = 0; i < n; i++) put[base + '_' + i] = b64.substr(i * EPM_CACHE_CHUNK_, EPM_CACHE_CHUNK_);
+    var c = CacheService.getScriptCache();
+    c.putAll(put, 21600);
+    c.put(base + '_n', String(n), 21600);   // último: si falla a mitad, el get no encuentra '_n'
+  } catch (e) { Logger.log('_epmCachePut_: ' + e); }
+}
+
 function readEPMJSON_() {
   var mod = _canonicalsMaxMod_();
   if (_epmJsonCache_ && mod <= _epmJsonCacheMs_) return _epmJsonCache_;
+  var hit = _epmCacheGet_(mod);
+  if (hit) { _epmJsonCache_ = hit; _epmJsonCacheMs_ = mod; return hit; }
   try {
     _epmJsonCache_   = assembleCanonicals_();
     _epmJsonCacheMs_ = mod;
+    _epmCachePut_(mod, _epmJsonCache_);
   } catch(e) {
     Logger.log('readEPMJSON_ error: ' + e);
-    if (!_epmJsonCache_) _epmJsonCache_ = { data: {} };
+    // Antes devolvía { data:{} } y la pantalla mostraba CEROS como si fueran datos. Ahora el
+    // error llega al withFailureHandler del cliente y se ve como error.
+    if (!_epmJsonCache_) throw new Error('No se pudieron leer los JSON canónicos de Drive: ' + e.message);
   }
   return _epmJsonCache_;
 }
