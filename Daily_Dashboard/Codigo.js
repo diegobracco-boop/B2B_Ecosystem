@@ -13,11 +13,14 @@ var CACHE_CHUNK      = 90000;
 
 // ---- Entry point ----
 
-var EMAIL_SECRET = 'despe2026';
-
+// Disparo del mail por URL (?action=sendDailyEmail&secret=...). El secreto ya no vive en el
+// código (estaba en git): se lee de Propiedades del script → EMAIL_SECRET. Si la propiedad no
+// existe, la acción queda desactivada. El mail diario normal sale por el trigger
+// scheduledEmailSend, que no usa esto (auditoría 2026-09-25).
 function doGet(e) {
   var action = e && e.parameter && e.parameter.action;
-  if (action === 'sendDailyEmail' && e.parameter.secret === EMAIL_SECRET) {
+  var emailSecret = PropertiesService.getScriptProperties().getProperty('EMAIL_SECRET');
+  if (action === 'sendDailyEmail' && emailSecret && e.parameter.secret === emailSecret) {
     try {
       sendDailyEmail_();
       return ContentService.createTextOutput('OK');
@@ -536,7 +539,18 @@ function _wsComputeMTDPais_(actRows, budRows, lyRows, pais, targetYm) {
 var EMAIL_TO = ['gregorio.minetti@despegar.com', 'diego.bracco@despegar.com', 'tiago.harari@despegar.com', 'matias.m.sanchez@despegar.com'];
 
 function sendDailyEmail()          { sendDailyEmail_(); }
-function sendDailyEmailTo(emails)  { sendDailyEmail_(emails); }
+// Envío a destinatarios elegidos en el dashboard. Solo cuentas @despegar.com (el mail lleva
+// KPIs y se manda desde la cuenta que deployó): antes aceptaba cualquier dirección y se podía
+// llamar desde la consola del navegador (auditoría 2026-09-25).
+function sendDailyEmailTo(emails) {
+  var ok = (emails || []).map(function(x) { return String(x || '').trim().toLowerCase(); })
+    .filter(function(x) { return /^[^@\s,;]+@despegar\.com$/.test(x); });
+  var bad = (emails || []).length - ok.length;
+  if (!ok.length) throw new Error('Solo se puede enviar a direcciones @despegar.com');
+  if (ok.length > 20) throw new Error('Máximo 20 destinatarios por envío');
+  if (bad > 0) throw new Error(bad + ' destinatario(s) no son @despegar.com — revisar la lista');
+  sendDailyEmail_(ok);
+}
 function sendDailyEmail_(customRecipients) {
   var dow = new Date().getDay(); // 0=Dom, 6=Sab
   if (dow === 0 || dow === 6) return;
