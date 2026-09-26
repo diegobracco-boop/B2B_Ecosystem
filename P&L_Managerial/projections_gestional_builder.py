@@ -47,10 +47,12 @@ METRIC_COLS = [
     "frauds", "efecto_financiero", "dif_fx", "currency_hedge", "net_revenue", "npv",
 ]
 
-FY27_MONTHS = [
-    "2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09",
-    "2026-10", "2026-11", "2026-12", "2027-01", "2027-02", "2027-03",
-]
+# Año fiscal: sale de Inputs_Planning_PnL/config.py (CURRENT_FY). Para pasar a otro FY se cambia
+# solo ahí — acá no hay meses escritos a mano (auditoría ola 4, 2026-09-25).
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "Inputs_Planning_PnL"))
+import config as _planning_cfg
+_FY = _planning_cfg.CURRENT_FY                                  # 2027 = FY27 (abr-2026 → mar-2027)
+FY_MONTHS = [d[:7] for d in _planning_cfg.FISCAL_DATES]         # 'YYYY-MM', abr → mar
 
 _XLSX_RENAME = {
     "intercompany":        "intercompany_usd",
@@ -64,9 +66,9 @@ _XLSX_RENAME = {
 # ── helpers de XLSX ────────────────────────────────────────────────────────────
 
 def _proy_ym(m) -> str:
-    """Mes calendario (1-12) → FY27 YYYY-MM. Abr-Dic → 2026, Ene-Mar → 2027."""
+    """Mes calendario (1-12) → YYYY-MM del FY en curso. Abr-Dic → FY-1, Ene-Mar → FY."""
     mm = int(float(m))
-    y = 2026 if mm >= 4 else 2027
+    y = _FY - 1 if mm >= 4 else _FY
     return f"{y}-{mm:02d}"
 
 
@@ -90,7 +92,7 @@ def _read_pnl_xlsx(wip_folder: str, fname: str, sheet: str, month_col: str) -> p
     df["_m"] = pd.to_numeric(df[month_col], errors="coerce")
     df = df.dropna(subset=["_m"])
     df["ym"] = df["_m"].apply(_proy_ym)
-    df = df[df["ym"].isin(set(FY27_MONTHS))]
+    df = df[df["ym"].isin(set(FY_MONTHS))]
     return df
 
 

@@ -55,14 +55,22 @@ DRIVE_SCOPES    = ["https://www.googleapis.com/auth/drive"]
 # Forecast comes from the XLSX models (datalake raw.b2bfc1_* is not kept up to
 # date). Update this folder when a newer forecast round is published.
 # La raíz de OneDrive cambia según la máquina ("OneDrive - despegar365" o "despegar365").
-_FC_SUBPATH = r"Control de Gestión - 2026-27\B2B & WLs\Forecast\2026.07.14"
+# Año fiscal: sale de Inputs_Planning_PnL/config.py (CURRENT_FY). Para pasar a otro FY se cambia
+# solo ahí — acá no hay meses escritos a mano (auditoría ola 4, 2026-09-25).
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "Inputs_Planning_PnL"))
+import config as _planning_cfg
+_FY = _planning_cfg.CURRENT_FY                                  # 2027 = FY27 (abr-2026 → mar-2027)
+FY_MONTHS = [d[:7] for d in _planning_cfg.FISCAL_DATES]         # 'YYYY-MM', abr → mar
+
+# Carpeta de la ronda de Forecast: FY y versión salen de config.py (GESTION_FOLDER / FORECAST_VERSION).
+_FC_SUBPATH = rf"{_planning_cfg.GESTION_FOLDER}\B2B & WLs\Forecast\{_planning_cfg.FORECAST_VERSION}"
 _ONEDRIVE_ROOTS = [Path.home() / "OneDrive - despegar365", Path.home() / "despegar365"]
 FC_XLSX_DIR = next((str(r / _FC_SUBPATH) for r in _ONEDRIVE_ROOTS if (r / _FC_SUBPATH).is_dir()),
                    str(_ONEDRIVE_ROOTS[0] / _FC_SUBPATH))
 
 TODAY        = date.today()
 CURRENT_YM   = TODAY.strftime('%Y-%m')
-ACTUALS_FROM = date(2026, 4, 1)   # FY27 start
+ACTUALS_FROM = date(_FY - 1, 4, 1)   # inicio del FY (abril)
 _first_of_current = date(TODAY.year, TODAY.month, 1)
 ACTUALS_TO   = _first_of_current - timedelta(days=1)  # last day of last closed month
 
@@ -72,14 +80,10 @@ ACTUALS_TO   = _first_of_current - timedelta(days=1)  # last day of last closed 
 LY_FROM = date(ACTUALS_FROM.year - 1, ACTUALS_FROM.month, ACTUALS_FROM.day)  # 2025-04-01
 LY_TO   = ACTUALS_FROM - timedelta(days=1)                                    # 2026-03-31
 
-FY27_MONTHS = [
-    "2026-04","2026-05","2026-06","2026-07","2026-08","2026-09",
-    "2026-10","2026-11","2026-12","2027-01","2027-02","2027-03",
-]
-FY27_SET   = set(FY27_MONTHS)
-CLOSED_SET    = {ym for ym in FY27_SET if ym < CURRENT_YM}
+FY_SET   = set(FY_MONTHS)
+CLOSED_SET    = {ym for ym in FY_SET if ym < CURRENT_YM}
 # Full prior FY (FY26) months, shifted back 1 year from FY27.
-LY_FULL_SET   = {f"{int(ym[:4])-1}-{ym[5:]}" for ym in FY27_SET}
+LY_FULL_SET   = {f"{int(ym[:4])-1}-{ym[5:]}" for ym in FY_SET}
 LAST_ACTUAL_YM = max(CLOSED_SET) if CLOSED_SET else "0000-00"  # e.g. '2026-07'
 
 METRIC_COLS = [
@@ -94,7 +98,7 @@ METRIC_COLS = [
 N_MET = len(METRIC_COLS)  # 29
 
 print(f"[{TODAY}]  Actuals: {ACTUALS_FROM} → {ACTUALS_TO}  |  LY: {LY_FROM} → {LY_TO}")
-print(f"Closed FY27 months: {sorted(CLOSED_SET)}")
+print(f"Closed FY{str(_FY)[-2:]} months: {sorted(CLOSED_SET)}")
 
 # ==============================================================================
 # 2) CONEXIÓN
@@ -1080,9 +1084,9 @@ _BUDGET_RENAME = {
 
 
 def _proy_ym(m) -> str:
-    """no_mes_proyectado (calendar month 1-12) → FY27 'YYYY-MM' (Apr-Dec→2026, Jan-Mar→2027)."""
+    """no_mes_proyectado (calendar month 1-12) → 'YYYY-MM' del FY en curso (Abr-Dic→FY-1, Ene-Mar→FY)."""
     mm = int(float(m))
-    y = 2026 if mm >= 4 else 2027
+    y = _FY - 1 if mm >= 4 else _FY
     return f"{y}-{mm:02d}"
 
 
@@ -1119,7 +1123,7 @@ def _build_b2b2c_budget_rows(df: pd.DataFrame, ym_from_proyectado: bool = False)
         df.loc[df["partner"] == "CUTC", "pais"] = "USA"
     df = _budget_ym(df, ym_from_proyectado)
     df["pais"] = _norm_pais(df["pais"])
-    df = df[df["ym"].isin(FY27_SET)]
+    df = df[df["ym"].isin(FY_SET)]
     df = _to_numeric(df, [c for c in METRIC_COLS if c in df.columns])
     df = df.groupby(["pais", "partner", "produto", "ym"], as_index=False).agg(
         {c: "sum" for c in METRIC_COLS if c in df.columns}
@@ -1143,7 +1147,7 @@ def _build_b2b_budget_rows(df: pd.DataFrame, lob_filter: str = None,
     df["pais"] = _norm_pais(df["pais"])
     if lob_filter:
         df = df[df["lob_canal"] == lob_filter]
-    df = df[df["ym"].isin(FY27_SET)]
+    df = df[df["ym"].isin(FY_SET)]
     if "produto" not in df.columns:
         df["produto"] = "Total"
     df = _to_numeric(df, [c for c in METRIC_COLS if c in df.columns])
@@ -1164,8 +1168,6 @@ def _build_b2b_budget_rows(df: pd.DataFrame, lob_filter: str = None,
 # Forecast goal = actuals hasta la base de la ronda de Forecast + la proyección después.
 # Mismo corte que Accounting: Inputs_Planning_PnL/config.py FORECAST_ACTUALS_CUTOFF (julio:
 # actuals abr-jul, Forecast ago-mar). Antes estaba fijo en junio acá y en julio en Accounting.
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "Inputs_Planning_PnL"))
-import config as _planning_cfg
 FC_ACTUAL_CUTOFF = _planning_cfg.FORECAST_ACTUALS_CUTOFF[:7]   # 'YYYY-MM'
 
 
@@ -1186,7 +1188,7 @@ def _stitch_baseline(ac_rows, rr_rows, fc_rows, bgt_rows, ym_idx):
     # Closed months come straight from actuals.
     out = [r for r in ac_rows if r[ym_idx] <= LAST_ACTUAL_YM]
     # Future months: pick the first source that has data for that month.
-    for ym in FY27_MONTHS:
+    for ym in FY_MONTHS:
         if ym <= LAST_ACTUAL_YM:
             continue
         for src in (rr_rows, fc_rows, bgt_rows):
@@ -1222,7 +1224,7 @@ def _read_fc_xlsx(fname: str, sheet: str, month_col: str) -> pd.DataFrame:
     df["_m"] = pd.to_numeric(df[month_col], errors="coerce")
     df = df.dropna(subset=["_m"])
     df["ym"] = df["_m"].apply(_proy_ym)
-    df = df[df["ym"].isin(FY27_SET)]
+    df = df[df["ym"].isin(FY_SET)]
     return df
 
 
@@ -1430,7 +1432,7 @@ output = {
     "actuals_to":    str(ACTUALS_TO),
     "actual_months": actual_months,
     "last_actual_ym": LAST_ACTUAL_YM,
-    "months":        FY27_MONTHS,
+    "months":        FY_MONTHS,
     "metrics":       METRIC_COLS,
     "b2b2c": {
         "ac": ac_b2b2c, "ly": ly_b2b2c, "bgt": bgt_b2b2c,
