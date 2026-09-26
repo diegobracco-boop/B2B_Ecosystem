@@ -597,7 +597,7 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
       <div class="home-hero-eyebrow">Despegar &nbsp;·&nbsp; B2B Ecosystem</div>
       <div class="home-hero-title">P&amp;L<br>Dash<br>board</div>
       <div class="home-hero-divider"></div>
-      <div class="home-hero-sub">Proyecciones y resultados contables<br>para B2B y B2B2C · FY27</div>
+      <div class="home-hero-sub">Proyecciones y resultados contables<br>para B2B y B2B2C · <?!= 'FY' + String(FY_END_YEAR).slice(-2) ?></div>
       <div class="home-hero-hint">seleccioná una sección para comenzar</div>
     </div>
 
@@ -646,7 +646,7 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
 <header>
   <div>
     <div class="logo">Despegar <span>P&amp;L Managerial View</span></div>
-    <div class="logo-sub">Finance Dashboard · FY27</div>
+    <div class="logo-sub">Finance Dashboard · <?!= 'FY' + String(FY_END_YEAR).slice(-2) ?></div>
   </div>
   <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;gap:6px;align-items:center">
     <button class="lob-btn" id="lob-b2b" onclick="switchLob('b2b')">B2B · Managerial View</button>
@@ -808,6 +808,21 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
+// ── Año fiscal: FY_END_YEAR viene de Codigo.js (único lugar a cambiar). Meses, labels
+// ('Abr-26'), trimestres/semestres y 'FY27' se derivan de acá (auditoría ola 4, 2026-09-25).
+var FY_END_YEAR = <?!= FY_END_YEAR ?>;
+var FY_TAG    = 'FY' + String(FY_END_YEAR).slice(-2);       // 'FY27'
+var FY_LY_TAG = 'FY' + String(FY_END_YEAR - 1).slice(-2);   // 'FY26'
+var FY_MES_ES = ['Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic','Ene','Feb','Mar'];
+var FY_YMS = FY_MES_ES.map(function(m, i){
+  var y = i < 9 ? FY_END_YEAR - 1 : FY_END_YEAR, mm = ((i + 3) % 12) + 1;
+  return y + '-' + (mm < 10 ? '0' : '') + mm;
+});
+var FY_MLABELS = FY_YMS.map(function(ym, i){ return FY_MES_ES[i] + '-' + ym.slice(2, 4); });  // 'Abr-26'…'Mar-27'
+function fyShiftLabel_(lbl, n){   // 'Abr-26' → 'Abr-25' (n = -1)
+  return String(lbl).replace(/-(\d\d)$/, function(_, y){ return '-' + ('0' + (Number(y) + n)).slice(-2); });
+}
+function fyStripYear_(lbl){ return String(lbl).replace(/-\d\d$/, ''); }   // 'Abr-26' → 'Abr'
 var _data = null;
 var _targetMode = null; // null | 'budget'
 var _deltaData     = null;
@@ -855,24 +870,16 @@ var _dataD = null;                // Detalle — su propio _data
 var _paisSelectedD = [];          // Detalle — filtro de país (client-side, sin refetch)
 var _dFetchSeq = 0;
 
-var MES_LABEL_C = {
-  4:'Abr-26', 5:'May-26', 6:'Jun-26',
-  7:'Jul-26', 8:'Ago-26', 9:'Sep-26',
-  10:'Oct-26', 11:'Nov-26', 12:'Dic-26',
-  1:'Ene-27', 2:'Feb-27', 3:'Mar-27'
-};
+var MES_LABEL_C = {};   // mes calendario (1-12) → 'Abr-26'
+FY_YMS.forEach(function(ym, i){ MES_LABEL_C[Number(ym.slice(5))] = FY_MLABELS[i]; });
 
-var QUARTERS = [
-  { label:'Q1 FY27', months:['Abr-26','May-26','Jun-26'] },
-  { label:'Q2 FY27', months:['Jul-26','Ago-26','Sep-26'] },
-  { label:'Q3 FY27', months:['Oct-26','Nov-26','Dic-26'] },
-  { label:'Q4 FY27', months:['Ene-27','Feb-27','Mar-27'] }
-];
-var HALVES = [
-  { label:'H1 FY27', months:['Abr-26','May-26','Jun-26','Jul-26','Ago-26','Sep-26'] },
-  { label:'H2 FY27', months:['Oct-26','Nov-26','Dic-26','Ene-27','Feb-27','Mar-27'] }
-];
-var ALL_MONTHS_ORD_BG = ['Abr-26','May-26','Jun-26','Jul-26','Ago-26','Sep-26','Oct-26','Nov-26','Dic-26','Ene-27','Feb-27','Mar-27'];
+var QUARTERS = [0,1,2,3].map(function(q){
+  return { label:'Q' + (q + 1) + ' ' + FY_TAG, months: FY_MLABELS.slice(q * 3, q * 3 + 3) };
+});
+var HALVES = [0,1].map(function(h){
+  return { label:'H' + (h + 1) + ' ' + FY_TAG, months: FY_MLABELS.slice(h * 6, h * 6 + 6) };
+});
+var ALL_MONTHS_ORD_BG = FY_MLABELS.slice();
 
 function aggregatePeriods(sourceAgg, groups, availMonths) {
   var result = {};
@@ -1715,16 +1722,9 @@ function periodCols_(months, mode){
       return {label:c.label, months:c.months.filter(function(m){return months.indexOf(m)>=0;})};
     }).filter(function(c){ return c.months.length; });
   }
-  if(mode==='quarter') return pick([
-    {label:'Q1', months:['Abr-26','May-26','Jun-26']},
-    {label:'Q2', months:['Jul-26','Ago-26','Sep-26']},
-    {label:'Q3', months:['Oct-26','Nov-26','Dic-26']},
-    {label:'Q4', months:['Ene-27','Feb-27','Mar-27']}
-  ]);
-  if(mode==='half') return pick([
-    {label:'H1', months:['Abr-26','May-26','Jun-26','Jul-26','Ago-26','Sep-26']},
-    {label:'H2', months:['Oct-26','Nov-26','Dic-26','Ene-27','Feb-27','Mar-27']}
-  ]);
+  var short = function(g){ return {label:g.label.split(' ')[0], months:g.months}; };
+  if(mode==='quarter') return pick(QUARTERS.map(short));
+  if(mode==='half') return pick(HALVES.map(short));
   return months.map(function(m){ return {label:m, months:[m]}; });
 }
 function detalleCols_(months){ return periodCols_(months, _managerialBGPeriod); }
@@ -2112,17 +2112,13 @@ function render(){
 }
 
 // ── Baseline vs Goal (Managerial) ──────────────────────────────────────────
-var MG_MONTHS_ORD = ['Abr-26','May-26','Jun-26','Jul-26','Ago-26','Sep-26','Oct-26','Nov-26','Dic-26','Ene-27','Feb-27','Mar-27'];
+var MG_MONTHS_ORD = FY_MLABELS.slice();
+var MG_TOTAL_LABEL = 'Total ' + FY_TAG;
 
 function mgPeriodMonths_(p){
-  if(p==='Q1 FY27') return ['Abr-26','May-26','Jun-26'];
-  if(p==='Q2 FY27') return ['Jul-26','Ago-26','Sep-26'];
-  if(p==='Q3 FY27') return ['Oct-26','Nov-26','Dic-26'];
-  if(p==='Q4 FY27') return ['Ene-27','Feb-27','Mar-27'];
-  if(p==='H1 FY27') return ['Abr-26','May-26','Jun-26','Jul-26','Ago-26','Sep-26'];
-  if(p==='H2 FY27') return ['Oct-26','Nov-26','Dic-26','Ene-27','Feb-27','Mar-27'];
-  if(p==='Total FY27') return MG_MONTHS_ORD;
-  return [p];
+  if(p===MG_TOTAL_LABEL) return MG_MONTHS_ORD;
+  var g = QUARTERS.concat(HALVES).filter(function(x){ return x.label===p; })[0];
+  return g ? g.months.slice() : [p];
 }
 
 function mgAggPeriod_(data, months){
@@ -2142,23 +2138,21 @@ function _mgFilterPeriods_(full){
 
 function mgGetPeriods_(){
   var mode = _managerialBGPeriod;
-  if(mode === 'month') return _mgFilterPeriods_(_data.months||[]).concat(['Total FY27']);
-  if(mode === 'half')  return _mgFilterPeriods_(['H1 FY27','H2 FY27']).concat(['Total FY27']);
-  return _mgFilterPeriods_(['Q1 FY27','Q2 FY27','Q3 FY27','Q4 FY27']).concat(['Total FY27']);
+  if(mode === 'month') return _mgFilterPeriods_(_data.months||[]).concat([MG_TOTAL_LABEL]);
+  if(mode === 'half')  return _mgFilterPeriods_(HALVES.map(function(h){ return h.label; })).concat([MG_TOTAL_LABEL]);
+  return _mgFilterPeriods_(QUARTERS.map(function(q){ return q.label; })).concat([MG_TOTAL_LABEL]);
 }
 
-var MG_MONTH_CHIP_LABELS = {
-  'Abr-26':'Abr','May-26':'May','Jun-26':'Jun','Jul-26':'Jul','Ago-26':'Ago','Sep-26':'Sep',
-  'Oct-26':'Oct','Nov-26':'Nov','Dic-26':'Dic','Ene-27':'Ene','Feb-27':'Feb','Mar-27':'Mar'
-};
+var MG_MONTH_CHIP_LABELS = {};   // 'Abr-26' → 'Abr'
+FY_MLABELS.forEach(function(l){ MG_MONTH_CHIP_LABELS[l] = fyStripYear_(l); });
 
 function renderMGPeriodChips_(){
   var wrap = document.getElementById('mg-period-chips');
   if(!wrap) return;
   var items;
   if(_managerialBGPeriod === 'month') items = (_data && _data.months ? _data.months : MG_MONTHS_ORD).map(function(p){ return {v:p, l: MG_MONTH_CHIP_LABELS[p]||p}; });
-  else if(_managerialBGPeriod === 'half') items = ['H1 FY27','H2 FY27'].map(function(p){ return {v:p, l:p.split(' ')[0]}; });
-  else items = ['Q1 FY27','Q2 FY27','Q3 FY27','Q4 FY27'].map(function(p){ return {v:p, l:p.split(' ')[0]}; });
+  else if(_managerialBGPeriod === 'half') items = HALVES.map(function(h){ return h.label; }).map(function(p){ return {v:p, l:p.split(' ')[0]}; });
+  else items = QUARTERS.map(function(q){ return q.label; }).map(function(p){ return {v:p, l:p.split(' ')[0]}; });
   var allActive = !_mgPeriodSel || !_mgPeriodSel.length;
   var html = '<button type="button" class="bg-pchip'+(allActive?' bg-pchip-active':'')+'" onclick="clearMGPeriodSel_()">Todos</button>';
   items.forEach(function(it){
@@ -2189,8 +2183,8 @@ function clearMGPeriodSel_(){
 }
 function mgGoalPeriodLabel_(p){
   if(_managerialGoal !== 'ly') return p;
-  if(p.indexOf('FY27') >= 0) return p.replace('FY27','FY26');
-  return p.replace('-26','-25').replace('-27','-26');
+  if(p.indexOf(FY_TAG) >= 0) return p.replace(FY_TAG, FY_LY_TAG);
+  return fyShiftLabel_(p, -1);
 }
 function mgDeltaPeriodLabel_(p){
   return 'Δ ' + p.replace(/ FY\d+/,'');
@@ -2443,7 +2437,7 @@ function renderManagerialBGTable(){
 
   var periods   = mgGetPeriods_();
   var n         = periods.length;
-  var isLast    = function(p){ return p === 'Total FY27'; };
+  var isLast    = function(p){ return p === MG_TOTAL_LABEL; };
   var goalLabel = _managerialGoal === 'ly' ? 'LAST YEAR'
                 : _managerialGoal === 'forecast' ? 'FORECAST' : 'BUDGET';
   // scenario prefix on _data.* : budget→'budget', forecast→'forecast', ly→'ly'
@@ -3087,10 +3081,6 @@ function _ymToShort(ym) {
   return _MES_LABEL_SHORT[parts[1]] + '-' + parts[0].slice(2);
 }
 
-var _FY27_YMS = [
-  '2026-04','2026-05','2026-06','2026-07','2026-08','2026-09',
-  '2026-10','2026-11','2026-12','2027-01','2027-02','2027-03'
-];
 
 function updateActualsLegend(actualMonths) {
   var el = document.getElementById('actuals-legend');
@@ -3098,7 +3088,7 @@ function updateActualsLegend(actualMonths) {
   if (!actualMonths || !actualMonths.length) { el.style.display = 'none'; return; }
   var actSet = {};
   actualMonths.forEach(function(ym){ actSet[ym] = true; });
-  var projMonths = _FY27_YMS.filter(function(ym){ return !actSet[ym]; });
+  var projMonths = FY_YMS.filter(function(ym){ return !actSet[ym]; });
 
   var actLabel  = _ymToShort(actualMonths[0]) + ' – ' + _ymToShort(actualMonths[actualMonths.length - 1]);
   var projLabel = projMonths.length
@@ -3573,7 +3563,7 @@ function renderTrendCharts(months, agg, budgetAgg, lyAgg){
     };
   }
 
-  // ── FY27 charts (Abr-26 → Mar-27) ─────────────────────────────────────────
+  // ── Charts del FY (Abr → Mar) ─────────────────────────────────────────
   var chartMonths = months;
   var cutoffIdx = -1;
   chartMonths.forEach(function(ml, i) { if(actualLabelSet[ml]) cutoffIdx = i; });
@@ -3619,7 +3609,7 @@ function renderTrendCharts(months, agg, budgetAgg, lyAgg){
     var th0=document.createElement('th'); th0.textContent='Partner'; htr.appendChild(th0);
     cols.forEach(function(col){
       var th=document.createElement('th');
-      th.textContent=col.label.replace('-26','').replace('-27',''); htr.appendChild(th);
+      th.textContent=fyStripYear_(col.label); htr.appendChild(th);
     });
     var thT=document.createElement('th'); thT.textContent='Total'; thT.className='td-total-col'; htr.appendChild(thT);
     table.appendChild(htr);
@@ -3902,7 +3892,7 @@ function renderTrendCharts(months, agg, budgetAgg, lyAgg){
       var htr=document.createElement('tr');
       var th0=document.createElement('th'); th0.textContent=''; htr.appendChild(th0);
       chartMonths.forEach(function(m){
-        var th=document.createElement('th'); th.textContent=m.replace('-26','').replace('-27',''); htr.appendChild(th);
+        var th=document.createElement('th'); th.textContent=fyStripYear_(m); htr.appendChild(th);
       });
       var thT=document.createElement('th'); thT.textContent='Total'; thT.className='td-total-col'; htr.appendChild(thT);
       table.appendChild(htr);
