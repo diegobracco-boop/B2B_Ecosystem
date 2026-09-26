@@ -957,7 +957,7 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
         <div class="sync-admin-title">Sincronizar datos con BITUBIA</div>
         <div class="sync-action">
           <div class="sync-action-info">
-            <strong>Actuals FY27</strong>
+            <strong>Actuals <?!= 'FY' + String(FY_END_YEAR).slice(-2) ?></strong>
             <span>Actualiza actuals del año en curso</span>
             <div class="sync-action-status" id="sa-actuals-status"></div>
           </div>
@@ -966,7 +966,7 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
         <div class="sync-action">
           <div class="sync-action-info">
             <strong>Run Rate</strong>
-            <span>Actualiza run rate FY27</span>
+            <span>Actualiza run rate <?!= 'FY' + String(FY_END_YEAR).slice(-2) ?></span>
             <div class="sync-action-status" id="sa-runrate-status"></div>
           </div>
           <button class="sync-action-btn" onclick="runSync('runrate')">Ejecutar</button>
@@ -1259,9 +1259,9 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
     </div>
   </div>
 
-  <!-- Drilldown FY27 line charts -->
+  <!-- Drilldown FY line charts -->
   <div class="sec" id="drilldown-section">
-    <div class="sec-title" id="drilldown-title">FY27 Drill-down — Evolución mensual por métrica</div>
+    <div class="sec-title" id="drilldown-title"><?!= 'FY' + String(FY_END_YEAR).slice(-2) ?> Drill-down — Evolución mensual por métrica</div>
     <div class="drilldown-grid">
 
       <!-- GB -->
@@ -1340,7 +1340,7 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
           </div>
         </div>
       </div>
-      <div class="evo-subtitle">FY27 · Abr 2026 → Mar 2027 · Actuals + Run Rate, vs Budget</div>
+      <div class="evo-subtitle"><?!= 'FY' + String(FY_END_YEAR).slice(-2) ?> · Abr <?!= FY_END_YEAR - 1 ?> → Mar <?!= FY_END_YEAR ?> · Actuals + Run Rate, vs Budget</div>
       <!-- scroll compartido: chart + tabla se desplazan juntos -->
       <div style="overflow-x:auto;margin:8px -22px 0">
         <div id="mkt-inner" style="min-width:960px;padding:0 22px 18px">
@@ -1714,7 +1714,7 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
 
     <div style="margin-bottom:14px">
       <div class="sec-title" style="margin-bottom:2px" id="brasil-summary-title">Country · One Page</div>
-      <div style="font-size:11px;color:var(--muted)">Performance por país · FY27 · Actuals + Run Rate</div>
+      <div style="font-size:11px;color:var(--muted)">Performance por país · <?!= 'FY' + String(FY_END_YEAR).slice(-2) ?> · Actuals + Run Rate</div>
     </div>
 
     <!-- Filtros -->
@@ -1731,7 +1731,7 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
       <div style="width:1px;background:var(--border);align-self:stretch;flex-shrink:0;margin:0 2px"></div>
       <!-- Período -->
       <div style="flex:1;min-width:200px">
-        <div class="ctry-filter-label">Período · FY27</div>
+        <div class="ctry-filter-label">Período · <?!= 'FY' + String(FY_END_YEAR).slice(-2) ?></div>
         <div style="display:flex;flex-direction:column;gap:4px">
           <div class="ctry-btn-row" id="ctry-period-row1"></div>
           <div class="ctry-btn-row" id="ctry-period-row2"></div>
@@ -1874,13 +1874,17 @@ function openExt(key) {
 // ══════════════════════════════════════════════════════════
 var IS_DEMO = (typeof google === 'undefined' || !google.script);
 
-// FY26 months: Apr 2026 – Mar 2027
-var FY26_MONTHS = (function(){
+// ── Año fiscal: FY_END_YEAR viene de Codigo.js (fyEndYear_, único lugar a cambiar).
+// FY_MONTHS = ['2026-04', …, '2027-03'] para FY27 (auditoría ola 4, 2026-09-25).
+var FY_END_YEAR = <?!= FY_END_YEAR ?>;
+var FY_TAG = 'FY' + String(FY_END_YEAR).slice(-2);   // 'FY27'
+var FY_MONTHS = (function(){
   var out = [];
-  for (var m = 4; m <= 12; m++) out.push('2026-' + String(m).padStart(2,'0'));
-  for (var m = 1; m <= 3;  m++) out.push('2027-' + String(m).padStart(2,'0'));
+  for (var m = 4; m <= 12; m++) out.push((FY_END_YEAR - 1) + '-' + String(m).padStart(2,'0'));
+  for (var m = 1; m <= 3;  m++) out.push(FY_END_YEAR + '-' + String(m).padStart(2,'0'));
   return out;
 }());
+function fyRangeH_(a, b){ return { desde: FY_MONTHS[a], hasta: FY_MONTHS[b] }; }
 
 // Selección por default: se sobreescribe al recibir filtros del backend
 var _defaultPeriod = '';  // último mes de actuals (se llena en populateFilters)
@@ -2525,7 +2529,7 @@ function buildPeriodPicker() {
   // Group months → { fy: { quarter: [ym, ...] } }
   var tree = {};        // fyKey → { Q1:[], Q2:[], Q3:[], Q4:[] }
   var fyOrder = [];     // mantener orden de aparición
-  FY26_MONTHS.forEach(function(ym) {
+  FY_MONTHS.forEach(function(ym) {
     var mm  = ym.split('-')[1];
     var fy  = _fyOf(ym);
     var qtr = _fyQof(mm);
@@ -2722,7 +2726,7 @@ function switchNumFmt(btn) {
 
 // Leer checkboxes sin aplicar aún
 function _readChecked() {
-  return FY26_MONTHS.filter(function(ym){
+  return FY_MONTHS.filter(function(ym){
     var cb = document.getElementById('pc-'+ym);
     return cb && cb.checked;
   });
@@ -2740,8 +2744,8 @@ function applyPeriod() {
 
 // Solo este: selecciona únicamente el último mes con actuals
 function soloEste() {
-  var target = _defaultPeriod || FY26_MONTHS[0];
-  FY26_MONTHS.forEach(function(ym){
+  var target = _defaultPeriod || FY_MONTHS[0];
+  FY_MONTHS.forEach(function(ym){
     var cb = document.getElementById('pc-'+ym);
     if (cb) cb.checked = (ym === target);
   });
@@ -2771,15 +2775,15 @@ function populateFilters() {
 
   // Default: seleccionar solo el último mes con datos de actuals
   _defaultPeriod = f.lastActuals || '';
-  if (_defaultPeriod && FY26_MONTHS.indexOf(_defaultPeriod) >= 0) {
+  if (_defaultPeriod && FY_MONTHS.indexOf(_defaultPeriod) >= 0) {
     // Es un mes FY26 con actuals: seleccionarlo solo
     _state.selectedPeriods = [_defaultPeriod];
-  } else if (_defaultPeriod && _defaultPeriod < FY26_MONTHS[0]) {
+  } else if (_defaultPeriod && _defaultPeriod < FY_MONTHS[0]) {
     // El último actuals es anterior a FY26: seleccionar primer mes FY26
-    _state.selectedPeriods = [FY26_MONTHS[0]];
+    _state.selectedPeriods = [FY_MONTHS[0]];
   } else {
     // Fallback: primer mes FY26
-    _state.selectedPeriods = [FY26_MONTHS[0]];
+    _state.selectedPeriods = [FY_MONTHS[0]];
   }
   buildPeriodPicker();
   updatePeriodLabel();
@@ -3657,11 +3661,11 @@ function _groupEvo(d, m, gbM, goalKey, granOverride) {
     if (!gmap[key]) {
       gmap[key] = { key:key, label:_granLabel(ym,gran),
         actuals:0, goal:0, budget:0, runRate:0, forecast:0, gbAct:0, gbBud:0, lyAct:0,
-        hasAct:false, hasGoal:false, hasRR:false, hasFc:false, lyCount:0, isFY27:false };
+        hasAct:false, hasGoal:false, hasRR:false, hasFc:false, lyCount:0, isFY:false };
       groups.push(key);
     }
     var g = gmap[key];
-    if (ym>='2026-04' && ym<='2027-03') g.isFY27 = true;
+    if (ym>=FY_MONTHS[0] && ym<=FY_MONTHS[11]) g.isFY = true;
     var aVal=m.actuals[i], bVal=goalArr[i], budVal=m.budget[i], rrVal=m.runRate?m.runRate[i]:null;
     if(aVal!==null&&aVal!==undefined){ g.actuals+=aVal; g.hasAct=true; }
     if(bVal!==null&&bVal!==undefined&&bVal!==0){ g.goal+=bVal; g.hasGoal=true; }
@@ -3690,7 +3694,7 @@ function _groupEvo(d, m, gbM, goalKey, granOverride) {
       gbAct:    g.gbAct   || null,
       gbBud:    g.gbBud   || null,
       lyAct:    g.lyCount>0 ? g.lyAct : null,
-      isFY27:   g.isFY27
+      isFY:     g.isFY
     };
   });
 }
@@ -4084,12 +4088,11 @@ function renderDrilldown() {
                : _state.lob === 'b2b2c' ? 'B2B2C'
                : 'B2B+B2B2C';
 
-  // FY27 months are Apr 2026 – Mar 2027
-  var fy27Months = FY26_MONTHS;  // already defined globally
+  var fy27Months = FY_MONTHS;  // meses del FY (global)
 
   // Drilldown title update
   var titleEl = document.getElementById('drilldown-title');
-  if (titleEl) titleEl.textContent = 'FY27 Drill-down — Evolución mensual por métrica · ' + lobLabel;
+  if (titleEl) titleEl.textContent = FY_TAG + ' Drill-down — Evolución mensual por métrica · ' + lobLabel;
 
   // If no evo data, hide section
   var sec = document.getElementById('drilldown-section');
@@ -4184,15 +4187,15 @@ function renderDrilldown() {
     })() : null;
 
     var seriesDefs = [
-      { key:'s0', label: lobLabel + ' Actuals+RR FY27', data: combinedArr,
+      { key:'s0', label: lobLabel + ' Actuals+RR ' + FY_TAG, data: combinedArr,
         color:'#5457D9', dash:[], pointR:3 },
-      { key:'s1', label: lobLabel + ' Budget FY27',     data: budgetArr,
+      { key:'s1', label: lobLabel + ' Budget ' + FY_TAG,     data: budgetArr,
         color:'#EAB308', dash:[5,3], pointR:2 },
       { key:'s2', label: lobLabel + ' Last Year',       data: lyArr,
         color:'rgba(140,149,159,.8)', dash:[3,3], pointR:2 },
-      { key:'s3', label: 'B2C Actuals+RR FY27',         data: b2cCombined,
+      { key:'s3', label: 'B2C Actuals+RR ' + FY_TAG,         data: b2cCombined,
         color:'#10b981', dash:[], pointR:3 },
-      { key:'s4', label: 'B2C Budget FY27',             data: b2cBudget,
+      { key:'s4', label: 'B2C Budget ' + FY_TAG,             data: b2cBudget,
         color:'rgba(16,185,129,.5)', dash:[5,3], pointR:2 },
       { key:'s5', label: 'B2C Last Year',               data: b2cLY,
         color:'#f97316', dash:[3,3], pointR:2 }
@@ -4426,7 +4429,7 @@ function renderOKR(okr) {
 
   var html =
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
-    +'<span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em">OKR Status FY27 · '+_halfSel+'</span>'
+    +'<span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em">OKR Status '+FY_TAG+' · '+_halfSel+'</span>'
     +'<div style="display:flex;gap:6px">'
     +(_state.okrAll ? _halfBtn('H1')+_halfBtn('H2') : '')
     +'<button id="okr-toggle-nom" class="gran-btn" onclick="toggleOKRNominal()" style="font-size:11px">'
@@ -4562,28 +4565,18 @@ function onErr(e){ document.getElementById('loader').innerHTML='<p style="color:
 // ══════════════════════════════════════════════════════════
 var _brasilState = { b2bData: null, b2b2cData: null, allData: null };
 
-// Todos los períodos disponibles: FY27 = Abr 2026 – Mar 2027
+// Todos los períodos disponibles del FY (FY_MONTHS: abr → mar)
 var CTRY_PERIODS = [
-  { id:'FY',  label:'FY27', desde:'2026-04', hasta:'2027-03', row:1 },
-  { id:'H1',  label:'H1',   desde:'2026-04', hasta:'2026-09', row:1 },
-  { id:'H2',  label:'H2',   desde:'2026-10', hasta:'2027-03', row:1 },
-  { id:'Q1',  label:'Q1',   desde:'2026-04', hasta:'2026-06', row:1 },
-  { id:'Q2',  label:'Q2',   desde:'2026-07', hasta:'2026-09', row:1 },
-  { id:'Q3',  label:'Q3',   desde:'2026-10', hasta:'2026-12', row:1 },
-  { id:'Q4',  label:'Q4',   desde:'2027-01', hasta:'2027-03', row:1 },
-  { id:'Apr', label:'Abr',  desde:'2026-04', hasta:'2026-04', row:2 },
-  { id:'May', label:'May',  desde:'2026-05', hasta:'2026-05', row:2 },
-  { id:'Jun', label:'Jun',  desde:'2026-06', hasta:'2026-06', row:2 },
-  { id:'Jul', label:'Jul',  desde:'2026-07', hasta:'2026-07', row:2 },
-  { id:'Aug', label:'Ago',  desde:'2026-08', hasta:'2026-08', row:2 },
-  { id:'Sep', label:'Sep',  desde:'2026-09', hasta:'2026-09', row:2 },
-  { id:'Oct', label:'Oct',  desde:'2026-10', hasta:'2026-10', row:2 },
-  { id:'Nov', label:'Nov',  desde:'2026-11', hasta:'2026-11', row:2 },
-  { id:'Dec', label:'Dic',  desde:'2026-12', hasta:'2026-12', row:2 },
-  { id:'Jan', label:'Ene',  desde:'2027-01', hasta:'2027-01', row:2 },
-  { id:'Feb', label:'Feb',  desde:'2027-02', hasta:'2027-02', row:2 },
-  { id:'Mar', label:'Mar',  desde:'2027-03', hasta:'2027-03', row:2 }
-];
+  { id:'FY',  label:FY_TAG, desde:FY_MONTHS[0], hasta:FY_MONTHS[11], row:1 },
+  { id:'H1',  label:'H1',   desde:FY_MONTHS[0], hasta:FY_MONTHS[5],  row:1 },
+  { id:'H2',  label:'H2',   desde:FY_MONTHS[6], hasta:FY_MONTHS[11], row:1 },
+  { id:'Q1',  label:'Q1',   desde:FY_MONTHS[0], hasta:FY_MONTHS[2],  row:1 },
+  { id:'Q2',  label:'Q2',   desde:FY_MONTHS[3], hasta:FY_MONTHS[5],  row:1 },
+  { id:'Q3',  label:'Q3',   desde:FY_MONTHS[6], hasta:FY_MONTHS[8],  row:1 },
+  { id:'Q4',  label:'Q4',   desde:FY_MONTHS[9], hasta:FY_MONTHS[11], row:1 }
+].concat([['Apr','Abr'],['May','May'],['Jun','Jun'],['Jul','Jul'],['Aug','Ago'],['Sep','Sep'],
+          ['Oct','Oct'],['Nov','Nov'],['Dec','Dic'],['Jan','Ene'],['Feb','Feb'],['Mar','Mar']]
+  .map(function(p, i){ return { id:p[0], label:p[1], desde:FY_MONTHS[i], hasta:FY_MONTHS[i], row:2 }; }));
 
 // Fila 1: Todos / Brasil / Mexico / Argentina / Globales
 // Fila 2: Colombia / Chile / Perú / Ecuador / RG
@@ -4617,7 +4610,7 @@ var _ctryGranState        = 'M';
 function _initBrasilFilters_() {
   // Período default: el quarter que contiene el último mes con actuals
   if (!_brasilPeriodState) {
-    var def = _defaultPeriod || '2026-06';
+    var def = _defaultPeriod || FY_MONTHS[2];   // fallback: fin de Q1
     _brasilPeriodState = CTRY_PERIODS[3]; // Q1 fallback
     for (var i = 0; i < CTRY_PERIODS.length; i++) {
       var p = CTRY_PERIODS[i];
@@ -5328,14 +5321,14 @@ var MKT_MON_LABELS = (function(){
 
 function mktGroups(gran) {
   if (gran === 'Q') return [
-    { label:'Q1 FY27', months:['2026-04','2026-05','2026-06'] },
-    { label:'Q2 FY27', months:['2026-07','2026-08','2026-09'] },
-    { label:'Q3 FY27', months:['2026-10','2026-11','2026-12'] },
-    { label:'Q4 FY27', months:['2027-01','2027-02','2027-03'] }
+    { label:'Q1 ' + FY_TAG, months:FY_MONTHS.slice(0, 3) },
+    { label:'Q2 ' + FY_TAG, months:FY_MONTHS.slice(3, 6) },
+    { label:'Q3 ' + FY_TAG, months:FY_MONTHS.slice(6, 9) },
+    { label:'Q4 ' + FY_TAG, months:FY_MONTHS.slice(9, 12) }
   ];
   if (gran === 'H') return [
-    { label:'H1 FY27', months:['2026-04','2026-05','2026-06','2026-07','2026-08','2026-09'] },
-    { label:'H2 FY27', months:['2026-10','2026-11','2026-12','2027-01','2027-02','2027-03'] }
+    { label:'H1 ' + FY_TAG, months:FY_MONTHS.slice(0, 6) },
+    { label:'H2 ' + FY_TAG, months:FY_MONTHS.slice(6, 12) }
   ];
   return MKT_MON_LABELS.map(function(ym) {
     var p = ym.split('-');
@@ -6741,10 +6734,10 @@ var CIERRE_ACTIVE_SCOPES = [
 
 // Meses disponibles para el cierre: desde Abr hasta el último con actuals, más reciente primero.
 function _cierreMonthsAvailable(){
-  var end = (_defaultPeriod && FY26_MONTHS.indexOf(_defaultPeriod) >= 0)
-    ? FY26_MONTHS.indexOf(_defaultPeriod) : FY26_MONTHS.length - 1;
+  var end = (_defaultPeriod && FY_MONTHS.indexOf(_defaultPeriod) >= 0)
+    ? FY_MONTHS.indexOf(_defaultPeriod) : FY_MONTHS.length - 1;
   var out = [];
-  for (var i = end; i >= 0; i--) out.push(FY26_MONTHS[i]);
+  for (var i = end; i >= 0; i--) out.push(FY_MONTHS[i]);
   return out;
 }
 function _cierreMonthLong(ym){
@@ -6855,7 +6848,7 @@ function _cierreOkrHTML_(okrAll, lobKey){
   if (!okrAll) return noData;
   var selEl = document.getElementById('cierre-mes-sel');
   var mes   = selEl ? selEl.value : '';                       // 'YYYY-MM'
-  var half  = (mes && mes < '2026-10') ? 'H1' : 'H2';         // FY27: H1 = abr-sep 2026, H2 = oct-26 → mar-27
+  var half  = (mes && mes < FY_MONTHS[6]) ? 'H1' : 'H2';       // H1 = abr-sep, H2 = oct → mar
   var okr   = okrAll[half] || okrAll[half === 'H1' ? 'H2' : 'H1'];
   if (!okr) return noData;
   var savedLob = _state.lob, savedMonthly = _okrMonthly, savedHalf = _okrHalf;
@@ -6888,7 +6881,7 @@ function openCierreSlides(){
   var selEl  = document.getElementById('cierre-mes-sel');
   var months = _cierreMonthsAvailable();
   var sel    = (_state.selectedPeriods||[]).slice().sort();
-  var refMonth = sel.length ? sel[sel.length-1] : (_defaultPeriod || months[0] || FY26_MONTHS[0]);
+  var refMonth = sel.length ? sel[sel.length-1] : (_defaultPeriod || months[0] || FY_MONTHS[0]);
   if (months.indexOf(refMonth) < 0) refMonth = months[0] || refMonth;
   selEl.innerHTML = months.map(function(ym){
     return '<option value="'+ym+'"'+(ym===refMonth?' selected':'')+'>'+_cierreMonthLong(ym)+'</option>';
@@ -6909,7 +6902,7 @@ function _cierreGenerate(){
   var body  = document.getElementById('cierre-body');
   body.innerHTML = '<div class="cierre-loading">⏳ Generando slides del cierre…</div>';
 
-  var refMonth = (selEl && selEl.value) ? selEl.value : (_defaultPeriod || FY26_MONTHS[0]);
+  var refMonth = (selEl && selEl.value) ? selEl.value : (_defaultPeriod || FY_MONTHS[0]);
   var mesLbl  = _cierreMonthShort(refMonth);
   var fyLbl   = _cierreFYLabel(refMonth);   // usado en _cierreLastPayload (título del deck exportado)
   var baselineSrc = _state.baselineSource || 'baseline';

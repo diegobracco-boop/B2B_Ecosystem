@@ -66,25 +66,26 @@ var OKR_CONFIG_H2 = {
   }
 };
 
-// Semestres FY27 (el FY arranca en abril). Q1 abr-jun · Q2 jul-sep · Q3 oct-dic · Q4 ene-mar.
+// Semestres del FY (arranca en abril). Q1 abr-jun · Q2 jul-sep · Q3 oct-dic · Q4 ene-mar.
+// Los meses salen de fyMonths_() (Codigo.js); OKR_CONFIG_H1/H2 son los KRs de cada semestre.
 var OKR_HALVES = {
   'H1': {
     label: 'H1',
     config: OKR_CONFIG_H1,
     quarters: [
-      { label:'Q1', months:['2026-04','2026-05','2026-06'] },
-      { label:'Q2', months:['2026-07','2026-08','2026-09'] }
+      { label:'Q1', months: fyMonths_().slice(0, 3) },
+      { label:'Q2', months: fyMonths_().slice(3, 6) }
     ],
-    periods: ['2026-04','2026-05','2026-06','2026-07','2026-08','2026-09']
+    periods: fyMonths_().slice(0, 6)
   },
   'H2': {
     label: 'H2',
     config: OKR_CONFIG_H2,
     quarters: [
-      { label:'Q3', months:['2026-10','2026-11','2026-12'] },
-      { label:'Q4', months:['2027-01','2027-02','2027-03'] }
+      { label:'Q3', months: fyMonths_().slice(6, 9) },
+      { label:'Q4', months: fyMonths_().slice(9, 12) }
     ],
-    periods: ['2026-10','2026-11','2026-12','2027-01','2027-02','2027-03']
+    periods: fyMonths_().slice(6, 12)
   }
 };
 

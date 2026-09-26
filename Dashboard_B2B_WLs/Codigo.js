@@ -14,6 +14,28 @@ var JSON_IDS = {
 };
 // Actualizar cuando se regenera baseline_actuals+projections.json
 // (+ bump de v: en makeCacheKey_ acá y en Codigo_country_page.js para invalidar el cache)
+// ── Año fiscal ─────────────────────────────────────────────────────────────
+// ÚNICO valor a cambiar al pasar de FY (abril): fyEndYear_() = 2027 → FY27 = abr-2026 … mar-2027.
+// Es una función (no un var) porque Codigo_OKR.js / Codigo_country_page.js lo usan al cargar y
+// Apps Script no garantiza el orden de carga de los archivos; las funciones sí están siempre.
+// dashboard.html lo recibe por el template (FY_END_YEAR). Auditoría ola 4, 2026-09-25.
+function fyEndYear_() { return 2027; }
+function fyMonths_() {   // ['2026-04', …, '2027-03']
+  var y = fyEndYear_(), out = [];
+  for (var i = 0; i < 12; i++) {
+    var mm = ((i + 3) % 12) + 1;
+    out.push((i < 9 ? y - 1 : y) + '-' + (mm < 10 ? '0' : '') + mm);
+  }
+  return out;
+}
+function fyRange_(fromIdx, toIdx) {   // índices 0..11 del FY → { desde, hasta }
+  var m = fyMonths_();
+  return { desde: m[fromIdx], hasta: m[toIdx] };
+}
+var FY_END_YEAR = fyEndYear_();
+var FY_START_YM = fyMonths_()[0];    // '2026-04'
+var FY_END_YM   = fyMonths_()[11];   // '2027-03'
+
 var LAST_ACTUALS_YM = '2026-08';   // último mes con actuals reales
 var LAST_RR_YM      = '2026-09';   // 1er mes proyectado del baseline (informativo, no se usa en la lógica)
 
@@ -335,12 +357,7 @@ function preComputeAll() {
 
   // Pre-warm quarterly ranges — pais='all' (vista más común del dashboard principal)
   // Incluye b2b × canal may/min para usuarios que filtran por canal
-  var FY_QUARTERS = [
-    { desde:'2026-04', hasta:'2026-06' },
-    { desde:'2026-07', hasta:'2026-09' },
-    { desde:'2026-10', hasta:'2026-12' },
-    { desde:'2027-01', hasta:'2027-03' }
-  ];
+  var FY_QUARTERS = [fyRange_(0, 2), fyRange_(3, 5), fyRange_(6, 8), fyRange_(9, 11)];
 
   FY_QUARTERS.forEach(function(qt) {
     lobs.forEach(function(lob) {
@@ -1124,7 +1141,7 @@ function computeEvo_(p, actMap, rrMap, budMap, actPrevMap, fcMap) {
     { id:'oc', n3:null,             label:'Op. Contribution' }
   ];
 
-  var START = '2026-04';
+  var START = FY_START_YM;
 
   // Recolectar todos los períodos disponibles desde START
   // actPrevMap cubre FY24/25/26 (meses anteriores a 2026-04); actMap cubre FY27
@@ -1149,7 +1166,7 @@ function computeEvo_(p, actMap, rrMap, budMap, actPrevMap, fcMap) {
     periods.forEach(function(ym) {
       // Para FY27 (>= 2026-04): actMap = baseline (contiene todo el FY27 blended)
       // Para períodos históricos: actPrevMap
-      var actSrc = (ym >= '2026-04') ? actMap : (actPrevMap || actMap);
+      var actSrc = (ym >= FY_START_YM) ? actMap : (actPrevMap || actMap);
       var a  = queryMap_(actSrc,           baseFilter, null, ym, ym);
       var b  = queryMap_(budMap,           baseFilter, null, ym, ym);
       var r  = queryMap_(rrMap,            baseFilter, null, ym, ym);
@@ -1162,7 +1179,7 @@ function computeEvo_(p, actMap, rrMap, budMap, actPrevMap, fcMap) {
       // Last Year: mismo mes del año anterior. START ya no incluye el año previo
       // en `periods`, así que se calcula acá con el mismo criterio de fuente que actSrc.
       var lyYm  = shiftYear_(ym, -1);
-      var lySrc = (lyYm >= '2026-04') ? actMap : (actPrevMap || actMap);
+      var lySrc = (lyYm >= FY_START_YM) ? actMap : (actPrevMap || actMap);
       var ly    = queryMap_(lySrc, baseFilter, null, lyYm, lyYm);
       lyByMonth[ym] = m.n3 ? (ly[m.n3]||0) : calcOC(ly);
     });
@@ -1195,13 +1212,13 @@ function computeEvo_(p, actMap, rrMap, budMap, actPrevMap, fcMap) {
     { label:'RG',                gf:{ paisMultiFilter:['rg','ops','ops + rg'] } }
   ];
   var ctryFilter   = { lob:p.lob, pais:'all', canal:p.canal, producto:p.producto };
-  var fy27Periods_ = periods.filter(function(ym){ return ym>='2026-04'&&ym<='2027-03'; });
+  var fyPeriods_ = periods.filter(function(ym){ return ym>=FY_START_YM&&ym<=FY_END_YM; });
 
   result.byCountry  = CTRY_EVO_DEFS_.map(function(cdef) {
     var metData = {};
     METRICS.forEach(function(m) {
       var actArr=[], budArr=[], rrArr=[], lyArr=[];
-      fy27Periods_.forEach(function(ym) {
+      fyPeriods_.forEach(function(ym) {
         // Distinguir meses reales vs proyectados para el gráfico (sólido vs punteado)
         var isAct = ym <= LAST_ACTUALS_YM;
         // Para ambos tipos, el valor viene del baseline (actMap = baselineMap)
@@ -1219,7 +1236,7 @@ function computeEvo_(p, actMap, rrMap, budMap, actPrevMap, fcMap) {
     });
     return { label:cdef.label, metrics:metData };
   });
-  result.ctryPeriods = fy27Periods_;
+  result.ctryPeriods = fyPeriods_;
 
   return result;
 }
@@ -1281,12 +1298,7 @@ function diagBlending() {
 //  Marketing & Media Investment (B2B)
 // ══════════════════════════════════════════════════════════════
 
-var MKT_FY27_MONTHS = (function() {
-  var m = [];
-  for (var i=4; i<=12; i++) m.push('2026-'+String(i).padStart(2,'0'));
-  for (var i=1; i<=3;  i++) m.push('2027-'+String(i).padStart(2,'0'));
-  return m;
-})();
+var MKT_FY_MONTHS = fyMonths_();
 
 var MKT_COUNTRIES = [
   { id:'brasil', label:'Brasil',
@@ -1325,7 +1337,7 @@ function computeMarketingData_(baselineN2, budN2, rrN2, fcN2, prevN2) {
     var medAct=[], medBud=[], medRR=[], medFc=[], medLY=[];
     var mktAct=[], mktBud=[], mktRR=[], mktFc=[], mktLY=[];
 
-    MKT_FY27_MONTHS.forEach(function(ym) {
+    MKT_FY_MONTHS.forEach(function(ym) {
       var n2Src = baselineN2;   // baseline ya tiene la fuente correcta por mes
       var lyYm  = shiftYear_(ym, -1);
 
@@ -1355,7 +1367,7 @@ function computeMarketingData_(baselineN2, budN2, rrN2, fcN2, prevN2) {
     };
   });
 
-  return { success:true, months:MKT_FY27_MONTHS, byCountry:byCountry };
+  return { success:true, months:MKT_FY_MONTHS, byCountry:byCountry };
 }
 
 function getMarketingData() {
