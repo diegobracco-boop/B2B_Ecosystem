@@ -1968,6 +1968,12 @@ def _apply_force_new(df: pd.DataFrame) -> None:
     df.loc[m, "account_type"] = "New"
 
 
+# Bloques de datos cuya query falló después de los reintentos de fetch(). Si hay alguno,
+# NO se sube nada (decisión de Diego 2026-09-25, auditoría): quedan en Drive los JSON del
+# día anterior completos, en vez de pisar un bloque bueno con uno vacío. La corrida sale con
+# código 1, así auto_update_reales.ps1 también corta antes de deployar.
+_FAILED_BLOCKS = []
+
 print(f"\n--- Actuals FY{YEAR_BUDGET} ---")
 df_actuals = clean_actuals(fetch(build_actuals_query(ACTUALS_FROM, YESTERDAY), "Actuals"))
 _apply_force_new(df_actuals)
@@ -2015,6 +2021,7 @@ try:
     print(f"  Hunting: {(df_budget['stage']=='Existing').sum():,} filas | Farming: {(df_budget['stage']=='New').sum():,} filas")
 except Exception as e:
     print(f"  WARN cartera query failed: {e}")
+    _FAILED_BLOCKS.append('Cartera (stage/tier)')
     df_budget["stage"] = "Existing"
     df_budget["tier"]  = "Unknown"
 
@@ -2039,6 +2046,7 @@ try:
     df_b2b_budget_gd = clean_budget(fetch(B2B_BUDGET_GD_QUERY, "B2B Budget GD"))
 except Exception as e:
     print(f"  WARN B2B budget GD query failed: {e}")
+    _FAILED_BLOCKS.append('B2B Budget GD')
     df_b2b_budget_gd = pd.DataFrame()
 
 print("\n--- B2B Budget RI ---")
@@ -2046,6 +2054,7 @@ try:
     df_b2b_budget_ri = clean_budget(fetch(B2B_BUDGET_RI_QUERY, "B2B Budget RI"))
 except Exception as e:
     print(f"  WARN B2B budget RI query failed: {e}")
+    _FAILED_BLOCKS.append('B2B Budget RI')
     df_b2b_budget_ri = pd.DataFrame()
 
 print("\n--- Run Rate B2B2C ---")
@@ -2056,6 +2065,7 @@ try:
         df_b2bc_rr["tier"]  = _map_tier(df_b2bc_rr["partner"], tier_map)
 except Exception as e:
     print(f"  WARN B2B2C RR query failed: {e}")
+    _FAILED_BLOCKS.append('B2B2C Run Rate')
     df_b2bc_rr = pd.DataFrame()
 
 print("\n--- Run Rate B2B GD ---")
@@ -2063,6 +2073,7 @@ try:
     df_b2b_rr_gd = clean_budget(fetch(B2B_RR_GD_QUERY, "B2B Run Rate GD"))
 except Exception as e:
     print(f"  WARN B2B RR GD query failed: {e}")
+    _FAILED_BLOCKS.append('B2B Run Rate GD')
     df_b2b_rr_gd = pd.DataFrame()
 
 print("\n--- Run Rate B2B RI ---")
@@ -2070,6 +2081,7 @@ try:
     df_b2b_rr_ri = clean_budget(fetch(B2B_RR_RI_QUERY, "B2B Run Rate RI"))
 except Exception as e:
     print(f"  WARN B2B RR RI query failed: {e}")
+    _FAILED_BLOCKS.append('B2B Run Rate RI')
     df_b2b_rr_ri = pd.DataFrame()
 
 print("\n--- B2C (referencia) ---")
@@ -2077,6 +2089,7 @@ try:
     df_b2c = agg_b2c(fetch(build_b2c_query(ACTUALS_FROM, YESTERDAY), "B2C"))
 except Exception as e:
     print(f"  WARN B2C query failed: {e}")
+    _FAILED_BLOCKS.append('B2C')
     df_b2c = pd.DataFrame(columns=["fecha", "pais", "gross_bookings", "net_revenues", "fvm"])
 
 print("\n--- B2C LY (referencia) ---")
@@ -2084,6 +2097,7 @@ try:
     df_b2c_ly = agg_b2c(fetch(build_b2c_query(LY_FROM, LY_TO), "B2C LY"))
 except Exception as e:
     print(f"  WARN B2C LY query failed: {e}")
+    _FAILED_BLOCKS.append('B2C LY')
     df_b2c_ly = pd.DataFrame(columns=["fecha", "pais", "gross_bookings", "net_revenues", "fvm"])
 
 # ==============================================================================
@@ -2269,6 +2283,7 @@ try:
     df_pnl_gd = clean_managerial(fetch(build_pnl_managerial_gd_query(GD_FROM, YESTERDAY), "P&L Managerial GD"))
 except Exception as e:
     print(f"  WARN P&L Managerial GD query failed: {e}")
+    _FAILED_BLOCKS.append('P&L Managerial GD')
     df_pnl_gd = pd.DataFrame()
 
 print(f"\n--- P&L Managerial RI ({RI_JSON_NAME}) ---")
@@ -2276,6 +2291,7 @@ try:
     df_pnl_ri = clean_managerial(fetch(build_pnl_managerial_ri_query(RI_FROM, YESTERDAY), "P&L Managerial RI"))
 except Exception as e:
     print(f"  WARN P&L Managerial RI query failed: {e}")
+    _FAILED_BLOCKS.append('P&L Managerial RI')
     df_pnl_ri = pd.DataFrame()
 
 # ==============================================================================
@@ -2312,6 +2328,11 @@ print(f"  RI JSON:  {len(pnl_ri_bytes)//1024:.0f} KB  ({len(df_pnl_ri):,} filas)
 # ==============================================================================
 
 print("\n--- Subiendo a Google Drive ---")
+if _FAILED_BLOCKS:
+    print("\nERROR: fallaron " + ", ".join(_FAILED_BLOCKS) + " — no se sube nada a Drive; "
+          "quedan los JSON de la corrida anterior. Reintentar (¿VPN?).")
+    sys.exit(1)
+
 upload_to_drive(b2bc_bytes, JSON_FILE_NAME)
 upload_to_drive(b2b_bytes,  B2B_JSON_FILE_NAME)
 
