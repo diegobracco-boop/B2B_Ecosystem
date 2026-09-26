@@ -2750,9 +2750,9 @@ function renderKRsGlobales_(){
   function fmtVal(v,unit){ if(v===null||v===undefined)return '—'; if(unit==='$M')return '$'+v.toFixed(1)+'M'; if(unit==='Share %'||unit==='%')return v.toFixed(1)+'%'; return Number(v).toLocaleString('es-AR'); }
   cont.innerHTML=_globalesTargets.krs.map(function(kr){
     var t=kr.targets?kr.targets[refYM]:null, a=null;
-    if(kr.id==='gb_b2b_api_hoteles')            a=agg.gb!==0?agg.gb/1e6:null;
-    else if(kr.id==='net_revenues_pct_api_hoteles') a=agg.gb>0?agg.nr/agg.gb*100:null;
-    var pct=(a!==null&&t!=null&&t!==0)?Math.round(a/t*100):null;
+    if(kr.id==='net_revenues_pct_api_hoteles') a=agg.gb>0?agg.nr/agg.gb*100:null;   // MTD del daily
+    else if(kr.actuals && kr.actuals[refYM]!=null) a=kr.actuals[refYM];                  // mensual, Input_OKR
+    var sc=okrScore_(a,t), pct=sc!==null?Math.round(sc*100):null;                       // regla única de OKR
     return '<div class="kr-card">'+
       '<div class="kr-lbl">'+kr.name+'</div>'+
       '<div class="kr-pct" style="color:'+pctColor(pct)+'">'+(pct!==null?pct+'%':'—')+'</div>'+
@@ -2761,7 +2761,7 @@ function renderKRsGlobales_(){
         '<div class="kr-sub-item"><span class="kr-sub-lbl">Target</span><span>'+fmtVal(t,kr.unit)+'</span></div>'+
       '</div></div>';
   }).join('');
-  if(sub) sub.textContent='Mes de referencia: '+(labels[idx]||refYM)+'  ·  actual = daily (canal API · producto Hoteles · país Globales); KRs sin fuente muestran solo target.';
+  if(sub) sub.textContent='Mes de referencia: '+(labels[idx]||refYM)+'  ·  fuente: okr.json (igual que el OKR del Hub) · NR %GB actual = daily (API · Hoteles · Globales) · conteos = valor del mes de Input_OKR · (WIP) sin fuente.';
 }
 
 function renderKRBreakdown_(krs) {
@@ -4711,6 +4711,16 @@ function trkCumplColor_(pct){
   if(pct===null||pct===undefined||!isFinite(pct)||isNaN(pct)) return '';
   if(pct<0.80) return 'cell-red'; if(pct<1.00) return 'cell-yellow'; return 'cell-green';
 }
+// Regla ÚNICA de cumplimiento de OKR del ecosistema (decisión de Diego 2026-09-25, igual que
+// el OKR del Hub, Codigo_OKR.js): actual / budget; por debajo de 70% cuenta 0; techo 130%.
+// Devuelve ratio (1 = 100%) o null si no hay dato. Solo para KRs — las tablas de performance
+// por país usan trkCumplRatio_ / cumplRatio.
+function okrScore_(act, bud){
+  if(act===null||act===undefined||bud===null||bud===undefined||!bud) return null;
+  var r=act/bud;
+  if(!isFinite(r)) return null;
+  return r<0.70 ? 0 : Math.min(r,1.30);
+}
 function trkCumplRatio_(act, goal){
   if(act===null||act===undefined||!goal) return null;
   return 1+(act-goal)/Math.abs(goal);
@@ -4946,7 +4956,7 @@ function flRenderB2CKRs_(idx){
       +'<span data-html2canvas-ignore="true" style="display:inline-flex;gap:4px;align-items:center">'+btn('H1')+btn('H2')+'</span>';
   }
 
-  function cumpl(a,b){ return (a===null||a===undefined||b===null||b===undefined||!b) ? null : Math.min(1+(a-b)/Math.abs(b), 1.30); }
+  function cumpl(a,b){ return okrScore_(a,b); }   // regla única de OKR (piso 70%, techo 130%)
   var rows=FL_B2C_KRS[half].map(function(k){
     var act=null, bud=null;
     if(k.src==='manual'){
@@ -5076,8 +5086,8 @@ function trkRenderStatusKRs_(idx){
     metaEl.appendChild(sw);
   }
 
-  function cumpl(act,bud){ return (act===null||act===undefined||bud===null||bud===undefined||!bud) ? null : 1+(act-bud)/Math.abs(bud); }
-  function cap(c){ return c!==null ? Math.min(c,1.30) : null; }
+  function cumpl(act,bud){ return okrScore_(act,bud); }   // regla única de OKR (piso 70%, techo 130%)
+  function cap(c){ return c; }
   function mOrNull(r){ return (r.actual||r.budget) ? { a:trkToM_(r.actual), b:trkToM_(r.budget) } : { a:null, b:null }; }
 
   var rows=[], extraRows=[];
@@ -5090,7 +5100,9 @@ function trkRenderStatusKRs_(idx){
       var sumAct=0, sumBud=0;
       kr1Countries.forEach(function(c){
         var d=ag.data[c]; if(!d) return;
-        sumAct += (ag.reales && ag.reales[c]!==undefined) ? ag.reales[c] : (d.Total||0);
+        // Solo reales de la sheet: el respaldo d.Total sale de agencias_okr.json, que ningún pipeline
+        // regenera (conteo viejo con el rango L4W actual) — auditoría 2026-09-25.
+        if(ag.reales && ag.reales[c]!==undefined) sumAct += ag.reales[c];
         var bVal=ag.budget && ag.budget[c];
         if(bVal!==null && bVal!==undefined && !isNaN(bVal)) sumBud+=bVal;
       });

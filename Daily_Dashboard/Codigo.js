@@ -1178,8 +1178,63 @@ function getAgenciasOKR() {
 // Targets de los KRs de Globales ("Global B2B API Hoteles", H2 FY27). Datos en
 // Drive (globales_kr_targets.json), se definen una vez por semestre y se editan
 // a mano sin tocar código. El 'actual' de cada KR se cablea aparte (fuente TBD).
+// 2026-09-25 (auditoría, decisión de Diego): los KRs de "Globales B2B API" salen de okr.json —
+// la misma fuente y definición que el OKR del Hub (Dashboard_B2B_WLs/Codigo_OKR.js, 6 KRs) —
+// en vez de globales_kr_targets.json (JSON editado a mano con otra definición, 7 KRs). Se mantiene
+// la forma { meta, krs:[{id,name,weight,unit,critical_ttpp,targets,actuals}] } que usan las cards.
+var GLOBALES_KRS_DEF = [
+  { id:'accelerate_hunting_partners_api', kr:'accelerate hunting partners api',             name:'Accelerate Hunting Partners API',             weight:0.30, unit:'# Partners' },
+  { id:'hoteles_directos_latam',          kr:'hoteles directos vendidos destino latam',     name:'Hoteles Directos vendidos destino LATAM',     weight:0.20, unit:'# Hoteles' },
+  { id:'gb_api_hoteles_latam',            kr:null,                                          name:'GB B2B API Hoteles - destino LATAM (WIP)',    weight:0.10, unit:'$M' },
+  { id:'hoteles_directos_no_latam',       kr:'hoteles directos vendidos destino no latam',  name:'Hoteles Directos vendidos destino NO LATAM',  weight:0.20, unit:'# Hoteles' },
+  { id:'gb_api_hoteles_no_latam',         kr:null,                                          name:'GB B2B API Hoteles - destino NO LATAM (WIP)', weight:0.05, unit:'$M' },
+  // actual: lo calcula el cliente desde el daily (API · Hoteles · Other Countries), MTD
+  { id:'net_revenues_pct_api_hoteles',    kr:'net revenue api hoteles %gb',                 name:'Net Revenue API Hoteles %GB',                 weight:0.15, unit:'Share %' }
+];
+var GLOBALES_MESES = ['2026-10','2026-11','2026-12','2027-01','2027-02','2027-03'];
+var GLOBALES_MESES_LABEL = ["Oct'26","Nov'26","Dic'26","Ene'27","Feb'27","Mar'27"];
+
 function getGlobalesKRTargets() {
-  return loadFile_(GLOBALES_KR_JSON, GLOBALES_KR_CACHE);
+  var file = DriveApp.getFileById(OKR_JSON_FILE_ID);
+  var cache = CacheService.getScriptCache();
+  var key = 'globales_okr_v1_' + file.getLastUpdated().getTime();
+  var hit = cache.get(key);
+  if (hit) { try { return JSON.parse(hit); } catch (e) {} }
+  var j = JSON.parse(file.getBlob().getDataAsString());
+  var c = j.cols, iP = c.indexOf('Periodo'), iE = c.indexOf('Escenario'), iL = c.indexOf('LoB'),
+      iK = c.indexOf('KR'), iV = c.indexOf('Valor');
+  // alias de grafía que puede traer un okr.json viejo
+  var ALIAS = { 'hoteles directo vendidos destino latam': 'hoteles directos vendidos destino latam',
+                'hoteles directo vendidos destino no latam': 'hoteles directos vendidos destino no latam' };
+  var vals = {};   // kr → { bud:{ym:v}, act:{ym:v} }
+  (j.rows || []).forEach(function(r) {
+    if (String(r[iL]).trim().toLowerCase() !== 'globales') return;
+    var kr = String(r[iK]).trim().toLowerCase(); kr = ALIAS[kr] || kr;
+    var esc = String(r[iE]).toLowerCase().indexOf('budget') >= 0 ? 'bud' : 'act';
+    var ym = String(r[iP]).substring(0, 7);
+    vals[kr] = vals[kr] || { bud: {}, act: {} };
+    vals[kr][esc][ym] = (vals[kr][esc][ym] || 0) + (Number(r[iV]) || 0);
+  });
+  var krs = GLOBALES_KRS_DEF.map(function(d) {
+    var v = d.kr ? (vals[d.kr] || { bud: {}, act: {} }) : { bud: {}, act: {} };
+    var targets = {}, actuals = {};
+    GLOBALES_MESES.forEach(function(ym) {
+      targets[ym] = (v.bud[ym] !== undefined) ? v.bud[ym] : null;
+      actuals[ym] = (v.act[ym] !== undefined) ? v.act[ym] : null;
+    });
+    // el actual de NR %GB lo calcula el cliente desde el daily (MTD); el del okr.json es mensual contable
+    if (d.id === 'net_revenues_pct_api_hoteles') actuals = {};
+    return { id: d.id, name: d.name, weight: d.weight, unit: d.unit, critical_ttpp: false,
+             targets: targets, actuals: actuals };
+  });
+  var payload = {
+    meta: { titulo: 'Globales B2B API — OKR H2 FY27', periodo: 'H2-FY27', meses: GLOBALES_MESES,
+            meses_label: GLOBALES_MESES_LABEL, actualizado: file.getLastUpdated().toISOString().substring(0, 10),
+            nota: 'Fuente: okr.json (sheet Input_OKR + contable), misma que el OKR del Hub.' },
+    krs: krs
+  };
+  try { cache.put(key, JSON.stringify(payload), 21600); } catch (e) {}
+  return payload;
 }
 
 // ============================================================

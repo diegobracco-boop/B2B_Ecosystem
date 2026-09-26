@@ -1237,7 +1237,7 @@
     <div class="status-krs-meta" id="globalesMeta"></div>
     <div id="globalesCards"></div>
     <div style="font-size:0.78rem;color:#9ca3af;margin-top:10px">
-      Targets del OKR H2 FY27 (fuente: <em>globales_kr_targets.json</em>). Los KRs marcados <strong>*</strong> son critical, gestionados por TTPP (peso 0%). El <strong>actual</strong> se computa desde el daily (canal API · producto Hoteles · país Globales) en los KRs con fuente definida; el resto queda pendiente.
+      Targets del OKR H2 FY27 (fuente: <em>okr.json</em>, la misma del OKR del Hub). Los KRs marcados <strong>*</strong> son critical, gestionados por TTPP (peso 0%). El <strong>actual</strong> se computa desde el daily (canal API · producto Hoteles · país Globales) en los KRs con fuente definida; el resto queda pendiente.
     </div>
   </div>
 </div>
@@ -1748,6 +1748,16 @@ function cumplCellHtml(pct, text, bold) {
 // pero al usar |goal| el signo lo marca el delta (real - budget), así que si el
 // real es MEJOR que un budget negativo el % da bueno (>100%) en vez de negativo.
 // Ej: goal=-10 (FVM budget neg), act=+5 → 1 + (5-(-10))/10 = 250% (verde), no -50%.
+// Regla ÚNICA de cumplimiento de OKR del ecosistema (decisión de Diego 2026-09-25, igual que
+// el OKR del Hub, Codigo_OKR.js): actual / budget; por debajo de 70% cuenta 0; techo 130%.
+// Devuelve ratio (1 = 100%) o null si no hay dato. Solo para KRs — las tablas de performance
+// por país usan trkCumplRatio_ / cumplRatio.
+function okrScore_(act, bud){
+  if(act===null||act===undefined||bud===null||bud===undefined||!bud) return null;
+  var r=act/bud;
+  if(!isFinite(r)) return null;
+  return r<0.70 ? 0 : Math.min(r,1.30);
+}
 function cumplRatio(act, goal) {
   if (act === null || act === undefined || !goal) return null;
   return 1 + (act - goal) / Math.abs(goal);
@@ -2535,7 +2545,9 @@ function renderStatusKRs() {
     _kr1Countries.forEach(function(c) {
       var d = agenciasData.data[c];
       if (!d) return;
-      _kr1SumAct += ((agenciasData.reales && agenciasData.reales[c] !== undefined) ? agenciasData.reales[c] : (d['Total'] || 0));
+      // Solo reales de la sheet: d['Total'] sale de agencias_okr.json, que ningún pipeline regenera
+      // (conteo viejo mostrado con el rango L4W actual) — auditoría 2026-09-25.
+      if (agenciasData.reales && agenciasData.reales[c] !== undefined) _kr1SumAct += agenciasData.reales[c];
       var b = agenciasData.budget && agenciasData.budget[c];
       if (b !== null && b !== undefined && !isNaN(b)) _kr1SumBud += b;
     });
@@ -2564,12 +2576,10 @@ function renderStatusKRs() {
   var kr5 = computeMetricMTD(MARKET_GROUPS.CORE_MARKETS.concat(MARKET_GROUPS.NEW_MARKETS), 'fvm', krYM);
 
   // ── Cumplimiento ─────────────────────────────────────────────
-  function cumpl(act, bud) {
-    if (act === null || bud === null || !bud) return null;
-    return 1 + (act - bud) / Math.abs(bud); // robusto ante budget negativo (ver cumplRatio)
-  }
+  // Regla única de OKR (okrScore_): actual/budget, piso 70% → 0, techo 130%.
+  function cumpl(act, bud) { return okrScore_(act, bud); }
 
-  function cap(c) { return c !== null ? Math.min(c, 1.30) : null; }
+  function cap(c) { return c; }
 
   var kr1c = cap(cumpl(kr1Act, kr1Bud));
   var kr2c = cap(cumpl(kr2.actual, kr2.budget));
@@ -2888,7 +2898,7 @@ function renderStatusKRsH2() {
   var fvmHtml = computeKRH2Metric_(krYM, 'fvm', isHTML, isHTML);
   var nrfd    = computeKRH2Metric_(krYM, 'net_revenue', isNPa, isNPb);
 
-  function cumpl(act, bud) { return (bud && bud !== 0) ? Math.min(1 + (act - bud) / Math.abs(bud), 1.30) : null; }
+  function cumpl(act, bud) { return okrScore_(act, bud); }   // regla única de OKR (piso 70%, techo 130%)
   var nrC = cumpl(nr.actual, nr.budget), apiC = cumpl(fvmApi.actual, fvmApi.budget),
       htmlC = cumpl(fvmHtml.actual, fvmHtml.budget), npC = cumpl(nrfd.actual, nrfd.budget);
 
@@ -3087,11 +3097,11 @@ function globalesApiHotelByMonth_(meses) {
 }
 
 // Actual del KR para un mes (o null si el KR no tiene fuente cableada / sin datos).
-function globalesActual_(krId, ym, agg) {
-  var d = agg[ym]; if (!d) return null;
-  if (krId === 'gb_b2b_api_hoteles')          return d.gb !== 0 ? toM(d.gb) : null;        // $M
-  if (krId === 'net_revenues_pct_api_hoteles') return d.gb > 0 ? (d.nr / d.gb * 100) : null; // %
-  return null; // KRs sin fuente definida
+function globalesActual_(kr, ym, agg) {
+  if (kr.id === 'net_revenues_pct_api_hoteles') {                     // MTD del daily
+    var d = agg[ym]; return (d && d.gb > 0) ? (d.nr / d.gb * 100) : null;
+  }
+  return (kr.actuals && kr.actuals[ym] != null) ? kr.actuals[ym] : null;   // mensual, Input_OKR (okr.json)
 }
 
 function renderGlobales() {
@@ -3173,8 +3183,8 @@ function renderGlobales() {
     // todavía no hay actual cableado), así cada card muestra target y real.
     var strip = '<div class="glob-strip">' + meses.map(function(ym, i){
       var t   = kr.targets ? kr.targets[ym] : null;
-      var a   = globalesActual_(kr.id, ym, agg);
-      var rat = (a !== null && typeof t === 'number' && t !== 0) ? (a / t) : null;
+      var a   = globalesActual_(kr, ym, agg);
+      var rat = okrScore_(a, (typeof t === 'number') ? t : null);   // regla única de OKR
       var vCls = (t === null || t === undefined || t === '') ? 'v empty' : 'v';
       var aCls = a !== null ? globCumplClass_(rat) : 'neutral';
       var aTxt = a !== null ? fmtGlobalTarget(a, kr.unit) : '—';
