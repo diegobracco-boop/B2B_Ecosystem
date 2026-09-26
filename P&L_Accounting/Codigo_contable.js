@@ -134,18 +134,6 @@ var EXPLICIT_PAISES_BG = ['Brasil','Mexico','Argentina','Colombia','Chile','Peru
 var _contableJsonCache_   = null;
 var _contableJsonCacheMs_ = 0;
 
-// ── Delta Versiones FVM ───────────────────────────────────────────────────
-var DELTA_FVM_FILE_ID = '1WjJWozMEQywxhOjhcLzzak385-_dI6ro';
-
-function getDeltaFVM() {
-  try {
-    var file = DriveApp.getFileById(DELTA_FVM_FILE_ID);
-    return file.getBlob().getDataAsString();
-  } catch(e) {
-    return JSON.stringify({error: e.toString()});
-  }
-}
-
 function readContableJSON_() {
   try {
     var file    = DriveApp.getFileById(CONTABLE_JSON_FILE_ID);
@@ -670,64 +658,6 @@ function seriesToMetric_(seriesArr, key){
   return seriesArr.map(function(s){ return s[key]; });
 }
 
-// gestRRByPais: { pais: { col: { label: val } } } — datos gestionales (gross_bookings futuro)
-function computeChartFromAgg_(actualsByPais, rrContByPais, forecastByPais, budgetByPais, lyByPais, gestRRByPais, cutoffIdx, paisGroup) {
-  var actuals  = aggregatePaisByGroup_(actualsByPais,  paisGroup);
-  var rrCont   = aggregatePaisByGroup_(rrContByPais,   paisGroup);
-  var forecast = aggregatePaisByGroup_(forecastByPais, paisGroup);
-  var budget   = aggregatePaisByGroup_(budgetByPais,   paisGroup);
-  var ly       = lyByPais    ? aggregatePaisByGroup_(lyByPais,    paisGroup) : {};
-  var gest     = gestRRByPais ? aggregatePaisByGroup_(gestRRByPais, paisGroup) : {};
-
-  // Baseline: misma lógica que la tabla P&L Contable
-  //   meses pasados (idx <= cutoffIdx) → actuals | futuros → blend gestional(rr) + plana(ct)
-  //   Gross Bookings futuro → gestional (el contable FC no siempre lo trae)
-  var baselineSeries = ALL_MONTHS_ORD_BG.map(function(mo, idx){
-    var isFuture = (idx > cutoffIdx);
-    var src = (idx <= cutoffIdx ? actuals : forecast);
-    var gbAcct = (src['gross bookings'] && src['gross bookings'][mo]) || 0;
-    var gbGest = (gest['gross_bookings'] && gest['gross_bookings'][mo]) || 0;
-    var gb = isFuture ? (gbGest || gbAcct) : gbAcct;
-    var nr, cor, sm;
-    if (isFuture) {
-      // Meses futuros: rr-sourced desde gestional, ct-sourced desde plana (igual que la tabla)
-      var nr_rr = ((gest['up_front_incentives'] && gest['up_front_incentives'][mo]) || 0)
-                + ((gest['fees'] && gest['fees'][mo]) || 0)
-                + ((gest['commercial_discounts'] && gest['commercial_discounts'][mo]) || 0)
-                + ((gest['income_from_outsourced_services'] && gest['income_from_outsourced_services'][mo]) || 0)
-                + ((gest['cancellations'] && gest['cancellations'][mo]) || 0);
-      nr = nr_rr + sumKeys_(src, CHART_NR_CT_KEYS, mo);
-      var cor_rr = ((gest['cost_of_installments'] && gest['cost_of_installments'][mo]) || 0)
-                 + ((gest['credit_card_processing'] && gest['credit_card_processing'][mo]) || 0);
-      cor = cor_rr + sumKeys_(src, CHART_COR_CT_KEYS, mo);
-      var sm_rr = ((gest['affiliates'] && gest['affiliates'][mo]) || 0)
-                + ((gest['white_labels_api'] && gest['white_labels_api'][mo]) || 0);
-      sm = sm_rr + sumKeys_(src, CHART_SM_CT_KEYS, mo);
-    } else {
-      // Meses pasados (actuals): todo desde accounting (igual que la tabla para Q1)
-      nr  = sumKeys_(src, CHART_NR_KEYS,  mo);
-      cor = sumKeys_(src, CHART_COR_KEYS, mo);
-      sm  = sumKeys_(src, CHART_SM_KEYS,  mo);
-    }
-    return {
-      'gross bookings':        gb,
-      'net revenue':           nr,
-      'operating contribution': nr - cor - sm
-    };
-  });
-
-  var budgetSeries = buildChartSeries_(budget, ALL_MONTHS_ORD_BG);
-  var lySeries     = buildChartSeries_(ly,     ALL_MONTHS_ORD_LY_BG);
-
-  var result = { baseline: {}, budget: {}, ly: {} };
-  CHART_N2_BG.forEach(function(m){
-    result.baseline[m] = seriesToMetric_(baselineSeries, m);
-    result.budget[m]   = seriesToMetric_(budgetSeries,   m);
-    result.ly[m]       = seriesToMetric_(lySeries,       m);
-  });
-  return result;
-}
-
 // ── getBaselineGoalData ────────────────────────────────────────────────────
 function getBaselineGoalData(filtersJson) {
   var filters  = filtersJson || {};
@@ -883,11 +813,6 @@ function getBaselineGoalData(filtersJson) {
     actuals_cutoff: actualsCutoff,  // último mes con Actuals cargados
     filters:    buildBGFiltersFromJSON_(jData, lgKeyFromGroup_(lobGroup, {}))
   };
-}
-
-function invalidateBaselineGoalCache() {
-  _contableJsonCache_ = null;
-  return { ok: true };
 }
 
 // ── B2B Country Detail: Total + MAY/prods + MIN/prods ─────────────────────

@@ -1259,37 +1259,6 @@ function shiftYear_(ym, delta) {
 
 // OKR → ver Codigo_OKR.js
 
-// Diagnóstico: muestra lastAct / lastRR y qué fuente usa el blending para un período
-function diagBlending() {
-  var baseRows = readJson_(JSON_IDS.baseline);
-  var rrRows   = readJson_(JSON_IDS.runrate);
-  var budRows  = readJson_(JSON_IDS.budget);
-  var fcRows   = readJson_(JSON_IDS.forecast);
-  var baseMap  = buildMap_(baseRows);
-  var rrMap    = buildMap_(rrRows);
-  var budMap   = buildMap_(budRows);
-  var fcMap    = buildMap_(fcRows);
-
-  Logger.log('=== DIAG BLENDING (JSON sources) ===');
-  Logger.log('LAST_ACTUALS_YM: ' + LAST_ACTUALS_YM);
-  Logger.log('LAST_RR_YM:      ' + LAST_RR_YM);
-  Logger.log('baseline lastYm: ' + baseMap.lastYm);
-  Logger.log('runrate  lastYm: ' + rrMap.lastYm);
-  Logger.log('budget   lastYm: ' + budMap.lastYm);
-  Logger.log('forecast lastYm: ' + fcMap.lastYm);
-
-  // Probar baseline Jul-Sep 2026 para B2B2C
-  var tf = { desde:'2026-07', hasta:'2026-09', lob:'b2b2c', pais:'all', canal:'all', producto:'all' };
-  var baseDirect = queryMap_(baseMap, tf, null, '2026-07', '2026-09');
-  var rrDirect   = queryMap_(rrMap,   tf, null, '2026-07', '2026-09');
-  var fcDirect   = queryMap_(fcMap,   tf, null, '2026-07', '2026-09');
-  var budDirect  = queryMap_(budMap,  tf, null, '2026-07', '2026-09');
-  Logger.log('Baseline Jul-Sep b2b2c: ' + JSON.stringify(baseDirect));
-  Logger.log('RunRate Jul-Sep b2b2c:  ' + JSON.stringify(rrDirect));
-  Logger.log('Forecast Jul-Sep b2b2c: ' + JSON.stringify(fcDirect));
-  Logger.log('Budget Jul-Sep b2b2c:   ' + JSON.stringify(budDirect));
-}
-
 // diagOKR → ver Codigo_OKR.js
 
 // (TOQAN AI y NEWS eliminados — migrado a JSON directo)
@@ -1408,33 +1377,6 @@ function getLastSync() {
 }
 
 // ──────────────────────────────────────────────────────────────
-
-// Diagnóstico: devuelve todos los valores únicos de p&l n2 para LOB=b2b
-function debugMktN2Keys() {
-  try {
-    var rows = readJson_(JSON_IDS.baseline);
-    var seen = {};
-    rows.forEach(function(r) {
-      if (String(r['lob']||'').trim().toLowerCase() !== 'b2b') return;
-      var n2 = String(r['p&l n2']||'').trim();
-      if (n2) seen[n2] = (seen[n2]||0) + 1;
-    });
-    var list = Object.keys(seen).sort().map(function(k){ return k + ' ('+seen[k]+')'; });
-    return { success:true, keys: list };
-  } catch(e) {
-    return { success:false, error:e.message };
-  }
-}
-
-function testGetData() {
-  try {
-    var result = getAllData({});
-    Logger.log('OK — keys: ' + JSON.stringify(Object.keys(result)));
-    Logger.log('filters.lastActuals: ' + (result.filters ? result.filters.lastActuals : 'N/A'));
-  } catch(e) {
-    Logger.log('ERROR: ' + e.message);
-  }
-}
 
 // ══════════════════════════════════════════════════════════════
 //  Organigrama

@@ -3,29 +3,6 @@
 // Actuals Q1 = contables reales. Q2-Q4 = todo desde fc (EPM/plana).
 // Comparte helpers y constantes de Codigo_contable.js (mismo namespace GAS).
 
-// ── Diagnóstico temporal — borrar después de confirmar datos ─────────────────
-function diagJulyEPM_() {
-  invalidateEPMCache();
-  var jData = readEPMJSON_();
-  var bl = aggregatePaisByGroup_(jsonScenarioToByPais_(jData, 'all', 'bl', ALL_YM_BG), null);
-  var ac = aggregatePaisByGroup_(jsonScenarioToByPais_(jData, 'all', 'ac', ALL_YM_BG), null);
-  var rr = aggregatePaisByGroup_(jsonScenarioToByPais_(jData, 'all', 'rr', ALL_YM_BG), null);
-  function nr(agg) {
-    var keys = ['revenue from sales as principal','up front incentives','customer fees & charges',
-      'back end incentives','other incentives','breakage revenue','media & other revenue',
-      'income from outsourced services','loyalty revenue','cancellations','revenue taxes'];
-    return keys.reduce(function(s,k){ return s + ((agg[k]&&agg[k]['Jul-26'])||0); }, 0);
-  }
-  return {
-    actual_months: jData.actual_months,
-    cutoffIdx: epmCutoffIdx_(jData),
-    bl: { gb: ((bl['gross bookings']||{})['Jul-26']||0)/1e6, nr: nr(bl)/1e6 },
-    ac: { gb: ((ac['gross bookings']||{})['Jul-26']||0)/1e6, nr: nr(ac)/1e6 },
-    rr: { gb: ((rr['gross bookings']||{})['Jul-26']||0)/1e6, nr: nr(rr)/1e6 },
-    bl_file_id: CANONICAL_IDS_['bl']
-  };
-}
-
 var _epmJsonCache_   = null;
 var _epmJsonCacheMs_ = 0;  // max lastMod de todos los canónicos al momento del último assembly
 
