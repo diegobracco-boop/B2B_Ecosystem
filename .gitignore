@@ -3,3 +3,19 @@ credenciales/
 
 # Config local de Claude Code (personal, no versionar)
 .claude/settings.local.json
+
+# Secretos en cualquier módulo (auditoría 2026-09-25: varios módulos no tenían .gitignore
+# propio, así que un token o .env creado ahí quedaba versionable)
+**/token*.json
+**/token*.pkl
+**/credentials*.json
+**/.env
+**/.env.*
+
+# Logs de corridas automáticas (ej. Daily_Dashboard/auto_update_reales.ps1): cambian en cada
+# corrida y hacían que el autodeploy commiteara todos los días; además traen rutas personales.
+**/logs/
+*.log
+
+# Generado por OKR_Producto_B2B2C/okr_sync.py en cada corrida (lo sube clasp, no git)
+OKR_Producto_B2B2C/okr_data.js
