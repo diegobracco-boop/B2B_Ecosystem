@@ -30,8 +30,11 @@ var LOBS   = [
   { id: 'b2b',   label: 'B2B',   enabled: true  },
   { id: 'b2b2c', label: 'B2B2C', enabled: false }   // próximamente
 ];
-var FY_START = '2026-04';
-var FY_END   = '2027-03';
+// Año fiscal: ÚNICO valor a cambiar al pasar de FY (abril). 2027 → FY27 = abr-2026 … mar-2027.
+// dashboard.html lo recibe por el template (auditoría ola 4, 2026-09-25).
+var FY_END_YEAR = 2027;
+var FY_START = (FY_END_YEAR - 1) + '-04';
+var FY_END   = FY_END_YEAR + '-03';
 
 function doGet(e) {
   try {

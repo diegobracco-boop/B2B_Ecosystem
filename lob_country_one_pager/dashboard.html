@@ -768,7 +768,7 @@ function fmtRatio(v) { return (v == null) ? '—' : v.toFixed(1) + '%'; }
 function renderMix(mix) {
   var head = '' +
     '<div class="sec-head">' +
-      '<div class="sec-title">Mix Canal × Producto <span class="pill">contable · GB · FY27 acum</span></div>' +
+      '<div class="sec-title">Mix Canal × Producto <span class="pill">contable · GB · <?!= 'FY' + String(FY_END_YEAR).slice(-2) ?> acum</span></div>' +
       drillBtn(LINKS.hoteles, '🏨 Tablero de Hoteles') +
     '</div>' +
     '<div class="drill-row">' +
