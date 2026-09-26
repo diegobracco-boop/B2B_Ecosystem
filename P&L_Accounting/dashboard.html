@@ -600,7 +600,7 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
       <div class="home-hero-eyebrow">Despegar &nbsp;·&nbsp; B2B Ecosystem</div>
       <div class="home-hero-title">P&amp;L<br>Dash<br>board</div>
       <div class="home-hero-divider"></div>
-      <div class="home-hero-sub">Proyecciones y resultados contables<br>para B2B y B2B2C · FY27</div>
+      <div class="home-hero-sub">Proyecciones y resultados contables<br>para B2B y B2B2C · <?!= 'FY' + String(FY_END_YEAR).slice(-2) ?></div>
       <div class="home-hero-hint">seleccioná una sección para comenzar</div>
     </div>
 
@@ -644,7 +644,7 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
 <header>
   <div>
     <div class="logo">P&amp;L Accounting <span>- Actuals &amp; Projections Review</span></div>
-    <div class="logo-sub">Finance Dashboard · FY27</div>
+    <div class="logo-sub">Finance Dashboard · <?!= 'FY' + String(FY_END_YEAR).slice(-2) ?></div>
   </div>
   <div id="header-subtabs" style="display:none;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);align-items:center;gap:6px">
     <button id="cont-stab-combined" class="header-tab cont-stab-active" type="button" onclick="setContableView('combined')">B2B + B2B2C</button>
@@ -712,10 +712,10 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
     <span>
       <strong>Datos reales (Actuals) cargados hasta <span id="epm-actuals-cutoff">s/d</span>.</strong> Los meses posteriores son proyección.<br>
       <strong>Baseline</strong> = Actuals (meses cerrados) + Run Rate + Forecast
-      &nbsp;·&nbsp; <strong>Budget</strong> = Proyección FY27 (Abr'26–Mar'27)
+      &nbsp;·&nbsp; <strong>Budget</strong> = Proyección <?!= 'FY' + String(FY_END_YEAR).slice(-2) ?> (Abr'<?!= String(FY_END_YEAR - 1).slice(-2) ?>–Mar'<?!= String(FY_END_YEAR).slice(-2) ?>)
       &nbsp;·&nbsp; <strong>Forecast</strong> = Actuals + Forecast
       &nbsp;·&nbsp; <strong>Last Run Rate</strong> = Run Rate de la proyección anterior
-      &nbsp;·&nbsp; <strong>Last Year</strong> = Actuals FY26 (mismo mes fiscal, un año antes)
+      &nbsp;·&nbsp; <strong>Last Year</strong> = Actuals <?!= 'FY' + String(FY_END_YEAR - 1).slice(-2) ?> (mismo mes fiscal, un año antes)
     </span>
   </div>
 
@@ -797,7 +797,7 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
 
   <!-- Gráficos: evolución mensual Proyección / Budget / LY -->
   <div id="bg-charts-section" style="display:none;margin-bottom:24px">
-    <div class="sec-title" style="margin-bottom:14px">Evolución Mensual · FY27</div>
+    <div class="sec-title" style="margin-bottom:14px">Evolución Mensual · <?!= 'FY' + String(FY_END_YEAR).slice(-2) ?></div>
     <div id="bg-charts-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px"></div>
   </div>
 
@@ -815,7 +815,7 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
     </div>
     <div class="pnl-card" id="cont-pnl-card">
       <div class="pnl-card-hdr">
-        <span class="pnl-card-title" id="bg-period-title">Agrupado por Quarter · FY27</span>
+        <span class="pnl-card-title" id="bg-period-title">Agrupado por Quarter · <?!= 'FY' + String(FY_END_YEAR).slice(-2) ?></span>
       </div>
       <div style="overflow:auto">
         <table class="qpnl-table" id="bg-table">
@@ -855,9 +855,9 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
   <!-- ── Análisis PxQ · descomposición OC/GB Baseline vs Goal ─────────────── -->
   <div class="sec" id="cont-pxq-sec" style="display:none">
     <div class="sec-title" style="margin-bottom:6px">Análisis PxQ · Baseline vs Goal</div>
-    <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Descompone el Δ de <b>OC / GB</b> (Operating Contribution sobre Gross Bookings) entre <b>Baseline</b> (<span id="pxq-bl-lbl">Actuals + Projections</span>) y <b>Goal</b> (Budget), FY27, en efectos <b>Margen (P)</b>, <b>Mix</b> y <b>Cruce/Overhead</b>. Volumen (Q) es neutro sobre el ratio; se muestra su efecto en OC absoluto abajo.</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Descompone el Δ de <b>OC / GB</b> (Operating Contribution sobre Gross Bookings) entre <b>Baseline</b> (<span id="pxq-bl-lbl">Actuals + Projections</span>) y <b>Goal</b> (Budget), <?!= 'FY' + String(FY_END_YEAR).slice(-2) ?>, en efectos <b>Margen (P)</b>, <b>Mix</b> y <b>Cruce/Overhead</b>. Volumen (Q) es neutro sobre el ratio; se muestra su efecto en OC absoluto abajo.</div>
     <div class="pnl-card">
-      <div class="pnl-card-hdr"><span class="pnl-card-title">Resumen · Total B2B + B2B2C · FY27</span></div>
+      <div class="pnl-card-hdr"><span class="pnl-card-title">Resumen · Total B2B + B2B2C · <?!= 'FY' + String(FY_END_YEAR).slice(-2) ?></span></div>
       <div id="pxq-summary" style="padding:16px"></div>
     </div>
     <div id="pxq-tables" style="margin-top:16px"></div>
@@ -865,8 +865,8 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
 
   <!-- ── Countries YoY · cards de crecimiento por país ────────────────────── -->
   <div class="sec" id="cont-countries-yoy-sec" style="display:none">
-    <div class="sec-title" style="margin-bottom:6px">Countries YoY · Baseline FY27 vs LY</div>
-    <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Crecimiento interanual por país — Baseline (<span id="yoy-bl-lbl">Actuals + Projections</span>) FY27 vs Last Year — en Gross Bookings, Net Revenues y Operating Contribution. H1 = Abr–Sep · H2 = Oct–Mar · FY = año fiscal completo.</div>
+    <div class="sec-title" style="margin-bottom:6px">Countries YoY · Baseline <?!= 'FY' + String(FY_END_YEAR).slice(-2) ?> vs LY</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Crecimiento interanual por país — Baseline (<span id="yoy-bl-lbl">Actuals + Projections</span>) <?!= 'FY' + String(FY_END_YEAR).slice(-2) ?> vs Last Year — en Gross Bookings, Net Revenues y Operating Contribution. H1 = Abr–Sep · H2 = Oct–Mar · FY = año fiscal completo.</div>
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px">
       <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">LOB</span>
       <div class="prd-toggle" id="yoy-lob-toggle">
@@ -903,11 +903,20 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
+// ── Año fiscal: FY_END_YEAR viene de Codigo_contable.js (único lugar a cambiar). Meses,
+// 'FY27' y las claves de período se derivan de acá (auditoría ola 4, 2026-09-25).
+var FY_END_YEAR = <?!= FY_END_YEAR ?>;
+var FY_TAG = 'FY' + String(FY_END_YEAR).slice(-2);   // 'FY27'
+function fyMonthLabels_(endYear){   // ['Abr-26', …, 'Mar-27']
+  return ['Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic','Ene','Feb','Mar'].map(function(m, i){
+    return m + '-' + String(i < 9 ? endYear - 1 : endYear).slice(-2);
+  });
+}
 var _activeLob      = 'contable-epm'; // solo Accounting
 var _reloadTimer    = null;
 function debouncedReload(){ clearTimeout(_reloadTimer); _reloadTimer = setTimeout(function(){ reload(); }, 600); }
 var _bgFiltersInitialized = false;
-var ALL_MONTHS_ORD_BG = ['Abr-26','May-26','Jun-26','Jul-26','Ago-26','Sep-26','Oct-26','Nov-26','Dic-26','Ene-27','Feb-27','Mar-27'];
+var ALL_MONTHS_ORD_BG = fyMonthLabels_(FY_END_YEAR);
 var _b2bCanalFilter = 'total'; // 'total' | 'may' | 'min'
 var _numScale = 'M'; // 'M' | 'K' | 'raw'
 
@@ -1449,10 +1458,10 @@ function wfSumItems_(items, keys, rr, ct) {
 function wfCompute_(data, sel, splitPalancas) {
   var isMonths = Array.isArray(sel);
   var KEYS = isMonths ? sel
-           : sel === 'H2'  ? ['Q3 FY27','Q4 FY27']
-           : sel === 'YTG' ? ['Q2 FY27','Q3 FY27','Q4 FY27']
-           : sel === 'H1'  ? ['Q1 FY27','Q2 FY27']
-           : ['Total FY27'];
+           : sel === 'H2'  ? [('Q3 ' + FY_TAG),('Q4 ' + FY_TAG)]
+           : sel === 'YTG' ? [('Q2 ' + FY_TAG),('Q3 ' + FY_TAG),('Q4 ' + FY_TAG)]
+           : sel === 'H1'  ? [('Q1 ' + FY_TAG),('Q2 ' + FY_TAG)]
+           : [('Total ' + FY_TAG)];
   function mR(g){ return (isMonths ? g.rr_monthly : g.rr) || {}; }
   function mC(g){ return (isMonths ? g.ct_monthly : g.ct) || {}; }
 
@@ -2105,7 +2114,10 @@ function toggleQSec(secId, tableId){
   if(hdr) hdr.classList.toggle('q-collapsed', collapsed);
 }
 
-var Q_LABEL_BG = {'Total FY27':'FY27 Total','H1 FY27':'H1 FY\'27','H2 FY27':'H2 FY\'27'};
+var Q_LABEL_BG = {};
+Q_LABEL_BG['Total ' + FY_TAG] = FY_TAG + ' Total';
+Q_LABEL_BG['H1 ' + FY_TAG] = 'H1 FY\'' + FY_TAG.slice(2);
+Q_LABEL_BG['H2 ' + FY_TAG] = 'H2 FY\'' + FY_TAG.slice(2);
 function qlBG(q){ return Q_LABEL_BG[q]||q; }
 
 function _filterPeriods_(full){
@@ -2124,24 +2136,22 @@ var _bgPeriodTotalMembers = null;
 function getActivePeriods_(dQuarters){
   var real;
   if(_bgPeriodMode === 'm')      real = _filterPeriods_(ALL_MONTHS_ORD_BG);
-  else if(_bgPeriodMode === 'h') real = _filterPeriods_(['H1 FY27','H2 FY27']);
+  else if(_bgPeriodMode === 'h') real = _filterPeriods_([('H1 ' + FY_TAG),('H2 ' + FY_TAG)]);
   else                           real = _filterPeriods_(dQuarters.slice(0, -1));
   _bgPeriodTotalMembers = real.length > 1 ? real : null;
   return _bgPeriodTotalMembers ? real.concat([TOTAL_PERIOD_LABEL]) : real;
 }
 
-var MONTH_CHIP_LABELS_BG = {
-  'Abr-26':'Abr','May-26':'May','Jun-26':'Jun','Jul-26':'Jul','Ago-26':'Ago','Sep-26':'Sep',
-  'Oct-26':'Oct','Nov-26':'Nov','Dic-26':'Dic','Ene-27':'Ene','Feb-27':'Feb','Mar-27':'Mar'
-};
+var MONTH_CHIP_LABELS_BG = {};   // 'Abr-26' → 'Abr'
+ALL_MONTHS_ORD_BG.forEach(function(l){ MONTH_CHIP_LABELS_BG[l] = l.replace(/-\d\d$/, ''); });
 
 function renderBGPeriodChips_(){
   var wrap = document.getElementById('bg-period-chips');
   if(!wrap) return;
   var items;
   if(_bgPeriodMode === 'm') items = ALL_MONTHS_ORD_BG.map(function(p){ return {v:p, l: MONTH_CHIP_LABELS_BG[p]||p}; });
-  else if(_bgPeriodMode === 'q') items = ['Q1 FY27','Q2 FY27','Q3 FY27','Q4 FY27'].map(function(p){ return {v:p, l:p.split(' ')[0]}; });
-  else items = ['H1 FY27','H2 FY27'].map(function(p){ return {v:p, l:p.split(' ')[0]}; });
+  else if(_bgPeriodMode === 'q') items = [('Q1 ' + FY_TAG),('Q2 ' + FY_TAG),('Q3 ' + FY_TAG),('Q4 ' + FY_TAG)].map(function(p){ return {v:p, l:p.split(' ')[0]}; });
+  else items = [('H1 ' + FY_TAG),('H2 ' + FY_TAG)].map(function(p){ return {v:p, l:p.split(' ')[0]}; });
   var allActive = !_bgPeriodSel || !_bgPeriodSel.length;
   var html = '<button type="button" class="bg-pchip'+(allActive?' bg-pchip-active':'')+'" onclick="clearBGPeriodSel_()">Todos</button>';
   items.forEach(function(it){
@@ -2201,8 +2211,8 @@ function _modeData_(data){
 function enrichWithHalves_(qMap){
   if(!qMap) return {};
   var r = {}; Object.keys(qMap).forEach(function(k){ r[k]=qMap[k]; });
-  r['H1 FY27'] = (qMap['Q1 FY27']||0)+(qMap['Q2 FY27']||0);
-  r['H2 FY27'] = (qMap['Q3 FY27']||0)+(qMap['Q4 FY27']||0);
+  r[('H1 ' + FY_TAG)] = (qMap[('Q1 ' + FY_TAG)]||0)+(qMap[('Q2 ' + FY_TAG)]||0);
+  r[('H2 ' + FY_TAG)] = (qMap[('Q3 ' + FY_TAG)]||0)+(qMap[('Q4 ' + FY_TAG)]||0);
   return r;
 }
 
@@ -2213,9 +2223,9 @@ function setBGPeriod(mode){
   document.getElementById('btn-period-h').classList.toggle('prd-active', mode==='h');
   document.getElementById('btn-period-m').classList.toggle('prd-active', mode==='m');
   document.getElementById('bg-period-title').textContent =
-    mode==='h' ? 'Agrupado por Semestre · FY27' :
-    mode==='m' ? 'Agrupado por Mes · FY27' :
-                 'Agrupado por Quarter · FY27';
+    mode==='h' ? 'Agrupado por Semestre · ' + FY_TAG :
+    mode==='m' ? 'Agrupado por Mes · ' + FY_TAG :
+                 'Agrupado por Quarter · ' + FY_TAG;
   renderBGPeriodChips_();
   _refreshBGViews_();
 }
@@ -2265,8 +2275,8 @@ function fillBGBody(tbody, quarters, baseline, goal, tableId){
   function getQVal(node, q, rr, ct){
     if(q===TOTAL_PERIOD_LABEL)
       return (_bgPeriodTotalMembers||[]).reduce(function(s,p){ return s+getQVal(node,p,rr,ct); },0);
-    if(q==='H1 FY27') return getQVal(node,'Q1 FY27',rr,ct)+getQVal(node,'Q2 FY27',rr,ct);
-    if(q==='H2 FY27') return getQVal(node,'Q3 FY27',rr,ct)+getQVal(node,'Q4 FY27',rr,ct);
+    if(q===('H1 ' + FY_TAG)) return getQVal(node,('Q1 ' + FY_TAG),rr,ct)+getQVal(node,('Q2 ' + FY_TAG),rr,ct);
+    if(q===('H2 ' + FY_TAG)) return getQVal(node,('Q3 ' + FY_TAG),rr,ct)+getQVal(node,('Q4 ' + FY_TAG),rr,ct);
     if(node.source==='rr'){
       if(node.key==='_upfront_fees_rr')
         return ((rr['up_front_incentives']&&rr['up_front_incentives'][q])||0) +
@@ -2416,8 +2426,8 @@ var CONT_CHART_DEFS = [
   { key:'net revenue',           label:'Net Revenue',           unit:'M' },
   { key:'operating contribution',label:'Operating Contribution',unit:'M' }
 ];
-var _CONT_MONTHS_ORD    = ['Abr-26','May-26','Jun-26','Jul-26','Ago-26','Sep-26','Oct-26','Nov-26','Dic-26','Ene-27','Feb-27','Mar-27'];
-var _CONT_MONTHS_ORD_LY = ['Abr-25','May-25','Jun-25','Jul-25','Ago-25','Sep-25','Oct-25','Nov-25','Dic-25','Ene-26','Feb-26','Mar-26'];
+var _CONT_MONTHS_ORD    = fyMonthLabels_(FY_END_YEAR);
+var _CONT_MONTHS_ORD_LY = fyMonthLabels_(FY_END_YEAR - 1);
 
 function _buildChartSeriesFromMonths_(rrM, ctM, monthsArr) {
   function rr_(k, m){ return (rrM && rrM[k] && rrM[k][m]) || 0; }
@@ -3040,8 +3050,8 @@ function renderB2BCountryDetail(d) {
 // meses/períodos filtrados. Sirve para ver qué países generan más delta.
 // Toda la lógica de suma replica fillBGBody() para cuadrar con la tabla principal.
 function _pnlQVal_(node, q, rr, ct){
-  if(q==='H1 FY27') return _pnlQVal_(node,'Q1 FY27',rr,ct)+_pnlQVal_(node,'Q2 FY27',rr,ct);
-  if(q==='H2 FY27') return _pnlQVal_(node,'Q3 FY27',rr,ct)+_pnlQVal_(node,'Q4 FY27',rr,ct);
+  if(q===('H1 ' + FY_TAG)) return _pnlQVal_(node,('Q1 ' + FY_TAG),rr,ct)+_pnlQVal_(node,('Q2 ' + FY_TAG),rr,ct);
+  if(q===('H2 ' + FY_TAG)) return _pnlQVal_(node,('Q3 ' + FY_TAG),rr,ct)+_pnlQVal_(node,('Q4 ' + FY_TAG),rr,ct);
   if(node.source==='rr'){
     if(node.key==='_upfront_fees_rr')
       return ((rr['up_front_incentives']&&rr['up_front_incentives'][q])||0) +

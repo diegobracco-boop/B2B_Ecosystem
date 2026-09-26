@@ -265,8 +265,8 @@ function computeGroupEPM_(actualsByPais, rrContByPais, budgetByPais, forecastByP
       var n2      = RR_N2_MAP_BG[k].toLowerCase();
       var monthly = ctm[n2] || {};
       q[k] = monthsToQuartersBG_(monthly);
-      q[k]['Total FY27'] = (q[k]['Q1 FY27'] || 0) + (q[k]['Q2 FY27'] || 0)
-                         + (q[k]['Q3 FY27'] || 0) + (q[k]['Q4 FY27'] || 0);
+      q[k][('Total ' + FY_TAG_BG)] = (q[k][('Q1 ' + FY_TAG_BG)] || 0) + (q[k][('Q2 ' + FY_TAG_BG)] || 0)
+                         + (q[k][('Q3 ' + FY_TAG_BG)] || 0) + (q[k][('Q4 ' + FY_TAG_BG)] || 0);
       mo[k] = {};
       ALL_MONTHS_ORD_BG.forEach(function(m){ mo[k][m] = monthly[m] || 0; });
     });
