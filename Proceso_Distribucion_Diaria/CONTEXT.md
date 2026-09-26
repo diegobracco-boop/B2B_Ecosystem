@@ -17,9 +17,8 @@ Run Rate/<semana>/Inputs Python/          Estacionalidad Diaria/                
           distribucion_diaria.py --base GD|RI --reales-hasta AAAA-MM-DD|no  ◄─────────────┘
                     │
 Run Rate/<semana>/Distribucion Diaria/
-  base_consolidada_diaria_{GD|RI}_<ts>_reales-<corte>.csv  → carga MANUAL a raw.b2brr_gd / raw.b2brr_ri
-  conciliacion_{GD|RI}_<ts>_...csv                          → modelo vs salida por negocio × mes
-  reales_{GD|RI}_<ts>_...csv                                → real / remanente por negocio × mes
+  <escenario>_diario_<gd|ri>.csv   → carga MANUAL (reemplazo) a la tabla del escenario
+                                     (run rate: raw.b2brr_gd / raw.b2brr_ri)
                     │
   consumen: Daily_Dashboard/daily_sync.py (Run Rate del Daily) · P&L_Managerial
 ```
@@ -38,7 +37,7 @@ El script la autodetecta según cómo la tenga sincronizada cada usuario; si no 
 | 4 | ¿Dónde están los P&L planos de input? (carpeta con WLs/API/HTML - Modelo*.xlsx) | `--inputs "<carpeta>"` o `--semana "<carpeta Run Rate>"` |
 
 Son obligatorios: el script no arranca sin ellos y no tiene defaults. Quedan impresos al inicio de la
-corrida y en `<escenario>_diario_<base>_parametros.txt` junto a la salida.
+corrida (salida de pantalla).
 La columna `escenario` de los modelos no sirve para elegir escenario (viene `BAU` o vacía): el
 escenario lo declara quien corre.
 
@@ -63,8 +62,9 @@ python distribucion_diaria.py --base RI ...   # mismas definiciones
 - La primera lectura de cada Excel tarda; queda cacheada en `.cache/` (gitignoreada) y se invalida
   sola si el archivo cambia.
 - Salida (default: la carpeta de inputs, o `<semana>/Distribucion Diaria`; `--salida` para otra):
-  `<escenario>_diario_<base>.csv` + `_conciliacion.csv`, `_reales.csv`, `_parametros.txt`. Si ya
-  existía una corrida con ese nombre, se mueve a `V. Anteriores/` (no se pisa).
+  solo `<escenario>_diario_<base>.csv`, el archivo a cargar. Parámetros, conciliación y resumen de
+  reales se ven en la salida de pantalla. Si ya existía un archivo con ese nombre, se mueve a
+  `V. Anteriores/` (no se pisa).
 - **La carga al Datalake sigue siendo manual**: **reemplazar** (no agregar) el contenido de la tabla
   del escenario — run rate → `raw.b2brr_gd` / `_ri`; budget → `raw.b2b_budget_gd` / `_ri`.
 - Columnas del modelo ignoradas con aviso: las que están a la derecha de la primera columna sin

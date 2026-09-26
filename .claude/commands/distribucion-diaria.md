@@ -53,8 +53,9 @@ Mostrarle al usuario el resumen de las 4 respuestas y pedir confirmación antes 
      - los `AVISO` (meses fuera de rango, columnas ignoradas, fórmulas inconsistentes en el Excel).
 
 4. Si el usuario da el OK, correr sin `--dry-run`. La salida va a la carpeta de inputs (o `--salida`):
-   `<escenario>_diario_<base>.csv` + `_conciliacion.csv`, `_reales.csv` y `_parametros.txt` (las 4
-   definiciones + avisos). Si ya existía una corrida con el mismo nombre, se mueve a `V. Anteriores/`.
+   solo `<escenario>_diario_<base>.csv` (el archivo a cargar). Las definiciones, la conciliación y
+   el resumen de reales quedan en la salida de pantalla: mostrárselos al usuario. Si ya existía un
+   archivo con el mismo nombre, se mueve a `V. Anteriores/`.
    Pasarle las rutas.
 
 5. Recordar el paso manual: **reemplazar** (no agregar) el contenido de la tabla del escenario

@@ -848,35 +848,17 @@ def correr(base, semana_cli=None, raiz_cli=None, dry_run=False, salida_cli=None,
 
     destino = Path(salida_cli) if salida_cli else (inputs if semana is None else semana / "Distribucion Diaria")
     destino.mkdir(parents=True, exist_ok=True)
-    nombre = f"{escenario}_diario_{base.lower()}"
-    csv = destino / f"{nombre}.csv"
-    conc = destino / f"{nombre}_conciliacion.csv"
-    rea = destino / f"{nombre}_reales.csv"
-    par = destino / f"{nombre}_parametros.txt"
-    # Si ya hay una corrida con el mismo nombre, se archiva (no se pisa).
-    previos = [f for f in (csv, conc, rea, par) if f.exists()]
-    if previos:
+    # Solo se guarda el archivo a cargar en el Datalake. Parámetros, conciliación y reales quedan en
+    # la salida de pantalla de la corrida.
+    csv = destino / f"{escenario}_diario_{base.lower()}.csv"
+    if csv.exists():  # corrida anterior con el mismo nombre → se archiva, no se pisa
         ant = destino / "V. Anteriores"
         ant.mkdir(exist_ok=True)
-        for f in previos:
-            marca = datetime.fromtimestamp(f.stat().st_mtime).strftime("%Y%m%d_%H%M")
-            f.replace(ant / f"{f.stem}_{marca}{f.suffix}")
-        log(f"\nVersión anterior movida a {ant.name}/ ({len(previos)} archivos)")
+        marca = datetime.fromtimestamp(csv.stat().st_mtime).strftime("%Y%m%d_%H%M")
+        csv.replace(ant / f"{csv.stem}_{marca}{csv.suffix}")
+        log(f"\nVersión anterior movida a {ant.name}/")
     final.to_csv(csv, index=False, encoding="utf-8-sig")
-    rep.to_csv(conc, index=False, encoding="utf-8-sig")
-    if len(res_reales):
-        res_reales.to_csv(rea, index=False, encoding="utf-8-sig")
-    with open(par, "w", encoding="utf-8") as fh:
-        fh.write(f"Distribución diaria · corrida {datetime.now():%Y-%m-%d %H:%M}\n")
-        for k, v in parametros:
-            fh.write(f"{k}: {v}\n")
-        fh.write(f"Salida: {csv.name} ({len(final):,} filas, {final['fecha'].min()} → {final['fecha'].max()})\n")
-        fh.write("Controles: OK\n")
-        for a in avisos:
-            fh.write(f"AVISO: {a}\n")
     log(f"\nGuardado: {csv}")
-    log(f"          {conc.name}")
-    log(f"          {par.name}")
     tabla = {"runrate": f"raw.b2brr_{base.lower()}", "budget": f"raw.b2b_budget_{base.lower()}"}.get(escenario)
     log(f"Próximo paso (manual): REEMPLAZAR el contenido de "
         f"{tabla or 'la tabla de ' + ESCENARIOS[escenario] + ' (confirmar cuál)'} con {csv.name}")
