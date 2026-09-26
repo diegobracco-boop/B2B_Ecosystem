@@ -33,6 +33,7 @@ import os, json, warnings
 from datetime import date, timedelta, datetime
 
 import pandas as pd
+from pathlib import Path
 from dotenv import load_dotenv
 
 warnings.filterwarnings("ignore")
@@ -1160,12 +1161,16 @@ def _build_b2b_budget_rows(df: pd.DataFrame, lob_filter: str = None,
 # 4b) SCENARIO STITCHES
 # ==============================================================================
 
-# Forecast goal = actuals through Q1 close (Jun) then the forecast projection.
-FC_ACTUAL_CUTOFF = "2026-06"
+# Forecast goal = actuals hasta el último mes cerrado + la proyección Forecast después.
+# El corte es el ÚNICO del ecosistema: Inputs_Planning_PnL/config.py LAST_CLOSED_MONTH
+# (antes estaba fijo en junio acá y en julio en Accounting — auditoría 2026-09-25).
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "Inputs_Planning_PnL"))
+import config as _planning_cfg
+FC_ACTUAL_CUTOFF = _planning_cfg.LAST_CLOSED_MONTH[:7]   # 'YYYY-MM'
 
 
 def _stitch_forecast(ac_rows, fcraw_rows, ym_idx):
-    """Forecast goal = actuals ≤ Jun (FQ1) + forecast projection > Jun (Jul…Mar)."""
+    """Forecast goal = actuals ≤ corte + forecast projection > corte."""
     out = [r for r in ac_rows    if r[ym_idx] <= FC_ACTUAL_CUTOFF]
     out += [r for r in fcraw_rows if r[ym_idx] >  FC_ACTUAL_CUTOFF]
     return out
