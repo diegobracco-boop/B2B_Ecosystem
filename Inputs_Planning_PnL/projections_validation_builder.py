@@ -446,6 +446,10 @@ def load_wip_data(wip_folder, projection_months):
     for fname in WIP_FILES:
         path = os.path.join(wip_folder, fname)
         if not os.path.isfile(path):
+            # API (B2B-MAY) y HTML (B2B-MIN) son obligatorios: sin uno de los dos, el baseline
+            # de ese canal quedaría a medias (auditoría 2026-09-25). WLs mantiene el aviso.
+            if fname != "WLs - Modelo Forecast.xlsx":
+                sys.exit(f"ERROR: falta {fname} en {wip_folder} — no se genera la validación.")
             print(f"  AVISO: no encontré {fname}")
             continue
         print(f"\n  Leyendo {fname}...")
@@ -455,9 +459,8 @@ def load_wip_data(wip_folder, projection_months):
             wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
             ws = find_epm_sheet(wb)
             if ws is None:
-                print(f"  AVISO: no hay solapa EPM en {fname}")
                 wb.close()
-                continue
+                sys.exit(f"ERROR: no hay solapa EPM en {fname} — no se genera la validación.")
             recs = parse_epm_sheet(ws, projection_months)
             wb.close()
         all_recs.extend(recs)
@@ -508,6 +511,7 @@ def _upload(local_path, svc):
     q = f"name='{OUTPUT_NAME}' and '{DRIVE_FOLDER_ID}' in parents and trashed=false"
     ex = svc.files().list(q=q, fields="files(id)").execute().get("files", [])
     if ex:
+        pnl_common.guard_shrink(svc, ex[0]["id"], os.path.getsize(local_path), OUTPUT_NAME)
         res = svc.files().update(fileId=ex[0]["id"], media_body=media,
                                   fields="id,size,modifiedTime").execute()
         print(f"  [Drive] actualizado {OUTPUT_NAME}: {res}")
@@ -550,16 +554,21 @@ def build(wip_folder, projection_months, upload, baseline_json_path=None):
     # no llegar a proyectar todo projection_months (ver 2026-09-16: WLs solo trae 3 de
     # los 8 meses esta semana). Solo pisamos baseline en los meses donde SÍ hay
     # reemplazo; el resto queda con el baseline anterior en vez de quedar vacío.
+    # Cobertura por (LoB, Canal), no solo por LoB: API (B2B-MAY) y HTML (B2B-MIN) comparten
+    # LoB 'b2b', y con clave por LoB los meses que cubría API borraban también el baseline de
+    # MIN aunque el modelo HTML no los trajera (auditoría 2026-09-25).
+    CAI = cols.index("Canal")
     covered_by_lob = defaultdict(set)
-    for lob, fecha in zip(model_df["LoB"], model_df["Fecha"]):
-        covered_by_lob[lob].add(fecha)
-    for lob, meses in covered_by_lob.items():
+    for lob, canal, fecha in zip(model_df["LoB"], model_df["Canal"], model_df["Fecha"]):
+        covered_by_lob[(str(lob).lower(), str(canal).lower())].add(fecha)
+    for (lob, canal), meses in covered_by_lob.items():
         faltantes = sorted(projection_months - meses)
         if faltantes:
-            print(f"  AVISO: {lob} no trae datos del modelo para {faltantes} — se conserva baseline ahí")
+            print(f"  AVISO: {lob}/{canal} no trae datos del modelo para {faltantes} — se conserva baseline ahí")
 
     def _overridable(r):
-        return r[FI] in covered_by_lob.get(r[LOI], set()) and str(r[N1I]).lower() in TARGET_N1_OVERRIDE
+        key = (str(r[LOI]).lower(), str(r[CAI]).lower())
+        return r[FI] in covered_by_lob.get(key, set()) and str(r[N1I]).lower() in TARGET_N1_OVERRIDE
 
     removed = [r for r in rows if _overridable(r)]
     kept    = [r for r in rows if not _overridable(r)]

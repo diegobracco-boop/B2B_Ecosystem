@@ -269,3 +269,20 @@ def load_axi_sheet(g, sheet, keep_dates=None):
     axi = pd.DataFrame(recs)
     axi = axi.groupby(DIM_COLS + ["Fecha"], as_index=False, dropna=False)["Monto USD"].sum()
     return lower_all(axi)
+
+
+def guard_shrink(svc, file_id, new_size, label, max_drop=0.5):
+    """Aborta el upload si el archivo nuevo pesa menos de la mitad (max_drop) del que ya está
+    en Drive: una query incompleta o una fuente faltante no pisa un JSON bueno con uno a medias
+    (auditoría 2026-09-25). Si la baja es esperada, correr con la variable PNL_ALLOW_SHRINK=1."""
+    if os.environ.get("PNL_ALLOW_SHRINK") == "1" or not file_id:
+        return
+    try:
+        old = int(svc.files().get(fileId=file_id, fields="size").execute().get("size", 0))
+    except Exception:
+        return   # sin metadata (archivo nuevo, sin permiso de lectura): no bloquear
+    if old and new_size < old * (1 - max_drop):
+        import sys
+        sys.exit(f"ERROR: {label}: el archivo nuevo pesa {new_size/1e6:.2f} MB contra {old/1e6:.2f} MB "
+                 f"en Drive ({(1 - new_size/old)*100:.0f}% menos). No se sube. Si la baja es esperada, "
+                 f"volver a correr con PNL_ALLOW_SHRINK=1.")

@@ -156,6 +156,7 @@ def _upload(name, data):
     q = f"name='{name}' and '{DRIVE_FOLDER_ID}' in parents and trashed=false"
     ex = svc.files().list(q=q, fields="files(id,name)").execute().get("files", [])
     if ex:
+        pnl_common.guard_shrink(svc, ex[0]["id"], len(data), name)
         svc.files().update(fileId=ex[0]["id"], media_body=media).execute()
         print(f"  [Drive] actualizado {name}")
     else:
