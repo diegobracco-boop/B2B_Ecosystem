@@ -36,17 +36,19 @@ FISCAL_DATES = (
     [f"{CURRENT_FY}-{m:02d}-01" for m in range(1, 4)]
 )
 
-# ── Último mes con actuals cerrados: ÚNICO corte del ecosistema ───────────────
-# Editar SOLO acá cuando cierra un mes. Lo usan: el blend de forecast.json (actuals hasta
-# acá + modelo Forecast después), el arranque del RunRate en el baseline y el Forecast de
-# P&L_Managerial (actuals_gestional_upload.py lo importa de acá). Antes había dos cortes
-# distintos — julio acá y junio en Managerial — y el "Forecast" no coincidía entre landings
-# (auditoría 2026-09-25; agosto cerró el 2026-09-16).
+# ── Dos cortes DISTINTOS (no confundir) ───────────────────────────────────────
+# LAST_CLOSED_MONTH: último mes con actuals cerrados. Se mueve cada vez que cierra un mes y
+#   define desde dónde arranca el RunRate del baseline (RUNRATE_MONTHS, abajo).
+#   Agosto cerró el 2026-09-16.
 LAST_CLOSED_MONTH = "2026-08-01"
 
-# Forecast: forecast.json compone ACTUALS (meses ya cerrados, hasta el cutoff) + el
-# modelo Forecast crudo (cutoff+1 .. Mar). json_builder.py concepto 'forecast' hace el blend.
-FORECAST_ACTUALS_CUTOFF = LAST_CLOSED_MONTH
+# FORECAST_ACTUALS_CUTOFF: base de la ronda de Forecast vigente. El Forecast es una foto:
+#   actuals hasta este mes + proyección del modelo Forecast después (hoy: actuals abr-jul,
+#   Forecast ago-mar). NO se mueve cuando cierra un mes — solo cuando se publica una ronda
+#   nueva de Forecast. Lo usan forecast.json (json_builder), la plana del Forecast
+#   (plana_projections_builder, FORECAST_DROP_DATES) y el goal Forecast de P&L_Managerial
+#   (actuals_gestional_upload.py lo importa de acá). Diego, 2026-09-26.
+FORECAST_ACTUALS_CUTOFF = "2026-07-01"
 FORECAST_ACTUALS_MONTHS = set(FISCAL_DATES[:FISCAL_DATES.index(FORECAST_ACTUALS_CUTOFF) + 1])
 
 # Meses que se excluyen del modelo Forecast crudo porque forecast.json los reemplaza

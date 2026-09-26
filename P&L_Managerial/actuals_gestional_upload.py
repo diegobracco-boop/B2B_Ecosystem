@@ -1161,12 +1161,12 @@ def _build_b2b_budget_rows(df: pd.DataFrame, lob_filter: str = None,
 # 4b) SCENARIO STITCHES
 # ==============================================================================
 
-# Forecast goal = actuals hasta el último mes cerrado + la proyección Forecast después.
-# El corte es el ÚNICO del ecosistema: Inputs_Planning_PnL/config.py LAST_CLOSED_MONTH
-# (antes estaba fijo en junio acá y en julio en Accounting — auditoría 2026-09-25).
+# Forecast goal = actuals hasta la base de la ronda de Forecast + la proyección después.
+# Mismo corte que Accounting: Inputs_Planning_PnL/config.py FORECAST_ACTUALS_CUTOFF (julio:
+# actuals abr-jul, Forecast ago-mar). Antes estaba fijo en junio acá y en julio en Accounting.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "Inputs_Planning_PnL"))
 import config as _planning_cfg
-FC_ACTUAL_CUTOFF = _planning_cfg.LAST_CLOSED_MONTH[:7]   # 'YYYY-MM'
+FC_ACTUAL_CUTOFF = _planning_cfg.FORECAST_ACTUALS_CUTOFF[:7]   # 'YYYY-MM'
 
 
 def _stitch_forecast(ac_rows, fcraw_rows, ym_idx):
