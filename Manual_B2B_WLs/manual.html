@@ -542,6 +542,9 @@ a.ext-link:hover { text-decoration: underline; }
   <a class="nav-item" onclick="showSection('proj-daily')">
     <span class="nav-icon">📆</span> Daily Dashboard
   </a>
+  <a class="nav-item" onclick="showSection('proj-distribucion')">
+    <span class="nav-icon">🗓️</span> Distribución diaria RR
+  </a>
   <a class="nav-item" onclick="showSection('proj-country')">
     <span class="nav-icon">🗺️</span> Country One Pager (B2B)
   </a>
@@ -878,6 +881,16 @@ a.ext-link:hover { text-decoration: underline; }
           <tr><td>Gestional</td><td>Actualizar <code>FORECAST_VERSION</code> en <code>Inputs_Planning_PnL/config.py</code> al nombre de la carpeta nueva (ej. <code>"2026.07.14"</code>) → correr <code>actuals_gestional_upload.py</code> (con VPN). La ruta completa (<code>FC_XLSX_DIR</code>) se arma sola con el FY y esa versión.</td></tr>
           <tr><td>Contable</td><td>El forecast contable NO sale de esos XLSX (sale de CSV Hyperion). Se actualiza upstream en <code>Inputs_Planning_PnL</code> al reprocesar.</td></tr>
           <tr><td>Preview de un WIP sin publicar</td><td><code>python projections_gestional_builder.py --wip-folder "&lt;ruta&gt;"</code> (gestional) / <code>projections_validation_builder.py</code> (contable). Muestra el borrador en la vista "Projection Review".</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🚀 Salió un Run Rate nuevo (semana nueva) <span class="badge badge-manual">🆕 2026-09-26</span></div>
+      <table class="doc-table">
+        <tbody>
+          <tr><td>Apertura diaria</td><td>Con los modelos en <code>Run Rate/&lt;semana&gt;/Inputs Python/</code> y VPN: <code>/distribucion-diaria</code> (o <code>python distribucion_diaria.py --base GD --reales-hasta AAAA-MM-DD</code> y lo mismo con RI). Definir hasta qué día se toman reales (normalmente ayer). Revisar la tabla de reales/remanente y el ritmo GB/día.</td></tr>
+          <tr><td>Carga</td><td>Cargar a mano los CSV en <code>raw.b2brr_gd</code> / <code>raw.b2brr_ri</code>. El Daily lo toma en la próxima corrida (o <code>/sincronizar</code>).</td></tr>
         </tbody>
       </table>
     </div>
@@ -1316,6 +1329,7 @@ a.ext-link:hover { text-decoration: underline; }
         <tbody>
           <tr><td>Datos</td><td>Usa los mismos reales y objetivos que el resto del ecosistema: los goals de Budget y Forecast salen de <strong>Inputs Planning P&amp;L</strong>, así los números de la proyección son comparables con las landings.</td></tr>
           <tr><td>Salida</td><td>El Run Rate que sale de la herramienta es el que se carga en EPM (ver <strong>Gantt</strong>: carga de Run Rate en EPM, 3er jueves de cada mes).</td></tr>
+          <tr><td>Apertura diaria</td><td>La proyección mensual se abre por día con <strong>Distribución diaria RR</strong> (<code>/distribucion-diaria</code>): reales hasta el corte + remanente en los días que faltan → <code>raw.b2brr_gd/ri</code> → línea de Run Rate del Daily.</td></tr>
           <tr><td>Dónde vive</td><td>Es una aplicación propia, fuera de este repo. El Hub tiene el link directo.</td></tr>
         </tbody>
       </table>
@@ -2233,6 +2247,95 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
   </div>
 
   <!-- ══════════════════ PROYECTO: COUNTRY ONE PAGER (B2B) ═══════════════════ -->
+  <!-- ════════════════════════════ DISTRIBUCIÓN DIARIA ════════════════════════════ -->
+  <div class="section" id="sec-proj-distribucion">
+    <div class="page-header">
+      <div class="page-tag">Proyecto · Pipeline Python <span class="badge badge-manual">🆕 2026-09-26</span></div>
+      <div class="page-title">Distribución <span>diaria del Run Rate</span></div>
+      <div class="page-sub">Abre a nivel <strong>diario</strong> la proyección mensual del Run Rate de B2B2C (WLs), B2B-MAY (API) y B2B-MIN (HTML). Toma los <strong>reales hasta la fecha que define quien lo corre</strong> y reparte solo el <strong>remanente</strong> del mes en los días que faltan. La salida es el CSV que se carga (a mano) en <code>raw.b2brr_gd</code> / <code>raw.b2brr_ri</code>, de donde lo leen el <strong>Daily Dashboard</strong> (línea de Run Rate) y <strong>P&amp;L Managerial</strong>. Reemplaza los notebooks "Diario FINAL GD/RI" — es el paso "1 día · Distribución" del Proyecto Run Rate.</div>
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">📍 Datos del proyecto</div>
+        <table class="doc-table">
+          <tbody>
+            <tr><td>Carpeta local</td><td>Proceso_Distribucion_Diaria (<code>distribucion_diaria.py</code> + <code>reales.py</code>)</td></tr>
+            <tr><td>Cómo se corre</td><td>Con Claude: <code>/distribucion-diaria</code>. A mano: <code>python distribucion_diaria.py --base GD --reales-hasta AAAA-MM-DD</code> (y lo mismo con <code>--base RI</code>). Siempre primero con <code>--dry-run</code>.</td></tr>
+            <tr><td>Frecuencia</td><td><span class="badge badge-manual">Manual</span> con cada Run Rate nuevo (semanal). Hoy lo corre Antonella; la idea es que lo pueda correr cualquiera vía Claude.</td></tr>
+            <tr><td>Inputs</td><td>OneDrive <code>B2B &amp; WLs/Run Rate/&lt;semana&gt;/Inputs Python/</code> (modelos WLs, API, HTML) + <code>B2B &amp; WLs/Estacionalidad Diaria/</code> (factores) + Datalake (reales, con VPN)</td></tr>
+            <tr><td>Salida</td><td><code>&lt;semana&gt;/Distribucion Diaria/base_consolidada_diaria_{GD|RI}_&lt;ts&gt;_reales-&lt;corte&gt;.csv</code> + conciliación + resumen de reales</td></tr>
+            <tr><td>Carga al Datalake</td><td><span class="badge badge-manual">Manual</span> → <code>raw.b2brr_gd</code> (GD) y <code>raw.b2brr_ri</code> (RI). Las tablas necesitan las columnas nuevas <code>loyalty_usd</code> y <code>mkt_usd</code> (al final del CSV).</td></tr>
+            <tr><td>Doc detallada</td><td><code>Proceso_Distribucion_Diaria/CONTEXT.md</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card">
+        <div class="card-title">🧮 Reglas por negocio</div>
+        <table class="doc-table">
+          <thead><tr><th>Negocio</th><th>Hoja GD / RI</th><th>Factor GD / RI</th></tr></thead>
+          <tbody>
+            <tr><td>B2B2C</td><td><code>P&amp;L</code> / la misma (<code>mes_ri</code>)</td><td>GD - WLs / el mismo</td></tr>
+            <tr><td>B2B-MAY (API)</td><td><code>P&amp;L Emision</code> / <code>P&amp;L RI</code></td><td>GD - B2B / RI - B2B</td></tr>
+            <tr><td>B2B-MIN (HTML)</td><td><code>P&amp;L Emision</code> / <code>P&amp;L RI</code></td><td>GD - B2B / <strong>GD - B2B</strong></td></tr>
+          </tbody>
+        </table>
+        <div class="alert-box info" style="margin-top:12px">ℹ️ B2B2C tiene un único criterio de reconocimiento → sale igual en GD y RI. HTML todavía no tiene desfase GD/RI en el modelo → en RI usa el factor GD. Paraguay y Uruguay usan los factores de Other Countries.</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📆 Reales + remanente (<code>--reales-hasta</code>)</div>
+      <div class="steps">
+        <div class="step"><div class="step-num">1</div><div class="step-body">
+          <div class="step-title">Días hasta el corte = real</div>
+          <div class="step-desc">Con las <strong>mismas queries del Daily</strong> (se ejecutan desde <code>daily_sync.py</code>, no se copian): B2B2C por fecha de confirmación, B2B GD por fecha de gestión, B2B RI por fecha de reconocimiento. El real vs Run Rate del Daily da 0 hasta el corte, y la comparación importa desde ahí en adelante.</div>
+        </div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-body">
+          <div class="step-title">Remanente = proyección del mes − real</div>
+          <div class="step-desc">Por grupo (B2B2C país × viaje × partner; B2B canal × país × viaje), repartido en los días que faltan con los factores re-normalizados. El mes cierra igual a la proyección.</div>
+        </div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-body">
+          <div class="step-title">Si el real ya superó la proyección</div>
+          <div class="step-desc">Los días que faltan van en 0 y el mes cierra = real. Se reporta como <em>grupos topeados</em>. Reales sin fila en el modelo (ej. un partner nuevo) van como filas con escenario <code>Real</code>.</div>
+        </div></div>
+        <div class="step"><div class="step-num">4</div><div class="step-body">
+          <div class="step-title">Chequeo de ritmo</div>
+          <div class="step-desc">El resumen compara <strong>GB/día real</strong> vs <strong>GB/día que implica el remanente</strong>. Si son muy distintos, el Run Rate está desactualizado.</div>
+        </div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🛡️ Controles (si falla uno, no se guarda nada)</div>
+      <table class="doc-table">
+        <tbody>
+          <tr><td>Cobertura</td><td>Toda fila del modelo con importes encuentra factor; los factores de cada grupo suman 1.</td></tr>
+          <tr><td>Conservación</td><td>Meses sin reales: por negocio × mes × país, cada línea del P&amp;L suma igual que el modelo. Meses con reales: real + remanente cierra por fila.</td></tr>
+          <tr><td>Columnas del modelo</td><td>Si el Excel trae una columna con importes que el script no conoce (ej. alguien renombra una línea), corta en vez de descartarla en silencio.</td></tr>
+          <tr><td>Corte</td><td>No puede pasar el último día cargado en el Datalake.</td></tr>
+          <tr><td>Aviso (no bloquea)</td><td>NR/FVM recalculado ≠ <code>net_revenue</code>/<code>npv</code> del Excel → fórmula inconsistente dentro del modelo.</td></tr>
+        </tbody>
+      </table>
+      <div class="alert-box" style="margin-top:12px">⚠️ <strong>Bug histórico (hasta W37, sep-2026):</strong> los notebooks descartaban <code>media_other_revenue</code>, <code>efecto_financiero</code> y <code>currency_hedge</code> por diferencia de nombres → el Run Rate en <code>raw.b2brr_*</code> tenía NR ≈ −3,5% y FVM ≈ −12%. El script nuevo concilia exacto contra el modelo.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📊 Factores de estacionalidad — diagnóstico</div>
+      <div class="page-sub" style="margin-bottom:12px">Hoy se arman en Excel (<code>Estacionalidad Diaria/</code>): 65% día de semana × semana del mes + 35% tipo de día (feriados/eventos del <code>Calendario</code>), con ventanas fijas y la historia pegada a mano. Backtest ene–ago 2026: share del mes mal asignado entre días (menor = mejor).</div>
+      <table class="doc-table">
+        <thead><tr><th>Caso</th><th>Excel</th><th>Prom. día de semana 12 sem.</th><th>Python (prototipo)</th></tr></thead>
+        <tbody>
+          <tr><td>B2B2C</td><td>11,4%</td><td>10,4%</td><td><strong>10,1%</strong></td></tr>
+          <tr><td>B2B-MAY GD</td><td>9,1%</td><td>7,8%</td><td><strong>7,7%</strong></td></tr>
+          <tr><td>B2B-MIN GD</td><td>9,7%</td><td>8,6%</td><td><strong>7,9%</strong></td></tr>
+          <tr><td>B2B-MAY RI</td><td>8,3%</td><td>8,2%</td><td><strong>8,1%</strong></td></tr>
+        </tbody>
+      </table>
+      <div class="alert-box info" style="margin-top:12px">ℹ️ B2B2C además subestima los días 29-31 (les asigna ~59% de su peso real) → a mitad de mes el Run Rate de B2B2C va ~3-4% adelantado. Propuesta: migrar los factores a Python (historia del Datalake, ventana móvil, calendario de eventos como único input manual, backtest en cada corrida).</div>
+    </div>
+  </div>
+
   <div class="section" id="sec-proj-country">
     <div class="page-header">
       <div class="page-tag">Proyecto <span class="badge badge-manual">🆕 En prod desde 2026-09-17</span></div>
@@ -2456,6 +2559,19 @@ como-crear-agente-auditor.txt          ← cómo armar uno nuevo + lecciones de 
   ├── CLAUDE.md / CONTEXT.md            ← Doc + slash command /actualizar
   ├── credentials_drive.json            ← OAuth client (compartido)
   └── token_drive.json                  ← ⚠️ Personal — NO compartir ni versionar</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📂 Distribución diaria del Run Rate</div>
+      <div class="code-block">B2B_Ecosystem\Proceso_Distribucion_Diaria\
+  ├── distribucion_diaria.py   ← Run Rate mensual → diario (+ reales hasta el corte)
+  ├── reales.py                ← Reales diarios con las queries de Daily_Dashboard/daily_sync.py
+  ├── CONTEXT.md               ← Doc detallada (reglas, controles, diagnóstico de factores)
+  └── legacy\                  ← Notebooks originales "Diario FINAL GD/RI" (referencia)
+OneDrive → Control de Gestión 2026-27 → B2B &amp; WLs\
+  ├── Run Rate\&lt;semana&gt;\Inputs Python\   ← WLs / API / HTML - Modelo Run Rate*.xlsx
+  ├── Run Rate\&lt;semana&gt;\Distribucion Diaria\ ← salida (CSV para raw.b2brr_gd / raw.b2brr_ri)
+  └── Estacionalidad Diaria\             ← Factor diario GD - WLs / GD - B2B / RI - B2B.xlsx</div>
     </div>
 
     <div class="card">
