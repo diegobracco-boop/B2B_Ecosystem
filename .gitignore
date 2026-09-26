@@ -19,3 +19,11 @@ credenciales/
 
 # Generado por OKR_Producto_B2B2C/okr_sync.py en cada corrida (lo sube clasp, no git)
 OKR_Producto_B2B2C/okr_data.js
+
+# Proceso_Distribucion_Diaria: copias de los Excel de factores (30-60 MB, la fuente vive en
+# OneDrive "Estacionalidad Diaria") y cache de lecturas del script
+Proceso_Distribucion_Diaria/*.xlsx
+Proceso_Distribucion_Diaria/.cache/
+
+# Bytecode de Python
+__pycache__/

@@ -54,6 +54,7 @@ Una vez creadas las credenciales, actualizar `RUTA_ENV` en `Daily_Dashboard/dail
 | `P&L_Managerial/` | Implementar → `/clasp-push` |
 | `Manual_B2B_WLs/` | Implementar → `python Manual_B2B_WLs/check_manual_refs.py` → `/clasp-push` |
 | `lob_country_one_pager/` | Implementar → `/clasp-push` (combina JSONs de Inputs_Planning_PnL + Daily_Dashboard + P&L_Managerial, sin pipeline propio) |
+| `Proceso_Distribucion_Diaria/` | Implementar → `/distribucion-diaria` con `--dry-run` (los controles de conciliación deben dar OK) |
 | `OKR_Producto_B2B2C/` (Python) | Implementar → correr `okr_sync.py` manualmente (hace push+deploy+invalidación de cache solo) |
 | `OKR_Producto_B2B2C/` (GAS/HTML) | Implementar → `/clasp-push` desde `OKR_Producto_B2B2C/` |
 
@@ -82,6 +83,7 @@ Ver [CONTEXT-MAP.md](./CONTEXT-MAP.md) para el diagrama completo. En resumen:
 - `/actualizar` — regenerar planas + JSONs canónicos (Inputs_Planning_PnL)
 - `/sincronizar` — forzar sync manual del Daily Dashboard
 - `/clasp-push` — deployar cualquier landing GAS a producción
+- `/distribucion-diaria` — abrir a diario el Run Rate B2B + B2B2C (CSV para `raw.b2brr_gd/ri`, carga manual)
 
 ## Auditoría automática de código
 

@@ -48,6 +48,13 @@ El ecosistema tiene dos capas: **pipelines** (Python, generan los datos) y **lan
 - **Deploy GAS**: `cd Daily_Dashboard && clasp push`
 - **Doc detallada**: [CONTEXT.md](./Daily_Dashboard/CONTEXT.md)
 
+### Proceso_Distribucion_Diaria — Run Rate mensual → diario
+- **Stack**: Python
+- **Trigger**: manual, semanal (cada Run Rate nuevo) — `/distribucion-diaria`
+- **Input**: modelos Run Rate WLs/API/HTML (`Run Rate/<semana>/Inputs Python/`) + factores de `Estacionalidad Diaria/` (OneDrive)
+- **Output**: `base_consolidada_diaria_{GD,RI}_<ts>.csv` → **carga manual** a `raw.b2brr_gd` / `raw.b2brr_ri` (los leen `Daily_Dashboard` y `P&L_Managerial`)
+- **Doc detallada**: [CONTEXT.md](./Proceso_Distribucion_Diaria/CONTEXT.md)
+
 ### Dashboard_B2B_WLs — dashboard comercial B2B y White Labels
 - **Stack**: GAS + HTML
 - **Input**: JSONs de Drive (Inputs_Planning_PnL + Daily_Dashboard)
