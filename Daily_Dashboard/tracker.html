@@ -3118,7 +3118,7 @@ function renderGlobales() {
 
   if (globalesState === 'error' || !globalesData || !globalesData.krs) {
     wrap.style.display = 'none';
-    errEl.textContent = 'No se pudieron cargar los targets de Globales (globales_kr_targets.json en Drive).';
+    errEl.textContent = 'No se pudieron cargar los KRs de Globales (okr.json en Drive).';
     errEl.style.display = 'block';
     return;
   }

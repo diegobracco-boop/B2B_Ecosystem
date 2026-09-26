@@ -1030,8 +1030,6 @@ function getOKRWeeklyB2B2C() {
 // ============================================================
 
 var AGENCIAS_JSON      = 'agencias_okr.json';
-var GLOBALES_KR_JSON   = 'globales_kr_targets.json'; // targets OKR H2 FY27 de "Global B2B API Hoteles"
-var GLOBALES_KR_CACHE  = 'globales_kr_v1';
 var BUDGET_SHEET_ID    = '1xm4VvoRUv7d1c_rcP1JYOgBNKczqXrAmtxoNCuCkiQE';
 var BUDGET_SHEET_NAME  = 'Slide 1 KR Agencias';
 var AIR_NR_SHEET_ID    = '1xm4VvoRUv7d1c_rcP1JYOgBNKczqXrAmtxoNCuCkiQE'; // mismo gdoc que agencias
@@ -1175,13 +1173,10 @@ function getAgenciasOKR() {
   return payload;
 }
 
-// Targets de los KRs de Globales ("Global B2B API Hoteles", H2 FY27). Datos en
-// Drive (globales_kr_targets.json), se definen una vez por semestre y se editan
-// a mano sin tocar código. El 'actual' de cada KR se cablea aparte (fuente TBD).
-// 2026-09-25 (auditoría, decisión de Diego): los KRs de "Globales B2B API" salen de okr.json —
-// la misma fuente y definición que el OKR del Hub (Dashboard_B2B_WLs/Codigo_OKR.js, 6 KRs) —
-// en vez de globales_kr_targets.json (JSON editado a mano con otra definición, 7 KRs). Se mantiene
-// la forma { meta, krs:[{id,name,weight,unit,critical_ttpp,targets,actuals}] } que usan las cards.
+// KRs de "Globales B2B API" (H2 FY27). Desde 2026-09-25 (auditoría, decisión de Diego) salen de
+// okr.json — la misma fuente y definición que el OKR del Hub (Dashboard_B2B_WLs/Codigo_OKR.js,
+// 6 KRs) — y ya no de un JSON editado a mano en Drive. Targets y actuals de los conteos se cargan
+// en la sheet Input_OKR. Forma { meta, krs:[{id,name,weight,unit,critical_ttpp,targets,actuals}] }.
 var GLOBALES_KRS_DEF = [
   { id:'accelerate_hunting_partners_api', kr:'accelerate hunting partners api',             name:'Accelerate Hunting Partners API',             weight:0.30, unit:'# Partners' },
   { id:'hoteles_directos_latam',          kr:'hoteles directos vendidos destino latam',     name:'Hoteles Directos vendidos destino LATAM',     weight:0.20, unit:'# Hoteles' },

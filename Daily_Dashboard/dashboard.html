@@ -2710,7 +2710,7 @@ function loadGlobalesTargets_(){
   if(cont)cont.innerHTML='<div style="color:var(--text-3);font-size:12px;padding:8px">Cargando targets de Globales…</div>';
   google.script.run
     .withSuccessHandler(function(d){ _globalesTargets=d; renderKRsGlobales_(); })
-    .withFailureHandler(function(){ var c=document.getElementById('b2b-kr-globales-row'); if(c)c.innerHTML='<div style="color:var(--danger);font-size:12px;padding:8px">No se pudieron cargar los targets de Globales (globales_kr_targets.json).</div>'; })
+    .withFailureHandler(function(){ var c=document.getElementById('b2b-kr-globales-row'); if(c)c.innerHTML='<div style="color:var(--danger);font-size:12px;padding:8px">No se pudieron cargar los targets de Globales (okr.json).</div>'; })
     .getGlobalesKRTargets();
 }
 
