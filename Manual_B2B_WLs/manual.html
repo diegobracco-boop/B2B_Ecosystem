@@ -889,8 +889,8 @@ a.ext-link:hover { text-decoration: underline; }
       <div class="card-title">🚀 Salió un Run Rate nuevo (semana nueva) <span class="badge badge-manual">🆕 2026-09-26</span></div>
       <table class="doc-table">
         <tbody>
-          <tr><td>Apertura diaria</td><td>Con los modelos en <code>Run Rate/&lt;semana&gt;/Inputs Python/</code> y VPN: <code>/distribucion-diaria</code> (o <code>python distribucion_diaria.py --base GD --reales-hasta AAAA-MM-DD</code> y lo mismo con RI). Definir hasta qué día se toman reales (normalmente ayer). Revisar la tabla de reales/remanente y el ritmo GB/día.</td></tr>
-          <tr><td>Carga</td><td>Cargar a mano los CSV en <code>raw.b2brr_gd</code> / <code>raw.b2brr_ri</code>. El Daily lo toma en la próxima corrida (o <code>/sincronizar</code>).</td></tr>
+          <tr><td>Apertura diaria</td><td>Con VPN: <code>/distribucion-diaria</code>. Antes de correr, definir: <strong>1)</strong> escenario a distribuir, <strong>2)</strong> hasta qué fecha se toman reales (normalmente ayer), <strong>3)</strong> desde qué mes arranca la base, <strong>4)</strong> carpeta de los P&amp;L planos. Revisar la tabla de reales/remanente y el ritmo GB/día.</td></tr>
+          <tr><td>Carga</td><td><strong>Reemplazar</strong> (no agregar) a mano el contenido de <code>raw.b2brr_gd</code> / <code>raw.b2brr_ri</code> con los CSV. El Daily lo toma en la próxima corrida (o <code>/sincronizar</code>).</td></tr>
         </tbody>
       </table>
     </div>
@@ -2261,10 +2261,16 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
         <table class="doc-table">
           <tbody>
             <tr><td>Carpeta local</td><td>Proceso_Distribucion_Diaria (<code>distribucion_diaria.py</code> + <code>reales.py</code>)</td></tr>
-            <tr><td>Cómo se corre</td><td>Con Claude: <code>/distribucion-diaria</code>. A mano: <code>python distribucion_diaria.py --base GD --reales-hasta AAAA-MM-DD</code> (y lo mismo con <code>--base RI</code>). Siempre primero con <code>--dry-run</code>.</td></tr>
+            <tr><td>Antes de correr (obligatorio)</td><td>Quien corre responde 4 definiciones, sin defaults:<br>
+              <strong>1)</strong> qué escenario de proyección se distribuye: budget, forecast o run rate (<code>--escenario</code>); define el nombre del archivo final, ej. <code>budget_diario_ri.csv</code>;<br>
+              <strong>2)</strong> hasta qué fecha se toman reales: la diferencia entre la proyección del mes en curso y los reales se reparte en los días que faltan (<code>--reales-hasta AAAA-MM-DD</code> o <code>no</code>);<br>
+              <strong>3)</strong> desde qué mes debe quedar la base final diaria (<code>--desde-mes AAAA-MM</code>); en run rate / forecast los meses cerrados ya se toman del Datalake;<br>
+              <strong>4)</strong> dónde están los P&amp;L planos de input (<code>--inputs "&lt;carpeta&gt;"</code> con WLs/API/HTML - Modelo*.xlsx, Run Rate o Forecast).<br>
+              Quedan registradas en <code>&lt;escenario&gt;_diario_&lt;base&gt;_parametros.txt</code>. Si ya había una corrida con el mismo nombre, pasa a <code>V. Anteriores/</code>.</td></tr>
+            <tr><td>Cómo se corre</td><td>Con Claude: <code>/distribucion-diaria</code> (pregunta las 4 definiciones). A mano: <code>python distribucion_diaria.py --base GD --escenario runrate --reales-hasta AAAA-MM-DD --desde-mes AAAA-MM --inputs "…"</code> (y lo mismo con <code>--base RI</code>). Siempre primero con <code>--dry-run</code>.</td></tr>
             <tr><td>Frecuencia</td><td><span class="badge badge-manual">Manual</span> con cada Run Rate nuevo (semanal). Hoy lo corre Antonella; la idea es que lo pueda correr cualquiera vía Claude.</td></tr>
             <tr><td>Inputs</td><td>OneDrive <code>B2B &amp; WLs/Run Rate/&lt;semana&gt;/Inputs Python/</code> (modelos WLs, API, HTML) + <code>B2B &amp; WLs/Estacionalidad Diaria/</code> (factores) + Datalake (reales, con VPN)</td></tr>
-            <tr><td>Salida</td><td><code>&lt;semana&gt;/Distribucion Diaria/base_consolidada_diaria_{GD|RI}_&lt;ts&gt;_reales-&lt;corte&gt;.csv</code> + conciliación + resumen de reales</td></tr>
+            <tr><td>Salida</td><td><code>&lt;escenario&gt;_diario_&lt;gd|ri&gt;.csv</code> (ej. <code>runrate_diario_gd.csv</code>, <code>budget_diario_ri.csv</code>) en la carpeta de inputs + conciliación, resumen de reales y parámetros</td></tr>
             <tr><td>Carga al Datalake</td><td><span class="badge badge-manual">Manual</span> → <code>raw.b2brr_gd</code> (GD) y <code>raw.b2brr_ri</code> (RI). Las tablas necesitan las columnas nuevas <code>loyalty_usd</code> y <code>mkt_usd</code> (al final del CSV).</td></tr>
             <tr><td>Doc detallada</td><td><code>Proceso_Distribucion_Diaria/CONTEXT.md</code></td></tr>
           </tbody>

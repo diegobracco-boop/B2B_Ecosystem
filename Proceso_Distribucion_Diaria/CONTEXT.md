@@ -28,26 +28,47 @@ Las rutas son de la biblioteca de OneDrive "Control de Gestión" (`B2B & WLs/` d
 El script la autodetecta según cómo la tenga sincronizada cada usuario; si no la encuentra, usar
 `--raiz` o la variable `B2B_WLS_DIR`.
 
+## Antes de correr: 4 definiciones (las responde siempre quien corre)
+
+| # | Pregunta | Parámetro |
+|---|---|---|
+| 1 | ¿Qué escenario de proyección se va a distribuir: budget, forecast o run rate? Define el nombre del archivo final (ej. `budget_diario_ri.csv`) | `--escenario budget/forecast/runrate` |
+| 2 | ¿Hasta qué fecha se toman reales? La diferencia entre la proyección del mes en curso y los reales se reparte en los días que faltan | `--reales-hasta AAAA-MM-DD` o `no` |
+| 3 | ¿Desde qué mes debe quedar la base final diaria? En run rate / forecast los meses cerrados (reales) se toman directo del Datalake, no hace falta sumarlos al diario (si se elige un mes anterior al del corte, avisa) | `--desde-mes AAAA-MM` |
+| 4 | ¿Dónde están los P&L planos de input? (carpeta con WLs/API/HTML - Modelo*.xlsx) | `--inputs "<carpeta>"` o `--semana "<carpeta Run Rate>"` |
+
+Son obligatorios: el script no arranca sin ellos y no tiene defaults. Quedan impresos al inicio de la
+corrida y en `<escenario>_diario_<base>_parametros.txt` junto a la salida.
+La columna `escenario` de los modelos no sirve para elegir escenario (viene `BAU` o vacía): el
+escenario lo declara quien corre.
+
 ## Cómo correrlo
 
-Con Claude: `/distribucion-diaria` (desde la raíz del repo). A mano:
+Con Claude: `/distribucion-diaria` (desde la raíz del repo; pregunta las 4 definiciones). A mano:
 
 ```powershell
 cd Proceso_Distribucion_Diaria
-python distribucion_diaria.py --base GD --reales-hasta 2026-09-25 --dry-run   # controla sin guardar
-python distribucion_diaria.py --base GD --reales-hasta 2026-09-25             # guarda
-python distribucion_diaria.py --base RI --reales-hasta 2026-09-25
-python distribucion_diaria.py --base GD --reales-hasta no                     # solo proyección (sin VPN)
-python distribucion_diaria.py --base GD --reales-hasta 2026-09-25 --semana "2026.09.14 - W37"
+python distribucion_diaria.py --base GD --escenario forecast --reales-hasta 2026-09-15 --desde-mes 2026-09 --inputs "Modelo_Ejemplo" --dry-run
+python distribucion_diaria.py --base GD --escenario forecast --reales-hasta 2026-09-15 --desde-mes 2026-09 --inputs "Modelo_Ejemplo"
+python distribucion_diaria.py --base RI ...   # mismas definiciones
 ```
 
-- `--reales-hasta` es **obligatorio** y lo define quien corre: el último día (incluido) que se toma
-  como real. Tiene que ser ≤ al último día cargado en el Datalake (si no, corta). Con fecha necesita
-  VPN + `credenciales/.env.<usuario>` (igual que `daily_sync.py`).
-- Semana por defecto: la última carpeta de `Run Rate/` que tenga `Inputs Python/`.
-- La primera lectura de cada Excel tarda (los de factores pesan 30-60 MB); queda cacheada en
-  `.cache/` (gitignoreada) y se invalida sola si el archivo cambia.
-- **La carga al Datalake sigue siendo manual** (fuera del script). El nombre del CSV lleva el corte.
+- Inputs aceptados: el extracto del Run Rate (`<semana>/Inputs Python`: hojas `P&L Emision` / `P&L RI`,
+  con `anio`) o los modelos Forecast completos (hojas `P&L` / `P&L RI` + `P&L RI Actuals` en API, sin
+  año → se deriva del mes pivot; en RI de API el año sale de `Año CheckI`/`Año check IN`).
+- `--hasta-mes AAAA-MM` (opcional): último mes a distribuir; default marzo (fin del año fiscal). Los
+  factores hoy llegan a jun/jul-27.
+- Con `--reales-hasta` fecha: VPN + `credenciales/.env.<usuario>` (igual que `daily_sync.py`). Tiene
+  que ser ≤ al último día cargado en el Datalake (si no, corta).
+- La primera lectura de cada Excel tarda; queda cacheada en `.cache/` (gitignoreada) y se invalida
+  sola si el archivo cambia.
+- Salida (default: la carpeta de inputs, o `<semana>/Distribucion Diaria`; `--salida` para otra):
+  `<escenario>_diario_<base>.csv` + `_conciliacion.csv`, `_reales.csv`, `_parametros.txt`. Si ya
+  existía una corrida con ese nombre, se mueve a `V. Anteriores/` (no se pisa).
+- **La carga al Datalake sigue siendo manual**: **reemplazar** (no agregar) el contenido de la tabla
+  del escenario — run rate → `raw.b2brr_gd` / `_ri`; budget → `raw.b2b_budget_gd` / `_ri`.
+- Columnas del modelo ignoradas con aviso: las que están a la derecha de la primera columna sin
+  encabezado (cálculos auxiliares) y `bimo` (HTML; no entra en el FVM del modelo).
 
 ## Reglas de negocio
 

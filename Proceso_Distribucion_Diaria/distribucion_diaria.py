@@ -56,13 +56,16 @@ def _candidatas_raiz():
         home / "OneDrive - despegar365" / "Control de Gestión - Documentos" / "Planeamiento" / AÑO_FISCAL / "B2B & WLs",
     ]
 
-# Negocio → modelo de Run Rate, hojas y factores. B2B2C tiene un único criterio de
-# reconocimiento: usa la misma hoja (mes_ri) y el mismo factor (GD - WLs) en GD y en RI.
+# Negocio → modelo, hojas y factores. B2B2C tiene un único criterio de reconocimiento: usa la
+# misma hoja y el mismo factor (GD - WLs) en GD y en RI. Sirve tanto para el extracto del Run
+# Rate ("Inputs Python": hojas P&L Emision / P&L RI, con 'anio') como para los modelos completos
+# ("Modelo Forecast": hojas P&L / P&L RI, sin año → se deriva del mes pivot). Hojas y columnas de
+# mes se prueban en orden.
 NEGOCIOS = {
     "B2B2C": {
-        "modelo": "WLs - Modelo Run Rate*.xlsx",
-        "hoja":   {"GD": "P&L", "RI": "P&L"},
-        "mes":    {"GD": ["mes_ri"], "RI": ["mes_ri"]},
+        "modelo": "WLs - Modelo*.xlsx",
+        "hoja":   {"GD": ["P&L"], "RI": ["P&L"]},
+        "mes":    {"GD": ["mes_ri", "mes_proyectado"], "RI": ["mes_ri", "mes_proyectado"]},
         "factor": {"GD": ("Factor diario GD - WLs.xlsx", "Factores B2B2C"),
                    "RI": ("Factor diario GD - WLs.xlsx", "Factores B2B2C")},
         "por_partner": True,
@@ -72,9 +75,12 @@ NEGOCIOS = {
         "lob_huerfano": "B2B2C-ON",
     },
     "B2B-MAY": {
-        "modelo": "API - Modelo Run Rate*.xlsx",
-        "hoja":   {"GD": "P&L Emision", "RI": "P&L RI"},
-        "mes":    {"GD": ["mes_venta"], "RI": ["mes_ri"]},
+        "modelo": "API - Modelo*.xlsx",
+        "hoja":   {"GD": ["P&L Emision", "P&L"], "RI": ["P&L RI"]},
+        # En el Forecast de API, el RI de ventas ya hechas (backlog) está en otra hoja: se suma.
+        # El extracto del Run Rate ("Inputs Python") ya lo trae dentro de 'P&L RI' y no la tiene.
+        "hojas_extra": {"RI": ["P&L RI Actuals"]},
+        "mes":    {"GD": ["mes_venta", "mes_proyectado"], "RI": ["mes_ri"]},
         "factor": {"GD": ("Factor diario GD - B2B.xlsx", "Factores B2B-MAY"),
                    "RI": ("Factor diario RI - B2B.xlsx", "Factores B2B-MAY")},
         "por_partner": False,
@@ -82,9 +88,10 @@ NEGOCIOS = {
                            ["lob_canal", "pais"]],
     },
     "B2B-MIN": {
-        "modelo": "HTML - Modelo Run Rate*.xlsx",
-        "hoja":   {"GD": "P&L Emision", "RI": "P&L RI"},
-        "mes":    {"GD": ["mes_venta"], "RI": ["mes_ri"]},
+        "modelo": "HTML - Modelo*.xlsx",
+        # El Forecast de HTML no tiene hoja RI (sin desfase GD/RI): en RI usa la de emisión.
+        "hoja":   {"GD": ["P&L Emision", "P&L"], "RI": ["P&L RI", "P&L"]},
+        "mes":    {"GD": ["mes_venta", "mes_proyectado"], "RI": ["mes_ri", "mes_proyectado"]},
         # HTML todavía no tiene desfase GD/RI en el modelo: en RI usa el factor GD
         # (el archivo RI no tiene hoja B2B-MIN). Cambia cuando se modifique el modelo.
         "factor": {"GD": ("Factor diario GD - B2B.xlsx", "Factores B2B-MIN"),
@@ -106,9 +113,13 @@ ALIAS_COLUMNAS = {
     "efecto_financiero":   "financial_results",
     "currency_hedge":      "hedge",
     "curency_hedge":       "hedge",
+    "intercompany":        "intercompany_usd",
     "net_revenue":         "nr_modelo",
     "npv":                 "fvm_modelo",
+    "fvm":                 "fvm_modelo",
 }
+# Columnas con importes que el modelo NO suma en su FVM: se ignoran y se avisa el monto.
+INFORMATIVAS = {"bimo"}
 
 NR_COMPONENTES = [
     "up_front_incentives", "fees", "commercial_discounts", "cancellations",
@@ -130,8 +141,9 @@ METRICAS = OTRAS_METRICAS + NR_COMPONENTES + FVM_COMPONENTES + ["nr_modelo", "fv
 NO_METRICAS = {
     "concatenado", "escenario", "mes_pivot", "pais", "lob_canal", "marca", "partner", "viaje",
     "producto", "numero_mes_proyectado", "mes_venta", "mes_ri", "anio", "fecha_venta", "mes_ap",
-    "anio_checkin", "año_checki", "fecha_checkin", "cosecha", "mes_proyectado", "revenue_margin",
-}
+    "anio_checkin", "año_checki", "año_check_in", "fecha_checkin", "cosecha", "mes_proyectado",
+    "revenue_margin", "gradiente",
+} | INFORMATIVAS
 # Métricas del modelo que no existen en raw.b2brr_*: se toleran solo si suman 0.
 DESCARTABLES_SI_CERO = {"channels"}
 
@@ -159,6 +171,17 @@ TOL_CONSERVACION = 0.01  # USD por grupo negocio×mes×país×métrica (ruido de
 
 class ErrorProceso(Exception):
     pass
+
+
+# Escenario de proyección que se distribuye → nombre del archivo final (<clave>_diario_<base>.csv).
+ESCENARIOS = {"budget": "Budget", "forecast": "Forecast", "runrate": "Run Rate"}
+
+
+def normalizar_escenario(txt):
+    clave = "".join(ch for ch in str(txt).lower() if ch.isalpha())
+    if clave not in ESCENARIOS:
+        raise ErrorProceso(f"Escenario '{txt}' no válido: tiene que ser budget, forecast o run rate")
+    return clave
 
 
 # ==============================================================================
@@ -264,6 +287,17 @@ def cargar_factores(path, hoja, por_partner):
 def cargar_proyecciones(path, hoja, cols_mes, negocio):
     raw = leer_excel(path, hoja).copy()
     raw.columns = [normalizar_columna(c) for c in raw.columns]
+    avisos = []
+    # La tabla termina en la primera columna sin encabezado: lo que está a la derecha son cálculos
+    # auxiliares / anotaciones (ej. 'fees.1' en P&L RI Actuals), no líneas del P&L.
+    cols = list(raw.columns)
+    corte_col = next((i for i, c in enumerate(cols) if c.startswith("unnamed:")), None)
+    if corte_col is not None:
+        fuera = cols[corte_col:]
+        con_datos = [c for c in fuera if raw[c].notna().any()]
+        if con_datos:
+            avisos.append(f"{negocio}: columnas a la derecha de la tabla ignoradas en {path.name}[{hoja}]: {con_datos}")
+        raw = raw.drop(columns=fuera)
 
     # Columnas duplicadas del modelo (ej. 'vendor_commissions.1' en HTML): solo si suman 0.
     for c in [c for c in raw.columns if c.endswith(".1")]:
@@ -272,8 +306,10 @@ def cargar_proyecciones(path, hoja, cols_mes, negocio):
         raw = raw.drop(columns=c)
 
     raw = raw.rename(columns=ALIAS_COLUMNAS)
-    if "fvm_modelo" not in raw.columns and "npv" in raw.columns:
-        raw = raw.rename(columns={"npv": "fvm_modelo"})
+    for c in INFORMATIVAS & set(raw.columns):
+        tot = pd.to_numeric(raw[c], errors="coerce").fillna(0).sum()
+        if tot:
+            avisos.append(f"{negocio}: columna '{c}' ({tot:,.0f}) ignorada — no entra en el FVM del modelo")
 
     # Columnas desconocidas con datos → cortar (así una columna renombrada no se pierde).
     for c in raw.columns:
@@ -287,8 +323,26 @@ def cargar_proyecciones(path, hoja, cols_mes, negocio):
                                f"Agregarla a ALIAS_COLUMNAS / METRICAS / NO_METRICAS.")
 
     col_mes = next((c for c in cols_mes if c in raw.columns), None)
-    if col_mes is None or "anio" not in raw.columns:
-        raise ErrorProceso(f"{negocio}: no encuentro mes ({cols_mes}) o 'anio' en {path.name}[{hoja}]")
+    if col_mes is None:
+        raise ErrorProceso(f"{negocio}: no encuentro columna de mes ({cols_mes}) en {path.name}[{hoja}]")
+    # Año: 'anio' (extracto Run Rate) · 'año_checki' (hoja P&L RI del Forecast, junto a mes_ri) ·
+    # si no hay, se deriva del mes pivot: meses ≥ pivot = año de inicio, el resto = año siguiente.
+    if "anio" in raw.columns:
+        origen_anio = "anio"
+    elif col_mes == "mes_ri" and ({"año_checki", "año_check_in"} & set(raw.columns)):
+        c_anio = "año_checki" if "año_checki" in raw.columns else "año_check_in"
+        raw["anio"], origen_anio = raw[c_anio], c_anio
+    elif "mes_pivot" in raw.columns:
+        piv = pd.to_numeric(raw["mes_pivot"], errors="coerce").dropna()
+        if piv.nunique() != 1:
+            raise ErrorProceso(f"{negocio}: 'mes_pivot' no es único en {path.name}[{hoja}]: {sorted(piv.unique())}")
+        piv = int(piv.iloc[0])
+        y0 = int(AÑO_FISCAL[:4]) if piv >= 4 else int(AÑO_FISCAL[:4]) + 1
+        m = mes_a_numero(raw[col_mes])
+        raw["anio"] = np.where(m >= piv, y0, y0 + 1)
+        origen_anio = f"mes pivot {piv} → {NOMBRE_MES[piv]} {y0}"
+    else:
+        raise ErrorProceso(f"{negocio}: sin 'anio' ni 'mes_pivot' para ubicar el año en {path.name}[{hoja}]")
 
     for m in METRICAS:
         raw[m] = pd.to_numeric(raw[m], errors="coerce").fillna(0.0) if m in raw.columns else 0.0
@@ -296,7 +350,6 @@ def cargar_proyecciones(path, hoja, cols_mes, negocio):
     # Filas sin país/viaje: los notebooks las descartaban. Si traen plata, avisar.
     sin_dim = raw["pais"].isna() | raw["viaje"].isna()
     gb_desc = raw.loc[sin_dim, "gross_bookings"].abs().sum()
-    avisos = []
     if gb_desc > 0:
         avisos.append(f"{negocio}: {sin_dim.sum():,} filas sin país/viaje con GB {gb_desc:,.0f} descartadas")
     df = raw[~sin_dim].copy()
@@ -318,6 +371,7 @@ def cargar_proyecciones(path, hoja, cols_mes, negocio):
         if d not in df.columns:
             df[d] = ""
     df["negocio"] = negocio
+    df.attrs["col_mes"], df.attrs["origen_anio"] = col_mes, origen_anio
     return df, avisos
 
 
@@ -606,25 +660,83 @@ def reporte(df_in, df_out):
 # 5) MAIN
 # ==============================================================================
 
-def correr(base, semana_cli=None, raiz_cli=None, dry_run=False, salida_cli=None, reales_hasta=None):
-    """reales_hasta: fecha (date) hasta la que se toman reales (incluida), o None = sin reales."""
+def correr(base, semana_cli=None, raiz_cli=None, dry_run=False, salida_cli=None, reales_hasta=None,
+           inputs_cli=None, hasta_mes=None, escenario=None, desde_mes=None):
+    """Las 4 definiciones de cada corrida las da quien corre (no hay defaults):
+      escenario    qué proyección se distribuye (texto libre, ej. "Run Rate W37", "Forecast sep-26")
+      reales_hasta fecha (date) hasta la que se toman reales (incluida), o None = sin reales
+      desde_mes    (año, mes) primer mes de la base final diaria
+      inputs_cli / semana_cli  dónde están los P&L planos (carpeta, o semana de Run Rate/Inputs Python)
+    hasta_mes: (año, mes) último mes a distribuir (default fin del año fiscal)."""
+    if not escenario or not desde_mes or not (inputs_cli or semana_cli):
+        raise ErrorProceso("Faltan definiciones de la corrida: escenario, desde_mes y ubicación de los inputs "
+                           "(--inputs o --semana) son obligatorios.")
     base = base.upper()
+    escenario = normalizar_escenario(escenario)
     raiz = resolver_raiz(raiz_cli)
-    semana = resolver_semana(raiz, semana_cli)
-    inputs = semana / "Inputs Python"
+    if inputs_cli:
+        inputs = Path(inputs_cli)
+        if not inputs.is_dir():
+            raise ErrorProceso(f"No existe la carpeta de inputs {inputs}")
+        semana = None
+    else:
+        semana = resolver_semana(raiz, semana_cli)
+        inputs = semana / "Inputs Python"
     est = raiz / "Estacionalidad Diaria"
-    log(f"DISTRIBUCIÓN DIARIA · base {base}")
-    log(f"  raíz:    {raiz}")
-    log(f"  semana:  {semana.name}")
-    log(f"  reales:  {'hasta ' + reales_hasta.isoformat() + ' (incluido)' if reales_hasta else 'NO (solo proyección)'}")
+    hasta_mes = hasta_mes or (int(AÑO_FISCAL[:4]) + 1, 3)
+    if desde_mes > hasta_mes:
+        raise ErrorProceso(f"--desde-mes {desde_mes[0]}-{desde_mes[1]:02d} es posterior a --hasta-mes "
+                           f"{hasta_mes[0]}-{hasta_mes[1]:02d}")
+    txt_reales = f"hasta {reales_hasta.isoformat()} (incluido)" if reales_hasta else "NO (solo proyección)"
+    parametros = [
+        ("1) Escenario distribuido", ESCENARIOS[escenario]),
+        ("2) Reales", txt_reales + (" · el remanente del mes se reparte en los días que faltan" if reales_hasta else "")),
+        ("3) Base final desde", f"{NOMBRE_MES[desde_mes[1]]} {desde_mes[0]} (hasta {NOMBRE_MES[hasta_mes[1]]} {hasta_mes[0]})"),
+        ("4) P&L planos (inputs)", str(inputs)),
+        ("Base", base),
+        ("Factores", str(est)),
+    ]
+    avisos_ini = []
+    if reales_hasta and (desde_mes[0], desde_mes[1]) < (reales_hasta.year, reales_hasta.month):
+        avisos_ini.append(f"La base arranca en {desde_mes[0]}-{desde_mes[1]:02d}, antes del mes del corte "
+                          f"({reales_hasta:%Y-%m}): esos meses cerrados son 100% real y el real ya se toma "
+                          f"directo del Datalake. Confirmar que se quieren en el diario.")
+    log(f"DISTRIBUCIÓN DIARIA · {ESCENARIOS[escenario]} · base {base}")
+    log("  PARÁMETROS DE LA CORRIDA (definidos por quien corre)")
+    for k, v in parametros:
+        log(f"    {k}: {v}")
 
-    errores, avisos, entradas, salidas, resumenes, excluir = [], [], [], [], [], set()
+    errores, avisos, entradas, salidas, resumenes, excluir = [], list(avisos_ini), [], [], [], set()
     proyecciones = {}
     for negocio, cfg in NEGOCIOS.items():
         modelo = buscar_unico(inputs, cfg["modelo"])
         fac_file, fac_hoja = cfg["factor"][base]
-        log(f"\n[{negocio}] {modelo.name} [{cfg['hoja'][base]}]  ×  {fac_file} [{fac_hoja}]")
-        df, av = cargar_proyecciones(modelo, cfg["hoja"][base], cfg["mes"][base], negocio)
+        hojas = pd.ExcelFile(modelo).sheet_names
+        hoja = next((h for h in cfg["hoja"][base] if h in hojas), None)
+        if hoja is None:
+            raise ErrorProceso(f"{negocio}: {modelo.name} no tiene ninguna de las hojas {cfg['hoja'][base]}")
+        extra = [h for h in cfg.get("hojas_extra", {}).get(base, []) if h in hojas]
+        log(f"\n[{negocio}] {modelo.name} [{' + '.join([hoja] + extra)}]  ×  {fac_file} [{fac_hoja}]")
+        df, av = cargar_proyecciones(modelo, hoja, cfg["mes"][base], negocio)
+        log(f"  [{hoja}] mes = '{df.attrs['col_mes']}' · año = {df.attrs['origen_anio']} · GB {df['gross_bookings'].sum():,.0f}")
+        for h in extra:
+            dx, avx = cargar_proyecciones(modelo, h, cfg["mes"][base], negocio)
+            log(f"  [{h}] mes = '{dx.attrs['col_mes']}' · año = {dx.attrs['origen_anio']} · GB {dx['gross_bookings'].sum():,.0f}")
+            av += avx
+            df = pd.concat([df, dx], ignore_index=True)
+        antes = (df["anio"] * 100 + df["mes_num"]) < (desde_mes[0] * 100 + desde_mes[1])
+        if antes.any():
+            meses_a = sorted({f"{a}-{m:02d}" for a, m in df.loc[antes, ["anio", "mes_num"]].itertuples(index=False)})
+            avisos.append(f"{negocio}: {len(meses_a)} meses antes de {desde_mes[0]}-{desde_mes[1]:02d} "
+                          f"({meses_a[0]}→{meses_a[-1]}, GB {df.loc[antes, 'gross_bookings'].sum():,.0f}) quedan fuera de la base")
+            df = df[~antes].copy()
+        fuera = (df["anio"] * 100 + df["mes_num"]) > (hasta_mes[0] * 100 + hasta_mes[1])
+        if fuera.any():
+            gb_f = df.loc[fuera, "gross_bookings"].sum()
+            meses_f = sorted({f"{a}-{m:02d}" for a, m in df.loc[fuera, ["anio", "mes_num"]].itertuples(index=False)})
+            avisos.append(f"{negocio}: {len(meses_f)} meses después del horizonte ({meses_f[0]}→{meses_f[-1]}, "
+                          f"GB {gb_f:,.0f}) no se distribuyen")
+            df = df[~fuera].copy()
         df["_fila"] = np.arange(len(df))
         avisos += av
         fac = cargar_factores(est / fac_file, fac_hoja, cfg["por_partner"])
@@ -661,8 +773,11 @@ def correr(base, semana_cli=None, raiz_cli=None, dry_run=False, salida_cli=None,
                 resumenes.append(resu)
                 # Filas de los meses completados con reales (incluye las filas 'Real' nuevas):
                 # su control es interno a incorporar_reales, no contra el modelo.
+                corte_ts = pd.Timestamp(reales_hasta)
                 ini_af = pd.to_datetime(pd.DataFrame({"year": out["anio"], "month": out["mes"], "day": 1}))
-                excluir |= {(negocio, f) for f in out.loc[ini_af <= pd.Timestamp(reales_hasta), "_fila"]}
+                excluir |= {(negocio, f) for f in out.loc[ini_af <= corte_ts, "_fila"]}
+                ini_in = pd.to_datetime(pd.DataFrame({"year": df["anio"], "month": df["mes_num"], "day": 1}))
+                excluir |= {(negocio, f) for f in df.loc[ini_in <= corte_ts, "_fila"]}
         entradas.append(df)
         salidas.append(out)
         log(f"  [{negocio}] {len(df):,} filas mensuales → {len(out):,} filas diarias · "
@@ -731,32 +846,66 @@ def correr(base, semana_cli=None, raiz_cli=None, dry_run=False, salida_cli=None,
         log("(dry-run: no se guardó nada)")
         return final, rep
 
-    destino = Path(salida_cli) if salida_cli else semana / "Distribucion Diaria"
+    destino = Path(salida_cli) if salida_cli else (inputs if semana is None else semana / "Distribucion Diaria")
     destino.mkdir(parents=True, exist_ok=True)
-    ts = datetime.now().strftime("%Y%m%d_%H%M")
-    sufijo = f"_reales-{reales_hasta:%Y%m%d}" if reales_hasta else "_sin-reales"
-    csv = destino / f"base_consolidada_diaria_{base}_{ts}{sufijo}.csv"
+    nombre = f"{escenario}_diario_{base.lower()}"
+    csv = destino / f"{nombre}.csv"
+    conc = destino / f"{nombre}_conciliacion.csv"
+    rea = destino / f"{nombre}_reales.csv"
+    par = destino / f"{nombre}_parametros.txt"
+    # Si ya hay una corrida con el mismo nombre, se archiva (no se pisa).
+    previos = [f for f in (csv, conc, rea, par) if f.exists()]
+    if previos:
+        ant = destino / "V. Anteriores"
+        ant.mkdir(exist_ok=True)
+        for f in previos:
+            marca = datetime.fromtimestamp(f.stat().st_mtime).strftime("%Y%m%d_%H%M")
+            f.replace(ant / f"{f.stem}_{marca}{f.suffix}")
+        log(f"\nVersión anterior movida a {ant.name}/ ({len(previos)} archivos)")
     final.to_csv(csv, index=False, encoding="utf-8-sig")
-    conc = destino / f"conciliacion_{base}_{ts}{sufijo}.csv"
     rep.to_csv(conc, index=False, encoding="utf-8-sig")
     if len(res_reales):
-        res_reales.to_csv(destino / f"reales_{base}_{ts}{sufijo}.csv", index=False, encoding="utf-8-sig")
+        res_reales.to_csv(rea, index=False, encoding="utf-8-sig")
+    with open(par, "w", encoding="utf-8") as fh:
+        fh.write(f"Distribución diaria · corrida {datetime.now():%Y-%m-%d %H:%M}\n")
+        for k, v in parametros:
+            fh.write(f"{k}: {v}\n")
+        fh.write(f"Salida: {csv.name} ({len(final):,} filas, {final['fecha'].min()} → {final['fecha'].max()})\n")
+        fh.write("Controles: OK\n")
+        for a in avisos:
+            fh.write(f"AVISO: {a}\n")
     log(f"\nGuardado: {csv}")
     log(f"          {conc.name}")
-    log(f"Próximo paso (manual): cargar el CSV en raw.b2brr_{base.lower()}")
+    log(f"          {par.name}")
+    tabla = {"runrate": f"raw.b2brr_{base.lower()}", "budget": f"raw.b2b_budget_{base.lower()}"}.get(escenario)
+    log(f"Próximo paso (manual): REEMPLAZAR el contenido de "
+        f"{tabla or 'la tabla de ' + ESCENARIOS[escenario] + ' (confirmar cuál)'} con {csv.name}")
     return final, rep
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Distribución diaria del Run Rate B2B + B2B2C")
+    ap = argparse.ArgumentParser(
+        description="Distribución diaria de proyecciones B2B + B2B2C. Antes de correr, quien corre define: "
+                    "1) --escenario, 2) --reales-hasta, 3) --desde-mes, 4) --inputs (o --semana).")
     ap.add_argument("--base", required=True, choices=["GD", "RI", "gd", "ri"])
-    ap.add_argument("--semana", help="Carpeta de Run Rate, ej. '2026.09.14 - W37' (default: la última)")
+    ap.add_argument("--escenario", required=True, metavar="budget|forecast|runrate",
+                    help="(1) Qué escenario de proyección se distribuye. Define el nombre del archivo final: "
+                         "<escenario>_diario_<gd|ri>.csv")
+    ap.add_argument("--desde-mes", required=True, metavar="AAAA-MM",
+                    help="(3) Primer mes de la base final diaria (los anteriores quedan afuera)")
+    donde = ap.add_mutually_exclusive_group(required=True)
+    donde.add_argument("--inputs", help="(4) Carpeta con los P&L planos: WLs/API/HTML - Modelo*.xlsx "
+                                        "(modelos Run Rate o Forecast)")
+    donde.add_argument("--semana", help="(4) Alternativa: carpeta de Run Rate, ej. '2026.09.14 - W37' "
+                                        "(usa <semana>/Inputs Python)")
     ap.add_argument("--raiz", help="Ruta a la carpeta 'B2B & WLs' de OneDrive (default: autodetecta)")
-    ap.add_argument("--salida", help="Carpeta de salida (default: <semana>/Distribucion Diaria)")
+    ap.add_argument("--salida", help="Carpeta de salida (default: <semana>/Distribucion Diaria, o --inputs)")
+    ap.add_argument("--hasta-mes", metavar="AAAA-MM", help="Último mes a distribuir (default: marzo, fin del año fiscal)")
     ap.add_argument("--dry-run", action="store_true", help="Corre y controla, no guarda")
     ap.add_argument("--reales-hasta", required=True, metavar="AAAA-MM-DD|no",
-                    help="Último día (incluido) con reales del Datalake; el remanente del mes se reparte en "
-                         "los días siguientes. 'no' = solo proyección. Con fecha requiere VPN.")
+                    help="(2) Último día (incluido) con reales del Datalake; la diferencia entre la proyección "
+                         "del mes y los reales se reparte en los días que faltan. 'no' = solo proyección. "
+                         "Con fecha requiere VPN.")
     a = ap.parse_args()
     corte = None
     if a.reales_hasta.lower() != "no":
@@ -765,7 +914,19 @@ def main():
         except ValueError:
             ap.error("--reales-hasta tiene que ser AAAA-MM-DD o 'no'")
     try:
-        correr(a.base, a.semana, a.raiz, a.dry_run, a.salida, corte)
+        d = datetime.strptime(a.desde_mes, "%Y-%m")
+        desde = (d.year, d.month)
+    except ValueError:
+        ap.error("--desde-mes tiene que ser AAAA-MM")
+    hasta = None
+    if a.hasta_mes:
+        try:
+            d = datetime.strptime(a.hasta_mes, "%Y-%m")
+            hasta = (d.year, d.month)
+        except ValueError:
+            ap.error("--hasta-mes tiene que ser AAAA-MM")
+    try:
+        correr(a.base, a.semana, a.raiz, a.dry_run, a.salida, corte, a.inputs, hasta, a.escenario, desde)
     except ErrorProceso as e:
         log(f"\nABORTADO: {e}")
         sys.exit(1)
