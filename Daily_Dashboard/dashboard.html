@@ -256,11 +256,22 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
 .bk-toggle.open { transform: rotate(90deg); }
 .bk-toggle:hover { color: var(--text); }
 
-/* ── Benchmark B2C ─────────────────────────────────────── */
+/* ── Benchmark vs B2C ─────────────────────────────────────── */
 .bench-sub { font-size: 10px; color: var(--text-3); font-weight: 600; }
-#bench-yoy-tbl td.bk-val, #bench-yoy-tbl td.bk-yoy,
-#bench-bizshare-tbl td.bk-val { text-align: right; }
-#bench-yoy-tbl .bk-row-child td { background: var(--surface); }
+#bench-pais-tbl td.bk-val, #bench-pais-tbl td.bk-yoy { text-align: right; }
+.bench-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 760px) { .bench-cards { grid-template-columns: 1fr; } }
+.bench-card { background: var(--group-bg); border: 1px solid var(--border); border-top: 3px solid var(--bc); border-radius: var(--r); padding: 14px 16px; }
+.bench-card-hdr { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.bench-card-name { font-weight: 700; font-size: 14px; color: var(--text); display: inline-flex; align-items: center; gap: 6px; }
+.bench-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--bc); display: inline-block; }
+.bench-hero { font-size: 24px; font-weight: 700; margin: 8px 0 2px; }
+.bench-mini { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
+.bench-mini th { font-size: 10px; color: var(--text-3); font-weight: 600; text-align: right; padding: 3px 6px; }
+.bench-mini td { text-align: right; padding: 5px 6px; border-top: 1px solid var(--border); color: var(--text-2); }
+.bench-mini th:first-child, .bench-mini td:first-child { text-align: left; font-weight: 600; }
+.bench-ref { margin-top: 12px; padding: 10px 14px; border-radius: var(--r); background: var(--segment-bg); border-left: 3px dashed #94a3b8; font-size: 12px; color: var(--text-2); display: flex; flex-wrap: wrap; gap: 6px 18px; }
+.bench-ref-share { color: var(--text-3); margin-left: auto; }
 
 /* ── Region tags ───────────────────────────────────────── */
 .rtag { font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 4px; flex-shrink: 0; letter-spacing: .3px; text-transform: uppercase; }
@@ -685,7 +696,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
   <span class="topbar-title" id="topbar-title">Daily Dashboard</span>
   <div class="view-nav">
     <button class="vnav-btn active" id="vnav-daily"  onclick="switchMainView('daily')">Daily</button>
-    <button class="vnav-btn"        id="vnav-bench"  onclick="switchMainView('benchmark')">Benchmark B2C</button>
+    <button class="vnav-btn"        id="vnav-bench"  onclick="switchMainView('benchmark')">Benchmark vs B2C</button>
     <button class="vnav-btn"        id="vnav-weekly" onclick="switchMainView('weekly')">Weekly</button>
     <button class="vnav-btn"        id="vnav-flow"   onclick="switchMainView('flow')">Flow Semanal</button>
     <button class="vnav-btn"        id="vnav-tracker" onclick="switchMainView('tracker')">Daily B2B Tracker</button>
@@ -1271,11 +1282,13 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
 </div><!-- /section-b2b -->
 </div><!-- /view-daily -->
 
-<!-- ══ BENCHMARK B2C VIEW ═══════════════════════════════════════ -->
+<!-- ══ BENCHMARK VS B2C VIEW ════════════════════════════════════
+     Foco en B2B2C y B2B; B2C (~80% de Despegar) es la vara de referencia.
+     "Brecha" = crecimiento YoY del negocio − crecimiento YoY de B2C, en pp. -->
 <div id="view-benchmark" style="display:none">
  <div class="content">
   <div class="section-hdr-row">
-    <div class="section-hdr">Benchmark · B2B2C · B2B · B2C</div>
+    <div class="section-hdr">Benchmark vs B2C · B2B2C · B2B</div>
     <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
       <div class="tab-toggle">
         <button class="ttab active" id="bench-per-mtd" onclick="setBenchPeriod('mtd')">MTD</button>
@@ -1293,57 +1306,73 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
     </div>
   </div>
 
+  <!-- 1 · ¿Cómo venimos vs B2C? -->
   <div class="tcard" style="margin-bottom:16px">
     <div class="card-hdr">
-      <span class="card-ttl" id="bench-met-ttl">Totales · Márgenes · YoY</span>
-      <div class="tab-toggle">
-        <button class="ttab active" id="bench-met-gb"     onclick="setBenchMetric('gb')">GB</button>
-        <button class="ttab"        id="bench-met-nr"     onclick="setBenchMetric('nr')">NR</button>
-        <button class="ttab"        id="bench-met-fvm"    onclick="setBenchMetric('fvm')">FVM</button>
-        <button class="ttab"        id="bench-met-nrpct"  onclick="setBenchMetric('nrPct')">NR%</button>
-        <button class="ttab"        id="bench-met-fvmpct" onclick="setBenchMetric('fvmPct')">FVM%</button>
-      </div>
+      <span class="card-ttl">¿Cómo venimos vs B2C?</span>
+      <span class="bench-sub">Crecimiento YoY y brecha en pp vs el crecimiento de B2C · B2B en base generación (GD)</span>
     </div>
-    <div class="bench-sub" id="bench-met-sub" style="margin:-8px 0 10px">B2B en base generación (GD)</div>
-    <div style="height:300px"><canvas id="bench-met-chart"></canvas></div>
-    <div style="overflow-x:auto;margin-top:16px">
-      <table class="bk-table" id="bench-yoy-tbl">
-        <thead><tr>
-          <th>Negocio</th>
-          <th style="text-align:right">YoY GB</th><th style="text-align:right">YoY NR</th><th style="text-align:right">YoY FVM</th>
-          <th style="text-align:right">NR%</th><th style="text-align:right">FVM%</th>
-          <th style="text-align:right">Δpp NR</th><th style="text-align:right">Δpp FVM</th>
-        </tr></thead>
-        <tbody id="bench-yoy-body"></tbody>
-      </table>
-    </div>
-    <div style="overflow-x:auto;margin-top:16px">
-      <table class="bk-table" id="bench-bizshare-tbl">
-        <thead><tr>
-          <th>Negocio</th>
-          <th style="text-align:right">GB share</th><th style="text-align:right">NR share</th><th style="text-align:right">FVM share</th>
-        </tr></thead>
-        <tbody id="bench-bizshare-body"></tbody>
-      </table>
-    </div>
+    <div class="bench-cards" id="bench-cards"></div>
+    <div class="bench-ref" id="bench-ref"></div>
   </div>
 
-  <div class="tcard">
+  <!-- 2 · Crecimiento mensual vs B2C -->
+  <div class="tcard" style="margin-bottom:16px">
     <div class="card-hdr">
-      <span class="card-ttl" id="bench-idx-ttl">Evolución indexada · base 100 = primer mes del año</span>
+      <span class="card-ttl" id="bench-gr-ttl">Crecimiento YoY mensual vs B2C</span>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <div class="tab-toggle">
-          <button class="ttab active" id="bench-idx-gb"  onclick="setBenchIdxMetric('gb')">GB</button>
-          <button class="ttab"        id="bench-idx-nr"  onclick="setBenchIdxMetric('nr')">NR</button>
-          <button class="ttab"        id="bench-idx-fvm" onclick="setBenchIdxMetric('fvm')">FVM</button>
+          <button class="ttab active" id="bench-gr-gb"  onclick="setBenchGrMetric('gb')">GB</button>
+          <button class="ttab"        id="bench-gr-nr"  onclick="setBenchGrMetric('nr')">NR</button>
+          <button class="ttab"        id="bench-gr-fvm" onclick="setBenchGrMetric('fvm')">FVM</button>
         </div>
         <div class="tab-toggle">
-          <button class="ttab active" id="bench-idx-mode-cy"   onclick="setBenchIdxMode('cy')">Base 100 (año)</button>
-          <button class="ttab"        id="bench-idx-mode-pace" onclick="setBenchIdxMode('pace')">Pace L7d vs prom. 2M</button>
+          <button class="ttab active" id="bench-gr-mode-yoy" onclick="setBenchGrMode('yoy')">Crecimiento YoY</button>
+          <button class="ttab"        id="bench-gr-mode-gap" onclick="setBenchGrMode('gap')">Brecha vs B2C (pp)</button>
         </div>
       </div>
     </div>
-    <div style="height:300px"><canvas id="bench-idx-chart"></canvas></div>
+    <div class="bench-sub" id="bench-gr-sub" style="margin:-8px 0 10px"></div>
+    <div style="height:300px"><canvas id="bench-gr-chart"></canvas></div>
+  </div>
+
+  <!-- 3 · Margen mensual vs B2C -->
+  <div class="tcard" style="margin-bottom:16px">
+    <div class="card-hdr">
+      <span class="card-ttl">Margen mensual vs B2C</span>
+      <div class="tab-toggle">
+        <button class="ttab active" id="bench-mg-nrPct"  onclick="setBenchMgMetric('nrPct')">NR%</button>
+        <button class="ttab"        id="bench-mg-fvmPct" onclick="setBenchMgMetric('fvmPct')">FVM%</button>
+      </div>
+    </div>
+    <div class="bench-sub" style="margin:-8px 0 10px">Sobre GB · último mes parcial</div>
+    <div style="height:280px"><canvas id="bench-mg-chart"></canvas></div>
+  </div>
+
+  <!-- 4 · Detalle por país (colapsable) -->
+  <div class="tcard">
+    <div class="card-hdr">
+      <span class="card-ttl"><button class="bk-toggle" id="bench-pais-toggle" onclick="benchTogglePais()">▸</button> Detalle por país · vs B2C del mismo país</span>
+      <div class="tab-toggle">
+        <button class="ttab active" id="bench-pt-gb"     onclick="setBenchPaisMetric('gb')">GB</button>
+        <button class="ttab"        id="bench-pt-nr"     onclick="setBenchPaisMetric('nr')">NR</button>
+        <button class="ttab"        id="bench-pt-fvm"    onclick="setBenchPaisMetric('fvm')">FVM</button>
+        <button class="ttab"        id="bench-pt-nrPct"  onclick="setBenchPaisMetric('nrPct')">NR%</button>
+        <button class="ttab"        id="bench-pt-fvmPct" onclick="setBenchPaisMetric('fvmPct')">FVM%</button>
+      </div>
+    </div>
+    <div id="bench-pais-wrap" style="overflow-x:auto;display:none">
+      <table class="bk-table" id="bench-pais-tbl">
+        <thead><tr>
+          <th>País</th>
+          <th style="text-align:right" id="bench-pt-h-b2c">B2C</th>
+          <th style="text-align:right">B2B2C</th><th style="text-align:right">vs B2C</th>
+          <th style="text-align:right">B2B</th><th style="text-align:right">vs B2C</th>
+        </tr></thead>
+        <tbody id="bench-pais-body"></tbody>
+      </table>
+      <div class="bench-sub" style="margin-top:8px">"Globales" (Other Countries de B2B) no tiene B2C comparable por país → sin brecha.</div>
+    </div>
   </div>
  </div>
 </div>
@@ -2586,7 +2615,7 @@ function toggleTheme() {
   applyTheme(current === 'light' ? 'dark' : 'light');
   if (state.allMetrics) renderMetrics(state.allMetrics);
   if (state_b2b.allMetrics) renderB2BMetrics(state_b2b.allMetrics);
-  if (_activeView === 'benchmark' && _benchData) { renderBenchMetricChart_(); renderBenchIndexChart_(); }
+  if (_activeView === 'benchmark' && _benchData) { renderBenchGrowthChart_(); renderBenchMarginChart_(); }
 }
 
 // ── LOB switch ───────────────────────────────────────────────────
@@ -3009,7 +3038,7 @@ function switchMainView(view) {
   document.getElementById('topbar-title').textContent =
     view === 'weekly' ? 'Weekly Summary' : view === 'flow' ? 'Flow Semanal'
     : view === 'tracker' ? 'Daily B2B Tracker'
-    : view === 'benchmark' ? 'Benchmark B2C' : 'Daily Dashboard';
+    : view === 'benchmark' ? 'Benchmark vs B2C' : 'Daily Dashboard';
   if (view === 'daily') updateAiAgent(_lob);
   else if (view === 'weekly') _wsUpdateAiAgent(_wsLob);
   if (view === 'weekly' && !_wsLoaded) { _wsLoadData(); }
@@ -3038,21 +3067,26 @@ function trackerOpen_() {
     .getTrackerUrl();
 }
 
-// ══ BENCHMARK B2C ══════════════════════════════════════════════
-var _benchPeriod     = 'mtd';   // 'mtd' | 'ytd'   → tablas YoY + share
-var _benchIdxMetric  = 'gb';    // 'gb' | 'nr' | 'fvm'   → chart indexado
-var _benchIdxMode    = 'cy';    // 'cy' (base 100 = ene, mensual) | 'pace' (L7d vs prom. 8 sem.)
-var _benchMetric     = 'gb';    // 'gb'|'nr'|'fvm'|'nrPct'|'fvmPct'   → line-chart bloque 1
+// ══ BENCHMARK VS B2C ═══════════════════════════════════════════
+// Foco en B2B2C y B2B; B2C (~80% de Despegar) es la vara de referencia.
+// "Brecha" = crecimiento YoY del negocio − crecimiento YoY de B2C (en pp).
+var _benchPeriod     = 'mtd';   // 'mtd' | 'ytd'   → tarjetas + tabla por país
+var _benchGrMetric   = 'gb';    // 'gb' | 'nr' | 'fvm'   → chart de crecimiento
+var _benchGrMode     = 'yoy';   // 'yoy' (líneas de crecimiento) | 'gap' (barras brecha pp vs B2C)
+var _benchMgMetric   = 'nrPct'; // 'nrPct' | 'fvmPct'   → chart de margen
+var _benchPaisMetric = 'gb';    // 'gb'|'nr'|'fvm'|'nrPct'|'fvmPct'   → tabla por país
+var _benchPaisOpen   = false;
 var _benchPais       = null;    // string país | null
-var _benchCharts     = {};      // { metric, idx }
+var _benchCharts     = {};      // { gr, mg }
 var _benchData       = null;
 var _benchB2BLoading = false;
 
 var BENCH_BIZ = [
   { key: 'b2b2c', label: 'B2B2C', color: '#5626e9' },
   { key: 'b2b',   label: 'B2B',   color: '#0891b2' },
-  { key: 'b2c',   label: 'B2C',   color: '#f59e0b' }
+  { key: 'b2c',   label: 'B2C',   color: '#94a3b8' }   // referencia: gris + punteado
 ];
+var BENCH_OURS = BENCH_BIZ.slice(0, 2);
 var _BENCH_ML = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
 function _b2cLyRows_(raw) {
@@ -3086,13 +3120,15 @@ function _benchAgg_(rows, from, to, nrField, paisFilter) {
 }
 
 function _benchMetrics_(cur, ly) {
+  var lyNrPct = ly.gb ? ly.nr / ly.gb : null, lyFvmPct = ly.gb ? ly.fvm / ly.gb : null;
+  var nrPct = cur.gb ? cur.nr / cur.gb : null, fvmPct = cur.gb ? cur.fvm / cur.gb : null;
   return {
-    gb: cur.gb, nr: cur.nr, fvm: cur.fvm,
-    nrPct:  cur.gb ? cur.nr  / cur.gb : 0,
-    fvmPct: cur.gb ? cur.fvm / cur.gb : 0,
+    gb: cur.gb, nr: cur.nr, fvm: cur.fvm, nrPct: nrPct, fvmPct: fvmPct,
     yoyGb:  ly.gb  ? (cur.gb  / ly.gb  - 1) : null,
     yoyNr:  ly.nr  ? (cur.nr  / ly.nr  - 1) : null,
-    yoyFvm: ly.fvm ? (cur.fvm / ly.fvm - 1) : null
+    yoyFvm: ly.fvm ? (cur.fvm / ly.fvm - 1) : null,
+    yoyNrPct:  (nrPct  == null || lyNrPct  == null) ? null : nrPct  - lyNrPct,
+    yoyFvmPct: (fvmPct == null || lyFvmPct == null) ? null : fvmPct - lyFvmPct
   };
 }
 
@@ -3105,75 +3141,33 @@ function _benchRange_() {
   return { from: from, to: to, lyFrom: lyFrom, lyTo: lyTo };
 }
 
-// Serie mensual (año calendario → último mes de actuals) por negocio, para el line-chart
-// del bloque 1. Ignora MTD/YTD. metric ∈ {gb,nr,fvm,nrPct,fvmPct}. Devuelve { key: [{x:'YYYY-MM', v}] }.
-function _benchMetricSeries_(metric) {
-  var to = (_rawB2BC && _rawB2BC.meta) ? _rawB2BC.meta.last_actuals_date : '';
-  var yStart = to.slice(0, 4) + '-01-01', res = {};
+// Mensual del año en curso (ene → mes de last_actuals) por negocio, cur + LY del mismo mes.
+// El último mes es parcial → el LY se corta en el mismo día (comparación like-for-like).
+// Devuelve { months: ['YYYY-MM'…], byBiz: { key: { 'YYYY-MM': { cur:{gb,nr,fvm}, ly:{…} } } } }.
+function _benchMonthly_(rg) {
+  var y = parseInt(rg.to.slice(0, 4), 10);
+  var yStart = y + '-01-01', lyStart = (y - 1) + '-01-01';
+  var byBiz = {};
   BENCH_BIZ.forEach(function(b) {
     var rr = _benchRows_(b.key), M = {};
-    rr.cur.forEach(function(r) {
-      if (r.fecha < yStart || r.fecha > to) return;
-      if (_benchPais && (r.pais || 'N/D') !== _benchPais) return;
-      var m = r.fecha.substring(0, 7);
-      var o = M[m] || (M[m] = { gb: 0, nr: 0, fvm: 0 });
-      o.gb += +r.gross_bookings || 0;
-      o.nr += +r[rr.nr] || 0;
-      o.fvm += +r.fvm || 0;
-    });
-    res[b.key] = Object.keys(M).sort().map(function(m) {
-      var o = M[m], v;
-      if (metric === 'nrPct')       v = o.gb ? o.nr / o.gb : null;
-      else if (metric === 'fvmPct') v = o.gb ? o.fvm / o.gb : null;
-      else v = o[metric];
-      return { x: m, v: v };
-    });
+    var add = function(rows, from, until, slot, shiftYear) {
+      for (var i = 0; i < rows.length; i++) {
+        var r = rows[i];
+        if (r.fecha < from || r.fecha > until) continue;
+        if (_benchPais && (r.pais || 'N/D') !== _benchPais) continue;
+        var m = shiftYear ? (y + r.fecha.slice(4, 7)) : r.fecha.slice(0, 7);
+        var o = M[m] || (M[m] = { cur: { gb: 0, nr: 0, fvm: 0 }, ly: { gb: 0, nr: 0, fvm: 0 } });
+        var t = o[slot];
+        t.gb += +r.gross_bookings || 0; t.nr += +r[rr.nr] || 0; t.fvm += +r.fvm || 0;
+      }
+    };
+    add(rr.cur, yStart, rg.to, 'cur', false);
+    add(rr.ly, lyStart, rg.lyTo, 'ly', true);
+    byBiz[b.key] = M;
   });
-  return res;
-}
-
-// Pace: rolling-7d del metric indexado al promedio semanal de las ≤8 semanas-lunes previas
-// completas. metric ∈ {gb,nr,fvm}. Valor 100 = ritmo = promedio de los ~2 meses anteriores.
-function _benchPaceSeries_(metric) {
-  var vDate = (_rawB2BC && _rawB2BC.meta) ? _rawB2BC.meta.last_actuals_date : '';
-  var cw = vDate ? weekStart_(vDate) : '';
-  var res = {};
-  BENCH_BIZ.forEach(function(b) {
-    var rr = _benchRows_(b.key);
-    var field = (metric === 'gb') ? 'gross_bookings' : (metric === 'nr' ? rr.nr : 'fvm');
-    var dMap = {};
-    rr.cur.forEach(function(r) {
-      if (_benchPais && (r.pais || 'N/D') !== _benchPais) return;
-      dMap[r.fecha] = (dMap[r.fecha] || 0) + (+r[field] || 0);
-    });
-    var wk = {};
-    Object.keys(dMap).forEach(function(d) { var w = weekStart_(d); wk[w] = (wk[w] || 0) + dMap[d]; });
-    var weeks = Object.keys(wk).sort().filter(function(w) { return w < cw; }).slice(-8);
-    var base = weeks.length ? weeks.reduce(function(s, w) { return s + wk[w]; }, 0) / weeks.length : 0;
-    var win = aggRolling7_(dMap, {}, vDate);
-    res[b.key] = base ? win.map(function(w) { return { x: w.date, v: w.v / base * 100 }; }) : [];
-  });
-  return res;
-}
-
-// Serie del chart indexado — despacha por modo. Devuelve { key: [{x, v}] }.
-function _benchIndexSeries_(to) {
-  if (_benchIdxMode === 'pace') return _benchPaceSeries_(_benchIdxMetric);
-  var yStart = to.slice(0, 4) + '-01-01', res = {};
-  BENCH_BIZ.forEach(function(b) {
-    var rr = _benchRows_(b.key), dM = {};
-    var field = (_benchIdxMetric === 'gb') ? 'gross_bookings' : (_benchIdxMetric === 'nr' ? rr.nr : 'fvm');
-    rr.cur.forEach(function(r) {
-      if (r.fecha < yStart || r.fecha > to) return;
-      if (_benchPais && (r.pais || 'N/D') !== _benchPais) return;
-      var m = r.fecha.substring(0, 7);
-      dM[m] = (dM[m] || 0) + (+r[field] || 0);
-    });
-    var months = Object.keys(dM).sort();
-    var base = months.length ? dM[months[0]] : 0;
-    res[b.key] = months.map(function(m) { return { x: m, v: base ? dM[m] / base * 100 : null }; });
-  });
-  return res;
+  var months = [], last = +rg.to.slice(5, 7);
+  for (var mi = 1; mi <= last; mi++) months.push(y + '-' + (mi < 10 ? '0' : '') + mi);
+  return { months: months, byBiz: byBiz };
 }
 
 var _ZERO3 = { gb: 0, nr: 0, fvm: 0 };
@@ -3182,7 +3176,7 @@ function computeBenchmark_() {
   var rg = _benchRange_();
   if (!rg) return null;
 
-  var out = { range: rg, biz: {}, byPais: {}, paises: [] }, paisSet = {};
+  var out = { range: rg, biz: {}, byPais: {} };
   BENCH_BIZ.forEach(function(b) {
     var rr  = _benchRows_(b.key);
     var cur = _benchAgg_(rr.cur, rg.from,   rg.to,   rr.nr, _benchPais);
@@ -3190,204 +3184,185 @@ function computeBenchmark_() {
     out.biz[b.key] = _benchMetrics_(cur.total, ly.total);
     out.byPais[b.key] = {};
     Object.keys(cur.byP).forEach(function(p) {
-      paisSet[p] = 1;
       out.byPais[b.key][p] = _benchMetrics_(cur.byP[p], ly.byP[p] || _ZERO3);
+      out.byPais[b.key][p].gbAbs = cur.byP[p].gb;
     });
   });
-  out.paises = Object.keys(paisSet).sort();
 
-  var tot = { gb: 0, nr: 0, fvm: 0 };
-  BENCH_BIZ.forEach(function(b) { ['gb', 'nr', 'fvm'].forEach(function(m) { tot[m] += out.biz[b.key][m]; }); });
-  var b2c = out.biz.b2c;
-  BENCH_BIZ.forEach(function(b) {
-    var bb = out.biz[b.key];
-    bb.share = { gb: tot.gb ? bb.gb / tot.gb : 0, nr: tot.nr ? bb.nr / tot.nr : 0, fvm: tot.fvm ? bb.fvm / tot.fvm : 0 };
-    bb.dpp   = { nr: bb.nrPct - b2c.nrPct, fvm: bb.fvmPct - b2c.fvmPct };
-  });
+  // Peso de cada negocio en el GB de Despegar (B2C + B2B2C + B2B) en el período.
+  var totGb = 0;
+  BENCH_BIZ.forEach(function(b) { totGb += out.biz[b.key].gb; });
+  BENCH_BIZ.forEach(function(b) { out.biz[b.key].shareGb = totGb ? out.biz[b.key].gb / totGb : null; });
 
-  out.index = _benchIndexSeries_(rg.to);
+  out.monthly = _benchMonthly_(rg);
   return out;
 }
 
 function _bPct1_(v) { return (v == null) ? '—' : (v * 100).toFixed(1) + '%'; }
-function _bPp1_(v)  { return (v == null) ? '—' : (v >= 0 ? '+' : '') + (v * 100).toFixed(1) + 'pp'; }
+function _bPp1_(v)  { if (v == null) return '—'; var r = Math.round(v * 1000) / 10 || 0; return (r >= 0 ? '+' : '') + r.toFixed(1) + 'pp'; }
 function _bYoy0_(v) { return (v == null) ? '—' : (v >= 0 ? '+' : '') + Math.round(v * 100) + '%'; }
 function _bClr_(v)  { return (v == null) ? '' : (v >= 0 ? 'color:var(--success)' : 'color:var(--danger)'); }
+function _bGap_(a, b) { return (a == null || b == null) ? null : a - b; }
+function _bMonthLbl_(m) { var p = m.split('-'); return _BENCH_ML[+p[1] - 1] + " '" + p[0].slice(2); }
 
-function _benchRow_(cells, cls, dataAttr) {
-  return '<tr class="' + (cls || '') + '"' + (dataAttr || '') + '>' + cells + '</tr>';
-}
-
-// Tabla YoY: crecimiento + márgenes + Δpp vs B2C. Colapsable por país. Driven por MTD/YTD.
-function renderBenchYoyTable_(d) {
-  var html = '';
-  BENCH_BIZ.forEach(function(b) {
-    var m = d.biz[b.key], isRef = (b.key === 'b2c'), gid = 'benchg-' + b.key;
-    html += _benchRow_(
-      '<td><span class="bar-wrap"><button class="bk-toggle" onclick="benchToggle(this,\'' + gid + '\')">▸</button>'
-        + '<span class="bk-name bk-group" style="color:' + b.color + '">' + b.label + '</span></span></td>'
-      + '<td class="bk-yoy" style="' + _bClr_(m.yoyGb)  + '">' + _bYoy0_(m.yoyGb)  + '</td>'
-      + '<td class="bk-yoy" style="' + _bClr_(m.yoyNr)  + '">' + _bYoy0_(m.yoyNr)  + '</td>'
-      + '<td class="bk-yoy" style="' + _bClr_(m.yoyFvm) + '">' + _bYoy0_(m.yoyFvm) + '</td>'
-      + '<td class="bk-val">' + _bPct1_(m.nrPct) + '</td><td class="bk-val">' + _bPct1_(m.fvmPct) + '</td>'
-      + '<td class="bk-yoy" style="' + (isRef ? '' : _bClr_(m.dpp.nr))  + '">' + (isRef ? '—' : _bPp1_(m.dpp.nr))  + '</td>'
-      + '<td class="bk-yoy" style="' + (isRef ? '' : _bClr_(m.dpp.fvm)) + '">' + (isRef ? '—' : _bPp1_(m.dpp.fvm)) + '</td>',
-      'bk-row-group', ' data-grp="' + gid + '"');
-
-    var bp = d.byPais[b.key];
-    Object.keys(bp).sort(function(x, y) { return bp[y].gb - bp[x].gb; }).forEach(function(p) {
-      var pm = bp[p], b2cP = d.byPais.b2c[p];
-      var ppNr  = (isRef || !b2cP) ? null : pm.nrPct  - b2cP.nrPct;
-      var ppFvm = (isRef || !b2cP) ? null : pm.fvmPct - b2cP.fvmPct;
-      html += _benchRow_(
-        '<td><span class="bk-name bk-child">' + (b2bPaisLabel_ ? b2bPaisLabel_(p) : p) + '</span></td>'
-        + '<td class="bk-yoy" style="' + _bClr_(pm.yoyGb)  + '">' + _bYoy0_(pm.yoyGb)  + '</td>'
-        + '<td class="bk-yoy" style="' + _bClr_(pm.yoyNr)  + '">' + _bYoy0_(pm.yoyNr)  + '</td>'
-        + '<td class="bk-yoy" style="' + _bClr_(pm.yoyFvm) + '">' + _bYoy0_(pm.yoyFvm) + '</td>'
-        + '<td class="bk-val">' + _bPct1_(pm.nrPct) + '</td><td class="bk-val">' + _bPct1_(pm.fvmPct) + '</td>'
-        + '<td class="bk-yoy" style="' + _bClr_(ppNr)  + '">' + _bPp1_(ppNr)  + '</td>'
-        + '<td class="bk-yoy" style="' + _bClr_(ppFvm) + '">' + _bPp1_(ppFvm) + '</td>',
-        'bk-row-child', ' data-child="' + gid + '" style="display:none"');
+// Bloque 1 — una tarjeta por negocio propio (B2B2C, B2B) + franja de referencia B2C.
+function renderBenchCards_(d) {
+  var ref = d.biz.b2c, html = '';
+  var rows = [
+    { lbl: 'GB',   val: 'gb',     yoy: 'yoyGb',     pct: false },
+    { lbl: 'NR',   val: 'nr',     yoy: 'yoyNr',     pct: false },
+    { lbl: 'FVM',  val: 'fvm',    yoy: 'yoyFvm',    pct: false },
+    { lbl: 'NR%',  val: 'nrPct',  yoy: 'yoyNrPct',  pct: true },
+    { lbl: 'FVM%', val: 'fvmPct', yoy: 'yoyFvmPct', pct: true }
+  ];
+  BENCH_OURS.forEach(function(b) {
+    var m = d.biz[b.key], hero = _bGap_(m.yoyGb, ref.yoyGb);
+    var heroTxt = (hero == null) ? 'Sin comparable'
+      : (hero >= 0 ? '▲ ' : '▼ ') + _bPp1_(hero) + (hero >= 0 ? ' sobre B2C' : ' debajo de B2C');
+    html += '<div class="bench-card" style="--bc:' + b.color + '">'
+      + '<div class="bench-card-hdr"><span class="bench-card-name"><i class="bench-dot"></i>' + b.label + '</span>'
+      + '<span class="bench-sub">' + _bPct1_(m.shareGb) + ' del GB Despegar</span></div>'
+      + '<div class="bench-hero" style="' + _bClr_(hero) + '">' + heroTxt + '</div>'
+      + '<div class="bench-sub">Crecimiento GB ' + _bYoy0_(m.yoyGb) + ' vs B2C ' + _bYoy0_(ref.yoyGb) + '</div>'
+      + '<table class="bench-mini"><thead><tr><th></th><th>Real</th><th>vs LY</th><th>vs B2C</th></tr></thead><tbody>';
+    rows.forEach(function(r) {
+      var val = r.pct ? _bPct1_(m[r.val]) : fmtShort(m[r.val]);
+      var yoy = m[r.yoy];
+      // Montos: brecha de crecimiento (pp). Márgenes: diferencia de margen vs B2C (pp).
+      var gap = r.pct ? _bGap_(m[r.val], ref[r.val]) : _bGap_(yoy, ref[r.yoy]);
+      html += '<tr><td>' + r.lbl + '</td><td>' + val + '</td>'
+        + '<td style="' + _bClr_(yoy) + '">' + (r.pct ? _bPp1_(yoy) : _bYoy0_(yoy)) + '</td>'
+        + '<td style="' + _bClr_(gap) + '">' + _bPp1_(gap) + '</td></tr>';
     });
+    html += '</tbody></table></div>';
   });
-  document.getElementById('bench-yoy-body').innerHTML = html;
+  document.getElementById('bench-cards').innerHTML = html;
+
+  var share = BENCH_BIZ.map(function(b) { return b.label + ' ' + _bPct1_(d.biz[b.key].shareGb); }).join(' · ');
+  document.getElementById('bench-ref').innerHTML =
+    '<span><b>B2C (referencia)</b></span>'
+    + '<span>GB ' + fmtShort(ref.gb) + ' <span style="' + _bClr_(ref.yoyGb) + '">' + _bYoy0_(ref.yoyGb) + '</span></span>'
+    + '<span>NR <span style="' + _bClr_(ref.yoyNr) + '">' + _bYoy0_(ref.yoyNr) + '</span></span>'
+    + '<span>FVM <span style="' + _bClr_(ref.yoyFvm) + '">' + _bYoy0_(ref.yoyFvm) + '</span></span>'
+    + '<span>NR% ' + _bPct1_(ref.nrPct) + '</span><span>FVM% ' + _bPct1_(ref.fvmPct) + '</span>'
+    + '<span class="bench-ref-share">Peso en GB Despegar: ' + share + '</span>';
 }
 
-// Tabla de participación por negocio (GB / NR / FVM). Driven por MTD/YTD.
-function renderBenchBizShareTable_(d) {
-  var html = '';
-  BENCH_BIZ.forEach(function(b) {
-    var s = d.biz[b.key].share;
-    html += '<tr><td><span class="bk-name bk-group" style="color:' + b.color + '">' + b.label + '</span></td>'
-      + '<td class="bk-val">' + _bPct1_(s.gb) + '</td><td class="bk-val">' + _bPct1_(s.nr) + '</td><td class="bk-val">' + _bPct1_(s.fvm) + '</td></tr>';
-  });
-  html += '<tr class="bk-row-group"><td><span class="bk-name bk-group">Total</span></td>'
-    + '<td class="bk-val">' + _bPct1_(1) + '</td><td class="bk-val">' + _bPct1_(1) + '</td><td class="bk-val">' + _bPct1_(1) + '</td></tr>';
-  document.getElementById('bench-bizshare-body').innerHTML = html;
-}
-
-function benchToggle(btn, gid) {
-  btn.classList.toggle('open');
-  var open = btn.classList.contains('open');
-  var rows = document.querySelectorAll('tr.bk-row-child[data-child="' + gid + '"]');
-  for (var i = 0; i < rows.length; i++) rows[i].style.display = open ? '' : 'none';
-}
-
-// Line-chart bloque 1 — evolución mensual por métrica (GB/NR/FVM/NR%/FVM%), 3 negocios.
-function renderBenchMetricChart_() {
-  var ser = _benchMetricSeries_(_benchMetric), tv = _getThemeVars();
-  var isPct = (_benchMetric === 'nrPct' || _benchMetric === 'fvmPct');
-  var mset = {};
-  BENCH_BIZ.forEach(function(b) { (ser[b.key] || []).forEach(function(p) { mset[p.x] = 1; }); });
-  var months = Object.keys(mset).sort();
-  var labels = months.map(function(m) { var p = m.split('-'); return _BENCH_ML[+p[1] - 1] + " '" + p[0].slice(2); });
-  var datasets = BENCH_BIZ.map(function(b) {
-    var byM = {}; (ser[b.key] || []).forEach(function(p) { byM[p.x] = p.v; });
-    return {
-      label: b.label, data: months.map(function(m) { return (m in byM) ? byM[m] : null; }),
-      borderColor: b.color, backgroundColor: 'transparent', borderWidth: 2,
-      borderDash: b.key === 'b2c' ? [5, 3] : [], pointRadius: 2, pointBackgroundColor: b.color, tension: .25, spanGaps: true
-    };
-  });
-  if (_benchCharts.metric) _benchCharts.metric.destroy();
-  _benchCharts.metric = new Chart(document.getElementById('bench-met-chart').getContext('2d'), {
-    type: 'line',
-    data: { labels: labels, datasets: datasets },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: {
-        legend: { display: true, position: 'bottom', labels: { color: tv.tickColor, font: { size: 11 }, boxWidth: 14 } },
-        tooltip: {
-          backgroundColor: tv.ttBg, titleColor: tv.ttTitle, bodyColor: tv.ttBody, borderColor: tv.ttBorder, borderWidth: 1,
-          callbacks: { label: function(c) {
-            return c.dataset.label + ': ' + (c.parsed.y == null ? '—' : (isPct ? (c.parsed.y * 100).toFixed(1) + '%' : fmtShort(c.parsed.y)));
-          } }
-        }
-      },
-      scales: {
-        x: { grid: { display: false }, ticks: { color: tv.tickColor, font: { size: 10 } } },
-        y: {
-          grid: { color: tv.gridColor },
-          ticks: { color: tv.tickColor, font: { size: 10 }, callback: function(val) { return isPct ? (val * 100).toFixed(0) + '%' : fmtShort(val); } },
-          title: { display: true, text: isPct ? 'NR% / FVM%' : 'USD', color: tv.tickColor, font: { size: 10 } }
-        }
+function _benchChartOpts_(tv, yFmt, yTitle) {
+  return {
+    responsive: true, maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { display: true, position: 'bottom', labels: { color: tv.tickColor, font: { size: 11 }, boxWidth: 14 } },
+      tooltip: {
+        backgroundColor: tv.ttBg, titleColor: tv.ttTitle, bodyColor: tv.ttBody, borderColor: tv.ttBorder, borderWidth: 1,
+        callbacks: { label: function(c) { return c.dataset.label + ': ' + (c.parsed.y == null ? '—' : yFmt(c.parsed.y)); } }
+      }
+    },
+    scales: {
+      x: { grid: { display: false }, ticks: { color: tv.tickColor, font: { size: 10 } } },
+      y: {
+        // Línea del 0 marcada: arriba = crece / le gana a B2C, abajo = cae / pierde.
+        grid: { color: function(ctx) { return (ctx.tick && ctx.tick.value === 0) ? tv.tickColor : tv.gridColor; } },
+        ticks: { color: tv.tickColor, font: { size: 10 }, callback: function(val) { return yFmt(val); } },
+        title: { display: true, text: yTitle, color: tv.tickColor, font: { size: 10 } }
       }
     }
-  });
-  var sub = document.getElementById('bench-met-sub');
-  if (sub) {
-    var ld = (_rawB2BC && _rawB2BC.meta) ? _rawB2BC.meta.last_actuals_date : '';
-    sub.textContent = 'B2B en base generación (GD) · último mes parcial (datos al ' + (ld ? fmtDate(ld) : '—') + ')';
-  }
-}
-
-function renderBenchIndexChart_() {
-  if (!_benchData) return;
-  var isPace = (_benchIdxMode === 'pace');
-  var idx = _benchIndexSeries_(_benchData.range.to);
-  _benchData.index = idx;
-  var tv = _getThemeVars();
-  var pad = function(n) { return (n < 10 ? '0' : '') + n; };
-  var winLbl = function(x, endOnly) {
-    var s = x.split('-'), d0 = new Date(+s[0], +s[1] - 1, +s[2]), d1 = new Date(d0);
-    d1.setDate(d0.getDate() + 6);
-    var e = pad(d1.getDate()) + '/' + pad(d1.getMonth() + 1);
-    return endOnly ? e : (pad(d0.getDate()) + '/' + pad(d0.getMonth() + 1) + ' – ' + e);
   };
-  var xset = {};
-  BENCH_BIZ.forEach(function(b) { (idx[b.key] || []).forEach(function(p) { xset[p.x] = 1; }); });
-  var xs = Object.keys(xset).sort();
-  var labels = xs.map(function(x) {
-    if (!isPace) { var p = x.split('-'); return _BENCH_ML[+p[1] - 1] + " '" + p[0].slice(2); }
-    return winLbl(x, true);
+}
+
+function _benchLineDs_(b, data) {
+  var isRef = (b.key === 'b2c');
+  return {
+    type: 'line', label: isRef ? 'B2C (referencia)' : b.label, data: data,
+    borderColor: b.color, backgroundColor: 'transparent', borderWidth: isRef ? 2 : 2.5,
+    borderDash: isRef ? [6, 4] : [], pointRadius: 2, pointBackgroundColor: b.color, tension: .25, spanGaps: true
+  };
+}
+
+// Bloque 2 — crecimiento YoY mensual (3 líneas, B2C punteada) o brecha pp vs B2C (barras).
+function renderBenchGrowthChart_() {
+  var d = _benchData; if (!d) return;
+  var tv = _getThemeVars(), met = _benchGrMetric, isGap = (_benchGrMode === 'gap');
+  var months = d.monthly.months;
+  var yoy = function(key, m) {
+    var o = d.monthly.byBiz[key][m];
+    return (o && o.ly[met]) ? o.cur[met] / o.ly[met] - 1 : null;
+  };
+  var datasets = isGap
+    ? BENCH_OURS.map(function(b) {
+        return {
+          type: 'bar', label: b.label + ' vs B2C',
+          data: months.map(function(m) { return _bGap_(yoy(b.key, m), yoy('b2c', m)); }),
+          backgroundColor: b.color, borderRadius: 3, maxBarThickness: 26
+        };
+      })
+    : BENCH_BIZ.map(function(b) { return _benchLineDs_(b, months.map(function(m) { return yoy(b.key, m); })); });
+  var fmt = isGap
+    ? function(v) { return (v >= 0 ? '+' : '') + (v * 100).toFixed(1) + 'pp'; }
+    : function(v) { return (v >= 0 ? '+' : '') + (v * 100).toFixed(0) + '%'; };
+  if (_benchCharts.gr) _benchCharts.gr.destroy();
+  _benchCharts.gr = new Chart(document.getElementById('bench-gr-chart').getContext('2d'), {
+    type: isGap ? 'bar' : 'line',
+    data: { labels: months.map(_bMonthLbl_), datasets: datasets },
+    options: _benchChartOpts_(tv, fmt, isGap ? 'Brecha vs B2C (pp)' : 'Crecimiento YoY')
   });
+  var ML = { gb: 'GB', nr: 'NR', fvm: 'FVM' };
+  document.getElementById('bench-gr-ttl').textContent = isGap
+    ? 'Brecha de crecimiento ' + ML[met] + ' vs B2C · por mes'
+    : 'Crecimiento YoY ' + ML[met] + ' mensual vs B2C';
+  var ld = d.range.to;
+  document.getElementById('bench-gr-sub').textContent = (isGap
+    ? 'Barra arriba de 0 = crecimos más que B2C ese mes'
+    : 'Línea por encima de la punteada = crecimos más que B2C')
+    + ' · último mes parcial vs mismos días de LY (datos al ' + fmtDate(ld) + ')';
+}
+
+// Bloque 3 — margen mensual (NR% o FVM%) de los 3 negocios, B2C punteada.
+function renderBenchMarginChart_() {
+  var d = _benchData; if (!d) return;
+  var tv = _getThemeVars(), met = _benchMgMetric, months = d.monthly.months;
+  var num = (met === 'nrPct') ? 'nr' : 'fvm';
   var datasets = BENCH_BIZ.map(function(b) {
-    var byX = {}; (idx[b.key] || []).forEach(function(p) { byX[p.x] = p.v; });
-    return {
-      label: b.label, data: xs.map(function(x) { return (x in byX) ? byX[x] : null; }),
-      borderColor: b.color, backgroundColor: 'transparent', borderWidth: 2,
-      borderDash: b.key === 'b2c' ? [5, 3] : [], pointRadius: 2, pointBackgroundColor: b.color, tension: .25, spanGaps: true
-    };
+    return _benchLineDs_(b, months.map(function(m) {
+      var o = d.monthly.byBiz[b.key][m];
+      return (o && o.cur.gb) ? o.cur[num] / o.cur.gb : null;
+    }));
   });
-  if (isPace) {
-    datasets.push({
-      label: 'Base (prom. 8 sem.)', data: xs.map(function() { return 100; }),
-      borderColor: tv.tickColor, backgroundColor: 'transparent', borderWidth: 1,
-      borderDash: [4, 4], pointRadius: 0, tension: 0, spanGaps: true
-    });
-  }
-  if (_benchCharts.idx) _benchCharts.idx.destroy();
-  _benchCharts.idx = new Chart(document.getElementById('bench-idx-chart').getContext('2d'), {
+  if (_benchCharts.mg) _benchCharts.mg.destroy();
+  _benchCharts.mg = new Chart(document.getElementById('bench-mg-chart').getContext('2d'), {
     type: 'line',
-    data: { labels: labels, datasets: datasets },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: {
-        legend: { display: true, position: 'bottom', labels: { color: tv.tickColor, font: { size: 11 }, boxWidth: 14 } },
-        tooltip: {
-          backgroundColor: tv.ttBg, titleColor: tv.ttTitle, bodyColor: tv.ttBody, borderColor: tv.ttBorder, borderWidth: 1,
-          callbacks: {
-            title: function(items) {
-              if (!items.length) return '';
-              return isPace ? winLbl(xs[items[0].dataIndex], false) : items[0].label;
-            },
-            label: function(c) { return c.dataset.label + ': ' + (c.parsed.y == null ? '—' : c.parsed.y.toFixed(0)); }
-          }
-        }
-      },
-      scales: {
-        x: { grid: { display: false }, ticks: { color: tv.tickColor, font: { size: 10 } } },
-        y: {
-          grid: { color: tv.gridColor }, ticks: { color: tv.tickColor, font: { size: 10 } },
-          title: { display: true, text: isPace ? 'Pace vs prom. 8 sem. (=100)' : 'Índice (base 100)', color: tv.tickColor, font: { size: 10 } }
-        }
-      }
-    }
+    data: { labels: months.map(_bMonthLbl_), datasets: datasets },
+    options: _benchChartOpts_(tv, function(v) { return (v * 100).toFixed(1) + '%'; }, met === 'nrPct' ? 'NR% sobre GB' : 'FVM% sobre GB')
   });
-  var ttl = document.getElementById('bench-idx-ttl');
-  if (ttl) ttl.textContent = isPace
-    ? 'Pace · rolling 7 días vs promedio semanal de los 2 meses previos'
-    : 'Evolución indexada · base 100 = primer mes del año';
+}
+
+// Bloque 4 — tabla por país: cada negocio propio vs el B2C del mismo país. Driven por MTD/YTD.
+function renderBenchPaisTable_(d) {
+  var met = _benchPaisMetric, isPct = (met === 'nrPct' || met === 'fvmPct');
+  var yk = { gb: 'yoyGb', nr: 'yoyNr', fvm: 'yoyFvm' }[met];
+  var val = function(m) { return m ? (isPct ? m[met] : m[yk]) : null; };
+  var fmt = isPct ? _bPct1_ : _bYoy0_;
+  var ML = { gb: 'GB YoY', nr: 'NR YoY', fvm: 'FVM YoY', nrPct: 'NR%', fvmPct: 'FVM%' };
+  document.getElementById('bench-pt-h-b2c').textContent = 'B2C · ' + ML[met];
+
+  var gbBy = {};
+  BENCH_OURS.forEach(function(b) {
+    var bp = d.byPais[b.key];
+    Object.keys(bp).forEach(function(p) { gbBy[p] = (gbBy[p] || 0) + bp[p].gbAbs; });
+  });
+  var html = '';
+  Object.keys(gbBy).sort(function(x, y) { return gbBy[y] - gbBy[x]; }).forEach(function(p) {
+    var r = val(d.byPais.b2c[p]);
+    html += '<tr><td><span class="bk-name">' + b2bPaisLabel_(p) + '</span></td>'
+      + '<td class="bk-val">' + fmt(r) + '</td>';
+    BENCH_OURS.forEach(function(b) {
+      var x = val(d.byPais[b.key][p]), g = _bGap_(x, r);
+      html += '<td class="bk-val">' + fmt(x) + '</td><td class="bk-yoy" style="' + _bClr_(g) + '">' + _bPp1_(g) + '</td>';
+    });
+    html += '</tr>';
+  });
+  document.getElementById('bench-pais-body').innerHTML = html;
 }
 
 function _benchPopulatePais_() {
@@ -3421,18 +3396,21 @@ function renderBenchmark_() {
   _benchPopulatePais_();
   _benchData = computeBenchmark_();
   if (!_benchData) return;
-  renderBenchMetricChart_();
-  renderBenchYoyTable_(_benchData);
-  renderBenchBizShareTable_(_benchData);
-  renderBenchIndexChart_();
+  renderBenchCards_(_benchData);
+  renderBenchGrowthChart_();
+  renderBenchMarginChart_();
+  renderBenchPaisTable_(_benchData);
   document.getElementById('bench-range').textContent =
-    (_benchPeriod === 'ytd' ? 'YTD' : 'MTD') + ' · ' + fmtDate(_benchData.range.from) + ' → ' + fmtDate(_benchData.range.to);
+    (_benchPeriod === 'ytd' ? 'YTD' : 'MTD') + ' · ' + fmtDate(_benchData.range.from) + ' → ' + fmtDate(_benchData.range.to)
+    + ' (tarjetas y tabla por país; gráficos = mensual del año)';
 }
 
+function _benchSetActive_(prefix, keys, active) {
+  keys.forEach(function(k) { document.getElementById(prefix + k).classList.toggle('active', k === active); });
+}
 function setBenchPeriod(p) {
   _benchPeriod = p;
-  document.getElementById('bench-per-mtd').classList.toggle('active', p === 'mtd');
-  document.getElementById('bench-per-ytd').classList.toggle('active', p === 'ytd');
+  _benchSetActive_('bench-per-', ['mtd', 'ytd'], p);
   renderBenchmark_();
 }
 function setBenchPais() {
@@ -3440,22 +3418,30 @@ function setBenchPais() {
   _benchPais = (val === 'all') ? null : val;
   renderBenchmark_();
 }
-function setBenchMetric(m) {
-  _benchMetric = m;
-  var ids = { gb: 'bench-met-gb', nr: 'bench-met-nr', fvm: 'bench-met-fvm', nrPct: 'bench-met-nrpct', fvmPct: 'bench-met-fvmpct' };
-  Object.keys(ids).forEach(function(k) { document.getElementById(ids[k]).classList.toggle('active', k === m); });
-  renderBenchMetricChart_();
+function setBenchGrMetric(m) {
+  _benchGrMetric = m;
+  _benchSetActive_('bench-gr-', ['gb', 'nr', 'fvm'], m);
+  renderBenchGrowthChart_();
 }
-function setBenchIdxMetric(m) {
-  _benchIdxMetric = m;
-  ['gb', 'nr', 'fvm'].forEach(function(k) { document.getElementById('bench-idx-' + k).classList.toggle('active', k === m); });
-  renderBenchIndexChart_();
+function setBenchGrMode(mode) {
+  _benchGrMode = mode;
+  _benchSetActive_('bench-gr-mode-', ['yoy', 'gap'], mode);
+  renderBenchGrowthChart_();
 }
-function setBenchIdxMode(mode) {
-  _benchIdxMode = mode;
-  document.getElementById('bench-idx-mode-cy').classList.toggle('active', mode === 'cy');
-  document.getElementById('bench-idx-mode-pace').classList.toggle('active', mode === 'pace');
-  renderBenchIndexChart_();
+function setBenchMgMetric(m) {
+  _benchMgMetric = m;
+  _benchSetActive_('bench-mg-', ['nrPct', 'fvmPct'], m);
+  renderBenchMarginChart_();
+}
+function setBenchPaisMetric(m) {
+  _benchPaisMetric = m;
+  _benchSetActive_('bench-pt-', ['gb', 'nr', 'fvm', 'nrPct', 'fvmPct'], m);
+  if (_benchData) renderBenchPaisTable_(_benchData);
+}
+function benchTogglePais() {
+  _benchPaisOpen = !_benchPaisOpen;
+  document.getElementById('bench-pais-toggle').classList.toggle('open', _benchPaisOpen);
+  document.getElementById('bench-pais-wrap').style.display = _benchPaisOpen ? '' : 'none';
 }
 
 // ══ WEEKLY JS ══════════════════════════════════════════════════
