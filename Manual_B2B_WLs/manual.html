@@ -875,9 +875,26 @@ a.ext-link:hover { text-decoration: underline; }
       <div class="card-title">📈 Salió una ronda nueva de Forecast (Modelos XLSX)</div>
       <table class="doc-table">
         <tbody>
-          <tr><td>Gestional</td><td>Actualizar <code>FC_XLSX_DIR</code> en <code>actuals_gestional_upload.py</code> a la carpeta semanal nueva → correr el script (con VPN).</td></tr>
+          <tr><td>Gestional</td><td>Actualizar <code>FORECAST_VERSION</code> en <code>Inputs_Planning_PnL/config.py</code> al nombre de la carpeta nueva (ej. <code>"2026.07.14"</code>) → correr <code>actuals_gestional_upload.py</code> (con VPN). La ruta completa (<code>FC_XLSX_DIR</code>) se arma sola con el FY y esa versión.</td></tr>
           <tr><td>Contable</td><td>El forecast contable NO sale de esos XLSX (sale de CSV Hyperion). Se actualiza upstream en <code>Inputs_Planning_PnL</code> al reprocesar.</td></tr>
           <tr><td>Preview de un WIP sin publicar</td><td><code>python projections_gestional_builder.py --wip-folder "&lt;ruta&gt;"</code> (gestional) / <code>projections_validation_builder.py</code> (contable). Muestra el borrador en la vista "Projection Review".</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🗓️ Arrancó un año fiscal nuevo (abril) <span class="badge badge-manual">🆕 2026-09-26</span></div>
+      <p style="font-size:13px;margin:0 0 10px">El FY va de abril a marzo (FY27 = abr-2026 → mar-2027). Desde la auditoría de sep-2026 ningún módulo tiene los meses escritos a mano: todo (meses, "Abr-26", Q1–Q4, H1/H2, "Total FY27", Last Year, textos) se deriva de <strong>un solo valor por módulo</strong>. El cambio es <strong>a mano y a propósito</strong>, no automático por fecha: hacerlo recién cuando estén los datos del FY nuevo (budget, actuals del año anterior cerrados), si no la landing pasa a FY28 vacía.</p>
+      <table class="doc-table">
+        <thead><tr><th>Dónde</th><th>Qué cambiar (ej. FY27 → FY28)</th></tr></thead>
+        <tbody>
+          <tr><td>Pipelines Python (Inputs + Managerial)</td><td><code>Inputs_Planning_PnL/config.py</code>: <code>CURRENT_FY = 2028</code>. Revisar también en el mismo archivo <code>FORECAST_VERSION</code>, <code>LAST_CLOSED_MONTH</code>, <code>FORECAST_ACTUALS_CUTOFF</code> y <code>ACTUALS_FILENAMES</code>. Los 3 scripts de <code>P&amp;L_Managerial</code> lo toman de acá.</td></tr>
+          <tr><td>P&amp;L Managerial (landing)</td><td><code>P&amp;L_Managerial/Codigo.js</code>: <code>var FY_END_YEAR = 2028;</code></td></tr>
+          <tr><td>P&amp;L Accounting (landing)</td><td><code>P&amp;L_Accounting/Codigo_contable.js</code>: <code>var FY_END_YEAR = 2028;</code></td></tr>
+          <tr><td>Ecosystem Hub</td><td><code>Dashboard_B2B_WLs/Codigo.js</code>: <code>function fyEndYear_() { return 2028; }</code> (es función, no var, por el orden de carga de Apps Script). Cubre también OKR (<code>OKR_HALVES</code>) y Country Page. Los <strong>KRs</strong> de cada semestre (<code>OKR_CONFIG_H1/H2</code>) se redefinen aparte.</td></tr>
+          <tr><td>Country One Pager</td><td><code>lob_country_one_pager/Codigo.js</code>: <code>var FY_END_YEAR = 2028;</code>. Usa el Hub como librería: después de deployar el Hub, subir la versión de la librería en su <code>appsscript.json</code>.</td></tr>
+          <tr><td>Publicar</td><td>Commit → <code>clasp push</code> + <code>clasp deploy -i &lt;deploymentId&gt;</code> en cada landing (ver <code>/clasp-push</code>). Verificar en <code>/exec</code> que el encabezado diga el FY nuevo.</td></tr>
+          <tr><td>No tocar</td><td>Daily Dashboard (muestra MTD, no depende del FY; los meses de "KRs Globales" son del OKR del semestre). <code>LAST_ACTUALS_YM</code> del Hub es el corte de actuals, se mueve cuando cierra un mes, no con el FY.</td></tr>
         </tbody>
       </table>
     </div>
