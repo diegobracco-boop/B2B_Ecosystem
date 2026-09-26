@@ -538,7 +538,20 @@ function _wsComputeMTDPais_(actRows, budRows, lyRows, pais, targetYm) {
 
 var EMAIL_TO = ['gregorio.minetti@despegar.com', 'diego.bracco@despegar.com', 'tiago.harari@despegar.com', 'matias.m.sanchez@despegar.com'];
 
-function sendDailyEmail()          { sendDailyEmail_(); }
+// El web app corre como USER_DEPLOYING: toda función pública se puede llamar con google.script.run
+// desde la consola del navegador de cualquier usuario del dominio y se ejecuta con los permisos de
+// quien deployó. Las funciones de mail/trigger solo las corre el dueño (editor) o un trigger
+// (auditoría ola 4, 2026-09-25). En un trigger el usuario activo viene vacío o es el dueño.
+function requireOwner_(fn) {
+  var active = '';
+  try { active = Session.getActiveUser().getEmail() || ''; } catch (e) {}
+  var owner = Session.getEffectiveUser().getEmail() || '';
+  if (active && active.toLowerCase() !== owner.toLowerCase()) {
+    throw new Error(fn + ': solo la puede correr el dueño del script (' + owner + ') o un trigger');
+  }
+}
+
+function sendDailyEmail()          { requireOwner_('sendDailyEmail'); sendDailyEmail_(); }
 // Envío a destinatarios elegidos en el dashboard. Solo cuentas @despegar.com (el mail lleva
 // KPIs y se manda desde la cuenta que deployó): antes aceptaba cualquier dirección y se podía
 // llamar desde la consola del navegador (auditoría 2026-09-25).
@@ -806,6 +819,7 @@ function _emailHtml_(vDate, kb, mb, k2, m2) {
 // ── Scheduled trigger (corre desde GAS, lunes a viernes ~9am BsAs) ──────────
 
 function scheduledEmailSend() {
+  requireOwner_('scheduledEmailSend');
   // Verificar que sea día laboral
   var dow = new Date().getDay();
   if (dow === 0 || dow === 6) return;
@@ -832,6 +846,7 @@ function scheduledEmailSend() {
 
 // Correr esta función UNA VEZ desde el editor de GAS para crear el trigger diario.
 function setupEmailTrigger() {
+  requireOwner_('setupEmailTrigger');
   // Eliminar triggers previos de scheduledEmailSend para evitar duplicados
   ScriptApp.getProjectTriggers().forEach(function(t) {
     if (t.getHandlerFunction() === 'scheduledEmailSend') ScriptApp.deleteTrigger(t);

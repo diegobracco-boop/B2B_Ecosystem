@@ -412,8 +412,20 @@ function preComputeAll() {
   Logger.log('preComputeAll OK: ' + count + ' combinaciones — ' + new Date());
 }
 
+// El Hub corre como USER_ACCESSING: si otro usuario del dominio llama un setup* con
+// google.script.run, el trigger queda creado a su nombre y corre con su cuenta. Solo los
+// admins lo pueden correr (auditoría ola 4, 2026-09-25).
+var TRIGGER_ADMINS_ = ['diego.bracco@despegar.com', 'gregorio.minetti@despegar.com'];
+function requireAdmin_(fn) {
+  var email = String(Session.getActiveUser().getEmail() || '').toLowerCase();
+  if (TRIGGER_ADMINS_.indexOf(email) === -1) {
+    throw new Error(fn + ': solo la pueden correr ' + TRIGGER_ADMINS_.join(', '));
+  }
+}
+
 // Configurar trigger cada 5 h — ejecutar UNA SOLA VEZ manualmente
 function setupDailyTrigger() {
+  requireAdmin_('setupDailyTrigger');
   ScriptApp.getProjectTriggers().forEach(function(t) {
     if (t.getHandlerFunction() === 'preComputeAll') ScriptApp.deleteTrigger(t);
   });
@@ -431,6 +443,7 @@ function keepAlive() {
 }
 
 function setupKeepAliveTrigger() {
+  requireAdmin_('setupKeepAliveTrigger');
   ScriptApp.getProjectTriggers().forEach(function(t) {
     if (t.getHandlerFunction() === 'keepAlive') ScriptApp.deleteTrigger(t);
   });
