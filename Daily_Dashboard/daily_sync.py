@@ -20,6 +20,7 @@ import base64
 import time
 from pathlib import Path
 import warnings
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta, datetime
 
 import pandas as pd
@@ -34,6 +35,7 @@ warnings.filterwarnings("ignore")
 _win_user  = os.environ.get("USERNAME", "").lower()
 RUTA_ENV   = Path(__file__).resolve().parent.parent / "credenciales" / f".env.{_win_user}"
 DSN_NAME   = "DataLake Treasure ODBC"
+FETCH_WORKERS = 6   # queries simultáneas contra el Datalake
 
 DRIVE_FOLDER_ID   = "1lWzfqweyV6Kz1ERkL85ikFcmzmKwGwwh"
 JSON_FILE_NAME    = "daily_b2b2c_data.json"
@@ -1784,6 +1786,7 @@ def fetch(query: str, label: str, retries: int = 3) -> pd.DataFrame:
     data from the peer', fallos de SSL handshake — todos intermitentes, no
     reproducibles con la misma query/conexion; una conexion nueva los resuelve)."""
     print(f"  > {label} ...")
+    t0 = time.monotonic()
     last_err = None
     for attempt in range(1, retries + 1):
         try:
@@ -1792,7 +1795,8 @@ def fetch(query: str, label: str, retries: int = 3) -> pd.DataFrame:
                 df = pd.read_sql(query, con)
             finally:
                 con.close()
-            print(f"  OK {len(df):,} filas" + (f" (intento {attempt})" if attempt > 1 else ""))
+            print(f"  OK {label}: {len(df):,} filas en {time.monotonic() - t0:.0f}s"
+                  + (f" (intento {attempt})" if attempt > 1 else ""))
             return df
         except Exception as e:
             last_err = e
@@ -2022,15 +2026,47 @@ def _apply_force_new(df: pd.DataFrame) -> None:
 _FAILED_BLOCKS = []
 
 print(f"\n--- Actuals FY{YEAR_BUDGET} ---")
-df_actuals = clean_actuals(fetch(build_actuals_query(ACTUALS_FROM, YESTERDAY), "Actuals"))
+# Debe quedar DESPUÉS del print de arriba: reales.py ejecuta este archivo solo hasta ese print.
+# Las queries son independientes: van todas en paralelo y cada bloque toma la suya con fetched().
+_QUERIES = {
+    "P&L Managerial GD": build_pnl_managerial_gd_query(GD_FROM, YESTERDAY),
+    "P&L Managerial RI": build_pnl_managerial_ri_query(RI_FROM, YESTERDAY),
+    "Actuals":           build_actuals_query(ACTUALS_FROM, YESTERDAY),
+    "LY":                build_actuals_query(LY_FROM, LY_TO),
+    "B2B GD actuals":    build_b2b_gd_query(ACTUALS_FROM, YESTERDAY),
+    "B2B GD LY":         build_b2b_gd_query(LY_FROM, LY_TO),
+    "B2B RI actuals":    build_b2b_ri_query(ACTUALS_FROM, YESTERDAY),
+    "B2B RI LY":         build_b2b_ri_query(LY_FROM, LY_TO),
+    "B2C":               build_b2c_query(ACTUALS_FROM, YESTERDAY),
+    "B2C LY":            build_b2c_query(LY_FROM, LY_TO),
+    "Budget":            BUDGET_QUERY,
+    "Cartera":           CARTERA_QUERY,
+    "lob_canal values":  LOB_CANAL_DIAG_QUERY,
+    "B2B Budget GD":     B2B_BUDGET_GD_QUERY,
+    "B2B Budget RI":     B2B_BUDGET_RI_QUERY,
+    "B2B2C Run Rate":    B2B2C_RR_QUERY,
+    "B2B Run Rate GD":   B2B_RR_GD_QUERY,
+    "B2B Run Rate RI":   B2B_RR_RI_QUERY,
+}
+print(f"  Lanzando {len(_QUERIES)} queries ({FETCH_WORKERS} en paralelo)...")
+_pool = ThreadPoolExecutor(max_workers=FETCH_WORKERS)
+_jobs = {label: _pool.submit(fetch, q, label) for label, q in _QUERIES.items()}
+_pool.shutdown(wait=False)
+
+
+def fetched(label: str) -> pd.DataFrame:
+    return _jobs[label].result()
+
+
+df_actuals = clean_actuals(fetched("Actuals"))
 _apply_force_new(df_actuals)
 
 print(f"\n--- Actuals LY (FY{str((TODAY.year - 1) % 100).zfill(2)}) ---")
-df_ly = clean_actuals(fetch(build_actuals_query(LY_FROM, LY_TO), "LY"))
+df_ly = clean_actuals(fetched("LY"))
 _apply_force_new(df_ly)
 
 print("\n--- Budget ---")
-df_budget = clean_budget(fetch(BUDGET_QUERY, "Budget"))
+df_budget = clean_budget(fetched("Budget"))
 
 def _map_stage(partner_series: pd.Series, cmap: dict) -> pd.Series:
     """Clasifica New/Existing joineando por nombre de partner NORMALIZADO
@@ -2051,7 +2087,7 @@ print("\n--- Cartera (stage/tier para budget) ---")
 cartera_map = {}
 tier_map = {}
 try:
-    df_cartera = fetch(CARTERA_QUERY, "Cartera")
+    df_cartera = fetched("Cartera")
     cartera_map = {
         str(k).strip().lower(): v
         for k, v in zip(df_cartera["partner_homologado_2"], df_cartera["stage"])
@@ -2073,16 +2109,16 @@ except Exception as e:
     df_budget["tier"]  = "Unknown"
 
 print("\n--- B2B GD ---")
-df_b2b_gd    = clean_b2b(fetch(build_b2b_gd_query(ACTUALS_FROM, YESTERDAY), "B2B GD actuals"))
-df_b2b_gd_ly = clean_b2b(fetch(build_b2b_gd_query(LY_FROM, LY_TO),          "B2B GD LY"))
+df_b2b_gd    = clean_b2b(fetched("B2B GD actuals"))
+df_b2b_gd_ly = clean_b2b(fetched("B2B GD LY"))
 
 print("\n--- B2B RI ---")
-df_b2b_ri    = clean_b2b(fetch(build_b2b_ri_query(ACTUALS_FROM, YESTERDAY), "B2B RI actuals"))
-df_b2b_ri_ly = clean_b2b(fetch(build_b2b_ri_query(LY_FROM, LY_TO),          "B2B RI LY"))
+df_b2b_ri    = clean_b2b(fetched("B2B RI actuals"))
+df_b2b_ri_ly = clean_b2b(fetched("B2B RI LY"))
 
 print("\n--- Budget LOB diagnostic ---")
 try:
-    df_lob_diag = fetch(LOB_CANAL_DIAG_QUERY, "lob_canal values")
+    df_lob_diag = fetched("lob_canal values")
     for _, row in df_lob_diag.iterrows():
         print(f"  lob_canal='{row['lob_canal']}': {int(row['n']):,} rows | NR={row['nr_sum']:,.0f} | GB={row['gb_sum']:,.0f}")
 except Exception as e:
@@ -2090,7 +2126,7 @@ except Exception as e:
 
 print("\n--- B2B Budget GD ---")
 try:
-    df_b2b_budget_gd = clean_budget(fetch(B2B_BUDGET_GD_QUERY, "B2B Budget GD"))
+    df_b2b_budget_gd = clean_budget(fetched("B2B Budget GD"))
 except Exception as e:
     print(f"  WARN B2B budget GD query failed: {e}")
     _FAILED_BLOCKS.append('B2B Budget GD')
@@ -2098,7 +2134,7 @@ except Exception as e:
 
 print("\n--- B2B Budget RI ---")
 try:
-    df_b2b_budget_ri = clean_budget(fetch(B2B_BUDGET_RI_QUERY, "B2B Budget RI"))
+    df_b2b_budget_ri = clean_budget(fetched("B2B Budget RI"))
 except Exception as e:
     print(f"  WARN B2B budget RI query failed: {e}")
     _FAILED_BLOCKS.append('B2B Budget RI')
@@ -2106,7 +2142,7 @@ except Exception as e:
 
 print("\n--- Run Rate B2B2C ---")
 try:
-    df_b2bc_rr = clean_budget(fetch(B2B2C_RR_QUERY, "B2B2C Run Rate"))
+    df_b2bc_rr = clean_budget(fetched("B2B2C Run Rate"))
     if not df_b2bc_rr.empty and 'partner' in df_b2bc_rr.columns:
         df_b2bc_rr["stage"] = _map_stage(df_b2bc_rr["partner"], cartera_map)
         df_b2bc_rr["tier"]  = _map_tier(df_b2bc_rr["partner"], tier_map)
@@ -2117,7 +2153,7 @@ except Exception as e:
 
 print("\n--- Run Rate B2B GD ---")
 try:
-    df_b2b_rr_gd = clean_budget(fetch(B2B_RR_GD_QUERY, "B2B Run Rate GD"))
+    df_b2b_rr_gd = clean_budget(fetched("B2B Run Rate GD"))
 except Exception as e:
     print(f"  WARN B2B RR GD query failed: {e}")
     _FAILED_BLOCKS.append('B2B Run Rate GD')
@@ -2125,7 +2161,7 @@ except Exception as e:
 
 print("\n--- Run Rate B2B RI ---")
 try:
-    df_b2b_rr_ri = clean_budget(fetch(B2B_RR_RI_QUERY, "B2B Run Rate RI"))
+    df_b2b_rr_ri = clean_budget(fetched("B2B Run Rate RI"))
 except Exception as e:
     print(f"  WARN B2B RR RI query failed: {e}")
     _FAILED_BLOCKS.append('B2B Run Rate RI')
@@ -2133,7 +2169,7 @@ except Exception as e:
 
 print("\n--- B2C (referencia) ---")
 try:
-    df_b2c = agg_b2c(fetch(build_b2c_query(ACTUALS_FROM, YESTERDAY), "B2C"))
+    df_b2c = agg_b2c(fetched("B2C"))
 except Exception as e:
     print(f"  WARN B2C query failed: {e}")
     _FAILED_BLOCKS.append('B2C')
@@ -2141,7 +2177,7 @@ except Exception as e:
 
 print("\n--- B2C LY (referencia) ---")
 try:
-    df_b2c_ly = agg_b2c(fetch(build_b2c_query(LY_FROM, LY_TO), "B2C LY"))
+    df_b2c_ly = agg_b2c(fetched("B2C LY"))
 except Exception as e:
     print(f"  WARN B2C LY query failed: {e}")
     _FAILED_BLOCKS.append('B2C LY')
@@ -2347,7 +2383,7 @@ def upload_compressed_to_drive(json_bytes: bytes, filename: str, folder_id: str)
 
 print("\n--- P&L Managerial GD 2026 ---")
 try:
-    df_pnl_gd = clean_managerial(fetch(build_pnl_managerial_gd_query(GD_FROM, YESTERDAY), "P&L Managerial GD"))
+    df_pnl_gd = clean_managerial(fetched("P&L Managerial GD"))
 except Exception as e:
     print(f"  WARN P&L Managerial GD query failed: {e}")
     _FAILED_BLOCKS.append('P&L Managerial GD')
@@ -2355,7 +2391,7 @@ except Exception as e:
 
 print(f"\n--- P&L Managerial RI ({RI_JSON_NAME}) ---")
 try:
-    df_pnl_ri = clean_managerial(fetch(build_pnl_managerial_ri_query(RI_FROM, YESTERDAY), "P&L Managerial RI"))
+    df_pnl_ri = clean_managerial(fetched("P&L Managerial RI"))
 except Exception as e:
     print(f"  WARN P&L Managerial RI query failed: {e}")
     _FAILED_BLOCKS.append('P&L Managerial RI')
