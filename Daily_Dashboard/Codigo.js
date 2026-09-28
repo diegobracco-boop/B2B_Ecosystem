@@ -1066,28 +1066,87 @@ var BUDGET_COUNTRY_MAP = {
 // Boot del tracker — mismo JSON b2b que el dashboard, con caché compartida
 function getB2BData() { return loadFile_(B2B_JSON, B2B_CACHE_KEY); }
 
+// Ubica, en un bloque de "Slide 1 KR Agencias" (block[0] = fila 8 encabezado,
+// block[1..] = filas de países), los índices (base col D = 0) de las columnas de
+// reales ("… Real") y budget ("… BDG"/"… Budget") del mes en curso. La planilla se
+// rearma por mes y las columnas SE CORREN: por eso NO se hardcodean posiciones —
+// auditoría 2026-09-28: los datos estaban en O/P ("September Real"/"September BDG")
+// mientras el código leía Q/R (vacías) y el KR1 salía "—".
+//
+// Elegir "la última … Real" a secas es frágil: una columna de mes futuro con header
+// cargado pero vacío, o una columna agregada ("YTD Real", "H1 Real") a la derecha,
+// haría elegir la equivocada (KR1 vacío o inflado, en silencio). Preferencia, de mayor
+// a menor: (1) header que nombra el mes en curso Y tiene datos → (2) nombra el mes en
+// curso → (3) la más a la derecha con datos → (4) la más a la derecha. Budget = la
+// primera "… BDG"/"Budget" a la derecha del real (orden del layout conocido), o si no
+// hay, a la izquierda. Devuelve -1 si no encuentra (→ el KR queda sin dato, se ve "—").
+function findAgenciasCols_(block) {
+  var header = block[0] || [];
+  var reReal = /real\s*$/i, reBud = /(bdg|budget)\s*$/i;
+  // Los headers del sheet nombran el mes en INGLÉS ("September Real"…). Se arma el
+  // nombre a mano (no con formatDate 'MMMM', que sale en el locale del script y podría
+  // dar "septiembre" y no matchear nunca → caería siempre al fallback por posición).
+  var EN_MONTHS = ['january','february','march','april','may','june','july','august','september','october','november','december'];
+  var monthNow = EN_MONTHS[new Date().getMonth()];
+
+  function colHasData(i) {
+    for (var r = 1; r < block.length; r++) {
+      var v = block[r][i];
+      if (v !== '' && v !== null && !isNaN(Number(v))) return true;
+    }
+    return false;
+  }
+  var cands = [];
+  for (var i = 0; i < header.length; i++) {
+    var h = String(header[i]).trim();
+    if (reReal.test(h)) cands.push({ idx: i, isMonth: h.toLowerCase().indexOf(monthNow) >= 0, hasData: colHasData(i) });
+  }
+  function pick(pred) { for (var k = cands.length - 1; k >= 0; k--) if (pred(cands[k])) return cands[k].idx; return -1; }
+  var reales = pick(function(c){ return c.isMonth && c.hasData; });
+  if (reales < 0) reales = pick(function(c){ return c.isMonth; });
+  if (reales < 0) reales = pick(function(c){ return c.hasData; });
+  if (reales < 0) reales = pick(function(c){ return true; });
+
+  var budget = -1;
+  if (reales >= 0) {
+    for (var j = reales + 1; j < header.length; j++) { if (reBud.test(String(header[j]).trim())) { budget = j; break; } }
+    if (budget < 0) for (var m = reales - 1; m >= 0; m--) { if (reBud.test(String(header[m]).trim())) { budget = m; break; } }
+  }
+  return { reales: reales, budget: budget };
+}
+
+// Ancho de lectura del bloque de Agencias (desde col D) = hasta la última columna con
+// contenido de la hoja. Sin cap fijo: el sheet suma una columna por mes, así que topear
+// en un ancho fijo dejaría afuera el mes vigente con el tiempo (auditoría 2026-09-28).
+function agenciasBlockWidth_(sheet) {
+  return Math.max(1, sheet.getLastColumn() - 3);
+}
+
 // Budget/target de Agencias por país desde "Slide 1 KR Agencias": col D = país
-// (mismo bloque que reales), col R = budget del mes ("<Mes> BDG"). Reemplaza el
-// parche hardcodeado del frontend (_KR1_BUD_PATCH / _KR1_TOTAL_BUD): la fila
-// 'Total' → 'TOTAL' trae el total autoritativo del sheet (los subtotales por país
-// se solapan —'Peru' vs 'PE + EC + UY + PY'— y sumarlos duplicaría).
+// (mismo bloque que reales), budget del mes = columna "<Mes> BDG" localizada por
+// header (ver findAgenciasCols_). Reemplaza el parche hardcodeado del frontend
+// (_KR1_BUD_PATCH / _KR1_TOTAL_BUD): la fila 'Total' → 'TOTAL' trae el total
+// autoritativo del sheet (los subtotales por país se solapan —'Peru' vs
+// 'PE + EC + UY + PY'— y sumarlos duplicaría).
 function getBudgetAgencias_() {
   var ss    = SpreadsheetApp.openById(BUDGET_SHEET_ID);
   var sheet = ss.getSheetByName(BUDGET_SHEET_NAME);
   var last  = sheet.getLastRow();
   if (last < 9) return {};
-  // Desde fila 9 (fila 8 = encabezado). D = col 4 … R = col 18 → 15 columnas
-  // (índice 14 = col R). Corte en la primera fila con col D vacía (fin del bloque).
+  // Fila 8 = encabezado, filas 9+ = datos. Se lee D..última col con contenido para
+  // ubicar la columna por header. Corte en la primera fila con col D vacía (fin del bloque).
   var nRows = Math.min(last - 8, 20);
-  var data  = sheet.getRange(9, 4, nRows, 15).getValues();
+  var block = sheet.getRange(8, 4, nRows + 1, agenciasBlockWidth_(sheet)).getValues();
+  var col   = findAgenciasCols_(block).budget;
   var budget = {};
-  for (var r = 0; r < data.length; r++) {
-    var rawName = String(data[r][0]).trim();      // col D
+  if (col < 0) return budget;                      // sin columna "… BDG" → KR sin budget (se ve "—")
+  for (var r = 1; r < block.length; r++) {
+    var rawName = String(block[r][0]).trim();      // col D
     if (rawName === '') break;                     // fin del bloque de agencias
     var label = BUDGET_COUNTRY_MAP[rawName];
     if (!label) continue;
-    var v = data[r][14];                           // col R
-    if (v === '' || v === null) continue;          // mes sin cargar → deja el fallback
+    var v = block[r][col];
+    if (v === '' || v === null) continue;          // país sin dato ese mes → se omite
     var num = Number(v);
     if (!isNaN(num)) budget[label] = num;
   }
@@ -1095,40 +1154,68 @@ function getBudgetAgencias_() {
 }
 
 // Agencias REALES por país desde "Slide 1 KR Agencias": col D = país
-// (EC+UY+PY agrupado, igual que el slide), col Q = nº de agencias reales.
-// Reemplaza el parche hardcodeado del frontend (_KR1_ACT_PATCH / _KR1_TOTAL_ACT).
-// Reutiliza BUDGET_COUNTRY_MAP: las filas que no están en el mapa
-// ('PE + EC + UY + PY', 'Ecuador', 'Uruguay', 'Paraguay') se saltean solas.
+// (EC+UY+PY agrupado, igual que el slide), reales del mes = columna "<Mes> Real"
+// localizada por header (ver findAgenciasCols_). El parche hardcodeado del frontend
+// (_KR1_ACT_PATCH / _KR1_TOTAL_ACT) ya no existe: si esto devuelve {}, el KR1 del
+// resumen muestra actual 0 (dashboard.html:5102 / tracker.html). Reutiliza
+// BUDGET_COUNTRY_MAP: las filas que no están en el mapa ('PE + EC + UY + PY',
+// 'Ecuador', 'Uruguay', 'Paraguay') se saltean solas.
 function getRealesAgencias_() {
   var ss    = SpreadsheetApp.openById(BUDGET_SHEET_ID);
   var sheet = ss.getSheetByName(BUDGET_SHEET_NAME);
   var last  = sheet.getLastRow();
   if (last < 9) return {};
-  // Desde fila 9 (fila 8 = encabezado). D = col 4 … Q = col 17 → 14 columnas.
-  // Cap defensivo + corte en la primera fila con col D vacía (fin del bloque),
-  // para no barrer el resto de la hoja ni tomar otra tabla con nombres de país.
+  // Fila 8 = encabezado, filas 9+ = datos. Ancho al último col con contenido + corte
+  // en la primera fila con col D vacía, para no barrer el resto de la hoja ni tomar
+  // otra tabla con países.
   var nRows = Math.min(last - 8, 20);
-  var data  = sheet.getRange(9, 4, nRows, 14).getValues();
+  var block = sheet.getRange(8, 4, nRows + 1, agenciasBlockWidth_(sheet)).getValues();
+  var col   = findAgenciasCols_(block).reales;
   var out = {};
-  for (var r = 0; r < data.length; r++) {
-    var rawName = String(data[r][0]).trim();     // col D
-    if (rawName === '') break;                    // fin del bloque de agencias
+  if (col < 0) return out;                          // sin columna "… Real" → KR1 sin reales (actual 0)
+  for (var r = 1; r < block.length; r++) {
+    var rawName = String(block[r][0]).trim();      // col D
+    if (rawName === '') break;                      // fin del bloque de agencias
     var label = BUDGET_COUNTRY_MAP[rawName];
     if (!label) continue;
-    var q = data[r][13];                          // col Q
-    if (q === '' || q === null) continue;         // mes sin cargar → deja el fallback del frontend
+    var q = block[r][col];
+    if (q === '' || q === null) continue;           // país sin dato ese mes → se omite
     var num = Number(q);
     if (!isNaN(num)) out[label] = num;
   }
   return out;
 }
 
+// Normaliza una celda de Air NR a número. La caja puede traer el valor como número
+// crudo (1.22 = millones, o 1220000 = dólares) o como TEXTO ya formateado ("$1,22M")
+// — auditoría 2026-09-28: las celdas eran texto y Number("$1,22M") daba NaN → el KR
+// salía "—". Convención es-AR: coma = decimal, punto = miles; sufijo "M" = millones.
+// Devuelve dólares para el texto "M" y el número tal cual (la escala se ajusta luego).
+function parseAirNRCell_(v) {
+  if (typeof v === 'number') return isNaN(v) ? null : v;   // número crudo
+  var s = String(v).trim();
+  if (s === '') return null;
+  var isMill = /m\s*$/i.test(s);                           // sufijo "M" = millones
+  var neg = /^\(.*\)$/.test(s) || s.indexOf('-') >= 0;     // "(...)" o "-" = negativo
+  s = s.replace(/[^0-9.,]/g, '');                          // saca $, M, (), signo, espacios
+  if (s === '') return null;
+  if (s.indexOf(',') >= 0) {                               // coma decimal → puntos son miles
+    s = s.replace(/\./g, '').replace(',', '.');
+  } else if ((s.match(/\./g) || []).length > 1) {          // varios puntos sin coma → miles
+    s = s.replace(/\./g, '');
+  }
+  var n = parseFloat(s);
+  if (isNaN(n)) return null;
+  if (neg) n = -Math.abs(n);
+  return isMill ? n * 1e6 : n;                             // texto "M" → a dólares
+}
+
 // Air Net Revenue desde la caja "Air Net Revenue from Suppliers" de la hoja
 // "Slide 1 Evolucion" (P37:S44): P=país, Q=Actuals, R=Budget, S=Cumpl.
 //   fila 37 = header · fila 38 = Total · filas 39-44 = países.
-// La caja muestra $M; la celda puede guardar el valor en millones (1.22) o en
-// dólares (1.220.000). Detectamos la escala una vez (por el máximo del bloque) y
-// devolvemos siempre en dólares para que el frontend aplique su toM() habitual.
+// Las celdas vienen como número o como texto "$1,22M" (ver parseAirNRCell_). Para los
+// números crudos en millones se detecta la escala una vez (por el máximo del bloque) y
+// se devuelve siempre en dólares para que el frontend aplique su toM() habitual.
 function getAirNRData() {
   var ss    = SpreadsheetApp.openById(AIR_NR_SHEET_ID);
   var sheet = ss.getSheetByName(AIR_NR_SHEET_NAME);
@@ -1137,25 +1224,25 @@ function getAirNRData() {
   // P37:S44 → getRange(fila 37, col 16 = P, 8 filas, 4 cols)
   var data = sheet.getRange(37, 16, 8, 4).getValues();
 
-  // Escala: si el mayor valor absoluto del bloque es chico, está en millones.
-  var maxAbs = 0;
-  for (var i = 1; i < data.length; i++) {
-    maxAbs = Math.max(maxAbs, Math.abs(Number(data[i][1]) || 0), Math.abs(Number(data[i][2]) || 0));
-  }
-  var factor = (maxAbs > 0 && maxAbs < 1000) ? 1e6 : 1;
-
-  var actual = 0, budget = 0, byCountry = {};
+  var rows = [];
   for (var r = 1; r < data.length; r++) {          // saltea el header (r=0)
     var pais = String(data[r][0]).trim();          // col P
     if (pais === '') continue;
-    var act = (Number(data[r][1]) || 0) * factor;  // col Q
-    var bud = (Number(data[r][2]) || 0) * factor;  // col R
-    if (pais.toLowerCase() === 'total') {
-      actual = act; budget = bud;
-    } else {
-      byCountry[pais] = { actual: act, budget: bud };
-    }
+    rows.push({ pais: pais, act: parseAirNRCell_(data[r][1]), bud: parseAirNRCell_(data[r][2]) });
   }
+
+  // Escala: si el mayor valor absoluto del bloque es chico, está en millones
+  // (número crudo tipo 1.22). El texto "$1,22M" ya salió en dólares de parseAirNRCell_.
+  var maxAbs = 0;
+  rows.forEach(function(x) { maxAbs = Math.max(maxAbs, Math.abs(x.act || 0), Math.abs(x.bud || 0)); });
+  var factor = (maxAbs > 0 && maxAbs < 1000) ? 1e6 : 1;
+
+  var actual = 0, budget = 0, byCountry = {};
+  rows.forEach(function(x) {
+    var act = (x.act || 0) * factor, bud = (x.bud || 0) * factor;
+    if (x.pais.toLowerCase() === 'total') { actual = act; budget = bud; }
+    else byCountry[x.pais] = { actual: act, budget: bud };
+  });
 
   // Fallback: si no vino la fila Total, sumamos los países.
   if (!actual && !budget) {
