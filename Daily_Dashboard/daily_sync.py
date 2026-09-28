@@ -39,6 +39,15 @@ DRIVE_FOLDER_ID   = "1lWzfqweyV6Kz1ERkL85ikFcmzmKwGwwh"
 JSON_FILE_NAME    = "daily_b2b2c_data.json"
 B2B_JSON_FILE_NAME = "daily_b2b_data.json"
 
+# Salida de Proceso_Distribucion_Diaria/distribucion_diaria.py --escenario forecast (ver /distribucion-diaria).
+# Path.home() en vez de hardcodear el usuario: la carpeta "B2B & WLs" es una biblioteca de OneDrive
+# compartida por el equipo, sincronizada en la misma ruta relativa para cualquiera que la tenga montada.
+# ACTUALIZAR la subcarpeta con fecha ("2026.07.14") cuando arranque una ronda de Forecast nueva.
+FORECAST_DIARIO_FOLDER = (
+    Path.home() / "OneDrive - despegar365" / "Control de Gestión - 2026-27" / "B2B & WLs"
+    / "Forecast" / "2026.07.14" / "Distribucion Diaria"
+)
+
 MANAGERIAL_DRIVE_FOLDER_ID = "16Bnx1bb5M1so0n5-IB8WEUUUz9cNAWVE"
 GD_JSON_NAME  = "pnl_managerial_GD_2026.json"
 GD_FROM       = date(2026, 1, 1)
@@ -1956,6 +1965,44 @@ def agg_b2b_budget(df: pd.DataFrame) -> pd.DataFrame:
     ).round({"gross_bookings": 2, "net_revenue": 2, "fvm": 2})
 
 
+def _load_forecast_diario(base: str) -> pd.DataFrame:
+    """Lee forecast_diario_<gd|ri>.csv (salida de Proceso_Distribucion_Diaria, ver
+    /distribucion-diaria) desde FORECAST_DIARIO_FOLDER. Archivo manual, no vive en el
+    Datalake: si falta o la ronda de Forecast todavia no corrio, no rompe la corrida
+    (el Daily se queda sin ese Goal ese dia, en vez de abortar todo)."""
+    path = FORECAST_DIARIO_FOLDER / f"forecast_diario_{base.lower()}.csv"
+    if not path.exists():
+        print(f"  AVISO: no encontré {path.name} en {FORECAST_DIARIO_FOLDER} — Forecast queda vacío")
+        return pd.DataFrame()
+    return pd.read_csv(path, usecols=["fecha", "lob_canal", "pais", "producto", "partner",
+                                       "orders", "gross_bookings", "net_revenue", "fvm"])
+
+
+def agg_forecast_b2bc(df: pd.DataFrame) -> pd.DataFrame:
+    """B2B2C: mismo grano que agg_budget (fecha, pais, producto, partner). GD y RI dan
+    el mismo B2B2C (mismo modelo/factores), así que alcanza con una sola base."""
+    if df.empty:
+        return df
+    d = df[df["lob_canal"].str.startswith("B2B2C")]
+    return d.groupby(["fecha", "pais", "producto", "partner"], as_index=False).agg(
+        orders=("orders", "sum"), gross_bookings=("gross_bookings", "sum"),
+        net_revenue=("net_revenue", "sum"), fvm=("fvm", "sum"),
+    ).round({"gross_bookings": 2, "net_revenue": 2, "fvm": 2})
+
+
+def agg_forecast_b2b(df: pd.DataFrame) -> pd.DataFrame:
+    """B2B (MAY+MIN combinados): mismo grano y mapeo de canal que agg_b2b_budget
+    (fecha, pais, parent_channel, producto — sin partner)."""
+    if df.empty:
+        return df
+    d = df[df["lob_canal"].isin(["B2B-MAY", "B2B-MIN"])].copy()
+    d["parent_channel"] = d["lob_canal"].map({"B2B-MAY": "API", "B2B-MIN": "Agencias afiliadas"})
+    return d.groupby(["fecha", "pais", "parent_channel", "producto"], as_index=False).agg(
+        orders=("orders", "sum"), gross_bookings=("gross_bookings", "sum"),
+        net_revenue=("net_revenue", "sum"), fvm=("fvm", "sum"),
+    ).round({"gross_bookings": 2, "net_revenue": 2, "fvm": 2})
+
+
 # Partners que el equipo cuenta como "New / onboarding" aunque la cartera de
 # ComDev no los marque asi (nombre distinto, alta reciente sin actualizar, etc.).
 # Se fuerza a New en TODAS las fuentes: actuals, LY y proyecciones (budget/runrate).
@@ -2100,6 +2147,17 @@ except Exception as e:
     _FAILED_BLOCKS.append('B2C LY')
     df_b2c_ly = pd.DataFrame(columns=["fecha", "pais", "gross_bookings", "net_revenues", "fvm"])
 
+print("\n--- Forecast (Proceso_Distribucion_Diaria, archivo manual) ---")
+# NO se agrega a _FAILED_BLOCKS: es un CSV que alguien genera a mano cada tanto (no vive
+# en el Datalake), así que si falta no debe abortar la corrida de reales del día.
+try:
+    df_forecast_gd = _load_forecast_diario("gd")
+    df_forecast_ri = _load_forecast_diario("ri")
+except Exception as e:
+    print(f"  WARN Forecast diario failed: {e}")
+    df_forecast_gd = pd.DataFrame()
+    df_forecast_ri = pd.DataFrame()
+
 # ==============================================================================
 # 5) AGREGAR Y CONSTRUIR JSON
 # ==============================================================================
@@ -2119,6 +2177,9 @@ df_okr_bud      = agg_okr_stage_nr(df_budget)
 df_okr_rr       = agg_okr_stage_nr(df_b2bc_rr)
 df_b2b_rr_gd_agg = agg_b2b_budget(df_b2b_rr_gd)   if not df_b2b_rr_gd.empty        else pd.DataFrame()
 df_b2b_rr_ri_agg = agg_b2b_budget(df_b2b_rr_ri)   if not df_b2b_rr_ri.empty        else pd.DataFrame()
+df_forecast_b2bc    = agg_forecast_b2bc(df_forecast_ri)  # B2B2C: RI == GD, misma base
+df_forecast_b2b_gd  = agg_forecast_b2b(df_forecast_gd)
+df_forecast_b2b_ri  = agg_forecast_b2b(df_forecast_ri)
 print(f"  Actuals:    {len(df_actuals):,} -> {len(df_act):,} filas")
 print(f"  LY:         {len(df_ly):,} -> {len(df_lya):,} filas")
 print(f"  Budget:     {len(df_budget):,} -> {len(df_bud):,} filas")
@@ -2128,6 +2189,9 @@ print(f"  B2B RI:     {len(df_b2b_ri):,} -> {len(df_b2b_ri_agg):,} filas")
 print(f"  B2B RI LY:  {len(df_b2b_ri_ly):,} -> {len(df_b2b_ri_ly_ag):,} filas")
 print(f"  B2B Budget GD: {len(df_b2b_budget_gd):,} -> {len(df_b2b_bud_gd):,} filas")
 print(f"  B2B Budget RI: {len(df_b2b_budget_ri):,} -> {len(df_b2b_bud_ri):,} filas")
+print(f"  Forecast B2B2C: {len(df_forecast_ri):,} -> {len(df_forecast_b2bc):,} filas")
+print(f"  Forecast B2B GD: {len(df_forecast_gd):,} -> {len(df_forecast_b2b_gd):,} filas")
+print(f"  Forecast B2B RI: {len(df_forecast_ri):,} -> {len(df_forecast_b2b_ri):,} filas")
 
 META = {
     "generated_at":      datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
@@ -2146,6 +2210,7 @@ b2bc_payload = {
     "actuals_ly": df_lya.to_dict(orient="records"),
     "budget":     to_compact(df_bud),
     "runrate":    to_compact(df_b2bc_rr_agg) if not df_b2bc_rr_agg.empty else {"cols": [], "rows": []},
+    "forecast":   to_compact(df_forecast_b2bc) if not df_forecast_b2bc.empty else {"cols": [], "rows": []},
     "okr_budget":  to_compact(df_okr_bud),   # NR por mes x stage, FY completo -> okr_builder.py
     "okr_runrate": to_compact(df_okr_rr),
     "b2c":        b2c_compact,
@@ -2164,6 +2229,8 @@ b2b_payload = {
     "b2b_budget_ri":  df_b2b_bud_ri.to_dict(orient="records")    if not df_b2b_bud_ri.empty    else [],
     "b2b_runrate_gd": df_b2b_rr_gd_agg.to_dict(orient="records") if not df_b2b_rr_gd_agg.empty else [],
     "b2b_runrate_ri": df_b2b_rr_ri_agg.to_dict(orient="records") if not df_b2b_rr_ri_agg.empty else [],
+    "b2b_forecast_gd": df_forecast_b2b_gd.to_dict(orient="records") if not df_forecast_b2b_gd.empty else [],
+    "b2b_forecast_ri": df_forecast_b2b_ri.to_dict(orient="records") if not df_forecast_b2b_ri.empty else [],
 }
 
 b2bc_str   = json.dumps(b2bc_payload, ensure_ascii=False, separators=(",", ":"))

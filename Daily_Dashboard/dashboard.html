@@ -860,6 +860,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
       <div class="dm-toggle">
         <button class="dm-btn active" id="btn-b2bc-comp-bud" onclick="switchComparison('b2bc','budget')">Budget</button>
         <button class="dm-btn" id="btn-b2bc-comp-rr" onclick="switchComparison('b2bc','runrate')">Run Rate</button>
+        <button class="dm-btn" id="btn-b2bc-comp-fc" onclick="switchComparison('b2bc','forecast')">Forecast</button>
       </div>
     </div>
     <div style="min-width:80px"></div>
@@ -1134,6 +1135,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
       <div class="dm-toggle">
         <button class="dm-btn active" id="btn-b2b-comp-bud" onclick="switchComparison('b2b','budget')">Budget</button>
         <button class="dm-btn" id="btn-b2b-comp-rr" onclick="switchComparison('b2b','runrate')">Run Rate</button>
+        <button class="dm-btn" id="btn-b2b-comp-fc" onclick="switchComparison('b2b','forecast')">Forecast</button>
       </div>
     </div>
     <div style="min-width:80px"></div>
@@ -1977,8 +1979,9 @@ window.onload = function() {
   // B2B2C — primary load (drives the loader)
   google.script.run
     .withSuccessHandler(function(raw) {
-      raw.budget  = expandCompact_(raw.budget);
-      raw.runrate = expandCompact_(raw.runrate);
+      raw.budget   = expandCompact_(raw.budget);
+      raw.runrate  = expandCompact_(raw.runrate);
+      raw.forecast = expandCompact_(raw.forecast);
       _rawB2BC         = raw;
       state.viewDate   = raw.meta.last_actuals_date;
       state.meta       = raw.meta;
@@ -2032,9 +2035,9 @@ function recomputeB2BC_() {
   var gl_par = v('sel-partner') !== 'all' ? v('sel-partner') : null;
   var gl_pro = v('sel-product') !== 'all' ? v('sel-product') : null;
   var gl_at  = v('sel-account') !== 'all' ? v('sel-account') : null;
-  var compSrc = _b2bcComparison === 'runrate' ? (_rawB2BC.runrate || []) : (_rawB2BC.budget || []);
-  var compLbl = _b2bcComparison === 'runrate' ? 'Run Rate' : 'Budget';
-  var compKpi = _b2bcComparison === 'runrate' ? 'vs RR' : 'vs Bdg';
+  var compSrc = _rawB2BC[_b2bcComparison] || [];
+  var compLbl = COMPARISON_LABELS[_b2bcComparison];
+  var compKpi = COMPARISON_KPIS[_b2bcComparison];
   ['leg-b2bc-gb-comp','leg-b2bc-nr-comp','leg-b2bc-fvm-comp'].forEach(function(id){var el=document.getElementById(id);if(el)el.textContent=compLbl;});
   ['mc-gb-bud-lbl','mc-nr-bud-lbl','mc-fvm-bud-lbl'].forEach(function(id){var el=document.getElementById(id);if(el)el.textContent=compKpi;});
   state.data       = compute_(_rawB2BC, 'nr', state.viewDate, gl_pai, gl_par, gl_pro, gl_at, 'daily', compSrc);
@@ -2171,7 +2174,7 @@ function toggleB2C(view) {
 
 function renderMetrics(all) {
   var gran = v('sel-gran') || 'daily';
-  var compKpi = _b2bcComparison === 'runrate' ? 'vs RR' : 'vs Bdg';
+  var compKpi = COMPARISON_KPIS[_b2bcComparison];
 
   var DEFS = [
     { key: 'gb',  color: '#5626e9',
@@ -2638,8 +2641,10 @@ var state_b2b = { viewDate: null, data: null, meta: null, allMetrics: null };
 var _b2bCharts = { gb: null, nr: null, fvm: null };
 var _b2bDateModel  = 'gd';
 var _b2bMarket     = null;
-var _b2bcComparison = 'budget'; // 'budget' | 'runrate'
+var _b2bcComparison = 'budget'; // 'budget' | 'runrate' | 'forecast'
 var _b2bComparison  = 'budget';
+var COMPARISON_LABELS = { budget: 'Budget', runrate: 'Run Rate', forecast: 'Forecast' };
+var COMPARISON_KPIS   = { budget: 'vs Bdg',  runrate: 'vs RR',   forecast: 'vs Fcst' };
 
 // ── B2B Load (one-time fetch) ────────────────────────────────────
 function loadB2B() {
@@ -2672,11 +2677,9 @@ function recomputeB2B_() {
   var gl_pai = vb2b('b2b-sel-pais')    !== 'all' ? vb2b('b2b-sel-pais')    : null;
   var gl_pro = vb2b('b2b-sel-product') !== 'all' ? vb2b('b2b-sel-product') : null;
   var gl_ch  = vb2b('b2b-sel-channel') !== 'all' ? vb2b('b2b-sel-channel') : null;
-  var compSrc = _b2bComparison === 'runrate'
-    ? (_b2bDateModel==='ri' ? (_rawB2B.b2b_runrate_ri||[]) : (_rawB2B.b2b_runrate_gd||[]))
-    : (_b2bDateModel==='ri' ? (_rawB2B.b2b_budget_ri||[])  : (_rawB2B.b2b_budget_gd||[]));
-  var compLbl = _b2bComparison === 'runrate' ? 'Run Rate' : 'Budget';
-  var compKpi = _b2bComparison === 'runrate' ? 'vs RR' : 'vs Bdg';
+  var compSrc = _rawB2B['b2b_' + _b2bComparison + '_' + _b2bDateModel] || [];
+  var compLbl = COMPARISON_LABELS[_b2bComparison];
+  var compKpi = COMPARISON_KPIS[_b2bComparison];
   ['leg-b2b-gb-comp','leg-b2b-nr-comp','leg-b2b-fvm-comp'].forEach(function(id){var el=document.getElementById(id);if(el)el.textContent=compLbl;});
   ['b2b-mc-gb-bud-lbl','b2b-mc-nr-bud-lbl','b2b-mc-fvm-bud-lbl'].forEach(function(id){var el=document.getElementById(id);if(el)el.textContent=compKpi;});
   state_b2b.data       = computeB2B_(_rawB2B, 'nr', _b2bDateModel, state_b2b.viewDate, gl_pai, gl_pro, gl_ch, _b2bMarket, 'daily', compSrc);
@@ -2830,18 +2833,22 @@ function reloadB2BMetrics() { if (!state_b2b.viewDate) return; recomputeB2B_(); 
 function reloadAllB2B()     { recomputeB2B_(); }
 
 function switchComparison(lob, val) {
-  var lbl = val === 'runrate' ? 'Delta vs RR' : 'Delta vs BDG';
+  var lblShort = { budget: 'Delta vs BDG', runrate: 'Delta vs RR', forecast: 'Delta vs FCST' }[val];
   if (lob === 'b2bc') {
     _b2bcComparison = val;
-    document.getElementById('btn-b2bc-comp-bud').classList.toggle('active', val==='budget');
-    document.getElementById('btn-b2bc-comp-rr').classList.toggle('active', val==='runrate');
-    ['gb','nr','fvm'].forEach(function(m){ var el=document.getElementById('b2bc-th-delta-'+m); if(el) el.textContent=lbl; });
+    ['bud','rr','fc'].forEach(function(k){
+      var el = document.getElementById('btn-b2bc-comp-'+k);
+      if (el) el.classList.toggle('active', k===(val==='budget'?'bud':val==='runrate'?'rr':'fc'));
+    });
+    ['gb','nr','fvm'].forEach(function(m){ var el=document.getElementById('b2bc-th-delta-'+m); if(el) el.textContent=lblShort; });
     recomputeB2BC_();
   } else {
     _b2bComparison = val;
-    document.getElementById('btn-b2b-comp-bud').classList.toggle('active', val==='budget');
-    document.getElementById('btn-b2b-comp-rr').classList.toggle('active', val==='runrate');
-    ['gb','nr','fvm'].forEach(function(m){ var el=document.getElementById('b2b-th-delta-'+m); if(el) el.textContent=lbl; });
+    ['bud','rr','fc'].forEach(function(k){
+      var el = document.getElementById('btn-b2b-comp-'+k);
+      if (el) el.classList.toggle('active', k===(val==='budget'?'bud':val==='runrate'?'rr':'fc'));
+    });
+    ['gb','nr','fvm'].forEach(function(m){ var el=document.getElementById('b2b-th-delta-'+m); if(el) el.textContent=lblShort; });
     recomputeB2B_();
   }
 }
@@ -2950,7 +2957,7 @@ function renderGroupedTableB2B_(tbodyId, groups) {
 
 function renderB2BMetrics(all) {
   var gran = vb2b('b2b-sel-gran') || 'daily';
-  var compKpi = _b2bComparison === 'runrate' ? 'vs RR' : 'vs Bdg';
+  var compKpi = COMPARISON_KPIS[_b2bComparison];
   var DEFS = [
     { key:'gb',  color:'#5626e9',
       kMtd:'b2b-kpi-gb-mtd',  kVbdg:'b2b-kpi-gb-vbdg',  kVly:'b2b-kpi-gb-vly',
