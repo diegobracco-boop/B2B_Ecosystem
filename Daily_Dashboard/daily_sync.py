@@ -2229,59 +2229,6 @@ print(f"  Forecast B2B2C: {len(df_forecast_ri):,} -> {len(df_forecast_b2bc):,} f
 print(f"  Forecast B2B GD: {len(df_forecast_gd):,} -> {len(df_forecast_b2b_gd):,} filas")
 print(f"  Forecast B2B RI: {len(df_forecast_ri):,} -> {len(df_forecast_b2b_ri):,} filas")
 
-META = {
-    "generated_at":      datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
-    "last_actuals_date": str(YESTERDAY),
-    "actuals_from":      str(ACTUALS_FROM),
-    "ly_from":           str(LY_FROM),
-    "ly_to":             str(LY_TO),
-}
-
-b2c_compact    = to_compact(df_b2c)    if not df_b2c.empty    else {"cols": [], "rows": []}
-b2c_ly_compact = to_compact(df_b2c_ly) if not df_b2c_ly.empty else {"cols": [], "rows": []}
-
-b2bc_payload = {
-    "meta":       META,
-    "actuals":    df_act.to_dict(orient="records"),
-    "actuals_ly": df_lya.to_dict(orient="records"),
-    "budget":     to_compact(df_bud),
-    "runrate":    to_compact(df_b2bc_rr_agg) if not df_b2bc_rr_agg.empty else {"cols": [], "rows": []},
-    "forecast":   to_compact(df_forecast_b2bc) if not df_forecast_b2bc.empty else {"cols": [], "rows": []},
-    "okr_budget":  to_compact(df_okr_bud),   # NR por mes x stage, FY completo -> okr_builder.py
-    "okr_runrate": to_compact(df_okr_rr),
-    "b2c":        b2c_compact,
-    "b2c_ly":     b2c_ly_compact,
-}
-
-b2b_payload = {
-    "meta":       META,
-    "b2b_gd":     to_compact(df_b2b_gd_agg),
-    "b2c":        b2c_compact,
-    "b2c_ly":     b2c_ly_compact,
-    "b2b_gd_ly":  to_compact(df_b2b_gd_ly_ag),
-    "b2b_ri":     to_compact(df_b2b_ri_agg),
-    "b2b_ri_ly":  to_compact(df_b2b_ri_ly_ag),
-    "b2b_budget_gd":  df_b2b_bud_gd.to_dict(orient="records")    if not df_b2b_bud_gd.empty    else [],
-    "b2b_budget_ri":  df_b2b_bud_ri.to_dict(orient="records")    if not df_b2b_bud_ri.empty    else [],
-    "b2b_runrate_gd": df_b2b_rr_gd_agg.to_dict(orient="records") if not df_b2b_rr_gd_agg.empty else [],
-    "b2b_runrate_ri": df_b2b_rr_ri_agg.to_dict(orient="records") if not df_b2b_rr_ri_agg.empty else [],
-    "b2b_forecast_gd": df_forecast_b2b_gd.to_dict(orient="records") if not df_forecast_b2b_gd.empty else [],
-    "b2b_forecast_ri": df_forecast_b2b_ri.to_dict(orient="records") if not df_forecast_b2b_ri.empty else [],
-}
-
-b2bc_str   = json.dumps(b2bc_payload, ensure_ascii=False, separators=(",", ":"))
-b2bc_bytes = b2bc_str.encode("utf-8")
-b2b_str    = json.dumps(b2b_payload, ensure_ascii=False, separators=(",", ":"))
-b2b_bytes  = b2b_str.encode("utf-8")
-print(f"\nB2B2C JSON: {len(b2bc_bytes)//1024:.0f} KB  "
-      f"(actuals={len(df_act):,} | ly={len(df_lya):,} | budget={len(df_bud):,})")
-print(f"B2B JSON:   {len(b2b_bytes)//1024:.0f} KB  "
-      f"(gd={len(df_b2b_gd_agg):,} | gd_ly={len(df_b2b_gd_ly_ag):,} | ri={len(df_b2b_ri_agg):,} | ri_ly={len(df_b2b_ri_ly_ag):,})")
-
-# ==============================================================================
-# 6) SUBIR A GOOGLE DRIVE (usando credenciales OAuth de clasp)
-# ==============================================================================
-
 DRIVE_SCOPES = ["https://www.googleapis.com/auth/drive"]
 
 def _get_drive_service():
@@ -2331,6 +2278,101 @@ def _get_drive_service():
 
     return build("drive", "v3", credentials=creds)
 
+
+def _download_json_from_drive(filename: str, folder_id: str = DRIVE_FOLDER_ID):
+    """Descarga y parsea un JSON ya publicado en Drive. None si no existe o falla
+    (usado como fallback de Forecast, ver más abajo — nunca debe cortar la corrida)."""
+    try:
+        service = _get_drive_service()
+        results = service.files().list(
+            q=f"name='{filename}' and '{folder_id}' in parents and trashed=false",
+            fields="files(id,name)"
+        ).execute()
+        files = results.get("files", [])
+        if not files:
+            return None
+        content = service.files().get_media(fileId=files[0]["id"]).execute()
+        return json.loads(content)
+    except Exception as e:
+        print(f"  WARN no se pudo leer {filename} de Drive (fallback de Forecast): {e}")
+        return None
+
+
+# Forecast (Distribución Diaria) es un CSV local, manual — no vive en el Datalake ni en
+# Drive. En una PC que no tenga la carpeta de OneDrive montada (p.ej. otra persona del
+# equipo corriendo el script), _load_forecast_diario da vacío y ACÁ, en vez de subir un
+# Forecast vacío y pisar el bueno, se reusa el último publicado en Drive (bug real,
+# 2026-09-28: una corrida desde otra PC pisó el Forecast recién cargado con vacío).
+_forecast_b2bc_compact  = to_compact(df_forecast_b2bc)    if not df_forecast_b2bc.empty    else {"cols": [], "rows": []}
+_forecast_b2b_gd_records = df_forecast_b2b_gd.to_dict(orient="records") if not df_forecast_b2b_gd.empty else []
+_forecast_b2b_ri_records = df_forecast_b2b_ri.to_dict(orient="records") if not df_forecast_b2b_ri.empty else []
+
+if df_forecast_b2bc.empty or df_forecast_b2b_gd.empty or df_forecast_b2b_ri.empty:
+    print("  AVISO: Forecast vacío en esta corrida — buscando el último bueno en Drive para no pisarlo...")
+    _prev_b2bc = _download_json_from_drive(JSON_FILE_NAME)     if df_forecast_b2bc.empty    else None
+    _prev_b2b  = _download_json_from_drive(B2B_JSON_FILE_NAME) if (df_forecast_b2b_gd.empty or df_forecast_b2b_ri.empty) else None
+    if df_forecast_b2bc.empty and _prev_b2bc and (_prev_b2bc.get("forecast") or {}).get("rows"):
+        _forecast_b2bc_compact = _prev_b2bc["forecast"]
+        print(f"    -> Forecast B2B2C: reusando {len(_forecast_b2bc_compact['rows']):,} filas de la corrida anterior")
+    if df_forecast_b2b_gd.empty and _prev_b2b and _prev_b2b.get("b2b_forecast_gd"):
+        _forecast_b2b_gd_records = _prev_b2b["b2b_forecast_gd"]
+        print(f"    -> Forecast B2B GD: reusando {len(_forecast_b2b_gd_records):,} filas de la corrida anterior")
+    if df_forecast_b2b_ri.empty and _prev_b2b and _prev_b2b.get("b2b_forecast_ri"):
+        _forecast_b2b_ri_records = _prev_b2b["b2b_forecast_ri"]
+        print(f"    -> Forecast B2B RI: reusando {len(_forecast_b2b_ri_records):,} filas de la corrida anterior")
+
+META = {
+    "generated_at":      datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+    "last_actuals_date": str(YESTERDAY),
+    "actuals_from":      str(ACTUALS_FROM),
+    "ly_from":           str(LY_FROM),
+    "ly_to":             str(LY_TO),
+}
+
+b2c_compact    = to_compact(df_b2c)    if not df_b2c.empty    else {"cols": [], "rows": []}
+b2c_ly_compact = to_compact(df_b2c_ly) if not df_b2c_ly.empty else {"cols": [], "rows": []}
+
+b2bc_payload = {
+    "meta":       META,
+    "actuals":    df_act.to_dict(orient="records"),
+    "actuals_ly": df_lya.to_dict(orient="records"),
+    "budget":     to_compact(df_bud),
+    "runrate":    to_compact(df_b2bc_rr_agg) if not df_b2bc_rr_agg.empty else {"cols": [], "rows": []},
+    "forecast":   _forecast_b2bc_compact,
+    "okr_budget":  to_compact(df_okr_bud),   # NR por mes x stage, FY completo -> okr_builder.py
+    "okr_runrate": to_compact(df_okr_rr),
+    "b2c":        b2c_compact,
+    "b2c_ly":     b2c_ly_compact,
+}
+
+b2b_payload = {
+    "meta":       META,
+    "b2b_gd":     to_compact(df_b2b_gd_agg),
+    "b2c":        b2c_compact,
+    "b2c_ly":     b2c_ly_compact,
+    "b2b_gd_ly":  to_compact(df_b2b_gd_ly_ag),
+    "b2b_ri":     to_compact(df_b2b_ri_agg),
+    "b2b_ri_ly":  to_compact(df_b2b_ri_ly_ag),
+    "b2b_budget_gd":  df_b2b_bud_gd.to_dict(orient="records")    if not df_b2b_bud_gd.empty    else [],
+    "b2b_budget_ri":  df_b2b_bud_ri.to_dict(orient="records")    if not df_b2b_bud_ri.empty    else [],
+    "b2b_runrate_gd": df_b2b_rr_gd_agg.to_dict(orient="records") if not df_b2b_rr_gd_agg.empty else [],
+    "b2b_runrate_ri": df_b2b_rr_ri_agg.to_dict(orient="records") if not df_b2b_rr_ri_agg.empty else [],
+    "b2b_forecast_gd": _forecast_b2b_gd_records,
+    "b2b_forecast_ri": _forecast_b2b_ri_records,
+}
+
+b2bc_str   = json.dumps(b2bc_payload, ensure_ascii=False, separators=(",", ":"))
+b2bc_bytes = b2bc_str.encode("utf-8")
+b2b_str    = json.dumps(b2b_payload, ensure_ascii=False, separators=(",", ":"))
+b2b_bytes  = b2b_str.encode("utf-8")
+print(f"\nB2B2C JSON: {len(b2bc_bytes)//1024:.0f} KB  "
+      f"(actuals={len(df_act):,} | ly={len(df_lya):,} | budget={len(df_bud):,})")
+print(f"B2B JSON:   {len(b2b_bytes)//1024:.0f} KB  "
+      f"(gd={len(df_b2b_gd_agg):,} | gd_ly={len(df_b2b_gd_ly_ag):,} | ri={len(df_b2b_ri_agg):,} | ri_ly={len(df_b2b_ri_ly_ag):,})")
+
+# ==============================================================================
+# 6) SUBIR A GOOGLE DRIVE (usando credenciales OAuth de clasp)
+# ==============================================================================
 
 def upload_to_drive(json_bytes: bytes, filename: str, folder_id: str = DRIVE_FOLDER_ID):
     from googleapiclient.http import MediaInMemoryUpload
