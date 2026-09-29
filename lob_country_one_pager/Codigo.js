@@ -49,7 +49,8 @@ function doGet(e) {
 }
 
 function getFilters() {
-  return { paises: PAISES, lobs: LOBS };
+  // defaultYm: el cliente lo usa para pedir en paralelo (gestional/waterfalls) sin esperar a la base contable.
+  return { paises: PAISES, lobs: LOBS, defaultYm: _currentDefaultYm_() };
 }
 
 // ── ÚNICA llamada del frontend ──────────────────────────────────
@@ -77,13 +78,82 @@ function _currentDefaultYm_() {
   return y + '-' + (m < 10 ? '0' : '') + m;
 }
 
+// ── Endpoints por sección (2026-09-28) ──────────────────────────────────────────────────────────────
+// getOnePagerData hacía TODO en serie en una sola llamada (23–210 s: GD ~11-19 s + RI ~11-20 s +
+// waterfalls ~50-97 s en frío + base). Ahora el cliente pide cada sección por separado y EN
+// PARALELO (el tiempo pasa a ser el de la más lenta, no la suma) y pinta cada una al llegar:
+//   getOPBase        → contable (tarjetas) + evolución + mix + meses; define el mes efectivo
+//   getOPGestional   → GB/NR/FVM de una vista (GD o RI) — cacheado en servidor
+//   getOPWaterfalls  → NR Bridge + OC Waterfall del mes (ya se cacheaba 6 h por país+mes)
+// getOnePagerData queda por compatibilidad (el frontend ya no lo usa).
+function _resolveYm_(reqYm, base) {
+  var months  = base ? base.months : [];
+  var lastAc  = base ? base.lastActualsYm : null;
+  var calenYm = _currentDefaultYm_();
+  return (reqYm && months.indexOf(reqYm) >= 0) ? reqYm
+       : (months.indexOf(calenYm) >= 0 ? calenYm
+       : (lastAc || (months.length ? months[months.length - 1] : null)));
+}
+
+function getOPBase(params) {
+  var t0 = Date.now(), tm = {};
+  var p    = params || {};
+  var pais = PAISES.indexOf(p.pais) >= 0 ? p.pais : 'Globales';
+  var base = _tm_(tm, 'contableBase', function () { return _getContableBase_(pais); });
+  var ym   = _resolveYm_(p.ym, base);
+  var out = {
+    pais:          pais,
+    ym:            ym,
+    lastActualsYm: base ? base.lastActualsYm : null,
+    months:        base ? base.months : [],
+    contable:      _buildContableCards_(base, ym, pais, true),   // sin waterfalls (van por getOPWaterfalls)
+    evo:           _buildEvo_(base),
+    mix:           _tm_(tm, 'mix', function () { return _getMix_(pais); })
+  };
+  tm.total = Date.now() - t0;
+  out._timing = tm;
+  return out;
+}
+
+// Los datos gestionales se actualizan 1 vez por día (sync 08:00): cache de 1 h por país+vista+mes.
+// No se cachean los null (podrían ser un fallo transitorio).
+var _GEST_CACHE_TTL_S = 3600;
+function getOPGestional(params) {
+  var t0 = Date.now();
+  var p    = params || {};
+  var pais = PAISES.indexOf(p.pais) >= 0 ? p.pais : 'Globales';
+  var view = (p.view === 'RI') ? 'RI' : 'GD';
+  var ym   = p.ym || _currentDefaultYm_();
+  var key  = 'gs1_' + view + '_' + (GESTIONAL_PAIS[pais] || pais) + '_' + ym;
+  var sc   = CacheService.getScriptCache(), data = null, src = 'lib';
+  var hit  = sc.get(key);
+  if (hit) { try { data = JSON.parse(hit); src = 'cache'; } catch (e) { data = null; } }
+  if (!data) {
+    data = _getGestionalMTD_(pais, view, ym);
+    if (data) { try { sc.put(key, JSON.stringify(data), _GEST_CACHE_TTL_S); } catch (e) {} }
+  }
+  return { pais: pais, view: view, ym: ym, data: data, _timing: { total: Date.now() - t0, src: src } };
+}
+
+function getOPWaterfalls(params) {
+  var t0 = Date.now();
+  var p    = params || {};
+  var pais = PAISES.indexOf(p.pais) >= 0 ? p.pais : 'Globales';
+  var wf   = _buildContableWaterfalls_(pais, p.ym);
+  return { pais: pais, ym: p.ym, wf: wf, _timing: { total: Date.now() - t0 } };
+}
+
+// Medición (temporal): ms de cada tramo de getOnePagerData; el cliente lo imprime en consola.
+function _tm_(tm, k, fn) { var t = Date.now(); var r = fn(); tm[k] = Date.now() - t; return r; }
+
 function getOnePagerData(params) {
+  var t0 = Date.now(), tm = {};
   var p    = params || {};
   var pais = PAISES.indexOf(p.pais) >= 0 ? p.pais : 'Globales';
   var lob  = 'b2b';   // B2B2C llega en otra iteración
 
   // Base contable (1 sola llamada) → meses seleccionables, corte real, waterfalls.
-  var base    = _getContableBase_(pais);
+  var base    = _tm_(tm, 'contableBase', function () { return _getContableBase_(pais); });
   var months  = base ? base.months : [];
   var lastAc  = base ? base.lastActualsYm : null;
   var calenYm = _currentDefaultYm_();
@@ -91,19 +161,25 @@ function getOnePagerData(params) {
          : (months.indexOf(calenYm) >= 0 ? calenYm
          : (lastAc || (months.length ? months[months.length - 1] : null)));
 
+  var gd  = _tm_(tm, 'gestionalGD', function () { return _getGestionalMTD_(pais, 'GD', ym); });
+  var ri  = _tm_(tm, 'gestionalRI', function () { return _getGestionalMTD_(pais, 'RI', ym); });
+  var ctb = _tm_(tm, 'contableCards+waterfalls', function () { return _buildContableCards_(base, ym, pais); });
+  var evo = _tm_(tm, 'evo', function () { return _buildEvo_(base); });
+  var mix = _tm_(tm, 'mix', function () { return _getMix_(pais); });
+  tm.total = Date.now() - t0;
+  Logger.log('[TIMING] ' + pais + ' ' + ym + ' ' + JSON.stringify(tm));
+
   return {
     pais:          pais,
     lob:           lob,
     ym:            ym,
     lastActualsYm: lastAc,
     months:        months,
-    gestional: {
-      gd: _getGestionalMTD_(pais, 'GD', ym),
-      ri: _getGestionalMTD_(pais, 'RI', ym)
-    },
-    contable: _buildContableCards_(base, ym, pais),
-    evo:      _buildEvo_(base),
-    mix:      _getMix_(pais)
+    gestional: { gd: gd, ri: ri },
+    contable: ctb,
+    evo:      evo,
+    mix:      mix,
+    _timing:  tm
   };
 }
 
@@ -272,7 +348,7 @@ function _buildContableWaterfalls_(pais, ym) {
 
 // Tarjetas del mes `ym`: si el mes está cerrado → actuals contables; si aún
 // no cerró → Run Rate. Así toda la página habla del mismo mes.
-function _buildContableCards_(base, ym, pais) {
+function _buildContableCards_(base, ym, pais, skipWaterfalls) {
   if (!base || !ym) return null;
   var idx = base.periods.indexOf(ym);
   if (idx < 0) return null;
@@ -295,7 +371,7 @@ function _buildContableCards_(base, ym, pais) {
     return { id: m.id, label: m.label, value: val, vsBudget: vsB, vsLY: vsLY };
   });
 
-  return { ym: ym, basis: basis, metrics: cards, waterfalls: _buildContableWaterfalls_(pais, ym) };
+  return { ym: ym, basis: basis, metrics: cards, waterfalls: skipWaterfalls ? undefined : _buildContableWaterfalls_(pais, ym) };
 }
 
 // evo.metrics[].actuals viene BLENDED (actuals+RR+forecast) para todo el FY27,
