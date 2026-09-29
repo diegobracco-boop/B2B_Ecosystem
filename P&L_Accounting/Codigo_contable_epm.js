@@ -3,11 +3,58 @@
 // Actuals Q1 = contables reales. Q2-Q4 = todo desde fc (EPM/plana).
 // Comparte helpers y constantes de Codigo_contable.js (mismo namespace GAS).
 
+// ── Medición de performance (temporal) ──────────────────────────────────────────
+// _timed_ envuelve los endpoints públicos y adjunta `_timing` a la respuesta: ms de cada tramo
+// (metadata de Drive, lectura del ensamblado, cómputo) + tamaño de la respuesta. El cliente lo
+// muestra en consola y en la barra "Actualizado". Quitar cuando termine la medición.
+var _TM_ = {};
+function _timed_(name, fn, args) {
+  _TM_ = { mod: 0, read: 0, readSrc: 'mem' };
+  var t0 = Date.now();
+  // Cache de resultados: clave = endpoint + args + fecha de modificación de los JSON (si cambia
+  // algún canónico, la clave cambia sola). Saltea lectura del ensamblado y cálculo.
+  var rkey = null, res, fromCache = false, putSt = '-', getSt = '-';
+  try {
+    var mod = _canonicalsMaxMod_();
+    var dig = Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, JSON.stringify(args), Utilities.Charset.UTF_8);
+    rkey = 'epm_res_v1_' + name + '_' + mod + '_' + dig.map(function(b){ return ((b & 0xff) + 0x100).toString(16).substr(1); }).join('');
+    var got = _chunkCacheGet_(rkey);
+    getSt = (got && 'v' in got) ? 'hit' : 'miss';
+    if (got && 'v' in got) { res = got.v; fromCache = true; _TM_.readSrc = 'result-cache'; }
+  } catch (e) { Logger.log('_timed_ result cache get: ' + e); getSt = 'err:' + String(e).substr(0, 80); rkey = null; }
+  if (!fromCache) {
+    res = fn.apply(null, args);
+    if (rkey) {
+      putSt = _chunkCachePut_(rkey, { v: res });
+      var chk = _chunkCacheGet_(rkey);          // diagnóstico: ¿se puede leer lo recién guardado?
+      putSt += (chk && 'v' in chk) ? '/leible' : '/NO-leible';
+    }
+  }
+  var total = Date.now() - t0;
+  var tm = { fn: name, total: total, mod: _TM_.mod, read: _TM_.read, readSrc: _TM_.readSrc,
+             compute: fromCache ? 0 : total - _TM_.mod - _TM_.read, rget: getSt, rput: putSt, rkey: rkey ? rkey.replace('epm_res_v1_' + name + '_', '').substr(0, 30) : null };
+  var isStr = typeof res === 'string';
+  tm.bytes = isStr ? res.length : JSON.stringify(res).length;
+  Logger.log('[TIMING] ' + JSON.stringify(tm));
+  if (isStr) return res.replace(/\}\s*$/, ',"_timing":' + JSON.stringify(tm) + '}');
+  res._timing = tm;
+  return res;
+}
+
 var _epmJsonCache_   = null;
 var _epmJsonCacheMs_ = 0;  // max lastMod de todos los canónicos al momento del último assembly
 
 // Devuelve el máximo lastMod (ms) de todos los JSON canónicos — 7 llamadas de metadata.
+// Cacheada 60 s en CacheService (las globales no sobreviven entre llamadas): antes eran 8 consultas
+// a Drive por llamada (~1.5 s). Costo: un JSON nuevo puede tardar hasta 60 s en notarse; el botón
+// "Refrescar" del dashboard llama a refreshEPMData() que borra esta clave para verlo al instante.
+var EPM_MOD_KEY_ = 'epm_mod_v1';
 function _canonicalsMaxMod_() {
+  var _t = Date.now();
+  try {
+    var hit = CacheService.getScriptCache().get(EPM_MOD_KEY_);
+    if (hit) { _TM_.mod = (_TM_.mod || 0) + (Date.now() - _t); return Number(hit); }
+  } catch (e) { Logger.log('_canonicalsMaxMod_ cache get: ' + e); }
   var mx = 0;
   Object.keys(CANONICAL_IDS_).forEach(function(sc) {
     try {
@@ -15,6 +62,8 @@ function _canonicalsMaxMod_() {
       if (t > mx) mx = t;
     } catch(e) { Logger.log('_canonicalsMaxMod_ err ' + sc + ': ' + e); }
   });
+  try { if (mx) CacheService.getScriptCache().put(EPM_MOD_KEY_, String(mx), 60); } catch (e) { Logger.log('_canonicalsMaxMod_ cache put: ' + e); }
+  _TM_.mod = (_TM_.mod || 0) + (Date.now() - _t);
   return mx;
 }
 
@@ -115,9 +164,12 @@ function assembleCanonicals_() {
 var EPM_CACHE_PREFIX_ = 'epm_asm_v1_';
 var EPM_CACHE_CHUNK_  = 90000;
 
-function _epmCacheGet_(mod) {
+function _epmCacheGet_(mod) { return _chunkCacheGet_(EPM_CACHE_PREFIX_ + mod); }
+function _epmCachePut_(mod, obj) { _chunkCachePut_(EPM_CACHE_PREFIX_ + mod, obj); }
+
+function _chunkCacheGet_(base) {
   try {
-    var c = CacheService.getScriptCache(), base = EPM_CACHE_PREFIX_ + mod;
+    var c = CacheService.getScriptCache();
     var n = parseInt(c.get(base + '_n') || '0', 10);
     if (!n) return null;
     var keys = [];
@@ -126,32 +178,36 @@ function _epmCacheGet_(mod) {
     for (var k = 0; k < keys.length; k++) { if (!got[keys[k]]) return null; parts.push(got[keys[k]]); }
     var blob = Utilities.newBlob(Utilities.base64Decode(parts.join('')), 'application/x-gzip');
     return JSON.parse(Utilities.ungzip(blob).getDataAsString());
-  } catch (e) { Logger.log('_epmCacheGet_: ' + e); return null; }
+  } catch (e) { Logger.log('_chunkCacheGet_: ' + e); return null; }
 }
 
-function _epmCachePut_(mod, obj) {
+function _chunkCachePut_(base, obj) {
   try {
     var gz  = Utilities.gzip(Utilities.newBlob(JSON.stringify(obj), 'application/json'));
     var b64 = Utilities.base64Encode(gz.getBytes());
     var n   = Math.ceil(b64.length / EPM_CACHE_CHUNK_);
-    if (n > 900) { Logger.log('_epmCachePut_: demasiado grande (' + n + ' trozos), no se cachea'); return; }
-    var base = EPM_CACHE_PREFIX_ + mod, put = {};
+    if (n > 900) { Logger.log('_chunkCachePut_: demasiado grande (' + n + ' trozos), no se cachea'); return 'big:' + n; }
+    var put = {};
     for (var i = 0; i < n; i++) put[base + '_' + i] = b64.substr(i * EPM_CACHE_CHUNK_, EPM_CACHE_CHUNK_);
     var c = CacheService.getScriptCache();
     c.putAll(put, 21600);
     c.put(base + '_n', String(n), 21600);   // último: si falla a mitad, el get no encuentra '_n'
-  } catch (e) { Logger.log('_epmCachePut_: ' + e); }
+    return 'ok:' + n;
+  } catch (e) { Logger.log('_chunkCachePut_: ' + e); return 'err:' + String(e).substr(0, 80); }
 }
 
 function readEPMJSON_() {
   var mod = _canonicalsMaxMod_();
+  var _t = Date.now();
   if (_epmJsonCache_ && mod <= _epmJsonCacheMs_) return _epmJsonCache_;
   var hit = _epmCacheGet_(mod);
-  if (hit) { _epmJsonCache_ = hit; _epmJsonCacheMs_ = mod; return hit; }
+  if (hit) { _epmJsonCache_ = hit; _epmJsonCacheMs_ = mod; _TM_.read = Date.now() - _t; _TM_.readSrc = 'cache'; return hit; }
+  _TM_.readSrc = 'drive';
   try {
     _epmJsonCache_   = assembleCanonicals_();
     _epmJsonCacheMs_ = mod;
     _epmCachePut_(mod, _epmJsonCache_);
+    _TM_.read = Date.now() - _t;
   } catch(e) {
     Logger.log('readEPMJSON_ error: ' + e);
     // Antes devolvía { data:{} } y la pantalla mostraba CEROS como si fueran datos. Ahora el
@@ -164,8 +220,13 @@ function readEPMJSON_() {
 function invalidateEPMCache() {
   _epmJsonCache_   = null;
   _epmJsonCacheMs_ = 0;
+  try { CacheService.getScriptCache().remove(EPM_MOD_KEY_); } catch (e) {}
   return { ok: true };
 }
+
+// Botón "Refrescar" del dashboard: olvida la fecha de modificación cacheada para que la próxima
+// llamada vuelva a mirar Drive (si hay JSON nuevos, la clave de los caches cambia y se reensambla).
+function refreshEPMData() { return invalidateEPMCache(); }
 
 // ── Máximo índice de mes (ALL_MONTHS_ORD_BG) con datos en un agregado {n2:{mes:v}} ──
 function _epmScenMaxIdx_(agg) {
@@ -295,7 +356,7 @@ function epmCutoffIdx_(jData) {
 }
 
 // ── getEPMBaselineGoalData ────────────────────────────────────────────────────
-function getEPMBaselineGoalData(filtersJson) {
+function getEPMBaselineGoalData_raw_(filtersJson) {
   var filters     = filtersJson || {};
   var lobGroup    = filters.lobGroup || null;
   var rawProd     = filters.produto || filters.producto || [];
@@ -411,7 +472,7 @@ function _pxqGroup_(jData, lgKey, paisGroup, cutoffIdx, prodArr, goalSource, bas
     { goal: goalSource || 'budget', lrr: s.lrr, baseline: s.bl, ly: s.ly }));
 }
 
-function getEPMPxQAnalysis(filtersJson) {
+function getEPMPxQAnalysis_raw_(filtersJson) {
   var filters   = filtersJson || {};
   var goalSource = filters.goalSource || 'budget';
   var baselineScen = filters.baselineSource || 'bl';
@@ -473,7 +534,7 @@ function getEPMPxQAnalysis(filtersJson) {
 
 // ── getEPMCountriesYoY: crecimiento YoY por país (Baseline FY27 vs LY FY26) ──────
 // Métricas GB / NR / OC, current = baseline (actuals+forecast), ly = last year.
-function getEPMCountriesYoY(lobGroup, goalSourceArg, baselineSourceArg) {
+function getEPMCountriesYoY_raw_(lobGroup, goalSourceArg, baselineSourceArg) {
   var jData = readEPMJSON_();
   var cutoffIdx = epmCutoffIdx_(jData);
   var goalSource = goalSourceArg || 'budget';
@@ -513,7 +574,7 @@ function getEPMCountriesYoY(lobGroup, goalSourceArg, baselineSourceArg) {
 }
 
 // ── getEPMB2BCountryDetail ───────────────────────────────────────────────────
-function getEPMB2BCountryDetail(paisGroupJson) {
+function getEPMB2BCountryDetail_raw_(paisGroupJson) {
   var g = typeof paisGroupJson === 'string' ? JSON.parse(paisGroupJson) : paisGroupJson;
   var paisArr = g.pais;
   if (paisArr && paisArr.indexOf('Globales') >= 0 && paisArr.indexOf('Otros') < 0) {
@@ -660,7 +721,7 @@ function getEPMB2BCountryDetail(paisGroupJson) {
   });
 }
 
-function getEPMB2B2CCountryDetail(paisGroupJson) {
+function getEPMB2B2CCountryDetail_raw_(paisGroupJson) {
   var g = typeof paisGroupJson === 'string' ? JSON.parse(paisGroupJson) : paisGroupJson;
   var paisArr = g.pais;
   var goalSource   = g.goalSource     || 'budget';
@@ -679,3 +740,10 @@ function getEPMB2B2CCountryDetail(paisGroupJson) {
     total:    totalData
   });
 }
+
+// ── Wrappers de medición (ver _timed_) ──
+function getEPMBaselineGoalData(a, b, c) { return _timed_('getEPMBaselineGoalData', getEPMBaselineGoalData_raw_, [a, b, c]); }
+function getEPMPxQAnalysis(a, b, c) { return _timed_('getEPMPxQAnalysis', getEPMPxQAnalysis_raw_, [a, b, c]); }
+function getEPMCountriesYoY(a, b, c) { return _timed_('getEPMCountriesYoY', getEPMCountriesYoY_raw_, [a, b, c]); }
+function getEPMB2BCountryDetail(a, b, c) { return _timed_('getEPMB2BCountryDetail', getEPMB2BCountryDetail_raw_, [a, b, c]); }
+function getEPMB2B2CCountryDetail(a, b, c) { return _timed_('getEPMB2B2CCountryDetail', getEPMB2B2CCountryDetail_raw_, [a, b, c]); }
