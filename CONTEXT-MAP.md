@@ -87,10 +87,10 @@ El ecosistema tiene dos capas: **pipelines** (Python, generan los datos) y **lan
 - **Input**: sin pipeline propio y **sin leer JSONs de Drive directamente** — consume dos
   landings como **Apps Script Libraries** (`dependencies.libraries` en `appsscript.json`,
   pineado a una versión numérica de cada una, mismo patrón que `clasp deploy -i <id>`):
-  - `DashboardB2BWLs` (v155) — **contable**:
+  - `DashboardB2BWLs` (v178) — **contable**:
     - `getCountryPageData()` → evo mensual GB/NR/OC + waterfalls (ocConceptWf/nrBridgeWf) por país (FY27)
     - `getB2BCanalProductoMix()` → GB/NR/OC por canal (MAY/MIN) × producto, para el mix (ratios OC/GB y NR/GB, mismo `calcOC` que la sección B2B)
-  - `DailyDashboard` (v223) — **gestional**:
+  - `DailyDashboard` (v264) — **gestional**:
     - `getCountryMTD({pais,view,ym})` → GB/NR/FVM del mes por país (GD y RI), mes puntual o último con actuals; soporta grupos (Globales/Hispa/TOTAL)
   - **Ya NO usa `PnLManagerial`** (se removió del manifest): el mix pasó a la fuente contable
     de `Dashboard_B2B_WLs` para que OC/GB y NR/GB salgan del mismo lugar que el resto del contable.
