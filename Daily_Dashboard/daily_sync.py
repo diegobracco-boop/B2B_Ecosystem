@@ -26,6 +26,10 @@ from datetime import date, timedelta, datetime
 import pandas as pd
 from dotenv import load_dotenv
 
+# Proporciones fijas de apertura del NR de Packages General (solo Budget). Generado por calc_pkg_split.py.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from pkg_split_factors import PKG_SPLIT_FACTORS, PKG_SPLIT_WINDOW
+
 warnings.filterwarnings("ignore")
 
 # ==============================================================================
@@ -40,6 +44,7 @@ FETCH_WORKERS = 6   # queries simultáneas contra el Datalake
 DRIVE_FOLDER_ID   = "1lWzfqweyV6Kz1ERkL85ikFcmzmKwGwwh"
 JSON_FILE_NAME    = "daily_b2b2c_data.json"
 B2B_JSON_FILE_NAME = "daily_b2b_data.json"
+OKR_H2_JSON_FILE_NAME = "okr_h2_managerial.json"   # KRs H2 del track managerial (Daily/Tracker), ver build_okr_h2_*
 
 # Salida de Proceso_Distribucion_Diaria/distribucion_diaria.py --escenario forecast (ver /distribucion-diaria).
 # Path.home() en vez de hardcodear el usuario: la carpeta "B2B & WLs" es una biblioteca de OneDrive
@@ -388,7 +393,7 @@ GROUP BY lob_canal ORDER BY lob_canal
 
 # ── B2B ───────────────────────────────────────────────────────────────────────
 CORE_PAISES = {'Brasil', 'Mexico', 'Other Countries'}
-COLS_B2B    = ["fecha", "pais", "producto_original", "parent_channel", "viaje",
+COLS_B2B    = ["fecha", "pais", "producto_original", "parent_channel", "viaje", "product_type",
                "orders", "gross_bookings", "net_revenue", "fvm"]
 
 _B2B_CONECTORES_CTE = """
@@ -781,7 +786,8 @@ _B2B_GROUP_DIMS = """
         END,
         CASE WHEN fh.trip_type_code='Nac' THEN 'Domestic'
              WHEN fh.trip_type_code='Int' THEN 'International'
-             ELSE fh.trip_type_code END"""
+             ELSE fh.trip_type_code END,
+        p.product_type"""
 
 _B2B_OUTER_SELECT_NR = """
     SUM(
@@ -816,7 +822,8 @@ base_metrics AS (
         + _B2B_PROD_CASE + """
         CASE WHEN fh.trip_type_code='Nac' THEN 'Domestic'
              WHEN fh.trip_type_code='Int' THEN 'International'
-             ELSE fh.trip_type_code END AS viaje,"""
+             ELSE fh.trip_type_code END AS viaje,
+        p.product_type AS product_type,"""
         + _B2B_COMPONENTS_RI
         + _B2B_JOINS_RI + f"""
     WHERE
@@ -837,13 +844,13 @@ base_metrics AS (
 )
 SELECT
     CAST(fecha_reconocimiento AS VARCHAR) AS fecha,
-    pais, producto_original, parent_channel, viaje,
+    pais, producto_original, parent_channel, viaje, product_type,
     SUM(orders) AS orders,
     SUM(gross_bookings) AS gross_bookings,"""
         + _B2B_OUTER_SELECT_NR + ","
         + _B2B_OUTER_SELECT_FVM + """
 FROM base_metrics
-GROUP BY 1, 2, 3, 4, 5
+GROUP BY 1, 2, 3, 4, 5, 6
 """)
 
 
@@ -857,7 +864,8 @@ base_metrics AS (
         + _B2B_PROD_CASE + """
         CASE WHEN fh.trip_type_code='Nac' THEN 'Domestic'
              WHEN fh.trip_type_code='Int' THEN 'International'
-             ELSE fh.trip_type_code END AS viaje,"""
+             ELSE fh.trip_type_code END AS viaje,
+        p.product_type AS product_type,"""
         + _B2B_COMPONENTS_GD
         + _B2B_JOINS_GD + f"""
     WHERE
@@ -872,13 +880,13 @@ base_metrics AS (
 )
 SELECT
     CAST(fecha_gestion AS VARCHAR) AS fecha,
-    pais, producto_original, parent_channel, viaje,
+    pais, producto_original, parent_channel, viaje, product_type,
     SUM(orders) AS orders,
     SUM(gross_bookings) AS gross_bookings,"""
         + _B2B_OUTER_SELECT_NR + ","
         + _B2B_OUTER_SELECT_FVM + """
 FROM base_metrics
-GROUP BY 1, 2, 3, 4, 5
+GROUP BY 1, 2, 3, 4, 5, 6
 """)
 
 
@@ -1905,6 +1913,11 @@ def clean_b2b(df: pd.DataFrame) -> pd.DataFrame:
         df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0).round(0).astype(int)
     df["orders"] = pd.to_numeric(df["orders"], errors="coerce").fillna(0).astype(int)
     df["viaje"]  = df["viaje"].fillna("N/A")
+    # product_type de bi_transactional_fact_products (apertura de Packages General en sus componentes:
+    # Vuelos, Disney, Universal, Excursiones, Traslados...). LEFT JOIN -> puede venir NULL.
+    # El datalake devuelve "Espectáculos" con el acento roto por el driver ODBC: se normaliza.
+    df["product_type"] = (df["product_type"].fillna("N/A").astype(str).str.strip()
+                          .str.replace(r"^Espect.*$", "Espectáculos", regex=True))
     return df[COLS_B2B]
 
 
@@ -1967,6 +1980,61 @@ def agg_b2b_budget(df: pd.DataFrame) -> pd.DataFrame:
         net_revenue   =("net_revenue",     "sum"),
         fvm           =("fvm",             "sum"),
     ).round({"gross_bookings": 2, "net_revenue": 2, "fvm": 2})
+
+
+def split_pkg_budget(df: pd.DataFrame) -> pd.DataFrame:
+    """Abre el budget de 'Packages General' por product_type con proporciones FIJAS de NR (pkg_split_factors.py,
+    generado por calc_pkg_split.py: actuals RI abr-jun 2026, por país; países sin muestra usan TOTAL).
+
+    Por qué: el KR "New Products Growth" (track managerial) cuenta el componente Vuelos y Dest. Serv. de los
+    paquetes; los actuals traen product_type pero el budget no. Cada fila de Packages General se reemplaza por
+    una fila por product_type (+ 'Otros paquetes') con TODAS sus métricas multiplicadas por la proporción de NR
+    -> los totales del budget NO cambian. La apertura de GB/orders/FVM es proporcional al NR (indicativa);
+    solo el NR abierto es un dato fiable para el KR. Las demás filas quedan con product_type = "".
+    Solo Budget: Run Rate y Forecast no se abren."""
+    if df.empty or "producto" not in df.columns:
+        return df
+    df = df.copy()
+    df["product_type"] = ""
+    is_pkg = df["producto"] == "Packages General"
+    if not is_pkg.any():
+        return df
+    tot = PKG_SPLIT_FACTORS["TOTAL"]
+    fac = pd.DataFrame(
+        [(pais, t, s) for pais, sh in PKG_SPLIT_FACTORS.items() for t, s in sh.items() if s > 0],
+        columns=["pais_key", "product_type", "share"])
+    pk = df[is_pkg].drop(columns=["product_type"]).copy()
+    pk["pais_key"] = pk["pais"].where(pk["pais"].isin(PKG_SPLIT_FACTORS.keys()), "TOTAL")
+    pk = pk.merge(fac, on="pais_key", how="left")
+    metrics = [c for c in ("orders", "gross_bookings", "net_revenue", "fvm") if c in pk.columns]
+    for c in metrics:
+        pk[c] = pk[c] * pk["share"]
+    pk = pk.drop(columns=["pais_key", "share"]).round({"gross_bookings": 2, "net_revenue": 2, "fvm": 2})
+    return pd.concat([df[~is_pkg], pk[df.columns]], ignore_index=True)
+
+
+def build_okr_h2_actuals(df: pd.DataFrame) -> dict:
+    """Actuals (o LY) para el JSON de OKR H2 managerial: solo lo que usan los 4 KRs (NR y FVM) por
+    fecha x pais x canal x producto. product_type solo en Packages General (en el resto va vacío):
+    es lo que separa el componente Vuelos / Dest. Serv. de los paquetes. Sin orders/GB/viaje."""
+    if df is None or df.empty:
+        return {"cols": [], "rows": []}
+    d = df[["fecha", "pais", "producto_original", "parent_channel", "product_type", "net_revenue", "fvm"]].copy()
+    d.loc[d["producto_original"] != "Packages General", "product_type"] = ""
+    d = d.groupby(["fecha", "pais", "producto_original", "parent_channel", "product_type"], as_index=False).agg(
+        net_revenue=("net_revenue", "sum"), fvm=("fvm", "sum"))
+    return to_compact(d)
+
+
+def build_okr_h2_budget(df_clean: pd.DataFrame) -> list:
+    """Budget para el JSON de OKR H2 managerial: mismo grano que el budget del JSON principal pero con
+    Packages General abierto por product_type (split_pkg_budget, proporciones fijas). Solo NR y FVM."""
+    if df_clean is None or df_clean.empty:
+        return []
+    b = split_pkg_budget(agg_b2b_budget(df_clean))
+    b = b.groupby(["fecha", "pais", "parent_channel", "producto", "product_type"], as_index=False).agg(
+        net_revenue=("net_revenue", "sum"), fvm=("fvm", "sum")).round({"net_revenue": 2, "fvm": 2})
+    return b.to_dict(orient="records")
 
 
 def _load_forecast_diario(base: str) -> pd.DataFrame:
@@ -2370,6 +2438,44 @@ print(f"\nB2B2C JSON: {len(b2bc_bytes)//1024:.0f} KB  "
 print(f"B2B JSON:   {len(b2b_bytes)//1024:.0f} KB  "
       f"(gd={len(df_b2b_gd_agg):,} | gd_ly={len(df_b2b_gd_ly_ag):,} | ri={len(df_b2b_ri_agg):,} | ri_ly={len(df_b2b_ri_ly_ag):,})")
 
+# --- JSON de OKR H2 managerial (track gestional; el contable sale de okr.json / Hub) --------------------
+okr_h2_payload = {
+    "meta": {**META,
+             "descripcion": "KRs H2 managerial (Daily/Tracker): NR total, FVM API, FVM HTML y New Products Growth",
+             "new_products": "Flights + Dest. Serv. + product_type Vuelos/Disney/Universal/SeaWorld/Busch Gardens/Excursiones/Espectaculos/Traslados dentro de Packages General",
+             "budget_packages_split": {"ventana_actuals_ri": list(PKG_SPLIT_WINDOW), "nivel": "pais", "solo": "budget"}},
+    "b2b_ri":        build_okr_h2_actuals(df_b2b_ri),
+    "b2b_ri_ly":     build_okr_h2_actuals(df_b2b_ri_ly),
+    "b2b_gd":        build_okr_h2_actuals(df_b2b_gd),
+    "b2b_gd_ly":     build_okr_h2_actuals(df_b2b_gd_ly),
+    "b2b_budget_ri": build_okr_h2_budget(df_b2b_budget_ri),
+    "b2b_budget_gd": build_okr_h2_budget(df_b2b_budget_gd),
+}
+okr_h2_bytes = json.dumps(okr_h2_payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+
+# Control de cuadre: el NR/FVM del JSON de OKR tiene que ser IGUAL al del JSON principal (misma fuente).
+def _sum_compact(c, col):
+    if not c or not c.get("cols"):
+        return 0.0
+    i = c["cols"].index(col)
+    return float(sum(r[i] or 0 for r in c["rows"]))
+_okr_ok = True
+for _k, _main in (("b2b_ri", df_b2b_ri_agg), ("b2b_gd", df_b2b_gd_agg), ("b2b_ri_ly", df_b2b_ri_ly_ag), ("b2b_gd_ly", df_b2b_gd_ly_ag)):
+    for _col in ("net_revenue", "fvm"):
+        _a, _b = _sum_compact(okr_h2_payload[_k], _col), float(_main[_col].sum())
+        if abs(_a - _b) > 1.0:
+            _okr_ok = False
+            print(f"  ERROR cuadre OKR H2: {_k}.{_col} okr={_a:,.0f} vs principal={_b:,.0f}")
+for _k, _main in (("b2b_budget_ri", df_b2b_bud_ri), ("b2b_budget_gd", df_b2b_bud_gd)):
+    for _col in ("net_revenue", "fvm"):
+        _a = float(sum(r[_col] for r in okr_h2_payload[_k]))
+        _b = float(_main[_col].sum()) if not _main.empty else 0.0
+        if abs(_a - _b) > max(50.0, abs(_b) * 1e-5):     # el redondeo de la apertura suma centavos por fila
+            _okr_ok = False
+            print(f"  ERROR cuadre OKR H2: {_k}.{_col} okr={_a:,.0f} vs principal={_b:,.0f}")
+print(f"OKR H2 JSON: {len(okr_h2_bytes)//1024:.0f} KB  (ri={len(okr_h2_payload['b2b_ri']['rows']):,} | gd={len(okr_h2_payload['b2b_gd']['rows']):,} | "
+      f"bud_ri={len(okr_h2_payload['b2b_budget_ri']):,} | bud_gd={len(okr_h2_payload['b2b_budget_gd']):,})  cuadre={'OK' if _okr_ok else 'FALLA'}")
+
 # ==============================================================================
 # 6) SUBIR A GOOGLE DRIVE (usando credenciales OAuth de clasp)
 # ==============================================================================
@@ -2480,6 +2586,10 @@ if _FAILED_BLOCKS:
 
 upload_to_drive(b2bc_bytes, JSON_FILE_NAME)
 upload_to_drive(b2b_bytes,  B2B_JSON_FILE_NAME)
+if _okr_ok:
+    upload_to_drive(okr_h2_bytes, OKR_H2_JSON_FILE_NAME)
+else:
+    print(f"  AVISO: NO se sube {OKR_H2_JSON_FILE_NAME} (no cuadra con el JSON principal) — queda el de la corrida anterior.")
 
 print("\n--- Subiendo a Drive (Managerial) ---")
 upload_to_drive(pnl_gd_bytes, GD_JSON_NAME, MANAGERIAL_DRIVE_FOLDER_ID)

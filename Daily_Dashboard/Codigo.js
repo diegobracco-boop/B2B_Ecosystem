@@ -8,6 +8,10 @@ var B2BC_JSON        = "daily_b2b2c_data.json";
 var B2B_JSON         = "daily_b2b_data.json";
 var B2BC_CACHE_KEY   = "daily_b2bc_v36";
 var B2B_CACHE_KEY    = "daily_b2b_v36";
+// JSON de OKR H2 managerial (lo genera daily_sync.py): NR/FVM por fecha x pais x canal x producto con Packages General
+// abierto por product_type. Liviano y separado del JSON principal para no engordarlo. Ver CONTEXT.md.
+var OKR_H2_JSON      = "okr_h2_managerial.json";
+var OKR_H2_CACHE_KEY = "okr_h2_v1";
 var CACHE_TTL        = 21600;   // 6 h
 var CACHE_CHUNK      = 90000;
 
@@ -48,6 +52,7 @@ function getTrackerUrl() {
 
 function getRawB2BC() { return loadFile_(B2BC_JSON, B2BC_CACHE_KEY); }
 function getRawB2B()  { return loadFile_(B2B_JSON,  B2B_CACHE_KEY);  }
+function getRawOKRH2() { return loadFile_(OKR_H2_JSON, OKR_H2_CACHE_KEY); }
 
 // ---- Internal helpers ----
 

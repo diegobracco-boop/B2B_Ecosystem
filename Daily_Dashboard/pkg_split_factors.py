@@ -1,0 +1,86 @@
+# -*- coding: utf-8 -*-
+# GENERADO por calc_pkg_split.py — NO editar a mano. Ver ese script para el porqué y cómo regenerarlo.
+# Ventana de referencia: 2026-04-01 .. 2026-06-30 (actuals RI B2B, Packages General).
+# Proporciones del NR de Packages General por product_type, FIJAS para adelante. Solo Budget.
+PKG_SPLIT_WINDOW = ("2026-04-01", "2026-06-30")
+PKG_SPLIT_OTROS = "Otros paquetes"
+PKG_SPLIT_NR_REF = {'TOTAL': 4306997, 'Argentina': 80539, 'Brasil': 3182938, 'Chile': 199991, 'Colombia': 134524, 'Mexico': 651581, 'Peru': 57423}   # NR de paquetes en la ventana (USD)
+PKG_SPLIT_FACTORS = {
+    'TOTAL': {
+        'Vuelos': 0.453732,
+        'Disney': 0.039828,
+        'Universal': 0.046425,
+        'SeaWorld': 0.001406,
+        'Busch Gardens': 0.000323,
+        'Excursiones': 0.041666,
+        'Traslados': 0.020818,
+        'Espectáculos': 0.001269,
+        'Otros paquetes': 0.394532,
+    },
+    'Argentina': {
+        'Vuelos': 0.384318,
+        'Disney': 0.003901,
+        'Universal': 0.006832,
+        'SeaWorld': 0.0,
+        'Busch Gardens': 0.0,
+        'Excursiones': 0.021359,
+        'Traslados': 0.053836,
+        'Espectáculos': 0.0,
+        'Otros paquetes': 0.529755,
+    },
+    'Brasil': {
+        'Vuelos': 0.54474,
+        'Disney': 0.049513,
+        'Universal': 0.058033,
+        'SeaWorld': 0.001884,
+        'Busch Gardens': 0.000437,
+        'Excursiones': 0.046277,
+        'Traslados': 0.014366,
+        'Espectáculos': 0.001276,
+        'Otros paquetes': 0.283474,
+    },
+    'Chile': {
+        'Vuelos': 0.269447,
+        'Disney': 0.01002,
+        'Universal': 0.009172,
+        'SeaWorld': 0.0,
+        'Busch Gardens': 0.0,
+        'Excursiones': 0.015165,
+        'Traslados': 0.062576,
+        'Espectáculos': 0.001107,
+        'Otros paquetes': 0.632513,
+    },
+    'Colombia': {
+        'Vuelos': 0.187129,
+        'Disney': 0.003143,
+        'Universal': 0.006058,
+        'SeaWorld': 0.0,
+        'Busch Gardens': 0.0,
+        'Excursiones': 0.055006,
+        'Traslados': 0.037255,
+        'Espectáculos': 0.0018,
+        'Otros paquetes': 0.709609,
+    },
+    'Mexico': {
+        'Vuelos': 0.152437,
+        'Disney': 0.016295,
+        'Universal': 0.018138,
+        'SeaWorld': 0.0,
+        'Busch Gardens': 0.0,
+        'Excursiones': 0.024875,
+        'Traslados': 0.02953,
+        'Espectáculos': 0.001377,
+        'Otros paquetes': 0.757348,
+    },
+    'Peru': {
+        'Vuelos': 0.191726,
+        'Disney': 0.010177,
+        'Universal': 0.003862,
+        'SeaWorld': 0.001016,
+        'Busch Gardens': 0.0,
+        'Excursiones': 0.066174,
+        'Traslados': 0.049378,
+        'Espectáculos': 0.000754,
+        'Otros paquetes': 0.676914,
+    },
+}

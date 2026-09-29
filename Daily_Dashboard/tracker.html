@@ -1306,6 +1306,8 @@ const MONTH_NAMES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct'
 //  Estado
 // ─────────────────────────────────────────────
 let rawData       = null;
+let okrH2Data     = null;   // okr_h2_managerial.json (KRs H2); null = todavía no llegó / no existe -> se usa rawData
+let _okrH2Unp     = {};
 let chartInst     = null;
 let activeTab     = 'nr_ri';
 let activeCountry = '';
@@ -1417,6 +1419,19 @@ function getActualsLY(dateType) {
   if (!rawData) return [];
   return unpack(dateType === 'ri' ? rawData.b2b_ri_ly : rawData.b2b_gd_ly);
 }
+
+// ── Fuente de los KRs H2 ──────────────────────────────────────────────────────────────────────
+// Los KRs H2 del track managerial leen de okr_h2_managerial.json (NR/FVM con Packages General abierto por
+// product_type, budget incluido). Si ese JSON no llegó (o todavía no existe en Drive), caen al JSON principal:
+// ahí New Products = solo Flights + Dest. Serv. (sin los componentes de paquetes).
+function okrH2Rows_(key) {
+  if (!okrH2Data || !okrH2Data[key]) return null;
+  if (!_okrH2Unp[key]) _okrH2Unp[key] = Array.isArray(okrH2Data[key]) ? okrH2Data[key] : unpack(okrH2Data[key]);
+  return _okrH2Unp[key];
+}
+function getKrActuals(dateType)   { return okrH2Rows_('b2b_' + dateType) || getActuals(dateType); }
+function getKrActualsLY(dateType) { return okrH2Rows_('b2b_' + dateType + '_ly') || getActualsLY(dateType); }
+function getKrBudget(dateType)    { return okrH2Rows_('b2b_budget_' + dateType) || getGoal(dateType, 'budget'); }
 
 function getGoal(dateType, goalType) {
   if (!rawData) return [];
@@ -2869,12 +2884,12 @@ function computeKRH2Metric_(monthFilter, metricField, predAct, predBud) {
   if (!rawData) return { actual: 0, budget: 0 };
   var bounds = getPeriodBounds(_resolveYM(monthFilter), rawData.meta);
   var actual = 0, budget = 0;
-  getActuals('ri').forEach(function(r) {
+  getKrActuals('ri').forEach(function(r) {
     if (r.fecha < bounds.from || r.fecha > bounds.cutoff) return;
     if (predAct && !predAct(r)) return;
     actual += (r[metricField] || 0);
   });
-  getGoal('ri', 'budget').forEach(function(r) {
+  getKrBudget('ri').forEach(function(r) {
     if (r.fecha < bounds.from || r.fecha > bounds.cutoff) return;
     if (predBud && !predBud(r)) return;
     budget += (r[metricField] || 0);
@@ -2981,18 +2996,18 @@ function computeKRH2ForPaisList_(paisList, metricField, predAct, predBud, monthF
   var paisLower = paisList.map(function(p){ return p.toLowerCase(); });
   function inPais(r){ return paisLower.indexOf((r.pais || '').toLowerCase()) !== -1; }
   var actual = 0, budget = 0, ly = 0;
-  getActuals('ri').forEach(function(r){
+  getKrActuals('ri').forEach(function(r){
     if (r.fecha < bounds.from || r.fecha > bounds.cutoff) return;
     if (!inPais(r) || (predAct && !predAct(r))) return;
     actual += (r[metricField] || 0);
   });
-  getGoal('ri', 'budget').forEach(function(r){
+  getKrBudget('ri').forEach(function(r){
     if (r.fecha < bounds.from || r.fecha > bounds.cutoff) return;
     if (!inPais(r) || (predBud && !predBud(r))) return;
     budget += (r[metricField] || 0);
   });
   var lyFrom = shiftYear(bounds.from, -1), lyCut = shiftYear(bounds.cutoff, -1);
-  getActualsLY('ri').forEach(function(r){
+  getKrActualsLY('ri').forEach(function(r){
     if (r.fecha < lyFrom || r.fecha > lyCut) return;
     if (!inPais(r) || (predAct && !predAct(r))) return;
     ly += (r[metricField] || 0);
@@ -3741,6 +3756,14 @@ window.addEventListener('load', () => {
     .withSuccessHandler(initDashboard)
     .withFailureHandler(showError)
     .getB2BData();
+  // En paralelo: JSON de OKR H2. Si falla (no existe todavía), los KRs H2 usan el JSON principal.
+  google.script.run
+    .withSuccessHandler(function(d) {
+      okrH2Data = d; _okrH2Unp = {};
+      if (rawData) { renderStatusKRsH2(); }          // llegó después del JSON principal -> re-render
+    })
+    .withFailureHandler(function() {})
+    .getRawOKRH2();
 });
 </script>
 </body>

@@ -1523,6 +1523,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
 // ── Raw data (loaded once) ───────────────────────────────────────
 var _rawB2BC = null;
 var _rawB2B  = null;
+var _okrH2 = null, _okrH2State = 'idle';   // okr_h2_managerial.json (KRs H2); si no llega, el KR usa _rawB2B
 
 // ── State ──────────────────────────────────────────────────────
 var state = { viewDate: null, data: null, meta: null, allMetrics: null };
@@ -2682,8 +2683,23 @@ function loadB2B() {
     .getRawB2B();
 }
 
+// Carga (una vez) el JSON de OKR H2 y re-calcula al llegar. Si falla -> el KR H2 sigue con _rawB2B (sin componentes de paquetes).
+function ensureOKRH2_() {
+  if (_okrH2State !== 'idle') return;
+  _okrH2State = 'loading';
+  google.script.run
+    .withSuccessHandler(function(d) {
+      ['b2b_gd','b2b_gd_ly','b2b_ri','b2b_ri_ly'].forEach(function(k){ d[k] = expandCompact_(d[k]); });
+      _okrH2 = d; _okrH2State = 'loaded';
+      recomputeB2B_();
+    })
+    .withFailureHandler(function() { _okrH2State = 'error'; })
+    .getRawOKRH2();
+}
+
 function recomputeB2B_() {
   if (!_rawB2B || !state_b2b.viewDate) return;
+  ensureOKRH2_();
   var gran   = vb2b('b2b-sel-gran')    || 'daily';
   var gl_pai = vb2b('b2b-sel-pais')    !== 'all' ? vb2b('b2b-sel-pais')    : null;
   var gl_pro = vb2b('b2b-sel-product') !== 'all' ? vb2b('b2b-sel-product') : null;
@@ -2696,7 +2712,7 @@ function recomputeB2B_() {
   state_b2b.data       = computeB2B_(_rawB2B, 'nr', _b2bDateModel, state_b2b.viewDate, gl_pai, gl_pro, gl_ch, _b2bMarket, 'daily', compSrc);
   state_b2b.allMetrics = computeAllB2B_(_rawB2B, _b2bDateModel, state_b2b.viewDate, gl_pai, gl_pro, gl_ch, _b2bMarket, gran, compSrc);
   var _krsB2B=computeKRsB2B_(_rawB2B, 'ri', state_b2b.viewDate); renderKRsB2B(_krsB2B); renderKRBreakdownB2B_(_krsB2B);
-  var _krsB2BH2=computeKRsB2BH2_(_rawB2B, 'ri', state_b2b.viewDate); renderKRsB2BH2_(_krsB2BH2);
+  var _krsB2BH2=computeKRsB2BH2_(_okrH2 || _rawB2B, 'ri', state_b2b.viewDate); renderKRsB2BH2_(_krsB2BH2);
   if(_globalesTargets) renderKRsGlobales_();
   renderB2B(state_b2b.data);
   renderB2BMetrics(state_b2b.allMetrics);
