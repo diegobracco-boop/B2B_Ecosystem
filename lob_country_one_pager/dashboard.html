@@ -110,6 +110,7 @@
 <script>
 var STATE = { pais: 'Globales', lob: 'b2b', ym: '', evoMetric: 'nr', evoGranularity: 'month', evoMode: 'nominal' };
 var _data = null;
+var FILTERS = { defaultYm: '' };
 
 // Banderas por país. En Windows los emoji de bandera no renderizan (muestran
 // "BR/MX/…"), así que usamos imágenes de flagcdn; Globales va con 🌎.
@@ -142,6 +143,7 @@ function destroyChart_(id) { if (_charts[id]) { _charts[id].destroy(); delete _c
 
 function boot() {
   google.script.run.withSuccessHandler(function (filters) {
+    FILTERS = filters;
     var paisTabs = document.getElementById('paisTabs');
     filters.paises.forEach(function (p) {
       var b = document.createElement('button');
@@ -182,12 +184,133 @@ function boot() {
   }).withFailureHandler(showError).getFilters();
 }
 
-function load() {
-  document.getElementById('main').innerHTML = '<div class="empty">Cargando…</div>';
+// ── Carga por secciones, en paralelo ───────────────────────────
+// Antes: UNA llamada en serie (23–210 s). Ahora cada sección se pide por separado y se pinta al llegar;
+// el tiempo total pasa a ser el de la más lenta. `ctx` identifica la carga vigente: si el usuario
+// cambia de país/mes mientras hay respuestas en vuelo, las viejas se descartan (auditoría 2026-09-25).
+var _loadSeq = 0, _ctx = null;
+
+// Cache en el navegador por endpoint+args: volver a un país/mes ya visto es instantáneo.
+// Guarda el JSON como texto y lo re-parsea (nada cacheado se puede mutar). Máx. 40 entradas.
+var _srvCache = {}, _srvKeys = [];
+function callSrv(name, args, ok, fail) {
+  var key = name + '|' + JSON.stringify(args), hit = _srvCache[key];
+  if (hit !== undefined) { setTimeout(function () { ok(JSON.parse(hit)); }, 0); return; }
   google.script.run
-    .withSuccessHandler(render)
-    .withFailureHandler(showError)
-    .getOnePagerData({ pais: STATE.pais, lob: STATE.lob, ym: STATE.ym });
+    .withSuccessHandler(function (v) {
+      try {
+        _srvCache[key] = JSON.stringify(v); _srvKeys.push(key);
+        while (_srvKeys.length > 40) delete _srvCache[_srvKeys.shift()];
+      } catch (e) {}
+      ok(v);
+    })
+    .withFailureHandler(fail)[name](args);
+}
+
+function _secHtml_(id, html) { var el = document.getElementById(id); if (el) el.innerHTML = html; }
+function _loadingSec_(title) {
+  return '<div class="sec"><div class="sec-head"><div class="sec-title">' + title + '</div></div><div class="empty">Cargando…</div></div>';
+}
+function _errSec_(title, e) {
+  return '<div class="sec"><div class="sec-head"><div class="sec-title">' + title + '</div></div>' +
+         '<div class="empty">Error al cargar: ' + (e && e.message ? e.message : e) + '</div></div>';
+}
+function _logT_(tag, ctx, res, t0) {
+  try { console.log('[TIMING]', tag, ctx.pais, ctx.ym, '| cliente', Date.now() - t0, 'ms | srv', res && res._timing && JSON.stringify(res._timing)); } catch (e) {}
+}
+
+function load() {
+  var ctx = _ctx = { seq: ++_loadSeq, pais: STATE.pais, ym: STATE.ym || FILTERS.defaultYm || '',
+                     base: undefined, gd: undefined, ri: undefined, wf: undefined, ymTok: 0 };
+  _data = null;
+  document.getElementById('main').innerHTML =
+    '<div id="sec-gest"></div><div id="sec-cont"></div><div id="sec-evo"></div>' +
+    '<div id="sec-wf"></div><div id="sec-mix"></div><div id="sec-dudas">' + renderDudas() + '</div>';
+  paintGest_(ctx); paintCont_(ctx); paintEvo_(ctx); paintWf_(ctx); paintMix_(ctx);
+
+  var t0 = Date.now();
+  callSrv('getOPBase', { pais: ctx.pais, ym: ctx.ym }, function (d) {
+    if (ctx !== _ctx) return;
+    _logT_('base', ctx, d, t0);
+    ctx.base = d;
+    syncMonths(d.months, d.ym);
+    STATE.ym = d.ym;
+    document.getElementById('lastUpd').textContent =
+      d.pais + ' · B2B · ' + monthLabel(d.ym) + ' · generado ' + new Date().toLocaleString('es-AR');
+    // El mes pedido (default calendario) no estaba disponible: gestional y waterfalls se re-piden con el mes real.
+    if (d.ym && d.ym !== ctx.ym) { ctx.ym = d.ym; fetchYmParts_(ctx); }
+    paintCont_(ctx); paintEvo_(ctx); paintMix_(ctx); paintWf_(ctx); paintGest_(ctx);
+  }, function (e) {
+    if (ctx !== _ctx) return;
+    ctx.base = null; ctx.baseErr = e;
+    paintCont_(ctx); paintEvo_(ctx); paintMix_(ctx); paintWf_(ctx);
+  });
+  fetchYmParts_(ctx);
+}
+
+// Secciones que dependen del mes (gestional GD/RI + waterfalls): 3 llamadas paralelas.
+function fetchYmParts_(ctx) {
+  var tok = ++ctx.ymTok, t0 = Date.now(), ym = ctx.ym;
+  ctx.gd = undefined; ctx.ri = undefined; ctx.wf = undefined;
+  paintGest_(ctx); paintWf_(ctx);
+  function live() { return ctx === _ctx && tok === ctx.ymTok; }
+  ['GD', 'RI'].forEach(function (view) {
+    callSrv('getOPGestional', { pais: ctx.pais, view: view, ym: ym }, function (r) {
+      if (!live()) return;
+      _logT_('gestional ' + view, ctx, r, t0);
+      ctx[view.toLowerCase()] = r.data || null;
+      paintGest_(ctx);
+    }, function (e) {
+      if (!live()) return;
+      ctx[view.toLowerCase()] = null; paintGest_(ctx);
+    });
+  });
+  callSrv('getOPWaterfalls', { pais: ctx.pais, ym: ym }, function (r) {
+    if (!live()) return;
+    _logT_('waterfalls', ctx, r, t0);
+    ctx.wf = r.wf || null;
+    paintWf_(ctx);
+  }, function (e) {
+    if (!live()) return;
+    ctx.wf = null; ctx.wfErr = e; paintWf_(ctx);
+  });
+}
+
+function paintGest_(ctx) {
+  if (ctx !== _ctx) return;
+  _secHtml_('sec-gest', renderGestional({ gd: ctx.gd, ri: ctx.ri }, ctx.pais, ctx.ym));
+}
+function paintCont_(ctx) {
+  if (ctx !== _ctx) return;
+  if (ctx.base === undefined) return _secHtml_('sec-cont', _loadingSec_('Contable'));
+  if (ctx.base === null)      return _secHtml_('sec-cont', _errSec_('Contable', ctx.baseErr));
+  _secHtml_('sec-cont', renderContable(ctx.base.contable));
+}
+function paintEvo_(ctx) {
+  if (ctx !== _ctx) return;
+  if (ctx.base === undefined) return _secHtml_('sec-evo', _loadingSec_('Evolución'));
+  if (ctx.base === null)      return _secHtml_('sec-evo', _errSec_('Evolución', ctx.baseErr));
+  _data = { evo: ctx.base.evo };
+  _secHtml_('sec-evo', renderEvo(ctx.base.evo));
+  drawEvo(ctx.base.evo, STATE.evoMetric);
+}
+function paintMix_(ctx) {
+  if (ctx !== _ctx) return;
+  if (ctx.base === undefined) return _secHtml_('sec-mix', _loadingSec_('Mix Canal × Producto'));
+  if (ctx.base === null)      return _secHtml_('sec-mix', _errSec_('Mix Canal × Producto', ctx.baseErr));
+  _secHtml_('sec-mix', renderMix(ctx.base.mix));
+  drawPareto(ctx.base.mix);
+}
+function paintWf_(ctx) {
+  if (ctx !== _ctx) return;
+  var c = ctx.base && ctx.base.contable;
+  if (ctx.base === null) return _secHtml_('sec-wf', _errSec_('P&amp;L Bridge', ctx.baseErr));
+  if (ctx.base === undefined || ctx.wf === undefined) return _secHtml_('sec-wf', _loadingSec_('P&amp;L Bridge'));
+  if (ctx.wf === null && ctx.wfErr) return _secHtml_('sec-wf', _errSec_('P&amp;L Bridge', ctx.wfErr));
+  var cw = { ym: c ? c.ym : ctx.ym, basis: c ? c.basis : 'actual', waterfalls: ctx.wf };
+  _secHtml_('sec-wf', renderWaterfalls(cw));
+  drawWaterfall_('nr', ctx.wf && ctx.wf.nr, 'nr');
+  drawWaterfall_('oc', ctx.wf && ctx.wf.oc, 'oc');
 }
 
 // Rellena el selector de mes con los meses disponibles y fija el elegido.
@@ -232,28 +355,6 @@ function drillBtn(url, txt) {
   return '<a class="drill" href="' + url + '" target="_blank" rel="noopener">' + txt + ' →</a>';
 }
 
-function render(data) {
-  _data = data;
-  syncMonths(data.months, data.ym);
-  document.getElementById('lastUpd').textContent =
-    data.pais + ' · B2B · ' + monthLabel(data.ym) + ' · generado ' + new Date().toLocaleString('es-AR');
-
-  var html = '';
-  html += renderGestional(data.gestional, data.pais, data.ym);
-  html += renderContable(data.contable);
-  html += renderEvo(data.evo);
-  html += renderWaterfalls(data.contable);
-  html += renderMix(data.mix);
-  html += renderDudas();
-  document.getElementById('main').innerHTML = html;
-
-  drawEvo(data.evo, STATE.evoMetric);
-  var wf = data.contable && data.contable.waterfalls;
-  drawWaterfall_('nr', wf && wf.nr, 'nr');
-  drawWaterfall_('oc', wf && wf.oc, 'oc');
-  drawPareto(data.mix);
-}
-
 // ── Sección 1 · GESTIONAL (GB / NR / FVM) — GD y RI ────────────
 function renderGestional(gest, pais, ym) {
   var g = gest && (gest.gd || gest.ri);
@@ -266,6 +367,10 @@ function renderGestional(gest, pais, ym) {
     '</div>';
 
   function block(label, gv) {
+    if (gv === undefined) {
+      return '<div class="gest-block"><div class="gest-lbl">' + label + '</div>' +
+             '<div class="empty">Cargando…</div></div>';
+    }
     if (!gv || !gv.metrics) {
       return '<div class="gest-block"><div class="gest-lbl">' + label + '</div>' +
              '<div class="empty">Sin datos gestionales para este mes.</div></div>';
@@ -764,7 +869,7 @@ function fmtRatio(v) { return (v == null) ? '—' : v.toFixed(1) + '%'; }
 function renderMix(mix) {
   var head = '' +
     '<div class="sec-head">' +
-      '<div class="sec-title">Mix Canal × Producto <span class="pill">contable · GB · FY27 acum</span></div>' +
+      '<div class="sec-title">Mix Canal × Producto <span class="pill">contable · GB · <?!= 'FY' + String(FY_END_YEAR).slice(-2) ?> acum</span></div>' +
       drillBtn(LINKS.hoteles, '🏨 Tablero de Hoteles') +
     '</div>' +
     '<div class="drill-row">' +

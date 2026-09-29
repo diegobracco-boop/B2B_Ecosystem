@@ -522,6 +522,9 @@ a.ext-link:hover { text-decoration: underline; }
   <a class="nav-item" onclick="showSection('gantt')">
     <span class="nav-icon">📅</span> Gantt
   </a>
+  <a class="nav-item" onclick="showSection('dia-a-dia')">
+    <span class="nav-icon">☕</span> Día a día del equipo
+  </a>
 
   <div class="sidebar-section">Referencia operativa</div>
   <a class="nav-item" onclick="showSection('proj-inputs')">
@@ -539,8 +542,14 @@ a.ext-link:hover { text-decoration: underline; }
   <a class="nav-item" onclick="showSection('proj-daily')">
     <span class="nav-icon">📆</span> Daily Dashboard
   </a>
+  <a class="nav-item" onclick="showSection('proj-distribucion')">
+    <span class="nav-icon">🗓️</span> Distribución diaria RR
+  </a>
   <a class="nav-item" onclick="showSection('proj-country')">
     <span class="nav-icon">🗺️</span> Country One Pager (B2B)
+  </a>
+  <a class="nav-item" onclick="showSection('proj-runrate')">
+    <span class="nav-icon">🚀</span> Proyecto Run Rate
   </a>
   <a class="nav-item" onclick="showSection('proj-manual')">
     <span class="nav-icon">📖</span> Manual B2B WLs
@@ -577,7 +586,7 @@ a.ext-link:hover { text-decoration: underline; }
           <tr><td>¿Cómo venimos vs Budget / Forecast / Run Rate?</td><td>Por país, producto y canal, mes a mes, B2B y B2B2C. → <strong>P&amp;L Accounting</strong>, <strong>Hub</strong></td></tr>
           <tr><td>¿La varianza es de precio o de volumen?</td><td>Descomposición <strong>PxQ</strong> del delta baseline vs goal por segmento. → <strong>P&amp;L Accounting</strong></td></tr>
           <tr><td>¿Cómo se arma el Net Revenue / FVM, línea por línea?</td><td><strong>NR Bridge</strong> y <strong>waterfall</strong> entre dos escenarios. → <strong>P&amp;L Managerial</strong>, <strong>Hub</strong></td></tr>
-          <tr><td>¿Cuál es el pace diario?</td><td>D-1, MTD, vs Budget del mes, vs LY. Todas las mañanas 08:00. → <strong>Daily Dashboard</strong></td></tr>
+          <tr><td>¿Cuál es el pace diario?</td><td>D-1, MTD, vs Budget del mes, vs LY. Todas las mañanas 9:45. → <strong>Daily Dashboard</strong></td></tr>
           <tr><td>¿Cierra igual el P&amp;L contable y el gestional?</td><td>La misma performance como líneas de P&amp;L (contable) y como FVM (managerial). → <strong>P&amp;L Accounting</strong> vs <strong>P&amp;L Managerial</strong></td></tr>
         </tbody>
       </table>
@@ -630,7 +639,7 @@ a.ext-link:hover { text-decoration: underline; }
       <div class="proj-card" tabindex="0" role="button" onclick="showSection('proj-daily')">
         <div class="proj-card-icon">📆</div>
         <div class="proj-card-name">Daily Dashboard B2B2C + B2B</div>
-        <div class="proj-card-desc">Performance diaria de WLs (B2B2C) y B2B (GD + RI). Conecta con Treasure Data vía ODBC. KPIs: D-1 Actual, MTD, Budget, LY MTD. Actualización automática 08:00 AM.</div>
+        <div class="proj-card-desc">Performance diaria de WLs (B2B2C) y B2B (GD + RI). Conecta con Treasure Data vía ODBC. KPIs: D-1 Actual, MTD, Budget, LY MTD. Actualización automática 9:45 AM.</div>
         <div class="proj-card-tag"><span class="badge badge-auto">⚡ Automatizado (Task Scheduler)</span></div>
         <a class="proj-card-url" href="https://script.google.com/a/macros/despegar.com/s/AKfycbwMR3zk1r4uwui8vGtcmz0OwmeehC5JM8cuJRE3H-GQMfvxXWGTkYQ3R2nVjMyeAdX_1A/exec" target="_blank">↗ Abrir landing</a>
       </div>
@@ -641,6 +650,14 @@ a.ext-link:hover { text-decoration: underline; }
         <div class="proj-card-desc">Landing standalone tipo "one pager" para la dirección comercial de un país. Sin pipeline propio: consume <strong>Dashboard_B2B_WLs</strong> y <strong>Daily_Dashboard</strong> como Apps Script Libraries. Embebido como tab "Detail By Country" dentro del B2B Ecosystem Hub, y también accesible standalone. Hoy solo B2B (B2B2C "próximamente").</div>
         <div class="proj-card-tag"><span class="badge badge-manual">🔗 Libraries (sin JSON propio)</span></div>
         <a class="proj-card-url" href="https://script.google.com/a/macros/despegar.com/s/AKfycbytMGsghl1TweKpYgMV2uhjTr--a9jpWkd2G3faZrF0DixD7UNu2qAq8Tbhlv_PCo0t/exec" target="_blank">↗ Abrir landing</a>
+      </div>
+
+      <div class="proj-card" tabindex="0" role="button" onclick="showSection('proj-runrate')">
+        <div class="proj-card-icon">🚀</div>
+        <div class="proj-card-name">Proyecto Run Rate</div>
+        <div class="proj-card-desc">Plataforma de <strong>proyección automática</strong> del P&amp;L B2B y B2B2C: lo que antes eran 4 a 6 días de Excel, ahora en <strong>un click</strong>. Lógica tradicional + Machine Learning, ajustes y propuestas de los comerciales en la misma herramienta.</div>
+        <div class="proj-card-tag"><span class="badge badge-auto">⚡ En uso · en desarrollo</span></div>
+        <a class="proj-card-url" href="https://ownia.despegar.io/runrate-html" target="_blank">↗ Abrir app</a>
       </div>
 
       <div class="proj-card" tabindex="0" role="button" onclick="showSection('proj-manual')">
@@ -826,7 +843,7 @@ a.ext-link:hover { text-decoration: underline; }
           <tr><td>FVM, palancas, NR Bridge, evolución mensual gestional</td><td><strong>P&amp;L Managerial</strong></td><td>La vista "managerial". B2B2C y B2B por separado</td></tr>
           <tr><td>Seguimiento de OKR, Country One Page, performance por partner, y acceso a todo lo demás</td><td><strong>B2B Ecosystem Hub</strong></td><td>El portal — la puerta de entrada</td></tr>
           <tr><td>Panorama ejecutivo de un país B2B en un solo mes (gestional + contable + mix, con drill-down)</td><td><strong>Country One Pager (B2B)</strong></td><td>Tab "Detail By Country" del Hub, o standalone. Hoy solo B2B</td></tr>
-          <tr><td>Pace del día / del mes en curso, vs Budget y vs LY</td><td><strong>Daily Dashboard</strong></td><td>Se actualiza solo a las 08:00. Vista diaria y vista semanal</td></tr>
+          <tr><td>Pace del día / del mes en curso, vs Budget y vs LY</td><td><strong>Daily Dashboard</strong></td><td>Se actualiza solo a las 9:45. Vista diaria y vista semanal</td></tr>
           <tr><td>Entender de dónde sale un número o cómo se actualiza algo</td><td><strong>Manual B2B WLs</strong></td><td>Este documento</td></tr>
           <tr><td>Los datos crudos (JSON) para otro análisis</td><td><em>Inputs Planning P&amp;L</em></td><td>No es una landing — es la carpeta de Drive con los JSON canónicos</td></tr>
         </tbody>
@@ -852,7 +869,7 @@ a.ext-link:hover { text-decoration: underline; }
         <tbody>
           <tr><td>Contable (P&amp;L Accounting)</td><td>Desde <code>Inputs_Planning_PnL</code>: <code>run_all.bat</code> → <code>python baseline_builder.py --promote-month AAAA-MM-01</code> (el mes que cerró) → <code>python plana_to_cube.py --upload</code>. Recargar la landing (Ctrl+Shift+R). Sin deploy.</td></tr>
           <tr><td>Gestional (P&amp;L Managerial)</td><td>Desde <code>P&amp;L_Managerial</code>, con VPN: <code>python actuals_gestional_upload.py</code>. Un solo run.</td></tr>
-          <tr><td>Daily</td><td>Se incorpora solo en el run automático de las 08:00.</td></tr>
+          <tr><td>Daily</td><td>Se incorpora solo en el run automático de las 9:45.</td></tr>
         </tbody>
       </table>
     </div>
@@ -861,9 +878,36 @@ a.ext-link:hover { text-decoration: underline; }
       <div class="card-title">📈 Salió una ronda nueva de Forecast (Modelos XLSX)</div>
       <table class="doc-table">
         <tbody>
-          <tr><td>Gestional</td><td>Actualizar <code>FC_XLSX_DIR</code> en <code>actuals_gestional_upload.py</code> a la carpeta semanal nueva → correr el script (con VPN).</td></tr>
+          <tr><td>Gestional</td><td>Actualizar <code>FORECAST_VERSION</code> en <code>Inputs_Planning_PnL/config.py</code> al nombre de la carpeta nueva (ej. <code>"2026.07.14"</code>) → correr <code>actuals_gestional_upload.py</code> (con VPN). La ruta completa (<code>FC_XLSX_DIR</code>) se arma sola con el FY y esa versión.</td></tr>
           <tr><td>Contable</td><td>El forecast contable NO sale de esos XLSX (sale de CSV Hyperion). Se actualiza upstream en <code>Inputs_Planning_PnL</code> al reprocesar.</td></tr>
           <tr><td>Preview de un WIP sin publicar</td><td><code>python projections_gestional_builder.py --wip-folder "&lt;ruta&gt;"</code> (gestional) / <code>projections_validation_builder.py</code> (contable). Muestra el borrador en la vista "Projection Review".</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🚀 Salió un Run Rate nuevo (semana nueva) <span class="badge badge-manual">🆕 2026-09-26</span></div>
+      <table class="doc-table">
+        <tbody>
+          <tr><td>Apertura diaria</td><td>Con VPN: <code>/distribucion-diaria</code>. Antes de correr, definir: <strong>1)</strong> escenario a distribuir, <strong>2)</strong> hasta qué fecha se toman reales (normalmente ayer), <strong>3)</strong> desde qué mes arranca la base, <strong>4)</strong> carpeta de los P&amp;L planos. Revisar la tabla de reales/remanente y el ritmo GB/día.</td></tr>
+          <tr><td>Carga</td><td><strong>Reemplazar</strong> (no agregar) a mano el contenido de <code>raw.b2brr_gd</code> / <code>raw.b2brr_ri</code> con los CSV. El Daily lo toma en la próxima corrida (o <code>/sincronizar</code>).</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🗓️ Arrancó un año fiscal nuevo (abril) <span class="badge badge-manual">🆕 2026-09-26</span></div>
+      <p style="font-size:13px;margin:0 0 10px">El FY va de abril a marzo (FY27 = abr-2026 → mar-2027). Desde la auditoría de sep-2026 ningún módulo tiene los meses escritos a mano: todo (meses, "Abr-26", Q1–Q4, H1/H2, "Total FY27", Last Year, textos) se deriva de <strong>un solo valor por módulo</strong>. El cambio es <strong>a mano y a propósito</strong>, no automático por fecha: hacerlo recién cuando estén los datos del FY nuevo (budget, actuals del año anterior cerrados), si no la landing pasa a FY28 vacía.</p>
+      <table class="doc-table">
+        <thead><tr><th>Dónde</th><th>Qué cambiar (ej. FY27 → FY28)</th></tr></thead>
+        <tbody>
+          <tr><td>Pipelines Python (Inputs + Managerial)</td><td><code>Inputs_Planning_PnL/config.py</code>: <code>CURRENT_FY = 2028</code>. Revisar también en el mismo archivo <code>FORECAST_VERSION</code>, <code>LAST_CLOSED_MONTH</code>, <code>FORECAST_ACTUALS_CUTOFF</code> y <code>ACTUALS_FILENAMES</code>. Los 3 scripts de <code>P&amp;L_Managerial</code> lo toman de acá.</td></tr>
+          <tr><td>P&amp;L Managerial (landing)</td><td><code>P&amp;L_Managerial/Codigo.js</code>: <code>var FY_END_YEAR = 2028;</code></td></tr>
+          <tr><td>P&amp;L Accounting (landing)</td><td><code>P&amp;L_Accounting/Codigo_contable.js</code>: <code>var FY_END_YEAR = 2028;</code></td></tr>
+          <tr><td>Ecosystem Hub</td><td><code>Dashboard_B2B_WLs/Codigo.js</code>: <code>function fyEndYear_() { return 2028; }</code> (es función, no var, por el orden de carga de Apps Script). Cubre también OKR (<code>OKR_HALVES</code>) y Country Page. Los <strong>KRs</strong> de cada semestre (<code>OKR_CONFIG_H1/H2</code>) se redefinen aparte.</td></tr>
+          <tr><td>Country One Pager</td><td><code>lob_country_one_pager/Codigo.js</code>: <code>var FY_END_YEAR = 2028;</code>. Usa el Hub como librería: después de deployar el Hub, subir la versión de la librería en su <code>appsscript.json</code>.</td></tr>
+          <tr><td>Publicar</td><td>Commit → <code>clasp push</code> + <code>clasp deploy -i &lt;deploymentId&gt;</code> en cada landing (ver <code>/clasp-push</code>). Verificar en <code>/exec</code> que el encabezado diga el FY nuevo.</td></tr>
+          <tr><td>No tocar</td><td>Daily Dashboard (muestra MTD, no depende del FY; los meses de "KRs Globales" son del OKR del semestre). <code>LAST_ACTUALS_YM</code> del Hub es el corte de actuals, se mueve cuando cierra un mes, no con el FY.</td></tr>
         </tbody>
       </table>
     </div>
@@ -929,7 +973,7 @@ a.ext-link:hover { text-decoration: underline; }
           <tr><td>P&amp;L Accounting</td><td>Datos: al reprocesar Inputs_Planning_PnL. Código: manual + deploy</td><td>—</td></tr>
           <tr><td>P&amp;L Managerial</td><td>Datos: <code>actuals_gestional_upload.py</code> manual (VPN). Código: manual + deploy</td><td>La máquina de Diego (<code>RUTA_ENV</code> / <code>FC_XLSX_DIR</code> hardcodeadas — pendiente de portar)</td></tr>
           <tr><td>B2B Ecosystem Hub</td><td>Datos: JSON canónicos de Drive (automático por <code>lastMod</code>). Código: manual + deploy</td><td>—</td></tr>
-          <tr><td>Daily Dashboard</td><td><strong>Automático</strong>: Windows Task Scheduler, 08:00</td><td>La máquina de Gregorio Minetti</td></tr>
+          <tr><td>Daily Dashboard</td><td><strong>Automático</strong>: Windows Task Scheduler, 9:45</td><td>La máquina de Tiago Harari</td></tr>
           <tr><td>Manual B2B WLs</td><td>Manual — se edita <code>manual.html</code> a mano al cambiar cualquier otro módulo</td><td>—</td></tr>
         </tbody>
       </table>
@@ -937,6 +981,10 @@ a.ext-link:hover { text-decoration: underline; }
 
     <div class="alert-box">
       ⚠️ Puntos únicos de falla conocidos (auditoría 2026-09): el Daily depende del Task Scheduler en <strong>una</strong> máquina; el pipeline gestional tiene rutas hardcodeadas a <strong>una</strong> persona. Están documentados y en la lista de "a reforzar" del Panorama.
+    </div>
+
+    <div class="alert-box info">
+      🕘 <strong>Actualización 2026-09-25:</strong> el <strong>Daily Dashboard</strong> se actualiza automáticamente <strong>todos los días a las 9:45 AM</strong>, desde la máquina de <strong>Tiago Harari</strong>.
     </div>
 
     <div class="card">
@@ -999,7 +1047,7 @@ a.ext-link:hover { text-decoration: underline; }
         <tbody>
           <tr><td>Analista B2B2C</td><td>2 <span class="badge badge-manual">actual</span></td><td>Proyección de Run Rate, control de cierre y seguimiento semanal de WLs</td></tr>
           <tr><td>Analista B2B</td><td>2 <span class="badge badge-manual">actual</span></td><td>Mismas tareas recurrentes para B2B (MAY/MIN, países)</td></tr>
-          <tr><td>Analista de Datos / Ingeniería</td><td>1 <span class="badge badge-auto">nuevo</span></td><td>Confiabilidad de pipelines y landings: deploys (<code>clasp push</code>/<code>deploy</code>), cache y performance (como el pre-warm de Marketing o el fix de waterfalls de hoy), y resolver los puntos únicos de falla ya documentados (Daily en la máquina de Gregorio, Managerial en la de Diego)</td></tr>
+          <tr><td>Analista de Datos / Ingeniería</td><td>1 <span class="badge badge-auto">nuevo</span></td><td>Confiabilidad de pipelines y landings: deploys (<code>clasp push</code>/<code>deploy</code>), cache y performance (como el pre-warm de Marketing o el fix de waterfalls de hoy), y resolver los puntos únicos de falla ya documentados (Daily en la máquina de Tiago, Managerial en la de Diego)</td></tr>
           <tr><td>Analista de Planeamiento Estratégico</td><td>1 <span class="badge badge-auto">nuevo</span></td><td>Escenarios de mediano plazo y síntesis cross-LoB para dirección — hoy no hay nadie dedicado a esto, recae en el manager encima de la gestión del equipo</td></tr>
         </tbody>
       </table>
@@ -1053,6 +1101,239 @@ a.ext-link:hover { text-decoration: underline; }
     </div>
 
     <div class="alert-box info">ℹ️ "Día hábil" cuenta días de semana (lun-vie) excluyendo los feriados nacionales de Argentina marcados en rojo. Los ítems semanales (lun/mar/vie) y mensuales por posición (3er/4to jueves) no se recalculan si caen en feriado — ajustar a mano en ese caso.</div>
+  </div>
+
+  <!-- ═════════════════════════ DÍA A DÍA DEL EQUIPO ═════════════════════════ -->
+  <div class="section" id="sec-dia-a-dia">
+    <div class="page-header">
+      <div class="page-tag">Guía del equipo · Relevamiento 2026-09-25</div>
+      <div class="page-title">Día a día <span>del equipo</span></div>
+      <div class="page-sub">Cómo trabaja hoy el equipo de Planning B2B &amp; WLs más allá de las fechas fijas del Gantt: qué se hace cada semana, con qué herramientas, y qué parte sigue siendo manual. Sirve para priorizar qué automatizar.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🗓️ Semana tipo</div>
+      <table class="doc-table">
+        <thead><tr><th>Cuándo</th><th>Qué se hace</th><th>Con qué</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Todos los días</strong></td><td>Las bases reales y los JSON del ecosistema se actualizan solos con los pipelines, a horario fijo. El equipo parte de esos datos ya refrescados. El <strong>Daily Dashboard</strong> se actualiza automáticamente a las <strong>9:45 AM</strong> desde la máquina de Tiago Harari.</td><td>Pipelines Python → Drive → landings (<strong>Daily Dashboard</strong>, <strong>Flow Semanal</strong>, Hub)</td></tr>
+          <tr><td><strong>Lunes y viernes</strong></td><td>Slides de performance semanal para las reuniones semanales: <strong>B2B</strong> por tipo de producto y <strong>B2B2C</strong> por partner.</td><td>Screenshots de las landings → deck</td></tr>
+          <tr><td><strong>Resto de la semana</strong></td><td>Desarrollo de automatizaciones y del propio ecosistema con IA (Claude Code). Hoy buena parte de ese tiempo va a la app de <strong>Run Rate automático con ML</strong>.</td><td>Claude Code · este repo · app Proyecto Run Rate</td></tr>
+          <tr><td><strong>Continuo</strong></td><td>Respuesta a consultas de los equipos comerciales B2B2C (~5 por semana).</td><td>Slack</td></tr>
+          <tr><td><strong>Cierre de mes</strong></td><td>Slides de cierre contable.</td><td>Botón <strong>📸 Slides cierre de mes</strong> (ya cubierto, ver Referencia operativa)</td></tr>
+          <tr><td><strong>Transversal</strong></td><td>Entender y controlar las líneas del P&amp;L que el equipo proyecta (ver card abajo).</td><td>P&amp;L Accounting / Managerial</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📊 Slides de performance semanal (lunes y viernes)</div>
+      <table class="doc-table">
+        <tbody>
+          <tr><td>Qué muestran</td><td><strong>GB, NR y FVM</strong> por región (<strong>Hispa, Norteamérica, Brasil</strong>) y por partner (B2B2C) / tipo de producto (B2B).</td></tr>
+          <tr><td>Quién las arma</td><td>El equipo B2B arma las de B2B; el equipo B2B2C, las de B2B2C.</td></tr>
+          <tr><td>Cómo se arman hoy</td><td>Screenshots de las vistas del ecosistema (Flow Semanal / Daily) pegados en el deck. El tab Flow Semanal se mantiene como está.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🔎 Control de las líneas del P&amp;L proyectadas</div>
+      <table class="doc-table">
+        <tbody>
+          <tr><td>Líneas que proyecta el equipo</td><td><strong>GB</strong> · <strong>COI</strong> · <strong>CCP</strong> · <strong>Cancellations</strong> · <strong>Up fronts</strong> · <strong>Fees</strong> · <strong>TPC</strong> (Third Party Commissions)</td></tr>
+          <tr><td>Cómo se controla</td><td>1) Real vs proyectado a nivel agregado: <strong>GB, NR y FVM</strong>. 2) Para entender la performance con más granularidad, se baja a las <strong>líneas proyectadas</strong> de arriba y se ve cuál explica el desvío.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">💬 Consultas de equipos comerciales B2B2C</div>
+      <table class="doc-table">
+        <tbody>
+          <tr><td>Canal y volumen</td><td>Slack · ~5 por semana</td></tr>
+          <tr><td>Preguntas típicas</td><td>
+            • ¿Cómo viene la performance de X (partner, región, producto)?<br>
+            • Dudas sobre el P&amp;L (qué incluye una línea, de dónde sale un número).<br>
+            • ¿Por qué cayó la <strong>tasa sobre GB en FVM</strong>?<br>
+            • Correcciones.
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🚚 Migración Power BI → Ecosistema <span class="badge badge-manual">en curso</span></div>
+      <table class="doc-table">
+        <tbody>
+          <tr><td>Qué se migra</td><td><strong>Todas</strong> las visualizaciones que hoy viven en Power BI pasan al ecosistema, principalmente al <strong>Daily Dashboard</strong> y al tab <strong>Flow Semanal</strong>.</td></tr>
+          <tr><td>Fuente de datos</td><td>Las mismas que ya usan las landings: bases reales del ecosistema + JSON en Drive. No hay una fuente aparte para Power BI.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🤖 App Proyecto Run Rate (ML) <span class="badge badge-auto">en uso</span></div>
+      <table class="doc-table">
+        <tbody>
+          <tr><td>Qué es</td><td>App de Run Rate automático con machine learning. Es el proyecto "Modelo de Run Rate automático" de la matriz del Gantt.</td></tr>
+          <tr><td>Dónde vive</td><td><strong>Fuera de este repo</strong>. El Hub la linkea como <code>proyecto_rr</code> → <a class="ext-link" href="https://ownia.despegar.io/runrate-html" target="_blank">ownia.despegar.io/runrate-html</a>.</td></tr>
+          <tr><td>Costo hoy</td><td>Es donde más tiempo de desarrollo se va actualmente.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🎯 Candidatos a automatizar <span class="badge badge-manual">propuesta</span></div>
+      <table class="doc-table">
+        <thead><tr><th>#</th><th>Qué</th><th>Por qué</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td><strong>Drill de tasa sobre GB en FVM</strong>: vista que descomponga la variación de la tasa FVM/GB por partner en las líneas proyectadas (COI, CCP, Cancellations, Up fronts, Fees, TPC).</td><td>Es la consulta comercial recurrente y el mismo paso que hace el equipo a mano en el control de líneas. Self-service = menos consultas por Slack.</td></tr>
+          <tr><td>2</td><td><strong>Control real vs proyectado por línea</strong> con alertas de desvío (mismo criterio de materialidad que las Slides de cierre).</td><td>Hoy se baja a la línea solo cuando algo llama la atención en GB/NR/FVM; una alerta lo haría sistemático.</td></tr>
+          <tr><td>3</td><td><strong>Cerrar la migración de Power BI</strong> y dar de baja los tableros viejos.</td><td>Mientras convivan, se mantienen dos lugares con los mismos números.</td></tr>
+          <tr><td>4</td><td><strong>Documentar la app Proyecto Run Rate</strong> (repo, dueño, cómo se actualiza) en este manual.</td><td>✅ Hecho 2026-09-25: ver sección <strong>Proyecto Run Rate</strong>.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="alert-box info">
+      ℹ️ Relevado con el equipo B2B2C (Tiago Harari) el 2026-09-25. Validar con el equipo B2B y actualizar a mano cuando cambie la forma de trabajo.
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════ PROYECTO RUN RATE ═══════════════════════════ -->
+  <div class="section" id="sec-proj-runrate">
+    <div class="page-header">
+      <div class="page-tag">Proyecto estratégico · Proyecciones B2B &amp; B2B2C</div>
+      <div class="page-title">Proyecto <span>Run Rate</span></div>
+      <div class="page-sub">Plataforma de <strong>proyección automática del P&amp;L</strong> para B2B y B2B2C. Reemplaza los modelos Run Rate en Excel por una herramienta web con datos conectados, visualización integrada, ajustes y trabajo colaborativo con los equipos comerciales. <strong>Proyección en un solo click.</strong></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">👥 Ficha del proyecto</div>
+      <table class="doc-table">
+        <tbody>
+          <tr><td>Liderado por</td><td><strong>Diego Bracco</strong>, <strong>Tiago Harari</strong> y <strong>Gregorio Minetti</strong></td></tr>
+          <tr><td>Estado</td><td><span class="badge badge-auto">En uso</span> y en desarrollo continuo — es hoy el proyecto donde el equipo invierte más tiempo de desarrollo.</td></tr>
+          <tr><td>Alcance</td><td>Las tres líneas de negocio que proyecta el equipo:<br>
+            • <strong>HTML / B2B</strong> — agencias afiliadas.<br>
+            • <strong>B2B2C / White Labels</strong> — por partner y país.<br>
+            • <strong>API</strong> — canal API de B2B, con vista por fecha de gestión y por fecha de reconocimiento.</td></tr>
+          <tr><td>Acceso</td><td><a class="ext-link" href="https://ownia.despegar.io/runrate-html" target="_blank">ownia.despegar.io/runrate-html</a> — también linkeada desde el <strong>B2B Ecosystem Hub</strong>.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">🐢 Antes · modelo en Excel</div>
+        <div class="page-sub" style="margin-bottom:12px"><strong>4 a 6 días</strong> de trabajo manual por cada proyección.</div>
+        <table class="doc-table">
+          <tbody>
+            <tr><td><strong>2–3 días</strong><br>Armado</td><td>Descargas manuales desde Metabase, info de EPM bajada de SharePoint, modificación manual de todos los parámetros mes a mes.</td></tr>
+            <tr><td><strong>1–2 días</strong><br>Ajustes</td><td>Alineación con equipos comerciales, poco tiempo para validar los números finales, poca granularidad por falta de tiempo.</td></tr>
+            <tr><td><strong>1 día</strong><br>Distribución</td><td>Proceso manual para abrir la proyección mensual en días.</td></tr>
+          </tbody>
+        </table>
+        <div class="alert-box" style="margin-top:12px">
+          ⚠️ <strong>Dolores:</strong> sin visibilidad de cambios ni tendencias · lento para arrancar y se trababa · sin trabajo en simultáneo · archivos que no sincronizaban · tiempos muertos esperando cargas · difícil comparar contra Budget, Forecast o el último Run Rate.
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">⚡ Ahora · plataforma</div>
+        <div class="page-sub" style="margin-bottom:12px">Se elige el horizonte y la proyección sale en <strong>un click</strong>.</div>
+        <table class="doc-table">
+          <tbody>
+            <tr><td>🔌 Datos conectados</td><td>Se conecta sola a los datos transaccionales (mes en curso) y contables. Nada de descargas manuales.</td></tr>
+            <tr><td>🧠 Tradicional + ML</td><td>La lógica de proyección del Excel, potenciada con <strong>Machine Learning</strong>.</td></tr>
+            <tr><td>📊 Visualización integrada</td><td>P&amp;L en OC y FVM con filtros por país, marca, producto, LOB y partner, más gráficos de Net Revenue y margen.</td></tr>
+            <tr><td>🎛️ Ajustes incluidos</td><td>Los ajustes se hacen en la misma herramienta, sin volver al Excel.</td></tr>
+            <tr><td>⏱️ Más tiempo para lo que importa</td><td>El tiempo que antes se iba en armar, ahora va a revisar y ajustar → <strong>mucha mejor granularidad</strong>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🧩 Módulos de la herramienta</div>
+      <table class="doc-table">
+        <thead><tr><th>Módulo</th><th>Qué hace</th></tr></thead>
+        <tbody>
+          <tr><td><strong>1 · Inicio</strong></td><td>Puerta de entrada: se elige la línea de negocio (HTML/B2B, B2B2C o API) y se pueden abrir las versiones ya guardadas.</td></tr>
+          <tr><td><strong>2 · Configuración</strong></td><td>Se define desde qué mes se proyecta y cuántos meses hacia adelante. Es todo lo que hay que decidir antes del click.</td></tr>
+          <tr><td><strong>3 · Resultado</strong></td><td>El P&amp;L proyectado, en <strong>OC</strong> y en <strong>FVM</strong>, con filtros por país, marca, producto, LOB y partner, gráficos, y comparación directa contra <strong>Budget, Run Rate oficial, Forecast y Last Year</strong>.</td></tr>
+          <tr><td><strong>4 · Ajustes</strong></td><td>Se corrigen las palancas del P&amp;L (por ejemplo Up fronts + Fees, COI, Cancellations) en <strong>puntos porcentuales sobre el GB</strong>, viendo el impacto al instante. Incluye una <strong>caja de preguntas</strong>: se escribe "coi brasil noviembre" y la herramienta lleva directo a esa celda.</td></tr>
+          <tr><td><strong>5 · Versiones y propuestas</strong></td><td>Cada proyección se guarda como una <strong>versión</strong> (una foto fija de los números). Sobre esa versión, los equipos comerciales pueden <strong>sugerir cambios</strong>, y Planning los aprueba, rechaza o revierte desde su panel. Queda el historial de quién propuso qué y cuándo.</td></tr>
+          <tr><td><strong>6 · Descargas</strong></td><td>Excel del P&amp;L proyectado y archivo en formato <strong>EPM</strong>, listo para la carga mensual del Run Rate.</td></tr>
+          <tr><td><strong>7 · Pruebas</strong></td><td>Mide qué tan acertado es el modelo: se para en meses pasados, proyecta como si fuera ese momento y compara contra lo que realmente pasó. Acceso restringido.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🤝 Una herramienta colaborativa</div>
+      <div class="page-sub" style="margin-bottom:14px">La proyección deja de ser un Excel que arma una persona y se convierte en un espacio compartido entre Planning y los dueños del negocio.</div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <div class="step-title">Planning genera la proyección</div>
+            <div class="step-desc">Un click sobre los datos ya conectados. La versión preliminar está disponible mucho antes que con el Excel.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <div class="step-title">Se guarda y se comparte una versión</div>
+            <div class="step-desc">Todos miran los mismos números: la versión queda congelada tal como se generó.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <div class="step-title">Comerciales y owners proponen ajustes</div>
+            <div class="step-desc">Entran a la versión, sugieren cambios sobre las palancas y dejan su propuesta registrada, sin poder romper nada del resto de la herramienta.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <div class="step-title">Planning revisa y cierra</div>
+            <div class="step-desc">Aprueba, rechaza o revierte cada propuesta desde su panel, y descarga el resultado final para EPM.</div>
+          </div>
+        </div>
+      </div>
+      <div class="alert-box info" style="margin-top:14px">
+        ℹ️ Mejora la comunicación con los distintos equipos durante la semana del mes dedicada a elaborar las proyecciones, y permite trabajar en simultáneo en vez de pasarse un archivo.
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🎯 Por qué facilita todo</div>
+      <table class="doc-table">
+        <thead><tr><th>Eje</th><th>Antes</th><th>Ahora</th></tr></thead>
+        <tbody>
+          <tr><td><strong>⚡ Velocidad</strong></td><td>4 a 6 días manuales</td><td><strong>1 click</strong> — de días a minutos</td></tr>
+          <tr><td><strong>🔍 Granularidad</strong></td><td>Poca, por falta de tiempo</td><td>País, marca, producto, LOB y partner</td></tr>
+          <tr><td><strong>👁️ Visibilidad</strong></td><td>Sin ver cambios ni tendencias</td><td>Cambios, tendencias y comparación vs Budget / Forecast / Run Rate / LY a la vista. Visibilidad del <strong>OC de forma sistemática y anticipada</strong>, también para Revenue y los equipos comerciales</td></tr>
+          <tr><td><strong>🤝 Colaboración</strong></td><td>Un archivo, una persona a la vez</td><td>Trabajo en simultáneo, propuestas registradas y revisión de Planning</td></tr>
+          <tr><td><strong>🎯 Accuracy</strong></td><td>Poco tiempo para validar</td><td>Proyecciones más conscientes (más tiempo de control y revisión) + ML + medición de accuracy en "Pruebas"</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🔗 Cómo se conecta con el ecosistema</div>
+      <table class="doc-table">
+        <tbody>
+          <tr><td>Datos</td><td>Usa los mismos reales y objetivos que el resto del ecosistema: los goals de Budget y Forecast salen de <strong>Inputs Planning P&amp;L</strong>, así los números de la proyección son comparables con las landings.</td></tr>
+          <tr><td>Salida</td><td>El Run Rate que sale de la herramienta es el que se carga en EPM (ver <strong>Gantt</strong>: carga de Run Rate en EPM, 3er jueves de cada mes).</td></tr>
+          <tr><td>Apertura diaria</td><td>La proyección mensual se abre por día con <strong>Distribución diaria RR</strong> (<code>/distribucion-diaria</code>): reales hasta el corte + remanente en los días que faltan → <code>raw.b2brr_gd/ri</code> → línea de Run Rate del Daily.</td></tr>
+          <tr><td>Dónde vive</td><td>Es una aplicación propia, fuera de este repo. El Hub tiene el link directo.</td></tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 
   <!-- ════════════════════════════ ARQUITECTURA ════════════════════════════ -->
@@ -1169,7 +1450,7 @@ a.ext-link:hover { text-decoration: underline; }
             <div class="step-num">3</div>
             <div class="step-body">
               <div class="step-title">Datos del Daily Dashboard</div>
-              <div class="step-desc">Corre solo (Task Scheduler 08:00). Manual: desde <code>Daily_Dashboard</code>: <code>python daily_sync.py</code> (requiere VPN).</div>
+              <div class="step-desc">Corre solo (Task Scheduler 9:45). Manual: desde <code>Daily_Dashboard</code>: <code>python daily_sync.py</code> (requiere VPN).</div>
             </div>
           </div>
           <div class="step">
@@ -1835,7 +2116,7 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
     <div class="page-header">
       <div class="page-tag">Proyecto</div>
       <div class="page-title">Daily <span>Dashboard B2B2C + B2B</span></div>
-      <div class="page-sub">Dashboard de performance diaria para WLs (B2B2C) y B2B (GD + RI). Se alimenta del datalake Treasure Data vía Python con ODBC. Actualización automática a las 08:00 AM por Windows Task Scheduler.</div>
+      <div class="page-sub">Dashboard de performance diaria para WLs (B2B2C) y B2B (GD + RI). Se alimenta del datalake Treasure Data vía Python con ODBC. Actualización automática a las 9:45 AM por Windows Task Scheduler.</div>
     </div>
 
     <div class="two-col">
@@ -1847,9 +2128,9 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
             <tr><td>Apps Script ID</td><td class="mono-id">1zHFbUa-aMfiX9...</td></tr>
             <tr><td>URL landing</td><td><a class="ext-link" href="https://script.google.com/a/macros/despegar.com/s/AKfycbwMR3zk1r4uwui8vGtcmz0OwmeehC5JM8cuJRE3H-GQMfvxXWGTkYQ3R2nVjMyeAdX_1A/exec" target="_blank">↗ Abrir</a></td></tr>
             <tr><td>Deployment publicado</td><td class="mono-id">AKfycbwMR3zk1r4uwui8vGtcmz0OwmeehC5JM8cuJRE3H-GQMfvxXWGTkYQ3R2nVjMyeAdX_1A</td></tr>
-            <tr><td>Actualización</td><td><span class="badge badge-auto">Automatizado (Task Scheduler 08:00)</span></td></tr>
+            <tr><td>Actualización</td><td><span class="badge badge-auto">Automatizado (Task Scheduler 9:45)</span></td></tr>
             <tr><td>Drive folder ID (LIVE)</td><td class="mono-id">1lWzfqweyV6Kz1ERkL85ikFcmzmKwGwwh (owner: gregorio.minetti)</td></tr>
-            <tr><td>JSONs en Drive</td><td class="mono-id">daily_b2b2c_data.json (~20MB) · daily_b2b_data.json (~6MB) · globales_kr_targets.json (targets OKR H2 Globales — edición manual, ver abajo)<br><small>Dentro de <code>daily_b2b2c_data.json</code> hay dos bloques aditivos, <code>okr_budget</code> y <code>okr_runrate</code> (NR por mes × stage New/Existing, año fiscal Abr→Mar completo). Los consume <code>okr_builder.py</code> para Hunting / Existing del OKR; el Daily no los usa. Existen porque <code>agg_budget</code> recorta <code>budget</code>/<code>runrate</code> al año calendario en curso y dejaba afuera Ene–Mar.</small></td></tr>
+            <tr><td>JSONs en Drive</td><td class="mono-id">daily_b2b2c_data.json (~20MB) · daily_b2b_data.json (~6MB)<br><small>Dentro de <code>daily_b2b2c_data.json</code> hay dos bloques aditivos, <code>okr_budget</code> y <code>okr_runrate</code> (NR por mes × stage New/Existing, año fiscal Abr→Mar completo). Los consume <code>okr_builder.py</code> para Hunting / Existing del OKR; el Daily no los usa. Existen porque <code>agg_budget</code> recorta <code>budget</code>/<code>runrate</code> al año calendario en curso y dejaba afuera Ene–Mar.</small></td></tr>
           </tbody>
         </table>
       </div>
@@ -1866,7 +2147,7 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
             <tr><td>Tablas</td><td>Breakdown por partner (top 20), producto, país</td></tr>
             <tr><td>Vista semanal</td><td>dashboard_weekly.html (semanal / MTD / mensual)</td></tr>
             <tr><td>KRs B2B (H1 / H2) <span class="badge badge-manual">🆕 2026-09-23</span></td><td>En la sección B2B, el bloque "KRs" tiene un switch <strong>H1 / H2</strong>. <strong>H1</strong> (Abr–Sep) = KRs actuales (NR Core Markets, NR New Markets + breakdown por market). <strong>H2</strong> (Oct–Mar) = 4 cards nuevas: <strong>Net Revenues</strong> (todos los canales), <strong>FVM · API</strong>, <strong>FVM · HTML</strong> (=canal "Agencias afiliadas") y <strong>NR · Flights + D. Serv.</strong>. Misma lógica MTD que el H1 (Actual vs target, modelo RI). <em>Los targets del H2 son provisorios (= Budget MTD) hasta cargar los definitivos.</em> Backend en <code>computeKRsB2BH2_</code> (dashboard.html)</td></tr>
-            <tr><td>KRs Globales <span class="badge badge-manual">🆕 2026-09-24</span></td><td>Tercer switch <strong>"Globales"</strong> al lado de H1 / H2 en el bloque KRs de B2B (y pestaña <strong>"KRs Globales"</strong> en el Tracker). Son los 7 KRs de <strong>"Global B2B API Hoteles"</strong> (OKR H2 FY27) con targets mensuales Oct'26–Mar'27, tomados de <code>globales_kr_targets.json</code> en Drive (edición manual, NO del pipeline). El <strong>actual</strong> está cableado en 2 KRs desde el daily (canal API · producto Hoteles · país Globales = "Other Countries"): <strong>GB B2B API Hoteles</strong> ($M = Σ gross_bookings) y <strong>Net Revenues % API Hoteles</strong> (Σ net_revenue / Σ gross_bookings). Los otros 5 muestran solo target. Backend <code>getGlobalesKRTargets()</code>; render <code>renderKRsGlobales_</code> (dashboard.html) y <code>renderGlobales</code> (tracker.html)<br><small><strong>Ojo:</strong> el OKR del Hub (P&amp;L contable) define Globales B2B API con <strong>6 KRs</strong> (ver fila "KRs H2 FY27 — detalle" del Hub), distinto de estos 7 KRs y de sus pesos; <code>globales_kr_targets.json</code> todavía tiene la estructura vieja. Alinear cuando se defina cuál es la fuente única.</small></td></tr>
+            <tr><td>KRs Globales <span class="badge badge-manual">🆕 2026-09-24</span></td><td>Tercer switch <strong>"Globales"</strong> al lado de H1 / H2 en el bloque KRs de B2B (y pestaña <strong>"KRs Globales"</strong> en el Tracker). Son los <strong>6 KRs de "Globales B2B API"</strong> (OKR H2 FY27), con la <strong>misma fuente y definición que el OKR del Hub</strong>: <code>okr.json</code> (sheet <code>Input_OKR</code> + contable). Partners API 30%, Hoteles Directos LATAM 20%, GB LATAM 10% (WIP), Hoteles Directos NO LATAM 20%, GB NO LATAM 5% (WIP), NR API Hoteles %GB 15%. <strong>Actual:</strong> NR %GB se calcula MTD desde el daily (canal API · producto Hoteles · país "Other Countries"); los conteos toman el valor del mes cargado en <code>Input_OKR</code>; los WIP no tienen fuente. Cumplimiento con la regla única de OKR (actual/budget, &lt;70% = 0, techo 130%). Backend <code>getGlobalesKRTargets()</code>; render <code>renderKRsGlobales_</code> (dashboard.html) y <code>renderGlobales</code> (tracker.html).<br><small>Hasta el 2026-09-25 salían de <code>globales_kr_targets.json</code> (7 KRs, editado a mano en Drive), que quedó en desuso.</small></td></tr>
           </tbody>
         </table>
       </div>
@@ -1892,7 +2173,7 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
           <div class="flow-node-items">
             <div class="flow-item orange">daily_sync.py</div>
           </div>
-          <div class="flow-note">Windows Task Scheduler 08:00 AM. Ejecutable manualmente también</div>
+          <div class="flow-note">Windows Task Scheduler 9:45 AM. Ejecutable manualmente también</div>
         </div>
         <div class="flow-arrow">→</div>
         <div class="flow-node">
@@ -1924,11 +2205,10 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
           <tr><td>daily_sync.py</td><td><span class="tag tag-py">Python</span></td><td>Consulta Treasure Data via ODBC (DSN "DataLake Treasure ODBC"), genera B2B2C + B2B (GD + RI + Budget) JSON y los sube a Drive via Google Drive API (<code>credentials_drive.json + token_drive.json</code>). Requiere VPN</td></tr>
           <tr><td>auth_drive.py</td><td><span class="tag tag-py">Python</span></td><td>Genera/regenera <code>token_drive.json</code> por navegador. Correr si expira la auth: <code>python auth_drive.py</code></td></tr>
           <tr><td>tier_sync.py</td><td><span class="tag tag-py">Python</span></td><td>Standalone, independiente de <code>daily_sync.py</code>. Sube <code>partner_tiers.json</code> a Drive con el mapeo partner→tier. Solo lo usa el filtro por tier del tab <strong>Flow Semanal</strong> (<code>dashboard.html</code>, vía <code>Codigo.js:getPartnerTiers()</code>). No corre automático — <code>python tier_sync.py</code> manual</td></tr>
-          <tr><td>globales_kr_targets.json <span class="badge badge-manual">🆕 2026-09-24</span></td><td><span class="tag tag-json">JSON</span></td><td>Targets del OKR <strong>H2 FY27</strong> de "Global B2B API Hoteles" (7 KRs con <code>id / name / weight / unit / critical_ttpp / targets{ym}</code> + <code>meta.meses</code>). Vive en Drive (carpeta DailyDashboard, fileId <code class="mono-id">1E7FwcCgObi-gDOmURvQ8_PLliYZvB9by</code>) y también hay copia en el repo (<code>Daily_Dashboard/</code>). <strong>NO lo genera ningún pipeline</strong>: se define una vez por semestre y se edita a mano en Drive (los cambios se ven sin deploy). Lo lee el backend con <code>getGlobalesKRTargets()</code>. <code>clasp</code> ignora los <code>.json</code>, así que la copia del repo no se pushea.</td></tr>
           <tr><td>Codigo.js</td><td><span class="tag tag-js">Apps Script</span></td><td>Backend: sirve el HTML y expone <code>getRawB2BC()</code> y <code>getRawB2B()</code> que leen los JSON desde Drive con cache auto-invalidante por <code>lastUpdated</code>. También <code>getGlobalesKRTargets()</code> (targets Globales), y para los Status KRs de Agencias: <code>getAgenciasOKR()</code> / <code>getBudgetAgencias_()</code> (budget desde col R de "Slide 1 KR Agencias") / <code>getAirNRData()</code> (caja "Air NR" de "Slide 1 Evolucion" P37:S44)</td></tr>
           <tr><td>dashboard.html</td><td><span class="tag tag-html">HTML</span></td><td>Frontend daily. Vanilla JS + Chart.js 4.4.0. Métricas: GB / NR / FVM diario + MTD vs LY + budget</td></tr>
           <tr><td>dashboard_weekly.html</td><td><span class="tag tag-html">HTML</span></td><td>Vista semanal del mismo JSON (weekly / MTD / mensual)</td></tr>
-          <tr><td>tracker.html</td><td><span class="tag tag-html">HTML</span></td><td>Daily B2B Tracker (Status KRs, GB/NR/FVM por RI y GD). Se sirve desde el mismo deployment con <code>?view=tracker</code> y se embebe como iframe en el tab "Daily B2B Tracker" del Hub. Tiene <strong>modo Slides</strong> con export a PDF / Google Slides — ver card debajo.<br><small><strong>Status KRs H1 / H2 (2026-09-23):</strong> hay dos pestañas de KRs. <strong>Status KRs H1</strong> (Abr–Sep) = KRs originales (Agencies L4W, NR Core/New Markets, Air NR + detalle por país). <strong>Status KRs H2</strong> (Oct–Mar) = 5 KRs nuevos con pesos: Net Revenues 30%, API FVM 20%, HTML FVM 20% (HTML = canal "Agencias afiliadas"), New Products Growth 15% (NR de Flights + Dest. Serv.) y Accelerate Recurrence 15% (<em>TBD</em>, placeholder). Misma lógica MTD (RI, Actual vs target), OVERALL ponderado normalizado sobre los KRs con datos. Targets provisorios = Budget MTD. Funciones <code>computeKRH2Metric_</code> / <code>renderStatusKRsH2</code>.</small><br><small><strong>KRs Globales (2026-09-24):</strong> tercera pestaña <strong>"KRs Globales"</strong> (Global B2B API Hoteles, OKR H2 FY27) — cards por KR con Mes/Target/Actual/Cumpl; targets desde <code>globales_kr_targets.json</code>, actual de 2 KRs desde el daily (API·Hoteles·Globales). Ver card "KRs Globales" arriba.</small><br><small><strong>YoY absoluto (2026-09-24):</strong> en las tablas país×producto (pivot y "Tablas"), cuando el LY es ≤ 0 la columna <strong>YoY</strong> muestra el crecimiento en absoluto (act − LY) en vez del % (que con base negativa da porcentajes engañosos con signo invertido). Helper <code>yoyCellHtml</code>.</small><br><strong>Copia standalone</strong> en <code>Daily_Tracker_B2B</code> (proyecto aparte, no versionado en git): puede estar desincronizada — la pestaña H2 se agregó en <code>Daily_Dashboard/tracker.html</code>, que es el que se embebe en el Hub.</td></tr>
+          <tr><td>tracker.html</td><td><span class="tag tag-html">HTML</span></td><td>Daily B2B Tracker (Status KRs, GB/NR/FVM por RI y GD). Se sirve desde el mismo deployment con <code>?view=tracker</code> y se embebe como iframe en el tab "Daily B2B Tracker" del Hub. Tiene <strong>modo Slides</strong> con export a PDF / Google Slides — ver card debajo.<br><small><strong>Status KRs H1 / H2 (2026-09-23):</strong> hay dos pestañas de KRs. <strong>Status KRs H1</strong> (Abr–Sep) = KRs originales (Agencies L4W, NR Core/New Markets, Air NR + detalle por país). <strong>Status KRs H2</strong> (Oct–Mar) = 5 KRs nuevos con pesos: Net Revenues 30%, API FVM 20%, HTML FVM 20% (HTML = canal "Agencias afiliadas"), New Products Growth 15% (NR de Flights + Dest. Serv.) y Accelerate Recurrence 15% (<em>TBD</em>, placeholder). Misma lógica MTD (RI, Actual vs target), OVERALL ponderado normalizado sobre los KRs con datos. Targets provisorios = Budget MTD. Funciones <code>computeKRH2Metric_</code> / <code>renderStatusKRsH2</code>.</small><br><small><strong>KRs Globales (2026-09-24):</strong> tercera pestaña <strong>"KRs Globales"</strong> (Global B2B API Hoteles, OKR H2 FY27) — cards por KR con Mes/Target/Actual/Cumpl; KRs, targets y actuals desde <code>okr.json</code> (misma fuente que el OKR del Hub); NR %GB actual MTD desde el daily (API·Hoteles·Globales). Ver card "KRs Globales" arriba.</small><br><small><strong>YoY absoluto (2026-09-24):</strong> en las tablas país×producto (pivot y "Tablas"), cuando el LY es ≤ 0 la columna <strong>YoY</strong> muestra el crecimiento en absoluto (act − LY) en vez del % (que con base negativa da porcentajes engañosos con signo invertido). Helper <code>yoyCellHtml</code>.</small><br><strong>Copia standalone</strong> en <code>Daily_Tracker_B2B</code> (proyecto aparte, no versionado en git): puede estar desincronizada — la pestaña H2 se agregó en <code>Daily_Dashboard/tracker.html</code>, que es el que se embebe en el Hub.</td></tr>
           <tr><td>appsscript.json / .clasp.json</td><td><span class="tag tag-js">Manifest</span></td><td>Webapp. Scopes: drive.readonly, gmail.send, spreadsheets, <code>presentations</code> (este último para el export del Tracker a Google Slides)</td></tr>
         </tbody>
       </table>
@@ -1967,6 +2247,101 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
   </div>
 
   <!-- ══════════════════ PROYECTO: COUNTRY ONE PAGER (B2B) ═══════════════════ -->
+  <!-- ════════════════════════════ DISTRIBUCIÓN DIARIA ════════════════════════════ -->
+  <div class="section" id="sec-proj-distribucion">
+    <div class="page-header">
+      <div class="page-tag">Proyecto · Pipeline Python <span class="badge badge-manual">🆕 2026-09-26</span></div>
+      <div class="page-title">Distribución <span>diaria del Run Rate</span></div>
+      <div class="page-sub">Abre a nivel <strong>diario</strong> la proyección mensual del Run Rate de B2B2C (WLs), B2B-MAY (API) y B2B-MIN (HTML). Toma los <strong>reales hasta la fecha que define quien lo corre</strong> y reparte solo el <strong>remanente</strong> del mes en los días que faltan. La salida es el CSV que se carga (a mano) en <code>raw.b2brr_gd</code> / <code>raw.b2brr_ri</code>, de donde lo leen el <strong>Daily Dashboard</strong> (línea de Run Rate) y <strong>P&amp;L Managerial</strong>. Reemplaza los notebooks "Diario FINAL GD/RI" — es el paso "1 día · Distribución" del Proyecto Run Rate.</div>
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">📍 Datos del proyecto</div>
+        <table class="doc-table">
+          <tbody>
+            <tr><td>Carpeta local</td><td>Proceso_Distribucion_Diaria (<code>distribucion_diaria.py</code> + <code>reales.py</code>)</td></tr>
+            <tr><td>Antes de correr (obligatorio)</td><td>Quien corre responde 4 definiciones, sin defaults:<br>
+              <strong>1)</strong> qué escenario de proyección se distribuye: budget, forecast o run rate (<code>--escenario</code>); define el nombre del archivo final, ej. <code>budget_diario_ri.csv</code>;<br>
+              <strong>2)</strong> hasta qué fecha se toman reales: la diferencia entre la proyección del mes en curso y los reales se reparte en los días que faltan (<code>--reales-hasta AAAA-MM-DD</code> o <code>no</code>);<br>
+              <strong>3)</strong> desde qué mes debe quedar la base final diaria (<code>--desde-mes AAAA-MM</code>); en run rate / forecast los meses cerrados ya se toman del Datalake;<br>
+              <strong>4)</strong> dónde están los P&amp;L planos de input (<code>--inputs "&lt;carpeta&gt;"</code> con WLs/API/HTML - Modelo*.xlsx, Run Rate o Forecast).<br>
+              Se muestran al inicio de la corrida. Si ya había un archivo con el mismo nombre, pasa a <code>V. Anteriores/</code>.</td></tr>
+            <tr><td>Cómo se corre</td><td>Con Claude: <code>/distribucion-diaria</code> (pregunta las 4 definiciones). A mano: <code>python distribucion_diaria.py --base GD --escenario runrate --reales-hasta AAAA-MM-DD --desde-mes AAAA-MM --inputs "…"</code> (y lo mismo con <code>--base RI</code>). Siempre primero con <code>--dry-run</code>.</td></tr>
+            <tr><td>Frecuencia</td><td><span class="badge badge-manual">Manual</span> con cada Run Rate nuevo (semanal). Hoy lo corre Antonella; la idea es que lo pueda correr cualquiera vía Claude.</td></tr>
+            <tr><td>Inputs</td><td>OneDrive <code>B2B &amp; WLs/Run Rate/&lt;semana&gt;/Inputs Python/</code> (modelos WLs, API, HTML) + <code>B2B &amp; WLs/Estacionalidad Diaria/</code> (factores) + Datalake (reales, con VPN)</td></tr>
+            <tr><td>Salida</td><td><code>&lt;escenario&gt;_diario_&lt;gd|ri&gt;.csv</code> (ej. <code>runrate_diario_gd.csv</code>, <code>budget_diario_ri.csv</code>) en la carpeta de inputs — es el único archivo que genera (el que se carga). Conciliación y resumen de reales se ven en pantalla.</td></tr>
+            <tr><td>Carga al Datalake</td><td><span class="badge badge-manual">Manual</span> → <code>raw.b2brr_gd</code> (GD) y <code>raw.b2brr_ri</code> (RI). Las tablas necesitan las columnas nuevas <code>loyalty_usd</code> y <code>mkt_usd</code> (al final del CSV).</td></tr>
+            <tr><td>Doc detallada</td><td><code>Proceso_Distribucion_Diaria/CONTEXT.md</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card">
+        <div class="card-title">🧮 Reglas por negocio</div>
+        <table class="doc-table">
+          <thead><tr><th>Negocio</th><th>Hoja GD / RI</th><th>Factor GD / RI</th></tr></thead>
+          <tbody>
+            <tr><td>B2B2C</td><td><code>P&amp;L</code> / la misma (<code>mes_ri</code>)</td><td>GD - WLs / el mismo</td></tr>
+            <tr><td>B2B-MAY (API)</td><td><code>P&amp;L Emision</code> / <code>P&amp;L RI</code></td><td>GD - B2B / RI - B2B</td></tr>
+            <tr><td>B2B-MIN (HTML)</td><td><code>P&amp;L Emision</code> / <code>P&amp;L RI</code></td><td>GD - B2B / <strong>GD - B2B</strong></td></tr>
+          </tbody>
+        </table>
+        <div class="alert-box info" style="margin-top:12px">ℹ️ B2B2C tiene un único criterio de reconocimiento → sale igual en GD y RI. HTML todavía no tiene desfase GD/RI en el modelo → en RI usa el factor GD. Paraguay y Uruguay usan los factores de Other Countries.</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📆 Reales + remanente (<code>--reales-hasta</code>)</div>
+      <div class="steps">
+        <div class="step"><div class="step-num">1</div><div class="step-body">
+          <div class="step-title">Días hasta el corte = real</div>
+          <div class="step-desc">Con las <strong>mismas queries del Daily</strong> (se ejecutan desde <code>daily_sync.py</code>, no se copian): B2B2C por fecha de confirmación, B2B GD por fecha de gestión, B2B RI por fecha de reconocimiento. El real vs Run Rate del Daily da 0 hasta el corte, y la comparación importa desde ahí en adelante.</div>
+        </div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-body">
+          <div class="step-title">Remanente = proyección del mes − real</div>
+          <div class="step-desc">Por grupo (B2B2C país × viaje × partner; B2B canal × país × viaje), repartido en los días que faltan con los factores re-normalizados. El mes cierra igual a la proyección.</div>
+        </div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-body">
+          <div class="step-title">Si el real ya superó la proyección</div>
+          <div class="step-desc">Los días que faltan van en 0 y el mes cierra = real. Se reporta como <em>grupos topeados</em>. Reales sin fila en el modelo (ej. un partner nuevo) van como filas con escenario <code>Real</code>.</div>
+        </div></div>
+        <div class="step"><div class="step-num">4</div><div class="step-body">
+          <div class="step-title">Chequeo de ritmo</div>
+          <div class="step-desc">El resumen compara <strong>GB/día real</strong> vs <strong>GB/día que implica el remanente</strong>. Si son muy distintos, el Run Rate está desactualizado.</div>
+        </div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🛡️ Controles (si falla uno, no se guarda nada)</div>
+      <table class="doc-table">
+        <tbody>
+          <tr><td>Cobertura</td><td>Toda fila del modelo con importes encuentra factor; los factores de cada grupo suman 1.</td></tr>
+          <tr><td>Conservación</td><td>Meses sin reales: por negocio × mes × país, cada línea del P&amp;L suma igual que el modelo. Meses con reales: real + remanente cierra por fila.</td></tr>
+          <tr><td>Columnas del modelo</td><td>Si el Excel trae una columna con importes que el script no conoce (ej. alguien renombra una línea), corta en vez de descartarla en silencio.</td></tr>
+          <tr><td>Corte</td><td>No puede pasar el último día cargado en el Datalake.</td></tr>
+          <tr><td>Aviso (no bloquea)</td><td>NR/FVM recalculado ≠ <code>net_revenue</code>/<code>npv</code> del Excel → fórmula inconsistente dentro del modelo.</td></tr>
+        </tbody>
+      </table>
+      <div class="alert-box" style="margin-top:12px">⚠️ <strong>Bug histórico (hasta W37, sep-2026):</strong> los notebooks descartaban <code>media_other_revenue</code>, <code>efecto_financiero</code> y <code>currency_hedge</code> por diferencia de nombres → el Run Rate en <code>raw.b2brr_*</code> tenía NR ≈ −3,5% y FVM ≈ −12%. El script nuevo concilia exacto contra el modelo.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📊 Factores de estacionalidad — diagnóstico</div>
+      <div class="page-sub" style="margin-bottom:12px">Hoy se arman en Excel (<code>Estacionalidad Diaria/</code>): 65% día de semana × semana del mes + 35% tipo de día (feriados/eventos del <code>Calendario</code>), con ventanas fijas y la historia pegada a mano. Backtest ene–ago 2026: share del mes mal asignado entre días (menor = mejor).</div>
+      <table class="doc-table">
+        <thead><tr><th>Caso</th><th>Excel</th><th>Prom. día de semana 12 sem.</th><th>Python (prototipo)</th></tr></thead>
+        <tbody>
+          <tr><td>B2B2C</td><td>11,4%</td><td>10,4%</td><td><strong>10,1%</strong></td></tr>
+          <tr><td>B2B-MAY GD</td><td>9,1%</td><td>7,8%</td><td><strong>7,7%</strong></td></tr>
+          <tr><td>B2B-MIN GD</td><td>9,7%</td><td>8,6%</td><td><strong>7,9%</strong></td></tr>
+          <tr><td>B2B-MAY RI</td><td>8,3%</td><td>8,2%</td><td><strong>8,1%</strong></td></tr>
+        </tbody>
+      </table>
+      <div class="alert-box info" style="margin-top:12px">ℹ️ B2B2C además subestima los días 29-31 (les asigna ~59% de su peso real) → a mitad de mes el Run Rate de B2B2C va ~3-4% adelantado. Propuesta: migrar los factores a Python (historia del Datalake, ventana móvil, calendario de eventos como único input manual, backtest en cada corrida).</div>
+    </div>
+  </div>
+
   <div class="section" id="sec-proj-country">
     <div class="page-header">
       <div class="page-tag">Proyecto <span class="badge badge-manual">🆕 En prod desde 2026-09-17</span></div>
@@ -2018,7 +2393,7 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
             <div class="flow-item">getCountryPageData()</div>
             <div class="flow-item">getB2BCanalProductoMix()</div>
           </div>
-          <div class="flow-note">Library "DashboardB2BWLs" (pineada, hoy v155) — datos contables: evo GB/NR/OC (rango FY27 completo) y mix canal×producto en un llamado; waterfalls NR/OC (rango <code>desde=hasta=ym</code>) en otro llamado aparte — ver nota de performance abajo</div>
+          <div class="flow-note">Library "DashboardB2BWLs" (pineada, hoy v178) — datos contables: evo GB/NR/OC (rango FY27 completo) y mix canal×producto en un llamado; waterfalls NR/OC (rango <code>desde=hasta=ym</code>) en otro llamado aparte — ver nota de performance abajo</div>
         </div>
         <div class="flow-arrow">→</div>
         <div class="flow-node">
@@ -2027,7 +2402,7 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
           <div class="flow-node-items">
             <div class="flow-item">getCountryMTD()</div>
           </div>
-          <div class="flow-note">Library "DailyDashboard" (pineada, hoy v223) — GB/NR/FVM del mes por país (GD/RI)</div>
+          <div class="flow-note">Library "DailyDashboard" (pineada, hoy v264) — GB/NR/FVM del mes por país (GD/RI)</div>
         </div>
         <div class="flow-arrow">→</div>
         <div class="flow-node">
@@ -2051,7 +2426,8 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
           <tr><td>Ya NO usa PnLManagerial</td><td>Se removió del manifest — el mix pasó a la fuente contable de <code>Dashboard_B2B_WLs</code> para que OC/GB y NR/GB salgan del mismo lugar que el resto del contable</td></tr>
           <tr><td><code>executeAs: USER_DEPLOYING</code></td><td>A diferencia de <code>Dashboard_B2B_WLs</code> (<code>USER_ACCESSING</code>): necesario porque las libraries corren con la identidad de quien ejecuta el script top-level, y <code>P&L_Managerial</code>/<code>Daily_Dashboard</code> asumen <code>USER_DEPLOYING</code> porque sus JSONs de Drive no están compartidos con todo el equipo</td></tr>
           <tr><td>Único landing que cruza los 3 orígenes</td><td>Es el único que lee de Inputs_Planning_PnL (contable, vía library), Daily_Dashboard (gestional, vía library) y — antes de este cambio — P&L_Managerial a la vez</td></tr>
-          <tr><td>Performance: waterfalls sin pre-warm <span class="badge badge-manual">⚠️ 2026-09-18</span></td><td><code>preComputeAll()</code> de <code>Dashboard_B2B_WLs</code> solo pre-calienta <code>getCountryPageData</code> para rangos FY/H1/H2/Q1-Q4 (<code>CTRY_QUARTERS</code>) — nunca meses puntuales. Como el waterfall pide <code>desde=hasta=ym</code>, cada país/mes nuevo es un <strong>cache MISS</strong> del lado del Hub (relee los 5 JSON de Drive + arma ~13 mapas desde cero). No se agregó país×mes a <code>preComputeAll</code> porque multiplicaría ese trigger compartido 2-3x, arriesgando el límite de 6 min de ejecución de Apps Script. Mitigación aplicada: <code>_buildContableWaterfalls_</code> cachea el resultado localmente en <code>lob_country_one_pager</code> por país+mes (<code>CacheService</code>, TTL 6h, key <code>wf_&lt;pais&gt;_&lt;ym&gt;</code>) — el primer usuario que ve una combinación paga el costo, el resto la recibe instantánea hasta que expire. La primera vista de una combinación país/mes nueva sigue siendo lenta.</td></tr>
+          <tr><td>Performance: waterfalls sin pre-warm <span class="badge badge-manual">⚠️ 2026-09-18</span></td><td><code>preComputeAll()</code> de <code>Dashboard_B2B_WLs</code> solo pre-calienta <code>getCountryPageData</code> para rangos FY/H1/H2/Q1-Q4 (<code>CTRY_QUARTERS</code>) — nunca meses puntuales. Como el waterfall pide <code>desde=hasta=ym</code>, cada país/mes nuevo es un <strong>cache MISS</strong> del lado del Hub (relee los 5 JSON de Drive + arma ~13 mapas desde cero). No se agregó país×mes a <code>preComputeAll</code> porque multiplicaría ese trigger compartido 2-3x, arriesgando el límite de 6 min de ejecución de Apps Script. Mitigación aplicada: <code>_buildContableWaterfalls_</code> cachea el resultado localmente en <code>lob_country_one_pager</code> por país+mes (<code>CacheService</code>, TTL 6h, key <code>wf_&lt;pais&gt;_&lt;ym&gt;</code>) — el primer usuario que ve una combinación paga el costo, el resto la recibe instantánea hasta que expire. El <strong>pre-warm trigger</strong> (fila siguiente) elimina ese "primer golpe" para el mes default.</td></tr>
+          <tr><td>Pre-warm de caches <span class="badge badge-auto">Trigger · cada 5 min · 2026-09-29</span></td><td>Trigger time-driven propio de este módulo (<code>prewarmOnePager</code>, instalado con <code>setupPrewarm()</code>) que paga por adelantado el "primer golpe" de cada país×mes. Recorre los 8 países en <strong>round-robin</strong> (cursor en <code>PropertiesService</code> persistido <strong>tras cada país</strong>, hasta <code>PREWARM_BATCH=2</code> países por corrida, arrancando otro país solo si queda headroom para el peor caso completo — <code>PREWARM_LIMIT_MS − PREWARM_PAIS_MS</code> — para no morir a mitad por el límite de 6 min de GAS) precalentando gestional GD/RI (<code>gs1_…</code>, TTL 1h) + waterfalls (<code>wf_…</code>, TTL 6h) del <strong>mes default</strong> (resuelto vía <code>getOPBase</code>, así las claves matchean lo que pedirá el cliente). En frío la corrida puede caer a 1 país por el headroom; aun así el ciclo de los 8 cierra en ≤40 min (corridas cada 5 min), dentro del TTL de gestional (1h). Presupuesto de ejecución <strong>independiente</strong> del <code>preComputeAll</code> del Hub (por eso se puso acá y no allá). Para frenarlo: <code>removePrewarm()</code>. Como todo trigger GAS, hay que correr <code>setupPrewarm()</code> <strong>una vez</strong> desde el editor del proyecto post-deploy (el <code>clasp push</code> no instala triggers) — y correrlo con la <strong>cuenta que deploya</strong> (<code>executeAs: USER_DEPLOYING</code>): el trigger hereda su identidad y las libraries leen JSONs de Drive no compartidos con todo el equipo; si lo instala alguien sin ese acceso, cada país tira error de permisos y no calienta nada.</td></tr>
         </tbody>
       </table>
     </div>
@@ -2193,6 +2569,19 @@ como-crear-agente-auditor.txt          ← cómo armar uno nuevo + lecciones de 
     </div>
 
     <div class="card">
+      <div class="card-title">📂 Distribución diaria del Run Rate</div>
+      <div class="code-block">B2B_Ecosystem\Proceso_Distribucion_Diaria\
+  ├── distribucion_diaria.py   ← Run Rate mensual → diario (+ reales hasta el corte)
+  ├── reales.py                ← Reales diarios con las queries de Daily_Dashboard/daily_sync.py
+  ├── CONTEXT.md               ← Doc detallada (reglas, controles, diagnóstico de factores)
+  └── legacy\                  ← Notebooks originales "Diario FINAL GD/RI" (referencia)
+OneDrive → Control de Gestión 2026-27 → B2B &amp; WLs\
+  ├── Run Rate\&lt;semana&gt;\Inputs Python\   ← WLs / API / HTML - Modelo Run Rate*.xlsx
+  ├── Run Rate\&lt;semana&gt;\Distribucion Diaria\ ← salida (CSV para raw.b2brr_gd / raw.b2brr_ri)
+  └── Estacionalidad Diaria\             ← Factor diario GD - WLs / GD - B2B / RI - B2B.xlsx</div>
+    </div>
+
+    <div class="card">
       <div class="card-title">📂 Fuentes del motor de datos (OneDrive)</div>
       <div class="code-block">OneDrive → Planning-PBI - Inputs Power Bi\
   ├── Budget / Forecast / Run Rate\  ← CSV Hyperion (ALL / NA) formato wide + POV
@@ -2247,7 +2636,7 @@ OneDrive → Control de Gestión 2026-27 → B2B & WLs → Proyectos IA → BITU
     <div class="card">
       <div class="card-title">📂 Daily Dashboard B2B2C + B2B</div>
       <div class="code-block">C:\Users\diego.bracco\Proyectos IA\Daily_Dashboard\
-  ├── daily_sync.py          ← Script Python (Task Scheduler 08:00 / correr manual con VPN)
+  ├── daily_sync.py          ← Script Python (Task Scheduler 9:45 / correr manual con VPN)
   ├── auth_drive.py          ← Regenera token_drive.json si expira
   ├── Codigo.js              ← Backend Apps Script (getRawB2BC(), getRawB2B(), sendDailyEmail_)
   ├── dashboard.html         ← Frontend daily (vanilla JS + Chart.js 4.4.0)

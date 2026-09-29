@@ -239,6 +239,7 @@ def _emit(svc, fid, payload, upload):
     print(f"\nlocal -> {local} (+ copia en la raíz) ({os.path.getsize(local)/1e6:.2f} MB, {payload['meta']['filas']:,} filas)")
     if upload:
         from googleapiclient.http import MediaFileUpload, MediaInMemoryUpload
+        pnl_common.guard_shrink(svc, fid, os.path.getsize(local), BASELINE_NAME)
         media = MediaFileUpload(local, mimetype="application/json", resumable=True)
         res = svc.files().update(fileId=fid, media_body=media,
                                  fields="id,size,modifiedTime").execute()

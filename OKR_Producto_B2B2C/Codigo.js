@@ -9,12 +9,7 @@ var CACHE_CHUNK = 90000;
 //  Webapp
 // ══════════════════════════════════════════════════════════════
 
-var PNL_SHEET_ID = '1RVmTXDyyugCUXJ0f6JG_croNxWNLlOLm4eAs8F52u2c'; // "Input dashboard B2B+WLs"
-
 function doGet(e) {
-  if (e && e.parameter && e.parameter.pnl === '1') {
-    return getPnlLine_(e.parameter.sheet, e.parameter.lob, e.parameter.pnl2);
-  }
   if (e && e.parameter && e.parameter.invalidate === '1') {
     // Lo llama okr_sync.py después de cada deploy — ya no hay botón manual en el dashboard.
     return ContentService.createTextOutput(JSON.stringify(invalidateCache())).setMimeType(ContentService.MimeType.JSON);
@@ -25,41 +20,9 @@ function doGet(e) {
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
-// Proxy de lectura sobre PNL_SHEET_ID: suma "Monto USD" por mes (Fecha) para una
-// pestaña (Actuals/Budget/RunRate), filtrando por LOB y por substring de P&L N2.
-// okr_sync.py lo consume vía HTTP (no tiene credenciales de Sheets API propias).
-function getPnlLine_(sheetName, lob, pnl2Substr) {
-  try {
-    var ss    = SpreadsheetApp.openById(PNL_SHEET_ID);
-    var sheet = ss.getSheetByName(sheetName);
-    if (!sheet) throw new Error('Hoja no encontrada: ' + sheetName);
-
-    var data   = sheet.getDataRange().getValues();
-    var header = data[0];
-    var idx = {
-      lob:   header.indexOf('LOB'),
-      pnl2:  header.indexOf('P&L N2'),
-      fecha: header.indexOf('Fecha'),
-      monto: header.indexOf('Monto USD')
-    };
-    var lobLower  = String(lob).toLowerCase();
-    var pnl2Lower = String(pnl2Substr).toLowerCase();
-    var totals = {};
-    for (var i = 1; i < data.length; i++) {
-      var row = data[i];
-      if (String(row[idx.lob]).toLowerCase() !== lobLower) continue;
-      if (String(row[idx.pnl2]).toLowerCase().indexOf(pnl2Lower) === -1) continue;
-      var fecha = row[idx.fecha];
-      var ym = Utilities.formatDate(new Date(fecha), 'America/Argentina/Buenos_Aires', 'yyyy-MM');
-      totals[ym] = (totals[ym] || 0) + Number(row[idx.monto]);
-    }
-    return ContentService.createTextOutput(JSON.stringify({ success: true, monthly: totals }))
-      .setMimeType(ContentService.MimeType.JSON);
-  } catch (err) {
-    return ContentService.createTextOutput(JSON.stringify({ success: false, error: err.message }))
-      .setMimeType(ContentService.MimeType.JSON);
-  }
-}
+// (Se eliminó el proxy getPnlLine_ / ?pnl=1: nadie lo llamaba y devolvía sumas de cualquier
+//  pestaña de la hoja "Input dashboard B2B+WLs" a cualquier usuario del dominio,
+//  corriendo como quien deployó — auditoría 2026-09-25.)
 
 // ══════════════════════════════════════════════════════════════
 //  API pública

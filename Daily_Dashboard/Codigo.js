@@ -13,11 +13,14 @@ var CACHE_CHUNK      = 90000;
 
 // ---- Entry point ----
 
-var EMAIL_SECRET = 'despe2026';
-
+// Disparo del mail por URL (?action=sendDailyEmail&secret=...). El secreto ya no vive en el
+// código (estaba en git): se lee de Propiedades del script → EMAIL_SECRET. Si la propiedad no
+// existe, la acción queda desactivada. El mail diario normal sale por el trigger
+// scheduledEmailSend, que no usa esto (auditoría 2026-09-25).
 function doGet(e) {
   var action = e && e.parameter && e.parameter.action;
-  if (action === 'sendDailyEmail' && e.parameter.secret === EMAIL_SECRET) {
+  var emailSecret = PropertiesService.getScriptProperties().getProperty('EMAIL_SECRET');
+  if (action === 'sendDailyEmail' && emailSecret && e.parameter.secret === emailSecret) {
     try {
       sendDailyEmail_();
       return ContentService.createTextOutput('OK');
@@ -535,8 +538,32 @@ function _wsComputeMTDPais_(actRows, budRows, lyRows, pais, targetYm) {
 
 var EMAIL_TO = ['gregorio.minetti@despegar.com', 'diego.bracco@despegar.com', 'tiago.harari@despegar.com', 'matias.m.sanchez@despegar.com'];
 
-function sendDailyEmail()          { sendDailyEmail_(); }
-function sendDailyEmailTo(emails)  { sendDailyEmail_(emails); }
+// El web app corre como USER_DEPLOYING: toda función pública se puede llamar con google.script.run
+// desde la consola del navegador de cualquier usuario del dominio y se ejecuta con los permisos de
+// quien deployó. Las funciones de mail/trigger solo las corre el dueño (editor) o un trigger
+// (auditoría ola 4, 2026-09-25). En un trigger el usuario activo viene vacío o es el dueño.
+function requireOwner_(fn) {
+  var active = '';
+  try { active = Session.getActiveUser().getEmail() || ''; } catch (e) {}
+  var owner = Session.getEffectiveUser().getEmail() || '';
+  if (active && active.toLowerCase() !== owner.toLowerCase()) {
+    throw new Error(fn + ': solo la puede correr el dueño del script (' + owner + ') o un trigger');
+  }
+}
+
+function sendDailyEmail()          { requireOwner_('sendDailyEmail'); sendDailyEmail_(); }
+// Envío a destinatarios elegidos en el dashboard. Solo cuentas @despegar.com (el mail lleva
+// KPIs y se manda desde la cuenta que deployó): antes aceptaba cualquier dirección y se podía
+// llamar desde la consola del navegador (auditoría 2026-09-25).
+function sendDailyEmailTo(emails) {
+  var ok = (emails || []).map(function(x) { return String(x || '').trim().toLowerCase(); })
+    .filter(function(x) { return /^[^@\s,;]+@despegar\.com$/.test(x); });
+  var bad = (emails || []).length - ok.length;
+  if (!ok.length) throw new Error('Solo se puede enviar a direcciones @despegar.com');
+  if (ok.length > 20) throw new Error('Máximo 20 destinatarios por envío');
+  if (bad > 0) throw new Error(bad + ' destinatario(s) no son @despegar.com — revisar la lista');
+  sendDailyEmail_(ok);
+}
 function sendDailyEmail_(customRecipients) {
   var dow = new Date().getDay(); // 0=Dom, 6=Sab
   if (dow === 0 || dow === 6) return;
@@ -789,6 +816,7 @@ function _emailHtml_(vDate, kb, mb, k2, m2) {
 // ── Scheduled trigger (corre desde GAS, lunes a viernes ~9am BsAs) ──────────
 
 function scheduledEmailSend() {
+  requireOwner_('scheduledEmailSend');
   // Verificar que sea día laboral
   var dow = new Date().getDay();
   if (dow === 0 || dow === 6) return;
@@ -815,6 +843,7 @@ function scheduledEmailSend() {
 
 // Correr esta función UNA VEZ desde el editor de GAS para crear el trigger diario.
 function setupEmailTrigger() {
+  requireOwner_('setupEmailTrigger');
   // Eliminar triggers previos de scheduledEmailSend para evitar duplicados
   ScriptApp.getProjectTriggers().forEach(function(t) {
     if (t.getHandlerFunction() === 'scheduledEmailSend') ScriptApp.deleteTrigger(t);
@@ -1000,7 +1029,7 @@ function getOKRWeeklyB2B2C() {
       actualWeekData:      actualWeekData,
       rrMonthData:         rrMonthData,
       mtd:                 { ym:mtdYm, actuals:mtdActuals, budget:mtdBudget },
-      signNewPartnerships: { actuals:5, budget:7 }
+      signNewPartnerships: _okrPartnershipsKR_(mtdYm)
     };
   } catch(e) {
     return { success:false, error:e.message };
@@ -1013,8 +1042,6 @@ function getOKRWeeklyB2B2C() {
 // ============================================================
 
 var AGENCIAS_JSON      = 'agencias_okr.json';
-var GLOBALES_KR_JSON   = 'globales_kr_targets.json'; // targets OKR H2 FY27 de "Global B2B API Hoteles"
-var GLOBALES_KR_CACHE  = 'globales_kr_v1';
 var BUDGET_SHEET_ID    = '1xm4VvoRUv7d1c_rcP1JYOgBNKczqXrAmtxoNCuCkiQE';
 var BUDGET_SHEET_NAME  = 'Slide 1 KR Agencias';
 var AIR_NR_SHEET_ID    = '1xm4VvoRUv7d1c_rcP1JYOgBNKczqXrAmtxoNCuCkiQE'; // mismo gdoc que agencias
@@ -1036,28 +1063,87 @@ var BUDGET_COUNTRY_MAP = {
 // Boot del tracker — mismo JSON b2b que el dashboard, con caché compartida
 function getB2BData() { return loadFile_(B2B_JSON, B2B_CACHE_KEY); }
 
+// Ubica, en un bloque de "Slide 1 KR Agencias" (block[0] = fila 8 encabezado,
+// block[1..] = filas de países), los índices (base col D = 0) de las columnas de
+// reales ("… Real") y budget ("… BDG"/"… Budget") del mes en curso. La planilla se
+// rearma por mes y las columnas SE CORREN: por eso NO se hardcodean posiciones —
+// auditoría 2026-09-28: los datos estaban en O/P ("September Real"/"September BDG")
+// mientras el código leía Q/R (vacías) y el KR1 salía "—".
+//
+// Elegir "la última … Real" a secas es frágil: una columna de mes futuro con header
+// cargado pero vacío, o una columna agregada ("YTD Real", "H1 Real") a la derecha,
+// haría elegir la equivocada (KR1 vacío o inflado, en silencio). Preferencia, de mayor
+// a menor: (1) header que nombra el mes en curso Y tiene datos → (2) nombra el mes en
+// curso → (3) la más a la derecha con datos → (4) la más a la derecha. Budget = la
+// primera "… BDG"/"Budget" a la derecha del real (orden del layout conocido), o si no
+// hay, a la izquierda. Devuelve -1 si no encuentra (→ el KR queda sin dato, se ve "—").
+function findAgenciasCols_(block) {
+  var header = block[0] || [];
+  var reReal = /real\s*$/i, reBud = /(bdg|budget)\s*$/i;
+  // Los headers del sheet nombran el mes en INGLÉS ("September Real"…). Se arma el
+  // nombre a mano (no con formatDate 'MMMM', que sale en el locale del script y podría
+  // dar "septiembre" y no matchear nunca → caería siempre al fallback por posición).
+  var EN_MONTHS = ['january','february','march','april','may','june','july','august','september','october','november','december'];
+  var monthNow = EN_MONTHS[new Date().getMonth()];
+
+  function colHasData(i) {
+    for (var r = 1; r < block.length; r++) {
+      var v = block[r][i];
+      if (v !== '' && v !== null && !isNaN(Number(v))) return true;
+    }
+    return false;
+  }
+  var cands = [];
+  for (var i = 0; i < header.length; i++) {
+    var h = String(header[i]).trim();
+    if (reReal.test(h)) cands.push({ idx: i, isMonth: h.toLowerCase().indexOf(monthNow) >= 0, hasData: colHasData(i) });
+  }
+  function pick(pred) { for (var k = cands.length - 1; k >= 0; k--) if (pred(cands[k])) return cands[k].idx; return -1; }
+  var reales = pick(function(c){ return c.isMonth && c.hasData; });
+  if (reales < 0) reales = pick(function(c){ return c.isMonth; });
+  if (reales < 0) reales = pick(function(c){ return c.hasData; });
+  if (reales < 0) reales = pick(function(c){ return true; });
+
+  var budget = -1;
+  if (reales >= 0) {
+    for (var j = reales + 1; j < header.length; j++) { if (reBud.test(String(header[j]).trim())) { budget = j; break; } }
+    if (budget < 0) for (var m = reales - 1; m >= 0; m--) { if (reBud.test(String(header[m]).trim())) { budget = m; break; } }
+  }
+  return { reales: reales, budget: budget };
+}
+
+// Ancho de lectura del bloque de Agencias (desde col D) = hasta la última columna con
+// contenido de la hoja. Sin cap fijo: el sheet suma una columna por mes, así que topear
+// en un ancho fijo dejaría afuera el mes vigente con el tiempo (auditoría 2026-09-28).
+function agenciasBlockWidth_(sheet) {
+  return Math.max(1, sheet.getLastColumn() - 3);
+}
+
 // Budget/target de Agencias por país desde "Slide 1 KR Agencias": col D = país
-// (mismo bloque que reales), col R = budget del mes ("<Mes> BDG"). Reemplaza el
-// parche hardcodeado del frontend (_KR1_BUD_PATCH / _KR1_TOTAL_BUD): la fila
-// 'Total' → 'TOTAL' trae el total autoritativo del sheet (los subtotales por país
-// se solapan —'Peru' vs 'PE + EC + UY + PY'— y sumarlos duplicaría).
+// (mismo bloque que reales), budget del mes = columna "<Mes> BDG" localizada por
+// header (ver findAgenciasCols_). Reemplaza el parche hardcodeado del frontend
+// (_KR1_BUD_PATCH / _KR1_TOTAL_BUD): la fila 'Total' → 'TOTAL' trae el total
+// autoritativo del sheet (los subtotales por país se solapan —'Peru' vs
+// 'PE + EC + UY + PY'— y sumarlos duplicaría).
 function getBudgetAgencias_() {
   var ss    = SpreadsheetApp.openById(BUDGET_SHEET_ID);
   var sheet = ss.getSheetByName(BUDGET_SHEET_NAME);
   var last  = sheet.getLastRow();
   if (last < 9) return {};
-  // Desde fila 9 (fila 8 = encabezado). D = col 4 … R = col 18 → 15 columnas
-  // (índice 14 = col R). Corte en la primera fila con col D vacía (fin del bloque).
+  // Fila 8 = encabezado, filas 9+ = datos. Se lee D..última col con contenido para
+  // ubicar la columna por header. Corte en la primera fila con col D vacía (fin del bloque).
   var nRows = Math.min(last - 8, 20);
-  var data  = sheet.getRange(9, 4, nRows, 15).getValues();
+  var block = sheet.getRange(8, 4, nRows + 1, agenciasBlockWidth_(sheet)).getValues();
+  var col   = findAgenciasCols_(block).budget;
   var budget = {};
-  for (var r = 0; r < data.length; r++) {
-    var rawName = String(data[r][0]).trim();      // col D
+  if (col < 0) return budget;                      // sin columna "… BDG" → KR sin budget (se ve "—")
+  for (var r = 1; r < block.length; r++) {
+    var rawName = String(block[r][0]).trim();      // col D
     if (rawName === '') break;                     // fin del bloque de agencias
     var label = BUDGET_COUNTRY_MAP[rawName];
     if (!label) continue;
-    var v = data[r][14];                           // col R
-    if (v === '' || v === null) continue;          // mes sin cargar → deja el fallback
+    var v = block[r][col];
+    if (v === '' || v === null) continue;          // país sin dato ese mes → se omite
     var num = Number(v);
     if (!isNaN(num)) budget[label] = num;
   }
@@ -1065,40 +1151,68 @@ function getBudgetAgencias_() {
 }
 
 // Agencias REALES por país desde "Slide 1 KR Agencias": col D = país
-// (EC+UY+PY agrupado, igual que el slide), col Q = nº de agencias reales.
-// Reemplaza el parche hardcodeado del frontend (_KR1_ACT_PATCH / _KR1_TOTAL_ACT).
-// Reutiliza BUDGET_COUNTRY_MAP: las filas que no están en el mapa
-// ('PE + EC + UY + PY', 'Ecuador', 'Uruguay', 'Paraguay') se saltean solas.
+// (EC+UY+PY agrupado, igual que el slide), reales del mes = columna "<Mes> Real"
+// localizada por header (ver findAgenciasCols_). El parche hardcodeado del frontend
+// (_KR1_ACT_PATCH / _KR1_TOTAL_ACT) ya no existe: si esto devuelve {}, el KR1 del
+// resumen muestra actual 0 (dashboard.html:5102 / tracker.html). Reutiliza
+// BUDGET_COUNTRY_MAP: las filas que no están en el mapa ('PE + EC + UY + PY',
+// 'Ecuador', 'Uruguay', 'Paraguay') se saltean solas.
 function getRealesAgencias_() {
   var ss    = SpreadsheetApp.openById(BUDGET_SHEET_ID);
   var sheet = ss.getSheetByName(BUDGET_SHEET_NAME);
   var last  = sheet.getLastRow();
   if (last < 9) return {};
-  // Desde fila 9 (fila 8 = encabezado). D = col 4 … Q = col 17 → 14 columnas.
-  // Cap defensivo + corte en la primera fila con col D vacía (fin del bloque),
-  // para no barrer el resto de la hoja ni tomar otra tabla con nombres de país.
+  // Fila 8 = encabezado, filas 9+ = datos. Ancho al último col con contenido + corte
+  // en la primera fila con col D vacía, para no barrer el resto de la hoja ni tomar
+  // otra tabla con países.
   var nRows = Math.min(last - 8, 20);
-  var data  = sheet.getRange(9, 4, nRows, 14).getValues();
+  var block = sheet.getRange(8, 4, nRows + 1, agenciasBlockWidth_(sheet)).getValues();
+  var col   = findAgenciasCols_(block).reales;
   var out = {};
-  for (var r = 0; r < data.length; r++) {
-    var rawName = String(data[r][0]).trim();     // col D
-    if (rawName === '') break;                    // fin del bloque de agencias
+  if (col < 0) return out;                          // sin columna "… Real" → KR1 sin reales (actual 0)
+  for (var r = 1; r < block.length; r++) {
+    var rawName = String(block[r][0]).trim();      // col D
+    if (rawName === '') break;                      // fin del bloque de agencias
     var label = BUDGET_COUNTRY_MAP[rawName];
     if (!label) continue;
-    var q = data[r][13];                          // col Q
-    if (q === '' || q === null) continue;         // mes sin cargar → deja el fallback del frontend
+    var q = block[r][col];
+    if (q === '' || q === null) continue;           // país sin dato ese mes → se omite
     var num = Number(q);
     if (!isNaN(num)) out[label] = num;
   }
   return out;
 }
 
+// Normaliza una celda de Air NR a número. La caja puede traer el valor como número
+// crudo (1.22 = millones, o 1220000 = dólares) o como TEXTO ya formateado ("$1,22M")
+// — auditoría 2026-09-28: las celdas eran texto y Number("$1,22M") daba NaN → el KR
+// salía "—". Convención es-AR: coma = decimal, punto = miles; sufijo "M" = millones.
+// Devuelve dólares para el texto "M" y el número tal cual (la escala se ajusta luego).
+function parseAirNRCell_(v) {
+  if (typeof v === 'number') return isNaN(v) ? null : v;   // número crudo
+  var s = String(v).trim();
+  if (s === '') return null;
+  var isMill = /m\s*$/i.test(s);                           // sufijo "M" = millones
+  var neg = /^\(.*\)$/.test(s) || s.indexOf('-') >= 0;     // "(...)" o "-" = negativo
+  s = s.replace(/[^0-9.,]/g, '');                          // saca $, M, (), signo, espacios
+  if (s === '') return null;
+  if (s.indexOf(',') >= 0) {                               // coma decimal → puntos son miles
+    s = s.replace(/\./g, '').replace(',', '.');
+  } else if ((s.match(/\./g) || []).length > 1) {          // varios puntos sin coma → miles
+    s = s.replace(/\./g, '');
+  }
+  var n = parseFloat(s);
+  if (isNaN(n)) return null;
+  if (neg) n = -Math.abs(n);
+  return isMill ? n * 1e6 : n;                             // texto "M" → a dólares
+}
+
 // Air Net Revenue desde la caja "Air Net Revenue from Suppliers" de la hoja
 // "Slide 1 Evolucion" (P37:S44): P=país, Q=Actuals, R=Budget, S=Cumpl.
 //   fila 37 = header · fila 38 = Total · filas 39-44 = países.
-// La caja muestra $M; la celda puede guardar el valor en millones (1.22) o en
-// dólares (1.220.000). Detectamos la escala una vez (por el máximo del bloque) y
-// devolvemos siempre en dólares para que el frontend aplique su toM() habitual.
+// Las celdas vienen como número o como texto "$1,22M" (ver parseAirNRCell_). Para los
+// números crudos en millones se detecta la escala una vez (por el máximo del bloque) y
+// se devuelve siempre en dólares para que el frontend aplique su toM() habitual.
 function getAirNRData() {
   var ss    = SpreadsheetApp.openById(AIR_NR_SHEET_ID);
   var sheet = ss.getSheetByName(AIR_NR_SHEET_NAME);
@@ -1107,25 +1221,25 @@ function getAirNRData() {
   // P37:S44 → getRange(fila 37, col 16 = P, 8 filas, 4 cols)
   var data = sheet.getRange(37, 16, 8, 4).getValues();
 
-  // Escala: si el mayor valor absoluto del bloque es chico, está en millones.
-  var maxAbs = 0;
-  for (var i = 1; i < data.length; i++) {
-    maxAbs = Math.max(maxAbs, Math.abs(Number(data[i][1]) || 0), Math.abs(Number(data[i][2]) || 0));
-  }
-  var factor = (maxAbs > 0 && maxAbs < 1000) ? 1e6 : 1;
-
-  var actual = 0, budget = 0, byCountry = {};
+  var rows = [];
   for (var r = 1; r < data.length; r++) {          // saltea el header (r=0)
     var pais = String(data[r][0]).trim();          // col P
     if (pais === '') continue;
-    var act = (Number(data[r][1]) || 0) * factor;  // col Q
-    var bud = (Number(data[r][2]) || 0) * factor;  // col R
-    if (pais.toLowerCase() === 'total') {
-      actual = act; budget = bud;
-    } else {
-      byCountry[pais] = { actual: act, budget: bud };
-    }
+    rows.push({ pais: pais, act: parseAirNRCell_(data[r][1]), bud: parseAirNRCell_(data[r][2]) });
   }
+
+  // Escala: si el mayor valor absoluto del bloque es chico, está en millones
+  // (número crudo tipo 1.22). El texto "$1,22M" ya salió en dólares de parseAirNRCell_.
+  var maxAbs = 0;
+  rows.forEach(function(x) { maxAbs = Math.max(maxAbs, Math.abs(x.act || 0), Math.abs(x.bud || 0)); });
+  var factor = (maxAbs > 0 && maxAbs < 1000) ? 1e6 : 1;
+
+  var actual = 0, budget = 0, byCountry = {};
+  rows.forEach(function(x) {
+    var act = (x.act || 0) * factor, bud = (x.bud || 0) * factor;
+    if (x.pais.toLowerCase() === 'total') { actual = act; budget = bud; }
+    else byCountry[x.pais] = { actual: act, budget: bud };
+  });
 
   // Fallback: si no vino la fila Total, sumamos los países.
   if (!actual && !budget) {
@@ -1158,11 +1272,63 @@ function getAgenciasOKR() {
   return payload;
 }
 
-// Targets de los KRs de Globales ("Global B2B API Hoteles", H2 FY27). Datos en
-// Drive (globales_kr_targets.json), se definen una vez por semestre y se editan
-// a mano sin tocar código. El 'actual' de cada KR se cablea aparte (fuente TBD).
+// KRs de "Globales B2B API" (H2 FY27). Desde 2026-09-25 (auditoría, decisión de Diego) salen de
+// okr.json — la misma fuente y definición que el OKR del Hub (Dashboard_B2B_WLs/Codigo_OKR.js,
+// 6 KRs) — y ya no de un JSON editado a mano en Drive. Targets y actuals de los conteos se cargan
+// en la sheet Input_OKR. Forma { meta, krs:[{id,name,weight,unit,critical_ttpp,targets,actuals}] }.
+var GLOBALES_KRS_DEF = [
+  { id:'accelerate_hunting_partners_api', kr:'accelerate hunting partners api',             name:'Accelerate Hunting Partners API',             weight:0.30, unit:'# Partners' },
+  { id:'hoteles_directos_latam',          kr:'hoteles directos vendidos destino latam',     name:'Hoteles Directos vendidos destino LATAM',     weight:0.20, unit:'# Hoteles' },
+  { id:'gb_api_hoteles_latam',            kr:null,                                          name:'GB B2B API Hoteles - destino LATAM (WIP)',    weight:0.10, unit:'$M' },
+  { id:'hoteles_directos_no_latam',       kr:'hoteles directos vendidos destino no latam',  name:'Hoteles Directos vendidos destino NO LATAM',  weight:0.20, unit:'# Hoteles' },
+  { id:'gb_api_hoteles_no_latam',         kr:null,                                          name:'GB B2B API Hoteles - destino NO LATAM (WIP)', weight:0.05, unit:'$M' },
+  // actual: lo calcula el cliente desde el daily (API · Hoteles · Other Countries), MTD
+  { id:'net_revenues_pct_api_hoteles',    kr:'net revenue api hoteles %gb',                 name:'Net Revenue API Hoteles %GB',                 weight:0.15, unit:'Share %' }
+];
+var GLOBALES_MESES = ['2026-10','2026-11','2026-12','2027-01','2027-02','2027-03'];
+var GLOBALES_MESES_LABEL = ["Oct'26","Nov'26","Dic'26","Ene'27","Feb'27","Mar'27"];
+
 function getGlobalesKRTargets() {
-  return loadFile_(GLOBALES_KR_JSON, GLOBALES_KR_CACHE);
+  var file = DriveApp.getFileById(OKR_JSON_FILE_ID);
+  var cache = CacheService.getScriptCache();
+  var key = 'globales_okr_v1_' + file.getLastUpdated().getTime();
+  var hit = cache.get(key);
+  if (hit) { try { return JSON.parse(hit); } catch (e) {} }
+  var j = JSON.parse(file.getBlob().getDataAsString());
+  var c = j.cols, iP = c.indexOf('Periodo'), iE = c.indexOf('Escenario'), iL = c.indexOf('LoB'),
+      iK = c.indexOf('KR'), iV = c.indexOf('Valor');
+  // alias de grafía que puede traer un okr.json viejo
+  var ALIAS = { 'hoteles directo vendidos destino latam': 'hoteles directos vendidos destino latam',
+                'hoteles directo vendidos destino no latam': 'hoteles directos vendidos destino no latam' };
+  var vals = {};   // kr → { bud:{ym:v}, act:{ym:v} }
+  (j.rows || []).forEach(function(r) {
+    if (String(r[iL]).trim().toLowerCase() !== 'globales') return;
+    var kr = String(r[iK]).trim().toLowerCase(); kr = ALIAS[kr] || kr;
+    var esc = String(r[iE]).toLowerCase().indexOf('budget') >= 0 ? 'bud' : 'act';
+    var ym = String(r[iP]).substring(0, 7);
+    vals[kr] = vals[kr] || { bud: {}, act: {} };
+    vals[kr][esc][ym] = (vals[kr][esc][ym] || 0) + (Number(r[iV]) || 0);
+  });
+  var krs = GLOBALES_KRS_DEF.map(function(d) {
+    var v = d.kr ? (vals[d.kr] || { bud: {}, act: {} }) : { bud: {}, act: {} };
+    var targets = {}, actuals = {};
+    GLOBALES_MESES.forEach(function(ym) {
+      targets[ym] = (v.bud[ym] !== undefined) ? v.bud[ym] : null;
+      actuals[ym] = (v.act[ym] !== undefined) ? v.act[ym] : null;
+    });
+    // el actual de NR %GB lo calcula el cliente desde el daily (MTD); el del okr.json es mensual contable
+    if (d.id === 'net_revenues_pct_api_hoteles') actuals = {};
+    return { id: d.id, name: d.name, weight: d.weight, unit: d.unit, critical_ttpp: false,
+             targets: targets, actuals: actuals };
+  });
+  var payload = {
+    meta: { titulo: 'Globales B2B API — OKR H2 FY27', periodo: 'H2-FY27', meses: GLOBALES_MESES,
+            meses_label: GLOBALES_MESES_LABEL, actualizado: file.getLastUpdated().toISOString().substring(0, 10),
+            nota: 'Fuente: okr.json (sheet Input_OKR + contable), misma que el OKR del Hub.' },
+    krs: krs
+  };
+  try { cache.put(key, JSON.stringify(payload), 21600); } catch (e) {}
+  return payload;
 }
 
 // ============================================================
@@ -1282,13 +1448,15 @@ function autorizarGoogleSlides() {
 // Inputs_Planning_PnL/okr_builder.py (misma fuente que el OKR del Hub). La webapp corre
 // como USER_DEPLOYING, así que tiene acceso al archivo aunque esté en otra carpeta.
 var OKR_JSON_FILE_ID = '1cEidr8aoYgm4S7ugm05Wv-SMnz8GbtUj';
-var OKR_MANUAL_B2B2C = { 'sign new partnership':'sign', 'deploy new partnership':'deploy', 'unique buyers':'ub' };
+// clave → [LoB, KR] de okr.json. 'recur' (B2B) lo usa el slide "B2B — Status KRs" en H2.
+var OKR_MANUAL_KRS = { sign:['b2b2c','sign new partnership'], deploy:['b2b2c','deploy new partnership'],
+                       ub:['b2b2c','unique buyers'], recur:['b2b','accelerate recurrence'] };
 
 // Devuelve { updated, data: { sign|deploy|ub: { 'YYYY-MM': { act, bud } } } }
 function getOKRManualB2B2C() {
   var file = DriveApp.getFileById(OKR_JSON_FILE_ID);
   var cache = CacheService.getScriptCache();
-  var key = 'okr_manual_b2bc_v1_' + file.getLastUpdated().getTime();   // se invalida solo al subir un okr.json nuevo
+  var key = 'okr_manual_b2bc_v2_' + file.getLastUpdated().getTime();   // se invalida solo al subir un okr.json nuevo
   var hit = cache.get(key);
   if (hit) { try { return JSON.parse(hit); } catch (e) {} }
   var j = JSON.parse(file.getBlob().getDataAsString());
@@ -1296,8 +1464,10 @@ function getOKRManualB2B2C() {
       iK = c.indexOf('KR'), iV = c.indexOf('Valor');
   var data = {};
   (j.rows || []).forEach(function(r) {
-    if (String(r[iL]).trim().toLowerCase() !== 'b2b2c') return;
-    var k = OKR_MANUAL_B2B2C[String(r[iK]).trim().toLowerCase()];
+    var lob = String(r[iL]).trim().toLowerCase(), kr = String(r[iK]).trim().toLowerCase(), k = null;
+    Object.keys(OKR_MANUAL_KRS).forEach(function(key) {
+      if (OKR_MANUAL_KRS[key][0] === lob && OKR_MANUAL_KRS[key][1] === kr) k = key;
+    });
     if (!k) return;
     var ym  = String(r[iP]).substring(0, 7);
     var esc = String(r[iE]).toLowerCase().indexOf('budget') >= 0 ? 'bud' : 'act';
@@ -1308,4 +1478,19 @@ function getOKRManualB2B2C() {
   var payload = { updated: file.getLastUpdated().toISOString(), data: data };
   try { cache.put(key, JSON.stringify(payload), 21600); } catch (e) {}
   return payload;
+}
+
+
+// KR de partnerships del OKR B2B2C para "OKR Weekly B2B2C" (antes fijo en 5/7, auditoría
+// 2026-09-25): H1 FY27 = Sign New Partnership, H2 = Deploy New Partnership. Valor mensual
+// (acumulado al mes) cargado en Input_OKR, vía okr.json (getOKRManualB2B2C). Sin dato → null.
+function _okrPartnershipsKR_(ym) {
+  var h2 = !!ym && ym >= '2026-10';
+  var out = { label: h2 ? 'Deploy New Partnership' : 'Sign New Partnerships', actuals: null, budget: null };
+  try {
+    var d = getOKRManualB2B2C().data[h2 ? 'deploy' : 'sign'];
+    var m = d && d[ym];
+    if (m) { out.actuals = (m.act !== undefined) ? m.act : null; out.budget = (m.bud !== undefined) ? m.bud : null; }
+  } catch (e) { Logger.log('_okrPartnershipsKR_: ' + e.message); }
+  return out;
 }

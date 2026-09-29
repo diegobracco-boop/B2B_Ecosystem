@@ -59,33 +59,35 @@ function prodLgkeysForCT_(lob, canal) {
 
 // ── Quarterly Baseline vs Goal ─────────────────────────────────────────────
 
-var ALL_YM_BG = {
-  '2026-04':'Abr-26','2026-05':'May-26','2026-06':'Jun-26',
-  '2026-07':'Jul-26','2026-08':'Ago-26','2026-09':'Sep-26',
-  '2026-10':'Oct-26','2026-11':'Nov-26','2026-12':'Dic-26',
-  '2027-01':'Ene-27','2027-02':'Feb-27','2027-03':'Mar-27'
-};
-var ALL_MONTHS_ORD_BG = ['Abr-26','May-26','Jun-26','Jul-26','Ago-26','Sep-26','Oct-26','Nov-26','Dic-26','Ene-27','Feb-27','Mar-27'];
+// ── Año fiscal ─────────────────────────────────────────────────────────────
+// ÚNICO valor a cambiar al pasar de FY (abril). FY_END_YEAR = 2027 → FY27 = Abr-26 … Mar-27.
+// Meses, labels ('Abr-26'), LY y las claves 'Q1 FY27' / 'Total FY27' se derivan de acá, y
+// dashboard.html lo recibe por el template (auditoría ola 4, 2026-09-25).
+var FY_END_YEAR = 2027;
+var FY_TAG_BG = 'FY' + String(FY_END_YEAR).slice(-2);   // 'FY27'
+function fyYmLabels_(endYear) {   // {'2026-04':'Abr-26', …, '2027-03':'Mar-27'} en orden fiscal
+  var mes = ['Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic','Ene','Feb','Mar'], out = {};
+  mes.forEach(function(m, i) {
+    var y = i < 9 ? endYear - 1 : endYear, mm = ((i + 3) % 12) + 1;
+    out[y + '-' + (mm < 10 ? '0' : '') + mm] = m + '-' + String(y).slice(-2);
+  });
+  return out;
+}
+var ALL_YM_BG = fyYmLabels_(FY_END_YEAR);
+var ALL_MONTHS_ORD_BG = Object.keys(ALL_YM_BG).map(function(ym) { return ALL_YM_BG[ym]; });
 
-// FY26 (Last Year) — misma estructura fiscal, un año antes
-var ALL_YM_LY_BG = {
-  '2025-04':'Abr-25','2025-05':'May-25','2025-06':'Jun-25',
-  '2025-07':'Jul-25','2025-08':'Ago-25','2025-09':'Sep-25',
-  '2025-10':'Oct-25','2025-11':'Nov-25','2025-12':'Dic-25',
-  '2026-01':'Ene-26','2026-02':'Feb-26','2026-03':'Mar-26'
-};
-var ALL_MONTHS_ORD_LY_BG = ['Abr-25','May-25','Jun-25','Jul-25','Ago-25','Sep-25','Oct-25','Nov-25','Dic-25','Ene-26','Feb-26','Mar-26'];
+// Last Year — misma estructura fiscal, un año antes
+var ALL_YM_LY_BG = fyYmLabels_(FY_END_YEAR - 1);
+var ALL_MONTHS_ORD_LY_BG = Object.keys(ALL_YM_LY_BG).map(function(ym) { return ALL_YM_LY_BG[ym]; });
 
 // Métricas de los gráficos mensuales (N2 en minúsculas, como los CT tabs)
 var CHART_N2_BG = ['gross bookings', 'net revenue', 'operating contribution'];
-var QUARTER_MONTHS_BG = {
-  'Q1 FY27':    ['Abr-26','May-26','Jun-26'],
-  'Q2 FY27':    ['Jul-26','Ago-26','Sep-26'],
-  'Q3 FY27':    ['Oct-26','Nov-26','Dic-26'],
-  'Q4 FY27':    ['Ene-27','Feb-27','Mar-27'],
-  'Total FY27': ['Abr-26','May-26','Jun-26','Jul-26','Ago-26','Sep-26','Oct-26','Nov-26','Dic-26','Ene-27','Feb-27','Mar-27']
-};
-var QUARTER_ORDER_BG = ['Q1 FY27','Q2 FY27','Q3 FY27','Q4 FY27','Total FY27'];
+var QUARTER_MONTHS_BG = {};   // 'Q1 FY27' → ['Abr-26','May-26','Jun-26'] … 'Total FY27' → los 12
+[0, 1, 2, 3].forEach(function(q) {
+  QUARTER_MONTHS_BG['Q' + (q + 1) + ' ' + FY_TAG_BG] = ALL_MONTHS_ORD_BG.slice(q * 3, q * 3 + 3);
+});
+QUARTER_MONTHS_BG['Total ' + FY_TAG_BG] = ALL_MONTHS_ORD_BG.slice();
+var QUARTER_ORDER_BG = Object.keys(QUARTER_MONTHS_BG);
 
 // Columnas reales en pnl_runrate (para leer filas crudas)
 var RR_RAW_COLS_BG = [
@@ -131,18 +133,6 @@ var EXPLICIT_PAISES_BG = ['Brasil','Mexico','Argentina','Colombia','Chile','Peru
 // El JSON se genera con pnl_contable_upload.py y se sube a Drive.
 var _contableJsonCache_   = null;
 var _contableJsonCacheMs_ = 0;
-
-// ── Delta Versiones FVM ───────────────────────────────────────────────────
-var DELTA_FVM_FILE_ID = '1WjJWozMEQywxhOjhcLzzak385-_dI6ro';
-
-function getDeltaFVM() {
-  try {
-    var file = DriveApp.getFileById(DELTA_FVM_FILE_ID);
-    return file.getBlob().getDataAsString();
-  } catch(e) {
-    return JSON.stringify({error: e.toString()});
-  }
-}
 
 function readContableJSON_() {
   try {
@@ -499,7 +489,7 @@ function computeGroupWithAgg_(actualsByPais, rrContByPais, budgetByPais, forecas
     Object.keys(RR_N2_MAP_BG).forEach(function(k){
       var n2 = RR_N2_MAP_BG[k].toLowerCase();
       baselineRR[k] = monthsToQuartersBG_(baselineCT[n2] || {});
-      baselineRR[k]['Total FY27'] = (baselineRR[k]['Q1 FY27']||0)+(baselineRR[k]['Q2 FY27']||0)+(baselineRR[k]['Q3 FY27']||0)+(baselineRR[k]['Q4 FY27']||0);
+      baselineRR[k][('Total ' + FY_TAG_BG)] = (baselineRR[k][('Q1 ' + FY_TAG_BG)]||0)+(baselineRR[k][('Q2 ' + FY_TAG_BG)]||0)+(baselineRR[k][('Q3 ' + FY_TAG_BG)]||0)+(baselineRR[k][('Q4 ' + FY_TAG_BG)]||0);
     });
   } else {
     // P&L Model + Accounting: blend gestional (Q2-Q4) + CT override (Q1)
@@ -507,8 +497,8 @@ function computeGroupWithAgg_(actualsByPais, rrContByPais, budgetByPais, forecas
     Object.keys(RR_N2_MAP_BG).forEach(function(k){
       var n2 = RR_N2_MAP_BG[k].toLowerCase();
       if (!baselineRR[k]) baselineRR[k] = {};
-      ['Q1 FY27','Q2 FY27','Q3 FY27','Q4 FY27'].forEach(function(q){
-        if (q === 'Q1 FY27') {
+      [('Q1 ' + FY_TAG_BG),('Q2 ' + FY_TAG_BG),('Q3 ' + FY_TAG_BG),('Q4 ' + FY_TAG_BG)].forEach(function(q){
+        if (q === ('Q1 ' + FY_TAG_BG)) {
           var qSum = 0;
           (QUARTER_MONTHS_BG[q]||[]).forEach(function(m){
             qSum += ((baselineCT[n2] && baselineCT[n2][m]) || 0);
@@ -516,10 +506,10 @@ function computeGroupWithAgg_(actualsByPais, rrContByPais, budgetByPais, forecas
           baselineRR[k][q] = qSum;
         }
       });
-      baselineRR[k]['Total FY27'] = (baselineRR[k]['Q1 FY27'] || 0)
-        + (baselineRR[k]['Q2 FY27'] || 0)
-        + (baselineRR[k]['Q3 FY27'] || 0)
-        + (baselineRR[k]['Q4 FY27'] || 0);
+      baselineRR[k][('Total ' + FY_TAG_BG)] = (baselineRR[k][('Q1 ' + FY_TAG_BG)] || 0)
+        + (baselineRR[k][('Q2 ' + FY_TAG_BG)] || 0)
+        + (baselineRR[k][('Q3 ' + FY_TAG_BG)] || 0)
+        + (baselineRR[k][('Q4 ' + FY_TAG_BG)] || 0);
     });
   }
 
@@ -546,7 +536,7 @@ function computeGroupWithAgg_(actualsByPais, rrContByPais, budgetByPais, forecas
       var n2 = RR_N2_MAP_BG[k].toLowerCase();
       if(!baselineRR_m[k]) baselineRR_m[k] = {};
       ALL_MONTHS_ORD_BG.forEach(function(m){
-        var isQ1 = (QUARTER_MONTHS_BG['Q1 FY27']||[]).indexOf(m) >= 0;
+        var isQ1 = (QUARTER_MONTHS_BG[('Q1 ' + FY_TAG_BG)]||[]).indexOf(m) >= 0;
         if (isQ1) {
           baselineRR_m[k][m] = ((baselineCT[n2] && baselineCT[n2][m]) || 0);
         }
@@ -666,64 +656,6 @@ function buildChartSeries_(agg, months){
 
 function seriesToMetric_(seriesArr, key){
   return seriesArr.map(function(s){ return s[key]; });
-}
-
-// gestRRByPais: { pais: { col: { label: val } } } — datos gestionales (gross_bookings futuro)
-function computeChartFromAgg_(actualsByPais, rrContByPais, forecastByPais, budgetByPais, lyByPais, gestRRByPais, cutoffIdx, paisGroup) {
-  var actuals  = aggregatePaisByGroup_(actualsByPais,  paisGroup);
-  var rrCont   = aggregatePaisByGroup_(rrContByPais,   paisGroup);
-  var forecast = aggregatePaisByGroup_(forecastByPais, paisGroup);
-  var budget   = aggregatePaisByGroup_(budgetByPais,   paisGroup);
-  var ly       = lyByPais    ? aggregatePaisByGroup_(lyByPais,    paisGroup) : {};
-  var gest     = gestRRByPais ? aggregatePaisByGroup_(gestRRByPais, paisGroup) : {};
-
-  // Baseline: misma lógica que la tabla P&L Contable
-  //   meses pasados (idx <= cutoffIdx) → actuals | futuros → blend gestional(rr) + plana(ct)
-  //   Gross Bookings futuro → gestional (el contable FC no siempre lo trae)
-  var baselineSeries = ALL_MONTHS_ORD_BG.map(function(mo, idx){
-    var isFuture = (idx > cutoffIdx);
-    var src = (idx <= cutoffIdx ? actuals : forecast);
-    var gbAcct = (src['gross bookings'] && src['gross bookings'][mo]) || 0;
-    var gbGest = (gest['gross_bookings'] && gest['gross_bookings'][mo]) || 0;
-    var gb = isFuture ? (gbGest || gbAcct) : gbAcct;
-    var nr, cor, sm;
-    if (isFuture) {
-      // Meses futuros: rr-sourced desde gestional, ct-sourced desde plana (igual que la tabla)
-      var nr_rr = ((gest['up_front_incentives'] && gest['up_front_incentives'][mo]) || 0)
-                + ((gest['fees'] && gest['fees'][mo]) || 0)
-                + ((gest['commercial_discounts'] && gest['commercial_discounts'][mo]) || 0)
-                + ((gest['income_from_outsourced_services'] && gest['income_from_outsourced_services'][mo]) || 0)
-                + ((gest['cancellations'] && gest['cancellations'][mo]) || 0);
-      nr = nr_rr + sumKeys_(src, CHART_NR_CT_KEYS, mo);
-      var cor_rr = ((gest['cost_of_installments'] && gest['cost_of_installments'][mo]) || 0)
-                 + ((gest['credit_card_processing'] && gest['credit_card_processing'][mo]) || 0);
-      cor = cor_rr + sumKeys_(src, CHART_COR_CT_KEYS, mo);
-      var sm_rr = ((gest['affiliates'] && gest['affiliates'][mo]) || 0)
-                + ((gest['white_labels_api'] && gest['white_labels_api'][mo]) || 0);
-      sm = sm_rr + sumKeys_(src, CHART_SM_CT_KEYS, mo);
-    } else {
-      // Meses pasados (actuals): todo desde accounting (igual que la tabla para Q1)
-      nr  = sumKeys_(src, CHART_NR_KEYS,  mo);
-      cor = sumKeys_(src, CHART_COR_KEYS, mo);
-      sm  = sumKeys_(src, CHART_SM_KEYS,  mo);
-    }
-    return {
-      'gross bookings':        gb,
-      'net revenue':           nr,
-      'operating contribution': nr - cor - sm
-    };
-  });
-
-  var budgetSeries = buildChartSeries_(budget, ALL_MONTHS_ORD_BG);
-  var lySeries     = buildChartSeries_(ly,     ALL_MONTHS_ORD_LY_BG);
-
-  var result = { baseline: {}, budget: {}, ly: {} };
-  CHART_N2_BG.forEach(function(m){
-    result.baseline[m] = seriesToMetric_(baselineSeries, m);
-    result.budget[m]   = seriesToMetric_(budgetSeries,   m);
-    result.ly[m]       = seriesToMetric_(lySeries,       m);
-  });
-  return result;
 }
 
 // ── getBaselineGoalData ────────────────────────────────────────────────────
@@ -881,11 +813,6 @@ function getBaselineGoalData(filtersJson) {
     actuals_cutoff: actualsCutoff,  // último mes con Actuals cargados
     filters:    buildBGFiltersFromJSON_(jData, lgKeyFromGroup_(lobGroup, {}))
   };
-}
-
-function invalidateBaselineGoalCache() {
-  _contableJsonCache_ = null;
-  return { ok: true };
 }
 
 // ── B2B Country Detail: Total + MAY/prods + MIN/prods ─────────────────────

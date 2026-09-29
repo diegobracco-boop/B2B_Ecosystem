@@ -22,8 +22,10 @@ function readGestionalJSON_(baselineSource) {
       var blob = DriveApp.getFileById(GESTIONAL_VR_JSON_FILE_ID).getBlob();
       _gestionalVRJsonCache_ = JSON.parse(blob.getDataAsString());
     } catch(e) {
+      // Antes devolvía _EMPTY_GESTIONAL_ y ese resultado vacío quedaba cacheado 6 h con la clave
+      // del mtime (pantalla en cero). Ahora el error llega al cliente (auditoría 2026-09-25).
       Logger.log('readGestionalJSON_ VR error: ' + e);
-      _gestionalVRJsonCache_ = _EMPTY_GESTIONAL_;
+      throw new Error('No se pudo leer el JSON de Projection Reviews de Drive: ' + e.message);
     }
     return _gestionalVRJsonCache_;
   }
@@ -33,22 +35,23 @@ function readGestionalJSON_(baselineSource) {
     _gestionalJsonCache_ = JSON.parse(blob.getDataAsString());
   } catch(e) {
     Logger.log('readGestionalJSON_ error: ' + e);
-    _gestionalJsonCache_ = _EMPTY_GESTIONAL_;
+    throw new Error('No se pudo leer el JSON gestional de Drive: ' + e.message);
   }
   return _gestionalJsonCache_;
 }
 
-// ── FY27: Abr-26 … Mar-27 ────────────────────────────────────────────────
-var YM_LABEL = {
-  '2026-04':'Abr-26','2026-05':'May-26','2026-06':'Jun-26',
-  '2026-07':'Jul-26','2026-08':'Ago-26','2026-09':'Sep-26',
-  '2026-10':'Oct-26','2026-11':'Nov-26','2026-12':'Dic-26',
-  '2027-01':'Ene-27','2027-02':'Feb-27','2027-03':'Mar-27'
-};
-var YM_ORDER = [
-  '2026-04','2026-05','2026-06','2026-07','2026-08','2026-09',
-  '2026-10','2026-11','2026-12','2027-01','2027-02','2027-03'
-];
+// ── Año fiscal ─────────────────────────────────────────────────────────────
+// ÚNICO valor a cambiar al pasar de FY (abril). FY_END_YEAR = 2027 → FY27 = Abr-26 … Mar-27.
+// Todo lo demás (meses, labels, Q/H, "FY27" en pantalla) se deriva de acá; dashboard.html lo
+// recibe por el template (auditoría ola 4, 2026-09-25). Igual que CURRENT_FY de config.py.
+var FY_END_YEAR = 2027;
+var FY_MES_ES_ = ['Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic','Ene','Feb','Mar'];
+var YM_ORDER = FY_MES_ES_.map(function(m, i) {
+  var y = i < 9 ? FY_END_YEAR - 1 : FY_END_YEAR, mm = ((i + 3) % 12) + 1;
+  return y + '-' + (mm < 10 ? '0' : '') + mm;
+});
+var YM_LABEL = {};
+YM_ORDER.forEach(function(ym, i) { YM_LABEL[ym] = FY_MES_ES_[i] + '-' + ym.slice(2, 4); });
 
 // Métricas en el mismo orden que METRICS del JSON (Python pnl_gestional_upload.py)
 var METRIC_COLS = [

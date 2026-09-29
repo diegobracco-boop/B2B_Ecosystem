@@ -426,7 +426,6 @@ def compute_kr5() -> dict:
         source     = sql_source(KR5_QUERY)
     )
 
-PNL_SHEET_ID  = "1RVmTXDyyugCUXJ0f6JG_croNxWNLlOLm4eAs8F52u2c"  # "Input dashboard B2B+WLs"
 PNL_WEBAPP_DEPLOYMENT_ID = "AKfycbz1KVq_b2V8UBEaXvcqJmlvS8e-gd2FAwQOcBV91rABnK7Lm33fTcYMPr_f7pdqNiCI"
 PNL_WEBAPP_URL = f"https://script.google.com/macros/s/{PNL_WEBAPP_DEPLOYMENT_ID}/exec"
 
@@ -466,14 +465,6 @@ def _call_webapp(params: dict):
         r = requests.get(r.headers["Location"], headers=headers, allow_redirects=False)
     r.raise_for_status()
     return r.json()
-
-
-def fetch_pnl_line(sheet: str, lob: str, pnl2_substr: str) -> dict:
-    """Suma 'Monto USD' por mes (YYYY-MM) desde PNL_SHEET_ID, vía el proxy getPnlLine_ en Codigo.js."""
-    data = _call_webapp({"pnl": "1", "sheet": sheet, "lob": lob, "pnl2": pnl2_substr})
-    if not data.get("success"):
-        raise RuntimeError(f"getPnlLine_ falló: {data.get('error')}")
-    return data["monthly"]
 
 
 DRIVE_TOKEN_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "credenciales", f"drive_token.{_win_user}.json")
@@ -660,7 +651,24 @@ import subprocess
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
+def _git_pull_or_abort() -> None:
+    """Trae main antes de publicar: clasp push sube la copia LOCAL, así que sin pull una
+    máquina atrasada pisa producción con código viejo (mismo bug que ya se corrigió en
+    Daily_Dashboard/auto_update_reales.ps1). Auditoría 2026-09-25."""
+    repo = os.path.dirname(SCRIPT_DIR)
+    # okr_data.js se regenera en cada corrida (ya no se versiona): se descarta la copia
+    # anterior para que no bloquee el pull.
+    subprocess.run(['git', 'checkout', '--', 'OKR_Producto_B2B2C/okr_data.js'], cwd=repo,
+                   capture_output=True, text=True)
+    r = subprocess.run(['git', 'pull', '--ff-only', 'origin', 'main'], cwd=repo,
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        raise RuntimeError('git pull falló — no se publica código desactualizado: ' + r.stderr)
+    print('  OK git pull')
+
+
 def publish(payload: dict) -> None:
+    _git_pull_or_abort()
     raw      = json.dumps(payload, ensure_ascii=False, separators=(',', ':'))
     data_path = os.path.join(SCRIPT_DIR, 'okr_data.js')
     with open(data_path, 'w', encoding='utf-8') as f:

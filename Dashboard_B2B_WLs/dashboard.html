@@ -957,7 +957,7 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
         <div class="sync-admin-title">Sincronizar datos con BITUBIA</div>
         <div class="sync-action">
           <div class="sync-action-info">
-            <strong>Actuals FY27</strong>
+            <strong>Actuals <?!= 'FY' + String(FY_END_YEAR).slice(-2) ?></strong>
             <span>Actualiza actuals del año en curso</span>
             <div class="sync-action-status" id="sa-actuals-status"></div>
           </div>
@@ -966,7 +966,7 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
         <div class="sync-action">
           <div class="sync-action-info">
             <strong>Run Rate</strong>
-            <span>Actualiza run rate FY27</span>
+            <span>Actualiza run rate <?!= 'FY' + String(FY_END_YEAR).slice(-2) ?></span>
             <div class="sync-action-status" id="sa-runrate-status"></div>
           </div>
           <button class="sync-action-btn" onclick="runSync('runrate')">Ejecutar</button>
@@ -1259,9 +1259,9 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
     </div>
   </div>
 
-  <!-- Drilldown FY27 line charts -->
+  <!-- Drilldown FY line charts -->
   <div class="sec" id="drilldown-section">
-    <div class="sec-title" id="drilldown-title">FY27 Drill-down — Evolución mensual por métrica</div>
+    <div class="sec-title" id="drilldown-title"><?!= 'FY' + String(FY_END_YEAR).slice(-2) ?> Drill-down — Evolución mensual por métrica</div>
     <div class="drilldown-grid">
 
       <!-- GB -->
@@ -1340,7 +1340,7 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
           </div>
         </div>
       </div>
-      <div class="evo-subtitle">FY27 · Abr 2026 → Mar 2027 · Actuals + Run Rate, vs Budget</div>
+      <div class="evo-subtitle"><?!= 'FY' + String(FY_END_YEAR).slice(-2) ?> · Abr <?!= FY_END_YEAR - 1 ?> → Mar <?!= FY_END_YEAR ?> · Actuals + Run Rate, vs Budget</div>
       <!-- scroll compartido: chart + tabla se desplazan juntos -->
       <div style="overflow-x:auto;margin:8px -22px 0">
         <div id="mkt-inner" style="min-width:960px;padding:0 22px 18px">
@@ -1714,7 +1714,7 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
 
     <div style="margin-bottom:14px">
       <div class="sec-title" style="margin-bottom:2px" id="brasil-summary-title">Country · One Page</div>
-      <div style="font-size:11px;color:var(--muted)">Performance por país · FY27 · Actuals + Run Rate</div>
+      <div style="font-size:11px;color:var(--muted)">Performance por país · <?!= 'FY' + String(FY_END_YEAR).slice(-2) ?> · Actuals + Run Rate</div>
     </div>
 
     <!-- Filtros -->
@@ -1731,7 +1731,7 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
       <div style="width:1px;background:var(--border);align-self:stretch;flex-shrink:0;margin:0 2px"></div>
       <!-- Período -->
       <div style="flex:1;min-width:200px">
-        <div class="ctry-filter-label">Período · FY27</div>
+        <div class="ctry-filter-label">Período · <?!= 'FY' + String(FY_END_YEAR).slice(-2) ?></div>
         <div style="display:flex;flex-direction:column;gap:4px">
           <div class="ctry-btn-row" id="ctry-period-row1"></div>
           <div class="ctry-btn-row" id="ctry-period-row2"></div>
@@ -1869,13 +1869,17 @@ function openExt(key) {
 // ══════════════════════════════════════════════════════════
 var IS_DEMO = (typeof google === 'undefined' || !google.script);
 
-// FY26 months: Apr 2026 – Mar 2027
-var FY26_MONTHS = (function(){
+// ── Año fiscal: FY_END_YEAR viene de Codigo.js (fyEndYear_, único lugar a cambiar).
+// FY_MONTHS = ['2026-04', …, '2027-03'] para FY27 (auditoría ola 4, 2026-09-25).
+var FY_END_YEAR = <?!= FY_END_YEAR ?>;
+var FY_TAG = 'FY' + String(FY_END_YEAR).slice(-2);   // 'FY27'
+var FY_MONTHS = (function(){
   var out = [];
-  for (var m = 4; m <= 12; m++) out.push('2026-' + String(m).padStart(2,'0'));
-  for (var m = 1; m <= 3;  m++) out.push('2027-' + String(m).padStart(2,'0'));
+  for (var m = 4; m <= 12; m++) out.push((FY_END_YEAR - 1) + '-' + String(m).padStart(2,'0'));
+  for (var m = 1; m <= 3;  m++) out.push(FY_END_YEAR + '-' + String(m).padStart(2,'0'));
   return out;
 }());
+function fyRangeH_(a, b){ return { desde: FY_MONTHS[a], hasta: FY_MONTHS[b] }; }
 
 // Selección por default: se sobreescribe al recibir filtros del backend
 var _defaultPeriod = '';  // último mes de actuals (se llena en populateFilters)
@@ -2151,9 +2155,14 @@ function loadAll() {
   loadOKR();
 }
 
+// Token de request: si el usuario cambia filtros rápido, una respuesta lenta de una consulta
+// anterior no pisa el estado de la actual (antes se veían filtros de B con números de A —
+// auditoría 2026-09-25). La respuesta se guarda igual en la caché del cliente.
+var _reloadSeq = 0;
 function reload() {
   var p   = getParams();
   var ck  = JSON.stringify(p);
+  var mySeq = ++_reloadSeq;
 
   // Client-side cache hit → render instantly, no server call
   if (_dataCache[ck]) {
@@ -2182,6 +2191,7 @@ function reload() {
   google.script.run
     .withSuccessHandler(function(d){
       _dataCache[ck] = d;   // store in client cache
+      if (mySeq !== _reloadSeq) return;   // llegó tarde: ya hay otra consulta más nueva
       _state.pnl    = d.pnl;
       _state.wf     = d.wf;
       _state.evo    = d.evo;
@@ -2192,7 +2202,7 @@ function reload() {
       render(); hideLoader();
       _preloadOtherLobs_(p); // warm cache for other LOB tabs in background
     })
-    .withFailureHandler(onErr)
+    .withFailureHandler(function(e){ if (mySeq === _reloadSeq) onErr(e); })
     .getAllData(p);
 }
 
@@ -2514,7 +2524,7 @@ function buildPeriodPicker() {
   // Group months → { fy: { quarter: [ym, ...] } }
   var tree = {};        // fyKey → { Q1:[], Q2:[], Q3:[], Q4:[] }
   var fyOrder = [];     // mantener orden de aparición
-  FY26_MONTHS.forEach(function(ym) {
+  FY_MONTHS.forEach(function(ym) {
     var mm  = ym.split('-')[1];
     var fy  = _fyOf(ym);
     var qtr = _fyQof(mm);
@@ -2711,7 +2721,7 @@ function switchNumFmt(btn) {
 
 // Leer checkboxes sin aplicar aún
 function _readChecked() {
-  return FY26_MONTHS.filter(function(ym){
+  return FY_MONTHS.filter(function(ym){
     var cb = document.getElementById('pc-'+ym);
     return cb && cb.checked;
   });
@@ -2729,8 +2739,8 @@ function applyPeriod() {
 
 // Solo este: selecciona únicamente el último mes con actuals
 function soloEste() {
-  var target = _defaultPeriod || FY26_MONTHS[0];
-  FY26_MONTHS.forEach(function(ym){
+  var target = _defaultPeriod || FY_MONTHS[0];
+  FY_MONTHS.forEach(function(ym){
     var cb = document.getElementById('pc-'+ym);
     if (cb) cb.checked = (ym === target);
   });
@@ -2760,15 +2770,15 @@ function populateFilters() {
 
   // Default: seleccionar solo el último mes con datos de actuals
   _defaultPeriod = f.lastActuals || '';
-  if (_defaultPeriod && FY26_MONTHS.indexOf(_defaultPeriod) >= 0) {
+  if (_defaultPeriod && FY_MONTHS.indexOf(_defaultPeriod) >= 0) {
     // Es un mes FY26 con actuals: seleccionarlo solo
     _state.selectedPeriods = [_defaultPeriod];
-  } else if (_defaultPeriod && _defaultPeriod < FY26_MONTHS[0]) {
+  } else if (_defaultPeriod && _defaultPeriod < FY_MONTHS[0]) {
     // El último actuals es anterior a FY26: seleccionar primer mes FY26
-    _state.selectedPeriods = [FY26_MONTHS[0]];
+    _state.selectedPeriods = [FY_MONTHS[0]];
   } else {
     // Fallback: primer mes FY26
-    _state.selectedPeriods = [FY26_MONTHS[0]];
+    _state.selectedPeriods = [FY_MONTHS[0]];
   }
   buildPeriodPicker();
   updatePeriodLabel();
@@ -3646,11 +3656,11 @@ function _groupEvo(d, m, gbM, goalKey, granOverride) {
     if (!gmap[key]) {
       gmap[key] = { key:key, label:_granLabel(ym,gran),
         actuals:0, goal:0, budget:0, runRate:0, forecast:0, gbAct:0, gbBud:0, lyAct:0,
-        hasAct:false, hasGoal:false, hasRR:false, hasFc:false, lyCount:0, isFY27:false };
+        hasAct:false, hasGoal:false, hasRR:false, hasFc:false, lyCount:0, isFY:false };
       groups.push(key);
     }
     var g = gmap[key];
-    if (ym>='2026-04' && ym<='2027-03') g.isFY27 = true;
+    if (ym>=FY_MONTHS[0] && ym<=FY_MONTHS[11]) g.isFY = true;
     var aVal=m.actuals[i], bVal=goalArr[i], budVal=m.budget[i], rrVal=m.runRate?m.runRate[i]:null;
     if(aVal!==null&&aVal!==undefined){ g.actuals+=aVal; g.hasAct=true; }
     if(bVal!==null&&bVal!==undefined&&bVal!==0){ g.goal+=bVal; g.hasGoal=true; }
@@ -3679,7 +3689,7 @@ function _groupEvo(d, m, gbM, goalKey, granOverride) {
       gbAct:    g.gbAct   || null,
       gbBud:    g.gbBud   || null,
       lyAct:    g.lyCount>0 ? g.lyAct : null,
-      isFY27:   g.isFY27
+      isFY:     g.isFY
     };
   });
 }
@@ -4073,12 +4083,11 @@ function renderDrilldown() {
                : _state.lob === 'b2b2c' ? 'B2B2C'
                : 'B2B+B2B2C';
 
-  // FY27 months are Apr 2026 – Mar 2027
-  var fy27Months = FY26_MONTHS;  // already defined globally
+  var fy27Months = FY_MONTHS;  // meses del FY (global)
 
   // Drilldown title update
   var titleEl = document.getElementById('drilldown-title');
-  if (titleEl) titleEl.textContent = 'FY27 Drill-down — Evolución mensual por métrica · ' + lobLabel;
+  if (titleEl) titleEl.textContent = FY_TAG + ' Drill-down — Evolución mensual por métrica · ' + lobLabel;
 
   // If no evo data, hide section
   var sec = document.getElementById('drilldown-section');
@@ -4173,15 +4182,15 @@ function renderDrilldown() {
     })() : null;
 
     var seriesDefs = [
-      { key:'s0', label: lobLabel + ' Actuals+RR FY27', data: combinedArr,
+      { key:'s0', label: lobLabel + ' Actuals+RR ' + FY_TAG, data: combinedArr,
         color:'#5457D9', dash:[], pointR:3 },
-      { key:'s1', label: lobLabel + ' Budget FY27',     data: budgetArr,
+      { key:'s1', label: lobLabel + ' Budget ' + FY_TAG,     data: budgetArr,
         color:'#EAB308', dash:[5,3], pointR:2 },
       { key:'s2', label: lobLabel + ' Last Year',       data: lyArr,
         color:'rgba(140,149,159,.8)', dash:[3,3], pointR:2 },
-      { key:'s3', label: 'B2C Actuals+RR FY27',         data: b2cCombined,
+      { key:'s3', label: 'B2C Actuals+RR ' + FY_TAG,         data: b2cCombined,
         color:'#10b981', dash:[], pointR:3 },
-      { key:'s4', label: 'B2C Budget FY27',             data: b2cBudget,
+      { key:'s4', label: 'B2C Budget ' + FY_TAG,             data: b2cBudget,
         color:'rgba(16,185,129,.5)', dash:[5,3], pointR:2 },
       { key:'s5', label: 'B2C Last Year',               data: b2cLY,
         color:'#f97316', dash:[3,3], pointR:2 }
@@ -4415,7 +4424,7 @@ function renderOKR(okr) {
 
   var html =
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
-    +'<span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em">OKR Status FY27 · '+_halfSel+'</span>'
+    +'<span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em">OKR Status '+FY_TAG+' · '+_halfSel+'</span>'
     +'<div style="display:flex;gap:6px">'
     +(_state.okrAll ? _halfBtn('H1')+_halfBtn('H2') : '')
     +'<button id="okr-toggle-nom" class="gran-btn" onclick="toggleOKRNominal()" style="font-size:11px">'
@@ -4475,17 +4484,19 @@ function renderOKR(okr) {
     });
 
     // Total row — siempre en % (es una puntuación ponderada, no una suma de nominales)
+    // Total: promedio ponderado sobre los KRs con dato; el tooltip dice qué % del peso cubre.
+    var covTip = function(c){ return (c === undefined || c === null) ? '' : ' title="Peso con dato: '+Math.round(c)+'%"'; };
     html += '<tr class="okr-total"><td>Total</td><td></td>';
     if (_okrMonthly) {
       d.totalMonthly.forEach(function(v, mi) {
         var qBorder = (mi % 3 === 0) ? ' td-q' : '';
-        html += '<td class="'+qBorder+'">'+fmtOKR(v)+'</td>';
+        html += '<td class="'+qBorder+'"'+covTip(d.covMonthly && d.covMonthly[mi])+'>'+fmtOKR(v)+'</td>';
       });
-      d.totalQuarterly.forEach(function(v) { html += '<td class="td-q">'+fmtOKR(v)+'</td>'; });
-      html += '<td class="td-q">'+fmtOKR(d.halfTotal)+'</td>';
+      d.totalQuarterly.forEach(function(v, qi) { html += '<td class="td-q"'+covTip(d.covQuarterly && d.covQuarterly[qi])+'>'+fmtOKR(v)+'</td>'; });
+      html += '<td class="td-q"'+covTip(d.halfCov)+'>'+fmtOKR(d.halfTotal)+'</td>';
     } else {
-      d.totalQuarterly.forEach(function(v) { html += '<td class="td-q">'+fmtOKR(v)+'</td>'; });
-      html += '<td class="td-q">'+fmtOKR(d.halfTotal)+'</td>';
+      d.totalQuarterly.forEach(function(v, qi) { html += '<td class="td-q"'+covTip(d.covQuarterly && d.covQuarterly[qi])+'>'+fmtOKR(v)+'</td>'; });
+      html += '<td class="td-q"'+covTip(d.halfCov)+'>'+fmtOKR(d.halfTotal)+'</td>';
     }
     html += '</tr></tbody></table></div>';
   });
@@ -4549,28 +4560,18 @@ function onErr(e){ document.getElementById('loader').innerHTML='<p style="color:
 // ══════════════════════════════════════════════════════════
 var _brasilState = { b2bData: null, b2b2cData: null, allData: null };
 
-// Todos los períodos disponibles: FY27 = Abr 2026 – Mar 2027
+// Todos los períodos disponibles del FY (FY_MONTHS: abr → mar)
 var CTRY_PERIODS = [
-  { id:'FY',  label:'FY27', desde:'2026-04', hasta:'2027-03', row:1 },
-  { id:'H1',  label:'H1',   desde:'2026-04', hasta:'2026-09', row:1 },
-  { id:'H2',  label:'H2',   desde:'2026-10', hasta:'2027-03', row:1 },
-  { id:'Q1',  label:'Q1',   desde:'2026-04', hasta:'2026-06', row:1 },
-  { id:'Q2',  label:'Q2',   desde:'2026-07', hasta:'2026-09', row:1 },
-  { id:'Q3',  label:'Q3',   desde:'2026-10', hasta:'2026-12', row:1 },
-  { id:'Q4',  label:'Q4',   desde:'2027-01', hasta:'2027-03', row:1 },
-  { id:'Apr', label:'Abr',  desde:'2026-04', hasta:'2026-04', row:2 },
-  { id:'May', label:'May',  desde:'2026-05', hasta:'2026-05', row:2 },
-  { id:'Jun', label:'Jun',  desde:'2026-06', hasta:'2026-06', row:2 },
-  { id:'Jul', label:'Jul',  desde:'2026-07', hasta:'2026-07', row:2 },
-  { id:'Aug', label:'Ago',  desde:'2026-08', hasta:'2026-08', row:2 },
-  { id:'Sep', label:'Sep',  desde:'2026-09', hasta:'2026-09', row:2 },
-  { id:'Oct', label:'Oct',  desde:'2026-10', hasta:'2026-10', row:2 },
-  { id:'Nov', label:'Nov',  desde:'2026-11', hasta:'2026-11', row:2 },
-  { id:'Dec', label:'Dic',  desde:'2026-12', hasta:'2026-12', row:2 },
-  { id:'Jan', label:'Ene',  desde:'2027-01', hasta:'2027-01', row:2 },
-  { id:'Feb', label:'Feb',  desde:'2027-02', hasta:'2027-02', row:2 },
-  { id:'Mar', label:'Mar',  desde:'2027-03', hasta:'2027-03', row:2 }
-];
+  { id:'FY',  label:FY_TAG, desde:FY_MONTHS[0], hasta:FY_MONTHS[11], row:1 },
+  { id:'H1',  label:'H1',   desde:FY_MONTHS[0], hasta:FY_MONTHS[5],  row:1 },
+  { id:'H2',  label:'H2',   desde:FY_MONTHS[6], hasta:FY_MONTHS[11], row:1 },
+  { id:'Q1',  label:'Q1',   desde:FY_MONTHS[0], hasta:FY_MONTHS[2],  row:1 },
+  { id:'Q2',  label:'Q2',   desde:FY_MONTHS[3], hasta:FY_MONTHS[5],  row:1 },
+  { id:'Q3',  label:'Q3',   desde:FY_MONTHS[6], hasta:FY_MONTHS[8],  row:1 },
+  { id:'Q4',  label:'Q4',   desde:FY_MONTHS[9], hasta:FY_MONTHS[11], row:1 }
+].concat([['Apr','Abr'],['May','May'],['Jun','Jun'],['Jul','Jul'],['Aug','Ago'],['Sep','Sep'],
+          ['Oct','Oct'],['Nov','Nov'],['Dec','Dic'],['Jan','Ene'],['Feb','Feb'],['Mar','Mar']]
+  .map(function(p, i){ return { id:p[0], label:p[1], desde:FY_MONTHS[i], hasta:FY_MONTHS[i], row:2 }; }));
 
 // Fila 1: Todos / Brasil / Mexico / Argentina / Globales
 // Fila 2: Colombia / Chile / Perú / Ecuador / RG
@@ -4604,7 +4605,7 @@ var _ctryGranState        = 'M';
 function _initBrasilFilters_() {
   // Período default: el quarter que contiene el último mes con actuals
   if (!_brasilPeriodState) {
-    var def = _defaultPeriod || '2026-06';
+    var def = _defaultPeriod || FY_MONTHS[2];   // fallback: fin de Q1
     _brasilPeriodState = CTRY_PERIODS[3]; // Q1 fallback
     for (var i = 0; i < CTRY_PERIODS.length; i++) {
       var p = CTRY_PERIODS[i];
@@ -5315,14 +5316,14 @@ var MKT_MON_LABELS = (function(){
 
 function mktGroups(gran) {
   if (gran === 'Q') return [
-    { label:'Q1 FY27', months:['2026-04','2026-05','2026-06'] },
-    { label:'Q2 FY27', months:['2026-07','2026-08','2026-09'] },
-    { label:'Q3 FY27', months:['2026-10','2026-11','2026-12'] },
-    { label:'Q4 FY27', months:['2027-01','2027-02','2027-03'] }
+    { label:'Q1 ' + FY_TAG, months:FY_MONTHS.slice(0, 3) },
+    { label:'Q2 ' + FY_TAG, months:FY_MONTHS.slice(3, 6) },
+    { label:'Q3 ' + FY_TAG, months:FY_MONTHS.slice(6, 9) },
+    { label:'Q4 ' + FY_TAG, months:FY_MONTHS.slice(9, 12) }
   ];
   if (gran === 'H') return [
-    { label:'H1 FY27', months:['2026-04','2026-05','2026-06','2026-07','2026-08','2026-09'] },
-    { label:'H2 FY27', months:['2026-10','2026-11','2026-12','2027-01','2027-02','2027-03'] }
+    { label:'H1 ' + FY_TAG, months:FY_MONTHS.slice(0, 6) },
+    { label:'H2 ' + FY_TAG, months:FY_MONTHS.slice(6, 12) }
   ];
   return MKT_MON_LABELS.map(function(ym) {
     var p = ym.split('-');
@@ -5644,7 +5645,7 @@ function demoEvo(p) {
 </script>
 
 <!-- ══════════════════════════════════════════════════════════
-     TOQAN AI CHAT WIDGET — CSS
+     Botones "Consultar <agente>" (links a Toqan en otra pestaña) — CSS
      ══════════════════════════════════════════════════════════ -->
 <style>
 /* Header AI toggle button */
@@ -5661,285 +5662,8 @@ function demoEvo(p) {
 /* Links de agentes en el header: lado a lado y compactos */
 #ai-links .btn-ai-toggle{width:auto;padding:6px 12px;font-size:11px;font-weight:700;border-radius:8px;box-shadow:0 0 10px rgba(123,45,190,.35);animation:none;white-space:nowrap}
 @keyframes pulse-ai{0%,100%{box-shadow:0 0 18px rgba(123,45,190,.55)}50%{box-shadow:0 0 32px rgba(123,45,190,.9)}}
-.btn-ai-toggle .fab-badge{
-  position:absolute;top:-4px;right:-4px;
-  background:#cf222e;color:#fff;font-size:10px;font-weight:700;
-  border-radius:50%;width:17px;height:17px;display:none;
-  align-items:center;justify-content:center;
-}
-/* Right-side drawer */
-#ai-panel{
-  position:fixed;top:0;right:-440px;z-index:9001;
-  width:420px;height:100vh;
-  background:var(--navy);border-left:1px solid rgba(123,45,190,.35);
-  box-shadow:-8px 0 40px rgba(0,0,0,.35);
-  display:flex;flex-direction:column;overflow:hidden;
-  font-family:-apple-system,'Segoe UI',sans-serif;
-  transition:right .3s cubic-bezier(.4,0,.2,1);
-}
-#ai-panel.open{right:0}
-.ai-header{
-  background:linear-gradient(135deg,var(--navy2),var(--navy3));
-  padding:14px 16px;display:flex;align-items:center;gap:10px;
-  border-bottom:1px solid rgba(255,255,255,.08);
-}
-.ai-header-icon{
-  width:36px;height:36px;border-radius:50%;
-  background:linear-gradient(135deg,var(--desp-purple),var(--accent2));
-  display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;
-}
-.ai-header-info{flex:1;min-width:0}
-.ai-header-info h3{color:#fff;font-size:13px;font-weight:700;margin:0}
-.ai-header-info p{color:rgba(255,255,255,.45);font-size:11px;margin:0}
-.ai-agent-toggle{display:flex;border-radius:6px;overflow:hidden;border:1px solid rgba(255,255,255,.15);flex-shrink:0}
-.ai-agent-btn{
-  background:rgba(255,255,255,.07);color:rgba(255,255,255,.55);
-  border:none;padding:4px 10px;cursor:pointer;font-size:10px;font-weight:700;
-  text-transform:uppercase;letter-spacing:.04em;transition:all .15s;
-}
-.ai-agent-btn.active{background:var(--desp-purple);color:#fff}
-.ai-close{
-  background:rgba(255,255,255,.08);border:none;color:rgba(255,255,255,.5);
-  width:28px;height:28px;border-radius:6px;cursor:pointer;font-size:16px;
-  display:flex;align-items:center;justify-content:center;flex-shrink:0;
-}
-.ai-close:hover{background:rgba(255,255,255,.15);color:#fff}
-.ai-messages{
-  flex:1;overflow-y:auto;padding:14px 14px 8px;
-  display:flex;flex-direction:column;gap:10px;
-  scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.15) transparent;
-}
-.ai-msg{max-width:88%;display:flex;flex-direction:column;gap:3px}
-.ai-msg.user{align-self:flex-end;align-items:flex-end}
-.ai-msg.bot{align-self:flex-start;align-items:flex-start}
-.ai-bubble{
-  padding:9px 13px;border-radius:12px;font-size:12.5px;line-height:1.55;word-break:break-word;
-}
-.ai-msg.user .ai-bubble{background:var(--desp-purple);color:#fff;border-radius:12px 12px 4px 12px}
-.ai-msg.bot  .ai-bubble{background:rgba(255,255,255,.08);color:rgba(255,255,255,.9);border-radius:12px 12px 12px 4px}
-.ai-meta{font-size:10px;color:rgba(255,255,255,.3);padding:0 4px}
-.ai-typing .ai-bubble{display:flex;align-items:center;gap:5px;padding:11px 16px}
-.ai-typing .dot{
-  width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.4);
-  animation:ai-bounce .9s infinite ease-in-out;
-}
-.ai-typing .dot:nth-child(2){animation-delay:.18s}
-.ai-typing .dot:nth-child(3){animation-delay:.36s}
-@keyframes ai-bounce{0%,80%,100%{transform:scale(.7)}40%{transform:scale(1)}}
-.ai-actions{padding:8px 14px;display:flex;gap:6px;flex-wrap:wrap;border-top:1px solid rgba(255,255,255,.06)}
-.ai-pill{
-  background:rgba(123,45,190,.2);border:1px solid rgba(123,45,190,.35);
-  color:rgba(255,255,255,.75);border-radius:20px;padding:4px 12px;
-  font-size:11px;cursor:pointer;transition:all .15s;white-space:nowrap;
-}
-.ai-pill:hover{background:rgba(123,45,190,.4);color:#fff}
-.ai-input-area{
-  padding:10px 14px 14px;border-top:1px solid rgba(255,255,255,.06);
-  display:flex;gap:8px;align-items:flex-end;
-}
-.ai-input-area textarea{
-  flex:1;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);
-  border-radius:10px;color:#fff;padding:8px 12px;font-size:12.5px;
-  resize:none;max-height:100px;min-height:38px;
-  font-family:inherit;line-height:1.45;outline:none;transition:border-color .15s;
-}
-.ai-input-area textarea:focus{border-color:rgba(123,45,190,.6)}
-.ai-input-area textarea::placeholder{color:rgba(255,255,255,.3)}
-.ai-send{
-  background:var(--desp-purple);border:none;color:#fff;
-  width:36px;height:36px;border-radius:10px;cursor:pointer;font-size:16px;
-  display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s;
-}
-.ai-send:hover{background:var(--accent2)}
-.ai-send:disabled{background:rgba(255,255,255,.1);cursor:not-allowed}
 </style>
-
-<!-- Chat panel (right-side drawer) -->
-<div id="ai-panel">
-  <div class="ai-header">
-    <div class="ai-header-icon">🤖</div>
-    <div class="ai-header-info">
-      <h3>Agentes de IA</h3>
-      <p id="ai-agent-label">Bitubia · listo</p>
-    </div>
-    <div class="ai-agent-toggle">
-      <button class="ai-agent-btn active" id="btn-bitubia"   onclick="switchAgent('bitubia')">Bitubia</button>
-      <button class="ai-agent-btn"        id="btn-bitubee"   onclick="switchAgent('bitubee')">Bitubee</button>
-      <button class="ai-agent-btn"        id="btn-bitubicia" onclick="switchAgent('bitubicia')">Bitubicia</button>
-    </div>
-    <button class="ai-close" onclick="toggleAiPanel()">✕</button>
-  </div>
-  <div class="ai-messages" id="ai-messages">
-    <div class="ai-msg bot">
-      <div class="ai-bubble">Hola! Soy tu agente de análisis del P&amp;L. Puedo responder preguntas sobre los datos del dashboard o generar un análisis completo del período. Usá las acciones rápidas o escribime tu consulta.</div>
-      <div class="ai-meta">Bitubia · ahora</div>
-    </div>
-  </div>
-  <div class="ai-actions">
-    <button class="ai-pill" onclick="aiQuickAction('analisis')">📊 Análisis del período</button>
-    <button class="ai-pill" onclick="aiQuickAction('desvios')">⚠️ Desvíos vs Budget</button>
-    <button class="ai-pill" onclick="aiQuickAction('yoy')">📈 Tendencia YoY</button>
-  </div>
-  <div class="ai-input-area">
-    <textarea id="ai-input" placeholder="Escribí tu pregunta sobre el P&L…" rows="1"
-      onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendAiMessage()}"
-      oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px'"></textarea>
-    <button class="ai-send" id="ai-send-btn" onclick="sendAiMessage()" title="Enviar">&#10148;</button>
-  </div>
-</div>
-
 <script>
-// ══════════════════════════════════════════════════════════
-//  TOQAN AI CHAT — lógica frontend
-// ══════════════════════════════════════════════════════════
-var _ai = {
-  open: false, agent: 'bitubia',
-  conversationId: null, requestId: null,
-  polling: false, pollTimer: null, unread: 0
-};
-
-function toggleAiPanel() {
-  _ai.open = !_ai.open;
-  document.getElementById('ai-panel').classList.toggle('open', _ai.open);
-  document.getElementById('btn-ai-toggle').style.background =
-    _ai.open ? 'var(--desp-purple)' : 'linear-gradient(135deg,var(--desp-purple),var(--accent2))';
-  if (_ai.open) {
-    _ai.unread = 0;
-    var badge = document.getElementById('ai-badge');
-    badge.style.display = 'none'; badge.textContent = '';
-    setTimeout(function(){ document.getElementById('ai-input').focus(); }, 80);
-    scrollAiToBottom();
-  }
-}
-
-function switchAgent(agent) {
-  if (_ai.polling) return;
-  _ai.agent = agent; _ai.conversationId = null;
-  document.getElementById('btn-bitubia').classList.toggle('active', agent === 'bitubia');
-  document.getElementById('btn-bitubee').classList.toggle('active', agent === 'bitubee');
-  document.getElementById('btn-bitubicia').classList.toggle('active', agent === 'bitubicia');
-  var name = agent === 'bitubee' ? 'Bitubee' : agent === 'bitubicia' ? 'Bitubicia' : 'Bitubia';
-  document.getElementById('ai-agent-label').textContent = name + ' · listo';
-  aiAddMsg('bot', 'Cambié al agente ' + name + '. ¿En qué te ayudo?', agent);
-}
-
-function aiQuickAction(type) {
-  var msgs = {
-    analisis: 'Generá un análisis ejecutivo completo del período actual con los filtros activos.',
-    desvios:  '¿Cuáles son los principales desvíos vs Budget en el período actual? ¿Qué región o línea los explica?',
-    yoy:      '¿Cómo es la tendencia YoY del período? ¿Qué métricas o regiones muestran mayor variación?'
-  };
-  document.getElementById('ai-input').value = msgs[type] || type;
-  sendAiMessage();
-}
-
-function sendAiMessage() {
-  if (_ai.polling) return;
-  var input = document.getElementById('ai-input');
-  var msg = input.value.trim();
-  if (!msg) return;
-  input.value = ''; input.style.height = 'auto';
-  aiAddMsg('user', msg);
-  aiSetSending(true);
-
-  var reqParams = {
-    message:         msg,
-    conversationId:  _ai.conversationId,
-    agent:           _ai.agent,
-    dashboardParams: _ai.conversationId ? null : getParams()
-  };
-
-  if (IS_DEMO) {
-    var t = aiAddTyping();
-    setTimeout(function(){
-      t.remove();
-      aiAddMsg('bot', '[Demo] Acá aparecería el análisis del agente Toqan sobre los datos del P&L.', _ai.agent);
-      aiSetSending(false);
-    }, 1800);
-    return;
-  }
-
-  google.script.run
-    .withSuccessHandler(function(res) {
-      if (!res.success) { aiSetSending(false); aiAddMsg('bot', '❌ ' + (res.error||'error'), _ai.agent); return; }
-      _ai.conversationId = res.conversationId;
-      _ai.requestId      = res.requestId;
-      startAiPolling();
-    })
-    .withFailureHandler(function(e) { aiSetSending(false); aiAddMsg('bot', '❌ ' + (e.message||e), _ai.agent); })
-    .pnlStartChat(reqParams);
-}
-
-function startAiPolling() {
-  _ai.polling = true;
-  var typing = aiAddTyping();
-  var attempts = 0;
-
-  function poll() {
-    if (!_ai.polling) return;
-    if (++attempts > 40) {
-      typing.remove(); aiSetSending(false);
-      aiAddMsg('bot', '⏱️ El agente tardó demasiado. Intentá de nuevo.', _ai.agent);
-      return;
-    }
-    google.script.run
-      .withSuccessHandler(function(res) {
-        if (!res.success || res.status === 'error') {
-          typing.remove(); aiSetSending(false);
-          aiAddMsg('bot', '❌ ' + (res.error||'error del agente'), _ai.agent);
-          return;
-        }
-        if (res.status === 'finished') {
-          typing.remove(); aiSetSending(false);
-          aiAddMsg('bot', res.answer || '(sin respuesta)', _ai.agent);
-          if (!_ai.open) {
-            _ai.unread++;
-            var badge = document.getElementById('ai-badge');
-            badge.style.display = 'flex';
-            badge.textContent = _ai.unread > 9 ? '9+' : String(_ai.unread);
-          }
-        } else {
-          _ai.pollTimer = setTimeout(poll, 3000);
-        }
-      })
-      .withFailureHandler(function(e) { typing.remove(); aiSetSending(false); aiAddMsg('bot', '❌ ' + (e.message||e), _ai.agent); })
-      .pnlGetAnswer({ conversationId: _ai.conversationId, requestId: _ai.requestId, agent: _ai.agent });
-  }
-  _ai.pollTimer = setTimeout(poll, 3000);
-}
-
-function aiAddMsg(role, text, agent) {
-  var el = document.getElementById('ai-messages');
-  var now = new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
-  var agentName = agent === 'bitubee' ? 'Bitubee' : agent === 'bitubicia' ? 'Bitubicia' : 'Bitubia';
-  var meta = role === 'user' ? 'Vos · ' + now : agentName + ' · ' + now;
-  var div = document.createElement('div');
-  div.className = 'ai-msg ' + role;
-  div.innerHTML = '<div class="ai-bubble">' + aiEsc(text) + '</div><div class="ai-meta">' + meta + '</div>';
-  el.appendChild(div); scrollAiToBottom();
-  return div;
-}
-
-function aiAddTyping() {
-  var el = document.getElementById('ai-messages');
-  var div = document.createElement('div');
-  div.className = 'ai-msg bot ai-typing';
-  div.innerHTML = '<div class="ai-bubble"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>';
-  el.appendChild(div); scrollAiToBottom();
-  return div;
-}
-
-function aiSetSending(s) {
-  _ai.polling = s;
-  document.getElementById('ai-send-btn').disabled = s;
-  document.getElementById('ai-input').disabled     = s;
-  var name = _ai.agent === 'bitubee' ? 'Bitubee' : 'Bitubia';
-  document.getElementById('ai-agent-label').textContent = name + (s ? ' · pensando…' : ' · listo');
-}
-
-function scrollAiToBottom() { var el=document.getElementById('ai-messages'); if(el) el.scrollTop=el.scrollHeight; }
-function aiEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>'); }
-
 // ══════════════════════════════════════════════════════════
 //  FIXED COST TAB
 // ══════════════════════════════════════════════════════════
@@ -6728,10 +6452,10 @@ var CIERRE_ACTIVE_SCOPES = [
 
 // Meses disponibles para el cierre: desde Abr hasta el último con actuals, más reciente primero.
 function _cierreMonthsAvailable(){
-  var end = (_defaultPeriod && FY26_MONTHS.indexOf(_defaultPeriod) >= 0)
-    ? FY26_MONTHS.indexOf(_defaultPeriod) : FY26_MONTHS.length - 1;
+  var end = (_defaultPeriod && FY_MONTHS.indexOf(_defaultPeriod) >= 0)
+    ? FY_MONTHS.indexOf(_defaultPeriod) : FY_MONTHS.length - 1;
   var out = [];
-  for (var i = end; i >= 0; i--) out.push(FY26_MONTHS[i]);
+  for (var i = end; i >= 0; i--) out.push(FY_MONTHS[i]);
   return out;
 }
 function _cierreMonthLong(ym){
@@ -6842,7 +6566,7 @@ function _cierreOkrHTML_(okrAll, lobKey){
   if (!okrAll) return noData;
   var selEl = document.getElementById('cierre-mes-sel');
   var mes   = selEl ? selEl.value : '';                       // 'YYYY-MM'
-  var half  = (mes && mes < '2026-10') ? 'H1' : 'H2';         // FY27: H1 = abr-sep 2026, H2 = oct-26 → mar-27
+  var half  = (mes && mes < FY_MONTHS[6]) ? 'H1' : 'H2';       // H1 = abr-sep, H2 = oct → mar
   var okr   = okrAll[half] || okrAll[half === 'H1' ? 'H2' : 'H1'];
   if (!okr) return noData;
   var savedLob = _state.lob, savedMonthly = _okrMonthly, savedHalf = _okrHalf;
@@ -6875,7 +6599,7 @@ function openCierreSlides(){
   var selEl  = document.getElementById('cierre-mes-sel');
   var months = _cierreMonthsAvailable();
   var sel    = (_state.selectedPeriods||[]).slice().sort();
-  var refMonth = sel.length ? sel[sel.length-1] : (_defaultPeriod || months[0] || FY26_MONTHS[0]);
+  var refMonth = sel.length ? sel[sel.length-1] : (_defaultPeriod || months[0] || FY_MONTHS[0]);
   if (months.indexOf(refMonth) < 0) refMonth = months[0] || refMonth;
   selEl.innerHTML = months.map(function(ym){
     return '<option value="'+ym+'"'+(ym===refMonth?' selected':'')+'>'+_cierreMonthLong(ym)+'</option>';
@@ -6896,7 +6620,7 @@ function _cierreGenerate(){
   var body  = document.getElementById('cierre-body');
   body.innerHTML = '<div class="cierre-loading">⏳ Generando slides del cierre…</div>';
 
-  var refMonth = (selEl && selEl.value) ? selEl.value : (_defaultPeriod || FY26_MONTHS[0]);
+  var refMonth = (selEl && selEl.value) ? selEl.value : (_defaultPeriod || FY_MONTHS[0]);
   var mesLbl  = _cierreMonthShort(refMonth);
   var fyLbl   = _cierreFYLabel(refMonth);   // usado en _cierreLastPayload (título del deck exportado)
   var baselineSrc = _state.baselineSource || 'baseline';

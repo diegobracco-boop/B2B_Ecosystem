@@ -20,6 +20,7 @@ import base64
 import time
 from pathlib import Path
 import warnings
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta, datetime
 
 import pandas as pd
@@ -34,16 +35,24 @@ warnings.filterwarnings("ignore")
 _win_user  = os.environ.get("USERNAME", "").lower()
 RUTA_ENV   = Path(__file__).resolve().parent.parent / "credenciales" / f".env.{_win_user}"
 DSN_NAME   = "DataLake Treasure ODBC"
+FETCH_WORKERS = 6   # queries simultáneas contra el Datalake
 
 DRIVE_FOLDER_ID   = "1lWzfqweyV6Kz1ERkL85ikFcmzmKwGwwh"
 JSON_FILE_NAME    = "daily_b2b2c_data.json"
 B2B_JSON_FILE_NAME = "daily_b2b_data.json"
 
+# Salida de Proceso_Distribucion_Diaria/distribucion_diaria.py --escenario forecast (ver /distribucion-diaria).
+# Path.home() en vez de hardcodear el usuario: la carpeta "B2B & WLs" es una biblioteca de OneDrive
+# compartida por el equipo, sincronizada en la misma ruta relativa para cualquiera que la tenga montada.
+# ACTUALIZAR la subcarpeta con fecha ("2026.07.14") cuando arranque una ronda de Forecast nueva.
+FORECAST_DIARIO_FOLDER = (
+    Path.home() / "OneDrive - despegar365" / "Control de Gestión - 2026-27" / "B2B & WLs"
+    / "Forecast" / "2026.07.14" / "Distribucion Diaria"
+)
+
 MANAGERIAL_DRIVE_FOLDER_ID = "16Bnx1bb5M1so0n5-IB8WEUUUz9cNAWVE"
 GD_JSON_NAME  = "pnl_managerial_GD_2026.json"
 GD_FROM       = date(2026, 1, 1)
-RI_H1_FROM    = date(2026, 4, 1)
-RI_H2_FROM    = date(2026, 10, 1)
 
 # Fechas — historial desde ene del año en curso
 TODAY            = date.today()
@@ -70,12 +79,29 @@ MESES_ES = {
 YEAR_BUDGET      = TODAY.strftime("%y")                          # '26'
 YEAR_BUDGET_NEXT = str((TODAY.year + 1) % 100).zfill(2)         # '27'
 
-if TODAY.month < 10:
-    RI_JSON_NAME = "pnl_managerial_ri_abr26_sep26_h127.json"
-    RI_FROM      = RI_H1_FROM
-else:
-    RI_JSON_NAME = "pnl_managerial_ri_sep26_mar27_h227.json"
-    RI_FROM      = RI_H2_FROM
+# P&L Managerial RI: un JSON por semestre fiscal (H1 = abr–sep, H2 = oct–mar). El semestre
+# se define por YESTERDAY (último día con datos), no por TODAY: así la corrida del 1-oct
+# completa H1 con el 30-sep (antes se perdía) y enero–marzo sigue yendo a H2 (antes volvía
+# a elegir H1 y pisaba el archivo del semestre cerrado). Fix 2026-09-25 (auditoría).
+def _ri_half(d):
+    """(inicio del semestre fiscal que contiene d, 1|2, año fiscal FYxx)."""
+    if 4 <= d.month <= 9:
+        return date(d.year, 4, 1), 1, (d.year + 1) % 100
+    y0 = d.year if d.month >= 10 else d.year - 1
+    return date(y0, 10, 1), 2, (y0 + 1) % 100
+
+def _ri_json_name(start, half, fy):
+    # Nombres ya publicados (los lee un consumidor fuera de este repo): se mantienen tal cual.
+    legacy = {(2026, 1): "pnl_managerial_ri_abr26_sep26_h127.json",
+              (2026, 2): "pnl_managerial_ri_sep26_mar27_h227.json"}
+    if (start.year, half) in legacy:
+        return legacy[(start.year, half)]
+    y1, y2 = start.year % 100, (start.year + (0 if half == 1 else 1)) % 100
+    return (f"pnl_managerial_ri_abr{y1:02d}_sep{y1:02d}_h1{fy:02d}.json" if half == 1
+            else f"pnl_managerial_ri_oct{y1:02d}_mar{y2:02d}_h2{fy:02d}.json")
+
+RI_FROM, _RI_HALF, _RI_FY = _ri_half(YESTERDAY)
+RI_JSON_NAME = _ri_json_name(RI_FROM, _RI_HALF, _RI_FY)
 
 print(f"[{TODAY}]  Actuals: {ACTUALS_FROM}->{YESTERDAY}  |  LY: {LY_FROM}->{LY_TO}  |  Budget FY: {YEAR_BUDGET}/{YEAR_BUDGET_NEXT}")
 
@@ -1760,6 +1786,7 @@ def fetch(query: str, label: str, retries: int = 3) -> pd.DataFrame:
     data from the peer', fallos de SSL handshake — todos intermitentes, no
     reproducibles con la misma query/conexion; una conexion nueva los resuelve)."""
     print(f"  > {label} ...")
+    t0 = time.monotonic()
     last_err = None
     for attempt in range(1, retries + 1):
         try:
@@ -1768,7 +1795,8 @@ def fetch(query: str, label: str, retries: int = 3) -> pd.DataFrame:
                 df = pd.read_sql(query, con)
             finally:
                 con.close()
-            print(f"  OK {len(df):,} filas" + (f" (intento {attempt})" if attempt > 1 else ""))
+            print(f"  OK {label}: {len(df):,} filas en {time.monotonic() - t0:.0f}s"
+                  + (f" (intento {attempt})" if attempt > 1 else ""))
             return df
         except Exception as e:
             last_err = e
@@ -1941,6 +1969,44 @@ def agg_b2b_budget(df: pd.DataFrame) -> pd.DataFrame:
     ).round({"gross_bookings": 2, "net_revenue": 2, "fvm": 2})
 
 
+def _load_forecast_diario(base: str) -> pd.DataFrame:
+    """Lee forecast_diario_<gd|ri>.csv (salida de Proceso_Distribucion_Diaria, ver
+    /distribucion-diaria) desde FORECAST_DIARIO_FOLDER. Archivo manual, no vive en el
+    Datalake: si falta o la ronda de Forecast todavia no corrio, no rompe la corrida
+    (el Daily se queda sin ese Goal ese dia, en vez de abortar todo)."""
+    path = FORECAST_DIARIO_FOLDER / f"forecast_diario_{base.lower()}.csv"
+    if not path.exists():
+        print(f"  AVISO: no encontré {path.name} en {FORECAST_DIARIO_FOLDER} — Forecast queda vacío")
+        return pd.DataFrame()
+    return pd.read_csv(path, usecols=["fecha", "lob_canal", "pais", "producto", "partner",
+                                       "orders", "gross_bookings", "net_revenue", "fvm"])
+
+
+def agg_forecast_b2bc(df: pd.DataFrame) -> pd.DataFrame:
+    """B2B2C: mismo grano que agg_budget (fecha, pais, producto, partner). GD y RI dan
+    el mismo B2B2C (mismo modelo/factores), así que alcanza con una sola base."""
+    if df.empty:
+        return df
+    d = df[df["lob_canal"].str.startswith("B2B2C")]
+    return d.groupby(["fecha", "pais", "producto", "partner"], as_index=False).agg(
+        orders=("orders", "sum"), gross_bookings=("gross_bookings", "sum"),
+        net_revenue=("net_revenue", "sum"), fvm=("fvm", "sum"),
+    ).round({"gross_bookings": 2, "net_revenue": 2, "fvm": 2})
+
+
+def agg_forecast_b2b(df: pd.DataFrame) -> pd.DataFrame:
+    """B2B (MAY+MIN combinados): mismo grano y mapeo de canal que agg_b2b_budget
+    (fecha, pais, parent_channel, producto — sin partner)."""
+    if df.empty:
+        return df
+    d = df[df["lob_canal"].isin(["B2B-MAY", "B2B-MIN"])].copy()
+    d["parent_channel"] = d["lob_canal"].map({"B2B-MAY": "API", "B2B-MIN": "Agencias afiliadas"})
+    return d.groupby(["fecha", "pais", "parent_channel", "producto"], as_index=False).agg(
+        orders=("orders", "sum"), gross_bookings=("gross_bookings", "sum"),
+        net_revenue=("net_revenue", "sum"), fvm=("fvm", "sum"),
+    ).round({"gross_bookings": 2, "net_revenue": 2, "fvm": 2})
+
+
 # Partners que el equipo cuenta como "New / onboarding" aunque la cartera de
 # ComDev no los marque asi (nombre distinto, alta reciente sin actualizar, etc.).
 # Se fuerza a New en TODAS las fuentes: actuals, LY y proyecciones (budget/runrate).
@@ -1953,16 +2019,54 @@ def _apply_force_new(df: pd.DataFrame) -> None:
     df.loc[m, "account_type"] = "New"
 
 
+# Bloques de datos cuya query falló después de los reintentos de fetch(). Si hay alguno,
+# NO se sube nada (decisión de Diego 2026-09-25, auditoría): quedan en Drive los JSON del
+# día anterior completos, en vez de pisar un bloque bueno con uno vacío. La corrida sale con
+# código 1, así auto_update_reales.ps1 también corta antes de deployar.
+_FAILED_BLOCKS = []
+
 print(f"\n--- Actuals FY{YEAR_BUDGET} ---")
-df_actuals = clean_actuals(fetch(build_actuals_query(ACTUALS_FROM, YESTERDAY), "Actuals"))
+# Debe quedar DESPUÉS del print de arriba: reales.py ejecuta este archivo solo hasta ese print.
+# Las queries son independientes: van todas en paralelo y cada bloque toma la suya con fetched().
+_QUERIES = {
+    "P&L Managerial GD": build_pnl_managerial_gd_query(GD_FROM, YESTERDAY),
+    "P&L Managerial RI": build_pnl_managerial_ri_query(RI_FROM, YESTERDAY),
+    "Actuals":           build_actuals_query(ACTUALS_FROM, YESTERDAY),
+    "LY":                build_actuals_query(LY_FROM, LY_TO),
+    "B2B GD actuals":    build_b2b_gd_query(ACTUALS_FROM, YESTERDAY),
+    "B2B GD LY":         build_b2b_gd_query(LY_FROM, LY_TO),
+    "B2B RI actuals":    build_b2b_ri_query(ACTUALS_FROM, YESTERDAY),
+    "B2B RI LY":         build_b2b_ri_query(LY_FROM, LY_TO),
+    "B2C":               build_b2c_query(ACTUALS_FROM, YESTERDAY),
+    "B2C LY":            build_b2c_query(LY_FROM, LY_TO),
+    "Budget":            BUDGET_QUERY,
+    "Cartera":           CARTERA_QUERY,
+    "lob_canal values":  LOB_CANAL_DIAG_QUERY,
+    "B2B Budget GD":     B2B_BUDGET_GD_QUERY,
+    "B2B Budget RI":     B2B_BUDGET_RI_QUERY,
+    "B2B2C Run Rate":    B2B2C_RR_QUERY,
+    "B2B Run Rate GD":   B2B_RR_GD_QUERY,
+    "B2B Run Rate RI":   B2B_RR_RI_QUERY,
+}
+print(f"  Lanzando {len(_QUERIES)} queries ({FETCH_WORKERS} en paralelo)...")
+_pool = ThreadPoolExecutor(max_workers=FETCH_WORKERS)
+_jobs = {label: _pool.submit(fetch, q, label) for label, q in _QUERIES.items()}
+_pool.shutdown(wait=False)
+
+
+def fetched(label: str) -> pd.DataFrame:
+    return _jobs[label].result()
+
+
+df_actuals = clean_actuals(fetched("Actuals"))
 _apply_force_new(df_actuals)
 
 print(f"\n--- Actuals LY (FY{str((TODAY.year - 1) % 100).zfill(2)}) ---")
-df_ly = clean_actuals(fetch(build_actuals_query(LY_FROM, LY_TO), "LY"))
+df_ly = clean_actuals(fetched("LY"))
 _apply_force_new(df_ly)
 
 print("\n--- Budget ---")
-df_budget = clean_budget(fetch(BUDGET_QUERY, "Budget"))
+df_budget = clean_budget(fetched("Budget"))
 
 def _map_stage(partner_series: pd.Series, cmap: dict) -> pd.Series:
     """Clasifica New/Existing joineando por nombre de partner NORMALIZADO
@@ -1983,7 +2087,7 @@ print("\n--- Cartera (stage/tier para budget) ---")
 cartera_map = {}
 tier_map = {}
 try:
-    df_cartera = fetch(CARTERA_QUERY, "Cartera")
+    df_cartera = fetched("Cartera")
     cartera_map = {
         str(k).strip().lower(): v
         for k, v in zip(df_cartera["partner_homologado_2"], df_cartera["stage"])
@@ -2000,20 +2104,21 @@ try:
     print(f"  Hunting: {(df_budget['stage']=='Existing').sum():,} filas | Farming: {(df_budget['stage']=='New').sum():,} filas")
 except Exception as e:
     print(f"  WARN cartera query failed: {e}")
+    _FAILED_BLOCKS.append('Cartera (stage/tier)')
     df_budget["stage"] = "Existing"
     df_budget["tier"]  = "Unknown"
 
 print("\n--- B2B GD ---")
-df_b2b_gd    = clean_b2b(fetch(build_b2b_gd_query(ACTUALS_FROM, YESTERDAY), "B2B GD actuals"))
-df_b2b_gd_ly = clean_b2b(fetch(build_b2b_gd_query(LY_FROM, LY_TO),          "B2B GD LY"))
+df_b2b_gd    = clean_b2b(fetched("B2B GD actuals"))
+df_b2b_gd_ly = clean_b2b(fetched("B2B GD LY"))
 
 print("\n--- B2B RI ---")
-df_b2b_ri    = clean_b2b(fetch(build_b2b_ri_query(ACTUALS_FROM, YESTERDAY), "B2B RI actuals"))
-df_b2b_ri_ly = clean_b2b(fetch(build_b2b_ri_query(LY_FROM, LY_TO),          "B2B RI LY"))
+df_b2b_ri    = clean_b2b(fetched("B2B RI actuals"))
+df_b2b_ri_ly = clean_b2b(fetched("B2B RI LY"))
 
 print("\n--- Budget LOB diagnostic ---")
 try:
-    df_lob_diag = fetch(LOB_CANAL_DIAG_QUERY, "lob_canal values")
+    df_lob_diag = fetched("lob_canal values")
     for _, row in df_lob_diag.iterrows():
         print(f"  lob_canal='{row['lob_canal']}': {int(row['n']):,} rows | NR={row['nr_sum']:,.0f} | GB={row['gb_sum']:,.0f}")
 except Exception as e:
@@ -2021,55 +2126,73 @@ except Exception as e:
 
 print("\n--- B2B Budget GD ---")
 try:
-    df_b2b_budget_gd = clean_budget(fetch(B2B_BUDGET_GD_QUERY, "B2B Budget GD"))
+    df_b2b_budget_gd = clean_budget(fetched("B2B Budget GD"))
 except Exception as e:
     print(f"  WARN B2B budget GD query failed: {e}")
+    _FAILED_BLOCKS.append('B2B Budget GD')
     df_b2b_budget_gd = pd.DataFrame()
 
 print("\n--- B2B Budget RI ---")
 try:
-    df_b2b_budget_ri = clean_budget(fetch(B2B_BUDGET_RI_QUERY, "B2B Budget RI"))
+    df_b2b_budget_ri = clean_budget(fetched("B2B Budget RI"))
 except Exception as e:
     print(f"  WARN B2B budget RI query failed: {e}")
+    _FAILED_BLOCKS.append('B2B Budget RI')
     df_b2b_budget_ri = pd.DataFrame()
 
 print("\n--- Run Rate B2B2C ---")
 try:
-    df_b2bc_rr = clean_budget(fetch(B2B2C_RR_QUERY, "B2B2C Run Rate"))
+    df_b2bc_rr = clean_budget(fetched("B2B2C Run Rate"))
     if not df_b2bc_rr.empty and 'partner' in df_b2bc_rr.columns:
         df_b2bc_rr["stage"] = _map_stage(df_b2bc_rr["partner"], cartera_map)
         df_b2bc_rr["tier"]  = _map_tier(df_b2bc_rr["partner"], tier_map)
 except Exception as e:
     print(f"  WARN B2B2C RR query failed: {e}")
+    _FAILED_BLOCKS.append('B2B2C Run Rate')
     df_b2bc_rr = pd.DataFrame()
 
 print("\n--- Run Rate B2B GD ---")
 try:
-    df_b2b_rr_gd = clean_budget(fetch(B2B_RR_GD_QUERY, "B2B Run Rate GD"))
+    df_b2b_rr_gd = clean_budget(fetched("B2B Run Rate GD"))
 except Exception as e:
     print(f"  WARN B2B RR GD query failed: {e}")
+    _FAILED_BLOCKS.append('B2B Run Rate GD')
     df_b2b_rr_gd = pd.DataFrame()
 
 print("\n--- Run Rate B2B RI ---")
 try:
-    df_b2b_rr_ri = clean_budget(fetch(B2B_RR_RI_QUERY, "B2B Run Rate RI"))
+    df_b2b_rr_ri = clean_budget(fetched("B2B Run Rate RI"))
 except Exception as e:
     print(f"  WARN B2B RR RI query failed: {e}")
+    _FAILED_BLOCKS.append('B2B Run Rate RI')
     df_b2b_rr_ri = pd.DataFrame()
 
 print("\n--- B2C (referencia) ---")
 try:
-    df_b2c = agg_b2c(fetch(build_b2c_query(ACTUALS_FROM, YESTERDAY), "B2C"))
+    df_b2c = agg_b2c(fetched("B2C"))
 except Exception as e:
     print(f"  WARN B2C query failed: {e}")
+    _FAILED_BLOCKS.append('B2C')
     df_b2c = pd.DataFrame(columns=["fecha", "pais", "gross_bookings", "net_revenues", "fvm"])
 
 print("\n--- B2C LY (referencia) ---")
 try:
-    df_b2c_ly = agg_b2c(fetch(build_b2c_query(LY_FROM, LY_TO), "B2C LY"))
+    df_b2c_ly = agg_b2c(fetched("B2C LY"))
 except Exception as e:
     print(f"  WARN B2C LY query failed: {e}")
+    _FAILED_BLOCKS.append('B2C LY')
     df_b2c_ly = pd.DataFrame(columns=["fecha", "pais", "gross_bookings", "net_revenues", "fvm"])
+
+print("\n--- Forecast (Proceso_Distribucion_Diaria, archivo manual) ---")
+# NO se agrega a _FAILED_BLOCKS: es un CSV que alguien genera a mano cada tanto (no vive
+# en el Datalake), así que si falta no debe abortar la corrida de reales del día.
+try:
+    df_forecast_gd = _load_forecast_diario("gd")
+    df_forecast_ri = _load_forecast_diario("ri")
+except Exception as e:
+    print(f"  WARN Forecast diario failed: {e}")
+    df_forecast_gd = pd.DataFrame()
+    df_forecast_ri = pd.DataFrame()
 
 # ==============================================================================
 # 5) AGREGAR Y CONSTRUIR JSON
@@ -2090,6 +2213,9 @@ df_okr_bud      = agg_okr_stage_nr(df_budget)
 df_okr_rr       = agg_okr_stage_nr(df_b2bc_rr)
 df_b2b_rr_gd_agg = agg_b2b_budget(df_b2b_rr_gd)   if not df_b2b_rr_gd.empty        else pd.DataFrame()
 df_b2b_rr_ri_agg = agg_b2b_budget(df_b2b_rr_ri)   if not df_b2b_rr_ri.empty        else pd.DataFrame()
+df_forecast_b2bc    = agg_forecast_b2bc(df_forecast_ri)  # B2B2C: RI == GD, misma base
+df_forecast_b2b_gd  = agg_forecast_b2b(df_forecast_gd)
+df_forecast_b2b_ri  = agg_forecast_b2b(df_forecast_ri)
 print(f"  Actuals:    {len(df_actuals):,} -> {len(df_act):,} filas")
 print(f"  LY:         {len(df_ly):,} -> {len(df_lya):,} filas")
 print(f"  Budget:     {len(df_budget):,} -> {len(df_bud):,} filas")
@@ -2099,56 +2225,9 @@ print(f"  B2B RI:     {len(df_b2b_ri):,} -> {len(df_b2b_ri_agg):,} filas")
 print(f"  B2B RI LY:  {len(df_b2b_ri_ly):,} -> {len(df_b2b_ri_ly_ag):,} filas")
 print(f"  B2B Budget GD: {len(df_b2b_budget_gd):,} -> {len(df_b2b_bud_gd):,} filas")
 print(f"  B2B Budget RI: {len(df_b2b_budget_ri):,} -> {len(df_b2b_bud_ri):,} filas")
-
-META = {
-    "generated_at":      datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
-    "last_actuals_date": str(YESTERDAY),
-    "actuals_from":      str(ACTUALS_FROM),
-    "ly_from":           str(LY_FROM),
-    "ly_to":             str(LY_TO),
-}
-
-b2c_compact    = to_compact(df_b2c)    if not df_b2c.empty    else {"cols": [], "rows": []}
-b2c_ly_compact = to_compact(df_b2c_ly) if not df_b2c_ly.empty else {"cols": [], "rows": []}
-
-b2bc_payload = {
-    "meta":       META,
-    "actuals":    df_act.to_dict(orient="records"),
-    "actuals_ly": df_lya.to_dict(orient="records"),
-    "budget":     to_compact(df_bud),
-    "runrate":    to_compact(df_b2bc_rr_agg) if not df_b2bc_rr_agg.empty else {"cols": [], "rows": []},
-    "okr_budget":  to_compact(df_okr_bud),   # NR por mes x stage, FY completo -> okr_builder.py
-    "okr_runrate": to_compact(df_okr_rr),
-    "b2c":        b2c_compact,
-    "b2c_ly":     b2c_ly_compact,
-}
-
-b2b_payload = {
-    "meta":       META,
-    "b2b_gd":     to_compact(df_b2b_gd_agg),
-    "b2c":        b2c_compact,
-    "b2c_ly":     b2c_ly_compact,
-    "b2b_gd_ly":  to_compact(df_b2b_gd_ly_ag),
-    "b2b_ri":     to_compact(df_b2b_ri_agg),
-    "b2b_ri_ly":  to_compact(df_b2b_ri_ly_ag),
-    "b2b_budget_gd":  df_b2b_bud_gd.to_dict(orient="records")    if not df_b2b_bud_gd.empty    else [],
-    "b2b_budget_ri":  df_b2b_bud_ri.to_dict(orient="records")    if not df_b2b_bud_ri.empty    else [],
-    "b2b_runrate_gd": df_b2b_rr_gd_agg.to_dict(orient="records") if not df_b2b_rr_gd_agg.empty else [],
-    "b2b_runrate_ri": df_b2b_rr_ri_agg.to_dict(orient="records") if not df_b2b_rr_ri_agg.empty else [],
-}
-
-b2bc_str   = json.dumps(b2bc_payload, ensure_ascii=False, separators=(",", ":"))
-b2bc_bytes = b2bc_str.encode("utf-8")
-b2b_str    = json.dumps(b2b_payload, ensure_ascii=False, separators=(",", ":"))
-b2b_bytes  = b2b_str.encode("utf-8")
-print(f"\nB2B2C JSON: {len(b2bc_bytes)//1024:.0f} KB  "
-      f"(actuals={len(df_act):,} | ly={len(df_lya):,} | budget={len(df_bud):,})")
-print(f"B2B JSON:   {len(b2b_bytes)//1024:.0f} KB  "
-      f"(gd={len(df_b2b_gd_agg):,} | gd_ly={len(df_b2b_gd_ly_ag):,} | ri={len(df_b2b_ri_agg):,} | ri_ly={len(df_b2b_ri_ly_ag):,})")
-
-# ==============================================================================
-# 6) SUBIR A GOOGLE DRIVE (usando credenciales OAuth de clasp)
-# ==============================================================================
+print(f"  Forecast B2B2C: {len(df_forecast_ri):,} -> {len(df_forecast_b2bc):,} filas")
+print(f"  Forecast B2B GD: {len(df_forecast_gd):,} -> {len(df_forecast_b2b_gd):,} filas")
+print(f"  Forecast B2B RI: {len(df_forecast_ri):,} -> {len(df_forecast_b2b_ri):,} filas")
 
 DRIVE_SCOPES = ["https://www.googleapis.com/auth/drive"]
 
@@ -2199,6 +2278,101 @@ def _get_drive_service():
 
     return build("drive", "v3", credentials=creds)
 
+
+def _download_json_from_drive(filename: str, folder_id: str = DRIVE_FOLDER_ID):
+    """Descarga y parsea un JSON ya publicado en Drive. None si no existe o falla
+    (usado como fallback de Forecast, ver más abajo — nunca debe cortar la corrida)."""
+    try:
+        service = _get_drive_service()
+        results = service.files().list(
+            q=f"name='{filename}' and '{folder_id}' in parents and trashed=false",
+            fields="files(id,name)"
+        ).execute()
+        files = results.get("files", [])
+        if not files:
+            return None
+        content = service.files().get_media(fileId=files[0]["id"]).execute()
+        return json.loads(content)
+    except Exception as e:
+        print(f"  WARN no se pudo leer {filename} de Drive (fallback de Forecast): {e}")
+        return None
+
+
+# Forecast (Distribución Diaria) es un CSV local, manual — no vive en el Datalake ni en
+# Drive. En una PC que no tenga la carpeta de OneDrive montada (p.ej. otra persona del
+# equipo corriendo el script), _load_forecast_diario da vacío y ACÁ, en vez de subir un
+# Forecast vacío y pisar el bueno, se reusa el último publicado en Drive (bug real,
+# 2026-09-28: una corrida desde otra PC pisó el Forecast recién cargado con vacío).
+_forecast_b2bc_compact  = to_compact(df_forecast_b2bc)    if not df_forecast_b2bc.empty    else {"cols": [], "rows": []}
+_forecast_b2b_gd_records = df_forecast_b2b_gd.to_dict(orient="records") if not df_forecast_b2b_gd.empty else []
+_forecast_b2b_ri_records = df_forecast_b2b_ri.to_dict(orient="records") if not df_forecast_b2b_ri.empty else []
+
+if df_forecast_b2bc.empty or df_forecast_b2b_gd.empty or df_forecast_b2b_ri.empty:
+    print("  AVISO: Forecast vacío en esta corrida — buscando el último bueno en Drive para no pisarlo...")
+    _prev_b2bc = _download_json_from_drive(JSON_FILE_NAME)     if df_forecast_b2bc.empty    else None
+    _prev_b2b  = _download_json_from_drive(B2B_JSON_FILE_NAME) if (df_forecast_b2b_gd.empty or df_forecast_b2b_ri.empty) else None
+    if df_forecast_b2bc.empty and _prev_b2bc and (_prev_b2bc.get("forecast") or {}).get("rows"):
+        _forecast_b2bc_compact = _prev_b2bc["forecast"]
+        print(f"    -> Forecast B2B2C: reusando {len(_forecast_b2bc_compact['rows']):,} filas de la corrida anterior")
+    if df_forecast_b2b_gd.empty and _prev_b2b and _prev_b2b.get("b2b_forecast_gd"):
+        _forecast_b2b_gd_records = _prev_b2b["b2b_forecast_gd"]
+        print(f"    -> Forecast B2B GD: reusando {len(_forecast_b2b_gd_records):,} filas de la corrida anterior")
+    if df_forecast_b2b_ri.empty and _prev_b2b and _prev_b2b.get("b2b_forecast_ri"):
+        _forecast_b2b_ri_records = _prev_b2b["b2b_forecast_ri"]
+        print(f"    -> Forecast B2B RI: reusando {len(_forecast_b2b_ri_records):,} filas de la corrida anterior")
+
+META = {
+    "generated_at":      datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+    "last_actuals_date": str(YESTERDAY),
+    "actuals_from":      str(ACTUALS_FROM),
+    "ly_from":           str(LY_FROM),
+    "ly_to":             str(LY_TO),
+}
+
+b2c_compact    = to_compact(df_b2c)    if not df_b2c.empty    else {"cols": [], "rows": []}
+b2c_ly_compact = to_compact(df_b2c_ly) if not df_b2c_ly.empty else {"cols": [], "rows": []}
+
+b2bc_payload = {
+    "meta":       META,
+    "actuals":    df_act.to_dict(orient="records"),
+    "actuals_ly": df_lya.to_dict(orient="records"),
+    "budget":     to_compact(df_bud),
+    "runrate":    to_compact(df_b2bc_rr_agg) if not df_b2bc_rr_agg.empty else {"cols": [], "rows": []},
+    "forecast":   _forecast_b2bc_compact,
+    "okr_budget":  to_compact(df_okr_bud),   # NR por mes x stage, FY completo -> okr_builder.py
+    "okr_runrate": to_compact(df_okr_rr),
+    "b2c":        b2c_compact,
+    "b2c_ly":     b2c_ly_compact,
+}
+
+b2b_payload = {
+    "meta":       META,
+    "b2b_gd":     to_compact(df_b2b_gd_agg),
+    "b2c":        b2c_compact,
+    "b2c_ly":     b2c_ly_compact,
+    "b2b_gd_ly":  to_compact(df_b2b_gd_ly_ag),
+    "b2b_ri":     to_compact(df_b2b_ri_agg),
+    "b2b_ri_ly":  to_compact(df_b2b_ri_ly_ag),
+    "b2b_budget_gd":  df_b2b_bud_gd.to_dict(orient="records")    if not df_b2b_bud_gd.empty    else [],
+    "b2b_budget_ri":  df_b2b_bud_ri.to_dict(orient="records")    if not df_b2b_bud_ri.empty    else [],
+    "b2b_runrate_gd": df_b2b_rr_gd_agg.to_dict(orient="records") if not df_b2b_rr_gd_agg.empty else [],
+    "b2b_runrate_ri": df_b2b_rr_ri_agg.to_dict(orient="records") if not df_b2b_rr_ri_agg.empty else [],
+    "b2b_forecast_gd": _forecast_b2b_gd_records,
+    "b2b_forecast_ri": _forecast_b2b_ri_records,
+}
+
+b2bc_str   = json.dumps(b2bc_payload, ensure_ascii=False, separators=(",", ":"))
+b2bc_bytes = b2bc_str.encode("utf-8")
+b2b_str    = json.dumps(b2b_payload, ensure_ascii=False, separators=(",", ":"))
+b2b_bytes  = b2b_str.encode("utf-8")
+print(f"\nB2B2C JSON: {len(b2bc_bytes)//1024:.0f} KB  "
+      f"(actuals={len(df_act):,} | ly={len(df_lya):,} | budget={len(df_bud):,})")
+print(f"B2B JSON:   {len(b2b_bytes)//1024:.0f} KB  "
+      f"(gd={len(df_b2b_gd_agg):,} | gd_ly={len(df_b2b_gd_ly_ag):,} | ri={len(df_b2b_ri_agg):,} | ri_ly={len(df_b2b_ri_ly_ag):,})")
+
+# ==============================================================================
+# 6) SUBIR A GOOGLE DRIVE (usando credenciales OAuth de clasp)
+# ==============================================================================
 
 def upload_to_drive(json_bytes: bytes, filename: str, folder_id: str = DRIVE_FOLDER_ID):
     from googleapiclient.http import MediaInMemoryUpload
@@ -2251,16 +2425,18 @@ def upload_compressed_to_drive(json_bytes: bytes, filename: str, folder_id: str)
 
 print("\n--- P&L Managerial GD 2026 ---")
 try:
-    df_pnl_gd = clean_managerial(fetch(build_pnl_managerial_gd_query(GD_FROM, YESTERDAY), "P&L Managerial GD"))
+    df_pnl_gd = clean_managerial(fetched("P&L Managerial GD"))
 except Exception as e:
     print(f"  WARN P&L Managerial GD query failed: {e}")
+    _FAILED_BLOCKS.append('P&L Managerial GD')
     df_pnl_gd = pd.DataFrame()
 
 print(f"\n--- P&L Managerial RI ({RI_JSON_NAME}) ---")
 try:
-    df_pnl_ri = clean_managerial(fetch(build_pnl_managerial_ri_query(RI_FROM, YESTERDAY), "P&L Managerial RI"))
+    df_pnl_ri = clean_managerial(fetched("P&L Managerial RI"))
 except Exception as e:
     print(f"  WARN P&L Managerial RI query failed: {e}")
+    _FAILED_BLOCKS.append('P&L Managerial RI')
     df_pnl_ri = pd.DataFrame()
 
 # ==============================================================================
@@ -2297,6 +2473,11 @@ print(f"  RI JSON:  {len(pnl_ri_bytes)//1024:.0f} KB  ({len(df_pnl_ri):,} filas)
 # ==============================================================================
 
 print("\n--- Subiendo a Google Drive ---")
+if _FAILED_BLOCKS:
+    print("\nERROR: fallaron " + ", ".join(_FAILED_BLOCKS) + " — no se sube nada a Drive; "
+          "quedan los JSON de la corrida anterior. Reintentar (¿VPN?).")
+    sys.exit(1)
+
 upload_to_drive(b2bc_bytes, JSON_FILE_NAME)
 upload_to_drive(b2b_bytes,  B2B_JSON_FILE_NAME)
 

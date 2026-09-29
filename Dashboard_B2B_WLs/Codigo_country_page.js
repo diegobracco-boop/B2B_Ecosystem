@@ -2,15 +2,16 @@
 //  Country One Page — Backend
 // ══════════════════════════════════════════════════════════════
 
-// Trimestres FY27 — espejado aquí para que preComputeAll pueda pre-warms
+// Períodos del FY (FY, H1, H2, Q1-Q4) — espejado aquí para que preComputeAll pueda pre-warms.
+// Salen de fyRange_() (Codigo.js), no hay fechas escritas a mano.
 var CTRY_QUARTERS = [
-  { desde:'2026-04', hasta:'2027-03' },  // FY
-  { desde:'2026-04', hasta:'2026-09' },  // H1
-  { desde:'2026-10', hasta:'2027-03' },  // H2
-  { desde:'2026-04', hasta:'2026-06' },  // Q1
-  { desde:'2026-07', hasta:'2026-09' },  // Q2
-  { desde:'2026-10', hasta:'2026-12' },  // Q3
-  { desde:'2027-01', hasta:'2027-03' }   // Q4
+  fyRange_(0, 11),  // FY
+  fyRange_(0, 5),   // H1
+  fyRange_(6, 11),  // H2
+  fyRange_(0, 2),   // Q1
+  fyRange_(3, 5),   // Q2
+  fyRange_(6, 8),   // Q3
+  fyRange_(9, 11)   // Q4
 ];
 var CTRY_PAISES = ['all','Brasil','Mexico','Argentina','other countries','Colombia','Chile','Peru','Ecuador','RG'];
 
@@ -55,7 +56,7 @@ function _computeCountryPageResult_(pais, desde, hasta,
 // Pensado para lob_country_one_pager (ratios OC/GB y NR/GB por producto).
 function getB2BCanalProductoMix(params) {
   var pais  = (params && params.pais)  || 'all';
-  var desde = (params && params.desde) || '2026-04';
+  var desde = (params && params.desde) || fyMonths_()[0];
   var hasta = (params && params.hasta) || LAST_ACTUALS_YM;
 
   var key    = JSON.stringify({ v:1, cpMix:1, pais:pais, desde:desde, hasta:hasta });

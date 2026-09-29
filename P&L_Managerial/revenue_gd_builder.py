@@ -54,6 +54,7 @@ MAPEO revenue-GD query  ->  METRIC_COLS  (BORRADOR — revisar con números real
 
 import os, sys, json, argparse
 from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
 
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -72,14 +73,16 @@ DRIVE_SCOPES    = ["https://www.googleapis.com/auth/drive"]
 
 TODAY        = date.today()
 CURRENT_YM   = TODAY.strftime("%Y-%m")
-ACTUALS_FROM = date(2026, 4, 1)                                   # FY27 start
+# Año fiscal: sale de Inputs_Planning_PnL/config.py (CURRENT_FY). Para pasar a otro FY se cambia
+# solo ahí — acá no hay meses escritos a mano (auditoría ola 4, 2026-09-25).
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "Inputs_Planning_PnL"))
+import config as _planning_cfg
+_FY = _planning_cfg.CURRENT_FY                                  # 2027 = FY27 (abr-2026 → mar-2027)
+FY_MONTHS = [d[:7] for d in _planning_cfg.FISCAL_DATES]         # 'YYYY-MM', abr → mar
+ACTUALS_FROM = date(_FY - 1, 4, 1)                                # inicio del FY (abril)
 ACTUALS_TO   = date(TODAY.year, TODAY.month, 1) - timedelta(days=1)  # último día del último mes cerrado
 
-FY27_MONTHS = [
-    "2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09",
-    "2026-10", "2026-11", "2026-12", "2027-01", "2027-02", "2027-03",
-]
-CLOSED_SET = {ym for ym in FY27_MONTHS if ym < CURRENT_YM}
+CLOSED_SET = {ym for ym in FY_MONTHS if ym < CURRENT_YM}
 
 # METRIC_COLS: mismo orden que actuals_gestional_upload.py / Codigo.js
 METRIC_COLS = [
@@ -372,7 +375,7 @@ def upload_to_drive(json_bytes: bytes):
 # ── BUILD ─────────────────────────────────────────────────────────────────────
 def main(upload: bool = True):
     print(f"[{TODAY}] revenue_gd_builder  —  {ACTUALS_FROM} → {ACTUALS_TO}")
-    print(f"  meses cerrados FY27: {sorted(CLOSED_SET)}")
+    print(f"  meses cerrados FY{str(_FY)[-2:]}: {sorted(CLOSED_SET)}")
 
     load_dotenv(RUTA_ENV)
     import pyodbc
@@ -428,7 +431,7 @@ def main(upload: bool = True):
         "actuals_from":  str(ACTUALS_FROM),
         "actuals_to":    str(ACTUALS_TO),
         "actual_months": actual_months,
-        "months":        FY27_MONTHS,
+        "months":        FY_MONTHS,
         "metrics":       METRIC_COLS,
         "metrics_extra": METRICS_EXTRA,
         "zero_metrics":  zero_metrics,   # métricas sin fuente en la query (siempre 0)

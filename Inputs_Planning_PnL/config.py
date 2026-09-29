@@ -36,9 +36,18 @@ FISCAL_DATES = (
     [f"{CURRENT_FY}-{m:02d}-01" for m in range(1, 4)]
 )
 
-# Forecast: forecast.json compone ACTUALS (meses ya cerrados, hasta el cutoff) + el
-# modelo Forecast crudo (cutoff+1 .. Mar). Editar FORECAST_ACTUALS_CUTOFF cuando cierre
-# un nuevo mes (json_builder.py concepto 'forecast' hace el blend; ver su docstring).
+# ── Dos cortes DISTINTOS (no confundir) ───────────────────────────────────────
+# LAST_CLOSED_MONTH: último mes con actuals cerrados. Se mueve cada vez que cierra un mes y
+#   define desde dónde arranca el RunRate del baseline (RUNRATE_MONTHS, abajo).
+#   Agosto cerró el 2026-09-16.
+LAST_CLOSED_MONTH = "2026-08-01"
+
+# FORECAST_ACTUALS_CUTOFF: base de la ronda de Forecast vigente. El Forecast es una foto:
+#   actuals hasta este mes + proyección del modelo Forecast después (hoy: actuals abr-jul,
+#   Forecast ago-mar). NO se mueve cuando cierra un mes — solo cuando se publica una ronda
+#   nueva de Forecast. Lo usan forecast.json (json_builder), la plana del Forecast
+#   (plana_projections_builder, FORECAST_DROP_DATES) y el goal Forecast de P&L_Managerial
+#   (actuals_gestional_upload.py lo importa de acá). Diego, 2026-09-26.
 FORECAST_ACTUALS_CUTOFF = "2026-07-01"
 FORECAST_ACTUALS_MONTHS = set(FISCAL_DATES[:FISCAL_DATES.index(FORECAST_ACTUALS_CUTOFF) + 1])
 
@@ -52,10 +61,7 @@ FORECAST_DROP_DATES = FORECAST_ACTUALS_MONTHS
 # actualizada, Forecast desactualizado). Mover el arranque cuando cierre un nuevo mes
 # (agosto cerró 2026-09-16: arrancaba en Ago, dejaba Ago duplicado con los actuals del
 # propio baseline — rebuild() no dedupea, solo concatena actuals+runrate+forecast).
-RUNRATE_MONTHS  = (
-    {f"{_FY_PREV}-{m:02d}-01" for m in range(9, 13)} |
-    {f"{CURRENT_FY}-{m:02d}-01" for m in range(1, 4)}
-)
+RUNRATE_MONTHS  = {d for d in FISCAL_DATES if d > LAST_CLOSED_MONTH}   # derivado del corte
 FORECAST_MONTHS = set()
 
 # AXI actuals: RunRate cubre Oct(FY-2)..Mar(FY-1)

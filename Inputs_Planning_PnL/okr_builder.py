@@ -130,6 +130,7 @@ def _download_json(svc, file_id, label):
 
 def _upload(local_path, svc):
     from googleapiclient.http import MediaFileUpload
+    pnl_common.guard_shrink(svc, OKR_FILE_ID, os.path.getsize(local_path), OUTPUT_NAME)
     media = MediaFileUpload(local_path, mimetype="application/json", resumable=True)
     res = svc.files().update(fileId=OKR_FILE_ID, media_body=media,
                               fields="id,size,modifiedTime").execute()

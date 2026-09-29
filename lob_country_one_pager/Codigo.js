@@ -30,8 +30,11 @@ var LOBS   = [
   { id: 'b2b',   label: 'B2B',   enabled: true  },
   { id: 'b2b2c', label: 'B2B2C', enabled: false }   // próximamente
 ];
-var FY_START = '2026-04';
-var FY_END   = '2027-03';
+// Año fiscal: ÚNICO valor a cambiar al pasar de FY (abril). 2027 → FY27 = abr-2026 … mar-2027.
+// dashboard.html lo recibe por el template (auditoría ola 4, 2026-09-25).
+var FY_END_YEAR = 2027;
+var FY_START = (FY_END_YEAR - 1) + '-04';
+var FY_END   = FY_END_YEAR + '-03';
 
 function doGet(e) {
   try {
@@ -46,7 +49,8 @@ function doGet(e) {
 }
 
 function getFilters() {
-  return { paises: PAISES, lobs: LOBS };
+  // defaultYm: el cliente lo usa para pedir en paralelo (gestional/waterfalls) sin esperar a la base contable.
+  return { paises: PAISES, lobs: LOBS, defaultYm: _currentDefaultYm_() };
 }
 
 // ── ÚNICA llamada del frontend ──────────────────────────────────
@@ -69,38 +73,78 @@ function _currentDefaultYm_() {
     m -= 1;
     if (m === 0) { m = 12; y -= 1; }
   }
-  return y + '-' + (m < 10 ? '0' : '') + m + '-01';
+  // 'YYYY-MM', igual que evo.periods / months (antes devolvía 'YYYY-MM-01' y nunca matcheaba:
+  // el one-pager siempre abría en el último mes con actuals — auditoría 2026-09-25).
+  return y + '-' + (m < 10 ? '0' : '') + m;
 }
 
-function getOnePagerData(params) {
-  var p    = params || {};
-  var pais = PAISES.indexOf(p.pais) >= 0 ? p.pais : 'Globales';
-  var lob  = 'b2b';   // B2B2C llega en otra iteración
-
-  // Base contable (1 sola llamada) → meses seleccionables, corte real, waterfalls.
-  var base    = _getContableBase_(pais);
+// ── Endpoints por sección (2026-09-28) ──────────────────────────────────────────────────────────────
+// getOnePagerData hacía TODO en serie en una sola llamada (23–210 s: GD ~11-19 s + RI ~11-20 s +
+// waterfalls ~50-97 s en frío + base). Ahora el cliente pide cada sección por separado y EN
+// PARALELO (el tiempo pasa a ser el de la más lenta, no la suma) y pinta cada una al llegar:
+//   getOPBase        → contable (tarjetas) + evolución + mix + meses; define el mes efectivo
+//   getOPGestional   → GB/NR/FVM de una vista (GD o RI) — cacheado en servidor
+//   getOPWaterfalls  → NR Bridge + OC Waterfall del mes (ya se cacheaba 6 h por país+mes)
+// (getOnePagerData, la versión vieja que hacía TODO en serie, se removió el 2026-09-29 — nadie la llamaba.)
+function _resolveYm_(reqYm, base) {
   var months  = base ? base.months : [];
   var lastAc  = base ? base.lastActualsYm : null;
   var calenYm = _currentDefaultYm_();
-  var ym = (p.ym && months.indexOf(p.ym) >= 0) ? p.ym
-         : (months.indexOf(calenYm) >= 0 ? calenYm
-         : (lastAc || (months.length ? months[months.length - 1] : null)));
-
-  return {
-    pais:          pais,
-    lob:           lob,
-    ym:            ym,
-    lastActualsYm: lastAc,
-    months:        months,
-    gestional: {
-      gd: _getGestionalMTD_(pais, 'GD', ym),
-      ri: _getGestionalMTD_(pais, 'RI', ym)
-    },
-    contable: _buildContableCards_(base, ym, pais),
-    evo:      _buildEvo_(base),
-    mix:      _getMix_(pais)
-  };
+  return (reqYm && months.indexOf(reqYm) >= 0) ? reqYm
+       : (months.indexOf(calenYm) >= 0 ? calenYm
+       : (lastAc || (months.length ? months[months.length - 1] : null)));
 }
+
+function getOPBase(params) {
+  var t0 = Date.now(), tm = {};
+  var p    = params || {};
+  var pais = PAISES.indexOf(p.pais) >= 0 ? p.pais : 'Globales';
+  var base = _tm_(tm, 'contableBase', function () { return _getContableBase_(pais); });
+  var ym   = _resolveYm_(p.ym, base);
+  var out = {
+    pais:          pais,
+    ym:            ym,
+    lastActualsYm: base ? base.lastActualsYm : null,
+    months:        base ? base.months : [],
+    contable:      _buildContableCards_(base, ym, pais, true),   // sin waterfalls (van por getOPWaterfalls)
+    evo:           _buildEvo_(base),
+    mix:           _tm_(tm, 'mix', function () { return _getMix_(pais); })
+  };
+  tm.total = Date.now() - t0;
+  out._timing = tm;
+  return out;
+}
+
+// Los datos gestionales se actualizan 1 vez por día (sync 08:00): cache de 1 h por país+vista+mes.
+// No se cachean los null (podrían ser un fallo transitorio).
+var _GEST_CACHE_TTL_S = 3600;
+function getOPGestional(params) {
+  var t0 = Date.now();
+  var p    = params || {};
+  var pais = PAISES.indexOf(p.pais) >= 0 ? p.pais : 'Globales';
+  var view = (p.view === 'RI') ? 'RI' : 'GD';
+  var ym   = p.ym || _currentDefaultYm_();
+  var key  = 'gs1_' + view + '_' + (GESTIONAL_PAIS[pais] || pais) + '_' + ym;
+  var sc   = CacheService.getScriptCache(), data = null, src = 'lib';
+  var hit  = sc.get(key);
+  if (hit) { try { data = JSON.parse(hit); src = 'cache'; } catch (e) { data = null; } }
+  if (!data) {
+    data = _getGestionalMTD_(pais, view, ym);
+    if (data) { try { sc.put(key, JSON.stringify(data), _GEST_CACHE_TTL_S); } catch (e) {} }
+  }
+  return { pais: pais, view: view, ym: ym, data: data, _timing: { total: Date.now() - t0, src: src } };
+}
+
+function getOPWaterfalls(params) {
+  var t0 = Date.now();
+  var p    = params || {};
+  var pais = PAISES.indexOf(p.pais) >= 0 ? p.pais : 'Globales';
+  var wf   = _buildContableWaterfalls_(pais, p.ym);
+  return { pais: pais, ym: p.ym, wf: wf, _timing: { total: Date.now() - t0 } };
+}
+
+// Medición (temporal): ms de cada tramo de getOPBase; el cliente lo imprime en consola.
+function _tm_(tm, k, fn) { var t = Date.now(); var r = fn(); tm[k] = Date.now() - t; return r; }
 
 // Evolución mensual GB/NR/OC: Actual (contable cerrado + RR en meses sin
 // cierre), Budget, Last Year y crecimiento YoY. Para el gráfico evolutivo.
@@ -267,7 +311,7 @@ function _buildContableWaterfalls_(pais, ym) {
 
 // Tarjetas del mes `ym`: si el mes está cerrado → actuals contables; si aún
 // no cerró → Run Rate. Así toda la página habla del mismo mes.
-function _buildContableCards_(base, ym, pais) {
+function _buildContableCards_(base, ym, pais, skipWaterfalls) {
   if (!base || !ym) return null;
   var idx = base.periods.indexOf(ym);
   if (idx < 0) return null;
@@ -290,7 +334,7 @@ function _buildContableCards_(base, ym, pais) {
     return { id: m.id, label: m.label, value: val, vsBudget: vsB, vsLY: vsLY };
   });
 
-  return { ym: ym, basis: basis, metrics: cards, waterfalls: _buildContableWaterfalls_(pais, ym) };
+  return { ym: ym, basis: basis, metrics: cards, waterfalls: skipWaterfalls ? undefined : _buildContableWaterfalls_(pais, ym) };
 }
 
 // evo.metrics[].actuals viene BLENDED (actuals+RR+forecast) para todo el FY27,
@@ -307,4 +351,86 @@ function _lastActualsYm_(evo) {
     }
   });
   return last;
+}
+
+// ── Pre-warm de caches (2026-09-29) ──────────────────────────────────────────
+// El costo real del one-pager es el "PRIMER GOLPE" de cada país×mes: los
+// waterfalls son un cache MISS aguas abajo (~50-97 s; ver _buildContableWaterfalls_)
+// y gestional GD/RI ~11-19 s c/u. Todo se cachea EN ESTE módulo (waterfalls 6 h,
+// gestional 1 h), así que la 1ª persona que abre una combinación paga el costo y
+// el resto del equipo la recibe instantánea hasta que expire.
+//
+// Este trigger paga ese costo POR ADELANTADO, en background: recorre los 8 países
+// en round-robin (PREWARM_BATCH por corrida, con corte de seguridad bajo el límite
+// de 6 min de GAS) precalentando gestional + waterfalls del mes default. Presupuesto
+// propio de este módulo, INDEPENDIENTE del preComputeAll del Hub (por eso no se puede
+// pre-calentar esto barato desde Dashboard_B2B_WLs — ver nota en _buildContableWaterfalls_).
+// Con corridas cada 5 min el ciclo de los 8 cierra en ≤40 min aun calentando 1
+// solo país por corrida en frío (peor caso), dentro del TTL de gestional (1 h);
+// con cache tibia calienta 2/corrida (barato, casi todo hit). Instalar/actualizar
+// el trigger UNA vez con setupPrewarm() — IMPORTANTE: correrlo con la cuenta que
+// DEPLOYA (executeAs USER_DEPLOYING): el trigger corre con la identidad de quien
+// lo instala y las libraries leen JSONs de Drive no compartidos con todo el equipo;
+// si lo instala alguien sin ese acceso, cada país tira error de permisos y no calienta nada.
+var PREWARM_HANDLER   = 'prewarmOnePager';
+var PREWARM_EVERY_MIN = 5;          // ciclo ≤40 min aun a 1 país/corrida en frío (< TTL gestional 1 h)
+var PREWARM_BATCH     = 2;          // tope de países por corrida (se cumple con cache tibia; en frío puede caer a 1 por el headroom)
+var PREWARM_PAIS_MS   = 180000;     // peor caso documentado de UN país en frío (waterfalls ~97 s + GD/RI ~19 s c/u + base)
+var PREWARM_LIMIT_MS  = 360000;     // límite duro de ejecución de Apps Script (6 min)
+var PREWARM_CURSOR_K  = 'OP_PREWARM_CURSOR';
+
+// Instala (o reinstala, idempotente) el trigger time-driven. Correr a mano una vez.
+function setupPrewarm() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === PREWARM_HANDLER) ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger(PREWARM_HANDLER).timeBased().everyMinutes(PREWARM_EVERY_MIN).create();
+  return 'Trigger "' + PREWARM_HANDLER + '" instalado: cada ' + PREWARM_EVERY_MIN + ' min.';
+}
+
+// Elimina el trigger (si se quiere frenar el pre-warm).
+function removePrewarm() {
+  var n = 0;
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === PREWARM_HANDLER) { ScriptApp.deleteTrigger(t); n++; }
+  });
+  return 'Triggers eliminados: ' + n;
+}
+
+// Corrida del trigger: calienta PREWARM_BATCH países desde el cursor guardado.
+// Usa getOPBase para resolver el MISMO mes efectivo que verá el cliente, así las
+// claves de cache (gestional gs1_… y waterfalls wf_…) matchean lo que se pedirá.
+function prewarmOnePager() {
+  var t0    = Date.now();
+  var props = PropertiesService.getScriptProperties();
+  var cursor = parseInt(props.getProperty(PREWARM_CURSOR_K) || '0', 10);
+  if (isNaN(cursor) || cursor < 0) cursor = 0;
+
+  var done = 0;
+  for (var n = 0; n < PREWARM_BATCH; n++) {
+    // No arrancar otro país salvo que quede headroom para el PEOR caso completo:
+    // así una corrida no muere a mitad de un país por el límite de 6 min de GAS
+    // (el kill no lo atrapa el try/catch). En frío esto puede reducir la corrida
+    // a 1 país; el round-robin igual avanza y la próxima sigue.
+    if (Date.now() - t0 > PREWARM_LIMIT_MS - PREWARM_PAIS_MS) break;
+    var pais = PAISES[cursor % PAISES.length];
+    try {
+      var base = getOPBase({ pais: pais });           // resuelve el mes efectivo (y calienta contable aguas abajo)
+      var ym   = base && base.ym;
+      if (ym) {
+        getOPGestional({ pais: pais, view: 'GD', ym: ym });   // cachea 1 h
+        getOPGestional({ pais: pais, view: 'RI', ym: ym });   // cachea 1 h
+        getOPWaterfalls({ pais: pais, ym: ym });              // cachea 6 h
+      }
+    } catch (e) {
+      Logger.log('[PREWARM] error ' + pais + ': ' + e);
+    }
+    cursor = (cursor + 1) % PAISES.length;
+    // Persistir DESPUÉS DE CADA país: si un país lento agota el presupuesto y GAS
+    // mata la corrida antes del cierre, el round-robin igual avanzó y la próxima
+    // corrida sigue con el país siguiente (no se re-clava en los mismos).
+    props.setProperty(PREWARM_CURSOR_K, String(cursor));
+    done++;
+  }
+  Logger.log('[PREWARM] ' + done + ' país(es) en ' + (Date.now() - t0) + ' ms; próximo cursor=' + cursor);
 }
