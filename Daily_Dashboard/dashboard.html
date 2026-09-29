@@ -1909,6 +1909,17 @@ function computeKRsB2B_(raw, dateModel, vDate) {
 // afiliadas) y NR de productos Flights + Dest. Serv. Actual desde src, "budget"
 // (target provisorio) desde bud — se reemplaza cuando lleguen los targets reales.
 var B2B_H2_NR_PRODS = {'Flights':1, 'Dest. Serv.':1};
+
+// product_type (bi_transactional_fact_products) que cuentan como "New Products" cuando vienen DENTRO de
+// un Packages General: el componente Vuelos + todo lo que es Dest. Serv. (parques, excursiones, shows,
+// traslados). Hoteles, Autos, Alquileres y Asistencia al viajero dentro de un paquete NO cuentan.
+// El driver ODBC rompe el acento de "Espectáculos": daily_sync lo normaliza, pero se matchea por prefijo igual.
+var B2B_H2_NP_PKG_TYPES = { 'Vuelos':1, 'Disney':1, 'Universal':1, 'SeaWorld':1, 'Busch Gardens':1,
+                            'Excursiones':1, 'Traslados':1 };
+function isNewProductPkgType_(pt) {
+  pt = String(pt || '');
+  return !!B2B_H2_NP_PKG_TYPES[pt] || /^Espect/.test(pt);
+}
 function computeKRsB2BH2_(raw, dateModel, vDate) {
   var pp=vDate.split('-'), mStart=pp[0]+'-'+pp[1]+'-01';
   var src=(dateModel==='ri')?raw.b2b_ri:raw.b2b_gd;
@@ -1924,7 +1935,7 @@ function computeKRsB2BH2_(raw, dateModel, vDate) {
     // son cards por canal, no una partición garantizada del FVM total).
     if(r.parent_channel==='API')                    a.fvmApi+=fv;
     else if(r.parent_channel==='Agencias afiliadas') a.fvmHtml+=fv;
-    if(B2B_H2_NR_PRODS[r.producto_original])         a.nrfd+=nr;
+    if(B2B_H2_NR_PRODS[r.producto_original] || (r.producto_original==='Packages General' && isNewProductPkgType_(r.product_type))) a.nrfd+=nr;
   });
   bud.forEach(function(r){
     if(r.fecha<mStart||r.fecha>vDate)return;
@@ -1932,7 +1943,7 @@ function computeKRsB2BH2_(raw, dateModel, vDate) {
     b.nr+=nr;
     if(r.parent_channel==='API')                    b.fvmApi+=fv;
     else if(r.parent_channel==='Agencias afiliadas') b.fvmHtml+=fv;
-    if(B2B_H2_NR_PRODS[r.producto])                  b.nrfd+=nr;
+    if(B2B_H2_NR_PRODS[r.producto] || (r.producto==='Packages General' && isNewProductPkgType_(r.product_type))) b.nrfd+=nr;
   });
   return {
     nr:     {act:a.nr,      bud:b.nr},

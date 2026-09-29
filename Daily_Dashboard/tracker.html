@@ -2842,6 +2842,29 @@ function renderKRDetailBoxes(monthFilter) {
 // 'Flights'/'Dest. Serv.'. Si se filtrara por string exacto, el budget caería a 0.
 var B2B_H2_NR_PRODS_TRK = { 'Air': 1, 'Flights': 1, 'Flight': 1, 'D. Services': 1, 'Dest. Serv.': 1 };
 
+// product_type (bi_transactional_fact_products) que cuentan como "New Products" cuando vienen DENTRO de
+// un Packages General: el componente Vuelos + todo lo que es Dest. Serv. (parques, excursiones, shows,
+// traslados). Hoteles, Autos, Alquileres y Asistencia al viajero dentro de un paquete NO cuentan.
+// El driver ODBC rompe el acento de "Espectáculos": daily_sync lo normaliza, pero se matchea por prefijo igual.
+var B2B_H2_NP_PKG_TYPES = { 'Vuelos':1, 'Disney':1, 'Universal':1, 'SeaWorld':1, 'Busch Gardens':1,
+                            'Excursiones':1, 'Traslados':1 };
+function isNewProductPkgType_(pt) {
+  pt = String(pt || '');
+  return !!B2B_H2_NP_PKG_TYPES[pt] || /^Espect/.test(pt);
+}
+// Actuals: Flights + Dest. Serv. (por buy_type) + los componentes Vuelos/Dest. Serv. de Packages General
+// (por product_type). El BUDGET no trae product_type de origen: daily_sync.py abre el NR de Packages General
+// con proporciones FIJAS por país (pkg_split_factors.py, actuals RI abr-jun 2026), así que el budget también
+// llega con product_type en esas filas. Filas viejas sin product_type (JSON previo a la sync) no suman paquetes.
+function isNewProductActual_(r) {
+  return !!B2B_H2_NR_PRODS_TRK[r.producto_original] ||
+         (r.producto_original === 'Packages General' && isNewProductPkgType_(r.product_type));
+}
+function isNewProductBudget_(r) {
+  return !!B2B_H2_NR_PRODS_TRK[r.producto] ||
+         (r.producto === 'Packages General' && isNewProductPkgType_(r.product_type));
+}
+
 function computeKRH2Metric_(monthFilter, metricField, predAct, predBud) {
   if (!rawData) return { actual: 0, budget: 0 };
   var bounds = getPeriodBounds(_resolveYM(monthFilter), rawData.meta);
@@ -2890,8 +2913,8 @@ function renderStatusKRsH2() {
 
   var isAPI  = function(r){ return r.parent_channel === 'API'; };
   var isHTML = function(r){ return r.parent_channel === 'Agencias afiliadas'; };
-  var isNPa  = function(r){ return B2B_H2_NR_PRODS_TRK[r.producto_original]; };
-  var isNPb  = function(r){ return B2B_H2_NR_PRODS_TRK[r.producto]; };
+  var isNPa  = isNewProductActual_;
+  var isNPb  = isNewProductBudget_;
 
   var nr      = computeKRH2Metric_(krYM, 'net_revenue', null, null);
   var fvmApi  = computeKRH2Metric_(krYM, 'fvm', isAPI, isAPI);
@@ -3021,8 +3044,8 @@ function renderStatusKRsH2DetailBoxes_(monthFilter) {
   }
   var isAPI  = function(r){ return r.parent_channel === 'API'; };
   var isHTML = function(r){ return r.parent_channel === 'Agencias afiliadas'; };
-  var isNPa  = function(r){ return B2B_H2_NR_PRODS_TRK[r.producto_original]; };
-  var isNPb  = function(r){ return B2B_H2_NR_PRODS_TRK[r.producto]; };
+  var isNPa  = isNewProductActual_;
+  var isNPb  = isNewProductBudget_;
 
   grid.appendChild(makeBox('Net Revenues $M',        rowsFor('net_revenue', null,  null)));
   grid.appendChild(makeBox('API FVM $M',             rowsFor('fvm',         isAPI,  isAPI)));
