@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>P&L Managerial view · Despegar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#f4f5f7;--surface:#fff;--surface2:#f8f9fa;
@@ -585,6 +588,161 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
   .home-bento-3col{grid-template-columns:repeat(2,1fr)}
 }
 :focus-visible{outline:2px solid var(--accent2);outline-offset:-2px;border-radius:4px}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   TEMA EJECUTIVO (2026-09-29) — capa de override para lectura de VP/Directores.
+   Claro, mucho aire, jerarquía por peso y no por color saturado. Para volver al
+   diseño anterior alcanza con borrar este bloque (no cambia HTML de datos ni JS).
+   ══════════════════════════════════════════════════════════════════════════ */
+:root{
+  --bg:#f7f6fb;--surface:#fff;--surface2:#faf9fd;
+  --border:#ece8f4;--border2:#ddd6ea;
+  --navy:#1b1533;--navy2:#2b2150;--navy3:#2e1f5e;
+  --accent:#6d28d9;--accent2:#8b5cf6;
+  --green:#15803d;--red:#c8323c;
+  --text:#1f1a33;--muted:#6b6584;--muted2:#9a94b0;
+  --radius:14px;
+  --shadow:0 1px 2px rgba(27,21,51,.05),0 8px 24px rgba(27,21,51,.05);
+  --seg-track:#f0edf7;
+}
+body{font-family:'Inter',-apple-system,'Segoe UI',Roboto,sans-serif;font-size:13px;
+  -webkit-font-smoothing:antialiased;font-feature-settings:'tnum' 1,'cv11' 1}
+main{padding:24px 32px 48px;max-width:1760px}
+
+/* Header + tabs: una sola franja blanca */
+header{background:#fff;height:64px;padding:0 32px;box-shadow:none;border-bottom:1px solid var(--border)}
+.logo{color:var(--navy);font-size:17px;font-weight:800;letter-spacing:-.01em}
+.logo span{color:var(--accent);font-weight:700}
+.logo-sub{color:var(--muted2);font-size:10px;letter-spacing:.08em}
+#last-upd{color:var(--muted2);font-size:11px}
+header .btn-refresh{background:#fff !important;border:1px solid var(--border2);color:var(--navy2);border-radius:999px;
+  padding:6px 14px;font-size:11px !important;font-weight:600;transition:all .15s}
+header .btn-refresh:hover{background:#f5f3ff !important;border-color:#c4b5fd;color:var(--accent)}
+.lob-seg{background:var(--seg-track);border-radius:999px;padding:3px;gap:2px !important}
+.lob-btn{background:transparent;border:none;color:var(--muted);border-radius:999px;padding:8px 20px;
+  font-size:12.5px;font-weight:600;letter-spacing:0}
+.lob-btn:hover{background:rgba(109,40,217,.07);color:var(--accent);border:none}
+.lob-btn.active{background:#fff;color:var(--accent);box-shadow:0 1px 3px rgba(27,21,51,.14);font-weight:700;border:none}
+
+.tab-bar{background:#fff;border-bottom:1px solid var(--border);padding:0 32px}
+.tab-btn{color:var(--muted);font-size:12.5px;font-weight:600;letter-spacing:0;text-transform:none;padding:13px 20px;border-bottom:2px solid transparent}
+.tab-btn:hover{color:var(--accent)}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
+
+/* Barra de filtros: fondo neutro, etiquetas discretas, controles tipo segmentado */
+.lob-switcher{background:var(--surface2);border-bottom:1px solid var(--border);padding:12px 32px;gap:10px}
+.mg-selectors-row{gap:10px 14px}
+.mg-selectors-row > span[style*="width:1px"]{background:var(--border2) !important;height:20px !important;margin:0 2px !important}
+.mg-selectors-row span[style*="font-size:11px"],
+.mg-selectors-row .fg label{font-size:10px !important;font-weight:700 !important;color:var(--muted2) !important;
+  text-transform:uppercase;letter-spacing:.08em}
+.prd-toggle{background:var(--seg-track);border:none;border-radius:999px;padding:3px;gap:2px;overflow:visible}
+.prd-btn{border-radius:999px;padding:6px 14px;font-size:11.5px;font-weight:600;color:var(--muted);line-height:1.1}
+.prd-btn:hover{color:var(--accent)}
+.prd-btn.prd-active{background:#fff;color:var(--accent);font-weight:700;box-shadow:0 1px 3px rgba(27,21,51,.14)}
+.dt-switcher{background:var(--seg-track);border-radius:999px;padding:3px}
+.dt-btn{color:var(--muted);border-radius:999px;font-weight:600;padding:5px 14px}
+.dt-btn:hover{color:var(--accent);background:transparent}
+.dt-btn.active{background:#fff;color:var(--accent);box-shadow:0 1px 3px rgba(27,21,51,.14)}
+
+/* Chips (país / producto / período / partners): blancos, seleccionado = tinte lila */
+.pais-chip,.bg-pchip,.gtab-btn,.gpartner-chip,.cnt-btn{
+  background:#fff;border:1px solid var(--border2);color:var(--muted);
+  border-radius:999px;padding:4px 13px;font-size:11.5px;font-weight:600;letter-spacing:0}
+.pais-chip:hover,.bg-pchip:hover,.gtab-btn:hover,.gpartner-chip:hover,.cnt-btn:hover:not(.cnt-btn-active){
+  background:#f5f3ff;border-color:#c4b5fd;color:var(--accent)}
+.pais-chip.pais-chip-active,.bg-pchip.bg-pchip-active,.gtab-btn.active,.gpartner-chip.active,.cnt-btn.cnt-btn-active{
+  background:#ede9fe;border-color:#a78bfa;color:#5b21b6;font-weight:700}
+.gtab-bar{background:transparent;padding:0}
+.chart-range-toggle{background:var(--seg-track)}
+.cr-btn.active{background:#fff;color:var(--accent);box-shadow:0 1px 3px rgba(27,21,51,.14)}
+
+/* Desplegables multi-select: panel claro */
+.ms-btn,.mg-selectors-row .ms-btn{background:#fff;border:1px solid var(--border2);color:var(--text);border-radius:999px;padding:6px 14px;min-width:120px;font-size:11.5px;font-weight:600}
+.ms-btn:hover,.ms-wrap.open .ms-btn,.mg-selectors-row .ms-btn:hover,.mg-selectors-row .ms-wrap.open .ms-btn{background:#f5f3ff;border-color:#a78bfa}
+.ms-panel{background:#fff;border:1px solid var(--border2);border-radius:12px;box-shadow:0 12px 36px rgba(27,21,51,.16)}
+.ms-search{border-bottom:1px solid var(--border)}
+.ms-search input{background:var(--surface2);border:1px solid var(--border2);color:var(--text)}
+.ms-search input::placeholder{color:var(--muted2)}
+.ms-option{color:var(--text)}
+.ms-option:hover{background:#f5f3ff}
+.ms-option input[type=checkbox]{accent-color:var(--accent)}
+.ms-option.ms-all{color:var(--accent);border-bottom:1px solid var(--border)}
+.ms-footer{border-top:1px solid var(--border)}
+.ms-clear{color:var(--muted)}
+.ms-clear:hover{color:var(--accent)}
+.ms-badge{background:var(--accent)}
+
+/* Leyenda de actuals / proyecciones */
+.actuals-legend{background:#fff;border:1px solid var(--border);border-radius:999px;padding:7px 18px;margin:12px 32px 0 !important;width:fit-content;
+  font-size:11.5px;color:var(--muted)}
+.filters-bar{background:transparent;padding:0}
+
+/* Tarjetas */
+.pnl-card{border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:24px}
+.pnl-card-hdr{padding:18px 24px 6px;border-bottom:none}
+.pnl-card-title{font-size:16px;font-weight:800;color:var(--navy);letter-spacing:-.01em}
+.kpi{border-radius:var(--radius);box-shadow:var(--shadow)}
+.sec-title{border-bottom:1px solid var(--border)}
+
+/* Tabla P&L (Managerial View): sin grilla, encabezados suaves, totales sutiles */
+.qpnl-table{font-size:12.5px;border-collapse:separate;border-spacing:0}
+.qpnl-table th,.qpnl-table td{border:none;border-bottom:1px solid #f1eef7}
+.qpnl-table th{padding:9px 14px;font-size:11.5px;font-weight:700;color:var(--muted);background:#fff}
+.qpnl-table td{padding:9px 14px;font-variant-numeric:tabular-nums;color:var(--text)}
+.qpnl-table td:first-child{padding-left:24px;min-width:230px}
+.qpnl-table thead tr:first-child th{padding-top:14px;padding-bottom:8px;font-size:11px;letter-spacing:.1em;border-bottom:none}
+.qpnl-table thead tr:nth-child(2) th{border-bottom:2px solid var(--border2);color:var(--navy2);font-weight:800}
+.th-baseline{background:#ede9fe;color:#5b21b6;border-radius:8px 8px 0 0}
+.th-goal{background:#e8f0fa;color:#1e5a8c;border-radius:8px 8px 0 0}
+.th-delta{background:#e7f5ec;color:#166534;border-radius:8px 8px 0 0}
+.th-sep,.td-sep{width:14px;min-width:14px;background:#fff !important;border-bottom-color:#fff !important}
+.th-total-b,.td-total-b,.th-total-g,.td-total-g,.th-total-d,.td-total-d{background:#f8f6fd !important;font-weight:700}
+.qpnl-table tbody tr:hover td:not(.td-sep){background:#faf8fe}
+.qpnl-subtotal td{font-weight:800;color:var(--navy);background:#fbfaff}
+.qpnl-subtotal td:first-child{color:var(--navy) !important}
+.qpnl-sec-hdr td{background:#faf8fe}
+.qpnl-sec-hdr:hover td{filter:none;background:#f3effb}
+.qpnl-pct-row td{font-size:10.5px !important;color:var(--muted2) !important;font-style:normal;border-bottom-color:#f6f4fa !important;padding-top:0 !important;padding-bottom:4px !important}
+.qpnl-pct-row td:first-child{padding-left:28px !important}
+
+/* Otras tablas: mismos criterios */
+.palancas-table thead tr th{background:#f3effb;color:var(--navy2);border-right:none;font-size:11.5px;font-weight:800;padding:11px 14px}
+.palancas-table thead tr th:first-child,.palancas-table thead tr th.th-total{background:#ede9fe;color:#4c1d95;border:none}
+.palancas-row td,.palancas-total-row td{border-right:none;border-bottom:1px solid #f1eef7}
+.palancas-row td:first-child,.palancas-total-row td:first-child{border-right:none;padding-left:24px}
+.detalle-table th,.delta-table th,.pct-table thead tr th,.pct-table thead tr th:first-child{background:#f3effb;color:var(--navy2);border-right:none;font-weight:800}
+.detalle-country-band td{background:#ede9fe;color:#4c1d95;border-top:1px solid var(--border2)}
+.detalle-partner-row td,.detalle-subtotal-row td{border-bottom:1px solid #f1eef7}
+.detalle-subtotal-row td,.detalle-subtotal-cell{background:#faf8fe}
+.pct-row td{border-right:none}
+.detalle-table td,.delta-table td,.pct-table td,.palancas-table td{font-variant-numeric:tabular-nums}
+
+
+/* KPIs ejecutivos (franja superior de Managerial View) */
+.xkpi-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-bottom:24px}
+.xkpi{background:#fff;border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px 22px}
+.xkpi-lbl{font-size:10.5px;font-weight:700;color:var(--muted2);text-transform:uppercase;letter-spacing:.09em}
+.xkpi-val{font-size:30px;font-weight:800;color:var(--navy);letter-spacing:-.02em;line-height:1.1;margin:8px 0 6px;font-variant-numeric:tabular-nums}
+.xkpi-sub{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;font-size:11.5px;color:var(--muted)}
+.xkpi-delta{font-weight:700;padding:2px 9px;border-radius:999px;font-variant-numeric:tabular-nums}
+.xkpi-delta.pos{background:#e7f5ec;color:#15803d}
+.xkpi-delta.neg{background:#fdecec;color:#c8323c}
+.xkpi-yoy{margin-top:8px;padding-top:8px;border-top:1px dashed var(--border2)}
+.xkpi-head{display:flex;align-items:baseline;justify-content:space-between;margin:0 0 10px}
+.xkpi-title{font-size:12px;font-weight:700;color:var(--muted)}
+@media(max-width:1100px){.xkpi-row{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.xkpi-row{grid-template-columns:1fr}}
+
+/* Loader y errores */
+#loader{background:rgba(247,246,251,.86)}
+.spinner{border-color:var(--border);border-top-color:var(--accent)}
+
+@media(max-width:900px){
+  header{height:auto;padding:10px 16px;flex-wrap:wrap;gap:8px}
+  .tab-bar,.lob-switcher{padding-left:16px;padding-right:16px}
+  main{padding:16px}
+}
 </style>
 </head>
 <body>
@@ -648,7 +806,7 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
     <div class="logo">Despegar <span>P&amp;L Managerial View</span></div>
     <div class="logo-sub">Finance Dashboard · <?!= 'FY' + String(FY_END_YEAR).slice(-2) ?></div>
   </div>
-  <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;gap:6px;align-items:center">
+  <div class="lob-seg" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;gap:6px;align-items:center">
     <button class="lob-btn" id="lob-b2b" onclick="switchLob('b2b')">B2B · Managerial View</button>
     <button class="lob-btn active" id="lob-b2b2c" onclick="switchLob('b2b2c')">B2B2C · Managerial View</button>
     <button class="lob-btn" id="lob-vsacc" onclick="enterVsAcc()">Managerial vs Accounting</button>
@@ -1452,8 +1610,11 @@ function filterOptions(id, q){
 
 function clearMs(id, doReload){
   var wrap=document.getElementById(id);
+  if(!wrap) return;
   wrap.querySelectorAll('.ms-option:not(.ms-all) input').forEach(function(c){ c.checked=false; });
-  wrap.querySelector('input[value="__all__"]').checked=true;
+  // "Todos" recién existe después de fillMs (llegada de datos); antes de eso no hay nada que limpiar
+  var allChk=wrap.querySelector('input[value="__all__"]');
+  if(allChk) allChk.checked=true;
   updateMsLabel(id);
   if(doReload !== false) reload();
 }
@@ -2429,6 +2590,38 @@ function _buildMGPanel_(container, agg, goalData, title, periods, n, isLast, goa
   );
 }
 
+// ── KPIs ejecutivos: Baseline vs Goal, total del año fiscal ────────────────
+function _renderMGKpis_(container, agg, goalData, goalLabel, lyData){
+  var months = MG_MONTHS_ORD.filter(function(m){ return !!(agg && agg[m]); });
+  if(!months.length) return;
+  var b = mgAggPeriod_(agg, months), g = mgAggPeriod_(goalData, months), ly = mgAggPeriod_(lyData||{}, months);
+  var items = [
+    {l:'Gross Bookings', k:'gross_bookings', f:fmtM},
+    {l:'Net Revenues',   k:'net_revenue',    f:fmtM},
+    {l:'FVM',            k:'npv',            f:fmtM},
+    {l:'Orders',         k:'orders',         f:fmtK}
+  ];
+  var h = '<div class="xkpi-head"><span class="xkpi-title">Resumen '+FY_TAG+' · Baseline vs '+escHtml(goalLabel.charAt(0)+goalLabel.slice(1).toLowerCase())+'</span></div><div class="xkpi-row">';
+  items.forEach(function(it){
+    var bv = getValue(it.k, b)||0, gv = getValue(it.k, g)||0, d = bv-gv;
+    var pct = gv ? (d/Math.abs(gv)*100) : null;
+    var cls = d>=0 ? 'pos' : 'neg';
+    var sign = d>=0 ? '+' : '';
+    var lv = getValue(it.k, ly)||0, yd = bv-lv;
+    var ypct = lv ? (yd/Math.abs(lv)*100) : null;
+    var ycls = yd>=0 ? 'pos' : 'neg';
+    h += '<div class="xkpi"><div class="xkpi-lbl">'+it.l+'</div>'
+       + '<div class="xkpi-val">'+it.f(bv)+'</div>'
+       + '<div class="xkpi-sub"><span class="xkpi-delta '+cls+'">'+(pct===null?'—':sign+pct.toFixed(1)+'%')+'</span>'
+       + '<span>'+sign+it.f(d)+' vs '+escHtml(goalLabel.charAt(0)+goalLabel.slice(1).toLowerCase())+'</span></div>'
+       + '<div class="xkpi-sub xkpi-yoy"><span class="xkpi-delta '+ycls+'">'+(ypct===null?'—':(yd>=0?'+':'')+ypct.toFixed(1)+'%')+'</span>'
+       + '<span>YoY vs '+it.f(lv)+' ('+FY_LY_TAG+')</span></div></div>';
+  });
+  var wrap = document.createElement('div');
+  wrap.innerHTML = h + '</div>';
+  container.appendChild(wrap);
+}
+
 function renderManagerialBGTable(){
   if(!_data) return;
   var container = document.getElementById('mg-tables-container');
@@ -2443,6 +2636,7 @@ function renderManagerialBGTable(){
   // scenario prefix on _data.* : budget→'budget', forecast→'forecast', ly→'ly'
   var gf = _managerialGoal === 'ly' ? 'ly'
          : _managerialGoal === 'forecast' ? 'forecast' : 'budget';
+  _renderMGKpis_(container, _data.agg||{}, _data[gf]||{}, goalLabel, _data.ly||{});
 
   if(_activeLob === 'b2b'){
     var panels = [

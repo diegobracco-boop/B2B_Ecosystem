@@ -336,16 +336,20 @@ function getData(filters) {
     baselineSource: f.baselineSource || 'bl'
   });
   var ck = null;
+  var tStart = Date.now();
   try {
     var t1 = DriveApp.getFileById(GESTIONAL_JSON_FILE_ID).getLastUpdated().getTime();
     var t2 = DriveApp.getFileById(GESTIONAL_VR_JSON_FILE_ID).getLastUpdated().getTime();
     ck = 'getdata_v1_' + t1 + '_' + t2 + '_' + Utilities.base64EncodeWebSafe(sig);
     var hit = _readGetDataCache_(ck);
-    if (hit) return hit;
+    if (hit) { Logger.log('getData HIT ' + (Date.now() - tStart) + ' ms'); return hit; }
   } catch (e) { Logger.log('getData cache probe: ' + e); }
+  var tMiss = Date.now();
 
   var out = _computeGetData_(f);
+  var tComp = Date.now();
   if (ck) _writeGetDataCache_(ck, out);
+  Logger.log('getData MISS probe=' + (tMiss - tStart) + ' ms, compute=' + (tComp - tMiss) + ' ms, write=' + (Date.now() - tComp) + ' ms');
   return out;
 }
 
@@ -593,6 +597,7 @@ function getVsAccounting(filtersJson) {
   var sig = JSON.stringify([(f.pais||[]).slice().sort(), (f.produto||[]).slice().sort()]);
   var cache = CacheService.getScriptCache();
   var ck = null;
+  var tStart = Date.now();
   try {
     var t1 = DriveApp.getFileById(GESTIONAL_JSON_FILE_ID).getLastUpdated().getTime();
     var t2 = DriveApp.getFileById(ACC_ACTUALS_FILE_ID).getLastUpdated().getTime();
@@ -724,6 +729,7 @@ function getRevenueGDVsGestional(filtersJson) {
   var sig = JSON.stringify([(f.pais || []).slice().sort(), (f.produto || []).slice().sort()]);
   var cache = CacheService.getScriptCache();
   var ck = null;
+  var tStart = Date.now();
   try {
     var t1 = DriveApp.getFileById(GESTIONAL_JSON_FILE_ID).getLastUpdated().getTime();
     var rf = _revGdFile_();
