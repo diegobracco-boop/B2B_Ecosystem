@@ -68,6 +68,18 @@
     .agent-desc{font-size:12.5px;color:var(--muted);margin:6px 0 10px}
     .agent-go{font-size:12px;font-weight:700;color:var(--lila-1)}
     .warn{background:#fff8e6;border:1px solid #f2d98c;color:#8a6d1a;font-size:11.5px;padding:8px 12px;border-radius:8px;margin-bottom:12px}
+    .lobs-tbl{width:100%;border-collapse:collapse;font-size:13px}
+    .lobs-tbl th,.lobs-tbl td{padding:9px 12px;text-align:right;border-bottom:1px solid var(--line);vertical-align:top}
+    .lobs-tbl th:first-child,.lobs-tbl td:first-child{text-align:left;white-space:nowrap}
+    .lobs-tbl th{color:var(--muted);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.03em}
+    .lobs-tbl tr:last-child td{border-bottom:none}
+    .lobs-tbl tr.focus td{background:var(--lila-bg);background:rgba(216,199,255,.35)}
+    .lobs-tbl tr.total td{font-weight:800}
+    .lobs-tbl .lv{font-size:14px;font-weight:700;color:var(--ink)}
+    .lobs-tbl tr.total .lv{font-weight:800}
+    .lobs-tbl .lc{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap;margin-top:4px}
+    .lobs-tbl .lc .chip{font-size:10.5px;padding:1px 7px;white-space:nowrap}
+    .lobs-tbl .lbl small{display:block;font-weight:500;color:var(--muted);font-size:10.5px}
     .mix-tbl{width:100%;border-collapse:collapse;font-size:13px;margin-top:14px}
     .mix-tbl th,.mix-tbl td{padding:7px 10px;text-align:right;border-bottom:1px solid var(--line)}
     .mix-tbl th:first-child,.mix-tbl td:first-child{text-align:left}
@@ -88,7 +100,7 @@
 
 <header>
   <div>
-    <h1>Country One Pager · B2B</h1>
+    <h1 id="pageTitle">Country One Pager · B2B</h1>
     <div class="sub">Paneo ejecutivo por país — gestional (MTD) + contable, con acceso al detalle</div>
   </div>
 </header>
@@ -108,6 +120,7 @@
 </main>
 
 <script>
+function lobLabel_() { return STATE.lob === 'b2b2c' ? 'B2B2C' : 'B2B'; }
 var STATE = { pais: 'Globales', lob: 'b2b', ym: '', evoMetric: 'nr', evoGranularity: 'month', evoMode: 'nominal' };
 var _data = null;
 var FILTERS = { defaultYm: '' };
@@ -220,23 +233,24 @@ function _logT_(tag, ctx, res, t0) {
 }
 
 function load() {
-  var ctx = _ctx = { seq: ++_loadSeq, pais: STATE.pais, ym: STATE.ym || FILTERS.defaultYm || '',
+  var pt = document.getElementById('pageTitle'); if (pt) pt.textContent = 'Country One Pager · ' + lobLabel_();
+  var ctx = _ctx = { seq: ++_loadSeq, lob: STATE.lob, pais: STATE.pais, ym: STATE.ym || FILTERS.defaultYm || '',
                      base: undefined, gd: undefined, ri: undefined, wf: undefined, ymTok: 0 };
   _data = null;
   document.getElementById('main').innerHTML =
-    '<div id="sec-gest"></div><div id="sec-cont"></div><div id="sec-evo"></div>' +
+    '<div id="sec-gest"></div><div id="sec-cont"></div><div id="sec-lobs"></div><div id="sec-evo"></div>' +
     '<div id="sec-wf"></div><div id="sec-mix"></div><div id="sec-dudas">' + renderDudas() + '</div>';
   paintGest_(ctx); paintCont_(ctx); paintEvo_(ctx); paintWf_(ctx); paintMix_(ctx);
 
   var t0 = Date.now();
-  callSrv('getOPBase', { pais: ctx.pais, ym: ctx.ym }, function (d) {
+  callSrv('getOPBase', { pais: ctx.pais, ym: ctx.ym, lob: ctx.lob }, function (d) {
     if (ctx !== _ctx) return;
     _logT_('base', ctx, d, t0);
     ctx.base = d;
     syncMonths(d.months, d.ym);
     STATE.ym = d.ym;
     document.getElementById('lastUpd').textContent =
-      d.pais + ' · B2B · ' + monthLabel(d.ym) + ' · generado ' + new Date().toLocaleString('es-AR');
+      d.pais + ' · ' + (ctx.lob === 'b2b2c' ? 'B2B2C' : 'B2B') + ' · ' + monthLabel(d.ym) + ' · generado ' + new Date().toLocaleString('es-AR');
     // El mes pedido (default calendario) no estaba disponible: gestional y waterfalls se re-piden con el mes real.
     if (d.ym && d.ym !== ctx.ym) { ctx.ym = d.ym; fetchYmParts_(ctx); }
     paintCont_(ctx); paintEvo_(ctx); paintMix_(ctx); paintWf_(ctx); paintGest_(ctx);
@@ -254,8 +268,8 @@ function fetchYmParts_(ctx) {
   ctx.gd = undefined; ctx.ri = undefined; ctx.wf = undefined;
   paintGest_(ctx); paintWf_(ctx);
   function live() { return ctx === _ctx && tok === ctx.ymTok; }
-  ['GD', 'RI'].forEach(function (view) {
-    callSrv('getOPGestional', { pais: ctx.pais, view: view, ym: ym }, function (r) {
+  (ctx.lob === 'b2b2c' ? ['GD'] : ['GD', 'RI']).forEach(function (view) {   // B2B2C: fecha única, una sola vista
+    callSrv('getOPGestional', { pais: ctx.pais, view: view, ym: ym, lob: ctx.lob }, function (r) {
       if (!live()) return;
       _logT_('gestional ' + view, ctx, r, t0);
       ctx[view.toLowerCase()] = r.data || null;
@@ -265,7 +279,7 @@ function fetchYmParts_(ctx) {
       ctx[view.toLowerCase()] = null; paintGest_(ctx);
     });
   });
-  callSrv('getOPWaterfalls', { pais: ctx.pais, ym: ym }, function (r) {
+  callSrv('getOPWaterfalls', { pais: ctx.pais, ym: ym, lob: ctx.lob }, function (r) {
     if (!live()) return;
     _logT_('waterfalls', ctx, r, t0);
     ctx.wf = r.wf || null;
@@ -278,7 +292,7 @@ function fetchYmParts_(ctx) {
 
 function paintGest_(ctx) {
   if (ctx !== _ctx) return;
-  _secHtml_('sec-gest', renderGestional({ gd: ctx.gd, ri: ctx.ri }, ctx.pais, ctx.ym));
+  _secHtml_('sec-gest', renderGestional({ gd: ctx.gd, ri: ctx.ri }, ctx.pais, ctx.ym, ctx.lob));
 }
 function paintCont_(ctx) {
   if (ctx !== _ctx) return;
@@ -296,13 +310,25 @@ function paintEvo_(ctx) {
 }
 function paintMix_(ctx) {
   if (ctx !== _ctx) return;
+  if (ctx.lob === 'b2b2c') {   // el mix es canal MAY/MIN × producto: no existe para B2B2C
+    return _secHtml_('sec-mix', '<div class="sec"><div class="sec-head"><div class="sec-title">Mix Canal × Producto <span class="pill">solo B2B</span></div></div>' +
+      '<div class="empty">El mix por canal (MAY / MIN) aplica solo a B2B. B2B2C no tiene esa apertura.</div></div>');
+  }
   if (ctx.base === undefined) return _secHtml_('sec-mix', _loadingSec_('Mix Canal × Producto'));
   if (ctx.base === null)      return _secHtml_('sec-mix', _errSec_('Mix Canal × Producto', ctx.baseErr));
   _secHtml_('sec-mix', renderMix(ctx.base.mix));
   drawPareto(ctx.base.mix);
 }
+function paintLobs_(ctx) {
+  if (ctx !== _ctx) return;
+  if (ctx.base === null) return _secHtml_('sec-lobs', '');
+  if (ctx.base === undefined || ctx.wf === undefined) return _secHtml_('sec-lobs', _loadingSec_('Portfolio del país'));
+  var c = ctx.base.contable;
+  _secHtml_('sec-lobs', renderLobs(ctx.wf && ctx.wf.lobs, c ? c.ym : ctx.ym, c ? c.basis : 'actual'));
+}
 function paintWf_(ctx) {
   if (ctx !== _ctx) return;
+  paintLobs_(ctx);
   var c = ctx.base && ctx.base.contable;
   if (ctx.base === null) return _secHtml_('sec-wf', _errSec_('P&amp;L Bridge', ctx.baseErr));
   if (ctx.base === undefined || ctx.wf === undefined) return _secHtml_('sec-wf', _loadingSec_('P&amp;L Bridge'));
@@ -356,12 +382,13 @@ function drillBtn(url, txt) {
 }
 
 // ── Sección 1 · GESTIONAL (GB / NR / FVM) — GD y RI ────────────
-function renderGestional(gest, pais, ym) {
+function renderGestional(gest, pais, ym, lob) {
+  var single = (lob === 'b2b2c');   // B2B2C: sin GD/RI (fecha única en el Daily)
   var g = gest && (gest.gd || gest.ri);
   var note = (g ? (monthLabel(g.month) + ' · ' + g.daysCount + ' días con actuals') : monthLabel(ym));
   var head = '' +
     '<div class="sec-head">' +
-      '<div class="sec-title">Gestional <span class="pill">Daily · GD y RI</span></div>' +
+      '<div class="sec-title">Gestional <span class="pill">' + (single ? 'Daily · B2B2C' : 'Daily · GD y RI') + '</span></div>' +
       (note ? '<span class="sec-note">' + note + '</span>' : '') +
       drillBtn(LINKS.gestional, '📅 Ver detalle en Daily') +
     '</div>';
@@ -383,8 +410,8 @@ function renderGestional(gest, pais, ym) {
   }
 
   return '<div class="sec">' + head +
-    block('Por Gestion Date (GD)',     gest && gest.gd) +
-    block('Por Recognition Date (RI)', gest && gest.ri) +
+    (single ? block('Fecha única (B2B2C)', gest && gest.gd)
+            : block('Por Gestion Date (GD)', gest && gest.gd) + block('Por Recognition Date (RI)', gest && gest.ri)) +
     '</div>';
 }
 
@@ -411,6 +438,58 @@ function renderContable(c) {
   }).join('');
 
   return '<div class="sec">' + head + badge + '<div class="kpi-row">' + cards + '</div></div>';
+}
+
+// ── Sección · Portfolio del país (LOBs) ────────────────────────
+// Tabla comparativa de LOBs del país en el mes elegido: Orders / GB / NR / OC con vs Budget y YoY.
+// Viene de compPnl (Dashboard_B2B_WLs) en la misma llamada de los waterfalls; B2B (foco de esta página) va resaltada.
+var LOBS_ROWS = [
+  { g: 'Total Portfolio', label: 'Total Portfolio', cls: 'total' },
+  { g: 'B2C',             label: 'B2C' },
+  { g: 'B2B + B2B2C',     label: 'B2B + B2B2C' },
+  { g: 'B2B',             label: 'B2B',         focusFor: 'b2b' },
+  { g: 'WLs (B2B2C)',     label: 'B2B2C (WLs)', focusFor: 'b2b2c' }
+];
+var LOBS_METRICS = [
+  { id: 'orders', label: 'Orders',                 fmt: 'K' },
+  { id: 'gb',     label: 'Gross Bookings',         fmt: 'M' },
+  { id: 'nr',     label: 'Net Revenues',           fmt: 'M' },
+  { id: 'oc',     label: 'Operating Contribution', fmt: 'M' }
+];
+function fmtK0(v) { return (v == null) ? '—' : Math.round(v / 1e3).toLocaleString('es-AR') + 'K'; }
+function lobChip(v, txt) {
+  return '<span class="chip ' + chipClass(v) + '">' + txt + ' ' + fmtPct(v) + '</span>';
+}
+function renderLobs(lobs, ym, basis) {
+  var isRR = basis === 'RR';
+  var head = '' +
+    '<div class="sec-head">' +
+      '<div class="sec-title">Portfolio del país <span class="pill">LOBs · ' + monthLabel(ym) + ' · ' + (isRR ? 'Run Rate' : 'actual') + '</span></div>' +
+      '<span class="sec-note">cuánto pesa ' + lobLabel_() + ' dentro del país</span>' +
+    '</div>';
+  if (!lobs || !lobs.groups || !lobs.rows) {
+    return '<div class="sec">' + head + '<div class="empty">Sin datos comparativos para este país y mes.</div></div>';
+  }
+  var gIdx = {}; lobs.groups.forEach(function (g, i) { gIdx[g] = i; });
+  var rById = {}; lobs.rows.forEach(function (r) { rById[r.id] = r; });
+
+  var ths = '<th>LOB</th>' + LOBS_METRICS.map(function (m) { return '<th>' + m.label + '</th>'; }).join('');
+  var trs = LOBS_ROWS.map(function (row) {
+    var idx = gIdx[row.g];
+    if (idx === undefined) return '';
+    var tds = LOBS_METRICS.map(function (m) {
+      var r = rById[m.id], c = r && r.cols && r.cols[idx];
+      if (!c) return '<td>—</td>';
+      return '<td><div class="lv">' + (m.fmt === 'K' ? fmtK0(c.actual) : fmtM(c.actual)) + '</div>' +
+             '<div class="lc">' + lobChip(c.varBudPct, 'vs Bgt') + lobChip(c.yoyPct, 'YoY') + '</div></td>';
+    }).join('');
+    var isFocus = row.focusFor === STATE.lob;
+    return '<tr class="' + (isFocus ? 'focus' : (row.cls || '')) + '"><td class="lbl">' + row.label +
+           (isFocus ? '<small>foco de esta página</small>' : '') + '</td>' + tds + '</tr>';
+  }).join('');
+
+  return '<div class="sec">' + head + '<div class="card" style="overflow-x:auto;padding:6px 10px">' +
+    '<table class="lobs-tbl"><thead><tr>' + ths + '</tr></thead><tbody>' + trs + '</tbody></table></div></div>';
 }
 
 // ── Sección · Evolución (GB/NR/OC, Actual+RR vs Budget, YoY) ────
@@ -712,7 +791,7 @@ function renderWaterfalls(c) {
   var head = '' +
     '<div class="sec-head">' +
       '<div class="sec-title">P&amp;L Bridge <span class="pill">contable · ' + (c ? monthLabel(c.ym) : '') + ' · Budget → ' + basis + '</span></div>' +
-      drillBtn(LINKS.pnlDash + '?section=b2b', '📒 Ver detalle · Monthly Results B2B') +
+      drillBtn(LINKS.pnlDash + '?section=' + STATE.lob, '📒 Ver detalle · Monthly Results ' + lobLabel_()) +
     '</div>';
   if (!wf || (!wf.oc && !wf.nr)) {
     return '<div class="sec">' + head + '<div class="empty">Sin datos de bridge para este país.</div></div>';

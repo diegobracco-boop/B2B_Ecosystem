@@ -7,7 +7,8 @@
 //    Sección 1 · GESTIONAL MTD  → GB / NR / FVM  (como el Daily)
 //    Sección 2 · CONTABLE       → GB / NR / OC   (último mes cerrado)
 //
-//  Por ahora SOLO B2B. B2B2C queda como pestaña "próximamente".
+//  LoB: B2B y B2B2C (param `lob`: 'b2b' | 'b2b2c'). Diferencias de B2B2C: gestional sin GD/RI
+//  (fecha única en el Daily) y sin Mix Canal × Producto (no tiene canal MAY/MIN).
 //
 //  No tiene pipeline propio: combina, vía Apps Script Libraries, las
 //  funciones ya públicas de los tableros existentes (misma fuente de
@@ -28,8 +29,12 @@ var GESTIONAL_PAIS = { 'Globales': 'Other Countries' };
 var CONTABLE_PAIS  = { 'Globales': 'other countries' };
 var LOBS   = [
   { id: 'b2b',   label: 'B2B',   enabled: true  },
-  { id: 'b2b2c', label: 'B2B2C', enabled: false }   // próximamente
+  { id: 'b2b2c', label: 'B2B2C', enabled: true  }
 ];
+
+// Normaliza el LoB pedido por el cliente y elige su bloque dentro de getCountryPageData().
+function _lobId_(v) { return v === 'b2b2c' ? 'b2b2c' : 'b2b'; }
+function _lobData_(cp, lob) { return cp ? (lob === 'b2b2c' ? cp.b2b2cData : cp.b2bData) : null; }
 // Año fiscal: ÚNICO valor a cambiar al pasar de FY (abril). 2027 → FY27 = abr-2026 … mar-2027.
 // dashboard.html lo recibe por el template (auditoría ola 4, 2026-09-25).
 var FY_END_YEAR = 2027;
@@ -40,7 +45,7 @@ function doGet(e) {
   try {
     return HtmlService
       .createTemplateFromFile('dashboard').evaluate()
-      .setTitle('Country One Pager · B2B')
+      .setTitle('Country One Pager')
       .addMetaTag('viewport', 'width=device-width,initial-scale=1')
       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
   } catch (err) {
@@ -99,16 +104,18 @@ function getOPBase(params) {
   var t0 = Date.now(), tm = {};
   var p    = params || {};
   var pais = PAISES.indexOf(p.pais) >= 0 ? p.pais : 'Globales';
-  var base = _tm_(tm, 'contableBase', function () { return _getContableBase_(pais); });
+  var lob  = _lobId_(p.lob);
+  var base = _tm_(tm, 'contableBase', function () { return _getContableBase_(pais, lob); });
   var ym   = _resolveYm_(p.ym, base);
   var out = {
     pais:          pais,
+    lob:           lob,
     ym:            ym,
     lastActualsYm: base ? base.lastActualsYm : null,
     months:        base ? base.months : [],
-    contable:      _buildContableCards_(base, ym, pais, true),   // sin waterfalls (van por getOPWaterfalls)
+    contable:      _buildContableCards_(base, ym, pais, true, lob),   // sin waterfalls (van por getOPWaterfalls)
     evo:           _buildEvo_(base),
-    mix:           _tm_(tm, 'mix', function () { return _getMix_(pais); })
+    mix:           (lob === 'b2b') ? _tm_(tm, 'mix', function () { return _getMix_(pais); }) : null   // el mix es canal MAY/MIN × producto: solo B2B
   };
   tm.total = Date.now() - t0;
   out._timing = tm;
@@ -122,25 +129,27 @@ function getOPGestional(params) {
   var t0 = Date.now();
   var p    = params || {};
   var pais = PAISES.indexOf(p.pais) >= 0 ? p.pais : 'Globales';
-  var view = (p.view === 'RI') ? 'RI' : 'GD';
+  var lob  = _lobId_(p.lob);
+  var view = (lob === 'b2b' && p.view === 'RI') ? 'RI' : 'GD';   // B2B2C no tiene GD/RI (fecha única): siempre una sola vista
   var ym   = p.ym || _currentDefaultYm_();
-  var key  = 'gs1_' + view + '_' + (GESTIONAL_PAIS[pais] || pais) + '_' + ym;
+  var key  = 'gs1_' + (lob === 'b2b2c' ? 'c_' : '') + view + '_' + (GESTIONAL_PAIS[pais] || pais) + '_' + ym;
   var sc   = CacheService.getScriptCache(), data = null, src = 'lib';
   var hit  = sc.get(key);
   if (hit) { try { data = JSON.parse(hit); src = 'cache'; } catch (e) { data = null; } }
   if (!data) {
-    data = _getGestionalMTD_(pais, view, ym);
+    data = _getGestionalMTD_(pais, view, ym, lob);
     if (data) { try { sc.put(key, JSON.stringify(data), _GEST_CACHE_TTL_S); } catch (e) {} }
   }
-  return { pais: pais, view: view, ym: ym, data: data, _timing: { total: Date.now() - t0, src: src } };
+  return { pais: pais, lob: lob, view: view, ym: ym, data: data, _timing: { total: Date.now() - t0, src: src } };
 }
 
 function getOPWaterfalls(params) {
   var t0 = Date.now();
   var p    = params || {};
   var pais = PAISES.indexOf(p.pais) >= 0 ? p.pais : 'Globales';
-  var wf   = _buildContableWaterfalls_(pais, p.ym);
-  return { pais: pais, ym: p.ym, wf: wf, _timing: { total: Date.now() - t0 } };
+  var lob  = _lobId_(p.lob);
+  var wf   = _buildContableWaterfalls_(pais, p.ym, lob);
+  return { pais: pais, lob: lob, ym: p.ym, wf: wf, _timing: { total: Date.now() - t0 } };
 }
 
 // Medición (temporal): ms de cada tramo de getOPBase; el cliente lo imprime en consola.
@@ -177,9 +186,9 @@ function _buildEvo_(base) {
 // ── Sección 1 · GESTIONAL (Daily_Dashboard) ─────────────────────
 // GB / NR / FVM del mes `ym` para el país (fila propia, sin agregado
 // "Hispa"). Para un mes cerrado = mes completo; para el mes en curso = MTD.
-function _getGestionalMTD_(pais, view, ym) {
+function _getGestionalMTD_(pais, view, ym, lob) {
   var paisGd = GESTIONAL_PAIS[pais] || pais;   // Globales → país discreto 'Other Countries'
-  var res = DailyDashboard.getCountryMTD({ view: (view === 'RI' ? 'RI' : 'GD'), lob: 'B2B', pais: paisGd, ym: ym });
+  var res = DailyDashboard.getCountryMTD({ view: (view === 'RI' ? 'RI' : 'GD'), lob: (lob === 'b2b2c' ? 'B2B2C' : 'B2B'), pais: paisGd, ym: ym });
   if (!res || !res.success || !res.mtd) return null;
   var mtd = res.mtd;
 
@@ -248,10 +257,10 @@ function _getMix_(pais) {
 // Base: evo mensual GB/NR/OC + meses seleccionables (rango FY27 completo,
 // necesario para el gráfico de Evolución). Los waterfalls NO salen de acá
 // — van aparte, acotados al mes seleccionado (ver _buildContableWaterfalls_).
-function _getContableBase_(pais) {
+function _getContableBase_(pais, lob) {
   var paisCt = CONTABLE_PAIS[pais] || pais;   // Globales → 'other countries'
   var cp  = DashboardB2BWLs.getCountryPageData({ pais: paisCt, desde: FY_START, hasta: FY_END });
-  var b2b = cp && cp.b2bData;
+  var b2b = _lobData_(cp, lob);
   var evo = b2b ? b2b.evo : null;
   if (!evo || !evo.metrics) return null;
 
@@ -292,26 +301,28 @@ function _getContableBase_(pais) {
 // sesión/equipo la recibe instantánea hasta que expire (6h, mismo TTL que
 // usa Marketing en Dashboard_B2B_WLs).
 var _WF_CACHE_TTL_S = 21600;   // 6h — mismo criterio que RESULT_CACHE_MAX_S en Dashboard_B2B_WLs
-function _buildContableWaterfalls_(pais, ym) {
+function _buildContableWaterfalls_(pais, ym, lob) {
   if (!ym) return null;
   var paisCt = CONTABLE_PAIS[pais] || pais;
 
   var sc  = CacheService.getScriptCache();
-  var key = 'wf_' + paisCt + '_' + ym;
+  var key = (lob === 'b2b2c' ? 'wf2c_' : 'wf2_') + paisCt + '_' + ym;   // b2b conserva su clave (cache ya tibio)   // wf2: el resultado ahora incluye `lobs` (tabla de LOBs); no reusar 'wf_' viejo
   var hit = sc.get(key);
   if (hit) { try { return JSON.parse(hit); } catch (e) {} }
 
   var cp  = DashboardB2BWLs.getCountryPageData({ pais: paisCt, desde: ym, hasta: ym });
-  var b2b = cp && cp.b2bData;
+  var b2b = _lobData_(cp, lob);
   if (!b2b) return null;
-  var result = { oc: b2b.ocConceptWf, nr: b2b.nrBridgeWf };
+  // `lobs` = compPnl del país en el mismo mes (Total Portfolio / B2C / B2B+B2B2C / B2B / WLs × Orders, GB, NR, OC).
+  // Viaja en la MISMA llamada a la librería que los waterfalls: cero costo extra, y el mes coincide con el resto de la página.
+  var result = { oc: b2b.ocConceptWf, nr: b2b.nrBridgeWf, lobs: (cp.allData && cp.allData.compPnl) || null };
   try { sc.put(key, JSON.stringify(result), _WF_CACHE_TTL_S); } catch (e) {}
   return result;
 }
 
 // Tarjetas del mes `ym`: si el mes está cerrado → actuals contables; si aún
 // no cerró → Run Rate. Así toda la página habla del mismo mes.
-function _buildContableCards_(base, ym, pais, skipWaterfalls) {
+function _buildContableCards_(base, ym, pais, skipWaterfalls, lob) {
   if (!base || !ym) return null;
   var idx = base.periods.indexOf(ym);
   if (idx < 0) return null;
@@ -334,7 +345,7 @@ function _buildContableCards_(base, ym, pais, skipWaterfalls) {
     return { id: m.id, label: m.label, value: val, vsBudget: vsB, vsLY: vsLY };
   });
 
-  return { ym: ym, basis: basis, metrics: cards, waterfalls: skipWaterfalls ? undefined : _buildContableWaterfalls_(pais, ym) };
+  return { ym: ym, basis: basis, metrics: cards, waterfalls: skipWaterfalls ? undefined : _buildContableWaterfalls_(pais, ym, lob) };
 }
 
 // evo.metrics[].actuals viene BLENDED (actuals+RR+forecast) para todo el FY27,
