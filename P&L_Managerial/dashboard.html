@@ -693,9 +693,17 @@ header .btn-refresh:hover{background:#f5f3ff !important;border-color:#c4b5fd;col
 .qpnl-table td:first-child{padding-left:24px;min-width:230px}
 .qpnl-table thead tr:first-child th{padding-top:14px;padding-bottom:8px;font-size:11px;letter-spacing:.1em;border-bottom:none}
 .qpnl-table thead tr:nth-child(2) th{border-bottom:2px solid var(--border2);color:var(--navy2);font-weight:800}
-.th-baseline{background:#ede9fe;color:#5b21b6;border-radius:8px 8px 0 0}
-.th-goal{background:#e8f0fa;color:#1e5a8c;border-radius:8px 8px 0 0}
-.th-delta{background:#e7f5ec;color:#166534;border-radius:8px 8px 0 0}
+/* Colores por escenario: fila superior sólida + fila de períodos con el mismo tono suave */
+.qpnl-table th.th-baseline{background:#6d3fc0;color:#fff;border-radius:8px 8px 0 0}
+.qpnl-table th.th-goal{background:#3f72b4;color:#fff;border-radius:8px 8px 0 0}
+.qpnl-table th.th-delta{background:#2e8b5e;color:#fff;border-radius:8px 8px 0 0}
+.qpnl-table th.th-scen-sub,.th-scen-sub{color:rgba(255,255,255,.8)}
+.qpnl-table thead tr:nth-child(2) th.ph-b{background:#efe9fc;color:#4c1d95}
+.qpnl-table thead tr:nth-child(2) th.ph-g{background:#e6eef8;color:#1e4f86}
+.qpnl-table thead tr:nth-child(2) th.ph-d{background:#e3f3ea;color:#14663f}
+.qpnl-table thead tr:nth-child(2) th.ph-b.th-total-b{background:#ddd2f7 !important}
+.qpnl-table thead tr:nth-child(2) th.ph-g.th-total-g{background:#cfe0f3 !important}
+.qpnl-table thead tr:nth-child(2) th.ph-d.th-total-d{background:#c9e8d6 !important}
 .th-sep,.td-sep{width:14px;min-width:14px;background:#fff !important;border-bottom-color:#fff !important}
 .th-total-b,.td-total-b,.th-total-g,.td-total-g,.th-total-d,.td-total-d{background:#f8f6fd !important;font-weight:700}
 .qpnl-table tbody tr:hover td:not(.td-sep){background:#faf8fe}
@@ -2441,11 +2449,11 @@ function _buildMGPanel_(container, agg, goalData, title, periods, n, isLast, goa
     '<th class="th-delta" colspan="'+n+'">DELTA (B-G)</th>';
 
   var perHtml = '<th class="th-lbl">Concepto</th>';
-  periods.forEach(function(p){ perHtml += '<th'+(isLast(p)?' class="th-total-b"':'')+'>'+p+'</th>'; });
+  periods.forEach(function(p){ perHtml += '<th class="ph-b'+(isLast(p)?' th-total-b':'')+'">'+p+'</th>'; });
   perHtml += '<th class="th-sep"></th>';
-  periods.forEach(function(p){ perHtml += '<th'+(isLast(p)?' class="th-total-g"':'')+'>'+mgGoalPeriodLabel_(p)+'</th>'; });
+  periods.forEach(function(p){ perHtml += '<th class="ph-g'+(isLast(p)?' th-total-g':'')+'">'+mgGoalPeriodLabel_(p)+'</th>'; });
   perHtml += '<th class="th-sep"></th>';
-  periods.forEach(function(p){ perHtml += '<th'+(isLast(p)?' class="th-total-d"':'')+'>'+mgDeltaPeriodLabel_(p)+'</th>'; });
+  periods.forEach(function(p){ perHtml += '<th class="ph-d'+(isLast(p)?' th-total-d':'')+'">'+mgDeltaPeriodLabel_(p)+'</th>'; });
   quartersHead.innerHTML = perHtml;
 
   function appendMGCells(tr, key, fmt){
