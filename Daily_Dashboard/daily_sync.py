@@ -15,8 +15,6 @@ Scheduler  : Windows Task Scheduler → daily 08:00 AM
 
 import os
 import json
-import gzip
-import base64
 import time
 from pathlib import Path
 import warnings
@@ -39,7 +37,9 @@ warnings.filterwarnings("ignore")
 _win_user  = os.environ.get("USERNAME", "").lower()
 RUTA_ENV   = Path(__file__).resolve().parent.parent / "credenciales" / f".env.{_win_user}"
 DSN_NAME   = "DataLake Treasure ODBC"
-FETCH_WORKERS = 6   # queries simultáneas contra el Datalake
+# Queries simultáneas contra el Datalake. Algunos usuarios tienen una cola más chica en Trino
+# (QUERY_QUEUE_FULL con 6): bajarlo con la variable de entorno DAILY_FETCH_WORKERS=3.
+FETCH_WORKERS = int(os.getenv("DAILY_FETCH_WORKERS", "6"))
 
 DRIVE_FOLDER_ID   = "1lWzfqweyV6Kz1ERkL85ikFcmzmKwGwwh"
 JSON_FILE_NAME    = "daily_b2b2c_data.json"
@@ -2503,32 +2503,6 @@ def upload_to_drive(json_bytes: bytes, filename: str, folder_id: str = DRIVE_FOL
         print(f"  OK Drive: archivo creado ({filename})")
 
 
-def upload_compressed_to_drive(json_bytes: bytes, filename: str, folder_id: str):
-    """Sube json_bytes comprimido (gzip nivel 9 → base64 → text/plain) a folder_id."""
-    from googleapiclient.http import MediaInMemoryUpload
-
-    compressed = base64.b64encode(gzip.compress(json_bytes, compresslevel=9)).decode("ascii")
-    txt_bytes  = compressed.encode("ascii")
-    service    = _get_drive_service()
-    media      = MediaInMemoryUpload(txt_bytes, mimetype="text/plain", resumable=False)
-
-    results  = service.files().list(
-        q=f"name='{filename}' and '{folder_id}' in parents and mimeType='text/plain' and trashed=false",
-        fields="files(id,name)"
-    ).execute()
-    existing = results.get("files", [])
-
-    if existing:
-        service.files().update(fileId=existing[0]["id"], media_body=media).execute()
-        print(f"  OK Drive [comprimido]: archivo actualizado ({filename})")
-    else:
-        service.files().create(
-            body={"name": filename, "parents": [folder_id]},
-            media_body=media, fields="id"
-        ).execute()
-        print(f"  OK Drive [comprimido]: archivo creado ({filename})")
-
-
 print("\n--- P&L Managerial GD 2026 ---")
 try:
     df_pnl_gd = clean_managerial(fetched("P&L Managerial GD"))
@@ -2548,31 +2522,34 @@ except Exception as e:
 # ==============================================================================
 # 5b) CONSTRUIR JSONs MANAGERIAL
 # ==============================================================================
+# Los lee un agente de Toqan (MCP de Google Workspace, máx 5 MB por archivo): se suben
+# partidos por mes x parent_channel, comprimidos bz2+base64, más un <base>_index.json.
+# Detalle del formato en managerial_drive.py.
+sys.path.insert(0, str(Path(__file__).resolve().parent))   # también si corre vía runpy (run_*.py)
+import managerial_drive
 
-pnl_gd_payload = {
-    "meta": {
-        "generated_at": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
-        "data_from":    str(GD_FROM),
-        "data_to":      str(YESTERDAY),
-        "vista":        "gestion_date",
-    },
-    "data": to_compact(df_pnl_gd) if not df_pnl_gd.empty else {"cols": [], "rows": []},
-}
-
-pnl_ri_payload = {
-    "meta": {
-        "generated_at": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
-        "data_from":    str(RI_FROM),
-        "data_to":      str(YESTERDAY),
-        "vista":        "recognition_date",
-    },
-    "data": to_compact(df_pnl_ri) if not df_pnl_ri.empty else {"cols": [], "rows": []},
-}
-
-pnl_gd_bytes = json.dumps(pnl_gd_payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
-pnl_ri_bytes = json.dumps(pnl_ri_payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
-print(f"  GD JSON:  {len(pnl_gd_bytes)//1024:.0f} KB  ({len(df_pnl_gd):,} filas)")
-print(f"  RI JSON:  {len(pnl_ri_bytes)//1024:.0f} KB  ({len(df_pnl_ri):,} filas)")
+_gen_at = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+_empty_files = ([], None, None)
+try:
+    pnl_gd_files = managerial_drive.build_files(
+        df_pnl_gd, GD_JSON_NAME, "fecha_gestion",
+        {"generated_at": _gen_at, "data_from": str(GD_FROM), "data_to": str(YESTERDAY), "vista": "gestion_date"})
+except Exception as e:
+    print(f"  WARN P&L Managerial GD: no se pudieron armar los archivos: {e}")
+    _FAILED_BLOCKS.append('P&L Managerial GD (archivos)')
+    pnl_gd_files = _empty_files
+try:
+    pnl_ri_files = managerial_drive.build_files(
+        df_pnl_ri, RI_JSON_NAME, "fecha_reconocimiento",
+        {"generated_at": _gen_at, "data_from": str(RI_FROM), "data_to": str(YESTERDAY), "vista": "recognition_date"})
+except Exception as e:
+    print(f"  WARN P&L Managerial RI: no se pudieron armar los archivos: {e}")
+    _FAILED_BLOCKS.append('P&L Managerial RI (archivos)')
+    pnl_ri_files = _empty_files
+for _lbl, (_files, _, _) in (("GD", pnl_gd_files), ("RI", pnl_ri_files)):
+    _max = max((len(b) for _, b, _ in _files), default=0)
+    print(f"  {_lbl}: {len(_files)} archivos, {sum(i['filas'] for _, _, i in _files):,} filas, "
+          f"máx {_max/1e6:.2f} MB (límite {managerial_drive.MAX_BYTES/1e6:.2f} MB)")
 
 # ==============================================================================
 # 6) SUBIR A GOOGLE DRIVE
@@ -2592,10 +2569,8 @@ else:
     print(f"  AVISO: NO se sube {OKR_H2_JSON_FILE_NAME} (no cuadra con el JSON principal) — queda el de la corrida anterior.")
 
 print("\n--- Subiendo a Drive (Managerial) ---")
-upload_to_drive(pnl_gd_bytes, GD_JSON_NAME, MANAGERIAL_DRIVE_FOLDER_ID)
-upload_compressed_to_drive(pnl_gd_bytes, GD_JSON_NAME, MANAGERIAL_DRIVE_FOLDER_ID)
-upload_to_drive(pnl_ri_bytes, RI_JSON_NAME, MANAGERIAL_DRIVE_FOLDER_ID)
-upload_compressed_to_drive(pnl_ri_bytes, RI_JSON_NAME, MANAGERIAL_DRIVE_FOLDER_ID)
+managerial_drive.upload(_get_drive_service(), MANAGERIAL_DRIVE_FOLDER_ID, *pnl_gd_files)
+managerial_drive.upload(_get_drive_service(), MANAGERIAL_DRIVE_FOLDER_ID, *pnl_ri_files)
 
 # El email diario lo envía automáticamente el trigger de GAS (scheduledEmailSend).
 # Para configurar el trigger por primera vez: abrir el editor de GAS y correr setupEmailTrigger().
