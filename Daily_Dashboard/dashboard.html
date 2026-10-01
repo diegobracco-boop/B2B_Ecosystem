@@ -4193,10 +4193,17 @@ function flowGroupTable_(subRaw, metricKey, comp, col1, groupByRegion, childMax,
   // (Budget/Run Rate/Last Year) esté elegido arriba. Ese mapeo viaja en las filas de
   // budget/runrate (campo "tier"); se arma un lookup partner->tier aparte, independiente
   // de cmpArr, para que el tier no cambie según el toggle de comparación.
-  var tierByPartner={};
+  // El tier es por PAÍS x partner (Latam: Tier-1 en Brasil, Tier-3 en Argentina): la clave
+  // es pais|partner; tierByPartner queda solo como fallback si el partner no tiene filas
+  // de budget/runrate en ese país.
+  var tierByPaisPartner={}, tierByPartner={};
   if(!groupByRegion){
-    (subRaw.budget||[]).forEach(function(r){ if(r.partner && r.tier && r.tier!=='Unknown') tierByPartner[r.partner]=r.tier; });
-    (subRaw.runrate||[]).forEach(function(r){ if(r.partner && r.tier && r.tier!=='Unknown' && !tierByPartner[r.partner]) tierByPartner[r.partner]=r.tier; });
+    [(subRaw.budget||[]),(subRaw.runrate||[])].forEach(function(arr){ arr.forEach(function(r){
+      if(!r.partner || !r.tier || r.tier==='Unknown') return;
+      var kp=(r.pais||'Other')+'|'+r.partner;
+      if(!tierByPaisPartner[kp]) tierByPaisPartner[kp]=r.tier;
+      if(!tierByPartner[r.partner]) tierByPartner[r.partner]=r.tier;
+    }); });
   }
   var orderFull = groupByRegion ? ['BR','SAH','NAM'] : Object.keys(G).sort(function(a,b){return G[b].base-G[a].base;});
   var order = (topMax && orderFull.length>topMax) ? orderFull.slice(0,topMax) : orderFull;
@@ -4208,7 +4215,7 @@ function flowGroupTable_(subRaw, metricKey, comp, col1, groupByRegion, childMax,
   orderFull.forEach(function(k){ var g=G[k]; if(!g)return; TB+=g.base; TG+=g.goal; }); // totales siempre sobre TODO, aunque se trunque lo visible
   order.forEach(function(k,pIdx){ var g=G[k]; if(!g)return;
     var lbl = groupByRegion ? (REGION_LABEL_[k]||k) : k;
-    var kids=Object.keys(g.ch).map(function(c){return {name:c,base:g.ch[c].base,goal:g.ch[c].goal,tier:tierByPartner[c]||'Unknown'};})
+    var kids=Object.keys(g.ch).map(function(c){return {name:c,base:g.ch[c].base,goal:g.ch[c].goal,tier:tierByPaisPartner[k+'|'+c]||tierByPartner[c]||'Unknown'};})
       .sort(function(a,b){return b.base-a.base;});
     if(groupByRegion){
       // región→país: sigue siendo lista plana con cap (childMax/"+N más"), sin acordeón — no hay

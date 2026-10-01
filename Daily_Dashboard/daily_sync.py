@@ -322,13 +322,15 @@ SELECT * FROM raw.b2b_budget_gd
 WHERE lob_canal IN ('B2B2C-ON', 'B2B2C-OFF', 'B2B2C-CALL CENTER')
 """
 
-# Stage/tier para budget: join por partner_homologado_2 (igual que la query de KRs)
+# Stage/tier para budget: join por partner_homologado_2 (igual que la query de KRs).
+# El tier es por partner x PAIS (Latam es Tier-1 en Brasil/Chile y Tier-3 en AR/CO):
+# se agrupa tambien por country para que _map_tier joinee por (partner, pais).
 CARTERA_QUERY = """
-SELECT partner_homologado_2, MAX(stage) AS stage, MAX(estatus_tier) AS estatus_tier
+SELECT partner_homologado_2, country, MAX(stage) AS stage, MAX(estatus_tier) AS estatus_tier
 FROM raw.comdev_cartera_b2b2c_historic
 WHERE partner_homologado_2 IS NOT NULL
   AND LOWER(is_current) = 'true'
-GROUP BY partner_homologado_2
+GROUP BY partner_homologado_2, country
 """
 
 B2B_BUDGET_GD_QUERY = """
@@ -1297,29 +1299,41 @@ def _map_stage(partner_series: pd.Series, cmap: dict) -> pd.Series:
     return partner_series.astype(str).str.strip().str.lower().map(cmap).fillna("Existing")
 
 
-def _map_tier(partner_series: pd.Series, tmap: dict) -> pd.Series:
-    """Idem _map_stage pero para estatus_tier (join por nombre de partner normalizado)."""
-    return partner_series.astype(str).str.strip().str.lower().map(tmap).fillna("Unknown")
+def _map_tier(df: pd.DataFrame, tmap_pais: dict, tmap: dict) -> pd.Series:
+    """Tier de la cartera joineando por (partner, pais) normalizados: el mismo partner
+    tiene tier distinto segun el pais (Latam: Tier-1 en Brasil, Tier-3 en Argentina;
+    BBVA, Mastercard, Sky, WL Hotels idem). Antes era solo por partner con MAX(), que
+    le ponia a Latam Brasil el Tier-3 de otro pais. Si el partner no esta en la cartera
+    para ese pais (Bonda Mexico, Xcaret Other Countries, CUTC USA) cae al tier a nivel
+    partner (MAX entre paises, el comportamiento anterior)."""
+    p = df["partner"].astype(str).str.strip().str.lower()
+    c = df["pais"].astype(str).str.strip().str.lower() if "pais" in df.columns else pd.Series("", index=df.index)
+    by_pais = pd.Series([tmap_pais.get(k) for k in zip(p, c)], index=df.index)
+    return by_pais.fillna(p.map(tmap)).fillna("Unknown")
 
 
 print("\n--- Cartera (stage/tier para budget) ---")
 cartera_map = {}
 tier_map = {}
+tier_map_pais = {}
 try:
     df_cartera = fetched("Cartera")
-    cartera_map = {
-        str(k).strip().lower(): v
-        for k, v in zip(df_cartera["partner_homologado_2"], df_cartera["stage"])
-    }
-    tier_map = {
-        str(k).strip().lower(): v
-        for k, v in zip(df_cartera["partner_homologado_2"], df_cartera["estatus_tier"])
+    df_cartera["_p"] = df_cartera["partner_homologado_2"].astype(str).str.strip().str.lower()
+    df_cartera["_c"] = df_cartera["country"].astype(str).str.strip().str.lower()
+    # stage sigue a nivel partner (MAX entre paises, igual que antes)
+    _por_partner = df_cartera.groupby("_p").agg(stage=("stage", "max"), estatus_tier=("estatus_tier", "max"))
+    cartera_map = _por_partner["stage"].dropna().to_dict()
+    tier_map = _por_partner["estatus_tier"].dropna().to_dict()
+    tier_map_pais = {
+        (p, c): v
+        for p, c, v in zip(df_cartera["_p"], df_cartera["_c"], df_cartera["estatus_tier"])
+        if pd.notna(v)
     }
     # Overrides de negocio (la cartera de ComDev no los marca New, el equipo si):
     for _p in FORCE_NEW_PARTNERS:
         cartera_map[_p] = "New"
     df_budget["stage"] = _map_stage(df_budget["partner"], cartera_map)
-    df_budget["tier"]  = _map_tier(df_budget["partner"], tier_map)
+    df_budget["tier"]  = _map_tier(df_budget, tier_map_pais, tier_map)
     print(f"  Hunting: {(df_budget['stage']=='Existing').sum():,} filas | Farming: {(df_budget['stage']=='New').sum():,} filas")
 except Exception as e:
     print(f"  WARN cartera query failed: {e}")
@@ -1364,7 +1378,7 @@ try:
     df_b2bc_rr = clean_budget(fetched("B2B2C Run Rate"))
     if not df_b2bc_rr.empty and 'partner' in df_b2bc_rr.columns:
         df_b2bc_rr["stage"] = _map_stage(df_b2bc_rr["partner"], cartera_map)
-        df_b2bc_rr["tier"]  = _map_tier(df_b2bc_rr["partner"], tier_map)
+        df_b2bc_rr["tier"]  = _map_tier(df_b2bc_rr, tier_map_pais, tier_map)
 except Exception as e:
     print(f"  WARN B2B2C RR query failed: {e}")
     _FAILED_BLOCKS.append('B2B2C Run Rate')

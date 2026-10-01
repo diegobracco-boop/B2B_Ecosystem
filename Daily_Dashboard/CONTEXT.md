@@ -41,7 +41,7 @@ Las credenciales OAuth de Drive (`credentials_drive.json` + `token_drive.json`) 
 
 ## Tier de partners (B2B2C)
 
-Cada fila B2B2C (`actuals`/`budget`/`runrate`) trae el campo `tier` (desde `raw.comdev_cartera_b2b2c_historic.estatus_tier`, joineado por partner en `daily_sync.py`). El tab "Flow Semanal" de `dashboard.html` lo lee directo de los datos (filtro por Tier) — no depende de ningún archivo ni script aparte.
+Cada fila B2B2C (`actuals`/`budget`/`runrate`) trae el campo `tier` (desde `raw.comdev_cartera_b2b2c_historic.estatus_tier`; actuals por `partner_id`, budget/runrate por partner × país en `daily_sync.py:_map_tier`, con fallback a nivel partner). El tab "Flow Semanal" de `dashboard.html` lo lee directo de los datos (filtro por Tier) — no depende de ningún archivo ni script aparte.
 
 ## Gotchas
 
