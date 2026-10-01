@@ -533,6 +533,26 @@ def _read_manual_krs(token_file):
     return rows
 
 
+def _apply_unique_buyers_actual(rows_manual, daily_json, last_actual_ym):
+    """KR Unique Buyers (H2 FY27, B2B2C): el actual de los meses cerrados H2 sale del Datalake
+    (daily_sync.py -> daily_b2b2c_data.json "unique_buyers_total": compradores unicos White Label
+    por mes) en vez de Input_OKR. El target (Budget) y los meses sin cierre siguen de la sheet.
+    Si el JSON no trae el bloque (query fallida), se deja todo como esta."""
+    tot = (daily_json or {}).get("unique_buyers_total") or {}
+    if not tot:
+        print("  [Unique Buyers] sin unique_buyers_total en daily_b2b2c_data.json — se mantiene Input_OKR")
+        return rows_manual
+    done = []
+    for r in rows_manual:
+        if r[5].lower() == "unique buyers" and r[1] == "Run Rate/Actuals":
+            ym = str(r[0])[:7]
+            if "2026-10" <= ym <= last_actual_ym and ym in tot:
+                r[6] = tot[ym]
+                done.append(ym)
+    print(f"  [Unique Buyers] actual desde Datalake para: {sorted(done) or 'ningun mes (H2 sin cierre todavia)'}")
+    return rows_manual
+
+
 # ── Build ──────────────────────────────────────────────────────────────────────
 
 def build(upload=True):
@@ -561,6 +581,7 @@ def build(upload=True):
         last_actual_ym,
     )
     rows_manual   = _read_manual_krs(token_file)
+    rows_manual   = _apply_unique_buyers_actual(rows_manual, daily_json, last_actual_ym)
     rows_agencias = _read_agencias_flat()
 
     all_rows = rows_baseline + rows_budget + rows_hunting + rows_manual + rows_agencias

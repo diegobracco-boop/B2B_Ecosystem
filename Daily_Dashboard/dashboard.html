@@ -813,7 +813,26 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
 <div id="section-b2bc">
 
   <!-- KR SECTION -->
-  <div class="section-hdr">KRs</div>
+  <div class="section-hdr-row">
+    <span class="section-hdr">KRs</span>
+    <div class="dm-group">
+      <span class="dm-group-lbl">Half FY27</span>
+      <div class="dm-toggle">
+        <button class="dm-btn active" id="btn-b2bc-kr-h1" onclick="setB2BCKrHalf('h1')">H1</button>
+        <button class="dm-btn"        id="btn-b2bc-kr-h2" onclick="setB2BCKrHalf('h2')">H2</button>
+      </div>
+    </div>
+    <div style="min-width:80px"></div>
+  </div>
+
+  <!-- H2 (Oct–Mar): KRs White Labels -->
+  <div id="b2bc-kr-h2" style="display:none">
+    <div class="kr-row" id="b2bc-kr-h2-row"></div>
+    <div style="font-size:11px;color:var(--text-3);margin-top:-12px;margin-bottom:20px" id="b2bc-kr-h2-note"></div>
+  </div>
+
+  <!-- H1 (Abr–Sep) -->
+  <div id="b2bc-kr-h1">
   <div class="kr-row">
     <div class="kr-card">
       <div class="kr-lbl">KR2 · Net Rev Hunting</div>
@@ -839,6 +858,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
         <div class="kr-sub-item"><span class="kr-sub-lbl">Budget</span><span id="kr4-bud">—</span></div>
       </div>
     </div>
+    </div>
   </div>
 
   <!-- KR BREAKDOWN — por región -->
@@ -851,6 +871,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
     </tr></thead>
     <tbody id="kr-brkdwn-body"></tbody>
   </table>
+  </div>
 
   <!-- METRICAS — GB / NR / FVM -->
   <div class="section-hdr-row">
@@ -1994,6 +2015,7 @@ window.onload = function() {
       raw.budget   = expandCompact_(raw.budget);
       raw.runrate  = expandCompact_(raw.runrate);
       raw.forecast = expandCompact_(raw.forecast);
+      raw.unique_buyers_daily = expandCompact_(raw.unique_buyers_daily || {cols:[],rows:[]});
       _rawB2BC         = raw;
       state.viewDate   = raw.meta.last_actuals_date;
       state.meta       = raw.meta;
@@ -2008,6 +2030,12 @@ window.onload = function() {
     })
     .withFailureHandler(showError)
     .getRawB2BC();
+
+  // Targets/valores manuales B2B2C (Input_OKR vía okr.json): Deploy New Partnership y target de Unique Buyers.
+  google.script.run
+    .withSuccessHandler(function(d){ _okrManualB2BC = (d && d.data) || {}; if (_rawB2BC && state.viewDate) renderB2CKrH2_(state.viewDate); })
+    .withFailureHandler(function(){ _okrManualB2BC = {}; })
+    .getOKRManualB2B2C();
 
   // B2B — preload silencioso en paralelo; si el tab B2B se abre antes de que llegue, loadB2B() lo maneja
   google.script.run
@@ -2054,9 +2082,86 @@ function recomputeB2BC_() {
   ['mc-gb-bud-lbl','mc-nr-bud-lbl','mc-fvm-bud-lbl'].forEach(function(id){var el=document.getElementById(id);if(el)el.textContent=compKpi;});
   state.data       = compute_(_rawB2BC, 'nr', state.viewDate, gl_pai, gl_par, gl_pro, gl_at, 'daily', compSrc);
   state.allMetrics = computeAll_(_rawB2BC, state.viewDate, gl_pai, gl_par, gl_pro, gl_at, gran, _partnerTab, compSrc);
-  var _krs=computeKRs_(_rawB2BC, state.viewDate); renderKRs(_krs); renderKRBreakdown_(_krs);
+  var _krs=computeKRs_(_rawB2BC, state.viewDate); renderKRs(_krs); renderKRBreakdown_(_krs); if(_b2bcKrHalf===null && state.viewDate){ setB2BCKrHalf(state.viewDate.substring(0,7) >= '2026-10' ? 'h2' : 'h1'); }
+  else renderB2CKrH2_(state.viewDate);
   render(state.data);
   renderMetrics(state.allMetrics);
+}
+
+// ── KRs H2 White Labels (oct-26 → mar-27) ───────────────────────
+// Mismos KRs y pesos que el OKR del Hub (Codigo_OKR.js, 'b2b2c' H2): Deploy New Partnership 20 /
+// Unique Buyers 15 / Existing NR 25 / Hunting NR 15 / Operating Contribution 25.
+//  - Existing / Hunting NR y OC: MTD vs Budget MTD (computeKRs_). OC = proxy FVM MTD (el Daily no
+//    tiene OC — decisión de Diego 2026-09-25).
+//  - Deploy New Partnership: valor del mes cargado en Input_OKR (okr.json), manual.
+//  - Unique Buyers: acumulado MTD diario del Datalake (unique_buyers_daily, daily_sync.py) vs
+//    target mensual completo de Input_OKR. Siempre Total WL: no respeta el filtro de país.
+var _okrManualB2BC = null;   // okr.json -> data {sign|deploy|ub|recur: {'YYYY-MM': {act,bud}}}
+var _b2bcKrHalf = null;      // 'h1' | 'h2'; null = según el mes que se mira
+function setB2BCKrHalf(h){
+  _b2bcKrHalf=h;
+  var b1=document.getElementById('btn-b2bc-kr-h1'), b2=document.getElementById('btn-b2bc-kr-h2');
+  if(b1)b1.classList.toggle('active',h==='h1');
+  if(b2)b2.classList.toggle('active',h==='h2');
+  var c1=document.getElementById('b2bc-kr-h1'), c2=document.getElementById('b2bc-kr-h2');
+  if(c1)c1.style.display=(h==='h1')?'':'none';
+  if(c2)c2.style.display=(h==='h2')?'':'none';
+  if(state.viewDate) renderB2CKrH2_(state.viewDate);
+}
+function _ubMtdAt_(raw, fecha) {
+  var ym = fecha.substring(0,7), best = null;
+  (raw.unique_buyers_daily || []).forEach(function(r){
+    if (r.pais !== 'TOTAL' || r.fecha.substring(0,7) !== ym || r.fecha > fecha) return;
+    if (!best || r.fecha > best.fecha) best = r;
+  });
+  return best ? best.mtd : null;
+}
+// Fracción del mes que "toca" hasta vDate según la distribución diaria de orders del Budget B2B2C
+// (raw.budget). Prorratea el target mensual de Unique Buyers; null si el budget no trae orders del mes.
+function _budOrdersShare_(raw, vDate) {
+  var ym = vDate.substring(0,7), tot = 0, upto = 0;
+  (raw.budget || []).forEach(function(r){
+    if (!r.fecha || r.fecha.substring(0,7) !== ym) return;
+    var o = r.orders || 0; tot += o; if (r.fecha <= vDate) upto += o;
+  });
+  return tot > 0 ? upto / tot : null;
+}
+function _fmtCnt_(n) { return (n == null || isNaN(n)) ? '—' : Math.round(n).toLocaleString('es-AR'); }
+function _krCardH2_(label, w, pctTxt, color, subs) {
+  return '<div class="kr-card"><div class="kr-lbl">'+label+' <span style="color:var(--text-3);font-weight:400">· '+w+'%</span></div>'
+    +'<div class="kr-pct" style="color:'+color+'">'+pctTxt+'</div><div class="kr-sub">'
+    +subs.map(function(x){ return '<div class="kr-sub-item"><span class="kr-sub-lbl">'+x[0]+'</span><span>'+x[1]+'</span></div>'; }).join('')
+    +'</div></div>';
+}
+function renderB2CKrH2_(vDate) {
+  var row = document.getElementById('b2bc-kr-h2-row'); if (!row || !_rawB2BC) return;
+  var ym = vDate.substring(0,7), pp = ym.split('-'), man = _okrManualB2BC || {};
+  function pc(act, bud){ return (act != null && bud) ? Math.round(act/bud*100) : null; }
+  function col(p){ return p===null?'var(--text-2)':p>=100?'var(--success)':p>=80?'#f59e0b':'var(--danger)'; }
+  function pt(p){ return p===null?'—':p+'%'; }
+  var krs = computeKRs_(_rawB2BC, vDate);
+  // Deploy New Partnership (manual, valor del mes)
+  var dm = man.deploy && man.deploy[ym];
+  var dA = dm && dm.act !== undefined ? dm.act : null, dB = dm && dm.bud !== undefined ? dm.bud : null;
+  var pD = pc(dA, dB);
+  // Unique Buyers
+  var act = _ubMtdAt_(_rawB2BC, vDate);
+  var py = +pp[0], pm = +pp[1] - 1; if (pm === 0) { pm = 12; py--; }
+  var pdDay = Math.min(+vDate.substring(8,10), new Date(py, pm, 0).getDate());
+  var prev = _ubMtdAt_(_rawB2BC, py + '-' + String(pm).padStart(2,'0') + '-' + String(pdDay).padStart(2,'0'));
+  var ub = man.ub && man.ub[ym]; var uB = ub && ub.bud !== undefined ? ub.bud : null;
+  var shr = _budOrdersShare_(_rawB2BC, vDate);
+  var uBd = (uB != null && shr != null) ? uB * shr : uB;   // target al día (prorrateado por orders del budget)
+  var pU = pc(act, uBd);
+  var pE = pc(krs.kr3.act, krs.kr3.bud), pH = pc(krs.kr2.act, krs.kr2.bud), pO = pc(krs.kr4.act, krs.kr4.bud);
+  row.innerHTML =
+      _krCardH2_('Deploy New Partnership', 20, pt(pD), col(pD), [['Mes (Input_OKR)', _fmtCnt_(dA)], ['Target', _fmtCnt_(dB)]])
+    + _krCardH2_('Unique Buyers · MTD', 15, pt(pU), col(pU), [['Acum. mes', _fmtCnt_(act)], ['Target al día', _fmtCnt_(uBd)], ['Target mes', _fmtCnt_(uB)], ['Mes ant. (al día)', _fmtCnt_(prev)]])
+    + _krCardH2_('Existing Account NR', 25, pt(pE), col(pE), [['Actual', fmt(krs.kr3.act)], ['Budget', fmt(krs.kr3.bud)]])
+    + _krCardH2_('Hunting NR', 15, pt(pH), col(pH), [['Actual', fmt(krs.kr2.act)], ['Budget', fmt(krs.kr2.bud)]])
+    + _krCardH2_('Operating Contribution (proxy FVM)', 25, pt(pO), col(pO), [['Actual', fmt(krs.kr4.act)], ['Budget', fmt(krs.kr4.bud)]]);
+  var note = document.getElementById('b2bc-kr-h2-note');
+  if (note) note.textContent = 'Unique Buyers: acumulado del mes vs target mensual prorrateado por la distribución diaria de orders del Budget (siempre Total WL, sin filtro de país). Deploy New Partnership y los targets: Input_OKR. OC = proxy FVM MTD.';
 }
 
 function renderKRs(krs) {
@@ -4979,7 +5084,7 @@ function flRenderB2CKRs_(idx){
         +(on?'background:#550FED;color:#fff':'background:#fff;color:#550FED')+'">'+h+'</button>';
     };
     metaEl.innerHTML='<span class="b2b-kr-data-range">&#128197; Datos: <strong>'+mStart+'</strong> &rarr; <strong>'+vDate+'</strong></span>'
-      +'<span class="b2b-kr-data-range b2b-kr-data-range-sec">&#9998; Partnerships / Unique Buyers: valor del mes (Input_OKR)</span>'
+      +'<span class="b2b-kr-data-range b2b-kr-data-range-sec">&#9998; Partnerships: valor del mes (Input_OKR) &middot; Unique Buyers: acumulado MTD (Datalake) vs target del mes prorrateado por orders del Budget</span>'
       +'<span data-html2canvas-ignore="true" style="display:inline-flex;gap:4px;align-items:center">'+btn('H1')+btn('H2')+'</span>';
   }
 
@@ -4989,6 +5094,8 @@ function flRenderB2CKRs_(idx){
     if(k.src==='manual'){
       var m=man[k.id] && man[k.id][ym];
       if(m){ act=(m.act!==undefined)?m.act:null; bud=(m.bud!==undefined)?m.bud:null; }
+      // Unique Buyers: el actual sale del Datalake (acumulado MTD al día mirado), no de la sheet.
+      if(k.id==='ub'){ var ubA=_ubMtdAt_(_rawB2BC, vDate); if(ubA!=null) act=ubA; var ubS=_budOrdersShare_(_rawB2BC, vDate); if(bud!=null && ubS!=null) bud=bud*ubS; }
     } else {
       var sum=flowKRSum_(_rawB2BC, k.src==='nr' ? k.stage : 'all', k.src==='nr' ? 'nr' : 'fvm', 'budget', null);
       if(sum.actual || sum.budget){ act=trkToM_(sum.actual); bud=trkToM_(sum.budget); }

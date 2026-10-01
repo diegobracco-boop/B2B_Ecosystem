@@ -50,6 +50,71 @@ OKR_H2_JSON_FILE_NAME = "okr_h2_managerial.json"   # KRs H2 del track managerial
 # ver /distribucion-diaria). Validadas 2026-10-01 contra los CSV del corte 2026.07.14: idénticas.
 # Se cargan a mano en cada ronda de Forecast nueva.
 
+# Unique Buyers (KR H2 FY27 de White Labels): clientes unicos (social_id) con transaccion confirmada
+# en canal White Label, por mes x pais x canal x partner. Se publica en daily_b2b2c_data.json
+# ("unique_buyers") y okr_builder.py toma el total mensual de "unique_buyers_total".
+UB_FROM_YM = "2025-01"
+UB_QUERY = f"""
+SELECT
+    u.reservation_year_month,
+    u.country_code,
+    u.channel,
+    c.partner_homologado_2,
+    COUNT(DISTINCT u.social_id) AS clientes_unicos
+FROM data.analytics.mkt_users_fact_transactions u
+LEFT JOIN (
+    SELECT transaction_code, partner_data_id
+    FROM data.analytics.bi_transactional_fact_transactions
+    WHERE reservation_year_month >= DATE '{UB_FROM_YM}-01'
+) bi ON u.transaction_code = bi.transaction_code
+LEFT JOIN (
+    SELECT DISTINCT
+        partner_id,
+        FIRST_VALUE(partner_homologado_2) OVER (PARTITION BY partner_id ORDER BY partner_homologado_2) AS partner_homologado_2
+    FROM raw.comdev_cartera_b2b2c_historic
+    WHERE partner_id IS NOT NULL
+    AND LOWER(is_current) = 'true'
+) c ON c.partner_id = bi.partner_data_id
+WHERE u.parent_channel = 'White Label'
+  AND u.transaction_status = 'Confirmado'
+  AND u.reservation_year_month >= '{UB_FROM_YM}'
+GROUP BY u.reservation_year_month, u.country_code, u.channel, c.partner_homologado_2
+ORDER BY u.reservation_year_month, u.country_code, u.channel
+"""
+# Total mensual DISTINCT (no se puede sumar el de arriba: un comprador en 2 partners cuenta 2 veces, ~0.1%).
+UB_TOTAL_QUERY = f"""
+SELECT u.reservation_year_month, COUNT(DISTINCT u.social_id) AS clientes_unicos
+FROM data.analytics.mkt_users_fact_transactions u
+WHERE u.parent_channel = 'White Label'
+  AND u.transaction_status = 'Confirmado'
+  AND u.reservation_year_month >= '{UB_FROM_YM}'
+GROUP BY u.reservation_year_month
+ORDER BY u.reservation_year_month
+"""
+
+# Acumulado MTD diario: compradores unicos del mes hasta cada dia (por pais y total). Se arma con la
+# primera fecha de compra de cada social_id en el mes: cumsum de "nuevos" = distinct acumulado.
+# Cierra con el distinct mensual de UB_TOTAL_QUERY (verificado 2026-10-01). CAST a DATE: el driver ODBC
+# no soporta timestamp(3).
+_UB_BASE = f"""
+FROM data.analytics.mkt_users_fact_transactions u
+WHERE u.parent_channel = 'White Label'
+  AND u.transaction_status = 'Confirmado'
+  AND u.reservation_year_month >= '{UB_FROM_YM}'
+"""
+UB_DAILY_TOTAL_QUERY = f"""
+SELECT ym, CAST(first_d AS VARCHAR) AS fecha, COUNT(*) AS nuevos FROM (
+  SELECT u.reservation_year_month AS ym, u.social_id, MIN(CAST(u.reservation_datetime AS DATE)) AS first_d
+  {_UB_BASE} GROUP BY 1, 2
+) GROUP BY 1, 2 ORDER BY 1, 2
+"""
+UB_DAILY_PAIS_QUERY = f"""
+SELECT ym, country_code, CAST(first_d AS VARCHAR) AS fecha, COUNT(*) AS nuevos FROM (
+  SELECT u.reservation_year_month AS ym, u.country_code, u.social_id, MIN(CAST(u.reservation_datetime AS DATE)) AS first_d
+  {_UB_BASE} GROUP BY 1, 2, 3
+) GROUP BY 1, 2, 3 ORDER BY 1, 2, 3
+"""
+
 # Fechas — historial desde ene del año en curso
 TODAY            = date.today()
 YESTERDAY        = TODAY - timedelta(days=1)
@@ -1424,6 +1489,32 @@ except Exception as e:
     df_forecast_gd = pd.DataFrame()
     df_forecast_ri = pd.DataFrame()
 
+print("\n--- Unique Buyers (KR H2 White Labels) ---")
+# No va a _FAILED_BLOCKS: si falla, el JSON sale sin el bloque y okr_builder cae al valor de Input_OKR.
+try:
+    _ub = fetch(UB_QUERY, "Unique Buyers")
+    _ub_tot = fetch(UB_TOTAL_QUERY, "Unique Buyers total")
+    _ub["reservation_year_month"] = _ub["reservation_year_month"].astype(str).str[:7]
+    _ub["partner_homologado_2"] = _ub["partner_homologado_2"].fillna("Sin asignar")
+    df_unique_buyers = _ub.rename(columns={"reservation_year_month": "ym", "country_code": "pais",
+                                           "channel": "canal", "partner_homologado_2": "partner"})
+    unique_buyers_total = {str(k)[:7]: int(v) for k, v in zip(_ub_tot["reservation_year_month"], _ub_tot["clientes_unicos"])}
+    # Acumulado MTD diario (Total + por pais) para seguir la metrica dia a dia en el Daily.
+    _udt = fetch(UB_DAILY_TOTAL_QUERY, "Unique Buyers MTD diario total")
+    _udt["pais"] = "TOTAL"
+    _udp = fetch(UB_DAILY_PAIS_QUERY, "Unique Buyers MTD diario pais").rename(columns={"country_code": "pais"})
+    _ud = pd.concat([_udt, _udp], ignore_index=True)
+    _ud["nuevos"] = pd.to_numeric(_ud["nuevos"], errors="coerce").fillna(0).astype(int)
+    _ud["ym"] = _ud["ym"].astype(str).str[:7]
+    _ud = _ud.sort_values(["pais", "ym", "fecha"])
+    _ud["mtd"] = _ud.groupby(["pais", "ym"])["nuevos"].cumsum()
+    df_unique_buyers_daily = _ud[["fecha", "pais", "mtd"]]
+except Exception as e:
+    print(f"  WARN Unique Buyers failed: {e}")
+    df_unique_buyers = pd.DataFrame()
+    df_unique_buyers_daily = pd.DataFrame()
+    unique_buyers_total = {}
+
 # ==============================================================================
 # 5) AGREGAR Y CONSTRUIR JSON
 # ==============================================================================
@@ -1569,6 +1660,9 @@ b2bc_payload = {
     "forecast":   _forecast_b2bc_compact,
     "okr_budget":  to_compact(df_okr_bud),   # NR por mes x stage, FY completo -> okr_builder.py
     "okr_runrate": to_compact(df_okr_rr),
+    "unique_buyers":       to_compact(df_unique_buyers) if not df_unique_buyers.empty else {"cols": [], "rows": []},
+    "unique_buyers_daily": to_compact(df_unique_buyers_daily) if not df_unique_buyers_daily.empty else {"cols": [], "rows": []},   # MTD diario (pais, TOTAL) -> Daily
+    "unique_buyers_total": unique_buyers_total,   # {'YYYY-MM': compradores unicos WL} -> okr_builder.py
     "b2c":        b2c_compact,
     "b2c_ly":     b2c_ly_compact,
 }
