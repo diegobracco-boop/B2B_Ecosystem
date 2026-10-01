@@ -46,14 +46,9 @@ JSON_FILE_NAME    = "daily_b2b2c_data.json"
 B2B_JSON_FILE_NAME = "daily_b2b_data.json"
 OKR_H2_JSON_FILE_NAME = "okr_h2_managerial.json"   # KRs H2 del track managerial (Daily/Tracker), ver build_okr_h2_*
 
-# Salida de Proceso_Distribucion_Diaria/distribucion_diaria.py --escenario forecast (ver /distribucion-diaria).
-# Path.home() en vez de hardcodear el usuario: la carpeta "B2B & WLs" es una biblioteca de OneDrive
-# compartida por el equipo, sincronizada en la misma ruta relativa para cualquiera que la tenga montada.
-# ACTUALIZAR la subcarpeta con fecha ("2026.07.14") cuando arranque una ronda de Forecast nueva.
-FORECAST_DIARIO_FOLDER = (
-    Path.home() / "OneDrive - despegar365" / "Control de Gestión - 2026-27" / "B2B & WLs"
-    / "Forecast" / "2026.07.14" / "Distribucion Diaria"
-)
+# Forecast: tablas raw.b2bfc1_gd / raw.b2bfc1_ri del Datalake (salida de Proceso_Distribucion_Diaria,
+# ver /distribucion-diaria). Validadas 2026-10-01 contra los CSV del corte 2026.07.14: idénticas.
+# Se cargan a mano en cada ronda de Forecast nueva.
 
 # Fechas — historial desde ene del año en curso
 TODAY            = date.today()
@@ -1193,16 +1188,18 @@ def build_okr_h2_budget(df_clean: pd.DataFrame) -> list:
 
 
 def _load_forecast_diario(base: str) -> pd.DataFrame:
-    """Lee forecast_diario_<gd|ri>.csv (salida de Proceso_Distribucion_Diaria, ver
-    /distribucion-diaria) desde FORECAST_DIARIO_FOLDER. Archivo manual, no vive en el
-    Datalake: si falta o la ronda de Forecast todavia no corrio, no rompe la corrida
-    (el Daily se queda sin ese Goal ese dia, en vez de abortar todo)."""
-    path = FORECAST_DIARIO_FOLDER / f"forecast_diario_{base.lower()}.csv"
-    if not path.exists():
-        print(f"  AVISO: no encontré {path.name} en {FORECAST_DIARIO_FOLDER} — Forecast queda vacío")
+    """Lee raw.b2bfc1_<gd|ri> del Datalake (salida de Proceso_Distribucion_Diaria, ver
+    /distribucion-diaria). Las columnas vienen como texto por ODBC: se convierten las metricas.
+    Si la tabla viene vacia devuelve DataFrame vacio (se aplica el fallback a Drive mas abajo)."""
+    df = fetch(f"SELECT fecha, lob_canal, pais, producto, partner, orders, gross_bookings, "
+               f"net_revenue, fvm FROM raw.b2bfc1_{base.lower()}", f"Forecast {base.upper()}")
+    if df.empty:
+        print(f"  AVISO: raw.b2bfc1_{base.lower()} vacia — Forecast queda vacio")
         return pd.DataFrame()
-    return pd.read_csv(path, usecols=["fecha", "lob_canal", "pais", "producto", "partner",
-                                       "orders", "gross_bookings", "net_revenue", "fvm"])
+    df["fecha"] = pd.to_datetime(df["fecha"]).dt.strftime("%Y-%m-%d")
+    for c in ("orders", "gross_bookings", "net_revenue", "fvm"):
+        df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0)
+    return df
 
 
 def agg_forecast_b2bc(df: pd.DataFrame) -> pd.DataFrame:
@@ -1416,9 +1413,9 @@ except Exception as e:
     _FAILED_BLOCKS.append('B2C LY')
     df_b2c_ly = pd.DataFrame(columns=["fecha", "pais", "gross_bookings", "net_revenues", "fvm"])
 
-print("\n--- Forecast (Proceso_Distribucion_Diaria, archivo manual) ---")
-# NO se agrega a _FAILED_BLOCKS: es un CSV que alguien genera a mano cada tanto (no vive
-# en el Datalake), así que si falta no debe abortar la corrida de reales del día.
+print("\n--- Forecast (Datalake raw.b2bfc1_gd / raw.b2bfc1_ri) ---")
+# NO se agrega a _FAILED_BLOCKS: si la tabla falla o viene vacía no debe abortar la corrida de
+# reales del día; se reusa el último Forecast publicado en Drive (ver más abajo).
 try:
     df_forecast_gd = _load_forecast_diario("gd")
     df_forecast_ri = _load_forecast_diario("ri")
@@ -1531,11 +1528,9 @@ def _download_json_from_drive(filename: str, folder_id: str = DRIVE_FOLDER_ID):
         return None
 
 
-# Forecast (Distribución Diaria) es un CSV local, manual — no vive en el Datalake ni en
-# Drive. En una PC que no tenga la carpeta de OneDrive montada (p.ej. otra persona del
-# equipo corriendo el script), _load_forecast_diario da vacío y ACÁ, en vez de subir un
-# Forecast vacío y pisar el bueno, se reusa el último publicado en Drive (bug real,
-# 2026-09-28: una corrida desde otra PC pisó el Forecast recién cargado con vacío).
+# Forecast viene de raw.b2bfc1_* (Datalake). Si la query falla o la tabla viene vacía,
+# _load_forecast_diario da vacío y ACÁ, en vez de subir un Forecast vacío y pisar el bueno,
+# se reusa el último publicado en Drive (bug real, 2026-09-28: una corrida pisó el Forecast con vacío).
 _forecast_b2bc_compact  = to_compact(df_forecast_b2bc)    if not df_forecast_b2bc.empty    else {"cols": [], "rows": []}
 _forecast_b2b_gd_records = df_forecast_b2b_gd.to_dict(orient="records") if not df_forecast_b2b_gd.empty else []
 _forecast_b2b_ri_records = df_forecast_b2b_ri.to_dict(orient="records") if not df_forecast_b2b_ri.empty else []
