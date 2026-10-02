@@ -1521,7 +1521,8 @@ var CONTABLE_PNL_STRUCTURE = [
     {source:'ct', key:'marketing-personnel/expenses', label:'Marketing - Personnel/Expenses'},
     {source:'ct', key:'channels-personnel/expenses',  label:'Channels - Personnel/Expenses'},
     {source:'rr', key:'_tpcs_rr',                     label:'Third Party Commissions'},
-    {source:'ct', key:'loyalty program',              label:'Loyalty Program'}
+    {source:'ct', key:'loyalty program',              label:'Loyalty Program'},
+    {source:'ct', key:'other taxes',                  label:'Other Taxes'}
   ]},
   {type:'subtotal', label:'= Operating Contribution', style:'oc'}
 ];
@@ -1556,7 +1557,8 @@ var WF_ITEM_LABELS = {
   'bad debt':                           'Bad Debt',
   'other transactional taxes':          'Other Tax',
   'intercompany transactions':          'Intercompany',
-  'loyalty program':                    'Loyalty Program'
+  'loyalty program':                    'Loyalty Program',
+  'other taxes':                        'Other Taxes'
 };
 var WF_PALANCAS = [
   { label: 'Palancas de Negocio', items: [
@@ -1609,7 +1611,8 @@ var WF_OC_ITEMS = [
   {source:'ct', key:'marketing-personnel/expenses'},
   {source:'ct', key:'channels-personnel/expenses'},
   {source:'rr', key:'_tpcs_rr'},
-  {source:'ct', key:'loyalty program'}
+  {source:'ct', key:'loyalty program'},
+  {source:'ct', key:'other taxes'}
 ];
 
 // keys: string (una clave Q/mes) o array de claves — se suman todas.
@@ -2715,7 +2718,8 @@ function _buildChartSeriesFromMonths_(rrM, ctM, monthsArr) {
            + ct_('marketing-direct', mo)
            + ct_('marketing-personnel/expenses', mo)
            + ct_('channels-personnel/expenses', mo)
-           + ct_('loyalty program', mo);
+           + ct_('loyalty program', mo)
+           + ct_('other taxes', mo);
     return {'gross bookings': gb, 'net revenue': nr, 'operating contribution': nr + cor + sm};
   });
 }
@@ -2750,7 +2754,8 @@ function buildChartFromMonthly_JS_(rrM, ctM) {
            + ct_('marketing-direct', mo)
            + ct_('marketing-personnel/expenses', mo)
            + ct_('channels-personnel/expenses', mo)
-           + ct_('loyalty program', mo);
+           + ct_('loyalty program', mo)
+           + ct_('other taxes', mo);
     return {'gross bookings': gb, 'net revenue': nr, 'operating contribution': nr + cor + sm};
   });
 }
@@ -3639,7 +3644,7 @@ function buildChartSeries_JS_(agg, months) {
                   'customer claims','errors','bad debt','fulfilment center fees',
                   'media & other cost','other transactional taxes','intercompany transactions'];
   var SM_KEYS  = ['marketing-direct','marketing-personnel/expenses','channels-personnel/expenses',
-                  'third party commissions','loyalty program'];
+                  'third party commissions','loyalty program','other taxes'];
   function sum_(keys, mo){ return keys.reduce(function(s,k){ return s + ((agg[k] && agg[k][mo]) || 0); }, 0); }
   return (months || _CONT_MONTHS_ORD_LY).map(function(mo){
     var gb  = (agg['gross bookings'] && agg['gross bookings'][mo]) || 0;

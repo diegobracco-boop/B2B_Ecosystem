@@ -578,7 +578,7 @@ var CHART_COR_KEYS = [
 // S&M = sum of sales & marketing line items
 var CHART_SM_KEYS = [
   'marketing-direct','marketing-personnel/expenses','channels-personnel/expenses',
-  'third party commissions','loyalty program'
+  'third party commissions','loyalty program','other taxes'
 ];
 
 // CT-only subsets — usados en meses futuros para blend gestional(rr) + plana(ct)
@@ -595,7 +595,7 @@ var CHART_COR_CT_KEYS = [
 ];
 // Complement: S&M rr-sourced = affiliates + white_labels_api (= _tpcs_rr)
 var CHART_SM_CT_KEYS = [
-  'marketing-direct','marketing-personnel/expenses','channels-personnel/expenses','loyalty program'
+  'marketing-direct','marketing-personnel/expenses','channels-personnel/expenses','loyalty program','other taxes'
 ];
 
 function sumKeys_(agg, keys, month){
@@ -635,7 +635,8 @@ function buildChartFromMonthly_(rrM, ctM) {
            + ct_('marketing-direct', mo)
            + ct_('marketing-personnel/expenses', mo)
            + ct_('channels-personnel/expenses', mo)
-           + ct_('loyalty program', mo);
+           + ct_('loyalty program', mo)
+           + ct_('other taxes', mo);
     return {'gross bookings': gb, 'net revenue': nr, 'operating contribution': nr + cor + sm};
   });
 }

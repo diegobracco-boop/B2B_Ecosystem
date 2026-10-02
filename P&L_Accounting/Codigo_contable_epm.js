@@ -441,7 +441,7 @@ var PXQ_COR_SM_KEYS_ = [
   'customer claims','frauds','errors','bad debt','fulfilment center fees',
   'media & other cost','other transactional taxes','intercompany transactions',
   'marketing-direct','marketing-personnel/expenses','channels-personnel/expenses',
-  'third party commissions','loyalty program'
+  'third party commissions','loyalty program','other taxes'
 ];
 var PXQ_OC_KEYS_ = PXQ_NR_KEYS_.concat(PXQ_COR_SM_KEYS_);
 
