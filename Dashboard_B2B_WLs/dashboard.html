@@ -715,6 +715,124 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
 .oc-area-tag{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted2);margin-top:5px;padding:2px 8px;background:var(--surface2);border-radius:6px;border:1px solid var(--border);text-align:center}
 .oc-empty{color:var(--muted2);font-size:13px;text-align:center;padding:40px}
 :focus-visible{outline:2px solid var(--accent2);outline-offset:-2px;border-radius:4px}
+/* ══════════════════════════════════════════════════════════════════════════
+   Diseño v2 · Fase 1 (header, navegación, home) — criterio "Apple":
+   claridad, deferencia al contenido, color solo como acento (violeta Despegar),
+   superficies suaves y un único set de tokens. Va al final para pisar lo anterior;
+   NO toca datos ni lógica. Las secciones de contenido se migran en fases siguientes.
+   ══════════════════════════════════════════════════════════════════════════ */
+:root{
+  --ap-bg:#f5f5f7;--ap-card:#fff;
+  --ap-ink:#1d1d1f;--ap-ink2:#6e6e73;--ap-ink3:#a1a1a6;
+  --ap-line:rgba(0,0,0,.08);--ap-line2:rgba(0,0,0,.14);
+  --ap-accent:#7b2dbe;--ap-accent-dk:#5f1f96;--ap-accent-soft:#f3ebfb;--ap-accent-ring:rgba(123,45,190,.22);
+  --ap-r-sm:10px;--ap-r-md:14px;--ap-r-lg:20px;
+  --ap-sh-sm:0 1px 2px rgba(0,0,0,.04),0 2px 10px rgba(0,0,0,.05);
+  --ap-sh-md:0 6px 28px rgba(0,0,0,.10);
+  --ap-ease:cubic-bezier(.2,.7,.3,1);
+}
+body{background:var(--ap-bg);color:var(--ap-ink)}
+
+/* ── Header: violeta Despegar (identidad del hub) ── */
+header{
+  background:linear-gradient(90deg,#5B21B6 0%,#6D28D9 40%,#7C3AED 100%);
+  box-shadow:0 1px 0 rgba(255,255,255,.12),0 6px 24px rgba(91,33,182,.28);
+}
+header > img{filter:brightness(0) invert(1);opacity:.92}
+.logo-main{color:#fff;font-weight:600;letter-spacing:-.01em}
+.logo-main span{color:#DDD6FE}
+.logo-sub{color:rgba(255,255,255,.7);font-weight:500;letter-spacing:.06em}
+#last-upd{color:rgba(255,255,255,.62)}
+.btn{border-radius:999px;font-weight:600;transition:background .18s var(--ap-ease),transform .18s var(--ap-ease)}
+.btn-ghost,.sync-admin-toggle,.nav-link{
+  background:rgba(255,255,255,.16);color:#fff;border:1px solid rgba(255,255,255,.28);border-radius:999px;
+}
+.btn-ghost:hover,.sync-admin-toggle:hover,.nav-link:hover{background:rgba(255,255,255,.28);color:#fff}
+.btn:active{transform:scale(.97)}
+#ai-links .btn-ai-toggle{background:#fff;color:var(--ap-accent);box-shadow:none;border-radius:999px}
+
+/* ── Botón de menú ── */
+.hamburger-btn,.hamburger-btn:hover,.hamburger-btn.open{
+  background:rgba(255,255,255,.9);
+  -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+  border:1px solid var(--ap-line);border-left:none;
+  box-shadow:var(--ap-sh-sm);
+}
+.hamburger-btn:hover,.hamburger-btn.open{background:var(--ap-accent-soft)}
+.hbar{background:var(--ap-ink2)}
+.hamburger-btn:hover .hbar,.hamburger-btn.open .hbar{background:var(--ap-accent)}
+
+/* ── Menú lateral ── */
+#nav-backdrop{background:rgba(0,0,0,.22);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+.filters{
+  background:rgba(255,255,255,.88);
+  -webkit-backdrop-filter:saturate(180%) blur(24px);backdrop-filter:saturate(180%) blur(24px);
+  border-right:1px solid var(--ap-line);
+}
+.filters.nav-open{box-shadow:12px 0 48px rgba(0,0,0,.14)}
+.nav-links{border-bottom:1px solid var(--ap-line);gap:1px}
+.nav-item{color:var(--ap-ink2);border-radius:var(--ap-r-sm);font-weight:500;font-size:12.5px}
+.nav-item:hover{background:rgba(0,0,0,.05);color:var(--ap-ink)}
+.nav-item.active{background:var(--ap-accent-soft);color:var(--ap-accent);font-weight:600}
+.nav-divider{background:var(--ap-line)}
+.nav-sublabel{color:var(--ap-ink3);font-weight:700;letter-spacing:.08em}
+.nav-item.nav-sub{color:var(--ap-ink2)}
+.nav-item.nav-sub:hover{color:var(--ap-ink)}
+
+/* ── Filtros dentro del menú ── */
+.fg label{color:var(--ap-ink2);font-weight:600}
+.fg select,.fg input{
+  background:#fff;border:1px solid var(--ap-line2);color:var(--ap-ink);
+  border-radius:var(--ap-r-sm);padding:7px 11px;
+}
+.fg select:hover,.fg input:hover{border-color:var(--ap-accent)}
+.fg select:focus,.fg input:focus{border-color:var(--ap-accent);box-shadow:0 0 0 3px var(--ap-accent-ring)}
+.fg select option{background:#fff;color:var(--ap-ink)}
+.canal-toggle{border:1px solid var(--ap-line2);border-radius:999px;background:#fff;padding:2px}
+.canal-toggle button{background:transparent;color:var(--ap-ink2);border-radius:999px;padding:5px 14px}
+.canal-toggle button:hover{background:rgba(0,0,0,.05)}
+.canal-toggle button.active{background:var(--ap-accent);color:#fff;box-shadow:none}
+.baseline-badge{background:var(--ap-accent-soft);border:none;color:var(--ap-accent);border-radius:999px}
+.period-btn{background:#fff;border:1px solid var(--ap-line2);color:var(--ap-ink);border-radius:var(--ap-r-sm);padding:7px 11px}
+.period-btn:hover{background:#fafafa;border-color:var(--ap-accent)}
+
+/* ── Home: violeta de marca, tipografía protagonista ── */
+#home-overlay{background:linear-gradient(135deg,#0f0520 0%,#1a0a3e 25%,#2d1269 55%,#5B21B6 100%)}
+.home-hero-eyebrow{color:#DDD6FE;font-weight:700;letter-spacing:.2em}
+.home-hero-divider{width:32px;height:3px;border-radius:3px;background:#C4B5FD}
+.home-hero-sub{color:rgba(255,255,255,.80);font-weight:400;font-size:17px;line-height:1.5}
+.home-hero-hint{color:rgba(255,255,255,.55)}
+.home-hero-hint::after{background:linear-gradient(90deg,rgba(255,255,255,.35),transparent)}
+.bento-section-label{
+  font-size:17px;font-weight:700;letter-spacing:-.01em;text-transform:none;color:#fff;
+  border-bottom:none;padding:14px 2px 6px;
+}
+.sec-pill{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.26);color:#fff;box-shadow:none}
+.sec-pill:hover{background:rgba(255,255,255,.26);border-color:rgba(255,255,255,.4);color:#fff}
+
+/* ── Tarjetas de la home: vidrio oscuro y sombra originales ── */
+.bento-card{
+  background:rgba(255,255,255,.06);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+  border:1px solid rgba(196,181,253,.16);border-radius:var(--ap-r-lg);
+  transition:transform .25s var(--ap-ease),box-shadow .25s var(--ap-ease),background .25s,border-color .25s;
+}
+.bento-card::before,.bento-card::after{display:none}
+.bento-card:hover{transform:translateY(-3px);background:rgba(124,58,237,.16);border-color:rgba(196,181,253,.38);box-shadow:0 16px 48px rgba(91,33,182,.45)}
+.bento-card:active{transform:scale(.985)}
+.bento-kicker{color:rgba(196,181,253,.5);font-weight:600;letter-spacing:.1em;font-size:9px}
+.bento-icon{
+  width:38px;height:38px;display:flex;align-items:center;justify-content:center;
+  font-size:19px;background:rgba(167,139,250,.16);border-radius:11px;margin-top:2px;
+}
+.bento-name{color:#fff;font-size:15px;font-weight:600;letter-spacing:-.01em}
+.bento-desc{color:rgba(196,181,253,.62);font-size:12px}
+.bento-arrow{color:rgba(196,181,253,.4)}
+.bento-card:hover .bento-arrow{color:#C4B5FD}
+
+@media (prefers-reduced-motion:reduce){
+  .bento-card,.btn,.nav-item{transition:none}
+  .bento-card{animation:none}
+}
 </style>
 </head>
 <body>
@@ -1854,6 +1972,28 @@ var _charts = {};
 var _okrMonthly  = false;  // false = vista trimestral; true = vista mensual
 var _okrHalf     = null;   // 'H1' | 'H2' — null hasta que llega getOKRData() (default por fecha)
 var _okrNominal  = false;  // false = % cumplimiento;  true = valores nominales (act/bud)
+var _okrHalfManual = false; // true si el usuario tocó los botones H1/H2; se limpia al cambiar el período
+
+// Semestre que corresponde a los meses seleccionados en el filtro de período:
+// Abr-Sep -> 'H1', Oct-Mar -> 'H2'. Si la selección mezcla ambos (ej. todo el FY) o está vacía -> null
+// (no se fuerza nada y queda lo que ya estaba / el default por fecha).
+function _okrHalfForPeriods_() {
+  var ps = _state.selectedPeriods || [];
+  var h1 = 0, h2 = 0;
+  ps.forEach(function(ym){
+    var m = parseInt(String(ym).substring(5, 7), 10);
+    if (m >= 4 && m <= 9) h1++; else if (m) h2++;
+  });
+  return (h1 && !h2) ? 'H1' : ((h2 && !h1) ? 'H2' : null);
+}
+// Alinea el OKR Status con el período elegido y lo redibuja si ya hay datos cargados.
+function _syncOKRHalf_() {
+  var h = _okrHalfForPeriods_();
+  if (!h || h === _okrHalf) return;
+  if (_state.okrAll && !_state.okrAll[h]) return;
+  _okrHalf = h;
+  if (_state.okrAll) { _state.okr = _state.okrAll[h]; renderOKR(_state.okr); }
+}
 
 // ══════════════════════════════════════════════════════════
 //  Bootstrap
@@ -2650,6 +2790,8 @@ function _readChecked() {
 // Aplicar selección y recargar
 function applyPeriod() {
   _state.selectedPeriods = _readChecked();
+  _okrHalfManual = false;
+  _syncOKRHalf_();
   updatePeriodLabel();
   document.getElementById('period-panel').style.display = 'none';
   var sorted = _state.selectedPeriods.slice().sort();
@@ -4264,7 +4406,9 @@ function loadOKR() {
   google.script.run
     .withSuccessHandler(function(res) {
       _state.okrAll = (res && res.success) ? (res.okrByHalf || null) : null;
-      if (!_okrHalf) _okrHalf = (res && res.defaultHalf) || 'H1';
+      var _hp = _okrHalfManual ? null : _okrHalfForPeriods_();
+      if (_hp && (!_state.okrAll || _state.okrAll[_hp])) _okrHalf = _hp;
+      else if (!_okrHalf) _okrHalf = (res && res.defaultHalf) || 'H1';
       _state.okr = _state.okrAll ? _state.okrAll[_okrHalf] : ((res && res.success) ? res.okr : null);
       renderOKR(_state.okr);
     })
@@ -4275,6 +4419,7 @@ function loadOKR() {
 function setOKRHalf(h) {
   if (!_state.okrAll || !_state.okrAll[h]) return;
   _okrHalf = h;
+  _okrHalfManual = true;
   _state.okr = _state.okrAll[h];
   renderOKR(_state.okr);
 }
