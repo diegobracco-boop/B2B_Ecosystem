@@ -1817,6 +1817,17 @@ function okrScore_(act, bud){
   if(!isFinite(r)) return null;
   return r<0.70 ? 0 : Math.min(r,1.30);
 }
+// Cumplimiento REAL (sin el piso 70%→0 de okrScore_): act/budget tal cual,
+// solo con techo 130% para que no se dispare visualmente. Se usa para lo que
+// se MUESTRA en cada fila de KR — el piso de okrScore_ es una regla de scoring
+// (para que un KR muy por debajo no "cuente" en el OVERALL ponderado), pero no
+// debería ocultar el número real al usuario en la fila individual.
+function realScore_(act, bud){
+  if(act===null||act===undefined||bud===null||bud===undefined||!bud) return null;
+  var r=act/bud;
+  if(!isFinite(r)) return null;
+  return Math.min(r,1.30);
+}
 function cumplRatio(act, goal) {
   if (act === null || act === undefined || !goal) return null;
   return 1 + (act - goal) / Math.abs(goal);
@@ -2642,7 +2653,10 @@ function renderStatusKRs() {
 
   // ── Cumplimiento ─────────────────────────────────────────────
   // Regla única de OKR (okrScore_): actual/budget, piso 70% → 0, techo 130%.
+  // Se usa SOLO para ponderar el OVERALL (que un KR muy por debajo no "cuente").
+  // Para lo que se MUESTRA en cada fila usamos realScore_ (el % real, sin piso).
   function cumpl(act, bud) { return okrScore_(act, bud); }
+  function cumplDisplay(act, bud) { return realScore_(act, bud); }
 
   function cap(c) { return c; }
 
@@ -2651,6 +2665,12 @@ function renderStatusKRs() {
   var kr3c = cap(cumpl(kr3.actual, kr3.budget));
   var kr4c = (airNRState === 'loaded') ? cap(cumpl(kr4Act, kr4Bud)) : null;
   var kr5c = cap(cumpl(kr5.actual, kr5.budget));
+
+  var kr1cDisp = cap(cumplDisplay(kr1Act, kr1Bud));
+  var kr2cDisp = cap(cumplDisplay(kr2.actual, kr2.budget));
+  var kr3cDisp = cap(cumplDisplay(kr3.actual, kr3.budget));
+  var kr4cDisp = (airNRState === 'loaded') ? cap(cumplDisplay(kr4Act, kr4Bud)) : null;
+  var kr5cDisp = cap(cumplDisplay(kr5.actual, kr5.budget));
 
   // Overall = promedio ponderado KR1–KR4 (normaliza si KR4 aún no cargó)
   var _krWeights = [
@@ -2690,7 +2710,7 @@ function renderStatusKRs() {
   // KR1 — warning: agencias siempre refleja últimos 30 días reales
   tbody.appendChild(makeKRRow(
     'Agencies L4W <span class="kr-warning-tag" title="Los datos de agencias siempre son los últimos 30 días reales — no varía con el filtro de mes">L4W real</span>',
-    '20%', kr1Act, kr1Bud, kr1c, 'int', false
+    '20%', kr1Act, kr1Bud, kr1cDisp, 'int', false
   ));
 
   // KR2
@@ -2698,7 +2718,7 @@ function renderStatusKRs() {
     'NR Core Markets $M', '40%',
     kr2.actual > 0 || kr2.budget > 0 ? toM(kr2.actual) : null,
     kr2.actual > 0 || kr2.budget > 0 ? toM(kr2.budget) : null,
-    kr2c, '$M', false
+    kr2cDisp, '$M', false
   ));
 
   // KR3
@@ -2706,7 +2726,7 @@ function renderStatusKRs() {
     'NR New Markets $M', '20%',
     kr3.actual > 0 || kr3.budget > 0 ? toM(kr3.actual) : null,
     kr3.actual > 0 || kr3.budget > 0 ? toM(kr3.budget) : null,
-    kr3c, '$M', false
+    kr3cDisp, '$M', false
   ));
 
   // KR4: puede estar cargando
@@ -2723,7 +2743,7 @@ function renderStatusKRs() {
       '20%',
       kr4Act !== null ? toM(kr4Act) : null,
       kr4Bud !== null ? toM(kr4Bud) : null,
-      kr4c, '$M', false
+      kr4cDisp, '$M', false
     ));
   }
 
@@ -2732,7 +2752,7 @@ function renderStatusKRs() {
     'Financial Variable Margin $M', null,
     kr5.actual !== 0 || kr5.budget !== 0 ? toM(kr5.actual) : null,
     kr5.actual !== 0 || kr5.budget !== 0 ? toM(kr5.budget) : null,
-    kr5c, '$M', true
+    kr5cDisp, '$M', true
   ));
 
   // Overall ponderado KR1–KR4
@@ -2992,9 +3012,14 @@ function renderStatusKRsH2() {
   var fvmHtml = computeKRH2Metric_(krYM, 'fvm', isHTML, isHTML);
   var nrfd    = computeKRH2Metric_(krYM, 'net_revenue', isNPa, isNPb);
 
-  function cumpl(act, bud) { return okrScore_(act, bud); }   // regla única de OKR (piso 70%, techo 130%)
+  // okrScore_ (piso 70%→0, techo 130%) se usa solo para ponderar el OVERALL.
+  // Para lo que se MUESTRA en cada fila usamos realScore_ (el % real, sin piso).
+  function cumpl(act, bud) { return okrScore_(act, bud); }
   var nrC = cumpl(nr.actual, nr.budget), apiC = cumpl(fvmApi.actual, fvmApi.budget),
       htmlC = cumpl(fvmHtml.actual, fvmHtml.budget), npC = cumpl(nrfd.actual, nrfd.budget);
+
+  var nrCDisp = realScore_(nr.actual, nr.budget), apiCDisp = realScore_(fvmApi.actual, fvmApi.budget),
+      htmlCDisp = realScore_(fvmHtml.actual, fvmHtml.budget), npCDisp = realScore_(nrfd.actual, nrfd.budget);
 
   var tbody = document.getElementById('statusKRsH2Body');
   tbody.innerHTML = '';
@@ -3012,10 +3037,10 @@ function renderStatusKRsH2() {
       cumplCellHtml(cVal, cStr, false);
     return tr;
   }
-  tbody.appendChild(row('Net Revenues $M',        '30%', nr,      nrC));
-  tbody.appendChild(row('API FVM $M',             '20%', fvmApi,  apiC));
-  tbody.appendChild(row('HTML FVM $M',            '20%', fvmHtml, htmlC));
-  tbody.appendChild(row('New Products Growth $M', '15%', nrfd,    npC));
+  tbody.appendChild(row('Net Revenues $M',        '30%', nr,      nrCDisp));
+  tbody.appendChild(row('API FVM $M',             '20%', fvmApi,  apiCDisp));
+  tbody.appendChild(row('HTML FVM $M',            '20%', fvmHtml, htmlCDisp));
+  tbody.appendChild(row('New Products Growth $M', '15%', nrfd,    npCDisp));
 
   // Accelerate Recurrence — TBD (placeholder, definición y datos pendientes)
   var trTBD = document.createElement('tr');
