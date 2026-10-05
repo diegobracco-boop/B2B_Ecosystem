@@ -3754,6 +3754,13 @@ async function _captureAllSlides(onProgress, opts) {
               // Altura automática: el alto natural del contenido (sin zoom) ≈ 125%
               // del slide, y al escalar 0.8 queda ≈ 100% → llena el alto sin forzar
               // un % que dependa de que el padre tenga altura definida en el clon.
+              // html2canvas 1.4.1 renderiza los box-shadow DESPLAZADOS bajo
+              // transform (los "cuadros sombreados corridos"). La sombra es solo
+              // decorativa — las cajas ya tienen borde + fondo —, así que la
+              // sacamos en el clon: el contenido queda alineado y legible.
+              n.style.boxShadow = 'none';
+              var kids = n.querySelectorAll('*');
+              for (var k = 0; k < kids.length; k++) kids[k].style.boxShadow = 'none';
             });
           }
         });
