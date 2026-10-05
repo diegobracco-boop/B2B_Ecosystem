@@ -2815,6 +2815,7 @@ function recomputeB2B_() {
   ['b2b-mc-gb-bud-lbl','b2b-mc-nr-bud-lbl','b2b-mc-fvm-bud-lbl'].forEach(function(id){var el=document.getElementById(id);if(el)el.textContent=compKpi;});
   state_b2b.data       = computeB2B_(_rawB2B, 'nr', _b2bDateModel, state_b2b.viewDate, gl_pai, gl_pro, gl_ch, _b2bMarket, 'daily', compSrc);
   state_b2b.allMetrics = computeAllB2B_(_rawB2B, _b2bDateModel, state_b2b.viewDate, gl_pai, gl_pro, gl_ch, _b2bMarket, gran, compSrc);
+  if(_b2bKrHalf===null && state_b2b.viewDate){ setB2BKrHalf(state_b2b.viewDate.substring(0,7) >= '2026-10' ? 'h2' : 'h1'); }
   var _krsB2B=computeKRsB2B_(_rawB2B, 'ri', state_b2b.viewDate); renderKRsB2B(_krsB2B); renderKRBreakdownB2B_(_krsB2B);
   var _krsB2BH2=computeKRsB2BH2_(_okrH2 || _rawB2B, 'ri', state_b2b.viewDate); renderKRsB2BH2_(_krsB2BH2);
   if(_globalesTargets) renderKRsGlobales_();
@@ -2851,7 +2852,7 @@ function renderKRsB2BH2_(krs) {
   });
 }
 
-var _b2bKrHalf='h1';
+var _b2bKrHalf=null;
 function setB2BKrHalf(h){
   _b2bKrHalf=h;
   var b1=document.getElementById('btn-b2b-kr-h1'), b2=document.getElementById('btn-b2b-kr-h2'), b3=document.getElementById('btn-b2b-kr-globales');
