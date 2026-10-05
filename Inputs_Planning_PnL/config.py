@@ -86,9 +86,9 @@ BASES = {
         "files": [f"Run Rate/RR - Legal Entity ALL - {_FY_SHORT}.csv",
                   f"Run Rate/RR - Legal Entity NA - {_FY_SHORT}.csv"],
         "is_forecast": False,
-        # El CSV trae varios escenarios en el POV (Baseline/Iniciativas/Bimonetario);
-        # solo se usa Baseline (2026-10-05) para no sumar escenarios distintos.
-        "scenario": "baseline",
+        # "Cost of sales" viene duplicado en ALL y NA (mismas filas) -> se toma solo de ALL
+        # (2026-10-05). Nombres de la columna Account, en minúscula.
+        "only_from_all": ["cost of sales"],
     },
     "lastrunrate": {
         "files": ["Run Rate/LRR - Legal Entity ALL.csv",
