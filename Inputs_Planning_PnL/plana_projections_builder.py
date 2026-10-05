@@ -66,7 +66,7 @@ def parse_line(contenido):
 
 
 # ── Lectura + parseo de una base (ALL + NA) ──────────────────────────────────
-def read_base(files):
+def read_base(files, scenario=None):
     recs = []
     for rel in files:
         path = os.path.join(PBI, rel)
@@ -89,12 +89,15 @@ def read_base(files):
                 rec = {
                     "Linea P&L":  cuenta,
                     "Escenario":  meta[1] if len(meta) > 1 else None,
+                    "Version":    meta[2] if len(meta) > 2 else None,
                     "Marca":      meta[3] if len(meta) > 3 else None,
                     "Viaje":      meta[4] if len(meta) > 4 else None,
                     "Pais":       meta[5] if len(meta) > 5 else None,
                     "Producto":   meta[6] if len(meta) > 6 else None,
                     "LOB-CANAL":  meta[7] if len(meta) > 7 else None,
                 }
+                if scenario and str(rec["Version"]).strip().lower() != scenario:
+                    continue
                 for i, d in enumerate(FISCAL_DATES):
                     rec[d] = to_num(meses[i]) if i < len(meses) else None
                 recs.append(rec)
@@ -165,7 +168,7 @@ def verify(df):
 def build(base, con_ppa=False):
     cfg = BASES[base]
     print(f"=== plana {base} ({'CON' if con_ppa else 'SIN'} PPA) ===")
-    df = read_base(cfg["files"])
+    df = read_base(cfg["files"], cfg.get("scenario"))
     print(f"  leídas {len(df):,} filas (ALL+NA)")
     df = gb_orders_transform(df)
     df = apply_exclusions(df, cfg["is_forecast"])
