@@ -555,6 +555,33 @@
   /* Footer wastes vertical space in slides — hide it */
   body.slides-mode .footer { display: none !important; }
 
+  /* Títulos de sección en slides: más grandes y con línea violeta separadora
+     entre el título y los datos. Negrita = <b>, cursiva sin negrita = <i>. */
+  body.slides-mode .tables-view-title {
+    font-size: 24px;
+    line-height: 1.25;
+    font-weight: 400;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 3px solid #550FED;
+  }
+  body.slides-mode .tables-view-title b { font-weight: 800; }
+  body.slides-mode .tables-view-title i { font-weight: 400; font-style: italic; }
+  /* Las vistas con zoom:0.80 (KRs, weekly) necesitan fuente mayor para igualar
+     el tamaño visual de las vistas sin zoom (tablas / barras). */
+  body.slides-mode #agenciasContent  .tables-view-title,
+  body.slides-mode #agenciasH2Content .tables-view-title,
+  body.slides-mode #globalesContent  .tables-view-title,
+  body.slides-mode #weeklyContent    .tables-view-title { font-size: 30px; }
+  /* Título de sección de las slides de barras (gráfico + tabla): solo visible
+     en modo slides, ocupando el ancho completo arriba del content-row. */
+  #barsSlideTitle { display: none; }
+  body.slides-mode #mainContent.visible {
+    display: flex; flex-direction: column; height: 100%; box-sizing: border-box;
+  }
+  body.slides-mode #mainContent.visible #barsSlideTitle { display: block; }
+  body.slides-mode #mainContent.visible .content-row { flex: 1 1 auto; min-height: 0; }
+
   /* Weekly view: scale down to fit without scroll */
   body.slides-mode #weeklyContent {
     zoom: 0.80;
@@ -589,7 +616,7 @@
      bajo el título; las filas se reparten en partes iguales y cada card estira
      su contenido (header arriba, tira mensual abajo). globalesWrap tiene display
      inline por JS → !important. Fuentes un poco más grandes para el tamaño mayor. */
-  body.slides-mode #globalesContent {
+  body.slides-mode #globalesContent.visible {
     display: flex; flex-direction: column; height: 100%; box-sizing: border-box;
   }
   body.slides-mode #globalesWrap {
@@ -1030,6 +1057,7 @@
 
 <!-- Vista con gráfico + tabla lateral -->
 <div class="main" id="mainContent">
+  <div class="tables-view-title" id="barsSlideTitle"></div>
   <div class="content-row">
     <div class="chart-panel">
       <div class="chart-title" id="chartTitle"></div>
@@ -1301,6 +1329,14 @@ const PRODUCT_GROUPS = {
 const PRODUCT_GROUP_ORDER = ['Hotel', 'Air', 'Packages', 'ONA'];
 
 const MONTH_NAMES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+// Nombres en inglés para los títulos de las slides (Managerial Information)
+const MONTH_NAMES_EN      = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const MONTH_NAMES_EN_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sept','Oct','Nov','Dec'];
+function monthEn(ym)      { return MONTH_NAMES_EN[parseInt(ym.split('-')[1], 10) - 1]; }
+function monthEnAbbr(ym)  { return MONTH_NAMES_EN_ABBR[parseInt(ym.split('-')[1], 10) - 1]; }
+function formatYMEn(ym)   { var p = ym.split('-'); return MONTH_NAMES_EN[parseInt(p[1], 10) - 1] + ' ' + p[0]; }
+// Etiqueta del target según el selector de meta (Budget / Run Rate)
+function goalLabelText()  { return document.getElementById('filterGoal').value === 'rr' ? 'Run Rate' : 'Budget'; }
 
 // ─────────────────────────────────────────────
 //  Estado
@@ -1533,6 +1569,14 @@ function renderChart(tab, channel, countryGroup, monthFilter) {
 
   const dateTypeLabel = TAB_DATA[tab].dateType === 'ri' ? 'Recognition Date' : 'Gestion Date';
   document.getElementById('chartTitle').textContent = METRICS[metric].label + '  —  ' + dateTypeLabel;
+
+  // Título de sección (solo slides): "<b>Métrica</b> - Performance <Mes> MTD vs <Target>"
+  var _barsTitleEl = document.getElementById('barsSlideTitle');
+  if (_barsTitleEl) {
+    var _barsPeriod = monthFilter ? (monthEnAbbr(monthFilter) + ' MTD') : 'YTD';
+    _barsTitleEl.innerHTML =
+      '<b>' + METRICS[metric].label + '</b> - Performance ' + _barsPeriod + ' vs ' + goalLabelText();
+  }
 
   const filterParts = [];
   const goalSel = document.getElementById('filterGoal');
@@ -2524,8 +2568,14 @@ function renderStatusKRs() {
   var krYM    = (selKRMes && selKRMes.value) ? selKRMes.value : _curYM;
   var isCurrentMonth = (krYM === _curYM);
 
-  document.getElementById('statusKRsTitle').textContent =
-    'Status KRs H1 — ' + formatYM(krYM) + (isCurrentMonth ? ' (MTD)' : ' (mes completo)');
+  var _krsTitleEl = document.getElementById('statusKRsTitle');
+  if (_isSlidesMode) {
+    _krsTitleEl.innerHTML =
+      '<b>OKRs H1 MTD vs Budget | ' + formatYMEn(krYM) + '</b> — <i>Managerial Information</i>';
+  } else {
+    _krsTitleEl.textContent =
+      'Status KRs H1 — ' + formatYM(krYM) + (isCurrentMonth ? ' (MTD)' : ' (mes completo)');
+  }
 
   // Actualizar cabeceras de la tabla
   var thActual = document.querySelector('#statusKRsTable thead th:nth-child(3)');
@@ -2909,8 +2959,14 @@ function renderStatusKRsH2() {
   var krYM   = (selMes && selMes.value) ? selMes.value : _curYM;
   var isCurrentMonth = (krYM === _curYM);
 
-  document.getElementById('statusKRsH2Title').textContent =
-    'Status KRs H2 — ' + formatYM(krYM) + (isCurrentMonth ? ' (MTD)' : ' (mes completo)');
+  var _krsH2TitleEl = document.getElementById('statusKRsH2Title');
+  if (_isSlidesMode) {
+    _krsH2TitleEl.innerHTML =
+      '<b>OKRs H2 MTD vs Budget | ' + formatYMEn(krYM) + '</b> — <i>Managerial Information</i>';
+  } else {
+    _krsH2TitleEl.textContent =
+      'Status KRs H2 — ' + formatYM(krYM) + (isCurrentMonth ? ' (MTD)' : ' (mes completo)');
+  }
   var thA = document.querySelector('#statusKRsH2Table thead th:nth-child(3)');
   var thB = document.querySelector('#statusKRsH2Table thead th:nth-child(4)');
   if (thA) thA.textContent = isCurrentMonth ? 'Actual MTD' : 'Actual';
@@ -3165,6 +3221,14 @@ function renderGlobales() {
   var meses  = meta.meses || [];
   var labels = meta.meses_label || meses;
 
+  var _globTitleEl = document.getElementById('globalesTitle');
+  if (_isSlidesMode) {
+    _globTitleEl.innerHTML =
+      '<b>OKRs Global B2B API Hoteles | H2 FY27</b> — <i>Managerial Information</i>';
+  } else {
+    _globTitleEl.textContent = 'KRs Globales — Global B2B API Hoteles';
+  }
+
   document.getElementById('globalesMeta').innerHTML =
     '&#127760; ' + (meta.titulo || 'KRs Globales') +
     (meta.periodo ? ' — <strong>' + meta.periodo + '</strong>' : '') +
@@ -3315,9 +3379,17 @@ function render() {
   if (isTablesView) {
     const dateType = TAB_DATA[activeTab].dateType;
     const titleEl  = document.getElementById('tablesViewTitle');
-    titleEl.textContent = activeTab === 'tables_gd'
-      ? 'Tablas por Fecha de Gestión' + (monthFilter ? '  —  ' + formatYM(monthFilter) : '')
-      : 'Tablas por Fecha de Reconocimiento' + (monthFilter ? '  —  ' + formatYM(monthFilter) : '');
+    if (_isSlidesMode) {
+      var _dtDetail = (activeTab === 'tables_gd') ? 'Gestion Date' : 'Recognition Date';
+      var _moDetail = monthFilter ? monthEn(monthFilter) : 'Full Year';
+      titleEl.innerHTML =
+        '<b>' + _moDetail + ' vs ' + goalLabelText() + ' - ' + _dtDetail + ' Detail |</b>' +
+        ' <i>Managerial Information</i>';
+    } else {
+      titleEl.textContent = activeTab === 'tables_gd'
+        ? 'Tablas por Fecha de Gestión' + (monthFilter ? '  —  ' + formatYM(monthFilter) : '')
+        : 'Tablas por Fecha de Reconocimiento' + (monthFilter ? '  —  ' + formatYM(monthFilter) : '');
+    }
     renderTablesView(dateType, channel, countryGroup, monthFilter);
   } else {
     renderChart(activeTab, channel, countryGroup, monthFilter);
