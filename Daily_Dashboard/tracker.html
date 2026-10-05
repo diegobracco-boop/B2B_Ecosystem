@@ -3734,7 +3734,28 @@ async function _captureAllSlides(onProgress, opts) {
       await _sleep(500); // dejar asentar layout + charts
       try {
         var canvas = await html2canvas(el, {
-          scale: opts.jpeg ? 1.3 : 1.5, backgroundColor: '#ffffff', useCORS: true, logging: false
+          scale: opts.jpeg ? 1.3 : 1.5, backgroundColor: '#ffffff', useCORS: true, logging: false,
+          // html2canvas 1.4.1 NO soporta la propiedad CSS `zoom`: renderiza el
+          // contenido al 100% y las slides con zoom:0.80 (KRs H1/H2, Globales,
+          // weekly) se desbordan y se pisan las letras. En el clon que html2canvas
+          // va a capturar, cambiamos ese `zoom` por un `transform: scale()`
+          // equivalente (sí soportado), para que el export se vea igual que en
+          // pantalla. width/height al 125% compensan el scale 0.8 (0.8 × 1.25 = 1).
+          onclone: function(clonedDoc) {
+            var ZOOMED = ['agenciasContent', 'agenciasH2Content', 'globalesContent', 'weeklyContent'];
+            ZOOMED.forEach(function(id) {
+              var n = clonedDoc.getElementById(id);
+              if (!n) return;
+              n.style.zoom            = 'normal';
+              n.style.transform       = 'scale(0.8)';
+              n.style.transformOrigin = 'top left';
+              n.style.boxSizing       = 'border-box';
+              n.style.width           = '125%';   // 1/0.8 → al escalar 0.8 llena el ancho del slide
+              // Altura automática: el alto natural del contenido (sin zoom) ≈ 125%
+              // del slide, y al escalar 0.8 queda ≈ 100% → llena el alto sin forzar
+              // un % que dependa de que el padre tenga altura definida en el clon.
+            });
+          }
         });
         var img = opts.jpeg ? canvas.toDataURL('image/jpeg', 0.85)
                             : canvas.toDataURL('image/png');
