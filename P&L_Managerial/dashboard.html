@@ -2417,8 +2417,13 @@ function toggleMGSec(secId){
 
 function _buildMGPanel_(container, agg, goalData, title, periods, n, isLast, goalLabel){
   var bAggs = {}, gAggs = {};
+  // totalMonths = unión de meses de los períodos visibles (excluye la columna Total misma)
+  var totalMonths = [];
   periods.forEach(function(p){
-    var ms = mgPeriodMonths_(p);
+    if(p !== MG_TOTAL_LABEL) mgPeriodMonths_(p).forEach(function(m){ if(totalMonths.indexOf(m)<0) totalMonths.push(m); });
+  });
+  periods.forEach(function(p){
+    var ms = p === MG_TOTAL_LABEL ? totalMonths : mgPeriodMonths_(p);
     bAggs[p] = mgAggPeriod_(agg,      ms);
     gAggs[p] = mgAggPeriod_(goalData, ms);
   });
