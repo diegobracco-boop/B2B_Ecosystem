@@ -3733,37 +3733,39 @@ async function _captureAllSlides(onProgress, opts) {
       _goToSlide(i);
       await _sleep(500); // dejar asentar layout + charts
       try {
-        var canvas = await html2canvas(el, {
-          scale: opts.jpeg ? 1.3 : 1.5, backgroundColor: '#ffffff', useCORS: true, logging: false,
-          // html2canvas 1.4.1 NO soporta la propiedad CSS `zoom`: renderiza el
-          // contenido al 100% y las slides con zoom:0.80 (KRs H1/H2, Globales,
-          // weekly) se desbordan y se pisan las letras. En el clon que html2canvas
-          // va a capturar, cambiamos ese `zoom` por un `transform: scale()`
-          // equivalente (sí soportado), para que el export se vea igual que en
-          // pantalla. width/height al 125% compensan el scale 0.8 (0.8 × 1.25 = 1).
-          onclone: function(clonedDoc) {
-            var ZOOMED = ['agenciasContent', 'agenciasH2Content', 'globalesContent', 'weeklyContent'];
-            ZOOMED.forEach(function(id) {
-              var n = clonedDoc.getElementById(id);
-              if (!n) return;
-              n.style.zoom            = 'normal';
-              n.style.transform       = 'scale(0.8)';
-              n.style.transformOrigin = 'top left';
-              n.style.boxSizing       = 'border-box';
-              n.style.width           = '125%';   // 1/0.8 → al escalar 0.8 llena el ancho del slide
-              // Altura automática: el alto natural del contenido (sin zoom) ≈ 125%
-              // del slide, y al escalar 0.8 queda ≈ 100% → llena el alto sin forzar
-              // un % que dependa de que el padre tenga altura definida en el clon.
-              // html2canvas 1.4.1 renderiza los box-shadow DESPLAZADOS bajo
-              // transform (los "cuadros sombreados corridos"). La sombra es solo
-              // decorativa — las cajas ya tienen borde + fondo —, así que la
-              // sacamos en el clon: el contenido queda alineado y legible.
-              n.style.boxShadow = 'none';
-              var kids = n.querySelectorAll('*');
-              for (var k = 0; k < kids.length; k++) kids[k].style.boxShadow = 'none';
-            });
-          }
-        });
+        var baseScale = opts.jpeg ? 1.3 : 1.5;
+        var slide = SLIDE_ORDER[i];
+        // Las slides de KRs (H1/H2 y Globales) usan zoom:0.80 para entrar en el
+        // slide. html2canvas 1.4.1 NO soporta la propiedad CSS `zoom` ni escala
+        // limpio con `transform: scale()`: con zoom se pisan las letras y con
+        // transform los fondos/badges salen corridos. Solución: capturar a
+        // tamaño NATURAL (zoom desactivado) agrandando el ÁREA de captura 1/0.8
+        // = 1.25× en ancho y alto. Ese rectángulo conserva el aspect 16:9 del
+        // slide, así que el canvas sale nítido, llena el slide y sin artefactos.
+        var isZoomedSlide = (slide.tab === 'agencias' || slide.tab === 'agencias_h2' || slide.tab === 'globales');
+        var h2cOpts;
+        if (isZoomedSlide) {
+          var rect = el.getBoundingClientRect();
+          var natW = Math.round(rect.width  / 0.8);
+          var natH = Math.round(rect.height / 0.8);
+          h2cOpts = {
+            // escala × 0.8 para que la resolución final iguale la de las demás
+            // slides (el área ya es 1.25× más grande): 1.25 × 0.8 = 1.
+            scale: baseScale * 0.8, backgroundColor: '#ffffff', useCORS: true, logging: false,
+            width: natW, height: natH, windowWidth: natW, windowHeight: natH,
+            onclone: function(clonedDoc) {
+              var sc = clonedDoc.getElementById('slideContent');
+              if (sc) { sc.style.width = natW + 'px'; sc.style.height = natH + 'px'; sc.style.aspectRatio = 'auto'; sc.style.overflow = 'hidden'; }
+              ['agenciasContent', 'agenciasH2Content', 'globalesContent'].forEach(function(id) {
+                var n = clonedDoc.getElementById(id);
+                if (n) n.style.zoom = 'normal';
+              });
+            }
+          };
+        } else {
+          h2cOpts = { scale: baseScale, backgroundColor: '#ffffff', useCORS: true, logging: false };
+        }
+        var canvas = await html2canvas(el, h2cOpts);
         var img = opts.jpeg ? canvas.toDataURL('image/jpeg', 0.85)
                             : canvas.toDataURL('image/png');
         slides.push({ img: img, w: canvas.width, h: canvas.height });
