@@ -1439,6 +1439,9 @@ header > img{filter:brightness(0) invert(1);opacity:.92}
       <div class="evo-hdr">
         <h3>Marketing Cost &amp; Media Revenue — B2B</h3>
         <div style="display:flex;align-items:center;gap:10px">
+          <div class="gran-toggle">
+            <button class="gran-btn" id="mkt-expand-btn" onclick="toggleMktAll()">Abrir todo ▾</button>
+          </div>
           <div class="gran-toggle" id="mkt-gran">
             <button class="gran-btn active" data-g="M" onclick="switchMktGran(this)">M</button>
             <button class="gran-btn"        data-g="Q" onclick="switchMktGran(this)">Q</button>
@@ -5079,6 +5082,27 @@ function renderMktTable(d, groups, colW) {
     });
   });
   document.getElementById('mkt-body').innerHTML = html;
+  updateMktExpandBtn();
+}
+
+// Botón "Abrir todo / Colapsar todo": abre o cierra Δ y % de Budget y Forecast en
+// todos los países. El texto refleja el estado actual (también tras clicks por país).
+function mktToggleRows() {
+  return Array.prototype.slice.call(document.querySelectorAll('#mkt-body tr[data-mkt-toggle]'));
+}
+function mktAllOpen() {
+  var rows = mktToggleRows();
+  return rows.length > 0 && rows.every(function(tr){ return !!_mktOpen[tr.getAttribute('data-mkt-toggle')]; });
+}
+function updateMktExpandBtn() {
+  var btn = document.getElementById('mkt-expand-btn');
+  if (btn) btn.textContent = mktAllOpen() ? 'Colapsar todo ▴' : 'Abrir todo ▾';
+}
+function toggleMktAll() {
+  var open = !mktAllOpen();
+  mktToggleRows().forEach(function(tr) {
+    if (!!_mktOpen[tr.getAttribute('data-mkt-toggle')] !== open) toggleMktRef(tr);
+  });
 }
 
 // Click en una fila Budget $ / Forecast $: muestra u oculta su Δ y % solo en ese país.
@@ -5097,6 +5121,7 @@ function toggleMktRef(tr) {
   rows.forEach(function(r){ if (r.style.display !== 'none') vis++; });
   var cell = rows[0] && rows[0].querySelector('td.pnl-section-cell');
   if (cell) cell.rowSpan = vis;
+  updateMktExpandBtn();
 }
 
 function demoMarketingData() {
