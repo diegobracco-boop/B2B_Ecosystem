@@ -4280,11 +4280,16 @@ function flAccToggle_(tr){
 // de Tier es un acordeón (país y tier arrancan colapsados, clic para abrir) y los partners NUNCA
 // se cap-ean — al abrir un tier se ve la lista completa, así sea de 30 partners. Si un país tiene
 // un solo tier, se salta ese nivel intermedio (abrir el país va directo a los partners).
-// tierFirst=true (Hispa, slides diarios): el primer nivel es el Tier en vez del País — acordeón
-// Tier→Partner. El partner se abre por país (Turismocity AR y Turismocity CO son filas
-// distintas, siempre con el país entre paréntesis). Los
-// partners con tier 'Unknown' (sin match en la cartera) no se muestran ni suman al Total.
-// Orden: Tier-1, Tier-2, ... (por número) y después los tiers con nombre (Low Value, etc.).
+// tierFirst=true (Hispa, todas las tablas de Flow): agrupación fija que pidió el equipo
+// (2026-10-06, igual al reporte de Hispa en Power BI), en este orden:
+//   1..N. "Tier-1 - <Partner> - <Paí>" — cada partner Tier-1 x país es su propio grupo
+//         (orden por baseline), sin desplegable.
+//   N+1.  "Tier-2"               — acordeón con los partners Tier-2.
+//   N+2.  "Tier-3 + Low Value"   — todo tier ≥3 o con nombre (Low Value, etc.).
+//   N+3.  "Onboarding"           — partners New (stage de la cartera), sin importar su tier.
+// Cada partner va por país (Turismocity (Argentina) / (Colombia) / (Chile) son filas
+// distintas). Los partners Existing con tier 'Unknown' (sin match en la cartera) no se
+// muestran ni suman al Total.
 function flowGroupTable_(subRaw, metricKey, comp, col1, groupByRegion, childMax, topMax, tierFirst){
   if(childMax===undefined) childMax=_flowPrinting?Infinity:8;
   if(topMax===undefined) topMax=0; // sin cap: los países ahora arrancan colapsados (1 fila c/u), no hace falta truncar la lista
@@ -4310,21 +4315,44 @@ function flowGroupTable_(subRaw, metricKey, comp, col1, groupByRegion, childMax,
     }); });
   }
   function tierOf_(pais, partner){ return tierByPaisPartner[(pais||'Other')+'|'+partner]||tierByPartner[partner]||'Unknown'; }
+  function tierRank_(t){ var m=/^tier[\s_-]*(\d+)/i.exec(t); return m ? +m[1] : 1000; }
+  // tierFirst: New/Existing por país x partner. Primero el account_type de los reales (viene
+  // por partner_id, o sea ya por país, e incluye FORCE_NEW_PARTNERS); si ese país x partner no
+  // tiene reales, el stage de budget/runrate (que en daily_sync.py es a nivel partner). Un solo
+  // valor por país x partner para que baseline y goal caigan siempre en el mismo grupo.
+  var stA={}, stB={};
+  if(tierFirst){
+    (subRaw.actuals||[]).forEach(function(r){ if(!r.partner) return; var kp=(r.pais||'Other')+'|'+r.partner;
+      if(r.account_type==='New') stA[kp]='New'; else if(!stA[kp]) stA[kp]='Existing'; });
+    [(subRaw.budget||[]),(subRaw.runrate||[])].forEach(function(arr){ arr.forEach(function(r){ if(!r.partner) return; var kp=(r.pais||'Other')+'|'+r.partner;
+      if(r.stage==='New') stB[kp]='New'; else if(!stB[kp]) stB[kp]='Existing'; }); });
+  }
+  function hispaGrp_(r){
+    var p=r.partner||'Other', pa=r.pais||'Other', kp=pa+'|'+p;
+    if((stA[kp]||stB[kp])==='New') return 'ONB';
+    var t=tierOf_(pa,p); if(t==='Unknown') return null;
+    var n=tierRank_(t);
+    return n===1 ? 'T1|'+p+'|'+pa : n===2 ? 'T2' : 'T3';
+  }
+  function hispaLbl_(k){
+    if(k.indexOf('T1|')===0){ var p=k.split('|'); return 'Tier-1 - '+p.slice(1,-1).join('|')+' - '+p[p.length-1].substring(0,3); }
+    return {T2:'Tier-2', T3:'Tier-3 + Low Value', ONB:'Onboarding'}[k]||k;
+  }
   var G={};
-  function gk(r){ return groupByRegion ? getRegion_(r.pais) : tierFirst ? tierOf_(r.pais, r.partner||'Other') : (r.pais||'Other'); }
+  function gk(r){ return groupByRegion ? getRegion_(r.pais) : tierFirst ? hispaGrp_(r) : (r.pais||'Other'); }
   function ck(r){ return groupByRegion ? (r.pais||'Other') : tierFirst ? (r.partner||'Other')+'|'+(r.pais||'Other') : (r.partner||'Other'); }
   function grp(k){ G[k]=G[k]||{base:0,goal:0,ch:{}}; return G[k]; }
   function chi(k,c){ var g=grp(k); g.ch[c]=g.ch[c]||{base:0,goal:0}; return g.ch[c]; }
-  function skip(k){ return tierFirst && k==='Unknown'; }
+  function skip(k){ return tierFirst && k===null; }
   (subRaw.actuals||[]).forEach(function(r){ if(r.fecha<mStart||r.fecha>vDate)return; var k=gk(r); if(skip(k))return; var v=r[MF]||0; grp(k).base+=v; chi(k,ck(r)).base+=v; });
   cmpArr.forEach(function(r){ if(lyMode){ if(r.fecha<lyMS||r.fecha>lyVD)return; } else if(r.fecha<mStart||r.fecha>vDate){ return; } var k=gk(r); if(skip(k))return; var v=r[cmpF]||0; grp(k).goal+=v; chi(k,ck(r)).goal+=v; });
   // tierFirst: el país va siempre al lado del partner (Turismocity (AR) / (CO) / (CL)), sin
   // depender de en cuántos países aparece — los países no son un nivel del acordeón acá.
   function kidName_(c){ if(!tierFirst) return c; var i=c.lastIndexOf('|'); return c.substring(0,i)+' ('+c.substring(i+1)+')'; }
-  function tierRank_(t){ var m=/^tier[\s_-]*(\d+)/i.exec(t); return m ? +m[1] : 1000; }
+  function hispaRank_(k){ return k.indexOf('T1|')===0 ? 0 : {T2:1, T3:2, ONB:3}[k]; }
   var orderFull = groupByRegion ? ['BR','SAH','NAM']
-    : tierFirst ? Object.keys(G).sort(function(a,b){ // Tier-1, Tier-2, ... y después los tiers con nombre (Low Value, ...)
-        return (tierRank_(a)-tierRank_(b)) || (a<b?-1:a>b?1:0); })
+    : tierFirst ? Object.keys(G).sort(function(a,b){ // Tier-1 x partner (por baseline), Tier-2, Tier-3 + Low Value, Onboarding
+        return (hispaRank_(a)-hispaRank_(b)) || (G[b].base-G[a].base); })
     : Object.keys(G).sort(function(a,b){return G[b].base-G[a].base;});
   var order = (topMax && orderFull.length>topMax) ? orderFull.slice(0,topMax) : orderFull;
   function cell(d){ return '<td class="'+(d>=0?'fl-pos':'fl-neg')+'">'+(d>=0?'+':'')+fmtShort(d)+'</td>'; }
@@ -4334,7 +4362,7 @@ function flowGroupTable_(subRaw, metricKey, comp, col1, groupByRegion, childMax,
   var body='',TB=0,TG=0;
   orderFull.forEach(function(k){ var g=G[k]; if(!g)return; TB+=g.base; TG+=g.goal; }); // totales siempre sobre TODO, aunque se trunque lo visible
   order.forEach(function(k,pIdx){ var g=G[k]; if(!g)return;
-    var lbl = groupByRegion ? (REGION_LABEL_[k]||k) : k;
+    var lbl = groupByRegion ? (REGION_LABEL_[k]||k) : tierFirst ? (pIdx+1)+'.'+hispaLbl_(k) : k;
     var kids=Object.keys(g.ch).map(function(c){return {name:kidName_(c),base:g.ch[c].base,goal:g.ch[c].goal,tier:tierByPaisPartner[k+'|'+c]||tierByPartner[c]||'Unknown'};})
       .sort(function(a,b){return b.base-a.base;});
     if(groupByRegion){
@@ -4353,6 +4381,10 @@ function flowGroupTable_(subRaw, metricKey, comp, col1, groupByRegion, childMax,
     //  - Slides (_flowSlidesExporting): solo el país se fuerza abierto (ve subtotales de Tier,
     //    o partners con el viejo cap childMax si el país tiene 1 solo tier) — NO se abren los
     //    partners dentro de cada tier, para no romper el aspect ratio fijo de la imagen.
+    if(tierFirst && k.indexOf('T1|')===0){ // Tier-1: el grupo ya es un único partner x país, sin desplegable
+      body+='<tr class="grp"><td>'+lbl+'</td><td>'+fmtShort(g.base)+'</td>'+cell(g.base-g.goal)+pctCell(g.base,g.goal)+'</tr>';
+      return;
+    }
     var paisKey='fl'+tblUid+'p'+pIdx;
     var fullOpen=_flowPrinting, summaryOpen=_flowSlidesExporting, paisOpen=fullOpen||summaryOpen;
     var openP=paisOpen?'1':'0', dispP=paisOpen?'table-row':'none', caretP=paisOpen?'▾':'▸';
