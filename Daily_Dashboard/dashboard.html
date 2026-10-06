@@ -4280,19 +4280,16 @@ function flAccToggle_(tr){
 // de Tier es un acordeón (país y tier arrancan colapsados, clic para abrir) y los partners NUNCA
 // se cap-ean — al abrir un tier se ve la lista completa, así sea de 30 partners. Si un país tiene
 // un solo tier, se salta ese nivel intermedio (abrir el país va directo a los partners).
-function flowGroupTable_(subRaw, metricKey, comp, col1, groupByRegion, childMax, topMax){
+// byTier=true (Hispa, slides diarios): el primer nivel es el Tier en vez del País — acordeón
+// Tier→Partner, sumando cada partner a través de los países de la región (en Hispa los
+// países son muchos y chicos, y lo que se quiere leer es la cartera por tier).
+function flowGroupTable_(subRaw, metricKey, comp, col1, groupByRegion, childMax, topMax, byTier){
   if(childMax===undefined) childMax=_flowPrinting?Infinity:8;
   if(topMax===undefined) topMax=0; // sin cap: los países ahora arrancan colapsados (1 fila c/u), no hace falta truncar la lista
+  byTier=!!byTier && !groupByRegion;
   var vDate=flowVDate_(), mStart=vDate.substring(0,7)+'-01';
   var lyMode=(comp==='ly'), lyMS=_flLY_(mStart), lyVD=_flLY_(vDate);
   var MF=_FLMF[metricKey], cmpArr=_flCompArr_(subRaw,comp), cmpF=_flCompField_(metricKey,comp);
-  var G={};
-  function gk(r){ return groupByRegion ? getRegion_(r.pais) : (r.pais||'Other'); }
-  function ck(r){ return groupByRegion ? (r.pais||'Other') : (r.partner||'Other'); }
-  function grp(k){ G[k]=G[k]||{base:0,goal:0,ch:{}}; return G[k]; }
-  function chi(k,c){ var g=grp(k); g.ch[c]=g.ch[c]||{base:0,goal:0}; return g.ch[c]; }
-  (subRaw.actuals||[]).forEach(function(r){ if(r.fecha<mStart||r.fecha>vDate)return; var v=r[MF]||0; grp(gk(r)).base+=v; chi(gk(r),ck(r)).base+=v; });
-  cmpArr.forEach(function(r){ if(lyMode){ if(r.fecha<lyMS||r.fecha>lyVD)return; } else if(r.fecha<mStart||r.fecha>vDate){ return; } var v=r[cmpF]||0; grp(gk(r)).goal+=v; chi(gk(r),ck(r)).goal+=v; });
   // El tier de un partner es SOLO el de la cartera vigente (mapeado por nombre contra la
   // cartera en daily_sync.py, _map_tier) — nada que ver con actuals ni con qué comparador
   // (Budget/Run Rate/Last Year) esté elegido arriba. Ese mapeo viaja en las filas de
@@ -4310,7 +4307,18 @@ function flowGroupTable_(subRaw, metricKey, comp, col1, groupByRegion, childMax,
       if(!tierByPartner[r.partner]) tierByPartner[r.partner]=r.tier;
     }); });
   }
-  var orderFull = groupByRegion ? ['BR','SAH','NAM'] : Object.keys(G).sort(function(a,b){return G[b].base-G[a].base;});
+  function tierOf_(pais, partner){ return tierByPaisPartner[(pais||'Other')+'|'+partner]||tierByPartner[partner]||'Unknown'; }
+  var G={};
+  function gk(r){ return groupByRegion ? getRegion_(r.pais) : byTier ? tierOf_(r.pais, r.partner||'Other') : (r.pais||'Other'); }
+  function ck(r){ return groupByRegion ? (r.pais||'Other') : (r.partner||'Other'); }
+  function grp(k){ G[k]=G[k]||{base:0,goal:0,ch:{}}; return G[k]; }
+  function chi(k,c){ var g=grp(k); g.ch[c]=g.ch[c]||{base:0,goal:0}; return g.ch[c]; }
+  (subRaw.actuals||[]).forEach(function(r){ if(r.fecha<mStart||r.fecha>vDate)return; var v=r[MF]||0; grp(gk(r)).base+=v; chi(gk(r),ck(r)).base+=v; });
+  cmpArr.forEach(function(r){ if(lyMode){ if(r.fecha<lyMS||r.fecha>lyVD)return; } else if(r.fecha<mStart||r.fecha>vDate){ return; } var v=r[cmpF]||0; grp(gk(r)).goal+=v; chi(gk(r),ck(r)).goal+=v; });
+  var orderFull = groupByRegion ? ['BR','SAH','NAM']
+    : byTier ? Object.keys(G).sort(function(a,b){ // Tier-1, Tier-2, ... y Unknown al final
+        if(a==='Unknown') return 1; if(b==='Unknown') return -1; return a<b?-1:a>b?1:0; })
+    : Object.keys(G).sort(function(a,b){return G[b].base-G[a].base;});
   var order = (topMax && orderFull.length>topMax) ? orderFull.slice(0,topMax) : orderFull;
   function cell(d){ return '<td class="'+(d>=0?'fl-pos':'fl-neg')+'">'+(d>=0?'+':'')+fmtShort(d)+'</td>'; }
   function pct(b,g){ return g!==0 ? (b/g-1)*100 : null; }
@@ -4350,7 +4358,7 @@ function flowGroupTable_(subRaw, metricKey, comp, col1, groupByRegion, childMax,
       var sa=byTier[a].reduce(function(s,x){return s+x.base;},0), sb=byTier[b].reduce(function(s,x){return s+x.base;},0);
       return sb-sa;
     });
-    var multiTier=tierNames.length>1 && kids.length>1;
+    var multiTier=!byTier && tierNames.length>1 && kids.length>1; // byTier: el tier ya es el nivel de arriba
     if(!multiTier){
       // sin nivel de tier que absorba el corte — el cap "+N más" (childMax) se mantiene
       // solo durante el export a Slides (summaryOpen), igual que el comportamiento viejo;
@@ -4504,7 +4512,8 @@ function flowBuildSlide_(def, idx){
     var brand='<span class="fl-flag">'+FLOW_RG[region].flag+'</span>'+flLogo_();
     var dl=flowDaily_(sub,mk,cmp);
     var cid='flc'+idx; _flowSeries[idx].push({id:cid, series:dl, gran:'daily', opts:{labels:true}});
-    var tbl=flowGroupTable_(sub,mk,tblComp,'País / Tier / Partner',false);
+    var tierFirst=(region==='SAH'); // Hispa: Tier → Partner en vez de País → Tier → Partner
+    var tbl=flowGroupTable_(sub,mk,tblComp,tierFirst?'Tier / Partner':'País / Tier / Partner',false,undefined,undefined,tierFirst);
     var body='<div class="fl-body"><div style="display:flex;gap:18px;height:100%">'
       +'<div style="flex:1.55;min-width:0;display:flex;flex-direction:column;min-height:0">'+flowKpiCards_(sub,mk,cmp)
       +'<div style="font-size:13px;font-weight:700;color:var(--fl-ink2);margin:8px 0 2px">Trend vs '+cmpLbl+'</div>'
