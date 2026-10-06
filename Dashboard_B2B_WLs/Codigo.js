@@ -214,7 +214,7 @@ function writeResultCache_(key, value) {
 function clearAllCache() {
   _jsonCache_ = {};   // resetea cache en memoria de esta instancia
   var sc = CacheService.getScriptCache();
-  sc.removeAll(['okr_json_v1', 'mkt_b2b_v3', _MOD_CACHE_KEY_]);  // fuerza re-check de mod times
+  sc.removeAll(['okr_json_v1', 'mkt_b2b_v4', _MOD_CACHE_KEY_]);  // fuerza re-check de mod times
   Logger.log('Cache cleared: ' + new Date());
 }
 
@@ -321,7 +321,7 @@ function preComputeAll() {
     var fcN2   = buildN2Map_(fcRows);
     var lyN2   = buildN2Map_(lyRows);
     var mktResult = computeMarketingData_(baseN2, budN2, rrN2, fcN2, lyN2);
-    CacheService.getScriptCache().put('mkt_b2b_v3', JSON.stringify(mktResult), RESULT_CACHE_MAX_S);
+    CacheService.getScriptCache().put('mkt_b2b_v4', JSON.stringify(mktResult), RESULT_CACHE_MAX_S);
   } catch (e) {
     Logger.log('preComputeAll: WARN Marketing no se pudo pre-calentar — ' + e.message);
   }
@@ -1281,12 +1281,9 @@ var MKT_COUNTRIES = [
     gf:{ lobFilter:'b2b', paisFilter:'argentina', paisExclude:null } },
   { id:'colombia',  label:'Colombia',
     gf:{ lobFilter:'b2b', paisFilter:'colombia',  paisExclude:null } },
-  { id:'chile',     label:'Chile',
-    gf:{ lobFilter:'b2b', paisFilter:'chile',     paisExclude:null } },
-  { id:'peru',      label:'Peru',
-    gf:{ lobFilter:'b2b', paisFilter:'peru',      paisExclude:null } },
-  { id:'ecuador',   label:'Ecuador',
-    gf:{ lobFilter:'b2b', paisFilter:'ecuador',   paisExclude:null } },
+  // Chile, Peru y Ecuador se muestran sumados en un solo bloque (pedido 2026-10-06)
+  { id:'clpeec',    label:'Chile+Peru+Ecuador',
+    gf:{ lobFilter:'b2b', paisFilter:null, paisExclude:null, paisMultiFilter:['chile','peru','ecuador'] } },
   // Mismo bucket que 'opsrg' en el resto del dashboard (Cuadro Resumen P&L) —
   // OPS y RG siempre se agrupan juntos, nunca por separado (paisMultiFilter).
   { id:'opsrg', label:'OPS+RG',
@@ -1342,10 +1339,10 @@ function computeMarketingData_(baselineN2, budN2, rrN2, fcN2, prevN2) {
 function getMarketingData() {
   try {
     var sc  = CacheService.getScriptCache();
-    // v3: agregó Run Rate/Forecast como referencia (atado al selector Goal) —
+    // v4: Chile/Peru/Ecuador sumados en un bloque. v3: agregó Run Rate/Forecast (selector Goal) —
     // bumpear esta clave cada vez que cambie MKT_COUNTRIES o la agregación,
     // si no la cache vieja (6h TTL) tapa el cambio.
-    var hit = sc.get('mkt_b2b_v3');
+    var hit = sc.get('mkt_b2b_v4');
     if (hit) { try { return JSON.parse(hit); } catch(e) {} }
 
     var baseRows = readJson_(JSON_IDS.baseline);
@@ -1360,7 +1357,7 @@ function getMarketingData() {
     var prevN2     = buildN2Map_(prevRows);
 
     var result = computeMarketingData_(baselineN2, budN2, rrN2, fcN2, prevN2);
-    try { sc.put('mkt_b2b_v3', JSON.stringify(result), RESULT_CACHE_MAX_S); } catch(e) {}
+    try { sc.put('mkt_b2b_v4', JSON.stringify(result), RESULT_CACHE_MAX_S); } catch(e) {}
     return result;
   } catch(e) {
     return { success:false, error:e.message };
