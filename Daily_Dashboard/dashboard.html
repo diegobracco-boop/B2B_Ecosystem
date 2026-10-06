@@ -4282,7 +4282,7 @@ function flAccToggle_(tr){
 // un solo tier, se salta ese nivel intermedio (abrir el país va directo a los partners).
 // tierFirst=true (Hispa, slides diarios): el primer nivel es el Tier en vez del País — acordeón
 // Tier→Partner. El partner se abre por país (Turismocity AR y Turismocity CO son filas
-// distintas, con el país entre paréntesis solo si el partner está en más de un país). Los
+// distintas, siempre con el país entre paréntesis). Los
 // partners con tier 'Unknown' (sin match en la cartera) no se muestran ni suman al Total.
 // Orden: Tier-1, Tier-2, ... (por número) y después los tiers con nombre (Low Value, etc.).
 function flowGroupTable_(subRaw, metricKey, comp, col1, groupByRegion, childMax, topMax, tierFirst){
@@ -4318,11 +4318,9 @@ function flowGroupTable_(subRaw, metricKey, comp, col1, groupByRegion, childMax,
   function skip(k){ return tierFirst && k==='Unknown'; }
   (subRaw.actuals||[]).forEach(function(r){ if(r.fecha<mStart||r.fecha>vDate)return; var k=gk(r); if(skip(k))return; var v=r[MF]||0; grp(k).base+=v; chi(k,ck(r)).base+=v; });
   cmpArr.forEach(function(r){ if(lyMode){ if(r.fecha<lyMS||r.fecha>lyVD)return; } else if(r.fecha<mStart||r.fecha>vDate){ return; } var k=gk(r); if(skip(k))return; var v=r[cmpF]||0; grp(k).goal+=v; chi(k,ck(r)).goal+=v; });
-  // tierFirst: países por partner, para poner "(país)" solo a los partners que están en más de uno
-  var paisesByPartner={};
-  if(tierFirst){ Object.keys(G).forEach(function(k){ Object.keys(G[k].ch).forEach(function(c){
-    var p=c.split('|'); (paisesByPartner[p[0]]=paisesByPartner[p[0]]||{})[p[1]]=1; }); }); }
-  function kidName_(c){ if(!tierFirst) return c; var p=c.split('|'); return Object.keys(paisesByPartner[p[0]]).length>1 ? p[0]+' ('+p[1]+')' : p[0]; }
+  // tierFirst: el país va siempre al lado del partner (Turismocity (AR) / (CO) / (CL)), sin
+  // depender de en cuántos países aparece — los países no son un nivel del acordeón acá.
+  function kidName_(c){ if(!tierFirst) return c; var i=c.lastIndexOf('|'); return c.substring(0,i)+' ('+c.substring(i+1)+')'; }
   function tierRank_(t){ var m=/^tier[\s_-]*(\d+)/i.exec(t); return m ? +m[1] : 1000; }
   var orderFull = groupByRegion ? ['BR','SAH','NAM']
     : tierFirst ? Object.keys(G).sort(function(a,b){ // Tier-1, Tier-2, ... y después los tiers con nombre (Low Value, ...)
@@ -4489,7 +4487,8 @@ function flowBuildSlide_(def, idx){
         return '<div class="fl-scroll-tbl" style="flex:1;min-width:0;min-height:0;overflow-y:auto"><div class="fl-tag">'+t[1]+' — MTD vs '+cmpShort+'</div>'+flowGroupTable_(sub,t[0],cmp,'Región',true,0)+'</div>'; }).join('');
     } else {
       tables=[['nr','NR'],['fvm','FVM']].map(function(t){
-        return '<div class="fl-scroll-tbl" style="flex:1;min-width:0;min-height:0;overflow-y:auto"><div class="fl-tag">'+t[1]+' — MTD vs '+cmpShort+'</div>'+flowGroupTable_(sub,t[0],cmp,'País / Tier / Partner',false)+'</div>'; }).join('');
+        var tf=(region==='SAH'); // Hispa: Tier → Partner (ver flowGroupTable_)
+        return '<div class="fl-scroll-tbl" style="flex:1;min-width:0;min-height:0;overflow-y:auto"><div class="fl-tag">'+t[1]+' — MTD vs '+cmpShort+'</div>'+flowGroupTable_(sub,t[0],cmp,tf?'Tier / Partner':'País / Tier / Partner',false,undefined,undefined,tf)+'</div>'; }).join('');
     }
     var body='<div class="fl-body" style="display:flex;gap:22px">'
       +'<div style="flex:1.75;min-width:0;display:flex;flex-direction:column;gap:6px;min-height:0">'+panels+'</div>'
@@ -4533,12 +4532,13 @@ function flowBuildSlide_(def, idx){
   }
   if(def.kind==='tables'){
     var region=def.region, sub=flowRegionRaw_(region);
-    var col1Lbl='País / Tier / Partner';
+    var tierFirst=(region==='SAH'); // Hispa: Tier → Partner (ver flowGroupTable_)
+    var col1Lbl=tierFirst?'Tier / Partner':'País / Tier / Partner';
     var titleTxt=mesLbl+' | B2B2C '+FLOW_RG[region].label+' — GB/NR/FVM Performance MTD';
     var brand='<span class="fl-flag">'+FLOW_RG[region].flag+'</span>'+flLogo_();
     function triple(comp,tag,color){
       var cells=['gb','nr','fvm'].map(function(mk){
-        var tblHtml=flowGroupTable_(sub,mk,comp,col1Lbl,false);
+        var tblHtml=flowGroupTable_(sub,mk,comp,col1Lbl,false,undefined,undefined,tierFirst);
         return '<div class="fl-scroll-tbl" style="flex:1;min-width:0;min-height:0;overflow-y:auto"><div class="fl-tag" style="background:'+color+'">'+FLOW_MET[mk].short+'</div>'+tblHtml+'</div>';
       }).join('');
       return '<div style="flex:1;min-width:0;min-height:0;display:flex;flex-direction:column">'
