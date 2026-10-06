@@ -4183,7 +4183,19 @@ function flowMonthName_(vDate){
 }
 function flowRegionRaw_(regionKey){
   if(!regionKey) return _rawB2BC;
-  function f(arr){ return (arr||[]).filter(function(r){ return getRegion_(r.pais)===regionKey; }); }
+  // Hispa (pedido del equipo, 2026-10-06): fuera de todos sus slides de Flow (tarjetas, gráficos
+  // y tablas) el país "Other Countries" (Xcaret y demás globales, que getRegion_ tira a SAH por
+  // descarte) y todo lo "TBD" — partner TBD o país x partner con tier TBD en cualquier fuente.
+  var isTBD=function(v){ return String(v||'').trim().toUpperCase()==='TBD'; }, tbdKeys={};
+  if(regionKey==='SAH'){
+    ['actuals','actuals_ly','budget','runrate'].forEach(function(n){ (_rawB2BC[n]||[]).forEach(function(r){
+      if(isTBD(r.tier)) tbdKeys[(r.pais||'Other')+'|'+r.partner]=1; }); });
+  }
+  function keep(r){
+    if(regionKey!=='SAH') return true;
+    return r.pais!=='Other Countries' && !isTBD(r.partner) && !tbdKeys[(r.pais||'Other')+'|'+r.partner];
+  }
+  function f(arr){ return (arr||[]).filter(function(r){ return getRegion_(r.pais)===regionKey && keep(r); }); }
   return { actuals:f(_rawB2BC.actuals), actuals_ly:f(_rawB2BC.actuals_ly),
            budget:f(_rawB2BC.budget), runrate:f(_rawB2BC.runrate), meta:_rawB2BC.meta };
 }
