@@ -4924,8 +4924,16 @@ function renderMktChart(d, groups) {
   var medGoal= agg.map(function(g){ return g[medGoalK]; });
   // Forecast va siempre, independiente del selector Goal. Si el Goal elegido
   // ya es Forecast, no se dibuja la serie Goal para no duplicarla.
-  var mktFc  = agg.map(function(g){ return Math.abs(g.mktForecast); });
-  var medFc  = agg.map(function(g){ return g.medForecast; });
+  // Meses sin Forecast cargado (hoy abr–jul: el forecast arranca en agosto) van
+  // sin dato en vez de en 0. En Q/H se omite el grupo si le falta Forecast a
+  // cualquiera de sus meses, para no comparar un Forecast parcial.
+  function hasFc(ym) {
+    var i = MKT_MON_LABELS.indexOf(ym);
+    return i >= 0 && ((total.mktForecast[i] || 0) !== 0 || (total.medForecast[i] || 0) !== 0);
+  }
+  var fcOk   = groups.map(function(g){ return g.months.every(hasFc); });
+  var mktFc  = agg.map(function(g, i){ return fcOk[i] ? Math.abs(g.mktForecast) : null; });
+  var medFc  = agg.map(function(g, i){ return fcOk[i] ? g.medForecast : null; });
   var goalIsFc = _state.goal === 'forecast';
 
   // Etiquetas de dato: barras (valor arriba/abajo de la punta) y líneas
