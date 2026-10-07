@@ -229,7 +229,7 @@ SELECT
                 AND t.purchase_type IN ('Carrito','Hoteles','Alquileres','Vuelos')
                THEN 0 ELSE pnl.discounts_net_usd END)
     + SUM(pnl.backend_air_usd + pnl.backend_non_air_usd)
-    + SUM(COALESCE(coup.amount_used_usd, pnl.discounts_mkt_funds_usd) + pnl.media_revenue_usd
+    + SUM(pnl.discounts_mkt_funds_usd + pnl.media_revenue_usd
           - pnl.mkt_fee_cost_cmr_usd + pnl.fee_income_mkt_cmr_usd)
     - SUM(pnl.cancellations_usd)
     + SUM(pnl.breakage_revenue_usd)
@@ -253,7 +253,7 @@ SELECT
                 AND t.purchase_type IN ('Carrito','Hoteles','Alquileres','Vuelos')
                THEN 0 ELSE pnl.discounts_net_usd END)
     + SUM(pnl.backend_air_usd + pnl.backend_non_air_usd)
-    + SUM(COALESCE(coup.amount_used_usd, pnl.discounts_mkt_funds_usd) + pnl.media_revenue_usd
+    + SUM(pnl.discounts_mkt_funds_usd + pnl.media_revenue_usd
           - pnl.mkt_fee_cost_cmr_usd + pnl.fee_income_mkt_cmr_usd)
     - SUM(pnl.cancellations_usd)
     + SUM(pnl.breakage_revenue_usd)
@@ -291,7 +291,8 @@ SELECT
     SUM(pnl.backend_air_usd + pnl.backend_non_air_usd)                   AS back_end_incentives,
     SUM(pnl.financial_result_usd)                                        AS efecto_financiero,
     SUM(pnl.dif_fx_usd + pnl.dif_fx_air_usd)                             AS dif_fx,
-    SUM(pnl.currency_hedge_usd + pnl.currency_hedge_air_usd)             AS currency_hedge
+    SUM(pnl.currency_hedge_usd + pnl.currency_hedge_air_usd)             AS currency_hedge,
+    SUM(pnl.vendor_commission_usd)                                       AS channel_expenses
 
 FROM data.analytics.bi_pnlop_fact_current_model pnl
 JOIN data.analytics.bi_transactional_fact_products p
@@ -309,20 +310,6 @@ LEFT JOIN (
     WHERE partner_id IS NOT NULL AND LOWER(is_current) = 'true'
     GROUP BY partner_id
 ) di ON di.partner_id = t.partner_data_id
-LEFT JOIN (
-    SELECT
-      c.consumption_transaction,
-      CAST(SUM(c.amount_used) AS DOUBLE)
-        * CAST(MAX(t2.conversion_rate) AS DOUBLE) AS amount_used_usd
-    FROM data.lake.coupons_consumption c
-    JOIN data.lake.coupons_channels ch
-      ON  ch.coupon_id = c.coupon_id
-      AND ch.channel   = 'partner_benefits'
-    JOIN data.analytics.bi_transactional_fact_transactions t2
-      ON  CAST(t2.transaction_code AS varchar) = c.consumption_transaction
-      AND t2.reservation_year_month >= CAST('2023-01-01' AS DATE)
-    GROUP BY c.consumption_transaction
-) coup ON CAST(coup.consumption_transaction AS varchar) = CAST(t.transaction_code AS varchar)
 
 WHERE pnl.date_reservation_year_month >= '2023-01'
   AND p.reservation_year_month >= CAST('2023-01-01' AS DATE)
@@ -359,7 +346,11 @@ with_ps AS (
     CASE WHEN LOWER(partner) LIKE '%viajes%naranja%'
          THEN CASE WHEN viaje = 'Domestic' THEN gross_bookings * -0.055 ELSE 0 END
               + gross_bookings * 0.00452
-         ELSE 0 END AS efecto_fin_naranja
+         ELSE 0 END AS efecto_fin_naranja,
+    /* Banco de Chile: channel expenses = GB * 0.5% en lugar de vendor_commission */
+    CASE WHEN LOWER(partner) LIKE '%banco%chile%'
+         THEN gross_bookings * 0.005 - channel_expenses
+         ELSE 0 END AS channel_expenses_delta
   FROM base
 )
 
@@ -372,7 +363,8 @@ SELECT
       + profit_sharing_banco_chile
       + profit_sharing_turismocity
       + profit_sharing_naranja
-      + efecto_fin_naranja        AS fvm
+      + efecto_fin_naranja
+      + channel_expenses_delta    AS fvm
 FROM with_ps
 """
 
