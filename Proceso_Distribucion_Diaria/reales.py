@@ -8,6 +8,7 @@ cargó en el Run Rate. Si daily_sync.py cambia una query, este proceso la toma s
 Requiere VPN + credenciales del Datalake (credenciales/.env.<usuario>, igual que daily_sync).
 """
 
+import sys
 from pathlib import Path
 
 import pandas as pd
@@ -33,7 +34,8 @@ def _defs_daily_sync():
     if i < 0 or j < 0 or j < i:
         raise ErrorReales(f"No encuentro los marcadores de inicio/fin en {DAILY_SYNC.name}; "
                           f"revisar _INICIO/_FIN en reales.py")
-    ns = {"__file__": str(DAILY_SYNC), "__name__": "daily_sync_defs"}
+    # sys va inyectado: daily_sync.py lo importa ANTES de _INICIO y lo usa después (sys.path.insert).
+    ns = {"__file__": str(DAILY_SYNC), "__name__": "daily_sync_defs", "sys": sys}
     exec(compile(src[i:j], str(DAILY_SYNC), "exec"), ns)
     return ns
 
