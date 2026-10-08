@@ -43,6 +43,16 @@ EXCL_LINEA_ACT = {
     "- cancelled gb", "cancelled gb", "leases interest",
 }
 
+# ── Realocaciones que tocan B2B (2026-10-08, Tiago) ──────────────────────────
+# Control de Gestión carga filas con Origen "REALOCACIÓN" que mueven montos entre LoB
+# (ej. Media Revenue de Viajes Falabella CO: B2B-MIN -> B2C-Site). B2B se reporta SIN
+# esas realocaciones: por (mes, país, marca, línea), si alguna fila REALOCACIÓN es de
+# B2B se anulan TODAS las patas de ese movimiento (la de B2B y la contrapartida en
+# B2C/B2B2C) para que el total compañía no cambie. Las realocaciones que no tocan B2B
+# (ej. Breakage Falabella B2B2C -> B2C) quedan como están.
+REALOC_ORIGEN = "realoc"            # match por substring (REALOCACIÓN / REALOCACION)
+REALOC_KEY = ["CodigoPais", "FuturoNombre", "Linea P&L"]
+
 
 # ── Lectura de un archivo calendario ─────────────────────────────────────────
 def read_actuals_file(year, wanted_dates, override_dir=None):
@@ -85,6 +95,7 @@ def read_actuals_file(year, wanted_dates, override_dir=None):
     hdr = [str(h).strip() if h is not None else "" for h in raw_hdr]
     hl = [h.lower() for h in hdr]
     ci = {k: hl.index(k.lower()) for k in ["FuturoNombre", "LoB", "CodigoPais", "Prod_Corregido", "Linea P&L"]}
+    i_origen = hl.index("origen") if "origen" in hl else None
 
     import datetime as _dt
     def _norm(h):
@@ -100,6 +111,7 @@ def read_actuals_file(year, wanted_dates, override_dir=None):
             "CodigoPais":   r[ci["CodigoPais"]],
             "Prod_Corregido": r[ci["Prod_Corregido"]],
             "Linea P&L":    r[ci["Linea P&L"]],
+            "Origen":       r[i_origen] if i_origen is not None else None,
         }
         for j, d in date_idx.items():
             rec[d] = to_num(r[j]) if j < len(r) else None
@@ -107,6 +119,26 @@ def read_actuals_file(year, wanted_dates, override_dir=None):
     wb.close()
     print(f"  {os.path.basename(path)} [{sheet}]: {len(recs):,} filas, meses={sorted(date_idx.values())}")
     return recs, sorted(date_idx.values())
+
+
+def drop_b2b_reallocations(df, dates):
+    """Anula (pone en 0) las patas de las realocaciones que tocan B2B. Ver REALOC_ORIGEN."""
+    is_re = df["Origen"].astype(str).str.lower().str.contains(REALOC_ORIGEN, na=False)
+    is_b2b = df["LoB"].astype(str).str.upper().str.startswith("B2B-")   # B2B-MAY/MIN (no B2B2C)
+    if not is_re.any():
+        return df
+    df = df.copy()
+    key = df[REALOC_KEY].astype(str).agg("|".join, axis=1)
+    n_tot, b2b_tot = 0, 0.0
+    for d in dates:
+        v = pd.to_numeric(df[d], errors="coerce").fillna(0)
+        keys_b2b = set(key[is_re & is_b2b & (v != 0)])
+        mask = is_re & key.isin(keys_b2b) & (v != 0)
+        b2b_tot += v[mask & is_b2b].sum()
+        n_tot += int(mask.sum())
+        df.loc[mask, d] = 0
+    print(f"  realocaciones B2B anuladas: {n_tot} celdas (B2B recupera {-b2b_tot:,.0f} USD en todos los meses)")
+    return df
 
 
 # ── Homologación Actuals (Parte 2.4) ─────────────────────────────────────────
@@ -151,6 +183,7 @@ def build(fy, con_ppa=False, override_dir=None):
     # 2.3 exclusiones
     df = df[~df["FuturoNombre"].astype(str).str.strip().str.lower().isin(EXCL_FUTURO)]
     df = df[~df["Linea P&L"].astype(str).str.strip().str.lower().isin(EXCL_LINEA_ACT)]
+    df = drop_b2b_reallocations(df, all_dates)
 
     g = load_glosario()
     df = homologate_actuals(df, g)

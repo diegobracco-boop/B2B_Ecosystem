@@ -27,6 +27,11 @@ CSV crudos (OneDrive\Planning-PBI - Inputs Power Bi)
 - **SIN PPA por default** → se suma el Reverso AxI (`Planning-PBI\Actuals\Reverso AxI.xlsx`).
   Con PPA (no suma): `--con-ppa`. Proyecciones usan hoja **Budget**; Actuals por período
   (RunRate para Oct25-Mar26, Budget para Abr26-Mar27), solo sobre meses cerrados.
+- **Realocaciones que tocan B2B se anulan** (2026-10-08, Tiago): filas `Origen = REALOCACIÓN` del xlsx
+  de actuals. Por (mes, país, marca, línea), si alguna pata es B2B-MAY/MIN se ponen en 0 TODAS las patas
+  (B2B + contrapartida B2C/B2B2C) → total compañía igual, B2B queda "sin realocar". Las que no tocan B2B
+  quedan. Ver `drop_b2b_reallocations` en `plana_actuals_builder.py`. Afecta actuals, forecast (abr-jul) y
+  baseline; para re-aplicar a meses ya promovidos: `--promote-month` de cada mes.
 - **Canal**: solo **B2B** abre MAY/MIN; **B2B2C y B2C** se colapsan a `total` (en el JSON).
 - **JSON agregado sobre Marca** (no se incluye).
 - **Año fiscal = Abr(N-1) a Mar(N).** Proyecciones = FY27 (abr-2026 a mar-2027).

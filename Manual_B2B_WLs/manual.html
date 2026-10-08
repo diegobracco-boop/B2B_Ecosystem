@@ -1874,6 +1874,7 @@ clasp deploy -i AKfycby9WZK2HfAWx25M5pEMV3nntzJfEvsiT9feMn01zJQkQaI3t2GjTzOIjbFX
         <thead><tr><th>Regla</th><th>Detalle</th></tr></thead>
         <tbody>
           <tr><td>SIN PPA (default)</td><td>Se <strong>suma</strong> el ajuste Reverso AxI. Con <code>--con-ppa</code> NO se suma. Proyecciones usan hoja Budget; Actuals por período (RunRate Oct25-Mar26 / Budget Abr26-Mar27), solo sobre meses cerrados</td></tr>
+          <tr><td>Realocaciones que tocan B2B</td><td>B2B se reporta <strong>sin</strong> las realocaciones de Control de Gestión (filas <code>Origen = REALOCACIÓN</code> del xlsx de actuals). Por mes + país + marca + línea, si alguna pata es B2B-MAY/MIN se anulan todas las patas (B2B y su contrapartida en B2C/B2B2C), así el total compañía no cambia. Las realocaciones que no tocan B2B quedan. Ej. sep-26: Media Revenue de Viajes Falabella CO (98k) vuelve a B2B. Lógica: <code>drop_b2b_reallocations</code> en <code>plana_actuals_builder.py</code> (2026-10-08)</td></tr>
           <tr><td>Canal</td><td>Solo <strong>B2B</strong> abre MAY / MIN. B2B2C y B2C se colapsan a <code>total</code> en el JSON</td></tr>
           <tr><td>Agregación</td><td>El JSON agrega sobre Marca (no se incluye). LOBs: solo b2b / b2b2c / b2c</td></tr>
           <tr><td>Año fiscal</td><td>Abr(N-1) a Mar(N). Proyecciones = FY27 (abr-2026 a mar-2027). Actuals combina 2 archivos calendario</td></tr>
