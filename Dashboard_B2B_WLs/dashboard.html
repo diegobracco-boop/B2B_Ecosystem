@@ -5029,15 +5029,23 @@ function renderMktTable(d, groups, colW) {
   ];
   function sum(agg, k) { return agg.reduce(function(s, g){ return s + (g[k] || 0); }, 0); }
   function pct(act, ref) { return ref ? (act - ref) / Math.abs(ref) * 100 : null; }
-  // Forecast solo ago–mar (mes 5 a 12 del FY), igual que el gráfico: fuera de esa
-  // ventana (abr–jul; en Q/H, Q1, Q2 y H1) o si da 0 → "—" en $, Δ y %.
-  // El Total Año de Forecast compara Forecast vs Actual de esos mismos meses.
+  // Forecast: abr–jul (antes de fcFrom) no tuvo forecast → se completa con el Actual
+  // de esos meses (Δ = 0). Si el Forecast da 0 → "—" en $, Δ y %.
   var DASH     = '<span style="color:var(--muted2)">—</span>';
   var fcFrom   = FY_MONTHS[4];
-  var fcMonths = FY_MONTHS.filter(function(ym){ return ym >= fcFrom; });
-  var fcOk     = groups.map(function(g){ return g.months.every(function(ym){ return ym >= fcFrom; }); });
-  function noRef(ref, v, i) {
-    return ref === 'Forecast' && ((i !== undefined && !fcOk[i]) || Math.round(v || 0) === 0);
+  var fcMonths = FY_MONTHS.slice();
+  function withFcFilled(c) {
+    var o = {};
+    Object.keys(c).forEach(function(k){ o[k] = c[k]; });
+    ['med', 'mkt'].forEach(function(p) {
+      o[p + 'Forecast'] = (c[p + 'Forecast'] || []).map(function(v, i) {
+        return MKT_MON_LABELS[i] < fcFrom ? (c[p + 'Actual'] || [])[i] : v;
+      });
+    });
+    return o;
+  }
+  function noRef(ref, v) {
+    return ref === 'Forecast' && Math.round(v || 0) === 0;
   }
 
   var html = '';
@@ -5047,6 +5055,7 @@ function renderMktTable(d, groups, colW) {
       if (d.byCountry[i].id === cid) { c = d.byCountry[i]; break; }
     }
     if (!c) return;
+    c = withFcFilled(c);
     var agg     = mktAggregate(c, groups);
     var aggFc   = mktAggregate(c, [{ label:'fc', months: fcMonths }])[0];
     var isTotal = cid === 'total';
@@ -5068,15 +5077,15 @@ function renderMktTable(d, groups, colW) {
         var open   = !!_mktOpen[key];
         rows.push({ cls: m.cls + ' mkt-ref-row', attrs: ' data-mkt-toggle="'+key+'" onclick="toggleMktRef(this)"',
                     label: '<span class="mkt-caret">'+(open ? '▾' : '▸')+'</span> '+ref+' $',
-                    cells: agg.map(function(g, i){ return noRef(ref, g[refK], i) ? DASH : fmtInt(g[refK] || 0); }),
+                    cells: agg.map(function(g, i){ return noRef(ref, g[refK]) ? DASH : fmtInt(g[refK] || 0); }),
                     tot: noTot ? DASH : '<strong>'+fmtInt(totRef)+'</strong>' });
         rows.push({ cls: m.cls + ' mkt-detail-row', attrs: ' data-mkt-detail="'+key+'"', hidden: !open,
                     label: 'Δ vs '+ref,
-                    cells: agg.map(function(g, i){ return noRef(ref, g[refK], i) ? DASH : mktChipDelta(g[actK] - g[refK]); }),
+                    cells: agg.map(function(g, i){ return noRef(ref, g[refK]) ? DASH : mktChipDelta(g[actK] - g[refK]); }),
                     tot: noTot ? DASH : mktChipDelta(totA - totRef) });
         rows.push({ cls: m.cls + ' mkt-detail-row', attrs: ' data-mkt-detail="'+key+'"', hidden: !open,
                     label: 'vs '+ref+' %',
-                    cells: agg.map(function(g, i){ return noRef(ref, g[refK], i) ? DASH : chip(pct(g[actK], g[refK])); }),
+                    cells: agg.map(function(g, i){ return noRef(ref, g[refK]) ? DASH : chip(pct(g[actK], g[refK])); }),
                     tot: noTot ? DASH : chip(pct(totA, totRef)) });
       });
     });
