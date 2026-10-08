@@ -22,7 +22,7 @@ Apps Script no se toca. Por default NO sube: genera los cubos localmente para va
 Subí con --upload (sobrescribe los archivos vivos que lee el dashboard).
 
 Uso:
-    python plana_to_cube.py                 # genera local (main + epm), no sube
+    python plana_to_cube.py                 # genera local (main), no sube
     python plana_to_cube.py --upload        # genera y sube a Drive
     python plana_to_cube.py --only main     # solo un target
 """
@@ -37,10 +37,11 @@ except Exception:
 
 DIR = os.path.dirname(os.path.abspath(__file__))
 
-# ── Targets: los dos cubos contables que hoy lee el dashboard ────────────────
+# ── Targets: el cubo contable que hoy lee el dashboard ───────────────────────
+# (el cubo EPM _pnl_contable_epm_data.json se mandó a la papelera el 2026-09-07,
+#  e575845: EPM lee los canónicos directo)
 TARGETS = {
     "main": {"file_id": "1KHXgPykAHTJS50wI13kcz76FtLQwRnXc", "name": "_pnl_contable_data.json"},
-    "epm":  {"file_id": "1Rx6YYnFH5SA6ltDoTu659O-h08dkljZm", "name": "_pnl_contable_epm_data.json"},
 }
 
 # escenario del cubo  <-  archivo canónico

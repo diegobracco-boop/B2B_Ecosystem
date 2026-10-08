@@ -39,8 +39,8 @@ FISCAL_DATES = (
 # ── Dos cortes DISTINTOS (no confundir) ───────────────────────────────────────
 # LAST_CLOSED_MONTH: último mes con actuals cerrados. Se mueve cada vez que cierra un mes y
 #   define desde dónde arranca el RunRate del baseline (RUNRATE_MONTHS, abajo).
-#   Agosto cerró el 2026-09-16.
-LAST_CLOSED_MONTH = "2026-08-01"
+#   Agosto cerró el 2026-09-16. Septiembre cerró el 2026-10-08.
+LAST_CLOSED_MONTH = "2026-09-01"
 
 # FORECAST_ACTUALS_CUTOFF: base de la ronda de Forecast vigente. El Forecast es una foto:
 #   actuals hasta este mes + proyección del modelo Forecast después (hoy: actuals abr-jul,

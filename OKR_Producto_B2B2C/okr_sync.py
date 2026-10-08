@@ -590,10 +590,11 @@ def compute_total(kr_list: list) -> dict:
     return {'totalMonthly': total_monthly, 'totalQuarterly': total_quarterly, 'h1Total': h1_total}
 
 
-# Meses sin datos confiables todavía. Agosto ya cerró (dato real disponible) — se
-# pisan a "sin dato" en TODOS los KRs solo los meses en curso o futuros.
-MASK_MONTHS = ['2026-09']
-MASK_QUARTERS = []  # Q2 visible (jul+ago con dato; sep enmascarado en MASK_MONTHS)
+# Meses sin datos confiables todavía — se pisan a "sin dato" en TODOS los KRs solo los
+# meses en curso o futuros. Septiembre cerró el 2026-10-08: H1 (abr-sep) completo, nada que
+# enmascarar. Tiene que ser un mes de H1_PERIODS (si no, .index() falla).
+MASK_MONTHS = []
+MASK_QUARTERS = []  # Q2 visible (jul-sep con dato)
 
 
 def mask_unreliable_months(kr_list: list) -> None:
