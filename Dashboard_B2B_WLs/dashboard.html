@@ -4824,6 +4824,19 @@ var MKT_MON_LABELS = (function(){
   return lbs;
 })();
 
+// Forecast abr–jul (antes de agosto) no existió → se completa con el Actual de esos meses.
+function withFcFilled(c) {
+  var fcFrom = FY_MONTHS[4];
+  var o = {};
+  Object.keys(c).forEach(function(k){ o[k] = c[k]; });
+  ['med', 'mkt'].forEach(function(p) {
+    o[p + 'Forecast'] = (c[p + 'Forecast'] || []).map(function(v, i) {
+      return MKT_MON_LABELS[i] < fcFrom ? (c[p + 'Actual'] || [])[i] : v;
+    });
+  });
+  return o;
+}
+
 function mktGroups(gran) {
   if (gran === 'Q') return [
     { label:'Q1 ' + FY_TAG, months:FY_MONTHS.slice(0, 3) },
@@ -4919,7 +4932,7 @@ function renderMktChart(d, groups) {
   var mktGoalK = mktGoalKey('mkt');
   var medGoalK = mktGoalKey('med');
 
-  var agg    = mktAggregate(total, groups);
+  var agg    = mktAggregate(withFcFilled(total), groups);
   var labels = agg.map(function(g){ return g.label; });
   var mktAct = agg.map(function(g){ return Math.abs(g.mktActual); });
   var mktGoal= agg.map(function(g){ return Math.abs(g[mktGoalK]); });
@@ -4927,14 +4940,9 @@ function renderMktChart(d, groups) {
   var medGoal= agg.map(function(g){ return g[medGoalK]; });
   // Forecast va siempre, independiente del selector Goal. Si el Goal elegido
   // ya es Forecast, no se dibuja la serie Goal para no duplicarla.
-  // Forecast solo de agosto a marzo (mes 5 a 12 del FY), aunque forecast.json
-  // traiga también abr–jul (desde 2026-10-06 trae los 12 meses). En Q/H se omite
-  // el grupo si incluye algún mes fuera de esa ventana (Q1, Q2 y H1).
-  var fcFrom = FY_MONTHS[4];
-  function hasFc(ym) { return MKT_MON_LABELS.indexOf(ym) >= 0 && ym >= fcFrom; }
-  var fcOk   = groups.map(function(g){ return g.months.every(hasFc); });
-  var mktFc  = agg.map(function(g, i){ return fcOk[i] ? Math.abs(g.mktForecast) : null; });
-  var medFc  = agg.map(function(g, i){ return fcOk[i] ? g.medForecast : null; });
+  // Forecast abr–jul = Actual de esos meses (withFcFilled); el resto viene de forecast.json.
+  var mktFc  = agg.map(function(g){ return Math.abs(g.mktForecast); });
+  var medFc  = agg.map(function(g){ return g.medForecast; });
   var goalIsFc = _state.goal === 'forecast';
 
   // Etiquetas de dato: barras (valor arriba/abajo de la punta) y líneas
@@ -5034,16 +5042,6 @@ function renderMktTable(d, groups, colW) {
   var DASH     = '<span style="color:var(--muted2)">—</span>';
   var fcFrom   = FY_MONTHS[4];
   var fcMonths = FY_MONTHS.slice();
-  function withFcFilled(c) {
-    var o = {};
-    Object.keys(c).forEach(function(k){ o[k] = c[k]; });
-    ['med', 'mkt'].forEach(function(p) {
-      o[p + 'Forecast'] = (c[p + 'Forecast'] || []).map(function(v, i) {
-        return MKT_MON_LABELS[i] < fcFrom ? (c[p + 'Actual'] || [])[i] : v;
-      });
-    });
-    return o;
-  }
   function noRef(ref, v) {
     return ref === 'Forecast' && Math.round(v || 0) === 0;
   }
