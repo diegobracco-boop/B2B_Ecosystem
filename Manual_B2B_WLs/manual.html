@@ -999,7 +999,7 @@ a.ext-link:hover { text-decoration: underline; }
           <tr><td>FVM, palancas, NR Bridge, evolución mensual gestional</td><td><strong>P&amp;L Managerial</strong></td><td>La vista "managerial". B2B2C y B2B por separado</td></tr>
           <tr><td>Seguimiento de OKR, vista por país (Detail By Country), performance por partner, y acceso a todo lo demás</td><td><strong>B2B Ecosystem Hub</strong></td><td>El portal — la puerta de entrada</td></tr>
           <tr><td>Panorama ejecutivo de un país (B2B o B2B2C) en un solo mes: gestional + contable + peso de cada LOB en el país, con drill-down (el Mix canal × producto es solo B2B)</td><td><strong>Country One Pager</strong></td><td>Tab "Detail By Country" del Hub, o standalone. Pestañas B2B y B2B2C</td></tr>
-          <tr><td>Dónde perdemos plata: transacciones con FVM negativo por país, canal/partner, producto y gateway</td><td><strong>FVM Negativo</strong></td><td>Link desde el Hub. B2B (GD/RI) y B2B2C; criterio Transacción o Componente</td></tr>
+          <tr><td>Dónde perdemos plata: transacciones con FVM negativo por país, canal/partner, producto y gateway</td><td><strong>FVM Negativo</strong></td><td>Sección "FVM Negativo" del Hub (embebida), o standalone. B2B (GD/RI) y B2B2C; criterio Transacción o Componente</td></tr>
           <tr><td>Pace del día / del mes en curso, vs Budget y vs LY</td><td><strong>Daily Dashboard</strong></td><td>Se actualiza solo a las 9:45. Vista diaria y vista semanal</td></tr>
           <tr><td>Entender de dónde sale un número o cómo se actualiza algo</td><td><strong>Manual B2B WLs</strong></td><td>Este documento</td></tr>
           <tr><td>Los datos crudos (JSON) para otro análisis</td><td><em>Inputs Planning P&amp;L</em></td><td>No es una landing — es la carpeta de Drive con los JSON canónicos</td></tr>
@@ -2641,7 +2641,7 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
             <tr><td>Periodo</td><td>Año fiscal en curso (desde abril) hasta ayer</td></tr>
             <tr><td>Ejecuta como</td><td><code>USER_DEPLOYING</code> (el JSON de la carpeta del Daily no está compartido con todos)</td></tr>
             <tr><td>Deploy</td><td><code>cd FVM_Negativo && clasp push</code> + <code>clasp deploy -i &lt;id&gt;</code></td></tr>
-            <tr><td>Acceso</td><td>Link "FVM Negativo" del Hub</td></tr>
+            <tr><td>Acceso</td><td>Sección <strong>FVM Negativo</strong> del Hub (iframe, carga al entrar: <code>EXTERNAL_LINKS.iframes.fvmneg</code>), o standalone</td></tr>
           </tbody>
         </table>
       </div>

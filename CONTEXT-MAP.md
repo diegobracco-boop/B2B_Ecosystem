@@ -157,7 +157,7 @@ El ecosistema tiene dos capas: **pipelines** (Python, generan los datos) y **lan
 - **Deploy**: `cd FVM_Negativo && clasp push` + `clasp deploy -i <deploymentId>`
 - **Script ID**: `1FiDEj9qtT1L0azSUNyuJFiEn-GWQnYk06IR76hdF-EAxukq1_gFnNJcy` (owner: tomas.rombola)
 - **Deployment id (prod)**: `AKfycbzGXCpL9_p70Xx7P640YgU-zOzoLG1018HG9N_pzQvrCJPHTPsUuryD_tDH1HNO41hOIg`
-- **Consumido por**: link `fvm_negativo` del Hub (`Dashboard_B2B_WLs/dashboard.html`, `EXTERNAL_LINKS`)
+- **Consumido por**: embebido como `<iframe>` en la sección "FVM Negativo" del Hub (`Dashboard_B2B_WLs/dashboard.html`, `EXTERNAL_LINKS.iframes.fvmneg`)
 
 ## Credenciales
 
