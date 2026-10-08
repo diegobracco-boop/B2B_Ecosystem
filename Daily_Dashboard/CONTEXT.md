@@ -17,9 +17,16 @@ Datalake (Treasure Data vía ODBC)
   → dos JSONs compactos (array-of-arrays)
   → Google Drive (carpeta DailyDashboard, ID: 1lWzfqweyV6Kz1ERkL85ikFcmzmKwGwwh)
       ├── daily_b2b2c_data.json
-      └── daily_b2b_data.json
+      ├── daily_b2b_data.json
+      ├── okr_h2_managerial.json
+      └── fvm_negativo.json   ← lo lee la landing FVM_Negativo/ (no este dashboard)
   → dashboard GAS lee los JSON y renderiza
 ```
+
+`fvm_negativo.json`: tres queries extra (`build_b2b_fvm_neg_query`, `build_b2b2c_fvm_neg_query`) que reusan
+las piezas de las queries B2B/B2B2C de arriba con `transaction_code` en la apertura. Si fallan o su FVM total no
+cuadra con el del Daily, ese JSON no se sube y el resto sigue igual. Al tocar `_B2B_COMPONENTS_*`, `_B2B_JOINS_*`,
+`_b2b_where_*` o `build_actuals_query`, el cambio impacta también a FVM Negativo (y a `reales.py`).
 
 ## Credenciales
 

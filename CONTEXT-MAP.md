@@ -43,7 +43,7 @@ El ecosistema tiene dos capas: **pipelines** (Python, generan los datos) y **lan
 - **Stack**: Python + GAS + HTML
 - **Trigger**: automático, Windows Task Scheduler, 08:00 hs
 - **Input**: Datalake Treasure Data (ODBC) — actuals B2B2C, actuals B2B (GD y RI), LY, budget, run rate
-- **Output**: `daily_b2b2c_data.json` + `daily_b2b_data.json` en Drive (carpeta DailyDashboard)
+- **Output**: `daily_b2b2c_data.json` + `daily_b2b_data.json` en Drive (carpeta DailyDashboard). También `fvm_negativo.json` para la landing `FVM_Negativo` (ver abajo)
 - **Deploy Python**: Task Scheduler ya configurado en la máquina de Gregorio. Para reconfigurar ver [SETUP.md](./Daily_Dashboard/SETUP.md)
 - **Deploy GAS**: `cd Daily_Dashboard && clasp push`
 - **Doc detallada**: [CONTEXT.md](./Daily_Dashboard/CONTEXT.md)
@@ -136,6 +136,28 @@ El ecosistema tiene dos capas: **pipelines** (Python, generan los datos) y **lan
 - **Consumido por**: embebido como `<iframe>` en `Dashboard_B2B_WLs/dashboard.html` (`EXTERNAL_LINKS.okr.b2b2c`)
 - **Estado**: KRs de H1 FY27 únicamente (H2 pendiente de definir por la tribu Producto)
 - **Doc detallada**: [CLAUDE.md](./OKR_Producto_B2B2C/CLAUDE.md) · [SETUP.md](./OKR_Producto_B2B2C/SETUP.md)
+
+### FVM_Negativo — transacciones B2B / B2B2C con FVM < 0
+- **Stack**: GAS + HTML, sin pipeline propio. Reemplaza la app de Toqan (2026-10).
+- **Input**: `fvm_negativo.json` en la carpeta DailyDashboard de Drive. Lo genera **`Daily_Dashboard/daily_sync.py`**
+  en cada corrida diaria (`build_b2b_fvm_neg_query("gd"|"ri")`, `build_b2b2c_fvm_neg_query`), año fiscal en curso
+  (desde abril, `FVM_NEG_FROM`) hasta ayer.
+- **Mismo FVM que el Daily**: las queries reusan CTEs, componentes, joins y WHERE de las queries B2B/B2B2C del Daily;
+  solo agregan `transaction_code` a la apertura. Control de cuadre: el FVM de TODAS las transacciones tiene que dar
+  igual al del Daily mes a mes; si no cuadra (o una query falla) NO se sube el JSON y queda el del día anterior —
+  el resto del Daily sigue igual (no va a `_FAILED_BLOCKS`).
+- **Dos criterios** (selector en la landing):
+  - **Transacción**: la reserva cuenta si la suma del FVM de sus productos en el mes es < 0.
+  - **Componente**: cada producto (tx × product_type × gateway × shopping flow) con FVM < 0, aunque la reserva gane.
+    Equivale a lo que medía Toqan (agrupaba por día × partner × gateway × aerolínea…, que en la práctica separa
+    componentes). La diferencia está casi toda en Packages General (GD abr–sep 2026: $-1.82M vs $-2.81M).
+- **Drill-down**: B2B País → Canal → Producto → Gateway (producto dominado por Hoteles) / Shopping Flow (CART vs
+  CONVENCIONAL); B2B2C País → Partner → Producto → Viaje. Conteos de transacciones exactos vía niveles `tx*` del JSON.
+- **`executeAs: USER_DEPLOYING`** (igual que Daily): el JSON de la carpeta del Daily no está compartido con todos.
+- **Deploy**: `cd FVM_Negativo && clasp push` + `clasp deploy -i <deploymentId>`
+- **Script ID**: `1FiDEj9qtT1L0azSUNyuJFiEn-GWQnYk06IR76hdF-EAxukq1_gFnNJcy` (owner: tomas.rombola)
+- **Deployment id (prod)**: `AKfycbzGXCpL9_p70Xx7P640YgU-zOzoLG1018HG9N_pzQvrCJPHTPsUuryD_tDH1HNO41hOIg`
+- **Consumido por**: link `fvm_negativo` del Hub (`Dashboard_B2B_WLs/dashboard.html`, `EXTERNAL_LINKS`)
 
 ## Credenciales
 

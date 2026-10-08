@@ -45,6 +45,7 @@ DRIVE_FOLDER_ID   = "1lWzfqweyV6Kz1ERkL85ikFcmzmKwGwwh"
 JSON_FILE_NAME    = "daily_b2b2c_data.json"
 B2B_JSON_FILE_NAME = "daily_b2b_data.json"
 OKR_H2_JSON_FILE_NAME = "okr_h2_managerial.json"   # KRs H2 del track managerial (Daily/Tracker), ver build_okr_h2_*
+FVM_NEG_JSON_FILE_NAME = "fvm_negativo.json"        # landing FVM_Negativo/, ver build_*_fvm_neg_query
 
 # Forecast: tablas raw.b2bfc1_gd / raw.b2bfc1_ri del Datalake (salida de Proceso_Distribucion_Diaria,
 # ver /distribucion-diaria). Validadas 2026-10-01 contra los CSV del corte 2026.07.14: idénticas.
@@ -122,6 +123,8 @@ MONTH_START      = date(TODAY.year, TODAY.month, 1)
 
 ACTUALS_FROM = date(TODAY.year, 1, 1)
 LY_FROM      = date(TODAY.year - 1, 1, 1)
+# FVM Negativo: año fiscal en curso (arranca en abril)
+FVM_NEG_FROM = date(TODAY.year if TODAY.month >= 4 else TODAY.year - 1, 4, 1)
 # Hasta fin del mes en curso (año pasado), no solo "ayer" — el dashboard extiende
 # la serie de LY en los gráficos de Daily hasta fin de mes (como ya hacía Goal),
 # y para eso hace falta el dato real de esos días, no solo hasta la fecha
@@ -170,11 +173,16 @@ COLS_ACTUALS = [
 ]
 
 
-def build_actuals_query(date_from: date, date_to: date) -> str:
+def build_actuals_query(date_from: date, date_to: date, por_transaccion: bool = False) -> str:
+    # por_transaccion=True agrega transaction_code (tx) a la apertura: lo usa FVM Negativo para
+    # evaluar el FVM de cada transacción. El default deja la query del Daily intacta.
+    tx_col   = "\n    t.transaction_code AS tx," if por_transaccion else ""
+    tx_out   = " tx," if por_transaccion else ""
+    group_by = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10" if por_transaccion else "1, 2, 3, 4, 5, 6, 7, 8, 9"
     return f"""
 WITH base AS (
 SELECT
-    t.confirmation_date AS fecha,
+    t.confirmation_date AS fecha,{tx_col}
     CASE
         WHEN t.country_code IN ('MX','BR','CO','AR','EC','PE','CL','US') THEN
             CASE t.country_code
@@ -318,7 +326,7 @@ WHERE pnl.date_reservation_year_month >= '2023-01'
   AND t.confirmation_date <= DATE('{date_to}')
   AND p.is_confirmed_flg = 1
   AND t.line_of_business = 'B2B2C'
-GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9
+GROUP BY {group_by}
 ),
 
 with_ps AS (
@@ -355,7 +363,7 @@ with_ps AS (
 )
 
 SELECT
-    fecha, pais, productooriginal, channel, partner, viaje, account_type, region, tier,
+    fecha,{tx_out} pais, productooriginal, channel, partner, viaje, account_type, region, tier,
     orders,
     gross_bookings,
     net_revenues,
@@ -837,6 +845,32 @@ _B2B_OUTER_SELECT_FVM = """
     ) AS fvm"""
 
 
+# WHERE de las queries B2B (compartidos con FVM Negativo, ver build_b2b_fvm_neg_query)
+def _b2b_where_ri(date_from: date, date_to: date) -> str:
+    return f"""
+    WHERE
+        CASE WHEN fh.parent_channel = 'API' AND fh.buy_type_code = 'Hoteles'
+             THEN p.checkin_date ELSE fh.recognition_date END
+             BETWEEN CAST('{date_from}' AS DATE) AND CAST('{date_to}' AS DATE)
+        AND fh.partition_period > '2024-01-01'
+        AND fh.line_of_business_code = 'B2B'
+        AND NOT (
+            fh.parent_channel = 'API'
+            AND COALESCE(cs.product_state, fh.product_status) = 'Cancelado'
+            AND (p.product_cancel_date < p.checkin_date OR p.product_cancel_date IS NULL)
+        )"""
+
+
+def _b2b_where_gd(date_from: date, date_to: date) -> str:
+    return f"""
+    WHERE
+        fh.gestion_date >= CAST('{date_from}' AS DATE)
+        AND fh.gestion_date <= CAST('{date_to}' AS DATE)
+        AND fh.partition_period > '2024-01-01'
+        AND fh.line_of_business_code = 'B2B'
+        AND fh.lob_gestion IN ('stg__sales_b2bnohoteldo','stg_sales__b2bhoteldo')"""
+
+
 def build_b2b_ri_query(date_from: date, date_to: date) -> str:
     return (_B2B_CTEs_RI + """
 base_metrics AS (
@@ -851,18 +885,8 @@ base_metrics AS (
              ELSE fh.trip_type_code END AS viaje,
         p.product_type AS product_type,"""
         + _B2B_COMPONENTS_RI
-        + _B2B_JOINS_RI + f"""
-    WHERE
-        CASE WHEN fh.parent_channel = 'API' AND fh.buy_type_code = 'Hoteles'
-             THEN p.checkin_date ELSE fh.recognition_date END
-             BETWEEN CAST('{date_from}' AS DATE) AND CAST('{date_to}' AS DATE)
-        AND fh.partition_period > '2024-01-01'
-        AND fh.line_of_business_code = 'B2B'
-        AND NOT (
-            fh.parent_channel = 'API'
-            AND COALESCE(cs.product_state, fh.product_status) = 'Cancelado'
-            AND (p.product_cancel_date < p.checkin_date OR p.product_cancel_date IS NULL)
-        )
+        + _B2B_JOINS_RI
+        + _b2b_where_ri(date_from, date_to) + """
     GROUP BY
         CASE WHEN fh.parent_channel = 'API' AND fh.buy_type_code = 'Hoteles'
              THEN p.checkin_date ELSE fh.recognition_date END,"""
@@ -893,13 +917,8 @@ base_metrics AS (
              ELSE fh.trip_type_code END AS viaje,
         p.product_type AS product_type,"""
         + _B2B_COMPONENTS_GD
-        + _B2B_JOINS_GD + f"""
-    WHERE
-        fh.gestion_date >= CAST('{date_from}' AS DATE)
-        AND fh.gestion_date <= CAST('{date_to}' AS DATE)
-        AND fh.partition_period > '2024-01-01'
-        AND fh.line_of_business_code = 'B2B'
-        AND fh.lob_gestion IN ('stg__sales_b2bnohoteldo','stg_sales__b2bhoteldo')
+        + _B2B_JOINS_GD
+        + _b2b_where_gd(date_from, date_to) + """
     GROUP BY
         fh.gestion_date,"""
         + _B2B_GROUP_DIMS + """
@@ -914,6 +933,104 @@ SELECT
 FROM base_metrics
 GROUP BY 1, 2, 3, 4, 5, 6
 """)
+
+
+# ------------------------------------------------------------------------------
+# FVM Negativo (landing FVM_Negativo/) — FVM evaluado por TRANSACCIÓN y por COMPONENTE.
+# Mismo FVM que el Daily: reusa CTEs, componentes, joins y WHERE de las queries B2B
+# de arriba (y build_actuals_query para B2B2C); solo cambia la apertura, que suma
+# transaction_code. Dos criterios (selector en la landing):
+#   transacción: negativa si la suma del FVM de sus productos en el mes es < 0.
+#   componente:  cada fila tx x dimensiones (ej. el vuelo dentro de un paquete) que da < 0,
+#                aunque la transacción entera gane. Equivale a lo que medía Toqan (~$1M más
+#                negativo en GD abr-sep 2026, todo en Packages General).
+# GROUPING SETS devuelve dos niveles:
+#   'detalle': mes x dimensiones del drill-down -> fvm_neg / fvm_neg_comp
+#   'tx'/...:  mes x país x canal|partner x producto -> conteos de tx exactos (cada
+#              transacción cae en una sola combinación, así que se pueden sumar entre filas)
+# fvm_total suma TODAS las transacciones: es el control de cuadre contra el FVM del Daily.
+# ------------------------------------------------------------------------------
+_FVM_NEG_METRICAS = """
+    SUM(CASE WHEN fvm_tx < 0 THEN fvm END)           AS fvm_neg,
+    SUM(CASE WHEN fvm < 0 THEN fvm END)              AS fvm_neg_comp,
+    COUNT(DISTINCT CASE WHEN fvm_tx < 0 THEN tx END) AS tx_neg,
+    COUNT(DISTINCT CASE WHEN fvm < 0 THEN tx END)    AS tx_neg_comp,
+    SUM(fvm)                                         AS fvm_total,
+    COUNT(DISTINCT tx)                               AS tx_total"""
+_FVM_NEG_HAVING = "COUNT(CASE WHEN fvm_tx < 0 OR fvm < 0 THEN 1 END) > 0"
+
+
+def build_b2b_fvm_neg_query(vista: str, date_from: date, date_to: date) -> str:
+    if vista == "gd":
+        ctes, comps, joins = _B2B_CTEs_GD, _B2B_COMPONENTS_GD, _B2B_JOINS_GD
+        fecha, where = "fh.gestion_date", _b2b_where_gd(date_from, date_to)
+    else:
+        ctes, comps, joins = _B2B_CTEs_RI, _B2B_COMPONENTS_RI, _B2B_JOINS_RI
+        fecha = ("CASE WHEN fh.parent_channel = 'API' AND fh.buy_type_code = 'Hoteles'"
+                 " THEN p.checkin_date ELSE fh.recognition_date END")
+        where = _b2b_where_ri(date_from, date_to)
+    dims = "pais, parent_channel, producto_original, product_type, gateway, shopping_flow_source"
+    return (ctes + f"""
+base_metrics AS (
+    SELECT
+        {fecha} AS fecha,
+        fh.transaction_code AS tx,
+        fh.parent_channel,"""
+        + _B2B_PAIS_CASE
+        + _B2B_PROD_CASE + """
+        p.product_type AS product_type,
+        p.gateway AS gateway,
+        CASE WHEN cr.shopping_flow_source = 'CART' THEN 'CART' ELSE 'CONVENCIONAL' END AS shopping_flow_source,"""
+        + comps + joins + where + f"""
+    GROUP BY 1, 2, 3, 4, 5, 6, 7, 8
+),
+por_tx AS (
+    SELECT fecha, tx, {dims},"""
+        + _B2B_OUTER_SELECT_FVM + f"""
+    FROM base_metrics
+    GROUP BY 1, 2, 3, 4, 5, 6, 7, 8
+),
+marcado AS (
+    SELECT *, YEAR(fecha) AS anio, MONTH(fecha) AS mes,
+           SUM(fvm) OVER (PARTITION BY tx, YEAR(fecha), MONTH(fecha)) AS fvm_tx
+    FROM por_tx
+)
+SELECT
+    CASE GROUPING({dims}) WHEN 0 THEN 'detalle' ELSE 'tx' END AS nivel,
+    anio, mes, {dims},""" + _FVM_NEG_METRICAS + f"""
+FROM marcado
+GROUP BY GROUPING SETS (
+    (anio, mes, {dims}),
+    (anio, mes, pais, parent_channel, producto_original)
+)
+HAVING GROUPING({dims}) <> 0 OR {_FVM_NEG_HAVING}
+""")
+
+
+def build_b2b2c_fvm_neg_query(date_from: date, date_to: date) -> str:
+    # B2B2C: la transacción tiene una sola confirmation_date -> se particiona solo por tx.
+    # El ORDEN de dims importa: GROUPING() es un bitmask (último = bit 0), así que sin viaje
+    # da 1 (tx_producto) y sin producto ni viaje da 3 (tx_partner). Si se reordena, revisar el CASE.
+    dims = "pais, partner, productooriginal, viaje"
+    return f"""
+WITH marcado AS (
+    SELECT a.*, YEAR(a.fecha) AS anio, MONTH(a.fecha) AS mes,
+           SUM(a.fvm) OVER (PARTITION BY a.tx) AS fvm_tx
+    FROM (
+{build_actuals_query(date_from, date_to, por_transaccion=True)}
+    ) a
+)
+SELECT
+    CASE GROUPING({dims}) WHEN 0 THEN 'detalle' WHEN 1 THEN 'tx_producto' ELSE 'tx_partner' END AS nivel,
+    anio, mes, {dims},{_FVM_NEG_METRICAS}
+FROM marcado
+GROUP BY GROUPING SETS (
+    (anio, mes, {dims}),
+    (anio, mes, pais, partner, productooriginal),
+    (anio, mes, pais, partner)
+)
+HAVING GROUPING({dims}) <> 0 OR {_FVM_NEG_HAVING}
+"""
 
 
 # ------------------------------------------------------------------------------
@@ -1322,6 +1439,9 @@ _QUERIES = {
     "B2B2C Run Rate":    B2B2C_RR_QUERY,
     "B2B Run Rate GD":   B2B_RR_GD_QUERY,
     "B2B Run Rate RI":   B2B_RR_RI_QUERY,
+    "FVM Neg B2B GD":    build_b2b_fvm_neg_query("gd", FVM_NEG_FROM, YESTERDAY),
+    "FVM Neg B2B RI":    build_b2b_fvm_neg_query("ri", FVM_NEG_FROM, YESTERDAY),
+    "FVM Neg B2B2C":     build_b2b2c_fvm_neg_query(FVM_NEG_FROM, YESTERDAY),
 }
 print(f"  Lanzando {len(_QUERIES)} queries ({FETCH_WORKERS} en paralelo)...")
 _pool = ThreadPoolExecutor(max_workers=FETCH_WORKERS)
@@ -1506,6 +1626,96 @@ except Exception as e:
     df_unique_buyers = pd.DataFrame()
     df_unique_buyers_daily = pd.DataFrame()
     unique_buyers_total = {}
+
+print("\n--- FVM Negativo (landing FVM_Negativo) ---")
+# No va a _FAILED_BLOCKS: si una query falla o el FVM total no cuadra contra el del Daily,
+# NO se sube fvm_negativo.json (queda el de la corrida anterior) y el resto del Daily sigue igual.
+FVM_NEG_DIMS_B2B   = ["pais", "parent_channel", "producto_original", "product_type", "gateway", "shopping_flow_source"]
+FVM_NEG_DIMS_B2B2C = ["pais", "partner", "producto", "viaje"]
+
+
+def clean_fvm_neg(df: pd.DataFrame, dims: list) -> pd.DataFrame:
+    df = df.rename(columns={"productooriginal": "producto"}).copy()
+    df["ym"] = (pd.to_numeric(df["anio"]).astype(int).astype(str) + "-"
+                + pd.to_numeric(df["mes"]).astype(int).astype(str).str.zfill(2))
+    for c in ("fvm_neg", "fvm_neg_comp", "fvm_total"):
+        df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0).round(2)
+    for c in ("tx_neg", "tx_neg_comp", "tx_total"):
+        df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0).astype(int)
+    if "partner" in dims:
+        df["partner"] = df["partner"].fillna("Sin asignar")
+    for c in dims:
+        df[c] = df[c].fillna("N/A").astype(str).str.strip()
+    if "product_type" in dims:   # mismo arreglo de acento que clean_b2b
+        df["product_type"] = df["product_type"].str.replace(r"^Espect.*$", "Espectáculos", regex=True)
+    return df
+
+
+def fvm_neg_block(df: pd.DataFrame, dims: list, niveles_tx: dict) -> dict:
+    """detalle: FVM negativo por dims del drill-down, por criterio (fvm_tx = transacción,
+    fvm_comp = componente). niveles_tx: {nivel: dims} con conteos de tx exactos (sumables)."""
+    det = (df[df["nivel"] == "detalle"][["ym"] + dims + ["fvm_neg", "fvm_neg_comp"]]
+           .rename(columns={"fvm_neg": "fvm_tx", "fvm_neg_comp": "fvm_comp"}))
+    out = {"detalle": to_compact(det.sort_values(["ym", "fvm_tx"]))}
+    for nivel, d in niveles_tx.items():
+        out[nivel] = to_compact(df[df["nivel"] == nivel][
+            ["ym"] + d + ["tx_neg", "tx_neg_comp", "tx_total", "fvm_neg", "fvm_neg_comp", "fvm_total"]])
+    return out
+
+
+def _cuadre_fvm_neg(df_neg: pd.DataFrame, nivel_tx: str, df_daily: pd.DataFrame, nombre: str) -> bool:
+    """El FVM de TODAS las transacciones (fvm_total) tiene que dar igual al FVM del Daily, mes a mes."""
+    neg   = df_neg[df_neg["nivel"] == nivel_tx].groupby("ym")["fvm_total"].sum()
+    daily = df_daily.assign(ym=df_daily["fecha"].str[:7]).groupby("ym")["fvm"].sum()
+    ok = True
+    for ym, v in neg.items():
+        if ym < str(ACTUALS_FROM)[:7]:
+            continue   # el Daily arranca en enero: los meses del FY anteriores no se pueden cruzar
+        d = float(daily.get(ym, 0.0))
+        if abs(v - d) > max(1000.0, abs(d) * 1e-4):   # el Daily redondea el FVM por fila
+            ok = False
+            print(f"  ERROR cuadre FVM Negativo {nombre} {ym}: total={v:,.0f} vs Daily={d:,.0f}")
+    return ok
+
+
+fvm_neg_bytes = None
+try:
+    _neg_gd  = clean_fvm_neg(fetched("FVM Neg B2B GD"), FVM_NEG_DIMS_B2B)
+    _neg_ri  = clean_fvm_neg(fetched("FVM Neg B2B RI"), FVM_NEG_DIMS_B2B)
+    _neg_b2c = clean_fvm_neg(fetched("FVM Neg B2B2C"),  FVM_NEG_DIMS_B2B2C)
+    _cuadres = [_cuadre_fvm_neg(_neg_gd,  "tx",         df_b2b_gd,  "B2B GD"),
+                _cuadre_fvm_neg(_neg_ri,  "tx",         df_b2b_ri,  "B2B RI"),
+                _cuadre_fvm_neg(_neg_b2c, "tx_partner", df_actuals, "B2B2C")]
+    if all(_cuadres):
+        _niveles_b2b = {"tx": ["pais", "parent_channel", "producto_original"]}
+        fvm_neg_payload = {
+            "meta": {
+                "generated_at": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+                "desde": str(FVM_NEG_FROM),
+                "hasta": str(YESTERDAY),
+                "criterio": ("Mismo FVM que el Daily. tx: transacción con FVM < 0 (suma de sus productos "
+                             "en el mes). comp: componente (tx x dimensiones) con FVM < 0 aunque la "
+                             "transacción gane."),
+            },
+            "b2b_gd": fvm_neg_block(_neg_gd, FVM_NEG_DIMS_B2B, _niveles_b2b),
+            "b2b_ri": fvm_neg_block(_neg_ri, FVM_NEG_DIMS_B2B, _niveles_b2b),
+            "b2b2c":  fvm_neg_block(_neg_b2c, FVM_NEG_DIMS_B2B2C,
+                                    {"tx_producto": ["pais", "partner", "producto"],
+                                     "tx_partner":  ["pais", "partner"]}),
+        }
+        fvm_neg_bytes = json.dumps(fvm_neg_payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        for _k, _d in (("GD", _neg_gd), ("RI", _neg_ri), ("B2B2C", _neg_b2c)):
+            _t = _d[_d["nivel"] != "detalle"]
+            if _k == "B2B2C":
+                _t = _t[_t["nivel"] == "tx_partner"]
+            print(f"  {_k}: FVM negativo tx {_t['fvm_neg'].sum():,.0f} / comp {_t['fvm_neg_comp'].sum():,.0f}"
+                  f" | tx negativas {_t['tx_neg'].sum():,} / con componente negativo {_t['tx_neg_comp'].sum():,}"
+                  f" de {_t['tx_total'].sum():,}")
+        print(f"FVM Negativo JSON: {len(fvm_neg_bytes)//1024:.0f} KB  cuadre=OK")
+    else:
+        print(f"  AVISO: NO se sube {FVM_NEG_JSON_FILE_NAME} (no cuadra con el FVM del Daily) — queda el de la corrida anterior.")
+except Exception as e:
+    print(f"  WARN FVM Negativo failed: {e} — NO se sube {FVM_NEG_JSON_FILE_NAME}, queda el de la corrida anterior.")
 
 # ==============================================================================
 # 5) AGREGAR Y CONSTRUIR JSON
@@ -1765,6 +1975,8 @@ if _okr_ok:
     upload_to_drive(okr_h2_bytes, OKR_H2_JSON_FILE_NAME)
 else:
     print(f"  AVISO: NO se sube {OKR_H2_JSON_FILE_NAME} (no cuadra con el JSON principal) — queda el de la corrida anterior.")
+if fvm_neg_bytes is not None:
+    upload_to_drive(fvm_neg_bytes, FVM_NEG_JSON_FILE_NAME)
 
 # El email diario lo envía automáticamente el trigger de GAS (scheduledEmailSend).
 # Para configurar el trigger por primera vez: abrir el editor de GAS y correr setupEmailTrigger().

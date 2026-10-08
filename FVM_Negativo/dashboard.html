@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FVM Negativo</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --primary:#5626e9; --primary-light:#8e5ff3; --primary-bg:#f0ebfd;
+  --red:#fa503f; --red-light:#fbbdbd; --green:#029687;
+  --bg:#f6f5fb; --card:#fff; --card-hover:#f4f1fd;
+  --text:#1e1838; --text-secondary:#4a4366; --muted:#6e6788;
+  --border:#e2dfee; --border-strong:#cfc8e6;
+  --shadow:0 1px 3px rgba(30,24,56,.06),0 4px 14px rgba(30,24,56,.04);
+  --font:'Poppins',-apple-system,sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px}
+.container{max-width:1100px;margin:0 auto;padding:24px 16px 40px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow)}
+
+.header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+.header h1{font-size:24px;font-weight:700;margin:0 0 4px}
+.subtitle{font-size:13px;color:var(--text-secondary)}
+.freshness-badge{padding:10px 14px;font-size:13px}
+.freshness-badge .l1{font-weight:600}
+.freshness-badge .l2{font-size:11px;color:var(--muted);margin-top:2px}
+
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:16px}
+.seg{display:flex;gap:4px;padding:4px;background:var(--card);border:1px solid var(--border-strong);border-radius:10px}
+.seg.soft{border-color:var(--border)}
+.seg button{border:0;background:transparent;font:inherit;font-size:13px;font-weight:600;color:var(--muted);padding:6px 14px;border-radius:7px;cursor:pointer;line-height:1.2}
+.seg button:hover{background:var(--card-hover)}
+.seg button.active{background:var(--primary);color:#fff}
+.seg.soft button.active{background:var(--primary-light)}
+.seg .tab-desc{display:block;font-size:10px;font-weight:500;opacity:.85}
+.filter-group{display:flex;flex-direction:column;gap:3px}
+.filter-group label{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:600}
+.filter-group select{font:inherit;font-size:13px;padding:7px 10px;border:1px solid var(--border-strong);border-radius:8px;background:var(--card);color:var(--text);min-width:150px}
+.expand-all-btn{font:inherit;font-size:13px;padding:7px 14px;border:1px solid var(--border-strong);border-radius:8px;background:var(--card);color:var(--text-secondary);cursor:pointer}
+.expand-all-btn:hover{border-color:var(--primary);color:var(--primary)}
+.crit-note{font-size:12px;color:var(--muted);margin:-6px 0 14px}
+
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px}
+.kpi{padding:14px 16px}
+.kpi .label{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);font-weight:600}
+.kpi .value{font-size:20px;font-weight:700;margin:4px 0 2px}
+.kpi .value.red{color:var(--red)} .kpi .value.purple{color:var(--primary)}
+.kpi .sub{font-size:11px;color:var(--muted)}
+
+.chart-section{padding:20px;margin-bottom:16px}
+.chart-title{font-size:15px;font-weight:700}
+.chart-subtitle{font-size:12px;color:var(--muted);margin-bottom:8px}
+#chart-container svg{width:100%;height:auto;display:block}
+#chart-container .bar{fill:var(--primary);opacity:.7;cursor:pointer;transition:opacity .15s}
+#chart-container .bar:hover{opacity:1}
+
+.compare-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+.compare-card{padding:16px}
+.compare-card h3{font-size:13px;font-weight:700;margin:0 0 10px}
+.mini-bar{display:flex;align-items:center;gap:8px;margin:6px 0;font-size:12px}
+.mini-bar-label{min-width:110px;text-align:right;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mini-bar-track{flex:1;height:18px;background:var(--bg);border-radius:4px;overflow:hidden}
+.mini-bar-fill{height:100%;border-radius:4px}
+.mini-bar-value{min-width:70px;font-weight:600;color:var(--text)}
+
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:560px}
+thead th{background:var(--primary-bg);color:var(--primary);font-size:11px;text-transform:uppercase;letter-spacing:.04em;text-align:left;padding:10px 14px;font-weight:700}
+th.right,td.right{text-align:right}
+tbody td{padding:9px 14px;border-top:1px solid var(--border);vertical-align:middle}
+tr.hidden{display:none}
+tr.lvl-0{font-weight:600;font-size:15px;cursor:pointer}
+tr.lvl-1{font-weight:500;cursor:pointer} tr.lvl-1 td.c2{padding-left:20px}
+tr.lvl-2{cursor:pointer} tr.lvl-2 td.c2{padding-left:44px}
+tr.lvl-3{color:var(--muted);font-size:13px} tr.lvl-3 td.c2{padding-left:86px}
+tr.lvl-0:hover,tr.lvl-1:hover,tr.lvl-2:hover{background:var(--card-hover)}
+.chev{display:inline-block;width:18px;color:var(--muted);transition:transform .15s}
+tr.expanded .chev{transform:rotate(90deg)}
+.fvm-cell{font-weight:600;color:var(--red);white-space:nowrap}
+.fvm-cell.pos{color:var(--green)}
+.badge{display:inline-block;margin-left:8px;padding:2px 8px;border-radius:10px;font-size:10px;text-transform:uppercase;font-weight:600;border:1px solid var(--border-strong);vertical-align:middle}
+.badge-gateway{background:var(--primary-bg);color:var(--primary)}
+.badge-shopping{background:#f3e8ff;color:var(--primary-light);border-color:#d9c5f7}
+.pct{display:flex;align-items:center;gap:8px;justify-content:flex-end}
+.pct-track{flex:1;max-width:120px;height:6px;background:var(--primary-bg);border-radius:3px;overflow:hidden}
+.pct-fill{height:100%;background:linear-gradient(90deg,var(--red),var(--red-light))}
+.pct-txt{font-size:12px;color:var(--muted);min-width:46px;text-align:right}
+tr.total-row td{background:var(--primary-bg);font-weight:700;font-size:15px;border-top:2px solid var(--primary)}
+
+.footer-note{font-size:12px;color:var(--muted);margin-top:16px}
+.footer-note .ok{color:var(--green)}
+.state{padding:40px;text-align:center;color:var(--muted)}
+.state.error{color:var(--red)}
+.empty{color:var(--muted);font-size:12px}
+
+@media (max-width:700px){
+  .compare-row{grid-template-columns:1fr}
+  .header h1{font-size:20px}
+  .filter-group select{min-width:0;width:100%}
+  .filter-group{flex:1 1 140px}
+}
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <div>
+      <h1>FVM Negativo</h1>
+      <div class="subtitle" id="subtitle"></div>
+    </div>
+    <div class="freshness-badge card" id="freshness">Cargando…</div>
+  </div>
+
+  <div class="controls">
+    <div class="seg" id="biz-toggle">
+      <button id="biz-b2b" class="active" onclick="switchBiz('b2b')">B2B</button>
+      <button id="biz-b2b2c" onclick="switchBiz('b2b2c')">B2B2C</button>
+    </div>
+    <div class="seg soft" id="sub-tabs">
+      <button id="tab-gd" class="active" onclick="switchView('gd')">GD<span class="tab-desc">Gestión (venta)</span></button>
+      <button id="tab-ri" onclick="switchView('ri')">RI<span class="tab-desc">Reconocimiento (P&amp;L)</span></button>
+    </div>
+    <div class="seg soft" id="crit-toggle">
+      <button id="crit-tx" class="active" onclick="switchCrit('tx')">Transacción<span class="tab-desc">la reserva entera</span></button>
+      <button id="crit-comp" onclick="switchCrit('comp')">Componente<span class="tab-desc">cada producto</span></button>
+    </div>
+    <div class="filter-group">
+      <label for="country-filter">País</label>
+      <select id="country-filter" onchange="switchCountry(this.value)"></select>
+    </div>
+    <div class="filter-group">
+      <label for="product-filter">Producto</label>
+      <select id="product-filter" onchange="switchProduct(this.value)"></select>
+    </div>
+    <div class="filter-group">
+      <label for="month-filter">Mes</label>
+      <select id="month-filter" onchange="switchMonth(this.value)"></select>
+    </div>
+    <button class="expand-all-btn" id="expand-btn" onclick="expandAll()">Expandir todo</button>
+  </div>
+  <div class="crit-note" id="crit-note"></div>
+
+  <div id="main"><div class="state card">Cargando datos…</div></div>
+
+  <div class="footer-note" id="footer-note"></div>
+</div>
+
+<script>
+// ── Constantes ────────────────────────────────────────────────────
+var MONTH_NAMES = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio',
+                   'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+var MONTH_SHORT = ['', 'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+var FLAGS = { 'Brasil':'🇧🇷', 'Mexico':'🇲🇽', 'Argentina':'🇦🇷', 'Chile':'🇨🇱', 'Colombia':'🇨🇴',
+              'Peru':'🇵🇪', 'Ecuador':'🇪🇨', 'Uruguay':'🇺🇾', 'Paraguay':'🇵🇾', 'USA':'🇺🇸',
+              'Other Countries':'🌐' };
+var COUNTRY_COLORS = { 'Brasil':'#5626e9', 'Mexico':'#8e5ff3', 'Argentina':'#7B4FFF', 'Chile':'#BB86FC',
+                       'Colombia':'#A485FF', 'Peru':'#6c3fd4', 'Ecuador':'#d4c5f0', 'Uruguay':'#e0d8f8',
+                       'Paraguay':'#ede8fc', 'USA':'#976cf6', 'Other Countries':'#b8a8e0' };
+var PROD_COLORS = { 'Packages General':'#5626e9', 'Flights':'#fa503f', 'Hotels':'#f59f00',
+                    'Dest. Serv.':'#8e5ff3', 'Cars':'#029687', 'Insurance':'#4bb8aa',
+                    'Vacation Rentals':'#009999', 'Bundles':'#b8a8e0', 'Ancillaries':'#d4c5f0',
+                    'Escapadas':'#e0d8f8' };
+var SUBTITLES = {
+  b2b:   'Transacciones B2B con FVM < 0 · País → Canal → Producto → Gateway / Shopping Flow',
+  b2b2c: 'Transacciones B2B2C con FVM < 0 · País → Partner → Producto → Viaje'
+};
+var CRIT_NOTES = {
+  tx:   'Transacción: la reserva cuenta si la suma del FVM de todos sus productos da negativa. ' +
+        'Dentro de una reserva que pierde puede haber componentes positivos (en verde).',
+  comp: 'Componente: cuenta cada producto que da negativo (ej. el vuelo de un paquete), ' +
+        'aunque la reserva entera gane. Es el criterio que usaba la app de Toqan.'
+};
+
+// ── Estado ────────────────────────────────────────────────────────
+var DATA = null;
+var S = { biz:'b2b', view:'gd', crit:'tx', country:'all', product:'all', month:'all' };
+var allExpanded = false;
+
+// ── Utilidades ────────────────────────────────────────────────────
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function(c) {
+    return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+  });
+}
+function displayName(n) { return n === 'Other Countries' ? 'Globales' : n; }
+function flag(n) { return FLAGS[n] ? FLAGS[n] + ' ' : ''; }
+function fmtFVM(v) {
+  var a = Math.abs(v), s = v < 0 ? '-' : '';
+  if (a >= 1e6) return '$' + s + (a / 1e6).toFixed(2) + 'M';
+  if (a >= 1e3) return '$' + s + (a / 1e3).toFixed(1) + 'k';
+  return '$' + s + a.toFixed(0);
+}
+function fmtFVMfull(v) {
+  return '$' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function fmtInt(v) { return Math.round(v).toLocaleString('en-US'); }
+function fmtDate(iso) {   // 'YYYY-MM-DD[THH:MM...]' → 'dd/mm/yy[ HH:MM]'
+  if (!iso) return '—';
+  var d = iso.slice(8, 10) + '/' + iso.slice(5, 7) + '/' + iso.slice(2, 4);
+  return iso.length > 10 ? d + ' ' + iso.slice(11, 16) : d;
+}
+function ymLabel(ym) { return MONTH_NAMES[parseInt(ym.slice(5, 7), 10)]; }
+function ymShort(ym) { return MONTH_SHORT[parseInt(ym.slice(5, 7), 10)]; }
+function expand(c) {
+  if (!c || !c.cols) return [];
+  return c.rows.map(function(r) {
+    var o = {};
+    for (var i = 0; i < c.cols.length; i++) o[c.cols[i]] = r[i];
+    return o;
+  });
+}
+function uniq(arr) { var m = {}; arr.forEach(function(x) { m[x] = 1; }); return Object.keys(m); }
+
+// ── Acceso a datos ────────────────────────────────────────────────
+function blockKey() { return S.biz === 'b2b' ? 'b2b_' + S.view : 'b2b2c'; }
+function block() { return DATA.blocks[blockKey()]; }
+function prodField() { return S.biz === 'b2b' ? 'producto_original' : 'producto'; }
+function lvl1Field() { return S.biz === 'b2b' ? 'parent_channel' : 'partner'; }
+function fvmOf(r) { return S.crit === 'tx' ? r.fvm_tx : r.fvm_comp; }
+
+// Filas del drill-down con FVM bajo el criterio activo y los filtros aplicados.
+// skipMonth: el gráfico mensual ignora el filtro de mes.
+function getFilteredData(skipMonth) {
+  var pf = prodField();
+  return block().det.filter(function(r) {
+    var v = fvmOf(r);
+    if (v == null || v === 0) return false;
+    if (!skipMonth && S.month !== 'all' && r.ym !== S.month) return false;
+    if (S.country !== 'all' && r.pais !== S.country) return false;
+    if (S.product !== 'all' && r[pf] !== S.product) return false;
+    return true;
+  });
+}
+
+// Conteo exacto de transacciones (cada tx cae en una sola fila del lookup).
+// B2B2C sin filtro de producto usa el lookup por partner (una tx con 2 productos contaría doble).
+function txCounts(ym) {
+  var b = block(), pf = prodField();
+  var rows = S.biz === 'b2b' ? b.tx : (S.product === 'all' ? b.tx_partner : b.tx_producto);
+  var neg = 0, total = 0, col = S.crit === 'tx' ? 'tx_neg' : 'tx_neg_comp';
+  rows.forEach(function(r) {
+    if (ym !== 'all' && r.ym !== ym) return;
+    if (S.country !== 'all' && r.pais !== S.country) return;
+    if (S.product !== 'all' && r[pf] !== S.product) return;
+    neg += r[col]; total += r.tx_total;
+  });
+  return { neg: neg, total: total };
+}
+
+function blockMonths() { return uniq(block().tx_months).sort(); }
+
+// ── Agregación (árbol del drill-down) ─────────────────────────────
+function groupBy(rows, field) {
+  var m = {};
+  rows.forEach(function(r) {
+    var k = r[field] == null ? 'N/A' : r[field];
+    if (!m[k]) m[k] = { name: k, fvm: 0, rows: [] };
+    m[k].fvm += fvmOf(r);
+    m[k].rows.push(r);
+  });
+  return Object.keys(m).map(function(k) { return m[k]; })
+    .sort(function(a, b) { return a.fvm - b.fvm; });   // más negativo primero
+}
+
+function dominantProductType(rows) {
+  var m = {};
+  rows.forEach(function(r) { m[r.product_type] = (m[r.product_type] || 0) + Math.abs(fvmOf(r)); });
+  var best = null;
+  Object.keys(m).forEach(function(k) { if (best === null || m[k] > m[best]) best = k; });
+  return best;
+}
+
+function aggregate(data) {
+  var total = 0;
+  data.forEach(function(r) { total += fvmOf(r); });
+  var countries = groupBy(data, 'pais');
+  countries.forEach(function(c, i) {
+    c.id = 'p' + i;
+    c.children = groupBy(c.rows, lvl1Field());
+    c.children.forEach(function(ch, j) {
+      ch.id = c.id + '-c' + j;
+      ch.children = groupBy(ch.rows, prodField());
+      ch.children.forEach(function(pr, k) {
+        pr.id = ch.id + '-pr' + k;
+        var detailField = 'viaje';
+        if (S.biz === 'b2b') {
+          var hotel = dominantProductType(pr.rows) === 'Hoteles';
+          pr.badge = hotel ? 'Gateway' : 'Shopping Flow';
+          detailField = hotel ? 'gateway' : 'shopping_flow_source';
+        }
+        pr.children = groupBy(pr.rows, detailField);
+        pr.children.forEach(function(d, l) { d.id = pr.id + '-d' + l; });
+      });
+    });
+  });
+  return { totalFVM: total, countries: countries };
+}
+
+// ── Render ────────────────────────────────────────────────────────
+function updateDashboard() {
+  var data = getFilteredData(false);
+  var h = aggregate(data);
+  var main = document.getElementById('main');
+  main.innerHTML =
+    '<div class="kpi-row" id="kpi-row"></div>' +
+    '<div class="chart-section card" id="chart-section">' +
+      '<div class="chart-title" id="chart-title"></div>' +
+      '<div class="chart-subtitle">Total de FVM negativo por mes · Click en un mes para filtrar</div>' +
+      '<div id="chart-container"></div></div>' +
+    '<div class="compare-row">' +
+      '<div class="compare-card card"><h3>🌎 Distribución por País</h3><div id="country-bars"></div></div>' +
+      '<div class="compare-card card"><h3>📦 Distribución por Producto</h3><div id="product-bars"></div></div>' +
+    '</div>' +
+    '<div class="table-wrap card"><table><thead><tr>' +
+      '<th>País</th><th>' + (S.biz === 'b2b' ? 'Canal' : 'Partner') + '</th>' +
+      '<th class="right">FVM</th><th class="right">% Total</th>' +
+    '</tr></thead><tbody id="tbody"></tbody></table></div>';
+
+  renderKPIs(h);
+  renderMonthlyChart();
+  renderCompareBars(data);
+  renderTable(h);
+  renderHeader();
+
+  allExpanded = false;
+  document.getElementById('expand-btn').textContent = 'Expandir todo';
+  var m = S.month === 'all' ? 'Todos los meses' : ymLabel(S.month);
+  document.getElementById('footer-note').innerHTML =
+    '<span class="ok">✓</span> Vista: ' + (S.biz === 'b2b' ? 'B2B · ' + S.view.toUpperCase() : 'B2B2C') +
+    ' · Criterio: ' + (S.crit === 'tx' ? 'Transacción' : 'Componente') + ' · Mes: ' + esc(m) +
+    ' · Mismo FVM que el Daily (cuadre verificado en cada actualización)';
+}
+
+function renderHeader() {
+  document.getElementById('subtitle').textContent = SUBTITLES[S.biz];
+  document.getElementById('crit-note').textContent = CRIT_NOTES[S.crit];
+  var view = S.biz === 'b2b' ? (S.view === 'gd' ? 'GD (Gestión)' : 'RI (Reconocimiento)') : 'B2B2C';
+  document.getElementById('freshness').innerHTML =
+    '<div class="l1">📅 Datos hasta: ' + fmtDate(DATA.meta.hasta) + '</div>' +
+    '<div class="l2">Vista: ' + view + ' · Actualizado: ' + fmtDate(DATA.meta.generated_at) + '</div>';
+}
+
+function renderKPIs(h) {
+  var tx = txCounts(S.month);
+  var share = tx.total ? (tx.neg / tx.total * 100).toFixed(1) + '% del total' : '';
+  var nCountries = h.countries.filter(function(c) { return c.fvm < 0; }).length;
+  document.getElementById('kpi-row').innerHTML =
+    kpi('FVM total negativo', fmtFVM(h.totalFVM), 'red', fmtFVMfull(h.totalFVM)) +
+    kpi(S.crit === 'tx' ? 'Transacciones' : 'Transacciones con algún componente negativo',
+        fmtInt(tx.neg), 'purple', 'con FVM &lt; 0' + (share ? ' · ' + share : '')) +
+    kpi('Países', String(nCountries), 'purple', 'con pérdidas');
+}
+function kpi(label, value, cls, sub) {
+  return '<div class="kpi card"><div class="label">' + label + '</div>' +
+         '<div class="value ' + cls + '">' + value + '</div><div class="sub">' + sub + '</div></div>';
+}
+
+function renderMonthlyChart() {
+  var section = document.getElementById('chart-section');
+  if (S.month !== 'all') { section.style.display = 'none'; return; }
+  var suffix = (S.country !== 'all' ? ' · ' + displayName(S.country) : '') +
+               (S.product !== 'all' ? ' · ' + S.product : '');
+  document.getElementById('chart-title').textContent = 'FVM Negativo Mensual — ' +
+    (S.biz === 'b2b' ? (S.view === 'gd' ? 'GD (Gestión)' : 'RI (Reconocimiento)') : 'B2B2C') + suffix;
+
+  var months = blockMonths(), byMonth = {};
+  getFilteredData(true).forEach(function(r) { byMonth[r.ym] = (byMonth[r.ym] || 0) + fvmOf(r); });
+  var pts = months.map(function(ym) { return { ym: ym, fvm: byMonth[ym] || 0, tx: txCounts(ym).neg }; });
+  var container = document.getElementById('chart-container');
+  if (!pts.some(function(p) { return p.fvm !== 0; })) {
+    container.innerHTML = '<div class="state">Sin datos para los filtros seleccionados</div>';
+    return;
+  }
+
+  var W = 740, H = 270, padL = 64, padR = 58, padT = 34, padB = 44;
+  var cw = W - padL - padR, ch = H - padT - padB;
+  var maxAbs = Math.max.apply(null, pts.map(function(p) { return Math.abs(Math.min(p.fvm, 0)); })) || 1;
+  var maxTx = Math.max.apply(null, pts.map(function(p) { return p.tx; })) || 1;
+  var step = cw / pts.length, bw = Math.min(56, step * 0.55);
+  var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="FVM negativo por mes">';
+  svg += '<text x="' + padL + '" y="14" font-size="11" font-weight="600" fill="#5626e9">FVM ($)</text>';
+  svg += '<text x="' + (W - padR) + '" y="14" font-size="11" font-weight="600" fill="#fa503f" text-anchor="end">Transacciones</text>';
+  for (var i = 0; i <= 4; i++) {
+    var y = padT + ch * i / 4;
+    svg += '<line x1="' + padL + '" x2="' + (W - padR) + '" y1="' + y + '" y2="' + y + '" stroke="#e2dfee"/>';
+    svg += '<text x="' + (padL - 8) + '" y="' + (y + 3) + '" font-size="10" fill="#6e6788" text-anchor="end">' +
+           fmtFVM(-maxAbs * i / 4) + '</text>';
+    svg += '<text x="' + (W - padR + 8) + '" y="' + (y + 3) + '" font-size="10" fill="#6e6788">' +
+           fmtInt(maxTx * (4 - i) / 4) + '</text>';
+  }
+  var line = [];
+  pts.forEach(function(p, k) {
+    var cx = padL + step * k + step / 2;
+    var bh = Math.abs(Math.min(p.fvm, 0)) / maxAbs * ch;
+    svg += '<rect class="bar" x="' + (cx - bw / 2) + '" y="' + padT + '" width="' + bw + '" height="' + bh +
+           '" rx="4" onclick="switchMonth(\'' + p.ym + '\')"><title>' + ymLabel(p.ym) + ': ' +
+           fmtFVMfull(p.fvm) + ' · ' + fmtInt(p.tx) + ' tx</title></rect>';
+    svg += '<text x="' + cx + '" y="' + (H - padB + 16) + '" font-size="11" font-weight="600" fill="#4a4366" text-anchor="middle">' + ymShort(p.ym) + '</text>';
+    svg += '<text x="' + cx + '" y="' + (H - padB + 30) + '" font-size="9" fill="#6e6788" text-anchor="middle">' + fmtInt(p.tx) + ' tx</text>';
+    line.push([cx, padT + ch - p.tx / maxTx * ch]);
+  });
+  svg += '<path d="' + line.map(function(q, k) { return (k ? 'L' : 'M') + q[0] + ' ' + q[1]; }).join(' ') +
+         '" fill="none" stroke="#fa503f" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>';
+  line.forEach(function(q) { svg += '<circle cx="' + q[0] + '" cy="' + q[1] + '" r="3" fill="#fa503f"/>'; });
+  container.innerHTML = svg + '</svg>';
+}
+
+function renderCompareBars(data) {
+  document.getElementById('country-bars').innerHTML = miniBars(groupBy(data, 'pais'), true);
+  document.getElementById('product-bars').innerHTML = miniBars(groupBy(data, prodField()), false);
+}
+function miniBars(groups, isCountry) {
+  var neg = groups.filter(function(g) { return g.fvm < 0; });
+  if (!neg.length) return '<div class="empty">Sin datos</div>';
+  var maxAbs = Math.abs(neg[0].fvm);
+  return neg.map(function(g) {
+    var color = (isCountry ? COUNTRY_COLORS : PROD_COLORS)[g.name] || '#b8a8e0';
+    var label = isCountry ? flag(g.name) + displayName(g.name) : g.name;
+    return '<div class="mini-bar"><div class="mini-bar-label" title="' + esc(label) + '">' + esc(label) + '</div>' +
+           '<div class="mini-bar-track"><div class="mini-bar-fill" style="width:' +
+           (Math.abs(g.fvm) / maxAbs * 100).toFixed(1) + '%;background:' + color + '"></div></div>' +
+           '<div class="mini-bar-value">' + fmtFVM(g.fvm) + '</div></div>';
+  }).join('');
+}
+
+function renderTable(h) {
+  var html = [], total = h.totalFVM;
+  function pctCell(v) {
+    var p = total ? v / total * 100 : 0;   // total < 0: una fila negativa da % positivo
+    return '<div class="pct"><div class="pct-track"><div class="pct-fill" style="width:' +
+           Math.max(0, Math.min(p, 100)).toFixed(1) + '%"></div></div><span class="pct-txt">' +
+           p.toFixed(1) + '%</span></div>';
+  }
+  function fvmCell(v, size) {
+    return '<td class="right fvm-cell' + (v > 0 ? ' pos' : '') + '"' + (size ? ' style="font-size:' + size + '"' : '') +
+           '>' + fmtFVM(v) + '</td>';
+  }
+  if (!h.countries.length) {
+    document.getElementById('tbody').innerHTML = '<tr><td colspan="4" class="state">Sin datos para los filtros seleccionados</td></tr>';
+    return;
+  }
+  h.countries.forEach(function(c) {
+    html.push('<tr class="lvl-0" data-id="' + c.id + '" onclick="toggleRow(\'' + c.id + '\',0)">' +
+      '<td><span class="chev">▶</span>' + flag(c.name) + '<b>' + esc(displayName(c.name)) + '</b></td>' +
+      '<td style="color:var(--muted)">TOTAL</td>' + fvmCell(c.fvm, '15px') + '<td>' + pctCell(c.fvm) + '</td></tr>');
+    c.children.forEach(function(ch) {
+      html.push('<tr class="lvl-1 hidden" data-id="' + ch.id + '" data-parent="' + c.id + '" onclick="toggleRow(\'' + ch.id + '\',1)">' +
+        '<td></td><td class="c2"><span class="chev">▶</span>' + esc(ch.name) + '</td>' +
+        fvmCell(ch.fvm) + '<td>' + pctCell(ch.fvm) + '</td></tr>');
+      ch.children.forEach(function(pr) {
+        var badge = pr.badge ? '<span class="badge ' + (pr.badge === 'Gateway' ? 'badge-gateway' : 'badge-shopping') + '">' + pr.badge + '</span>' : '';
+        html.push('<tr class="lvl-2 hidden" data-id="' + pr.id + '" data-parent="' + ch.id + '" onclick="toggleRow(\'' + pr.id + '\',2)">' +
+          '<td></td><td class="c2"><span class="chev">▶</span>' + esc(pr.name) + badge + '</td>' +
+          fvmCell(pr.fvm) + '<td>' + pctCell(pr.fvm) + '</td></tr>');
+        pr.children.forEach(function(d) {
+          html.push('<tr class="lvl-3 hidden" data-id="' + d.id + '" data-parent="' + pr.id + '">' +
+            '<td></td><td class="c2">' + esc(d.name) + '</td>' + fvmCell(d.fvm) + '<td>' + pctCell(d.fvm) + '</td></tr>');
+        });
+      });
+    });
+  });
+  html.push('<tr class="total-row"><td colspan="2">TOTAL GENERAL</td>' + fvmCell(total) +
+            '<td><div class="pct"><span class="pct-txt">100.0%</span></div></td></tr>');
+  document.getElementById('tbody').innerHTML = html.join('');
+}
+
+// ── Interacción ───────────────────────────────────────────────────
+function rowsOf(sel) { return Array.prototype.slice.call(document.querySelectorAll(sel)); }
+
+function toggleRow(id, level) {
+  if (level >= 3) return;
+  var row = document.querySelector('tr[data-id="' + id + '"]');
+  var open = !row.classList.contains('expanded');
+  row.classList.toggle('expanded', open);
+  if (open) {
+    rowsOf('tr[data-parent="' + id + '"]').forEach(function(r) { r.classList.remove('hidden'); });
+  } else {
+    rowsOf('tr[data-id^="' + id + '-"]').forEach(function(r) {
+      r.classList.add('hidden'); r.classList.remove('expanded');
+    });
+  }
+}
+
+function expandAll() {
+  allExpanded = !allExpanded;
+  rowsOf('#tbody tr[data-id]').forEach(function(r) {
+    var lvl0 = r.classList.contains('lvl-0');
+    if (!lvl0) r.classList.toggle('hidden', !allExpanded);
+    if (!r.classList.contains('lvl-3')) r.classList.toggle('expanded', allExpanded);
+  });
+  document.getElementById('expand-btn').textContent = allExpanded ? 'Colapsar todo' : 'Expandir todo';
+}
+
+function setActive(ids, active) {
+  ids.forEach(function(id) { document.getElementById(id).classList.toggle('active', id === active); });
+}
+function resetFilters() { S.country = 'all'; S.product = 'all'; S.month = 'all'; populateFilters(); }
+
+function switchBiz(b) {
+  S.biz = b;
+  setActive(['biz-b2b', 'biz-b2b2c'], 'biz-' + b);
+  document.getElementById('sub-tabs').style.display = b === 'b2b' ? '' : 'none';
+  if (b === 'b2b') { S.view = 'gd'; setActive(['tab-gd', 'tab-ri'], 'tab-gd'); }
+  resetFilters(); updateDashboard();
+}
+function switchView(v) { S.view = v; setActive(['tab-gd', 'tab-ri'], 'tab-' + v); resetFilters(); updateDashboard(); }
+// El criterio NO resetea filtros: es la misma vista medida de otra forma.
+function switchCrit(c) { S.crit = c; setActive(['crit-tx', 'crit-comp'], 'crit-' + c); updateDashboard(); }
+function switchCountry(v) { S.country = v; updateDashboard(); }
+function switchProduct(v) { S.product = v; updateDashboard(); }
+function switchMonth(m) {
+  S.month = m;
+  document.getElementById('month-filter').value = m;
+  updateDashboard();
+}
+
+function populateFilters() {
+  var det = block().det, pf = prodField();
+  var countries = uniq(det.map(function(r) { return r.pais; })).sort(function(a, b) {
+    return displayName(a).localeCompare(displayName(b));
+  });
+  var products = uniq(det.map(function(r) { return r[pf]; })).sort();
+  fillSelect('country-filter', 'Todos los países', countries, displayName, S.country);
+  fillSelect('product-filter', 'Todos los productos', products, function(x) { return x; }, S.product);
+  fillSelect('month-filter', 'Todos los meses', blockMonths(), ymLabel, S.month);
+}
+function fillSelect(id, allLabel, values, label, current) {
+  document.getElementById(id).innerHTML = '<option value="all">' + allLabel + '</option>' +
+    values.map(function(v) {
+      return '<option value="' + esc(v) + '"' + (v === current ? ' selected' : '') + '>' + esc(label(v)) + '</option>';
+    }).join('');
+}
+
+// ── Carga ─────────────────────────────────────────────────────────
+function prepare(raw) {
+  var d = JSON.parse(raw);
+  var blocks = {};
+  ['b2b_gd', 'b2b_ri', 'b2b2c'].forEach(function(k) {
+    var b = d[k] || {};
+    var det = expand(b.detalle);
+    var tx = expand(b.tx), txProd = expand(b.tx_producto), txPartner = expand(b.tx_partner);
+    var lookup = k === 'b2b2c' ? txPartner : tx;
+    blocks[k] = { det: det, tx: tx, tx_producto: txProd, tx_partner: txPartner,
+                  tx_months: lookup.map(function(r) { return r.ym; }) };
+  });
+  return { meta: d.meta || {}, blocks: blocks };
+}
+
+function showError(err) {
+  document.getElementById('main').innerHTML =
+    '<div class="state card error">No se pudieron cargar los datos: ' + esc(err && err.message ? err.message : err) + '</div>';
+  document.getElementById('freshness').textContent = 'Sin datos';
+}
+
+google.script.run
+  .withSuccessHandler(function(raw) {
+    try {
+      DATA = prepare(raw);
+      populateFilters();
+      updateDashboard();
+    } catch (e) { showError(e); }
+  })
+  .withFailureHandler(showError)
+  .getData();
+</script>
+</body>
+</html>

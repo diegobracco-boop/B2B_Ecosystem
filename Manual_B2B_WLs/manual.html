@@ -551,6 +551,9 @@ a.ext-link:hover { text-decoration: underline; }
   <a class="nav-item" onclick="showSection('proj-country')">
     <span class="nav-icon">🗺️</span> Country One Pager
   </a>
+  <a class="nav-item" onclick="showSection('proj-fvmneg')">
+    <span class="nav-icon">📉</span> FVM Negativo
+  </a>
   <a class="nav-item" onclick="showSection('proj-runrate')">
     <span class="nav-icon">🚀</span> Proyecto Run Rate
   </a>
@@ -653,6 +656,14 @@ a.ext-link:hover { text-decoration: underline; }
         <div class="proj-card-desc">Landing standalone tipo "one pager" para la dirección comercial de un país. Sin pipeline propio: consume <strong>Dashboard_B2B_WLs</strong> y <strong>Daily_Dashboard</strong> como Apps Script Libraries. Embebido como tab "Detail By Country" dentro del B2B Ecosystem Hub, y también accesible standalone. Pestañas <strong>B2B</strong> y <strong>B2B2C</strong> (desde 2026-09-29).</div>
         <div class="proj-card-tag"><span class="badge badge-manual">🔗 Libraries (sin JSON propio)</span></div>
         <a class="proj-card-url" href="https://script.google.com/a/macros/despegar.com/s/AKfycbytMGsghl1TweKpYgMV2uhjTr--a9jpWkd2G3faZrF0DixD7UNu2qAq8Tbhlv_PCo0t/exec" target="_blank">↗ Abrir landing</a>
+      </div>
+
+      <div class="proj-card" tabindex="0" role="button" onclick="showSection('proj-fvmneg')">
+        <div class="proj-card-icon">📉</div>
+        <div class="proj-card-name">FVM Negativo</div>
+        <div class="proj-card-desc">Transacciones B2B (GD/RI) y B2B2C con <strong>FVM &lt; 0</strong>, con drill-down País → Canal/Partner → Producto → Gateway/Shopping Flow/Viaje. Reemplaza la app de Toqan. Sin pipeline propio: el JSON lo genera <code>daily_sync.py</code> con el <strong>mismo FVM que el Daily</strong>.</div>
+        <div class="proj-card-tag"><span class="badge badge-auto">⚡ Se actualiza con el Daily</span></div>
+        <a class="proj-card-url" href="https://script.google.com/a/macros/despegar.com/s/AKfycbzGXCpL9_p70Xx7P640YgU-zOzoLG1018HG9N_pzQvrCJPHTPsUuryD_tDH1HNO41hOIg/exec" target="_blank">↗ Abrir landing</a>
       </div>
 
       <div class="proj-card" tabindex="0" role="button" onclick="showSection('proj-runrate')">
@@ -988,6 +999,7 @@ a.ext-link:hover { text-decoration: underline; }
           <tr><td>FVM, palancas, NR Bridge, evolución mensual gestional</td><td><strong>P&amp;L Managerial</strong></td><td>La vista "managerial". B2B2C y B2B por separado</td></tr>
           <tr><td>Seguimiento de OKR, vista por país (Detail By Country), performance por partner, y acceso a todo lo demás</td><td><strong>B2B Ecosystem Hub</strong></td><td>El portal — la puerta de entrada</td></tr>
           <tr><td>Panorama ejecutivo de un país (B2B o B2B2C) en un solo mes: gestional + contable + peso de cada LOB en el país, con drill-down (el Mix canal × producto es solo B2B)</td><td><strong>Country One Pager</strong></td><td>Tab "Detail By Country" del Hub, o standalone. Pestañas B2B y B2B2C</td></tr>
+          <tr><td>Dónde perdemos plata: transacciones con FVM negativo por país, canal/partner, producto y gateway</td><td><strong>FVM Negativo</strong></td><td>Link desde el Hub. B2B (GD/RI) y B2B2C; criterio Transacción o Componente</td></tr>
           <tr><td>Pace del día / del mes en curso, vs Budget y vs LY</td><td><strong>Daily Dashboard</strong></td><td>Se actualiza solo a las 9:45. Vista diaria y vista semanal</td></tr>
           <tr><td>Entender de dónde sale un número o cómo se actualiza algo</td><td><strong>Manual B2B WLs</strong></td><td>Este documento</td></tr>
           <tr><td>Los datos crudos (JSON) para otro análisis</td><td><em>Inputs Planning P&amp;L</em></td><td>No es una landing — es la carpeta de Drive con los JSON canónicos</td></tr>
@@ -2369,6 +2381,7 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
           <tr><td>daily_sync.py</td><td><span class="tag tag-py">Python</span></td><td>Consulta Treasure Data via ODBC (DSN "DataLake Treasure ODBC"), genera B2B2C + B2B (GD + RI + Budget) JSON y los sube a Drive via Google Drive API (<code>credentials_drive.json + token_drive.json</code>). Requiere VPN</td></tr>
           <tr><td>okr_h2_managerial.json (calc_pkg_split.py / pkg_split_factors.py)</td><td><span class="tag tag-py">Python</span></td><td>JSON <strong>separado</strong> con los KRs H2 del track <strong>managerial</strong> (Daily / Tracker, MTD): NR total, FVM API, FVM HTML y <em>New Products Growth</em>. Lo genera <code>daily_sync.py</code> en la misma carpeta de Drive que <code>daily_b2b_data.json</code> y lo lee <code>getRawOKRH2()</code> (Apps Script); si no existe, los KRs caen al JSON principal. Tiene el mismo formato que el principal (<code>b2b_ri</code>, <code>b2b_gd</code>, sus <code>_ly</code> y <code>b2b_budget_ri/gd</code>) pero solo NR y FVM por fecha × país × canal × producto, con <code>product_type</code> únicamente en Packages General. <strong>New Products</strong> = Flights + Dest. Serv. + dentro de paquetes Vuelos, Disney, Universal, SeaWorld, Busch Gardens, Excursiones, Espectáculos, Traslados. El budget no trae product_type: el NR de Packages General se abre con proporciones <strong>fijas por país</strong> de <code>pkg_split_factors.py</code> (actuals RI abr–jun 2026; Ecuador/Paraguay/Uruguay/Other Countries usan TOTAL), solo Budget (Run Rate y Forecast no se abren). <code>calc_pkg_split.py</code> regenera esos factores y es <strong>manual</strong>: no corre en la sync diaria. La sync verifica que el NR/FVM del JSON de OKR cuadre con el principal y, si no, no lo sube. El track contable (okr.json / Hub) no cambia.</td></tr>
           <tr><td>auth_drive.py</td><td><span class="tag tag-py">Python</span></td><td>Genera/regenera <code>token_drive.json</code> por navegador. Correr si expira la auth: <code>python auth_drive.py</code></td></tr>
+          <tr><td>fvm_negativo.json</td><td><span class="tag tag-py">Python</span></td><td>JSON <strong>separado</strong> para la landing <strong>FVM Negativo</strong>, en la misma carpeta de Drive. Tres queries (<code>build_b2b_fvm_neg_query("gd"|"ri")</code>, <code>build_b2b2c_fvm_neg_query</code>) que reusan CTEs/componentes/joins/WHERE del Daily y solo agregan <code>transaction_code</code> a la apertura, para el año fiscal en curso (<code>FVM_NEG_FROM</code>, desde abril). Antes de subir verifica que el FVM de TODAS las transacciones cuadre mes a mes con el del Daily; si no cuadra o una query falla, <strong>no se sube</strong> (queda el del día anterior) y el resto del Daily sigue igual. Ver la página FVM Negativo.</td></tr>
           <tr><td>Tier de partners (B2B2C)</td><td><span class="tag tag-py">Python</span></td><td>Sin script aparte (el viejo tier_sync / <code>partner_tiers.json</code> se deprecó). <code>daily_sync.py</code> trae <code>estatus_tier</code> de <code>raw.comdev_cartera_b2b2c_historic</code> y lo pone inline en cada fila B2B2C (campo <code>tier</code>). El tier es por <strong>partner × país</strong> (ej. Latam: Tier-1 en Brasil/Chile, Tier-3 en Argentina/Colombia); si el partner no figura en la cartera para ese país, cae al tier a nivel partner. Lo usa el acordeón País → Tier → Partner del tab <strong>Flow Semanal</strong> (<code>dashboard.html</code>)</td></tr>
           <tr><td>Codigo.js</td><td><span class="tag tag-js">Apps Script</span></td><td>Backend: sirve el HTML y expone <code>getRawB2BC()</code> y <code>getRawB2B()</code> que leen los JSON desde Drive con cache auto-invalidante por <code>lastUpdated</code>. También <code>getGlobalesKRTargets()</code> (targets Globales), y para los Status KRs de Agencias: <code>getAgenciasOKR()</code> / <code>getBudgetAgencias_()</code> (budget desde col R de "Slide 1 KR Agencias") / <code>getAirNRData()</code> (caja "Air NR" de "Slide 1 Evolucion" P37:S44)</td></tr>
           <tr><td>dashboard.html</td><td><span class="tag tag-html">HTML</span></td><td>Frontend daily. Vanilla JS + Chart.js 4.4.0. Métricas: GB / NR / FVM diario + MTD vs LY + budget</td></tr>
@@ -2599,6 +2612,61 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
           <tr><td>Performance: waterfalls sin pre-warm <span class="badge badge-manual">⚠️ 2026-09-18</span></td><td><code>preComputeAll()</code> de <code>Dashboard_B2B_WLs</code> solo pre-calienta <code>getCountryPageData</code> para rangos FY/H1/H2/Q1-Q4 (<code>CTRY_QUARTERS</code>) — nunca meses puntuales. Como el waterfall pide <code>desde=hasta=ym</code>, cada país/mes nuevo es un <strong>cache MISS</strong> del lado del Hub (relee los 5 JSON de Drive + arma ~13 mapas desde cero). No se agregó país×mes a <code>preComputeAll</code> porque multiplicaría ese trigger compartido 2-3x, arriesgando el límite de 6 min de ejecución de Apps Script. Mitigación aplicada: <code>_buildContableWaterfalls_</code> cachea el resultado localmente en <code>lob_country_one_pager</code> por país+mes (<code>CacheService</code>, TTL 6h, key <code>wf2_&lt;pais&gt;_&lt;ym&gt;</code>) — el primer usuario que ve una combinación paga el costo, el resto la recibe instantánea hasta que expire. El <strong>pre-warm trigger</strong> (fila siguiente) elimina ese "primer golpe" para el mes default.</td></tr>
           <tr><td>B2B2C: límites y caches <span class="badge badge-manual">🆕 2026-09-29</span></td><td>Todos los endpoints reciben <code>lob</code> (<code>b2b</code> por defecto; cualquier otro valor cae a b2b). Claves de cache separadas por LoB: gestional <code>gs1_c_…</code> (B2B2C, siempre una sola vista) vs <code>gs1_GD/RI_…</code>; waterfalls + tabla de LOBs <code>wf2c_…</code> vs <code>wf2_…</code> (el prefijo <code>wf2</code> reemplaza al viejo <code>wf_</code> porque el resultado ahora incluye <code>lobs</code>). <strong>El pre-warm sigue calentando solo B2B</strong>: cada país/mes de B2B2C es un cache MISS la primera vez (hasta ~97 s en waterfalls y tabla de LOBs; después 6 h en cache). Falta validar que <code>getCountryMTD</code> (Daily) reconozca todos los países de B2B2C, en especial Globales — si alguno sale con "Sin datos gestionales", revisarlo ahí. Pendiente si se quiere: Mix por producto o partner para B2B2C (requiere una función nueva en <code>Dashboard_B2B_WLs</code> y subir la versión de la library).</td></tr>
           <tr><td>Pre-warm de caches <span class="badge badge-auto">Trigger · cada 5 min · 2026-09-29</span></td><td>Trigger time-driven propio de este módulo (<code>prewarmOnePager</code>, instalado con <code>setupPrewarm()</code>) que paga por adelantado el "primer golpe" de cada país×mes. Recorre los 8 países en <strong>round-robin</strong> (cursor en <code>PropertiesService</code> persistido <strong>tras cada país</strong>, hasta <code>PREWARM_BATCH=2</code> países por corrida, arrancando otro país solo si queda headroom para el peor caso completo — <code>PREWARM_LIMIT_MS − PREWARM_PAIS_MS</code> — para no morir a mitad por el límite de 6 min de GAS) precalentando gestional GD/RI (<code>gs1_…</code>, TTL 1h) + waterfalls (<code>wf2_…</code>, TTL 6h) del <strong>mes default</strong> (resuelto vía <code>getOPBase</code>, así las claves matchean lo que pedirá el cliente). En frío la corrida puede caer a 1 país por el headroom; aun así el ciclo de los 8 cierra en ≤40 min (corridas cada 5 min), dentro del TTL de gestional (1h). Presupuesto de ejecución <strong>independiente</strong> del <code>preComputeAll</code> del Hub (por eso se puso acá y no allá). Para frenarlo: <code>removePrewarm()</code>. Como todo trigger GAS, hay que correr <code>setupPrewarm()</code> <strong>una vez</strong> desde el editor del proyecto post-deploy (el <code>clasp push</code> no instala triggers) — y correrlo con la <strong>cuenta que deploya</strong> (<code>executeAs: USER_DEPLOYING</code>): el trigger hereda su identidad y las libraries leen JSONs de Drive no compartidos con todo el equipo; si lo instala alguien sin ese acceso, cada país tira error de permisos y no calienta nada.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ══════════════════════ PROYECTO: FVM NEGATIVO ══════════════════════ -->
+  <div class="section" id="sec-proj-fvmneg">
+    <div class="page-header">
+      <div class="page-tag">Proyecto <span class="badge badge-manual">🆕 2026-10</span></div>
+      <div class="page-title">FVM Negativo <span>(B2B + B2B2C)</span></div>
+      <div class="page-sub">Transacciones con <strong>FVM &lt; 0</strong>: cuánto se pierde, dónde (país, canal o partner, producto, gateway / shopping flow / viaje) y en qué meses. Reemplaza la app que corría en <strong>Toqan</strong>.</div>
+    </div>
+
+    <div class="alert-box info">
+      ℹ️ <strong>Sin pipeline propio.</strong> El JSON (<code>fvm_negativo.json</code>) lo genera <code>Daily_Dashboard/daily_sync.py</code> en cada corrida diaria, con el <strong>mismo FVM que el Daily</strong>: las queries reusan las piezas del Daily y la sync verifica que el FVM total cuadre mes a mes antes de subirlo. Si no cuadra, queda el JSON del día anterior.
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">📍 Datos del proyecto</div>
+        <table class="doc-table">
+          <tbody>
+            <tr><td>Carpeta local</td><td>FVM_Negativo</td></tr>
+            <tr><td>Apps Script ID</td><td class="mono-id">1FiDEj9qtT1L0azSUNyuJFiEn-GWQnYk06IR76hdF-EAxukq1_gFnNJcy</td></tr>
+            <tr><td>Deployment id (prod)</td><td class="mono-id">AKfycbzGXCpL9_p70Xx7P640YgU-zOzoLG1018HG9N_pzQvrCJPHTPsUuryD_tDH1HNO41hOIg</td></tr>
+            <tr><td>URL landing</td><td><a class="ext-link" href="https://script.google.com/a/macros/despegar.com/s/AKfycbzGXCpL9_p70Xx7P640YgU-zOzoLG1018HG9N_pzQvrCJPHTPsUuryD_tDH1HNO41hOIg/exec" target="_blank">↗ Abrir</a></td></tr>
+            <tr><td>Fuente de datos</td><td><code>fvm_negativo.json</code> en la carpeta DailyDashboard de Drive (<code>daily_sync.py</code>)</td></tr>
+            <tr><td>Periodo</td><td>Año fiscal en curso (desde abril) hasta ayer</td></tr>
+            <tr><td>Ejecuta como</td><td><code>USER_DEPLOYING</code> (el JSON de la carpeta del Daily no está compartido con todos)</td></tr>
+            <tr><td>Deploy</td><td><code>cd FVM_Negativo && clasp push</code> + <code>clasp deploy -i &lt;id&gt;</code></td></tr>
+            <tr><td>Acceso</td><td>Link "FVM Negativo" del Hub</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card">
+        <div class="card-title">🧮 Dos criterios (selector)</div>
+        <table class="doc-table">
+          <tbody>
+            <tr><td>Transacción</td><td>La reserva cuenta si la <strong>suma del FVM de todos sus productos</strong> en el mes es negativa. Dentro de una reserva que pierde puede haber componentes positivos (se ven en verde).</td></tr>
+            <tr><td>Componente</td><td>Cuenta <strong>cada producto</strong> que da negativo (ej. el vuelo de un paquete) aunque la reserva entera gane. Es lo que medía Toqan.</td></tr>
+            <tr><td>Diferencia</td><td>Casi toda en <strong>Packages General</strong>: en GD abr–sep 2026, $-1.82M por transacción vs $-2.81M por componente.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🔍 Qué muestra</div>
+      <table class="doc-table">
+        <tbody>
+          <tr><td>Vistas</td><td><strong>B2B</strong> con GD (gestión) y RI (reconocimiento; API Hoteles por checkin, sin cancelados) · <strong>B2B2C</strong> por fecha de confirmación</td></tr>
+          <tr><td>KPIs</td><td>FVM negativo total, transacciones con FVM &lt; 0 (y % sobre el total), países con pérdidas</td></tr>
+          <tr><td>Gráfico mensual</td><td>Barras de FVM negativo + línea de transacciones. Click en un mes filtra la página</td></tr>
+          <tr><td>Drill-down</td><td>B2B: País → Canal → Producto → <strong>Gateway</strong> (si el producto lo dominan Hoteles) o <strong>Shopping Flow</strong> (CART / CONVENCIONAL). B2B2C: País → Partner → Producto → Viaje</td></tr>
+          <tr><td>Conteo de transacciones</td><td>Exacto: el JSON trae niveles <code>tx</code> (B2B) y <code>tx_producto</code> / <code>tx_partner</code> (B2B2C) donde cada transacción cae en una sola fila</td></tr>
         </tbody>
       </table>
     </div>
