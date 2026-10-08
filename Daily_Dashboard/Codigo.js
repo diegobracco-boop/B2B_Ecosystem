@@ -1388,7 +1388,7 @@ function buildFlowSlidesDeck(payload) {
 // captura que buildFlowSlidesDeck, pero sobre un deck existente (openById).
 // payload = { slides: [{img:'data:image/png;base64,...', w, h} | null, ...] }
 // ============================================================
-var TRACKER_SLIDES_PRESENTATION_ID = '1LOyWHSd2indzmOLreGQayconb_pnghCvFVlRO6NjsV0';
+var TRACKER_SLIDES_PRESENTATION_ID = '1z58vE6Yo9N1edKUKuZoWVYj5X43gs9t3VaHCAkwrOTU';
 
 function exportToGoogleSlides(payload) {
   payload = payload || {};
@@ -1408,6 +1408,22 @@ function exportToGoogleSlides(payload) {
 
     // Insertar las nuevas ANTES de borrar las viejas (el deck nunca queda vacío)
     var existing = pres.getSlides();
+
+    // El webapp corre como USER_DEPLOYING: quien hizo el último clasp deploy (lo
+    // cambia auto_update_reales.ps1 todos los días). Si esa cuenta no es editora
+    // del deck fijo, SlidesApp tira un "Acción no permitida" sin contexto —
+    // probamos escribir una vez acá para devolver un error accionable.
+    var probe;
+    try {
+      probe = pres.appendSlide(SlidesApp.PredefinedLayout.BLANK);
+    } catch (e) {
+      var who = '';
+      try { who = Session.getEffectiveUser().getEmail(); } catch (_) {}
+      throw new Error('La cuenta que ejecuta el webapp (' + (who || 'quien hizo el último deploy') +
+        ') no tiene permiso de EDICIÓN sobre la presentación fija ' + TRACKER_SLIDES_PRESENTATION_ID +
+        '. Compartila como Editor con esa cuenta (detalle: ' + (e && e.message ? e.message : e) + ').');
+    }
+    probe.remove();
 
     slides.forEach(function(entry) {
       var slide = pres.appendSlide(SlidesApp.PredefinedLayout.BLANK);
