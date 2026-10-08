@@ -36,8 +36,8 @@ var FY_END_YEAR = fyEndYear_();
 var FY_START_YM = fyMonths_()[0];    // '2026-04'
 var FY_END_YM   = fyMonths_()[11];   // '2027-03'
 
-var LAST_ACTUALS_YM = '2026-08';   // último mes con actuals reales
-var LAST_RR_YM      = '2026-09';   // 1er mes proyectado del baseline (informativo, no se usa en la lógica)
+var LAST_ACTUALS_YM = '2026-09';   // último mes con actuals reales
+var LAST_RR_YM      = '2026-10';   // 1er mes proyectado del baseline (informativo, no se usa en la lógica)
 
 // ── Grupos P&L Summary por LoB ────────────────────────────────
 var CANAL_GROUPS_BY_LOB = {
@@ -147,7 +147,7 @@ function _getJsonsLastMod_() {
 
 function makeCacheKey_(p) {
   return JSON.stringify({
-    v:        28,
+    v:        29,
     lob:      p.lob      || 'all',
     pais:     p.pais     || 'all',
     producto: p.producto || 'all',

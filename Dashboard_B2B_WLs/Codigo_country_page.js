@@ -16,7 +16,7 @@ var CTRY_QUARTERS = [
 var CTRY_PAISES = ['all','Brasil','Mexico','Argentina','other countries','Colombia','Chile','Peru','Ecuador','RG'];
 
 function _ctryPageCacheKey_(pais, desde, hasta, bl) {
-  return JSON.stringify({ v:27, ctry:1, pais:pais, desde:desde, hasta:hasta, bl: bl || 'baseline' });
+  return JSON.stringify({ v:28, ctry:1, pais:pais, desde:desde, hasta:hasta, bl: bl || 'baseline' });
 }
 
 // Computa resultado country-page usando mapas ya cargados (lo llaman tanto
@@ -59,7 +59,7 @@ function getB2BCanalProductoMix(params) {
   var desde = (params && params.desde) || fyMonths_()[0];
   var hasta = (params && params.hasta) || LAST_ACTUALS_YM;
 
-  var key    = JSON.stringify({ v:1, cpMix:1, pais:pais, desde:desde, hasta:hasta });
+  var key    = JSON.stringify({ v:2, cpMix:1, pais:pais, desde:desde, hasta:hasta });
   var cached = readResultCache_(key);
   if (cached) return cached;
 

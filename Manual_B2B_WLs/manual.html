@@ -1711,7 +1711,7 @@ python plana_to_cube.py --upload                 REM rearma y sube los cubos que
           <div class="step-num">3</div>
           <div class="step-body">
             <div class="step-title">Verificar output</div>
-            <div class="step-desc">Confirmar que <code>plana_to_cube.py</code> imprima que actualizó los cubos (<code>_pnl_contable_epm_data.json</code> y <code>_pnl_contable_data.json</code>) en Drive. Si hay error de auth de Drive, correr <code>python auth_drive.py</code>.</div>
+            <div class="step-desc">Confirmar que <code>plana_to_cube.py</code> imprima que actualizó el cubo <code>_pnl_contable_data.json</code> en Drive (el cubo EPM se discontinuó: EPM lee los canónicos directo). Si hay error de auth de Drive, correr <code>python auth_drive.py</code>.</div>
           </div>
         </div>
         <div class="step">
@@ -2010,7 +2010,6 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
           <div class="flow-node-icon">📦</div>
           <div class="flow-node-title">Cubos (Drive)</div>
           <div class="flow-node-items">
-            <div class="flow-item green">_pnl_contable_epm_data.json</div>
             <div class="flow-item green">_pnl_contable_data.json</div>
           </div>
           <div class="flow-note">data[lgKey][pais][escenario][N2][mes] — se leen por file ID</div>
@@ -2162,7 +2161,7 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
             <tr><td>URL landing</td><td><a class="ext-link" href="https://script.google.com/a/macros/despegar.com/s/AKfycbz52txFQy-5YM2Nil_KxULzPoeZpKyA4z5LUWMGoP_8IilcwSduuwZqPF8ut_LmtceM/exec" target="_blank">↗ Abrir</a></td></tr>
             <tr><td>Fuente de datos</td><td><span class="badge badge-manual">JSON Drive (Inputs_Planning_PnL)</span></td></tr>
             <tr><td>JSON IDs</td><td class="mono-id">baseline / budget / runrate / forecast / ly (actuals_previos_fy26)</td></tr>
-            <tr><td>LAST_ACTUALS_YM</td><td class="mono-id">2026-07 (actualizar mensual)</td></tr>
+            <tr><td>LAST_ACTUALS_YM</td><td class="mono-id">2026-09 (actualizar mensual)</td></tr>
             <tr><td>Trigger pre-cómputo</td><td><span class="badge badge-auto">Cada 5 h (preComputeAll)</span> — solo para warm-up. Auto-invalidación por <code>lastMod</code> Drive: al subir JSONs nuevos, el cache se descarta automáticamente sin correr preComputeAll.</td></tr>
           </tbody>
         </table>
