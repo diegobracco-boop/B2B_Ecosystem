@@ -50,6 +50,11 @@ CSV crudos (OneDrive\Planning-PBI - Inputs Power Bi)
   está en ese orden) — si no existen, `json_builder.py forecast` corta con error. Mover el corte
   un mes: editar `FORECAST_ACTUALS_CUTOFF` en `config.py` y volver a correr `/actualizar`.
 
+- **`okr.json` se regenera solo** (2026-10-09): deriva de `baseline` + `budget`, así que `json_builder.py budget|all` y
+  `baseline_builder.py` (al subir) llaman a `okr_builder.refresh_after_upload()`. Si falla, avisa y hay que correr
+  `python okr_builder.py`. Además el Hub muestra un cartel "OKR desactualizado" si `okr.json` es anterior al
+  último baseline/budget. Antes se corría a mano y quedó viejo (OKR Status ≠ Cuadro Resumen P&L).
+
 ## Archivos
 - `pnl_common.py` — rutas portables (resuelve OneDrive por usuario) + auth Drive scope completo.
 - `plana_projections_builder.py` — planas budget/forecast/RR/LRR (genérico por base).
