@@ -736,7 +736,7 @@ function computePnL_(p, actMap, rrMap, budMap, actPrevMap, fcMap) {
   var METRICS = [
     { id:'orders', n3:'orders',         label:'Orders',                fmt:'K' },
     { id:'gb',     n3:'gross bookings', label:'Gross Bookings',        fmt:'M' },
-    { id:'nr',     n3:'net revenue',    label:'Net Revenues',          fmt:'M' },
+    { id:'nr',     n3:'net revenue',    label:'Net Revenue',          fmt:'M' },
     { id:'oc',     n3:null,             label:'Operating Contribution',fmt:'M' }
   ];
 
@@ -802,7 +802,7 @@ function computeCompPnL_(p, actMap, rrMap, budMap, actPrevMap, fcMap) {
   var METRICS = [
     { id:'orders', n3:'orders',         label:'Orders',                fmt:'K' },
     { id:'gb',     n3:'gross bookings', label:'Gross Bookings',        fmt:'M' },
-    { id:'nr',     n3:'net revenue',    label:'Net Revenues',          fmt:'M' },
+    { id:'nr',     n3:'net revenue',    label:'Net Revenue',          fmt:'M' },
     { id:'oc',     n3:null,             label:'Operating Contribution',fmt:'M' }
   ];
   // No top-level lob filter — each group's lobFilter/lobExclude controls segmentation
@@ -862,8 +862,8 @@ function computeWf_(p, actMap, rrMap, budMap, actPrevMap, fcMap) {
 
   var METRICS = [
     { id:'gb', n3:'gross bookings', label:'Gross Bookings'    },
-    { id:'nr', n3:'net revenue',    label:'Net Revenues'      },
-    { id:'oc', n3:null,             label:'Op. Contribution'  }
+    { id:'nr', n3:'net revenue',    label:'Net Revenue'      },
+    { id:'oc', n3:null,             label:'Operating Contribution'  }
   ];
 
   var yoyFilter = Object.assign({}, p);
@@ -1137,8 +1137,8 @@ function computeNRBridgeWf_(p, actNrN2Map, rrNrN2Map, budNrN2Map, lyNrN2Map, fcN
 function computeEvo_(p, actMap, rrMap, budMap, actPrevMap, fcMap) {
   var METRICS = [
     { id:'gb', n3:'gross bookings', label:'Gross Bookings'   },
-    { id:'nr', n3:'net revenue',    label:'Net Revenues'     },
-    { id:'oc', n3:null,             label:'Op. Contribution' }
+    { id:'nr', n3:'net revenue',    label:'Net Revenue'     },
+    { id:'oc', n3:null,             label:'Operating Contribution' }
   ];
 
   var START = FY_START_YM;

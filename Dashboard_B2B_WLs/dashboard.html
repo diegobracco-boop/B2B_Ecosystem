@@ -16,7 +16,8 @@
   --desp-purple:#7b2dbe;--desp-purple-lt:#9b4dde;--desp-purple-dk:#4a1080;
   --green:#1a7f37;--green-bg:#d4f4dd;
   --red:#cf222e;--red-bg:#ffd8d3;
-  --text:#1f2328;--muted:#57606a;--muted2:#8c959f;
+  --text:#1f2328;--muted:#57606a;--muted2:#6B6B85;   /* muted2: de #8c959f (3:1) a 5:1 sobre blanco, AA */
+  --hdr-h:64px;   /* alto del header: del resto del layout depende de esta variable */
   --radius:8px;--shadow:0 1px 4px rgba(0,0,0,.08),0 4px 16px rgba(0,0,0,.06);
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -25,7 +26,7 @@ body{background:var(--bg);color:var(--text);font-family:-apple-system,'Segoe UI'
 /* ── Header ─────────────────────────────────────────────── */
 header{
   background:linear-gradient(90deg,#5B21B6 0%,#6D28D9 40%,#7C3AED 100%);
-  padding:0 28px;height:85px;display:flex;align-items:center;justify-content:center;
+  padding:0 28px;height:var(--hdr-h);display:flex;align-items:center;justify-content:center;
   position:sticky;top:0;z-index:300;
   box-shadow:0 2px 12px rgba(91,33,182,.4);
 }
@@ -33,10 +34,10 @@ header{
 .logo-main{color:#fff;font-size:16px;font-weight:700;text-align:left;letter-spacing:.01em;line-height:1.2}
 .logo-main span{color:#C4B5FD}
 .logo-sub{color:rgba(196,181,253,.65);font-size:10px;font-weight:500;text-align:left;letter-spacing:.04em;text-transform:uppercase;margin-top:3px}
-.header-right{position:absolute;top:8px;right:28px;display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.header-right{position:absolute;top:50%;transform:translateY(-50%);right:28px;display:flex;flex-direction:row;align-items:center;gap:8px;flex-wrap:nowrap}
 .header-actions-row{display:flex;gap:8px;align-items:center}
-#last-upd{color:rgba(255,255,255,.5);font-size:11px}
-.btn{border:none;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:12px;font-weight:600}
+#last-upd{display:block;color:rgba(255,255,255,.85);font-size:10px;margin-top:2px;white-space:nowrap}
+.btn{border:none;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:12px;font-weight:600;white-space:nowrap}
 .btn-ghost{background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.25)}
 .btn-ghost:hover{background:rgba(255,255,255,.25)}
 
@@ -45,7 +46,7 @@ header{
   background:linear-gradient(90deg,#1E1B4B 0%,#2D2A6E 100%);
   border-bottom:2px solid rgba(124,58,237,.4);
   padding:0 28px;display:flex;gap:0;
-  position:sticky;top:85px;z-index:299;
+  position:sticky;top:var(--hdr-h);z-index:299;
 }
 .lob-tab{
   padding:11px 24px;border:none;background:transparent;
@@ -63,7 +64,7 @@ header{
 
 /* ── Filters sidebar ─────────────────────────────────────── */
 .filters{
-  position:fixed;left:0;top:85px;bottom:0;width:260px;
+  position:fixed;left:0;top:var(--hdr-h);bottom:0;width:260px;
   background:linear-gradient(180deg,#2D2A6E 0%,#1E1B4B 100%);
   padding:0;display:flex;flex-direction:column;flex-wrap:nowrap;
   gap:0;align-items:stretch;
@@ -158,7 +159,7 @@ header{
 }
 .pt-footer .pt-solo:hover{text-decoration:underline}
 .pt-footer .pt-apply{
-  background:#7C7FFF;color:#fff;border:none;border-radius:6px;
+  background:#5457D9;color:#fff;border:none;border-radius:6px;
   padding:5px 18px;font-size:12px;font-weight:700;cursor:pointer;
 }
 .pt-footer .pt-apply:hover{background:#5457D9}
@@ -193,27 +194,33 @@ header{
 /* ── Main ────────────────────────────────────────────────── */
 main{padding:0 0 20px 0;max-width:1600px;margin:0 auto}
 .sec{margin-bottom:24px}
-.sec-title{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid var(--border)}
+.sec-title{font-size:16px;font-weight:700;color:var(--text);margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid var(--border)}
+.sec-chip{display:inline-block;margin-left:10px;padding:2px 12px;border-radius:999px;background:#f3ebfb;color:#5f1f96;font-size:12px;font-weight:700;letter-spacing:.02em;vertical-align:middle}
+.active-filters{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:11px;color:var(--muted);margin:-4px 0 10px}
+.af-chip{background:var(--surface2);border:1px solid var(--border);border-radius:999px;padding:2px 10px;white-space:nowrap}
+.af-chip b{color:var(--text);font-weight:700}
 
 /* ── P&L Summary Table ───────────────────────────────────── */
 .pnl-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);overflow:auto;margin-bottom:20px}
 .pnl-table{width:100%;border-collapse:collapse;min-width:600px}
-.pnl-table thead tr.head-canals th{background:#7C7FFF;color:#fff;padding:10px 14px;font-size:12px;font-weight:700;text-align:center;border-right:2px solid rgba(255,255,255,.18)}
+.pnl-table thead tr.head-canals th{background:#5457D9;color:#fff;padding:10px 14px;font-size:12px;font-weight:700;text-align:right;border-right:2px solid rgba(255,255,255,.18)}
+.pnl-table thead tr.head-canals th > span{align-items:flex-end!important}
+.pnl-table thead tr.head-canals th > span > span{justify-content:flex-end!important}
 .pnl-table thead tr.head-canals th:first-child{text-align:center;width:110px;min-width:110px;border-right:3px solid rgba(255,255,255,.25)}
 .pnl-table thead tr.head-canals th:nth-child(2){text-align:left;width:130px;min-width:130px;border-right:3px solid rgba(255,255,255,.25)}
 /* Section cell (metric name, rowspan) */
 td.pnl-section-cell,
 .row-sub td.pnl-section-cell,
 .row-sub.row-main td.pnl-section-cell{
-  background:#7C7FFF !important;color:#fff;font-size:11px;font-weight:800;
+  background:#5457D9 !important;color:#fff;font-size:11px;font-weight:800;
   padding:8px 10px;letter-spacing:.04em;text-align:center;vertical-align:middle;
   border-right:3px solid rgba(255,255,255,.25);border-top:2px solid rgba(255,255,255,.15);
   width:110px;min-width:110px}
 /* Sub-label cell (indicator name) */
-td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
+td.row-sub-label,.row-sub td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
   padding:6px 10px 6px 12px;border-right:3px solid var(--border2);
   font-weight:600;width:130px;min-width:130px}
-.row-sub td{padding:6px 14px;text-align:center;border-bottom:1px solid var(--border);font-size:12px;border-right:1px solid var(--border)}
+.row-sub td{padding:6px 14px;text-align:right;border-bottom:1px solid var(--border);font-size:12px;border-right:1px solid var(--border)}
 .row-sub.row-main td{font-size:14px;font-weight:800;background:rgba(67,97,194,.04)}
 .row-sub.row-pctgb td{background:#fafafe;color:#555}
 .row-sub.row-pctgb td.row-sub-label{color:var(--muted);font-style:italic}
@@ -234,8 +241,15 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
 
 /* ── Chips ───────────────────────────────────────────────── */
 .chip{display:inline-flex;align-items:center;gap:2px;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap}
-.chip-pos{background:var(--green-bg);color:var(--green)}
-.chip-neg{background:var(--red-bg);color:var(--red)}
+.chip-pos{background:var(--green-bg);color:#116329}
+.chip-neg{background:var(--red-bg);color:#a40e26}
+.chip-zero{background:var(--surface2);color:var(--muted);border:1px solid var(--border)}
+.chip-warn{background:#fff7cd;color:#8a4a06}
+.chip-txt{display:inline-flex;align-items:center;gap:2px;font-size:11px;font-weight:700;white-space:nowrap}
+.chip-txt.pos{color:#116329}
+.chip-txt.neg{color:#a40e26}
+.chip-txt.warn{color:#8a4a06}
+.chip-txt.neu{color:var(--muted);font-weight:600}
 .chip-neu{background:#f3eeff;color:var(--desp-purple)}
 
 /* ── Waterfall — VERTICAL stack ─────────────────────────── */
@@ -273,7 +287,7 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
 .bkd-tbl thead th{background:var(--surface2);color:var(--muted2);padding:5px 9px;font-weight:600;font-size:10px;text-transform:uppercase;border-bottom:1px solid var(--border);text-align:right}
 .bkd-tbl thead th:first-child,.bkd-tbl thead th:nth-child(2){text-align:left}
 .bkd-tbl td{padding:4px 9px;border-bottom:1px solid var(--border);text-align:right;font-size:11px}
-.bkd-country-cell{background:#7C7FFF!important;color:#fff!important;font-weight:800;font-size:10px;text-align:center!important;vertical-align:middle;letter-spacing:.03em;border-right:2px solid rgba(255,255,255,.25);padding:5px 7px!important;min-width:64px;width:64px}
+.bkd-country-cell{background:#5457D9!important;color:#fff!important;font-weight:800;font-size:10px;text-align:center!important;vertical-align:middle;letter-spacing:.03em;border-right:2px solid rgba(255,255,255,.25);padding:5px 7px!important;min-width:64px;width:64px}
 .bkd-prod-lbl{text-align:left!important;color:var(--muted);font-weight:600;border-right:1px solid var(--border);min-width:68px;width:68px}
 .bkd-total-row td{font-weight:700;background:rgba(67,97,194,.13)}
 .bkd-total-row .bkd-prod-lbl{color:var(--text)}
@@ -346,18 +360,18 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
 .okr-table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);overflow:auto;margin-bottom:10px}
 .okr-lob-hdr{background:#5457D9;color:#fff;padding:7px 12px;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:space-between}
 .okr-table{width:100%;border-collapse:collapse;font-size:11px;table-layout:fixed}
-.okr-table th{background:#7C7FFF;color:#fff;padding:5px 8px;text-align:center;font-weight:700;font-size:10px;white-space:nowrap;border-right:1px solid rgba(255,255,255,.15)}
+.okr-table th{background:#5457D9;color:#fff;padding:5px 8px;text-align:right;font-weight:700;font-size:10px;white-space:nowrap;border-right:1px solid rgba(255,255,255,.15)}
 .okr-table th:first-child{text-align:left;width:27%}
 .okr-table th:nth-child(2){width:42px;text-align:center}
-.okr-table th.th-q{background:#5457D9;border-left:2px solid rgba(255,255,255,.25)}
-.okr-table td{padding:5px 8px;text-align:center;border-bottom:1px solid var(--border);border-right:1px solid var(--border);font-size:11px}
+.okr-table th.th-q{background:#3f41b0;border-left:2px solid rgba(255,255,255,.25)}
+.okr-table td{padding:5px 8px;text-align:right;border-bottom:1px solid var(--border);border-right:1px solid var(--border);font-size:11px}
 .okr-table td:first-child{text-align:left;font-weight:500;padding-left:10px;color:var(--text);word-break:break-word}
 .okr-table td.td-q{border-left:2px solid var(--border2);font-weight:700}
 .okr-table tr.okr-total td{font-weight:800;border-top:2px solid var(--border2);background:rgba(84,87,217,.04)}
 .okr-chip{display:inline-block;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700}
-.okr-ok  {background:#d4f4dd;color:#16a34a}
-.okr-warn{background:#fff7cd;color:#b45309}
-.okr-bad {background:#ffd8d3;color:#cf222e}
+.okr-ok  {background:#d4f4dd;color:#116329}
+.okr-warn{background:#fff7cd;color:#8a4a06}
+.okr-bad {background:#ffd8d3;color:#a40e26}
 
 /* ── Loader ──────────────────────────────────────────────── */
 #loader{position:fixed;inset:0;background:rgba(240,242,245,.96);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:999}
@@ -366,7 +380,7 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
 #loader p{color:var(--muted);font-size:13px}
 
 /* ── Hamburger ── */
-.hamburger-btn{position:fixed;left:0;top:85px;width:34px;height:40px;background:linear-gradient(180deg,#3d1a6e,#2D2A6E);border:none;border-radius:0 8px 8px 0;border-right:1px solid rgba(124,58,237,.5);border-top:1px solid rgba(124,58,237,.3);border-bottom:1px solid rgba(124,58,237,.3);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;transition:width .18s,background .18s;padding:0;z-index:410}
+.hamburger-btn{position:fixed;left:0;top:var(--hdr-h);width:34px;height:40px;background:linear-gradient(180deg,#3d1a6e,#2D2A6E);border:none;border-radius:0 8px 8px 0;border-right:1px solid rgba(124,58,237,.5);border-top:1px solid rgba(124,58,237,.3);border-bottom:1px solid rgba(124,58,237,.3);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;transition:width .18s,background .18s;padding:0;z-index:410}
 .hamburger-btn:hover{width:40px;background:linear-gradient(180deg,#5B21B6,#3d1a6e)}
 .hamburger-btn.open{width:40px;background:linear-gradient(180deg,#5B21B6,#4a1080)}
 .hbar{display:block;width:16px;height:2px;background:rgba(196,181,253,.9);border-radius:2px;transition:all .22s}
@@ -569,7 +583,7 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
   flex-direction:column;align-items:stretch;gap:14px;
   padding:16px 12px 20px;
   border-right:1px solid var(--border);
-  position:fixed;left:0;top:125px;bottom:0;width:200px;
+  position:fixed;left:0;top:calc(var(--hdr-h) + 40px);bottom:0;width:200px;
   overflow-y:auto;z-index:280;
   background:var(--surface);
   box-shadow:2px 0 8px rgba(0,0,0,.05);
@@ -577,7 +591,7 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
 /* ── Filters toggle tab (Excel-style collapse button) ── */
 #filters-toggle{
   display:none;
-  position:fixed;top:152px;left:0;
+  position:fixed;top:calc(var(--hdr-h) + 67px);left:0;
   width:20px;z-index:281;
   flex-direction:column;align-items:center;
   justify-content:flex-start;padding:8px 0 12px;gap:7px;
@@ -598,7 +612,7 @@ td.row-sub-label{text-align:left;color:var(--muted);font-size:11px;
 }
 #ftoggle-lbl{
   writing-mode:vertical-lr;transform:rotate(180deg);
-  font-size:16px;font-weight:800;letter-spacing:.12em;
+  font-size:12px;font-weight:800;letter-spacing:.12em;
   text-transform:uppercase;color:inherit;
 }
 #pnl-filters-bar .canal-toggle{border-color:var(--border2);width:100%}
@@ -747,7 +761,6 @@ header > img{filter:brightness(0) invert(1);opacity:.92}
 .logo-main{color:#fff;font-weight:600;letter-spacing:-.01em}
 .logo-main span{color:#DDD6FE}
 .logo-sub{color:rgba(255,255,255,.7);font-weight:500;letter-spacing:.06em}
-#last-upd{color:rgba(255,255,255,.62)}
 .btn{border-radius:999px;font-weight:600;transition:background .18s var(--ap-ease),transform .18s var(--ap-ease)}
 .btn-ghost,.sync-admin-toggle,.nav-link{
   background:rgba(255,255,255,.16);color:#fff;border:1px solid rgba(255,255,255,.28);border-radius:999px;
@@ -834,6 +847,12 @@ header > img{filter:brightness(0) invert(1);opacity:.92}
 .bento-arrow{color:rgba(196,181,253,.4)}
 .bento-card:hover .bento-arrow{color:#C4B5FD}
 
+/* Pantallas angostas: el header (64px, una sola fila) se compacta en vez de pisarse con el logo */
+@media (max-width:1400px){
+  .header-right{gap:6px;right:16px}
+  .header-right .btn{padding:5px 10px;font-size:11px}
+  .logo-main{font-size:14px}
+}
 @media (prefers-reduced-motion:reduce){
   .bento-card,.btn,.nav-item{transition:none}
   .bento-card{animation:none}
@@ -1055,10 +1074,10 @@ header > img{filter:brightness(0) invert(1);opacity:.92}
   <div class="logo" id="header-logo">
     <div class="logo-main" id="logo-title">B2B ecosystem - P&amp;L Dashboard <span>B2B &amp; B2B2C</span></div>
     <div class="logo-sub" id="logo-sub">accounting information</div>
+    <span id="last-upd"></span>
   </div>
   <div class="header-right">
     <div class="header-actions-row">
-      <span id="last-upd"></span>
       <div class="sync-admin-wrap" id="sync-admin-wrap" style="display:none">
         <button class="sync-admin-toggle" onclick="toggleSyncPanel()" title="Sincronizar datos">
           <span>&#128260;</span> Sync
@@ -1103,7 +1122,7 @@ header > img{filter:brightness(0) invert(1);opacity:.92}
       <button class="btn btn-ghost" id="btn-cierre-slides" onclick="openCierreSlides()" style="display:none" title="Arma las slides del cierre de mes — Consolidado, B2B y B2B2C por separado (vs Budget/Forecast/Run Rate, YTD, H1 y evolución OC) listas para imprimir o guardar como PDF">📸 Slides cierre de mes</button>
     </div>
 
-    <div class="ai-links" id="ai-links" style="display:none;flex-direction:row;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+    <div class="ai-links" id="ai-links" style="display:none;flex-direction:row;gap:8px;flex-wrap:nowrap;justify-content:flex-end">
       <a class="btn btn-ai-toggle" id="ai-link-bitubia" onclick="openExt('agents.bitubia')" style="cursor:pointer">🤖 CONSULTAR BITUBIA</a>
       <a class="btn btn-ai-toggle" id="ai-link-second" href="#" target="_blank" style="display:none">🤖 CONSULTAR</a>
     </div>
@@ -1244,7 +1263,7 @@ header > img{filter:brightness(0) invert(1);opacity:.92}
     <div class="fg">
       <label>Baseline</label>
       <select id="f-baseline-bar" onchange="switchBaselineBar()">
-        <option value="baseline">Actuals + Projections</option>
+        <option value="baseline">Actuals + Run Rate</option>
         <option value="forecast">Forecast</option>
       </select>
     </div>
@@ -1299,6 +1318,7 @@ header > img{filter:brightness(0) invert(1);opacity:.92}
   <!-- P&L Summary + OKR side-by-side -->
   <div class="sec">
     <div class="sec-title" id="pnl-title">Cuadro Resumen P&L</div>
+    <div class="active-filters" id="active-filters"></div>
     <div class="pnl-okr-wrap">
       <!-- P&L tables (left) -->
       <div class="pnl-tables-col">
@@ -1342,7 +1362,7 @@ header > img{filter:brightness(0) invert(1);opacity:.92}
 
   <!-- Waterfall (vertical) -->
   <div class="sec">
-    <div class="sec-title" id="wf-title">Varianza vs Goal por Grupo — Actuals+RunRate vs Budget</div>
+    <div class="sec-title" id="wf-title">Varianza vs Goal por Grupo — Actuals + Run Rate vs Budget</div>
     <div class="wf-grid" id="wf-grid"></div>
   </div>
 
@@ -1365,8 +1385,8 @@ header > img{filter:brightness(0) invert(1);opacity:.92}
           <!-- Metric tabs -->
           <div class="mtabs">
             <button class="mtab active" data-id="gb" onclick="switchEvo(this)">Gross Bookings</button>
-            <button class="mtab"        data-id="nr" onclick="switchEvo(this)">Net Revenues</button>
-            <button class="mtab"        data-id="oc" onclick="switchEvo(this)">Op. Contribution</button>
+            <button class="mtab"        data-id="nr" onclick="switchEvo(this)">Net Revenue</button>
+            <button class="mtab"        data-id="oc" onclick="switchEvo(this)">Operating Contribution</button>
           </div>
           <!-- Last Year toggle -->
           <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:#57606a;cursor:pointer;user-select:none" title="Superpone la serie Last Year al gráfico de evolución">
@@ -1426,11 +1446,11 @@ header > img{filter:brightness(0) invert(1);opacity:.92}
         <table class="bkd-tbl" id="bkd-gb"></table>
       </div>
       <div class="bkd-card">
-        <div class="bkd-title">Net Revenues</div>
+        <div class="bkd-title">Net Revenue</div>
         <table class="bkd-tbl" id="bkd-nr"></table>
       </div>
       <div class="bkd-card">
-        <div class="bkd-title">Op. Contribution</div>
+        <div class="bkd-title">Operating Contribution</div>
         <table class="bkd-tbl" id="bkd-oc"></table>
       </div>
     </div>
@@ -1471,32 +1491,32 @@ header > img{filter:brightness(0) invert(1);opacity:.92}
 
   <!-- Weekly Summary iframe -->
   <div class="sec" id="weekly-section" style="display:none;padding:0;margin:-20px -28px 0">
-    <iframe id="weekly-frame" src="" style="width:100%;height:calc(100vh - 96px);border:none;display:block;"></iframe>
+    <iframe id="weekly-frame" src="" style="width:100%;height:calc(100vh - var(--hdr-h) - 11px);border:none;display:block;"></iframe>
   </div>
 
   <!-- Detail By Country iframe (lob_country_one_pager) -->
   <div class="sec" id="detailcountry-section" style="display:none;padding:0;margin:-20px -28px 0">
-    <iframe id="detailcountry-frame" src="" style="width:100%;height:calc(100vh - 96px);border:none;display:block;"></iframe>
+    <iframe id="detailcountry-frame" src="" style="width:100%;height:calc(100vh - var(--hdr-h) - 11px);border:none;display:block;"></iframe>
   </div>
 
   <!-- FVM Negativo iframe (FVM_Negativo/) -->
   <div class="sec" id="fvmneg-section" style="display:none;padding:0;margin:-20px -28px 0">
-    <iframe id="fvmneg-frame" src="" style="width:100%;height:calc(100vh - 96px);border:none;display:block;"></iframe>
+    <iframe id="fvmneg-frame" src="" style="width:100%;height:calc(100vh - var(--hdr-h) - 11px);border:none;display:block;"></iframe>
   </div>
 
   <!-- Daily iframe -->
   <div class="sec" id="daily-section" style="display:none;padding:0;margin:-20px -28px 0">
-    <iframe id="daily-frame" src="" style="width:100%;height:calc(100vh - 96px);border:none;display:block;"></iframe>
+    <iframe id="daily-frame" src="" style="width:100%;height:calc(100vh - var(--hdr-h) - 11px);border:none;display:block;"></iframe>
   </div>
 
   <!-- Fixed Cost iframe -->
   <div class="sec" id="fixedcost-section" style="display:none;padding:0;margin:-20px -28px 0">
-    <iframe id="fixedcost-frame" src="" style="width:100%;height:calc(100vh - 96px);border:none;display:block;"></iframe>
+    <iframe id="fixedcost-frame" src="" style="width:100%;height:calc(100vh - var(--hdr-h) - 11px);border:none;display:block;"></iframe>
   </div>
 
   <!-- Weekly Industry iframe -->
   <div class="sec" id="industry-section" style="display:none;padding:0;margin:-20px -28px 0">
-    <iframe id="industry-frame" src="" style="width:100%;height:calc(100vh - 96px);border:none;display:block;"></iframe>
+    <iframe id="industry-frame" src="" style="width:100%;height:calc(100vh - var(--hdr-h) - 11px);border:none;display:block;"></iframe>
   </div>
 
   <!-- OKR Products (B2B2C/WLs + B2B, embebidos) -->
@@ -1505,8 +1525,8 @@ header > img{filter:brightness(0) invert(1);opacity:.92}
       <button class="okr-subtab-btn active" id="okr-sub-b2b2c" onclick="setOkrSub('b2b2c')">OKR B2B2C Product</button>
       <button class="okr-subtab-btn"        id="okr-sub-b2b"   onclick="setOkrSub('b2b')">OKR B2B Product</button>
     </div>
-    <iframe id="okr-frame-b2b2c" src="" style="width:100%;height:calc(100vh - 96px - 42px);border:none;display:block;"></iframe>
-    <iframe id="okr-frame-b2b"   src="" style="width:100%;height:calc(100vh - 96px - 42px);border:none;display:none;"></iframe>
+    <iframe id="okr-frame-b2b2c" src="" style="width:100%;height:calc(100vh - var(--hdr-h) - 11px - 42px);border:none;display:block;"></iframe>
+    <iframe id="okr-frame-b2b"   src="" style="width:100%;height:calc(100vh - var(--hdr-h) - 11px - 42px);border:none;display:none;"></iframe>
   </div>
 
   <!-- IA Agents section -->
@@ -1586,17 +1606,17 @@ header > img{filter:brightness(0) invert(1);opacity:.92}
 
   <!-- News iframe -->
   <div class="sec" id="news-section" style="display:none;padding:0;margin:-20px -28px 0">
-    <iframe id="news-frame" src="" style="width:100%;height:calc(100vh - 96px);border:none;display:block;"></iframe>
+    <iframe id="news-frame" src="" style="width:100%;height:calc(100vh - var(--hdr-h) - 11px);border:none;display:block;"></iframe>
   </div>
 
   <!-- P&L Accounting iframe -->
   <div class="sec" id="pnl-section" style="display:none;padding:0;margin:-20px -28px 0">
-    <iframe id="pnl-frame" src="" style="width:100%;height:calc(100vh - 96px);border:none;display:block;"></iframe>
+    <iframe id="pnl-frame" src="" style="width:100%;height:calc(100vh - var(--hdr-h) - 11px);border:none;display:block;"></iframe>
   </div>
 
   <!-- P&L Managerial View iframe -->
   <div class="sec" id="pnl-mgr-section" style="display:none;padding:0;margin:-20px -28px 0">
-    <iframe id="pnl-mgr-frame" src="" style="width:100%;height:calc(100vh - 96px);border:none;display:block;"></iframe>
+    <iframe id="pnl-mgr-frame" src="" style="width:100%;height:calc(100vh - var(--hdr-h) - 11px);border:none;display:block;"></iframe>
   </div>
 
   <!-- ── Insights semanales ─────────────────────────────────── -->
@@ -2209,6 +2229,7 @@ function loadAll() {
   if (IS_DEMO) {
     setTimeout(function(){
       _state.filters = demoFilters();
+      _dataLoadedAt = new Date();
       populateFilters();
       reload();
     }, 200);
@@ -2220,6 +2241,7 @@ function loadAll() {
     .withSuccessHandler(function(d){
       try {
         _state.filters = d.filters;
+        _dataLoadedAt = new Date();   // sello "Cargado": momento en que se bajaron los datos
         populateFilters();
         _state.pnl    = d.pnl;
         _state.wf     = d.wf;
@@ -2379,8 +2401,8 @@ function _updateHeader(lob) {
     secIds.forEach(function(id){ var s=document.getElementById(id); if(s){ s.style.margin='0'; s.style.padding='0'; } });
   } else {
     header.style.display  = '';
-    hamburger.style.top   = '85px';
-    filters.style.top     = '85px';
+    hamburger.style.top   = 'var(--hdr-h)';
+    filters.style.top     = 'var(--hdr-h)';
     mainEl.style.padding  = '';
     mainEl.style.maxWidth = '';
     mainEl.style.margin   = '';
@@ -2449,7 +2471,7 @@ function switchLob(btn) {
     } else {
       if (pnlBar) pnlBar.style.display = 'none';
       if (ftog)  { ftog.classList.remove('fil-open'); document.getElementById('ftoggle-sign').textContent = '+'; }
-      if (mainEl) { mainEl.style.marginLeft = ''; mainEl.style.paddingLeft = '20px'; }
+      if (mainEl) { mainEl.style.marginLeft = ''; mainEl.style.paddingLeft = '48px'; }
     }
   } else {
     if (pnlBar) pnlBar.style.display = 'none';
@@ -2724,7 +2746,7 @@ function toggleFiltersPanel() {
     if (bar)  bar.style.display = 'none';
     if (tog)  tog.classList.remove('fil-open');
     if (sign) sign.textContent = '+';
-    if (main) { main.style.marginLeft = ''; main.style.paddingLeft = '20px'; }
+    if (main) { main.style.marginLeft = ''; main.style.paddingLeft = '48px'; }
   }
 }
 
@@ -2788,7 +2810,7 @@ function switchBaselineBar() {
   reload();
 }
 function _baselineLabel() {
-  return _state.baselineSource === 'forecast' ? 'Forecast' : 'Actuals + Projections';
+  return _state.baselineSource === 'forecast' ? 'Forecast' : 'Actuals + Run Rate';
 }
 // Nominal format toggle
 function switchNumFmt(btn) {
@@ -2900,21 +2922,24 @@ function renderCompPnL() {
   var html = '';
   (d.rows||[]).forEach(function(row) {
     html += '<tr class="row-sub row-main">';
-    html += '<td class="pnl-section-cell" rowspan="3">' + _escHtml(row.label) + '</td>';
-    html += '<td class="row-sub-label">$' + (row.fmt === 'M' ? 'M' : 'K') + '</td>';
+    html += '<td class="pnl-section-cell" rowspan="' + (_state.goal === 'lastYear' ? 2 : 3) + '">' + _escHtml(row.label) + '</td>';
+    html += '<td class="row-sub-label">' + (row.id === 'orders' ? 'Cant.' : '$' + (row.fmt === 'M' ? 'M' : 'K')) + '</td>';
     row.cols.forEach(function(col) { html += '<td>' + fmtMain(col.actual, row.fmt) + '</td>'; });
     html += '</tr>';
 
     html += '<tr class="row-sub"><td class="row-sub-label">YoY %</td>';
-    row.cols.forEach(function(col) { html += '<td>' + chip(col.yoyPct) + '</td>'; });
+    row.cols.forEach(function(col) { html += '<td>' + chipTxt(col.yoyPct) + '</td>'; });
     html += '</tr>';
 
-    html += '<tr class="row-sub"><td class="row-sub-label">vs ' + goalLabel + ' %</td>';
-    row.cols.forEach(function(col) {
-      var pct = _state.goal === 'budget' ? col.varBudPct : _state.goal === 'lastYear' ? col.yoyPct : _state.goal === 'forecast' ? col.varFcPct : col.varRRPct;
-      html += '<td>' + chip(pct) + '</td>';
-    });
-    html += '</tr>';
+    // Con comparador = Last Year, "Δ vs Last Year (%)" es idéntico a YoY %: no se repite la fila.
+    if (_state.goal !== 'lastYear') {
+      html += '<tr class="row-sub"><td class="row-sub-label">Δ vs ' + goalLabel + ' (%)</td>';
+      row.cols.forEach(function(col) {
+        var pct = _state.goal === 'budget' ? col.varBudPct : _state.goal === 'forecast' ? col.varFcPct : col.varRRPct;
+        html += '<td>' + chip(pct) + '</td>';
+      });
+      html += '</tr>';
+    }
   });
   bodyEl.innerHTML = html;
 }
@@ -2926,7 +2951,31 @@ function render() {
   renderEvo();
   renderDrilldown();
   renderCompPnL();
-  document.getElementById('last-upd').textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-AR');
+  _renderDataStamp_();
+}
+
+// Sello de frescura: hasta qué mes hay real, desde cuál es Run Rate y cuándo se cargaron los datos
+// (hora de carga, no la del re-render: antes mostraba new Date() en cada cambio de filtro).
+var _dataLoadedAt = null;
+function _ymShort_(ym) {
+  if (!ym) return '';
+  var p = String(ym).split('-');
+  return String(MONTH_LABELS[p[1]] || p[1]).slice(0, 3) + " '" + String(p[0]).slice(2);
+}
+function _renderDataStamp_() {
+  var el = document.getElementById('last-upd');
+  if (!el) return;
+  var f = _state.filters || {};
+  if (!_dataLoadedAt) _dataLoadedAt = new Date();
+  var two = function(n){ return (n < 10 ? '0' : '') + n; };
+  var d = _dataLoadedAt;
+  var loaded = two(d.getDate()) + '/' + two(d.getMonth() + 1) + ' ' + two(d.getHours()) + ':' + two(d.getMinutes());
+  var parts = [];
+  if (f.lastActuals) parts.push('Actuals hasta ' + _ymShort_(f.lastActuals));
+  if (f.lastRunRate) parts.push('Run Rate desde ' + _ymShort_(f.lastRunRate));
+  parts.push('Cargado ' + loaded);
+  el.textContent = parts.join(' · ');
+  el.title = 'Datos reales hasta el último mes cerrado; los meses siguientes son Run Rate. "Cargado" es la hora en que se bajaron los datos a esta pantalla.';
 }
 
 // ── P&L group label con banderas ──────────────────────────
@@ -2962,13 +3011,27 @@ function pnlGroupLabel(g) {
   return label;
 }
 
+// Filtros activos siempre visibles (el panel de filtros está colapsado por defecto).
+function _renderActiveFilters_(goalLabel) {
+  var el = document.getElementById('active-filters');
+  if (!el) return;
+  var chip_ = function(k, v) { return '<span class="af-chip">' + k + ': <b>' + _escHtml(v) + '</b></span>'; };
+  var paises = _selectedPaises.length ? _selectedPaises.join(', ') : 'Todos';
+  var prod = (_selectedProducto && _selectedProducto !== 'all') ? String(_selectedProducto).split('|').join(', ') : 'Todos';
+  var html = chip_('País', paises) + chip_('Producto', prod);
+  if (_state.lob === 'b2b' && _state.canal && _state.canal !== 'all') html += chip_('Canal', String(_state.canal).toUpperCase());
+  html += chip_('Baseline', _baselineLabel()) + chip_('Comparado con', goalLabel);
+  el.innerHTML = html;
+}
+
 // ── P&L Table ─────────────────────────────────────────────
 function renderPnL() {
   var d = _state.pnl;
   if (!d) return;
   var goalLabel = _state.goal === 'budget' ? 'Budget' : _state.goal === 'lastYear' ? 'Last Year' : _state.goal === 'forecast' ? 'Forecast' : 'Run Rate';
   var pnlTitleEl = document.getElementById('pnl-title');
-  if (pnlTitleEl) pnlTitleEl.textContent = 'Cuadro Resumen P&L — ' + _periodLabel_();
+  if (pnlTitleEl) pnlTitleEl.innerHTML = 'Cuadro Resumen P&amp;L' + (_periodLabel_() ? '<span class="sec-chip">' + _periodLabel_() + '</span>' : '');
+  _renderActiveFilters_(goalLabel);
 
   // Header — 2 fixed left cols: section + indicator
   var hHtml = '<th>Métrica</th><th style="text-align:left">Indicador</th>';
@@ -3001,12 +3064,12 @@ function renderPnL() {
   d.rows.forEach(function(row){
     // Extra sub-rows for NR/OC: %GB value + pp vs goal
     var extraRows = (row.id === 'nr' || row.id === 'oc') ? 2 : 0;
-    var rowspan   = 4 + extraRows;
+    var rowspan   = 4 + extraRows - (_state.goal === 'lastYear' ? 1 : 0);   // sin fila duplicada de Δ% vs Last Year
 
     // $M row — includes rowspan section cell
     html += '<tr class="row-sub row-main">';
     html += '<td class="pnl-section-cell" rowspan="'+rowspan+'">'+row.label+'</td>';
-    html += '<td class="row-sub-label">$'+(row.fmt==='M'?'M':'K')+'</td>';
+    html += '<td class="row-sub-label">'+(row.id==='orders' ? 'Cant.' : '$'+(row.fmt==='M'?'M':'K'))+'</td>';   // Orders son cantidades, no dólares
     row.cols.forEach(function(col){ html += '<td>'+fmtMain(col.actual, row.fmt)+'</td>'; });
     html += '</tr>';
 
@@ -3023,29 +3086,31 @@ function renderPnL() {
 
     // YoY
     html += '<tr class="row-sub"><td class="row-sub-label">YoY %</td>';
-    row.cols.forEach(function(col){ html += '<td>'+chip(col.yoyPct)+'</td>'; });
+    row.cols.forEach(function(col){ html += '<td>'+chipTxt(col.yoyPct)+'</td>'; });
     html += '</tr>';
 
     // vs Goal $
-    html += '<tr class="row-sub"><td class="row-sub-label">vs ('+(row.id==='orders'?'Q':'$')+') '+goalLabel+'</td>';
+    html += '<tr class="row-sub"><td class="row-sub-label">Δ vs '+goalLabel+' ('+(row.id==='orders'?'cant.':'$')+')</td>';
     row.cols.forEach(function(col){
       var diff = _state.goal==='budget' ? col.varBudAbs : _state.goal==='lastYear' ? col.varLYAbs : _state.goal==='forecast' ? col.varFcAbs : col.varRRAbs;
       html += '<td>'+chipAbs(diff, row.fmt)+'</td>';
     });
     html += '</tr>';
 
-    // vs Goal %
-    html += '<tr class="row-sub"><td class="row-sub-label">vs (%) '+goalLabel+'</td>';
-    row.cols.forEach(function(col){
-      var pct = _state.goal==='budget' ? col.varBudPct : _state.goal==='lastYear' ? col.yoyPct : _state.goal==='forecast' ? col.varFcPct : col.varRRPct;
-      html += '<td>'+chip(pct)+'</td>';
-    });
-    html += '</tr>';
+    // vs Goal %  (con Last Year es idéntico a YoY %: no se repite)
+    if (_state.goal !== 'lastYear') {
+      html += '<tr class="row-sub"><td class="row-sub-label">Δ vs '+goalLabel+' (%)</td>';
+      row.cols.forEach(function(col){
+        var pct = _state.goal==='budget' ? col.varBudPct : _state.goal==='forecast' ? col.varFcPct : col.varRRPct;
+        html += '<td>'+chip(pct)+'</td>';
+      });
+      html += '</tr>';
+    }
 
     // pp vs Goal — after vs (%) for NR and OC
     if (row.id === 'nr' || row.id === 'oc') {
       var pctCols2 = pctGbCols(row);
-      html += '<tr class="row-sub row-pctgb"><td class="row-sub-label">pp vs '+goalLabel+'</td>';
+      html += '<tr class="row-sub row-pctgb"><td class="row-sub-label">Δ vs '+goalLabel+' (pp)</td>';
       (pctCols2 || []).forEach(function(c){
         var pp = _state.goal==='lastYear' ? null : _state.goal==='budget' ? (c ? c.varBudPp : null) : _state.goal==='forecast' ? (c ? c.varFcPp : null) : (c ? c.varRRPp : null);
         html += '<td>'+chipPp(pp)+'</td>';
@@ -3069,7 +3134,7 @@ function renderShare(d) {
   document.getElementById('share-head').innerHTML = hHtml;
 
   var SHARE_METRICS = ['gb','nr','oc'];
-  var SHARE_LABELS  = {gb:'Gross Bookings',nr:'Net Revenues',oc:'Op. Contribution'};
+  var SHARE_LABELS  = {gb:'Gross Bookings',nr:'Net Revenue',oc:'Operating Contribution'};
   var html = '';
   d.rows.forEach(function(row){
     if (SHARE_METRICS.indexOf(row.id) < 0) return;
@@ -3093,7 +3158,26 @@ function renderShare(d) {
 // ── Waterfall (vertical, 3 charts stacked) ────────────────
 // Flecha de diferencial total (estilo think-cell): conecta el nivel Goal (primera barra)
 // con el nivel Baseline (última barra) y anota el Δ total y %.
-function _wfTotalDeltaPlugin_(goalTotal, baseTotal) {
+// Cantidades (Orders): sin "$". Mismo criterio compacto K/M que el resto del dashboard.
+function fmtQty(n) {
+  if (n === null || n === undefined || isNaN(n)) return '—';
+  var abs = Math.abs(n), s = n < 0 ? '-' : '';
+  if (abs >= 1e6) return s + (abs / 1e6).toFixed(1) + 'M';
+  if (abs >= 1e3) return s + _withComma_(abs / 1e3, 1) + 'K';
+  return s + Math.round(abs);
+}
+// Eje Y común a los tres waterfalls (antes cada uno tenía su propia regla). Se recorta el eje para
+// que los deltas se lean, pero con holgura generosa (80% del rango por debajo) y avisando en el gráfico
+// (ver _wfTotalDeltaPlugin_). Si hay niveles negativos no se recorta: el eje incluye el 0.
+function _wfAxis_(levels) {
+  var lo = Math.min.apply(null, levels), hi = Math.max.apply(null, levels);
+  var span = (hi - lo) || Math.abs(hi) * 0.1 || 1;
+  // Con algún nivel negativo (ej. OC) las barras de total [0, total] necesitan al 0 dentro del eje: no se recorta.
+  if (lo < 0) return { min: lo - span * 0.15, max: Math.max(hi + span * 0.15, span * 0.05) };
+  return { min: Math.max(0, lo - span * 0.8), max: hi + span * 0.15 };
+}
+function _wfTotalDeltaPlugin_(goalTotal, baseTotal, fmt) {
+  fmt = fmt || fmtK;
   return {
     id: 'wfTotalDelta',
     // Reserva espacio ARRIBA del plot para dibujar la flecha sin pisar las columnas
@@ -3112,7 +3196,7 @@ function _wfTotalDeltaPlugin_(goalTotal, baseTotal) {
       var ctx = chart.ctx;
 
       var delta = baseTotal - goalTotal;
-      var color = delta >= 0 ? '#10b132' : '#e06666';
+      var color = delta >= 0 ? '#0f7a22' : '#b42318';   // texto de la flecha de Δ total: contraste AA
       var x1 = goalBar.x, x2 = baseBar.x;
       // Posición fija en el padding superior, por encima del área de barras
       var arrowY = chart.chartArea.top - 14;
@@ -3143,13 +3227,34 @@ function _wfTotalDeltaPlugin_(goalTotal, baseTotal) {
       ctx.beginPath(); ctx.moveTo(x1, arrowY - 5); ctx.lineTo(x1, arrowY + 5); ctx.stroke();
 
       // Etiqueta del delta total, centrada sobre la línea
-      var label = (delta >= 0 ? '+' : '') + fmtK(delta);
+      var label = (delta >= 0 ? '+' : '') + fmt(delta);
       ctx.font = 'bold 10px -apple-system,sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'bottom';
       ctx.fillText(label, (x1 + x2) / 2, arrowY - 5);
 
       ctx.restore();
+
+      // Eje recortado: si el eje Y no parte de 0, las barras de total no miden su valor real.
+      // Marca de quiebre (banda blanca inclinada) en las dos barras de total + aviso en el gráfico.
+      var yS = chart.scales && chart.scales.y;
+      if (yS && yS.min > 0) {
+        var area = chart.chartArea, bw = goalBar.width || 20, by = area.bottom - 14;
+        ctx.save();
+        ctx.fillStyle = '#ffffff';
+        [goalBar, baseBar].forEach(function(b) {
+          var l = b.x - bw / 2 - 1, r = b.x + bw / 2 + 1;
+          ctx.beginPath();
+          ctx.moveTo(l, by + 3); ctx.lineTo(r, by - 3); ctx.lineTo(r, by + 1); ctx.lineTo(l, by + 7);
+          ctx.closePath(); ctx.fill();
+        });
+        ctx.fillStyle = '#6B6B85';
+        ctx.font = 'italic 10px -apple-system,sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText('Eje recortado: no parte de 0', (area.left + area.right) / 2, area.bottom - 3);
+        ctx.restore();
+      }
     }
   };
 }
@@ -3162,7 +3267,7 @@ function renderWf() {
 
   var goalKey   = _state.goal;
   var goalLabel = goalKey === 'budget' ? 'Budget' : goalKey === 'lastYear' ? 'Last Year' : goalKey === 'forecast' ? 'Forecast' : 'Run Rate';
-  var baseLabel = 'Actuals+RR';
+  var baseLabel = 'Actuals + RR';
 
   // Short period suffix for bar labels (e.g. "Jun'26" or "Abr'26 – Jun'26")
   var _periodShort_ = (function() {
@@ -3220,7 +3325,7 @@ function renderWf() {
       var cCard = document.createElement('div');
       cCard.className = 'chart-card';
       cCard.innerHTML =
-        '<h3>Op. Contribution <small>por concepto — '+goalLabel+' vs '+baseLabel+'</small></h3>'+
+        '<h3>Operating Contribution <small>por concepto — '+goalLabel+' vs '+baseLabel+'</small></h3>'+
         '<div class="chart-wrap"><canvas id="wfc-oc-concept"></canvas></div>'+
         '<table class="mini-tbl" id="wft-oc-concept"></table>';
       row.appendChild(cCard);
@@ -3279,11 +3384,11 @@ function renderWf() {
     colors.push('#550fed');
     wfDeltas.push(baseTotal);
 
-    // Y-axis zoom
-    var yMin = Math.min(goalTotal, baseTotal) * 0.88;
-    var yMax = Math.max(goalTotal, baseTotal) * 1.08;
-    var r2 = goalTotal;
-    deltas.forEach(function(d){ r2+=d; yMin=Math.min(yMin,r2*0.95); yMax=Math.max(yMax,r2*1.05); });
+    // Y-axis: regla común a los 3 waterfalls (_wfAxis_). Orders son cantidades: sin "$".
+    var wfFmt = (m.id === 'orders') ? fmtQty : fmtK;
+    var wfLevels = [goalTotal, baseTotal], r2 = goalTotal;
+    deltas.forEach(function(d){ r2+=d; wfLevels.push(r2); });
+    var wfAx = _wfAxis_(wfLevels), yMin = wfAx.min, yMax = wfAx.max;
 
     destroyChart('wfc-'+m.id);
     _charts['wfc-'+m.id] = new Chart(document.getElementById('wfc-'+m.id), {
@@ -3300,7 +3405,7 @@ function renderWf() {
             label:function(ctx){
               var idx=ctx.dataIndex;
               var val=wfDeltas[idx];
-              return (idx===0||idx===labels.length-1)?' '+fmtK(val):' Δ: '+fmtK(val);
+              return (idx===0||idx===labels.length-1)?' '+wfFmt(val):' Δ: '+wfFmt(val);
             }
           }}
         },
@@ -3309,7 +3414,7 @@ function renderWf() {
           y:{
             min:yMin,max:yMax,
             grid:{color:'rgba(0,0,0,.06)'},
-            ticks:{color:'#57606a',font:{size:10},callback:function(v){return fmtK(v);}},
+            ticks:{color:'#57606a',font:{size:10},callback:function(v){return wfFmt(v);}},
             border:{color:'rgba(0,0,0,.12)'}
           }
         }
@@ -3324,14 +3429,14 @@ function renderWf() {
             var val=wfDeltas[i];
             if(!val&&val!==0) return;
             ctx.save();
-            ctx.fillStyle=isEnd?'#1f2328':val>=0?'#10b132':'#e06666';
+            ctx.fillStyle=isEnd?'#1f2328':val>=0?'#0f7a22':'#b42318';
             ctx.font='bold 10px -apple-system,sans-serif';
             ctx.textAlign='center';
-            ctx.fillText(fmtK(val),bar.x,bar.y-5);
+            ctx.fillText(wfFmt(val),bar.x,bar.y-5);
             ctx.restore();
           });
         }
-      }, _wfTotalDeltaPlugin_(goalTotal, baseTotal)]
+      }, _wfTotalDeltaPlugin_(goalTotal, baseTotal, wfFmt)]
     });
 
     // Mini table: Baseline | Goal | Δ$ | Δ% | Baseline YoY | Total
@@ -3345,11 +3450,11 @@ function renderWf() {
     var tbl = document.getElementById('wft-'+m.id);
     var th = '<thead><tr><th></th>'+allCols.map(function(c){return '<th>'+c+'</th>';}).join('')+'</tr></thead>';
     var rows2 = [
-      { label: baseLabel,        vals: bVals,   renderer: function(v){ return fmtK(v); } },
-      { label: goalLabel,        vals: gVals,   renderer: function(v){ return fmtK(v); } },
-      { label: 'Δ vs '+goalLabel,vals: dVals,   renderer: function(v){ return chipAbs(v,'M'); } },
+      { label: baseLabel,        vals: bVals,   renderer: function(v){ return wfFmt(v); } },
+      { label: goalLabel,        vals: gVals,   renderer: function(v){ return wfFmt(v); } },
+      { label: 'Δ vs '+goalLabel,vals: dVals,   renderer: function(v){ return chipAbs(v, m.id==='orders' ? 'K' : 'M'); } },
       { label: 'Δ %',            vals: pctVals, renderer: chip },
-      { label: 'Baseline YoY %', vals: yoyVals, renderer: chip }
+      { label: 'Baseline YoY %', vals: yoyVals, renderer: chipTxt }
     ];
     var tb = '<tbody>'+rows2.map(function(r){
       return '<tr><td>'+r.label+'</td>'+r.vals.map(function(val){
@@ -3407,9 +3512,7 @@ function renderWf() {
 
       var allCY = [goalTotal_c, baseTotal_c], tmpRun = goalTotal_c;
       concepts_c.forEach(function(c){ tmpRun += c[deltaKey_c]; allCY.push(tmpRun); });
-      var cyMin = Math.min.apply(null, allCY), cyMax = Math.max.apply(null, allCY);
-      var cyPad = (Math.abs(cyMax - cyMin) * 0.12) || (Math.abs(cyMax) * 0.15) || 1;
-      cyMin -= cyPad; cyMax += cyPad;
+      var cAx = _wfAxis_(allCY), cyMin = cAx.min, cyMax = cAx.max;   // eje común (ver _wfAxis_)
 
       destroyChart('wfc-oc-concept');
       _charts['wfc-oc-concept'] = new Chart(document.getElementById('wfc-oc-concept'), {
@@ -3459,7 +3562,7 @@ function renderWf() {
               var val2=cDeltasArr[i];
               if(!val2&&val2!==0) return;
               ctx2.save();
-              ctx2.fillStyle=isEnd2?'#1f2328':val2>=0?'#10b132':'#e06666';
+              ctx2.fillStyle=isEnd2?'#1f2328':val2>=0?'#0f7a22':'#b42318';
               ctx2.font='bold 10px -apple-system,sans-serif';
               ctx2.textAlign='center';
               ctx2.fillText(fmtK(val2),bar2.x,bar2.y-5);
@@ -3525,9 +3628,7 @@ function renderWf() {
 
       var allNrY=[goalTotal_nr, baseTotal_nr], nrTmp=goalTotal_nr;
       nrGroups.forEach(function(g){ nrTmp+=g[deltaKey_nr]; allNrY.push(nrTmp); });
-      var nrMin=Math.min.apply(null,allNrY), nrMax=Math.max.apply(null,allNrY);
-      var nrPad=(Math.abs(nrMax-nrMin)*0.12)||(Math.abs(nrMax)*0.15)||1;
-      nrMin-=nrPad; nrMax+=nrPad;
+      var nrAx=_wfAxis_(allNrY), nrMin=nrAx.min, nrMax=nrAx.max;   // eje común (ver _wfAxis_)
 
       destroyChart('wfc-nr-bridge');
       _charts['wfc-nr-bridge'] = new Chart(document.getElementById('wfc-nr-bridge'), {
@@ -3573,7 +3674,7 @@ function renderWf() {
               var val3=nrDeltasArr[i];
               if(!val3&&val3!==0) return;
               ctx3.save();
-              ctx3.fillStyle=isEnd3?'#1f2328':val3>=0?'#10b132':'#e06666';
+              ctx3.fillStyle=isEnd3?'#1f2328':val3>=0?'#0f7a22':'#b42318';
               ctx3.font='bold 10px -apple-system,sans-serif';
               ctx3.textAlign='center';
               ctx3.fillText(fmtK(val3),bar3.x,bar3.y-5);
@@ -3782,6 +3883,21 @@ function _groupEvo(d, m, gbM, goalKey, granOverride) {
 // Construye labels/datasets/scales para un gráfico de evolución (barras Actuals+RR
 // vs Goal, + línea %GB para NR/OC, + línea Last Year opcional). Reutilizado por el
 // chart principal (renderEvo) y por los charts de evolución del Country One Page.
+// Rayado diagonal para el Run Rate: se distingue del Actuals sin depender solo del color
+// (antes eran dos violetas casi iguales). Fallback a color plano si no hay canvas.
+var _rrPatternCache_ = null;
+function _rrPattern_() {
+  if (_rrPatternCache_) return _rrPatternCache_;
+  try {
+    var c = document.createElement('canvas'); c.width = 8; c.height = 8;
+    var g = c.getContext('2d');
+    g.fillStyle = 'rgba(139,92,246,.22)'; g.fillRect(0, 0, 8, 8);
+    g.strokeStyle = 'rgba(109,40,217,.9)'; g.lineWidth = 2;
+    g.beginPath(); g.moveTo(-2, 10); g.lineTo(10, -2); g.moveTo(-2, 2); g.lineTo(2, -2); g.moveTo(6, 10); g.lineTo(10, 6); g.stroke();
+    _rrPatternCache_ = g.createPattern(c, 'repeat') || 'rgba(139,92,246,.65)';
+  } catch (e) { _rrPatternCache_ = 'rgba(139,92,246,.65)'; }
+  return _rrPatternCache_;
+}
 function _evoChartCfg_(d, metricId, opts) {
   opts = opts || {};
   if (!d || !d.metrics) return null;
@@ -3802,7 +3918,7 @@ function _evoChartCfg_(d, metricId, opts) {
   var mainData   = grps.map(function(g){ return g.actuals !== null ? g.actuals : g.runRate; });
   var mainColors = grps.map(function(g){
     if (g.actuals !== null) return '#5457D9';
-    if (g.runRate !== null) return 'rgba(139,92,246,.65)';
+    if (g.runRate !== null) return _rrPattern_();
     return 'rgba(0,0,0,0)';
   });
 
@@ -3823,7 +3939,7 @@ function _evoChartCfg_(d, metricId, opts) {
   // Datasets — single bar series with per-bar color + fake RR entry for legend
   var datasets = [
     { label:'Actuals',          data:mainData,  backgroundColor:mainColors,            borderRadius:4, order:2, type:'bar', yAxisID:'y' },
-    { label:'Run Rate (proj.)', data:grps.map(function(){return null;}), backgroundColor:'rgba(139,92,246,.65)', borderRadius:0, barThickness:0, order:2, type:'bar', yAxisID:'y' },
+    { label:'Run Rate (proyectado)', data:grps.map(function(){return null;}), backgroundColor:_rrPattern_(), borderColor:'rgba(109,40,217,.9)', borderWidth:1, borderRadius:0, barThickness:0, order:2, type:'bar', yAxisID:'y' },
     { label:goalLabel,          data:goalPlot,  backgroundColor:'rgba(140,149,159,.3)', borderRadius:4, order:3, type:'bar', yAxisID:'y' }
   ];
   if (pctGbData) {
@@ -3944,9 +4060,7 @@ function _drawEvoMetricChart_(canvasId, d, metricId, opts) {
       responsive:true, maintainAspectRatio:false,
       layout:{ padding:{ top: opts.dualPctGb ? 22 : 6 } },
       plugins:{
-        legend:{labels:{color:'#57606a',font:{size:11},boxWidth:12,
-          filter:function(item){ return item.text !== 'Run Rate (proj.)'; }
-        }},
+        legend:{labels:{color:'#57606a',font:{size:11},boxWidth:12}},
         tooltip:{callbacks:{label:function(c){
           if(c.dataset.yAxisID==='y2') return ' '+c.dataset.label+': '+(c.raw!==null?c.raw.toFixed(1)+'%':'—');
           return ' '+c.dataset.label+': '+fmtK(c.raw);
@@ -4266,13 +4380,13 @@ function renderDrilldown() {
     })() : null;
 
     var seriesDefs = [
-      { key:'s0', label: lobLabel + ' Actuals+RR ' + FY_TAG, data: combinedArr,
+      { key:'s0', label: lobLabel + ' Actuals + RR ' + FY_TAG, data: combinedArr,
         color:'#5457D9', dash:[], pointR:3 },
       { key:'s1', label: lobLabel + ' Budget ' + FY_TAG,     data: budgetArr,
         color:'#EAB308', dash:[5,3], pointR:2 },
       { key:'s2', label: lobLabel + ' Last Year',       data: lyArr,
         color:'rgba(140,149,159,.8)', dash:[3,3], pointR:2 },
-      { key:'s3', label: 'B2C Actuals+RR ' + FY_TAG,         data: b2cCombined,
+      { key:'s3', label: 'B2C Actuals + RR ' + FY_TAG,         data: b2cCombined,
         color:'#10b981', dash:[], pointR:3 },
       { key:'s4', label: 'B2C Budget ' + FY_TAG,             data: b2cBudget,
         color:'rgba(16,185,129,.5)', dash:[5,3], pointR:2 },
@@ -4456,9 +4570,12 @@ function toggleOKRNominal() {
 
 function fmtOKR(v) {
   if (v === null || v === undefined || isNaN(v))
-    return '<span style="color:var(--muted2)">—</span>';
-  // Cap 130% / floor: < 70% → 0%
-  var disp = v > 130 ? 130 : (v < 70 ? 0 : v);
+    return '<span style="color:var(--muted2)" title="Sin dato cargado">—</span>';
+  // Regla del score: cumplimiento < 70% suma 0 puntos. Se muestra "<70%" (no "0%") para no confundirlo
+  // con un cero real, y el valor verdadero queda en el tooltip.
+  if (v < 70) return '<span class="okr-chip okr-bad" title="Cumplimiento real: '+v.toFixed(0)+'% (menos de 70% = 0 puntos)">&lt;70%</span>';
+  // Cap 130%
+  var disp = v > 130 ? 130 : v;
   var shown = disp.toFixed(0);  // % redondeado que se muestra
   // El color sigue al número MOSTRADO (redondeado): 100 → verde, 80–99 → amarillo,
   // <80 → rojo. Así un 99,5 ("100%") sale verde y un 79,6 ("80%") sale amarillo.
@@ -4478,12 +4595,12 @@ function fmtOKRNominal(act, bud, pct) {
   if (act === null || act === undefined) {
     // Sin actual pero con target (ej. KR cuyo actual todavía no se cargó): mostrar el target.
     if (bud === null || bud === undefined) return '<span style="color:var(--muted2)">—</span>';
-    return '<div style="line-height:1.3;text-align:center">'
+    return '<div style="line-height:1.3;text-align:right">'
       + '<div style="font-size:11px;color:var(--muted2)">—</div>'
       + '<div style="font-size:9px;color:var(--muted2)">/ ' + fmtN(bud) + '</div>'
       + '</div>';
   }
-  return '<div style="line-height:1.3;text-align:center">'
+  return '<div style="line-height:1.3;text-align:right">'
     + '<div style="font-size:11px;font-weight:600;color:var(--text)">' + fmtN(act) + '</div>'
     + '<div style="font-size:9px;color:var(--muted2)">/ ' + fmtN(bud) + '</div>'
     + '</div>';
@@ -4529,7 +4646,7 @@ function renderOKR(okr) {
     if (!d) return;
 
     html += '<div class="okr-table-wrap"><div class="okr-lob-hdr">'+d.label+'</div>'
-           +'<table class="okr-table"><thead><tr><th>KR</th><th>%</th>';
+           +'<table class="okr-table"><thead><tr><th>KR</th><th title="Peso del KR en el score del objetivo">Peso</th>';
 
     if (_okrMonthly) {
       // 12 meses + 4 Q separators
@@ -4622,20 +4739,48 @@ function fmtK(n){
   if(nf==='raw') return s+'$'+_withComma_(Math.round(abs),0);
   return s+'$'+(abs/1e6).toFixed(1)+'M';
 }
+var _NA_ = '<span style="color:var(--muted2)" title="Sin dato cargado">—</span>';
+function _isNum_(v){ return !(v===null||v===undefined||isNaN(v)); }
+// Estado de un delta porcentual: 'bad' (< -5%), 'warn' (-5% a -0,05%: ámbar), 'neu' (-0,05% a +1%: gris, sin flecha), 'good' (>= +1%).
+function _deltaState_(v){
+  if(v < -5) return 'bad';
+  if(v <= -0.05) return 'warn';
+  if(Math.abs(v) < 1) return 'neu';
+  return v > 0 ? 'good' : 'bad';
+}
+// Entre -1% y +1% se muestra un decimal (si no, -0,4% se vería "-0%").
+function _fmtDelta_(v){
+  var a=Math.abs(v);
+  if(a===0) return '0%';
+  if(a<1){ var d=v.toFixed(1); return d==='-0.0' ? '0.0%' : (v>0?'+':'')+d+'%'; }
+  return (v>0?'+':'')+Math.round(v)+'%';
+}
+// "vs Goal %": pill lleno. Ámbar entre -5% y -0,05%; gris neutro (sin flecha) para variaciones menores a 1%.
 function chip(v){
-  if(v===null||v===undefined||isNaN(v)) return '<span style="color:var(--muted2)">—</span>';
-  var cls=v>=0?'chip-pos':'chip-neg', ico=v>=0?'▲':'▼';
-  return '<span class="chip '+cls+'">'+ico+' '+(v>=0?'+':'')+Math.round(v)+'%</span>';
+  if(!_isNum_(v)) return _NA_;
+  var st=_deltaState_(v), txt=_fmtDelta_(v);
+  if(st==='neu')  return '<span class="chip chip-zero" title="Variación menor a 1%">'+txt+'</span>';
+  if(st==='warn') return '<span class="chip chip-warn" title="Entre -5% y 0%: atención">▼ '+txt+'</span>';
+  return '<span class="chip '+(st==='good'?'chip-pos':'chip-neg')+'">'+(st==='good'?'▲ ':'▼ ')+txt+'</span>';
+}
+// Variante sin fondo (YoY, Δ absoluto, pp): menos pills compitiendo; el color y la flecha siguen diciendo el signo.
+function chipTxt(v){
+  if(!_isNum_(v)) return _NA_;
+  var st=_deltaState_(v), txt=_fmtDelta_(v);
+  if(st==='neu')  return '<span class="chip-txt neu" title="Variación menor a 1%">'+txt+'</span>';
+  if(st==='warn') return '<span class="chip-txt warn" title="Entre -5% y 0%: atención">▼ '+txt+'</span>';
+  return '<span class="chip-txt '+(st==='good'?'pos':'neg')+'">'+(st==='good'?'▲ ':'▼ ')+txt+'</span>';
 }
 function chipAbs(n,fmt){
-  if(n===null||n===undefined||isNaN(n)) return '<span style="color:var(--muted2)">—</span>';
-  var cls=n>=0?'chip-pos':'chip-neg', ico=n>=0?'▲ +':'▼ ';
-  return '<span class="chip '+cls+'">'+ico+fmtMain(n,fmt)+'</span>';
+  if(!_isNum_(n)) return _NA_;
+  var disp=fmtMain(n,fmt);
+  if(/^-?0(\.0)?[MK]?$/.test(disp)) return '<span class="chip-txt neu" title="Sin variación">0</span>';
+  return '<span class="chip-txt '+(n>=0?'pos':'neg')+'">'+(n>=0?'▲ +':'▼ ')+disp+'</span>';
 }
 function chipPp(v){
-  if(v===null||v===undefined||isNaN(v)) return '<span style="color:var(--muted2)">—</span>';
-  var cls=v>=0?'chip-pos':'chip-neg', ico=v>=0?'▲':'▼';
-  return '<span class="chip '+cls+'">'+ico+' '+(v>=0?'+':'')+Math.round(v)+' pp</span>';
+  if(!_isNum_(v)) return _NA_;
+  if(Math.abs(v)<0.5) return '<span class="chip-txt neu" title="Variación menor a 0,5 pp">0 pp</span>';
+  return '<span class="chip-txt '+(v>=0?'pos':'neg')+'">'+(v>=0?'▲ +':'▼ ')+Math.round(v)+' pp</span>';
 }
 function destroyChart(id){ if(_charts[id]){_charts[id].destroy();delete _charts[id];} }
 function setLoader(msg){ document.getElementById('loader').style.display='flex'; document.getElementById('lmsg').textContent=msg; }
@@ -4692,7 +4837,7 @@ function demoPnL(p) {
       mk(217*0.35),mk(703*0.358),mk(703*0.292),mk(703),
       // Gross Bookings
       m6(433.8*0.35),m6(433.8*0.358),m6(433.8*0.292),m6(433.8),
-      // Net Revenues
+      // Net Revenue
       m6(45.2*0.35),m6(45.2*0.358),m6(45.2*0.292),m6(45.2),
       // Op Contribution
       m6(11*0.35),m6(11*0.358),m6(11*0.292),m6(11)
@@ -4715,7 +4860,7 @@ function demoPnL(p) {
 }
 
 function makeRows4(vals, s) {
-  var labels=['Orders','Gross Bookings','Net Revenues','Operating Contribution'];
+  var labels=['Orders','Gross Bookings','Net Revenue','Operating Contribution'];
   var ids   =['orders','gb','nr','oc'], fmts=['K','M','M','M'];
   var bPcts =[[8,7,5,7],[4,10,10,8],[-2,13,7,9],[-9,58,-16,16]];
   var yoys  =[[4,25,34,21],[54,39,68,50],[27,22,84,36],[12,259,66,172]];
@@ -4729,7 +4874,7 @@ function makeRows4(vals, s) {
 }
 
 function makeRows5(vals, s) {
-  var labels=['Orders','Gross Bookings','Net Revenues','Operating Contribution'];
+  var labels=['Orders','Gross Bookings','Net Revenue','Operating Contribution'];
   var ids   =['orders','gb','nr','oc'], fmts=['K','M','M','M'];
   var bPcts =[[6,5,4,3,5],[4,3,2,1,3],[-3,8,5,7,6],[-8,40,-12,12,14]];
   var yoys  =[[8,18,12,20,15],[42,32,55,40,44],[18,28,65,30,30],[8,180,45,130,140]];
@@ -4743,7 +4888,7 @@ function makeRows5(vals, s) {
 }
 
 function makeRows6(vals, s) {
-  var labels=['Orders','Gross Bookings','Net Revenues','Operating Contribution'];
+  var labels=['Orders','Gross Bookings','Net Revenue','Operating Contribution'];
   var ids   =['orders','gb','nr','oc'], fmts=['K','M','M','M'];
   // cols: Brasil, Mexico, Globales, Hispa, OPS+RG, Total
   var bPcts =[[6,5,4,3,4,5],[4,3,2,1,2,3],[-3,8,5,7,4,6],[-8,40,-12,12,10,14]];
@@ -4818,8 +4963,8 @@ function demoWf(p) {
   }
   return {groups:groups, metrics:[
     makeMet('gb','Gross Bookings'),
-    makeMet('nr','Net Revenues'),
-    makeMet('oc','Op. Contribution')
+    makeMet('nr','Net Revenue'),
+    makeMet('oc','Operating Contribution')
   ]};
 }
 
@@ -5220,8 +5365,8 @@ function demoEvo(p) {
     periods:periods,
     metrics:[
       {id:'gb',label:'Gross Bookings',   actuals:serie(30e6,.18,.018),  budget:goalSerie(28e6,.10,.015),  runRate:goalSerie(29e6,.12,.016), lastYear:lySerie(30e6,.18,.018)},
-      {id:'nr',label:'Net Revenues',     actuals:serie(3.8e6,.20,.020), budget:goalSerie(3.4e6,.10,.015), runRate:goalSerie(3.6e6,.12,.018), lastYear:lySerie(3.8e6,.20,.020)},
-      {id:'oc',label:'Op. Contribution', actuals:serie(0.85e6,.30,.025),budget:goalSerie(0.75e6,.15,.020),runRate:goalSerie(0.80e6,.22,.022), lastYear:lySerie(0.85e6,.30,.025)}
+      {id:'nr',label:'Net Revenue',     actuals:serie(3.8e6,.20,.020), budget:goalSerie(3.4e6,.10,.015), runRate:goalSerie(3.6e6,.12,.018), lastYear:lySerie(3.8e6,.20,.020)},
+      {id:'oc',label:'Operating Contribution', actuals:serie(0.85e6,.30,.025),budget:goalSerie(0.75e6,.15,.020),runRate:goalSerie(0.80e6,.22,.022), lastYear:lySerie(0.85e6,.30,.025)}
     ]
   };
 }
@@ -5972,7 +6117,7 @@ function _cierreFitWideTables_(){
 // solo redacte el texto a partir de estos mismos números — no que decida qué es material.
 var CIERRE_MAT_ABS = { oc:50000, nr:100000, gb:200000 };   // umbral $ por métrica
 var CIERRE_MAT_PCT = 5;                                     // umbral % (ambos tienen que cumplirse)
-var CIERRE_METRIC_LABEL = { gb:'Gross Bookings', nr:'Net Revenues', oc:'Operating Contribution' };
+var CIERRE_METRIC_LABEL = { gb:'Gross Bookings', nr:'Net Revenue', oc:'Operating Contribution' };
 
 function _cierreGoalFields_(goal){
   return goal==='forecast' ? {abs:'varFcAbs', pct:'varFcPct'}
@@ -6357,7 +6502,13 @@ function _cierreComboSpec_(chart){
   var bars = ds.filter(function(d){
     return (d.type === 'bar' || !d.type) && d.barThickness !== 0 && (d.data||[]).some(function(v){ return v != null; });
   }).map(function(d){
-    var colors = labels.map(function(_, i){ return _cdColor_(Array.isArray(d.backgroundColor) ? d.backgroundColor[i] : d.backgroundColor); });
+    var colors = labels.map(function(_, i){
+      var bg = Array.isArray(d.backgroundColor) ? d.backgroundColor[i] : d.backgroundColor;
+      // Las barras de Run Rate usan un CanvasPattern (rayado) que no es un color CSS: en la slide van con el
+      // violeta de Run Rate plano (mismo tono que el rayado) en vez de perder el relleno.
+      if (bg && typeof bg === 'object') return { hex:'#8B5CF6', alpha:.65 };
+      return _cdColor_(bg);
+    });
     var legend = colors.filter(Boolean)[0] || { hex:'#5457D9', alpha:1 };
     return { label:d.label, values:d.data.slice(), colors:colors, legendColor:legend,
              texts:d.data.map(function(v){ return v == null ? '' : fmtK(v); }) };
