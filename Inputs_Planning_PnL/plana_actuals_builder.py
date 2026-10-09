@@ -128,7 +128,8 @@ def drop_b2b_reallocations(df, dates):
     if not is_re.any():
         return df
     df = df.copy()
-    key = df[REALOC_KEY].astype(str).agg("|".join, axis=1)
+    # fillna antes de astype: en pandas 3 astype(str) deja los vacíos como NaN y el join crashea
+    key = df[REALOC_KEY].fillna("").astype(str).agg("|".join, axis=1)
     n_tot, b2b_tot = 0, 0.0
     for d in dates:
         v = pd.to_numeric(df[d], errors="coerce").fillna(0)
