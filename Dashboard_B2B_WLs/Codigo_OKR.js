@@ -261,23 +261,6 @@ function computeOKR_(halfKey, rows) {
   return result;
 }
 
-// okr.json se arma a partir de baseline y budget (okr_builder.py). Si alguno se actualizó DESPUÉS que
-// okr.json, el OKR Status muestra números viejos que no cuadran con el Cuadro Resumen P&L (pasó en oct-2026).
-// Devuelve null si está al día (o si no se puede chequear) y, si no, un texto para avisar en pantalla.
-function okrStale_() {
-  try {
-    var okrT = DriveApp.getFileById(OKR_FILE_ID).getLastUpdated().getTime();
-    var srcT = Math.max(DriveApp.getFileById(JSON_IDS.baseline).getLastUpdated().getTime(),
-                        DriveApp.getFileById(JSON_IDS.budget).getLastUpdated().getTime());
-    if (srcT - okrT > 60 * 1000) {   // tolerancia 1 min: los uploads de un mismo run no son simultáneos
-      return 'okr.json (' + Utilities.formatDate(new Date(okrT), 'America/Argentina/Buenos_Aires', 'dd/MM HH:mm') +
-             ') es anterior al último baseline/budget (' + Utilities.formatDate(new Date(srcT), 'America/Argentina/Buenos_Aires', 'dd/MM HH:mm') +
-             '). Correr okr_builder.py.';
-    }
-  } catch (e) {}
-  return null;
-}
-
 // Punto de entrada público. Devuelve ambos semestres (una sola lectura de okr.json)
 // y el que abre por defecto. `okr` = el semestre por defecto (compatibilidad).
 function getOKRData() {
@@ -286,7 +269,7 @@ function getOKRData() {
     var byHalf = {};
     Object.keys(OKR_HALVES).forEach(function(h){ byHalf[h] = computeOKR_(h, rows); });
     var def = okrDefaultHalf_();
-    return { success: true, okr: byHalf[def], okrByHalf: byHalf, defaultHalf: def, stale: okrStale_() };
+    return { success: true, okr: byHalf[def], okrByHalf: byHalf, defaultHalf: def };
   } catch(e) {
     return { success: false, error: e.message };
   }

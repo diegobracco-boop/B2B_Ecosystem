@@ -4542,7 +4542,6 @@ function loadOKR() {
   google.script.run
     .withSuccessHandler(function(res) {
       _state.okrAll = (res && res.success) ? (res.okrByHalf || null) : null;
-      _state.okrStale = (res && res.success) ? (res.stale || null) : null;
       var _hp = _okrHalfManual ? null : _okrHalfForPeriods_();
       if (_hp && (!_state.okrAll || _state.okrAll[_hp])) _okrHalf = _hp;
       else if (!_okrHalf) _okrHalf = (res && res.defaultHalf) || 'H1';
@@ -4637,12 +4636,6 @@ function renderOKR(okr) {
     +'<button id="okr-toggle" class="gran-btn" onclick="toggleOKRView()" style="font-size:11px">'
     +(_okrMonthly ? '⇄ Trimestral' : '⇄ Mensual')+'</button>'
     +'</div></div>';
-
-  // okr.json más viejo que baseline/budget → los números no cuadran con el Cuadro Resumen P&L.
-  if (_state.okrStale) {
-    html += '<div style="background:#fef3c7;border:1px solid #f59e0b;color:#92400e;border-radius:6px;padding:6px 10px;margin-bottom:8px;font-size:11px">'
-          + '&#9888; OKR desactualizado: ' + _state.okrStale + '</div>';
-  }
 
   // 'globales' (Globales B2B API) solo existe en H2 → en H1 okr['globales'] es undefined y se omite.
   var lobsToRender = _state.lob === 'b2b2c' ? ['b2b2c']
