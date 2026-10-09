@@ -203,3 +203,6 @@ if __name__ == "__main__":
     targets = list(CONCEPTS) if args[0] == "all" else [args[0]]
     for c in targets:
         build(c, upload=upload)
+    if upload and "budget" in targets:     # okr.json deriva de budget.json: regenerarlo evita que el OKR Status quede viejo
+        import okr_builder
+        okr_builder.refresh_after_upload()

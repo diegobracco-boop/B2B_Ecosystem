@@ -259,6 +259,9 @@ def _emit(svc, fid, payload, upload):
             print(f"[Drive-compressed] creado {BASELINE_NAME}")
     else:
         print("(--no-upload: no se subió a Drive)")
+    if upload:     # okr.json deriva del baseline: regenerarlo evita que el OKR Status quede viejo
+        import okr_builder
+        okr_builder.refresh_after_upload()
 
 
 if __name__ == "__main__":

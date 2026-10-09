@@ -623,6 +623,19 @@ def build(upload=True):
     return payload
 
 
+def refresh_after_upload():
+    """Regenera y sube okr.json. Lo llaman json_builder.py (budget/all) y baseline_builder.py justo
+    después de subir budget.json / baseline: okr.json se arma a partir de ellos, y si no se regenera
+    el OKR Status del Hub queda con números viejos distintos al Cuadro Resumen P&L (pasó en oct-2026).
+    No corta el flujo que lo llama: si falla, avisa y hay que correr `python okr_builder.py` a mano."""
+    print("\n=== okr.json (se regenera porque cambió budget/baseline) ===")
+    try:
+        build(True)
+    except Exception as e:
+        print(f"\n*** AVISO: NO se pudo regenerar okr.json ({e}). El OKR Status del Hub queda DESACTUALIZADO "
+              f"hasta que corras:  python okr_builder.py ***")
+
+
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--no-upload", action="store_true")
