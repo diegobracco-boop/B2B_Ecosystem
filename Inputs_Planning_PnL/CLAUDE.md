@@ -32,6 +32,11 @@ CSV crudos (OneDrive\Planning-PBI - Inputs Power Bi)
   (B2B + contrapartida B2C/B2B2C) → total compañía igual, B2B queda "sin realocar". Las que no tocan B2B
   quedan. Ver `drop_b2b_reallocations` en `plana_actuals_builder.py`. Afecta actuals, forecast (abr-jul) y
   baseline; para re-aplicar a meses ya promovidos: `--promote-month` de cada mes.
+- **Payments & Fraud no se duplica con el Ajuste PYF** (2026-10-09, Tiago): en los meses donde el xlsx de actuals
+  trae `Intercompany Transactions` con Origen `AJUSTES DE GESTION` (el "Ajuste PYF" de Control de Gestión), se
+  pone en 0 la línea `Payments and Fraud` (Base FCCS) — si no, el Glosario mapea las dos a Intercompany y el costo
+  se cuenta dos veces (jun-26: -3.76M total, -250k en B2B+B2B2C; OC H1 B2B+B2B2C quedaba 28.4 vs 28.6 de The Hub).
+  Ver `drop_pyf_duplicated_by_ajuste` en `plana_actuals_builder.py`.
 - **Canal**: solo **B2B** abre MAY/MIN; **B2B2C y B2C** se colapsan a `total` (en el JSON).
 - **JSON agregado sobre Marca** (no se incluye).
 - **Año fiscal = Abr(N-1) a Mar(N).** Proyecciones = FY27 (abr-2026 a mar-2027).

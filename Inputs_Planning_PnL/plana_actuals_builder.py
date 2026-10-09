@@ -53,6 +53,17 @@ EXCL_LINEA_ACT = {
 REALOC_ORIGEN = "realoc"            # match por substring (REALOCACIÓN / REALOCACION)
 REALOC_KEY = ["CodigoPais", "FuturoNombre", "Linea P&L"]
 
+# ── Payments & Fraud duplicado con el Ajuste PYF (2026-10-09, Tiago) ─────────
+# Control de Gestión carga el costo de PyF como "Intercompany Transactions" con Origen
+# AJUSTES DE GESTION ("Ajuste PYF") en los meses en que FCCS no lo trae. En jun-26 vinieron
+# las dos cosas (ajuste -683k + "Payments and Fraud" de Base FCCS -250k en B2B+B2B2C) y el
+# Glosario mapea ambas a Intercompany -> costo duplicado (OC H1 28.4 vs 28.6 en The Hub).
+# Regla: en los meses donde hay ajuste de gestión de Intercompany, se descarta la línea
+# "Payments and Fraud" (gana el ajuste). Ver drop_pyf_duplicated_by_ajuste.
+PYF_LINEA = "payments and fraud"
+PYF_AJUSTE_LINEA = "intercompany transactions"
+PYF_AJUSTE_ORIGEN = "ajustes de gestion"
+
 
 # ── Lectura de un archivo calendario ─────────────────────────────────────────
 def read_actuals_file(year, wanted_dates, override_dir=None):
@@ -142,6 +153,24 @@ def drop_b2b_reallocations(df, dates):
     return df
 
 
+def drop_pyf_duplicated_by_ajuste(df, dates):
+    """Pone en 0 'Payments and Fraud' en los meses que ya tienen Ajuste PYF. Ver PYF_LINEA."""
+    linea = df["Linea P&L"].fillna("").astype(str).str.strip().str.lower()
+    origen = df["Origen"].fillna("").astype(str).str.strip().str.lower()
+    is_pyf = linea == PYF_LINEA
+    is_ajuste = (linea == PYF_AJUSTE_LINEA) & (origen == PYF_AJUSTE_ORIGEN)
+    df = df.copy()
+    for d in dates:
+        v = pd.to_numeric(df[d], errors="coerce").fillna(0)
+        if not (is_ajuste & (v != 0)).any():
+            continue
+        mask = is_pyf & (v != 0)
+        if mask.any():
+            print(f"  PyF descartado en {d[:7]} (ya hay Ajuste PYF): {v[mask].sum():,.0f} USD ({int(mask.sum())} celdas)")
+            df.loc[mask, d] = 0
+    return df
+
+
 # ── Homologación Actuals (Parte 2.4) ─────────────────────────────────────────
 def homologate_actuals(df, g):
     df = df.copy()
@@ -185,6 +214,7 @@ def build(fy, con_ppa=False, override_dir=None):
     df = df[~df["FuturoNombre"].astype(str).str.strip().str.lower().isin(EXCL_FUTURO)]
     df = df[~df["Linea P&L"].astype(str).str.strip().str.lower().isin(EXCL_LINEA_ACT)]
     df = drop_b2b_reallocations(df, all_dates)
+    df = drop_pyf_duplicated_by_ajuste(df, all_dates)
 
     g = load_glosario()
     df = homologate_actuals(df, g)
