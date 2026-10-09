@@ -790,6 +790,10 @@
   }
   .agencias-content.visible { display: block; }
   .kr-month-filter-bar { display:flex; align-items:center; gap:8px; padding:10px 20px 0; }
+  .kr-ch-group { display:inline-flex; gap:4px; margin-left:16px; }
+  .kr-ch-btn { padding:5px 14px; border:1px solid #d1d5db; background:#fff; color:#374151; border-radius:6px; font-size:0.8rem; cursor:pointer; }
+  .kr-ch-btn.active { background:#2d6cdf; border-color:#2d6cdf; color:#fff; font-weight:600; }
+  body.slides-mode .kr-ch-group { display:none !important; }
   .kr-warning-tag { display:inline-block; font-size:0.7rem; background:#fef3c7; color:#92400e; border:1px solid #fcd34d; border-radius:4px; padding:1px 5px; margin-left:6px; vertical-align:middle; }
   .kr-extra-tag {
     font-size: 9px;
@@ -1227,6 +1231,11 @@
     <div class="filter-group">
       <label>Mes</label>
       <select id="filterMonthKRsH2"></select>
+    </div>
+    <div class="kr-ch-group" id="krH2ChannelBtns">
+      <button type="button" class="kr-ch-btn active" data-ch="total">Total</button>
+      <button type="button" class="kr-ch-btn" data-ch="api">API</button>
+      <button type="button" class="kr-ch-btn" data-ch="html">HTML</button>
     </div>
   </div>
   <div id="statusKRsH2Spinner" class="spinner-wrap" style="height:200px;display:none">
@@ -2950,6 +2959,19 @@ function isNewProductBudget_(r) {
          (r.producto === 'Packages General' && isNewProductPkgType_(r.product_type));
 }
 
+// Filtro de canal de la vista Status KRs H2: 'total' | 'api' | 'html'.
+var krH2Channel = 'total';
+function krH2ChannelPred_() {
+  if (krH2Channel === 'api')  return function(r){ return r.parent_channel === 'API'; };
+  if (krH2Channel === 'html') return function(r){ return r.parent_channel === 'Agencias afiliadas'; };
+  return null;
+}
+function andPred_(a, b) {
+  if (!a) return b || null;
+  if (!b) return a;
+  return function(r){ return a(r) && b(r); };
+}
+
 function computeKRH2Metric_(monthFilter, metricField, predAct, predBud) {
   if (!rawData) return { actual: 0, budget: 0 };
   var bounds = getPeriodBounds(_resolveYM(monthFilter), rawData.meta);
@@ -2972,6 +2994,13 @@ function renderStatusKRsH2() {
   var wrap    = document.getElementById('statusKRsH2Wrap');
   if (!rawData) { spinner.style.display = 'flex'; wrap.style.display = 'none'; return; }
   spinner.style.display = 'none';
+
+  if (_isSlidesMode && krH2Channel !== 'total') {   // el export a slides siempre sale con la vista Total
+    krH2Channel = 'total';
+    document.querySelectorAll('#krH2ChannelBtns .kr-ch-btn').forEach(function(b) {
+      b.classList.toggle('active', b.getAttribute('data-ch') === 'total');
+    });
+  }
 
   var today  = new Date();
   var _curYM = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
@@ -3004,13 +3033,37 @@ function renderStatusKRsH2() {
 
   var isAPI  = function(r){ return r.parent_channel === 'API'; };
   var isHTML = function(r){ return r.parent_channel === 'Agencias afiliadas'; };
-  var isNPa  = isNewProductActual_;
-  var isNPb  = isNewProductBudget_;
+  // Filtro de canal (Total / API / HTML): acota Net Revenues y New Products al canal activo.
+  var chPred = krH2ChannelPred_();
+  var isNPa  = andPred_(isNewProductActual_, chPred);
+  var isNPb  = andPred_(isNewProductBudget_, chPred);
 
-  var nr      = computeKRH2Metric_(krYM, 'net_revenue', null, null);
+  var nr      = computeKRH2Metric_(krYM, 'net_revenue', chPred, chPred);
   var fvmApi  = computeKRH2Metric_(krYM, 'fvm', isAPI, isAPI);
   var fvmHtml = computeKRH2Metric_(krYM, 'fvm', isHTML, isHTML);
   var nrfd    = computeKRH2Metric_(krYM, 'net_revenue', isNPa, isNPb);
+
+  // Conciliación: NR y New Products de API + HTML deben dar el Total (si hay otros canales, se avisa).
+  var recWarn = [];
+  [['Net Revenues', 'net_revenue', null, null],
+   ['New Products', 'net_revenue', isNewProductActual_, isNewProductBudget_]].forEach(function(m) {
+    var t  = computeKRH2Metric_(krYM, m[1], m[2], m[3]);
+    var a  = computeKRH2Metric_(krYM, m[1], andPred_(m[2], isAPI),  andPred_(m[3], isAPI));
+    var h  = computeKRH2Metric_(krYM, m[1], andPred_(m[2], isHTML), andPred_(m[3], isHTML));
+    var tol = Math.max(1, Math.abs(t.actual) * 0.0005);
+    var tolB = Math.max(1, Math.abs(t.budget) * 0.0005);
+    if (Math.abs(t.actual - a.actual - h.actual) > tol || Math.abs(t.budget - a.budget - h.budget) > tolB) {
+      recWarn.push(m[0] + ': Total ' + fmtKRVal(toM(t.actual), '$M') + ' vs API+HTML ' + fmtKRVal(toM(a.actual + h.actual), '$M'));
+    }
+  });
+  if (recWarn.length && !_isSlidesMode) {
+    var w = document.createElement('span');
+    w.className = 'kr-data-range';
+    w.style.color = '#b45309';
+    w.innerHTML = '&#9888; API + HTML no suma el Total (hay otros canales): ' + recWarn.join(' · ');
+    metaEl.appendChild(w);
+  }
+  var chShow = krH2Channel;   // 'total' | 'api' | 'html'
 
   // okrScore_ (piso 70%→0, techo 130%) se usa solo para ponderar el OVERALL.
   // Para lo que se MUESTRA en cada fila usamos realScore_ (el % real, sin piso).
@@ -3037,10 +3090,18 @@ function renderStatusKRsH2() {
       cumplCellHtml(cVal, cStr, false);
     return tr;
   }
-  tbody.appendChild(row('Net Revenues $M',        '30%', nr,      nrCDisp));
-  tbody.appendChild(row('API FVM $M',             '20%', fvmApi,  apiCDisp));
-  tbody.appendChild(row('HTML FVM $M',            '20%', fvmHtml, htmlCDisp));
-  tbody.appendChild(row('New Products Growth $M', '15%', nrfd,    npCDisp));
+  var chLbl = chShow === 'api' ? ' (API)' : chShow === 'html' ? ' (HTML)' : '';
+  tbody.appendChild(row('Net Revenues $M' + chLbl,        '30%', nr,      nrCDisp));
+  if (chShow !== 'html') tbody.appendChild(row('API FVM $M',  '20%', fvmApi,  apiCDisp));
+  if (chShow !== 'api')  tbody.appendChild(row('HTML FVM $M', '20%', fvmHtml, htmlCDisp));
+  tbody.appendChild(row('New Products Growth $M' + chLbl, '15%', nrfd,    npCDisp));
+
+  if (chShow !== 'total') {
+    // Vista filtrada: sin Accelerate Recurrence ni OVERALL (el ponderado solo aplica al Total).
+    renderStatusKRsH2DetailBoxes_(krYM);
+    wrap.style.display = 'block';
+    return;
+  }
 
   // Accelerate Recurrence — TBD (placeholder, definición y datos pendientes)
   var trTBD = document.createElement('tr');
@@ -3140,13 +3201,17 @@ function renderStatusKRsH2DetailBoxes_(monthFilter) {
   }
   var isAPI  = function(r){ return r.parent_channel === 'API'; };
   var isHTML = function(r){ return r.parent_channel === 'Agencias afiliadas'; };
-  var isNPa  = isNewProductActual_;
-  var isNPb  = isNewProductBudget_;
+  var chPred = krH2ChannelPred_();
+  var isNPa  = andPred_(isNewProductActual_, chPred);
+  var isNPb  = andPred_(isNewProductBudget_, chPred);
+  var chLbl  = krH2Channel === 'api' ? ' (API)' : krH2Channel === 'html' ? ' (HTML)' : '';
 
-  grid.appendChild(makeBox('Net Revenues $M',        rowsFor('net_revenue', null,  null)));
-  grid.appendChild(makeBox('API FVM $M',             rowsFor('fvm',         isAPI,  isAPI)));
-  grid.appendChild(makeBox('HTML FVM $M',            rowsFor('fvm',         isHTML, isHTML)));
-  grid.appendChild(makeBox('New Products Growth $M', rowsFor('net_revenue', isNPa,  isNPb)));
+  grid.appendChild(makeBox('Net Revenues $M' + chLbl, rowsFor('net_revenue', chPred, chPred)));
+  if (krH2Channel !== 'html') grid.appendChild(makeBox('API FVM $M',  rowsFor('fvm', isAPI,  isAPI)));
+  if (krH2Channel !== 'api')  grid.appendChild(makeBox('HTML FVM $M', rowsFor('fvm', isHTML, isHTML)));
+  grid.appendChild(makeBox('New Products Growth $M' + chLbl, rowsFor('net_revenue', isNPa, isNPb)));
+
+  if (krH2Channel !== 'total') return;   // Accelerate Recurrence no es por canal
 
   // Accelerate Recurrence — formato propuesto (datos pendientes de cálculo):
   // agencias que compraron 1 / 2 / 3+ semanas distintas dentro del mes, por país.
@@ -3503,6 +3568,15 @@ document.querySelectorAll('.country-btn').forEach(function(btn) {
 });
 document.getElementById('filterMonthKRs').addEventListener('change', renderStatusKRs);
 document.getElementById('filterMonthKRsH2').addEventListener('change', renderStatusKRsH2);
+document.querySelectorAll('#krH2ChannelBtns .kr-ch-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    krH2Channel = btn.getAttribute('data-ch');
+    document.querySelectorAll('#krH2ChannelBtns .kr-ch-btn').forEach(function(b) {
+      b.classList.toggle('active', b === btn);
+    });
+    renderStatusKRsH2();
+  });
+});
 
 document.getElementById('btnClear').addEventListener('click', () => {
   document.getElementById('filterChannel').value         = '';
