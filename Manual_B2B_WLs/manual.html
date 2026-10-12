@@ -1148,7 +1148,7 @@ a.ext-link:hover { text-decoration: underline; }
         <tbody>
           <tr><td>Inputs Planning P&amp;L</td><td>Manual, con el cierre mensual (equipo de Planning)</td><td>La máquina de quien lo corre (rutas locales en el script)</td></tr>
           <tr><td>P&amp;L Accounting</td><td>Datos: al reprocesar Inputs_Planning_PnL. Código: manual + deploy</td><td>—</td></tr>
-          <tr><td>P&amp;L Managerial</td><td>Datos: <code>actuals_gestional_upload.py</code> manual (VPN). Código: manual + deploy</td><td>La máquina de Diego (<code>RUTA_ENV</code> / <code>FC_XLSX_DIR</code> hardcodeadas — pendiente de portar)</td></tr>
+          <tr><td>P&amp;L Managerial</td><td>Datos: <code>actuals_gestional_upload.py</code> manual (VPN). Código: manual + deploy</td><td>Cualquier máquina con <code>credenciales/.env.&lt;usuario&gt;</code> + VPN + OneDrive con los modelos Forecast XLSX</td></tr>
           <tr><td>B2B Ecosystem Hub</td><td>Datos: JSON canónicos de Drive (automático por <code>lastMod</code>). Código: manual + deploy</td><td>—</td></tr>
           <tr><td>Daily Dashboard</td><td><strong>Automático</strong>: Windows Task Scheduler, 9:45</td><td>La máquina de Tiago Harari</td></tr>
           <tr><td>Manual B2B WLs</td><td>Manual — se edita <code>manual.html</code> a mano al cambiar cualquier otro módulo</td><td>—</td></tr>

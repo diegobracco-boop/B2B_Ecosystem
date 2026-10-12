@@ -65,7 +65,10 @@ import pandas as pd
 from dotenv import load_dotenv
 
 # ── CONFIG ────────────────────────────────────────────────────────────────────
-RUTA_ENV        = r"C:\Users\diego.bracco\Proyectos IA\envs\.env"
+# Credenciales del Datalake por usuario (mismo esquema que actuals_gestional_upload.py y
+# Daily_Dashboard/daily_sync.py): <repo>/credenciales/.env.<usuario de Windows>.
+_WIN_USER       = os.environ.get("USERNAME", "").lower()
+RUTA_ENV        = str(Path(__file__).resolve().parent.parent / "credenciales" / f".env.{_WIN_USER}")
 DSN_NAME        = "DataLake Treasure ODBC"
 DRIVE_FOLDER_ID = "1wzudbo7cN9Ibiv_2OA-V0_B_un4JcJp6"
 JSON_FILE_NAME  = "revenue_gd.json"
@@ -337,7 +340,8 @@ def _get_drive_service():
 
     clasprc = Path.home() / ".clasprc.json"
     tok = _json.loads(clasprc.read_text())["tokens"]["default"]
-    expiry = datetime.fromtimestamp(tok["expiry_date"] / 1000, tz=timezone.utc)
+    # google-auth compara contra un utcnow() naive: el expiry tiene que ser UTC sin tzinfo
+    expiry = datetime.fromtimestamp(tok["expiry_date"] / 1000, tz=timezone.utc).replace(tzinfo=None)
     creds  = Credentials(
         token=tok["access_token"], refresh_token=tok["refresh_token"],
         token_uri="https://oauth2.googleapis.com/token",
