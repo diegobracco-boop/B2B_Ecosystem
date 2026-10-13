@@ -196,10 +196,25 @@ function normB2B2CPartner_(p){
   return key.replace(/(^|[\s\-])(\S)/g, function(m, sep, c){ return sep + c.toUpperCase(); });
 }
 
-// Hunting partner list (lowercase; compared against .toLowerCase() of normalized partner name)
-var _B2B2C_HUNTING_LOWER = ['caixa','csu','ypf','cocos','tuplus','vibe','cacau lovers','turismocity','claro','livelo-api-hoteles','invex','bna','banco de chile','itau','tbd','cutc','sams','dotz'];
+// Hunting = stage 'New' del mapa b2b2c_stage que publica actuals_gestional_upload.py: cartera de
+// ComDev + overrides de Daily_Dashboard/hunting_rules.py → mismo criterio que el Daily y los OKR
+// (alineado 2026-10-13; antes era una lista fija que se había desincronizado).
+// Partner fuera del mapa = Existing. La lista fija queda solo como respaldo si el JSON no trae el mapa.
+var _B2B2C_HUNTING_FALLBACK = ['caixa','csu','ypf','cocos','tuplus','vibe','cacau lovers','turismocity','claro','livelo-api-hoteles','invex','bna','banco de chile','itau','tbd','cutc','sams','dotz'];
+var _b2b2cStageMap_ = null;   // {partner lowercase: 'New'|'Existing'} | false si el JSON no lo trae
+function _getB2B2CStageMap_(){
+  if (_b2b2cStageMap_ === null) {
+    // Siempre del JSON gestional principal (el de Projection Reviews no lo trae).
+    try { _b2b2cStageMap_ = readGestionalJSON_('bl').b2b2c_stage || false; }
+    catch (e) { Logger.log('b2b2c_stage: ' + e); _b2b2cStageMap_ = false; }
+  }
+  return _b2b2cStageMap_;
+}
 function isB2B2CHunting_(partner){
-  return _B2B2C_HUNTING_LOWER.indexOf(String(partner||'').trim().toLowerCase()) >= 0;
+  var key = String(partner||'').trim().toLowerCase();
+  var m = _getB2B2CStageMap_();
+  if (m) return m[key] === 'New';
+  return _B2B2C_HUNTING_FALLBACK.indexOf(key) >= 0;
 }
 
 // Normaliza aliases de "otros/other/..." → "Globales" para B2B
@@ -370,7 +385,7 @@ function getData(filters) {
   try {
     var t1 = DriveApp.getFileById(GESTIONAL_JSON_FILE_ID).getLastUpdated().getTime();
     var t2 = DriveApp.getFileById(GESTIONAL_VR_JSON_FILE_ID).getLastUpdated().getTime();
-    ck = 'getdata_v3_' + t1 + '_' + t2 + '_' + Utilities.base64EncodeWebSafe(sig);
+    ck = 'getdata_v4_' + t1 + '_' + t2 + '_' + Utilities.base64EncodeWebSafe(sig);
     var hit = _readGetDataCache_(ck);
     if (hit) { Logger.log('getData HIT ' + (Date.now() - tStart) + ' ms'); return hit; }
   } catch (e) { Logger.log('getData cache probe: ' + e); }
@@ -574,6 +589,7 @@ function _computeGetData_(filters) {
     budget_farming:       bgtAgg_farming,
     ly_farming:           lyAgg_farming,
     forecast_farming:     fcstAgg_farming,
+    b2b2c_stage:          _getB2B2CStageMap_() || null,   // el frontend clasifica Hunting con esto (partnerIsHunting)
     agg_hunting:          fcAgg_hunting,
     budget_hunting:       bgtAgg_hunting,
     ly_hunting:           lyAgg_hunting,
@@ -988,5 +1004,6 @@ function invalidateCache() {
   _gestionalVRJsonCache_ = null;
   _accActualsCache_      = null;
   _revGdCache_           = null;
+  _b2b2cStageMap_        = null;
   return { ok: true };
 }

@@ -1401,14 +1401,10 @@ def agg_forecast_b2b(df: pd.DataFrame) -> pd.DataFrame:
     ).round({"gross_bookings": 2, "net_revenue": 2, "fvm": 2})
 
 
-# Partners que el equipo cuenta como "New / onboarding" aunque la cartera de
-# ComDev no los marque asi (nombre distinto, alta reciente sin actualizar, etc.).
-# Se fuerza a New en TODAS las fuentes: actuals, LY y proyecciones (budget/runrate).
-# Xcaret se sacó el 2026-10-13 (decisión de Diego: no es hunting; la cartera ya lo marca Existing).
-FORCE_NEW_PARTNERS = {"livelo-api-hoteles", "didi", "bonda"}
-# Al revés: la cartera los marca New pero el equipo NO los cuenta como hunting
-# (decisión de Diego 2026-10-13: New Fly). Mismo alcance que FORCE_NEW_PARTNERS.
-FORCE_EXISTING_PARTNERS = {"new fly"}
+# Overrides New/Existing (hunting) por partner: viven en hunting_rules.py, compartido con
+# P&L_Managerial/actuals_gestional_upload.py. Se aplican en TODAS las fuentes: actuals, LY y
+# proyecciones (budget/runrate).
+from hunting_rules import FORCE_NEW_PARTNERS, FORCE_EXISTING_PARTNERS, apply_overrides
 
 
 def _apply_force_new(df: pd.DataFrame) -> None:
@@ -1509,14 +1505,11 @@ try:
         for p, c, v in zip(df_cartera["_p"], df_cartera["_c"], df_cartera["estatus_tier"])
         if pd.notna(v)
     }
-    # Overrides de negocio (la cartera de ComDev no los marca New, el equipo si):
-    for _p in FORCE_NEW_PARTNERS:
-        cartera_map[_p] = "New"
-    for _p in FORCE_EXISTING_PARTNERS:
-        cartera_map[_p] = "Existing"
+    # Overrides de negocio (hunting_rules.py): forzados a New / a Existing
+    apply_overrides(cartera_map)
     df_budget["stage"] = _map_stage(df_budget["partner"], cartera_map)
     df_budget["tier"]  = _map_tier(df_budget, tier_map_pais, tier_map)
-    print(f"  Hunting: {(df_budget['stage']=='Existing').sum():,} filas | Farming: {(df_budget['stage']=='New').sum():,} filas")
+    print(f"  Hunting: {(df_budget['stage']=='New').sum():,} filas | Farming: {(df_budget['stage']=='Existing').sum():,} filas")
 except Exception as e:
     print(f"  WARN cartera query failed: {e}")
     _FAILED_BLOCKS.append('Cartera (stage/tier)')

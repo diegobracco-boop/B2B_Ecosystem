@@ -2138,9 +2138,17 @@ function setFarmDeltaPeriod(mode){
 
 // ── Clasificación de partners (fuente única, usada en Gráficos y Detalle) ──
 function _normPartner(s){ return String(s||'').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,''); }
+// Hunting = stage 'New' del mapa b2b2c_stage que manda getData (cartera de ComDev + overrides de
+// Daily_Dashboard/hunting_rules.py): mismo criterio que el backend, el Daily y los OKR.
+// La lista fija es solo respaldo hasta que llega la primera respuesta (o si el JSON no trae el mapa).
 var PARTNER_HUNTING_LIST = ['Caixa','CSU','YPF','Cocos','Tuplus','Vibe','Cacau Lovers','TurismoCity','Claro','Livelo-api-hoteles','Invex','BNA','Banco de Chile','ITAU','TBD','CUTC','Sams','Dotz'];
 var _huntingNormSet = PARTNER_HUNTING_LIST.map(_normPartner);
-function partnerIsHunting(p){ return _huntingNormSet.indexOf(_normPartner(p)) >= 0; }
+var _b2b2cStage = null;   // {partner lowercase: 'New'|'Existing'}
+function _setB2B2CStage_(d){ if(d && d.b2b2c_stage) _b2b2cStage = d.b2b2c_stage; }
+function partnerIsHunting(p){
+  if(_b2b2cStage) return _b2b2cStage[String(p||'').trim().toLowerCase()] === 'New';
+  return _huntingNormSet.indexOf(_normPartner(p)) >= 0;
+}
 var PARTNER_FARMING_NAMED = [
   {label:'BBVA',           fn:function(n){ return n.indexOf('bbva')>=0; }},
   {label:'LATAM',          fn:function(n){ return n==='latam'||n.indexOf('latam ')===0; }},
@@ -3775,6 +3783,7 @@ function fetchData(){
       // pisar los datos ya renderizados del LOB actual con los del LOB anterior.
       if (reqId !== _fetchSeq) return;
       if (reqLob !== _activeLob) return;  // cambiaste de LOB mientras esto viajaba — descartar para no pintar datos del LOB anterior
+      _setB2B2CStage_(d);
       _data = d;
       if (!_filtersLoadedForLob[reqLob] && !d.gateway_mode && !(d.viaje_sel || []).length) {   // en modo gateway las opciones vienen recortadas
         fillPaisChips(d.filters['pais'] || []);
@@ -3820,6 +3829,7 @@ function fetchDataG(){
     .withSuccessHandler(function(d){
       if (reqId !== _gFetchSeq) return;
       if (reqLob !== _activeLob) return;
+      _setB2B2CStage_(d);
       _dataG = d;
       if (!_gFiltersLoadedForLob[reqLob] && !d.gateway_mode && !(d.viaje_sel || []).length) {
         fillGraficosProductoChips(d.filters['produto'] || []);
@@ -3858,6 +3868,7 @@ function fetchDataD(){
     .withSuccessHandler(function(d){
       if (reqId !== _dFetchSeq) return;
       if (reqLob !== _activeLob) return;
+      _setB2B2CStage_(d);
       _dataD = d;
       if (!_dFiltersLoadedForLob[reqLob] && !d.gateway_mode && !(d.viaje_sel || []).length) {
         fillDetallePaisChips(d.filters['pais'] || []);

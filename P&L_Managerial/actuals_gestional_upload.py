@@ -59,6 +59,9 @@ DRIVE_SCOPES    = ["https://www.googleapis.com/auth/drive"]
 # solo ahí — acá no hay meses escritos a mano (auditoría ola 4, 2026-09-25).
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "Inputs_Planning_PnL"))
 import config as _planning_cfg
+# Definición única de hunting (New/Existing por partner B2B2C), compartida con Daily_Dashboard/daily_sync.py
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "Daily_Dashboard"))
+import hunting_rules
 _FY = _planning_cfg.CURRENT_FY                                  # 2027 = FY27 (abr-2026 → mar-2027)
 FY_MONTHS = [d[:7] for d in _planning_cfg.FISCAL_DATES]         # 'YYYY-MM', abr → mar
 
@@ -1370,6 +1373,9 @@ def upload_to_drive(json_bytes: bytes):
 print("\n--- B2B2C ---")
 df_b2b2c    = fetch(build_b2b2c_query(ACTUALS_FROM, ACTUALS_TO), "B2B2C actuals")
 df_b2b2c_ly = fetch(build_b2b2c_query(LY_FROM, LY_TO),          "B2B2C LY")
+# Split Hunting/Farming de la landing: mismo criterio que el Daily y los OKR (hunting_rules.py).
+b2b2c_stage = hunting_rules.stage_map(fetch(hunting_rules.CARTERA_STAGE_QUERY, "Cartera stage"))
+print(f"  hunting (New): {sorted(p for p, s in b2b2c_stage.items() if s == 'New')}")
 
 print("\n--- B2B GD ---")
 df_b2b_gd    = fetch(build_b2b_gd_query(ACTUALS_FROM, ACTUALS_TO), "B2B GD actuals")
@@ -1489,6 +1495,7 @@ output = {
     "last_actual_ym": LAST_ACTUAL_YM,
     "months":        FY_MONTHS,
     "metrics":       METRIC_COLS,
+    "b2b2c_stage":   b2b2c_stage,   # {partner lowercase: 'New'|'Existing'} — split Hunting/Farming (Codigo.js)
     "b2b2c": {
         "ac": ac_b2b2c, "ly": ly_b2b2c, "bgt": bgt_b2b2c,
         "rr": rr_b2b2c, "fc": fc_b2b2c, "bl": bl_b2b2c,
