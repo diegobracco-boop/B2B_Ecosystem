@@ -113,18 +113,23 @@ def _b2b2c_rows(df: pd.DataFrame) -> list:
 
 
 def _b2b_rows(df: pd.DataFrame) -> list:
-    """API/HTML → rows [pais, produto, ym, v0..v28]."""
+    """API/HTML → rows [pais, produto, ym, v0..v28, viaje] — mismo layout que el JSON principal
+    (viaje al final; ver _viaje_col en actuals_gestional_upload.py)."""
     for c in METRIC_COLS:
         if c not in df.columns:
             df[c] = 0.0
+    if "viaje" in df.columns:
+        df["viaje"] = df["viaje"].fillna("(Sin dato)").astype(str).str.strip().replace("", "(Sin dato)")
+    else:
+        df["viaje"] = "(Sin dato)"
     df = _to_numeric(df, METRIC_COLS)
-    df = df.groupby(["pais", "produto", "ym"], as_index=False).agg(
+    df = df.groupby(["pais", "produto", "ym", "viaje"], as_index=False).agg(
         {c: "sum" for c in METRIC_COLS}
     )
     rows = []
     for _, row in df.iterrows():
         vals = [round(float(row.get(c, 0) or 0), 4) for c in METRIC_COLS]
-        rows.append([row["pais"], row["produto"], row["ym"]] + vals)
+        rows.append([row["pais"], row["produto"], row["ym"]] + vals + [row["viaje"]])
     return rows
 
 

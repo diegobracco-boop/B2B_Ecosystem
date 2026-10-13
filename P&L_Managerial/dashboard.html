@@ -879,6 +879,11 @@ header .btn-refresh:hover{background:#f5f3ff !important;border-color:#c4b5fd;col
         <span style="font-size:11px;color:var(--muted);font-weight:700;margin-left:6px">Prod.:</span>
         <div class="pais-chips" id="produto-chips"></div>
       </div>
+      <!-- Viaje (Nacional / Internacional): solo B2B, todos los escenarios -->
+      <div id="pnl-viaje-row" style="display:none;align-items:center;gap:6px;flex-wrap:wrap">
+        <span style="font-size:11px;color:var(--muted);font-weight:700;margin-left:6px">Viaje:</span>
+        <div class="pais-chips" id="viaje-chips"></div>
+      </div>
       <!-- Gateway: solo B2B, visible cuando el único producto elegido es Hotels -->
       <div id="pnl-gateway-row" style="display:none;align-items:center;gap:6px;flex-wrap:wrap">
         <span style="font-size:11px;color:var(--muted);font-weight:700;margin-left:6px">Gateway:</span>
@@ -913,6 +918,10 @@ header .btn-refresh:hover{background:#f5f3ff !important;border-color:#c4b5fd;col
         <span style="font-size:11px;color:var(--muted);font-weight:700;margin-left:10px">Prod.:</span>
         <div class="pais-chips" id="gtab-produto-chips"></div>
       </div>
+      <div id="gtab-viaje-row" style="display:none;align-items:center;gap:6px;flex-wrap:wrap">
+        <span style="font-size:11px;color:var(--muted);font-weight:700;margin-left:6px">Viaje:</span>
+        <div class="pais-chips" id="gtab-viaje-chips"></div>
+      </div>
       <div id="gtab-gateway-row" style="display:none;align-items:center;gap:6px;flex-wrap:wrap">
         <span style="font-size:11px;color:var(--muted);font-weight:700;margin-left:6px">Gateway:</span>
         <div class="ms-wrap" id="ms-gateway-g">
@@ -936,6 +945,10 @@ header .btn-refresh:hover{background:#f5f3ff !important;border-color:#c4b5fd;col
       <div id="detalle-produto-row" style="display:none;align-items:center;gap:6px;flex-wrap:wrap">
         <span style="font-size:11px;color:var(--muted);font-weight:700;margin-left:6px">Prod.:</span>
         <div class="pais-chips" id="detalle-produto-chips"></div>
+      </div>
+      <div id="detalle-viaje-row" style="display:none;align-items:center;gap:6px;flex-wrap:wrap">
+        <span style="font-size:11px;color:var(--muted);font-weight:700;margin-left:6px">Viaje:</span>
+        <div class="pais-chips" id="detalle-viaje-chips"></div>
       </div>
       <div id="detalle-gateway-row" style="display:none;align-items:center;gap:6px;flex-wrap:wrap">
         <span style="font-size:11px;color:var(--muted);font-weight:700;margin-left:6px">Gateway:</span>
@@ -1159,6 +1172,7 @@ function updateProductoFilterVis_(){
   if(dProdRow) dProdRow.style.display = (_activeLob === 'b2b') ? 'flex' : 'none';
   // Gateway: solo B2B con Hotels como único producto (cada vista con su selector)
   Object.keys(_GW_UI).forEach(function(k){ _syncGatewayRow_(k); });
+  _renderAllViajeChips_();
   // Partner visible solo en B2B2C, en el tab P&L (no en Detalle ni en Gráficos: ambos tienen su propio selector de partner)
   var isDetalle  = document.getElementById('tab-detalle')  && document.getElementById('tab-detalle').classList.contains('active');
   var isGraficos = document.getElementById('tab-graficos') && document.getElementById('tab-graficos').classList.contains('active');
@@ -1725,6 +1739,54 @@ function _gwNoticeHtml_(d){
   return '<div style="margin:0 0 10px;padding:8px 12px;border-radius:8px;background:rgba(124,58,237,.07);border:1px solid rgba(124,58,237,.25);font-size:12px;color:var(--navy3)">'
     + '<strong>Hotels · Gateway: ' + sel + '</strong> — solo <strong>Actuals</strong> (meses cerrados) y <strong>Last Year</strong>. '
     + 'Budget y Forecast no tienen apertura por gateway (n/d): para comparar usá Goal = Last Year.</div>';
+}
+
+// ── Filtro Viaje (B2B: Nacional / Internacional) ───────────────────────────
+// Selección única por vista (Managerial / Trend / Detalle), siempre server-side.
+// A diferencia de gateway, Budget/Forecast/RR también abren por viaje → todos
+// los escenarios se filtran. Combinable con producto y gateway.
+var _VIAJE_LABEL  = { 'Domestic':'Nacional', 'International':'Internacional' };
+var _viajeOptions = [];                     // valores crudos (Domestic/International) — d.filters.viaje
+var _viajeSel     = { m:'', g:'', d:'' };   // '' = Todos
+var _VJ_UI = {
+  m: { row:'pnl-viaje-row',     chips:'viaje-chips',         reload:function(){ debouncedReload();  } },
+  g: { row:'gtab-viaje-row',    chips:'gtab-viaje-chips',    reload:function(){ debouncedReloadG(); } },
+  d: { row:'detalle-viaje-row', chips:'detalle-viaje-chips', reload:function(){ debouncedReloadD(); } }
+};
+function getViajeValues_(k){ return (_activeLob === 'b2b' && _viajeOptions.length && _viajeSel[k]) ? [_viajeSel[k]] : []; }
+function _renderViajeChips_(k){
+  var u = _VJ_UI[k], row = document.getElementById(u.row), wrap = document.getElementById(u.chips);
+  var on = _activeLob === 'b2b' && _viajeOptions.length > 0;
+  if(row) row.style.display = on ? 'flex' : 'none';
+  if(!wrap) return;
+  wrap.innerHTML = '';
+  [''].concat(_viajeOptions).forEach(function(v){
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'pais-chip' + (_viajeSel[k] === v ? ' pais-chip-active' : '');
+    btn.textContent = v ? (_VIAJE_LABEL[v] || v) : 'Todos';
+    btn.onclick = function(){ setViaje_(k, v); };
+    wrap.appendChild(btn);
+  });
+}
+function setViaje_(k, v){
+  if(_viajeSel[k] === v) return;
+  _viajeSel[k] = v;
+  _renderViajeChips_(k);
+  _VJ_UI[k].reload();
+}
+function _renderAllViajeChips_(){
+  Object.keys(_VJ_UI).forEach(function(k){ _renderViajeChips_(k); });
+  _updateStickyOffsets_();
+}
+// Las opciones vienen en cada respuesta: si cambian (ej. un Projection Review sin viaje → [])
+// se re-renderiza, y si desaparecen se limpia la selección (el backend ya la ignoró).
+function _syncViajeOptions_(d){
+  var vals = (d && d.filters && d.filters.viaje) || [];
+  if(vals.join('|') === _viajeOptions.join('|')) return;
+  _viajeOptions = vals.slice();
+  Object.keys(_viajeSel).forEach(function(k){ if(_viajeOptions.indexOf(_viajeSel[k]) < 0) _viajeSel[k] = ''; });
+  _renderAllViajeChips_();
 }
 
 var _contableIds = ['ms-cont-lob','ms-cont-canal','ms-cont-pais','ms-cont-producto'];
@@ -3411,6 +3473,7 @@ function switchLob(lob){
   _paisSelectedD = [];
   _productoSelectedD = [];
   _resetGatewayFilters_();
+  _viajeSel = { m:'', g:'', d:'' }; _viajeOptions = []; _renderAllViajeChips_();
   clearMs('ms-partner', false); // switchLob ya dispara su propio reload() abajo — no duplicar el fetch
   reload();
   _invalidatePanesOnSharedChange_();
@@ -3516,6 +3579,7 @@ function getFilters(){
     partner:        _activeLob === 'b2b2c' ? getMsValues('ms-partner') : [],
     produto:        getProductoValues(),
     gateway:        getGatewayValues_('m'),
+    viaje:          getViajeValues_('m'),
     lob_tipo:       lobTipo,
     date_type:      _activeLob === 'b2b2c' ? 'gd' : _activeDateType,
     baselineSource: _baselineSource
@@ -3543,13 +3607,14 @@ function fetchData(){
       if (reqId !== _fetchSeq) return;
       if (reqLob !== _activeLob) return;  // cambiaste de LOB mientras esto viajaba — descartar para no pintar datos del LOB anterior
       _data = d;
-      if (!_filtersLoadedForLob[reqLob] && !d.gateway_mode) {   // en modo gateway las opciones vienen recortadas
+      if (!_filtersLoadedForLob[reqLob] && !d.gateway_mode && !(d.viaje_sel || []).length) {   // en modo gateway las opciones vienen recortadas
         fillPaisChips(d.filters['pais'] || []);
         fillMs('ms-partner', (d.filters['partner'] || []).slice().sort());
         fillProductoChips(d.filters['produto'] || []);
         _filtersLoadedForLob[reqLob] = true;
       }
       _maybeFillGatewayMs_(d);
+      _syncViajeOptions_(d);
       updateActualsLegend(d.actual_months || []);
       render();
       document.getElementById('last-upd').textContent = 'Actualizado: '+new Date().toLocaleTimeString('es-AR');
@@ -3576,6 +3641,7 @@ function getFiltersGraficos(){
   f.partner = [];
   f.produto = _productoSelectedG.slice();
   f.gateway = getGatewayValues_('g');
+  f.viaje   = getViajeValues_('g');
   return f;
 }
 function fetchDataG(){
@@ -3586,11 +3652,12 @@ function fetchDataG(){
       if (reqId !== _gFetchSeq) return;
       if (reqLob !== _activeLob) return;
       _dataG = d;
-      if (!_gFiltersLoadedForLob[reqLob] && !d.gateway_mode) {
+      if (!_gFiltersLoadedForLob[reqLob] && !d.gateway_mode && !(d.viaje_sel || []).length) {
         fillGraficosProductoChips(d.filters['produto'] || []);
         _gFiltersLoadedForLob[reqLob] = true;
       }
       _maybeFillGatewayMs_(d);
+      _syncViajeOptions_(d);
       try{ renderTrendCharts(_dataG.months||[], _dataG.agg||{}, _dataG.budget||{}, _dataG.ly||{}); }
       catch(e){ if(window.console) console.error('[render:trend]', e); }
     })
@@ -3612,6 +3679,7 @@ function getFiltersDetalle(){
   f.partner = [];
   f.produto = [];                       // producto de Detalle es client-side (_productoSelectedD)
   f.gateway = getGatewayValues_('d');   // gateway sí va al server (secciones *_gw del JSON)
+  f.viaje   = getViajeValues_('d');     // viaje también (b2bCanalDetail no abre por viaje)
   return f;
 }
 function fetchDataD(){
@@ -3622,12 +3690,13 @@ function fetchDataD(){
       if (reqId !== _dFetchSeq) return;
       if (reqLob !== _activeLob) return;
       _dataD = d;
-      if (!_dFiltersLoadedForLob[reqLob] && !d.gateway_mode) {
+      if (!_dFiltersLoadedForLob[reqLob] && !d.gateway_mode && !(d.viaje_sel || []).length) {
         fillDetallePaisChips(d.filters['pais'] || []);
         if(reqLob === 'b2b') fillDetalleProductoChips(d.filters['produto'] || []);
         _dFiltersLoadedForLob[reqLob] = true;
       }
       _maybeFillGatewayMs_(d);
+      _syncViajeOptions_(d);
       try{ renderDetalle(); }
       catch(e){ if(window.console) console.error('[render:detalle]', e); }
     })

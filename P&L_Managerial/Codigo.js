@@ -70,6 +70,9 @@ var METRIC_COLS = [
 var _I_GB  = 1;   // gross_bookings
 var _I_NR  = 27;  // net_revenue
 var _I_NPV = 28;  // npv
+// Filas B2B (b2b_may/b2b_min, incluidas las *_gw): [pais, produto|gateway, ym, v0..v28, viaje].
+// El viaje (Domestic/International) va AL FINAL para no correr los índices de lo que ya leía por posición.
+var _I_VJ_B2B = 3 + METRIC_COLS.length;
 
 // ── Helpers de filtrado y agregación ─────────────────────────────────────
 
@@ -208,14 +211,16 @@ function normB2BPais_(p){
 // También sirve para las secciones de Hotels por gateway (ac_gw/ac_ri_gw/ly_gw): mismas filas
 // con el gateway en row[1] → fProduto pasa a ser el filtro de gateway.
 // ymOk: {ym:true} para quedarse solo con esos meses (null = todos).
+// fViaje: filtro de tipo de viaje (row[_I_VJ_B2B]); [] = sin filtro.
 function queryB2B_(section, scenarioKey, fPais, fProduto,
-                   outAgg, outAllPaises, outAllProdutos, ymOk) {
+                   outAgg, outAllPaises, outAllProdutos, ymOk, fViaje) {
   var rows = (section && section[scenarioKey]) || [];
   rows.forEach(function(row) {
     var pais = normB2BPais_(row[0]), produto = row[1], ym = row[2];
     if (!matchFilter_(pais,    fPais))    return;
     if (!matchFilter_(produto, fProduto)) return;
     if (ymOk && !ymOk[ym]) return;
+    if (fViaje && !matchFilter_(row[_I_VJ_B2B], fViaje)) return;
     var mes = YM_LABEL[ym];
     if (!mes) return;
     if (outAllPaises)   outAllPaises[pais]       = true;
@@ -230,13 +235,14 @@ function queryB2B_(section, scenarioKey, fPais, fProduto,
 // gw (opcional): {json, acKey, fGateway, ymOk} → modo gateway: baseline = Actuals de Hotels
 // filtrados por gateway (ac_gw/ac_ri_gw), LY = ly_gw (solo meses cerrados), Budget/Forecast
 // vacíos. Todo queda bajo el producto 'Hotels' para que Detalle y Trend view lo dibujen como siempre.
-function queryB2BCanalDetail_(json, blKeyMay, bgtKey, fcstKeyMay, fPais, fProduto, gw) {
+function queryB2BCanalDetail_(json, blKeyMay, bgtKey, fcstKeyMay, fPais, fProduto, gw, fViaje) {
   var result = { 'B2B-MIN':{ fc:{}, bgt:{}, ly:{}, fcst:{} }, 'B2B-MAY':{ fc:{}, bgt:{}, ly:{}, fcst:{} } };
   // Filas gateway: row[1] es el gateway → se filtra por gateway y se agrupa como 'Hotels'
   function procRows(rows, target) {
     (rows||[]).forEach(function(row) {
       var pais=normB2BPais_(row[0]), produto=row[1], ym=row[2];
       if(!matchFilter_(pais,fPais)) return;
+      if(fViaje && !matchFilter_(row[_I_VJ_B2B],fViaje)) return;
       if(gw){
         if(!matchFilter_(produto,gw.fGateway) || !gw.ymOk[ym]) return;
         produto='Hotels';
@@ -296,6 +302,7 @@ function doGet() {
 //   partner:   string|array  (solo B2B2C)
 //   produto:   string|array
 //   gateway:   string|array  (solo B2B y solo con producto = Hotels; modo gateway: Actuals + LY, sin Budget/Forecast)
+//   viaje:     string|array  (solo B2B: 'Domestic' | 'International'; todos los escenarios, combinable con gateway)
 // }
 // CacheService (6h) — 2026-09-23. getData() alimenta las 3 pestañas (Managerial View,
 // Gráficos, Detalle) y no tenía NADA de cache: cada llamada releía+reparseaba el JSON
@@ -353,6 +360,7 @@ function getData(filters) {
     partner:        (f.partner || []).slice().sort(),
     produto:        (f.produto || []).slice().sort(),
     gateway:        (f.gateway || []).slice().sort(),
+    viaje:          (f.viaje   || []).slice().sort(),
     lob_tipo:       (Array.isArray(f.lob_tipo) ? f.lob_tipo.slice().sort() : f.lob_tipo) || null,
     date_type:      f.date_type      || 'gd',
     baselineSource: f.baselineSource || 'bl'
@@ -362,7 +370,7 @@ function getData(filters) {
   try {
     var t1 = DriveApp.getFileById(GESTIONAL_JSON_FILE_ID).getLastUpdated().getTime();
     var t2 = DriveApp.getFileById(GESTIONAL_VR_JSON_FILE_ID).getLastUpdated().getTime();
-    ck = 'getdata_v2_' + t1 + '_' + t2 + '_' + Utilities.base64EncodeWebSafe(sig);
+    ck = 'getdata_v3_' + t1 + '_' + t2 + '_' + Utilities.base64EncodeWebSafe(sig);
     var hit = _readGetDataCache_(ck);
     if (hit) { Logger.log('getData HIT ' + (Date.now() - tStart) + ' ms'); return hit; }
   } catch (e) { Logger.log('getData cache probe: ' + e); }
@@ -403,6 +411,7 @@ function _computeGetData_(filters) {
   var fPartner = normFilter_(f['partner']);
   var fProduto = normFilter_(f['produto']);
   var fGateway = normFilter_(f['gateway']);
+  var fViaje   = normFilter_(f['viaje']);
 
   // Modo gateway (B2B, Hotels): baseline = Actuals de Hotels del gateway (ac_gw / ac_ri_gw),
   // LY = ly_gw recortado a los mismos meses cerrados, Budget/Forecast vacíos (no abren por
@@ -414,6 +423,10 @@ function _computeGetData_(filters) {
   var acGwKey = dateType === 'ri' ? 'ac_ri_gw' : 'ac_gw';
   var gwYmOk  = {};
   ((gwJson && gwJson.actual_months) || []).forEach(function(ym){ gwYmOk[ym] = true; });
+
+  // Viaje: opciones del baseline en uso; si el JSON no trae la columna, el filtro se ignora.
+  var viajeOpts = (useMay || useMin) ? listViajes_(json, useMay, useMin, [blKey, bgtKey, fcKey, 'ly']) : [];
+  if (!viajeOpts.length) fViaje = [];
 
   // Acumuladores  (fcAgg* = BASELINE primaria; fcstAgg* = forecast goal)
   var fcAgg  = {}, bgtAgg = {}, lyAgg = {}, fcstAgg = {};
@@ -460,13 +473,13 @@ function _computeGetData_(filters) {
   if (useMay) {
     lobsInData['B2B-MAY'] = true;
     if (gwMode) {
-      queryB2B_(gwJson.b2b_may, acGwKey, fPais, fGateway, fcAgg_may, allPaises, {}, gwYmOk);
-      queryB2B_(gwJson.b2b_may, 'ly_gw', fPais, fGateway, lyAgg_may, {},        {}, gwYmOk);
+      queryB2B_(gwJson.b2b_may, acGwKey, fPais, fGateway, fcAgg_may, allPaises, {}, gwYmOk, fViaje);
+      queryB2B_(gwJson.b2b_may, 'ly_gw', fPais, fGateway, lyAgg_may, {},        {}, gwYmOk, fViaje);
     } else {
-      queryB2B_(json.b2b_may, blKey,  fPais, fProduto, fcAgg_may,   allPaises, allProdutos);
-      queryB2B_(json.b2b_may, bgtKey, fPais, fProduto, bgtAgg_may,  {}, {});
-      queryB2B_(json.b2b_may, 'ly',   fPais, fProduto, lyAgg_may,   {}, {});
-      queryB2B_(json.b2b_may, fcKey,  fPais, fProduto, fcstAgg_may, {}, {});
+      queryB2B_(json.b2b_may, blKey,  fPais, fProduto, fcAgg_may,   allPaises, allProdutos, null, fViaje);
+      queryB2B_(json.b2b_may, bgtKey, fPais, fProduto, bgtAgg_may,  {}, {}, null, fViaje);
+      queryB2B_(json.b2b_may, 'ly',   fPais, fProduto, lyAgg_may,   {}, {}, null, fViaje);
+      queryB2B_(json.b2b_may, fcKey,  fPais, fProduto, fcstAgg_may, {}, {}, null, fViaje);
     }
     mergeAgg_(fcAgg_may,   fcAgg);
     mergeAgg_(bgtAgg_may,  bgtAgg);
@@ -477,13 +490,13 @@ function _computeGetData_(filters) {
   if (useMin) {
     lobsInData['B2B-MIN'] = true;
     if (gwMode) {
-      queryB2B_(gwJson.b2b_min, acGwKey, fPais, fGateway, fcAgg_min, allPaises, {}, gwYmOk);
-      queryB2B_(gwJson.b2b_min, 'ly_gw', fPais, fGateway, lyAgg_min, {},        {}, gwYmOk);
+      queryB2B_(gwJson.b2b_min, acGwKey, fPais, fGateway, fcAgg_min, allPaises, {}, gwYmOk, fViaje);
+      queryB2B_(gwJson.b2b_min, 'ly_gw', fPais, fGateway, lyAgg_min, {},        {}, gwYmOk, fViaje);
     } else {
-      queryB2B_(json.b2b_min, blKey,  fPais, fProduto, fcAgg_min,   allPaises, allProdutos);
-      queryB2B_(json.b2b_min, bgtKey, fPais, fProduto, bgtAgg_min,  {}, {});
-      queryB2B_(json.b2b_min, 'ly',   fPais, fProduto, lyAgg_min,   {}, {});
-      queryB2B_(json.b2b_min, fcKey,  fPais, fProduto, fcstAgg_min, {}, {});
+      queryB2B_(json.b2b_min, blKey,  fPais, fProduto, fcAgg_min,   allPaises, allProdutos, null, fViaje);
+      queryB2B_(json.b2b_min, bgtKey, fPais, fProduto, bgtAgg_min,  {}, {}, null, fViaje);
+      queryB2B_(json.b2b_min, 'ly',   fPais, fProduto, lyAgg_min,   {}, {}, null, fViaje);
+      queryB2B_(json.b2b_min, fcKey,  fPais, fProduto, fcstAgg_min, {}, {}, null, fViaje);
     }
     mergeAgg_(fcAgg_min,   fcAgg);
     mergeAgg_(bgtAgg_min,  bgtAgg);
@@ -520,11 +533,12 @@ function _computeGetData_(filters) {
     partner:  Object.keys(allPartners).sort(),
     produto:  gwMode ? ['Hotels'] : Object.keys(allProdutos).sort(),
     gateway:  gwJson ? listGateways_(gwJson, useMay, useMin) : [],
+    viaje:    viajeOpts,
   };
 
   var b2bCanalDetail = (useMay || useMin)
     ? queryB2BCanalDetail_(json, blKey, bgtKey, fcKey, fPais, fProduto,
-        gwMode ? { json: gwJson, acKey: acGwKey, fGateway: fGateway, ymOk: gwYmOk } : null)
+        gwMode ? { json: gwJson, acKey: acGwKey, fGateway: fGateway, ymOk: gwYmOk } : null, fViaje)
     : null;
 
   return {
@@ -545,6 +559,7 @@ function _computeGetData_(filters) {
     actual_months:        json.actual_months || [],
     gateway_mode:         gwMode,
     gateway_sel:          gwMode ? (Array.isArray(f.gateway) ? f.gateway : [f.gateway]) : [],
+    viaje_sel:            fViaje.length && (useMay || useMin) ? (Array.isArray(f.viaje) ? f.viaje : [f.viaje]) : [],
     b2bCanalDetail:       b2bCanalDetail,
     forecast:             fcstAgg,
     agg_may:              fcAgg_may,
@@ -584,6 +599,30 @@ function listGateways_(json, useMay, useMin) {
     });
   });
   return Object.keys(gb).sort(function(a, b) { return (gb[b] - gb[a]) || a.localeCompare(b); });
+}
+
+// Tipos de viaje presentes en los escenarios B2B que se filtran. Si alguna fila no trae la columna (JSON de antes
+// del 2026-10-13, o un Projection Review armado antes) devuelve [] → la landing oculta el filtro
+// en vez de filtrar a medias (esas filas quedarían afuera).
+function listViajes_(json, useMay, useMin, scenarioKeys) {
+  var vals = {}, incomplete = false;
+  var secs = [];
+  if (useMay) secs.push(json.b2b_may || {});
+  if (useMin) secs.push(json.b2b_min || {});
+  secs.forEach(function(sec) {
+    scenarioKeys.forEach(function(k) {
+      (sec[k] || []).forEach(function(row) {
+        if (row.length <= _I_VJ_B2B) { incomplete = true; return; }
+        vals[row[_I_VJ_B2B]] = true;
+      });
+    });
+  });
+  if (incomplete) return [];
+  var ORDER = ['Domestic', 'International'];
+  return Object.keys(vals).sort(function(a, b) {
+    var ia = ORDER.indexOf(a), ib = ORDER.indexOf(b);
+    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || a.localeCompare(b);
+  });
 }
 
 // Opciones de filtro disponibles en el JSON (sin aplicar filtros)

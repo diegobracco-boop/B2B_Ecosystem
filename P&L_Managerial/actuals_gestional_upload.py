@@ -63,10 +63,15 @@ _FY = _planning_cfg.CURRENT_FY                                  # 2027 = FY27 (a
 FY_MONTHS = [d[:7] for d in _planning_cfg.FISCAL_DATES]         # 'YYYY-MM', abr → mar
 
 # Carpeta de la ronda de Forecast: FY y versión salen de config.py (GESTION_FOLDER / FORECAST_VERSION).
-_FC_SUBPATH = rf"{_planning_cfg.GESTION_FOLDER}\B2B & WLs\Forecast\{_planning_cfg.FORECAST_VERSION}"
+# Dos estructuras de OneDrive, igual que pnl_common.get_base_dir(): la nueva
+# (Control de Gestión - Documentos\Planeamiento\2026-27) y el acceso directo viejo (Control de Gestión - 2026-27).
+_FY_TAG = _planning_cfg.GESTION_FOLDER.replace("Control de Gestión - ", "")   # "2026-27"
+_FC_REL = rf"B2B & WLs\Forecast\{_planning_cfg.FORECAST_VERSION}"
+_FC_SUBPATHS = [rf"Control de Gestión - Documentos\Planeamiento\{_FY_TAG}\{_FC_REL}",
+                rf"{_planning_cfg.GESTION_FOLDER}\{_FC_REL}"]
 _ONEDRIVE_ROOTS = [Path.home() / "OneDrive - despegar365", Path.home() / "despegar365"]
-FC_XLSX_DIR = next((str(r / _FC_SUBPATH) for r in _ONEDRIVE_ROOTS if (r / _FC_SUBPATH).is_dir()),
-                   str(_ONEDRIVE_ROOTS[0] / _FC_SUBPATH))
+FC_XLSX_DIR = next((str(r / sp) for sp in _FC_SUBPATHS for r in _ONEDRIVE_ROOTS if (r / sp).is_dir()),
+                   str(_ONEDRIVE_ROOTS[0] / _FC_SUBPATHS[-1]))
 
 TODAY        = date.today()
 CURRENT_YM   = TODAY.strftime('%Y-%m')
@@ -1042,13 +1047,26 @@ def _build_b2b2c_rows(df: pd.DataFrame, filter_set: set = None, ym_shift_years: 
     return rows
 
 
+VIAJE_SIN_DATO = "(Sin dato)"
+
+
+def _viaje_col(df: pd.DataFrame) -> pd.Series:
+    """Tipo de viaje (Domestic / International) normalizado; vacío o ausente → '(Sin dato)'.
+    Va como ÚLTIMA columna de cada fila B2B ([pais, produto, ym, v0..v28, viaje]): así todo lo
+    que lee las filas por posición (Codigo.js, Managerial vs Accounting, Projection Reviews) sigue
+    igual y simplemente suma las dos aperturas. Lo usa el filtro "Viaje" de la landing (2026-10-13)."""
+    if "viaje" not in df.columns:
+        return pd.Series(VIAJE_SIN_DATO, index=df.index)
+    return df["viaje"].fillna(VIAJE_SIN_DATO).astype(str).str.strip().replace("", VIAJE_SIN_DATO)
+
+
 GW_SIN_DATO = "(Sin gateway)"
 
 
 def _build_b2b_rows(df: pd.DataFrame, year_col: str, month_col: str,
                     channel_filter: str = None, filter_set: set = None,
                     ym_shift_years: int = 0, by_gateway: bool = False) -> list:
-    """B2B GD/RI actuals/LY df → rows [pais, produto, ym, v0..v28].
+    """B2B GD/RI actuals/LY df → rows [pais, produto, ym, v0..v28, viaje].
     channel_filter: 'API' for MAY (Mayoristas) or 'Agencias afiliadas' for MIN (Minoristas).
     filter_set: set of YYYY-MM to keep; defaults to CLOSED_SET.
     ym_shift_years: shift ym by N years (use 1 for LY so '2025-04' → '2026-04').
@@ -1079,14 +1097,15 @@ def _build_b2b_rows(df: pd.DataFrame, year_col: str, month_col: str,
     for c in ["income_from_outsourced_services", "intercompany_usd", "operations", "vendor_commissions"]:
         if c not in df.columns:
             df[c] = 0.0
+    df["viaje"] = _viaje_col(df)
     df = _to_numeric(df, [c for c in METRIC_COLS if c in df.columns])
-    df = df.groupby(["pais", "produto", "ym"], as_index=False).agg(
+    df = df.groupby(["pais", "produto", "ym", "viaje"], as_index=False).agg(
         {c: "sum" for c in METRIC_COLS if c in df.columns}
     )
     rows = []
     for _, row in df.iterrows():
         vals = [round(float(row.get(c, 0) or 0), 4) for c in METRIC_COLS]
-        rows.append([row["pais"], row["produto"], row["ym"]] + vals)
+        rows.append([row["pais"], row["produto"], row["ym"]] + vals + [row["viaje"]])
     return rows
 
 
@@ -1155,7 +1174,7 @@ def _build_b2b2c_budget_rows(df: pd.DataFrame, ym_from_proyectado: bool = False)
 
 def _build_b2b_budget_rows(df: pd.DataFrame, lob_filter: str = None,
                            ym_from_proyectado: bool = False) -> list:
-    """B2B GD/RI budget/RR/FC → rows [pais, produto, ym, v0..v28] (full waterfall).
+    """B2B GD/RI budget/RR/FC → rows [pais, produto, ym, v0..v28, viaje] (full waterfall).
     lob_filter: 'B2B-MAY' or 'B2B-MIN'.
     """
     df = df.copy()
@@ -1168,14 +1187,15 @@ def _build_b2b_budget_rows(df: pd.DataFrame, lob_filter: str = None,
     df = df[df["ym"].isin(FY_SET)]
     if "produto" not in df.columns:
         df["produto"] = "Total"
+    df["viaje"] = _viaje_col(df)
     df = _to_numeric(df, [c for c in METRIC_COLS if c in df.columns])
-    df = df.groupby(["pais", "produto", "ym"], as_index=False).agg(
+    df = df.groupby(["pais", "produto", "ym", "viaje"], as_index=False).agg(
         {c: "sum" for c in METRIC_COLS if c in df.columns}
     )
     rows = []
     for _, row in df.iterrows():
         vals = [round(float(row.get(c, 0) or 0), 4) for c in METRIC_COLS]
-        rows.append([row["pais"], row["produto"], row["ym"]] + vals)
+        rows.append([row["pais"], row["produto"], row["ym"]] + vals + [row["viaje"]])
     return rows
 
 
@@ -1263,18 +1283,19 @@ def _fc_xlsx_b2b2c_rows(df: pd.DataFrame) -> list:
 
 
 def _fc_xlsx_b2b_rows(df: pd.DataFrame) -> list:
-    """API / HTML model → rows [pais, produto, ym, v0..v28] (file is already per-channel)."""
+    """API / HTML model → rows [pais, produto, ym, v0..v28, viaje] (file is already per-channel)."""
     for c in METRIC_COLS:
         if c not in df.columns:
             df[c] = 0.0
+    df["viaje"] = _viaje_col(df)
     df = _to_numeric(df, METRIC_COLS)
-    df = df.groupby(["pais", "produto", "ym"], as_index=False).agg(
+    df = df.groupby(["pais", "produto", "ym", "viaje"], as_index=False).agg(
         {c: "sum" for c in METRIC_COLS}
     )
     rows = []
     for _, row in df.iterrows():
         vals = [round(float(row.get(c, 0) or 0), 4) for c in METRIC_COLS]
-        rows.append([row["pais"], row["produto"], row["ym"]] + vals)
+        rows.append([row["pais"], row["produto"], row["ym"]] + vals + [row["viaje"]])
     return rows
 
 
@@ -1372,6 +1393,7 @@ df_rr_ri    = fetch(B2B_RR_RI_QUERY, "B2B run rate RI")
 
 # ── Forecast (XLSX models; datalake raw.b2bfc1_* is outdated) ─────────────────
 print("\n--- Forecast (XLSX models) ---")
+print(f"  Carpeta: {FC_XLSX_DIR}")
 fcraw_b2b2c  = _fc_xlsx_b2b2c_rows(_read_fc_xlsx("WLs - Modelo Forecast.xlsx",  "P&L",    "mes_proyectado"))
 fcraw_may    = _fc_xlsx_b2b_rows(  _read_fc_xlsx("API - Modelo Forecast.xlsx",  "P&L",    "mes_proyectado"))
 fcraw_may_ri = _fc_xlsx_b2b_rows(  _read_fc_xlsx("API - Modelo Forecast.xlsx",  "P&L RI", "mes ri"))
