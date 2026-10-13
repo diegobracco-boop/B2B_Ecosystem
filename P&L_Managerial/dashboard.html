@@ -879,6 +879,21 @@ header .btn-refresh:hover{background:#f5f3ff !important;border-color:#c4b5fd;col
         <span style="font-size:11px;color:var(--muted);font-weight:700;margin-left:6px">Prod.:</span>
         <div class="pais-chips" id="produto-chips"></div>
       </div>
+      <!-- Gateway: solo B2B, visible cuando el único producto elegido es Hotels -->
+      <div id="pnl-gateway-row" style="display:none;align-items:center;gap:6px;flex-wrap:wrap">
+        <span style="font-size:11px;color:var(--muted);font-weight:700;margin-left:6px">Gateway:</span>
+        <div class="ms-wrap" id="ms-gateway">
+          <button class="ms-btn" type="button">
+            <span class="ms-label">Todos</span>
+            <span class="ms-arrow">▾</span>
+          </button>
+          <div class="ms-panel">
+            <div class="ms-search"><input type="text" placeholder="Buscar…" oninput="filterOptions('ms-gateway',this.value)"></div>
+            <div class="ms-options"></div>
+            <div class="ms-footer"><button class="ms-clear" type="button" onclick="clearGatewayMs_('ms-gateway')">Limpiar selección</button></div>
+          </div>
+        </div>
+      </div>
     </div>
     <!-- Country sub-tabs (Trend view, shown when graficos tab is active) -->
     <div id="graficos-country-nav" style="display:none;align-items:center;gap:6px;flex-wrap:wrap">
@@ -898,11 +913,44 @@ header .btn-refresh:hover{background:#f5f3ff !important;border-color:#c4b5fd;col
         <span style="font-size:11px;color:var(--muted);font-weight:700;margin-left:10px">Prod.:</span>
         <div class="pais-chips" id="gtab-produto-chips"></div>
       </div>
+      <div id="gtab-gateway-row" style="display:none;align-items:center;gap:6px;flex-wrap:wrap">
+        <span style="font-size:11px;color:var(--muted);font-weight:700;margin-left:6px">Gateway:</span>
+        <div class="ms-wrap" id="ms-gateway-g">
+          <button class="ms-btn" type="button">
+            <span class="ms-label">Todos</span>
+            <span class="ms-arrow">▾</span>
+          </button>
+          <div class="ms-panel">
+            <div class="ms-search"><input type="text" placeholder="Buscar…" oninput="filterOptions('ms-gateway-g',this.value)"></div>
+            <div class="ms-options"></div>
+            <div class="ms-footer"><button class="ms-clear" type="button" onclick="clearGatewayMs_('ms-gateway-g')">Limpiar selección</button></div>
+          </div>
+        </div>
+      </div>
     </div>
     <!-- Country chips (Detalle, independiente de Managerial View/Trend view) -->
     <div id="detalle-country-nav" style="display:none;align-items:center;gap:6px;flex-wrap:wrap">
       <span style="font-size:11px;color:var(--muted);font-weight:700">País:</span>
       <div class="pais-chips" id="detalle-pais-chips"></div>
+      <!-- Producto (solo B2B, client-side) + Gateway (con Hotels, refetch) — propios de Detalle -->
+      <div id="detalle-produto-row" style="display:none;align-items:center;gap:6px;flex-wrap:wrap">
+        <span style="font-size:11px;color:var(--muted);font-weight:700;margin-left:6px">Prod.:</span>
+        <div class="pais-chips" id="detalle-produto-chips"></div>
+      </div>
+      <div id="detalle-gateway-row" style="display:none;align-items:center;gap:6px;flex-wrap:wrap">
+        <span style="font-size:11px;color:var(--muted);font-weight:700;margin-left:6px">Gateway:</span>
+        <div class="ms-wrap" id="ms-gateway-d">
+          <button class="ms-btn" type="button">
+            <span class="ms-label">Todos</span>
+            <span class="ms-arrow">▾</span>
+          </button>
+          <div class="ms-panel">
+            <div class="ms-search"><input type="text" placeholder="Buscar…" oninput="filterOptions('ms-gateway-d',this.value)"></div>
+            <div class="ms-options"></div>
+            <div class="ms-footer"><button class="ms-clear" type="button" onclick="clearGatewayMs_('ms-gateway-d')">Limpiar selección</button></div>
+          </div>
+        </div>
+      </div>
     </div>
     <span style="width:1px;height:18px;background:rgba(0,0,0,.15);margin:0 6px"></span>
     <!-- Partner (B2B2C only) -->
@@ -963,6 +1011,7 @@ header .btn-refresh:hover{background:#f5f3ff !important;border-color:#c4b5fd;col
       <button class="prd-btn detalle-metric-btn"            type="button" onclick="switchDetalleMetric('nr',this)">Net Revenue</button>
       <button class="prd-btn detalle-metric-btn"            type="button" onclick="switchDetalleMetric('npv',this)">FVM</button>
     </div>
+    <div id="detalle-gw-notice"></div>
     <div class="pnl-card" style="overflow:auto;max-height:calc(100vh - 300px)">
       <table class="detalle-table" id="detalle-table">
         <thead id="detalle-head"></thead>
@@ -1045,7 +1094,11 @@ var _productoSelectedG = [];      // Trend view — filtro de producto (server-s
 var _gFetchSeq = 0;
 var _dataD = null;                // Detalle — su propio _data
 var _paisSelectedD = [];          // Detalle — filtro de país (client-side, sin refetch)
+var _productoSelectedD = [];      // Detalle — filtro de producto B2B (client-side, sin refetch)
 var _dFetchSeq = 0;
+var _dReloadTimer = null;
+function debouncedReloadD(){ clearTimeout(_dReloadTimer); _dReloadTimer = setTimeout(function(){ fetchDataD(); }, 600); }
+var _gatewayOptions = [];         // gateways de Hotels (B2B) — llegan en d.filters.gateway
 
 var MES_LABEL_C = {};   // mes calendario (1-12) → 'Abr-26'
 FY_YMS.forEach(function(ym, i){ MES_LABEL_C[Number(ym.slice(5))] = FY_MLABELS[i]; });
@@ -1101,6 +1154,11 @@ function updateProductoFilterVis_(){
   // Ídem chips de producto propios de Trend view — mismo criterio (solo B2B).
   var gProdRow = document.getElementById('gtab-produto-row');
   if(gProdRow) gProdRow.style.display = (_activeLob === 'b2b') ? 'flex' : 'none';
+  // Ídem chips de producto de Detalle (en B2B2C las filas son partners, no productos)
+  var dProdRow = document.getElementById('detalle-produto-row');
+  if(dProdRow) dProdRow.style.display = (_activeLob === 'b2b') ? 'flex' : 'none';
+  // Gateway: solo B2B con Hotels como único producto (cada vista con su selector)
+  Object.keys(_GW_UI).forEach(function(k){ _syncGatewayRow_(k); });
   // Partner visible solo en B2B2C, en el tab P&L (no en Detalle ni en Gráficos: ambos tienen su propio selector de partner)
   var isDetalle  = document.getElementById('tab-detalle')  && document.getElementById('tab-detalle').classList.contains('active');
   var isGraficos = document.getElementById('tab-graficos') && document.getElementById('tab-graficos').classList.contains('active');
@@ -1488,6 +1546,7 @@ function renderProductoChips(){
     if(!btn.dataset.val) btn.classList.toggle('pais-chip-active', _productoSelected.length === 0);
     else btn.classList.toggle('pais-chip-active', _productoSelected.indexOf(btn.dataset.val) >= 0);
   });
+  _syncGatewayRow_('m');
 }
 
 function getProductoValues(){ return _productoSelected.slice(); }
@@ -1530,6 +1589,7 @@ function renderGraficosProductoChips(){
     if(!btn.dataset.val) btn.classList.toggle('pais-chip-active', _productoSelectedG.length === 0);
     else btn.classList.toggle('pais-chip-active', _productoSelectedG.indexOf(btn.dataset.val) >= 0);
   });
+  _syncGatewayRow_('g');
 }
 
 // ── País chip selector — Detalle (client-side, sin refetch: el breakdown por
@@ -1570,15 +1630,113 @@ function renderDetallePaisChips(){
   });
 }
 
+// ── Producto chip selector — Detalle (solo B2B, client-side: filtra las filas
+// "Canal · Producto" que ya vienen en _dataD; con Hotels habilita el gateway) ──
+function fillDetalleProductoChips(values){
+  var norm = function(s){ return String(s||'').trim().toLowerCase(); };
+  var ordered = _PRODUTO_ORDER.filter(function(p){ return (values||[]).some(function(v){ return norm(v)===norm(p); }); });
+  var rest = (values||[]).filter(function(v){ return ordered.map(norm).indexOf(norm(v)) < 0; }).sort();
+  values = ordered.concat(rest);
+  var container = document.getElementById('detalle-produto-chips');
+  if(!container) return;
+  container.innerHTML = '';
+  var allBtn = document.createElement('button');
+  allBtn.type = 'button';
+  allBtn.className = 'pais-chip' + (_productoSelectedD.length === 0 ? ' pais-chip-active' : '');
+  allBtn.textContent = 'Todos';
+  allBtn.onclick = function(){ _productoSelectedD = []; _onDetalleProductoChange_(); };
+  container.appendChild(allBtn);
+  values.forEach(function(v){
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.dataset.val = v;
+    btn.className = 'pais-chip' + (_productoSelectedD.indexOf(v) >= 0 ? ' pais-chip-active' : '');
+    btn.textContent = v;
+    btn.onclick = function(){
+      var idx = _productoSelectedD.indexOf(v);
+      if(idx >= 0) _productoSelectedD.splice(idx, 1); else _productoSelectedD.push(v);
+      _onDetalleProductoChange_();
+    };
+    container.appendChild(btn);
+  });
+}
+function renderDetalleProductoChips(){
+  var container = document.getElementById('detalle-produto-chips');
+  if(!container) return;
+  container.querySelectorAll('.pais-chip').forEach(function(btn){
+    if(!btn.dataset.val) btn.classList.toggle('pais-chip-active', _productoSelectedD.length === 0);
+    else btn.classList.toggle('pais-chip-active', _productoSelectedD.indexOf(btn.dataset.val) >= 0);
+  });
+}
+// Producto de Detalle es client-side, salvo que deje de ser "solo Hotels" con un gateway
+// elegido: ahí _dataD vino filtrado por gateway y hay que volver a pedirlo sin filtro.
+function _onDetalleProductoChange_(){
+  var hadGw = !!(_dataD && _dataD.gateway_mode);
+  renderDetalleProductoChips();
+  _syncGatewayRow_('d');
+  if(hadGw && !getGatewayValues_('d').length) fetchDataD(); else renderDetalle();
+}
+
+// ── Filtro Gateway (B2B, solo Hotels) ──────────────────────────────────────
+// Cada vista (Managerial / Trend / Detalle) tiene su propio selector, igual que
+// producto. Aparece solo cuando el ÚNICO producto elegido es Hotels; con un
+// gateway elegido el backend entra en "modo gateway": Actuals (meses cerrados)
+// + LY de Hotels de ese gateway. Budget/Forecast no abren por gateway → n/d.
+var _GW_UI = {
+  m: { row:'pnl-gateway-row',     ms:'ms-gateway',   prods:function(){ return _productoSelected;  }, reload:function(){ debouncedReload();  } },
+  g: { row:'gtab-gateway-row',    ms:'ms-gateway-g', prods:function(){ return _productoSelectedG; }, reload:function(){ debouncedReloadG(); } },
+  d: { row:'detalle-gateway-row', ms:'ms-gateway-d', prods:function(){ return _productoSelectedD; }, reload:function(){ debouncedReloadD(); } }
+};
+function _isOnlyHotels_(sel){ return sel.length === 1 && String(sel[0]).trim().toLowerCase() === 'hotels'; }
+function _gwEnabled_(k){ return _activeLob === 'b2b' && _isOnlyHotels_(_GW_UI[k].prods()) && _gatewayOptions.length > 0; }
+function getGatewayValues_(k){ return _gwEnabled_(k) ? getMsValues(_GW_UI[k].ms) : []; }
+function _syncGatewayRow_(k){
+  var u = _GW_UI[k], row = document.getElementById(u.row), on = _gwEnabled_(k);
+  if(row) row.style.display = on ? 'flex' : 'none';
+  if(!on && getMsValues(u.ms).length) clearMs(u.ms, false);  // el cambio de producto ya dispara su propio fetch
+  _updateStickyOffsets_();
+}
+function fillGatewayMs_(values){
+  _gatewayOptions = (values || []).slice();
+  Object.keys(_GW_UI).forEach(function(k){
+    fillMs(_GW_UI[k].ms, _gatewayOptions, _GW_UI[k].reload);
+    _syncGatewayRow_(k);
+  });
+}
+function _maybeFillGatewayMs_(d){
+  var vals = (d && d.filters && d.filters.gateway) || [];
+  if(!_gatewayOptions.length && vals.length) fillGatewayMs_(vals);
+}
+function clearGatewayMs_(msId){
+  Object.keys(_GW_UI).forEach(function(k){
+    if(_GW_UI[k].ms !== msId) return;
+    clearMs(msId, false);
+    _GW_UI[k].reload();
+  });
+}
+function _resetGatewayFilters_(){
+  _gatewayOptions = [];
+  Object.keys(_GW_UI).forEach(function(k){ clearMs(_GW_UI[k].ms, false); _syncGatewayRow_(k); });
+}
+// Aviso arriba de cada vista cuando el modo gateway está activo
+function _gwNoticeHtml_(d){
+  if(!d || !d.gateway_mode) return '';
+  var sel = (d.gateway_sel || []).map(escHtml).join(', ');
+  return '<div style="margin:0 0 10px;padding:8px 12px;border-radius:8px;background:rgba(124,58,237,.07);border:1px solid rgba(124,58,237,.25);font-size:12px;color:var(--navy3)">'
+    + '<strong>Hotels · Gateway: ' + sel + '</strong> — solo <strong>Actuals</strong> (meses cerrados) y <strong>Last Year</strong>. '
+    + 'Budget y Forecast no tienen apertura por gateway (n/d): para comparar usá Goal = Last Year.</div>';
+}
 
 var _contableIds = ['ms-cont-lob','ms-cont-canal','ms-cont-pais','ms-cont-producto'];
 
-function fillMs(id, values){
+// onChange opcional (default: debouncedReload de Managerial View) — los selectores de gateway
+// de Trend view y Detalle disparan su propio fetch.
+function fillMs(id, values, onChangeFn){
   var wrap=document.getElementById(id);
   var optDiv=wrap.querySelector('.ms-options');
   var cur=getMsValues(id);
   optDiv.innerHTML='';
-  var onChange = function(){ debouncedReload(); };
+  var onChange = onChangeFn || function(){ debouncedReload(); };
 
   var allLbl=document.createElement('label');
   allLbl.className='ms-option ms-all';
@@ -2000,6 +2158,8 @@ function renderDetalle() {
   var bodyEl = document.getElementById('detalle-body');
   if (!headEl || !bodyEl || !_dataD) return;
   var isB2B = (_activeLob === 'b2b');
+  var gwNoticeEl = document.getElementById('detalle-gw-notice');
+  if(gwNoticeEl) gwNoticeEl.innerHTML = isB2B ? _gwNoticeHtml_(_dataD) : '';
 
   var months = _dataD.months || [];
 
@@ -2168,6 +2328,11 @@ function renderDetalle() {
       var s=seriesFor(cmap[p]||{}, lkup(cgmap,p)||{}, lkup(clmap,p)||{});
       return {name:p, s:s, tot:totOf(s)};
     }).filter(function(x){ return x.tot!==0; });
+    // Filtro de producto propio de Detalle (B2B): entidad = "Canal · Producto"
+    if(isB2B && _productoSelectedD.length){
+      var _selProdD = _productoSelectedD.map(normD);
+      pdata = pdata.filter(function(x){ return _selProdD.indexOf(normD(x.name.split(' · ').slice(1).join(' · '))) >= 0; });
+    }
     if(!pdata.length) return;
 
     // Banda de país
@@ -2415,7 +2580,11 @@ function toggleMGSec(secId){
   if(hdr) hdr.classList.toggle('q-collapsed', !!_mgSecState[secId]);
 }
 
+// goalData === null → goal no disponible (modo gateway con Goal = Budget/Forecast): las
+// columnas de goal y delta muestran '—' en vez de 0 / delta = baseline.
 function _buildMGPanel_(container, agg, goalData, title, periods, n, isLast, goalLabel){
+  var goalNA = goalData === null;
+  if(goalNA) goalData = {};
   var bAggs = {}, gAggs = {};
   // totalMonths = unión de meses de los períodos visibles (excluye la columna Total misma)
   var totalMonths = [];
@@ -2460,7 +2629,7 @@ function _buildMGPanel_(container, agg, goalData, title, periods, n, isLast, goa
     '<th class="th-lbl"></th>'+
     '<th class="th-baseline" colspan="'+n+'">BASELINE</th>'+
     '<th class="th-sep"></th>'+
-    '<th class="th-goal" colspan="'+n+'">'+goalLabel+'</th>'+
+    '<th class="th-goal" colspan="'+n+'">'+goalLabel+(goalNA?' · N/D POR GATEWAY':'')+'</th>'+
     '<th class="th-sep"></th>'+
     '<th class="th-delta" colspan="'+n+'">DELTA (B-G)</th>';
 
@@ -2482,17 +2651,18 @@ function _buildMGPanel_(container, agg, goalData, title, periods, n, isLast, goa
     var s1=document.createElement('td'); s1.className='td-sep'; tr.appendChild(s1);
     periods.forEach(function(p){
       var v=getValue(key,gAggs[p])||0, td=document.createElement('td');
-      td.style.textAlign='right'; if(v<0) td.style.color='var(--red)';
+      td.style.textAlign='right'; if(v<0 && !goalNA) td.style.color='var(--red)';
+      if(goalNA) td.style.color='var(--muted2)';
       if(isLast(p)) td.className='td-total-g';
-      td.textContent=fmt==='K'?fmtK(v):fmtM(v); tr.appendChild(td);
+      td.textContent=goalNA?'—':fmt==='K'?fmtK(v):fmtM(v); tr.appendChild(td);
     });
     var s2=document.createElement('td'); s2.className='td-sep'; tr.appendChild(s2);
     periods.forEach(function(p){
       var bv=getValue(key,bAggs[p])||0, gv=getValue(key,gAggs[p])||0, dv=bv-gv;
       var td=document.createElement('td');
-      td.style.cssText='text-align:right;color:'+(dv<0?'#DC2626':'#15803D');
+      td.style.cssText='text-align:right;color:'+(goalNA?'var(--muted2)':dv<0?'#DC2626':'#15803D');
       if(isLast(p)) td.className='td-total-d';
-      td.textContent=fmt==='K'?fmtK(dv):fmtM(dv); tr.appendChild(td);
+      td.textContent=goalNA?'—':fmt==='K'?fmtK(dv):fmtM(dv); tr.appendChild(td);
     });
   }
 
@@ -2515,7 +2685,7 @@ function _buildMGPanel_(container, agg, goalData, title, periods, n, isLast, goa
       var td=document.createElement('td');
       td.style.cssText='text-align:right;font-size:10px;color:var(--muted)';
       if(isLast(p)) td.className='td-total-g';
-      td.textContent=fmtPct(v); ptr.appendChild(td);
+      td.textContent=goalNA?'—':fmtPct(v); ptr.appendChild(td);
     });
     var s2=document.createElement('td'); s2.className='td-sep'; ptr.appendChild(s2);
     periods.forEach(function(p){
@@ -2526,7 +2696,7 @@ function _buildMGPanel_(container, agg, goalData, title, periods, n, isLast, goa
       var td=document.createElement('td');
       td.style.cssText='text-align:right;font-size:10px;color:var(--muted)';
       if(isLast(p)) td.className='td-total-d';
-      td.textContent=(dv>=0?'+':'')+dv.toFixed(2)+'pp'; ptr.appendChild(td);
+      td.textContent=goalNA?'—':(dv>=0?'+':'')+dv.toFixed(2)+'pp'; ptr.appendChild(td);
     });
     tbody.appendChild(ptr);
   }
@@ -2618,6 +2788,8 @@ function _buildMGPanel_(container, agg, goalData, title, periods, n, isLast, goa
 function _renderMGKpis_(container, agg, goalData, goalLabel, lyData){
   var months = MG_MONTHS_ORD.filter(function(m){ return !!(agg && agg[m]); });
   if(!months.length) return;
+  var goalNA = goalData === null;   // modo gateway con Goal = Budget/Forecast
+  if(goalNA) goalData = {};
   var b = mgAggPeriod_(agg, months), g = mgAggPeriod_(goalData, months), ly = mgAggPeriod_(lyData||{}, months);
   var items = [
     {l:'Gross Bookings', k:'gross_bookings', f:fmtM},
@@ -2636,8 +2808,10 @@ function _renderMGKpis_(container, agg, goalData, goalLabel, lyData){
     var ycls = yd>=0 ? 'pos' : 'neg';
     h += '<div class="xkpi"><div class="xkpi-lbl">'+it.l+'</div>'
        + '<div class="xkpi-val">'+it.f(bv)+'</div>'
-       + '<div class="xkpi-sub"><span class="xkpi-delta '+cls+'">'+(pct===null?'—':sign+pct.toFixed(1)+'%')+'</span>'
-       + '<span>'+sign+it.f(d)+' vs '+escHtml(goalLabel.charAt(0)+goalLabel.slice(1).toLowerCase())+'</span></div>'
+       + (goalNA
+          ? '<div class="xkpi-sub"><span class="xkpi-delta">—</span><span>'+escHtml(goalLabel.charAt(0)+goalLabel.slice(1).toLowerCase())+' n/d por gateway</span></div>'
+          : '<div class="xkpi-sub"><span class="xkpi-delta '+cls+'">'+(pct===null?'—':sign+pct.toFixed(1)+'%')+'</span>'
+            + '<span>'+sign+it.f(d)+' vs '+escHtml(goalLabel.charAt(0)+goalLabel.slice(1).toLowerCase())+'</span></div>')
        + '<div class="xkpi-sub xkpi-yoy"><span class="xkpi-delta '+ycls+'">'+(ypct===null?'—':(yd>=0?'+':'')+ypct.toFixed(1)+'%')+'</span>'
        + '<span>YoY vs '+it.f(lv)+' ('+FY_LY_TAG+')</span></div></div>';
   });
@@ -2660,13 +2834,20 @@ function renderManagerialBGTable(){
   // scenario prefix on _data.* : budget→'budget', forecast→'forecast', ly→'ly'
   var gf = _managerialGoal === 'ly' ? 'ly'
          : _managerialGoal === 'forecast' ? 'forecast' : 'budget';
-  _renderMGKpis_(container, _data.agg||{}, _data[gf]||{}, goalLabel, _data.ly||{});
+  // Modo gateway (B2B · Hotels · gateway): Budget/Forecast no existen → goal null (n/d)
+  var goalNA = !!_data.gateway_mode && _managerialGoal !== 'ly';
+  if(_data.gateway_mode){
+    var gwNote = document.createElement('div');
+    gwNote.innerHTML = _gwNoticeHtml_(_data);
+    container.appendChild(gwNote);
+  }
+  _renderMGKpis_(container, _data.agg||{}, goalNA ? null : (_data[gf]||{}), goalLabel, _data.ly||{});
 
   if(_activeLob === 'b2b'){
     var panels = [
-      { title:'B2B Total', agg:_data.agg||{},     goal:(_data[gf]||{}) },
-      { title:'B2B · MAY', agg:_data.agg_may||{}, goal:(_data[gf+'_may']||{}) },
-      { title:'B2B · MIN', agg:_data.agg_min||{}, goal:(_data[gf+'_min']||{}) }
+      { title:'B2B Total', agg:_data.agg||{},     goal:goalNA ? null : (_data[gf]||{}) },
+      { title:'B2B · MAY', agg:_data.agg_may||{}, goal:goalNA ? null : (_data[gf+'_may']||{}) },
+      { title:'B2B · MIN', agg:_data.agg_min||{}, goal:goalNA ? null : (_data[gf+'_min']||{}) }
     ];
     panels.forEach(function(p){
       _buildMGPanel_(container, p.agg, p.goal, p.title, periods, n, isLast, goalLabel);
@@ -3228,6 +3409,8 @@ function switchLob(lob){
   _productoSelected = []; renderProductoChips();
   _productoSelectedG = [];
   _paisSelectedD = [];
+  _productoSelectedD = [];
+  _resetGatewayFilters_();
   clearMs('ms-partner', false); // switchLob ya dispara su propio reload() abajo — no duplicar el fetch
   reload();
   _invalidatePanesOnSharedChange_();
@@ -3332,6 +3515,7 @@ function getFilters(){
     pais:           getPaisValues(),
     partner:        _activeLob === 'b2b2c' ? getMsValues('ms-partner') : [],
     produto:        getProductoValues(),
+    gateway:        getGatewayValues_('m'),
     lob_tipo:       lobTipo,
     date_type:      _activeLob === 'b2b2c' ? 'gd' : _activeDateType,
     baselineSource: _baselineSource
@@ -3359,12 +3543,13 @@ function fetchData(){
       if (reqId !== _fetchSeq) return;
       if (reqLob !== _activeLob) return;  // cambiaste de LOB mientras esto viajaba — descartar para no pintar datos del LOB anterior
       _data = d;
-      if (!_filtersLoadedForLob[reqLob]) {
+      if (!_filtersLoadedForLob[reqLob] && !d.gateway_mode) {   // en modo gateway las opciones vienen recortadas
         fillPaisChips(d.filters['pais'] || []);
         fillMs('ms-partner', (d.filters['partner'] || []).slice().sort());
         fillProductoChips(d.filters['produto'] || []);
         _filtersLoadedForLob[reqLob] = true;
       }
+      _maybeFillGatewayMs_(d);
       updateActualsLegend(d.actual_months || []);
       render();
       document.getElementById('last-upd').textContent = 'Actualizado: '+new Date().toLocaleTimeString('es-AR');
@@ -3390,6 +3575,7 @@ function getFiltersGraficos(){
   f.pais = [];
   f.partner = [];
   f.produto = _productoSelectedG.slice();
+  f.gateway = getGatewayValues_('g');
   return f;
 }
 function fetchDataG(){
@@ -3400,10 +3586,11 @@ function fetchDataG(){
       if (reqId !== _gFetchSeq) return;
       if (reqLob !== _activeLob) return;
       _dataG = d;
-      if (!_gFiltersLoadedForLob[reqLob]) {
+      if (!_gFiltersLoadedForLob[reqLob] && !d.gateway_mode) {
         fillGraficosProductoChips(d.filters['produto'] || []);
         _gFiltersLoadedForLob[reqLob] = true;
       }
+      _maybeFillGatewayMs_(d);
       try{ renderTrendCharts(_dataG.months||[], _dataG.agg||{}, _dataG.budget||{}, _dataG.ly||{}); }
       catch(e){ if(window.console) console.error('[render:trend]', e); }
     })
@@ -3423,7 +3610,8 @@ function getFiltersDetalle(){
   var f = getFilters();
   f.pais = [];
   f.partner = [];
-  f.produto = [];
+  f.produto = [];                       // producto de Detalle es client-side (_productoSelectedD)
+  f.gateway = getGatewayValues_('d');   // gateway sí va al server (secciones *_gw del JSON)
   return f;
 }
 function fetchDataD(){
@@ -3434,10 +3622,12 @@ function fetchDataD(){
       if (reqId !== _dFetchSeq) return;
       if (reqLob !== _activeLob) return;
       _dataD = d;
-      if (!_dFiltersLoadedForLob[reqLob]) {
+      if (!_dFiltersLoadedForLob[reqLob] && !d.gateway_mode) {
         fillDetallePaisChips(d.filters['pais'] || []);
+        if(reqLob === 'b2b') fillDetalleProductoChips(d.filters['produto'] || []);
         _dFiltersLoadedForLob[reqLob] = true;
       }
+      _maybeFillGatewayMs_(d);
       try{ renderDetalle(); }
       catch(e){ if(window.console) console.error('[render:detalle]', e); }
     })
@@ -3477,6 +3667,8 @@ function renderTrendCharts(months, agg, budgetAgg, lyAgg){
 
   var container = document.getElementById('charts-container');
   container.innerHTML = '';
+  // Modo gateway (B2B · Hotels): no hay Budget/Forecast → esas series se omiten (no se dibujan en 0)
+  var gwModeG = !!(_dataG && _dataG.gateway_mode && _activeLob === 'b2b');
 
   // Compute cutoff index: last month with actual data (before projections start)
   var actualMonths = (_dataG && _dataG.actual_months) ? _dataG.actual_months : [];
@@ -3676,6 +3868,7 @@ function renderTrendCharts(months, agg, budgetAgg, lyAgg){
         { label:'LY',              data:ly,        borderColor:'#10B981', backgroundColor:'transparent',         tension:.3, fill:false, borderWidth:1.5, borderDash:[3,3], pointRadius:3 },
         { label:'Forecast',        data:fcst,      borderColor:'#F59E0B', backgroundColor:'transparent',         tension:.3, fill:false, borderWidth:1.5, borderDash:[2,2], pointRadius:3 }
       ];
+      if(gwModeG) datasets = datasets.filter(function(ds, i){ return i === 0 || ds.data.some(function(v){ return v != null; }); });
       var chartWrap = document.createElement('div');
       chartWrap.appendChild(makeChart(prefix+'-'+di, def.label, datasets, chartMonths, {cutoffIdx: sectionCutoffIdx !== undefined ? sectionCutoffIdx : cutoffIdx}));
       if (di > 0) {
@@ -4054,6 +4247,7 @@ function renderTrendCharts(months, agg, budgetAgg, lyAgg){
     document.getElementById('graficos-partner-filter').style.display='none';
 
     var b2bDet = _dataG && _dataG.b2bCanalDetail;
+    if(gwModeG){ var gwNote = document.createElement('div'); gwNote.innerHTML = _gwNoticeHtml_(_dataG); container.appendChild(gwNote); }
     var OTHER_ALIASES_B2B = ['other','others','otros','otro','other countries','globales'];
 
     function normB2BCanal(canalObj){
@@ -4179,6 +4373,7 @@ function renderTrendCharts(months, agg, budgetAgg, lyAgg){
                      net_revenue:   ((minFcstT[m]||{}).net_revenue||0)   +((mayFcstT[m]||{}).net_revenue||0),
                      npv:           ((minFcstT[m]||{}).npv||0)           +((mayFcstT[m]||{}).npv||0)};
         });
+        if(gwModeG){ cBgt = {}; cFcst = {}; }   // sin Budget/Forecast por gateway → null, no 0
 
         container.appendChild(makeSection(
           country, chartDefs, chartMonths,
@@ -4192,7 +4387,7 @@ function renderTrendCharts(months, agg, budgetAgg, lyAgg){
         var dRows=[];
         if(Object.keys(minT).length) dRows.push({label:'Minorista (MIN)', fcData:minT,  bgtData:minBT});
         if(Object.keys(mayT).length) dRows.push({label:'Mayorista (MAY)', fcData:mayT,  bgtData:mayBT});
-        if(dRows.length) container.appendChild(buildB2BDelta(country, dRows));
+        if(dRows.length && !gwModeG) container.appendChild(buildB2BDelta(country, dRows));  // Δ vs Budget: n/d por gateway
       });
 
     } else {

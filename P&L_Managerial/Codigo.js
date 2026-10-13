@@ -205,13 +205,17 @@ function normB2BPais_(p){
   return _B2B_OTHER_ALIASES.indexOf(String(p||'').trim().toLowerCase()) >= 0 ? 'Globales' : p;
 }
 
+// También sirve para las secciones de Hotels por gateway (ac_gw/ac_ri_gw/ly_gw): mismas filas
+// con el gateway en row[1] → fProduto pasa a ser el filtro de gateway.
+// ymOk: {ym:true} para quedarse solo con esos meses (null = todos).
 function queryB2B_(section, scenarioKey, fPais, fProduto,
-                   outAgg, outAllPaises, outAllProdutos) {
+                   outAgg, outAllPaises, outAllProdutos, ymOk) {
   var rows = (section && section[scenarioKey]) || [];
   rows.forEach(function(row) {
     var pais = normB2BPais_(row[0]), produto = row[1], ym = row[2];
     if (!matchFilter_(pais,    fPais))    return;
     if (!matchFilter_(produto, fProduto)) return;
+    if (ymOk && !ymOk[ym]) return;
     var mes = YM_LABEL[ym];
     if (!mes) return;
     if (outAllPaises)   outAllPaises[pais]       = true;
@@ -223,12 +227,20 @@ function queryB2B_(section, scenarioKey, fPais, fProduto,
 // Lightweight per-canal, per-country, per-product monthly data (only GB, NR, NPV)
 // blKey/fcstKey: 'bl'|'bl_ri' y 'fc'|'fc_ri' según el toggle GD/RI (aplica a MAY y MIN;
 // B2B2C tiene fecha única). Nombres *May heredados; los valores son las claves generales.
-function queryB2BCanalDetail_(json, blKeyMay, bgtKey, fcstKeyMay, fPais, fProduto) {
+// gw (opcional): {json, acKey, fGateway, ymOk} → modo gateway: baseline = Actuals de Hotels
+// filtrados por gateway (ac_gw/ac_ri_gw), LY = ly_gw (solo meses cerrados), Budget/Forecast
+// vacíos. Todo queda bajo el producto 'Hotels' para que Detalle y Trend view lo dibujen como siempre.
+function queryB2BCanalDetail_(json, blKeyMay, bgtKey, fcstKeyMay, fPais, fProduto, gw) {
   var result = { 'B2B-MIN':{ fc:{}, bgt:{}, ly:{}, fcst:{} }, 'B2B-MAY':{ fc:{}, bgt:{}, ly:{}, fcst:{} } };
+  // Filas gateway: row[1] es el gateway → se filtra por gateway y se agrupa como 'Hotels'
   function procRows(rows, target) {
     (rows||[]).forEach(function(row) {
       var pais=normB2BPais_(row[0]), produto=row[1], ym=row[2];
-      if(!matchFilter_(pais,fPais)||!matchFilter_(produto,fProduto)) return;
+      if(!matchFilter_(pais,fPais)) return;
+      if(gw){
+        if(!matchFilter_(produto,gw.fGateway) || !gw.ymOk[ym]) return;
+        produto='Hotels';
+      } else if(!matchFilter_(produto,fProduto)) return;
       var mes=YM_LABEL[ym]; if(!mes) return;
       if(!target[pais])          target[pais]={};
       if(!target[pais][produto]) target[pais][produto]={};
@@ -238,6 +250,14 @@ function queryB2BCanalDetail_(json, blKeyMay, bgtKey, fcstKeyMay, fPais, fProdut
       mp[mes].net_revenue   +=(row[3+_I_NR]||0);
       mp[mes].npv           +=(row[3+_I_NPV]||0);
     });
+  }
+  if (gw) {
+    var gmin = gw.json.b2b_min || {}, gmay = gw.json.b2b_may || {};
+    procRows(gmin[gw.acKey], result['B2B-MIN'].fc);
+    procRows(gmin['ly_gw'],  result['B2B-MIN'].ly);
+    procRows(gmay[gw.acKey], result['B2B-MAY'].fc);
+    procRows(gmay['ly_gw'],  result['B2B-MAY'].ly);
+    return result;
   }
   var min=json.b2b_min||{}, may=json.b2b_may||{};
   // "fc" = BASELINE (bl), no forecast — nombre heredado por consistencia con el resto del dashboard.
@@ -275,6 +295,7 @@ function doGet() {
 //   pais:      string|array
 //   partner:   string|array  (solo B2B2C)
 //   produto:   string|array
+//   gateway:   string|array  (solo B2B y solo con producto = Hotels; modo gateway: Actuals + LY, sin Budget/Forecast)
 // }
 // CacheService (6h) — 2026-09-23. getData() alimenta las 3 pestañas (Managerial View,
 // Gráficos, Detalle) y no tenía NADA de cache: cada llamada releía+reparseaba el JSON
@@ -331,6 +352,7 @@ function getData(filters) {
     pais:           (f.pais    || []).slice().sort(),
     partner:        (f.partner || []).slice().sort(),
     produto:        (f.produto || []).slice().sort(),
+    gateway:        (f.gateway || []).slice().sort(),
     lob_tipo:       (Array.isArray(f.lob_tipo) ? f.lob_tipo.slice().sort() : f.lob_tipo) || null,
     date_type:      f.date_type      || 'gd',
     baselineSource: f.baselineSource || 'bl'
@@ -340,7 +362,7 @@ function getData(filters) {
   try {
     var t1 = DriveApp.getFileById(GESTIONAL_JSON_FILE_ID).getLastUpdated().getTime();
     var t2 = DriveApp.getFileById(GESTIONAL_VR_JSON_FILE_ID).getLastUpdated().getTime();
-    ck = 'getdata_v1_' + t1 + '_' + t2 + '_' + Utilities.base64EncodeWebSafe(sig);
+    ck = 'getdata_v2_' + t1 + '_' + t2 + '_' + Utilities.base64EncodeWebSafe(sig);
     var hit = _readGetDataCache_(ck);
     if (hit) { Logger.log('getData HIT ' + (Date.now() - tStart) + ' ms'); return hit; }
   } catch (e) { Logger.log('getData cache probe: ' + e); }
@@ -380,6 +402,18 @@ function _computeGetData_(filters) {
   var fPais    = normFilter_(f['pais']);
   var fPartner = normFilter_(f['partner']);
   var fProduto = normFilter_(f['produto']);
+  var fGateway = normFilter_(f['gateway']);
+
+  // Modo gateway (B2B, Hotels): baseline = Actuals de Hotels del gateway (ac_gw / ac_ri_gw),
+  // LY = ly_gw recortado a los mismos meses cerrados, Budget/Forecast vacíos (no abren por
+  // gateway — la landing los muestra como n/d). Projection Reviews solo cambia la proyección
+  // (copia las *_gw del normal); si es un VR viejo sin esas secciones, se leen del JSON normal.
+  var gwMode  = fGateway.length > 0 && (useMay || useMin);
+  var gwJson  = !(useMay || useMin) ? null
+              : (json.b2b_may && json.b2b_may.ac_gw) ? json : readGestionalJSON_('bl');
+  var acGwKey = dateType === 'ri' ? 'ac_ri_gw' : 'ac_gw';
+  var gwYmOk  = {};
+  ((gwJson && gwJson.actual_months) || []).forEach(function(ym){ gwYmOk[ym] = true; });
 
   // Acumuladores  (fcAgg* = BASELINE primaria; fcstAgg* = forecast goal)
   var fcAgg  = {}, bgtAgg = {}, lyAgg = {}, fcstAgg = {};
@@ -425,10 +459,15 @@ function _computeGetData_(filters) {
 
   if (useMay) {
     lobsInData['B2B-MAY'] = true;
-    queryB2B_(json.b2b_may, blKey,  fPais, fProduto, fcAgg_may,   allPaises, allProdutos);
-    queryB2B_(json.b2b_may, bgtKey, fPais, fProduto, bgtAgg_may,  {}, {});
-    queryB2B_(json.b2b_may, 'ly',   fPais, fProduto, lyAgg_may,   {}, {});
-    queryB2B_(json.b2b_may, fcKey,  fPais, fProduto, fcstAgg_may, {}, {});
+    if (gwMode) {
+      queryB2B_(gwJson.b2b_may, acGwKey, fPais, fGateway, fcAgg_may, allPaises, {}, gwYmOk);
+      queryB2B_(gwJson.b2b_may, 'ly_gw', fPais, fGateway, lyAgg_may, {},        {}, gwYmOk);
+    } else {
+      queryB2B_(json.b2b_may, blKey,  fPais, fProduto, fcAgg_may,   allPaises, allProdutos);
+      queryB2B_(json.b2b_may, bgtKey, fPais, fProduto, bgtAgg_may,  {}, {});
+      queryB2B_(json.b2b_may, 'ly',   fPais, fProduto, lyAgg_may,   {}, {});
+      queryB2B_(json.b2b_may, fcKey,  fPais, fProduto, fcstAgg_may, {}, {});
+    }
     mergeAgg_(fcAgg_may,   fcAgg);
     mergeAgg_(bgtAgg_may,  bgtAgg);
     mergeAgg_(lyAgg_may,   lyAgg);
@@ -437,10 +476,15 @@ function _computeGetData_(filters) {
 
   if (useMin) {
     lobsInData['B2B-MIN'] = true;
-    queryB2B_(json.b2b_min, blKey,  fPais, fProduto, fcAgg_min,   allPaises, allProdutos);
-    queryB2B_(json.b2b_min, bgtKey, fPais, fProduto, bgtAgg_min,  {}, {});
-    queryB2B_(json.b2b_min, 'ly',   fPais, fProduto, lyAgg_min,   {}, {});
-    queryB2B_(json.b2b_min, fcKey,  fPais, fProduto, fcstAgg_min, {}, {});
+    if (gwMode) {
+      queryB2B_(gwJson.b2b_min, acGwKey, fPais, fGateway, fcAgg_min, allPaises, {}, gwYmOk);
+      queryB2B_(gwJson.b2b_min, 'ly_gw', fPais, fGateway, lyAgg_min, {},        {}, gwYmOk);
+    } else {
+      queryB2B_(json.b2b_min, blKey,  fPais, fProduto, fcAgg_min,   allPaises, allProdutos);
+      queryB2B_(json.b2b_min, bgtKey, fPais, fProduto, bgtAgg_min,  {}, {});
+      queryB2B_(json.b2b_min, 'ly',   fPais, fProduto, lyAgg_min,   {}, {});
+      queryB2B_(json.b2b_min, fcKey,  fPais, fProduto, fcstAgg_min, {}, {});
+    }
     mergeAgg_(fcAgg_min,   fcAgg);
     mergeAgg_(bgtAgg_min,  bgtAgg);
     mergeAgg_(lyAgg_min,   lyAgg);
@@ -474,11 +518,13 @@ function _computeGetData_(filters) {
     lob_tipo: ['B2B2C','B2B-MAY','B2B-MIN'].filter(function(t){ return lobsInData[t]; }),
     pais:     Object.keys(allPaises).sort(),
     partner:  Object.keys(allPartners).sort(),
-    produto:  Object.keys(allProdutos).sort(),
+    produto:  gwMode ? ['Hotels'] : Object.keys(allProdutos).sort(),
+    gateway:  gwJson ? listGateways_(gwJson, useMay, useMin) : [],
   };
 
   var b2bCanalDetail = (useMay || useMin)
-    ? queryB2BCanalDetail_(json, blKey, bgtKey, fcKey, fPais, fProduto)
+    ? queryB2BCanalDetail_(json, blKey, bgtKey, fcKey, fPais, fProduto,
+        gwMode ? { json: gwJson, acKey: acGwKey, fGateway: fGateway, ymOk: gwYmOk } : null)
     : null;
 
   return {
@@ -497,6 +543,8 @@ function _computeGetData_(filters) {
     forecastPartnerCM:    fcstPartnerCM,
     forecastPartnerMonthly: fcstPartnerMonthly,
     actual_months:        json.actual_months || [],
+    gateway_mode:         gwMode,
+    gateway_sel:          gwMode ? (Array.isArray(f.gateway) ? f.gateway : [f.gateway]) : [],
     b2bCanalDetail:       b2bCanalDetail,
     forecast:             fcstAgg,
     agg_may:              fcAgg_may,
@@ -516,6 +564,26 @@ function _computeGetData_(filters) {
     ly_hunting:           lyAgg_hunting,
     forecast_hunting:     fcstAgg_hunting,
   };
+}
+
+// Gateways de Hotels presentes en el JSON (Actuals GD/RI + LY), ordenados por GB desc
+// de Actuals GD — los grandes arriba en el selector.
+function listGateways_(json, useMay, useMin) {
+  var gb = {};
+  var secs = [];
+  if (useMay) secs.push(json.b2b_may || {});
+  if (useMin) secs.push(json.b2b_min || {});
+  secs.forEach(function(sec) {
+    ['ac_gw', 'ac_ri_gw', 'ly_gw'].forEach(function(k) {
+      (sec[k] || []).forEach(function(row) {
+        var g = row[1];
+        if (!g) return;
+        if (!(g in gb)) gb[g] = 0;
+        if (k === 'ac_gw') gb[g] += (row[3 + _I_GB] || 0);
+      });
+    });
+  });
+  return Object.keys(gb).sort(function(a, b) { return (gb[b] - gb[a]) || a.localeCompare(b); });
 }
 
 // Opciones de filtro disponibles en el JSON (sin aplicar filtros)

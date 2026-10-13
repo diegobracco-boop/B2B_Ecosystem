@@ -481,6 +481,9 @@ base_metrics AS (
             WHEN fh.buy_type_code = 'Servicios en Destino'  THEN 'Dest. Serv.'
             ELSE fh.buy_type_code
         END AS producto_original,
+        -- Gateway (proveedor) solo para Hoteles: el resto de los productos queda en NULL
+        -- para no abrir filas de más. Alimenta las secciones *_gw del JSON (filtro de la landing).
+        CASE WHEN fh.buy_type_code = 'Hoteles' THEN p.gateway END AS gateway,
         CASE WHEN fh.trip_type_code = 'Nac' THEN 'Domestic'
              WHEN fh.trip_type_code = 'Int' THEN 'International'
              ELSE fh.trip_type_code END AS viaje,
@@ -617,13 +620,14 @@ base_metrics AS (
              WHEN fh.buy_type_code = 'Servicios en Destino' THEN 'Dest. Serv.'
              ELSE fh.buy_type_code END,
         p.product_type, cr.shopping_flow_source,
+        CASE WHEN fh.buy_type_code = 'Hoteles' THEN p.gateway END,
         CASE WHEN fh.trip_type_code = 'Nac' THEN 'Domestic'
              WHEN fh.trip_type_code = 'Int' THEN 'International'
              ELSE fh.trip_type_code END
 )
 
 SELECT
-    anio_gd, mes_gd, pais, producto_original, parent_channel, viaje,
+    anio_gd, mes_gd, pais, producto_original, parent_channel, viaje, gateway,
     gross_bookings, orders,
     up_front_incentives, fees, commercial_discounts,
     cancellations, other_incentives, back_end_incentives, media_other_revenue,
@@ -742,6 +746,9 @@ base_metrics AS (
             WHEN fh.buy_type_code = 'Servicios en Destino'  THEN 'Dest. Serv.'
             ELSE fh.buy_type_code
         END AS producto_original,
+        -- Gateway (proveedor) solo para Hoteles: el resto de los productos queda en NULL
+        -- para no abrir filas de más. Alimenta las secciones *_gw del JSON (filtro de la landing).
+        CASE WHEN fh.buy_type_code = 'Hoteles' THEN p.gateway END AS gateway,
         CASE WHEN fh.trip_type_code = 'Nac' THEN 'Domestic'
              WHEN fh.trip_type_code = 'Int' THEN 'International'
              ELSE fh.trip_type_code END AS viaje,
@@ -897,6 +904,7 @@ base_metrics AS (
              WHEN fh.buy_type_code = 'Servicios en Destino' THEN 'Dest. Serv.'
              ELSE fh.buy_type_code END,
         p.product_type, cr.shopping_flow_source,
+        CASE WHEN fh.buy_type_code = 'Hoteles' THEN p.gateway END,
         CASE WHEN fh.trip_type_code = 'Nac' THEN 'Domestic'
              WHEN fh.trip_type_code = 'Int' THEN 'International'
              ELSE fh.trip_type_code END,
@@ -904,7 +912,7 @@ base_metrics AS (
 )
 
 SELECT
-    anio_ri, mes_ri, pais, producto_original, parent_channel, viaje,
+    anio_ri, mes_ri, pais, producto_original, parent_channel, viaje, gateway,
     gross_bookings, orders,
     up_front_incentives, fees, commercial_discounts,
     other_incentives, revenue_tax, back_end_incentives,
@@ -1034,13 +1042,20 @@ def _build_b2b2c_rows(df: pd.DataFrame, filter_set: set = None, ym_shift_years: 
     return rows
 
 
+GW_SIN_DATO = "(Sin gateway)"
+
+
 def _build_b2b_rows(df: pd.DataFrame, year_col: str, month_col: str,
                     channel_filter: str = None, filter_set: set = None,
-                    ym_shift_years: int = 0) -> list:
+                    ym_shift_years: int = 0, by_gateway: bool = False) -> list:
     """B2B GD/RI actuals/LY df → rows [pais, produto, ym, v0..v28].
     channel_filter: 'API' for MAY (Mayoristas) or 'Agencias afiliadas' for MIN (Minoristas).
     filter_set: set of YYYY-MM to keep; defaults to CLOSED_SET.
     ym_shift_years: shift ym by N years (use 1 for LY so '2025-04' → '2026-04').
+    by_gateway: solo Hotels, agrupado por gateway → rows [pais, gateway, ym, v0..v28]
+      (misma forma que las filas normales, con el gateway en la posición del producto).
+      Son las secciones ac_gw / ac_ri_gw / ly_gw del JSON. Budget/RR/FC no tienen
+      apertura por gateway, así que con el filtro activo la landing muestra solo Actuals y LY.
     """
     df = df.copy()
     df.columns = [c.lower() for c in df.columns]
@@ -1054,6 +1069,9 @@ def _build_b2b_rows(df: pd.DataFrame, year_col: str, month_col: str,
     })
     if channel_filter:
         df = df[df["parent_channel"] == channel_filter]
+    if by_gateway:
+        df = df[df["produto"] == "Hotels"].copy()
+        df["produto"] = df["gateway"].fillna(GW_SIN_DATO).astype(str).str.strip().replace("", GW_SIN_DATO)
     fs = filter_set if filter_set is not None else CLOSED_SET
     df = df[df["ym"].isin(fs)]
     if ym_shift_years:
@@ -1404,11 +1422,26 @@ bl_min_ri  = _stitch_baseline(ac_min_ri, rr_min_ri, fcraw_min_ri, bgt_min_ri, ym
 fc_min     = _stitch_forecast(ac_min,    fcraw_min,    ym_idx=2)
 fc_min_ri  = _stitch_forecast(ac_min_ri, fcraw_min_ri, ym_idx=2)
 
+# Hotels por gateway (filtro de la landing): solo Actuals y LY — Budget/RR/FC no abren por gateway.
+# LY es base GD también en RI (igual que `ly`), y solo de los meses cerrados (la landing lo compara
+# contra Actuals, no hay proyección por gateway) → JSON más liviano.
+LY_CLOSED_SET = {f"{int(ym[:4]) - 1}-{ym[5:]}" for ym in CLOSED_SET}
+gw = {}
+for _sec, _canal in (("may", "API"), ("min", "Agencias afiliadas")):
+    gw[_sec] = {
+        "ac_gw":    _build_b2b_rows(df_b2b_gd, "anio_gd", "mes_gd", channel_filter=_canal, by_gateway=True),
+        "ac_ri_gw": _build_b2b_rows(df_b2b_ri, "anio_ri", "mes_ri", channel_filter=_canal, by_gateway=True),
+        "ly_gw":    _build_b2b_rows(df_b2b_gd_ly, "anio_gd", "mes_gd", channel_filter=_canal,
+                                    filter_set=LY_CLOSED_SET, ym_shift_years=1, by_gateway=True),
+    }
+
 actual_months = sorted(CLOSED_SET)
 print(f"  actual_months: {actual_months}  (last actual = {LAST_ACTUAL_YM})")
 print(f"  b2b2c:   ac={len(ac_b2b2c):,}  rr={len(rr_b2b2c):,}  fc={len(fc_b2b2c):,}  bl={len(bl_b2b2c):,}  bgt={len(bgt_b2b2c):,}  ly={len(ly_b2b2c):,}")
 print(f"  b2b_may: ac={len(ac_may):,}  ac_ri={len(ac_may_ri):,}  rr={len(rr_may):,}  fc={len(fc_may):,}  bl={len(bl_may):,}  bl_ri={len(bl_may_ri):,}  bgt={len(bgt_may):,}  bgt_ri={len(bgt_may_ri):,}  ly={len(ly_may):,}")
 print(f"  b2b_min: ac={len(ac_min):,}  ac_ri={len(ac_min_ri):,}  rr={len(rr_min):,}  rr_ri={len(rr_min_ri):,}  fc={len(fc_min):,}  fc_ri={len(fc_min_ri):,}  bl={len(bl_min):,}  bl_ri={len(bl_min_ri):,}  bgt={len(bgt_min):,}  bgt_ri={len(bgt_min_ri):,}  ly={len(ly_min):,}")
+for _sec in ("may", "min"):
+    print(f"  b2b_{_sec} gateway (Hotels): " + "  ".join(f"{k}={len(v):,}" for k, v in gw[_sec].items()))
 
 # El fetch() vacío ya corta la corrida, pero una query puede volver con FILAS y
 # aun así faltarle un mes completo (ej. un join que no matcheó nada para ese
@@ -1443,12 +1476,14 @@ output = {
         "bgt": bgt_may, "bgt_ri": bgt_may_ri,
         "rr": rr_may, "rr_ri": rr_may_ri, "fc": fc_may, "fc_ri": fc_may_ri,
         "bl": bl_may, "bl_ri": bl_may_ri,
+        **gw["may"],
     },
     "b2b_min": {
         "ac": ac_min, "ac_ri": ac_min_ri, "ly": ly_min,
         "bgt": bgt_min, "bgt_ri": bgt_min_ri,
         "rr": rr_min, "rr_ri": rr_min_ri, "fc": fc_min, "fc_ri": fc_min_ri,
         "bl": bl_min, "bl_ri": bl_min_ri,
+        **gw["min"],
     },
 }
 
