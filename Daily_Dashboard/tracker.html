@@ -582,6 +582,19 @@
   body.slides-mode #mainContent.visible #barsSlideTitle { display: block; }
   body.slides-mode #mainContent.visible .content-row { flex: 1 1 auto; min-height: 0; }
 
+  /* Slides de tablas (Tablas RI/GD, sus versiones API/HTML y las split): la letra
+     la fija _fitSlideTables() en --tbl-fs para que las tablas llenen la slide (con
+     12px fijos quedaban diminutas en Google Slides, sobre todo las de pocas filas).
+     Paddings y sangrías en em → escalan junto con la letra. */
+  body.slides-mode .tables-content .pivot-table          { font-size: var(--tbl-fs, 12px); }
+  body.slides-mode .tables-content .pivot-table thead th { font-size: 0.9em; padding: 0.45em 0.5em; position: static; }
+  body.slides-mode .tables-content .pivot-table td       { padding: var(--tbl-pad, 0.3em) 0.5em; }
+  body.slides-mode .tables-content .pivot-table thead th:first-child,
+  body.slides-mode .tables-content .pivot-table td:first-child { max-width: 11em; min-width: 0 !important; }
+  body.slides-mode .tables-content .row-country td:first-child       { padding-left: 0.7em; }
+  body.slides-mode .tables-content .row-product-group td:first-child { padding-left: 1.7em !important; }
+  body.slides-mode .tables-content .panel-title { font-size: calc(var(--tbl-fs, 12px) * 1.15); margin-bottom: 0.4em; }
+
   /* Weekly view: scale down to fit without scroll */
   body.slides-mode #weeklyContent {
     zoom: 0.80;
@@ -3485,6 +3498,7 @@ function render() {
         : 'Tablas por Fecha de Reconocimiento' + (monthFilter ? '  —  ' + formatYM(monthFilter) : '');
     }
     renderTablesView(dateType, channel, countryGroup, monthFilter);
+    if (_isSlidesMode) _fitSlideTables(document.getElementById('tablesContent'));
   } else {
     renderChart(activeTab, channel, countryGroup, monthFilter);
     renderPivot(activeTab, channel, countryGroup, monthFilter);
@@ -3655,6 +3669,60 @@ function _renderSplitSlide(metric, dateType) {
   document.getElementById('splitHeadDeltaR').innerHTML = deltaHdr;
 }
 
+// Búsqueda binaria del mayor valor en [lo, hi] para el que fits(v) da true (fits
+// aplica v como efecto). Si ni lo entra, deja lo. Siempre termina aplicando el
+// valor devuelto.
+function _fitMax(fits, lo, hi, step) {
+  if (fits(hi)) return hi;
+  if (!fits(lo)) return lo;
+  while (hi - lo > step) {
+    var mid = (lo + hi) / 2;
+    if (fits(mid)) lo = mid; else hi = mid;
+  }
+  fits(lo);
+  return lo;
+}
+
+// Hace que las tablas de una slide llenen la slide, en dos pasos:
+//  1) letra (--tbl-fs, 10–30px) al máximo que entra: todo dentro del alto del
+//     slide y cada tabla dentro de su bloque (sin scroll horizontal);
+//  2) con poca cantidad de filas el ancho limita la letra antes que el alto →
+//     el alto que sobra se reparte agrandando el padding de las filas (--tbl-pad).
+// Se llama después de renderizar, con el contenedor ya visible (si no, no hay
+// nada que medir).
+function _fitSlideTables(container) {
+  var slideEl = document.getElementById('slideContent');
+  container.style.removeProperty('--tbl-fs');
+  container.style.removeProperty('--tbl-pad');
+  if (!_isSlidesMode || !container.offsetHeight) return;
+  var maxH   = slideEl.clientHeight - 6;
+  var blocks = container.querySelectorAll('.table-block');
+  var fitsH  = function() { return container.offsetHeight <= maxH; };
+  _fitMax(function(fs) {
+    container.style.setProperty('--tbl-fs', fs + 'px');
+    if (!fitsH()) return false;
+    for (var i = 0; i < blocks.length; i++) {
+      if (blocks[i].scrollWidth > blocks[i].clientWidth + 1) return false;
+    }
+    return true;
+  }, 10, 30, 0.5);
+  _fitMax(function(pad) {
+    container.style.setProperty('--tbl-pad', pad + 'em');
+    return fitsH();
+  }, 0.3, 1.1, 0.05);
+}
+var _fitResizeRaf = 0;
+window.addEventListener('resize', function() {
+  if (!_isSlidesMode) return;
+  cancelAnimationFrame(_fitResizeRaf); // un solo reajuste por frame mientras se arrastra
+  _fitResizeRaf = requestAnimationFrame(function() {
+    ['tablesContent', 'splitContent'].forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el.classList.contains('visible')) _fitSlideTables(el);
+    });
+  });
+});
+
 function toggleSlidesMode() {
   _isSlidesMode = !_isSlidesMode;
   document.body.classList.toggle('slides-mode', _isSlidesMode);
@@ -3716,6 +3784,7 @@ function _goToSlide(idx) {
     document.getElementById('globalesContent').classList.remove('visible');
     _renderSplitSlide(slide.metric, slide.dateType);
     document.getElementById('splitContent').classList.add('visible');
+    _fitSlideTables(document.getElementById('splitContent'));
   } else {
     coverEl.classList.remove('active');
     activeTab = slide.tab;

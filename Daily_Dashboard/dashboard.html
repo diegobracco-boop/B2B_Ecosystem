@@ -531,7 +531,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
 .fl-logo i:nth-child(4){height:28px;background:var(--fl-purple2)}.fl-logo i:nth-child(5){height:22px;background:var(--fl-purple2)}
 .fl-logo i:nth-child(6){height:16px;background:var(--fl-purple2)}.fl-logo i:nth-child(7){height:10px;background:var(--fl-purple2)}
 .fl-rule{height:2px;background:linear-gradient(90deg,var(--fl-purple),var(--fl-purple2) 40%,transparent);margin:12px 40px 0}
-.fl-body{padding:14px 40px 0;height:calc(720px - 96px)}
+.fl-body{padding:14px 40px 0;height:calc(720px - 96px)} /* si cambia, revisar FLOW_B2B_TBL_MAX_H */
 /* pills */
 .fl-pill{display:inline-flex;align-items:center;font-size:12px;font-weight:700;color:#fff;border-radius:6px;padding:5px 14px;letter-spacing:.4px}
 .fl-pill.bud{background:var(--fl-purple)}
@@ -625,6 +625,16 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
 #view-flow .b2b-table-block{flex:1;min-width:0;background:#fff;border-top:3px solid #550FED;border-radius:10px;
   padding:8px;overflow-y:auto;box-shadow:0 1px 4px rgba(0,0,0,.06),0 4px 16px rgba(85,15,237,.06)}
 #view-flow .b2b-table-block .b2b-pivot-table td:first-child{max-width:150px}
+/* Slides de tablas (b2b_tables / b2b_split): la letra la fija flowFitB2BTables_()
+   en --tbl-fs para que llenen el slide (con 10px fijos quedaban diminutas en Google
+   Slides). Paddings y sangrías en em → escalan junto con la letra. */
+#view-flow .b2b-tables-row .b2b-pivot-table{font-size:var(--tbl-fs,10px)}
+#view-flow .b2b-tables-row .b2b-pivot-table thead th{font-size:.9em;padding:.3em .5em}
+#view-flow .b2b-tables-row .b2b-pivot-table td{padding:var(--tbl-pad,.2em) .5em}
+#view-flow .b2b-tables-row .b2b-pivot-table td:first-child{max-width:13em}
+#view-flow .b2b-tables-row .row-country td:first-child{padding-left:.7em}
+#view-flow .b2b-tables-row .row-product-group td:first-child{padding-left:1.7em}
+#view-flow .b2b-tables-row .b2b-panel-title{font-size:calc(var(--tbl-fs,10px) * 1.2)}
 
 #view-flow .b2b-status-krs-meta{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
 #view-flow .b2b-kr-data-range{display:inline-block;background:#eff6ff;border:1px solid #bfdbfe;color:#1d4ed8;
@@ -5462,6 +5472,50 @@ function flowRenderB2BSlides_(){
   });
 }
 
+// Slides de tablas B2B (b2b_tables / b2b_split): que las tablas llenen el slide.
+//  1) letra (--tbl-fs, 10–24px) al máximo que entra: cada tabla dentro del alto
+//     del cuerpo y sin scroll horizontal;
+//  2) con pocas filas el ancho limita la letra antes que el alto → el alto que
+//     sobra se reparte agrandando el padding de las filas (--tbl-pad).
+// El alto es fijo (cuerpo 624px - 14px de padding - margen) y no se mide del DOM
+// porque en export/impresión .fl-body pasa a height:auto. Mide layout (no le
+// afecta el transform:scale de pantalla); con la vista oculta no hace nada.
+var FLOW_B2B_TBL_MAX_H=600;
+// Mayor valor en [lo, hi] para el que fits(v) da true (fits aplica v); si ni lo
+// entra, deja lo.
+function flowFitMax_(fits, lo, hi, step){
+  if(fits(hi)) return hi;
+  if(!fits(lo)) return lo;
+  while(hi-lo>step){ var mid=(lo+hi)/2; if(fits(mid)) lo=mid; else hi=mid; }
+  fits(lo);
+  return lo;
+}
+function flowFitB2BTables_(){
+  FLOW_DECK.forEach(function(def, idx){
+    if(def.kind!=='b2b_tables' && def.kind!=='b2b_split') return;
+    var row=document.querySelector('#flow-track .flow-frame[data-idx="'+idx+'"] .b2b-tables-row');
+    if(!row) return;
+    row.style.removeProperty('--tbl-fs');
+    row.style.removeProperty('--tbl-pad');
+    if(!row.offsetWidth) return;
+    var blocks=row.querySelectorAll('.b2b-table-block');
+    function fitsH(){
+      for(var i=0;i<blocks.length;i++){ if(blocks[i].offsetHeight>FLOW_B2B_TBL_MAX_H) return false; }
+      return true;
+    }
+    flowFitMax_(function(fs){
+      row.style.setProperty('--tbl-fs', fs+'px');
+      if(!fitsH()) return false;
+      for(var i=0;i<blocks.length;i++){ if(blocks[i].scrollWidth>blocks[i].clientWidth+1) return false; }
+      return true;
+    }, 10, 24, 0.5);
+    flowFitMax_(function(pad){
+      row.style.setProperty('--tbl-pad', pad+'em');
+      return fitsH();
+    }, 0.2, 1.1, 0.05);
+  });
+}
+
 // Contador de pagina tipo Google Slides — sigue el scroll y marca el slide actual.
 var _flowCurrentIdx=0, _flowIO=null;
 function flowSetupObserver_(){
@@ -5485,7 +5539,7 @@ function flowNav_(step){
 function flowRebuild_(){
   Object.keys(_flowCharts).forEach(function(k){ try{ _flowCharts[k].destroy(); }catch(e){} });
   _flowCharts={}; _flowSeries={}; _flowDrawn={}; _flowBuilt=false;
-  if(flowBuild_()){ flowScale_(); flowDrawAllCharts_(); }
+  if(flowBuild_()){ flowScale_(); flowFitB2BTables_(); flowDrawAllCharts_(); }
 }
 function flowSetMonth_(v){ _flowMonth=v; flowRebuild_(); }
 function flowSetComp_(v){ _flowComp=v; flowRebuild_(); }
@@ -5592,6 +5646,10 @@ function flowOpen_(){
     return;
   }
   flowScale_();
+  flowFitB2BTables_();
+  // Poppins carga con display=swap: si llega después, reajustar (es más ancha que
+  // la fuente de reemplazo y podría generar scroll horizontal en las tablas).
+  if(document.fonts && document.fonts.ready) document.fonts.ready.then(flowFitB2BTables_);
   flowDrawAllCharts_();
 }
 window.addEventListener('resize', function(){ if(_activeView==='flow') flowScale_(); });
