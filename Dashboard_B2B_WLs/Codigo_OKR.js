@@ -36,9 +36,9 @@ var OKR_CONFIG_H2 = {
     krs: [
       { kr: 'deploy new partnership',         label: 'Deploy New Partnership',         weight: 20, cumulative: true },
       { kr: 'unique buyers',                  label: 'Unique Buyers',                  weight: 15 },
-      { kr: 'existing account net revenues',  label: 'Existing Account Net Revenues',  weight: 25 },
-      { kr: 'new account net revenues',       label: 'Hunting Net Revenue',            weight: 15 },
-      { kr: 'operating contribution',         label: 'Operating Contribution',         weight: 25 }
+      { kr: 'existing account net revenues',  label: 'Existing Account Net Revenues',  weight: 15 },
+      { kr: 'new account net revenues',       label: 'Hunting Net Revenue',            weight: 10 },
+      { kr: 'operating contribution',         label: 'Operating Contribution',         weight: 40 }
     ]
   },
   'b2b': {

@@ -2089,7 +2089,7 @@ function recomputeB2BC_() {
 
 // ── KRs H2 White Labels (oct-26 → mar-27) ───────────────────────
 // Mismos KRs y pesos que el OKR del Hub (Codigo_OKR.js, 'b2b2c' H2): Deploy New Partnership 20 /
-// Unique Buyers 15 / Existing NR 25 / Hunting NR 15 / Operating Contribution 25.
+// Unique Buyers 15 / Existing NR 15 / Hunting NR 10 / Operating Contribution 40.
 //  - Existing / Hunting NR y OC: MTD vs Budget MTD (computeKRs_). OC = proxy FVM MTD (el Daily no
 //    tiene OC — decisión de Diego 2026-09-25).
 //  - Deploy New Partnership: valor del mes cargado en Input_OKR (okr.json), manual.
@@ -2156,9 +2156,9 @@ function renderB2CKrH2_(vDate) {
   row.innerHTML =
       _krCardH2_('Deploy New Partnership', 20, pt(pD), col(pD), [['Mes (Input_OKR)', _fmtCnt_(dA)], ['Target', _fmtCnt_(dB)]])
     + _krCardH2_('Unique Buyers · MTD', 15, pt(pU), col(pU), [['Acum. mes', _fmtCnt_(act)], ['Target al día', _fmtCnt_(uBd)], ['Target mes', _fmtCnt_(uB)], ['Mes ant. (al día)', _fmtCnt_(prev)]])
-    + _krCardH2_('Existing Account NR', 25, pt(pE), col(pE), [['Actual', fmt(krs.kr3.act)], ['Budget', fmt(krs.kr3.bud)]])
-    + _krCardH2_('Hunting NR', 15, pt(pH), col(pH), [['Actual', fmt(krs.kr2.act)], ['Budget', fmt(krs.kr2.bud)]])
-    + _krCardH2_('Operating Contribution (proxy FVM)', 25, pt(pO), col(pO), [['Actual', fmt(krs.kr4.act)], ['Budget', fmt(krs.kr4.bud)]]);
+    + _krCardH2_('Existing Account NR', 15, pt(pE), col(pE), [['Actual', fmt(krs.kr3.act)], ['Budget', fmt(krs.kr3.bud)]])
+    + _krCardH2_('Hunting NR', 10, pt(pH), col(pH), [['Actual', fmt(krs.kr2.act)], ['Budget', fmt(krs.kr2.bud)]])
+    + _krCardH2_('Operating Contribution (proxy FVM)', 40, pt(pO), col(pO), [['Actual', fmt(krs.kr4.act)], ['Budget', fmt(krs.kr4.bud)]]);
   var note = document.getElementById('b2bc-kr-h2-note');
   if (note) note.textContent = 'Unique Buyers: acumulado del mes vs target mensual prorrateado por la distribución diaria de orders del Budget (siempre Total WL, sin filtro de país). Deploy New Partnership y los targets: Input_OKR. OC = proxy FVM MTD.';
 }
@@ -5116,9 +5116,9 @@ var FL_B2C_KRS = {
   H2: [
     { id:'deploy',label:'Deploy New Partnership',          w:.20, src:'manual', unit:'int' },
     { id:'ub',    label:'Unique Buyers',                   w:.15, src:'manual', unit:'int' },
-    { id:'exist', label:'Existing Account Net Revenues $M',w:.25, src:'nr', stage:'Existing' },
-    { id:'new',   label:'Hunting Net Revenue $M',          w:.15, src:'nr', stage:'New' },
-    { id:'oc',    label:'Operating Contribution $M <span style="color:#6b7280;font-size:.72rem">(proxy FVM MTD)</span>', w:.25, src:'fvm' }
+    { id:'exist', label:'Existing Account Net Revenues $M',w:.15, src:'nr', stage:'Existing' },
+    { id:'new',   label:'Hunting Net Revenue $M',          w:.10, src:'nr', stage:'New' },
+    { id:'oc',    label:'Operating Contribution $M <span style="color:#6b7280;font-size:.72rem">(proxy FVM MTD)</span>', w:.40, src:'fvm' }
   ]
 };
 var _flB2CKrHalf=null;   // 'H1' | 'H2' elegido con el switch; null = según el mes que se mira
