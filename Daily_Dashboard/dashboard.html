@@ -767,6 +767,13 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
       <option value="monthly">Mensual</option>
     </select>
   </div>
+  <div class="dm-group" style="margin-left:4px" title="Partner TBD (budget de New partners / Hunting sin nombre)">
+    <span class="dm-group-lbl">Partner TBD</span>
+    <div class="dm-toggle">
+      <button class="dm-btn active" id="btn-tbd-incl" onclick="setExclTBD(false)">Incluir</button>
+      <button class="dm-btn" id="btn-tbd-excl" onclick="setExclTBD(true)">Excluir</button>
+    </div>
+  </div>
   <div class="date-nav">
     <button id="btn-prev" onclick="navDay(-1)">&#8249;</button>
     <span class="date-display" id="date-display">—</span>
@@ -1532,6 +1539,11 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
       <option value="runrate">Run Rate</option>
       <option value="ly">Last Year</option>
     </select>
+    <label class="flow-ctl-lbl">Partner TBD</label>
+    <select class="flow-jump" id="flow-tbd" onchange="setExclTBD(this.value==='excl')">
+      <option value="incl">Incluir</option>
+      <option value="excl">Excluir</option>
+    </select>
     <span class="flow-tool-sep"></span>
     <button class="flow-pdf-btn" onclick="window.print()" title="Abre el diálogo de impresión — elegí 'Guardar como PDF'">⭳ Descargar PDF</button>
     <button class="flow-pdf-btn" id="flow-export-btn" onclick="_flowExportSlides()" title="Genera un Google Slides real con estas slides + las del Daily B2B Tracker (captura tal cual se ven, como imagen)">📤 Enviar a Google Slides (B2B2C + B2B)</button>
@@ -1554,6 +1566,43 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
 var _rawB2BC = null;
 var _rawB2B  = null;
 var _okrH2 = null, _okrH2State = 'idle';   // okr_h2_managerial.json (KRs H2); si no llega, el KR usa _rawB2B
+
+// ── Partner "TBD" (B2B2C) ────────────────────────────────────────
+// Budget de partners nuevos aún sin nombre: es New partners / Hunting. Switch "Partner TBD"
+// (tablero B2B2C + toolbar del Flow, mismo estado): Excluir lo saca de TODAS las fuentes
+// (actuals, LY, budget, run rate, forecast) — KRs, métricas, tablas y slides B2B2C del Flow.
+var _b2bcExclTBD = false, _b2bcNoTBDCache = null;
+function isTBDPartner_(p) { return String(p || '').trim().toUpperCase() === 'TBD'; }
+var _tbdPartnerNames = {};   // grafías de TBD vistas al cargar (solo budget/proyecciones, sin actuals)
+// pAT (partner -> account_type) sale solo de actuals: sin esto el budget de TBD no entra en el tab "New".
+function seedTBDNew_(pAT) { Object.keys(_tbdPartnerNames).forEach(function(n){ pAT[n] = 'New'; }); }
+// Raw B2B2C según el switch (copia filtrada cacheada; el resto de las claves se comparten).
+function b2bcRaw_() {
+  if (!_b2bcExclTBD || !_rawB2BC) return _rawB2BC;
+  if (_b2bcNoTBDCache && _b2bcNoTBDCache.src === _rawB2BC) return _b2bcNoTBDCache.raw;
+  var out = {};
+  Object.keys(_rawB2BC).forEach(function(k){
+    var v = _rawB2BC[k];
+    out[k] = (Array.isArray(v) && k !== 'unique_buyers_daily')
+      ? v.filter(function(r){ return !isTBDPartner_(r.partner); }) : v;
+  });
+  _b2bcNoTBDCache = { src: _rawB2BC, raw: out };
+  return out;
+}
+function setExclTBD(on) {
+  _b2bcExclTBD = !!on;
+  var bi = document.getElementById('btn-tbd-incl'), be = document.getElementById('btn-tbd-excl');
+  if (bi) bi.classList.toggle('active', !_b2bcExclTBD);
+  if (be) be.classList.toggle('active', _b2bcExclTBD);
+  var fs = document.getElementById('flow-tbd'); if (fs) fs.value = _b2bcExclTBD ? 'excl' : 'incl';
+  recomputeB2BC_();
+  if (!_flowBuilt) return;
+  var vf = document.getElementById('view-flow');
+  if (vf && vf.style.display !== 'none') { flowRebuild_(); return; }
+  // Flow oculto: invalidar el deck — flowOpen_() lo rearma al abrirlo (rearmarlo oculto mide mal los charts).
+  Object.keys(_flowCharts).forEach(function(k){ try{ _flowCharts[k].destroy(); }catch(e){} });
+  _flowCharts={}; _flowSeries={}; _flowDrawn={}; _flowBuilt=false;
+}
 
 // ── State ──────────────────────────────────────────────────────
 var state = { viewDate: null, data: null, meta: null, allMetrics: null };
@@ -1669,6 +1718,7 @@ function compute_(raw, metric, vDate, gl_pai, gl_par, gl_pro, gl_at, gran, compS
   var BMF = {gb:'gross_bookings',nr:'net_revenue', fvm:'fvm'}[metric];
   var pAT={};
   raw.actuals.forEach(function(r){if(r.partner&&r.account_type)pAT[r.partner]=r.account_type;});
+  seedTBDNew_(pAT);
   function matchA(r){if(gl_pai&&r.pais!==gl_pai)return false;if(gl_par&&r.partner!==gl_par)return false;if(gl_pro&&r.productooriginal!==gl_pro)return false;if(gl_at&&r.account_type!==gl_at)return false;return true;}
   function matchB(r){if(gl_pai&&r.pais!==gl_pai)return false;if(gl_par&&r.partner!==gl_par)return false;if(gl_pro&&r.producto!==gl_pro)return false;if(gl_at&&pAT[r.partner]!==gl_at)return false;return true;}
   function sum_(arr,from,to,mFn,f){var t=0;arr.forEach(function(r){if(from&&r.fecha<from)return;if(to&&r.fecha>to)return;if(!mFn(r))return;t+=(r[f]||0);});return t;}
@@ -1839,6 +1889,7 @@ function computeAll_(raw, vDate, gl_pai, gl_par, gl_pro, gl_at, gran, tab, compS
   var pp=vDate.split('-'), curYM=pp[0]+'-'+pp[1], mStart=curYM+'-01';
   var lyY=String(+pp[0]-1), lyVD=lyY+'-'+pp[1]+'-'+pp[2], lyMS=lyY+'-'+pp[1]+'-01';
   var pAT={}; raw.actuals.forEach(function(r){if(r.partner&&r.account_type)pAT[r.partner]=r.account_type;});
+  seedTBDNew_(pAT);
   var atFilter = tab==='existing'?'Existing':(tab==='new'?'New':null);
   var atReq = gl_at || atFilter;
   var _budSrcB2bc = compSrc || raw.budget || [];
@@ -2025,6 +2076,9 @@ window.onload = function() {
       raw.runrate  = expandCompact_(raw.runrate);
       raw.forecast = expandCompact_(raw.forecast);
       raw.unique_buyers_daily = expandCompact_(raw.unique_buyers_daily || {cols:[],rows:[]});
+      // Partner TBD = New partners / Hunting, aunque la cartera de ComDev no lo tenga.
+      ['actuals','actuals_ly'].forEach(function(k){ (raw[k]||[]).forEach(function(r){ if(isTBDPartner_(r.partner)) r.account_type='New'; }); });
+      ['budget','runrate','forecast'].forEach(function(k){ (raw[k]||[]).forEach(function(r){ if(isTBDPartner_(r.partner)){ r.stage='New'; _tbdPartnerNames[r.partner]=1; } }); });
       _rawB2BC         = raw;
       state.viewDate   = raw.meta.last_actuals_date;
       state.meta       = raw.meta;
@@ -2079,19 +2133,20 @@ function b2bPaisGroup_(pais) { return _B2B_REST_HISPA[pais] ? 'Rest of Hispa' : 
 // ── B2B2C client-side recompute ─────────────────────────────────
 function recomputeB2BC_() {
   if (!_rawB2BC || !state.viewDate) return;
+  var raw    = b2bcRaw_();
   var gran   = v('sel-gran')    || 'daily';
   var gl_pai = v('sel-pais')    !== 'all' ? v('sel-pais')    : null;
   var gl_par = v('sel-partner') !== 'all' ? v('sel-partner') : null;
   var gl_pro = v('sel-product') !== 'all' ? v('sel-product') : null;
   var gl_at  = v('sel-account') !== 'all' ? v('sel-account') : null;
-  var compSrc = _rawB2BC[_b2bcComparison] || [];
+  var compSrc = raw[_b2bcComparison] || [];
   var compLbl = COMPARISON_LABELS[_b2bcComparison];
   var compKpi = COMPARISON_KPIS[_b2bcComparison];
   ['leg-b2bc-gb-comp','leg-b2bc-nr-comp','leg-b2bc-fvm-comp'].forEach(function(id){var el=document.getElementById(id);if(el)el.textContent=compLbl;});
   ['mc-gb-bud-lbl','mc-nr-bud-lbl','mc-fvm-bud-lbl'].forEach(function(id){var el=document.getElementById(id);if(el)el.textContent=compKpi;});
-  state.data       = compute_(_rawB2BC, 'nr', state.viewDate, gl_pai, gl_par, gl_pro, gl_at, 'daily', compSrc);
-  state.allMetrics = computeAll_(_rawB2BC, state.viewDate, gl_pai, gl_par, gl_pro, gl_at, gran, _partnerTab, compSrc);
-  var _krs=computeKRs_(_rawB2BC, state.viewDate); renderKRs(_krs); renderKRBreakdown_(_krs); if(_b2bcKrHalf===null && state.viewDate){ setB2BCKrHalf(state.viewDate.substring(0,7) >= '2026-10' ? 'h2' : 'h1'); }
+  state.data       = compute_(raw, 'nr', state.viewDate, gl_pai, gl_par, gl_pro, gl_at, 'daily', compSrc);
+  state.allMetrics = computeAll_(raw, state.viewDate, gl_pai, gl_par, gl_pro, gl_at, gran, _partnerTab, compSrc);
+  var _krs=computeKRs_(raw, state.viewDate); renderKRs(_krs); renderKRBreakdown_(_krs); if(_b2bcKrHalf===null && state.viewDate){ setB2BCKrHalf(state.viewDate.substring(0,7) >= '2026-10' ? 'h2' : 'h1'); }
   else renderB2CKrH2_(state.viewDate);
   render(state.data);
   renderMetrics(state.allMetrics);
@@ -2148,7 +2203,7 @@ function renderB2CKrH2_(vDate) {
   function pc(act, bud){ return (act != null && bud) ? Math.round(act/bud*100) : null; }
   function col(p){ return p===null?'var(--text-2)':p>=100?'var(--success)':p>=80?'#f59e0b':'var(--danger)'; }
   function pt(p){ return p===null?'—':p+'%'; }
-  var krs = computeKRs_(_rawB2BC, vDate);
+  var krs = computeKRs_(b2bcRaw_(), vDate);
   // Deploy New Partnership (manual, valor del mes)
   var dm = man.deploy && man.deploy[ym];
   var dA = dm && dm.act !== undefined ? dm.act : null, dB = dm && dm.bud !== undefined ? dm.bud : null;
@@ -2170,7 +2225,8 @@ function renderB2CKrH2_(vDate) {
     + _krCardH2_('Hunting NR', 10, pt(pH), col(pH), [['Actual', fmt(krs.kr2.act)], ['Budget', fmt(krs.kr2.bud)]])
     + _krCardH2_('Operating Contribution (proxy FVM)', 40, pt(pO), col(pO), [['Actual', fmt(krs.kr4.act)], ['Budget', fmt(krs.kr4.bud)]]);
   var note = document.getElementById('b2bc-kr-h2-note');
-  if (note) note.textContent = 'Unique Buyers: acumulado del mes vs target mensual prorrateado por la distribución diaria de orders del Budget (siempre Total WL, sin filtro de país). Deploy New Partnership y los targets: Input_OKR. OC = proxy FVM MTD.';
+  if (note) note.textContent = 'Unique Buyers: acumulado del mes vs target mensual prorrateado por la distribución diaria de orders del Budget (siempre Total WL, sin filtro de país). Deploy New Partnership y los targets: Input_OKR. OC = proxy FVM MTD.'
+    + (_b2bcExclTBD ? ' NR y OC excluyen el partner TBD (New partners / Hunting).' : '');
 }
 
 function renderKRs(krs) {
@@ -4197,16 +4253,17 @@ function flowMonthName_(vDate){
   return M[parseInt(vDate.split('-')[1])-1];
 }
 function flowRegionRaw_(regionKey){
-  if(!regionKey) return _rawB2BC;
+  if(!regionKey) return b2bcRaw_();
   // Hispa (pedido del equipo, 2026-10-06): fuera de todos sus slides de Flow (tarjetas, gráficos
   // y tablas) el país "Other Countries" (Xcaret y demás globales, que getRegion_ tira a SAH por
   // descarte) y todo lo "TBD" — partner TBD o país x partner con tier TBD en cualquier fuente.
-  var isTBD=function(v){ return String(v||'').trim().toUpperCase()==='TBD'; }, tbdKeys={};
+  var isTBD=isTBDPartner_, tbdKeys={};
   if(regionKey==='SAH'){
     ['actuals','actuals_ly','budget','runrate'].forEach(function(n){ (_rawB2BC[n]||[]).forEach(function(r){
       if(isTBD(r.tier)) tbdKeys[(r.pais||'Other')+'|'+r.partner]=1; }); });
   }
   function keep(r){
+    if(_b2bcExclTBD && isTBDPartner_(r.partner)) return false;   // switch "Partner TBD"
     if(regionKey!=='SAH') return true;
     return r.pais!=='Other Countries' && !isTBD(r.partner) && !tbdKeys[(r.pais||'Other')+'|'+r.partner];
   }
@@ -5152,7 +5209,7 @@ function flRenderB2CKRs_(idx){
   var man=(_flowOKRManualB2BC && _flowOKRManualB2BC.data) || {};
 
   var titleEl=document.getElementById('b2c-krsTitle-'+idx);
-  if(titleEl) titleEl.textContent=flowMonthName_(vDate)+' | B2B2C — Status KRs '+half+' FY27';
+  if(titleEl) titleEl.textContent=flowMonthName_(vDate)+' | B2B2C — Status KRs '+half+' FY27'+(_b2bcExclTBD ? ' · excl. partner TBD' : '');
 
   var metaEl=document.getElementById('b2c-krsMeta-'+idx);
   if(metaEl){
@@ -5175,7 +5232,7 @@ function flRenderB2CKRs_(idx){
       // Unique Buyers: el actual sale del Datalake (acumulado MTD al día mirado), no de la sheet.
       if(k.id==='ub'){ var ubA=_ubMtdAt_(_rawB2BC, vDate); if(ubA!=null) act=ubA; var ubS=_budOrdersShare_(_rawB2BC, vDate); if(bud!=null && ubS!=null) bud=bud*ubS; }
     } else {
-      var sum=flowKRSum_(_rawB2BC, k.src==='nr' ? k.stage : 'all', k.src==='nr' ? 'nr' : 'fvm', 'budget', null);
+      var sum=flowKRSum_(b2bcRaw_(), k.src==='nr' ? k.stage : 'all', k.src==='nr' ? 'nr' : 'fvm', 'budget', null);
       if(sum.actual || sum.budget){ act=trkToM_(sum.actual); bud=trkToM_(sum.budget); }
     }
     return { k:k, act:act, bud:bud, c:cumpl(act,bud) };
@@ -5203,7 +5260,7 @@ function flRenderB2CKRs_(idx){
   if(grid){
     function box(title, stage, metric){
       var regs=['BR','NAM','SAH'].map(function(rg){
-        var s2=flowKRSum_(_rawB2BC, stage, metric, 'budget', rg);
+        var s2=flowKRSum_(b2bcRaw_(), stage, metric, 'budget', rg);
         return { name:FLOW_RG[rg].label, act:trkToM_(s2.actual), bud:trkToM_(s2.budget) };
       });
       var tA=0, tB=0; regs.forEach(function(r){ tA+=r.act; tB+=r.bud; });
