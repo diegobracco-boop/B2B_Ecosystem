@@ -4152,8 +4152,9 @@ var FLOW_DECK = [
   {kind:'weekly', lob:'B2B2C',     view:'GD', name:'Weekly — B2B2C (GD)'},
   {kind:'weekly', lob:'B2B2C',     view:'RI', name:'Weekly — B2B2C (RI)'},
 
-  // ── B2B — port nativo del Daily B2B Tracker (mismas 19 slides que su modo
-  // "▶ Slides", ver tracker.html SLIDE_ORDER) ─────────────────────────────
+  // ── B2B — port nativo del Daily B2B Tracker (mismas slides que su modo
+  // "▶ Slides", ver tracker.html SLIDE_ORDER). b2b_tables acepta `channel`
+  // opcional ('API' | 'Agencias afiliadas' = HTML) para la versión filtrada. ──
   {kind:'divider', flag:'B2B', title:'B2B — Daily Tracker', name:'— B2B —'},
   {kind:'b2b_krs', name:'B2B — Status KRs'},
   {kind:'divider', flag:'RI', title:'Recognition Date', name:'B2B — Recognition Date'},
@@ -4161,11 +4162,15 @@ var FLOW_DECK = [
   {kind:'b2b_chart', tab:'nr_ri',  name:'B2B — Net Revenue RI'},
   {kind:'b2b_chart', tab:'fvm_ri', name:'B2B — FVM RI'},
   {kind:'b2b_tables', dateType:'ri', name:'B2B — Tablas RI'},
+  {kind:'b2b_tables', dateType:'ri', channel:'API',                name:'B2B — Tablas RI · API'},
+  {kind:'b2b_tables', dateType:'ri', channel:'Agencias afiliadas', name:'B2B — Tablas RI · HTML'},
   {kind:'divider', flag:'GD', title:'Gestion Date', name:'B2B — Gestion Date'},
   {kind:'b2b_chart', tab:'gb_gd',  name:'B2B — Gross Bookings GD'},
   {kind:'b2b_chart', tab:'nr_gd',  name:'B2B — Net Revenue GD'},
   {kind:'b2b_chart', tab:'fvm_gd', name:'B2B — FVM GD'},
   {kind:'b2b_tables', dateType:'gd', name:'B2B — Tablas GD'},
+  {kind:'b2b_tables', dateType:'gd', channel:'API',                name:'B2B — Tablas GD · API'},
+  {kind:'b2b_tables', dateType:'gd', channel:'Agencias afiliadas', name:'B2B — Tablas GD · HTML'},
   {kind:'divider', flag:'API', title:'API & HTML — Gestion Date', name:'B2B — API vs Agencias (GD)'},
   {kind:'b2b_split', metric:'gb',  dateType:'gd', name:'B2B — GB GD · Agencias vs API'},
   {kind:'b2b_split', metric:'nr',  dateType:'gd', name:'B2B — NR GD · Agencias vs API'},
@@ -4670,6 +4675,7 @@ function flowBuildSlide_(def, idx){
   }
   if(def.kind==='b2b_tables'){
     var dtLbl=(def.dateType==='ri')?'Tablas por Fecha de Reconocimiento':'Tablas por Fecha de Gestión';
+    if(def.channel) dtLbl+=' · '+(def.channel==='API'?'API':'HTML');
     function _b2bTblBlock(lbl, unit, tbodyId){
       return '<div class="b2b-table-block"><div class="b2b-panel-title">'+lbl+' ('+unit+')</div>'
         +'<table class="b2b-pivot-table"><thead><tr>'
@@ -4783,7 +4789,7 @@ function flowRenderWeeklyTables_(){
 // ════════════════════════════════════════════════════════════════════════
 // Port (no reescritura) de la lógica de tracker.html (constantes, helpers de
 // datos/formato, charts, pivots, tablas, split Agencias-vs-API y Status KRs)
-// para que las 19 slides de su modo "▶ Slides" (SLIDE_ORDER) sean nativas del
+// para que las slides de su modo "▶ Slides" (SLIDE_ORDER) sean nativas del
 // deck scrolleable de Flow Semanal, no un iframe aparte. Prefijo B2B_TRK_/trk
 // en todo para no pisar identificadores existentes de dashboard.html (varios
 // nombres de tracker.html, como METRICS/render/toK, son genéricos y ya están
@@ -5451,7 +5457,7 @@ function flowRenderB2BSlides_(){
   FLOW_DECK.forEach(function(def, idx){
     if(def.kind==='b2b_krs'){ trkRenderStatusKRs_(idx); return; }
     if(def.kind==='b2b_chart'){ trkRenderPivotForChart_(idx, def.tab, null, null, monthFilter, goalType); return; }
-    if(def.kind==='b2b_tables'){ trkRenderTablesView_(idx, def.dateType, null, null, monthFilter, goalType); return; }
+    if(def.kind==='b2b_tables'){ trkRenderTablesView_(idx, def.dateType, def.channel||null, null, monthFilter, goalType); return; }
     if(def.kind==='b2b_split'){ trkRenderSplitSlide_(idx, def.metric, def.dateType, null, monthFilter, goalType); return; }
   });
 }

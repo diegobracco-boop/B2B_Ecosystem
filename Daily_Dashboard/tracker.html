@@ -3459,7 +3459,9 @@ function render() {
   setAgenciasFilters(false);
 
   if (!rawData) return;
-  const channel      = document.getElementById('filterChannel').value;
+  // En Slides, una slide puede fijar su propio canal (ver SLIDE_ORDER.channel) por encima del filtro.
+  const channel      = (_isSlidesMode && _slideChannel !== null) ? _slideChannel
+                                                                 : document.getElementById('filterChannel').value;
   const countryGroup = activeCountry;
   const monthFilter  = document.getElementById('filterMonth').value;
 
@@ -3472,8 +3474,10 @@ function render() {
     if (_isSlidesMode) {
       var _dtDetail = (activeTab === 'tables_gd') ? 'Gestion Date' : 'Recognition Date';
       var _moDetail = monthFilter ? monthEn(monthFilter) : 'Full Year';
+      var _chDetail = (_slideChannel === 'API') ? ' · API'
+                    : (_slideChannel === 'Agencias afiliadas') ? ' · HTML' : '';
       titleEl.innerHTML =
-        '<b>' + _moDetail + ' vs ' + goalLabelText() + ' - ' + _dtDetail + ' Detail |</b>' +
+        '<b>' + _moDetail + ' vs ' + goalLabelText() + ' - ' + _dtDetail + ' Detail' + _chDetail + ' |</b>' +
         ' <i>Managerial Information</i>';
     } else {
       titleEl.textContent = activeTab === 'tables_gd'
@@ -3595,7 +3599,9 @@ document.getElementById('btnClear').addEventListener('click', () => {
 // ─────────────────────────────────────────────
 var _isSlidesMode = false;
 var _slideIdx     = 0;
+var _slideChannel = null; // canal fijo de la slide activa (null = usa el filtro de Canal)
 
+// `channel` (opcional): fija el canal de la slide ('API' | 'Agencias afiliadas' = HTML).
 const SLIDE_ORDER = [
   { tab: 'agencias',    title: 'Status KRs H1'                                                  },
   { tab: 'agencias_h2', title: 'Status KRs H2'                                                  },
@@ -3605,11 +3611,15 @@ const SLIDE_ORDER = [
   { tab: 'nr_ri',      title: 'Net Revenue — RI'                                                },
   { tab: 'fvm_ri',     title: 'FVM — RI'                                                        },
   { tab: 'tables_ri',  title: 'Tablas RI'                                                       },
+  { tab: 'tables_ri',  channel: 'API',                title: 'Tablas RI · API'                  },
+  { tab: 'tables_ri',  channel: 'Agencias afiliadas', title: 'Tablas RI · HTML'                 },
   { isCover: true,     title: 'Gestion Date',     subtitle: 'Gross Bookings · Net Revenue · FVM' },
   { tab: 'gb_gd',      title: 'Gross Bookings — GD'                                             },
   { tab: 'nr_gd',      title: 'Net Revenue — GD'                                                },
   { tab: 'fvm_gd',     title: 'FVM — GD'                                                        },
   { tab: 'tables_gd',  title: 'Tablas GD'                                                       },
+  { tab: 'tables_gd',  channel: 'API',                title: 'Tablas GD · API'                  },
+  { tab: 'tables_gd',  channel: 'Agencias afiliadas', title: 'Tablas GD · HTML'                 },
   { isCover: true,     title: 'API & HTML Metrics - By Gestion Date',     subtitle: 'Agencias afiliadas vs API' },
   { split: true, metric: 'gb',  dateType: 'gd', title: 'Gross Bookings — GD · Agencias vs API' },
   { split: true, metric: 'nr',  dateType: 'gd', title: 'Net Revenue — GD · Agencias vs API'    },
@@ -3680,6 +3690,7 @@ function _buildSlidesDots() {
 function _goToSlide(idx) {
   _slideIdx = idx;
   var slide = SLIDE_ORDER[idx];
+  _slideChannel = slide.channel || null;
   var coverEl = document.getElementById('slideCover');
   document.getElementById('splitContent').classList.remove('visible');
 
