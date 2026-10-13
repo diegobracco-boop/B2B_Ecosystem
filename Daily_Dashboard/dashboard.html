@@ -4635,20 +4635,19 @@ function flowBuildSlide_(def, idx){
   }
   if(def.kind==='daily'){
     var region=def.region, sub=flowRegionRaw_(region), mk=def.metric;
-    // la tabla usa el comparador SECUNDARIO (no el elegido en "Goal") para no repetir
-    // la misma tabla país/partner que ya muestra el slide Mensual de esta región.
-    var tblComp=(cmp==='budget'?'runrate':'budget'), tblCompLbl=FLOW_COMP[tblComp].label;
+    // Tarjetas, gráfico diario y tabla MTD usan SIEMPRE el mismo comparador (el "Goal" elegido).
+    // Antes la tabla usaba el secundario (Budget <-> Run Rate) y la slide mezclaba los dos (2026-10-13).
     var titleTxt=mesLbl+' | B2B2C '+FLOW_RG[region].label+' — '+FLOW_MET[mk].label+' Performance MTD vs '+cmpLbl;
     var brand='<span class="fl-flag">'+FLOW_RG[region].flag+'</span>'+flLogo_();
     var dl=flowDaily_(sub,mk,cmp);
     var cid='flc'+idx; _flowSeries[idx].push({id:cid, series:dl, gran:'daily', opts:{labels:true}});
     var tierFirst=(region==='SAH'); // Hispa: Tier → Partner en vez de País → Tier → Partner
-    var tbl=flowGroupTable_(sub,mk,tblComp,tierFirst?'Tier / Partner':'País / Tier / Partner',false,undefined,undefined,tierFirst);
+    var tbl=flowGroupTable_(sub,mk,cmp,tierFirst?'Tier / Partner':'País / Tier / Partner',false,undefined,undefined,tierFirst);
     var body='<div class="fl-body"><div style="display:flex;gap:18px;height:100%">'
       +'<div style="flex:1.55;min-width:0;display:flex;flex-direction:column;min-height:0">'+flowKpiCards_(sub,mk,cmp)
       +'<div style="font-size:13px;font-weight:700;color:var(--fl-ink2);margin:8px 0 2px">Trend vs '+cmpLbl+'</div>'
       +'<div class="fl-canvas-wrap" style="flex:1;min-width:0;min-height:0"><canvas id="'+cid+'"></canvas></div></div>'
-      +'<div class="fl-scroll-tbl" style="flex:1;min-width:0;min-height:0;overflow-y:auto"><div class="fl-tbl-title">MTD — Performance vs '+tblCompLbl+'</div>'+tbl+'</div>'
+      +'<div class="fl-scroll-tbl" style="flex:1;min-width:0;min-height:0;overflow-y:auto"><div class="fl-tbl-title">MTD — Performance vs '+cmpLbl+'</div>'+tbl+'</div>'
       +'</div></div>';
     return '<div class="flow-slide">'+flHead_(titleTxt, brand)+body+'</div>';
   }
