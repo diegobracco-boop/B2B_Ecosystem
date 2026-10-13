@@ -1405,12 +1405,17 @@ def agg_forecast_b2b(df: pd.DataFrame) -> pd.DataFrame:
 # ComDev no los marque asi (nombre distinto, alta reciente sin actualizar, etc.).
 # Se fuerza a New en TODAS las fuentes: actuals, LY y proyecciones (budget/runrate).
 FORCE_NEW_PARTNERS = {"livelo-api-hoteles", "xcaret", "didi", "bonda"}
+# Al revés: la cartera los marca New pero el equipo NO los cuenta como hunting
+# (decisión de Diego 2026-10-13: New Fly). Mismo alcance que FORCE_NEW_PARTNERS.
+FORCE_EXISTING_PARTNERS = {"new fly"}
 
 
 def _apply_force_new(df: pd.DataFrame) -> None:
-    """account_type = 'New' para los partners de FORCE_NEW_PARTNERS (match normalizado)."""
-    m = df["partner"].astype(str).str.strip().str.lower().isin(FORCE_NEW_PARTNERS)
-    df.loc[m, "account_type"] = "New"
+    """account_type = 'New' / 'Existing' para los partners de FORCE_NEW_PARTNERS /
+    FORCE_EXISTING_PARTNERS (match normalizado)."""
+    p = df["partner"].astype(str).str.strip().str.lower()
+    df.loc[p.isin(FORCE_NEW_PARTNERS), "account_type"] = "New"
+    df.loc[p.isin(FORCE_EXISTING_PARTNERS), "account_type"] = "Existing"
 
 
 # Bloques de datos cuya query falló después de los reintentos de fetch(). Si hay alguno,
@@ -1506,6 +1511,8 @@ try:
     # Overrides de negocio (la cartera de ComDev no los marca New, el equipo si):
     for _p in FORCE_NEW_PARTNERS:
         cartera_map[_p] = "New"
+    for _p in FORCE_EXISTING_PARTNERS:
+        cartera_map[_p] = "Existing"
     df_budget["stage"] = _map_stage(df_budget["partner"], cartera_map)
     df_budget["tier"]  = _map_tier(df_budget, tier_map_pais, tier_map)
     print(f"  Hunting: {(df_budget['stage']=='Existing').sum():,} filas | Farming: {(df_budget['stage']=='New').sum():,} filas")
