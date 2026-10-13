@@ -1404,7 +1404,8 @@ def agg_forecast_b2b(df: pd.DataFrame) -> pd.DataFrame:
 # Partners que el equipo cuenta como "New / onboarding" aunque la cartera de
 # ComDev no los marque asi (nombre distinto, alta reciente sin actualizar, etc.).
 # Se fuerza a New en TODAS las fuentes: actuals, LY y proyecciones (budget/runrate).
-FORCE_NEW_PARTNERS = {"livelo-api-hoteles", "xcaret", "didi", "bonda"}
+# Xcaret se sacó el 2026-10-13 (decisión de Diego: no es hunting; la cartera ya lo marca Existing).
+FORCE_NEW_PARTNERS = {"livelo-api-hoteles", "didi", "bonda"}
 # Al revés: la cartera los marca New pero el equipo NO los cuenta como hunting
 # (decisión de Diego 2026-10-13: New Fly). Mismo alcance que FORCE_NEW_PARTNERS.
 FORCE_EXISTING_PARTNERS = {"new fly"}
