@@ -159,13 +159,26 @@ El ecosistema tiene dos capas: **pipelines** (Python, generan los datos) y **lan
 - **Deployment id (prod)**: `AKfycbzGXCpL9_p70Xx7P640YgU-zOzoLG1018HG9N_pzQvrCJPHTPsUuryD_tDH1HNO41hOIg`
 - **Consumido por**: embebido como `<iframe>` en la sección "FVM Negativo" del Hub (`Dashboard_B2B_WLs/dashboard.html`, `EXTERNAL_LINKS.iframes.fvmneg`)
 
+### P&L_Profit_Sharing — P&L de profit sharing de Banco de Chile
+- **Stack**: Python + SQL (pipeline manual) + GAS/HTML (landing). Creado 2026-10-13.
+- **Lógica**: toda en `banco_chile_profit_sharing.sql` (B2B2C Chile, partner Banco de Chile, transacciones confirmadas
+  desde may-2026). FVM_Base = NR + costos + channel expenses (leases Presencial + comisiones de vendedores 1,7% GB);
+  cancellations y loyalty × 0. Reparto: 55% Profit Share a pagar a Banco de Chile / 45% FVM Despegar.
+- **Pipeline**: `py profit_sharing_sync.py` corre el .sql, agrega a mes × tipo_venta × punto_venta × producto × viaje ×
+  estado × vendedor, verifica el cuadre contra lo crudo y sube `banco_chile_profit_sharing.json` a la carpeta de Drive
+  de P&L Managerial (`1wzudbo7cN9Ibiv_2OA-V0_B_un4JcJp6`). `--no-upload` lo deja en `_out/`.
+- **Landing**: lee el JSON por nombre; filtra y suma en el frontend (no recalcula reglas de negocio).
+- **Script ID**: `1b5J6CHJR-c-6MJcolL_YbASbb4oIILpln1odHDUdapaBcOOCUqxMhpYf`
+- **Deployment id (prod)**: `AKfycbyfhSHt3k0wJS39TlHYOAuRYicAy0M1pGfnarSM1RXOKECa4p1cBSlFjXU5ZXQKsYCj`
+- **Deploy**: `cd P&L_Profit_Sharing && clasp push --force` + `clasp deploy -i <deploymentId>`
+
 ## Credenciales
 
 Todas las credenciales viven en `credenciales/` (gitignoreado). Ver cada módulo para el detalle de qué archivo necesita.
 
 ## Estado actual
 
-- **En producción**: Daily_Dashboard, Dashboard_B2B_WLs, P&L_Accounting, P&L_Managerial, Manual_B2B_WLs, `lob_country_one_pager` (B2B, en prod desde 2026-09-17), OKR_Producto_B2B2C
+- **En producción**: Daily_Dashboard, Dashboard_B2B_WLs, P&L_Accounting, P&L_Managerial, Manual_B2B_WLs, `lob_country_one_pager` (B2B, en prod desde 2026-09-17), OKR_Producto_B2B2C, P&L_Profit_Sharing (desde 2026-10-13)
 - **En construcción (Fase 2)**: repuntear las landings de P&L y Dashboard_B2B_WLs a los JSONs canónicos de Inputs_Planning_PnL como fuente única (hoy algunas todavía leen de fuentes propias)
 
 ## Relación clasp ↔ GitHub

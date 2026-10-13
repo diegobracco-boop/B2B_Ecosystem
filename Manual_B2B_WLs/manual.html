@@ -554,6 +554,9 @@ a.ext-link:hover { text-decoration: underline; }
   <a class="nav-item" onclick="showSection('proj-fvmneg')">
     <span class="nav-icon">📉</span> FVM Negativo
   </a>
+  <a class="nav-item" onclick="showSection('proj-profitsharing')">
+    <span class="nav-icon">🤝</span> Profit Sharing BCh
+  </a>
   <a class="nav-item" onclick="showSection('proj-runrate')">
     <span class="nav-icon">🚀</span> Proyecto Run Rate
   </a>
@@ -664,6 +667,14 @@ a.ext-link:hover { text-decoration: underline; }
         <div class="proj-card-desc">Transacciones B2B (GD/RI) y B2B2C con <strong>FVM &lt; 0</strong>, con drill-down País → Canal/Partner → Producto → Gateway/Shopping Flow/Viaje. Reemplaza la app de Toqan. Sin pipeline propio: el JSON lo genera <code>daily_sync.py</code> con el <strong>mismo FVM que el Daily</strong>.</div>
         <div class="proj-card-tag"><span class="badge badge-auto">⚡ Se actualiza con el Daily</span></div>
         <a class="proj-card-url" href="https://script.google.com/a/macros/despegar.com/s/AKfycbzGXCpL9_p70Xx7P640YgU-zOzoLG1018HG9N_pzQvrCJPHTPsUuryD_tDH1HNO41hOIg/exec" target="_blank">↗ Abrir landing</a>
+      </div>
+
+      <div class="proj-card" tabindex="0" role="button" onclick="showSection('proj-profitsharing')">
+        <div class="proj-card-icon">🤝</div>
+        <div class="proj-card-name">P&amp;L Profit Sharing · Banco de Chile</div>
+        <div class="proj-card-desc">P&amp;L de Banco de Chile por mes, tipo de venta (Carrito / Agencias / WLs) y punto de venta (Presencial / Call Center / online), con el reparto del FVM Base: <strong>55% a pagar a Banco de Chile</strong> y 45% para Despegar.</div>
+        <div class="proj-card-tag"><span class="badge badge-manual">🖐️ Manual (profit_sharing_sync.py)</span></div>
+        <a class="proj-card-url" href="https://script.google.com/a/macros/despegar.com/s/AKfycbyfhSHt3k0wJS39TlHYOAuRYicAy0M1pGfnarSM1RXOKECa4p1cBSlFjXU5ZXQKsYCj/exec" target="_blank">↗ Abrir landing</a>
       </div>
 
       <div class="proj-card" tabindex="0" role="button" onclick="showSection('proj-runrate')">
@@ -838,7 +849,7 @@ a.ext-link:hover { text-decoration: underline; }
           <tr><td><strong>API</strong> (mayoristas)</td><td>Las agencias se conectan por sistema y arman su propia página para vender el inventario de Despegar. Se reconoce al <strong>check-in</strong> (cuando se factura).</td></tr>
           <tr><td><strong>HTML</strong> (minoristas)</td><td>Las agencias venden desde la web de Despegar. Se reconoce en la <strong>emisión</strong>.</td></tr>
           <tr><td><strong>WL</strong> · White Labels</td><td>Partners (empresas) a las que se les arma una página con su marca. Es el B2B2C.</td></tr>
-          <tr><td><strong>Farming</strong> / <strong>Hunting</strong></td><td>Farming = agencias o WLs con más de un año de antigüedad. Hunting = un año o menos (incluye las futuras). En B2B2C las landings los muestran como "Farming" y "Hunt &amp; Onboarding".</td></tr>
+          <tr><td><strong>Farming</strong> / <strong>Hunting</strong></td><td>B2B (agencias): Farming = más de un año de antigüedad, Hunting = un año o menos (incluye las futuras). B2B2C (WLs): Hunting = partners con stage <em>New</em> en la cartera de ComDev, más los forzados de <code>Daily_Dashboard/hunting_rules.py</code> (definición única que usan el Daily, los OKR y P&amp;L Managerial). En B2B2C las landings los muestran como "Farming" y "Hunt &amp; Onboarding".</td></tr>
           <tr><td><strong>Fénix</strong></td><td>Plataforma de reservas interna de Despegar. De ahí salen Orders y Gross Bookings.</td></tr>
           <tr><td><strong>GDS</strong></td><td>Consolidadores (Amadeus, Sabre, Travelport) cuya tecnología usan los pasajeros para comprar. Generan parte de Other Incentives.</td></tr>
           <tr><td><strong>Stays</strong> · <strong>Viajanet</strong></td><td>Stays: B2B Brasil, conector de inventario de alojamiento. Viajanet: marca low cost de Brasil.</td></tr>
@@ -2669,6 +2680,46 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
           <tr><td>Conteo de transacciones</td><td>Exacto: el JSON trae niveles <code>tx</code> (B2B) y <code>tx_producto</code> / <code>tx_partner</code> (B2B2C) donde cada transacción cae en una sola fila</td></tr>
         </tbody>
       </table>
+    </div>
+  </div>
+
+  <!-- ══════════════════════ PROYECTO: PROFIT SHARING BANCO DE CHILE ══════════════════════ -->
+  <div class="section" id="sec-proj-profitsharing">
+    <div class="page-header">
+      <div class="page-tag">Proyecto <span class="badge badge-manual">🆕 2026-10</span></div>
+      <div class="page-title">P&amp;L Profit Sharing <span>(Banco de Chile)</span></div>
+      <div class="page-sub">Cuánto se le paga a <strong>Banco de Chile</strong> por el acuerdo de profit sharing: P&amp;L del partner con sus gastos de canal propios y el reparto 55% / 45% del FVM Base.</div>
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">📍 Datos del proyecto</div>
+        <table class="doc-table">
+          <tbody>
+            <tr><td>Carpeta local</td><td>P&amp;L_Profit_Sharing</td></tr>
+            <tr><td>Apps Script ID</td><td class="mono-id">1b5J6CHJR-c-6MJcolL_YbASbb4oIILpln1odHDUdapaBcOOCUqxMhpYf</td></tr>
+            <tr><td>Deployment id (prod)</td><td class="mono-id">AKfycbyfhSHt3k0wJS39TlHYOAuRYicAy0M1pGfnarSM1RXOKECa4p1cBSlFjXU5ZXQKsYCj</td></tr>
+            <tr><td>URL landing</td><td><a class="ext-link" href="https://script.google.com/a/macros/despegar.com/s/AKfycbyfhSHt3k0wJS39TlHYOAuRYicAy0M1pGfnarSM1RXOKECa4p1cBSlFjXU5ZXQKsYCj/exec" target="_blank">↗ Abrir</a></td></tr>
+            <tr><td>Fuente de datos</td><td><code>banco_chile_profit_sharing.json</code> en la carpeta de Drive de P&amp;L Managerial</td></tr>
+            <tr><td>Actualización</td><td>Manual: <code>cd P&amp;L_Profit_Sharing &amp;&amp; py profit_sharing_sync.py</code> (VPN + <code>credenciales/.env.&lt;usuario&gt;</code>)</td></tr>
+            <tr><td>Deploy</td><td><code>clasp push --force</code> + <code>clasp deploy -i &lt;id&gt;</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card">
+        <div class="card-title">🧮 Cómo se calcula</div>
+        <table class="doc-table">
+          <tbody>
+            <tr><td>Universo</td><td>B2B2C Chile, partner Banco de Chile, transacciones confirmadas desde may-2026, por mes de confirmación</td></tr>
+            <tr><td>Tipo de venta</td><td>① Cotización / Carrito (carrito con vendedor) · ② Agencias (resto con vendedor) · ③ WLs (sin vendedor)</td></tr>
+            <tr><td>Punto de venta</td><td>Presencial (AG00120467) · Call Center (AG00120475) · ON (online)</td></tr>
+            <tr><td>Channel Expenses</td><td>Leases (solo Presencial, repartidos entre sus transacciones del mes) + comisiones de vendedores (1,7% del GB). Reemplaza la vendor commission.</td></tr>
+            <tr><td>Ajustes</td><td>Cancellations y Loyalty × 0 · Intercompany 0,54% del GB</td></tr>
+            <tr><td>Reparto</td><td>FVM Base × 55% = Profit Share a pagar · × 45% = FVM Despegar</td></tr>
+            <tr><td>Fuente única</td><td>Toda la lógica vive en <code>banco_chile_profit_sharing.sql</code>; <code>profit_sharing_sync.py</code> solo agrega y la landing solo filtra y suma</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 

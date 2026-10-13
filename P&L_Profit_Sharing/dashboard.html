@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+/* Tokens = tema ejecutivo de P&L_Managerial/dashboard.html (misma familia visual). */
+:root{
+  --bg:#f7f6fb;--surface:#fff;--surface2:#faf9fd;
+  --border:#ece8f4;--border2:#ddd6ea;
+  --navy:#1b1533;--navy3:#2e1f5e;
+  --accent:#6d28d9;--accent2:#8b5cf6;
+  --red:#c8323c;--text:#1f1a33;--muted:#6b6584;--muted2:#9a94b0;
+  --radius:14px;--shadow:0 1px 2px rgba(27,21,51,.05),0 8px 24px rgba(27,21,51,.05);
+  --seg-track:#f0edf7;
+  /* Reparto del FVM Base (validados para daltonismo, skill dataviz: ΔE CVD 31.5) */
+  --c-despegar:#6d28d9;--c-partner:#d9480f;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:'Inter',-apple-system,'Segoe UI',Roboto,sans-serif;
+  font-size:13px;-webkit-font-smoothing:antialiased;font-feature-settings:'tnum' 1}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:16px 32px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+header h1{margin:0;font-size:17px;color:var(--navy3)}
+header h1 span{color:var(--accent)}
+header .upd{font-size:11px;color:var(--muted);margin-left:auto}
+main{padding:20px 32px 48px;max-width:1600px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:18px}
+.card-hdr{padding:12px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.card-title{font-size:13px;font-weight:700;color:var(--navy3)}
+.card-sub{font-size:11px;color:var(--muted)}
+.card-body{padding:12px 18px}
+.scroll{overflow-x:auto}
+
+/* filtros */
+.frow{display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin:5px 0}
+.flbl{font-size:11px;color:var(--muted);font-weight:700;min-width:96px}
+.chip{padding:4px 11px;border-radius:999px;border:1px solid var(--border2);background:var(--surface);color:var(--muted);
+  font-size:11px;font-weight:600;cursor:pointer;font-family:inherit}
+.chip:hover{color:var(--accent);border-color:#c4b5fd}
+.chip.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.seg{display:inline-flex;background:var(--seg-track);border-radius:8px;padding:2px}
+.seg button{border:none;background:transparent;padding:5px 12px;font-size:11px;font-weight:700;color:var(--muted);cursor:pointer;border-radius:6px;font-family:inherit}
+.seg button.on{background:#fff;color:var(--accent);box-shadow:0 1px 3px rgba(27,21,51,.14)}
+
+/* KPIs */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:18px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 16px}
+.kpi .l{font-size:11px;color:var(--muted);font-weight:700;display:flex;align-items:center;gap:6px}
+.kpi .v{font-size:22px;font-weight:800;color:var(--navy);margin-top:4px}
+.kpi .s{font-size:11px;color:var(--muted);margin-top:2px}
+.dot{width:9px;height:9px;border-radius:2px;display:inline-block}
+
+/* tablas */
+table.pl{border-collapse:collapse;width:100%;font-size:12px}
+table.pl th,table.pl td{padding:5px 10px;border-bottom:1px solid var(--border);white-space:nowrap}
+table.pl th{font-size:11px;color:var(--muted);font-weight:700;text-align:right;background:var(--surface2);position:sticky;top:0}
+table.pl th:first-child,table.pl td:first-child{text-align:left}
+table.pl td{text-align:right}
+table.pl tr.sec td{background:rgba(42,16,72,.06);font-weight:800;color:var(--navy3);text-align:left}
+table.pl tr.sub td{font-weight:700;background:rgba(42,16,72,.03)}
+table.pl tr.key td{font-weight:800;background:rgba(109,40,217,.08);color:var(--navy)}
+table.pl tr.child td{color:var(--muted);font-size:11px}
+table.pl tr.child td:first-child{padding-left:28px}
+table.pl td.tot,table.pl th.tot{border-left:2px solid var(--border2);font-weight:700}
+.neg{color:var(--red)}
+.note{font-size:11px;color:var(--muted);line-height:1.6}
+.note b{color:var(--text)}
+.legend{display:flex;gap:16px;font-size:11px;color:var(--muted);margin:2px 0 8px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.err{padding:24px;color:var(--red)}
+@media (max-width:640px){ header,main{padding-left:16px;padding-right:16px} .flbl{min-width:0;width:100%} }
+</style>
+</head>
+<body>
+<header>
+  <h1>P&amp;L Profit Sharing · <span>Banco de Chile</span></h1>
+  <div class="upd" id="upd">Cargando…</div>
+</header>
+<main id="app"><div class="card"><div class="card-body note">Cargando datos…</div></div></main>
+
+<script>
+// ══════════════════════════════════════════════════════════════════════════
+//  Estado + datos. El JSON (profit_sharing_sync.py) trae filas ya calculadas por el .sql:
+//  [mes, tipo_venta, punto_venta, productooriginal, viaje, estado, agent_name, ...METRICS]
+//  Acá solo se filtra y se suma — ninguna regla de negocio se recalcula en el frontend.
+// ══════════════════════════════════════════════════════════════════════════
+var D = null;                    // {months, dims, metrics, rows, updated_at}
+var IDX = {};                    // nombre de columna -> índice en la fila
+var FILTERS = { tipo_venta:[], punto_venta:[], productooriginal:[], viaje:[], estado:[] };
+var FILTER_LABELS = { tipo_venta:'Tipo de venta', punto_venta:'Punto de venta', productooriginal:'Producto', viaje:'Viaje', estado:'Estado' };
+var PERIOD = 'all';              // 'all' | 'YYYY-MM' (KPIs, gráfico y tablas de apertura)
+var UNIT = 'K';                  // 'K' | 'raw'
+var VIEW = 'usd';                // 'usd' | 'pct' (P&L como % de GB)
+var _chart = null;
+
+var MES_ES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+function mesLbl(ym){ var p = ym.split('-'); return MES_ES[+p[1]-1] + '-' + p[0].slice(2); }
+function isPartial(ym){ var d = new Date(); return ym === d.getFullYear() + '-' + ('0'+(d.getMonth()+1)).slice(-2); }
+
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function grp(n){ return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
+function money(v){
+  if(v == null || !isFinite(v)) return '—';
+  var a = Math.abs(v);
+  if(UNIT === 'K'){
+    var p = (a/1e3).toFixed(1).split('.'), s = v < 0 && +p.join('.') > 0 ? '−' : '';   // sin "−0,0K"
+    return s + grp(p[0]) + ',' + p[1] + 'K';
+  }
+  return (v < 0 && Math.round(a) > 0 ? '−' : '') + grp(Math.round(a));
+}
+function pct(v){ return (v == null || !isFinite(v)) ? '—' : (v < 0 ? '−' : '') + Math.abs(v*100).toFixed(1).replace('.', ',') + '%'; }
+function cnt(v){ return grp(Math.round(v || 0)); }
+function cls(v){ return v < 0 ? ' class="neg"' : ''; }
+
+// ── filtrado + agregación ──
+function rowsFiltered(){
+  return D.rows.filter(function(r){
+    for(var k in FILTERS){ var sel = FILTERS[k]; if(sel.length && sel.indexOf(r[IDX[k]]) < 0) return false; }
+    return true;
+  });
+}
+function sumBy(rows, keyFn){
+  var out = {};
+  rows.forEach(function(r){
+    var k = keyFn(r); if(k == null) return;
+    var o = out[k] || (out[k] = {});
+    D.metrics.forEach(function(m){ o[m] = (o[m]||0) + (r[IDX[m]]||0); });
+  });
+  Object.keys(out).forEach(function(k){ derive(out[k]); });
+  return out;
+}
+// Derivadas para presentar el P&L (identidades verificadas en profit_sharing_sync.py / .sql):
+//   white_labels_api = revenue_sharing_base − 55% FVM_Base  →  base = white_labels_api + profit_share
+//   FVM_Base = NR + costos + channel_expenses + base ;  FVM_Base = profit_share (55%) + fvm (45%)
+function derive(o){
+  o.wl_base = (o.white_labels_api||0) + (o.profit_share_a_pagar||0);
+  o.ps_neg  = -(o.profit_share_a_pagar||0);
+  return o;
+}
+function total(objs){
+  var t = {};
+  objs.forEach(function(o){ D.metrics.concat(['wl_base','ps_neg']).forEach(function(m){ t[m] = (t[m]||0) + (o[m]||0); }); });
+  return t;
+}
+function periodRows(rows){ return PERIOD === 'all' ? rows : rows.filter(function(r){ return r[IDX.mes] === PERIOD; }); }
+
+// ── P&L ──
+var PL = [
+  { k:'orders', label:'Orders', count:true },
+  { k:'gross_bookings', label:'Gross Bookings', cls:'sub' },
+  { sec:'Net Revenue' },
+  { k:'up_front_incentives', label:'Up Front Incentives' },
+  { k:'fees', label:'Fees' },
+  { k:'commercial_discounts', label:'Commercial Discounts' },
+  { k:'back_end_incentives', label:'Back End Incentives' },
+  { k:'media_other_revenue', label:'Media & Other Revenue' },
+  { k:'cancellations', label:'Cancellations (× 0)' },
+  { k:'breakage_revenue', label:'Breakage Revenue' },
+  { k:'revenue_tax', label:'Revenue Tax' },
+  { k:'other_incentives', label:'Other Incentives' },
+  { k:'net_revenues', label:'Net Revenue', cls:'sub' },
+  { sec:'Costos' },
+  { k:'cost_of_installments', label:'Cost of Installments' },
+  { k:'credit_card_processing', label:'Credit Card Processing' },
+  { k:'mkt_usd', label:'Marketing' },
+  { k:'errors', label:'Errors' },
+  { k:'other_transactional_taxes', label:'Other Transactional Taxes' },
+  { k:'customer_claims', label:'Customer Claims' },
+  { k:'loyalty_usd', label:'Loyalty (× 0)' },
+  { k:'customer_service', label:'Customer Service' },
+  { k:'channel_expenses', label:'Channel Expenses' },
+  { k:'leases', label:'Leases (Presencial)', cls:'child' },
+  { k:'comisiones_presencial', label:'Comisiones vendedores Presencial (1,7% GB)', cls:'child' },
+  { k:'comisiones_call_center', label:'Comisiones vendedores Call Center (1,7% GB)', cls:'child' },
+  { k:'intercompany_usd', label:'Intercompany (0,54% GB)' },
+  { k:'dif_fx', label:'Dif FX' },
+  { k:'currency_hedge', label:'Currency Hedge' },
+  { k:'efecto_financiero', label:'Efecto Financiero' },
+  { k:'wl_base', label:'Revenue Sharing (otros)', hideZero:true },
+  { k:'fvm_base', label:'FVM Base (100%)', cls:'sub' },
+  { sec:'Reparto' },
+  { k:'ps_neg', label:'Profit Share Banco de Chile (55%)' },
+  { k:'fvm', label:'FVM Despegar (45%)', cls:'key' }
+];
+
+function plHtml(rows){
+  var months = D.months, byM = sumBy(rows, function(r){ return r[IDX.mes]; });
+  var cols = months.map(function(m){ return byM[m] || derive({}); });
+  cols.push(total(cols));
+  var hdr = months.map(function(m){ return '<th>' + mesLbl(m) + (isPartial(m) ? '*' : '') + '</th>'; }).join('') + '<th class="tot">Total</th>';
+  var h = '<div class="scroll"><table class="pl"><thead><tr><th>Línea</th>' + hdr + '</tr></thead><tbody>';
+  PL.forEach(function(row){
+    if(row.sec){ h += '<tr class="sec"><td colspan="' + (cols.length+1) + '">' + esc(row.sec) + '</td></tr>'; return; }
+    if(row.hideZero && Math.abs(cols[cols.length-1][row.k]||0) < 0.5) return;
+    h += '<tr' + (row.cls ? ' class="' + row.cls + '"' : '') + '><td>' + esc(row.label) + '</td>';
+    cols.forEach(function(c, i){
+      var v = c[row.k] || 0, tcls = i === cols.length-1 ? ' tot' : '';
+      var txt;
+      if(row.count) txt = cnt(v);
+      else if(VIEW === 'pct') txt = row.k === 'gross_bookings' ? money(v) : pct(c.gross_bookings ? v / c.gross_bookings : null);
+      else txt = money(v);
+      h += '<td class="' + (v < 0 && !row.count ? 'neg' : '') + tcls + '">' + txt + '</td>';
+    });
+    h += '</tr>';
+  });
+  return h + '</tbody></table></div>';
+}
+
+// ── Apertura por canal de venta (tipo × punto) ──
+function channelHtml(rows){
+  var g = sumBy(periodRows(rows), function(r){ return r[IDX.tipo_venta] + '|' + r[IDX.punto_venta]; });
+  var keys = Object.keys(g).sort();
+  var cols = [['orders','Orders',1],['gross_bookings','GB'],['net_revenues','NR'],['channel_expenses','Channel Exp.'],
+              ['fvm_base','FVM Base'],['profit_share_a_pagar','Profit Share 55%'],['fvm','FVM Despegar 45%']];
+  var h = '<div class="scroll"><table class="pl"><thead><tr><th>Tipo de venta</th><th style="text-align:left">Punto de venta</th>'
+    + cols.map(function(c){ return '<th>' + c[1] + '</th>'; }).join('') + '<th>FVM Base %GB</th></tr></thead><tbody>';
+  var all = [];
+  keys.forEach(function(k){
+    var o = g[k], p = k.split('|'); all.push(o);
+    h += '<tr><td>' + esc(p[0]) + '</td><td style="text-align:left">' + esc(p[1]) + '</td>'
+      + cols.map(function(c){ var v = o[c[0]]||0; return '<td' + (c[2] ? '' : cls(v)) + '>' + (c[2] ? cnt(v) : money(v)) + '</td>'; }).join('')
+      + '<td>' + pct(o.gross_bookings ? o.fvm_base / o.gross_bookings : null) + '</td></tr>';
+  });
+  var t = total(all);
+  h += '<tr class="sub"><td>Total</td><td></td>'
+    + cols.map(function(c){ var v = t[c[0]]||0; return '<td' + (c[2] ? '' : cls(v)) + '>' + (c[2] ? cnt(v) : money(v)) + '</td>'; }).join('')
+    + '<td>' + pct(t.gross_bookings ? t.fvm_base / t.gross_bookings : null) + '</td></tr>';
+  return h + '</tbody></table></div>';
+}
+
+// ── Vendedores (Presencial / Call Center) ──
+function agentsHtml(rows){
+  var g = sumBy(periodRows(rows), function(r){ var a = r[IDX.agent_name]; return a ? a + '|' + r[IDX.punto_venta] : null; });
+  var keys = Object.keys(g).sort(function(a,b){ return (g[b].gross_bookings||0) - (g[a].gross_bookings||0); });
+  if(!keys.length) return '<div class="card-body note">Sin ventas con vendedor para este filtro / período.</div>';
+  var h = '<div class="scroll"><table class="pl"><thead><tr><th>Vendedor</th><th style="text-align:left">Punto de venta</th>'
+    + '<th>Orders</th><th>GB</th><th>Comisión (1,7%)</th><th>FVM Base</th></tr></thead><tbody>';
+  keys.forEach(function(k){
+    var o = g[k], p = k.split('|'), com = (o.comisiones_presencial||0) + (o.comisiones_call_center||0);
+    h += '<tr><td>' + esc(p[0]) + '</td><td style="text-align:left">' + esc(p[1]) + '</td><td>' + cnt(o.orders) + '</td><td>' + money(o.gross_bookings)
+      + '</td><td' + cls(com) + '>' + money(com) + '</td><td' + cls(o.fvm_base) + '>' + money(o.fvm_base) + '</td></tr>';
+  });
+  return h + '</tbody></table></div>';
+}
+
+// ── KPIs ──
+function kpisHtml(rows){
+  var t = total([total(Object.values(sumBy(periodRows(rows), function(r){ return r[IDX.mes]; })))]);
+  function k(lbl, v, sub, dot){ return '<div class="kpi"><div class="l">' + (dot ? '<span class="dot" style="background:' + dot + '"></span>' : '') + lbl
+    + '</div><div class="v">' + v + '</div><div class="s">' + (sub||'&nbsp;') + '</div></div>'; }
+  var gb = t.gross_bookings || 0;
+  return '<div class="kpis">'
+    + k('Gross Bookings', money(gb), cnt(t.orders) + ' orders')
+    + k('Net Revenue', money(t.net_revenues), pct(gb ? t.net_revenues/gb : null) + ' del GB')
+    + k('FVM Base', money(t.fvm_base), pct(gb ? t.fvm_base/gb : null) + ' del GB')
+    + k('Profit Share a pagar (55%)', money(t.profit_share_a_pagar), 'a Banco de Chile', 'var(--c-partner)')
+    + k('FVM Despegar (45%)', money(t.fvm), pct(gb ? t.fvm/gb : null) + ' del GB', 'var(--c-despegar)')
+    + '</div>';
+}
+
+// ── Gráfico: reparto mensual del FVM Base ──
+function drawChart(rows){
+  if(_chart){ _chart.destroy(); _chart = null; }
+  var cv = document.getElementById('ps-chart');
+  if(!cv || typeof Chart === 'undefined') return;
+  var byM = sumBy(rows, function(r){ return r[IDX.mes]; });
+  var months = D.months, css = getComputedStyle(document.documentElement);
+  var cP = css.getPropertyValue('--c-partner').trim(), cD = css.getPropertyValue('--c-despegar').trim();
+  var ps = months.map(function(m){ return (byM[m]||{}).profit_share_a_pagar || 0; });
+  var fv = months.map(function(m){ return (byM[m]||{}).fvm || 0; });
+  var totLbl = { id:'psTot', afterDatasetsDraw:function(ch){
+    var ctx = ch.ctx, m1 = ch.getDatasetMeta(1); ctx.save();
+    ctx.font = '600 10px Inter, system-ui, sans-serif'; ctx.fillStyle = '#1f1a33'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    m1.data.forEach(function(el, i){ ctx.fillText(money(ps[i] + fv[i]), el.x, Math.min(el.y, el.base) - 4); });
+    ctx.restore();
+  }};
+  _chart = new Chart(cv, {
+    type:'bar',
+    data:{ labels: months.map(function(m){ return mesLbl(m) + (isPartial(m) ? '*' : ''); }),
+      datasets:[
+        { label:'Profit Share Banco de Chile (55%)', data:ps, backgroundColor:cP, borderRadius:4, borderSkipped:false, barPercentage:0.6, borderColor:'#fff', borderWidth:{top:2} },
+        { label:'FVM Despegar (45%)', data:fv, backgroundColor:cD, borderRadius:4, borderSkipped:false, barPercentage:0.6 }
+      ] },
+    options:{ responsive:true, maintainAspectRatio:false, animation:false, layout:{ padding:{ top:18 } },
+      plugins:{ legend:{ display:false },
+        tooltip:{ callbacks:{ label:function(it){ return it.dataset.label + ': ' + money(it.parsed.y); },
+          footer:function(items){ var i = items[0].dataIndex; return 'FVM Base: ' + money(ps[i] + fv[i]); } } } },
+      scales:{ x:{ stacked:true, grid:{ display:false } },
+        y:{ stacked:true, beginAtZero:true, grid:{ color:'rgba(0,0,0,.05)' }, ticks:{ callback:function(v){ return money(v); } } } } },
+    plugins:[totLbl]
+  });
+}
+
+// ── Controles ──
+function chipsRow(dim){
+  var opts = {}; D.rows.forEach(function(r){ opts[r[IDX[dim]]] = true; });
+  var sel = FILTERS[dim];
+  var h = '<div class="frow"><span class="flbl">' + FILTER_LABELS[dim] + '</span>'
+    + '<button class="chip' + (sel.length ? '' : ' on') + '" onclick="clearF(\'' + dim + '\')">Todos</button>';
+  Object.keys(opts).sort().forEach(function(o){
+    h += '<button class="chip' + (sel.indexOf(o) >= 0 ? ' on' : '') + '" data-dim="' + dim + '" data-val="' + esc(o) + '" onclick="toggleF(this)">' + esc(o || '(vacío)') + '</button>';
+  });
+  return h + '</div>';
+}
+function seg(lbl, opts, cur, fn){
+  return '<div class="frow"><span class="flbl">' + lbl + '</span><div class="seg">'
+    + opts.map(function(o){ return '<button class="' + (cur === o[0] ? 'on' : '') + '" onclick="' + fn + '(\'' + o[0] + '\')">' + esc(o[1]) + '</button>'; }).join('')
+    + '</div></div>';
+}
+function toggleF(btn){ var d = btn.getAttribute('data-dim'), v = btn.getAttribute('data-val'), a = FILTERS[d], i = a.indexOf(v); if(i >= 0) a.splice(i,1); else a.push(v); render(); }
+function clearF(d){ FILTERS[d] = []; render(); }
+function setPeriod(p){ PERIOD = p; render(); }
+function setUnit(u){ UNIT = u; render(); }
+function setView(v){ VIEW = v; render(); }
+
+function render(){
+  var rows = rowsFiltered();
+  var perOpts = [['all','Acumulado']].concat(D.months.map(function(m){ return [m, mesLbl(m) + (isPartial(m) ? '*' : '')]; }));
+  var perTxt = PERIOD === 'all' ? 'acumulado ' + mesLbl(D.months[0]) + ' a ' + mesLbl(D.months[D.months.length-1]) : mesLbl(PERIOD);
+  var h = '<div class="card"><div class="card-body">'
+    + Object.keys(FILTERS).map(chipsRow).join('')
+    + seg('Período', perOpts, PERIOD, 'setPeriod')
+    + seg('Unidades (USD)', [['K','Miles (K)'],['raw','Enteros']], UNIT, 'setUnit')
+    + '</div></div>'
+    + kpisHtml(rows)
+    + '<div class="card"><div class="card-hdr"><span class="card-title">Reparto del FVM Base por mes</span><span class="card-sub">Profit Share 55% Banco de Chile + 45% Despegar</span></div>'
+    + '<div class="card-body"><div class="legend"><span><i class="dot" style="background:var(--c-partner)"></i>Profit Share Banco de Chile (55%)</span>'
+    + '<span><i class="dot" style="background:var(--c-despegar)"></i>FVM Despegar (45%)</span></div>'
+    + '<div style="position:relative;height:260px"><canvas id="ps-chart" role="img" aria-label="Reparto mensual del FVM Base entre Banco de Chile y Despegar"></canvas></div></div></div>'
+    + '<div class="card"><div class="card-hdr"><span class="card-title">P&amp;L por mes</span>'
+    + '<div class="seg" style="margin-left:auto"><button class="' + (VIEW==='usd'?'on':'') + '" onclick="setView(\'usd\')">USD</button>'
+    + '<button class="' + (VIEW==='pct'?'on':'') + '" onclick="setView(\'pct\')">% de GB</button></div></div>'
+    + plHtml(rows) + '</div>'
+    + '<div class="card"><div class="card-hdr"><span class="card-title">Apertura por canal de venta</span><span class="card-sub">' + esc(perTxt) + '</span></div>' + channelHtml(rows) + '</div>'
+    + '<div class="card"><div class="card-hdr"><span class="card-title">Vendedores (Presencial y Call Center)</span><span class="card-sub">' + esc(perTxt) + '</span></div>' + agentsHtml(rows) + '</div>'
+    + notesHtml();
+  document.getElementById('app').innerHTML = h;
+  try{ drawChart(rows); }catch(e){ if(window.console) console.error('[ps-chart]', e); }
+}
+
+function notesHtml(){
+  var partial = D.months.filter(isPartial);
+  return '<div class="card"><div class="card-hdr"><span class="card-title">Cómo se calcula</span></div><div class="card-body note">'
+    + '<b>Universo:</b> B2B2C Chile, partner Banco de Chile, transacciones confirmadas desde may-2026, por mes de confirmación.<br>'
+    + '<b>Tipo de venta:</b> ① Cotización / Carrito = carrito con vendedor · ② Agencias = resto con vendedor · ③ WLs = sin vendedor (online).<br>'
+    + '<b>Punto de venta:</b> Presencial = agencia AG00120467 · Call Center = AG00120475 · ON = sin vendedor.<br>'
+    + '<b>Channel Expenses</b> = leases (solo Presencial, repartidos en partes iguales entre sus transacciones del mes) + comisiones de vendedores (1,7% del GB en Presencial y Call Center). Reemplaza la vendor commission del P&amp;L operativo.<br>'
+    + '<b>Cancellations y Loyalty</b> van × 0. <b>Intercompany</b> = 0,54% del GB.<br>'
+    + '<b>Reparto:</b> FVM Base × 55% = Profit Share a pagar a Banco de Chile · FVM Base × 45% = FVM Despegar.'
+    + (partial.length ? '<br><b>* Mes en curso (' + partial.map(mesLbl).join(', ') + '):</b> datos parciales; el lease se estima con la tasa diaria de julio × días transcurridos.' : '')
+    + '<br>Fuente: <code>P&amp;L_Profit_Sharing/banco_chile_profit_sharing.sql</code> → <code>profit_sharing_sync.py</code>.'
+    + '</div></div>';
+}
+
+function init(json){
+  D = typeof json === 'string' ? JSON.parse(json) : json;
+  D.row_schema.forEach(function(c, i){ IDX[c] = i; });
+  document.getElementById('upd').textContent = 'Actualizado ' + String(D.updated_at || '').replace('T', ' ').slice(0, 16);
+  render();
+}
+function fail(e){ document.getElementById('app').innerHTML = '<div class="card err">No se pudieron cargar los datos: ' + esc((e && e.message) || e) + '</div>'; }
+
+if(window.__PS_DATA__) init(window.__PS_DATA__);            // preview local
+else google.script.run.withSuccessHandler(init).withFailureHandler(fail).getData();
+</script>
+</body>
+</html>
