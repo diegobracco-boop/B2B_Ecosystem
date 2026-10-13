@@ -2985,14 +2985,14 @@ var _vsAccMode = 'mgracc';   // 'mgracc' = Managerial vs Accounting | 'planrev' 
 function _vsAccSetMode_(m){
   if(m === _vsAccMode) return;
   _vsAccMode = m;
+  if(_revGdWfChart){ _revGdWfChart.destroy(); _revGdWfChart = null; }
   renderVsAcc_();
 }
 
 function _vsAccSetScale_(scale){
   _applyNumScale_(scale);
-  if(_vsAccMode === 'planrev' && _revGdData){
-    var sec = document.getElementById('revgd-section');
-    if(sec){ sec.innerHTML = _revGdTableHtml_(_revGdData); return; }
+  if(_vsAccMode === 'planrev' && _revGdData && document.getElementById('revgd-section')){
+    _revGdRender_(); return;
   }
   renderVsAcc_();
 }
@@ -3161,8 +3161,183 @@ var _revGdMonth = 'all';   // 'all' = acumulado | 'Abr-26' etc = un mes puntual
 
 function _revGdSetMonth_(m){
   _revGdMonth = m;
+  _revGdRender_();
+}
+
+// Pinta la sección completa y después el waterfall (Chart.js necesita el <canvas> ya en el DOM).
+function _revGdRender_(){
   var sec = document.getElementById('revgd-section');
-  if(sec && _revGdData) sec.innerHTML = _revGdTableHtml_(_revGdData);
+  if(!sec || !_revGdData) return;
+  sec.innerHTML = _revGdTableHtml_(_revGdData);
+  // un error del chart (ej. Chart.js no cargó del CDN) no tiene que tirar abajo las tablas
+  try{ _revGdDrawWaterfall_(); }
+  catch(e){
+    var w = document.getElementById('revgd-wf-canvas');
+    if(w && w.parentNode) w.parentNode.innerHTML = '<div style="padding:12px;color:var(--muted)">No se pudo dibujar el puente: '+escHtml(String(e.message||e))+'</div>';
+    if(window.console) console.error('[revgd-wf]', e);
+  }
+}
+
+// ── Waterfall: puente Revenue por GD → Gestional, Δ por línea P&L ──
+// Δ = Gest − RevGD (mismo signo que las tablas). Las líneas de RevGD no suman exacto a su
+// propio NR/FVM (fix_net_revenues lo calcula la DB, agency_fee, líneas sin fuente), así que la
+// barra "No asignado" cierra el puente: ΔTotal − ΣΔlíneas.
+// Líneas = composición del NR/FVM en la query gestional (build_b2b_gd_query).
+var REVGD_WF_NR_LINES = ['up_front_incentives','fees','commercial_discounts','other_incentives','revenue_tax',
+  'back_end_incentives','cancellations','breakage_revenue','media_revenue'];
+var REVGD_WF_FVM_LINES = REVGD_WF_NR_LINES.concat(['cost_of_installments','credit_card_processing','affiliates',
+  'white_labels_api','income_from_outsourced_services','errors','other_transactional_taxes','customer_claims',
+  'customer_service','intercompany_usd','operations','vendor_commissions','frauds','efecto_financiero','dif_fx','currency_hedge']);
+var REVGD_WF_TOP = 8;   // las líneas con más |Δ| van solas; el resto se agrupa en una barra
+// up/down validados para daltonismo (skill dataviz, validate_palette: ΔE CVD 28). Verde/rojo da 5.5 → no.
+var REVGD_WF_COLORS = { total:'#2b2150', up:'#2f6fdb', down:'#d9480f', other:'#8c959f' };
+var _revGdWfMetric = 'net_revenue';  // 'net_revenue' | 'npv'
+var _revGdWfDetail = 0;              // índice en D.detail: 0 Total B2B · 1 MAY · 2 MIN
+var _revGdWfChart  = null;
+
+function _revGdWfSet_(which, v){
+  if(which === 'metric') _revGdWfMetric = v; else _revGdWfDetail = v;
+  _revGdRender_();
+}
+
+function _revGdRowLabel_(k){
+  for(var i=0; i<REVGD_ROWS.length; i++) if(REVGD_ROWS[i].k === k) return REVGD_ROWS[i].label;
+  return k;
+}
+
+function _revGdWfSteps_(D, sumMonths){
+  var det = (D.detail && D.detail[_revGdWfDetail]) || { mgr:D.mgr||{}, rev:D.rev||{} };
+  function s(dict, k){ return sumMonths.reduce(function(a,m){ return a + (((dict[k]||{})[m])||0); }, 0); }
+  var mk = _revGdWfMetric;
+  var lines = mk === 'npv' ? REVGD_WF_FVM_LINES : REVGD_WF_NR_LINES;
+  var revT = s(det.rev, mk), gestT = s(det.mgr, mk);
+  var deltas = lines.map(function(k){ var g = s(det.mgr,k), r = s(det.rev,k); return { label:_revGdRowLabel_(k), d:g-r, g:g, r:r }; })
+    .filter(function(x){ return Math.abs(x.d) >= 0.5; })
+    .sort(function(a,b){ return Math.abs(b.d) - Math.abs(a.d); });
+  var steps = [{ kind:'total', label:'Revenue por GD', v:revT }];
+  deltas.slice(0, REVGD_WF_TOP).forEach(function(x){ steps.push({ kind:'delta', label:x.label, d:x.d, g:x.g, r:x.r }); });
+  var rest = deltas.slice(REVGD_WF_TOP);
+  if(rest.length) steps.push({ kind:'delta', label:'Resto ('+rest.length+' líneas)',
+    d: rest.reduce(function(a,x){ return a+x.d; }, 0), names: rest.map(function(x){ return x.label; }) });
+  var sumD = deltas.reduce(function(a,x){ return a+x.d; }, 0);
+  steps.push({ kind:'resid', label:'No asignado', d:(gestT-revT) - sumD });
+  steps.push({ kind:'total', label:'Gestional', v:gestT });
+  return steps;
+}
+
+function _revGdMonthChips_(allMonths){
+  var h = '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:4px 0">'
+    + '<span style="font-size:11px;color:var(--muted);font-weight:700;min-width:64px">Mes</span>'
+    + '<button type="button" class="bg-pchip'+(_revGdMonth==='all'?' bg-pchip-active':'')+'" onclick="_revGdSetMonth_(\'all\')">Acumulado</button>';
+  (allMonths||[]).forEach(function(m){
+    h += '<button type="button" class="bg-pchip'+(_revGdMonth===m?' bg-pchip-active':'')+'" onclick="_revGdSetMonth_(\''+m+'\')">'+escHtml(m)+'</button>';
+  });
+  return h + '</div>';
+}
+
+function _revGdWaterfallCardHtml_(D, months){
+  var C = REVGD_WF_COLORS;
+  function toggle(label, opts, cur, which){
+    var h = '<div style="display:flex;gap:6px;align-items:center;margin:4px 0">'
+      + '<span style="font-size:11px;color:var(--muted);font-weight:700;min-width:64px">'+label+'</span><div class="prd-toggle">';
+    opts.forEach(function(o){
+      var arg = typeof o[0] === 'number' ? o[0] : '\''+o[0]+'\'';
+      h += '<button type="button" class="prd-btn'+(cur===o[0]?' prd-active':'')+'" onclick="_revGdWfSet_(\''+which+'\','+arg+')">'+escHtml(o[1])+'</button>';
+    });
+    return h + '</div></div>';
+  }
+  var detOpts = (D.detail && D.detail.length ? D.detail : [{label:'Total B2B'}]).map(function(e,i){ return [i, e.label]; });
+  if(_revGdWfDetail >= detOpts.length) _revGdWfDetail = 0;
+  function sw(color, txt){ return '<span style="display:inline-flex;align-items:center;gap:5px;margin-right:14px">'
+    + '<span style="width:10px;height:10px;border-radius:2px;background:'+color+'"></span>'+txt+'</span>'; }
+  var per = _revGdMonth === 'all' ? ('acumulado ' + months.join(', ')) : _revGdMonth;
+  return '<div class="pnl-card" style="margin-bottom:10px;padding:10px 14px">'
+    + '<div style="font-weight:700">Puente Revenue por GD → Gestional <span style="font-weight:400;color:var(--muted);font-size:11px">· '
+    + (_revGdWfMetric==='npv'?'FVM':'Net Revenue')+' · '+escHtml(detOpts[_revGdWfDetail][1])+' · '+escHtml(per)+'</span></div>'
+    + toggle('Métrica', [['net_revenue','Net Revenue'],['npv','FVM']], _revGdWfMetric, 'metric')
+    + toggle('Canal', detOpts, _revGdWfDetail, 'detail')
+    + _revGdMonthChips_(months)
+    + '<div style="font-size:11px;color:var(--muted);margin:8px 0 4px">'
+    + sw(C.total,'Total') + sw(C.up,'Gestional arriba de RevGD (+)') + sw(C.down,'Gestional abajo de RevGD (−)') + sw(C.other,'No asignado')
+    + '</div>'
+    + '<div style="position:relative;height:300px"><canvas id="revgd-wf-canvas" role="img" aria-label="Waterfall de diferencias por línea P&amp;L entre Revenue por GD y Gestional"></canvas></div>'
+    + '<div style="font-size:11px;color:var(--muted);margin-top:6px">Δ = Gestional − Revenue por GD, ordenado por tamaño. Van solas las '+REVGD_WF_TOP
+    + ' líneas con más diferencia; el resto se agrupa. <b>No asignado</b> = parte del Δ total que no se explica sumando las líneas '
+    + '(las líneas de Revenue por GD no suman exacto a su propio NR/FVM, y el gestional suma Loyalty —y en FVM, Marketing— que no tienen línea propia en la tabla). '
+    + 'El detalle por línea y mes está en las tablas de abajo.</div>'
+    + '</div>';
+}
+
+function _revGdDrawWaterfall_(){
+  if(_revGdWfChart){ _revGdWfChart.destroy(); _revGdWfChart = null; }
+  var cv = document.getElementById('revgd-wf-canvas');
+  if(!cv || !_revGdData || typeof Chart === 'undefined') return;
+  var D = _revGdData, months = D.months || [];
+  var steps = _revGdWfSteps_(D, _revGdMonth === 'all' ? months : [_revGdMonth]);
+  if(Math.abs(steps[0].v) < 1 && Math.abs(steps[steps.length-1].v) < 1){   // canal/filtro sin datos
+    cv.parentNode.innerHTML = '<div style="padding:12px;color:var(--muted)">Sin datos para este canal / filtro.</div>';
+    return;
+  }
+  var C = REVGD_WF_COLORS, cum = 0, data = [], colors = [], levels = [];
+  steps.forEach(function(st){
+    if(st.kind === 'total'){ data.push([0, st.v]); cum = st.v; colors.push(C.total); }
+    else { data.push([cum, cum + st.d]); cum += st.d; colors.push(st.kind === 'resid' ? C.other : (st.d >= 0 ? C.up : C.down)); }
+    levels.push(cum);
+  });
+  function sgn(v){ return (v >= 0 ? '+' : '−') + fmtM(Math.abs(v)); }
+  function wrapLbl(t){   // etiquetas largas del eje X en 2 renglones
+    if(t.length <= 14) return t;
+    var w = t.split(' '), a = '', b = '';
+    w.forEach(function(x){ if((a + ' ' + x).trim().length <= 14 && !b) a = (a + ' ' + x).trim(); else b = (b + ' ' + x).trim(); });
+    return b ? [a, b] : t;
+  }
+  // Etiqueta de valor sobre cada barra + conector punteado entre barras consecutivas.
+  var wfLabels = { id:'revgdWfLabels', afterDatasetsDraw:function(chart){
+    var ctx = chart.ctx, meta = chart.getDatasetMeta(0), y = chart.scales.y;
+    ctx.save();
+    ctx.font = '600 10px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#1f1a33';
+    meta.data.forEach(function(el, i){
+      var st = steps[i], v = st.kind === 'total' ? st.v : st.d;
+      var top = Math.min(el.y, el.base), bot = Math.max(el.y, el.base);
+      var up = st.kind === 'total' ? v >= 0 : st.d >= 0;
+      ctx.textBaseline = up ? 'bottom' : 'top';
+      ctx.fillText(st.kind === 'total' ? fmtM(v) : sgn(v), el.x, up ? top - 3 : bot + 3);
+      if(i < meta.data.length - 1){
+        var nx = meta.data[i+1], ly = y.getPixelForValue(levels[i]);
+        ctx.strokeStyle = 'rgba(31,26,51,.35)'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+        ctx.beginPath(); ctx.moveTo(el.x + el.width/2, ly); ctx.lineTo(nx.x - nx.width/2, ly); ctx.stroke(); ctx.setLineDash([]);
+      }
+    });
+    ctx.restore();
+  }};
+  _revGdWfChart = new Chart(cv, {
+    type:'bar',
+    data:{ labels: steps.map(function(s){ return wrapLbl(s.label); }),
+           datasets:[{ data:data, backgroundColor:colors, borderRadius:4, borderSkipped:false, barPercentage:0.7, categoryPercentage:0.9, minBarLength:3 }] },
+    options:{
+      responsive:true, maintainAspectRatio:false, animation:false,
+      layout:{ padding:{ top:18, bottom:6 } },
+      plugins:{
+        legend:{ display:false },
+        tooltip:{ callbacks:{
+          title:function(it){ return steps[it[0].dataIndex].label; },
+          label:function(it){
+            var st = steps[it.dataIndex];
+            if(st.kind === 'total') return fmtM(st.v);
+            if(st.kind === 'resid') return ['Δ ' + sgn(st.d), 'Δ total que no se explica sumando líneas'];
+            var out = ['Δ (Gest − RevGD): ' + sgn(st.d)];
+            if(st.names) return out.concat(st.names.slice(0, 12));
+            return out.concat(['Gestional: ' + fmtM(st.g), 'Revenue por GD: ' + fmtM(st.r)]);
+          }
+        } }
+      },
+      scales:{
+        x:{ grid:{ display:false }, ticks:{ font:{ size:10 }, maxRotation:0, autoSkip:false } },
+        y:{ beginAtZero:true, grid:{ color:'rgba(0,0,0,.05)' }, ticks:{ font:{ size:10 }, callback:function(v){ return fmtM(v); } } }
+      }
+    },
+    plugins:[wfLabels]
+  });
 }
 
 function fetchRevGd_(){
@@ -3228,7 +3403,7 @@ function _revGdTableHtml_(D){
   }
 
   var detail = (D.detail && D.detail.length) ? D.detail : [{ label:'Total B2B', mgr:mgr, rev:rev }];
-  var h = head + sumHtml + detail.map(detailTable).join('');
+  var h = head + _revGdWaterfallCardHtml_(D, months) + sumHtml + detail.map(detailTable).join('');
   return h;
 }
 
@@ -3247,14 +3422,8 @@ function _revGdSummaryHtml_(summary, allMonths, sumMonths){
     var txt = fmtM(d) + (pct==null ? '' : ' <span style="font-size:11px">('+(pct>=0?'+':'')+pct.toFixed(0)+'%)</span>');
     return '<td style="text-align:right'+(mat?';background:'+MAT_BG+';font-weight:700;color:var(--red)':(d<0?';color:var(--red)':''))+'">'+txt+'</td>';
   }
-  // selector de mes
-  var chips = '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:4px 0">'
-    + '<span style="font-size:11px;color:var(--muted);font-weight:700;min-width:64px">Mes</span>'
-    + '<button type="button" class="bg-pchip'+(_revGdMonth==='all'?' bg-pchip-active':'')+'" onclick="_revGdSetMonth_(\'all\')">Acumulado</button>';
-  (allMonths||[]).forEach(function(m){
-    chips += '<button type="button" class="bg-pchip'+(_revGdMonth===m?' bg-pchip-active':'')+'" onclick="_revGdSetMonth_(\''+m+'\')">'+escHtml(m)+'</button>';
-  });
-  chips += '</div>';
+  // el selector de mes vive en la card del waterfall (arriba) y aplica a los dos
+  var chips = '<div style="font-size:11px;color:var(--muted);margin-top:2px">El mes se elige arriba, en el puente.</div>';
 
   var per = _revGdMonth === 'all' ? ('acumulado ' + (sumMonths||[]).join(', ')) : _revGdMonth;
   var h = '<div class="pnl-card" style="margin-bottom:6px;padding:8px 14px">'
@@ -3347,7 +3516,7 @@ function renderVsAcc_(){
   if(isPR){
     h += '<div id="revgd-section"><div class="pnl-card" style="padding:12px;color:var(--muted)">Cargando Revenue por GD…</div></div>';
     c.innerHTML = h;
-    if(_revGdData) document.getElementById('revgd-section').innerHTML = _revGdTableHtml_(_revGdData);
+    if(_revGdData) _revGdRender_();
     else fetchRevGd_();
     return;
   }
