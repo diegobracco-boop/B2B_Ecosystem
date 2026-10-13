@@ -767,7 +767,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
       <option value="monthly">Mensual</option>
     </select>
   </div>
-  <div class="dm-group" style="margin-left:4px" title="Partner TBD (budget de New partners / Hunting sin nombre)">
+  <div class="dm-group" style="margin-left:4px" title="Partner TBD = New partners / Hunting. Excluir lo saca de KRs, métricas, tablas, Benchmark y slides B2B2C del Flow. No cambian: Unique Buyers (es Total WL, no se abre por partner) ni las series B2C.">
     <span class="dm-group-lbl">Partner TBD</span>
     <div class="dm-toggle">
       <button class="dm-btn active" id="btn-tbd-incl" onclick="setExclTBD(false)">Incluir</button>
@@ -1539,7 +1539,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
       <option value="runrate">Run Rate</option>
       <option value="ly">Last Year</option>
     </select>
-    <label class="flow-ctl-lbl">Partner TBD</label>
+    <label class="flow-ctl-lbl" title="Partner TBD = New partners / Hunting. Excluir lo saca de las slides B2B2C (Unique Buyers no cambia: es Total WL).">Partner TBD</label>
     <select class="flow-jump" id="flow-tbd" onchange="setExclTBD(this.value==='excl')">
       <option value="incl">Incluir</option>
       <option value="excl">Excluir</option>
@@ -1595,13 +1595,19 @@ function setExclTBD(on) {
   if (bi) bi.classList.toggle('active', !_b2bcExclTBD);
   if (be) be.classList.toggle('active', _b2bcExclTBD);
   var fs = document.getElementById('flow-tbd'); if (fs) fs.value = _b2bcExclTBD ? 'excl' : 'incl';
+  fillPartnersB2BC_();
   recomputeB2BC_();
   if (!_flowBuilt) return;
   var vf = document.getElementById('view-flow');
-  if (vf && vf.style.display !== 'none') { flowRebuild_(); return; }
-  // Flow oculto: invalidar el deck — flowOpen_() lo rearma al abrirlo (rearmarlo oculto mide mal los charts).
-  Object.keys(_flowCharts).forEach(function(k){ try{ _flowCharts[k].destroy(); }catch(e){} });
-  _flowCharts={}; _flowSeries={}; _flowDrawn={}; _flowBuilt=false;
+  // Flow oculto: solo invalidar — flowOpen_() lo rearma al abrirlo (rearmarlo oculto mide mal los charts).
+  if (vf && vf.style.display !== 'none') flowRebuild_(); else flowInvalidate_();
+}
+// Dropdown de partners según el switch: con Excluir, TBD no se ofrece; si estaba elegido vuelve a "Todos".
+function fillPartnersB2BC_() {
+  var prev = v('sel-partner');
+  fill('sel-partner', getPartners_(b2bcRaw_().actuals), 'Todos los partners');
+  var sel = document.getElementById('sel-partner');
+  if (sel && prev && prev !== 'all') { sel.value = prev; if (sel.value !== prev) sel.value = 'all'; }
 }
 
 // ── State ──────────────────────────────────────────────────────
@@ -2083,7 +2089,7 @@ window.onload = function() {
       state.viewDate   = raw.meta.last_actuals_date;
       state.meta       = raw.meta;
       fill('sel-pais',    getPaises_(raw.actuals),   'Todos los países');
-      fill('sel-partner', getPartners_(raw.actuals), 'Todos los partners');
+      fillPartnersB2BC_();
       fill('sel-product', getProducts_(raw.actuals), 'Todos los productos');
       document.getElementById('loader').style.display = 'none';
       document.getElementById('content').classList.add('loaded');
@@ -3303,7 +3309,7 @@ function _b2cLyRows_(raw) {
 
 // { cur, ly, nr } — filas y nombre del campo NR (net_revenues plural en actuals/b2c, singular en b2b)
 function _benchRows_(biz) {
-  if (biz === 'b2b2c') return { cur: (_rawB2BC.actuals || []), ly: (_rawB2BC.actuals_ly || []), nr: 'net_revenues' };
+  if (biz === 'b2b2c') { var rb = b2bcRaw_(); return { cur: (rb.actuals || []), ly: (rb.actuals_ly || []), nr: 'net_revenues' }; }   // respeta el switch Partner TBD
   if (biz === 'b2b')   return { cur: (_rawB2B ? (_rawB2B.b2b_gd || []) : []), ly: (_rawB2B ? (_rawB2B.b2b_gd_ly || []) : []), nr: 'net_revenue' };
   return { cur: _b2cRows_(_rawB2BC), ly: _b2cLyRows_(_rawB2BC), nr: 'net_revenues' };
 }
@@ -4259,7 +4265,7 @@ function flowRegionRaw_(regionKey){
   // descarte) y todo lo "TBD" — partner TBD o país x partner con tier TBD en cualquier fuente.
   var isTBD=isTBDPartner_, tbdKeys={};
   if(regionKey==='SAH'){
-    ['actuals','actuals_ly','budget','runrate'].forEach(function(n){ (_rawB2BC[n]||[]).forEach(function(r){
+    ['actuals','actuals_ly','budget','runrate','forecast'].forEach(function(n){ (_rawB2BC[n]||[]).forEach(function(r){
       if(isTBD(r.tier)) tbdKeys[(r.pais||'Other')+'|'+r.partner]=1; }); });
   }
   function keep(r){
@@ -4269,7 +4275,7 @@ function flowRegionRaw_(regionKey){
   }
   function f(arr){ return (arr||[]).filter(function(r){ return getRegion_(r.pais)===regionKey && keep(r); }); }
   return { actuals:f(_rawB2BC.actuals), actuals_ly:f(_rawB2BC.actuals_ly),
-           budget:f(_rawB2BC.budget), runrate:f(_rawB2BC.runrate), meta:_rawB2BC.meta };
+           budget:f(_rawB2BC.budget), runrate:f(_rawB2BC.runrate), forecast:f(_rawB2BC.forecast), meta:_rawB2BC.meta };
 }
 // ── Tier de partner: viaja inline en cada fila (campo "tier", desde
 // raw.comdev_cartera_b2b2c_historic.estatus_tier, ver daily_sync.py) — ya no
@@ -5593,9 +5599,12 @@ function flowUpdateCounter_(){
 function flowNav_(step){
   flowScrollTo_(Math.max(0, Math.min(FLOW_DECK.length-1, _flowCurrentIdx+step)));
 }
-function flowRebuild_(){
+function flowInvalidate_(){
   Object.keys(_flowCharts).forEach(function(k){ try{ _flowCharts[k].destroy(); }catch(e){} });
   _flowCharts={}; _flowSeries={}; _flowDrawn={}; _flowBuilt=false;
+}
+function flowRebuild_(){
+  flowInvalidate_();
   if(flowBuild_()){ flowScale_(); flowFitB2BTables_(); flowDrawAllCharts_(); }
 }
 function flowSetMonth_(v){ _flowMonth=v; flowRebuild_(); }
