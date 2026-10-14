@@ -632,6 +632,12 @@ td.row-sub-label,.row-sub td.row-sub-label{text-align:left;color:var(--muted);fo
 #pnl-filters-bar .canal-toggle button{background:#fff;color:var(--text);flex:1}
 #pnl-filters-bar .canal-toggle button:hover{background:var(--surface2)}
 #pnl-filters-bar .canal-toggle button.active{background:var(--desp-purple);color:#fff}
+#pnl-filters-bar .org-toggle{border-color:var(--border2);width:100%}
+#pnl-filters-bar .org-toggle button{background:#fff;color:var(--text)}
+#pnl-filters-bar .org-toggle button:hover{background:var(--surface2)}
+#pnl-filters-bar .org-toggle button.active{background:var(--desp-purple);color:#fff}
+#pnl-filters-bar .org-note{color:var(--muted)}
+#pnl-filters-bar .org-note.err{color:#DC2626}
 #pnl-filters-bar .fg{
   display:flex;flex-direction:column;gap:4px;position:relative;
 }
@@ -1292,7 +1298,7 @@ header > img{filter:brightness(0) invert(1);opacity:.92}
       </select>
     </div>
 
-    <!-- ORGANIC: solo B2B. YES = actuals × TC Actuals / TC del Goal (Budget o Forecast) -->
+    <!-- ORGANIC: B2B, B2B2C y B2B+B2B2C. YES = actuals × TC Actuals / TC del Goal (Budget o Forecast) -->
     <div class="fg" id="organic-fg" style="display:none">
       <label>Organic</label>
       <div class="org-toggle" id="org-toggle">
@@ -2343,7 +2349,7 @@ function reload() {
 function _preloadOtherLobs_(basep) {
   ['all','b2b','b2b2c'].forEach(function(lob) {
     if (lob === basep.lob) return;
-    var pp = Object.assign({}, basep, { lob: lob, canal: lob === 'b2b' ? basep.canal : 'all', organic: '' });
+    var pp = Object.assign({}, basep, { lob: lob, canal: lob === 'b2b' ? basep.canal : 'all' });
     var ck = JSON.stringify(pp);
     if (_dataCache[ck]) return;
     google.script.run
@@ -2628,10 +2634,12 @@ function getParams() {
 }
 
 // ── ORGANIC ──────────────────────────────────────────────────
-// Target efectivo: 'budget' | 'forecast' si el switch está en YES en B2B; '' en cualquier otro caso
-// (Run Rate / Last Year no tienen TC → organic deshabilitado).
+// Target efectivo: 'budget' | 'forecast' si el switch está en YES en B2B / B2B2C / B2B+B2B2C;
+// '' en cualquier otro caso (Run Rate / Last Year no tienen TC → organic deshabilitado).
+var ORGANIC_LOBS_ = ['b2b', 'b2b2c', 'all'];
+function _orgLob_() { return ORGANIC_LOBS_.indexOf(_state.lob) >= 0; }
 function _organicTarget_() {
-  if (_state.lob !== 'b2b' || !_state.organic) return '';
+  if (!_orgLob_() || !_state.organic) return '';
   return (_state.goal === 'budget' || _state.goal === 'forecast') ? _state.goal : '';
 }
 function _orgOn_() { return !!_organicTarget_(); }
@@ -2651,7 +2659,7 @@ function setOrganic(on) {
 function _syncOrganicUI_() {
   var fg = document.getElementById('organic-fg');
   if (!fg) return;
-  fg.style.display = (_state.lob === 'b2b') ? '' : 'none';
+  fg.style.display = _orgLob_() ? '' : 'none';
   var goalOk = (_state.goal === 'budget' || _state.goal === 'forecast');
   var tog = document.getElementById('org-toggle');
   tog.classList.toggle('disabled', !goalOk);

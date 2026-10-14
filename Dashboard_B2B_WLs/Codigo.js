@@ -12,7 +12,7 @@ var JSON_IDS = {
   forecast: '1crqpRTyH14fqX9XdwBTVaKN5rPbE6O84',  // forecast.json
   ly:       '1zd5gnMFztKiCSgeY-VmsfVOr0LQ6ftGI'   // actuals_previos_fy26.json
 };
-// ── ORGANIC (prueba, solo Monthly Results B2B) ────────────────────────────
+// ── ORGANIC (prueba: Monthly Results B2B, B2B2C y B2B+B2B2C) ──────────────
 // Tipos de cambio (moneda local por USD): tc_plana_flat.xlsx subido a Drive, columnas
 // escenario | año (FY: 2027 = abr-26…mar-27) | mes (Abr…Mar) | pais | dato.
 // ORGANIC = USD × TC Actuals(país, mes) / TC Target(país, mes), con Target = Budget o
@@ -156,7 +156,7 @@ function _getJsonsLastMod_() {
 
 function makeCacheKey_(p) {
   return JSON.stringify({
-    v:        30,   // 30: ORGANIC + alias OPS+RG→Brasil (la caché de /dev tenía organic sin el alias)
+    v:        31,   // 31: ORGANIC también en B2B2C y B2B+B2B2C. 30: alias OPS+RG→Brasil
     lob:      p.lob      || 'all',
     pais:     p.pais     || 'all',
     producto: p.producto || 'all',
@@ -311,9 +311,11 @@ function getAllData(params) {
 // ══════════════════════════════════════════════════════════════
 //  ORGANIC — tipos de cambio
 // ══════════════════════════════════════════════════════════════
-// Target organic efectivo de un request: solo B2B y solo Budget / Forecast. '' = sin organic.
+// Target organic efectivo de un request: B2B, B2B2C o B2B+B2B2C ('all') y solo Budget / Forecast.
+// '' = sin organic.
+var ORGANIC_LOBS_ = { b2b: true, b2b2c: true, all: true };
 function organicTargetOf_(p) {
-  if (!p || p.lob !== 'b2b') return '';
+  if (!p || !ORGANIC_LOBS_[p.lob]) return '';
   return Object.prototype.hasOwnProperty.call(ORGANIC_TARGETS_, p.organic) ? ORGANIC_TARGETS_[p.organic] : '';
 }
 
@@ -392,7 +394,7 @@ function readFxTable_() {
   return fx;
 }
 
-// Convierte las filas B2B (salvo Orders) a USD organic. Devuelve filas nuevas (no muta las
+// Convierte las filas B2B y B2B2C (salvo Orders; B2C nunca) a USD organic. Devuelve filas nuevas (no muta las
 // originales: rows viene del cache de readJson_ y lo usan los goals). missing = país/mes de un
 // país con TC al que le falta el TC de Actuals o del target (esas filas quedan sin convertir).
 function applyOrganic_(rows, target) {
@@ -402,7 +404,8 @@ function applyOrganic_(rows, target) {
   Object.keys(act).forEach(function(k) { paisesFx[k.split('§')[0]] = true; });
   var missing = {};
   var out = rows.map(function(r) {
-    if (String(r['lob'] || '').trim().toLowerCase() !== 'b2b') return r;
+    var lob = String(r['lob'] || '').trim().toLowerCase();
+    if (lob !== 'b2b' && lob !== 'b2b2c') return r;
     if (String(r['p&l n3'] || '').trim().toLowerCase() === 'orders') return r;
     if (!r['fecha']) return r;
     var pai = _fxNorm_(r['pais']);
