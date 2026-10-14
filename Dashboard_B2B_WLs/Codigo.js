@@ -156,7 +156,7 @@ function _getJsonsLastMod_() {
 
 function makeCacheKey_(p) {
   return JSON.stringify({
-    v:        29,
+    v:        30,   // 30: ORGANIC + alias OPS+RG→Brasil (la caché de /dev tenía organic sin el alias)
     lob:      p.lob      || 'all',
     pais:     p.pais     || 'all',
     producto: p.producto || 'all',
@@ -224,7 +224,7 @@ function writeResultCache_(key, value) {
 function clearAllCache() {
   _jsonCache_ = {};   // resetea cache en memoria de esta instancia
   var sc = CacheService.getScriptCache();
-  sc.removeAll(['okr_json_v1', 'mkt_b2b_v4', 'mkt_b2b_v4_org_budget', 'mkt_b2b_v4_org_forecast', _MOD_CACHE_KEY_]);  // fuerza re-check de mod times
+  sc.removeAll(['okr_json_v1', 'mkt_b2b_v4', 'mkt_b2b_v4_org2_budget', 'mkt_b2b_v4_org2_forecast', _MOD_CACHE_KEY_]);  // fuerza re-check de mod times
   Logger.log('Cache cleared: ' + new Date());
 }
 
@@ -1483,7 +1483,7 @@ function getMarketingData(organic) {
     // v4: Chile/Peru/Ecuador sumados en un bloque. v3: agregó Run Rate/Forecast (selector Goal) —
     // bumpear esta clave cada vez que cambie MKT_COUNTRIES o la agregación,
     // si no la cache vieja (6h TTL) tapa el cambio.
-    var ck  = 'mkt_b2b_v4' + (orgTarget ? '_org_' + orgTarget : '');
+    var ck  = 'mkt_b2b_v4' + (orgTarget ? '_org2_' + orgTarget : '');
     var hit = sc.get(ck);
     if (hit) { try { return JSON.parse(hit); } catch(e) {} }
 
