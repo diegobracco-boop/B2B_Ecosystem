@@ -51,7 +51,7 @@ METRICS = [
     "up_front_incentives", "fees", "commercial_discounts", "back_end_incentives",
     "media_other_revenue", "cancellations", "breakage_revenue", "revenue_tax", "other_incentives",
     "net_revenues",
-    "cost_of_installments", "credit_card_processing", "mkt_usd", "errors",
+    "cost_of_installments", "coi_imputado", "credit_card_processing", "mkt_usd", "errors",
     "other_transactional_taxes", "customer_claims", "loyalty_usd", "customer_service",
     "channel_expenses", "intercompany_usd", "dif_fx", "currency_hedge", "efecto_financiero",
     "white_labels_api",

@@ -162,6 +162,7 @@ var PL = [
   { k:'net_revenues', label:'Net Revenue', cls:'sub' },
   { sec:'Costos' },
   { k:'cost_of_installments', label:'Cost of Installments' },
+  { k:'coi_imputado', label:'COI imputado (tasa banco)' },
   { k:'credit_card_processing', label:'Credit Card Processing' },
   { k:'mkt_usd', label:'Marketing' },
   { k:'errors', label:'Errors' },
@@ -308,7 +309,7 @@ var CUOTAS_COST_LBL = { coi:'Cost of Installments', ef:'Efecto Financiero', both
 function setCuotasCost(v){ CUOTAS_COST = v; render(); }
 function setCuotasEvo(v){ CUOTAS_EVO = v; render(); }
 function cuotaCost(o){
-  var coi = o.cost_of_installments || 0, ef = o.efecto_financiero || 0;
+  var coi = (o.cost_of_installments || 0) + (o.coi_imputado || 0), ef = o.efecto_financiero || 0;   // COI real + imputado
   return CUOTAS_COST === 'coi' ? coi : CUOTAS_COST === 'ef' ? ef : coi + ef;
 }
 
@@ -318,10 +319,10 @@ function cuotasHtml(rows){
   var keys = Object.keys(g).sort(_optCmp);
   if(!keys.length) return '<div class="card-body note">Sin datos para este filtro / período.</div>';
   var t = { gb:0, coi:0, ef:0 };
-  keys.forEach(function(k){ t.gb += g[k].gross_bookings || 0; t.coi += g[k].cost_of_installments || 0; t.ef += g[k].efecto_financiero || 0; });
+  keys.forEach(function(k){ t.gb += g[k].gross_bookings || 0; t.coi += (g[k].cost_of_installments || 0) + (g[k].coi_imputado || 0); t.ef += g[k].efecto_financiero || 0; });
   var h = '<div class="scroll"><table class="pl"><thead>'
     + '<tr><th></th><th></th><th></th>'
-    + '<th colspan="2" class="tot" style="text-align:center">Cost of Installments</th>'
+    + '<th colspan="2" class="tot" style="text-align:center">Cost of Installments (real + imputado)</th>'
     + '<th colspan="2" class="tot" style="text-align:center">Efecto Financiero</th>'
     + '<th colspan="2" class="tot" style="text-align:center">COI + Efecto Financiero</th></tr>'
     + '<tr><th>Cuotas</th><th>GB</th><th>% del GB</th>'
@@ -333,7 +334,7 @@ function cuotasHtml(rows){
   }
   keys.forEach(function(k){
     var o = g[k], gb = o.gross_bookings || 0;
-    h += tr(k, gb, o.cost_of_installments || 0, o.efecto_financiero || 0, t.gb ? gb / t.gb : null);
+    h += tr(k, gb, (o.cost_of_installments || 0) + (o.coi_imputado || 0), o.efecto_financiero || 0, t.gb ? gb / t.gb : null);
   });
   h += tr('Total', t.gb, t.coi, t.ef, t.gb ? 1 : null, 'sub');
   return h + '</tbody></table></div>';
@@ -442,6 +443,9 @@ function notesHtml(){
     + '<b>Punto de venta:</b> Presencial = agencia AG00120467 · Call Center = AG00120475 · ON = sin vendedor.<br>'
     + '<b>Channel Expenses</b> = leases (solo Presencial, repartidos en partes iguales entre sus transacciones del mes) + comisiones de vendedores (1,7% del GB en Presencial y Call Center). Reemplaza la vendor commission del P&amp;L operativo.<br>'
     + '<b>Cancellations y Loyalty</b> van × 0. <b>Intercompany</b> = 0,54% del GB.<br>'
+    + '<b>COI imputado (tasa banco, a revisar con el comercial):</b> ventas en cuotas sin Cost of Installments en el Datalake '
+    + '(6 y 12 cuotas antes del 16/06/2026; 24 cuotas siempre). Costo compuesto = (1 + tasa anual)^(cuotas/12) − 1 '
+    + 'con 3% / 5% / 15% anual → 1,49% / 5,00% / 32,25% del GB. Entra en el FVM Base. En las tablas de cuotas, el COI incluye el imputado.<br>'
     + '<b>Reparto:</b> FVM Base × 55% = Profit Share a pagar a Banco de Chile · FVM Base × 45% = FVM Despegar.'
     + (partial.length ? '<br><b>* Mes en curso (' + partial.map(mesLbl).join(', ') + '):</b> datos parciales; el lease se estima con la tasa diaria de julio × días transcurridos.' : '')
     + '<br>Fuente: <code>P&amp;L_Profit_Sharing/banco_chile_profit_sharing.sql</code> → <code>profit_sharing_sync.py</code>.'

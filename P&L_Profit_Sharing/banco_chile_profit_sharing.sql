@@ -33,12 +33,20 @@
 --   ✅ Detalle expuesto al final, post profit_share_a_pagar
 -- ── cancellations ─────────────────────────────────────────────────────
 --   ✅ Multiplicado por 0 (campo y FVM_Base)
+-- ── coi_imputado (2026-10-13, a revisar con el comercial) ─────────────
+--   Ventas en cuotas sin Cost of Installments en el Datalake: el COI del banco recién
+--   aparece el 16/06/2026 en 6 y 12 cuotas, y 24 cuotas nunca lo tiene.
+--   Tasa del banco: 6 cuotas = 3% anual · 12 = 5% · 24 = 15%.
+--   Costo compuesto = (1 + tasa anual)^(cuotas/12) − 1  →  6: 1,49% · 12: 5,00% · 24: 32,25% del GB
+--   Aplica a: 6 y 12 cuotas confirmadas antes del 16/06/2026, y 24 cuotas siempre;
+--   solo si la transacción no tiene COI (|cost_of_installments| < 0,01). Entra en FVM_Base.
 -- ══════════════════════════════════════════════════════════════════════
 
 WITH src AS (
   SELECT
     t.transaction_code,
     date_format(t.confirmation_date, '%Y-%m')        AS Mes,
+    t.confirmation_date                               AS fecha_confirmacion,
     t.brand                                           AS Marca,
     t.country_code,
     t.channel,
@@ -235,6 +243,7 @@ base AS (
     -- ✅ NUEVO: MAX para mantener granularidad transacción
     MAX(product_state)                                           AS product_state,
     MAX(cuotas)                                                  AS cuotas,
+    MAX(fecha_confirmacion)                                      AS fecha_confirmacion,
 
     COUNT(DISTINCT transaction_code)                             AS orders,
     SUM(gb_without_distorted_taxes_usd)                         AS gross_bookings,
@@ -368,7 +377,19 @@ enriched AS (
       WHEN b.punto_venta = 'Call Center'
         THEN b.gross_bookings * -0.017
       ELSE 0.0
-    END AS comisiones_call_center
+    END AS comisiones_call_center,
+
+    -- ④ coi_imputado: costo compuesto del banco para ventas en cuotas sin COI (ver header)
+    CASE
+      WHEN ABS(b.cost_of_installments) >= 0.01 THEN 0.0
+      WHEN b.cuotas = 6  AND b.fecha_confirmacion < DATE '2026-06-16'
+        THEN b.gross_bookings * -(POWER(1.03, 6 / 12.0) - 1)
+      WHEN b.cuotas = 12 AND b.fecha_confirmacion < DATE '2026-06-16'
+        THEN b.gross_bookings * -(POWER(1.05, 12 / 12.0) - 1)
+      WHEN b.cuotas = 24
+        THEN b.gross_bookings * -(POWER(1.15, 24 / 12.0) - 1)
+      ELSE 0.0
+    END AS coi_imputado
 
   FROM base b
   WHERE LOWER(b.partner) LIKE '%banco%chile%'
@@ -404,6 +425,7 @@ SELECT
   revenue_tax,
   other_incentives,
   cost_of_installments,
+  coi_imputado,
   credit_card_processing,
   mkt_usd,
   errors,
@@ -416,7 +438,7 @@ SELECT
   leases + comisiones_presencial + comisiones_call_center                     AS channel_expenses,
 
   white_labels_api_base
-    + ((FVM_Base_partial + leases + comisiones_presencial + comisiones_call_center) * -0.55)
+    + ((FVM_Base_partial + leases + comisiones_presencial + comisiones_call_center + coi_imputado) * -0.55)
                                                                               AS white_labels_api,
   intercompany_USD,
   dif_fx,
@@ -424,11 +446,11 @@ SELECT
   efecto_financiero,
   net_revenues,
 
-  FVM_Base_partial + leases + comisiones_presencial + comisiones_call_center  AS FVM_Base,
+  FVM_Base_partial + leases + comisiones_presencial + comisiones_call_center + coi_imputado  AS FVM_Base,
 
-  (FVM_Base_partial + leases + comisiones_presencial + comisiones_call_center) * 0.45
+  (FVM_Base_partial + leases + comisiones_presencial + comisiones_call_center + coi_imputado) * 0.45
                                                                               AS FVM,
-  (FVM_Base_partial + leases + comisiones_presencial + comisiones_call_center) * 0.55
+  (FVM_Base_partial + leases + comisiones_presencial + comisiones_call_center + coi_imputado) * 0.55
                                                                               AS profit_share_a_pagar,
 
   -- ✅ Detalle al final, post profit_share_a_pagar
