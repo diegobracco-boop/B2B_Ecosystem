@@ -535,7 +535,7 @@ function notesHtml(){
     + '<b>Cancellations y Loyalty</b> van × 0. <b>Intercompany</b> = 0,54% del GB.<br>'
     + '<b>COI imputado (tasa banco):</b> ventas en cuotas sin Cost of Installments en el Datalake '
     + '(6 y 12 cuotas antes del 16/06/2026). Costo compuesto = (1 + tasa anual)^(cuotas/12) − 1 '
-    + 'con 3% / 5% anual → 1,49% / 5,00% del GB. 24 cuotas no lleva COI imputado. Entra en el FVM Base. En las tablas de cuotas, el COI incluye el imputado.<br>'
+    + 'con 3% / 5% anual → 1,49% / 5,00% del GB. 24 cuotas no lleva COI imputado. Se resta del Efecto Financiero (que ya traía ese costo): el FVM Base no cambia, solo se reclasifica a Financiación. En las tablas de cuotas, el COI incluye el imputado.<br>'
     + '<b>Reparto:</b> FVM Base × 55% = Profit Share a pagar a Banco de Chile · FVM Base × 45% = FVM Despegar.'
     + (partial.length ? '<br><b>* Mes en curso (' + partial.map(mesLbl).join(', ') + '):</b> datos parciales; el lease se estima con la tasa diaria de julio × días transcurridos.' : '')
     + '<br>Fuente: <code>P&amp;L_Profit_Sharing/banco_chile_profit_sharing.sql</code> → <code>profit_sharing_sync.py</code>.'

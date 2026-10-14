@@ -39,8 +39,11 @@
 --   Tasa del banco: 6 cuotas = 3% anual · 12 = 5%.
 --   Costo compuesto = (1 + tasa anual)^(cuotas/12) − 1  →  6: 1,49% · 12: 5,00% del GB
 --   Aplica a: 6 y 12 cuotas confirmadas antes del 16/06/2026,
---   solo si la transacción no tiene COI (|cost_of_installments| < 0,01). Entra en FVM_Base.
+--   solo si la transacción no tiene COI (|cost_of_installments| < 0,01).
 --   24 cuotas: no se imputa COI (definido con el comercial 2026-10-14).
+--   Reclasificación (2026-10-14): el COI imputado se resta de efecto_financiero (que ya traía el costo
+--   de financiar esas cuotas), así que el FVM_Base queda igual que sin el fix: solo cambia la línea
+--   donde aparece el costo (Efecto financiero → Financiación). coi_imputado ya NO suma en FVM_Base.
 -- ══════════════════════════════════════════════════════════════════════
 
 WITH src AS (
@@ -437,19 +440,21 @@ SELECT
   leases + comisiones_presencial + comisiones_call_center                     AS channel_expenses,
 
   white_labels_api_base
-    + ((FVM_Base_partial + leases + comisiones_presencial + comisiones_call_center + coi_imputado) * -0.55)
+    + ((FVM_Base_partial + leases + comisiones_presencial + comisiones_call_center) * -0.55)
                                                                               AS white_labels_api,
   intercompany_USD,
   dif_fx,
   currency_hedge,
-  efecto_financiero,
+  -- ✅ Reclasificación (2026-10-14): el costo de financiar esas cuotas ya estaba en efecto_financiero;
+  --    se pasa a coi_imputado (Financiación) → efecto_financiero − coi_imputado. FVM_Base no cambia.
+  efecto_financiero - coi_imputado                                            AS efecto_financiero,
   net_revenues,
 
-  FVM_Base_partial + leases + comisiones_presencial + comisiones_call_center + coi_imputado  AS FVM_Base,
+  FVM_Base_partial + leases + comisiones_presencial + comisiones_call_center  AS FVM_Base,
 
-  (FVM_Base_partial + leases + comisiones_presencial + comisiones_call_center + coi_imputado) * 0.45
+  (FVM_Base_partial + leases + comisiones_presencial + comisiones_call_center) * 0.45
                                                                               AS FVM,
-  (FVM_Base_partial + leases + comisiones_presencial + comisiones_call_center + coi_imputado) * 0.55
+  (FVM_Base_partial + leases + comisiones_presencial + comisiones_call_center) * 0.55
                                                                               AS profit_share_a_pagar,
 
   -- ✅ Detalle al final, post profit_share_a_pagar
