@@ -132,6 +132,47 @@
     transition: border-color 0.15s;
   }
   .filter-group select:focus { border-color: #550FED; background: #fff; }
+
+  /* ── Product multi-select dropdown ── */
+  .ms-dropdown { position: relative; }
+  .ms-toggle {
+    background: #f9fafb;
+    border: 1.5px solid #e5e7eb;
+    color: #1f2937;
+    border-radius: 8px;
+    padding: 5px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    min-width: 120px;
+    text-align: left;
+    white-space: nowrap;
+  }
+  .ms-toggle::after { content: ' ▾'; color: #9ca3af; }
+  .ms-dropdown.open .ms-toggle { border-color: #550FED; background: #fff; }
+  .ms-panel {
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    z-index: 50;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.10);
+    padding: 6px 0;
+    min-width: 160px;
+  }
+  .ms-dropdown.open .ms-panel { display: block; }
+  .ms-panel label {
+    display: flex; align-items: center; gap: 8px;
+    padding: 5px 12px;
+    font-size: 12px; color: #1f2937; font-weight: 500;
+    text-transform: none; letter-spacing: 0;
+    cursor: pointer;
+  }
+  .ms-panel label:hover { background: #faf7ff; }
+  .ms-panel input { accent-color: #550FED; cursor: pointer; }
+  .ms-panel .ms-sep { height: 1px; background: #f3f4f6; margin: 4px 0; }
   .btn-clear {
     background: #f9fafb;
     border: 1.5px solid #e5e7eb;
@@ -1033,6 +1074,20 @@
       <option value="Agencias afiliadas">Agencias afiliadas</option>
     </select>
   </div>
+  <div class="filter-group" id="filterGroupProduct">
+    <label>Producto</label>
+    <div class="ms-dropdown" id="productDropdown">
+      <button type="button" class="ms-toggle" id="productToggle">Todos</button>
+      <div class="ms-panel" id="productPanel">
+        <label><input type="checkbox" data-product="" checked> Todos</label>
+        <div class="ms-sep"></div>
+        <label><input type="checkbox" data-product="Hotel"> Hotel</label>
+        <label><input type="checkbox" data-product="Air"> Air</label>
+        <label><input type="checkbox" data-product="Packages"> Packages</label>
+        <label><input type="checkbox" data-product="ONA"> ONA</label>
+      </div>
+    </div>
+  </div>
   <div class="filter-group" id="filterGroupGoal">
     <label>Meta</label>
     <select id="filterGoal">
@@ -1368,7 +1423,8 @@ let okrH2Data     = null;   // okr_h2_managerial.json (KRs H2); null = todavía 
 let _okrH2Unp     = {};
 let chartInst     = null;
 let activeTab     = 'nr_ri';
-let activeCountry = '';
+let activeCountries = [];  // claves de COUNTRY_GROUPS / MARKET_GROUPS; vacío = todos
+let activeProducts  = [];  // claves de PRODUCT_GROUPS; vacío = todos
 let collapseState = {};
 let agenciasData  = null;
 let agenciasState = 'idle'; // idle | loading | loaded | error
@@ -1529,13 +1585,71 @@ function getCountriesForGroup(countryGroup) {
   return COUNTRY_GROUPS[countryGroup] || [];
 }
 
-function filterByPeriod(rows, channel, countryGroup, from, cutoff) {
+// Alcance de filtro del tracker: { countries: [...], products: [...] } (vacío = todos).
+// Los KRs siguen pasando un string con un solo grupo de país, sin filtro de producto.
+function currentScope() {
+  return { countries: activeCountries.slice(), products: activeProducts.slice() };
+}
+
+function normScope(scope) {
+  if (!scope) return { countries: [], products: [] };
+  if (typeof scope === 'string') return { countries: [scope], products: [] };
+  return { countries: scope.countries || [], products: scope.products || [] };
+}
+
+function hasCountryFilter(scope) { return normScope(scope).countries.length > 0; }
+
+// Grupos de país que se muestran como filas, en el orden canónico de COUNTRY_GROUPS
+function countryOrderFor(scope) {
+  const sel = normScope(scope).countries;
+  const all = Object.keys(COUNTRY_GROUPS);
+  if (!sel.length) return all;
+  const picked = new Set(sel.flatMap(k => MARKET_GROUPS[k] || [k]));
+  return all.filter(g => picked.has(g));
+}
+
+// Fila de país a la que va un registro. Sin filtro: countryGroupFor (Chile → ROW).
+// Con filtro: el grupo seleccionado más específico (si están ROW y Chile, Chile va a Chile
+// y ROW se queda con el resto), así no se duplica nada en el total.
+function rowGroupFor(pais, order, scoped) {
+  if (!scoped) return countryGroupFor(pais);
+  const p = (pais || '').toLowerCase();
+  let best = null;
+  order.forEach(g => {
+    const cs = COUNTRY_GROUPS[g] || [];
+    if (cs.some(c => c.toLowerCase() === p) && (!best || cs.length < COUNTRY_GROUPS[best].length)) best = g;
+  });
+  return best;
+}
+
+// Actuals traen producto_original; budget / run rate traen producto
+function rowProduct(r) {
+  return (r.producto_original !== undefined && r.producto_original !== null ? r.producto_original : r.producto) || 'Other';
+}
+
+function scopeLabel(scope) {
+  const { countries, products } = normScope(scope);
+  const parts = [];
+  if (countries.length) {
+    parts.push('País: ' + countries.map(k => {
+      const b = document.querySelector('.country-btn[data-country="' + k + '"]');
+      return b ? b.textContent : k;
+    }).join(', '));
+  }
+  if (products.length) parts.push('Producto: ' + products.join(', '));
+  return parts;
+}
+
+function filterByPeriod(rows, channel, scope, from, cutoff) {
+  const { countries, products } = normScope(scope);
+  const allowed = countries.length
+    ? new Set(countries.flatMap(getCountriesForGroup).map(c => c.toLowerCase()))
+    : null;
+  const prodSet = products.length ? new Set(products) : null;
   return rows.filter(r => {
     if (channel && r.parent_channel !== channel) return false;
-    if (countryGroup) {
-      const countries = getCountriesForGroup(countryGroup);
-      if (!countries.some(c => (r.pais || '').toLowerCase() === c.toLowerCase())) return false;
-    }
+    if (allowed && !allowed.has((r.pais || '').toLowerCase())) return false;
+    if (prodSet && !prodSet.has(productGroupFor(rowProduct(r)))) return false;
     const f = r.fecha;
     if (f < from || f > cutoff) return false;
     return true;
@@ -1604,7 +1718,7 @@ function renderChart(tab, channel, countryGroup, monthFilter) {
   const goalSel = document.getElementById('filterGoal');
   filterParts.push('Meta: ' + goalSel.options[goalSel.selectedIndex].text);
   if (channel)      filterParts.push('Canal: ' + channel);
-  if (countryGroup) filterParts.push('País: ' + countryGroup);
+  filterParts.push(...scopeLabel(countryGroup));
   filterParts.push(monthFilter ? formatYM(monthFilter) : 'Año completo');
   document.getElementById('chartSubtitle').textContent = filterParts.join('  •  ');
 
@@ -1761,14 +1875,14 @@ function buildPivotData(dateType, metricField, channel, countryGroup, monthFilte
   const actualsLY = filterByPeriod(getActualsLY(dateType), channel, countryGroup, lyFrom, lyCutoff);
 
   const groups = {};
-  const countryOrder = countryGroup ? (MARKET_GROUPS[countryGroup] || [countryGroup]) : Object.keys(COUNTRY_GROUPS);
+  const countryOrder = countryOrderFor(countryGroup);
+  const scoped = hasCountryFilter(countryGroup);
   countryOrder.forEach(g => { groups[g] = {}; });
 
   function accum(rows, isGoal, isLY) {
     rows.forEach(r => {
-      // filterByPeriod ya filtró por countryGroup; usarlo directamente evita que
-      // countryGroupFor devuelva el grupo padre (ej 'ROW') para sub-países (ej 'Chile')
-      const g = (MARKET_GROUPS[countryGroup]) ? countryGroupFor(r.pais) : (countryGroup || countryGroupFor(r.pais));
+      // rowGroupFor evita que un sub-país seleccionado (ej 'Chile') caiga en el grupo padre ('ROW')
+      const g = rowGroupFor(r.pais, countryOrder, scoped);
       if (!g) return;
       if (!groups[g]) return;
       const rawProd = (isGoal ? r.producto : r.producto_original) || 'Other';
@@ -1897,7 +2011,7 @@ function renderPivot(tab, channel, countryGroup, monthFilter) {
   body.innerHTML = '';
 
   let totalAct = 0, totalGoal = 0, totalLY = 0;
-  const countryOrder = countryGroup ? (MARKET_GROUPS[countryGroup] || [countryGroup]) : Object.keys(COUNTRY_GROUPS);
+  const countryOrder = countryOrderFor(countryGroup);
 
   countryOrder.forEach(countryName => {
     const pgMap = groups[countryName] || {};
@@ -1908,7 +2022,7 @@ function renderPivot(tab, channel, countryGroup, monthFilter) {
         ctAct += act; ctGoal += goal; ctLY += ly;
       });
     });
-    if (ctAct === 0 && ctGoal === 0 && !countryGroup) return;
+    if (ctAct === 0 && ctGoal === 0 && !hasCountryFilter(countryGroup)) return;
 
     totalAct += ctAct; totalGoal += ctGoal; totalLY += ctLY;
 
@@ -2005,7 +2119,7 @@ function renderTableBody(bodyEl, groups, inMillions, countryGroup) {
   bodyEl.innerHTML = '';
 
   let totalAct = 0, totalGoal = 0, totalLY = 0;
-  const countryOrder = countryGroup ? (MARKET_GROUPS[countryGroup] || [countryGroup]) : Object.keys(COUNTRY_GROUPS);
+  const countryOrder = countryOrderFor(countryGroup);
 
   countryOrder.forEach(countryName => {
     const pgMap = groups[countryName] || {};
@@ -2016,7 +2130,7 @@ function renderTableBody(bodyEl, groups, inMillions, countryGroup) {
         ctAct += act; ctGoal += goal; ctLY += ly;
       });
     });
-    if (ctAct === 0 && ctGoal === 0 && !countryGroup) return;
+    if (ctAct === 0 && ctGoal === 0 && !hasCountryFilter(countryGroup)) return;
 
     totalAct += ctAct; totalGoal += ctGoal; totalLY += ctLY;
 
@@ -3417,6 +3531,7 @@ function setAgenciasFilters(show) {
   document.getElementById('filterGroupCountryAgencias').style.display = 'none';
   // El filtro de Canal también se oculta en Status KRs
   document.querySelector('.filter-group:first-child').style.display   = show ? 'none' : '';
+  document.getElementById('filterGroupProduct').style.display         = show ? 'none' : '';
   document.getElementById('btnClear').style.display                   = show ? 'none' : '';
 }
 
@@ -3465,7 +3580,7 @@ function render() {
     setAgenciasFilters(false);
     document.getElementById('mainContent').classList.remove('visible');
     document.getElementById('tablesContent').classList.remove('visible');
-    if (rawData) renderWeeklyView(activeTab === 'weekly_gd' ? 'gd' : 'ri', activeCountry);
+    if (rawData) renderWeeklyView(activeTab === 'weekly_gd' ? 'gd' : 'ri', currentScope());
     return;
   }
 
@@ -3475,7 +3590,7 @@ function render() {
   // En Slides, una slide puede fijar su propio canal (ver SLIDE_ORDER.channel) por encima del filtro.
   const channel      = (_isSlidesMode && _slideChannel !== null) ? _slideChannel
                                                                  : document.getElementById('filterChannel').value;
-  const countryGroup = activeCountry;
+  const countryGroup = currentScope();   // países + productos seleccionados
   const monthFilter  = document.getElementById('filterMonth').value;
 
   document.getElementById('mainContent').classList.toggle('visible', !isTablesView);
@@ -3575,12 +3690,49 @@ document.getElementById('tabs').addEventListener('click', e => {
 ['filterChannel','filterGoal','filterMonth','filterCountryAgencias'].forEach(id => {
   document.getElementById(id).addEventListener('change', render);
 });
+// País: multi-selección. Cada botón se prende/apaga; "Todos" limpia la selección.
+function syncCountryButtons() {
+  document.querySelectorAll('.country-btn').forEach(function(b) {
+    var k = b.dataset.country;
+    b.classList.toggle('active', k === '' ? activeCountries.length === 0 : activeCountries.includes(k));
+  });
+}
 document.querySelectorAll('.country-btn').forEach(function(btn) {
   btn.addEventListener('click', function() {
-    activeCountry = btn.dataset.country;
-    document.querySelectorAll('.country-btn').forEach(function(b) {
-      b.classList.toggle('active', b.dataset.country === activeCountry);
-    });
+    var k = btn.dataset.country;
+    if (k === '') activeCountries = [];
+    else if (activeCountries.includes(k)) activeCountries = activeCountries.filter(function(c) { return c !== k; });
+    else activeCountries = activeCountries.concat(k);
+    syncCountryButtons();
+    render();
+  });
+});
+
+// Producto: desplegable con checkboxes (multi-selección). "Todos" limpia la selección.
+function syncProductDropdown() {
+  document.querySelectorAll('#productPanel input[type=checkbox]').forEach(function(cb) {
+    var k = cb.dataset.product;
+    cb.checked = k === '' ? activeProducts.length === 0 : activeProducts.includes(k);
+  });
+  document.getElementById('productToggle').textContent =
+    activeProducts.length ? activeProducts.join(', ') : 'Todos';
+}
+document.getElementById('productToggle').addEventListener('click', function(e) {
+  e.stopPropagation();
+  document.getElementById('productDropdown').classList.toggle('open');
+});
+document.getElementById('productPanel').addEventListener('click', function(e) { e.stopPropagation(); });
+document.addEventListener('click', function() {
+  document.getElementById('productDropdown').classList.remove('open');
+});
+document.querySelectorAll('#productPanel input[type=checkbox]').forEach(function(cb) {
+  cb.addEventListener('change', function() {
+    var k = cb.dataset.product;
+    if (k === '') activeProducts = [];
+    else if (cb.checked) activeProducts = PRODUCT_GROUP_ORDER.filter(function(p) { return p === k || activeProducts.includes(p); });
+    else activeProducts = activeProducts.filter(function(p) { return p !== k; });
+    if (activeProducts.length === PRODUCT_GROUP_ORDER.length) activeProducts = [];  // los 4 = Todos
+    syncProductDropdown();
     render();
   });
 });
@@ -3601,10 +3753,10 @@ document.getElementById('btnClear').addEventListener('click', () => {
   document.getElementById('filterGoal').value            = 'budget';
   document.getElementById('filterMonth').value           = '';
   document.getElementById('filterCountryAgencias').value = '';
-  activeCountry = '';
-  document.querySelectorAll('.country-btn').forEach(function(b) {
-    b.classList.toggle('active', b.dataset.country === '');
-  });
+  activeCountries = [];
+  activeProducts  = [];
+  syncCountryButtons();
+  syncProductDropdown();
   render();
 });
 
@@ -3649,7 +3801,7 @@ const SLIDE_ORDER = [
 function _renderSplitSlide(metric, dateType) {
   var m = METRICS[metric];
   var monthFilter = document.getElementById('filterMonth').value;
-  var cg = activeCountry;
+  var cg = currentScope();
   var gL = buildPivotData(dateType, m.field, 'Agencias afiliadas', cg, monthFilter);
   var gR = buildPivotData(dateType, m.field, 'API', cg, monthFilter);
   renderTableBody(document.getElementById('pivotBodySplitL'), gL, m.inMillions, cg);
