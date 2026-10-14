@@ -472,7 +472,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
 @page{size:13.333in 7.5in;margin:0}
 @media print{
   *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
-  .topbar,.flow-toolbar,#flow-zoom-warn,#daily-lob-toggle{display:none!important}
+  .topbar,.flow-toolbar,#flow-zoom-warn,#daily-lob-toggle,.fl-monthly-sw{display:none!important}
   #view-flow,.flow-stage-wrap{background:#fff!important}
   .flow-stage-wrap{padding:0!important;gap:0!important}
   /* Un slide con mucho detalle (pais/partner, o Weekly con 5 paises x 5 semanas)
@@ -4384,13 +4384,14 @@ function flAccToggle_(tr){
 //   N+2.  "Tier-3 + Low Value"   — todo tier ≥3 o con nombre (Low Value, etc.).
 //   N+3.  "Onboarding"           — partners New (stage de la cartera), sin importar su tier.
 // Cada partner va por país (Turismocity (Argentina) / (Colombia) / (Chile) son filas
-// distintas). Los partners Existing con tier 'Unknown' (sin match en la cartera) no se
-// muestran ni suman al Total.
-function flowGroupTable_(subRaw, metricKey, comp, col1, groupByRegion, childMax, topMax, tierFirst){
+// distintas). Los partners sin tier (ver tierOf_) caen en Low Value -> "Tier-3 + Low Value".
+// period: 'mtd' (default) | 'ytd' = desde el 1-abr del año fiscal del mes que se mira (switch de
+// las slides Monthly Performance, flMonthlySetPeriod_).
+function flowGroupTable_(subRaw, metricKey, comp, col1, groupByRegion, childMax, topMax, tierFirst, period){
   if(childMax===undefined) childMax=_flowPrinting?Infinity:8;
   if(topMax===undefined) topMax=0; // sin cap: los países ahora arrancan colapsados (1 fila c/u), no hace falta truncar la lista
   tierFirst=!!tierFirst && !groupByRegion;
-  var vDate=flowVDate_(), mStart=vDate.substring(0,7)+'-01';
+  var vDate=flowVDate_(), mStart=(period==='ytd') ? flFyStart_(vDate) : vDate.substring(0,7)+'-01';
   var lyMode=(comp==='ly'), lyMS=_flLY_(mStart), lyVD=_flLY_(vDate);
   var MF=_FLMF[metricKey], cmpArr=_flCompArr_(subRaw,comp), cmpF=_flCompField_(metricKey,comp);
   // El tier de un partner es SOLO el de la cartera vigente (mapeado por nombre contra la
@@ -4401,16 +4402,26 @@ function flowGroupTable_(subRaw, metricKey, comp, col1, groupByRegion, childMax,
   // El tier es por PAÍS x partner (Latam: Tier-1 en Brasil, Tier-3 en Argentina): la clave
   // es pais|partner; tierByPartner queda solo como fallback si el partner no tiene filas
   // de budget/runrate en ese país.
-  var tierByPaisPartner={}, tierByPartner={};
-  if(!groupByRegion){
-    [(subRaw.budget||[]),(subRaw.runrate||[])].forEach(function(arr){ arr.forEach(function(r){
-      if(!r.partner || !r.tier || r.tier==='Unknown') return;
-      var kp=(r.pais||'Other')+'|'+r.partner;
-      if(!tierByPaisPartner[kp]) tierByPaisPartner[kp]=r.tier;
-      if(!tierByPartner[r.partner]) tierByPartner[r.partner]=r.tier;
-    }); });
+  // Claves con el partner en minúsculas: budget/runrate y actuals difieren en mayúsculas
+  // ('Livelo-API-Hoteles' vs 'livelo-api-hoteles' quedaba Unknown con ~USD 225k).
+  // Si el partner no tiene plan (Koin, Vibe, Cacau Lovers…), fallback al tier de los actuals
+  // (misma cartera, por partner_id). Sin tier en ninguno -> 'Low Value' (decisión de Gregorio
+  // 2026-10-14: no mostrar Unknown).
+  var tierByPaisPartner={}, tierByPartner={}, tierByPaisPartnerA={}, tierByPartnerA={};
+  function addTier_(byPP, byP, r){
+    if(!r.partner || !r.tier || r.tier==='Unknown') return;
+    var pl=String(r.partner).toLowerCase(), kp=(r.pais||'Other')+'|'+pl;
+    if(!byPP[kp]) byPP[kp]=r.tier;
+    if(!byP[pl]) byP[pl]=r.tier;
   }
-  function tierOf_(pais, partner){ return tierByPaisPartner[(pais||'Other')+'|'+partner]||tierByPartner[partner]||'Unknown'; }
+  if(!groupByRegion){
+    [(subRaw.budget||[]),(subRaw.runrate||[])].forEach(function(arr){ arr.forEach(function(r){ addTier_(tierByPaisPartner, tierByPartner, r); }); });
+    (subRaw.actuals||[]).forEach(function(r){ addTier_(tierByPaisPartnerA, tierByPartnerA, r); });
+  }
+  function tierOf_(pais, partner){
+    var pl=String(partner||'').toLowerCase(), kp=(pais||'Other')+'|'+pl;
+    return tierByPaisPartner[kp]||tierByPartner[pl]||tierByPaisPartnerA[kp]||tierByPartnerA[pl]||'Low Value';
+  }
   function tierRank_(t){ var m=/^tier[\s_-]*(\d+)/i.exec(t); return m ? +m[1] : 1000; }
   // tierFirst: New/Existing por país x partner. Primero el account_type de los reales (viene
   // por partner_id, o sea ya por país, e incluye FORCE_NEW_PARTNERS); si ese país x partner no
@@ -4418,16 +4429,16 @@ function flowGroupTable_(subRaw, metricKey, comp, col1, groupByRegion, childMax,
   // valor por país x partner para que baseline y goal caigan siempre en el mismo grupo.
   var stA={}, stB={};
   if(tierFirst){
-    (subRaw.actuals||[]).forEach(function(r){ if(!r.partner) return; var kp=(r.pais||'Other')+'|'+r.partner;
+    // partner en minúsculas, igual que el tier (budget 'Livelo-API-Hoteles' vs actuals 'livelo-api-hoteles')
+    (subRaw.actuals||[]).forEach(function(r){ if(!r.partner) return; var kp=(r.pais||'Other')+'|'+String(r.partner).toLowerCase();
       if(r.account_type==='New') stA[kp]='New'; else if(!stA[kp]) stA[kp]='Existing'; });
-    [(subRaw.budget||[]),(subRaw.runrate||[])].forEach(function(arr){ arr.forEach(function(r){ if(!r.partner) return; var kp=(r.pais||'Other')+'|'+r.partner;
+    [(subRaw.budget||[]),(subRaw.runrate||[])].forEach(function(arr){ arr.forEach(function(r){ if(!r.partner) return; var kp=(r.pais||'Other')+'|'+String(r.partner).toLowerCase();
       if(r.stage==='New') stB[kp]='New'; else if(!stB[kp]) stB[kp]='Existing'; }); });
   }
   function hispaGrp_(r){
-    var p=r.partner||'Other', pa=r.pais||'Other', kp=pa+'|'+p;
+    var p=r.partner||'Other', pa=r.pais||'Other', kp=pa+'|'+String(p).toLowerCase();
     if((stA[kp]||stB[kp])==='New') return 'ONB';
-    var t=tierOf_(pa,p); if(t==='Unknown') return null;
-    var n=tierRank_(t);
+    var n=tierRank_(tierOf_(pa,p));
     return n===1 ? 'T1|'+p+'|'+pa : n===2 ? 'T2' : 'T3';
   }
   function hispaLbl_(k){
@@ -4459,7 +4470,8 @@ function flowGroupTable_(subRaw, metricKey, comp, col1, groupByRegion, childMax,
   orderFull.forEach(function(k){ var g=G[k]; if(!g)return; TB+=g.base; TG+=g.goal; }); // totales siempre sobre TODO, aunque se trunque lo visible
   order.forEach(function(k,pIdx){ var g=G[k]; if(!g)return;
     var lbl = groupByRegion ? (REGION_LABEL_[k]||k) : tierFirst ? (pIdx+1)+'.'+hispaLbl_(k) : k;
-    var kids=Object.keys(g.ch).map(function(c){return {name:kidName_(c),base:g.ch[c].base,goal:g.ch[c].goal,tier:tierByPaisPartner[k+'|'+c]||tierByPartner[c]||'Unknown'};})
+    var kids=Object.keys(g.ch).map(function(c){ var i=c.lastIndexOf('|'), kt=tierFirst ? tierOf_(c.substring(i+1), c.substring(0,i)) : tierOf_(k, c);
+      return {name:kidName_(c),base:g.ch[c].base,goal:g.ch[c].goal,tier:kt};})
       .sort(function(a,b){return b.base-a.base;});
     if(groupByRegion){
       // región→país: sigue siendo lista plana con cap (childMax/"+N más"), sin acordeón — no hay
@@ -4577,6 +4589,40 @@ function flLegend_(goalLbl){ return '<div class="fl-legend"><span><i style="back
 function flH1box_(h1, compShort){ var p=h1.goal!==0?(h1.base/h1.goal-1)*100:null, ok=h1.base>=h1.goal;
   return '<div class="fl-h1box"><div class="h-lbl">FYTD vs '+(compShort||'Target')+'</div><div class="h-val'+(ok?'':' warn')+'">'+flFmt_(h1.base)+(ok?' ✓':' !')+'</div><div class="h-tgt">Tgt: '+flFmt_(h1.goal)+' ('+(p==null?'—':(p>=0?'+':'')+p.toFixed(1)+'%')+')</div></div>'; }
 
+// ── Switch MTD / YTD de las tablas de las slides Monthly Performance (cover + regiones) ──
+// YTD = año fiscal (desde abril) hasta el día que se mira, para ver qué tier/partner explica
+// el desvío acumulado. Default MTD. Un solo estado para todas las slides Monthly.
+var _flMonthlyPeriod='mtd';
+function flFyStart_(vDate){ var y=+vDate.substring(0,4); return (+vDate.substring(5,7)>=4?y:y-1)+'-04-01'; }
+function flFyLbl_(vDate){ var y=+vDate.substring(0,4); return 'FY'+String((+vDate.substring(5,7)>=4?y+1:y)%100).padStart(2,'0'); }
+function flMonthlyPeriodLbl_(vDate){ return _flMonthlyPeriod==='ytd' ? 'YTD '+flFyLbl_(vDate) : 'MTD'; }
+function flMonthlyTables_(def, sub, cmp, cmpShort){
+  var per=_flMonthlyPeriod, perLbl=flMonthlyPeriodLbl_(flowVDate_());
+  if(def.kind==='cover'){
+    return [['gb','GB'],['nr','NR'],['fvm','FVM']].map(function(t){
+      return '<div class="fl-scroll-tbl" style="flex:1;min-width:0;min-height:0;overflow-y:auto"><div class="fl-tag">'+t[1]+' — '+perLbl+' vs '+cmpShort+'</div>'+flowGroupTable_(sub,t[0],cmp,'Región',true,0,undefined,undefined,per)+'</div>'; }).join('');
+  }
+  var tf=(def.region==='SAH'); // Hispa: Tier → Partner (ver flowGroupTable_)
+  return [['nr','NR'],['fvm','FVM']].map(function(t){
+    return '<div class="fl-scroll-tbl" style="flex:1;min-width:0;min-height:0;overflow-y:auto"><div class="fl-tag">'+t[1]+' — '+perLbl+' vs '+cmpShort+'</div>'+flowGroupTable_(sub,t[0],cmp,tf?'Tier / Partner':'País / Tier / Partner',false,undefined,undefined,tf,per)+'</div>'; }).join('');
+}
+function flMonthlySwitch_(){
+  var fy=flFyLbl_(flowVDate_());
+  var btn=function(v,lbl){ var on=(v===_flMonthlyPeriod);
+    return '<button onclick="flMonthlySetPeriod_(\''+v+'\')" style="border:1px solid #550FED;border-radius:6px;padding:2px 10px;font-weight:700;font-size:11px;cursor:pointer;'
+      +(on?'background:#550FED;color:#fff':'background:#fff;color:#550FED')+'">'+lbl+'</button>'; };
+  return '<div class="fl-monthly-sw" data-html2canvas-ignore="true" style="display:flex;gap:4px;justify-content:flex-end">'+btn('mtd','MTD')+btn('ytd','YTD '+fy)+'</div>';
+}
+function flMonthlySetPeriod_(p){
+  _flMonthlyPeriod=p;
+  var cmp=_flowComp, cmpShort=FLOW_COMP[cmp].short;
+  FLOW_DECK.forEach(function(def, i){
+    if(def.kind!=='cover' && def.kind!=='monthly') return;
+    var box=document.getElementById('flmt-'+i); if(!box) return;
+    box.innerHTML=flMonthlySwitch_()+flMonthlyTables_(def, flowRegionRaw_(def.kind==='cover'?null:def.region), cmp, cmpShort);
+  });
+}
+
 // per-slide HTML builders. push chart specs to _flowSeries[idx].
 function flowBuildSlide_(def, idx){
   _flowSeries[idx]=[];
@@ -4609,18 +4655,10 @@ function flowBuildSlide_(def, idx){
         +'<div class="fl-canvas-wrap" style="flex:1;min-width:0;height:100%"><canvas id="'+cid+'"></canvas></div>'
         +flH1box_(h1, cmpShort)+'</div></div>';
     });
-    var tables='';
-    if(def.kind==='cover'){
-      tables=[['gb','GB'],['nr','NR'],['fvm','FVM']].map(function(t){
-        return '<div class="fl-scroll-tbl" style="flex:1;min-width:0;min-height:0;overflow-y:auto"><div class="fl-tag">'+t[1]+' — MTD vs '+cmpShort+'</div>'+flowGroupTable_(sub,t[0],cmp,'Región',true,0)+'</div>'; }).join('');
-    } else {
-      tables=[['nr','NR'],['fvm','FVM']].map(function(t){
-        var tf=(region==='SAH'); // Hispa: Tier → Partner (ver flowGroupTable_)
-        return '<div class="fl-scroll-tbl" style="flex:1;min-width:0;min-height:0;overflow-y:auto"><div class="fl-tag">'+t[1]+' — MTD vs '+cmpShort+'</div>'+flowGroupTable_(sub,t[0],cmp,tf?'Tier / Partner':'País / Tier / Partner',false,undefined,undefined,tf)+'</div>'; }).join('');
-    }
+    var tables=flMonthlySwitch_()+flMonthlyTables_(def, sub, cmp, cmpShort);
     var body='<div class="fl-body" style="display:flex;gap:22px">'
       +'<div style="flex:1.75;min-width:0;display:flex;flex-direction:column;gap:6px;min-height:0">'+panels+'</div>'
-      +'<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:8px;min-height:0">'+tables+'</div></div>';
+      +'<div id="flmt-'+idx+'" style="flex:1;min-width:0;display:flex;flex-direction:column;gap:8px;min-height:0">'+tables+'</div></div>';
     return '<div class="flow-slide">'+flHead_(titleTxt, brand)+body+'</div>';
   }
   if(def.kind==='okr'){
