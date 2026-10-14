@@ -21,6 +21,7 @@
 -- ── Leases ────────────────────────────────────────────────────────────
 --   ✅ Solo para punto_venta = 'Presencial'
 --   ✅ may-26 = -2.213,67 | jun-26 = -11.577,22 | jul-26 = -11.632,91
+--   ✅ ago-26 y sep-26 = -11.632,91 (idem jul)
 --   ✅ mes en curso = tasa diaria jul × (DAY(CURRENT_DATE)-1) [dinámica]
 --   ✅ Distribuido igualmente entre txns Presencial del mes
 -- ── Comisiones vendedores ─────────────────────────────────────────────
@@ -327,6 +328,8 @@ enriched AS (
         WHEN '2026-05' THEN -2213.67
         WHEN '2026-06' THEN -11577.22
         WHEN '2026-07' THEN -11632.91
+        WHEN '2026-08' THEN -11632.91   -- idem jul (decisión de Diego 2026-10-13)
+        WHEN '2026-09' THEN -11632.91   -- idem jul
         WHEN date_format(CURRENT_DATE, '%Y-%m') THEN
           (-11632.91 / 31.0) * CAST(DAY(CURRENT_DATE) - 1 AS DOUBLE)
         ELSE 0.0
