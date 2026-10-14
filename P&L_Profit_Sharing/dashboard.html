@@ -347,6 +347,14 @@ function drawChart(rows){
     var ctx = ch.ctx, m1 = ch.getDatasetMeta(1); ctx.save();
     ctx.font = '600 12px Inter, system-ui, sans-serif'; ctx.fillStyle = '#1f1a33'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
     m1.data.forEach(function(el, i){ ctx.fillText(money(ps[i] + fv[i]), el.x, Math.min(el.y, el.base) - 4); });
+    // Valor de cada parte (Banco de Chile / Despegar) dentro de su segmento; se omite si el segmento es muy bajo
+    ctx.fillStyle = '#fff'; ctx.textBaseline = 'middle';
+    [[ch.getDatasetMeta(0), ps], [m1, fv]].forEach(function(p){
+      p[0].data.forEach(function(el, i){
+        if(Math.abs(el.base - el.y) < 18) return;
+        ctx.fillText(money(p[1][i]), el.x, (el.y + el.base) / 2);
+      });
+    });
     ctx.restore();
   }};
   Chart.defaults.font.size = 14;
@@ -358,9 +366,7 @@ function drawChart(rows){
         { label:'FVM Despegar (45%)', data:fv, backgroundColor:cD, borderRadius:4, borderSkipped:false, barPercentage:0.6 }
       ] },
     options:{ responsive:true, maintainAspectRatio:false, animation:false, layout:{ padding:{ top:18 } },
-      plugins:{ legend:{ display:false },
-        tooltip:{ callbacks:{ label:function(it){ return it.dataset.label + ': ' + money(it.parsed.y); },
-          footer:function(items){ var i = items[0].dataIndex; return 'FVM Base: ' + money(ps[i] + fv[i]); } } } },
+      plugins:{ legend:{ display:false }, tooltip:{ enabled:false } },   // valores dibujados en las barras (psTot)
       scales:{ x:{ stacked:true, grid:{ display:false } },
         y:{ stacked:true, beginAtZero:true, grid:{ color:'rgba(0,0,0,.05)' }, ticks:{ callback:function(v){ return money(v); } } } } },
     plugins:[totLbl]
@@ -489,7 +495,7 @@ function render(){
     + '<div class="card"><div class="card-hdr"><span class="card-title">Reparto del FVM Base por mes</span><span class="card-sub">Profit Share 55% Banco de Chile + 45% Despegar</span></div>'
     + '<div class="card-body"><div class="legend"><span><i class="dot" style="background:var(--c-partner)"></i>Profit Share Banco de Chile (55%)</span>'
     + '<span><i class="dot" style="background:var(--c-despegar)"></i>FVM Despegar (45%)</span></div>'
-    + '<div style="position:relative;height:260px"><canvas id="ps-chart" role="img" aria-label="Reparto mensual del FVM Base entre Banco de Chile y Despegar"></canvas></div></div></div>'
+    + '<div style="position:relative;height:300px"><canvas id="ps-chart" role="img" aria-label="Reparto mensual del FVM Base entre Banco de Chile y Despegar"></canvas></div></div></div>'
     + '<div class="card"><div class="card-hdr"><span class="card-title">P&amp;L por mes</span>'
     + '<div class="seg"><button class="' + (PL_STRUCT==='d1'?'on':'') + '" onclick="setPLStruct(\'d1\')">P&amp;L Despegar</button>'
     + '<button class="' + (PL_STRUCT==='bch'?'on':'') + '" onclick="setPLStruct(\'bch\')">P&amp;L BCH</button></div>'
