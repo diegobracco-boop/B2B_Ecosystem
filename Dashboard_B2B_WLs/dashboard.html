@@ -96,6 +96,19 @@ header{
 }
 .canal-toggle button:hover{background:rgba(255,255,255,.14)}
 .canal-toggle button.active{background:#7C3AED;color:#fff;box-shadow:inset 0 1px 3px rgba(0,0,0,.2)}
+/* ORGANIC switch (Monthly Results B2B) — clase propia: setCanal limpia todos los .canal-toggle */
+.org-toggle{display:flex;border-radius:6px;overflow:hidden;border:1px solid rgba(196,181,253,.25)}
+.org-toggle button{
+  flex:1;background:rgba(255,255,255,.07);color:rgba(255,255,255,.55);
+  border:none;padding:5px 14px;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;
+}
+.org-toggle button:hover{background:rgba(255,255,255,.14)}
+.org-toggle button.active{background:#7C3AED;color:#fff;box-shadow:inset 0 1px 3px rgba(0,0,0,.2)}
+.org-toggle.disabled{opacity:.45;pointer-events:none}
+.org-note{font-size:10px;line-height:1.3;color:rgba(255,255,255,.6);margin-top:4px}
+.org-note.err{color:#FCA5A5}
+.wip-tag{display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;
+  letter-spacing:.04em;color:#92400E;background:#FEF3C7;border:1px dashed #F59E0B}
 .baseline-badge{
   background:rgba(167,139,250,.2);border:1px solid rgba(167,139,250,.4);
   border-radius:6px;color:#C4B5FD;padding:5px 12px;font-size:12px;
@@ -1279,6 +1292,16 @@ header > img{filter:brightness(0) invert(1);opacity:.92}
       </select>
     </div>
 
+    <!-- ORGANIC: solo B2B. YES = actuals × TC Actuals / TC del Goal (Budget o Forecast) -->
+    <div class="fg" id="organic-fg" style="display:none">
+      <label>Organic</label>
+      <div class="org-toggle" id="org-toggle">
+        <button data-o="no" class="active" onclick="setOrganic(false)">NO</button>
+        <button data-o="yes"               onclick="setOrganic(true)">YES</button>
+      </div>
+      <div class="org-note" id="org-note"></div>
+    </div>
+
     <!-- Nominales format toggle -->
     <div class="fg">
       <label>Nominales</label>
@@ -1992,6 +2015,7 @@ var _state = {
   canal:           'all',
   goal:            'budget',
   baselineSource:  'baseline',  // 'baseline' (Actuals + Projections) | 'forecast' (forecast.json entero)
+  organic:         false,       // switch ORGANIC (solo B2B; efectivo solo con Goal Budget/Forecast)
   evoMetric:       'gb',
   evoGranularity:  'M',   // 'M' | 'Q' | 'H' | 'Y'
   evoShowLY:       false, // incluir serie "Last Year" en el gráfico de evolución
@@ -2250,6 +2274,7 @@ function loadAll() {
         _state.compPnl      = d.compPnl      || null;
         _state.ocConceptWf  = d.ocConceptWf  || null;
         _state.nrBridgeWf   = d.nrBridgeWf   || null;
+        _handleOrganicResp_(d);
         render(); hideLoader();
       } catch(err) {
         onErr(err);
@@ -2280,6 +2305,7 @@ function reload() {
     _state.compPnl     = hit.compPnl     || null;
     _state.ocConceptWf = hit.ocConceptWf || null;
     _state.nrBridgeWf  = hit.nrBridgeWf  || null;
+    _handleOrganicResp_(hit);
     render(); hideLoader();
     return;
   }
@@ -2296,7 +2322,7 @@ function reload() {
   }
   google.script.run
     .withSuccessHandler(function(d){
-      _dataCache[ck] = d;   // store in client cache
+      if (!(d && d.organic && d.organic.error)) _dataCache[ck] = d;   // store in client cache
       if (mySeq !== _reloadSeq) return;   // llegó tarde: ya hay otra consulta más nueva
       _state.pnl    = d.pnl;
       _state.wf     = d.wf;
@@ -2305,6 +2331,7 @@ function reload() {
       _state.compPnl     = d.compPnl     || null;
       _state.ocConceptWf = d.ocConceptWf || null;
       _state.nrBridgeWf  = d.nrBridgeWf  || null;
+      _handleOrganicResp_(d);
       render(); hideLoader();
       _preloadOtherLobs_(p); // warm cache for other LOB tabs in background
     })
@@ -2316,7 +2343,7 @@ function reload() {
 function _preloadOtherLobs_(basep) {
   ['all','b2b','b2b2c'].forEach(function(lob) {
     if (lob === basep.lob) return;
-    var pp = Object.assign({}, basep, { lob: lob, canal: lob === 'b2b' ? basep.canal : 'all' });
+    var pp = Object.assign({}, basep, { lob: lob, canal: lob === 'b2b' ? basep.canal : 'all', organic: '' });
     var ck = JSON.stringify(pp);
     if (_dataCache[ck]) return;
     google.script.run
@@ -2531,7 +2558,7 @@ function switchLob(btn) {
   }
   updateCanalVisibility();
   renderOKR(_state.okr);
-  if (_state.lob === 'b2b' && !_mktLoaded) loadMarketingData();
+  if (_state.lob === 'b2b') loadMarketingData();   // no-op si ya está cargado para el target organic actual
   if (_state.filters) reload();
 }
 
@@ -2544,6 +2571,7 @@ function switchGran(btn) {
 
 function updateCanalVisibility() {
   document.getElementById('canal-fg').style.display = (_state.lob === 'b2b') ? '' : 'none';
+  _syncOrganicUI_();
 }
 
 function setCanal(btn) {
@@ -2556,9 +2584,11 @@ function setCanal(btn) {
 function switchGoal() {
   var sel = document.getElementById('f-goal');
   if (!sel) return;
+  var prevOrg = _organicTarget_();
   _state.goal = sel.value;
   var barSel = document.getElementById('f-goal-bar');
   if (barSel) barSel.value = _state.goal;
+  if (_afterGoalChange_(prevOrg)) return;
   if (_state.pnl) renderPnL();
   if (_state.wf)  renderWf();
   if (_state.evo) renderEvo();
@@ -2592,8 +2622,74 @@ function getParams() {
     desde:    desde,
     hasta:    hasta,
     canal:    _state.lob === 'b2b' ? _state.canal : 'all',
-    baselineSource: _state.baselineSource || 'baseline'
+    baselineSource: _state.baselineSource || 'baseline',
+    organic:  _organicTarget_()
   };
+}
+
+// ── ORGANIC ──────────────────────────────────────────────────
+// Target efectivo: 'budget' | 'forecast' si el switch está en YES en B2B; '' en cualquier otro caso
+// (Run Rate / Last Year no tienen TC → organic deshabilitado).
+function _organicTarget_() {
+  if (_state.lob !== 'b2b' || !_state.organic) return '';
+  return (_state.goal === 'budget' || _state.goal === 'forecast') ? _state.goal : '';
+}
+function _orgOn_() { return !!_organicTarget_(); }
+var _orgError_ = '';
+var _orgMissing_ = [];
+// YoY / crecimientos: en organic quedan en WIP (el LY todavía no se convierte)
+function _yoyCell_(v, renderer) {
+  return _orgOn_() ? '<span class="wip-tag" title="Organic: YoY en construcción">WIP</span>' : renderer(v);
+}
+function setOrganic(on) {
+  _state.organic = !!on;
+  _orgError_ = '';
+  _syncOrganicUI_();
+  if (_state.filters) reload();
+  if (_state.lob === 'b2b') loadMarketingData();
+}
+function _syncOrganicUI_() {
+  var fg = document.getElementById('organic-fg');
+  if (!fg) return;
+  fg.style.display = (_state.lob === 'b2b') ? '' : 'none';
+  var goalOk = (_state.goal === 'budget' || _state.goal === 'forecast');
+  var tog = document.getElementById('org-toggle');
+  tog.classList.toggle('disabled', !goalOk);
+  tog.querySelectorAll('button').forEach(function(b) {
+    b.classList.toggle('active', (b.dataset.o === 'yes') === (_state.organic && goalOk));
+  });
+  var note = document.getElementById('org-note');
+  note.classList.toggle('err', !!_orgError_);
+  if (_orgError_) {
+    note.textContent = _orgError_;
+  } else if (!goalOk) {
+    note.textContent = 'No disponible con Goal ' + (_state.goal === 'lastYear' ? 'Last Year' : 'Run Rate');
+  } else if (_state.organic) {
+    note.textContent = 'Actuals × TC Actuals / TC ' + (_state.goal === 'forecast' ? 'Forecast' : 'Budget') + ' · YoY: WIP';
+    if (_orgMissing_.length) note.textContent += ' · sin TC: ' + _orgMissing_.slice(0, 5).join(', ') + (_orgMissing_.length > 5 ? ' …' : '');
+  } else {
+    note.textContent = '';
+  }
+}
+// Respuesta del backend: si no pudo leer el TC, vuelve a NO y avisa (los datos que llegan son los normales)
+function _handleOrganicResp_(d) {
+  var o = d && d.organic;
+  _orgMissing_ = (o && o.missing) || [];
+  if (o && o.error) {
+    _orgError_ = o.error; _state.organic = false;
+    if (_state.lob === 'b2b') loadMarketingData();
+  }
+  _syncOrganicUI_();
+}
+// Cambio de Goal: si cambia el target organic hay que volver a pedir los datos
+function _afterGoalChange_(prevOrg) {
+  _syncOrganicUI_();
+  if (_organicTarget_() !== prevOrg) {
+    if (_state.filters) reload();
+    loadMarketingData();
+    return true;
+  }
+  return false;
 }
 
 // ══════════════════════════════════════════════════════════
@@ -2795,9 +2891,11 @@ function toggleProdPanelBar(e) {
 // Goal sync from bar
 function switchGoalBar() {
   var sel = document.getElementById('f-goal-bar');
+  var prevOrg = _organicTarget_();
   _state.goal = sel.value;
   var topSel = document.getElementById('f-goal');
   if (topSel) topSel.value = _state.goal;
+  if (_afterGoalChange_(prevOrg)) return;
   if (_state.pnl) renderPnL();
   if (_state.wf)  renderWf();
   if (_state.evo) renderEvo();
@@ -2928,7 +3026,7 @@ function renderCompPnL() {
     html += '</tr>';
 
     html += '<tr class="row-sub"><td class="row-sub-label">YoY %</td>';
-    row.cols.forEach(function(col) { html += '<td>' + chipTxt(col.yoyPct) + '</td>'; });
+    row.cols.forEach(function(col) { html += '<td>' + _yoyCell_(col.yoyPct, chipTxt) + '</td>'; });
     html += '</tr>';
 
     // Con comparador = Last Year, "Δ vs Last Year (%)" es idéntico a YoY %: no se repite la fila.
@@ -2973,6 +3071,7 @@ function _renderDataStamp_() {
   var parts = [];
   if (f.lastActuals) parts.push('Actuals hasta ' + _ymShort_(f.lastActuals));
   if (f.lastRunRate) parts.push('Run Rate desde ' + _ymShort_(f.lastRunRate));
+  if (_orgOn_()) parts.push('ORGANIC (TC ' + (_organicTarget_() === 'forecast' ? 'Forecast' : 'Budget') + ')');
   parts.push('Cargado ' + loaded);
   el.textContent = parts.join(' · ');
   el.title = 'Datos reales hasta el último mes cerrado; los meses siguientes son Run Rate. "Cargado" es la hora en que se bajaron los datos a esta pantalla.';
@@ -3086,7 +3185,7 @@ function renderPnL() {
 
     // YoY
     html += '<tr class="row-sub"><td class="row-sub-label">YoY %</td>';
-    row.cols.forEach(function(col){ html += '<td>'+chipTxt(col.yoyPct)+'</td>'; });
+    row.cols.forEach(function(col){ html += '<td>'+_yoyCell_(col.yoyPct, chipTxt)+'</td>'; });
     html += '</tr>';
 
     // vs Goal $
@@ -3454,7 +3553,7 @@ function renderWf() {
       { label: goalLabel,        vals: gVals,   renderer: function(v){ return wfFmt(v); } },
       { label: 'Δ vs '+goalLabel,vals: dVals,   renderer: function(v){ return chipAbs(v, m.id==='orders' ? 'K' : 'M'); } },
       { label: 'Δ %',            vals: pctVals, renderer: chip },
-      { label: 'Baseline YoY %', vals: yoyVals, renderer: chipTxt }
+      { label: 'Baseline YoY %', vals: yoyVals, renderer: function(v){ return _yoyCell_(v, chipTxt); } }
     ];
     var tb = '<tbody>'+rows2.map(function(r){
       return '<tr><td>'+r.label+'</td>'+r.vals.map(function(val){
@@ -3782,7 +3881,7 @@ function renderBreakdownTable(data, el, view) {
     html += '<td>'+fmtMain(c.bl,'M')+'</td>';
     html += '<td>'+chipAbs(dA,'M')+'</td>';
     html += '<td>'+_alcance(c.bl,c.bu)+'</td>';
-    html += '<td>'+chip(yP)+'</td></tr>';
+    html += '<td>'+_yoyCell_(yP, chip)+'</td></tr>';
 
     // Filas por producto
     c.prods.forEach(function(pd) {
@@ -3793,7 +3892,7 @@ function renderBreakdownTable(data, el, view) {
       html += '<td>'+fmtMain(pd.bl,'M')+'</td>';
       html += '<td>'+chipAbs(dAp,'M')+'</td>';
       html += '<td>'+_alcance(pd.bl,pd.bu)+'</td>';
-      html += '<td>'+chip(yPp)+'</td></tr>';
+      html += '<td>'+_yoyCell_(yPp, chip)+'</td></tr>';
     });
   });
   html += '</tbody>';
@@ -3978,7 +4077,7 @@ function _evoChartCfg_(d, metricId, opts) {
       });
     }
   }
-  if (_state.evoShowLY && _state.goal!=='lastYear') {
+  if (_state.evoShowLY && _state.goal!=='lastYear' && !_orgOn_()) {
     datasets.push({
       label: 'Last Year', data: grps.map(function(g){ return g.lyAct; }),
       type:'line', yAxisID:'y',
@@ -4014,7 +4113,7 @@ function _evoChartCfg_(d, metricId, opts) {
     if (opts.dualPctGb) {
       var _isNum = function(v){ return v!==null && v!==undefined && !isNaN(v); };
       var _barVals = mainData.concat(goalPlot);
-      if (_state.evoShowLY && _state.goal!=='lastYear') _barVals = _barVals.concat(grps.map(function(g){ return g.lyAct; }));
+      if (_state.evoShowLY && _state.goal!=='lastYear' && !_orgOn_()) _barVals = _barVals.concat(grps.map(function(g){ return g.lyAct; }));
       _barVals = _barVals.filter(_isNum);
       if (_barVals.length) {
         var _bmax = Math.max.apply(null,_barVals);
@@ -4202,8 +4301,8 @@ function renderEvo() {
         var deltaPp = (ratio!==null && lyRatio!==null) ? ratio-lyRatio : null;
 
         var line1 = (val!==null?fmtK(val):'—') + ' / ' + (ratio!==null?ratio.toFixed(1)+'%':'—');
-        var yoyTxt   = yoy!==null ? ((yoy>=0?'+':'')+Math.round(yoy)+'%') : '—';
-        var ppTxt    = deltaPp!==null ? ((deltaPp>=0?'+':'')+deltaPp.toFixed(1)+'pp') : '—';
+        var yoyTxt   = _orgOn_() ? 'WIP' : yoy!==null ? ((yoy>=0?'+':'')+Math.round(yoy)+'%') : '—';
+        var ppTxt    = _orgOn_() ? 'WIP' : deltaPp!==null ? ((deltaPp>=0?'+':'')+deltaPp.toFixed(1)+'pp') : '—';
         // Cada número con su propio color según su propio signo — el % puede ser
         // positivo mientras el pp (participación sobre GB) cae, y viceversa; no tiene
         // sentido pintar el pp del color del %.
@@ -4215,7 +4314,7 @@ function renderEvo() {
           (tag?'<span style="color:rgba(139,92,246,.85);font-size:8px;display:block;line-height:1">'+tag+'</span>':'')+
           '</td>';
       } else {
-        var txt   = yoy!==null ? ((yoy>=0?'▲ +':'▼ ')+Math.round(yoy)+'%') : '—';
+        var txt   = _orgOn_() ? 'WIP' : yoy!==null ? ((yoy>=0?'▲ +':'▼ ')+Math.round(yoy)+'%') : '—';
         var color = yoy!==null ? (yoy>=0?'var(--green)':'var(--red)') : 'var(--muted2)';
         row += '<td style="color:'+color+'">'+txt+
           (tag?'<span style="color:rgba(139,92,246,.85);font-size:8px;display:block;line-height:1">'+tag+'</span>':'')+
@@ -4345,7 +4444,7 @@ function renderDrilldown() {
       return (m.lastYear[idx] !== undefined) ? m.lastYear[idx] : null;
     });
     var hasLY = lyArr.some(function(v){ return v !== null; });
-    if (!hasLY) lyArr = null;
+    if (!hasLY || _orgOn_()) lyArr = null;   // organic: LY en WIP
 
     // B2C series from _state.b2cEvo
     var b2cEvo = _state.b2cEvo;
@@ -5054,18 +5153,22 @@ function switchMktGran(btn) {
   if (_mktData) renderMarketing(_mktData);
 }
 
+var _mktOrgKey = null;   // target organic con el que se cargó _mktData ('' = sin organic)
 function loadMarketingData() {
-  if (_mktLoaded) return;
+  var orgKey = _organicTarget_();
+  if (_mktLoaded && _mktOrgKey === orgKey) return;
   _mktLoaded = true;
+  _mktOrgKey = orgKey;
   if (IS_DEMO) { _mktData = demoMarketingData(); renderMarketing(_mktData); return; }
   google.script.run
     .withSuccessHandler(function(res) {
+      if (_mktOrgKey !== orgKey) return;   // llegó tarde: ya se pidió otro target
       if (!res || !res.success) { _mktLoaded = false; return; }
       _mktData = res;
       renderMarketing(_mktData);
     })
-    .withFailureHandler(function() { _mktLoaded = false; })
-    .getMarketingData();
+    .withFailureHandler(function() { if (_mktOrgKey === orgKey) _mktLoaded = false; })
+    .getMarketingData(orgKey);
 }
 
 function renderMarketing(d) {
@@ -6327,7 +6430,8 @@ function openCierreSlides(){
   // lob se guarda porque _cierreGenerate() lo pisa por cada scope de CIERRE_ACTIVE_SCOPES
   // (para que pnlGroupLabel()/renderShare() rendericen cada tabla con el lob correcto, ya
   // que el botón vive en una pestaña distinta a los datos que arma) y hay que restaurarlo al cerrar.
-  _cierreSnap = { lob:_state.lob, goal:_state.goal, pnl:_state.pnl, evo:_state.evo };
+  _cierreSnap = { lob:_state.lob, goal:_state.goal, pnl:_state.pnl, evo:_state.evo, organic:_state.organic };
+  _state.organic = false;   // el deck se arma con datos nominales: sin organic (si no, YoY saldría "WIP")
   document.getElementById('cierre-overlay').style.display = 'flex';
 
   // Poblar el desplegable de mes; default = mes seleccionado (o último con actuals).
@@ -6628,6 +6732,7 @@ function closeCierreSlides(){
     var snap = _cierreSnap; _cierreSnap = null;
     _state.lob  = snap.lob;
     _state.goal = snap.goal;
+    _state.organic = snap.organic;
     var gb = document.getElementById('f-goal-bar'); if (gb) gb.value = snap.goal;
     var gt = document.getElementById('f-goal');     if (gt) gt.value = snap.goal;
     try { reload(); }

@@ -12,6 +12,14 @@ var JSON_IDS = {
   forecast: '1crqpRTyH14fqX9XdwBTVaKN5rPbE6O84',  // forecast.json
   ly:       '1zd5gnMFztKiCSgeY-VmsfVOr0LQ6ftGI'   // actuals_previos_fy26.json
 };
+// ── ORGANIC (prueba, solo Monthly Results B2B) ────────────────────────────
+// Tipos de cambio (moneda local por USD): tc_plana_flat.xlsx subido a Drive, columnas
+// escenario | año (FY: 2027 = abr-26…mar-27) | mes (Abr…Mar) | pais | dato.
+// ORGANIC = USD × TC Actuals(país, mes) / TC Target(país, mes), con Target = Budget o
+// Forecast (Run Rate / Last Year: no aplica). Países sin TC (Globales, OPS+RG, …) y
+// Orders quedan sin convertir; "Euro" se ignora. Fuente provisoria — ver readFxTable_.
+var FX_FILE_ID = '1SEh9vLWCbE6PslnUntUghhInonuLdYZ5';
+var ORGANIC_TARGETS_ = { budget: 'budget', forecast: 'forecast' };
 // Actualizar cuando se regenera baseline_actuals+projections.json
 // (+ bump de v: en makeCacheKey_ acá y en Codigo_country_page.js para invalidar el cache)
 // ── Año fiscal ─────────────────────────────────────────────────────────────
@@ -135,9 +143,10 @@ function _getJsonsLastMod_() {
   var cached = sc.get(_MOD_CACHE_KEY_);
   if (cached) return parseInt(cached);
   var mx = 0;
-  Object.keys(JSON_IDS).forEach(function(k) {
+  // + el xlsx de TC (organic): si cambia, también invalida
+  Object.keys(JSON_IDS).map(function(k) { return JSON_IDS[k]; }).concat([FX_FILE_ID]).forEach(function(id) {
     try {
-      var t = DriveApp.getFileById(JSON_IDS[k]).getLastUpdated().getTime();
+      var t = DriveApp.getFileById(id).getLastUpdated().getTime();
       if (t > mx) mx = t;
     } catch(e) {}
   });
@@ -154,7 +163,8 @@ function makeCacheKey_(p) {
     canal:    p.canal    || 'all',
     desde:    p.desde    || '',
     hasta:    p.hasta    || '',
-    bl:       p.baselineSource || 'baseline'
+    bl:       p.baselineSource || 'baseline',
+    org:      organicTargetOf_(p) || ''
   });
 }
 
@@ -214,7 +224,7 @@ function writeResultCache_(key, value) {
 function clearAllCache() {
   _jsonCache_ = {};   // resetea cache en memoria de esta instancia
   var sc = CacheService.getScriptCache();
-  sc.removeAll(['okr_json_v1', 'mkt_b2b_v4', _MOD_CACHE_KEY_]);  // fuerza re-check de mod times
+  sc.removeAll(['okr_json_v1', 'mkt_b2b_v4', 'mkt_b2b_v4_org_budget', 'mkt_b2b_v4_org_forecast', _MOD_CACHE_KEY_]);  // fuerza re-check de mod times
   Logger.log('Cache cleared: ' + new Date());
 }
 
@@ -246,6 +256,22 @@ function getAllData(params) {
   // actuals de meses cerrados + fc el resto). Todos los base*Map se arman de blRows.
   var blRows = (p.baselineSource === 'forecast') ? fcRows : baseRows;
 
+  // ORGANIC: se convierte SOLO el baseline (todos sus meses, reales y proyectados). Budget /
+  // RR / Forecast (goals) quedan en USD tal cual. El LY se vacía: YoY queda en WIP hasta
+  // definir cómo convertir el año anterior (si no, compararía organic contra USD nominal).
+  var organicInfo = null;
+  var orgTarget   = organicTargetOf_(p);
+  if (orgTarget) {
+    try {
+      var org = applyOrganic_(blRows, orgTarget);
+      blRows = org.rows;
+      lyRows = [];
+      organicInfo = { target: orgTarget, missing: org.missing };
+    } catch (e) {
+      organicInfo = { target: orgTarget, error: 'No se pudo leer el archivo de tipos de cambio: ' + e.message };
+    }
+  }
+
   // actMap = baseline (todo FY27 blended); blendedFromMaps_(baseMap, …) usa baseline completo
   var baseMap    = buildMap_(blRows);
   var rrMap      = buildMap_(rrRows);
@@ -273,11 +299,120 @@ function getAllData(params) {
     b2cEvo     : computeEvo_(b2cP, baseMap, rrMap, budMap, lyMap, fcMap),
     compPnl    : computeCompPnL_(p, baseMap, rrMap, budMap, lyMap, fcMap),
     ocConceptWf: computeOcConceptWf_(p, baseManMap, rrManMap, budManMap, lyManMap, fcManMap),
-    nrBridgeWf : computeNRBridgeWf_(p, baseNrN2,   rrNrN2,   budNrN2,   lyNrN2,   fcNrN2)
+    nrBridgeWf : computeNRBridgeWf_(p, baseNrN2,   rrNrN2,   budNrN2,   lyNrN2,   fcNrN2),
+    organic    : organicInfo
   };
 
-  writeResultCache_(key, result);
+  // Si falló la lectura del TC no se cachea: el próximo intento vuelve a probar
+  if (!(organicInfo && organicInfo.error)) writeResultCache_(key, result);
   return result;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  ORGANIC — tipos de cambio
+// ══════════════════════════════════════════════════════════════
+// Target organic efectivo de un request: solo B2B y solo Budget / Forecast. '' = sin organic.
+function organicTargetOf_(p) {
+  if (!p || p.lob !== 'b2b') return '';
+  return Object.prototype.hasOwnProperty.call(ORGANIC_TARGETS_, p.organic) ? ORGANIC_TARGETS_[p.organic] : '';
+}
+
+function _fxNorm_(s) {
+  return String(s || '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+
+var _FX_MES_ = { abr:4, may:5, jun:6, jul:7, ago:8, sep:9, sept:9, oct:10, nov:11, dic:12, ene:1, feb:2, mar:3 };
+
+// Lee tc_plana_flat.xlsx (xlsx = zip de XMLs) → { actuals:{'pais§ym':tc}, budget:{…}, forecast:{…} }.
+// Fuente provisoria: si después pasa al pipeline (fx.json en Drive), solo cambia esta función.
+var _fxCache_ = null;
+function readFxTable_() {
+  if (_fxCache_) return _fxCache_;
+  var blob  = DriveApp.getFileById(FX_FILE_ID).getBlob().setContentType('application/zip');
+  var parts = {};
+  Utilities.unzip(blob).forEach(function(b) { parts[b.getName()] = b; });
+  var sheetName = Object.keys(parts).filter(function(n) { return /^xl\/worksheets\/sheet\d+\.xml$/.test(n); }).sort()[0];
+  if (!sheetName) throw new Error('el xlsx no tiene hojas');
+
+  var shared = [];
+  if (parts['xl/sharedStrings.xml']) {
+    var sroot = XmlService.parse(parts['xl/sharedStrings.xml'].getDataAsString('UTF-8')).getRootElement();
+    var sns   = sroot.getNamespace();
+    sroot.getChildren('si', sns).forEach(function(si) {
+      // texto plano (<t>) o con formato (<r><t>…</t></r>)
+      var t = si.getChild('t', sns);
+      shared.push(t ? t.getText() : si.getChildren('r', sns).map(function(r) {
+        var rt = r.getChild('t', sns); return rt ? rt.getText() : '';
+      }).join(''));
+    });
+  }
+
+  var root = XmlService.parse(parts[sheetName].getDataAsString('UTF-8')).getRootElement();
+  var ns   = root.getNamespace();
+  var rows = root.getChild('sheetData', ns).getChildren('row', ns).map(function(row) {
+    var out = {};
+    row.getChildren('c', ns).forEach(function(c) {
+      var col = String(c.getAttribute('r').getValue()).replace(/\d+/g, '');
+      var t   = c.getAttribute('t') ? c.getAttribute('t').getValue() : '';
+      var v;
+      if (t === 'inlineStr') { var is = c.getChild('is', ns); v = is && is.getChild('t', ns) ? is.getChild('t', ns).getText() : ''; }
+      else { var ve = c.getChild('v', ns); v = ve ? ve.getText() : ''; if (t === 's') v = shared[parseInt(v, 10)]; }
+      out[col] = v;
+    });
+    return out;
+  });
+  if (!rows.length) throw new Error('el xlsx está vacío');
+
+  // Columnas por nombre de header (no por posición)
+  var hdr = {};
+  Object.keys(rows[0]).forEach(function(col) { hdr[_fxNorm_(rows[0][col])] = col; });
+  ['escenario', 'ano', 'mes', 'pais', 'dato'].forEach(function(h) {
+    if (!hdr[h]) throw new Error('falta la columna "' + h + '"');
+  });
+
+  var fx = { actuals: {}, budget: {}, forecast: {} };
+  rows.slice(1).forEach(function(r) {
+    var esc = _fxNorm_(r[hdr['escenario']]);
+    if (!fx[esc]) return;
+    var mm  = _FX_MES_[_fxNorm_(r[hdr['mes']])];
+    var fy  = parseInt(r[hdr['ano']], 10);
+    var tc  = parseFloat(r[hdr['dato']]);
+    var pai = _fxNorm_(r[hdr['pais']]);
+    if (!mm || !fy || !(tc > 0) || !pai || pai === 'euro') return;
+    var ym = (mm >= 4 ? fy - 1 : fy) + '-' + (mm < 10 ? '0' : '') + mm;   // FY → mes calendario
+    fx[esc][pai + '§' + ym] = tc;
+  });
+  ['actuals', 'budget', 'forecast'].forEach(function(k) {
+    if (!Object.keys(fx[k]).length) throw new Error('no hay tipos de cambio de "' + k + '" (revisar escenario / mes / dato)');
+  });
+  _fxCache_ = fx;
+  return fx;
+}
+
+// Convierte las filas B2B (salvo Orders) a USD organic. Devuelve filas nuevas (no muta las
+// originales: rows viene del cache de readJson_ y lo usan los goals). missing = país/mes de un
+// país con TC al que le falta el TC de Actuals o del target (esas filas quedan sin convertir).
+function applyOrganic_(rows, target) {
+  var fx = readFxTable_();
+  var act = fx.actuals, tgt = fx[target];
+  var paisesFx = {};
+  Object.keys(act).forEach(function(k) { paisesFx[k.split('§')[0]] = true; });
+  var missing = {};
+  var out = rows.map(function(r) {
+    if (String(r['lob'] || '').trim().toLowerCase() !== 'b2b') return r;
+    if (String(r['p&l n3'] || '').trim().toLowerCase() === 'orders') return r;
+    if (!r['fecha']) return r;
+    var pai = _fxNorm_(r['pais']);
+    if (!paisesFx[pai]) return r;                       // país sin TC → sin convertir
+    var d  = new Date(r['fecha']);
+    var ym = d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0');
+    var a = act[pai + '§' + ym], t = tgt[pai + '§' + ym];
+    if (!a || !t) { missing[pai + ' ' + ym + (a ? '' : ' (actuals)') + (t ? '' : ' (' + target + ')')] = true; return r; }
+    var c = Object.assign({}, r);
+    c['monto usd'] = (r['monto usd'] || 0) * a / t;
+    return c;
+  });
+  return { rows: out, missing: Object.keys(missing).sort() };
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -1336,16 +1471,20 @@ function computeMarketingData_(baselineN2, budN2, rrN2, fcN2, prevN2) {
   return { success:true, months:MKT_FY_MONTHS, byCountry:byCountry };
 }
 
-function getMarketingData() {
+// organic (opcional): 'budget' | 'forecast' → baseline convertido a USD organic (ver applyOrganic_).
+function getMarketingData(organic) {
   try {
+    var orgTarget = organicTargetOf_({ lob: 'b2b', organic: organic });
     var sc  = CacheService.getScriptCache();
     // v4: Chile/Peru/Ecuador sumados en un bloque. v3: agregó Run Rate/Forecast (selector Goal) —
     // bumpear esta clave cada vez que cambie MKT_COUNTRIES o la agregación,
     // si no la cache vieja (6h TTL) tapa el cambio.
-    var hit = sc.get('mkt_b2b_v4');
+    var ck  = 'mkt_b2b_v4' + (orgTarget ? '_org_' + orgTarget : '');
+    var hit = sc.get(ck);
     if (hit) { try { return JSON.parse(hit); } catch(e) {} }
 
     var baseRows = readJson_(JSON_IDS.baseline);
+    if (orgTarget) baseRows = applyOrganic_(baseRows, orgTarget).rows;
     var budRows  = readJson_(JSON_IDS.budget);
     var rrRows   = readJson_(JSON_IDS.runrate);
     var fcRows   = readJson_(JSON_IDS.forecast);
@@ -1357,7 +1496,8 @@ function getMarketingData() {
     var prevN2     = buildN2Map_(prevRows);
 
     var result = computeMarketingData_(baselineN2, budN2, rrN2, fcN2, prevN2);
-    try { sc.put('mkt_b2b_v4', JSON.stringify(result), RESULT_CACHE_MAX_S); } catch(e) {}
+    if (orgTarget) result.organic = { target: orgTarget };
+    try { sc.put(ck, JSON.stringify(result), RESULT_CACHE_MAX_S); } catch(e) {}
     return result;
   } catch(e) {
     return { success:false, error:e.message };
