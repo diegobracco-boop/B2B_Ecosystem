@@ -53,7 +53,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "Inputs_Planning
 import config as _planning_cfg
 _FY = _planning_cfg.CURRENT_FY                                  # 2027 = FY27 (abr-2026 → mar-2027)
 FY_MONTHS = [d[:7] for d in _planning_cfg.FISCAL_DATES]         # 'YYYY-MM', abr → mar
-# País correcto de partners B2B2C mal cargados en las proyecciones (CUTC, Bonda), compartido con el Daily
+# País correcto de partners B2B2C mal cargados en las proyecciones (CUTC), compartido con el Daily
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "Daily_Dashboard"))
 from pais_rules import apply_pais_overrides
 

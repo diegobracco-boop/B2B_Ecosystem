@@ -50,7 +50,7 @@ Las credenciales OAuth de Drive (`credentials_drive.json` + `token_drive.json`) 
 
 Cada fila B2B2C (`actuals`/`budget`/`runrate`) trae el campo `tier` (desde `raw.comdev_cartera_b2b2c_historic.estatus_tier`; actuals por `partner_id`, budget/runrate por partner × país en `daily_sync.py:_map_tier`, con fallback a nivel partner). El tab "Flow Semanal" de `dashboard.html` lo lee directo de los datos (filtro por Tier) — no depende de ningún archivo ni script aparte.
 
-País de partners B2B2C mal cargados en las proyecciones (budget / run rate / forecast): `pais_rules.py` (`PAIS_OVERRIDES`: CUTC → USA, Bonda → Argentina). Lo comparten `daily_sync.py` y `P&L_Managerial/` (actuals_gestional_upload.py, projections_gestional_builder.py); para corregir otro partner se toca solo ahí.
+País de partners B2B2C mal cargados en las proyecciones (budget / run rate / forecast): `pais_rules.py` (`PAIS_OVERRIDES`: CUTC → USA). Lo comparten `daily_sync.py` y `P&L_Managerial/` (actuals_gestional_upload.py, projections_gestional_builder.py); para corregir otro partner se toca solo ahí.
 
 Actuals B2B2C: solo partners de la cartera de ComDev (`AND di.partner_id IS NOT NULL` en `build_actuals_query`, mismo filtro en `P&L_Managerial/actuals_gestional_upload.py:build_b2b2c_query`). Afuera los `partner_data_id` sin cartera (AG…/AP…, KMV, demos; ~USD 8k NR FY27): el total queda apenas por debajo del P&L operativo de Metabase.
 

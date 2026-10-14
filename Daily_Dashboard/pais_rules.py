@@ -18,9 +18,9 @@ import pandas as pd
 # partner (normalizado: strip + lower) -> país correcto
 PAIS_OVERRIDES = {
     "cutc":  "USA",        # el plan lo carga en otro país; vende en USA
-    # Budget (marca Despegar) y Forecast (marca Best Day) la cargaron en Mexico por error;
-    # vende en Argentina (canal affiliate-bonda, cartera HISPA). Decisión de Gregorio 2026-10-14.
-    "bonda": "Argentina",
+    # Bonda NO va acá: el plan en Mexico (budget marca Despegar, forecast Best Day) es un supuesto
+    # válido aunque hoy venda en Argentina. Decisión de Gregorio 2026-10-14 (se probó pasarla a
+    # Argentina y se volvió atrás).
 }
 
 
