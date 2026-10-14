@@ -1630,6 +1630,23 @@ function getRegion_(pais) {
   if(pais === 'Mexico' || pais === 'USA') return 'NAM';
   return 'SAH';
 }
+// Mismo partner escrito distinto según la fuente (actuals vs budget/runrate/forecast): sin
+// unificar, el actual y el plan quedan en dos filas separadas. nombre tal cual viene -> nombre
+// único. Se aplica al cargar el JSON B2B2C (todas las vistas). Para sumar un caso, agregar acá.
+var PARTNER_ALIAS_ = {
+  'livelo-api-hoteles': 'Livelo-API-Hoteles',  // actuals en minúscula (CASE de daily_sync.py); plan con mayúsculas
+  // run rate / forecast con otras mayúsculas que actuals y budget (decisión de Gregorio 2026-10-14)
+  'Turismocity':        'TurismoCity',
+  'ELO':                'Elo',
+  'VISA':               'Visa',
+  'Itau card':          'Itau Card',
+  'Sicoob Acumulo':     'Sicoob'               // programa de Sicoob sin plan propio: se suma a Sicoob
+};
+function applyPartnerAlias_(raw){
+  ['actuals','actuals_ly','budget','runrate','forecast'].forEach(function(k){
+    (raw[k]||[]).forEach(function(r){ var a=PARTNER_ALIAS_[r.partner]; if(a) r.partner=a; });
+  });
+}
 function expandCompact_(c) {
   if (!c || !c.cols) return c;
   var cols = c.cols;
@@ -1874,7 +1891,7 @@ function computeKRs_(raw, vDate) {
   var kr2={act:0,bud:0,r:mkReg()},kr3={act:0,bud:0,r:mkReg()},kr4={act:0,bud:0,r:mkReg()};
   raw.actuals.forEach(function(r){
     if(r.fecha<mStart||r.fecha>vDate)return;
-    var at=r.partner==='livelo-api-hoteles'?'New':r.account_type;
+    var at=r.partner==='Livelo-API-Hoteles'?'New':r.account_type;
     var rg=getRegion_(r.pais), nr=r.net_revenues||0, fv=r.fvm||0;
     if(at==='New'){kr2.act+=nr;kr2.r[rg].act+=nr;}          // Hunting = new accounts
     else if(at==='Existing'){kr3.act+=nr;kr3.r[rg].act+=nr;} // Farming = existing accounts
@@ -2082,6 +2099,7 @@ window.onload = function() {
       raw.runrate  = expandCompact_(raw.runrate);
       raw.forecast = expandCompact_(raw.forecast);
       raw.unique_buyers_daily = expandCompact_(raw.unique_buyers_daily || {cols:[],rows:[]});
+      applyPartnerAlias_(raw);
       // Partner TBD = New partners / Hunting, aunque la cartera de ComDev no lo tenga.
       ['actuals','actuals_ly'].forEach(function(k){ (raw[k]||[]).forEach(function(r){ if(isTBDPartner_(r.partner)) r.account_type='New'; }); });
       ['budget','runrate','forecast'].forEach(function(k){ (raw[k]||[]).forEach(function(r){ if(isTBDPartner_(r.partner)){ r.stage='New'; _tbdPartnerNames[r.partner]=1; } }); });
