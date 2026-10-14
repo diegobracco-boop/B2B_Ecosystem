@@ -107,8 +107,6 @@ header{
 .org-toggle.disabled{opacity:.45;pointer-events:none}
 .org-note{font-size:10px;line-height:1.3;color:rgba(255,255,255,.6);margin-top:4px}
 .org-note.err{color:#FCA5A5}
-.wip-tag{display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;
-  letter-spacing:.04em;color:#92400E;background:#FEF3C7;border:1px dashed #F59E0B}
 .baseline-badge{
   background:rgba(167,139,250,.2);border:1px solid rgba(167,139,250,.4);
   border-radius:6px;color:#C4B5FD;padding:5px 12px;font-size:12px;
@@ -2021,7 +2019,7 @@ var _state = {
   canal:           'all',
   goal:            'budget',
   baselineSource:  'baseline',  // 'baseline' (Actuals + Projections) | 'forecast' (forecast.json entero)
-  organic:         false,       // switch ORGANIC (solo B2B; efectivo solo con Goal Budget/Forecast)
+  organic:         false,       // switch ORGANIC (B2B, B2B2C, B2B+B2B2C; no aplica con Goal Run Rate)
   evoMetric:       'gb',
   evoGranularity:  'M',   // 'M' | 'Q' | 'H' | 'Y'
   evoShowLY:       false, // incluir serie "Last Year" en el gráfico de evolución
@@ -2634,21 +2632,22 @@ function getParams() {
 }
 
 // ── ORGANIC ──────────────────────────────────────────────────
-// Target efectivo: 'budget' | 'forecast' si el switch está en YES en B2B / B2B2C / B2B+B2B2C;
-// '' en cualquier otro caso (Run Rate / Last Year no tienen TC → organic deshabilitado).
+// Target efectivo: 'budget' | 'forecast' | 'lastYear' si el switch está en YES en B2B / B2B2C /
+// B2B+B2B2C; '' en cualquier otro caso (Run Rate no tiene TC → organic deshabilitado).
+// Los YoY con Goal Budget/Forecast vienen del backend a TC Actuals LY (opción B).
 var ORGANIC_LOBS_ = ['b2b', 'b2b2c', 'all'];
 function _orgLob_() { return ORGANIC_LOBS_.indexOf(_state.lob) >= 0; }
 function _organicTarget_() {
   if (!_orgLob_() || !_state.organic) return '';
-  return (_state.goal === 'budget' || _state.goal === 'forecast') ? _state.goal : '';
+  return (_state.goal === 'budget' || _state.goal === 'forecast' || _state.goal === 'lastYear') ? _state.goal : '';
+}
+function _orgTargetLabel_() {
+  var t = _organicTarget_();
+  return t === 'forecast' ? 'Forecast' : t === 'lastYear' ? 'Actuals LY' : 'Budget';
 }
 function _orgOn_() { return !!_organicTarget_(); }
 var _orgError_ = '';
 var _orgMissing_ = [];
-// YoY / crecimientos: en organic quedan en WIP (el LY todavía no se convierte)
-function _yoyCell_(v, renderer) {
-  return _orgOn_() ? '<span class="wip-tag" title="Organic: YoY en construcción">WIP</span>' : renderer(v);
-}
 function setOrganic(on) {
   _state.organic = !!on;
   _orgError_ = '';
@@ -2660,7 +2659,7 @@ function _syncOrganicUI_() {
   var fg = document.getElementById('organic-fg');
   if (!fg) return;
   fg.style.display = _orgLob_() ? '' : 'none';
-  var goalOk = (_state.goal === 'budget' || _state.goal === 'forecast');
+  var goalOk = (_state.goal !== 'runRate');
   var tog = document.getElementById('org-toggle');
   tog.classList.toggle('disabled', !goalOk);
   tog.querySelectorAll('button').forEach(function(b) {
@@ -2671,9 +2670,10 @@ function _syncOrganicUI_() {
   if (_orgError_) {
     note.textContent = _orgError_;
   } else if (!goalOk) {
-    note.textContent = 'No disponible con Goal ' + (_state.goal === 'lastYear' ? 'Last Year' : 'Run Rate');
+    note.textContent = 'No disponible con Goal Run Rate';
   } else if (_state.organic) {
-    note.textContent = 'Actuals × TC Actuals / TC ' + (_state.goal === 'forecast' ? 'Forecast' : 'Budget') + ' · YoY: WIP';
+    note.textContent = 'Actuals × TC Actuals / TC ' + _orgTargetLabel_() +
+      (_state.goal === 'lastYear' ? '' : ' · YoY a TC Actuals LY');
     if (_orgMissing_.length) note.textContent += ' · sin TC: ' + _orgMissing_.slice(0, 5).join(', ') + (_orgMissing_.length > 5 ? ' …' : '');
   } else {
     note.textContent = '';
@@ -3034,7 +3034,7 @@ function renderCompPnL() {
     html += '</tr>';
 
     html += '<tr class="row-sub"><td class="row-sub-label">YoY %</td>';
-    row.cols.forEach(function(col) { html += '<td>' + _yoyCell_(col.yoyPct, chipTxt) + '</td>'; });
+    row.cols.forEach(function(col) { html += '<td>' + chipTxt(col.yoyPct) + '</td>'; });
     html += '</tr>';
 
     // Con comparador = Last Year, "Δ vs Last Year (%)" es idéntico a YoY %: no se repite la fila.
@@ -3079,7 +3079,7 @@ function _renderDataStamp_() {
   var parts = [];
   if (f.lastActuals) parts.push('Actuals hasta ' + _ymShort_(f.lastActuals));
   if (f.lastRunRate) parts.push('Run Rate desde ' + _ymShort_(f.lastRunRate));
-  if (_orgOn_()) parts.push('ORGANIC (TC ' + (_organicTarget_() === 'forecast' ? 'Forecast' : 'Budget') + ')');
+  if (_orgOn_()) parts.push('ORGANIC (TC ' + _orgTargetLabel_() + ')');
   parts.push('Cargado ' + loaded);
   el.textContent = parts.join(' · ');
   el.title = 'Datos reales hasta el último mes cerrado; los meses siguientes son Run Rate. "Cargado" es la hora en que se bajaron los datos a esta pantalla.';
@@ -3193,7 +3193,7 @@ function renderPnL() {
 
     // YoY
     html += '<tr class="row-sub"><td class="row-sub-label">YoY %</td>';
-    row.cols.forEach(function(col){ html += '<td>'+_yoyCell_(col.yoyPct, chipTxt)+'</td>'; });
+    row.cols.forEach(function(col){ html += '<td>'+chipTxt(col.yoyPct)+'</td>'; });
     html += '</tr>';
 
     // vs Goal $
@@ -3561,7 +3561,7 @@ function renderWf() {
       { label: goalLabel,        vals: gVals,   renderer: function(v){ return wfFmt(v); } },
       { label: 'Δ vs '+goalLabel,vals: dVals,   renderer: function(v){ return chipAbs(v, m.id==='orders' ? 'K' : 'M'); } },
       { label: 'Δ %',            vals: pctVals, renderer: chip },
-      { label: 'Baseline YoY %', vals: yoyVals, renderer: function(v){ return _yoyCell_(v, chipTxt); } }
+      { label: 'Baseline YoY %', vals: yoyVals, renderer: chipTxt }
     ];
     var tb = '<tbody>'+rows2.map(function(r){
       return '<tr><td>'+r.label+'</td>'+r.vals.map(function(val){
@@ -3823,16 +3823,17 @@ function _transposeBreakdown(byCountryProd) {
   var prodLabels = countries[0].prods.map(function(p){ return p.label; });
   var result = prodLabels.map(function(prodLabel, pi) {
     var ctryRows = countries.map(function(c){
-      return { label: c.label, bl: c.prods[pi].bl, bu: c.prods[pi].bu, yy: c.prods[pi].yy };
+      return { label: c.label, bl: c.prods[pi].bl, bu: c.prods[pi].bu, yy: c.prods[pi].yy, blY: c.prods[pi].blY };
     });
     var blSum = grandTotal ? grandTotal.prods[pi].bl : ctryRows.reduce(function(s,r){ return s+r.bl; }, 0);
     var buSum = grandTotal ? grandTotal.prods[pi].bu : ctryRows.reduce(function(s,r){ return s+r.bu; }, 0);
     var yySum = grandTotal ? grandTotal.prods[pi].yy : ctryRows.reduce(function(s,r){ return s+r.yy; }, 0);
-    return { label: prodLabel, bl: blSum, bu: buSum, yy: yySum, prods: ctryRows };
+    var blYSum = grandTotal ? grandTotal.prods[pi].blY : undefined;
+    return { label: prodLabel, bl: blSum, bu: buSum, yy: yySum, blY: blYSum, prods: ctryRows };
   });
   if (grandTotal) {
-    var ctryTotals = countries.map(function(c){ return { label: c.label, bl: c.bl, bu: c.bu, yy: c.yy }; });
-    result.push({ label: 'Total', bl: grandTotal.bl, bu: grandTotal.bu, yy: grandTotal.yy, prods: ctryTotals });
+    var ctryTotals = countries.map(function(c){ return { label: c.label, bl: c.bl, bu: c.bu, yy: c.yy, blY: c.blY }; });
+    result.push({ label: 'Total', bl: grandTotal.bl, bu: grandTotal.bu, yy: grandTotal.yy, blY: grandTotal.blY, prods: ctryTotals });
   }
   return result;
 }
@@ -3882,25 +3883,27 @@ function renderBreakdownTable(data, el, view) {
 
     // Fila total del país
     var dA = c.bl - c.bu;
-    var yP = c.yy ? (c.bl - c.yy) / Math.abs(c.yy) * 100 : null;
+    var cBlY = (c.blY !== undefined) ? c.blY : c.bl;   // organic: baseline a TC Actuals LY
+    var yP = c.yy ? (cBlY - c.yy) / Math.abs(c.yy) * 100 : null;
     html += '<tr class="bkd-total-row'+(isGrand?' bkd-grand-total':'')+'" style="'+borderTop+'">';
     html += '<td class="bkd-country-cell" rowspan="'+rowspan+'">'+pnlGroupLabel(c.label)+'</td>';
     html += '<td class="bkd-prod-lbl"><strong>Total</strong></td>';
     html += '<td>'+fmtMain(c.bl,'M')+'</td>';
     html += '<td>'+chipAbs(dA,'M')+'</td>';
     html += '<td>'+_alcance(c.bl,c.bu)+'</td>';
-    html += '<td>'+_yoyCell_(yP, chip)+'</td></tr>';
+    html += '<td>'+chip(yP)+'</td></tr>';
 
     // Filas por producto
     c.prods.forEach(function(pd) {
       var dAp = pd.bl - pd.bu;
-      var yPp = pd.yy ? (pd.bl - pd.yy) / Math.abs(pd.yy) * 100 : null;
+      var pBlY = (pd.blY !== undefined) ? pd.blY : pd.bl;
+      var yPp = pd.yy ? (pBlY - pd.yy) / Math.abs(pd.yy) * 100 : null;
       html += '<tr class="bkd-prod-row">';
       html += '<td class="bkd-prod-lbl">'+pd.label+'</td>';
       html += '<td>'+fmtMain(pd.bl,'M')+'</td>';
       html += '<td>'+chipAbs(dAp,'M')+'</td>';
       html += '<td>'+_alcance(pd.bl,pd.bu)+'</td>';
-      html += '<td>'+_yoyCell_(yPp, chip)+'</td></tr>';
+      html += '<td>'+chip(yPp)+'</td></tr>';
     });
   });
   html += '</tbody>';
@@ -4085,7 +4088,7 @@ function _evoChartCfg_(d, metricId, opts) {
       });
     }
   }
-  if (_state.evoShowLY && _state.goal!=='lastYear' && !_orgOn_()) {
+  if (_state.evoShowLY && _state.goal!=='lastYear') {
     datasets.push({
       label: 'Last Year', data: grps.map(function(g){ return g.lyAct; }),
       type:'line', yAxisID:'y',
@@ -4121,7 +4124,7 @@ function _evoChartCfg_(d, metricId, opts) {
     if (opts.dualPctGb) {
       var _isNum = function(v){ return v!==null && v!==undefined && !isNaN(v); };
       var _barVals = mainData.concat(goalPlot);
-      if (_state.evoShowLY && _state.goal!=='lastYear' && !_orgOn_()) _barVals = _barVals.concat(grps.map(function(g){ return g.lyAct; }));
+      if (_state.evoShowLY && _state.goal!=='lastYear') _barVals = _barVals.concat(grps.map(function(g){ return g.lyAct; }));
       _barVals = _barVals.filter(_isNum);
       if (_barVals.length) {
         var _bmax = Math.max.apply(null,_barVals);
@@ -4292,6 +4295,14 @@ function renderEvo() {
   // Helper: render one YoY row from monthly arrays { actuals, runRate, budget, lyAct }.
   // Para OC y NR, cada celda muestra 2 líneas: nominal/%GB, y debajo YoY nominal / Δpp del %GB
   // (gbData = mismas 4 series pero de Gross Bookings, para armar el ratio).
+  // Valor para el YoY: en organic con Goal Budget/Forecast, la serie a TC Actuals LY (actualsYoY /
+  // runRateYoY, opción B); si no viene, el mismo valor que se muestra.
+  function _yoyVal_(data, i, val) {
+    if (!data.actualsYoY) return val;
+    if (data.actuals[i] !== null && data.actuals[i] !== undefined) return data.actualsYoY[i];
+    if (data.runRateYoY && data.runRate[i] !== null && data.runRate[i] !== undefined) return data.runRateYoY[i];
+    return val;
+  }
   function _yoyRow_(label, mData, bold, gbData) {
     var style = bold ? 'font-weight:700;border-top:2px solid var(--border)' : '';
     var row = '<tr style="'+style+'"><td>'+label+'</td>';
@@ -4299,18 +4310,21 @@ function renderEvo() {
     ctryPeriods.forEach(function(ym, i) {
       var p    = _pickVal_(mData, i);
       var val  = p.val, tag = p.tag, ly = mData.lyAct[i];
-      var yoy  = (val!==null&&val!==0&&ly!==null&&ly!==0) ? (val-ly)/Math.abs(ly)*100 : null;
+      var valY = _yoyVal_(mData, i, val);
+      var yoy  = (valY!==null&&valY!==0&&ly!==null&&ly!==0) ? (valY-ly)/Math.abs(ly)*100 : null;
 
       if (showRatio) {
         var gp    = _pickVal_(gbData, i);
         var gbVal = gp.val, gbLy = gbData.lyAct[i];
         var ratio   = (val!==null && gbVal) ? val/Math.abs(gbVal)*100 : null;
         var lyRatio = (ly!==null  && gbLy)  ? ly/Math.abs(gbLy)*100   : null;
-        var deltaPp = (ratio!==null && lyRatio!==null) ? ratio-lyRatio : null;
+        var gbValY  = _yoyVal_(gbData, i, gbVal);
+        var ratioY  = (valY!==null && gbValY) ? valY/Math.abs(gbValY)*100 : null;
+        var deltaPp = (ratioY!==null && lyRatio!==null) ? ratioY-lyRatio : null;
 
         var line1 = (val!==null?fmtK(val):'—') + ' / ' + (ratio!==null?ratio.toFixed(1)+'%':'—');
-        var yoyTxt   = _orgOn_() ? 'WIP' : yoy!==null ? ((yoy>=0?'+':'')+Math.round(yoy)+'%') : '—';
-        var ppTxt    = _orgOn_() ? 'WIP' : deltaPp!==null ? ((deltaPp>=0?'+':'')+deltaPp.toFixed(1)+'pp') : '—';
+        var yoyTxt   = yoy!==null ? ((yoy>=0?'+':'')+Math.round(yoy)+'%') : '—';
+        var ppTxt    = deltaPp!==null ? ((deltaPp>=0?'+':'')+deltaPp.toFixed(1)+'pp') : '—';
         // Cada número con su propio color según su propio signo — el % puede ser
         // positivo mientras el pp (participación sobre GB) cae, y viceversa; no tiene
         // sentido pintar el pp del color del %.
@@ -4322,7 +4336,7 @@ function renderEvo() {
           (tag?'<span style="color:rgba(139,92,246,.85);font-size:8px;display:block;line-height:1">'+tag+'</span>':'')+
           '</td>';
       } else {
-        var txt   = _orgOn_() ? 'WIP' : yoy!==null ? ((yoy>=0?'▲ +':'▼ ')+Math.round(yoy)+'%') : '—';
+        var txt   = yoy!==null ? ((yoy>=0?'▲ +':'▼ ')+Math.round(yoy)+'%') : '—';
         var color = yoy!==null ? (yoy>=0?'var(--green)':'var(--red)') : 'var(--muted2)';
         row += '<td style="color:'+color+'">'+txt+
           (tag?'<span style="color:rgba(139,92,246,.85);font-size:8px;display:block;line-height:1">'+tag+'</span>':'')+
@@ -4336,8 +4350,10 @@ function renderEvo() {
   var gbM = d.metrics.filter(function(x){ return x.id==='gb'; })[0];
   function _buildTotalMData_(metric) {
     var out = { actuals:[], runRate:[], budget:[], lyAct:[] };
+    if (metric && metric.actualsYoY) out.actualsYoY = [];
     ctryPeriods.forEach(function(ym) {
       var pi = evoPeriods.indexOf(ym);
+      if (out.actualsYoY) out.actualsYoY.push(pi >= 0 ? metric.actualsYoY[pi] : null);
       out.actuals.push(pi >= 0 && metric && metric.actuals  ? metric.actuals[pi]  : null);
       out.runRate.push(pi >= 0 && metric && metric.runRate  ? metric.runRate[pi]  : null);
       out.budget.push (pi >= 0 && metric && metric.budget   ? metric.budget[pi]   : null);
@@ -4452,7 +4468,7 @@ function renderDrilldown() {
       return (m.lastYear[idx] !== undefined) ? m.lastYear[idx] : null;
     });
     var hasLY = lyArr.some(function(v){ return v !== null; });
-    if (!hasLY || _orgOn_()) lyArr = null;   // organic: LY en WIP
+    if (!hasLY) lyArr = null;
 
     // B2C series from _state.b2cEvo
     var b2cEvo = _state.b2cEvo;
@@ -6439,7 +6455,7 @@ function openCierreSlides(){
   // (para que pnlGroupLabel()/renderShare() rendericen cada tabla con el lob correcto, ya
   // que el botón vive en una pestaña distinta a los datos que arma) y hay que restaurarlo al cerrar.
   _cierreSnap = { lob:_state.lob, goal:_state.goal, pnl:_state.pnl, evo:_state.evo, organic:_state.organic };
-  _state.organic = false;   // el deck se arma con datos nominales: sin organic (si no, YoY saldría "WIP")
+  _state.organic = false;   // el deck se arma siempre con datos nominales (sin organic)
   document.getElementById('cierre-overlay').style.display = 'flex';
 
   // Poblar el desplegable de mes; default = mes seleccionado (o último con actuals).

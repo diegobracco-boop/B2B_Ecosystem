@@ -15,11 +15,12 @@ var JSON_IDS = {
 // ── ORGANIC (prueba: Monthly Results B2B, B2B2C y B2B+B2B2C) ──────────────
 // Tipos de cambio (moneda local por USD): tc_plana_flat.xlsx subido a Drive, columnas
 // escenario | año (FY: 2027 = abr-26…mar-27) | mes (Abr…Mar) | pais | dato.
-// ORGANIC = USD × TC Actuals(país, mes) / TC Target(país, mes), con Target = Budget o
-// Forecast (Run Rate / Last Year: no aplica). OPS+RG usa el TC de Brasil. Países sin TC (Globales, …) y
+// ORGANIC = USD × TC Actuals(país, mes) / TC Target(país, mes). Target según el Goal:
+// Budget → TC Budget, Forecast → TC Forecast, Last Year → TC Actuals del mismo mes del año
+// anterior (Run Rate: no aplica). YoY ("opción B"): siempre a TC Actuals LY, sea cual sea el Goal. OPS+RG usa el TC de Brasil. Países sin TC (Globales, …) y
 // Orders quedan sin convertir; "Euro" se ignora. Fuente provisoria — ver readFxTable_.
 var FX_FILE_ID = '1SEh9vLWCbE6PslnUntUghhInonuLdYZ5';
-var ORGANIC_TARGETS_ = { budget: 'budget', forecast: 'forecast' };
+var ORGANIC_TARGETS_ = { budget: 'budget', forecast: 'forecast', lastYear: 'ly' };
 // Actualizar cuando se regenera baseline_actuals+projections.json
 // (+ bump de v: en makeCacheKey_ acá y en Codigo_country_page.js para invalidar el cache)
 // ── Año fiscal ─────────────────────────────────────────────────────────────
@@ -156,7 +157,7 @@ function _getJsonsLastMod_() {
 
 function makeCacheKey_(p) {
   return JSON.stringify({
-    v:        31,   // 31: ORGANIC también en B2B2C y B2B+B2B2C. 30: alias OPS+RG→Brasil
+    v:        32,   // 32: ORGANIC vs Last Year + YoY organic. 31: B2B2C y B2B+B2B2C. 30: alias OPS+RG→Brasil
     lob:      p.lob      || 'all',
     pais:     p.pais     || 'all',
     producto: p.producto || 'all',
@@ -257,16 +258,24 @@ function getAllData(params) {
   var blRows = (p.baselineSource === 'forecast') ? fcRows : baseRows;
 
   // ORGANIC: se convierte SOLO el baseline (todos sus meses, reales y proyectados). Budget /
-  // RR / Forecast (goals) quedan en USD tal cual. El LY se vacía: YoY queda en WIP hasta
-  // definir cómo convertir el año anterior (si no, compararía organic contra USD nominal).
+  // RR / Forecast (goals) y el LY quedan en USD tal cual (el LY ya está a sus propias tasas).
+  // Con Goal Budget/Forecast los YoY salen de una 2ª versión del baseline a TC Actuals LY
+  // (opción B, ver graftOrganicYoY_); con Goal Last Year el target ya es ese TC.
   var organicInfo = null;
+  var orgYoYRows  = null;
   var orgTarget   = organicTargetOf_(p);
   if (orgTarget) {
     try {
       var org = applyOrganic_(blRows, orgTarget);
+      var missing = org.missing;
+      if (orgTarget !== 'ly') {
+        var orgY = applyOrganic_(blRows, 'ly');
+        orgYoYRows = orgY.rows;
+        // TC LY faltante → esas filas del YoY quedan sin convertir: también se avisa
+        orgY.missing.forEach(function(k) { if (missing.indexOf(k) < 0) missing.push(k); });
+      }
       blRows = org.rows;
-      lyRows = [];
-      organicInfo = { target: orgTarget, missing: org.missing };
+      organicInfo = { target: orgTarget, missing: missing };
     } catch (e) {
       organicInfo = { target: orgTarget, error: 'No se pudo leer el archivo de tipos de cambio: ' + e.message };
     }
@@ -303,6 +312,16 @@ function getAllData(params) {
     organic    : organicInfo
   };
 
+  if (orgYoYRows) {
+    var yMap = buildMap_(orgYoYRows);
+    graftOrganicYoY_(result, {
+      pnl    : computePnL_(p,     yMap, rrMap, budMap, lyMap, fcMap),
+      compPnl: computeCompPnL_(p, yMap, rrMap, budMap, lyMap, fcMap),
+      wf     : computeWf_(p,      yMap, rrMap, budMap, lyMap, fcMap),
+      evo    : computeEvo_(p,     yMap, rrMap, budMap, lyMap, fcMap)
+    });
+  }
+
   // Si falló la lectura del TC no se cachea: el próximo intento vuelve a probar
   if (!(organicInfo && organicInfo.error)) writeResultCache_(key, result);
   return result;
@@ -311,7 +330,8 @@ function getAllData(params) {
 // ══════════════════════════════════════════════════════════════
 //  ORGANIC — tipos de cambio
 // ══════════════════════════════════════════════════════════════
-// Target organic efectivo de un request: B2B, B2B2C o B2B+B2B2C ('all') y solo Budget / Forecast.
+// Target organic efectivo de un request: B2B, B2B2C o B2B+B2B2C ('all') con Goal Budget / Forecast /
+// Last Year ('ly').
 // '' = sin organic.
 var ORGANIC_LOBS_ = { b2b: true, b2b2c: true, all: true };
 function organicTargetOf_(p) {
@@ -394,12 +414,13 @@ function readFxTable_() {
   return fx;
 }
 
-// Convierte las filas B2B y B2B2C (salvo Orders; B2C nunca) a USD organic. Devuelve filas nuevas (no muta las
+// Convierte las filas B2B y B2B2C (salvo Orders; B2C nunca) a USD organic.
+// target: 'budget' | 'forecast' | 'ly' (= TC Actuals del mismo mes del año anterior). Devuelve filas nuevas (no muta las
 // originales: rows viene del cache de readJson_ y lo usan los goals). missing = país/mes de un
 // país con TC al que le falta el TC de Actuals o del target (esas filas quedan sin convertir).
 function applyOrganic_(rows, target) {
   var fx = readFxTable_();
-  var act = fx.actuals, tgt = fx[target];
+  var act = fx.actuals, tgt = (target === 'ly') ? null : fx[target];
   var paisesFx = {};
   Object.keys(act).forEach(function(k) { paisesFx[k.split('§')[0]] = true; });
   var missing = {};
@@ -413,13 +434,48 @@ function applyOrganic_(rows, target) {
     if (!paisesFx[pai]) return r;                       // país sin TC → sin convertir
     var d  = new Date(r['fecha']);
     var ym = d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0');
-    var a = act[pai + '§' + ym], t = tgt[pai + '§' + ym];
-    if (!a || !t) { missing[pai + ' ' + ym + (a ? '' : ' (actuals)') + (t ? '' : ' (' + target + ')')] = true; return r; }
+    var a = act[pai + '§' + ym];
+    var t = tgt ? tgt[pai + '§' + ym] : act[pai + '§' + shiftYear_(ym, -1)];
+    if (!a || !t) { missing[pai + ' ' + ym + (a ? '' : ' (actuals)') + (t ? '' : ' (' + (target === 'ly' ? 'actuals LY' : target) + ')')] = true; return r; }
     var c = Object.assign({}, r);
     c['monto usd'] = (r['monto usd'] || 0) * a / t;
     return c;
   });
   return { rows: out, missing: Object.keys(missing).sort() };
+}
+
+// Opción B: con Goal Budget/Forecast los YoY se calculan con el baseline a TC Actuals LY (y),
+// mientras los montos que se muestran siguen a TC del target (res). Mismo p → mismas filas,
+// columnas, grupos y períodos en res e y, así que se alinean por índice.
+function graftOrganicYoY_(res, y) {
+  ['pnl', 'compPnl'].forEach(function(k) {
+    if (!res[k] || !y[k] || !res[k].rows) return;
+    res[k].rows.forEach(function(row, i) {
+      row.cols.forEach(function(c, j) { c.yoyPct = y[k].rows[i].cols[j].yoyPct; });
+    });
+  });
+  if (res.wf && y.wf) res.wf.metrics.forEach(function(m, i) {
+    var my = y.wf.metrics[i];
+    m.totalYoY = my.totalYoY;
+    m.byGroup.forEach(function(g, j) { g.baseYoY = my.byGroup[j].baseYoY; });
+    // breakdown: el front calcula el YoY → baseline a TC LY en blY
+    m.byCountryProd.forEach(function(c, j) {
+      var cy = my.byCountryProd[j];
+      c.blY = cy.bl;
+      c.prods.forEach(function(pd, k) { pd.blY = cy.prods[k].bl; });
+    });
+  });
+  if (res.evo && y.evo) {
+    // tabla "YoY por País": el front calcula el YoY → series a TC LY en actualsYoY / runRateYoY
+    res.evo.metrics.forEach(function(m, i) { m.actualsYoY = y.evo.metrics[i].actuals; });
+    (res.evo.byCountry || []).forEach(function(c, i) {
+      Object.keys(c.metrics).forEach(function(id) {
+        var my = y.evo.byCountry[i].metrics[id];
+        c.metrics[id].actualsYoY = my.actuals;
+        c.metrics[id].runRateYoY = my.runRate;
+      });
+    });
+  }
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -1478,7 +1534,7 @@ function computeMarketingData_(baselineN2, budN2, rrN2, fcN2, prevN2) {
   return { success:true, months:MKT_FY_MONTHS, byCountry:byCountry };
 }
 
-// organic (opcional): 'budget' | 'forecast' → baseline convertido a USD organic (ver applyOrganic_).
+// organic (opcional): 'budget' | 'forecast' | 'lastYear' → baseline convertido a USD organic (ver applyOrganic_).
 function getMarketingData(organic) {
   try {
     var orgTarget = organicTargetOf_({ lob: 'b2b', organic: organic });
