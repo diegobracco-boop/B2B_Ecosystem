@@ -4316,7 +4316,10 @@ function flowMonthly_(subRaw, metricKey, compKey, vDate){
   if(compKey==='ly'){ cmpArr.forEach(function(r){var m=(+r.fecha.substring(0,4)+1)+r.fecha.substring(4,7);bM[m]=(bM[m]||0)+(r[cmpF]||0);}); }
   else { cmpArr.forEach(function(r){ if(vDate&&r.fecha>vDate)return; var m=r.fecha.substring(0,7);bM[m]=(bM[m]||0)+(r[cmpF]||0);}); }
   var keys={}; Object.keys(mM).forEach(function(k){keys[k]=1;}); Object.keys(bM).forEach(function(k){keys[k]=1;});
-  return Object.keys(keys).sort().map(function(m){ return {date:m+'-01', v:Math.round((mM[m]||0)*100)/100, bud:Math.round((bM[m]||0)*100)/100, ly:0, projected:false}; });
+  // Solo el año fiscal del mes que se mira (abr → mar): los actuals del JSON arrancan en enero,
+  // y ene–mar son del FY anterior. También acota el acumulado de flowH1_.
+  var vd=vDate||flowVDate_(), vy=+vd.substring(0,4), fyStart=(+vd.substring(5,7)>=4?vy:vy-1)+'-04';
+  return Object.keys(keys).filter(function(m){ return m>=fyStart; }).sort().map(function(m){ return {date:m+'-01', v:Math.round((mM[m]||0)*100)/100, bud:Math.round((bM[m]||0)*100)/100, ly:0, projected:false}; });
 }
 function flowH1_(monthly){ var b=0,g=0; monthly.forEach(function(m){b+=m.v;g+=m.bud;}); return {base:b,goal:g}; }
 
