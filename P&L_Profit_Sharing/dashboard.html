@@ -133,14 +133,33 @@ function sumBy(rows, keyFn){
 // Derivadas para presentar el P&L (identidades verificadas en profit_sharing_sync.py / .sql):
 //   white_labels_api = revenue_sharing_base − 55% FVM_Base  →  base = white_labels_api + profit_share
 //   FVM_Base = NR + costos + channel_expenses + base ;  FVM_Base = profit_share (55%) + fvm (45%)
+// P&L BCH (estructura de Banco de Chile, definida por Diego 2026-10-13):
+//   NR BCH            = Net Revenue SIN commercial discounts (van abajo como "Descuentos paridad")
+//   Costos F+V+Off    = todos los costos salvo Errors y COI: CCP, marketing, OTT, claims, customer service,
+//                       loyalty, channel expenses (leases + comisiones vendedores), intercompany, FX, hedge,
+//                       efecto financiero y revenue sharing (otros)
+//   Atención preferencial = Errors · Financiación = COI real + COI imputado
+//   GP neto de investment = GP previo + paridad + financiación + dólares premio + tácticos  (== FVM Base)
+var BCH_FVO = ['credit_card_processing','mkt_usd','other_transactional_taxes','customer_claims','customer_service',
+               'loyalty_usd','channel_expenses','intercompany_usd','dif_fx','currency_hedge','efecto_financiero','wl_base'];
+var DERIVED = ['wl_base','ps_neg','bch_nr','bch_fvo','bch_err','bch_gp_pre','bch_paridad','bch_fin','bch_premio','bch_tacticos','bch_gp_net'];
 function derive(o){
   o.wl_base = (o.white_labels_api||0) + (o.profit_share_a_pagar||0);
   o.ps_neg  = -(o.profit_share_a_pagar||0);
+  o.bch_nr      = (o.net_revenues||0) - (o.commercial_discounts||0);
+  o.bch_fvo     = BCH_FVO.reduce(function(a, k){ return a + (o[k]||0); }, 0);
+  o.bch_err     = o.errors || 0;
+  o.bch_gp_pre  = o.bch_nr + o.bch_fvo + o.bch_err;
+  o.bch_paridad = o.commercial_discounts || 0;
+  o.bch_fin     = (o.cost_of_installments||0) + (o.coi_imputado||0);
+  o.bch_premio  = 0;   // Inversión dólares premio: de momento cero
+  o.bch_tacticos = 0;  // Descuentos tácticos (cupones): mapeo pendiente de definir
+  o.bch_gp_net  = o.bch_gp_pre + o.bch_paridad + o.bch_fin + o.bch_premio + o.bch_tacticos;
   return o;
 }
 function total(objs){
   var t = {};
-  objs.forEach(function(o){ D.metrics.concat(['wl_base','ps_neg']).forEach(function(m){ t[m] = (t[m]||0) + (o[m]||0); }); });
+  objs.forEach(function(o){ D.metrics.concat(DERIVED).forEach(function(m){ t[m] = (t[m]||0) + (o[m]||0); }); });
   return t;
 }
 function periodRows(rows){ return PERIOD === 'all' ? rows : rows.filter(function(r){ return r[IDX.mes] === PERIOD; }); }
@@ -190,7 +209,34 @@ var PL = [
 var PL_STRUCT = 'd1';
 var PL_STRUCTS = {
   d1:  { label:'P&L Despegar', rows: PL },
-  bch: { label:'P&L BCH', rows: null }   // estructura a definir por Diego (pendiente)
+  bch: { label:'P&L BCH', rows: [
+    { k:'orders', label:'Orders', count:true },
+    { k:'gross_bookings', label:'Gross Bookings', cls:'sub' },
+    { k:'bch_nr', label:'Net Revenues', cls:'sub' },
+    { k:'bch_fvo', label:'Costos F+V+Off' },
+    { k:'channel_expenses', label:'Vendor commissions (leases + comisiones vendedores)', cls:'child' },
+    { k:'credit_card_processing', label:'Credit Card Processing', cls:'child' },
+    { k:'intercompany_usd', label:'Intercompany', cls:'child' },
+    { k:'customer_service', label:'Customer Service', cls:'child' },
+    { k:'efecto_financiero', label:'Efecto Financiero', cls:'child' },
+    { k:'customer_claims', label:'Customer Claims', cls:'child' },
+    { k:'mkt_usd', label:'Marketing', cls:'child', hideZero:true },
+    { k:'other_transactional_taxes', label:'Other Transactional Taxes', cls:'child', hideZero:true },
+    { k:'loyalty_usd', label:'Loyalty (× 0)', cls:'child', hideZero:true },
+    { k:'dif_fx', label:'Dif FX', cls:'child', hideZero:true },
+    { k:'currency_hedge', label:'Currency Hedge', cls:'child', hideZero:true },
+    { k:'wl_base', label:'Revenue Sharing (otros)', cls:'child', hideZero:true },
+    { k:'bch_err', label:'Costos de atención preferencial (Errors)' },
+    { k:'bch_gp_pre', label:'Gross Profit (previo a investment)', cls:'sub' },
+    { sec:'Investment' },
+    { k:'bch_paridad', label:'Descuentos paridad (Commercial Discounts)' },
+    { k:'bch_fin', label:'Financiación (COI)' },
+    { k:'cost_of_installments', label:'COI real', cls:'child' },
+    { k:'coi_imputado', label:'COI imputado (tasa banco)', cls:'child' },
+    { k:'bch_premio', label:'Inversión dólares premio (de momento 0)' },
+    { k:'bch_tacticos', label:'Descuentos tácticos (cupones, mapeo pendiente)' },
+    { k:'bch_gp_net', label:'Gross Profit (neto de investment)', cls:'key' }
+  ] }
 };
 function setPLStruct(v){ PL_STRUCT = v; render(); }
 
