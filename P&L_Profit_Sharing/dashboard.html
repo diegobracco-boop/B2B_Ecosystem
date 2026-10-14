@@ -62,6 +62,8 @@ table.pl tr.sub td{font-weight:700;background:rgba(42,16,72,.03)}
 table.pl tr.key td{font-weight:800;background:rgba(109,40,217,.08);color:var(--navy)}
 table.pl tr.child td{color:var(--muted);font-size:13px}
 table.pl tr.child td:first-child{padding-left:28px}
+table.pl tr.child2 td{color:var(--muted);font-size:12px;font-style:italic}
+table.pl tr.child2 td:first-child{padding-left:48px}
 table.pl td.tot,table.pl th.tot{border-left:2px solid var(--border2);font-weight:700}
 /* P&L por mes: ancho al contenido (meses pegados a los conceptos) + header de color como "Baseline" en P&L Accounting */
 table.pl-main{width:auto}
@@ -149,10 +151,20 @@ function sumBy(rows, keyFn){
 //   Paridad = commercial discounts − dólares premio − tácticos (lo que se mapee ahí se descuenta de paridad)
 var BCH_FVO = ['credit_card_processing','mkt_usd','other_transactional_taxes','customer_claims','customer_service',
                'loyalty_usd','channel_expenses','intercompany_usd','dif_fx','currency_hedge','efecto_financiero','wl_base'];
-var DERIVED = ['wl_base','ps_neg','bch_nr','bch_fvo','bch_err','bch_gp_pre','bch_paridad','bch_fin','bch_premio','bch_tacticos','bch_gp_net'];
+var DERIVED = ['wl_base','ps_neg','d1_nr','d1_coi','d1_cor','d1_sm','d1_ef_raw','d1_ef_recla','d1_fin','bch_nr','bch_fvo','bch_err','bch_gp_pre','bch_paridad','bch_fin','bch_premio','bch_tacticos','bch_gp_net'];
 function derive(o){
   o.wl_base = (o.white_labels_api||0) + (o.profit_share_a_pagar||0);
   o.ps_neg  = -(o.profit_share_a_pagar||0);
+  // P&L Despegar agrupado
+  o.d1_nr   = (o.net_revenues||0) + (o.loyalty_usd||0);
+  o.d1_coi  = (o.cost_of_installments||0) + (o.coi_imputado||0);
+  o.d1_cor  = o.d1_coi + ['credit_card_processing','errors','customer_claims','customer_service','intercompany_usd',
+                          'other_transactional_taxes'].reduce(function(a, k){ return a + (o[k]||0); }, 0);
+  o.d1_sm   = (o.mkt_usd||0) + (o.channel_expenses||0);
+  // efecto_financiero del .sql ya viene neto de la reclasificación (efecto − coi_imputado): se abre en sus dos partes
+  o.d1_ef_recla = -(o.coi_imputado||0);
+  o.d1_ef_raw   = (o.efecto_financiero||0) - o.d1_ef_recla;
+  o.d1_fin  = (o.dif_fx||0) + (o.currency_hedge||0) + (o.efecto_financiero||0);
   o.bch_nr      = (o.net_revenues||0) - (o.commercial_discounts||0);
   o.bch_fvo     = BCH_FVO.reduce(function(a, k){ return a + (o[k]||0); }, 0);
   o.bch_err     = o.errors || 0;
@@ -174,38 +186,44 @@ function total(objs){
 function periodRows(rows){ return PERIOD === 'all' ? rows : rows.filter(function(r){ return r[IDX.mes] === PERIOD; }); }
 
 // ── P&L ──
+// P&L Despegar (agrupado definido por Diego 2026-10-14): cada grupo muestra su subtotal arriba
+// y sus conceptos debajo. NR + CoR + S&M + Financial + Revenue Sharing (otros) == FVM Base.
 var PL = [
   { k:'orders', label:'Orders', count:true },
   { k:'gross_bookings', label:'Gross Bookings', cls:'sub' },
-  { sec:'Net Revenue' },
-  { k:'up_front_incentives', label:'Up Front Incentives' },
-  { k:'fees', label:'Fees' },
-  { k:'commercial_discounts', label:'Commercial Discounts' },
-  { k:'back_end_incentives', label:'Back End Incentives' },
-  { k:'media_other_revenue', label:'Media & Other Revenue' },
-  { k:'cancellations', label:'Cancellations (× 0)' },
-  { k:'breakage_revenue', label:'Breakage Revenue' },
-  { k:'revenue_tax', label:'Revenue Tax' },
-  { k:'other_incentives', label:'Other Incentives' },
-  { k:'net_revenues', label:'Net Revenue', cls:'sub' },
-  { sec:'Costos' },
-  { k:'cost_of_installments', label:'Cost of Installments' },
-  { k:'coi_imputado', label:'COI imputado (tasa banco)' },
-  { k:'credit_card_processing', label:'Credit Card Processing' },
-  { k:'mkt_usd', label:'Marketing' },
-  { k:'errors', label:'Errors' },
-  { k:'other_transactional_taxes', label:'Other Transactional Taxes' },
-  { k:'customer_claims', label:'Customer Claims' },
-  { k:'loyalty_usd', label:'Loyalty (× 0)' },
-  { k:'customer_service', label:'Customer Service' },
-  { k:'channel_expenses', label:'Channel Expenses' },
-  { k:'leases', label:'Leases (Presencial)', cls:'child' },
-  { k:'comisiones_presencial', label:'Comisiones vendedores Presencial (1,7% GB)', cls:'child' },
-  { k:'comisiones_call_center', label:'Comisiones vendedores Call Center (1,7% GB)', cls:'child' },
-  { k:'intercompany_usd', label:'Intercompany (0,54% GB)' },
-  { k:'dif_fx', label:'Dif FX' },
-  { k:'currency_hedge', label:'Currency Hedge' },
-  { k:'efecto_financiero', label:'Efecto Financiero' },
+  { k:'d1_nr', label:'Net Revenue', cls:'sub' },
+  { k:'up_front_incentives', label:'Up Front Incentives', cls:'child' },
+  { k:'fees', label:'Fees', cls:'child' },
+  { k:'commercial_discounts', label:'Commercial Discounts', cls:'child' },
+  { k:'back_end_incentives', label:'Back End Incentives', cls:'child' },
+  { k:'media_other_revenue', label:'Media & Other Revenue', cls:'child' },
+  { k:'breakage_revenue', label:'Breakage Revenue', cls:'child' },
+  { k:'other_incentives', label:'Other Incentives', cls:'child' },
+  { k:'revenue_tax', label:'Revenue Tax', cls:'child' },
+  { k:'cancellations', label:'Cancellations (× 0)', cls:'child' },
+  { k:'loyalty_usd', label:'Loyalty (× 0)', cls:'child' },
+  { k:'d1_cor', label:'Cost of Revenue', cls:'sub' },
+  { k:'d1_coi', label:'Cost of Installments', cls:'child' },
+  { k:'cost_of_installments', label:'Cost of Installments', cls:'child2' },
+  { k:'coi_imputado', label:'COI imputado (tasa banco)', cls:'child2' },
+  { k:'credit_card_processing', label:'Credit Card Processing', cls:'child' },
+  { k:'errors', label:'Errors', cls:'child' },
+  { k:'customer_claims', label:'Customer Claims', cls:'child' },
+  { k:'customer_service', label:'Customer Service', cls:'child' },
+  { k:'intercompany_usd', label:'Intercompany (P&F services · 0,54% GB)', cls:'child' },
+  { k:'other_transactional_taxes', label:'Other Transactional Taxes', cls:'child' },
+  { k:'d1_sm', label:'Sales & Marketing', cls:'sub' },
+  { k:'mkt_usd', label:'Marketing', cls:'child' },
+  { k:'channel_expenses', label:'Channel Expenses', cls:'child' },
+  { k:'leases', label:'Leases (Presencial)', cls:'child2' },
+  { k:'comisiones_presencial', label:'Comisiones vendedores Presencial (1,7% GB)', cls:'child2' },
+  { k:'comisiones_call_center', label:'Comisiones vendedores Call Center (1,7% GB)', cls:'child2' },
+  { k:'d1_fin', label:'Financial Income / Expenses', cls:'sub' },
+  { k:'dif_fx', label:'Dif FX', cls:'child' },
+  { k:'currency_hedge', label:'Currency Hedge', cls:'child' },
+  { k:'efecto_financiero', label:'Efecto Financiero', cls:'child' },
+  { k:'d1_ef_raw', label:'Efecto Financiero', cls:'child2' },
+  { k:'d1_ef_recla', label:'Reclasificación COI imputado (may – 15 jun)', cls:'child2', hideZero:true },
   { k:'wl_base', label:'Revenue Sharing (otros)', hideZero:true },
   { k:'fvm_base', label:'FVM Base (100%)', cls:'sub' },
   { sec:'Reparto' },
