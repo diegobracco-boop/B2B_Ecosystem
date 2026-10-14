@@ -57,7 +57,7 @@ El ecosistema tiene dos capas: **pipelines** (Python, generan los datos) y **lan
 
 ### Dashboard_B2B_WLs — dashboard comercial B2B y White Labels
 - **Stack**: GAS + HTML
-- **Input**: JSONs de Drive (Inputs_Planning_PnL + Daily_Dashboard)
+- **Input**: JSONs de Drive (Inputs_Planning_PnL + Daily_Dashboard) + **`tc_plana_flat.xlsx` en Drive** (`FX_FILE_ID`, tipos de cambio para el switch ORGANIC de Monthly Results; fuente provisoria subida a mano, fuera del pipeline — ver manual)
 - **Usuarios**: equipo comercial B2B — seguimiento de KRs, OKRs, performance por partner
 - **Deploy**: `cd Dashboard_B2B_WLs && clasp push`
 
