@@ -63,6 +63,12 @@ table.pl tr.key td{font-weight:800;background:rgba(109,40,217,.08);color:var(--n
 table.pl tr.child td{color:var(--muted);font-size:13px}
 table.pl tr.child td:first-child{padding-left:28px}
 table.pl td.tot,table.pl th.tot{border-left:2px solid var(--border2);font-weight:700}
+/* P&L por mes: ancho al contenido (meses pegados a los conceptos) + header de color como "Baseline" en P&L Accounting */
+table.pl-main{width:auto}
+table.pl-main td:first-child{padding-right:28px}
+table.pl-main td:not(:first-child),table.pl-main th:not(:first-child){min-width:84px}
+table.pl tr.grp th{position:static;background:transparent;border-bottom:none}
+table.pl tr.grp th.th-struct{background:#6d3fc0;color:#fff;font-weight:800;text-align:center;border-radius:8px 8px 0 0;letter-spacing:.03em}
 .neg{color:var(--red)}
 .note{font-size:13px;color:var(--muted);line-height:1.6}
 .note b{color:var(--text)}
@@ -208,8 +214,8 @@ var PL = [
 // Cada una es una lista de filas con el mismo formato que PL: {k, label, cls, count, hideZero} o {sec}.
 var PL_STRUCT = 'd1';
 var PL_STRUCTS = {
-  d1:  { label:'P&L Despegar', rows: PL },
-  bch: { label:'P&L BCH', rows: [
+  d1:  { label:'P&L Despegar', title:'P&L - D1', rows: PL },
+  bch: { label:'P&L BCH', title:'P&L - BCH', rows: [
     { k:'orders', label:'Orders', count:true },
     { k:'gross_bookings', label:'Gross Bookings', cls:'sub' },
     { k:'bch_nr', label:'Net Revenues', cls:'sub' },
@@ -255,7 +261,9 @@ function plHtml(rows){
   var cols = months.map(function(m){ return byM[m] || derive({}); });
   cols.push(total(cols));
   var hdr = months.map(function(m){ return '<th>' + mesLbl(m) + (isPartial(m) ? '*' : '') + '</th>'; }).join('') + '<th class="tot">Total</th>';
-  var h = '<div class="scroll"><table class="pl"><thead><tr><th>Línea</th>' + hdr + '</tr></thead><tbody>';
+  var h = '<div class="scroll"><table class="pl pl-main"><thead>'
+    + '<tr class="grp"><th></th><th class="th-struct" colspan="' + cols.length + '">' + esc(PL_STRUCTS[PL_STRUCT].title) + '</th></tr>'
+    + '<tr><th>Línea</th>' + hdr + '</tr></thead><tbody>';
   struct.forEach(function(row){
     if(row.sec){ h += '<tr class="sec"><td colspan="' + (cols.length+1) + '">' + esc(row.sec) + '</td></tr>'; return; }
     if(row.hideZero && Math.abs(cols[cols.length-1][row.k]||0) < 0.5) return;
