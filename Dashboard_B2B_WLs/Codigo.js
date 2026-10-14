@@ -16,7 +16,7 @@ var JSON_IDS = {
 // Tipos de cambio (moneda local por USD): tc_plana_flat.xlsx subido a Drive, columnas
 // escenario | año (FY: 2027 = abr-26…mar-27) | mes (Abr…Mar) | pais | dato.
 // ORGANIC = USD × TC Actuals(país, mes) / TC Target(país, mes), con Target = Budget o
-// Forecast (Run Rate / Last Year: no aplica). Países sin TC (Globales, OPS+RG, …) y
+// Forecast (Run Rate / Last Year: no aplica). OPS+RG usa el TC de Brasil. Países sin TC (Globales, …) y
 // Orders quedan sin convertir; "Euro" se ignora. Fuente provisoria — ver readFxTable_.
 var FX_FILE_ID = '1SEh9vLWCbE6PslnUntUghhInonuLdYZ5';
 var ORGANIC_TARGETS_ = { budget: 'budget', forecast: 'forecast' };
@@ -321,6 +321,9 @@ function _fxNorm_(s) {
   return String(s || '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 }
 
+// Regiones sin TC propio que toman el de otro país (mismos valores de "pais" que paisMultiFilter OPS+RG)
+var _FX_PAIS_ALIAS_ = { 'ops': 'brasil', 'rg': 'brasil', 'ops + rg': 'brasil' };
+
 var _FX_MES_ = { abr:4, may:5, jun:6, jul:7, ago:8, sep:9, sept:9, oct:10, nov:11, dic:12, ene:1, feb:2, mar:3 };
 
 // Lee tc_plana_flat.xlsx (xlsx = zip de XMLs) → { actuals:{'pais§ym':tc}, budget:{…}, forecast:{…} }.
@@ -403,6 +406,7 @@ function applyOrganic_(rows, target) {
     if (String(r['p&l n3'] || '').trim().toLowerCase() === 'orders') return r;
     if (!r['fecha']) return r;
     var pai = _fxNorm_(r['pais']);
+    pai = _FX_PAIS_ALIAS_[pai] || pai;                  // OPS+RG → TC de Brasil
     if (!paisesFx[pai]) return r;                       // país sin TC → sin convertir
     var d  = new Date(r['fecha']);
     var ym = d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0');
