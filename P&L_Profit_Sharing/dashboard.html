@@ -510,9 +510,9 @@ function notesHtml(){
     + '<b>Punto de venta:</b> Presencial = agencia AG00120467 · Call Center = AG00120475 · ON = sin vendedor.<br>'
     + '<b>Channel Expenses</b> = leases (solo Presencial, repartidos en partes iguales entre sus transacciones del mes) + comisiones de vendedores (1,7% del GB en Presencial y Call Center). Reemplaza la vendor commission del P&amp;L operativo.<br>'
     + '<b>Cancellations y Loyalty</b> van × 0. <b>Intercompany</b> = 0,54% del GB.<br>'
-    + '<b>COI imputado (tasa banco, a revisar con el comercial):</b> ventas en cuotas sin Cost of Installments en el Datalake '
-    + '(6 y 12 cuotas antes del 16/06/2026; 24 cuotas siempre). Costo compuesto = (1 + tasa anual)^(cuotas/12) − 1 '
-    + 'con 3% / 5% / 15% anual → 1,49% / 5,00% / 32,25% del GB. Entra en el FVM Base. En las tablas de cuotas, el COI incluye el imputado.<br>'
+    + '<b>COI imputado (tasa banco):</b> ventas en cuotas sin Cost of Installments en el Datalake '
+    + '(6 y 12 cuotas antes del 16/06/2026). Costo compuesto = (1 + tasa anual)^(cuotas/12) − 1 '
+    + 'con 3% / 5% anual → 1,49% / 5,00% del GB. 24 cuotas no lleva COI imputado. Entra en el FVM Base. En las tablas de cuotas, el COI incluye el imputado.<br>'
     + '<b>Reparto:</b> FVM Base × 55% = Profit Share a pagar a Banco de Chile · FVM Base × 45% = FVM Despegar.'
     + (partial.length ? '<br><b>* Mes en curso (' + partial.map(mesLbl).join(', ') + '):</b> datos parciales; el lease se estima con la tasa diaria de julio × días transcurridos.' : '')
     + '<br>Fuente: <code>P&amp;L_Profit_Sharing/banco_chile_profit_sharing.sql</code> → <code>profit_sharing_sync.py</code>.'

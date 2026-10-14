@@ -33,13 +33,14 @@
 --   ✅ Detalle expuesto al final, post profit_share_a_pagar
 -- ── cancellations ─────────────────────────────────────────────────────
 --   ✅ Multiplicado por 0 (campo y FVM_Base)
--- ── coi_imputado (2026-10-13, a revisar con el comercial) ─────────────
+-- ── coi_imputado (2026-10-13; 24 cuotas sacado el 2026-10-14 con el comercial) ─
 --   Ventas en cuotas sin Cost of Installments en el Datalake: el COI del banco recién
---   aparece el 16/06/2026 en 6 y 12 cuotas, y 24 cuotas nunca lo tiene.
---   Tasa del banco: 6 cuotas = 3% anual · 12 = 5% · 24 = 15%.
---   Costo compuesto = (1 + tasa anual)^(cuotas/12) − 1  →  6: 1,49% · 12: 5,00% · 24: 32,25% del GB
---   Aplica a: 6 y 12 cuotas confirmadas antes del 16/06/2026, y 24 cuotas siempre;
+--   aparece el 16/06/2026 en 6 y 12 cuotas.
+--   Tasa del banco: 6 cuotas = 3% anual · 12 = 5%.
+--   Costo compuesto = (1 + tasa anual)^(cuotas/12) − 1  →  6: 1,49% · 12: 5,00% del GB
+--   Aplica a: 6 y 12 cuotas confirmadas antes del 16/06/2026,
 --   solo si la transacción no tiene COI (|cost_of_installments| < 0,01). Entra en FVM_Base.
+--   24 cuotas: no se imputa COI (definido con el comercial 2026-10-14).
 -- ══════════════════════════════════════════════════════════════════════
 
 WITH src AS (
@@ -386,8 +387,6 @@ enriched AS (
         THEN b.gross_bookings * -(POWER(1.03, 6 / 12.0) - 1)
       WHEN b.cuotas = 12 AND b.fecha_confirmacion < DATE '2026-06-16'
         THEN b.gross_bookings * -(POWER(1.05, 12 / 12.0) - 1)
-      WHEN b.cuotas = 24
-        THEN b.gross_bookings * -(POWER(1.15, 24 / 12.0) - 1)
       ELSE 0.0
     END AS coi_imputado
 
