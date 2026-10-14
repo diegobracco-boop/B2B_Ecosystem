@@ -6,7 +6,7 @@ P&L de Profit Sharing de Banco de Chile.
 
   1. Corre banco_chile_profit_sharing.sql en el Datalake (1 fila por transacción, desde may-2026).
   2. Agrega a mes × tipo_venta × punto_venta × producto × viaje × estado × cuotas × agente.
-  3. Sube banco_chile_profit_sharing.json a Drive (misma carpeta que los JSON de P&L Managerial);
+  3. Sube banco_chile_profit_sharing.json a Drive (carpeta propia de Profit Sharing, 1dwIAlZLG5C5EOWGMm_rEFFKMgGQMRWIR);
      la landing GAS de esta carpeta (Codigo.js + dashboard.html) lo lee por nombre.
 
 La lógica de negocio (NR, FVM_Base, leases, comisiones, split 55/45) vive SOLO en el .sql:
@@ -39,7 +39,7 @@ _WIN_USER       = os.environ.get("USERNAME", "").lower()
 RUTA_ENV        = BASE.parent / "credenciales" / f".env.{_WIN_USER}"
 DSN_NAME        = "DataLake Treasure ODBC"
 SQL_FILE        = BASE / "banco_chile_profit_sharing.sql"
-DRIVE_FOLDER_ID = "1wzudbo7cN9Ibiv_2OA-V0_B_un4JcJp6"   # misma carpeta que _actuals_gestional.json
+DRIVE_FOLDER_ID = "1dwIAlZLG5C5EOWGMm_rEFFKMgGQMRWIR"   # carpeta propia de Profit Sharing (movido 2026-10-14)
 JSON_FILE_NAME  = "banco_chile_profit_sharing.json"
 DRIVE_SCOPES    = ["https://www.googleapis.com/auth/drive"]
 

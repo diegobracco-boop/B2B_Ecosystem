@@ -166,7 +166,7 @@ El ecosistema tiene dos capas: **pipelines** (Python, generan los datos) y **lan
   cancellations y loyalty × 0. Reparto: 55% Profit Share a pagar a Banco de Chile / 45% FVM Despegar.
 - **Pipeline**: `py profit_sharing_sync.py` corre el .sql, agrega a mes × tipo_venta × punto_venta × producto × viaje ×
   estado × vendedor, verifica el cuadre contra lo crudo y sube `banco_chile_profit_sharing.json` a la carpeta de Drive
-  de P&L Managerial (`1wzudbo7cN9Ibiv_2OA-V0_B_un4JcJp6`). `--no-upload` lo deja en `_out/`.
+  propia de Profit Sharing (`1dwIAlZLG5C5EOWGMm_rEFFKMgGQMRWIR`). `--no-upload` lo deja en `_out/`.
 - **Landing**: lee el JSON por nombre; filtra y suma en el frontend (no recalcula reglas de negocio).
 - **Script ID**: `1b5J6CHJR-c-6MJcolL_YbASbb4oIILpln1odHDUdapaBcOOCUqxMhpYf`
 - **Deployment id (prod)**: `AKfycbyfhSHt3k0wJS39TlHYOAuRYicAy0M1pGfnarSM1RXOKECa4p1cBSlFjXU5ZXQKsYCj`

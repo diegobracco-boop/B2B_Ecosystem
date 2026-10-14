@@ -1,7 +1,7 @@
 // P&L Profit Sharing · Banco de Chile — backend
 // Data source: banco_chile_profit_sharing.json (lo genera profit_sharing_sync.py desde
 // banco_chile_profit_sharing.sql). Toda la lógica de negocio vive en el .sql; acá solo se lee.
-var PS_FOLDER_ID = '1wzudbo7cN9Ibiv_2OA-V0_B_un4JcJp6';   // misma carpeta que los JSON de P&L Managerial
+var PS_FOLDER_ID = '1dwIAlZLG5C5EOWGMm_rEFFKMgGQMRWIR';   // carpeta propia de Profit Sharing (movido 2026-10-14)
 var PS_JSON_NAME = 'banco_chile_profit_sharing.json';
 
 function doGet() {
