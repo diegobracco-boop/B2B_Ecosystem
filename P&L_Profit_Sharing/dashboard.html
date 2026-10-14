@@ -146,6 +146,7 @@ function sumBy(rows, keyFn){
 //                       efecto financiero y revenue sharing (otros)
 //   Atención preferencial = Errors · Financiación = COI real + COI imputado
 //   GP neto de investment = GP previo + paridad + financiación + dólares premio + tácticos  (== FVM Base)
+//   Paridad = commercial discounts − dólares premio − tácticos (lo que se mapee ahí se descuenta de paridad)
 var BCH_FVO = ['credit_card_processing','mkt_usd','other_transactional_taxes','customer_claims','customer_service',
                'loyalty_usd','channel_expenses','intercompany_usd','dif_fx','currency_hedge','efecto_financiero','wl_base'];
 var DERIVED = ['wl_base','ps_neg','bch_nr','bch_fvo','bch_err','bch_gp_pre','bch_paridad','bch_fin','bch_premio','bch_tacticos','bch_gp_net'];
@@ -156,10 +157,12 @@ function derive(o){
   o.bch_fvo     = BCH_FVO.reduce(function(a, k){ return a + (o[k]||0); }, 0);
   o.bch_err     = o.errors || 0;
   o.bch_gp_pre  = o.bch_nr + o.bch_fvo + o.bch_err;
-  o.bch_paridad = o.commercial_discounts || 0;
-  o.bch_fin     = (o.cost_of_installments||0) + (o.coi_imputado||0);
   o.bch_premio  = 0;   // Inversión dólares premio: de momento cero
   o.bch_tacticos = 0;  // Descuentos tácticos (cupones): mapeo pendiente de definir
+  // Lo que se mapee en dólares premio / tácticos sale de paridad (definido por Diego 2026-10-14):
+  // así el Investment total no cambia y GP neto sigue == FVM Base.
+  o.bch_paridad = (o.commercial_discounts || 0) - o.bch_premio - o.bch_tacticos;
+  o.bch_fin     = (o.cost_of_installments||0) + (o.coi_imputado||0);
   o.bch_gp_net  = o.bch_gp_pre + o.bch_paridad + o.bch_fin + o.bch_premio + o.bch_tacticos;
   return o;
 }
@@ -214,7 +217,7 @@ var PL = [
 // Cada una es una lista de filas con el mismo formato que PL: {k, label, cls, count, hideZero} o {sec}.
 var PL_STRUCT = 'd1';
 var PL_STRUCTS = {
-  d1:  { label:'P&L Despegar', title:'P&L - D1', rows: PL },
+  d1:  { label:'P&L Despegar', title:'P&L - Despegar', rows: PL },
   bch: { label:'P&L BCH', title:'P&L - BCH', rows: [
     { k:'orders', label:'Orders', count:true },
     { k:'gross_bookings', label:'Gross Bookings', cls:'sub' },
@@ -366,7 +369,12 @@ function drawChart(rows){
         { label:'FVM Despegar (45%)', data:fv, backgroundColor:cD, borderRadius:4, borderSkipped:false, barPercentage:0.6 }
       ] },
     options:{ responsive:true, maintainAspectRatio:false, animation:false, layout:{ padding:{ top:18 } },
-      plugins:{ legend:{ display:false }, tooltip:{ enabled:false } },   // valores dibujados en las barras (psTot)
+      plugins:{ legend:{ display:false },
+        // Los valores van dibujados en las barras (psTot); el tooltip solo muestra los segmentos
+        // demasiado bajos para llevar su etiqueta (mismo umbral de 18px).
+        tooltip:{ mode:'index', intersect:false,
+          filter:function(it){ return Math.abs(it.element.base - it.element.y) < 18; },
+          callbacks:{ label:function(it){ return it.dataset.label + ': ' + money(it.parsed.y); } } } },
       scales:{ x:{ stacked:true, grid:{ display:false } },
         y:{ stacked:true, beginAtZero:true, grid:{ color:'rgba(0,0,0,.05)' }, ticks:{ callback:function(v){ return money(v); } } } } },
     plugins:[totLbl]
