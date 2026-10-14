@@ -189,7 +189,7 @@ var PL = [
 // Cada una es una lista de filas con el mismo formato que PL: {k, label, cls, count, hideZero} o {sec}.
 var PL_STRUCT = 'd1';
 var PL_STRUCTS = {
-  d1:  { label:'P&L D1',  rows: PL },
+  d1:  { label:'P&L Despegar', rows: PL },
   bch: { label:'P&L BCH', rows: null }   // estructura a definir por Diego (pendiente)
 };
 function setPLStruct(v){ PL_STRUCT = v; render(); }
@@ -428,7 +428,7 @@ function render(){
     + '<span><i class="dot" style="background:var(--c-despegar)"></i>FVM Despegar (45%)</span></div>'
     + '<div style="position:relative;height:260px"><canvas id="ps-chart" role="img" aria-label="Reparto mensual del FVM Base entre Banco de Chile y Despegar"></canvas></div></div></div>'
     + '<div class="card"><div class="card-hdr"><span class="card-title">P&amp;L por mes</span>'
-    + '<div class="seg"><button class="' + (PL_STRUCT==='d1'?'on':'') + '" onclick="setPLStruct(\'d1\')">P&amp;L D1</button>'
+    + '<div class="seg"><button class="' + (PL_STRUCT==='d1'?'on':'') + '" onclick="setPLStruct(\'d1\')">P&amp;L Despegar</button>'
     + '<button class="' + (PL_STRUCT==='bch'?'on':'') + '" onclick="setPLStruct(\'bch\')">P&amp;L BCH</button></div>'
     + '<div class="seg" style="margin-left:auto"><button class="' + (VIEW==='usd'?'on':'') + '" onclick="setView(\'usd\')">USD</button>'
     + '<button class="' + (VIEW==='pct'?'on':'') + '" onclick="setView(\'pct\')">% de GB</button></div></div>'
