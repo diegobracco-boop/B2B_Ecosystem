@@ -62,6 +62,8 @@ import config as _planning_cfg
 # Definición única de hunting (New/Existing por partner B2B2C), compartida con Daily_Dashboard/daily_sync.py
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "Daily_Dashboard"))
 import hunting_rules
+# País correcto de partners B2B2C mal cargados en las proyecciones (CUTC, Bonda), compartido con el Daily
+from pais_rules import apply_pais_overrides
 _FY = _planning_cfg.CURRENT_FY                                  # 2027 = FY27 (abr-2026 → mar-2027)
 FY_MONTHS = [d[:7] for d in _planning_cfg.FISCAL_DATES]         # 'YYYY-MM', abr → mar
 
@@ -342,6 +344,9 @@ WITH base AS (
     AND t.confirmation_date <= date('{date_to}')
     AND p.is_confirmed_flg = 1
     AND t.line_of_business = 'B2B2C'
+    -- Solo partners de la cartera de ComDev (mismo filtro que Daily_Dashboard/daily_sync.py:
+    -- build_actuals_query): afuera los partner_data_id sin cartera (AG.../AP..., KMV, demos).
+    AND di.partner_id IS NOT NULL
   GROUP BY 1,2,3,4,5,6,7
 ),
 
@@ -1159,8 +1164,7 @@ def _build_b2b2c_budget_rows(df: pd.DataFrame, ym_from_proyectado: bool = False)
     df = df.copy()
     df.columns = [c.lower().strip() for c in df.columns]
     df = df.rename(columns=_BUDGET_RENAME)
-    if "partner" in df.columns and "pais" in df.columns:
-        df.loc[df["partner"] == "CUTC", "pais"] = "USA"
+    apply_pais_overrides(df)
     df = _budget_ym(df, ym_from_proyectado)
     df["pais"] = _norm_pais(df["pais"])
     df = df[df["ym"].isin(FY_SET)]
@@ -1275,6 +1279,7 @@ def _fc_xlsx_b2b2c_rows(df: pd.DataFrame) -> list:
         if c not in df.columns:
             df[c] = 0.0
     df = _to_numeric(df, METRIC_COLS)
+    apply_pais_overrides(df)
     df = df.groupby(["pais", "partner", "produto", "ym"], as_index=False).agg(
         {c: "sum" for c in METRIC_COLS}
     )

@@ -27,6 +27,8 @@ from dotenv import load_dotenv
 # Proporciones fijas de apertura del NR de Packages General (solo Budget). Generado por calc_pkg_split.py.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from pkg_split_factors import PKG_SPLIT_FACTORS, PKG_SPLIT_WINDOW
+# País correcto de partners B2B2C mal cargados en las proyecciones (CUTC, Bonda), compartido con P&L_Managerial
+from pais_rules import apply_pais_overrides
 
 warnings.filterwarnings("ignore")
 
@@ -326,6 +328,10 @@ WHERE pnl.date_reservation_year_month >= '2023-01'
   AND t.confirmation_date <= DATE('{date_to}')
   AND p.is_confirmed_flg = 1
   AND t.line_of_business = 'B2B2C'
+  -- Solo partners de la cartera de ComDev: afuera los partner_data_id sin cartera (códigos de
+  -- agencia B2B AG.../AP..., KMV, demos; ~USD 8k NR FY27). Decisión de Gregorio 2026-10-14.
+  -- Mismo filtro en P&L_Managerial/actuals_gestional_upload.py:build_b2b2c_query.
+  AND di.partner_id IS NOT NULL
 GROUP BY {group_by}
 ),
 
@@ -1171,8 +1177,7 @@ def clean_actuals(df: pd.DataFrame) -> pd.DataFrame:
 
 def clean_budget(df: pd.DataFrame) -> pd.DataFrame:
     df.columns = [c.lower().strip() for c in df.columns]
-    if 'partner' in df.columns and 'pais' in df.columns:
-        df.loc[df['partner'] == 'CUTC', 'pais'] = 'USA'
+    apply_pais_overrides(df)
     numeric_cols = ["orders", "gross_bookings", "net_revenue", "fvm"]
     for col in numeric_cols:
         if col in df.columns:
@@ -1373,6 +1378,7 @@ def _load_forecast_diario(base: str) -> pd.DataFrame:
     df["fecha"] = pd.to_datetime(df["fecha"]).dt.strftime("%Y-%m-%d")
     for c in ("orders", "gross_bookings", "net_revenue", "fvm"):
         df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0)
+    apply_pais_overrides(df)
     return df
 
 
@@ -1480,7 +1486,7 @@ def _map_tier(df: pd.DataFrame, tmap_pais: dict, tmap: dict) -> pd.Series:
     tiene tier distinto segun el pais (Latam: Tier-1 en Brasil, Tier-3 en Argentina;
     BBVA, Mastercard, Sky, WL Hotels idem). Antes era solo por partner con MAX(), que
     le ponia a Latam Brasil el Tier-3 de otro pais. Si el partner no esta en la cartera
-    para ese pais (Bonda Mexico, Xcaret Other Countries, CUTC USA) cae al tier a nivel
+    para ese pais (Xcaret Other Countries, CUTC USA) cae al tier a nivel
     partner (MAX entre paises, el comportamiento anterior)."""
     p = df["partner"].astype(str).str.strip().str.lower()
     c = df["pais"].astype(str).str.strip().str.lower() if "pais" in df.columns else pd.Series("", index=df.index)
