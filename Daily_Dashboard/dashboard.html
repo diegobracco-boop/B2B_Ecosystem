@@ -1639,8 +1639,8 @@ var PARTNER_ALIAS_ = {
   'Turismocity':        'TurismoCity',
   'ELO':                'Elo',
   'VISA':               'Visa',
-  'Itau card':          'Itau Card',
-  'Sicoob Acumulo':     'Sicoob'               // programa de Sicoob sin plan propio: se suma a Sicoob
+  'Itau card':          'Itau Card'
+  // Sicoob Acumulo NO se unifica con Sicoob: la cartera lo tiene New (Sicoob es Existing).
 };
 function applyPartnerAlias_(raw){
   ['actuals','actuals_ly','budget','runrate','forecast'].forEach(function(k){
