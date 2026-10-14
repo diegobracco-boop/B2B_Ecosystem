@@ -55,7 +55,7 @@ METRICS = [
     "other_transactional_taxes", "customer_claims", "loyalty_usd", "customer_service",
     "channel_expenses", "intercompany_usd", "dif_fx", "currency_hedge", "efecto_financiero",
     "white_labels_api",
-    "fvm_base", "profit_share_a_pagar", "fvm",
+    "cancelados_fvm", "fvm_base", "profit_share_a_pagar", "fvm",
     "leases", "comisiones_presencial", "comisiones_call_center",
 ]
 

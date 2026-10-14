@@ -33,6 +33,8 @@
 --   ✅ Detalle expuesto al final, post profit_share_a_pagar
 -- ── cancellations ─────────────────────────────────────────────────────
 --   ✅ Multiplicado por 0 (campo y FVM_Base)
+--   ✅ Estado 'Cancelado' (2026-10-14): sobre las canceladas no se paga nada →
+--      cancelados_fvm = −FVM total de la transacción; FVM_Base = FVM total + cancelados_fvm
 -- ── coi_imputado (2026-10-13; 24 cuotas sacado el 2026-10-14 con el comercial) ─
 --   Ventas en cuotas sin Cost of Installments en el Datalake: el COI del banco recién
 --   aparece el 16/06/2026 en 6 y 12 cuotas.
@@ -395,6 +397,21 @@ enriched AS (
 
   FROM base b
   WHERE LOWER(b.partner) LIKE '%banco%chile%'
+),
+
+-- ══════════════════════════════════════════════════════════════════════
+-- con_fvm: FVM total de la transacción y su exclusión si está cancelada
+--   Sobre las canceladas no se paga nada (definido por Diego 2026-10-14):
+--   FVM_Base = FVM total − FVM de las canceladas → el 55% se calcula sobre eso.
+-- ══════════════════════════════════════════════════════════════════════
+con_fvm AS (
+  SELECT
+    e.*,
+    FVM_Base_partial + leases + comisiones_presencial + comisiones_call_center  AS fvm_base_total,
+    CASE WHEN product_state = 'Cancelado'
+         THEN -(FVM_Base_partial + leases + comisiones_presencial + comisiones_call_center)
+         ELSE 0.0 END                                                         AS cancelados_fvm
+  FROM enriched e
 )
 
 -- ══════════════════════════════════════════════════════════════════════
@@ -440,8 +457,7 @@ SELECT
   leases + comisiones_presencial + comisiones_call_center                     AS channel_expenses,
 
   white_labels_api_base
-    + ((FVM_Base_partial + leases + comisiones_presencial + comisiones_call_center) * -0.55)
-                                                                              AS white_labels_api,
+    + ((fvm_base_total + cancelados_fvm) * -0.55)                             AS white_labels_api,
   intercompany_USD,
   dif_fx,
   currency_hedge,
@@ -450,17 +466,17 @@ SELECT
   efecto_financiero - coi_imputado                                            AS efecto_financiero,
   net_revenues,
 
-  FVM_Base_partial + leases + comisiones_presencial + comisiones_call_center  AS FVM_Base,
+  -- ✅ Canceladas: se resta todo su FVM (no se paga profit share sobre ellas)
+  cancelados_fvm,
+  fvm_base_total + cancelados_fvm                                             AS FVM_Base,
 
-  (FVM_Base_partial + leases + comisiones_presencial + comisiones_call_center) * 0.45
-                                                                              AS FVM,
-  (FVM_Base_partial + leases + comisiones_presencial + comisiones_call_center) * 0.55
-                                                                              AS profit_share_a_pagar,
+  (fvm_base_total + cancelados_fvm) * 0.45                                    AS FVM,
+  (fvm_base_total + cancelados_fvm) * 0.55                                    AS profit_share_a_pagar,
 
   -- ✅ Detalle al final, post profit_share_a_pagar
   leases,
   comisiones_presencial,
   comisiones_call_center
 
-FROM enriched
+FROM con_fvm
 ORDER BY Mes, tipo_venta, punto_venta, agent_name

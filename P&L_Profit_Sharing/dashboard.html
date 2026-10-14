@@ -149,14 +149,15 @@ function sumBy(rows, keyFn){
 //                       loyalty, channel expenses (leases + comisiones vendedores), intercompany, FX, hedge,
 //                       efecto financiero y White Labels / API (revenue sharing, debería ser 0)
 //   Atención preferencial = Errors · Financiación = COI real + COI imputado
-//   GP neto de investment = GP previo + paridad + financiación + dólares premio + tácticos  (== FVM Base)
+//   GP neto de investment = GP previo + paridad + financiación + dólares premio + tácticos  (== FVM Total; − Cancelados == FVM Base)
 //   Paridad = commercial discounts − dólares premio − tácticos (lo que se mapee ahí se descuenta de paridad)
 var BCH_FVO = ['credit_card_processing','mkt_usd','other_transactional_taxes','customer_claims','customer_service',
                'loyalty_usd','channel_expenses','intercompany_usd','dif_fx','currency_hedge','efecto_financiero','wl_base'];
-var DERIVED = ['wl_base','ps_neg','d1_nr','d1_coi','d1_cor','d1_sm','d1_ef_raw','d1_ef_recla','d1_fin','bch_nr','bch_fvo','bch_err','bch_gp_pre','bch_paridad','bch_fin','bch_premio','bch_tacticos','bch_gp_net'];
+var DERIVED = ['wl_base','ps_neg','fvm_total','d1_nr','d1_coi','d1_cor','d1_sm','d1_ef_raw','d1_ef_recla','d1_fin','bch_nr','bch_fvo','bch_err','bch_gp_pre','bch_paridad','bch_fin','bch_premio','bch_tacticos','bch_gp_net'];
 function derive(o){
   o.wl_base = (o.white_labels_api||0) + (o.profit_share_a_pagar||0);
   o.ps_neg  = -(o.profit_share_a_pagar||0);
+  o.fvm_total = (o.fvm_base||0) - (o.cancelados_fvm||0);   // FVM antes de excluir las canceladas
   // P&L Despegar agrupado
   o.d1_nr   = (o.net_revenues||0) + (o.loyalty_usd||0);
   o.d1_coi  = (o.cost_of_installments||0) + (o.coi_imputado||0);
@@ -175,7 +176,7 @@ function derive(o){
   o.bch_premio  = 0;   // Inversión dólares premio: de momento cero
   o.bch_tacticos = 0;  // Descuentos tácticos (cupones): mapeo pendiente de definir
   // Lo que se mapee en dólares premio / tácticos sale de paridad (definido por Diego 2026-10-14):
-  // así el Investment total no cambia y GP neto sigue == FVM Base.
+  // así el Investment total no cambia y GP neto sigue == FVM Total.
   o.bch_paridad = (o.commercial_discounts || 0) - o.bch_premio - o.bch_tacticos;
   o.bch_fin     = (o.cost_of_installments||0) + (o.coi_imputado||0);
   o.bch_gp_net  = o.bch_gp_pre + o.bch_paridad + o.bch_fin + o.bch_premio + o.bch_tacticos;
@@ -190,7 +191,7 @@ function periodRows(rows){ return PERIOD === 'all' ? rows : rows.filter(function
 
 // ── P&L ──
 // P&L Despegar (agrupado definido por Diego 2026-10-14): cada grupo muestra su subtotal arriba
-// y sus conceptos debajo. NR + CoR + S&M + Financial == FVM Base.
+// y sus conceptos debajo. NR + CoR + S&M + Financial == FVM Total; FVM Total − Cancelados == FVM Base.
 var PL = [
   { k:'orders', label:'Orders', count:true },
   { k:'gross_bookings', label:'Gross Bookings', cls:'sub' },
@@ -228,6 +229,8 @@ var PL = [
   { k:'efecto_financiero', label:'Efecto Financiero', cls:'child' },
   { k:'d1_ef_raw', label:'Efecto Financiero', cls:'child2' },
   { k:'d1_ef_recla', label:'Reclasificación COI imputado (may – 15 jun)', cls:'child2', hideZero:true },
+  { k:'fvm_total', label:'FVM Total', cls:'sub' },
+  { k:'cancelados_fvm', label:'(−) Cancelados (estado Cancelado, no se paga)' },
   { k:'fvm_base', label:'FVM Base (100%)', cls:'sub' },
   { sec:'Reparto' },
   { k:'ps_neg', label:'Profit Share Banco de Chile (55%)' },
@@ -273,7 +276,9 @@ var PL_STRUCTS = {
     { k:'coi_imputado', label:'COI imputado (tasa banco)', cls:'child' },
     { k:'bch_premio', label:'Inversión dólares premio (de momento 0)' },
     { k:'bch_tacticos', label:'Descuentos tácticos (cupones, mapeo pendiente)' },
-    { k:'bch_gp_net', label:'Gross Profit (neto de investment)', cls:'key' }
+    { k:'bch_gp_net', label:'Gross Profit (neto de investment)', cls:'sub' },
+    { k:'cancelados_fvm', label:'(−) Cancelados (estado Cancelado, no se paga)' },
+    { k:'fvm_base', label:'FVM Base (100%)', cls:'key' }
   ] }
 };
 function setPLStruct(v){ PL_STRUCT = v; render(); }
