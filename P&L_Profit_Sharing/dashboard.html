@@ -185,13 +185,24 @@ var PL = [
   { k:'fvm', label:'FVM Despegar (45%)', cls:'key' }
 ];
 
+// Estructuras de P&L (selector "Estructura" de la card P&L por mes).
+// Cada una es una lista de filas con el mismo formato que PL: {k, label, cls, count, hideZero} o {sec}.
+var PL_STRUCT = 'd1';
+var PL_STRUCTS = {
+  d1:  { label:'P&L D1',  rows: PL },
+  bch: { label:'P&L BCH', rows: null }   // estructura a definir por Diego (pendiente)
+};
+function setPLStruct(v){ PL_STRUCT = v; render(); }
+
 function plHtml(rows){
+  var struct = PL_STRUCTS[PL_STRUCT].rows;
+  if(!struct) return '<div class="card-body note">La estructura <b>' + esc(PL_STRUCTS[PL_STRUCT].label) + '</b> todavía no está definida.</div>';
   var months = D.months, byM = sumBy(rows, function(r){ return r[IDX.mes]; });
   var cols = months.map(function(m){ return byM[m] || derive({}); });
   cols.push(total(cols));
   var hdr = months.map(function(m){ return '<th>' + mesLbl(m) + (isPartial(m) ? '*' : '') + '</th>'; }).join('') + '<th class="tot">Total</th>';
   var h = '<div class="scroll"><table class="pl"><thead><tr><th>Línea</th>' + hdr + '</tr></thead><tbody>';
-  PL.forEach(function(row){
+  struct.forEach(function(row){
     if(row.sec){ h += '<tr class="sec"><td colspan="' + (cols.length+1) + '">' + esc(row.sec) + '</td></tr>'; return; }
     if(row.hideZero && Math.abs(cols[cols.length-1][row.k]||0) < 0.5) return;
     h += '<tr' + (row.cls ? ' class="' + row.cls + '"' : '') + '><td>' + esc(row.label) + '</td>';
@@ -417,6 +428,8 @@ function render(){
     + '<span><i class="dot" style="background:var(--c-despegar)"></i>FVM Despegar (45%)</span></div>'
     + '<div style="position:relative;height:260px"><canvas id="ps-chart" role="img" aria-label="Reparto mensual del FVM Base entre Banco de Chile y Despegar"></canvas></div></div></div>'
     + '<div class="card"><div class="card-hdr"><span class="card-title">P&amp;L por mes</span>'
+    + '<div class="seg"><button class="' + (PL_STRUCT==='d1'?'on':'') + '" onclick="setPLStruct(\'d1\')">P&amp;L D1</button>'
+    + '<button class="' + (PL_STRUCT==='bch'?'on':'') + '" onclick="setPLStruct(\'bch\')">P&amp;L BCH</button></div>'
     + '<div class="seg" style="margin-left:auto"><button class="' + (VIEW==='usd'?'on':'') + '" onclick="setView(\'usd\')">USD</button>'
     + '<button class="' + (VIEW==='pct'?'on':'') + '" onclick="setView(\'pct\')">% de GB</button></div></div>'
     + plHtml(rows) + '</div>'
