@@ -4313,7 +4313,9 @@ function flowMonthly_(subRaw, metricKey, compKey, vDate){
   var MF=_FLMF[metricKey], cmpArr=_flCompArr_(subRaw,compKey), cmpF=_flCompField_(metricKey,compKey);
   var mM={}, bM={};
   (subRaw.actuals||[]).forEach(function(r){var m=r.fecha.substring(0,7);mM[m]=(mM[m]||0)+(r[MF]||0);});
-  if(compKey==='ly'){ cmpArr.forEach(function(r){var m=(+r.fecha.substring(0,4)+1)+r.fecha.substring(4,7);bM[m]=(bM[m]||0)+(r[cmpF]||0);}); }
+  // LY hasta el mismo día del año pasado (como Budget/RR hasta vDate): si no, el mes en curso
+  // comparaba el MTD contra el LY del mes completo.
+  if(compKey==='ly'){ var lyCut=vDate?_flLY_(vDate):null; cmpArr.forEach(function(r){ if(lyCut&&r.fecha>lyCut)return; var m=(+r.fecha.substring(0,4)+1)+r.fecha.substring(4,7);bM[m]=(bM[m]||0)+(r[cmpF]||0);}); }
   else { cmpArr.forEach(function(r){ if(vDate&&r.fecha>vDate)return; var m=r.fecha.substring(0,7);bM[m]=(bM[m]||0)+(r[cmpF]||0);}); }
   var keys={}; Object.keys(mM).forEach(function(k){keys[k]=1;}); Object.keys(bM).forEach(function(k){keys[k]=1;});
   // Solo el año fiscal del mes que se mira, de abril hasta ese mes: los actuals del JSON arrancan
@@ -4573,7 +4575,7 @@ function flLogo_(){ return '<div class="fl-logo"><i></i><i></i><i></i><i></i><i>
 function flHead_(title, brand){ return '<div class="fl-head"><div class="fl-title">'+title+'</div><div class="fl-brand">'+(brand||flLogo_())+'</div></div><div class="fl-rule"></div>'; }
 function flLegend_(goalLbl){ return '<div class="fl-legend"><span><i style="background:#5626e9"></i>Baseline</span><span><i style="background:#c9c9d6"></i>'+(goalLbl||'Goal')+'</span></div>'; }
 function flH1box_(h1, compShort){ var p=h1.goal!==0?(h1.base/h1.goal-1)*100:null, ok=h1.base>=h1.goal;
-  return '<div class="fl-h1box"><div class="h-lbl">vs '+(compShort||'Target')+'</div><div class="h-val'+(ok?'':' warn')+'">'+flFmt_(h1.base)+(ok?' ✓':' !')+'</div><div class="h-tgt">Tgt: '+flFmt_(h1.goal)+' ('+(p==null?'—':(p>=0?'+':'')+p.toFixed(1)+'%')+')</div></div>'; }
+  return '<div class="fl-h1box"><div class="h-lbl">FYTD vs '+(compShort||'Target')+'</div><div class="h-val'+(ok?'':' warn')+'">'+flFmt_(h1.base)+(ok?' ✓':' !')+'</div><div class="h-tgt">Tgt: '+flFmt_(h1.goal)+' ('+(p==null?'—':(p>=0?'+':'')+p.toFixed(1)+'%')+')</div></div>'; }
 
 // per-slide HTML builders. push chart specs to _flowSeries[idx].
 function flowBuildSlide_(def, idx){
