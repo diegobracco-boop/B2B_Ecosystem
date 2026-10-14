@@ -5,7 +5,7 @@ profit_sharing_sync.py
 P&L de Profit Sharing de Banco de Chile.
 
   1. Corre banco_chile_profit_sharing.sql en el Datalake (1 fila por transacción, desde may-2026).
-  2. Agrega a mes × tipo_venta × punto_venta × producto × viaje × estado × agente.
+  2. Agrega a mes × tipo_venta × punto_venta × producto × viaje × estado × cuotas × agente.
   3. Sube banco_chile_profit_sharing.json a Drive (misma carpeta que los JSON de P&L Managerial);
      la landing GAS de esta carpeta (Codigo.js + dashboard.html) lo lee por nombre.
 
@@ -43,7 +43,7 @@ DRIVE_FOLDER_ID = "1wzudbo7cN9Ibiv_2OA-V0_B_un4JcJp6"   # misma carpeta que _act
 JSON_FILE_NAME  = "banco_chile_profit_sharing.json"
 DRIVE_SCOPES    = ["https://www.googleapis.com/auth/drive"]
 
-DIMS = ["mes", "tipo_venta", "punto_venta", "productooriginal", "viaje", "estado", "agent_name"]
+DIMS = ["mes", "tipo_venta", "punto_venta", "productooriginal", "viaje", "estado", "cuotas", "agent_name"]
 
 # Métricas en orden de P&L (nombres = columnas del SELECT final del .sql, en minúscula).
 METRICS = [
@@ -87,6 +87,8 @@ def aggregate(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     df["estado"] = df["product_state"].fillna("Activo")        # current_state sin fila = no cancelado
     df["agent_name"] = df["agent_name"].fillna("")
+    # cuotas como texto ("0", "3", "6"…); sin cobro registrado en collections = "Sin dato"
+    df["cuotas"] = pd.to_numeric(df["cuotas"], errors="coerce").map(lambda x: "Sin dato" if pd.isna(x) else str(int(x)))
     for c in DIMS:
         df[c] = df[c].fillna("").astype(str)
     # NULL en una métrica (ej. leases de un mes sin ventas Presencial) cuenta como 0

@@ -69,6 +69,9 @@ WITH src AS (
     -- ✅ NUEVO: estado actual del producto
     cs.product_state,
 
+    -- ✅ NUEVO (2026-10-13): cuotas de la venta (0, 3, 6, …) — bi_transactional_fact_collections
+    col.installments AS cuotas,
+
     CASE
       WHEN t.country_code IN ('MX','BR','CO','AR','EC','PE','CL') THEN
         CASE t.country_code
@@ -190,6 +193,16 @@ WITH src AS (
     GROUP BY c.consumption_transaction
   ) coup ON CAST(coup.consumption_transaction AS VARCHAR) = CAST(t.transaction_code AS VARCHAR)
 
+  -- ✅ NUEVO: cuotas (1 fila por transacción; MAX por si hay más de un cobro)
+  LEFT JOIN (
+    SELECT
+      transaction_code,
+      MAX(installments) AS installments
+    FROM data.analytics.bi_transactional_fact_collections
+    WHERE reservation_year_month >= DATE '2023-01-01'
+    GROUP BY transaction_code
+  ) col ON CAST(col.transaction_code AS VARCHAR) = CAST(t.transaction_code AS VARCHAR)
+
   WHERE pnl.date_reservation_year_month >= '2026-05'
     AND p.reservation_year_month >= CAST('2023-01-01' AS DATE)
     AND t.reservation_year_month >= CAST('2023-01-01' AS DATE)
@@ -221,6 +234,7 @@ base AS (
 
     -- ✅ NUEVO: MAX para mantener granularidad transacción
     MAX(product_state)                                           AS product_state,
+    MAX(cuotas)                                                  AS cuotas,
 
     COUNT(DISTINCT transaction_code)                             AS orders,
     SUM(gb_without_distorted_taxes_usd)                         AS gross_bookings,
@@ -376,6 +390,7 @@ SELECT
   agency_code,
   agent_name,
   product_state,
+  cuotas,
   viaje,
   orders,
   gross_bookings,

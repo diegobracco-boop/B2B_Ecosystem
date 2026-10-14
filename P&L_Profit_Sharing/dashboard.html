@@ -87,8 +87,8 @@ table.pl td.tot,table.pl th.tot{border-left:2px solid var(--border2);font-weight
 // ══════════════════════════════════════════════════════════════════════════
 var D = null;                    // {months, dims, metrics, rows, updated_at}
 var IDX = {};                    // nombre de columna -> índice en la fila
-var FILTERS = { tipo_venta:[], punto_venta:[], productooriginal:[], viaje:[], estado:[] };
-var FILTER_LABELS = { tipo_venta:'Tipo de venta', punto_venta:'Punto de venta', productooriginal:'Producto', viaje:'Viaje', estado:'Estado' };
+var FILTERS = { tipo_venta:[], punto_venta:[], productooriginal:[], viaje:[], estado:[], cuotas:[] };
+var FILTER_LABELS = { tipo_venta:'Tipo de venta', punto_venta:'Punto de venta', productooriginal:'Producto', viaje:'Viaje', estado:'Estado', cuotas:'Cuotas' };
 var PERIOD = 'all';              // 'all' | 'YYYY-MM' (KPIs, gráfico y tablas de apertura)
 var UNIT = 'K';                  // 'K' | 'raw'
 var VIEW = 'usd';                // 'usd' | 'pct' (P&L como % de GB)
@@ -109,7 +109,7 @@ function money(v){
   }
   return (v < 0 && Math.round(a) > 0 ? '−' : '') + grp(Math.round(a));
 }
-function pct(v){ return (v == null || !isFinite(v)) ? '—' : (v < 0 ? '−' : '') + Math.abs(v*100).toFixed(1).replace('.', ',') + '%'; }
+function pct(v){ if(v == null || !isFinite(v)) return '—'; var t = Math.abs(v*100).toFixed(1); return (v < 0 && +t > 0 ? '−' : '') + t.replace('.', ',') + '%'; }   // sin "−0,0%"
 function cnt(v){ return grp(Math.round(v || 0)); }
 function cls(v){ return v < 0 ? ' class="neg"' : ''; }
 
@@ -292,13 +292,100 @@ function drawChart(rows){
   });
 }
 
+// Orden de opciones: numérico si las dos son números (cuotas 0, 1, 3, 6, 12…), si no alfabético; "Sin dato" al final.
+function _optCmp(a, b){
+  var na = /^\d+$/.test(a), nb = /^\d+$/.test(b);
+  if(na && nb) return +a - +b;
+  if(na !== nb) return na ? -1 : 1;
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+// ── Cuotas: costo financiero por plan de cuotas ──
+// Costo = Cost of Installments (COI), Efecto Financiero, o la suma de los dos (selector).
+var CUOTAS_COST = 'both';   // 'coi' | 'ef' | 'both'
+var CUOTAS_EVO  = 'pct';    // evolutivo: 'pct' costo %GB | 'cost' costo | 'gb' GB | 'mix' % del GB del mes
+var CUOTAS_COST_LBL = { coi:'Cost of Installments', ef:'Efecto Financiero', both:'COI + Efecto Financiero' };
+function setCuotasCost(v){ CUOTAS_COST = v; render(); }
+function setCuotasEvo(v){ CUOTAS_EVO = v; render(); }
+function cuotaCost(o){
+  var coi = o.cost_of_installments || 0, ef = o.efecto_financiero || 0;
+  return CUOTAS_COST === 'coi' ? coi : CUOTAS_COST === 'ef' ? ef : coi + ef;
+}
+
+// Tabla resumen: los tres costos lado a lado (COI, Efecto Financiero y la suma), cada uno con su %GB.
+function cuotasHtml(rows){
+  var g = sumBy(periodRows(rows), function(r){ return r[IDX.cuotas]; });
+  var keys = Object.keys(g).sort(_optCmp);
+  if(!keys.length) return '<div class="card-body note">Sin datos para este filtro / período.</div>';
+  var t = { gb:0, coi:0, ef:0 };
+  keys.forEach(function(k){ t.gb += g[k].gross_bookings || 0; t.coi += g[k].cost_of_installments || 0; t.ef += g[k].efecto_financiero || 0; });
+  var h = '<div class="scroll"><table class="pl"><thead>'
+    + '<tr><th></th><th></th><th></th>'
+    + '<th colspan="2" class="tot" style="text-align:center">Cost of Installments</th>'
+    + '<th colspan="2" class="tot" style="text-align:center">Efecto Financiero</th>'
+    + '<th colspan="2" class="tot" style="text-align:center">COI + Efecto Financiero</th></tr>'
+    + '<tr><th>Cuotas</th><th>GB</th><th>% del GB</th>'
+    + '<th class="tot">USD</th><th>%GB</th><th class="tot">USD</th><th>%GB</th><th class="tot">USD</th><th>%GB</th></tr></thead><tbody>';
+  function pair(c, gb){ return '<td class="tot' + (c < 0 ? ' neg' : '') + '">' + money(c) + '</td><td' + cls(c) + '>' + pct(gb ? c / gb : null) + '</td>'; }
+  function tr(name, gb, coi, ef, mix, style){
+    return '<tr' + (style ? ' class="' + style + '"' : '') + '><td>' + esc(name) + '</td><td>' + money(gb) + '</td><td>' + pct(mix) + '</td>'
+      + pair(coi, gb) + pair(ef, gb) + pair(coi + ef, gb) + '</tr>';
+  }
+  keys.forEach(function(k){
+    var o = g[k], gb = o.gross_bookings || 0;
+    h += tr(k, gb, o.cost_of_installments || 0, o.efecto_financiero || 0, t.gb ? gb / t.gb : null);
+  });
+  h += tr('Total', t.gb, t.coi, t.ef, t.gb ? 1 : null, 'sub');
+  return h + '</tbody></table></div>';
+}
+
+// Evolutivo mensual: filas = cuotas, columnas = meses (ignora el selector de período).
+function cuotasEvoHtml(rows){
+  var months = D.months;
+  var g = sumBy(rows, function(r){ return r[IDX.cuotas] + '|' + r[IDX.mes]; });
+  var keys = {}; Object.keys(g).forEach(function(k){ keys[k.split('|')[0]] = true; });
+  keys = Object.keys(keys).sort(_optCmp);
+  if(!keys.length) return '<div class="card-body note">Sin datos para este filtro.</div>';
+  var mTot = {};   // totales por mes (para el mix y la fila Total)
+  months.concat(['Total']).forEach(function(m){ mTot[m] = { gb:0, c:0 }; });
+  keys.forEach(function(k){ months.forEach(function(m){
+    var o = g[k + '|' + m]; if(!o) return;
+    mTot[m].gb += o.gross_bookings || 0; mTot[m].c += cuotaCost(o);
+    mTot.Total.gb += o.gross_bookings || 0; mTot.Total.c += cuotaCost(o);
+  }); });
+  function cell(gb, c, gbMonth){
+    var v = CUOTAS_EVO === 'pct' ? (gb ? c / gb : null) : CUOTAS_EVO === 'cost' ? c : CUOTAS_EVO === 'gb' ? gb : (gbMonth ? gb / gbMonth : null);
+    var txt = (CUOTAS_EVO === 'pct' || CUOTAS_EVO === 'mix') ? pct(v) : money(v);
+    return { txt: txt, neg: v != null && v < 0 };
+  }
+  var h = '<div class="scroll"><table class="pl"><thead><tr><th>Cuotas</th>'
+    + months.map(function(m){ return '<th>' + mesLbl(m) + (isPartial(m) ? '*' : '') + '</th>'; }).join('') + '<th class="tot">Total</th></tr></thead><tbody>';
+  keys.forEach(function(k){
+    var rt = { gb:0, c:0 };
+    h += '<tr><td>' + esc(k) + '</td>';
+    months.forEach(function(m){
+      var o = g[k + '|' + m] || {}, gb = o.gross_bookings || 0, c = o.gross_bookings != null ? cuotaCost(o) : 0;
+      rt.gb += gb; rt.c += c;
+      var x = cell(gb, c, mTot[m].gb); h += '<td' + (x.neg ? ' class="neg"' : '') + '>' + x.txt + '</td>';
+    });
+    var xt = cell(rt.gb, rt.c, mTot.Total.gb);
+    h += '<td class="tot' + (xt.neg ? ' neg' : '') + '">' + xt.txt + '</td></tr>';
+  });
+  h += '<tr class="sub"><td>Total</td>';
+  months.concat(['Total']).forEach(function(m){
+    var x = cell(mTot[m].gb, mTot[m].c, mTot[m].gb);
+    h += '<td class="' + (m === 'Total' ? 'tot' : '') + (x.neg ? ' neg' : '') + '">' + x.txt + '</td>';
+  });
+  return h + '</tr></tbody></table></div>';
+}
+
 // ── Controles ──
 function chipsRow(dim){
   var opts = {}; D.rows.forEach(function(r){ opts[r[IDX[dim]]] = true; });
   var sel = FILTERS[dim];
   var h = '<div class="frow"><span class="flbl">' + FILTER_LABELS[dim] + '</span>'
     + '<button class="chip' + (sel.length ? '' : ' on') + '" onclick="clearF(\'' + dim + '\')">Todos</button>';
-  Object.keys(opts).sort().forEach(function(o){
+  Object.keys(opts).sort(_optCmp).forEach(function(o){
     h += '<button class="chip' + (sel.indexOf(o) >= 0 ? ' on' : '') + '" data-dim="' + dim + '" data-val="' + esc(o) + '" onclick="toggleF(this)">' + esc(o || '(vacío)') + '</button>';
   });
   return h + '</div>';
@@ -333,6 +420,14 @@ function render(){
     + '<button class="' + (VIEW==='pct'?'on':'') + '" onclick="setView(\'pct\')">% de GB</button></div></div>'
     + plHtml(rows) + '</div>'
     + '<div class="card"><div class="card-hdr"><span class="card-title">Apertura por canal de venta</span><span class="card-sub">' + esc(perTxt) + '</span></div>' + channelHtml(rows) + '</div>'
+    + '<div class="card"><div class="card-hdr"><span class="card-title">Cuotas: costo financiero</span><span class="card-sub">' + esc(perTxt) + '</span></div>'
+    + cuotasHtml(rows) + '</div>'
+    + '<div class="card"><div class="card-hdr"><span class="card-title">Cuotas: evolutivo mensual</span>'
+    + '<span class="card-sub">' + esc(CUOTAS_COST_LBL[CUOTAS_COST]) + ' · todos los meses</span></div>'
+    + '<div class="card-body" style="padding-bottom:0">'
+    + seg('Costo', [['coi','Cost of Installments'],['ef','Efecto Financiero'],['both','COI + Efecto Financiero']], CUOTAS_COST, 'setCuotasCost')
+    + seg('Ver', [['pct','Costo %GB'],['cost','Costo'],['gb','GB'],['mix','% del GB del mes']], CUOTAS_EVO, 'setCuotasEvo')
+    + '</div>' + cuotasEvoHtml(rows) + '</div>'
     + '<div class="card"><div class="card-hdr"><span class="card-title">Vendedores (Presencial y Call Center)</span><span class="card-sub">' + esc(perTxt) + '</span></div>' + agentsHtml(rows) + '</div>'
     + notesHtml();
   document.getElementById('app').innerHTML = h;
