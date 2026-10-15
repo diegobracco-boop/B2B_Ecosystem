@@ -3058,12 +3058,13 @@ function _pnlGroupHeaderRow_(group, cols){
 var _vsAccData = null;
 var _vsAccPais = [];   // país canónico seleccionado ('Argentina', 'Otros', …)
 var _vsAccProd = [];   // producto lowercase seleccionado
-var _vsAccMode = 'mgracc';   // 'mgracc' = Managerial vs Accounting | 'planrev' = Planning vs Revenue (GD)
+var _vsAccMode = 'mgracc';   // 'mgracc' = Managerial vs Accounting | 'planrev' = Planning vs Revenue (GD) | 'fvmoc' = FVM → OC
 
 function _vsAccSetMode_(m){
   if(m === _vsAccMode) return;
   _vsAccMode = m;
   if(_revGdWfChart){ _revGdWfChart.destroy(); _revGdWfChart = null; }
+  if(_fvmOcChart){ _fvmOcChart.destroy(); _fvmOcChart = null; }
   renderVsAcc_();
 }
 
@@ -3184,6 +3185,304 @@ function _vsAccTable_(L){
             sumRow(function(m){ return (acc[k]||{})[m]||0; }),
             '', 'color:var(--muted)', true);
   });
+  return h + '</tbody></table></div>';
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//  FVM → Operating Contribution — cuánto del FVM (Managerial) llega a OC (Accounting)
+//  Mismo backend que Managerial vs Accounting (getVsAccounting): Mgr = 'ac' (B2B2C) /
+//  'ac_ri' (MAY, MIN) · Acc = filas de actuals.json con P&L N5 = 'operating contribution'
+//  ('oc1|' = N1, 'oc2|' = N2, 'oc|total'). Puente línea por línea en orden P&L:
+//  FVM → Δ por línea (Acc − Mgr) → OC. "Sin línea propia" cierra exacto: lo que FVM y OC
+//  tienen fuera de las líneas mapeadas (B2B: el FVM gestional suma marketing/loyalty sin
+//  métrica propia; Acc: cualquier N1 nueva dentro de OC que no esté en este mapa).
+//  ⚠ BORRADOR — mismo mapeo de líneas que VSACC_MAP, lo revisa Diego.
+// ══════════════════════════════════════════════════════════════════════════
+// `sec` = grupo de negocio: una barra por grupo en el waterfall y una sección por grupo en la
+// tabla (spec de Diego 2026-10-15). El orden de FVMOC_SEC es el orden de las barras.
+var FVMOC_MAP = [
+  // Juntas a propósito (como en VSACC_MAP): cada modelo reparte distinto entre las 3 (MAY: UFI
+  // +34M Mgr vs +0.9M Acc, Comm. Disc. −34M vs 0) — separadas dan barras de ±34M que se anulan.
+  { label:'Up Front + Fees + Comm. Disc.', mgr:['up_front_incentives','fees','commercial_discounts'],
+                                     acc:['oc1|up front incentives','oc1|fees','oc1|commercial discounts'], sec:'palancas' },
+  { label:'Cancellations',           mgr:['cancellations'],           acc:['oc1|cancellations'], sec:'palancas' },
+  { label:'Cost of Installments',    mgr:['cost_of_installments'],    acc:['oc1|cost of installments'], sec:'palancas' },
+  { label:'Credit Card Processing',  mgr:['credit_card_processing'],  acc:['oc1|credit card processing'], sec:'palancas' },
+  { label:'White Labels / API',      mgr:['white_labels_api'],        acc:['oc1|white labels / api'], sec:'palancas' },
+  { label:'Affiliates',              mgr:['affiliates'],              acc:['oc1|affiliates'], sec:'palancas' },
+  { label:'Conectores + Telesales',  mgr:[],                          acc:['oc1|conectores','oc1|telesales'], sec:'palancas' },
+  { label:'Revenue Taxes',           mgr:['revenue_tax'],             acc:['oc1|revenue taxes'], sec:'palancas' },
+  { label:'Other Transactional Taxes', mgr:['other_transactional_taxes'], acc:['oc1|other transactional taxes'], sec:'palancas' },
+
+  { label:'Back End Incentives',     mgr:['back_end_incentives'],     acc:['oc1|back end incentives'], sec:'proveedores' },
+  { label:'Other Incentives (+GDS, VCC)', mgr:['other_incentives'],   acc:['oc1|other incentives','oc1|gds','oc1|vcc'], sec:'proveedores' },
+  { label:'Breakage Revenue',        mgr:['breakage_revenue'],        acc:['oc1|breakage revenue'], sec:'proveedores' },
+  { label:'Media & Other Revenue',   mgr:['media_revenue'],           acc:['oc1|media & other revenue - media solutions'], sec:'proveedores' },
+  { label:'Income Outsourced Svcs',  mgr:['income_from_outsourced_services'], acc:['oc1|income from outsourced services'], sec:'proveedores' },
+
+  { label:'Customer Claims',         mgr:['customer_claims'],         acc:['oc1|customer claims'], sec:'perdidas' },
+  { label:'Frauds',                  mgr:['frauds'],                  acc:['oc1|frauds'], sec:'perdidas' },
+  { label:'Errors',                  mgr:['errors'],                  acc:['oc1|errors'], sec:'perdidas' },
+  { label:'Bad Debt',                mgr:[],                          acc:['oc2|bad debt'], sec:'perdidas' },
+
+  { label:'Customer Service',        mgr:['customer_service'],        acc:['oc1|customer service'], sec:'fijos' },
+  { label:'Operations + Risk',       mgr:['operations'],              acc:['oc1|operations','oc1|risk'], sec:'fijos' },
+  { label:'Intercompany',            mgr:['intercompany_usd'],        acc:['oc1|intercompany transactions'], sec:'fijos' },
+  { label:'Vendor Comm.  vs  Channels Personnel', mgr:['vendor_commissions'], acc:['oc2|channels-personnel/expenses'], sec:'fijos' },
+  { label:'Marketing Personnel',     mgr:[],                          acc:['oc2|marketing-personnel/expenses'], sec:'fijos' },
+  { label:'Other Taxes',             mgr:[],                          acc:['oc2|other taxes'], sec:'fijos' },
+
+  { label:'Marketing Direct',        mgr:[],                          acc:['oc2|marketing-direct'], sec:'marketing' },
+  { label:'Loyalty Program',         mgr:[],                          acc:['oc2|loyalty program'], sec:'marketing' },
+  { label:'Loyalty Revenue',         mgr:[],                          acc:['oc2|loyalty revenue'], sec:'marketing' },
+
+  { label:'Efecto Financiero',       mgr:['efecto_financiero'],       acc:[], note:'solo Managerial', sec:'financiero' },
+  { label:'Dif FX + Hedge  vs  Cost of Sales as Principal', mgr:['dif_fx','currency_hedge'], acc:['oc1|cost of sales as principal'], note:'fee bimonetario Argentina', sec:'financiero' }
+];
+var FVMOC_SEC = [
+  { k:'palancas',    label:'Palancas de Negocio' },
+  { k:'proveedores', label:'Incentivos Proveedores' },
+  { k:'perdidas',    label:'Pérdidas Operativas' },
+  { k:'fijos',       label:'Costos Fijos' },
+  { k:'marketing',   label:'Inversión de Marketing' },
+  { k:'financiero',  label:'Resultado Financiero' },
+  { k:'resid',       label:'Sin línea propia' }
+];
+function _fvmOcSecLabel_(k){ for(var i=0; i<FVMOC_SEC.length; i++) if(FVMOC_SEC[i].k === k) return FVMOC_SEC[i].label; return k; }
+var FVMOC_LOBS = [
+  { k:'all',   label:'Total',     lobs:['b2b2c','may','min'] },
+  { k:'b2b2c', label:'B2B2C',     lobs:['b2b2c'] },
+  { k:'b2b',   label:'Total B2B', lobs:['may','min'] },
+  { k:'may',   label:'MAY (API)', lobs:['may'] },
+  { k:'min',   label:'MIN (AFF)', lobs:['min'] }
+];
+var _fvmOcLob   = 'all';
+var _fvmOcMonth = 'all';   // 'all' = acumulado | 'Abr-26' etc (solo el waterfall)
+var _fvmOcChart = null;
+// Verde = suma al pasar de FVM a OC, rojo = resta (pedido de Diego 2026-10-15; mismos tonos que --green/--red).
+var FVMOC_WF_COLORS = { total:'#2b2150', up:'#1a7f37', down:'#cf222e' };
+
+function _fvmOcSet_(which, v){
+  if(which === 'lob') _fvmOcLob = v; else _fvmOcMonth = v;
+  _fvmOcRender_();
+}
+
+// LOBs elegidas → { def, months (intersección), mgr:{k:{mes}}, acc:{k:{mes}} }
+function _fvmOcData_(D){
+  var def = FVMOC_LOBS.filter(function(x){ return x.k === _fvmOcLob; })[0] || FVMOC_LOBS[0];
+  var Ls = def.lobs.map(function(k){ return D.lobs[k]; }).filter(Boolean);
+  var months = null;
+  Ls.forEach(function(L){
+    var m = L.months || [];
+    months = months === null ? m.slice() : months.filter(function(x){ return m.indexOf(x) >= 0; });
+  });
+  function merge(field){
+    var out = {};
+    Ls.forEach(function(L){
+      var src = L[field] || {};
+      Object.keys(src).forEach(function(k){
+        if(!out[k]) out[k] = {};
+        Object.keys(src[k]).forEach(function(m){ out[k][m] = (out[k][m] || 0) + src[k][m]; });
+      });
+    });
+    return out;
+  }
+  return { def:def, months:months || [], mgr:merge('mgr'), acc:merge('acc') };
+}
+
+// Puente para un set de meses: FVM, OC y una fila por línea (g = Mgr, a = Acc, d = a − g).
+function _fvmOcRows_(X, months){
+  function s(dict, keys){ return months.reduce(function(t, m){ return t + _vsAccSum_(dict, keys, m); }, 0); }
+  var fvm = s(X.mgr, ['npv']), oc = s(X.acc, ['oc|total']);
+  var rows = FVMOC_MAP.map(function(r){
+    var g = s(X.mgr, r.mgr), a = s(X.acc, r.acc);
+    return { label:r.label, sec:r.sec, note:r.note, g:g, a:a, d:a - g };
+  });
+  var sg = rows.reduce(function(t, r){ return t + r.g; }, 0);
+  var sa = rows.reduce(function(t, r){ return t + r.a; }, 0);
+  rows.push({ label:'Sin línea propia', sec:'resid', resid:true, g:fvm - sg, a:oc - sa, d:(oc - sa) - (fvm - sg),
+              note:'Mgr: marketing/loyalty B2B sin métrica · Acc: N1 sin mapear' });
+  return { fvm:fvm, oc:oc, rows:rows };
+}
+
+function _fvmOcPct_(oc, fvm){ return Math.abs(fvm) < 1e-9 ? null : oc / fvm * 100; }
+
+function _fvmOcRender_(){
+  var sec = document.getElementById('fvmoc-section');
+  if(!sec || !_vsAccData || !_vsAccData.lobs) return;
+  if(_fvmOcChart){ _fvmOcChart.destroy(); _fvmOcChart = null; }
+  var X = _fvmOcData_(_vsAccData), months = X.months;
+  if(_fvmOcMonth !== 'all' && months.indexOf(_fvmOcMonth) < 0) _fvmOcMonth = 'all';
+
+  function chips(label, opts, cur, which){
+    var h = '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:4px 0">'
+      + '<span style="font-size:11px;color:var(--muted);font-weight:700;min-width:64px">'+label+'</span><div class="prd-toggle">';
+    opts.forEach(function(o){
+      h += '<button type="button" class="prd-btn'+(cur===o[0]?' prd-active':'')+'" onclick="_fvmOcSet_(\''+which+'\',\''+o[0]+'\')">'+escHtml(o[1])+'</button>';
+    });
+    return h + '</div></div>';
+  }
+  var lobChips = chips('LOB', FVMOC_LOBS.map(function(x){ return [x.k, x.label]; }), _fvmOcLob, 'lob');
+  if(!months.length){
+    sec.innerHTML = '<div class="pnl-card" style="margin-bottom:10px;padding:10px 14px">'+lobChips+'</div>'
+      + '<div class="pnl-card" style="padding:12px;color:var(--muted)">Sin meses cerrados en común entre Managerial y Accounting.</div>';
+    return;
+  }
+  var wfMonths = _fvmOcMonth === 'all' ? months : [_fvmOcMonth];
+  var B = _fvmOcRows_(X, wfMonths);
+  var conv = _fvmOcPct_(B.oc, B.fvm);
+  var per = _fvmOcMonth === 'all' ? ('acumulado ' + months.join(', ')) : _fvmOcMonth;
+
+  // ── KPIs ──
+  function kpi(label, val, sub){
+    return '<div style="flex:1;min-width:140px;padding:10px 12px;border:1px solid var(--border);border-radius:8px">'
+      + '<div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.04em">'+label+'</div>'
+      + '<div style="font-size:20px;font-weight:800;margin-top:2px">'+val+'</div>'
+      + (sub ? '<div style="font-size:11px;color:var(--muted)">'+sub+'</div>' : '') + '</div>';
+  }
+  var gap = B.oc - B.fvm;
+  var kpis = '<div style="display:flex;flex-wrap:wrap;gap:10px;margin:8px 0 4px">'
+    + kpi('FVM · Managerial', fmtM(B.fvm), 'actuals gestional')
+    + kpi('Operating Contribution · Accounting', fmtM(B.oc), 'actuals.json (N5)')
+    + kpi('Conversión OC / FVM', conv == null ? '—' : conv.toFixed(1) + '%', 'cuánto del FVM llega a OC')
+    + kpi('Gap (OC − FVM)', '<span style="color:'+(gap < 0 ? 'var(--red)' : 'inherit')+'">'+(gap >= 0 ? '+' : '−')+fmtM(Math.abs(gap))+'</span>', 'suma de las barras del puente')
+    + '</div>';
+
+  // ── Waterfall ──
+  var C = FVMOC_WF_COLORS;
+  function sw(color, txt){ return '<span style="display:inline-flex;align-items:center;gap:5px;margin-right:14px">'
+    + '<span style="width:10px;height:10px;border-radius:2px;background:'+color+'"></span>'+txt+'</span>'; }
+  var monthChips = chips('Mes', [['all','Acumulado']].concat(months.map(function(m){ return [m, m]; })), _fvmOcMonth, 'month');
+  var wf = '<div class="pnl-card" style="margin-bottom:10px;padding:12px 28px">'
+    + '<div style="font-weight:700">Puente FVM → Operating Contribution <span style="font-weight:400;color:var(--muted);font-size:11px">· '
+    + escHtml(X.def.label)+' · '+escHtml(per)+'</span></div>'
+    + lobChips + monthChips + kpis
+    + '<div style="font-size:11px;color:var(--muted);margin:8px 0 4px">'
+    + sw(C.total,'FVM / OC') + sw(C.up,'Suma al pasar a OC (+)') + sw(C.down,'Resta al pasar a OC (−)')
+    + '</div>'
+    + '<div style="position:relative;height:340px;padding:0 12px"><canvas id="fvmoc-wf-canvas" role="img" aria-label="Waterfall por grupo de negocio de FVM Managerial a Operating Contribution Accounting"></canvas></div>'
+    + '<div style="font-size:11px;color:var(--muted);margin-top:6px">Cada barra = Δ del grupo (Accounting − Managerial); pasá el mouse para ver qué líneas lo explican. '
+    + 'Lo que solo existe en Accounting (marketing, channels, loyalty program, other taxes, bad debt, conectores/telesales) resta su total; '
+    + 'el efecto financiero (solo Managerial) suma de vuelta lo que el FVM descuenta y OC no. El detalle por línea y mes está en la tabla de abajo.</div>'
+    + '</div>';
+
+  sec.innerHTML = wf + _fvmOcTableHtml_(X);
+  _fvmOcDrawWaterfall_(B);
+}
+
+function _fvmOcDrawWaterfall_(B){
+  var cv = document.getElementById('fvmoc-wf-canvas');
+  if(!cv || typeof Chart === 'undefined') return;
+  var steps = [{ kind:'total', label:'FVM (Managerial)', v:B.fvm }];
+  FVMOC_SEC.forEach(function(sc){
+    var rs = B.rows.filter(function(r){ return r.sec === sc.k; });
+    var d = rs.reduce(function(t, r){ return t + r.d; }, 0);
+    if(sc.k === 'resid' && Math.abs(d) < 0.5) return;   // el cierre solo aparece si hay algo sin mapear
+    var lines = rs.filter(function(r){ return Math.abs(r.d) >= 0.5; })
+      .sort(function(a, b){ return Math.abs(b.d) - Math.abs(a.d); });
+    steps.push({ kind:'delta', label:sc.label, d:d, lines:lines });
+  });
+  steps.push({ kind:'total', label:'Operating Contribution', v:B.oc });
+  var C = FVMOC_WF_COLORS, cum = 0, data = [], colors = [], levels = [];
+  steps.forEach(function(st){
+    if(st.kind === 'total'){ data.push([0, st.v]); cum = st.v; colors.push(C.total); }
+    else { data.push([cum, cum + st.d]); cum += st.d; colors.push(st.d >= 0 ? C.up : C.down); }
+    levels.push(cum);
+  });
+  function sgn(v){ return (v >= 0 ? '+' : '−') + fmtM(Math.abs(v)); }
+  function wrapLbl(t){
+    if(t.length <= 14) return t;
+    var w = t.split(' '), a = '', b = '';
+    w.forEach(function(x){ if((a + ' ' + x).trim().length <= 14 && !b) a = (a + ' ' + x).trim(); else b = (b + ' ' + x).trim(); });
+    return b ? [a, b] : t;
+  }
+  var wfLabels = { id:'fvmocWfLabels', afterDatasetsDraw:function(chart){
+    var ctx = chart.ctx, meta = chart.getDatasetMeta(0), y = chart.scales.y;
+    ctx.save();
+    ctx.font = '600 11px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#1f1a33';
+    meta.data.forEach(function(el, i){
+      var st = steps[i], v = st.kind === 'total' ? st.v : st.d;
+      var top = Math.min(el.y, el.base), bot = Math.max(el.y, el.base);
+      var up = v >= 0;
+      ctx.textBaseline = up ? 'bottom' : 'top';
+      ctx.fillText(st.kind === 'total' ? fmtM(v) : sgn(v), el.x, up ? top - 3 : bot + 3);
+      if(i < meta.data.length - 1){
+        var nx = meta.data[i+1], ly = y.getPixelForValue(levels[i]);
+        ctx.strokeStyle = 'rgba(31,26,51,.35)'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+        ctx.beginPath(); ctx.moveTo(el.x + el.width/2, ly); ctx.lineTo(nx.x - nx.width/2, ly); ctx.stroke(); ctx.setLineDash([]);
+      }
+    });
+    ctx.restore();
+  }};
+  _fvmOcChart = new Chart(cv, {
+    type:'bar',
+    data:{ labels: steps.map(function(s){ return wrapLbl(s.label); }),
+           datasets:[{ data:data, backgroundColor:colors, borderRadius:4, borderSkipped:false, barPercentage:0.6, categoryPercentage:0.85, minBarLength:3 }] },
+    options:{
+      responsive:true, maintainAspectRatio:false, animation:false,
+      layout:{ padding:{ top:20, bottom:6, left:24, right:24 } },
+      plugins:{
+        legend:{ display:false },
+        tooltip:{ callbacks:{
+          title:function(it){ return steps[it[0].dataIndex].label; },
+          label:function(it){
+            var st = steps[it.dataIndex];
+            if(st.kind === 'total') return fmtM(st.v);
+            return ['Δ (Acc − Mgr): ' + sgn(st.d)].concat(st.lines.slice(0, 10).map(function(r){ return '  ' + r.label + ': ' + sgn(r.d); }));
+          }
+        } }
+      },
+      scales:{
+        x:{ grid:{ display:false }, ticks:{ font:{ size:11 }, maxRotation:0, autoSkip:false } },
+        y:{ beginAtZero:true, grid:{ color:'rgba(0,0,0,.05)' }, ticks:{ font:{ size:10 }, callback:function(v){ return fmtM(v); } } }
+      }
+    },
+    plugins:[wfLabels]
+  });
+}
+
+// Tabla mensual: por línea Managerial | Accounting | Δ (Acc − Mgr), + FVM/OC y conversión.
+function _fvmOcTableHtml_(X){
+  var months = X.months, cols = months.concat(['Total']);
+  var per = cols.map(function(c){ return _fvmOcRows_(X, c === 'Total' ? months : [c]); });
+  function cell(v){ return '<td style="text-align:right'+(v<0?';color:var(--red)':'')+'">'+fmtM(v)+'</td>'; }
+  function blank(){ return cols.map(function(){ return '<td></td>'; }).join(''); }
+  function tr(label, gV, aV, note, style){
+    var dV = aV.map(function(a, i){ return a - gV[i]; });
+    return '<tr'+(style?' style="'+style+'"':'')+'><td class="th-lbl">'+escHtml(label)
+      + (note?' <span style="color:var(--muted);font-size:10px">('+escHtml(note)+')</span>':'')+'</td>'
+      + gV.map(cell).join('')+'<td class="th-sep"></td>'
+      + aV.map(cell).join('')+'<td class="th-sep"></td>'
+      + dV.map(cell).join('')+'</tr>';
+  }
+  var h = '<div class="pnl-card" style="overflow-x:auto;margin-bottom:16px"><table class="qpnl-table" style="min-width:820px"><thead>'
+    + '<tr><th class="th-lbl"></th><th class="th-baseline" colspan="'+cols.length+'">MANAGERIAL (FVM)</th><th class="th-sep"></th>'
+    + '<th class="th-goal" colspan="'+cols.length+'">ACCOUNTING (OC)</th><th class="th-sep"></th>'
+    + '<th class="th-delta" colspan="'+cols.length+'">Δ (Acc − Mgr)</th></tr><tr><th class="th-lbl">Línea</th>';
+  for(var g=0; g<3; g++){ cols.forEach(function(col){ h += '<th'+(col==='Total'?' class="th-total-b"':'')+'>'+col+'</th>'; }); if(g<2) h += '<th class="th-sep"></th>'; }
+  h += '</tr></thead><tbody>';
+
+  var span = 1 + cols.length*3 + 2;
+  FVMOC_SEC.forEach(function(sc){
+    var idx = [];
+    per[0].rows.forEach(function(r, i){ if(r.sec === sc.k) idx.push(i); });
+    if(!idx.length) return;
+    function sum(p, f){ return idx.reduce(function(t, i){ return t + p.rows[i][f]; }, 0); }
+    h += '<tr><td colspan="'+span+'" style="font-weight:800;padding:6px 8px;background:rgba(42,16,72,.10);border-top:1px solid var(--border)">'+escHtml(sc.label)+'</td></tr>';
+    idx.forEach(function(i){
+      var r0 = per[0].rows[i];
+      h += tr(r0.label, per.map(function(p){ return p.rows[i].g; }), per.map(function(p){ return p.rows[i].a; }),
+              r0.note, r0.resid ? 'color:var(--muted)' : '');
+    });
+    if(idx.length > 1) h += tr('Subtotal ' + sc.label, per.map(function(p){ return sum(p, 'g'); }), per.map(function(p){ return sum(p, 'a'); }),
+                               '', 'font-weight:700');
+  });
+  h += tr('» FVM  →  Operating Contribution', per.map(function(p){ return p.fvm; }), per.map(function(p){ return p.oc; }),
+          '', 'font-weight:700;background:rgba(42,16,72,.05);border-top:2px solid var(--border)');
+  h += '<tr style="font-weight:700;background:rgba(42,16,72,.05)"><td class="th-lbl">» Conversión OC / FVM</td>'
+    + blank()+'<td class="th-sep"></td>'+blank()+'<td class="th-sep"></td>'
+    + per.map(function(p){ var v = _fvmOcPct_(p.oc, p.fvm); return '<td style="text-align:right">'+(v==null||!isFinite(v)?'—':v.toFixed(1)+'%')+'</td>'; }).join('')
+    + '</tr>';
   return h + '</tbody></table></div>';
 }
 
@@ -3534,6 +3833,7 @@ function renderVsAcc_(){
   var c = document.getElementById('vsacc-container');
   var D = _vsAccData;
   var isPR = _vsAccMode === 'planrev';
+  var isOC = _vsAccMode === 'fvmoc';
   // "Actuals GD vs Revenue" tiene pipeline propio (revenue_gd.json) → no depende de getVsAccounting.
   if(!isPR && (!D || !D.lobs)){
     c.innerHTML = '<div class="error-msg" style="padding:24px">Sin datos. '
@@ -3554,7 +3854,8 @@ function renderVsAcc_(){
   var modeToggle = '<div style="display:flex;gap:6px;align-items:center;margin:0 0 8px">'
     + '<span style="font-size:11px;color:var(--muted);font-weight:700;min-width:64px">Vista</span>'
     + '<div class="prd-toggle">'
-    + '<button type="button" class="prd-btn'+(!isPR?' prd-active':'')+'" onclick="_vsAccSetMode_(\'mgracc\')">Managerial vs Accounting</button>'
+    + '<button type="button" class="prd-btn'+(_vsAccMode==='mgracc'?' prd-active':'')+'" onclick="_vsAccSetMode_(\'mgracc\')">Managerial vs Accounting</button>'
+    + '<button type="button" class="prd-btn'+(isOC?' prd-active':'')+'" onclick="_vsAccSetMode_(\'fvmoc\')">FVM → OC</button>'
     + '<button type="button" class="prd-btn'+(isPR?' prd-active':'')+'" onclick="_vsAccSetMode_(\'planrev\')">Actuals GD vs Revenue</button>'
     + '</div>'
     + '<button type="button" onclick="'+reloadJs+'" style="margin-left:auto;font-size:10px;padding:2px 8px;cursor:pointer">↻ recargar</button>'
@@ -3563,6 +3864,9 @@ function renderVsAcc_(){
   var desc = isPR
     ? '<b>Actuals GD vs Revenue</b> — B2B por GD (<code>gestion_date</code>), meses cerrados, Total B2B. '
       + 'Izq = escenario <code>ac</code> (reales) del pipeline gestional · Der = <code>revenue_gd.json</code> (modelo de revenue).'
+    : isOC
+    ? '<b>FVM → Operating Contribution</b> — cuánto del FVM (Managerial) se transforma en OC (Accounting), reales de meses cerrados. '
+      + 'FVM = actuals gestional (B2B-MAY y B2B-MIN en RI; B2B2C fecha única). OC = <code>actuals.json</code>, filas con P&amp;L N5 = Operating Contribution.'
     : '<b>Managerial vs Accounting</b> — reales, meses cerrados, por LOB. '
       + 'Accounting = <code>actuals.json</code> canónico (P&L N1). Managerial = actuals gestional ('
       + 'B2B-MAY y B2B-MIN en RI; B2B2C tiene fecha única).';
@@ -3579,6 +3883,8 @@ function renderVsAcc_(){
       + '<b>7. Líneas faltantes.</b> Revenue por GD no trae <code>white_labels_api</code>, <code>vendor_commissions</code>, <code>back_end_incentives</code>, etc. → salen 0; su detalle no cierra contra su propio NR.<br>'
       + '<span style="color:var(--muted)">Detalle completo: <code>P&amp;L_Managerial/reconciliacion_actuals_gd_vs_revenue.md</code></span>'
       + '</div></details>'
+    : isOC
+    ? '<div style="margin-top:6px;padding:6px 10px;border:1px solid var(--red);background:var(--red-bg);border-radius:6px;font-size:11px">⚠ <b>BORRADOR</b> — <code>FVMOC_MAP</code> (línea Managerial ↔ N1/N2 de OC) usa el mismo criterio que <code>VSACC_MAP</code>, sin cerrar. FVM y OC totales son confiables; el reparto por línea, revisar.</div>'
     : '<div style="margin-top:6px;padding:6px 10px;border:1px solid var(--red);background:var(--red-bg);border-radius:6px;font-size:11px">⚠ <b>BORRADOR</b> — <code>VSACC_MAP</code> (mapeo línea Managerial ↔ P&L N1 Accounting) está sin cerrar.</div>';
 
   var paisOpts = (isPR && _revGdData && _revGdData.paisOpts && _revGdData.paisOpts.length) ? _revGdData.paisOpts : (D.paisOpts || []);
@@ -3596,6 +3902,13 @@ function renderVsAcc_(){
     c.innerHTML = h;
     if(_revGdData) _revGdRender_();
     else fetchRevGd_();
+    return;
+  }
+
+  if(isOC){
+    h += '<div id="fvmoc-section"></div>';
+    c.innerHTML = h;
+    _fvmOcRender_();
     return;
   }
 

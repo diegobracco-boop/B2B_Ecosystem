@@ -761,7 +761,7 @@ function getVsAccounting(filtersJson) {
   try {
     var t1 = DriveApp.getFileById(GESTIONAL_JSON_FILE_ID).getLastUpdated().getTime();
     var t2 = DriveApp.getFileById(ACC_ACTUALS_FILE_ID).getLastUpdated().getTime();
-    ck = 'vsacc_v6_' + t1 + '_' + t2 + '_' + Utilities.base64EncodeWebSafe(sig);
+    ck = 'vsacc_v7_' + t1 + '_' + t2 + '_' + Utilities.base64EncodeWebSafe(sig);
     var hit = cache.get(ck);
     if (hit) return JSON.parse(hit);
   } catch (e) { Logger.log('getVsAccounting cache probe: ' + e); }
@@ -816,7 +816,8 @@ function _computeVsAccounting_(f) {
   var cix = {};
   (aj.cols || []).forEach(function(c, i){ cix[c] = i; });
   var iLob = cix['LoB'], iCanal = cix['Canal'], iPais = cix['Pais'], iProd = cix['Producto'],
-      iN1 = cix['P&L N1'], iN3 = cix['P&L N3'], iN4 = cix['P&L N4'], iFecha = cix['Fecha'], iMonto = cix['Monto USD'];
+      iN1 = cix['P&L N1'], iN2 = cix['P&L N2'], iN3 = cix['P&L N3'], iN4 = cix['P&L N4'], iN5 = cix['P&L N5'],
+      iFecha = cix['Fecha'], iMonto = cix['Monto USD'];
   (aj.rows || []).forEach(function(r){
     var lob = String(r[iLob] || '').toLowerCase(), canal = String(r[iCanal] || '').toLowerCase();
     var bucket = (lob === 'b2b2c') ? 'b2b2c'
@@ -830,7 +831,13 @@ function _computeVsAccounting_(f) {
     if (selProd.length && selProd.indexOf(prd) < 0) return;
     var mes = _accMes_(r[iFecha]); if (!mes) return;
     var val = (+r[iMonto] || 0), dst = A[bucket];
-    [['n1', r[iN1]], ['n3', r[iN3]], ['n4', r[iN4]]].forEach(function(p){
+    var keys = [['n1', r[iN1]], ['n3', r[iN3]], ['n4', r[iN4]]];
+    // Vista "FVM → OC": solo las líneas que caen dentro de Operating Contribution
+    // (N5), abiertas por N1 ('oc1|') y N2 ('oc2|'), + el total ('oc|total').
+    if (String(r[iN5] || '').toLowerCase() === 'operating contribution') {
+      keys.push(['oc1', r[iN1]], ['oc2', r[iN2]], ['oc', 'total']);
+    }
+    keys.forEach(function(p){
       var k = p[0] + '|' + String(p[1] || '(sin ' + p[0] + ')').toLowerCase();
       if (!dst[k]) dst[k] = {};
       dst[k][mes] = (dst[k][mes] || 0) + val;
