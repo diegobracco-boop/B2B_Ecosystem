@@ -378,22 +378,43 @@ function getData(filters) {
     viaje:          (f.viaje   || []).slice().sort(),
     lob_tipo:       (Array.isArray(f.lob_tipo) ? f.lob_tipo.slice().sort() : f.lob_tipo) || null,
     date_type:      f.date_type      || 'gd',
-    baselineSource: f.baselineSource || 'bl'
+    baselineSource: f.baselineSource || 'bl',
+    organic:        organicTarget_(f)
   });
+  var orgTarget = organicTarget_(f);
   var ck = null;
   var tStart = Date.now();
   try {
     var t1 = DriveApp.getFileById(GESTIONAL_JSON_FILE_ID).getLastUpdated().getTime();
     var t2 = DriveApp.getFileById(GESTIONAL_VR_JSON_FILE_ID).getLastUpdated().getTime();
-    ck = 'getdata_v4_' + t1 + '_' + t2 + '_' + Utilities.base64EncodeWebSafe(sig);
+    var t3 = orgTarget ? DriveApp.getFileById(FX_FILE_ID).getLastUpdated().getTime() : 0;   // xlsx de TC (organic)
+    ck = 'getdata_v5_' + t1 + '_' + t2 + '_' + t3 + '_' + Utilities.base64EncodeWebSafe(sig);
     var hit = _readGetDataCache_(ck);
     if (hit) { Logger.log('getData HIT ' + (Date.now() - tStart) + ' ms'); return hit; }
   } catch (e) { Logger.log('getData cache probe: ' + e); }
   var tMiss = Date.now();
 
   var out = _computeGetData_(f);
+  // ORGANIC opción B: con Goal Budget/Forecast, las agregaciones del baseline a TC Actuals LY van en
+  // `yoy` (el front calcula los YoY con eso; los montos que muestra siguen a TC del Goal).
+  if (orgTarget && orgTarget !== 'ly' && out.organic && !out.organic.error) {
+    var outY = _computeGetData_(Object.assign({}, f, { organic: 'ly' }));
+    var det = outY.b2bCanalDetail;
+    out.yoy = {
+      agg: outY.agg, agg_may: outY.agg_may, agg_min: outY.agg_min,
+      agg_farming: outY.agg_farming, agg_hunting: outY.agg_hunting,
+      partnerMonthly: outY.partnerMonthly, partnerCountryMonthly: outY.partnerCountryMonthly,
+      b2bCanalDetail: det ? { 'B2B-MIN': { fc: det['B2B-MIN'].fc }, 'B2B-MAY': { fc: det['B2B-MAY'].fc } } : null
+    };
+    if (outY.organic && outY.organic.error) out.organic.error = outY.organic.error;
+    ((outY.organic && outY.organic.missing) || []).forEach(function(k) {
+      if (out.organic.missing.indexOf(k) < 0) out.organic.missing.push(k);
+    });
+    out.organic.missing.sort();
+  }
   var tComp = Date.now();
-  if (ck) _writeGetDataCache_(ck, out);
+  // Si falló la lectura del TC no se cachea: el próximo intento vuelve a probar
+  if (ck && !(out.organic && out.organic.error)) _writeGetDataCache_(ck, out);
   Logger.log('getData MISS probe=' + (tMiss - tStart) + ' ms, compute=' + (tComp - tMiss) + ' ms, write=' + (Date.now() - tComp) + ' ms');
   return out;
 }
@@ -436,6 +457,21 @@ function _computeGetData_(filters) {
   var gwJson  = !(useMay || useMin) ? null
               : (json.b2b_may && json.b2b_may.ac_gw) ? json : readGestionalJSON_('bl');
   var acGwKey = dateType === 'ri' ? 'ac_ri_gw' : 'ac_gw';
+
+  // ORGANIC: se convierte SOLO el baseline (bl/bl_ri y, en modo gateway, ac_gw/ac_ri_gw). Ver Codigo_organic.js.
+  var organicInfo = null, orgTarget = organicTarget_(f);
+  if (orgTarget) {
+    try {
+      var conv = organicConverter_(orgTarget);
+      var jsonOrg = organicGestionalJson_(json, [blKey, acGwKey], conv);
+      gwJson = !gwJson ? null : (gwJson === json) ? jsonOrg : organicGestionalJson_(gwJson, [acGwKey], conv);
+      json = jsonOrg;
+      organicInfo = { target: orgTarget, missing: Object.keys(conv.missing).sort() };
+    } catch (e) {
+      organicInfo = { target: orgTarget, error: 'No se pudo leer el archivo de tipos de cambio: ' + e.message };
+    }
+  }
+
   var gwYmOk  = {};
   ((gwJson && gwJson.actual_months) || []).forEach(function(ym){ gwYmOk[ym] = true; });
 
@@ -557,6 +593,7 @@ function _computeGetData_(filters) {
     : null;
 
   return {
+    organic:              organicInfo,
     months:               months,
     agg:                  fcAgg,
     filters:              filters_out,

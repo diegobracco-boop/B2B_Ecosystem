@@ -257,9 +257,59 @@ function _wsMonthGroupVals_(agg, ym, group) {
   return zero;
 }
 
-// ---- Main weekly endpoint ----
+// ---- ORGANIC (ver Codigo_organic.js) ----
+// Actuals normalizados ({fecha, pais, gb, rev, fvm}) a USD organic; conv = organicConverter_(target).
+function _wsOrg_(rows, conv) {
+  if (!conv) return rows;
+  return rows.map(function(r) {
+    var f = conv.f(r.pais, r.fecha.substring(0, 7));
+    return (f === 1) ? r : { fecha: r.fecha, pais: r.pais, gb: r.gb * f, rev: r.rev * f, fvm: r.fvm * f };
+  });
+}
 
+// ---- Main weekly endpoint ----
+// params.organic: 'budget' | 'forecast' | 'ly' (switch ORGANIC del front). Con Budget/Forecast los
+// montos van a TC del target y los vs LY se recalculan con los actuals a TC Actuals LY (opción B).
 function getWeeklySummaryData(params) {
+  var target = organicTarget_(params && params.organic);
+  if (!target) return _wsSummary_(params, null);
+  var conv, convY = null;
+  try {
+    conv = organicConverter_(target);
+    if (target !== 'ly') convY = organicConverter_('ly');
+  } catch (e) {
+    var r0 = _wsSummary_(params, null);
+    r0.organic = { target: target, error: 'No se pudo leer el archivo de tipos de cambio: ' + e.message };
+    return r0;
+  }
+  var res = _wsSummary_(params, conv);
+  if (!res.success) return res;
+  var missing = conv.missing;
+  if (convY) {
+    var y = _wsSummary_(params, convY);
+    if (y.success) try {   // alineado por índice; si no coincide (cambio de semana entre llamadas) quedan los vs LY nominales
+      res.rows.forEach(function(row, i) {
+        row.weeks.forEach(function(w, j) {
+          w.vsLYgb  = y.rows[i].weeks[j].vsLYgb;
+          w.vsLYrev = y.rows[i].weeks[j].vsLYrev;
+        });
+      });
+      var graftMtd = function(m, my) {
+        if (!m || !my) return;
+        m.rows.forEach(function(row, i) {
+          ['gb', 'rev', 'fvm'].forEach(function(k) { row[k].vsLY = my.rows[i][k].vsLY; });
+        });
+      };
+      if (res.mtd && res.mtd.split) { graftMtd(res.mtd.b2b2c, y.mtd.b2b2c); graftMtd(res.mtd.b2b, y.mtd.b2b); }
+      else graftMtd(res.mtd, y.mtd);
+    } catch (eY) { Logger.log('weekly organic YoY: ' + eY); }
+    Object.keys(convY.missing).forEach(function(k) { missing[k] = true; });
+  }
+  res.organic = { target: target, missing: Object.keys(missing).sort() };
+  return res;
+}
+
+function _wsSummary_(params, conv) {
   try {
     var view = (params && params.view) || 'GD';
     var lob  = (params && params.lob)  || 'B2B+B2B2C';
@@ -267,7 +317,7 @@ function getWeeklySummaryData(params) {
     var b2bcRaw = loadFile_(B2BC_JSON, B2BC_CACHE_KEY);
     var b2bRaw  = loadFile_(B2B_JSON,  B2B_CACHE_KEY);
 
-    var actRows = _wsGetActuals_(lob, view, b2bcRaw, b2bRaw);
+    var actRows = _wsOrg_(_wsGetActuals_(lob, view, b2bcRaw, b2bRaw), conv);
     var lyRows  = _wsGetLY_(lob, view, b2bcRaw, b2bRaw);
     var budRows = _wsGetBudget_(lob, view, b2bcRaw, b2bRaw);
 
@@ -337,8 +387,8 @@ function getWeeklySummaryData(params) {
 
     var mtdData;
     if (lob === 'B2B+B2B2C') {
-      var b2bAct  = _wsNormRows_(_wsExpandCompact_((view==='RI')?b2bRaw.b2b_ri:b2bRaw.b2b_gd),     'gross_bookings','net_revenue');
-      var b2bcAct = _wsNormRows_(b2bcRaw.actuals,                                                    'gross_bookings','net_revenues');
+      var b2bAct  = _wsOrg_(_wsNormRows_(_wsExpandCompact_((view==='RI')?b2bRaw.b2b_ri:b2bRaw.b2b_gd), 'gross_bookings','net_revenue'), conv);
+      var b2bcAct = _wsOrg_(_wsNormRows_(b2bcRaw.actuals,                                                'gross_bookings','net_revenues'), conv);
       var b2bLY   = _wsNormRows_(_wsExpandCompact_((view==='RI')?b2bRaw.b2b_ri_ly:b2bRaw.b2b_gd_ly),'gross_bookings','net_revenue');
       var b2bcLY  = _wsNormRows_(b2bcRaw.actuals_ly,                                                 'gross_bookings','net_revenues');
       var b2bBud  = _wsNormRows_((view==='RI' ? b2bRaw.b2b_budget_ri : b2bRaw.b2b_budget_gd)||[],        'gross_bookings','net_revenue');

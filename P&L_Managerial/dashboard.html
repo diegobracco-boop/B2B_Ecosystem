@@ -637,6 +637,9 @@ header .btn-refresh:hover{background:#f5f3ff !important;border-color:#c4b5fd;col
 .mg-selectors-row .fg label{font-size:10px !important;font-weight:700 !important;color:var(--muted2) !important;
   text-transform:uppercase;letter-spacing:.08em}
 .prd-toggle{background:var(--seg-track);border:none;border-radius:999px;padding:3px;gap:2px;overflow:visible}
+/* ORGANIC switch */
+.org-note{font-size:10.5px;line-height:1.3;color:var(--muted);max-width:420px}
+.org-note.err{color:#DC2626}
 .prd-btn{border-radius:999px;padding:6px 14px;font-size:11.5px;font-weight:600;color:var(--muted);line-height:1.1}
 .prd-btn:hover{color:var(--accent)}
 .prd-btn.prd-active{background:#fff;color:var(--accent);font-weight:700;box-shadow:0 1px 3px rgba(27,21,51,.14)}
@@ -863,6 +866,14 @@ header .btn-refresh:hover{background:#f5f3ff !important;border-color:#c4b5fd;col
       <button id="mg-goal-forecast" class="prd-btn"            type="button" onclick="setMGGoal('forecast')">Forecast</button>
       <button id="mg-goal-ly"       class="prd-btn"            type="button" onclick="setMGGoal('ly')">Last Year</button>
     </div>
+    <!-- ORGANIC: YES = baseline × TC Actuals / TC del Goal (Budget, Forecast o Actuals LY) -->
+    <span style="width:1px;height:18px;background:rgba(0,0,0,.15);margin:0 6px"></span>
+    <span style="font-size:11px;color:var(--muted);font-weight:700">Organic:</span>
+    <div class="prd-toggle" id="org-toggle">
+      <button data-o="no"  class="prd-btn prd-active" type="button" onclick="setMGOrganic(false)">NO</button>
+      <button data-o="yes" class="prd-btn"            type="button" onclick="setMGOrganic(true)">YES</button>
+    </div>
+    <span id="org-note" class="org-note"></span>
     <span style="width:1px;height:18px;background:rgba(0,0,0,.15);margin:0 6px"></span>
     <span style="font-size:11px;color:var(--muted);font-weight:700">Escala:</span>
     <div class="prd-toggle">
@@ -2263,22 +2274,28 @@ function renderDetalle() {
   }
 
   var pcm, bcm, lcm, fcm;
+  var pcmY = null;   // ORGANIC opción B: baseline a TC Actuals LY, solo para la fila YoY%
   if(isB2B){
     var b2bDet = _dataD.b2bCanalDetail || {};
     pcm = normOther(b2bCanalDetailToPCM_(b2bDet,'fc'));
     bcm = normOther(b2bCanalDetailToPCM_(b2bDet,'bgt'));
     lcm = normOther(b2bCanalDetailToPCM_(b2bDet,'ly'));
     fcm = normOther(b2bCanalDetailToPCM_(b2bDet,'fcst'));
+    var b2bDetY = _yoyOf_(_dataD, 'b2bCanalDetail', null);
+    if(b2bDetY) pcmY = normOther(b2bCanalDetailToPCM_(b2bDetY,'fc'));
   } else {
     pcm = normOther(_dataD.partnerCountryMonthly||{});
     bcm = normOther(_dataD.budgetPartnerCM||{});
     lcm = normOther(_dataD.lyPartnerCM||{});
     fcm = normOther(_dataD.forecastPartnerCM||{});
+    var pcmYsrc = _yoyOf_(_dataD, 'partnerCountryMonthly', null);
+    if(pcmYsrc) pcmY = normOther(pcmYsrc);
   }
 
   // Agrupación de período (Mes / Quarter / Half): reagrupa columnas y usa las etiquetas como "meses"
   if(_managerialBGPeriod !== 'month'){
     var _cols = detalleCols_(months);
+    if(pcmY) pcmY = detalleAggToPeriods_(pcmY, _cols);
     pcm = detalleAggToPeriods_(pcm, _cols);
     bcm = detalleAggToPeriods_(bcm, _cols);
     lcm = detalleAggToPeriods_(lcm, _cols);
@@ -2335,16 +2352,19 @@ function renderDetalle() {
   headEl.innerHTML = hHtml;
 
   var ZERO = months.map(function(){return 0;});
-  function seriesFor(pData, pbData, plData){
+  // pyData (opcional): baseline a TC Actuals LY → mFCY, con lo que se calcula el YoY% (organic opción B)
+  function seriesFor(pData, pbData, plData, pyData){
+    var mFC = months.map(function(m){return pData[m] ?pData[m][mk] ||0:0;});
     return {
-      mFC: months.map(function(m){return pData[m] ?pData[m][mk] ||0:0;}),
+      mFC: mFC,
+      mFCY:pyData ? months.map(function(m){return pyData[m]?pyData[m][mk]||0:0;}) : mFC,
       mBgt:months.map(function(m){return pbData[m]?pbData[m][mk]||0:0;}),
       mLY: months.map(function(m){return plData[m]?plData[m][mk]||0:0;})
     };
   }
   function sumSeries(list){
-    var acc={mFC:ZERO.slice(),mBgt:ZERO.slice(),mLY:ZERO.slice()};
-    list.forEach(function(s){ months.forEach(function(_,i){ acc.mFC[i]+=s.mFC[i]; acc.mBgt[i]+=s.mBgt[i]; acc.mLY[i]+=s.mLY[i]; }); });
+    var acc={mFC:ZERO.slice(),mFCY:ZERO.slice(),mBgt:ZERO.slice(),mLY:ZERO.slice()};
+    list.forEach(function(s){ months.forEach(function(_,i){ acc.mFC[i]+=s.mFC[i]; acc.mFCY[i]+=s.mFCY[i]; acc.mBgt[i]+=s.mBgt[i]; acc.mLY[i]+=s.mLY[i]; }); });
     return acc;
   }
   function totOf(s){ return s.mFC.reduce(function(a,v){return a+v;},0); }
@@ -2353,14 +2373,15 @@ function renderDetalle() {
   // Genera las 3 filas (FC / Δ Bgt / YoY%) de una entidad (partner, grupo o subtotal)
   function entityRows(labelHtml, s, o){
     o=o||{};
-    var mFC=s.mFC, mBgt=s.mBgt, mLY=s.mLY;
+    var mFC=s.mFC, mBgt=s.mBgt, mLY=s.mLY, mFCY=s.mFCY||s.mFC;
     var mDBgt=months.map(function(_,i){return mBgt[i]!==0?mFC[i]-mBgt[i]:null;});
-    var mYoY =months.map(function(_,i){return mLY[i]!==0?(mFC[i]-mLY[i])/Math.abs(mLY[i])*100:null;});
+    var mYoY =months.map(function(_,i){return mLY[i]!==0?(mFCY[i]-mLY[i])/Math.abs(mLY[i])*100:null;});
     var totFC=mFC.reduce(function(a,v){return a+v;},0);
+    var totFCY=mFCY.reduce(function(a,v){return a+v;},0);
     var totBgt=mBgt.reduce(function(a,v){return a+v;},0);
     var totLY=mLY.reduce(function(a,v){return a+v;},0);
     var totDBgt=totBgt!==0?totFC-totBgt:null;
-    var totYoY =totLY!==0?(totFC-totLY)/Math.abs(totLY)*100:null;
+    var totYoY =totLY!==0?(totFCY-totLY)/Math.abs(totLY)*100:null;
 
     var isSub=!!o.isSubtotal;
     var baseCls = isSub ? 'detalle-subtotal-row' : 'detalle-partner-row';
@@ -2392,10 +2413,11 @@ function renderDetalle() {
     var cmap =lkup(pcm,country)||{};
     var cgmap=lkup(gcm,country)||{};
     var clmap=lkup(lcm,country)||{};
+    var cymap=pcmY ? (lkup(pcmY,country)||{}) : null;
 
     // Partners con datos (Total ≠ 0 en la métrica actual), con su serie
     var pdata=Object.keys(cmap).map(function(p){
-      var s=seriesFor(cmap[p]||{}, lkup(cgmap,p)||{}, lkup(clmap,p)||{});
+      var s=seriesFor(cmap[p]||{}, lkup(cgmap,p)||{}, lkup(clmap,p)||{}, cymap ? (lkup(cymap,p)||{}) : null);
       return {name:p, s:s, tot:totOf(s)};
     }).filter(function(x){ return x.tot!==0; });
     // Filtro de producto propio de Detalle (B2B): entidad = "Canal · Producto"
@@ -2610,8 +2632,55 @@ function setMGGoal(goal){
   document.getElementById('mg-goal-budget').classList.toggle('prd-active', goal === 'budget');
   document.getElementById('mg-goal-forecast').classList.toggle('prd-active', goal === 'forecast');
   document.getElementById('mg-goal-ly').classList.toggle('prd-active', goal === 'ly');
+  _syncOrganicUI_();
+  // Con ORGANIC el baseline depende del Goal (TC del target) → hay que volver a pedir los datos
+  if(_mgOrganic){ _reloadOrganic_(); return; }
   if(document.getElementById('tab-baseline').classList.contains('active') && _data) renderManagerialBGTable();
   if(document.getElementById('tab-detalle').classList.contains('active') && _dataD) renderDetalle();
+}
+
+// ── ORGANIC ──────────────────────────────────────────────────
+// Mismo switch que Monthly Results del Hub: YES = baseline × TC Actuals / TC del Goal (Budget,
+// Forecast, o Actuals LY con Goal Last Year). Budget / Forecast / LY se muestran nominales.
+// Con Goal Budget/Forecast el backend manda además `yoy` (baseline a TC Actuals LY, opción B):
+// todos los YoY se calculan con eso (_yoyOf_).
+var _mgOrganic = false;
+var _orgError_ = '', _orgMissing_ = [];
+function _mgOrgTarget_(){ return _mgOrganic ? _managerialGoal : ''; }
+function _orgTargetLabel_(){ return _managerialGoal === 'forecast' ? 'Forecast' : _managerialGoal === 'ly' ? 'Actuals LY' : 'Budget'; }
+// Baseline para los YoY: la versión a TC Actuals LY si vino (organic opción B), si no la que se muestra
+function _yoyOf_(d, key, fallback){ return (d && d.yoy && d.yoy[key]) ? d.yoy[key] : fallback; }
+function _reloadOrganic_(){
+  reload();
+  _invalidatePanesOnSharedChange_();
+}
+function setMGOrganic(on){
+  _mgOrganic = !!on;
+  _orgError_ = ''; _orgMissing_ = [];
+  _syncOrganicUI_();
+  _reloadOrganic_();
+}
+function _syncOrganicUI_(){
+  var tog = document.getElementById('org-toggle');
+  if(!tog) return;
+  tog.querySelectorAll('button').forEach(function(b){
+    b.classList.toggle('prd-active', (b.dataset.o === 'yes') === _mgOrganic);
+  });
+  var note = document.getElementById('org-note');
+  note.classList.toggle('err', !!_orgError_);
+  if (_orgError_) note.textContent = _orgError_;
+  else if (_mgOrganic) {
+    note.textContent = 'Baseline × TC Actuals / TC ' + _orgTargetLabel_() +
+      (_managerialGoal === 'ly' ? '' : ' · YoY a TC Actuals LY');
+    if (_orgMissing_.length) note.textContent += ' · sin TC: ' + _orgMissing_.slice(0, 5).join(', ') + (_orgMissing_.length > 5 ? ' …' : '');
+  } else note.textContent = '';
+}
+// Respuesta del backend: si no pudo leer el TC, vuelve a NO y avisa (los datos que llegan son los nominales)
+function _handleOrganicResp_(d){
+  var o = d && d.organic;
+  _orgMissing_ = (o && o.missing) || [];
+  if (o && o.error) { _orgError_ = o.error; _mgOrganic = false; }
+  _syncOrganicUI_();
 }
 
 // Sincroniza _numScale y el estado activo de LOS DOS grupos de botones de escala
@@ -2855,12 +2924,13 @@ function _buildMGPanel_(container, agg, goalData, title, periods, n, isLast, goa
 }
 
 // ── KPIs ejecutivos: Baseline vs Goal, total del año fiscal ────────────────
-function _renderMGKpis_(container, agg, goalData, goalLabel, lyData){
+function _renderMGKpis_(container, agg, goalData, goalLabel, lyData, aggY){
   var months = MG_MONTHS_ORD.filter(function(m){ return !!(agg && agg[m]); });
   if(!months.length) return;
   var goalNA = goalData === null;   // modo gateway con Goal = Budget/Forecast
   if(goalNA) goalData = {};
   var b = mgAggPeriod_(agg, months), g = mgAggPeriod_(goalData, months), ly = mgAggPeriod_(lyData||{}, months);
+  var bY = aggY ? mgAggPeriod_(aggY, months) : b;   // YoY: baseline a TC Actuals LY (organic opción B)
   var items = [
     {l:'Gross Bookings', k:'gross_bookings', f:fmtM},
     {l:'Net Revenues',   k:'net_revenue',    f:fmtM},
@@ -2873,7 +2943,7 @@ function _renderMGKpis_(container, agg, goalData, goalLabel, lyData){
     var pct = gv ? (d/Math.abs(gv)*100) : null;
     var cls = d>=0 ? 'pos' : 'neg';
     var sign = d>=0 ? '+' : '';
-    var lv = getValue(it.k, ly)||0, yd = bv-lv;
+    var lv = getValue(it.k, ly)||0, yd = (getValue(it.k, bY)||0)-lv;
     var ypct = lv ? (yd/Math.abs(lv)*100) : null;
     var ycls = yd>=0 ? 'pos' : 'neg';
     h += '<div class="xkpi"><div class="xkpi-lbl">'+it.l+'</div>'
@@ -2911,7 +2981,7 @@ function renderManagerialBGTable(){
     gwNote.innerHTML = _gwNoticeHtml_(_data);
     container.appendChild(gwNote);
   }
-  _renderMGKpis_(container, _data.agg||{}, goalNA ? null : (_data[gf]||{}), goalLabel, _data.ly||{});
+  _renderMGKpis_(container, _data.agg||{}, goalNA ? null : (_data[gf]||{}), goalLabel, _data.ly||{}, _yoyOf_(_data, 'agg', null));
 
   if(_activeLob === 'b2b'){
     var panels = [
@@ -3759,7 +3829,8 @@ function getFilters(){
     viaje:          getViajeValues_('m'),
     lob_tipo:       lobTipo,
     date_type:      _activeLob === 'b2b2c' ? 'gd' : _activeDateType,
-    baselineSource: _baselineSource
+    baselineSource: _baselineSource,
+    organic:        _mgOrgTarget_()
   };
 }
 
@@ -3785,6 +3856,7 @@ function fetchData(){
       if (reqLob !== _activeLob) return;  // cambiaste de LOB mientras esto viajaba — descartar para no pintar datos del LOB anterior
       _setB2B2CStage_(d);
       _data = d;
+      _handleOrganicResp_(d);
       if (!_filtersLoadedForLob[reqLob] && !d.gateway_mode && !(d.viaje_sel || []).length) {   // en modo gateway las opciones vienen recortadas
         fillPaisChips(d.filters['pais'] || []);
         fillMs('ms-partner', (d.filters['partner'] || []).slice().sort());
@@ -3795,7 +3867,7 @@ function fetchData(){
       _syncViajeOptions_(d);
       updateActualsLegend(d.actual_months || []);
       render();
-      document.getElementById('last-upd').textContent = 'Actualizado: '+new Date().toLocaleTimeString('es-AR');
+      document.getElementById('last-upd').textContent = 'Actualizado: '+new Date().toLocaleTimeString('es-AR') + (d.organic && !d.organic.error ? ' · ORGANIC (TC '+_orgTargetLabel_()+')' : '');
       document.getElementById('loader').style.display = 'none';
       hideFilterLoading();
     })
@@ -3831,6 +3903,7 @@ function fetchDataG(){
       if (reqLob !== _activeLob) return;
       _setB2B2CStage_(d);
       _dataG = d;
+      _handleOrganicResp_(d);
       if (!_gFiltersLoadedForLob[reqLob] && !d.gateway_mode && !(d.viaje_sel || []).length) {
         fillGraficosProductoChips(d.filters['produto'] || []);
         _gFiltersLoadedForLob[reqLob] = true;
@@ -3870,6 +3943,7 @@ function fetchDataD(){
       if (reqLob !== _activeLob) return;
       _setB2B2CStage_(d);
       _dataD = d;
+      _handleOrganicResp_(d);
       if (!_dFiltersLoadedForLob[reqLob] && !d.gateway_mode && !(d.viaje_sel || []).length) {
         fillDetallePaisChips(d.filters['pais'] || []);
         if(reqLob === 'b2b') fillDetalleProductoChips(d.filters['produto'] || []);
@@ -3939,6 +4013,12 @@ function renderTrendCharts(months, agg, budgetAgg, lyAgg){
   var lyPartnerCM           = (_dataG && _dataG.lyPartnerCM)           ? _dataG.lyPartnerCM           : {};
   var forecastPartnerMonthly = (_dataG && _dataG.forecastPartnerMonthly) ? _dataG.forecastPartnerMonthly : {};
   var forecastPartnerCM      = (_dataG && _dataG.forecastPartnerCM)      ? _dataG.forecastPartnerCM      : {};
+  // ORGANIC opción B: las mismas agregaciones del baseline a TC Actuals LY (null = sin organic o
+  // Goal Last Year). Un getter de baseline puede llevar `.yoy` = getter sobre esa versión, y la
+  // fila YoY de makeSection lo usa en vez del baseline que se dibuja.
+  var _Y = (_dataG && _dataG.yoy) || null;
+  function mapGetter_(map){ return function(m,k,d){ var v=map&&map[m]?map[m][k]:null; return v!=null?v/d:null; }; }
+  function withY_(fn, mapY){ if(mapY) fn.yoy = mapGetter_(mapY); return fn; }
 
   // ── B2B2C chart constants ─────────────────────────────────────────────────
   var HUNTING_LIST = PARTNER_HUNTING_LIST;
@@ -4138,7 +4218,7 @@ function renderTrendCharts(months, agg, budgetAgg, lyAgg){
         false
       ));
       chartWrap.appendChild(makeYoyRow(chartMonths,
-        function(m,k,d){ return getRunrate(m,k,d); },
+        function(m,k,d){ return (getRunrate.yoy || getRunrate)(m,k,d); },
         function(m,k,d){ return getLy(m,k,d); },
         def.key, def.divisor
       ));
@@ -4148,8 +4228,8 @@ function renderTrendCharts(months, agg, budgetAgg, lyAgg){
     return section;
   }
 
-  function pmRun(partners, dataMap){
-    return function(m,k,d){
+  function pmRun(partners, dataMap, dataMapY){
+    var fn = function(m,k,d){
       var total=0, found=false;
       (partners||[]).forEach(function(pname){
         var pd=lookupKey(dataMap, pname);
@@ -4157,6 +4237,8 @@ function renderTrendCharts(months, agg, budgetAgg, lyAgg){
       });
       return found ? total/d : null;
     };
+    if(dataMapY) fn.yoy = pmRun(partners, dataMapY);   // organic opción B
+    return fn;
   }
   function pmBgt(partners){
     return function(m,k,d){
@@ -4391,13 +4473,13 @@ function renderTrendCharts(months, agg, budgetAgg, lyAgg){
 
       // ── 3 summary charts: Total (all partners vs Budget vs LY) ──────────────
       container.appendChild(makeSection('Total',chartDefs,chartMonths,
-        pmRun(allPartners,partnerMonthly),pmBgt(allPartners),pmLY(allPartners),pmFcst(allPartners),'chart-total-all'));
+        pmRun(allPartners,partnerMonthly,_Y&&_Y.partnerMonthly),pmBgt(allPartners),pmLY(allPartners),pmFcst(allPartners),'chart-total-all'));
 
       // ── Farming section + delta table ─────────────────────────────────────
       if(farmingPartners.length > 0){
         var fWrap=document.createElement('div'); fWrap.style.marginBottom='28px';
         fWrap.appendChild(makeSection('Farming',chartDefs,chartMonths,
-          pmRun(farmingPartners,partnerMonthly),pmBgt(farmingPartners),pmLY(farmingPartners),pmFcst(farmingPartners),'chart-farming'));
+          pmRun(farmingPartners,partnerMonthly,_Y&&_Y.partnerMonthly),pmBgt(farmingPartners),pmLY(farmingPartners),pmFcst(farmingPartners),'chart-farming'));
         // Build delta table rows
         var claimedSet={};
         var farmTableRows=FARMING_TABLE_NAMED.map(function(g){
@@ -4415,7 +4497,7 @@ function renderTrendCharts(months, agg, budgetAgg, lyAgg){
       if(huntingPartners.length > 0){
         var hWrap=document.createElement('div');
         hWrap.appendChild(makeSection('Onboarding / Hunting',chartDefs,chartMonths,
-          pmRun(huntingPartners,partnerMonthly),pmBgt(huntingPartners),pmLY(huntingPartners),pmFcst(huntingPartners),'chart-hunting'));
+          pmRun(huntingPartners,partnerMonthly,_Y&&_Y.partnerMonthly),pmBgt(huntingPartners),pmLY(huntingPartners),pmFcst(huntingPartners),'chart-hunting'));
         var huntTableRows=huntingPartners.map(function(p){ return {label:p,partners:[p]}; });
         hWrap.appendChild(buildDeltaTable('Onboarding / Hunting',huntTableRows));
         container.appendChild(hWrap);
@@ -4444,6 +4526,8 @@ function renderTrendCharts(months, agg, budgetAgg, lyAgg){
       aggOtherCM_(budgetPartnerCM,       otherBgtData);
       aggOtherCM_(lyPartnerCM,           otherLYData);
       aggOtherCM_(forecastPartnerCM,     otherFcstData);
+      var otherDataY=null;   // organic opción B
+      if(_Y){ otherDataY={}; aggOtherCM_(_Y.partnerCountryMonthly||{}, otherDataY); }
       var avail=Object.keys(otherData);
       if(avail.length===0){
         var msg=document.createElement('div'); msg.style.cssText='color:var(--muted);padding:20px;font-size:12px';
@@ -4457,12 +4541,12 @@ function renderTrendCharts(months, agg, budgetAgg, lyAgg){
           return nb-na;
         });
         shownOther.forEach(function(p,pi){
-          (function(pData,bData,lData,fData){ container.appendChild(makeSection(p,chartDefs,chartMonths,
-            function(m,k,d){ var v=pData[m]?pData[m][k]:null; return v!=null?v/d:null; },
+          (function(pData,bData,lData,fData,yData){ container.appendChild(makeSection(p,chartDefs,chartMonths,
+            withY_(function(m,k,d){ var v=pData[m]?pData[m][k]:null; return v!=null?v/d:null; }, yData),
             function(m,k,d){ var v=bData&&bData[m]?bData[m][k]:null; return v!=null?v/d:null; },
             function(m,k,d){ var v=lData&&lData[m]?lData[m][k]:null; return v!=null?v/d:null; },
             function(m,k,d){ var v=fData&&fData[m]?fData[m][k]:null; return v!=null?v/d:null; },
-            'chart-other-'+pi)); })(otherData[p], otherBgtData[p], otherLYData[p], otherFcstData[p]);
+            'chart-other-'+pi)); })(otherData[p], otherBgtData[p], otherLYData[p], otherFcstData[p], otherDataY ? (otherDataY[p]||{}) : null);
         });
       }
 
@@ -4482,10 +4566,11 @@ function renderTrendCharts(months, agg, budgetAgg, lyAgg){
       } else {
         renderGPartnerFilter(cPartners);
         var shown=_gSelectedPartners.length>0?cPartners.filter(function(p){ return _gSelectedPartners.indexOf(p)>=0; }):cPartners;
+        var cDataY = _Y ? (lookupKey(_Y.partnerCountryMonthly||{},country)||{}) : null;   // organic opción B
         shown.forEach(function(p,pi){
-          (function(pData){ container.appendChild(makeSection(p,chartDefs,chartMonths,
-            function(m,k,d){ var v=pData[m]?pData[m][k]:null; return v!=null?v/d:null; },
-            pmBgtCM(country,[p]),pmLYCM(country,[p]),pmFcstCM(country,[p]),'chart-c-'+pi)); })(cData[p]);
+          (function(pData,yData){ container.appendChild(makeSection(p,chartDefs,chartMonths,
+            withY_(function(m,k,d){ var v=pData[m]?pData[m][k]:null; return v!=null?v/d:null; }, yData),
+            pmBgtCM(country,[p]),pmLYCM(country,[p]),pmFcstCM(country,[p]),'chart-c-'+pi)); })(cData[p], cDataY ? (lookupKey(cDataY,p)||{}) : null);
         });
       }
     }
@@ -4527,6 +4612,10 @@ function renderTrendCharts(months, agg, budgetAgg, lyAgg){
     var mayLY  = normB2BCanal((b2bDet&&b2bDet['B2B-MAY']&&b2bDet['B2B-MAY'].ly)  ||{});
     var minFcst = normB2BCanal((b2bDet&&b2bDet['B2B-MIN']&&b2bDet['B2B-MIN'].fcst)||{});
     var mayFcst = normB2BCanal((b2bDet&&b2bDet['B2B-MAY']&&b2bDet['B2B-MAY'].fcst)||{});
+    // ORGANIC opción B: baseline a TC Actuals LY (null = sin organic)
+    var b2bDetY = _Y && _Y.b2bCanalDetail;
+    var minFCY  = b2bDetY ? normB2BCanal((b2bDetY['B2B-MIN']&&b2bDetY['B2B-MIN'].fc)||{}) : null;
+    var mayFCY  = b2bDetY ? normB2BCanal((b2bDetY['B2B-MAY']&&b2bDetY['B2B-MAY'].fc)||{}) : null;
 
     // sum over products for a given country
     function b2bCtryTotal(canalData, country){
@@ -4623,10 +4712,20 @@ function renderTrendCharts(months, agg, budgetAgg, lyAgg){
                      npv:           ((minFcstT[m]||{}).npv||0)           +((mayFcstT[m]||{}).npv||0)};
         });
         if(gwModeG){ cBgt = {}; cFcst = {}; }   // sin Budget/Forecast por gateway → null, no 0
+        var cFCY = null;   // organic opción B: MIN+MAY a TC Actuals LY
+        if(b2bDetY){
+          var minTY = b2bCtryTotal(minFCY, country), mayTY = b2bCtryTotal(mayFCY, country);
+          cFCY = {};
+          chartMonths.forEach(function(m){
+            cFCY[m] = {gross_bookings:((minTY[m]||{}).gross_bookings||0)+((mayTY[m]||{}).gross_bookings||0),
+                       net_revenue:   ((minTY[m]||{}).net_revenue||0)   +((mayTY[m]||{}).net_revenue||0),
+                       npv:           ((minTY[m]||{}).npv||0)           +((mayTY[m]||{}).npv||0)};
+          });
+        }
 
         container.appendChild(makeSection(
           country, chartDefs, chartMonths,
-          function(m,k,d){ var v=cFC[m]?cFC[m][k]:null;  return v!=null?v/d:null; },
+          withY_(function(m,k,d){ var v=cFC[m]?cFC[m][k]:null;  return v!=null?v/d:null; }, cFCY),
           function(m,k,d){ var v=cBgt[m]?cBgt[m][k]:null; return v!=null?v/d:null; },
           function(m,k,d){ var v=cLY[m]?cLY[m][k]:null;  return v!=null?v/d:null; },
           function(m,k,d){ var v=cFcst[m]?cFcst[m][k]:null; return v!=null?v/d:null; },
@@ -4643,10 +4742,12 @@ function renderTrendCharts(months, agg, budgetAgg, lyAgg){
       // Per-country: MIN and MAY sections each with product delta table
       var b2bCountry = G_TAB_COUNTRY[_gActiveTab] || 'Globales';
       [
-        {label:'Minorista (MIN)', fc:minFC, bgt:minBgt, ly:minLY, fcst:minFcst},
-        {label:'Mayorista (MAY)', fc:mayFC, bgt:mayBgt, ly:mayLY, fcst:mayFcst}
+        {label:'Minorista (MIN)', fc:minFC, bgt:minBgt, ly:minLY, fcst:minFcst, fcY:minFCY},
+        {label:'Mayorista (MAY)', fc:mayFC, bgt:mayBgt, ly:mayLY, fcst:mayFcst, fcY:mayFCY}
       ].forEach(function(info, cIdx){
         var cTotal = b2bCtryTotal(info.fc,   b2bCountry);
+        var cTotalY = info.fcY ? b2bCtryTotal(info.fcY, b2bCountry) : null;           // organic opción B
+        var cdataY  = info.fcY ? (lookupKey(info.fcY, b2bCountry)||{}) : null;
         var cBgt   = b2bCtryTotal(info.bgt,  b2bCountry);
         var cLY    = b2bCtryTotal(info.ly,   b2bCountry);
         var cFcst  = b2bCtryTotal(info.fcst, b2bCountry);
@@ -4654,7 +4755,7 @@ function renderTrendCharts(months, agg, budgetAgg, lyAgg){
 
         container.appendChild(makeSection(
           info.label, chartDefs, chartMonths,
-          function(m,k,d){ var v=cTotal[m]?cTotal[m][k]:null; return v!=null?v/d:null; },
+          withY_(function(m,k,d){ var v=cTotal[m]?cTotal[m][k]:null; return v!=null?v/d:null; }, cTotalY),
           function(m,k,d){ var v=cBgt[m]?cBgt[m][k]:null;    return v!=null?v/d:null; },
           function(m,k,d){ var v=cLY[m]?cLY[m][k]:null;      return v!=null?v/d:null; },
           function(m,k,d){ var v=cFcst[m]?cFcst[m][k]:null;  return v!=null?v/d:null; },
@@ -4698,30 +4799,30 @@ function renderTrendCharts(months, agg, budgetAgg, lyAgg){
           if (idx < 0) return;
           var pk = allProdKeys[idx];
           var pi = piIdx++;
-          (function(pFC, pBgt, pLY, pFcst){
+          (function(pFC, pBgt, pLY, pFcst, pY){
             container.appendChild(makeSection(
               (FEAT_LABELS[fl]||pk) + canalTag, chartDefs, chartMonths,
-              function(m,k,d){ var v=pFC[m]?pFC[m][k]:null;  return v!=null?v/d:null; },
+              withY_(function(m,k,d){ var v=pFC[m]?pFC[m][k]:null;  return v!=null?v/d:null; }, pY),
               function(m,k,d){ var v=pBgt[m]?pBgt[m][k]:null; return v!=null?v/d:null; },
               function(m,k,d){ var v=pLY[m]?pLY[m][k]:null;   return v!=null?v/d:null; },
               function(m,k,d){ var v=pFcst[m]?pFcst[m][k]:null; return v!=null?v/d:null; },
               'b2b-c'+cIdx+'-p'+pi
             ));
-          })(sumProdData(cdata,[pk]), sumProdData(bdata,[pk]), sumProdData(lydata,[pk]), sumProdData(fdata,[pk]));
+          })(sumProdData(cdata,[pk]), sumProdData(bdata,[pk]), sumProdData(lydata,[pk]), sumProdData(fdata,[pk]), cdataY ? sumProdData(cdataY,[pk]) : null);
         });
 
         var restKeys = allProdKeys.filter(function(k){ return featuredLow.indexOf(k.toLowerCase()) < 0; });
         if (restKeys.length) {
-          (function(pFC, pBgt, pLY, pFcst){
+          (function(pFC, pBgt, pLY, pFcst, pY){
             container.appendChild(makeSection(
               'Rest of ONA' + canalTag, chartDefs, chartMonths,
-              function(m,k,d){ var v=pFC[m]?pFC[m][k]:null;  return v!=null?v/d:null; },
+              withY_(function(m,k,d){ var v=pFC[m]?pFC[m][k]:null;  return v!=null?v/d:null; }, pY),
               function(m,k,d){ var v=pBgt[m]?pBgt[m][k]:null; return v!=null?v/d:null; },
               function(m,k,d){ var v=pLY[m]?pLY[m][k]:null;   return v!=null?v/d:null; },
               function(m,k,d){ var v=pFcst[m]?pFcst[m][k]:null; return v!=null?v/d:null; },
               'b2b-c'+cIdx+'-prest'
             ));
-          })(sumProdData(cdata,restKeys), sumProdData(bdata,restKeys), sumProdData(lydata,restKeys), sumProdData(fdata,restKeys));
+          })(sumProdData(cdata,restKeys), sumProdData(bdata,restKeys), sumProdData(lydata,restKeys), sumProdData(fdata,restKeys), cdataY ? sumProdData(cdataY,restKeys) : null);
         }
       });
     }
@@ -4730,7 +4831,7 @@ function renderTrendCharts(months, agg, budgetAgg, lyAgg){
     var fallbackFcstAgg = (_dataG && _dataG.forecast) ? _dataG.forecast : {};
     container.appendChild(makeSection(
       null, chartDefs, chartMonths,
-      function(m,k,d){ var v=agg[m]?agg[m][k]:null; return v!=null?v/d:null; },
+      withY_(function(m,k,d){ var v=agg[m]?agg[m][k]:null; return v!=null?v/d:null; }, _Y && _Y.agg),
       function(m,k,d){ var v=budgetAgg[m]?budgetAgg[m][k]:null; return v!=null?v/d:null; },
       function(m,k,d){ var v=lyAgg[m]?lyAgg[m][k]:null; return v!=null?v/d:null; },
       function(m,k,d){ var v=fallbackFcstAgg[m]?fallbackFcstAgg[m][k]:null; return v!=null?v/d:null; },

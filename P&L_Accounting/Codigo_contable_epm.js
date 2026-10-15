@@ -10,21 +10,23 @@
 var _TM_ = {};
 function _timed_(name, fn, args) {
   _TM_ = { mod: 0, read: 0, readSrc: 'mem' };
+  _ORG_ERR_ = false;
   var t0 = Date.now();
   // Cache de resultados: clave = endpoint + args + fecha de modificación de los JSON (si cambia
-  // algún canónico, la clave cambia sola). Saltea lectura del ensamblado y cálculo.
+  // algún canónico, la clave cambia sola) + la del xlsx de TC (organic). Saltea lectura del
+  // ensamblado y cálculo.
   var rkey = null, res, fromCache = false, putSt = '-', getSt = '-';
   try {
-    var mod = _canonicalsMaxMod_();
+    var mod = _canonicalsMaxMod_() + '_' + _fxMod_();
     var dig = Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, JSON.stringify(args), Utilities.Charset.UTF_8);
-    rkey = 'epm_res_v1_' + name + '_' + mod + '_' + dig.map(function(b){ return ((b & 0xff) + 0x100).toString(16).substr(1); }).join('');
+    rkey = 'epm_res_v2_' + name + '_' + mod + '_' + dig.map(function(b){ return ((b & 0xff) + 0x100).toString(16).substr(1); }).join('');
     var got = _chunkCacheGet_(rkey);
     getSt = (got && 'v' in got) ? 'hit' : 'miss';
     if (got && 'v' in got) { res = got.v; fromCache = true; _TM_.readSrc = 'result-cache'; }
   } catch (e) { Logger.log('_timed_ result cache get: ' + e); getSt = 'err:' + String(e).substr(0, 80); rkey = null; }
   if (!fromCache) {
     res = fn.apply(null, args);
-    if (rkey) {
+    if (rkey && !_ORG_ERR_) {   // si falló la lectura del TC no se cachea: el próximo intento vuelve a probar
       putSt = _chunkCachePut_(rkey, { v: res });
       var chk = _chunkCacheGet_(rkey);          // diagnóstico: ¿se puede leer lo recién guardado?
       putSt += (chk && 'v' in chk) ? '/leible' : '/NO-leible';
@@ -32,7 +34,7 @@ function _timed_(name, fn, args) {
   }
   var total = Date.now() - t0;
   var tm = { fn: name, total: total, mod: _TM_.mod, read: _TM_.read, readSrc: _TM_.readSrc,
-             compute: fromCache ? 0 : total - _TM_.mod - _TM_.read, rget: getSt, rput: putSt, rkey: rkey ? rkey.replace('epm_res_v1_' + name + '_', '').substr(0, 30) : null };
+             compute: fromCache ? 0 : total - _TM_.mod - _TM_.read, rget: getSt, rput: putSt, rkey: rkey ? rkey.replace('epm_res_v2_' + name + '_', '').substr(0, 30) : null };
   var isStr = typeof res === 'string';
   tm.bytes = isStr ? res.length : JSON.stringify(res).length;
   Logger.log('[TIMING] ' + JSON.stringify(tm));
@@ -76,6 +78,18 @@ function _readCanonical_(fileId) {
 // que espera el resto del backend (jsonScenarioToByPais_, computeGroupEPM_, etc.).
 function assembleCanonicals_() {
   var data = {}, dbp = {}, actualMonths = [];
+  // ORGANIC: filas de los escenarios que pueden ser baseline cuyo país crudo difiere del label del
+  // cubo (Uruguay/Paraguay/Otros → Globales). Se guardan aparte para convertirlas con el TC de su
+  // país crudo (ver epmOrganicScen_). split[lg][pais][paisCrudo][sc][n2][ym]
+  var split = {}, splitP = {};
+  var ORG_SPLIT_SC = { bl: true, fc: true, vr: true };
+  function addSplit(root, path, sc, n2, ym, v) {
+    var o = root;
+    path.forEach(function(k) { o = o[k] = o[k] || {}; });
+    o = o[sc] = o[sc] || {};
+    o = o[n2] = o[n2] || {};
+    o[ym] = (o[ym] || 0) + v;
+  }
 
   Object.keys(CANONICAL_IDS_).forEach(function(sc) {
     var raw  = _readCanonical_(CANONICAL_IDS_[sc]);
@@ -105,6 +119,11 @@ function assembleCanonicals_() {
       var v    = Number(r[iM]) || 0;
       if (!v) return;
       var prod = String(r[iPr]).trim().toLowerCase();
+      var rawPais = ORG_SPLIT_SC[sc] ? _fxNorm_(r[iP]) : null;
+      if (rawPais && rawPais !== _fxNorm_(pais)) {
+        lgkeysForCT_(lob, canal).forEach(function(lg) { addSplit(split, [lg, pais, rawPais], sc, n2, ym, v); });
+        prodLgkeysForCT_(lob, canal).forEach(function(lg) { addSplit(splitP, [lg, pais, prod, rawPais], sc, n2, ym, v); });
+      }
 
       lgkeysForCT_(lob, canal).forEach(function(lg) {
         if (!data[lg])               data[lg] = {};
@@ -153,7 +172,8 @@ function assembleCanonicals_() {
   });
 
   Logger.log('assembleCanonicals_ OK: lgKeys=' + Object.keys(data) + ' actual_months=' + actualMonths);
-  return { data: data, data_by_prod: dbp, products: products, actual_months: actualMonths };
+  return { data: data, data_by_prod: dbp, products: products, actual_months: actualMonths,
+           data_fxsplit: split, data_by_prod_fxsplit: splitP };
 }
 
 // Caché del ensamblado de canónicos que SOBREVIVE entre llamadas (auditoría 2026-09-25): las
@@ -161,7 +181,7 @@ function assembleCanonicals_() {
 // llamada releía y parseaba ~75 MB de Drive. Se guarda gzip+base64 en CacheService, partido en
 // trozos de 90 KB (límite 100 KB por clave), con clave = máximo lastMod de los canónicos: cuando
 // cambia cualquier JSON la clave cambia y se reensambla solo. TTL 6 h.
-var EPM_CACHE_PREFIX_ = 'epm_asm_v1_';
+var EPM_CACHE_PREFIX_ = 'epm_asm_v2_';   // v2: + data_fxsplit (organic)
 var EPM_CACHE_CHUNK_  = 90000;
 
 function _epmCacheGet_(mod) { return _chunkCacheGet_(EPM_CACHE_PREFIX_ + mod); }
@@ -369,6 +389,8 @@ function getEPMBaselineGoalData_raw_(filtersJson) {
   var cutoffIdx = epmCutoffIdx_(jData);
   var goalSource     = filters.goalSource     || 'budget';   // 'budget' | 'forecast' | 'lastrunrate'
   var baselineScen   = filters.baselineSource || 'bl';       // 'bl' (Actuals+Proj) | 'vr' (Proj Reviews) | 'fc' (Forecast entero)
+  var org = epmOrganicSetup_(jData, filters.organic, goalSource, baselineScen);
+  baselineScen = org.bl;
 
   var prodFilter = (userProduto && (lgKey !== 'b2b2c') && jData.data_by_prod) ? userProduto : null;
   var s = fetchEPMScenarios_(jData, lgKey, baselineScen, prodFilter);
@@ -413,7 +435,28 @@ function getEPMBaselineGoalData_raw_(filtersJson) {
     'B2B2C': aggregatePaisByGroup_(jsonScenarioToByPais_(jData, 'b2b2c', 'ly', ALL_YM_LY_BG) || {}, null)
   };
 
+  // ORGANIC opción B: baseline a TC Actuals LY solo para los YoY de los gráficos (el front usa
+  // chart.total.baselineYoY / by_lob_yoy en vez del baseline que se muestra).
+  var byLobYoY = null;
+  if (org.yoy) {
+    var sY = fetchEPMScenarios_(jData, lgKey, org.yoy, prodFilter);
+    var totalY = computeGroupEPM_(s.ac, s.rr, s.bg, s.fc, cutoffIdx, userPais,
+      { goal: goalSource, lrr: s.lrr, baseline: sY.bl, ly: s.ly });
+    var chartBLY = buildChartFromMonthly_(totalY.baseline.rr_monthly, totalY.baseline.ct_monthly);
+    chartTotalE.baselineYoY = {};
+    CHART_N2_BG.forEach(function(m){ chartTotalE.baselineYoY[m] = seriesToMetric_(chartBLY, m); });
+    byLobYoY = {};
+    ['B2B', 'B2B2C'].forEach(function(name) {
+      var sl = fetchEPMScenarios_(jData, name.toLowerCase(), org.yoy, null);
+      var G  = computeGroupEPM_(sl.ac, sl.rr, sl.bg, sl.fc, cutoffIdx, null,
+        { goal: goalSource, lrr: sl.lrr, baseline: sl.bl, ly: sl.ly });
+      byLobYoY[name] = { baseline: { rr_monthly: G.baseline.rr_monthly, ct_monthly: G.baseline.ct_monthly } };
+    });
+  }
+
   return {
+    organic:    org.info,
+    by_lob_yoy: byLobYoY,
     quarters:   QUARTER_ORDER_BG,
     countries:  PAIS_GROUPS_BG.map(function(g){ return g.label; }),
     total:      total,
@@ -478,6 +521,8 @@ function getEPMPxQAnalysis_raw_(filtersJson) {
   var baselineScen = filters.baselineSource || 'bl';
   var jData = readEPMJSON_();
   var cutoffIdx = epmCutoffIdx_(jData);
+  var org = epmOrganicSetup_(jData, filters.organic, goalSource, baselineScen);
+  baselineScen = org.bl;
 
   function seg(lgKey, paisGroup, prodArr) { return _pxqGroup_(jData, lgKey, paisGroup, cutoffIdx, prodArr, goalSource, baselineScen); }
 
@@ -523,6 +568,7 @@ function getEPMPxQAnalysis_raw_(filtersJson) {
   byProduct.push({ name: 'B2B2C', seg: seg('b2b2c', null, null) });
 
   return {
+    organic:    org.info,
     updated_at: jData.updated_at || null,
     total:      total,
     by_lob:     byLob,
@@ -534,14 +580,18 @@ function getEPMPxQAnalysis_raw_(filtersJson) {
 
 // ── getEPMCountriesYoY: crecimiento YoY por país (Baseline FY27 vs LY FY26) ──────
 // Métricas GB / NR / OC, current = baseline (actuals+forecast), ly = last year.
-function getEPMCountriesYoY_raw_(lobGroup, goalSourceArg, baselineSourceArg) {
+// organicArg: switch ORGANIC → cur a TC del Goal; curY = cur a TC Actuals LY (YoY opción B, si aplica).
+function getEPMCountriesYoY_raw_(lobGroup, goalSourceArg, baselineSourceArg, organicArg) {
   var jData = readEPMJSON_();
   var cutoffIdx = epmCutoffIdx_(jData);
   var goalSource = goalSourceArg || 'budget';
   var baselineScen = baselineSourceArg || 'bl';
   var lg = (lobGroup === 'b2b' || lobGroup === 'b2b2c') ? lobGroup : 'all';
+  var org = epmOrganicSetup_(jData, organicArg, goalSource, baselineScen);
+  baselineScen = org.bl;
 
-  var s = fetchEPMScenarios_(jData, lg, baselineScen, null);
+  var s  = fetchEPMScenarios_(jData, lg, baselineScen, null);
+  var sY = org.yoy ? fetchEPMScenarios_(jData, lg, org.yoy, null) : null;
 
   // FY fiscal Abr–Mar → H1 = Abr–Sep (primeros 6), H2 = Oct–Mar (últimos 6)
   var H1c = ALL_MONTHS_ORD_BG.slice(0, 6),     H2c = ALL_MONTHS_ORD_BG.slice(6, 12);
@@ -554,23 +604,32 @@ function getEPMCountriesYoY_raw_(lobGroup, goalSourceArg, baselineSourceArg) {
       fy: { cur: _pxqSumKeysM_(cur, keys, ALL_MONTHS_ORD_BG), ly: _pxqSumKeysM_(lyAgg, keys, ALL_MONTHS_ORD_LY_BG), bud: _pxqSumKeysM_(bud, keys, ALL_MONTHS_ORD_BG) }
     };
   }
+  // curY (opción B): mismo período, baseline a TC Actuals LY → el front calcula el YoY con esto
+  function withYoY(m, curYm, keys) {
+    if (!curYm) return m;
+    m.h1.curY = _pxqSumKeysM_(curYm, keys, H1c);
+    m.h2.curY = _pxqSumKeysM_(curYm, keys, H2c);
+    m.fy.curY = _pxqSumKeysM_(curYm, keys, ALL_MONTHS_ORD_BG);
+    return m;
+  }
   function metrics(paisGroup, name) {
     var G     = computeGroupEPM_(s.ac, s.rr, s.bg, s.fc, cutoffIdx, paisGroup, { goal: goalSource, lrr: s.lrr, baseline: s.bl, ly: s.ly });
     var cur   = G.baseline.ct_monthly;
     var bud   = G.goal.ct_monthly;
     var lyAgg = aggregatePaisByGroup_(s.ly, paisGroup);
+    var curY  = sY ? aggregatePaisByGroup_(sY.bl, paisGroup) : null;
     return {
       name: name,
-      gb: yoy3(cur, lyAgg, bud, ['gross bookings']),
-      nr: yoy3(cur, lyAgg, bud, PXQ_NR_KEYS_),
-      oc: yoy3(cur, lyAgg, bud, PXQ_OC_KEYS_)
+      gb: withYoY(yoy3(cur, lyAgg, bud, ['gross bookings']), curY, ['gross bookings']),
+      nr: withYoY(yoy3(cur, lyAgg, bud, PXQ_NR_KEYS_), curY, PXQ_NR_KEYS_),
+      oc: withYoY(yoy3(cur, lyAgg, bud, PXQ_OC_KEYS_), curY, PXQ_OC_KEYS_)
     };
   }
 
   var rows  = PAIS_GROUPS_BG.map(function (g) { return metrics(g.pais, g.label); });
   var tname = 'Total ' + (lg === 'b2b' ? 'B2B' : lg === 'b2b2c' ? 'B2B2C' : 'B2B + B2B2C');
   var total = metrics(null, tname);
-  return { updated_at: jData.updated_at || null, lob: lg, total: total, rows: rows };
+  return { organic: org.info, updated_at: jData.updated_at || null, lob: lg, total: total, rows: rows };
 }
 
 // ── getEPMB2BCountryDetail ───────────────────────────────────────────────────
@@ -585,6 +644,8 @@ function getEPMB2BCountryDetail_raw_(paisGroupJson) {
   var cutoffIdx = epmCutoffIdx_(jData);
   var goalSource   = g.goalSource     || 'budget';
   var baselineScen = g.baselineSource || 'bl';
+  var org = epmOrganicSetup_(jData, g.organic, goalSource, baselineScen);
+  baselineScen = org.bl;
 
   function comp(lgKey, prodArr) {
     var s = fetchEPMScenarios_(jData, lgKey, baselineScen, prodArr);
@@ -710,8 +771,17 @@ function getEPMB2BCountryDetail_raw_(paisGroupJson) {
     chartTotal.budget[m]   = seriesToMetric_(chartBG, m);
     chartTotal.ly[m]       = seriesToMetric_(chartLY, m);
   });
+  if (org.yoy) {   // ORGANIC opción B: baseline a TC Actuals LY para los YoY del gráfico
+    var sY = fetchEPMScenarios_(jData, 'b2b', org.yoy, null);
+    var GY = computeGroupEPM_(sY.ac, sY.rr, sY.bg, sY.fc, cutoffIdx, paisArr,
+      { goal: goalSource, lrr: sY.lrr, baseline: sY.bl, ly: sY.ly });
+    var chartBLY = buildChartFromMonthly_(GY.baseline.rr_monthly, GY.baseline.ct_monthly);
+    chartTotal.baselineYoY = {};
+    CHART_N2_BG.forEach(function(m){ chartTotal.baselineYoY[m] = seriesToMetric_(chartBLY, m); });
+  }
 
   return JSON.stringify({
+    organic:  org.info,
     quarters: QUARTER_ORDER_BG,
     label:    g.label,
     total:    totalData,
@@ -729,12 +799,15 @@ function getEPMB2B2CCountryDetail_raw_(paisGroupJson) {
 
   var jData     = readEPMJSON_();
   var cutoffIdx = epmCutoffIdx_(jData);
+  var org = epmOrganicSetup_(jData, g.organic, goalSource, baselineScen);
+  baselineScen = org.bl;
 
   var s = fetchEPMScenarios_(jData, 'b2b2c', baselineScen, null);
   var totalData = computeGroupEPM_(s.ac, s.rr, s.bg, s.fc, cutoffIdx, paisArr,
     { goal: goalSource, lrr: s.lrr, baseline: s.bl, ly: s.ly });
 
   return JSON.stringify({
+    organic:  org.info,
     quarters: QUARTER_ORDER_BG,
     label:    g.label,
     total:    totalData
@@ -744,6 +817,6 @@ function getEPMB2B2CCountryDetail_raw_(paisGroupJson) {
 // ── Wrappers de medición (ver _timed_) ──
 function getEPMBaselineGoalData(a, b, c) { return _timed_('getEPMBaselineGoalData', getEPMBaselineGoalData_raw_, [a, b, c]); }
 function getEPMPxQAnalysis(a, b, c) { return _timed_('getEPMPxQAnalysis', getEPMPxQAnalysis_raw_, [a, b, c]); }
-function getEPMCountriesYoY(a, b, c) { return _timed_('getEPMCountriesYoY', getEPMCountriesYoY_raw_, [a, b, c]); }
+function getEPMCountriesYoY(a, b, c, d) { return _timed_('getEPMCountriesYoY', getEPMCountriesYoY_raw_, [a, b, c, d]); }
 function getEPMB2BCountryDetail(a, b, c) { return _timed_('getEPMB2BCountryDetail', getEPMB2BCountryDetail_raw_, [a, b, c]); }
 function getEPMB2B2CCountryDetail(a, b, c) { return _timed_('getEPMB2B2CCountryDetail', getEPMB2B2CCountryDetail_raw_, [a, b, c]); }

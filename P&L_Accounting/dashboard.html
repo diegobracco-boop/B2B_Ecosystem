@@ -631,6 +631,10 @@ header .btn-refresh:hover{background:#f5f3ff !important;border-color:#c4b5fd;col
 /* Barra de controles (Mes/Quarter, Baseline, Goal, Unidades) */
 .lob-switcher{background:var(--surface2);border-bottom:1px solid var(--border);padding:12px 32px;top:64px}
 #epm-goal-top{gap:10px 14px !important}
+/* ORGANIC switch */
+.prd-toggle.org-disabled{opacity:.45;pointer-events:none}
+.org-note{font-size:10.5px;line-height:1.3;color:var(--muted);max-width:420px}
+.org-note.err{color:#DC2626}
 .lob-switcher span[style*="width:1px"]{background:var(--border2) !important;height:20px !important;margin:0 2px !important}
 .lob-switcher span[style*="font-size:11px"]{font-size:10px !important;font-weight:700 !important;color:var(--muted2) !important;
   text-transform:uppercase;letter-spacing:.08em}
@@ -863,6 +867,14 @@ header .btn-refresh:hover{background:#f5f3ff !important;border-color:#c4b5fd;col
       <button id="btn-egoal-lastrunrate" class="prd-btn" type="button" onclick="setEpmGoalSource('lastrunrate')">vs Last RR</button>
       <button id="btn-egoal-lastyear" class="prd-btn" type="button" onclick="setEpmGoalSource('lastyear')">vs Last Year</button>
     </div>
+    <!-- ORGANIC: YES = baseline × TC Actuals / TC del Goal (Budget, Forecast o Actuals LY) -->
+    <span style="width:1px;height:18px;background:rgba(0,0,0,.15);margin:0 2px"></span>
+    <span style="font-size:11px;color:#3a4048;font-weight:700">Organic:</span>
+    <div class="prd-toggle" id="org-toggle">
+      <button data-o="no"  class="prd-btn prd-active" type="button" onclick="setEpmOrganic(false)">NO</button>
+      <button data-o="yes" class="prd-btn"            type="button" onclick="setEpmOrganic(true)">YES</button>
+    </div>
+    <span id="org-note" class="org-note"></span>
     <span style="width:1px;height:18px;background:rgba(0,0,0,.15);margin:0 2px"></span>
     <span style="font-size:11px;color:#3a4048;font-weight:700">Unidades:</span>
     <div class="prd-toggle">
@@ -1323,8 +1335,65 @@ function getContableFilters(){
     producto:   getMsValues('ms-cont-producto'),
     lobGroup:   _bgContableView === 'combined' ? null : _bgContableView,
     goalSource:     (_activeLob === 'contable-epm') ? _epmGoalSource     : _bgGoalSource,
-    baselineSource: (_activeLob === 'contable-epm') ? _epmBaselineSource : 'bl'
+    baselineSource: (_activeLob === 'contable-epm') ? _epmBaselineSource : 'bl',
+    organic:        _orgOn_()
   };
+}
+
+// ── ORGANIC ──────────────────────────────────────────────────
+// Mismo switch que Monthly Results del Hub: YES = baseline × TC Actuals / TC del Goal (Budget,
+// Forecast o Actuals LY con Goal Last Year); Run Rate / Last RR no tienen TC → deshabilitado.
+// Con Goal Budget/Forecast los YoY vienen del backend a TC Actuals LY (opción B: *YoY / curY).
+var _epmOrganic = false;
+var _orgError_ = '', _orgMissing_ = [];
+var ORG_GOALS_ = { budget: 'Budget', forecast: 'Forecast', lastyear: 'Actuals LY' };
+function _orgGoalOk_(){ return (_activeLob === 'contable-epm') && ORG_GOALS_.hasOwnProperty(_epmGoalSource); }
+function _orgOn_(){ return _epmOrganic && _orgGoalOk_(); }
+function _orgTargetLabel_(){ return ORG_GOALS_[_epmGoalSource] || 'Budget'; }
+// Recarga la vista actual (mismo camino que un cambio de Goal)
+function _reloadEpmView_(){
+  if (_bgContableView === 'pxq') renderPxQ();
+  else if (_bgContableView === 'countries-yoy') renderCountriesYoY();
+  else {
+    debouncedFetchBG();
+    if(_bgContableView === 'b2b')   selectB2BCountry(_b2bCurrentSel.label,     _b2bCurrentSel.pais);
+    if(_bgContableView === 'b2b2c') selectB2B2CCountry(_b2b2cCurrentSel.label, _b2b2cCurrentSel.pais);
+  }
+}
+function setEpmOrganic(on){
+  _epmOrganic = !!on;
+  _orgError_ = ''; _orgMissing_ = [];
+  _syncOrganicUI_();
+  _reloadEpmView_();
+}
+function _syncOrganicUI_(){
+  var tog = document.getElementById('org-toggle');
+  if(!tog) return;
+  var goalOk = _orgGoalOk_();
+  tog.classList.toggle('org-disabled', !goalOk);
+  tog.querySelectorAll('button').forEach(function(b){
+    b.classList.toggle('prd-active', (b.dataset.o === 'yes') === (_epmOrganic && goalOk));
+  });
+  var note = document.getElementById('org-note');
+  note.classList.toggle('err', !!_orgError_);
+  if (_orgError_) note.textContent = _orgError_;
+  else if (!goalOk) note.textContent = 'No disponible con Goal ' + _epmGoalLabel();
+  else if (_epmOrganic) {
+    note.textContent = 'Baseline × TC Actuals / TC ' + _orgTargetLabel_() +
+      (_epmGoalSource === 'lastyear' ? '' : ' · YoY a TC Actuals LY');
+    if (_orgMissing_.length) note.textContent += ' · sin TC: ' + _orgMissing_.slice(0, 5).join(', ') + (_orgMissing_.length > 5 ? ' …' : '');
+  } else note.textContent = '';
+}
+// Respuesta del backend: si no pudo leer el TC, vuelve a NO y avisa (los datos que llegan son los nominales)
+function _handleOrganicResp_(d){
+  var o = d && d.organic;
+  _orgMissing_ = (o && o.missing) || [];
+  if (o && o.error) { _orgError_ = o.error; _epmOrganic = false; }
+  _syncOrganicUI_();
+}
+// Valor del baseline para el YoY: serie a TC Actuals LY si viene (organic opción B), si no el mismo
+function _yoySeries_(chartData, key, fallback){
+  return (chartData && chartData.baselineYoY && chartData.baselineYoY[key]) ? chartData.baselineYoY[key] : fallback;
 }
 
 function setGoalSource(src){
@@ -1361,13 +1430,8 @@ function setEpmGoalSource(src){
   document.getElementById('btn-egoal-runrate').classList.toggle('prd-active', src === 'runrate');
   document.getElementById('btn-egoal-lastrunrate').classList.toggle('prd-active', src === 'lastrunrate');
   document.getElementById('btn-egoal-lastyear').classList.toggle('prd-active', src === 'lastyear');
-  if (_bgContableView === 'pxq') renderPxQ();
-  else if (_bgContableView === 'countries-yoy') renderCountriesYoY();
-  else {
-    debouncedFetchBG();
-    if(_bgContableView === 'b2b')   selectB2BCountry(_b2bCurrentSel.label,     _b2bCurrentSel.pais);
-    if(_bgContableView === 'b2b2c') selectB2B2CCountry(_b2b2cCurrentSel.label, _b2b2cCurrentSel.pais);
-  }
+  _syncOrganicUI_();
+  _reloadEpmView_();
 }
 function _epmGoalLabel(){
   return _epmGoalSource === 'forecast'    ? 'Forecast'
@@ -2282,7 +2346,8 @@ function _srv_(){
       var r = google.script.run.withSuccessHandler(function(v){
         try {
           var s = JSON.stringify(v);
-          if(s !== undefined){
+          // organic con error de lectura del TC: no se cachea (el próximo intento vuelve a probar)
+          if(s !== undefined && !/\\?"organic\\?":\{[^{}]*\\?"error/.test(s)){
             _srvCache[key] = s; _srvCacheKeys.push(key);
             while(_srvCacheKeys.length > _SRV_CACHE_MAX) delete _srvCache[_srvCacheKeys.shift()];
           }
@@ -2316,6 +2381,7 @@ function fetchBGData(){
       if(_seq !== _reqSeq.bg){ _loaderDec(); return; }
       try {
         _bgData = d;
+        _handleOrganicResp_(d);
         var _acEl = document.getElementById('epm-actuals-cutoff');
         if (_acEl) _acEl.textContent = d.actuals_cutoff || 's/d';
         if (!_bgFiltersInitialized) {
@@ -2345,9 +2411,9 @@ function fetchBGData(){
               } catch(e) {}
             })
             .withFailureHandler(function(){})
-            [_activeLob === 'contable-epm' ? 'getEPMB2BCountryDetail' : 'getB2BCountryDetail']({label:'Total B2B', pais:null, goalSource: (_activeLob === 'contable-epm' ? _epmGoalSource : _bgGoalSource), baselineSource: (_activeLob === 'contable-epm' ? _epmBaselineSource : 'bl')});
+            [_activeLob === 'contable-epm' ? 'getEPMB2BCountryDetail' : 'getB2BCountryDetail']({label:'Total B2B', pais:null, goalSource: (_activeLob === 'contable-epm' ? _epmGoalSource : _bgGoalSource), baselineSource: (_activeLob === 'contable-epm' ? _epmBaselineSource : 'bl'), organic: _orgOn_()});
         }
-        document.getElementById('last-upd').textContent = 'Actualizado: '+new Date().toLocaleTimeString('es-AR');
+        document.getElementById('last-upd').textContent = 'Actualizado: '+new Date().toLocaleTimeString('es-AR') + (_orgOn_() ? ' · ORGANIC (TC '+_orgTargetLabel_()+')' : '');
         _logTiming_('bg', d, _t0);
       } catch(e) {
         document.getElementById('bg-body').innerHTML = '<tr><td colspan="20" style="color:red;padding:12px">Error render: '+e.message+'</td></tr>';
@@ -2773,7 +2839,7 @@ function renderPxQ(){
   _srv_()
     .withSuccessHandler(function(a){ if(_seq !== _reqSeq.pxq) return; _logTiming_('pxq', a, _t0); try{ _renderPxQ_(a); }catch(e){ document.getElementById('pxq-summary').innerHTML='<span style="color:#CF222E;font-size:12px">Error PxQ: '+e+'</span>'; } })
     .withFailureHandler(function(err){ if(_seq !== _reqSeq.pxq) return; document.getElementById('pxq-summary').innerHTML='<span style="color:#CF222E;font-size:12px">Error: '+((err&&err.message)||err)+'</span>'; })
-    .getEPMPxQAnalysis({ goalSource: _epmGoalSource, baselineSource: _epmBaselineSource });
+    .getEPMPxQAnalysis({ goalSource: _epmGoalSource, baselineSource: _epmBaselineSource, organic: _orgOn_() });
 }
 function _pxqDecomp_(total, segs){
   var GBb=total.gb_base, GBg=total.gb_goal, OCb=total.oc_base, OCg=total.oc_goal;
@@ -2820,6 +2886,7 @@ function _pxqTable_(title, dec){
   return h+'</tbody></table></div></div>';
 }
 function _renderPxQ_(a){
+  _handleOrganicResp_(a);
   var t=a.total;
   var decLob=_pxqDecomp_(t,a.by_lob);
   var mB=decLob.mB, mG=decLob.mG, dm=decLob.dm;
@@ -2860,7 +2927,7 @@ function renderCountriesYoY(){
   _srv_()
     .withSuccessHandler(function(a){ if(_seq !== _reqSeq.yoy) return; _logTiming_('yoy', a, _t0); try{ _renderYoY_(a); }catch(e){ cont.innerHTML='<span style="color:#CF222E;font-size:12px">Error YoY: '+e+'</span>'; } })
     .withFailureHandler(function(err){ if(_seq !== _reqSeq.yoy) return; cont.innerHTML='<span style="color:#CF222E;font-size:12px">Error: '+((err&&err.message)||err)+'</span>'; })
-    .getEPMCountriesYoY(_yoyLob, _epmGoalSource, _epmBaselineSource);
+    .getEPMCountriesYoY(_yoyLob, _epmGoalSource, _epmBaselineSource, _orgOn_());
 }
 function _fmtExecUSD_(v){
   if(v==null||isNaN(v)) return '—';
@@ -2880,13 +2947,15 @@ function _yoyPer_(lbl, cur, ly, bud){
   if(!na){ var gb=bud/ly-1; bud_='<div class="yoy-per-bud">Bud '+(gb>=0?'+':'')+(gb*100).toFixed(1)+'%</div>'; }
   return '<div class="yoy-per"><div class="yoy-per-lbl">'+lbl+'</div><div class="yoy-per-val '+cls+'">'+arr+' '+txt+'</div>'+bud_+'</div>';
 }
+// Baseline para el YoY: a TC Actuals LY si viene (organic opción B), si no el que se muestra
+function _curY_(p){ return (p.curY !== undefined) ? p.curY : p.cur; }
 function _yoyMetric_(label, m){
   return '<div class="yoy-m">'
     +'<div class="yoy-m-top"><span class="yoy-m-lbl">'+label+'</span><span class="yoy-m-val">'+_fmtExecUSD_(m.fy.cur)+'</span></div>'
     +'<div class="yoy-periods">'
-    +_yoyPer_('H1 YoY', m.h1.cur, m.h1.ly, m.h1.bud)
-    +_yoyPer_('H2 YoY', m.h2.cur, m.h2.ly, m.h2.bud)
-    +_yoyPer_('FY YoY', m.fy.cur, m.fy.ly, m.fy.bud)
+    +_yoyPer_('H1 YoY', _curY_(m.h1), m.h1.ly, m.h1.bud)
+    +_yoyPer_('H2 YoY', _curY_(m.h2), m.h2.ly, m.h2.bud)
+    +_yoyPer_('FY YoY', _curY_(m.fy), m.fy.ly, m.fy.bud)
     +'</div></div>';
 }
 var _YOY_FLAGS = {'Brasil':['br'],'Mexico':['mx'],'Argentina':['ar'],'Colombia':['co'],'Chile':['cl'],'Peru + Ecuador':['pe','ec']};
@@ -2909,6 +2978,7 @@ function _yoyCard_(r, featured){
     +'</div></div>';
 }
 function _renderYoY_(a){
+  _handleOrganicResp_(a);
   var cont = document.getElementById('yoy-cards');
   var rows = (a.rows||[]).filter(function(r){ return r.name !== 'Total' && r.name !== 'RG'; }).sort(function(x,y){ return y.gb.fy.cur - x.gb.fy.cur; });
   var html = a.total ? _yoyCard_(a.total, true) : '';
@@ -2969,6 +3039,7 @@ function renderContableCharts(d){
     var baseVals   = toUnit(chartData.baseline[def.key]);
     var budgetVals = toUnit(chartData.budget[def.key]);
     var lyVals     = toUnit(chartData.ly[def.key]);
+    var baseYVals  = toUnit(_yoySeries_(chartData, def.key, chartData.baseline[def.key]));   // YoY organic opción B
     var hasLY      = lyVals.some(function(v){ return v !== null; });
     var ds = [
       {
@@ -3023,7 +3094,7 @@ function renderContableCharts(d){
       var aggRow = document.createElement('div');
       aggRow.style.cssText = 'display:flex;gap:6px;margin-bottom:10px';
       [{label:'H1',sub:'Abr–Sep',from:0,to:6},{label:'H2',sub:'Oct–Mar',from:6,to:12},{label:'FY',sub:'Año completo',from:0,to:12}].forEach(function(agg){
-        var blSum = baseVals.slice(agg.from,agg.to).reduce(function(s,v){return s+(v||0);},0);
+        var blSum = baseYVals.slice(agg.from,agg.to).reduce(function(s,v){return s+(v||0);},0);
         var lySum = lyVals.slice(agg.from,agg.to).reduce(function(s,v){return s+(v||0);},0);
         var bgSum = budgetVals.slice(agg.from,agg.to).reduce(function(s,v){return s+(v||0);},0);
         var pct   = lySum ? ((blSum-lySum)/Math.abs(lySum)*100) : null;
@@ -3058,7 +3129,7 @@ function renderContableCharts(d){
       var yoyBars = document.createElement('div');
       yoyBars.style.cssText = 'display:flex;gap:2px;flex:1;justify-content:space-between';
       labels.forEach(function(lbl, j){
-        var bl  = (baseVals[j] != null) ? baseVals[j] : 0;
+        var bl  = (baseYVals[j] != null) ? baseYVals[j] : 0;
         var ly2 = (lyVals[j]  != null) ? lyVals[j]  : 0;
         var pct = ly2 ? ((bl - ly2) / Math.abs(ly2) * 100) : null;
         var cell = document.createElement('div');
@@ -3158,6 +3229,7 @@ function selectB2BCountry(label, paisArr) {
       if(_seq !== _reqSeq.b2b) return;
       try {
         _b2bCountryData = JSON.parse(raw);
+        _handleOrganicResp_(_b2bCountryData);
         _logTiming_('b2b-detalle', _b2bCountryData, _t0);
         renderB2BCountryDetail(_b2bCountryData);
       } catch(e) {
@@ -3170,7 +3242,7 @@ function selectB2BCountry(label, paisArr) {
       var det = document.getElementById('cont-b2b-detail');
       if(det) det.innerHTML = '<div style="color:red;font-size:12px">Error: '+(err.message||err)+'</div>';
     })
-    [_activeLob === 'contable-epm' ? 'getEPMB2BCountryDetail' : 'getB2BCountryDetail']({label: label, pais: paisArr, goalSource: (_activeLob === 'contable-epm' ? _epmGoalSource : _bgGoalSource), baselineSource: (_activeLob === 'contable-epm' ? _epmBaselineSource : 'bl')});
+    [_activeLob === 'contable-epm' ? 'getEPMB2BCountryDetail' : 'getB2BCountryDetail']({label: label, pais: paisArr, goalSource: (_activeLob === 'contable-epm' ? _epmGoalSource : _bgGoalSource), baselineSource: (_activeLob === 'contable-epm' ? _epmBaselineSource : 'bl'), organic: _orgOn_()});
 }
 
 function sumProductData_(items) {
@@ -3560,6 +3632,7 @@ function selectB2B2CCountry(label, paisArr) {
       if(_seq !== _reqSeq.b2b2c) return;
       try {
         _b2b2cCountryData = JSON.parse(raw);
+        _handleOrganicResp_(_b2b2cCountryData);
         _logTiming_('b2b2c-detalle', _b2b2cCountryData, _t0);
         renderB2B2CCountryDetail(_b2b2cCountryData);
       } catch(e) {
@@ -3572,7 +3645,7 @@ function selectB2B2CCountry(label, paisArr) {
       var det = document.getElementById('cont-b2b2c-detail');
       if(det) det.innerHTML = '<div style="color:red;font-size:12px">Error: '+(err.message||err)+'</div>';
     })
-    [_activeLob === 'contable-epm' ? 'getEPMB2B2CCountryDetail' : 'getB2B2CCountryDetail']({label: label, pais: paisArr, goalSource: (_activeLob === 'contable-epm' ? _epmGoalSource : _bgGoalSource), baselineSource: (_activeLob === 'contable-epm' ? _epmBaselineSource : 'bl')});
+    [_activeLob === 'contable-epm' ? 'getEPMB2B2CCountryDetail' : 'getB2B2CCountryDetail']({label: label, pais: paisArr, goalSource: (_activeLob === 'contable-epm' ? _epmGoalSource : _bgGoalSource), baselineSource: (_activeLob === 'contable-epm' ? _epmBaselineSource : 'bl'), organic: _orgOn_()});
 }
 
 function renderB2B2CCountryDetail(d) {
@@ -3657,7 +3730,7 @@ function buildChartSeries_JS_(agg, months) {
 
 // Gráficos de evolución mensual por LOB — vista combined
 // lobData = d.by_lob[lobName]; lyAgg = d.lob_ly[lobName] (aggregated CT keyed by metric+month)
-function renderLobMonthlyCharts_(container, lobName, lobData, lyAgg) {
+function renderLobMonthlyCharts_(container, lobName, lobData, lyAgg, lobYoY) {
   if (!lobData) return;
   var lobKey    = lobName.toLowerCase().replace(/[\+\s]/g,'');
   var labels    = _CONT_MONTHS_ORD.map(function(m){ return m.split('-')[0]; });
@@ -3666,9 +3739,13 @@ function renderLobMonthlyCharts_(container, lobName, lobData, lyAgg) {
   var blSeries = buildChartFromMonthly_JS_(lobData.baseline.rr_monthly, lobData.baseline.ct_monthly);
   var bgSeries = buildChartFromMonthly_JS_(lobData.goal.rr_monthly,     lobData.goal.ct_monthly);
   var lySeries = lyAgg ? buildChartSeries_JS_(lyAgg, _CONT_MONTHS_ORD_LY) : null;
+  // ORGANIC opción B: baseline a TC Actuals LY, solo para los YoY
+  var blYSeries = lobYoY ? buildChartFromMonthly_JS_(lobYoY.baseline.rr_monthly, lobYoY.baseline.ct_monthly) : null;
 
   var chartData = { baseline:{}, budget:{}, ly:{} };
+  if (blYSeries) chartData.baselineYoY = {};
   CONT_CHART_DEFS.forEach(function(def){
+    if (blYSeries) chartData.baselineYoY[def.key] = blYSeries.map(function(s){ return s[def.key]; });
     chartData.baseline[def.key] = blSeries.map(function(s){ return s[def.key]; });
     chartData.budget[def.key]   = bgSeries.map(function(s){ return s[def.key]; });
     chartData.ly[def.key]       = lySeries ? lySeries.map(function(s){ return s[def.key]; }) : Array(12).fill(null);
@@ -3704,6 +3781,7 @@ function renderLobMonthlyCharts_(container, lobName, lobData, lyAgg) {
     var baseVals = toM(chartData.baseline[def.key]);
     var budgVals = toM(chartData.budget[def.key]);
     var lyVals   = toM(chartData.ly[def.key]);
+    var baseYVals = toM(_yoySeries_(chartData, def.key, chartData.baseline[def.key]));   // YoY organic opción B
     var hasLY    = lyVals.some(function(v){ return v !== null; });
 
     var ds = [
@@ -3746,7 +3824,7 @@ function renderLobMonthlyCharts_(container, lobName, lobData, lyAgg) {
       var aggRow = document.createElement('div');
       aggRow.style.cssText = 'display:flex;gap:6px;margin-bottom:10px';
       [{label:'H1',sub:'Abr–Sep',from:0,to:6},{label:'H2',sub:'Oct–Mar',from:6,to:12},{label:'FY',sub:'Año completo',from:0,to:12}].forEach(function(agg){
-        var blSum = baseVals.slice(agg.from,agg.to).reduce(function(s,v){return s+(v||0);},0);
+        var blSum = baseYVals.slice(agg.from,agg.to).reduce(function(s,v){return s+(v||0);},0);
         var lySum = lyVals.slice(agg.from,agg.to).reduce(function(s,v){return s+(v||0);},0);
         var bgSum = budgVals.slice(agg.from,agg.to).reduce(function(s,v){return s+(v||0);},0);
         var pct   = lySum ? ((blSum-lySum)/Math.abs(lySum)*100) : null;
@@ -3774,7 +3852,7 @@ function renderLobMonthlyCharts_(container, lobName, lobData, lyAgg) {
       var yoyBars = document.createElement('div');
       yoyBars.style.cssText = 'display:flex;gap:2px;flex:1;justify-content:space-between';
       labels.forEach(function(lbl, j){
-        var bl2 = (baseVals[j] != null) ? baseVals[j] : 0;
+        var bl2 = (baseYVals[j] != null) ? baseYVals[j] : 0;
         var ly2 = (lyVals[j]  != null) ? lyVals[j]  : 0;
         var pct = ly2 ? ((bl2 - ly2) / Math.abs(ly2) * 100) : null;
         var cell = document.createElement('div');
@@ -3806,7 +3884,7 @@ function renderCountryPnlBlocks(d){
       var data = d.by_lob && d.by_lob[lobName];
       if(!data) return;
       var lyAgg = d.lob_ly && d.lob_ly[lobName];
-      renderLobMonthlyCharts_(container, lobName, data, lyAgg);
+      renderLobMonthlyCharts_(container, lobName, data, lyAgg, d.by_lob_yoy && d.by_lob_yoy[lobName]);
       renderPnlBlock_(container, lobName, quarters, n, data);
       var splitP = null;
       if (lobName === 'B2B') {

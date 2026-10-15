@@ -1095,6 +1095,15 @@
       <option value="rr">Run Rate</option>
     </select>
   </div>
+  <!-- ORGANIC: YES = actuals × TC Actuals / TC Budget (Meta Run Rate: nominal) -->
+  <div class="filter-group" id="filterGroupOrganic">
+    <label>Organic</label>
+    <select id="filterOrganic">
+      <option value="no">NO</option>
+      <option value="yes">YES</option>
+    </select>
+    <span id="orgNoteTrk" style="font-size:10px;color:#6b7280;max-width:260px;line-height:1.25"></span>
+  </div>
   <div id="filterGroupCountry" style="display:none"></div>
   <div class="filter-group" id="filterGroupCountryAgencias" style="display:none">
     <label>País</label>
@@ -1534,6 +1543,88 @@ function getActualsLY(dateType) {
   return unpack(dateType === 'ri' ? rawData.b2b_ri_ly : rawData.b2b_gd_ly);
 }
 
+// ── ORGANIC (mismo switch que el Daily / Monthly Results del Hub) ─────────────
+// YES = actuals × TC Actuals(país, mes) / TC Budget (Meta Run Rate: no hay TC → nominal). Solo los
+// gráficos y tablas (buildChartData / buildPivotData); KRs y la vista Semanal (vs Run Rate) quedan
+// nominales. YoY "opción B": cada fila convertida trae <campo>_y = valor a TC Actuals LY y los YoY
+// se calculan con eso (actY); el LY se muestra nominal. Embebido en el Daily, el estado inicial
+// llega por la URL (&organic=1).
+let trkOrganic = false, fxTbl = null, fxState = 'idle', orgErr = '', orgMissing = {};
+const ORG_MONEY = ['gross_bookings', 'net_revenue', 'net_revenues', 'fvm'];
+const ORG_ALIAS = { 'ops': 'brasil', 'rg': 'brasil', 'ops + rg': 'brasil', 'ops+rg': 'brasil' };
+function orgNorm(s) { return String(s || '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); }
+function trkOrgTarget() { return (trkOrganic && fxTbl && document.getElementById('filterGoal').value === 'budget') ? 'budget' : ''; }
+function orgFactor(target) {
+  const act = fxTbl.actuals, tgt = target === 'ly' ? null : fxTbl[target], has = {}, memo = {};
+  Object.keys(act).forEach(k => { has[k.split('§')[0]] = 1; });
+  return function(pais, fecha) {
+    const ym = String(fecha || '').substring(0, 7), mk = pais + '|' + ym;
+    if (mk in memo) return memo[mk];
+    let p = orgNorm(pais); p = ORG_ALIAS[p] || p;
+    let f = 1;
+    if (has[p] && ym.length === 7) {
+      const a = act[p + '§' + ym];
+      const t = tgt ? tgt[p + '§' + ym] : act[p + '§' + (+ym.substring(0, 4) - 1) + ym.substring(4)];
+      if (a && t) f = a / t;
+      else orgMissing[p + ' ' + ym + (a ? '' : ' (actuals)') + (t ? '' : ' (' + (target === 'ly' ? 'actuals LY' : target) + ')')] = 1;
+    }
+    return (memo[mk] = f);
+  };
+}
+let orgActMemo = {};   // + orgActMemo[k + '§miss']: TC faltantes de esa conversión (para la nota)
+function getActualsOrg(dateType) {
+  const t = trkOrgTarget();
+  if (!t) return getActuals(dateType);
+  if (orgActMemo.src !== rawData) orgActMemo = { src: rawData };
+  const k = dateType + '|' + t;
+  if (orgActMemo[k]) { Object.assign(orgMissing, orgActMemo[k + '§miss']); return orgActMemo[k]; }
+  {
+    const before = Object.assign({}, orgMissing);
+    const fT = orgFactor(t), fY = orgFactor('ly');
+    orgActMemo[k] = getActuals(dateType).map(r => {
+      const a = fT(r.pais, r.fecha), y = fY(r.pais, r.fecha);
+      if (a === 1 && y === 1) return r;
+      const c = Object.assign({}, r);
+      ORG_MONEY.forEach(F => { if (r[F] == null) return; c[F] = r[F] * a; c[F + '_y'] = r[F] * y; });
+      return c;
+    });
+    const miss = {}; Object.keys(orgMissing).forEach(m => { if (!before[m]) miss[m] = 1; });
+    orgActMemo[k + '§miss'] = miss;
+  }
+  return orgActMemo[k];
+}
+// Valor para el YoY: a TC Actuals LY si la fila lo trae (organic), si no el que se muestra
+function yv(r, F) { const y = r[F + '_y']; return (y !== undefined) ? y : (r[F] || 0); }
+function syncOrgUI() {
+  document.getElementById('filterOrganic').value = trkOrganic ? 'yes' : 'no';
+  const note = document.getElementById('orgNoteTrk');
+  note.style.color = orgErr ? '#DC2626' : '#6b7280';
+  const miss = Object.keys(orgMissing);
+  if (orgErr) note.textContent = orgErr;
+  else if (fxState === 'loading') note.textContent = 'Cargando tipos de cambio…';
+  else if (!trkOrganic) note.textContent = '';
+  else if (!trkOrgTarget()) note.textContent = 'No disponible con Meta Run Rate (sin TC)';
+  else note.textContent = 'Actuals × TC Actuals / TC Budget · YoY a TC Actuals LY'
+    + (miss.length ? ' · sin TC: ' + miss.slice(0, 3).join(', ') + (miss.length > 3 ? ' …' : '') : '');
+}
+function setTrkOrganic(on) {
+  trkOrganic = !!on; orgErr = '';
+  if (trkOrganic && !fxTbl) {
+    fxState = 'loading'; syncOrgUI();
+    google.script.run
+      .withSuccessHandler(res => {
+        fxState = 'idle';
+        if (!res || !res.success) { orgErr = (res && res.error) || 'No se pudo leer el archivo de tipos de cambio'; trkOrganic = false; syncOrgUI(); return; }
+        fxTbl = { actuals: res.actuals, budget: res.budget, forecast: res.forecast };
+        orgMissing = {}; if (rawData) render(); syncOrgUI();
+      })
+      .withFailureHandler(err => { fxState = 'idle'; trkOrganic = false; orgErr = 'No se pudo leer el archivo de tipos de cambio: ' + ((err && err.message) || err); syncOrgUI(); })
+      .getFxTable();
+    return;
+  }
+  orgMissing = {}; if (rawData) render(); syncOrgUI();
+}
+
 // ── Fuente de los KRs H2 ──────────────────────────────────────────────────────────────────────
 // Los KRs H2 del track managerial leen de okr_h2_managerial.json (NR/FVM con Packages General abierto por
 // product_type, budget incluido). Si ese JSON no llegó (o todavía no existe en Drive), caen al JSON principal:
@@ -1667,7 +1758,7 @@ function buildChartData(dateType, metricField, channel, countryGroup, monthFilte
   const meta = rawData.meta;
   const { from, cutoff, goalFrom, goalCutoff } = getPeriodBounds(monthFilter, meta);
 
-  const actuals  = getActuals(dateType);
+  const actuals  = getActualsOrg(dateType);   // organic
   const goalRows = getGoal(dateType, document.getElementById('filterGoal').value);
 
   const filtAct  = filterByPeriod(actuals,  channel, countryGroup, from, cutoff)
@@ -1870,7 +1961,7 @@ function buildPivotData(dateType, metricField, channel, countryGroup, monthFilte
   const lyFrom   = shiftYear(from,   -1);
   const lyCutoff = shiftYear(cutoff, -1);
 
-  const actuals   = filterByPeriod(getActuals(dateType),   channel, countryGroup, from,   cutoff);
+  const actuals   = filterByPeriod(getActualsOrg(dateType), channel, countryGroup, from,   cutoff);   // organic
   const goalAll   = filterByPeriod(getGoal(dateType, document.getElementById('filterGoal').value), channel, countryGroup, from, cutoff);
   const actualsLY = filterByPeriod(getActualsLY(dateType), channel, countryGroup, lyFrom, lyCutoff);
 
@@ -1888,11 +1979,11 @@ function buildPivotData(dateType, metricField, channel, countryGroup, monthFilte
       const rawProd = (isGoal ? r.producto : r.producto_original) || 'Other';
       const pg = productGroupFor(rawProd);
       if (!groups[g][pg]) groups[g][pg] = {};
-      if (!groups[g][pg][rawProd]) groups[g][pg][rawProd] = { act: 0, goal: 0, ly: 0 };
+      if (!groups[g][pg][rawProd]) groups[g][pg][rawProd] = { act: 0, actY: 0, goal: 0, ly: 0 };
       const val = (r[metricField] || 0);
       if (isLY)        groups[g][pg][rawProd].ly   += val;
       else if (isGoal) groups[g][pg][rawProd].goal += val;
-      else             groups[g][pg][rawProd].act  += val;
+      else { groups[g][pg][rawProd].act += val; groups[g][pg][rawProd].actY += yv(r, metricField); }   // actY: organic (YoY)
     });
   }
 
@@ -2010,25 +2101,25 @@ function renderPivot(tab, channel, countryGroup, monthFilter) {
   const body = document.getElementById('pivotBody');
   body.innerHTML = '';
 
-  let totalAct = 0, totalGoal = 0, totalLY = 0;
+  let totalAct = 0, totalActY = 0, totalGoal = 0, totalLY = 0;
   const countryOrder = countryOrderFor(countryGroup);
 
   countryOrder.forEach(countryName => {
     const pgMap = groups[countryName] || {};
 
-    let ctAct = 0, ctGoal = 0, ctLY = 0;
+    let ctAct = 0, ctActY = 0, ctGoal = 0, ctLY = 0;
     PRODUCT_GROUP_ORDER.forEach(pg => {
-      Object.values(pgMap[pg] || {}).forEach(({ act, goal, ly }) => {
-        ctAct += act; ctGoal += goal; ctLY += ly;
+      Object.values(pgMap[pg] || {}).forEach(({ act, actY, goal, ly }) => {
+        ctAct += act; ctActY += actY; ctGoal += goal; ctLY += ly;
       });
     });
     if (ctAct === 0 && ctGoal === 0 && !hasCountryFilter(countryGroup)) return;
 
-    totalAct += ctAct; totalGoal += ctGoal; totalLY += ctLY;
+    totalAct += ctAct; totalActY += ctActY; totalGoal += ctGoal; totalLY += ctLY;
 
     const ctDelta = convert(ctAct - ctGoal);
     const ctCumpl = cumplRatio(ctAct, ctGoal);
-    const ctYoY   = ctLY  ? (ctAct / ctLY) - 1 : null;
+    const ctYoY   = ctLY  ? (ctActY / ctLY) - 1 : null;
     const isCountryCollapsed = collapseState[countryName] !== false;
 
     const trC = document.createElement('tr');
@@ -2039,16 +2130,16 @@ function renderPivot(tab, channel, countryGroup, monthFilter) {
       <td>${fmt(convert(ctAct))}</td>
       <td class="${deltaColor(ctDelta)}">${fmt(ctDelta)}</td>
       <td class="${cumplColor(ctCumpl)}">${fmtPct(ctCumpl)}</td>
-      ${yoyCellHtml(ctAct, ctLY, convert, fmt)}
+      ${yoyCellHtml(ctActY, ctLY, convert, fmt)}
     `;
     trC.addEventListener('click', () => toggleCountry(countryName));
     body.appendChild(trC);
 
     PRODUCT_GROUP_ORDER.forEach(pgName => {
       const prods = pgMap[pgName] || {};
-      let pgAct = 0, pgGoal = 0, pgLY = 0;
-      Object.values(prods).forEach(({ act, goal, ly }) => {
-        pgAct += act; pgGoal += goal; pgLY += ly;
+      let pgAct = 0, pgActY = 0, pgGoal = 0, pgLY = 0;
+      Object.values(prods).forEach(({ act, actY, goal, ly }) => {
+        pgAct += act; pgActY += actY; pgGoal += goal; pgLY += ly;
       });
       if (pgAct === 0 && pgGoal === 0) return;
 
@@ -2056,7 +2147,7 @@ function renderPivot(tab, channel, countryGroup, monthFilter) {
       const isPGCollapsed = collapseState[pgKey] !== false;
       const pgDelta = convert(pgAct - pgGoal);
       const pgCumpl = cumplRatio(pgAct, pgGoal);
-      const pgYoY   = pgLY  ? (pgAct / pgLY) - 1 : null;
+      const pgYoY   = pgLY  ? (pgActY / pgLY) - 1 : null;
 
       const trPG = document.createElement('tr');
       trPG.className = 'row-product-group' + (isCountryCollapsed ? ' hidden' : '');
@@ -2067,16 +2158,16 @@ function renderPivot(tab, channel, countryGroup, monthFilter) {
         <td>${fmt(convert(pgAct))}</td>
         <td class="${deltaColor(pgDelta)}">${fmt(pgDelta)}</td>
         <td class="${cumplColor(pgCumpl)}">${fmtPct(pgCumpl)}</td>
-        ${yoyCellHtml(pgAct, pgLY, convert, fmt)}
+        ${yoyCellHtml(pgActY, pgLY, convert, fmt)}
       `;
       trPG.addEventListener('click', e => { e.stopPropagation(); toggleProductGroup(pgKey); });
       body.appendChild(trPG);
 
       Object.keys(prods).sort((a, b) => a.localeCompare(b)).forEach(prod => {
-        const { act, goal, ly } = prods[prod];
+        const { act, actY, goal, ly } = prods[prod];
         const delta = convert(act - goal);
         const cumpl = cumplRatio(act, goal);
-        const yoy   = ly  ? (act / ly) - 1 : null;
+        const yoy   = ly  ? (actY / ly) - 1 : null;
         const isHidden = isCountryCollapsed || isPGCollapsed;
         const trP = document.createElement('tr');
         trP.className = 'row-product' + (isHidden ? ' hidden' : '');
@@ -2087,7 +2178,7 @@ function renderPivot(tab, channel, countryGroup, monthFilter) {
           <td>${fmt(convert(act))}</td>
           <td class="${deltaColor(delta)}">${fmt(delta)}</td>
           <td class="${cumplColor(cumpl)}">${fmtPct(cumpl)}</td>
-          ${yoyCellHtml(act, ly, convert, fmt)}
+          ${yoyCellHtml(actY, ly, convert, fmt)}
         `;
         body.appendChild(trP);
       });
@@ -2096,7 +2187,7 @@ function renderPivot(tab, channel, countryGroup, monthFilter) {
 
   const tDelta = convert(totalAct - totalGoal);
   const tCumpl = cumplRatio(totalAct, totalGoal);
-  const tYoY   = totalLY  ? (totalAct / totalLY) - 1 : null;
+  const tYoY   = totalLY  ? (totalActY / totalLY) - 1 : null;
   const trT = document.createElement('tr');
   trT.className = 'row-total';
   trT.innerHTML = `
@@ -2104,7 +2195,7 @@ function renderPivot(tab, channel, countryGroup, monthFilter) {
     <td>${fmt(convert(totalAct))}</td>
     <td class="${deltaColor(tDelta)}">${fmt(tDelta)}</td>
     <td class="${cumplColor(tCumpl)}">${fmtPct(tCumpl)}</td>
-    ${yoyCellHtml(totalAct, totalLY, convert, fmt)}
+    ${yoyCellHtml(totalActY, totalLY, convert, fmt)}
   `;
   body.appendChild(trT);
 }
@@ -2118,25 +2209,25 @@ function renderTableBody(bodyEl, groups, inMillions, countryGroup) {
 
   bodyEl.innerHTML = '';
 
-  let totalAct = 0, totalGoal = 0, totalLY = 0;
+  let totalAct = 0, totalActY = 0, totalGoal = 0, totalLY = 0;
   const countryOrder = countryOrderFor(countryGroup);
 
   countryOrder.forEach(countryName => {
     const pgMap = groups[countryName] || {};
 
-    let ctAct = 0, ctGoal = 0, ctLY = 0;
+    let ctAct = 0, ctActY = 0, ctGoal = 0, ctLY = 0;
     PRODUCT_GROUP_ORDER.forEach(pg => {
-      Object.values(pgMap[pg] || {}).forEach(({ act, goal, ly }) => {
-        ctAct += act; ctGoal += goal; ctLY += ly;
+      Object.values(pgMap[pg] || {}).forEach(({ act, actY, goal, ly }) => {
+        ctAct += act; ctActY += actY; ctGoal += goal; ctLY += ly;
       });
     });
     if (ctAct === 0 && ctGoal === 0 && !hasCountryFilter(countryGroup)) return;
 
-    totalAct += ctAct; totalGoal += ctGoal; totalLY += ctLY;
+    totalAct += ctAct; totalActY += ctActY; totalGoal += ctGoal; totalLY += ctLY;
 
     const ctDelta = convert(ctAct - ctGoal);
     const ctCumpl = cumplRatio(ctAct, ctGoal);
-    const ctYoY   = ctLY  ? (ctAct / ctLY) - 1 : null;
+    const ctYoY   = ctLY  ? (ctActY / ctLY) - 1 : null;
 
     // País row (no collapsible in tables view)
     const trC = document.createElement('tr');
@@ -2146,21 +2237,21 @@ function renderTableBody(bodyEl, groups, inMillions, countryGroup) {
       <td>${fmt(convert(ctAct))}</td>
       <td class="${deltaColor(ctDelta)}">${fmt(ctDelta)}</td>
       <td class="${cumplColor(ctCumpl)}">${fmtPct(ctCumpl)}</td>
-      ${yoyCellHtml(ctAct, ctLY, convert, fmt)}
+      ${yoyCellHtml(ctActY, ctLY, convert, fmt)}
     `;
     bodyEl.appendChild(trC);
 
     PRODUCT_GROUP_ORDER.forEach(pgName => {
       const prods = pgMap[pgName] || {};
-      let pgAct = 0, pgGoal = 0, pgLY = 0;
-      Object.values(prods).forEach(({ act, goal, ly }) => {
-        pgAct += act; pgGoal += goal; pgLY += ly;
+      let pgAct = 0, pgActY = 0, pgGoal = 0, pgLY = 0;
+      Object.values(prods).forEach(({ act, actY, goal, ly }) => {
+        pgAct += act; pgActY += actY; pgGoal += goal; pgLY += ly;
       });
       if (pgAct === 0 && pgGoal === 0) return;
 
       const pgDelta = convert(pgAct - pgGoal);
       const pgCumpl = cumplRatio(pgAct, pgGoal);
-      const pgYoY   = pgLY  ? (pgAct / pgLY) - 1 : null;
+      const pgYoY   = pgLY  ? (pgActY / pgLY) - 1 : null;
 
       const trPG = document.createElement('tr');
       trPG.className = 'row-product-group';
@@ -2169,7 +2260,7 @@ function renderTableBody(bodyEl, groups, inMillions, countryGroup) {
         <td>${fmt(convert(pgAct))}</td>
         <td class="${deltaColor(pgDelta)}">${fmt(pgDelta)}</td>
         <td class="${cumplColor(pgCumpl)}">${fmtPct(pgCumpl)}</td>
-        ${yoyCellHtml(pgAct, pgLY, convert, fmt)}
+        ${yoyCellHtml(pgActY, pgLY, convert, fmt)}
       `;
       bodyEl.appendChild(trPG);
     });
@@ -2177,7 +2268,7 @@ function renderTableBody(bodyEl, groups, inMillions, countryGroup) {
 
   const tDelta = convert(totalAct - totalGoal);
   const tCumpl = cumplRatio(totalAct, totalGoal);
-  const tYoY   = totalLY  ? (totalAct / totalLY) - 1 : null;
+  const tYoY   = totalLY  ? (totalActY / totalLY) - 1 : null;
   const trT = document.createElement('tr');
   trT.className = 'row-total';
   trT.innerHTML = `
@@ -2185,7 +2276,7 @@ function renderTableBody(bodyEl, groups, inMillions, countryGroup) {
     <td>${fmt(convert(totalAct))}</td>
     <td class="${deltaColor(tDelta)}">${fmt(tDelta)}</td>
     <td class="${cumplColor(tCumpl)}">${fmtPct(tCumpl)}</td>
-    ${yoyCellHtml(totalAct, totalLY, convert, fmt)}
+    ${yoyCellHtml(totalActY, totalLY, convert, fmt)}
   `;
   bodyEl.appendChild(trT);
 }
@@ -3666,6 +3757,10 @@ function initDashboard(data) {
   document.getElementById('spinnerWrap').style.display = 'none';
 
   render();
+  // ORGANIC: embebido en el Daily llega &organic=1 en la URL
+  try {
+    google.script.url.getLocation(loc => { if (loc && loc.parameter && loc.parameter.organic === '1') setTrkOrganic(true); });
+  } catch (e) {}
 }
 
 function showError(err) {
@@ -3690,6 +3785,8 @@ document.getElementById('tabs').addEventListener('click', e => {
 ['filterChannel','filterGoal','filterMonth','filterCountryAgencias'].forEach(id => {
   document.getElementById(id).addEventListener('change', render);
 });
+document.getElementById('filterGoal').addEventListener('change', syncOrgUI);
+document.getElementById('filterOrganic').addEventListener('change', e => setTrkOrganic(e.target.value === 'yes'));
 // País: multi-selección. Cada botón se prende/apaga; "Todos" limpia la selección.
 function syncCountryButtons() {
   document.querySelectorAll('.country-btn').forEach(function(b) {
