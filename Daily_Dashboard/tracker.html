@@ -3314,20 +3314,21 @@ function renderStatusKRsH2() {
   if (chShow !== 'api')  tbody.appendChild(row('HTML FVM $M', '20%', fvmHtml, htmlCDisp));
   tbody.appendChild(row('New Products Growth $M' + chLbl, '15%', nrfd,    npCDisp));
 
+  // Accelerate Recurrence — TBD (placeholder, definición y datos pendientes).
+  // Se muestra también en las vistas API / HTML (espacio reservado por canal).
+  var trTBD = document.createElement('tr');
+  trTBD.innerHTML =
+    '<td style="text-align:left">Accelerate Recurrence' + chLbl + ' <span class="kr-warning-tag" title="Definición y datos pendientes">TBD</span></td>' +
+    '<td style="color:#6b7280;font-size:0.78rem">15%</td>' +
+    '<td colspan="3" style="text-align:center;color:#9ca3af;font-style:italic">Pendiente de definición</td>';
+  tbody.appendChild(trTBD);
+
   if (chShow !== 'total') {
-    // Vista filtrada: sin Accelerate Recurrence ni OVERALL (el ponderado solo aplica al Total).
+    // Vista filtrada: sin OVERALL (el ponderado solo aplica al Total).
     renderStatusKRsH2DetailBoxes_(krYM);
     wrap.style.display = 'block';
     return;
   }
-
-  // Accelerate Recurrence — TBD (placeholder, definición y datos pendientes)
-  var trTBD = document.createElement('tr');
-  trTBD.innerHTML =
-    '<td style="text-align:left">Accelerate Recurrence <span class="kr-warning-tag" title="Definición y datos pendientes">TBD</span></td>' +
-    '<td style="color:#6b7280;font-size:0.78rem">15%</td>' +
-    '<td colspan="3" style="text-align:center;color:#9ca3af;font-style:italic">Pendiente de definición</td>';
-  tbody.appendChild(trTBD);
 
   // Overall ponderado — normaliza sobre los KRs con cumplimiento disponible
   // (excluye Accelerate Recurrence mientras sea TBD).
@@ -3429,8 +3430,6 @@ function renderStatusKRsH2DetailBoxes_(monthFilter) {
   if (krH2Channel !== 'api')  grid.appendChild(makeBox('HTML FVM $M', rowsFor('fvm', isHTML, isHTML)));
   grid.appendChild(makeBox('New Products Growth $M' + chLbl, rowsFor('net_revenue', isNPa, isNPb)));
 
-  if (krH2Channel !== 'total') return;   // Accelerate Recurrence no es por canal
-
   // Accelerate Recurrence — formato propuesto (datos pendientes de cálculo):
   // agencias que compraron 1 / 2 / 3+ semanas distintas dentro del mes, por país.
   var recBox = document.createElement('div');
@@ -3445,7 +3444,7 @@ function renderStatusKRsH2DetailBoxes_(monthFilter) {
     return '<tr><td style="text-align:left">' + def.name + '</td>' + recPlaceholder + '</tr>';
   }).join('');
   recBox.innerHTML =
-    '<div class="kr-detail-header"><span class="kr-num-badge">Accelerate Recurrence</span>' +
+    '<div class="kr-detail-header"><span class="kr-num-badge">Accelerate Recurrence' + chLbl + '</span>' +
     '<span class="kr-warning-tag" title="Formato propuesto — cálculo de datos pendiente" style="margin-left:6px">datos TBD</span></div>' +
     '<div style="padding:2px 2px 8px;color:#6b7280;font-size:0.72rem">Agencias que compraron 1 / 2 / 3+ semanas distintas en el mes, por país.</div>' +
     '<table class="pivot-table kr-detail-table">' + recHead +
