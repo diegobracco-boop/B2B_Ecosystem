@@ -958,6 +958,17 @@
     background: #f5f3ff;
     font-size: 0.85rem;
   }
+  /* Accelerate Recurrence (Status KRs H2): 6 columnas -> más ancho que los otros recuadros,
+     encabezados en 2 líneas y celdas compactas para que entre sin scroll (pantalla y slides). */
+  .kr-detail-box.kr-detail-box--recur { flex: 1.7 1 360px; min-width: 0; }
+  .kr-detail-box--recur .kr-detail-table { table-layout: auto; }
+  .kr-detail-box--recur .kr-detail-table th { white-space: normal; line-height: 1.15; vertical-align: bottom; font-size: 0.68rem; }
+  .kr-detail-box--recur .kr-detail-table td,
+  .kr-detail-box--recur .kr-detail-table th { padding: 3px 4px; }
+  .kr-detail-box--recur .kr-detail-table td { font-size: 0.8rem; }
+  .kr-detail-box--recur .kr-detail-table td:first-child,
+  .kr-detail-box--recur .kr-detail-table th:first-child { width: 116px; max-width: 116px; }
+  .kr-detail-box--recur .kr-cumpl-chip { padding: 0 4px; }
 
   /* ── KR Data Range badges ── */
   .status-krs-meta {
@@ -3522,7 +3533,7 @@ function renderStatusKRsH2DetailBoxes_(monthFilter) {
 
 function recurDetailBox_(krYM) {
   var box = document.createElement('div');
-  box.className = 'kr-detail-box';
+  box.className = 'kr-detail-box kr-detail-box--recur';
   var rec = recurH2_(krYM);
   var head = '<div class="kr-detail-header"><span class="kr-num-badge">Accelerate Recurrence (HTML)</span></div>';
   if (!rec) {
@@ -3564,7 +3575,7 @@ function recurDetailBox_(krYM) {
   box.innerHTML = head +
     '<div style="padding:2px 2px 8px;color:#6b7280;font-size:0.72rem">Agencias de alta frecuencia · ' + recurWeekLbl_(rec) + '</div>' +
     '<table class="pivot-table kr-detail-table"><thead><tr>' +
-    '<th style="text-align:left;min-width:90px">País</th><th>Actuals</th><th>Target</th><th>% Cumpl.</th><th>Rolling L4W</th><th>Rolling vs Target</th>' +
+    '<th style="text-align:left">País</th><th>Actuals</th><th>Target</th><th>% Cumpl.</th><th>Rolling<br>L4W</th><th>Rolling<br>vs Target</th>' +
     '</tr></thead><tbody>' + tr('TOTAL', rec.total, recurTarget_(krYM, null), true) + body + '</tbody></table>';
   return box;
 }
