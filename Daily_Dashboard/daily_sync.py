@@ -1634,6 +1634,29 @@ except Exception as e:
     df_unique_buyers_daily = pd.DataFrame()
     unique_buyers_total = {}
 
+print("\n--- Accelerate Recurrence (KR H2 B2B HTML) ---")
+# Agencias de alta frecuencia por semana comercial x pais (solo canal HTML). La query es copia de la card
+# Metabase 171400 (recurrencia_alta_frecuencia.sql). Definicion del equipo (2026-10-16): foto del mes
+# (es_cierre_mes = 1) / semana intermedia = mtd_frecuentes_vivas; rolling L4W = roll_frecuentes_vivas.
+# Va en okr_h2_managerial.json ("recurrencia"). No va a _FAILED_BLOCKS: si falla se reusa el bloque de
+# la corrida anterior (ver okr_h2_payload) y la sync sigue.
+RECUR_SQL_PATH  = Path(__file__).resolve().parent / "recurrencia_alta_frecuencia.sql"
+RECUR_TXT_COLS  = ["mes_comercial", "semana_desde", "semana_hasta", "fecha_foto", "estado", "pais"]
+RECUR_INT_COLS  = ["semana_del_mes", "semanas_del_mes", "es_cierre_mes", "mtd_frecuentes_vivas", "roll_frecuentes_vivas"]
+try:
+    _rec = fetch(RECUR_SQL_PATH.read_text(encoding="utf-8").strip().rstrip(";"), "Alta frecuencia semanal (card 171400)")
+    _rec = _rec[RECUR_TXT_COLS + RECUR_INT_COLS].copy()
+    for _c in RECUR_TXT_COLS:
+        _rec[_c] = _rec[_c].fillna("").astype(str)
+    _rec["mes_comercial"] = _rec["mes_comercial"].str[:7]
+    for _c in RECUR_INT_COLS:
+        _rec[_c] = pd.to_numeric(_rec[_c], errors="coerce").fillna(0).astype(int)
+    _rec = _rec[_rec["mes_comercial"] >= "2026-10"]   # H2 FY27 en adelante (lo que muestra el Tracker)
+    recurrencia_compact = to_compact(_rec) if not _rec.empty else None
+except Exception as e:
+    print(f"  WARN Accelerate Recurrence failed: {e} — se reusa el de la corrida anterior")
+    recurrencia_compact = None
+
 print("\n--- FVM Negativo (landing FVM_Negativo) ---")
 # No va a _FAILED_BLOCKS: si una query falla o el FVM total no cuadra contra el del Daily,
 # NO se sube fvm_negativo.json (queda el de la corrida anterior) y el resto del Daily sigue igual.
@@ -1914,6 +1937,10 @@ okr_h2_payload = {
     "b2b_budget_ri": build_okr_h2_budget(df_b2b_budget_ri),
     "b2b_budget_gd": build_okr_h2_budget(df_b2b_budget_gd),
 }
+if recurrencia_compact is None:
+    recurrencia_compact = (_download_json_from_drive(OKR_H2_JSON_FILE_NAME) or {}).get("recurrencia")
+if recurrencia_compact:
+    okr_h2_payload["recurrencia"] = recurrencia_compact   # Accelerate Recurrence (HTML), copia de la card Metabase 171400
 okr_h2_bytes = json.dumps(okr_h2_payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
 
 # Control de cuadre: el NR/FVM del JSON de OKR tiene que ser IGUAL al del JSON principal (misma fuente).

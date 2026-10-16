@@ -3208,28 +3208,24 @@ function computeKRH2Metric_(monthFilter, metricField, predAct, predBud) {
 }
 
 // ── Accelerate Recurrence (KR H2, solo HTML) ─────────────────────────────────────────────────
-// Actual = agencias de alta frecuencia de la card Metabase 171400 (getRecurrencia() en Codigo.js, una fila por
-// semana x país). Del mes se toma la foto de cierre (es_cierre_mes = 1) o, si el mes no cerró,
+// Actual = agencias de alta frecuencia (copia de la card Metabase 171400 que corre daily_sync.py,
+// okr_h2_managerial.json -> "recurrencia", una fila por semana x país). Del mes se toma la foto de cierre
+// (es_cierre_mes = 1) o, si el mes no cerró,
 // la última semana cerrada (estado CIERRE; si no hay ninguna, la última que haya). Actual = mtd_frecuentes_vivas,
 // Rolling L4W = roll_frecuentes_vivas. Target = Input_OKR (getOKRManualB2B2C: recur / recur_pais).
 // En las semanas 1-2 del mes el MTD da 0 por definición: ahí el cumplimiento del KR es Rolling L4W vs Target.
 var okrManualData = null;   // getOKRManualB2B2C().data
-var recurData = null;       // getRecurrencia(): { updated, cols, rows, stale? }
-var recurState = 'loading'; // 'loading' | 'ok' | 'error'
-var recurErr = '';
-var _recurRows = null;
 function normPais_(s) {
   return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase();
 }
 function recurNoDataMsg_() {
-  if (recurState === 'loading') return 'Cargando…';
-  if (recurState === 'error') return 'No se pudo leer la card de frecuencia: ' + recurErr;
-  return 'Sin datos de la card de frecuencia para el mes';
+  if (!okrH2Data) return 'Cargando…';
+  if (!okrH2Data.recurrencia) return 'Sin datos todavía (se cargan en la próxima corrida del daily)';
+  return 'Sin datos de alta frecuencia para el mes';
 }
 function recurH2_(krYM) {
-  if (!recurData) return null;
-  if (!_recurRows) _recurRows = unpack(recurData);
-  var rows = _recurRows;
+  var rows = okrH2Rows_('recurrencia');
+  if (!rows) return null;
   rows = rows.filter(function(r){ return r.mes_comercial === krYM; });
   if (!rows.length) return null;
   var cierre  = rows.filter(function(r){ return +r.es_cierre_mes === 1; });
@@ -3563,8 +3559,7 @@ function recurDetailBox_(krYM) {
     if (!used[k]) body += tr(rec.byPais[k].pais, rec.byPais[k], recurTarget_(krYM, [rec.byPais[k].pais]), false);
   });
   box.innerHTML = head +
-    '<div style="padding:2px 2px 8px;color:#6b7280;font-size:0.72rem">Agencias de alta frecuencia · ' + recurWeekLbl_(rec) +
-    (recurData.stale && !_isSlidesMode ? ' <span style="color:#b45309" title="' + String(recurData.stale).replace(/"/g, '&quot;') + '">· &#9888; último dato guardado (' + String(recurData.updated || '').substring(0, 10) + '), Metabase no respondió</span>' : '') + '</div>' +
+    '<div style="padding:2px 2px 8px;color:#6b7280;font-size:0.72rem">Agencias de alta frecuencia · ' + recurWeekLbl_(rec) + '</div>' +
     '<table class="pivot-table kr-detail-table"><thead><tr>' +
     '<th style="text-align:left;min-width:90px">País</th><th>Actuals</th><th>Target</th><th>% Cumpl.</th><th>Rolling L4W</th><th>Rolling vs Target</th>' +
     '</tr></thead><tbody>' + tr('TOTAL', rec.total, recurTarget_(krYM, null), true) + body + '</tbody></table>';
@@ -4424,17 +4419,6 @@ window.addEventListener('load', () => {
     })
     .withFailureHandler(function() {})
     .getRawOKRH2();
-  // Actual de Accelerate Recurrence (card Metabase 171400, vía Apps Script).
-  google.script.run
-    .withSuccessHandler(function(p) {
-      recurData = p; _recurRows = null; recurState = 'ok';
-      if (rawData) { renderStatusKRsH2(); }
-    })
-    .withFailureHandler(function(e) {
-      recurState = 'error'; recurErr = (e && e.message) || String(e);
-      if (rawData) { renderStatusKRsH2(); }
-    })
-    .getRecurrencia();
   // Target de Accelerate Recurrence (Input_OKR vía okr.json). Si falla, el KR queda sin target.
   google.script.run
     .withSuccessHandler(function(p) {
