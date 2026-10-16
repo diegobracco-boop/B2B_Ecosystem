@@ -554,7 +554,7 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
   min-height:110px;padding:16px 16px 14px;
   background:rgba(255,255,255,.06);backdrop-filter:blur(12px);
   border:1px solid rgba(196,181,253,.16);border-radius:16px;
-  cursor:pointer;text-align:left;
+  cursor:pointer;text-align:left;text-decoration:none;font-family:inherit;
   transition:transform .25s cubic-bezier(.2,.7,.3,1),background .25s,box-shadow .25s;
   animation:bento-in .5s cubic-bezier(.2,.7,.3,1) backwards;
   animation-delay:calc(var(--i,0) * 55ms);
@@ -785,15 +785,22 @@ header .btn-refresh:hover{background:#f5f3ff !important;border-color:#c4b5fd;col
 
       <div class="home-section-group">
         <div class="home-section-label">P&amp;L Managerial View <small>&nbsp;·&nbsp; FVM Projections &amp; Partner View</small></div>
-        <div class="home-bento home-bento-2col">
-          <button class="bento-card" style="--i:0" onclick="goToView('b2b')">
+        <div class="home-bento home-bento-3col">
+          <a class="bento-card" style="--i:0" href="https://ownia.despegar.io/b2b-dashboard" target="_blank" rel="noopener">
+            <div class="bento-kicker">Ownia · externo</div>
+            <div class="bento-icon">🔌</div>
+            <div class="bento-name">B2B API</div>
+            <div class="bento-desc">Dashboard B2B API en Ownia</div>
+            <div class="bento-arrow">↗</div>
+          </a>
+          <button class="bento-card" style="--i:1" onclick="goToView('b2b')">
             <div class="bento-kicker">Managerial · FVM</div>
             <div class="bento-icon" id="home-b2b-icon">💼</div>
             <div class="bento-name">B2B</div>
             <div class="bento-desc">Mayoristas &amp; Minoristas</div>
             <div class="bento-arrow">→</div>
           </button>
-          <button class="bento-card" style="--i:1" onclick="goToView('b2b2c')">
+          <button class="bento-card" style="--i:2" onclick="goToView('b2b2c')">
             <div class="bento-kicker">Managerial · FVM</div>
             <div class="bento-icon">🌎</div>
             <div class="bento-name">B2B2C</div>
@@ -806,7 +813,7 @@ header .btn-refresh:hover{background:#f5f3ff !important;border-color:#c4b5fd;col
       <div class="home-section-group">
         <div class="home-section-label">Conciliación <small>&nbsp;·&nbsp; reales Managerial vs Accounting</small></div>
         <div class="home-bento">
-          <button class="bento-card" style="--i:2" onclick="goToView('vsacc')">
+          <button class="bento-card" style="--i:3" onclick="goToView('vsacc')">
             <div class="bento-kicker">Reales · meses cerrados</div>
             <div class="bento-icon">⚖️</div>
             <div class="bento-name">Managerial vs Accounting</div>
