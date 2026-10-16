@@ -2422,6 +2422,7 @@ function fmtKRVal(val, unit) {
   if (val === null || val === undefined || isNaN(val)) return '—';
   if (unit === 'int') return Math.round(val).toLocaleString('es-AR');
   if (unit === '$M')  return '$ ' + val.toFixed(2) + ' M';
+  if (unit === '$K')  return '$ ' + val.toFixed(1) + ' K';
   return String(val);
 }
 
@@ -3189,6 +3190,17 @@ function isNewProductBudget_(r) {
   return !!B2B_H2_NR_PRODS_TRK[r.producto] ||
          (r.producto === 'Packages General' && isNewProductPkgType_(r.product_type));
 }
+// Apertura de New Products para los recuadros de la vista API: 'flights' (Air/Flights + el componente
+// Vuelos de los paquetes) o 'ds' (Dest. Serv. + parques, excursiones, shows y traslados de los paquetes).
+// null = no es New Product. Flights + Dest. Serv. = New Products (mismo criterio que isNewProduct*_).
+var NP_FLIGHTS_PRODS = { 'Air': 1, 'Flights': 1, 'Flight': 1 };
+var NP_DS_PRODS      = { 'D. Services': 1, 'Dest. Serv.': 1 };
+function npKindOf_(prod, productType) {
+  if (NP_FLIGHTS_PRODS[prod]) return 'flights';
+  if (NP_DS_PRODS[prod]) return 'ds';
+  if (prod === 'Packages General' && isNewProductPkgType_(productType)) return productType === 'Vuelos' ? 'flights' : 'ds';
+  return null;
+}
 
 // Filtro de canal de la vista Status KRs H2: 'total' | 'api' | 'html'.
 var krH2Channel = 'total';
@@ -3502,10 +3514,10 @@ function renderStatusKRsH2DetailBoxes_(monthFilter) {
   if (!grid) return;
   grid.innerHTML = '';
 
-  function makeBox(title, rows) {
+  function makeBox(title, rows, unit) {
     var box = document.createElement('div');
     box.className = 'kr-detail-box';
-    var unit = '$M';
+    unit = unit || '$M';
     var bodyRows = rows.map(function(r){
       var c = cumplRatio(r.actual, r.budget);
       var cStr = c !== null ? (c * 100).toFixed(0) + '%' : '—';
@@ -3549,9 +3561,27 @@ function renderStatusKRsH2DetailBoxes_(monthFilter) {
   grid.appendChild(makeBox('Net Revenues $M' + chLbl, rowsFor('net_revenue', chPred, chPred)));
   if (krH2Channel !== 'html') grid.appendChild(makeBox('API FVM $M',  rowsFor('fvm', isAPI,  isAPI)));
   if (krH2Channel !== 'api')  grid.appendChild(makeBox('HTML FVM $M', rowsFor('fvm', isHTML, isHTML)));
-  grid.appendChild(makeBox('New Products Growth $M' + chLbl, rowsFor('net_revenue', isNPa, isNPb)));
+  if (krH2Channel === 'api') {
+    // En API, New Products se abre en Flights y Dest. Serv. (uno abajo del otro), solo con los países que
+    // tienen datos y en $K (en API son montos chicos). La tabla principal sigue mostrando el conjunto.
+    var inK = function(rows) {
+      return rows.filter(function(r){ return r.actual || r.budget || r.ly; }).map(function(r){
+        return { name: r.name, actual: r.actual * 1000, budget: r.budget * 1000, ly: r.ly * 1000 };
+      });
+    };
+    var npCol = document.createElement('div');
+    npCol.className = 'kr-detail-column';
+    [['flights', 'New Products · Flights $K (API)'], ['ds', 'New Products · Dest. Serv. $K (API)']].forEach(function(k){
+      var pa = andPred_(function(r){ return npKindOf_(r.producto_original, r.product_type) === k[0]; }, chPred);
+      var pb = andPred_(function(r){ return npKindOf_(r.producto, r.product_type) === k[0]; }, chPred);
+      npCol.appendChild(makeBox(k[1], inK(rowsFor('net_revenue', pa, pb)), '$K'));
+    });
+    grid.appendChild(npCol);
+  } else {
+    grid.appendChild(makeBox('New Products Growth $M' + chLbl, rowsFor('net_revenue', isNPa, isNPb)));
+  }
 
-  // Accelerate Recurrence (solo HTML): País | Actuals | Target | % Cumpl. | Rolling L4W | Rolling vs Target.
+  // Accelerate Recurrence (solo HTML): País | Actuals | % Cumpl. | Rolling L4W | Rolling vs Target.
   if (krH2Channel !== 'api') grid.appendChild(recurDetailBox_(_resolveYM(monthFilter)));
 }
 
