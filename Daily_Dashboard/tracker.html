@@ -3548,10 +3548,11 @@ function recurDetailBox_(krYM) {
   var tgtKeys = Object.keys((recurTargets && recurTargets[krYM]) || {}).filter(function(k){ return normPais_(k) !== 'total'; });
   var used = {}, body = '';
   function rowFor(name, paisNames) {
-    var d = { mtd: 0, roll: 0 }, any = false;
+    var d = { mtd: 0, roll: 0 }, any = false, seen = {};
     paisNames.forEach(function(p){
       var k = normPais_(p), x = rec.byPais[k];
-      used[k] = 1;
+      if (seen[k]) return;   // def.pais + def.name pueden repetir el mismo país (ej. Brasil)
+      seen[k] = used[k] = 1;
       if (x) { d.mtd += x.mtd; d.roll += x.roll; any = true; }
     });
     var tgt = recurTarget_(krYM, paisNames);
