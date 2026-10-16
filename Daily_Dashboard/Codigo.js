@@ -1526,16 +1526,18 @@ var OKR_JSON_FILE_ID = '1cEidr8aoYgm4S7ugm05Wv-SMnz8GbtUj';
 var OKR_MANUAL_KRS = { sign:['b2b2c','sign new partnership'], deploy:['b2b2c','deploy new partnership'],
                        ub:['b2b2c','unique buyers'], recur:['b2b','accelerate recurrence'] };
 
-// Devuelve { updated, data: { sign|deploy|ub: { 'YYYY-MM': { act, bud } } } }
+// Devuelve { updated, data: { sign|deploy|ub|recur: { 'YYYY-MM': { act, bud } },
+//                             recur_pais: { 'YYYY-MM': { <Pais de Input_OKR>: { act, bud } } } } }
+// recur_pais es la apertura por país del target de Accelerate Recurrence (Status KRs H2 del Tracker).
 function getOKRManualB2B2C() {
   var file = DriveApp.getFileById(OKR_JSON_FILE_ID);
   var cache = CacheService.getScriptCache();
-  var key = 'okr_manual_b2bc_v2_' + file.getLastUpdated().getTime();   // se invalida solo al subir un okr.json nuevo
+  var key = 'okr_manual_b2bc_v3_' + file.getLastUpdated().getTime();   // se invalida solo al subir un okr.json nuevo
   var hit = cache.get(key);
   if (hit) { try { return JSON.parse(hit); } catch (e) {} }
   var j = JSON.parse(file.getBlob().getDataAsString());
   var c = j.cols, iP = c.indexOf('Periodo'), iE = c.indexOf('Escenario'), iL = c.indexOf('LoB'),
-      iK = c.indexOf('KR'), iV = c.indexOf('Valor');
+      iK = c.indexOf('KR'), iV = c.indexOf('Valor'), iPa = c.indexOf('Pais');
   var data = {};
   (j.rows || []).forEach(function(r) {
     var lob = String(r[iL]).trim().toLowerCase(), kr = String(r[iK]).trim().toLowerCase(), k = null;
@@ -1548,10 +1550,106 @@ function getOKRManualB2B2C() {
     data[k] = data[k] || {};
     data[k][ym] = data[k][ym] || {};
     data[k][ym][esc] = (data[k][ym][esc] || 0) + (Number(r[iV]) || 0);
+    if (k === 'recur' && iPa >= 0) {
+      var pais = String(r[iPa] || '').trim() || 'Total';
+      var rp = data.recur_pais = data.recur_pais || {};
+      rp[ym] = rp[ym] || {};
+      rp[ym][pais] = rp[ym][pais] || {};
+      rp[ym][pais][esc] = (rp[ym][pais][esc] || 0) + (Number(r[iV]) || 0);
+    }
   });
   var payload = { updated: file.getLastUpdated().toISOString(), data: data };
   try { cache.put(key, JSON.stringify(payload), 21600); } catch (e) {}
   return payload;
+}
+
+
+// ============================================================
+// Accelerate Recurrence (KR H2 B2B, solo HTML) — card Metabase 171400
+// ============================================================
+// Agencias de alta frecuencia por semana x país. La lee Apps Script directo de Metabase (no depende de
+// quién corra daily_sync.py). Credencial en Propiedades del script: METABASE_API_KEY (preferido, no vence)
+// o METABASE_SESSION (cookie metabase.SESSION, vence ~2 semanas). Si Metabase falla se devuelve el último
+// dato bueno (guardado en Propiedades del script) con stale = motivo del error.
+var RECUR_CARD_ID   = 171400;
+var RECUR_DESDE     = '2026-10';   // H2 FY27 en adelante
+var RECUR_CACHE_KEY = 'recur_v1';
+var RECUR_LAST_PROP = 'recur_last';
+var RECUR_TXT_COLS  = ['mes_comercial', 'semana_desde', 'semana_hasta', 'fecha_foto', 'estado', 'pais'];
+var RECUR_INT_COLS  = ['semana_del_mes', 'semanas_del_mes', 'es_cierre_mes', 'mtd_frecuentes_vivas', 'roll_frecuentes_vivas'];
+
+// Devuelve { updated, cols, rows, stale? } (formato compacto, como los JSON del daily).
+function getRecurrencia() {
+  var hit = cacheGet_(RECUR_CACHE_KEY);
+  if (hit) { try { return JSON.parse(hit); } catch (e) {} }
+  try {
+    var raw = JSON.stringify(fetchRecurrencia_());
+    cachePut_(RECUR_CACHE_KEY, raw);
+    propsPutChunked_(RECUR_LAST_PROP, raw);
+    return JSON.parse(raw);
+  } catch (e) {
+    Logger.log('getRecurrencia: ' + e.message);
+    var last = propsGetChunked_(RECUR_LAST_PROP);
+    if (!last) throw e;
+    var p = JSON.parse(last);
+    p.stale = e.message;
+    return p;
+  }
+}
+
+function fetchRecurrencia_() {
+  var props = PropertiesService.getScriptProperties();
+  var apiKey = props.getProperty('METABASE_API_KEY'), session = props.getProperty('METABASE_SESSION');
+  if (!apiKey && !session) throw new Error('Falta METABASE_API_KEY (o METABASE_SESSION) en Propiedades del script');
+  var resp = UrlFetchApp.fetch('https://metabase.despegar.com/api/card/' + RECUR_CARD_ID + '/query', {
+    method: 'post', contentType: 'application/json', payload: '{}', muteHttpExceptions: true,
+    headers: apiKey ? { 'x-api-key': apiKey } : { 'X-Metabase-Session': session }
+  });
+  var code = resp.getResponseCode();
+  if (code < 200 || code >= 300) throw new Error('Metabase HTTP ' + code + ': ' + resp.getContentText().substring(0, 200));
+  var res = JSON.parse(resp.getContentText());
+  if (res.error) throw new Error('Metabase: ' + res.error);
+  var names = res.data.cols.map(function(c) { return c.name; });
+  var cols = RECUR_TXT_COLS.concat(RECUR_INT_COLS);
+  var ix = cols.map(function(c) { return names.indexOf(c); });
+  var falta = cols.filter(function(c, i) { return ix[i] < 0; });
+  if (falta.length) throw new Error('La card ' + RECUR_CARD_ID + ' no trae: ' + falta.join(', '));
+  var rows = res.data.rows.map(function(r) {
+    return cols.map(function(c, i) {
+      var v = r[ix[i]];
+      if (RECUR_INT_COLS.indexOf(c) >= 0) return Math.round(Number(v) || 0);
+      v = v === null || v === undefined ? '' : String(v);
+      if (c === 'mes_comercial') return v.substring(0, 7);
+      if (c === 'semana_desde' || c === 'semana_hasta' || c === 'fecha_foto') return v.substring(0, 10);
+      return v;
+    });
+  }).filter(function(r) { return r[0] >= RECUR_DESDE; });
+  return { updated: new Date().toISOString(), cols: cols, rows: rows };
+}
+
+// Propiedades del script: máx. ~9 KB por valor -> se guarda partido.
+function propsPutChunked_(key, raw) {
+  var CH = 8000, n = Math.ceil(raw.length / CH), obj = {};
+  obj[key + '_n'] = String(n);
+  for (var i = 0; i < n; i++) obj[key + '_' + i] = raw.substring(i * CH, (i + 1) * CH);
+  PropertiesService.getScriptProperties().setProperties(obj, false);
+}
+function propsGetChunked_(key) {
+  var p = PropertiesService.getScriptProperties(), n = parseInt(p.getProperty(key + '_n'), 10);
+  if (!n) return null;
+  var parts = [];
+  for (var i = 0; i < n; i++) { var c = p.getProperty(key + '_' + i); if (c === null) return null; parts.push(c); }
+  return parts.join('');
+}
+
+// Correr UNA VEZ desde el editor (▶ Run) después de cargar METABASE_API_KEY en Propiedades del script:
+// autoriza el scope de UrlFetch (sin eso el webapp no puede llamar a Metabase) y prueba la card.
+function probarMetabaseRecurrencia() {
+  var p = fetchRecurrencia_();
+  propsPutChunked_(RECUR_LAST_PROP, JSON.stringify(p));
+  var meses = {};
+  p.rows.forEach(function(r) { meses[r[0]] = (meses[r[0]] || 0) + 1; });
+  Logger.log('OK: ' + p.rows.length + ' filas desde ' + RECUR_DESDE + ' — ' + JSON.stringify(meses));
 }
 
 

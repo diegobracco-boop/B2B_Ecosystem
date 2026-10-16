@@ -1335,7 +1335,7 @@
         <tbody id="statusKRsH2Body"></tbody>
       </table>
     </div>
-    <div style="font-size:0.78rem;color:#9ca3af;margin-top:10px">Targets provisorios = Budget MTD · "Accelerate Recurrence" es TBD (definición y datos pendientes).</div>
+    <div style="font-size:0.78rem;color:#9ca3af;margin-top:10px">Targets provisorios = Budget MTD · Accelerate Recurrence (solo HTML): agencias de alta frecuencia (Metabase 171400) vs target mensual de Input_OKR; en las semanas 1-2 del mes el MTD da 0 y el cumplimiento se toma de Rolling L4W vs Target.</div>
     <div class="kr-detail-grid" id="statusKRsH2DetailGrid"></div>
   </div>
 </div>
@@ -3207,6 +3207,83 @@ function computeKRH2Metric_(monthFilter, metricField, predAct, predBud) {
   return { actual: actual, budget: budget };
 }
 
+// ── Accelerate Recurrence (KR H2, solo HTML) ─────────────────────────────────────────────────
+// Actual = agencias de alta frecuencia de la card Metabase 171400 (getRecurrencia() en Codigo.js, una fila por
+// semana x país). Del mes se toma la foto de cierre (es_cierre_mes = 1) o, si el mes no cerró,
+// la última semana cerrada (estado CIERRE; si no hay ninguna, la última que haya). Actual = mtd_frecuentes_vivas,
+// Rolling L4W = roll_frecuentes_vivas. Target = Input_OKR (getOKRManualB2B2C: recur / recur_pais).
+// En las semanas 1-2 del mes el MTD da 0 por definición: ahí el cumplimiento del KR es Rolling L4W vs Target.
+var okrManualData = null;   // getOKRManualB2B2C().data
+var recurData = null;       // getRecurrencia(): { updated, cols, rows, stale? }
+var recurState = 'loading'; // 'loading' | 'ok' | 'error'
+var recurErr = '';
+var _recurRows = null;
+function normPais_(s) {
+  return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase();
+}
+function recurNoDataMsg_() {
+  if (recurState === 'loading') return 'Cargando…';
+  if (recurState === 'error') return 'No se pudo leer la card de frecuencia: ' + recurErr;
+  return 'Sin datos de la card de frecuencia para el mes';
+}
+function recurH2_(krYM) {
+  if (!recurData) return null;
+  if (!_recurRows) _recurRows = unpack(recurData);
+  var rows = _recurRows;
+  rows = rows.filter(function(r){ return r.mes_comercial === krYM; });
+  if (!rows.length) return null;
+  var cierre  = rows.filter(function(r){ return +r.es_cierre_mes === 1; });
+  var cerradas = rows.filter(function(r){ return r.estado === 'CIERRE'; });
+  var pool = cierre.length ? cierre : (cerradas.length ? cerradas : rows);
+  var sem = pool.reduce(function(m, r){ return Math.max(m, +r.semana_del_mes || 0); }, 0);
+  var wk = pool.filter(function(r){ return (+r.semana_del_mes || 0) === sem; });
+  var byPais = {}, tot = { mtd: 0, roll: 0 };
+  wk.forEach(function(r){
+    var k = normPais_(r.pais);
+    byPais[k] = byPais[k] || { pais: r.pais, mtd: 0, roll: 0 };
+    byPais[k].mtd  += +r.mtd_frecuentes_vivas  || 0;
+    byPais[k].roll += +r.roll_frecuentes_vivas || 0;
+    tot.mtd  += +r.mtd_frecuentes_vivas  || 0;
+    tot.roll += +r.roll_frecuentes_vivas || 0;
+  });
+  var w0 = wk[0];
+  return { semana: sem, semanas: +w0.semanas_del_mes || null, desde: w0.semana_desde, hasta: w0.semana_hasta,
+           estado: w0.estado, cierreMes: cierre.length > 0, byPais: byPais, total: tot };
+}
+// Target de Input_OKR. paisNames = nombres posibles del país (null = total del KR).
+function recurTarget_(krYM, paisNames) {
+  var d = okrManualData;
+  if (!d) return null;
+  var rp = (d.recur_pais && d.recur_pais[krYM]) || {};
+  var keys = Object.keys(rp);
+  function bud(k){ return (rp[k] && rp[k].bud !== undefined) ? rp[k].bud : null; }
+  if (!paisNames) {
+    var kTot = keys.filter(function(k){ return ['total', 'all', 'b2b', 'html'].indexOf(normPais_(k)) !== -1; })[0];
+    if (kTot) return bud(kTot);
+    var m = d.recur && d.recur[krYM];
+    return (m && m.bud !== undefined) ? m.bud : null;
+  }
+  var want = paisNames.map(normPais_);
+  var hit = keys.filter(function(k){ return want.indexOf(normPais_(k)) !== -1; });
+  if (!hit.length) return null;
+  var s = 0, any = false;
+  hit.forEach(function(k){ var b = bud(k); if (b !== null) { s += b; any = true; } });
+  return any ? s : null;
+}
+// Cumplimiento del KR: MTD vs Target; si da 0 (semanas 1-2), Rolling L4W vs Target.
+function recurCumpl_(mtd, roll, target) {
+  var cMtd  = realScore_(mtd, target);
+  var cRoll = realScore_(roll, target);
+  var useRoll = (cMtd === 0 && cRoll !== null);
+  return { mtd: cMtd, roll: cRoll, shown: useRoll ? cRoll : cMtd, useRoll: useRoll,
+           score: okrScore_(useRoll ? roll : mtd, target) };
+}
+function recurWeekLbl_(rec) {
+  function dm(s){ return s ? s.substring(8, 10) + '/' + s.substring(5, 7) : ''; }
+  return 'Semana ' + rec.semana + (rec.semanas ? '/' + rec.semanas : '') + ' (' + dm(rec.desde) + '–' + dm(rec.hasta) + ')' +
+         (rec.cierreMes ? ' · foto de cierre del mes' : rec.estado === 'CIERRE' ? '' : ' · en curso');
+}
+
 function renderStatusKRsH2() {
   var spinner = document.getElementById('statusKRsH2Spinner');
   var wrap    = document.getElementById('statusKRsH2Wrap');
@@ -3315,14 +3392,29 @@ function renderStatusKRsH2() {
   if (chShow !== 'api')  tbody.appendChild(row('HTML FVM $M', '20%', fvmHtml, htmlCDisp));
   tbody.appendChild(row('New Products Growth $M' + chLbl, '15%', nrfd,    npCDisp));
 
-  // Accelerate Recurrence — TBD (placeholder, definición y datos pendientes).
-  // Se muestra también en las vistas API / HTML (espacio reservado por canal).
-  var trTBD = document.createElement('tr');
-  trTBD.innerHTML =
-    '<td style="text-align:left">Accelerate Recurrence' + chLbl + ' <span class="kr-warning-tag" title="Definición y datos pendientes">TBD</span></td>' +
-    '<td style="color:#6b7280;font-size:0.78rem">15%</td>' +
-    '<td colspan="3" style="text-align:center;color:#9ca3af;font-style:italic">Pendiente de definición</td>';
-  tbody.appendChild(trTBD);
+  // Accelerate Recurrence — solo canal HTML: en Total y HTML (en la vista API no aplica).
+  var rec = recurH2_(krYM), recC = null;
+  if (chShow !== 'api') {
+    var trRec = document.createElement('tr');
+    var recName = '<td style="text-align:left">Accelerate Recurrence <span style="color:#6b7280;font-size:0.72rem">(HTML)</span></td>' +
+                  '<td style="color:#6b7280;font-size:0.78rem">15%</td>';
+    if (!rec) {
+      trRec.innerHTML = recName +
+        '<td colspan="3" style="text-align:center;color:#9ca3af;font-style:italic">' + recurNoDataMsg_() + '</td>';
+    } else {
+      var recBud = recurTarget_(krYM, null);
+      recC = recurCumpl_(rec.total.mtd, rec.total.roll, recBud);
+      var rollNote = recC.useRoll
+        ? ' <span style="color:#6b7280;font-size:0.72rem" title="MTD en 0: cumplimiento = Rolling L4W vs Target">· L4W ' + fmtKRVal(rec.total.roll, 'int') + '</span>'
+        : '';
+      var cStrRec = recC.shown !== null ? (recC.shown * 100).toFixed(0) + '%' + (recC.useRoll ? ' <span style="font-size:0.68rem">L4W</span>' : '') : '—';
+      trRec.innerHTML = recName +
+        '<td>' + fmtKRVal(rec.total.mtd, 'int') + rollNote + '</td>' +
+        '<td>' + fmtKRVal(recBud, 'int') + '</td>' +
+        cumplCellHtml(recC.shown, cStrRec, false);
+    }
+    tbody.appendChild(trRec);
+  }
 
   if (chShow !== 'total') {
     // Vista filtrada: sin OVERALL (el ponderado solo aplica al Total).
@@ -3332,8 +3424,9 @@ function renderStatusKRsH2() {
   }
 
   // Overall ponderado — normaliza sobre los KRs con cumplimiento disponible
-  // (excluye Accelerate Recurrence mientras sea TBD).
-  var weights = [ {c:nrC,w:0.30}, {c:apiC,w:0.20}, {c:htmlC,w:0.20}, {c:npC,w:0.15} ];
+  // (Accelerate Recurrence entra cuando tiene datos y target).
+  var recScore = recC ? recC.score : null;
+  var weights = [ {c:nrC,w:0.30}, {c:apiC,w:0.20}, {c:htmlC,w:0.20}, {c:npC,w:0.15}, {c:recScore,w:0.15} ];
   var wSum = 0, wCump = 0;
   weights.forEach(function(k){ if (k.c !== null) { wSum += k.w; wCump += k.c * k.w; } });
   var overall = wSum > 0 ? Math.min(wCump / wSum, 1.30) : null;
@@ -3341,8 +3434,8 @@ function renderStatusKRsH2() {
   var trTotal = document.createElement('tr');
   trTotal.className = 'row-kr-total';
   trTotal.innerHTML =
-    '<td style="text-align:left">OVERALL <span style="color:#9ca3af;font-weight:400;font-size:0.72rem">(excl. TBD)</span></td>' +
-    '<td style="color:#6b7280;font-size:0.78rem">85%</td>' +
+    '<td style="text-align:left">OVERALL' + (recScore === null ? ' <span style="color:#9ca3af;font-weight:400;font-size:0.72rem">(excl. Recurrence)</span>' : '') + '</td>' +
+    '<td style="color:#6b7280;font-size:0.78rem">' + (recScore === null ? '85%' : '100%') + '</td>' +
     '<td>—</td><td>—</td>' +
     cumplCellHtml(overall, overallStr, false);
   tbody.appendChild(trTotal);
@@ -3431,26 +3524,51 @@ function renderStatusKRsH2DetailBoxes_(monthFilter) {
   if (krH2Channel !== 'api')  grid.appendChild(makeBox('HTML FVM $M', rowsFor('fvm', isHTML, isHTML)));
   grid.appendChild(makeBox('New Products Growth $M' + chLbl, rowsFor('net_revenue', isNPa, isNPb)));
 
-  // Accelerate Recurrence — formato propuesto (datos pendientes de cálculo):
-  // agencias que compraron 1 / 2 / 3+ semanas distintas dentro del mes, por país.
-  var recBox = document.createElement('div');
-  recBox.className = 'kr-detail-box';
-  var recBuckets = ['1 semana', '2 semanas', '3 o más semanas'];
-  var recHead = '<thead><tr><th style="text-align:left;min-width:90px">País</th>' +
-    recBuckets.map(function(b){ return '<th>' + b + '</th>'; }).join('') + '</tr></thead>';
-  var recPlaceholder = recBuckets.map(function(){ return '<td style="color:#9ca3af">—</td>'; }).join('');
-  var recTotalRow = '<tr class="kr-detail-total"><td style="text-align:left;font-weight:700">TOTAL</td>' +
-    recBuckets.map(function(){ return '<td><strong style="color:#9ca3af">—</strong></td>'; }).join('') + '</tr>';
-  var recBodyRows = FVM_DETAIL.map(function(def){
-    return '<tr><td style="text-align:left">' + def.name + '</td>' + recPlaceholder + '</tr>';
-  }).join('');
-  recBox.innerHTML =
-    '<div class="kr-detail-header"><span class="kr-num-badge">Accelerate Recurrence' + chLbl + '</span>' +
-    '<span class="kr-warning-tag" title="Formato propuesto — cálculo de datos pendiente" style="margin-left:6px">datos TBD</span></div>' +
-    '<div style="padding:2px 2px 8px;color:#6b7280;font-size:0.72rem">Agencias que compraron 1 / 2 / 3+ semanas distintas en el mes, por país.</div>' +
-    '<table class="pivot-table kr-detail-table">' + recHead +
-    '<tbody>' + recTotalRow + recBodyRows + '</tbody></table>';
-  grid.appendChild(recBox);
+  // Accelerate Recurrence (solo HTML): País | Actuals | Target | % Cumpl. | Rolling L4W | Rolling vs Target.
+  if (krH2Channel !== 'api') grid.appendChild(recurDetailBox_(_resolveYM(monthFilter)));
+}
+
+function recurDetailBox_(krYM) {
+  var box = document.createElement('div');
+  box.className = 'kr-detail-box';
+  var rec = recurH2_(krYM);
+  var head = '<div class="kr-detail-header"><span class="kr-num-badge">Accelerate Recurrence (HTML)</span></div>';
+  if (!rec) {
+    box.innerHTML = head + '<div style="padding:8px 2px;color:#9ca3af;font-size:0.78rem;font-style:italic">' +
+      recurNoDataMsg_() + '</div>';
+    return box;
+  }
+  function pct(c){ return c !== null ? (c * 100).toFixed(0) + '%' : '—'; }
+  function tr(name, d, target, bold) {
+    var c = recurCumpl_(d.mtd, d.roll, target);
+    var b = function(s){ return bold ? '<strong>' + s + '</strong>' : s; };
+    return '<tr' + (bold ? ' class="kr-detail-total"' : '') + '><td style="text-align:left' + (bold ? ';font-weight:700' : '') + '">' + name + '</td>' +
+      '<td>' + b(fmtKRVal(d.mtd, 'int')) + '</td>' +
+      '<td>' + b(fmtKRVal(target, 'int')) + '</td>' +
+      cumplCellHtml(c.mtd, pct(c.mtd), bold) +
+      '<td>' + b(fmtKRVal(d.roll, 'int')) + '</td>' +
+      cumplCellHtml(c.roll, pct(c.roll), bold) + '</tr>';
+  }
+  // Orden de FVM_DETAIL (Other Countries = Globales); los países de la card que no estén ahí van al final.
+  var used = {}, body = '';
+  FVM_DETAIL.forEach(function(def){
+    var d = { mtd: 0, roll: 0 }, any = false;
+    def.pais.forEach(function(p){
+      var k = normPais_(p), x = rec.byPais[k];
+      if (x) { d.mtd += x.mtd; d.roll += x.roll; any = true; used[k] = 1; }
+    });
+    if (any) body += tr(def.name, d, recurTarget_(krYM, def.pais.concat([def.name])), false);
+  });
+  Object.keys(rec.byPais).forEach(function(k){
+    if (!used[k]) body += tr(rec.byPais[k].pais, rec.byPais[k], recurTarget_(krYM, [rec.byPais[k].pais]), false);
+  });
+  box.innerHTML = head +
+    '<div style="padding:2px 2px 8px;color:#6b7280;font-size:0.72rem">Agencias de alta frecuencia · ' + recurWeekLbl_(rec) +
+    (recurData.stale && !_isSlidesMode ? ' <span style="color:#b45309" title="' + String(recurData.stale).replace(/"/g, '&quot;') + '">· &#9888; último dato guardado (' + String(recurData.updated || '').substring(0, 10) + '), Metabase no respondió</span>' : '') + '</div>' +
+    '<table class="pivot-table kr-detail-table"><thead><tr>' +
+    '<th style="text-align:left;min-width:90px">País</th><th>Actuals</th><th>Target</th><th>% Cumpl.</th><th>Rolling L4W</th><th>Rolling vs Target</th>' +
+    '</tr></thead><tbody>' + tr('TOTAL', rec.total, recurTarget_(krYM, null), true) + body + '</tbody></table>';
+  return box;
 }
 
 // ─────────────────────────────────────────────
@@ -4306,6 +4424,25 @@ window.addEventListener('load', () => {
     })
     .withFailureHandler(function() {})
     .getRawOKRH2();
+  // Actual de Accelerate Recurrence (card Metabase 171400, vía Apps Script).
+  google.script.run
+    .withSuccessHandler(function(p) {
+      recurData = p; _recurRows = null; recurState = 'ok';
+      if (rawData) { renderStatusKRsH2(); }
+    })
+    .withFailureHandler(function(e) {
+      recurState = 'error'; recurErr = (e && e.message) || String(e);
+      if (rawData) { renderStatusKRsH2(); }
+    })
+    .getRecurrencia();
+  // Target de Accelerate Recurrence (Input_OKR vía okr.json). Si falla, el KR queda sin target.
+  google.script.run
+    .withSuccessHandler(function(p) {
+      okrManualData = (p && p.data) || null;
+      if (rawData) { renderStatusKRsH2(); }
+    })
+    .withFailureHandler(function(e) { console.error('getOKRManualB2B2C falló:', e); })
+    .getOKRManualB2B2C();
 });
 </script>
 </body>
