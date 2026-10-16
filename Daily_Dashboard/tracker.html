@@ -902,6 +902,7 @@
     border-radius: 10px;
     padding: 12px 14px;
     min-width: 200px;
+    min-width: max(200px, min-content);   /* nunca más angosto que su tabla: si no entra, pasa a otra fila (no se pisa con el de al lado) */
     box-shadow: 0 2px 6px rgba(99,102,241,0.07);
   }
   .kr-detail-header {
@@ -960,7 +961,7 @@
   }
   /* Accelerate Recurrence (Status KRs H2): 6 columnas -> más ancho que los otros recuadros,
      encabezados en 2 líneas y celdas compactas para que entre sin scroll (pantalla y slides). */
-  .kr-detail-box.kr-detail-box--recur { flex: 1.7 1 360px; min-width: 0; }
+  .kr-detail-box.kr-detail-box--recur { flex: 1.4 1 320px; }
   .kr-detail-box--recur .kr-detail-table { table-layout: auto; }
   .kr-detail-box--recur .kr-detail-table th { white-space: normal; line-height: 1.15; vertical-align: bottom; font-size: 0.68rem; }
   .kr-detail-box--recur .kr-detail-table td,
@@ -3151,6 +3152,7 @@ function renderKRDetailBoxes(monthFilter) {
     return { name: def.name, actual: toM(d.actual), budget: toM(d.budget), ly: toM(d.ly) };
   });
   grid.appendChild(makeDetailBox(5, 'Financial Variable Margin $M', kr5Rows, '$M', null, true));
+  fitKrDetailGrid_(grid);
 }
 
 // ─────────────────────────────────────────────
@@ -3445,6 +3447,28 @@ function renderStatusKRsH2() {
 
   renderStatusKRsH2DetailBoxes_(krYM);
   wrap.style.display = 'block';
+  fitKrDetailGrid_(document.getElementById('statusKRsH2DetailGrid'));
+}
+
+// Slides: si algún recuadro de KR no entra (su tabla es más ancha que el recuadro) o la grilla se pasa
+// del borde de abajo de la slide, achica la grilla con zoom hasta que entre (mínimo 60%). En pantalla
+// no hace nada: ahí los recuadros no bajan de su ancho mínimo (min-width: min-content) y pasan a otra fila.
+function fitKrDetailGrid_(grid) {
+  if (!grid) return;
+  grid.style.zoom = '';
+  if (!_isSlidesMode) return;
+  requestAnimationFrame(function() {
+    var slide = document.getElementById('slideContent');
+    if (!grid.offsetHeight || !slide) return;
+    function overflows() {
+      for (var i = 0; i < grid.children.length; i++) {
+        var b = grid.children[i];
+        if (b.scrollWidth > b.clientWidth + 1) return true;
+      }
+      return grid.getBoundingClientRect().bottom > slide.getBoundingClientRect().bottom - 4;
+    }
+    for (var z = 0.95; z >= 0.6 && overflows(); z -= 0.05) grid.style.zoom = z.toFixed(2);
+  });
 }
 
 // Igual que computeMetricForPaisList pero con predicado por fila (canal/producto).
@@ -3547,7 +3571,6 @@ function recurDetailBox_(krYM) {
     var b = function(s){ return bold ? '<strong>' + s + '</strong>' : s; };
     return '<tr' + (bold ? ' class="kr-detail-total"' : '') + '><td style="text-align:left' + (bold ? ';font-weight:700' : '') + '">' + name + '</td>' +
       '<td>' + b(fmtKRVal(d.mtd, 'int')) + '</td>' +
-      '<td>' + b(fmtKRVal(target, 'int')) + '</td>' +
       cumplCellHtml(c.mtd, pct(c.mtd), bold) +
       '<td>' + b(fmtKRVal(d.roll, 'int')) + '</td>' +
       cumplCellHtml(c.roll, pct(c.roll), bold) + '</tr>';
@@ -3575,7 +3598,7 @@ function recurDetailBox_(krYM) {
   box.innerHTML = head +
     '<div style="padding:2px 2px 8px;color:#6b7280;font-size:0.72rem">Agencias de alta frecuencia · ' + recurWeekLbl_(rec) + '</div>' +
     '<table class="pivot-table kr-detail-table"><thead><tr>' +
-    '<th style="text-align:left">País</th><th>Actuals</th><th>Target</th><th>% Cumpl.</th><th>Rolling<br>L4W</th><th>Rolling<br>vs Target</th>' +
+    '<th style="text-align:left">País</th><th>Actuals</th><th>% Cumpl.</th><th>Rolling<br>L4W</th><th>Rolling<br>vs Target</th>' +
     '</tr></thead><tbody>' + tr('TOTAL', rec.total, recurTarget_(krYM, null), true) + body + '</tbody></table>';
   return box;
 }

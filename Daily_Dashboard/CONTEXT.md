@@ -19,9 +19,16 @@ Datalake (Treasure Data vía ODBC)
       ├── daily_b2b2c_data.json
       ├── daily_b2b_data.json
       ├── okr_h2_managerial.json
+      ├── recurrencia_b2b.json ← Accelerate Recurrence (Status KRs H2 del Tracker), ver abajo
       └── fvm_negativo.json   ← lo lee la landing FVM_Negativo/ (no este dashboard)
   → dashboard GAS lee los JSON y renderiza
 ```
+
+`recurrencia_b2b.json`: agencias HTML de alta frecuencia por semana comercial × país. La query es copia de la
+card Metabase 171400 (`recurrencia_alta_frecuencia.sql`; si cambia en Metabase, pegar el SQL nuevo ahí). Lo arma
+`recurrencia_sync.py`, que `daily_sync.py` llama en cada corrida (subida no fatal) y que también se corre solo para
+actualizar únicamente este dato: `python recurrencia_sync.py` (`--no-upload` = solo ver los números). El target
+por país lo lee Apps Script directo de Input_OKR (`getRecurTargets`), porque okr.json trae solo el Total.
 
 `fvm_negativo.json`: tres queries extra (`build_b2b_fvm_neg_query`, `build_b2b2c_fvm_neg_query`) que reusan
 las piezas de las queries B2B/B2B2C de arriba con `transaction_code` en la apertura. Si fallan o su FVM total no
