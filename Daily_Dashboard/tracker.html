@@ -3537,19 +3537,25 @@ function recurDetailBox_(krYM) {
       '<td>' + b(fmtKRVal(d.roll, 'int')) + '</td>' +
       cumplCellHtml(c.roll, pct(c.roll), bold) + '</tr>';
   }
-  // Orden de FVM_DETAIL (Other Countries = Globales); los países de la card que no estén ahí van al final.
+  // Orden de FVM_DETAIL (Other Countries = Globales) + "No Gestionadas" (solo tiene target en Input_OKR;
+  // la card no la separa). Se muestra cada fila que tenga actual o target; lo que falte va con "—".
+  // Países de la card o de la sheet que no estén en la lista van al final.
+  var defs = FVM_DETAIL.concat([{ name: 'No Gestionadas', pais: ['No Gestionadas'] }]);
+  var tgtKeys = Object.keys((recurTargets && recurTargets[krYM]) || {}).filter(function(k){ return normPais_(k) !== 'total'; });
   var used = {}, body = '';
-  FVM_DETAIL.forEach(function(def){
+  function rowFor(name, paisNames) {
     var d = { mtd: 0, roll: 0 }, any = false;
-    def.pais.forEach(function(p){
+    paisNames.forEach(function(p){
       var k = normPais_(p), x = rec.byPais[k];
-      if (x) { d.mtd += x.mtd; d.roll += x.roll; any = true; used[k] = 1; }
+      used[k] = 1;
+      if (x) { d.mtd += x.mtd; d.roll += x.roll; any = true; }
     });
-    if (any) body += tr(def.name, d, recurTarget_(krYM, def.pais.concat([def.name])), false);
-  });
-  Object.keys(rec.byPais).forEach(function(k){
-    if (!used[k]) body += tr(rec.byPais[k].pais, rec.byPais[k], recurTarget_(krYM, [rec.byPais[k].pais]), false);
-  });
+    var tgt = recurTarget_(krYM, paisNames);
+    if (any || tgt !== null) body += tr(name, any ? d : { mtd: null, roll: null }, tgt, false);
+  }
+  defs.forEach(function(def){ rowFor(def.name, def.pais.concat([def.name])); });
+  Object.keys(rec.byPais).forEach(function(k){ if (!used[k]) rowFor(rec.byPais[k].pais, [rec.byPais[k].pais]); });
+  tgtKeys.forEach(function(k){ if (!used[normPais_(k)]) rowFor(k, [k]); });
   box.innerHTML = head +
     '<div style="padding:2px 2px 8px;color:#6b7280;font-size:0.72rem">Agencias de alta frecuencia · ' + recurWeekLbl_(rec) + '</div>' +
     '<table class="pivot-table kr-detail-table"><thead><tr>' +
