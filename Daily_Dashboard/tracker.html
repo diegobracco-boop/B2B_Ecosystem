@@ -3213,10 +3213,10 @@ function renderStatusKRsH2() {
   if (!rawData) { spinner.style.display = 'flex'; wrap.style.display = 'none'; return; }
   spinner.style.display = 'none';
 
-  if (_isSlidesMode && krH2Channel !== 'total') {   // el export a slides siempre sale con la vista Total
-    krH2Channel = 'total';
+  if (_isSlidesMode && krH2Channel !== _slideKRH2Channel) {   // en slides el canal lo fija la slide (Total / API / HTML)
+    krH2Channel = _slideKRH2Channel;
     document.querySelectorAll('#krH2ChannelBtns .kr-ch-btn').forEach(function(b) {
-      b.classList.toggle('active', b.getAttribute('data-ch') === 'total');
+      b.classList.toggle('active', b.getAttribute('data-ch') === krH2Channel);
     });
   }
 
@@ -3228,8 +3228,9 @@ function renderStatusKRsH2() {
 
   var _krsH2TitleEl = document.getElementById('statusKRsH2Title');
   if (_isSlidesMode) {
+    var _slideChLbl = krH2Channel === 'api' ? ' · API' : krH2Channel === 'html' ? ' · HTML' : '';
     _krsH2TitleEl.innerHTML =
-      '<b>OKRs H2 MTD vs Budget | ' + formatYMEn(krYM) + '</b> — <i>Managerial Information</i>';
+      '<b>OKRs H2' + _slideChLbl + ' MTD vs Budget | ' + formatYMEn(krYM) + '</b> — <i>Managerial Information</i>';
   } else {
     _krsH2TitleEl.textContent =
       'Status KRs H2 — ' + formatYM(krYM) + (isCurrentMonth ? ' (MTD)' : ' (mes completo)');
@@ -3862,11 +3863,16 @@ document.getElementById('btnClear').addEventListener('click', () => {
 var _isSlidesMode = false;
 var _slideIdx     = 0;
 var _slideChannel = null; // canal fijo de la slide activa (null = usa el filtro de Canal)
+var _slideKRH2Channel = 'total'; // canal de Status KRs H2 en la slide activa ('total' | 'api' | 'html')
+var _krH2ChannelBeforeSlides = 'total'; // filtro de canal H2 del usuario al entrar a slides
 
 // `channel` (opcional): fija el canal de la slide ('API' | 'Agencias afiliadas' = HTML).
+// `krChannel` (opcional, solo Status KRs H2): 'api' | 'html' (default 'total').
 const SLIDE_ORDER = [
   { tab: 'agencias',    title: 'Status KRs H1'                                                  },
   { tab: 'agencias_h2', title: 'Status KRs H2'                                                  },
+  { tab: 'agencias_h2', krChannel: 'api',  title: 'Status KRs H2 · API'                         },
+  { tab: 'agencias_h2', krChannel: 'html', title: 'Status KRs H2 · HTML'                        },
   { tab: 'globales',    title: 'KRs Globales'                                                   },
   { isCover: true,     title: 'Recognition Date', subtitle: 'Gross Bookings · Net Revenue · FVM' },
   { tab: 'gb_ri',      title: 'Gross Bookings — RI'                                             },
@@ -3977,6 +3983,7 @@ function toggleSlidesMode() {
   var btn = document.getElementById('slidesModeBtn');
   var nav = document.getElementById('slidesNavBar');
   if (_isSlidesMode) {
+    _krH2ChannelBeforeSlides = krH2Channel;   // se restaura al salir (las slides H2 fuerzan canal)
     btn.classList.add('active');
     btn.textContent = '⏸ Slides';
     nav.classList.add('active');
@@ -3987,6 +3994,11 @@ function toggleSlidesMode() {
     btn.textContent = '▶ Slides';
     nav.classList.remove('active');
     document.getElementById('slideCover').classList.remove('active');
+    _slideKRH2Channel = 'total';
+    krH2Channel = _krH2ChannelBeforeSlides;
+    document.querySelectorAll('#krH2ChannelBtns .kr-ch-btn').forEach(function(b) {
+      b.classList.toggle('active', b.getAttribute('data-ch') === krH2Channel);
+    });
     render(); // restaurar vista normal (oculta portada/split al salir)
   }
 }
@@ -4007,6 +4019,7 @@ function _goToSlide(idx) {
   _slideIdx = idx;
   var slide = SLIDE_ORDER[idx];
   _slideChannel = slide.channel || null;
+  _slideKRH2Channel = slide.krChannel || 'total';
   var coverEl = document.getElementById('slideCover');
   document.getElementById('splitContent').classList.remove('visible');
 
