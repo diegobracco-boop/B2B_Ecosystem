@@ -3212,9 +3212,9 @@ function computeKRH2Metric_(monthFilter, metricField, predAct, predBud) {
 // okr_h2_managerial.json -> "recurrencia", una fila por semana x país). Del mes se toma la foto de cierre
 // (es_cierre_mes = 1) o, si el mes no cerró,
 // la última semana cerrada (estado CIERRE; si no hay ninguna, la última que haya). Actual = mtd_frecuentes_vivas,
-// Rolling L4W = roll_frecuentes_vivas. Target = Input_OKR (getOKRManualB2B2C: recur / recur_pais).
+// Rolling L4W = roll_frecuentes_vivas. Target = Input_OKR por país (getRecurTargets en Codigo.js).
 // En las semanas 1-2 del mes el MTD da 0 por definición: ahí el cumplimiento del KR es Rolling L4W vs Target.
-var okrManualData = null;   // getOKRManualB2B2C().data
+var recurTargets = null;    // getRecurTargets(): { 'YYYY-MM': { Pais: target } }
 function normPais_(s) {
   return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase();
 }
@@ -3246,24 +3246,16 @@ function recurH2_(krYM) {
   return { semana: sem, semanas: +w0.semanas_del_mes || null, desde: w0.semana_desde, hasta: w0.semana_hasta,
            estado: w0.estado, cierreMes: cierre.length > 0, byPais: byPais, total: tot };
 }
-// Target de Input_OKR. paisNames = nombres posibles del país (null = total del KR).
+// Target de Input_OKR (getRecurTargets: { ym: { Pais: valor } }, con fila 'Total').
+// paisNames = nombres posibles del país (null = Total del KR).
 function recurTarget_(krYM, paisNames) {
-  var d = okrManualData;
-  if (!d) return null;
-  var rp = (d.recur_pais && d.recur_pais[krYM]) || {};
-  var keys = Object.keys(rp);
-  function bud(k){ return (rp[k] && rp[k].bud !== undefined) ? rp[k].bud : null; }
-  if (!paisNames) {
-    var kTot = keys.filter(function(k){ return ['total', 'all', 'b2b', 'html'].indexOf(normPais_(k)) !== -1; })[0];
-    if (kTot) return bud(kTot);
-    var m = d.recur && d.recur[krYM];
-    return (m && m.bud !== undefined) ? m.bud : null;
-  }
-  var want = paisNames.map(normPais_);
-  var hit = keys.filter(function(k){ return want.indexOf(normPais_(k)) !== -1; });
-  if (!hit.length) return null;
+  var rp = recurTargets && recurTargets[krYM];
+  if (!rp) return null;
+  var want = (paisNames || ['Total']).map(normPais_);
   var s = 0, any = false;
-  hit.forEach(function(k){ var b = bud(k); if (b !== null) { s += b; any = true; } });
+  Object.keys(rp).forEach(function(k){
+    if (want.indexOf(normPais_(k)) !== -1) { s += +rp[k] || 0; any = true; }
+  });
   return any ? s : null;
 }
 // Cumplimiento del KR: MTD vs Target; si da 0 (semanas 1-2), Rolling L4W vs Target.
@@ -4419,14 +4411,14 @@ window.addEventListener('load', () => {
     })
     .withFailureHandler(function() {})
     .getRawOKRH2();
-  // Target de Accelerate Recurrence (Input_OKR vía okr.json). Si falla, el KR queda sin target.
+  // Target de Accelerate Recurrence por país (Input_OKR). Si falla, el KR queda sin target.
   google.script.run
-    .withSuccessHandler(function(p) {
-      okrManualData = (p && p.data) || null;
+    .withSuccessHandler(function(t) {
+      recurTargets = t || null;
       if (rawData) { renderStatusKRsH2(); }
     })
-    .withFailureHandler(function(e) { console.error('getOKRManualB2B2C falló:', e); })
-    .getOKRManualB2B2C();
+    .withFailureHandler(function(e) { console.error('getRecurTargets falló:', e); })
+    .getRecurTargets();
 });
 </script>
 </body>

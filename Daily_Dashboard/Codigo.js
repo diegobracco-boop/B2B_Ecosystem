@@ -1526,18 +1526,16 @@ var OKR_JSON_FILE_ID = '1cEidr8aoYgm4S7ugm05Wv-SMnz8GbtUj';
 var OKR_MANUAL_KRS = { sign:['b2b2c','sign new partnership'], deploy:['b2b2c','deploy new partnership'],
                        ub:['b2b2c','unique buyers'], recur:['b2b','accelerate recurrence'] };
 
-// Devuelve { updated, data: { sign|deploy|ub|recur: { 'YYYY-MM': { act, bud } },
-//                             recur_pais: { 'YYYY-MM': { <Pais de Input_OKR>: { act, bud } } } } }
-// recur_pais es la apertura por país del target de Accelerate Recurrence (Status KRs H2 del Tracker).
+// Devuelve { updated, data: { sign|deploy|ub: { 'YYYY-MM': { act, bud } } } }
 function getOKRManualB2B2C() {
   var file = DriveApp.getFileById(OKR_JSON_FILE_ID);
   var cache = CacheService.getScriptCache();
-  var key = 'okr_manual_b2bc_v3_' + file.getLastUpdated().getTime();   // se invalida solo al subir un okr.json nuevo
+  var key = 'okr_manual_b2bc_v2_' + file.getLastUpdated().getTime();   // se invalida solo al subir un okr.json nuevo
   var hit = cache.get(key);
   if (hit) { try { return JSON.parse(hit); } catch (e) {} }
   var j = JSON.parse(file.getBlob().getDataAsString());
   var c = j.cols, iP = c.indexOf('Periodo'), iE = c.indexOf('Escenario'), iL = c.indexOf('LoB'),
-      iK = c.indexOf('KR'), iV = c.indexOf('Valor'), iPa = c.indexOf('Pais');
+      iK = c.indexOf('KR'), iV = c.indexOf('Valor');
   var data = {};
   (j.rows || []).forEach(function(r) {
     var lob = String(r[iL]).trim().toLowerCase(), kr = String(r[iK]).trim().toLowerCase(), k = null;
@@ -1550,17 +1548,41 @@ function getOKRManualB2B2C() {
     data[k] = data[k] || {};
     data[k][ym] = data[k][ym] || {};
     data[k][ym][esc] = (data[k][ym][esc] || 0) + (Number(r[iV]) || 0);
-    if (k === 'recur' && iPa >= 0) {
-      var pais = String(r[iPa] || '').trim() || 'Total';
-      var rp = data.recur_pais = data.recur_pais || {};
-      rp[ym] = rp[ym] || {};
-      rp[ym][pais] = rp[ym][pais] || {};
-      rp[ym][pais][esc] = (rp[ym][pais][esc] || 0) + (Number(r[iV]) || 0);
-    }
   });
   var payload = { updated: file.getLastUpdated().toISOString(), data: data };
   try { cache.put(key, JSON.stringify(payload), 21600); } catch (e) {}
   return payload;
+}
+
+// Target de Accelerate Recurrence por país (Status KRs H2 del Tracker). Se lee directo de Input_OKR
+// porque okr_builder.py sube a okr.json solo Pais=Total. Escenario Budget, Producto=Total.
+// Devuelve { 'YYYY-MM': { <Pais tal cual en la sheet, incl. 'Total'>: valor } }.
+var INPUT_OKR_SHEET_ID = '1RVmTXDyyugCUXJ0f6JG_croNxWNLlOLm4eAs8F52u2c';   // "Input dashboard B2B+WLs"
+function getRecurTargets() {
+  var cache = CacheService.getScriptCache(), key = 'recur_targets_v1';
+  var hit = cache.get(key);
+  if (hit) { try { return JSON.parse(hit); } catch (e) {} }
+  var vals = SpreadsheetApp.openById(INPUT_OKR_SHEET_ID).getSheetByName('Input_OKR').getDataRange().getValues();
+  var h = vals[0].map(function(x) { return String(x).trim().toLowerCase(); });
+  var iP = h.indexOf('periodo'), iE = h.indexOf('escenario'), iL = h.indexOf('lob'), iPa = h.indexOf('pais'),
+      iPr = h.indexOf('producto'), iK = h.indexOf('kr'), iV = h.indexOf('valor');
+  var out = {};
+  vals.slice(1).forEach(function(r) {
+    if (String(r[iK]).trim().toLowerCase() !== 'accelerate recurrence') return;
+    if (String(r[iL]).trim().toLowerCase() !== 'b2b') return;
+    if (String(r[iE]).toLowerCase().indexOf('budget') < 0) return;
+    if (String(r[iPr]).trim().toLowerCase() !== 'total') return;
+    var p = r[iP], ym;
+    if (p instanceof Date) ym = Utilities.formatDate(p, 'America/Argentina/Buenos_Aires', 'yyyy-MM');
+    else { var m = String(p).match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/); if (!m) return; ym = m[3] + '-' + ('0' + m[2]).slice(-2); }
+    var v = typeof r[iV] === 'number' ? r[iV] : Number(String(r[iV]).replace(/\./g, '').replace(',', '.'));
+    if (r[iV] === '' || isNaN(v)) return;
+    var pais = String(r[iPa]).trim() || 'Total';
+    out[ym] = out[ym] || {};
+    out[ym][pais] = v;   // una fila por mes x país (si se repite, queda la última)
+  });
+  try { cache.put(key, JSON.stringify(out), 3600); } catch (e) {}
+  return out;
 }
 
 
