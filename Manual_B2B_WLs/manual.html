@@ -2209,6 +2209,7 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
             <tr><td>Detail By Country</td><td><strong>Es la única vista por país del Hub</strong> (2026-09-29: se eliminó la sección propia "Country One Page" para no duplicar). Embebe la landing standalone <code>lob_country_one_pager</code> vía iframe (mismo patrón que Daily/Weekly/P&L), carga lazy al entrar. URL en <code>EXTERNAL_LINKS.iframes.detailcountry</code>. El botón "P&L Bridge" de esa landing vuelve al Hub con <code>?section=b2b</code> (el Hub lee el querystring al cargar y salta directo a esa sección).</td></tr>
             <tr><td>Daily / Weekly</td><td>iframe → Daily Dashboard B2B2C</td></tr>
             <tr><td>Fixed Cost / Industry / News / Sources / Organigrama</td><td>Secciones informativas del equipo</td></tr>
+            <tr><td>B2B API <span class="badge badge-manual">🆕 2026-10-16</span></td><td>Primera card de la sección <strong>P&amp;L Managerial - FVM view</strong> del Hub. Link externo (pestaña nueva, <code>openExt('b2b_api')</code>) a <a class="ext-link" href="https://ownia.despegar.io/b2b-dashboard" target="_blank">ownia.despegar.io/b2b-dashboard</a>, fuera de este repo. Mismo patrón que <code>proyecto_rr</code>: la URL vive en <code>EXTERNAL_LINKS.b2b_api</code>.</td></tr>
             <tr><td>📸 Slides Cierre de Mes</td><td><strong>Nuevo.</strong> Botón en B2B + B2B2C: preview imprimible (Consolidado/B2B/B2B2C) + export a Google Slides real. Ver card debajo.</td></tr>
           </tbody>
         </table>
