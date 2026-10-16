@@ -12,6 +12,9 @@ var B2B_CACHE_KEY    = "daily_b2b_v36";
 // abierto por product_type. Liviano y separado del JSON principal para no engordarlo. Ver CONTEXT.md.
 var OKR_H2_JSON      = "okr_h2_managerial.json";
 var OKR_H2_CACHE_KEY = "okr_h2_v1";
+// Accelerate Recurrence (Status KRs H2 del Tracker): lo sube recurrencia_sync.py (y daily_sync.py).
+var RECUR_JSON       = "recurrencia_b2b.json";
+var RECUR_CACHE_KEY  = "recur_b2b_v1";
 var CACHE_TTL        = 21600;   // 6 h
 var CACHE_CHUNK      = 90000;
 
@@ -53,6 +56,7 @@ function getTrackerUrl() {
 function getRawB2BC() { return loadFile_(B2BC_JSON, B2BC_CACHE_KEY); }
 function getRawB2B()  { return loadFile_(B2B_JSON,  B2B_CACHE_KEY);  }
 function getRawOKRH2() { return loadFile_(OKR_H2_JSON, OKR_H2_CACHE_KEY); }
+function getRawRecurrencia() { return loadFile_(RECUR_JSON, RECUR_CACHE_KEY); }
 
 // ---- Internal helpers ----
 

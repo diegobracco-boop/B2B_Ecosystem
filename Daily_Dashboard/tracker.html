@@ -3208,24 +3208,28 @@ function computeKRH2Metric_(monthFilter, metricField, predAct, predBud) {
 }
 
 // ── Accelerate Recurrence (KR H2, solo HTML) ─────────────────────────────────────────────────
-// Actual = agencias de alta frecuencia (copia de la card Metabase 171400 que corre daily_sync.py,
-// okr_h2_managerial.json -> "recurrencia", una fila por semana x país). Del mes se toma la foto de cierre
+// Actual = agencias de alta frecuencia (copia de la card Metabase 171400; recurrencia_b2b.json lo sube
+// recurrencia_sync.py / daily_sync.py, una fila por semana x país). Del mes se toma la foto de cierre
 // (es_cierre_mes = 1) o, si el mes no cerró,
 // la última semana cerrada (estado CIERRE; si no hay ninguna, la última que haya). Actual = mtd_frecuentes_vivas,
 // Rolling L4W = roll_frecuentes_vivas. Target = Input_OKR por país (getRecurTargets en Codigo.js).
 // En las semanas 1-2 del mes el MTD da 0 por definición: ahí el cumplimiento del KR es Rolling L4W vs Target.
 var recurTargets = null;    // getRecurTargets(): { 'YYYY-MM': { Pais: target } }
+var recurData = null;       // getRawRecurrencia(): { meta, cols, rows }
+var recurState = 'loading'; // 'loading' | 'ok' | 'error'
+var _recurRows = null;
 function normPais_(s) {
   return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase();
 }
 function recurNoDataMsg_() {
-  if (!okrH2Data) return 'Cargando…';
-  if (!okrH2Data.recurrencia) return 'Sin datos todavía (se cargan en la próxima corrida del daily)';
+  if (recurState === 'loading') return 'Cargando…';
+  if (recurState === 'error') return 'Sin datos todavía (falta recurrencia_b2b.json en Drive)';
   return 'Sin datos de alta frecuencia para el mes';
 }
 function recurH2_(krYM) {
-  var rows = okrH2Rows_('recurrencia');
-  if (!rows) return null;
+  if (!recurData) return null;
+  if (!_recurRows) _recurRows = unpack(recurData);
+  var rows = _recurRows;
   rows = rows.filter(function(r){ return r.mes_comercial === krYM; });
   if (!rows.length) return null;
   var cierre  = rows.filter(function(r){ return +r.es_cierre_mes === 1; });
@@ -4417,6 +4421,17 @@ window.addEventListener('load', () => {
     })
     .withFailureHandler(function() {})
     .getRawOKRH2();
+  // Actual de Accelerate Recurrence (recurrencia_b2b.json en Drive).
+  google.script.run
+    .withSuccessHandler(function(d) {
+      recurData = d; _recurRows = null; recurState = 'ok';
+      if (rawData) { renderStatusKRsH2(); }
+    })
+    .withFailureHandler(function(e) {
+      recurState = 'error'; console.error('getRawRecurrencia falló:', e);
+      if (rawData) { renderStatusKRsH2(); }
+    })
+    .getRawRecurrencia();
   // Target de Accelerate Recurrence por país (Input_OKR). Si falla, el KR queda sin target.
   google.script.run
     .withSuccessHandler(function(t) {
