@@ -1562,10 +1562,13 @@ function getOKRManualB2B2C() {
 // porque okr_builder.py sube a okr.json solo Pais=Total. Escenario Budget, Producto=Total.
 // Devuelve { 'YYYY-MM': { <Pais tal cual en la sheet, incl. 'Total'>: valor } }.
 var INPUT_OKR_SHEET_ID = '1RVmTXDyyugCUXJ0f6JG_croNxWNLlOLm4eAs8F52u2c';   // "Input dashboard B2B+WLs"
+// Cache 1 h, pero solo si trae el mes en curso: un resultado sin ese mes (sheet a medio cargar, lectura vacía)
+// quedó pegado una hora el 2026-10-19 y el KR se vio sin target aunque la sheet estaba bien.
 function getRecurTargets() {
   var cache = CacheService.getScriptCache(), key = 'recur_targets_v1';
+  var curYM = Utilities.formatDate(new Date(), 'America/Argentina/Buenos_Aires', 'yyyy-MM');
   var hit = cache.get(key);
-  if (hit) { try { return JSON.parse(hit); } catch (e) {} }
+  if (hit) { try { var c = JSON.parse(hit); if (c[curYM]) return c; } catch (e) {} }
   var vals = SpreadsheetApp.openById(INPUT_OKR_SHEET_ID).getSheetByName('Input_OKR').getDataRange().getValues();
   var h = vals[0].map(function(x) { return String(x).trim().toLowerCase(); });
   var iP = h.indexOf('periodo'), iE = h.indexOf('escenario'), iL = h.indexOf('lob'), iPa = h.indexOf('pais'),
@@ -1585,7 +1588,7 @@ function getRecurTargets() {
     out[ym] = out[ym] || {};
     out[ym][pais] = v;   // una fila por mes x país (si se repite, queda la última)
   });
-  try { cache.put(key, JSON.stringify(out), 3600); } catch (e) {}
+  if (out[curYM]) { try { cache.put(key, JSON.stringify(out), 3600); } catch (e) {} }
   return out;
 }
 

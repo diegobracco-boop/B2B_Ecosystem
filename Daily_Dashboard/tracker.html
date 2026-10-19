@@ -3268,6 +3268,8 @@ function computeKRH2Metric_(monthFilter, metricField, predAct, predBud) {
 // Rolling L4W = roll_frecuentes_vivas. Target = Input_OKR por país (getRecurTargets en Codigo.js).
 // En las semanas 1-2 del mes el MTD da 0 por definición: ahí el cumplimiento del KR es Rolling L4W vs Target.
 var recurTargets = null;    // getRecurTargets(): { 'YYYY-MM': { Pais: target } }
+var recurTargetsState = 'loading'; // 'loading' | 'ok' | 'error'
+var recurTargetsErr = '';
 var recurData = null;       // getRawRecurrencia(): { meta, cols, rows }
 var recurState = 'loading'; // 'loading' | 'ok' | 'error'
 var _recurRows = null;
@@ -3278,6 +3280,16 @@ function recurNoDataMsg_() {
   if (recurState === 'loading') return 'Cargando…';
   if (recurState === 'error') return 'Sin datos todavía (falta recurrencia_b2b.json en Drive)';
   return 'Sin datos de alta frecuencia para el mes';
+}
+// Por qué falta el target (en vez de un "—" mudo): cargando, falló la lectura de Input_OKR, o la sheet no tiene el mes.
+function recurNoTargetMsg_(krYM) {
+  if (recurTargetsState === 'loading') return 'Cargando target…';
+  if (recurTargetsState === 'error') return 'Sin target: no se pudo leer Input_OKR' +
+    (recurTargetsErr ? ' (' + String(recurTargetsErr).replace(/[<>&"]/g, '') + ')' : '');
+  return 'Sin target en Input_OKR para ' + formatYM(krYM);
+}
+function recurNoTargetHtml_(krYM) {
+  return '<span style="color:#9ca3af;font-size:0.72rem;font-style:italic">' + recurNoTargetMsg_(krYM) + '</span>';
 }
 function recurH2_(krYM) {
   if (!recurData) return null;
@@ -3455,7 +3467,7 @@ function renderStatusKRsH2() {
       var cStrRec = recC.shown !== null ? (recC.shown * 100).toFixed(0) + '%' + (recC.useRoll ? ' <span style="font-size:0.68rem">L4W</span>' : '') : '—';
       trRec.innerHTML = recName +
         '<td>' + fmtKRVal(rec.total.mtd, 'int') + rollNote + '</td>' +
-        '<td>' + fmtKRVal(recBud, 'int') + '</td>' +
+        '<td>' + (recBud !== null ? fmtKRVal(recBud, 'int') : recurNoTargetHtml_(krYM)) + '</td>' +
         cumplCellHtml(recC.shown, cStrRec, false);
     }
     tbody.appendChild(trRec);
@@ -3655,7 +3667,8 @@ function recurDetailBox_(krYM) {
   Object.keys(rec.byPais).forEach(function(k){ if (!used[k]) rowFor(rec.byPais[k].pais, [rec.byPais[k].pais]); });
   tgtKeys.forEach(function(k){ if (!used[normPais_(k)]) rowFor(k, [k]); });
   box.innerHTML = head +
-    '<div style="padding:2px 2px 8px;color:#6b7280;font-size:0.72rem">Agencias de alta frecuencia · ' + recurWeekLbl_(rec) + '</div>' +
+    '<div style="padding:2px 2px 8px;color:#6b7280;font-size:0.72rem">Agencias de alta frecuencia · ' + recurWeekLbl_(rec) +
+      (recurTarget_(krYM, null) === null ? '<br>' + recurNoTargetHtml_(krYM) : '') + '</div>' +
     '<table class="pivot-table kr-detail-table"><thead><tr>' +
     '<th style="text-align:left">País</th><th>Actuals</th><th>% Cumpl.</th><th>Rolling<br>L4W</th><th>Rolling<br>vs Target</th>' +
     '</tr></thead><tbody>' + tr('TOTAL', rec.total, recurTarget_(krYM, null), true) + body + '</tbody></table>';
@@ -4529,10 +4542,14 @@ window.addEventListener('load', () => {
   // Target de Accelerate Recurrence por país (Input_OKR). Si falla, el KR queda sin target.
   google.script.run
     .withSuccessHandler(function(t) {
-      recurTargets = t || null;
+      recurTargets = t || null; recurTargetsState = 'ok';
       if (rawData) { renderStatusKRsH2(); }
     })
-    .withFailureHandler(function(e) { console.error('getRecurTargets falló:', e); })
+    .withFailureHandler(function(e) {
+      recurTargetsState = 'error'; recurTargetsErr = (e && e.message) || e || '';
+      console.error('getRecurTargets falló:', e);
+      if (rawData) { renderStatusKRsH2(); }
+    })
     .getRecurTargets();
 });
 </script>
