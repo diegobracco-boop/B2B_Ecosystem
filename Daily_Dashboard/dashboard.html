@@ -1558,6 +1558,11 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
       <option value="incl">Incluir</option>
       <option value="excl">Excluir</option>
     </select>
+    <label class="flow-ctl-lbl" title="YES = actuals × TC Actuals / TC del Goal (Run Rate: nominal). KRs a TC Budget. Mismo switch que el Organic de arriba.">Organic</label>
+    <select class="flow-jump" id="flow-organic" onchange="setDailyOrganic(this.value==='yes')">
+      <option value="no">NO</option>
+      <option value="yes">YES</option>
+    </select>
     <span class="flow-tool-sep"></span>
     <button class="flow-pdf-btn" onclick="window.print()" title="Abre el diálogo de impresión — elegí 'Guardar como PDF'">⭳ Descargar PDF</button>
     <button class="flow-pdf-btn" id="flow-export-btn" onclick="_flowExportSlides()" title="Genera un Google Slides real con estas slides + las del Daily B2B Tracker (captura tal cual se ven, como imagen)">📤 Enviar a Google Slides (B2B2C + B2B)</button>
@@ -1629,7 +1634,8 @@ function fillPartnersB2BC_() {
 // Target según la comparación de cada vista: Budget → TC Budget, Forecast → TC Forecast, Last Year
 // → TC Actuals del mismo mes del año anterior; Run Rate no tiene TC → esa vista queda nominal.
 //   Daily B2B2C / B2B → selector "vs" de cada LOB · Flow → su Goal · Benchmark → Last Year (es una
-//   vista de crecimiento YoY) · Weekly → Budget (se calcula en el servidor, getWeeklySummaryData).
+//   vista de crecimiento YoY) · Weekly → Budget (se calcula en el servidor, getWeeklySummaryData) ·
+//   KRs (Daily, Flow, Tracker) → Budget (_orgTargetKR_).
 // Solo se convierten los ACTUALS (B2B2C actuals, B2B b2b_gd / b2b_ri); Budget/RR/Forecast y el LY
 // se muestran nominales. YoY "opción B": con target Budget/Forecast cada fila convertida trae además
 // <campo>_y = el valor a TC Actuals LY, y los YoY se calculan con eso (_yv_). Orders y países sin TC
@@ -1712,6 +1718,15 @@ function _orgTargetB2B_()   { return _orgTargetFor_(_b2bComparison); }
 function _orgTargetFlow_()  { return _orgTargetFor_(_flowComp); }
 function _orgTargetBench_() { return _orgTargetFor_('ly'); }
 function _orgTargetWeekly_(){ return _orgTargetFor_('budget'); }
+// KRs (Daily, Flow y Tracker): se miden vs Budget → con ORGANIC YES los actuals van a TC Budget
+function _orgTargetKR_()    { return _orgTargetFor_('budget'); }
+// Raw B2B (_rawB2B u okr_h2_managerial) con los actuals de KRs a TC Budget. KRs Globales: Other Countries, sin TC.
+function _krRawB2B_(raw) {
+  var t = _orgTargetKR_();
+  if (!t || !raw) return raw;
+  var o = Object.assign({}, raw); o.b2b_gd = _orgRows_(raw.b2b_gd, t); o.b2b_ri = _orgRows_(raw.b2b_ri, t);
+  return o;
+}
 
 function setDailyOrganic(on) {
   _dlOrganic = !!on;
@@ -1767,6 +1782,8 @@ function _syncOrganicUI_() {
   tog.querySelectorAll('button').forEach(function(b) {
     b.classList.toggle('active', (b.dataset.o === 'yes') === _dlOrganic);
   });
+  var fo = document.getElementById('flow-organic');   // switch espejo en la barra del Flow
+  if (fo) fo.value = _dlOrganic ? 'yes' : 'no';
   var note = document.getElementById('org-note');
   if (!note) return;
   note.classList.toggle('err', !!_orgError_);
@@ -1844,7 +1861,9 @@ function aggWeekly_(dMap, lyMap, vDate, budMap) {
   var wM={},lyW={},bW={};
   budMap = budMap || {};
   Object.keys(dMap).forEach(function(d){var w=weekStart_(d);wM[w]=(wM[w]||0)+dMap[d];lyW[w]=(lyW[w]||0)+(lyMap[d]||0);bW[w]=(bW[w]||0)+(budMap[d]||0);});
-  var cw=weekStart_(vDate);
+  // Solo semanas completas: corta en el lunes siguiente a vDate (si vDate es domingo, su semana entra)
+  var vp=vDate.split('-'), nx=new Date(+vp[0],+vp[1]-1,+vp[2]+1);
+  var cw=weekStart_(nx.getFullYear()+'-'+String(nx.getMonth()+1).padStart(2,'0')+'-'+String(nx.getDate()).padStart(2,'0'));
   return Object.keys(wM).sort().filter(function(w){return w<cw;}).slice(-10).map(function(w){return{date:w,v:Math.round(wM[w]*100)/100,ly:Math.round((lyW[w]||0)*100)/100,bud:Math.round((bW[w]||0)*100)/100};});
 }
 function aggRolling7_(dMap, lyMap, vDate, budMap) {
@@ -2367,8 +2386,8 @@ function recomputeB2BC_() {
   ['mc-gb-bud-lbl','mc-nr-bud-lbl','mc-fvm-bud-lbl'].forEach(function(id){var el=document.getElementById(id);if(el)el.textContent=compKpi;});
   state.data       = compute_(raw, 'nr', state.viewDate, gl_pai, gl_par, gl_pro, gl_at, 'daily', compSrc);
   state.allMetrics = computeAll_(raw, state.viewDate, gl_pai, gl_par, gl_pro, gl_at, gran, _partnerTab, compSrc);
-  // KRs/OKR siempre nominales (como el OKR del Hub): b2bcRaw_() sin organic
-  var _krs=computeKRs_(b2bcRaw_(), state.viewDate); renderKRs(_krs); renderKRBreakdown_(_krs); if(_b2bcKrHalf===null && state.viewDate){ setB2BCKrHalf(state.viewDate.substring(0,7) >= '2026-10' ? 'h2' : 'h1'); }
+  // KRs: con ORGANIC YES los actuals van a TC Budget (los KRs se miden vs Budget), igual que el resto del Daily
+  var _krs=computeKRs_(b2bcRawOrg_(_orgTargetKR_()), state.viewDate); renderKRs(_krs); renderKRBreakdown_(_krs); if(_b2bcKrHalf===null && state.viewDate){ setB2BCKrHalf(state.viewDate.substring(0,7) >= '2026-10' ? 'h2' : 'h1'); }
   else renderB2CKrH2_(state.viewDate);
   render(state.data);
   renderMetrics(state.allMetrics);
@@ -2425,7 +2444,7 @@ function renderB2CKrH2_(vDate) {
   function pc(act, bud){ return (act != null && bud) ? Math.round(act/bud*100) : null; }
   function col(p){ return p===null?'var(--text-2)':p>=100?'var(--success)':p>=80?'#f59e0b':'var(--danger)'; }
   function pt(p){ return p===null?'—':p+'%'; }
-  var krs = computeKRs_(b2bcRaw_(), vDate);
+  var krs = computeKRs_(b2bcRawOrg_(_orgTargetKR_()), vDate);
   // Deploy New Partnership (manual, valor del mes)
   var dm = man.deploy && man.deploy[ym];
   var dA = dm && dm.act !== undefined ? dm.act : null, dB = dm && dm.bud !== undefined ? dm.bud : null;
@@ -3105,12 +3124,12 @@ function recomputeB2B_() {
   var compKpi = COMPARISON_KPIS[_b2bComparison];
   ['leg-b2b-gb-comp','leg-b2b-nr-comp','leg-b2b-fvm-comp'].forEach(function(id){var el=document.getElementById(id);if(el)el.textContent=compLbl;});
   ['b2b-mc-gb-bud-lbl','b2b-mc-nr-bud-lbl','b2b-mc-fvm-bud-lbl'].forEach(function(id){var el=document.getElementById(id);if(el)el.textContent=compKpi;});
-  var rawO = b2bRawOrg_(_orgTargetB2B_());   // organic: actuals a TC del target (KRs quedan nominales)
+  var rawO = b2bRawOrg_(_orgTargetB2B_());   // organic: actuals a TC del target
   state_b2b.data       = computeB2B_(rawO, 'nr', _b2bDateModel, state_b2b.viewDate, gl_pai, gl_pro, gl_ch, _b2bMarket, 'daily', compSrc);
   state_b2b.allMetrics = computeAllB2B_(rawO, _b2bDateModel, state_b2b.viewDate, gl_pai, gl_pro, gl_ch, _b2bMarket, gran, compSrc);
   if(_b2bKrHalf===null && state_b2b.viewDate){ setB2BKrHalf(state_b2b.viewDate.substring(0,7) >= '2026-10' ? 'h2' : 'h1'); }
-  var _krsB2B=computeKRsB2B_(_rawB2B, 'ri', state_b2b.viewDate); renderKRsB2B(_krsB2B); renderKRBreakdownB2B_(_krsB2B);
-  var _krsB2BH2=computeKRsB2BH2_(_okrH2 || _rawB2B, 'ri', state_b2b.viewDate); renderKRsB2BH2_(_krsB2BH2);
+  var _krsB2B=computeKRsB2B_(_krRawB2B_(_rawB2B), 'ri', state_b2b.viewDate); renderKRsB2B(_krsB2B); renderKRBreakdownB2B_(_krsB2B);
+  var _krsB2BH2=computeKRsB2BH2_(_krRawB2B_(_okrH2 || _rawB2B), 'ri', state_b2b.viewDate); renderKRsB2BH2_(_krsB2BH2);
   if(_globalesTargets) renderKRsGlobales_();
   renderB2B(state_b2b.data);
   renderB2BMetrics(state_b2b.allMetrics);
@@ -4512,7 +4531,7 @@ function flowMonthName_(vDate){
   return M[parseInt(vDate.split('-')[1])-1];
 }
 // organic: actuals a TC del Goal del Flow (_orgTargetFlow_; Run Rate = nominal). Las KRs del Flow
-// (flowKRSum_) leen b2bcRaw_() y quedan nominales, como en el Daily.
+// (flowKRSum_) van a TC Budget (_orgTargetKR_), como en el Daily.
 function flowRegionRaw_(regionKey){
   var orgT=_orgTargetFlow_();
   if(!regionKey) return b2bcRawOrg_(orgT);
@@ -5214,7 +5233,7 @@ var B2B_TRK_FVM_DETAIL = B2B_TRK_NR_CORE_DETAIL.concat(B2B_TRK_NR_NEW_DETAIL);
 // ── Data access (sobre _rawB2B, ya expandido por expandCompact_ al cargar
 // la página — a diferencia de tracker.html no hace falta unpack()) ──
 // Actuals de las slides B2B del Flow con organic (goal Budget → TC Budget; RR → nominal). Las KRs
-// (trkComputeMetricMTD_, trkMTDByChannel_, …) siguen leyendo trkGetActuals_ y quedan nominales.
+// (trkComputeMetricMTD_, trkMTDByChannel_, …) usan trkGetActualsOrg_(…,'budget') → TC Budget.
 function trkGetActualsOrg_(dateType, goalType){ return _orgRows_(trkGetActuals_(dateType), _orgTargetFor_(goalType==='rr' ? 'runrate' : 'budget')); }
 function trkGetActuals_(dateType){ return (_rawB2B && (dateType==='ri'?_rawB2B.b2b_ri:_rawB2B.b2b_gd)) || []; }
 function trkGetActualsLY_(dateType){ return (_rawB2B && (dateType==='ri'?_rawB2B.b2b_ri_ly:_rawB2B.b2b_gd_ly)) || []; }
@@ -5540,7 +5559,7 @@ function flRenderB2CKRs_(idx){
       // Unique Buyers: el actual sale del Datalake (acumulado MTD al día mirado), no de la sheet.
       if(k.id==='ub'){ var ubA=_ubMtdAt_(_rawB2BC, vDate); if(ubA!=null) act=ubA; var ubS=_budOrdersShare_(_rawB2BC, vDate); if(bud!=null && ubS!=null) bud=bud*ubS; }
     } else {
-      var sum=flowKRSum_(b2bcRaw_(), k.src==='nr' ? k.stage : 'all', k.src==='nr' ? 'nr' : 'fvm', 'budget', null);
+      var sum=flowKRSum_(b2bcRawOrg_(_orgTargetKR_()), k.src==='nr' ? k.stage : 'all', k.src==='nr' ? 'nr' : 'fvm', 'budget', null);
       if(sum.actual || sum.budget){ act=trkToM_(sum.actual); bud=trkToM_(sum.budget); }
     }
     return { k:k, act:act, bud:bud, c:cumpl(act,bud) };
@@ -5568,7 +5587,7 @@ function flRenderB2CKRs_(idx){
   if(grid){
     function box(title, stage, metric){
       var regs=['BR','NAM','SAH'].map(function(rg){
-        var s2=flowKRSum_(b2bcRaw_(), stage, metric, 'budget', rg);
+        var s2=flowKRSum_(b2bcRawOrg_(_orgTargetKR_()), stage, metric, 'budget', rg);
         return { name:FLOW_RG[rg].label, act:trkToM_(s2.actual), bud:trkToM_(s2.budget) };
       });
       var tA=0, tB=0; regs.forEach(function(r){ tA+=r.act; tB+=r.bud; });
@@ -5594,7 +5613,7 @@ function trkComputeMetricMTD_(countryGroupNames, metricField, monthFilter){
   var b=trkGetPeriodBounds_(monthFilter||trkCurYM_());
   var actual=0, budget=0;
   countryGroupNames.forEach(function(g){
-    trkFilterByPeriod_(trkGetActuals_('ri'), null, g, b.from, b.cutoff).forEach(function(r){ actual+=(r[metricField]||0); });
+    trkFilterByPeriod_(trkGetActualsOrg_('ri','budget'), null, g, b.from, b.cutoff).forEach(function(r){ actual+=(r[metricField]||0); });
     trkFilterByPeriod_(trkGetGoal_('ri','budget'), null, g, b.from, b.cutoff).forEach(function(r){ budget+=(r[metricField]||0); });
   });
   return { actual:actual, budget:budget };
@@ -5615,7 +5634,7 @@ function trkMTDByChannel_(paisList, channel, metricField, monthFilter){
     return !paisLower || paisLower.indexOf((r.pais||'').toLowerCase())!==-1;
   }
   var actual=0, budget=0;
-  trkGetActuals_('ri').forEach(function(r){ if(ok(r)) actual+=(r[metricField]||0); });
+  trkGetActualsOrg_('ri','budget').forEach(function(r){ if(ok(r)) actual+=(r[metricField]||0); });
   trkGetGoal_('ri','budget').forEach(function(r){ if(ok(r)) budget+=(r[metricField]||0); });
   return { actual:actual, budget:budget };
 }
@@ -5785,7 +5804,7 @@ function trkComputeMetricForPaisList_(paisList, metricField, monthFilter){
     });
   }
   var actual=0, budget=0;
-  matchRows(trkGetActuals_('ri')).forEach(function(r){ actual+=(r[metricField]||0); });
+  matchRows(trkGetActualsOrg_('ri','budget')).forEach(function(r){ actual+=(r[metricField]||0); });
   matchRows(trkGetGoal_('ri','budget')).forEach(function(r){ budget+=(r[metricField]||0); });
   return { actual:actual, budget:budget };
 }

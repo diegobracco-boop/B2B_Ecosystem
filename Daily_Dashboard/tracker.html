@@ -1557,9 +1557,9 @@ function getActualsLY(dateType) {
 
 // ── ORGANIC (mismo switch que el Daily / Monthly Results del Hub) ─────────────
 // YES = actuals × TC Actuals(país, mes) / TC Budget (Meta Run Rate: no hay TC → nominal). Solo los
-// gráficos y tablas (buildChartData / buildPivotData); KRs y la vista Semanal (vs Run Rate) quedan
-// nominales. YoY "opción B": cada fila convertida trae <campo>_y = valor a TC Actuals LY y los YoY
-// se calculan con eso (actY); el LY se muestra nominal. Embebido en el Daily, el estado inicial
+// gráficos y tablas (buildChartData / buildPivotData) y los KRs (siempre a TC Budget: se miden vs
+// Budget, getActualsKR / getKrActuals); la vista Semanal (vs Run Rate) queda nominal.
+// YoY "opción B": cada fila convertida trae <campo>_y = valor a TC Actuals LY y los YoY se calculan con eso (actY); el LY se muestra nominal. Embebido en el Daily, el estado inicial
 // llega por la URL (&organic=1).
 let trkOrganic = false, fxTbl = null, fxState = 'idle', orgErr = '', orgMissing = {};
 const ORG_MONEY = ['gross_bookings', 'net_revenue', 'net_revenues', 'fvm'];
@@ -1605,6 +1605,34 @@ function getActualsOrg(dateType) {
   }
   return orgActMemo[k];
 }
+// KRs: actuals a TC Budget con el switch en YES (independiente del filtro Goal). Cacheado por arreglo.
+const orgKrMemo = (typeof WeakMap !== 'undefined') ? new WeakMap() : null;
+function orgKrRows(rows) {
+  if (!trkOrganic || !fxTbl || !rows || !rows.length) return rows;
+  const hit = orgKrMemo && orgKrMemo.get(rows);
+  if (hit) { Object.assign(orgMissing, hit.miss); return hit.out; }
+  const before = Object.assign({}, orgMissing), fT = orgFactor('budget'), fY = orgFactor('ly');
+  const out = rows.map(r => {
+    const a = fT(r.pais, r.fecha), y = fY(r.pais, r.fecha);
+    if (a === 1 && y === 1) return r;
+    const c = Object.assign({}, r);
+    ORG_MONEY.forEach(F => { if (r[F] != null) { c[F] = r[F] * a; c[F + '_y'] = r[F] * y; } });
+    return c;
+  });
+  const miss = {}; Object.keys(orgMissing).forEach(m => { if (!before[m]) miss[m] = 1; });
+  if (orgKrMemo) orgKrMemo.set(rows, { out: out, miss: miss });
+  return out;
+}
+// getActuals() desempaqueta en cada llamada (arreglo nuevo) → se memoiza por rawData + dateType
+let krActMemo = {};
+// Actual de un KR para el YoY: a TC Actuals LY con organic (opción B), si no el actual que se muestra
+function krActY(r) { return (r.actualY != null && !isNaN(r.actualY)) ? r.actualY : r.actual; }
+function getActualsKR(dateType) {
+  if (!trkOrganic || !fxTbl) return getActuals(dateType);
+  if (krActMemo.src !== rawData) krActMemo = { src: rawData };
+  if (!krActMemo[dateType]) krActMemo[dateType] = getActuals(dateType);
+  return orgKrRows(krActMemo[dateType]);
+}
 // Valor para el YoY: a TC Actuals LY si la fila lo trae (organic), si no el que se muestra
 function yv(r, F) { const y = r[F + '_y']; return (y !== undefined) ? y : (r[F] || 0); }
 function syncOrgUI() {
@@ -1615,7 +1643,7 @@ function syncOrgUI() {
   if (orgErr) note.textContent = orgErr;
   else if (fxState === 'loading') note.textContent = 'Cargando tipos de cambio…';
   else if (!trkOrganic) note.textContent = '';
-  else if (!trkOrgTarget()) note.textContent = 'No disponible con Meta Run Rate (sin TC)';
+  else if (!trkOrgTarget()) note.textContent = 'Meta Run Rate sin TC: gráficos y tablas nominales · KRs a TC Budget';
   else note.textContent = 'Actuals × TC Actuals / TC Budget · YoY a TC Actuals LY'
     + (miss.length ? ' · sin TC: ' + miss.slice(0, 3).join(', ') + (miss.length > 3 ? ' …' : '') : '');
 }
@@ -1646,7 +1674,7 @@ function okrH2Rows_(key) {
   if (!_okrH2Unp[key]) _okrH2Unp[key] = Array.isArray(okrH2Data[key]) ? okrH2Data[key] : unpack(okrH2Data[key]);
   return _okrH2Unp[key];
 }
-function getKrActuals(dateType)   { return okrH2Rows_('b2b_' + dateType) || getActuals(dateType); }
+function getKrActuals(dateType)   { return orgKrRows(okrH2Rows_('b2b_' + dateType) || getActuals(dateType)); }   // organic: TC Budget
 function getKrActualsLY(dateType) { return okrH2Rows_('b2b_' + dateType + '_ly') || getActualsLY(dateType); }
 function getKrBudget(dateType)    { return okrH2Rows_('b2b_budget_' + dateType) || getGoal(dateType, 'budget'); }
 
@@ -2373,7 +2401,7 @@ function computeMetricMTD(countryGroupNames, metricField, monthFilter) {
 
   var actual = 0, budget = 0;
   countryGroupNames.forEach(function(groupName) {
-    var actRows  = filterByPeriod(getActuals('ri'), null, groupName, bounds.from, bounds.cutoff);
+    var actRows  = filterByPeriod(getActualsKR('ri'), null, groupName, bounds.from, bounds.cutoff);
     var budRows  = filterByPeriod(getGoal('ri', 'budget'), null, groupName, bounds.from, bounds.cutoff);
     actRows.forEach(function(r)  { actual += (r[metricField] || 0); });
     budRows.forEach(function(r)  { budget += (r[metricField] || 0); });
@@ -2386,7 +2414,7 @@ function computeMetricMTDByCountry(groupNames, metricField, monthFilter) {
   var bounds = getPeriodBounds(_resolveYM(monthFilter), rawData.meta);
   var result = {};
   groupNames.forEach(function(groupName) {
-    var actRows = filterByPeriod(getActuals('ri'), null, groupName, bounds.from, bounds.cutoff);
+    var actRows = filterByPeriod(getActualsKR('ri'), null, groupName, bounds.from, bounds.cutoff);
     var budRows = filterByPeriod(getGoal('ri', 'budget'), null, groupName, bounds.from, bounds.cutoff);
     var act = 0, bud = 0;
     actRows.forEach(function(r) { act += (r[metricField] || 0); });
@@ -2406,16 +2434,16 @@ function computeMetricForPaisList(paisList, metricField, monthFilter) {
       return paisLower.indexOf((r.pais || '').toLowerCase()) !== -1;
     });
   }
-  var actRows = matchRows(getActuals('ri'), bounds.from, bounds.cutoff);
+  var actRows = matchRows(getActualsKR('ri'), bounds.from, bounds.cutoff);
   var budRows = matchRows(getGoal('ri', 'budget'), bounds.from, bounds.cutoff);
   // Año anterior: mismo país y mismo tramo temporal (MTD) corrido -1 año,
   // igual que buildPivotData (shiftYear sobre from/cutoff).
   var lyRows  = matchRows(getActualsLY('ri'), shiftYear(bounds.from, -1), shiftYear(bounds.cutoff, -1));
-  var actual = 0, budget = 0, ly = 0;
-  actRows.forEach(function(r) { actual += (r[metricField] || 0); });
+  var actual = 0, actualY = 0, budget = 0, ly = 0;
+  actRows.forEach(function(r) { actual += (r[metricField] || 0); actualY += yv(r, metricField); });   // actualY: organic, para el YoY
   budRows.forEach(function(r) { budget += (r[metricField] || 0); });
   lyRows.forEach(function(r)  { ly     += (r[metricField] || 0); });
-  return { actual: actual, budget: budget, ly: ly };
+  return { actual: actual, actualY: actualY, budget: budget, ly: ly };
 }
 
 function fmtKRVal(val, unit) {
@@ -3055,15 +3083,15 @@ function renderKRDetailBoxes(monthFilter) {
       if (showYoY) {
         // Solo LY > 0: con base negativa (posible en FVM) el % de crecimiento
         // queda sin sentido (signo/magnitud engañosos) → se muestra '—'.
-        var yoy = (r.ly !== null && r.ly !== undefined && r.ly > 0) ? (r.actual / r.ly - 1) : null;
+        var yoy = (r.ly !== null && r.ly !== undefined && r.ly > 0) ? (krActY(r) / r.ly - 1) : null;
         yoyCell = '<td class="' + yoyColor(yoy) + '">' + yoyIcon(yoy) + '</td>';
       }
       return '<tr><td style="text-align:left">' + r.name + '</td><td>' + actStr + '</td>' + budCell + cumplCellHtml(c, cStr, false) + yoyCell + '</tr>';
     }).join('');
     // Fila total
-    var totalAct = 0, totalBud = 0, totalLY = 0, hasAct = false, hasBud = false, hasLY = false;
+    var totalAct = 0, totalActY = 0, totalBud = 0, totalLY = 0, hasAct = false, hasBud = false, hasLY = false;
     rows.forEach(function(r) {
-      if (r.actual !== null && r.actual !== undefined && !isNaN(r.actual)) { totalAct += r.actual; hasAct = true; }
+      if (r.actual !== null && r.actual !== undefined && !isNaN(r.actual)) { totalAct += r.actual; totalActY += krActY(r); hasAct = true; }
       if (r.budget !== null && r.budget !== undefined && !isNaN(r.budget)) { totalBud += r.budget; hasBud = true; }
       if (r.ly     !== null && r.ly     !== undefined && !isNaN(r.ly))     { totalLY  += r.ly;     hasLY  = true; }
     });
@@ -3075,7 +3103,7 @@ function renderKRDetailBoxes(monthFilter) {
     var tBudCell = showYoY ? '' : '<td><strong>' + tBudStr + '</strong></td>';
     var tYoyCell = '';
     if (showYoY) {
-      var tYoy = (hasLY && totalLY > 0) ? (totalAct / totalLY - 1) : null;
+      var tYoy = (hasLY && totalLY > 0) ? ((totalOverride ? totalAct : totalActY) / totalLY - 1) : null;
       tYoyCell = '<td class="' + yoyColor(tYoy) + '"><strong>' + yoyIcon(tYoy) + '</strong></td>';
     }
     var totalRow = '<tr class="kr-detail-total"><td style="text-align:left;font-weight:700">TOTAL</td><td><strong>' + tActStr + '</strong></td>' + tBudCell + cumplCellHtml(tc, tCStr, true) + tYoyCell + '</tr>';
@@ -3111,13 +3139,13 @@ function renderKRDetailBoxes(monthFilter) {
 
   var kr2Rows = NR_CORE_DETAIL.map(function(def) {
     var d = computeMetricForPaisList(def.pais, 'net_revenue', monthFilter);
-    return { name: def.name, actual: toM(d.actual), budget: toM(d.budget), ly: toM(d.ly) };
+    return { name: def.name, actual: toM(d.actual), actualY: d.actualY != null ? toM(d.actualY) : null, budget: toM(d.budget), ly: toM(d.ly) };
   });
   col23.appendChild(makeDetailBox(2, 'NR Core Markets $M', kr2Rows, '$M', null, true));
 
   var kr3Rows = NR_NEW_DETAIL.map(function(def) {
     var d = computeMetricForPaisList(def.pais, 'net_revenue', monthFilter);
-    return { name: def.name, actual: toM(d.actual), budget: toM(d.budget), ly: toM(d.ly) };
+    return { name: def.name, actual: toM(d.actual), actualY: d.actualY != null ? toM(d.actualY) : null, budget: toM(d.budget), ly: toM(d.ly) };
   });
   col23.appendChild(makeDetailBox(3, 'NR New Markets $M', kr3Rows, '$M', null, true));
   grid.appendChild(col23);
@@ -3150,7 +3178,7 @@ function renderKRDetailBoxes(monthFilter) {
   // KR5 — FVM por país
   var kr5Rows = FVM_DETAIL.map(function(def) {
     var d = computeMetricForPaisList(def.pais, 'fvm', monthFilter);
-    return { name: def.name, actual: toM(d.actual), budget: toM(d.budget), ly: toM(d.ly) };
+    return { name: def.name, actual: toM(d.actual), actualY: d.actualY != null ? toM(d.actualY) : null, budget: toM(d.budget), ly: toM(d.ly) };
   });
   grid.appendChild(makeDetailBox(5, 'Financial Variable Margin $M', kr5Rows, '$M', null, true));
   fitKrDetailGrid_(grid);
@@ -3489,11 +3517,12 @@ function computeKRH2ForPaisList_(paisList, metricField, predAct, predBud, monthF
   var bounds = getPeriodBounds(_resolveYM(monthFilter), rawData.meta);
   var paisLower = paisList.map(function(p){ return p.toLowerCase(); });
   function inPais(r){ return paisLower.indexOf((r.pais || '').toLowerCase()) !== -1; }
-  var actual = 0, budget = 0, ly = 0;
+  var actual = 0, actualY = 0, budget = 0, ly = 0;
   getKrActuals('ri').forEach(function(r){
     if (r.fecha < bounds.from || r.fecha > bounds.cutoff) return;
     if (!inPais(r) || (predAct && !predAct(r))) return;
     actual += (r[metricField] || 0);
+    actualY += yv(r, metricField);   // organic: a TC Actuals LY, para el YoY
   });
   getKrBudget('ri').forEach(function(r){
     if (r.fecha < bounds.from || r.fecha > bounds.cutoff) return;
@@ -3506,7 +3535,7 @@ function computeKRH2ForPaisList_(paisList, metricField, predAct, predBud, monthF
     if (!inPais(r) || (predAct && !predAct(r))) return;
     ly += (r[metricField] || 0);
   });
-  return { actual: actual, budget: budget, ly: ly };
+  return { actual: actual, actualY: actualY, budget: budget, ly: ly };
 }
 
 function renderStatusKRsH2DetailBoxes_(monthFilter) {
@@ -3521,19 +3550,19 @@ function renderStatusKRsH2DetailBoxes_(monthFilter) {
     var bodyRows = rows.map(function(r){
       var c = cumplRatio(r.actual, r.budget);
       var cStr = c !== null ? (c * 100).toFixed(0) + '%' : '—';
-      var yoy = (r.ly !== null && r.ly !== undefined && r.ly > 0) ? (r.actual / r.ly - 1) : null;
+      var yoy = (r.ly !== null && r.ly !== undefined && r.ly > 0) ? (krActY(r) / r.ly - 1) : null;
       return '<tr><td style="text-align:left">' + r.name + '</td><td>' + fmtKRVal(r.actual, unit) + '</td>' +
              cumplCellHtml(c, cStr, false) + '<td class="' + yoyColor(yoy) + '">' + yoyIcon(yoy) + '</td></tr>';
     }).join('');
-    var tAct = 0, tBud = 0, tLY = 0, hAct = false, hBud = false, hLY = false;
+    var tAct = 0, tActY = 0, tBud = 0, tLY = 0, hAct = false, hBud = false, hLY = false;
     rows.forEach(function(r){
-      if (r.actual != null && !isNaN(r.actual)) { tAct += r.actual; hAct = true; }
+      if (r.actual != null && !isNaN(r.actual)) { tAct += r.actual; tActY += krActY(r); hAct = true; }
       if (r.budget != null && !isNaN(r.budget)) { tBud += r.budget; hBud = true; }
       if (r.ly     != null && !isNaN(r.ly))     { tLY  += r.ly;     hLY  = true; }
     });
     var tc = (hBud && tBud) ? Math.min(cumplRatio(tAct, tBud), 1.30) : null;
     var tCStr = tc !== null ? (tc * 100).toFixed(0) + '%' : '—';
-    var tYoy = (hLY && tLY > 0) ? (tAct / tLY - 1) : null;
+    var tYoy = (hLY && tLY > 0) ? (tActY / tLY - 1) : null;
     var totalRow = '<tr class="kr-detail-total"><td style="text-align:left;font-weight:700">TOTAL</td><td><strong>' +
       (hAct ? fmtKRVal(tAct, unit) : '—') + '</strong></td>' + cumplCellHtml(tc, tCStr, true) +
       '<td class="' + yoyColor(tYoy) + '"><strong>' + yoyIcon(tYoy) + '</strong></td></tr>';
@@ -3548,7 +3577,7 @@ function renderStatusKRsH2DetailBoxes_(monthFilter) {
   function rowsFor(metricField, predAct, predBud) {
     return FVM_DETAIL.map(function(def){
       var d = computeKRH2ForPaisList_(def.pais, metricField, predAct, predBud, monthFilter);
-      return { name: def.name, actual: toM(d.actual), budget: toM(d.budget), ly: toM(d.ly) };
+      return { name: def.name, actual: toM(d.actual), actualY: d.actualY != null ? toM(d.actualY) : null, budget: toM(d.budget), ly: toM(d.ly) };
     });
   }
   var isAPI  = function(r){ return r.parent_channel === 'API'; };
@@ -3566,7 +3595,7 @@ function renderStatusKRsH2DetailBoxes_(monthFilter) {
     // tienen datos y en $K (en API son montos chicos). La tabla principal sigue mostrando el conjunto.
     var inK = function(rows) {
       return rows.filter(function(r){ return r.actual || r.budget || r.ly; }).map(function(r){
-        return { name: r.name, actual: r.actual * 1000, budget: r.budget * 1000, ly: r.ly * 1000 };
+        return { name: r.name, actual: r.actual * 1000, actualY: r.actualY != null ? r.actualY * 1000 : null, budget: r.budget * 1000, ly: r.ly * 1000 };
       });
     };
     var npCol = document.createElement('div');
