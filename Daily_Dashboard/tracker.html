@@ -2461,6 +2461,7 @@ function fmtKRVal(val, unit) {
   if (unit === 'int') return Math.round(val).toLocaleString('es-AR');
   if (unit === '$M')  return '$ ' + val.toFixed(2) + ' M';
   if (unit === '$K')  return '$ ' + val.toFixed(1) + ' K';
+  if (unit === '$Kint') return '$ ' + (Math.round(val) || 0).toLocaleString('es-AR') + ' K';   // miles enteros con separador (|| 0: sin "-0")
   return String(val);
 }
 
@@ -3439,10 +3440,12 @@ function renderStatusKRsH2() {
 
   var tbody = document.getElementById('statusKRsH2Body');
   tbody.innerHTML = '';
-  function row(name, peso, d, cVal) {
+  // inK: FVM y New Products se muestran en miles ($K), que se leen mejor que $ 0.44 M.
+  function row(name, peso, d, cVal, inK) {
     var hasData = (d.actual !== 0 || d.budget !== 0);
-    var actStr = hasData ? fmtKRVal(toM(d.actual), '$M') : '—';
-    var budStr = hasData ? fmtKRVal(toM(d.budget), '$M') : '—';
+    var fmt = function(v){ return inK ? fmtKRVal(toM(v) * 1000, '$Kint') : fmtKRVal(toM(v), '$M'); };
+    var actStr = hasData ? fmt(d.actual) : '—';
+    var budStr = hasData ? fmt(d.budget) : '—';
     var cStr   = cVal !== null ? (cVal * 100).toFixed(0) + '%' : '—';
     var tr = document.createElement('tr');
     tr.innerHTML =
@@ -3455,9 +3458,9 @@ function renderStatusKRsH2() {
   }
   var chLbl = chShow === 'api' ? ' (API)' : chShow === 'html' ? ' (HTML)' : '';
   tbody.appendChild(row('Net Revenues $M' + chLbl,        '30%', nr,      nrCDisp));
-  if (chShow !== 'html') tbody.appendChild(row('API FVM $M',  '20%', fvmApi,  apiCDisp));
-  if (chShow !== 'api')  tbody.appendChild(row('HTML FVM $M', '20%', fvmHtml, htmlCDisp));
-  tbody.appendChild(row('New Products Growth $M' + chLbl, '15%', nrfd,    npCDisp));
+  if (chShow !== 'html') tbody.appendChild(row('API FVM $K',  '20%', fvmApi,  apiCDisp, true));
+  if (chShow !== 'api')  tbody.appendChild(row('HTML FVM $K', '20%', fvmHtml, htmlCDisp, true));
+  tbody.appendChild(row('New Products Growth $K' + chLbl, '15%', nrfd,    npCDisp, true));
 
   // Accelerate Recurrence — solo canal HTML: en Total y HTML (en la vista API no aplica).
   var rec = recurH2_(krYM), recC = null;
@@ -3615,15 +3618,19 @@ function renderStatusKRsH2DetailBoxes_(monthFilter) {
   var chLbl  = krH2Channel === 'api' ? ' (API)' : krH2Channel === 'html' ? ' (HTML)' : '';
 
   grid.appendChild(makeBox('Net Revenues $M' + chLbl, rowsFor('net_revenue', chPred, chPred)));
-  if (krH2Channel !== 'html') grid.appendChild(makeBox('API FVM $M',  rowsFor('fvm', isAPI,  isAPI)));
-  if (krH2Channel !== 'api')  grid.appendChild(makeBox('HTML FVM $M', rowsFor('fvm', isHTML, isHTML)));
+  // FVM y New Products en miles ($K enteros): con $M quedaban montos tipo $ 0.08 M, difíciles de leer.
+  var toK = function(rows) {
+    return rows.map(function(r){
+      return { name: r.name, actual: r.actual * 1000, actualY: r.actualY != null ? r.actualY * 1000 : null, budget: r.budget * 1000, ly: r.ly * 1000 };
+    });
+  };
+  if (krH2Channel !== 'html') grid.appendChild(makeBox('API FVM $K',  toK(rowsFor('fvm', isAPI,  isAPI)),  '$Kint'));
+  if (krH2Channel !== 'api')  grid.appendChild(makeBox('HTML FVM $K', toK(rowsFor('fvm', isHTML, isHTML)), '$Kint'));
   if (krH2Channel === 'api') {
     // En API, New Products se abre en Flights y Dest. Serv. (uno abajo del otro), solo con los países que
     // tienen datos y en $K (en API son montos chicos). La tabla principal sigue mostrando el conjunto.
     var inK = function(rows) {
-      return rows.filter(function(r){ return r.actual || r.budget || r.ly; }).map(function(r){
-        return { name: r.name, actual: r.actual * 1000, actualY: r.actualY != null ? r.actualY * 1000 : null, budget: r.budget * 1000, ly: r.ly * 1000 };
-      });
+      return toK(rows.filter(function(r){ return r.actual || r.budget || r.ly; }));
     };
     var npCol = document.createElement('div');
     npCol.className = 'kr-detail-column';
@@ -3634,7 +3641,7 @@ function renderStatusKRsH2DetailBoxes_(monthFilter) {
     });
     grid.appendChild(npCol);
   } else {
-    grid.appendChild(makeBox('New Products Growth $M' + chLbl, rowsFor('net_revenue', isNPa, isNPb)));
+    grid.appendChild(makeBox('New Products Growth $K' + chLbl, toK(rowsFor('net_revenue', isNPa, isNPb)), '$Kint'));
   }
 
   // Accelerate Recurrence (solo HTML): País | Actuals | % Cumpl. | Rolling L4W | Rolling vs Target.
