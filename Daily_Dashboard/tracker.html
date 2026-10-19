@@ -720,6 +720,16 @@
   body.slides-mode #statusKRsH2Table td {
     font-size: 1.15rem !important; padding: 8px 12px !important; white-space: normal !important;
   }
+  /* H2: la tabla principal más chica que en H1 para dejarle lugar a los 5 recuadros de detalle, que
+     fitKrDetailGrid_ agranda hasta llenar la slide (con 1.15rem la tabla se comía la slide y el detalle
+     quedaba diminuto). */
+  body.slides-mode #statusKRsH2Table th,
+  body.slides-mode #statusKRsH2Table td { font-size: 1rem !important; padding: 5px 12px !important; }
+  /* El límite para agrandarlos es el ancho (5 recuadros en fila): menos aire horizontal = más zoom. */
+  body.slides-mode #statusKRsH2DetailGrid { gap: 8px; }
+  body.slides-mode #statusKRsH2DetailGrid .kr-detail-box { padding: 8px 8px; }
+  body.slides-mode #statusKRsH2DetailGrid .kr-detail-table td,
+  body.slides-mode #statusKRsH2DetailGrid .kr-detail-table th { padding: 3px 3px; }
 
   /* ── Cover slides ── */
   #slideCover { display: none; }
@@ -3477,6 +3487,7 @@ function renderStatusKRsH2() {
     // Vista filtrada: sin OVERALL (el ponderado solo aplica al Total).
     renderStatusKRsH2DetailBoxes_(krYM);
     wrap.style.display = 'block';
+    fitKrDetailGrid_(document.getElementById('statusKRsH2DetailGrid'), KR_H2_SLIDE_MAX_ZOOM);
     return;
   }
 
@@ -3499,19 +3510,21 @@ function renderStatusKRsH2() {
 
   renderStatusKRsH2DetailBoxes_(krYM);
   wrap.style.display = 'block';
-  fitKrDetailGrid_(document.getElementById('statusKRsH2DetailGrid'));
+  fitKrDetailGrid_(document.getElementById('statusKRsH2DetailGrid'), KR_H2_SLIDE_MAX_ZOOM);
 }
 
 // Slides: si algún recuadro de KR no entra (su tabla es más ancha que el recuadro) o la grilla se pasa
-// del borde de abajo de la slide, achica la grilla con zoom hasta que entre (mínimo 60%). En pantalla
+// del borde de abajo de la slide, achica la grilla con zoom hasta que entre (mínimo 60%). Con maxZoom > 1
+// arranca más grande y se queda con el mayor zoom que entra (llena el lugar libre de la slide). En pantalla
 // no hace nada: ahí los recuadros no bajan de su ancho mínimo (min-width: min-content) y pasan a otra fila.
-function fitKrDetailGrid_(grid) {
+var KR_H2_SLIDE_MAX_ZOOM = 1.25;   // H2: los recuadros de detalle pueden crecer hasta 125% si entran en la slide
+function fitKrDetailGrid_(grid, maxZoom) {
   if (!grid) return;
   grid.style.zoom = '';
   if (!_isSlidesMode) return;
   requestAnimationFrame(function() {
     var slide = document.getElementById('slideContent');
-    if (!grid.offsetHeight || !slide) return;
+    if (!_isSlidesMode || !grid.offsetHeight || !slide) return;   // pudo salir de slides en este frame
     function overflows() {
       for (var i = 0; i < grid.children.length; i++) {
         var b = grid.children[i];
@@ -3519,7 +3532,9 @@ function fitKrDetailGrid_(grid) {
       }
       return grid.getBoundingClientRect().bottom > slide.getBoundingClientRect().bottom - 4;
     }
-    for (var z = 0.95; z >= 0.6 && overflows(); z -= 0.05) grid.style.zoom = z.toFixed(2);
+    var z = maxZoom || 1;
+    if (z !== 1) grid.style.zoom = z.toFixed(2);
+    while (z > 0.6 && overflows()) { z = Math.round((z - 0.05) * 100) / 100; grid.style.zoom = z.toFixed(2); }
   });
 }
 
