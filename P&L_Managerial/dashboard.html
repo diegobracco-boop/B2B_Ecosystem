@@ -853,6 +853,11 @@ header .btn-refresh:hover{background:#f5f3ff !important;border-color:#c4b5fd;col
       <button id="mg-period-q" class="prd-btn prd-active" type="button" onclick="setMGPeriod('quarter')">Quarter</button>
       <button id="mg-period-h" class="prd-btn"            type="button" onclick="setMGPeriod('half')">Half</button>
     </div>
+    <span style="font-size:11px;color:var(--muted);font-weight:700;margin-left:6px">Año:</span>
+    <div class="prd-toggle" id="year-mode-toggle">
+      <button id="year-mode-fy" class="prd-btn prd-active" type="button" onclick="setYearMode('fy')">Fiscal</button>
+      <button id="year-mode-cy" class="prd-btn"            type="button" onclick="setYearMode('cy')">Calendario</button>
+    </div>
     <span style="width:1px;height:18px;background:rgba(0,0,0,.15);margin:0 6px"></span>
     <span style="font-size:11px;color:var(--muted);font-weight:700">Baseline:</span>
     <div class="prd-toggle" id="baseline-switcher">
@@ -1193,12 +1198,28 @@ var _gatewayOptions = [];         // gateways de Hotels (B2B) — llegan en d.fi
 var MES_LABEL_C = {};   // mes calendario (1-12) → 'Abr-26'
 FY_YMS.forEach(function(ym, i){ MES_LABEL_C[Number(ym.slice(5))] = FY_MLABELS[i]; });
 
-var QUARTERS = [0,1,2,3].map(function(q){
-  return { label:'Q' + (q + 1) + ' ' + FY_TAG, months: FY_MLABELS.slice(q * 3, q * 3 + 3) };
-});
-var HALVES = [0,1].map(function(h){
-  return { label:'H' + (h + 1) + ' ' + FY_TAG, months: FY_MLABELS.slice(h * 6, h * 6 + 6) };
-});
+// ── Año Fiscal / Calendario (2026-10-20) ─────────────────────────────────
+// Fiscal (default): Abr-26 … Mar-27, Q/H del FY, "Total FY27". Calendario: Ene-26 … Dic-26
+// (Ene–Mar 26 son los meses previos al FY: solo Actuals + LY), Q/H calendario, "Total CY26".
+// Todo lo que arma períodos lee estas variables, que setYearMode() recalcula.
+var _yearMode = 'fy';   // 'fy' | 'cy'
+var CY_YEAR   = FY_END_YEAR - 1;                                   // 2026
+var CY_TAG    = 'CY' + String(CY_YEAR).slice(-2);                  // 'CY26'
+var CY_MLABELS = PRE_MLABELS.concat(FY_MLABELS.slice(0, 9));       // 'Ene-26'…'Dic-26'
+var YEAR_TAG, YEAR_MLABELS, QUARTERS, HALVES;
+function _buildYearPeriods_(){
+  YEAR_TAG     = _yearMode === 'cy' ? CY_TAG : FY_TAG;
+  YEAR_MLABELS = _yearMode === 'cy' ? CY_MLABELS : FY_MLABELS;
+  QUARTERS = [0,1,2,3].map(function(q){
+    return { label:'Q' + (q + 1) + ' ' + YEAR_TAG, months: YEAR_MLABELS.slice(q * 3, q * 3 + 3) };
+  });
+  HALVES = [0,1].map(function(h){
+    return { label:'H' + (h + 1) + ' ' + YEAR_TAG, months: YEAR_MLABELS.slice(h * 6, h * 6 + 6) };
+  });
+}
+_buildYearPeriods_();
+function inYearMode_(m){ return YEAR_MLABELS.indexOf(m) >= 0; }
+function yearLyTag_(){ return YEAR_TAG.replace(/\d\d$/, function(y){ return ('0' + (Number(y) - 1)).slice(-2); }); }
 var ALL_MONTHS_ORD_BG = FY_MLABELS.slice();
 
 function aggregatePeriods(sourceAgg, groups, availMonths) {
@@ -2404,7 +2425,9 @@ function renderDetalle() {
   var gwNoticeEl = document.getElementById('detalle-gw-notice');
   if(gwNoticeEl) gwNoticeEl.innerHTML = isB2B ? _gwNoticeHtml_(_dataD) : _tpNoticeHtml_(_dataD);
 
-  var months = _dataD.months || [];
+  var months = (_dataD.months || []).filter(inYearMode_);
+  // Columnas con Ene–Mar previos al FY (Año Calendario): sin Budget/Forecast → Δ goal n/d
+  var colPre = months.map(isPreMonth_);
 
   function normD(s){ return String(s||'').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,''); }
   function lkup(obj, name){
@@ -2457,6 +2480,7 @@ function renderDetalle() {
   // Agrupación de período (Mes / Quarter / Half): reagrupa columnas y usa las etiquetas como "meses"
   if(_managerialBGPeriod !== 'month'){
     var _cols = detalleCols_(months);
+    colPre = _cols.map(function(c){ return c.months.some(isPreMonth_); });
     if(pcmY) pcmY = detalleAggToPeriods_(pcmY, _cols);
     pcm = detalleAggToPeriods_(pcm, _cols);
     bcm = detalleAggToPeriods_(bcm, _cols);
@@ -2510,13 +2534,13 @@ function renderDetalle() {
   var colspan = months.length + 3;
   var hHtml = '<tr><th class="th-partner">'+(isB2B?'Canal / Producto':'Partner')+'</th><th style="min-width:80px;text-align:left;color:rgba(196,181,253,.6);font-weight:600;font-size:10px">Indicador</th>';
   months.forEach(function(m){ hHtml+='<th>'+m+'</th>'; });
-  hHtml+='<th class="detalle-td-sep">Total FY</th></tr>';
+  hHtml+='<th class="detalle-td-sep">Total '+YEAR_TAG+'</th></tr>';
   headEl.innerHTML = hHtml;
 
   var ZERO = months.map(function(){return 0;});
-  // "Total FY" no suma los Ene–Mar previos al FY (vistos como columnas sueltas en Mes)
-  var inTot = months.map(function(m){ return !isPreMonth_(m); });
-  function sumT(arr){ return arr.reduce(function(a,v,i){ return inTot[i] ? a+v : a; },0); }
+  // Total = todos los meses visibles (ya filtrados al año elegido)
+  function sumT(arr){ return arr.reduce(function(a,v){ return a+v; },0); }
+  var goalPreNA = _managerialGoal !== 'ly';   // Δ Budget/Forecast n/d donde hay meses previos
   // pyData (opcional): baseline a TC Actuals LY → mFCY, con lo que se calcula el YoY% (organic opción B)
   function seriesFor(pData, pbData, plData, pyData){
     var mFC = months.map(function(m){return pData[m] ?pData[m][mk] ||0:0;});
@@ -2539,13 +2563,13 @@ function renderDetalle() {
   function entityRows(labelHtml, s, o){
     o=o||{};
     var mFC=s.mFC, mBgt=s.mBgt, mLY=s.mLY, mFCY=s.mFCY||s.mFC;
-    var mDBgt=months.map(function(_,i){return mBgt[i]!==0?mFC[i]-mBgt[i]:null;});
+    var mDBgt=months.map(function(_,i){return (goalPreNA && colPre[i]) ? null : mBgt[i]!==0?mFC[i]-mBgt[i]:null;});
     var mYoY =months.map(function(_,i){return mLY[i]!==0?(mFCY[i]-mLY[i])/Math.abs(mLY[i])*100:null;});
     var totFC=sumT(mFC);
     var totFCY=sumT(mFCY);
     var totBgt=sumT(mBgt);
     var totLY=sumT(mLY);
-    var totDBgt=totBgt!==0?totFC-totBgt:null;
+    var totDBgt=(goalPreNA && colPre.some(Boolean)) ? null : totBgt!==0?totFC-totBgt:null;
     var totYoY =totLY!==0?(totFCY-totLY)/Math.abs(totLY)*100:null;
 
     var isSub=!!o.isSubtotal;
@@ -2694,7 +2718,7 @@ function renderPalancasTable(months,agg,budgetAgg,lyAgg,headEl,bodyEl){
 // ── Main render ────────────────────────────────────────────────────────────
 function render(){
   if(!_data) return;
-  var months=_data.months||[], agg=_data.agg||{}, budgetAgg=_data.budget||{}, lyAgg=_data.ly||{};
+  var months=(_data.months||[]).filter(inYearMode_), agg=_data.agg||{}, budgetAgg=_data.budget||{}, lyAgg=_data.ly||{};
   var _pl=document.getElementById('period-label');
   if(_pl) _pl.textContent=months.length===0?'':months.length===1?months[0]:months[0]+' → '+months[months.length-1];
 
@@ -2714,8 +2738,22 @@ function render(){
 }
 
 // ── Baseline vs Goal (Managerial) ──────────────────────────────────────────
-var MG_MONTHS_ORD = FY_MLABELS.slice();
-var MG_TOTAL_LABEL = 'Total ' + FY_TAG;
+var MG_MONTHS_ORD = YEAR_MLABELS.slice();
+var MG_TOTAL_LABEL = 'Total ' + YEAR_TAG;
+function setYearMode(mode){
+  if(_yearMode === mode) return;
+  _yearMode = mode;
+  _buildYearPeriods_();
+  MG_MONTHS_ORD  = YEAR_MLABELS.slice();
+  MG_TOTAL_LABEL = 'Total ' + YEAR_TAG;
+  _mgPeriodSel = null;
+  ['fy','cy'].forEach(function(m){
+    var b = document.getElementById('year-mode-' + m);
+    if(b) b.classList.toggle('prd-active', m === mode);
+  });
+  renderMGPeriodChips_();
+  if(_data) { updateActualsLegend(_data.actual_months || []); render(); }
+}
 
 function mgPeriodMonths_(p){
   if(p===MG_TOTAL_LABEL) return MG_MONTHS_ORD;
@@ -2740,20 +2778,20 @@ function _mgFilterPeriods_(full){
 
 function mgGetPeriods_(){
   var mode = _managerialBGPeriod;
-  if(mode === 'month') return _mgFilterPeriods_(_data.months||[]).concat([MG_TOTAL_LABEL]);
+  if(mode === 'month') return _mgFilterPeriods_((_data.months||[]).filter(inYearMode_)).concat([MG_TOTAL_LABEL]);
   if(mode === 'half')  return _mgFilterPeriods_(HALVES.map(function(h){ return h.label; })).concat([MG_TOTAL_LABEL]);
   return _mgFilterPeriods_(QUARTERS.map(function(q){ return q.label; })).concat([MG_TOTAL_LABEL]);
 }
 
 var MG_MONTH_CHIP_LABELS = {};   // 'Abr-26' → 'Abr'
 // Ene–Mar del FY llevan año para no confundirse con los Ene–Mar previos ('Ene-26' vs 'Ene-27')
-FY_MLABELS.forEach(function(l){ MG_MONTH_CHIP_LABELS[l] = isPreMonth_(fyShiftLabel_(l, -1)) ? l : fyStripYear_(l); });
+FY_MLABELS.concat(PRE_MLABELS).forEach(function(l){ MG_MONTH_CHIP_LABELS[l] = fyStripYear_(l); });   // un solo año visible por modo
 
 function renderMGPeriodChips_(){
   var wrap = document.getElementById('mg-period-chips');
   if(!wrap) return;
   var items;
-  if(_managerialBGPeriod === 'month') items = (_data && _data.months ? _data.months : MG_MONTHS_ORD).map(function(p){ return {v:p, l: MG_MONTH_CHIP_LABELS[p]||p}; });
+  if(_managerialBGPeriod === 'month') items = (_data && _data.months ? _data.months.filter(inYearMode_) : MG_MONTHS_ORD).map(function(p){ return {v:p, l: MG_MONTH_CHIP_LABELS[p]||p}; });
   else if(_managerialBGPeriod === 'half') items = HALVES.map(function(h){ return h.label; }).map(function(p){ return {v:p, l:p.split(' ')[0]}; });
   else items = QUARTERS.map(function(q){ return q.label; }).map(function(p){ return {v:p, l:p.split(' ')[0]}; });
   var allActive = !_mgPeriodSel || !_mgPeriodSel.length;
@@ -2786,11 +2824,11 @@ function clearMGPeriodSel_(){
 }
 function mgGoalPeriodLabel_(p){
   if(_managerialGoal !== 'ly') return p;
-  if(p.indexOf(FY_TAG) >= 0) return p.replace(FY_TAG, FY_LY_TAG);
+  if(p.indexOf(YEAR_TAG) >= 0) return p.replace(YEAR_TAG, yearLyTag_());
   return fyShiftLabel_(p, -1);
 }
 function mgDeltaPeriodLabel_(p){
-  return 'Δ ' + p.replace(/ FY\d+/,'');
+  return 'Δ ' + p.replace(/ [FC]Y\d+/,'');
 }
 
 function setMGGoal(goal){
@@ -2892,22 +2930,17 @@ function _buildMGPanel_(container, agg, goalData, title, periods, n, isLast, goa
   if(goalNA) goalData = {};
   var bAggs = {}, gAggs = {};
   // totalMonths = unión de meses de los períodos visibles (excluye la columna Total misma).
-  // Ene–Mar previos al FY no suman al Total del FY; si son lo único visible, el Total es de ellos.
-  var totalMonths = [], preMonths = [];
+  var totalMonths = [];
   periods.forEach(function(p){
-    if(p !== MG_TOTAL_LABEL) mgPeriodMonths_(p).forEach(function(m){
-      var arr = isPreMonth_(m) ? preMonths : totalMonths;
-      if(arr.indexOf(m)<0) arr.push(m);
-    });
+    if(p !== MG_TOTAL_LABEL) mgPeriodMonths_(p).forEach(function(m){ if(totalMonths.indexOf(m)<0) totalMonths.push(m); });
   });
-  var totalIsPre = !totalMonths.length && preMonths.length > 0;
-  if(totalIsPre) totalMonths = preMonths;
-  // Goal n/d por columna: modo gateway/tipo, o mes previo al FY con Goal Budget/Forecast (no existen)
+  // Goal n/d por columna: modo gateway/tipo/millas, o período que incluye Ene–Mar previos al FY
+  // (Año Calendario) con Goal Budget/Forecast — no existen para esos meses.
   function naP(p){
-    return goalNA || (_managerialGoal !== 'ly' && (p === MG_TOTAL_LABEL ? totalIsPre : isPreMonth_(p)));
+    var ms = p === MG_TOTAL_LABEL ? totalMonths : mgPeriodMonths_(p);
+    return goalNA || (_managerialGoal !== 'ly' && ms.some(isPreMonth_));
   }
   function perLbl(p, kind){
-    if(p === MG_TOTAL_LABEL && totalIsPre) return kind === 'd' ? 'Δ Total' : 'Total';
     return kind === 'g' ? mgGoalPeriodLabel_(p) : kind === 'd' ? mgDeltaPeriodLabel_(p) : p;
   }
   periods.forEach(function(p){
@@ -3109,6 +3142,7 @@ function _renderMGKpis_(container, agg, goalData, goalLabel, lyData, aggY){
   if(!months.length) return;
   var goalNA = goalData === null;   // modo gateway con Goal = Budget/Forecast
   if(goalNA) goalData = {};
+  if(!goalNA && _managerialGoal !== 'ly' && months.some(isPreMonth_)) goalNA = true;   // CY con Ene–Mar previos: sin Budget/Forecast
   var b = mgAggPeriod_(agg, months), g = mgAggPeriod_(goalData, months), ly = mgAggPeriod_(lyData||{}, months);
   var bY = aggY ? mgAggPeriod_(aggY, months) : b;   // YoY: baseline a TC Actuals LY (organic opción B)
   var items = [
@@ -3117,7 +3151,7 @@ function _renderMGKpis_(container, agg, goalData, goalLabel, lyData, aggY){
     {l:'FVM',            k:'npv',            f:fmtM},
     {l:'Orders',         k:'orders',         f:fmtK}
   ];
-  var h = '<div class="xkpi-head"><span class="xkpi-title">Resumen '+FY_TAG+' · Baseline vs '+escHtml(goalLabel.charAt(0)+goalLabel.slice(1).toLowerCase())+'</span></div><div class="xkpi-row">';
+  var h = '<div class="xkpi-head"><span class="xkpi-title">Resumen '+YEAR_TAG+' · Baseline vs '+escHtml(goalLabel.charAt(0)+goalLabel.slice(1).toLowerCase())+'</span></div><div class="xkpi-row">';
   items.forEach(function(it){
     var bv = getValue(it.k, b)||0, gv = getValue(it.k, g)||0, d = bv-gv;
     var pct = gv ? (d/Math.abs(gv)*100) : null;
@@ -3133,7 +3167,7 @@ function _renderMGKpis_(container, agg, goalData, goalLabel, lyData, aggY){
           : '<div class="xkpi-sub"><span class="xkpi-delta '+cls+'">'+(pct===null?'—':sign+pct.toFixed(1)+'%')+'</span>'
             + '<span>'+sign+it.f(d)+' vs '+escHtml(goalLabel.charAt(0)+goalLabel.slice(1).toLowerCase())+'</span></div>')
        + '<div class="xkpi-sub xkpi-yoy"><span class="xkpi-delta '+ycls+'">'+(ypct===null?'—':(yd>=0?'+':'')+ypct.toFixed(1)+'%')+'</span>'
-       + '<span>YoY vs '+it.f(lv)+' ('+FY_LY_TAG+')</span></div></div>';
+       + '<span>YoY vs '+it.f(lv)+' ('+yearLyTag_()+')</span></div></div>';
   });
   var wrap = document.createElement('div');
   wrap.innerHTML = h + '</div>';
@@ -4333,9 +4367,12 @@ function updateActualsLegend(actualMonths) {
   var el = document.getElementById('actuals-legend');
   if (!el) return;
   if (!actualMonths || !actualMonths.length) { el.style.display = 'none'; return; }
+  // Año Calendario: los Ene–Mar previos también son Actuals y las proyecciones terminan en Dic
+  var yms = _yearMode === 'cy' ? PRE_YMS.concat(FY_YMS.slice(0, 9)) : FY_YMS;
+  if (_yearMode === 'cy') actualMonths = PRE_YMS.concat(actualMonths);
   var actSet = {};
   actualMonths.forEach(function(ym){ actSet[ym] = true; });
-  var projMonths = FY_YMS.filter(function(ym){ return !actSet[ym]; });
+  var projMonths = yms.filter(function(ym){ return !actSet[ym]; });
 
   var actLabel  = _ymToShort(actualMonths[0]) + ' – ' + _ymToShort(actualMonths[actualMonths.length - 1]);
   var projLabel = projMonths.length
@@ -4405,8 +4442,7 @@ function fetchData(){
       _maybeFillTipoMs_(d);
       _maybeFillMillas_(d);
       _syncViajeOptions_(d);
-      var _preAct = PRE_YMS.filter(function(ym, i){ return (d.months || []).indexOf(PRE_MLABELS[i]) >= 0; });
-      updateActualsLegend((d.actual_months || []).length ? _preAct.concat(d.actual_months) : []);
+      updateActualsLegend(d.actual_months || []);
       render();
       document.getElementById('last-upd').textContent = 'Actualizado: '+new Date().toLocaleTimeString('es-AR') + (d.organic && !d.organic.error ? ' · ORGANIC (TC '+_orgTargetLabel_()+')' : '');
       document.getElementById('loader').style.display = 'none';
@@ -4521,7 +4557,7 @@ var _charts = {};
 
 function renderTrendCharts(months, agg, budgetAgg, lyAgg){
   if(typeof Chart === 'undefined') return;
-  months = (months || []).filter(function(m){ return !isPreMonth_(m); });   // Trend view: solo el FY
+  months = (months || []).filter(inYearMode_);   // Trend view: meses del año elegido (Fiscal / Calendario)
   budgetAgg = budgetAgg || {};
   lyAgg     = lyAgg || {};
 
