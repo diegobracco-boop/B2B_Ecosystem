@@ -118,12 +118,16 @@ function organicConverter_(target) {
   Object.keys(act).forEach(function(k) { paisesFx[k.split('§')[0]] = true; });
   var missing = {};
   function f(pais, ym) {
+    // Ene–Mar previos al FY (PRE_YM_, Codigo.js): no hay TC de Budget/Forecast; contra esos goals
+    // quedan a TC Actuals (no hay goal con qué compararlos). Contra LY se convierten normal.
+    if (tgt && !YM_LABEL[ym]) return 1;
     var pai = _fxNorm_(pais);
     pai = _FX_PAIS_ALIAS_[pai] || pai;
     if (!paisesFx[pai]) return 1;
     var a = act[pai + '§' + ym];
     var t = tgt ? tgt[pai + '§' + ym] : act[pai + '§' + _fxShiftYm_(ym, -1)];
     if (!a || !t) {
+      if (!YM_LABEL[ym]) return 1;   // Ene–Mar previos: el xlsx puede no traer TC de FY25 → nominal, sin aviso
       missing[pai + ' ' + ym + (a ? '' : ' (actuals)') + (t ? '' : ' (' + (target === 'ly' ? 'actuals LY' : target) + ')')] = true;
       return 1;
     }
@@ -134,7 +138,7 @@ function organicConverter_(target) {
 
 // Devuelve una copia de `json` con las filas del baseline (`keys`: bl / bl_ri / ac_gw / ac_ri_gw)
 // convertidas a organic. Formatos de fila (ver Codigo.js):
-//   b2b2c:           [pais, partner, produto, ym, v0..v28]
+//   b2b2c:           [pais, partner, produto, ym, v0..v28] (ac_tp: + tipo al final)
 //   b2b_may/b2b_min: [pais, produto|gateway, ym, v0..v28, viaje]
 // v0 = orders → no se convierte. No muta el JSON original (lo cachea readGestionalJSON_).
 function organicGestionalJson_(json, keys, conv) {
@@ -143,9 +147,9 @@ function organicGestionalJson_(json, keys, conv) {
     var sec = json[s[0]];
     if (!sec) return;
     var iYm = s[1], off = s[2], ns = Object.assign({}, sec);
-    // B2B2C tiene fecha única: su baseline es siempre 'bl' (aunque se pida RI)
-    (s[0] === 'b2b2c' ? keys.concat(['bl']) : keys).forEach(function(k) {
-      if (!sec[k] || (s[0] === 'b2b2c' && k !== 'bl')) return;
+    // B2B2C tiene fecha única: su baseline es siempre 'bl' (aunque se pida RI), o 'ac_tp' en modo tipo
+    (s[0] === 'b2b2c' ? ['bl'].concat(keys.indexOf('ac_tp') >= 0 ? ['ac_tp'] : []) : keys).forEach(function(k) {
+      if (!sec[k]) return;
       ns[k] = sec[k].map(function(row) {
         var f = conv.f(row[0], row[iYm]);
         if (f === 1) return row;

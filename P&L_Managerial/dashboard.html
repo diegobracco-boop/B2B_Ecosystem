@@ -890,6 +890,21 @@ header .btn-refresh:hover{background:#f5f3ff !important;border-color:#c4b5fd;col
         <span style="font-size:11px;color:var(--muted);font-weight:700;margin-left:6px">Prod.:</span>
         <div class="pais-chips" id="produto-chips"></div>
       </div>
+      <!-- Tipo de producto (product_type: Vuelos, Hoteles, Disney…): solo B2B2C, Actuals + LY -->
+      <div id="pnl-tipo-row" style="display:none;align-items:center;gap:6px;flex-wrap:wrap">
+        <span style="font-size:11px;color:var(--muted);font-weight:700;margin-left:6px">Tipo prod.:</span>
+        <div class="ms-wrap" id="ms-tipo">
+          <button class="ms-btn" type="button">
+            <span class="ms-label">Todos</span>
+            <span class="ms-arrow">▾</span>
+          </button>
+          <div class="ms-panel">
+            <div class="ms-search"><input type="text" placeholder="Buscar…" oninput="filterOptions('ms-tipo',this.value)"></div>
+            <div class="ms-options"></div>
+            <div class="ms-footer"><button class="ms-clear" type="button" onclick="clearTipoMs_('ms-tipo')">Limpiar selección</button></div>
+          </div>
+        </div>
+      </div>
       <!-- Viaje (Nacional / Internacional): solo B2B, todos los escenarios -->
       <div id="pnl-viaje-row" style="display:none;align-items:center;gap:6px;flex-wrap:wrap">
         <span style="font-size:11px;color:var(--muted);font-weight:700;margin-left:6px">Viaje:</span>
@@ -929,6 +944,21 @@ header .btn-refresh:hover{background:#f5f3ff !important;border-color:#c4b5fd;col
         <span style="font-size:11px;color:var(--muted);font-weight:700;margin-left:10px">Prod.:</span>
         <div class="pais-chips" id="gtab-produto-chips"></div>
       </div>
+      <!-- Tipo de producto (product_type: Vuelos, Hoteles, Disney…): solo B2B2C, Actuals + LY -->
+      <div id="gtab-tipo-row" style="display:none;align-items:center;gap:6px;flex-wrap:wrap">
+        <span style="font-size:11px;color:var(--muted);font-weight:700;margin-left:6px">Tipo prod.:</span>
+        <div class="ms-wrap" id="ms-tipo-g">
+          <button class="ms-btn" type="button">
+            <span class="ms-label">Todos</span>
+            <span class="ms-arrow">▾</span>
+          </button>
+          <div class="ms-panel">
+            <div class="ms-search"><input type="text" placeholder="Buscar…" oninput="filterOptions('ms-tipo-g',this.value)"></div>
+            <div class="ms-options"></div>
+            <div class="ms-footer"><button class="ms-clear" type="button" onclick="clearTipoMs_('ms-tipo-g')">Limpiar selección</button></div>
+          </div>
+        </div>
+      </div>
       <div id="gtab-viaje-row" style="display:none;align-items:center;gap:6px;flex-wrap:wrap">
         <span style="font-size:11px;color:var(--muted);font-weight:700;margin-left:6px">Viaje:</span>
         <div class="pais-chips" id="gtab-viaje-chips"></div>
@@ -956,6 +986,21 @@ header .btn-refresh:hover{background:#f5f3ff !important;border-color:#c4b5fd;col
       <div id="detalle-produto-row" style="display:none;align-items:center;gap:6px;flex-wrap:wrap">
         <span style="font-size:11px;color:var(--muted);font-weight:700;margin-left:6px">Prod.:</span>
         <div class="pais-chips" id="detalle-produto-chips"></div>
+      </div>
+      <!-- Tipo de producto (product_type: Vuelos, Hoteles, Disney…): solo B2B2C, Actuals + LY -->
+      <div id="detalle-tipo-row" style="display:none;align-items:center;gap:6px;flex-wrap:wrap">
+        <span style="font-size:11px;color:var(--muted);font-weight:700;margin-left:6px">Tipo prod.:</span>
+        <div class="ms-wrap" id="ms-tipo-d">
+          <button class="ms-btn" type="button">
+            <span class="ms-label">Todos</span>
+            <span class="ms-arrow">▾</span>
+          </button>
+          <div class="ms-panel">
+            <div class="ms-search"><input type="text" placeholder="Buscar…" oninput="filterOptions('ms-tipo-d',this.value)"></div>
+            <div class="ms-options"></div>
+            <div class="ms-footer"><button class="ms-clear" type="button" onclick="clearTipoMs_('ms-tipo-d')">Limpiar selección</button></div>
+          </div>
+        </div>
       </div>
       <div id="detalle-viaje-row" style="display:none;align-items:center;gap:6px;flex-wrap:wrap">
         <span style="font-size:11px;color:var(--muted);font-weight:700;margin-left:6px">Viaje:</span>
@@ -1073,6 +1118,12 @@ function fyShiftLabel_(lbl, n){   // 'Abr-26' → 'Abr-25' (n = -1)
   return String(lbl).replace(/-(\d\d)$/, function(_, y){ return '-' + ('0' + (Number(y) + n)).slice(-2); });
 }
 function fyStripYear_(lbl){ return String(lbl).replace(/-\d\d$/, ''); }   // 'Abr-26' → 'Abr'
+// Ene–Mar PREVIOS al FY (2026-10-19): Managerial View y Detalle los muestran antes de Abr como meses
+// sueltos — solo Actuals + LY (no hay Budget/Forecast: contra esos goals van '—'). No entran en Q/H
+// ni en el Total del FY; Trend view sigue mostrando solo el FY. Mismo criterio que PRE_YM_ de Codigo.js.
+var PRE_YMS     = ['01','02','03'].map(function(mm){ return (FY_END_YEAR - 1) + '-' + mm; });
+var PRE_MLABELS = ['Ene','Feb','Mar'].map(function(m){ return m + '-' + String(FY_END_YEAR - 1).slice(-2); });   // 'Ene-26'…
+function isPreMonth_(lbl){ return PRE_MLABELS.indexOf(lbl) >= 0; }
 var _data = null;
 var _targetMode = null; // null | 'budget'
 var _deltaData     = null;
@@ -1184,6 +1235,7 @@ function updateProductoFilterVis_(){
   // Gateway: solo B2B con Hotels como único producto (cada vista con su selector)
   Object.keys(_GW_UI).forEach(function(k){ _syncGatewayRow_(k); });
   _renderAllViajeChips_();
+  _syncTipoRows_();
   // Partner visible solo en B2B2C, en el tab P&L (no en Detalle ni en Gráficos: ambos tienen su propio selector de partner)
   var isDetalle  = document.getElementById('tab-detalle')  && document.getElementById('tab-detalle').classList.contains('active');
   var isGraficos = document.getElementById('tab-graficos') && document.getElementById('tab-graficos').classList.contains('active');
@@ -1800,6 +1852,52 @@ function _syncViajeOptions_(d){
   _renderAllViajeChips_();
 }
 
+// ── Filtro Tipo de producto (B2B2C: product_type crudo — Vuelos, Hoteles, Disney…) ──
+// Un selector por vista (Managerial / Trend / Detalle), visible siempre en B2B2C. Con un tipo
+// elegido el backend entra en "modo tipo" (secciones ac_tp/ly_tp del JSON): Actuals (meses
+// cerrados + Ene–Mar previos) + LY. Budget/Forecast no abren por product_type → n/d, como gateway.
+var _tipoOptions = [];                      // d.filters.tipo (ordenados por GB desc)
+var _TP_UI = {
+  m: { row:'pnl-tipo-row',     ms:'ms-tipo',   reload:function(){ debouncedReload();  } },
+  g: { row:'gtab-tipo-row',    ms:'ms-tipo-g', reload:function(){ debouncedReloadG(); } },
+  d: { row:'detalle-tipo-row', ms:'ms-tipo-d', reload:function(){ debouncedReloadD(); } }
+};
+function _tpEnabled_(){ return _activeLob === 'b2b2c' && _tipoOptions.length > 0; }
+function getTipoValues_(k){ return _tpEnabled_() ? getMsValues(_TP_UI[k].ms) : []; }
+function _syncTipoRows_(){
+  Object.keys(_TP_UI).forEach(function(k){
+    var row = document.getElementById(_TP_UI[k].row);
+    if(row) row.style.display = _tpEnabled_() ? 'flex' : 'none';
+  });
+  _updateStickyOffsets_();
+}
+function _maybeFillTipoMs_(d){
+  var vals = (d && d.filters && d.filters.tipo) || [];
+  if(_tipoOptions.length || !vals.length) return;
+  _tipoOptions = vals.slice();
+  Object.keys(_TP_UI).forEach(function(k){ fillMs(_TP_UI[k].ms, _tipoOptions, _TP_UI[k].reload); });
+  _syncTipoRows_();
+}
+function clearTipoMs_(msId){
+  Object.keys(_TP_UI).forEach(function(k){
+    if(_TP_UI[k].ms !== msId) return;
+    clearMs(msId, false);
+    _TP_UI[k].reload();
+  });
+}
+function _resetTipoFilters_(){
+  Object.keys(_TP_UI).forEach(function(k){ clearMs(_TP_UI[k].ms, false); });
+  _syncTipoRows_();
+}
+function _tpNoticeHtml_(d){
+  if(!d || !d.tipo_mode) return '';
+  var sel = (d.tipo_sel || []).map(escHtml).join(', ');
+  return '<div style="margin:0 0 10px;padding:8px 12px;border-radius:8px;background:rgba(124,58,237,.07);border:1px solid rgba(124,58,237,.25);font-size:12px;color:var(--navy3)">'
+    + '<strong>Tipo de producto: ' + sel + '</strong> — solo <strong>Actuals</strong> (meses cerrados) y <strong>Last Year</strong>. '
+    + 'Budget y Forecast no tienen apertura por tipo de producto (n/d): para comparar usá Goal = Last Year. '
+    + 'Orders = transacciones que incluyen el tipo (un paquete cuenta en cada tipo que tiene: no se suman entre tipos).</div>';
+}
+
 var _contableIds = ['ms-cont-lob','ms-cont-canal','ms-cont-pais','ms-cont-producto'];
 
 // onChange opcional (default: debouncedReload de Managerial View) — los selectores de gateway
@@ -2240,7 +2338,7 @@ function renderDetalle() {
   if (!headEl || !bodyEl || !_dataD) return;
   var isB2B = (_activeLob === 'b2b');
   var gwNoticeEl = document.getElementById('detalle-gw-notice');
-  if(gwNoticeEl) gwNoticeEl.innerHTML = isB2B ? _gwNoticeHtml_(_dataD) : '';
+  if(gwNoticeEl) gwNoticeEl.innerHTML = isB2B ? _gwNoticeHtml_(_dataD) : _tpNoticeHtml_(_dataD);
 
   var months = _dataD.months || [];
 
@@ -2352,6 +2450,9 @@ function renderDetalle() {
   headEl.innerHTML = hHtml;
 
   var ZERO = months.map(function(){return 0;});
+  // "Total FY" no suma los Ene–Mar previos al FY (vistos como columnas sueltas en Mes)
+  var inTot = months.map(function(m){ return !isPreMonth_(m); });
+  function sumT(arr){ return arr.reduce(function(a,v,i){ return inTot[i] ? a+v : a; },0); }
   // pyData (opcional): baseline a TC Actuals LY → mFCY, con lo que se calcula el YoY% (organic opción B)
   function seriesFor(pData, pbData, plData, pyData){
     var mFC = months.map(function(m){return pData[m] ?pData[m][mk] ||0:0;});
@@ -2367,7 +2468,7 @@ function renderDetalle() {
     list.forEach(function(s){ months.forEach(function(_,i){ acc.mFC[i]+=s.mFC[i]; acc.mFCY[i]+=s.mFCY[i]; acc.mBgt[i]+=s.mBgt[i]; acc.mLY[i]+=s.mLY[i]; }); });
     return acc;
   }
-  function totOf(s){ return s.mFC.reduce(function(a,v){return a+v;},0); }
+  function totOf(s){ return sumT(s.mFC); }
   function slug(s){ return String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]/g,''); }
 
   // Genera las 3 filas (FC / Δ Bgt / YoY%) de una entidad (partner, grupo o subtotal)
@@ -2376,10 +2477,10 @@ function renderDetalle() {
     var mFC=s.mFC, mBgt=s.mBgt, mLY=s.mLY, mFCY=s.mFCY||s.mFC;
     var mDBgt=months.map(function(_,i){return mBgt[i]!==0?mFC[i]-mBgt[i]:null;});
     var mYoY =months.map(function(_,i){return mLY[i]!==0?(mFCY[i]-mLY[i])/Math.abs(mLY[i])*100:null;});
-    var totFC=mFC.reduce(function(a,v){return a+v;},0);
-    var totFCY=mFCY.reduce(function(a,v){return a+v;},0);
-    var totBgt=mBgt.reduce(function(a,v){return a+v;},0);
-    var totLY=mLY.reduce(function(a,v){return a+v;},0);
+    var totFC=sumT(mFC);
+    var totFCY=sumT(mFCY);
+    var totBgt=sumT(mBgt);
+    var totLY=sumT(mLY);
     var totDBgt=totBgt!==0?totFC-totBgt:null;
     var totYoY =totLY!==0?(totFCY-totLY)/Math.abs(totLY)*100:null;
 
@@ -2419,7 +2520,7 @@ function renderDetalle() {
     var pdata=Object.keys(cmap).map(function(p){
       var s=seriesFor(cmap[p]||{}, lkup(cgmap,p)||{}, lkup(clmap,p)||{}, cymap ? (lkup(cymap,p)||{}) : null);
       return {name:p, s:s, tot:totOf(s)};
-    }).filter(function(x){ return x.tot!==0; });
+    }).filter(function(x){ return x.s.mFC.some(function(v){ return v!==0; }); });   // incluye partners con datos solo en Ene–Mar previos
     // Filtro de producto propio de Detalle (B2B): entidad = "Canal · Producto"
     if(isB2B && _productoSelectedD.length){
       var _selProdD = _productoSelectedD.map(normD);
@@ -2581,7 +2682,8 @@ function mgGetPeriods_(){
 }
 
 var MG_MONTH_CHIP_LABELS = {};   // 'Abr-26' → 'Abr'
-FY_MLABELS.forEach(function(l){ MG_MONTH_CHIP_LABELS[l] = fyStripYear_(l); });
+// Ene–Mar del FY llevan año para no confundirse con los Ene–Mar previos ('Ene-26' vs 'Ene-27')
+FY_MLABELS.forEach(function(l){ MG_MONTH_CHIP_LABELS[l] = isPreMonth_(fyShiftLabel_(l, -1)) ? l : fyStripYear_(l); });
 
 function renderMGPeriodChips_(){
   var wrap = document.getElementById('mg-period-chips');
@@ -2725,11 +2827,25 @@ function _buildMGPanel_(container, agg, goalData, title, periods, n, isLast, goa
   var goalNA = goalData === null;
   if(goalNA) goalData = {};
   var bAggs = {}, gAggs = {};
-  // totalMonths = unión de meses de los períodos visibles (excluye la columna Total misma)
-  var totalMonths = [];
+  // totalMonths = unión de meses de los períodos visibles (excluye la columna Total misma).
+  // Ene–Mar previos al FY no suman al Total del FY; si son lo único visible, el Total es de ellos.
+  var totalMonths = [], preMonths = [];
   periods.forEach(function(p){
-    if(p !== MG_TOTAL_LABEL) mgPeriodMonths_(p).forEach(function(m){ if(totalMonths.indexOf(m)<0) totalMonths.push(m); });
+    if(p !== MG_TOTAL_LABEL) mgPeriodMonths_(p).forEach(function(m){
+      var arr = isPreMonth_(m) ? preMonths : totalMonths;
+      if(arr.indexOf(m)<0) arr.push(m);
+    });
   });
+  var totalIsPre = !totalMonths.length && preMonths.length > 0;
+  if(totalIsPre) totalMonths = preMonths;
+  // Goal n/d por columna: modo gateway/tipo, o mes previo al FY con Goal Budget/Forecast (no existen)
+  function naP(p){
+    return goalNA || (_managerialGoal !== 'ly' && (p === MG_TOTAL_LABEL ? totalIsPre : isPreMonth_(p)));
+  }
+  function perLbl(p, kind){
+    if(p === MG_TOTAL_LABEL && totalIsPre) return kind === 'd' ? 'Δ Total' : 'Total';
+    return kind === 'g' ? mgGoalPeriodLabel_(p) : kind === 'd' ? mgDeltaPeriodLabel_(p) : p;
+  }
   periods.forEach(function(p){
     var ms = p === MG_TOTAL_LABEL ? totalMonths : mgPeriodMonths_(p);
     bAggs[p] = mgAggPeriod_(agg,      ms);
@@ -2768,16 +2884,16 @@ function _buildMGPanel_(container, agg, goalData, title, periods, n, isLast, goa
     '<th class="th-lbl"></th>'+
     '<th class="th-baseline" colspan="'+n+'">BASELINE</th>'+
     '<th class="th-sep"></th>'+
-    '<th class="th-goal" colspan="'+n+'">'+goalLabel+(goalNA?' · N/D POR GATEWAY':'')+'</th>'+
+    '<th class="th-goal" colspan="'+n+'">'+goalLabel+(goalNA?' · N/D POR '+(_data && _data.tipo_mode ? 'TIPO DE PRODUCTO' : 'GATEWAY'):'')+'</th>'+
     '<th class="th-sep"></th>'+
     '<th class="th-delta" colspan="'+n+'">DELTA (B-G)</th>';
 
   var perHtml = '<th class="th-lbl">Concepto</th>';
-  periods.forEach(function(p){ perHtml += '<th class="ph-b'+(isLast(p)?' th-total-b':'')+'">'+p+'</th>'; });
+  periods.forEach(function(p){ perHtml += '<th class="ph-b'+(isLast(p)?' th-total-b':'')+'">'+perLbl(p,'b')+'</th>'; });
   perHtml += '<th class="th-sep"></th>';
-  periods.forEach(function(p){ perHtml += '<th class="ph-g'+(isLast(p)?' th-total-g':'')+'">'+mgGoalPeriodLabel_(p)+'</th>'; });
+  periods.forEach(function(p){ perHtml += '<th class="ph-g'+(isLast(p)?' th-total-g':'')+'">'+perLbl(p,'g')+'</th>'; });
   perHtml += '<th class="th-sep"></th>';
-  periods.forEach(function(p){ perHtml += '<th class="ph-d'+(isLast(p)?' th-total-d':'')+'">'+mgDeltaPeriodLabel_(p)+'</th>'; });
+  periods.forEach(function(p){ perHtml += '<th class="ph-d'+(isLast(p)?' th-total-d':'')+'">'+perLbl(p,'d')+'</th>'; });
   quartersHead.innerHTML = perHtml;
 
   function appendMGCells(tr, key, fmt){
@@ -2789,19 +2905,19 @@ function _buildMGPanel_(container, agg, goalData, title, periods, n, isLast, goa
     });
     var s1=document.createElement('td'); s1.className='td-sep'; tr.appendChild(s1);
     periods.forEach(function(p){
-      var v=getValue(key,gAggs[p])||0, td=document.createElement('td');
-      td.style.textAlign='right'; if(v<0 && !goalNA) td.style.color='var(--red)';
-      if(goalNA) td.style.color='var(--muted2)';
+      var na=naP(p), v=getValue(key,gAggs[p])||0, td=document.createElement('td');
+      td.style.textAlign='right'; if(v<0 && !na) td.style.color='var(--red)';
+      if(na) td.style.color='var(--muted2)';
       if(isLast(p)) td.className='td-total-g';
-      td.textContent=goalNA?'—':fmt==='K'?fmtK(v):fmtM(v); tr.appendChild(td);
+      td.textContent=na?'—':fmt==='K'?fmtK(v):fmtM(v); tr.appendChild(td);
     });
     var s2=document.createElement('td'); s2.className='td-sep'; tr.appendChild(s2);
     periods.forEach(function(p){
-      var bv=getValue(key,bAggs[p])||0, gv=getValue(key,gAggs[p])||0, dv=bv-gv;
+      var na=naP(p), bv=getValue(key,bAggs[p])||0, gv=getValue(key,gAggs[p])||0, dv=bv-gv;
       var td=document.createElement('td');
-      td.style.cssText='text-align:right;color:'+(goalNA?'var(--muted2)':dv<0?'#DC2626':'#15803D');
+      td.style.cssText='text-align:right;color:'+(na?'var(--muted2)':dv<0?'#DC2626':'#15803D');
       if(isLast(p)) td.className='td-total-d';
-      td.textContent=goalNA?'—':fmt==='K'?fmtK(dv):fmtM(dv); tr.appendChild(td);
+      td.textContent=na?'—':fmt==='K'?fmtK(dv):fmtM(dv); tr.appendChild(td);
     });
   }
 
@@ -2824,7 +2940,7 @@ function _buildMGPanel_(container, agg, goalData, title, periods, n, isLast, goa
       var td=document.createElement('td');
       td.style.cssText='text-align:right;font-size:10px;color:var(--muted)';
       if(isLast(p)) td.className='td-total-g';
-      td.textContent=goalNA?'—':fmtPct(v); ptr.appendChild(td);
+      td.textContent=naP(p)?'—':fmtPct(v); ptr.appendChild(td);
     });
     var s2=document.createElement('td'); s2.className='td-sep'; ptr.appendChild(s2);
     periods.forEach(function(p){
@@ -2835,7 +2951,7 @@ function _buildMGPanel_(container, agg, goalData, title, periods, n, isLast, goa
       var td=document.createElement('td');
       td.style.cssText='text-align:right;font-size:10px;color:var(--muted)';
       if(isLast(p)) td.className='td-total-d';
-      td.textContent=goalNA?'—':(dv>=0?'+':'')+dv.toFixed(2)+'pp'; ptr.appendChild(td);
+      td.textContent=naP(p)?'—':(dv>=0?'+':'')+dv.toFixed(2)+'pp'; ptr.appendChild(td);
     });
     tbody.appendChild(ptr);
   }
@@ -2949,7 +3065,7 @@ function _renderMGKpis_(container, agg, goalData, goalLabel, lyData, aggY){
     h += '<div class="xkpi"><div class="xkpi-lbl">'+it.l+'</div>'
        + '<div class="xkpi-val">'+it.f(bv)+'</div>'
        + (goalNA
-          ? '<div class="xkpi-sub"><span class="xkpi-delta">—</span><span>'+escHtml(goalLabel.charAt(0)+goalLabel.slice(1).toLowerCase())+' n/d por gateway</span></div>'
+          ? '<div class="xkpi-sub"><span class="xkpi-delta">—</span><span>'+escHtml(goalLabel.charAt(0)+goalLabel.slice(1).toLowerCase())+' n/d por '+(_data && _data.tipo_mode ? 'tipo de producto' : 'gateway')+'</span></div>'
           : '<div class="xkpi-sub"><span class="xkpi-delta '+cls+'">'+(pct===null?'—':sign+pct.toFixed(1)+'%')+'</span>'
             + '<span>'+sign+it.f(d)+' vs '+escHtml(goalLabel.charAt(0)+goalLabel.slice(1).toLowerCase())+'</span></div>')
        + '<div class="xkpi-sub xkpi-yoy"><span class="xkpi-delta '+ycls+'">'+(ypct===null?'—':(yd>=0?'+':'')+ypct.toFixed(1)+'%')+'</span>'
@@ -2975,10 +3091,11 @@ function renderManagerialBGTable(){
   var gf = _managerialGoal === 'ly' ? 'ly'
          : _managerialGoal === 'forecast' ? 'forecast' : 'budget';
   // Modo gateway (B2B · Hotels · gateway): Budget/Forecast no existen → goal null (n/d)
-  var goalNA = !!_data.gateway_mode && _managerialGoal !== 'ly';
-  if(_data.gateway_mode){
+  // Modo tipo de producto (B2B2C · Tipo prod.): ídem, Budget/Forecast no abren por product_type
+  var goalNA = !!(_data.gateway_mode || _data.tipo_mode) && _managerialGoal !== 'ly';
+  if(_data.gateway_mode || _data.tipo_mode){
     var gwNote = document.createElement('div');
-    gwNote.innerHTML = _gwNoticeHtml_(_data);
+    gwNote.innerHTML = _gwNoticeHtml_(_data) + _tpNoticeHtml_(_data);
     container.appendChild(gwNote);
   }
   _renderMGKpis_(container, _data.agg||{}, goalNA ? null : (_data[gf]||{}), goalLabel, _data.ly||{}, _yoyOf_(_data, 'agg', null));
@@ -2994,9 +3111,9 @@ function renderManagerialBGTable(){
     });
   } else {
     var b2b2cPanels = [
-      { title:'B2B2C Total',               agg:_data.agg||{},          goal:(_data[gf]||{}) },
-      { title:'B2B2C · Farming',           agg:_data.agg_farming||{},  goal:(_data[gf+'_farming']||{}) },
-      { title:'B2B2C · Hunt & Onboarding', agg:_data.agg_hunting||{},  goal:(_data[gf+'_hunting']||{}) }
+      { title:'B2B2C Total',               agg:_data.agg||{},          goal:goalNA ? null : (_data[gf]||{}) },
+      { title:'B2B2C · Farming',           agg:_data.agg_farming||{},  goal:goalNA ? null : (_data[gf+'_farming']||{}) },
+      { title:'B2B2C · Hunt & Onboarding', agg:_data.agg_hunting||{},  goal:goalNA ? null : (_data[gf+'_hunting']||{}) }
     ];
     b2b2cPanels.forEach(function(p){
       _buildMGPanel_(container, p.agg, p.goal, p.title, periods, n, isLast, goalLabel);
@@ -4073,6 +4190,7 @@ function switchLob(lob){
   _paisSelectedD = [];
   _productoSelectedD = [];
   _resetGatewayFilters_();
+  _resetTipoFilters_();
   _viajeSel = { m:'', g:'', d:'' }; _viajeOptions = []; _renderAllViajeChips_();
   clearMs('ms-partner', false); // switchLob ya dispara su propio reload() abajo — no duplicar el fetch
   reload();
@@ -4180,6 +4298,7 @@ function getFilters(){
     produto:        getProductoValues(),
     gateway:        getGatewayValues_('m'),
     viaje:          getViajeValues_('m'),
+    tipo:           getTipoValues_('m'),
     lob_tipo:       lobTipo,
     date_type:      _activeLob === 'b2b2c' ? 'gd' : _activeDateType,
     baselineSource: _baselineSource,
@@ -4210,15 +4329,17 @@ function fetchData(){
       _setB2B2CStage_(d);
       _data = d;
       _handleOrganicResp_(d);
-      if (!_filtersLoadedForLob[reqLob] && !d.gateway_mode && !(d.viaje_sel || []).length) {   // en modo gateway las opciones vienen recortadas
+      if (!_filtersLoadedForLob[reqLob] && !d.gateway_mode && !d.tipo_mode && !(d.viaje_sel || []).length) {   // en modo gateway las opciones vienen recortadas
         fillPaisChips(d.filters['pais'] || []);
         fillMs('ms-partner', (d.filters['partner'] || []).slice().sort());
         fillProductoChips(d.filters['produto'] || []);
         _filtersLoadedForLob[reqLob] = true;
       }
       _maybeFillGatewayMs_(d);
+      _maybeFillTipoMs_(d);
       _syncViajeOptions_(d);
-      updateActualsLegend(d.actual_months || []);
+      var _preAct = PRE_YMS.filter(function(ym, i){ return (d.months || []).indexOf(PRE_MLABELS[i]) >= 0; });
+      updateActualsLegend((d.actual_months || []).length ? _preAct.concat(d.actual_months) : []);
       render();
       document.getElementById('last-upd').textContent = 'Actualizado: '+new Date().toLocaleTimeString('es-AR') + (d.organic && !d.organic.error ? ' · ORGANIC (TC '+_orgTargetLabel_()+')' : '');
       document.getElementById('loader').style.display = 'none';
@@ -4245,6 +4366,7 @@ function getFiltersGraficos(){
   f.produto = _productoSelectedG.slice();
   f.gateway = getGatewayValues_('g');
   f.viaje   = getViajeValues_('g');
+  f.tipo    = getTipoValues_('g');
   return f;
 }
 function fetchDataG(){
@@ -4257,11 +4379,12 @@ function fetchDataG(){
       _setB2B2CStage_(d);
       _dataG = d;
       _handleOrganicResp_(d);
-      if (!_gFiltersLoadedForLob[reqLob] && !d.gateway_mode && !(d.viaje_sel || []).length) {
+      if (!_gFiltersLoadedForLob[reqLob] && !d.gateway_mode && !d.tipo_mode && !(d.viaje_sel || []).length) {
         fillGraficosProductoChips(d.filters['produto'] || []);
         _gFiltersLoadedForLob[reqLob] = true;
       }
       _maybeFillGatewayMs_(d);
+      _maybeFillTipoMs_(d);
       _syncViajeOptions_(d);
       try{ renderTrendCharts(_dataG.months||[], _dataG.agg||{}, _dataG.budget||{}, _dataG.ly||{}); }
       catch(e){ if(window.console) console.error('[render:trend]', e); }
@@ -4285,6 +4408,7 @@ function getFiltersDetalle(){
   f.produto = [];                       // producto de Detalle es client-side (_productoSelectedD)
   f.gateway = getGatewayValues_('d');   // gateway sí va al server (secciones *_gw del JSON)
   f.viaje   = getViajeValues_('d');     // viaje también (b2bCanalDetail no abre por viaje)
+  f.tipo    = getTipoValues_('d');      // tipo de producto (B2B2C): secciones ac_tp/ly_tp
   return f;
 }
 function fetchDataD(){
@@ -4297,12 +4421,13 @@ function fetchDataD(){
       _setB2B2CStage_(d);
       _dataD = d;
       _handleOrganicResp_(d);
-      if (!_dFiltersLoadedForLob[reqLob] && !d.gateway_mode && !(d.viaje_sel || []).length) {
+      if (!_dFiltersLoadedForLob[reqLob] && !d.gateway_mode && !d.tipo_mode && !(d.viaje_sel || []).length) {
         fillDetallePaisChips(d.filters['pais'] || []);
         if(reqLob === 'b2b') fillDetalleProductoChips(d.filters['produto'] || []);
         _dFiltersLoadedForLob[reqLob] = true;
       }
       _maybeFillGatewayMs_(d);
+      _maybeFillTipoMs_(d);
       _syncViajeOptions_(d);
       try{ renderDetalle(); }
       catch(e){ if(window.console) console.error('[render:detalle]', e); }
@@ -4325,6 +4450,7 @@ var _charts = {};
 
 function renderTrendCharts(months, agg, budgetAgg, lyAgg){
   if(typeof Chart === 'undefined') return;
+  months = (months || []).filter(function(m){ return !isPreMonth_(m); });   // Trend view: solo el FY
   budgetAgg = budgetAgg || {};
   lyAgg     = lyAgg || {};
 
@@ -4344,7 +4470,8 @@ function renderTrendCharts(months, agg, budgetAgg, lyAgg){
   var container = document.getElementById('charts-container');
   container.innerHTML = '';
   // Modo gateway (B2B · Hotels): no hay Budget/Forecast → esas series se omiten (no se dibujan en 0)
-  var gwModeG = !!(_dataG && _dataG.gateway_mode && _activeLob === 'b2b');
+  // Ídem modo tipo de producto (B2B2C · Tipo prod.)
+  var gwModeG = !!(_dataG && ((_dataG.gateway_mode && _activeLob === 'b2b') || (_dataG.tipo_mode && _activeLob === 'b2b2c')));
 
   // Compute cutoff index: last month with actual data (before projections start)
   var actualMonths = (_dataG && _dataG.actual_months) ? _dataG.actual_months : [];
@@ -4817,6 +4944,7 @@ function renderTrendCharts(months, agg, budgetAgg, lyAgg){
   }
 
   if(_activeLob === 'b2b2c'){
+    if(gwModeG){ var tpNote = document.createElement('div'); tpNote.innerHTML = _tpNoticeHtml_(_dataG); container.appendChild(tpNote); }
     var allPartners = Object.keys(partnerMonthly);
     var farmingPartners = allPartners.filter(function(p){ return !isHunting(p); });
     var huntingPartners = allPartners.filter(function(p){ return  isHunting(p); });

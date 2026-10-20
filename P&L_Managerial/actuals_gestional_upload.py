@@ -90,6 +90,16 @@ ACTUALS_TO   = _first_of_current - timedelta(days=1)  # last day of last closed 
 LY_FROM = date(ACTUALS_FROM.year - 1, ACTUALS_FROM.month, ACTUALS_FROM.day)  # 2025-04-01
 LY_TO   = ACTUALS_FROM - timedelta(days=1)                                    # 2026-03-31
 
+# Meses PREVIOS al FY que la landing muestra sueltos antes de Abr (2026-10-19): Ene–Mar del año en
+# que arranca el FY (= Q4 del FY anterior). Solo Actuals + su LY (Ene–Mar del año anterior); no hay
+# Budget/RR/Forecast. NO entran en `ac` (Forecast goal, Managerial vs Accounting, Revenue GD y los
+# OKR leen `ac` como el FY en curso): se agregan a bl/bl_ri, ly y a las secciones *_gw / *_tp.
+PRE_MONTHS    = [f"{ACTUALS_FROM.year}-{m:02d}" for m in (1, 2, 3)]          # 2026-01..03
+PRE_SET       = set(PRE_MONTHS)
+PRE_LY_SET    = {f"{int(ym[:4]) - 1}-{ym[5:]}" for ym in PRE_MONTHS}        # 2025-01..03
+PRE_FROM      = date(ACTUALS_FROM.year, 1, 1)                               # 2026-01-01
+LY_FETCH_FROM = date(LY_FROM.year, 1, 1)   # las queries LY arrancan en ene → traen el LY de PRE_MONTHS
+
 FY_SET   = set(FY_MONTHS)
 CLOSED_SET    = {ym for ym in FY_SET if ym < CURRENT_YM}
 # Full prior FY (FY26) months, shifted back 1 year from FY27.
@@ -149,7 +159,14 @@ def fetch(query: str, label: str) -> pd.DataFrame:
 # 3) QUERIES
 # ==============================================================================
 
-def build_b2b2c_query(date_from: date, date_to: date) -> str:
+def build_b2b2c_query(date_from: date, date_to: date, by_tipo: bool = False) -> str:
+    """by_tipo: agrega `tipo_producto` (product_type crudo de bi_transactional_fact_products: Vuelos,
+    Hoteles, Disney, Universal, Excursiones...) al grano. Es una query APARTE (secciones ac_tp/ly_tp)
+    y no una columna más de la normal: un paquete tiene componentes de varios tipos y el
+    count(distinct transaction_code) de `orders` se duplicaría al sumar las aperturas."""
+    tipo_sel = "COALESCE(p.product_type, '(Sin dato)') AS tipo_producto," if by_tipo else ""
+    group_by = "1,2,3,4,5,6,7,8" if by_tipo else "1,2,3,4,5,6,7"
+    tipo_out = "tipo_producto," if by_tipo else ""
     return f"""
 WITH base AS (
   SELECT
@@ -192,6 +209,7 @@ WITH base AS (
       WHEN p.trip_type = 'Int' THEN 'International'
       ELSE p.trip_type
     END AS viaje,
+    {tipo_sel}
 
     count(distinct t.transaction_code)                  AS orders,
     sum(pnl.gb_without_distorted_taxes_usd)             AS gross_bookings,
@@ -347,7 +365,7 @@ WITH base AS (
     -- Solo partners de la cartera de ComDev (mismo filtro que Daily_Dashboard/daily_sync.py:
     -- build_actuals_query): afuera los partner_data_id sin cartera (AG.../AP..., KMV, demos).
     AND di.partner_id IS NOT NULL
-  GROUP BY 1,2,3,4,5,6,7
+  GROUP BY {group_by}
 ),
 
 with_ps AS (
@@ -385,7 +403,7 @@ with_ps AS (
 )
 
 SELECT
-  Mes, pais, productooriginal, partner,
+  Mes, pais, productooriginal, partner, {tipo_out}
   orders, gross_bookings, up_front_incentives, fees, commercial_discounts,
   back_end_incentives, media_other_revenue, cancellations, breakage_revenue,
   income_from_outsourced_services, revenue_tax, other_incentives,
@@ -1021,10 +1039,17 @@ def _norm_pais(series: pd.Series) -> pd.Series:
     return series.replace({"Other Countries": "Globales"})
 
 
-def _build_b2b2c_rows(df: pd.DataFrame, filter_set: set = None, ym_shift_years: int = 0) -> list:
+TIPO_SIN_DATO = "(Sin dato)"
+
+
+def _build_b2b2c_rows(df: pd.DataFrame, filter_set: set = None, ym_shift_years: int = 0,
+                      by_tipo: bool = False) -> list:
     """Actuals/LY df → rows [pais, partner, produto, ym, v0..v28].
     filter_set: set of YYYY-MM to keep; defaults to CLOSED_SET.
     ym_shift_years: shift ym by N years (use 1 for LY so '2025-04' → '2026-04').
+    by_tipo: df de build_b2b2c_query(by_tipo=True) → rows [pais, partner, produto, ym, v0..v28, tipo]
+      (tipo de producto al FINAL, igual que el viaje en B2B: los offsets de siempre no se mueven).
+      Son las secciones ac_tp / ly_tp (filtro "Tipo de producto" de B2B2C en la landing).
     """
     df = df.copy()
     df.columns = [c.lower() for c in df.columns]
@@ -1044,14 +1069,22 @@ def _build_b2b2c_rows(df: pd.DataFrame, filter_set: set = None, ym_shift_years: 
     for c in ["affiliates", "operations", "frauds"]:
         if c not in df.columns:
             df[c] = 0.0
+    keys = ["pais", "partner", "produto", "ym"]
+    if by_tipo:
+        # El driver ODBC rompe el acento de "Espectáculos" (mismo arreglo que Daily_Dashboard/daily_sync.py)
+        df["tipo_producto"] = (df["tipo_producto"].fillna(TIPO_SIN_DATO).astype(str).str.strip()
+                               .replace("", TIPO_SIN_DATO)
+                               .str.replace(r"^Espect.*$", "Espectáculos", regex=True))
+        keys.append("tipo_producto")
     df = _to_numeric(df, [c for c in METRIC_COLS if c in df.columns])
-    df = df.groupby(["pais", "partner", "produto", "ym"], as_index=False).agg(
+    df = df.groupby(keys, as_index=False).agg(
         {c: "sum" for c in METRIC_COLS if c in df.columns}
     )
     rows = []
     for _, row in df.iterrows():
         vals = [round(float(row.get(c, 0) or 0), 4) for c in METRIC_COLS]
-        rows.append([row["pais"], row["partner"], row["produto"], row["ym"]] + vals)
+        rows.append([row["pais"], row["partner"], row["produto"], row["ym"]] + vals
+                    + ([row["tipo_producto"]] if by_tipo else []))
     return rows
 
 
@@ -1377,18 +1410,22 @@ def upload_to_drive(json_bytes: bytes):
 # ── Actuals ───────────────────────────────────────────────────────────────────
 print("\n--- B2B2C ---")
 df_b2b2c    = fetch(build_b2b2c_query(ACTUALS_FROM, ACTUALS_TO), "B2B2C actuals")
-df_b2b2c_ly = fetch(build_b2b2c_query(LY_FROM, LY_TO),          "B2B2C LY")
+df_b2b2c_ly = fetch(build_b2b2c_query(LY_FETCH_FROM, LY_TO),    "B2B2C LY")   # + Ene–Mar (PRE_MONTHS y su LY)
+# Apertura por tipo de producto (product_type): solo Actuals + LY de meses cerrados y PRE_MONTHS.
+df_b2b2c_tp    = fetch(build_b2b2c_query(ACTUALS_FROM, ACTUALS_TO, by_tipo=True), "B2B2C actuals por tipo")
+df_b2b2c_tp_ly = fetch(build_b2b2c_query(LY_FETCH_FROM, LY_TO, by_tipo=True),    "B2B2C LY por tipo")
 # Split Hunting/Farming de la landing: mismo criterio que el Daily y los OKR (hunting_rules.py).
 b2b2c_stage = hunting_rules.stage_map(fetch(hunting_rules.CARTERA_STAGE_QUERY, "Cartera stage"))
 print(f"  hunting (New): {sorted(p for p, s in b2b2c_stage.items() if s == 'New')}")
 
 print("\n--- B2B GD ---")
 df_b2b_gd    = fetch(build_b2b_gd_query(ACTUALS_FROM, ACTUALS_TO), "B2B GD actuals")
-df_b2b_gd_ly = fetch(build_b2b_gd_query(LY_FROM, LY_TO),           "B2B GD LY")
+df_b2b_gd_ly = fetch(build_b2b_gd_query(LY_FETCH_FROM, LY_TO),     "B2B GD LY")   # + Ene–Mar (PRE_MONTHS y su LY)
 
 print("\n--- B2B RI ---")
 df_b2b_ri = fetch(build_b2b_ri_query(ACTUALS_FROM, ACTUALS_TO), "B2B RI actuals")
 # (RI LY not fetched: Last Year is GD-basis only)
+df_b2b_ri_pre = fetch(build_b2b_ri_query(PRE_FROM, LY_TO), "B2B RI pre-FY (Ene–Mar)")
 
 # ── Budgets ───────────────────────────────────────────────────────────────────
 print("\n--- Budgets ---")
@@ -1423,7 +1460,7 @@ rr_min_ri = _build_b2b_budget_rows(df_rr_ri, lob_filter="B2B-MIN")
 
 # B2B2C
 ac_b2b2c  = _build_b2b2c_rows(df_b2b2c)                                             # actuals (closed)
-ly_b2b2c  = _build_b2b2c_rows(df_b2b2c_ly, filter_set=LY_FULL_SET, ym_shift_years=1)
+ly_b2b2c  = _build_b2b2c_rows(df_b2b2c_ly, filter_set=LY_FULL_SET | PRE_LY_SET, ym_shift_years=1)
 bgt_b2b2c = _build_b2b2c_budget_rows(df_b2b2c_budget)                               # budget (full FY)
 bl_b2b2c  = _stitch_baseline(ac_b2b2c, rr_b2b2c, fcraw_b2b2c, bgt_b2b2c, ym_idx=3)  # actuals→RR→FC→bgt
 fc_b2b2c  = _stitch_forecast(ac_b2b2c, fcraw_b2b2c, ym_idx=3)                       # goal: actuals≤Jun + FC
@@ -1432,7 +1469,7 @@ fc_b2b2c  = _stitch_forecast(ac_b2b2c, fcraw_b2b2c, ym_idx=3)                   
 ac_may     = _build_b2b_rows(df_b2b_gd, "anio_gd", "mes_gd", channel_filter="API")
 ac_may_ri  = _build_b2b_rows(df_b2b_ri, "anio_ri", "mes_ri", channel_filter="API")
 ly_may     = _build_b2b_rows(df_b2b_gd_ly, "anio_gd", "mes_gd", channel_filter="API",
-                             filter_set=LY_FULL_SET, ym_shift_years=1)
+                             filter_set=LY_FULL_SET | PRE_LY_SET, ym_shift_years=1)
 bgt_may    = _build_b2b_budget_rows(df_b2b_budget_gd, lob_filter="B2B-MAY")
 bgt_may_ri = _build_b2b_budget_rows(df_b2b_budget_ri, lob_filter="B2B-MAY")
 bl_may     = _stitch_baseline(ac_may,    rr_may,    fcraw_may,    bgt_may,    ym_idx=2)
@@ -1444,7 +1481,7 @@ fc_may_ri  = _stitch_forecast(ac_may_ri, fcraw_may_ri, ym_idx=2)
 ac_min     = _build_b2b_rows(df_b2b_gd, "anio_gd", "mes_gd", channel_filter="Agencias afiliadas")
 ac_min_ri  = _build_b2b_rows(df_b2b_ri, "anio_ri", "mes_ri", channel_filter="Agencias afiliadas")
 ly_min  = _build_b2b_rows(df_b2b_gd_ly, "anio_gd", "mes_gd", channel_filter="Agencias afiliadas",
-                          filter_set=LY_FULL_SET, ym_shift_years=1)
+                          filter_set=LY_FULL_SET | PRE_LY_SET, ym_shift_years=1)
 bgt_min    = _build_b2b_budget_rows(df_b2b_budget_gd, lob_filter="B2B-MIN")
 bgt_min_ri = _build_b2b_budget_rows(df_b2b_budget_ri, lob_filter="B2B-MIN")
 # El modelo HTML no tiene solapa "P&L RI" → para el forecast del baseline RI se
@@ -1462,11 +1499,37 @@ LY_CLOSED_SET = {f"{int(ym[:4]) - 1}-{ym[5:]}" for ym in CLOSED_SET}
 gw = {}
 for _sec, _canal in (("may", "API"), ("min", "Agencias afiliadas")):
     gw[_sec] = {
-        "ac_gw":    _build_b2b_rows(df_b2b_gd, "anio_gd", "mes_gd", channel_filter=_canal, by_gateway=True),
-        "ac_ri_gw": _build_b2b_rows(df_b2b_ri, "anio_ri", "mes_ri", channel_filter=_canal, by_gateway=True),
+        "ac_gw":    _build_b2b_rows(df_b2b_gd, "anio_gd", "mes_gd", channel_filter=_canal, by_gateway=True)
+                  + _build_b2b_rows(df_b2b_gd_ly, "anio_gd", "mes_gd", channel_filter=_canal,
+                                    filter_set=PRE_SET, by_gateway=True),
+        "ac_ri_gw": _build_b2b_rows(df_b2b_ri, "anio_ri", "mes_ri", channel_filter=_canal, by_gateway=True)
+                  + _build_b2b_rows(df_b2b_ri_pre, "anio_ri", "mes_ri", channel_filter=_canal,
+                                    filter_set=PRE_SET, by_gateway=True),
         "ly_gw":    _build_b2b_rows(df_b2b_gd_ly, "anio_gd", "mes_gd", channel_filter=_canal,
-                                    filter_set=LY_CLOSED_SET, ym_shift_years=1, by_gateway=True),
+                                    filter_set=LY_CLOSED_SET | PRE_LY_SET, ym_shift_years=1, by_gateway=True),
     }
+
+# B2B2C por tipo de producto (filtro de la landing): igual que gateway, solo Actuals y LY.
+tp_b2b2c = {
+    "ac_tp": _build_b2b2c_rows(df_b2b2c_tp, by_tipo=True)
+           + _build_b2b2c_rows(df_b2b2c_tp_ly, filter_set=PRE_SET, by_tipo=True),
+    "ly_tp": _build_b2b2c_rows(df_b2b2c_tp_ly, filter_set=LY_CLOSED_SET | PRE_LY_SET,
+                               ym_shift_years=1, by_tipo=True),
+}
+
+# Meses previos al FY (PRE_MONTHS): Actuals al baseline (no a `ac`, ver definición de PRE_MONTHS).
+pre = {
+    "b2b2c":  _build_b2b2c_rows(df_b2b2c_ly, filter_set=PRE_SET),
+    "may":    _build_b2b_rows(df_b2b_gd_ly,  "anio_gd", "mes_gd", channel_filter="API", filter_set=PRE_SET),
+    "may_ri": _build_b2b_rows(df_b2b_ri_pre, "anio_ri", "mes_ri", channel_filter="API", filter_set=PRE_SET),
+    "min":    _build_b2b_rows(df_b2b_gd_ly,  "anio_gd", "mes_gd", channel_filter="Agencias afiliadas", filter_set=PRE_SET),
+    "min_ri": _build_b2b_rows(df_b2b_ri_pre, "anio_ri", "mes_ri", channel_filter="Agencias afiliadas", filter_set=PRE_SET),
+}
+bl_b2b2c  = pre["b2b2c"]  + bl_b2b2c
+bl_may    = pre["may"]    + bl_may
+bl_may_ri = pre["may_ri"] + bl_may_ri
+bl_min    = pre["min"]    + bl_min
+bl_min_ri = pre["min_ri"] + bl_min_ri
 
 actual_months = sorted(CLOSED_SET)
 print(f"  actual_months: {actual_months}  (last actual = {LAST_ACTUAL_YM})")
@@ -1475,6 +1538,8 @@ print(f"  b2b_may: ac={len(ac_may):,}  ac_ri={len(ac_may_ri):,}  rr={len(rr_may)
 print(f"  b2b_min: ac={len(ac_min):,}  ac_ri={len(ac_min_ri):,}  rr={len(rr_min):,}  rr_ri={len(rr_min_ri):,}  fc={len(fc_min):,}  fc_ri={len(fc_min_ri):,}  bl={len(bl_min):,}  bl_ri={len(bl_min_ri):,}  bgt={len(bgt_min):,}  bgt_ri={len(bgt_min_ri):,}  ly={len(ly_min):,}")
 for _sec in ("may", "min"):
     print(f"  b2b_{_sec} gateway (Hotels): " + "  ".join(f"{k}={len(v):,}" for k, v in gw[_sec].items()))
+print("  b2b2c tipo de producto: " + "  ".join(f"{k}={len(v):,}" for k, v in tp_b2b2c.items()))
+print(f"  pre-FY {PRE_MONTHS}: " + "  ".join(f"{k}={len(v):,}" for k, v in pre.items()))
 
 # El fetch() vacío ya corta la corrida, pero una query puede volver con FILAS y
 # aun así faltarle un mes completo (ej. un join que no matcheó nada para ese
@@ -1491,6 +1556,19 @@ def _check_months_present(rows, ym_idx, label):
 _check_months_present(ac_b2b2c, 3, "ac_b2b2c")
 _check_months_present(ac_may,   2, "ac_may")
 _check_months_present(ac_min,   2, "ac_min")
+# ac_tp / ly_tp salen de otra query: GB tiene que cerrar con ac + pre-FY / ly (aviso, no aborta)
+def _gb(rows, ym_idx, yms):
+    return sum(r[ym_idx + 2] for r in rows if r[ym_idx] in yms)   # gross_bookings = 2da métrica
+for _lbl, _tp, _ref, _yms in (
+        ("ac_tp", tp_b2b2c["ac_tp"], ac_b2b2c + pre["b2b2c"], CLOSED_SET | PRE_SET),
+        ("ly_tp", tp_b2b2c["ly_tp"], ly_b2b2c, {f"{int(y[:4]) + 1}-{y[5:]}" for y in LY_CLOSED_SET | PRE_LY_SET})):
+    _a, _b = _gb(_tp, 3, _yms), _gb(_ref, 3, _yms)
+    _ok = abs(_a - _b) <= 0.001 * max(abs(_b), 1)
+    print(f"  {'OK' if _ok else '[WARN]'} {_lbl}: GB {_a:,.0f} vs {_b:,.0f}" + ("" if _ok else " — no cierra con la query normal"))
+for _k, _rows in pre.items():
+    _missing = sorted(PRE_SET - {r[3 if _k == "b2b2c" else 2] for r in _rows})
+    if _missing:
+        print(f"  [WARN] pre-FY '{_k}' no tiene ninguna fila para {_missing}.")
 
 output = {
     "updated_at":    datetime.now().isoformat(timespec="seconds"),
@@ -1499,11 +1577,13 @@ output = {
     "actual_months": actual_months,
     "last_actual_ym": LAST_ACTUAL_YM,
     "months":        FY_MONTHS,
+    "pre_months":    PRE_MONTHS,    # Ene–Mar previos al FY: solo en bl/bl_ri, ly, *_gw y *_tp (no en ac)
     "metrics":       METRIC_COLS,
     "b2b2c_stage":   b2b2c_stage,   # {partner lowercase: 'New'|'Existing'} — split Hunting/Farming (Codigo.js)
     "b2b2c": {
         "ac": ac_b2b2c, "ly": ly_b2b2c, "bgt": bgt_b2b2c,
         "rr": rr_b2b2c, "fc": fc_b2b2c, "bl": bl_b2b2c,
+        **tp_b2b2c,
     },
     "b2b_may": {
         "ac": ac_may, "ac_ri": ac_may_ri, "ly": ly_may,
