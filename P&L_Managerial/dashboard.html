@@ -906,6 +906,11 @@ header .btn-refresh:hover{background:#f5f3ff !important;border-color:#c4b5fd;col
         </div>
       </div>
       <!-- Viaje (Nacional / Internacional): solo B2B, todos los escenarios -->
+      <!-- Millas (canje: porción del GB pagada con millas/puntos): solo B2B2C, Actuals + LY -->
+      <div id="pnl-millas-row" style="display:none;align-items:center;gap:6px;flex-wrap:wrap">
+        <span style="font-size:11px;color:var(--muted);font-weight:700;margin-left:6px">Millas:</span>
+        <div class="pais-chips" id="millas-chips"></div>
+      </div>
       <div id="pnl-viaje-row" style="display:none;align-items:center;gap:6px;flex-wrap:wrap">
         <span style="font-size:11px;color:var(--muted);font-weight:700;margin-left:6px">Viaje:</span>
         <div class="pais-chips" id="viaje-chips"></div>
@@ -959,6 +964,11 @@ header .btn-refresh:hover{background:#f5f3ff !important;border-color:#c4b5fd;col
           </div>
         </div>
       </div>
+      <!-- Millas (canje: porción del GB pagada con millas/puntos): solo B2B2C, Actuals + LY -->
+      <div id="gtab-millas-row" style="display:none;align-items:center;gap:6px;flex-wrap:wrap">
+        <span style="font-size:11px;color:var(--muted);font-weight:700;margin-left:6px">Millas:</span>
+        <div class="pais-chips" id="gtab-millas-chips"></div>
+      </div>
       <div id="gtab-viaje-row" style="display:none;align-items:center;gap:6px;flex-wrap:wrap">
         <span style="font-size:11px;color:var(--muted);font-weight:700;margin-left:6px">Viaje:</span>
         <div class="pais-chips" id="gtab-viaje-chips"></div>
@@ -1001,6 +1011,11 @@ header .btn-refresh:hover{background:#f5f3ff !important;border-color:#c4b5fd;col
             <div class="ms-footer"><button class="ms-clear" type="button" onclick="clearTipoMs_('ms-tipo-d')">Limpiar selección</button></div>
           </div>
         </div>
+      </div>
+      <!-- Millas (canje: porción del GB pagada con millas/puntos): solo B2B2C, Actuals + LY -->
+      <div id="detalle-millas-row" style="display:none;align-items:center;gap:6px;flex-wrap:wrap">
+        <span style="font-size:11px;color:var(--muted);font-weight:700;margin-left:6px">Millas:</span>
+        <div class="pais-chips" id="detalle-millas-chips"></div>
       </div>
       <div id="detalle-viaje-row" style="display:none;align-items:center;gap:6px;flex-wrap:wrap">
         <span style="font-size:11px;color:var(--muted);font-weight:700;margin-left:6px">Viaje:</span>
@@ -1236,6 +1251,7 @@ function updateProductoFilterVis_(){
   Object.keys(_GW_UI).forEach(function(k){ _syncGatewayRow_(k); });
   _renderAllViajeChips_();
   _syncTipoRows_();
+  _renderAllMillasChips_();
   // Partner visible solo en B2B2C, en el tab P&L (no en Detalle ni en Gráficos: ambos tienen su propio selector de partner)
   var isDetalle  = document.getElementById('tab-detalle')  && document.getElementById('tab-detalle').classList.contains('active');
   var isGraficos = document.getElementById('tab-graficos') && document.getElementById('tab-graficos').classList.contains('active');
@@ -1889,13 +1905,61 @@ function _resetTipoFilters_(){
   Object.keys(_TP_UI).forEach(function(k){ clearMs(_TP_UI[k].ms, false); });
   _syncTipoRows_();
 }
+// Qué apertura B2B2C está activa (tipo de producto / millas) → texto para los n/d
+function _tpAperturaLbl_(d){
+  var p = [];
+  if(d && (d.tipo_sel || []).length) p.push('tipo de producto');
+  if(d && (d.millas_sel || []).length) p.push('millas');
+  return p.join(' / ') || 'tipo de producto';
+}
 function _tpNoticeHtml_(d){
   if(!d || !d.tipo_mode) return '';
-  var sel = (d.tipo_sel || []).map(escHtml).join(', ');
+  var parts = [];
+  if((d.tipo_sel || []).length)   parts.push('Tipo de producto: ' + d.tipo_sel.map(escHtml).join(', '));
+  if((d.millas_sel || []).length) parts.push(d.millas_sel.map(escHtml).join(', '));
   return '<div style="margin:0 0 10px;padding:8px 12px;border-radius:8px;background:rgba(124,58,237,.07);border:1px solid rgba(124,58,237,.25);font-size:12px;color:var(--navy3)">'
-    + '<strong>Tipo de producto: ' + sel + '</strong> — solo <strong>Actuals</strong> (meses cerrados) y <strong>Last Year</strong>. '
-    + 'Budget y Forecast no tienen apertura por tipo de producto (n/d): para comparar usá Goal = Last Year. '
-    + 'Orders = transacciones que incluyen el tipo (un paquete cuenta en cada tipo que tiene: no se suman entre tipos).</div>';
+    + '<strong>' + parts.join(' · ') + '</strong> — solo <strong>Actuals</strong> (meses cerrados) y <strong>Last Year</strong>. '
+    + 'Budget y Forecast no tienen esta apertura (n/d): para comparar usá Goal = Last Year.'
+    + ((d.tipo_sel || []).length ? ' Orders = transacciones que incluyen el tipo (un paquete cuenta en cada tipo que tiene: no se suman entre tipos).' : '')
+    + ((d.millas_sel || []).length ? ' Millas = porción del GB pagada con millas/puntos (canje); NR, FVM y el resto de las líneas se reparten con esa misma proporción, y las Orders con canje van enteras a "Con millas".' : '')
+    + '</div>';
+}
+
+// ── Filtro Millas (B2B2C: GB pagado con millas/puntos — canje) ─────────────
+// Chips Todos / Con millas / Sin millas, selección única por vista, server-side. Mismo modo que
+// Tipo de producto (Actuals + LY, Budget/Forecast n/d) y combinable con él.
+var _millasOptions = [];                     // d.filters.millas
+var _millasSel     = { m:'', g:'', d:'' };   // '' = Todos
+var _MI_UI = {
+  m: { row:'pnl-millas-row',     chips:'millas-chips',         reload:function(){ debouncedReload();  } },
+  g: { row:'gtab-millas-row',    chips:'gtab-millas-chips',    reload:function(){ debouncedReloadG(); } },
+  d: { row:'detalle-millas-row', chips:'detalle-millas-chips', reload:function(){ debouncedReloadD(); } }
+};
+function getMillasValues_(k){ return (_activeLob === 'b2b2c' && _millasOptions.length && _millasSel[k]) ? [_millasSel[k]] : []; }
+function _renderMillasChips_(k){
+  var u = _MI_UI[k], row = document.getElementById(u.row), wrap = document.getElementById(u.chips);
+  var on = _activeLob === 'b2b2c' && _millasOptions.length > 0;
+  if(row) row.style.display = on ? 'flex' : 'none';
+  if(!wrap) return;
+  wrap.innerHTML = '';
+  [''].concat(_millasOptions).forEach(function(v){
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'pais-chip' + (_millasSel[k] === v ? ' pais-chip-active' : '');
+    btn.textContent = v || 'Todos';
+    btn.onclick = function(){ if(_millasSel[k] === v) return; _millasSel[k] = v; _renderMillasChips_(k); u.reload(); };
+    wrap.appendChild(btn);
+  });
+}
+function _renderAllMillasChips_(){
+  Object.keys(_MI_UI).forEach(function(k){ _renderMillasChips_(k); });
+  _updateStickyOffsets_();
+}
+function _maybeFillMillas_(d){
+  var vals = (d && d.filters && d.filters.millas) || [];
+  if(_millasOptions.length || !vals.length) return;
+  _millasOptions = vals.slice();
+  _renderAllMillasChips_();
 }
 
 var _contableIds = ['ms-cont-lob','ms-cont-canal','ms-cont-pais','ms-cont-producto'];
@@ -2884,7 +2948,7 @@ function _buildMGPanel_(container, agg, goalData, title, periods, n, isLast, goa
     '<th class="th-lbl"></th>'+
     '<th class="th-baseline" colspan="'+n+'">BASELINE</th>'+
     '<th class="th-sep"></th>'+
-    '<th class="th-goal" colspan="'+n+'">'+goalLabel+(goalNA?' · N/D POR '+(_data && _data.tipo_mode ? 'TIPO DE PRODUCTO' : 'GATEWAY'):'')+'</th>'+
+    '<th class="th-goal" colspan="'+n+'">'+goalLabel+(goalNA?' · N/D POR '+(_data && _data.tipo_mode ? _tpAperturaLbl_(_data).toUpperCase() : 'GATEWAY'):'')+'</th>'+
     '<th class="th-sep"></th>'+
     '<th class="th-delta" colspan="'+n+'">DELTA (B-G)</th>';
 
@@ -3065,7 +3129,7 @@ function _renderMGKpis_(container, agg, goalData, goalLabel, lyData, aggY){
     h += '<div class="xkpi"><div class="xkpi-lbl">'+it.l+'</div>'
        + '<div class="xkpi-val">'+it.f(bv)+'</div>'
        + (goalNA
-          ? '<div class="xkpi-sub"><span class="xkpi-delta">—</span><span>'+escHtml(goalLabel.charAt(0)+goalLabel.slice(1).toLowerCase())+' n/d por '+(_data && _data.tipo_mode ? 'tipo de producto' : 'gateway')+'</span></div>'
+          ? '<div class="xkpi-sub"><span class="xkpi-delta">—</span><span>'+escHtml(goalLabel.charAt(0)+goalLabel.slice(1).toLowerCase())+' n/d por '+(_data && _data.tipo_mode ? _tpAperturaLbl_(_data) : 'gateway')+'</span></div>'
           : '<div class="xkpi-sub"><span class="xkpi-delta '+cls+'">'+(pct===null?'—':sign+pct.toFixed(1)+'%')+'</span>'
             + '<span>'+sign+it.f(d)+' vs '+escHtml(goalLabel.charAt(0)+goalLabel.slice(1).toLowerCase())+'</span></div>')
        + '<div class="xkpi-sub xkpi-yoy"><span class="xkpi-delta '+ycls+'">'+(ypct===null?'—':(yd>=0?'+':'')+ypct.toFixed(1)+'%')+'</span>'
@@ -3091,7 +3155,7 @@ function renderManagerialBGTable(){
   var gf = _managerialGoal === 'ly' ? 'ly'
          : _managerialGoal === 'forecast' ? 'forecast' : 'budget';
   // Modo gateway (B2B · Hotels · gateway): Budget/Forecast no existen → goal null (n/d)
-  // Modo tipo de producto (B2B2C · Tipo prod.): ídem, Budget/Forecast no abren por product_type
+  // Modo apertura B2B2C (Tipo prod. / Millas): ídem, Budget/Forecast no abren así
   var goalNA = !!(_data.gateway_mode || _data.tipo_mode) && _managerialGoal !== 'ly';
   if(_data.gateway_mode || _data.tipo_mode){
     var gwNote = document.createElement('div');
@@ -4191,6 +4255,7 @@ function switchLob(lob){
   _productoSelectedD = [];
   _resetGatewayFilters_();
   _resetTipoFilters_();
+  _millasSel = { m:'', g:'', d:'' }; _renderAllMillasChips_();
   _viajeSel = { m:'', g:'', d:'' }; _viajeOptions = []; _renderAllViajeChips_();
   clearMs('ms-partner', false); // switchLob ya dispara su propio reload() abajo — no duplicar el fetch
   reload();
@@ -4299,6 +4364,7 @@ function getFilters(){
     gateway:        getGatewayValues_('m'),
     viaje:          getViajeValues_('m'),
     tipo:           getTipoValues_('m'),
+    millas:         getMillasValues_('m'),
     lob_tipo:       lobTipo,
     date_type:      _activeLob === 'b2b2c' ? 'gd' : _activeDateType,
     baselineSource: _baselineSource,
@@ -4337,6 +4403,7 @@ function fetchData(){
       }
       _maybeFillGatewayMs_(d);
       _maybeFillTipoMs_(d);
+      _maybeFillMillas_(d);
       _syncViajeOptions_(d);
       var _preAct = PRE_YMS.filter(function(ym, i){ return (d.months || []).indexOf(PRE_MLABELS[i]) >= 0; });
       updateActualsLegend((d.actual_months || []).length ? _preAct.concat(d.actual_months) : []);
@@ -4367,6 +4434,7 @@ function getFiltersGraficos(){
   f.gateway = getGatewayValues_('g');
   f.viaje   = getViajeValues_('g');
   f.tipo    = getTipoValues_('g');
+  f.millas  = getMillasValues_('g');
   return f;
 }
 function fetchDataG(){
@@ -4385,6 +4453,7 @@ function fetchDataG(){
       }
       _maybeFillGatewayMs_(d);
       _maybeFillTipoMs_(d);
+      _maybeFillMillas_(d);
       _syncViajeOptions_(d);
       try{ renderTrendCharts(_dataG.months||[], _dataG.agg||{}, _dataG.budget||{}, _dataG.ly||{}); }
       catch(e){ if(window.console) console.error('[render:trend]', e); }
@@ -4409,6 +4478,7 @@ function getFiltersDetalle(){
   f.gateway = getGatewayValues_('d');   // gateway sí va al server (secciones *_gw del JSON)
   f.viaje   = getViajeValues_('d');     // viaje también (b2bCanalDetail no abre por viaje)
   f.tipo    = getTipoValues_('d');      // tipo de producto (B2B2C): secciones ac_tp/ly_tp
+  f.millas  = getMillasValues_('d');    // millas (B2B2C): secciones ac_mi/ly_mi (o ac_tp con tipo)
   return f;
 }
 function fetchDataD(){
@@ -4428,6 +4498,7 @@ function fetchDataD(){
       }
       _maybeFillGatewayMs_(d);
       _maybeFillTipoMs_(d);
+      _maybeFillMillas_(d);
       _syncViajeOptions_(d);
       try{ renderDetalle(); }
       catch(e){ if(window.console) console.error('[render:detalle]', e); }

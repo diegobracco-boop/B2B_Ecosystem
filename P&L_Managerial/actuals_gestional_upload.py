@@ -168,7 +168,37 @@ def build_b2b2c_query(date_from: date, date_to: date, by_tipo: bool = False) -> 
     group_by = "1,2,3,4,5,6,7,8" if by_tipo else "1,2,3,4,5,6,7"
     tipo_out = "tipo_producto," if by_tipo else ""
     return f"""
-WITH base AS (
+-- Canje (pago con millas/puntos, 2026-10-20): por transacción, la porción del GB pagada con millas
+-- (`share`, 0..1). USD canjeados = consumption.amount (moneda local de la transacción, estado OK)
+-- × conversion_rate de la transacción, con tope en el GB (≈2% canjea algo más que el GB sin impuestos).
+WITH millas_tx AS (
+  SELECT cj.tc,
+         GREATEST(0.0, LEAST(1.0, COALESCE(
+           cj.miles_usd / NULLIF(SUM(m.gb_without_distorted_taxes_usd), 0), 1.0))) AS share
+  FROM (
+    SELECT CAST(sr.reservation_id AS varchar) AS tc,
+           SUM(CAST(c.amount AS DOUBLE) * CAST(t2.conversion_rate AS DOUBLE)) AS miles_usd
+    FROM data.raw.specialclients_services_redemption sr
+    JOIN data.raw.specialclients_services_consumption c
+      ON c.redemption_id = sr.trip_id AND c.current_operation_status = 'OK'
+    JOIN data.analytics.bi_transactional_fact_transactions t2
+      ON CAST(t2.transaction_code AS varchar) = CAST(sr.reservation_id AS varchar)
+     AND t2.reservation_year_month >= CAST('2023-01-01' AS date)
+     AND t2.line_of_business = 'B2B2C'
+     AND t2.confirmation_date >= date('{date_from}')
+     AND t2.confirmation_date <= date('{date_to}')
+    WHERE sr.status = 'ISSUED'
+    GROUP BY 1
+  ) cj
+  JOIN data.analytics.bi_pnlop_fact_current_model m
+    ON CAST(m.transaction_code AS varchar) = cj.tc AND m.date_reservation_year_month >= '2023-01'
+  JOIN data.analytics.bi_transactional_fact_products pm     -- mismo universo que base: productos confirmados
+    ON CAST(pm.product_id AS varchar) = CAST(m.product_id AS varchar)
+   AND pm.reservation_year_month >= CAST('2023-01-01' AS date) AND pm.is_confirmed_flg = 1
+  GROUP BY cj.tc, cj.miles_usd
+),
+
+base AS (
   SELECT
     date_format(t.confirmation_date, '%Y-%m') AS Mes,
     t.brand AS Marca,
@@ -329,7 +359,11 @@ WITH base AS (
     + sum(pnl.dif_fx_usd + pnl.dif_fx_air_usd)
     + sum(pnl.currency_hedge_usd + pnl.currency_hedge_air_usd)
     + sum(pnl.financial_result_usd)
-    AS FVM_Base
+    AS FVM_Base,
+
+    -- Canje: GB pagado con millas (exacto por transacción) y transacciones con canje
+    sum(pnl.gb_without_distorted_taxes_usd * COALESCE(mt.share, 0)) AS gb_millas,
+    count(distinct CASE WHEN mt.share > 0 THEN t.transaction_code END) AS orders_millas
 
   FROM data.analytics.bi_pnlop_fact_current_model pnl
   JOIN data.analytics.bi_transactional_fact_products p
@@ -355,6 +389,7 @@ WITH base AS (
       AND t2.reservation_year_month >= CAST('2023-01-01' AS DATE)
     GROUP BY c.consumption_transaction
   ) coup ON CAST(coup.consumption_transaction AS varchar) = CAST(t.transaction_code AS varchar)
+  LEFT JOIN millas_tx mt ON mt.tc = CAST(t.transaction_code AS varchar)
   WHERE pnl.date_reservation_year_month >= '2023-01'
     AND p.reservation_year_month >= CAST('2023-01-01' AS date)
     AND t.reservation_year_month >= CAST('2023-01-01' AS date)
@@ -418,7 +453,8 @@ SELECT
   net_revenues,
   FVM_Base + profit_sharing_banco_chile
     + profit_sharing_turismocity + profit_sharing_naranja
-    + efecto_fin_naranja AS FVM
+    + efecto_fin_naranja AS FVM,
+  gb_millas, orders_millas
 FROM with_ps
 """
 
@@ -1040,16 +1076,40 @@ def _norm_pais(series: pd.Series) -> pd.Series:
 
 
 TIPO_SIN_DATO = "(Sin dato)"
+MILLAS_CON, MILLAS_SIN = "Con millas", "Sin millas"
+
+
+def _split_millas(df: pd.DataFrame) -> pd.DataFrame:
+    """Abre cada fila en Con millas / Sin millas (columna `millas`). GB exacto (gb_millas de la query,
+    prorrateado por transacción); el resto de las métricas se reparte con la misma proporción de GB
+    de la fila. Orders: las transacciones con canje van enteras a Con millas (las dos suman el total)."""
+    gb  = df["gross_bookings"]
+    gbm = pd.to_numeric(df["gb_millas"], errors="coerce").fillna(0.0)
+    om  = pd.to_numeric(df["orders_millas"], errors="coerce").fillna(0.0)
+    r = (gbm / gb.where(gb != 0)).fillna((om > 0).astype(float)).clip(0, 1)
+    con, sin = df.copy(), df.copy()
+    for c in METRIC_COLS:
+        if c in df.columns and c not in ("orders", "gross_bookings"):
+            con[c] = df[c] * r
+            sin[c] = df[c] * (1 - r)
+    # GB exacto (aunque la fila mezcle signos y r quede clipeado)
+    con["gross_bookings"], sin["gross_bookings"] = gbm, gb - gbm
+    con["orders"], sin["orders"] = om, df["orders"] - om
+    con["millas"], sin["millas"] = MILLAS_CON, MILLAS_SIN
+    return pd.concat([con[(r > 0) | (om > 0) | (gbm != 0)],
+                      sin[(r < 1) | (sin["orders"] > 0) | (sin["gross_bookings"] != 0)]], ignore_index=True)
 
 
 def _build_b2b2c_rows(df: pd.DataFrame, filter_set: set = None, ym_shift_years: int = 0,
-                      by_tipo: bool = False) -> list:
+                      by_tipo: bool = False, by_millas: bool = False) -> list:
     """Actuals/LY df → rows [pais, partner, produto, ym, v0..v28].
     filter_set: set of YYYY-MM to keep; defaults to CLOSED_SET.
     ym_shift_years: shift ym by N years (use 1 for LY so '2025-04' → '2026-04').
     by_tipo: df de build_b2b2c_query(by_tipo=True) → rows [pais, partner, produto, ym, v0..v28, tipo]
       (tipo de producto al FINAL, igual que el viaje en B2B: los offsets de siempre no se mueven).
       Son las secciones ac_tp / ly_tp (filtro "Tipo de producto" de B2B2C en la landing).
+    by_millas: abre cada fila en Con/Sin millas (canje, ver _split_millas) → `millas` como última columna
+      (después del tipo si by_tipo). Secciones ac_mi / ly_mi y, junto con el tipo, ac_tp / ly_tp.
     """
     df = df.copy()
     df.columns = [c.lower() for c in df.columns]
@@ -1077,6 +1137,9 @@ def _build_b2b2c_rows(df: pd.DataFrame, filter_set: set = None, ym_shift_years: 
                                .str.replace(r"^Espect.*$", "Espectáculos", regex=True))
         keys.append("tipo_producto")
     df = _to_numeric(df, [c for c in METRIC_COLS if c in df.columns])
+    if by_millas:
+        df = _split_millas(df)
+        keys.append("millas")
     df = df.groupby(keys, as_index=False).agg(
         {c: "sum" for c in METRIC_COLS if c in df.columns}
     )
@@ -1084,7 +1147,8 @@ def _build_b2b2c_rows(df: pd.DataFrame, filter_set: set = None, ym_shift_years: 
     for _, row in df.iterrows():
         vals = [round(float(row.get(c, 0) or 0), 4) for c in METRIC_COLS]
         rows.append([row["pais"], row["partner"], row["produto"], row["ym"]] + vals
-                    + ([row["tipo_producto"]] if by_tipo else []))
+                    + ([row["tipo_producto"]] if by_tipo else [])
+                    + ([row["millas"]] if by_millas else []))
     return rows
 
 
@@ -1509,12 +1573,17 @@ for _sec, _canal in (("may", "API"), ("min", "Agencias afiliadas")):
                                     filter_set=LY_CLOSED_SET | PRE_LY_SET, ym_shift_years=1, by_gateway=True),
     }
 
-# B2B2C por tipo de producto (filtro de la landing): igual que gateway, solo Actuals y LY.
+# B2B2C por tipo de producto y por millas (filtros de la landing): igual que gateway, solo Actuals y LY.
+# ac_tp/ly_tp abren tipo × millas; ac_mi/ly_mi solo millas (de la query normal: Orders exactas).
 tp_b2b2c = {
-    "ac_tp": _build_b2b2c_rows(df_b2b2c_tp, by_tipo=True)
-           + _build_b2b2c_rows(df_b2b2c_tp_ly, filter_set=PRE_SET, by_tipo=True),
+    "ac_tp": _build_b2b2c_rows(df_b2b2c_tp, by_tipo=True, by_millas=True)
+           + _build_b2b2c_rows(df_b2b2c_tp_ly, filter_set=PRE_SET, by_tipo=True, by_millas=True),
     "ly_tp": _build_b2b2c_rows(df_b2b2c_tp_ly, filter_set=LY_CLOSED_SET | PRE_LY_SET,
-                               ym_shift_years=1, by_tipo=True),
+                               ym_shift_years=1, by_tipo=True, by_millas=True),
+    "ac_mi": _build_b2b2c_rows(df_b2b2c, by_millas=True)
+           + _build_b2b2c_rows(df_b2b2c_ly, filter_set=PRE_SET, by_millas=True),
+    "ly_mi": _build_b2b2c_rows(df_b2b2c_ly, filter_set=LY_CLOSED_SET | PRE_LY_SET,
+                               ym_shift_years=1, by_millas=True),
 }
 
 # Meses previos al FY (PRE_MONTHS): Actuals al baseline (no a `ac`, ver definición de PRE_MONTHS).
@@ -1538,7 +1607,7 @@ print(f"  b2b_may: ac={len(ac_may):,}  ac_ri={len(ac_may_ri):,}  rr={len(rr_may)
 print(f"  b2b_min: ac={len(ac_min):,}  ac_ri={len(ac_min_ri):,}  rr={len(rr_min):,}  rr_ri={len(rr_min_ri):,}  fc={len(fc_min):,}  fc_ri={len(fc_min_ri):,}  bl={len(bl_min):,}  bl_ri={len(bl_min_ri):,}  bgt={len(bgt_min):,}  bgt_ri={len(bgt_min_ri):,}  ly={len(ly_min):,}")
 for _sec in ("may", "min"):
     print(f"  b2b_{_sec} gateway (Hotels): " + "  ".join(f"{k}={len(v):,}" for k, v in gw[_sec].items()))
-print("  b2b2c tipo de producto: " + "  ".join(f"{k}={len(v):,}" for k, v in tp_b2b2c.items()))
+print("  b2b2c tipo de producto / millas: " + "  ".join(f"{k}={len(v):,}" for k, v in tp_b2b2c.items()))
 print(f"  pre-FY {PRE_MONTHS}: " + "  ".join(f"{k}={len(v):,}" for k, v in pre.items()))
 
 # El fetch() vacío ya corta la corrida, pero una query puede volver con FILAS y
@@ -1561,10 +1630,27 @@ def _gb(rows, ym_idx, yms):
     return sum(r[ym_idx + 2] for r in rows if r[ym_idx] in yms)   # gross_bookings = 2da métrica
 for _lbl, _tp, _ref, _yms in (
         ("ac_tp", tp_b2b2c["ac_tp"], ac_b2b2c + pre["b2b2c"], CLOSED_SET | PRE_SET),
-        ("ly_tp", tp_b2b2c["ly_tp"], ly_b2b2c, {f"{int(y[:4]) + 1}-{y[5:]}" for y in LY_CLOSED_SET | PRE_LY_SET})):
+        ("ly_tp", tp_b2b2c["ly_tp"], ly_b2b2c, {f"{int(y[:4]) + 1}-{y[5:]}" for y in LY_CLOSED_SET | PRE_LY_SET}),
+        ("ac_mi", tp_b2b2c["ac_mi"], ac_b2b2c + pre["b2b2c"], CLOSED_SET | PRE_SET),
+        ("ly_mi", tp_b2b2c["ly_mi"], ly_b2b2c, {f"{int(y[:4]) + 1}-{y[5:]}" for y in LY_CLOSED_SET | PRE_LY_SET})):
     _a, _b = _gb(_tp, 3, _yms), _gb(_ref, 3, _yms)
     _ok = abs(_a - _b) <= 0.001 * max(abs(_b), 1)
     print(f"  {'OK' if _ok else '[WARN]'} {_lbl}: GB {_a:,.0f} vs {_b:,.0f}" + ("" if _ok else " — no cierra con la query normal"))
+# El cierre de arriba no prueba el canje (Con + Sin suman el GB siempre): se controla el GB "Con millas"
+# contra el gb_millas que devolvió la query, y se imprime el % por partner para revisarlo a ojo.
+def _gb_millas_raw(df, yms):
+    d = df.copy(); d.columns = [c.lower() for c in d.columns]
+    return pd.to_numeric(d.loc[d["mes"].isin(yms), "gb_millas"], errors="coerce").fillna(0).sum()
+_con = sum(r[5] for r in tp_b2b2c["ac_mi"] if r[33] == MILLAS_CON)
+_raw = _gb_millas_raw(df_b2b2c, CLOSED_SET) + _gb_millas_raw(df_b2b2c_ly, PRE_SET)
+print(f"  {'OK' if abs(_con - _raw) <= 1 else '[WARN]'} GB con millas (ac_mi): {_con:,.0f} vs query {_raw:,.0f}")
+_pp = {}
+for r in tp_b2b2c["ac_mi"]:
+    _pp.setdefault(r[1], [0.0, 0.0])
+    _pp[r[1]][0] += r[5]
+    if r[33] == MILLAS_CON: _pp[r[1]][1] += r[5]
+print("  % GB con millas por partner (top 8): " + ", ".join(
+    f"{k} {v[1] / v[0]:.0%}" for k, v in sorted(_pp.items(), key=lambda kv: -kv[1][1])[:8] if v[0]))
 for _k, _rows in pre.items():
     _missing = sorted(PRE_SET - {r[3 if _k == "b2b2c" else 2] for r in _rows})
     if _missing:

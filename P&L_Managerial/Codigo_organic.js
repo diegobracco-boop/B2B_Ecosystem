@@ -138,7 +138,7 @@ function organicConverter_(target) {
 
 // Devuelve una copia de `json` con las filas del baseline (`keys`: bl / bl_ri / ac_gw / ac_ri_gw)
 // convertidas a organic. Formatos de fila (ver Codigo.js):
-//   b2b2c:           [pais, partner, produto, ym, v0..v28] (ac_tp: + tipo al final)
+//   b2b2c:           [pais, partner, produto, ym, v0..v28] (ac_tp: + tipo, millas; ac_mi: + millas)
 //   b2b_may/b2b_min: [pais, produto|gateway, ym, v0..v28, viaje]
 // v0 = orders → no se convierte. No muta el JSON original (lo cachea readGestionalJSON_).
 function organicGestionalJson_(json, keys, conv) {
@@ -148,7 +148,7 @@ function organicGestionalJson_(json, keys, conv) {
     if (!sec) return;
     var iYm = s[1], off = s[2], ns = Object.assign({}, sec);
     // B2B2C tiene fecha única: su baseline es siempre 'bl' (aunque se pida RI), o 'ac_tp' en modo tipo
-    (s[0] === 'b2b2c' ? ['bl'].concat(keys.indexOf('ac_tp') >= 0 ? ['ac_tp'] : []) : keys).forEach(function(k) {
+    (s[0] === 'b2b2c' ? ['bl'].concat(keys.filter(function(k) { return k === 'ac_tp' || k === 'ac_mi'; })) : keys).forEach(function(k) {
       if (!sec[k]) return;
       ns[k] = sec[k].map(function(row) {
         var f = conv.f(row[0], row[iYm]);

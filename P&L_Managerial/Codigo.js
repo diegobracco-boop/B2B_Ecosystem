@@ -83,8 +83,11 @@ var _I_NPV = 28;  // npv
 // Filas B2B (b2b_may/b2b_min, incluidas las *_gw): [pais, produto|gateway, ym, v0..v28, viaje].
 // El viaje (Domestic/International) va AL FINAL para no correr los índices de lo que ya leía por posición.
 var _I_VJ_B2B = 3 + METRIC_COLS.length;
-// Filas B2B2C por tipo de producto (b2b2c.ac_tp / ly_tp): [pais, partner, produto, ym, v0..v28, tipo].
+// Filas B2B2C por tipo de producto (b2b2c.ac_tp / ly_tp): [pais, partner, produto, ym, v0..v28, tipo, millas].
+// Por millas (b2b2c.ac_mi / ly_mi): [pais, partner, produto, ym, v0..v28, millas]. millas = 'Con millas' | 'Sin millas'.
 var _I_TP_B2B2C = 4 + METRIC_COLS.length;
+var _I_MI_TP    = _I_TP_B2B2C + 1;   // millas en ac_tp/ly_tp
+var _I_MI_MI    = _I_TP_B2B2C;       // millas en ac_mi/ly_mi
 
 // ── Helpers de filtrado y agregación ─────────────────────────────────────
 
@@ -125,7 +128,7 @@ function queryB2B2C_(section, scenarioKey, fPais, fPartner, fProduto,
                      outPartnerCM,           // {pais:{partner:{mes:{gb,nr,npv}}}} — null para omitir
                      outAllPaises, outAllPartners, outAllProdutos,
                      outFarmingAgg, outHuntingAgg,
-                     tp) {                   // modo tipo de producto: {fTipo, ymOk} (secciones ac_tp/ly_tp) — null = normal
+                     tp) {                   // modo apertura (tipo / millas): {ymOk, conds:[[idx, fArr]]} — null = normal
   var _YAVAS_SAAS_PRODS = ['flights','packages general','hotels'];
   var rows = (section && section[scenarioKey]) || [];
   rows.forEach(function(row) {
@@ -135,7 +138,7 @@ function queryB2B2C_(section, scenarioKey, fPais, fPartner, fProduto,
     if (!matchFilter_(pais,    fPais))    return;
     if (!matchFilter_(partner, fPartner)) return;
     if (!matchFilter_(produto, fProduto)) return;
-    if (tp && (!tp.ymOk[ym] || !matchFilter_(row[_I_TP_B2B2C], tp.fTipo))) return;
+    if (tp && (!tp.ymOk[ym] || tp.conds.some(function(c){ return !matchFilter_(row[c[0]], c[1]); }))) return;
     var mes = GD_YM_LABEL[ym];
     if (!mes) return;
 
@@ -333,6 +336,7 @@ function doGet() {
 //   gateway:   string|array  (solo B2B y solo con producto = Hotels; modo gateway: Actuals + LY, sin Budget/Forecast)
 //   viaje:     string|array  (solo B2B: 'Domestic' | 'International'; todos los escenarios, combinable con gateway)
 //   tipo:      string|array  (solo B2B2C: product_type crudo — Vuelos, Hoteles, Disney…; modo tipo: Actuals + LY, sin Budget/Forecast)
+//   millas:    string|array  (solo B2B2C: 'Con millas' | 'Sin millas' — porción del GB pagada con canje; mismo modo, combinable con tipo)
 // }
 // CacheService (6h) — 2026-09-23. getData() alimenta las 3 pestañas (Managerial View,
 // Gráficos, Detalle) y no tenía NADA de cache: cada llamada releía+reparseaba el JSON
@@ -392,6 +396,7 @@ function getData(filters) {
     gateway:        (f.gateway || []).slice().sort(),
     viaje:          (f.viaje   || []).slice().sort(),
     tipo:           (f.tipo    || []).slice().sort(),
+    millas:         (f.millas  || []).slice().sort(),
     lob_tipo:       (Array.isArray(f.lob_tipo) ? f.lob_tipo.slice().sort() : f.lob_tipo) || null,
     date_type:      f.date_type      || 'gd',
     baselineSource: f.baselineSource || 'bl',
@@ -404,7 +409,7 @@ function getData(filters) {
     var t1 = DriveApp.getFileById(GESTIONAL_JSON_FILE_ID).getLastUpdated().getTime();
     var t2 = DriveApp.getFileById(GESTIONAL_VR_JSON_FILE_ID).getLastUpdated().getTime();
     var t3 = orgTarget ? DriveApp.getFileById(FX_FILE_ID).getLastUpdated().getTime() : 0;   // xlsx de TC (organic)
-    ck = 'getdata_v6_' + t1 + '_' + t2 + '_' + t3 + '_' + Utilities.base64EncodeWebSafe(sig);
+    ck = 'getdata_v7_' + t1 + '_' + t2 + '_' + t3 + '_' + Utilities.base64EncodeWebSafe(sig);
     var hit = _readGetDataCache_(ck);
     if (hit) { Logger.log('getData HIT ' + (Date.now() - tStart) + ' ms'); return hit; }
   } catch (e) { Logger.log('getData cache probe: ' + e); }
@@ -465,6 +470,7 @@ function _computeGetData_(filters) {
   var fGateway = normFilter_(f['gateway']);
   var fViaje   = normFilter_(f['viaje']);
   var fTipo    = normFilter_(f['tipo']);
+  var fMillas  = normFilter_(f['millas']);
 
   // Modo gateway (B2B, Hotels): baseline = Actuals de Hotels del gateway (ac_gw / ac_ri_gw),
   // LY = ly_gw recortado a los mismos meses cerrados, Budget/Forecast vacíos (no abren por
@@ -475,20 +481,25 @@ function _computeGetData_(filters) {
               : (json.b2b_may && json.b2b_may.ac_gw) ? json : readGestionalJSON_('bl');
   var acGwKey = dateType === 'ri' ? 'ac_ri_gw' : 'ac_gw';
 
-  // Modo tipo de producto (B2B2C): mismo esquema que gateway — baseline = Actuals por tipo (ac_tp),
-  // LY = ly_tp, Budget/Forecast vacíos. Si el JSON en uso no trae las secciones, se leen del normal.
-  var tpMode  = fTipo.length > 0 && useB2B2C;
+  // Modo apertura B2B2C (tipo de producto y/o millas): mismo esquema que gateway — baseline = Actuals
+  // abiertos (ac_tp con tipo, ac_mi solo millas: Orders exactas), LY = ly_tp/ly_mi, Budget/Forecast
+  // vacíos. Si el JSON en uso no trae las secciones, se leen del normal.
+  var tpMode  = (fTipo.length > 0 || fMillas.length > 0) && useB2B2C;
+  var tpKeys  = fTipo.length ? ['ac_tp', 'ly_tp'] : ['ac_mi', 'ly_mi'];
+  var tpConds = fTipo.length
+              ? [[_I_TP_B2B2C, fTipo]].concat(fMillas.length ? [[_I_MI_TP, fMillas]] : [])
+              : [[_I_MI_MI, fMillas]];
   var tpJson  = !useB2B2C ? null
-              : (json.b2b2c && json.b2b2c.ac_tp) ? json : readGestionalJSON_('bl');
+              : (json.b2b2c && json.b2b2c.ac_tp && json.b2b2c.ac_mi) ? json : readGestionalJSON_('bl');
 
   // ORGANIC: se convierte SOLO el baseline (bl/bl_ri y, en modo gateway, ac_gw/ac_ri_gw). Ver Codigo_organic.js.
   var organicInfo = null, orgTarget = organicTarget_(f);
   if (orgTarget) {
     try {
       var conv = organicConverter_(orgTarget);
-      var jsonOrg = organicGestionalJson_(json, tpMode ? [blKey, acGwKey, 'ac_tp'] : [blKey, acGwKey], conv);
+      var jsonOrg = organicGestionalJson_(json, tpMode ? [blKey, acGwKey, tpKeys[0]] : [blKey, acGwKey], conv);
       gwJson = !gwJson ? null : (gwJson === json) ? jsonOrg : organicGestionalJson_(gwJson, [acGwKey], conv);
-      tpJson = !tpJson ? null : (tpJson === json) ? jsonOrg : organicGestionalJson_(tpJson, ['ac_tp'], conv);
+      tpJson = !tpJson ? null : (tpJson === json) ? jsonOrg : organicGestionalJson_(tpJson, [tpKeys[0]], conv);
       json = jsonOrg;
       organicInfo = { target: orgTarget, missing: Object.keys(conv.missing).sort() };
     } catch (e) {
@@ -525,12 +536,12 @@ function _computeGetData_(filters) {
 
   if (useB2B2C && tpMode) {
     lobsInData['B2B2C'] = true;
-    var tp = { fTipo: fTipo, ymOk: tpYmOk };
-    queryB2B2C_(tpJson.b2b2c, 'ac_tp', fPais, fPartner, fProduto,
+    var tp = { ymOk: tpYmOk, conds: tpConds };
+    queryB2B2C_(tpJson.b2b2c, tpKeys[0], fPais, fPartner, fProduto,
                 fcAgg, partnerAgg, partnerMonthlyAgg, partnerCountryMonthly,
                 allPaises, allPartners, allProdutos,
                 fcAgg_farming, fcAgg_hunting, tp);
-    queryB2B2C_(tpJson.b2b2c, 'ly_tp', fPais, fPartner, fProduto,
+    queryB2B2C_(tpJson.b2b2c, tpKeys[1], fPais, fPartner, fProduto,
                 lyAgg, null, lyPartnerMonthly, lyPartnerCM,
                 {}, {}, {},
                 lyAgg_farming, lyAgg_hunting, tp);
@@ -623,6 +634,7 @@ function _computeGetData_(filters) {
     gateway:  gwJson ? listGateways_(gwJson, useMay, useMin) : [],
     viaje:    viajeOpts,
     tipo:     tpJson ? listTipos_(tpJson) : [],
+    millas:   tpJson ? listMillas_(tpJson) : [],
   };
 
   var b2bCanalDetail = (useMay || useMin)
@@ -651,7 +663,8 @@ function _computeGetData_(filters) {
     gateway_sel:          gwMode ? (Array.isArray(f.gateway) ? f.gateway : [f.gateway]) : [],
     viaje_sel:            fViaje.length && (useMay || useMin) ? (Array.isArray(f.viaje) ? f.viaje : [f.viaje]) : [],
     tipo_mode:            tpMode,
-    tipo_sel:             tpMode ? (Array.isArray(f.tipo) ? f.tipo : [f.tipo]) : [],
+    tipo_sel:             tpMode && fTipo.length   ? (Array.isArray(f.tipo)   ? f.tipo   : [f.tipo])   : [],
+    millas_sel:           tpMode && fMillas.length ? (Array.isArray(f.millas) ? f.millas : [f.millas]) : [],
     pre_months:           PRE_YM_.map(function(ym){ return GD_YM_LABEL[ym]; }),
     b2bCanalDetail:       b2bCanalDetail,
     forecast:             fcstAgg,
@@ -704,6 +717,13 @@ function listTipos_(json) {
     gb[t] = (gb[t] || 0) + (row[4 + _I_GB] || 0);
   });
   return Object.keys(gb).sort(function(a, b) { return (gb[b] - gb[a]) || a.localeCompare(b); });
+}
+
+// Valores de millas presentes en ac_mi ('Con millas' primero).
+function listMillas_(json) {
+  var vals = {};
+  ((json.b2b2c && json.b2b2c.ac_mi) || []).forEach(function(row) { if (row[_I_MI_MI]) vals[row[_I_MI_MI]] = true; });
+  return Object.keys(vals).sort();
 }
 
 // Tipos de viaje presentes en los escenarios B2B que se filtran. Si alguna fila no trae la columna (JSON de antes
