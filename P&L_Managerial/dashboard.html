@@ -3418,64 +3418,63 @@ function _vsAccTable_(L){
 //  FVM → Operating Contribution — cuánto del FVM (Managerial) llega a OC (Accounting)
 //  Mismo backend que Managerial vs Accounting (getVsAccounting): Mgr = 'ac' (B2B2C) /
 //  'ac_ri' (MAY, MIN) · Acc = filas de actuals.json con P&L N5 = 'operating contribution'
-//  ('oc|total' = OC; líneas por 'n1|' = N1 o 'oc2|' = N2 dentro de OC — las 'oc2|' tienen que
-//  estar en VSACC_OC_N2 de Codigo.js, que solo manda esas). Puente por grupo de negocio:
-//  FVM → Δ por grupo (Acc − Mgr) → OC. "Sin línea propia" cierra exacto: lo que FVM y OC
-//  tienen fuera de las líneas mapeadas (B2B: el FVM gestional suma marketing/loyalty sin
-//  métrica propia; Acc: cualquier N1 nueva dentro de OC que no esté en este mapa).
-//  Como el cierre absorbe todo, un doble conteo NO descuadra el total: solo corre el reparto
-//  entre grupos. Por eso _fvmOcCheckMap_ avisa en consola si una línea entra dos veces.
-//  ⚠ BORRADOR — mismo mapeo de líneas que VSACC_MAP, lo revisa Diego.
+//  ('oc|total' = OC; cada N2 de OC llega como 'oc2|<N2>'). Puente por grupo de negocio:
+//  FVM → Δ por grupo (Acc − Mgr) → OC. El grupo "Otros" junta lo que no tiene lugar: una fila
+//  por cada N2 de OC que no esté en FVMOC_MAP (se arma sola, así una N2 nueva aparece con su
+//  nombre) + "Sin línea propia" del lado Managerial (lo que el FVM tiene fuera de las métricas
+//  mapeadas; B2B: marketing/loyalty sin métrica propia). Como el cierre absorbe todo, un doble
+//  conteo NO descuadra el total: solo corre el reparto entre grupos — _fvmOcCheckMap_ avisa.
 // ══════════════════════════════════════════════════════════════════════════
 // `sec` = grupo de negocio: una barra por grupo en el waterfall y una sección por grupo en la
-// tabla (spec de Diego 2026-10-15). El orden de FVMOC_SEC es el orden de las barras.
+// tabla. El orden de FVMOC_SEC es el orden de las barras. Grupos y líneas = spec de Diego
+// 2026-10-20 (Acc por N2 del P&L contable; Mgr = la métrica comparable, o nada si no hay).
 var FVMOC_MAP = [
-  // Juntas a propósito (como en VSACC_MAP): cada modelo reparte distinto entre las 3 (MAY: UFI
-  // +34M Mgr vs +0.9M Acc, Comm. Disc. −34M vs 0) — separadas dan barras de ±34M que se anulan.
+  // Juntas a propósito: cada modelo reparte distinto entre las 3 (MAY: UFI +34M Mgr vs +0.9M
+  // Acc, Comm. Disc. −34M vs 0) — separadas dan barras de ±34M que se anulan.
+  // Acc 'customer fees & charges' = N1 fees + commercial discounts.
   { label:'Up Front + Fees + Comm. Disc.', mgr:['up_front_incentives','fees','commercial_discounts'],
-                                     acc:['n1|up front incentives','n1|fees','n1|commercial discounts'], sec:'palancas' },
-  { label:'Cancellations',           mgr:['cancellations'],           acc:['n1|cancellations'], sec:'palancas' },
-  { label:'Cost of Installments',    mgr:['cost_of_installments'],    acc:['n1|cost of installments'], sec:'palancas' },
-  { label:'Credit Card Processing',  mgr:['credit_card_processing'],  acc:['n1|credit card processing'], sec:'palancas' },
-  { label:'White Labels / API',      mgr:['white_labels_api'],        acc:['n1|white labels / api'], sec:'palancas' },
-  { label:'Affiliates',              mgr:['affiliates'],              acc:['n1|affiliates'], sec:'palancas' },
-  { label:'Conectores + Telesales',  mgr:[],                          acc:['n1|conectores','n1|telesales'], sec:'palancas' },
-  { label:'Revenue Taxes',           mgr:['revenue_tax'],             acc:['n1|revenue taxes'], sec:'palancas' },
-  { label:'Other Transactional Taxes', mgr:['other_transactional_taxes'], acc:['n1|other transactional taxes'], sec:'palancas' },
+                                     acc:['oc2|up front incentives','oc2|customer fees & charges'], sec:'palancas' },
+  { label:'Income Outsourced Svcs',  mgr:['income_from_outsourced_services'], acc:['oc2|income from outsourced services'], sec:'palancas' },
+  { label:'Cost of Sales as Principal', mgr:['dif_fx','currency_hedge'], acc:['oc2|cost of sales as principal'], note:'Mgr: Dif FX + Hedge (fee bimonetario AR)', sec:'palancas' },
+  { label:'Cost of Installments',    mgr:['cost_of_installments'],    acc:['oc2|cost of installments'], sec:'palancas' },
+  { label:'Credit Card Processing',  mgr:['credit_card_processing'],  acc:['oc2|credit card processing'], sec:'palancas' },
+  { label:'Cancellations',           mgr:['cancellations'],           acc:['oc2|cancellations'], sec:'palancas' },
+  // Acc N2 = affiliates + white labels / api + conectores + telesales + revenue sharing.
+  { label:'Third Party Commissions', mgr:['affiliates','white_labels_api'], acc:['oc2|third party commissions'], sec:'palancas' },
+  { label:'Marketing Direct',        mgr:[],                          acc:['oc2|marketing-direct'], sec:'palancas' },
+  { label:'Revenue from Sales as Principal', mgr:[],                  acc:['oc2|revenue from sales as principal'], sec:'palancas' },
 
-  { label:'Back End Incentives',     mgr:['back_end_incentives'],     acc:['n1|back end incentives'], sec:'proveedores' },
-  { label:'Other Incentives (+GDS, VCC)', mgr:['other_incentives'],   acc:['n1|other incentives','n1|gds','n1|vcc'], sec:'proveedores' },
-  { label:'Breakage Revenue',        mgr:['breakage_revenue'],        acc:['n1|breakage revenue'], sec:'proveedores' },
-  { label:'Media & Other Revenue',   mgr:['media_revenue'],           acc:['n1|media & other revenue - media solutions'], sec:'proveedores' },
-  { label:'Income Outsourced Svcs',  mgr:['income_from_outsourced_services'], acc:['n1|income from outsourced services'], sec:'proveedores' },
+  { label:'Other Incentives (GDS + VCC)', mgr:['other_incentives'],   acc:['oc2|other incentives'], sec:'proveedores' },
+  { label:'Back End Incentives',     mgr:['back_end_incentives'],     acc:['oc2|back end incentives'], sec:'proveedores' },
+  { label:'Media & Other Revenue',   mgr:['media_revenue'],           acc:['oc2|media & other revenue'], sec:'proveedores' },
 
-  { label:'Customer Claims',         mgr:['customer_claims'],         acc:['n1|customer claims'], sec:'perdidas' },
-  { label:'Frauds',                  mgr:['frauds'],                  acc:['n1|frauds'], sec:'perdidas' },
-  { label:'Errors',                  mgr:['errors'],                  acc:['n1|errors'], sec:'perdidas' },
-  { label:'Bad Debt',                mgr:[],                          acc:['oc2|bad debt'], sec:'perdidas' },
+  { label:'Breakage Revenue',        mgr:['breakage_revenue'],        acc:['oc2|breakage revenue'], sec:'operativas' },
+  { label:'Bad Debt',                mgr:[],                          acc:['oc2|bad debt'], sec:'operativas' },
+  { label:'Frauds',                  mgr:['frauds'],                  acc:['oc2|frauds'], sec:'operativas' },
+  { label:'Intercompany Transactions', mgr:['intercompany_usd'],      acc:['oc2|intercompany transactions'], sec:'operativas' },
+  { label:'Errors',                  mgr:['errors'],                  acc:['oc2|errors'], sec:'operativas' },
+  { label:'Customer Claims',         mgr:['customer_claims'],         acc:['oc2|customer claims'], sec:'operativas' },
 
-  { label:'Customer Service',        mgr:['customer_service'],        acc:['n1|customer service'], sec:'fijos' },
-  { label:'Operations + Risk',       mgr:['operations'],              acc:['n1|operations','n1|risk'], sec:'fijos' },
-  { label:'Intercompany',            mgr:['intercompany_usd'],        acc:['n1|intercompany transactions'], sec:'fijos' },
-  { label:'Vendor Comm.  vs  Channels Personnel', mgr:['vendor_commissions'], acc:['oc2|channels-personnel/expenses'], sec:'fijos' },
-  { label:'Marketing Personnel',     mgr:[],                          acc:['oc2|marketing-personnel/expenses'], sec:'fijos' },
-  { label:'Other Taxes',             mgr:[],                          acc:['oc2|other taxes'], sec:'fijos' },
+  { label:'Revenue Taxes',           mgr:['revenue_tax'],             acc:['oc2|revenue taxes'], sec:'taxes' },
+  { label:'Other Transactional Taxes', mgr:['other_transactional_taxes'], acc:['oc2|other transactional taxes'], sec:'taxes' },
+  { label:'Other Taxes',             mgr:[],                          acc:['oc2|other taxes'], sec:'taxes' },
 
-  { label:'Marketing Direct',        mgr:[],                          acc:['oc2|marketing-direct'], sec:'marketing' },
-  { label:'Loyalty Program',         mgr:[],                          acc:['oc2|loyalty program'], sec:'marketing' },
-  { label:'Loyalty Revenue',         mgr:[],                          acc:['oc2|loyalty revenue'], sec:'marketing' },
+  // Acc N2 = N1 customer service + operations + risk → del lado Mgr van las dos métricas.
+  { label:'Fulfilment Center Fees',  mgr:['customer_service','operations'], acc:['oc2|fulfilment center fees'], note:'Mgr: Customer Service + Operations', sec:'fijos' },
+  { label:'Marketing Personnel Exp.', mgr:[],                         acc:['oc2|marketing-personnel/expenses'], sec:'fijos' },
+  { label:'Channels Personnel Exp.', mgr:['vendor_commissions'],      acc:['oc2|channels-personnel/expenses'], note:'Mgr: Vendor Commissions', sec:'fijos' },
+  { label:'Loyalty Program',         mgr:[],                          acc:['oc2|loyalty program'], sec:'fijos' },
 
-  { label:'Efecto Financiero',       mgr:['efecto_financiero'],       acc:[], note:'solo Managerial', sec:'financiero' },
-  { label:'Dif FX + Hedge  vs  Cost of Sales as Principal', mgr:['dif_fx','currency_hedge'], acc:['n1|cost of sales as principal'], note:'fee bimonetario Argentina', sec:'financiero' }
+  { label:'Efecto Financiero',       mgr:['efecto_financiero'],       acc:[], note:'solo Managerial', sec:'financiero' }
 ];
 var FVMOC_SEC = [
   { k:'palancas',    label:'Palancas de Negocio' },
   { k:'proveedores', label:'Incentivos Proveedores' },
-  { k:'perdidas',    label:'Pérdidas Operativas' },
-  { k:'fijos',       label:'Costos Fijos' },
-  { k:'marketing',   label:'Inversión de Marketing' },
-  { k:'financiero',  label:'Resultado Financiero' },
-  { k:'resid',       label:'Sin línea propia' }
+  { k:'operativas',  label:'Ingresos / Pérdidas Operativas' },
+  { k:'taxes',       label:'Taxes' },
+  { k:'fijos',       label:'Fixed Cost' },
+  { k:'financiero',  label:'Efecto Financiero' },
+  { k:'otros',       label:'Otros' }
 ];
 function _fvmOcSecLabel_(k){ for(var i=0; i<FVMOC_SEC.length; i++) if(FVMOC_SEC[i].k === k) return FVMOC_SEC[i].label; return k; }
 var FVMOC_LOBS = [
@@ -3527,26 +3526,35 @@ function _fvmOcRows_(X, months){
     var g = s(X.mgr, r.mgr), a = s(X.acc, r.acc);
     return { label:r.label, sec:r.sec, note:r.note, g:g, a:a, d:a - g };
   });
+  // Otros: una fila por N2 de OC sin mapear. Sale de todas las claves (no de `months`) para que
+  // la tabla tenga las mismas filas en cada columna.
+  _fvmOcUnmapped_(X).forEach(function(k){
+    var a = s(X.acc, [k]), name = k.slice(4);
+    rows.push({ label:name.charAt(0).toUpperCase() + name.slice(1), sec:'otros', note:'N2 sin mapear', g:0, a:a, d:a });
+  });
   var sg = rows.reduce(function(t, r){ return t + r.g; }, 0);
   var sa = rows.reduce(function(t, r){ return t + r.a; }, 0);
-  rows.push({ label:'Sin línea propia', sec:'resid', resid:true, g:fvm - sg, a:oc - sa, d:(oc - sa) - (fvm - sg),
-              note:'Mgr: marketing/loyalty B2B sin métrica · Acc: N1 sin mapear' });
+  // sa ≡ oc salvo redondeo: todas las N2 de OC ya están en alguna fila.
+  rows.push({ label:'Sin línea propia', sec:'otros', resid:true, g:fvm - sg, a:oc - sa, d:(oc - sa) - (fvm - sg),
+              note:'Mgr: FVM fuera de las métricas mapeadas (B2B: marketing/loyalty sin métrica)' });
   return { fvm:fvm, oc:oc, rows:rows };
+}
+
+// Claves 'oc2|' que vienen del backend y no toma ninguna fila de FVMOC_MAP, ordenadas por nombre.
+function _fvmOcUnmapped_(X){
+  var used = {};
+  FVMOC_MAP.forEach(function(r){ r.acc.forEach(function(k){ used[k] = true; }); });
+  return Object.keys(X.acc).filter(function(k){ return k.indexOf('oc2|') === 0 && !used[k]; }).sort();
 }
 
 // Con FVM ≤ 0 el ratio no significa nada (cambia de signo) → '—'.
 function _fvmOcPct_(oc, fvm){ return fvm < 1e-9 ? null : oc / fvm * 100; }
 
-// Doble conteo en FVMOC_MAP: la misma clave en dos filas, o una línea tomada por N1 ('n1|x')
-// y por N2 ('oc2|x') a la vez (pasa con las N2 que tienen una sola N1 del mismo nombre).
+// Doble conteo en FVMOC_MAP: la misma clave en dos filas.
 function _fvmOcCheckMap_(){
   var seen = {}, dup = [];
   FVMOC_MAP.forEach(function(r){
-    r.acc.forEach(function(k){
-      var name = k.replace(/^(n1|oc2)\|/, '');
-      if(seen[k] || seen['n1|'+name] && k.indexOf('oc2|') === 0 || seen['oc2|'+name] && k.indexOf('n1|') === 0) dup.push(k);
-      seen[k] = true;
-    });
+    r.acc.forEach(function(k){ if(seen[k]) dup.push(k); seen[k] = true; });
     r.mgr.forEach(function(k){ if(seen['mgr:'+k]) dup.push(k); seen['mgr:'+k] = true; });
   });
   if(dup.length && window.console) console.warn('[fvmoc] FVMOC_MAP cuenta dos veces: ' + dup.join(', '));
@@ -3572,8 +3580,10 @@ function _fvmOcRender_(){
   // Avisos de integridad: el puente cierra igual, pero OC o el reparto por grupo no serían confiables.
   var D = _vsAccData, warns = [];
   if(D.ocMissingN5) warns.push('<code>actuals.json</code> no trae la columna <b>P&amp;L N5</b>: el OC sale en 0.');
-  if(D.ocMixedN1 && D.ocMixedN1.length) warns.push('Estas líneas N1 aparecen dentro y fuera de Operating Contribution, así que su barra incluye montos que no son OC: <b>'
-    + D.ocMixedN1.map(escHtml).join(', ') + '</b>.');
+  if(D.ocMixedN2 && D.ocMixedN2.length) warns.push('Estas líneas N2 aparecen dentro y fuera de Operating Contribution (en el puente entra solo la parte de OC): <b>'
+    + D.ocMixedN2.map(escHtml).join(', ') + '</b>.');
+  var unm = _fvmOcUnmapped_(X);
+  if(unm.length) warns.push('N2 de OC sin grupo asignado (van a <b>Otros</b>): <b>' + unm.map(function(k){ return escHtml(k.slice(4)); }).join(', ') + '</b>.');
   var dup = _fvmOcCheckMap_();
   if(dup.length) warns.push('<code>FVMOC_MAP</code> cuenta dos veces: <b>' + dup.map(escHtml).join(', ') + '</b> (el total cierra, el reparto por grupo no).');
   var warnHtml = warns.length ? '<div style="margin:6px 0;padding:6px 10px;border:1px solid var(--red);background:var(--red-bg);border-radius:6px;font-size:11px">⚠ '
@@ -3617,8 +3627,9 @@ function _fvmOcRender_(){
     + '</div>'
     + '<div style="position:relative;height:340px;padding:0 12px"><canvas id="fvmoc-wf-canvas" role="img" aria-label="Waterfall por grupo de negocio de FVM Managerial a Operating Contribution Accounting"></canvas></div>'
     + '<div style="font-size:11px;color:var(--muted);margin-top:6px">Cada barra = Δ del grupo (Accounting − Managerial); pasá el mouse para ver qué líneas lo explican. '
-    + 'Lo que solo existe en Accounting (marketing, channels, loyalty program, other taxes, bad debt, conectores/telesales) resta su total; '
-    + 'el efecto financiero (solo Managerial) suma de vuelta lo que el FVM descuenta y OC no. El detalle por línea y mes está en la tabla de abajo.</div>'
+    + 'Lo que solo existe en Accounting (marketing direct y personnel, loyalty program, bad debt, other taxes, revenue from sales as principal) entra con su total; '
+    + 'el efecto financiero (solo Managerial) suma de vuelta lo que el FVM descuenta y OC no. <b>Otros</b> = N2 de OC sin grupo + lo que el FVM tiene fuera de las métricas mapeadas. '
+    + 'El detalle por línea y mes está en la tabla de abajo.</div>'
     + '</div>';
 
   sec.innerHTML = wf + _fvmOcTableHtml_(X);
@@ -3632,7 +3643,7 @@ function _fvmOcDrawWaterfall_(B){
   FVMOC_SEC.forEach(function(sc){
     var rs = B.rows.filter(function(r){ return r.sec === sc.k; });
     var d = rs.reduce(function(t, r){ return t + r.d; }, 0);
-    if(sc.k === 'resid' && Math.abs(d) < 0.5) return;   // el cierre solo aparece si hay algo sin mapear
+    if(sc.k === 'otros' && Math.abs(d) < 0.5) return;   // Otros solo aparece si mueve algo
     var lines = rs.filter(function(r){ return Math.abs(r.d) >= 0.5; })
       .sort(function(a, b){ return Math.abs(b.d) - Math.abs(a.d); });
     steps.push({ kind:'delta', label:sc.label, d:d, lines:lines });
@@ -4139,7 +4150,7 @@ function renderVsAcc_(){
       + '<span style="color:var(--muted)">Detalle completo: <code>P&amp;L_Managerial/reconciliacion_actuals_gd_vs_revenue.md</code></span>'
       + '</div></details>'
     : isOC
-    ? '<div style="margin-top:6px;padding:6px 10px;border:1px solid var(--red);background:var(--red-bg);border-radius:6px;font-size:11px">⚠ <b>BORRADOR</b> — <code>FVMOC_MAP</code> (línea Managerial ↔ N1/N2 de OC) usa el mismo criterio que <code>VSACC_MAP</code>, sin cerrar. FVM y OC totales son confiables; el reparto por línea, revisar.</div>'
+    ? ''
     : '<div style="margin-top:6px;padding:6px 10px;border:1px solid var(--red);background:var(--red-bg);border-radius:6px;font-size:11px">⚠ <b>BORRADOR</b> — <code>VSACC_MAP</code> (mapeo línea Managerial ↔ P&L N1 Accounting) está sin cerrar.</div>';
 
   var paisOpts = (isPR && _revGdData && _revGdData.paisOpts && _revGdData.paisOpts.length) ? _revGdData.paisOpts : (D.paisOpts || []);

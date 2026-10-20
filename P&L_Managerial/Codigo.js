@@ -833,7 +833,7 @@ function getVsAccounting(filtersJson) {
   try {
     var t1 = DriveApp.getFileById(GESTIONAL_JSON_FILE_ID).getLastUpdated().getTime();
     var t2 = DriveApp.getFileById(ACC_ACTUALS_FILE_ID).getLastUpdated().getTime();
-    ck = 'vsacc_v8_' + t1 + '_' + t2 + '_' + Utilities.base64EncodeWebSafe(sig);
+    ck = 'vsacc_v9_' + t1 + '_' + t2 + '_' + Utilities.base64EncodeWebSafe(sig);
     var hit = cache.get(ck);
     if (hit) return JSON.parse(hit);
   } catch (e) { Logger.log('getVsAccounting cache probe: ' + e); }
@@ -847,12 +847,6 @@ function getVsAccounting(filtersJson) {
   }
   return out;
 }
-
-// N2 de Operating Contribution que usa FVMOC_MAP (dashboard.html) con prefijo 'oc2|' — líneas
-// sin equivalente Managerial que se toman enteras por N2. Solo estas se mandan, para no inflar
-// el payload cacheado. Si se agrega una 'oc2|' al mapa, agregarla acá también.
-var VSACC_OC_N2 = ['loyalty revenue', 'bad debt', 'channels-personnel/expenses', 'marketing-direct',
-                   'marketing-personnel/expenses', 'loyalty program', 'other taxes'];
 
 function _round2_(dict) {
   Object.keys(dict).forEach(function(k){
@@ -908,7 +902,7 @@ function _computeVsAccounting_(f) {
   var iLob = cix['LoB'], iCanal = cix['Canal'], iPais = cix['Pais'], iProd = cix['Producto'],
       iN1 = cix['P&L N1'], iN2 = cix['P&L N2'], iN3 = cix['P&L N3'], iN4 = cix['P&L N4'], iN5 = cix['P&L N5'],
       iFecha = cix['Fecha'], iMonto = cix['Monto USD'];
-  var n1InOC = {}, n1OutOC = {};
+  var n2InOC = {}, n2OutOC = {};
   (aj.rows || []).forEach(function(r){
     var lob = String(r[iLob] || '').toLowerCase(), canal = String(r[iCanal] || '').toLowerCase();
     var bucket = (lob === 'b2b2c') ? 'b2b2c'
@@ -923,17 +917,16 @@ function _computeVsAccounting_(f) {
     var mes = _accMes_(r[iFecha]); if (!mes) return;
     var val = (+r[iMonto] || 0), dst = A[bucket];
     var keys = [['n1', r[iN1]], ['n3', r[iN3]], ['n4', r[iN4]]];
-    // Vista "FVM → OC": total de Operating Contribution (N5) + las N2 de VSACC_OC_N2.
-    // El resto de las líneas del puente usa 'n1|' — vale porque cada N1 de OC cae entera
-    // dentro de OC; si una N1 aparece dentro y fuera, va a ocMixedN1 y la landing avisa.
-    var n1 = String(r[iN1] || '').toLowerCase();
+    // Vista "FVM → OC": total de Operating Contribution (N5) + cada N2 de OC como 'oc2|<N2>'
+    // (FVMOC_MAP de dashboard.html arma el puente por N2; las que no mapea caen en "Otros").
+    // Si una N2 aparece dentro y fuera de OC, va a ocMixedN2 y la landing avisa.
+    var n2 = String(r[iN2] || '').toLowerCase();
     if (String(r[iN5] || '').toLowerCase() === 'operating contribution') {
       keys.push(['oc', 'total']);
-      var n2 = String(r[iN2] || '').toLowerCase();
-      if (VSACC_OC_N2.indexOf(n2) >= 0) keys.push(['oc2', n2]);
-      n1InOC[n1] = true;
+      keys.push(['oc2', n2]);
+      n2InOC[n2] = true;
     } else {
-      n1OutOC[n1] = true;
+      n2OutOC[n2] = true;
     }
     keys.forEach(function(p){
       var k = p[0] + '|' + String(p[1] || '(sin ' + p[0] + ')').toLowerCase();
@@ -948,7 +941,7 @@ function _computeVsAccounting_(f) {
   return {
     accMeta:  aj.meta || {},
     ocMissingN5: iN5 === undefined,   // actuals.json sin columna N5 → la vista FVM → OC no puede armar el OC
-    ocMixedN1:   Object.keys(n1InOC).filter(function(k){ return n1OutOC[k]; }),
+    ocMixedN2:   Object.keys(n2InOC).filter(function(k){ return n2OutOC[k]; }),
     paisOpts: ['Argentina','Brasil','Mexico','Colombia','Chile','Peru','Ecuador','Otros'].filter(function(p){ return paisOpts[p]; }),
     prodOpts: Object.keys(prodOpts).sort(),
     selPais:  selPais,
