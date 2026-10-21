@@ -48,7 +48,8 @@ function fail(msg) {
 }
 
 function git(cwd, args) {
-  return execFileSync('git', ['-C', cwd, ...args], { encoding: 'utf8' });
+  // stderr capturado: en una rama huérfana sin commits, rev-parse HEAD falla "a propósito".
+  return execFileSync('git', ['-C', cwd, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
 }
 
 function canon(p) {
