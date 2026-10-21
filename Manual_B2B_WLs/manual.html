@@ -563,6 +563,9 @@ a.ext-link:hover { text-decoration: underline; }
   <a class="nav-item" onclick="showSection('proj-manual')">
     <span class="nav-icon">📖</span> Manual B2B WLs
   </a>
+  <a class="nav-item" onclick="showSection('proj-ownia')">
+    <span class="nav-icon">☁️</span> Ecosistema en Ownia
+  </a>
   <a class="nav-item" onclick="showSection('actualizar')">
     <span class="nav-icon">🔄</span> Actualizar datos (detalle)
   </a>
@@ -691,6 +694,14 @@ a.ext-link:hover { text-decoration: underline; }
         <div class="proj-card-desc">Este manual. Landing GAS de <strong>solo lectura</strong> (sin formularios ni carga de datos) que documenta la arquitectura, flujos y procedimientos de todos los módulos del ecosistema. Hoy se abre como link externo desde el Hub; a futuro, embebido via iframe.</div>
         <div class="proj-card-tag"><span class="badge badge-manual">📖 Documentación</span></div>
         <a class="proj-card-url" href="https://script.google.com/a/macros/despegar.com/s/AKfycbwq2nohZ-c3w-OqvO1H_op4yATn6yDN4qRO9mI8gs1VkO9Jn9lCcQeTsNAceCpydJiHzg/exec" target="_blank">↗ Abrir manual</a>
+      </div>
+
+      <div class="proj-card" tabindex="0" role="button" onclick="showSection('proj-ownia')">
+        <div class="proj-card-icon">☁️</div>
+        <div class="proj-card-name">Ecosistema en Ownia</div>
+        <div class="proj-card-desc">Migración <strong>progresiva</strong> del ecosistema a Ownia. Corre el <strong>mismo código</strong> de cada landing GAS (sin reescribir la lógica), módulo por módulo. Apps Script sigue productivo y no se toca. Piloto: este manual.</div>
+        <div class="proj-card-tag"><span class="badge badge-manual">🧪 Piloto · en migración</span></div>
+        <a class="proj-card-url" href="https://ownia.despegar.io/b2b-ecosystem" target="_blank">↗ Abrir en Ownia</a>
       </div>
     </div>
 
@@ -2736,6 +2747,55 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
     </div>
   </div>
 
+  <!-- ══════════════════════ PROYECTO: ECOSISTEMA EN OWNIA ══════════════════════ -->
+  <div class="section" id="sec-proj-ownia">
+    <div class="page-header">
+      <div class="page-tag">Proyecto · Infraestructura</div>
+      <div class="page-title">Ecosistema en <span>Ownia</span></div>
+      <div class="page-sub">Migración <strong>progresiva</strong> de las landings a Ownia (<a class="ext-link" href="https://ownia.despegar.io/b2b-ecosystem" target="_blank">ownia.despegar.io/b2b-ecosystem</a>). No se reescribe la lógica: una app Node corre el <strong>mismo código</strong> de cada proyecto Apps Script del repo con los servicios de GAS reemplazados. <strong>Apps Script sigue productivo y no se toca</strong>; tampoco cambian los pipelines, las queries al Datalake ni los JSON de Drive.</div>
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">📍 Datos del proyecto</div>
+        <table class="doc-table">
+          <tbody>
+            <tr><td>Carpeta local</td><td>Ownia_B2B_Ecosystem</td></tr>
+            <tr><td>URL</td><td><a class="ext-link" href="https://ownia.despegar.io/b2b-ecosystem" target="_blank">ownia.despegar.io/b2b-ecosystem</a> (portada con todos los módulos)</td></tr>
+            <tr><td>Repo de deploy</td><td><code>despegar/ownia-b2b-ecosystem</code> — espejo <strong>generado</strong> (Ownia solo deploya repos de la org <code>despegar</code>). No editar a mano.</td></tr>
+            <tr><td>Estado</td><td><span class="badge badge-manual">Piloto</span> Migrado: <strong>Manual B2B WLs</strong>. El resto sigue en GAS y la portada lo linkea.</td></tr>
+            <tr><td>Datos en runtime</td><td>Ninguno todavía. Falta el reemplazo de <code>DriveApp</code> para migrar módulos con datos.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card">
+        <div class="card-title">🚀 Cómo publicar un cambio</div>
+        <table class="doc-table">
+          <tbody>
+            <tr><td><strong>1</strong></td><td>Editar en <code>Ownia_B2B_Ecosystem/</code> (o el módulo GAS migrado) y correr <code>npm test</code>.</td></tr>
+            <tr><td><strong>2</strong></td><td>Commit + push al monorepo.</td></tr>
+            <tr><td><strong>3</strong></td><td><code>node scripts/sync-to-ownia-repo.js &lt;clon del espejo&gt;</code> → commit + push del espejo.</td></tr>
+            <tr><td><strong>4</strong></td><td>Redeploy desde Claude con la skill <code>ownia-deploy</code>. Llega un mail cuando termina.</td></tr>
+            <tr><td>⚠️</td><td>Igual que con clasp: un <code>git push</code> al monorepo <strong>no publica</strong> en Ownia.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🧭 Plan de migración</div>
+      <table class="doc-table">
+        <thead><tr><th>Fase</th><th>Qué</th><th>Estado</th></tr></thead>
+        <tbody>
+          <tr><td>F1</td><td>Esqueleto + runtime GAS + piloto con el Manual (sin datos)</td><td><span class="badge badge-auto">En curso</span></td></tr>
+          <tr><td>F2</td><td>Identidad (SSO) + lectura de Drive con una cuenta técnica → FVM Negativo, Profit Sharing, OKR B2B2C, P&amp;L Accounting, P&amp;L Managerial</td><td>Pendiente</td></tr>
+          <tr><td>F3</td><td>Daily Dashboard (mail diario, Slides), Hub (deck de Cierre, iframes) y Country One Pager (Libraries → imports)</td><td>Pendiente</td></tr>
+          <tr><td>F4</td><td>Corte: las landings GAS redirigen a Ownia (rollback = sacar el redirect)</td><td>Pendiente</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
   <!-- ══════════════════════ PROYECTO: MANUAL B2B WLS ══════════════════════ -->
   <div class="section" id="sec-proj-manual">
     <div class="page-header">
@@ -2753,6 +2813,7 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
             <tr><td>Apps Script ID</td><td class="mono-id">1QWmdd4S9tgnwuUDv3k25ig3ArK9PO8s9jcobHWtm4zPVN_Zlapvies0e</td></tr>
             <tr><td>URL landing</td><td><a class="ext-link" href="https://script.google.com/a/macros/despegar.com/s/AKfycbwq2nohZ-c3w-OqvO1H_op4yATn6yDN4qRO9mI8gs1VkO9Jn9lCcQeTsNAceCpydJiHzg/exec" target="_blank">↗ Abrir</a></td></tr>
             <tr><td>Deployment publicado</td><td class="mono-id">AKfycbwq2nohZ-c3w-OqvO1H_op4yATn6yDN4qRO9mI8gs1VkO9Jn9lCcQeTsNAceCpydJiHzg</td></tr>
+            <tr><td>Copia en Ownia</td><td><a class="ext-link" href="https://ownia.despegar.io/b2b-ecosystem/manual" target="_blank">ownia.despegar.io/b2b-ecosystem/manual</a> — mismo <code>manual.html</code>, servido por <code>Ownia_B2B_Ecosystem</code>. Un cambio acá se publica en los dos lados: <code>/clasp-push</code> y sync + redeploy en Ownia.</td></tr>
             <tr><td>Actualización</td><td><span class="badge badge-manual">Manual — se mantiene el contenido a mano</span></td></tr>
             <tr><td>Datos en runtime</td><td>Ninguno. No lee Drive ni Datalake.</td></tr>
             <tr><td>Copia SharePoint</td><td>OneDrive → Control de Gestión 2026-27 → B2B &amp; WLs → Proyectos IA (sincronizar a mano)</td></tr>

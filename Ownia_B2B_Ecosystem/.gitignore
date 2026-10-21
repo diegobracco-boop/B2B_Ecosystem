@@ -1,0 +1,3 @@
+node_modules/
+# Generada por scripts/sync-to-ownia-repo.js solo en el repo de Ownia; acá se leen las carpetas hermanas.
+gas/

@@ -1,0 +1,5 @@
+{
+  "timeZone": "America/Argentina/Buenos_Aires",
+  "webapp": { "executeAs": "USER_DEPLOYING", "access": "DOMAIN" },
+  "runtimeVersion": "V8"
+}

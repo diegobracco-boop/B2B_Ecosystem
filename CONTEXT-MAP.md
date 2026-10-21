@@ -173,6 +173,18 @@ El ecosistema tiene dos capas: **pipelines** (Python, generan los datos) y **lan
 - **Deployment id (prod)**: `AKfycbyfhSHt3k0wJS39TlHYOAuRYicAy0M1pGfnarSM1RXOKECa4p1cBSlFjXU5ZXQKsYCj`
 - **Deploy**: `cd P&L_Profit_Sharing && clasp push --force` + `clasp deploy -i <deploymentId>`
 
+### Ownia_B2B_Ecosystem — el ecosistema en Ownia (migración progresiva)
+- **Stack**: Node.js (sin dependencias), deployado en Ownia → `https://ownia.despegar.io/b2b-ecosystem`. Creado 2026-10-21.
+- **Qué hace**: sirve las landings GAS desde Ownia corriendo **el mismo código** de cada proyecto Apps Script en un
+  contexto `vm` con shims de los servicios de GAS (`HtmlService`, `Session`, `CacheService`, …) y un reemplazo de
+  `google.script.run` en el navegador. No hay reescritura de lógica, así los números no divergen.
+- **Estado**: piloto con `Manual_B2B_WLs` (`/b2b-ecosystem/manual`). El resto sigue productivo en GAS y la portada
+  lo linkea. Todavía no hay shim de `DriveApp`/`SlidesApp`/`MailApp`: ningún módulo con datos puede migrarse aún.
+- **Repo de deploy**: `despegar/ownia-b2b-ecosystem`, espejo GENERADO por `scripts/sync-to-ownia-repo.js` (Ownia solo
+  deploya repos de la org `despegar`). La fuente de verdad es la carpeta del monorepo.
+- **Apps Script no cambia**: pipelines, queries al Datalake, JSON de Drive y landings GAS siguen igual.
+- **Doc detallada**: [CONTEXT.md](./Ownia_B2B_Ecosystem/CONTEXT.md)
+
 ## Credenciales
 
 Todas las credenciales viven en `credenciales/` (gitignoreado). Ver cada módulo para el detalle de qué archivo necesita.
@@ -180,6 +192,7 @@ Todas las credenciales viven en `credenciales/` (gitignoreado). Ver cada módulo
 ## Estado actual
 
 - **En producción**: Daily_Dashboard, Dashboard_B2B_WLs, P&L_Accounting, P&L_Managerial, Manual_B2B_WLs, `lob_country_one_pager` (B2B, en prod desde 2026-09-17), OKR_Producto_B2B2C, P&L_Profit_Sharing (desde 2026-10-13)
+- **En migración progresiva a Ownia**: `Ownia_B2B_Ecosystem` (piloto: Manual). Apps Script sigue productivo.
 - **En construcción (Fase 2)**: repuntear las landings de P&L y Dashboard_B2B_WLs a los JSONs canónicos de Inputs_Planning_PnL como fuente única (hoy algunas todavía leen de fuentes propias)
 
 ## Relación clasp ↔ GitHub
