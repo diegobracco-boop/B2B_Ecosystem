@@ -5,3 +5,5 @@ test
 **/credentials*
 **/.env
 **/.env.*
+_store
+mirror

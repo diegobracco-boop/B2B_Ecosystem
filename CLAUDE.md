@@ -50,8 +50,8 @@ Una vez creadas las credenciales, actualizar `RUTA_ENV` en `Daily_Dashboard/dail
 | `Daily_Dashboard/` (Python) | Implementar → correr `/sincronizar` para verificar que funciona |
 | `Daily_Dashboard/` (GAS/HTML) | Implementar → `/clasp-push` para publicar a producción |
 | `Dashboard_B2B_WLs/` | Implementar → `/clasp-push` |
-| `P&L_Accounting/` | Implementar → `/clasp-push` |
-| `P&L_Managerial/` | Implementar → `/clasp-push` |
+| `P&L_Accounting/` | Implementar → `/clasp-push` + sync y redeploy en Ownia (en validación ahí) |
+| `P&L_Managerial/` | Implementar → `/clasp-push` + sync y redeploy en Ownia (en validación ahí). Después de correr sus pipelines: `py Ownia_B2B_Ecosystem/mirror/ownia_mirror.py` |
 | `Manual_B2B_WLs/` | Implementar → `python Manual_B2B_WLs/check_manual_refs.py` → `/clasp-push` |
 | `lob_country_one_pager/` | Implementar → `/clasp-push` (combina JSONs de Inputs_Planning_PnL + Daily_Dashboard + P&L_Managerial, sin pipeline propio) |
 | `P&L_Profit_Sharing/` | SQL/Python → `py profit_sharing_sync.py` (sube el JSON) · GAS/HTML → `/clasp-push` |
@@ -62,7 +62,7 @@ Una vez creadas las credenciales, actualizar `RUTA_ENV` en `Daily_Dashboard/dail
 | `FVM_Negativo/` | Implementar → `/clasp-push` (sin pipeline propio: el JSON lo genera `Daily_Dashboard/daily_sync.py`; si se tocan esas queries, `/sincronizar`) |
 | `Ownia_B2B_Ecosystem/` | Implementar → `npm test` → sync a la rama `b2b-ecosystem` de `despegar/B2B_Ecosystem_Ownia` (nunca a `main`: ahí vive la app `b2b-dashboard`) → redeploy con la skill `ownia-deploy` (ver su `CONTEXT.md`, "Flujo para publicar") |
 
-**Migración progresiva a Ownia** (`Ownia_B2B_Ecosystem/`): corre el código GAS de los módulos marcados `ownia: true` en `server/modules.js` sin reescribirlo. Apps Script sigue siendo productivo y no se toca. Si cambiás un módulo GAS ya migrado (hoy solo `Manual_B2B_WLs`), hay que publicar en los dos lados: `/clasp-push` **y** sync + redeploy en Ownia.
+**Migración progresiva a Ownia** (`Ownia_B2B_Ecosystem/`): corre el código GAS de los módulos marcados `ownia: true` en `server/modules.js` sin reescribirlo. Apps Script sigue siendo productivo y no se toca. Si cambiás un módulo GAS ya migrado o en validación (hoy `Manual_B2B_WLs`, `P&L_Managerial`, `P&L_Accounting`), hay que publicar en los dos lados: `/clasp-push` **y** sync + redeploy en Ownia. Los módulos con datos leen una copia espejada de Drive: si agregás un `*_FILE_ID` en su código GAS, sumalo a `Ownia_B2B_Ecosystem/server/drive-manifest.json`, y después de cada corrida de pipeline corré `py Ownia_B2B_Ecosystem/mirror/ownia_mirror.py`.
 
 **Al cambiar el proceso, los IDs de Drive/deployment, los nombres de script o la arquitectura de CUALQUIER módulo, actualizar también `Manual_B2B_WLs/manual.html`** (y, si cambia un deployment ID, `Ownia_B2B_Ecosystem/server/modules.js`) — no se actualiza solo, y ya se desincronizó (scripts fantasma, IDs viejos). Correr `python Manual_B2B_WLs/check_manual_refs.py` antes de deployar el manual (chequea que los `.py` citados existan en el repo).
 

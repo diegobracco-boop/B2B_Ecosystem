@@ -4,7 +4,7 @@ const http = require('http');
 const path = require('path');
 const { createApp } = require('../server/index');
 const config = require('../server/config');
-const { MODULES } = require('../server/modules');
+const { MODULES, EQUIPO_B2B } = require('../server/modules');
 
 const BASE = '/b2b-ecosystem';
 const FIXTURES = path.join(__dirname, 'fixtures');
@@ -12,6 +12,8 @@ const DEMO = { slug: 'demo', dir: 'Demo_Module', title: 'Demo', desc: 'demo', ow
 // Mismo proyecto, con el default (requiere identidad), como cualquier módulo con datos.
 const DEMO_PRIV = { slug: 'demo-privado', dir: 'Demo_Module', title: 'Demo privado', desc: 'demo', ownia: true, gasUrl: '' };
 const RUN_HEADERS = { 'X-Requested-With': 'google.script.run' };
+// Mismo proyecto con lista cerrada de usuarios (como los módulos en validación).
+const DEMO_EQUIPO = { slug: 'demo-equipo', dir: 'Demo_Module', title: 'Demo equipo', desc: 'demo', ownia: true, validating: true, allowedUsers: ['Ana@despegar.com'], gasUrl: 'https://script.google.com/y/exec' };
 const PENDIENTE = { slug: 'pendiente', dir: 'No_Existe', title: 'Pendiente', desc: 'x', ownia: false, gasUrl: 'https://script.google.com/x/exec' };
 
 let demoServer;
@@ -41,8 +43,9 @@ const run = (fn, args, headers, slug = 'demo') =>
   request(demoServer, 'POST', `${BASE}/api/${slug}/${fn}`, { body: { args: args || [] }, headers: { ...RUN_HEADERS, ...(headers || {}) } });
 
 before(async () => {
-  demoServer = await listen(createApp({ GAS_ROOT: FIXTURES, BASE_PATH: BASE, modules: [DEMO, DEMO_PRIV, PENDIENTE], secrets: {}, TRUSTED_IDENTITY_HEADER: 'x-test-email', CALL_TIMEOUT_MS: 300 }));
-  realServer = await listen(createApp({ BASE_PATH: BASE }));
+  demoServer = await listen(createApp({ GAS_ROOT: FIXTURES, BASE_PATH: BASE, modules: [DEMO, DEMO_PRIV, DEMO_EQUIPO, PENDIENTE], secrets: {}, TRUSTED_IDENTITY_HEADER: 'x-test-email', CALL_TIMEOUT_MS: 300 }));
+  // Sin almacén de datos: el smoke test solo abre la landing (doGet), que no lee Drive.
+  realServer = await listen(createApp({ BASE_PATH: BASE, TRUSTED_IDENTITY_HEADER: 'x-test-email', fileStore: null }));
 });
 
 after(() => {
@@ -144,6 +147,16 @@ test('módulo con datos (default): sin identidad → 401 en doGet y en api', asy
   assert.equal((await run('sumar', [1, 2], { 'x-test-email': 'a@despegar.com' }, 'demo-privado')).status, 200);
 });
 
+test('allowedUsers: solo esas cuentas abren el módulo (doGet y api); el resto → 403', async () => {
+  const ana = { 'x-test-email': 'ana@despegar.com' };
+  const otro = { 'x-test-email': 'otro@despegar.com' };
+  assert.equal((await request(demoServer, 'GET', `${BASE}/demo-equipo`, { headers: ana })).status, 200, 'mayúsculas no importan');
+  assert.equal((await request(demoServer, 'GET', `${BASE}/demo-equipo`, { headers: otro })).status, 403);
+  assert.equal((await request(demoServer, 'GET', `${BASE}/demo-equipo`)).status, 401);
+  assert.equal((await run('sumar', [1, 2], ana, 'demo-equipo')).status, 200);
+  assert.equal((await run('sumar', [1, 2], otro, 'demo-equipo')).status, 403);
+});
+
 test('una excepción del módulo llega como error al failure handler', async () => {
   const r = await run('explota');
   assert.equal(r.status, 500);
@@ -207,7 +220,7 @@ test('whoami informa headers de auth sin devolver tokens', async () => {
 
 for (const m of MODULES.filter((x) => x.ownia)) {
   test(`módulo real "${m.slug}" (${m.dir}) carga y su doGet responde`, async () => {
-    const r = await request(realServer, 'GET', `${BASE}/${m.slug}`);
+    const r = await request(realServer, 'GET', `${BASE}/${m.slug}`, { headers: { 'x-test-email': EQUIPO_B2B[0] } });
     assert.equal(r.status, 200, r.text.slice(0, 300));
     assert.match(r.text, /_gas\/client\.js/);
   });

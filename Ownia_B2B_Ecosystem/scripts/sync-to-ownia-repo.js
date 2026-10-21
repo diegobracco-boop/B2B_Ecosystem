@@ -31,7 +31,7 @@ const EXPECTED_REMOTE = /[/:]despegar\/B2B_Ecosystem_Ownia(\.git)?\/?$/i;
 const MIRROR_BRANCH = 'b2b-ecosystem';
 
 // Lo único que este script escribe/borra en el destino. Cualquier otra cosa se respeta.
-const APP_ENTRIES = ['server', 'public', 'test', 'scripts', 'package.json', 'CONTEXT.md', 'Dockerfile', '.dockerignore'];
+const APP_ENTRIES = ['server', 'public', 'test', 'scripts', 'package.json', 'package-lock.json', 'CONTEXT.md', 'Dockerfile', '.dockerignore'];
 // .gitignore se escribe aparte: el del monorepo ignora gas/, que en el espejo SÍ se versiona.
 // README.md NO se toca: lo genera Ownia con datos de auditoría (quién/cuándo lo creó).
 const MANAGED = [...APP_ENTRIES, 'gas', 'LEEME_ESPEJO.md', '.gitignore'];

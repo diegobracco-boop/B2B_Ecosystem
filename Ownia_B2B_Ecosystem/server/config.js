@@ -47,4 +47,11 @@ module.exports = {
   // appsscript.json usan Buenos Aires). Sin esto, new Date().getMonth() & cía. darían
   // distinto que en GAS entre las 21 y las 24 hs (el contenedor corre en UTC).
   TIME_ZONE: process.env.GAS_TIME_ZONE || 'America/Argentina/Buenos_Aires',
+  // Almacén de los archivos espejados de Drive (ver file-store.js). En local: una carpeta.
+  FILE_STORE_DIR: process.env.FILE_STORE_DIR || '',
+  // Cada cuánto cada instancia busca archivos nuevos en el almacén (las subidas llegan a una
+  // sola instancia).
+  FILE_STORE_POLL_MS: Number(process.env.FILE_STORE_POLL_MS) || 60000,
+  // Token de la ruta /ingest (el script espejo lo manda como Bearer). Sin token, /ingest no existe.
+  INGEST_TOKEN: secrets.INGEST_TOKEN || process.env.INGEST_TOKEN || '',
 };

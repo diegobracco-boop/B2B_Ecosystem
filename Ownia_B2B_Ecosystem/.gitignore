@@ -1,3 +1,5 @@
 node_modules/
 # Generada por scripts/sync-to-ownia-repo.js solo en el repo de Ownia; acá se leen las carpetas hermanas.
 gas/
+# Copia local de los datos espejados de Drive (py mirror/ownia_mirror.py --to-dir _store): datos del P&L, nunca versionar.
+_store/

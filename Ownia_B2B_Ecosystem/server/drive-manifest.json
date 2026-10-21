@@ -1,0 +1,31 @@
+{
+  "_comment": "Archivos de Drive que lee cada módulo migrado a Ownia. mirror/ownia_mirror.py los copia tal cual (mismo id, nombre, carpeta y fecha de modificación). Al agregar un *_FILE_ID / *_FOLDER_ID en el código GAS de un módulo migrado, sumarlo acá: si falta, la landing en Ownia falla con 'No item with the given ID could be found' (test/manifest.test.js lo detecta). /ingest solo acepta archivos de esta lista.",
+  "modules": {
+    "pnl-managerial": {
+      "files": {
+        "1wvle0UIVZV7ocCSl8OawOfIGVz_It5kh": "_actuals_gestional.json (GESTIONAL_JSON_FILE_ID)",
+        "1Zd1Kzn7CkatOWnzrrfBxr9mDjIVLLKIF": "pnl_gestional_projections_review.json (GESTIONAL_VR_JSON_FILE_ID)",
+        "1PABNf4XVKdj6eXApr5_yP581ZsD_N9e-": "actuals.json (ACC_ACTUALS_FILE_ID)",
+        "1SEh9vLWCbE6PslnUntUghhInonuLdYZ5": "tc_plana_flat.xlsx (FX_FILE_ID)"
+      },
+      "folders": {
+        "1wzudbo7cN9Ibiv_2OA-V0_B_un4JcJp6": ["revenue_gd.json"]
+      }
+    },
+    "pnl-accounting": {
+      "files": {
+        "1KHXgPykAHTJS50wI13kcz76FtLQwRnXc": "CONTABLE_JSON_FILE_ID",
+        "1PABNf4XVKdj6eXApr5_yP581ZsD_N9e-": "actuals.json (CANONICAL_IDS_.ac)",
+        "1f2JF8pq7gtpxfdkVzbT9wvamn_ny3RBW": "budget.json (CANONICAL_IDS_.bg)",
+        "1crqpRTyH14fqX9XdwBTVaKN5rPbE6O84": "forecast.json (CANONICAL_IDS_.fc)",
+        "1UGg60kE397nsGAivtFqI8NX5CVFj1gqO": "runrate.json (CANONICAL_IDS_.rr)",
+        "1Nk56QlEA2hKuWGhfZ1357Eds6DhU8zwC": "lastrunrate.json (CANONICAL_IDS_.lrr)",
+        "1Su36jhCMdNgC6nixxX5TyvtCI4ESG2Tv": "baseline_actuals+projections.json (CANONICAL_IDS_.bl)",
+        "1ReDMnuv5MGsJACvQmkP39AlQM-RvtoYy": "projections_validation_accounting.json (CANONICAL_IDS_.vr)",
+        "1zd5gnMFztKiCSgeY-VmsfVOr0LQ6ftGI": "actuals_previos_fy26.json (CANONICAL_IDS_.ly)",
+        "1SEh9vLWCbE6PslnUntUghhInonuLdYZ5": "tc_plana_flat.xlsx (FX_FILE_ID)"
+      },
+      "folders": {}
+    }
+  }
+}

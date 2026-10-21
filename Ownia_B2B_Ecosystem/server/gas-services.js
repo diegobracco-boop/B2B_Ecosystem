@@ -142,6 +142,58 @@ function toBuffer(x) {
   return Buffer.from(String(x == null ? '' : x), 'utf8');
 }
 
+// ---------- zip (lectura) ----------
+
+// Lee un .zip (p.ej. un xlsx) desde el directorio central. Soporta "stored" y "deflate", que
+// es lo que generan Excel/openpyxl; zip64 y cifrado no.
+const MAX_UNZIPPED = 200 * 1024 * 1024;
+
+function unzipEntries(buf) {
+  const fail = (msg) => Object.assign(new Error(`Utilities.unzip: ${msg}`), { name: 'Exception' });
+  let eocd = -1;
+  for (let i = buf.length - 22; i >= Math.max(0, buf.length - 22 - 65535); i--) {
+    if (buf.readUInt32LE(i) === 0x06054b50) { eocd = i; break; }
+  }
+  if (eocd < 0) throw fail('el archivo no es un zip');
+  const count = buf.readUInt16LE(eocd + 10);
+  let p = buf.readUInt32LE(eocd + 16);
+  const out = [];
+  let total = 0;
+  for (let n = 0; n < count; n++) {
+    if (buf.readUInt32LE(p) !== 0x02014b50) throw fail('directorio central corrupto');
+    const flags = buf.readUInt16LE(p + 8);
+    const method = buf.readUInt16LE(p + 10);
+    const compSize = buf.readUInt32LE(p + 20);
+    const size = buf.readUInt32LE(p + 24);
+    const nameLen = buf.readUInt16LE(p + 28);
+    const extraLen = buf.readUInt16LE(p + 30);
+    const commentLen = buf.readUInt16LE(p + 32);
+    const local = buf.readUInt32LE(p + 42);
+    const name = buf.toString(flags & 0x800 ? 'utf8' : 'latin1', p + 46, p + 46 + nameLen);
+    p += 46 + nameLen + extraLen + commentLen;
+    if (compSize === 0xffffffff || size === 0xffffffff || local === 0xffffffff) throw fail('zip64 no soportado');
+    if (flags & 0x1) throw fail('zip cifrado no soportado');
+    if (name.endsWith('/')) continue; // carpeta
+    if (buf.readUInt32LE(local) !== 0x04034b50) throw fail('entrada corrupta');
+    const start = local + 30 + buf.readUInt16LE(local + 26) + buf.readUInt16LE(local + 28);
+    const raw = buf.subarray(start, start + compSize);
+    // El tope se cuenta con lo descomprimido de verdad (el tamaño declarado puede mentir).
+    let data;
+    try {
+      if (method === 0) data = Buffer.from(raw);
+      else if (method === 8) data = zlib.inflateRawSync(raw, { maxOutputLength: MAX_UNZIPPED - total + 1 });
+      else throw fail(`método de compresión ${method} no soportado`);
+    } catch (e) {
+      if (e.code === 'ERR_BUFFER_TOO_LARGE') throw fail('contenido descomprimido demasiado grande');
+      throw e;
+    }
+    total += data.length;
+    if (total > MAX_UNZIPPED) throw fail('contenido descomprimido demasiado grande');
+    out.push({ name, data });
+  }
+  return out;
+}
+
 function makeUtilities() {
   const DigestAlgorithm = { MD2: 'md2', MD5: 'md5', SHA_1: 'sha1', SHA_256: 'sha256', SHA_384: 'sha384', SHA_512: 'sha512' };
   const Charset = { US_ASCII: 'ascii', UTF_8: 'utf8' };
@@ -162,7 +214,7 @@ function makeUtilities() {
       Array.from(crypto.createHash(alg).update(toBuffer(value)).digest(), (b) => (b > 127 ? b - 256 : b)),
     gzip: (blob, name) => makeBlob(zlib.gzipSync(toBuffer(blob)), 'application/x-gzip', name || null),
     ungzip: (blob) => makeBlob(zlib.gunzipSync(toBuffer(blob)), null, null),
-    unzip: () => { throw new ServicioNoMigrado('Utilities', 'unzip'); },
+    unzip: (blob) => unzipEntries(toBuffer(blob)).map((e) => makeBlob(e.data, null, e.name)),
     zip: () => { throw new ServicioNoMigrado('Utilities', 'zip'); },
   };
 }
@@ -301,5 +353,6 @@ module.exports = {
   makeHtmlOutput,
   makeTextOutput,
   makeBlob,
+  unzipEntries,
   ContentMimeType,
 };

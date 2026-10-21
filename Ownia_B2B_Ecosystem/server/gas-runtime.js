@@ -7,10 +7,13 @@ const path = require('path');
 const vm = require('vm');
 const { compileTemplate, escapeHtml } = require('./gas-template');
 const svc = require('./gas-services');
+const { makeDriveApp } = require('./gas-drive');
+const { makeXmlService } = require('./gas-xml');
 
 // Servicios que el runtime todavía no implementa. Usarlos tira ServicioNoMigrado.
+// (DriveApp está, solo lectura, sobre el file-store: ver gas-drive.js.)
 const NOT_MIGRATED = [
-  'DriveApp', 'Drive', 'SpreadsheetApp', 'Sheets', 'SlidesApp', 'Slides', 'DocumentApp',
+  'Drive', 'SpreadsheetApp', 'Sheets', 'SlidesApp', 'Slides', 'DocumentApp',
   'MailApp', 'GmailApp', 'UrlFetchApp', 'CalendarApp', 'FormApp', 'Jdbc', 'BigQuery',
 ];
 
@@ -64,7 +67,7 @@ function globToRe(glob) {
 class GasProject {
   /**
    * @param {object} mod   entrada del registro (server/modules.js)
-   * @param {object} opts  { gasRoot, secrets, log, timeoutMs }
+   * @param {object} opts  { gasRoot, secrets, log, timeoutMs, fileStore }
    */
   constructor(mod, opts) {
     this.mod = mod;
@@ -73,6 +76,7 @@ class GasProject {
     this.log = opts.log || ((o) => console.log(JSON.stringify(o)));
     this.request = null; // contexto de la request en curso (las llamadas GAS son sincrónicas)
     this.timeoutMs = opts.timeoutMs || CALL_TIMEOUT_MS;
+    this.fileStore = opts.fileStore || null;
     this._load();
   }
 
@@ -96,6 +100,7 @@ class GasProject {
     // Helpers creados DENTRO del realm del contexto: los objetos que recibe el código GAS
     // tienen que ser Array/Object de su propio realm (si no, `x instanceof Array` da false).
     this._parseJson = vm.runInContext('(function (s) { return JSON.parse(s); })', this.context);
+    this._makeDate = vm.runInContext('(function (t) { return new Date(t); })', this.context);
 
     for (const f of this.serverFiles) {
       const code = fs.readFileSync(f.full, 'utf8');
@@ -239,6 +244,8 @@ class GasProject {
         AuthMode: { NONE: 'NONE', CUSTOM_FUNCTION: 'CUSTOM_FUNCTION', LIMITED: 'LIMITED', FULL: 'FULL' },
       },
     };
+    g.DriveApp = makeDriveApp(() => project.fileStore, (ms) => project._makeDate(ms));
+    g.XmlService = makeXmlService();
     for (const name of NOT_MIGRATED) g[name] = svc.notMigrated(name);
     return g;
   }

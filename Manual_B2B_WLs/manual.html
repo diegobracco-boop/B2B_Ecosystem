@@ -2766,8 +2766,8 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
             <tr><td>URL</td><td><a class="ext-link" href="https://ownia.despegar.io/b2b-ecosystem" target="_blank">ownia.despegar.io/b2b-ecosystem</a> (portada con todos los módulos)</td></tr>
             <tr><td>Repo de deploy</td><td>Rama <code>b2b-ecosystem</code> de <code>despegar/B2B_Ecosystem_Ownia</code> — espejo <strong>generado</strong> (Ownia solo deploya repos de la org <code>despegar</code>). No editar a mano. La rama <code>main</code> de ese repo es otra app (<code>b2b-dashboard</code>) y no se toca.</td></tr>
             <tr><td>Acceso</td><td>Login corporativo (Cloudflare Access), igual que el resto de Ownia.</td></tr>
-            <tr><td>Estado</td><td><span class="badge badge-manual">Piloto</span> Migrado: <strong>Manual B2B WLs</strong>. El resto sigue en GAS y la portada lo linkea.</td></tr>
-            <tr><td>Datos en runtime</td><td>Ninguno todavía. Falta el reemplazo de <code>DriveApp</code> para migrar módulos con datos.</td></tr>
+            <tr><td>Estado</td><td><span class="badge badge-manual">Piloto</span> Migrado: <strong>Manual B2B WLs</strong>. <strong>En validación</strong> (en paralelo a GAS, que sigue siendo el productivo): <strong>P&amp;L Managerial</strong> y <strong>P&amp;L Accounting</strong>. El resto sigue en GAS y la portada lo linkea.</td></tr>
+            <tr><td>Datos en runtime</td><td>Copia <strong>espejada</strong> de los mismos archivos de Drive (mismo id, nombre y fecha de modificación), guardada en DynamoDB de Ownia (mismo patrón que <code>runrate-html</code>). La sube <code>Ownia_B2B_Ecosystem/mirror/ownia_mirror.py</code> (solo lo que cambió); la lista de archivos por módulo está en <code>server/drive-manifest.json</code>. Los pipelines <strong>no cambian</strong>: siguen publicando solo en Drive.</td></tr>
           </tbody>
         </table>
       </div>
@@ -2779,7 +2779,8 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
             <tr><td><strong>2</strong></td><td>Commit + push al monorepo.</td></tr>
             <tr><td><strong>3</strong></td><td><code>node scripts/sync-to-ownia-repo.js &lt;clon del espejo&gt;</code> → commit + push del espejo.</td></tr>
             <tr><td><strong>4</strong></td><td>Redeploy desde Claude con la skill <code>ownia-deploy</code>. Llega un mail cuando termina.</td></tr>
-            <tr><td>⚠️</td><td>Igual que con clasp: un <code>git push</code> al monorepo <strong>no publica</strong> en Ownia.</td></tr>
+            <tr><td><strong>5</strong></td><td>Módulos con datos: <code>py Ownia_B2B_Ecosystem/mirror/ownia_mirror.py</code> para copiar a Ownia los archivos de Drive que cambiaron.</td></tr>
+            <tr><td>⚠️</td><td>Igual que con clasp: un <code>git push</code> al monorepo <strong>no publica</strong> en Ownia. Y un cambio en el código GAS de un módulo migrado o en validación (Manual, P&amp;L Managerial, P&amp;L Accounting) se publica en los dos lados: <code>/clasp-push</code> <strong>y</strong> sync + redeploy en Ownia.</td></tr>
           </tbody>
         </table>
       </div>
@@ -2791,7 +2792,7 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
         <thead><tr><th>Fase</th><th>Qué</th><th>Estado</th></tr></thead>
         <tbody>
           <tr><td>F1</td><td>Esqueleto + runtime GAS + piloto con el Manual (sin datos)</td><td><span class="badge badge-auto">En curso</span></td></tr>
-          <tr><td>F2</td><td>Identidad (SSO) + lectura de Drive con una cuenta técnica → FVM Negativo, Profit Sharing, OKR B2B2C, P&amp;L Accounting, P&amp;L Managerial</td><td>Pendiente</td></tr>
+          <tr><td>F2</td><td>Datos espejados de Drive (<code>DriveApp</code>, <code>XmlService</code>, <code>unzip</code> en el runtime) → P&amp;L Managerial y P&amp;L Accounting en paralelo a GAS para validar; después FVM Negativo, Profit Sharing, OKR B2B2C</td><td><span class="badge badge-auto">En curso</span></td></tr>
           <tr><td>F3</td><td>Daily Dashboard (mail diario, Slides), Hub (deck de Cierre, iframes) y Country One Pager (Libraries → imports)</td><td>Pendiente</td></tr>
           <tr><td>F4</td><td>Corte: las landings GAS redirigen a Ownia (rollback = sacar el redirect)</td><td>Pendiente</td></tr>
         </tbody>

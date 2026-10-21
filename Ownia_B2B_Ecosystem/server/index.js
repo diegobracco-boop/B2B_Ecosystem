@@ -6,21 +6,32 @@
 //   GET  <base>/<modulo>[/...]       doGet(e) del módulo GAS
 //   POST <base>/api/<modulo>/<fn>    google.script.run.<fn>(...args)
 //   GET  <base>/_gas/client.js       shim de google.script.run
+//   GET  <base>/_static/galaxy.js    fondo animado de la portada
+//   GET  <base>/ingest/files         metadata de los archivos espejados (Bearer INGEST_TOKEN)
+//   PUT  <base>/ingest/files/<id>    sube/reemplaza un archivo espejado de Drive (ídem)
 const config = require('./config');
 
 // Antes de cualquier Date: el proceso corre en la zona de los proyectos GAS (ver config.js).
 process.env.TZ = config.TIME_ZONE;
 
+const crypto = require('crypto');
 const fs = require('fs');
 const http = require('http');
 const path = require('path');
+const { promisify } = require('util');
+const zlib = require('zlib');
+
+const gunzip = promisify(zlib.gunzip);
 const { MODULES } = require('./modules');
 const { GasProject } = require('./gas-runtime');
 const { renderOutput } = require('./render');
 const { indexPage } = require('./index-page');
 const { resolveIdentity, describeAuthHeaders } = require('./identity');
+const { createFileStore, isValidId } = require('./file-store');
+const { ingestAllowlist } = require('./drive-manifest');
 
 const MAX_BODY = 5 * 1024 * 1024; // google.script.run acepta payloads grandes (p.ej. capturas)
+const MAX_INGEST = 100 * 1024 * 1024; // los JSON canónicos pesan hasta ~15 MB
 
 function log(obj) {
   console.log(JSON.stringify({ ts: new Date().toISOString(), ...obj }));
@@ -31,14 +42,22 @@ function createApp(opts = {}) {
   const modules = opts.modules || MODULES;
   const findModule = (slug) => modules.find((m) => m.slug === slug && m.ownia) || null;
   const projects = new Map(); // slug -> GasProject | Error
+  const fileStore = opts.fileStore !== undefined ? opts.fileStore : createFileStore(cfg, log);
+  // Datos nuevos → se recargan los módulos. En GAS cada ejecución arranca con los globales
+  // limpios; acá el contexto vive entre requests, y varios módulos memorizan el JSON en una
+  // variable global (p.ej. _gestionalJsonCache_): sin esto seguirían sirviendo la versión vieja.
+  if (fileStore) fileStore.onChange(() => projects.clear());
+  // Qué se puede subir por /ingest: solo los archivos del manifest de los módulos servidos acá.
+  const allowed = ingestAllowlist(modules, opts.manifest);
   const clientJs = fs.readFileSync(path.join(cfg.APP_ROOT, 'public', 'gas-client.js'), 'utf8');
-  const clientVersion = require('crypto').createHash('sha1').update(clientJs).digest('hex').slice(0, 10);
+  const clientVersion = crypto.createHash('sha1').update(clientJs).digest('hex').slice(0, 10);
+  const galaxyJs = fs.readFileSync(path.join(cfg.APP_ROOT, 'public', 'galaxy.js'), 'utf8');
   const startedAt = new Date().toISOString();
 
   function getProject(mod) {
     if (!projects.has(mod.slug)) {
       try {
-        projects.set(mod.slug, new GasProject(mod, { gasRoot: cfg.GAS_ROOT, secrets: cfg.secrets, log, timeoutMs: cfg.CALL_TIMEOUT_MS }));
+        projects.set(mod.slug, new GasProject(mod, { gasRoot: cfg.GAS_ROOT, secrets: cfg.secrets, log, timeoutMs: cfg.CALL_TIMEOUT_MS, fileStore }));
         log({ level: 'info', msg: 'módulo cargado', module: mod.slug });
       } catch (e) {
         log({ level: 'error', msg: 'no se pudo cargar el módulo', module: mod.slug, error: e.stack || String(e) });
@@ -69,17 +88,29 @@ function createApp(opts = {}) {
   // Un módulo con datos sin identidad confiable no se sirve (ver modules.js).
   const needsIdentity = (mod) => mod.requiresIdentity !== false;
 
+  // allowedUsers: lista cerrada de cuentas (p.ej. módulos en validación). Sin lista, alcanza
+  // con cualquier @despegar.com identificado.
+  function mayOpen(mod, identity) {
+    if (needsIdentity(mod) && !identity.email) return false;
+    if (!Array.isArray(mod.allowedUsers)) return true;
+    return mod.allowedUsers.map((x) => x.toLowerCase()).includes(String(identity.email).toLowerCase());
+  }
+
+  function forbidden(res) {
+    return sendJson(res, 403, { error: 'Este módulo está en validación y solo lo puede abrir el equipo B2B', name: 'Forbidden' });
+  }
+
   function sendJson(res, status, obj) {
     send(res, status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }, JSON.stringify(obj));
   }
 
-  function readBody(req) {
+  function readBody(req, max = MAX_BODY, raw = false) {
     return new Promise((resolve, reject) => {
       let size = 0;
       const chunks = [];
       req.on('data', (c) => {
         size += c.length;
-        if (size > MAX_BODY) {
+        if (size > max) {
           req.removeAllListeners('data');
           req.resume(); // descarta el resto sin acumularlo; el 413 sale por el catch
           reject(Object.assign(new Error('payload demasiado grande'), { status: 413, name: 'PayloadTooLarge' }));
@@ -87,7 +118,10 @@ function createApp(opts = {}) {
         }
         chunks.push(c);
       });
-      req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+      req.on('end', () => {
+        const buf = Buffer.concat(chunks);
+        resolve(raw ? buf : buf.toString('utf8'));
+      });
       req.on('error', reject);
     });
   }
@@ -117,6 +151,65 @@ function createApp(opts = {}) {
     return { parameter, parameters, queryString: url.search.replace(/^\?/, ''), pathInfo, contextPath: '', contentLength: -1 };
   }
 
+  // Comparación en tiempo constante (sobre hashes, así el largo tampoco se filtra).
+  function tokenOk(req) {
+    if (!cfg.INGEST_TOKEN) return false;
+    const m = /^Bearer\s+(.+)$/i.exec(String(req.headers.authorization || ''));
+    if (!m) return false;
+    const h = (s) => crypto.createHash('sha256').update(String(s)).digest();
+    return crypto.timingSafeEqual(h(m[1].trim()), h(cfg.INGEST_TOKEN));
+  }
+
+  // Ruta del espejo de Drive. Metadata en headers: X-File-Name, X-Folder-Id (opcional),
+  // X-Updated-At (modifiedTime de Drive, ISO) y Content-Type; cuerpo = contenido, opcionalmente
+  // con Content-Encoding: gzip.
+  async function handleIngest(req, res, route) {
+    // Sin token configurado o sin almacén, la ruta no existe.
+    if (!cfg.INGEST_TOKEN || !fileStore) return sendJson(res, 404, { error: 'No encontrado' });
+    if (!tokenOk(req)) return sendJson(res, 401, { error: 'Token inválido', name: 'NoAutorizado' });
+    if (route === '/ingest/files') {
+      if (req.method !== 'GET') return sendJson(res, 405, { error: 'Método no permitido' });
+      return sendJson(res, 200, { files: fileStore.listMeta(), lastRefresh: fileStore.lastRefresh });
+    }
+    const id = route.slice('/ingest/files/'.length);
+    if (!isValidId(id)) return sendJson(res, 400, { error: 'id inválido' });
+    if (req.method !== 'PUT') return sendJson(res, 405, { error: 'Método no permitido' });
+    let name;
+    try {
+      name = decodeURIComponent(String(req.headers['x-file-name'] || id));
+    } catch (e) {
+      return sendJson(res, 400, { error: 'X-File-Name mal codificado' });
+    }
+    const folderId = req.headers['x-folder-id'] || null;
+    // Con el token no alcanza: el archivo tiene que estar en el manifest (un token filtrado no
+    // puede pisar otro id ni inventar uno).
+    if (!allowed.files.has(id) && !(folderId && allowed.folders.has(`${folderId}/${name}`))) {
+      return sendJson(res, 403, { error: `El archivo ${id} (${name}) no está en server/drive-manifest.json para un módulo servido en Ownia` });
+    }
+    const updatedAt = Date.parse(String(req.headers['x-updated-at'] || ''));
+    if (updatedAt > Date.now() + 86400000) return sendJson(res, 400, { error: 'X-Updated-At en el futuro' });
+    try {
+      let body = await readBody(req, MAX_INGEST, true);
+      const enc = String(req.headers['content-encoding'] || '').toLowerCase();
+      if (enc === 'gzip') body = await gunzip(body, { maxOutputLength: MAX_INGEST * 4 });
+      else if (enc && enc !== 'identity') return sendJson(res, 415, { error: `Content-Encoding ${enc} no soportado` });
+      const meta = await fileStore.put({
+        id,
+        name,
+        folderId,
+        mimeType: String(req.headers['content-type'] || 'application/octet-stream').split(';')[0].trim(),
+        updatedAt,
+      }, body);
+      const by = resolveIdentity(req.headers, cfg.TRUSTED_IDENTITY_HEADER).email || null;
+      log({ level: 'info', msg: 'archivo espejado', id, name: meta.name, size: meta.size, updatedAt: new Date(meta.updatedAt).toISOString(), by });
+      return sendJson(res, 200, { file: meta });
+    } catch (e) {
+      const status = e.status || (e.code === 'Z_DATA_ERROR' ? 400 : 500);
+      if (status >= 500) log({ level: 'error', msg: 'ingest falló', id, error: e.stack || String(e) });
+      return sendJson(res, status, { error: e.message || String(e) });
+    }
+  }
+
   async function handle(req, res) {
     const t0 = Date.now();
     const url = new URL(req.url, 'http://local');
@@ -133,8 +226,15 @@ function createApp(opts = {}) {
     });
 
     if (route === '/health' || route === '/healthz') {
-      return sendJson(res, 200, { status: 'ok', startedAt });
+      // Siempre 200 (si no, el ALB mataría la instancia por un problema de datos), pero informa
+      // si el almacén cargó: una instancia sin datos se ve acá.
+      const data = fileStore
+        ? { files: fileStore.files.size, lastRefresh: fileStore.lastRefresh, error: fileStore.lastError }
+        : null;
+      return sendJson(res, 200, { status: 'ok', startedAt, data });
     }
+    // Antes del chequeo de identidad: lo usa un script (el espejo), no una persona.
+    if (route === '/ingest/files' || route.startsWith('/ingest/files/')) return handleIngest(req, res, route);
     if (cfg.REQUIRE_IDENTITY && !identity.email) return unauthorized(res);
     if (route === '/whoami') {
       return sendJson(res, 200, {
@@ -143,6 +243,9 @@ function createApp(opts = {}) {
         trustedHeader: cfg.TRUSTED_IDENTITY_HEADER || null,
         authHeaders: describeAuthHeaders(req.headers),
       });
+    }
+    if (route === '/_static/galaxy.js') {
+      return send(res, 200, { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'public, max-age=3600' }, galaxyJs);
     }
     if (route === '/_gas/client.js') {
       return send(res, 200, { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'public, max-age=3600' }, clientJs);
@@ -160,6 +263,7 @@ function createApp(opts = {}) {
       const mod = findModule(parts[1]);
       if (!mod || parts.length !== 3) return sendJson(res, 404, { error: 'Módulo no encontrado' });
       if (needsIdentity(mod) && !identity.email) return unauthorized(res);
+      if (!mayOpen(mod, identity)) return forbidden(res);
       // Anti-CSRF: un <form> cross-site no puede mandar headers custom ni Content-Type JSON
       // sin preflight; el navegador marca Sec-Fetch-Site. (Otras apps de Ownia comparten el
       // origen ownia.despegar.io: eso no lo cubre — ver CONTEXT.md.)
@@ -195,6 +299,7 @@ function createApp(opts = {}) {
     if (!mod) return sendJson(res, 404, { error: 'No encontrado' });
     if (req.method !== 'GET' && req.method !== 'HEAD') return sendJson(res, 405, { error: 'Método no permitido' });
     if (needsIdentity(mod) && !identity.email) return unauthorized(res);
+    if (!mayOpen(mod, identity)) return forbidden(res);
     try {
       const project = getProject(mod);
       const reqCtx = { user: identity, userAgent: req.headers['user-agent'] || '', moduleUrl: `${publicOrigin(req)}${cfg.BASE_PATH}/${mod.slug}` };
@@ -215,12 +320,23 @@ function createApp(opts = {}) {
       else res.end();
     });
   };
-  return { handler, warmUp };
+  // Carga inicial del almacén + polling (las subidas llegan a una sola instancia).
+  async function startData() {
+    if (!fileStore) return;
+    try {
+      await fileStore.refresh();
+    } catch (e) {
+      log({ level: 'error', msg: 'file-store: carga inicial falló', error: e.stack || String(e) });
+    }
+    fileStore.startPolling(cfg.FILE_STORE_POLL_MS);
+  }
+
+  return { handler, warmUp, startData, fileStore };
 }
 
 if (require.main === module) {
   const app = createApp();
-  app.warmUp();
+  app.startData().then(() => app.warmUp());
   http.createServer(app.handler).listen(config.PORT, () => {
     log({ level: 'info', msg: 'b2b-ecosystem escuchando', port: config.PORT, basePath: config.BASE_PATH, gasRoot: config.GAS_ROOT, tz: process.env.TZ, tzOffsetMin: new Date().getTimezoneOffset() });
   });

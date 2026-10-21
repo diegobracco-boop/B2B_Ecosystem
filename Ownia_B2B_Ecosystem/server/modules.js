@@ -2,6 +2,10 @@
 // código GAS del módulo con los shims de gas-runtime). El resto se linkea a su landing GAS,
 // que sigue siendo la productiva: la migración es progresiva y Apps Script no se toca.
 //
+// `validating: true` = corre en Ownia EN PARALELO a Apps Script, para comparar: la portada
+// muestra los dos links y la productiva sigue siendo la de GAS. Lee los archivos de Drive
+// espejados por mirror/ownia_mirror.py (ver CONTEXT.md, "Datos").
+//
 // `requiresIdentity` (default true): sin usuario @despegar.com identificado → 401. Solo se
 // apaga en módulos sin datos (el Manual). Ojo: varias guardas del código GAS (p.ej.
 // requireOwner_ del Daily) dejan pasar si el usuario activo viene vacío — por eso la
@@ -15,6 +19,18 @@
 // el repo de Ownia y redeployar.
 
 const GAS_EXEC = 'https://script.google.com/a/macros/despegar.com/s/';
+
+// Equipo B2B: los únicos que pueden abrir un módulo "en validación" (datos del P&L) mientras
+// corre en paralelo a GAS. Todas las apps de Ownia comparten el dominio ownia.despegar.io
+// (aceptado por el equipo, 2026-10-21); limitar a estas cuentas acota la exposición. Un módulo
+// puede definir su propia lista con `allowedUsers`.
+const EQUIPO_B2B = [
+  'gregorio.minetti@despegar.com',
+  'diego.bracco@despegar.com',
+  'tiago.harari@despegar.com',
+  'tomas.rombola@despegar.com',
+  'antonella.difranco@despegar.com',
+];
 
 const MODULES = [
   {
@@ -47,7 +63,9 @@ const MODULES = [
     dir: 'P&L_Accounting',
     title: 'P&L Accounting',
     desc: 'Vista contable del P&L.',
-    ownia: false,
+    ownia: true,
+    validating: true,
+    allowedUsers: EQUIPO_B2B,
     gasUrl: GAS_EXEC + 'AKfycby9WZK2HfAWx25M5pEMV3nntzJfEvsiT9feMn01zJQkQaI3t2GjTzOIjbFXWexnMuzklQ/exec',
   },
   {
@@ -55,7 +73,9 @@ const MODULES = [
     dir: 'P&L_Managerial',
     title: 'P&L Managerial',
     desc: 'Vista gestional (FVM) B2B2C y B2B.',
-    ownia: false,
+    ownia: true,
+    validating: true,
+    allowedUsers: EQUIPO_B2B,
     gasUrl: GAS_EXEC + 'AKfycbxHyP4uIh02zTQbQ7ZFbyByCVIYuREuiMJ74PnKhQbNGbWknCG2jxOtt_onafQcg5g4/exec',
   },
   {
@@ -92,4 +112,4 @@ const MODULES = [
   },
 ];
 
-module.exports = { MODULES };
+module.exports = { MODULES, EQUIPO_B2B };
