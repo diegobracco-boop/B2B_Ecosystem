@@ -1441,6 +1441,14 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
       <button class="ws-lob-tab"        id="ws-tab-b2b2c" onclick="_wsSwitchLob('B2B2C')">B2B2C</button>
     </div>
     <div class="ws-right-controls">
+      <!-- Canal (solo B2B: B2B2C es White Label, sin apertura API/HTML) -->
+      <div class="ws-view-toggle-wrap" id="ws-channel-toggle" style="display:none;margin-right:10px">
+        <button class="ws-view-btn active" id="ws-btn-ch-all"  onclick="_wsSwitchChannel('')">Todos</button>
+        <span class="ws-view-sep">|</span>
+        <button class="ws-view-btn"        id="ws-btn-ch-api"  onclick="_wsSwitchChannel('API')">API</button>
+        <span class="ws-view-sep">|</span>
+        <button class="ws-view-btn"        id="ws-btn-ch-html" onclick="_wsSwitchChannel('Agencias afiliadas')">HTML</button>
+      </div>
       <div class="ws-view-toggle-wrap" id="ws-view-toggle">
         <button class="ws-view-btn"        id="ws-btn-ri" onclick="_wsSwitchView('RI')">Recognition Date</button>
         <span class="ws-view-sep">|</span>
@@ -1461,7 +1469,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
       <div class="ws-tables-row">
         <!-- Weekly table -->
         <div class="ws-panel-weekly">
-          <div class="ws-sec-title">Resumen Semanal</div>
+          <div class="ws-sec-title" id="ws-weekly-title">Resumen Semanal</div>
           <div class="ws-table-wrap">
             <table class="ws-table">
               <thead id="ws-thead"></thead>
@@ -3913,6 +3921,7 @@ function benchTogglePais() {
 // ══ WEEKLY JS ══════════════════════════════════════════════════
 var _wsView   = 'GD';
 var _wsLob    = 'B2B+B2B2C';
+var _wsChannel = '';   // '' = Todos | 'API' | 'Agencias afiliadas' (HTML) — solo en B2B
 var _wsCache  = {};
 var _wsLoaded = false;
 
@@ -3924,7 +3933,16 @@ function _wsSwitchLob(lob) {
   var map = {'B2B+B2B2C':'both','B2B':'b2b','B2B2C':'b2b2c'};
   document.getElementById('ws-tab-'+map[lob]).classList.add('active');
   document.getElementById('ws-view-toggle').classList.toggle('hidden', lob==='B2B2C');
+  document.getElementById('ws-channel-toggle').style.display = (lob==='B2B') ? '' : 'none';
   _wsUpdateAiAgent(lob);
+  _wsLoadData();
+}
+
+function _wsSwitchChannel(ch) {
+  _wsChannel = ch;
+  document.getElementById('ws-btn-ch-all').classList.toggle('active',  ch==='');
+  document.getElementById('ws-btn-ch-api').classList.toggle('active',  ch==='API');
+  document.getElementById('ws-btn-ch-html').classList.toggle('active', ch==='Agencias afiliadas');
   _wsLoadData();
 }
 
@@ -3943,8 +3961,9 @@ function _wsRefreshData() {
   _wsLoadData(function(){ btn.classList.remove('spinning'); });
 }
 
-// Clave del caché del Weekly: lob + view (+ target organic: los montos y vs LY cambian con el switch)
-function _wsKey_(lob, view, t) { return lob + '_' + view + (t ? '_org_' + t : ''); }
+// Clave del caché del Weekly: lob + view (+ canal B2B) (+ target organic: los montos y vs LY cambian con el switch)
+function _wsKey_(lob, view, t, ch) { return lob + '_' + view + (ch ? '_ch_' + ch : '') + (t ? '_org_' + t : ''); }
+function _wsChannelParam_() { return _wsLob === 'B2B' ? _wsChannel : ''; }
 // Organic de una respuesta del Weekly: error → vuelve el switch a NO; TC faltantes → a la nota
 function _wsOrgResp_(res) {
   var o = res && res.organic;
@@ -3960,7 +3979,8 @@ function _wsOrgResp_(res) {
 function _wsReloadForOrganic_() { if (_activeView === 'weekly') _wsLoadData(); }
 function _wsLoadData(cb) {
   var orgT = _orgTargetWeekly_();
-  var key = _wsKey_(_wsLob, _wsView, orgT);
+  var ch  = _wsChannelParam_();
+  var key = _wsKey_(_wsLob, _wsView, orgT, ch);
   if (_wsCache[key]) { _wsRender(_wsCache[key]); if (cb) cb(); return; }
   _wsShowLoading(true);
   google.script.run
@@ -3978,7 +3998,7 @@ function _wsLoadData(cb) {
       if (cb) cb();
       _wsShowError(e.message || String(e));
     })
-    .getWeeklySummaryData({ view: _wsView, lob: _wsLob, organic: orgT });
+    .getWeeklySummaryData({ view: _wsView, lob: _wsLob, organic: orgT, channel: ch });
 }
 
 function _wsRender(d) {
@@ -3991,8 +4011,10 @@ function _wsRender(d) {
     document.getElementById('ws-last-sync-info').textContent =
       'Último sync: ' + ts.toLocaleString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
   }
+  var chName = d.channel ? (d.channel === 'API' ? 'API' : 'HTML') : null;
+  document.getElementById('ws-weekly-title').textContent = 'Resumen Semanal' + (chName ? ' — ' + chName : '');
   _wsRenderWeekly(d);
-  _wsRenderMTD(d.mtd);
+  _wsRenderMTD(d.mtd, chName);
   _wsLoadOKRIfNeeded();
 }
 
@@ -4065,7 +4087,7 @@ var _WS_MTD_METRICS = [
   { key:'gb',    label:'GB'   }
 ];
 
-function _wsRenderMTD(mtd) {
+function _wsRenderMTD(mtd, chName) {
   var panel = document.getElementById('ws-panel-mtd');
   if (!mtd) { panel.style.display = 'none'; return; }
   panel.style.display = 'block';
@@ -4078,7 +4100,7 @@ function _wsRenderMTD(mtd) {
   } else {
     document.getElementById('ws-mtd-single').style.display = 'block';
     document.getElementById('ws-mtd-split').style.display  = 'none';
-    _wsRenderMTDTable_(mtd, 'ws-mtd-thead', 'ws-mtd-tbody', 'ws-mtd-title', null);
+    _wsRenderMTDTable_(mtd, 'ws-mtd-thead', 'ws-mtd-tbody', 'ws-mtd-title', chName || null);
   }
 }
 

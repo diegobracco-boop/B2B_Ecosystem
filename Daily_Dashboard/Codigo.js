@@ -136,18 +136,25 @@ function _wsIsoWeek_(ymd) {
   return { week: Math.ceil((((thu-jan1)/86400000)+1)/7), year: thu.getUTCFullYear() };
 }
 
-// ---- Row normalizer → {fecha, pais, gb, rev, fvm} ----
+// ---- Row normalizer → {fecha, pais, canal, gb, rev, fvm} ----
 
 function _wsNormRows_(arr, gbCol, revCol) {
   return (arr || []).map(function(r) {
     return {
       fecha: String(r.fecha || ''),
       pais:  String(r.pais  || ''),
+      canal: String(r.parent_channel || ''),
       gb:  parseFloat(r[gbCol]  || r.gross_bookings || 0) || 0,
       rev: parseFloat(r[revCol] || r.net_revenues   || 0) || 0,
       fvm: parseFloat(r.fvm    || 0) || 0
     };
   });
+}
+
+// ---- Filtro de canal B2B: 'API' | 'Agencias afiliadas' (= HTML). Sin canal → todo ----
+function _wsByChannel_(rows, channel) {
+  if (!channel) return rows;
+  return rows.filter(function(r) { return r.canal === channel; });
 }
 
 // ---- Row extractors per LOB/view ----
@@ -267,7 +274,7 @@ function _wsOrg_(rows, conv) {
   if (!conv) return rows;
   return rows.map(function(r) {
     var f = conv.f(r.pais, r.fecha.substring(0, 7));
-    return (f === 1) ? r : { fecha: r.fecha, pais: r.pais, gb: r.gb * f, rev: r.rev * f, fvm: r.fvm * f };
+    return (f === 1) ? r : { fecha: r.fecha, pais: r.pais, canal: r.canal, gb: r.gb * f, rev: r.rev * f, fvm: r.fvm * f };
   });
 }
 
@@ -317,13 +324,15 @@ function _wsSummary_(params, conv) {
   try {
     var view = (params && params.view) || 'GD';
     var lob  = (params && params.lob)  || 'B2B+B2B2C';
+    // params.channel: 'API' | 'Agencias afiliadas' (HTML). Solo aplica a B2B (B2B2C es White Label, sin canal).
+    var channel = (lob === 'B2B' && params && params.channel) || '';
 
     var b2bcRaw = loadFile_(B2BC_JSON, B2BC_CACHE_KEY);
     var b2bRaw  = loadFile_(B2B_JSON,  B2B_CACHE_KEY);
 
-    var actRows = _wsOrg_(_wsGetActuals_(lob, view, b2bcRaw, b2bRaw), conv);
-    var lyRows  = _wsGetLY_(lob, view, b2bcRaw, b2bRaw);
-    var budRows = _wsGetBudget_(lob, view, b2bcRaw, b2bRaw);
+    var actRows = _wsOrg_(_wsByChannel_(_wsGetActuals_(lob, view, b2bcRaw, b2bRaw), channel), conv);
+    var lyRows  = _wsByChannel_(_wsGetLY_(lob, view, b2bcRaw, b2bRaw), channel);
+    var budRows = _wsByChannel_(_wsGetBudget_(lob, view, b2bcRaw, b2bRaw), channel);
 
     var weekAgg   = _wsAggWeekly_(actRows);
     var lyWeekAgg = _wsAggWeekly_(lyRows);
@@ -408,6 +417,7 @@ function _wsSummary_(params, conv) {
       success:    true,
       view:       view,
       lob:        lob,
+      channel:    channel,
       weekLabels: last5.map(function(w) { return String(w.week); }),
       rows:       rows,
       mtd:        mtdData,
