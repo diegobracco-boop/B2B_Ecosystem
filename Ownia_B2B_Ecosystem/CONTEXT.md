@@ -51,7 +51,13 @@ Por eso hoy solo puede migrarse un módulo que no lea datos (el Manual). El sigu
 ## Identidad y acceso
 
 En GAS cada landing es `access: DOMAIN` (solo cuentas despegar.com) y `Session.getActiveUser()` da el mail del
-usuario. **En Ownia todavía no está confirmado** si hay SSO corporativo adelante ni qué header manda.
+usuario. **En Ownia hay Cloudflare Access adelante** (verificado el 2026-10-21 con `/whoami`): sin login corporativo no
+se llega a la app, y Cloudflare manda `cf-access-authenticated-user-email` (más el JWT `cf-access-jwt-assertion`).
+Probado: un `cf-access-authenticated-user-email` falsificado por el cliente lo pisa Cloudflare, y el dominio interno
+del ALB no es alcanzable desde la red de usuarios. Por eso `TRUSTED_IDENTITY_HEADER` =
+`cf-access-authenticated-user-email`. **Pendiente antes de migrar módulos con datos sensibles:** verificar además la
+firma del JWT `cf-access-jwt-assertion` (certs del team de Cloudflare Access), por si algo llegara al ALB sin pasar
+por Cloudflare.
 
 - `GET /b2b-ecosystem/whoami` muestra qué headers de autenticación llegan (nombre + mail, sin tokens).
 - `APP_SECRETS.TRUSTED_IDENTITY_HEADER` = header que pone (y siempre pisa) el proxy de adelante. Sin esa config,
@@ -80,19 +86,24 @@ usuario. **En Ownia todavía no está confirmado** si hay SSO corporativo adelan
 
 `BASE_PATH` y `PORT` los inyecta Ownia. Nada de credenciales en el código.
 
-## Repos: por qué hay dos
+## Repos: de dónde deploya Ownia
 
-Ownia solo deploya repos de la org GitHub `despegar`; este monorepo vive en `diegobracco-boop/B2B_Ecosystem`.
-Entonces:
+Ownia solo deploya repos de la org GitHub `despegar`, y desde la **raíz** del repo; este monorepo vive en
+`diegobracco-boop/B2B_Ecosystem`. Entonces:
 
 - **Fuente de verdad: esta carpeta** del monorepo. Acá se edita y se testea.
-- **`despegar/ownia-b2b-ecosystem`**: espejo GENERADO que deploya Ownia. Lo arma
-  `node scripts/sync-to-ownia-repo.js <clon>`: copia la app y, en `gas/<Modulo>/`, los `.js/.html/.json` de los
-  módulos migrados (sin `.clasp.json`), más `gas/MANIFEST.json` con el commit de origen y `LEEME_ESPEJO.md`
-  (el `README.md` lo genera Ownia con datos de auditoría y no se toca). **No editarlo a mano.**
-  El script solo copia archivos **versionados** (`git ls-files`), nunca `token*`/`credentials*`/`.env*`, exige que lo
-  sincronizado no tenga cambios sin commitear, y aborta si el destino no es un clon con origin
-  `despegar/ownia-b2b-ecosystem` o si es (o contiene, o está dentro de) el monorepo.
+- **Rama `b2b-ecosystem` de `despegar/B2B_Ecosystem_Ownia`**: espejo GENERADO que deploya la app `b2b-ecosystem`.
+  Es una rama **huérfana** (sin historia común con `main`). **`main` de ese repo es OTRA app**, `b2b-dashboard`
+  (Dashboard B2B API + Tablero Hoteles, de Tomás y Antonella), que Ownia tiene que seguir detectando como HTML
+  estático: nunca mergear esta rama a `main` ni poner nuestro `Dockerfile`/`package.json` ahí.
+- El espejo lo arma `node scripts/sync-to-ownia-repo.js <clon>`: copia la app y, en `gas/<Modulo>/`, los
+  `.js/.html/.json` de los módulos migrados (sin `.clasp.json`), más `gas/MANIFEST.json` con el commit de origen y
+  `LEEME_ESPEJO.md`. **No editarlo a mano.** Solo copia archivos **versionados** (`git ls-files`), nunca
+  `token*`/`credentials*`/`.env*`, exige que lo sincronizado no tenga cambios sin commitear, y aborta si el destino
+  no es un clon con origin `despegar/B2B_Ecosystem_Ownia` **parado en la rama `b2b-ecosystem`**, o si es (o
+  contiene, o está dentro de) el monorepo.
+- (`despegar/ownia-b2b-ecosystem`, el primer espejo del 2026-10-21, quedó en desuso: lo puede archivar un admin de
+  Ownia.)
 
 En el monorepo la app lee los proyectos GAS de las carpetas hermanas (`../<Modulo>/`); en el espejo, de `gas/`.
 
@@ -100,9 +111,14 @@ En el monorepo la app lee los proyectos GAS de las carpetas hermanas (`../<Modul
 
 1. Editar acá (o el módulo GAS que corresponda) → `npm test` (incluye smoke test de cada módulo migrado).
 2. Commit + push al monorepo.
-3. Sincronizar el espejo: `node scripts/sync-to-ownia-repo.js <clon de despegar/ownia-b2b-ecosystem>` → commit +
-   push del espejo (credencial temporal vía el MCP de Ownia: `github_repo(action="get_push_access")`).
-4. Redeploy desde el MCP de Ownia (skill `ownia-deploy`). Llega un mail cuando termina.
+3. Sincronizar el espejo:
+   ```bash
+   git clone -b b2b-ecosystem https://github.com/despegar/B2B_Ecosystem_Ownia.git <clon>   # una sola vez
+   node scripts/sync-to-ownia-repo.js <clon>
+   cd <clon> && git add -A && git commit -m "Sync desde B2B_Ecosystem <sha>" && git push
+   ```
+4. Redeploy desde el MCP de Ownia (skill `ownia-deploy`): `deploy_app(action="redeploy", app_name="b2b-ecosystem")`
+   — la app ya tiene guardados el repo y la rama. Llega un mail cuando termina.
 
 ⚠️ Igual que con clasp: **un `git push` al monorepo no publica nada en Ownia** — hace falta el paso 3 y 4. Y un
 cambio en un módulo GAS migrado (p.ej. `Manual_B2B_WLs/manual.html`) necesita **las dos** publicaciones:

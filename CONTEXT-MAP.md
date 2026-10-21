@@ -180,8 +180,10 @@ El ecosistema tiene dos capas: **pipelines** (Python, generan los datos) y **lan
   `google.script.run` en el navegador. No hay reescritura de lógica, así los números no divergen.
 - **Estado**: piloto con `Manual_B2B_WLs` (`/b2b-ecosystem/manual`). El resto sigue productivo en GAS y la portada
   lo linkea. Todavía no hay shim de `DriveApp`/`SlidesApp`/`MailApp`: ningún módulo con datos puede migrarse aún.
-- **Repo de deploy**: `despegar/ownia-b2b-ecosystem`, espejo GENERADO por `scripts/sync-to-ownia-repo.js` (Ownia solo
-  deploya repos de la org `despegar`). La fuente de verdad es la carpeta del monorepo.
+- **Repo de deploy**: rama `b2b-ecosystem` de `despegar/B2B_Ecosystem_Ownia`, espejo GENERADO por
+  `scripts/sync-to-ownia-repo.js` (Ownia solo deploya repos de la org `despegar`). La fuente de verdad es la carpeta
+  del monorepo. **`main` de ese repo es otra app** (`b2b-dashboard`, sitio estático) y no se toca.
+- **Acceso**: detrás de Cloudflare Access (login corporativo); la app recibe `cf-access-authenticated-user-email`.
 - **Apps Script no cambia**: pipelines, queries al Datalake, JSON de Drive y landings GAS siguen igual.
 - **Doc detallada**: [CONTEXT.md](./Ownia_B2B_Ecosystem/CONTEXT.md)
 
