@@ -26,7 +26,7 @@ const APP_DIRNAME = path.basename(APP);
 const EXPECTED_REMOTE = /[/:]despegar\/ownia-b2b-ecosystem(\.git)?\/?$/i;
 
 // Lo único que este script escribe/borra en el destino. Cualquier otra cosa se respeta.
-const APP_ENTRIES = ['server', 'public', 'test', 'scripts', 'package.json', 'CONTEXT.md'];
+const APP_ENTRIES = ['server', 'public', 'test', 'scripts', 'package.json', 'CONTEXT.md', 'Dockerfile', '.dockerignore'];
 // .gitignore se escribe aparte: el del monorepo ignora gas/, que en el espejo SÍ se versiona.
 const MANAGED = [...APP_ENTRIES, 'gas', 'README.md', '.gitignore'];
 

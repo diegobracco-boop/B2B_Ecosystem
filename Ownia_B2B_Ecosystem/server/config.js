@@ -34,7 +34,7 @@ const secrets = parseSecrets();
 
 module.exports = {
   APP_ROOT,
-  PORT: Number(process.env.PORT) || 8080,
+  PORT: Number(process.env.PORT) || 8000,
   BASE_PATH: normalizeBasePath(process.env.BASE_PATH),
   GAS_ROOT: resolveGasRoot(),
   secrets,
