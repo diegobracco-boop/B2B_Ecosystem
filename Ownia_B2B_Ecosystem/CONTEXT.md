@@ -88,7 +88,8 @@ Entonces:
 - **Fuente de verdad: esta carpeta** del monorepo. Acá se edita y se testea.
 - **`despegar/ownia-b2b-ecosystem`**: espejo GENERADO que deploya Ownia. Lo arma
   `node scripts/sync-to-ownia-repo.js <clon>`: copia la app y, en `gas/<Modulo>/`, los `.js/.html/.json` de los
-  módulos migrados (sin `.clasp.json`), más `gas/MANIFEST.json` con el commit de origen. **No editarlo a mano.**
+  módulos migrados (sin `.clasp.json`), más `gas/MANIFEST.json` con el commit de origen y `LEEME_ESPEJO.md`
+  (el `README.md` lo genera Ownia con datos de auditoría y no se toca). **No editarlo a mano.**
   El script solo copia archivos **versionados** (`git ls-files`), nunca `token*`/`credentials*`/`.env*`, exige que lo
   sincronizado no tenga cambios sin commitear, y aborta si el destino no es un clon con origin
   `despegar/ownia-b2b-ecosystem` o si es (o contiene, o está dentro de) el monorepo.

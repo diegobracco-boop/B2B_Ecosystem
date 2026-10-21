@@ -28,7 +28,8 @@ const EXPECTED_REMOTE = /[/:]despegar\/ownia-b2b-ecosystem(\.git)?\/?$/i;
 // Lo único que este script escribe/borra en el destino. Cualquier otra cosa se respeta.
 const APP_ENTRIES = ['server', 'public', 'test', 'scripts', 'package.json', 'CONTEXT.md', 'Dockerfile', '.dockerignore'];
 // .gitignore se escribe aparte: el del monorepo ignora gas/, que en el espejo SÍ se versiona.
-const MANAGED = [...APP_ENTRIES, 'gas', 'README.md', '.gitignore'];
+// README.md NO se toca: lo genera Ownia con datos de auditoría (quién/cuándo lo creó).
+const MANAGED = [...APP_ENTRIES, 'gas', 'LEEME_ESPEJO.md', '.gitignore'];
 
 // Archivos GAS que se copian (lo mismo que sube clasp; nada de .py, .md ni datos).
 const GAS_EXT = new Set(['.js', '.gs', '.html', '.json']);
@@ -117,9 +118,9 @@ function main() {
   );
   fs.writeFileSync(path.join(target, '.gitignore'), MIRROR_GITIGNORE);
   fs.writeFileSync(
-    path.join(target, 'README.md'),
+    path.join(target, 'LEEME_ESPEJO.md'),
     [
-      '# b2b-ecosystem (Ownia)',
+      '# b2b-ecosystem (Ownia) — espejo generado',
       '',
       `Espejo GENERADO de \`${APP_DIRNAME}/\` del monorepo B2B_Ecosystem — no editar a mano.`,
       'Se regenera con `node scripts/sync-to-ownia-repo.js <clon>` desde el monorepo.',
