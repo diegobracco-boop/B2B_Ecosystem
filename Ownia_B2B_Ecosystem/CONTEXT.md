@@ -42,6 +42,10 @@ navegador ──POST /b2b-ecosystem/api/<modulo>/<fn>──▶ <fn>(...args) del
 - `public/gas-client.js` — reemplaza `google.script.run` (con `withSuccessHandler`/`withFailureHandler`/
   `withUserObject`), `google.script.url` y `google.script.history` en el navegador. Se inyecta en el `<head>`
   antes que cualquier otro script, así el HTML de la landing no cambia.
+- `public/ownia-nav.js` — navegación en Ownia, inyectada después del shim: el link al Hub GAS del header pasa a
+  "🏠 Home" (menú de Ownia, misma pestaña), los links a módulos ya migrados van a su versión de Ownia, la portada
+  propia del módulo (`#home-overlay` + "⌂ Inicio") se oculta y se entra directo a `startView` (modules.js); en el
+  Manual (sin header) agrega "🏠 Home" arriba del sidebar. GAS no cambia.
 - **Zona horaria**: el proceso corre con `TZ=America/Argentina/Buenos_Aires` (la de todos los `appsscript.json`).
   En GAS `new Date().getMonth()` usa la zona del proyecto; sin esto, entre las 21 y las 24 hs daría otro mes/día.
 

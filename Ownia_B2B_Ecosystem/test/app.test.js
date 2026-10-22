@@ -84,6 +84,18 @@ test('doGet: template con scriptlets, include, título, meta y shim inyectados',
   assert.ok(r.text.indexOf('_gas/client.js') < r.text.indexOf('<style>'));
 });
 
+test('doGet: navegación de Ownia inyectada (Home = menú de Ownia, después del shim)', async () => {
+  const r = await request(demoServer, 'GET', `${BASE}/demo`);
+  const tag = new RegExp(`<script src="${BASE}/_gas/nav\\.js\\?v=\\w+" data-home="${BASE}/" data-links="([^"]*)"`);
+  const m = tag.exec(r.text);
+  assert.ok(m, 'tag de nav.js');
+  assert.ok(r.text.indexOf('_gas/client.js') < r.text.indexOf('_gas/nav.js'));
+  JSON.parse(m[1].replace(/&quot;/g, '"'));
+  const js = await request(demoServer, 'GET', `${BASE}/_gas/nav.js`);
+  assert.equal(js.status, 200);
+  assert.match(js.text, /home-overlay/);
+});
+
 test('doGet: ContentService + pathInfo + parámetros', async () => {
   const r = await request(demoServer, 'GET', `${BASE}/demo/a/b?format=json`);
   assert.equal(r.status, 200);

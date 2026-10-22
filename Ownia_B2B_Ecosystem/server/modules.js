@@ -65,6 +65,9 @@ const MODULES = [
     desc: 'Vista contable del P&L.',
     ownia: true,
     validating: true,
+    // Sin la portada propia del módulo: entra directo a esta vista (goToView del dashboard) y
+    // se navega con los selectores del header. Ver public/ownia-nav.js.
+    startView: 'contable-combined',
     allowedUsers: EQUIPO_B2B,
     gasUrl: GAS_EXEC + 'AKfycby9WZK2HfAWx25M5pEMV3nntzJfEvsiT9feMn01zJQkQaI3t2GjTzOIjbFXWexnMuzklQ/exec',
   },

@@ -25,6 +25,7 @@ const gunzip = promisify(zlib.gunzip);
 const { MODULES } = require('./modules');
 const { GasProject } = require('./gas-runtime');
 const { renderOutput } = require('./render');
+const { escapeHtml } = require('./gas-template');
 const { indexPage } = require('./index-page');
 const { resolveIdentity, describeAuthHeaders } = require('./identity');
 const { createFileStore, isValidId } = require('./file-store');
@@ -52,6 +53,19 @@ function createApp(opts = {}) {
   const clientJs = fs.readFileSync(path.join(cfg.APP_ROOT, 'public', 'gas-client.js'), 'utf8');
   const clientVersion = crypto.createHash('sha1').update(clientJs).digest('hex').slice(0, 10);
   const galaxyJs = fs.readFileSync(path.join(cfg.APP_ROOT, 'public', 'galaxy.js'), 'utf8');
+  const navJs = fs.readFileSync(path.join(cfg.APP_ROOT, 'public', 'ownia-nav.js'), 'utf8');
+  const navVersion = crypto.createHash('sha1').update(navJs).digest('hex').slice(0, 10);
+  // Links del header a otra landing (por deployment ID de GAS): el Hub → menú de Ownia; los
+  // módulos ya servidos acá → su versión de Ownia (ver public/ownia-nav.js).
+  const homeUrl = `${cfg.BASE_PATH}/`;
+  const navLinks = {};
+  for (const m of modules) {
+    const id = /\/s\/([\w-]+)\/exec/.exec(m.gasUrl || '');
+    if (!id) continue;
+    if (m.slug === 'hub') navLinks[id[1]] = homeUrl;
+    else if (m.ownia) navLinks[id[1]] = `${cfg.BASE_PATH}/${m.slug}`;
+  }
+  const navLinksAttr = escapeHtml(JSON.stringify(navLinks));
   const startedAt = new Date().toISOString();
 
   function getProject(mod) {
@@ -250,6 +264,9 @@ function createApp(opts = {}) {
     if (route === '/_gas/client.js') {
       return send(res, 200, { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'public, max-age=3600' }, clientJs);
     }
+    if (route === '/_gas/nav.js') {
+      return send(res, 200, { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'public, max-age=3600' }, navJs);
+    }
     if (route === '/' || route === '') {
       if (req.method !== 'GET') return sendJson(res, 405, { error: 'Método no permitido' });
       return send(res, 200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }, indexPage({ modules, basePath: cfg.BASE_PATH }));
@@ -304,7 +321,9 @@ function createApp(opts = {}) {
       const project = getProject(mod);
       const reqCtx = { user: identity, userAgent: req.headers['user-agent'] || '', moduleUrl: `${publicOrigin(req)}${cfg.BASE_PATH}/${mod.slug}` };
       const output = project.doGet(gasEvent(url, parts.slice(1).join('/')), reqCtx);
-      const clientScriptTag = `<script src="${cfg.BASE_PATH}/_gas/client.js?v=${clientVersion}" data-api="${cfg.BASE_PATH}/api/${mod.slug}"></script>`;
+      const clientScriptTag = `<script src="${cfg.BASE_PATH}/_gas/client.js?v=${clientVersion}" data-api="${cfg.BASE_PATH}/api/${mod.slug}"></script>\n` +
+        `<script src="${cfg.BASE_PATH}/_gas/nav.js?v=${navVersion}" data-home="${escapeHtml(homeUrl)}" data-links="${navLinksAttr}"` +
+        (mod.startView ? ` data-start-view="${escapeHtml(mod.startView)}"` : '') + '></script>';
       const out = renderOutput(output, { clientScriptTag });
       return send(res, out.status, out.headers, req.method === 'HEAD' ? '' : out.body);
     } catch (e) {
