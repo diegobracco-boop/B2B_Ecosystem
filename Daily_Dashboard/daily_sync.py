@@ -135,6 +135,12 @@ if TODAY.month == 12:
     LY_TO = date(TODAY.year - 1, 12, 31)
 else:
     LY_TO = date(TODAY.year - 1, TODAY.month + 1, 1) - timedelta(days=1)
+# Tramo extra de LY B2B (5 semanas después de LY_TO) SOLO para el YoY de las semanas
+# proyectadas de "Semanas GD/RI" del Tracker, que llegan hasta 4 semanas adelante y
+# pueden caer en el mes siguiente. Va en claves aparte (b2b_*_ly_ext) para no cambiar
+# el LY que usan las demás vistas (totales de mes / año).
+LY_EXT_FROM = LY_TO + timedelta(days=1)
+LY_EXT_TO   = LY_TO + timedelta(days=35)
 
 # Nombres de mes en español — budget incluye todos los meses ene->actual
 MESES_ES = {
@@ -1437,6 +1443,8 @@ _QUERIES = {
     "B2B GD LY":         build_b2b_gd_query(LY_FROM, LY_TO),
     "B2B RI actuals":    build_b2b_ri_query(ACTUALS_FROM, YESTERDAY),
     "B2B RI LY":         build_b2b_ri_query(LY_FROM, LY_TO),
+    "B2B GD LY ext":     build_b2b_gd_query(LY_EXT_FROM, LY_EXT_TO),
+    "B2B RI LY ext":     build_b2b_ri_query(LY_EXT_FROM, LY_EXT_TO),
     "B2C":               build_b2c_query(ACTUALS_FROM, YESTERDAY),
     "B2C LY":            build_b2c_query(LY_FROM, LY_TO),
     "Budget":            BUDGET_QUERY,
@@ -1529,6 +1537,16 @@ df_b2b_gd_ly = clean_b2b(fetched("B2B GD LY"))
 print("\n--- B2B RI ---")
 df_b2b_ri    = clean_b2b(fetched("B2B RI actuals"))
 df_b2b_ri_ly = clean_b2b(fetched("B2B RI LY"))
+
+# LY ext: no crítico (solo el YoY de las semanas proyectadas). Si falla, el Tracker muestra "—".
+def _fetched_ly_ext(label: str) -> pd.DataFrame:
+    try:
+        return clean_b2b(fetched(label))
+    except Exception as e:
+        print(f"  WARN {label} fallo ({e}); el YoY de las semanas proyectadas queda vacío")
+        return pd.DataFrame()
+df_b2b_gd_ly_ext = _fetched_ly_ext("B2B GD LY ext")
+df_b2b_ri_ly_ext = _fetched_ly_ext("B2B RI LY ext")
 
 print("\n--- Budget LOB diagnostic ---")
 try:
@@ -1868,6 +1886,7 @@ META = {
     "actuals_from":      str(ACTUALS_FROM),
     "ly_from":           str(LY_FROM),
     "ly_to":             str(LY_TO),
+    "ly_ext_to":         str(LY_EXT_TO),   # b2b_*_ly_ext: LY B2B hasta acá (solo YoY de Semanas GD/RI)
 }
 
 b2c_compact    = to_compact(df_b2c)    if not df_b2c.empty    else {"cols": [], "rows": []}
@@ -1897,6 +1916,8 @@ b2b_payload = {
     "b2b_gd_ly":  to_compact(df_b2b_gd_ly_ag),
     "b2b_ri":     to_compact(df_b2b_ri_agg),
     "b2b_ri_ly":  to_compact(df_b2b_ri_ly_ag),
+    "b2b_gd_ly_ext": to_compact(agg_b2b(df_b2b_gd_ly_ext)) if not df_b2b_gd_ly_ext.empty else {"cols": [], "rows": []},
+    "b2b_ri_ly_ext": to_compact(agg_b2b(df_b2b_ri_ly_ext)) if not df_b2b_ri_ly_ext.empty else {"cols": [], "rows": []},
     "b2b_budget_gd":  df_b2b_bud_gd.to_dict(orient="records")    if not df_b2b_bud_gd.empty    else [],
     "b2b_budget_ri":  df_b2b_bud_ri.to_dict(orient="records")    if not df_b2b_bud_ri.empty    else [],
     "b2b_runrate_gd": df_b2b_rr_gd_agg.to_dict(orient="records") if not df_b2b_rr_gd_agg.empty else [],

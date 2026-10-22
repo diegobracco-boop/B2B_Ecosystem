@@ -765,11 +765,18 @@
   }
   .weekly-section-row:first-child { padding-top: 16px; }
   .weekly-section-row:last-child  { padding-bottom: 24px; }
-  .weekly-main-wrap { flex: 7; min-width: 0; overflow: hidden; }
-  .weekly-widget-card {
-    flex: 1;
-    min-width: 0;
-  }
+  .weekly-section-row { flex-wrap: wrap; }
+  .weekly-main-wrap { flex: 1 1 620px; min-width: 0; overflow: hidden; }
+  /* Widgets (Sem vs L4W + MTD) a su ancho natural: antes iban con flex:1/min-width:0 y
+     overflow:hidden y el L4W quedaba cortado. Si no entran al lado de la tabla, bajan. */
+  .weekly-side { display: flex; gap: 12px; flex: 0 1 auto; flex-wrap: wrap; align-items: flex-start; }
+  .weekly-widget-card { flex: 0 0 auto; min-width: 280px; }
+  .weekly-th-kind { display: block; font-size: 8.5px; font-weight: 600; letter-spacing: 0.2px; text-transform: none; margin-top: 1px; }
+  .weekly-kind-real { color: #059669; }
+  .weekly-kind-mix  { color: #b45309; }
+  .weekly-kind-rr   { color: #6b7280; }
+  .weekly-cell-proj { color: #4b5563; font-style: italic; }
+  .weekly-note { padding: 10px 20px 0; font-size: 0.74rem; color: #6b7280; }
 
   /* card */
   .weekly-card {
@@ -828,8 +835,8 @@
   .widget-group-sep td { border-top: 2px solid #f3f0fe; }
   .widget-pct-row td  { background: #fafafa; }
 
-  /* Proyección mensual widget */
-  .weekly-proj-card { flex: 2; min-width: 0; }
+  /* Performance MTD widget */
+  .weekly-proj-card { flex: 0 0 auto; min-width: 300px; }
   .proj-table { border-collapse: collapse; width: 100%; }
   .proj-table td  { padding: 6px 12px; font-size: 0.80rem; white-space: nowrap; }
   .proj-table thead th {
@@ -1568,7 +1575,8 @@ function getActualsLY(dateType) {
 // ── ORGANIC (mismo switch que el Daily / Monthly Results del Hub) ─────────────
 // YES = actuals × TC Actuals(país, mes) / TC Budget (Meta Run Rate: no hay TC → nominal). Solo los
 // gráficos y tablas (buildChartData / buildPivotData) y los KRs (siempre a TC Budget: se miden vs
-// Budget, getActualsKR / getKrActuals); la vista Semanal (vs Run Rate) queda nominal.
+// Budget, getActualsKR / getKrActuals). La vista Semanal convierte reales Y Run Rate con el mismo
+// criterio, sea cual sea la Meta (_wkOrgRows).
 // YoY "opción B": cada fila convertida trae <campo>_y = valor a TC Actuals LY y los YoY se calculan con eso (actY); el LY se muestra nominal. Embebido en el Daily, el estado inicial
 // llega por la URL (&organic=1).
 let trkOrganic = false, fxTbl = null, fxState = 'idle', orgErr = '', orgMissing = {};
@@ -1653,6 +1661,9 @@ function syncOrgUI() {
   if (orgErr) note.textContent = orgErr;
   else if (fxState === 'loading') note.textContent = 'Cargando tipos de cambio…';
   else if (!trkOrganic) note.textContent = '';
+  else if (activeTab === 'weekly_gd' || activeTab === 'weekly_ri')   // Semanas: RR con el mismo criterio que los reales (_wkOrgRows)
+    note.textContent = 'Reales y Run Rate × TC Actuals / TC Budget · YoY a TC Actuals LY'
+      + (miss.length ? ' · sin TC: ' + miss.slice(0, 3).join(', ') + (miss.length > 3 ? ' …' : '') : '');
   else if (!trkOrgTarget()) note.textContent = 'Meta Run Rate sin TC: gráficos y tablas nominales · KRs a TC Budget';
   else note.textContent = 'Actuals × TC Actuals / TC Budget · YoY a TC Actuals LY'
     + (miss.length ? ' · sin TC: ' + miss.slice(0, 3).join(', ') + (miss.length > 3 ? ' …' : '') : '');
@@ -2500,51 +2511,99 @@ function _fmtWeekLabel(mon, sun) {
   return 'Sem ' + wn + ' | ' + range;
 }
 
-function _sumWeek(rows, from, to, field) {
-  return rows.reduce(function(s, r) {
-    return (r.fecha >= from && r.fecha <= to) ? s + (Number(r[field]) || 0) : s;
-  }, 0);
+// LY para el YoY semanal: el LY principal llega hasta fin del mes en curso (ly_to); las
+// semanas proyectadas que caen en el mes siguiente usan b2b_*_ly_ext (daily_sync.py).
+let _wkLYMemo = {};
+function getActualsLYWeekly(dateType) {
+  if (!rawData) return [];
+  if (_wkLYMemo.src !== rawData) _wkLYMemo = { src: rawData };
+  if (!_wkLYMemo[dateType]) {
+    const ext = rawData[dateType === 'ri' ? 'b2b_ri_ly_ext' : 'b2b_gd_ly_ext'];
+    _wkLYMemo[dateType] = getActualsLY(dateType).concat(unpack(ext));
+  }
+  return _wkLYMemo[dateType];
 }
 
-function _buildWeeklyTable(weeks, firstRRIdx, allActuals, allRunrate, allLY, dateType, channel, countryGroup) {
-  const METRICS_W = [
-    { label: 'GB ($M)',  valKey: 'gb',  yoyKey: 'yGB',  fmt: function(v) { return fmtMc(toM(v)); } },
-    { label: 'NR ($K)',  valKey: 'nr',  yoyKey: 'yNR',  fmt: function(v) { return fmtKc(toK(v)); } },
-    { label: 'FVM ($K)', valKey: 'fvm', yoyKey: 'yFVM', fmt: function(v) { return fmtKc(toK(v)); } },
-  ];
+// ORGANIC en la vista semanal: actuals Y Run Rate con el mismo criterio que los reales del
+// resto del Tracker: valor × TC Actuals(mes) / TC Budget(mes), y el YoY a TC Actuals LY
+// (opción B): <campo>_y = valor × TC Actuals(mes) / TC Actuals(mismo mes LY). Los días de RR
+// caen en meses sin TC Actuals todavía → se usa el último TC disponible del país (idem TC Budget).
+function _wkOrgFactor(target) {
+  const act = fxTbl.actuals, tgt = target === 'ly' ? null : (fxTbl[target] || {}), memo = {};
+  function index(tbl) {
+    const yms = {};
+    Object.keys(tbl).forEach(k => { const [p, ym] = k.split('§'); (yms[p] = yms[p] || []).push(ym); });
+    Object.keys(yms).forEach(p => yms[p].sort());
+    return yms;
+  }
+  const ymsA = index(act), ymsT = tgt ? index(tgt) : null;
+  function tc(tbl, yms, p, ym) {   // TC del mes o, si no está cargado, el último anterior
+    if (tbl[p + '§' + ym]) return tbl[p + '§' + ym];
+    const prev = yms[p] ? yms[p].filter(x => x <= ym).pop() : null;
+    return prev ? tbl[p + '§' + prev] : null;
+  }
+  return function(pais, fecha) {
+    const ym = String(fecha || '').substring(0, 7), mk = pais + '|' + ym;
+    if (mk in memo) return memo[mk];
+    let p = orgNorm(pais); p = ORG_ALIAS[p] || p;
+    let f = 1;
+    if (ymsA[p] && ym.length === 7) {
+      const a = tc(act, ymsA, p, ym);
+      const t = tgt ? tc(tgt, ymsT, p, ym) : act[p + '§' + (+ym.substring(0, 4) - 1) + ym.substring(4)];
+      if (a && t) f = a / t;
+      else orgMissing[p + ' ' + ym + (a ? '' : ' (actuals)') + (t ? '' : ' (' + (tgt ? target : 'actuals LY') + ')')] = 1;
+    }
+    return (memo[mk] = f);
+  };
+}
+function _wkOrgRows(rows) {
+  if (!trkOrganic || !fxTbl || !rows.length) return rows;
+  const fT = _wkOrgFactor('budget'), fY = _wkOrgFactor('ly');
+  return rows.map(r => {
+    const a = fT(r.pais, r.fecha), y = fY(r.pais, r.fecha);
+    if (a === 1 && y === 1) return r;
+    const c = Object.assign({}, r);
+    ORG_MONEY.forEach(F => { if (r[F] != null) { c[F] = r[F] * a; c[F + '_y'] = r[F] * y; } });
+    return c;
+  });
+}
 
+function _wkSum(arr, f) { return arr.reduce(function(s, r) { return s + (Number(r[f]) || 0); }, 0); }
+function _wkSumY(arr, f) { return arr.reduce(function(s, r) { return s + yv(r, f); }, 0); }
+function _wkPct(v)    { return (v === null || !isFinite(v)) ? '—' : ((v >= 0 ? '+' : '') + (v * 100).toFixed(0) + '%'); }
+function _wkPctCls(v) { return (v === null || !isFinite(v)) ? 'widget-pct-neu' : (v >= 0 ? 'widget-nom-pos' : 'widget-nom-neg'); }
+function _wkFmtDay(d) { return parseInt(d.substring(8, 10), 10) + ' ' + _MESES_SHORT[parseInt(d.substring(5, 7), 10) - 1]; }
+
+const _WK_METRICS = [
+  { label: 'Gross Bookings', short: 'GB ($M)',  field: 'gross_bookings', fmt: function(v) { return fmtMc(toM(v)); } },
+  { label: 'Net Revenues',   short: 'NR ($K)',  field: 'net_revenue',    fmt: function(v) { return fmtKc(toK(v)); } },
+  { label: 'FVM',            short: 'FVM ($K)', field: 'fvm',            fmt: function(v) { return fmtKc(toK(v)); } },
+];
+
+// Cada semana se arma día por día: días <= último actual → actuals; días posteriores → Run Rate.
+// Así la semana en curso muestra lo real que ya hay + RR para los días que faltan (antes era
+// toda RR aunque ya hubiera actuals). El YoY de todas las semanas es contra la misma semana
+// del año pasado (fechas corridas -1 año), con el LY extendido para las semanas de mes siguiente.
+function _buildWeeklyTable(weeks, firstRRIdx, src, channel, countryGroup) {
   const weekData = weeks.map(function(w, i) {
-    const rows  = w.isReal ? allActuals : allRunrate;
-    const lyMon = shiftYear(w.mon, -1);
-    const lySun = shiftYear(w.sun, -1);
-
-    const fr   = filterByPeriod(rows,  channel || null, countryGroup || null, w.mon, w.sun);
-    const frLY = filterByPeriod(allLY, channel || null, countryGroup || null, lyMon, lySun);
-
-    function sum(arr, field) { return arr.reduce(function(s, r) { return s + (Number(r[field]) || 0); }, 0); }
-
-    const gb  = sum(fr,   'gross_bookings');
-    const nr  = sum(fr,   'net_revenue');
-    const fvm = sum(fr,   'fvm');
-    const gbLY  = sum(frLY, 'gross_bookings');
-    const nrLY  = sum(frLY, 'net_revenue');
-    const fvmLY = sum(frLY, 'fvm');
-
-    return {
-      w,
-      isSep: i === firstRRIdx,
-      gb, nr, fvm,
-      yGB:  gbLY  ? gb  / gbLY  - 1 : null,
-      yNR:  nrLY  ? nr  / nrLY  - 1 : null,
-      yFVM: fvmLY ? fvm / fvmLY - 1 : null,
-    };
+    const realTo = w.sun < src.last ? w.sun : src.last;
+    const fr = [];
+    if (w.mon <= src.last) fr.push.apply(fr, filterByPeriod(src.act, channel || null, countryGroup || null, w.mon, realTo));
+    if (w.sun > src.last)  fr.push.apply(fr, filterByPeriod(src.rr,  channel || null, countryGroup || null, w.mon > src.last ? w.mon : _addDays(src.last, 1), w.sun));
+    const frLY = filterByPeriod(src.ly, channel || null, countryGroup || null, shiftYear(w.mon, -1), shiftYear(w.sun, -1));
+    const out = { w: w, isSep: i === firstRRIdx };
+    _WK_METRICS.forEach(function(m) {
+      const ly = _wkSum(frLY, m.field);
+      out[m.field] = _wkSum(fr, m.field);
+      out[m.field + '_yoy'] = (ly && !w.rrMissing && src.lyCovers(shiftYear(w.sun, -1))) ? _wkSumY(fr, m.field) / ly - 1 : null;
+    });
+    return out;
   });
 
   const table = document.createElement('table');
   table.className = 'pivot-table weekly-table';
   table.style.marginBottom = '0';
 
-  // Header
   const thead = document.createElement('thead');
   const trH   = document.createElement('tr');
   const thLbl = document.createElement('th');
@@ -2553,32 +2612,33 @@ function _buildWeeklyTable(weeks, firstRRIdx, allActuals, allRunrate, allLY, dat
   weekData.forEach(function(wd) {
     const th = document.createElement('th');
     if (wd.isSep) th.style.borderLeft = '2px solid #374151';
-    th.textContent = 'S' + _isoWeek(wd.w.mon);
+    const tag = wd.w.rrMissing ? 'RR incompleto' : (wd.w.kind === 'real' ? 'Real' : (wd.w.kind === 'mix' ? 'Real + RR' : 'Run Rate'));
+    th.innerHTML = 'S' + _isoWeek(wd.w.mon) + '<span class="weekly-th-kind weekly-kind-' + wd.w.kind + '">' + tag + '</span>';
+    th.title = _fmtWeekLabel(wd.w.mon, wd.w.sun) + (wd.w.kind === 'mix' ? ' · real hasta ' + _wkFmtDay(src.last) + ', Run Rate el resto' : '') +
+      (wd.w.rrMissing ? ' · ' + wd.w.rrMissing + ' día(s) sin Run Rate cargado: valor parcial, sin YoY' : '');
+    if (wd.w.rrMissing) th.querySelector('span').className = 'weekly-th-kind weekly-kind-mix';
     trH.appendChild(th);
   });
   thead.appendChild(trH);
   table.appendChild(thead);
 
-  // Body
   const tbody = document.createElement('tbody');
-  METRICS_W.forEach(function(m, mi) {
-    // Valor
+  _WK_METRICS.forEach(function(m, mi) {
     const trV = document.createElement('tr');
     trV.className = 'weekly-metric-val' + (mi > 0 ? ' metric-group-sep' : '');
     const tdL = document.createElement('td');
     tdL.className = 'weekly-metric-label';
-    tdL.textContent = m.label;
+    tdL.textContent = m.short;
     trV.appendChild(tdL);
     weekData.forEach(function(wd) {
       const td = document.createElement('td');
-      td.className = 'weekly-cell-val';
+      td.className = 'weekly-cell-val' + (wd.w.kind !== 'real' ? ' weekly-cell-proj' : '');
       if (wd.isSep) td.style.borderLeft = '2px solid #374151';
-      td.textContent = wd[m.valKey] ? m.fmt(wd[m.valKey]) : '—';
+      td.textContent = wd[m.field] ? m.fmt(wd[m.field]) : '—';
       trV.appendChild(td);
     });
     tbody.appendChild(trV);
 
-    // YoY
     const trY = document.createElement('tr');
     trY.className = 'weekly-metric-yoy';
     const tdYL = document.createElement('td');
@@ -2586,10 +2646,11 @@ function _buildWeeklyTable(weeks, firstRRIdx, allActuals, allRunrate, allLY, dat
     tdYL.textContent = 'YoY';
     trY.appendChild(tdYL);
     weekData.forEach(function(wd) {
+      const v = wd[m.field + '_yoy'];
       const td = document.createElement('td');
-      td.className = yoyColor(wd[m.yoyKey]);
+      td.className = yoyColor(v);
       if (wd.isSep) td.style.borderLeft = '2px solid #374151';
-      td.innerHTML = yoyIcon(wd[m.yoyKey]);
+      td.innerHTML = yoyIcon(v);
       trY.appendChild(td);
     });
     tbody.appendChild(trY);
@@ -2599,74 +2660,42 @@ function _buildWeeklyTable(weeks, firstRRIdx, allActuals, allRunrate, allLY, dat
   return table;
 }
 
-function _buildProjectionWidget(allActuals, allGoal, allLY, channel, countryGroup) {
-  const today = new Date().toISOString().slice(0, 10);
-  const yr = today.slice(0, 4), mo = today.slice(5, 7);
-  const monthStart = yr + '-' + mo + '-01';
-  const daysInMonth = new Date(parseInt(yr), parseInt(mo), 0).getDate();
-  const monthEnd = yr + '-' + mo + '-' + String(daysInMonth).padStart(2, '0');
-  const yesterday = _addDays(today, -1);
-  const daysElapsed = Math.max(1, Math.round((new Date(yesterday) - new Date(monthStart)) / 86400000) + 1);
+// Performance MTD del mes del último actual: actual (1 → último día con datos) vs la meta
+// del selector (Budget / Run Rate) para los mismos días, y YoY contra los mismos días del
+// año pasado, sin proyectar. Con Meta Budget da los mismos números que Tablas GD/RI (organic
+// incluido); con Meta Run Rate y organic, el RR se convierte igual que los reales (_wkOrgRows).
+function _buildMTDWidget(src, channel, countryGroup) {
+  const last = src.last, from = last.substring(0, 8) + '01';
+  const yr = +last.substring(0, 4), mo = +last.substring(5, 7);
+  const daysInMonth = new Date(yr, mo, 0).getDate();
+  const daysElapsed = +last.substring(8, 10);
 
-  const lyYr = String(parseInt(yr) - 1);
-  const lyDaysInMonth = new Date(parseInt(lyYr), parseInt(mo), 0).getDate();
-  const lyMonthStart = lyYr + '-' + mo + '-01';
-  const lyMonthEnd   = lyYr + '-' + mo + '-' + String(lyDaysInMonth).padStart(2, '0');
-
-  function sum(arr, f) { return arr.reduce(function(s, r) { return s + (Number(r[f]) || 0); }, 0); }
-
-  const mtd = filterByPeriod(allActuals, channel || null, countryGroup || null, monthStart, yesterday);
-  const tgt = filterByPeriod(allGoal,    channel || null, countryGroup || null, monthStart, monthEnd);
-  const ly  = filterByPeriod(allLY,      channel || null, countryGroup || null, lyMonthStart, lyMonthEnd);
-
-  const factor = daysInMonth / daysElapsed;
-  const metrics = [
-    { label: 'Gross Bookings',
-      proj: sum(mtd, 'gross_bookings') * factor,
-      tgt:  sum(tgt, 'gross_bookings'),
-      ly:   sum(ly,  'gross_bookings'),
-      fmt:  function(v) { return fmtMc(toM(v)); } },
-    { label: 'Net Revenues',
-      proj: sum(mtd, 'net_revenue') * factor,
-      tgt:  sum(tgt, 'net_revenue'),
-      ly:   sum(ly,  'net_revenue'),
-      fmt:  function(v) { return fmtKc(toK(v)); } },
-    { label: 'FVM',
-      proj: sum(mtd, 'fvm') * factor,
-      tgt:  sum(tgt, 'fvm'),
-      ly:   sum(ly,  'fvm'),
-      fmt:  function(v) { return fmtKc(toK(v)); } },
-  ];
+  const act = filterByPeriod(src.act, channel || null, countryGroup || null, from, last);
+  const tgt = filterByPeriod(src.goal || src.rr, channel || null, countryGroup || null, from, last);
+  const ly  = filterByPeriod(src.lyMain, channel || null, countryGroup || null, shiftYear(from, -1), shiftYear(last, -1));
 
   const card = document.createElement('div');
   card.className = 'weekly-card weekly-widget-card weekly-proj-card';
-
   const titleEl = document.createElement('div');
   titleEl.className = 'weekly-card-title';
-  const MON = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-  titleEl.textContent = 'Proy. ' + MON[parseInt(mo) - 1] + ' · vs Target & YoY  (' + daysElapsed + '/' + daysInMonth + ' días)';
+  titleEl.textContent = 'MTD ' + _MESES_SHORT[mo - 1] + ' · 1–' + daysElapsed + ' ' + _MESES_SHORT[mo - 1] + '  (' + daysElapsed + '/' + daysInMonth + ' días)';
   card.appendChild(titleEl);
 
   const table = document.createElement('table');
   table.className = 'proj-table';
-
-  const thead = document.createElement('thead');
-  thead.innerHTML = '<tr><th></th><th>Proyección</th><th>vs Target</th><th>YoY</th></tr>';
-  table.appendChild(thead);
-
+  table.innerHTML = '<thead><tr><th></th><th>Actual MTD</th><th>vs ' + src.goalLabel + '</th><th>YoY</th></tr></thead>';
   const tbody = document.createElement('tbody');
-  metrics.forEach(function(m, i) {
-    const vs  = m.tgt ? m.proj / m.tgt - 1 : null;
-    const yoy = m.ly  ? m.proj / m.ly  - 1 : null;
-    function pctStr(v) { return v !== null ? ((v >= 0 ? '+' : '') + (v * 100).toFixed(0) + '%') : '—'; }
-    function pctCls(v) { return v === null ? 'widget-pct-neu' : (v >= 0 ? 'widget-nom-pos' : 'widget-nom-neg'); }
+  _WK_METRICS.forEach(function(m, i) {
+    const a = _wkSum(act, m.field), t = _wkSum(tgt, m.field), l = _wkSum(ly, m.field);
+    const vs  = t ? a / t - 1 : null;
+    const yoy = l ? _wkSumY(act, m.field) / l - 1 : null;
     const tr = document.createElement('tr');
     tr.className = i > 0 ? 'widget-group-sep' : '';
     tr.innerHTML =
       '<td class="widget-metric-lbl">' + m.label + '</td>' +
-      '<td class="widget-val">' + m.fmt(m.proj) + '</td>' +
-      '<td class="widget-val ' + pctCls(vs)  + '">' + pctStr(vs)  + '</td>' +
-      '<td class="widget-val ' + pctCls(yoy) + '">' + pctStr(yoy) + '</td>';
+      '<td class="widget-val">' + m.fmt(a) + '</td>' +
+      '<td class="widget-val ' + _wkPctCls(vs) + '" title="' + src.goalLabel + ' MTD: ' + m.fmt(t) + '">' + _wkPct(vs) + '</td>' +
+      '<td class="widget-val ' + _wkPctCls(yoy) + '" title="LY mismos días: ' + m.fmt(l) + '">' + _wkPct(yoy) + '</td>';
     tbody.appendChild(tr);
   });
   table.appendChild(tbody);
@@ -2677,64 +2706,40 @@ function _buildProjectionWidget(allActuals, allGoal, allLY, channel, countryGrou
   return card;
 }
 
-function _buildCompWidget(weeks, allActuals, channel, countryGroup) {
-  const realWeeks = weeks.filter(function(w) { return w.isReal; });
-  const wxx = realWeeks[realWeeks.length - 1];
-
-  function sum(arr, field) { return arr.reduce(function(s, r) { return s + (Number(r[field]) || 0); }, 0); }
-  function wkSum(w, field) { return sum(filterByPeriod(allActuals, channel || null, countryGroup || null, w.mon, w.sun), field); }
-
-  const wxxGB  = wkSum(wxx, 'gross_bookings');
-  const wxxNR  = wkSum(wxx, 'net_revenue');
-  const wxxFVM = wkSum(wxx, 'fvm');
-
-  let sumGB = 0, sumNR = 0, sumFVM = 0;
-  realWeeks.forEach(function(w) {
-    sumGB  += wkSum(w, 'gross_bookings');
-    sumNR  += wkSum(w, 'net_revenue');
-    sumFVM += wkSum(w, 'fvm');
-  });
-  const n = realWeeks.length || 1;
-  const avgGB = sumGB / n, avgNR = sumNR / n, avgFVM = sumFVM / n;
-
-  const metrics = [
-    { label: 'Gross Bookings', nom: wxxGB - avgGB, pct: avgGB ? (wxxGB / avgGB - 1) : null, fmtN: function(v) { return (v >= 0 ? '+' : '') + fmtMc(toM(v)); } },
-    { label: 'Net Revenues',   nom: wxxNR - avgNR, pct: avgNR ? (wxxNR / avgNR - 1) : null, fmtN: function(v) { return (v >= 0 ? '+' : '') + fmtKc(toK(v)); } },
-    { label: 'FVM',            nom: wxxFVM - avgFVM, pct: avgFVM ? (wxxFVM / avgFVM - 1) : null, fmtN: function(v) { return (v >= 0 ? '+' : '') + fmtKc(toK(v)); } },
-  ];
+// Última semana completa con actuals vs el promedio de las 4 semanas ANTERIORES (L4W).
+function _buildCompWidget(wxx, src, channel, countryGroup) {
+  function wkSum(mon, field) { return _wkSum(filterByPeriod(src.act, channel || null, countryGroup || null, mon, _addDays(mon, 6)), field); }
+  const prevMons = [4, 3, 2, 1].map(function(k) { return _addDays(wxx.mon, -7 * k); });
 
   const card = document.createElement('div');
   card.className = 'weekly-card weekly-widget-card';
-
   const title = document.createElement('div');
   title.className = 'weekly-card-title';
-  title.textContent = 'Sem ' + _isoWeek(wxx.mon) + ' vs L4W';
+  title.textContent = 'Sem ' + _isoWeek(wxx.mon) + ' vs L4W (prom. S' + _isoWeek(prevMons[0]) + '–S' + _isoWeek(prevMons[3]) + ')';
   card.appendChild(title);
 
   const table = document.createElement('table');
-  table.className = 'widget-table';
-
-  metrics.forEach(function(m, i) {
-    const posNom = m.nom >= 0;
-    const posPct = m.pct !== null && m.pct >= 0;
-
-    const trN = document.createElement('tr');
-    trN.className = i > 0 ? 'widget-group-sep' : '';
-    trN.innerHTML =
+  table.className = 'proj-table';
+  table.innerHTML = '<thead><tr><th></th><th>S' + _isoWeek(wxx.mon) + '</th><th>Prom. L4W</th><th>Δ</th></tr></thead>';
+  const tbody = document.createElement('tbody');
+  _WK_METRICS.forEach(function(m, i) {
+    const cur = wkSum(wxx.mon, m.field);
+    const avg = prevMons.reduce(function(s, mon) { return s + wkSum(mon, m.field); }, 0) / 4;
+    const pct = avg ? cur / avg - 1 : null;
+    const tr = document.createElement('tr');
+    tr.className = i > 0 ? 'widget-group-sep' : '';
+    tr.innerHTML =
       '<td class="widget-metric-lbl">' + m.label + '</td>' +
-      '<td class="widget-val ' + (posNom ? 'widget-nom-pos' : 'widget-nom-neg') + '">' + m.fmtN(m.nom) + '</td>';
-    table.appendChild(trN);
-
-    const trP = document.createElement('tr');
-    trP.className = 'widget-pct-row';
-    const pctStr = m.pct !== null ? ((m.pct >= 0 ? '+' : '') + (m.pct * 100).toFixed(0) + '%') : '—';
-    trP.innerHTML =
-      '<td class="widget-pct-lbl">vs promedio L4W</td>' +
-      '<td class="widget-val ' + (m.pct === null ? 'widget-pct-neu' : (posPct ? 'widget-pct-pos' : 'widget-pct-neg')) + '">' + pctStr + '</td>';
-    table.appendChild(trP);
+      '<td class="widget-val">' + m.fmt(cur) + '</td>' +
+      '<td class="widget-val" style="color:#6b7280;font-weight:500">' + m.fmt(avg) + '</td>' +
+      '<td class="widget-val ' + _wkPctCls(pct) + '" title="' + (cur - avg >= 0 ? '+' : '') + m.fmt(cur - avg) + '">' + _wkPct(pct) + '</td>';
+    tbody.appendChild(tr);
   });
-
-  card.appendChild(table);
+  table.appendChild(tbody);
+  const scroll = document.createElement('div');
+  scroll.style.overflowX = 'auto';
+  scroll.appendChild(table);
+  card.appendChild(scroll);
   return card;
 }
 
@@ -2744,23 +2749,39 @@ function renderWeeklyView(dateType, countryGroup) {
   document.getElementById('weeklyTitle').textContent =
     'Performance Semanal — ' + (dateType === 'gd' ? 'Gestion Date' : 'Recognition Date');
 
-  const today      = new Date().toISOString().slice(0, 10);
-  const thisMonday = _getMonday(today);
-
+  // Ancla en el último día con actuals (no en "hoy"): si el sync viene atrasado, las semanas
+  // sin datos completos se completan con Run Rate en vez de quedar cortas.
+  const last       = rawData.meta.last_actuals_date;
+  const thisMonday = _getMonday(_addDays(last, 1));
   const weeks = [];
-  for (let i = 4; i >= 1; i--) {
-    const mon = _addDays(thisMonday, -7 * i);
-    weeks.push({ mon, sun: _addDays(mon, 6), isReal: true });
+  for (let i = -4; i <= 3; i++) {
+    const mon = _addDays(thisMonday, 7 * i), sun = _addDays(mon, 6);
+    weeks.push({ mon: mon, sun: sun, kind: sun <= last ? 'real' : (mon > last ? 'rr' : 'mix') });
   }
-  for (let i = 0; i <= 3; i++) {
-    const mon = _addDays(thisMonday, 7 * i);
-    weeks.push({ mon, sun: _addDays(mon, 6), isReal: false });
-  }
+  const firstRRIdx = weeks.findIndex(function(w) { return w.kind !== 'real'; });
+  const wxx = weeks.filter(function(w) { return w.kind === 'real'; }).pop();
 
-  const firstRRIdx = weeks.findIndex(function(w) { return !w.isReal; });
-  const allActuals = getActuals(dateType);
-  const allRunrate = getGoal(dateType, 'rr');
-  const allLY      = getActualsLY(dateType);
+  // Días posteriores al último actual SIN Run Rate cargado (RR del mes siguiente todavía no
+  // distribuido, o enero: daily_sync solo publica el RR del año en curso). Esas semanas no
+  // tienen YoY: compararían una semana incompleta contra una LY completa.
+  const rrDays = new Set(getGoal(dateType, 'rr').map(function(r) { return r.fecha; }));
+  weeks.forEach(function(w) {
+    w.rrMissing = 0;
+    for (let d = w.mon; d <= w.sun; d = _addDays(d, 1)) if (d > last && !rrDays.has(d)) w.rrMissing++;
+  });
+  const goalType = document.getElementById('filterGoal').value;
+  const lyExt = rawData[dateType === 'ri' ? 'b2b_ri_ly_ext' : 'b2b_gd_ly_ext'];
+  const lyTo  = ((lyExt && lyExt.rows && lyExt.rows.length) ? rawData.meta.ly_ext_to : '') || rawData.meta.ly_to || '';   // ext vacío (falló la query) → solo hasta ly_to
+  const src = {
+    last:      last,
+    act:       _wkOrgRows(getActuals(dateType)),        // organic: reales y RR con el mismo criterio
+    rr:        _wkOrgRows(getGoal(dateType, 'rr')),
+    ly:        getActualsLYWeekly(dateType),
+    lyMain:    getActualsLY(dateType),
+    lyCovers:  function(d) { return !lyTo || d <= lyTo; },   // semana LY sin datos completos → sin YoY
+    goal:      goalType === 'rr' ? null : getGoal(dateType, goalType),   // RR: src.rr (organic igual que los reales)
+    goalLabel: goalType === 'rr' ? 'Run Rate' : 'Budget',
+  };
 
   const sections = [
     { label: 'Total',              channel: null },
@@ -2771,19 +2792,11 @@ function renderWeeklyView(dateType, countryGroup) {
   const container = document.getElementById('weeklyTablesContainer');
   container.innerHTML = '';
 
-  function _makeTableCard(sec) {
-    const card = document.createElement('div');
-    card.className = 'weekly-card';
-    const title = document.createElement('div');
-    title.className = 'weekly-card-title';
-    title.textContent = sec.label;
-    const scroll = document.createElement('div');
-    scroll.className = 'weekly-card-scroll';
-    scroll.appendChild(_buildWeeklyTable(weeks, firstRRIdx, allActuals, allRunrate, allLY, dateType, sec.channel, countryGroup));
-    card.appendChild(title);
-    card.appendChild(scroll);
-    return card;
-  }
+  const note = document.createElement('div');
+  note.className = 'weekly-note';
+  note.textContent = 'Semanas Real: actuals · Real + RR: actuals hasta el ' + _wkFmtDay(last) + ' y Run Rate el resto · Run Rate: proyección. ' +
+    'YoY vs la misma semana del año pasado.' + (trkOrganic && fxTbl ? ' Organic: reales y Run Rate × TC Actuals / TC Budget, YoY a TC Actuals LY.' : '');
+  container.appendChild(note);
 
   sections.forEach(function(sec) {
     const row = document.createElement('div');
@@ -2791,13 +2804,27 @@ function renderWeeklyView(dateType, countryGroup) {
 
     const wrap = document.createElement('div');
     wrap.className = 'weekly-main-wrap';
-    wrap.appendChild(_makeTableCard(sec));
+    const card = document.createElement('div');
+    card.className = 'weekly-card';
+    const title = document.createElement('div');
+    title.className = 'weekly-card-title';
+    title.textContent = sec.label;
+    const scroll = document.createElement('div');
+    scroll.className = 'weekly-card-scroll';
+    scroll.appendChild(_buildWeeklyTable(weeks, firstRRIdx, src, sec.channel, countryGroup));
+    card.appendChild(title);
+    card.appendChild(scroll);
+    wrap.appendChild(card);
     row.appendChild(wrap);
 
-    row.appendChild(_buildCompWidget(weeks, allActuals, sec.channel, countryGroup));
-    row.appendChild(_buildProjectionWidget(allActuals, allRunrate, allLY, sec.channel, countryGroup));
+    const side = document.createElement('div');
+    side.className = 'weekly-side';
+    if (wxx) side.appendChild(_buildCompWidget(wxx, src, sec.channel, countryGroup));
+    side.appendChild(_buildMTDWidget(src, sec.channel, countryGroup));
+    row.appendChild(side);
     container.appendChild(row);
   });
+  syncOrgUI();   // después de convertir: "sin TC: …" refleja esta vista
 }
 
 // ─────────────────────────────────────────────
@@ -3871,6 +3898,7 @@ function setAgenciasFilters(show) {
 }
 
 function render() {
+  if (fxTbl) { orgMissing = {}; syncOrgUI(); }   // la nota de Organic depende de la pestaña (Semanas convierte también el RR)
   const isTablesView    = activeTab === 'tables_gd' || activeTab === 'tables_ri';
   const isAgenciasView  = activeTab === 'agencias';
   const isAgenciasH2View= activeTab === 'agencias_h2';
