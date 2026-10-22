@@ -6,7 +6,7 @@
 //   GET  <base>/<modulo>[/...]       doGet(e) del módulo GAS
 //   POST <base>/api/<modulo>/<fn>    google.script.run.<fn>(...args)
 //   GET  <base>/_gas/client.js       shim de google.script.run
-//   GET  <base>/_static/galaxy.js    fondo animado de la portada
+//   GET  <base>/_gas/nav.js          navegación de Ownia en las landings (Home, sin portada propia)
 //   GET  <base>/ingest/files         metadata de los archivos espejados (Bearer INGEST_TOKEN)
 //   PUT  <base>/ingest/files/<id>    sube/reemplaza un archivo espejado de Drive (ídem)
 const config = require('./config');
@@ -52,7 +52,6 @@ function createApp(opts = {}) {
   const allowed = ingestAllowlist(modules, opts.manifest);
   const clientJs = fs.readFileSync(path.join(cfg.APP_ROOT, 'public', 'gas-client.js'), 'utf8');
   const clientVersion = crypto.createHash('sha1').update(clientJs).digest('hex').slice(0, 10);
-  const galaxyJs = fs.readFileSync(path.join(cfg.APP_ROOT, 'public', 'galaxy.js'), 'utf8');
   const navJs = fs.readFileSync(path.join(cfg.APP_ROOT, 'public', 'ownia-nav.js'), 'utf8');
   const navVersion = crypto.createHash('sha1').update(navJs).digest('hex').slice(0, 10);
   // Links del header a otra landing (por deployment ID de GAS): el Hub → menú de Ownia; los
@@ -258,9 +257,6 @@ function createApp(opts = {}) {
         authHeaders: describeAuthHeaders(req.headers),
       });
     }
-    if (route === '/_static/galaxy.js') {
-      return send(res, 200, { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'public, max-age=3600' }, galaxyJs);
-    }
     if (route === '/_gas/client.js') {
       return send(res, 200, { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'public, max-age=3600' }, clientJs);
     }
@@ -269,7 +265,7 @@ function createApp(opts = {}) {
     }
     if (route === '/' || route === '') {
       if (req.method !== 'GET') return sendJson(res, 405, { error: 'Método no permitido' });
-      return send(res, 200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }, indexPage({ modules, basePath: cfg.BASE_PATH }));
+      return send(res, 200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }, indexPage({ modules, basePath: cfg.BASE_PATH, canOpen: (m) => mayOpen(m, identity) }));
     }
 
     const parts = route.split('/').filter(Boolean);

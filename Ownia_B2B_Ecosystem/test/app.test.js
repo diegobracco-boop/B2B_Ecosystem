@@ -68,6 +68,17 @@ test('portada lista módulos migrados (link interno) y pendientes (link GAS)', a
   assert.match(r.text, /href="https:\/\/script\.google\.com\/x\/exec"/);
 });
 
+test('portada: un módulo en validación abre Ownia solo para el equipo; al resto lo manda a GAS', async () => {
+  const fuera = await request(demoServer, 'GET', `${BASE}/`, { headers: { 'x-test-email': 'chief@despegar.com' } });
+  assert.doesNotMatch(fuera.text, new RegExp(`href="${BASE}/demo-equipo"`));
+  assert.match(fuera.text, /href="https:\/\/script\.google\.com\/y\/exec"/);
+  assert.doesNotMatch(fuera.text, /Beta · equipo B2B<\/span>/);
+  const equipo = await request(demoServer, 'GET', `${BASE}/`, { headers: { 'x-test-email': 'ana@despegar.com' } });
+  assert.match(equipo.text, new RegExp(`href="${BASE}/demo-equipo"`));
+  assert.match(equipo.text, /Beta · equipo B2B<\/span>/);
+  assert.match(equipo.text, /href="https:\/\/script\.google\.com\/y\/exec"[^>]*>Versión Apps Script/);
+});
+
 test('doGet: template con scriptlets, include, título, meta y shim inyectados', async () => {
   const r = await request(demoServer, 'GET', `${BASE}/demo`);
   assert.equal(r.status, 200);
