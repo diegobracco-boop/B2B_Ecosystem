@@ -2395,6 +2395,7 @@ function toggleCountry(countryName) {
     const span = countryRow.querySelector('.country-toggle');
     if (span) span.textContent = isCurrentlyCollapsed ? '▼' : '▶';
   }
+  _fitBarsPivot();   // en Slides: cambiaron las filas visibles → reajustar la letra
 }
 
 function toggleProductGroup(pgKey) {
@@ -2409,6 +2410,7 @@ function toggleProductGroup(pgKey) {
     const span = pgRow.querySelector('.product-group-toggle');
     if (span) span.textContent = isCurrentlyCollapsed ? '▼' : '▶';
   }
+  _fitBarsPivot();
 }
 
 // ─────────────────────────────────────────────
