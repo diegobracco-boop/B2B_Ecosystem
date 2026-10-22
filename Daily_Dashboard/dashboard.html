@@ -4325,8 +4325,10 @@ function _wsLoadOKRIfNeeded() {
   document.getElementById('ws-okr-loading').style.display = 'block';
   document.getElementById('ws-okr-tables').style.display  = 'none';
   document.getElementById('ws-okr-error').style.display   = 'none';
+  var exCoiBr = _exCoiBr;
   google.script.run
     .withSuccessHandler(function(res) {
+      if (exCoiBr !== _exCoiBr) return;   // el switch COI Brasil cambió en vuelo: ya hay otro pedido
       document.getElementById('ws-okr-loading').style.display = 'none';
       if (!res || !res.success) {
         document.getElementById('ws-okr-error').textContent   = '❌ ' + (res ? res.error : 'Error');
@@ -4342,7 +4344,7 @@ function _wsLoadOKRIfNeeded() {
       document.getElementById('ws-okr-error').textContent     = '❌ ' + (e.message || String(e));
       document.getElementById('ws-okr-error').style.display   = 'block';
     })
-    .getOKRWeeklyB2B2C({ exCoiBr: _exCoiBr });
+    .getOKRWeeklyB2B2C({ exCoiBr: exCoiBr });
 }
 
 function _wsOkrFmt(v) {
@@ -6107,10 +6109,11 @@ function flowFetchWeeklyData_(cb){
   if(!pending.length){ cb(); return; }
   var done=0;
   pending.forEach(function(c){
+    var key=_wsKey_(c.lob, c.view, orgT);   // antes del pedido: si el switch COI Brasil cambia en vuelo, no se cachea con la clave nueva
     google.script.run
       .withSuccessHandler(function(res){
         _wsOrgResp_(res);
-        if(res && res.success && !(res.organic && res.organic.error)) _wsCache[_wsKey_(c.lob, c.view, orgT)]=res;
+        if(res && res.success && !(res.organic && res.organic.error)) _wsCache[key]=res;
         done++; if(done===pending.length) cb();
       })
       .withFailureHandler(function(e){
