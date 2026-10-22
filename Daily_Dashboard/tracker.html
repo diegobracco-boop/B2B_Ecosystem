@@ -692,6 +692,11 @@
   body.slides-mode #agenciasH2Content .kr-detail-column .kr-detail-box { flex: 1 1 auto; }
   body.slides-mode #agenciasContent .kr-detail-box > table,
   body.slides-mode #agenciasH2Content .kr-detail-box > table { flex: 1 1 auto; }
+  /* Títulos de los recuadros en un solo renglón: en el export (foreignObject) el texto mide un poco
+     más que en pantalla y, con el ancho copiado de la pantalla, la última palabra caía a un 2º renglón
+     cortado ("Agencies" + "L4W" asomando abajo). Si no entra, _fitKrSlide baja el zoom. */
+  body.slides-mode #agenciasContent .kr-num-badge,
+  body.slides-mode #agenciasH2Content .kr-num-badge { white-space: nowrap; }
   /* País completo (en pantalla se corta a 80px con "…": "Ecua / Uru / Par"). */
   body.slides-mode #agenciasContent .kr-detail-table td:first-child,
   body.slides-mode #agenciasContent .kr-detail-table th:first-child { max-width: none; width: auto; }
