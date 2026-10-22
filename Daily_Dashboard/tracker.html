@@ -665,7 +665,7 @@
   body.slides-mode #agenciasH2Content   { zoom: 0.80; }
   body.slides-mode #agenciasContent .kr-detail-grid,
   body.slides-mode #agenciasH2Content .kr-detail-grid { margin-top: 12px; }
-  /* KRs Globales en slides: 7 cards en 2 filas (4 + 3) que LLENAN el alto del
+  /* KRs Globales en slides: 6 cards en 2 filas (3 + 3) que LLENAN el alto del
      slide (sin espacio muerto arriba/abajo). El grid ocupa el espacio restante
      bajo el título; las filas se reparten en partes iguales y cada card estira
      su contenido (header arriba, tira mensual abajo). globalesWrap tiene display
@@ -683,7 +683,7 @@
     flex: 0 1 auto; height: 76%; min-height: 0; display: flex; flex-direction: column;
   }
   body.slides-mode #globalesContent .glob-grid {
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     grid-auto-rows: 1fr;
     gap: 16px;
     margin: 14px 0 0;
@@ -1380,7 +1380,7 @@
     <div class="status-krs-meta" id="globalesMeta"></div>
     <div id="globalesCards"></div>
     <div style="font-size:0.78rem;color:#9ca3af;margin-top:10px">
-      Targets del OKR H2 FY27 (fuente: <em>okr.json</em>, la misma del OKR del Hub). Los KRs marcados <strong>*</strong> son critical, gestionados por TTPP (peso 0%). El <strong>actual</strong> se computa desde el daily (canal API · producto Hoteles · país Globales) en los KRs con fuente definida; el resto queda pendiente.
+      Targets del OKR H2 FY27 (fuente: <em>okr.json</em>, la misma del OKR del Hub). El <strong>actual</strong> de Net Revenues API Hoteles se computa desde el daily (canal API · producto Hoteles · país Globales; el mes en curso es MTD contra el target prorrateado); el resto sale de la sheet Input_OKR. En Price Competitiveness menos es mejor (% de adversidad).
     </div>
   </div>
 </div>
@@ -3750,11 +3750,11 @@ function fmtGlobalTarget(v, unit) {
   return Number(v).toLocaleString('es-AR'); // # Partners / # Hoteles
 }
 
-// Agregado mensual de Globales API Hoteles: NR y GB (raw) por país "Other
-// Countries", canal API, producto Hotel — para los KRs con fuente cableada.
+// Agregado mensual de Globales API Hoteles: NR (raw) por país "Other
+// Countries", canal API, producto Hotel — para el KR "Net Revenues API Hoteles".
 function globalesApiHotelByMonth_(meses) {
   var out = {};
-  meses.forEach(function(ym){ out[ym] = { nr: 0, gb: 0 }; });
+  meses.forEach(function(ym){ out[ym] = { nr: 0 }; });
   if (!rawData) return out;
   getActuals('ri').forEach(function(r){
     var ym = String(r.fecha || '').substring(0, 7);
@@ -3763,18 +3763,29 @@ function globalesApiHotelByMonth_(meses) {
     if (r.parent_channel !== 'API') return;
     var p = r.producto_original || '';
     if (p !== 'Hotel' && p !== 'Hotels') return;
-    out[ym].nr += (r.net_revenue    || 0);
-    out[ym].gb += (r.gross_bookings || 0);
+    out[ym].nr += (r.net_revenue || 0);
   });
   return out;
 }
 
 // Actual del KR para un mes (o null si el KR no tiene fuente cableada / sin datos).
 function globalesActual_(kr, ym, agg) {
-  if (kr.id === 'net_revenues_pct_api_hoteles') {                     // MTD del daily
-    var d = agg[ym]; return (d && d.gb > 0) ? (d.nr / d.gb * 100) : null;
+  if (kr.id === 'net_revenues_api_hoteles') {                         // MTD del daily, en $M
+    var d = agg[ym]; return (d && d.nr) ? d.nr / 1e6 : null;
   }
   return (kr.actuals && kr.actuals[ym] != null) ? kr.actuals[ym] : null;   // mensual, Input_OKR (okr.json)
+}
+
+// Score OKR de un mes. NR API Hoteles es MTD → en el mes en curso se compara contra el
+// target prorrateado por días. inverse (Price Competitiveness): menos es mejor → target/actual.
+function globalesScore_(kr, ym, a, t) {
+  if (typeof t !== 'number') return null;
+  var last = (rawData && rawData.meta && rawData.meta.last_actuals_date) || '';
+  if (kr.id === 'net_revenues_api_hoteles' && last.substring(0, 7) === ym) {
+    var p = ym.split('-');
+    t = t * Number(last.substring(8, 10)) / new Date(+p[0], +p[1], 0).getDate();
+  }
+  return kr.inverse ? okrScore_(t, a) : okrScore_(a, t);
 }
 
 function renderGlobales() {
@@ -3848,7 +3859,7 @@ function renderGlobales() {
 
     var first = nums[0], last = nums[nums.length - 1];
     var dl  = first !== 0 ? (last - first) / Math.abs(first) * 100 : 0;
-    var dCls = Math.abs(dl) < 0.5 ? 'flat' : (dl > 0 ? 'up' : 'down');
+    var dCls = Math.abs(dl) < 0.5 ? 'flat' : ((dl > 0) !== !!kr.inverse ? 'up' : 'down');   // inverse: bajar es bueno
     var dTxt = (dl > 0 ? '+' : '') + Math.round(dl) + '% H2';
     var range = '<div class="glob-range">' +
       '<span class="from">' + fmtGlobalTarget(first, kr.unit) + '</span>' +
@@ -3865,7 +3876,7 @@ function renderGlobales() {
     var strip = '<div class="glob-strip">' + meses.map(function(ym, i){
       var t   = kr.targets ? kr.targets[ym] : null;
       var a   = globalesActual_(kr, ym, agg);
-      var rat = okrScore_(a, (typeof t === 'number') ? t : null);   // regla única de OKR
+      var rat = globalesScore_(kr, ym, a, t);   // regla única de OKR (okrScore_)
       var vCls = (t === null || t === undefined || t === '') ? 'v empty' : 'v';
       var aCls = a !== null ? globCumplClass_(rat) : 'neutral';
       var aTxt = a !== null ? fmtGlobalTarget(a, kr.unit) : '—';

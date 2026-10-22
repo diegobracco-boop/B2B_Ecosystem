@@ -4,6 +4,7 @@
 
 // Definición de KRs y pesos por LoB, por semestre.
 //   cumulative: true → el trimestre/semestre toma el punto final (no la suma mensual).
+//   inverse: true    → menos es mejor (cumplimiento = target / actual).
 //   El label de un KR sin lógica definida lleva "(WIP)": no tiene datos y queda en "—".
 var OKR_CONFIG_H1 = {
   'b2b2c': {
@@ -51,17 +52,18 @@ var OKR_CONFIG_H2 = {
       { kr: 'accelerate recurrence',          label: 'Accelerate Recurrence',                weight: 15 }
     ]
   },
-  // Globales B2B API (Others Countries · canal API · Hoteles). Los conteos son stocks →
-  // cumulative (último mes). NR %GB es un ratio → avg + pct. Los dos de GB son WIP.
+  // Globales B2B API (Others Countries · canal API · Hoteles), redefinidos 2026-10-21.
+  // Conteos y % son stocks / fotos del mes → cumulative (último mes). NR API Hoteles es flujo
+  // (suma, target = Budget contable). Price Competitiveness = adversidad → inverse.
   'globales': {
     label: 'Globales B2B API',
     krs: [
-      { kr: 'accelerate hunting partners api',             label: 'Accelerate Hunting Partners API',                    weight: 30, cumulative: true },
-      { kr: 'hoteles directos vendidos destino latam',     label: 'Hoteles Directos vendidos destino LATAM',            weight: 20, cumulative: true },
-      { kr: 'gb b2b api hoteles - destino latam',          label: 'GB B2B API Hoteles - destino LATAM (WIP)',           weight: 10 },
-      { kr: 'hoteles directos vendidos destino no latam',  label: 'Hoteles Directos vendidos destino NO LATAM',         weight: 20, cumulative: true },
-      { kr: 'gb b2b api hoteles - destino no latam',       label: 'GB B2B API Hoteles - destino NO LATAM (WIP)',        weight: 5 },
-      { kr: 'net revenue api hoteles %gb',                 label: 'Net Revenue API Hoteles %GB',                        weight: 15, avg: true, pct: true }
+      { kr: 'accelerate hunting partners api',                    label: 'Accelerate Hunting # Partners API',                  weight: 20, cumulative: true },
+      { kr: 'hoteles directos vendidos destino latam',            label: 'Hoteles Directos vendidos destino LATAM',            weight: 15, cumulative: true },
+      { kr: '% hoteles directos vendidos destino globales',       label: '% Hoteles Directos vendidos destino Globales',       weight: 15, cumulative: true, pct: true },
+      { kr: 'net revenues api hoteles',                           label: 'Net Revenues API Hoteles',                           weight: 15 },
+      { kr: 'new onboarded properties global & regional chains',  label: 'New Onboarded Properties Global & Regional Chains',  weight: 15, cumulative: true },
+      { kr: 'price competitiveness ex-latam (destino gl)',        label: 'Price Competitiveness ex-Latam (Destino GL)',        weight: 20, cumulative: true, pct: true, inverse: true }
     ]
   }
 };
@@ -103,7 +105,7 @@ var OKR_KR_ALIASES = {
   // Grafía que puede traer un okr.json viejo (cargada en la sheet) → nombre canónico de OKR_CONFIG_H2.
   // okr_builder.py ya normaliza estos nombres; el alias cubre archivos generados antes.
   'hoteles directo vendidos destino latam':    'hoteles directos vendidos destino latam',
-  'hoteles directo vendidos destino no latam': 'hoteles directos vendidos destino no latam'
+  'accelerate hunting # partners api':         'accelerate hunting partners api'
 };
 
 // okr.json canónico (Inputs_Planning_PnL/okr_builder.py) — fuente única, ya trae
@@ -176,11 +178,7 @@ function computeOKR_(halfKey, rows) {
       var mBud = periods.map(function(ym){ return getVal(lobKey, krDef.kr, ESC_BUD, ym); });
 
       // Achievement mensual (%)
-      var monthly = mAct.map(function(a, i) {
-        var b = mBud[i];
-        if (a===null || b===null || b===0) return null;
-        return a / b * 100;
-      });
+      var monthly = mAct.map(function(a, i) { return pctOf_({ a: a, b: mBud[i] }); });
 
       // Agregación de un conjunto de meses (trimestre o semestre). Actual y Budget se comparan
       // sobre los MISMOS meses: los que tienen actual (y budget) cargado. Así un período en curso
@@ -203,7 +201,11 @@ function computeOKR_(halfKey, rows) {
         both.forEach(function(ym) { sa += getVal(lobKey, krDef.kr, ESC_ACT, ym); sb += getVal(lobKey, krDef.kr, ESC_BUD, ym); });
         return krDef.avg ? { a: sa / both.length, b: sb / both.length } : { a: sa, b: sb };
       }
-      function pctOf_(p) { return (p.a !== null && p.b !== null && p.b !== 0) ? p.a / p.b * 100 : null; }
+      function pctOf_(p) {
+        if (p.a === null || p.b === null) return null;
+        if (krDef.inverse) return p.a !== 0 ? p.b / p.a * 100 : null;
+        return p.b !== 0 ? p.a / p.b * 100 : null;
+      }
 
       // Valores crudos trimestrales + achievement %
       var qPairs = quarters.map(function(q) { return aggPair_(q.months); });

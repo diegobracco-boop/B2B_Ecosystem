@@ -565,6 +565,37 @@ _B2B_PAIS_CASE = """
             ELSE 'Other Countries'
         END AS pais,"""
 
+# KRs Globales B2B API (H2 FY27) que salen del Datalake -> daily_b2b2c_data.json "okr_globales_hoteles"
+# -> okr_builder.py (el target sigue en Input_OKR). Alcance = el del tab "KRs Globales": canal API,
+# Hoteles, país "Other Countries" (misma regla que _B2B_PAIS_CASE), gestion date, ventas con GB > 0.
+# Hotel directo = hotel_contract_type 'Directo' (gateways PAM / OMB / HSI) vs 'Proveedor' (EXP, HBG...).
+#   dir_latam: hoteles distintos directos con destino LATAM          -> KR "Hoteles Directos vendidos destino LATAM"
+#   dir_glob / tot_glob: directos / todos los hoteles destino no LATAM -> KR "% Hoteles Directos vendidos destino Globales"
+# Definición validada 2026-10-22 (dir_latam sep-26 = 3.492 vs target oct-26 = 3.200).
+OKR_GLOBALES_FROM = date(2026, 10, 1)   # arranque del H2 FY27
+_GLOBALES_PAIS_EXPR = _B2B_PAIS_CASE.strip().rsplit("AS pais", 1)[0]
+OKR_GLOBALES_HOTELES_QUERY = f"""
+SELECT date_format(fh.gestion_date, '%Y-%m') AS ym,
+    COUNT(DISTINCT CASE WHEN p.hotel_contract_type = 'Directo' AND p.is_latam_destination     THEN p.hotel_despegar_id END) AS dir_latam,
+    COUNT(DISTINCT CASE WHEN p.hotel_contract_type = 'Directo' AND NOT p.is_latam_destination THEN p.hotel_despegar_id END) AS dir_glob,
+    COUNT(DISTINCT CASE WHEN NOT p.is_latam_destination THEN p.hotel_despegar_id END)                                       AS tot_glob
+FROM data.analytics.bi_sales_fact_sales_recognition fh
+JOIN data.analytics.bi_transactional_fact_products p
+    ON fh.product_id = p.product_id
+    AND p.reservation_year_month >= CAST('{date(OKR_GLOBALES_FROM.year - 1, OKR_GLOBALES_FROM.month, 1)}' AS DATE)
+WHERE fh.gestion_date >= CAST('{OKR_GLOBALES_FROM}' AS DATE)
+    AND fh.gestion_date <= CAST('{YESTERDAY}' AS DATE)
+    AND fh.partition_period > '2024-01-01'
+    AND fh.line_of_business_code = 'B2B'
+    AND fh.lob_gestion IN ('stg__sales_b2bnohoteldo','stg_sales__b2bhoteldo')
+    AND fh.parent_channel = 'API'
+    AND fh.buy_type_code = 'Hoteles'
+    AND fh.gestion_gb * fh.confirmation_gradient > 0
+    AND {_GLOBALES_PAIS_EXPR} = 'Other Countries'
+GROUP BY 1
+ORDER BY 1
+"""
+
 _B2B_PROD_CASE = """
         CASE
             WHEN fh.buy_type_code = 'Actividades'           THEN 'Dest. Serv.'
@@ -1652,6 +1683,17 @@ except Exception as e:
     df_unique_buyers_daily = pd.DataFrame()
     unique_buyers_total = {}
 
+print("\n--- KRs Globales: hoteles directos (OKR H2 B2B API) ---")
+# Igual que Unique Buyers: no va a _FAILED_BLOCKS; si falla, okr_builder deja el valor de Input_OKR.
+try:
+    _gh = fetch(OKR_GLOBALES_HOTELES_QUERY, "KRs Globales hoteles directos")
+    okr_globales_hoteles = {str(r.ym)[:7]: {"dir_latam": int(r.dir_latam), "dir_glob": int(r.dir_glob),
+                                            "tot_glob": int(r.tot_glob)} for r in _gh.itertuples()}
+    print(f"  {okr_globales_hoteles}")
+except Exception as e:
+    print(f"  WARN KRs Globales hoteles directos failed: {e}")
+    okr_globales_hoteles = {}
+
 print("\n--- Accelerate Recurrence (KR H2 B2B HTML) ---")
 # Agencias de alta frecuencia por semana comercial x pais (solo canal HTML). La query es copia de la card
 # Metabase 171400 (recurrencia_alta_frecuencia.sql). Definicion del equipo (2026-10-16): foto del mes
@@ -1903,7 +1945,8 @@ b2bc_payload = {
     "okr_runrate": to_compact(df_okr_rr),
     "unique_buyers":       to_compact(df_unique_buyers) if not df_unique_buyers.empty else {"cols": [], "rows": []},
     "unique_buyers_daily": to_compact(df_unique_buyers_daily) if not df_unique_buyers_daily.empty else {"cols": [], "rows": []},   # MTD diario (pais, TOTAL) -> Daily
-    "unique_buyers_total": unique_buyers_total,   # {'YYYY-MM': compradores unicos WL} -> okr_builder.py
+    "unique_buyers_total": unique_buyers_total,
+    "okr_globales_hoteles": okr_globales_hoteles,   # {'YYYY-MM': {dir_latam, dir_glob, tot_glob}} -> okr_builder.py   # {'YYYY-MM': compradores unicos WL} -> okr_builder.py
     "b2c":        b2c_compact,
     "b2c_ly":     b2c_ly_compact,
 }

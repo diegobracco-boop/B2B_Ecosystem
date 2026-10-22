@@ -84,14 +84,16 @@ MANUAL_KRS = {
     "Deploy New Partnership",
     "Unique Buyers",
     "Accelerate Recurrence",
-    # Globales B2B API (H2): conteos, LoB='Globales' en la sheet (target y actual).
-    # Los KRs "GB B2B API Hoteles - destino LATAM / NO LATAM" son WIP (sin fuente definida).
+    # Globales B2B API (H2, redefinidos 2026-10-21): target y actual en la sheet, LoB='Globales'.
+    # El 6to KR (Net Revenues API Hoteles) se calcula del contable (ver _compute_from_canonical).
     "Accelerate Hunting Partners API",
     "Hoteles Directos vendidos destino LATAM",
-    "Hoteles Directos vendidos destino NO LATAM",
-    # Grafía tal cual quedó cargada en la sheet (singular, "Vendidos" con V mayúscula).
+    "% Hoteles Directos vendidos destino Globales",
+    "New Onboarded Properties Global & Regional Chains",
+    "Price Competitiveness ex-Latam (Destino GL)",
+    # Grafías alternativas (la de la sheet vieja y la de la slide del OKR) → ver KR_CANON.
     "Hoteles Directo Vendidos destino LATAM",
-    "Hoteles Directo Vendidos destino NO LATAM",
+    "Accelerate Hunting # Partners API",
 }
 MANUAL_KRS_LC = {k.lower() for k in MANUAL_KRS}   # el match es case-insensitive
 
@@ -99,12 +101,13 @@ MANUAL_KRS_LC = {k.lower() for k in MANUAL_KRS}   # el match es case-insensitive
 # emit: si no, "Directo Vendidos" y "Directos vendidos" son claves distintas, pasan el dedupe
 # y la landing (que las mapea al mismo KR) las suma → valor doble.
 KR_CANON = {
-    "hoteles directo vendidos destino latam":    "Hoteles Directos vendidos destino LATAM",
-    "hoteles directo vendidos destino no latam": "Hoteles Directos vendidos destino NO LATAM",
+    "hoteles directo vendidos destino latam": "Hoteles Directos vendidos destino LATAM",
+    "accelerate hunting # partners api":      "Accelerate Hunting Partners API",
 }
 
-# En la sheet estos KRs vienen con LoB='B2B'; el OKR los agrupa en 'Globales'.
-GLOBALES_KRS_LC = {k.lower() for k in MANUAL_KRS if k.lower().startswith(("accelerate hunting", "hoteles directo"))}
+# Si en la sheet estos KRs vienen con LoB='B2B', el OKR igual los agrupa en 'Globales'.
+GLOBALES_KRS_LC = {k.lower() for k in MANUAL_KRS if k.lower().startswith(
+    ("accelerate hunting", "hoteles directo", "% hoteles directos", "new onboarded properties", "price competitiveness"))}
 
 # Globales B2B API Hoteles = país Others Countries + canal API ('may') + producto Hotels
 # (misma definición que el tab "KRs Globales" del Daily).
@@ -285,8 +288,7 @@ def _compute_from_canonical(canon_data, scen_label):
     nr_new     = defaultdict(float)   # B2B NR New Markets
     nr_b2b2c   = defaultdict(float)   # B2B2C NR total (no es KR propio)
     nr_b2b     = defaultdict(float)   # B2B NR total (H2: KR "Net Revenues B2B")
-    glob_nr    = defaultdict(float)   # Globales API Hoteles NR  (H2: KR "Net Revenue API Hoteles %GB")
-    glob_gb    = defaultdict(float)   # Globales API Hoteles GB
+    glob_nr    = defaultdict(float)   # Globales API Hoteles NR  (H2: KR "Net Revenues API Hoteles")
     oc_api     = defaultdict(float)   # B2B OC canal 'may' = API (H2)
     oc_html    = defaultdict(float)   # B2B OC canal 'min' = HTML (H2)
 
@@ -308,8 +310,6 @@ def _compute_from_canonical(canon_data, scen_label):
                 and str(r[cols.index("Producto")]).lower() in GLOBALES_PRODUCTOS):
             if n3 == "net revenue":
                 glob_nr[fecha] += monto
-            elif n3 == "gross bookings":
-                glob_gb[fecha] += monto
 
         if lob == "b2b" and n5 == "operating contribution":
             canal = str(r[iC]).lower()
@@ -327,11 +327,10 @@ def _compute_from_canonical(canon_data, scen_label):
 
     rows = []
     for fecha in sorted(set(list(op_cont) + list(nr_core) + list(nr_new)
-                            + list(nr_b2b) + list(oc_api) + list(oc_html) + list(glob_gb))):
-        if glob_gb.get(fecha):
+                            + list(nr_b2b) + list(oc_api) + list(oc_html) + list(glob_nr))):
+        if fecha in glob_nr:
             rows.append([fecha, scen_label, "Globales", "Others Countries", "Hotels",
-                         "Net Revenue API Hoteles %GB",
-                         round(glob_nr.get(fecha, 0.0) / glob_gb[fecha] * 100, 4)])
+                         "Net Revenues API Hoteles", round(glob_nr[fecha], 2)])
         if fecha in nr_b2b:
             rows.append([fecha, scen_label, "B2B", "Total", "Total",
                          "Net Revenues B2B", round(nr_b2b[fecha], 2)])
@@ -553,6 +552,32 @@ def _apply_unique_buyers_actual(rows_manual, daily_json, last_actual_ym):
     return rows_manual
 
 
+def _apply_globales_hoteles_actual(rows_manual, daily_json):
+    """KRs Globales B2B API "Hoteles Directos vendidos destino LATAM" y "% Hoteles Directos vendidos
+    destino Globales" (H2 FY27): el actual sale del Datalake (daily_sync.py -> daily_b2b2c_data.json
+    "okr_globales_hoteles", hoteles distintos por mes; el mes en curso es MTD) en vez de Input_OKR,
+    donde el "actual" era el target copiado. El target (Budget) sigue de la sheet; el actual queda solo
+    para los meses con dato del Datalake. Si el JSON no trae el bloque, queda la sheet."""
+    gh = (daily_json or {}).get("okr_globales_hoteles") or {}
+    if not gh:
+        print("  [Globales hoteles] sin okr_globales_hoteles en daily_b2b2c_data.json — se mantiene Input_OKR")
+        return rows_manual
+    names = {"hoteles directos vendidos destino latam":      "Hoteles Directos vendidos destino LATAM",
+             "% hoteles directos vendidos destino globales": "% Hoteles Directos vendidos destino Globales"}
+    vals = {}
+    for ym, d in gh.items():
+        vals[("hoteles directos vendidos destino latam", ym)] = d["dir_latam"]
+        if d.get("tot_glob"):
+            vals[("% hoteles directos vendidos destino globales", ym)] = round(d["dir_glob"] / d["tot_glob"] * 100, 2)
+    # TODAS las filas Run Rate/Actuals de la sheet para estos KRs se descartan (no solo las de meses con
+    # dato): ahí el "actual" es el target copiado y en los meses futuros daría un 100% falso.
+    out = [r for r in rows_manual if not (r[1] == "Run Rate/Actuals" and r[5].lower() in names)]
+    for (kr_lc, ym), v in sorted(vals.items()):
+        out.append([_ym_to_periodo(ym), "Run Rate/Actuals", "Globales", "Total", "Total", names[kr_lc], v])
+    print(f"  [Globales hoteles] actual desde Datalake para: {sorted(gh)}")
+    return out
+
+
 # ── Build ──────────────────────────────────────────────────────────────────────
 
 def build(upload=True):
@@ -582,6 +607,7 @@ def build(upload=True):
     )
     rows_manual   = _read_manual_krs(token_file)
     rows_manual   = _apply_unique_buyers_actual(rows_manual, daily_json, last_actual_ym)
+    rows_manual   = _apply_globales_hoteles_actual(rows_manual, daily_json)
     rows_agencias = _read_agencias_flat()
 
     all_rows = rows_baseline + rows_budget + rows_hunting + rows_manual + rows_agencias

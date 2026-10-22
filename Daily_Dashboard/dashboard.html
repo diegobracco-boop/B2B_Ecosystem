@@ -3198,20 +3198,21 @@ function loadGlobalesTargets_(){
     .getGlobalesKRTargets();
 }
 
-// Agregado NR/GB de Globales API Hoteles (país "Other Countries", canal API,
-// producto Hotel) para un mes — mismo filtro que el tab "KRs Globales".
-function computeGlobalesApiHotelMonth_(raw, ym){
+// Agregado NR de Globales API Hoteles (país "Other Countries", canal API,
+// producto Hotel) para un mes, hasta `upTo` (MTD) — mismo filtro que el tab "KRs Globales".
+function computeGlobalesApiHotelMonth_(raw, ym, upTo){
   var src=raw.b2b_ri||[]; var pp=ym.split('-');
   var from=ym+'-01', to=ym+'-'+String(new Date(+pp[0],+pp[1],0).getDate()).padStart(2,'0');
-  var nr=0, gb=0;
+  if(upTo && upTo<to) to=upTo;
+  var nr=0;
   src.forEach(function(r){
     if(r.fecha<from||r.fecha>to)return;
     if((r.pais||'').toLowerCase()!=='other countries')return;
     if(r.parent_channel!=='API')return;
     var p=r.producto_original||''; if(p!=='Hotel'&&p!=='Hotels')return;
-    nr+=(r.net_revenue||0); gb+=(r.gross_bookings||0);
+    nr+=(r.net_revenue||0);
   });
-  return {nr:nr, gb:gb};
+  return {nr:nr};
 }
 
 function globalesRefYM_(meses, viewDate){
@@ -3229,14 +3230,18 @@ function renderKRsGlobales_(){
   }
   var meta=_globalesTargets.meta||{}, meses=meta.meses||[], labels=meta.meses_label||meses;
   var refYM=globalesRefYM_(meses, state_b2b.viewDate), idx=meses.indexOf(refYM);
-  var agg=_rawB2B?computeGlobalesApiHotelMonth_(_rawB2B, refYM):{nr:0,gb:0};
+  var vd=String(state_b2b.viewDate||'');
+  var agg=_rawB2B?computeGlobalesApiHotelMonth_(_rawB2B, refYM, vd):{nr:0};
+  // NR es MTD → si el día de vista cae en el mes de referencia, el target se prorratea por días.
+  var pp=refYM.split('-'), frac=(vd.substring(0,7)===refYM)?Number(vd.substring(8,10))/new Date(+pp[0],+pp[1],0).getDate():1;
   function pctColor(p){return p===null?'var(--text-2)':p>=100?'var(--success)':p>=80?'#f59e0b':'var(--danger)';}
   function fmtVal(v,unit){ if(v===null||v===undefined)return '—'; if(unit==='$M')return '$'+v.toFixed(1)+'M'; if(unit==='Share %'||unit==='%')return v.toFixed(1)+'%'; return Number(v).toLocaleString('es-AR'); }
   cont.innerHTML=_globalesTargets.krs.map(function(kr){
     var t=kr.targets?kr.targets[refYM]:null, a=null;
-    if(kr.id==='net_revenues_pct_api_hoteles') a=agg.gb>0?agg.nr/agg.gb*100:null;   // MTD del daily
+    var tSc=t;
+    if(kr.id==='net_revenues_api_hoteles'){ a=agg.nr?agg.nr/1e6:null; if(t!=null) tSc=t*frac; }   // MTD del daily, $M
     else if(kr.actuals && kr.actuals[refYM]!=null) a=kr.actuals[refYM];                  // mensual, Input_OKR
-    var sc=okrScore_(a,t), pct=sc!==null?Math.round(sc*100):null;                       // regla única de OKR
+    var sc=kr.inverse?okrScore_(tSc,a):okrScore_(a,tSc), pct=sc!==null?Math.round(sc*100):null;   // regla única de OKR; inverse: menos es mejor
     return '<div class="kr-card">'+
       '<div class="kr-lbl">'+kr.name+'</div>'+
       '<div class="kr-pct" style="color:'+pctColor(pct)+'">'+(pct!==null?pct+'%':'—')+'</div>'+
@@ -3245,7 +3250,7 @@ function renderKRsGlobales_(){
         '<div class="kr-sub-item"><span class="kr-sub-lbl">Target</span><span>'+fmtVal(t,kr.unit)+'</span></div>'+
       '</div></div>';
   }).join('');
-  if(sub) sub.textContent='Mes de referencia: '+(labels[idx]||refYM)+'  ·  fuente: okr.json (igual que el OKR del Hub) · NR %GB actual = daily (API · Hoteles · Globales) · conteos = valor del mes de Input_OKR · (WIP) sin fuente.';
+  if(sub) sub.textContent='Mes de referencia: '+(labels[idx]||refYM)+'  ·  fuente: okr.json (igual que el OKR del Hub) · NR actual = daily MTD (API · Hoteles · Globales) vs target prorrateado · resto = valor del mes de Input_OKR · Price Competitiveness: menos es mejor.';
 }
 
 function renderKRBreakdown_(krs) {

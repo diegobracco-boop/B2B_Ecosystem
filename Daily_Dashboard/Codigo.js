@@ -1346,16 +1346,19 @@ function getAgenciasOKR() {
 
 // KRs de "Globales B2B API" (H2 FY27). Desde 2026-09-25 (auditoría, decisión de Diego) salen de
 // okr.json — la misma fuente y definición que el OKR del Hub (Dashboard_B2B_WLs/Codigo_OKR.js,
-// 6 KRs) — y ya no de un JSON editado a mano en Drive. Targets y actuals de los conteos se cargan
-// en la sheet Input_OKR. Forma { meta, krs:[{id,name,weight,unit,critical_ttpp,targets,actuals}] }.
+// 6 KRs) — y ya no de un JSON editado a mano en Drive. Redefinidos 2026-10-21 (slide del OKR
+// H2, owner JP Martorell). Targets y actuals se cargan en la sheet Input_OKR, salvo NR API
+// Hoteles (Budget contable). Forma { meta, krs:[{id,name,weight,unit,inverse,targets,actuals}] }.
+//   scale:   divide el valor de okr.json (NR viene en USD → $M).
+//   inverse: menos es mejor (Price Competitiveness = % de adversidad).
 var GLOBALES_KRS_DEF = [
-  { id:'accelerate_hunting_partners_api', kr:'accelerate hunting partners api',             name:'Accelerate Hunting Partners API',             weight:0.30, unit:'# Partners' },
-  { id:'hoteles_directos_latam',          kr:'hoteles directos vendidos destino latam',     name:'Hoteles Directos vendidos destino LATAM',     weight:0.20, unit:'# Hoteles' },
-  { id:'gb_api_hoteles_latam',            kr:null,                                          name:'GB B2B API Hoteles - destino LATAM (WIP)',    weight:0.10, unit:'$M' },
-  { id:'hoteles_directos_no_latam',       kr:'hoteles directos vendidos destino no latam',  name:'Hoteles Directos vendidos destino NO LATAM',  weight:0.20, unit:'# Hoteles' },
-  { id:'gb_api_hoteles_no_latam',         kr:null,                                          name:'GB B2B API Hoteles - destino NO LATAM (WIP)', weight:0.05, unit:'$M' },
+  { id:'accelerate_hunting_partners_api', kr:'accelerate hunting partners api',                   name:'Accelerate Hunting # Partners API',                 weight:0.20, unit:'# Partners' },
+  { id:'hoteles_directos_latam',          kr:'hoteles directos vendidos destino latam',           name:'Hoteles Directos vendidos destino LATAM',           weight:0.15, unit:'# Hoteles' },
+  { id:'pct_hoteles_directos_globales',   kr:'% hoteles directos vendidos destino globales',      name:'% Hoteles Directos vendidos destino Globales',      weight:0.15, unit:'%' },
   // actual: lo calcula el cliente desde el daily (API · Hoteles · Other Countries), MTD
-  { id:'net_revenues_pct_api_hoteles',    kr:'net revenue api hoteles %gb',                 name:'Net Revenue API Hoteles %GB',                 weight:0.15, unit:'Share %' }
+  { id:'net_revenues_api_hoteles',        kr:'net revenues api hoteles',                          name:'Net Revenues API Hoteles',                          weight:0.15, unit:'$M', scale:1e6 },
+  { id:'new_onboarded_properties',        kr:'new onboarded properties global & regional chains', name:'New Onboarded Properties Global & Regional Chains', weight:0.15, unit:'# Hoteles' },
+  { id:'price_competitiveness_ex_latam',  kr:'price competitiveness ex-latam (destino gl)',       name:'Price Competitiveness ex-Latam (Destino GL)',       weight:0.20, unit:'%', inverse:true }
 ];
 var GLOBALES_MESES = ['2026-10','2026-11','2026-12','2027-01','2027-02','2027-03'];
 var GLOBALES_MESES_LABEL = ["Oct'26","Nov'26","Dic'26","Ene'27","Feb'27","Mar'27"];
@@ -1363,7 +1366,7 @@ var GLOBALES_MESES_LABEL = ["Oct'26","Nov'26","Dic'26","Ene'27","Feb'27","Mar'27
 function getGlobalesKRTargets() {
   var file = DriveApp.getFileById(OKR_JSON_FILE_ID);
   var cache = CacheService.getScriptCache();
-  var key = 'globales_okr_v1_' + file.getLastUpdated().getTime();
+  var key = 'globales_okr_v2_' + file.getLastUpdated().getTime();
   var hit = cache.get(key);
   if (hit) { try { return JSON.parse(hit); } catch (e) {} }
   var j = JSON.parse(file.getBlob().getDataAsString());
@@ -1371,7 +1374,7 @@ function getGlobalesKRTargets() {
       iK = c.indexOf('KR'), iV = c.indexOf('Valor');
   // alias de grafía que puede traer un okr.json viejo
   var ALIAS = { 'hoteles directo vendidos destino latam': 'hoteles directos vendidos destino latam',
-                'hoteles directo vendidos destino no latam': 'hoteles directos vendidos destino no latam' };
+                'accelerate hunting # partners api':      'accelerate hunting partners api' };
   var vals = {};   // kr → { bud:{ym:v}, act:{ym:v} }
   (j.rows || []).forEach(function(r) {
     if (String(r[iL]).trim().toLowerCase() !== 'globales') return;
@@ -1383,15 +1386,15 @@ function getGlobalesKRTargets() {
   });
   var krs = GLOBALES_KRS_DEF.map(function(d) {
     var v = d.kr ? (vals[d.kr] || { bud: {}, act: {} }) : { bud: {}, act: {} };
-    var targets = {}, actuals = {};
+    var targets = {}, actuals = {}, sc = d.scale || 1;
     GLOBALES_MESES.forEach(function(ym) {
-      targets[ym] = (v.bud[ym] !== undefined) ? v.bud[ym] : null;
-      actuals[ym] = (v.act[ym] !== undefined) ? v.act[ym] : null;
+      targets[ym] = (v.bud[ym] !== undefined) ? v.bud[ym] / sc : null;
+      actuals[ym] = (v.act[ym] !== undefined) ? v.act[ym] / sc : null;
     });
-    // el actual de NR %GB lo calcula el cliente desde el daily (MTD); el del okr.json es mensual contable
-    if (d.id === 'net_revenues_pct_api_hoteles') actuals = {};
+    // el actual de NR lo calcula el cliente desde el daily (MTD); el del okr.json es mensual contable
+    if (d.id === 'net_revenues_api_hoteles') actuals = {};
     return { id: d.id, name: d.name, weight: d.weight, unit: d.unit, critical_ttpp: false,
-             targets: targets, actuals: actuals };
+             inverse: !!d.inverse, targets: targets, actuals: actuals };
   });
   var payload = {
     meta: { titulo: 'Globales B2B API — OKR H2 FY27', periodo: 'H2-FY27', meses: GLOBALES_MESES,
