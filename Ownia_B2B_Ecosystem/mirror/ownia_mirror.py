@@ -69,10 +69,16 @@ def to_ms(rfc3339):
 # ── Qué hay que copiar ────────────────────────────────────────────────────────
 
 FIELDS = "id,name,mimeType,modifiedTime,parents,trashed,md5Checksum"
+SHEET_MIME = "application/vnd.google-apps.spreadsheet"
+XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 
 def wanted_files(svc, manifest, only_module):
-    """[{id, name, mimeType, updatedAt, folderId}] de Drive para los módulos pedidos (sin repetir)."""
+    """[{id, name, mimeType, updatedAt, folderId, export}] de Drive para los módulos pedidos (sin repetir).
+
+    Las Google Sheets del manifest ("sheets") se exportan a .xlsx (export=True); en Ownia las lee
+    el shim de SpreadsheetApp (server/gas-sheets.js) por el mismo id.
+    """
     out = {}
     for slug, spec in manifest["modules"].items():
         if only_module and slug != only_module:
@@ -81,6 +87,16 @@ def wanted_files(svc, manifest, only_module):
             f = svc.files().get(fileId=fid, fields=FIELDS, supportsAllDrives=True).execute()
             if f.get("trashed"):
                 raise SystemExit(f"[{slug}] {fid} ({f['name']}) está en la papelera de Drive")
+            out[fid] = f
+        for fid in spec.get("sheets", {}):
+            f = svc.files().get(fileId=fid, fields=FIELDS, supportsAllDrives=True).execute()
+            if f.get("trashed"):
+                raise SystemExit(f"[{slug}] {fid} ({f['name']}) está en la papelera de Drive")
+            if f["mimeType"] != SHEET_MIME:
+                raise SystemExit(f"[{slug}] {fid} ({f['name']}) no es una Google Sheet ({f['mimeType']}): va en 'files'")
+            f["_export"] = True
+            info = spec["sheets"][fid]
+            f["_ranges"] = info.get("ranges") if isinstance(info, dict) else None
             out[fid] = f
         for folder, names in spec.get("folders", {}).items():
             for name in names:
@@ -94,8 +110,9 @@ def wanted_files(svc, manifest, only_module):
                     out[f["id"]] = f
     files = []
     for f in out.values():
-        if f["mimeType"].startswith("application/vnd.google-apps."):
-            raise SystemExit(f"{f['id']} ({f['name']}) es un archivo nativo de Google ({f['mimeType']}): no se puede espejar")
+        if f["mimeType"].startswith("application/vnd.google-apps.") and not f.get("_export"):
+            raise SystemExit(f"{f['id']} ({f['name']}) es un archivo nativo de Google ({f['mimeType']}): "
+                             "si es una Sheet, va en 'sheets' del manifest")
         files.append({
             "id": f["id"],
             "name": f["name"],
@@ -103,15 +120,69 @@ def wanted_files(svc, manifest, only_module):
             "updatedAt": to_ms(f["modifiedTime"]),
             "modifiedTime": f["modifiedTime"],
             "folderId": f.get("_folder") or (f.get("parents") or [None])[0],
-            "md5": f.get("md5Checksum"),
+            "md5": f.get("md5Checksum"),  # las Sheets no tienen: no se chequea
+            "export": bool(f.get("_export")),
+            "ranges": f.get("_ranges"),
         })
     return sorted(files, key=lambda x: x["name"])
 
 
-def download(svc, fid):
+# Errores de celda de la API de Sheets → el texto que devuelve getValues() en Apps Script.
+SHEET_ERRORS = {"NULL_VALUE": "#NULL!", "DIVIDE_BY_ZERO": "#DIV/0!", "VALUE": "#VALUE!", "REF": "#REF!",
+                "NAME": "#NAME?", "NUM": "#NUM!", "N_A": "#N/A", "ERROR": "#ERROR!", "LOADING": "#N/A"}
+
+
+def sheet_ranges_xlsx(svc, fid, ranges):
+    """Solo los rangos pedidos de una Google Sheet, como .xlsx con cada celda en su misma posición.
+
+    Para planillas que Drive no deja exportar enteras (tope de 10 MB). Usa los valores calculados
+    (como getValues() en GAS) y marca con formato fecha las celdas DATE/TIME, para que el shim
+    (server/gas-sheets.js) las devuelva como Date.
+    """
+    import openpyxl
+    from googleapiclient.discovery import build
+    sheets = build("sheets", "v4", credentials=svc._http.credentials, cache_discovery=False)
+    res = sheets.spreadsheets().get(
+        spreadsheetId=fid, ranges=ranges, includeGridData=True,
+        fields="sheets(properties(title),data(startRow,startColumn,"
+               "rowData(values(effectiveValue,effectiveFormat(numberFormat(type))))))",
+    ).execute()
+    wb = openpyxl.Workbook()
+    wb.remove(wb.active)
+    for sh in res.get("sheets", []):
+        ws = wb.create_sheet(sh["properties"]["title"])
+        for block in sh.get("data", []):
+            r0, c0 = block.get("startRow", 0), block.get("startColumn", 0)
+            for i, row in enumerate(block.get("rowData", [])):
+                for j, cell in enumerate(row.get("values", [])):
+                    ev = cell.get("effectiveValue")
+                    if not ev:
+                        continue
+                    target = ws.cell(row=r0 + i + 1, column=c0 + j + 1)
+                    if "numberValue" in ev:
+                        target.value = ev["numberValue"]
+                        kind = cell.get("effectiveFormat", {}).get("numberFormat", {}).get("type")
+                        if kind in ("DATE", "TIME", "DATE_TIME"):
+                            target.number_format = "yyyy-mm-dd hh:mm:ss"
+                    elif "stringValue" in ev:
+                        target.value = ev["stringValue"]
+                    elif "boolValue" in ev:
+                        target.value = ev["boolValue"]
+                    elif "errorValue" in ev:
+                        target.value = SHEET_ERRORS.get(ev["errorValue"].get("type"), "#ERROR!")
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+def download(svc, fid, export=False, ranges=None):
+    if export and ranges:
+        return sheet_ranges_xlsx(svc, fid, ranges)
     from googleapiclient.http import MediaIoBaseDownload
     buf = io.BytesIO()
-    dl = MediaIoBaseDownload(buf, svc.files().get_media(fileId=fid, supportsAllDrives=True), chunksize=16 * 1024 * 1024)
+    req = (svc.files().export_media(fileId=fid, mimeType=XLSX_MIME) if export
+           else svc.files().get_media(fileId=fid, supportsAllDrives=True))
+    dl = MediaIoBaseDownload(buf, req, chunksize=16 * 1024 * 1024)
     done = False
     while not done:
         _, done = dl.next_chunk()
@@ -202,13 +273,14 @@ def main():
     subidos = saltados = 0
     for f in files:
         cur = have.get(f["id"])
-        if cur and cur.get("updatedAt") == f["updatedAt"] and not args.force:
+        # Las Sheets se bajan siempre: un valor que cambia por fórmula no mueve su modifiedTime.
+        if cur and cur.get("updatedAt") == f["updatedAt"] and not args.force and not f["export"]:
             print(f"  = {f['name']:<45} sin cambios ({f['modifiedTime']})")
             continue
         if args.dry_run:
             print(f"  ~ {f['name']:<45} subiría ({f['modifiedTime']})")
             continue
-        content = download(svc, f["id"])
+        content = download(svc, f["id"], f["export"], f["ranges"])
         # Contenido y metadata tienen que ser de la misma versión: si el pipeline reescribió el
         # archivo mientras se bajaba, md5 no coincide → se saltea y lo toma la próxima corrida.
         if f["md5"] and hashlib.md5(content).hexdigest() != f["md5"]:

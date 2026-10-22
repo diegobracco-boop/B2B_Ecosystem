@@ -55,7 +55,11 @@ const MODULES = [
     dir: 'Daily_Dashboard',
     title: 'Daily Dashboard B2B2C + B2B',
     desc: 'Performance diaria de WLs y B2B (GD + RI).',
-    ownia: false,
+    // En validación: corre acá en paralelo a GAS. Exportar a Slides y mandar el mail del Daily
+    // no están en Ownia (SlidesApp / MailApp): siguen en Apps Script, que es el productivo.
+    ownia: true,
+    validating: true,
+    allowedUsers: EQUIPO_B2B,
     gasUrl: GAS_EXEC + 'AKfycbwMR3zk1r4uwui8vGtcmz0OwmeehC5JM8cuJRE3H-GQMfvxXWGTkYQ3R2nVjMyeAdX_1A/exec',
   },
   {

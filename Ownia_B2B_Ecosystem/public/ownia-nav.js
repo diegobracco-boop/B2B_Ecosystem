@@ -5,7 +5,8 @@
  *    la misma pestaña. Los links del header a otra landing ya migrada van a su versión de Ownia.
  *  - La portada propia del módulo (#home-overlay, con su botón "⌂ Inicio") no se muestra: se entra
  *    directo a la vista `data-start-view` (goToView) y se navega con los selectores del header.
- *  - Si la landing no tiene header (el Manual), se agrega el botón "🏠 Home" arriba del sidebar.
+ *  - Si la landing no tiene ese link, se agrega "🏠 Home": arriba del sidebar (el Manual) o al
+ *    principio de la .topbar (el Daily). Dentro de un iframe (Tracker embebido) no se agrega.
  */
 (function () {
   'use strict';
@@ -19,7 +20,10 @@
   css.textContent = '#home-overlay{display:none!important}' +
     '.ownia-home-side{display:inline-flex;align-items:center;gap:6px;margin:0 20px 14px;padding:6px 12px;' +
     'border-radius:8px;border:1px solid currentColor;font-size:12px;font-weight:700;text-decoration:none;opacity:.85}' +
-    '.ownia-home-side:hover{opacity:1}';
+    '.ownia-home-side:hover{opacity:1}' +
+    '.ownia-home-top{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;margin-right:4px;border-radius:8px;' +
+    'border:1px solid currentColor;font-size:12px;font-weight:600;text-decoration:none;color:inherit;opacity:.8}' +
+    '.ownia-home-top:hover{opacity:1}';
   document.head.appendChild(css);
 
   function asHome(a) {
@@ -42,12 +46,15 @@
       if (dest === home) { asHome(anchors[j]); hasHome = true; } else { anchors[j].href = dest; anchors[j].removeAttribute('target'); }
     }
 
-    var side = !hasHome && document.querySelector('#sidebar .sidebar-logo');
-    if (side) {
+    var embedded = window.top !== window;
+    var side = !hasHome && !embedded && document.querySelector('#sidebar .sidebar-logo');
+    var top = !hasHome && !embedded && !side && document.querySelector('.topbar');
+    if (side || top) {
       var a = document.createElement('a');
-      a.className = 'ownia-home-side';
+      a.className = side ? 'ownia-home-side' : 'ownia-home-top';
       asHome(a);
-      side.parentNode.insertBefore(a, side.nextSibling);
+      if (side) side.parentNode.insertBefore(a, side.nextSibling);
+      else top.insertBefore(a, top.firstChild);
     }
 
     if (startView && typeof window.goToView === 'function') window.goToView(startView);

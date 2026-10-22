@@ -1,5 +1,5 @@
 {
-  "_comment": "Archivos de Drive que lee cada módulo migrado a Ownia. mirror/ownia_mirror.py los copia tal cual (mismo id, nombre, carpeta y fecha de modificación). Al agregar un *_FILE_ID / *_FOLDER_ID en el código GAS de un módulo migrado, sumarlo acá: si falta, la landing en Ownia falla con 'No item with the given ID could be found' (test/manifest.test.js lo detecta). /ingest solo acepta archivos de esta lista.",
+  "_comment": "Archivos de Drive que lee cada módulo migrado a Ownia. mirror/ownia_mirror.py los copia tal cual (mismo id, nombre, carpeta y fecha de modificación); las Google Sheets (\"sheets\", *_SHEET_ID) se exportan a .xlsx y las lee el shim de SpreadsheetApp. Al agregar un *_FILE_ID / *_FOLDER_ID en el código GAS de un módulo migrado, sumarlo acá: si falta, la landing en Ownia falla con 'No item with the given ID could be found' (test/manifest.test.js lo detecta). /ingest solo acepta archivos de esta lista.",
   "modules": {
     "pnl-managerial": {
       "files": {
@@ -26,6 +26,28 @@
         "1SEh9vLWCbE6PslnUntUghhInonuLdYZ5": "tc_plana_flat.xlsx (FX_FILE_ID)"
       },
       "folders": {}
+    },
+    "daily": {
+      "files": {
+        "1cEidr8aoYgm4S7ugm05Wv-SMnz8GbtUj": "OKR JSON (OKR_JSON_FILE_ID)",
+        "1SEh9vLWCbE6PslnUntUghhInonuLdYZ5": "tc_plana_flat.xlsx (FX_FILE_ID)"
+      },
+      "folders": {
+        "1lWzfqweyV6Kz1ERkL85ikFcmzmKwGwwh": [
+          "daily_b2b2c_data.json",
+          "daily_b2b_data.json",
+          "okr_h2_managerial.json",
+          "recurrencia_b2b.json",
+          "agencias_okr.json"
+        ]
+      },
+      "sheets": {
+        "1xm4VvoRUv7d1c_rcP1JYOgBNKczqXrAmtxoNCuCkiQE": {
+          "desc": "KR Agencias + Air NR (BUDGET_SHEET_ID / AIR_NR_SHEET_ID). Drive no la deja exportar entera (>10 MB): solo los rangos que lee el Daily — filas 8-28 de KR Agencias (getRange(8, 4, ≤21, ancho)) y la caja P37:S44.",
+          "ranges": ["'Slide 1 KR Agencias'!1:30", "'Slide 1 Evolucion'!P37:S44"]
+        },
+        "1RVmTXDyyugCUXJ0f6JG_croNxWNLlOLm4eAs8F52u2c": "Input dashboard B2B+WLs → Input_OKR (INPUT_OKR_SHEET_ID)"
+      }
     }
   }
 }

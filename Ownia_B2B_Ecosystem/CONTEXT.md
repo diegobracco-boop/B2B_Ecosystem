@@ -19,8 +19,9 @@ se valida que Ownia da lo mismo (decisión del equipo, módulo por módulo).
 | `Manual_B2B_WLs` | `/b2b-ecosystem/manual` | ✅ migrado (piloto: estático, sin datos) |
 | `P&L_Managerial` | `/b2b-ecosystem/pnl-managerial` | 🔁 en validación (paralelo a GAS, datos espejados) |
 | `P&L_Accounting` | `/b2b-ecosystem/pnl-accounting` | 🔁 en validación (paralelo a GAS, datos espejados) |
+| `Daily_Dashboard` | `/b2b-ecosystem/daily` | 🔁 en validación (paralelo a GAS). Sin exportar a Slides ni mandar el mail (SlidesApp / MailApp): siguen en GAS |
 | `Dashboard_B2B_WLs` (Hub) | — | ⏳ próximo. Bloqueo: el deck de cierre usa SlidesApp + triggers (no portable sin reescribir) |
-| Resto (Daily, One Pager, FVM Negativo, OKR, Profit Sharing) | — | ⏳ en GAS. La portada linkea a su landing GAS |
+| Resto (One Pager, FVM Negativo, OKR, Profit Sharing) | — | ⏳ en GAS. La portada linkea a su landing GAS |
 
 El registro vive en `server/modules.js` (`ownia: true` = se sirve desde Ownia; `validating: true` = en paralelo a
 GAS, la portada muestra los dos links).
@@ -53,7 +54,7 @@ navegador ──POST /b2b-ecosystem/api/<modulo>/<fn>──▶ <fn>(...args) del
 
 | Soportado | Todavía NO (tiran `ServicioNoMigrado`) |
 |---|---|
-| HtmlService, ContentService, Session, Utilities (con `unzip`, sin `zip`), CacheService, PropertiesService, LockService, ScriptApp.getService, Logger, **DriveApp (solo lectura, sobre el almacén espejado)**, **XmlService (solo parse/lectura)** | Drive (avanzado), SpreadsheetApp, **SlidesApp**, MailApp, GmailApp, UrlFetchApp, `Utilities.zip`, `ScriptApp.newTrigger`, Libraries, escribir en DriveApp |
+| HtmlService, ContentService, Session, Utilities (con `unzip`, sin `zip`), CacheService, PropertiesService, LockService, ScriptApp.getService, Logger, **DriveApp (solo lectura, sobre el almacén espejado)**, **SpreadsheetApp (solo lectura, sobre la Sheet exportada a .xlsx por el espejo: `openById`, `getSheetByName`, `getRange`, `getDataRange`, `getValues`, `getLastRow/Column`)**, **XmlService (solo parse/lectura)** | Drive (avanzado), escribir en SpreadsheetApp, **SlidesApp**, MailApp, GmailApp, UrlFetchApp, `Utilities.zip`, `ScriptApp.newTrigger`, Libraries, escribir en DriveApp |
 
 Un servicio no soportado **no se simula**: falla con un error explícito, así nunca se sirve un número inventado.
 Un `getFileById` de un id que el espejo no tiene da el mismo error que GAS ("No item with the given ID could be
@@ -74,6 +75,11 @@ pipelines (sin cambios) ──▶ Drive ──▶ mirror/ownia_mirror.py ──P
   `*_FILE_ID` en el código GAS de un módulo migrado, sumarlo acá** (`test/manifest.test.js` falla si no coincide con
   el código GAS). Es también la allowlist de `/ingest`: un archivo fuera de la lista se rechaza (403) aunque el token
   sea válido.
+- **Google Sheets** (`*_SHEET_ID`, clave `sheets` del manifest): el espejo las exporta a `.xlsx` con su mismo id y
+  `server/gas-sheets.js` las lee como `SpreadsheetApp` (valores calculados; celdas con formato fecha → `Date` en la zona
+  del proyecto). Si Drive no deja exportar la planilla entera (tope de 10 MB, p.ej. la de KR Agencias del Daily), el
+  manifest lista solo los `ranges` que lee el módulo y el espejo arma el `.xlsx` con la API de Sheets, cada celda en su
+  misma posición. Las Sheets se re-bajan en cada corrida: un valor que cambia por fórmula no mueve su `modifiedTime`.
 - `mirror/ownia_mirror.py` — baja de Drive (mismo login que los uploaders del P&L, `Inputs_Planning_PnL/token_drive.json`)
   y sube a Ownia solo lo que cambió (compara la fecha de modificación; verifica el md5 de Drive, así contenido y fecha
   son de la misma versión). Guarda id, nombre, carpeta y **la fecha de

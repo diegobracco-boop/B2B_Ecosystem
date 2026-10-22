@@ -197,7 +197,7 @@ Todas las credenciales viven en `credenciales/` (gitignoreado). Ver cada módulo
 ## Estado actual
 
 - **En producción**: Daily_Dashboard, Dashboard_B2B_WLs, P&L_Accounting, P&L_Managerial, Manual_B2B_WLs, `lob_country_one_pager` (B2B, en prod desde 2026-09-17), OKR_Producto_B2B2C, P&L_Profit_Sharing (desde 2026-10-13)
-- **En migración progresiva a Ownia**: `Ownia_B2B_Ecosystem` (migrado: Manual; en validación en paralelo: P&L Managerial, P&L Accounting). Apps Script sigue productivo.
+- **En migración progresiva a Ownia**: `Ownia_B2B_Ecosystem` (migrado: Manual; en validación en paralelo: P&L Managerial, P&L Accounting, Daily Dashboard). Apps Script sigue productivo.
 - **En construcción (Fase 2)**: repuntear las landings de P&L y Dashboard_B2B_WLs a los JSONs canónicos de Inputs_Planning_PnL como fuente única (hoy algunas todavía leen de fuentes propias)
 
 ## Relación clasp ↔ GitHub

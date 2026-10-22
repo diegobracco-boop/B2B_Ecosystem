@@ -9,11 +9,13 @@ const { compileTemplate, escapeHtml } = require('./gas-template');
 const svc = require('./gas-services');
 const { makeDriveApp } = require('./gas-drive');
 const { makeXmlService } = require('./gas-xml');
+const { makeSpreadsheetApp } = require('./gas-sheets');
 
 // Servicios que el runtime todavía no implementa. Usarlos tira ServicioNoMigrado.
-// (DriveApp está, solo lectura, sobre el file-store: ver gas-drive.js.)
+// (DriveApp y SpreadsheetApp están, solo lectura, sobre el file-store: ver gas-drive.js y
+// gas-sheets.js.)
 const NOT_MIGRATED = [
-  'Drive', 'SpreadsheetApp', 'Sheets', 'SlidesApp', 'Slides', 'DocumentApp',
+  'Drive', 'Sheets', 'SlidesApp', 'Slides', 'DocumentApp',
   'MailApp', 'GmailApp', 'UrlFetchApp', 'CalendarApp', 'FormApp', 'Jdbc', 'BigQuery',
 ];
 
@@ -245,6 +247,7 @@ class GasProject {
       },
     };
     g.DriveApp = makeDriveApp(() => project.fileStore, (ms) => project._makeDate(ms));
+    g.SpreadsheetApp = makeSpreadsheetApp(() => project.fileStore, (ms) => project._makeDate(ms), project.timeZone);
     g.XmlService = makeXmlService();
     for (const name of NOT_MIGRATED) g[name] = svc.notMigrated(name);
     return g;
