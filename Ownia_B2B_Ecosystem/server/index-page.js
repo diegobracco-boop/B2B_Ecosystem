@@ -121,7 +121,7 @@ function indexPage({ modules, basePath, canOpen = () => true }) {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Tableros B2B · Despegar</title>
+<title>The B2B Ecosystem · Despegar</title>
 <script>
   // Estado inicial antes del primer render (sin parpadeo): tema guardado (misma clave que
   // b2b-dashboard: oscuro por defecto) e intro una vez por sesión, salvo prefers-reduced-motion.
@@ -300,8 +300,8 @@ function indexPage({ modules, basePath, canOpen = () => true }) {
 <main>
   <div class="wrap">
     <div class="hero reveal" style="--i:0">
-      <h1>Tableros <span class="g">B2B</span></h1>
-      <p>Resultados, seguimiento diario y producto de B2B y B2B2C, en un solo lugar. Los que tienen ↗ se abren en otra pestaña.</p>
+      <h1>The <span class="g">B2B</span> Ecosystem</h1>
+      <p>Financial results and metrics<br>at the speed of your business</p>
     </div>
     ${sections}
   </div>
