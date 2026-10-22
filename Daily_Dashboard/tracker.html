@@ -661,10 +661,19 @@
      de la grilla y sus últimos países se recortaban con el overflow del slide. */
   body.slides-mode .kr-month-filter-bar { display: none !important; }
   body.slides-mode .status-krs-meta     { justify-content: flex-end; margin-bottom: 8px; }
-  body.slides-mode #agenciasContent,
-  body.slides-mode #agenciasH2Content   { zoom: 0.80; }
+  /* El zoom de #agenciasContent / #agenciasH2Content lo fija _fitKrSlide() (el mayor que entra en
+     la slide); el alto que sobra se lo lleva la grilla de detalle: los recuadros se estiran y sus
+     tablas reparten el alto entre las filas. */
   body.slides-mode #agenciasContent .kr-detail-grid,
-  body.slides-mode #agenciasH2Content .kr-detail-grid { margin-top: 12px; }
+  body.slides-mode #agenciasH2Content .kr-detail-grid { margin-top: 12px; align-items: stretch; }
+  body.slides-mode #agenciasContent .kr-detail-box,
+  body.slides-mode #agenciasH2Content .kr-detail-box { display: flex; flex-direction: column; }
+  body.slides-mode #agenciasContent .kr-detail-column .kr-detail-box { flex: 1 1 auto; }
+  body.slides-mode #agenciasContent .kr-detail-box > table,
+  body.slides-mode #agenciasH2Content .kr-detail-box > table { flex: 1 1 auto; }
+  /* País completo (en pantalla se corta a 80px con "…": "Ecua / Uru / Par"). */
+  body.slides-mode #agenciasContent .kr-detail-table td:first-child,
+  body.slides-mode #agenciasContent .kr-detail-table th:first-child { max-width: none; width: auto; }
   /* KRs Globales en slides: 6 cards en 2 filas (3 + 3) que LLENAN el alto del
      slide (sin espacio muerto arriba/abajo). El grid ocupa el espacio restante
      bajo el título; las filas se reparten en partes iguales y cada card estira
@@ -720,9 +729,8 @@
   body.slides-mode #statusKRsH2Table td {
     font-size: 1.15rem !important; padding: 8px 12px !important; white-space: normal !important;
   }
-  /* H2: la tabla principal más chica que en H1 para dejarle lugar a los 5 recuadros de detalle, que
-     fitKrDetailGrid_ agranda hasta llenar la slide (con 1.15rem la tabla se comía la slide y el detalle
-     quedaba diminuto). */
+  /* H2: la tabla principal más chica que en H1 para dejarle lugar a los 5 recuadros de detalle
+     (con 1.15rem la tabla se comía la slide y el detalle quedaba diminuto). */
   body.slides-mode #statusKRsH2Table th,
   body.slides-mode #statusKRsH2Table td { font-size: 1rem !important; padding: 5px 12px !important; }
   /* El límite para agrandarlos es el ancho (5 recuadros en fila): menos aire horizontal = más zoom. */
@@ -3517,7 +3525,7 @@ function renderStatusKRsH2() {
     // Vista filtrada: sin OVERALL (el ponderado solo aplica al Total).
     renderStatusKRsH2DetailBoxes_(krYM);
     wrap.style.display = 'block';
-    fitKrDetailGrid_(document.getElementById('statusKRsH2DetailGrid'), KR_H2_SLIDE_MAX_ZOOM);
+    fitKrDetailGrid_(document.getElementById('statusKRsH2DetailGrid'));
     return;
   }
 
@@ -3540,32 +3548,54 @@ function renderStatusKRsH2() {
 
   renderStatusKRsH2DetailBoxes_(krYM);
   wrap.style.display = 'block';
-  fitKrDetailGrid_(document.getElementById('statusKRsH2DetailGrid'), KR_H2_SLIDE_MAX_ZOOM);
+  fitKrDetailGrid_(document.getElementById('statusKRsH2DetailGrid'));
 }
 
-// Slides: si algún recuadro de KR no entra (su tabla es más ancha que el recuadro) o la grilla se pasa
-// del borde de abajo de la slide, achica la grilla con zoom hasta que entre (mínimo 60%). Con maxZoom > 1
-// arranca más grande y se queda con el mayor zoom que entra (llena el lugar libre de la slide). En pantalla
-// no hace nada: ahí los recuadros no bajan de su ancho mínimo (min-width: min-content) y pasan a otra fila.
-var KR_H2_SLIDE_MAX_ZOOM = 1.25;   // H2: los recuadros de detalle pueden crecer hasta 125% si entran en la slide
-function fitKrDetailGrid_(grid, maxZoom) {
+// Slides: ajusta la slide de Status KRs que contiene la grilla (ver _fitKrSlide). En pantalla no hace
+// nada: ahí los recuadros no bajan de su ancho mínimo (min-width: min-content) y pasan a otra fila.
+function fitKrDetailGrid_(grid) {
   if (!grid) return;
-  grid.style.zoom = '';
+  var container = grid.closest('#agenciasContent, #agenciasH2Content');
+  if (!container) return;
+  _resetKrSlideFit(container);
   if (!_isSlidesMode) return;
-  requestAnimationFrame(function() {
-    var slide = document.getElementById('slideContent');
-    if (!_isSlidesMode || !grid.offsetHeight || !slide) return;   // pudo salir de slides en este frame
-    function overflows() {
-      for (var i = 0; i < grid.children.length; i++) {
-        var b = grid.children[i];
-        if (b.scrollWidth > b.clientWidth + 1) return true;
-      }
-      return grid.getBoundingClientRect().bottom > slide.getBoundingClientRect().bottom - 4;
+  requestAnimationFrame(function() { _fitKrSlide(container); });
+}
+
+function _resetKrSlideFit(container) {
+  container.style.zoom = '';
+  var grid = container.querySelector('.kr-detail-grid');
+  if (grid) grid.style.height = '';
+}
+
+// Hace que una slide de Status KRs (H1/H2) llene la slide, en dos pasos:
+//  1) zoom del contenido completo (tabla de KRs + recuadros de detalle) al máximo que entra: todo
+//     dentro del alto del slide, los recuadros en una sola fila y ninguna tabla más ancha que su recuadro;
+//  2) el alto que sobra se le da a la grilla de detalle (los recuadros se estiran y sus tablas reparten
+//     el alto entre las filas, ver CSS de slides).
+// Con `zoom` la export igual sale bien porque esas slides se capturan con foreignObjectRendering
+// (ver _captureAllSlides).
+function _fitKrSlide(container) {
+  var slideEl = document.getElementById('slideContent');
+  var grid = container.querySelector('.kr-detail-grid');
+  _resetKrSlideFit(container);
+  if (!_isSlidesMode || !container.offsetHeight || !grid) return;   // pudo salir de slides en este frame
+  var maxBottom = function() { return slideEl.getBoundingClientRect().bottom - 6; };
+  var z = _fitMax(function(z) {
+    container.style.zoom = z;
+    if (container.getBoundingClientRect().bottom > maxBottom()) return false;
+    var boxes = grid.children;
+    for (var i = 0; i < boxes.length; i++) {
+      if (boxes[i].offsetTop !== boxes[0].offsetTop) return false;   // se partió en dos filas
     }
-    var z = maxZoom || 1;
-    if (z !== 1) grid.style.zoom = z.toFixed(2);
-    while (z > 0.6 && overflows()) { z = Math.round((z - 0.05) * 100) / 100; grid.style.zoom = z.toFixed(2); }
-  });
+    var inner = grid.querySelectorAll('.kr-detail-box');
+    for (var j = 0; j < inner.length; j++) {
+      if (inner[j].scrollWidth > inner[j].clientWidth + 1) return false;
+    }
+    return true;
+  }, 0.5, 1.6, 0.01);
+  var spare = maxBottom() - container.getBoundingClientRect().bottom;   // px de pantalla
+  if (spare > 1) grid.style.height = ((grid.getBoundingClientRect().height + spare) / z) + 'px';
 }
 
 // Igual que computeMetricForPaisList pero con predicado por fila (canal/producto).
@@ -4257,6 +4287,10 @@ window.addEventListener('resize', function() {
       var el = document.getElementById(id);
       if (el.classList.contains('visible')) _fitSlideTables(el);
     });
+    ['agenciasContent', 'agenciasH2Content'].forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el.classList.contains('visible')) _fitKrSlide(el);
+    });
   });
 });
 
@@ -4451,8 +4485,8 @@ async function _captureAllSlides(onProgress, opts) {
 
   var el = document.getElementById('slideContent');
   // El marco de la slide (sombra + esquinas redondeadas) es solo para la vista en
-  // pantalla: html2canvas pinta la sombra DENTRO del área capturada cuando agranda
-  // el área (slides de KRs) → salía un reborde negro. Se saca en el clon.
+  // pantalla: html2canvas puede pintar la sombra DENTRO del área capturada → salía
+  // un reborde negro. Se saca en el clon.
   var stripFrame = function(clonedDoc) {
     var sc = clonedDoc.getElementById('slideContent');
     if (sc) { sc.style.boxShadow = 'none'; sc.style.borderRadius = '0'; }
@@ -4467,32 +4501,26 @@ async function _captureAllSlides(onProgress, opts) {
       try {
         var baseScale = opts.jpeg ? 1.3 : 1.5;
         var slide = SLIDE_ORDER[i];
-        // Las slides de KRs (H1/H2 y Globales) usan zoom:0.80 para entrar en el
-        // slide. html2canvas 1.4.1 NO soporta la propiedad CSS `zoom` ni escala
-        // limpio con `transform: scale()`: con zoom se pisan las letras y con
-        // transform los fondos/badges salen corridos. Solución: capturar a
-        // tamaño NATURAL (zoom desactivado) agrandando el ÁREA de captura 1/0.8
-        // = 1.25× en ancho y alto. Ese rectángulo conserva el aspect 16:9 del
-        // slide, así que el canvas sale nítido, llena el slide y sin artefactos.
-        var isZoomedSlide = (slide.tab === 'agencias' || slide.tab === 'agencias_h2' || slide.tab === 'globales');
+        // Las slides de KRs (H1/H2 y Globales) usan `zoom` (ver _fitKrSlide y
+        // fitKrDetailGrid_). El render propio de html2canvas 1.4.1 NO soporta
+        // `zoom`: salían fondos/badges corridos ("fantasmas") y letras separadas.
+        // Con foreignObjectRendering la slide la dibuja el navegador (SVG
+        // <foreignObject>), igual que en pantalla. Ese modo encuadra mal los
+        // contenedores position:fixed → en el clon el marco va arriba a la izquierda.
+        var isKRSlide = (slide.tab === 'agencias' || slide.tab === 'agencias_h2' || slide.tab === 'globales');
         var h2cOpts;
-        if (isZoomedSlide) {
+        if (isKRSlide) {
           var rect = el.getBoundingClientRect();
-          var natW = Math.round(rect.width  / 0.8);
-          var natH = Math.round(rect.height / 0.8);
           h2cOpts = {
-            // escala × 0.8 para que la resolución final iguale la de las demás
-            // slides (el área ya es 1.25× más grande): 1.25 × 0.8 = 1.
-            scale: baseScale * 0.8, backgroundColor: '#ffffff', useCORS: true, logging: false,
-            width: natW, height: natH, windowWidth: natW, windowHeight: natH,
+            scale: baseScale, backgroundColor: '#ffffff', useCORS: true, logging: false,
+            foreignObjectRendering: true,
+            x: 0, y: 0, scrollX: 0, scrollY: 0, width: rect.width, height: rect.height,
             onclone: function(clonedDoc) {
               stripFrame(clonedDoc);
+              var frame = clonedDoc.getElementById('slidesFrame');
+              if (frame) frame.style.cssText += ';position:absolute;top:0;left:0;right:auto;bottom:auto;display:block;background:#fff;';
               var sc = clonedDoc.getElementById('slideContent');
-              if (sc) { sc.style.width = natW + 'px'; sc.style.height = natH + 'px'; sc.style.aspectRatio = 'auto'; sc.style.overflow = 'hidden'; }
-              ['agenciasContent', 'agenciasH2Content', 'globalesContent'].forEach(function(id) {
-                var n = clonedDoc.getElementById(id);
-                if (n) n.style.zoom = 'normal';
-              });
+              if (sc) { sc.style.width = rect.width + 'px'; sc.style.margin = '0'; }
             }
           };
         } else {
