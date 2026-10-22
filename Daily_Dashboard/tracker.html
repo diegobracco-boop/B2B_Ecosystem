@@ -4450,6 +4450,15 @@ async function _captureAllSlides(onProgress, opts) {
   await _ensureSlidesDataLoaded();
 
   var el = document.getElementById('slideContent');
+  // El marco de la slide (sombra + esquinas redondeadas) es solo para la vista en
+  // pantalla: html2canvas pinta la sombra DENTRO del área capturada cuando agranda
+  // el área (slides de KRs) → salía un reborde negro. Se saca en el clon.
+  var stripFrame = function(clonedDoc) {
+    var sc = clonedDoc.getElementById('slideContent');
+    if (sc) { sc.style.boxShadow = 'none'; sc.style.borderRadius = '0'; }
+    var cover = clonedDoc.getElementById('slideCover');
+    if (cover) cover.style.borderRadius = '0';
+  };
   var slides = [];
   try {
     for (var i = 0; i < SLIDE_ORDER.length; i++) {
@@ -4477,6 +4486,7 @@ async function _captureAllSlides(onProgress, opts) {
             scale: baseScale * 0.8, backgroundColor: '#ffffff', useCORS: true, logging: false,
             width: natW, height: natH, windowWidth: natW, windowHeight: natH,
             onclone: function(clonedDoc) {
+              stripFrame(clonedDoc);
               var sc = clonedDoc.getElementById('slideContent');
               if (sc) { sc.style.width = natW + 'px'; sc.style.height = natH + 'px'; sc.style.aspectRatio = 'auto'; sc.style.overflow = 'hidden'; }
               ['agenciasContent', 'agenciasH2Content', 'globalesContent'].forEach(function(id) {
@@ -4486,7 +4496,7 @@ async function _captureAllSlides(onProgress, opts) {
             }
           };
         } else {
-          h2cOpts = { scale: baseScale, backgroundColor: '#ffffff', useCORS: true, logging: false };
+          h2cOpts = { scale: baseScale, backgroundColor: '#ffffff', useCORS: true, logging: false, onclone: stripFrame };
         }
         var canvas = await html2canvas(el, h2cOpts);
         var img = opts.jpeg ? canvas.toDataURL('image/jpeg', 0.85)
