@@ -788,6 +788,13 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
       <button class="dm-btn" id="btn-tbd-excl" onclick="setExclTBD(true)">Excluir</button>
     </div>
   </div>
+  <div class="dm-group" style="margin-left:4px" title="COI Brasil: Excluir saca el cost of installments y el efecto financiero de Brasil del FVM en toda la página (métricas, tablas, KRs, Benchmark, Weekly y Flow), en actuals, LY y Budget / Run Rate / Forecast. No cambian los emails ni la línea B2C.">
+    <span class="dm-group-lbl">COI Brasil</span>
+    <div class="dm-toggle">
+      <button class="dm-btn active" data-coibr="incl" onclick="setExCoiBr(false)">Incluir</button>
+      <button class="dm-btn" data-coibr="excl" onclick="setExCoiBr(true)">Excluir</button>
+    </div>
+  </div>
   <div class="date-nav">
     <button id="btn-prev" onclick="navDay(-1)">&#8249;</button>
     <span class="date-display" id="date-display">—</span>
@@ -828,6 +835,13 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
     <div class="dm-toggle">
       <button class="dm-btn active" id="btn-dm-gd" onclick="switchDateModel('gd')">GD</button>
       <button class="dm-btn" id="btn-dm-ri" onclick="switchDateModel('ri')">RI</button>
+    </div>
+  </div>
+  <div class="dm-group" style="margin-left:4px" title="COI Brasil: Excluir saca el cost of installments y el efecto financiero de Brasil del FVM en toda la página (métricas, tablas, KRs, Benchmark, Weekly y Flow), en actuals, LY y Budget / Run Rate / Forecast. No cambian los emails ni la línea B2C.">
+    <span class="dm-group-lbl">COI Brasil</span>
+    <div class="dm-toggle">
+      <button class="dm-btn active" data-coibr="incl" onclick="setExCoiBr(false)">Incluir</button>
+      <button class="dm-btn" data-coibr="excl" onclick="setExCoiBr(true)">Excluir</button>
     </div>
   </div>
   <div class="date-nav">
@@ -932,7 +946,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
       <div class="kpi-ly"   id="kpi-nr-vly">—</div>
     </div>
     <div class="kpi-card accent-purple">
-      <div class="kpi-lbl">FVM — MTD</div>
+      <div class="kpi-lbl" id="kpi-fvm-lbl">FVM — MTD</div>
       <div class="kpi-val" id="kpi-fvm-mtd">—</div>
       <div class="kpi-delta" id="kpi-fvm-vbdg">—</div>
       <div class="kpi-ly"   id="kpi-fvm-vly">—</div>
@@ -982,7 +996,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
 
     <div class="mc-card" style="border-color:rgba(86,38,233,.25);">
       <div class="mc-hdr">
-        <span class="mc-title" style="color:var(--secondary)">FVM</span>
+        <span class="mc-title" id="mc-fvm-title" style="color:var(--secondary)">FVM</span>
         <div class="mc-kpis">
           <div class="mc-kpi"><span class="mc-kpi-lbl">MTD</span><span class="mc-kpi-val" id="mc-fvm-mtd">—</span></div>
           <div class="mc-kpi"><span class="mc-kpi-lbl">vs LY</span><span class="mc-kpi-delta" id="mc-fvm-vly">—</span></div>
@@ -1207,7 +1221,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
       <div class="kpi-ly"    id="b2b-kpi-nr-vly">—</div>
     </div>
     <div class="kpi-card accent-purple">
-      <div class="kpi-lbl">FVM — MTD</div>
+      <div class="kpi-lbl" id="b2b-kpi-fvm-lbl">FVM — MTD</div>
       <div class="kpi-val"   id="b2b-kpi-fvm-mtd">—</div>
       <div class="kpi-delta" id="b2b-kpi-fvm-vbdg">—</div>
       <div class="kpi-ly"    id="b2b-kpi-fvm-vly">—</div>
@@ -1257,7 +1271,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
 
     <div class="mc-card" style="border-color:rgba(86,38,233,.25);">
       <div class="mc-hdr">
-        <span class="mc-title" style="color:var(--secondary)">FVM</span>
+        <span class="mc-title" id="b2b-mc-fvm-title" style="color:var(--secondary)">FVM</span>
         <div class="mc-kpis">
           <div class="mc-kpi"><span class="mc-kpi-lbl">MTD</span><span class="mc-kpi-val" id="b2b-mc-fvm-mtd">—</span></div>
           <div class="mc-kpi"><span class="mc-kpi-lbl">vs LY</span><span class="mc-kpi-delta" id="b2b-mc-fvm-vly">—</span></div>
@@ -1566,6 +1580,11 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
       <option value="incl">Incluir</option>
       <option value="excl">Excluir</option>
     </select>
+    <label class="flow-ctl-lbl" title="COI Brasil: Excluir saca el cost of installments y el efecto financiero de Brasil del FVM en toda la página (métricas, tablas, KRs, Benchmark, Weekly y Flow), en actuals, LY y Budget / Run Rate / Forecast. No cambian los emails ni la línea B2C.">COI Brasil</label>
+    <select class="flow-jump" id="flow-coibr" onchange="setExCoiBr(this.value==='excl')">
+      <option value="incl">Incluir</option>
+      <option value="excl">Excluir</option>
+    </select>
     <label class="flow-ctl-lbl" title="YES = actuals × TC Actuals / TC del Goal (Run Rate: nominal). KRs a TC Budget. Mismo switch que el Organic de arriba.">Organic</label>
     <select class="flow-jump" id="flow-organic" onchange="setDailyOrganic(this.value==='yes')">
       <option value="no">NO</option>
@@ -1628,6 +1647,48 @@ function setExclTBD(on) {
   var vf = document.getElementById('view-flow');
   // Flow oculto: solo invalidar — flowOpen_() lo rearma al abrirlo (rearmarlo oculto mide mal los charts).
   if (vf && vf.style.display !== 'none') flowRebuild_(); else flowInvalidate_();
+}
+// ── COI Brasil (switch global) ───────────────────────────────────
+// Excluir = FVM ex COI BR: el FVM sin cost of installments ni efecto financiero de Brasil (columna
+// fvm_ex_coi_br de daily_sync.py, en actuals, LY y Budget/RR/Forecast). Se pisa r.fvm en las filas
+// (el total queda en r._fvmTot), así TODO lo que lee fvm lo sigue: métricas, tablas, KRs, Benchmark
+// y Flow. Weekly y OKR semanal se calculan en el servidor: van con el parámetro exCoiBr.
+var _exCoiBr = false;
+var _COIBR_KEYS_ = {
+  b2bc:  ['actuals', 'actuals_ly', 'budget', 'runrate', 'forecast'],
+  b2b:   ['b2b_gd', 'b2b_gd_ly', 'b2b_ri', 'b2b_ri_ly', 'b2b_budget_gd', 'b2b_budget_ri',
+          'b2b_runrate_gd', 'b2b_runrate_ri', 'b2b_forecast_gd', 'b2b_forecast_ri'],
+  okrH2: ['b2b_gd', 'b2b_gd_ly', 'b2b_ri', 'b2b_ri_ly', 'b2b_budget_gd', 'b2b_budget_ri']
+};
+// Aplica el switch a un raw (al cargarlo y al cambiar el switch). Filas sin la columna quedan igual.
+function applyCoiBr_(raw, keys) {
+  if (!raw) return raw;
+  keys.forEach(function(k) {
+    var arr = raw[k];
+    if (!Array.isArray(arr)) return;
+    arr.forEach(function(r) {
+      if (r.fvm_ex_coi_br == null) return;
+      if (r._fvmTot === undefined) r._fvmTot = r.fvm;
+      r.fvm = _exCoiBr ? r.fvm_ex_coi_br : r._fvmTot;
+    });
+  });
+  return raw;
+}
+function fvmLabel_() { return _exCoiBr ? 'FVM ex COI BR' : 'FVM'; }
+function setExCoiBr(on) {
+  _exCoiBr = !!on;
+  document.querySelectorAll('[data-coibr]').forEach(function(b) {
+    b.classList.toggle('active', (b.getAttribute('data-coibr') === 'excl') === _exCoiBr);
+  });
+  var fs = document.getElementById('flow-coibr'); if (fs) fs.value = _exCoiBr ? 'excl' : 'incl';
+  applyCoiBr_(_rawB2BC, _COIBR_KEYS_.b2bc);
+  applyCoiBr_(_rawB2B, _COIBR_KEYS_.b2b);
+  applyCoiBr_(_okrH2, _COIBR_KEYS_.okrH2);
+  if (_orgRowsCache_) _orgRowsCache_ = new WeakMap();   // copias organic con el fvm anterior
+  _wsOkrData = null;
+  _flowWeeklyReady = false;
+  _orgRefreshAll_();   // recalcula Daily B2B2C/B2B, Benchmark, Weekly y Flow
+  if (_activeView === 'weekly' && typeof _wsLoadOKRIfNeeded === 'function') _wsLoadOKRIfNeeded();
 }
 // Dropdown de partners según el switch: con Excluir, TBD no se ofrece; si estaba elegido vuelve a "Todos".
 function fillPartnersB2BC_() {
@@ -2323,6 +2384,7 @@ window.onload = function() {
       raw.runrate  = expandCompact_(raw.runrate);
       raw.forecast = expandCompact_(raw.forecast);
       raw.unique_buyers_daily = expandCompact_(raw.unique_buyers_daily || {cols:[],rows:[]});
+      applyCoiBr_(raw, _COIBR_KEYS_.b2bc);
       applyPartnerAlias_(raw);
       // Partner TBD = New partners / Hunting, aunque la cartera de ComDev no lo tenga.
       ['actuals','actuals_ly'].forEach(function(k){ (raw[k]||[]).forEach(function(r){ if(isTBDPartner_(r.partner)) r.account_type='New'; }); });
@@ -2355,7 +2417,7 @@ window.onload = function() {
       raw.b2b_gd_ly = expandCompact_(raw.b2b_gd_ly);
       raw.b2b_ri    = expandCompact_(raw.b2b_ri);
       raw.b2b_ri_ly = expandCompact_(raw.b2b_ri_ly);
-      _rawB2B = raw;
+      _rawB2B = applyCoiBr_(raw, _COIBR_KEYS_.b2b);
       state_b2b.viewDate = raw.meta.last_actuals_date;
       state_b2b.meta     = raw.meta;
       var paisSet={}, proSet={};
@@ -2651,14 +2713,16 @@ function renderMetrics(all) {
     var chartDaily = d.daily;
     var isPct = def.key !== 'gb' && _b2bcMarginMode === 'pct';
     if (isPct && all.gb) chartDaily = toPctDaily_(d.daily, all.gb.daily);
-    var b2cSeries = (_showB2C_b2bc && !isPct) ? computeB2C_(_rawB2BC, def.key, d.viewDate, gran) : null;
+    var b2cSeries = (_showB2C_b2bc && !isPct && !(def.key === 'fvm' && _exCoiBr)) ? computeB2C_(_rawB2BC, def.key, d.viewDate, gran) : null;
     renderChart(def.key, def.chartId, chartDaily, d.viewDate, def.color, gran, undefined, {pctMode:isPct, b2c:b2cSeries});
     var tblGroups = (gl_tbl_period === 'ytd' && d.groups_ytd) ? d.groups_ytd : d.groups;
     renderGroupedTable3(def.tblId, tblGroups, {newFlagKey:'isNew'});
     var periodLbl = gl_tbl_period === 'ytd' ? ('YTD' + (d.ytd_from ? ' ('+d.ytd_from+')' : '')) : 'MTD';
     var tcard = document.getElementById(def.tblId).closest('.tcard');
-    if (tcard) tcard.querySelector('.card-ttl').textContent = ({gb:'Gross Bookings',nr:'Net Revenues',fvm:'FVM'}[def.key]) + ' — ' + periodLbl;
+    if (tcard) tcard.querySelector('.card-ttl').textContent = ({gb:'Gross Bookings',nr:'Net Revenues',fvm:fvmLabel_()}[def.key]) + ' — ' + periodLbl;
   });
+  document.getElementById('kpi-fvm-lbl').textContent = fvmLabel_() + ' — MTD';
+  document.getElementById('mc-fvm-title').textContent = fvmLabel_();
 }
 
 // ── Chart ───────────────────────────────────────────────────────
@@ -3091,7 +3155,7 @@ function loadB2B() {
       raw.b2b_gd_ly = expandCompact_(raw.b2b_gd_ly);
       raw.b2b_ri    = expandCompact_(raw.b2b_ri);
       raw.b2b_ri_ly = expandCompact_(raw.b2b_ri_ly);
-      _rawB2B = raw;
+      _rawB2B = applyCoiBr_(raw, _COIBR_KEYS_.b2b);
       state_b2b.viewDate = raw.meta.last_actuals_date;
       state_b2b.meta     = raw.meta;
       var paisSet={}, proSet={};
@@ -3113,7 +3177,7 @@ function ensureOKRH2_() {
   google.script.run
     .withSuccessHandler(function(d) {
       ['b2b_gd','b2b_gd_ly','b2b_ri','b2b_ri_ly'].forEach(function(k){ d[k] = expandCompact_(d[k]); });
-      _okrH2 = d; _okrH2State = 'loaded';
+      _okrH2 = applyCoiBr_(d, _COIBR_KEYS_.okrH2); _okrH2State = 'loaded';
       recomputeB2B_();
     })
     .withFailureHandler(function() { _okrH2State = 'error'; })
@@ -3457,14 +3521,16 @@ function renderB2BMetrics(all) {
     var chartDailyB2b = d.daily;
     var isPctB2b = def.key !== 'gb' && _b2bMarginMode === 'pct';
     if (isPctB2b && all.gb) chartDailyB2b = toPctDaily_(d.daily, all.gb.daily);
-    var b2cSeriesB2b = (_showB2C_b2b && !isPctB2b) ? computeB2C_(_rawB2B, def.key, d.viewDate, gran) : null;
+    var b2cSeriesB2b = (_showB2C_b2b && !isPctB2b && !(def.key === 'fvm' && _exCoiBr)) ? computeB2C_(_rawB2B, def.key, d.viewDate, gran) : null;
     renderChart(def.key, def.chartId, chartDailyB2b, d.viewDate, def.color, gran, _b2bCharts, {pctMode:isPctB2b, b2c:b2cSeriesB2b});
     var tblGroupsB2b = (gl_tbl_period === 'ytd' && d.groups_ytd) ? d.groups_ytd : d.groups;
     renderGroupedTableB2B_(def.tblId, tblGroupsB2b);
     var periodLblB2b = gl_tbl_period === 'ytd' ? ('YTD' + (d.ytd_from ? ' ('+d.ytd_from+')' : '')) : 'MTD';
     var tcardB2b = document.getElementById(def.tblId).closest('.tcard');
-    if (tcardB2b) tcardB2b.querySelector('.card-ttl').textContent = ({gb:'Gross Bookings',nr:'Net Revenue',fvm:'FVM'}[def.key]) + ' — ' + periodLblB2b;
+    if (tcardB2b) tcardB2b.querySelector('.card-ttl').textContent = ({gb:'Gross Bookings',nr:'Net Revenue',fvm:fvmLabel_()}[def.key]) + ' — ' + periodLblB2b;
   });
+  document.getElementById('b2b-kpi-fvm-lbl').textContent = fvmLabel_() + ' — MTD';
+  document.getElementById('b2b-mc-fvm-title').textContent = fvmLabel_();
 }
 
 function vb2b(id) { var el = document.getElementById(id); return el ? el.value : 'all'; }
@@ -3866,7 +3932,7 @@ function renderBenchmark_() {
       .withSuccessHandler(function(raw) {
         raw.b2b_gd = expandCompact_(raw.b2b_gd); raw.b2b_gd_ly = expandCompact_(raw.b2b_gd_ly);
         raw.b2b_ri = expandCompact_(raw.b2b_ri); raw.b2b_ri_ly = expandCompact_(raw.b2b_ri_ly);
-        _rawB2B = raw; _benchB2BLoading = false;
+        _rawB2B = applyCoiBr_(raw, _COIBR_KEYS_.b2b); _benchB2BLoading = false;
         if (_activeView === 'benchmark') renderBenchmark_();
       })
       .withFailureHandler(function() { _benchB2BLoading = false; })
@@ -3967,7 +4033,7 @@ function _wsRefreshData() {
 }
 
 // Clave del caché del Weekly: lob + view (+ canal B2B) (+ target organic: los montos y vs LY cambian con el switch)
-function _wsKey_(lob, view, t, ch) { return lob + '_' + view + (ch ? '_ch_' + ch : '') + (t ? '_org_' + t : ''); }
+function _wsKey_(lob, view, t, ch) { return lob + '_' + view + (ch ? '_ch_' + ch : '') + (t ? '_org_' + t : '') + (_exCoiBr ? '_exCoiBr' : ''); }
 function _wsChannelParam_() { return _wsLob === 'B2B' ? _wsChannel : ''; }
 // Organic de una respuesta del Weekly: error → vuelve el switch a NO; TC faltantes → a la nota
 function _wsOrgResp_(res) {
@@ -4003,7 +4069,7 @@ function _wsLoadData(cb) {
       if (cb) cb();
       _wsShowError(e.message || String(e));
     })
-    .getWeeklySummaryData({ view: _wsView, lob: _wsLob, organic: orgT, channel: ch });
+    .getWeeklySummaryData({ view: _wsView, lob: _wsLob, organic: orgT, channel: ch, exCoiBr: _exCoiBr });
 }
 
 function _wsRender(d) {
@@ -4276,7 +4342,7 @@ function _wsLoadOKRIfNeeded() {
       document.getElementById('ws-okr-error').textContent     = '❌ ' + (e.message || String(e));
       document.getElementById('ws-okr-error').style.display   = 'block';
     })
-    .getOKRWeeklyB2B2C();
+    .getOKRWeeklyB2B2C({ exCoiBr: _exCoiBr });
 }
 
 function _wsOkrFmt(v) {
@@ -6051,7 +6117,7 @@ function flowFetchWeeklyData_(cb){
         console.error('[flow] no se pudo cargar Weekly '+c.lob+'/'+c.view+':', e);
         done++; if(done===pending.length) cb();
       })
-      .getWeeklySummaryData({view:c.view, lob:c.lob, organic:orgT});
+      .getWeeklySummaryData({view:c.view, lob:c.lob, organic:orgT, exCoiBr:_exCoiBr});
   });
 }
 function flowOpen_(){

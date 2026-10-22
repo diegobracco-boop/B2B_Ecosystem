@@ -136,6 +136,16 @@ function _wsIsoWeek_(ymd) {
   return { week: Math.ceil((((thu-jan1)/86400000)+1)/7), year: thu.getUTCFullYear() };
 }
 
+// ---- Switch "COI Brasil" del Daily ----
+// params.exCoiBr = true -> FVM ex COI BR (columna fvm_ex_coi_br de daily_sync.py: el FVM sin cost of
+// installments ni efecto financiero de Brasil). Es por ejecución: cada google.script.run arranca en false.
+var _wsExCoiBr_ = false;
+function _wsSetExCoiBr_(params) { _wsExCoiBr_ = !!(params && params.exCoiBr); }
+function _fvmOf_(r) {
+  var v = (_wsExCoiBr_ && r.fvm_ex_coi_br != null) ? r.fvm_ex_coi_br : r.fvm;
+  return parseFloat(v || 0) || 0;
+}
+
 // ---- Row normalizer → {fecha, pais, canal, gb, rev, fvm} ----
 
 function _wsNormRows_(arr, gbCol, revCol) {
@@ -146,7 +156,7 @@ function _wsNormRows_(arr, gbCol, revCol) {
       canal: String(r.parent_channel || ''),
       gb:  parseFloat(r[gbCol]  || r.gross_bookings || 0) || 0,
       rev: parseFloat(r[revCol] || r.net_revenues   || 0) || 0,
-      fvm: parseFloat(r.fvm    || 0) || 0
+      fvm: _fvmOf_(r)
     };
   });
 }
@@ -282,6 +292,7 @@ function _wsOrg_(rows, conv) {
 // params.organic: 'budget' | 'forecast' | 'ly' (switch ORGANIC del front). Con Budget/Forecast los
 // montos van a TC del target y los vs LY se recalculan con los actuals a TC Actuals LY (opción B).
 function getWeeklySummaryData(params) {
+  _wsSetExCoiBr_(params);
   var target = organicTarget_(params && params.organic);
   if (!target) return _wsSummary_(params, null);
   var conv, convY = null;
@@ -505,6 +516,7 @@ function _wsComputeMTD_(actRows, budRows, lyRows) {
 // el agrupamiento regional "Hispa" de getWeeklySummaryData. Devuelve
 // GB / NR (rev) / FVM month-to-date, en millones (/1e6).
 function getCountryMTD(params) {
+  _wsSetExCoiBr_(params);
   try {
     var view = (params && params.view) || 'GD';
     var lob  = (params && params.lob)  || 'B2B';
@@ -975,7 +987,8 @@ function _okrDivSlot_(slot, divisor) {
   });
 }
 
-function getOKRWeeklyB2B2C() {
+function getOKRWeeklyB2B2C(params) {
+  _wsSetExCoiBr_(params);
   try {
     var raw = loadFile_(B2BC_JSON, B2BC_CACHE_KEY);
 
@@ -1022,7 +1035,7 @@ function getOKRWeeklyB2B2C() {
       if (!actualWeekData[key]) actualWeekData[key] = _okrInitSlot_();
       var slot  = actualWeekData[key];
       var nr    = parseFloat(r.net_revenues) || 0;
-      var fv    = parseFloat(r.fvm) || 0;
+      var fv    = _fvmOf_(r);
       var atKey = r.account_type === 'Existing' ? 'existing' : 'new';
       var reg   = r.region;
       slot[atKey].nr += nr;  slot[atKey].fvm += fv;
@@ -1043,7 +1056,7 @@ function getOKRWeeklyB2B2C() {
       if (!rrMonthData[ym]) rrMonthData[ym] = _okrInitSlot_();
       var slot  = rrMonthData[ym];
       var nr    = parseFloat(r.net_revenue) || 0;
-      var fv    = parseFloat(r.fvm) || 0;
+      var fv    = _fvmOf_(r);
       var stKey = (r.stage === 'Existing') ? 'existing' : 'new';
       var reg   = _okrPaisToRegion_(r.pais);
       slot[stKey].nr += nr;  slot[stKey].fvm += fv;
@@ -1065,7 +1078,7 @@ function getOKRWeeklyB2B2C() {
       if (!r.fecha || r.fecha.substring(0,7) !== mtdYm) return;
       if (!r.account_type || r.account_type === 'Unknown') return;
       var nr    = parseFloat(r.net_revenues) || 0;
-      var fv    = parseFloat(r.fvm) || 0;
+      var fv    = _fvmOf_(r);
       var atKey = r.account_type === 'Existing' ? 'existing' : 'new';
       var reg   = r.region;
       mtdActuals[atKey].nr += nr;  mtdActuals[atKey].fvm += fv;
@@ -1082,7 +1095,7 @@ function getOKRWeeklyB2B2C() {
     budRows.forEach(function(r) {
       if (!r.fecha || r.fecha.substring(0,7) !== mtdYm || r.fecha > lastActDate) return;
       var nr    = parseFloat(r.net_revenue) || 0;
-      var fv    = parseFloat(r.fvm) || 0;
+      var fv    = _fvmOf_(r);
       var stKey = (r.stage === 'Existing') ? 'existing' : 'new';
       var reg   = _okrPaisToRegion_(r.pais);
       mtdBudget[stKey].nr += nr;  mtdBudget[stKey].fvm += fv;

@@ -177,7 +177,7 @@ def conectar():
 COLS_ACTUALS = [
     "fecha", "pais", "productooriginal", "channel", "partner", "viaje",
     "account_type", "region", "tier",
-    "orders", "gross_bookings", "net_revenues", "fvm"
+    "orders", "gross_bookings", "net_revenues", "fvm", "fvm_ex_coi_br"
 ]
 
 
@@ -308,7 +308,9 @@ SELECT
     SUM(pnl.financial_result_usd)                                        AS efecto_financiero,
     SUM(pnl.dif_fx_usd + pnl.dif_fx_air_usd)                             AS dif_fx,
     SUM(pnl.currency_hedge_usd + pnl.currency_hedge_air_usd)             AS currency_hedge,
-    SUM(pnl.vendor_commission_usd)                                       AS channel_expenses
+    SUM(pnl.vendor_commission_usd)                                       AS channel_expenses,
+    /* para FVM ex COI BR (en FVM_Base entra como -coi) */
+    SUM(pnl.coi_usd)                                                     AS coi
 
 FROM data.analytics.bi_pnlop_fact_current_model pnl
 JOIN data.analytics.bi_transactional_fact_products p
@@ -384,7 +386,9 @@ SELECT
       + profit_sharing_turismocity
       + profit_sharing_naranja
       + efecto_fin_naranja
-      + channel_expenses_delta    AS fvm
+      + channel_expenses_delta    AS fvm,
+    -- COI + efecto financiero de Brasil tal como entran en el FVM: fvm_ex_coi_br = fvm - coi_fin_br (clean_actuals)
+    CASE WHEN pais = 'Brasil' THEN efecto_financiero - coi ELSE 0 END AS coi_fin_br
 FROM with_ps
 """
 
@@ -440,7 +444,7 @@ GROUP BY lob_canal ORDER BY lob_canal
 # ── B2B ───────────────────────────────────────────────────────────────────────
 CORE_PAISES = {'Brasil', 'Mexico', 'Other Countries'}
 COLS_B2B    = ["fecha", "pais", "producto_original", "parent_channel", "viaje", "product_type",
-               "orders", "gross_bookings", "net_revenue", "fvm"]
+               "orders", "gross_bookings", "net_revenue", "fvm", "fvm_ex_coi_br"]
 
 _B2B_CONECTORES_CTE = """
 WITH conectores AS (
@@ -887,6 +891,11 @@ _B2B_OUTER_SELECT_FVM = """
         + COALESCE(efecto_financiero,0) + COALESCE(dif_fx,0) + COALESCE(currency_hedge,0)
     ) AS fvm"""
 
+# COI + efecto financiero de Brasil tal como entran en el FVM de arriba: fvm_ex_coi_br = fvm - coi_fin_br (clean_b2b)
+_B2B_OUTER_SELECT_COI_FIN_BR = """
+    SUM(CASE WHEN pais = 'Brasil'
+             THEN COALESCE(cost_of_installments,0) + COALESCE(efecto_financiero,0) ELSE 0 END) AS coi_fin_br"""
+
 
 # WHERE de las queries B2B (compartidos con FVM Negativo, ver build_b2b_fvm_neg_query)
 def _b2b_where_ri(date_from: date, date_to: date) -> str:
@@ -941,7 +950,8 @@ SELECT
     SUM(orders) AS orders,
     SUM(gross_bookings) AS gross_bookings,"""
         + _B2B_OUTER_SELECT_NR + ","
-        + _B2B_OUTER_SELECT_FVM + """
+        + _B2B_OUTER_SELECT_FVM + ","
+        + _B2B_OUTER_SELECT_COI_FIN_BR + """
 FROM base_metrics
 GROUP BY 1, 2, 3, 4, 5, 6
 """)
@@ -972,7 +982,8 @@ SELECT
     SUM(orders) AS orders,
     SUM(gross_bookings) AS gross_bookings,"""
         + _B2B_OUTER_SELECT_NR + ","
-        + _B2B_OUTER_SELECT_FVM + """
+        + _B2B_OUTER_SELECT_FVM + ","
+        + _B2B_OUTER_SELECT_COI_FIN_BR + """
 FROM base_metrics
 GROUP BY 1, 2, 3, 4, 5, 6
 """)
@@ -1204,7 +1215,8 @@ def fetch(query: str, label: str, retries: int = 3) -> pd.DataFrame:
 
 def clean_actuals(df: pd.DataFrame) -> pd.DataFrame:
     df["fecha"] = pd.to_datetime(df["fecha"]).dt.strftime("%Y-%m-%d")
-    for col in ["gross_bookings", "net_revenues", "fvm"]:
+    df["fvm_ex_coi_br"] = pd.to_numeric(df["fvm"], errors="coerce").fillna(0) - pd.to_numeric(df["coi_fin_br"], errors="coerce").fillna(0)
+    for col in ["gross_bookings", "net_revenues", "fvm", "fvm_ex_coi_br"]:
         df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0).round(0).astype(int)
     df["orders"]  = pd.to_numeric(df["orders"], errors="coerce").fillna(0).astype(int)
     df["partner"] = df["partner"].fillna("Sin asignar").str.strip()
@@ -1219,7 +1231,19 @@ def clean_budget(df: pd.DataFrame) -> pd.DataFrame:
     for col in numeric_cols:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
+    add_fvm_ex_coi_br(df)
     return df
+
+
+def add_fvm_ex_coi_br(df: pd.DataFrame) -> None:
+    """FVM ex COI BR de las proyecciones (budget / run rate / forecast): el FVM sin el cost of
+    installments ni el efecto financiero de Brasil (ambos vienen abiertos y con el signo con el
+    que suman al FVM). Va DESPUÉS de apply_pais_overrides: usa el país corregido."""
+    if "fvm" not in df.columns:
+        return
+    comp = sum(pd.to_numeric(df[c], errors="coerce").fillna(0)
+               for c in ("cost_of_installments", "financial_results") if c in df.columns)
+    df["fvm_ex_coi_br"] = df["fvm"] - comp * (df["pais"] == "Brasil")
 
 
 def agg_actuals(df: pd.DataFrame) -> pd.DataFrame:
@@ -1230,7 +1254,8 @@ def agg_actuals(df: pd.DataFrame) -> pd.DataFrame:
         gross_bookings=("gross_bookings", "sum"),
         net_revenues  =("net_revenues",   "sum"),
         fvm           =("fvm",            "sum"),
-    ).round({"gross_bookings": 2, "net_revenues": 2, "fvm": 2})
+        fvm_ex_coi_br =("fvm_ex_coi_br",  "sum"),
+    ).round({"gross_bookings": 2, "net_revenues": 2, "fvm": 2, "fvm_ex_coi_br": 2})
 
 
 def _parse_fecha_budget(s: pd.Series) -> pd.Series:
@@ -1290,13 +1315,15 @@ def agg_budget(df: pd.DataFrame) -> pd.DataFrame:
         gross_bookings=("gross_bookings",  "sum"),
         net_revenue   =("net_revenue",     "sum"),
         fvm           =("fvm",             "sum"),
-    ).round({"gross_bookings": 2, "net_revenue": 2, "fvm": 2})
+        fvm_ex_coi_br =("fvm_ex_coi_br",   "sum"),
+    ).round({"gross_bookings": 2, "net_revenue": 2, "fvm": 2, "fvm_ex_coi_br": 2})
 
 
 def clean_b2b(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     df["fecha"] = pd.to_datetime(df["fecha"]).dt.strftime("%Y-%m-%d")
-    for col in ["gross_bookings", "net_revenue", "fvm"]:
+    df["fvm_ex_coi_br"] = pd.to_numeric(df["fvm"], errors="coerce").fillna(0) - pd.to_numeric(df["coi_fin_br"], errors="coerce").fillna(0)
+    for col in ["gross_bookings", "net_revenue", "fvm", "fvm_ex_coi_br"]:
         df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0).round(0).astype(int)
     df["orders"] = pd.to_numeric(df["orders"], errors="coerce").fillna(0).astype(int)
     df["viaje"]  = df["viaje"].fillna("N/A")
@@ -1317,6 +1344,7 @@ def agg_b2b(df: pd.DataFrame) -> pd.DataFrame:
         gross_bookings=("gross_bookings",  "sum"),
         net_revenue   =("net_revenue",     "sum"),
         fvm           =("fvm",             "sum"),
+        fvm_ex_coi_br =("fvm_ex_coi_br",   "sum"),
     )
 
 
@@ -1345,7 +1373,8 @@ def agg_b2b_budget(df: pd.DataFrame) -> pd.DataFrame:
         gross_bookings=("gross_bookings",  "sum"),
         net_revenue   =("net_revenue",     "sum"),
         fvm           =("fvm",             "sum"),
-    ).round({"gross_bookings": 2, "net_revenue": 2, "fvm": 2})
+        fvm_ex_coi_br =("fvm_ex_coi_br",   "sum"),
+    ).round({"gross_bookings": 2, "net_revenue": 2, "fvm": 2, "fvm_ex_coi_br": 2})
 
 
 def split_pkg_budget(df: pd.DataFrame) -> pd.DataFrame:
@@ -1372,10 +1401,10 @@ def split_pkg_budget(df: pd.DataFrame) -> pd.DataFrame:
     pk = df[is_pkg].drop(columns=["product_type"]).copy()
     pk["pais_key"] = pk["pais"].where(pk["pais"].isin(PKG_SPLIT_FACTORS.keys()), "TOTAL")
     pk = pk.merge(fac, on="pais_key", how="left")
-    metrics = [c for c in ("orders", "gross_bookings", "net_revenue", "fvm") if c in pk.columns]
+    metrics = [c for c in ("orders", "gross_bookings", "net_revenue", "fvm", "fvm_ex_coi_br") if c in pk.columns]
     for c in metrics:
         pk[c] = pk[c] * pk["share"]
-    pk = pk.drop(columns=["pais_key", "share"]).round({"gross_bookings": 2, "net_revenue": 2, "fvm": 2})
+    pk = pk.drop(columns=["pais_key", "share"]).round({"gross_bookings": 2, "net_revenue": 2, "fvm": 2, "fvm_ex_coi_br": 2})
     return pd.concat([df[~is_pkg], pk[df.columns]], ignore_index=True)
 
 
@@ -1385,10 +1414,10 @@ def build_okr_h2_actuals(df: pd.DataFrame) -> dict:
     es lo que separa el componente Vuelos / Dest. Serv. de los paquetes. Sin orders/GB/viaje."""
     if df is None or df.empty:
         return {"cols": [], "rows": []}
-    d = df[["fecha", "pais", "producto_original", "parent_channel", "product_type", "net_revenue", "fvm"]].copy()
+    d = df[["fecha", "pais", "producto_original", "parent_channel", "product_type", "net_revenue", "fvm", "fvm_ex_coi_br"]].copy()
     d.loc[d["producto_original"] != "Packages General", "product_type"] = ""
     d = d.groupby(["fecha", "pais", "producto_original", "parent_channel", "product_type"], as_index=False).agg(
-        net_revenue=("net_revenue", "sum"), fvm=("fvm", "sum"))
+        net_revenue=("net_revenue", "sum"), fvm=("fvm", "sum"), fvm_ex_coi_br=("fvm_ex_coi_br", "sum"))
     return to_compact(d)
 
 
@@ -1399,7 +1428,8 @@ def build_okr_h2_budget(df_clean: pd.DataFrame) -> list:
         return []
     b = split_pkg_budget(agg_b2b_budget(df_clean))
     b = b.groupby(["fecha", "pais", "parent_channel", "producto", "product_type"], as_index=False).agg(
-        net_revenue=("net_revenue", "sum"), fvm=("fvm", "sum")).round({"net_revenue": 2, "fvm": 2})
+        net_revenue=("net_revenue", "sum"), fvm=("fvm", "sum"), fvm_ex_coi_br=("fvm_ex_coi_br", "sum")
+    ).round({"net_revenue": 2, "fvm": 2, "fvm_ex_coi_br": 2})
     return b.to_dict(orient="records")
 
 
@@ -1408,7 +1438,7 @@ def _load_forecast_diario(base: str) -> pd.DataFrame:
     /distribucion-diaria). Las columnas vienen como texto por ODBC: se convierten las metricas.
     Si la tabla viene vacia devuelve DataFrame vacio (se aplica el fallback a Drive mas abajo)."""
     df = fetch(f"SELECT fecha, lob_canal, pais, producto, partner, orders, gross_bookings, "
-               f"net_revenue, fvm FROM raw.b2bfc1_{base.lower()}", f"Forecast {base.upper()}")
+               f"net_revenue, fvm, cost_of_installments, financial_results FROM raw.b2bfc1_{base.lower()}", f"Forecast {base.upper()}")
     if df.empty:
         print(f"  AVISO: raw.b2bfc1_{base.lower()} vacia — Forecast queda vacio")
         return pd.DataFrame()
@@ -1416,6 +1446,7 @@ def _load_forecast_diario(base: str) -> pd.DataFrame:
     for c in ("orders", "gross_bookings", "net_revenue", "fvm"):
         df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0)
     apply_pais_overrides(df)
+    add_fvm_ex_coi_br(df)
     return df
 
 
@@ -1427,8 +1458,8 @@ def agg_forecast_b2bc(df: pd.DataFrame) -> pd.DataFrame:
     d = df[df["lob_canal"].str.startswith("B2B2C")]
     return d.groupby(["fecha", "pais", "producto", "partner"], as_index=False).agg(
         orders=("orders", "sum"), gross_bookings=("gross_bookings", "sum"),
-        net_revenue=("net_revenue", "sum"), fvm=("fvm", "sum"),
-    ).round({"gross_bookings": 2, "net_revenue": 2, "fvm": 2})
+        net_revenue=("net_revenue", "sum"), fvm=("fvm", "sum"), fvm_ex_coi_br=("fvm_ex_coi_br", "sum"),
+    ).round({"gross_bookings": 2, "net_revenue": 2, "fvm": 2, "fvm_ex_coi_br": 2})
 
 
 def agg_forecast_b2b(df: pd.DataFrame) -> pd.DataFrame:
@@ -1440,8 +1471,8 @@ def agg_forecast_b2b(df: pd.DataFrame) -> pd.DataFrame:
     d["parent_channel"] = d["lob_canal"].map({"B2B-MAY": "API", "B2B-MIN": "Agencias afiliadas"})
     return d.groupby(["fecha", "pais", "parent_channel", "producto"], as_index=False).agg(
         orders=("orders", "sum"), gross_bookings=("gross_bookings", "sum"),
-        net_revenue=("net_revenue", "sum"), fvm=("fvm", "sum"),
-    ).round({"gross_bookings": 2, "net_revenue": 2, "fvm": 2})
+        net_revenue=("net_revenue", "sum"), fvm=("fvm", "sum"), fvm_ex_coi_br=("fvm_ex_coi_br", "sum"),
+    ).round({"gross_bookings": 2, "net_revenue": 2, "fvm": 2, "fvm_ex_coi_br": 2})
 
 
 # Overrides New/Existing (hunting) por partner: viven en hunting_rules.py, compartido con
