@@ -411,6 +411,14 @@
   .glob-m .c.green   { color: #2f7d4f; background: #e3f4ea; }
   .glob-m .c.neutral { color: #c3c9d4; font-weight: 600; }
   .glob-leg .c { color: #7c3aed; }
+  .glob-total { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; background: #fff; border: 1px solid #ede9fb; border-left: 4px solid #550FED; border-radius: 10px; padding: 12px 18px; margin: 4px 0 14px; }
+  .glob-total-main { flex: 0 0 auto; }
+  .glob-total-lbl { font-size: 10px; font-weight: 700; color: #7c3aed; text-transform: uppercase; letter-spacing: .6px; }
+  .glob-total-val { font-size: 30px; font-weight: 800; line-height: 1.1; margin-top: 2px; }
+  .glob-total-val.red { color: #a01a1a; } .glob-total-val.yellow { color: #8a5a00; } .glob-total-val.green { color: #2f7d4f; } .glob-total-val.neutral { color: #9ca3af; }
+  .glob-total-cov { font-size: 10.5px; color: #9ca3af; margin-top: 2px; }
+  .glob-total-strip { flex: 1 1 320px; max-width: 520px; margin-top: 0; }
+  .glob-total-strip .c { font-size: 12px; padding: 2px 0; margin-top: 4px; }
   .glob-pend { margin: 14px 0 4px; font-size: 11px; color: #b6a6e6; font-style: italic; }
 
   /* ── Tables view (multi-metric, no chart) ── */
@@ -3952,7 +3960,43 @@ function renderGlobales() {
     return '<div class="glob-card">' + head + range + legend + strip + '</div>';
   }).join('');
 
-  grid.innerHTML = '<div class="glob-grid">' + cards + '</div>';
+  // Total ponderado por mes — misma regla que el OKR del Hub (Codigo_OKR.js weighted_):
+  // Σ(score × peso) / Σ(peso de los KRs CON dato), score = okrScore_ (piso <70% → 0, techo 130%).
+  // Los KRs sin dato no entran al denominador; cov = % del peso total que tiene dato.
+  // Solo meses ya empezados (<= mes del último actual): un "actual" cargado a futuro en Input_OKR
+  // (p.ej. el target copiado) no puede mover el total.
+  var curYM = ((rawData && rawData.meta && rawData.meta.last_actuals_date) || '').substring(0, 7);
+  var totals = meses.map(function(ym){
+    if (curYM && ym > curYM) return { total: null, cov: 0 };
+    var wS = 0, wUsed = 0, wAll = 0;
+    globalesData.krs.forEach(function(kr){
+      var w = kr.weight || 0; wAll += w;
+      var t = kr.targets ? kr.targets[ym] : null;
+      var a = globalesActual_(kr, ym, agg);
+      var sc = (a !== null) ? globalesScore_(kr, ym, a, t) : null;
+      if (sc !== null) { wS += sc * w; wUsed += w; }
+    });
+    return { total: wUsed ? wS / wUsed : null, cov: wAll ? wUsed / wAll : 0 };
+  });
+  var refIdx = -1;
+  totals.forEach(function(t, i){ if (t.total !== null) refIdx = i; });   // último mes con dato
+  var totHtml = '';
+  if (refIdx >= 0) {
+    var ref = totals[refIdx];
+    totHtml = '<div class="glob-total">' +
+      '<div class="glob-total-main"><div class="glob-total-lbl">Cumplimiento total ponderado · ' + (labels[refIdx] || meses[refIdx]) + '</div>' +
+      '<div class="glob-total-val ' + globCumplClass_(ref.total) + '">' + Math.round(ref.total * 100) + '%</div>' +
+      '<div class="glob-total-cov">sobre el ' + Math.round(ref.cov * 100) + '% del peso con datos · piso &lt;70% = 0, techo 130% (regla del OKR del Hub)</div></div>' +
+      '<div class="glob-strip glob-total-strip">' + meses.map(function(ym, i){
+        var t = totals[i];
+        return '<div class="glob-m' + (t.total !== null ? ' act' : '') + '">' +
+               '<div class="l">' + (labels[i] || ym) + '</div>' +
+               '<div class="c ' + (t.total !== null ? globCumplClass_(t.total) : 'neutral') + '">' +
+               (t.total !== null ? Math.round(t.total * 100) + '%' : '—') + '</div></div>';
+      }).join('') + '</div></div>';
+  }
+
+  grid.innerHTML = totHtml + '<div class="glob-grid">' + cards + '</div>';
   wrap.style.display = 'block';
 }
 
