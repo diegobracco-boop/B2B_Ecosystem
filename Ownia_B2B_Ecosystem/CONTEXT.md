@@ -169,6 +169,10 @@ En el monorepo la app lee los proyectos GAS de las carpetas hermanas (`../<Modul
 4. Redeploy desde el MCP de Ownia (skill `ownia-deploy`): `deploy_app(action="redeploy", app_name="b2b-ecosystem")`
    — la app ya tiene guardados el repo y la rama. Llega un mail cuando termina.
 
+⚠️ **`manage_infra(action="apply")` deploya la rama por defecto del repo (`main` = `b2b-dashboard`), no la guardada
+en la app.** Pasó el 2026-10-21 al agregar DynamoDB: `/b2b-ecosystem` quedó sirviendo el dashboard de API. Después
+de cualquier `apply`, redeployar con `deploy_app(action="redeploy", branch="b2b-ecosystem")`.
+
 ⚠️ Igual que con clasp: **un `git push` al monorepo no publica nada en Ownia** — hace falta el paso 3 y 4. Y un
 cambio en un módulo GAS migrado (p.ej. `Manual_B2B_WLs/manual.html`) necesita **las dos** publicaciones:
 `/clasp-push` para GAS y sync + redeploy para Ownia.

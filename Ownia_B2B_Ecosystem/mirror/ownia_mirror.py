@@ -182,6 +182,8 @@ class DirTarget:
 
 
 def main():
+    # La consola de Windows (cp1252) no imprime ↑ y cortaba la corrida a mitad.
+    sys.stdout.reconfigure(encoding="utf-8")
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--module", help="slug del manifest (default: todos)")
     ap.add_argument("--to-dir", help="escribir a esta carpeta en vez de subir a Ownia")

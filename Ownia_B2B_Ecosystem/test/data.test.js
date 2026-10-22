@@ -279,3 +279,26 @@ test('DynamoBackend: archivo grande en pedazos de <400 KB, puntero al final y le
   const tercera = new FileStore(new DynamoBackend('tabla', { client }));
   await assert.rejects(tercera.refresh(), /pedazos/);
 });
+
+test('DynamoBackend: si la tabla frena por throughput, espera y reintenta en vez de fallar', async () => {
+  const client = fakeDynamo();
+  const send = client.send;
+  let frenos = 3;
+  client.send = async (cmd) => {
+    if (cmd.constructor.name === 'BatchWriteCommand' && frenos > 0) {
+      frenos--;
+      const e = new Error('Throughput exceeds the maximum OnDemandThroughput configured on table or index');
+      e.name = 'ThrottlingException';
+      throw e;
+    }
+    return send(cmd);
+  };
+  const store = new FileStore(new DynamoBackend('tabla', { client, retryMs: 1 }));
+  const big = require('crypto').randomBytes(1000000);
+  const meta = await store.put({ id: 'jsonFile000000000002', name: 'y.json', updatedAt: 5 }, big);
+  assert.equal(frenos, 0);
+  const otra = new FileStore(new DynamoBackend('tabla', { client }));
+  await otra.refresh();
+  assert.ok(otra.get('jsonFile000000000002').buf.equals(big));
+  assert.ok(meta.chunks > 1);
+});

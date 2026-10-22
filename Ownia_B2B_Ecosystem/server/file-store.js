@@ -84,7 +84,16 @@ class DirBackend {
 // el puntero es el "commit", así nadie lee nunca un archivo a medio subir. Ownia inyecta la
 // tabla en APP_SECRETS.DYNAMODB_TABLE y los permisos vienen del rol de la tarea.
 const CHUNK_BYTES = 350000;
+// La tabla de Ownia tiene un tope de escritura on-demand: de a 2 pedazos (~700 KB) por llamada,
+// y si igual frena ("Throughput exceeds the maximum OnDemandThroughput"), esperar y reintentar.
+const BATCH_ITEMS = 2;
 const PK = 'mirror';
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+function isThrottle(e) {
+  return ['ThrottlingException', 'ProvisionedThroughputExceededException', 'RequestLimitExceeded'].includes(e && e.name) ||
+    /throughput/i.test(String(e && e.message));
+}
 
 class DynamoBackend {
   constructor(tableName, opts = {}) {
@@ -92,8 +101,21 @@ class DynamoBackend {
     const { DynamoDBDocumentClient } = require('@aws-sdk/lib-dynamodb');
     this.table = tableName;
     this.log = opts.log || (() => {});
+    this.retryMs = opts.retryMs != null ? opts.retryMs : 250;
     this.doc = opts.client || DynamoDBDocumentClient.from(new DynamoDBClient({ region: process.env.AWS_REGION || 'us-east-1' }));
     this.cmd = require('@aws-sdk/lib-dynamodb');
+  }
+
+  // send con espera exponencial (tope 10 s por espera, ~1,5 min en total) si DynamoDB frena.
+  async _send(command) {
+    for (let intento = 0; ; intento++) {
+      try {
+        return await this.doc.send(command);
+      } catch (e) {
+        if (!isThrottle(e) || intento >= 12) throw e;
+        await sleep(Math.min(this.retryMs * 2 ** intento, 10000));
+      }
+    }
   }
 
   async _queryAll(pk) {
@@ -134,21 +156,21 @@ class DynamoBackend {
     for (let i = 0; i < gz.length; i += CHUNK_BYTES) chunks.push(gz.subarray(i, i + CHUNK_BYTES));
     if (!chunks.length) chunks.push(Buffer.alloc(0));
     const blobPk = `mirror_blob#${meta.id}#${meta.sha256}`;
-    // BatchWrite: de a 25 items; reintenta lo que DynamoDB devuelve sin procesar.
-    for (let i = 0; i < chunks.length; i += 25) {
-      let req = chunks.slice(i, i + 25).map((c, j) => ({
+    // BatchWrite de a BATCH_ITEMS; reintenta lo que DynamoDB devuelve sin procesar.
+    for (let i = 0; i < chunks.length; i += BATCH_ITEMS) {
+      let req = chunks.slice(i, i + BATCH_ITEMS).map((c, j) => ({
         PutRequest: { Item: { pk: blobPk, sk: `c#${String(i + j).padStart(4, '0')}`, data: c } },
       }));
       for (let intento = 0; req.length; intento++) {
         if (intento > 8) throw new Error(`archivo ${meta.id}: DynamoDB no aceptó todos los pedazos`);
-        if (intento) await new Promise((r) => setTimeout(r, 100 * 2 ** intento));
-        const r = await this.doc.send(new this.cmd.BatchWriteCommand({ RequestItems: { [this.table]: req } }));
+        if (intento) await sleep(this.retryMs * 2 ** intento);
+        const r = await this._send(new this.cmd.BatchWriteCommand({ RequestItems: { [this.table]: req } }));
         req = (r.UnprocessedItems && r.UnprocessedItems[this.table]) || [];
       }
     }
-    const prev = (await this.doc.send(new this.cmd.GetCommand({ TableName: this.table, Key: { pk: PK, sk: `file#${meta.id}` } }))).Item;
+    const prev = (await this._send(new this.cmd.GetCommand({ TableName: this.table, Key: { pk: PK, sk: `file#${meta.id}` } }))).Item;
     const stored = { ...meta, chunks: chunks.length };
-    await this.doc.send(new this.cmd.PutCommand({
+    await this._send(new this.cmd.PutCommand({
       TableName: this.table,
       Item: { pk: PK, sk: `file#${meta.id}`, cuerpo: JSON.stringify(stored) },
     }));
@@ -166,7 +188,7 @@ class DynamoBackend {
     const pk = `mirror_blob#${meta.id}#${meta.sha256}`;
     const items = await this._queryAll(pk);
     for (let i = 0; i < items.length; i += 25) {
-      await this.doc.send(new this.cmd.BatchWriteCommand({
+      await this._send(new this.cmd.BatchWriteCommand({
         RequestItems: { [this.table]: items.slice(i, i + 25).map((x) => ({ DeleteRequest: { Key: { pk, sk: x.sk } } })) },
       }));
     }
