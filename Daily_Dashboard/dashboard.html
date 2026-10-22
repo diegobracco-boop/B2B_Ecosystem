@@ -4608,18 +4608,22 @@ function flowVDate_(){
 // evita comparar actuals YTD contra presupuesto de meses futuros aún no transcurridos.
 function flowMonthly_(subRaw, metricKey, compKey, vDate){
   var MF=_FLMF[metricKey], cmpArr=_flCompArr_(subRaw,compKey), cmpF=_flCompField_(metricKey,compKey);
-  var mM={}, bM={};
-  (subRaw.actuals||[]).forEach(function(r){var m=r.fecha.substring(0,7);mM[m]=(mM[m]||0)+(r[MF]||0);});
+  var mM={}, bM={}, yM={}, lM={};
+  // yM = actuals para el YoY (a TC Actuals LY con ORGANIC, _yv_), lM = LY corrido +1 año: la fila
+  // "% YoY" debajo de cada columna mensual (flowChart_), siempre vs LY sin importar el Goal elegido.
+  (subRaw.actuals||[]).forEach(function(r){var m=r.fecha.substring(0,7);mM[m]=(mM[m]||0)+(r[MF]||0);yM[m]=(yM[m]||0)+_yv_(r,MF);});
   // LY hasta el mismo día del año pasado (como Budget/RR hasta vDate): si no, el mes en curso
   // comparaba el MTD contra el LY del mes completo.
-  if(compKey==='ly'){ var lyCut=vDate?_flLY_(vDate):null; cmpArr.forEach(function(r){ if(lyCut&&r.fecha>lyCut)return; var m=(+r.fecha.substring(0,4)+1)+r.fecha.substring(4,7);bM[m]=(bM[m]||0)+(r[cmpF]||0);}); }
+  var lyCut=vDate?_flLY_(vDate):null;
+  (subRaw.actuals_ly||[]).forEach(function(r){ if(lyCut&&r.fecha>lyCut)return; var m=(+r.fecha.substring(0,4)+1)+r.fecha.substring(4,7);lM[m]=(lM[m]||0)+(r[MF]||0);});
+  if(compKey==='ly'){ cmpArr.forEach(function(r){ if(lyCut&&r.fecha>lyCut)return; var m=(+r.fecha.substring(0,4)+1)+r.fecha.substring(4,7);bM[m]=(bM[m]||0)+(r[cmpF]||0);}); }
   else { cmpArr.forEach(function(r){ if(vDate&&r.fecha>vDate)return; var m=r.fecha.substring(0,7);bM[m]=(bM[m]||0)+(r[cmpF]||0);}); }
   var keys={}; Object.keys(mM).forEach(function(k){keys[k]=1;}); Object.keys(bM).forEach(function(k){keys[k]=1;});
   // Solo el año fiscal del mes que se mira, de abril hasta ese mes: los actuals del JSON arrancan
   // en enero (ene–mar son del FY anterior) y, mirando un mes pasado, los meses posteriores entraban
   // con Goal 0. También acota el acumulado de flowH1_ (FYTD).
   var vd=vDate||flowVDate_(), vy=+vd.substring(0,4), fyStart=(+vd.substring(5,7)>=4?vy:vy-1)+'-04', vM=vd.substring(0,7);
-  return Object.keys(keys).filter(function(m){ return m>=fyStart && m<=vM; }).sort().map(function(m){ return {date:m+'-01', v:Math.round((mM[m]||0)*100)/100, bud:Math.round((bM[m]||0)*100)/100, ly:0, projected:false}; });
+  return Object.keys(keys).filter(function(m){ return m>=fyStart && m<=vM; }).sort().map(function(m){ return {date:m+'-01', v:Math.round((mM[m]||0)*100)/100, bud:Math.round((bM[m]||0)*100)/100, ly:Math.round((lM[m]||0)*100)/100, yoy:lM[m]?((yM[m]||0)/lM[m]-1)*100:null, projected:false}; });
 }
 function flowH1_(monthly){ var b=0,g=0; monthly.forEach(function(m){b+=m.v;g+=m.bud;}); return {base:b,goal:g}; }
 
@@ -4945,7 +4949,7 @@ function flowBuildSlide_(def, idx){
     var panels='';
     ['gb','nr','fvm'].forEach(function(mk){
       var mon=flowMonthly_(sub,mk,cmp,vDate); var h1=flowH1_(mon); var cid='flc'+idx+'-'+mk;
-      _flowSeries[idx].push({id:cid, series:mon, gran:'monthly', opts:{labels:true}});
+      _flowSeries[idx].push({id:cid, series:mon, gran:'monthly', opts:{labels:true, yoy:true}});
       panels+='<div style="flex:1;min-width:0;display:flex;flex-direction:column;min-height:0">'
         +'<div class="fl-chart-title">'+FLOW_MET[mk].label+', en $</div>'+flLegend_(cmpLbl)
         +'<div style="display:flex;gap:10px;align-items:center;flex:1;min-width:0;min-height:0">'
@@ -5122,6 +5126,21 @@ function flowBuildSlide_(def, idx){
   return '<div class="flow-slide"></div>';
 }
 
+// Fila "% YoY" (actuals vs LY) debajo de cada columna de los gráficos mensuales de las slides
+// Monthly Performance — verde/rojo como .fl-pos/.fl-neg, "—" si el mes no tiene LY.
+var _flYoyPlugin_={id:'flYoy', afterDraw:function(chart){
+  var yoy=chart._flYoy; if(!yoy) return;
+  var x=chart.scales.x, ctx=chart.ctx, y0=x.bottom+2;
+  ctx.save(); ctx.font='700 9px Poppins, sans-serif'; ctx.textBaseline='top';
+  ctx.textAlign='right'; ctx.fillStyle='#6b6b85'; ctx.fillText('YoY', chart.chartArea.left-4, y0);
+  ctx.textAlign='center';
+  yoy.forEach(function(p,i){
+    var r = p==null ? null : Math.round(p);   // color según el valor redondeado: -0,4% sale "0%" verde, no rojo
+    ctx.fillStyle = r==null ? '#9a9ab0' : r>=0 ? '#15803d' : '#dc2626';
+    ctx.fillText(r==null ? '—' : (r>=0?'+':'')+r+'%', x.getPixelForValue(i), y0);
+  });
+  ctx.restore();
+}};
 function flowChart_(spec){
   if(_flowCharts[spec.id]){ _flowCharts[spec.id].destroy(); delete _flowCharts[spec.id]; }
   var el=document.getElementById(spec.id); if(!el) return;
@@ -5129,13 +5148,15 @@ function flowChart_(spec){
   var labels=s.map(function(d){return fmtChartLabel_(d.date,gran);});
   var base  =s.map(function(d){return d.projected?null:d.v;});
   var goal  =s.map(function(d){return d.bud!=null?d.bud:null;});
+  var showYoy=!!opts.yoy;
   var ch=new Chart(el.getContext('2d'),{
-    plugins:[_barLabelsPlugin_],
+    plugins:showYoy?[_barLabelsPlugin_,_flYoyPlugin_]:[_barLabelsPlugin_],
     data:{labels:labels,datasets:[
       {type:'bar',label:'Baseline',data:base,backgroundColor:'rgba(86,38,233,.9)',borderRadius:2,order:2,_showLabels:opts.labels!==false,barPercentage:.92,categoryPercentage:.7},
       {type:'bar',label:'Goal',data:goal,backgroundColor:'rgba(190,190,208,.65)',borderRadius:2,order:3,barPercentage:.92,categoryPercentage:.7}
     ]},
     options:{responsive:true,maintainAspectRatio:false,animation:false,
+      layout:{padding:{bottom:showYoy?14:0}},
       plugins:{legend:{display:false},tooltip:{enabled:false}},
       scales:{
         x:{grid:{display:false},ticks:{color:'#6b6b85',font:{size:gran==='daily'?8:10},maxRotation:0,autoSkip:false},border:{color:'transparent'}},
@@ -5143,6 +5164,9 @@ function flowChart_(spec){
       }}
   });
   ch._tvLabelColor='rgba(40,30,80,.9)'; ch._isPct=false;
+  // animation:false -> el constructor ya dibujó sin _flYoy; redibujar para que la fila salga
+  // también en el PDF (flowRebuild_ en beforeprint) y en el export a Slides (html2canvas)
+  if(showYoy){ ch._flYoy=s.map(function(d){ return d.yoy; }); ch.draw(); }
   _flowCharts[spec.id]=ch;
 }
 
