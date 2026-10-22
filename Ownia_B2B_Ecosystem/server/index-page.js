@@ -2,7 +2,8 @@
 // Estilo copiado de la portada de b2b-dashboard (rama main de despegar/B2B_Ecosystem_Ownia):
 // oscuro por defecto con toggle claro (misma clave de localStorage, así la preferencia se
 // comparte), Poppins, topbar con línea violeta, hero con degradé y tarjetas con ícono. El primer
-// grupo arma un bento con la tarjeta destacada. Sin la intro animada de b2b-dashboard.
+// grupo arma un bento con la tarjeta destacada. Intro "The B2B Ecosystem" igual a la de
+// b2b-dashboard: una vez por sesión, se saltea con clic/tecla, nunca con prefers-reduced-motion.
 //
 // Links: los módulos en Apps Script abren su landing de Google (la productiva, en otra pestaña).
 // Los "en validación" abren la versión de Ownia solo para quien puede entrar (allowedUsers);
@@ -109,7 +110,7 @@ function indexPage({ modules, basePath, canOpen = () => true }) {
   const migrated = modules.filter((m) => m.ownia && !m.validating).length;
   const validating = modules.filter((m) => m.ownia && m.validating).length;
   const sections = grouped(modules)
-    .map((g) => `<div class="group">
+    .map((g, i) => `<div class="group reveal" style="--i:${i + 1}">
       <h2>${escapeHtml(g.title)}</h2>
       ${groupHtml(g, basePath, canOpen)}
     </div>`)
@@ -122,8 +123,16 @@ function indexPage({ modules, basePath, canOpen = () => true }) {
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Tableros B2B · Despegar</title>
 <script>
-  // Tema guardado antes del primer render (misma clave que b2b-dashboard: oscuro por defecto).
-  try { if (localStorage.getItem('b2b-api-theme') === 'light') document.documentElement.setAttribute('data-theme', 'light'); } catch (e) {}
+  // Estado inicial antes del primer render (sin parpadeo): tema guardado (misma clave que
+  // b2b-dashboard: oscuro por defecto) e intro una vez por sesión, salvo prefers-reduced-motion.
+  (function () {
+    var h = document.documentElement;
+    try { if (localStorage.getItem('b2b-api-theme') === 'light') h.setAttribute('data-theme', 'light'); } catch (e) {}
+    var play = true;
+    try { if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) play = false; } catch (e) {}
+    try { if (sessionStorage.getItem('b2b-eco-intro-seen') === '1') play = false; } catch (e) {}
+    if (play) h.className += ' intro-on';
+  })();
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -231,13 +240,52 @@ function indexPage({ modules, basePath, canOpen = () => true }) {
     .card, .card.featured { padding: 20px; }
     .card.featured h3 { font-size: 22px; }
   }
+  /* ---------- Intro (igual que b2b-dashboard) ---------- */
+  .intro { display: none; }
+  .intro-on .intro { display: grid; place-items: center; position: fixed; inset: 0; z-index: 100; cursor: pointer;
+                     background: var(--bg); transition: opacity .55s var(--ease); animation: failsafe 0s 6s forwards; }
+  .intro.out { opacity: 0; pointer-events: none; }
+  .intro canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .intro-core { position: relative; text-align: center; transition: transform .55s var(--ease); }
+  .intro.out .intro-core { transform: scale(1.06); }
+  .intro-word { display: block; font-weight: 800; letter-spacing: -0.045em; line-height: .98; font-size: clamp(52px, 11.5vw, 150px); white-space: nowrap; }
+  .intro-word span {
+    display: inline-block; opacity: 0; transform: translateY(40px);
+    background: linear-gradient(110deg, var(--text) 38%, #c9b4ff 47%, var(--secondary) 54%, var(--primary) 70%, var(--secondary) 100%);
+    background-size: 280% 100%; background-position: 0% 0; -webkit-background-clip: text; background-clip: text; color: transparent;
+    animation: letterIn .7s var(--ease) forwards, sweep 1.1s cubic-bezier(.5, 0, .2, 1) forwards;
+    animation-delay: calc(var(--d) * 1ms), calc(var(--d) * 1ms + 650ms);
+  }
+  .intro-sub { margin-top: 18px; font-size: clamp(12px, 2.4vw, 15px); font-weight: 500; letter-spacing: .02em; color: var(--text-2);
+               opacity: 0; animation: fadeIn .6s var(--ease) 1.5s forwards; }
+  .intro-skip { position: absolute; bottom: 22px; left: 0; right: 0; text-align: center; font-size: 11px; color: var(--text-3); opacity: 0; animation: fadeIn .6s ease .6s forwards; }
+  @keyframes letterIn { to { opacity: 1; transform: none; } }
+  @keyframes sweep { to { background-position: 100% 0; } }
+  @keyframes fadeIn { to { opacity: 1; } }
+  @keyframes failsafe { to { opacity: 0; visibility: hidden; pointer-events: none; } }
+  /* la portada entra una sola vez, después de la intro */
+  .intro-on .reveal { opacity: 0; transform: translateY(18px); animation: failsafeIn 0s 6s forwards; }
+  .intro-on.landed .reveal { opacity: 1; transform: none; transition: opacity .7s var(--ease), transform .7s var(--ease); transition-delay: calc(var(--i, 0) * 110ms); }
+  @keyframes failsafeIn { to { opacity: 1; transform: none; } }
+
   @media (prefers-reduced-motion: reduce) {
+    .intro { display: none !important; }
+    .reveal { animation: none !important; transition: none !important; opacity: 1 !important; transform: none !important; }
     .card, .cta svg { transition: none !important; }
     .card:hover { transform: none; }
   }
 </style>
 </head>
 <body>
+<div class="intro" id="intro" aria-hidden="true">
+  <canvas id="net"></canvas>
+  <div class="intro-core">
+    <span class="intro-word" id="w1"></span>
+    <span class="intro-word" id="w2"></span>
+    <div class="intro-sub">B2B &middot; B2B2C &middot; despegar</div>
+  </div>
+  <div class="intro-skip">Clic o cualquier tecla para saltar</div>
+</div>
 <header class="topbar">
   <span class="topbar-logo">despegar</span>
   <div class="topbar-divider"></div>
@@ -251,14 +299,14 @@ function indexPage({ modules, basePath, canOpen = () => true }) {
 </header>
 <main>
   <div class="wrap">
-    <div class="hero">
+    <div class="hero reveal" style="--i:0">
       <h1>Tableros <span class="g">B2B</span></h1>
       <p>Resultados, seguimiento diario y producto de B2B y B2B2C, en un solo lugar. Los que tienen ↗ se abren en otra pestaña.</p>
     </div>
     ${sections}
   </div>
 </main>
-<footer>
+<footer class="reveal" style="--i:5">
   <div class="wrap">Migración a Ownia: ${migrated} de ${modules.length} tableros servidos desde acá${validating ? ` · ${validating} en validación (en paralelo a Apps Script, que sigue siendo el productivo)` : ''}</div>
 </footer>
 <script>
@@ -277,6 +325,93 @@ function indexPage({ modules, basePath, canOpen = () => true }) {
       syncIcons();
     });
     syncIcons();
+
+    /* ---- Intro ---- */
+    if (!/\\bintro-on\\b/.test(root.className)) return;
+    var intro = document.getElementById('intro');
+    var canvas = document.getElementById('net');
+    var done = false, raf = 0, endTimer = 0;
+
+    function letters(id, text, base) {
+      var el = document.getElementById(id);
+      for (var i = 0; i < text.length; i++) {
+        var s = document.createElement('span');
+        s.textContent = text.charAt(i) === ' ' ? '\\u00a0' : text.charAt(i);
+        s.style.setProperty('--d', String(base + i * 70));
+        el.appendChild(s);
+      }
+    }
+    letters('w1', 'The B2B', 150);
+    letters('w2', 'Ecosystem', 560);
+
+    function finish() {
+      if (done) return;
+      done = true;
+      clearTimeout(endTimer);
+      try { sessionStorage.setItem('b2b-eco-intro-seen', '1'); } catch (e) {}
+      intro.classList.add('out');
+      root.className += ' landed';
+      setTimeout(function () { cancelAnimationFrame(raf); intro.style.display = 'none'; }, 650);
+      setTimeout(function () { root.className = root.className.replace(/\\s*\\b(intro-on|landed)\\b/g, ''); }, 2200);
+      document.removeEventListener('keydown', finish);
+    }
+    intro.addEventListener('click', finish);
+    document.addEventListener('keydown', finish);
+    endTimer = setTimeout(finish, 2700);
+
+    /* ---- Red de conexiones (canvas, liviana; solo mientras dura la intro) ---- */
+    var ctx = canvas.getContext && canvas.getContext('2d');
+    if (!ctx) return;
+    var W = 0, H = 0, dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var nodes = [], edges = [];
+    var lineCol = (getComputedStyle(root).getPropertyValue('--secondary') || '#8e5ff3').trim();
+    var seed = 7;
+    function rnd() { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }
+
+    function build() {
+      W = canvas.clientWidth; H = canvas.clientHeight;
+      canvas.width = W * dpr; canvas.height = H * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      seed = 7; nodes = []; edges = [];
+      var n = W < 600 ? 22 : 36;
+      for (var i = 0; i < n; i++) nodes.push({ x: rnd() * W, y: rnd() * H, p: rnd() * 6.28, a: 6 + rnd() * 10 });
+      var maxD = Math.min(W, H) * (W < 600 ? .5 : .36);
+      for (var i = 0; i < n; i++) for (var j = i + 1; j < n; j++) {
+        var dx = nodes[i].x - nodes[j].x, dy = nodes[i].y - nodes[j].y;
+        if (Math.sqrt(dx * dx + dy * dy) < maxD && edges.length < 70) edges.push({ a: i, b: j, t: rnd() * 900 + 100, o: rnd() });
+      }
+    }
+    build();
+    window.addEventListener('resize', build);
+
+    var t0 = 0;
+    function frame(now) {
+      if (done && !t0) return;
+      if (!t0) t0 = now;
+      var t = now - t0;
+      ctx.clearRect(0, 0, W, H);
+      ctx.strokeStyle = lineCol; ctx.fillStyle = lineCol;
+      var pos = nodes.map(function (n) { return [n.x + Math.sin(t / 900 + n.p) * n.a, n.y + Math.cos(t / 1100 + n.p) * n.a]; });
+      for (var i = 0; i < edges.length; i++) {
+        var e = edges[i], k = Math.min(1, Math.max(0, (t - e.t) / 700));
+        if (k <= 0) continue;
+        var A = pos[e.a], B = pos[e.b];
+        ctx.globalAlpha = .42 * k; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(A[0], A[1]); ctx.lineTo(A[0] + (B[0] - A[0]) * k, A[1] + (B[1] - A[1]) * k); ctx.stroke();
+        if (k >= 1 && e.o > .55) {   // pulso de datos viajando por la conexión
+          var q = ((t - e.t) / 1400 + e.o) % 1;
+          ctx.globalAlpha = .9;
+          ctx.beginPath(); ctx.arc(A[0] + (B[0] - A[0]) * q, A[1] + (B[1] - A[1]) * q, 2, 0, 6.283); ctx.fill();
+        }
+      }
+      for (var i = 0; i < pos.length; i++) {
+        ctx.globalAlpha = .75 * Math.min(1, t / 600);
+        ctx.beginPath(); ctx.arc(pos[i][0], pos[i][1], 2.2, 0, 6.283); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+      raf = requestAnimationFrame(frame);
+    }
+    raf = requestAnimationFrame(frame);
   })();
 </script>
 </body>
