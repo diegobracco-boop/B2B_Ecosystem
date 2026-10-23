@@ -1743,7 +1743,7 @@ function setExclTBD(on) {
 // y Flow. Weekly y OKR semanal se calculan en el servidor: van con el parámetro exCoiBr.
 var _exCoiBr = false;
 var _COIBR_KEYS_ = {
-  b2bc:  ['actuals', 'actuals_ly', 'budget', 'runrate', 'forecast', 'budget_fy_rest', 'runrate_fy_rest', 'actuals_ly_fy_rest'],
+  b2bc:  ['actuals', 'actuals_ly', 'budget', 'runrate', 'forecast', 'budget_fy_rest', 'runrate_fy_rest', 'actuals_fy_rest', 'actuals_ly_fy_rest'],
   b2b:   ['b2b_gd', 'b2b_gd_ly', 'b2b_ri', 'b2b_ri_ly', 'b2b_budget_gd', 'b2b_budget_ri',
           'b2b_runrate_gd', 'b2b_runrate_ri', 'b2b_forecast_gd', 'b2b_forecast_ri'],
   okrH2: ['b2b_gd', 'b2b_gd_ly', 'b2b_ri', 'b2b_ri_ly', 'b2b_budget_gd', 'b2b_budget_ri']
@@ -1860,6 +1860,7 @@ function b2bcRawOrg_(target) {
   var base = b2bcRaw_();
   if (!target || !base) return base;
   var o = Object.assign({}, base); o.actuals = _orgRows_(base.actuals, target);
+  if (base.actuals_fy_rest && base.actuals_fy_rest.length) o.actuals_fy_rest = _orgRows_(base.actuals_fy_rest, target);
   return o;
 }
 function b2bRawOrg_(target) {
@@ -1990,7 +1991,7 @@ var PARTNER_ALIAS_ = {
   // Sicoob Acumulo NO se unifica con Sicoob: la cartera lo tiene New (Sicoob es Existing).
 };
 function applyPartnerAlias_(raw){
-  ['actuals','actuals_ly','budget','runrate','forecast','budget_fy_rest','runrate_fy_rest','actuals_ly_fy_rest'].forEach(function(k){
+  ['actuals','actuals_ly','budget','runrate','forecast','budget_fy_rest','runrate_fy_rest','actuals_fy_rest','actuals_ly_fy_rest'].forEach(function(k){
     (raw[k]||[]).forEach(function(r){ var a=PARTNER_ALIAS_[r.partner]; if(a) r.partner=a; });
   });
 }
@@ -2477,7 +2478,7 @@ window.onload = function() {
       applyCoiBr_(raw, _COIBR_KEYS_.b2bc);
       applyPartnerAlias_(raw);
       // Partner TBD = New partners / Hunting, aunque la cartera de ComDev no lo tenga.
-      ['actuals','actuals_ly','actuals_ly_fy_rest'].forEach(function(k){ (raw[k]||[]).forEach(function(r){ if(isTBDPartner_(r.partner)) r.account_type='New'; }); });
+      ['actuals','actuals_ly','actuals_fy_rest','actuals_ly_fy_rest'].forEach(function(k){ (raw[k]||[]).forEach(function(r){ if(isTBDPartner_(r.partner)) r.account_type='New'; }); });
       ['budget','runrate','forecast','budget_fy_rest','runrate_fy_rest'].forEach(function(k){ (raw[k]||[]).forEach(function(r){ if(isTBDPartner_(r.partner)){ r.stage='New'; _tbdPartnerNames[r.partner]=1; } }); });
       _rawB2BC         = raw;
       state.viewDate   = raw.meta.last_actuals_date;
@@ -5099,7 +5100,8 @@ function flowH1_(monthly){ var b=0,g=0; monthly.forEach(function(m){b+=m.v;g+=m.
 // independiente del mes elegido arriba. v = actuals hasta el último día con datos
 // (meta.last_actuals_date); p = proyección Run Rate de los días/meses que faltan (runrate diario
 // hasta dic + runrate_fy_rest mensual ene–mar, ver agg_budget(fy_rest=True) en daily_sync.py).
-// El mes en curso va completo: actual MTD + Run Rate del resto del mes. bud = Goal del mes
+// El mes en curso va completo: actual MTD + Run Rate del resto del mes. En ene–mar los actuals
+// abr–dic vienen de actuals_fy_rest (mensual; el bloque actuals arranca el 1-ene). bud = Goal del mes
 // COMPLETO (budget/runrate + *_fy_rest; LY = actuals del año pasado corridos +1 año). yoy =
 // (v+p) vs LY del mes completo; "—" si el LY de ese mes no está entero en el JSON.
 function flowFY12_(subRaw, metricKey, compKey){
@@ -5109,7 +5111,7 @@ function flowFY12_(subRaw, metricKey, compKey){
   var inFY={}; months.forEach(function(m){ inFY[m]=1; });
   function add(o,m,v){ if(inFY[m]) o[m]=(o[m]||0)+(v||0); }
   var A={}, Y={}, P={}, G={}, LYv={};
-  (subRaw.actuals||[]).forEach(function(r){ if(r.fecha>L) return; var m=r.fecha.substring(0,7); add(A,m,r[MF]); add(Y,m,_yv_(r,MF)); });
+  (subRaw.actuals||[]).concat(subRaw.actuals_fy_rest||[]).forEach(function(r){ if(r.fecha>L) return; var m=r.fecha.substring(0,7); add(A,m,r[MF]); add(Y,m,_yv_(r,MF)); });
   (subRaw.runrate||[]).concat(subRaw.runrate_fy_rest||[]).forEach(function(r){ if(r.fecha>L) add(P,r.fecha.substring(0,7),r[BF]); });
   // LY nominal (sin organic, como en flowMonthly_): actuals_ly + actuals del año calendario en
   // curso (ene–mar del FY anterior), corridos +1 año. lyMax = último día con LY real.
