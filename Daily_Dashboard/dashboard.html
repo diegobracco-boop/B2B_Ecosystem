@@ -3643,18 +3643,25 @@ function loadGlobalesTargets_(){
 
 // Agregado NR de API Hoteles (canal API, producto Hotel, todos los países) para un mes,
 // hasta `upTo` (MTD) — mismo filtro que el tab "KR Global B2B API" del Tracker.
+// Target = budget GESTIONAL del daily (b2b_budget_ri, decisión 2026-10-23): bud = mes completo,
+// budMtd = hasta `upTo` (mismo corte que el actual).
 function computeGlobalesApiHotelMonth_(raw, ym, upTo){
   var src=raw.b2b_ri||[]; var pp=ym.split('-');
-  var from=ym+'-01', to=ym+'-'+String(new Date(+pp[0],+pp[1],0).getDate()).padStart(2,'0');
+  var from=ym+'-01', end=ym+'-'+String(new Date(+pp[0],+pp[1],0).getDate()).padStart(2,'0'), to=end;
   if(upTo && upTo<to) to=upTo;
-  var nr=0;
+  function apiHotel(r,p){ return r.parent_channel==='API' && (p==='Hotel'||p==='Hotels'); }
+  var nr=0, bud=0, budMtd=0;
   src.forEach(function(r){
     if(r.fecha<from||r.fecha>to)return;
-    if(r.parent_channel!=='API')return;
-    var p=r.producto_original||''; if(p!=='Hotel'&&p!=='Hotels')return;
+    if(!apiHotel(r, r.producto_original||''))return;
     nr+=(r.net_revenue||0);
   });
-  return {nr:nr};
+  (raw.b2b_budget_ri||[]).forEach(function(r){
+    if(r.fecha<from||r.fecha>end||!apiHotel(r, r.producto||''))return;
+    bud+=(r.net_revenue||0);
+    if(r.fecha<=to) budMtd+=(r.net_revenue||0);
+  });
+  return {nr:nr, bud:bud, budMtd:budMtd};
 }
 
 function globalesRefYM_(meses, viewDate){
@@ -3673,15 +3680,19 @@ function renderKRsGlobales_(){
   var meta=_globalesTargets.meta||{}, meses=meta.meses||[], labels=meta.meses_label||meses;
   var refYM=globalesRefYM_(meses, state_b2b.viewDate), idx=meses.indexOf(refYM);
   var vd=String(state_b2b.viewDate||'');
-  var agg=_rawB2B?computeGlobalesApiHotelMonth_(_krRawB2B_(_rawB2B), refYM, vd):{nr:0};   // a TC Budget con ORGANIC YES (hay países con TC)
-  // NR es MTD → si el día de vista cae en el mes de referencia, el target se prorratea por días.
+  var agg=_rawB2B?computeGlobalesApiHotelMonth_(_krRawB2B_(_rawB2B), refYM, vd):{nr:0,bud:0,budMtd:0};   // a TC Budget con ORGANIC YES (hay países con TC)
+  // NR es MTD → se compara contra el budget gestional acumulado al mismo corte (agg.budMtd). Sin budget
+  // diario, queda el target de okr.json prorrateado por días.
   var pp=refYM.split('-'), frac=(vd.substring(0,7)===refYM)?Number(vd.substring(8,10))/new Date(+pp[0],+pp[1],0).getDate():1;
   function pctColor(p){return p===null?'var(--text-2)':p>=100?'var(--success)':p>=80?'#f59e0b':'var(--danger)';}
   function fmtVal(v,unit){ if(v===null||v===undefined)return '—'; if(unit==='$M')return '$'+v.toFixed(1)+'M'; if(unit==='Share %'||unit==='%')return v.toFixed(1)+'%'; return Number(v).toLocaleString('es-AR'); }
   cont.innerHTML=_globalesTargets.krs.map(function(kr){
     var t=kr.targets?kr.targets[refYM]:null, a=null;
     var tSc=t;
-    if(kr.id==='net_revenues_api_hoteles'){ a=agg.nr?agg.nr/1e6:null; if(t!=null) tSc=t*frac; }   // MTD del daily, $M
+    if(kr.id==='net_revenues_api_hoteles'){                                                 // MTD del daily, $M
+      a=agg.nr?agg.nr/1e6:null;
+      if(agg.bud){ t=agg.bud/1e6; tSc=agg.budMtd/1e6; } else if(t!=null) tSc=t*frac;
+    }
     else if(kr.actuals && kr.actuals[refYM]!=null) a=kr.actuals[refYM];                  // mensual, Input_OKR
     var sc=kr.inverse?okrScore_(tSc,a):okrScore_(a,tSc), pct=sc!==null?Math.round(sc*100):null;   // regla única de OKR; inverse: menos es mejor
     return '<div class="kr-card">'+
@@ -3692,7 +3703,7 @@ function renderKRsGlobales_(){
         '<div class="kr-sub-item"><span class="kr-sub-lbl">Target</span><span>'+fmtVal(t,kr.unit)+'</span></div>'+
       '</div></div>';
   }).join('');
-  if(sub) sub.textContent='Mes de referencia: '+(labels[idx]||refYM)+'  ·  fuente: okr.json (igual que el OKR del Hub) · NR actual = daily MTD (API · Hoteles · todos los países) vs target prorrateado · resto = valor del mes de Input_OKR · Price Competitiveness: menos es mejor.';
+  if(sub) sub.textContent='Mes de referencia: '+(labels[idx]||refYM)+'  ·  fuente: okr.json (igual que el OKR del Hub) · NR actual = daily MTD (API · Hoteles · todos los países) vs budget gestional del daily MTD · resto = valor del mes de Input_OKR · Price Competitiveness: menos es mejor.';
 }
 
 function renderKRBreakdown_(krs) {

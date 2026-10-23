@@ -1423,7 +1423,7 @@
     <div class="status-krs-meta" id="globalesMeta"></div>
     <div id="globalesCards"></div>
     <div style="font-size:0.78rem;color:#9ca3af;margin-top:10px">
-      Targets del OKR H2 FY27 (fuente: <em>okr.json</em>, la misma del OKR del Hub). El <strong>actual</strong> de Net Revenues API Hoteles se computa desde el daily (canal API · producto Hoteles · todos los países; el mes en curso es MTD contra el target prorrateado); el resto sale de la sheet Input_OKR. En Price Competitiveness menos es mejor (% de adversidad).
+      Targets del OKR H2 FY27 (fuente: <em>okr.json</em>, la misma del OKR del Hub). El <strong>actual</strong> de Net Revenues API Hoteles se computa desde el daily (canal API · producto Hoteles · todos los países) y su target es el <strong>budget gestional del daily</strong> (el mismo de la pestaña NR (RI); el mes en curso es MTD contra el budget acumulado al mismo día); el resto sale de la sheet Input_OKR. En Price Competitiveness menos es mejor (% de adversidad).
     </div>
   </div>
 </div>
@@ -3856,17 +3856,24 @@ function fmtGlobalTarget(v, unit) {
 
 // Agregado mensual de API Hoteles: NR (todos los países), canal API, producto Hotel —
 // para el KR "Net Revenues API Hoteles". A TC Budget con ORGANIC YES (getActualsKR).
+// Target = budget GESTIONAL del daily (b2b_budget_ri, el mismo de la pestaña NR (RI); decisión
+// 2026-10-23): bud = mes completo, budMtd = hasta last_actuals_date (mes en curso).
 function globalesApiHotelByMonth_(meses) {
   var out = {};
-  meses.forEach(function(ym){ out[ym] = { nr: 0 }; });
+  meses.forEach(function(ym){ out[ym] = { nr: 0, bud: 0, budMtd: 0 }; });
   if (!rawData) return out;
+  var last = (rawData.meta && rawData.meta.last_actuals_date) || '';
+  function isApiHotel(r, p) { return r.parent_channel === 'API' && (p === 'Hotel' || p === 'Hotels'); }
   getActualsKR('ri').forEach(function(r){
     var ym = String(r.fecha || '').substring(0, 7);
-    if (!out[ym]) return;
-    if (r.parent_channel !== 'API') return;
-    var p = r.producto_original || '';
-    if (p !== 'Hotel' && p !== 'Hotels') return;
+    if (!out[ym] || !isApiHotel(r, r.producto_original || '')) return;
     out[ym].nr += (r.net_revenue || 0);
+  });
+  getGoal('ri', 'budget').forEach(function(r){
+    var ym = String(r.fecha || '').substring(0, 7);
+    if (!out[ym] || !isApiHotel(r, r.producto || '')) return;
+    out[ym].bud += (r.net_revenue || 0);
+    if (r.fecha <= last) out[ym].budMtd += (r.net_revenue || 0);
   });
   return out;
 }
@@ -3880,15 +3887,22 @@ function globalesActual_(kr, ym, agg) {
 }
 
 // Score OKR de un mes. NR API Hoteles es MTD → en el mes en curso se compara contra el
-// target prorrateado por días. inverse (Price Competitiveness): menos es mejor → target/actual.
+// budget gestional acumulado al último día con actuals (agg.budMtd, igual que la pestaña
+// NR (RI)); sin budget diario, el target prorrateado por días. inverse (Price
+// Competitiveness): menos es mejor → target/actual.
 // real = true → cumplimiento que se MUESTRA (realScore_: sin el piso 70%→0, techo 130%),
 // igual que las filas de Status KRs; sin real, la regla de scoring de OKR (okrScore_).
-function globalesScore_(kr, ym, a, t, real) {
+function globalesScore_(kr, ym, a, t, real, agg) {
   if (typeof t !== 'number') return null;
   var last = (rawData && rawData.meta && rawData.meta.last_actuals_date) || '';
   if (kr.id === 'net_revenues_api_hoteles' && last.substring(0, 7) === ym) {
-    var p = ym.split('-');
-    t = t * Number(last.substring(8, 10)) / new Date(+p[0], +p[1], 0).getDate();
+    var d = agg && agg[ym];
+    if (d && d.budMtd) {
+      t = d.budMtd / 1e6;
+    } else {
+      var p = ym.split('-');
+      t = t * Number(last.substring(8, 10)) / new Date(+p[0], +p[1], 0).getDate();
+    }
   }
   var f = real ? realScore_ : okrScore_;
   return kr.inverse ? f(t, a) : f(a, t);
@@ -3933,6 +3947,19 @@ function renderGlobales() {
   var agg  = globalesApiHotelByMonth_(meses);
   var grid = document.getElementById('globalesCards');
 
+  // NR API Hoteles: el target que se muestra es el budget gestional del daily del mes (agg.bud, $M);
+  // si el daily no trae budget para un mes, queda el de okr.json (contable).
+  var krsView = globalesData.krs.map(function(kr){
+    if (kr.id !== 'net_revenues_api_hoteles') return kr;
+    var k = Object.assign({}, kr), tg = {};
+    meses.forEach(function(ym){
+      var b = agg[ym] && agg[ym].bud;
+      tg[ym] = b ? b / 1e6 : (kr.targets ? kr.targets[ym] : null);
+    });
+    k.targets = tg;
+    return k;
+  });
+
   // Clase de color (red/yellow/green) para el cumplimiento del actual — mismos
   // umbrales que cumplBg, pero devuelve el sufijo suelto para las clases .a.*
   function globCumplClass_(rat){
@@ -3945,7 +3972,7 @@ function renderGlobales() {
   // Una card por KR: header (nombre + unidad + peso), recorrido del semestre
   // (target inicial → final + Δ%) y una tira con el target de cada mes; el mes
   // con actual cableado se resalta con su % de cumplimiento.
-  var cards = globalesData.krs.map(function(kr){
+  var cards = krsView.map(function(kr){
     var peso = kr.critical_ttpp
       ? '<span class="glob-peso crit">0% · TTPP</span>'
       : '<span class="glob-peso">' + Math.round((kr.weight || 0) * 100) + '%</span>';
@@ -3982,7 +4009,7 @@ function renderGlobales() {
     var strip = '<div class="glob-strip">' + meses.map(function(ym, i){
       var t   = kr.targets ? kr.targets[ym] : null;
       var a   = globalesActual_(kr, ym, agg);
-      var rat = globalesScore_(kr, ym, a, t, true);   // % real (realScore_); NR del mes en curso vs target prorrateado
+      var rat = globalesScore_(kr, ym, a, t, true, agg);   // % real (realScore_); NR del mes en curso vs budget gestional MTD
       var vCls = (t === null || t === undefined || t === '') ? 'v empty' : 'v';
       var aCls = a !== null ? globCumplClass_(rat) : 'neutral';
       var aTxt = a !== null ? fmtGlobalTarget(a, kr.unit) : '—';
@@ -4005,11 +4032,11 @@ function renderGlobales() {
   var totals = meses.map(function(ym){
     if (curYM && ym > curYM) return { total: null, cov: 0 };
     var wS = 0, wUsed = 0, wAll = 0;
-    globalesData.krs.forEach(function(kr){
+    krsView.forEach(function(kr){
       var w = kr.weight || 0; wAll += w;
       var t = kr.targets ? kr.targets[ym] : null;
       var a = globalesActual_(kr, ym, agg);
-      var sc = (a !== null) ? globalesScore_(kr, ym, a, t) : null;
+      var sc = (a !== null) ? globalesScore_(kr, ym, a, t, false, agg) : null;
       if (sc !== null) { wS += sc * w; wUsed += w; }
     });
     return { total: wUsed ? wS / wUsed : null, cov: wAll ? wUsed / wAll : 0 };
