@@ -314,31 +314,52 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
 /* OKR Detail (B2B): una tabla por país, KR × mes. body.krd-only oculta el resto de la sección B2B. */
 body.krd-only #b2b-fbar { display:none !important; }
 body.krd-only #section-b2b > :not(.krd-keep) { display:none !important; }
-.krd-grid { display:flex; flex-direction:column; gap:16px; }
-.krd-card { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px 16px 10px; overflow-x:auto; }
-.krd-card-hdr { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:10px; }
-.krd-title { font-size:16px; font-weight:700; color:var(--text-1); }
-.krd-title-sub { font-size:11px; color:var(--text-3); margin-top:2px; }
+.krd-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:14px 20px; margin-bottom:14px; }
+.krd-h1box { display:inline-flex; align-items:center; gap:8px; padding:6px 12px; border:1px solid var(--border); border-radius:8px; background:var(--surface); font-size:12px; color:var(--text-2); cursor:pointer; user-select:none; }
+.krd-h1box input { accent-color:var(--primary); width:14px; height:14px; margin:0; cursor:pointer; }
+.krd-legend { display:flex; align-items:center; gap:8px; font-size:11px; color:var(--text-3); margin-left:auto; }
+.krd-grid { display:flex; flex-direction:column; gap:18px; }
+.krd-card { background:var(--surface); border:1px solid var(--border); border-left:4px solid var(--primary); border-radius:12px; padding:16px 18px 12px; overflow-x:auto; box-shadow:0 1px 3px rgba(0,0,0,.05); }
+.krd-card-hdr { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:12px; }
+.krd-title { font-size:18px; font-weight:700; color:var(--text-1); letter-spacing:-.01em; }
+.krd-title-sub { font-size:11.5px; color:var(--text-3); margin-top:3px; }
 .krd-actions { display:flex; gap:6px; }
-.krd-act-btn { font-size:11px; padding:4px 10px; border-radius:6px; border:1px solid var(--border); background:transparent; color:var(--text-2); cursor:pointer; white-space:nowrap; }
+.krd-act-btn { font-size:11px; padding:5px 11px; border-radius:6px; border:1px solid var(--border); background:var(--surface); color:var(--text-2); cursor:pointer; white-space:nowrap; }
 .krd-act-btn:hover { color:var(--primary); border-color:var(--primary); }
-.krd-tbl { width:100%; border-collapse:collapse; font-size:12px; table-layout:fixed; min-width:720px; }
-.krd-tbl th:first-child { width:190px; }
-.krd-tbl th { font-size:10px; font-weight:600; color:var(--text-3); text-transform:uppercase; letter-spacing:.05em; padding:4px 8px 8px; text-align:center; border-bottom:1px solid var(--border); white-space:nowrap; }
-.krd-tbl td { padding:7px 8px; text-align:center; border-bottom:1px solid var(--border); vertical-align:middle; }
-.krd-tbl th:first-child, .krd-tbl td:first-child { text-align:left; }
-.krd-tbl tr:last-child td { border-bottom:none; }
-.krd-tbl .krd-kr { font-weight:600; color:var(--text-1); white-space:nowrap; }
-.krd-tbl .krd-w { font-size:10px; color:var(--text-3); font-weight:400; margin-left:4px; }
-.krd-tbl tr.krd-overall td { border-top:2px solid var(--border); font-weight:700; }
+.krd-tbl { width:100%; border-collapse:separate; border-spacing:0; font-size:12px; table-layout:fixed; }
+.krd-tbl col.krd-col-kr { width:210px; }
+.krd-tbl thead th { font-size:10.5px; font-weight:700; color:var(--text-2); text-transform:uppercase; letter-spacing:.05em; padding:7px 6px; text-align:center; background:rgba(86,38,233,.05); white-space:nowrap; }
+.krd-tbl thead tr.krd-grp th { font-size:10px; color:var(--primary); background:rgba(86,38,233,.10); padding:5px 6px; }
+.krd-tbl thead tr.krd-grp th.krd-grp-h1 { color:var(--text-3); background:rgba(0,0,0,.04); }
+.krd-tbl thead tr:first-child th:first-child { border-top-left-radius:8px; }
+.krd-tbl thead tr:first-child th:last-child { border-top-right-radius:8px; }
+.krd-tbl th:first-child, .krd-tbl td:first-child { text-align:left; padding-left:12px; }
+.krd-tbl tbody td { padding:9px 6px; text-align:center; border-bottom:1px solid var(--border); vertical-align:middle; }
+.krd-tbl tbody tr:nth-child(even) td { background:rgba(0,0,0,.018); }
+.krd-tbl .krd-kr-name { font-weight:700; font-size:12.5px; color:var(--text-1); }
+.krd-tbl .krd-kr-meta { font-size:10px; color:var(--text-3); margin-top:2px; }
+.krd-tbl .krd-w { display:inline-block; font-size:9.5px; font-weight:700; color:var(--primary); background:rgba(86,38,233,.10); border-radius:4px; padding:1px 5px; margin-left:6px; vertical-align:1px; }
+.krd-tbl tr.krd-overall td { background:rgba(86,38,233,.07) !important; border-top:2px solid rgba(86,38,233,.25); border-bottom:none; }
+.krd-tbl tr.krd-overall .krd-chip { font-size:13.5px; min-width:58px; padding:3px 10px; }
 .krd-tbl .krd-h2start { border-left:2px solid var(--secondary); }
-.krd-tbl .krd-cur { background:rgba(86,38,233,.07); }
-.krd-chip { display:inline-block; min-width:46px; padding:2px 8px; border-radius:999px; font-weight:700; font-size:12px; }
+.krd-tbl .krd-cur { box-shadow:inset 0 0 0 9999px rgba(86,38,233,.06); }
+.krd-tbl .krd-ytd { border-left:2px solid var(--border); box-shadow:inset 0 0 0 9999px rgba(86,38,233,.09); }
+.krd-tbl .krd-fut { color:var(--text-3); }
+.krd-mtd { display:inline-block; font-size:9px; font-weight:700; color:#fff; background:var(--primary); border-radius:4px; padding:1px 5px; margin-left:4px; vertical-align:1px; letter-spacing:0; }
+.krd-chip { display:inline-block; min-width:50px; padding:2px 9px; border-radius:999px; font-weight:700; font-size:12.5px; }
 .krd-chip.g { background:rgba(22,163,74,.15); color:var(--success); }
 .krd-chip.y { background:rgba(245,158,11,.18); color:#d97706; }
 .krd-chip.r { background:rgba(220,38,38,.14); color:var(--danger); }
 .krd-chip.n { color:var(--text-3); font-weight:400; }
-.krd-vals { font-size:10px; color:var(--text-3); margin-top:3px; white-space:nowrap; }
+.krd-act { font-size:11px; font-weight:600; color:var(--text-1); margin-top:4px; white-space:nowrap; }
+.krd-vals { font-size:10px; color:var(--text-3); margin-top:1px; white-space:nowrap; }
+.krd-meta-lbl { font-size:9px; text-transform:uppercase; letter-spacing:.06em; color:var(--text-3); }
+.krd-meta-val { font-size:11.5px; font-weight:600; color:var(--text-2); margin-top:2px; }
+/* Con meses H1 (13 columnas): celdas más compactas para que entre en pantalla y en la imagen */
+.krd-compact tbody td { padding:8px 3px; }
+.krd-compact .krd-chip { min-width:42px; padding:2px 6px; font-size:11.5px; }
+.krd-compact .krd-act { font-size:10.5px; }
+.krd-compact thead th { font-size:9.5px; padding:7px 3px; }
 .krb-pct { font-weight:700; font-size:13px; }
 .krb-vals { font-size:10px; color:var(--text-3); white-space:nowrap; margin-top:2px; }
 .dm-group { display: flex; align-items: center; gap: 6px; background: var(--elevated); border: 1px solid rgba(255,255,255,.13); border-radius: 18px; padding: 3px 10px 3px 10px; }
@@ -1221,19 +1242,26 @@ body.krd-only #section-b2b > :not(.krd-keep) { display:none !important; }
     <div id="b2b-kr-globales-sub" style="font-size:11px;color:var(--text-3);margin-top:6px"></div>
   </div>
 
-  <!-- OKR Detail (FY27): KRs H2 por país, evolutivo mensual + MTD, para el equipo comercial.
+  <!-- OKR Detail (FY27): KRs H2 por país, metas oct–mar + evolutivo, para el equipo comercial.
        Con este switch el resto de la sección B2B (y su barra de filtros) se oculta: body.krd-only -->
   <div id="b2b-kr-detail" class="krd-keep" style="display:none">
-    <div class="dm-group" style="margin-bottom:12px">
-      <span class="dm-group-lbl">Canal</span>
-      <div class="dm-toggle">
-        <button class="dm-btn active" data-krdch="total" onclick="setKrDetailCh_('total')">Total</button>
-        <button class="dm-btn"        data-krdch="api"   onclick="setKrDetailCh_('api')">API</button>
-        <button class="dm-btn"        data-krdch="html"  onclick="setKrDetailCh_('html')">HTML</button>
+    <div class="krd-toolbar">
+      <div class="dm-group">
+        <span class="dm-group-lbl">Canal</span>
+        <div class="dm-toggle">
+          <button class="dm-btn active" data-krdch="total" onclick="setKrDetailCh_('total')">Total</button>
+          <button class="dm-btn"        data-krdch="api"   onclick="setKrDetailCh_('api')">API</button>
+          <button class="dm-btn"        data-krdch="html"  onclick="setKrDetailCh_('html')">HTML</button>
+        </div>
+      </div>
+      <label class="krd-h1box"><input type="checkbox" id="krd-h1" onchange="setKrDetailH1_(this.checked)"> Incluir meses H1 (abr–sep)</label>
+      <div class="krd-legend">
+        <span class="krd-chip g">≥ 100%</span><span class="krd-chip y">70–99%</span><span class="krd-chip r">&lt; 70%</span>
+        <span>de cumplimiento vs meta</span>
       </div>
     </div>
     <div id="b2b-kr-detail-grid" class="krd-grid"></div>
-    <div id="b2b-kr-detail-sub" style="font-size:11px;color:var(--text-3);margin-top:8px"></div>
+    <div id="b2b-kr-detail-sub" style="font-size:11px;color:var(--text-3);margin-top:10px;line-height:1.5"></div>
   </div>
 
   <!-- METRICAS — B2B -->
@@ -3300,12 +3328,12 @@ function setB2BKrHalf(h){
 }
 
 // ── OKR Detail (FY27): KRs H2 por país, evolutivo mensual + MTD, para el equipo comercial ──
-// Una tabla por país (y una de Total): filas = KR, columnas = meses del FY (abr → mes que se mira;
-// los meses cerrados completos, el que se mira MTD hasta el día de vista). Mismo cálculo que Status
+// Una tabla por país (y una de Total): filas = KR, columnas = meses (ver krdMonthRange_ / renderKrDetail_).
+// Mismo cálculo que Status
 // KRs H2 del Tracker (computeKRH2ForPaisList_ / recurH2_): fecha de reserva (RI), países agrupados
 // como FVM_DETAIL, % = 1 + (act-bud)/|bud| con techo 130% (recuadros por país del Tracker).
 // OVERALL (solo canal Total) = ponderado con okrScore_ (piso 70%→0), igual que el Tracker.
-var KRD_FY_START = '2026-04', KRD_H2_START = '2026-10';
+var KRD_FY_START = '2026-04', KRD_H2_START = '2026-10', KRD_H2_END = '2027-03';
 var KRD_PAISES_ = [
   { name: 'Brasil',       pais: ['Brasil'] },
   { name: 'Mexico',       pais: ['Mexico'] },
@@ -3376,11 +3404,15 @@ function krdRatio_(act, bud) {
   if (act === null || act === undefined || !bud) return null;
   return Math.min(1 + (act - bud) / Math.abs(bud), 1.30);
 }
-function krdMonths_(vDate) {
-  var out = [], y = +KRD_FY_START.substring(0, 4), m = +KRD_FY_START.substring(5, 7), end = vDate.substring(0, 7);
+// Columnas: siempre los 6 meses del H2 (oct–mar) + "H2 acum."; con la casilla "Incluir meses H1", abr–sep antes.
+// Mes cerrado = actual vs budget del mes; mes del día que se mira = MTD; mes futuro = solo la meta del mes.
+var _krdH1 = false;
+function setKrDetailH1_(on) { _krdH1 = !!on; renderKrDetail_(); }
+function krdMonthRange_(a, b) {
+  var out = [], y = +a.substring(0, 4), m = +a.substring(5, 7);
   while (true) {
     var ym = y + '-' + String(m).padStart(2, '0');
-    if (ym > end) break;
+    if (ym > b) break;
     out.push(ym); m++; if (m > 12) { m = 1; y++; }
   }
   return out;
@@ -3394,25 +3426,33 @@ function renderKrDetail_() {
   var grid = document.getElementById('b2b-kr-detail-grid'), sub = document.getElementById('b2b-kr-detail-sub');
   if (!grid || _b2bKrHalf !== 'detail') return;
   if (!state_b2b.viewDate || !(_okrH2 || _rawB2B)) { grid.innerHTML = '<div style="color:var(--text-3);font-size:12px">Cargando…</div>'; return; }
-  var vDate = state_b2b.viewDate, curYM = vDate.substring(0, 7), months = krdMonths_(vDate);
+  var vDate = state_b2b.viewDate, curYM = vDate.substring(0, 7);
+  var h1Months = krdMonthRange_(KRD_FY_START, '2026-09'), h2Months = krdMonthRange_(KRD_H2_START, KRD_H2_END);
+  var months = (_krdH1 ? h1Months : []).concat(h2Months);
+  var ytdMonths = h2Months.filter(function(ym){ return ym <= curYM; });   // H2 acumulado: oct → mes de vista (MTD)
   var raw = _okrH2 || _rawB2B, rawKr = _krRawB2B_(raw);   // organic: actuals a TC Budget (igual que las cards H2)
   var isAPI = function(r){ return r.parent_channel === 'API'; }, isHTML = function(r){ return r.parent_channel === 'Agencias afiliadas'; };
   var chOk = _krdCh === 'api' ? isAPI : _krdCh === 'html' ? isHTML : function(){ return true; };
   var isNP = function(prod, pt){ return !!B2B_H2_NR_PRODS[prod] || prod === 'Air' || prod === 'Flight' || prod === 'D. Services' ||
                                         (prod === 'Packages General' && isNewProductPkgType_(pt)); };
   var KRS = [
-    { id: 'nr',   lbl: 'Net Revenues', w: 0.30, f: 'net_revenue', p: chOk },
-    { id: 'fapi', lbl: 'FVM · API',    w: 0.20, f: 'fvm', p: isAPI,  ch: 'api' },
-    { id: 'fhtm', lbl: 'FVM · HTML',   w: 0.20, f: 'fvm', p: isHTML, ch: 'html' },
-    { id: 'np',   lbl: 'New Products', w: 0.15, f: 'net_revenue', p: chOk, np: true }
+    { id: 'nr',   lbl: 'Net Revenues', unit: 'USD · NR', w: 0.30, f: 'net_revenue', p: chOk },
+    { id: 'fapi', lbl: 'FVM · API',    unit: 'USD · canal API', w: 0.20, f: 'fvm', p: isAPI,  ch: 'api' },
+    { id: 'fhtm', lbl: 'FVM · HTML',   unit: 'USD · Agencias afiliadas', w: 0.20, f: 'fvm', p: isHTML, ch: 'html' },
+    { id: 'np',   lbl: 'New Products', unit: 'USD · NR Flights + Dest. Serv.', w: 0.15, f: 'net_revenue', p: chOk, np: true }
   ].filter(function(k){ return !k.ch || _krdCh === 'total' || _krdCh === k.ch; });
   var showRec = _krdCh !== 'api';   // Accelerate Recurrence es solo HTML
-  var from = months[0] + '-01';
-  var acc = {};   // acc[grupo][kr][ym] = { act, bud }
-  function add(rows, field, prodKey) {
+  var from = months[0] + '-01', to = KRD_H2_END + '-31';
+  var acc = {};   // acc[grupo][kr][ym] = { act, bud, meta }
+  // field 'act' / 'bud' hasta vDate (meses cerrados completos, mes de vista MTD); 'meta' = budget de los meses futuros.
+  function add(rows, isBud, prodKey) {
     (rows || []).forEach(function(r){
-      if (r.fecha < from || r.fecha > vDate) return;   // meses cerrados completos; el mes de vista hasta vDate (MTD)
-      var ym = r.fecha.substring(0, 7), g = krdGroupOf_(r.pais);
+      if (r.fecha < from || r.fecha > to) return;
+      var ym = r.fecha.substring(0, 7), field;
+      if (r.fecha <= vDate) field = isBud ? 'bud' : 'act';
+      else if (isBud && ym > curYM) field = 'meta';
+      else return;
+      var g = krdGroupOf_(r.pais);
       KRS.forEach(function(k){
         if (!k.p(r)) return;
         if (k.np && !isNP(r[prodKey], r.product_type)) return;
@@ -3420,75 +3460,118 @@ function renderKrDetail_() {
         ['TOTAL', g].forEach(function(gg){
           if (!gg) return;
           var a = ((acc[gg] = acc[gg] || {})[k.id] = acc[gg][k.id] || {});
-          a[ym] = a[ym] || { act: 0, bud: 0 };
+          a[ym] = a[ym] || { act: 0, bud: 0, meta: 0 };
           a[ym][field] += v;
         });
       });
     });
   }
-  add(rawKr.b2b_ri, 'act', 'producto_original');
-  add(raw.b2b_budget_ri, 'bud', 'producto');
+  add(rawKr.b2b_ri, false, 'producto_original');
+  add(raw.b2b_budget_ri, true, 'producto');
   var recByYM = {};
-  if (showRec) months.forEach(function(ym){ recByYM[ym] = krdRecurMonth_(ym); });
+  if (showRec) months.forEach(function(ym){ if (ym <= curYM) recByYM[ym] = krdRecurMonth_(ym); });
   var recLoading = showRec && (_krdRecurState === 'idle' || _krdRecurState === 'loading');
 
   var MM = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-  function mLbl(ym) { return MM[+ym.substring(5, 7) - 1] + '-' + ym.substring(2, 4) + (ym === curYM ? ' MTD' : ''); }
-  function tdCls(ym) { var c = []; if (ym === KRD_H2_START) c.push('krd-h2start'); if (ym === curYM) c.push('krd-cur'); return c.length ? ' class="' + c.join(' ') + '"' : ''; }
-  var chLbl = _krdCh === 'api' ? 'API' : _krdCh === 'html' ? 'HTML' : 'Total (API + HTML)';
-  var n0 = function(v){ return v === null ? '—' : Math.round(v).toLocaleString('es-AR'); };
+  function mLbl(ym) { return MM[+ym.substring(5, 7) - 1] + ' ' + ym.substring(2, 4); }
+  function tdCls(ym, extra) {
+    var c = extra ? [extra] : [];
+    if (ym === KRD_H2_START && _krdH1) c.push('krd-h2start');
+    if (ym === curYM) c.push('krd-cur');
+    if (ym > curYM) c.push('krd-fut');
+    return c.length ? ' class="' + c.join(' ') + '"' : '';
+  }
+  var chLbl = _krdCh === 'api' ? 'Canal API' : _krdCh === 'html' ? 'Canal HTML' : 'Total (API + HTML)';
+  var n0 = function(v){ return v === null || v === undefined ? '—' : Math.round(v).toLocaleString('es-AR'); };
+  function metaCell(ym, txt) {
+    return '<td' + tdCls(ym) + '>' + (txt ? '<div class="krd-meta-lbl">Meta</div><div class="krd-meta-val">' + txt + '</div>' : '<span class="krd-chip n">—</span>') + '</td>';
+  }
+  function dataCell(cls, chip, act, bud, note) {
+    return '<td' + cls + '>' + chip + '<div class="krd-act">' + act + '</div><div class="krd-vals">meta ' + bud + (note || '') + '</div></td>';
+  }
 
   function card(grupo, idx) {
-    var a = acc[grupo] || {}, scoreByYM = {};
+    var a = acc[grupo] || {}, scoreByYM = {}, ytdScores = [];
     var body = KRS.map(function(k){
-      return '<tr><td class="krd-kr">' + k.lbl + '<span class="krd-w">' + Math.round(k.w * 100) + '%</span></td>' + months.map(function(ym){
+      var cells = months.map(function(ym){
         var d = a[k.id] && a[k.id][ym];
+        if (ym > curYM) return metaCell(ym, d && d.meta ? fmt(d.meta) : null);
         if (!d || (!d.act && !d.bud)) return '<td' + tdCls(ym) + '><span class="krd-chip n">—</span></td>';
         (scoreByYM[ym] = scoreByYM[ym] || []).push({ c: okrScore_(d.act, d.bud), w: k.w });
-        return '<td' + tdCls(ym) + '>' + krdChip_(krdRatio_(d.act, d.bud)) + '<div class="krd-vals">' + fmt(d.act) + ' / ' + fmt(d.bud) + '</div></td>';
-      }).join('') + '</tr>';
+        return dataCell(tdCls(ym), krdChip_(krdRatio_(d.act, d.bud)), fmt(d.act), fmt(d.bud));
+      }).join('');
+      var ya = 0, yb = 0;
+      ytdMonths.forEach(function(ym){ var d = a[k.id] && a[k.id][ym]; if (d) { ya += d.act; yb += d.bud; } });
+      var ytd;
+      if (!ytdMonths.length || (!ya && !yb)) ytd = '<td class="krd-ytd"><span class="krd-chip n">—</span></td>';
+      else { ytdScores.push({ c: okrScore_(ya, yb), w: k.w }); ytd = dataCell(' class="krd-ytd"', krdChip_(krdRatio_(ya, yb)), fmt(ya), fmt(yb)); }
+      return '<tr><td><div class="krd-kr-name">' + k.lbl + '<span class="krd-w">' + Math.round(k.w * 100) + '%</span></div>' +
+        '<div class="krd-kr-meta">' + k.unit + '</div></td>' + cells + ytd + '</tr>';
     }).join('');
     if (showRec) {
-      body += '<tr><td class="krd-kr">Accelerate Recurrence<span class="krd-w">15%</span></td>' + months.map(function(ym){
+      var lastRec = null;   // H2 acum. de Recurrence = el último mes con dato (es una foto de agencias vivas, no se suma)
+      var cells = months.map(function(ym){
+        var t = krdRecurTarget_(ym, grupo);
+        if (ym > curYM) return metaCell(ym, t !== null ? n0(t) : null);
         if (recLoading) return '<td' + tdCls(ym) + '><span class="krd-vals">…</span></td>';
-        var rec = recByYM[ym], d = rec && rec.by[grupo], t = krdRecurTarget_(ym, grupo);
+        var rec = recByYM[ym], d = rec && rec.by[grupo];
         if (!d && t === null) return '<td' + tdCls(ym) + '><span class="krd-chip n">—</span></td>';
         // Semanas 1-2 del mes: el MTD da 0 por definición → se mide Rolling L4W vs target
         var useRoll = d && !d.mtd && d.roll, val = d ? (useRoll ? d.roll : d.mtd) : null;
         var c = (val !== null && t) ? Math.min(val / t, 1.30) : null;
-        if (c !== null) (scoreByYM[ym] = scoreByYM[ym] || []).push({ c: okrScore_(val, t), w: 0.15 });
-        return '<td' + tdCls(ym) + '>' + krdChip_(c) + '<div class="krd-vals">' + n0(val) + ' / ' + n0(t) + (useRoll ? ' · L4W' : '') + '</div></td>';
-      }).join('') + '</tr>';
+        if (c !== null) {
+          (scoreByYM[ym] = scoreByYM[ym] || []).push({ c: okrScore_(val, t), w: 0.15 });
+          if (ym >= KRD_H2_START) lastRec = { val: val, t: t, c: c, roll: useRoll };
+        }
+        return dataCell(tdCls(ym), krdChip_(c), n0(val), n0(t), useRoll ? ' · L4W' : '');
+      }).join('');
+      var ytdR = '<td class="krd-ytd"><span class="krd-chip n">—</span></td>';
+      if (lastRec) { ytdScores.push({ c: okrScore_(lastRec.val, lastRec.t), w: 0.15 }); ytdR = dataCell(' class="krd-ytd"', krdChip_(lastRec.c), n0(lastRec.val), n0(lastRec.t), lastRec.roll ? ' · L4W' : ''); }
+      body += '<tr><td><div class="krd-kr-name">Accelerate Recurrence<span class="krd-w">15%</span></div>' +
+        '<div class="krd-kr-meta">agencias HTML de alta frecuencia</div></td>' + cells + ytdR + '</tr>';
     }
     if (_krdCh === 'total') {   // OVERALL ponderado, normalizado sobre los KRs con dato (como el Tracker)
-      body += '<tr class="krd-overall"><td class="krd-kr">OVERALL</td>' + months.map(function(ym){
-        var ks = (scoreByYM[ym] || []).filter(function(x){ return x.c !== null; }), ws = 0, wc = 0;
-        ks.forEach(function(x){ ws += x.w; wc += x.c * x.w; });
-        return '<td' + tdCls(ym) + '>' + krdChip_(ws ? Math.min(wc / ws, 1.30) : null) + '</td>';
-      }).join('') + '</tr>';
+      var ov = function(list){
+        var ws = 0, wc = 0;
+        (list || []).forEach(function(x){ if (x.c !== null) { ws += x.w; wc += x.c * x.w; } });
+        return krdChip_(ws ? Math.min(wc / ws, 1.30) : null);
+      };
+      body += '<tr class="krd-overall"><td><div class="krd-kr-name">OVERALL</div><div class="krd-kr-meta">ponderado por peso</div></td>' +
+        months.map(function(ym){ return '<td' + tdCls(ym) + '>' + (ym > curYM ? '' : ov(scoreByYM[ym])) + '</td>'; }).join('') +
+        '<td class="krd-ytd">' + (ytdMonths.length ? ov(ytdScores) : '') + '</td></tr>';
     }
     var title = grupo === 'TOTAL' ? 'Total B2B' : grupo;
+    var grp = '<tr class="krd-grp"><th></th>' +
+      (_krdH1 ? '<th class="krd-grp-h1" colspan="' + h1Months.length + '">H1 FY27</th>' : '') +
+      '<th colspan="' + h2Months.length + '"' + (_krdH1 ? ' class="krd-h2start"' : '') + '>H2 FY27 · metas octubre – marzo</th><th class="krd-ytd"></th></tr>';
+    var hdr = '<tr><th>KR</th>' + months.map(function(ym){
+      return '<th' + tdCls(ym) + '>' + mLbl(ym) + (ym === curYM ? '<span class="krd-mtd">MTD</span>' : '') + '</th>';
+    }).join('') + '<th class="krd-ytd">H2 acum.</th></tr>';
     return '<div class="krd-card" id="krd-card-' + idx + '">' +
-      '<div class="krd-card-hdr"><div><div class="krd-title">' + title + ' · OKRs H2</div>' +
-      '<div class="krd-title-sub">' + chLbl + ' · actual vs budget · ' + mLbl(curYM) + ' al ' + fmtDate(vDate) + '</div></div>' +
+      '<div class="krd-card-hdr"><div><div class="krd-title">' + title + '</div>' +
+      '<div class="krd-title-sub">OKRs H2 FY27 · ' + chLbl + ' · datos al ' + fmtDate(vDate) + '</div></div>' +
       '<div class="krd-actions" data-html2canvas-ignore="true">' +
       '<button class="krd-act-btn" onclick="krdCopy_(' + idx + ')">Copiar imagen</button>' +
       '<button class="krd-act-btn" onclick="krdPng_(' + idx + ')">PNG</button></div></div>' +
-      '<table class="krd-tbl"><thead><tr><th>KR</th>' + months.map(function(ym){ return '<th' + tdCls(ym) + '>' + mLbl(ym) + '</th>'; }).join('') + '</tr></thead>' +
-      '<tbody>' + body + '</tbody></table></div>';
+      '<table class="krd-tbl' + (_krdH1 ? ' krd-compact' : '') + '" style="min-width:' + (210 + (months.length + 1) * (_krdH1 ? 78 : 92)) + 'px"><colgroup><col class="krd-col-kr"></colgroup>' +
+      '<thead>' + grp + hdr + '</thead><tbody>' + body + '</tbody></table></div>';
   }
   _krdTitles = [];
   grid.innerHTML = ['TOTAL'].concat(KRD_PAISES_.map(function(g){ return g.name; }))
     .filter(function(g){ return g === 'TOTAL' || acc[g]; })
     .map(function(g, i){ _krdTitles[i] = g === 'TOTAL' ? 'Total_B2B' : g.replace(/[^\w]+/g, '_'); return card(g, i); }).join('');
-  if (sub) sub.textContent = 'Cada celda: % de cumplimiento (actual vs budget, techo 130%) y actual / budget. Meses cerrados completos; ' +
-    mLbl(curYM) + ' = MTD al ' + fmtDate(vDate) + '. Fecha de reserva (RI). Accelerate Recurrence = agencias HTML de alta frecuencia ' +
-    '(target Input_OKR, desde oct-26; en semanas 1-2 del mes se mide Rolling L4W). La línea violeta marca el inicio del H2. Mismos números que Status KRs H2 del Tracker.';
+  if (sub) sub.innerHTML = '<b>Cómo leerlo:</b> cada celda muestra el % de cumplimiento (actual vs meta, techo 130%), el actual y la meta. ' +
+    'Meses cerrados completos; ' + mLbl(curYM) + ' <span class="krd-mtd">MTD</span> = acumulado al ' + fmtDate(vDate) + ' contra la meta a la misma fecha; los meses que vienen muestran solo la meta. ' +
+    '<b>H2 acum.</b> = octubre → hoy (Recurrence: el último mes, porque es una foto). Meta = Budget (NR, FVM y New Products; hoy cargado hasta diciembre) e Input_OKR (Recurrence). ' +
+    'Fecha de reserva (RI). Recurrence: en las semanas 1-2 del mes se mide con Rolling L4W. Mismos números que Status KRs H2 del Tracker.';
 }
 var _krdTitles = [];
 function krdCanvas_(idx) {
-  var el = document.getElementById('krd-card-' + idx);
-  return html2canvas(el, { backgroundColor: getComputedStyle(document.body).backgroundColor, scale: 2, useCORS: true });
+  var el = document.getElementById('krd-card-' + idx), w = el.scrollWidth;
+  // La tabla puede tener scroll horizontal (con meses H1): se captura entera, no solo lo visible.
+  return html2canvas(el, { backgroundColor: getComputedStyle(document.body).backgroundColor, scale: 2, useCORS: true,
+    width: w, windowWidth: Math.max(document.documentElement.clientWidth, w + 80),
+    onclone: function(doc){ var c = doc.getElementById('krd-card-' + idx); if (c) { c.style.overflow = 'visible'; c.style.width = w + 'px'; } } });
 }
 function krdPng_(idx) {
   krdCanvas_(idx).then(function(cv){
