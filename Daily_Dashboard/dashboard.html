@@ -4951,7 +4951,8 @@ function submitEmail() {
 var FLOW_MET = {
   gb:{label:'Gross Bookings', short:'GB'},
   nr:{label:'Net Revenues',   short:'NR'},
-  fvm:{label:'FVM',           short:'FVM'}
+  fvm:{label:'FVM',           short:'FVM'},
+  oc: {label:'Operating Contribution', short:'OC'}   // solo slide 'cover_oc' (contable, ver flowFY12OC_)
 };
 var FLOW_RG = {
   BR:  {label:'Brasil', flag:'BR'},
@@ -4960,6 +4961,7 @@ var FLOW_RG = {
 };
 var FLOW_DECK = [
   {kind:'cover', name:'B2B2C — Resumen mensual'},
+  {kind:'cover_oc', name:'B2B2C — Resumen mensual (OC)'},
   {kind:'okr', metric:'gb', name:'OKR L2 — Gross Bookings'},
   {kind:'okr', metric:'nr', name:'OKR L2 — Net Revenues'},
   {kind:'okr', metric:'fvm', name:'OKR L2 — FVM'},
@@ -5139,6 +5141,46 @@ function flowFY12_(subRaw, metricKey, compKey){
 function flowHalves_(fy12){
   function s(a){ var b=0,g=0; a.forEach(function(m){ if(m.bud==null) return; b+=m.v+m.p; g+=m.bud; }); return {base:b,goal:g}; }
   return {h1:s(fy12.slice(0,6)), h2:s(fy12.slice(6)), fy:s(fy12)};
+}
+// Slide 'cover_oc': Operating Contribution B2B2C. El OC no está en las fuentes del Daily (llegan
+// hasta FVM): sale del P&L CONTABLE (canónicos de Inputs_Planning_PnL, bloque flow_oc armado por
+// Daily_Dashboard/flow_oc.py). Mensual: v = actuals cerrados del contable (flow_oc.actual_months),
+// p = Run Rate contable (baseline) del resto del FY — el mes en curso va entero como proyección
+// (no hay OC diario). bud = Goal: Budget (bg) / Run Rate (rr) / LY (actuals FY anterior +1 año).
+// Nominal: no le aplican Organic, COI Brasil ni el switch de Partner TBD (el contable no tiene partner).
+function flowFY12OC_(compKey){
+  var oc=_rawB2BC.flow_oc||{rows:[],actual_months:[]}, L=_rawB2BC.meta.last_actuals_date, fy0=+flFyStart_(L).substring(0,4);
+  var months=[]; for(var i=0;i<12;i++){ var mm=(3+i)%12+1, yy=fy0+(i>=9?1:0); months.push(yy+'-'+(mm<10?'0':'')+mm); }
+  var closed={}; (oc.actual_months||[]).forEach(function(m){ closed[m]=1; });
+  var T={bl:{},bg:{},rr:{},ly:{}};
+  (oc.rows||[]).forEach(function(r){ var f=r[0], e=r[1], v=r[3], m=(e==='ly') ? (+f.substring(0,4)+1)+f.substring(4,7) : f.substring(0,7);
+    if(T[e]) T[e][m]=(T[e][m]||0)+v; });
+  var G = compKey==='ly' ? T.ly : compKey==='runrate' ? T.rr : T.bg;
+  var r2=function(x){ return Math.round(x*100)/100; };
+  return months.map(function(m){
+    var b=T.bl[m]||0, isAct=!!closed[m], ly=T.ly[m];
+    return {date:m+'-01', v:isAct?r2(b):0, p:isAct?0:r2(b), bud:(m in G)?r2(G[m]):null,
+            yoy:(ly>0)?(b/ly-1)*100:null, projected:!isAct};
+  });
+}
+// Tabla por región del OC: meses CERRADOS del FY (no hay MTD de OC) vs el Goal, mismo formato que
+// la tabla Región de flowGroupTable_.
+function flowOCTable_(compKey){
+  var oc=_rawB2BC.flow_oc||{rows:[],actual_months:[]}, L=_rawB2BC.meta.last_actuals_date, fyS=flFyStart_(L).substring(0,7);
+  var closed={}; (oc.actual_months||[]).forEach(function(m){ if(m>=fyS) closed[m]=1; });
+  var ge = compKey==='ly' ? 'ly' : compKey==='runrate' ? 'rr' : 'bg', G={};
+  function g(k){ return G[k]=G[k]||{base:0,goal:0}; }
+  (oc.rows||[]).forEach(function(r){ var e=r[1], m=(e==='ly') ? (+r[0].substring(0,4)+1)+r[0].substring(4,7) : r[0].substring(0,7);
+    if(!closed[m]) return; var k=getRegion_(r[2]);
+    if(e==='bl') g(k).base+=r[3]; else if(e===ge) g(k).goal+=r[3]; });
+  function cell(d){ return '<td class="'+(d>=0?'fl-pos':'fl-neg')+'">'+(d>=0?'+':'')+fmtShort(d)+'</td>'; }
+  function pctCell(b,gl){ var p=gl>0?(b/gl-1)*100:null; return '<td class="'+((b-gl)>=0?'fl-pos':'fl-neg')+'">'+(p==null?'—':(p>=0?'+':'')+Math.round(p)+'%')+'</td>'; }
+  var body='', TB=0, TG=0;
+  ['BR','SAH','NAM'].forEach(function(k){ var x=G[k]; if(!x) return; TB+=x.base; TG+=x.goal;
+    body+='<tr class="grp"><td>'+(REGION_LABEL_[k]||k)+'</td><td>'+fmtShort(x.base)+'</td>'+cell(x.base-x.goal)+pctCell(x.base,x.goal)+'</tr>'; });
+  body+='<tr class="tot"><td>Total</td><td>'+fmtShort(TB)+'</td>'+cell(TB-TG)+pctCell(TB,TG)+'</tr>';
+  var ms=Object.keys(closed).sort(), rng=ms.length ? fmtChartLabel_(ms[0]+'-01','monthly')+'–'+fmtChartLabel_(ms[ms.length-1]+'-01','monthly') : 'sin meses cerrados';
+  return {html:'<table class="fl-tbl"><thead><tr><th>Región</th><th>Baseline</th><th>Delta [$]</th><th>Delta [%]</th></tr></thead><tbody>'+body+'</tbody></table>', rng:rng};
 }
 
 // daily series for the selected month: v=actuals (null if future), bud=goal (comp-aware)
@@ -5400,8 +5442,8 @@ function flowKpiCards_(subRaw, activeMetric, compKey){
 }
 function flLogo_(){ return '<div class="fl-logo"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>'; }
 function flHead_(title, brand){ return '<div class="fl-head"><div class="fl-title">'+title+'</div><div class="fl-brand">'+(brand||flLogo_())+'</div></div><div class="fl-rule"></div>'; }
-function flLegend_(goalLbl, withProj){ return '<div class="fl-legend"><span><i style="background:#5626e9"></i>'+(withProj?'Actual':'Baseline')+'</span>'
-  +(withProj?'<span><i style="background:rgba(86,38,233,.35)"></i>Proyección (Run Rate)</span>':'')
+function flLegend_(goalLbl, withProj, actLbl, projLbl){ return '<div class="fl-legend"><span><i style="background:#5626e9"></i>'+(withProj?(actLbl||'Actual'):'Baseline')+'</span>'
+  +(withProj?'<span><i style="background:rgba(86,38,233,.35)"></i>'+(projLbl||'Proyección (Run Rate)')+'</span>':'')
   +'<span><i style="background:#c9c9d6"></i>'+(goalLbl||'Goal')+'</span></div>'; }
 // lblPre: texto antes del comparador (default 'FYTD vs '); sm: versión compacta (3 apilados en la portada)
 function flH1box_(h1, compShort, lblPre, sm){ var p=h1.goal!==0?(h1.base/h1.goal-1)*100:null, ok=h1.base>=h1.goal;
@@ -5416,9 +5458,13 @@ function flFyLbl_(vDate){ var y=+vDate.substring(0,4); return 'FY'+String((+vDat
 function flMonthlyPeriodLbl_(vDate){ return _flMonthlyPeriod==='ytd' ? 'YTD '+flFyLbl_(vDate) : 'MTD'; }
 function flMonthlyTables_(def, sub, cmp, cmpShort){
   var per=_flMonthlyPeriod, perLbl=flMonthlyPeriodLbl_(flowVDate_());
-  if(def.kind==='cover'){
-    return [['gb','GB'],['nr','NR'],['fvm','FVM']].map(function(t){
+  if(def.kind==='cover' || def.kind==='cover_oc'){
+    var isOC=(def.kind==='cover_oc');
+    var html=(isOC ? [['gb','GB'],['nr','NR']] : [['gb','GB'],['nr','NR'],['fvm','FVM']]).map(function(t){
       return '<div class="fl-scroll-tbl" style="flex:1;min-width:0;min-height:0;overflow-y:auto"><div class="fl-tag">'+t[1]+' — '+perLbl+' vs '+cmpShort+'</div>'+flowGroupTable_(sub,t[0],cmp,'Región',true,0,undefined,undefined,per)+'</div>'; }).join('');
+    if(isOC){ var ot=flowOCTable_(cmp); // OC: siempre meses cerrados (no hay MTD de OC), sin importar el switch
+      html+='<div class="fl-scroll-tbl" style="flex:1;min-width:0;min-height:0;overflow-y:auto"><div class="fl-tag">OC — '+ot.rng+' (cerrado) vs '+cmpShort+'</div>'+ot.html+'</div>'; }
+    return html;
   }
   var tf=(def.region==='SAH'); // Hispa: Tier → Partner (ver flowGroupTable_)
   return [['nr','NR'],['fvm','FVM']].map(function(t){
@@ -5435,9 +5481,9 @@ function flMonthlySetPeriod_(p){
   _flMonthlyPeriod=p;
   var cmp=_flowComp, cmpShort=FLOW_COMP[cmp].short;
   FLOW_DECK.forEach(function(def, i){
-    if(def.kind!=='cover' && def.kind!=='monthly') return;
+    if(def.kind!=='cover' && def.kind!=='cover_oc' && def.kind!=='monthly') return;
     var box=document.getElementById('flmt-'+i); if(!box) return;
-    box.innerHTML=flMonthlySwitch_()+flMonthlyTables_(def, flowRegionRaw_(def.kind==='cover'?null:def.region), cmp, cmpShort);
+    box.innerHTML=flMonthlySwitch_()+flMonthlyTables_(def, flowRegionRaw_(def.kind==='monthly'?def.region:null), cmp, cmpShort);
   });
 }
 
@@ -5458,23 +5504,25 @@ function flowBuildSlide_(def, idx){
       +'<div class="fl-div-logo">'+flLogo_()+'<div class="dl-txt">DESPEGAR<small>GROUP</small></div></div>'
       +'</div>';
   }
-  if(def.kind==='cover' || def.kind==='monthly'){
-    var region = def.kind==='cover' ? null : def.region;
+  if(def.kind==='cover' || def.kind==='cover_oc' || def.kind==='monthly'){
+    // cover_oc = la portada con OC (contable) en lugar de FVM, pedido 2026-10-23
+    var isCover = (def.kind!=='monthly'), isOC = (def.kind==='cover_oc');
+    var region = isCover ? null : def.region;
     var sub = flowRegionRaw_(region);
-    var titleTxt = (def.kind==='cover' ? 'B2B2C' : FLOW_RG[region].label)+' Monthly Performance vs '+cmpLbl;
+    var titleTxt = (isCover ? 'B2B2C' : FLOW_RG[region].label)+' Monthly Performance vs '+cmpLbl+(isOC?' · OC':'');
     var brand = region ? ('<span class="fl-flag">'+FLOW_RG[region].flag+'</span>'+flLogo_()) : flLogo_();
     var panels='';
-    ['gb','nr','fvm'].forEach(function(mk){
+    (isOC ? ['gb','nr','oc'] : ['gb','nr','fvm']).forEach(function(mk){
       var cid='flc'+idx+'-'+mk, mon, boxes, legend;
-      if(def.kind==='cover'){ // portada: FY completo (12 barras, actual + proyección Run Rate) + H1/H2/FY
-        mon=flowFY12_(sub,mk,cmp); var hv=flowHalves_(mon), fyL=flFyLbl_(_rawB2BC.meta.last_actuals_date);
+      if(isCover){ // portada: FY completo (12 barras, actual + proyección Run Rate) + H1/H2/FY
+        mon=(mk==='oc') ? flowFY12OC_(cmp) : flowFY12_(sub,mk,cmp); var hv=flowHalves_(mon), fyL=flFyLbl_(_rawB2BC.meta.last_actuals_date);
         boxes='<div style="display:flex;flex-direction:column;gap:4px">'+flH1box_(hv.h1,cmpShort,'H1 vs ',true)
           +flH1box_(hv.h2,cmpShort,'H2 (Act+Proy) vs ',true)+flH1box_(hv.fy,cmpShort,fyL+' (Act+Proy) vs ',true)+'</div>';
-        legend=flLegend_(cmpLbl,true);
+        legend=(mk==='oc') ? flLegend_(cmpLbl,true,'Actual cerrado (contable)','Run Rate contable') : flLegend_(cmpLbl,true);
       } else {
         mon=flowMonthly_(sub,mk,cmp,vDate); boxes=flH1box_(flowH1_(mon), cmpShort); legend=flLegend_(cmpLbl);
       }
-      _flowSeries[idx].push({id:cid, series:mon, gran:'monthly', opts:{labels:true, yoy:true, stackProj:def.kind==='cover'}});
+      _flowSeries[idx].push({id:cid, series:mon, gran:'monthly', opts:{labels:true, yoy:true, stackProj:isCover}});
       panels+='<div style="flex:1;min-width:0;display:flex;flex-direction:column;min-height:0">'
         +'<div class="fl-chart-title">'+FLOW_MET[mk].label+', en $</div>'+legend
         +'<div style="display:flex;gap:10px;align-items:center;flex:1;min-width:0;min-height:0">'

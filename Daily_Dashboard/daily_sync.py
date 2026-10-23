@@ -31,6 +31,8 @@ from pkg_split_factors import PKG_SPLIT_FACTORS, PKG_SPLIT_WINDOW
 from pais_rules import apply_pais_overrides
 # Tramos del año fiscal que faltan en Actuals / LY (gráfico de 12 meses de la portada del Flow)
 from fy_rest import actuals_fy_rest_ranges, ly_fy_rest_ranges
+# OC B2B2C mensual desde los canónicos contables (slide "Monthly Performance — OC" del Flow)
+from flow_oc import CANONICAL_OC_IDS, build_flow_oc
 
 warnings.filterwarnings("ignore")
 
@@ -2000,6 +2002,33 @@ _forecast_b2bc_compact  = to_compact(df_forecast_b2bc)    if not df_forecast_b2b
 _forecast_b2b_gd_records = df_forecast_b2b_gd.to_dict(orient="records") if not df_forecast_b2b_gd.empty else []
 _forecast_b2b_ri_records = df_forecast_b2b_ri.to_dict(orient="records") if not df_forecast_b2b_ri.empty else []
 
+# ── OC B2B2C (flow_oc.py) ──
+# Se lee con credenciales/drive_token.<usuario>.json (drive.readonly, el mismo de okr_sync.py): el
+# fallback de _get_drive_service (token de clasp, scope drive.file) NO puede leer los canónicos de
+# Inputs_Planning_PnL. No crítico: si falla, se reusa el flow_oc de la corrida anterior.
+def _canon_reader():
+    from google.oauth2.credentials import Credentials
+    from google.auth.transport.requests import Request
+    from googleapiclient.discovery import build
+    tok = Path(__file__).resolve().parent.parent / "credenciales" / f"drive_token.{_win_user}.json"
+    if tok.exists():
+        creds = Credentials.from_authorized_user_file(str(tok))
+        if not creds.valid and creds.refresh_token:
+            creds.refresh(Request())
+        svc = build("drive", "v3", credentials=creds)
+    else:
+        svc = _get_drive_service()
+    return lambda k: json.loads(svc.files().get_media(fileId=CANONICAL_OC_IDS[k]).execute())
+
+print("\n--- OC B2B2C (canónicos contables) ---")
+try:
+    _flow_oc = build_flow_oc(_canon_reader())
+    print(f"  OK flow_oc: {len(_flow_oc['rows']):,} filas · meses cerrados {_flow_oc['actual_months']}")
+except Exception as e:
+    print(f"  WARN flow_oc fallo ({e}); se reusa el de la corrida anterior")
+    _prev = _download_json_from_drive(JSON_FILE_NAME) or {}
+    _flow_oc = _prev.get("flow_oc") or {"cols": [], "rows": [], "actual_months": []}
+
 if df_forecast_b2bc.empty or df_forecast_b2b_gd.empty or df_forecast_b2b_ri.empty:
     print("  AVISO: Forecast vacío en esta corrida — buscando el último bueno en Drive para no pisarlo...")
     _prev_b2bc = _download_json_from_drive(JSON_FILE_NAME)     if df_forecast_b2bc.empty    else None
@@ -2036,6 +2065,7 @@ b2bc_payload = {
     "runrate":    to_compact(df_b2bc_rr_agg) if not df_b2bc_rr_agg.empty else {"cols": [], "rows": []},
     "forecast":   _forecast_b2bc_compact,
     # Resto del FY fuera del año calendario (mensual) -> gráfico de 12 meses de la portada del Flow
+    "flow_oc":    _flow_oc,   # OC B2B2C mensual (contable), slide "Monthly Performance — OC" del Flow
     "budget_fy_rest":  to_compact(df_bud_fy_rest) if not df_bud_fy_rest.empty else {"cols": [], "rows": []},
     "runrate_fy_rest": to_compact(df_rr_fy_rest)  if not df_rr_fy_rest.empty  else {"cols": [], "rows": []},
     "okr_budget":  to_compact(df_okr_bud),   # NR por mes x stage, FY completo -> okr_builder.py
