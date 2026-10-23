@@ -507,12 +507,24 @@ def _read_agencias_flat():
     return _read_tracker_sheet("Hoja1", "Agencias", "B2B", "Monthly Buying Agencies")
 
 
+# Actual forzado a mano mientras el tracker no trae el mes (pedido de antonella.difranco, 2026-10-23).
+# Solo completa meses que la hoja 'API' no tiene: cuando el equipo carga el real, gana el tracker.
+# Sacar la entrada cuando el mes esté cargado en el Excel.
+PARTNERS_API_ACTUAL_OVERRIDE = {"2026-10": 490}
+
+
 def _read_partners_api_actual():
     """KR Global B2B API 'Accelerate Hunting Partners API' (2026-10-23): el ACTUAL sale de la hoja 'API'
     del tracker (escenario Actuals, Pais=Total). El target (Budget) sigue de Input_OKR — en el tracker
     es el mismo — para no duplicar filas (la landing suma por clave)."""
-    return _read_tracker_sheet("API", "Partners API", "Globales", "Accelerate Hunting Partners API",
-                               escenarios=("Run Rate/Actuals",))
+    kr = "Accelerate Hunting Partners API"
+    rows = _read_tracker_sheet("API", "Partners API", "Globales", kr, escenarios=("Run Rate/Actuals",))
+    have = {r[0] for r in rows}
+    for ym, v in sorted(PARTNERS_API_ACTUAL_OVERRIDE.items()):
+        if _ym_to_periodo(ym) not in have:
+            rows.append([_ym_to_periodo(ym), "Run Rate/Actuals", "Globales", "Total", "Total", kr, v])
+            print(f"  [Partners API] {ym} = {v} forzado (PARTNERS_API_ACTUAL_OVERRIDE; el tracker no trae el mes)")
+    return rows
 
 
 def _read_manual_krs(token_file):
