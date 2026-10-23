@@ -44,6 +44,7 @@ El ecosistema tiene dos capas: **pipelines** (Python, generan los datos) y **lan
 - **Trigger**: automático, Windows Task Scheduler, 08:00 hs
 - **Input**: Datalake Treasure Data (ODBC) — actuals B2B2C, actuals B2B (GD y RI), LY, budget, run rate
 - **Output**: `daily_b2b2c_data.json` + `daily_b2b_data.json` en Drive (carpeta DailyDashboard). También `fvm_negativo.json` para la landing `FVM_Negativo` (ver abajo)
+- **Al final de cada corrida** (desde 2026-10-23) llama a `Inputs_Planning_PnL/okr_builder.refresh_after_upload()` y regenera `okr.json` (Hub + KR Global B2B API), usando las credenciales de Drive de `Inputs_Planning_PnL/` (`credentials_drive.json` + `token_drive.json`). Si falla, avisa y la sync sigue.
 - **Switch ORGANIC** (GAS/HTML): `getFxTable()` (`Codigo_organic.js`) le pasa al navegador los TC de `tc_plana_flat.xlsx` (mismo xlsx que el Hub); el Weekly lo convierte en el servidor.
 - **Deploy Python**: Task Scheduler ya configurado en la máquina de Gregorio. Para reconfigurar ver [SETUP.md](./Daily_Dashboard/SETUP.md)
 - **Deploy GAS**: `cd Daily_Dashboard && clasp push`

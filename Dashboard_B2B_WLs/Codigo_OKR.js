@@ -52,11 +52,11 @@ var OKR_CONFIG_H2 = {
       { kr: 'accelerate recurrence',          label: 'Accelerate Recurrence',                weight: 15 }
     ]
   },
-  // Globales B2B API (Others Countries · canal API · Hoteles), redefinidos 2026-10-21.
+  // KR Global B2B API (canal API · Hoteles · todos los países), redefinidos 2026-10-21; país = todos desde 2026-10-23.
   // Conteos y % son stocks / fotos del mes → cumulative (último mes). NR API Hoteles es flujo
   // (suma, target = Budget contable). Price Competitiveness = adversidad → inverse.
   'globales': {
-    label: 'Globales B2B API',
+    label: 'KR Global B2B API',
     krs: [
       { kr: 'accelerate hunting partners api',                    label: 'Accelerate Hunting # Partners API',                  weight: 20, cumulative: true },
       { kr: 'hoteles directos vendidos destino latam',            label: 'Hoteles Directos vendidos destino LATAM',            weight: 15, cumulative: true },

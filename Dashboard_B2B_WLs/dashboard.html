@@ -4768,7 +4768,7 @@ function renderOKR(okr) {
     +(_okrMonthly ? '⇄ Trimestral' : '⇄ Mensual')+'</button>'
     +'</div></div>';
 
-  // 'globales' (Globales B2B API) solo existe en H2 → en H1 okr['globales'] es undefined y se omite.
+  // 'globales' (KR Global B2B API) solo existe en H2 → en H1 okr['globales'] es undefined y se omite.
   var lobsToRender = _state.lob === 'b2b2c' ? ['b2b2c']
                    : _state.lob === 'b2b'   ? ['b2b','globales']
                    : ['b2b2c','b2b','globales'];

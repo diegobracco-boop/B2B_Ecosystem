@@ -1357,7 +1357,7 @@ function getAgenciasOKR() {
   return payload;
 }
 
-// KRs de "Globales B2B API" (H2 FY27). Desde 2026-09-25 (auditoría, decisión de Diego) salen de
+// KRs de "KR Global B2B API" (H2 FY27). Desde 2026-09-25 (auditoría, decisión de Diego) salen de
 // okr.json — la misma fuente y definición que el OKR del Hub (Dashboard_B2B_WLs/Codigo_OKR.js,
 // 6 KRs) — y ya no de un JSON editado a mano en Drive. Redefinidos 2026-10-21 (slide del OKR
 // H2, owner JP Martorell). Targets y actuals se cargan en la sheet Input_OKR, salvo NR API
@@ -1368,7 +1368,7 @@ var GLOBALES_KRS_DEF = [
   { id:'accelerate_hunting_partners_api', kr:'accelerate hunting partners api',                   name:'Accelerate Hunting # Partners API',                 weight:0.20, unit:'# Partners' },
   { id:'hoteles_directos_latam',          kr:'hoteles directos vendidos destino latam',           name:'Hoteles Directos vendidos destino LATAM',           weight:0.15, unit:'# Hoteles' },
   { id:'pct_hoteles_directos_globales',   kr:'% hoteles directos vendidos destino globales',      name:'% Hoteles Directos vendidos destino Globales',      weight:0.15, unit:'%' },
-  // actual: lo calcula el cliente desde el daily (API · Hoteles · Other Countries), MTD
+  // actual: lo calcula el cliente desde el daily (API · Hoteles · todos los países), MTD
   { id:'net_revenues_api_hoteles',        kr:'net revenues api hoteles',                          name:'Net Revenues API Hoteles',                          weight:0.15, unit:'$M', scale:1e6 },
   { id:'new_onboarded_properties',        kr:'new onboarded properties global & regional chains', name:'New Onboarded Properties Global & Regional Chains', weight:0.15, unit:'# Hoteles' },
   { id:'price_competitiveness_ex_latam',  kr:'price competitiveness ex-latam (destino gl)',       name:'Price Competitiveness ex-Latam (Destino GL)',       weight:0.20, unit:'%', inverse:true }
@@ -1379,7 +1379,7 @@ var GLOBALES_MESES_LABEL = ["Oct'26","Nov'26","Dic'26","Ene'27","Feb'27","Mar'27
 function getGlobalesKRTargets() {
   var file = DriveApp.getFileById(OKR_JSON_FILE_ID);
   var cache = CacheService.getScriptCache();
-  var key = 'globales_okr_v2_' + file.getLastUpdated().getTime();
+  var key = 'globales_okr_v3_' + file.getLastUpdated().getTime();
   var hit = cache.get(key);
   if (hit) { try { return JSON.parse(hit); } catch (e) {} }
   var j = JSON.parse(file.getBlob().getDataAsString());
@@ -1410,7 +1410,7 @@ function getGlobalesKRTargets() {
              inverse: !!d.inverse, targets: targets, actuals: actuals };
   });
   var payload = {
-    meta: { titulo: 'Globales B2B API — OKR H2 FY27', periodo: 'H2-FY27', meses: GLOBALES_MESES,
+    meta: { titulo: 'KR Global B2B API — OKR H2 FY27', periodo: 'H2-FY27', meses: GLOBALES_MESES,
             meses_label: GLOBALES_MESES_LABEL, actualizado: file.getLastUpdated().toISOString().substring(0, 10),
             nota: 'Fuente: okr.json (sheet Input_OKR + contable), misma que el OKR del Hub.' },
     krs: krs

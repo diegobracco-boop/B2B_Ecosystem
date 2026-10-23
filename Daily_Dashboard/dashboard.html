@@ -1159,7 +1159,7 @@ body.krd-only #section-b2b > :not(.krd-keep) { display:none !important; }
       <div class="dm-toggle">
         <button class="dm-btn active" id="btn-b2b-kr-h1" onclick="setB2BKrHalf('h1')">H1</button>
         <button class="dm-btn"        id="btn-b2b-kr-h2" onclick="setB2BKrHalf('h2')">H2</button>
-        <button class="dm-btn"        id="btn-b2b-kr-globales" onclick="setB2BKrHalf('globales')">Globales</button>
+        <button class="dm-btn"        id="btn-b2b-kr-globales" onclick="setB2BKrHalf('globales')">KR Global B2B API</button>
         <button class="dm-btn"        id="btn-b2b-kr-detail" onclick="setB2BKrHalf('detail')">OKR Detail</button>
       </div>
     </div>
@@ -1241,7 +1241,7 @@ body.krd-only #section-b2b > :not(.krd-keep) { display:none !important; }
     <div style="font-size:11px;color:var(--text-3);margin-top:6px">Targets provisorios = Budget MTD (pendiente de reemplazar por los targets del H2).</div>
   </div>
 
-  <!-- Globales (H2 FY27): Global B2B API Hoteles -->
+  <!-- KR Global B2B API (H2 FY27) -->
   <div id="b2b-kr-globales" style="display:none">
     <div class="kr-row" id="b2b-kr-globales-row"></div>
     <div id="b2b-kr-globales-sub" style="font-size:11px;color:var(--text-3);margin-top:6px"></div>
@@ -1873,7 +1873,7 @@ function _orgTargetBench_() { return _orgTargetFor_('ly'); }
 function _orgTargetWeekly_(){ return _orgTargetFor_('budget'); }
 // KRs (Daily, Flow y Tracker): se miden vs Budget → con ORGANIC YES los actuals van a TC Budget
 function _orgTargetKR_()    { return _orgTargetFor_('budget'); }
-// Raw B2B (_rawB2B u okr_h2_managerial) con los actuals de KRs a TC Budget. KRs Globales: Other Countries, sin TC.
+// Raw B2B (_rawB2B u okr_h2_managerial) con los actuals de KRs a TC Budget (incluye el NR del KR Global B2B API).
 function _krRawB2B_(raw) {
   var t = _orgTargetKR_();
   if (!t || !raw) return raw;
@@ -3629,20 +3629,20 @@ function krdCopy_(idx) {
   });
 }
 
-// ── KRs Globales (Global B2B API Hoteles, targets H2 FY27 desde JSON en Drive) ──
+// ── KR Global B2B API (targets H2 FY27 desde okr.json en Drive) ──
 var _globalesTargets=null;
 function loadGlobalesTargets_(){
   if(_globalesTargets){ renderKRsGlobales_(); return; }
   var cont=document.getElementById('b2b-kr-globales-row');
-  if(cont)cont.innerHTML='<div style="color:var(--text-3);font-size:12px;padding:8px">Cargando targets de Globales…</div>';
+  if(cont)cont.innerHTML='<div style="color:var(--text-3);font-size:12px;padding:8px">Cargando targets del KR Global B2B API…</div>';
   google.script.run
     .withSuccessHandler(function(d){ _globalesTargets=d; renderKRsGlobales_(); })
-    .withFailureHandler(function(){ var c=document.getElementById('b2b-kr-globales-row'); if(c)c.innerHTML='<div style="color:var(--danger);font-size:12px;padding:8px">No se pudieron cargar los targets de Globales (okr.json).</div>'; })
+    .withFailureHandler(function(){ var c=document.getElementById('b2b-kr-globales-row'); if(c)c.innerHTML='<div style="color:var(--danger);font-size:12px;padding:8px">No se pudieron cargar los targets del KR Global B2B API (okr.json).</div>'; })
     .getGlobalesKRTargets();
 }
 
-// Agregado NR de Globales API Hoteles (país "Other Countries", canal API,
-// producto Hotel) para un mes, hasta `upTo` (MTD) — mismo filtro que el tab "KRs Globales".
+// Agregado NR de API Hoteles (canal API, producto Hotel, todos los países) para un mes,
+// hasta `upTo` (MTD) — mismo filtro que el tab "KR Global B2B API" del Tracker.
 function computeGlobalesApiHotelMonth_(raw, ym, upTo){
   var src=raw.b2b_ri||[]; var pp=ym.split('-');
   var from=ym+'-01', to=ym+'-'+String(new Date(+pp[0],+pp[1],0).getDate()).padStart(2,'0');
@@ -3650,7 +3650,6 @@ function computeGlobalesApiHotelMonth_(raw, ym, upTo){
   var nr=0;
   src.forEach(function(r){
     if(r.fecha<from||r.fecha>to)return;
-    if((r.pais||'').toLowerCase()!=='other countries')return;
     if(r.parent_channel!=='API')return;
     var p=r.producto_original||''; if(p!=='Hotel'&&p!=='Hotels')return;
     nr+=(r.net_revenue||0);
@@ -3669,12 +3668,12 @@ function renderKRsGlobales_(){
   var cont=document.getElementById('b2b-kr-globales-row'), sub=document.getElementById('b2b-kr-globales-sub');
   if(!cont) return;
   if(!_globalesTargets || !_globalesTargets.krs){
-    cont.innerHTML='<div style="color:var(--text-3);font-size:12px;padding:8px">Cargando targets de Globales…</div>'; return;
+    cont.innerHTML='<div style="color:var(--text-3);font-size:12px;padding:8px">Cargando targets del KR Global B2B API…</div>'; return;
   }
   var meta=_globalesTargets.meta||{}, meses=meta.meses||[], labels=meta.meses_label||meses;
   var refYM=globalesRefYM_(meses, state_b2b.viewDate), idx=meses.indexOf(refYM);
   var vd=String(state_b2b.viewDate||'');
-  var agg=_rawB2B?computeGlobalesApiHotelMonth_(_rawB2B, refYM, vd):{nr:0};
+  var agg=_rawB2B?computeGlobalesApiHotelMonth_(_krRawB2B_(_rawB2B), refYM, vd):{nr:0};   // a TC Budget con ORGANIC YES (hay países con TC)
   // NR es MTD → si el día de vista cae en el mes de referencia, el target se prorratea por días.
   var pp=refYM.split('-'), frac=(vd.substring(0,7)===refYM)?Number(vd.substring(8,10))/new Date(+pp[0],+pp[1],0).getDate():1;
   function pctColor(p){return p===null?'var(--text-2)':p>=100?'var(--success)':p>=80?'#f59e0b':'var(--danger)';}
@@ -3693,7 +3692,7 @@ function renderKRsGlobales_(){
         '<div class="kr-sub-item"><span class="kr-sub-lbl">Target</span><span>'+fmtVal(t,kr.unit)+'</span></div>'+
       '</div></div>';
   }).join('');
-  if(sub) sub.textContent='Mes de referencia: '+(labels[idx]||refYM)+'  ·  fuente: okr.json (igual que el OKR del Hub) · NR actual = daily MTD (API · Hoteles · Globales) vs target prorrateado · resto = valor del mes de Input_OKR · Price Competitiveness: menos es mejor.';
+  if(sub) sub.textContent='Mes de referencia: '+(labels[idx]||refYM)+'  ·  fuente: okr.json (igual que el OKR del Hub) · NR actual = daily MTD (API · Hoteles · todos los países) vs target prorrateado · resto = valor del mes de Input_OKR · Price Competitiveness: menos es mejor.';
 }
 
 function renderKRBreakdown_(krs) {

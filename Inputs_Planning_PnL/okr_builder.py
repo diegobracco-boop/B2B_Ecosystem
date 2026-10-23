@@ -57,6 +57,7 @@ OKR_FILE_ID        = "1cEidr8aoYgm4S7ugm05Wv-SMnz8GbtUj"   # okr.json (output)
 
 SHEET_ID    = "1RVmTXDyyugCUXJ0f6JG_croNxWNLlOLm4eAs8F52u2c"
 SHEET_RANGE = "Input_OKR"
+SHEET_GID   = "1289400377"   # gid de la pestaña Input_OKR (para el fallback CSV de _read_sheet)
 
 # KR "Monthly Buying Agencies" (B2B): tracker en OneDrive llenado a mano por el
 # equipo. El estado de la orden en el datalake muta con el tiempo → hay que
@@ -84,7 +85,7 @@ MANUAL_KRS = {
     "Deploy New Partnership",
     "Unique Buyers",
     "Accelerate Recurrence",
-    # Globales B2B API (H2, redefinidos 2026-10-21): target y actual en la sheet, LoB='Globales'.
+    # KR Global B2B API (H2, redefinidos 2026-10-21): target y actual en la sheet, LoB='Globales'.
     # El 6to KR (Net Revenues API Hoteles) se calcula del contable (ver _compute_from_canonical).
     "Accelerate Hunting Partners API",
     "Hoteles Directos vendidos destino LATAM",
@@ -109,9 +110,9 @@ KR_CANON = {
 GLOBALES_KRS_LC = {k.lower() for k in MANUAL_KRS if k.lower().startswith(
     ("accelerate hunting", "hoteles directo", "% hoteles directos", "new onboarded properties", "price competitiveness"))}
 
-# Globales B2B API Hoteles = país Others Countries + canal API ('may') + producto Hotels
-# (misma definición que el tab "KRs Globales" del Daily).
-GLOBALES_PAISES    = {"others countries", "other countries"}
+# KR Global B2B API "Net Revenues API Hoteles" = canal API ('may') + producto Hotels, TODOS los países
+# (2026-10-23: el target es de todo API, no solo de Others Countries). Misma definición que el tab
+# "KR Global B2B API" del Daily/Tracker.
 GLOBALES_PRODUCTOS = {"hotels", "hotel"}
 
 
@@ -157,11 +158,23 @@ def _read_sheet(token_file):
     )
     if not creds.valid:
         creds.refresh(Request())
-    sheets = build("sheets", "v4", credentials=creds)
-    result = sheets.spreadsheets().values().get(
-        spreadsheetId=SHEET_ID, range=SHEET_RANGE
-    ).execute()
-    return result.get("values", [])
+    try:
+        sheets = build("sheets", "v4", credentials=creds)
+        result = sheets.spreadsheets().values().get(
+            spreadsheetId=SHEET_ID, range=SHEET_RANGE
+        ).execute()
+        return result.get("values", [])
+    except Exception as e:
+        # Con el client OAuth de clasp (credentials_drive.json armado desde ~/.clasprc.json) la Sheets
+        # API no está habilitada (403 SERVICE_DISABLED): se baja la pestaña como CSV por Drive, que
+        # devuelve los mismos valores formateados (fechas d/mm/aaaa, números es-AR).
+        import csv
+        from google.auth.transport.requests import AuthorizedSession
+        print(f"  [GSheet] Sheets API no disponible ({str(e)[:80]}...) — leo {SHEET_RANGE} como CSV por Drive")
+        r = AuthorizedSession(creds).get(
+            f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/export?format=csv&gid={SHEET_GID}")
+        r.raise_for_status()
+        return list(csv.reader(io.StringIO(r.content.decode("utf-8"))))
 
 
 # ── Gestional B2B2C ───────────────────────────────────────────────────────────
@@ -288,7 +301,7 @@ def _compute_from_canonical(canon_data, scen_label):
     nr_new     = defaultdict(float)   # B2B NR New Markets
     nr_b2b2c   = defaultdict(float)   # B2B2C NR total (no es KR propio)
     nr_b2b     = defaultdict(float)   # B2B NR total (H2: KR "Net Revenues B2B")
-    glob_nr    = defaultdict(float)   # Globales API Hoteles NR  (H2: KR "Net Revenues API Hoteles")
+    glob_nr    = defaultdict(float)   # API Hoteles NR, todos los países (H2: KR "Net Revenues API Hoteles")
     oc_api     = defaultdict(float)   # B2B OC canal 'may' = API (H2)
     oc_html    = defaultdict(float)   # B2B OC canal 'min' = HTML (H2)
 
@@ -306,7 +319,7 @@ def _compute_from_canonical(canon_data, scen_label):
         if lob == "b2b2c" and n3 == "net revenue":
             nr_b2b2c[fecha] += monto
 
-        if (lob == "b2b" and str(r[iC]).lower() == "may" and pais in GLOBALES_PAISES
+        if (lob == "b2b" and str(r[iC]).lower() == "may"
                 and str(r[cols.index("Producto")]).lower() in GLOBALES_PRODUCTOS):
             if n3 == "net revenue":
                 glob_nr[fecha] += monto
@@ -329,7 +342,7 @@ def _compute_from_canonical(canon_data, scen_label):
     for fecha in sorted(set(list(op_cont) + list(nr_core) + list(nr_new)
                             + list(nr_b2b) + list(oc_api) + list(oc_html) + list(glob_nr))):
         if fecha in glob_nr:
-            rows.append([fecha, scen_label, "Globales", "Others Countries", "Hotels",
+            rows.append([fecha, scen_label, "Globales", "Total", "Hotels",
                          "Net Revenues API Hoteles", round(glob_nr[fecha], 2)])
         if fecha in nr_b2b:
             rows.append([fecha, scen_label, "B2B", "Total", "Total",
@@ -553,7 +566,7 @@ def _apply_unique_buyers_actual(rows_manual, daily_json, last_actual_ym):
 
 
 def _apply_globales_hoteles_actual(rows_manual, daily_json):
-    """KRs Globales B2B API "Hoteles Directos vendidos destino LATAM" y "% Hoteles Directos vendidos
+    """KR Global B2B API "Hoteles Directos vendidos destino LATAM" y "% Hoteles Directos vendidos
     destino Globales" (H2 FY27): el actual sale del Datalake (daily_sync.py -> daily_b2b2c_data.json
     "okr_globales_hoteles", hoteles distintos por mes; el mes en curso es MTD) en vez de Input_OKR,
     donde el "actual" era el target copiado. El target (Budget) sigue de la sheet; el actual queda solo
@@ -609,6 +622,16 @@ def build(upload=True):
     rows_manual   = _apply_unique_buyers_actual(rows_manual, daily_json, last_actual_ym)
     rows_manual   = _apply_globales_hoteles_actual(rows_manual, daily_json)
     rows_agencias = _read_agencias_flat()
+    if not rows_agencias:
+        # Sin el tracker en el OneDrive de esta máquina (p.ej. la sync diaria en una compu sin la carpeta
+        # compartida): se conservan las filas del okr.json publicado, para no borrar el KR de H1.
+        try:
+            prev = _download_json(svc, OKR_FILE_ID, "okr.json (previo, para Monthly Buying Agencies)")
+            iK = prev["cols"].index("KR")
+            rows_agencias = [r for r in prev.get("rows", []) if r[iK] == "Monthly Buying Agencies"]
+            print(f"  [Agencias] {len(rows_agencias)} filas conservadas del okr.json publicado")
+        except Exception as e:
+            print(f"  WARN [Agencias] no se pudieron conservar del okr.json publicado ({e})")
 
     all_rows = rows_baseline + rows_budget + rows_hunting + rows_manual + rows_agencias
 
@@ -651,10 +674,11 @@ def build(upload=True):
 
 def refresh_after_upload():
     """Regenera y sube okr.json. Lo llaman json_builder.py (budget/all) y baseline_builder.py justo
-    después de subir budget.json / baseline: okr.json se arma a partir de ellos, y si no se regenera
+    después de subir budget.json / baseline, y Daily_Dashboard/daily_sync.py al final de cada corrida
+    (los actuals del Datalake de daily_b2b2c_data.json): okr.json se arma a partir de ellos, y si no se regenera
     el OKR Status del Hub queda con números viejos distintos al Cuadro Resumen P&L (pasó en oct-2026).
     No corta el flujo que lo llama: si falla, avisa y hay que correr `python okr_builder.py` a mano."""
-    print("\n=== okr.json (se regenera porque cambió budget/baseline) ===")
+    print("\n=== okr.json (se regenera con los datos nuevos) ===")
     try:
         build(True)
     except Exception as e:

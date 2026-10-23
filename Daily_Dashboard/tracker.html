@@ -372,7 +372,7 @@
   .kr-cumpl-yellow { background: #fdf1cf; color: #8a5a00; border-color: #c99a2e; }
   .kr-cumpl-green  { background: #d9f2e1; color: #2f7d4f; border-color: #4fae74; }
 
-  /* ── KRs Globales: cards por KR (recorrido del semestre + strip mensual) ── */
+  /* ── KR Global B2B API: cards por KR (recorrido del semestre + strip mensual) ── */
   .glob-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; margin-top: 6px; }
   .glob-card { background: #fff; border: 1px solid #ece9fb; border-radius: 14px; padding: 14px 16px 12px; box-shadow: 0 1px 3px rgba(80,40,180,.06); }
   .glob-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
@@ -708,7 +708,7 @@
   /* País completo (en pantalla se corta a 80px con "…": "Ecua / Uru / Par"). */
   body.slides-mode #agenciasContent .kr-detail-table td:first-child,
   body.slides-mode #agenciasContent .kr-detail-table th:first-child { max-width: none; width: auto; }
-  /* KRs Globales en slides: 6 cards en 2 filas (3 + 3) que LLENAN el alto del
+  /* KR Global B2B API en slides: 6 cards en 2 filas (3 + 3) que LLENAN el alto del
      slide (sin espacio muerto arriba/abajo). El grid ocupa el espacio restante
      bajo el título; las filas se reparten en partes iguales y cada card estira
      su contenido (header arriba, tira mensual abajo). globalesWrap tiene display
@@ -1114,7 +1114,7 @@
   <div class="tab-separator"></div>
   <button class="tab-btn" data-tab="agencias">Status KRs H1</button>
   <button class="tab-btn" data-tab="agencias_h2">Status KRs H2</button>
-  <button class="tab-btn" data-tab="globales">KRs Globales</button>
+  <button class="tab-btn" data-tab="globales">KR Global B2B API</button>
 </div>
 
 <div class="country-filter-bar" id="countryFilterBar">
@@ -1412,9 +1412,9 @@
   </div>
 </div>
 
-<!-- Vista KRs Globales — Global B2B API Hoteles (targets H2 FY27) -->
+<!-- Vista KR Global B2B API (targets H2 FY27) -->
 <div class="agencias-content" id="globalesContent">
-  <div class="tables-view-title" id="globalesTitle">KRs Globales — Global B2B API Hoteles</div>
+  <div class="tables-view-title" id="globalesTitle">KR Global B2B API</div>
   <div id="globalesSpinner" class="spinner-wrap" style="height:200px;display:none">
     <div class="spinner"></div><span>Cargando targets...</span>
   </div>
@@ -1423,7 +1423,7 @@
     <div class="status-krs-meta" id="globalesMeta"></div>
     <div id="globalesCards"></div>
     <div style="font-size:0.78rem;color:#9ca3af;margin-top:10px">
-      Targets del OKR H2 FY27 (fuente: <em>okr.json</em>, la misma del OKR del Hub). El <strong>actual</strong> de Net Revenues API Hoteles se computa desde el daily (canal API · producto Hoteles · país Globales; el mes en curso es MTD contra el target prorrateado); el resto sale de la sheet Input_OKR. En Price Competitiveness menos es mejor (% de adversidad).
+      Targets del OKR H2 FY27 (fuente: <em>okr.json</em>, la misma del OKR del Hub). El <strong>actual</strong> de Net Revenues API Hoteles se computa desde el daily (canal API · producto Hoteles · todos los países; el mes en curso es MTD contra el target prorrateado); el resto sale de la sheet Input_OKR. En Price Competitiveness menos es mejor (% de adversidad).
     </div>
   </div>
 </div>
@@ -3792,7 +3792,7 @@ function recurDetailBox_(krYM) {
 }
 
 // ─────────────────────────────────────────────
-//  KRs Globales — Global B2B API Hoteles (targets H2 FY27)
+//  KR Global B2B API (targets H2 FY27)
 // ─────────────────────────────────────────────
 function loadGlobales() {
   if (globalesState === 'loading' || globalesState === 'loaded') return;
@@ -3817,16 +3817,15 @@ function fmtGlobalTarget(v, unit) {
   return Number(v).toLocaleString('es-AR'); // # Partners / # Hoteles
 }
 
-// Agregado mensual de Globales API Hoteles: NR (raw) por país "Other
-// Countries", canal API, producto Hotel — para el KR "Net Revenues API Hoteles".
+// Agregado mensual de API Hoteles: NR (todos los países), canal API, producto Hotel —
+// para el KR "Net Revenues API Hoteles". A TC Budget con ORGANIC YES (getActualsKR).
 function globalesApiHotelByMonth_(meses) {
   var out = {};
   meses.forEach(function(ym){ out[ym] = { nr: 0 }; });
   if (!rawData) return out;
-  getActuals('ri').forEach(function(r){
+  getActualsKR('ri').forEach(function(r){
     var ym = String(r.fecha || '').substring(0, 7);
     if (!out[ym]) return;
-    if ((r.pais || '').toLowerCase() !== 'other countries') return;
     if (r.parent_channel !== 'API') return;
     var p = r.producto_original || '';
     if (p !== 'Hotel' && p !== 'Hotels') return;
@@ -3872,7 +3871,7 @@ function renderGlobales() {
 
   if (globalesState === 'error' || !globalesData || !globalesData.krs) {
     wrap.style.display = 'none';
-    errEl.textContent = 'No se pudieron cargar los KRs de Globales (okr.json en Drive).';
+    errEl.textContent = 'No se pudieron cargar los KR Global B2B API (okr.json en Drive).';
     errEl.style.display = 'block';
     return;
   }
@@ -3884,13 +3883,13 @@ function renderGlobales() {
   var _globTitleEl = document.getElementById('globalesTitle');
   if (_isSlidesMode) {
     _globTitleEl.innerHTML =
-      '<b>OKRs Global B2B API Hoteles | H2 FY27</b> — <i>Managerial Information</i>';
+      '<b>KR Global B2B API | H2 FY27</b> — <i>Managerial Information</i>';
   } else {
-    _globTitleEl.textContent = 'KRs Globales — Global B2B API Hoteles';
+    _globTitleEl.textContent = 'KR Global B2B API';
   }
 
   document.getElementById('globalesMeta').innerHTML =
-    '&#127760; ' + (meta.titulo || 'KRs Globales') +
+    '&#127760; ' + (meta.titulo || 'KR Global B2B API') +
     (meta.periodo ? ' — <strong>' + meta.periodo + '</strong>' : '') +
     (meta.actualizado ? ' · act. ' + meta.actualizado : '');
 
@@ -4264,7 +4263,7 @@ const SLIDE_ORDER = [
   { tab: 'agencias_h2', title: 'Status KRs H2'                                                  },
   { tab: 'agencias_h2', krChannel: 'api',  title: 'Status KRs H2 · API'                         },
   { tab: 'agencias_h2', krChannel: 'html', title: 'Status KRs H2 · HTML'                        },
-  { tab: 'globales',    title: 'KRs Globales'                                                   },
+  { tab: 'globales',    title: 'KR Global B2B API'                                                   },
   { isCover: true,     title: 'Recognition Date', subtitle: 'Gross Bookings · Net Revenue · FVM' },
   { tab: 'gb_ri',      title: 'Gross Bookings — RI'                                             },
   { tab: 'nr_ri',      title: 'Net Revenue — RI'                                                },
@@ -4551,7 +4550,7 @@ async function _ensureSlidesDataLoaded() {
   if (airNRState   === 'idle' || airNRState   === 'loading') pending.push('Air NR');
   // Globales puede quedar en 'error' (targets no disponibles); eso NO bloquea la
   // export — la slide muestra su propio mensaje de error. Solo bloqueamos si sigue cargando.
-  if (globalesState === 'idle' || globalesState === 'loading') pending.push('KRs Globales');
+  if (globalesState === 'idle' || globalesState === 'loading') pending.push('KR Global B2B API');
   if (pending.length) {
     throw new Error('Los datos todavía se están cargando (' + pending.join(', ') +
                     '). Esperá unos segundos y reintentá — no se exporta un estado parcial.');
