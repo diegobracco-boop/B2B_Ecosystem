@@ -171,6 +171,15 @@ test('una versión nueva del archivo recarga el módulo (los globales memorizado
   assert.deepEqual((await run('leerJson')).result, { v: 2 });
 });
 
+test('solo se recargan los módulos que leen el archivo que cambió (no pierden su caché por otros)', async () => {
+  const carga = (await run('idCarga')).result;
+  await app.fileStore.put({ id: 'otroModulo0000000001', name: 'ajeno.json', folderId: 'folder00000000000001', updatedAt: 7 }, Buffer.from('{}'));
+  assert.equal((await run('idCarga')).result, carga, 'un archivo que el módulo no lee no lo recarga');
+  const r = await put('folderJson0000000001', JSON.stringify({ rows: [3] }), { 'X-File-Name': 'revenue_gd.json', 'X-Folder-Id': 'folder00000000000001', 'X-Updated-At': '2026-10-21T09:00:00.000Z' });
+  assert.equal(r.status, 200, r.text);
+  assert.notEqual((await run('idCarga')).result, carga, 'un archivo de su carpeta sí');
+});
+
 test('xlsx de TC: unzip + XmlService como readFxTable_', async () => {
   const r = await put('fxFile00000000000001', XLSX, { 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'X-File-Name': 'tc_plana_flat.xlsx' });
   assert.equal(r.status, 200, r.text);

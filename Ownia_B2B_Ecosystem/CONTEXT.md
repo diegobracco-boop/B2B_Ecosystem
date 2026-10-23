@@ -20,7 +20,7 @@ se valida que Ownia da lo mismo (decisión del equipo, módulo por módulo).
 | `P&L_Managerial` | `/b2b-ecosystem/pnl-managerial` | 🔁 en validación (paralelo a GAS, datos espejados) |
 | `P&L_Accounting` | `/b2b-ecosystem/pnl-accounting` | 🔁 en validación (paralelo a GAS, datos espejados) |
 | `Daily_Dashboard` | `/b2b-ecosystem/daily` | 🔁 en validación (paralelo a GAS). Sin exportar a Slides ni mandar el mail (SlidesApp / MailApp): siguen en GAS |
-| `Dashboard_B2B_WLs` (Hub) | `/b2b-ecosystem/hub` | 🔁 en validación desde 2026-10-23 (paralelo a GAS, solo equipo B2B). "Slides cierre de mes" (SlidesApp + Slides API) y los triggers (`preComputeAll`, `keepAlive`) siguen en GAS; `getLastSync` da `null` (lo escribe un proceso de GAS en ScriptProperties). Primera carga ~30 s (sin trigger que precaliente el cache) |
+| `Dashboard_B2B_WLs` (Hub) | `/b2b-ecosystem/hub` | 🔁 en validación desde 2026-10-23 (paralelo a GAS, solo equipo B2B). "Slides cierre de mes" (SlidesApp + Slides API) y los triggers (`preComputeAll`, `keepAlive`) siguen en GAS; `getLastSync` da `null` (lo escribe un proceso de GAS en ScriptProperties). Primera carga ~4 s (sin trigger que precaliente el cache). Hasta el 2026-10-23 tardaba 40–70 s y en Ownia se cortaba a los 55 s: `queryMap_` partía con `split` todas las claves del mapa en cada una de sus cientos de llamadas; ahora usa un índice parseado una vez (`queryIndex_`, mismo resultado byte a byte) |
 | `FVM_Negativo` | `/b2b-ecosystem/fvm-negativo` | 🔁 en validación desde 2026-10-23 (paralelo a GAS, cualquier @despegar.com como el webapp GAS). Solo lee `fvm_negativo.json` de la carpeta del Daily |
 | Resto (One Pager, OKR, Profit Sharing) | — | ⏳ en GAS. La portada linkea a su landing GAS |
 
@@ -97,7 +97,14 @@ pipelines (sin cambios) ──▶ Drive ──▶ mirror/ownia_mirror.py ──P
   nada y se reintenta en el próximo poll. `/health` informa `data.files`, `lastRefresh` y `error` del almacén.
 - **Cuando llega una versión nueva de un archivo se recargan los módulos**: en GAS cada ejecución arranca con los
   globales limpios, acá el contexto vive entre requests y varios módulos memorizan el JSON en un global
-  (`_gestionalJsonCache_`, `_fxCache_`…). Sin la recarga servirían datos viejos.
+  (`_gestionalJsonCache_`, `_fxCache_`…). Sin la recarga servirían datos viejos. Solo se recargan los módulos que
+  leen el archivo que cambió (según `drive-manifest.json`): recargar pierde su caché en memoria, y el mirror sube
+  archivos del Daily varias veces por día que el Hub no lee.
+- **Respuestas con gzip**: las de `google.script.run` y las páginas de más de 32 KB viajan comprimidas si el
+  navegador lo acepta (el Daily manda ~65 MB de JSON → ~11 MB).
+- **Todo corre en un solo hilo**: mientras una función GAS calcula, las demás requests esperan. Una función lenta en
+  frío frena a todos los módulos (y pasados 55 s se corta con "Script execution timed out"). Al migrar un módulo,
+  medir su carga en frío (`npm run dev` + los tiempos `ms` del log) — ver el caso del Hub en "Estado".
 - `/ingest/files` (GET lista, PUT sube) se protege con `Authorization: Bearer <INGEST_TOKEN>`. Sin
   `INGEST_TOKEN` configurado la ruta no existe (404).
 

@@ -22,6 +22,11 @@ const { promisify } = require('util');
 const zlib = require('zlib');
 
 const gunzip = promisify(zlib.gunzip);
+const gzip = promisify(zlib.gzip);
+
+// Respuestas grandes (el Daily manda ~65 MB de JSON) viajan con gzip si el navegador lo acepta.
+// La compresión corre en el threadpool de libuv: no frena a las otras requests.
+const GZIP_MIN_BYTES = 32 * 1024;
 const { MODULES } = require('./modules');
 const { GasProject } = require('./gas-runtime');
 const { renderOutput } = require('./render');
@@ -29,7 +34,7 @@ const { escapeHtml } = require('./gas-template');
 const { indexPage } = require('./index-page');
 const { resolveIdentity, describeAuthHeaders } = require('./identity');
 const { createFileStore, isValidId } = require('./file-store');
-const { ingestAllowlist } = require('./drive-manifest');
+const { ingestAllowlist, loadManifest } = require('./drive-manifest');
 
 const MAX_BODY = 5 * 1024 * 1024; // google.script.run acepta payloads grandes (p.ej. capturas)
 const MAX_INGEST = 100 * 1024 * 1024; // los JSON canónicos pesan hasta ~15 MB
@@ -47,9 +52,27 @@ function createApp(opts = {}) {
   // Datos nuevos → se recargan los módulos. En GAS cada ejecución arranca con los globales
   // limpios; acá el contexto vive entre requests, y varios módulos memorizan el JSON en una
   // variable global (p.ej. _gestionalJsonCache_): sin esto seguirían sirviendo la versión vieja.
-  if (fileStore) fileStore.onChange(() => projects.clear());
+  // Solo se recargan los módulos que leen algún archivo cambiado: recargar pierde su caché en
+  // memoria, y el mirror sube archivos del Daily varias veces por día que el Hub no lee.
+  const manifest = opts.manifest || loadManifest();
+  const readsFile = (slug, id) => {
+    const spec = manifest.modules[slug];
+    if (!spec) return true; // sin entrada en el manifest: conservador
+    if ((spec.files && id in spec.files) || (spec.sheets && id in spec.sheets)) return true;
+    const f = fileStore.get(id);
+    if (!f) return true; // borrado: sin metadata para saber de qué carpeta era
+    const names = (spec.folders || {})[f.meta.folderId];
+    return !!names && names.includes(f.meta.name);
+  };
+  if (fileStore) {
+    fileStore.onChange((ids) => {
+      for (const slug of [...projects.keys()]) {
+        if (ids.some((id) => readsFile(slug, id))) projects.delete(slug);
+      }
+    });
+  }
   // Qué se puede subir por /ingest: solo los archivos del manifest de los módulos servidos acá.
-  const allowed = ingestAllowlist(modules, opts.manifest);
+  const allowed = ingestAllowlist(modules, manifest);
   const clientJs = fs.readFileSync(path.join(cfg.APP_ROOT, 'public', 'gas-client.js'), 'utf8');
   const clientVersion = crypto.createHash('sha1').update(clientJs).digest('hex').slice(0, 10);
   const navJs = fs.readFileSync(path.join(cfg.APP_ROOT, 'public', 'ownia-nav.js'), 'utf8');
@@ -115,6 +138,13 @@ function createApp(opts = {}) {
 
   function sendJson(res, status, obj) {
     send(res, status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }, JSON.stringify(obj));
+  }
+
+  async function sendCompressible(req, res, status, headers, body) {
+    const accepts = /\bgzip\b/i.test(String(req.headers['accept-encoding'] || ''));
+    if (!accepts || typeof body !== 'string' || body.length < GZIP_MIN_BYTES) return send(res, status, headers, body);
+    const zipped = await gzip(Buffer.from(body, 'utf8'), { level: 4 });
+    return send(res, status, { ...headers, 'Content-Encoding': 'gzip', Vary: 'Accept-Encoding' }, zipped);
   }
 
   function readBody(req, max = MAX_BODY, raw = false) {
@@ -299,7 +329,8 @@ function createApp(opts = {}) {
         const reqCtx = { user: identity, userAgent: req.headers['user-agent'] || '', moduleUrl: `${publicOrigin(req)}${cfg.BASE_PATH}/${mod.slug}` };
         const result = project.call(parts[2], JSON.stringify(args), reqCtx);
         // Como en GAS: undefined viaja como null.
-        return sendJson(res, 200, { result: result === undefined ? null : result });
+        return await sendCompressible(req, res, 200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' },
+          JSON.stringify({ result: result === undefined ? null : result }));
       } catch (e) {
         const status = e.status || 500;
         if (status >= 500) log({ level: 'error', module: mod.slug, fn: parts[2], error: e.stack || String(e) });
@@ -321,7 +352,8 @@ function createApp(opts = {}) {
         `<script src="${cfg.BASE_PATH}/_gas/nav.js?v=${navVersion}" data-home="${escapeHtml(homeUrl)}" data-links="${navLinksAttr}"` +
         (mod.startView ? ` data-start-view="${escapeHtml(mod.startView)}"` : '') + '></script>';
       const out = renderOutput(output, { clientScriptTag });
-      return send(res, out.status, out.headers, req.method === 'HEAD' ? '' : out.body);
+      if (req.method === 'HEAD') return send(res, out.status, out.headers, '');
+      return await sendCompressible(req, res, out.status, out.headers, out.body);
     } catch (e) {
       log({ level: 'error', module: mod.slug, msg: 'doGet falló', error: e.stack || String(e) });
       return send(res, 500, { 'Content-Type': 'text/plain; charset=utf-8' }, `Error al abrir ${mod.title}: ${e.message}`);

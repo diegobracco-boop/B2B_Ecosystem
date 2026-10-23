@@ -15,6 +15,12 @@ function leerJson() {
   return _jsonCache_;
 }
 
+// Distinto en cada carga del módulo: para ver si un cambio de datos lo recargó.
+var _CARGA_ = Math.random();
+function idCarga() {
+  return _CARGA_;
+}
+
 function fechaJson() {
   var d = DriveApp.getFileById(JSON_FILE_ID).getLastUpdated();
   return { t: d.getTime(), esDate: d instanceof Date };

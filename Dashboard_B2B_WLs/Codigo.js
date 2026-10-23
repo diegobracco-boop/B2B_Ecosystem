@@ -811,9 +811,30 @@ function buildManMap_(rows) {
   return { map: map, detailMap: detailMap, lastYm: lastYm };
 }
 
+// ── Índice de un mapa: claves parseadas una sola vez ──────────
+// queryMap_ se llama cientos de veces por getAllData (computeEvo_: mes × grupo × fuente) y
+// partir todas las claves con split en cada llamada era ~90% del tiempo en frío. El índice
+// guarda las claves ya partidas en el orden original (las sumas dan idénticas) y agrupadas por
+// mes para las consultas de un solo mes. Los mapas no se modifican después de buildMap_ & cía.
+var _QM_INDEX_ = new WeakMap();
+function queryIndex_(map) {
+  var idx = _QM_INDEX_.get(map);
+  if (idx) return idx;
+  idx = { all: [], byYm: {} };
+  var keys = Object.keys(map);
+  for (var i = 0; i < keys.length; i++) {
+    var parts = keys[i].split('§');
+    var e = { lob: parts[0], can: parts[1], pai: parts[2], prod: parts[3], n3: parts[4], ym: parts[5], v: map[keys[i]] };
+    idx.all.push(e);
+    (idx.byYm[e.ym] || (idx.byYm[e.ym] = [])).push(e);
+  }
+  _QM_INDEX_.set(map, idx);
+  return idx;
+}
+
 // ── Consultar el mapa con filtros ─────────────────────────────
 function queryMap_(mapData, globalFilter, groupFilter, ymFrom, ymTo) {
-  var map    = mapData.map;
+  var index  = queryIndex_(mapData.map);
   var result = {};
 
   // Pre-computar filtros globales (lowercase una sola vez)
@@ -830,11 +851,10 @@ function queryMap_(mapData, globalFilter, groupFilter, ymFrom, ymTo) {
   var gf_pexcl  = groupFilter && groupFilter.paisExclude    ? groupFilter.paisExclude.map(function(x){return x.toLowerCase();})   : null;
   var gf_pmulti = groupFilter && groupFilter.paisMultiFilter? groupFilter.paisMultiFilter.map(function(x){return x.toLowerCase();}): null;
 
-  var keys = Object.keys(map);
-  for (var i = 0; i < keys.length; i++) {
-    var key   = keys[i];
-    var parts = key.split('§');
-    var lob=parts[0], can=parts[1], pai=parts[2], prod=parts[3], n3=parts[4], ym=parts[5];
+  var entries = (ymFrom && ymFrom === ymTo) ? (index.byYm[ymFrom] || []) : index.all;
+  for (var i = 0; i < entries.length; i++) {
+    var e = entries[i];
+    var lob=e.lob, can=e.can, pai=e.pai, prod=e.prod, n3=e.n3, ym=e.ym;
 
     // Filtro fecha (rápido, string compare)
     if (ymFrom && ym < ymFrom) continue;
@@ -860,7 +880,7 @@ function queryMap_(mapData, globalFilter, groupFilter, ymFrom, ymTo) {
     if (gf_pmulti) { if (gf_pmulti.indexOf(pai) < 0) continue; }
     else if (gf_pai && pai !== gf_pai) continue;
 
-    result[n3] = (result[n3]||0) + map[key];
+    result[n3] = (result[n3]||0) + e.v;
   }
   return result;
 }
