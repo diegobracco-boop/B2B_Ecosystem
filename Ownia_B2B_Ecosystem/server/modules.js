@@ -103,7 +103,10 @@ const MODULES = [
     dir: 'FVM_Negativo',
     title: 'FVM Negativo',
     desc: 'Transacciones B2B / B2B2C con FVM < 0.',
-    ownia: false,
+    // En validación: corre acá en paralelo a GAS. Solo lee fvm_negativo.json de la carpeta del Daily.
+    // Sin allowedUsers: cualquier @despegar.com, igual que el webapp GAS (access DOMAIN).
+    ownia: true,
+    validating: true,
     gasUrl: GAS_EXEC + 'AKfycbzGXCpL9_p70Xx7P640YgU-zOzoLG1018HG9N_pzQvrCJPHTPsUuryD_tDH1HNO41hOIg/exec',
   },
   {
