@@ -1407,7 +1407,7 @@
         <tbody id="statusKRsH2Body"></tbody>
       </table>
     </div>
-    <div style="font-size:0.78rem;color:#9ca3af;margin-top:10px">Targets provisorios = Budget MTD · Accelerate Recurrence (solo HTML): agencias de alta frecuencia (Metabase 171400) vs target mensual de Input_OKR; en las semanas 1-2 del mes el MTD da 0 y el cumplimiento se toma de Rolling L4W vs Target.</div>
+    <div style="font-size:0.78rem;color:#9ca3af;margin-top:10px">Targets provisorios = Budget MTD · Accelerate Recurrence (solo HTML): agencias de alta frecuencia (Metabase 171400) vs target mensual de Input_OKR; en las semanas 1-2 del mes el MTD da 0 y el cumplimiento se toma de Rolling L4W vs Target; desde la semana 3 el Actual muestra el parcial de la semana en curso (informativo, el cumplimiento sigue con la última semana cerrada).</div>
     <div class="kr-detail-grid" id="statusKRsH2DetailGrid"></div>
   </div>
 </div>
@@ -3394,9 +3394,33 @@ function recurH2_(krYM) {
     tot.mtd  += +r.mtd_frecuentes_vivas  || 0;
     tot.roll += +r.roll_frecuentes_vivas || 0;
   });
+  // Actual parcial (2026-10-23): desde la semana 3 del mes, la semana EN CURSO ya puede tener agencias
+  // frecuentes (3+ semanas con compra; en las semanas 1-2 da 0 por definición) → se muestra como Actual
+  // "parcial al <foto>". Solo informativo: el cumplimiento y el OVERALL siguen con la semana cerrada.
+  var parcial = null;
+  if (!cierre.length) {
+    var ec = rows.filter(function(r){
+      var s = +r.semana_del_mes || 0;
+      return r.estado === 'EN_CURSO' && s >= 3 && s > sem;
+    });
+    if (ec.length) {
+      parcial = { semana: +ec[0].semana_del_mes, foto: ec[0].fecha_foto, total: 0 };
+      ec.forEach(function(r){
+        var k = normPais_(r.pais), v = +r.mtd_frecuentes_vivas || 0;
+        byPais[k] = byPais[k] || { pais: r.pais, mtd: 0, roll: 0 };
+        byPais[k].pmtd = (byPais[k].pmtd || 0) + v;
+        parcial.total += v;
+      });
+      tot.pmtd = parcial.total;
+    }
+  }
   var w0 = wk[0];
   return { semana: sem, semanas: +w0.semanas_del_mes || null, desde: w0.semana_desde, hasta: w0.semana_hasta,
-           estado: w0.estado, cierreMes: cierre.length > 0, byPais: byPais, total: tot };
+           estado: w0.estado, cierreMes: cierre.length > 0, byPais: byPais, total: tot, parcial: parcial };
+}
+function recurParcialLbl_(rec) {
+  var f = rec.parcial.foto || '';
+  return 'parcial al ' + f.substring(8, 10) + '/' + f.substring(5, 7);
 }
 // Target de Input_OKR (getRecurTargets: { ym: { Pais: valor } }, con fila 'Total').
 // paisNames = nombres posibles del país (null = Total del KR).
@@ -3421,7 +3445,8 @@ function recurCumpl_(mtd, roll, target) {
 function recurWeekLbl_(rec) {
   function dm(s){ return s ? s.substring(8, 10) + '/' + s.substring(5, 7) : ''; }
   return 'Semana ' + rec.semana + (rec.semanas ? '/' + rec.semanas : '') + ' (' + dm(rec.desde) + '–' + dm(rec.hasta) + ')' +
-         (rec.cierreMes ? ' · foto de cierre del mes' : rec.estado === 'CIERRE' ? '' : ' · en curso');
+         (rec.cierreMes ? ' · foto de cierre del mes' : rec.estado === 'CIERRE' ? '' : ' · en curso') +
+         (rec.parcial ? ' · Actuals: semana ' + rec.parcial.semana + ' en curso, ' + recurParcialLbl_(rec) : '');
 }
 
 function renderStatusKRsH2() {
@@ -3547,11 +3572,15 @@ function renderStatusKRsH2() {
       var recBud = recurTarget_(krYM, null);
       recC = recurCumpl_(rec.total.mtd, rec.total.roll, recBud);
       var rollNote = recC.useRoll
-        ? ' <span style="color:#6b7280;font-size:0.72rem" title="MTD en 0: cumplimiento = Rolling L4W vs Target">· L4W ' + fmtKRVal(rec.total.roll, 'int') + '</span>'
+        ? ' <span style="color:#6b7280;font-size:0.72rem" title="MTD de la última semana cerrada en 0: cumplimiento = Rolling L4W vs Target">· L4W ' + fmtKRVal(rec.total.roll, 'int') + '</span>'
         : '';
       var cStrRec = recC.shown !== null ? (recC.shown * 100).toFixed(0) + '%' + (recC.useRoll ? ' <span style="font-size:0.68rem">L4W</span>' : '') : '—';
+      // Con semana en curso >= 3 el Actual es el parcial (informativo; el cumplimiento no cambia).
+      var actRec = rec.parcial
+        ? fmtKRVal(rec.parcial.total, 'int') + ' <span style="color:#6b7280;font-size:0.72rem" title="Agencias que ya compraron en 3+ semanas del mes, con la semana en curso incompleta. Informativo: el cumplimiento sigue con la última semana cerrada.">' + recurParcialLbl_(rec) + '</span>'
+        : fmtKRVal(rec.total.mtd, 'int');
       trRec.innerHTML = recName +
-        '<td>' + fmtKRVal(rec.total.mtd, 'int') + rollNote + '</td>' +
+        '<td>' + actRec + rollNote + '</td>' +
         '<td>' + (recBud !== null ? fmtKRVal(recBud, 'int') : recurNoTargetHtml_(krYM)) + '</td>' +
         cumplCellHtml(recC.shown, cStrRec, false);
     }
@@ -3753,12 +3782,18 @@ function recurDetailBox_(krYM) {
     return box;
   }
   function pct(c){ return c !== null ? (c * 100).toFixed(0) + '%' : '—'; }
+  // Con Actual parcial (rec.parcial) las dos primeras columnas son el parcial y su % de avance vs target.
   function tr(name, d, target, bold) {
     var c = recurCumpl_(d.mtd, d.roll, target);
     var b = function(s){ return bold ? '<strong>' + s + '</strong>' : s; };
+    var act = rec.parcial ? d.pmtd : d.mtd;
+    // El avance parcial va sin semáforo: a mitad de mes un % bajo no es un mal cumplimiento.
+    var cActCell = rec.parcial
+      ? '<td style="color:#6b7280">' + b(pct(realScore_(d.pmtd, target))) + '</td>'
+      : cumplCellHtml(c.mtd, pct(c.mtd), bold);
     return '<tr' + (bold ? ' class="kr-detail-total"' : '') + '><td style="text-align:left' + (bold ? ';font-weight:700' : '') + '">' + name + '</td>' +
-      '<td>' + b(fmtKRVal(d.mtd, 'int')) + '</td>' +
-      cumplCellHtml(c.mtd, pct(c.mtd), bold) +
+      '<td>' + b(fmtKRVal(act, 'int')) + '</td>' +
+      cActCell +
       '<td>' + b(fmtKRVal(d.roll, 'int')) + '</td>' +
       cumplCellHtml(c.roll, pct(c.roll), bold) + '</tr>';
   }
@@ -3769,15 +3804,15 @@ function recurDetailBox_(krYM) {
   var tgtKeys = Object.keys((recurTargets && recurTargets[krYM]) || {}).filter(function(k){ return normPais_(k) !== 'total'; });
   var used = {}, body = '';
   function rowFor(name, paisNames) {
-    var d = { mtd: 0, roll: 0 }, any = false, seen = {};
+    var d = { mtd: 0, roll: 0, pmtd: 0 }, any = false, seen = {};
     paisNames.forEach(function(p){
       var k = normPais_(p), x = rec.byPais[k];
       if (seen[k]) return;   // def.pais + def.name pueden repetir el mismo país (ej. Brasil)
       seen[k] = used[k] = 1;
-      if (x) { d.mtd += x.mtd; d.roll += x.roll; any = true; }
+      if (x) { d.mtd += x.mtd; d.roll += x.roll; d.pmtd += x.pmtd || 0; any = true; }
     });
     var tgt = recurTarget_(krYM, paisNames);
-    if (any || tgt !== null) body += tr(name, any ? d : { mtd: null, roll: null }, tgt, false);
+    if (any || tgt !== null) body += tr(name, any ? d : { mtd: null, roll: null, pmtd: null }, tgt, false);
   }
   defs.forEach(function(def){ rowFor(def.name, def.pais.concat([def.name])); });
   Object.keys(rec.byPais).forEach(function(k){ if (!used[k]) rowFor(rec.byPais[k].pais, [rec.byPais[k].pais]); });
@@ -3786,7 +3821,9 @@ function recurDetailBox_(krYM) {
     '<div style="padding:2px 2px 8px;color:#6b7280;font-size:0.72rem">Agencias de alta frecuencia · ' + recurWeekLbl_(rec) +
       (recurTarget_(krYM, null) === null ? '<br>' + recurNoTargetHtml_(krYM) : '') + '</div>' +
     '<table class="pivot-table kr-detail-table"><thead><tr>' +
-    '<th style="text-align:left">País</th><th>Actuals</th><th>% Cumpl.</th><th>Rolling<br>L4W</th><th>Rolling<br>vs Target</th>' +
+    '<th style="text-align:left">País</th>' +
+    (rec.parcial ? '<th>Actuals<br>parcial</th><th>% Avance</th>' : '<th>Actuals</th><th>% Cumpl.</th>') +
+    '<th>Rolling<br>L4W</th><th>Rolling<br>vs Target</th>' +
     '</tr></thead><tbody>' + tr('TOTAL', rec.total, recurTarget_(krYM, null), true) + body + '</tbody></table>';
   return box;
 }
