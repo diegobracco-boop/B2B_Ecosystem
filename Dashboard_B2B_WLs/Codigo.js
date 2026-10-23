@@ -820,7 +820,7 @@ var _QM_INDEX_ = new WeakMap();
 function queryIndex_(map) {
   var idx = _QM_INDEX_.get(map);
   if (idx) return idx;
-  idx = { all: [], byYm: {} };
+  idx = { all: [], byYm: Object.create(null) };  // sin prototipo: byYm['constructor'] no devuelve una función
   var keys = Object.keys(map);
   for (var i = 0; i < keys.length; i++) {
     var parts = keys[i].split('§');
