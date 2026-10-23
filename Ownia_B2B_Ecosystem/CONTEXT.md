@@ -123,7 +123,8 @@ del ALB no es alcanzable desde la red de usuarios. Por eso `TRUSTED_IDENTITY_HEA
   cuando el usuario activo viene vacío (p.ej. `requireOwner_` del Daily lo toma como un trigger). Solo el Manual
   (estático) lo tiene apagado. SSO confirmado el 2026-10-21 (Cloudflare Access).
 - **Lista cerrada de usuarios** (`allowedUsers` en `server/modules.js`): los módulos en validación (P&L Managerial y
-  P&L Accounting) solo los abren las 5 cuentas del equipo B2B (`EQUIPO_B2B`); el resto recibe 403, en la landing y en
+  P&L Accounting; el Daily NO desde el 2026-10-23: lo abre cualquier @despegar.com, igual que su webapp GAS, para
+  que el equipo comercial use "OKR Detail") solo los abren las 5 cuentas del equipo B2B (`EQUIPO_B2B`); el resto recibe 403, en la landing y en
   `/api`. Decisión del equipo (2026-10-21) mientras corren en paralelo a GAS.
 - `APP_SECRETS.REQUIRE_IDENTITY = "true"` → 401 a TODA la app (portada y Manual incluidos), salvo `/health`.
 - **Anti-CSRF en `/api`**: exige `Content-Type: application/json` + `X-Requested-With: google.script.run` (los manda
