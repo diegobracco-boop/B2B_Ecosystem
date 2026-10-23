@@ -141,6 +141,13 @@ else:
 # el LY que usan las demás vistas (totales de mes / año).
 LY_EXT_FROM = LY_TO + timedelta(days=1)
 LY_EXT_TO   = LY_TO + timedelta(days=35)
+# LY B2B2C del resto del año fiscal que queda después de LY_TO (p.ej. nov-dic del año pasado),
+# SOLO para el YoY / comparador LY del gráfico de 12 meses de la portada del Flow. Va en una
+# clave aparte (actuals_ly_fy_rest, mensual) para no cambiar el LY de las demás vistas. Ene-mar
+# del FY ya están en los actuals del año en curso; en ene-mar no aplica (el FY arrancó el año pasado).
+LY_FY_REST_FROM = LY_TO + timedelta(days=1)
+LY_FY_REST_TO   = date(TODAY.year - 1, 12, 31)
+HAS_LY_FY_REST  = TODAY.month >= 4 and LY_FY_REST_FROM <= LY_FY_REST_TO
 
 # Nombres de mes en español — budget incluye todos los meses ene->actual
 MESES_ES = {
@@ -1530,6 +1537,7 @@ _QUERIES = {
     "B2B RI actuals":    build_b2b_ri_query(ACTUALS_FROM, YESTERDAY),
     "B2B RI LY":         build_b2b_ri_query(LY_FROM, LY_TO),
     "B2B GD LY ext":     build_b2b_gd_query(LY_EXT_FROM, LY_EXT_TO),
+    **({"LY FY rest": build_actuals_query(LY_FY_REST_FROM, LY_FY_REST_TO)} if HAS_LY_FY_REST else {}),
     "B2B RI LY ext":     build_b2b_ri_query(LY_EXT_FROM, LY_EXT_TO),
     "B2C":               build_b2c_query(ACTUALS_FROM, YESTERDAY),
     "B2C LY":            build_b2c_query(LY_FROM, LY_TO),
@@ -1632,6 +1640,16 @@ def _fetched_ly_ext(label: str) -> pd.DataFrame:
         print(f"  WARN {label} fallo ({e}); el YoY de las semanas proyectadas queda vacío")
         return pd.DataFrame()
 df_b2b_gd_ly_ext = _fetched_ly_ext("B2B GD LY ext")
+
+# LY FY rest: no crítico (solo YoY de nov-dic en la portada del Flow). Si falla, muestra "—".
+df_ly_fy_rest = pd.DataFrame()
+if HAS_LY_FY_REST:
+    try:
+        df_ly_fy_rest = clean_actuals(fetched("LY FY rest"))
+        _apply_force_new(df_ly_fy_rest)
+    except Exception as e:
+        print(f"  WARN LY FY rest fallo ({e}); el YoY de nov-dic de la portada del Flow queda vacío")
+        df_ly_fy_rest = pd.DataFrame()
 df_b2b_ri_ly_ext = _fetched_ly_ext("B2B RI LY ext")
 
 print("\n--- Budget LOB diagnostic ---")
@@ -1859,6 +1877,11 @@ except Exception as e:
 print("\n--- Agregando ---")
 df_act          = agg_actuals(df_actuals)
 df_lya          = agg_actuals(df_ly)
+df_lya_fy_rest  = pd.DataFrame()
+if not df_ly_fy_rest.empty:   # mensual (fecha = 1ro de mes): solo lo usa la portada del Flow
+    df_lya_fy_rest = df_ly_fy_rest.copy()
+    df_lya_fy_rest["fecha"] = df_lya_fy_rest["fecha"].str[:7] + "-01"
+    df_lya_fy_rest = agg_actuals(df_lya_fy_rest)
 df_bud          = agg_budget(df_budget)
 df_b2b_gd_agg   = agg_b2b(df_b2b_gd)
 df_b2b_gd_ly_ag = agg_b2b(df_b2b_gd_ly)
@@ -1995,6 +2018,7 @@ b2bc_payload = {
     "meta":       META,
     "actuals":    df_act.to_dict(orient="records"),
     "actuals_ly": df_lya.to_dict(orient="records"),
+    "actuals_ly_fy_rest": df_lya_fy_rest.to_dict(orient="records") if not df_lya_fy_rest.empty else [],
     "budget":     to_compact(df_bud),
     "runrate":    to_compact(df_b2bc_rr_agg) if not df_b2bc_rr_agg.empty else {"cols": [], "rows": []},
     "forecast":   _forecast_b2bc_compact,
