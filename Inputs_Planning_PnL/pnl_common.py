@@ -43,10 +43,14 @@ def get_base_dir():
     """
     root = _onedrive_root()
     fy_tag = _cfg.GESTION_FOLDER.replace("Control de Gestión - ", "")  # e.g. "2026-27"
-    # Intentar estructura nueva primero
-    new_path = os.path.join(root, "Control de Gestión - Documentos", "Planeamiento", fy_tag, "B2B & WLs")
-    if os.path.isdir(new_path):
-        return new_path
+    # Intentar estructura nueva primero. La biblioteca compartida de SharePoint puede estar
+    # sincronizada en otra carpeta que el OneDrive personal (p.ej. OneDriveCommercial =
+    # ~/OneDrive - despegar365 y la biblioteca en ~/despegar365, visto 2026-10-23) → se prueban las dos.
+    home = os.path.expanduser("~")
+    for r in (root, os.path.join(home, "despegar365"), os.path.join(home, "OneDrive - despegar365")):
+        new_path = os.path.join(r, "Control de Gestión - Documentos", "Planeamiento", fy_tag, "B2B & WLs")
+        if os.path.isdir(new_path):
+            return new_path
     # Fallback a estructura vieja
     return os.path.join(root, _cfg.GESTION_FOLDER, "B2B & WLs")
 

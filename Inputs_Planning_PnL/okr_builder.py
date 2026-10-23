@@ -437,55 +437,82 @@ _AGENCIAS_ESC = {
 }
 
 
-def _read_agencias_flat():
-    """KR 'Monthly Buying Agencies' (B2B, peso 20) — del tracker en OneDrive
-    (AGENCIAS_TRACKER), formato ancho: filas escenario×pais, columnas = meses.
-    Se toma solo la fila Pais='Total'. El estado de la orden en el datalake muta
-    con el tiempo → hay que congelar el conteo del snapshot mensual.
-    Vida útil hasta Sep-2026; desde Oct-2026 cambia la lógica."""
+def _read_tracker_sheet(sheet, label, lob, kr, escenarios=("Run Rate/Actuals", "Budget")):
+    """Lee una hoja del tracker en OneDrive (AGENCIAS_TRACKER), formato ancho: filas escenario×pais,
+    columnas = meses; solo la fila Pais='Total'. Se abre una COPIA temporal: con el archivo abierto en
+    Excel, openpyxl da PermissionError (visto 2026-10-23). Valores redondeados a entero (son conteos)."""
     if not os.path.exists(AGENCIAS_TRACKER):
-        print(f"  [Agencias] no encontrado: {AGENCIAS_TRACKER} — KR sin datos")
+        print(f"  [{label}] no encontrado: {AGENCIAS_TRACKER} — KR sin datos")
         return []
-    import openpyxl
-    wb = openpyxl.load_workbook(AGENCIAS_TRACKER, read_only=True, data_only=True)
-    ws = wb.active
-    it = ws.iter_rows(values_only=True)
-    header = next(it, None)
-    if not header:
-        wb.close(); return []
-    # header: ['escenario', 'Pais', <mes1>, <mes2>, ...] → columna idx → periodo
-    col_periodo = {}
-    for ci in range(2, len(header)):
-        p = _norm_periodo(header[ci]) if header[ci] is not None else None
-        if p:
-            col_periodo[ci] = p
+    import openpyxl, shutil, tempfile
+    tmp = os.path.join(tempfile.mkdtemp(prefix="okr_tracker_"), os.path.basename(AGENCIAS_TRACKER))
+    try:
+        shutil.copyfile(AGENCIAS_TRACKER, tmp)
+    except PermissionError:
+        # Abierto en Excel: open() de Python falla, pero CopyFileW de Windows lo copia igual.
+        import ctypes
+        if not (os.name == "nt" and ctypes.windll.kernel32.CopyFileW(AGENCIAS_TRACKER, tmp, False)):
+            print(f"  WARN [{label}] no se pudo leer {AGENCIAS_TRACKER} (¿abierto/bloqueado?) — KR sin datos")
+            return []
+    wb = openpyxl.load_workbook(tmp, read_only=True, data_only=True)
+    try:
+        if sheet not in wb.sheetnames:
+            print(f"  WARN [{label}] el tracker no tiene la hoja '{sheet}' (hojas: {wb.sheetnames}) — KR sin datos")
+            return []
+        it = wb[sheet].iter_rows(values_only=True)
+        header = next(it, None)
+        if not header:
+            return []
+        # header: ['escenario', 'Pais', <mes1>, <mes2>, ...] → columna idx → periodo
+        col_periodo = {}
+        for ci in range(2, len(header)):
+            p = _norm_periodo(header[ci]) if header[ci] is not None else None
+            if p:
+                col_periodo[ci] = p
 
-    rows, skipped = [], 0
-    for r in it:
-        if not r or r[0] is None:
-            continue
-        esc_raw = str(r[0]).strip().lower()
-        pais    = str(r[1] or "").strip().lower()
-        if pais != "total":
-            continue
-        escenario = _AGENCIAS_ESC.get(esc_raw)
-        if escenario is None:
-            skipped += 1
-            continue
-        for ci, periodo in col_periodo.items():
-            v = r[ci] if ci < len(r) else None
-            if v in (None, ""):
+        rows, skipped = [], 0
+        for r in it:
+            if not r or r[0] is None:
                 continue
-            try:
-                valor = round(float(v))
-            except (TypeError, ValueError):
+            esc_raw = str(r[0]).strip().lower()
+            pais    = str(r[1] or "").strip().lower()
+            if pais != "total":
                 continue
-            rows.append([periodo, escenario, "B2B", "Total", "Total",
-                         "Monthly Buying Agencies", valor])
-    wb.close()
-    print(f"  [Agencias] {len(rows)} filas de {os.path.basename(AGENCIAS_TRACKER)}"
+            escenario = _AGENCIAS_ESC.get(esc_raw)
+            if escenario is None:
+                skipped += 1
+                continue
+            if escenario not in escenarios:
+                continue
+            for ci, periodo in col_periodo.items():
+                v = r[ci] if ci < len(r) else None
+                if v in (None, ""):
+                    continue
+                try:
+                    valor = round(float(v))
+                except (TypeError, ValueError):
+                    continue
+                rows.append([periodo, escenario, lob, "Total", "Total", kr, valor])
+    finally:
+        wb.close()
+    print(f"  [{label}] {len(rows)} filas de {os.path.basename(AGENCIAS_TRACKER)} (hoja {sheet})"
           + (f" ({skipped} escenarios no reconocidos)" if skipped else ""))
     return rows
+
+
+def _read_agencias_flat():
+    """KR 'Monthly Buying Agencies' (B2B, peso 20) — hoja 'Hoja1' del tracker. El estado de la orden
+    en el datalake muta con el tiempo → hay que congelar el conteo del snapshot mensual.
+    Vida útil hasta Sep-2026; desde Oct-2026 cambia la lógica."""
+    return _read_tracker_sheet("Hoja1", "Agencias", "B2B", "Monthly Buying Agencies")
+
+
+def _read_partners_api_actual():
+    """KR Global B2B API 'Accelerate Hunting Partners API' (2026-10-23): el ACTUAL sale de la hoja 'API'
+    del tracker (escenario Actuals, Pais=Total). El target (Budget) sigue de Input_OKR — en el tracker
+    es el mismo — para no duplicar filas (la landing suma por clave)."""
+    return _read_tracker_sheet("API", "Partners API", "Globales", "Accelerate Hunting Partners API",
+                               escenarios=("Run Rate/Actuals",))
 
 
 def _read_manual_krs(token_file):
@@ -621,6 +648,10 @@ def build(upload=True):
     rows_manual   = _read_manual_krs(token_file)
     rows_manual   = _apply_unique_buyers_actual(rows_manual, daily_json, last_actual_ym)
     rows_manual   = _apply_globales_hoteles_actual(rows_manual, daily_json)
+    rows_partners = _read_partners_api_actual()
+    if rows_partners:   # el actual del tracker reemplaza cualquier fila Run Rate/Actuals de Input_OKR
+        rows_manual = [r for r in rows_manual if not (r[1] == "Run Rate/Actuals"
+                       and r[5].lower() == "accelerate hunting partners api")]
     rows_agencias = _read_agencias_flat()
     if not rows_agencias:
         # Sin el tracker en el OneDrive de esta máquina (p.ej. la sync diaria en una compu sin la carpeta
@@ -633,7 +664,7 @@ def build(upload=True):
         except Exception as e:
             print(f"  WARN [Agencias] no se pudieron conservar del okr.json publicado ({e})")
 
-    all_rows = rows_baseline + rows_budget + rows_hunting + rows_manual + rows_agencias
+    all_rows = rows_baseline + rows_budget + rows_hunting + rows_manual + rows_partners + rows_agencias
 
     # Resumen
     print(f"\n  Total filas: {len(all_rows):,}")
