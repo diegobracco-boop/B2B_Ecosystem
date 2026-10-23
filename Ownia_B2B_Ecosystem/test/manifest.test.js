@@ -11,8 +11,8 @@ const { loadManifest } = require('../server/drive-manifest');
 
 const manifest = loadManifest();
 
-// var XXX_FILE_ID = '...'  /  var XXX_FOLDER_ID = '...'  /  var XXX_SHEET_ID = '...'  /  valores
-// de CANONICAL_IDS_ (comillas simples o dobles).
+// var XXX_FILE_ID = '...'  /  var XXX_FOLDER_ID = '...'  /  var XXX_SHEET_ID = '...' (también
+// SPREADSHEET_ID)  /  valores de CANONICAL_IDS_ o JSON_IDS (comillas simples o dobles).
 function driveRefs(dir) {
   const files = new Set();
   const folders = new Set();
@@ -21,9 +21,10 @@ function driveRefs(dir) {
     const code = fs.readFileSync(path.join(dir, f), 'utf8');
     for (const m of code.matchAll(/var\s+\w*_FILE_ID\s*=\s*['"]([\w-]+)['"]/g)) files.add(m[1]);
     for (const m of code.matchAll(/var\s+\w*_FOLDER_ID\s*=\s*['"]([\w-]+)['"]/g)) folders.add(m[1]);
-    for (const m of code.matchAll(/var\s+\w*_SHEET_ID\s*=\s*['"]([\w-]+)['"]/g)) sheets.add(m[1]);
-    const canon = /var\s+CANONICAL_IDS_\s*=\s*\{([\s\S]*?)\}/.exec(code);
-    if (canon) for (const m of canon[1].matchAll(/['"]([\w-]{20,})['"]/g)) files.add(m[1]);
+    for (const m of code.matchAll(/var\s+\w*SHEET_ID\s*=\s*['"]([\w-]+)['"]/g)) sheets.add(m[1]);
+    for (const canon of code.matchAll(/var\s+(?:CANONICAL_IDS_|JSON_IDS)\s*=\s*\{([\s\S]*?)\}/g)) {
+      for (const m of canon[1].matchAll(/['"]([\w-]{20,})['"]/g)) files.add(m[1]);
+    }
   }
   return { files, folders, sheets };
 }

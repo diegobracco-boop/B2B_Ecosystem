@@ -37,7 +37,10 @@ function listFiles(dir) {
     }
   };
   walk(dir, '');
-  return out.sort((a, b) => a.rel.localeCompare(b.rel));
+  // Orden ASCII (como clasp al subir; es el orden en que GAS ejecuta los archivos). localeCompare
+  // ignora la puntuación y ponía "Codigo_country_page.js" antes que "Codigo.js": en el Hub, el top-level
+  // de country_page usa fyRange_ de Codigo.js y no cargaba.
+  return out.sort((a, b) => (a.rel < b.rel ? -1 : a.rel > b.rel ? 1 : 0));
 }
 
 // Respeta .claspignore (globs simples: *, **, nombre de archivo/carpeta) para cargar

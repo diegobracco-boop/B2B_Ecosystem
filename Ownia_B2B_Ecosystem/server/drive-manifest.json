@@ -27,6 +27,23 @@
       },
       "folders": {}
     },
+    "hub": {
+      "files": {
+        "1Su36jhCMdNgC6nixxX5TyvtCI4ESG2Tv": "baseline_actuals+projections.json (JSON_IDS.baseline)",
+        "1f2JF8pq7gtpxfdkVzbT9wvamn_ny3RBW": "budget.json (JSON_IDS.budget)",
+        "1UGg60kE397nsGAivtFqI8NX5CVFj1gqO": "runrate.json (JSON_IDS.runrate)",
+        "1crqpRTyH14fqX9XdwBTVaKN5rPbE6O84": "forecast.json (JSON_IDS.forecast)",
+        "1zd5gnMFztKiCSgeY-VmsfVOr0LQ6ftGI": "actuals_previos_fy26.json (JSON_IDS.ly)",
+        "1SEh9vLWCbE6PslnUntUghhInonuLdYZ5": "tc_plana_flat.xlsx (FX_FILE_ID)",
+        "1cEidr8aoYgm4S7ugm05Wv-SMnz8GbtUj": "okr.json (OKR_FILE_ID)"
+      },
+      "folders": {
+        "1lWzfqweyV6Kz1ERkL85ikFcmzmKwGwwh": ["weekly_insights.json"]
+      },
+      "sheets": {
+        "1RVmTXDyyugCUXJ0f6JG_croNxWNLlOLm4eAs8F52u2c": "Input dashboard B2B+WLs → Organigrama (SPREADSHEET_ID)"
+      }
+    },
     "daily": {
       "files": {
         "1cEidr8aoYgm4S7ugm05Wv-SMnz8GbtUj": "OKR JSON (OKR_JSON_FILE_ID)",

@@ -20,7 +20,7 @@ se valida que Ownia da lo mismo (decisión del equipo, módulo por módulo).
 | `P&L_Managerial` | `/b2b-ecosystem/pnl-managerial` | 🔁 en validación (paralelo a GAS, datos espejados) |
 | `P&L_Accounting` | `/b2b-ecosystem/pnl-accounting` | 🔁 en validación (paralelo a GAS, datos espejados) |
 | `Daily_Dashboard` | `/b2b-ecosystem/daily` | 🔁 en validación (paralelo a GAS). Sin exportar a Slides ni mandar el mail (SlidesApp / MailApp): siguen en GAS |
-| `Dashboard_B2B_WLs` (Hub) | — | ⏳ próximo. Bloqueo: el deck de cierre usa SlidesApp + triggers (no portable sin reescribir) |
+| `Dashboard_B2B_WLs` (Hub) | `/b2b-ecosystem/hub` | 🔁 en validación desde 2026-10-23 (paralelo a GAS, solo equipo B2B). "Slides cierre de mes" (SlidesApp + Slides API) y los triggers (`preComputeAll`, `keepAlive`) siguen en GAS; `getLastSync` da `null` (lo escribe un proceso de GAS en ScriptProperties). Primera carga ~30 s (sin trigger que precaliente el cache) |
 | Resto (One Pager, FVM Negativo, OKR, Profit Sharing) | — | ⏳ en GAS. La portada linkea a su landing GAS |
 
 El registro vive en `server/modules.js` (`ownia: true` = se sirve desde Ownia; `validating: true` = en paralelo a

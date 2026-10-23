@@ -10,11 +10,12 @@
 // el resto va directo a GAS, así nadie de afuera del equipo choca con un 403.
 const { escapeHtml } = require('./gas-template');
 
-// Grupos por uso, en orden de prioridad. El primero de `featured` va destacado. Un módulo que
-// no esté acá cae en el último grupo.
+// Grupos por uso, en orden de prioridad. El primero de `featured` va resaltado (misma altura que
+// las demás tarjetas, para que el menú entre sin scrollear). Un módulo que no esté acá cae en el
+// último grupo.
 const GROUPS = [
   { title: 'Resultados (P&L)', slugs: ['pnl-managerial', 'pnl-accounting', 'profit-sharing'], featured: true },
-  { title: 'Seguimiento y performance', slugs: ['hub', 'daily', 'one-pager', 'fvm-negativo'] },
+  { title: 'Seguimiento y performance', slugs: ['hub', 'daily', 'one-pager', 'api-one-pager', 'fvm-negativo'] },
   { title: 'Producto', slugs: ['okr-b2b2c'] },
   { title: 'Documentación', slugs: ['manual'] },
 ];
@@ -30,10 +31,16 @@ const ICONS = {
   down: '<path d="M3 7l6 6 4-4 8 8"/><path d="M21 11v6h-6"/>',
   target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
   book: '<path d="M4 4h6a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H4z"/><path d="M20 4h-6a3 3 0 0 0-3 3v13a2 2 0 0 1 2-2h7z"/>',
+  api: '<path d="M8 8l-5 4 5 4M16 8l5 4-5 4M14 4l-4 16"/>',
 };
+// Otras apps de Ownia que se linkean desde el menú (no son módulos de este repo: no corren acá).
+const OTHER_APPS = [
+  { slug: 'api-one-pager', title: 'API One Pager', desc: 'One pager del canal API (app b2b-dashboard de Ownia).',
+    url: 'https://ownia.despegar.io/b2b-dashboard' },
+];
 const ICON_OF = {
   'pnl-managerial': 'chart', 'pnl-accounting': 'ledger', 'profit-sharing': 'bank', hub: 'grid', daily: 'calendar',
-  'one-pager': 'globe', 'fvm-negativo': 'down', 'okr-b2b2c': 'target', manual: 'book',
+  'one-pager': 'globe', 'fvm-negativo': 'down', 'okr-b2b2c': 'target', manual: 'book', 'api-one-pager': 'api',
 };
 const ARROW = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
 const EXTERNAL = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8"/></svg>';
@@ -49,6 +56,7 @@ function statusOf(m) {
 }
 
 function links(m, basePath, canOpen) {
+  if (m.url) return { main: m.url, external: true, alt: null, beta: false };   // OTHER_APPS
   const own = `${basePath}/${m.slug}`;
   const st = statusOf(m);
   if (st === 'gas' || (st === 'val' && !canOpen(m))) return { main: m.gasUrl, external: true, alt: null, beta: false };
@@ -59,12 +67,15 @@ function card(m, basePath, canOpen, { featured = false, area = '' } = {}) {
   const l = links(m, basePath, canOpen);
   const target = l.external ? ' target="_blank" rel="noopener"' : '';
   const id = `card-${m.slug}`;
-  const beta = l.beta ? ' <span class="beta" title="Corre en Ownia en paralelo a Apps Script; solo la ve el equipo B2B">Beta · equipo B2B</span>' : '';
+  // "equipo B2B" solo si el módulo tiene lista cerrada (allowedUsers); el Daily, p.ej., lo abre cualquier @despegar.com.
+  const beta = !l.beta ? '' : m.allowedUsers
+    ? ' <span class="beta" title="Corre en Ownia en paralelo a Apps Script; solo la ve el equipo B2B">Beta · equipo B2B</span>'
+    : ' <span class="beta" title="Corre en Ownia en paralelo a Apps Script (la versión productiva sigue siendo la de Apps Script)">Beta</span>';
   const alt = l.alt
     ? `<a class="alt" href="${escapeHtml(l.alt)}" target="_blank" rel="noopener">Versión Apps Script ↗</a>`
     : '';
   const cta = `<a class="cta${featured ? ' solid' : ''}" href="${escapeHtml(l.main)}"${target}>Abrir el tablero ${l.external ? EXTERNAL : ARROW}</a>`;
-  const viz = featured
+  const viz = false   // sin el gráfico decorativo: la destacada ya no es la tarjeta grande del bento
     ? `<svg class="viz" viewBox="0 0 120 72" aria-hidden="true">
             <rect class="bar" x="6" y="44" width="14" height="22" rx="2"/><rect class="bar" x="28" y="34" width="14" height="32" rx="2"/>
             <rect class="bar" x="50" y="38" width="14" height="28" rx="2"/><rect class="bar" x="72" y="22" width="14" height="44" rx="2"/>
@@ -82,7 +93,7 @@ function card(m, basePath, canOpen, { featured = false, area = '' } = {}) {
 function grouped(modules) {
   const used = new Set();
   const out = GROUPS.map((g) => {
-    const items = g.slugs.map((s) => modules.find((m) => m.slug === s)).filter(Boolean);
+    const items = g.slugs.map((s) => modules.find((m) => m.slug === s) || OTHER_APPS.find((m) => m.slug === s)).filter(Boolean);
     items.forEach((m) => used.add(m.slug));
     return { ...g, items };
   });
@@ -92,17 +103,10 @@ function grouped(modules) {
 }
 
 function groupHtml(g, basePath, canOpen) {
-  // Bento como b2b-dashboard: destacada a la izquierda ocupando dos filas, las otras dos a la derecha.
-  if (g.featured && g.items.length === 3) {
-    const [a, b, c] = g.items;
-    return `<div class="grid bento">
-        ${card(a, basePath, canOpen, { featured: true, area: 'f' })}
-        ${card(b, basePath, canOpen, { area: 'b' })}
-        ${card(c, basePath, canOpen, { area: 'c' })}
-      </div>`;
-  }
+  // La primera del grupo `featured` va resaltada pero del mismo tamaño que las demás (antes era un
+  // bento con la destacada ocupando dos filas: empujaba el resto del menú abajo del pliegue).
   return `<div class="grid">
-        ${g.items.map((m) => card(m, basePath, canOpen)).join('\n        ')}
+        ${g.items.map((m, i) => card(m, basePath, canOpen, { featured: !!g.featured && i === 0 })).join('\n        ')}
       </div>`;
 }
 
@@ -212,12 +216,10 @@ function indexPage({ modules, basePath, canOpen = () => true }) {
   .beta { display: inline-block; vertical-align: 3px; margin-left: 6px; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 600;
           color: var(--text-2); background: var(--segment-bg); border: 1px dashed var(--hover-bd); white-space: nowrap; }
 
-  .card.featured { padding: 32px; gap: 12px; border-color: rgba(142, 95, 243, .35);
+  .card.featured { gap: 10px; border-color: rgba(142, 95, 243, .35);
                    background: radial-gradient(520px 260px at 100% 0%, rgba(142, 95, 243, .20), transparent 70%), var(--surface); }
-  .card.featured .ico { width: 52px; height: 52px; background: linear-gradient(135deg, var(--primary), var(--secondary)); color: #fff; }
-  .card.featured h3 { font-size: 26px; font-weight: 800; letter-spacing: -0.025em; }
-  .card.featured p { font-size: 15px; }
-  .card.featured .cta-row { margin-top: auto; padding-top: 22px; display: flex; flex-direction: column; gap: 12px; }
+  .card.featured .ico { background: linear-gradient(135deg, var(--primary), var(--secondary)); color: #fff; }
+  .card.featured .cta-row { margin-top: auto; display: flex; flex-direction: column; gap: 10px; }
   .cta.solid { margin-top: 0; padding: 11px 18px; color: #fff; border-radius: 8px; background: linear-gradient(135deg, var(--primary), var(--secondary)); }
   .viz { position: absolute; right: 32px; bottom: 32px; width: 230px; height: 138px; color: var(--secondary); opacity: .9; }
   .viz .bar { fill: currentColor; opacity: .35; }
@@ -238,7 +240,6 @@ function indexPage({ modules, basePath, canOpen = () => true }) {
     .wrap { padding: 0 16px; }
     .topbar { padding: 6px 16px; }
     .card, .card.featured { padding: 20px; }
-    .card.featured h3 { font-size: 22px; }
   }
   /* ---------- Intro (igual que b2b-dashboard) ---------- */
   .intro { display: none; }

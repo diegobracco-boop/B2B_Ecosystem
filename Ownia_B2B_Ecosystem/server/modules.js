@@ -47,7 +47,11 @@ const MODULES = [
     dir: 'Dashboard_B2B_WLs',
     title: 'B2B Ecosystem Hub',
     desc: 'Portal central del equipo: P&L, OKR, Detail By Country.',
-    ownia: false,
+    // En validación: corre acá en paralelo a GAS (datos del P&L → solo el equipo B2B, como Managerial y
+    // Accounting). "Slides cierre de mes" (SlidesApp + Slides API) y los triggers (preComputeAll) siguen en GAS.
+    ownia: true,
+    validating: true,
+    allowedUsers: EQUIPO_B2B,
     gasUrl: GAS_EXEC + 'AKfycbz52txFQy-5YM2Nil_KxULzPoeZpKyA4z5LUWMGoP_8IilcwSduuwZqPF8ut_LmtceM/exec',
   },
   {
