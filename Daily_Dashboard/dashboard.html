@@ -322,6 +322,9 @@ body.krd-only #section-b2b > :not(.krd-keep) { display:none !important; }
 .krd-card { background:var(--surface); border:1px solid var(--border); border-left:4px solid var(--primary); border-radius:12px; padding:16px 18px 12px; overflow-x:auto; box-shadow:0 1px 3px rgba(0,0,0,.05); }
 .krd-card-hdr { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:12px; }
 .krd-title { font-size:18px; font-weight:700; color:var(--text-1); letter-spacing:-.01em; }
+.krd-flags { display:inline-flex; gap:4px; vertical-align:-3px; margin-right:9px; }
+.krd-flags img { height:20px; width:auto; border-radius:3px; box-shadow:0 0 0 1px rgba(0,0,0,.12); }
+.krd-globe { font-size:19px; line-height:20px; }
 .krd-title-sub { font-size:11.5px; color:var(--text-3); margin-top:3px; }
 .krd-actions { display:flex; gap:6px; }
 .krd-act-btn { font-size:11px; padding:5px 11px; border-radius:6px; border:1px solid var(--border); background:var(--surface); color:var(--text-2); cursor:pointer; white-space:nowrap; }
@@ -339,6 +342,8 @@ body.krd-only #section-b2b > :not(.krd-keep) { display:none !important; }
 .krd-tbl .krd-kr-name { font-weight:700; font-size:12.5px; color:var(--text-1); }
 .krd-tbl .krd-kr-meta { font-size:10px; color:var(--text-3); margin-top:2px; }
 .krd-tbl .krd-w { display:inline-block; font-size:9.5px; font-weight:700; color:var(--primary); background:rgba(86,38,233,.10); border-radius:4px; padding:1px 5px; margin-left:6px; vertical-align:1px; }
+.krd-tbl tr.krd-info td { border-top:1px dashed var(--border); }
+.krd-tbl tr.krd-info .krd-kr-name { font-weight:600; color:var(--text-2); }
 .krd-tbl tr.krd-overall td { background:rgba(86,38,233,.07) !important; border-top:2px solid rgba(86,38,233,.25); border-bottom:none; }
 .krd-tbl tr.krd-overall .krd-chip { font-size:13.5px; min-width:58px; padding:3px 10px; }
 .krd-tbl .krd-h2start { border-left:2px solid var(--secondary); }
@@ -1252,6 +1257,13 @@ body.krd-only #section-b2b > :not(.krd-keep) { display:none !important; }
           <button class="dm-btn active" data-krdch="total" onclick="setKrDetailCh_('total')">Total</button>
           <button class="dm-btn"        data-krdch="api"   onclick="setKrDetailCh_('api')">API</button>
           <button class="dm-btn"        data-krdch="html"  onclick="setKrDetailCh_('html')">HTML</button>
+        </div>
+      </div>
+      <div class="dm-group">
+        <span class="dm-group-lbl">Fecha</span>
+        <div class="dm-toggle">
+          <button class="dm-btn active" data-krddm="ri" onclick="setKrDetailDm_('ri')" title="Fecha de reserva (como Status KRs H2 del Tracker)">RI</button>
+          <button class="dm-btn"        data-krddm="gd" onclick="setKrDetailDm_('gd')" title="Fecha de gestión">GD</button>
         </div>
       </div>
       <label class="krd-h1box"><input type="checkbox" id="krd-h1" onchange="setKrDetailH1_(this.checked)"> Incluir meses H1 (abr–sep)</label>
@@ -3334,16 +3346,25 @@ function setB2BKrHalf(h){
 // como FVM_DETAIL, % = 1 + (act-bud)/|bud| con techo 130% (recuadros por país del Tracker).
 // OVERALL (solo canal Total) = ponderado con okrScore_ (piso 70%→0), igual que el Tracker.
 var KRD_FY_START = '2026-04', KRD_H2_START = '2026-10', KRD_H2_END = '2027-03';
+// flags: códigos de flagcdn.com (manda CORS, así salen en Copiar imagen / PNG); 'globe' = Globales.
 var KRD_PAISES_ = [
-  { name: 'Brasil',       pais: ['Brasil'] },
-  { name: 'Mexico',       pais: ['Mexico'] },
-  { name: 'Globales',     pais: ['Other Countries'] },
-  { name: 'Argentina',    pais: ['Argentina'] },
-  { name: 'Colombia',     pais: ['Colombia'] },
-  { name: 'Chile',        pais: ['Chile'] },
-  { name: 'Peru',         pais: ['Peru'] },
-  { name: 'Ecua/Uru/Par', pais: ['Ecuador', 'Uruguay', 'Paraguay'] }
+  { name: 'Brasil',       pais: ['Brasil'],                        flags: ['br'] },
+  { name: 'Mexico',       pais: ['Mexico'],                        flags: ['mx'] },
+  { name: 'Globales',     pais: ['Other Countries'],               flags: ['globe'] },
+  { name: 'Argentina',    pais: ['Argentina'],                     flags: ['ar'] },
+  { name: 'Colombia',     pais: ['Colombia'],                      flags: ['co'] },
+  { name: 'Chile',        pais: ['Chile'],                         flags: ['cl'] },
+  { name: 'Peru',         pais: ['Peru'],                          flags: ['pe'] },
+  { name: 'Ecua/Uru/Par', pais: ['Ecuador', 'Uruguay', 'Paraguay'], flags: ['ec', 'uy', 'py'] }
 ];
+function krdFlags_(grupo) {
+  var g = KRD_PAISES_.filter(function(x){ return x.name === grupo; })[0];
+  if (!g) return '';
+  return '<span class="krd-flags">' + g.flags.map(function(c){
+    return c === 'globe' ? '<span class="krd-globe">🌎</span>'
+      : '<img src="https://flagcdn.com/' + c + '.svg" alt="' + c.toUpperCase() + '" crossorigin="anonymous">';
+  }).join('') + '</span>';
+}
 var _krdCh = 'total';                       // 'total' | 'api' | 'html'
 var _krdRecur = null, _krdRecurTgt = null, _krdRecurState = 'idle';
 function setKrDetailCh_(ch) {
@@ -3408,6 +3429,14 @@ function krdRatio_(act, bud) {
 // Mes cerrado = actual vs budget del mes; mes del día que se mira = MTD; mes futuro = solo la meta del mes.
 var _krdH1 = false;
 function setKrDetailH1_(on) { _krdH1 = !!on; renderKrDetail_(); }
+// Fecha: 'ri' (reserva, la del Tracker y la de los KRs oficiales) | 'gd' (gestión). Recurrence no cambia
+// (es una foto semanal de agencias, no depende del modelo de fecha).
+var _krdDm = 'ri';
+function setKrDetailDm_(dm) {
+  _krdDm = dm;
+  document.querySelectorAll('[data-krddm]').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-krddm') === dm); });
+  renderKrDetail_();
+}
 function krdMonthRange_(a, b) {
   var out = [], y = +a.substring(0, 4), m = +a.substring(5, 7);
   while (true) {
@@ -3439,7 +3468,9 @@ function renderKrDetail_() {
     { id: 'nr',   lbl: 'Net Revenues', unit: 'USD · NR', w: 0.30, f: 'net_revenue', p: chOk },
     { id: 'fapi', lbl: 'FVM · API',    unit: 'USD · canal API', w: 0.20, f: 'fvm', p: isAPI,  ch: 'api' },
     { id: 'fhtm', lbl: 'FVM · HTML',   unit: 'USD · Agencias afiliadas', w: 0.20, f: 'fvm', p: isHTML, ch: 'html' },
-    { id: 'np',   lbl: 'New Products', unit: 'USD · NR Flights + Dest. Serv.', w: 0.15, f: 'net_revenue', p: chOk, np: true }
+    { id: 'np',   lbl: 'New Products', unit: 'USD · NR Flights + Dest. Serv.', w: 0.15, f: 'net_revenue', p: chOk, np: true },
+    // Informativo (no es KR): sin peso y fuera del OVERALL. Va debajo de los KRs.
+    { id: 'gb',   lbl: 'Gross Bookings', unit: 'USD · informativo, no es KR', w: 0, f: 'gross_bookings', p: chOk, info: true }
   ].filter(function(k){ return !k.ch || _krdCh === 'total' || _krdCh === k.ch; });
   var showRec = _krdCh !== 'api';   // Accelerate Recurrence es solo HTML
   var from = months[0] + '-01', to = KRD_H2_END + '-31';
@@ -3466,8 +3497,8 @@ function renderKrDetail_() {
       });
     });
   }
-  add(rawKr.b2b_ri, false, 'producto_original');
-  add(raw.b2b_budget_ri, true, 'producto');
+  add(rawKr['b2b_' + _krdDm], false, 'producto_original');
+  add(raw['b2b_budget_' + _krdDm], true, 'producto');
   var recByYM = {};
   if (showRec) months.forEach(function(ym){ if (ym <= curYM) recByYM[ym] = krdRecurMonth_(ym); });
   var recLoading = showRec && (_krdRecurState === 'idle' || _krdRecurState === 'loading');
@@ -3492,22 +3523,23 @@ function renderKrDetail_() {
 
   function card(grupo, idx) {
     var a = acc[grupo] || {}, scoreByYM = {}, ytdScores = [];
-    var body = KRS.map(function(k){
+    function krRow(k) {
       var cells = months.map(function(ym){
         var d = a[k.id] && a[k.id][ym];
         if (ym > curYM) return metaCell(ym, d && d.meta ? fmt(d.meta) : null);
         if (!d || (!d.act && !d.bud)) return '<td' + tdCls(ym) + '><span class="krd-chip n">—</span></td>';
-        (scoreByYM[ym] = scoreByYM[ym] || []).push({ c: okrScore_(d.act, d.bud), w: k.w });
+        if (!k.info) (scoreByYM[ym] = scoreByYM[ym] || []).push({ c: okrScore_(d.act, d.bud), w: k.w });
         return dataCell(tdCls(ym), krdChip_(krdRatio_(d.act, d.bud)), fmt(d.act), fmt(d.bud));
       }).join('');
       var ya = 0, yb = 0;
       ytdMonths.forEach(function(ym){ var d = a[k.id] && a[k.id][ym]; if (d) { ya += d.act; yb += d.bud; } });
       var ytd;
       if (!ytdMonths.length || (!ya && !yb)) ytd = '<td class="krd-ytd"><span class="krd-chip n">—</span></td>';
-      else { ytdScores.push({ c: okrScore_(ya, yb), w: k.w }); ytd = dataCell(' class="krd-ytd"', krdChip_(krdRatio_(ya, yb)), fmt(ya), fmt(yb)); }
-      return '<tr><td><div class="krd-kr-name">' + k.lbl + '<span class="krd-w">' + Math.round(k.w * 100) + '%</span></div>' +
+      else { if (!k.info) ytdScores.push({ c: okrScore_(ya, yb), w: k.w }); ytd = dataCell(' class="krd-ytd"', krdChip_(krdRatio_(ya, yb)), fmt(ya), fmt(yb)); }
+      return '<tr' + (k.info ? ' class="krd-info"' : '') + '><td><div class="krd-kr-name">' + k.lbl + (k.info ? '' : '<span class="krd-w">' + Math.round(k.w * 100) + '%</span>') + '</div>' +
         '<div class="krd-kr-meta">' + k.unit + '</div></td>' + cells + ytd + '</tr>';
-    }).join('');
+    }
+    var body = KRS.filter(function(k){ return !k.info; }).map(krRow).join('');
     if (showRec) {
       var lastRec = null;   // H2 acum. de Recurrence = el último mes con dato (es una foto de agencias vivas, no se suma)
       var cells = months.map(function(ym){
@@ -3530,6 +3562,7 @@ function renderKrDetail_() {
       body += '<tr><td><div class="krd-kr-name">Accelerate Recurrence<span class="krd-w">15%</span></div>' +
         '<div class="krd-kr-meta">agencias HTML de alta frecuencia</div></td>' + cells + ytdR + '</tr>';
     }
+    body += KRS.filter(function(k){ return k.info; }).map(krRow).join('');
     if (_krdCh === 'total') {   // OVERALL ponderado, normalizado sobre los KRs con dato (como el Tracker)
       var ov = function(list){
         var ws = 0, wc = 0;
@@ -3548,8 +3581,8 @@ function renderKrDetail_() {
       return '<th' + tdCls(ym) + '>' + mLbl(ym) + (ym === curYM ? '<span class="krd-mtd">MTD</span>' : '') + '</th>';
     }).join('') + '<th class="krd-ytd">H2 acum.</th></tr>';
     return '<div class="krd-card" id="krd-card-' + idx + '">' +
-      '<div class="krd-card-hdr"><div><div class="krd-title">' + title + '</div>' +
-      '<div class="krd-title-sub">OKRs H2 FY27 · ' + chLbl + ' · datos al ' + fmtDate(vDate) + '</div></div>' +
+      '<div class="krd-card-hdr"><div><div class="krd-title">' + krdFlags_(grupo) + title + '</div>' +
+      '<div class="krd-title-sub">OKRs H2 FY27 · ' + chLbl + ' · ' + (_krdDm === 'gd' ? 'fecha de gestión (GD)' : 'fecha de reserva (RI)') + ' · datos al ' + fmtDate(vDate) + '</div></div>' +
       '<div class="krd-actions" data-html2canvas-ignore="true">' +
       '<button class="krd-act-btn" onclick="krdCopy_(' + idx + ')">Copiar imagen</button>' +
       '<button class="krd-act-btn" onclick="krdPng_(' + idx + ')">PNG</button></div></div>' +
@@ -3562,8 +3595,9 @@ function renderKrDetail_() {
     .map(function(g, i){ _krdTitles[i] = g === 'TOTAL' ? 'Total_B2B' : g.replace(/[^\w]+/g, '_'); return card(g, i); }).join('');
   if (sub) sub.innerHTML = '<b>Cómo leerlo:</b> cada celda muestra el % de cumplimiento (actual vs meta, techo 130%), el actual y la meta. ' +
     'Meses cerrados completos; ' + mLbl(curYM) + ' <span class="krd-mtd">MTD</span> = acumulado al ' + fmtDate(vDate) + ' contra la meta a la misma fecha; los meses que vienen muestran solo la meta. ' +
-    '<b>H2 acum.</b> = octubre → hoy (Recurrence: el último mes, porque es una foto). Meta = Budget (NR, FVM y New Products; hoy cargado hasta diciembre) e Input_OKR (Recurrence). ' +
-    'Fecha de reserva (RI). Recurrence: en las semanas 1-2 del mes se mide con Rolling L4W. Mismos números que Status KRs H2 del Tracker.';
+    '<b>H2 acum.</b> = octubre → hoy (Recurrence: el último mes, porque es una foto). Meta = Budget (NR, FVM y New Products) e Input_OKR (Recurrence). ' +
+    'Gross Bookings es informativo: no es KR y no pondera en el OVERALL. Fecha: RI = reserva (la de los KRs oficiales; con RI, mismos números que Status KRs H2 del Tracker) · GD = gestión. ' +
+    'Accelerate Recurrence es igual en RI y GD (foto semanal de agencias). En las semanas 1-2 del mes se mide con Rolling L4W.';
 }
 var _krdTitles = [];
 function krdCanvas_(idx) {
@@ -3576,7 +3610,7 @@ function krdCanvas_(idx) {
 function krdPng_(idx) {
   krdCanvas_(idx).then(function(cv){
     var a = document.createElement('a');
-    a.download = 'OKR_' + (_krdTitles[idx] || 'tabla') + '_' + _krdCh + '_' + (state_b2b.viewDate || '') + '.png';
+    a.download = 'OKR_' + (_krdTitles[idx] || 'tabla') + '_' + _krdCh + '_' + _krdDm.toUpperCase() + '_' + (state_b2b.viewDate || '') + '.png';
     a.href = cv.toDataURL('image/png'); a.click();
   });
 }

@@ -1353,10 +1353,18 @@ def to_compact(df: pd.DataFrame) -> dict:
     return {"cols": list(df.columns), "rows": df.values.tolist()}
 
 
-def agg_b2b_budget(df: pd.DataFrame) -> pd.DataFrame:
+def agg_b2b_budget(df: pd.DataFrame, full_fy: bool = False) -> pd.DataFrame:
+    """Por defecto recorta al año calendario en curso (lo consume el Daily, que suma budget sin tope
+    de fecha en varios lugares). full_fy=True deja el AÑO FISCAL completo (abr -> mar siguiente): lo usa
+    solo el JSON de OKR H2 (OKR Detail muestra las metas oct-mar), igual que agg_okr_stage_nr."""
     df = df.copy()
-    df["fecha"] = _parse_fecha_budget(df["fecha"]).dt.strftime("%Y-%m-%d")
-    df = df[df["fecha"].str[:4] == str(TODAY.year)]  # keep current FY only
+    f = _parse_fecha_budget(df["fecha"])
+    df["fecha"] = f.dt.strftime("%Y-%m-%d")
+    if full_fy:
+        fy0 = TODAY.year if TODAY.month >= 4 else TODAY.year - 1
+        df = df[(f >= pd.Timestamp(fy0, 4, 1)) & (f <= pd.Timestamp(fy0 + 1, 3, 31))]
+    else:
+        df = df[df["fecha"].str[:4] == str(TODAY.year)]  # keep current FY only
     # Map lob_canal → parent_channel so the dashboard channel filter works on budget
     if "lob_canal" in df.columns:
         df["parent_channel"] = df["lob_canal"].map({
@@ -1409,27 +1417,28 @@ def split_pkg_budget(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def build_okr_h2_actuals(df: pd.DataFrame) -> dict:
-    """Actuals (o LY) para el JSON de OKR H2 managerial: solo lo que usan los 4 KRs (NR y FVM) por
-    fecha x pais x canal x producto. product_type solo en Packages General (en el resto va vacío):
-    es lo que separa el componente Vuelos / Dest. Serv. de los paquetes. Sin orders/GB/viaje."""
+    """Actuals (o LY) para el JSON de OKR H2 managerial: lo que usan los KRs (NR y FVM) y el GB (fila
+    informativa de OKR Detail) por fecha x pais x canal x producto. product_type solo en Packages General
+    (en el resto va vacío): es lo que separa el componente Vuelos / Dest. Serv. de los paquetes. Sin orders/viaje."""
     if df is None or df.empty:
         return {"cols": [], "rows": []}
-    d = df[["fecha", "pais", "producto_original", "parent_channel", "product_type", "net_revenue", "fvm", "fvm_ex_coi_br"]].copy()
+    d = df[["fecha", "pais", "producto_original", "parent_channel", "product_type", "gross_bookings", "net_revenue", "fvm", "fvm_ex_coi_br"]].copy()
     d.loc[d["producto_original"] != "Packages General", "product_type"] = ""
     d = d.groupby(["fecha", "pais", "producto_original", "parent_channel", "product_type"], as_index=False).agg(
-        net_revenue=("net_revenue", "sum"), fvm=("fvm", "sum"), fvm_ex_coi_br=("fvm_ex_coi_br", "sum"))
+        gross_bookings=("gross_bookings", "sum"), net_revenue=("net_revenue", "sum"), fvm=("fvm", "sum"), fvm_ex_coi_br=("fvm_ex_coi_br", "sum"))
     return to_compact(d)
 
 
 def build_okr_h2_budget(df_clean: pd.DataFrame) -> list:
     """Budget para el JSON de OKR H2 managerial: mismo grano que el budget del JSON principal pero con
-    Packages General abierto por product_type (split_pkg_budget, proporciones fijas). Solo NR y FVM."""
+    Packages General abierto por product_type (split_pkg_budget, proporciones fijas). Solo NR y FVM.
+    Año fiscal completo (abr -> mar): las metas del H2 llegan hasta marzo."""
     if df_clean is None or df_clean.empty:
         return []
-    b = split_pkg_budget(agg_b2b_budget(df_clean))
+    b = split_pkg_budget(agg_b2b_budget(df_clean, full_fy=True))
     b = b.groupby(["fecha", "pais", "parent_channel", "producto", "product_type"], as_index=False).agg(
-        net_revenue=("net_revenue", "sum"), fvm=("fvm", "sum"), fvm_ex_coi_br=("fvm_ex_coi_br", "sum")
-    ).round({"net_revenue": 2, "fvm": 2, "fvm_ex_coi_br": 2})
+        gross_bookings=("gross_bookings", "sum"), net_revenue=("net_revenue", "sum"), fvm=("fvm", "sum"), fvm_ex_coi_br=("fvm_ex_coi_br", "sum")
+    ).round({"gross_bookings": 2, "net_revenue": 2, "fvm": 2, "fvm_ex_coi_br": 2})
     return b.to_dict(orient="records")
 
 
@@ -2032,13 +2041,16 @@ def _sum_compact(c, col):
     return float(sum(r[i] or 0 for r in c["rows"]))
 _okr_ok = True
 for _k, _main in (("b2b_ri", df_b2b_ri_agg), ("b2b_gd", df_b2b_gd_agg), ("b2b_ri_ly", df_b2b_ri_ly_ag), ("b2b_gd_ly", df_b2b_gd_ly_ag)):
-    for _col in ("net_revenue", "fvm"):
+    for _col in ("gross_bookings", "net_revenue", "fvm"):
         _a, _b = _sum_compact(okr_h2_payload[_k], _col), float(_main[_col].sum())
         if abs(_a - _b) > 1.0:
             _okr_ok = False
             print(f"  ERROR cuadre OKR H2: {_k}.{_col} okr={_a:,.0f} vs principal={_b:,.0f}")
-for _k, _main in (("b2b_budget_ri", df_b2b_bud_ri), ("b2b_budget_gd", df_b2b_bud_gd)):
-    for _col in ("net_revenue", "fvm"):
+# El budget del JSON de OKR es el año fiscal completo (abr -> mar): se compara contra el mismo recorte
+# sin la apertura de paquetes (el del JSON principal es solo el año calendario).
+for _k, _src in (("b2b_budget_ri", df_b2b_budget_ri), ("b2b_budget_gd", df_b2b_budget_gd)):
+    _main = agg_b2b_budget(_src, full_fy=True) if not _src.empty else pd.DataFrame()
+    for _col in ("gross_bookings", "net_revenue", "fvm"):
         _a = float(sum(r[_col] for r in okr_h2_payload[_k]))
         _b = float(_main[_col].sum()) if not _main.empty else 0.0
         if abs(_a - _b) > max(50.0, abs(_b) * 1e-5):     # el redondeo de la apertura suma centavos por fila

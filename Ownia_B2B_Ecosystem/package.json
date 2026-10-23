@@ -7,7 +7,8 @@
   "scripts": {
     "start": "node server/index.js",
     "test": "node --test test/*.test.js",
-    "sync": "node scripts/sync-to-ownia-repo.js"
+    "sync": "node scripts/sync-to-ownia-repo.js",
+    "dev": "node scripts/dev-local.js"
   },
   "engines": {
     "node": ">=20"

@@ -190,6 +190,18 @@ cambio en un módulo GAS migrado (p.ej. `Manual_B2B_WLs/manual.html`) necesita *
 
 ## Correr en local
 
+**Versión "dev" para revisar un cambio antes de redeployar** (la forma corta, con datos):
+
+```bash
+cd Ownia_B2B_Ecosystem
+py mirror/ownia_mirror.py --to-dir _store     # datos de Drive (solo lo que cambió)
+npm run dev -- nombre.apellido@despegar.com   # → http://localhost:8098/b2b-ecosystem/
+```
+
+`scripts/dev-local.js` levanta la app con el código del repo tal como está en disco (sin commit ni sync) y pone tu
+mail como identidad en cada request, escuchando solo en `127.0.0.1`. Para ver un cambio en un `.html`/`.js` de un
+módulo, reiniciar el script. Es lo mismo que el bloque de abajo, sin tener que mandar el header a mano.
+
 ```bash
 cd Ownia_B2B_Ecosystem
 npm install                                   # SDK de DynamoDB (solo lo usa el backend de producción)
