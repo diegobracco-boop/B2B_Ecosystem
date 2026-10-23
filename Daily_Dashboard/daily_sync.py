@@ -1297,10 +1297,23 @@ def agg_okr_stage_nr(df: pd.DataFrame) -> pd.DataFrame:
               .round({"net_revenue": 2}))
 
 
-def agg_budget(df: pd.DataFrame) -> pd.DataFrame:
+def agg_budget(df: pd.DataFrame, fy_rest: bool = False) -> pd.DataFrame:
+    """Por defecto: año calendario en curso, grano diario (lo consume el Daily, que suma budget sin
+    tope de fecha en varios lugares). fy_rest=True: los meses del AÑO FISCAL que quedan fuera de ese
+    recorte (ene-mar del año que viene; si estamos en ene-mar, abr-dic del anterior — OJO: en ene-mar
+    los actuals abr-dic no están en el JSON, ACTUALS_FROM arranca el 1-ene), a grano
+    MENSUAL (fecha = 1ro de mes) -> claves budget_fy_rest / runrate_fy_rest, que solo usa el gráfico
+    de 12 meses (actuals + proyección Run Rate) de la portada "B2B2C Monthly Performance" del Flow."""
     df = df.copy()
-    df["fecha"] = _parse_fecha_budget(df["fecha"]).dt.strftime("%Y-%m-%d")
-    df = df[df["fecha"].str[:4] == str(TODAY.year)]  # keep current FY only
+    f = _parse_fecha_budget(df["fecha"])
+    if fy_rest:
+        fy0 = TODAY.year if TODAY.month >= 4 else TODAY.year - 1
+        keep = (f >= pd.Timestamp(fy0, 4, 1)) & (f <= pd.Timestamp(fy0 + 1, 3, 31)) & (f.dt.year != TODAY.year)
+        df = df[keep]
+        df["fecha"] = f.loc[df.index].dt.strftime("%Y-%m-01")
+    else:
+        df["fecha"] = f.dt.strftime("%Y-%m-%d")
+        df = df[df["fecha"].str[:4] == str(TODAY.year)]  # keep current FY only
     # YaVas: GB=0 en los mismos productos que en actuals (revenue queda normal)
     _yavas_gb0 = (
         df["partner"].str.lower().str.contains("yavas", na=False)
@@ -1854,6 +1867,8 @@ df_b2b_ri_ly_ag = agg_b2b(df_b2b_ri_ly)
 df_b2b_bud_gd   = agg_b2b_budget(df_b2b_budget_gd) if not df_b2b_budget_gd.empty else pd.DataFrame()
 df_b2b_bud_ri   = agg_b2b_budget(df_b2b_budget_ri) if not df_b2b_budget_ri.empty else pd.DataFrame()
 df_b2bc_rr_agg  = agg_budget(df_b2bc_rr)           if not df_b2bc_rr.empty          else pd.DataFrame()
+df_bud_fy_rest  = agg_budget(df_budget, fy_rest=True)
+df_rr_fy_rest   = agg_budget(df_b2bc_rr, fy_rest=True) if not df_b2bc_rr.empty      else pd.DataFrame()
 df_okr_bud      = agg_okr_stage_nr(df_budget)
 df_okr_rr       = agg_okr_stage_nr(df_b2bc_rr)
 df_b2b_rr_gd_agg = agg_b2b_budget(df_b2b_rr_gd)   if not df_b2b_rr_gd.empty        else pd.DataFrame()
@@ -1983,6 +1998,9 @@ b2bc_payload = {
     "budget":     to_compact(df_bud),
     "runrate":    to_compact(df_b2bc_rr_agg) if not df_b2bc_rr_agg.empty else {"cols": [], "rows": []},
     "forecast":   _forecast_b2bc_compact,
+    # Resto del FY fuera del año calendario (mensual) -> gráfico de 12 meses de la portada del Flow
+    "budget_fy_rest":  to_compact(df_bud_fy_rest) if not df_bud_fy_rest.empty else {"cols": [], "rows": []},
+    "runrate_fy_rest": to_compact(df_rr_fy_rest)  if not df_rr_fy_rest.empty  else {"cols": [], "rows": []},
     "okr_budget":  to_compact(df_okr_bud),   # NR por mes x stage, FY completo -> okr_builder.py
     "okr_runrate": to_compact(df_okr_rr),
     "unique_buyers":       to_compact(df_unique_buyers) if not df_unique_buyers.empty else {"cols": [], "rows": []},
