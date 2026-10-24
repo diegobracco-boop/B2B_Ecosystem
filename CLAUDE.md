@@ -60,7 +60,7 @@ Una vez creadas las credenciales, actualizar `RUTA_ENV` en `Daily_Dashboard/dail
 | `OKR_Producto_B2B2C/` (Python) | Implementar → correr `okr_sync.py` manualmente (hace push+deploy+invalidación de cache solo) |
 | `OKR_Producto_B2B2C/` (GAS/HTML) | Implementar → `/clasp-push` desde `OKR_Producto_B2B2C/` |
 | `FVM_Negativo/` | Implementar → `/clasp-push` + sync y redeploy en Ownia (en validación ahí; sin pipeline propio: el JSON lo genera `Daily_Dashboard/daily_sync.py`; si se tocan esas queries, `/sincronizar`) |
-| `Ownia_B2B_Ecosystem/` | Implementar → `npm test` → sync a la rama `b2b-ecosystem` de `despegar/B2B_Ecosystem_Ownia` (nunca a `main`: ahí vive la app `b2b-dashboard`) → redeploy con la skill `ownia-deploy` (ver su `CONTEXT.md`, "Flujo para publicar") |
+| `Ownia_B2B_Ecosystem/` | Implementar → `npm test` → sync a `main` de `despegar/B2B_Ecosystem_APP` (repo propio de la app desde 2026-10-23) → redeploy con la skill `ownia-deploy` (ver su `CONTEXT.md`, "Flujo para publicar") |
 
 **Migración progresiva a Ownia** (`Ownia_B2B_Ecosystem/`): corre el código GAS de los módulos marcados `ownia: true` en `server/modules.js` sin reescribirlo. Apps Script sigue siendo productivo y no se toca. Si cambiás un módulo GAS ya migrado o en validación (hoy `Manual_B2B_WLs`, `P&L_Managerial`, `P&L_Accounting`, `Daily_Dashboard`, `Dashboard_B2B_WLs`, `FVM_Negativo`), hay que publicar en los dos lados: `/clasp-push` **y** sync + redeploy en Ownia. Los módulos con datos leen una copia espejada de Drive: si agregás un `*_FILE_ID` / `*_FOLDER_ID` / `*_SHEET_ID` en su código GAS, sumalo a `Ownia_B2B_Ecosystem/server/drive-manifest.json`, y después de cada corrida de pipeline corré `py Ownia_B2B_Ecosystem/mirror/ownia_mirror.py`.
 

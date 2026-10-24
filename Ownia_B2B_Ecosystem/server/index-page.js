@@ -1,5 +1,5 @@
 // Portada de la app: menú de tableros B2B, pensado para que lo abra dirección en una notebook.
-// Estilo copiado de la portada de b2b-dashboard (rama main de despegar/B2B_Ecosystem_Ownia):
+// Estilo copiado de la portada de b2b-dashboard (main de despegar/B2B_Ecosystem_Ownia, app b2b-dashboard):
 // oscuro por defecto con toggle claro (misma clave de localStorage, así la preferencia se
 // comparte), Poppins, topbar con línea violeta, hero con degradé y tarjetas con ícono. El primer
 // grupo arma un bento con la tarjeta destacada. Intro "The B2B Ecosystem" igual a la de

@@ -184,9 +184,10 @@ El ecosistema tiene dos capas: **pipelines** (Python, generan los datos) y **lan
   `SlidesApp`/`MailApp`/`SpreadsheetApp` (bloquea Hub y Daily).
 - **Datos**: lee una copia **espejada** de los mismos archivos de Drive (mismo id/nombre/fecha), en DynamoDB de Ownia (mismo patrón que `runrate-html`).
   La sube `mirror/ownia_mirror.py` (lista de archivos por módulo: `server/drive-manifest.json`); los pipelines no cambian.
-- **Repo de deploy**: rama `b2b-ecosystem` de `despegar/B2B_Ecosystem_Ownia`, espejo GENERADO por
+- **Repo de deploy**: `main` de `despegar/B2B_Ecosystem_APP` (desde 2026-10-23), espejo GENERADO por
   `scripts/sync-to-ownia-repo.js` (Ownia solo deploya repos de la org `despegar`). La fuente de verdad es la carpeta
-  del monorepo. **`main` de ese repo es otra app** (`b2b-dashboard`, sitio estático) y no se toca.
+  del monorepo. Antes era la rama `b2b-ecosystem` de `despegar/B2B_Ecosystem_Ownia`, cuyo `main` es otra app
+  (`b2b-dashboard`).
 - **Acceso**: detrás de Cloudflare Access (login corporativo); la app recibe `cf-access-authenticated-user-email`.
 - **Apps Script no cambia**: pipelines, queries al Datalake, JSON de Drive y landings GAS siguen igual.
 - **Doc detallada**: [CONTEXT.md](./Ownia_B2B_Ecosystem/CONTEXT.md)

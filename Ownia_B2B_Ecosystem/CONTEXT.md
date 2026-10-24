@@ -158,15 +158,15 @@ Ownia solo deploya repos de la org GitHub `despegar`, y desde la **raíz** del r
 `diegobracco-boop/B2B_Ecosystem`. Entonces:
 
 - **Fuente de verdad: esta carpeta** del monorepo. Acá se edita y se testea.
-- **Rama `b2b-ecosystem` de `despegar/B2B_Ecosystem_Ownia`**: espejo GENERADO que deploya la app `b2b-ecosystem`.
-  Es una rama **huérfana** (sin historia común con `main`). **`main` de ese repo es OTRA app**, `b2b-dashboard`
-  (Dashboard B2B API + Tablero Hoteles, de Tomás y Antonella), que Ownia tiene que seguir detectando como HTML
-  estático: nunca mergear esta rama a `main` ni poner nuestro `Dockerfile`/`package.json` ahí.
+- **`main` de `despegar/B2B_Ecosystem_APP`**: espejo GENERADO que deploya la app `b2b-ecosystem`, en un repo
+  propio desde 2026-10-23. Antes vivía en la rama huérfana `b2b-ecosystem` de `despegar/B2B_Ecosystem_Ownia`, cuyo
+  `main` es OTRA app (`b2b-dashboard`, Dashboard B2B API + Tablero Hoteles, de Tomás y Antonella): esa rama quedó
+  en desuso y no hay que volver a sincronizar ahí.
 - El espejo lo arma `node scripts/sync-to-ownia-repo.js <clon>`: copia la app y, en `gas/<Modulo>/`, los
   `.js/.html/.json` de los módulos migrados (sin `.clasp.json`), más `gas/MANIFEST.json` con el commit de origen y
   `LEEME_ESPEJO.md`. **No editarlo a mano.** Solo copia archivos **versionados** (`git ls-files`), nunca
   `token*`/`credentials*`/`.env*`, exige que lo sincronizado no tenga cambios sin commitear, y aborta si el destino
-  no es un clon con origin `despegar/B2B_Ecosystem_Ownia` **parado en la rama `b2b-ecosystem`**, o si es (o
+  no es un clon con origin `despegar/B2B_Ecosystem_APP` **parado en `main`**, o si es (o
   contiene, o está dentro de) el monorepo.
 - (`despegar/ownia-b2b-ecosystem`, el primer espejo del 2026-10-21, quedó en desuso: lo puede archivar un admin de
   Ownia.)
@@ -181,16 +181,16 @@ En el monorepo la app lee los proyectos GAS de las carpetas hermanas (`../<Modul
 2. Commit + push al monorepo.
 3. Sincronizar el espejo:
    ```bash
-   git clone -b b2b-ecosystem https://github.com/despegar/B2B_Ecosystem_Ownia.git <clon>   # una sola vez
+   git clone https://github.com/despegar/B2B_Ecosystem_APP.git <clon>   # una sola vez
    node scripts/sync-to-ownia-repo.js <clon>
    cd <clon> && git add -A && git commit -m "Sync desde B2B_Ecosystem <sha>" && git push
    ```
 4. Redeploy desde el MCP de Ownia (skill `ownia-deploy`): `deploy_app(action="redeploy", app_name="b2b-ecosystem")`
    — la app ya tiene guardados el repo y la rama. Llega un mail cuando termina.
 
-⚠️ **`manage_infra(action="apply")` deploya la rama por defecto del repo (`main` = `b2b-dashboard`), no la guardada
-en la app.** Pasó el 2026-10-21 al agregar DynamoDB: `/b2b-ecosystem` quedó sirviendo el dashboard de API. Después
-de cualquier `apply`, redeployar con `deploy_app(action="redeploy", branch="b2b-ecosystem")`.
+ℹ️ `manage_infra(action="apply")` deploya la rama por defecto del repo, no la guardada en la app. Con el repo
+compartido eso publicó el dashboard de API en `/b2b-ecosystem` (2026-10-21); con el repo propio la rama por
+defecto (`main`) ya es la correcta.
 
 ⚠️ Igual que con clasp: **un `git push` al monorepo no publica nada en Ownia** — hace falta el paso 3 y 4. Y un
 cambio en un módulo GAS migrado (p.ej. `Manual_B2B_WLs/manual.html`) necesita **las dos** publicaciones:

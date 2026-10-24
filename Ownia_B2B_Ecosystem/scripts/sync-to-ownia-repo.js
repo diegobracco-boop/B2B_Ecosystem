@@ -3,16 +3,15 @@
 // public/, test/, scripts/, package.json, Dockerfile, docs) + una copia de los archivos GAS
 // de los módulos migrados en gas/<Modulo>/.
 //
-// Destino: la rama `b2b-ecosystem` de despegar/B2B_Ecosystem_Ownia. Ownia solo deploya repos
-// de la org despegar (este monorepo vive en otra cuenta) y deploya desde la RAÍZ del repo.
-// En `main` de ese repo vive OTRA app (b2b-dashboard, sitio estático de Tomás/Antonella): si
-// le cayera nuestro Dockerfile/package.json en la raíz, su próximo redeploy se rompería. Por
-// eso el espejo va en una rama propia (huérfana) y el script se niega a escribir en otra.
-// La fuente de verdad sigue siendo ESTE repo; la rama es generada: no editarla a mano.
+// Destino: `main` de despegar/B2B_Ecosystem_APP, repo propio de la app (desde 2026-10-23; antes
+// era la rama `b2b-ecosystem` de despegar/B2B_Ecosystem_Ownia, cuyo `main` es OTRA app,
+// b2b-dashboard). Ownia solo deploya repos de la org despegar (este monorepo vive en otra
+// cuenta) y deploya desde la RAÍZ del repo. El script se niega a escribir en otro repo o rama.
+// La fuente de verdad sigue siendo ESTE repo; el espejo es generado: no editarlo a mano.
 //
 // Seguridad (auditoría 2026-10-21):
-//  - el destino tiene que ser un clon cuyo origin sea despegar/B2B_Ecosystem_Ownia, parado
-//    en la rama `b2b-ecosystem`, y estar FUERA del monorepo (comparación por realpath, sin
+//  - el destino tiene que ser un clon cuyo origin sea despegar/B2B_Ecosystem_APP, parado
+//    en la rama `main`, y estar FUERA del monorepo (comparación por realpath, sin
 //    distinguir mayúsculas en Windows);
 //  - solo se copian archivos versionados (git ls-files) y nunca token*/credentials*/.env*:
 //    nada gitignoreado (tokens, okr_data.js, ...) puede terminar publicado en la org;
@@ -27,8 +26,9 @@ const { MODULES } = require('../server/modules');
 const APP = path.resolve(__dirname, '..');
 const MONOREPO = path.resolve(APP, '..');
 const APP_DIRNAME = path.basename(APP);
-const EXPECTED_REMOTE = /[/:]despegar\/B2B_Ecosystem_Ownia(\.git)?\/?$/i;
-const MIRROR_BRANCH = 'b2b-ecosystem';
+const EXPECTED_REPO = 'despegar/B2B_Ecosystem_APP';
+const EXPECTED_REMOTE = /[/:]despegar\/B2B_Ecosystem_APP(\.git)?\/?$/i;
+const MIRROR_BRANCH = 'main';
 
 // Lo único que este script escribe/borra en el destino. Cualquier otra cosa se respeta.
 const APP_ENTRIES = ['server', 'public', 'test', 'scripts', 'package.json', 'package-lock.json', 'CONTEXT.md', 'Dockerfile', '.dockerignore'];
@@ -72,7 +72,7 @@ function checkTarget(target) {
   } catch (e) { /* sin origin */ }
   // La URL puede traer una credencial temporal embebida: no se imprime.
   if (!EXPECTED_REMOTE.test(origin.replace(/\/\/[^@/]*@/, '//'))) {
-    fail('El origin del destino no es despegar/B2B_Ecosystem_Ownia. Abortado.');
+    fail(`El origin del destino no es ${EXPECTED_REPO}. Abortado.`);
   }
   let branch = '';
   try {
@@ -82,7 +82,7 @@ function checkTarget(target) {
     try { branch = git(target, ['symbolic-ref', '--short', 'HEAD']).trim(); } catch (e) { /* sin rama */ }
   }
   if (branch !== MIRROR_BRANCH) {
-    fail(`El clon está en la rama "${branch}", no en "${MIRROR_BRANCH}". Abortado: en main vive la app b2b-dashboard.`);
+    fail(`El clon está en la rama "${branch}", no en "${MIRROR_BRANCH}". Abortado.`);
   }
 }
 
@@ -139,8 +139,7 @@ function main() {
       '# b2b-ecosystem (Ownia) — espejo generado',
       '',
       `Espejo GENERADO de \`${APP_DIRNAME}/\` del monorepo B2B_Ecosystem — no editar a mano.`,
-      `Rama \`${MIRROR_BRANCH}\` de despegar/B2B_Ecosystem_Ownia → app de Ownia \`b2b-ecosystem\`.`,
-      'La rama `main` de este repo es OTRA app (b2b-dashboard) y no se toca desde acá.',
+      `Rama \`${MIRROR_BRANCH}\` de ${EXPECTED_REPO} → app de Ownia \`b2b-ecosystem\`.`,
       'Se regenera con `node scripts/sync-to-ownia-repo.js <clon>` desde el monorepo.',
       '',
       `Commit de origen: \`${sha}\` · Módulos GAS incluidos: ${copied.join(', ')}`,
