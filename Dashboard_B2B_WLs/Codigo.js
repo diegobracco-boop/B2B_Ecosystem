@@ -721,7 +721,22 @@ function _normCanal_(lob, can) {
   return (lob === 'b2b2c' || lob === 'b2c') ? 'all' : can;
 }
 
-function buildMap_(rows) {
+// Los mapas se memorizan por array de filas: readJson_ devuelve siempre el mismo array por
+// archivo, así que cambiar de LoB / filtro no vuelve a recorrer las filas (era ~70% de cada
+// getAllData en caliente). Ni las filas ni los mapas se modifican después de armarse; las filas
+// convertidas a Organic son un array nuevo en cada llamada y no se memorizan de más.
+var _MAP_MEMO_ = new WeakMap();
+function mapMemo_(rows, kind, build) {
+  var m = _MAP_MEMO_.get(rows);
+  if (!m) { m = {}; _MAP_MEMO_.set(rows, m); }
+  return m[kind] || (m[kind] = build(rows));
+}
+function buildMap_(rows)     { return mapMemo_(rows, 'n3',   buildMapRaw_); }
+function buildN2Map_(rows)   { return mapMemo_(rows, 'n2',   buildN2MapRaw_); }
+function buildNrN2Map_(rows) { return mapMemo_(rows, 'nrn2', buildNrN2MapRaw_); }
+function buildManMap_(rows)  { return mapMemo_(rows, 'man',  buildManMapRaw_); }
+
+function buildMapRaw_(rows) {
   var map = {}, lastYm = '';
   rows.forEach(function(r) {
     if (!r['fecha']) return;
@@ -741,7 +756,7 @@ function buildMap_(rows) {
   return { map: map, lastYm: lastYm };
 }
 
-function buildN2Map_(rows) {
+function buildN2MapRaw_(rows) {
   var map = {}, lastYm = '';
   rows.forEach(function(r) {
     if (!r['fecha']) return;
@@ -763,7 +778,7 @@ function buildN2Map_(rows) {
 
 var _OC_N3_ = ['net revenue', 'cost of revenue', 'sales & marketing'];
 
-function buildNrN2Map_(rows) {
+function buildNrN2MapRaw_(rows) {
   var map = {}, lastYm = '';
   rows.forEach(function(r) {
     if (!r['fecha']) return;
@@ -785,7 +800,7 @@ function buildNrN2Map_(rows) {
   return { map: map, lastYm: lastYm };
 }
 
-function buildManMap_(rows) {
+function buildManMapRaw_(rows) {
   var map = {}, detailMap = {}, lastYm = '';
   rows.forEach(function(r) {
     if (!r['fecha']) return;

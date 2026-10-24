@@ -77,6 +77,14 @@ function createApp(opts = {}) {
   const clientVersion = crypto.createHash('sha1').update(clientJs).digest('hex').slice(0, 10);
   const navJs = fs.readFileSync(path.join(cfg.APP_ROOT, 'public', 'ownia-nav.js'), 'utf8');
   const navVersion = crypto.createHash('sha1').update(navJs).digest('hex').slice(0, 10);
+  // Layout propio de Ownia para un módulo (`layout` en modules.js, archivo en public/): cambia la
+  // presentación sin tocar el HTML de GAS. Se sirve en /_gas/layout/<archivo>.
+  const layouts = new Map();
+  for (const m of modules.filter((x) => x.ownia && x.layout)) {
+    if (!/^[\w-]+\.js$/.test(m.layout)) throw new Error(`layout inválido en ${m.slug}: ${m.layout}`);
+    const js = fs.readFileSync(path.join(cfg.APP_ROOT, 'public', m.layout), 'utf8');
+    layouts.set(m.layout, { js, version: crypto.createHash('sha1').update(js).digest('hex').slice(0, 10) });
+  }
   // Links del header a otra landing (por deployment ID de GAS): el Hub → menú de Ownia; los
   // módulos ya servidos acá → su versión de Ownia (ver public/ownia-nav.js).
   const homeUrl = `${cfg.BASE_PATH}/`;
@@ -293,6 +301,11 @@ function createApp(opts = {}) {
     if (route === '/_gas/nav.js') {
       return send(res, 200, { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'public, max-age=3600' }, navJs);
     }
+    if (route.startsWith('/_gas/layout/')) {
+      const l = layouts.get(route.slice('/_gas/layout/'.length));
+      if (!l) return sendJson(res, 404, { error: 'No encontrado' });
+      return send(res, 200, { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'public, max-age=3600' }, l.js);
+    }
     if (route === '/' || route === '') {
       if (req.method !== 'GET') return sendJson(res, 405, { error: 'Método no permitido' });
       return send(res, 200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }, indexPage({ modules, basePath: cfg.BASE_PATH, canOpen: (m) => mayOpen(m, identity) }));
@@ -350,7 +363,10 @@ function createApp(opts = {}) {
       const output = project.doGet(gasEvent(url, parts.slice(1).join('/')), reqCtx);
       const clientScriptTag = `<script src="${cfg.BASE_PATH}/_gas/client.js?v=${clientVersion}" data-api="${cfg.BASE_PATH}/api/${mod.slug}"></script>\n` +
         `<script src="${cfg.BASE_PATH}/_gas/nav.js?v=${navVersion}" data-home="${escapeHtml(homeUrl)}" data-links="${navLinksAttr}"` +
-        (mod.startView ? ` data-start-view="${escapeHtml(mod.startView)}"` : '') + '></script>';
+        (mod.startView ? ` data-start-view="${escapeHtml(mod.startView)}"` : '') + '></script>' +
+        (layouts.has(mod.layout)
+          ? `\n<script src="${cfg.BASE_PATH}/_gas/layout/${mod.layout}?v=${layouts.get(mod.layout).version}" data-home="${escapeHtml(homeUrl)}" data-links="${navLinksAttr}"></script>`
+          : '');
       const out = renderOutput(output, { clientScriptTag });
       if (req.method === 'HEAD') return send(res, out.status, out.headers, '');
       return await sendCompressible(req, res, out.status, out.headers, out.body);

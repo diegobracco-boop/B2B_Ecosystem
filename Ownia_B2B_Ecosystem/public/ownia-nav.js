@@ -5,6 +5,7 @@
  *    la misma pestaña. Los links del header a otra landing ya migrada van a su versión de Ownia.
  *  - La portada propia del módulo (#home-overlay, con su botón "⌂ Inicio") no se muestra: se entra
  *    directo a la vista `data-start-view` (goToView) y se navega con los selectores del header.
+ *    `?view=<vista>` en la URL elige otra vista de entrada (los accesos rápidos del menú: B2B, B2B2C…).
  *  - Si la landing no tiene ese link, se agrega "🏠 Home": arriba del sidebar (el Manual) o al
  *    principio de la .topbar (el Daily). Dentro de un iframe (Tracker embebido) no se agrega.
  */
@@ -13,6 +14,10 @@
   var script = document.currentScript;
   var home = script.getAttribute('data-home');
   var startView = script.getAttribute('data-start-view');
+  try {
+    var asked = new URLSearchParams(window.location.search).get('view');
+    if (asked && /^[\w-]{1,40}$/.test(asked)) startView = asked;   // goToView ignora las vistas que no conoce
+  } catch (e) { /* navegador sin URLSearchParams: vista por defecto */ }
   var links = {};
   try { links = JSON.parse(script.getAttribute('data-links') || '{}'); } catch (e) { links = {}; }
 
@@ -37,16 +42,18 @@
     var buttons = document.querySelectorAll('button[onclick^="showLanding"]');
     for (var i = 0; i < buttons.length; i++) buttons[i].remove();
 
+    var embedded = window.top !== window;
     var hasHome = false;
     var anchors = document.querySelectorAll('header a[href*="script.google.com"]');
     for (var j = 0; j < anchors.length; j++) {
       var m = /\/s\/([\w-]+)\/exec/.exec(anchors[j].href);
       var dest = m && links[m[1]];
       if (!dest) continue;
-      if (dest === home) { asHome(anchors[j]); hasHome = true; } else { anchors[j].href = dest; anchors[j].removeAttribute('target'); }
+      // Embebida en el Hub, "Home" abriría el menú adentro del iframe: no se muestra.
+      if (dest === home) { if (embedded) anchors[j].remove(); else { asHome(anchors[j]); hasHome = true; } }
+      else { anchors[j].href = dest; anchors[j].removeAttribute('target'); }
     }
 
-    var embedded = window.top !== window;
     var side = !hasHome && !embedded && document.querySelector('#sidebar .sidebar-logo');
     var top = !hasHome && !embedded && !side && document.querySelector('.topbar');
     if (side || top) {

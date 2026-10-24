@@ -252,6 +252,16 @@ td.row-sub-label,.row-sub td.row-sub-label{text-align:left;color:var(--muted);fo
 
 /* ── Chips ───────────────────────────────────────────────── */
 .chip{display:inline-flex;align-items:center;gap:2px;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap}
+.chip .chip-pct{font-weight:600;opacity:.85;margin-left:3px}
+/* Cuadro Resumen: columna Total resaltada y leyenda de colores */
+.pnl-table th.col-total{background:#3d00d1}
+.pnl-table td.col-total{background:rgba(85,15,237,.06);font-weight:700}
+.pnl-legend{font-size:11px;color:var(--muted2);padding:8px 12px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+/* OKR en Consolidado: solo el Total por bloque; "Ver KRs" despliega el detalle */
+.okr-collapsed tr.okr-kr{display:none}
+.okr-lob-hdr button.okr-expand{float:right;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.35);color:#fff;
+  font-size:11px;font-weight:600;border-radius:999px;padding:1px 10px;cursor:pointer}
+.okr-lob-hdr button.okr-expand:hover{background:rgba(255,255,255,.3)}
 .chip-pos{background:var(--green-bg);color:#116329}
 .chip-neg{background:var(--red-bg);color:#a40e26}
 .chip-zero{background:var(--surface2);color:var(--muted);border:1px solid var(--border)}
@@ -1361,6 +1371,7 @@ header > img{filter:brightness(0) invert(1);opacity:.92}
             <thead><tr class="head-canals" id="pnl-head"></tr></thead>
             <tbody id="pnl-body"></tbody>
           </table>
+          <div class="pnl-legend" id="pnl-legend"></div>
         </div>
         <!-- Share en Portfolio Total -->
         <div class="pnl-card" id="share-card" style="margin-top:8px">
@@ -3150,7 +3161,7 @@ function renderPnL() {
 
   // Header — 2 fixed left cols: section + indicator
   var hHtml = '<th>Métrica</th><th style="text-align:left">Indicador</th>';
-  (d.groups||[]).forEach(function(g){ hHtml += '<th>'+pnlGroupLabel(g)+'</th>'; });
+  (d.groups||[]).forEach(function(g, i){ hHtml += '<th'+(i===(d.groups||[]).length-1?' class="col-total"':'')+'>'+pnlGroupLabel(g)+'</th>'; });
   document.getElementById('pnl-head').innerHTML = hHtml;
 
   // Build lookup by row.id for %GB calculations
@@ -3174,18 +3185,21 @@ function renderPnL() {
     });
   }
 
-  // Body
+  // Body. Desde 2026-10-23 (solo Ownia; GAS congelado): Δ $ y Δ % en una sola fila, sin la fila de pp
+  // (el margen queda en "NR/OC % GB") y la columna Total resaltada (col-total).
+  var lastCol = (d.groups||[]).length - 1;
+  var tdOf = function(i, inner){ return '<td'+(i===lastCol?' class="col-total"':'')+'>'+inner+'</td>'; };
   var html = '';
   d.rows.forEach(function(row){
-    // Extra sub-rows for NR/OC: %GB value + pp vs goal
-    var extraRows = (row.id === 'nr' || row.id === 'oc') ? 2 : 0;
-    var rowspan   = 4 + extraRows - (_state.goal === 'lastYear' ? 1 : 0);   // sin fila duplicada de Δ% vs Last Year
+    // Extra sub-row for NR/OC: %GB value
+    var extraRows = (row.id === 'nr' || row.id === 'oc') ? 1 : 0;
+    var rowspan   = 3 + extraRows;
 
     // $M row — includes rowspan section cell
     html += '<tr class="row-sub row-main">';
     html += '<td class="pnl-section-cell" rowspan="'+rowspan+'">'+row.label+'</td>';
     html += '<td class="row-sub-label">'+(row.id==='orders' ? 'Cant.' : '$'+(row.fmt==='M'?'M':'K'))+'</td>';   // Orders son cantidades, no dólares
-    row.cols.forEach(function(col){ html += '<td>'+fmtMain(col.actual, row.fmt)+'</td>'; });
+    row.cols.forEach(function(col, i){ html += tdOf(i, fmtMain(col.actual, row.fmt)); });
     html += '</tr>';
 
     // %GB value — right after $M (only NR and OC)
@@ -3193,47 +3207,31 @@ function renderPnL() {
       var pctLabel = row.id === 'nr' ? 'NR % GB' : 'OC % GB';
       var pctCols  = pctGbCols(row);
       html += '<tr class="row-sub row-pctgb"><td class="row-sub-label">'+pctLabel+'</td>';
-      (pctCols || []).forEach(function(c){
-        html += '<td>'+(c && c.actual !== null ? c.actual.toFixed(1)+'%' : '—')+'</td>';
+      (pctCols || []).forEach(function(c, i){
+        html += tdOf(i, c && c.actual !== null ? c.actual.toFixed(1)+'%' : '—');
       });
       html += '</tr>';
     }
 
     // YoY
     html += '<tr class="row-sub"><td class="row-sub-label">YoY %</td>';
-    row.cols.forEach(function(col){ html += '<td>'+chipTxt(col.yoyPct)+'</td>'; });
+    row.cols.forEach(function(col, i){ html += tdOf(i, chipTxt(col.yoyPct)); });
     html += '</tr>';
 
-    // vs Goal $
-    html += '<tr class="row-sub"><td class="row-sub-label">Δ vs '+goalLabel+' ('+(row.id==='orders'?'cant.':'$')+')</td>';
-    row.cols.forEach(function(col){
+    // vs Goal: Δ absoluto y % en una celda (con Last Year el % es el YoY: solo el absoluto)
+    html += '<tr class="row-sub"><td class="row-sub-label">Δ vs '+goalLabel+'</td>';
+    row.cols.forEach(function(col, i){
       var diff = _state.goal==='budget' ? col.varBudAbs : _state.goal==='lastYear' ? col.varLYAbs : _state.goal==='forecast' ? col.varFcAbs : col.varRRAbs;
-      html += '<td>'+chipAbs(diff, row.fmt)+'</td>';
+      var pct  = _state.goal==='budget' ? col.varBudPct : _state.goal==='lastYear' ? null : _state.goal==='forecast' ? col.varFcPct : col.varRRPct;
+      html += tdOf(i, chipAbsPct_(diff, pct, row.fmt));
     });
     html += '</tr>';
-
-    // vs Goal %  (con Last Year es idéntico a YoY %: no se repite)
-    if (_state.goal !== 'lastYear') {
-      html += '<tr class="row-sub"><td class="row-sub-label">Δ vs '+goalLabel+' (%)</td>';
-      row.cols.forEach(function(col){
-        var pct = _state.goal==='budget' ? col.varBudPct : _state.goal==='forecast' ? col.varFcPct : col.varRRPct;
-        html += '<td>'+chip(pct)+'</td>';
-      });
-      html += '</tr>';
-    }
-
-    // pp vs Goal — after vs (%) for NR and OC
-    if (row.id === 'nr' || row.id === 'oc') {
-      var pctCols2 = pctGbCols(row);
-      html += '<tr class="row-sub row-pctgb"><td class="row-sub-label">Δ vs '+goalLabel+' (pp)</td>';
-      (pctCols2 || []).forEach(function(c){
-        var pp = _state.goal==='lastYear' ? null : _state.goal==='budget' ? (c ? c.varBudPp : null) : _state.goal==='forecast' ? (c ? c.varFcPp : null) : (c ? c.varRRPp : null);
-        html += '<td>'+chipPp(pp)+'</td>';
-      });
-      html += '</tr>';
-    }
   });
   document.getElementById('pnl-body').innerHTML = html;
+  var legend = document.getElementById('pnl-legend');
+  if (legend) legend.innerHTML = 'Δ vs ' + goalLabel + ': <span class="chip chip-pos">▲ ≥ +1%</span> '
+    + '<span class="chip chip-zero">entre 0% y +1%</span> <span class="chip chip-warn">▼ entre −5% y 0%</span> '
+    + '<span class="chip chip-neg">▼ &lt; −5%</span> · YoY sin fondo, mismo criterio de color.';
   renderShare(d);
 }
 
@@ -4737,6 +4735,19 @@ function fmtOKRNominal(act, bud, pct) {
     + '</div>';
 }
 
+// Bloques de OKR desplegados en Consolidado (por defecto plegados: solo Total).
+var _okrOpen = {};
+function toggleOKRBlock(lobKey) {
+  _okrOpen[lobKey] = !_okrOpen[lobKey];
+  var btn = document.querySelector('.okr-expand[onclick*="\'' + lobKey + '\'"]');
+  if (!btn) return;
+  var tbl = btn.closest('.okr-table-wrap').querySelector('.okr-table');
+  var open = _okrOpen[lobKey];
+  tbl.classList.toggle('okr-collapsed', !open);
+  btn.setAttribute('aria-expanded', String(open));
+  btn.textContent = open ? 'Ocultar KRs ▴' : 'Ver ' + tbl.querySelectorAll('tr.okr-kr').length + ' KRs ▾';
+}
+
 function renderOKR(okr) {
   var col = document.getElementById('okr-col');
   if (!col) return;
@@ -4772,12 +4783,19 @@ function renderOKR(okr) {
   var lobsToRender = _state.lob === 'b2b2c' ? ['b2b2c']
                    : _state.lob === 'b2b'   ? ['b2b','globales']
                    : ['b2b2c','b2b','globales'];
+  // En Consolidado cada bloque arranca plegado (solo la fila Total); con un solo LoB, abierto.
+  var multi = lobsToRender.length > 1;
   lobsToRender.forEach(function(lobKey) {
     var d = okr[lobKey];
     if (!d) return;
+    var open = !multi || !!_okrOpen[lobKey];
+    var expandBtn = multi
+      ? '<button type="button" class="okr-expand" aria-expanded="'+open+'" onclick="toggleOKRBlock(\''+lobKey+'\')">'
+        +(open ? 'Ocultar KRs ▴' : 'Ver '+d.krs.length+' KRs ▾')+'</button>'
+      : '';
 
-    html += '<div class="okr-table-wrap"><div class="okr-lob-hdr">'+d.label+'</div>'
-           +'<table class="okr-table"><thead><tr><th>KR</th><th title="Peso del KR en el score del objetivo">Peso</th>';
+    html += '<div class="okr-table-wrap"><div class="okr-lob-hdr">'+d.label+expandBtn+'</div>'
+           +'<table class="okr-table'+(open ? '' : ' okr-collapsed')+'"><thead><tr><th>KR</th><th title="Peso del KR en el score del objetivo">Peso</th>';
 
     if (_okrMonthly) {
       // 12 meses + 4 Q separators
@@ -4795,7 +4813,7 @@ function renderOKR(okr) {
 
     // KR rows
     d.krs.forEach(function(kr) {
-      html += '<tr><td>'+kr.label+'</td>'
+      html += '<tr class="okr-kr"><td>'+kr.label+'</td>'
              +'<td style="color:var(--muted);font-size:10px;text-align:center">'+kr.weight+'%</td>';
       if (_okrMonthly) {
         kr.monthly.forEach(function(v, mi) {
@@ -4907,6 +4925,16 @@ function chipAbs(n,fmt){
   var disp=fmtMain(n,fmt);
   if(/^-?0(\.0)?[MK]?$/.test(disp)) return '<span class="chip-txt neu" title="Sin variación">0</span>';
   return '<span class="chip-txt '+(n>=0?'pos':'neg')+'">'+(n>=0?'▲ +':'▼ ')+disp+'</span>';
+}
+// Δ absoluto + % en un solo pill (Cuadro Resumen): color y flecha según el %, como chip().
+function chipAbsPct_(diff, pct, fmt){
+  if(!_isNum_(pct)) return chipAbs(diff, fmt);
+  if(!_isNum_(diff)) return chip(pct);
+  var disp=fmtMain(diff,fmt), abs=(diff>=0?'+':'')+disp;
+  var st=_deltaState_(pct), txt=_fmtDelta_(pct);
+  var cls=st==='neu'?'chip-zero':st==='warn'?'chip-warn':st==='good'?'chip-pos':'chip-neg';
+  var arrow=st==='neu'?'':(st==='good'?'▲ ':'▼ ');
+  return '<span class="chip '+cls+'">'+arrow+abs+' <span class="chip-pct">('+txt+')</span></span>';
 }
 function chipPp(v){
   if(!_isNum_(v)) return _NA_;
