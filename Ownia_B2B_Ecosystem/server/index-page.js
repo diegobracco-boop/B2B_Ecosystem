@@ -10,14 +10,14 @@
 // el resto va directo a GAS, así nadie de afuera del equipo choca con un 403.
 const { escapeHtml } = require('./gas-template');
 
-// Grupos por uso, en orden de prioridad. El primero de `featured` va resaltado (misma altura que
-// las demás tarjetas, para que el menú entre sin scrollear). Un módulo que no esté acá cae en el
-// último grupo.
+// Grupos por uso, en orden de prioridad (definido por el equipo, 2026-10-23). Un grupo con
+// `featured` resalta su primera tarjeta (misma altura que las demás, para que el menú entre sin
+// scrollear). Un módulo que no esté acá cae en el último grupo.
 const GROUPS = [
-  { title: 'Resultados (P&L)', slugs: ['pnl-managerial', 'pnl-accounting', 'profit-sharing'], featured: true },
-  { title: 'Seguimiento y performance', slugs: ['hub', 'daily', 'one-pager', 'api-one-pager', 'fvm-negativo'] },
-  { title: 'Producto', slugs: ['okr-b2b2c'] },
-  { title: 'Documentación', slugs: ['manual'] },
+  { title: 'Daily & Weekly Results', slugs: ['daily', 'api-one-pager', 'fvm-negativo'] },
+  { title: 'P&L Results', slugs: ['hub', 'pnl-accounting'] },
+  { title: 'Managerial P&L · FVM Results', slugs: ['pnl-managerial', 'profit-sharing'] },
+  { title: 'Más tableros y documentación', slugs: ['one-pager', 'okr-b2b2c', 'manual'] },
 ];
 
 // Íconos (trazos de 24x24, mismo estilo que b2b-dashboard).
@@ -75,6 +75,12 @@ function card(m, basePath, canOpen, { featured = false, area = '' } = {}) {
     ? `<a class="alt" href="${escapeHtml(l.alt)}" target="_blank" rel="noopener">Versión Apps Script ↗</a>`
     : '';
   const cta = `<a class="cta${featured ? ' solid' : ''}" href="${escapeHtml(l.main)}"${target}>Abrir el tablero ${l.external ? EXTERNAL : ARROW}</a>`;
+  // Accesos rápidos a una vista (B2B, B2B2C…): solo en la versión de Ownia, que entiende ?view=.
+  const quick = !l.external && m.quickViews
+    ? `<div class="quick" role="group" aria-label="Ir directo a">${m.quickViews
+      .map(([view, label]) => `<a href="${escapeHtml(`${l.main}?view=${encodeURIComponent(view)}`)}">${escapeHtml(label)}</a>`)
+      .join('')}</div>`
+    : '';
   const viz = false   // sin el gráfico decorativo: la destacada ya no es la tarjeta grande del bento
     ? `<svg class="viz" viewBox="0 0 120 72" aria-hidden="true">
             <rect class="bar" x="6" y="44" width="14" height="22" rx="2"/><rect class="bar" x="28" y="34" width="14" height="32" rx="2"/>
@@ -86,6 +92,7 @@ function card(m, basePath, canOpen, { featured = false, area = '' } = {}) {
           ${viz}<div class="ico">${icon(m, featured ? 26 : 22)}</div>
           <h3 id="${id}-t">${escapeHtml(m.title)}${beta}</h3>
           <p>${escapeHtml(m.desc)}</p>
+          ${quick}
           ${featured ? `<div class="cta-row">${cta}${alt}</div>` : `${cta}${alt}`}
         </section>`;
 }
@@ -213,6 +220,11 @@ function indexPage({ modules, basePath, canOpen = () => true }) {
   /* El link secundario queda arriba del link que cubre la tarjeta. */
   .alt { position: relative; z-index: 1; font-size: 12px; color: var(--text-3); text-decoration: none; width: fit-content; }
   .alt:hover { color: var(--text); text-decoration: underline; }
+  /* Accesos rápidos: arriba del link que cubre la tarjeta, como .alt. */
+  .quick { position: relative; z-index: 1; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
+  .quick a { padding: 6px 12px; border-radius: 999px; font-size: 12.5px; font-weight: 600; text-decoration: none; color: var(--text);
+             background: var(--segment-bg); border: 1px solid var(--border-2); transition: border-color .2s var(--ease), background .2s var(--ease); }
+  .quick a:hover { border-color: var(--hover-bd); background: var(--primary-d); }
   .beta { display: inline-block; vertical-align: 3px; margin-left: 6px; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 600;
           color: var(--text-2); background: var(--segment-bg); border: 1px dashed var(--hover-bd); white-space: nowrap; }
 

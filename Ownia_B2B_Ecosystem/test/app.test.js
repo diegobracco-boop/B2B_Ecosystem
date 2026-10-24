@@ -13,7 +13,9 @@ const DEMO = { slug: 'demo', dir: 'Demo_Module', title: 'Demo', desc: 'demo', ow
 const DEMO_PRIV = { slug: 'demo-privado', dir: 'Demo_Module', title: 'Demo privado', desc: 'demo', ownia: true, gasUrl: '' };
 const RUN_HEADERS = { 'X-Requested-With': 'google.script.run' };
 // Mismo proyecto con lista cerrada de usuarios (como los módulos en validación).
-const DEMO_EQUIPO = { slug: 'demo-equipo', dir: 'Demo_Module', title: 'Demo equipo', desc: 'demo', ownia: true, validating: true, allowedUsers: ['Ana@despegar.com'], gasUrl: 'https://script.google.com/y/exec' };
+const DEMO_EQUIPO = { slug: 'demo-equipo', dir: 'Demo_Module', title: 'Demo equipo', desc: 'demo', ownia: true, validating: true, allowedUsers: ['Ana@despegar.com'], quickViews: [['vista-b2b', 'B2B']], gasUrl: 'https://script.google.com/y/exec' };
+// Mismo proyecto con layout propio de Ownia (como el Hub).
+const DEMO_LAYOUT = { slug: 'demo-layout', dir: 'Demo_Module', title: 'Demo layout', desc: 'demo', ownia: true, requiresIdentity: false, layout: 'hub-layout.js', gasUrl: '' };
 const PENDIENTE = { slug: 'pendiente', dir: 'No_Existe', title: 'Pendiente', desc: 'x', ownia: false, gasUrl: 'https://script.google.com/x/exec' };
 
 let demoServer;
@@ -43,7 +45,7 @@ const run = (fn, args, headers, slug = 'demo') =>
   request(demoServer, 'POST', `${BASE}/api/${slug}/${fn}`, { body: { args: args || [] }, headers: { ...RUN_HEADERS, ...(headers || {}) } });
 
 before(async () => {
-  demoServer = await listen(createApp({ GAS_ROOT: FIXTURES, BASE_PATH: BASE, modules: [DEMO, DEMO_PRIV, DEMO_EQUIPO, PENDIENTE], secrets: {}, TRUSTED_IDENTITY_HEADER: 'x-test-email', CALL_TIMEOUT_MS: 300 }));
+  demoServer = await listen(createApp({ GAS_ROOT: FIXTURES, BASE_PATH: BASE, modules: [DEMO, DEMO_PRIV, DEMO_EQUIPO, DEMO_LAYOUT, PENDIENTE], secrets: {}, TRUSTED_IDENTITY_HEADER: 'x-test-email', CALL_TIMEOUT_MS: 300 }));
   // Sin almacén de datos: el smoke test solo abre la landing (doGet), que no lee Drive.
   realServer = await listen(createApp({ BASE_PATH: BASE, TRUSTED_IDENTITY_HEADER: 'x-test-email', fileStore: null }));
 });
@@ -77,6 +79,9 @@ test('portada: un módulo en validación abre Ownia solo para el equipo; al rest
   assert.match(equipo.text, new RegExp(`href="${BASE}/demo-equipo"`));
   assert.match(equipo.text, /Beta · equipo B2B<\/span>/);
   assert.match(equipo.text, /href="https:\/\/script\.google\.com\/y\/exec"[^>]*>Versión Apps Script/);
+  // Accesos rápidos a una vista: solo en la versión de Ownia (GAS no entiende ?view=).
+  assert.match(equipo.text, new RegExp(`href="${BASE}/demo-equipo\\?view=vista-b2b">B2B</a>`));
+  assert.doesNotMatch(fuera.text, /view=vista-b2b/);
 });
 
 test('doGet: template con scriptlets, include, título, meta y shim inyectados', async () => {
@@ -105,6 +110,18 @@ test('doGet: navegación de Ownia inyectada (Home = menú de Ownia, después del
   const js = await request(demoServer, 'GET', `${BASE}/_gas/nav.js`);
   assert.equal(js.status, 200);
   assert.match(js.text, /home-overlay/);
+});
+
+test('layout propio de Ownia: solo en el módulo que lo declara, después de nav.js', async () => {
+  const r = await request(demoServer, 'GET', `${BASE}/demo-layout`);
+  assert.match(r.text, new RegExp(`<script src="${BASE}/_gas/layout/hub-layout\\.js\\?v=\\w+" data-home="${BASE}/" data-links=`));
+  assert.ok(r.text.indexOf('_gas/nav.js') < r.text.indexOf('_gas/layout/'));
+  assert.doesNotMatch((await request(demoServer, 'GET', `${BASE}/demo`)).text, /_gas\/layout\//);
+  const js = await request(demoServer, 'GET', `${BASE}/_gas/layout/hub-layout.js`);
+  assert.equal(js.status, 200);
+  assert.match(js.text, /ownia-hubnav/);
+  assert.equal((await request(demoServer, 'GET', `${BASE}/_gas/layout/otro.js`)).status, 404);
+  assert.equal((await request(demoServer, 'GET', `${BASE}/_gas/layout/..%2Fserver%2Fconfig.js`)).status, 404);
 });
 
 test('doGet: ContentService + pathInfo + parámetros', async () => {

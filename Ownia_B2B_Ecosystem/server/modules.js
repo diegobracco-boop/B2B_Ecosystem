@@ -45,13 +45,16 @@ const MODULES = [
   {
     slug: 'hub',
     dir: 'Dashboard_B2B_WLs',
-    title: 'B2B Ecosystem Hub',
+    title: 'P&L Dashboard',
     desc: 'Portal central del equipo: P&L, OKR, Detail By Country.',
     // En validación: corre acá en paralelo a GAS (datos del P&L → solo el equipo B2B, como Managerial y
     // Accounting). "Slides cierre de mes" (SlidesApp + Slides API) y los triggers (preComputeAll) siguen en GAS.
     ownia: true,
     validating: true,
     allowedUsers: EQUIPO_B2B,
+    // Presentación propia de Ownia (public/hub-layout.js): barra fija con el selector de LoB y las
+    // secciones en vez del menú hamburguesa; precarga de los otros LoB. El HTML de GAS no cambia.
+    layout: 'hub-layout.js',
     gasUrl: GAS_EXEC + 'AKfycbz52txFQy-5YM2Nil_KxULzPoeZpKyA4z5LUWMGoP_8IilcwSduuwZqPF8ut_LmtceM/exec',
   },
   {
@@ -77,6 +80,8 @@ const MODULES = [
     // Sin la portada propia del módulo: entra directo a esta vista (goToView del dashboard) y
     // se navega con los selectores del header. Ver public/ownia-nav.js.
     startView: 'contable-combined',
+    // Accesos rápidos de la tarjeta del menú: abren directo esa vista (?view=, ver public/ownia-nav.js).
+    quickViews: [['contable-combined', 'B2B + B2B2C'], ['contable-b2b', 'B2B'], ['contable-b2b2c', 'B2B2C']],
     allowedUsers: EQUIPO_B2B,
     gasUrl: GAS_EXEC + 'AKfycby9WZK2HfAWx25M5pEMV3nntzJfEvsiT9feMn01zJQkQaI3t2GjTzOIjbFXWexnMuzklQ/exec',
   },
@@ -87,6 +92,8 @@ const MODULES = [
     desc: 'Vista gestional (FVM) B2B2C y B2B.',
     ownia: true,
     validating: true,
+    // Sin vista consolidada B2B + B2B2C (el módulo no la tiene): el tercer acceso es Managerial vs Accounting.
+    quickViews: [['b2b', 'B2B'], ['b2b2c', 'B2B2C'], ['vsacc', 'Managerial vs Accounting']],
     allowedUsers: EQUIPO_B2B,
     gasUrl: GAS_EXEC + 'AKfycbxHyP4uIh02zTQbQ7ZFbyByCVIYuREuiMJ74PnKhQbNGbWknCG2jxOtt_onafQcg5g4/exec',
   },
