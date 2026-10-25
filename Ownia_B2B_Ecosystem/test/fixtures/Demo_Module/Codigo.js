@@ -30,6 +30,11 @@ function quienSoy() {
   return Session.getActiveUser().getEmail();
 }
 
+// Helper privado que usan las funciones propias de Ownia (server/gas-extras/daily-industry.js).
+function loadFile_(name, cacheKey) {
+  return { name: name, cacheKey: cacheKey };
+}
+
 function cacheIdaYVuelta(v) {
   CacheService.getScriptCache().put(CACHE_KEY, v, 60);
   return CacheService.getScriptCache().get(CACHE_KEY);

@@ -20,6 +20,7 @@ const NOT_MIGRATED = [
 ];
 
 const SERVER_EXT = new Set(['.js', '.gs']);
+const GAS_EXTRAS_DIR = path.join(__dirname, 'gas-extras');
 
 // Tope por ejecución de doGet / google.script.run. La ejecución es sincrónica: sin tope, una
 // función colgada bloquearía a todos los usuarios y al /health. Queda por debajo del idle
@@ -110,6 +111,13 @@ class GasProject {
     for (const f of this.serverFiles) {
       const code = fs.readFileSync(f.full, 'utf8');
       new vm.Script(code, { filename: `${this.mod.dir}/${f.rel}` }).runInContext(this.context, { timeout: CALL_TIMEOUT_MS });
+    }
+    // Funciones propias de Ownia (`gasExtras` en modules.js, archivos en server/gas-extras/): se cargan
+    // DESPUÉS del código del módulo, en su mismo contexto (pueden usar sus helpers). Apps Script no las tiene.
+    for (const name of this.mod.gasExtras || []) {
+      if (!/^[\w-]+\.js$/.test(name)) throw new Error(`gasExtras inválido en ${this.mod.slug}: ${name}`);
+      const full = path.join(GAS_EXTRAS_DIR, name);
+      new vm.Script(fs.readFileSync(full, 'utf8'), { filename: `gas-extras/${name}` }).runInContext(this.context, { timeout: CALL_TIMEOUT_MS });
     }
 
     // Allowlist de lo invocable desde el cliente: SOLO funciones globales declaradas por el

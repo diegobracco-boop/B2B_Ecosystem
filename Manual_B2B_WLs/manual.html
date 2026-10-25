@@ -499,6 +499,9 @@ a.ext-link:hover { text-decoration: underline; }
   <a class="nav-item" onclick="showSection('arquitectura')">
     <span class="nav-icon">🗺️</span> Cómo se conecta todo
   </a>
+  <a class="nav-item" onclick="showSection('linaje')">
+    <span class="nav-icon">🛤️</span> De dónde sale cada número
+  </a>
 
   <div class="sidebar-section">Guía del equipo</div>
   <a class="nav-item" onclick="showSection('empezar')">
@@ -588,7 +591,7 @@ a.ext-link:hover { text-decoration: underline; }
     <div class="page-header">
       <div class="page-tag">Manual técnico · B2B Ecosystem · FY27 (Abr-2026 → Mar-2027)</div>
       <div class="page-title">Ecosistema <span>B2B &amp; WLs</span></div>
-      <div class="page-sub">Un set de herramientas de <strong>autoservicio</strong> para que Planning y Finanzas B2B analicen performance, varianzas y pace &mdash; sin depender de extracciones manuales. Este manual documenta la arquitectura, los flujos de datos y los procedimientos de cada pieza.</div>
+      <div class="page-sub">Un set de herramientas de <strong>autoservicio</strong> para que Planning, Finanzas y la dirección comercial B2B y B2B2C sigan performance, varianzas y pace &mdash; sin depender de extracciones manuales. Todo se consulta desde una sola app en <strong>Ownia</strong> (<a class="ext-link" href="https://ownia.despegar.io/b2b-ecosystem" target="_blank">ownia.despegar.io/b2b-ecosystem ↗</a>). Este manual explica cómo se construyen los números, dónde se guardan y cómo se opera cada pieza.</div>
     </div>
 
     <div class="card">
@@ -608,8 +611,8 @@ a.ext-link:hover { text-decoration: underline; }
       <div class="card-title">🧭 Cómo leer este manual</div>
       <table class="doc-table">
         <tbody>
-          <tr><td><strong>Para dirección</strong></td><td>Panorama + "Cómo se conecta todo". Qué es, qué resuelve, en qué estado está. Sin comandos ni IDs.</td></tr>
-          <tr><td><strong>Guía del equipo</strong></td><td>Onboarding: empezá por acá, glosario, qué landing uso, recetas por tarea, quién hace qué.</td></tr>
+          <tr><td><strong>Si sos de dirección</strong> (VP, Chief)</td><td>Panorama → "Cómo se conecta todo" → <a class="ext-link" href="#" onclick="showSection('linaje');return false">"De dónde sale cada número"</a>. Qué resuelve, cómo se construye cada número y dónde se guarda. Sin comandos ni IDs. ~10 minutos.</td></tr>
+          <tr><td><strong>Si recién entrás al equipo</strong></td><td>Empezá por acá → Glosario → De dónde sale cada número → ¿Qué landing uso? → Recetas por tarea → Quién hace qué.</td></tr>
           <tr><td><strong>Referencia operativa</strong></td><td>El detalle de cada módulo: IDs de Drive/deployment, scripts, gotchas, cómo actualizar y deployar.</td></tr>
         </tbody>
       </table>
@@ -699,8 +702,8 @@ a.ext-link:hover { text-decoration: underline; }
       <div class="proj-card" tabindex="0" role="button" onclick="showSection('proj-ownia')">
         <div class="proj-card-icon">☁️</div>
         <div class="proj-card-name">Ecosistema en Ownia</div>
-        <div class="proj-card-desc">Migración <strong>progresiva</strong> del ecosistema a Ownia. Corre el <strong>mismo código</strong> de cada landing GAS (sin reescribir la lógica), módulo por módulo. Apps Script sigue productivo y no se toca. Piloto: este manual.</div>
-        <div class="proj-card-tag"><span class="badge badge-manual">🧪 Piloto · en migración</span></div>
+        <div class="proj-card-desc">La app del ecosistema. Corre el <strong>mismo código</strong> de cada landing de Apps Script (sin reescribir la lógica) sobre una copia exacta de los datos de Drive. Ya están el <strong>P&amp;L Dashboard</strong>, P&amp;L Accounting, P&amp;L Managerial, Daily, FVM Negativo y este manual. Desde octubre 2026 las mejoras nuevas se hacen solo acá.</div>
+        <div class="proj-card-tag"><span class="badge badge-auto">☁️ App principal · en validación</span></div>
         <a class="proj-card-url" href="https://ownia.despegar.io/b2b-ecosystem" target="_blank">↗ Abrir en Ownia</a>
       </div>
     </div>
@@ -714,7 +717,8 @@ a.ext-link:hover { text-decoration: underline; }
           <tr><td>Almacenamiento intermedio</td><td><span class="tag tag-json">JSON en Google Drive</span></td><td>Puente entre Python y Apps Script; se lee on-demand</td></tr>
           <tr><td>Backend web</td><td><span class="tag tag-js">Google Apps Script</span></td><td>Sirve la webapp y expone la API de datos al frontend</td></tr>
           <tr><td>Frontend</td><td><span class="tag tag-html">HTML + CSS + JS</span></td><td>Dashboard interactivo renderizado en el browser</td></tr>
-          <tr><td>Deploy</td><td><span class="tag tag-js">clasp</span></td><td>Sincroniza código local → Google Apps Script via CLI</td></tr>
+          <tr><td>App web (principal)</td><td><span class="tag tag-js">Ownia (Node.js)</span></td><td>Sirve las mismas landings desde Ownia, con login corporativo, leyendo una copia espejada de los JSON de Drive</td></tr>
+          <tr><td>Deploy</td><td><span class="tag tag-js">GitHub → Ownia</span> <span class="tag tag-js">clasp</span></td><td>Ownia: el código se sincroniza a GitHub y se redeploya. Landings que siguen en Apps Script: <code>clasp push</code> + <code>clasp deploy</code></td></tr>
         </tbody>
       </table>
     </div>
@@ -734,8 +738,8 @@ a.ext-link:hover { text-decoration: underline; }
         <div class="step">
           <div class="step-num">1</div>
           <div class="step-body">
-            <div class="step-title">Leé el Panorama y "Cómo se conecta todo"</div>
-            <div class="step-desc">Qué resuelve el ecosistema, las 6 piezas, y el flujo Datalake → Python → Drive → Apps Script → landing. No hace falta entender el detalle técnico todavía.</div>
+            <div class="step-title">Leé el Panorama y "De dónde sale cada número"</div>
+            <div class="step-desc">Qué resuelve el ecosistema y el recorrido de un número: fuente → proceso Python → archivo en Drive → espejo en Ownia → tablero. Quedate con la tabla "Qué número sale de dónde": es la que vas a usar cuando un número no cierre.</div>
           </div>
         </div>
         <div class="step">
@@ -748,8 +752,8 @@ a.ext-link:hover { text-decoration: underline; }
         <div class="step">
           <div class="step-num">3</div>
           <div class="step-body">
-            <div class="step-title">Abrí las 6 landings desde el Hub</div>
-            <div class="step-desc">Entrá al <strong>B2B Ecosystem Hub</strong> y navegá cada dashboard con la sección "¿Qué landing uso?" al lado. Probá cambiar Baseline y Goal, filtrar por país, abrir un waterfall.</div>
+            <div class="step-title">Recorré los tableros en Ownia</div>
+            <div class="step-desc">Entrá a <a class="ext-link" href="https://ownia.despegar.io/b2b-ecosystem" target="_blank">Ownia ↗</a>, abrí el <strong>P&amp;L Dashboard</strong> y el <strong>Daily</strong>, con la sección "¿Qué landing uso?" al lado. Probá cambiar entre Consolidado / B2B / B2B2C, el Goal (Budget, Run Rate, Forecast, LY), filtrar por país y abrir un waterfall.</div>
           </div>
         </div>
         <div class="step">
@@ -1625,7 +1629,7 @@ a.ext-link:hover { text-decoration: underline; }
           <text class="svg-q"     x="778" y="531">¿Cuál es el pace de hoy</text>
           <text class="svg-q"     x="778" y="548">vs plan y vs año anterior?</text>
         </svg>
-        <figcaption class="arch-cap"><b>Detrás de la capa central:</b> son <b>3 pipelines Python independientes</b> — contable (<code>Inputs_Planning_PnL</code> → JSON canónicos + cubos), gestional (<code>P&amp;L_Managerial/actuals_gestional_upload.py</code> → <code>_actuals_gestional.json</code>) y diario (<code>Daily_Dashboard/daily_sync.py</code>). Todos publican en Google Drive; las landings leen de ahí. La vista <b>Accounting</b> muestra el P&amp;L con líneas contables; la <b>Managerial</b>, la misma performance como FVM. El diagrama autoritativo completo vive en <code>CONTEXT-MAP.md</code>.</figcaption>
+        <figcaption class="arch-cap"><b>Número por número</b> (fuente, proceso, archivo y frecuencia): <a class="ext-link" href="#" onclick="showSection('linaje');return false">De dónde sale cada número</a>. <b>Detrás de la capa central:</b> son <b>3 pipelines Python independientes</b> — contable (<code>Inputs_Planning_PnL</code> → JSON canónicos + cubos), gestional (<code>P&amp;L_Managerial/actuals_gestional_upload.py</code> → <code>_actuals_gestional.json</code>) y diario (<code>Daily_Dashboard/daily_sync.py</code>). Todos publican en Google Drive; las landings leen de ahí. La vista <b>Accounting</b> muestra el P&amp;L con líneas contables; la <b>Managerial</b>, la misma performance como FVM. El diagrama autoritativo completo vive en <code>CONTEXT-MAP.md</code>.</figcaption>
       </figure>
     </div>
 
@@ -1688,6 +1692,236 @@ a.ext-link:hover { text-decoration: underline; }
               <div class="step-desc">⚠️ <code>clasp push</code> solo actualiza el deployment <strong>@HEAD</strong> (la URL <code>/dev</code>, para probar). La URL <code>/exec</code> que usa el negocio queda <strong>congelada</strong> hasta correr <code>clasp deploy -i &lt;deploymentId&gt; -d "desc"</code> con el ID de esa landing (ver tabla en "Comandos frecuentes"). Recién ahí, recargar la URL <code>/exec</code> para confirmar.</div>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═════════════════════════ DE DÓNDE SALE CADA NÚMERO ════════════════════════ -->
+  <div class="section" id="sec-linaje">
+    <div class="page-header">
+      <div class="page-tag">Para dirección · Onboarding · Linaje del dato</div>
+      <div class="page-title">De dónde sale <span>cada número</span></div>
+      <div class="page-sub">El recorrido completo de un número del tablero: en qué sistema nace, qué proceso lo calcula, en qué archivo queda guardado y cada cuánto se actualiza. Si un número se ve raro, esta página dice dónde mirar.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🛤️ El recorrido, en 5 pasos</div>
+      <figure class="arch-fig">
+        <svg viewBox="0 0 1160 524" role="img" aria-label="Flujo de datos en cinco pasos: las fuentes (Datalake, EPM, modelos en OneDrive y planillas de soporte) alimentan cuatro procesos Python (contable, gestional, diario y distribución del run rate); los procesos guardan archivos JSON pre-calculados en Google Drive; un espejo los copia a Ownia; y los tableros de Ownia leen de ese espejo.">
+          <defs>
+            <marker id="lah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--text2)"></path></marker>
+            <marker id="lahk" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"></path></marker>
+          </defs>
+          <text class="svg-band" x="20"  y="34">1 · Fuentes</text>
+          <text class="svg-band" x="262" y="34">2 · Procesos Python</text>
+          <text class="svg-band" x="512" y="34">3 · Se guarda</text>
+          <text class="svg-band" x="752" y="34">4 · Espejo</text>
+          <text class="svg-band" x="950" y="34">5 · Tableros</text>
+
+          <!-- 1 FUENTES -->
+          <rect class="svg-box" x="20" y="64"  width="196" height="96" rx="7"></rect>
+          <text class="svg-title" x="34" y="92">Datalake</text>
+          <text class="svg-sub" x="34" y="113">Treasure Data · cada</text>
+          <text class="svg-sub" x="34" y="130">reserva: GB, NR, FVM</text>
+          <rect class="svg-box" x="20" y="180" width="196" height="96" rx="7"></rect>
+          <text class="svg-title" x="34" y="208">EPM / Hyperion</text>
+          <text class="svg-sub" x="34" y="229">Actuals contables,</text>
+          <text class="svg-sub" x="34" y="246">Budget, Forecast, RR</text>
+          <rect class="svg-box" x="20" y="296" width="196" height="96" rx="7"></rect>
+          <text class="svg-title" x="34" y="324">Modelos (OneDrive)</text>
+          <text class="svg-sub" x="34" y="345">Forecast y Run Rate</text>
+          <text class="svg-sub" x="34" y="362">WLs · API · HTML</text>
+          <rect class="svg-box" x="20" y="412" width="196" height="96" rx="7"></rect>
+          <text class="svg-title" x="34" y="440">Planillas de soporte</text>
+          <text class="svg-sub" x="34" y="461">Glosario, tipos de cambio,</text>
+          <text class="svg-sub" x="34" y="478">calendarios, Input OKR</text>
+
+          <path class="flowline" d="M216,112 H236 M216,228 H236 M216,344 H236 M216,460 H236 M236,112 V460"></path>
+          <path class="flowline" d="M236,112 H258" marker-end="url(#lah)"></path>
+          <path class="flowline" d="M236,228 H258" marker-end="url(#lah)"></path>
+          <path class="flowline" d="M236,344 H258" marker-end="url(#lah)"></path>
+          <path class="flowline" d="M236,460 H258" marker-end="url(#lah)"></path>
+
+          <!-- 2 PROCESOS -->
+          <rect class="svg-box" x="260" y="64"  width="210" height="96" rx="7"></rect>
+          <text class="svg-title" x="274" y="92">Contable</text>
+          <text class="svg-sub" x="274" y="113">Inputs_Planning_PnL</text>
+          <text class="svg-sub" x="274" y="130">mensual, con el cierre</text>
+          <rect class="svg-box" x="260" y="180" width="210" height="96" rx="7"></rect>
+          <text class="svg-title" x="274" y="208">Gestional</text>
+          <text class="svg-sub" x="274" y="229">actuals_gestional_upload</text>
+          <text class="svg-sub" x="274" y="246">con cada forecast / mes</text>
+          <rect class="svg-box" x="260" y="296" width="210" height="96" rx="7"></rect>
+          <text class="svg-title" x="274" y="324">Diario</text>
+          <text class="svg-sub" x="274" y="345">daily_sync.py · 9:45 auto</text>
+          <text class="svg-sub" x="274" y="362">+ OKR y FVM Negativo</text>
+          <rect class="svg-box" x="260" y="412" width="210" height="96" rx="7"></rect>
+          <text class="svg-title" x="274" y="440">Run Rate diario</text>
+          <text class="svg-sub" x="274" y="461">distribución semanal →</text>
+          <text class="svg-sub" x="274" y="478">se carga en el Datalake</text>
+
+          <path class="flowline" d="M470,112 H508" marker-end="url(#lah)"></path>
+          <path class="flowline" d="M470,228 H508" marker-end="url(#lah)"></path>
+          <path class="flowline" d="M470,344 H508" marker-end="url(#lah)"></path>
+
+          <!-- 3 DRIVE (keystone) -->
+          <rect class="svg-key" x="510" y="64" width="210" height="328" rx="9"></rect>
+          <text class="svg-title-key" x="615" y="96" text-anchor="middle">Google Drive</text>
+          <text class="svg-sub-key" x="615" y="118" text-anchor="middle">archivos JSON</text>
+          <text class="svg-sub-key" x="615" y="135" text-anchor="middle">pre-calculados</text>
+          <line x1="530" y1="154" x2="700" y2="154" stroke="var(--accent)" stroke-width="1" stroke-dasharray="3 3" opacity="0.45"></line>
+          <text class="svg-sub-key" x="615" y="182" text-anchor="middle">JSON canónicos (contable)</text>
+          <text class="svg-sub-key" x="615" y="206" text-anchor="middle">_actuals_gestional.json</text>
+          <text class="svg-sub-key" x="615" y="230" text-anchor="middle">daily_b2b / daily_b2b2c</text>
+          <text class="svg-sub-key" x="615" y="254" text-anchor="middle">okr.json · fvm_negativo</text>
+          <line x1="530" y1="282" x2="700" y2="282" stroke="var(--accent)" stroke-width="1" stroke-dasharray="3 3" opacity="0.45"></line>
+          <text class="svg-sub-key" x="615" y="312" text-anchor="middle">Fuente única: solo los</text>
+          <text class="svg-sub-key" x="615" y="330" text-anchor="middle">procesos escriben acá;</text>
+          <text class="svg-sub-key" x="615" y="348" text-anchor="middle">los tableros solo leen</text>
+
+          <path class="flowline-key" d="M720,228 H748" marker-end="url(#lahk)"></path>
+
+          <!-- 4 ESPEJO -->
+          <rect class="svg-box" x="750" y="150" width="170" height="156" rx="7"></rect>
+          <text class="svg-title" x="764" y="180">Espejo en Ownia</text>
+          <text class="svg-sub" x="764" y="203">ownia_mirror.py copia</text>
+          <text class="svg-sub" x="764" y="220">los mismos archivos</text>
+          <text class="svg-sub" x="764" y="237">(mismo id y fecha)</text>
+          <text class="svg-sub" x="764" y="262">después de cada</text>
+          <text class="svg-sub" x="764" y="279">corrida de pipeline</text>
+
+          <path class="flowline-key" d="M920,228 C935,228 932,112 946,112" marker-end="url(#lahk)"></path>
+          <path class="flowline-key" d="M920,228 H946" marker-end="url(#lahk)"></path>
+          <path class="flowline-key" d="M920,228 C935,228 932,344 946,344" marker-end="url(#lahk)"></path>
+          <path class="flowline-key" d="M920,228 C935,228 932,460 946,460" marker-end="url(#lahk)"></path>
+
+          <!-- 5 TABLEROS -->
+          <rect class="svg-box" x="948" y="64"  width="192" height="96" rx="7"></rect>
+          <text class="svg-title" x="962" y="92">P&amp;L Dashboard</text>
+          <text class="svg-q" x="962" y="113">P&amp;L contable y managerial,</text>
+          <text class="svg-q" x="962" y="130">OKR, por país</text>
+          <rect class="svg-box" x="948" y="180" width="192" height="96" rx="7"></rect>
+          <text class="svg-title" x="962" y="208">Daily, Weekly &amp; MTD</text>
+          <text class="svg-q" x="962" y="229">pace diario, Benchmark</text>
+          <text class="svg-q" x="962" y="246">vs B2C, Industry events</text>
+          <rect class="svg-box" x="948" y="296" width="192" height="96" rx="7"></rect>
+          <text class="svg-title" x="962" y="324">P&amp;L Accounting</text>
+          <text class="svg-q" x="962" y="345">y P&amp;L Managerial</text>
+          <text class="svg-q" x="962" y="362">(detalle completo)</text>
+          <rect class="svg-box" x="948" y="412" width="192" height="96" rx="7"></rect>
+          <text class="svg-title" x="962" y="440">FVM Negativo</text>
+          <text class="svg-q" x="962" y="461">reservas que pierden</text>
+          <text class="svg-q" x="962" y="478">plata, con drill-down</text>
+        </svg>
+        <figcaption class="arch-cap"><b>Idea de fondo:</b> cada número se calcula <b>una sola vez</b>, en Python, y se guarda pre-calculado en Drive. Los tableros no recalculan reglas de negocio: filtran y suman lo que ya está guardado. Ownia corre <b>el mismo código</b> que las landings de Apps Script sobre una copia exacta de esos archivos, así que los dos muestran lo mismo.</figcaption>
+      </figure>
+    </div>
+
+    <div class="alert-box info">
+      <strong>Contable cierra, gestional anticipa.</strong> El <strong>P&amp;L Contable</strong> (GB · NR · Operating Contribution) sale de EPM y se actualiza con el cierre mensual: es el número oficial. El <strong>Managerial</strong> y el <strong>Daily</strong> (GB · NR · FVM) salen del Datalake, reserva por reserva, y se ven al día siguiente: anticipan el cierre. Diferencias chicas entre los dos son esperables (criterios de imputación y timing), no un error.
+    </div>
+
+    <div class="card">
+      <div class="card-title">🔎 Qué número sale de dónde</div>
+      <table class="doc-table">
+        <colgroup><col style="width:17%"><col style="width:22%"><col style="width:22%"><col style="width:26%"><col style="width:13%"></colgroup>
+        <thead><tr><th>Lo que ves en el tablero</th><th>Origen del dato</th><th>Lo procesa</th><th>Dónde queda guardado</th><th>Cada cuánto · quién</th></tr></thead>
+        <tbody>
+          <tr><td>P&amp;L Contable: GB, NR, OC · Actuals, Budget, Forecast, Run Rate, LY</td>
+            <td>Exports de EPM/Hyperion (CSV en OneDrive, carpeta <em>Planning-PBI - Inputs Power Bi</em>) + <code>Glosario.xlsx</code> para homologar</td>
+            <td><code>Inputs_Planning_PnL</code>: <code>run_all.bat</code> arma las planas homologadas y un JSON por escenario; <code>baseline_builder.py</code> compone actual + proyección</td>
+            <td>Drive, carpeta de JSON canónicos: <code>actuals.json</code>, <code>budget.json</code>, <code>forecast.json</code>, <code>runrate.json</code>, <code>lastrunrate.json</code>, <code>baseline_actuals+projections.json</code>, <code>actuals_previos_fy26.json</code> (LY)</td>
+            <td>Con cada cierre de mes y cada Forecast / Run Rate nuevo · manual</td></tr>
+          <tr><td>P&amp;L Managerial: FVM y bridge palanca por palanca</td>
+            <td>Datalake (actuals, LY, budget y run rate diario) + Modelos de Forecast XLSX en OneDrive</td>
+            <td><code>P&amp;L_Managerial/actuals_gestional_upload.py</code></td>
+            <td>Drive: <code>_actuals_gestional.json</code></td>
+            <td>Con cada corte de forecast o mes nuevo · manual, con VPN</td></tr>
+          <tr><td>Daily, Weekly &amp; MTD: GB, NR y FVM de ayer, MTD vs Budget, Run Rate y LY</td>
+            <td>Datalake (Treasure Data, vía ODBC)</td>
+            <td><code>Daily_Dashboard/daily_sync.py</code></td>
+            <td>Drive, carpeta DailyDashboard: <code>daily_b2b2c_data.json</code>, <code>daily_b2b_data.json</code></td>
+            <td>Todos los días 9:45 · automático (Task Scheduler)</td></tr>
+          <tr><td>Run Rate diario (la meta del día en el Daily)</td>
+            <td>Run Rate mensual de los modelos WLs / API / HTML + factores de <em>Estacionalidad Diaria</em> (OneDrive)</td>
+            <td><code>Proceso_Distribucion_Diaria</code> (<code>/distribucion-diaria</code>)</td>
+            <td>CSV que se carga a mano en el Datalake (<code>raw.b2brr_gd</code> / <code>raw.b2brr_ri</code>); de ahí lo leen el Daily y el Managerial</td>
+            <td>Con cada Run Rate nuevo (semanal) · manual</td></tr>
+          <tr><td>OKR (P&amp;L Dashboard y Daily)</td>
+            <td>JSON canónicos + mes de corte del gestional + Google Sheet <em>Input dashboard B2B+WLs</em> (Input_OKR) + Datalake (recurrencia, agencias)</td>
+            <td><code>Inputs_Planning_PnL/okr_builder.py</code> (lo dispara <code>daily_sync.py</code> al terminar) y <code>recurrencia_sync.py</code></td>
+            <td>Drive: <code>okr.json</code>, <code>okr_h2_managerial.json</code>, <code>recurrencia_b2b.json</code> (el Daily lee además <code>agencias_okr.json</code>, que no genera ningún script de este repo)</td>
+            <td>Diario, junto con el Daily</td></tr>
+          <tr><td>Por país (Detail By Country)</td>
+            <td>No tiene datos propios: combina el P&amp;L Contable y el Daily</td>
+            <td>Reusa las mismas funciones de esos tableros</td>
+            <td>Los archivos de las filas de arriba</td>
+            <td>Igual que sus fuentes</td></tr>
+          <tr><td>FVM Negativo</td>
+            <td>Datalake, con el <strong>mismo FVM que el Daily</strong>. Si el total no cuadra con el Daily, no se publica</td>
+            <td><code>daily_sync.py</code></td>
+            <td>Drive, carpeta DailyDashboard: <code>fvm_negativo.json</code></td>
+            <td>Diario, junto con el Daily</td></tr>
+          <tr><td>Industry events (solo en Ownia)</td>
+            <td>Calendarios de <em>Estacionalidad Diaria</em> (OneDrive) + diario del Daily + Datalake para el LY de nov–dic</td>
+            <td><code>Daily_Dashboard/industry_events_sync.py</code></td>
+            <td>Drive, carpeta DailyDashboard: <code>industry_events.json</code></td>
+            <td>Cuando cambian los calendarios · manual</td></tr>
+          <tr><td>Moneda constante (switch ORGANIC)</td>
+            <td>Tipos de cambio del plan</td>
+            <td>— (se sube a mano)</td>
+            <td>Drive: <code>tc_plana_flat.xlsx</code></td>
+            <td>Manual · fuente provisoria</td></tr>
+          <tr><td>Organigrama</td>
+            <td>Google Sheet <em>Input dashboard B2B+WLs</em></td>
+            <td>—</td>
+            <td>Google Sheets</td>
+            <td>Manual</td></tr>
+          <tr><td>Profit Sharing · Banco de Chile</td>
+            <td>Datalake (<code>banco_chile_profit_sharing.sql</code>)</td>
+            <td><code>P&amp;L_Profit_Sharing/profit_sharing_sync.py</code></td>
+            <td>Drive: <code>banco_chile_profit_sharing.json</code></td>
+            <td>Manual, mensual</td></tr>
+          <tr><td>Fixed Cost y Weekly Industry</td>
+            <td colspan="4" class="note">Apps de Apps Script externas, embebidas en el P&amp;L Dashboard. No están en este repo: sus datos y su actualización son de sus dueños.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🗄️ Dónde vive cada cosa</div>
+      <table class="doc-table">
+        <thead><tr><th>Capa</th><th>Qué guarda</th><th>Dónde</th><th>Quién la toca</th></tr></thead>
+        <tbody>
+          <tr><td>OneDrive · Control de Gestión 2026-27</td><td>Los insumos: exports de EPM, Modelos de Forecast y Run Rate, Estacionalidad Diaria (factores y calendarios de eventos), Glosario</td><td>Carpetas compartidas del equipo (rutas en <strong>Archivos &amp; rutas</strong>)</td><td>Planning carga; los procesos leen</td></tr>
+          <tr><td>Datalake (Treasure Data)</td><td>Cada transacción, y las tablas <code>raw.b2brr_*</code> del Run Rate diario</td><td>Vía ODBC, con VPN y usuario personal</td><td>Los procesos leen; el Run Rate diario se carga a mano</td></tr>
+          <tr><td>Google Drive</td><td><strong>Todos los JSON pre-calculados</strong>: la fuente única que leen los tableros</td><td><a class="ext-link" href="https://drive.google.com/drive/folders/1XqQPL_rlS0NRIPUnPfj5nALBTn7kAOQV" target="_blank">JSON canónicos ↗</a> · <a class="ext-link" href="https://drive.google.com/drive/folders/1lWzfqweyV6Kz1ERkL85ikFcmzmKwGwwh" target="_blank">DailyDashboard ↗</a> · <code>_actuals_gestional.json</code></td><td>Solo los procesos escriben</td></tr>
+          <tr><td>Ownia (almacén de la app)</td><td>Copia exacta de esos archivos de Drive (mismo id, nombre y fecha)</td><td>Base de datos de la app <code>b2b-ecosystem</code>; la llena <code>ownia_mirror.py</code></td><td>Se corre después de cada proceso</td></tr>
+          <tr><td>GitHub</td><td>El código: procesos Python, landings y la app de Ownia</td><td>Monorepo <code>diegobracco-boop/B2B_Ecosystem</code>; la app se publica desde <code>despegar/B2B_Ecosystem_APP</code></td><td>El equipo, con revisión antes de publicar</td></tr>
+          <tr><td>Credenciales</td><td>Usuario del Datalake y tokens de Drive</td><td>Carpeta local <code>credenciales/</code>, <strong>nunca</strong> en el repo</td><td>Cada analista, la suya</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">✅ Por qué se puede confiar en los números</div>
+        <table class="doc-table">
+          <tbody>
+            <tr><td>Una sola versión</td><td>Cada número se calcula una vez y todos los tableros leen el mismo archivo.</td></tr>
+            <tr><td>Mismo código</td><td>Ownia y Apps Script corren el mismo cálculo: no hay dos implementaciones que puedan divergir.</td></tr>
+            <tr><td>Controles de cuadre</td><td>FVM Negativo no se publica si no cuadra con el Daily; la Distribución diaria no se carga si sus controles de conciliación no dan OK.</td></tr>
+            <tr><td>Sin carga manual en los tableros</td><td>Nadie tipea números en una landing: lo manual está en los insumos (EPM, modelos, planillas), siempre con dueño.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card">
+        <div class="card-title">🧯 Si un número se ve raro</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">1</div><div class="step-body"><div class="step-title">Ubicá su archivo</div><div class="step-desc">En la tabla "Qué número sale de dónde", buscá la fila del tablero y anotá el archivo.</div></div></div>
+          <div class="step"><div class="step-num">2</div><div class="step-body"><div class="step-title">Mirá si está al día</div><div class="step-desc">Revisá la fecha de modificación del archivo en Drive. Si es vieja, falta correr el proceso (ver <strong>Recetas por tarea</strong>) y después el espejo de Ownia.</div></div></div>
+          <div class="step"><div class="step-num">3</div><div class="step-body"><div class="step-title">Si está al día y no cierra</div><div class="step-desc">Revisá el insumo (EPM, modelo o planilla) y escribile al dueño del módulo (ver <strong>Quién hace qué</strong>).</div></div></div>
         </div>
       </div>
     </div>

@@ -55,7 +55,8 @@
           "daily_b2b_data.json",
           "okr_h2_managerial.json",
           "recurrencia_b2b.json",
-          "agencias_okr.json"
+          "agencias_okr.json",
+          "industry_events.json"
         ]
       },
       "sheets": {

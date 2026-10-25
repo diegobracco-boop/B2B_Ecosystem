@@ -9,7 +9,7 @@ El ecosistema tiene dos capas: **pipelines** (Python, generan los datos) y **lan
 │                        PIPELINES                            │
 │                                                             │
 │  Inputs_Planning_PnL        Daily_Dashboard                 │
-│  (Python, manual)           (Python, automático 08:00 hs)   │
+│  (Python, manual)           (Python, automático 9:45 hs)    │
 │  planas CSV → JSONs         Datalake → JSONs operativos     │
 │  por escenario              B2B2C + B2B                     │
 └──────────────────────┬──────────────────┬───────────────────┘
@@ -41,7 +41,7 @@ El ecosistema tiene dos capas: **pipelines** (Python, generan los datos) y **lan
 
 ### Daily_Dashboard — sync diaria operativa
 - **Stack**: Python + GAS + HTML
-- **Trigger**: automático, Windows Task Scheduler, 08:00 hs
+- **Trigger**: automático, Windows Task Scheduler, 9:45 hs (máquina de Tiago Harari)
 - **Input**: Datalake Treasure Data (ODBC) — actuals B2B2C, actuals B2B (GD y RI), LY, budget, run rate
 - **Output**: `daily_b2b2c_data.json` + `daily_b2b_data.json` en Drive (carpeta DailyDashboard). También `fvm_negativo.json` para la landing `FVM_Negativo` (ver abajo)
 - **Al final de cada corrida** (desde 2026-10-23) llama a `Inputs_Planning_PnL/okr_builder.refresh_after_upload()` y regenera `okr.json` (Hub + KR Global B2B API), usando las credenciales de Drive de `Inputs_Planning_PnL/` (`credentials_drive.json` + `token_drive.json`). Si falla, avisa y la sync sigue.

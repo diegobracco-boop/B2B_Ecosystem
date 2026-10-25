@@ -257,7 +257,7 @@ td.row-sub-label,.row-sub td.row-sub-label{text-align:left;color:var(--muted);fo
 .pnl-table th.col-total{background:#3d00d1}
 .pnl-table td.col-total{background:rgba(85,15,237,.06);font-weight:700}
 .pnl-legend{font-size:11px;color:var(--muted2);padding:8px 12px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
-/* OKR en Consolidado: solo el Total por bloque; "Ver KRs" despliega el detalle */
+/* OKR en Consolidado: detalle de KRs desplegado; "Ocultar KRs" deja solo el Total del bloque */
 .okr-collapsed tr.okr-kr{display:none}
 .okr-lob-hdr button.okr-expand{float:right;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.35);color:#fff;
   font-size:11px;font-weight:600;border-radius:999px;padding:1px 10px;cursor:pointer}
@@ -4735,10 +4735,10 @@ function fmtOKRNominal(act, bud, pct) {
     + '</div>';
 }
 
-// Bloques de OKR desplegados en Consolidado (por defecto plegados: solo Total).
+// Bloques de OKR plegados a mano en Consolidado (por defecto todos desplegados, con el detalle de KRs).
 var _okrOpen = {};
 function toggleOKRBlock(lobKey) {
-  _okrOpen[lobKey] = !_okrOpen[lobKey];
+  _okrOpen[lobKey] = _okrOpen[lobKey] === false;
   var btn = document.querySelector('.okr-expand[onclick*="\'' + lobKey + '\'"]');
   if (!btn) return;
   var tbl = btn.closest('.okr-table-wrap').querySelector('.okr-table');
@@ -4783,12 +4783,12 @@ function renderOKR(okr) {
   var lobsToRender = _state.lob === 'b2b2c' ? ['b2b2c']
                    : _state.lob === 'b2b'   ? ['b2b','globales']
                    : ['b2b2c','b2b','globales'];
-  // En Consolidado cada bloque arranca plegado (solo la fila Total); con un solo LoB, abierto.
+  // Cada bloque arranca desplegado con el detalle de KRs; en Consolidado se puede plegar al Total.
   var multi = lobsToRender.length > 1;
   lobsToRender.forEach(function(lobKey) {
     var d = okr[lobKey];
     if (!d) return;
-    var open = !multi || !!_okrOpen[lobKey];
+    var open = !multi || _okrOpen[lobKey] !== false;
     var expandBtn = multi
       ? '<button type="button" class="okr-expand" aria-expanded="'+open+'" onclick="toggleOKRBlock(\''+lobKey+'\')">'
         +(open ? 'Ocultar KRs ▴' : 'Ver '+d.krs.length+' KRs ▾')+'</button>'

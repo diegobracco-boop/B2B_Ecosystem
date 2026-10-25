@@ -68,6 +68,10 @@ const MODULES = [
     // el 2026-10-23 para que el equipo comercial use "OKR Detail" (KRs H2 por país, sección B2B).
     ownia: true,
     validating: true,
+    // Solo Ownia (2026-10-24): solapa "Industry events tracker" (public/daily-layout.js) y su función de
+    // servidor getIndustryEvents (server/gas-extras/daily-industry.js). El código GAS del Daily no cambia.
+    layout: 'daily-layout.js',
+    gasExtras: ['daily-industry.js'],
     gasUrl: GAS_EXEC + 'AKfycbwMR3zk1r4uwui8vGtcmz0OwmeehC5JM8cuJRE3H-GQMfvxXWGTkYQ3R2nVjMyeAdX_1A/exec',
   },
   {

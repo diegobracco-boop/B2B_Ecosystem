@@ -16,6 +16,8 @@ const RUN_HEADERS = { 'X-Requested-With': 'google.script.run' };
 const DEMO_EQUIPO = { slug: 'demo-equipo', dir: 'Demo_Module', title: 'Demo equipo', desc: 'demo', ownia: true, validating: true, allowedUsers: ['Ana@despegar.com'], quickViews: [['vista-b2b', 'B2B']], gasUrl: 'https://script.google.com/y/exec' };
 // Mismo proyecto con layout propio de Ownia (como el Hub).
 const DEMO_LAYOUT = { slug: 'demo-layout', dir: 'Demo_Module', title: 'Demo layout', desc: 'demo', ownia: true, requiresIdentity: false, layout: 'hub-layout.js', gasUrl: '' };
+// Mismo proyecto con funciones propias de Ownia (como el Daily: gasExtras).
+const DEMO_EXTRAS = { slug: 'demo-extras', dir: 'Demo_Module', title: 'Demo extras', desc: 'demo', ownia: true, requiresIdentity: false, gasExtras: ['daily-industry.js'], gasUrl: '' };
 const PENDIENTE = { slug: 'pendiente', dir: 'No_Existe', title: 'Pendiente', desc: 'x', ownia: false, gasUrl: 'https://script.google.com/x/exec' };
 
 let demoServer;
@@ -45,7 +47,7 @@ const run = (fn, args, headers, slug = 'demo') =>
   request(demoServer, 'POST', `${BASE}/api/${slug}/${fn}`, { body: { args: args || [] }, headers: { ...RUN_HEADERS, ...(headers || {}) } });
 
 before(async () => {
-  demoServer = await listen(createApp({ GAS_ROOT: FIXTURES, BASE_PATH: BASE, modules: [DEMO, DEMO_PRIV, DEMO_EQUIPO, DEMO_LAYOUT, PENDIENTE], secrets: {}, TRUSTED_IDENTITY_HEADER: 'x-test-email', CALL_TIMEOUT_MS: 300 }));
+  demoServer = await listen(createApp({ GAS_ROOT: FIXTURES, BASE_PATH: BASE, modules: [DEMO, DEMO_PRIV, DEMO_EQUIPO, DEMO_LAYOUT, DEMO_EXTRAS, PENDIENTE], secrets: {}, TRUSTED_IDENTITY_HEADER: 'x-test-email', CALL_TIMEOUT_MS: 300 }));
   // Sin almacén de datos: el smoke test solo abre la landing (doGet), que no lee Drive.
   realServer = await listen(createApp({ BASE_PATH: BASE, TRUSTED_IDENTITY_HEADER: 'x-test-email', fileStore: null }));
 });
@@ -122,6 +124,15 @@ test('layout propio de Ownia: solo en el módulo que lo declara, después de nav
   assert.match(js.text, /ownia-hubnav/);
   assert.equal((await request(demoServer, 'GET', `${BASE}/_gas/layout/otro.js`)).status, 404);
   assert.equal((await request(demoServer, 'GET', `${BASE}/_gas/layout/..%2Fserver%2Fconfig.js`)).status, 404);
+});
+
+test('gasExtras: funciones propias de Ownia solo en el módulo que las declara, con los helpers del módulo', async () => {
+  const r = await run('getIndustryEvents', [], {}, 'demo-extras');
+  assert.equal(r.status, 200);
+  assert.deepEqual(JSON.parse(r.text), { result: { name: 'industry_events.json', cacheKey: 'industry_events' } });
+  assert.equal((await run('getIndustryEvents')).status, 404);
+  const { GasProject } = require('../server/gas-runtime');
+  assert.throws(() => new GasProject({ ...DEMO, gasExtras: ['../config.js'] }, { gasRoot: FIXTURES }), /gasExtras inválido/);
 });
 
 test('doGet: ContentService + pathInfo + parámetros', async () => {

@@ -4,7 +4,7 @@ Script Python que corre diariamente y publica los datos operativos de B2B2C y B2
 
 ## Stack
 
-- **`daily_sync.py`** — script principal (Python). Se ejecuta automáticamente a las 08:00 hs via Windows Task Scheduler.
+- **`daily_sync.py`** — script principal (Python). Se ejecuta automáticamente a las 9:45 via Windows Task Scheduler (desde 2026-09-25, en la máquina de Tiago Harari).
 - **`dashboard.html` / `dashboard_weekly.html`** — frontend GAS que lee los JSON de Drive y los presenta al equipo.
 - **`Codigo.js`** — Apps Script backend del dashboard.
 - **`auth_drive.py`** — setup inicial de credenciales OAuth Drive (correr una sola vez por persona).
@@ -20,9 +20,20 @@ Datalake (Treasure Data vía ODBC)
       ├── daily_b2b_data.json
       ├── okr_h2_managerial.json
       ├── recurrencia_b2b.json ← Accelerate Recurrence (Status KRs H2 del Tracker), ver abajo
-      └── fvm_negativo.json   ← lo lee la landing FVM_Negativo/ (no este dashboard)
+      ├── fvm_negativo.json   ← lo lee la landing FVM_Negativo/ (no este dashboard)
+      └── industry_events.json ← SOLO Ownia: solapa "Industry events tracker" (lo arma industry_events_sync.py)
   → dashboard GAS lee los JSON y renderiza
 ```
+
+`industry_events.json` (2026-10-24, solo la app de Ownia; Apps Script no lo lee): eventos comerciales de industria
+(Cyber Monday, Black Friday, El Buen Fin, Hot Sale, Travel Sale…) por LoB × país × año, armados de los calendarios
+de OneDrive "Estacionalidad Diaria" (`Calendario Eventos - WL.xlsx` → B2B2C y B2C, hoja `Eventos` más las regionales
+`Sudamerica`/`Brasil`/`Norteamerica`, porque a veces un evento se carga solo en la regional; `Eventos B2B 26-27.xlsx` → B2B),
+más el diario de B2B2C y B2C de nov–dic del año pasado, que `daily_sync.py` todavía no publica (su LY llega hasta
+fin del mes en curso). Lo arma `industry_events_sync.py`, a mano: no cambia `daily_sync.py` (ejecuta sus queries
+desde ese archivo, como `reales.py`) y se vuelve a correr solo cuando cambian los calendarios. Después:
+`py Ownia_B2B_Ecosystem/mirror/ownia_mirror.py --module daily`. El año en curso lo toma la solapa de los JSON del
+Daily que ya carga. Verificado 2026-10-24: el GB B2B2C de nov-2025 por país coincide con `actuals_ly_fy_rest`.
 
 `recurrencia_b2b.json`: agencias HTML de alta frecuencia por semana comercial × país. La query es copia de la
 card Metabase 171400 (`recurrencia_alta_frecuencia.sql`; si cambia en Metabase, pegar el SQL nuevo ahí). Lo arma
