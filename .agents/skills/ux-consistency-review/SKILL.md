@@ -5,7 +5,7 @@ description: Revisión de estética y consistencia visual entre los dashboards d
 
 # UX Consistency Review — B2B Ecosystem
 
-Revisión de todos los dashboards o de uno puntual, en seis ejes. Esta skill no corrige HTML/CSS — devuelve hallazgos y una lista de mejoras propuestas concretas para que el usuario decida cuáles aplicar.
+Revisión de todos los dashboards o de uno puntual, en siete ejes. Esta skill no corrige HTML/CSS — devuelve hallazgos y una lista de mejoras propuestas concretas para que el usuario decida cuáles aplicar.
 
 ## Veredicto primero (si el usuario dijo para qué se usa la página)
 
@@ -73,10 +73,24 @@ Alcance específico: `Daily_Dashboard/Codigo.js` (`_emailHtml_`, enviado vía `M
 - **Paleta usada vs. paleta oficial**: comparar los hex del email contra la paleta oficial de la sección de arriba. Si difieren (ej. un verde/rojo/lila "de semáforo" propio del email, distinto al de los waterfalls), no asumir que es un error — puede ser una decisión intencional de semántica de achievement (como ya pasó con el verde/rojo del waterfall). Señalarlo como pregunta para el usuario, no como hallazgo a corregir de una.
 - **Imágenes de gráficos** (si el email embebe charts como imagen, ej. desde Drive): deben tener `max-width:100%; height:auto; display:block;` para no romper en pantallas chicas ni desbordar el ancho fijo del contenedor.
 
+## Eje 7 — Minimalismo (estilo Apple)
+
+Decisión de Diego (2026-10-25): las vistas nuevas y los rediseños apuntan a un diseño **minimalista y simple, estilo Apple**, sin dejar la paleta oficial de Despegar. Se aplica de a una pantalla, en las capas de Ownia (Apps Script no se toca). Es hallazgo todo lo que rompa estos principios, sobre todo en vistas para dirección (CEO, Chief, VPs):
+
+- **Aire antes que bordes.** Separar bloques con espacio (padding y gap generosos, múltiplos de 8px), no con cajas, líneas y sombras. Una tarjeta con borde + sombra + fondo + separadores internos es ruido.
+- **Una idea por bloque y un número protagonista.** Cada tarjeta responde una pregunta y tiene un solo número grande; lo demás (comparación, contexto) va chico y en gris debajo.
+- **La tipografía hace la jerarquía.** Dos o tres tamaños y dos pesos alcanzan (título, número grande, texto). Nada de mayúsculas sostenidas con letter-spacing para todo, ni cinco tamaños distintos en una tarjeta.
+- **Color solo para señalar.** Neutros (fondo, texto, grises) para casi todo; verde, rojo y ámbar solo en el dato que señala un desvío; el lila de marca para lo interactivo o lo seleccionado. Fondos de color, gradientes y badges de colores en cada fila son hallazgo.
+- **El detalle a un clic.** Arriba el titular; las tablas largas, notas y desgloses, plegados o en la siguiente capa (progressive disclosure). Pocos controles a la vista: los filtros que casi nadie usa van a un menú.
+- **Lenguaje claro y sin decoración.** Sin emojis en vistas ejecutivas, sin jerga técnica (nombres de archivos, "baseline", "plana") en la UI, etiquetas cortas.
+- **Movimiento discreto.** Transiciones cortas (150-250 ms) y solo para orientar (abrir, cambiar de vista); nada que parpadee o rebote.
+
+Para cada hallazgo, proponé la versión simplificada concreta (qué sacar, qué agrandar, qué plegar). Si la pantalla es para un cliente ejecutivo, sugerí validarla con el agente `cliente-*` que corresponda.
+
 ## Reporte final
 
 1. **Veredicto** (si hay uso declarado — ver arriba): 2-3 líneas + lista numerada de bloqueantes.
-2. Un heading por eje (`## Paleta de color`, `## Consistencia entre proyectos`, `## Tipografía y espaciado`, `## Jerarquía visual, legibilidad y accesibilidad`, `## Elección de gráfico y diseño de tablas`, `## Plantillas de email`). Hallazgos con archivo+línea+valor concreto (no "revisar los colores").
+2. Un heading por eje (`## Paleta de color`, `## Consistencia entre proyectos`, `## Tipografía y espaciado`, `## Jerarquía visual, legibilidad y accesibilidad`, `## Elección de gráfico y diseño de tablas`, `## Plantillas de email`, `## Minimalismo`). Hallazgos con archivo+línea+valor concreto (no "revisar los colores").
 3. **Mejoras propuestas**, separadas explícitamente en dos grupos:
    - **Bloquea el uso declarado** (o, si no hay uso declarado: **Alto impacto** — rompe identidad de marca o legibilidad). Hacer antes de usar la página para eso.
    - **Pulido** — inconsistencia entre proyectos (Medio) y detalles (Bajo). Puede esperar.

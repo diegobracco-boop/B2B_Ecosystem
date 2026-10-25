@@ -6,8 +6,9 @@
  *    las secciones de resultados como pestañas y lo demás en "Operativo ▾" y "Herramientas ▾".
  *    Las pestañas se arman de los botones del menú lateral (#nav-*): una sección nueva aparece sola
  *    (en "Herramientas" si no está clasificada).
- *  - Franja de KPIs arriba del Cuadro Resumen: Gross Bookings, Net Revenue y Operating Contribution
- *    (columna Total de _state.pnl) con Δ% vs el Goal elegido, YoY y semáforo.
+ *  - Vista de entrada para dirección (estilo simple): frase de lectura con los mayores desvíos, tarjetas
+ *    GB / NR / OC (mes vs Goal, vs Forecast y LY, año a la fecha y cierre FY proyectado vs Budget),
+ *    benchmark vs B2C en una línea, waterfall de GB por grupo y evolución. Lo demás, en "Ver detalle".
  *  - Línea de contexto con período, LoB, escenario y filtros, y botón "Filtros" (el panel se abre
  *    encima del contenido, sin correrlo: el layout no salta al cambiar de LoB).
  *  - Los links "Consultar Bitubia/Bitubee" del header pasan a "Herramientas".
@@ -109,19 +110,41 @@
     '  border-radius:8px;padding:6px 14px;cursor:pointer}',
     '.ohn-filters-btn:hover,.ohn-filters-btn[aria-expanded="true"]{background:#550fed;color:#fff}',
     '.ohn-filters-btn:focus-visible{outline:2px solid #a780ff;outline-offset:2px}',
-    '.ohn-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}',
-    '.ohn-kpi{background:#fff;border:1px solid #e6e1f5;border-left:5px solid #c9c4d8;border-radius:10px;padding:14px 18px;',
-    '  box-shadow:0 1px 4px rgba(0,0,0,.05)}',
-    '.ohn-kpi.g{border-left-color:#1a7f37}.ohn-kpi.a{border-left-color:#d4a72c}.ohn-kpi.r{border-left-color:#cf222e}',
-    '.ohn-kpi .k-name{font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#6b6b85}',
-    '.ohn-kpi .k-val{font-size:30px;font-weight:700;color:#12111e;line-height:1.15;margin:4px 0 6px}',
-    '.ohn-kpi .k-row{display:flex;gap:16px;font-size:13.5px;color:#3d3b52}',
-    '.ohn-kpi .k-row span b{font-weight:700}',
-    '.ohn-kpi .up{color:#1a7f37}.ohn-kpi .down{color:#cf222e}',
-    '.ohn-kpi .k-flag{float:right;font-size:11.5px;font-weight:600;border-radius:999px;padding:3px 10px}',
-    '.ohn-kpi.g .k-flag{background:#dafbe1;color:#1a7f37}.ohn-kpi.a .k-flag{background:#fff3c4;color:#7d5a00}',
-    '.ohn-kpi.r .k-flag{background:#ffd8d3;color:#a40e26}',
-    '.ohn-legend{font-size:11.5px;color:#6b6b85;margin-top:8px}',
+    // Tarjetas (estilo simple: aire, un número protagonista, color solo en el semáforo).
+    '.ohn-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}',
+    '.ohn-kpi{background:#fff;border:1px solid #ebe8f3;border-radius:14px;padding:18px 20px 16px}',
+    '.ohn-kpi .k-head{display:flex;align-items:center;justify-content:space-between;gap:8px}',
+    '.ohn-kpi .k-name{font-size:13px;font-weight:600;color:#6b6b85}',
+    '.ohn-kpi .k-flag{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#3d3b52}',
+    '.ohn-kpi .k-flag i{width:8px;height:8px;border-radius:50%;background:#c9c4d8}',
+    '.ohn-kpi.g .k-flag i{background:#1a7f37}.ohn-kpi.a .k-flag i{background:#d4a72c}.ohn-kpi.r .k-flag i{background:#cf222e}',
+    '.ohn-kpi .k-val{font-size:34px;font-weight:700;color:#12111e;line-height:1.1;margin:8px 0 4px;letter-spacing:-.01em}',
+    '.ohn-kpi .k-main{font-size:15px;color:#3d3b52}',
+    '.ohn-kpi .k-sec{display:flex;gap:14px;font-size:12.5px;color:#6b6b85;margin-top:4px}',
+    '.k-pct{font-weight:700}.k-pct.g{color:#1a7f37}.k-pct.a{color:#9a6700}.k-pct.r{color:#cf222e}',
+    '.ohn-kpi .k-fy{margin-top:14px;padding-top:12px;border-top:1px solid #f0edf7;display:grid;gap:6px;font-size:13px;color:#3d3b52}',
+    '.ohn-kpi .k-fy > div{display:flex;align-items:baseline;gap:8px}',
+    '.ohn-kpi .k-lbl{flex:1;min-width:0}.ohn-kpi .k-lbl em{font-style:normal;color:#8a88a0;font-size:12px}',
+    '.ohn-kpi .k-num{font-weight:600;color:#12111e}',
+    '.ohn-kpi .k-note{font-size:11.5px;color:#8a88a0}',
+    '.ohn-read{font-size:15px;line-height:1.55;color:#3d3b52;margin:4px 0 16px;max-width:1100px}',
+    '.ohn-read b{color:#12111e}',
+    '.ohn-kpi .k-split{font-size:12.5px;color:#6b6b85;margin-top:4px}',
+    '.ohn-facts{margin:18px 0 4px;display:grid;gap:8px}',
+    '.ohn-facts p{font-size:14px;color:#3d3b52;margin:0;padding-left:104px;text-indent:-104px}',
+    '.ohn-facts p > span{display:inline-block;text-indent:0;width:104px;font-weight:600;color:#12111e}',
+    '.ohn-okr-go{font:600 12px Poppins,sans-serif;color:#550fed;background:none;border:none;padding:0 0 0 6px;cursor:pointer;text-decoration:underline}',
+    '.ohn-legend{font-size:11.5px;color:#8a88a0;margin-top:8px}',
+    // "Ver detalle": el bloque de análisis queda plegado al final.
+    '#ohn-detail-wrap{border-top:1px solid #ebe8f3;padding-top:20px}',
+    '.ohn-detail-btn{font:600 14px Poppins,sans-serif;color:#550fed;background:#f5f2ff;border:1px solid #d9ccff;border-radius:999px;padding:8px 18px;cursor:pointer}',
+    '.ohn-detail-btn:hover{background:#ebe4ff}.ohn-detail-btn:focus-visible{outline:2px solid #a780ff;outline-offset:2px}',
+    '.ohn-detail-btn::after{content:" ▾"}#ohn-detail-wrap.open .ohn-detail-btn::after{content:" ▴"}',
+    '.ohn-detail-sub{font-size:12.5px;color:#8a88a0;margin:8px 0 0}',
+    '#ohn-detail{display:none;margin-top:20px}#ohn-detail-wrap.open #ohn-detail{display:block}',
+    '.ohn-evo-tables{margin-bottom:20px}',
+    '.ohn-wf-note{font-size:12px;color:#8a88a0;margin:10px 4px 0}',
+    '.pnl-split-btn{margin-left:10px;font:600 11.5px Poppins,sans-serif;color:#550fed;background:none;border:1px solid #d9ccff;border-radius:999px;padding:3px 10px;cursor:pointer}',
     '@media (max-width:900px){.ohn-kpis{grid-template-columns:1fr}}',
     // Secciones embebidas: el Hub les da 100vh (sin header); acá queda la barra arriba.
     '#daily-frame,#weekly-frame,#fixedcost-frame,#news-frame,#industry-frame,#pnl-frame,#pnl-mgr-frame,',
@@ -354,40 +377,291 @@
     var goal = GOALS[st.goal] || GOALS.budget;
     var periodEl = document.getElementById('period-label-bar');
     var period = periodEl ? label(periodEl) : '';
+    // Solo los filtros que recortan algo (los "Todos" no suman) y sin jerga ("Baseline").
     var pills = Array.prototype.map.call(chips.querySelectorAll('.af-chip'), function (c) {
+      var t = c.textContent;
+      if (/:\s*Todos\s*$/.test(t)) return '';
+      if (/^Baseline:/.test(t)) {
+        var sel = (st.selectedPeriods || []).slice().sort(), last = st.filters && st.filters.lastActuals;
+        var closed = sel.length && last && sel[sel.length - 1] <= last;
+        var base = /forecast/i.test(t) && !/Actuals/.test(t) ? 'Forecast' : closed ? 'Real' : 'Real + proyección';
+        return '<span class="ohn-pill">Base: <b>' + esc(base) + '</b></span>';
+      }
       return '<span class="ohn-pill">' + c.innerHTML + '</span>';
     }).join('');
     var open = !!st.filtersExpanded;
     var html = '<div class="ohn-ctx">' +
       (period ? '<span class="ohn-period">' + esc(period) + '</span>' : '') +
       '<span class="ohn-pill"><b>' + esc(LOB_NAME[st.lob] || LOB_NAME[current] || '') + '</b></span>' + pills +
-      '<button type="button" class="ohn-filters-btn" aria-expanded="' + open + '" aria-controls="pnl-filters-bar">⚙ Filtros</button>' +
-      '</div><div class="ohn-kpis">';
+      '<button type="button" class="ohn-filters-btn" aria-expanded="' + open + '" aria-controls="pnl-filters-bar">Filtros</button>' +
+      '</div>';
+    html += readingHtml(st, goal) + '<div class="ohn-kpis">';
     var totalIdx = st.pnl.groups ? st.pnl.groups.length - 1 : -1;
     KPIS.forEach(function (k) {
       var row = st.pnl.rows.filter(function (r) { return r.id === k[0]; })[0];
       var c = row && row.cols && row.cols[totalIdx];
       if (!c) return;
       var vs = c[goal[0]];
-      var ds = typeof window._deltaState_ === 'function' && isFinite(vs) ? window._deltaState_(vs) : null;
-      var cls = !isFinite(vs) ? '' : ds ? { good: 'g', neu: 'g', warn: 'a', bad: 'r' }[ds]
-        : vs >= 0 ? 'g' : vs >= AMBER_FROM ? 'a' : 'r';
+      var cls = semaforo(vs);
       var flag = cls === 'g' ? 'En línea' : cls === 'a' ? 'Atención' : cls === 'r' ? 'Debajo' : '';
+      // Comparaciones secundarias: las que no son el Goal elegido (Forecast y LY, o Budget y LY…).
+      var sec = ['budget', 'forecast', 'lastYear'].filter(function (g) { return g !== st.goal; }).map(function (g) {
+        var v = c[GOALS[g][0]];
+        return isFinite(v) ? '<span>vs ' + (g === 'lastYear' ? 'LY' : GOALS[g][1]) + ' ' + pctTxt(v) + '</span>' : '';
+      }).join('');
+      var fy = fyStats(k[0]);
+      var split = st.lob === 'all' ? lobSplit(row, goal) : '';
       html += '<div class="ohn-kpi ' + cls + '">' +
-        (flag ? '<span class="k-flag">' + flag + '</span>' : '') +
-        '<div class="k-name">' + esc(k[1]) + '</div>' +
+        '<div class="k-head"><span class="k-name">' + esc(k[1]) + '</span>' +
+        (flag ? '<span class="k-flag" title="vs ' + esc(goal[1]) + ': verde ≥ 0% · ámbar entre −5% y 0% · rojo &lt; −5%"><i></i>' + flag + '</span>' : '') + '</div>' +
         '<div class="k-val">' + fmtMoney(c.actual || 0) + '</div>' +
-        '<div class="k-row">' +
-        '<span>vs ' + esc(goal[1]) + ' <b class="' + (vs >= 0 ? 'up' : 'down') + '">' + fmtPct(vs) + '</b></span>' +
-        (st.goal === 'lastYear' ? '' : '<span>YoY <b class="' + (c.yoyPct >= 0 ? 'up' : 'down') + '">' + fmtPct(c.yoyPct) + '</b></span>') +
-        '</div></div>';
+        '<div class="k-main">' + pctTxt(vs, true) + ' vs ' + esc(goal[1]) + '</div>' +
+        '<div class="k-sec">' + sec + '</div>' + split +
+        (fy ? '<div class="k-fy">' +
+          '<div><span class="k-lbl">Año a la fecha <em>' + esc(fy.ytdLbl) + '</em></span><span class="k-num">' + fmtMoney(fy.ytd) + '</span>' + pctTxt(fy.ytdPct) + '</div>' +
+          '<div><span class="k-lbl">Cierre ' + esc(fy.fyLbl) + ' proyectado</span><span class="k-num">' + fmtMoney(fy.fy) + '</span>' + pctTxt(fy.fyPct) + '</div>' +
+          '<div class="k-note">vs Budget del año</div></div>' : '') +
+        '</div>';
     });
-    html += '</div><div class="ohn-legend">Total del período y filtros elegidos. Semáforo vs ' + esc(goal[1]) +
-      ': verde ≥ 0% · ámbar entre ' + AMBER_FROM + '% y 0% · rojo &lt; ' + AMBER_FROM + '%.</div>';
+    html += '</div><div class="ohn-facts">' + marginHtml(st) + benchHtml(st) + okrHtml(st) + '</div>';
     top.innerHTML = html;
     top.querySelector('.ohn-filters-btn').onclick = function () {
       if (typeof window.toggleFiltersPanel === 'function') window.toggleFiltersPanel();   // wrap → renderTop
     };
+    var okrBtn = top.querySelector('.ohn-okr-go');
+    if (okrBtn) okrBtn.onclick = function () {
+      var wrap = document.getElementById('ohn-detail-wrap'), col = document.getElementById('okr-col');
+      if (wrap && !wrap.classList.contains('open')) wrap.querySelector('.ohn-detail-btn').click();
+      if (col) setTimeout(function () { col.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 60);
+    };
+  }
+
+  // Consolidado: el mismo indicador para B2B (Mayoristas + Minoristas) y B2B2C (WL's), vs el Goal.
+  function lobSplit(row, goal) {
+    var g = window._state.pnl.groups, wl = g.indexOf("WL's"), may = g.indexOf('MAY'), min = g.indexOf('MIN');
+    if (wl < 0 || may < 0 || min < 0) return '';
+    var ref = { varBudPct: 'budget', varRRPct: 'runRate', varFcPct: 'forecast', yoyPct: 'lyVal' }[goal[0]];
+    var a = row.cols[may], b = row.cols[min], w = row.cols[wl];
+    var act = (+a.actual || 0) + (+b.actual || 0), refV = (+a[ref] || 0) + (+b[ref] || 0);
+    var b2b = refV ? (act - refV) / Math.abs(refV) * 100 : null;
+    return '<div class="k-split">B2B ' + pctTxt(b2b, true) + ' · B2B2C ' + pctTxt(w[goal[0]], true) + '</div>';
+  }
+
+  // Margen: NR y OC como % del GB, con la diferencia en puntos vs Budget y vs el año pasado.
+  function marginHtml(st) {
+    var i = st.pnl.groups.length - 1, by = {};
+    st.pnl.rows.forEach(function (r) { by[r.id] = r.cols[i]; });
+    if (!by.gb || !by.gb.actual) return '';
+    var pp = function (v) {
+      if (v === null || !isFinite(v)) return '—';
+      return '<b class="k-pct ' + (v >= 0 ? 'g' : 'r') + '">' + (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(1) + ' pp</b>';
+    };
+    var one = function (id, name) {
+      var c = by[id];
+      if (!c) return '';
+      var m = c.actual / by.gb.actual * 100;
+      var mb = by.gb.budget ? c.budget / by.gb.budget * 100 : null, ml = by.gb.lyVal ? c.lyVal / by.gb.lyVal * 100 : null;
+      return name + ' <b>' + m.toFixed(1) + '%</b> del GB (' + pp(mb === null ? null : m - mb) + ' vs Budget · ' + pp(ml === null ? null : m - ml) + ' vs LY)';
+    };
+    return '<p><span>Margen</span>' + one('nr', 'Net Revenue') + ' · ' + one('oc', 'OC') + '.</p>';
+  }
+
+  // OKR del semestre, una línea (el detalle está en "Ver detalle").
+  function okrHtml(st) {
+    var o = st.okr;
+    if (!o) return '';
+    var keys = st.lob === 'b2b2c' ? ['b2b2c'] : st.lob === 'b2b' ? ['b2b', 'globales'] : ['b2b2c', 'b2b', 'globales'];
+    var parts = keys.filter(function (k) { return o[k] && isFinite(o[k].halfTotal); }).map(function (k) {
+      var v = o[k].halfTotal, cls = v >= 100 ? 'g' : v >= 80 ? 'a' : 'r';
+      return esc(o[k].label) + ' <b class="k-pct ' + cls + '">' + (v < 70 ? '&lt;70' : Math.min(v, 130).toFixed(0)) + '%</b>';
+    });
+    if (!parts.length) return '';
+    var h = window._okrHalf ? ' ' + window._okrHalf : '';
+    return '<p><span>OKR' + esc(h) + '</span>' + parts.join(' · ') +
+      ' <button type="button" class="ohn-okr-go">Ver KRs</button></p>';
+  }
+
+  // Semáforo único (mismo criterio que _deltaState_ del Hub): verde ≥ 0%, ámbar −5% a 0%, rojo < −5%.
+  function semaforo(v) {
+    if (v === null || v === undefined || !isFinite(v)) return '';
+    return v < AMBER_FROM ? 'r' : v <= -0.05 ? 'a' : 'g';
+  }
+  function pctTxt(v, strong) {
+    if (v === null || v === undefined || !isFinite(v)) return '<b class="k-pct">—</b>';
+    var a = Math.abs(v), txt = (v >= 0 ? '+' : '−') + (a < 10 ? a.toFixed(1) : a.toFixed(0)) + '%';
+    return '<b class="k-pct ' + (strong ? semaforo(v) : (v >= 0 ? 'g' : 'r')) + '">' + txt + '</b>';
+  }
+  function moneyDelta(v) {
+    return (v >= 0 ? '+' : '−') + fmtMoney(Math.abs(v)).replace(/^−/, '');
+  }
+
+  // Año a la fecha (meses con real) y cierre del año fiscal (real + proyección) contra el Budget,
+  // de la evolución mensual (_state.evo: mismos filtros de país y producto que el resto).
+  function fyStats(id) {
+    var st = window._state, e = st && st.evo, last = st && st.filters && st.filters.lastActuals;
+    var FY = window.FY_MONTHS;
+    if (!e || !e.periods || !FY || !last) return null;
+    var m = (e.metrics || []).filter(function (x) { return x.id === id; })[0];
+    if (!m) return null;
+    var ytd = 0, ytdB = 0, fy = 0, fyB = 0, n = 0;
+    e.periods.forEach(function (ym, i) {
+      if (ym < FY[0] || ym > FY[11]) return;
+      var a = m.actuals[i], b = m.budget[i];
+      if (a === null || a === undefined || b === null || b === undefined) return;
+      fy += a; fyB += b; n++;
+      if (ym <= last) { ytd += a; ytdB += b; }
+    });
+    if (!n || !fyB) return null;
+    var mon = function (ym) { var L = window.MONTH_LABELS || {}; return String(L[ym.split('-')[1]] || '').slice(0, 3).toLowerCase(); };
+    return {
+      ytd: ytd, ytdPct: ytdB ? (ytd - ytdB) / Math.abs(ytdB) * 100 : null,
+      ytdLbl: last >= FY[0] ? mon(FY[0]) + '–' + mon(last) : '',
+      fy: fy, fyPct: (fy - fyB) / Math.abs(fyB) * 100, fyLbl: 'FY' + String(FY[11]).slice(2, 4),
+    };
+  }
+
+  // Frase de lectura: desvío de GB del período con los 3 grupos que más lo explican, y qué pasa con
+  // la rentabilidad (NR y OC) en la misma comparación.
+  function readingHtml(st, goal) {
+    var totalIdx = st.pnl.groups.length - 1;
+    var absKey = { budget: 'varBudAbs', runRate: 'varRRAbs', forecast: 'varFcAbs', lastYear: 'varLYAbs' }[st.goal] || 'varBudAbs';
+    var tot = {};
+    st.pnl.rows.forEach(function (r) { var c = r.cols[totalIdx]; if (c) tot[r.id] = c[absKey]; });
+    if (!isFinite(tot.gb)) return '';
+    var gbWf = st.wf && (st.wf.metrics || []).filter(function (m) { return m.id === 'gb'; })[0];
+    var drivers = '';
+    if (gbWf && gbWf.byGroup) {
+      var neg = tot.gb < 0;
+      var gs = gbWf.byGroup.map(function (g) {
+        return { label: g.label, d: st.goal === 'lastYear' ? g._yoyAbs : g.delta };
+      }).filter(function (g) {
+        // Solo los que pesan (≥ 10% del desvío total): "Brasil −$40K" es ruido en la frase.
+        return isFinite(g.d) && (neg ? g.d < 0 : g.d > 0) && Math.abs(g.d) >= Math.abs(tot.gb) * 0.1;
+      })
+        .sort(function (a, b) { return neg ? a.d - b.d : b.d - a.d; }).slice(0, 3);
+      if (gs.length) drivers = ': ' + gs.map(function (g) { return esc(g.label) + ' ' + moneyDelta(g.d); }).join(', ');
+    }
+    var vsTxt = 'vs ' + goal[1];
+    var gbc = (st.pnl.rows.filter(function (r) { return r.id === 'gb'; })[0] || {}).cols;
+    gbc = gbc && gbc[totalIdx];
+    var extra = '';
+    if (gbc && st.goal !== 'forecast' && isFinite(gbc.varFcPct)) extra = ' (' + pctTxt(gbc.varFcPct) + ' vs Forecast)';
+    var s = '<b>Gross Bookings ' + moneyDelta(tot.gb) + ' ' + esc(vsTxt) + '</b>' + extra + drivers + '.';
+    var nr = tot.nr, oc = tot.oc;
+    if (isFinite(nr) && isFinite(oc)) {
+      var both = 'Net Revenue ' + moneyDelta(nr) + ' y Operating Contribution ' + moneyDelta(oc);
+      if (tot.gb < 0 && nr >= 0 && oc >= 0) s += ' ' + both + ': vendemos menos volumen que el plan, con mejor margen.';
+      else if (tot.gb >= 0 && nr >= 0 && oc >= 0) s += ' ' + both + ': los tres indicadores le ganan al ' + esc(goal[1]) + '.';
+      else if (tot.gb >= 0 && oc < 0) s += ' ' + both + ': crece el volumen, pero la rentabilidad queda abajo.';
+      else s += ' ' + both + '.';
+    }
+    return '<p class="ohn-read">' + s + '</p>';
+  }
+
+  // Benchmark vs B2C en una línea: crecimiento del GB contra B2C y peso en Despegar (de _state.compPnl).
+  function benchHtml(st) {
+    var cp = st.compPnl;
+    if (!cp || !cp.groups || !cp.rows) return '';
+    var me = { all: 'B2B + B2B2C', b2b: 'B2B', b2b2c: 'WLs (B2B2C)' }[st.lob];
+    var iMe = cp.groups.indexOf(me), iB2c = cp.groups.indexOf('B2C'), iTot = cp.groups.indexOf('Total Portfolio');
+    var row = function (id) { return cp.rows.filter(function (r) { return r.id === id; })[0]; };
+    var gb = row('gb'), oc = row('oc');
+    if (!gb || iMe < 0 || iB2c < 0) return '';
+    var a = gb.cols[iMe], b = gb.cols[iB2c];
+    if (!a || !b || !isFinite(a.yoyPct) || !isFinite(b.yoyPct)) return '';
+    var share = function (r) {
+      return r && iTot >= 0 && r.cols[iTot] && r.cols[iTot].actual ? r.cols[iMe].actual / r.cols[iTot].actual * 100 : null;
+    };
+    var sg = share(gb), so = share(oc);
+    var name = { all: 'B2B + B2B2C', b2b: 'B2B', b2b2c: 'B2B2C' }[st.lob];
+    return '<p><span>Contra B2C</span>El GB de ' + esc(name) + ' crece ' + pctTxt(a.yoyPct) +
+      ' vs ' + pctTxt(b.yoyPct) + ' de B2C' +
+      (sg !== null ? ' · somos el <b>' + sg.toFixed(0) + '%</b> del GB' + (so !== null ? ' y el <b>' + so.toFixed(0) + '%</b> del OC' : '') + ' de Despegar' : '') +
+      '.</p>';
+  }
+
+  // ── Vista de entrada y "Ver detalle" ───────────────────────────────────────────────────────
+  // Arriba: KPIs, lectura, benchmark, waterfall de GB por grupo y evolución. El resto (Cuadro
+  // Resumen con OKR, waterfalls de NR y OC, tablas por país, benchmark completo, drill-down) se
+  // mueve a un bloque plegado al final. Se mueven nodos, no se copian: el Hub los sigue llenando.
+  var DETAIL_KEY = 'ohn-hub-detail';
+  function detailOpen() { try { return localStorage.getItem(DETAIL_KEY) === '1'; } catch (e) { return false; } }
+  function foldDetail() {
+    var evoSec = document.getElementById('chart-evo') && document.getElementById('chart-evo').closest('.sec');
+    var main = document.querySelector('main');
+    if (!evoSec || !main) return;
+    var wrap = document.getElementById('ohn-detail-wrap');
+    if (!wrap) {
+      wrap = document.createElement('div');
+      wrap.className = 'sec';   // el Hub muestra/oculta los .sec del P&L al cambiar de sección
+      wrap.id = 'ohn-detail-wrap';
+      wrap.innerHTML = '<button type="button" class="ohn-detail-btn" aria-expanded="false" aria-controls="ohn-detail"></button>' +
+        '<p class="ohn-detail-sub">Cuadro Resumen y OKR · Net Revenue y Operating Contribution por grupo y por concepto · ' +
+        'evolución por país · benchmark completo vs B2C · drill-down del año</p><div id="ohn-detail"></div>';
+      evoSec.parentNode.insertBefore(wrap, evoSec.nextSibling);
+      var det = wrap.querySelector('#ohn-detail');
+      var pnlSec = document.getElementById('pnl-title') && document.getElementById('pnl-title').closest('.sec');
+      var more = document.createElement('div'); more.id = 'ohn-wf-more'; more.className = 'wf-grid';
+      var evoT = document.createElement('div'); evoT.className = 'evo-card ohn-evo-tables';
+      ['evo-yoy-table', 'evo-ctry-table'].forEach(function (id) { var el = document.getElementById(id); if (el) evoT.appendChild(el); });
+      [pnlSec, more, evoT, document.getElementById('comp-pnl-section'), document.getElementById('breakdown-section'),
+        document.getElementById('drilldown-section')].forEach(function (el) { if (el) det.appendChild(el); });
+      wrap.querySelector('.ohn-detail-btn').onclick = function () {
+        var on = !wrap.classList.contains('open');
+        try { localStorage.setItem(DETAIL_KEY, on ? '1' : '0'); } catch (e) { /* sin storage: solo esta vista */ }
+        setDetail(wrap, on);
+        if (on) setTimeout(function () { window.dispatchEvent(new Event('resize')); }, 30);   // Chart.js en nodos que estaban ocultos
+      };
+      setDetail(wrap, detailOpen());
+    }
+    // Título del waterfall sin jerga (el Hub lo reescribe en cada render).
+    var wfT = document.getElementById('wf-title'), st = window._state;
+    if (wfT && st) {
+      var gl = (GOALS[st.goal] || GOALS.budget)[1], per = document.getElementById('period-label-bar');
+      var sel = (st.selectedPeriods || []).slice().sort(), last = st.filters && st.filters.lastActuals;
+      var base = sel.length && last && sel[sel.length - 1] <= last ? 'Real' : 'Real + proyección';
+      wfT.textContent = '¿Dónde está el desvío? ' + base + ' vs ' + gl + ' por grupo de países' + (per ? ' · ' + label(per) : '');
+    }
+    Array.prototype.forEach.call(document.querySelectorAll('#wf-grid td, #ohn-wf-more td'), function (td) {
+      if (td.children.length) return;
+      var t = td.textContent.trim();
+      if (t === 'Baseline YoY %') td.textContent = 'vs año pasado';
+      else if (t === 'Actuals + RR') td.textContent = 'Real + proyección';
+    });
+    // Waterfalls: el Hub vacía #wf-grid en cada render; el primero (GB por grupo) queda a la vista.
+    var grid = document.getElementById('wf-grid'), more2 = document.getElementById('ohn-wf-more');
+    if (grid && more2) {
+      more2.innerHTML = '';
+      Array.prototype.slice.call(grid.children, 1).forEach(function (c) { more2.appendChild(c); });
+      var first = grid.children[0];
+      if (first && !first.querySelector('.ohn-wf-note') && /OPS\+RG/.test(first.textContent)) {
+        var note = document.createElement('p');
+        note.className = 'ohn-wf-note';
+        note.textContent = 'Hispa = Argentina, Chile, Colombia, Perú y Ecuador · Globales = Other Countries · ' +
+          'OPS+RG no es un país: son imputaciones de operaciones y regionales, por eso puede tener resultado sin volumen.';
+        first.appendChild(note);
+      }
+    }
+  }
+  function setDetail(wrap, on) {
+    wrap.classList.toggle('open', on);
+    var btn = wrap.querySelector('.ohn-detail-btn');
+    btn.setAttribute('aria-expanded', String(on));
+    btn.textContent = on ? 'Ocultar detalle' : 'Ver detalle';
+  }
+
+  // Encabezado en castellano: de dónde sale el número y de qué fecha es.
+  function renderStamp() {
+    var st = window._state, f = (st && st.filters) || {};
+    var sub = document.getElementById('logo-sub'), upd = document.getElementById('last-upd');
+    if (!sub || !upd) return;
+    var ym = window._ymShort_ || function (x) { return x; };
+    var parts = ['Contable'];
+    if (f.lastActuals) parts.push('real cerrado a ' + ym(f.lastActuals));
+    if (f.lastRunRate) parts.push('proyección (Run Rate) desde ' + ym(f.lastRunRate));
+    sub.textContent = parts.join(' · ');
+    var t = upd.textContent, org = /ORGANIC \([^)]*\)/.exec(t), at = /Cargado (.*)$/.exec(t);
+    upd.textContent = [org ? org[0] : '', at ? 'Actualizado ' + at[1] : ''].filter(Boolean).join(' · ');
   }
 
   // Secciones embebidas → su versión de Ownia si el módulo ya corre acá.
@@ -421,14 +695,17 @@
     });
     // Cada render del P&L: franja de KPIs y, la primera vez, precarga de los otros LoB.
     var preloaded = false;
+    wrap('_renderDataStamp_', renderStamp);
     wrap('render', function () {
       renderTop();
+      foldDetail();
       if (!preloaded && window._state && window._state.pnl && typeof window._preloadOtherLobs_ === 'function' && typeof window.getParams === 'function') {
         preloaded = true;
         window._preloadOtherLobs_(window.getParams());
       }
     });
     wrap('toggleFiltersPanel', renderTop);
+    wrap('renderOKR', renderTop);
   }
 
   document.addEventListener('DOMContentLoaded', function () {

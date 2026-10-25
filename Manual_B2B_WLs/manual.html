@@ -3111,6 +3111,22 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
     </div>
 
     <div class="card">
+      <div class="card-title">🎩 Panel de clientes <span class="badge badge-auto">🆕 2026-10-25</span></div>
+      <div class="page-sub" style="margin:0 0 12px">Agentes con la personalidad de los clientes de la app. Cada uno mira capturas reales de una pantalla y responde si es <strong>apta para su rol</strong>, qué le falta, qué le sobra y qué no entiende (skill <code>client-panel-review</code>). Se usan antes de publicar una pantalla para dirección.</div>
+      <table class="doc-table">
+        <thead><tr><th>Agente</th><th>Quién es</th><th>Su pregunta de fondo</th></tr></thead>
+        <tbody>
+          <tr><td>cliente-ceo</td><td>CEO de Despegar</td><td>¿Entiendo en 30 segundos cómo viene el negocio y si me tengo que preocupar?</td></tr>
+          <tr><td>cliente-chief-comercial</td><td>Chief Comercial de B2B y B2B2C</td><td>¿Le ganamos al plan y a B2C? ¿Dónde está el problema y quién es el responsable?</td></tr>
+          <tr><td>cliente-vp-b2b</td><td>VP Comercial de B2B</td><td>¿Qué país, canal o agencia mueve el número? ¿Qué le pido a cada director?</td></tr>
+          <tr><td>cliente-vp-b2b2c</td><td>VP Comercial de B2B2C (White Labels)</td><td>¿Qué partners y países explican el desvío? ¿Cómo nos fue en los eventos?</td></tr>
+          <tr><td>cliente-vp-planning</td><td>VP de Planning</td><td>¿De dónde sale cada número, es confiable y cierra contable contra gestional?</td></tr>
+          <tr><td>cliente-director-pais</td><td>Director comercial de país (B2B o B2B2C)</td><td>¿Cómo viene mi país vs plan, LY y B2C, y qué hago esta semana?</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
       <div class="card-title">▶️ Cómo se corren</div>
       <table class="doc-table">
         <tbody>
@@ -3132,12 +3148,14 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
   ├── auditor-de-codigo.md
   ├── calidad-de-procesos.md
   ├── ux-designer.md
-  └── data-engineer.md
+  ├── data-engineer.md
+  └── cliente-*.md                    ← panel de clientes (CEO, Chief, VPs, director de país)
 
 .agents/skills/
   ├── code-audit/SKILL.md
   ├── process-quality-audit/SKILL.md
-  ├── ux-consistency-review/SKILL.md   ← paleta oficial Despegar + Minto (Eje 4) + Zelazny (Eje 5)
+  ├── ux-consistency-review/SKILL.md   ← paleta oficial Despegar + Minto (Eje 4) + Zelazny (Eje 5) + minimalismo estilo Apple (Eje 7)
+  ├── client-panel-review/SKILL.md     ← método común del panel de clientes
   └── data-source-consistency-review/SKILL.md
 
 como-crear-agente-auditor.txt          ← cómo armar uno nuevo + lecciones de uso</div>

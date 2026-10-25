@@ -106,6 +106,12 @@ El usuario también puede pedir una auditoría en cualquier momento ("auditar", 
 | `ux-designer` | `ux-consistency-review` | Estética, paleta oficial Despegar, consistencia visual entre dashboards, accesibilidad |
 | `data-engineer` | `data-source-consistency-review` | Mapeo de fuentes, duplicidad entre pipelines, formato homogéneo, staleness de doc |
 
+### Panel de clientes (`.claude/agents/cliente-*.md`)
+
+Agentes con la personalidad de los clientes de la app: `cliente-ceo`, `cliente-chief-comercial`, `cliente-vp-b2b`, `cliente-vp-b2b2c`, `cliente-vp-planning`, `cliente-director-pais`. Todos corren la skill `client-panel-review`: miran **capturas reales** de una pantalla (las saca la sesión principal levantando la app de Ownia en local) y responden si es apta para su rol, qué falta, qué sobra y qué no entienden. Usarlos antes de publicar una pantalla para dirección. Se invocan igual que los de auditoría (como `general-purpose`, leyendo su `.md` y la skill), pasándoles las rutas de las capturas.
+
+**Dirección de diseño** (Diego, 2026-10-25): minimalista y simple, estilo Apple, con la paleta oficial de Despegar. Está en el Eje 7 de `ux-consistency-review`. Se aplica de a una pantalla y solo en las capas de Ownia.
+
 **Cómo invocarlos en este entorno:** los agentes custom de `.claude/agents/` **NO son invocables por `subagent_type`** acá — lanzalos como `general-purpose` con un prompt que diga: "leé completo `.claude/agents/<nombre>.md` (tu rol) y `.agents/skills/<skill>/SKILL.md` (la skill que corrés), y seguí eso al pie de la letra; alcance = <módulo>; no edites nada, solo reportá".
 
 **Si la sesión está cerca del límite de uso:** correr los agentes de a 1 o 2, no los 4 juntos (cada uno son ~100-140k tokens; correr 4 en paralelo puede cortar la sesión a mitad).
