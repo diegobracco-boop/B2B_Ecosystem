@@ -25,7 +25,8 @@
       'Colombia': ['Colombia', 'co', 'col'],
       'Peru': ['Perú', 'pe', 'per', 'peru'],
       'Ecuador': ['Ecuador', 'ec', 'ecu'],
-      'Other Countries': ['Globales', 'global', 'other countries', 'other country', 'other', 'others', 'ot', 'otros paises', 'resto'],
+      'Other Countries': ['Globales', 'global', 'other countries', 'other country', 'other', 'others', 'ot', 'otros paises', 'resto',
+        'usa', 'us', 'eeuu', 'estados unidos', 'uruguay', 'uy', 'paraguay', 'py'],
       'RG': ['OPS + RG', 'rg', 'ops', 'ops rg', 'regional', 'regionales']
     },
     // Grupos de países (los del waterfall).

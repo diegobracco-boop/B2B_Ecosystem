@@ -628,7 +628,7 @@
     var pt = paisCard.querySelector('.card-ttl');
     if (pt) pt.innerHTML = 'Por país · vs el B2C del mismo país <span class="bench-sub" style="margin-left:6px">clic en un país para filtrar toda la página</span>';
     var notes = el('bench-pais-wrap').querySelectorAll('.bench-sub');
-    if (notes.length) notes[notes.length - 1].textContent = 'Globales = Other Countries (en las bases: Other / Others / OT), comparado contra el Other Countries de B2C. Brecha en verde = le ganamos a B2C en ese país.';
+    if (notes.length) notes[notes.length - 1].textContent = 'Globales = Other Countries más USA, Uruguay y Paraguay (en las bases también Other / Others / OT), en los tres negocios, comparado contra el mismo agrupado de B2C. Brecha en verde = le ganamos a B2C en ese país.';
     el('bench-pais-body').addEventListener('click', function (e) {
       var tr = e.target.closest('tr[data-pais]'); if (!tr) return;
       var p = tr.getAttribute('data-pais');
@@ -790,6 +790,39 @@
     var clr = el('bx-clear'); if (clr) clr.style.display = window._benchPais ? '' : 'none';
   }
 
+  // Globales para comparar contra B2C (Diego, 2026-10-25): las bases abren países que el otro negocio no
+  // tiene (USA en B2B2C y B2C; Uruguay y Paraguay en B2B), así que todos van a Other Countries, igual
+  // que Other / Others / OT. Se normalizan las filas que lee el Benchmark y el selector de país.
+  var GLOBALES = { USA: 1, Uruguay: 1, Paraguay: 1, Other: 1, Others: 1, OT: 1 };
+  function groupGlobales() {
+    var cache = typeof WeakMap === 'function' ? new WeakMap() : null;
+    var norm = function (rows) {
+      if (!rows || !rows.length) return rows;
+      var hit = cache && cache.get(rows);
+      if (hit) return hit;
+      var out = rows.map(function (r) { return r && GLOBALES[r.pais] ? Object.assign({}, r, { pais: 'Other Countries' }) : r; });
+      if (cache) cache.set(rows, out);
+      return out;
+    };
+    var rowsOrig = window._benchRows_;
+    if (typeof rowsOrig === 'function') {
+      window._benchRows_ = function () {
+        var rr = rowsOrig.apply(this, arguments);
+        return { cur: norm(rr.cur), ly: norm(rr.ly), nr: rr.nr };
+      };
+    }
+    var popOrig = window._benchPopulatePais_;
+    if (typeof popOrig === 'function') {
+      window._benchPopulatePais_ = function () {
+        popOrig.apply(this, arguments);
+        var sel = el('bench-sel-pais');
+        if (!sel) return;
+        Array.prototype.slice.call(sel.options).forEach(function (o) { if (GLOBALES[o.value]) sel.removeChild(o); });
+        if (GLOBALES[window._benchPais]) { window._benchPais = 'Other Countries'; sel.value = 'Other Countries'; }
+      };
+    }
+  }
+
   function wrap(name, after, before) {
     var o = window[name];
     if (typeof o !== 'function' || o._bx) return;
@@ -813,6 +846,7 @@
     wrap('renderBenchGrowthChart_', afterGrowth);
     wrap('renderBenchMarginChart_', afterMargin);
     window.renderBenchPaisTable_ = renderPaisTable;
+    groupGlobales();
     var t = el('vnav-tracker'); if (t) t.textContent = 'B2B Tracker';
   });
 })();
