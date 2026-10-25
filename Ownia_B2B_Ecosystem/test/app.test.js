@@ -15,7 +15,7 @@ const RUN_HEADERS = { 'X-Requested-With': 'google.script.run' };
 // Mismo proyecto con lista cerrada de usuarios (como los módulos en validación).
 const DEMO_EQUIPO = { slug: 'demo-equipo', dir: 'Demo_Module', title: 'Demo equipo', desc: 'demo', ownia: true, validating: true, allowedUsers: ['Ana@despegar.com'], quickViews: [['vista-b2b', 'B2B']], gasUrl: 'https://script.google.com/y/exec' };
 // Mismo proyecto con layout propio de Ownia (como el Hub).
-const DEMO_LAYOUT = { slug: 'demo-layout', dir: 'Demo_Module', title: 'Demo layout', desc: 'demo', ownia: true, requiresIdentity: false, layout: 'hub-layout.js', gasUrl: '' };
+const DEMO_LAYOUT = { slug: 'demo-layout', dir: 'Demo_Module', title: 'Demo layout', desc: 'demo', ownia: true, requiresIdentity: false, layout: ['filter-aliases.js', 'hub-layout.js'], gasUrl: '' };
 // Mismo proyecto con funciones propias de Ownia (como el Daily: gasExtras).
 const DEMO_EXTRAS = { slug: 'demo-extras', dir: 'Demo_Module', title: 'Demo extras', desc: 'demo', ownia: true, requiresIdentity: false, gasExtras: ['daily-industry.js'], gasUrl: '' };
 const PENDIENTE = { slug: 'pendiente', dir: 'No_Existe', title: 'Pendiente', desc: 'x', ownia: false, gasUrl: 'https://script.google.com/x/exec' };
@@ -118,6 +118,9 @@ test('layout propio de Ownia: solo en el módulo que lo declara, después de nav
   const r = await request(demoServer, 'GET', `${BASE}/demo-layout`);
   assert.match(r.text, new RegExp(`<script src="${BASE}/_gas/layout/hub-layout\\.js\\?v=\\w+" data-home="${BASE}/" data-links=`));
   assert.ok(r.text.indexOf('_gas/nav.js') < r.text.indexOf('_gas/layout/'));
+  // Lista de archivos: se cargan en el orden declarado (el diccionario antes que la capa que lo usa).
+  assert.ok(r.text.indexOf('_gas/layout/filter-aliases.js') < r.text.indexOf('_gas/layout/hub-layout.js'));
+  assert.equal((await request(demoServer, 'GET', `${BASE}/_gas/layout/filter-aliases.js`)).status, 200);
   assert.doesNotMatch((await request(demoServer, 'GET', `${BASE}/demo`)).text, /_gas\/layout\//);
   const js = await request(demoServer, 'GET', `${BASE}/_gas/layout/hub-layout.js`);
   assert.equal(js.status, 200);

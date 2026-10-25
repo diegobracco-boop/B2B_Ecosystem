@@ -77,13 +77,17 @@ function createApp(opts = {}) {
   const clientVersion = crypto.createHash('sha1').update(clientJs).digest('hex').slice(0, 10);
   const navJs = fs.readFileSync(path.join(cfg.APP_ROOT, 'public', 'ownia-nav.js'), 'utf8');
   const navVersion = crypto.createHash('sha1').update(navJs).digest('hex').slice(0, 10);
-  // Layout propio de Ownia para un módulo (`layout` en modules.js, archivo en public/): cambia la
-  // presentación sin tocar el HTML de GAS. Se sirve en /_gas/layout/<archivo>.
+  // Layout propio de Ownia para un módulo (`layout` en modules.js: un archivo de public/ o una lista,
+  // que se cargan en ese orden): cambia la presentación sin tocar el HTML de GAS. Se sirve en
+  // /_gas/layout/<archivo>.
   const layouts = new Map();
-  for (const m of modules.filter((x) => x.ownia && x.layout)) {
-    if (!/^[\w-]+\.js$/.test(m.layout)) throw new Error(`layout inválido en ${m.slug}: ${m.layout}`);
-    const js = fs.readFileSync(path.join(cfg.APP_ROOT, 'public', m.layout), 'utf8');
-    layouts.set(m.layout, { js, version: crypto.createHash('sha1').update(js).digest('hex').slice(0, 10) });
+  const layoutFiles = (m) => (m.ownia && m.layout ? [].concat(m.layout) : []);
+  for (const m of modules) {
+    for (const file of layoutFiles(m)) {
+      if (!/^[\w-]+\.js$/.test(file)) throw new Error(`layout inválido en ${m.slug}: ${file}`);
+      const js = fs.readFileSync(path.join(cfg.APP_ROOT, 'public', file), 'utf8');
+      layouts.set(file, { js, version: crypto.createHash('sha1').update(js).digest('hex').slice(0, 10) });
+    }
   }
   // Links del header a otra landing (por deployment ID de GAS): el Hub → menú de Ownia; los
   // módulos ya servidos acá → su versión de Ownia (ver public/ownia-nav.js).
@@ -364,9 +368,9 @@ function createApp(opts = {}) {
       const clientScriptTag = `<script src="${cfg.BASE_PATH}/_gas/client.js?v=${clientVersion}" data-api="${cfg.BASE_PATH}/api/${mod.slug}"></script>\n` +
         `<script src="${cfg.BASE_PATH}/_gas/nav.js?v=${navVersion}" data-home="${escapeHtml(homeUrl)}" data-links="${navLinksAttr}"` +
         (mod.startView ? ` data-start-view="${escapeHtml(mod.startView)}"` : '') + '></script>' +
-        (layouts.has(mod.layout)
-          ? `\n<script src="${cfg.BASE_PATH}/_gas/layout/${mod.layout}?v=${layouts.get(mod.layout).version}" data-home="${escapeHtml(homeUrl)}" data-links="${navLinksAttr}"></script>`
-          : '');
+        layoutFiles(mod).map((file) =>
+          `\n<script src="${cfg.BASE_PATH}/_gas/layout/${file}?v=${layouts.get(file).version}" data-home="${escapeHtml(homeUrl)}" data-links="${navLinksAttr}"></script>`
+        ).join('');
       const out = renderOutput(output, { clientScriptTag });
       if (req.method === 'HEAD') return send(res, out.status, out.headers, '');
       return await sendCompressible(req, res, out.status, out.headers, out.body);

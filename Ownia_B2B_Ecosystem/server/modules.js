@@ -54,7 +54,7 @@ const MODULES = [
     allowedUsers: EQUIPO_B2B,
     // Presentación propia de Ownia (public/hub-layout.js): barra fija con el selector de LoB y las
     // secciones en vez del menú hamburguesa; precarga de los otros LoB. El HTML de GAS no cambia.
-    layout: 'hub-layout.js',
+    layout: ['filter-aliases.js', 'hub-layout.js'],
     gasUrl: GAS_EXEC + 'AKfycbz52txFQy-5YM2Nil_KxULzPoeZpKyA4z5LUWMGoP_8IilcwSduuwZqPF8ut_LmtceM/exec',
   },
   {

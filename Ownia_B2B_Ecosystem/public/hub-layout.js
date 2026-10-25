@@ -9,8 +9,10 @@
  *  - Vista de entrada para dirección (estilo simple): frase de lectura con los mayores desvíos, tarjetas
  *    GB / NR / OC (mes vs Goal, vs Forecast y LY, año a la fecha y cierre FY proyectado vs Budget),
  *    benchmark vs B2C en una línea, waterfall de GB por grupo y evolución. Lo demás, en "Ver detalle".
- *  - Línea de contexto con período, LoB, escenario y filtros, y botón "Filtros" (el panel se abre
- *    encima del contenido, sin correrlo: el layout no salta al cambiar de LoB).
+ *  - Línea de contexto con período, LoB, escenario y filtros, la barra "Filtrar…" (se escribe
+ *    "brasil b2b sep vs fc" y se aplica con Enter; el diccionario está en public/filter-aliases.js)
+ *    y el botón "Filtros": el panel se abre como cajón desde la derecha, encima del contenido y sin
+ *    correrlo (el layout no salta); se cierra con "Listo", Esc o un clic afuera.
  *  - Los links "Consultar Bitubia/Bitubee" del header pasan a "Herramientas".
  *  - Cambio de LoB instantáneo: apenas llegan los datos del primero se precargan los otros dos.
  *  - Teclado: 1/2/3 cambian de LoB; Esc cierra los menús.
@@ -69,7 +71,41 @@
     '.hamburger-btn,#nav-backdrop,.filters,#filters-toggle,#ai-links,#active-filters{display:none!important}',
     // Layout estable: el contenido no se corre por el panel de filtros (se abre encima).
     'body:not(.ohn-noheader) main{margin-left:0!important;padding-left:24px!important;padding-right:24px!important}',
-    '#pnl-filters-bar{box-shadow:6px 0 24px rgba(0,0,0,.18)!important}',
+    // Panel de filtros: cajón desde la derecha (al lado del botón "Filtros"), con el fondo atenuado.
+    '#pnl-filters-bar{left:auto!important;right:0!important;width:300px!important;padding:0 20px 16px!important;gap:16px!important;',
+    '  border-right:none!important;border-left:1px solid #ebe8f3!important;box-shadow:-12px 0 32px rgba(18,17,30,.14)!important;',
+    '  z-index:320!important;background:#fff!important;font-family:Poppins,-apple-system,"Segoe UI",sans-serif}',
+    '#ohn-fback{display:none;position:fixed;left:0;right:0;bottom:0;top:calc(var(--hdr-h) + ' + NAV_H + 'px);background:rgba(18,17,30,.16);z-index:315}',
+    'body.ohn-fopen #ohn-fback{display:block}',
+    '.ohn-fhead{position:sticky;top:0;z-index:1;background:#fff;display:flex;align-items:center;justify-content:space-between;padding:16px 0 10px;border-bottom:1px solid #f0edf7}',
+    '.ohn-fhead b{font-size:16px;font-weight:600;color:#12111e}',
+    '.ohn-fx{border:none;background:none;font-size:22px;line-height:1;color:#6b6b85;cursor:pointer;padding:2px 6px;border-radius:6px}',
+    '.ohn-fx:hover{background:#f5f2ff;color:#12111e}',
+    '.ohn-ffoot{position:sticky;bottom:-16px;margin-top:auto;background:#fff;padding:12px 0 16px;border-top:1px solid #f0edf7}',
+    '.ohn-fdone{width:100%;border:none;border-radius:10px;background:#550fed;color:#fff;font:600 14px Poppins,sans-serif;padding:10px;cursor:pointer}',
+    '.ohn-fdone:hover{background:#3d00d1}.ohn-fdone:focus-visible,.ohn-fx:focus-visible{outline:2px solid #a780ff;outline-offset:2px}',
+    '#pnl-filters-bar #filters-body{display:flex;flex-direction:column;gap:18px;padding-top:4px}',
+    '#pnl-filters-bar .fg label{text-transform:none!important;letter-spacing:0!important;font-size:12.5px!important;font-weight:600!important;color:#6b6b85!important;margin-bottom:6px}',
+    '#pnl-filters-bar .pf-btn,#pnl-filters-bar select{border-radius:8px!important;min-height:36px;font-size:13px!important;text-align:left}',
+    // Los desplegables de Fecha / País / Producto se abren a la izquierda del cajón, por encima.
+    '#period-panel,#pais-panel,#prod-panel{z-index:330!important}',
+    // Barra "Filtrar…": se escribe el filtro y se ve lo que entendió antes de aplicarlo.
+    '.ohn-q{position:relative;flex:1 1 260px;max-width:420px;margin-left:auto}',
+    '.ohn-q input{width:100%;box-sizing:border-box;border:1px solid #d9d4e6;border-radius:8px;padding:7px 12px 7px 32px;',
+    '  font:13px Poppins,-apple-system,"Segoe UI",sans-serif;color:#12111e;background:#fff}',
+    '.ohn-q input:focus{outline:none;border-color:#550fed;box-shadow:0 0 0 3px rgba(85,15,237,.12)}',
+    '.ohn-q::before{content:"";position:absolute;left:11px;top:50%;width:10px;height:10px;margin-top:-7px;border:2px solid #8a88a0;border-radius:50%}',
+    '.ohn-q::after{content:"";position:absolute;left:21px;top:50%;width:6px;height:2px;margin-top:4px;background:#8a88a0;transform:rotate(45deg)}',
+    '.ohn-q-pop{display:none;position:absolute;left:0;right:0;top:calc(100% + 6px);background:#fff;border:1px solid #ebe8f3;border-radius:12px;',
+    '  box-shadow:0 12px 32px rgba(18,17,30,.14);padding:12px 14px;z-index:305;font-size:13px;color:#3d3b52}',
+    '.ohn-q.open .ohn-q-pop{display:block}',
+    '.ohn-q-chips{display:flex;flex-wrap:wrap;gap:6px}',
+    '.ohn-q-chip{background:#f0ebff;border:1px solid #d9ccff;border-radius:999px;padding:3px 10px;color:#3d00d1}',
+    '.ohn-q-chip i{font-style:normal;color:#6b6b85;margin-right:4px}',
+    '.ohn-q-bad{margin-top:8px;color:#9a6700}',
+    '.ohn-q-hint{margin-top:10px;font-size:12px;color:#8a88a0}',
+    '.ohn-q-ex{cursor:pointer;color:#550fed;text-decoration:underline;margin-right:8px}',
+    '.ohn-filters-btn.ohn-after-q{margin-left:0}',
     '#ownia-hubnav{position:sticky;top:var(--hdr-h);z-index:299;height:' + NAV_H + 'px;display:flex;align-items:center;gap:12px;',
     '  padding:0 16px;background:linear-gradient(90deg,#2a0a8f 0%,#3d00d1 100%);border-bottom:1px solid rgba(167,128,255,.35);',
     '  font-family:Poppins,-apple-system,"Segoe UI",sans-serif}',
@@ -393,7 +429,8 @@
     var html = '<div class="ohn-ctx">' +
       (period ? '<span class="ohn-period">' + esc(period) + '</span>' : '') +
       '<span class="ohn-pill"><b>' + esc(LOB_NAME[st.lob] || LOB_NAME[current] || '') + '</b></span>' + pills +
-      '<button type="button" class="ohn-filters-btn" aria-expanded="' + open + '" aria-controls="pnl-filters-bar">Filtros</button>' +
+      (window.OwniaFilters ? '<span class="ohn-q-slot"></span>' : '') +
+      '<button type="button" class="ohn-filters-btn' + (window.OwniaFilters ? ' ohn-after-q' : '') + '" aria-expanded="' + open + '" aria-controls="pnl-filters-bar">Filtros</button>' +
       '</div>';
     html += readingHtml(st, goal) + '<div class="ohn-kpis">';
     var totalIdx = st.pnl.groups ? st.pnl.groups.length - 1 : -1;
@@ -424,7 +461,14 @@
         '</div>';
     });
     html += '</div><div class="ohn-facts">' + marginHtml(st) + benchHtml(st) + okrHtml(st) + '</div>';
+    // La barra "Filtrar…" es siempre el mismo nodo: un render a mitad de la escritura no la borra.
+    var qFocused = qBox && qBox.contains(document.activeElement);
     top.innerHTML = html;
+    var slot = top.querySelector('.ohn-q-slot');
+    if (slot) {
+      slot.parentNode.replaceChild(searchBox(), slot);
+      if (qFocused) qBox.querySelector('input').focus();
+    }
     top.querySelector('.ohn-filters-btn').onclick = function () {
       if (typeof window.toggleFiltersPanel === 'function') window.toggleFiltersPanel();   // wrap → renderTop
     };
@@ -434,6 +478,226 @@
       if (wrap && !wrap.classList.contains('open')) wrap.querySelector('.ohn-detail-btn').click();
       if (col) setTimeout(function () { col.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 60);
     };
+  }
+
+  // ── Barra "Filtrar…" ─────────────────────────────────────────────────────────────────────────
+  // Se escribe en lenguaje libre ("bra b2b sep vs fc"); mientras se escribe se ve lo que entendió
+  // y lo que no; Enter aplica todo junto (una sola recarga) y Esc vuelve atrás.
+  var qBox = null;
+  var Q_DIM = { pais: 'País', grupo: 'Países', lob: 'LoB', canal: 'Canal', goal: 'Comparar', baseline: 'Base', producto: 'Producto', periodo: 'Período' };
+  var HISPA = ['Argentina', 'Chile', 'Colombia', 'Peru', 'Ecuador'];
+  var Q_EXAMPLES = ['brasil sep', 'mx b2b vs fc', 'hoteles q2', 'globales ytd', 'hispa vs ly', 'limpiar'];
+
+  function searchBox() {
+    if (qBox) return qBox;
+    qBox = document.createElement('div');
+    qBox.className = 'ohn-q';
+    qBox.innerHTML = '<input type="search" autocomplete="off" spellcheck="false" aria-label="Filtrar escribiendo"' +
+      ' placeholder="Filtrar… ej: brasil b2b sep vs forecast"><div class="ohn-q-pop" role="status" aria-live="polite"></div>';
+    var input = qBox.querySelector('input'), pop = qBox.querySelector('.ohn-q-pop');
+    var show = function () { pop.innerHTML = previewHtml(input.value); qBox.classList.add('open'); };
+    input.addEventListener('focus', show);
+    input.addEventListener('input', show);
+    input.addEventListener('blur', function () { setTimeout(function () { qBox.classList.remove('open'); }, 150); });
+    input.addEventListener('keydown', function (ev) {
+      ev.stopPropagation();   // las teclas 1/2/3 y Esc del Hub no aplican mientras se escribe
+      if (ev.key === 'Escape') { input.value = ''; input.blur(); qBox.classList.remove('open'); }
+      if (ev.key === 'Enter') {
+        ev.preventDefault();
+        var plan = planQuery(input.value);
+        if (!plan.items.length) return show();
+        input.value = '';
+        input.blur();
+        qBox.classList.remove('open');
+        applyPlan(plan);
+      }
+    });
+    pop.addEventListener('mousedown', function (ev) {
+      var ex = ev.target.closest('.ohn-q-ex');
+      if (!ex) return;
+      ev.preventDefault();   // sin perder el foco del input
+      input.value = ex.textContent;
+      show();
+    });
+    return qBox;
+  }
+
+  // Traduce el texto a cambios concretos de filtro, resueltos contra el año fiscal del tablero.
+  function planQuery(text) {
+    var r = window.OwniaFilters.parse(text), plan = { items: [], unknown: r.unknown.slice() };
+    var fy = window.FY_MONTHS || [], months = [];
+    r.matches.forEach(function (m) {
+      if (m.dim === 'periodo') {
+        var p = m.value, got = [];
+        if (p.kind === 'month') got = fy.filter(function (ym) { return ym.slice(5) === p.mm && (!p.yy || ym.slice(2, 4) === p.yy); });
+        else if (p.kind === 'ym') got = fy.indexOf(p.ym) >= 0 ? [p.ym] : [];
+        else if (p.kind === 'q') got = fy.slice((p.n - 1) * 3, p.n * 3);
+        else if (p.kind === 'h') got = fy.slice((p.n - 1) * 6, p.n * 6);
+        else if (p.kind === 'fy') got = fy.slice();
+        else if (p.kind === 'ytd') {
+          var last = window._state && window._state.filters && window._state.filters.lastActuals;
+          got = fy.filter(function (ym) { return !last || ym <= last; });
+        }
+        if (got.length) months = months.concat(got);
+        else plan.unknown.push(m.text + ' (fuera del año fiscal)');
+        return;
+      }
+      if (m.dim === 'grupo') {
+        HISPA.forEach(function (c) { plan.items.push({ dim: 'pais', value: c, label: m.label }); });
+        return;
+      }
+      plan.items.push(m);
+    });
+    if (months.length) {
+      // Varios meses o trimestres = el rango completo entre el primero y el último ("jul a sep").
+      months.sort();
+      var range = fy.filter(function (ym) { return ym >= months[0] && ym <= months[months.length - 1]; });
+      var ys = window._ymShort_ || function (x) { return x; };
+      plan.items.push({ dim: 'periodo', value: range, label: range.length === 1 ? ys(range[0]) : ys(range[0]) + ' – ' + ys(range[range.length - 1]) });
+    }
+    return plan;
+  }
+
+  function previewHtml(text) {
+    if (!window.OwniaFilters.normalize(text)) {
+      return '<div>Escribí país, LoB, producto, período o contra qué comparar.</div>' +
+        '<div class="ohn-q-hint">Probá: ' + Q_EXAMPLES.map(function (e) { return '<span class="ohn-q-ex">' + esc(e) + '</span>'; }).join('') + '</div>';
+    }
+    var plan = planQuery(text), seen = {};
+    var chips = plan.items.filter(function (it) {
+      var k = it.dim + '|' + it.label;
+      if (seen[k]) return false;
+      return (seen[k] = true);
+    }).map(function (it) {
+      if (it.dim === 'accion') return '<span class="ohn-q-chip">Quitar filtros de país y producto</span>';
+      return '<span class="ohn-q-chip"><i>' + esc(Q_DIM[it.dim] || it.dim) + '</i>' + esc(it.label) + '</span>';
+    }).join('');
+    return (chips ? '<div class="ohn-q-chips">' + chips + '</div>' : '<div>No reconocí ningún filtro.</div>') +
+      (plan.unknown.length ? '<div class="ohn-q-bad">No entendí: ' + esc(plan.unknown.join(', ')) + '</div>' : '') +
+      (chips ? '<div class="ohn-q-hint">Enter para aplicar · Esc para cancelar</div>' : '');
+  }
+
+  // Aplica el plan con los mismos estados que usan los filtros del Hub, y recarga una sola vez.
+  function applyPlan(plan) {
+    var st = window._state, by = {};
+    plan.items.forEach(function (it) { (by[it.dim] = by[it.dim] || []).push(it.value); });
+    var last = function (d) { return by[d][by[d].length - 1]; };
+    var dataChanged = false;
+    if (by.accion) {
+      window._selectedPaises = [];
+      window._selectedProducto = 'all';
+      dataChanged = true;
+    }
+    if (by.pais) {
+      var order = window.PAISES_ORDER || [];
+      window._selectedPaises = order.filter(function (p) { return by.pais.indexOf(p) >= 0; });
+      dataChanged = true;
+    }
+    if (by.producto) { window._selectedProducto = last('producto'); dataChanged = true; }
+    if (by.periodo) {
+      st.selectedPeriods = last('periodo');
+      window._okrHalfManual = false;
+      if (typeof window.buildPeriodPicker === 'function') window.buildPeriodPicker();
+      if (typeof window.updatePeriodLabel === 'function') window.updatePeriodLabel();
+      if (typeof window._syncOKRHalf_ === 'function') window._syncOKRHalf_();
+      dataChanged = true;
+    }
+    if (by.baseline) {
+      st.baselineSource = last('baseline');
+      var bs = document.getElementById('f-baseline-bar');
+      if (bs) bs.value = st.baselineSource;
+      dataChanged = true;
+    }
+    var goalChanged = false;
+    if (by.goal && last('goal') !== st.goal) {
+      st.goal = last('goal');
+      ['f-goal-bar', 'f-goal'].forEach(function (id) { var s = document.getElementById(id); if (s) s.value = st.goal; });
+      if (typeof window._syncOrganicUI_ === 'function') window._syncOrganicUI_();
+      goalChanged = true;
+    }
+    var lob = by.lob ? last('lob') : null;
+    if (by.canal) {
+      // Mayoristas / Minoristas existen solo en B2B: el canal lleva a B2B.
+      st.canal = last('canal');
+      lob = 'b2b';
+      Array.prototype.forEach.call(document.querySelectorAll('#canal-fg .canal-toggle button'), function (b) {
+        b.classList.toggle('active', b.dataset.c === st.canal);
+      });
+      dataChanged = true;
+    }
+    syncFilterLabels();
+    if (lob && lob !== st.lob) return window.goToSection(lob);   // switchLob recarga con los filtros nuevos
+    if (dataChanged && typeof window.reload === 'function') return window.reload();
+    if (goalChanged && typeof window.render === 'function') window.render();
+  }
+
+  // Los textos de los botones del panel, como los dejan _paisApply y el selector de producto.
+  function syncFilterLabels() {
+    var ps = window._selectedPaises || [], disp = window.PAISES_DISPLAY || {};
+    var pl = document.getElementById('pais-label-bar');
+    if (pl) pl.textContent = !ps.length ? 'Todos los países' : ps.length === 1 ? (disp[ps[0]] || ps[0]) : ps.length + ' países';
+    var prod = (window.PRODUCTOS_ORDER || []).filter(function (p) { return p.val === window._selectedProducto; })[0];
+    var prl = document.getElementById('prod-label-bar');
+    if (prl && prod) prl.textContent = prod.lbl;
+  }
+
+  // ── Cajón de filtros ─────────────────────────────────────────────────────────────────────────
+  function setupDrawer() {
+    var bar = document.getElementById('pnl-filters-bar');
+    if (!bar || document.getElementById('ohn-fback')) return;
+    var back = document.createElement('div');
+    back.id = 'ohn-fback';
+    back.addEventListener('click', closeDrawer);
+    document.body.appendChild(back);
+    var head = document.createElement('div');
+    head.className = 'ohn-fhead';
+    head.innerHTML = '<b>Filtros</b><button type="button" class="ohn-fx" aria-label="Cerrar filtros">×</button>';
+    head.querySelector('button').onclick = closeDrawer;
+    bar.insertBefore(head, bar.firstChild);
+    var foot = document.createElement('div');
+    foot.className = 'ohn-ffoot';
+    foot.innerHTML = '<button type="button" class="ohn-fdone">Listo</button>';
+    foot.querySelector('button').onclick = closeDrawer;
+    bar.appendChild(foot);
+    var REN = { 'Baseline': 'Base', 'Goal (referencia)': 'Comparar contra', 'Nominales': 'Montos en', 'Organic': 'Orgánico (tipo de cambio constante)' };
+    Array.prototype.forEach.call(bar.querySelectorAll('#org-toggle button'), function (b) {
+      b.textContent = b.dataset.o === 'yes' ? 'Sí' : 'No';
+    });
+    Array.prototype.forEach.call(bar.querySelectorAll('.fg > label'), function (l) {
+      var t = l.textContent.trim();
+      if (REN[t]) l.textContent = REN[t];
+    });
+    var ob = bar.querySelector('#f-baseline-bar option[value="baseline"]');
+    if (ob) ob.textContent = 'Real + proyección (Run Rate)';
+    var ol = bar.querySelector('#f-goal-bar option[value="lastYear"]');
+    if (ol) ol.textContent = 'Año pasado (LY)';
+    document.addEventListener('keydown', function (ev) {
+      if (ev.key !== 'Escape' || !document.body.classList.contains('ohn-fopen')) return;
+      var floating = ['period-panel', 'pais-panel', 'prod-panel'].map(function (id) { return document.getElementById(id); })
+        .filter(function (p) { return p && p.style.display !== 'none'; });
+      if (floating.length) floating.forEach(function (p) { p.style.display = 'none'; });
+      else closeDrawer();
+    });
+  }
+  function closeDrawer() {
+    if (window._state && window._state.filtersExpanded && typeof window.toggleFiltersPanel === 'function') window.toggleFiltersPanel();
+  }
+  function syncDrawer(focus) {
+    var bar = document.getElementById('pnl-filters-bar');
+    var open = !!(bar && window._state && window._state.filtersExpanded && bar.style.display !== 'none');
+    document.body.classList.toggle('ohn-fopen', open);
+    if (open && focus === true && !bar.contains(document.activeElement)) {
+      var first = bar.querySelector('.pf-btn');
+      if (first) first.focus({ preventScroll: true });
+    }
+  }
+  // Fecha / País / Producto: el Hub los abre a la derecha del botón; con el cajón a la derecha
+  // quedarían fuera de la pantalla, así que van a su izquierda.
+  function placeFloating(panelId) {
+    var panel = document.getElementById(panelId), bar = document.getElementById('pnl-filters-bar');
+    if (!panel || !bar || panel.style.display === 'none') return;
+    var left = bar.getBoundingClientRect().left - panel.offsetWidth - 8;
+    panel.style.left = Math.max(8, left) + 'px';
   }
 
   // Consolidado: el mismo indicador para B2B (Mayoristas + Minoristas) y B2B2C (WL's), vs el Goal.
@@ -704,12 +968,30 @@
         window._preloadOtherLobs_(window.getParams());
       }
     });
-    wrap('toggleFiltersPanel', renderTop);
+    wrap('toggleFiltersPanel', function () { renderTop(); syncDrawer(true); });
     wrap('renderOKR', renderTop);
+    // Desplegable de país: qué incluye Globales y OPS + RG.
+    wrap('_buildPaisPanel', function () {
+      var tips = { 'Other Countries': 'Globales = Other Countries (Other / Others / OT en las bases)', 'RG': 'OPS + RG: imputaciones de operaciones y regionales, no es un país' };
+      Object.keys(tips).forEach(function (k) {
+        var l = document.querySelector('label[for="pc-p-' + k + '"]');
+        if (l) { l.title = tips[k]; if (k === 'RG') l.textContent = 'OPS + RG'; }
+      });
+    });
+    // switchLob apaga todos los .canal-toggle, también "Montos en" ($M / $K): se vuelve a marcar.
+    wrap('switchLob', function () {
+      var fmt = (window._state && window._state.numFmt) || 'M';
+      Array.prototype.forEach.call(document.querySelectorAll('.numfmt-btn'), function (b) { b.classList.toggle('active', b.dataset.fmt === fmt); });
+      syncDrawer();
+    });
+    [['togglePeriodPanelBar', 'period-panel'], ['togglePaisPanelBar', 'pais-panel'], ['toggleProdPanelBar', 'prod-panel']].forEach(function (p) {
+      wrap(p[0], function () { placeFloating(p[1]); });
+    });
   }
 
   document.addEventListener('DOMContentLoaded', function () {
     owniaFrames();
+    setupDrawer();
     hook();
     if (build()) {
       var cur = document.querySelector('.lob-tab.active');
