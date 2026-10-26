@@ -61,11 +61,11 @@
     var g = pnl.groups || [];
     var idx = { total: g.indexOf('Total'), b2b2c: g.indexOf("WL's"), min: g.indexOf('MIN'), may: g.indexOf('MAY') };
     pnl.rows.forEach(function (r) {
-      if (!METRICS.some(function (m) { return m[0] === r.id; })) return;
+      if (r.id !== 'gb' && !METRICS.some(function (m) { return m[0] === r.id; })) return;
       out[r.id] = {};
       SEGS.forEach(function (s) {
         var c = r.cols[idx[s[0]]] || {};
-        out[r.id][s[0]] = { act: c.actual || 0, bud: c.budget || 0, ly: c.lyVal || 0 };
+        out[r.id][s[0]] = { act: c.actual || 0, bud: c.budget || 0, ly: c.lyVal || 0, yoy: isFinite(c.yoyPct) ? c.yoyPct : NaN };
       });
     });
     return out;
@@ -88,6 +88,7 @@
         // gap = plan (lo que el Budget ya planeaba sobre la estacionalidad) + h1eff (rebase por el H1 real)
         return { seg: s[0], name: s[1], metric: m[1], h1: a.act, h1VsBud: pct(a.act, a.bud), h2: b.bud,
           h1Bud: a.bud, lyH1: lyH1, lyH2: b.ly,
+          h1yoy: isFinite(a.yoy) ? pct(a.ly * (1 + a.yoy / 100), lyH1) : NaN, h2yoy: pct(b.bud, b.ly),
           bud: bud, ly: ly, inBud: inBud, gap: bud - ly, plan: inBud - ly, h1eff: bud - inBud, proj: pct(b.act, b.bud) };
       });
     });
@@ -151,9 +152,7 @@
       '<b>Challenge</b> = Pide − Año pasado, en pp = <b>plan</b> (Planeado − Año pasado) + <b>efecto H1</b> (Pide − Planeado: el H1 real arriba o abajo de su Budget).</div>';
   }
 
-  // ── Vista para el CEO ─────────────────────────────────────────────────────────────────────
-  // Un solo porcentaje contra una sola referencia ("crece X%, un H2 normal crece Y%"), un veredicto
-  // en palabras y el porqué en una frase. El detalle (Planeado, plan / efecto H1) queda plegado.
+  // ── Veredicto: cuántos pp pide el Budget por encima de un H2 normal ──────────────────────────
   var VERDICTS = [
     [25, 'Muy exigente', 'h21-v4'], [8, 'Exigente', 'h21-v3'], [-8, 'Normal', 'h21-v2'], [-Infinity, 'Holgado', 'h21-v1'],
   ];
@@ -164,63 +163,94 @@
   }
   function metricShort(r) { return r.metric === 'Net Revenue' ? 'NR' : 'OC'; }
 
-  // Por qué, en una frase: lo que planeó el Budget vs lo que dejó el H1 real contra su Budget.
-  function why(r) {
-    var h1 = 'el H1 de ' + metricShort(r) + ' quedó ' + fmtP(r.h1VsBud) + ' vs Budget';
-    if (r.gap > 8) {
-      return Math.abs(r.h1eff) > Math.abs(r.plan) && r.h1eff > 0
-        ? 'Hay que recuperar el H1: ' + h1 + '; el Budget planeaba un H2 normal.'
-        : 'El Budget ya planeaba un H2 fuerte (' + fmtP(r.inBud) + ' sobre el H1)' + (r.h1eff < -5 ? '; ' + h1 + ' y lo compensa en parte.' : '.');
-    }
-    if (r.gap < -8) return 'El Budget pide menos que un H2 normal' + (r.h1VsBud > 5 ? ', y ' + h1 + '.' : '.');
-    return 'En línea con un H2 normal' + (Math.abs(r.h1VsBud) >= 10 ? '; ' + h1 + '.' : '.');
+  // ── Slide (formato de la presentación de dirección, 16:9, en inglés como el deck) ─────────────
+  var SEG_COLORS = { b2b2c: '#550fed', min: '#ffaa44', may: '#e08a00' };
+  var SEG_EN = { total: 'Total', b2b2c: 'B2B2C', min: 'B2B MIN', may: 'B2B MAY' };
+  function pc(v, cls0) { return '<b class="' + (cls0 || (v >= 0 ? 'h21-up' : 'h21-dn')) + '">' + fmtP(v) + '</b>'; }
+  function segLine(list, get) {
+    return list.slice(1).map(function (r) { return SEG_EN[r.seg] + ' ' + pc(get(r)); }).join(' · ');
   }
-
-  // Lectura de la fila: la métrica más exigente del segmento (la que hay que contar).
-  function segReading(nr, oc) {
-    var main = (isFinite(oc.gap) && oc.gap > nr.gap) ? oc : nr;
-    var v = verdict(main.gap);
-    var both = verdict(nr.gap)[0] === verdict(oc.gap)[0];
-    return '<span class="h21-vtag ' + v[1] + '">' + v[0] + (both ? '' : ' en ' + metricShort(main)) + '</span>' +
-      '<span class="h21-why">' + esc(why(main)) + '</span>';
-  }
-
-  function cell(r) {
-    var v = verdict(r.gap);
-    return '<div class="h21-cell">' +
-      '<div class="h21-flow">' + fmtM(r.h1) + ' <span class="h21-arrow">→</span> ' + fmtM(r.h2) + '</div>' +
-      '<div class="h21-grow"><b class="h21-g ' + v[1] + '">' + fmtP(r.bud) + '</b><span class="h21-vs">un H2 normal: ' + fmtP(r.ly) + '</span></div>' +
+  function sCard(title, list, half, gb) {
+    var t = list[0], h1 = half === 1;
+    var val = h1 ? t.h1 : t.h2;
+    var marg = gb ? '<span class="h21-smarg">' + (val / gb * 100).toFixed(1) + '%</span>' : '';
+    return '<div class="h21-scard"><div class="h21-spill">' + title + (h1 ? ' H1 Actual' : ' H2 Budget') + '</div>' +
+      '<div class="h21-sval' + (h1 ? '' : ' h21-sval2') + '">USD ' + fmtM(val) + marg + '</div>' +
+      (h1 ? '<div class="h21-sl">' + pc(t.h1VsBud) + ' vs Budget | ' + segLine(list, function (r) { return r.h1VsBud; }) + '</div>' +
+            '<div class="h21-sl h21-sly">YoY: Total ' + pc(t.h1yoy) + ' | ' + segLine(list, function (r) { return r.h1yoy; }) + '</div>'
+          : '<div class="h21-sl">' + pc(t.bud) + ' vs H1 Act | ' + segLine(list, function (r) { return r.bud; }) + '</div>' +
+            '<div class="h21-sl h21-sly">YoY: Total ' + pc(t.h2yoy) + ' | ' + segLine(list, function (r) { return r.h2yoy; }) + '</div>') +
       '</div>';
   }
-
-  function ceoTable(all) {
-    var body = SEGS.map(function (s, i) {
-      var nr = all.nr[i], oc = all.oc[i];
-      return '<div class="h21-crow' + (s[0] === 'total' ? ' h21-ctot' : '') + '">' +
-        '<div class="h21-cseg">' + esc(s[1]) + '</div>' + cell(nr) + cell(oc) +
-        '<div class="h21-read">' + segReading(nr, oc) + '</div></div>';
-    }).join('');
-    return '<section class="h21-ceo">' +
-      '<div class="h21-crow h21-chdr"><div></div>' +
-      '<div><b>Net Revenue</b><span>H1 real → H2 Budget · crece</span></div>' +
-      '<div><b>Operating Contribution</b><span>H1 real → H2 Budget · crece</span></div>' +
-      '<div><b>¿Qué tan exigente es el H2?</b><span>vs el crecimiento de un H2 normal (H2 vs H1 del año pasado)</span></div></div>' +
-      body + '</section>';
-  }
-
-  function headline(all) {
-    var nr = all.nr[0], oc = all.oc[0], tot = Math.max(nr.gap, oc.gap);
-    var level = tot > 25 ? 'muy por encima de' : tot > 8 ? 'por encima de' : tot < -8 ? 'por debajo de' : 'en línea con';
-    var hard = {};
-    METRICS.forEach(function (m) {
-      all[m[0]].forEach(function (r) { if (r.seg !== 'total' && r.gap > 8) (hard[r.name] = hard[r.name] || []).push(metricShort(r)); });
+  // Barras H1 real / H2 Budget × B2B2C / MIN / MAY, YoY arriba de cada barra (SVG)
+  function sChart(title, list, adjNote) {
+    var segs = list.slice(1), W = 520, H = 210, base = 172, top = 30, bw = 46, gap = 6;
+    var bars = [];
+    segs.forEach(function (r, i) { bars.push({ x: 40 + i * (bw + gap), v: r.h1, yoy: r.h1yoy, c: SEG_COLORS[r.seg], star: adjNote && r.seg === 'b2b2c' }); });
+    segs.forEach(function (r, i) { bars.push({ x: 300 + i * (bw + gap), v: r.h2, yoy: r.h2yoy, c: SEG_COLORS[r.seg] }); });
+    var max = Math.max.apply(null, bars.map(function (b) { return Math.max(b.v, 0); })) || 1;
+    var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + esc(title) + '">';
+    bars.forEach(function (b) {
+      var h = Math.max(b.v, 0) / max * (base - top), y = base - h;
+      svg += '<rect x="' + b.x + '" y="' + y.toFixed(1) + '" width="' + bw + '" height="' + h.toFixed(1) + '" rx="2" fill="' + b.c + '"/>';
+      svg += '<text x="' + (b.x + bw / 2) + '" y="' + (h > 22 ? (y + h / 2 + 5) : (y - 20)).toFixed(1) + '" class="' + (h > 22 ? 'h21-sbv' : 'h21-sbv h21-sbvo') + '">' + fmtM(b.v).replace('M', '') + '</text>';
+      svg += '<text x="' + (b.x + bw / 2) + '" y="' + (y - 6).toFixed(1) + '" class="h21-sby" fill="' + (b.yoy >= 0 ? '#34a853' : '#d4373a') + '">' + fmtP(b.yoy) + (b.star ? '*' : '') + '</text>';
     });
-    var names = Object.keys(hard).sort(function (a, b) { return hard[b].length - hard[a].length; })
-      .map(function (n) { return '<b>' + esc(n) + '</b>' + (hard[n].length < 2 ? ' (' + hard[n][0] + ')' : ''); });
-    var where = !names.length ? 'Ningún negocio pide un esfuerzo extra relevante.'
-      : 'El esfuerzo está concentrado en ' + (names.length > 1 ? names.slice(0, -1).join(', ') + ' y ' + names[names.length - 1] : names[0]) + '.';
-    return 'En total, el Budget pide un H2 <b>' + level + '</b> lo normal: Net Revenue <b>' + fmtP(nr.bud) + '</b> sobre el H1 (un H2 normal: ' + fmtP(nr.ly) + ') ' +
-      'y Operating Contribution <b>' + fmtP(oc.bud) + '</b> (normal: ' + fmtP(oc.ly) + '). ' + where;
+    svg += '<line x1="20" x2="' + (W - 20) + '" y1="' + base + '" y2="' + base + '" stroke="#d0d0d8"/>';
+    var c1 = 40 + (segs.length * (bw + gap) - gap) / 2, c2 = 300 + (segs.length * (bw + gap) - gap) / 2;
+    svg += '<text x="' + c1 + '" y="' + (base + 24) + '" class="h21-sbx">H1</text><text x="' + c2 + '" y="' + (base + 24) + '" class="h21-sbx">H2</text></svg>';
+    return '<div class="h21-schart"><div class="h21-sct">' + title + ' (USD M)</div>' + svg + '</div>';
+  }
+  // Main challenges: veredicto + porqué (en inglés), los negocios ordenados por exigencia
+  var VERD_EN = { 'Muy exigente': 'Very demanding', 'Exigente': 'Demanding', 'Normal': 'In line', 'Holgado': 'Comfortable' };
+  function whyEn(r) {
+    var h1 = 'H1 ' + metricShort(r) + ' ' + fmtP(r.h1VsBud) + ' vs Budget';
+    if (r.gap > 8) {
+      return Math.abs(r.h1eff) > Math.abs(r.plan) && r.h1eff > 0
+        ? 'must recover a weak H1 (' + h1 + '); the Budget itself planned a normal H2'
+        : 'the Budget already planned a strong H2 (' + fmtP(r.inBud) + ' over H1)' + (r.h1eff < -5 ? ', partly covered by ' + h1 : '');
+    }
+    if (r.gap < -8) return 'asks less than a normal H2' + (r.h1VsBud > 5 ? ' after ' + h1 : '');
+    return 'in line with a normal H2';
+  }
+  function sChallenges(all) {
+    var items = SEGS.slice(1).map(function (s, i) {
+      var nr = all.nr[i + 1], oc = all.oc[i + 1], main = (isFinite(oc.gap) && oc.gap > nr.gap) ? oc : nr;
+      return { s: s, nr: nr, oc: oc, main: main };
+    }).sort(function (a, b) { return b.main.gap - a.main.gap; });
+    var li = items.map(function (it) {
+      var v = verdict(it.main.gap), m = it.main;
+      return '<li><span class="h21-vtag ' + v[1] + '">' + VERD_EN[v[0]] + '</span> <b>' + SEG_EN[it.s[0]] + '</b>: ' +
+        'H2 Budget ' + metricShort(m) + ' ' + pc(m.bud, 'h21-strong') + ' over H1 (normal H2 ' + fmtP(m.ly) + ') — ' + esc(whyEn(m)) + '</li>';
+    }).join('');
+    return '<div class="h21-schal"><div class="h21-scht">H2 Budget Main Challenges <span>(growth H2 vs H1 vs a normal H2 = last year\'s H2 vs H1)</span></div><ul>' + li + '</ul></div>';
+  }
+  function sTitle(all) {
+    var nr = all.nr[0], oc = all.oc[0], tot = Math.max(nr.gap, oc.gap);
+    var level = tot > 25 ? 'well above' : tot > 8 ? 'above' : tot < -8 ? 'below' : 'in line with';
+    var hard = [];
+    SEGS.slice(1).forEach(function (s, i) {
+      var ms = METRICS.filter(function (m) { return all[m[0]][i + 1].gap > 8; }).map(function (m) { return m[0] === 'nr' ? 'NR' : 'OC'; });
+      if (ms.length) hard.push(SEG_EN[s[0]] + (ms.length < 2 ? ' ' + ms[0] : ''));
+    });
+    return 'B2B &amp; B2B2C: H2 Budget asks ' + fmtP(nr.bud) + ' NR / ' + fmtP(oc.bud) + ' OC over H1 — ' + level + ' a normal H2' +
+      (hard.length ? '; the effort sits in ' + hard.join(' and ') : '');
+  }
+  function slide(all, h1, h2) {
+    var adj = fy() === LY_ADJ_FY;
+    return '<div class="h21-slide">' +
+      '<div class="h21-stitle">' + sTitle(all) + '</div>' +
+      '<div class="h21-sgrid">' +
+        '<div class="h21-scol"><div class="h21-shalf">H1</div>' + sCard('Net Revenue', all.nr, 1) + sCard('Op. Contribution', all.oc, 1, h1.gb.total.act) + '</div>' +
+        '<div class="h21-scol"><div class="h21-shalf">H2</div>' + sCard('Net Revenue', all.nr, 2) + sCard('Op. Contribution', all.oc, 2, h2.gb.total.bud) + '</div>' +
+        '<div class="h21-scharts"><div class="h21-scap">H1 actuals vs H2 Budget | YoY vs FY' + String(fy() - 1).slice(-2) + ' above each bar ' +
+          '<span class="h21-sleg"><i style="background:' + SEG_COLORS.b2b2c + '"></i>B2B2C <i style="background:' + SEG_COLORS.min + '"></i>B2B MIN <i style="background:' + SEG_COLORS.may + '"></i>B2B MAY</span></div>' +
+          sChart('Net Revenue', all.nr) + sChart('Op. Contribution', all.oc, adj) + '</div>' +
+        sChallenges(all) +
+      '</div>' +
+      '<div class="h21-sfoot">' + (adj ? '* H1 OC YoY adj. excl. LATAM extraordinary payment USD 5.6M (Jun-25). ' : '') +
+        (organicOn() ? 'Organic: H1 actuals at Budget FX. ' : '') + 'OC margin over Gross Bookings.<span>FY' + String(fy()).slice(-2) + ' | Despegar</span></div>' +
+      '</div>';
   }
 
   function render(h1r, h2r) {
@@ -233,10 +263,9 @@
     var p = all.nr[0].proj, q = all.oc[0].proj;
     var open = panel.querySelector('.h21-det') && panel.querySelector('.h21-det').open;
     body().innerHTML =
-      '<p class="h21-head1">' + headline(all) + '</p>' +
-      '<div class="h21-sub">H1 real abr–sep ' + (yr - 1) + ' · H2 Budget oct ' + (yr - 1) + '–mar ' + yr + ' · USD · ' +
+      '<div class="h21-sub">Formato de la presentación de dirección · ' +
         '<span class="h21-mode">' + (org ? 'Organic: H1 real a tipo de cambio Budget' : 'USD nominales') + '</span></div>' +
-      ceoTable(all) +
+      slide(all, h1, h2) +
       '<p class="h21-today">Hoy, con el real de octubre y el Run Rate, el H2 se proyecta <b class="' + (p >= 0 ? 'h21-up' : 'h21-dn') + '">' + fmtP(p) + '</b> en Net Revenue y ' +
         '<b class="' + (q >= 0 ? 'h21-up' : 'h21-dn') + '">' + fmtP(q) + '</b> en Operating Contribution contra el Budget.</p>' +
       '<details class="h21-det"' + (open ? ' open' : '') + '><summary>Ver detalle: de dónde sale el esfuerzo (plan del Budget vs efecto H1)</summary>' +
@@ -264,24 +293,38 @@
       '#h21 .h21-org button:first-of-type{border-radius:8px 0 0 8px}#h21 .h21-org button:last-of-type{border-radius:0 8px 8px 0;border-left:none}',
       '#h21 .h21-org button[aria-pressed="true"]{background:#550fed;border-color:#550fed;color:#fff}',
       '#h21 .h21-close{margin-left:10px;border:1px solid #d0d0d8;background:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font:inherit;font-size:13px}',
-      '#h21 .h21-head1{font-size:19px;line-height:1.45;margin:12px 0 6px;max-width:1050px}',
       '#h21 .h21-sub{color:#6e6e73;font-size:12.5px;margin:0 0 14px}',
       '#h21 .h21-mode{background:#ece7fd;color:#3d0bb0;border-radius:6px;padding:1px 7px;font-weight:600}',
-      '#h21 .h21-ceo{padding:6px 20px}',
-      '#h21 .h21-crow{display:grid;grid-template-columns:150px minmax(0,1fr) minmax(0,1fr) minmax(0,1.5fr);gap:18px;align-items:center;padding:14px 0;border-top:1px solid #ececf0}',
-      '#h21 .h21-chdr{border-top:none;padding:10px 0 6px;align-items:end}',
-      '#h21 .h21-chdr b{display:block;font-size:13px}',
-      '#h21 .h21-chdr span{display:block;font-size:11.5px;color:#6e6e73}',
-      '#h21 .h21-cseg{font-size:15px;font-weight:600}',
-      '#h21 .h21-ctot{background:#f8f7fd;margin:0 -20px;padding:14px 20px}',
-      '#h21 .h21-flow{font-size:13px;color:#6e6e73;font-variant-numeric:tabular-nums}',
-      '#h21 .h21-arrow{color:#c7c7cc}',
-      '#h21 .h21-grow{display:flex;align-items:baseline;gap:10px;margin-top:2px}',
-      '#h21 .h21-g{font-size:24px;font-weight:600;font-variant-numeric:tabular-nums}',
-      '#h21 .h21-vs{font-size:12.5px;color:#6e6e73}',
-      '#h21 .h21-read{display:flex;flex-direction:column;align-items:flex-start;gap:5px}',
+      '#h21 .h21-slide{background:#fff;border-radius:6px;box-shadow:0 2px 10px rgba(0,0,0,.08);aspect-ratio:16/9;max-width:1240px;margin:0 auto;padding:22px 28px 14px;display:flex;flex-direction:column;box-sizing:border-box}',
+      '#h21 .h21-stitle{color:#4300d2;font-size:21px;font-weight:600;line-height:1.3;margin-bottom:14px}',
+      '#h21 .h21-sgrid{flex:1;display:grid;grid-template-columns:1fr 1fr 1.45fr;grid-template-rows:auto 1fr;gap:12px 16px;min-height:0}',
+      '#h21 .h21-scol{display:flex;flex-direction:column;gap:12px}',
+      '#h21 .h21-shalf{align-self:center;background:#550fed;color:#fff;font-weight:600;font-size:13px;border-radius:4px;padding:2px 22px}',
+      '#h21 .h21-scard{border:1px solid #d8d8d8;border-radius:8px;padding:16px 12px 10px;position:relative;text-align:center}',
+      '#h21 .h21-spill{position:absolute;top:-10px;left:50%;transform:translateX(-50%);white-space:nowrap;background:#550fed;color:#fff;font-size:12px;font-weight:600;border-radius:4px;padding:2px 12px}',
+      '#h21 .h21-sval{color:#4300d2;font-size:24px;font-weight:700;margin:2px 0 4px}',
+      '#h21 .h21-sval2{color:#e08a00}',
+      '#h21 .h21-smarg{font-size:15px;font-weight:600;color:#4300d2;margin-left:8px}',
+      '#h21 .h21-sl{font-size:11.5px;color:#757575;line-height:1.5}',
+      '#h21 .h21-sly{margin-top:2px}',
+      '#h21 .h21-strong{color:#1d1d1f}',
+      '#h21 .h21-scharts{grid-row:1 / span 2;grid-column:3;display:flex;flex-direction:column;gap:4px;min-height:0}',
+      '#h21 .h21-scap{font-size:12px;color:#444;text-align:center}',
+      '#h21 .h21-sleg{display:block;margin-top:3px;font-size:11px;color:#6e6e73}',
+      '#h21 .h21-sleg i{display:inline-block;width:9px;height:9px;border-radius:2px;margin:0 4px 0 10px}',
+      '#h21 .h21-schart{flex:1;min-height:0;display:flex;flex-direction:column}',
+      '#h21 .h21-sct{color:#550fed;font-size:13px;font-weight:600;text-align:center}',
+      '#h21 .h21-schart svg{flex:1;min-height:0;width:100%;height:auto}',
+      '#h21 .h21-sbv{fill:#fff;font-size:12px;font-weight:700;text-anchor:middle}#h21 .h21-sbvo{fill:#3a3a3c}',
+      '#h21 .h21-sby{font-size:11.5px;font-weight:700;text-anchor:middle}',
+      '#h21 .h21-sbx{fill:#444;font-size:14px;font-weight:700;text-anchor:middle}',
+      '#h21 .h21-schal{grid-column:1 / span 2;background:#f1ecfd;border-radius:8px;padding:10px 14px;font-size:12.5px;color:#3a3a3c;align-self:stretch}',
+      '#h21 .h21-scht{font-weight:700;color:#1d1d1f;margin-bottom:5px}#h21 .h21-scht span{font-weight:400;color:#757575;font-size:11px}',
+      '#h21 .h21-schal ul{margin:0;padding-left:0;list-style:none}#h21 .h21-schal li{margin:5px 0;line-height:1.4}',
+      '#h21 .h21-schal .h21-vtag{font-size:10.5px;padding:1px 8px;margin-right:2px}',
+      '#h21 .h21-sfoot{display:flex;justify-content:space-between;font-size:10.5px;color:#9b9b9b;margin-top:8px}',
+      '@media (max-width:1000px){#h21 .h21-slide{aspect-ratio:auto}#h21 .h21-sgrid{grid-template-columns:1fr 1fr}#h21 .h21-scharts{grid-row:auto;grid-column:1 / -1}}',
       '#h21 .h21-vtag{font-size:12.5px;font-weight:700;border-radius:999px;padding:3px 11px}',
-      '#h21 .h21-why{font-size:13px;line-height:1.4;color:#3a3a3c}',
       '#h21 .h21-v4{color:#b3261e}#h21 .h21-v3{color:#b35c00}#h21 .h21-v2{color:#3a3a3c}#h21 .h21-v1{color:#146c43}',
       '#h21 .h21-vtag.h21-v4{background:#fdecea}#h21 .h21-vtag.h21-v3{background:#fff1e0}#h21 .h21-vtag.h21-v2{background:#f0f0f3}#h21 .h21-vtag.h21-v1{background:#e6f4ec}',
       '#h21 .h21-today{font-size:14px;margin:14px 2px}',
@@ -289,7 +332,6 @@
       '#h21 .h21-det summary{cursor:pointer;font-size:13px;color:#550fed;font-weight:600;padding:6px 2px;list-style-position:inside}',
       '#h21 .h21-det[open] summary{margin-bottom:10px}',
       '#h21 .h21-det section{margin-top:12px}',
-      '@media (max-width:900px){#h21 .h21-crow{grid-template-columns:1fr 1fr}#h21 .h21-cseg,#h21 .h21-read{grid-column:1 / -1}}',
       '#h21 section{background:#fff;border-radius:14px;padding:14px 16px;box-shadow:0 1px 3px rgba(0,0,0,.06)}',
       '#h21 h3{font-size:15px;font-weight:600;margin:0 0 8px}',
       '#h21 h4{font-size:13px;font-weight:600;margin:12px 0 6px;color:#6e6e73}',
