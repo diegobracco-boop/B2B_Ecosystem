@@ -628,6 +628,8 @@ body.krd-only #section-b2b > :not(.krd-keep) { display:none !important; }
 .fl-tbl tr.grp td{background:#f3f1fb;font-weight:700;color:var(--fl-ink)}
 .fl-tbl tr.tot td{background:#eee9fb;font-weight:800;border-top:2px solid var(--fl-purple2)}
 .fl-tight .fl-tbl th{padding:3px 8px}.fl-tight .fl-tbl td{padding:2px 8px}.fl-tight .fl-tag{margin-bottom:2px}   /* portada OC: tablas compactas */
+.fl-tight .fl-multi th,.fl-tight .fl-multi td{padding:2px 5px;white-space:nowrap}.fl-multi th{border-radius:0!important}
+.fl-multi th.fl-psep{border-left:2px solid rgba(255,255,255,.5)}.fl-multi td.fl-psep{border-left:2px solid var(--fl-line)}   /* portada OC: MTD | YTD | H2 */
 .fl-tbl tr.fl-more td{font-style:italic;font-weight:400;color:var(--fl-ink3);border-bottom:1px solid var(--fl-line)}
 .fl-tbl tr.grp:hover td, .fl-tbl tr[onclick]:hover td{background:#e9e4fb}
 .fl-acc-caret{display:inline-block;width:10px;color:var(--fl-purple2)}
@@ -5197,9 +5199,8 @@ function flowFY12OC_(compKey){
             yoy:(ly>0)?(b/ly-1)*100:null, projected:!isAct};
   });
 }
-// Tabla por región del OC: meses CERRADOS del FY (no hay MTD de OC) vs el Goal, mismo formato que
-// la tabla Región de flowGroupTable_.
-function flowOCTable_(compKey){
+// OC por región, meses CERRADOS del FY (no hay MTD de OC) vs el Goal → { data:{BR|SAH|NAM:{base,goal}}, rng }.
+function flowOCClosedData_(compKey){
   var oc=_rawB2BC.flow_oc||{rows:[],actual_months:[]}, L=_rawB2BC.meta.last_actuals_date, fyS=flFyStart_(L).substring(0,7);
   var closed={}; (oc.actual_months||[]).forEach(function(m){ if(m>=fyS) closed[m]=1; });
   var ge = compKey==='ly' ? 'ly' : compKey==='runrate' ? 'rr' : 'bg', G={};
@@ -5207,14 +5208,8 @@ function flowOCTable_(compKey){
   (oc.rows||[]).forEach(function(r){ var e=r[1], m=(e==='ly') ? (+r[0].substring(0,4)+1)+r[0].substring(4,7) : r[0].substring(0,7);
     if(!closed[m]) return; var k=getRegion_(r[2]);
     if(e==='bl') g(k).base+=r[3]; else if(e===ge) g(k).goal+=r[3]; });
-  function cell(d){ return '<td class="'+(d>=0?'fl-pos':'fl-neg')+'">'+(d>=0?'+':'')+fmtShort(d)+'</td>'; }
-  function pctCell(b,gl){ var p=gl>0?(b/gl-1)*100:null; return '<td class="'+((b-gl)>=0?'fl-pos':'fl-neg')+'">'+(p==null?'—':(p>=0?'+':'')+Math.round(p)+'%')+'</td>'; }
-  var body='', TB=0, TG=0;
-  ['BR','SAH','NAM'].forEach(function(k){ var x=G[k]; if(!x) return; TB+=x.base; TG+=x.goal;
-    body+='<tr class="grp"><td>'+(REGION_LABEL_[k]||k)+'</td><td>'+fmtShort(x.base)+'</td>'+cell(x.base-x.goal)+pctCell(x.base,x.goal)+'</tr>'; });
-  body+='<tr class="tot"><td>Total</td><td>'+fmtShort(TB)+'</td>'+cell(TB-TG)+pctCell(TB,TG)+'</tr>';
   var ms=Object.keys(closed).sort(), rng=ms.length ? fmtChartLabel_(ms[0]+'-01','monthly')+'–'+fmtChartLabel_(ms[ms.length-1]+'-01','monthly') : 'sin meses cerrados';
-  return {html:'<table class="fl-tbl"><thead><tr><th>Región</th><th>Baseline</th><th>Delta [$]</th><th>Delta [%]</th></tr></thead><tbody>'+body+'</tbody></table>', rng:rng};
+  return {data:G, rng:rng};
 }
 
 // daily series for the selected month: v=actuals (null if future), bud=goal (comp-aware)
@@ -5425,63 +5420,75 @@ function flowGroupTable_(subRaw, metricKey, comp, col1, groupByRegion, childMax,
   return '<table class="fl-tbl"><thead><tr><th>'+(col1||'Región / País')+'</th><th>Baseline</th><th>Delta [$]</th><th>Delta [%]</th></tr></thead><tbody>'+body+'</tbody></table>';
 }
 
-// Tabla Farming / Hunting / TBD de la portada OC (pedido 2026-10-26): mismo período, comparador y
-// formato que la tabla Región de flowGroupTable_, agrupando por flSeg_ en vez de por región.
-function flowSegTable_(subRaw, metricKey, comp, period){
+// Portada OC (pedido 2026-10-26): una tabla por métrica con MTD | YTD | H2 lado a lado (OC: cerrado | H2).
+// Farming / Hunting / TBD por flSeg_; OC por región. Cada helper devuelve {clave:{base,goal}}.
+function flowSegData_(subRaw, metricKey, comp, period){
   var vDate=flowVDate_(), mStart=(period==='ytd') ? flFyStart_(vDate) : vDate.substring(0,7)+'-01';
   var lyMode=(comp==='ly'), lyMS=_flLY_(mStart), lyVD=_flLY_(vDate);
   var MF=_FLMF[metricKey], cmpArr=_flCompArr_(subRaw,comp), cmpF=_flCompField_(metricKey,comp);
   var G={f:{base:0,goal:0},h:{base:0,goal:0},t:{base:0,goal:0}};
   (subRaw.actuals||[]).forEach(function(r){ if(r.fecha<mStart||r.fecha>vDate) return; G[flSeg_(r)].base+=(r[MF]||0); });
   cmpArr.forEach(function(r){ if(lyMode){ if(r.fecha<lyMS||r.fecha>lyVD) return; } else if(r.fecha<mStart||r.fecha>vDate){ return; } G[flSeg_(r)].goal+=(r[cmpF]||0); });
-  function cell(d){ return '<td class="'+(d>=0?'fl-pos':'fl-neg')+'">'+(d>=0?'+':'')+fmtShort(d)+'</td>'; }
-  function pctCell(b,g){ var p=g!==0?(b/g-1)*100:null; return '<td class="'+((b-g)>=0?'fl-pos':'fl-neg')+'">'+(p==null?'—':(p>=0?'+':'')+Math.round(p)+'%')+'</td>'; }
-  var body='', TB=0, TG=0;
-  FL_SEG_.forEach(function(sg){ var x=G[sg.k]; TB+=x.base; TG+=x.goal;
-    body+='<tr class="grp"><td><i style="display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;background:'+sg.c+'"></i>'+sg.lbl+'</td><td>'+fmtShort(x.base)+'</td>'+cell(x.base-x.goal)+pctCell(x.base,x.goal)+'</tr>'; });
-  body+='<tr class="tot"><td>Total</td><td>'+fmtShort(TB)+'</td>'+cell(TB-TG)+pctCell(TB,TG)+'</tr>';
-  return '<table class="fl-tbl"><thead><tr><th>Segmento</th><th>Baseline</th><th>Delta [$]</th><th>Delta [%]</th></tr></thead><tbody>'+body+'</tbody></table>';
+  return G;
 }
-
-// Portada OC — H2 (oct–mar) actual + proyección Run Rate vs Goal del H2 completo, mismas filas y
-// columnas que las tablas MTD/YTD (NR / FVM por Farming/Hunting/TBD, OC por región). Mismos números
-// que la vieja cajita "H2 (Act+Proy)": base de flowFY12_ / flowFY12OC_ y meses sin Goal afuera de
-// los dos lados (flowHalves_), abierto por segmento / región.
-function flowH2Tables_(sub, cmp, cmpShort){
-  var L=_rawB2BC.meta.last_actuals_date, fy0=+flFyStart_(L).substring(0,4), hdr='H2 '+flFyLbl_(L)+' (Act+Proy) vs '+cmpShort;
-  function cell(d){ return '<td class="'+(d>=0?'fl-pos':'fl-neg')+'">'+(d>=0?'+':'')+fmtShort(d)+'</td>'; }
-  function pctCell(b,g){ var p=g!==0?(b/g-1)*100:null; return '<td class="'+((b-g)>=0?'fl-pos':'fl-neg')+'">'+(p==null?'—':(p>=0?'+':'')+Math.round(p)+'%')+'</td>'; }
-  function wrap(tag, html){ return '<div class="fl-scroll-tbl" style="flex:1;min-width:0;min-height:0;overflow-y:auto"><div class="fl-tag">'+tag+'</div>'+html+'</div>'; }
-  var html=[['nr','NR'],['fvm','FVM']].map(function(t){
-    var mk=t[0], MF=_FLMF[mk], BF=_FLBMF[mk], h2=flowFY12_(sub,mk,cmp).slice(6), inH2={};
-    var G={f:{base:0,goal:0},h:{base:0,goal:0},t:{base:0,goal:0}};
-    h2.forEach(function(m){ if(m.bud==null) return; inH2[m.date.substring(0,7)]=1;
-      ['f','h','t'].forEach(function(k){ G[k].base+=m.seg[k].v+m.seg[k].p; }); });
-    var goalRows, gF;
-    if(cmp==='ly'){ var base=b2bcRaw_()||_rawB2BC; gF=MF;
-      goalRows=(sub.actuals_ly||[]).concat(sub.actuals_ly_fy_rest||[], (base.actuals||[]).filter(function(r){ return r.fecha<=L && r.fecha<fy0+'-04-01'; }));
-    } else { gF=BF; goalRows=(cmp==='runrate') ? (sub.runrate||[]).concat(sub.runrate_fy_rest||[]) : (sub.budget||[]).concat(sub.budget_fy_rest||[]); }
-    goalRows.forEach(function(r){ var m=(cmp==='ly') ? (+r.fecha.substring(0,4)+1)+r.fecha.substring(4,7) : r.fecha.substring(0,7);
-      if(inH2[m]) G[flSeg_(r)].goal+=(r[gF]||0); });
-    var body='', TB=0, TG=0;
-    FL_SEG_.forEach(function(sg){ var x=G[sg.k]; TB+=x.base; TG+=x.goal;
-      body+='<tr class="grp"><td><i style="display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;background:'+sg.c+'"></i>'+sg.lbl+'</td><td>'+fmtShort(x.base)+'</td>'+cell(x.base-x.goal)+pctCell(x.base,x.goal)+'</tr>'; });
-    body+='<tr class="tot"><td>Total</td><td>'+fmtShort(TB)+'</td>'+cell(TB-TG)+pctCell(TB,TG)+'</tr>';
-    return wrap(t[1]+' — '+hdr, '<table class="fl-tbl"><thead><tr><th>Segmento</th><th>Baseline</th><th>Delta [$]</th><th>Delta [%]</th></tr></thead><tbody>'+body+'</tbody></table>');
-  }).join('');
-  // OC por región: baseline del contable (cerrado + Run Rate) del H2 vs Goal, meses sin Goal afuera
+// H2 (oct–mar): actual + proyección Run Rate vs Goal del H2 completo — mismos totales que la vieja
+// cajita "H2 (Act+Proy)" (flowFY12_ + flowHalves_: meses sin Goal quedan afuera de los dos lados).
+function flowH2SegData_(sub, mk, cmp){
+  var L=_rawB2BC.meta.last_actuals_date, fy0=+flFyStart_(L).substring(0,4);
+  var MF=_FLMF[mk], BF=_FLBMF[mk], h2=flowFY12_(sub,mk,cmp).slice(6), inH2={};
+  var G={f:{base:0,goal:0},h:{base:0,goal:0},t:{base:0,goal:0}};
+  h2.forEach(function(m){ if(m.bud==null) return; inH2[m.date.substring(0,7)]=1;
+    ['f','h','t'].forEach(function(k){ G[k].base+=m.seg[k].v+m.seg[k].p; }); });
+  var goalRows, gF;
+  if(cmp==='ly'){ var base=b2bcRaw_()||_rawB2BC; gF=MF;
+    goalRows=(sub.actuals_ly||[]).concat(sub.actuals_ly_fy_rest||[], (base.actuals||[]).filter(function(r){ return r.fecha<=L && r.fecha<fy0+'-04-01'; }));
+  } else { gF=BF; goalRows=(cmp==='runrate') ? (sub.runrate||[]).concat(sub.runrate_fy_rest||[]) : (sub.budget||[]).concat(sub.budget_fy_rest||[]); }
+  goalRows.forEach(function(r){ var m=(cmp==='ly') ? (+r.fecha.substring(0,4)+1)+r.fecha.substring(4,7) : r.fecha.substring(0,7);
+    if(inH2[m]) G[flSeg_(r)].goal+=(r[gF]||0); });
+  return G;
+}
+// OC por región del H2: baseline del contable (cerrado + Run Rate) vs Goal, meses sin Goal afuera
+function flowOCH2Data_(cmp){
+  var L=_rawB2BC.meta.last_actuals_date, fy0=+flFyStart_(L).substring(0,4);
   var oc=_rawB2BC.flow_oc||{rows:[]}, ge=cmp==='ly' ? 'ly' : cmp==='runrate' ? 'rr' : 'bg', h2m={}, hasG={}, R={};
   for(var i=6;i<12;i++){ var mm=(3+i)%12+1; h2m[(fy0+(i>=9?1:0))+'-'+(mm<10?'0':'')+mm]=1; }
   function mOf(r){ return r[1]==='ly' ? (+r[0].substring(0,4)+1)+r[0].substring(4,7) : r[0].substring(0,7); }
   (oc.rows||[]).forEach(function(r){ if(r[1]===ge && h2m[mOf(r)]) hasG[mOf(r)]=1; });
   (oc.rows||[]).forEach(function(r){ var m=mOf(r); if(!hasG[m]) return; var k=getRegion_(r[2]), x=R[k]=R[k]||{base:0,goal:0};
     if(r[1]==='bl') x.base+=r[3]; else if(r[1]===ge) x.goal+=r[3]; });
-  var ob='', OB=0, OG=0;
-  ['BR','SAH','NAM'].forEach(function(k){ var x=R[k]; if(!x) return; OB+=x.base; OG+=x.goal;
-    ob+='<tr class="grp"><td>'+(REGION_LABEL_[k]||k)+'</td><td>'+fmtShort(x.base)+'</td>'+cell(x.base-x.goal)+pctCell(x.base,x.goal)+'</tr>'; });
-  ob+='<tr class="tot"><td>Total</td><td>'+fmtShort(OB)+'</td>'+cell(OB-OG)+pctCell(OB,OG)+'</tr>';
-  html+=wrap('OC — '+hdr, '<table class="fl-tbl"><thead><tr><th>Región</th><th>Baseline</th><th>Delta [$]</th><th>Delta [%]</th></tr></thead><tbody>'+ob+'</tbody></table>');
-  return '<div style="height:24px"></div>'+html;   // alto del switch MTD/YTD de la columna de al lado
+  return R;
+}
+// rows: [{k, lbl(html)}]; pers: [{lbl, data}] → Baseline / Δ [$] / Δ [%] por período, lado a lado.
+function flMultiPeriodTbl_(col1, rows, pers){
+  function cell(d){ return '<td class="'+(d>=0?'fl-pos':'fl-neg')+'">'+(d>=0?'+':'')+fmtShort(d)+'</td>'; }
+  // % solo con Goal > 0 (OC: Budget negativo da un % sin sentido → "—", como la vieja tabla de OC)
+  function pctCell(b,g){ var p=g>0?(b/g-1)*100:null; return '<td class="'+((b-g)>=0?'fl-pos':'fl-neg')+'">'+(p==null?'—':(p>=0?'+':'')+Math.round(p)+'%')+'</td>'; }
+  function trio(x){ return '<td class="fl-psep">'+fmtShort(x.base)+'</td>'+cell(x.base-x.goal)+pctCell(x.base,x.goal); }
+  var head='<tr><th rowspan="2" style="vertical-align:bottom">'+col1+'</th>'+pers.map(function(p){ return '<th colspan="3" class="fl-psep" style="text-align:center">'+p.lbl+'</th>'; }).join('')+'</tr>'
+    +'<tr>'+pers.map(function(){ return '<th class="fl-psep">Baseline</th><th>Δ [$]</th><th>Δ [%]</th>'; }).join('')+'</tr>';
+  var tot=pers.map(function(){ return {base:0,goal:0}; }), body='';
+  rows.forEach(function(rw){
+    if(!pers.some(function(p){ return p.data[rw.k]; })) return;
+    body+='<tr class="grp"><td>'+rw.lbl+'</td>'+pers.map(function(p,i){ var x=p.data[rw.k]||{base:0,goal:0}; tot[i].base+=x.base; tot[i].goal+=x.goal; return trio(x); }).join('')+'</tr>';
+  });
+  body+='<tr class="tot"><td>Total</td>'+tot.map(trio).join('')+'</tr>';
+  return '<table class="fl-tbl fl-multi"><thead>'+head+'</thead><tbody>'+body+'</tbody></table>';
+}
+function flowOCCoverTables_(sub, cmp, cmpShort){
+  var vDate=flowVDate_(), fyL=flFyLbl_(_rawB2BC.meta.last_actuals_date);
+  var segRows=FL_SEG_.map(function(sg){ return {k:sg.k, lbl:'<i style="display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;background:'+sg.c+'"></i>'+sg.lbl}; });
+  function wrap(tag, html){ return '<div class="fl-scroll-tbl" style="flex:1;min-width:0;min-height:0;overflow-y:auto"><div class="fl-tag">'+tag+'</div>'+html+'</div>'; }
+  var html=[['nr','NR'],['fvm','FVM']].map(function(t){
+    return wrap(t[1]+' vs '+cmpShort, flMultiPeriodTbl_('Segmento', segRows, [
+      {lbl:'MTD', data:flowSegData_(sub,t[0],cmp,'mtd')},
+      {lbl:'YTD '+flFyLbl_(vDate), data:flowSegData_(sub,t[0],cmp,'ytd')},
+      {lbl:'H2 '+fyL+' (Act+Proy)', data:flowH2SegData_(sub,t[0],cmp)} ]));
+  }).join('');
+  var oc=flowOCClosedData_(cmp), regRows=['BR','SAH','NAM'].map(function(k){ return {k:k, lbl:REGION_LABEL_[k]||k}; });
+  html+=wrap('OC vs '+cmpShort, flMultiPeriodTbl_('Región', regRows, [
+    {lbl:oc.rng+' (cerrado)', data:oc.data},
+    {lbl:'H2 '+fyL+' (Act+Proy)', data:flowOCH2Data_(cmp)} ]));
+  return html;
 }
 
 // Suma actual/comparación MTD para el slide 'b2b2c_krs', filtrando por
@@ -5555,15 +5562,11 @@ function flMonthlyPeriodLbl_(vDate){ return _flMonthlyPeriod==='ytd' ? 'YTD '+fl
 function flMonthlyTables_(def, sub, cmp, cmpShort){
   var per=_flMonthlyPeriod, perLbl=flMonthlyPeriodLbl_(flowVDate_());
   if(def.kind==='cover' || def.kind==='cover_oc'){
-    var isOC=(def.kind==='cover_oc');
-    // Portada OC: NR / FVM por Farming / Hunting / TBD (flowSegTable_), sin GB (pedido 2026-10-26);
-    // la otra portada: GB / NR / FVM por región.
-    var html=(isOC ? [['nr','NR'],['fvm','FVM']] : [['gb','GB'],['nr','NR'],['fvm','FVM']]).map(function(t){
+    // Portada OC: MTD | YTD | H2 en una misma tabla (flowOCCoverTables_), sin switch; la otra portada: GB / NR / FVM por región.
+    if(def.kind==='cover_oc') return flowOCCoverTables_(sub, cmp, cmpShort);
+    return [['gb','GB'],['nr','NR'],['fvm','FVM']].map(function(t){
       return '<div class="fl-scroll-tbl" style="flex:1;min-width:0;min-height:0;overflow-y:auto"><div class="fl-tag">'+t[1]+' — '+perLbl+' vs '+cmpShort+'</div>'
-        +(isOC ? flowSegTable_(sub,t[0],cmp,per) : flowGroupTable_(sub,t[0],cmp,'Región',true,0,undefined,undefined,per))+'</div>'; }).join('');
-    if(isOC){ var ot=flowOCTable_(cmp); // OC: siempre meses cerrados (no hay MTD de OC), sin importar el switch
-      html+='<div class="fl-scroll-tbl" style="flex:1;min-width:0;min-height:0;overflow-y:auto"><div class="fl-tag">OC — '+ot.rng+' (cerrado) vs '+cmpShort+'</div>'+ot.html+'</div>'; }
-    return html;
+        +flowGroupTable_(sub,t[0],cmp,'Región',true,0,undefined,undefined,per)+'</div>'; }).join('');
   }
   var tf=(def.region==='SAH'); // Hispa: Tier → Partner (ver flowGroupTable_)
   return [['nr','NR'],['fvm','FVM']].map(function(t){
@@ -5580,7 +5583,7 @@ function flMonthlySetPeriod_(p){
   _flMonthlyPeriod=p;
   var cmp=_flowComp, cmpShort=FLOW_COMP[cmp].short;
   FLOW_DECK.forEach(function(def, i){
-    if(def.kind!=='cover' && def.kind!=='cover_oc' && def.kind!=='monthly') return;
+    if(def.kind!=='cover' && def.kind!=='monthly') return;   // cover_oc no tiene switch (MTD | YTD | H2 juntos)
     var box=document.getElementById('flmt-'+i); if(!box) return;
     box.innerHTML=flMonthlySwitch_()+flMonthlyTables_(def, flowRegionRaw_(def.kind==='monthly'?def.region:null), cmp, cmpShort);
   });
@@ -5615,7 +5618,7 @@ function flowBuildSlide_(def, idx){
       var cid='flc'+idx+'-'+mk, mon, boxes, legend;
       if(isCover){ // portada: FY completo (12 barras, actual + proyección Run Rate) + H1/H2/FY
         mon=(mk==='oc') ? flowFY12OC_(cmp) : flowFY12_(sub,mk,cmp); var hv=flowHalves_(mon), fyL=flFyLbl_(_rawB2BC.meta.last_actuals_date);
-        // portada OC sin las cajitas H1/H2/FY: el H2 va en tablas (flowH2Tables_, pedido 2026-10-26)
+        // portada OC sin las cajitas H1/H2/FY: el H2 va en la tabla MTD | YTD | H2 (flowOCCoverTables_, pedido 2026-10-26)
         boxes=isOC ? '' : '<div style="display:flex;flex-direction:column;gap:4px">'+flH1box_(hv.h1,cmpShort,'H1 vs ',true)
           +flH1box_(hv.h2,cmpShort,'H2 (Act+Proy) vs ',true)+flH1box_(hv.fy,cmpShort,fyL+' (Act+Proy) vs ',true)+'</div>';
         legend=(mk==='oc') ? flLegend_(cmpLbl,true,'Actual cerrado (contable)','Run Rate contable') : isOC ? flLegendSeg_(cmpLbl) : flLegend_(cmpLbl,true);
@@ -5629,11 +5632,10 @@ function flowBuildSlide_(def, idx){
         +'<div class="fl-canvas-wrap" style="flex:1;min-width:0;height:100%"><canvas id="'+cid+'"></canvas></div>'
         +boxes+'</div></div>';
     });
-    var tables=flMonthlySwitch_()+flMonthlyTables_(def, sub, cmp, cmpShort);
-    var tblCol=function(id, html){ return '<div'+(id?' id="'+id+'"':'')+(isOC?' class="fl-tight"':'')+' style="flex:1;min-width:0;display:flex;flex-direction:column;gap:'+(isOC?4:8)+'px;min-height:0">'+html+'</div>'; };
+    var tables=(isOC?'':flMonthlySwitch_())+flMonthlyTables_(def, sub, cmp, cmpShort);
     var body='<div class="fl-body" style="display:flex;gap:'+(isOC?16:22)+'px">'
       +'<div style="flex:'+(isOC?1.3:1.75)+';min-width:0;display:flex;flex-direction:column;gap:6px;min-height:0">'+panels+'</div>'
-      +(isOC ? tblCol('flmt-'+idx, tables)+tblCol(null, flowH2Tables_(sub, cmp, cmpShort)) : tblCol('flmt-'+idx, tables))+'</div>';
+      +'<div id="flmt-'+idx+'"'+(isOC?' class="fl-tight"':'')+' style="flex:'+(isOC?2:1)+';min-width:0;display:flex;flex-direction:column;gap:'+(isOC?4:8)+'px;min-height:0">'+tables+'</div></div>';
     return '<div class="flow-slide">'+flHead_(titleTxt, brand)+body+'</div>';
   }
   if(def.kind==='okr'){
