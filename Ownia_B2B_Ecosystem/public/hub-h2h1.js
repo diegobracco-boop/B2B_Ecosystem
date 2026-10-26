@@ -1,24 +1,28 @@
-/* Vista "H2 vs H1" del P&L Dashboard (Hub) en Ownia (2026-10-26, para dirección). La inyecta
+/* Vista "H2 Budget vs H1" del P&L Dashboard (Hub) en Ownia (2026-10-26, para dirección). La inyecta
  * server/index.js en el Hub (`layout` en server/modules.js); se abre desde la pestaña "H2 vs H1"
  * (botón #nav-h2h1 de Dashboard_B2B_WLs/dashboard.html, clasificado en PRIMARY de hub-layout.js).
  *
- * Mismo formato que la slide de dirección "H1 actual vs H2 Budget": H1 real (abr–sep) contra H2 Budget
- * (oct–mar), Net Revenue y Operating Contribution, B2B2C y B2B. Suma la proyección de hoy del H2
- * (real + Run Rate, el baseline del Hub) contra el Budget, y los "desafíos" del H2 (dónde el Budget
- * pide acelerar el crecimiento interanual respecto del H1).
+ * Pregunta que contesta (una pantalla, para contarle al CEO): ¿qué challenge asumía el Budget entre un
+ * semestre y otro? Para Net Revenue y Operating Contribution, Total / B2B2C / B2B MIN / B2B MAY:
+ *  - cuánto crece el H2 Budget sobre el H1 real (H2/H1 Budget), contra
+ *  - cuánto creció el H2 sobre el H1 el año pasado (H2/H1 FY anterior = la estacionalidad normal).
+ * La diferencia en puntos es el esfuerzo extra que asume el Budget (= la aceleración del YoY del H2
+ * contra el del H1). A la derecha, los challenges ordenados de mayor a menor.
  *
  * Datos: getAllData del Hub (los mismos números que el resto del dashboard), dos llamadas — H1 y H2 —
- * con LoB Consolidado, que trae los grupos WL's (= B2B2C), MAY y MIN (MAY + MIN = B2B) y Total.
- * Respeta el switch Organic del Hub (Goal Budget → H1 real a TC Budget; YoY del H1 a TC Actuals LY,
- * como el resto del Hub). El YoY del H2 es Budget vs real FY26 en USD.
+ * con LoB Consolidado, que trae los grupos WL's (= B2B2C), MAY, MIN y Total. Respeta el switch Organic
+ * del Hub: con YES el H1 real va a TC Budget (comparable con el H2 Budget); el año pasado, a sus TC reales.
  */
 (function () {
   'use strict';
 
-  var C_B2B2C = '#550fed', C_B2B = '#ffaa44', OK = '#1a9e5a', BAD = '#d4373a';
-  // YoY del OC H1 ajustado como en la presentación de dirección: el FY26 incluye un pago extraordinario
-  // LATAM de USD 5.6M (jun-25) que deprime el OC del año anterior (cae en B2B2C). Se suma al LY del OC
-  // B2B2C del H1 solo para el YoY (los montos no cambian). Solo FY27; sacarlo cuando no aplique.
+  var UP = '#1a9e5a', DOWN = '#d4373a', BAR = '#550fed', LYC = '#1d1d1f';
+  var SEGS = [['total', 'Total B2B + B2B2C'], ['b2b2c', 'B2B2C'], ['min', 'B2B MIN'], ['may', 'B2B MAY']];
+  var METRICS = [['nr', 'Net Revenue'], ['oc', 'Operating Contribution']];
+  // OC del año pasado ajustado como en la presentación de dirección: el FY26 incluye un pago
+  // extraordinario LATAM de USD 5.6M (jun-25, B2B2C) que deprime el OC del H1 FY26 y, con él, infla la
+  // estacionalidad H2/H1 del año pasado. Se suma al LY del H1 (B2B2C y Total) solo para esa
+  // estacionalidad; los montos no cambian. Solo FY27: sacarlo cuando no aplique.
   var LY_ADJ_FY = 2027, LY_ADJ_OC_B2B2C_H1 = 5.6e6;
   var cache = {};       // clave de params → result de getAllData
   var panel = null;
@@ -46,133 +50,113 @@
     });
   }
 
-  // {nr|oc|gb: {b2b2c|b2b|total: {act, bud, ly, yoy}}} desde result.pnl (grupos WL's / MAY / MIN / Total)
+  // {nr|oc: {total|b2b2c|min|may: {act, bud, ly}}} desde result.pnl (grupos Total / WL's / MIN / MAY)
   function pick(result) {
     var pnl = result && result.pnl, out = {};
     if (!pnl || !pnl.rows) return out;
     var g = pnl.groups || [];
-    var iW = g.indexOf("WL's"), iMay = g.indexOf('MAY'), iMin = g.indexOf('MIN'), iT = g.indexOf('Total');
+    var idx = { total: g.indexOf('Total'), b2b2c: g.indexOf("WL's"), min: g.indexOf('MIN'), may: g.indexOf('MAY') };
     pnl.rows.forEach(function (r) {
-      if (['gb', 'nr', 'oc'].indexOf(r.id) < 0) return;
-      function one(c) {
-        c = c || {};
-        var ly = c.lyVal || 0;
-        // Valor "organic" del año: el YoY del Hub ya viene a TC Actuals LY con Organic YES.
-        return { act: c.actual || 0, bud: c.budget || 0, ly: ly, ly1: isFinite(c.yoyPct) ? ly * (1 + c.yoyPct / 100) : (c.actual || 0) };
-      }
-      var w = one(r.cols[iW]), a = one(r.cols[iMay]), b = one(r.cols[iMin]), t = one(r.cols[iT]);
-      var b2b = { act: a.act + b.act, bud: a.bud + b.bud, ly: a.ly + b.ly, ly1: a.ly1 + b.ly1 };
-      out[r.id] = { b2b2c: w, b2b: b2b, total: t };
+      if (!METRICS.some(function (m) { return m[0] === r.id; })) return;
+      out[r.id] = {};
+      SEGS.forEach(function (s) {
+        var c = r.cols[idx[s[0]]] || {};
+        out[r.id][s[0]] = { act: c.actual || 0, bud: c.budget || 0, ly: c.lyVal || 0 };
+      });
     });
     return out;
   }
 
-  function pct(a, b) { return b ? (a / b - 1) * 100 : NaN; }
-  function fmtM(v) {
-    var m = v / 1e6, a = Math.abs(m);
-    return (m < 0 ? '−' : '') + 'USD ' + (a >= 100 ? a.toFixed(0) : a.toFixed(1)) + 'M';
-  }
-  function fmtShortM(v) { var m = v / 1e6, a = Math.abs(m); return (m < 0 ? '−' : '') + (a >= 100 ? a.toFixed(0) : a.toFixed(1)) + 'M'; }
-  function fmtP(v, dec) {
-    if (!isFinite(v)) return '—';
-    var d = dec == null ? 0 : dec;
-    return (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(d) + '%';
-  }
-  function cls(v) { return !isFinite(v) ? '' : v >= 0 ? 'h21-up' : 'h21-dn'; }
+  function pct(a, b) { return b > 0 ? (a / b - 1) * 100 : NaN; }
+  function fmtM(v) { var m = v / 1e6, a = Math.abs(m); return (m < 0 ? '−' : '') + (a >= 100 ? a.toFixed(0) : a.toFixed(1)) + 'M'; }
+  function fmtP(v) { return isFinite(v) ? (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(0) + '%' : '—'; }
+  function fmtPP(v) { return isFinite(v) ? (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(0) + ' pp' : '—'; }
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
 
-  // ── Armado ────────────────────────────────────────────────────────────────────────────────
-  function card(title, k, h1, h2) {
-    var a = h1[k], b = h2[k], gb1 = h1.gb.total.act, gb2 = h2.gb.total.bud;
-    var yoy1 = pct(a.total.ly1, a.total.ly), yoy2 = pct(b.total.bud, b.total.ly);
-    var vsBud1 = pct(a.total.act, a.total.bud), vsH1 = pct(b.total.bud, a.total.act);
-    var proj = b.total.act, gap = pct(proj, b.total.bud);
-    var star = (k === 'oc' && fy() === LY_ADJ_FY) ? '*' : '';
-    var marg = function (v, gb) { return k === 'oc' && gb ? ' <span class="h21-marg">' + (v / gb * 100).toFixed(1) + '% s/GB</span>' : ''; };
-    function lobs(get) {
-      return '<div class="h21-lobs"><span><i style="background:' + C_B2B2C + '"></i>B2B2C <b class="' + cls(get('b2b2c')) + '">' + fmtP(get('b2b2c')) + '</b></span>' +
-        '<span><i style="background:' + C_B2B + '"></i>B2B <b class="' + cls(get('b2b')) + '">' + fmtP(get('b2b')) + '</b></span></div>';
+  // Una fila por segmento: H1 real, H2 Budget, H2/H1 del Budget, H2/H1 del año pasado y el gap en pp.
+  function rows(h1, h2) {
+    var out = {};
+    METRICS.forEach(function (m) {
+      out[m[0]] = SEGS.map(function (s) {
+        var a = h1[m[0]][s[0]], b = h2[m[0]][s[0]];
+        var lyH1 = a.ly + (m[0] === 'oc' && fy() === LY_ADJ_FY && (s[0] === 'b2b2c' || s[0] === 'total') ? LY_ADJ_OC_B2B2C_H1 : 0);
+        var bud = pct(b.bud, a.act), ly = pct(b.ly, lyH1);
+        return { seg: s[0], name: s[1], metric: m[1], h1: a.act, h1VsBud: pct(a.act, a.bud), h2: b.bud,
+          bud: bud, ly: ly, gap: bud - ly, proj: pct(b.act, b.bud) };
+      });
+    });
+    return out;
+  }
+
+  // Barra = H2/H1 que asume el Budget; marca negra = H2/H1 del año pasado. La distancia es el challenge.
+  function block(title, list) {
+    var vals = [];
+    list.forEach(function (r) { [r.bud, r.ly].forEach(function (v) { if (isFinite(v)) vals.push(v); }); });
+    var lo = Math.min(0, Math.min.apply(null, vals)), hi = Math.max(1, Math.max.apply(null, vals));
+    var span = hi - lo, x = function (v) { return ((v - lo) / span * 100).toFixed(1) + '%'; };
+    var body = list.map(function (r) {
+      var from = Math.min(0, r.bud), to = Math.max(0, r.bud);
+      var bar = isFinite(r.bud) ? '<span class="h21-bar" style="left:' + x(from) + ';width:calc(' + x(to) + ' - ' + x(from) + ')"></span>' : '';
+      var tick = isFinite(r.ly) ? '<span class="h21-tick" style="left:' + x(r.ly) + '" title="Año pasado: ' + fmtP(r.ly) + '"></span>' : '';
+      var zero = lo < 0 ? '<span class="h21-zero" style="left:' + x(0) + '"></span>' : '';
+      var gc = !isFinite(r.gap) ? '' : r.gap > 5 ? 'h21-hard' : r.gap < -5 ? 'h21-soft' : 'h21-even';
+      return '<div class="h21-row' + (r.seg === 'total' ? ' h21-tot' : '') + '">' +
+        '<div class="h21-seg">' + esc(r.name) + '</div>' +
+        '<div class="h21-num">' + fmtM(r.h1) + '<small class="' + (r.h1VsBud >= 0 ? 'h21-up' : 'h21-dn') + '">' + fmtP(r.h1VsBud) + ' vs Bud</small></div>' +
+        '<div class="h21-num">' + fmtM(r.h2) + '</div>' +
+        '<div class="h21-viz">' + zero + bar + tick + '<span class="h21-vlab" style="left:calc(' + x(Math.max(0, r.bud)) + ' + 6px)">' + fmtP(r.bud) + '</span></div>' +
+        '<div class="h21-num h21-lyv">' + fmtP(r.ly) + '</div>' +
+        '<div class="h21-gap ' + gc + '">' + fmtPP(r.gap) + '</div>' +
+        '</div>';
+    }).join('');
+    return '<section class="h21-block"><h3>' + title + '</h3>' +
+      '<div class="h21-row h21-hdr"><div></div><div>H1 real</div><div>H2 Budget</div>' +
+      '<div>H2 vs H1 · Budget <span class="h21-key"><i class="h21-kbar"></i>Budget <i class="h21-ktick"></i>año pasado</span></div>' +
+      '<div>Año pasado</div><div>Challenge</div></div>' + body + '</section>';
+  }
+
+  // Challenges ordenados de mayor a menor (los segmentos, no el total), con la frase para contar.
+  function challenges(all) {
+    var list = [];
+    METRICS.forEach(function (m) { all[m[0]].forEach(function (r) { if (r.seg !== 'total' && isFinite(r.gap)) list.push(r); }); });
+    list.sort(function (a, b) { return b.gap - a.gap; });
+    var hard = list.filter(function (r) { return r.gap > 5; });
+    var soft = list.filter(function (r) { return r.gap < -5; });
+    function li(r) {
+      return '<li><b>' + esc(r.name) + ' · ' + esc(r.metric) + '</b><br>El Budget pide un H2 <b>' + fmtP(r.bud) + '</b> sobre el H1 ' +
+        '(año pasado: ' + fmtP(r.ly) + ') → <b class="' + (r.gap > 0 ? 'h21-dn' : 'h21-up') + '">' + fmtPP(r.gap) + '</b>' +
+        (isFinite(r.h1VsBud) && Math.abs(r.h1VsBud) >= 10 ? '<br><span class="h21-muted">H1 real ' + fmtP(r.h1VsBud) + ' vs su Budget</span>' : '') + '</li>';
     }
-    return '<section class="h21-card"><h3>' + title + '</h3><div class="h21-cols">' +
-      '<div class="h21-col"><div class="h21-tag">H1 real</div>' +
-        '<div class="h21-big">' + fmtM(a.total.act) + marg(a.total.act, gb1) + '</div>' +
-        '<div class="h21-line"><b class="' + cls(vsBud1) + '">' + fmtP(vsBud1) + '</b> vs Budget H1</div>' +
-        lobs(function (l) { return pct(a[l].act, a[l].bud); }) +
-        '<div class="h21-line h21-muted">YoY <b class="' + cls(yoy1) + '">' + fmtP(yoy1) + star + '</b> · B2B2C ' + fmtP(pct(a.b2b2c.ly1, a.b2b2c.ly)) + star + ' · B2B ' + fmtP(pct(a.b2b.ly1, a.b2b.ly)) + '</div>' +
-      '</div>' +
-      '<div class="h21-col h21-col2"><div class="h21-tag">H2 Budget</div>' +
-        '<div class="h21-big">' + fmtM(b.total.bud) + marg(b.total.bud, gb2) + '</div>' +
-        '<div class="h21-line"><b class="' + cls(vsH1) + '">' + fmtP(vsH1) + '</b> vs H1 real</div>' +
-        lobs(function (l) { return pct(b[l].bud, a[l].act); }) +
-        '<div class="h21-line h21-muted">YoY <b class="' + cls(yoy2) + '">' + fmtP(yoy2) + '</b> · B2B2C ' + fmtP(pct(b.b2b2c.bud, b.b2b2c.ly)) + ' · B2B ' + fmtP(pct(b.b2b.bud, b.b2b.ly)) + '</div>' +
-      '</div></div>' +
-      '<div class="h21-proj">Proyección H2 hoy (real + Run Rate): <b>' + fmtM(proj) + '</b> · <b class="' + cls(gap) + '">' + fmtP(gap, 1) + '</b> vs H2 Budget' +
-        ' <span class="h21-muted">(B2B2C ' + fmtP(pct(b.b2b2c.act, b.b2b2c.bud), 1) + ' · B2B ' + fmtP(pct(b.b2b.act, b.b2b.bud), 1) + ')</span></div>' +
+    return '<section class="h21-chal"><h3>Los challenges del Budget H2</h3>' +
+      (hard.length ? '<ol>' + hard.map(li).join('') + '</ol>' : '<p class="h21-muted">Ningún segmento pide más de 5 pp sobre la estacionalidad del año pasado.</p>') +
+      (soft.length ? '<h4>Por debajo de la estacionalidad</h4><ul>' + soft.map(li).join('') + '</ul>' : '') +
       '</section>';
   }
 
-  // Barras agrupadas H1 / H2 × B2B2C / B2B con el YoY arriba (SVG, sin librerías)
-  function chart(title, k, h1, h2) {
-    var bars = [
-      { h: 'H1', lob: 'b2b2c', v: h1[k].b2b2c.act, yoy: pct(h1[k].b2b2c.ly1, h1[k].b2b2c.ly) },
-      { h: 'H1', lob: 'b2b', v: h1[k].b2b.act, yoy: pct(h1[k].b2b.ly1, h1[k].b2b.ly) },
-      { h: 'H2', lob: 'b2b2c', v: h2[k].b2b2c.bud, yoy: pct(h2[k].b2b2c.bud, h2[k].b2b2c.ly) },
-      { h: 'H2', lob: 'b2b', v: h2[k].b2b.bud, yoy: pct(h2[k].b2b.bud, h2[k].b2b.ly) },
-    ];
-    var W = 460, H = 250, base = 210, top = 40, bw = 78;
-    var max = Math.max.apply(null, bars.map(function (b) { return Math.max(b.v, 0); })) || 1;
-    var xs = [40, 40 + bw, 262, 262 + bw];
-    var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + esc(title) + '">';
-    bars.forEach(function (b, i) {
-      var h = Math.max(b.v, 0) / max * (base - top), y = base - h;
-      svg += '<rect x="' + xs[i] + '" y="' + y.toFixed(1) + '" width="' + bw + '" height="' + h.toFixed(1) + '" rx="3" fill="' + (b.lob === 'b2b2c' ? C_B2B2C : C_B2B) + '"/>';
-      svg += '<text x="' + (xs[i] + bw / 2) + '" y="' + (y + h / 2 + 6).toFixed(1) + '" class="h21-bv">' + fmtShortM(b.v) + '</text>';
-      var star = (k === 'oc' && b.h === 'H1' && b.lob === 'b2b2c' && fy() === LY_ADJ_FY) ? '*' : '';
-      svg += '<text x="' + (xs[i] + bw / 2) + '" y="' + (y - 8).toFixed(1) + '" class="h21-by" fill="' + (b.yoy >= 0 ? OK : BAD) + '">' + fmtP(b.yoy) + star + '</text>';
-    });
-    svg += '<line x1="20" x2="' + (W - 20) + '" y1="' + base + '" y2="' + base + '" stroke="#d0d0d8"/>';
-    svg += '<text x="' + (40 + bw) + '" y="' + (base + 26) + '" class="h21-bx">H1 real</text>';
-    svg += '<text x="' + (262 + bw) + '" y="' + (base + 26) + '" class="h21-bx">H2 Budget</text>';
-    svg += '</svg>';
-    return '<section class="h21-chart"><h3>' + title + ' <span class="h21-muted">(USD M · YoY arriba de cada barra)</span></h3>' + svg + '</section>';
-  }
-
-  // "Lo que exige el H2": el YoY del Budget H2 vs el YoY real del H1, por LoB y métrica
-  function challenges(h1, h2) {
-    var items = [];
-    [['nr', 'Net Revenue'], ['oc', 'Operating Contribution']].forEach(function (m) {
-      [['b2b2c', 'B2B2C'], ['b2b', 'B2B']].forEach(function (l) {
-        var y1 = pct(h1[m[0]][l[0]].ly1, h1[m[0]][l[0]].ly), y2 = pct(h2[m[0]][l[0]].bud, h2[m[0]][l[0]].ly);
-        var proj = pct(h2[m[0]][l[0]].act, h2[m[0]][l[0]].bud);
-        if (isFinite(y1) && isFinite(y2)) items.push({ d: y2 - y1, txt: '<b>' + l[1] + ' ' + m[1] + '</b>: el Budget pide crecer <b>' + fmtP(y2) + '</b> YoY en H2 (H1 real: ' + fmtP(y1) + ')' +
-          (isFinite(proj) ? ' · hoy se proyecta <b class="' + cls(proj) + '">' + fmtP(proj, 1) + '</b> vs Budget' : '') });
-      });
-    });
-    items.sort(function (a, b) { return b.d - a.d; });
-    var acel = items.filter(function (x) { return x.d > 5; });
-    var list = (acel.length ? acel : items.slice(0, 2)).map(function (x) { return '<li>' + x.txt + '</li>'; }).join('');
-    return '<section class="h21-chal"><h3>Lo que exige el H2 Budget</h3><ul>' + list + '</ul></section>';
+  function headline(all) {
+    var nr = all.nr[0], oc = all.oc[0];
+    return 'El Budget asume un H2 <b>' + fmtP(nr.bud) + '</b> en Net Revenue y <b>' + fmtP(oc.bud) + '</b> en Operating Contribution sobre el H1 real; ' +
+      'el año pasado el H2 creció ' + fmtP(nr.ly) + ' y ' + fmtP(oc.ly) + ' sobre su H1 (' + fmtPP(nr.gap) + ' / ' + fmtPP(oc.gap) + ').';
   }
 
   function render(h1r, h2r) {
     var h1 = pick(h1r), h2 = pick(h2r);
-    if (!h1.nr || !h2.nr || !h1.oc || !h2.oc || !h1.gb || !h2.gb) {
+    if (!h1.nr || !h2.nr || !h1.oc || !h2.oc) {
       body().innerHTML = '<p class="h21-err">No llegaron los datos del P&amp;L para armar la vista.</p>';
       return;
     }
-    var yr = fy(), org = organicOn(), adj = yr === LY_ADJ_FY;
-    if (adj) { h1.oc.b2b2c.ly += LY_ADJ_OC_B2B2C_H1; h1.oc.total.ly += LY_ADJ_OC_B2B2C_H1; }
+    var all = rows(h1, h2), yr = fy(), org = organicOn(), ly = 'FY' + String(yr - 1).slice(-2);
+    var p = all.nr[0].proj, q = all.oc[0].proj;
     body().innerHTML =
-      '<div class="h21-sub">H1 real (abr–sep ' + (yr - 1) + ') vs H2 Budget (oct ' + (yr - 1) + '–mar ' + yr + ') · B2B + B2B2C · ' +
-        (org ? 'Organic: real a TC Budget' : 'USD nominales') + '</div>' +
-      '<div class="h21-grid">' + card('Net Revenue', 'nr', h1, h2) + card('Operating Contribution', 'oc', h1, h2) + '</div>' +
-      '<div class="h21-legend"><span><i style="background:' + C_B2B2C + '"></i>B2B2C</span><span><i style="background:' + C_B2B + '"></i>B2B</span></div>' +
-      '<div class="h21-grid">' + chart('Net Revenue', 'nr', h1, h2) + chart('Operating Contribution', 'oc', h1, h2) + '</div>' +
-      challenges(h1, h2) +
-      '<p class="h21-foot">Fuente: P&amp;L contable del Hub (H1 = actuals; proyección H2 = real de los meses cerrados + Run Rate). ' +
-        'YoY H1 = real vs FY' + String(yr - 1).slice(-2) + (org ? ' (Organic a TC Actuals LY, como el resto del Hub)' : '') +
-        '; YoY H2 = Budget vs real FY' + String(yr - 1).slice(-2) + ' en USD. Margen de OC sobre Gross Bookings.' +
-        (adj ? ' <b>*</b> YoY del OC H1 ajustado: excluye del FY26 el pago extraordinario LATAM de USD 5.6M (jun-25, B2B2C).' : '') + '</p>';
+      '<p class="h21-head1">' + headline(all) + '</p>' +
+      '<div class="h21-sub">H1 real abr–sep ' + (yr - 1) + ' · H2 Budget oct ' + (yr - 1) + '–mar ' + yr + ' · USD · ' +
+        '<span class="h21-mode">' + (org ? 'Organic YES: H1 real a TC Budget' : 'Organic NO: USD nominales') + '</span></div>' +
+      '<div class="h21-layout"><div class="h21-left">' + block('Net Revenue', all.nr) + block('Operating Contribution', all.oc) + '</div>' +
+        challenges(all) + '</div>' +
+      '<p class="h21-foot"><b>Challenge</b> = crecimiento H2 vs H1 que asume el Budget menos el que tuvo el ' + ly + ' (estacionalidad normal); ' +
+        'en verde lo que pide menos que el año pasado. Hoy se proyecta un H2 (real + Run Rate) ' + fmtP(p) + ' en NR y ' + fmtP(q) + ' en OC vs Budget. ' +
+        (yr === LY_ADJ_FY ? 'OC ' + ly + ' H1 sin el pago extraordinario LATAM de USD 5.6M (jun-25, B2B2C), como en la presentación de dirección. ' : '') +
+        'Fuente: P&amp;L contable del Hub.</p>';
   }
 
   function body() { return panel.querySelector('.h21-body'); }
@@ -182,33 +166,41 @@
     var css = document.createElement('style');
     css.textContent = [
       '#h21{position:fixed;left:0;right:0;bottom:0;z-index:40;background:#f5f5f7;overflow:auto;font-family:Poppins,-apple-system,"Segoe UI",sans-serif;color:#1d1d1f}',
-      '#h21 .h21-wrap{max-width:1180px;margin:0 auto;padding:22px 24px 40px}',
-      '#h21 .h21-head{display:flex;align-items:center;gap:14px;margin-bottom:4px}',
-      '#h21 h2{font-size:22px;font-weight:600;margin:0}',
+      '#h21 .h21-wrap{max-width:1280px;margin:0 auto;padding:18px 24px 32px}',
+      '#h21 .h21-top{display:flex;align-items:center;gap:14px}',
+      '#h21 h2{font-size:20px;font-weight:600;margin:0}',
       '#h21 .h21-close{margin-left:auto;border:1px solid #d0d0d8;background:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font:inherit;font-size:13px}',
-      '#h21 .h21-sub{color:#6e6e73;font-size:13px;margin:0 0 16px}',
-      '#h21 .h21-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}',
-      '@media (max-width:900px){#h21 .h21-grid{grid-template-columns:1fr}}',
-      '#h21 section{background:#fff;border-radius:14px;padding:16px 18px;box-shadow:0 1px 3px rgba(0,0,0,.06)}',
-      '#h21 h3{font-size:15px;font-weight:600;margin:0 0 10px}',
-      '#h21 .h21-cols{display:grid;grid-template-columns:1fr 1fr;gap:14px}',
-      '#h21 .h21-col2{border-left:1px solid #ececf0;padding-left:14px}',
-      '#h21 .h21-tag{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#6e6e73;margin-bottom:2px}',
-      '#h21 .h21-big{font-size:26px;font-weight:600;margin-bottom:6px}',
-      '#h21 .h21-marg{font-size:13px;font-weight:500;color:#6e6e73;margin-left:4px}',
-      '#h21 .h21-line{font-size:13px;margin:3px 0}',
-      '#h21 .h21-lobs{display:flex;gap:12px;font-size:13px;margin:4px 0}',
-      '#h21 .h21-lobs i,#h21 .h21-legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px}',
-      '#h21 .h21-legend{display:flex;gap:16px;font-size:13px;margin:0 0 8px 4px}',
+      '#h21 .h21-head1{font-size:17px;line-height:1.45;margin:10px 0 4px}',
+      '#h21 .h21-sub{color:#6e6e73;font-size:12.5px;margin:0 0 14px}',
+      '#h21 .h21-mode{background:#ece7fd;color:#3d0bb0;border-radius:6px;padding:1px 7px;font-weight:600}',
+      '#h21 .h21-layout{display:grid;grid-template-columns:minmax(0,2.1fr) minmax(0,1fr);gap:16px;align-items:start}',
+      '@media (max-width:1000px){#h21 .h21-layout{grid-template-columns:1fr}}',
+      '#h21 section{background:#fff;border-radius:14px;padding:14px 16px;box-shadow:0 1px 3px rgba(0,0,0,.06)}',
+      '#h21 .h21-left section+section{margin-top:14px}',
+      '#h21 h3{font-size:15px;font-weight:600;margin:0 0 8px}',
+      '#h21 h4{font-size:13px;font-weight:600;margin:12px 0 6px;color:#6e6e73}',
+      '#h21 .h21-row{display:grid;grid-template-columns:118px 92px 72px minmax(160px,1fr) 70px 78px;gap:10px;align-items:center;padding:7px 0;border-top:1px solid #f0f0f3;font-size:13.5px}',
+      '#h21 .h21-hdr{border-top:none;font-size:11px;color:#6e6e73;text-transform:uppercase;letter-spacing:.04em;padding-top:0}',
+      '#h21 .h21-tot{font-weight:600}',
+      '#h21 .h21-num{text-align:right;font-variant-numeric:tabular-nums}',
+      '#h21 .h21-num small{display:block;font-size:11px;font-weight:500}',
+      '#h21 .h21-lyv{color:#3a3a3c}',
+      '#h21 .h21-viz{position:relative;height:22px}',
+      '#h21 .h21-bar{position:absolute;top:4px;height:14px;border-radius:3px;background:' + BAR + ';opacity:.85}',
+      '#h21 .h21-tot .h21-bar{opacity:1}',
+      '#h21 .h21-tick{position:absolute;top:0;width:3px;height:22px;margin-left:-1.5px;border-radius:1px;background:' + LYC + '}',
+      '#h21 .h21-zero{position:absolute;top:0;width:1px;height:22px;background:#c7c7cc}',
+      '#h21 .h21-vlab{position:absolute;top:2px;font-size:12px;font-weight:600;white-space:nowrap}',
+      '#h21 .h21-key{text-transform:none;letter-spacing:0;margin-left:6px}',
+      '#h21 .h21-kbar{display:inline-block;width:14px;height:8px;background:' + BAR + ';border-radius:2px;margin:0 3px 0 4px}',
+      '#h21 .h21-ktick{display:inline-block;width:3px;height:11px;background:' + LYC + ';margin:0 3px -1px 8px}',
+      '#h21 .h21-gap{text-align:right;font-weight:700;font-variant-numeric:tabular-nums;border-radius:6px;padding:3px 6px}',
+      '#h21 .h21-hard{color:#b3261e;background:#fdecea}#h21 .h21-soft{color:#146c43;background:#e6f4ec}#h21 .h21-even{color:#3a3a3c;background:#f2f2f5}',
+      '#h21 .h21-up{color:' + UP + '}#h21 .h21-dn{color:' + DOWN + '}',
       '#h21 .h21-muted{color:#6e6e73;font-weight:400}',
-      '#h21 .h21-up{color:' + OK + '}#h21 .h21-dn{color:' + BAD + '}',
-      '#h21 .h21-proj{margin-top:12px;padding-top:10px;border-top:1px solid #ececf0;font-size:13px}',
-      '#h21 svg{width:100%;height:auto;display:block}',
-      '#h21 .h21-bv{fill:#fff;font-size:15px;font-weight:600;text-anchor:middle}',
-      '#h21 .h21-by{font-size:13px;font-weight:600;text-anchor:middle}',
-      '#h21 .h21-bx{fill:#3a3a3c;font-size:14px;font-weight:600;text-anchor:middle}',
-      '#h21 .h21-chal ul{margin:0;padding-left:18px;font-size:14px;line-height:1.7}',
-      '#h21 .h21-foot{color:#8e8e93;font-size:11.5px;margin-top:14px}',
+      '#h21 .h21-chal ol,#h21 .h21-chal ul{margin:0;padding-left:20px;font-size:13.5px;line-height:1.5}',
+      '#h21 .h21-chal li{margin-bottom:9px}',
+      '#h21 .h21-foot{color:#8e8e93;font-size:11.5px;margin-top:12px;line-height:1.5}',
       '#h21 .h21-err,#h21 .h21-load{color:#6e6e73;font-size:14px}',
     ].join('\n');
     document.head.appendChild(css);
@@ -217,7 +209,7 @@
     panel.setAttribute('role', 'region');
     panel.setAttribute('aria-label', 'H2 Budget vs H1');
     panel.style.display = 'none';
-    panel.innerHTML = '<div class="h21-wrap"><div class="h21-head"><h2>H2 Budget vs H1</h2>' +
+    panel.innerHTML = '<div class="h21-wrap"><div class="h21-top"><h2>H2 Budget vs H1 · el challenge que asume el Budget</h2>' +
       '<button type="button" class="h21-close">← Volver al P&amp;L</button></div><div class="h21-body"></div></div>';
     panel.querySelector('.h21-close').onclick = close;
     document.body.appendChild(panel);
