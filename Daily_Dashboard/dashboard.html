@@ -5420,7 +5420,7 @@ function flowGroupTable_(subRaw, metricKey, comp, col1, groupByRegion, childMax,
   return '<table class="fl-tbl"><thead><tr><th>'+(col1||'Región / País')+'</th><th>Baseline</th><th>Delta [$]</th><th>Delta [%]</th></tr></thead><tbody>'+body+'</tbody></table>';
 }
 
-// Portada OC (pedido 2026-10-26): una tabla por métrica con MTD | YTD | H2 lado a lado (OC: cerrado | H2).
+// Portada OC (pedido 2026-10-26): una tabla por métrica con YTD | H2 lado a lado (OC: cerrado | H2).
 // Farming / Hunting / TBD por flSeg_; OC por región. Cada helper devuelve {clave:{base,goal}}.
 function flowSegData_(subRaw, metricKey, comp, period){
   var vDate=flowVDate_(), mStart=(period==='ytd') ? flFyStart_(vDate) : vDate.substring(0,7)+'-01';
@@ -5480,7 +5480,6 @@ function flowOCCoverTables_(sub, cmp, cmpShort){
   function wrap(tag, html){ return '<div class="fl-scroll-tbl" style="flex:1;min-width:0;min-height:0;overflow-y:auto"><div class="fl-tag">'+tag+'</div>'+html+'</div>'; }
   var html=[['nr','NR'],['fvm','FVM']].map(function(t){
     return wrap(t[1]+' vs '+cmpShort, flMultiPeriodTbl_('Segmento', segRows, [
-      {lbl:'MTD', data:flowSegData_(sub,t[0],cmp,'mtd')},
       {lbl:'YTD '+flFyLbl_(vDate), data:flowSegData_(sub,t[0],cmp,'ytd')},
       {lbl:'H2 '+fyL+' (Act+Proy)', data:flowH2SegData_(sub,t[0],cmp)} ]));
   }).join('');
@@ -5562,7 +5561,7 @@ function flMonthlyPeriodLbl_(vDate){ return _flMonthlyPeriod==='ytd' ? 'YTD '+fl
 function flMonthlyTables_(def, sub, cmp, cmpShort){
   var per=_flMonthlyPeriod, perLbl=flMonthlyPeriodLbl_(flowVDate_());
   if(def.kind==='cover' || def.kind==='cover_oc'){
-    // Portada OC: MTD | YTD | H2 en una misma tabla (flowOCCoverTables_), sin switch; la otra portada: GB / NR / FVM por región.
+    // Portada OC: YTD | H2 en una misma tabla (flowOCCoverTables_), sin switch; la otra portada: GB / NR / FVM por región.
     if(def.kind==='cover_oc') return flowOCCoverTables_(sub, cmp, cmpShort);
     return [['gb','GB'],['nr','NR'],['fvm','FVM']].map(function(t){
       return '<div class="fl-scroll-tbl" style="flex:1;min-width:0;min-height:0;overflow-y:auto"><div class="fl-tag">'+t[1]+' — '+perLbl+' vs '+cmpShort+'</div>'
@@ -5583,7 +5582,7 @@ function flMonthlySetPeriod_(p){
   _flMonthlyPeriod=p;
   var cmp=_flowComp, cmpShort=FLOW_COMP[cmp].short;
   FLOW_DECK.forEach(function(def, i){
-    if(def.kind!=='cover' && def.kind!=='monthly') return;   // cover_oc no tiene switch (MTD | YTD | H2 juntos)
+    if(def.kind!=='cover' && def.kind!=='monthly') return;   // cover_oc no tiene switch (YTD | H2 juntos)
     var box=document.getElementById('flmt-'+i); if(!box) return;
     box.innerHTML=flMonthlySwitch_()+flMonthlyTables_(def, flowRegionRaw_(def.kind==='monthly'?def.region:null), cmp, cmpShort);
   });
@@ -5618,7 +5617,7 @@ function flowBuildSlide_(def, idx){
       var cid='flc'+idx+'-'+mk, mon, boxes, legend;
       if(isCover){ // portada: FY completo (12 barras, actual + proyección Run Rate) + H1/H2/FY
         mon=(mk==='oc') ? flowFY12OC_(cmp) : flowFY12_(sub,mk,cmp); var hv=flowHalves_(mon), fyL=flFyLbl_(_rawB2BC.meta.last_actuals_date);
-        // portada OC sin las cajitas H1/H2/FY: el H2 va en la tabla MTD | YTD | H2 (flowOCCoverTables_, pedido 2026-10-26)
+        // portada OC sin las cajitas H1/H2/FY: el H2 va en la tabla YTD | H2 (flowOCCoverTables_, pedido 2026-10-26)
         boxes=isOC ? '' : '<div style="display:flex;flex-direction:column;gap:4px">'+flH1box_(hv.h1,cmpShort,'H1 vs ',true)
           +flH1box_(hv.h2,cmpShort,'H2 (Act+Proy) vs ',true)+flH1box_(hv.fy,cmpShort,fyL+' (Act+Proy) vs ',true)+'</div>';
         legend=(mk==='oc') ? flLegend_(cmpLbl,true,'Actual cerrado (contable)','Run Rate contable') : isOC ? flLegendSeg_(cmpLbl) : flLegend_(cmpLbl,true);
