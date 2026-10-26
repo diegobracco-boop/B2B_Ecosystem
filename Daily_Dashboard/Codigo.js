@@ -329,6 +329,17 @@ function getWeeklySummaryData(params) {
     } catch (eY) { Logger.log('weekly organic YoY: ' + eY); }
     Object.keys(convY.missing).forEach(function(k) { missing[k] = true; });
   }
+  // % vs Bdg: el budget está a TC Budget → con otro target se recalcula con los actuals a TC Budget
+  if (target !== 'budget') try {
+    var convB = organicConverter_('budget'), yb = _wsSummary_(params, convB);
+    if (yb.success) res.rows.forEach(function(row, i) {
+      row.weeks.forEach(function(w, j) {
+        w.vsBudgb  = yb.rows[i].weeks[j].vsBudgb;
+        w.vsBudrev = yb.rows[i].weeks[j].vsBudrev;
+      });
+    });
+    Object.keys(convB.missing).forEach(function(k) { missing[k] = true; });
+  } catch (eB) { Logger.log('weekly organic vs Bdg: ' + eB); }
   res.organic = { target: target, missing: Object.keys(missing).sort() };
   return res;
 }
