@@ -3235,8 +3235,12 @@ OneDrive → Control de Gestión 2026-27 → B2B & WLs → Proyectos IA → BITU
       <div class="code-block">OneDrive → Control de Gestión 2026-27 → B2B & WLs → Planning-PBI - Inputs Power Bi\
   ├── Budget\      ← CSV Hyperion (Legal Entity ALL/NA)
   ├── Forecast\    ← CSV Hyperion
-  ├── Run Rate\    ← CSV Hyperion + Modelos Forecast XLSX por semana (ej. "2026.08.18 - W33")
+  ├── Run Rate\    ← CSV Hyperion del Last Run Rate (LRR) + Modelos Forecast XLSX por semana
   └── Actuals\     ← 00 - Actuals 2026 - Plana Python*.xlsx + Reverso AxI.xlsx
+
+OneDrive → Control de Gestión 2026-27 → B2B & WLs → Base_P&L_Contable\
+  └── RunRate.csv  ← Run Rate en formato plano (desde 2026-10-26; reemplaza al
+                     "RR - Legal Entity ALL/NA - 27.csv" de Hyperion)
 
   (La carpeta vieja "BITUBIA\Output Toqan" era el pipeline pre-refactor con
    Toqan generando las planas — YA NO SE USA, ver secciones de proyecto.)</div>

@@ -13,6 +13,7 @@ Default = SIN PPA  -> suma el efecto de 'Reverso AxI.xlsx' (hoja Budget).
 Output: plana_<base>.csv  (long: Marca|LoB|Canal|Pais|Producto|P&L N1..N6|P&L Managerial View|Fecha|Monto USD)
 """
 import os
+import glob
 import sys
 import pandas as pd
 import pnl_common
@@ -104,6 +105,109 @@ def read_base(files, only_from_all=()):
     return pd.DataFrame(recs)
 
 
+# ── Lectura de una base en formato PLANO (RunRate desde 2026-10-26) ──────────
+# Columnas: linea;nivel_2..nivel_8;year;mes;scenario;pais;pais_organic;product;lob;
+# channel;brand;version;total. Se lleva al mismo shape que read_base (Linea P&L,
+# Marca, Pais, Producto, LOB-CANAL + una columna por FISCAL_DATE) para que el resto
+# (exclusiones, Glosario, AxI) no cambie. Los niveles del archivo se ignoran: la
+# jerarquía sale del Glosario, igual que en las demás bases.
+# 'linea' del archivo nuevo -> clave de la hoja "Linea P&L" del Glosario (solo las que
+# no matchean tal cual).
+FLAT_LINEA_MAP = {
+    "gb nac":                     "gross bookings domestic",
+    "gb int":                     "gross bookings international",
+    "orders nac":                 "orders domestic",
+    "orders int":                 "orders international",
+    "channels":                   "channels-personnel/expenses",
+    "it personnel":               "it - personnel/expenses",
+    "marketing personnel":        "marketing-personnel/expenses",
+    "loyalty personnel":          "loyalty - personnel/expenses",
+    "loyalty - partners revenue": "loyalty - partner revenue",
+    "income services":            "income from outsourced services",
+    "other tax":                  "other taxes.",
+    "equity":                     "equity income / loss",
+    "d&a":                        "d&a - fixed assets",
+    "d&a other":                  "d&a - fixed assets",
+    "bono lec":                   "other transactional taxes",
+}
+# La herramienta de descarga corta la exportación en 300.000 filas SIN avisar (2026-10-26:
+# un RunRate Oct-Mar llegó cortado a mitad de 'IT Personnel', sin NR de Up Front Incentives,
+# Revenue Taxes, Loyalty, etc.). Un archivo con exactamente este tamaño se rechaza.
+FLAT_EXPORT_ROW_LIMIT = 300_000
+# Leases / Leases Adjustment: ajustes EBIT que se netean entre sí (no existían en el RR
+# viejo ni tienen fila en el Glosario) -> se descartan.
+FLAT_LINEA_DROP = {"leases", "leases adjustment"}
+# 'pais' del archivo nuevo -> nombre de país del pipeline (el resto ya coincide o
+# lo resuelve el Glosario, ej. "OPS + RG" -> RG).
+FLAT_PAIS_MAP = {"brazil": "Brasil", "others": "Others Countries"}
+
+
+def read_flat_base(pattern):
+    """pattern es un glob relativo a get_base_dir(): como la exportación corta en
+    FLAT_EXPORT_ROW_LIMIT filas, el RunRate se puede bajar en partes (RunRate.csv,
+    RunRate_2.csv, ...) y acá se juntan. Se puede partir por mes, LoB o línea (ej. hasta OC
+    en uno y costos fijos en otro); dos partes con el mismo (mes, LoB, línea) = error (se
+    sumaría dos veces)."""
+    paths = sorted(glob.glob(os.path.join(pnl_common.get_base_dir(), pattern)))
+    if not paths:
+        sys.exit(f"No hay archivos {pattern} en {pnl_common.get_base_dir()}")
+    parts, vistos = [], {}
+    for path in paths:
+        name = os.path.basename(path)
+        part = pd.read_csv(path, sep=";", dtype=str, encoding="utf-8-sig")
+        if len(part) == FLAT_EXPORT_ROW_LIMIT:
+            sys.exit(f"{name} tiene exactamente {FLAT_EXPORT_ROW_LIMIT:,} filas = tope de la exportación "
+                     f"-> la descarga vino CORTADA (última línea: '{part['linea'].iloc[-1]}'). "
+                     f"Volver a descargar en partes (ej. Oct-Dic y Ene-Mar, o por LoB) como {pattern}.")
+        for k in part[["mes", "lob", "linea"]].drop_duplicates().itertuples(index=False):
+            if k in vistos:
+                sys.exit(f"Mes {k.mes} / LoB {k.lob} / línea {k.linea} está en {vistos[k]} y en {name} "
+                         f"-> se sumaría dos veces. Cada mes x LoB x línea tiene que estar en un solo archivo.")
+            vistos[k] = name
+        print(f"  fuente: {path} ({len(part):,} filas, meses {sorted(part['mes'].unique(), key=int)}, "
+              f"LoB {sorted(part['lob'].unique())})")
+        parts.append(part)
+    raw = pd.concat(parts, ignore_index=True)
+    fy = config.CURRENT_FY
+    fy_tag = f"FY{str(fy)[-2:]}"
+    otros = raw.loc[raw["year"] != fy_tag, "year"].unique()
+    if len(otros):
+        print(f"  [WARN] se descartan {int((raw['year'] != fy_tag).sum()):,} filas de year={list(otros)} (no es {fy_tag})")
+    raw = raw[raw["year"] == fy_tag].copy()
+    if raw.empty:
+        sys.exit(f"Ninguna fila con year={fy_tag} en {pattern} -> ¿cambió el formato de 'year'?")
+    mes = raw["mes"].astype(int)
+    # mes = mes calendario; el FY arranca en abril (Abr..Dic = año anterior)
+    raw["Fecha"] = [f"{fy - 1 if m >= 4 else fy}-{m:02d}-01" for m in mes]
+    raw["total"] = pd.to_numeric(raw["total"].str.replace(".", "", regex=False)
+                                              .str.replace(",", ".", regex=False), errors="coerce")
+    # pivot_table descarta en silencio filas con NaN en claves o monto -> frenar antes
+    ilegibles = raw["total"].isna()
+    if ilegibles.any():
+        sys.exit(f"{int(ilegibles.sum()):,} filas con 'total' vacío o ilegible "
+                 f"-> ¿cambió el formato de número (se espera '.' de miles y ',' decimal)?")
+    vacias = raw[["linea", "brand", "pais", "product", "lob", "channel"]].isna().any(axis=1)
+    if vacias.any():
+        sys.exit(f"{int(vacias.sum()):,} filas con linea/brand/pais/product/lob/channel vacío "
+                 f"-> se perderían en el pivot. Revisar el CSV.")
+    linea = raw["linea"].str.strip().str.lower()
+    keep = ~linea.isin(FLAT_LINEA_DROP)
+    raw, linea = raw[keep].copy(), linea[keep]
+    raw["Linea P&L"] = linea.map(FLAT_LINEA_MAP).fillna(raw["linea"])
+    raw["Pais"]      = raw["pais"].str.strip().str.lower().map(FLAT_PAIS_MAP).fillna(raw["pais"])
+    raw["Marca"]     = raw["brand"]
+    raw["Producto"]  = raw["product"]
+    raw["LOB-CANAL"] = raw["lob"].str.strip() + "-" + raw["channel"].str.strip()
+    keys = ["Linea P&L", "Marca", "Pais", "Producto", "LOB-CANAL"]
+    wide = raw.pivot_table(index=keys, columns="Fecha", values="total",
+                           aggfunc="sum").reset_index()
+    for d in FISCAL_DATES:
+        if d not in wide.columns:
+            wide[d] = None
+    print(f"  meses con datos: {sorted(raw['Fecha'].unique())}")
+    return wide[keys + FISCAL_DATES]
+
+
 # ── Transform GB/Orders (Parte 3.5) ──────────────────────────────────────────
 def gb_orders_transform(df):
     v = df["Viaje"].astype(str).str.strip().str.lower()
@@ -168,9 +272,13 @@ def verify(df):
 def build(base, con_ppa=False):
     cfg = BASES[base]
     print(f"=== plana {base} ({'CON' if con_ppa else 'SIN'} PPA) ===")
-    df = read_base(cfg["files"], cfg.get("only_from_all", ()))
-    print(f"  leídas {len(df):,} filas (ALL+NA)")
-    df = gb_orders_transform(df)
+    if "flat_file" in cfg:
+        df = read_flat_base(cfg["flat_file"])
+        print(f"  leídas {len(df):,} filas (formato plano)")
+    else:
+        df = read_base(cfg["files"], cfg.get("only_from_all", ()))
+        print(f"  leídas {len(df):,} filas (ALL+NA)")
+        df = gb_orders_transform(df)  # el formato plano ya trae GB/Orders NAC/INT
     df = apply_exclusions(df, cfg["is_forecast"])
     if cfg["is_forecast"]:
         for d in FORECAST_DROP_DATES:

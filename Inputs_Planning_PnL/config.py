@@ -82,13 +82,13 @@ BASES = {
                   "Forecast/FQ1 - Legal Entity NA.csv"],
         "is_forecast": True,
     },
+    # Desde 2026-10-26 el RunRate viene en formato PLANO (una fila por linea x mes, ';' y
+    # coma decimal, etiquetas ya legibles: Brazil, Air, GB NAC...) en la carpeta del equipo
+    # (get_base_dir(), no Planning-PBI). Reemplaza a "RR - Legal Entity ALL/NA - 27.csv".
+    # Ya no hay ALL/NA separados -> no aplica only_from_all.
     "runrate": {
-        "files": [f"Run Rate/RR - Legal Entity ALL - {_FY_SHORT}.csv",
-                  f"Run Rate/RR - Legal Entity NA - {_FY_SHORT}.csv"],
+        "flat_file": "Base_P&L_Contable/RunRate*.csv",   # glob: puede venir en partes
         "is_forecast": False,
-        # "Cost of sales" viene duplicado en ALL y NA (mismas filas) -> se toma solo de ALL
-        # (2026-10-05). Nombres de la columna Account, en minúscula.
-        "only_from_all": ["cost of sales"],
     },
     "lastrunrate": {
         "files": ["Run Rate/LRR - Legal Entity ALL.csv",
