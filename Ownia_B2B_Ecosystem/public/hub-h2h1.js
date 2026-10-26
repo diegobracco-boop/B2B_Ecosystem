@@ -8,8 +8,10 @@
  *  - cuánto creció el H2 sobre el H1 el año pasado (H2/H1 FY anterior = la estacionalidad normal).
  * La diferencia en puntos es el esfuerzo extra que asume el Budget (= la aceleración del YoY del H2
  * contra el del H1), y se parte en dos causas: lo que planeó el Budget (H2 vs H1 dentro del Budget
- * contra el año pasado) y el efecto H1 (cómo salió el H1 real contra su Budget). A la derecha, los
- * challenges ordenados de mayor a menor, contados según su causa.
+ * contra el año pasado) y el efecto H1 (cómo salió el H1 real contra su Budget).
+ * Pantalla pensada para el CEO: por negocio, "crece X%, un H2 normal crece Y%", un veredicto en palabras
+ * (muy exigente / exigente / normal / holgado) y el porqué en una frase. El detalle para Planning
+ * (Planeado, plan / efecto H1, gráfico) queda plegado en "Ver detalle".
  *
  * Datos: getAllData del Hub (los mismos números que el resto del dashboard), dos llamadas — H1 y H2 —
  * con LoB Consolidado, que trae los grupos WL's (= B2B2C), MAY, MIN y Total. Respeta el switch Organic
@@ -149,41 +151,76 @@
       '<b>Challenge</b> = Pide − Año pasado, en pp = <b>plan</b> (Planeado − Año pasado) + <b>efecto H1</b> (Pide − Planeado: el H1 real arriba o abajo de su Budget).</div>';
   }
 
-  // Challenges ordenados de mayor a menor (los segmentos, no el total), con la frase para contar.
-  function challenges(all) {
-    var list = [];
-    METRICS.forEach(function (m) { all[m[0]].forEach(function (r) { if (r.seg !== 'total' && isFinite(r.gap)) list.push(r); }); });
-    list.sort(function (a, b) { return b.gap - a.gap; });
-    var hard = list.filter(function (r) { return r.gap > 5; });
-    var soft = list.filter(function (r) { return r.gap < -5; });
-    // Por qué: lo que planeó el Budget sobre la estacionalidad vs el rebase por el H1 real.
-    function why(r) {
-      var h1 = 'el H1 real quedó ' + fmtP(r.h1VsBud) + ' vs su Budget';
-      if (Math.abs(r.h1eff) > Math.abs(r.plan)) {
-        return r.h1eff > 0
-          ? 'El Budget planeaba un H2 ' + fmtP(r.inBud) + ' sobre el H1 (≈ estacionalidad); el esfuerzo viene de recuperar el H1: ' + h1 + '.'
-          : 'El Budget planeaba un H2 ' + fmtP(r.inBud) + ' sobre el H1; ' + h1 + ', y eso deja un H2 más alcanzable.';
-      }
-      return 'Ya en el Budget el H2 crecía ' + fmtP(r.inBud) + ' sobre el H1 (año pasado ' + fmtP(r.ly) + ')' +
-        (r.h1eff < -5 ? '; ' + h1 + ' y absorbe ' + fmtPP(-r.h1eff) + '.' : r.h1eff > 5 ? ', y ' + h1 + ' (suma ' + fmtPP(r.h1eff) + ').' : '.');
+  // ── Vista para el CEO ─────────────────────────────────────────────────────────────────────
+  // Un solo porcentaje contra una sola referencia ("crece X%, un H2 normal crece Y%"), un veredicto
+  // en palabras y el porqué en una frase. El detalle (Planeado, plan / efecto H1) queda plegado.
+  var VERDICTS = [
+    [25, 'Muy exigente', 'h21-v4'], [8, 'Exigente', 'h21-v3'], [-8, 'Normal', 'h21-v2'], [-Infinity, 'Holgado', 'h21-v1'],
+  ];
+  function verdict(gap) {
+    if (!isFinite(gap)) return ['—', 'h21-v2'];
+    for (var i = 0; i < VERDICTS.length; i++) if (gap > VERDICTS[i][0]) return [VERDICTS[i][1], VERDICTS[i][2]];
+    return ['Holgado', 'h21-v1'];
+  }
+  function metricShort(r) { return r.metric === 'Net Revenue' ? 'NR' : 'OC'; }
+
+  // Por qué, en una frase: lo que planeó el Budget vs lo que dejó el H1 real contra su Budget.
+  function why(r) {
+    var h1 = 'el H1 de ' + metricShort(r) + ' quedó ' + fmtP(r.h1VsBud) + ' vs Budget';
+    if (r.gap > 8) {
+      return Math.abs(r.h1eff) > Math.abs(r.plan) && r.h1eff > 0
+        ? 'Hay que recuperar el H1: ' + h1 + '; el Budget planeaba un H2 normal.'
+        : 'El Budget ya planeaba un H2 fuerte (' + fmtP(r.inBud) + ' sobre el H1)' + (r.h1eff < -5 ? '; ' + h1 + ' y lo compensa en parte.' : '.');
     }
-    function li(r) {
-      return '<li><b>' + esc(r.name) + ' · ' + esc(r.metric) + '</b> <b class="' + (r.gap > 0 ? 'h21-dn' : 'h21-up') + '">' + fmtPP(r.gap) + '</b><br>' +
-        'H2 Budget ' + fmtP(r.bud) + ' sobre el H1 real (año pasado: ' + fmtP(r.ly) + ').<br><span class="h21-muted">' + why(r) + '</span></li>';
-    }
-    return '<section class="h21-chal"><h3>Los challenges del Budget H2</h3>' +
-      (hard.length ? '<ol>' + hard.map(li).join('') + '</ol>' : '<p class="h21-muted">Ningún segmento pide más de 5 pp sobre la estacionalidad del año pasado.</p>') +
-      (soft.length ? '<h4>Por debajo de la estacionalidad</h4><ul>' + soft.map(li).join('') + '</ul>' : '') +
-      '</section>';
+    if (r.gap < -8) return 'El Budget pide menos que un H2 normal' + (r.h1VsBud > 5 ? ', y ' + h1 + '.' : '.');
+    return 'En línea con un H2 normal' + (Math.abs(r.h1VsBud) >= 10 ? '; ' + h1 + '.' : '.');
+  }
+
+  // Lectura de la fila: la métrica más exigente del segmento (la que hay que contar).
+  function segReading(nr, oc) {
+    var main = (isFinite(oc.gap) && oc.gap > nr.gap) ? oc : nr;
+    var v = verdict(main.gap);
+    var both = verdict(nr.gap)[0] === verdict(oc.gap)[0];
+    return '<span class="h21-vtag ' + v[1] + '">' + v[0] + (both ? '' : ' en ' + metricShort(main)) + '</span>' +
+      '<span class="h21-why">' + esc(why(main)) + '</span>';
+  }
+
+  function cell(r) {
+    var v = verdict(r.gap);
+    return '<div class="h21-cell">' +
+      '<div class="h21-flow">' + fmtM(r.h1) + ' <span class="h21-arrow">→</span> ' + fmtM(r.h2) + '</div>' +
+      '<div class="h21-grow"><b class="h21-g ' + v[1] + '">' + fmtP(r.bud) + '</b><span class="h21-vs">un H2 normal: ' + fmtP(r.ly) + '</span></div>' +
+      '</div>';
+  }
+
+  function ceoTable(all) {
+    var body = SEGS.map(function (s, i) {
+      var nr = all.nr[i], oc = all.oc[i];
+      return '<div class="h21-crow' + (s[0] === 'total' ? ' h21-ctot' : '') + '">' +
+        '<div class="h21-cseg">' + esc(s[1]) + '</div>' + cell(nr) + cell(oc) +
+        '<div class="h21-read">' + segReading(nr, oc) + '</div></div>';
+    }).join('');
+    return '<section class="h21-ceo">' +
+      '<div class="h21-crow h21-chdr"><div></div>' +
+      '<div><b>Net Revenue</b><span>H1 real → H2 Budget · crece</span></div>' +
+      '<div><b>Operating Contribution</b><span>H1 real → H2 Budget · crece</span></div>' +
+      '<div><b>¿Qué tan exigente es el H2?</b><span>vs el crecimiento de un H2 normal (H2 vs H1 del año pasado)</span></div></div>' +
+      body + '</section>';
   }
 
   function headline(all) {
-    var nr = all.nr[0], oc = all.oc[0];
-    return 'El Budget asume un H2 <b>' + fmtP(nr.bud) + '</b> en Net Revenue y <b>' + fmtP(oc.bud) + '</b> en Operating Contribution sobre el H1 real; ' +
-      'el año pasado el H2 creció ' + fmtP(nr.ly) + ' y ' + fmtP(oc.ly) + ' sobre su H1 (' + fmtPP(nr.gap) + ' / ' + fmtPP(oc.gap) + '). ' +
-      '<span class="h21-muted">Dentro del Budget el plan era ' + fmtP(nr.inBud) + ' / ' + fmtP(oc.inBud) + ' (' + fmtPP(nr.plan) + ' / ' + fmtPP(oc.plan) + '); ' +
-      'el H1 real ' + (nr.h1eff + oc.h1eff < 0 ? 'por encima de su Budget lo bajó' : 'por debajo de su Budget lo subió') + ' ' +
-      fmtPP(nr.h1eff) + ' / ' + fmtPP(oc.h1eff) + '.</span>';
+    var nr = all.nr[0], oc = all.oc[0], tot = Math.max(nr.gap, oc.gap);
+    var level = tot > 25 ? 'muy por encima de' : tot > 8 ? 'por encima de' : tot < -8 ? 'por debajo de' : 'en línea con';
+    var hard = {};
+    METRICS.forEach(function (m) {
+      all[m[0]].forEach(function (r) { if (r.seg !== 'total' && r.gap > 8) (hard[r.name] = hard[r.name] || []).push(metricShort(r)); });
+    });
+    var names = Object.keys(hard).sort(function (a, b) { return hard[b].length - hard[a].length; })
+      .map(function (n) { return '<b>' + esc(n) + '</b>' + (hard[n].length < 2 ? ' (' + hard[n][0] + ')' : ''); });
+    var where = !names.length ? 'Ningún negocio pide un esfuerzo extra relevante.'
+      : 'El esfuerzo está concentrado en ' + (names.length > 1 ? names.slice(0, -1).join(', ') + ' y ' + names[names.length - 1] : names[0]) + '.';
+    return 'En total, el Budget pide un H2 <b>' + level + '</b> lo normal: Net Revenue <b>' + fmtP(nr.bud) + '</b> sobre el H1 (un H2 normal: ' + fmtP(nr.ly) + ') ' +
+      'y Operating Contribution <b>' + fmtP(oc.bud) + '</b> (normal: ' + fmtP(oc.ly) + '). ' + where;
   }
 
   function render(h1r, h2r) {
@@ -194,17 +231,21 @@
     }
     var all = rows(h1, h2), yr = fy(), org = organicOn(), ly = 'FY' + String(yr - 1).slice(-2);
     var p = all.nr[0].proj, q = all.oc[0].proj;
+    var open = panel.querySelector('.h21-det') && panel.querySelector('.h21-det').open;
     body().innerHTML =
       '<p class="h21-head1">' + headline(all) + '</p>' +
       '<div class="h21-sub">H1 real abr–sep ' + (yr - 1) + ' · H2 Budget oct ' + (yr - 1) + '–mar ' + yr + ' · USD · ' +
-        '<span class="h21-mode">' + (org ? 'Organic YES: H1 real a TC Budget' : 'Organic NO: USD nominales') + '</span></div>' +
-      '<div class="h21-layout"><div class="h21-left">' + howTo() + block('Net Revenue', all.nr) + block('Operating Contribution', all.oc) + '</div>' +
-        challenges(all) + '</div>' +
-      '<p class="h21-foot"><b>Challenge</b> = crecimiento H2 Budget vs H1 real menos el H2 vs H1 que tuvo el ' + ly + ' (estacionalidad normal); ' +
-        'en verde lo que pide menos que el año pasado. Se parte en <b>plan</b> (H2 vs H1 dentro del Budget menos el año pasado) y ' +
-        '<b>efecto H1</b> (lo que agrega o resta que el H1 real haya quedado debajo o encima de su Budget). Hoy se proyecta un H2 (real + Run Rate) ' + fmtP(p) + ' en NR y ' + fmtP(q) + ' en OC vs Budget. ' +
-        (yr === LY_ADJ_FY ? 'OC ' + ly + ' H1 sin el pago extraordinario LATAM de USD 5.6M (jun-25, B2B2C), como en la presentación de dirección. ' : '') +
-        'Fuente: P&amp;L contable del Hub.</p>';
+        '<span class="h21-mode">' + (org ? 'Organic: H1 real a tipo de cambio Budget' : 'USD nominales') + '</span></div>' +
+      ceoTable(all) +
+      '<p class="h21-today">Hoy, con el real de octubre y el Run Rate, el H2 se proyecta <b class="' + (p >= 0 ? 'h21-up' : 'h21-dn') + '">' + fmtP(p) + '</b> en Net Revenue y ' +
+        '<b class="' + (q >= 0 ? 'h21-up' : 'h21-dn') + '">' + fmtP(q) + '</b> en Operating Contribution contra el Budget.</p>' +
+      '<details class="h21-det"' + (open ? ' open' : '') + '><summary>Ver detalle: de dónde sale el esfuerzo (plan del Budget vs efecto H1)</summary>' +
+        howTo() + block('Net Revenue', all.nr) + block('Operating Contribution', all.oc) + '</details>' +
+      '<p class="h21-foot"><b>Un H2 normal</b> = cuánto creció el H2 sobre el H1 en el ' + ly + ' (la estacionalidad). ' +
+        '<b>Veredicto</b> según cuántos puntos pide el Budget por encima de eso: más de 25 muy exigente, 8 a 25 exigente, ±8 normal, menos de −8 holgado. ' +
+        (org ? 'Con Organic, el H1 real va a tipo de cambio Budget para compararlo con el H2 Budget. ' : '') +
+        (yr === LY_ADJ_FY ? 'OC ' + ly + ' H1 sin el pago extraordinario LATAM de USD 5.6M (jun-25, B2B2C). ' : '') +
+        'Fuente: P&amp;L contable.</p>';
   }
 
   function body() { return panel.querySelector('.h21-body'); }
@@ -223,14 +264,33 @@
       '#h21 .h21-org button:first-of-type{border-radius:8px 0 0 8px}#h21 .h21-org button:last-of-type{border-radius:0 8px 8px 0;border-left:none}',
       '#h21 .h21-org button[aria-pressed="true"]{background:#550fed;border-color:#550fed;color:#fff}',
       '#h21 .h21-close{margin-left:10px;border:1px solid #d0d0d8;background:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font:inherit;font-size:13px}',
-      '#h21 .h21-head1{font-size:17px;line-height:1.45;margin:10px 0 4px}',
+      '#h21 .h21-head1{font-size:19px;line-height:1.45;margin:12px 0 6px;max-width:1050px}',
       '#h21 .h21-sub{color:#6e6e73;font-size:12.5px;margin:0 0 14px}',
       '#h21 .h21-mode{background:#ece7fd;color:#3d0bb0;border-radius:6px;padding:1px 7px;font-weight:600}',
-      '#h21 .h21-layout{display:grid;grid-template-columns:minmax(0,2.1fr) minmax(0,1fr);gap:16px;align-items:start}',
-      '@media (max-width:1000px){#h21 .h21-layout{grid-template-columns:1fr}}',
+      '#h21 .h21-ceo{padding:6px 20px}',
+      '#h21 .h21-crow{display:grid;grid-template-columns:150px minmax(0,1fr) minmax(0,1fr) minmax(0,1.5fr);gap:18px;align-items:center;padding:14px 0;border-top:1px solid #ececf0}',
+      '#h21 .h21-chdr{border-top:none;padding:10px 0 6px;align-items:end}',
+      '#h21 .h21-chdr b{display:block;font-size:13px}',
+      '#h21 .h21-chdr span{display:block;font-size:11.5px;color:#6e6e73}',
+      '#h21 .h21-cseg{font-size:15px;font-weight:600}',
+      '#h21 .h21-ctot{background:#f8f7fd;margin:0 -20px;padding:14px 20px}',
+      '#h21 .h21-flow{font-size:13px;color:#6e6e73;font-variant-numeric:tabular-nums}',
+      '#h21 .h21-arrow{color:#c7c7cc}',
+      '#h21 .h21-grow{display:flex;align-items:baseline;gap:10px;margin-top:2px}',
+      '#h21 .h21-g{font-size:24px;font-weight:600;font-variant-numeric:tabular-nums}',
+      '#h21 .h21-vs{font-size:12.5px;color:#6e6e73}',
+      '#h21 .h21-read{display:flex;flex-direction:column;align-items:flex-start;gap:5px}',
+      '#h21 .h21-vtag{font-size:12.5px;font-weight:700;border-radius:999px;padding:3px 11px}',
+      '#h21 .h21-why{font-size:13px;line-height:1.4;color:#3a3a3c}',
+      '#h21 .h21-v4{color:#b3261e}#h21 .h21-v3{color:#b35c00}#h21 .h21-v2{color:#3a3a3c}#h21 .h21-v1{color:#146c43}',
+      '#h21 .h21-vtag.h21-v4{background:#fdecea}#h21 .h21-vtag.h21-v3{background:#fff1e0}#h21 .h21-vtag.h21-v2{background:#f0f0f3}#h21 .h21-vtag.h21-v1{background:#e6f4ec}',
+      '#h21 .h21-today{font-size:14px;margin:14px 2px}',
+      '#h21 .h21-det{margin-top:6px}',
+      '#h21 .h21-det summary{cursor:pointer;font-size:13px;color:#550fed;font-weight:600;padding:6px 2px;list-style-position:inside}',
+      '#h21 .h21-det[open] summary{margin-bottom:10px}',
+      '#h21 .h21-det section{margin-top:12px}',
+      '@media (max-width:900px){#h21 .h21-crow{grid-template-columns:1fr 1fr}#h21 .h21-cseg,#h21 .h21-read{grid-column:1 / -1}}',
       '#h21 section{background:#fff;border-radius:14px;padding:14px 16px;box-shadow:0 1px 3px rgba(0,0,0,.06)}',
-      '#h21 .h21-left section+section{margin-top:14px}',
-      '#h21 .h21-left .h21-how+section{margin-top:0}',
       '#h21 h3{font-size:15px;font-weight:600;margin:0 0 8px}',
       '#h21 h4{font-size:13px;font-weight:600;margin:12px 0 6px;color:#6e6e73}',
       '#h21 .h21-row{display:grid;grid-template-columns:118px 92px 70px 82px 82px 82px 96px minmax(110px,1fr);gap:8px;align-items:center;padding:7px 0;border-top:1px solid #f0f0f3;font-size:13.5px}',
@@ -268,8 +328,6 @@
       '#h21 .h21-hard{color:#b3261e;background:#fdecea}#h21 .h21-soft{color:#146c43;background:#e6f4ec}#h21 .h21-even{color:#3a3a3c;background:#f2f2f5}',
       '#h21 .h21-up{color:' + UP + '}#h21 .h21-dn{color:' + DOWN + '}',
       '#h21 .h21-muted{color:#6e6e73;font-weight:400}',
-      '#h21 .h21-chal ol,#h21 .h21-chal ul{margin:0;padding-left:20px;font-size:13.5px;line-height:1.5}',
-      '#h21 .h21-chal li{margin-bottom:9px}',
       '#h21 .h21-foot{color:#8e8e93;font-size:11.5px;margin-top:12px;line-height:1.5}',
       '#h21 .h21-err,#h21 .h21-load{color:#6e6e73;font-size:14px}',
     ].join('\n');
@@ -279,7 +337,7 @@
     panel.setAttribute('role', 'region');
     panel.setAttribute('aria-label', 'H2 Budget vs H1');
     panel.style.display = 'none';
-    panel.innerHTML = '<div class="h21-wrap"><div class="h21-top"><h2>H2 Budget vs H1 · el challenge que asume el Budget</h2>' +
+    panel.innerHTML = '<div class="h21-wrap"><div class="h21-top"><h2>H2 Budget vs H1 real · ¿qué tan exigente es el H2?</h2>' +
       '<div class="h21-org" role="group" aria-label="Organic"><span>Organic</span>' +
       '<button type="button" data-o="yes">YES</button><button type="button" data-o="no">NO</button></div>' +
       '<button type="button" class="h21-close">← Volver al P&amp;L</button></div><div class="h21-body"></div></div>';
