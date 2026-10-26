@@ -85,6 +85,7 @@
         var bud = pct(b.bud, a.act), ly = pct(b.ly, lyH1), inBud = pct(b.bud, a.bud);
         // gap = plan (lo que el Budget ya planeaba sobre la estacionalidad) + h1eff (rebase por el H1 real)
         return { seg: s[0], name: s[1], metric: m[1], h1: a.act, h1VsBud: pct(a.act, a.bud), h2: b.bud,
+          h1Bud: a.bud, lyH1: lyH1, lyH2: b.ly,
           bud: bud, ly: ly, inBud: inBud, gap: bud - ly, plan: inBud - ly, h1eff: bud - inBud, proj: pct(b.act, b.bud) };
       });
     });
@@ -100,34 +101,52 @@
       '<span class="h21-stxt">' + fmtPP(r.plan).replace(' pp', '') + ' · ' + fmtPP(r.h1eff).replace(' pp', '') + '</span>';
   }
 
-  // Barra = H2/H1 que asume el Budget; marca negra = H2/H1 del año pasado. La distancia es el challenge.
+  // Tabla: cada % en su columna, con el encabezado diciendo qué compara contra qué; el gráfico de la
+  // última columna repite los tres crecimientos (barra = pide el Budget, círculo = planeado, línea = año pasado).
   function block(title, list) {
     var vals = [];
     list.forEach(function (r) { [r.bud, r.ly, r.inBud].forEach(function (v) { if (isFinite(v)) vals.push(v); }); });
     var lo = Math.min(0, Math.min.apply(null, vals)), hi = Math.max(1, Math.max.apply(null, vals));
     var span = hi - lo, x = function (v) { return ((v - lo) / span * 100).toFixed(1) + '%'; };
+    function calc(num, den, a, b) { return esc(fmtM(num) + ' ' + a + ' / ' + fmtM(den) + ' ' + b + ' − 1'); }
     var body = list.map(function (r) {
       var from = Math.min(0, r.bud), to = Math.max(0, r.bud);
       var bar = isFinite(r.bud) ? '<span class="h21-bar" style="left:' + x(from) + ';width:calc(' + x(to) + ' - ' + x(from) + ')"></span>' : '';
-      var tick = isFinite(r.ly) ? '<span class="h21-tick" style="left:' + x(r.ly) + '" title="Año pasado: ' + fmtP(r.ly) + '"></span>' : '';
-      var plan = isFinite(r.inBud) ? '<span class="h21-plan" style="left:' + x(r.inBud) + '" title="Dentro del Budget: ' + fmtP(r.inBud) + '"></span>' : '';
+      var tick = isFinite(r.ly) ? '<span class="h21-tick" style="left:' + x(r.ly) + '"></span>' : '';
+      var plan = isFinite(r.inBud) ? '<span class="h21-plan" style="left:' + x(r.inBud) + '"></span>' : '';
       var zero = lo < 0 ? '<span class="h21-zero" style="left:' + x(0) + '"></span>' : '';
       var gc = !isFinite(r.gap) ? '' : r.gap > 5 ? 'h21-hard' : r.gap < -5 ? 'h21-soft' : 'h21-even';
       return '<div class="h21-row' + (r.seg === 'total' ? ' h21-tot' : '') + '">' +
         '<div class="h21-seg">' + esc(r.name) + '</div>' +
-        '<div class="h21-num">' + fmtM(r.h1) + '<small class="' + (r.h1VsBud >= 0 ? 'h21-up' : 'h21-dn') + '">' + fmtP(r.h1VsBud) + ' vs Bud</small></div>' +
+        '<div class="h21-num" title="H1 Budget: ' + esc(fmtM(r.h1Bud)) + '">' + fmtM(r.h1) +
+          '<small class="' + (r.h1VsBud >= 0 ? 'h21-up' : 'h21-dn') + '">' + fmtP(r.h1VsBud) + ' vs H1 Bud</small></div>' +
         '<div class="h21-num">' + fmtM(r.h2) + '</div>' +
-        '<div class="h21-viz">' + zero + bar + plan + tick + '<span class="h21-vlab" style="left:calc(' + x(Math.max(0, r.bud)) + ' + 6px)">' + fmtP(r.bud) + '</span></div>' +
-        '<div class="h21-num h21-lyv">' + fmtP(r.inBud) + '</div>' +
-        '<div class="h21-num h21-lyv">' + fmtP(r.ly) + '</div>' +
-        '<div class="h21-gapc"><div class="h21-gap ' + gc + '">' + fmtPP(r.gap) + '</div>' +
+        '<div class="h21-num h21-pc h21-c1" title="' + calc(r.h2, r.h1, 'H2 Bud', 'H1 real') + '">' + fmtP(r.bud) + '</div>' +
+        '<div class="h21-num h21-pc h21-c2" title="' + calc(r.h2, r.h1Bud, 'H2 Bud', 'H1 Bud') + '">' + fmtP(r.inBud) + '</div>' +
+        '<div class="h21-num h21-pc h21-c3" title="' + calc(r.lyH2, r.lyH1, 'H2 LY', 'H1 LY') + '">' + fmtP(r.ly) + '</div>' +
+        '<div class="h21-gapc" title="' + esc('Pide el Budget ' + fmtP(r.bud) + ' − año pasado ' + fmtP(r.ly) + ' = ' + fmtPP(r.gap) +
+          ' (plan ' + fmtPP(r.plan) + ' + efecto H1 ' + fmtPP(r.h1eff) + ')') + '"><div class="h21-gap ' + gc + '">' + fmtPP(r.gap) + '</div>' +
           '<div class="h21-split">' + split(r) + '</div></div>' +
+        '<div class="h21-viz">' + zero + bar + plan + tick + '</div>' +
         '</div>';
     }).join('');
-    return '<section class="h21-block"><h3>' + title + '</h3>' +
-      '<div class="h21-row h21-hdr"><div></div><div>H1 real</div><div>H2 Budget</div>' +
-      '<div>H2 Budget vs H1 real <span class="h21-key"><i class="h21-kbar"></i>vs H1 real <i class="h21-kplan"></i>en el Budget <i class="h21-ktick"></i>año pasado</span></div>' +
-      '<div>En el Budget</div><div>Año pasado</div><div>Challenge<br><span class="h21-hsub">plan · efecto H1</span></div></div>' + body + '</section>';
+    function hd(a, b, c) { return '<div class="h21-h' + (c || '') + '"><b>' + a + '</b><span>' + b + '</span></div>'; }
+    return '<section class="h21-block"><h3>' + title + ' <span class="h21-muted">· crecimiento del H2 sobre el H1</span></h3>' +
+      '<div class="h21-row h21-hdr"><div></div>' +
+      hd('H1 real', 'USD · vs su Budget') + hd('H2 Budget', 'USD') +
+      hd('Pide el Budget', 'H2 Bud vs H1 real', ' h21-c1') + hd('Planeado', 'H2 Bud vs H1 Bud', ' h21-c2') + hd('Año pasado', 'H2 vs H1 FY' + String(fy() - 1).slice(-2), ' h21-c3') +
+      hd('Challenge', 'Pide − Año pasado') +
+      '<div class="h21-hv"><span><i class="h21-kbar"></i>pide</span><span><i class="h21-kplan"></i>planeado</span><span><i class="h21-ktick"></i>año pasado</span></div>' +
+      '</div>' + body + '</section>';
+  }
+
+  // Cómo leer la tabla, en una línea (va arriba de las dos tablas).
+  function howTo() {
+    return '<div class="h21-how"><b>Cómo leer:</b> tres crecimientos del H2 sobre el H1 — ' +
+      '<span class="h21-c1">Pide el Budget</span> = H2 Budget / H1 real · ' +
+      '<span class="h21-c2">Planeado</span> = H2 Budget / H1 Budget · ' +
+      '<span class="h21-c3">Año pasado</span> = H2 / H1 del FY' + String(fy() - 1).slice(-2) + '. ' +
+      '<b>Challenge</b> = Pide − Año pasado, en pp = <b>plan</b> (Planeado − Año pasado) + <b>efecto H1</b> (Pide − Planeado: el H1 real arriba o abajo de su Budget).</div>';
   }
 
   // Challenges ordenados de mayor a menor (los segmentos, no el total), con la frase para contar.
@@ -179,7 +198,7 @@
       '<p class="h21-head1">' + headline(all) + '</p>' +
       '<div class="h21-sub">H1 real abr–sep ' + (yr - 1) + ' · H2 Budget oct ' + (yr - 1) + '–mar ' + yr + ' · USD · ' +
         '<span class="h21-mode">' + (org ? 'Organic YES: H1 real a TC Budget' : 'Organic NO: USD nominales') + '</span></div>' +
-      '<div class="h21-layout"><div class="h21-left">' + block('Net Revenue', all.nr) + block('Operating Contribution', all.oc) + '</div>' +
+      '<div class="h21-layout"><div class="h21-left">' + howTo() + block('Net Revenue', all.nr) + block('Operating Contribution', all.oc) + '</div>' +
         challenges(all) + '</div>' +
       '<p class="h21-foot"><b>Challenge</b> = crecimiento H2 Budget vs H1 real menos el H2 vs H1 que tuvo el ' + ly + ' (estacionalidad normal); ' +
         'en verde lo que pide menos que el año pasado. Se parte en <b>plan</b> (H2 vs H1 dentro del Budget menos el año pasado) y ' +
@@ -211,10 +230,21 @@
       '@media (max-width:1000px){#h21 .h21-layout{grid-template-columns:1fr}}',
       '#h21 section{background:#fff;border-radius:14px;padding:14px 16px;box-shadow:0 1px 3px rgba(0,0,0,.06)}',
       '#h21 .h21-left section+section{margin-top:14px}',
+      '#h21 .h21-left .h21-how+section{margin-top:0}',
       '#h21 h3{font-size:15px;font-weight:600;margin:0 0 8px}',
       '#h21 h4{font-size:13px;font-weight:600;margin:12px 0 6px;color:#6e6e73}',
-      '#h21 .h21-row{display:grid;grid-template-columns:112px 88px 66px minmax(150px,1fr) 66px 62px 104px;gap:9px;align-items:center;padding:7px 0;border-top:1px solid #f0f0f3;font-size:13.5px}',
-      '#h21 .h21-hsub{text-transform:none;letter-spacing:0}',
+      '#h21 .h21-row{display:grid;grid-template-columns:118px 92px 70px 82px 82px 82px 96px minmax(110px,1fr);gap:8px;align-items:center;padding:7px 0;border-top:1px solid #f0f0f3;font-size:13.5px}',
+      '#h21 .h21-hdr{align-items:end}',
+      '#h21 .h21-hdr > div{text-align:right}',
+      '#h21 .h21-hdr b{display:block;font-size:11.5px;color:#1d1d1f;text-transform:none;letter-spacing:0}',
+      '#h21 .h21-hdr span{display:block;font-size:10.5px;color:#6e6e73;text-transform:none;letter-spacing:0}',
+      '#h21 .h21-hv{display:flex;flex-wrap:wrap;gap:4px 10px;justify-content:flex-start !important;text-align:left !important}',
+      '#h21 .h21-hv span{display:inline-flex !important;align-items:center;font-size:10.5px}',
+      '#h21 .h21-pc{font-weight:600}',
+      '#h21 .h21-c1{color:' + BAR + '}#h21 .h21-c2{color:#7b5bd6}#h21 .h21-c3{color:#3a3a3c}',
+      '#h21 .h21-hdr .h21-c1 b{color:' + BAR + '}#h21 .h21-hdr .h21-c2 b{color:#7b5bd6}',
+      '#h21 .h21-how{background:#fff;border-radius:12px;padding:10px 14px;margin-bottom:12px;font-size:12.5px;line-height:1.55;color:#3a3a3c;box-shadow:0 1px 3px rgba(0,0,0,.06)}',
+      '#h21 .h21-how .h21-c1,#h21 .h21-how .h21-c2,#h21 .h21-how .h21-c3{font-weight:600}',
       '#h21 .h21-plan{position:absolute;top:5px;width:10px;height:10px;margin-left:-5px;border-radius:50%;border:2px solid ' + BAR + ';background:#fff;box-sizing:border-box}',
       '#h21 .h21-kplan{display:inline-block;width:9px;height:9px;border-radius:50%;border:2px solid ' + BAR + ';margin:0 3px -1px 8px;box-sizing:border-box}',
       '#h21 .h21-gapc{display:flex;flex-direction:column;align-items:flex-end;gap:3px}',
@@ -232,8 +262,6 @@
       '#h21 .h21-tot .h21-bar{opacity:1}',
       '#h21 .h21-tick{position:absolute;top:0;width:3px;height:22px;margin-left:-1.5px;border-radius:1px;background:' + LYC + '}',
       '#h21 .h21-zero{position:absolute;top:0;width:1px;height:22px;background:#c7c7cc}',
-      '#h21 .h21-vlab{position:absolute;top:2px;font-size:12px;font-weight:600;white-space:nowrap}',
-      '#h21 .h21-key{text-transform:none;letter-spacing:0;margin-left:6px}',
       '#h21 .h21-kbar{display:inline-block;width:14px;height:8px;background:' + BAR + ';border-radius:2px;margin:0 3px 0 4px}',
       '#h21 .h21-ktick{display:inline-block;width:3px;height:11px;background:' + LYC + ';margin:0 3px -1px 8px}',
       '#h21 .h21-gap{text-align:right;font-weight:700;font-variant-numeric:tabular-nums;border-radius:6px;padding:3px 6px}',
