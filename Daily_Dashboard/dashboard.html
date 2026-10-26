@@ -5366,7 +5366,7 @@ function flowGroupTable_(subRaw, metricKey, comp, col1, groupByRegion, childMax,
   // Un país con un solo tier va directo a los partners.
   function deepRows_(parentKey, pais, c, ind, disp){
     var open=_flowPrinting, dispT=open?'table-row':'none', caret=open?'▾':'▸', byT={}, out='';
-    Object.keys(c.pt).forEach(function(pl){ var x=c.pt[pl], t=tierOf_(pais, x.name); (byT[t]=byT[t]||{base:0,goal:0,ya:0,ly:0,kids:[]}).kids.push(x);
+    Object.keys(c.pt).forEach(function(pl){ var x=c.pt[pl], t=tierOf_(x.pais||pais, x.pn||x.name); (byT[t]=byT[t]||{base:0,goal:0,ya:0,ly:0,kids:[]}).kids.push(x);
       byT[t].base+=x.base; byT[t].goal+=x.goal; byT[t].ya+=x.ya; byT[t].ly+=x.ly; });
     var tn=Object.keys(byT).sort(function(a,b){ return (tierRank_(a)-tierRank_(b)) || (byT[b].base-byT[a].base); });
     function partners(list, pk, pad, d){ list.sort(function(a,b){return b.base-a.base;}).forEach(function(x){
@@ -5387,6 +5387,16 @@ function flowGroupTable_(subRaw, metricKey, comp, col1, groupByRegion, childMax,
       // región → país → tier → partner. Región siempre visible; los países arrancan visibles y
       // colapsados. Región con un solo país (Brasil): la fila de región abre directo los tiers.
       var open=_flowPrinting, dispO=open?'table-row':'none', caretO=open?'▾':'▸', rKey='fl'+tblUid+'r'+pIdx;
+      if(k==='SAH'){
+        // Hispa: abierto por Tier en vez de por país (pedido 2026-10-26, para que entre en la slide).
+        // Los tiers quedan visibles y cada uno abre sus partners, con el país al lado.
+        var all={pt:{}};
+        kids.forEach(function(c){ Object.keys(c.pt).forEach(function(pl){ var x=c.pt[pl];
+          all.pt[c.name+'|'+pl]={name:x.name+' ('+c.name+')', pn:x.name, pais:c.name, base:x.base, goal:x.goal, ya:x.ya, ly:x.ly}; }); });
+        body+='<tr class="grp"><td>'+lbl+'</td>'+cells(g)+'</tr>';
+        body+=deepRows_(rKey, null, all, '&nbsp;&nbsp;', 'table-row');
+        return;
+      }
       if(kids.length===1){
         body+='<tr class="grp" data-key="'+rKey+'" data-open="'+(open?'1':'0')+'" onclick="flAccToggle_(this)" style="cursor:pointer"><td><span class="fl-acc-caret">'+caretO+'</span> '+lbl+'</td>'+cells(g)+'</tr>';
         body+=deepRows_(rKey, kids[0].name, kids[0], '&nbsp;&nbsp;', dispO);
