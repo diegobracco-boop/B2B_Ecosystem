@@ -627,6 +627,7 @@ body.krd-only #section-b2b > :not(.krd-keep) { display:none !important; }
 .fl-tbl td:first-child{text-align:left;color:var(--fl-ink2)}
 .fl-tbl tr.grp td{background:#f3f1fb;font-weight:700;color:var(--fl-ink)}
 .fl-tbl tr.tot td{background:#eee9fb;font-weight:800;border-top:2px solid var(--fl-purple2)}
+.fl-tight .fl-tbl th{padding:3px 8px}.fl-tight .fl-tbl td{padding:2px 8px}.fl-tight .fl-tag{margin-bottom:2px}   /* portada OC: 4 tablas */
 .fl-tbl tr.fl-more td{font-style:italic;font-weight:400;color:var(--fl-ink3);border-bottom:1px solid var(--fl-line)}
 .fl-tbl tr.grp:hover td, .fl-tbl tr[onclick]:hover td{background:#e9e4fb}
 .fl-acc-caret{display:inline-block;width:10px;color:var(--fl-purple2)}
@@ -5398,6 +5399,24 @@ function flowGroupTable_(subRaw, metricKey, comp, col1, groupByRegion, childMax,
   return '<table class="fl-tbl"><thead><tr><th>'+(col1||'Región / País')+'</th><th>Baseline</th><th>Delta [$]</th><th>Delta [%]</th></tr></thead><tbody>'+body+'</tbody></table>';
 }
 
+// Tabla Farming / Hunting / TBD de la portada OC (pedido 2026-10-26): mismo período, comparador y
+// formato que la tabla Región de flowGroupTable_, agrupando por flSeg_ en vez de por región.
+function flowSegTable_(subRaw, metricKey, comp, period){
+  var vDate=flowVDate_(), mStart=(period==='ytd') ? flFyStart_(vDate) : vDate.substring(0,7)+'-01';
+  var lyMode=(comp==='ly'), lyMS=_flLY_(mStart), lyVD=_flLY_(vDate);
+  var MF=_FLMF[metricKey], cmpArr=_flCompArr_(subRaw,comp), cmpF=_flCompField_(metricKey,comp);
+  var G={f:{base:0,goal:0},h:{base:0,goal:0},t:{base:0,goal:0}};
+  (subRaw.actuals||[]).forEach(function(r){ if(r.fecha<mStart||r.fecha>vDate) return; G[flSeg_(r)].base+=(r[MF]||0); });
+  cmpArr.forEach(function(r){ if(lyMode){ if(r.fecha<lyMS||r.fecha>lyVD) return; } else if(r.fecha<mStart||r.fecha>vDate){ return; } G[flSeg_(r)].goal+=(r[cmpF]||0); });
+  function cell(d){ return '<td class="'+(d>=0?'fl-pos':'fl-neg')+'">'+(d>=0?'+':'')+fmtShort(d)+'</td>'; }
+  function pctCell(b,g){ var p=g!==0?(b/g-1)*100:null; return '<td class="'+((b-g)>=0?'fl-pos':'fl-neg')+'">'+(p==null?'—':(p>=0?'+':'')+Math.round(p)+'%')+'</td>'; }
+  var body='', TB=0, TG=0;
+  FL_SEG_.forEach(function(sg){ var x=G[sg.k]; TB+=x.base; TG+=x.goal;
+    body+='<tr class="grp"><td><i style="display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;background:'+sg.c+'"></i>'+sg.lbl+'</td><td>'+fmtShort(x.base)+'</td>'+cell(x.base-x.goal)+pctCell(x.base,x.goal)+'</tr>'; });
+  body+='<tr class="tot"><td>Total</td><td>'+fmtShort(TB)+'</td>'+cell(TB-TG)+pctCell(TB,TG)+'</tr>';
+  return '<table class="fl-tbl"><thead><tr><th>Segmento</th><th>Baseline</th><th>Delta [$]</th><th>Delta [%]</th></tr></thead><tbody>'+body+'</tbody></table>';
+}
+
 // Suma actual/comparación MTD para el slide 'b2b2c_krs', filtrando por
 // stage (New/Existing/'all') y opcionalmente por región. account_type
 // (actuals) y stage (budget/runrate) son el mismo concepto con nombre de
@@ -5470,8 +5489,10 @@ function flMonthlyTables_(def, sub, cmp, cmpShort){
   var per=_flMonthlyPeriod, perLbl=flMonthlyPeriodLbl_(flowVDate_());
   if(def.kind==='cover' || def.kind==='cover_oc'){
     var isOC=(def.kind==='cover_oc');
-    var html=(isOC ? [['gb','GB'],['nr','NR']] : [['gb','GB'],['nr','NR'],['fvm','FVM']]).map(function(t){
-      return '<div class="fl-scroll-tbl" style="flex:1;min-width:0;min-height:0;overflow-y:auto"><div class="fl-tag">'+t[1]+' — '+perLbl+' vs '+cmpShort+'</div>'+flowGroupTable_(sub,t[0],cmp,'Región',true,0,undefined,undefined,per)+'</div>'; }).join('');
+    // Portada OC: GB / NR / FVM por Farming / Hunting / TBD (flowSegTable_); la otra, por región.
+    var html=[['gb','GB'],['nr','NR'],['fvm','FVM']].map(function(t){
+      return '<div class="fl-scroll-tbl" style="flex:1;min-width:0;min-height:0;overflow-y:auto"><div class="fl-tag">'+t[1]+' — '+perLbl+' vs '+cmpShort+'</div>'
+        +(isOC ? flowSegTable_(sub,t[0],cmp,per) : flowGroupTable_(sub,t[0],cmp,'Región',true,0,undefined,undefined,per))+'</div>'; }).join('');
     if(isOC){ var ot=flowOCTable_(cmp); // OC: siempre meses cerrados (no hay MTD de OC), sin importar el switch
       html+='<div class="fl-scroll-tbl" style="flex:1;min-width:0;min-height:0;overflow-y:auto"><div class="fl-tag">OC — '+ot.rng+' (cerrado) vs '+cmpShort+'</div>'+ot.html+'</div>'; }
     return html;
@@ -5542,7 +5563,7 @@ function flowBuildSlide_(def, idx){
     var tables=flMonthlySwitch_()+flMonthlyTables_(def, sub, cmp, cmpShort);
     var body='<div class="fl-body" style="display:flex;gap:22px">'
       +'<div style="flex:1.75;min-width:0;display:flex;flex-direction:column;gap:6px;min-height:0">'+panels+'</div>'
-      +'<div id="flmt-'+idx+'" style="flex:1;min-width:0;display:flex;flex-direction:column;gap:8px;min-height:0">'+tables+'</div></div>';
+      +'<div id="flmt-'+idx+'"'+(isOC?' class="fl-tight"':'')+' style="flex:1;min-width:0;display:flex;flex-direction:column;gap:'+(isOC?4:8)+'px;min-height:0">'+tables+'</div></div>';
     return '<div class="flow-slide">'+flHead_(titleTxt, brand)+body+'</div>';
   }
   if(def.kind==='okr'){
