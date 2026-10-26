@@ -9,6 +9,8 @@
 //   GET  <base>/_gas/nav.js          navegación de Ownia en las landings (Home, sin portada propia)
 //   GET  <base>/ingest/files         metadata de los archivos espejados (Bearer INGEST_TOKEN)
 //   PUT  <base>/ingest/files/<id>    sube/reemplaza un archivo espejado de Drive (ídem)
+//   GET  <base>/notes/<modulo>/<scope>  notas editables de una landing (solo Ownia, ver notes-store.js)
+//   POST <base>/notes/<modulo>/<scope>  guarda una nota: { field, text }
 const config = require('./config');
 
 // Antes de cualquier Date: el proceso corre en la zona de los proyectos GAS (ver config.js).
@@ -35,6 +37,7 @@ const { indexPage } = require('./index-page');
 const { resolveIdentity, describeAuthHeaders } = require('./identity');
 const { createFileStore, isValidId } = require('./file-store');
 const { ingestAllowlist, loadManifest } = require('./drive-manifest');
+const { createNotesStore } = require('./notes-store');
 
 const MAX_BODY = 5 * 1024 * 1024; // google.script.run acepta payloads grandes (p.ej. capturas)
 const MAX_INGEST = 100 * 1024 * 1024; // los JSON canónicos pesan hasta ~15 MB
@@ -49,6 +52,7 @@ function createApp(opts = {}) {
   const findModule = (slug) => modules.find((m) => m.slug === slug && m.ownia) || null;
   const projects = new Map(); // slug -> GasProject | Error
   const fileStore = opts.fileStore !== undefined ? opts.fileStore : createFileStore(cfg, log);
+  const notesStore = opts.notesStore !== undefined ? opts.notesStore : createNotesStore(cfg);
   // Datos nuevos → se recargan los módulos. En GAS cada ejecución arranca con los globales
   // limpios; acá el contexto vive entre requests, y varios módulos memorizan el JSON en una
   // variable global (p.ej. _gestionalJsonCache_): sin esto seguirían sirviendo la versión vieja.
@@ -316,6 +320,36 @@ function createApp(opts = {}) {
     }
 
     const parts = route.split('/').filter(Boolean);
+
+    // GET|POST /notes/<modulo>/<scope> — notas editables (mismos permisos que el módulo).
+    if (parts[0] === 'notes') {
+      const mod = findModule(parts[1]);
+      if (!notesStore || !mod || parts.length !== 3) return sendJson(res, 404, { error: 'No encontrado' });
+      if (!identity.email) return unauthorized(res);
+      if (!mayOpen(mod, identity)) return forbidden(res);
+      try {
+        if (req.method === 'GET') return sendJson(res, 200, { notes: await notesStore.get(mod.slug, parts[2]) });
+        if (req.method !== 'POST') return sendJson(res, 405, { error: 'Método no permitido' });
+        // Mismo anti-CSRF que /api: JSON + header custom + same-origin.
+        const ctype = String(req.headers['content-type'] || '');
+        const site = req.headers['sec-fetch-site'];
+        if (!/^application\/json\s*(;|$)/i.test(ctype) || req.headers['x-requested-with'] !== 'google.script.run' || (site && site !== 'same-origin')) {
+          return sendJson(res, 403, { error: 'Llamada rechazada', name: 'Forbidden' });
+        }
+        let body;
+        try { body = JSON.parse(await readBody(req, 64 * 1024)); } catch (e) {
+          if (e.status) throw e;
+          return sendJson(res, 400, { error: 'JSON inválido' });
+        }
+        const note = await notesStore.put(mod.slug, parts[2], String(body.field || ''), body.text, identity.email);
+        log({ level: 'info', msg: 'nota guardada', module: mod.slug, scope: parts[2], field: body.field, by: identity.email });
+        return sendJson(res, 200, { note });
+      } catch (e) {
+        const status = e.status || 500;
+        if (status >= 500) log({ level: 'error', msg: 'notas falló', module: parts[1], error: e.stack || String(e) });
+        return sendJson(res, status, { error: e.message || String(e) });
+      }
+    }
 
     // POST /api/<modulo>/<fn>  — google.script.run
     if (parts[0] === 'api') {

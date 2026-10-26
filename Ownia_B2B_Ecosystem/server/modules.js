@@ -54,8 +54,9 @@ const MODULES = [
     allowedUsers: EQUIPO_B2B,
     // Presentación propia de Ownia (public/hub-layout.js): barra fija con el selector de LoB y las
     // secciones en vez del menú hamburguesa; precarga de los otros LoB. El HTML de GAS no cambia.
-    // Vista "H2 Budget vs H1" para dirección (public/hub-h2h1.js, 2026-10-26).
-    layout: ['filter-aliases.js', 'hub-layout.js', 'hub-h2h1.js'],
+    // Vista "H2 Budget vs H1" para dirección (public/hub-h2h1.js) y el deck "Slides mensuales"
+    // (public/hub-slides.js, textos en /notes/hub/…), 2026-10-26.
+    layout: ['filter-aliases.js', 'hub-layout.js', 'hub-h2h1.js', 'hub-slides.js'],
     gasUrl: GAS_EXEC + 'AKfycbz52txFQy-5YM2Nil_KxULzPoeZpKyA4z5LUWMGoP_8IilcwSduuwZqPF8ut_LmtceM/exec',
   },
   {
