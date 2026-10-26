@@ -44,6 +44,11 @@
     budget: ['varBudPct', 'Budget'], runRate: ['varRRPct', 'Run Rate'],
     forecast: ['varFcPct', 'Forecast'], lastYear: ['yoyPct', 'Last Year'],
   };
+  // Goal "Forecast - Bridge to budget": en el Hub es goal 'forecast' con fcSource 'btb' (otra fuente).
+  function goalOf(st) {
+    if (st.goal === 'forecast' && st.fcSource === 'btb') return ['varFcPct', 'Forecast - Bridge to budget'];
+    return GOALS[st.goal] || GOALS.budget;
+  }
   var AMBER_FROM = -5;   // semáforo (mismo criterio que _deltaState_ del Hub): verde ≥ 0%, ámbar −5% a 0%, rojo < −5%
   // Secciones embebidas que siguen el LoB elegido en la barra. Son páginas de Ownia (mismo origen):
   // se llama a su propia función de cambio de LoB, sin recargar. Con "Consolidado", las que no
@@ -407,7 +412,7 @@
     }
     if (!LOB_NAME[current]) { top.style.display = 'none'; return; }
     top.style.display = '';
-    var goal = GOALS[st.goal] || GOALS.budget;
+    var goal = goalOf(st);
     var periodEl = document.getElementById('period-label-bar');
     var period = periodEl ? label(periodEl) : '';
     // Solo los filtros que recortan algo (los "Todos" no suman) y sin jerga ("Baseline").
@@ -581,6 +586,7 @@
     var goalChanged = false;
     if (by.goal && last('goal') !== st.goal) {
       st.goal = last('goal');
+      if (st.fcSource === 'btb') { st.fcSource = ''; dataChanged = true; }   // la barra no ofrece el BTB
       ['f-goal-bar', 'f-goal'].forEach(function (id) { var s = document.getElementById(id); if (s) s.value = st.goal; });
       if (typeof window._syncOrganicUI_ === 'function') window._syncOrganicUI_();
       goalChanged = true;
@@ -700,7 +706,7 @@
   }
   function deckHtml(st, goal, period) {
     var cols = deckCols(st), g2 = st.goal === 'lastYear' ? 'budget' : st.goal;
-    var vsName = GOALS[g2][1], pctKey = GOALS[g2][0], absKey = ABS_KEY[g2];
+    var vsName = (g2 === st.goal ? goalOf(st) : GOALS[g2])[1], pctKey = GOALS[g2][0], absKey = ABS_KEY[g2];
     var tip = 'vs ' + vsName + ': verde ≥ 0% · ámbar entre −5% y 0% · rojo &lt; −5%';
     var html = '<div class="ohn-deck-wrap"><div class="ohn-deck' + (cols.length > 4 ? ' wide' : '') + '" style="grid-template-columns:minmax(230px,260px) repeat(' + cols.length + ',minmax(0,1fr))">' +
       (st.organic ? '<span class="d-org" title="Tipo de cambio constante">Organic</span>' : '<span></span>') +
@@ -896,7 +902,7 @@
     // Título del waterfall sin jerga (el Hub lo reescribe en cada render).
     var wfT = document.getElementById('wf-title'), st = window._state;
     if (wfT && st) {
-      var gl = (GOALS[st.goal] || GOALS.budget)[1], per = document.getElementById('period-label-bar');
+      var gl = goalOf(st)[1], per = document.getElementById('period-label-bar');
       var sel = (st.selectedPeriods || []).slice().sort(), last = st.filters && st.filters.lastActuals;
       var base = sel.length && last && sel[sel.length - 1] <= last ? 'Real' : 'Real + proyección';
       wfT.textContent = '¿Dónde está el desvío? ' + base + ' vs ' + gl + ' por grupo de países' + (per ? ' · ' + label(per) : '');

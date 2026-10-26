@@ -3,7 +3,7 @@
 Ejecuta el pipeline completo de Inputs Planning P&L: genera las planas desde los CSV
 crudos de Planning-PBI y publica los JSON canónicos por concepto en Drive.
 
-Si el usuario dice solo "proyecciones" → correr únicamente budget/forecast/runrate/lastrunrate.
+Si el usuario dice solo "proyecciones" → correr únicamente budget/forecast/runrate/lastrunrate/forecastbtb.
 Si dice "actuals" → solo el/los FY de actuals. Sin aclaración → correr TODO.
 
 ## Pasos
@@ -13,10 +13,11 @@ Si dice "actuals" → solo el/los FY de actuals. Sin aclaración → correr TODO
    - `python plana_projections_builder.py forecast`
    - `python plana_projections_builder.py runrate`
    - `python plana_projections_builder.py lastrunrate`
+   - `python plana_projections_builder.py forecastbtb`   (Forecast - Bridge to budget, desde Base_P&L_Contable)
    - `python plana_actuals_builder.py 2027`   (FY27 = mensual)
    - `python json_builder.py all`
 3. En cada plana, revisar la VERIFICACIÓN (nulos=0 en Marca/LoB/Canal/Pais/Producto; países y productos con nombres reales; total razonable). Si hay muchos códigos crudos (`c/m_*`, `prd_*`) → falta completar el Glosario; avisar.
-4. Confirmar que los 5 JSON (budget/forecast/runrate/lastrunrate/actuals) subieron a Drive.
+4. Confirmar que los 6 JSON (budget/forecast/runrate/lastrunrate/forecastbtb/actuals) subieron a Drive.
 5. Recordar al usuario recargar las landings (Ctrl+F5) una vez que estén repunteadas (Fase 2).
 
 ## Notas

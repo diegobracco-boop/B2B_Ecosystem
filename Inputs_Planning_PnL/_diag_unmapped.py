@@ -9,7 +9,11 @@ DIMS = {"Marca":("marca","Marca"),"Pais":("paises","Pais"),"Producto":("producto
 unmapped = {d: defaultdict(set) for d in DIMS}
 for base in ["budget","forecast","runrate","lastrunrate"]:
     cfg=b.BASES[base]
-    df=b.read_base(cfg["files"]); df=b.gb_orders_transform(df); df=b.apply_exclusions(df,cfg["is_forecast"])
+    if "flat_file" in cfg:
+        df=b.read_flat_base(cfg["flat_file"])
+    else:
+        df=b.read_base(cfg["files"]); df=b.gb_orders_transform(df)
+    df=b.apply_exclusions(df,cfg["is_forecast"])
     for dim,(gk,col) in DIMS.items():
         gm=g[gk]
         for val in df[col].dropna().astype(str).unique():

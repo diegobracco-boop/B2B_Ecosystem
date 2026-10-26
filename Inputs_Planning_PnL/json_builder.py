@@ -48,6 +48,7 @@ CONCEPTS = {
     "forecast":        ["plana_forecast.csv"],
     "runrate":         ["plana_runrate.csv"],
     "lastrunrate":     ["plana_lastrunrate.csv"],
+    "forecastbtb":     ["plana_forecastbtb.csv"],   # Forecast - Bridge to budget (no reemplaza al forecast)
     "actuals":         None,   # FY en curso (CURRENT_FY)
     "actuals_previos": None,   # FYs cerrados (el resto)
 }
@@ -132,7 +133,16 @@ def build(concept, upload=True):
 
     df = _process(load_concept(concept))
 
-    if concept == "forecast" and config.FORECAST_ACTUALS_MONTHS:
+    if concept in ("forecast", "forecastbtb"):
+        # Los meses del modelo (después del corte de actuals) tienen que estar todos: si la
+        # descarga vino sin alguno (2026-10-26: el BTB llegó solo con Oct-Mar), quedarían vacíos.
+        faltan = sorted(set(config.FISCAL_DATES) - config.FORECAST_ACTUALS_MONTHS
+                        - set(df["Fecha"].astype(str)))
+        if faltan:
+            sys.exit(f"{concept}: la plana no tiene {faltan} (meses del modelo, después de "
+                     f"FORECAST_ACTUALS_CUTOFF) -> quedarían vacíos. Revisar la descarga.")
+
+    if concept in ("forecast", "forecastbtb") and config.FORECAST_ACTUALS_MONTHS:
         act = _process(load_concept("actuals"))
         act = act[act["Fecha"].isin(config.FORECAST_ACTUALS_MONTHS)]
         cubiertos = set(act["Fecha"].unique())

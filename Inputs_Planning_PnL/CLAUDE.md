@@ -76,6 +76,34 @@ CSV crudos (OneDrive\Planning-PBI - Inputs Power Bi)
 - `auth_drive.py` / `run_all.bat` / `LEEME.txt`.
 - Secretos (NO versionar ni compartir): `credentials_drive.json` (client OAuth, compartido) y `token_drive.json` (personal, cada uno el suyo).
 
+## Fuente del RunRate (cambió 2026-10-26)
+- El RunRate ya no sale de `Planning-PBI\Run Rate\RR - Legal Entity ALL/NA - 27.csv`: ahora es
+  `...\B2B & WLs\Base_P&L_Contable\RunRate.csv` (`config.BASES["runrate"]["flat_file"]`).
+- Formato plano: `;` + coma decimal, una fila por línea × mes (`mes` = mes calendario, `year` = FY27),
+  etiquetas legibles (`Brazil`, `Air`, `GB NAC`…). Lo lee `read_flat_base` en `plana_projections_builder.py`;
+  las líneas/países que no matchean el Glosario tal cual se traducen en `FLAT_LINEA_MAP` / `FLAT_PAIS_MAP`
+  (si aparece una línea nueva en el archivo, sumarla ahí). `Leases` / `Leases Adjustment` se descartan
+  (se netean entre sí). LoB `Stays` queda afuera por `LOBS_KEEP`.
+- Control: con `--con-ppa`, GB y NR de la plana cierran exacto contra el CSV crudo.
+- **Limitación temporal (2026-10-26, decisión Diego):** el `runrate.json` publicado llega solo hasta
+  **Operating Contribution** — la descarga no trae costos fijos (G&A, IT, D&A, Sourcing, Equity) → EBITDA y
+  debajo quedan subestimados en Oct'26-Mar'27. Cubre solo Oct-Mar (antes 12 meses; Abr-Ago del RR viejo eran
+  valores parciales sin uso). Se completa más tarde con otra descarga (`RunRate_2.csv` con solo las líneas de
+  costos fijos; el guard de duplicados es por mes × LoB × línea). Se subió con `PNL_ALLOW_SHRINK=1`.
+- **La exportación corta en 300.000 filas sin avisar** (ordenada por línea → se pierden las líneas
+  alfabéticamente últimas: Up Front Incentives, Revenue Taxes, Loyalty…). Oct-Mar no entra en un archivo:
+  bajarlo en partes (`RunRate.csv` + `RunRate_2.csv`…; se leen todos los `RunRate*.csv`). Se puede partir por mes, LoB o línea (cada mes × LoB × línea en un solo archivo). Un archivo con exactamente 300.000 filas hace cortar el builder.
+
+## Escenario "Forecast - Bridge to budget" (2026-10-26)
+- Base `forecastbtb` → `forecastbtb.json` (Drive id `1anL-CsItySxuWTp4FuX69tHsAy9oz4rp`). **No reemplaza al Forecast.**
+- Fuente: `...\B2B & WLs\Base_P&L_Contable\Forecast_Stretch_BTB*.csv` (formato plano, igual que el RunRate).
+  Igual que `forecast.json`: meses `FORECAST_ACTUALS_MONTHS` (Abr-Jul) salen de actuals; Ago-Mar del archivo.
+  `json_builder.py` frena si falta algún mes del modelo (Ago-Mar) en forecast o forecastbtb.
+- Por ahora **solo hasta Operating Contribution** (la descarga no trae costos fijos): vs BTB, GB y NR son iguales
+  al Forecast y la diferencia está en la OC; EBITDA y debajo no son comparables hasta sumar los costos fijos.
+- Lo leen solo las capas de Ownia: P&L Accounting (`server/gas-extras/pnl-accounting-fbtb.js`) y el Hub
+  (`JSON_IDS.forecastbtb`, Goal "Forecast - Bridge to budget" = goal forecast con `fcSource: 'btb'`).
+
 ## Gotchas (aprendidos, para no re-descubrir)
 - Los CSV de Planning-PBI vienen con **cada fila envuelta en comillas** y comillas internas duplicadas → hay parser especial (unwrap + `""`→`"`).
 - Algunos `00 - Actuals` traen los headers de fecha como **datetime** (no string) → se normalizan.

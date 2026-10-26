@@ -35,7 +35,7 @@ El ecosistema tiene dos capas: **pipelines** (Python, generan los datos) y **lan
 - **Stack**: Python
 - **Trigger**: manual (`run_all.bat` o `/actualizar`)
 - **Input**: CSVs crudos de OneDrive (carpeta `Planning-PBI - Inputs Power Bi`) + `Glosario.xlsx`
-- **Output**: 5 JSONs canónicos en Drive (budget, forecast, runrate, lastrunrate, actuals) + baseline
+- **Output**: JSONs canónicos en Drive (budget, forecast, runrate, lastrunrate, forecastbtb, actuals) + baseline
 - **Deploy**: no aplica (script local)
 - **Doc detallada**: [CONTEXT.md](./Inputs_Planning_PnL/CONTEXT.md) · [CLAUDE.md](./Inputs_Planning_PnL/CLAUDE.md)
 

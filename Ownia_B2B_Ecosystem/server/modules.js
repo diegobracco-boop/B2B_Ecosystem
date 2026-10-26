@@ -86,6 +86,10 @@ const MODULES = [
     startView: 'contable-combined',
     // Accesos rápidos de la tarjeta del menú: abren directo esa vista (?view=, ver public/ownia-nav.js).
     quickViews: [['contable-combined', 'B2B + B2B2C'], ['contable-b2b', 'B2B'], ['contable-b2b2c', 'B2B2C']],
+    // Solo Ownia (2026-10-26): escenario "Forecast - Bridge to budget" (botón "vs Forecast BTB").
+    // El código GAS del módulo no cambia.
+    layout: 'pnl-accounting-layout.js',
+    gasExtras: ['pnl-accounting-fbtb.js'],
     allowedUsers: EQUIPO_B2B,
     gasUrl: GAS_EXEC + 'AKfycby9WZK2HfAWx25M5pEMV3nntzJfEvsiT9feMn01zJQkQaI3t2GjTzOIjbFXWexnMuzklQ/exec',
   },
