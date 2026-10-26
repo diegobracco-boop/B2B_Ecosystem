@@ -1906,7 +1906,8 @@ function renderChart(tab, channel, countryGroup, monthFilter) {
   if (_barsTitleEl) {
     var _barsPeriod = monthFilter ? (monthEnAbbr(monthFilter) + ' MTD') : 'YTD';
     _barsTitleEl.innerHTML =
-      '<b>' + METRICS[metric].label + '</b> - Performance ' + _barsPeriod + ' vs ' + goalLabelText();
+      '<b>' + METRICS[metric].label + (channel === 'Agencias afiliadas' ? ' · HTML' : channel === 'API' ? ' · API' : '') +
+      '</b> - Performance ' + _barsPeriod + ' vs ' + goalLabelText();
   }
 
   const filterParts = [];
@@ -4336,6 +4337,9 @@ const SLIDE_ORDER = [
   { tab: 'tables_ri',  title: 'Tablas RI'                                                       },
   { tab: 'tables_ri',  channel: 'API',                title: 'Tablas RI · API'                  },
   { tab: 'tables_ri',  channel: 'Agencias afiliadas', title: 'Tablas RI · HTML'                 },
+  { isCover: true,     title: 'B2B HTML - By Recognition Date', subtitle: 'Agencias afiliadas · Net Revenue · FVM' },
+  { tab: 'nr_ri',      channel: 'Agencias afiliadas', title: 'Net Revenue — RI · HTML'          },
+  { tab: 'fvm_ri',     channel: 'Agencias afiliadas', title: 'FVM — RI · HTML'                  },
   { isCover: true,     title: 'Gestion Date',     subtitle: 'Gross Bookings · Net Revenue · FVM' },
   { tab: 'gb_gd',      title: 'Gross Bookings — GD'                                             },
   { tab: 'nr_gd',      title: 'Net Revenue — GD'                                                },

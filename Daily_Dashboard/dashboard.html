@@ -5013,6 +5013,10 @@ var FLOW_DECK = [
   {kind:'b2b_tables', dateType:'ri', name:'B2B — Tablas RI'},
   {kind:'b2b_tables', dateType:'ri', channel:'API',                name:'B2B — Tablas RI · API'},
   {kind:'b2b_tables', dateType:'ri', channel:'Agencias afiliadas', name:'B2B — Tablas RI · HTML'},
+  // B2B HTML (Agencias afiliadas) por Recognition Date: solo barras de NR y FVM. b2b_chart acepta `channel`.
+  {kind:'divider', flag:'RI', title:'B2B HTML — Recognition Date', name:'B2B HTML — Recognition Date'},
+  {kind:'b2b_chart', tab:'nr_ri',  channel:'Agencias afiliadas', name:'B2B HTML — Net Revenue RI'},
+  {kind:'b2b_chart', tab:'fvm_ri', channel:'Agencias afiliadas', name:'B2B HTML — FVM RI'},
   {kind:'divider', flag:'GD', title:'Gestion Date', name:'B2B — Gestion Date'},
   {kind:'b2b_chart', tab:'gb_gd',  name:'B2B — Gross Bookings GD'},
   {kind:'b2b_chart', tab:'nr_gd',  name:'B2B — Net Revenue GD'},
@@ -5743,6 +5747,7 @@ function flowBuildSlide_(def, idx){
   }
   if(def.kind==='b2b_chart'){
     var tabLbl=B2B_TRK_TAB_DATA[def.tab].label;
+    if(def.channel) tabLbl+=' · '+(def.channel==='API'?'API':'HTML');
     var body='<div class="fl-body b2b-fl-body">'
       +'<div class="b2b-content-row">'
         +'<div class="b2b-chart-panel">'
@@ -6588,7 +6593,7 @@ function flowRenderB2BSlides_(){
   var monthFilter=_flowB2BMonthFilter, goalType=_flowB2BGoalType;
   FLOW_DECK.forEach(function(def, idx){
     if(def.kind==='b2b_krs'){ trkRenderStatusKRs_(idx); return; }
-    if(def.kind==='b2b_chart'){ trkRenderPivotForChart_(idx, def.tab, null, null, monthFilter, goalType); return; }
+    if(def.kind==='b2b_chart'){ trkRenderPivotForChart_(idx, def.tab, def.channel||null, null, monthFilter, goalType); return; }
     if(def.kind==='b2b_tables'){ trkRenderTablesView_(idx, def.dateType, def.channel||null, null, monthFilter, goalType); return; }
     if(def.kind==='b2b_split'){ trkRenderSplitSlide_(idx, def.metric, def.dateType, null, monthFilter, goalType); return; }
   });
@@ -6675,7 +6680,7 @@ function flowDrawCharts_(idx){
   (_flowSeries[idx]||[]).forEach(function(spec){ flowChart_(spec); });
   var def=FLOW_DECK[idx];
   if(def && def.kind==='b2b_chart'){
-    trkRenderChart_(idx, def.tab, null, null, _flowB2BMonthFilter, _flowB2BGoalType, _flowB2BGoalLabel);
+    trkRenderChart_(idx, def.tab, def.channel||null, null, _flowB2BMonthFilter, _flowB2BGoalType, _flowB2BGoalLabel);
   }
   _flowDrawn[idx]=true;
 }
