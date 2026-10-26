@@ -6,8 +6,9 @@
  *    las secciones de resultados como pestañas y lo demás en "Operativo ▾" y "Herramientas ▾".
  *    Las pestañas se arman de los botones del menú lateral (#nav-*): una sección nueva aparece sola
  *    (en "Herramientas" si no está clasificada).
- *  - Vista de entrada para dirección (estilo simple): frase de lectura con los mayores desvíos, tarjetas
- *    GB / NR / OC (mes vs Goal, vs Forecast y LY, año a la fecha y cierre FY proyectado vs Budget),
+ *  - Vista de entrada para dirección (estilo simple): frase de lectura con los mayores desvíos, grilla
+ *    GB / NR / OC × negocio con el formato de la presentación de dirección (valor USD $M, YoY y desvío
+ *    vs Goal; año a la fecha y cierre FY proyectado vs Budget en la etiqueta de cada fila),
  *    benchmark vs B2C en una línea, waterfall de GB por grupo y evolución. Lo demás, en "Ver detalle".
  *  - Línea de contexto con período, LoB, escenario y filtros, la barra "Filtrar…" (se escribe
  *    "brasil b2b sep vs fc" y se aplica con Enter; el diccionario está en public/filter-aliases.js)
@@ -146,26 +147,23 @@
     '  border-radius:8px;padding:6px 14px;cursor:pointer}',
     '.ohn-filters-btn:hover,.ohn-filters-btn[aria-expanded="true"]{background:#550fed;color:#fff}',
     '.ohn-filters-btn:focus-visible{outline:2px solid #a780ff;outline-offset:2px}',
-    // Tarjetas (estilo simple: aire, un número protagonista, color solo en el semáforo).
-    '.ohn-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}',
-    '.ohn-kpi{background:#fff;border:1px solid #ebe8f3;border-radius:14px;padding:18px 20px 16px}',
-    '.ohn-kpi .k-head{display:flex;align-items:center;justify-content:space-between;gap:8px}',
-    '.ohn-kpi .k-name{font-size:13px;font-weight:600;color:#6b6b85}',
-    '.ohn-kpi .k-flag{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#3d3b52}',
-    '.ohn-kpi .k-flag i{width:8px;height:8px;border-radius:50%;background:#c9c4d8}',
-    '.ohn-kpi.g .k-flag i{background:#1a7f37}.ohn-kpi.a .k-flag i{background:#d4a72c}.ohn-kpi.r .k-flag i{background:#cf222e}',
-    '.ohn-kpi .k-val{font-size:34px;font-weight:700;color:#12111e;line-height:1.1;margin:8px 0 4px;letter-spacing:-.01em}',
-    '.ohn-kpi .k-main{font-size:15px;color:#3d3b52}',
-    '.ohn-kpi .k-sec{display:flex;gap:14px;font-size:12.5px;color:#6b6b85;margin-top:4px}',
+    // Grilla de resultados con el formato de la presentación de dirección: métricas en filas,
+    // negocios en columnas; cada celda con el valor en USD $M, el YoY y el desvío vs la referencia.
+    '.ohn-deck-wrap{overflow-x:auto}',
+    '.ohn-deck{display:grid;gap:12px;min-width:720px}',
+    '.ohn-deck .d-org{align-self:center;justify-self:start;background:#1a7f37;color:#fff;font-weight:700;font-size:13px;border-radius:8px;padding:5px 12px}',
+    '.ohn-deck .d-period{background:#8a8a93;color:#fff;font-weight:700;font-size:15px;text-align:center;border-radius:999px;padding:4px 12px}',
+    '.ohn-deck .d-col{border:2px solid #550fed;background:#f3eeff;color:#550fed;font-weight:700;font-size:18px;text-align:center;border-radius:999px;padding:8px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    '.ohn-deck .d-row{background:#f4f4f7;border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;justify-content:center;gap:2px}',
+    '.ohn-deck .d-row b{font-size:15px;color:#3d3b52;font-weight:600}.ohn-deck .d-row span{font-size:13px;color:#6b6b85}',
+    '.ohn-deck .d-row small{display:block;font-size:11.5px;color:#8a88a0;margin-top:2px;line-height:1.4;white-space:nowrap}.ohn-deck .d-row small i{font-style:normal;font-weight:700}',
+    '.ohn-deck .d-cell{background:#fafafd;border:1px solid #ebe8f3;border-radius:12px;padding:12px 6px;text-align:center;display:flex;flex-direction:column;justify-content:center}',
+    '.ohn-deck .d-val{font-size:30px;font-weight:700;color:#12111e;line-height:1.15;letter-spacing:-.01em}',
+    '.ohn-deck .d-l{font-size:13px;line-height:1.5;white-space:nowrap}.ohn-deck.wide .d-l{font-size:12px}',
+    '.ohn-deck .g{color:#1a7f37}.ohn-deck .a{color:#9a6700}.ohn-deck .r{color:#cf222e}.ohn-deck .n{color:#8a88a0}',
     '.k-pct{font-weight:700}.k-pct.g{color:#1a7f37}.k-pct.a{color:#9a6700}.k-pct.r{color:#cf222e}',
-    '.ohn-kpi .k-fy{margin-top:14px;padding-top:12px;border-top:1px solid #f0edf7;display:grid;gap:6px;font-size:13px;color:#3d3b52}',
-    '.ohn-kpi .k-fy > div{display:flex;align-items:baseline;gap:8px}',
-    '.ohn-kpi .k-lbl{flex:1;min-width:0}.ohn-kpi .k-lbl em{font-style:normal;color:#8a88a0;font-size:12px}',
-    '.ohn-kpi .k-num{font-weight:600;color:#12111e}',
-    '.ohn-kpi .k-note{font-size:11.5px;color:#8a88a0}',
     '.ohn-read{font-size:15px;line-height:1.55;color:#3d3b52;margin:4px 0 16px;max-width:1100px}',
     '.ohn-read b{color:#12111e}',
-    '.ohn-kpi .k-split{font-size:12.5px;color:#6b6b85;margin-top:4px}',
     '.ohn-facts{margin:18px 0 4px;display:grid;gap:8px}',
     '.ohn-facts p{font-size:14px;color:#3d3b52;margin:0;padding-left:104px;text-indent:-104px}',
     '.ohn-facts p > span{display:inline-block;text-indent:0;width:104px;font-weight:600;color:#12111e}',
@@ -181,7 +179,6 @@
     '.ohn-evo-tables{margin-bottom:20px}',
     '.ohn-wf-note{font-size:12px;color:#8a88a0;margin:10px 4px 0}',
     '.pnl-split-btn{margin-left:10px;font:600 11.5px Poppins,sans-serif;color:#550fed;background:none;border:1px solid #d9ccff;border-radius:999px;padding:3px 10px;cursor:pointer}',
-    '@media (max-width:900px){.ohn-kpis{grid-template-columns:1fr}}',
     // Secciones embebidas: el Hub les da 100vh (sin header); acá queda la barra arriba.
     '#daily-frame,#weekly-frame,#fixedcost-frame,#news-frame,#industry-frame,#pnl-frame,#pnl-mgr-frame,',
     '#detailcountry-frame,#fvmneg-frame{height:calc(100vh - ' + NAV_H + 'px)!important}',
@@ -432,35 +429,8 @@
       (window.OwniaFilters ? '<span class="ohn-q-slot"></span>' : '') +
       '<button type="button" class="ohn-filters-btn' + (window.OwniaFilters ? ' ohn-after-q' : '') + '" aria-expanded="' + open + '" aria-controls="pnl-filters-bar">Filtros</button>' +
       '</div>';
-    html += readingHtml(st, goal) + '<div class="ohn-kpis">';
-    var totalIdx = st.pnl.groups ? st.pnl.groups.length - 1 : -1;
-    KPIS.forEach(function (k) {
-      var row = st.pnl.rows.filter(function (r) { return r.id === k[0]; })[0];
-      var c = row && row.cols && row.cols[totalIdx];
-      if (!c) return;
-      var vs = c[goal[0]];
-      var cls = semaforo(vs);
-      var flag = cls === 'g' ? 'En línea' : cls === 'a' ? 'Atención' : cls === 'r' ? 'Debajo' : '';
-      // Comparaciones secundarias: las que no son el Goal elegido (Forecast y LY, o Budget y LY…).
-      var sec = ['budget', 'forecast', 'lastYear'].filter(function (g) { return g !== st.goal; }).map(function (g) {
-        var v = c[GOALS[g][0]];
-        return isFinite(v) ? '<span>vs ' + (g === 'lastYear' ? 'LY' : GOALS[g][1]) + ' ' + pctTxt(v) + '</span>' : '';
-      }).join('');
-      var fy = fyStats(k[0]);
-      var split = st.lob === 'all' ? lobSplit(row, goal) : '';
-      html += '<div class="ohn-kpi ' + cls + '">' +
-        '<div class="k-head"><span class="k-name">' + esc(k[1]) + '</span>' +
-        (flag ? '<span class="k-flag" title="vs ' + esc(goal[1]) + ': verde ≥ 0% · ámbar entre −5% y 0% · rojo &lt; −5%"><i></i>' + flag + '</span>' : '') + '</div>' +
-        '<div class="k-val">' + fmtMoney(c.actual || 0) + '</div>' +
-        '<div class="k-main">' + pctTxt(vs, true) + ' vs ' + esc(goal[1]) + '</div>' +
-        '<div class="k-sec">' + sec + '</div>' + split +
-        (fy ? '<div class="k-fy">' +
-          '<div><span class="k-lbl">Año a la fecha <em>' + esc(fy.ytdLbl) + '</em></span><span class="k-num">' + fmtMoney(fy.ytd) + '</span>' + pctTxt(fy.ytdPct) + '</div>' +
-          '<div><span class="k-lbl">Cierre ' + esc(fy.fyLbl) + ' proyectado</span><span class="k-num">' + fmtMoney(fy.fy) + '</span>' + pctTxt(fy.fyPct) + '</div>' +
-          '<div class="k-note">vs Budget del año</div></div>' : '') +
-        '</div>';
-    });
-    html += '</div><div class="ohn-facts">' + marginHtml(st) + benchHtml(st) + okrHtml(st) + '</div>';
+    html += readingHtml(st, goal) + deckHtml(st, goal, period);
+    html += '<div class="ohn-facts">' + marginHtml(st) + benchHtml(st) + okrHtml(st) + '</div>';
     // La barra "Filtrar…" es siempre el mismo nodo: un render a mitad de la escritura no la borra.
     var qFocused = qBox && qBox.contains(document.activeElement);
     top.innerHTML = html;
@@ -700,15 +670,60 @@
     panel.style.left = Math.max(8, left) + 'px';
   }
 
-  // Consolidado: el mismo indicador para B2B (Mayoristas + Minoristas) y B2B2C (WL's), vs el Goal.
-  function lobSplit(row, goal) {
-    var g = window._state.pnl.groups, wl = g.indexOf("WL's"), may = g.indexOf('MAY'), min = g.indexOf('MIN');
-    if (wl < 0 || may < 0 || min < 0) return '';
-    var ref = { varBudPct: 'budget', varRRPct: 'runRate', varFcPct: 'forecast', yoyPct: 'lyVal' }[goal[0]];
-    var a = row.cols[may], b = row.cols[min], w = row.cols[wl];
-    var act = (+a.actual || 0) + (+b.actual || 0), refV = (+a[ref] || 0) + (+b[ref] || 0);
-    var b2b = refV ? (act - refV) / Math.abs(refV) * 100 : null;
-    return '<div class="k-split">B2B ' + pctTxt(b2b, true) + ' · B2B2C ' + pctTxt(w[goal[0]], true) + '</div>';
+  // Grilla de resultados (formato de la presentación de dirección). Consolidado: B2B-MIN, B2B-MAY,
+  // B2B2C y Total; B2B o B2B2C: el total del negocio y sus grupos de países (los que están en cero
+  // en las tres métricas no se muestran). Cada celda: valor en USD $M, YoY y desvío vs la referencia
+  // elegida (con "Last Year" elegido, el YoY ya está arriba y el desvío es vs Budget).
+  var DECK_ALL = [['MIN', 'B2B-MIN'], ['MAY', 'B2B-MAY'], ["WL's", 'B2B2C'], ['Total', 'Total']];
+  var ABS_KEY = { budget: 'varBudAbs', runRate: 'varRRAbs', forecast: 'varFcAbs' };
+  function fmtM(v) {
+    var m = (+v || 0) / 1e6, d = Math.abs(m) < 1 && m !== 0 ? 2 : 1;
+    return (m < 0 ? '−' : '') + Math.abs(m).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+  }
+  function pctShort(v) {
+    var a = Math.abs(v);
+    return (v >= 0 ? '+' : '−') + (a < 1 ? a.toFixed(1) : a.toFixed(0)) + '%';
+  }
+  function deckCols(st) {
+    var g = st.pnl.groups, ti = g.length - 1;
+    if (st.lob === 'all') {
+      var cols = DECK_ALL.map(function (c) { return { i: c[0] === 'Total' ? ti : g.indexOf(c[0]), name: c[1] }; });
+      if (cols.every(function (c) { return c.i >= 0; })) return cols;
+    }
+    var rows = st.pnl.rows.filter(function (r) { return KPIS.some(function (k) { return k[0] === r.id; }); });
+    var out = [{ i: ti, name: st.lob === 'all' ? 'Total' : LOB_NAME[st.lob] }];
+    g.slice(0, ti).forEach(function (name, i) {
+      var used = rows.some(function (r) { var c = r.cols[i] || {}; return +c.actual || +c.budget || +c.lyVal; });
+      if (used) out.push({ i: i, name: name === 'OPS+RG' ? 'OPS + RG' : name });
+    });
+    return out;
+  }
+  function deckHtml(st, goal, period) {
+    var cols = deckCols(st), g2 = st.goal === 'lastYear' ? 'budget' : st.goal;
+    var vsName = GOALS[g2][1], pctKey = GOALS[g2][0], absKey = ABS_KEY[g2];
+    var tip = 'vs ' + vsName + ': verde ≥ 0% · ámbar entre −5% y 0% · rojo &lt; −5%';
+    var html = '<div class="ohn-deck-wrap"><div class="ohn-deck' + (cols.length > 4 ? ' wide' : '') + '" style="grid-template-columns:minmax(230px,260px) repeat(' + cols.length + ',minmax(0,1fr))">' +
+      (st.organic ? '<span class="d-org" title="Tipo de cambio constante">Organic</span>' : '<span></span>') +
+      '<div class="d-period" style="grid-column:2 / -1">' + esc(period || '') + '</div><span></span>' +
+      cols.map(function (c) { return '<div class="d-col" title="' + esc(c.name) + '">' + esc(c.name) + '</div>'; }).join('');
+    KPIS.forEach(function (k) {
+      var row = st.pnl.rows.filter(function (r) { return r.id === k[0]; })[0];
+      if (!row) return;
+      var fy = fyStats(k[0]);
+      html += '<div class="d-row"><b>' + esc(k[1]) + '</b><span>USD $M</span>' +
+        (fy ? '<small>Año a la fecha (' + esc(fy.ytdLbl) + '): ' + fmtM(fy.ytd) + ' <i class="' + semaforo(fy.ytdPct) + '">' + pctShort(fy.ytdPct) + '</i></small><small>' +
+          'Cierre ' + esc(fy.fyLbl) + ' proy.: ' + fmtM(fy.fy) + ' <i class="' + semaforo(fy.fyPct) + '">' + pctShort(fy.fyPct) + '</i> vs Budget</small>' : '') +
+        '</div>';
+      cols.forEach(function (col) {
+        var c = row.cols[col.i] || {};
+        var yoy = +c.lyVal ? c.yoyPct : null, pct = c[pctKey], abs = c[absKey];
+        html += '<div class="d-cell"><div class="d-val">' + fmtM(c.actual) + '</div>' +
+          '<div class="d-l ' + (isFinite(yoy) && yoy !== null ? (yoy >= 0 ? 'g' : 'r') + '">' + pctShort(yoy) : 'n">—') + ' YoY</div>' +
+          '<div class="d-l ' + (isFinite(pct) && pct !== null ? semaforo(pct) + '" title="' + tip + '">' + moneyDelta(abs || 0) + ' (' + pctShort(pct) + ')' : 'n">—') +
+          ' vs ' + esc(vsName) + '</div></div>';
+      });
+    });
+    return html + '</div></div>';
   }
 
   // Margen: NR y OC como % del GB, con la diferencia en puntos vs Budget y vs el año pasado.
