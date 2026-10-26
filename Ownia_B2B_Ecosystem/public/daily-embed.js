@@ -5,6 +5,8 @@
  *   <base>/daily?embed=b2b2c-cover[&organic=yes|no]
  *   → abre el Flow y muestra solo la portada "B2B2C — Resumen mensual (OC)" (cover_oc) a 1280×720.
  *     Los números son los del Daily (NR Farming / Hunting / TBD y FVM del Datalake; OC del contable).
+ *   <base>/daily?embed=flow&slide=<kind>[-<metric>][-<region>]   (p.ej. slide=okr-nr, monthly-BR)
+ *   → cualquier otra slide del Flow (FLOW_DECK), tal cual la arma el Daily.
  *
  * En modo embebido la portada cambia (solo acá, el Daily normal queda igual):
  *  - título "B2B2C Monthly Performance vs Budget" y, debajo, el "at risk" del H2: NR = Budget menos
@@ -17,8 +19,16 @@
 (function () {
   'use strict';
   var m = /[?&]embed=([\w-]+)/.exec(location.search);
-  if (!m || m[1] !== 'b2b2c-cover') return;
+  if (!m || (m[1] !== 'b2b2c-cover' && m[1] !== 'flow')) return;
   var COVER_KIND = 'cover_oc';
+  var sl = /[?&]slide=([\w-]+)/.exec(location.search);
+  // Slide pedida: kind[-metric][-region] de FLOW_DECK (la portada OC por default)
+  var WANT = m[1] === 'flow' && sl ? sl[1].split('-') : [COVER_KIND];
+  function slideIdx() {
+    return (window.FLOW_DECK || []).findIndex(function (d) {
+      return d.kind === WANT[0] && (!WANT[1] || d.metric === WANT[1] || d.region === WANT[1]) && (!WANT[2] || d.region === WANT[2]);
+    });
+  }
   var org = /[?&]organic=(yes|no)\b/.exec(location.search);
   var ocm = /[?&]ocm=(-?[\d.]+)/.exec(location.search);
   var OC_MARGIN = ocm ? parseFloat(ocm[1]) : NaN;
@@ -138,9 +148,10 @@
   document.addEventListener('DOMContentLoaded', function () {
     var load = document.createElement('div');
     load.id = 'ow-embed-load';
-    load.textContent = 'Cargando la portada B2B2C del Daily…';
+    load.textContent = 'Cargando la slide del Daily…';
     document.body.appendChild(load);
-    var idx = (window.FLOW_DECK || []).map(function (d) { return d.kind; }).indexOf(COVER_KIND);
+    var idx = slideIdx();
+    if (idx < 0) { load.textContent = 'No existe esa slide del Flow: ' + WANT.join('-'); post({ ready: false, error: load.textContent }); return; }
     waitFor(function () { return window._rawB2BC && window._rawB2BC.meta && typeof window.switchMainView === 'function'; }, function () {
       installOverrides();
       if (org && typeof window.setDailyOrganic === 'function') window.setDailyOrganic(org[1] === 'yes');
