@@ -627,7 +627,7 @@ body.krd-only #section-b2b > :not(.krd-keep) { display:none !important; }
 .fl-tbl td:first-child{text-align:left;color:var(--fl-ink2)}
 .fl-tbl tr.grp td{background:#f3f1fb;font-weight:700;color:var(--fl-ink)}
 .fl-tbl tr.tot td{background:#eee9fb;font-weight:800;border-top:2px solid var(--fl-purple2)}
-.fl-tight .fl-tbl th{padding:3px 8px}.fl-tight .fl-tbl td{padding:2px 8px}.fl-tight .fl-tag{margin-bottom:2px}   /* portada OC: 4 tablas */
+.fl-tight .fl-tbl th{padding:3px 8px}.fl-tight .fl-tbl td{padding:2px 8px}.fl-tight .fl-tag{margin-bottom:2px}   /* portada OC: tablas compactas */
 .fl-tbl tr.fl-more td{font-style:italic;font-weight:400;color:var(--fl-ink3);border-bottom:1px solid var(--fl-line)}
 .fl-tbl tr.grp:hover td, .fl-tbl tr[onclick]:hover td{background:#e9e4fb}
 .fl-acc-caret{display:inline-block;width:10px;color:var(--fl-purple2)}
@@ -5482,7 +5482,7 @@ function flHead_(title, brand){ return '<div class="fl-head"><div class="fl-titl
 function flLegend_(goalLbl, withProj, actLbl, projLbl){ return '<div class="fl-legend"><span><i style="background:#5626e9"></i>'+(withProj?(actLbl||'Actual'):'Baseline')+'</span>'
   +(withProj?'<span><i style="background:rgba(86,38,233,.35)"></i>'+(projLbl||'Proyección (Run Rate)')+'</span>':'')
   +'<span><i style="background:#c9c9d6"></i>'+(goalLbl||'Goal')+'</span></div>'; }
-// Leyenda de la portada OC con GB/NR abiertos en Farming / Hunting / TBD (ver FL_SEG_).
+// Leyenda de la portada OC con NR abierto en Farming / Hunting / TBD (ver FL_SEG_).
 function flLegendSeg_(goalLbl){ return '<div class="fl-legend">'+FL_SEG_.map(function(g){ return '<span><i style="background:'+g.c+'"></i>'+g.lbl+'</span>'; }).join('')
   +'<span><i style="background:#c9c9d6"></i>'+(goalLbl||'Goal')+'</span><span style="font-style:italic">tono claro = proyección (Run Rate)</span></div>'; }
 // lblPre: texto antes del comparador (default 'FYTD vs '); sm: versión compacta (3 apilados en la portada)
@@ -5500,8 +5500,9 @@ function flMonthlyTables_(def, sub, cmp, cmpShort){
   var per=_flMonthlyPeriod, perLbl=flMonthlyPeriodLbl_(flowVDate_());
   if(def.kind==='cover' || def.kind==='cover_oc'){
     var isOC=(def.kind==='cover_oc');
-    // Portada OC: GB / NR / FVM por Farming / Hunting / TBD (flowSegTable_); la otra, por región.
-    var html=[['gb','GB'],['nr','NR'],['fvm','FVM']].map(function(t){
+    // Portada OC: NR / FVM por Farming / Hunting / TBD (flowSegTable_), sin GB (pedido 2026-10-26);
+    // la otra portada: GB / NR / FVM por región.
+    var html=(isOC ? [['nr','NR'],['fvm','FVM']] : [['gb','GB'],['nr','NR'],['fvm','FVM']]).map(function(t){
       return '<div class="fl-scroll-tbl" style="flex:1;min-width:0;min-height:0;overflow-y:auto"><div class="fl-tag">'+t[1]+' — '+perLbl+' vs '+cmpShort+'</div>'
         +(isOC ? flowSegTable_(sub,t[0],cmp,per) : flowGroupTable_(sub,t[0],cmp,'Región',true,0,undefined,undefined,per))+'</div>'; }).join('');
     if(isOC){ var ot=flowOCTable_(cmp); // OC: siempre meses cerrados (no hay MTD de OC), sin importar el switch
@@ -5554,7 +5555,7 @@ function flowBuildSlide_(def, idx){
     var titleTxt = (isCover ? 'B2B2C' : FLOW_RG[region].label)+' Monthly Performance vs '+cmpLbl+(isOC?' · OC':'');
     var brand = region ? ('<span class="fl-flag">'+FLOW_RG[region].flag+'</span>'+flLogo_()) : flLogo_();
     var panels='';
-    (isOC ? ['gb','nr','oc'] : ['gb','nr','fvm']).forEach(function(mk){
+    (isOC ? ['nr','oc'] : ['gb','nr','fvm']).forEach(function(mk){   // portada OC sin GB (pedido 2026-10-26)
       var cid='flc'+idx+'-'+mk, mon, boxes, legend;
       if(isCover){ // portada: FY completo (12 barras, actual + proyección Run Rate) + H1/H2/FY
         mon=(mk==='oc') ? flowFY12OC_(cmp) : flowFY12_(sub,mk,cmp); var hv=flowHalves_(mon), fyL=flFyLbl_(_rawB2BC.meta.last_actuals_date);
