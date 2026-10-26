@@ -4992,8 +4992,11 @@ var FLOW_DECK = [
   {kind:'divider', flag:'WK', title:'Weekly Summary', name:'— Weekly —'},
   {kind:'weekly', lob:'B2B+B2B2C', view:'GD', name:'Weekly — B2B+B2B2C (GD)'},
   {kind:'weekly', lob:'B2B+B2B2C', view:'RI', name:'Weekly — B2B+B2B2C (RI)'},
-  {kind:'weekly', lob:'B2B',       view:'GD', name:'Weekly — B2B (GD)'},
-  {kind:'weekly', lob:'B2B',       view:'RI', name:'Weekly — B2B (RI)'},
+  // B2B abierto en MAY (canal API) y MIN (Agencias afiliadas) — ch = params.channel de getWeeklySummaryData
+  {kind:'weekly', lob:'B2B',       view:'GD', ch:'API',                name:'Weekly — B2B-MAY (GD)'},
+  {kind:'weekly', lob:'B2B',       view:'RI', ch:'API',                name:'Weekly — B2B-MAY (RI)'},
+  {kind:'weekly', lob:'B2B',       view:'GD', ch:'Agencias afiliadas', name:'Weekly — B2B-MIN (GD)'},
+  {kind:'weekly', lob:'B2B',       view:'RI', ch:'Agencias afiliadas', name:'Weekly — B2B-MIN (RI)'},
   {kind:'weekly', lob:'B2B2C',     view:'GD', name:'Weekly — B2B2C (GD)'},
   {kind:'weekly', lob:'B2B2C',     view:'RI', name:'Weekly — B2B2C (RI)'},
 
@@ -5658,8 +5661,8 @@ function flowBuildSlide_(def, idx){
   }
   if(def.kind==='weekly'){
     var lob=def.lob, view=def.view;
-    var wd=_wsCache[_wsKey_(lob, view, _orgTargetFlow_())];
-    var lobLbl=(lob==='B2B+B2B2C')?'B2B + B2B2C':lob;
+    var wd=_wsCache[_wsKey_(lob, view, _orgTargetFlow_(), def.ch)];
+    var lobLbl=(lob==='B2B+B2B2C')?'B2B + B2B2C':def.ch?(def.ch==='API'?'B2B-MAY':'B2B-MIN'):lob;
     var titleTxt='Weekly Summary — '+lobLbl+' ('+view+')';
     if(!wd || !wd.rows){
       return '<div class="flow-slide">'+flHead_(titleTxt, flLogo_())
@@ -5860,7 +5863,7 @@ function flowBuild_(){
 function flowRenderWeeklyTables_(){
   FLOW_DECK.forEach(function(def, idx){
     if(def.kind!=='weekly') return;
-    var wd=_wsCache[_wsKey_(def.lob, def.view, _orgTargetFlow_())];
+    var wd=_wsCache[_wsKey_(def.lob, def.view, _orgTargetFlow_(), def.ch)];
     if(!wd || !wd.rows) return;
     _wsRenderWeekly(wd, 'flws-thead-'+idx, 'flws-tbody-'+idx);
   });
@@ -6670,18 +6673,19 @@ function flowScale_(){
 // así que no hace falta re-pedirlos en cada flowRebuild_.
 var FLOW_WEEKLY_COMBOS=[
   {lob:'B2B+B2B2C',view:'GD'},{lob:'B2B+B2B2C',view:'RI'},
-  {lob:'B2B',view:'GD'},{lob:'B2B',view:'RI'},
+  {lob:'B2B',view:'GD',ch:'API'},{lob:'B2B',view:'RI',ch:'API'},
+  {lob:'B2B',view:'GD',ch:'Agencias afiliadas'},{lob:'B2B',view:'RI',ch:'Agencias afiliadas'},
   {lob:'B2B2C',view:'GD'},{lob:'B2B2C',view:'RI'}
 ];
 var _flowWeeklyReady=false;
 var _flowWeeklyReadyFor='';   // target organic con el que se pidió el Weekly del Flow ('' = nominal)
 function flowFetchWeeklyData_(cb){
   var orgT=_orgTargetFlow_();   // organic: mismo target que el resto del Flow
-  var pending=FLOW_WEEKLY_COMBOS.filter(function(c){ return !_wsCache[_wsKey_(c.lob, c.view, orgT)]; });
+  var pending=FLOW_WEEKLY_COMBOS.filter(function(c){ return !_wsCache[_wsKey_(c.lob, c.view, orgT, c.ch)]; });
   if(!pending.length){ cb(); return; }
   var done=0;
   pending.forEach(function(c){
-    var key=_wsKey_(c.lob, c.view, orgT);   // antes del pedido: si el switch COI Brasil cambia en vuelo, no se cachea con la clave nueva
+    var key=_wsKey_(c.lob, c.view, orgT, c.ch);   // antes del pedido: si el switch COI Brasil cambia en vuelo, no se cachea con la clave nueva
     google.script.run
       .withSuccessHandler(function(res){
         _wsOrgResp_(res);
@@ -6689,10 +6693,10 @@ function flowFetchWeeklyData_(cb){
         done++; if(done===pending.length) cb();
       })
       .withFailureHandler(function(e){
-        console.error('[flow] no se pudo cargar Weekly '+c.lob+'/'+c.view+':', e);
+        console.error('[flow] no se pudo cargar Weekly '+c.lob+'/'+c.view+(c.ch?'/'+c.ch:'')+':', e);
         done++; if(done===pending.length) cb();
       })
-      .getWeeklySummaryData({view:c.view, lob:c.lob, organic:orgT, exCoiBr:_exCoiBr});
+      .getWeeklySummaryData({view:c.view, lob:c.lob, organic:orgT, channel:c.ch||'', exCoiBr:_exCoiBr});
   });
 }
 function flowOpen_(){
