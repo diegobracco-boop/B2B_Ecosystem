@@ -231,6 +231,39 @@ function clearAllCache() {
   Logger.log('Cache cleared: ' + new Date());
 }
 
+// ── Solo Ownia: "Slides mensuales" (public/hub-slides.js, 2026-10-26) ─────────
+// La serie mensual (evo) de varias combinaciones en UNA llamada: lee los JSON y arma los mapas
+// una sola vez. getAllData los arma en cada pedido y además calcula P&L, waterfalls y bridges que el
+// deck no usa (13 pedidos en frío ≈ 2,5 min). Mismo resultado que getAllData(p).evo, incluido el
+// YoY organic (actualsYoY a TC Actuals LY, ver graftOrganicYoY_). Apps Script no la usa.
+function getSlidesEvo(list) {
+  list = list || [];
+  var baseRows = readJson_(JSON_IDS.baseline);
+  var rrMap  = buildMap_(readJson_(JSON_IDS.runrate));
+  var budMap = buildMap_(readJson_(JSON_IDS.budget));
+  var fcMap  = buildMap_(readJson_(JSON_IDS.forecast));
+  var lyMap  = buildMap_(readJson_(JSON_IDS.ly));
+  var byTarget = {};   // target organic ('' = nominal) → { map, yMap }
+  function maps(t) {
+    if (byTarget[t]) return byTarget[t];
+    var o = { map: null, yMap: null };
+    try {
+      o.map  = buildMap_(t ? applyOrganic_(baseRows, t).rows : baseRows);
+      o.yMap = (t && t !== 'ly') ? buildMap_(applyOrganic_(baseRows, 'ly').rows) : null;
+    } catch (e) {   // sin TC: nominal, como getAllData
+      o.map = buildMap_(baseRows); o.yMap = null;
+    }
+    return (byTarget[t] = o);
+  }
+  return list.map(function(p0) {
+    var p = Object.assign({}, p0, { desde: p0.desde || LAST_ACTUALS_YM, hasta: p0.hasta || LAST_ACTUALS_YM });
+    var m = maps(organicTargetOf_(p));
+    var evo = computeEvo_(p, m.map, rrMap, budMap, lyMap, fcMap);
+    if (m.yMap) graftOrganicYoY_({ evo: evo }, { evo: computeEvo_(p, m.yMap, rrMap, budMap, lyMap, fcMap) });
+    return { evo: evo };
+  });
+}
+
 // ── ÚNICA llamada del frontend ────────────────────────────────
 // Devuelve { filters, pnl, wf, evo } en un solo round-trip
 function getAllData(params) {

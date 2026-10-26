@@ -31,7 +31,10 @@
     'html.ow-embed .ow-embed-target{position:fixed !important;left:0 !important;top:0 !important;width:1280px !important;height:720px !important;margin:0 !important;z-index:2147483000}',
     'html.ow-embed .ow-embed-target .flow-slide{transform:none !important}',
     'html.ow-embed .ow-embed-target .flow-frame-tag{display:none !important}',
-    'html.ow-embed .ow-risk{font-size:15px;font-weight:600;color:#1d1d1f;padding:4px 40px 0;letter-spacing:0}',
+    // La línea del "at risk" no tiene que empujar el cuerpo fuera de los 720px: se achica el encabezado.
+    'html.ow-embed .ow-embed-target .fl-head{padding-top:12px !important}',
+    'html.ow-embed .ow-embed-target .fl-title{font-size:25px !important}',
+    'html.ow-embed .ow-risk{font-size:14px;font-weight:600;color:#1d1d1f;padding:0 40px;letter-spacing:0}',
     'html.ow-embed .ow-risk small{font-size:11.5px;font-weight:400;color:#8e8e93;margin-left:6px}',
     'html.ow-embed #ow-embed-load{visibility:visible !important;position:fixed;inset:0;display:flex;align-items:center;justify-content:center;font:15px Poppins,sans-serif;color:#6b6b85;z-index:2147483001;background:#fff}',
   ].join('\n');

@@ -46,14 +46,18 @@
     for (var i = 0; i < 12; i++) { var m = ((i + 3) % 12) + 1; out.push((i < 9 ? y - 1 : y) + '-' + (m < 10 ? '0' : '') + m); }
     return out;
   }
-  function call(extra) {
+  function params(extra) {
     var m = state.month;
-    var p = { lob: extra.lob, pais: extra.pais || 'all', producto: 'all', canal: extra.canal || 'all', desde: m, hasta: m,
+    return { lob: extra.lob, pais: extra.pais || 'all', producto: 'all', canal: extra.canal || 'all', desde: m, hasta: m,
       baselineSource: 'baseline', fcSource: '', organic: organicOn() ? 'budget' : '' };
-    var key = JSON.stringify(p);
+  }
+  // Todas las series en UN pedido (getSlidesEvo del Hub: lee los JSON una vez; getAllData por
+  // combinación tardaba ~2,5 min en frío).
+  function callEvo(list) {
+    var key = JSON.stringify(list);
     if (cache[key]) return Promise.resolve(cache[key]);
     return new Promise(function (resolve, reject) {
-      window.google.script.run.withSuccessHandler(function (r) { cache[key] = r; resolve(r); }).withFailureHandler(reject).getAllData(p);
+      window.google.script.run.withSuccessHandler(function (r) { cache[key] = r; resolve(r); }).withFailureHandler(reject).getSlidesEvo(list);
     });
   }
   // {gb|nr|oc: {act, bud, ly, yoyN}[12]} desde result.evo (12 meses del FY)
@@ -61,7 +65,8 @@
     var out = {}, evo = result && result.evo;
     ((evo && evo.metrics) || []).forEach(function (m) {
       out[m.id] = (m.actuals || []).map(function (a, i) {
-        return { act: a || 0, bud: (m.budget || [])[i] || 0, ly: (m.lastYear || [])[i] || 0, yoyN: (m.actualsYoY || [])[i] };
+        // actualsYoY (real a TC Actuals LY) viene solo con Organic; sin Organic el YoY es real vs LY nominal
+        return { act: a || 0, bud: (m.budget || [])[i] || 0, ly: (m.lastYear || [])[i] || 0, yoyN: m.actualsYoY ? m.actualsYoY[i] : (a || 0) };
       });
     });
     return out;
@@ -81,13 +86,12 @@
   function range(a, b) { var o = []; for (var i = a; i <= b; i++) o.push(i); return o; }
 
   function loadAll() {
-    var jobs = {};
-    Object.keys(SEG).forEach(function (k) { jobs[k] = call(SEG[k]); });
+    var keys = [], list = [];
+    Object.keys(SEG).forEach(function (k) { keys.push(k); list.push(params(SEG[k])); });
     ['min', 'may'].forEach(function (c) {
-      REG.forEach(function (r) { jobs[c + '_' + r[0]] = call({ lob: 'b2b', canal: c, pais: r[2] }); });
+      REG.forEach(function (r) { keys.push(c + '_' + r[0]); list.push(params({ lob: 'b2b', canal: c, pais: r[2] })); });
     });
-    var keys = Object.keys(jobs);
-    return Promise.all(keys.map(function (k) { return jobs[k]; })).then(function (res) {
+    return callEvo(list).then(function (res) {
       var d = {};
       keys.forEach(function (k, i) { d[k] = { s: series(res[i]), raw: res[i] }; });
       return d;
@@ -393,7 +397,7 @@
       '#hs .hs-nx:focus{background:#fff;box-shadow:0 0 0 2px #550fed}',
       '#hs .hs-draft{color:#55555c;font-style:italic}',
       '#hs .hs-nm{font-size:10.5px;color:#8e8e93;margin-top:3px}',
-      '#hs .hs-evo{display:grid;grid-template-columns:230px 1fr 230px;gap:16px;height:575px}',
+      '#hs .hs-evo{display:grid;grid-template-columns:230px 1fr 230px;gap:16px;height:548px}',
       '#hs .hs-evleft{display:flex;flex-direction:column;gap:14px}',
       '#hs .hs-ecl{font-size:14px;font-weight:700;color:#4300d2;margin-bottom:4px}',
       '#hs .hs-ec{position:relative;border:1px solid #e1dcf7;border-radius:8px;padding:8px 6px 6px 30px;font-size:11.5px;text-align:center;background:#fbfaff}',
@@ -485,9 +489,19 @@
     if (!state.month) state.month = lastClosed() || fyPeriods()[5];
     render();
   };
-  // Cualquier otra pestaña o cambio de LoB cierra el deck.
+  // Cualquier otra pestaña o cambio de LoB cierra el deck. Link directo: <base>/hub?slides=1[&mes=AAAA-MM]
+  // abre el deck apenas el Hub tiene los filtros (sirve para compartirlo).
   document.addEventListener('DOMContentLoaded', function () {
     var orig = window.switchLob;
     if (typeof orig === 'function') window.switchLob = function () { close(); return orig.apply(this, arguments); };
+    if (!/[?&]slides=1\b/.test(location.search)) return;
+    var mes = /[?&]mes=(\d{4}-\d{2})\b/.exec(location.search);
+    var tries = 0;
+    (function go() {
+      if (window._state && window._state.filters && window._state.filters.lastActuals) {
+        if (mes) state.month = mes[1];
+        window.openSlidesMensuales();
+      } else if (tries++ < 240) setTimeout(go, 500);
+    })();
   });
 })();
