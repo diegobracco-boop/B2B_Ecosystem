@@ -5,10 +5,14 @@
  * El mismo deck todos los meses, con el formato de "Business Performance B2B/B2B2C vs Budget":
  * detalle del mes que cerró y las comparaciones. Se elige el mes cerrado arriba; las slides de
  * resultados muestran el acumulado del FY (YTD; con septiembre cerrado = H1) y el mes.
- *   1 Portada · 2 H2 vs H1 (public/hub-h2h1.js) · 3 Evolución B2B MAY · 4 Evolución B2B MIN ·
- *   5 Resultados por negocio · 6 B2B2C + highlights · 7 B2B · 8 B2B + business levers ·
- *   9 B2B MIN por región · 10 B2B MAY por región.
- *   (Pendientes: B2B2C mensual Farming/Hunting/TBD del Daily y Status OKRs.)
+ *   1 Portada · 2 H2 vs H1 (public/hub-h2h1.js) · 3 Evolución B2B MAY · 4 B2B2C mensual vs Budget ·
+ *   5 Evolución B2B MIN · 6 Resultados por negocio · 7 B2B2C + highlights · 8 B2B ·
+ *   9 B2B + business levers · 10 B2B MIN por región · 11 B2B MAY por región.
+ *   La 4 es la portada "B2B2C — Resumen mensual (OC)" del Flow del Daily, embebida tal cual
+ *   (<base>/daily?embed=b2b2c-cover, public/daily-embed.js): NR Farming / Hunting / TBD y FVM del
+ *   Datalake, OC del contable. El "at risk" del título lo calcula esa página (NR) y el OC se estima
+ *   con el margen OC/NR del Budget H2 de B2B2C (contable).
+ *   (Pendiente: Status OKRs.)
  *
  * Datos: getAllData del Hub (los mismos números que el resto del dashboard) — `evo` trae los 12
  * meses de real (cerrado + Run Rate), Budget, año pasado y el YoY (organic si corresponde). Un pedido
@@ -260,11 +264,35 @@
     return sResults(ytdLabel() + ' | ' + SEG[c].name + ' Results', regions(c));
   }
 
+  // B2B2C mensual: la portada del Flow del Daily embebida + título con el NR / OC "at risk" del H2.
+  function sB2B2CMonthly() {
+    var src = basePath() + '/daily?embed=b2b2c-cover&organic=' + (organicOn() ? 'yes' : 'no');
+    var sc = 0.86;
+    return head('B2B2C Monthly Performance vs Budget', '<span class="hs-risk">Calculando el “at risk” del H2…</span>') +
+      '<div class="hs-emb" style="width:' + Math.round(W * sc) + 'px;height:' + Math.round(H * sc) + 'px">' +
+      '<iframe src="' + esc(src) + '" title="B2B2C mensual (Daily)" style="width:' + W + 'px;height:' + H + 'px;transform:scale(' + sc + ')"></iframe></div>';
+  }
+  function onDailyEmbed(ev) {
+    if (ev.origin !== location.origin || !ev.data || ev.data.type !== 'daily-embed' || !panel) return;
+    var el = panel.querySelector('.hs-risk');
+    if (!el) return;
+    var r = ev.data.atRisk;
+    if (!ev.data.ready || !r) { el.textContent = ev.data.error || 'No se pudo calcular el “at risk”.'; return; }
+    var b = state.data && state.data.b2b2c && state.data.b2b2c.s, h2 = range(6, 11);
+    var marg = b ? agg(b.oc, h2).bud / agg(b.nr, h2).bud : NaN;
+    var nr = r.nrAtRisk, oc = isFinite(marg) ? nr * marg : NaN;
+    el.innerHTML = 'H2 includes “TBD” NR <b>$' + (nr / 1e6).toFixed(1) + 'M</b>' +
+      (isFinite(oc) ? ' y OC <b>~$' + (oc / 1e6).toFixed(1) + 'M</b>' : '') + ' at Risk ' +
+      '<span class="hs-riskn">(proyección vs Budget de Onboarding + TBD' + (isFinite(oc) ? '; OC estimado con el margen OC/NR del Budget H2, ' + (marg * 100).toFixed(0) + '%' : '') + ')</span>';
+  }
+  window.addEventListener('message', onDailyEmbed);
+
   function slidesHtml(h2h1) {
     var list = [
       ['Portada', sCover()],
       ['H2 vs H1', h2h1 || '<div class="hs-err">No se pudo armar H2 vs H1.</div>'],
       ['B2B-MAY Evolution', sEvolution('may', 'Principales desafíos H2', 'may_challenges')],
+      ['B2B2C mensual vs Budget', sB2B2CMonthly()],
       ['B2B-MIN Evolution', sEvolution('min', 'Principales oportunidades H2', 'min_opportunities')],
       ['Resultados', sResults(ytdLabel() + ' | B2B Results', [col('min'), col('may'), col('b2b2c'), col('total')])],
       ['B2B2C', sB2B2C()],
@@ -396,6 +424,9 @@
       '#hs .hs-evc.hs-up{fill:#1a9e5a}#hs .hs-evc.hs-dn{fill:#d4373a}',
       '#hs .hs-evp{font-size:10.5px;font-weight:700;text-anchor:middle;fill:#5b4fe0}#hs .hs-evl{font-size:11px;font-weight:600;fill:#6e6e73}',
       '#hs .hs-evright{display:flex;flex-direction:column}',
+      '#hs .hs-emb{margin:4px auto 0;overflow:hidden;border:1px solid #ececf0}',
+      '#hs .hs-emb iframe{border:0;transform-origin:0 0;display:block}',
+      '#hs .hs-risk{color:#1d1d1f;font-size:15px}#hs .hs-riskn{color:#8e8e93;font-size:12px}',
       '#hs .hs-cover{position:absolute;inset:0;background:linear-gradient(120deg,#4300d2,#550fed 60%,#7b3ff5);color:#fff;padding:180px 90px}',
       '#hs .hs-cv1{font-size:56px;font-weight:700}#hs .hs-cv2{font-size:40px;font-weight:500;opacity:.92}',
       '#hs .hs-cv3{font-size:20px;margin-top:30px;opacity:.85}#hs .hs-cvlogo{position:absolute;right:60px;bottom:40px;font-size:32px;font-weight:700}',
