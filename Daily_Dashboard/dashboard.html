@@ -465,7 +465,7 @@ body.krd-only #section-b2b > :not(.krd-keep) { display:none !important; }
    por defecto (padding 3px + 13px/12px de fuente) se pasaba por ~35-60px del
    alto disponible y el último grupo (Globales) quedaba cortado sin aviso.
    Achicando un poco padding/fuente entra completo. */
-#view-flow .ws-panel-weekly tr.ws-metric-row td{padding:1px 8px;font-size:11px;line-height:1.15}
+#view-flow .ws-panel-weekly tr.ws-metric-row td{padding:0 8px;font-size:11px;line-height:1.15} /* 0 desde 2026-10-26: con la fila % vs Bdg son 8 filas por grupo */
 #view-flow .ws-panel-weekly tr.ws-metric-row.ws-ly-row td{font-size:10px}
 #view-flow .ws-panel-weekly thead tr.head-weeks th{padding:2px 4px;font-size:11px}
 /* MTD table */
@@ -4487,17 +4487,15 @@ function _wsRender(d) {
 }
 
 // ── Weekly table ───────────────────────────────────────────────
-// sub: filas de trend debajo de la métrica (% vs LY, brecha pp vs B2C, % vs Budget) — ver _wsSummary_ en Codigo.js
+// sub: filas de trend debajo de la métrica (% vs LY, % vs Budget) — ver _wsSummary_ en Codigo.js
 var _WS_METRICS = [
   { key:'fvm',   label:'FVM',  fmt:'M',   sub:null, l4wKey:'fvm',   l4wFmt:'pct' },
   { key:'pctGb', label:'%/GB', fmt:'pct', sub:null, l4wKey:'pctGb', l4wFmt:'pp'  },
   { key:'rev',   label:'Rev',  fmt:'M',   l4wKey:'rev', l4wFmt:'pct', sub:[
     { key:'vsLYrev',  label:'% vs LY',  fmt:'pct' },
-    { key:'vsB2Crev', label:'vs B2C',   fmt:'pp'  },
     { key:'vsBudrev', label:'% vs Bdg', fmt:'pct' } ] },
   { key:'gb',    label:'GB',   fmt:'M',   l4wKey:'gb',  l4wFmt:'pct', sub:[
     { key:'vsLYgb',   label:'% vs LY',  fmt:'pct' },
-    { key:'vsB2Cgb',  label:'vs B2C',   fmt:'pp'  },
     { key:'vsBudgb',  label:'% vs Bdg', fmt:'pct' } ] }
 ];
 
@@ -5671,16 +5669,13 @@ function flowBuildSlide_(def, idx){
     // que usa la vista nativa) una vez que el HTML ya está en el DOM.
     // A pedido de Diego: solo el "Resumen Semanal" (tabla por semana) — sin el
     // panel "Performance MTD" de la derecha.
-    // Con las filas vs B2C / vs Bdg (10 filas por país) los 5 grupos no entran en
-    // los 720px: dos tablas lado a lado, ver FLOW_WS_SPLIT.
-    var wsPanel=function(sfx, title){
-      return '<div class="ws-panel-weekly" style="flex:1">'
-        +'<div class="ws-sec-title">'+title+'</div>'
-        +'<div class="ws-table-wrap"><table class="ws-table"><thead id="flws-thead-'+idx+sfx+'"></thead><tbody id="flws-tbody-'+idx+sfx+'"></tbody></table></div>'
-        +'</div>';
-    };
     var body='<div class="fl-body" style="display:flex;flex-direction:column">'
-      +'<div class="ws-tables-row">'+wsPanel('-a','Resumen Semanal')+wsPanel('-b','&nbsp;')+'</div></div>';
+      +'<div class="ws-tables-row">'
+        +'<div class="ws-panel-weekly" style="flex:1">'
+          +'<div class="ws-sec-title">Resumen Semanal</div>'
+          +'<div class="ws-table-wrap"><table class="ws-table"><thead id="flws-thead-'+idx+'"></thead><tbody id="flws-tbody-'+idx+'"></tbody></table></div>'
+        +'</div>'
+      +'</div></div>';
     return '<div class="flow-slide">'+flHead_(titleTxt, flLogo_())+body+'</div>';
   }
   // ── B2B — port nativo del Daily B2B Tracker. Igual que 'weekly', el HTML acá
@@ -5860,17 +5855,12 @@ function flowBuild_(){
 // columnas por semana, filas de %vs LY, banderas, flechas). El panel
 // "Performance MTD" se sacó del slide (a pedido de Diego) — no hace falta
 // llamar a _wsRenderMTDTable_ acá.
-// Grupos de cada una de las dos tablas del slide (izquierda | derecha).
-var FLOW_WS_SPLIT = [['TOTAL','Brasil','Mexico'], ['Hispa','Globales']];
 function flowRenderWeeklyTables_(){
   FLOW_DECK.forEach(function(def, idx){
     if(def.kind!=='weekly') return;
     var wd=_wsCache[_wsKey_(def.lob, def.view, _orgTargetFlow_())];
     if(!wd || !wd.rows) return;
-    ['-a','-b'].forEach(function(sfx, i){
-      var part=Object.assign({}, wd, { rows: wd.rows.filter(function(r){ return FLOW_WS_SPLIT[i].indexOf(r.group)!==-1; }) });
-      _wsRenderWeekly(part, 'flws-thead-'+idx+sfx, 'flws-tbody-'+idx+sfx);
-    });
+    _wsRenderWeekly(wd, 'flws-thead-'+idx, 'flws-tbody-'+idx);
   });
 }
 

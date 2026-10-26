@@ -314,8 +314,6 @@ function getWeeklySummaryData(params) {
         row.weeks.forEach(function(w, j) {
           w.vsLYgb  = y.rows[i].weeks[j].vsLYgb;
           w.vsLYrev = y.rows[i].weeks[j].vsLYrev;
-          w.vsB2Cgb  = y.rows[i].weeks[j].vsB2Cgb;    // brecha vs B2C sale del vs LY → mismo TC
-          w.vsB2Crev = y.rows[i].weeks[j].vsB2Crev;
         });
       });
       var graftMtd = function(m, my) {
@@ -361,9 +359,6 @@ function _wsSummary_(params, conv) {
     var weekAgg   = _wsAggWeekly_(actRows);
     var lyWeekAgg = _wsAggWeekly_(lyRows);
     var budWeekAgg = _wsAggWeekly_(budRows);
-    // B2C (referencia, misma serie que Benchmark vs B2C): sin canal ni organic, solo confirmation date
-    var b2cWeekAgg   = _wsAggWeekly_(_wsNormRows_(_wsExpandCompact_(b2bcRaw.b2c),    'gross_bookings', 'net_revenues'));
-    var b2cLyWeekAgg = _wsAggWeekly_(_wsNormRows_(_wsExpandCompact_(b2bcRaw.b2c_ly), 'gross_bookings', 'net_revenues'));
 
     var weekKeys = [];
     Object.keys(weekAgg).forEach(function(yr) {
@@ -392,24 +387,17 @@ function _wsSummary_(params, conv) {
       return vals.length ? vals.reduce(function(s,x){return s+x;},0)/vals.length : null;
     }
     function pctL4W_(c, l) { return (l && l !== 0) ? (c-l)/Math.abs(l)*100 : null; }
-    // Brecha de crecimiento vs B2C (pp) = % vs LY propio − % vs LY de B2C (mismo criterio que Benchmark vs B2C)
-    function gap_(a, b) { return (a === null || b === null) ? null : a - b; }
 
     var rows = WS_GROUPS.map(function(group) {
       var weeks = last5.map(function(w) {
         var curr  = _wsGroupVals_(weekAgg,      w.year,     w.week, group);
         var ly    = _wsGroupVals_(lyWeekAgg,    w.year - 1, w.week, group);
         var bud   = _wsGroupVals_(budWeekAgg,   w.year,     w.week, group);
-        var b2c   = _wsGroupVals_(b2cWeekAgg,   w.year,     w.week, group);
-        var b2cLy = _wsGroupVals_(b2cLyWeekAgg, w.year - 1, w.week, group);
-        var vsLYgb = vsLY_(curr,ly,'gb'), vsLYrev = vsLY_(curr,ly,'rev');
         return {
           semana:w.week, anio:w.year,
           gb:  curr.gb/1e6, rev:curr.rev/1e6, fvm:curr.fvm/1e6,
           pctGb: curr.gb ? curr.fvm/curr.gb*100 : 0,
-          vsLYgb: vsLYgb, vsLYrev: vsLYrev,
-          vsB2Cgb:  gap_(vsLYgb,  vsLY_(b2c,b2cLy,'gb')),
-          vsB2Crev: gap_(vsLYrev, vsLY_(b2c,b2cLy,'rev')),
+          vsLYgb: vsLY_(curr,ly,'gb'), vsLYrev: vsLY_(curr,ly,'rev'),
           vsBudgb:  vsLY_(curr,bud,'gb'), vsBudrev: vsLY_(curr,bud,'rev')
         };
       });
