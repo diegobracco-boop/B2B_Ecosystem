@@ -3346,7 +3346,7 @@ function computeKRH2Metric_(monthFilter, metricField, predAct, predBud) {
 // ── Accelerate Recurrence (KR H2, solo HTML) ─────────────────────────────────────────────────
 // Actual = agencias de alta frecuencia (copia de la card Metabase 171400; recurrencia_b2b.json lo sube
 // recurrencia_sync.py / daily_sync.py, una fila por semana x país). Del mes se toma la foto de cierre
-// (es_cierre_mes = 1) o, si el mes no cerró,
+// (es_cierre_mes = 1 y estado CIERRE: la última semana del mes trae es_cierre_mes = 1 también mientras está EN_CURSO) o, si el mes no cerró,
 // la última semana cerrada (estado CIERRE; si no hay ninguna, la última que haya). Actual = mtd_frecuentes_vivas,
 // Rolling L4W = roll_frecuentes_vivas. Target = Input_OKR por país (getRecurTargets en Codigo.js).
 // En las semanas 1-2 del mes el MTD da 0 por definición: ahí el cumplimiento del KR es Rolling L4W vs Target.
@@ -3380,7 +3380,8 @@ function recurH2_(krYM) {
   var rows = _recurRows;
   rows = rows.filter(function(r){ return r.mes_comercial === krYM; });
   if (!rows.length) return null;
-  var cierre  = rows.filter(function(r){ return +r.es_cierre_mes === 1; });
+  // es_cierre_mes = 1 marca la última semana del mes aunque siga EN_CURSO: solo es la foto de cierre ya cerrada.
+  var cierre  = rows.filter(function(r){ return +r.es_cierre_mes === 1 && r.estado === 'CIERRE'; });
   var cerradas = rows.filter(function(r){ return r.estado === 'CIERRE'; });
   var pool = cierre.length ? cierre : (cerradas.length ? cerradas : rows);
   var sem = pool.reduce(function(m, r){ return Math.max(m, +r.semana_del_mes || 0); }, 0);

@@ -3406,7 +3406,8 @@ function krdRecurMonth_(ym) {
   if (!_krdRecur) return null;
   var rows = _krdRecur.filter(function(r){ return r.mes_comercial === ym; });
   if (!rows.length) return null;
-  var cierre = rows.filter(function(r){ return +r.es_cierre_mes === 1; });
+  // es_cierre_mes = 1 marca la última semana del mes aunque siga EN_CURSO: solo es la foto de cierre ya cerrada.
+  var cierre = rows.filter(function(r){ return +r.es_cierre_mes === 1 && r.estado === 'CIERRE'; });
   var cerradas = rows.filter(function(r){ return r.estado === 'CIERRE'; });
   var pool = cierre.length ? cierre : (cerradas.length ? cerradas : rows);
   var sem = pool.reduce(function(m, r){ return Math.max(m, +r.semana_del_mes || 0); }, 0);
