@@ -12,6 +12,17 @@
   var GOAL = 'forecastbtb';
   var LABEL = 'Forecast - Bridge to budget';
 
+  // Organic en YES por default (Diego, 2026-10-26). Este script va en el <head>, antes del código del
+  // dashboard (que declara `var _epmOrganic = false`), y ownia-nav.js abre la vista inicial en su
+  // DOMContentLoaded, que corre antes que el nuestro. 'interactive' llega con la página ya parseada y
+  // antes de DOMContentLoaded: la primera carga ya sale en organic. Con Goal Run Rate / Last RR el
+  // dashboard lo deshabilita solo.
+  document.addEventListener('readystatechange', function () {
+    if (document.readyState !== 'interactive' || !('_epmOrganic' in window)) return;
+    window._epmOrganic = true;
+    if (typeof window._syncOrganicUI_ === 'function') window._syncOrganicUI_();
+  });
+
   document.addEventListener('DOMContentLoaded', function () {
     var after = document.getElementById('btn-egoal-lastrunrate');
     if (!after || typeof window.setEpmGoalSource !== 'function' || typeof window._epmGoalLabel !== 'function') {

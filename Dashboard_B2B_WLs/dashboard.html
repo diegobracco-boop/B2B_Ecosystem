@@ -1203,6 +1203,10 @@ header > img{filter:brightness(0) invert(1);opacity:.92}
     <button class="nav-item" id="nav-detailcountry" onclick="goToSection('detailcountry')">
       <span style="font-size:16px">🌎</span> Detail By Country
     </button>
+    <!-- Solo Ownia (public/hub-h2h1.js): H1 real vs H2 Budget, formato de la presentación de dirección -->
+    <button class="nav-item" id="nav-h2h1" onclick="if (window.openH2vsH1) openH2vsH1()">
+      <span style="font-size:16px">📈</span> H2 Budget vs H1
+    </button>
     <div class="nav-divider"></div>
     <button class="nav-item" id="nav-fixedcost" onclick="goToSection('fixedcost')">
       <span style="font-size:16px">💰</span> Fixed Cost
@@ -1318,8 +1322,8 @@ header > img{filter:brightness(0) invert(1);opacity:.92}
     <div class="fg" id="organic-fg" style="display:none">
       <label>Organic</label>
       <div class="org-toggle" id="org-toggle">
-        <button data-o="no" class="active" onclick="setOrganic(false)">NO</button>
-        <button data-o="yes"               onclick="setOrganic(true)">YES</button>
+        <button data-o="no"                onclick="setOrganic(false)">NO</button>
+        <button data-o="yes" class="active" onclick="setOrganic(true)">YES</button>
       </div>
       <div class="org-note" id="org-note"></div>
     </div>
@@ -2040,7 +2044,7 @@ var _state = {
   goal:            'budget',
   baselineSource:  'baseline',  // 'baseline' (Actuals + Projections) | 'forecast' (forecast.json entero)
   fcSource:        '',          // 'btb' = Goal "Forecast - Bridge to budget": goal 'forecast' con forecastbtb.json
-  organic:         false,       // switch ORGANIC (B2B, B2B2C, B2B+B2B2C; no aplica con Goal Run Rate)
+  organic:         true,        // switch ORGANIC (B2B, B2B2C, B2B+B2B2C; no aplica con Goal Run Rate). YES por default desde 2026-10-26 (Diego)
   evoMetric:       'gb',
   evoGranularity:  'M',   // 'M' | 'Q' | 'H' | 'Y'
   evoShowLY:       false, // incluir serie "Last Year" en el gráfico de evolución
