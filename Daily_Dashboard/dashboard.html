@@ -5107,8 +5107,9 @@ function flowH1_(monthly){ var b=0,g=0; monthly.forEach(function(m){b+=m.v;g+=m.
 // COMPLETO (budget/runrate + *_fy_rest; LY = actuals del año pasado corridos +1 año). yoy =
 // (v+p) vs LY del mes completo; "—" si el LY de ese mes no está entero en el JSON.
 // seg (portada OC, pedido 2026-10-26): v/p abiertos en Farming (f) / Hunting (h) / TBD (t).
-// Hunting = account_type (actuals) o stage (budget/runrate) 'New', sin el partner TBD; mismo
-// criterio que los KRs Hunting/Farming del Flow (flowKRSum_).
+// Hunting = account_type (actuals) o stage (budget/runrate) 'New', sin el partner TBD. Ojo: en los
+// KRs del Flow (flowKRSum_) el TBD cuenta dentro de Hunting (stage forzado a 'New' al cargar); acá
+// va como segmento propio, a pedido (2026-10-26).
 function flSeg_(r){ if(isTBDPartner_(r.partner)) return 't';
   return ((r.account_type!==undefined ? r.account_type : r.stage)==='New') ? 'h' : 'f'; }
 function flowFY12_(subRaw, metricKey, compKey){
