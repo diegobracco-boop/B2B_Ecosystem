@@ -95,4 +95,12 @@ BASES = {
                   "Run Rate/LRR - Legal Entity NA.csv"],
         "is_forecast": False,
     },
+    # Escenario "Forecast - Bridge to budget" (2026-10-26): forecast stretch para cerrar la
+    # brecha contra el Budget. NO reemplaza al Forecast: va a forecastbtb.json. Mismo formato
+    # plano que el RunRate; igual que el Forecast, los meses FORECAST_ACTUALS_MONTHS salen de
+    # actuals (json_builder) y los del archivo se descartan (is_forecast).
+    "forecastbtb": {
+        "flat_file": "Base_P&L_Contable/Forecast_Stretch_BTB*.csv",
+        "is_forecast": True,
+    },
 }

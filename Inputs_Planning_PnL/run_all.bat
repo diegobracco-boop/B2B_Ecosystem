@@ -13,6 +13,7 @@ python plana_projections_builder.py budget       || goto :err
 python plana_projections_builder.py forecast     || goto :err
 python plana_projections_builder.py runrate      || goto :err
 python plana_projections_builder.py lastrunrate  || goto :err
+python plana_projections_builder.py forecastbtb  || goto :err
 
 echo.
 echo === PLANA de Actuals FY2027 (se actualiza cada mes) ===
@@ -24,7 +25,7 @@ python json_builder.py all                        || goto :err
 
 echo.
 echo ============================================================
-echo   LISTO: planas + 5 JSON (budget/forecast/runrate/lastrunrate/actuals) en Drive.
+echo   LISTO: planas + 6 JSON (budget/forecast/runrate/lastrunrate/forecastbtb/actuals) en Drive.
 echo ============================================================
 pause
 goto :eof

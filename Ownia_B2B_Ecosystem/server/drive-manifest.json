@@ -23,7 +23,8 @@
         "1Su36jhCMdNgC6nixxX5TyvtCI4ESG2Tv": "baseline_actuals+projections.json (CANONICAL_IDS_.bl)",
         "1ReDMnuv5MGsJACvQmkP39AlQM-RvtoYy": "projections_validation_accounting.json (CANONICAL_IDS_.vr)",
         "1zd5gnMFztKiCSgeY-VmsfVOr0LQ6ftGI": "actuals_previos_fy26.json (CANONICAL_IDS_.ly)",
-        "1SEh9vLWCbE6PslnUntUghhInonuLdYZ5": "tc_plana_flat.xlsx (FX_FILE_ID)"
+        "1SEh9vLWCbE6PslnUntUghhInonuLdYZ5": "tc_plana_flat.xlsx (FX_FILE_ID)",
+        "1anL-CsItySxuWTp4FuX69tHsAy9oz4rp": "forecastbtb.json (CANONICAL_IDS_.fbtb, server/gas-extras/pnl-accounting-fbtb.js)"
       },
       "folders": {}
     },
@@ -35,7 +36,8 @@
         "1crqpRTyH14fqX9XdwBTVaKN5rPbE6O84": "forecast.json (JSON_IDS.forecast)",
         "1zd5gnMFztKiCSgeY-VmsfVOr0LQ6ftGI": "actuals_previos_fy26.json (JSON_IDS.ly)",
         "1SEh9vLWCbE6PslnUntUghhInonuLdYZ5": "tc_plana_flat.xlsx (FX_FILE_ID)",
-        "1cEidr8aoYgm4S7ugm05Wv-SMnz8GbtUj": "okr.json (OKR_FILE_ID)"
+        "1cEidr8aoYgm4S7ugm05Wv-SMnz8GbtUj": "okr.json (OKR_FILE_ID)",
+        "1anL-CsItySxuWTp4FuX69tHsAy9oz4rp": "forecastbtb.json (JSON_IDS.forecastbtb)"
       },
       "folders": {
         "1lWzfqweyV6Kz1ERkL85ikFcmzmKwGwwh": ["weekly_insights.json"]

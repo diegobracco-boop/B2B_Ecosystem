@@ -10,6 +10,7 @@ var JSON_IDS = {
   budget:   '1f2JF8pq7gtpxfdkVzbT9wvamn_ny3RBW',  // budget.json
   runrate:  '1UGg60kE397nsGAivtFqI8NX5CVFj1gqO',  // runrate.json
   forecast: '1crqpRTyH14fqX9XdwBTVaKN5rPbE6O84',  // forecast.json
+  forecastbtb: '1anL-CsItySxuWTp4FuX69tHsAy9oz4rp',                // forecastbtb.json ("Forecast - Bridge to budget", 2026-10-26)
   ly:       '1zd5gnMFztKiCSgeY-VmsfVOr0LQ6ftGI'   // actuals_previos_fy26.json
 };
 // ── ORGANIC (prueba: Monthly Results B2B, B2B2C y B2B+B2B2C) ──────────────
@@ -165,6 +166,7 @@ function makeCacheKey_(p) {
     desde:    p.desde    || '',
     hasta:    p.hasta    || '',
     bl:       p.baselineSource || 'baseline',
+    fc:       p.fcSource === 'btb' ? 'btb' : '',
     org:      organicTargetOf_(p) || ''
   });
 }
@@ -256,6 +258,11 @@ function getAllData(params) {
   // Baseline seleccionable: 'baseline' (Actuals + Projections) | 'forecast' (forecast.json entero:
   // actuals de meses cerrados + fc el resto). Todos los base*Map se arman de blRows.
   var blRows = (p.baselineSource === 'forecast') ? fcRows : baseRows;
+
+  // Goal "Forecast - Bridge to budget" (2026-10-26): el front lo trata como el Goal Forecast y pide
+  // fcSource='btb' → todo lo que compara contra el Forecast usa forecastbtb.json. El baseline
+  // "Forecast" de arriba sigue siendo el Forecast.
+  if (p.fcSource === 'btb') fcRows = readJson_(JSON_IDS.forecastbtb);
 
   // ORGANIC: se convierte SOLO el baseline (todos sus meses, reales y proyectados). Budget /
   // RR / Forecast (goals) y el LY quedan en USD tal cual (el LY ya está a sus propias tasas).

@@ -5,7 +5,7 @@ desde los CSV de Planning-PBI, replicando el proceso del agente interno (Partes 
 
 Uso:
     python plana_projections_builder.py <base> [--con-ppa]
-    <base> ∈ budget | forecast | runrate | lastrunrate
+    <base> ∈ budget | forecast | runrate | lastrunrate | forecastbtb
 
 Default = SIN PPA  -> suma el efecto de 'Reverso AxI.xlsx' (hoja Budget).
 --con-ppa           -> NO suma el reverso (procesa normal).
@@ -134,9 +134,10 @@ FLAT_LINEA_MAP = {
 # un RunRate Oct-Mar llegó cortado a mitad de 'IT Personnel', sin NR de Up Front Incentives,
 # Revenue Taxes, Loyalty, etc.). Un archivo con exactamente este tamaño se rechaza.
 FLAT_EXPORT_ROW_LIMIT = 300_000
-# Leases / Leases Adjustment: ajustes EBIT que se netean entre sí (no existían en el RR
-# viejo ni tienen fila en el Glosario) -> se descartan.
-FLAT_LINEA_DROP = {"leases", "leases adjustment"}
+# Ajustes por debajo del EBITDA que no tienen fila en el Glosario ni existían en las bases
+# Hyperion -> se descartan: Leases / Leases Adjustment y OOI / OOI Adjustment se netean entre
+# sí; Fair value (Forecast BTB) no está en el Forecast ni en el RR viejo.
+FLAT_LINEA_DROP = {"leases", "leases adjustment", "ooi", "ooi adjustment", "fair value"}
 # 'pais' del archivo nuevo -> nombre de país del pipeline (el resto ya coincide o
 # lo resuelve el Glosario, ej. "OPS + RG" -> RG).
 FLAT_PAIS_MAP = {"brazil": "Brasil", "others": "Others Countries"}

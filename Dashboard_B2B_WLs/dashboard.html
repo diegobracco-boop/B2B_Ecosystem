@@ -1309,6 +1309,7 @@ header > img{filter:brightness(0) invert(1);opacity:.92}
         <option value="budget">Budget</option>
         <option value="runRate">Run Rate</option>
         <option value="forecast">Forecast</option>
+        <option value="forecastBtb">Forecast - Bridge to budget</option>
         <option value="lastYear">Last Year</option>
       </select>
     </div>
@@ -2038,6 +2039,7 @@ var _state = {
   canal:           'all',
   goal:            'budget',
   baselineSource:  'baseline',  // 'baseline' (Actuals + Projections) | 'forecast' (forecast.json entero)
+  fcSource:        '',          // 'btb' = Goal "Forecast - Bridge to budget": goal 'forecast' con forecastbtb.json
   organic:         false,       // switch ORGANIC (B2B, B2B2C, B2B+B2B2C; no aplica con Goal Run Rate)
   evoMetric:       'gb',
   evoGranularity:  'M',   // 'M' | 'Q' | 'H' | 'Y'
@@ -2646,6 +2648,7 @@ function getParams() {
     hasta:    hasta,
     canal:    _state.lob === 'b2b' ? _state.canal : 'all',
     baselineSource: _state.baselineSource || 'baseline',
+    fcSource: _isFcBtb_() ? 'btb' : '',
     organic:  _organicTarget_()
   };
 }
@@ -2915,14 +2918,24 @@ function toggleProdPanelBar(e) {
     panel.style.display = 'none';
   }
 }
+// Goal "Forecast - Bridge to budget" (2026-10-26): es el Goal Forecast con otra fuente
+// (forecastbtb.json, ver fcSource en getAllData). _state.goal queda 'forecast' para que todo lo que ya
+// compara contra el Forecast (varFc*, bridges, tarjetas) lo tome sin cambios; solo cambian los nombres.
+function _isFcBtb_() { return _state.goal === 'forecast' && _state.fcSource === 'btb'; }
+function _fcLabel_() { return _isFcBtb_() ? 'Forecast - Bridge to budget' : 'Forecast'; }
+function _goalSelValue_() { return _isFcBtb_() ? 'forecastBtb' : _state.goal; }
 // Goal sync from bar
 function switchGoalBar() {
   var sel = document.getElementById('f-goal-bar');
   var prevOrg = _organicTarget_();
-  _state.goal = sel.value;
+  var prevFc  = _isFcBtb_();
+  _state.goal = sel.value === 'forecastBtb' ? 'forecast' : sel.value;
+  _state.fcSource = sel.value === 'forecastBtb' ? 'btb' : '';
   var topSel = document.getElementById('f-goal');
   if (topSel) topSel.value = _state.goal;
   if (_afterGoalChange_(prevOrg)) return;
+  // Marketing & Media lee su propio forecast.json (getMarketingData): sigue contra el Forecast.
+  if (_isFcBtb_() !== prevFc) { if (_state.filters) reload(); return; }
   if (_state.pnl) renderPnL();
   if (_state.wf)  renderWf();
   if (_state.evo) renderEvo();
@@ -3036,7 +3049,7 @@ function renderCompPnL() {
     return;
   }
 
-  var goalLabel = _state.goal === 'budget' ? 'Budget' : _state.goal === 'lastYear' ? 'Last Year' : _state.goal === 'forecast' ? 'Forecast' : 'Run Rate';
+  var goalLabel = _state.goal === 'budget' ? 'Budget' : _state.goal === 'lastYear' ? 'Last Year' : _state.goal === 'forecast' ? _fcLabel_() : 'Run Rate';
 
   // Header
   var hHtml = '<th>Métrica</th><th style="text-align:left">Indicador</th>';
@@ -3181,7 +3194,7 @@ function renderPnL() {
   var dOrig = d;
   splitB2B_ = (_state.lob === 'all' && (d.groups||[]).indexOf('MAY') >= 0) ? _pnlSplitB2B : null;
   if (splitB2B_ === false) d = _pnlWithB2B_(d);
-  var goalLabel = _state.goal === 'budget' ? 'Budget' : _state.goal === 'lastYear' ? 'Last Year' : _state.goal === 'forecast' ? 'Forecast' : 'Run Rate';
+  var goalLabel = _state.goal === 'budget' ? 'Budget' : _state.goal === 'lastYear' ? 'Last Year' : _state.goal === 'forecast' ? _fcLabel_() : 'Run Rate';
   var pnlTitleEl = document.getElementById('pnl-title');
   if (pnlTitleEl) pnlTitleEl.innerHTML = 'Cuadro Resumen P&amp;L' + (_periodLabel_() ? '<span class="sec-chip">' + _periodLabel_() + '</span>' : '');
   _renderActiveFilters_(goalLabel);
@@ -3408,7 +3421,7 @@ function renderWf() {
   if (!d || !d.metrics) return;
 
   var goalKey   = _state.goal;
-  var goalLabel = goalKey === 'budget' ? 'Budget' : goalKey === 'lastYear' ? 'Last Year' : goalKey === 'forecast' ? 'Forecast' : 'Run Rate';
+  var goalLabel = goalKey === 'budget' ? 'Budget' : goalKey === 'lastYear' ? 'Last Year' : goalKey === 'forecast' ? _fcLabel_() : 'Run Rate';
   var baseLabel = 'Actuals + RR';
 
   // Short period suffix for bar labels (e.g. "Jun'26" or "Abr'26 – Jun'26")
@@ -4054,7 +4067,7 @@ function _evoChartCfg_(d, metricId, opts) {
   var gbM = d.metrics.filter(function(x){ return x.id==='gb'; })[0];
 
   var goalKey   = _state.goal==='budget' ? 'budget' : _state.goal==='lastYear' ? 'budget' : _state.goal==='forecast' ? 'forecast' : 'runRate';
-  var goalLabel = _state.goal==='budget' ? 'Budget' : _state.goal==='lastYear' ? 'Last Year' : _state.goal==='forecast' ? 'Forecast' : 'Run Rate';
+  var goalLabel = _state.goal==='budget' ? 'Budget' : _state.goal==='lastYear' ? 'Last Year' : _state.goal==='forecast' ? _fcLabel_() : 'Run Rate';
 
   var grps = _groupEvo(d, m, gbM, goalKey, opts.granularity);
   var labels   = grps.map(function(g){ return g.label; });
@@ -6826,7 +6839,7 @@ function closeCierreSlides(){
     _state.lob  = snap.lob;
     _state.goal = snap.goal;
     _state.organic = snap.organic;
-    var gb = document.getElementById('f-goal-bar'); if (gb) gb.value = snap.goal;
+    var gb = document.getElementById('f-goal-bar'); if (gb) gb.value = _goalSelValue_();
     var gt = document.getElementById('f-goal');     if (gt) gt.value = snap.goal;
     try { reload(); }
     catch(_){ _state.pnl = snap.pnl; _state.evo = snap.evo; try { render(); } catch(__){} }
