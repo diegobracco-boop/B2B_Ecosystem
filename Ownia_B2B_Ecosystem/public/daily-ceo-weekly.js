@@ -248,7 +248,14 @@
     var box = document.createElement('div');
     box.id = 'ow-ceo-bench';
     box.innerHTML = '<div class="ow-ceo-bar"><div class="section-hdr" style="margin:0">Weekly · vs B2C <span style="font-weight:400;text-transform:none;letter-spacing:0">(vista para el CEO · también en el Flow Semanal)</span></div>' +
-      '<div class="tab-toggle">' + Object.keys(MET).map(function (m) { return '<button class="ttab" data-owm="' + m + '">' + (m === 'fvm' ? 'FVM' : m.toUpperCase()) + '</button>'; }).join('') + '</div></div>' +
+      '<div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">' +
+      // COI Brasil: el mismo switch global del Daily (setExCoiBr sincroniza todos los [data-coibr] y
+      // rearma el Benchmark entero, esta sección incluida)
+      '<div class="dm-group" title="COI Brasil: Excluir saca el cost of installments y el efecto financiero de Brasil del FVM de B2B2C y B2B en toda la página (también en el Daily, Weekly y Flow).">' +
+      '<span class="dm-group-lbl">COI Brasil</span><div class="dm-toggle">' +
+      '<button class="dm-btn' + (W._exCoiBr ? '' : ' active') + '" data-coibr="incl" onclick="setExCoiBr(false)">Incluir</button>' +
+      '<button class="dm-btn' + (W._exCoiBr ? ' active' : '') + '" data-coibr="excl" onclick="setExCoiBr(true)">Excluir</button></div></div>' +
+      '<div class="tab-toggle">' + Object.keys(MET).map(function (m) { return '<button class="ttab" data-owm="' + m + '">' + (m === 'fvm' ? 'FVM' : m.toUpperCase()) + '</button>'; }).join('') + '</div></div></div>' +
       '<div id="ow-ceo-bench-wrap"><div id="ow-ceo-bench-slide"></div></div>';
     var hdr = host.querySelector('.section-hdr-row');
     host.insertBefore(box, hdr ? hdr : host.firstChild);
