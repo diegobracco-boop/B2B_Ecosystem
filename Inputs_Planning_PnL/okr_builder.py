@@ -1,6 +1,6 @@
 """
 okr_builder.py
-Genera okr.json combinando cuatro fuentes:
+Genera okr.json combinando cinco fuentes:
 
   1. KRs B2B2C Op.Contribution + B2B NR Core/New Markets (mismo input contable
      que usa la landing P&L_Accounting)
@@ -24,6 +24,9 @@ Genera okr.json combinando cuatro fuentes:
      mano por el equipo — el estado de la orden en el datalake muta con el tiempo
      y hay que congelar el conteo del snapshot mensual.
      Vida útil hasta Sep-2026; desde Oct-2026 cambia la lógica.
+
+  5. KR "Accelerate Recurrence" (B2B, H2): target y actual de Input_OKR, salvo el mes comercial en
+     curso, cuyo actual es el Rolling L4W de recurrencia_b2b.json (Daily, card Metabase 171400).
 
 Mismo criterio que Dashboard_B2B_WLs/Codigo_OKR.js (computeOKR_), consolidado acá para
 que la landing deje de calcular todo en vivo y solo lea este JSON.
@@ -53,6 +56,7 @@ GESTIONAL_FILE_ID  = "1wvle0UIVZV7ocCSl8OawOfIGVz_It5kh"   # _pnl_gestional_data
 BASELINE_FILE_ID   = "1Su36jhCMdNgC6nixxX5TyvtCI4ESG2Tv"   # baseline_actuals+projections.json
 BUDGET_FILE_ID     = "1f2JF8pq7gtpxfdkVzbT9wvamn_ny3RBW"   # budget.json
 DAILY_B2B2C_FILE_ID = "1Ukcx4e-dwCZ2VqesWwVN_1Jnt6r2AZdX"  # daily_b2b2c_data.json (transaccional)
+RECUR_FILE_ID      = "1UI-azcvvJ9MIyOZOft94vhbBibuZ0aa0"   # recurrencia_b2b.json (Daily, recurrencia_sync.py)
 OKR_FILE_ID        = "1cEidr8aoYgm4S7ugm05Wv-SMnz8GbtUj"   # okr.json (output)
 
 SHEET_ID    = "1RVmTXDyyugCUXJ0f6JG_croNxWNLlOLm4eAs8F52u2c"
@@ -654,6 +658,37 @@ def _apply_globales_hoteles_actual(rows_manual, daily_json):
     return out
 
 
+def _apply_recurrence_rr(rows_manual, recur_json):
+    """KR B2B "Accelerate Recurrence" (H2 FY27): en el mes comercial EN CURSO el actual es el Rolling L4W
+    (roll_frecuentes_vivas de recurrencia_b2b.json, la misma query que el Status KRs H2 del Tracker: card
+    Metabase 171400), Total = suma de países, de la última semana cerrada del mes (si no hay ninguna, la
+    última que haya). Definido por diego.bracco 2026-10-27: cuando el mes cierra, el actual vuelve a salir
+    de Input_OKR (la foto de cierre queda congelada en la sheet) y los demás meses siguen de la sheet.
+    Si el JSON no está o no trae filas, queda todo como en Input_OKR."""
+    cols = (recur_json or {}).get("cols") or []
+    rows = [dict(zip(cols, r)) for r in (recur_json or {}).get("rows") or []]
+    if not rows:
+        print("  [Accelerate Recurrence] sin recurrencia_b2b.json — se mantiene Input_OKR")
+        return rows_manual
+    cerrados = {r["mes_comercial"] for r in rows if int(r["es_cierre_mes"]) == 1 and r["estado"] == "CIERRE"}
+    abiertos = sorted({r["mes_comercial"] for r in rows} - cerrados)
+    if not abiertos:
+        print("  [Accelerate Recurrence] ningún mes comercial en curso — se mantiene Input_OKR")
+        return rows_manual
+    ym = abiertos[-1]
+    del_mes = [r for r in rows if r["mes_comercial"] == ym]
+    sem = [r for r in del_mes if r["estado"] == "CIERRE"] or del_mes
+    k = max(int(r["semana_del_mes"]) for r in sem)
+    foto = [r for r in sem if int(r["semana_del_mes"]) == k]
+    v = sum(int(r["roll_frecuentes_vivas"]) for r in foto)
+    out = [r for r in rows_manual if not (r[1] == "Run Rate/Actuals" and r[5].lower() == "accelerate recurrence"
+                                          and str(r[0])[:7] == ym)]
+    out.append([_ym_to_periodo(ym), "Run Rate/Actuals", "B2B", "Total", "Total", "Accelerate Recurrence", v])
+    print(f"  [Accelerate Recurrence] {ym} en curso = Rolling L4W {v:,} (semana {k} del mes, "
+          f"{foto[0]['semana_desde']} a {foto[0]['semana_hasta']}); el resto de los meses, Input_OKR")
+    return out
+
+
 # ── Build ──────────────────────────────────────────────────────────────────────
 
 def build(upload=True):
@@ -667,6 +702,11 @@ def build(upload=True):
     baseline_data = _download_json(svc, BASELINE_FILE_ID,    "baseline_actuals+projections.json")
     budget_data   = _download_json(svc, BUDGET_FILE_ID,      "budget.json")
     daily_json    = _download_json(svc, DAILY_B2B2C_FILE_ID, "daily_b2b2c_data.json")
+    try:
+        recur_json = _download_json(svc, RECUR_FILE_ID, "recurrencia_b2b.json")
+    except Exception as e:
+        print(f"  WARN [Drive] recurrencia_b2b.json: {e} — Accelerate Recurrence queda como en Input_OKR")
+        recur_json = None
 
     last_actual_ym = gest_json.get("last_actual_ym")
     if not last_actual_ym:
@@ -684,6 +724,7 @@ def build(upload=True):
     rows_manual   = _read_manual_krs(token_file)
     rows_manual   = _apply_unique_buyers_actual(rows_manual, daily_json, last_actual_ym)
     rows_manual   = _apply_globales_hoteles_actual(rows_manual, daily_json)
+    rows_manual   = _apply_recurrence_rr(rows_manual, recur_json)
     rows_manual   = _apply_globales_target_default(rows_manual)
     rows_partners = _read_partners_api_actual()
     if rows_partners:   # el actual del tracker reemplaza cualquier fila Run Rate/Actuals de Input_OKR
@@ -718,6 +759,7 @@ def build(upload=True):
             "baseline_file_id":   BASELINE_FILE_ID,
             "budget_file_id":     BUDGET_FILE_ID,
             "daily_b2b2c_file_id": DAILY_B2B2C_FILE_ID,
+            "recurrencia_file_id": RECUR_FILE_ID,
             "sheet_id":   SHEET_ID,
             "filas":      len(all_rows),
         },
