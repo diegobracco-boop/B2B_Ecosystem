@@ -726,6 +726,11 @@
     '.ow-ws-ev{font-size:11.5px;color:#9a9ab0;line-height:1.45;margin-top:8px;padding:6px 10px;border-left:3px solid #7b5cf5;background:rgba(123,92,245,.08);border-radius:4px}',
     '.ow-ws-ev b{color:inherit;font-weight:700}.ow-ws-ly{opacity:.75;font-style:italic}',
     '.ws-metric-label{white-space:nowrap}',
+    // slides Weekly del Flow: la tabla al ancho completo (tenía anchos fijos en px y dejaba media slide vacía)
+    '#view-flow .flow-slide table.ws-table{width:100%}',
+    // 7 filas por región (antes 10, el Daily las achicó a 10px): ~14px por fila entra en los 540px del panel
+    '#view-flow .flow-slide .ws-panel-weekly tr.ws-metric-row td{padding:1px 8px;font-size:11px;line-height:1.1}',
+    '#view-flow .flow-slide .ws-panel-weekly tr.ws-metric-row.ws-ly-row td{font-size:10px}',
     '.flow-slide .ow-ws-ev{color:#4a4a63;font-size:10.5px;margin-top:4px;padding:4px 8px}',
     '.ow-drv{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;flex:1;min-height:0}',
     '.ow-drv-col{border:1px solid #ebe8f7;border-radius:8px;padding:8px 10px;background:#fcfbff;overflow:hidden}',
