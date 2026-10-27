@@ -19,7 +19,7 @@ function _timed_(name, fn, args) {
   try {
     var mod = _canonicalsMaxMod_() + '_' + _fxMod_();
     var dig = Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, JSON.stringify(args), Utilities.Charset.UTF_8);
-    rkey = 'epm_res_v2_' + name + '_' + mod + '_' + dig.map(function(b){ return ((b & 0xff) + 0x100).toString(16).substr(1); }).join('');
+    rkey = 'epm_res_v3_' + name + '_' + mod + '_' + dig.map(function(b){ return ((b & 0xff) + 0x100).toString(16).substr(1); }).join('');
     var got = _chunkCacheGet_(rkey);
     getSt = (got && 'v' in got) ? 'hit' : 'miss';
     if (got && 'v' in got) { res = got.v; fromCache = true; _TM_.readSrc = 'result-cache'; }
@@ -34,7 +34,7 @@ function _timed_(name, fn, args) {
   }
   var total = Date.now() - t0;
   var tm = { fn: name, total: total, mod: _TM_.mod, read: _TM_.read, readSrc: _TM_.readSrc,
-             compute: fromCache ? 0 : total - _TM_.mod - _TM_.read, rget: getSt, rput: putSt, rkey: rkey ? rkey.replace('epm_res_v2_' + name + '_', '').substr(0, 30) : null };
+             compute: fromCache ? 0 : total - _TM_.mod - _TM_.read, rget: getSt, rput: putSt, rkey: rkey ? rkey.replace('epm_res_v3_' + name + '_', '').substr(0, 30) : null };
   var isStr = typeof res === 'string';
   tm.bytes = isStr ? res.length : JSON.stringify(res).length;
   Logger.log('[TIMING] ' + JSON.stringify(tm));
@@ -82,7 +82,7 @@ function assembleCanonicals_() {
   // cubo (Uruguay/Paraguay/Otros → Globales). Se guardan aparte para convertirlas con el TC de su
   // país crudo (ver epmOrganicScen_). split[lg][pais][paisCrudo][sc][n2][ym]
   var split = {}, splitP = {};
-  var ORG_SPLIT_SC = { bl: true, fc: true, vr: true };
+  var ORG_SPLIT_SC = { bl: true, fc: true, vr: true, fbtb: true };   // fbtb: Forecast BTB (solo Ownia, gas-extras)
   function addSplit(root, path, sc, n2, ym, v) {
     var o = root;
     path.forEach(function(k) { o = o[k] = o[k] || {}; });
@@ -357,7 +357,7 @@ function fetchEPMScenarios_(jData, lgKey, baselineScen, prodArr) {
     ac:  get('ac',  ALL_YM_BG),
     rr:  get('rr',  ALL_YM_BG),
     bg:  get('bg',  ALL_YM_BG),
-    fc:  get('fc',  ALL_YM_BG),
+    fc:  get((typeof _ORG_GOAL_SCEN_ !== 'undefined' && _ORG_GOAL_SCEN_.fc) || 'fc', ALL_YM_BG),   // organic vs Forecast: a TC Budget
     lrr: get('lrr', ALL_YM_BG),
     ly:  get('ly',  ALL_YM_LY_BG),
     bl:  get(baselineScen || 'bl', ALL_YM_BG)

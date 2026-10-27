@@ -4,7 +4,8 @@
 // Misma regla que Monthly Results del Hub (Dashboard_B2B_WLs/Codigo.js, applyOrganic_):
 //   ORGANIC = USD × TC Actuals(país, mes) / TC Target(país, mes), solo sobre los ACTUALS
 //   (B2B2C y B2B GD/RI). Budget / Run Rate / Forecast y el LY quedan en USD tal cual.
-//   Target según la comparación de cada vista: Budget → TC Budget, Forecast → TC Forecast,
+//   Target según la comparación de cada vista: Budget → TC Budget, Forecast → TC Budget (y el
+//   Forecast también a TC Budget, en el navegador: _orgGoalRows_; 2026-10-26),
 //   Last Year → TC Actuals del mismo mes del año anterior; Run Rate: no aplica.
 //   YoY ("opción B"): con target Budget/Forecast los YoY salen de los actuals a TC Actuals LY;
 //   el LY se muestra nominal.

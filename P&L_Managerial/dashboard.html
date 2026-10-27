@@ -871,7 +871,7 @@ header .btn-refresh:hover{background:#f5f3ff !important;border-color:#c4b5fd;col
       <button id="mg-goal-forecast" class="prd-btn"            type="button" onclick="setMGGoal('forecast')">Forecast</button>
       <button id="mg-goal-ly"       class="prd-btn"            type="button" onclick="setMGGoal('ly')">Last Year</button>
     </div>
-    <!-- ORGANIC: YES = baseline × TC Actuals / TC del Goal (Budget, Forecast o Actuals LY) -->
+    <!-- ORGANIC: YES = baseline × TC Actuals / TC Budget (Goal Budget o Forecast; con Forecast el goal también a TC Budget) o TC Actuals LY -->
     <span style="width:1px;height:18px;background:rgba(0,0,0,.15);margin:0 6px"></span>
     <span style="font-size:11px;color:var(--muted);font-weight:700">Organic:</span>
     <div class="prd-toggle" id="org-toggle">
@@ -2851,7 +2851,8 @@ function setMGGoal(goal){
 var _mgOrganic = true;   // YES por default (Diego, 2026-10-26)
 var _orgError_ = '', _orgMissing_ = [];
 function _mgOrgTarget_(){ return _mgOrganic ? _managerialGoal : ''; }
-function _orgTargetLabel_(){ return _managerialGoal === 'forecast' ? 'Forecast' : _managerialGoal === 'ly' ? 'Actuals LY' : 'Budget'; }
+// vs Budget y vs Forecast: todo a TC Budget (el Forecast también, 2026-10-26)
+function _orgTargetLabel_(){ return _managerialGoal === 'ly' ? 'Actuals LY' : 'Budget'; }
 // Baseline para los YoY: la versión a TC Actuals LY si vino (organic opción B), si no la que se muestra
 function _yoyOf_(d, key, fallback){ return (d && d.yoy && d.yoy[key]) ? d.yoy[key] : fallback; }
 function _reloadOrganic_(){

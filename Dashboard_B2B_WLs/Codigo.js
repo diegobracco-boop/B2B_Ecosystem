@@ -17,11 +17,13 @@ var JSON_IDS = {
 // Tipos de cambio (moneda local por USD): tc_plana_flat.xlsx subido a Drive, columnas
 // escenario | año (FY: 2027 = abr-26…mar-27) | mes (Abr…Mar) | pais | dato.
 // ORGANIC = USD × TC Actuals(país, mes) / TC Target(país, mes). Target según el Goal:
-// Budget → TC Budget, Forecast → TC Forecast, Last Year → TC Actuals del mismo mes del año
-// anterior (Run Rate: no aplica). YoY ("opción B"): siempre a TC Actuals LY, sea cual sea el Goal. OPS+RG usa el TC de Brasil. Países sin TC (Globales, …) y
+// Budget → TC Budget, Forecast (y Forecast BTB) → TC Budget, Last Year → TC Actuals del mismo mes
+// del año anterior (Run Rate: no aplica). Definición de Diego (2026-10-26): comparando contra el
+// Forecast, baseline Y goal van a TC Budget — el Forecast se convierte con USD × TC Forecast / TC
+// Budget (en abr–jul el Forecast es real y su TC Forecast = TC Actuals, así el delta da 0). YoY ("opción B"): siempre a TC Actuals LY, sea cual sea el Goal. OPS+RG usa el TC de Brasil. Países sin TC (Globales, …) y
 // Orders quedan sin convertir; "Euro" se ignora. Fuente provisoria — ver readFxTable_.
 var FX_FILE_ID = '1SEh9vLWCbE6PslnUntUghhInonuLdYZ5';
-var ORGANIC_TARGETS_ = { budget: 'budget', forecast: 'forecast', lastYear: 'ly' };
+var ORGANIC_TARGETS_ = { budget: 'budget', forecast: 'budget', lastYear: 'ly' };
 // Actualizar cuando se regenera baseline_actuals+projections.json
 // (+ bump de v: en makeCacheKey_ acá y en Codigo_country_page.js para invalidar el cache)
 // ── Año fiscal ─────────────────────────────────────────────────────────────
@@ -158,7 +160,7 @@ function _getJsonsLastMod_() {
 
 function makeCacheKey_(p) {
   return JSON.stringify({
-    v:        32,   // 32: ORGANIC vs Last Year + YoY organic. 31: B2B2C y B2B+B2B2C. 30: alias OPS+RG→Brasil
+    v:        33,   // 33: Organic vs Forecast a TC Budget (baseline y goal). 32: ORGANIC vs Last Year + YoY organic. 31: B2B2C y B2B+B2B2C
     lob:      p.lob      || 'all',
     pais:     p.pais     || 'all',
     producto: p.producto || 'all',
@@ -167,7 +169,7 @@ function makeCacheKey_(p) {
     hasta:    p.hasta    || '',
     bl:       p.baselineSource || 'baseline',
     fc:       p.fcSource === 'btb' ? 'btb' : '',
-    org:      organicTargetOf_(p) || ''
+    org:      organicTargetOf_(p) ? p.organic : ''   // goal del organic: Budget y Forecast comparten TC pero no datos
   });
 }
 
@@ -297,8 +299,9 @@ function getAllData(params) {
   // "Forecast" de arriba sigue siendo el Forecast.
   if (p.fcSource === 'btb') fcRows = readJson_(JSON_IDS.forecastbtb);
 
-  // ORGANIC: se convierte SOLO el baseline (todos sus meses, reales y proyectados). Budget /
-  // RR / Forecast (goals) y el LY quedan en USD tal cual (el LY ya está a sus propias tasas).
+  // ORGANIC: se convierte el baseline (todos sus meses, reales y proyectados). Budget / RR y el LY
+  // quedan en USD tal cual (el LY ya está a sus propias tasas). Con Goal Forecast (o BTB) también se
+  // convierte el goal: Forecast a TC Budget (convertGoalOrganic_).
   // Con Goal Budget/Forecast los YoY salen de una 2ª versión del baseline a TC Actuals LY
   // (opción B, ver graftOrganicYoY_); con Goal Last Year el target ya es ese TC.
   var organicInfo = null;
@@ -306,15 +309,22 @@ function getAllData(params) {
   var orgTarget   = organicTargetOf_(p);
   if (orgTarget) {
     try {
-      var org = applyOrganic_(blRows, orgTarget);
+      // Baseline "Forecast" (forecast.json entero): sus filas están a TC Forecast, no a TC Actuals
+      var blSrc = (p.baselineSource === 'forecast') ? 'forecast' : 'actuals';
+      var org = applyOrganic_(blRows, orgTarget, blSrc);
       var missing = org.missing;
       if (orgTarget !== 'ly') {
-        var orgY = applyOrganic_(blRows, 'ly');
+        var orgY = applyOrganic_(blRows, 'ly', blSrc);
         orgYoYRows = orgY.rows;
         // TC LY faltante → esas filas del YoY quedan sin convertir: también se avisa
         orgY.missing.forEach(function(k) { if (missing.indexOf(k) < 0) missing.push(k); });
       }
       blRows = org.rows;
+      if (p.organic === 'forecast') {
+        var orgFc = convertGoalOrganic_(fcRows);
+        fcRows = orgFc.rows;
+        orgFc.missing.forEach(function(k) { if (missing.indexOf(k) < 0) missing.push(k); });
+      }
       organicInfo = { target: orgTarget, missing: missing };
     } catch (e) {
       organicInfo = { target: orgTarget, error: 'No se pudo leer el archivo de tipos de cambio: ' + e.message };
@@ -458,9 +468,10 @@ function readFxTable_() {
 // target: 'budget' | 'forecast' | 'ly' (= TC Actuals del mismo mes del año anterior). Devuelve filas nuevas (no muta las
 // originales: rows viene del cache de readJson_ y lo usan los goals). missing = país/mes de un
 // país con TC al que le falta el TC de Actuals o del target (esas filas quedan sin convertir).
-function applyOrganic_(rows, target) {
+// src: TC con el que están las filas ('actuals' por default; 'forecast' para pasar el Forecast a TC Budget).
+function applyOrganic_(rows, target, src) {
   var fx = readFxTable_();
-  var act = fx.actuals, tgt = (target === 'ly') ? null : fx[target];
+  var act = fx[src || 'actuals'], tgt = (target === 'ly') ? null : fx[target];
   var paisesFx = {};
   Object.keys(act).forEach(function(k) { paisesFx[k.split('§')[0]] = true; });
   var missing = {};
@@ -476,13 +487,16 @@ function applyOrganic_(rows, target) {
     var ym = d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0');
     var a = act[pai + '§' + ym];
     var t = tgt ? tgt[pai + '§' + ym] : act[pai + '§' + shiftYear_(ym, -1)];
-    if (!a || !t) { missing[pai + ' ' + ym + (a ? '' : ' (actuals)') + (t ? '' : ' (' + (target === 'ly' ? 'actuals LY' : target) + ')')] = true; return r; }
+    if (!a || !t) { missing[pai + ' ' + ym + (a ? '' : ' (' + (src || 'actuals') + ')') + (t ? '' : ' (' + (target === 'ly' ? 'actuals LY' : target) + ')')] = true; return r; }
     var c = Object.assign({}, r);
     c['monto usd'] = (r['monto usd'] || 0) * a / t;
     return c;
   });
   return { rows: out, missing: Object.keys(missing).sort() };
 }
+
+// Goal Forecast / Forecast BTB con Organic: el Forecast pasa a TC Budget (USD × TC Forecast / TC Budget).
+function convertGoalOrganic_(fcRows) { return applyOrganic_(fcRows, 'budget', 'forecast'); }
 
 // Opción B: con Goal Budget/Forecast los YoY se calculan con el baseline a TC Actuals LY (y),
 // mientras los montos que se muestran siguen a TC del target (res). Mismo p → mismas filas,
@@ -1617,7 +1631,7 @@ function getMarketingData(organic) {
     // v4: Chile/Peru/Ecuador sumados en un bloque. v3: agregó Run Rate/Forecast (selector Goal) —
     // bumpear esta clave cada vez que cambie MKT_COUNTRIES o la agregación,
     // si no la cache vieja (6h TTL) tapa el cambio.
-    var ck  = 'mkt_b2b_v4' + (orgTarget ? '_org2_' + orgTarget : '');
+    var ck  = 'mkt_b2b_v4' + (orgTarget ? '_org3_' + organic : '');   // org3: vs Forecast a TC Budget (2026-10-26)
     var hit = sc.get(ck);
     if (hit) { try { return JSON.parse(hit); } catch(e) {} }
 
@@ -1626,6 +1640,7 @@ function getMarketingData(organic) {
     var budRows  = readJson_(JSON_IDS.budget);
     var rrRows   = readJson_(JSON_IDS.runrate);
     var fcRows   = readJson_(JSON_IDS.forecast);
+    if (orgTarget && organic === 'forecast') fcRows = convertGoalOrganic_(fcRows).rows;
     var prevRows = readJson_(JSON_IDS.ly);
     var baselineN2 = buildN2Map_(baseRows);
     var budN2      = buildN2Map_(budRows);

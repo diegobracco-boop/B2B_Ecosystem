@@ -38,7 +38,7 @@
     window._epmGoalLabel = function () {
       return window._epmGoalSource === GOAL ? LABEL : origLabel.apply(this, arguments);
     };
-    // Organic: el BTB usa el TC Forecast (ORGANIC_TARGETS_ del servidor).
-    if (window.ORG_GOALS_) window.ORG_GOALS_[GOAL] = 'Forecast';
+    // Organic: como el Forecast, todo a TC Budget (ORGANIC_TARGETS_ del servidor).
+    if (window.ORG_GOALS_) window.ORG_GOALS_[GOAL] = 'Budget';
   });
 })();

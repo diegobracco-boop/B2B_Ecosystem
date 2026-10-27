@@ -781,7 +781,7 @@ body.krd-only #section-b2b > :not(.krd-keep) { display:none !important; }
     <button class="lob-btn active" id="btn-lob-b2bc" onclick="switchLob('b2bc')">B2B2C</button>
     <button class="lob-btn" id="btn-lob-b2b" onclick="switchLob('b2b')">B2B</button>
   </div>
-  <!-- ORGANIC: YES = actuals × TC Actuals / TC del target de cada vista (ver _orgTargetFor_) -->
+  <!-- ORGANIC: YES = actuals × TC Actuals / TC del target de cada vista (ver _orgTargetFor_; vs Forecast: todo a TC Budget) -->
   <div class="org-wrap" id="org-wrap">
     <span class="org-lbl">Organic</span>
     <div class="lob-toggle" id="org-toggle">
@@ -1791,8 +1791,9 @@ function fillPartnersB2BC_() {
 
 // ── ORGANIC ─────────────────────────────────────────────────────
 // Mismo switch que Monthly Results del Hub: YES = actuals × TC Actuals(país, mes) / TC del target.
-// Target según la comparación de cada vista: Budget → TC Budget, Forecast → TC Forecast, Last Year
-// → TC Actuals del mismo mes del año anterior; Run Rate no tiene TC → esa vista queda nominal.
+// Target según la comparación de cada vista: Budget → TC Budget, Forecast → TC Budget (y el Forecast
+// también pasa a TC Budget: USD × TC Forecast / TC Budget, ver _orgGoalRows_; definición de Diego,
+// 2026-10-26), Last Year → TC Actuals del mismo mes del año anterior; Run Rate no tiene TC → nominal.
 //   Daily B2B2C / B2B → selector "vs" de cada LOB · Flow → su Goal · Benchmark → Last Year (es una
 //   vista de crecimiento YoY) · Weekly → Budget (se calcula en el servidor, getWeeklySummaryData) ·
 //   KRs (Daily, Flow, Tracker) → Budget (_orgTargetKR_).
@@ -1811,13 +1812,14 @@ function _orgTargetFor_(cmp) {
   if (!_dlOrganic || !_fxTbl) return '';
   return (cmp === 'budget' || cmp === 'forecast' || cmp === 'ly') ? cmp : '';
 }
-function _orgTargetLabel_(t) { return t === 'forecast' ? 'Forecast' : t === 'ly' ? 'Actuals LY' : 'Budget'; }
+function _orgTargetLabel_(t) { return t === 'ly' ? 'Actuals LY' : 'Budget'; }   // vs Forecast: también TC Budget
 // Factor de un target: f(pais, 'YYYY-MM-DD') = TC Actuals / TC target (1 si el país no tiene TC o falta alguno)
 var _orgPaisesFx_ = null;
 // sink: objeto donde se anotan los país/mes con TC faltante (se muestran en la nota del switch)
-function _orgFactor_(target, sink) {
-  var act = _fxTbl.actuals, tgt = target === 'ly' ? null : _fxTbl[target];
-  if (!_orgPaisesFx_) { _orgPaisesFx_ = {}; Object.keys(act).forEach(function(k){ _orgPaisesFx_[k.split('§')[0]] = 1; }); }
+// src: TC con el que están los montos ('actuals' por default; 'forecast' para el goal Forecast).
+function _orgFactor_(target, sink, src) {
+  var act = _fxTbl[src || 'actuals'], tgt = target === 'ly' ? null : _fxTbl[target];
+  if (!_orgPaisesFx_) { _orgPaisesFx_ = {}; Object.keys(_fxTbl.actuals).forEach(function(k){ _orgPaisesFx_[k.split('§')[0]] = 1; }); }
   var memo = {};
   return function(pais, fecha) {
     var ym = String(fecha || '').substring(0, 7), mk = pais + '|' + ym;
@@ -1828,7 +1830,7 @@ function _orgFactor_(target, sink) {
       var a = act[p + '§' + ym];
       var t = tgt ? tgt[p + '§' + ym] : act[p + '§' + (+ym.substring(0, 4) - 1) + ym.substring(4)];
       if (a && t) f = a / t;
-      else sink[p + ' ' + ym + (a ? '' : ' (actuals)') + (t ? '' : ' (' + (target === 'ly' ? 'actuals LY' : target) + ')')] = 1;
+      else sink[p + ' ' + ym + (a ? '' : ' (' + (src || 'actuals') + ')') + (t ? '' : ' (' + (target === 'ly' ? 'actuals LY' : target) + ')')] = 1;
     }
     return (memo[mk] = f);
   };
@@ -1837,6 +1839,7 @@ function _orgFactor_(target, sink) {
 var _orgRowsCache_ = (typeof WeakMap !== 'undefined') ? new WeakMap() : null;
 function _orgRows_(rows, target) {
   if (!target || !rows || !rows.length) return rows;
+  if (target === 'forecast') target = 'budget';   // vs Forecast: actuals a TC Budget
   var byT = _orgRowsCache_ && _orgRowsCache_.get(rows);
   if (byT && byT[target]) { Object.keys(byT[target + '§miss']).forEach(function(k){ _orgMissing_[k] = 1; }); return byT[target]; }
   var miss = {};
@@ -1856,6 +1859,24 @@ function _orgRows_(rows, target) {
   if (_orgRowsCache_) { byT = byT || {}; byT[target] = out; byT[target + '§miss'] = miss; _orgRowsCache_.set(rows, byT); }
   return out;
 }
+// Goal Forecast con organic: filas del Forecast de TC Forecast a TC Budget (copias, cacheadas).
+// Sin campos _y: el YoY sale siempre de los actuals.
+function _orgGoalRows_(rows, target) {
+  if (target !== 'forecast' || !rows || !rows.length) return rows;
+  var byT = _orgRowsCache_ && _orgRowsCache_.get(rows);
+  if (byT && byT['goal']) { Object.keys(byT['goal§miss']).forEach(function(k){ _orgMissing_[k] = 1; }); return byT['goal']; }
+  var miss = {}, fG = _orgFactor_('budget', miss, 'forecast');
+  var out = rows.map(function(r) {
+    var g = fG(r.pais, r.fecha);
+    if (g === 1) return r;
+    var c = Object.assign({}, r);
+    _ORG_MONEY_.forEach(function(F) { if (r[F] != null) c[F] = r[F] * g; });
+    return c;
+  });
+  Object.keys(miss).forEach(function(k){ _orgMissing_[k] = 1; });
+  if (_orgRowsCache_) { byT = byT || {}; byT['goal'] = out; byT['goal§miss'] = miss; _orgRowsCache_.set(rows, byT); }
+  return out;
+}
 // Valor para el YoY: a TC Actuals LY si la fila lo trae (opción B), si no el que se muestra
 function _yv_(r, F) { var y = r[F + '_y']; return (y !== undefined) ? y : (r[F] || 0); }
 // Raws con organic aplicado a los actuals (mismas claves que el raw original)
@@ -1864,6 +1885,7 @@ function b2bcRawOrg_(target) {
   if (!target || !base) return base;
   var o = Object.assign({}, base); o.actuals = _orgRows_(base.actuals, target);
   if (base.actuals_fy_rest && base.actuals_fy_rest.length) o.actuals_fy_rest = _orgRows_(base.actuals_fy_rest, target);
+  o.forecast = _orgGoalRows_(base.forecast, target);
   return o;
 }
 function b2bRawOrg_(target) {
@@ -1871,6 +1893,8 @@ function b2bRawOrg_(target) {
   var o = Object.assign({}, _rawB2B);
   o.b2b_gd = _orgRows_(_rawB2B.b2b_gd, target);
   o.b2b_ri = _orgRows_(_rawB2B.b2b_ri, target);
+  o.b2b_forecast_gd = _orgGoalRows_(_rawB2B.b2b_forecast_gd, target);
+  o.b2b_forecast_ri = _orgGoalRows_(_rawB2B.b2b_forecast_ri, target);
   return o;
 }
 // Targets por vista
@@ -1955,7 +1979,7 @@ function _syncOrganicUI_() {
   else {
     var vt = _orgTargetVisible_();
     if (!vt.t) note.textContent = 'No disponible con ' + (vt.cmp === 'runrate' ? 'Run Rate' : vt.cmp) + ' (sin TC): datos nominales';
-    else note.textContent = 'Actuals × TC Actuals / TC ' + _orgTargetLabel_(vt.t) + (vt.t === 'ly' ? '' : ' · YoY a TC Actuals LY')
+    else note.textContent = 'Actuals × TC Actuals / TC ' + _orgTargetLabel_(vt.t) + (vt.t === 'forecast' ? ' · Forecast a TC Budget' : '') + (vt.t === 'ly' ? '' : ' · YoY a TC Actuals LY')
       + (miss.length ? ' · sin TC: ' + miss.slice(0, 4).join(', ') + (miss.length > 4 ? ' …' : '') : '');
   }
   note.title = note.textContent;
@@ -3288,12 +3312,12 @@ function recomputeB2B_() {
   var gl_pai = vb2b('b2b-sel-pais')    !== 'all' ? vb2b('b2b-sel-pais')    : null;
   var gl_pro = vb2b('b2b-sel-product') !== 'all' ? vb2b('b2b-sel-product') : null;
   var gl_ch  = vb2b('b2b-sel-channel') !== 'all' ? vb2b('b2b-sel-channel') : null;
-  var compSrc = _rawB2B['b2b_' + _b2bComparison + '_' + _b2bDateModel] || [];
+  var rawO = b2bRawOrg_(_orgTargetB2B_());   // organic: actuals a TC del target (y Forecast a TC Budget)
+  var compSrc = rawO['b2b_' + _b2bComparison + '_' + _b2bDateModel] || [];
   var compLbl = COMPARISON_LABELS[_b2bComparison];
   var compKpi = COMPARISON_KPIS[_b2bComparison];
   ['leg-b2b-gb-comp','leg-b2b-nr-comp','leg-b2b-fvm-comp'].forEach(function(id){var el=document.getElementById(id);if(el)el.textContent=compLbl;});
   ['b2b-mc-gb-bud-lbl','b2b-mc-nr-bud-lbl','b2b-mc-fvm-bud-lbl'].forEach(function(id){var el=document.getElementById(id);if(el)el.textContent=compKpi;});
-  var rawO = b2bRawOrg_(_orgTargetB2B_());   // organic: actuals a TC del target
   state_b2b.data       = computeB2B_(rawO, 'nr', _b2bDateModel, state_b2b.viewDate, gl_pai, gl_pro, gl_ch, _b2bMarket, 'daily', compSrc);
   state_b2b.allMetrics = computeAllB2B_(rawO, _b2bDateModel, state_b2b.viewDate, gl_pai, gl_pro, gl_ch, _b2bMarket, gran, compSrc);
   if(_b2bKrHalf===null && state_b2b.viewDate){ setB2BKrHalf(state_b2b.viewDate.substring(0,7) >= '2026-10' ? 'h2' : 'h1'); }

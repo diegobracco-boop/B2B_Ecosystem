@@ -409,7 +409,7 @@ function getData(filters) {
     var t1 = DriveApp.getFileById(GESTIONAL_JSON_FILE_ID).getLastUpdated().getTime();
     var t2 = DriveApp.getFileById(GESTIONAL_VR_JSON_FILE_ID).getLastUpdated().getTime();
     var t3 = orgTarget ? DriveApp.getFileById(FX_FILE_ID).getLastUpdated().getTime() : 0;   // xlsx de TC (organic)
-    ck = 'getdata_v7_' + t1 + '_' + t2 + '_' + t3 + '_' + Utilities.base64EncodeWebSafe(sig);
+    ck = 'getdata_v8_' + t1 + '_' + t2 + '_' + t3 + '_' + Utilities.base64EncodeWebSafe(sig);   // v8: organic vs Forecast a TC Budget
     var hit = _readGetDataCache_(ck);
     if (hit) { Logger.log('getData HIT ' + (Date.now() - tStart) + ' ms'); return hit; }
   } catch (e) { Logger.log('getData cache probe: ' + e); }
@@ -492,15 +492,21 @@ function _computeGetData_(filters) {
   var tpJson  = !useB2B2C ? null
               : (json.b2b2c && json.b2b2c.ac_tp && json.b2b2c.ac_mi) ? json : readGestionalJSON_('bl');
 
-  // ORGANIC: se convierte SOLO el baseline (bl/bl_ri y, en modo gateway, ac_gw/ac_ri_gw). Ver Codigo_organic.js.
+  // ORGANIC: se convierte el baseline (bl/bl_ri y, en modo gateway, ac_gw/ac_ri_gw) y, con Goal
+  // Forecast, también el Forecast (los dos a TC Budget). Ver Codigo_organic.js.
   var organicInfo = null, orgTarget = organicTarget_(f);
   if (orgTarget) {
     try {
-      var conv = organicConverter_(orgTarget);
+      var conv = organicConverter_(ORGANIC_FX_TARGET_[orgTarget]);
       var jsonOrg = organicGestionalJson_(json, tpMode ? [blKey, acGwKey, tpKeys[0]] : [blKey, acGwKey], conv);
       gwJson = !gwJson ? null : (gwJson === json) ? jsonOrg : organicGestionalJson_(gwJson, [acGwKey], conv);
       tpJson = !tpJson ? null : (tpJson === json) ? jsonOrg : organicGestionalJson_(tpJson, [tpKeys[0]], conv);
       json = jsonOrg;
+      if (orgTarget === 'forecast') {
+        var convG = organicConverter_('budget', 'forecast');
+        json = organicGoalJson_(json, fcKey, convG);
+        Object.keys(convG.missing).forEach(function(k) { conv.missing[k] = true; });
+      }
       organicInfo = { target: orgTarget, missing: Object.keys(conv.missing).sort() };
     } catch (e) {
       organicInfo = { target: orgTarget, error: 'No se pudo leer el archivo de tipos de cambio: ' + e.message };

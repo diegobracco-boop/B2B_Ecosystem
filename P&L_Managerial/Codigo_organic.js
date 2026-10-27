@@ -4,8 +4,8 @@
 // Misma regla que Monthly Results del Hub (Dashboard_B2B_WLs/Codigo.js, applyOrganic_):
 //   ORGANIC = USD × TC Actuals(país, mes) / TC Target(país, mes), solo sobre el BASELINE
 //   (Actuals + Projections o Projection Reviews; en modo gateway, los Actuals de Hotels por
-//   gateway). Budget / Forecast / LY quedan en USD tal cual.
-//   Target según el Goal del front: Budget → TC Budget, Forecast → TC Forecast, Last Year → TC
+//   gateway). Budget y LY quedan en USD tal cual; el Forecast, con Goal Forecast, a TC Budget.
+//   Target según el Goal del front: Budget → TC Budget, Forecast → TC Budget, Last Year → TC
 //   Actuals del mismo mes del año anterior.
 //   YoY ("opción B"): con Goal Budget/Forecast getData devuelve además `yoy` = las mismas
 //   agregaciones del baseline a TC Actuals LY; el front calcula los YoY con eso y muestra el LY nominal.
@@ -16,6 +16,9 @@
 // Managerial, Daily).
 var FX_FILE_ID = '1SEh9vLWCbE6PslnUntUghhInonuLdYZ5';
 var ORGANIC_TARGETS_ = { budget: true, forecast: true, ly: true };
+// TC con el que se convierte el baseline según el Goal: vs Forecast también a TC Budget, y el goal
+// Forecast pasa de TC Forecast a TC Budget (definición de Diego, 2026-10-26; ver organicGoalJson_).
+var ORGANIC_FX_TARGET_ = { budget: 'budget', forecast: 'budget', ly: 'ly' };
 
 // Target organic del request (el front manda 'budget' | 'forecast' | 'ly'); '' = sin organic.
 function organicTarget_(f) {
@@ -111,9 +114,10 @@ function _fxShiftYm_(ym, dy) { return (parseInt(ym.slice(0, 4), 10) + dy) + ym.s
 
 // Factor organic por (país, ym) para un target. País sin TC → 1 (no se convierte); país con TC
 // al que le falta el TC Actuals o el del target → 1 y queda en missing (se avisa en pantalla).
-function organicConverter_(target) {
+// src: TC con el que están los montos ('actuals' por default; 'forecast' para el goal Forecast).
+function organicConverter_(target, src) {
   var fx = readFxTable_();
-  var act = fx.actuals, tgt = (target === 'ly') ? null : fx[target];
+  var act = fx[src || 'actuals'], tgt = (target === 'ly') ? null : fx[target];
   var paisesFx = {};
   Object.keys(act).forEach(function(k) { paisesFx[k.split('§')[0]] = true; });
   var missing = {};
@@ -128,12 +132,32 @@ function organicConverter_(target) {
     var t = tgt ? tgt[pai + '§' + ym] : act[pai + '§' + _fxShiftYm_(ym, -1)];
     if (!a || !t) {
       if (!YM_LABEL[ym]) return 1;   // Ene–Mar previos: el xlsx puede no traer TC de FY25 → nominal, sin aviso
-      missing[pai + ' ' + ym + (a ? '' : ' (actuals)') + (t ? '' : ' (' + (target === 'ly' ? 'actuals LY' : target) + ')')] = true;
+      missing[pai + ' ' + ym + (a ? '' : ' (' + (src || 'actuals') + ')') + (t ? '' : ' (' + (target === 'ly' ? 'actuals LY' : target) + ')')] = true;
       return 1;
     }
     return a / t;
   }
   return { f: f, missing: missing };
+}
+
+// Goal Forecast con organic: copia de `json` con las filas del Forecast (B2B2C 'fc'; MAY / MIN fcKey =
+// 'fc' | 'fc_ri') convertidas con `conv` (TC Forecast → TC Budget). Mismo formato de fila que el baseline.
+function organicGoalJson_(json, fcKey, conv) {
+  var out = Object.assign({}, json);
+  [['b2b2c', 3, 4, 'fc'], ['b2b_may', 2, 3, fcKey], ['b2b_min', 2, 3, fcKey]].forEach(function(s) {
+    var sec = json[s[0]];
+    if (!sec || !sec[s[3]]) return;
+    var iYm = s[1], off = s[2], ns = Object.assign({}, sec);
+    ns[s[3]] = sec[s[3]].map(function(row) {
+      var f = conv.f(row[0], row[iYm]);
+      if (f === 1) return row;
+      var r = row.slice();
+      for (var i = 1; i < METRIC_COLS.length; i++) r[off + i] = (row[off + i] || 0) * f;
+      return r;
+    });
+    out[s[0]] = ns;
+  });
+  return out;
 }
 
 // Devuelve una copia de `json` con las filas del baseline (`keys`: bl / bl_ri / ac_gw / ac_ri_gw)

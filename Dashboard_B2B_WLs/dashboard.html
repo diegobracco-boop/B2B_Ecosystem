@@ -1323,7 +1323,7 @@ header > img{filter:brightness(0) invert(1);opacity:.92}
       </select>
     </div>
 
-    <!-- ORGANIC: B2B, B2B2C y B2B+B2B2C. YES = actuals × TC Actuals / TC del Goal (Budget o Forecast) -->
+    <!-- ORGANIC: B2B, B2B2C y B2B+B2B2C. YES = actuals × TC Actuals / TC Budget (Goal Budget o Forecast; con Forecast, el goal también a TC Budget) -->
     <div class="fg" id="organic-fg" style="display:none">
       <label>Organic</label>
       <div class="org-toggle" id="org-toggle">
@@ -2672,9 +2672,9 @@ function _organicTarget_() {
   if (!_orgLob_() || !_state.organic) return '';
   return (_state.goal === 'budget' || _state.goal === 'forecast' || _state.goal === 'lastYear') ? _state.goal : '';
 }
+// vs Budget y vs Forecast: todo a TC Budget (Forecast incluido, ver applyOrganic_ en Codigo.js)
 function _orgTargetLabel_() {
-  var t = _organicTarget_();
-  return t === 'forecast' ? 'Forecast' : t === 'lastYear' ? 'Actuals LY' : 'Budget';
+  return _organicTarget_() === 'lastYear' ? 'Actuals LY' : 'Budget';
 }
 function _orgOn_() { return !!_organicTarget_(); }
 var _orgError_ = '';
@@ -2704,6 +2704,7 @@ function _syncOrganicUI_() {
     note.textContent = 'No disponible con Goal Run Rate';
   } else if (_state.organic) {
     note.textContent = 'Actuals × TC Actuals / TC ' + _orgTargetLabel_() +
+      (_state.goal === 'forecast' ? ' · Forecast a TC Budget' : '') +
       (_state.goal === 'lastYear' ? '' : ' · YoY a TC Actuals LY');
     if (_orgMissing_.length) note.textContent += ' · sin TC: ' + _orgMissing_.slice(0, 5).join(', ') + (_orgMissing_.length > 5 ? ' …' : '');
   } else {

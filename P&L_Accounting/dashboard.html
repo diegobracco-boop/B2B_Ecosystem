@@ -1346,7 +1346,7 @@ function getContableFilters(){
 // Con Goal Budget/Forecast los YoY vienen del backend a TC Actuals LY (opción B: *YoY / curY).
 var _epmOrganic = true;   // YES por default (Diego, 2026-10-26)
 var _orgError_ = '', _orgMissing_ = [];
-var ORG_GOALS_ = { budget: 'Budget', forecast: 'Forecast', lastyear: 'Actuals LY' };
+var ORG_GOALS_ = { budget: 'Budget', forecast: 'Budget', lastyear: 'Actuals LY' };   // vs Forecast: todo a TC Budget (2026-10-26)
 function _orgGoalOk_(){ return (_activeLob === 'contable-epm') && ORG_GOALS_.hasOwnProperty(_epmGoalSource); }
 function _orgOn_(){ return _epmOrganic && _orgGoalOk_(); }
 function _orgTargetLabel_(){ return ORG_GOALS_[_epmGoalSource] || 'Budget'; }
