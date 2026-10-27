@@ -632,6 +632,10 @@
         { kind: 'ceo_weekly', n: 1, name: 'Weekly — vs B2C (CEO)' }, { kind: 'ceo_weekly', n: 2, name: 'Weekly — momentum por región vs B2C' },
         { kind: 'ceo_weekly', n: 3, name: 'Weekly — B2B2C: partners del momentum' }, { kind: 'ceo_weekly', n: 4, name: 'Weekly — B2B: API vs HTML' });
     }
+    // Solapa Weekly y sus slides del Flow (misma tabla, _wsRenderWeekly): solo "% vs LY" debajo de Rev y GB;
+    // "vs B2C" y "% vs Bdg" se sacan (pedido de Diego, 2026-10-27: la comparación vs B2C y vs Budget va en
+    // estas slides de Weekly vs B2C). El cálculo del servidor no cambia.
+    if (Array.isArray(W._WS_METRICS)) W._WS_METRICS.forEach(function (m) { if (m.sub) m.sub = m.sub.filter(function (x) { return /^vsLY/.test(x.key); }); });
     // El switch global: primero B2C (las filas) y después el recálculo del Daily
     var origCoi = W.setExCoiBr;
     if (typeof origCoi === 'function') W.setExCoiBr = function (on) { W._exCoiBr = !!on; try { applyB2CCoi(); } catch (e) { /* sin B2C */ } return origCoi.apply(this, arguments); };
