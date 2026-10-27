@@ -875,8 +875,8 @@ header .btn-refresh:hover{background:#f5f3ff !important;border-color:#c4b5fd;col
     <span style="width:1px;height:18px;background:rgba(0,0,0,.15);margin:0 6px"></span>
     <span style="font-size:11px;color:var(--muted);font-weight:700">Organic:</span>
     <div class="prd-toggle" id="org-toggle">
-      <button data-o="no"  class="prd-btn prd-active" type="button" onclick="setMGOrganic(false)">NO</button>
-      <button data-o="yes" class="prd-btn"            type="button" onclick="setMGOrganic(true)">YES</button>
+      <button data-o="no"  class="prd-btn"            type="button" onclick="setMGOrganic(false)">NO</button>
+      <button data-o="yes" class="prd-btn prd-active" type="button" onclick="setMGOrganic(true)">YES</button>
     </div>
     <span id="org-note" class="org-note"></span>
     <span style="width:1px;height:18px;background:rgba(0,0,0,.15);margin:0 6px"></span>
@@ -2848,7 +2848,7 @@ function setMGGoal(goal){
 // Forecast, o Actuals LY con Goal Last Year). Budget / Forecast / LY se muestran nominales.
 // Con Goal Budget/Forecast el backend manda además `yoy` (baseline a TC Actuals LY, opción B):
 // todos los YoY se calculan con eso (_yoyOf_).
-var _mgOrganic = false;
+var _mgOrganic = true;   // YES por default (Diego, 2026-10-26)
 var _orgError_ = '', _orgMissing_ = [];
 function _mgOrgTarget_(){ return _mgOrganic ? _managerialGoal : ''; }
 function _orgTargetLabel_(){ return _managerialGoal === 'forecast' ? 'Forecast' : _managerialGoal === 'ly' ? 'Actuals LY' : 'Budget'; }

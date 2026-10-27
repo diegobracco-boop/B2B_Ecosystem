@@ -871,8 +871,8 @@ header .btn-refresh:hover{background:#f5f3ff !important;border-color:#c4b5fd;col
     <span style="width:1px;height:18px;background:rgba(0,0,0,.15);margin:0 2px"></span>
     <span style="font-size:11px;color:#3a4048;font-weight:700">Organic:</span>
     <div class="prd-toggle" id="org-toggle">
-      <button data-o="no"  class="prd-btn prd-active" type="button" onclick="setEpmOrganic(false)">NO</button>
-      <button data-o="yes" class="prd-btn"            type="button" onclick="setEpmOrganic(true)">YES</button>
+      <button data-o="no"  class="prd-btn"            type="button" onclick="setEpmOrganic(false)">NO</button>
+      <button data-o="yes" class="prd-btn prd-active" type="button" onclick="setEpmOrganic(true)">YES</button>
     </div>
     <span id="org-note" class="org-note"></span>
     <span style="width:1px;height:18px;background:rgba(0,0,0,.15);margin:0 2px"></span>
@@ -1344,7 +1344,7 @@ function getContableFilters(){
 // Mismo switch que Monthly Results del Hub: YES = baseline × TC Actuals / TC del Goal (Budget,
 // Forecast o Actuals LY con Goal Last Year); Run Rate / Last RR no tienen TC → deshabilitado.
 // Con Goal Budget/Forecast los YoY vienen del backend a TC Actuals LY (opción B: *YoY / curY).
-var _epmOrganic = false;
+var _epmOrganic = true;   // YES por default (Diego, 2026-10-26)
 var _orgError_ = '', _orgMissing_ = [];
 var ORG_GOALS_ = { budget: 'Budget', forecast: 'Forecast', lastyear: 'Actuals LY' };
 function _orgGoalOk_(){ return (_activeLob === 'contable-epm') && ORG_GOALS_.hasOwnProperty(_epmGoalSource); }

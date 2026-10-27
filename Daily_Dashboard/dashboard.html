@@ -785,8 +785,8 @@ body.krd-only #section-b2b > :not(.krd-keep) { display:none !important; }
   <div class="org-wrap" id="org-wrap">
     <span class="org-lbl">Organic</span>
     <div class="lob-toggle" id="org-toggle">
-      <button class="lob-btn active" data-o="no"  onclick="setDailyOrganic(false)">NO</button>
-      <button class="lob-btn"        data-o="yes" onclick="setDailyOrganic(true)">YES</button>
+      <button class="lob-btn"        data-o="no"  onclick="setDailyOrganic(false)">NO</button>
+      <button class="lob-btn active" data-o="yes" onclick="setDailyOrganic(true)">YES</button>
     </div>
     <span class="org-note" id="org-note"></span>
   </div>
@@ -852,8 +852,8 @@ body.krd-only #section-b2b > :not(.krd-keep) { display:none !important; }
   <div class="dm-group" style="margin-left:4px" title="COI Brasil: Excluir saca el cost of installments y el efecto financiero de Brasil del FVM en toda la página (métricas, tablas, KRs, Benchmark, Weekly y Flow), en actuals, LY y Budget / Run Rate / Forecast. No cambian los emails ni la línea B2C.">
     <span class="dm-group-lbl">COI Brasil</span>
     <div class="dm-toggle">
-      <button class="dm-btn active" data-coibr="incl" onclick="setExCoiBr(false)">Incluir</button>
-      <button class="dm-btn" data-coibr="excl" onclick="setExCoiBr(true)">Excluir</button>
+      <button class="dm-btn" data-coibr="incl" onclick="setExCoiBr(false)">Incluir</button>
+      <button class="dm-btn active" data-coibr="excl" onclick="setExCoiBr(true)">Excluir</button>
     </div>
   </div>
   <div class="date-nav">
@@ -901,8 +901,8 @@ body.krd-only #section-b2b > :not(.krd-keep) { display:none !important; }
   <div class="dm-group" style="margin-left:4px" title="COI Brasil: Excluir saca el cost of installments y el efecto financiero de Brasil del FVM en toda la página (métricas, tablas, KRs, Benchmark, Weekly y Flow), en actuals, LY y Budget / Run Rate / Forecast. No cambian los emails ni la línea B2C.">
     <span class="dm-group-lbl">COI Brasil</span>
     <div class="dm-toggle">
-      <button class="dm-btn active" data-coibr="incl" onclick="setExCoiBr(false)">Incluir</button>
-      <button class="dm-btn" data-coibr="excl" onclick="setExCoiBr(true)">Excluir</button>
+      <button class="dm-btn" data-coibr="incl" onclick="setExCoiBr(false)">Incluir</button>
+      <button class="dm-btn active" data-coibr="excl" onclick="setExCoiBr(true)">Excluir</button>
     </div>
   </div>
   <div class="date-nav">
@@ -1674,12 +1674,12 @@ body.krd-only #section-b2b > :not(.krd-keep) { display:none !important; }
     <label class="flow-ctl-lbl" title="COI Brasil: Excluir saca el cost of installments y el efecto financiero de Brasil del FVM en toda la página (métricas, tablas, KRs, Benchmark, Weekly y Flow), en actuals, LY y Budget / Run Rate / Forecast. No cambian los emails ni la línea B2C.">COI Brasil</label>
     <select class="flow-jump" id="flow-coibr" onchange="setExCoiBr(this.value==='excl')">
       <option value="incl">Incluir</option>
-      <option value="excl">Excluir</option>
+      <option value="excl" selected>Excluir</option>
     </select>
     <label class="flow-ctl-lbl" title="YES = actuals × TC Actuals / TC del Goal (Run Rate: nominal). KRs a TC Budget. Mismo switch que el Organic de arriba.">Organic</label>
     <select class="flow-jump" id="flow-organic" onchange="setDailyOrganic(this.value==='yes')">
       <option value="no">NO</option>
-      <option value="yes">YES</option>
+      <option value="yes" selected>YES</option>
     </select>
     <span class="flow-tool-sep"></span>
     <button class="flow-pdf-btn" onclick="window.print()" title="Abre el diálogo de impresión — elegí 'Guardar como PDF'">⭳ Descargar PDF</button>
@@ -1744,7 +1744,7 @@ function setExclTBD(on) {
 // fvm_ex_coi_br de daily_sync.py, en actuals, LY y Budget/RR/Forecast). Se pisa r.fvm en las filas
 // (el total queda en r._fvmTot), así TODO lo que lee fvm lo sigue: métricas, tablas, KRs, Benchmark
 // y Flow. Weekly y OKR semanal se calculan en el servidor: van con el parámetro exCoiBr.
-var _exCoiBr = false;
+var _exCoiBr = true;   // Excluir por default (Diego, 2026-10-26)
 var _COIBR_KEYS_ = {
   b2bc:  ['actuals', 'actuals_ly', 'budget', 'runrate', 'forecast', 'budget_fy_rest', 'runrate_fy_rest', 'actuals_fy_rest', 'actuals_ly_fy_rest'],
   b2b:   ['b2b_gd', 'b2b_gd_ly', 'b2b_ri', 'b2b_ri_ly', 'b2b_budget_gd', 'b2b_budget_ri',
@@ -2469,6 +2469,9 @@ function computeAllB2B_(raw, dm, vDate, gl_pai, gl_pro, gl_ch, gl_mkt, gran, com
 
 // ── Init ────────────────────────────────────────────────────────
 window.onload = function() {
+  // Organic YES por default (Diego, 2026-10-26): pide la tabla de TC ya al abrir; cuando llega,
+  // recalcula lo que ya esté cargado (_orgRefreshAll_). Se puede apagar con el switch.
+  setDailyOrganic(true);
   // B2B2C — primary load (drives the loader)
   google.script.run
     .withSuccessHandler(function(raw) {
@@ -3992,7 +3995,7 @@ var _trackerUrl = null, _trackerOrg = null;   // organic: el iframe se recarga c
 function _trackerSetSrc_() {
   if (!_trackerUrl || _trackerOrg === _dlOrganic) return;
   _trackerOrg = _dlOrganic;
-  document.getElementById('tracker-iframe').src = _trackerUrl + (_dlOrganic ? '&organic=1' : '');
+  document.getElementById('tracker-iframe').src = _trackerUrl + (_dlOrganic ? '&organic=1' : '&organic=0');
 }
 function trackerOpen_() {
   if (_trackerLoaded) { _trackerSetSrc_(); return; }

@@ -1203,12 +1203,13 @@ header > img{filter:brightness(0) invert(1);opacity:.92}
     <button class="nav-item" id="nav-detailcountry" onclick="goToSection('detailcountry')">
       <span style="font-size:16px">🌎</span> Detail By Country
     </button>
-    <!-- Solo Ownia (public/hub-h2h1.js): H1 real vs H2 Budget, formato de la presentación de dirección -->
-    <button class="nav-item" id="nav-h2h1" onclick="if (window.openH2vsH1) openH2vsH1()">
+    <!-- Solo Ownia (public/hub-h2h1.js): H1 real vs H2 Budget, formato de la presentación de dirección.
+         Ocultos en el menú de Apps Script (ahí no existen); en Ownia la barra los muestra como pestañas. -->
+    <button class="nav-item" id="nav-h2h1" style="display:none" onclick="if (window.openH2vsH1) openH2vsH1()">
       <span style="font-size:16px">📈</span> H2 Budget vs H1
     </button>
     <!-- Solo Ownia (public/hub-slides.js): deck mensual "Business Performance B2B/B2B2C vs Budget" -->
-    <button class="nav-item" id="nav-slides" onclick="if (window.openSlidesMensuales) openSlidesMensuales()">
+    <button class="nav-item" id="nav-slides" style="display:none" onclick="if (window.openSlidesMensuales) openSlidesMensuales()">
       <span style="font-size:16px">🗂️</span> Slides mensuales
     </button>
     <div class="nav-divider"></div>

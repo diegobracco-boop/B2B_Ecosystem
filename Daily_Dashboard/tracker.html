@@ -1621,7 +1621,7 @@ function getActualsLY(dateType) {
 // Budget, getActualsKR / getKrActuals). La vista Semanal convierte reales Y Run Rate con el mismo
 // criterio, sea cual sea la Meta (_wkOrgRows).
 // YoY "opción B": cada fila convertida trae <campo>_y = valor a TC Actuals LY y los YoY se calculan con eso (actY); el LY se muestra nominal. Embebido en el Daily, el estado inicial
-// llega por la URL (&organic=1).
+// llega por la URL (&organic=1|0); solo, arranca en YES.
 let trkOrganic = false, fxTbl = null, fxState = 'idle', orgErr = '', orgMissing = {};
 const ORG_MONEY = ['gross_bookings', 'net_revenue', 'net_revenues', 'fvm'];
 const ORG_ALIAS = { 'ops': 'brasil', 'rg': 'brasil', 'ops + rg': 'brasil', 'ops+rg': 'brasil' };
@@ -4213,10 +4213,11 @@ function initDashboard(data) {
   document.getElementById('spinnerWrap').style.display = 'none';
 
   render();
-  // ORGANIC: embebido en el Daily llega &organic=1 en la URL
+  // ORGANIC: YES por default (Diego, 2026-10-26). Embebido en el Daily llega &organic=1|0 con el
+  // estado del switch del Daily; solo &organic=0 lo deja en NO.
   try {
-    google.script.url.getLocation(loc => { if (loc && loc.parameter && loc.parameter.organic === '1') setTrkOrganic(true); });
-  } catch (e) {}
+    google.script.url.getLocation(loc => { if (!(loc && loc.parameter && loc.parameter.organic === '0')) setTrkOrganic(true); });
+  } catch (e) { setTrkOrganic(true); }
 }
 
 function showError(err) {
