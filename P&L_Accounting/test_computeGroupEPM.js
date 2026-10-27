@@ -158,7 +158,7 @@ if (!ns.fetchEPMScenarios_) {
   var ymBG0 = Object.keys(ns.ALL_YM_BG)[0], lblBG0 = ns.ALL_YM_BG[ymBG0];
   var ymLY0 = Object.keys(ns.ALL_YM_LY_BG)[0], lblLY0 = ns.ALL_YM_LY_BG[ymLY0];
 
-  test('fetchEPMScenarios_: trae los 6 escenarios + el baseline elegido, sin filtro de producto', () => {
+  test('fetchEPMScenarios_: trae los escenarios + el baseline elegido, sin filtro de producto', () => {
     var jData = { data: { b2b: { Brasil: {
       ac:  { 'gross bookings': { [ymBG0]: 1 } },
       rr:  { 'gross bookings': { [ymBG0]: 2 } },
@@ -166,16 +166,15 @@ if (!ns.fetchEPMScenarios_) {
       fc:  { 'gross bookings': { [ymBG0]: 4 } },
       lrr: { 'gross bookings': { [ymBG0]: 5 } },
       ly:  { 'gross bookings': { [ymLY0]: 6 } },
-      vr:  { 'gross bookings': { [ymBG0]: 7 } },
     } } } };
-    const s = ns.fetchEPMScenarios_(jData, 'b2b', 'vr', null);
+    const s = ns.fetchEPMScenarios_(jData, 'b2b', 'fc', null);
     assert.strictEqual(s.ac['Brasil']['gross bookings'][lblBG0], 1);
     assert.strictEqual(s.rr['Brasil']['gross bookings'][lblBG0], 2);
     assert.strictEqual(s.bg['Brasil']['gross bookings'][lblBG0], 3);
     assert.strictEqual(s.fc['Brasil']['gross bookings'][lblBG0], 4);
     assert.strictEqual(s.lrr['Brasil']['gross bookings'][lblBG0], 5);
     assert.strictEqual(s.ly['Brasil']['gross bookings'][lblLY0], 6);
-    assert.strictEqual(s.bl['Brasil']['gross bookings'][lblBG0], 7, 'baselineScen="vr" deberia traer vr, no bl');
+    assert.strictEqual(s.bl['Brasil']['gross bookings'][lblBG0], 4, 'baselineScen="fc" deberia traer fc, no bl');
   });
 
   test('fetchEPMScenarios_: con prodArr, usa data_by_prod y filtra por producto', () => {

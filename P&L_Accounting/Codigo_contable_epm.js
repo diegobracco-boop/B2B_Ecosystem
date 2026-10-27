@@ -82,7 +82,7 @@ function assembleCanonicals_() {
   // cubo (Uruguay/Paraguay/Otros → Globales). Se guardan aparte para convertirlas con el TC de su
   // país crudo (ver epmOrganicScen_). split[lg][pais][paisCrudo][sc][n2][ym]
   var split = {}, splitP = {};
-  var ORG_SPLIT_SC = { bl: true, fc: true, vr: true, fbtb: true };   // fbtb: Forecast BTB (solo Ownia, gas-extras)
+  var ORG_SPLIT_SC = { bl: true, fc: true, fbtb: true };   // fbtb: Forecast BTB (solo Ownia, gas-extras)
   function addSplit(root, path, sc, n2, ym, v) {
     var o = root;
     path.forEach(function(k) { o = o[k] = o[k] || {}; });
@@ -388,7 +388,7 @@ function getEPMBaselineGoalData_raw_(filtersJson) {
   var lgKey    = lgKeyFromGroup_(lobGroup, filters);
   var cutoffIdx = epmCutoffIdx_(jData);
   var goalSource     = filters.goalSource     || 'budget';   // 'budget' | 'forecast' | 'lastrunrate'
-  var baselineScen   = filters.baselineSource || 'bl';       // 'bl' (Actuals+Proj) | 'vr' (Proj Reviews) | 'fc' (Forecast entero)
+  var baselineScen   = filters.baselineSource || 'bl';       // 'bl' (Actuals+Proj) | 'fc' (Forecast entero)
   var org = epmOrganicSetup_(jData, filters.organic, goalSource, baselineScen);
   baselineScen = org.bl;
 

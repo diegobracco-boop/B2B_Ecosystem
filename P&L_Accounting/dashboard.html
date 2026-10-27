@@ -857,7 +857,6 @@ header .btn-refresh:hover{background:#f5f3ff !important;border-color:#c4b5fd;col
     <div class="prd-toggle">
       <button id="btn-ebl-actuals" class="prd-btn prd-active" type="button" onclick="setEpmBaselineSource('bl')">Actuals + Projections</button>
       <button id="btn-ebl-fc" class="prd-btn" type="button" onclick="setEpmBaselineSource('fc')">Forecast</button>
-      <button id="btn-ebl-vr" class="prd-btn" type="button" onclick="setEpmBaselineSource('vr')">Projection Reviews</button>
     </div>
     <span style="font-size:11px;color:#3a4048;font-weight:700;margin-left:6px">Goal:</span>
     <div class="prd-toggle">
@@ -1410,7 +1409,6 @@ function setEpmBaselineSource(src){
   _epmBaselineSource = src;
   document.getElementById('btn-ebl-actuals').classList.toggle('prd-active', src === 'bl');
   document.getElementById('btn-ebl-fc').classList.toggle('prd-active', src === 'fc');
-  document.getElementById('btn-ebl-vr').classList.toggle('prd-active', src === 'vr');
   var _bl = document.getElementById('epm-baseline-label');
   if (_bl) _bl.innerHTML = 'Baseline:&nbsp;<span style="color:#7C3AED;font-weight:700">' + _epmBaselineLabel() + '</span>';
   if (_bgContableView === 'pxq') renderPxQ();
@@ -1441,9 +1439,7 @@ function _epmGoalLabel(){
        : 'Budget';
 }
 function _epmBaselineLabel(){
-  return _epmBaselineSource === 'fc' ? 'Forecast'
-       : _epmBaselineSource === 'vr' ? 'Projection Reviews'
-       : 'Actuals + Projections';
+  return _epmBaselineSource === 'fc' ? 'Forecast' : 'Actuals + Projections';
 }
 
 function setContableView(view){
@@ -2295,7 +2291,7 @@ var _bgPeriodSel      = null;          // array de meses/quarters/halves puntual
 var _bgContableView   = 'combined';   // 'combined' | 'b2b' | 'b2b2c'
 var _bgGoalSource       = 'budget';     // vista "Model+Accounting": 'budget' | 'epm'
 var _epmGoalSource      = 'budget';     // vista "P&L Accounting" (EPM): 'budget' | 'forecast' | 'runrate' | 'lastrunrate' | 'lastyear'
-var _epmBaselineSource  = 'bl';         // vista EPM baseline: 'bl' (Actuals+Proj) | 'fc' (Forecast entero) | 'vr' (Projection Reviews)
+var _epmBaselineSource  = 'bl';         // vista EPM baseline: 'bl' (Actuals+Proj) | 'fc' (Forecast entero)
 var _qSecState        = {};           // secId → true = collapsed
 var _contCharts       = [];           // Chart.js instances for contable charts
 var _contLobCharts    = [];           // Chart.js instances for per-LOB charts in combined view

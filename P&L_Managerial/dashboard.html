@@ -859,12 +859,6 @@ header .btn-refresh:hover{background:#f5f3ff !important;border-color:#c4b5fd;col
       <button id="year-mode-cy" class="prd-btn"            type="button" onclick="setYearMode('cy')">Calendario</button>
     </div>
     <span style="width:1px;height:18px;background:rgba(0,0,0,.15);margin:0 6px"></span>
-    <span style="font-size:11px;color:var(--muted);font-weight:700">Baseline:</span>
-    <div class="prd-toggle" id="baseline-switcher">
-      <button class="prd-btn prd-active" id="bl-btn-bl" onclick="setBaselineSource('bl')">Actuals + Projections</button>
-      <button class="prd-btn" id="bl-btn-vr" onclick="setBaselineSource('vr')">Projection Reviews</button>
-    </div>
-    <span style="width:1px;height:18px;background:rgba(0,0,0,.15);margin:0 6px"></span>
     <span style="font-size:11px;color:var(--muted);font-weight:700">Goal:</span>
     <div class="prd-toggle">
       <button id="mg-goal-budget"   class="prd-btn prd-active" type="button" onclick="setMGGoal('budget')">Budget</button>
@@ -1886,7 +1880,7 @@ function _renderAllViajeChips_(){
   Object.keys(_VJ_UI).forEach(function(k){ _renderViajeChips_(k); });
   _updateStickyOffsets_();
 }
-// Las opciones vienen en cada respuesta: si cambian (ej. un Projection Review sin viaje → [])
+// Las opciones vienen en cada respuesta: si cambian (ej. un JSON sin viaje → [])
 // se re-renderiza, y si desaparecen se limpia la selección (el backend ya la ignoró).
 function _syncViajeOptions_(d){
   var vals = (d && d.filters && d.filters.viaje) || [];
@@ -2501,8 +2495,7 @@ function renderDetalle() {
   var gcm = _managerialGoal==='forecast' ? fcm : _managerialGoal==='ly' ? lcm : bcm;
   // En RI el Last Year sigue siendo GD (el JSON gestional no trae serie LY en RI): se rotula.
   var goalRowLabel = _managerialGoal==='forecast' ? 'Δ Forecast' : _managerialGoal==='ly' ? ('Δ Last Year' + (_activeDateType==='ri' ? ' (GD)' : '')) : 'Δ Budget';
-  // Fila antes "FC": ahora toma el nombre del escenario Baseline elegido en el toggle superior.
-  var baselineRowLabel = _baselineSource==='vr' ? 'Projection Reviews' : 'Actuals + Projections';
+  var baselineRowLabel = 'Actuals + Projections';
 
   var mk   = _detalleMetric==='gb'?'gross_bookings':_detalleMetric==='nr'?'net_revenue':'npv';
   // GB usa fmtK (2 decimales de M) sólo en la escala por defecto 'M'; con K/Enteros
@@ -4370,22 +4363,6 @@ function toggleGPartner(partner){
   if(_dataG) renderTrendCharts(_dataG.months, _dataG.agg, _dataG.budget||{}, _dataG.ly||{});
 }
 
-// ── Baseline source (Run Rate/Actuals vs Projection Reviews) ─────────────
-var _baselineSource = 'bl';
-
-function setBaselineSource(src) {
-  _baselineSource = src;
-  ['bl','vr'].forEach(function(s){
-    var btn = document.getElementById('bl-btn-' + s);
-    if (btn) btn.classList.toggle('prd-active', s === src);
-  });
-  _filtersLoadedForLob = {};   // resetear filtros para que se recargen
-  _gFiltersLoadedForLob = {};
-  _dFiltersLoadedForLob = {};
-  fetchData();
-  _invalidatePanesOnSharedChange_();
-}
-
 var _MES_LABEL_SHORT = {
   '01':'Ene','02':'Feb','03':'Mar','04':'Abr','05':'May','06':'Jun',
   '07':'Jul','08':'Ago','09':'Sep','10':'Oct','11':'Nov','12':'Dic'
@@ -4414,10 +4391,9 @@ function updateActualsLegend(actualMonths) {
     ? _ymToShort(projMonths[0]) + ' – ' + _ymToShort(projMonths[projMonths.length - 1])
     : '—';
 
-  var srcLabel = _baselineSource === 'vr' ? ' &nbsp;·&nbsp; <strong>Projection Reviews</strong>' : '';
   el.innerHTML =
     '<span class="al-item"><span class="al-dot" style="background:#7C3AED"></span>Actuals: <strong>' + actLabel + '</strong></span>' +
-    '<span class="al-item"><span class="al-dot" style="background:#7C3AED;opacity:.35"></span>Proyecciones: <strong>' + projLabel + '</strong>' + srcLabel + '</span>';
+    '<span class="al-item"><span class="al-dot" style="background:#7C3AED;opacity:.35"></span>Proyecciones: <strong>' + projLabel + '</strong></span>';
   el.style.display = 'flex';
 }
 
@@ -4439,7 +4415,6 @@ function getFilters(){
     millas:         getMillasValues_('m'),
     lob_tipo:       lobTipo,
     date_type:      _activeLob === 'b2b2c' ? 'gd' : _activeDateType,
-    baselineSource: _baselineSource,
     organic:        _mgOrgTarget_(),
     coibr:          _mgCoiBr ? 'excl' : 'incl'
   };

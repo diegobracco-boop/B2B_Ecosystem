@@ -1065,7 +1065,6 @@ a.ext-link:hover { text-decoration: underline; }
         <tbody>
           <tr><td>Gestional</td><td>Actualizar <code>FORECAST_VERSION</code> en <code>Inputs_Planning_PnL/config.py</code> al nombre de la carpeta nueva (ej. <code>"2026.07.14"</code>) → correr <code>actuals_gestional_upload.py</code> (con VPN). La ruta completa (<code>FC_XLSX_DIR</code>) se arma sola con el FY y esa versión.</td></tr>
           <tr><td>Contable</td><td>El forecast contable NO sale de esos XLSX (sale de CSV Hyperion). Se actualiza upstream en <code>Inputs_Planning_PnL</code> al reprocesar.</td></tr>
-          <tr><td>Preview de un WIP sin publicar</td><td><code>python projections_gestional_builder.py --wip-folder "&lt;ruta&gt;"</code> (gestional) / <code>projections_validation_builder.py</code> (contable). Muestra el borrador en la vista "Projection Review".</td></tr>
         </tbody>
       </table>
     </div>
@@ -1231,7 +1230,7 @@ a.ext-link:hover { text-decoration: underline; }
       <table class="doc-table">
         <thead><tr><th>Tarea</th><th>Dónde se hace hoy</th></tr></thead>
         <tbody>
-          <tr><td>Proyección de Run Rate</td><td><code>Inputs_Planning_PnL/plana_projections_builder.py runrate</code> + <code>json_builder.py</code> (JSON canónico) · Projections Review contable/gestional (<code>projections_validation_builder.py</code> / <code>projections_gestional_builder.py</code>, <code>--wip-folder</code> sobre los Modelos Forecast de la carpeta Run Rate semanal)</td></tr>
+          <tr><td>Proyección de Run Rate</td><td><code>Inputs_Planning_PnL/plana_projections_builder.py runrate</code> + <code>json_builder.py</code> (JSON canónico)</td></tr>
           <tr><td>Control de cierre</td><td><code>Inputs_Planning_PnL/baseline_builder.py --promote-month AAAA-MM-01</code> (pasa el mes de Run Rate a Actual) + verificación de la plana de actuals del FY en curso</td></tr>
           <tr><td>Seguimiento semanal</td><td><strong>Daily Dashboard</strong> (vista diaria/semanal, pace vs Budget y LY) · <strong>Daily B2B Tracker</strong> (Status KRs, modo Slides con export a PDF/Google Slides)</td></tr>
           <tr><td>Armado y seguimiento OKR Producto B2B / B2B2C</td><td>Tabs <strong>OKR B2B Product</strong> / <strong>OKR B2B2C Product</strong> embebidos en el Hub — <code>Codigo_OKR.js</code>, <code>OKR_CONFIG</code> (H1 FY27, Q1+Q2)</td></tr>
@@ -2125,7 +2124,6 @@ clasp deploy -i AKfycby9WZK2HfAWx25M5pEMV3nntzJfEvsiT9feMn01zJQkQaI3t2GjTzOIjbFX
           <tr><td>plana_actuals_builder.py</td><td><span class="tag tag-py">Python</span></td><td>Plana de actuals por año fiscal (combina Abr-Dic del fy-1 + Ene-Mar del fy)</td></tr>
           <tr><td>json_builder.py</td><td><span class="tag tag-py">Python</span></td><td>Planas → JSON canónico por concepto → sube a Drive. Colapsa canal, agrega sobre Marca, filtra LOBs</td></tr>
           <tr><td>baseline_builder.py</td><td><span class="tag tag-py">Python</span></td><td>Arma <code>baseline_actuals+projections.json</code>: actuals[Abr..corte] + runrate[corte+1..Sep] + forecast[Oct..Mar]. <code>--promote-month AAAA-MM-01</code> (mensual) o <code>--rebuild</code> (entero)</td></tr>
-          <tr><td>projections_validation_builder.py</td><td><span class="tag tag-py">Python</span></td><td>Preview semanal "Projection Reviews" (P&amp;L Accounting) — ver card dedicada abajo</td></tr>
           <tr><td>auth_drive.py</td><td><span class="tag tag-py">Python</span></td><td>Genera token_drive.json (una vez por persona)</td></tr>
           <tr><td>run_all.bat</td><td><span class="tag tag-js">Batch</span></td><td>Corre todas las planas + json_builder all + sube a Drive</td></tr>
         </tbody>
@@ -2152,19 +2150,12 @@ clasp deploy -i AKfycby9WZK2HfAWx25M5pEMV3nntzJfEvsiT9feMn01zJQkQaI3t2GjTzOIjbFX
     </div>
 
     <div class="card">
-      <div class="card-title">🧪 Projections Review (preview semanal de los Modelos Forecast)</div>
+      <div class="card-title">🧪 Projection Reviews — dado de baja (2026-10-27)</div>
       <table class="doc-table">
         <thead><tr><th>Ítem</th><th>Detalle</th></tr></thead>
         <tbody>
-          <tr><td>Qué es</td><td>Un preview del WIP semanal (carpeta <code>Run Rate\AAAA.MM.DD - W##</code>) antes de que el modelo esté listo para el run regular. Hay <strong>2 builders independientes</strong>: <code>projections_gestional_builder.py</code> (P&amp;L Managerial, escenario <code>bl</code> del JSON gestional) y <code>projections_validation_builder.py</code> (P&amp;L Accounting, canonical <code>vr</code> = <code>projections_validation_accounting.json</code>). Ninguno se corre solo — hay que ejecutarlos a mano cada vez que se actualiza un Modelo Forecast</td></tr>
-          <tr><td>Fuentes</td><td><code>API - Modelo Forecast.xlsx</code> (solapa EPM), <code>HTML - Modelo Forecast.xlsx</code> (solapa EPM), <code>WLs - Modelo Forecast.xlsx</code> (solapa <strong>"P&amp;L"</strong> — dejó de tener solapa EPM el 2026-09-16, formato largo con métricas en columnas en vez de la matriz EPM)</td></tr>
-          <tr><td>Reglas especiales de WLs (solo <code>projections_validation_builder.py</code>)</td><td>
-            1) <strong>lob_canal poco confiable</strong>: esa columna a veces trae el nombre del producto pegado en vez de "B2B2C" (arrastre de fórmula roto en el Excel) — se ignora y se fuerza "B2B2C" siempre (la solapa entera es B2B2C).<br>
-            2) <strong>Partner Ya Vas/YaVas excluido</strong> de Orders/Gross Bookings en Packages General, Flights y Hotels (pedido de negocio, 2026-09-17). Sus otros productos y el resto de sus métricas no se tocan.<br>
-            3) <strong>Cost of Sales as Principal</strong> no es columna propia de WLs — se sintetiza como <code>dif_fx + currency_hedge</code> (mismo criterio que <code>_cosp_rr</code> en Codigo_contable.js).
-          </td></tr>
-          <tr><td>Meses sin cobertura del modelo</td><td>Si el WIP de un LoB no llega a cubrir todo el período de proyección (ej. WLs proyectando solo 3 de 8 meses), esos meses conservan el <code>baseline_actuals+projections.json</code> existente en vez de quedar vacíos. El script imprime un AVISO con los meses sin cobertura</td></tr>
-          <tr><td>Uso</td><td><code class="mono-id">python projections_validation_builder.py --wip-folder "&lt;ruta W##&gt;" [--no-upload] [--baseline-json &lt;local.json&gt;]</code>. Sin <code>--no-upload</code> sube directo a Drive (afecta lo que ve el equipo en "Projection Reviews")</td></tr>
+          <tr><td>Qué pasó</td><td>El escenario "Projection Reviews" (baseline <code>vr</code>, preview semanal del WIP de los Modelos Forecast) salió del proceso: se eliminaron sus dos builders, el selector de Baseline en P&amp;L Managerial y P&amp;L Accounting, y sus entradas en el espejo de Ownia. Esa revisión previa a publicar se hace ahora en la app <strong>html-rr</strong>.</td></tr>
+          <tr><td>En Drive</td><td><code>projections_validation_accounting.json</code> y <code>pnl_gestional_projections_review.json</code> quedan sin uso (no se borraron).</td></tr>
         </tbody>
       </table>
     </div>
@@ -2228,7 +2219,7 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
         <div class="card-title">🎯 Escenarios (Baseline vs Goal)</div>
         <table class="doc-table">
           <tbody>
-            <tr><td>Baseline (seleccionable)</td><td>Botones "Baseline:" arriba a la derecha (vista EPM): <strong>Actuals + Projections</strong> (bl, default) | <strong>Forecast</strong> (fc) | <strong>Projection Reviews</strong> (vr).<br><small>Projection Reviews = <code>projections_validation_accounting.json</code>, el preview semanal del WIP de los Modelos Forecast — ver la card "🧪 Projections Review" en Inputs Planning P&amp;L. Se arma con <code>projections_validation_builder.py --wip-folder</code>, NO se regenera solo.</small></td></tr>
+            <tr><td>Baseline (seleccionable)</td><td>Botones "Baseline:" arriba a la derecha (vista EPM): <strong>Actuals + Projections</strong> (bl, default) | <strong>Forecast</strong> (fc).<br><small>El baseline "Projection Reviews" (vr) se dio de baja el 2026-10-27: esa revisión previa a publicar se hace en la app <strong>html-rr</strong>.</small></td></tr>
             <tr><td>Goal (seleccionable)</td><td>Botones arriba a la derecha: <strong>vs Budget</strong> | <strong>vs Forecast</strong> | <strong>vs Run Rate</strong> | <strong>vs Last Run Rate</strong> | <strong>vs Forecast BTB</strong> (solo Ownia, 2026-10-26: <code>Ownia_B2B_Ecosystem/server/gas-extras/pnl-accounting-fbtb.js</code> + <code>public/pnl-accounting-layout.js</code>; mismo cálculo que vs Forecast con <code>forecastbtb.json</code>).<br><small>vs Forecast = <code>forecast.json</code> todo el FY (contiene actuals Abr-Jun + fc Jul-Mar). vs Run Rate = actuals hasta el mes cerrado (cutoff) + <code>runrate.json</code> de ahí en más — <strong>fix 2026-09-16</strong>: antes usaba runrate.json para todo el FY y los meses cerrados salían en $0 (runrate.json no trae reales). vs Last RR = actuals cerrados + lastrunrate.json + forecast.</small></td></tr>
             <tr><td>Sub-vistas</td><td>B2B + B2B2C (combinado) / B2B / B2B2C · <strong>PxQ</strong> · <strong>Countries YoY</strong>. Filtro país/producto<br><small><strong>Nuevo (2026-09-22):</strong> en el detalle B2B multi-país (Total B2B o grupo), debajo de los bloques por canal aparece la tabla <strong>"Δ por país vs Goal"</strong> — filas = líneas del P&amp;L (desplegables en sus sub-líneas), columnas = países (Hispa desglosado) + Total, valores = solo el delta Baseline − Goal acumulado por los meses filtrados. Cambia con el filtro de canal MAY / MIN / Total. Sirve para ver qué países generan más delta. La columna Total sale del total del canal (reconcilia con la tabla principal). En la vista de <strong>un país</strong> (Brasil, Mexico, Argentina, …, Globales) aparece la análoga <strong>"Δ por producto vs Goal"</strong> — mismas filas, columnas = productos de ese país según el canal. <strong>Importante:</strong> los deltas por país usan el total <em>completo</em> del país (incluye iniciativas: Flights/Dest.Serv/Cruises) y el mismo cálculo 100% contable del detalle del país — no la data de palancas del waterfall — para que cuadren exacto con el detalle.</small></td></tr>
             <tr><td>Períodos</td><td>Tabla: Mes / Quarter / Half, con chips para elegir períodos específicos. Waterfalls: <strong>multiselect de meses</strong> (chips Abr…Mar) + presets H1 / H2 / FY.<br><small><strong>Nuevo (2026-09-16):</strong> con 2+ períodos activos (meses o quarters/semestres) se agrega una columna "Total Período" con la suma exacta de lo seleccionado (no un Total FY27 fijo). Los headers BASELINE/GOAL de las tablas P&amp;L muestran el escenario activo como subtítulo (ej. "GOAL · BUDGET").</small></td></tr>
@@ -2314,7 +2305,6 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
           <tr><td>Codigo.js</td><td><span class="tag tag-js">Apps Script</span></td><td>Solo <code>doGet</code> (entry point del web app)</td></tr>
           <tr><td>appsscript.json</td><td><span class="tag tag-js">Manifest</span></td><td>Webapp; ejecuta como quien despliega; acceso DOMAIN</td></tr>
           <tr><td>plana_to_cube.py</td><td><span class="tag tag-py">Python</span></td><td>(vive en Inputs_Planning_PnL) Adaptador JSON canónicos → cubo. Correr con <code>--upload</code> tras actualizar datos</td></tr>
-          <tr><td>projections_validation_builder.py</td><td><span class="tag tag-py">Python</span></td><td>(vive en Inputs_Planning_PnL) Arma el baseline "Projection Reviews" (vr) — ver card "🧪 Projections Review" en Inputs Planning P&amp;L</td></tr>
         </tbody>
       </table>
     </div>
@@ -2331,7 +2321,7 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
           <tr><td>Split del proyecto</td><td>Las vistas Managerial (B2B2C/B2B FVM) se movieron a <strong>P&amp;L Managerial</strong>. Este proyecto quedó solo con lo contable (EPM + Model)</td></tr>
           <tr><td>OC: convención de signo</td><td>COR y S&amp;M vienen con signo negativo en el cubo. Waterfalls y charts suman con el signo del dato (no re-negan)</td></tr>
           <tr><td>"Third Party Commissions" es derivado</td><td>No es una línea propia — se calcula como <code>affiliates + white_labels_api</code> (constante <code>_tpcs_rr</code>, <code>Codigo_contable.js</code>). Para B2B2C (WLs), Affiliates siempre da 0, así que en la práctica es = White Labels/API</td></tr>
-          <tr><td>"Cost of Sales as Principal" derivado (rr)</td><td>La versión "rr" (<code>_cosp_rr</code>) = <code>dif_fx + currency_hedge</code>. Este mismo criterio se usa en <code>projections_validation_builder.py</code> para sintetizar el concepto en WLs, que no trae columna propia de Cost of Sales as Principal en la solapa "P&amp;L"</td></tr>
+          <tr><td>"Cost of Sales as Principal" derivado (rr)</td><td>La versión "rr" (<code>_cosp_rr</code>) = <code>dif_fx + currency_hedge</code>.</td></tr>
           <tr><td>RG en Cost of Sales as Principal</td><td>El país "RG" es una contrapartida/reverso, no un país real, para esta línea — <code>json_builder.py</code> ya lo zeroea (<code>_process()</code>). <code>baseline_builder.py</code> reimplementaba parte de esa función sin esta regla → el monto de RG cancelaba el de Argentina y la línea salía en $0 para los meses de actuals propios del baseline. Corregido 2026-09-17</td></tr>
         </tbody>
       </table>
@@ -2355,10 +2345,8 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
             <tr><td>Apps Script ID</td><td class="mono-id">1rB8o8HcnksPBXzi8QJW1zC-XQQ1HqHao...</td></tr>
             <tr><td>URL editor GAS</td><td><a class="ext-link" href="https://script.google.com/home/projects/1rB8o8HcnksPBXzi8QJW1zC-XQQ1HqHaowTcWV95SJG6xRbLg5QQ_2mQH/edit" target="_blank">↗ Abrir editor</a></td></tr>
             <tr><td>Actualización actuals + proyecciones</td><td><span class="badge badge-manual">python actuals_gestional_upload.py (requiere VPN)</span> — un solo run actualiza todo (actuals ODBC + forecast XLSX)</td></tr>
-            <tr><td>Preview proyección WIP (sin publicar)</td><td><span class="badge badge-manual">python projections_gestional_builder.py --wip-folder "&lt;ruta&gt;"</span></td></tr>
             <tr><td>Actualización revenue GD (modo "Actuals GD vs Revenue")</td><td><span class="badge badge-manual">python revenue_gd_builder.py (requiere VPN)</span> — tool aparte, correr a mano cuando haga falta refrescar (no forma parte del refresh regular)</td></tr>
             <tr><td>JSON gestional (actuals+proyecciones)</td><td class="mono-id">_actuals_gestional.json (fileId: 1wvle0UIVZV7ocCSl8OawOfIGVz_It5kh)</td></tr>
-            <tr><td>JSON projection review (WIP)</td><td class="mono-id">pnl_gestional_projections_review.json (fileId: 1Zd1Kzn7CkatOWnzrrfBxr9mDjIVLLKIF)</td></tr>
             <tr><td>JSON revenue GD</td><td class="mono-id">revenue_gd.json (fileId: 1gLerphm9YJZ_-aKW7J566a9QcNbIQOCz)</td></tr>
           </tbody>
         </table>
@@ -2371,7 +2359,6 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
             <tr><td>Forecast (FC)</td><td>Modelos Forecast XLSX (WLs, API, HTML) → JSON gestional</td><td><code>actuals_gestional_upload.py</code> (lee <code>FC_XLSX_DIR</code>)</td></tr>
             <tr><td>Actuals / LY / Budget / Run rate</td><td>Treasure Data (ODBC) — B2B2C + B2B GD + B2B RI. Las queries B2B GD/RI están <strong>alineadas a <code>daily_sync.py</code></strong> (versión oficial): RI reconoce por check-in para todo <code>parent_channel='API'</code>; B2B-MIN tiene serie RI (toggle RI aplica a MIN); fórmulas de componentes idénticas al Daily (GB/NR/FVM coinciden al centavo)</td><td><code>actuals_gestional_upload.py</code></td></tr>
             <tr><td>Reconciliación (vista "Managerial vs Accounting")</td><td><code>actuals.json</code> canónico — folder Drive <code>1XqQPL...</code> (fileId <code>1PABNf4XVKdj6eXApr5_yP581ZsD_N9e-</code>), lo genera Inputs_Planning_PnL</td><td><code>Codigo.js</code> → <code>getVsAccounting()</code> (solo lectura, NO toca pipelines)</td></tr>
-            <tr><td>Proyección WIP (preview, sin publicar)</td><td>Excel de un WIP folder aparte</td><td><code>projections_gestional_builder.py --wip-folder</code></td></tr>
             <tr><td>Revenue GD (modo "Actuals GD vs Revenue")</td><td>Treasure Data (ODBC) — modelo de revenue B2B independiente (<code>bi_transactional_fact_*</code> + <code>lake.b2b_rev_pnl_sales_detail</code> + <code>lake.b2b_b2b2c_revenue_pnl_model</code>, basis <code>gestion_date</code>). Mapeo de líneas P&amp;L en <strong>borrador</strong> — ver <code>CONTEXT.md</code> del módulo y <code>reconciliacion_actuals_gd_vs_revenue.md</code></td><td><code>revenue_gd_builder.py</code> (tool aparte, no forma parte del refresh regular)</td></tr>
             <tr><td>LY estático en <code>ly_data.js</code></td><td colspan="2">⚠️ No usado — nada en <code>Codigo.js</code>/<code>dashboard.html</code> lo referencia. El LY real que se ve en la landing es el dinámico que calcula <code>actuals_gestional_upload.py</code> en cada run.</td></tr>
           </tbody>
@@ -2388,7 +2375,6 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
           <tr><td>Codigo.js</td><td><span class="tag tag-js">Apps Script</span></td><td>Backend gestional: lee <code>_actuals_gestional.json</code> (o <code>pnl_gestional_projections_review.json</code> según el toggle) desde Drive y sirve los datos al frontend. <code>getVsAccounting()</code> arma la conciliación contra <code>actuals.json</code> canónico (cache 6 h por LOB/filtro)</td></tr>
           <tr><td>ly_data.js</td><td><span class="tag tag-js">Apps Script</span></td><td>⚠️ No usado actualmente — LY estático de FY26, pero nada lo referencia. El LY real viene de <code>actuals_gestional_upload.py</code>. Candidato a borrar</td></tr>
           <tr><td>actuals_gestional_upload.py</td><td><span class="tag tag-py">Python</span></td><td>Consulta Treasure Data (ODBC) para actuals/LY/budget/run-rate B2B2C + B2B GD + B2B RI (FY27 desde Abr-26), y lee los modelos Forecast XLSX para el forecast. Sube <code>_actuals_gestional.json</code> al folder de Drive <code>1wzudbo7cN9Ibiv...</code>. Requiere VPN + <code>.env</code> con creds ODBC. <strong>Queries B2B GD/RI alineadas a <code>daily_sync.py</code></strong> — al tocarlas, comparar contra <code>_B2B_COMPONENTS_*</code> / <code>_COUNTRY_FACTORS_*</code> del Daily (ver <code>CONTEXT.md</code>)</td></tr>
-          <tr><td>projections_gestional_builder.py</td><td><span class="tag tag-py">Python</span></td><td>Herramienta de preview aparte (no forma parte del refresh regular): toma actuals del JSON principal + una proyección WIP en Excel (<code>--wip-folder</code>) y arma <code>pnl_gestional_projections_review.json</code></td></tr>
           <tr><td>appsscript.json / .clasp.json</td><td><span class="tag tag-js">Manifest</span></td><td>Webapp; executeAs USER_DEPLOYING; acceso DOMAIN</td></tr>
         </tbody>
       </table>
@@ -2400,7 +2386,6 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
         <thead><tr><th>Qué cambió</th><th>Pasos</th></tr></thead>
         <tbody>
           <tr><td><strong>Actuals + proyecciones (Forecast XLSX)</strong></td><td>Conectar VPN. Si hay un corte nuevo, actualizar <code>FC_XLSX_DIR</code> en <code>actuals_gestional_upload.py</code> a la carpeta semanal vigente. Desde la carpeta: <code>python actuals_gestional_upload.py</code> → recarga la landing. Un solo run cubre actuals, LY, budget, run-rate y forecast.</td></tr>
-          <tr><td><strong>Preview de una proyección WIP</strong> (sin publicar)</td><td>Desde la carpeta: <code>python projections_gestional_builder.py --wip-folder "&lt;ruta del WIP&gt;"</code> → recarga la landing con el toggle "Projection Review".</td></tr>
           <tr><td><strong>Código</strong> (.js / .html)</td><td><code>clasp push</code> (desde P&amp;L_Managerial) + <code>clasp deploy -i &lt;deploymentId&gt; -d "desc"</code>.</td></tr>
         </tbody>
       </table>
@@ -2445,7 +2430,7 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
               <strong>Qué no se convierte:</strong> Orders, B2C, países sin TC en el xlsx (Globales / other countries, etc.); "Euro" se ignora. <strong>OPS / RG / OPS + RG usan el TC de Brasil.</strong> El deck de Slides de cierre se arma siempre nominal. "año" del xlsx = año fiscal (2027 = abr-26…mar-27).<br>
               <strong>Backend:</strong> <code>readFxTable_</code> (lee el xlsx con <code>Utilities.unzip</code> + <code>XmlService</code>), <code>applyOrganic_</code>, <code>graftOrganicYoY_</code> en Codigo.js; también aplica a Marketing (<code>getMarketingData(organic)</code>, cache <code>mkt_b2b_v4_org3_*</code>). <strong>Ojo caché:</strong> la caché de resultados (6 h) se invalida por fecha de modificación de los JSON y del xlsx, <em>no</em> por cambios de código → cualquier cambio de lógica de cálculo requiere bumpear <code>v</code> en <code>makeCacheKey_</code>.</small></td></tr>
             <tr><td>ORGANIC en P&amp;L Accounting, P&amp;L Managerial y Daily <span class="badge badge-manual">🆕 2026-10-15</span></td><td>El mismo switch <strong>Organic NO / YES</strong> se replicó en las secciones del Hub <strong>P&amp;L Operating Contribution</strong> (<code>P&amp;L_Accounting</code>), <strong>P&amp;L Managerial View</strong> (<code>P&amp;L_Managerial</code>) y <strong>Daily, Weekly &amp; MTD Performance</strong> (<code>Daily_Dashboard</code>). Misma regla, mismo xlsx de TC (cada módulo tiene su copia de <code>readFxTable_</code> en <code>Codigo_organic.js</code>), mismo YoY "opción B" (montos a TC del target; YoY a TC Actuals LY contra el LY nominal), mismas exclusiones (Orders, B2C, países sin TC; OPS/RG → Brasil).<br>
-              <small><strong>P&amp;L Accounting:</strong> switch en la barra de Goal; target según el Goal (Budget y Forecast / Forecast BTB → TC Budget, Last Year → TC Actuals LY); con Run Rate y Last RR queda deshabilitado. Con Goal Forecast el escenario del goal también se convierte (TC Forecast → TC Budget, <code>_ORG_GOAL_SCEN_</code>, que lee <code>fetchEPMScenarios_</code>). Convierte el escenario de baseline elegido (Actuals + Projections, Forecast o Projection Reviews) en el servidor (<code>epmOrganicSetup_</code>); las filas de Uruguay que el cubo agrupa en Globales se convierten con su propio TC (<code>data_fxsplit</code>, caché de ensamblado <code>epm_asm_v2_</code>). YoY: <code>chart.total.baselineYoY</code>, <code>by_lob_yoy</code> y <code>curY</code> (Countries YoY).<br>
+              <small><strong>P&amp;L Accounting:</strong> switch en la barra de Goal; target según el Goal (Budget y Forecast / Forecast BTB → TC Budget, Last Year → TC Actuals LY); con Run Rate y Last RR queda deshabilitado. Con Goal Forecast el escenario del goal también se convierte (TC Forecast → TC Budget, <code>_ORG_GOAL_SCEN_</code>, que lee <code>fetchEPMScenarios_</code>). Convierte el escenario de baseline elegido (Actuals + Projections o Forecast) en el servidor (<code>epmOrganicSetup_</code>); las filas de Uruguay que el cubo agrupa en Globales se convierten con su propio TC (<code>data_fxsplit</code>, caché de ensamblado <code>epm_asm_v2_</code>). YoY: <code>chart.total.baselineYoY</code>, <code>by_lob_yoy</code> y <code>curY</code> (Countries YoY).<br>
               <strong>P&amp;L Managerial:</strong> switch al lado de Goal (Budget / Forecast → TC Budget, Last Year → TC Actuals LY; con Forecast el Forecast también pasa a TC Budget, <code>organicGoalJson_</code>); como el baseline depende del Goal, cambiar de Goal con Organic = YES vuelve a pedir los datos. <code>getData({organic})</code> convierte <code>bl</code>/<code>bl_ri</code> (y <code>ac_gw</code>/<code>ac_ri_gw</code> en modo gateway, <code>ac_tp</code>/<code>ac_mi</code> en modo tipo de producto / millas) y devuelve <code>yoy</code> (las mismas agregaciones a TC Actuals LY) para KPIs, Detalle (fila YoY%) y gráficos de tendencia. Caché <code>getdata_v8_</code> (incluye la fecha del xlsx).<br>
               <strong>Daily:</strong> switch en la barra superior, vale para todas las vistas. Se convierten solo los actuals (B2B2C y B2B GD/RI) en el navegador con la tabla de <code>getFxTable()</code>; el target sale de la comparación de cada vista: Daily B2B2C / B2B → selector "vs" (Budget y Forecast → TC Budget, con el Forecast también pasado a TC Budget en <code>_orgGoalRows_</code>; Run Rate = nominal) · Flow → su Goal (Budget / Last Year; Run Rate = nominal; las slides B2B usan Budget) · Benchmark → Last Year (vista de crecimiento YoY; B2C nunca se convierte) · Weekly → Budget (en el servidor, <code>getWeeklySummaryData({organic})</code>) · Daily B2B Tracker → Meta Budget (el iframe se recarga con <code>&amp;organic=1</code>; tiene su propio switch si se abre suelto). <strong>KRs</strong> (Daily B2B2C / B2B, Flow y Tracker) <strong>van siempre a TC Budget</strong> con el switch en YES (se miden vs Budget), con el YoY del detalle a TC Actuals LY <span class="badge badge-manual">🆕 2026-10-19</span>; el NR del KR Global B2B API también va a TC Budget (desde 2026-10-23 incluye todos los países); la vista Semanal del Tracker (vs Run Rate) queda nominal. El Flow tiene además el selector <strong>Organic</strong> en su propia barra (espejo del de arriba). El deck que se exporta desde el Flow sale como se ve en pantalla.</small></td></tr>
             <tr><td>Marketing &amp; Media Investment <span class="badge badge-manual">🆕 2026-09-18</span></td><td>Solo B2B. Marketing Cost y Media Revenue por país (Brasil/Mexico/Globales/Argentina/Colombia/Chile+Peru+Ecuador sumados/OPS+RG/Total), agrupable Mes/Quarter/Half. Gráfico: Actual+RR vs el selector Goal global (Budget/Run Rate/Forecast/Last Year) + Forecast siempre visible (si el Goal es Forecast no se duplica; Forecast abr–jul = Actual de esos meses, ya que no hubo forecast; ago–mar viene de forecast.json). Tabla (2026-10-06): Budget $ y Forecast $ fijos (no siguen al selector); Forecast abr–jul completado con Actuals como en el gráfico (Δ = 0 en esos meses; "—" solo donde da 0) y su Total Año compara los 12 meses; click en cada fila despliega su Δ nominal y % solo para ese país; botón "Abrir todo / Colapsar todo" al lado del toggle M/Q/H abre o cierra todos los países. Signo real en la tabla (costo negativo, sin <code>Math.abs()</code>; las barras del gráfico sí van en valor absoluto), etiquetas de dato en el gráfico. Backend: <code>computeMarketingData_</code>/<code>getMarketingData</code> en Codigo.js, pre-calentado en <code>preComputeAll()</code> (cache <code>mkt_b2b_v4</code>, antes se computaba en frío por cada usuario)</td></tr>
@@ -3188,7 +3173,6 @@ como-crear-agente-auditor.txt          ← cómo armar uno nuevo + lecciones de 
   ├── baseline_builder.py               ← Arma baseline_actuals+projections.json
   ├── plana_to_cube.py                  ← JSON canónicos → cubos contables (_pnl_contable*.json)
   ├── okr_builder.py                    ← Arma okr.json (H1 + H2) para el Ecosystem Hub: contable + daily_b2b2c + GSheet Input_OKR
-  ├── projections_validation_builder.py ← Vista "Projection Review" contable (--wip-folder)
   ├── auth_drive.py                     ← Genera token_drive.json (1 vez por persona)
   ├── run_all.bat                       ← Corre planas + json_builder + baseline_builder + sube
   ├── CLAUDE.md / CONTEXT.md            ← Doc + slash command /actualizar
@@ -3260,9 +3244,7 @@ OneDrive → Control de Gestión 2026-27 → B2B & WLs → Base_P&L_Contable\
   ├── API - Modelo Forecast.xlsx    ← B2B Mayoristas (tab P&L + tab EPM + Base RI)
   └── HTML - Modelo Forecast.xlsx   ← B2B Minoristas (tab P&L + tab EPM)
 
-  Managerial (projections_gestional_builder.py) lee "P&L"/"P&L RI" en los 3.
-  Accounting (projections_validation_builder.py) lee "EPM" en API/HTML pero
-  "P&L" en WLs (único archivo sin tab EPM) — ver card Projections Review.</div>
+  Managerial (actuals_gestional_upload.py) lee "P&L"/"P&L RI" en los 3.</div>
     </div>
 
     <div class="card">
@@ -3310,10 +3292,9 @@ OneDrive → Control de Gestión 2026-27 → B2B & WLs → Base_P&L_Contable\
       <div class="card-title">📂 P&amp;L Managerial</div>
       <div class="code-block">C:\Users\diego.bracco\Proyectos IA\P&L_Managerial\
   ├── dashboard.html                    ← Frontend vistas gestionales (B2B2C + B2B FVM)
-  ├── Codigo.js                         ← Backend (lee _actuals_gestional.json / projection review)
+  ├── Codigo.js                         ← Backend (lee _actuals_gestional.json)
   ├── ly_data.js                        ← ⚠️ LY estático NO usado (nada lo referencia) — candidato a borrar
   ├── actuals_gestional_upload.py       ← Actuals ODBC + forecast XLSX en un run (VPN requerida)
-  ├── projections_gestional_builder.py  ← Preview de un WIP forecast (--wip-folder), tool aparte
   ├── revenue_gd_builder.py             ← Sube revenue_gd.json (modelo de revenue B2B, basis gestion_date) para el modo "Actuals GD vs Revenue" — tool aparte, correr a mano cuando haga falta refrescar
   ├── CONTEXT.md                        ← Doc detallada del módulo
   ├── appsscript.json / .clasp.json</div>
@@ -3408,7 +3389,6 @@ OneDrive → Control de Gestión 2026-27 → B2B & WLs → Base_P&L_Contable\
           <tr><td>Auth Drive del motor de datos (1 vez)</td><td><span class="cmd">python auth_drive.py</span> (desde Inputs_Planning_PnL)</td></tr>
           <tr><td>Actualizar datos P&amp;L Accounting</td><td><span class="cmd">python plana_to_cube.py --upload</span> (desde Inputs_Planning_PnL, tras regenerar los JSON) + Ctrl+Shift+R</td></tr>
           <tr><td>Actualizar actuals + proyecciones P&amp;L Managerial</td><td><span class="cmd">python actuals_gestional_upload.py</span> (desde P&amp;L_Managerial, requiere VPN)</td></tr>
-          <tr><td>Preview proyección WIP P&amp;L Managerial</td><td><span class="cmd">python projections_gestional_builder.py --wip-folder "&lt;ruta&gt;"</span> (desde P&amp;L_Managerial)</td></tr>
           <tr><td>Actualizar datos Daily (manual)</td><td><span class="cmd">python daily_sync.py</span> (desde Daily_Dashboard, requiere VPN)</td></tr>
           <tr><td>Deploy código P&amp;L Accounting</td><td><span class="cmd">clasp push</span> + <span class="cmd">clasp deploy -i AKfycby9WZK2HfAWx25M5pEMV3nntzJfEvsiT9feMn01zJQkQaI3t2GjTzOIjbFXWexnMuzklQ</span> (desde P&amp;L_Accounting)</td></tr>
           <tr><td>Deploy código P&amp;L Managerial</td><td><span class="cmd">clasp push</span> + <span class="cmd">clasp deploy -i AKfycbxHyP4uIh02zTQbQ7ZFbyByCVIYuREuiMJ74PnKhQbNGbWknCG2jxOtt_onafQcg5g4 -d "desc"</span> (desde P&amp;L_Managerial)</td></tr>

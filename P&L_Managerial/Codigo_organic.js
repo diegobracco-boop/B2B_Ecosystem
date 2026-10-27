@@ -3,7 +3,7 @@
 // ══════════════════════════════════════════════════════════════
 // Misma regla que Monthly Results del Hub (Dashboard_B2B_WLs/Codigo.js, applyOrganic_):
 //   ORGANIC = USD × TC Actuals(país, mes) / TC Target(país, mes), solo sobre el BASELINE
-//   (Actuals + Projections o Projection Reviews; en modo gateway, los Actuals de Hotels por
+//   (Actuals + Projections; en modo gateway, los Actuals de Hotels por
 //   gateway). Budget y LY quedan en USD tal cual; el Forecast, con Goal Forecast, a TC Budget.
 //   Target según el Goal del front: Budget → TC Budget, Forecast → TC Budget, Last Year → TC
 //   Actuals del mismo mes del año anterior.

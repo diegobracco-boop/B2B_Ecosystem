@@ -1159,7 +1159,7 @@ VIAJE_SIN_DATO = "(Sin dato)"
 def _viaje_col(df: pd.DataFrame) -> pd.Series:
     """Tipo de viaje (Domestic / International) normalizado; vacío o ausente → '(Sin dato)'.
     Va como ÚLTIMA columna de cada fila B2B ([pais, produto, ym, v0..v28, viaje]): así todo lo
-    que lee las filas por posición (Codigo.js, Managerial vs Accounting, Projection Reviews) sigue
+    que lee las filas por posición (Codigo.js, Managerial vs Accounting) sigue
     igual y simplemente suma las dos aperturas. Lo usa el filtro "Viaje" de la landing (2026-10-13)."""
     if "viaje" not in df.columns:
         return pd.Series(VIAJE_SIN_DATO, index=df.index)
