@@ -1033,6 +1033,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
+  .kr-detail-box--dual .kr-detail-table th[colspan] { text-align: center; border-bottom: 1px solid #e5e7eb; }
   .kr-detail-total td {
     border-top: 2px solid #e5e7eb;
     background: #f5f3ff;
@@ -1426,7 +1427,7 @@
         <tbody id="statusKRsH2Body"></tbody>
       </table>
     </div>
-    <div style="font-size:0.78rem;color:#9ca3af;margin-top:10px">Targets provisorios = Budget MTD · Accelerate Recurrence (solo HTML): agencias de alta frecuencia (Metabase 171400) vs target mensual de Input_OKR; mientras el mes no cierra, el Actual y el cumplimiento son Rolling L4W vs Target (el MTD arranca en 0 cada mes y queda como nota); con la foto de cierre del mes, MTD vs Target. Los recuadros por país muestran las dos columnas.</div>
+    <div style="font-size:0.78rem;color:#9ca3af;margin-top:10px">Targets provisorios = Budget MTD · Accelerate Recurrence (solo HTML): agencias de alta frecuencia (Metabase 171400) vs target mensual de Input_OKR; mientras el mes no cierra, el Actual y el cumplimiento son Rolling L4W vs Target (el MTD arranca en 0 cada mes y queda como nota); con la foto de cierre del mes, MTD vs Target. Los recuadros por país muestran las dos columnas. Con el filtro API o HTML, los recuadros por país muestran el cumplimiento y el YoY por <strong>Recognition Date</strong> y por <strong>Gestion Date</strong> (sin la columna Actual); la tabla principal sigue por Recognition Date.</div>
     <div class="kr-detail-grid" id="statusKRsH2DetailGrid"></div>
   </div>
 </div>
@@ -3702,25 +3703,26 @@ function _fitKrSlide(container) {
 }
 
 // Igual que computeMetricForPaisList pero con predicado por fila (canal/producto).
-function computeKRH2ForPaisList_(paisList, metricField, predAct, predBud, monthFilter) {
+function computeKRH2ForPaisList_(paisList, metricField, predAct, predBud, monthFilter, dateType) {
+  dateType = dateType || 'ri';
   if (!rawData) return { actual: 0, budget: 0, ly: 0 };
   var bounds = getPeriodBounds(_resolveYM(monthFilter), rawData.meta);
   var paisLower = paisList.map(function(p){ return p.toLowerCase(); });
   function inPais(r){ return paisLower.indexOf((r.pais || '').toLowerCase()) !== -1; }
   var actual = 0, actualY = 0, budget = 0, ly = 0;
-  getKrActuals('ri').forEach(function(r){
+  getKrActuals(dateType).forEach(function(r){
     if (r.fecha < bounds.from || r.fecha > bounds.cutoff) return;
     if (!inPais(r) || (predAct && !predAct(r))) return;
     actual += (r[metricField] || 0);
     actualY += yv(r, metricField);   // organic: a TC Actuals LY, para el YoY
   });
-  getKrBudget('ri').forEach(function(r){
+  getKrBudget(dateType).forEach(function(r){
     if (r.fecha < bounds.from || r.fecha > bounds.cutoff) return;
     if (!inPais(r) || (predBud && !predBud(r))) return;
     budget += (r[metricField] || 0);
   });
   var lyFrom = shiftYear(bounds.from, -1), lyCut = shiftYear(bounds.cutoff, -1);
-  getKrActualsLY('ri').forEach(function(r){
+  getKrActualsLY(dateType).forEach(function(r){
     if (r.fecha < lyFrom || r.fecha > lyCut) return;
     if (!inPais(r) || (predAct && !predAct(r))) return;
     ly += (r[metricField] || 0);
@@ -3733,40 +3735,57 @@ function renderStatusKRsH2DetailBoxes_(monthFilter) {
   if (!grid) return;
   grid.innerHTML = '';
 
-  function makeBox(title, rows, unit) {
+  // Con rowsGd (filtro API / HTML) el recuadro muestra Cumpl. y YoY por Recognition Date y por Gestion Date
+  // (mismas filas, mismo orden); para que entre, sin la columna Actual. Sin rowsGd (Total): Actual · Cumpl. · YoY (RI).
+  function makeBox(title, rows, unit, rowsGd) {
     var box = document.createElement('div');
-    box.className = 'kr-detail-box';
+    box.className = 'kr-detail-box' + (rowsGd ? ' kr-detail-box--dual' : '');
     unit = unit || '$M';
-    var bodyRows = rows.map(function(r){
-      var c = cumplRatio(r.actual, r.budget);
-      var cStr = c !== null ? (c * 100).toFixed(0) + '%' : '—';
-      var yoy = (r.ly !== null && r.ly !== undefined && r.ly > 0) ? (krActY(r) / r.ly - 1) : null;
-      return '<tr><td style="text-align:left">' + r.name + '</td><td>' + fmtKRVal(r.actual, unit) + '</td>' +
-             cumplCellHtml(c, cStr, false) + '<td class="' + yoyColor(yoy) + '">' + yoyIcon(yoy) + '</td></tr>';
+    function rowStat(r) {
+      return { c: cumplRatio(r.actual, r.budget),
+               yoy: (r.ly !== null && r.ly !== undefined && r.ly > 0) ? (krActY(r) / r.ly - 1) : null };
+    }
+    function totStat(rs) {
+      var tAct = 0, tActY = 0, tBud = 0, tLY = 0, hAct = false, hBud = false, hLY = false;
+      rs.forEach(function(r){
+        if (r.actual != null && !isNaN(r.actual)) { tAct += r.actual; tActY += krActY(r); hAct = true; }
+        if (r.budget != null && !isNaN(r.budget)) { tBud += r.budget; hBud = true; }
+        if (r.ly     != null && !isNaN(r.ly))     { tLY  += r.ly;     hLY  = true; }
+      });
+      return { actual: hAct ? tAct : null,
+               c: (hBud && tBud) ? Math.min(cumplRatio(tAct, tBud), 1.30) : null,
+               yoy: (hLY && tLY > 0) ? (tActY / tLY - 1) : null };
+    }
+    function cells(x, bold) {
+      var y = yoyIcon(x.yoy);
+      return cumplCellHtml(x.c, x.c !== null ? (x.c * 100).toFixed(0) + '%' : '—', bold) +
+        '<td class="' + yoyColor(x.yoy) + '">' + (bold ? '<strong>' + y + '</strong>' : y) + '</td>';
+    }
+    var tRi = totStat(rows);
+    var totalRow = '<tr class="kr-detail-total"><td style="text-align:left;font-weight:700">TOTAL</td>' +
+      (rowsGd ? '' : '<td><strong>' + (tRi.actual !== null ? fmtKRVal(tRi.actual, unit) : '—') + '</strong></td>') +
+      cells(tRi, true) + (rowsGd ? cells(totStat(rowsGd), true) : '') + '</tr>';
+    var bodyRows = rows.map(function(r, i){
+      return '<tr><td style="text-align:left">' + r.name + '</td>' +
+             (rowsGd ? '' : '<td>' + fmtKRVal(r.actual, unit) + '</td>') +
+             cells(rowStat(r), false) + (rowsGd ? cells(rowStat(rowsGd[i]), false) : '') + '</tr>';
     }).join('');
-    var tAct = 0, tActY = 0, tBud = 0, tLY = 0, hAct = false, hBud = false, hLY = false;
-    rows.forEach(function(r){
-      if (r.actual != null && !isNaN(r.actual)) { tAct += r.actual; tActY += krActY(r); hAct = true; }
-      if (r.budget != null && !isNaN(r.budget)) { tBud += r.budget; hBud = true; }
-      if (r.ly     != null && !isNaN(r.ly))     { tLY  += r.ly;     hLY  = true; }
-    });
-    var tc = (hBud && tBud) ? Math.min(cumplRatio(tAct, tBud), 1.30) : null;
-    var tCStr = tc !== null ? (tc * 100).toFixed(0) + '%' : '—';
-    var tYoy = (hLY && tLY > 0) ? (tActY / tLY - 1) : null;
-    var totalRow = '<tr class="kr-detail-total"><td style="text-align:left;font-weight:700">TOTAL</td><td><strong>' +
-      (hAct ? fmtKRVal(tAct, unit) : '—') + '</strong></td>' + cumplCellHtml(tc, tCStr, true) +
-      '<td class="' + yoyColor(tYoy) + '"><strong>' + yoyIcon(tYoy) + '</strong></td></tr>';
+    var head = rowsGd
+      ? '<tr><th rowspan="2" style="text-align:left;min-width:90px">País</th>' +
+          '<th colspan="2" title="Recognition Date">Recognition</th><th colspan="2" title="Gestion Date">Gestion</th></tr>' +
+        '<tr><th>Cumpl.</th><th>YoY</th><th>Cumpl.</th><th>YoY</th></tr>'
+      : '<tr><th style="text-align:left;min-width:90px">País</th><th>Actual</th><th>Cumpl.</th><th>YoY</th></tr>';
     box.innerHTML =
       '<div class="kr-detail-header"><span class="kr-num-badge">' + title + '</span></div>' +
       '<table class="pivot-table kr-detail-table">' +
-      '<thead><tr><th style="text-align:left;min-width:90px">País</th><th>Actual</th><th>Cumpl.</th><th>YoY</th></tr></thead>' +
+      '<thead>' + head + '</thead>' +
       '<tbody>' + totalRow + bodyRows + '</tbody></table>';
     return box;
   }
 
-  function rowsFor(metricField, predAct, predBud) {
+  function rowsFor(metricField, predAct, predBud, dateType) {
     return FVM_DETAIL.map(function(def){
-      var d = computeKRH2ForPaisList_(def.pais, metricField, predAct, predBud, monthFilter);
+      var d = computeKRH2ForPaisList_(def.pais, metricField, predAct, predBud, monthFilter, dateType);
       return { name: def.name, actual: toM(d.actual), actualY: d.actualY != null ? toM(d.actualY) : null, budget: toM(d.budget), ly: toM(d.ly) };
     });
   }
@@ -3777,31 +3796,44 @@ function renderStatusKRsH2DetailBoxes_(monthFilter) {
   var isNPb  = andPred_(isNewProductBudget_, chPred);
   var chLbl  = krH2Channel === 'api' ? ' (API)' : krH2Channel === 'html' ? ' (HTML)' : '';
 
-  grid.appendChild(makeBox('Net Revenues $M' + chLbl, rowsFor('net_revenue', chPred, chPred)));
   // FVM y New Products en miles ($K enteros): con $M quedaban montos tipo $ 0.08 M, difíciles de leer.
   var toK = function(rows) {
     return rows.map(function(r){
       return { name: r.name, actual: r.actual * 1000, actualY: r.actualY != null ? r.actualY * 1000 : null, budget: r.budget * 1000, ly: r.ly * 1000 };
     });
   };
-  if (krH2Channel !== 'html') grid.appendChild(makeBox('API FVM $K',  toK(rowsFor('fvm', isAPI,  isAPI)),  '$Kint'));
-  if (krH2Channel !== 'api')  grid.appendChild(makeBox('HTML FVM $K', toK(rowsFor('fvm', isHTML, isHTML)), '$Kint'));
+  var dual = krH2Channel !== 'total';   // API / HTML: además de Recognition, Gestion Date
+  // Recuadro de un KR: filas RI (y GD si dual) con la conversión de unidad; dropEmpty saca los países sin
+  // dato en ninguna de las dos fechas.
+  function addBox(parent, title, metricField, pa, pb, unit, conv, dropEmpty) {
+    conv = conv || function(x){ return x; };
+    var ri = conv(rowsFor(metricField, pa, pb, 'ri'));
+    var gd = dual ? conv(rowsFor(metricField, pa, pb, 'gd')) : null;
+    if (dropEmpty) {
+      var has = function(r){ return r.actual || r.budget || r.ly; };
+      var keep = ri.map(function(r, i){ return has(r) || (gd && has(gd[i])); });
+      ri = ri.filter(function(r, i){ return keep[i]; });
+      if (gd) gd = gd.filter(function(r, i){ return keep[i]; });
+    }
+    parent.appendChild(makeBox(title, ri, unit, gd));
+  }
+
+  addBox(grid, 'Net Revenues $M' + chLbl, 'net_revenue', chPred, chPred);
+  if (krH2Channel !== 'html') addBox(grid, 'API FVM $K',  'fvm', isAPI,  isAPI,  '$Kint', toK);
+  if (krH2Channel !== 'api')  addBox(grid, 'HTML FVM $K', 'fvm', isHTML, isHTML, '$Kint', toK);
   if (krH2Channel === 'api') {
     // En API, New Products se abre en Flights y Dest. Serv. (uno abajo del otro), solo con los países que
     // tienen datos y en $K (en API son montos chicos). La tabla principal sigue mostrando el conjunto.
-    var inK = function(rows) {
-      return toK(rows.filter(function(r){ return r.actual || r.budget || r.ly; }));
-    };
     var npCol = document.createElement('div');
     npCol.className = 'kr-detail-column';
     [['flights', 'New Products · Flights $K (API)'], ['ds', 'New Products · Dest. Serv. $K (API)']].forEach(function(k){
       var pa = andPred_(function(r){ return npKindOf_(r.producto_original, r.product_type) === k[0]; }, chPred);
       var pb = andPred_(function(r){ return npKindOf_(r.producto, r.product_type) === k[0]; }, chPred);
-      npCol.appendChild(makeBox(k[1], inK(rowsFor('net_revenue', pa, pb)), '$K'));
+      addBox(npCol, k[1], 'net_revenue', pa, pb, '$K', toK, true);
     });
     grid.appendChild(npCol);
   } else {
-    grid.appendChild(makeBox('New Products Growth $K' + chLbl, toK(rowsFor('net_revenue', isNPa, isNPb)), '$Kint'));
+    addBox(grid, 'New Products Growth $K' + chLbl, 'net_revenue', isNPa, isNPb, '$Kint', toK);
   }
 
   // Accelerate Recurrence (solo HTML): País | Actuals | % Cumpl. | Rolling L4W | Rolling vs Target.
