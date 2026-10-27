@@ -8,7 +8,8 @@
  *   1 Portada · 2 H2 vs H1 (public/hub-h2h1.js) · 3 Evolución B2B MAY · 4 B2B2C mensual vs Budget ·
  *   5 Evolución B2B MIN · 6 Resultados por negocio · 7 B2B2C + highlights · 8 B2B ·
  *   9 B2B + business levers · 10 B2B MIN por región · 11 B2B MAY por región ·
- *   12-13 Proyección (mes siguiente, los Q que faltan y el semestre) vs Budget y vs Forecast BTB.
+ *   12-13 Proyección (mes siguiente, los Q que faltan y el semestre) vs Budget y vs Forecast BTB, en cards.
+ *   Después de la 2: "H2 vs H1 · 100% Budget" (public/hub-h2h1.js, slideBudgetHtml).
  *   Después de la 4: B2B-MAY mensual vs Budget, el mismo formato con NR y OC contable por segmento de
  *   API (Hoteles Brasil · Hoteles Globales · Flights & Dest. Serv. · Argentina · Rest of Countries, ver MAY_Q).
  *   La 4 es la portada "B2B2C — Resumen mensual (OC)" del Flow del Daily a pantalla completa
@@ -412,36 +413,47 @@
     });
     return out;
   }
-  var OUT_SEGS = [['total', 'Total'], ['b2b2c', 'B2B2C'], ['b2b', 'B2B'], ['min', 'B2B-MIN'], ['may', 'B2B-MAY']];
-  function sOutlook(goal) {
-    var per = outlookPeriods(), gk = goal === 'btb' ? 'fc' : 'bud', gName = goal === 'btb' ? 'Forecast BTB' : 'Budget';
-    if (!per.length) return head('Proyección vs ' + gName) + '<p class="hs-err">Con el año cerrado no hay proyección.</p>' + foot();
-    var th = '<tr><th rowspan="2"></th><th rowspan="2"></th>' + per.map(function (x) {
-      return '<th colspan="3" class="' + (x.half ? 'hs-oth' : '') + '">' + esc(x.name) + '<small>' + esc(x.sub) + '</small></th>'; }).join('') + '</tr>' +
-      '<tr>' + per.map(function (x) { return '<th class="' + (x.half ? 'hs-oth' : '') + '">Proy.</th><th class="' + (x.half ? 'hs-oth' : '') + '">Δ $</th><th class="' + (x.half ? 'hs-oth' : '') + '">Δ %</th>'; }).join('') + '</tr>';
-    var body = OUT_SEGS.map(function (sg) {
-      var s = state.data[sg[0]].s;
-      return ROWS.map(function (r, j) {
-        return '<tr class="' + (j === 0 ? 'hs-otg' : '') + (sg[0] === 'total' ? ' hs-ott' : '') + '">' +
-          (j === 0 ? '<td rowspan="3" class="hs-ots">' + sg[1] + '</td>' : '') + '<td class="hs-otm">' + r[1] + '</td>' +
-          per.map(function (x) {
-            var o = agg(s[r[0]], x.idx), g = o[gk], d = o.act - g, pct = g ? (o.act / g - 1) * 100 : NaN, h = x.half ? ' hs-oth' : '';
-            if (!g) return '<td class="hs-otv' + h + '">' + m1(o.act) + '</td><td class="' + h + '">n/d</td><td class="' + h + '">n/d</td>';
-            return '<td class="hs-otv' + h + '">' + m1(o.act) + '</td><td class="' + cls(d) + h + '">' + money(d) + '</td>' +
-              '<td class="' + cls(d) + h + '">' + (g > 0 && Math.abs(pct) < 200 ? pc(pct) : '—') + '</td>';
-          }).join('') + '</tr>';
-      }).join('');
+  // Formato de cards (como "Resultados"): columnas B2B-MIN · B2B-MAY · B2B2C · Total, filas GB / NR / OC. Cada card:
+  // el semestre proyectado grande y su Δ vs el objetivo; abajo el mes siguiente y cada Q con su Δ.
+  var OUT_COLS = [['min', 'B2B-MIN'], ['may', 'B2B-MAY'], ['b2b2c', 'B2B2C'], ['total', 'TOTAL']];
+  function ocell(arr, per, gk, gShort) {
+    var main = per.filter(function (x) { return x.half; }).slice(-1)[0] || per[per.length - 1];
+    function dlt(o) {
+      var g = o[gk], d = o.act - g, p = g > 0 && isFinite(o.act / g) ? (o.act / g - 1) * 100 : NaN;
+      return { d: d, p: p, ok: !!g };
+    }
+    var o = agg(arr, main.idx), m = dlt(o);
+    var subs = per.filter(function (x) { return x !== main; }).map(function (x) {
+      var q = dlt(agg(arr, x.idx));
+      return '<span>' + esc(x.name) + ' <b class="' + cls(q.d) + '">' + (q.ok ? money(q.d) + (isFinite(q.p) && Math.abs(q.p) < 200 ? ' (' + pc(q.p) + ')' : '') : 'n/d') + '</b></span>';
     }).join('');
-    var note = 'Proyección = real cerrado hasta ' + monthLabel(state.month) + ' + Run Rate · USD $M · Δ = proyección − ' + gName +
+    return '<div class="hs-k"><div class="hs-kv">' + m1(o.act) + '</div>' +
+      '<div class="hs-kb ' + cls(m.d) + '">' + (m.ok ? money(m.d) + (isFinite(m.p) && Math.abs(m.p) < 200 ? ' (' + pc(m.p) + ')' : '') + ' vs ' + gShort : 'sin ' + gShort) + '</div>' +
+      '<div class="hs-kq">' + subs + '</div></div>';
+  }
+  function sOutlook(goal) {
+    var per = outlookPeriods(), gk = goal === 'btb' ? 'fc' : 'bud', gName = goal === 'btb' ? 'Forecast BTB' : 'Budget', gShort = goal === 'btb' ? 'BTB' : 'Budget';
+    if (!per.length) return head('Proyección vs ' + gName) + '<p class="hs-err">Con el año cerrado no hay proyección.</p>' + foot();
+    var main = per.filter(function (x) { return x.half; }).slice(-1)[0] || per[per.length - 1];
+    var cols = OUT_COLS.map(function (c) { return { name: c[1], s: state.data[c[0]].s }; });
+    var g = '<div class="hs-g" style="grid-template-columns:170px repeat(' + cols.length + ',1fr)"><div></div>' +
+      cols.map(function (c) { return '<div class="hs-gh">' + esc(c.name) + '</div>'; }).join('') +
+      ROWS.map(function (r) {
+        return '<div class="hs-gl"><b>' + r[1] + '</b><span>' + esc(main.name) + ' proyectado · USD $M</span></div>' +
+          cols.map(function (c) { return ocell(c.s[r[0]], per, gk, gShort); }).join('');
+      }).join('') + '</div>';
+    var note = 'Proyección = real cerrado hasta ' + monthLabel(state.month) + ' + Run Rate · Δ = proyección − ' + gName + ' · ' + main.name + ' = ' + main.sub +
+      ' · abajo, ' + per.filter(function (x) { return x !== main; }).map(function (x) { return x.name + ' (' + x.sub + ')'; }).join(', ') +
       (goal === 'btb' ? ' · BTB: escenario "Forecast - Bridge to budget" (hasta OC)' : '') + (organicOn() ? ' · Organic: todo a TC Budget' : '');
-    return head('Proyección ' + per.map(function (x) { return x.name; }).join(' · ') + ' vs ' + gName, 'cierre ' + monthLabel(state.month)) +
-      '<table class="hs-ot"><thead>' + th + '</thead><tbody>' + body + '</tbody></table><div class="hs-otn">' + esc(note) + '</div>' + foot();
+    return head(main.name + ' proyectado vs ' + gName + ' · ' + per.filter(function (x) { return x !== main; }).map(function (x) { return x.name; }).join(' · '), 'cierre ' + monthLabel(state.month)) +
+      '<div class="hs-res">' + g + '</div><div class="hs-otn">' + esc(note) + '</div>' + foot();
   }
 
-  function slidesHtml(h2h1) {
+  function slidesHtml(h2h1, h2h1b) {
     var list = [
       ['Portada', sCover()],
       ['H2 vs H1', h2h1 || '<div class="hs-err">No se pudo armar H2 vs H1.</div>', true],
+      ['H2 vs H1 · 100% Budget', h2h1b || '<div class="hs-err">No se pudo armar H2 vs H1 Budget.</div>', true],
       ['B2B-MAY Evolution', sEvolution('may', 'Principales desafíos H2', 'may_challenges')],
       ['B2B2C mensual vs Budget', sB2B2CMonthly(), true],
       ['B2B-MAY mensual vs Budget', sMayMonthly()],
@@ -494,9 +506,10 @@
     deck.innerHTML = '<p class="hs-load">Armando el deck de ' + monthLabel(state.month) + '… (la primera vez tarda unos segundos)</p>';
     syncToolbar();
     var h2 = window.OwniaH2H1 ? window.OwniaH2H1.slideHtml().catch(function () { return null; }) : Promise.resolve(null);
-    Promise.all([loadAll(), loadNotes(), h2]).then(function (r) {
+    var h2b = window.OwniaH2H1 && window.OwniaH2H1.slideBudgetHtml ? window.OwniaH2H1.slideBudgetHtml().catch(function () { return null; }) : Promise.resolve(null);
+    Promise.all([loadAll(), loadNotes(), h2, h2b]).then(function (r) {
       state.data = r[0];
-      deck.innerHTML = slidesHtml(r[2]);
+      deck.innerHTML = slidesHtml(r[2], r[3]);
       fit();
     }).catch(function (e) {
       deck.innerHTML = '<p class="hs-err">No se pudieron leer los datos: ' + esc((e && e.message) || e) + '</p>';
@@ -591,6 +604,7 @@
       '#hs .hs-ot td.hs-ots{text-align:left;font-weight:700;color:#4300d2;font-size:14px;background:#fbfaff;border-right:1px solid #eeecf6}',
       '#hs .hs-ot td.hs-otm{text-align:left;color:#55555c}#hs .hs-ot td.hs-otv{font-weight:600;color:#1d1d1f}',
       '#hs .hs-otn{font-size:11px;color:#8e8e93;margin-top:8px}',
+      '#hs .hs-kq{display:flex;flex-wrap:wrap;justify-content:center;gap:2px 10px;font-size:11.5px;color:#6e6e73;margin-top:5px;border-top:1px dashed #e1dcf7;padding-top:4px}',
       '#hs .hs-may{display:grid;grid-template-columns:600px 1fr;gap:22px;margin-top:2px}',
       '#hs .hs-mayl{display:flex;flex-direction:column;gap:2px}#hs .hs-mayr{display:flex;flex-direction:column;gap:6px}',
       '#hs .hs-mleg{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11px;color:#55555c}#hs .hs-mleg i,#hs .hs-mtl i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px}',

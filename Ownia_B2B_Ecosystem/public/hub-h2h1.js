@@ -253,6 +253,59 @@
       '</div>';
   }
 
+
+  // ── Slide "H2 vs H1 · 100% Budget" (pedido de Diego, 2026-10-27): lo que se presupuestó para cada semestre,
+  // sin el real. H1 Budget y H2 Budget, el YoY de cada uno contra el año pasado y cuánto crece el H2 sobre el
+  // H1 dentro del Budget, contra un H2 normal (H2 / H1 del año pasado). Mismos datos que la slide 2.
+  function budRows(all) {
+    var o = {};
+    METRICS.forEach(function (m) {
+      o[m[0]] = all[m[0]].map(function (r) { return Object.assign({}, r, { h1: r.h1Bud, h1yoy: pct(r.h1Bud, r.lyH1), accel: pct(r.h2, r.lyH2) - pct(r.h1Bud, r.lyH1) }); });
+    });
+    return o;
+  }
+  function bCard(title, list, half, gb) {
+    var t = list[0], h1 = half === 1, val = h1 ? t.h1 : t.h2;
+    var marg = gb ? '<span class="h21-smarg">' + (val / gb * 100).toFixed(1) + '%</span>' : '';
+    return '<div class="h21-scard"><div class="h21-spill">' + title + (h1 ? ' H1 Budget' : ' H2 Budget') + '</div>' +
+      '<div class="h21-sval h21-sval2">USD ' + fmtM(val) + marg + '</div>' +
+      (h1 ? '<div class="h21-sl">YoY: Total ' + pc(t.h1yoy) + ' | ' + segLine(list, function (r) { return r.h1yoy; }) + '</div>'
+          : '<div class="h21-sl">' + pc(t.inBud) + ' vs H1 Budget | ' + segLine(list, function (r) { return r.inBud; }) + '</div>' +
+            '<div class="h21-sl h21-sly">YoY: Total ' + pc(t.h2yoy) + ' | ' + segLine(list, function (r) { return r.h2yoy; }) + '</div>') +
+      '</div>';
+  }
+  function bAssumed(all) {
+    var items = SEGS.slice(1).map(function (s, i) { return { s: s, nr: all.nr[i + 1], oc: all.oc[i + 1] }; })
+      .sort(function (a, b) { return (b.nr.inBud - b.nr.ly) - (a.nr.inBud - a.nr.ly); });
+    function one(r) {
+      return metricShort(r) + ' H2 ' + pc(r.inBud, 'h21-strong') + ' over H1 (normal H2 ' + fmtP(r.ly) + ', <b class="' + (r.plan > 0 ? 'h21-dn' : 'h21-up') + '">' + fmtPP(r.plan) + '</b>) · YoY ' +
+        fmtP(r.h1yoy) + ' → ' + fmtP(r.h2yoy) + ' (' + fmtPP(r.accel) + ')';
+    }
+    var li = items.map(function (it) {
+      var v = verdict(it.nr.plan);
+      return '<li><span class="h21-vtag ' + v[1] + '">' + VERD_EN[v[0]] + '</span> <b>' + SEG_EN[it.s[0]] + '</b>: ' + one(it.nr) + ' &nbsp;|&nbsp; ' + one(it.oc) + '</li>';
+    }).join('');
+    return '<div class="h21-schal"><div class="h21-scht">What the Budget assumed <span>(H2 vs H1 inside the Budget vs a normal H2 = last year\'s H2 vs H1; YoY of each half vs last year)</span></div><ul>' + li + '</ul></div>';
+  }
+  function slideBud(all0, h1, h2) {
+    var all = budRows(all0), adj = fy() === LY_ADJ_FY, nr = all.nr[0], oc = all.oc[0];
+    var title = 'Budget FY' + String(fy()).slice(-2) + ': H2 grows ' + fmtP(nr.inBud) + ' NR / ' + fmtP(oc.inBud) + ' OC over H1 (a normal H2: ' + fmtP(nr.ly) + ' / ' + fmtP(oc.ly) +
+      ') — NR YoY from ' + fmtP(nr.h1yoy) + ' in H1 to ' + fmtP(nr.h2yoy) + ' in H2';
+    return '<div class="h21-slide">' +
+      '<div class="h21-stitle">' + title + '</div>' +
+      '<div class="h21-sgrid">' +
+        '<div class="h21-scol"><div class="h21-shalf">H1</div>' + bCard('Net Revenue', all.nr, 1) + bCard('Op. Contribution', all.oc, 1, h1.gb.total.bud) + '</div>' +
+        '<div class="h21-scol"><div class="h21-shalf">H2</div>' + bCard('Net Revenue', all.nr, 2) + bCard('Op. Contribution', all.oc, 2, h2.gb.total.bud) + '</div>' +
+        '<div class="h21-scharts"><div class="h21-scap">H1 Budget vs H2 Budget | YoY vs FY' + String(fy() - 1).slice(-2) + ' above each bar ' +
+          '<span class="h21-sleg"><i style="background:' + SEG_COLORS.b2b2c + '"></i>B2B2C <i style="background:' + SEG_COLORS.min + '"></i>B2B MIN <i style="background:' + SEG_COLORS.may + '"></i>B2B MAY</span></div>' +
+          sChart('Net Revenue', all.nr) + sChart('Op. Contribution', all.oc, adj) + '</div>' +
+        bAssumed(all) +
+      '</div>' +
+      '<div class="h21-sfoot">' + (adj ? '* H1 OC YoY adj. excl. LATAM extraordinary payment USD 5.6M (Jun-25). ' : '') +
+        '100% Budget (no actuals). OC margin over Budget Gross Bookings.<span>FY' + String(fy()).slice(-2) + ' | Despegar</span></div>' +
+      '</div>';
+  }
+
   function render(h1r, h2r) {
     var h1 = pick(h1r), h2 = pick(h2r);
     if (!h1.nr || !h2.nr || !h1.oc || !h2.oc) {
@@ -449,6 +502,16 @@
         var a = pick(r[0]), b = pick(r[1]);
         if (!a.nr || !b.nr || !a.oc || !b.oc) throw new Error('No llegaron los datos del P&L');
         return '<div class="h21">' + slide(rows(a, b), a, b) + '</div>';
+      });
+    },
+    // H1 y H2 100% Budget (slide 3 de "Slides mensuales")
+    slideBudgetHtml: function () {
+      ensureCss();
+      var h = halves();
+      return Promise.all([fetchData(h.h1), fetchData(h.h2)]).then(function (r) {
+        var a = pick(r[0]), b = pick(r[1]);
+        if (!a.nr || !b.nr || !a.oc || !b.oc) throw new Error('No llegaron los datos del P&L');
+        return '<div class="h21">' + slideBud(rows(a, b), a, b) + '</div>';
       });
     },
   };
