@@ -1407,7 +1407,7 @@
         <tbody id="statusKRsH2Body"></tbody>
       </table>
     </div>
-    <div style="font-size:0.78rem;color:#9ca3af;margin-top:10px">Targets provisorios = Budget MTD · Accelerate Recurrence (solo HTML): agencias de alta frecuencia (Metabase 171400) vs target mensual de Input_OKR; en las semanas 1-2 del mes el MTD da 0 y el cumplimiento se toma de Rolling L4W vs Target; desde la semana 3 el Actual muestra el parcial de la semana en curso (informativo, el cumplimiento sigue con la última semana cerrada).</div>
+    <div style="font-size:0.78rem;color:#9ca3af;margin-top:10px">Targets provisorios = Budget MTD · Accelerate Recurrence (solo HTML): agencias de alta frecuencia (Metabase 171400) vs target mensual de Input_OKR; mientras el mes no cierra, el Actual y el cumplimiento son Rolling L4W vs Target (el MTD arranca en 0 cada mes y queda como nota); con la foto de cierre del mes, MTD vs Target. Los recuadros por país muestran las dos columnas.</div>
     <div class="kr-detail-grid" id="statusKRsH2DetailGrid"></div>
   </div>
 </div>
@@ -3437,10 +3437,12 @@ function recurTarget_(krYM, paisNames) {
   return any ? s : null;
 }
 // Cumplimiento del KR: MTD vs Target; si da 0 (semanas 1-2), Rolling L4W vs Target.
-function recurCumpl_(mtd, roll, target) {
+// preferRoll (tabla principal, 2026-10-27 pedido de antonella.difranco): Rolling L4W vs Target mientras el mes
+// no tenga foto de cierre — el MTD arranca en 0 cada mes y a mitad de mes no refleja cómo viene el KR.
+function recurCumpl_(mtd, roll, target, preferRoll) {
   var cMtd  = realScore_(mtd, target);
   var cRoll = realScore_(roll, target);
-  var useRoll = (cMtd === 0 && cRoll !== null);
+  var useRoll = cRoll !== null && (cMtd === 0 || (!!preferRoll && roll > 0));
   return { mtd: cMtd, roll: cRoll, shown: useRoll ? cRoll : cMtd, useRoll: useRoll,
            score: okrScore_(useRoll ? roll : mtd, target) };
 }
@@ -3572,13 +3574,17 @@ function renderStatusKRsH2() {
         '<td colspan="3" style="text-align:center;color:#9ca3af;font-style:italic">' + recurNoDataMsg_() + '</td>';
     } else {
       var recBud = recurTarget_(krYM, null);
-      recC = recurCumpl_(rec.total.mtd, rec.total.roll, recBud);
+      recC = recurCumpl_(rec.total.mtd, rec.total.roll, recBud, !rec.cierreMes);
+      // Con Rolling, el Actual es el L4W y el MTD (o el parcial) queda como nota.
+      var mtdTxt = rec.parcial ? fmtKRVal(rec.parcial.total, 'int') + ' ' + recurParcialLbl_(rec) : fmtKRVal(rec.total.mtd, 'int');
       var rollNote = recC.useRoll
-        ? ' <span style="color:#6b7280;font-size:0.72rem" title="MTD de la última semana cerrada en 0: cumplimiento = Rolling L4W vs Target">· L4W ' + fmtKRVal(rec.total.roll, 'int') + '</span>'
+        ? ' <span style="color:#6b7280;font-size:0.72rem" title="Mes sin cerrar: cumplimiento = Rolling L4W vs Target">· MTD ' + mtdTxt + '</span>'
         : '';
       var cStrRec = recC.shown !== null ? (recC.shown * 100).toFixed(0) + '%' + (recC.useRoll ? ' <span style="font-size:0.68rem">L4W</span>' : '') : '—';
-      // Con semana en curso >= 3 el Actual es el parcial (informativo; el cumplimiento no cambia).
-      var actRec = rec.parcial
+      // Mes sin cerrar: Actual = L4W. Con foto de cierre, MTD (o el parcial si hay semana en curso >= 3).
+      var actRec = recC.useRoll
+        ? fmtKRVal(rec.total.roll, 'int') + ' <span style="color:#6b7280;font-size:0.72rem">L4W</span>'
+        : rec.parcial
         ? fmtKRVal(rec.parcial.total, 'int') + ' <span style="color:#6b7280;font-size:0.72rem" title="Agencias que ya compraron en 3+ semanas del mes, con la semana en curso incompleta. Informativo: el cumplimiento sigue con la última semana cerrada.">' + recurParcialLbl_(rec) + '</span>'
         : fmtKRVal(rec.total.mtd, 'int');
       trRec.innerHTML = recName +
