@@ -2,7 +2,7 @@
  * B2C, para el CEO, el Chief y el VP Comercial (pedido de Diego, 2026-10-26/27). Lo inyecta
  * server/index.js en el Daily (`layout` en server/modules.js). El HTML de Apps Script no se toca.
  *
- * Dos slides (1280×720) que se ven en dos lugares:
+ * Cuatro slides (1280×720) que se ven en dos lugares:
  *  - arriba de la solapa "Benchmark vs B2C", escaladas al ancho (selector GB / NR / FVM y COI Brasil);
  *  - en el Flow Semanal, después del separador "Weekly Summary" (se exportan con el deck).
  * Slide 1 — Total (semana ISO lunes–domingo, la última completa con datos):
@@ -14,6 +14,8 @@
  *    y % vs Budget, con las semanas de eventos de industria marcadas (este año y el pasado).
  * Slide 2 — Momentum por región (Brasil · México · Hispa · Globales, como el Weekly): YoY 4 semanas
  *  vs las 4 anteriores de los tres negocios, brecha vs B2C ahora y antes, y la tendencia por región.
+ * Slide 3 — B2B2C: aporte de cada partner al cambio del YoY de su región (detractores y triunfadores).
+ * Slide 4 — B2B: API vs HTML, peso, YoY y aporte de cada canal al cambio del YoY de B2B, por región.
  * Fuentes (las mismas del Benchmark): B2B2C actuals / LY / Budget del JSON del Daily (respeta Partner
  * TBD), B2B en fecha de gestión (b2b_gd), B2C real del Daily y su Budget semanal
  * (b2c_budget_weekly.json, Daily_Dashboard/b2c_budget_sync.py, vía getB2CBudgetWeekly). Eventos:
@@ -331,16 +333,142 @@
       '<div class="ow-ceo-n">4 sem = YoY de las últimas 4 semanas (' + wkLbl(prevKey(key, 3)) + '–' + wkLbl(key) + ') · antes = las 4 anteriores (' + wkLbl(prevKey(key, 7)) + '–' + wkLbl(prevKey(key, 4)) +
       ') · Δ pp = diferencia de YoY; Δ % = cuánto cambia el YoY en proporción (de +64% a +28% = −56%; sin dato si antes era ≤2%) · Brecha = YoY del negocio − YoY de B2C en la misma región · Regiones como el Weekly (Hispa = AR, CO, CL, PE, EC; Globales = el resto). ' + notes(key).split(' · tendencia')[0] + '</div>';
   }
+
+  // ── Drivers del momentum: aporte en pp de cada partner (B2B2C) o canal (B2B) ────────────────
+  // ΔYoY = YoY(4 sem) − YoY(4 anteriores), y YoY = Σ(real a TC LY − LY) / Σ LY. El aporte de cada
+  // partner / canal d es (real_d − LY_d) / LY_total en las 4 semanas menos lo mismo en las 4 anteriores:
+  // los aportes suman exactamente el ΔYoY del negocio (en la región).
+  function dimSums(rows, shift, dimFn, nowSet, befSet) {
+    var o = {};
+    (rows || []).forEach(function (r) {
+      if (!r || !r.fecha) return;
+      var k = iso(String(r.fecha).substring(0, 10)) + (shift || 0) * 100, per = nowSet[k] ? 'n' : (befSet[k] ? 'b' : null);
+      if (!per) return;
+      var nrF = r.net_revenues != null ? 'net_revenues' : 'net_revenue', dm = dimFn(r);
+      ['TOT', regionOf(r.pais)].forEach(function (reg) {
+        var R = o[reg] = o[reg] || {}, D = R[dm.k] = R[dm.k] || { lbl: dm.lbl, n: { gb: 0, nr: 0, fvm: 0, gbY: 0, nrY: 0, fvmY: 0 }, b: { gb: 0, nr: 0, fvm: 0, gbY: 0, nrY: 0, fvmY: 0 } };
+        var x = D[per];
+        x.gb += +r.gross_bookings || 0; x.nr += +r[nrF] || 0; x.fvm += +r.fvm || 0;
+        x.gbY += +W._yv_(r, 'gross_bookings') || 0; x.nrY += +W._yv_(r, nrF) || 0; x.fvmY += +W._yv_(r, 'fvm') || 0;
+      });
+    });
+    return o;
+  }
+  function drivers(cur, ly, reg, mk) {
+    var C = cur[reg] || {}, L = ly[reg] || {}, keys = {}, LTn = 0, LTb = 0;
+    Object.keys(C).concat(Object.keys(L)).forEach(function (k) { keys[k] = 1; });
+    Object.keys(L).forEach(function (k) { LTn += L[k].n[mk]; LTb += L[k].b[mk]; });
+    var list = Object.keys(keys).map(function (k) {
+      var c = C[k], l = L[k], cn = c ? c.n[mk + 'Y'] : 0, cb = c ? c.b[mk + 'Y'] : 0, ln = l ? l.n[mk] : 0, lb = l ? l.b[mk] : 0;
+      return { lbl: (c || l).lbl, c: (LTn ? (cn - ln) / LTn * 100 : 0) - (LTb ? (cb - lb) / LTb * 100 : 0), yNow: pct(cn, ln), yBef: pct(cb, lb), cn: c ? c.n[mk] : 0, ln: ln, lb: lb };
+    });
+    return list;
+  }
+  function partnerDim(r) {
+    var p = String(r.partner || 'Sin asignar').trim(), pa = r.pais || 'Other';
+    return { k: p.toLowerCase() + '|' + pa, lbl: p + ' (' + (PAIS_CORTO[pa] || pa.substring(0, 2).toUpperCase()) + ')' };
+  }
+  function channelDim(r) { var api = r.parent_channel === 'API'; return { k: api ? 'API' : 'HTML', lbl: api ? 'API' : 'HTML' }; }
+  function periodSets(key) {
+    var n = {}, b = {};
+    lastN(key, 4).forEach(function (k) { n[k] = 1; });
+    lastN(prevKey(key, 4), 4).forEach(function (k) { b[k] = 1; });
+    return { n: n, b: b };
+  }
+  function yTxt(x) {
+    if (!(x.ln > 0) && !(x.lb > 0)) return 'nuevo (sin LY)';
+    // con un LY muy chico el YoY del partner da miles de %: se muestra acotado
+    function y(v) { return !isFinite(v) ? '—' : v > 999 ? '>+999%' : pc(v); }
+    return y(x.yBef) + ' → ' + y(x.yNow);
+  }
+  function pp1(v) { return isFinite(v) ? (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(1) + 'pp' : '—'; }
+
+  // Slide 3: B2B2C — triunfadores y detractores por región
+  function body3(S, key) {
+    var mk = state.metric, P = periodSets(key), rb = W.b2bcRaw_() || W._rawB2BC, t = orgT();
+    var cur = dimSums(W._orgRows_(rb.actuals || [], t), 0, partnerDim, P.n, P.b), ly = dimSums(rb.actuals_ly, 1, partnerDim, P.n, P.b);
+    var all = drivers(cur, ly, 'TOT', mk).sort(function (a, b) { return a.c - b.c; });
+    var Mt = momentum(S, key, mk).b2b2c;
+    function item(x) {
+      return '<div class="ow-drv-i"><span class="ow-drv-n" title="' + esc(x.lbl) + '">' + esc(x.lbl.length > 26 ? x.lbl.substring(0, 25) + '…' : x.lbl) + '</span>' +
+        '<b class="' + cl(x.c) + '">' + pp1(x.c) + '</b><span class="ow-drv-y">' + yTxt(x) + '</span></div>';
+    }
+    var cols = REG.slice(1).map(function (rg) {
+      var L = drivers(cur, ly, rg[0], mk), M = momentum(S, key, mk, rg[0]).b2b2c;
+      var neg = L.filter(function (x) { return x.c <= -0.05; }).sort(function (a, b) { return a.c - b.c; }).slice(0, 5);
+      var pos = L.filter(function (x) { return x.c >= 0.05; }).sort(function (a, b) { return b.c - a.c; }).slice(0, 5);
+      return '<div class="ow-drv-col"><div class="ow-drv-h">' + rg[1] + ' <span class="' + cl(M.d) + '">' + dTxt(M) + '</span><small>' + pc(M.before) + ' → ' + pc(M.now) + '</small></div>' +
+        '<div class="ow-drv-st ow-dn">▼ Detractores</div>' + (neg.length ? neg.map(item).join('') : '<div class="ow-na">—</div>') +
+        '<div class="ow-drv-st ow-up">▲ Triunfadores</div>' + (pos.length ? pos.map(item).join('') : '<div class="ow-na">—</div>') + '</div>';
+    }).join('');
+    var top = function (L) { return L.map(function (x) { return '<b>' + esc(x.lbl) + '</b> ' + pp1(x.c); }).join(', '); };
+    var dx = '<b>B2B2C</b> ' + verb(Mt.d) + ' (' + pc(Mt.before) + ' → ' + pc(Mt.now) + ', ' + dTxt(Mt) + '). Más le restan: ' + top(all.slice(0, 3)) +
+      '. Más le suman: ' + top(all.slice().reverse().slice(0, 3).filter(function (x) { return x.c > 0; })) + '.';
+    return '<div class="ow-ceo-hl"><div class="ow-ceo-dx" style="margin:0">' + dx + '</div></div><div class="ow-drv">' + cols + '</div>' +
+      '<div class="ow-ceo-n">Aporte de cada partner al cambio del YoY de ' + MET[mk] + ' de B2B2C en su región (pp), últimas 4 semanas (' + wkLbl(prevKey(key, 3)) + '–' + wkLbl(key) + ') vs las 4 anteriores (' +
+        wkLbl(prevKey(key, 7)) + '–' + wkLbl(prevKey(key, 4)) + '): (real − LY) del partner sobre el LY total de la región, ahora menos antes; los aportes suman el Δ de la región. ' +
+        'Al lado, el YoY del propio partner antes → ahora. Respeta Partner TBD, Organic y COI Brasil. ' + notes(key).split(' · L4W')[0] + '</div>';
+  }
+
+  // Slide 4: B2B — API vs HTML
+  function body4(S, key) {
+    var mk = state.metric, P = periodSets(key), B = W._rawB2B, t = orgT();
+    if (!B) return '<p class="ow-na">B2B cargando…</p>';
+    var cur = dimSums(W._orgRows_(B.b2b_gd || [], t), 0, channelDim, P.n, P.b), ly = dimSums(B.b2b_gd_ly, 1, channelDim, P.n, P.b);
+    var CH = [{ k: 'API', lbl: 'API (MAY)', c: '#0b6e8f' }, { k: 'HTML', lbl: 'HTML · Agencias (MIN)', c: '#38bdf8' }];
+    var rows = REG.map(function (rg) {
+      var M = momentum(S, key, mk, rg[0]).b2b, L = drivers(cur, ly, rg[0], mk), by = {};
+      L.forEach(function (x) { by[x.lbl] = x; });
+      var nowTot = CH.reduce(function (a, c) { return a + (by[c.k] ? by[c.k].cn : 0); }, 0);
+      return '<tr class="' + (rg[0] === 'TOT' ? 'ow-tot' : '') + '"><td class="ow-l">' + rg[1] + '</td><td class="ow-v">' + pc(M.before) + ' → ' + pc(M.now) + '</td><td class="' + cl(M.d) + '">' + dTxt(M) + '</td>' +
+        CH.map(function (c) {
+          var x = by[c.k];
+          if (!x) return '<td>—</td><td>—</td><td>—</td>';
+          return '<td>' + (nowTot ? Math.round(x.cn / nowTot * 100) + '%' : '—') + '</td><td>' + yTxt(x) + '</td><td class="ow-v ' + cl(x.c) + '">' + pp1(x.c) + '</td>';
+        }).join('') + '</tr>';
+    }).join('');
+    var th = '<tr><th rowspan="2" class="ow-l">' + MET[mk] + '</th><th colspan="2">B2B (YoY)</th>' + CH.map(function (c) { return '<th colspan="3">' + c.lbl + '</th>'; }).join('') + '</tr>' +
+      '<tr><th>antes → ahora</th><th>Δ</th>' + CH.map(function () { return '<th>peso</th><th>YoY antes → ahora</th><th>aporte al Δ</th>'; }).join('') + '</tr>';
+    // Tendencia 4 sem: YoY de cada canal y su aporte al YoY de B2B (suman el YoY de B2B)
+    var keys = lastN(key, NWEEKS);
+    var chS = {};
+    CH.forEach(function (c) {
+      var f = function (r) { return (r.parent_channel === 'API') === (c.k === 'API'); };
+      chS[c.k] = { cur: byWeek(W._orgRows_((B.b2b_gd || []).filter(f), t)), ly: byWeek((B.b2b_gd_ly || []).filter(f), 1) };
+    });
+    function sumW(s, part, ks, f) { return ks.reduce(function (a, k) { var x = get(s, 'TOT', part, k); return a + (x ? x[f] : 0); }, 0); }
+    var yoyL = CH.map(function (c) { return { c: c.c, pts: rolling(chS[c.k], keys, mk) }; }).concat([{ c: '#8e8e93', ref: true, pts: rolling(S.b2c, keys, mk) }]);
+    var conL = CH.map(function (c) {
+      return { c: c.c, pts: keys.map(function (k) {
+        var ks = lastN(k, 4), lyT = sumW(S.b2b, 'ly', ks, mk);
+        return lyT ? (sumW(chS[c.k], 'cur', ks, mk + 'Y') - sumW(chS[c.k], 'ly', ks, mk)) / lyT * 100 : NaN;
+      }) };
+    });
+    var tot = drivers(cur, ly, 'TOT', mk), byT = {}; tot.forEach(function (x) { byT[x.lbl] = x; });
+    var Mb = momentum(S, key, mk).b2b;
+    var dx = '<b>B2B</b> ' + verb(Mb.d) + ' (' + pc(Mb.before) + ' → ' + pc(Mb.now) + ', ' + dTxt(Mb) + '): ' +
+      CH.map(function (c) { var x = byT[c.k]; return x ? '<b>' + c.lbl + '</b> aporta <span class="' + cl(x.c) + '">' + pp1(x.c) + '</span> (su YoY ' + yTxt(x) + ')' : ''; }).filter(Boolean).join(' · ') + '.';
+    return '<div class="ow-ceo-hl"><div class="ow-ceo-dx" style="margin:0">' + dx + '</div></div>' +
+      '<table class="ow-ceo-t ow-reg"><thead>' + th + '</thead><tbody>' + rows + '</tbody></table>' +
+      '<div class="ow-ceo-cs" style="grid-template-columns:1fr 1fr">' +
+      lineChart(MET[mk] + ' · YoY por canal (tendencia 4 sem)', keys, yoyL, pc, eventsByWeek(), { w: 560, h: 220 }) +
+      lineChart('Aporte de cada canal al YoY de B2B (pp, 4 sem)', keys, conL, pp, eventsByWeek(), { w: 560, h: 220 }) + '</div>' +
+      '<div class="ow-ceo-leg">' + CH.map(function (c) { return '<span><i style="background:' + c.c + '"></i>' + c.lbl + '</span>'; }).join('') + '<span><i style="background:#8e8e93"></i>B2C (referencia)</span></div>' +
+      '<div class="ow-ceo-n">B2B en fecha de gestión · API = canal API (B2B-MAY); HTML = Agencias afiliadas (B2B-MIN) · peso = participación en ' + MET[mk] + ' de las últimas 4 semanas · aporte al Δ = (real − LY) del canal sobre el LY total de B2B, ' +
+        'últimas 4 semanas menos las 4 anteriores (los dos aportes suman el Δ de B2B). ' + notes(key).split(' · L4W')[0] + '</div>';
+  }
   function titleOf(n) {
-    if (!ready()) return n === 2 ? 'Momentum por región vs B2C' : 'Weekly Performance vs B2C';
-    var key = lastWeek(upTo());
-    return n === 2 ? 'Momentum por región vs B2C · ' + MET[state.metric] + ' · ' + wkLbl(key) : 'Weekly Performance vs B2C · ' + wkLbl(key) + ' (' + wkRange(key) + ')';
+    var key = ready() ? lastWeek(upTo()) : null, w = key ? ' · ' + MET[state.metric] + ' · ' + wkLbl(key) : '';
+    if (n === 2) return 'Momentum por región vs B2C' + w;
+    if (n === 3) return 'B2B2C · quién explica el momentum (partners)' + w;
+    if (n === 4) return 'B2B · API vs HTML en el momentum' + w;
+    return 'Weekly Performance vs B2C' + (key ? ' · ' + wkLbl(key) + ' (' + wkRange(key) + ')' : '');
   }
   function bodyHtml(n, S) {
     if (!ready()) return '<p class="ow-na">Cargando datos del Daily…</p>';
     S = S || series();
     var key = lastWeek(upTo());
-    return n === 2 ? body2(S, key) : body1(S, key);
+    return n === 2 ? body2(S, key) : n === 3 ? body3(S, key) : n === 4 ? body4(S, key) : body1(S, key);
   }
   function slideHtml(n, S) {
     var t = titleOf(n), head = typeof W.flHead_ === 'function' ? W.flHead_(t) : '<div class="fl-head"><div class="fl-title">' + t + '</div></div>';
@@ -354,7 +482,7 @@
     function ser() { return S || (S = series()); }
     var b = document.getElementById('ow-ceo-bench');
     if (b && W._activeView === 'benchmark') {
-      [1, 2].forEach(function (n) { var h = document.getElementById('ow-ceo-bench-s' + n); if (h) h.innerHTML = slideHtml(n, ser()); });
+      [1, 2, 3, 4].forEach(function (n) { var h = document.getElementById('ow-ceo-bench-s' + n); if (h) h.innerHTML = slideHtml(n, ser()); });
       fitBench();
     }
     Array.prototype.forEach.call(document.querySelectorAll('#flow-track .ow-ceo-slide'), function (sl) {
@@ -390,7 +518,7 @@
 
   // ── Benchmark: sección arriba de todo ──────────────────────────────────────────────────────
   function fitBench() {
-    [1, 2].forEach(function (n) {
+    [1, 2, 3, 4].forEach(function (n) {
       var wrap = document.getElementById('ow-ceo-bench-w' + n), sl = document.querySelector('#ow-ceo-bench-s' + n + ' .flow-slide');
       if (!wrap || !sl) return;
       var s = Math.min(1, wrap.clientWidth / 1280);
@@ -413,7 +541,9 @@
       '<button class="dm-btn' + (W._exCoiBr ? ' active' : '') + '" data-coibr="excl" onclick="setExCoiBr(true)">Excluir</button></div></div>' +
       '<div class="tab-toggle">' + Object.keys(MET).map(function (m) { return '<button class="ttab" data-owm="' + m + '">' + (m === 'fvm' ? 'FVM' : m.toUpperCase()) + '</button>'; }).join('') + '</div></div></div>' +
       '<div id="ow-ceo-bench-w1" class="ow-ceo-wrap"><div id="ow-ceo-bench-s1"></div></div>' +
-      '<div id="ow-ceo-bench-w2" class="ow-ceo-wrap"><div id="ow-ceo-bench-s2"></div></div>';
+      '<div id="ow-ceo-bench-w2" class="ow-ceo-wrap"><div id="ow-ceo-bench-s2"></div></div>' +
+      '<div id="ow-ceo-bench-w3" class="ow-ceo-wrap"><div id="ow-ceo-bench-s3"></div></div>' +
+      '<div id="ow-ceo-bench-w4" class="ow-ceo-wrap"><div id="ow-ceo-bench-s4"></div></div>';
     var hdr = host.querySelector('.section-hdr-row');
     host.insertBefore(box, hdr ? hdr : host.firstChild);
     Array.prototype.forEach.call(box.querySelectorAll('[data-owm]'), function (b) {
@@ -462,6 +592,14 @@
     '.ow-ceo-leg{display:flex;gap:16px;justify-content:center;font-size:11px;color:#55555c}.ow-ceo-legn{font-style:italic;color:#8e8e93}',
     '.ow-ceo-n{font-size:10px;color:#8e8e93;line-height:1.3}',
     '.ow-ceo-slide .ow-na{color:#8e8e93;font-size:13px;text-align:center}',
+    '.ow-drv{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;flex:1;min-height:0}',
+    '.ow-drv-col{border:1px solid #ebe8f7;border-radius:8px;padding:8px 10px;background:#fcfbff;overflow:hidden}',
+    '.ow-drv-h{font-size:15px;font-weight:800;color:#1d1d1f;border-bottom:2px solid #550fed;padding-bottom:4px;margin-bottom:4px}',
+    '.ow-drv-h span{font-size:12.5px;font-weight:700;margin-left:4px}.ow-drv-h small{display:block;font-size:11px;font-weight:400;color:#6e6e73}',
+    '.ow-drv-st{font-size:11.5px;font-weight:700;margin:6px 0 2px}',
+    '.ow-drv-i{display:grid;grid-template-columns:1fr auto;column-gap:6px;font-size:12px;padding:2px 0;border-bottom:1px dashed #ece9f6}',
+    '.ow-drv-n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ow-drv-i b{text-align:right}',
+    '.ow-drv-y{grid-column:1/3;font-size:10.5px;color:#8e8e93}',
   ].join('\n');
   (document.head || document.documentElement).appendChild(css);
 
@@ -479,7 +617,8 @@
     if (Array.isArray(W.FLOW_DECK) && !W.FLOW_DECK.some(function (d) { return d.kind === 'ceo_weekly'; })) {
       var at = W.FLOW_DECK.findIndex(function (d) { return d.kind === 'divider' && d.flag === 'WK'; });
       W.FLOW_DECK.splice(at < 0 ? W.FLOW_DECK.length : at + 1, 0,
-        { kind: 'ceo_weekly', n: 1, name: 'Weekly — vs B2C (CEO)' }, { kind: 'ceo_weekly', n: 2, name: 'Weekly — momentum por región vs B2C' });
+        { kind: 'ceo_weekly', n: 1, name: 'Weekly — vs B2C (CEO)' }, { kind: 'ceo_weekly', n: 2, name: 'Weekly — momentum por región vs B2C' },
+        { kind: 'ceo_weekly', n: 3, name: 'Weekly — B2B2C: partners del momentum' }, { kind: 'ceo_weekly', n: 4, name: 'Weekly — B2B: API vs HTML' });
     }
     var origSlide = W.flowBuildSlide_;
     if (typeof origSlide === 'function') {
