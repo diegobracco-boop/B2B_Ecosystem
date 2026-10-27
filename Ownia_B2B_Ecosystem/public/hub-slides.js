@@ -9,6 +9,8 @@
  *   5 Evolución B2B MIN · 6 Resultados por negocio · 7 B2B2C + highlights · 8 B2B ·
  *   9 B2B + business levers · 10 B2B MIN por región · 11 B2B MAY por región ·
  *   12-13 Proyección (mes siguiente, los Q que faltan y el semestre) vs Budget y vs Forecast BTB.
+ *   Después de la 4: B2B-MAY mensual vs Budget, el mismo formato con NR y OC contable por segmento de
+ *   API (Hoteles Brasil · Flights & Dest. Serv. · Argentina · Rest of Countries, ver MAY_Q).
  *   La 4 es la portada "B2B2C — Resumen mensual (OC)" del Flow del Daily a pantalla completa
  *   (<base>/daily?embed=b2b2c-cover, public/daily-embed.js): NR Farming / Hunting / TBD y FVM del
  *   Datalake, OC del contable, tablas H1 / H2. El "at risk" del título lo calcula esa página (NR) y
@@ -36,6 +38,18 @@
   var REG = [['glob', 'Globales', 'other countries'], ['bra', 'Brasil', 'brasil'], ['mex', 'Mexico', 'mexico'],
     ['hisp', 'Hispa', 'argentina|chile|colombia|peru|ecuador']];
   var cache = {};
+  // B2B-MAY (API) por segmento, del contable: pedidos por país × producto y los segmentos salen por
+  // suma / resta (el filtro de producto del Hub toma un solo valor). Sin solapamientos:
+  //   Hoteles Brasil = brasil × hotels · Flights & Dest. Serv. = flights + dest. serv. (todos los países)
+  //   Argentina = argentina sin flights / dest. serv. · Rest of Countries = el resto del canal.
+  var MAY_Q = [['mq_hb', 'brasil', 'hotels'], ['mq_fl', 'all', 'flights'], ['mq_ds', 'all', 'dest. serv.'],
+    ['mq_ar', 'argentina', 'all'], ['mq_arfl', 'argentina', 'flights'], ['mq_ards', 'argentina', 'dest. serv.']];
+  var MAY_SEGS = [
+    { k: 'hb', lbl: 'API Hoteles Brasil', c: '#550fed', p: '#b7a2f8' },
+    { k: 'fd', lbl: 'API Flights & Dest. Serv.', c: '#0f9d8a', p: '#9fd9d0' },
+    { k: 'ar', lbl: 'API Argentina', c: '#f08c1a', p: '#f8cc98' },
+    { k: 'rc', lbl: 'API Rest of Countries', c: '#3d7be0', p: '#a9c6f2' },
+  ];
   var panel = null, state = { month: null, data: null, notes: {}, cur: 0, coibr: 'excl' };   // coibr: COI Brasil de la slide del Daily (Excluir, como el Daily)
 
   // ── Datos ──────────────────────────────────────────────────────────────────────────────────
@@ -52,7 +66,7 @@
   // goal 'forecast': real a TC Budget (igual que con 'budget') y el BTB también a TC Budget.
   function params(extra) {
     var m = state.month;
-    return { lob: extra.lob, pais: extra.pais || 'all', producto: 'all', canal: extra.canal || 'all', desde: m, hasta: m,
+    return { lob: extra.lob, pais: extra.pais || 'all', producto: extra.producto || 'all', canal: extra.canal || 'all', desde: m, hasta: m,
       baselineSource: 'baseline', fcSource: 'btb', organic: organicOn() ? 'forecast' : '' };
   }
   // Todas las series en UN pedido (getSlidesEvo del Hub: lee los JSON una vez; getAllData por
@@ -95,6 +109,7 @@
     ['min', 'may'].forEach(function (c) {
       REG.forEach(function (r) { keys.push(c + '_' + r[0]); list.push(params({ lob: 'b2b', canal: c, pais: r[2] })); });
     });
+    MAY_Q.forEach(function (q) { keys.push(q[0]); list.push(params({ lob: 'b2b', canal: 'may', pais: q[1], producto: q[2] })); });
     return callEvo(list).then(function (res) {
       var d = {};
       keys.forEach(function (k, i) { d[k] = { s: series(res[i]), raw: res[i] }; });
@@ -281,6 +296,88 @@
     return '<iframe class="hs-ifr" src="' + esc(src) + '" title="B2B2C mensual vs Budget (Daily)"></iframe>';
   }
 
+  // ── B2B-MAY mensual vs Budget: como la slide 4 (B2B2C), con NR y OC por segmento de API ─────────
+  // Series combinadas: suma (sign 1) / resta (sign −1) mes a mes de act, bud, ly y yoyN.
+  function comb(parts) {
+    var out = {};
+    ['nr', 'oc'].forEach(function (mk) {
+      out[mk] = range(0, 11).map(function (i) {
+        var o = { act: 0, bud: 0, fc: 0, ly: 0, yoyN: 0 };
+        parts.forEach(function (pt) {
+          var x = (state.data[pt[0]].s[mk] || [])[i]; if (!x) return;
+          o.act += pt[1] * x.act; o.bud += pt[1] * x.bud; o.fc += pt[1] * (x.fc || 0); o.ly += pt[1] * x.ly;
+          o.yoyN = (o.yoyN == null || x.yoyN == null) ? null : o.yoyN + pt[1] * x.yoyN;
+        });
+        return o;
+      });
+    });
+    return out;
+  }
+  function maySegs() {
+    var S = {
+      hb: comb([['mq_hb', 1]]),
+      fd: comb([['mq_fl', 1], ['mq_ds', 1]]),
+      ar: comb([['mq_ar', 1], ['mq_arfl', -1], ['mq_ards', -1]]),
+    };
+    S.rc = comb([['may', 1], ['mq_hb', -1], ['mq_fl', -1], ['mq_ds', -1], ['mq_ar', -1], ['mq_arfl', 1], ['mq_ards', 1]]);
+    return S;
+  }
+  // Barras apiladas por segmento (real cerrado oscuro / Run Rate claro; negativos hacia abajo) + Budget
+  function segChart(title, S, tot, mk) {
+    var ci = closedIdx(), cw = 50, x0 = 44, Wc = x0 + 12 * cw + 6, top = 22, base = 196, Hc = 240;
+    var hi = 0, lo = 0;
+    range(0, 11).forEach(function (i) {
+      var pos = 0, neg = 0;
+      MAY_SEGS.forEach(function (g) { var v = S[g.k][mk][i].act; if (v >= 0) pos += v; else neg += v; });
+      hi = Math.max(hi, pos, tot[mk][i].bud); lo = Math.min(lo, neg);
+    });
+    var sc = (base - top) / ((hi - lo) || 1), zero = base + lo * sc;
+    var svg = '<svg viewBox="0 0 ' + Wc + ' ' + Hc + '" class="hs-ev">';
+    svg += '<line x1="' + x0 + '" x2="' + (Wc - 4) + '" y1="' + zero.toFixed(1) + '" y2="' + zero.toFixed(1) + '" stroke="#d0d0d8"/>';
+    range(0, 11).forEach(function (i) {
+      var cx = x0 + i * cw, up = zero, dn = zero;
+      MAY_SEGS.forEach(function (g) {
+        var v = S[g.k][mk][i].act, h = Math.abs(v) * sc, y;
+        if (!h) return;
+        if (v >= 0) { up -= h; y = up; } else { y = dn; dn += h; }
+        svg += '<rect x="' + (cx + 5) + '" y="' + y.toFixed(1) + '" width="20" height="' + h.toFixed(1) + '" fill="' + (i <= ci ? g.c : g.p) + '"><title>' + g.lbl + ': ' + m1(v) + 'M</title></rect>';
+      });
+      var b = tot[mk][i].bud, hb = Math.max(b, 0) * sc;
+      svg += '<rect x="' + (cx + 27) + '" y="' + (zero - hb).toFixed(1) + '" width="17" height="' + hb.toFixed(1) + '" rx="1" fill="#d9dbe0"/>';
+      svg += '<text x="' + (cx + 15) + '" y="' + (up - 4).toFixed(1) + '" class="hs-evv">' + m1(tot[mk][i].act) + '</text>';
+      svg += '<text x="' + (cx + 25) + '" y="' + (base + 15) + '" class="hs-evm">' + monthLabel(fyPeriods()[i]).replace(" '", "'") + '</text>';
+      var t = tot[mk][i], yoy = t.ly > 0 && t.yoyN != null ? (t.yoyN / t.ly - 1) * 100 : NaN;
+      svg += '<text x="' + (cx + 25) + '" y="' + (base + 33) + '" class="hs-evc ' + cls(yoy) + '">' + pc(yoy) + '</text>';
+    });
+    svg += '<text x="2" y="' + (base + 33) + '" class="hs-evl">YoY</text></svg>';
+    return '<div class="hs-mc"><div class="hs-mct">' + title + '</div>' + svg + '</div>';
+  }
+  // Tabla H1 | H2 por segmento: Baseline · Δ $ · Δ % · YoY
+  function segTable(tag, S, tot, mk) {
+    var ci = closedIdx(), fy = fyTag().replace("FY'", 'FY');
+    var halves = [{ lbl: 'H1 ' + fy + (ci >= 5 ? '' : ' (Act+Proy)'), idx: range(0, 5) }, { lbl: 'H2 ' + fy + ' (Act+Proy)', idx: range(6, 11) }];
+    function cells(arr, h) {
+      var o = agg(arr, h.idx), d = o.act - o.bud;
+      return '<td class="hs-mtv">' + m1(o.act) + '</td><td class="' + cls(d) + '">' + money(d) + '</td><td class="' + cls(d) + '">' + (o.bud > 0 && Math.abs(o.vsPct) < 200 ? pc(o.vsPct) : '—') + '</td>' +
+        '<td class="' + cls(o.yoy) + '">' + (Math.abs(o.yoy) < 500 ? pc(o.yoy) : '—') + '</td>';
+    }
+    var th = '<tr><th rowspan="2" class="hs-mtl">Segmento</th>' + halves.map(function (h) { return '<th colspan="4">' + h.lbl + '</th>'; }).join('') + '</tr><tr>' +
+      halves.map(function () { return '<th>Baseline</th><th>Δ $</th><th>Δ %</th><th>YoY</th>'; }).join('') + '</tr>';
+    var body = MAY_SEGS.map(function (g) {
+      return '<tr><td class="hs-mtl"><i style="background:' + g.c + '"></i>' + g.lbl.replace('API ', '') + '</td>' + halves.map(function (h) { return cells(S[g.k][mk], h); }).join('') + '</tr>';
+    }).join('') + '<tr class="hs-mtt"><td class="hs-mtl">Total</td>' + halves.map(function (h) { return cells(tot[mk], h); }).join('') + '</tr>';
+    return '<div class="hs-mtag">' + tag + '</div><table class="hs-mt"><thead>' + th + '</thead><tbody>' + body + '</tbody></table>';
+  }
+  function sMayMonthly() {
+    var S = maySegs(), tot = { nr: state.data.may.s.nr, oc: state.data.may.s.oc };
+    var leg = '<div class="hs-mleg">' + MAY_SEGS.map(function (g) { return '<span><i style="background:' + g.c + '"></i>' + g.lbl + '</span>'; }).join('') +
+      '<span><i style="background:#d9dbe0"></i>Budget</span><span class="hs-mlegn">tono claro = proyección (Run Rate)</span></div>';
+    return head('B2B-MAY Monthly Performance vs Budget', 'NR y OC contable · real cerrado hasta ' + monthLabel(state.month) + ' + Run Rate · USD $M') +
+      '<div class="hs-may"><div class="hs-mayl">' + leg + segChart('Net Revenues, en $M', S, tot, 'nr') + segChart('Operating Contribution, en $M', S, tot, 'oc') + '</div>' +
+      '<div class="hs-mayr">' + segTable('NR vs Budget', S, tot, 'nr') + segTable('OC vs Budget', S, tot, 'oc') +
+      '<div class="hs-otn">Hoteles Brasil = Brasil × Hotels · Flights &amp; Dest. Serv. = todos los países · Argentina = sin Flights / Dest. Serv. · Rest of Countries = el resto del canal API (MAY).</div></div></div>' + foot();
+  }
+
   // ── Proyección: mes siguiente al cierre, los Q que faltan y el semestre (real cerrado + Run Rate) ──
   // vs Budget o vs "Forecast - Bridge to budget" (BTB, que llega hasta OC). Con septiembre cerrado:
   // Oct · Q3 (oct–dic) · Q4 (ene–mar) · H2.
@@ -329,6 +426,7 @@
       ['H2 vs H1', h2h1 || '<div class="hs-err">No se pudo armar H2 vs H1.</div>', true],
       ['B2B-MAY Evolution', sEvolution('may', 'Principales desafíos H2', 'may_challenges')],
       ['B2B2C mensual vs Budget', sB2B2CMonthly(), true],
+      ['B2B-MAY mensual vs Budget', sMayMonthly()],
       ['B2B-MIN Evolution', sEvolution('min', 'Principales oportunidades H2', 'min_opportunities')],
       ['Resultados', sResults(ytdLabel() + ' | B2B Results', [col('min'), col('may'), col('b2b2c'), col('total')])],
       ['B2B2C', sB2B2C()],
@@ -475,6 +573,17 @@
       '#hs .hs-ot td.hs-ots{text-align:left;font-weight:700;color:#4300d2;font-size:14px;background:#fbfaff;border-right:1px solid #eeecf6}',
       '#hs .hs-ot td.hs-otm{text-align:left;color:#55555c}#hs .hs-ot td.hs-otv{font-weight:600;color:#1d1d1f}',
       '#hs .hs-otn{font-size:11px;color:#8e8e93;margin-top:8px}',
+      '#hs .hs-may{display:grid;grid-template-columns:600px 1fr;gap:22px;margin-top:2px}',
+      '#hs .hs-mayl{display:flex;flex-direction:column;gap:2px}#hs .hs-mayr{display:flex;flex-direction:column;gap:6px}',
+      '#hs .hs-mleg{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11px;color:#55555c}#hs .hs-mleg i,#hs .hs-mtl i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px}',
+      '#hs .hs-mlegn{font-style:italic;color:#8e8e93}',
+      '#hs .hs-mct{font-size:15px;font-weight:700;color:#4300d2;text-align:center}',
+      '#hs .hs-mtag{display:inline-block;background:#7b5cf5;color:#fff;font-size:11.5px;font-weight:700;border-radius:5px;padding:2px 10px;margin-top:10px;align-self:flex-start}',
+      '#hs .hs-mt{width:100%;border-collapse:collapse;font-size:12.5px}',
+      '#hs .hs-mt th{background:#550fed;color:#fff;font-weight:600;padding:4px 6px;text-align:right;border-left:1px solid #fff}#hs .hs-mt thead tr:first-child th{text-align:center}',
+      '#hs .hs-mt td{padding:5px 6px;text-align:right;border-bottom:1px solid #eeecf6;white-space:nowrap}',
+      '#hs .hs-mt .hs-mtl{text-align:left;font-weight:600}#hs .hs-mt td.hs-mtv{font-weight:600;color:#1d1d1f}',
+      '#hs .hs-mt .hs-mtt td{font-weight:700;border-top:2px solid #550fed;background:#f6f4fe}',
       '#hs .hs-cover{position:absolute;inset:0;background:linear-gradient(120deg,#4300d2,#550fed 60%,#7b3ff5);color:#fff;padding:180px 90px}',
       '#hs .hs-cv1{font-size:56px;font-weight:700}#hs .hs-cv2{font-size:40px;font-weight:500;opacity:.92}',
       '#hs .hs-cv3{font-size:20px;margin-top:30px;opacity:.85}#hs .hs-cvlogo{position:absolute;right:60px;bottom:40px;font-size:32px;font-weight:700}',
