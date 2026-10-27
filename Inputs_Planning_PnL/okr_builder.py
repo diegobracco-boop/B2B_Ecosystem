@@ -527,6 +527,30 @@ def _read_partners_api_actual():
     return rows
 
 
+# Target (Budget) cargado a mano mientras Input_OKR no trae las filas (pedido de antonella.difranco, 2026-10-27;
+# la Sheets API está deshabilitada en el client OAuth y no se puede escribir la sheet por código). Solo completa
+# meses que la sheet no tiene: si el equipo carga el target en Input_OKR, gana la sheet.
+# Price Competitiveness: baseline ago-26 = 50% (no es mes del H2, se muestra en la card del tracker).
+GLOBALES_TARGET_DEFAULT = {
+    "Price Competitiveness ex-Latam (Destino GL)": {
+        "2026-10": 48, "2026-11": 46, "2026-12": 43, "2027-01": 40, "2027-02": 37, "2027-03": 35,
+    },
+}
+
+
+def _apply_globales_target_default(rows_manual):
+    have = {(r[5].lower(), str(r[0])[:7]) for r in rows_manual if str(r[1]).strip().lower() == "budget"}
+    for kr, by_ym in GLOBALES_TARGET_DEFAULT.items():
+        added = []
+        for ym, v in sorted(by_ym.items()):
+            if (kr.lower(), ym) not in have:
+                rows_manual.append([_ym_to_periodo(ym), "Budget", "Globales", "Total", "Total", kr, v])
+                added.append(ym)
+        if added:
+            print(f"  [{kr}] target por defecto (GLOBALES_TARGET_DEFAULT; Input_OKR no lo trae): {added}")
+    return rows_manual
+
+
 def _read_manual_krs(token_file):
     """Lee del GSheet Input_OKR los KRs manuales de MANUAL_KRS
     (Sign New Partnership, Air Net Revenue from suppliers)."""
@@ -660,6 +684,7 @@ def build(upload=True):
     rows_manual   = _read_manual_krs(token_file)
     rows_manual   = _apply_unique_buyers_actual(rows_manual, daily_json, last_actual_ym)
     rows_manual   = _apply_globales_hoteles_actual(rows_manual, daily_json)
+    rows_manual   = _apply_globales_target_default(rows_manual)
     rows_partners = _read_partners_api_actual()
     if rows_partners:   # el actual del tracker reemplaza cualquier fila Run Rate/Actuals de Input_OKR
         rows_manual = [r for r in rows_manual if not (r[1] == "Run Rate/Actuals"

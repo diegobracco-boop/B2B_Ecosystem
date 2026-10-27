@@ -3981,7 +3981,9 @@ function renderGlobales() {
 
     var head = '<div class="glob-head"><div>' +
       '<div class="glob-name">' + kr.name + '</div>' +
-      '<div class="glob-unit">' + (kr.unit || '') + '</div></div>' + peso + '</div>';
+      '<div class="glob-unit">' + (kr.unit || '') +
+      (typeof kr.baseline === 'number' ? ' · Baseline ' + (kr.baseline_label || '') + ': ' + fmtGlobalTarget(kr.baseline, kr.unit) : '') +
+      (kr.medicion ? ' · ' + kr.medicion : '') + '</div></div>' + peso + '</div>';
 
     // Valores de target definidos (para recorrido inicial→final).
     var tv = meses.map(function(ym){ var t = kr.targets ? kr.targets[ym] : null; return (typeof t === 'number') ? t : null; });

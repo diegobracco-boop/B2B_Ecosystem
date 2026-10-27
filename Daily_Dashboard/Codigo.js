@@ -1390,6 +1390,7 @@ function getAgenciasOKR() {
 // Hoteles (Budget contable). Forma { meta, krs:[{id,name,weight,unit,inverse,targets,actuals}] }.
 //   scale:   divide el valor de okr.json (NR viene en USD → $M).
 //   inverse: menos es mejor (Price Competitiveness = % de adversidad).
+//   baseline / baseline_label / medicion: rótulos que muestra la card (no entran al score).
 var GLOBALES_KRS_DEF = [
   { id:'accelerate_hunting_partners_api', kr:'accelerate hunting partners api',                   name:'Accelerate Hunting # Partners API',                 weight:0.20, unit:'# Partners' },
   { id:'hoteles_directos_latam',          kr:'hoteles directos vendidos destino latam',           name:'Hoteles Directos vendidos destino LATAM',           weight:0.15, unit:'# Hoteles' },
@@ -1397,7 +1398,8 @@ var GLOBALES_KRS_DEF = [
   // actual: lo calcula el cliente desde el daily (API · Hoteles · todos los países), MTD
   { id:'net_revenues_api_hoteles',        kr:'net revenues api hoteles',                          name:'Net Revenues API Hoteles',                          weight:0.15, unit:'$M', scale:1e6 },
   { id:'new_onboarded_properties',        kr:'new onboarded properties global & regional chains', name:'New Onboarded Properties Global & Regional Chains', weight:0.15, unit:'# Hoteles' },
-  { id:'price_competitiveness_ex_latam',  kr:'price competitiveness ex-latam (destino gl)',       name:'Price Competitiveness ex-Latam (Destino GL)',       weight:0.20, unit:'%', inverse:true }
+  { id:'price_competitiveness_ex_latam',  kr:'price competitiveness ex-latam (destino gl)',       name:'Price Competitiveness ex-Latam (Destino GL)',       weight:0.20, unit:'%', inverse:true,
+    baseline:50, baseline_label:"Ago'26", medicion:'Medición a mes cerrado' }
 ];
 var GLOBALES_MESES = ['2026-10','2026-11','2026-12','2027-01','2027-02','2027-03'];
 var GLOBALES_MESES_LABEL = ["Oct'26","Nov'26","Dic'26","Ene'27","Feb'27","Mar'27"];
@@ -1405,7 +1407,7 @@ var GLOBALES_MESES_LABEL = ["Oct'26","Nov'26","Dic'26","Ene'27","Feb'27","Mar'27
 function getGlobalesKRTargets() {
   var file = DriveApp.getFileById(OKR_JSON_FILE_ID);
   var cache = CacheService.getScriptCache();
-  var key = 'globales_okr_v3_' + file.getLastUpdated().getTime();
+  var key = 'globales_okr_v4_' + file.getLastUpdated().getTime();
   var hit = cache.get(key);
   if (hit) { try { return JSON.parse(hit); } catch (e) {} }
   var j = JSON.parse(file.getBlob().getDataAsString());
@@ -1433,7 +1435,8 @@ function getGlobalesKRTargets() {
     // el actual de NR lo calcula el cliente desde el daily (MTD); el del okr.json es mensual contable
     if (d.id === 'net_revenues_api_hoteles') actuals = {};
     return { id: d.id, name: d.name, weight: d.weight, unit: d.unit, critical_ttpp: false,
-             inverse: !!d.inverse, targets: targets, actuals: actuals };
+             inverse: !!d.inverse, targets: targets, actuals: actuals,
+             baseline: d.baseline, baseline_label: d.baseline_label, medicion: d.medicion };
   });
   var payload = {
     meta: { titulo: 'KR Global B2B API — OKR H2 FY27', periodo: 'H2-FY27', meses: GLOBALES_MESES,
