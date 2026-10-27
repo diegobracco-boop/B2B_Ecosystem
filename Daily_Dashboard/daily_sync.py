@@ -1128,10 +1128,19 @@ SELECT
     SUM(b.net_revenues_usd
         + COALESCE(be.correccion_be, 0)
         + COALESCE(mkt.monto_usd, 0))                                    AS net_revenues,
+    -- FVM = margen variable + Financial Result + Dif FX + cobertura, como el FVM de B2B2C / B2B y el
+    -- Budget B2C (Variable_Margin + Financial_Result + Dif_FX). Hasta 2026-10-27 iba sin Financial
+    -- Result ni Dif FX: en W43 daba $5,5M en vez de $4,6M (49% del NR en vez de 41%).
     SUM(b.margin_variable_net_usd
         + COALESCE(be.correccion_be, 0)
         + COALESCE(d.mktg_funds_usd, 0)
-        + COALESCE(mkt.monto_usd, 0))                                    AS margenVAr_conAA
+        + COALESCE(mkt.monto_usd, 0)
+        + COALESCE(b.financial_result_usd, 0)
+        + COALESCE(b.dif_fx_usd, 0) + COALESCE(b.dif_fx_air_usd, 0)
+        + COALESCE(b.currency_hedge_usd, 0) + COALESCE(b.currency_hedge_air_usd, 0)) AS margenVAr_conAA,
+    -- COI + efecto financiero tal como entran en el FVM (mismo criterio que coi_fin_br de B2B2C); agg_b2c
+    -- lo usa solo para Brasil: fvm_ex_coi_br = fvm - fin_coi (switch "COI Brasil")
+    SUM(COALESCE(b.financial_result_usd, 0) - COALESCE(b.coi_usd, 0))     AS fin_coi
 
 FROM data.analytics.bi_pnlop_fact_current_model b
 
@@ -1188,11 +1197,14 @@ def agg_b2c(df: pd.DataFrame) -> pd.DataFrame:
     df["gross_bookings"] = pd.to_numeric(df["gb"],              errors="coerce").fillna(0)
     df["net_revenues"]   = pd.to_numeric(df["net_revenues"],    errors="coerce").fillna(0)
     df["fvm"]            = pd.to_numeric(df["margenvar_conaa"], errors="coerce").fillna(0)
+    fin_coi = pd.to_numeric(df["fin_coi"], errors="coerce").fillna(0) if "fin_coi" in df.columns else 0.0
+    df["fvm_ex_coi_br"]  = df["fvm"] - fin_coi * (df["pais"] == "Brasil")
     return df.groupby(["fecha", "pais"], as_index=False).agg(
         gross_bookings=("gross_bookings", "sum"),
         net_revenues  =("net_revenues",   "sum"),
         fvm           =("fvm",            "sum"),
-    ).round({"gross_bookings": 2, "net_revenues": 2, "fvm": 2})
+        fvm_ex_coi_br =("fvm_ex_coi_br",  "sum"),
+    ).round({"gross_bookings": 2, "net_revenues": 2, "fvm": 2, "fvm_ex_coi_br": 2})
 
 
 # ==============================================================================
@@ -1719,7 +1731,7 @@ try:
 except Exception as e:
     print(f"  WARN B2C query failed: {e}")
     _FAILED_BLOCKS.append('B2C')
-    df_b2c = pd.DataFrame(columns=["fecha", "pais", "gross_bookings", "net_revenues", "fvm"])
+    df_b2c = pd.DataFrame(columns=["fecha", "pais", "gross_bookings", "net_revenues", "fvm", "fvm_ex_coi_br"])
 
 print("\n--- B2C LY (referencia) ---")
 try:
@@ -1727,7 +1739,7 @@ try:
 except Exception as e:
     print(f"  WARN B2C LY query failed: {e}")
     _FAILED_BLOCKS.append('B2C LY')
-    df_b2c_ly = pd.DataFrame(columns=["fecha", "pais", "gross_bookings", "net_revenues", "fvm"])
+    df_b2c_ly = pd.DataFrame(columns=["fecha", "pais", "gross_bookings", "net_revenues", "fvm", "fvm_ex_coi_br"])
 
 print("\n--- Forecast (Datalake raw.b2bfc1_gd / raw.b2bfc1_ri) ---")
 # NO se agrega a _FAILED_BLOCKS: si la tabla falla o viene vacía no debe abortar la corrida de

@@ -1,21 +1,26 @@
-/* Daily Dashboard en Ownia — "Weekly · vs B2C": la última semana de B2B2C y B2B contra B2C, para el
- * CEO (pedido de Diego, 2026-10-26). Lo inyecta server/index.js en el Daily (`layout` en
- * server/modules.js). El HTML de Apps Script no se toca.
+/* Daily Dashboard en Ownia — "Weekly · vs B2C": la última semana y el momentum de B2B2C y B2B contra
+ * B2C, para el CEO, el Chief y el VP Comercial (pedido de Diego, 2026-10-26/27). Lo inyecta
+ * server/index.js en el Daily (`layout` en server/modules.js). El HTML de Apps Script no se toca.
  *
- * Una sola slide (1280×720) que se ve en dos lugares:
- *  - arriba de la solapa "Benchmark vs B2C", escalada al ancho (con selector GB / NR / FVM);
- *  - en el Flow Semanal, después del separador "Weekly Summary" (se exporta con el deck).
- * Contenido (semana ISO lunes–domingo, la última completa con datos):
- *  - titular automático;
- *  - tabla B2B2C · B2B · B2C con la semana, vs L4W (promedio de las 4 anteriores), YoY (misma semana
- *    ISO del año pasado) y vs Budget, en GB / NR / FVM, y la brecha de B2B2C y B2B contra B2C en pp;
- *  - 13 semanas: YoY y % vs Budget de los tres negocios.
+ * Dos slides (1280×720) que se ven en dos lugares:
+ *  - arriba de la solapa "Benchmark vs B2C", escaladas al ancho (selector GB / NR / FVM y COI Brasil);
+ *  - en el Flow Semanal, después del separador "Weekly Summary" (se exportan con el deck).
+ * Slide 1 — Total (semana ISO lunes–domingo, la última completa con datos):
+ *  - titular de la semana y diagnóstico de momentum (¿desaceleramos vs la tendencia, y B2C?);
+ *  - momentum: YoY de las últimas 4 semanas vs las 4 anteriores, por negocio, y la brecha vs B2C;
+ *  - tabla B2B2C · B2B · B2C: semana, vs L4W (promedio de las 4 anteriores), YoY (misma semana ISO
+ *    del año pasado) y vs Budget, en GB / NR / FVM, y la brecha vs B2C en pp;
+ *  - 13 semanas: YoY (punto semanal + tendencia móvil de 4 semanas), brecha vs B2C (tendencia 4 sem)
+ *    y % vs Budget, con las semanas de eventos de industria marcadas (este año y el pasado).
+ * Slide 2 — Momentum por región (Brasil · México · Hispa · Globales, como el Weekly): YoY 4 semanas
+ *  vs las 4 anteriores de los tres negocios, brecha vs B2C ahora y antes, y la tendencia por región.
  * Fuentes (las mismas del Benchmark): B2B2C actuals / LY / Budget del JSON del Daily (respeta Partner
  * TBD), B2B en fecha de gestión (b2b_gd), B2C real del Daily y su Budget semanal
- * (b2c_budget_weekly.json, Daily_Dashboard/b2c_budget_sync.py, vía getB2CBudgetWeekly).
+ * (b2c_budget_weekly.json, Daily_Dashboard/b2c_budget_sync.py, vía getB2CBudgetWeekly). Eventos:
+ * industry_events.json (getIndustryEvents, el del "Industry events tracker").
  * Organic YES: los reales de los TRES negocios a TC Budget (vs Budget) y el YoY a TC Actuals LY
  * (_orgRows_, opción B) — B2C también, para comparar en la misma moneda. COI Brasil = Excluir: el FVM
- * de B2B2C y B2B sin COI de Brasil; el de B2C (real y Budget) lo incluye.
+ * sin COI / Financial Result de Brasil (B2C también cuando el JSON trae fvm_ex_coi_br).
  */
 (function () {
   'use strict';
@@ -26,9 +31,12 @@
     { k: 'b2b', lbl: 'B2B', c: '#0891b2' },
     { k: 'b2c', lbl: 'B2C', c: '#8e8e93', ref: true },
   ];
+  var OURS = BIZ.slice(0, 2);
   var MET = { gb: 'Gross Bookings', nr: 'Net Revenues', fvm: 'FVM' };
+  var REG = [['TOT', 'Total'], ['Brasil', 'Brasil'], ['Mexico', 'México'], ['Hispa', 'Hispa'], ['Globales', 'Globales']];
+  var HISPA = { Argentina: 1, Colombia: 1, Chile: 1, Peru: 1, Ecuador: 1 };
   var NWEEKS = 13;
-  var state = { metric: 'nr', bud: null, budState: 'idle', b2bState: 'idle' };
+  var state = { metric: 'nr', bud: null, budState: 'idle', b2bState: 'idle', ev: null, evState: 'idle' };
 
   // ── Semanas ISO ────────────────────────────────────────────────────────────────────────────
   function iso(ymd) {
@@ -42,6 +50,7 @@
   }
   function ymd(d) { return d.toISOString().substring(0, 10); }
   function prevKey(key, n) { var m = monday(key); m.setUTCDate(m.getUTCDate() - 7 * n); return iso(ymd(m)); }
+  function lastN(key, n) { var o = []; for (var i = n - 1; i >= 0; i--) o.push(prevKey(key, i)); return o; }
   var MES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
   function wkRange(key) {
     var a = monday(key), b = new Date(a); b.setUTCDate(b.getUTCDate() + 6);
@@ -56,48 +65,92 @@
   }
 
   // ── Datos ──────────────────────────────────────────────────────────────────────────────────
-  function nrOf(r) { return r.net_revenues != null ? r.net_revenues : r.net_revenue; }
-  // Agrega filas diarias por semana ISO: {key: {gb, nr, fvm, gbY, nrY, fvmY}}; shift = años a sumar (LY)
+  function regionOf(pais) { return pais === 'Brasil' ? 'Brasil' : (pais === 'Mexico' ? 'Mexico' : (HISPA[pais] ? 'Hispa' : 'Globales')); }
+  // Filas diarias → {region: {semana: {gb, nr, fvm, gbY, nrY, fvmY}}} (región 'TOT' = todo); shift = años a sumar (LY)
   function byWeek(rows, shift) {
     var o = {};
+    function acc(reg, k, r, nrF) {
+      var R = o[reg] = o[reg] || {}, x = R[k] = R[k] || { gb: 0, nr: 0, fvm: 0, gbY: 0, nrY: 0, fvmY: 0 };
+      x.gb += +r.gross_bookings || 0; x.nr += +r[nrF] || 0; x.fvm += +r.fvm || 0;
+      x.gbY += +W._yv_(r, 'gross_bookings') || 0; x.nrY += +W._yv_(r, nrF) || 0; x.fvmY += +W._yv_(r, 'fvm') || 0;
+    }
     (rows || []).forEach(function (r) {
       if (!r || !r.fecha) return;
-      var k = iso(String(r.fecha).substring(0, 10)) + (shift || 0) * 100, x = o[k] = o[k] || { gb: 0, nr: 0, fvm: 0, gbY: 0, nrY: 0, fvmY: 0 };
-      var nrF = r.net_revenues != null ? 'net_revenues' : 'net_revenue';
-      x.gb += +r.gross_bookings || 0; x.nr += +nrOf(r) || 0; x.fvm += +r.fvm || 0;
-      x.gbY += +W._yv_(r, 'gross_bookings') || 0; x.nrY += +W._yv_(r, nrF) || 0; x.fvmY += +W._yv_(r, 'fvm') || 0;
+      var k = iso(String(r.fecha).substring(0, 10)) + (shift || 0) * 100, nrF = r.net_revenues != null ? 'net_revenues' : 'net_revenue';
+      acc('TOT', k, r, nrF); acc(regionOf(r.pais), k, r, nrF);
     });
     return o;
   }
   function b2cBudWeeks() {
     var o = {}, b = state.bud;
     if (!b || !b.rows) return o;
-    var c = b.cols, ia = c.indexOf('anio'), iw = c.indexOf('semana'), ig = c.indexOf('gross_bookings'), inr = c.indexOf('net_revenues'), iv = c.indexOf('fvm');
+    var c = b.cols, ia = c.indexOf('anio'), iw = c.indexOf('semana'), ip = c.indexOf('pais'), ig = c.indexOf('gross_bookings'), inr = c.indexOf('net_revenues'), iv = c.indexOf('fvm');
     b.rows.forEach(function (r) {
-      var k = r[ia] * 100 + r[iw], x = o[k] = o[k] || { gb: 0, nr: 0, fvm: 0 };
-      x.gb += r[ig]; x.nr += r[inr]; x.fvm += r[iv];
+      var k = r[ia] * 100 + r[iw];
+      ['TOT', regionOf(r[ip])].forEach(function (reg) {
+        var R = o[reg] = o[reg] || {}, x = R[k] = R[k] || { gb: 0, nr: 0, fvm: 0 };
+        x.gb += r[ig]; x.nr += r[inr]; x.fvm += r[iv];
+      });
     });
     return o;
+  }
+  // B2C con el switch COI Brasil: si el JSON trae fvm_ex_coi_br (daily_sync.py desde 2026-10-27), se
+  // pisa fvm igual que applyCoiBr_ hace con B2B2C / B2B (en copias: las filas de _b2cRows_ son compartidas)
+  function b2cRows(rows) {
+    if (!rows || !rows.length || rows[0].fvm_ex_coi_br == null) return rows;
+    var ex = !!W._exCoiBr;
+    return rows.map(function (r) { var c = Object.assign({}, r); c.fvm = ex ? r.fvm_ex_coi_br : r.fvm; return c; });
   }
   function orgT() { return (W._dlOrganic && W._fxTbl) ? 'budget' : ''; }
   function series() {
     var t = orgT(), rb = W.b2bcRaw_() || W._rawB2BC, B = W._rawB2B;
-    var S = {
+    return {
       b2b2c: { cur: byWeek(W._orgRows_(rb.actuals || [], t)), ly: byWeek(rb.actuals_ly, 1), bud: byWeek(rb.budget) },
       b2b: B ? { cur: byWeek(W._orgRows_(B.b2b_gd || [], t)), ly: byWeek(B.b2b_gd_ly, 1), bud: byWeek(B.b2b_budget_gd) } : null,
-      b2c: { cur: byWeek(W._orgRows_(W._b2cRows_(W._rawB2BC), t)), ly: byWeek(W._b2cLyRows_(W._rawB2BC), 1), bud: b2cBudWeeks() },
+      b2c: { cur: byWeek(W._orgRows_(b2cRows(W._b2cRows_(W._rawB2BC)), t)), ly: byWeek(b2cRows(W._b2cLyRows_(W._rawB2BC)), 1), bud: b2cBudWeeks() },
     };
-    return S;
   }
-  // Métricas de una semana para un negocio y una métrica
-  function stats(s, key, mk) {
+  function pct(a, b) { return isFinite(a) && isFinite(b) && b > 0 ? (a / b - 1) * 100 : NaN; }
+  function get(s, reg, part, key) { return s && s[part] && s[part][reg] ? s[part][reg][key] : null; }
+  // Una semana: valor, vs L4W, YoY y vs Budget
+  function stats(s, key, mk, reg) {
     if (!s) return null;
-    var c = s.cur[key] || null, v = c ? c[mk] : NaN, vy = c ? c[mk + 'Y'] : NaN;
-    var ly = s.ly[key] ? s.ly[key][mk] : NaN, bd = s.bud[key] ? s.bud[key][mk] : NaN, l4 = 0, n4 = 0;
-    for (var i = 1; i <= 4; i++) { var p = s.cur[prevKey(key, i)]; if (p) { l4 += p[mk]; n4++; } }
-    var avg = n4 ? l4 / n4 : NaN;
-    function pct(a, b) { return isFinite(a) && isFinite(b) && b > 0 ? (a / b - 1) * 100 : NaN; }
-    return { v: v, l4: pct(v, avg), yoy: pct(vy, ly), bud: pct(v, bd), budV: bd };
+    reg = reg || 'TOT';
+    var c = get(s, reg, 'cur', key), v = c ? c[mk] : NaN, ly = get(s, reg, 'ly', key), bd = get(s, reg, 'bud', key), l4 = 0, n4 = 0;
+    for (var i = 1; i <= 4; i++) { var p = get(s, reg, 'cur', prevKey(key, i)); if (p) { l4 += p[mk]; n4++; } }
+    return { v: v, l4: pct(v, n4 ? l4 / n4 : NaN), yoy: pct(c ? c[mk + 'Y'] : NaN, ly ? ly[mk] : NaN), bud: pct(v, bd ? bd[mk] : NaN) };
+  }
+  // YoY de un conjunto de semanas (suma real a TC LY / suma LY)
+  function yoyOf(s, keys, mk, reg) {
+    if (!s) return NaN;
+    var a = 0, b = 0, n = 0;
+    keys.forEach(function (k) { var c = get(s, reg || 'TOT', 'cur', k), l = get(s, reg || 'TOT', 'ly', k); if (c && l) { a += c[mk + 'Y']; b += l[mk]; n++; } });
+    return n === keys.length ? pct(a, b) : NaN;
+  }
+  // Momentum: YoY de las últimas 4 semanas (incluida la última) vs las 4 anteriores
+  function momentum(S, key, mk, reg) {
+    var now = lastN(key, 4), before = lastN(prevKey(key, 4), 4), o = {};
+    BIZ.forEach(function (z) { var a = yoyOf(S[z.k], now, mk, reg), b = yoyOf(S[z.k], before, mk, reg); o[z.k] = { now: a, before: b, d: a - b }; });
+    OURS.forEach(function (z) { o[z.k].gapNow = o[z.k].now - o.b2c.now; o[z.k].gapBefore = o[z.k].before - o.b2c.before; });
+    return o;
+  }
+
+  // ── Eventos de industria (este año y la misma semana del año pasado) ────────────────────────
+  var PAIS_CORTO = { Argentina: 'AR', Brasil: 'BR', Chile: 'CL', Colombia: 'CO', Mexico: 'MX', Peru: 'PE', Ecuador: 'EC', 'Other Countries': 'OT', USA: 'US' };
+  function eventsByWeek() {
+    var o = {}, ev = state.ev && state.ev.eventos;
+    (ev || []).forEach(function (e) {
+      if (e.lob !== 'b2b2c' && e.lob !== 'b2b') return;
+      var a = new Date(e.inicio + 'T00:00:00Z'), b = new Date(e.fin + 'T00:00:00Z');
+      for (var d = new Date(a); d <= b; d.setUTCDate(d.getUTCDate() + 1)) {
+        var k = iso(ymd(d)), lbl = e.familia + ' ' + (PAIS_CORTO[e.pais] || e.pais);
+        [[k, ''], [k + 100, 'LY ']].forEach(function (x) {
+          var L = o[x[0]] = o[x[0]] || [];
+          if (L.indexOf(x[1] + lbl) < 0) L.push(x[1] + lbl);
+        });
+      }
+    });
+    return o;
   }
 
   // ── Formato ────────────────────────────────────────────────────────────────────────────────
@@ -105,13 +158,9 @@
   function pc(v) { return isFinite(v) ? (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(0) + '%' : '—'; }
   function pp(v) { return isFinite(v) ? (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(0) + 'pp' : '—'; }
   function cl(v) { return !isFinite(v) ? '' : v >= 0 ? 'ow-up' : 'ow-dn'; }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
 
-  // ── Slide ──────────────────────────────────────────────────────────────────────────────────
-  function upTo() {
-    var L = W._rawB2BC.meta.last_actuals_date;
-    var v = (typeof W.flowVDate_ === 'function' && W._activeView === 'flow') ? W.flowVDate_() : L;
-    return v < L ? v : L;
-  }
+  // ── Lecturas ───────────────────────────────────────────────────────────────────────────────
   function headline(S, key) {
     var mk = state.metric, a = stats(S.b2b2c, key, mk), b = stats(S.b2b, key, mk), c = stats(S.b2c, key, mk), out = [];
     function one(lbl, x) {
@@ -122,6 +171,32 @@
     }
     out.push(one('B2B2C', a)); if (b) out.push(one('B2B', b));
     return MET[mk] + ' ' + wkLbl(key) + ': ' + out.filter(Boolean).join(' &nbsp;|&nbsp; ');
+  }
+  // Diagnóstico de momentum en una frase: quién acelera / desacelera y si la brecha vs B2C se abre o se cierra
+  var UMBRAL = 3;   // pp: menos que esto es "estable"
+  function verb(d) { return !isFinite(d) ? 'sin dato' : d <= -UMBRAL ? 'desacelera' : d >= UMBRAL ? 'acelera' : 'estable'; }
+  function diagnosis(M, regLbl) {
+    var parts = OURS.map(function (z) {
+      var m = M[z.k]; if (!m || !isFinite(m.now)) return '';
+      var g = m.gapNow - m.gapBefore;
+      return '<b>' + z.lbl + '</b> ' + verb(m.d) + ' (' + pc(m.now) + ' vs ' + pc(m.before) + ', <span class="' + cl(m.d) + '">' + pp(m.d) + '</span>); ' +
+        'brecha vs B2C ' + pp(m.gapNow) + ' (antes ' + pp(m.gapBefore) + ': ' +
+        (Math.abs(g) < UMBRAL ? 'se mantiene' : '<span class="' + cl(g) + '">' + (g > 0 ? 'le ganamos terreno' : 'perdemos terreno') + '</span>') + ')';
+    }).filter(Boolean);
+    var c = M.b2c;
+    return (regLbl ? '<b>' + regLbl + '</b> · ' : '') + 'Últimas 4 semanas vs las 4 anteriores, YoY: ' + parts.join(' · ') +
+      ' · <b>B2C</b> ' + verb(c.d) + ' (' + pc(c.now) + ' vs ' + pc(c.before) + ', <span class="' + cl(c.d) + '">' + pp(c.d) + '</span>).';
+  }
+
+  // ── Piezas de la slide 1 ───────────────────────────────────────────────────────────────────
+  function momentumCards(M) {
+    return '<div class="ow-mom">' + BIZ.map(function (z) {
+      var m = M[z.k], gap = z.ref ? '<div class="ow-mom-g">referencia</div>' :
+        '<div class="ow-mom-g">brecha vs B2C <b class="' + cl(m.gapNow) + '">' + pp(m.gapNow) + '</b> <span>(antes ' + pp(m.gapBefore) + ')</span></div>';
+      return '<div class="ow-mom-c" style="border-top-color:' + z.c + '"><div class="ow-mom-h"><i style="background:' + z.c + '"></i>' + z.lbl +
+        ' <span>YoY 4 sem</span></div><div class="ow-mom-v">' + pc(m.now) + ' <span class="ow-mom-d ' + cl(m.d) + '">' + pp(m.d) + '</span></div>' +
+        '<div class="ow-mom-s">antes ' + pc(m.before) + ' · ' + verb(m.d) + '</div>' + gap + '</div>';
+    }).join('') + '</div>';
   }
   function table(S, key) {
     var mks = ['gb', 'nr', 'fvm'];
@@ -136,8 +211,7 @@
           return '<td class="ow-v">' + money(x.v) + '</td><td class="' + cl(x.l4) + '">' + pc(x.l4) + '</td><td class="' + cl(x.yoy) + '">' + pc(x.yoy) + '</td><td class="' + cl(x.bud) + '">' + pc(x.bud) + '</td>';
         }).join('') + '</tr>';
     }).join('');
-    // Brechas vs B2C (pp): vs L4W, YoY y vs Budget
-    body += BIZ.filter(function (z) { return !z.ref; }).map(function (z) {
+    body += OURS.map(function (z) {
       return '<tr class="ow-gap"><td class="ow-l">' + z.lbl + ' − B2C</td>' + mks.map(function (m) {
         var x = C[z.k] && C[z.k][m], r = C.b2c && C.b2c[m];
         if (!x || !r) return '<td colspan="4"></td>';
@@ -146,80 +220,156 @@
     }).join('');
     return '<table class="ow-ceo-t"><thead>' + h1 + h2 + '</thead><tbody>' + body + '</tbody></table>';
   }
-  // Líneas de 13 semanas: f(stats) → % ; etiqueta en el último punto de cada negocio
-  function chart(title, S, keys, f) {
-    var Wc = 570, Hc = 250, x0 = 40, x1 = Wc - 46, y0 = 18, y1 = Hc - 30, mk = state.metric, all = [];
-    var L = BIZ.map(function (z) { var pts = keys.map(function (k) { var x = stats(S[z.k], k, mk); return x ? f(x) : NaN; }); all = all.concat(pts.filter(isFinite)); return { z: z, pts: pts }; });
+  // Gráfico de líneas por semana. lines = [{c, ref, pts, dots?, thin?}]; fmt = pc | pp. ev = {semana: [eventos]}
+  function lineChart(title, keys, lines, fmt, ev, opt) {
+    opt = opt || {};
+    var Wc = opt.w || 400, Hc = opt.h || 230, x0 = 36, x1 = Wc - 40, y0 = ev ? 26 : 12, y1 = Hc - 22, all = [];
+    lines.forEach(function (l) { all = all.concat(l.pts.filter(isFinite)); if (l.dots) all = all.concat(l.dots.filter(isFinite)); });
     if (!all.length) return '<div class="ow-ceo-c"><div class="ow-ceo-ct">' + title + '</div><p class="ow-na">sin datos</p></div>';
     var lo = Math.min(0, Math.min.apply(null, all)), hi = Math.max(0, Math.max.apply(null, all)), pad = (hi - lo) * 0.08 || 5;
     lo -= pad; hi += pad;
     function X(i) { return x0 + i * (x1 - x0) / (keys.length - 1); }
     function Y(v) { return y1 - (v - lo) / (hi - lo) * (y1 - y0); }
     var svg = '<svg viewBox="0 0 ' + Wc + ' ' + Hc + '" class="ow-ceo-svg">';
-    // grilla: 0 y dos referencias
-    // sin las referencias que caen pegadas al 0 (se pisaban las etiquetas)
+    // semanas con evento: franja y etiqueta (este año en violeta, LY en gris)
+    // la etiqueta va solo si no pisa la anterior (el detalle completo queda en el tooltip de la franja)
+    var lastLblX = -1e9, lblGap = 58;
+    if (ev) keys.forEach(function (k, i) {
+      var L = ev[k]; if (!L || !L.length) return;
+      var cur = L.filter(function (s) { return s.indexOf('LY ') !== 0; }), txt = (cur.length ? cur : L)[0] + (L.length > 1 ? ' +' + (L.length - 1) : '');
+      svg += '<rect x="' + (X(i) - 8).toFixed(1) + '" y="' + y0 + '" width="16" height="' + (y1 - y0) + '" fill="' + (cur.length ? '#efeaff' : '#f2f2f5') + '"><title>' + esc(L.join(' · ')) + '</title></rect>';
+      if (X(i) - lastLblX < lblGap) return;
+      lastLblX = X(i);
+      svg += '<text x="' + X(i).toFixed(1) + '" y="' + (y0 - 4) + '" class="ow-ev' + (cur.length ? '' : ' ly') + '" text-anchor="middle">' + esc(txt.length > 13 ? txt.substring(0, 12) + '…' : txt) + '</text>';
+    });
     [lo + pad, 0, hi - pad].filter(function (g) { return g === 0 || Math.abs(Y(g) - Y(0)) > 14; }).forEach(function (g) {
       svg += '<line x1="' + x0 + '" x2="' + x1 + '" y1="' + Y(g).toFixed(1) + '" y2="' + Y(g).toFixed(1) + '" stroke="' + (g === 0 ? '#b8b8c4' : '#eeeef3') + '"' + (g === 0 ? '' : ' stroke-dasharray="3 3"') + '/>' +
-        '<text x="' + (x0 - 4) + '" y="' + (Y(g) + 3).toFixed(1) + '" class="ow-ax" text-anchor="end">' + pc(g) + '</text>';
+        '<text x="' + (x0 - 4) + '" y="' + (Y(g) + 3).toFixed(1) + '" class="ow-ax" text-anchor="end">' + fmt(g) + '</text>';
     });
-    keys.forEach(function (k, i) { svg += '<text x="' + X(i).toFixed(1) + '" y="' + (Hc - 12) + '" class="ow-ax" text-anchor="middle">' + wkLbl(k) + '</text>'; });
+    var every = Math.max(1, Math.ceil(keys.length * 34 / (x1 - x0)));   // ~34px por etiqueta de semana
+    keys.forEach(function (k, i) { if ((keys.length - 1 - i) % every === 0) svg += '<text x="' + X(i).toFixed(1) + '" y="' + (Hc - 8) + '" class="ow-ax" text-anchor="middle">' + wkLbl(k) + '</text>'; });
     var lastY = [];
-    L.forEach(function (l) {
+    lines.forEach(function (l) {
+      if (l.dots) l.dots.forEach(function (v, i) { if (isFinite(v)) svg += '<circle cx="' + X(i).toFixed(1) + '" cy="' + Y(v).toFixed(1) + '" r="2.2" fill="' + l.c + '" opacity=".35"/>'; });
       var p = l.pts.map(function (v, i) { return isFinite(v) ? X(i).toFixed(1) + ',' + Y(v).toFixed(1) : null; }).filter(Boolean);
       if (!p.length) return;
-      svg += '<polyline fill="none" stroke="' + l.z.c + '" stroke-width="' + (l.z.ref ? 2 : 2.6) + '"' + (l.z.ref ? ' stroke-dasharray="5 4"' : '') + ' points="' + p.join(' ') + '"/>';
-      l.pts.forEach(function (v, i) { if (isFinite(v) && !l.z.ref) svg += '<circle cx="' + X(i).toFixed(1) + '" cy="' + Y(v).toFixed(1) + '" r="2.6" fill="' + l.z.c + '"/>'; });
+      svg += '<polyline fill="none" stroke="' + l.c + '" stroke-width="' + (l.ref ? 2 : 2.6) + '"' + (l.ref ? ' stroke-dasharray="5 4"' : '') + ' points="' + p.join(' ') + '"/>';
       var li = l.pts.length - 1; while (li >= 0 && !isFinite(l.pts[li])) li--;
       if (li >= 0) {
         var yy = Y(l.pts[li]);
         lastY.forEach(function (o) { if (Math.abs(o - yy) < 12) yy = o + (yy >= o ? 12 : -12); });
         lastY.push(yy);
-        svg += '<text x="' + (X(li) + 6).toFixed(1) + '" y="' + (yy + 4).toFixed(1) + '" class="ow-lv" fill="' + l.z.c + '">' + pc(l.pts[li]) + '</text>';
+        svg += '<text x="' + (X(li) + 5).toFixed(1) + '" y="' + (yy + 4).toFixed(1) + '" class="ow-lv" fill="' + l.c + '">' + fmt(l.pts[li]) + '</text>';
       }
     });
     svg += '</svg>';
     return '<div class="ow-ceo-c"><div class="ow-ceo-ct">' + title + '</div>' + svg + '</div>';
   }
-  function bodyHtml() {
-    if (!W._rawB2BC || !W._rawB2BC.meta) return '<p class="ow-na">Cargando datos del Daily…</p>';
-    var S = series(), key = lastWeek(upTo()), keys = [];
-    for (var i = NWEEKS - 1; i >= 0; i--) keys.push(prevKey(key, i));
-    var notes = [];
-    if (state.budState === 'error') notes.push('No se pudo leer el Budget B2C semanal');
-    if (!S.b2b) notes.push('B2B cargando');
+  // Tendencia: YoY móvil de 4 semanas en cada semana
+  function rolling(s, keys, mk, reg) { return keys.map(function (k) { return yoyOf(s, lastN(k, 4), mk, reg); }); }
+  function weekly(s, keys, mk, reg) { return keys.map(function (k) { var x = stats(s, k, mk, reg); return x ? x.yoy : NaN; }); }
+
+  // ── Slides ─────────────────────────────────────────────────────────────────────────────────
+  function ready() { return W._rawB2BC && W._rawB2BC.meta; }
+  function upTo() {
+    var L = W._rawB2BC.meta.last_actuals_date;
+    var v = (typeof W.flowVDate_ === 'function' && W._activeView === 'flow') ? W.flowVDate_() : L;
+    return v < L ? v : L;
+  }
+  function notes(key) {
+    var n = [];
+    if (state.budState === 'error') n.push('No se pudo leer el Budget B2C semanal');
+    if (!W._rawB2B) n.push('B2B cargando');
     var org = orgT() ? 'Organic: reales de los tres negocios a TC Budget; YoY a TC Actuals LY. ' : '';
-    var coi = W._exCoiBr ? 'FVM de B2B2C / B2B sin COI de Brasil (B2C lo incluye). ' : '';
-    return '<div class="ow-ceo-hl">' + headline(S, key) + '</div>' + table(S, key) +
-      '<div class="ow-ceo-cs">' + chart(MET[state.metric] + ' · YoY por semana', S, keys, function (x) { return x.yoy; }) +
-      chart(MET[state.metric] + ' · % vs Budget por semana', S, keys, function (x) { return x.bud; }) + '</div>' +
+    var coi = W._exCoiBr ? 'COI Brasil = Excluir: FVM sin COI / Financial Result de Brasil. ' : '';
+    return 'Semana ISO (lun–dom) · ' + wkLbl(key) + ' = ' + wkRange(key) + ' · L4W = promedio de las 4 semanas anteriores · YoY vs la misma semana del año pasado · ' +
+      'tendencia = YoY de las últimas 4 semanas · B2B en fecha de gestión · franjas = semanas con eventos de industria (B2B / B2B2C; LY = el año pasado). ' + org + coi + n.join(' · ');
+  }
+  function body1(S, key) {
+    var mk = state.metric, keys = lastN(key, NWEEKS), M = momentum(S, key, mk), ev = eventsByWeek();
+    var yoyLines = BIZ.map(function (z) { return { c: z.c, ref: z.ref, pts: rolling(S[z.k], keys, mk), dots: weekly(S[z.k], keys, mk) }; });
+    var gapLines = OURS.map(function (z) {
+      var a = rolling(S[z.k], keys, mk), b = rolling(S.b2c, keys, mk);
+      return { c: z.c, pts: a.map(function (v, i) { return v - b[i]; }) };
+    });
+    var budLines = BIZ.map(function (z) { return { c: z.c, ref: z.ref, pts: keys.map(function (k) { var x = stats(S[z.k], k, mk); return x ? x.bud : NaN; }) }; });
+    return '<div class="ow-ceo-hl">' + headline(S, key) + '<div class="ow-ceo-dx">' + diagnosis(M) + '</div></div>' +
+      '<div class="ow-ceo-row">' + momentumCards(M) + table(S, key) + '</div>' +
+      '<div class="ow-ceo-cs">' +
+      lineChart(MET[mk] + ' · YoY (línea = tendencia 4 sem)', keys, yoyLines, pc, ev) +
+      lineChart('Brecha de crecimiento vs B2C (pp, 4 sem)', keys, gapLines, pp, ev) +
+      lineChart(MET[mk] + ' · % vs Budget por semana', keys, budLines, pc, ev) + '</div>' +
+      '<div class="ow-ceo-leg">' + BIZ.map(function (z) { return '<span><i style="background:' + z.c + '"></i>' + z.lbl + (z.ref ? ' (referencia)' : '') + '</span>'; }).join('') +
+      '<span class="ow-ceo-legn">puntos = semana · línea = tendencia</span></div>' +
+      '<div class="ow-ceo-n">' + notes(key) + '</div>';
+  }
+  function body2(S, key) {
+    var mk = state.metric, keys = lastN(key, NWEEKS), ev = eventsByWeek(), rows = '', worst = null;
+    REG.forEach(function (rg) {
+      var M = momentum(S, key, mk, rg[0]);
+      function cellB(z) { var m = M[z.k]; return '<td class="ow-v">' + pc(m.now) + '</td><td>' + pc(m.before) + '</td><td class="' + cl(m.d) + '">' + pp(m.d) + '</td>'; }
+      function cellG(z) { var m = M[z.k], g = m.gapNow - m.gapBefore; return '<td class="ow-v ' + cl(m.gapNow) + '">' + pp(m.gapNow) + '</td><td class="' + cl(g) + '">' + pp(g) + '</td>'; }
+      rows += '<tr class="' + (rg[0] === 'TOT' ? 'ow-tot' : '') + '"><td class="ow-l">' + rg[1] + '</td>' + BIZ.map(cellB).join('') + OURS.map(cellG).join('') + '</tr>';
+      if (rg[0] !== 'TOT') OURS.forEach(function (z) { var g = M[z.k].gapNow - M[z.k].gapBefore; if (isFinite(g) && (!worst || g < worst.g)) worst = { g: g, z: z, rg: rg, m: M[z.k] }; });
+    });
+    var th = '<tr><th rowspan="2" class="ow-l">YoY ' + MET[mk] + '</th>' + BIZ.map(function (z) { return '<th colspan="3">' + z.lbl + '</th>'; }).join('') +
+      OURS.map(function (z) { return '<th colspan="2" class="ow-sel">Brecha ' + z.lbl + ' vs B2C</th>'; }).join('') + '</tr><tr>' +
+      BIZ.map(function () { return '<th>4 sem</th><th>antes</th><th>Δ</th>'; }).join('') + OURS.map(function () { return '<th>ahora</th><th>Δ</th>'; }).join('') + '</tr>';
+    var tot = momentum(S, key, mk);
+    var dx = diagnosis(tot) + (worst && worst.g <= -UMBRAL ? ' Donde más terreno perdemos vs B2C: <b>' + worst.z.lbl + ' ' + worst.rg[1] + '</b> (brecha ' + pp(worst.m.gapBefore) + ' → ' + pp(worst.m.gapNow) + ').' : '');
+    var small = REG.slice(1).map(function (rg) {
+      return lineChart(rg[1] + ' · YoY tendencia 4 sem', keys, BIZ.map(function (z) { return { c: z.c, ref: z.ref, pts: rolling(S[z.k], keys, mk, rg[0]) }; }), pc, null, { w: 300, h: 190 });
+    }).join('');
+    return '<div class="ow-ceo-hl"><div class="ow-ceo-dx" style="margin:0">' + dx + '</div></div>' +
+      '<table class="ow-ceo-t ow-reg"><thead>' + th + '</thead><tbody>' + rows + '</tbody></table>' +
+      '<div class="ow-ceo-cs4">' + small + '</div>' +
       '<div class="ow-ceo-leg">' + BIZ.map(function (z) { return '<span><i style="background:' + z.c + '"></i>' + z.lbl + (z.ref ? ' (referencia)' : '') + '</span>'; }).join('') + '</div>' +
-      '<div class="ow-ceo-n">Semana ISO (lun–dom) · ' + wkLbl(key) + ' = ' + wkRange(key) + ' · L4W = promedio de las 4 semanas anteriores · YoY vs la misma semana del año pasado · B2B en fecha de gestión. ' +
-      org + coi + notes.join(' · ') + '</div>';
+      '<div class="ow-ceo-n">4 sem = YoY de las últimas 4 semanas (' + wkLbl(prevKey(key, 3)) + '–' + wkLbl(key) + ') · antes = las 4 anteriores (' + wkLbl(prevKey(key, 7)) + '–' + wkLbl(prevKey(key, 4)) +
+      ') · Δ en pp · Brecha = YoY del negocio − YoY de B2C en la misma región · Regiones como el Weekly (Hispa = AR, CO, CL, PE, EC; Globales = el resto). ' + notes(key).split(' · tendencia')[0] + '</div>';
   }
-  function title() {
-    if (!W._rawB2BC || !W._rawB2BC.meta) return 'Weekly Performance vs B2C';
+  function titleOf(n) {
+    if (!ready()) return n === 2 ? 'Momentum por región vs B2C' : 'Weekly Performance vs B2C';
     var key = lastWeek(upTo());
-    return 'Weekly Performance vs B2C · ' + wkLbl(key) + ' (' + wkRange(key) + ')';
+    return n === 2 ? 'Momentum por región vs B2C · ' + MET[state.metric] + ' · ' + wkLbl(key) : 'Weekly Performance vs B2C · ' + wkLbl(key) + ' (' + wkRange(key) + ')';
   }
-  function slideHtml() {
-    var head = typeof W.flHead_ === 'function' ? W.flHead_(title()) : '<div class="fl-head"><div class="fl-title">' + title() + '</div></div>';
-    return '<div class="flow-slide ow-ceo-slide">' + head + '<div class="ow-ceo-body">' + bodyHtml() + '</div></div>';
+  function bodyHtml(n, S) {
+    if (!ready()) return '<p class="ow-na">Cargando datos del Daily…</p>';
+    S = S || series();
+    var key = lastWeek(upTo());
+    return n === 2 ? body2(S, key) : body1(S, key);
+  }
+  function slideHtml(n, S) {
+    var t = titleOf(n), head = typeof W.flHead_ === 'function' ? W.flHead_(t) : '<div class="fl-head"><div class="fl-title">' + t + '</div></div>';
+    return '<div class="flow-slide ow-ceo-slide" data-ceo="' + n + '">' + head + '<div class="ow-ceo-body">' + bodyHtml(n, S) + '</div></div>';
   }
 
-  // ── Carga (Budget B2C y B2B) ───────────────────────────────────────────────────────────────
+  // ── Carga (Budget B2C, eventos y B2B) ──────────────────────────────────────────────────────
   function refreshAll() {
-    var b = document.getElementById('ow-ceo-bench-slide');
-    if (b && W._activeView === 'benchmark') { b.innerHTML = slideHtml(); fitBench(); }
+    if (!ready()) return;
+    var S = null;
+    function ser() { return S || (S = series()); }
+    var b = document.getElementById('ow-ceo-bench');
+    if (b && W._activeView === 'benchmark') {
+      [1, 2].forEach(function (n) { var h = document.getElementById('ow-ceo-bench-s' + n); if (h) h.innerHTML = slideHtml(n, ser()); });
+      fitBench();
+    }
     Array.prototype.forEach.call(document.querySelectorAll('#flow-track .ow-ceo-slide'), function (sl) {
-      var nb = sl.querySelector('.ow-ceo-body'); if (nb) nb.innerHTML = bodyHtml();
-      var tt = sl.querySelector('.fl-title'); if (tt) tt.textContent = title();
+      var n = +sl.getAttribute('data-ceo'), nb = sl.querySelector('.ow-ceo-body'); if (nb) nb.innerHTML = bodyHtml(n, ser());
+      var tt = sl.querySelector('.fl-title'); if (tt) tt.textContent = titleOf(n);
     });
   }
   function ensureData() {
+    var run = W.google && W.google.script && W.google.script.run;
+    if (!run) return;
     if (state.budState === 'idle') {
       state.budState = 'loading';
       W.google.script.run.withSuccessHandler(function (r) { state.bud = r; state.budState = 'ok'; refreshAll(); })
         .withFailureHandler(function () { state.budState = 'error'; refreshAll(); }).getB2CBudgetWeekly();
+    }
+    if (state.evState === 'idle' && typeof W.google.script.run.getIndustryEvents === 'function') {
+      state.evState = 'loading';
+      W.google.script.run.withSuccessHandler(function (r) { state.ev = r; state.evState = 'ok'; refreshAll(); })
+        .withFailureHandler(function () { state.evState = 'error'; }).getIndustryEvents();
     }
     if (!W._rawB2B && state.b2bState === 'idle' && W._rawB2BC) {
       state.b2bState = 'loading';
@@ -236,27 +386,30 @@
 
   // ── Benchmark: sección arriba de todo ──────────────────────────────────────────────────────
   function fitBench() {
-    var wrap = document.getElementById('ow-ceo-bench-wrap'), sl = document.querySelector('#ow-ceo-bench-slide .flow-slide');
-    if (!wrap || !sl) return;
-    var s = Math.min(1, wrap.clientWidth / 1280);
-    sl.style.transform = 'scale(' + s + ')'; sl.style.transformOrigin = '0 0';
-    wrap.style.height = Math.round(720 * s) + 'px';
+    [1, 2].forEach(function (n) {
+      var wrap = document.getElementById('ow-ceo-bench-w' + n), sl = document.querySelector('#ow-ceo-bench-s' + n + ' .flow-slide');
+      if (!wrap || !sl) return;
+      var s = Math.min(1, wrap.clientWidth / 1280);
+      sl.style.transform = 'scale(' + s + ')'; sl.style.transformOrigin = '0 0';
+      wrap.style.height = Math.round(720 * s) + 'px';
+    });
   }
   function ensureBench() {
     var host = document.querySelector('#view-benchmark .content');
     if (!host || document.getElementById('ow-ceo-bench')) return;
     var box = document.createElement('div');
     box.id = 'ow-ceo-bench';
-    box.innerHTML = '<div class="ow-ceo-bar"><div class="section-hdr" style="margin:0">Weekly · vs B2C <span style="font-weight:400;text-transform:none;letter-spacing:0">(vista para el CEO · también en el Flow Semanal)</span></div>' +
+    box.innerHTML = '<div class="ow-ceo-bar"><div class="section-hdr" style="margin:0">Weekly · vs B2C <span style="font-weight:400;text-transform:none;letter-spacing:0">(vista para CEO / Chief / VP · también en el Flow Semanal)</span></div>' +
       '<div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">' +
       // COI Brasil: el mismo switch global del Daily (setExCoiBr sincroniza todos los [data-coibr] y
       // rearma el Benchmark entero, esta sección incluida)
-      '<div class="dm-group" title="COI Brasil: Excluir saca el cost of installments y el efecto financiero de Brasil del FVM de B2B2C y B2B en toda la página (también en el Daily, Weekly y Flow).">' +
+      '<div class="dm-group" title="COI Brasil: Excluir saca el cost of installments y el efecto financiero de Brasil del FVM en toda la página (también en el Daily, Weekly y Flow).">' +
       '<span class="dm-group-lbl">COI Brasil</span><div class="dm-toggle">' +
       '<button class="dm-btn' + (W._exCoiBr ? '' : ' active') + '" data-coibr="incl" onclick="setExCoiBr(false)">Incluir</button>' +
       '<button class="dm-btn' + (W._exCoiBr ? ' active' : '') + '" data-coibr="excl" onclick="setExCoiBr(true)">Excluir</button></div></div>' +
       '<div class="tab-toggle">' + Object.keys(MET).map(function (m) { return '<button class="ttab" data-owm="' + m + '">' + (m === 'fvm' ? 'FVM' : m.toUpperCase()) + '</button>'; }).join('') + '</div></div></div>' +
-      '<div id="ow-ceo-bench-wrap"><div id="ow-ceo-bench-slide"></div></div>';
+      '<div id="ow-ceo-bench-w1" class="ow-ceo-wrap"><div id="ow-ceo-bench-s1"></div></div>' +
+      '<div id="ow-ceo-bench-w2" class="ow-ceo-wrap"><div id="ow-ceo-bench-s2"></div></div>';
     var hdr = host.querySelector('.section-hdr-row');
     host.insertBefore(box, hdr ? hdr : host.firstChild);
     Array.prototype.forEach.call(box.querySelectorAll('[data-owm]'), function (b) {
@@ -273,26 +426,36 @@
   css.textContent = [
     '#ow-ceo-bench{margin-bottom:22px}',
     '#ow-ceo-bench .ow-ceo-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:10px}',
-    '#ow-ceo-bench-wrap{position:relative;overflow:hidden;border-radius:8px}',
-    '#ow-ceo-bench-slide .flow-slide{position:absolute;left:0;top:0}',
+    '#ow-ceo-bench .ow-ceo-wrap{position:relative;overflow:hidden;border-radius:8px;margin-bottom:14px}',
+    '#ow-ceo-bench .ow-ceo-wrap .flow-slide{position:absolute;left:0;top:0}',
     // fuera del Flow no están sus variables (título, logo): las mismas de #view-flow
     '#ow-ceo-bench{--fl-purple:#5626e9;--fl-purple2:#8e5ff3;--fl-green:#15803d;--fl-red:#dc2626;--fl-amber:#b45309;--fl-ink:#1a1a2e;--fl-ink2:#4a4a63;--fl-ink3:#6b6b85;--fl-gray:#c9c9d6;--fl-line:#e6e6ee}',
-    '.ow-ceo-slide .ow-ceo-body{padding:10px 40px 0;height:calc(720px - 96px);display:flex;flex-direction:column;gap:8px;font-family:Poppins,sans-serif;color:#1d1d1f}',
-    '.ow-ceo-hl{font-size:14px;line-height:1.45;background:#f6f4fe;border-left:4px solid #550fed;border-radius:6px;padding:8px 12px}',
+    '.ow-ceo-slide .ow-ceo-body{padding:8px 40px 0;height:calc(720px - 96px);display:flex;flex-direction:column;gap:7px;font-family:Poppins,sans-serif;color:#1d1d1f}',
+    '.ow-ceo-hl{font-size:13px;line-height:1.4;background:#f6f4fe;border-left:4px solid #550fed;border-radius:6px;padding:6px 12px}',
+    '.ow-ceo-dx{font-size:12.5px;color:#3a3a46;margin-top:3px}',
     '.ow-ceo-slide .ow-up{color:#1a9e5a}.ow-ceo-slide .ow-dn{color:#d4373a}',
-    '.ow-ceo-t{width:100%;border-collapse:collapse;font-size:12.5px}',
-    '.ow-ceo-t th{background:#550fed;color:#fff;font-weight:600;padding:4px 6px;text-align:right;border-left:1px solid #fff}',
-    '.ow-ceo-t thead tr:first-child th{text-align:center;font-size:13px}.ow-ceo-t th.ow-sel{background:#3d00b8}',
-    '.ow-ceo-t td{padding:5px 6px;text-align:right;border-bottom:1px solid #eeecf6;white-space:nowrap}',
-    '.ow-ceo-t .ow-l{text-align:left;font-weight:700;min-width:120px}.ow-ceo-t .ow-l i,.ow-ceo-leg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px}',
+    '.ow-ceo-row{display:grid;grid-template-columns:330px 1fr;gap:14px;align-items:start}',
+    '.ow-mom{display:flex;flex-direction:column;gap:5px}',
+    '.ow-mom-c{border:1px solid #ebe8f7;border-top:3px solid;border-radius:8px;padding:4px 10px;background:#fcfbff;display:grid;grid-template-columns:1fr auto;column-gap:8px;align-items:center}',
+    '.ow-mom-h{font-size:12px;font-weight:700;grid-column:1/3}.ow-mom-h i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px}.ow-mom-h span{font-weight:400;color:#8e8e93;margin-left:4px}',
+    '.ow-mom-v{font-size:20px;font-weight:800;line-height:1.15}.ow-mom-d{font-size:13px;font-weight:700;margin-left:4px}',
+    '.ow-mom-s{font-size:11px;color:#6e6e73;text-align:right}.ow-mom-g{font-size:11.5px;grid-column:1/3;color:#4a4a63}.ow-mom-g span{color:#8e8e93}',
+    '.ow-ceo-t{width:100%;border-collapse:collapse;font-size:12px}',
+    '.ow-ceo-t th{background:#550fed;color:#fff;font-weight:600;padding:3px 5px;text-align:right;border-left:1px solid #fff}',
+    '.ow-ceo-t thead tr:first-child th{text-align:center;font-size:12.5px}.ow-ceo-t th.ow-sel{background:#3d00b8}',
+    '.ow-ceo-t td{padding:4px 5px;text-align:right;border-bottom:1px solid #eeecf6;white-space:nowrap}',
+    '.ow-ceo-t .ow-l{text-align:left;font-weight:700;min-width:96px}.ow-ceo-t .ow-l i,.ow-ceo-leg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px}',
     '.ow-ceo-t .ow-l small{font-weight:400;color:#8e8e93}.ow-ceo-t td.ow-v{font-weight:700}',
-    '.ow-ceo-t tr.ow-ref td{background:#f7f7f9;color:#55555c}.ow-ceo-t tr.ow-ref td.ow-up,.ow-ceo-t tr.ow-ref td.ow-dn{opacity:.9}',
-    '.ow-ceo-t tr.ow-gap td{font-size:12px;background:#fbfaff}.ow-ceo-t tr.ow-gap td.ow-l{font-weight:600;color:#4300d2}',
-    '.ow-ceo-cs{display:grid;grid-template-columns:1fr 1fr;gap:20px;flex:1;min-height:0}',
-    '.ow-ceo-ct{font-size:14px;font-weight:700;color:#4300d2;text-align:center}',
+    '.ow-ceo-t tr.ow-ref td{background:#f7f7f9;color:#55555c}',
+    '.ow-ceo-t tr.ow-gap td{font-size:11.5px;background:#fbfaff}.ow-ceo-t tr.ow-gap td.ow-l{font-weight:600;color:#4300d2}',
+    '.ow-ceo-t.ow-reg{font-size:13px}.ow-ceo-t.ow-reg td{padding:6px 7px}.ow-ceo-t tr.ow-tot td{background:#f6f4fe;font-weight:700;border-bottom:2px solid #550fed}',
+    '.ow-ceo-cs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;flex:1;min-height:0}',
+    '.ow-ceo-cs4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;flex:1;min-height:0}',
+    '.ow-ceo-ct{font-size:12.5px;font-weight:700;color:#4300d2;text-align:center}',
     '.ow-ceo-svg{width:100%;height:auto;display:block}.ow-ceo-svg .ow-ax{font-size:10px;fill:#8e8e93}.ow-ceo-svg .ow-lv{font-size:11px;font-weight:700}',
-    '.ow-ceo-leg{display:flex;gap:16px;justify-content:center;font-size:11.5px;color:#55555c;margin-top:-4px}',
-    '.ow-ceo-n{font-size:10.5px;color:#8e8e93;line-height:1.35}',
+    '.ow-ceo-svg .ow-ev{font-size:8.5px;fill:#5626e9;font-weight:600}.ow-ceo-svg .ow-ev.ly{fill:#8e8e93;font-weight:400}',
+    '.ow-ceo-leg{display:flex;gap:16px;justify-content:center;font-size:11px;color:#55555c}.ow-ceo-legn{font-style:italic;color:#8e8e93}',
+    '.ow-ceo-n{font-size:10px;color:#8e8e93;line-height:1.3}',
     '.ow-ceo-slide .ow-na{color:#8e8e93;font-size:13px;text-align:center}',
   ].join('\n');
   (document.head || document.documentElement).appendChild(css);
@@ -307,15 +470,16 @@
         return r;
       };
     }
-    // Flow: slide después del separador "Weekly Summary"
+    // Flow: las dos slides después del separador "Weekly Summary"
     if (Array.isArray(W.FLOW_DECK) && !W.FLOW_DECK.some(function (d) { return d.kind === 'ceo_weekly'; })) {
       var at = W.FLOW_DECK.findIndex(function (d) { return d.kind === 'divider' && d.flag === 'WK'; });
-      W.FLOW_DECK.splice(at < 0 ? W.FLOW_DECK.length : at + 1, 0, { kind: 'ceo_weekly', name: 'Weekly — vs B2C (CEO)' });
+      W.FLOW_DECK.splice(at < 0 ? W.FLOW_DECK.length : at + 1, 0,
+        { kind: 'ceo_weekly', n: 1, name: 'Weekly — vs B2C (CEO)' }, { kind: 'ceo_weekly', n: 2, name: 'Weekly — momentum por región vs B2C' });
     }
     var origSlide = W.flowBuildSlide_;
     if (typeof origSlide === 'function') {
       W.flowBuildSlide_ = function (def, idx) {
-        if (def && def.kind === 'ceo_weekly') { W._flowSeries[idx] = []; try { ensureData(); return slideHtml(); } catch (e) { return '<div class="flow-slide"><p>' + e.message + '</p></div>'; } }
+        if (def && def.kind === 'ceo_weekly') { W._flowSeries[idx] = []; try { ensureData(); return slideHtml(def.n || 1); } catch (e) { return '<div class="flow-slide"><p>' + esc(e.message) + '</p></div>'; } }
         return origSlide.apply(this, arguments);
       };
     }
