@@ -2179,6 +2179,10 @@ print(f"OKR H2 JSON: {len(okr_h2_bytes)//1024:.0f} KB  (ri={len(okr_h2_payload['
 
 def upload_to_drive(json_bytes: bytes, filename: str, folder_id: str = DRIVE_FOLDER_ID):
     from googleapiclient.http import MediaInMemoryUpload
+    import sys as _sys
+    from pathlib import Path as _Path
+    _sys.path.insert(0, str(_Path(__file__).resolve().parents[1] / "Ownia_B2B_Ecosystem" / "mirror"))
+    from ownia_publish import DRIVE_FIELDS, publish_after_drive   # doble escritura Drive + Ownia
 
     service = _get_drive_service()
     media   = MediaInMemoryUpload(json_bytes, mimetype="application/json", resumable=False)
@@ -2190,14 +2194,15 @@ def upload_to_drive(json_bytes: bytes, filename: str, folder_id: str = DRIVE_FOL
     existing = results.get("files", [])
 
     if existing:
-        service.files().update(fileId=existing[0]["id"], media_body=media).execute()
+        res = service.files().update(fileId=existing[0]["id"], media_body=media, fields=DRIVE_FIELDS).execute()
         print(f"  OK Drive: archivo actualizado ({filename})")
     else:
-        service.files().create(
+        res = service.files().create(
             body={"name": filename, "parents": [folder_id]},
-            media_body=media, fields="id"
+            media_body=media, fields=DRIVE_FIELDS
         ).execute()
         print(f"  OK Drive: archivo creado ({filename})")
+    publish_after_drive(res, json_bytes)
 
 
 # ==============================================================================

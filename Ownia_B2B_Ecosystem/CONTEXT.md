@@ -72,6 +72,16 @@ pipelines (sin cambios) ──▶ Drive ──▶ mirror/ownia_mirror.py ──P
                                                      landing en Ownia ──DriveApp.getFileById(id)──┘
 ```
 
+- **Doble escritura (2026-10-27)** — `mirror/ownia_publish.py` (`publish_after_drive`): los pipelines que suben a Drive
+  (`daily_sync.py`, `recurrencia_sync.py`, `actuals_gestional_upload.py`, `revenue_gd_builder.py`,
+  `profit_sharing_sync.py`, `json_builder.py`, `baseline_builder.py`, `okr_builder.py`, `plana_to_cube.py`) mandan en el
+  mismo paso el MISMO contenido a `/ingest/files/<id>`, con la fecha de modificación que devolvió Drive (se pide con
+  `DRIVE_FIELDS` en el `update()`/`create()`), así que el mirror posterior ve "sin cambios". Drive sigue siendo la
+  fuente de verdad (también alimenta a los toqans). Nunca corta el pipeline: si Ownia falla avisa (`WARN Ownia`), no
+  insiste con el resto de esa corrida y se repara con `py mirror/ownia_mirror.py`. Solo publica lo que está en el
+  manifest (por id o carpeta + nombre). Hace falta `credenciales/.env.ownia` en cada PC que corre pipelines
+  (`OWNIA_URL`, `OWNIA_INGEST_TOKEN`); sin eso, o con `OWNIA_PUBLISH=off`, no hace nada. El mirror sigue haciendo falta
+  para lo que no genera un pipeline (Sheets, `tc_plana_flat.xlsx`) y como reconciliación.
 - `server/drive-manifest.json` — qué ids de Drive (y qué archivos por carpeta + nombre) lee cada módulo. **Al agregar un
   `*_FILE_ID` en el código GAS de un módulo migrado, sumarlo acá** (`test/manifest.test.js` falla si no coincide con
   el código GAS). Es también la allowlist de `/ingest`: un archivo fuera de la lista se rechaza (403) aunque el token

@@ -138,11 +138,17 @@ def _download_json(svc, file_id, label):
 
 def _upload(local_path, svc):
     from googleapiclient.http import MediaFileUpload
+    import sys as _sys
+    from pathlib import Path as _Path
+    _sys.path.insert(0, str(_Path(__file__).resolve().parents[1] / "Ownia_B2B_Ecosystem" / "mirror"))
+    from ownia_publish import DRIVE_FIELDS, publish_after_drive   # doble escritura Drive + Ownia
     pnl_common.guard_shrink(svc, OKR_FILE_ID, os.path.getsize(local_path), OUTPUT_NAME)
     media = MediaFileUpload(local_path, mimetype="application/json", resumable=True)
     res = svc.files().update(fileId=OKR_FILE_ID, media_body=media,
-                              fields="id,size,modifiedTime").execute()
+                              fields=DRIVE_FIELDS + ",size").execute()
     print(f"  [Drive] actualizado {OUTPUT_NAME}: id={res['id']}  size={res.get('size','?')}")
+    with open(local_path, "rb") as _f:
+        publish_after_drive(res, _f.read())
 
 
 # ── Sheets helper ──────────────────────────────────────────────────────────────

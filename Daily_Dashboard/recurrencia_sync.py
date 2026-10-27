@@ -81,6 +81,10 @@ def drive_service():
 
 def upload(payload: dict, service=None) -> None:
     from googleapiclient.http import MediaIoBaseUpload
+    import sys as _sys
+    from pathlib import Path as _Path
+    _sys.path.insert(0, str(_Path(__file__).resolve().parents[1] / "Ownia_B2B_Ecosystem" / "mirror"))
+    from ownia_publish import DRIVE_FIELDS, publish_after_drive   # doble escritura Drive + Ownia
 
     service = service or drive_service()
     body = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
@@ -89,12 +93,13 @@ def upload(payload: dict, service=None) -> None:
         q=f"name='{RECUR_FILE_NAME}' and '{DRIVE_FOLDER_ID}' in parents and trashed=false",
         fields="files(id)").execute().get("files", [])
     if found:
-        service.files().update(fileId=found[0]["id"], media_body=media).execute()
+        res = service.files().update(fileId=found[0]["id"], media_body=media, fields=DRIVE_FIELDS).execute()
         print(f"  OK Drive: actualizado {RECUR_FILE_NAME}")
     else:
-        service.files().create(body={"name": RECUR_FILE_NAME, "parents": [DRIVE_FOLDER_ID]},
-                               media_body=media, fields="id").execute()
+        res = service.files().create(body={"name": RECUR_FILE_NAME, "parents": [DRIVE_FOLDER_ID]},
+                                     media_body=media, fields=DRIVE_FIELDS).execute()
         print(f"  OK Drive: creado {RECUR_FILE_NAME}")
+    publish_after_drive(res, body)
 
 
 def _fetch_standalone(query: str, label: str) -> pd.DataFrame:

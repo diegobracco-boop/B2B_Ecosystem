@@ -1450,6 +1450,10 @@ def _get_drive_service():
 
 def upload_to_drive(json_bytes: bytes):
     from googleapiclient.http import MediaInMemoryUpload
+    import sys as _sys
+    from pathlib import Path as _Path
+    _sys.path.insert(0, str(_Path(__file__).resolve().parents[1] / "Ownia_B2B_Ecosystem" / "mirror"))
+    from ownia_publish import DRIVE_FIELDS, publish_after_drive   # doble escritura Drive + Ownia
     service = _get_drive_service()
     media   = MediaInMemoryUpload(json_bytes, mimetype="application/json", resumable=False)
     results = service.files().list(
@@ -1458,14 +1462,15 @@ def upload_to_drive(json_bytes: bytes):
     ).execute()
     existing = results.get("files", [])
     if existing:
-        service.files().update(fileId=existing[0]["id"], media_body=media).execute()
+        res = service.files().update(fileId=existing[0]["id"], media_body=media, fields=DRIVE_FIELDS).execute()
         print(f"  OK Drive: actualizado ({JSON_FILE_NAME})")
     else:
-        service.files().create(
+        res = service.files().create(
             body={"name": JSON_FILE_NAME, "parents": [DRIVE_FOLDER_ID]},
-            media_body=media, fields="id",
+            media_body=media, fields=DRIVE_FIELDS,
         ).execute()
         print(f"  OK Drive: creado ({JSON_FILE_NAME})")
+    publish_after_drive(res, json_bytes)
 
 
 # ==============================================================================

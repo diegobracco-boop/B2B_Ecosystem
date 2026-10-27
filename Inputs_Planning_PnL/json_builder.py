@@ -159,6 +159,10 @@ def build(concept, upload=True):
 
 def _upload(name, data):
     from googleapiclient.http import MediaInMemoryUpload
+    import sys as _sys
+    from pathlib import Path as _Path
+    _sys.path.insert(0, str(_Path(__file__).resolve().parents[1] / "Ownia_B2B_Ecosystem" / "mirror"))
+    from ownia_publish import DRIVE_FIELDS, publish_after_drive   # doble escritura Drive + Ownia
     svc = pnl_common.get_drive_service()
 
     # Carpeta original — JSON sin modificar
@@ -167,12 +171,13 @@ def _upload(name, data):
     ex = svc.files().list(q=q, fields="files(id,name)").execute().get("files", [])
     if ex:
         pnl_common.guard_shrink(svc, ex[0]["id"], len(data), name)
-        svc.files().update(fileId=ex[0]["id"], media_body=media).execute()
+        res = svc.files().update(fileId=ex[0]["id"], media_body=media, fields=DRIVE_FIELDS).execute()
         print(f"  [Drive] actualizado {name}")
     else:
-        svc.files().create(body={"name": name, "parents": [DRIVE_FOLDER_ID]},
-                           media_body=media, fields="id").execute()
+        res = svc.files().create(body={"name": name, "parents": [DRIVE_FOLDER_ID]},
+                                 media_body=media, fields=DRIVE_FIELDS).execute()
         print(f"  [Drive] creado {name}")
+    publish_after_drive(res, data)
 
     # Carpeta comprimida — gzip(level=9) → base64 → .txt
     _upload_compressed(name, data, svc)
