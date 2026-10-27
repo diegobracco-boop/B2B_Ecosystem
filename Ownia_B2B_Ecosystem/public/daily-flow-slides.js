@@ -9,7 +9,8 @@
  *  - Nota al pie "Brasil: FVM excluye COI / Financial Result" cuando "COI Brasil" = Excluir.
  *  - Portada OC ("B2B2C Monthly Performance vs … · OC"): tablas NR / FVM / OC por H1 y H2 (en vez de
  *    YTD y H2), como la slide 4 de "Slides mensuales". El modo embebido (public/daily-embed.js) usa
- *    las mismas tablas.
+ *    las mismas tablas. Arriba de las barras, la línea de NR % GB y OC % GB (el OC % GB lo manda
+ *    "Slides mensuales" en la URL, &ocgb=).
  */
 (function () {
   'use strict';
@@ -105,8 +106,71 @@
       { lbl: h1L, data: ocHalf(cmp, 0, 6) }, { lbl: h2L, data: ocHalf(cmp, 6, 12) }]));
   }
 
+  // ── Portada OC: línea de % sobre GB arriba de las barras (como las slides Evolution del Hub) ──
+  //   NR % GB: NR / GB del Daily, mes a mes (real + Run Rate), la misma fuente que las barras.
+  //   OC % GB: el OC es contable y el Daily no tiene GB contable → lo manda "Slides mensuales" del Hub
+  //   en la URL (&ocgb=12 valores, OC / GB del contable); sin el parámetro esa línea no va.
+  var OCGB = (function () {
+    var m = /[?&]ocgb=([-\d.,]+)/.exec(location.search);
+    return m ? m[1].split(',').map(function (x) { return x === '' ? NaN : +x; }) : null;
+  })();
+  var gbPctPlugin = {
+    id: 'owGbPct',
+    afterDatasetsDraw: function (chart) {
+      if (!chart._owGbPct) return;
+      var di = chart.data.datasets.findIndex(function (d) { return d._owGbPct; });
+      if (di < 0) return;
+      var meta = chart.getDatasetMeta(di), ctx = chart.ctx, vals = chart.data.datasets[di].data;
+      ctx.save();
+      ctx.font = 'bold 9.5px Poppins, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillStyle = '#5b4fe0';
+      meta.data.forEach(function (el, i) { if (el && vals[i] != null) ctx.fillText(vals[i].toFixed(1) + '%', el.x, el.y - 5); });
+      ctx.restore();
+    },
+  };
+  function addGbLine(ch, pct, lbl) {
+    var fin = pct.filter(function (v) { return v != null && isFinite(v); });
+    if (!fin.length) return;
+    var lo = Math.min.apply(null, fin), hi = Math.max.apply(null, fin), span = (hi - lo) || Math.abs(hi) * 0.1 || 1;
+    ch.data.datasets.push({ type: 'line', label: lbl + ' % GB', data: pct.map(function (v) { return v != null && isFinite(v) ? v : null; }), yAxisID: 'owgb',
+      borderColor: '#8b80f0', borderWidth: 2, pointRadius: 3, pointBackgroundColor: '#fff', pointBorderColor: '#5b4fe0', pointBorderWidth: 2, order: 0, _owGbPct: true });
+    // la línea ocupa la franja de arriba: el eje oculto va de muy abajo a apenas arriba del máximo
+    // barras hasta ~57% del alto (grace 75%), línea en la franja ~70–90%
+    ch.options.scales.owgb = { display: false, min: lo - span * 3.2, max: hi + span * 0.5 };
+    ch.options.scales.y.grace = '75%';
+    ch._owGbPct = lbl;
+    ch.update('none');
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
     var W = window;
+    if (typeof W.Chart === 'function' && W.Chart.register) W.Chart.register(gbPctPlugin);
+    var origBuildSlide = W.flowBuildSlide_, origChart = W.flowChart_;
+    if (typeof origBuildSlide === 'function' && typeof origChart === 'function') {
+      W.flowBuildSlide_ = function (def, idx) {
+        var html = origBuildSlide.apply(this, arguments);
+        if (def && def.kind === 'cover_oc') {
+          try {
+            var gb = W.flowFY12_(W.flowRegionRaw_(null), 'gb', W._flowComp);
+            (W._flowSeries[idx] || []).forEach(function (spec) {
+              if (/-nr$/.test(spec.id)) spec._owGbPct = { lbl: 'NR', pct: spec.series.map(function (m, i) { var g = (gb[i].v || 0) + (gb[i].p || 0); return g ? ((m.v || 0) + (m.p || 0)) / g * 100 : null; }) };
+              else if (/-oc$/.test(spec.id) && OCGB) spec._owGbPct = { lbl: 'OC', pct: OCGB };
+            });
+            // la línea va en la leyenda de cada gráfico que la tiene (NR siempre; OC con &ocgb=)
+            var n = 0;
+            html = html.replace(/<div class="fl-legend">/g, function (m0) {
+              var lbl = n++ === 0 ? 'NR' : (OCGB ? 'OC' : null);
+              return lbl ? m0 + '<span style="white-space:nowrap"><i style="background:#8b80f0;height:3px;align-self:center"></i>' + lbl + ' %GB</span>' : m0;
+            });
+          } catch (e) { console.warn('[daily-flow-slides] sin línea % GB:', e); }
+        }
+        return html;
+      };
+      W.flowChart_ = function (spec) {
+        var r = origChart.apply(this, arguments);
+        if (spec && spec._owGbPct && W._flowCharts[spec.id]) { try { addGbLine(W._flowCharts[spec.id], spec._owGbPct.pct, spec._owGbPct.lbl); } catch (e) { console.warn('[daily-flow-slides] línea % GB:', e); } }
+        return r;
+      };
+    }
     if (typeof W.flowOCCoverTables_ === 'function' && typeof W.flMultiPeriodTbl_ === 'function') W.flowOCCoverTables_ = ocCoverTables;
     var origBuild = W.flowBuild_;
     if (typeof origBuild !== 'function') return;

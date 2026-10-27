@@ -293,7 +293,9 @@
   // contable, para estimar el OC at risk. coibr = switch "COI Brasil" del deck.
   function sB2B2CMonthly() {
     var b = state.data.b2b2c.s, h2 = range(6, 11), nb = agg(b.nr, h2).bud, ocm = nb ? agg(b.oc, h2).bud / nb : NaN;
-    var src = basePath() + '/daily?embed=b2b2c-cover&organic=' + (organicOn() ? 'yes' : 'no') + '&coibr=' + state.coibr + (isFinite(ocm) ? '&ocm=' + ocm.toFixed(4) : '');
+    // OC % GB del contable, mes a mes (la línea del gráfico de OC; el Daily no tiene GB contable)
+    var ocgb = range(0, 11).map(function (i) { var g = b.gb[i], o = b.oc[i]; return g && g.act ? (o.act / g.act * 100).toFixed(2) : ''; }).join(',');
+    var src = basePath() + '/daily?embed=b2b2c-cover&organic=' + (organicOn() ? 'yes' : 'no') + '&coibr=' + state.coibr + (isFinite(ocm) ? '&ocm=' + ocm.toFixed(4) : '') + '&ocgb=' + ocgb;
     return '<iframe class="hs-ifr" src="' + esc(src) + '" title="B2B2C mensual vs Budget (Daily)"></iframe>';
   }
 
@@ -324,9 +326,10 @@
     S.rc = comb([['may', 1], ['mq_hb', -1], ['mq_hg', -1], ['mq_fl', -1], ['mq_ds', -1], ['mq_ar', -1], ['mq_arfl', 1], ['mq_ards', 1]]);
     return S;
   }
-  // Barras apiladas por segmento (real cerrado oscuro / Run Rate claro; negativos hacia abajo) + Budget
-  function segChart(title, S, tot, mk) {
-    var ci = closedIdx(), cw = 50, x0 = 44, Wc = x0 + 12 * cw + 6, top = 22, base = 196, Hc = 240;
+  // Barras apiladas por segmento (real cerrado oscuro / Run Rate claro; negativos hacia abajo) + Budget.
+  // Arriba, la línea de % sobre GB del total (como en las slides Evolution): gb = serie GB del total.
+  function segChart(title, S, tot, mk, gb) {
+    var ci = closedIdx(), cw = 50, x0 = 44, Wc = x0 + 12 * cw + 6, top = 56, base = 208, Hc = 252, lineY0 = 16, lineY1 = 40;
     var hi = 0, lo = 0;
     range(0, 11).forEach(function (i) {
       var pos = 0, neg = 0;
@@ -351,6 +354,19 @@
       var t = tot[mk][i], yoy = t.ly > 0 && t.yoyN != null ? (t.yoyN / t.ly - 1) * 100 : NaN;
       svg += '<text x="' + (cx + 25) + '" y="' + (base + 33) + '" class="hs-evc ' + cls(yoy) + '">' + pc(yoy) + '</text>';
     });
+    var ratio = range(0, 11).map(function (i) { var g = gb && gb[i]; return g && g.act ? tot[mk][i].act / g.act * 100 : NaN; });
+    var fin = ratio.filter(isFinite), rlo = Math.min.apply(null, fin), rhi = Math.max.apply(null, fin);
+    var ry = function (v) { return rhi === rlo ? (lineY0 + lineY1) / 2 : lineY1 - (v - rlo) / (rhi - rlo) * (lineY1 - lineY0); };
+    var pts = [];
+    ratio.forEach(function (v, i) { if (isFinite(v)) pts.push([x0 + i * cw + 25, ry(v), v]); });
+    if (pts.length) {
+      svg += '<polyline fill="none" stroke="#8b80f0" stroke-width="2" points="' + pts.map(function (q) { return q[0] + ',' + q[1].toFixed(1); }).join(' ') + '"/>';
+      pts.forEach(function (q) {
+        svg += '<circle cx="' + q[0] + '" cy="' + q[1].toFixed(1) + '" r="3.2" fill="#fff" stroke="#5b4fe0" stroke-width="2"/>' +
+          '<text x="' + q[0] + '" y="' + (q[1] - 6).toFixed(1) + '" class="hs-evp">' + q[2].toFixed(1) + '%</text>';
+      });
+      svg += '<text x="2" y="' + ((lineY0 + lineY1) / 2 + 4) + '" class="hs-evl">' + (mk === 'nr' ? 'NR' : 'OC') + ' %GB</text>';
+    }
     svg += '<text x="2" y="' + (base + 33) + '" class="hs-evl">YoY</text></svg>';
     return '<div class="hs-mc"><div class="hs-mct">' + title + '</div>' + svg + '</div>';
   }
@@ -375,7 +391,7 @@
     var leg = '<div class="hs-mleg">' + MAY_SEGS.map(function (g) { return '<span><i style="background:' + g.c + '"></i>' + g.lbl + '</span>'; }).join('') +
       '<span><i style="background:#d9dbe0"></i>Budget</span><span class="hs-mlegn">tono claro = proyección (Run Rate)</span></div>';
     return head('B2B-MAY Monthly Performance vs Budget', 'NR y OC contable · real cerrado hasta ' + monthLabel(state.month) + ' + Run Rate · USD $M') +
-      '<div class="hs-may"><div class="hs-mayl">' + leg + segChart('Net Revenues, en $M', S, tot, 'nr') + segChart('Operating Contribution, en $M', S, tot, 'oc') + '</div>' +
+      '<div class="hs-may"><div class="hs-mayl">' + leg + segChart('Net Revenues, en $M', S, tot, 'nr', state.data.may.s.gb) + segChart('Operating Contribution, en $M', S, tot, 'oc', state.data.may.s.gb) + '</div>' +
       '<div class="hs-mayr">' + segTable('NR vs Budget', S, tot, 'nr') + segTable('OC vs Budget', S, tot, 'oc') +
       '<div class="hs-otn" style="font-size:10.5px">Flights &amp; Dest. Serv.: todos los países · Argentina: sin Flights / Dest. Serv. · Rest: resto del canal API</div></div></div>' + foot();
   }
