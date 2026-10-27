@@ -13,7 +13,8 @@
  *   Después de la 4: B2B-MAY mensual vs Budget, el mismo formato con NR y OC contable por segmento de
  *   API (Hoteles Brasil · Hoteles Globales · Flights & Dest. Serv. · Argentina · Rest of Countries, ver MAY_Q).
  *   La 4 es la portada "B2B2C — Resumen mensual (OC)" del Flow del Daily a pantalla completa
- *   (<base>/daily?embed=b2b2c-cover, public/daily-embed.js): NR Farming / Hunting / TBD y FVM del
+ *   (<base>/daily?embed=b2b2c-cover, public/daily-embed.js): NR total del contable (&nrc=…; Hunting / TBD
+ *   del Datalake y Farming por diferencia), FVM Farming / Hunting / TBD del
  *   Datalake, OC del contable, tablas H1 / H2. El "at risk" del título lo calcula esa página (NR) y
  *   el OC se estima con el margen OC/NR del Budget H2 de B2B2C del contable (&ocm=).
  *   Switch "COI Brasil" del deck (default Excluir): solo afecta esa slide (&coibr=).
@@ -296,7 +297,13 @@
     var b = state.data.b2b2c.s, h2 = range(6, 11), nb = agg(b.nr, h2).bud, ocm = nb ? agg(b.oc, h2).bud / nb : NaN;
     // OC % GB del contable, mes a mes (la línea del gráfico de OC; el Daily no tiene GB contable)
     var ocgb = range(0, 11).map(function (i) { var g = b.gb[i], o = b.oc[i]; return g && g.act ? (o.act / g.act * 100).toFixed(2) : ''; }).join(',');
-    var src = basePath() + '/daily?embed=b2b2c-cover&organic=' + (organicOn() ? 'yes' : 'no') + '&coibr=' + state.coibr + (isFinite(ocm) ? '&ocm=' + ocm.toFixed(4) : '') + '&ocgb=' + ocgb;
+    var nrgb = range(0, 11).map(function (i) { var g = b.gb[i], o = b.nr[i]; return g && g.act ? (o.act / g.act * 100).toFixed(2) : ''; }).join(',');
+    // NR del P&L contable para esa slide (Farming = contable − Hunting − TBD del Daily; ver daily-flow-slides.js)
+    var nrq = '&nrc=' + b.nr.map(function (x) { return x ? x.act.toFixed(0) : ''; }).join(',') +
+      '&nrb=' + b.nr.map(function (x) { return x ? x.bud.toFixed(0) : ''; }).join(',') +
+      '&nry=' + b.nr.map(function (x) { return x && x.ly > 0 && x.yoyN != null && isFinite(x.yoyN) ? ((x.yoyN / x.ly - 1) * 100).toFixed(2) : ''; }).join(',') +
+      '&nrcl=' + closedIdx();
+    var src = basePath() + '/daily?embed=b2b2c-cover&organic=' + (organicOn() ? 'yes' : 'no') + '&coibr=' + state.coibr + (isFinite(ocm) ? '&ocm=' + ocm.toFixed(4) : '') + '&ocgb=' + ocgb + '&nrgb=' + nrgb + nrq;
     return '<iframe class="hs-ifr" src="' + esc(src) + '" title="B2B2C mensual vs Budget (Daily)"></iframe>';
   }
 

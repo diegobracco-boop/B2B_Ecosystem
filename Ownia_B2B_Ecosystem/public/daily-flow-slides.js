@@ -11,6 +11,8 @@
  *    YTD y H2), como la slide 4 de "Slides mensuales". El modo embebido (public/daily-embed.js) usa
  *    las mismas tablas. Arriba de las barras, la línea de NR % GB y OC % GB (el OC % GB lo manda
  *    "Slides mensuales" en la URL, &ocgb=).
+ *  - NR de la portada OC en "Slides mensuales" (&nrc=… del Hub): total contable, Hunting y TBD del Daily,
+ *    Farming por diferencia. En el Flow del Daily, NR gestional como siempre.
  *  - OC (portada OC y slides de OC): con Organic YES el real + Run Rate del contable pasa a TC Budget (vs LY:
  *    TC Actuals LY), como en el P&L contable; en Apps Script el OC del Flow queda nominal.
  */
@@ -79,6 +81,12 @@
       var m = (cmp === 'ly') ? (+r.fecha.substring(0, 4) + 1) + r.fecha.substring(4, 7) : r.fecha.substring(0, 7);
       if (inH[m]) G[W.flSeg_(r)].goal += (r[gF] || 0);
     });
+    var C = mk === 'nr' && nrContable(cmp);
+    if (C) {   // NR contable: Farming = Goal contable − Hunting − TBD del Daily
+      var tot = 0;
+      Object.keys(inH).forEach(function (m) { tot += C.G[m] || 0; });
+      G.f.goal = tot - G.h.goal - G.t.goal;
+    }
     return G;
   }
   // OC con Organic (2026-10-27: la portada OC no cuadraba con el P&L contable, que con Organic YES lleva
@@ -110,6 +118,46 @@
     if (!raw || !conv || conv === orig) return fn.apply(self, args);
     raw.flow_oc = conv;
     try { return fn.apply(self, args); } finally { raw.flow_oc = orig; }
+  }
+  // ── NR de la portada OC SOLO en "Slides mensuales" del Hub (2026-10-27, Diego): el total es el NR del
+  // P&L CONTABLE que manda el Hub en la URL (12 meses del FY: &nrc= real cerrado + Run Rate con su Organic,
+  // &nrb= Budget, &nry= YoY %, &nrcl= índice del último mes cerrado), para que cuadre con el contable;
+  // Hunting y TBD siguen del gestional (Daily) y Farming = contable − Hunting − TBD, en barras y tablas,
+  // real y Goal. Meses cerrados: Farming va entero como real; abiertos: el real MTD de Farming del Daily y
+  // el resto como proyección. Los parámetros solo vienen en el modo embebido de esa slide (la página muestra
+  // solo la portada OC); sin ellos (el Flow del Daily) no cambia nada: 100% gestional.
+  var NRC = (function () {
+    function arr(k) { var m = new RegExp('[?&]' + k + '=([-\\d.,]+)').exec(location.search); return m ? m[1].split(',').map(function (x) { return x === '' ? null : +x; }) : null; }
+    var c = arr('nrc'), b = arr('nrb'), y = arr('nry'), cl = /[?&]nrcl=(-?\d+)/.exec(location.search);
+    return c && b && c.length === 12 && b.length === 12 ? { c: c, b: b, y: y, cl: cl ? +cl[1] : -1 } : null;
+  })();
+  function nrContable(cmp) {
+    var W = window;
+    if (!NRC || cmp !== 'budget' || !W._rawB2BC) return null;
+    var fy0 = +W.flFyStart_(W._rawB2BC.meta.last_actuals_date).substring(0, 4), v = { T: {}, G: {}, Y: {}, closed: {} };
+    for (var i = 0; i < 12; i++) {
+      var mm = (3 + i) % 12 + 1, m = (fy0 + (i >= 9 ? 1 : 0)) + '-' + (mm < 10 ? '0' : '') + mm;
+      if (NRC.c[i] == null) continue;
+      v.T[m] = NRC.c[i]; v.G[m] = NRC.b[i] || 0; v.Y[m] = NRC.y ? NRC.y[i] : null;
+      if (i <= NRC.cl) v.closed[m] = 1;
+    }
+    return v;
+  }
+  function nrFY12(mon, cmp) {
+    var C = nrContable(cmp);
+    if (!C) return mon;
+    var r2 = function (x) { return Math.round(x * 100) / 100; };
+    return mon.map(function (mo) {
+      var m = mo.date.substring(0, 7), sg = mo.seg;
+      if (!sg || !(m in C.T)) return mo;
+      var f = { v: sg.f.v, p: sg.f.p }, ht = sg.h.v + sg.h.p + sg.t.v + sg.t.p, T = C.T[m];
+      if (C.closed[m]) { f.v = r2(T - ht); f.p = 0; } else { f.p = r2(T - ht - f.v); }
+      var o = Object.assign({}, mo, { seg: { f: f, h: sg.h, t: sg.t } });
+      o.v = r2(f.v + sg.h.v + sg.t.v); o.p = r2(f.p + sg.h.p + sg.t.p); o.projected = o.p > 0;
+      if (mo.bud != null) o.bud = r2(C.G[m] || 0);
+      o.yoy = C.Y[m] != null && isFinite(C.Y[m]) ? C.Y[m] : null;
+      return o;
+    });
   }
   function ocHalf(cmp, a, b) {
     var W = window, L = W._rawB2BC.meta.last_actuals_date, fy0 = +W.flFyStart_(L).substring(0, 4);
@@ -144,6 +192,11 @@
   //   en la URL (&ocgb=12 valores, OC / GB del contable); sin el parámetro esa línea no va.
   var OCGB = (function () {
     var m = /[?&]ocgb=([-\d.,]+)/.exec(location.search);
+    return m ? m[1].split(',').map(function (x) { return x === '' ? NaN : +x; }) : null;
+  })();
+  // NR % GB: con el NR contable, el % sobre GB lo manda también el Hub (&nrgb=, NR / GB contable)
+  var NRGB = (function () {
+    var m = /[?&]nrgb=([-\d.,]+)/.exec(location.search);
     return m ? m[1].split(',').map(function (x) { return x === '' ? NaN : +x; }) : null;
   })();
   var gbPctPlugin = {
@@ -184,7 +237,8 @@
           try {
             var gb = W.flowFY12_(W.flowRegionRaw_(null), 'gb', W._flowComp);
             (W._flowSeries[idx] || []).forEach(function (spec) {
-              if (/-nr$/.test(spec.id)) spec._owGbPct = { lbl: 'NR', pct: spec.series.map(function (m, i) { var g = (gb[i].v || 0) + (gb[i].p || 0); return g ? ((m.v || 0) + (m.p || 0)) / g * 100 : null; }) };
+              if (/-nr$/.test(spec.id) && NRGB) spec._owGbPct = { lbl: 'NR', pct: NRGB };
+              else if (/-nr$/.test(spec.id)) spec._owGbPct = { lbl: 'NR', pct: spec.series.map(function (m, i) { var g = (gb[i].v || 0) + (gb[i].p || 0); return g ? ((m.v || 0) + (m.p || 0)) / g * 100 : null; }) };
               else if (/-oc$/.test(spec.id) && OCGB) spec._owGbPct = { lbl: 'OC', pct: OCGB };
             });
             // la línea va en la leyenda de cada gráfico que la tiene (NR siempre; OC con &ocgb=)
@@ -204,6 +258,12 @@
       };
     }
     if (typeof W.flowOCCoverTables_ === 'function' && typeof W.flMultiPeriodTbl_ === 'function') W.flowOCCoverTables_ = ocCoverTables;
+    var origFY12 = W.flowFY12_;
+    if (typeof origFY12 === 'function') W.flowFY12_ = function (sub, mk, cmp) {
+      var r = origFY12.apply(this, arguments);
+      if (mk !== 'nr' || !NRC) return r;
+      try { return nrFY12(r, cmp); } catch (e) { console.warn('[daily-flow-slides] NR contable:', e); return r; }
+    };
     ['flowFY12OC_', 'flowOCClosedData_', 'flowOCH2Data_'].forEach(function (nm) {
       var fn = W[nm];
       if (typeof fn === 'function') W[nm] = function (cmp) { return withOcOrg(cmp, fn, this, arguments); };
