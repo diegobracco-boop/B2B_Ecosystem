@@ -10,7 +10,7 @@
  *   9 B2B + business levers · 10 B2B MIN por región · 11 B2B MAY por región ·
  *   12-13 Proyección (mes siguiente, los Q que faltan y el semestre) vs Budget y vs Forecast BTB.
  *   Después de la 4: B2B-MAY mensual vs Budget, el mismo formato con NR y OC contable por segmento de
- *   API (Hoteles Brasil · Flights & Dest. Serv. · Argentina · Rest of Countries, ver MAY_Q).
+ *   API (Hoteles Brasil · Hoteles Globales · Flights & Dest. Serv. · Argentina · Rest of Countries, ver MAY_Q).
  *   La 4 es la portada "B2B2C — Resumen mensual (OC)" del Flow del Daily a pantalla completa
  *   (<base>/daily?embed=b2b2c-cover, public/daily-embed.js): NR Farming / Hunting / TBD y FVM del
  *   Datalake, OC del contable, tablas H1 / H2. El "at risk" del título lo calcula esa página (NR) y
@@ -40,12 +40,13 @@
   var cache = {};
   // B2B-MAY (API) por segmento, del contable: pedidos por país × producto y los segmentos salen por
   // suma / resta (el filtro de producto del Hub toma un solo valor). Sin solapamientos:
-  //   Hoteles Brasil = brasil × hotels · Flights & Dest. Serv. = flights + dest. serv. (todos los países)
+  //   Hoteles Brasil = brasil × hotels · Hoteles Globales = other countries × hotels · Flights & Dest. Serv. = flights + dest. serv. (todos los países)
   //   Argentina = argentina sin flights / dest. serv. · Rest of Countries = el resto del canal.
-  var MAY_Q = [['mq_hb', 'brasil', 'hotels'], ['mq_fl', 'all', 'flights'], ['mq_ds', 'all', 'dest. serv.'],
+  var MAY_Q = [['mq_hb', 'brasil', 'hotels'], ['mq_hg', 'other countries', 'hotels'], ['mq_fl', 'all', 'flights'], ['mq_ds', 'all', 'dest. serv.'],
     ['mq_ar', 'argentina', 'all'], ['mq_arfl', 'argentina', 'flights'], ['mq_ards', 'argentina', 'dest. serv.']];
   var MAY_SEGS = [
     { k: 'hb', lbl: 'API Hoteles Brasil', c: '#550fed', p: '#b7a2f8' },
+    { k: 'hg', lbl: 'API Hoteles Globales', c: '#c2187a', p: '#eba6cf' },
     { k: 'fd', lbl: 'API Flights & Dest. Serv.', c: '#0f9d8a', p: '#9fd9d0' },
     { k: 'ar', lbl: 'API Argentina', c: '#f08c1a', p: '#f8cc98' },
     { k: 'rc', lbl: 'API Rest of Countries', c: '#3d7be0', p: '#a9c6f2' },
@@ -316,10 +317,11 @@
   function maySegs() {
     var S = {
       hb: comb([['mq_hb', 1]]),
+      hg: comb([['mq_hg', 1]]),
       fd: comb([['mq_fl', 1], ['mq_ds', 1]]),
       ar: comb([['mq_ar', 1], ['mq_arfl', -1], ['mq_ards', -1]]),
     };
-    S.rc = comb([['may', 1], ['mq_hb', -1], ['mq_fl', -1], ['mq_ds', -1], ['mq_ar', -1], ['mq_arfl', 1], ['mq_ards', 1]]);
+    S.rc = comb([['may', 1], ['mq_hb', -1], ['mq_hg', -1], ['mq_fl', -1], ['mq_ds', -1], ['mq_ar', -1], ['mq_arfl', 1], ['mq_ards', 1]]);
     return S;
   }
   // Barras apiladas por segmento (real cerrado oscuro / Run Rate claro; negativos hacia abajo) + Budget
@@ -375,7 +377,7 @@
     return head('B2B-MAY Monthly Performance vs Budget', 'NR y OC contable · real cerrado hasta ' + monthLabel(state.month) + ' + Run Rate · USD $M') +
       '<div class="hs-may"><div class="hs-mayl">' + leg + segChart('Net Revenues, en $M', S, tot, 'nr') + segChart('Operating Contribution, en $M', S, tot, 'oc') + '</div>' +
       '<div class="hs-mayr">' + segTable('NR vs Budget', S, tot, 'nr') + segTable('OC vs Budget', S, tot, 'oc') +
-      '<div class="hs-otn">Hoteles Brasil = Brasil × Hotels · Flights &amp; Dest. Serv. = todos los países · Argentina = sin Flights / Dest. Serv. · Rest of Countries = el resto del canal API (MAY).</div></div></div>' + foot();
+      '<div class="hs-otn" style="font-size:10.5px">Flights &amp; Dest. Serv.: todos los países · Argentina: sin Flights / Dest. Serv. · Rest: resto del canal API</div></div></div>' + foot();
   }
 
   // ── Proyección: mes siguiente al cierre, los Q que faltan y el semestre (real cerrado + Run Rate) ──
