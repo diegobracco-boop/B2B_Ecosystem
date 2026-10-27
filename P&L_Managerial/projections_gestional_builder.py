@@ -56,6 +56,7 @@ FY_MONTHS = [d[:7] for d in _planning_cfg.FISCAL_DATES]         # 'YYYY-MM', abr
 # País correcto de partners B2B2C mal cargados en las proyecciones (CUTC), compartido con el Daily
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "Daily_Dashboard"))
 from pais_rules import apply_pais_overrides
+from rg_rows import append_rg_rows   # país RG: COI + efecto financiero de Brasil con signo contrario
 
 _XLSX_RENAME = {
     "intercompany":        "intercompany_usd",
@@ -113,7 +114,7 @@ def _b2b2c_rows(df: pd.DataFrame) -> list:
     for _, row in df.iterrows():
         vals = [round(float(row.get(c, 0) or 0), 4) for c in METRIC_COLS]
         rows.append([row["pais"], row["partner"], row["produto"], row["ym"]] + vals)
-    return rows
+    return append_rg_rows(rows, 4, METRIC_COLS)
 
 
 def _b2b_rows(df: pd.DataFrame) -> list:
@@ -134,7 +135,7 @@ def _b2b_rows(df: pd.DataFrame) -> list:
     for _, row in df.iterrows():
         vals = [round(float(row.get(c, 0) or 0), 4) for c in METRIC_COLS]
         rows.append([row["pais"], row["produto"], row["ym"]] + vals + [row["viaje"]])
-    return rows
+    return append_rg_rows(rows, 3, METRIC_COLS)
 
 
 # ── Drive helpers ──────────────────────────────────────────────────────────────

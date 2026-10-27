@@ -89,6 +89,14 @@ var _I_TP_B2B2C = 4 + METRIC_COLS.length;
 var _I_MI_TP    = _I_TP_B2B2C + 1;   // millas en ac_tp/ly_tp
 var _I_MI_MI    = _I_TP_B2B2C;       // millas en ac_mi/ly_mi
 
+// ── País RG (switch "COI Brasil") ────────────────────────────────────────
+// actuals_gestional_upload.py agrega filas pais='RG': cost_of_installments + efecto_financiero de Brasil con signo
+// contrario (Brasil conserva su FVM completo). Excluir = se suman las filas RG; Incluir = RG no cuenta.
+// Solo getData lo prende (filters.coibr === 'excl'); el resto de los endpoints (vs Accounting, vs Revenue GD)
+// reconcilian contra bases que incluyen el COI, así que cada entry point lo resetea.
+var _RG_ON_ = false;
+function _rgSkip_(row) { return row[0] === 'RG' && !_RG_ON_; }
+
 // ── Helpers de filtrado y agregación ─────────────────────────────────────
 
 // Normaliza un valor de filtro a array lowercase ([] = sin filtro)
@@ -132,6 +140,7 @@ function queryB2B2C_(section, scenarioKey, fPais, fPartner, fProduto,
   var _YAVAS_SAAS_PRODS = ['flights','packages general','hotels'];
   var rows = (section && section[scenarioKey]) || [];
   rows.forEach(function(row) {
+    if (_rgSkip_(row)) return;
     var pais = normB2B2CPais_(row[0]), partner = normB2B2CPartner_(row[1]), produto = row[2], ym = row[3];
     // Excluir NewFly en todas sus variantes (new fly, NewFly, new-fly, etc.)
     if (String(partner||'').toLowerCase().replace(/[\s\-_]/g,'') === 'newfly') return;
@@ -248,6 +257,7 @@ function queryB2B_(section, scenarioKey, fPais, fProduto,
                    outAgg, outAllPaises, outAllProdutos, ymOk, fViaje) {
   var rows = (section && section[scenarioKey]) || [];
   rows.forEach(function(row) {
+    if (_rgSkip_(row)) return;
     var pais = normB2BPais_(row[0]), produto = row[1], ym = row[2];
     if (!matchFilter_(pais,    fPais))    return;
     if (!matchFilter_(produto, fProduto)) return;
@@ -272,6 +282,7 @@ function queryB2BCanalDetail_(json, blKeyMay, bgtKey, fcstKeyMay, fPais, fProdut
   // Filas gateway: row[1] es el gateway → se filtra por gateway y se agrupa como 'Hotels'
   function procRows(rows, target) {
     (rows||[]).forEach(function(row) {
+      if (_rgSkip_(row)) return;
       var pais=normB2BPais_(row[0]), produto=row[1], ym=row[2];
       if(!matchFilter_(pais,fPais)) return;
       if(fViaje && !matchFilter_(row[_I_VJ_B2B],fViaje)) return;
@@ -400,7 +411,8 @@ function getData(filters) {
     lob_tipo:       (Array.isArray(f.lob_tipo) ? f.lob_tipo.slice().sort() : f.lob_tipo) || null,
     date_type:      f.date_type      || 'gd',
     baselineSource: f.baselineSource || 'bl',
-    organic:        organicTarget_(f)
+    organic:        organicTarget_(f),
+    coibr:          f.coibr === 'excl' ? 'excl' : 'incl'
   });
   var orgTarget = organicTarget_(f);
   var ck = null;
@@ -409,7 +421,7 @@ function getData(filters) {
     var t1 = DriveApp.getFileById(GESTIONAL_JSON_FILE_ID).getLastUpdated().getTime();
     var t2 = DriveApp.getFileById(GESTIONAL_VR_JSON_FILE_ID).getLastUpdated().getTime();
     var t3 = orgTarget ? DriveApp.getFileById(FX_FILE_ID).getLastUpdated().getTime() : 0;   // xlsx de TC (organic)
-    ck = 'getdata_v8_' + t1 + '_' + t2 + '_' + t3 + '_' + Utilities.base64EncodeWebSafe(sig);   // v8: organic vs Forecast a TC Budget
+    ck = 'getdata_v9_' + t1 + '_' + t2 + '_' + t3 + '_' + Utilities.base64EncodeWebSafe(sig);   // v9: switch COI Brasil (país RG)
     var hit = _readGetDataCache_(ck);
     if (hit) { Logger.log('getData HIT ' + (Date.now() - tStart) + ' ms'); return hit; }
   } catch (e) { Logger.log('getData cache probe: ' + e); }
@@ -442,6 +454,7 @@ function getData(filters) {
 
 function _computeGetData_(filters) {
   var f              = filters || {};
+  _RG_ON_            = (f['coibr'] === 'excl');
   var dateType       = (f['date_type'] === 'ri') ? 'ri' : 'gd';
   var baselineSrc    = (f['baselineSource'] === 'vr') ? 'vr' : 'bl';
   var json           = readGestionalJSON_(baselineSrc);
@@ -762,10 +775,10 @@ function getFilterOptions() {
   var paises = {}, partners = {}, produtos = {};
 
   function scanB2B2C(rows) {
-    (rows || []).forEach(function(r){ if(r[0]) paises[normB2B2CPais_(r[0])]=true; if(r[1]) partners[normB2B2CPartner_(r[1])]=true; if(r[2]) produtos[r[2]]=true; });
+    (rows || []).forEach(function(r){ if(r[0] && r[0] !== 'RG') paises[normB2B2CPais_(r[0])]=true; if(r[1]) partners[normB2B2CPartner_(r[1])]=true; if(r[2]) produtos[r[2]]=true; });
   }
   function scanB2B(rows) {
-    (rows || []).forEach(function(r){ if(r[0]) paises[r[0]]=true; if(r[1]) produtos[r[1]]=true; });
+    (rows || []).forEach(function(r){ if(r[0] && r[0] !== 'RG') paises[r[0]]=true; if(r[1]) produtos[r[1]]=true; });
   }
 
   var b2b2c   = json.b2b2c   || {};
@@ -863,6 +876,7 @@ function _round2_(dict) {
 
 function _computeVsAccounting_(f) {
   f = f || {};
+  _RG_ON_ = false;   // se reconcilia contra Accounting, que incluye el COI de Brasil
   var json = readGestionalJSON_('bl');
   var FY = YM_ORDER.map(function(y){ return YM_LABEL[y]; });
 
@@ -1023,6 +1037,7 @@ function _gestB2BByPaisNRFVM_(section, canal, fPaisRaw, selProd, out) {
   var iNR = 3 + METRIC_COLS.indexOf('net_revenue');
   var iFV = 3 + METRIC_COLS.indexOf('npv');
   rows.forEach(function(row) {
+    if (_rgSkip_(row)) return;
     var pais = normB2BPais_(row[0]), produto = row[1], ym = row[2];
     if (!matchFilter_(pais, fPaisRaw) || !matchFilter_(produto, selProd)) return;
     var mes = YM_LABEL[ym]; if (!mes) return;
@@ -1037,6 +1052,7 @@ function _gestB2BByPaisNRFVM_(section, canal, fPaisRaw, selProd, out) {
 
 function _computeRevenueGD_(f) {
   f = f || {};
+  _RG_ON_ = false;   // se reconcilia contra Revenue GD, que incluye el COI de Brasil
   var selPais = (f.pais || []).map(function(s){ return String(s); });               // canónico: ['Argentina','Otros',...]
   var selProd = (f.produto || []).map(function(s){ return String(s).toLowerCase(); });
 

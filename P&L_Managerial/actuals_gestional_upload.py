@@ -64,6 +64,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "Daily_Dashboard
 import hunting_rules
 # País correcto de partners B2B2C mal cargados en las proyecciones (CUTC), compartido con el Daily
 from pais_rules import apply_pais_overrides
+from rg_rows import append_rg_rows   # país RG: COI + efecto financiero de Brasil con signo contrario
 _FY = _planning_cfg.CURRENT_FY                                  # 2027 = FY27 (abr-2026 → mar-2027)
 FY_MONTHS = [d[:7] for d in _planning_cfg.FISCAL_DATES]         # 'YYYY-MM', abr → mar
 
@@ -1149,7 +1150,7 @@ def _build_b2b2c_rows(df: pd.DataFrame, filter_set: set = None, ym_shift_years: 
         rows.append([row["pais"], row["partner"], row["produto"], row["ym"]] + vals
                     + ([row["tipo_producto"]] if by_tipo else [])
                     + ([row["millas"]] if by_millas else []))
-    return rows
+    return append_rg_rows(rows, 4, METRIC_COLS)
 
 
 VIAJE_SIN_DATO = "(Sin dato)"
@@ -1211,7 +1212,7 @@ def _build_b2b_rows(df: pd.DataFrame, year_col: str, month_col: str,
     for _, row in df.iterrows():
         vals = [round(float(row.get(c, 0) or 0), 4) for c in METRIC_COLS]
         rows.append([row["pais"], row["produto"], row["ym"]] + vals + [row["viaje"]])
-    return rows
+    return append_rg_rows(rows, 3, METRIC_COLS)
 
 
 # Budget tables (raw.b2b_budget_gd / raw.b2b_budget_ri) carry the full P&L
@@ -1273,7 +1274,7 @@ def _build_b2b2c_budget_rows(df: pd.DataFrame, ym_from_proyectado: bool = False)
     for _, row in df.iterrows():
         vals = [round(float(row.get(c, 0) or 0), 4) for c in METRIC_COLS]
         rows.append([row["pais"], row["partner"], row["produto"], row["ym"]] + vals)
-    return rows
+    return append_rg_rows(rows, 4, METRIC_COLS)
 
 
 def _build_b2b_budget_rows(df: pd.DataFrame, lob_filter: str = None,
@@ -1300,7 +1301,7 @@ def _build_b2b_budget_rows(df: pd.DataFrame, lob_filter: str = None,
     for _, row in df.iterrows():
         vals = [round(float(row.get(c, 0) or 0), 4) for c in METRIC_COLS]
         rows.append([row["pais"], row["produto"], row["ym"]] + vals + [row["viaje"]])
-    return rows
+    return append_rg_rows(rows, 3, METRIC_COLS)
 
 
 # ==============================================================================
@@ -1384,7 +1385,7 @@ def _fc_xlsx_b2b2c_rows(df: pd.DataFrame) -> list:
     for _, row in df.iterrows():
         vals = [round(float(row.get(c, 0) or 0), 4) for c in METRIC_COLS]
         rows.append([row["pais"], row["partner"], row["produto"], row["ym"]] + vals)
-    return rows
+    return append_rg_rows(rows, 4, METRIC_COLS)
 
 
 def _fc_xlsx_b2b_rows(df: pd.DataFrame) -> list:
@@ -1401,7 +1402,7 @@ def _fc_xlsx_b2b_rows(df: pd.DataFrame) -> list:
     for _, row in df.iterrows():
         vals = [round(float(row.get(c, 0) or 0), 4) for c in METRIC_COLS]
         rows.append([row["pais"], row["produto"], row["ym"]] + vals + [row["viaje"]])
-    return rows
+    return append_rg_rows(rows, 3, METRIC_COLS)
 
 
 # ==============================================================================

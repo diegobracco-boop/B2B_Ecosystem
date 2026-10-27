@@ -879,6 +879,13 @@ header .btn-refresh:hover{background:#f5f3ff !important;border-color:#c4b5fd;col
       <button data-o="yes" class="prd-btn prd-active" type="button" onclick="setMGOrganic(true)">YES</button>
     </div>
     <span id="org-note" class="org-note"></span>
+    <!-- COI Brasil: Excluir = se suma el país RG (cost of installments + efecto financiero de Brasil con signo contrario); Brasil conserva su FVM completo -->
+    <span style="width:1px;height:18px;background:rgba(0,0,0,.15);margin:0 6px"></span>
+    <span style="font-size:11px;color:var(--muted);font-weight:700" title="Excluir saca el cost of installments y el efecto financiero de Brasil del FVM: se suma el país RG (ajuste con signo contrario). Brasil conserva su FVM completo.">COI Brasil:</span>
+    <div class="prd-toggle" id="coibr-toggle">
+      <button data-c="incl" class="prd-btn prd-active" type="button" onclick="setMGCoiBr(false)">Incluir</button>
+      <button data-c="excl" class="prd-btn"            type="button" onclick="setMGCoiBr(true)">Excluir</button>
+    </div>
     <span style="width:1px;height:18px;background:rgba(0,0,0,.15);margin:0 6px"></span>
     <span style="font-size:11px;color:var(--muted);font-weight:700">Escala:</span>
     <div class="prd-toggle">
@@ -2859,6 +2866,21 @@ function _reloadOrganic_(){
   reload();
   _invalidatePanesOnSharedChange_();
 }
+// ── COI Brasil (país RG) ─────────────────────────────────────
+// Incluir por default (Managerial cierra contra Accounting, que incluye el COI). Excluir = el servidor suma las
+// filas RG del JSON (actuals_gestional_upload.py); RG aparece como un país más y los chips de país se vuelven a armar.
+var _mgCoiBr = false;
+function setMGCoiBr(on){
+  _mgCoiBr = !!on;
+  document.querySelectorAll('#coibr-toggle button').forEach(function(b){
+    b.classList.toggle('prd-active', (b.dataset.c === 'excl') === _mgCoiBr);
+  });
+  _filtersLoadedForLob = {};   // los chips de país cambian (RG solo con Excluir)
+  _gFiltersLoadedForLob = {};
+  _dFiltersLoadedForLob = {};
+  reload();
+  _invalidatePanesOnSharedChange_();
+}
 function setMGOrganic(on){
   _mgOrganic = !!on;
   _orgError_ = ''; _orgMissing_ = [];
@@ -4418,7 +4440,8 @@ function getFilters(){
     lob_tipo:       lobTipo,
     date_type:      _activeLob === 'b2b2c' ? 'gd' : _activeDateType,
     baselineSource: _baselineSource,
-    organic:        _mgOrgTarget_()
+    organic:        _mgOrgTarget_(),
+    coibr:          _mgCoiBr ? 'excl' : 'incl'
   };
 }
 
