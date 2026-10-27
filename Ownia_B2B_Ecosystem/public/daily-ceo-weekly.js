@@ -174,18 +174,22 @@
   }
   // Diagnóstico de momentum en una frase: quién acelera / desacelera y si la brecha vs B2C se abre o se cierra
   var UMBRAL = 3;   // pp: menos que esto es "estable"
+  // Cambio relativo del YoY (cuánto desacelera en proporción): de +64% a +28% = −56%. Solo con un YoY de
+  // antes > 2%: con un antes chico o negativo el % no significa nada y queda solo el pp.
+  function rel(m) { return isFinite(m.now) && isFinite(m.before) && m.before > 2 ? (m.now - m.before) / m.before * 100 : NaN; }
+  function dTxt(m) { var r = rel(m); return '<span class="' + cl(m.d) + '">' + pp(m.d) + (isFinite(r) ? ' · ' + pc(r) : '') + '</span>'; }
   function verb(d) { return !isFinite(d) ? 'sin dato' : d <= -UMBRAL ? 'desacelera' : d >= UMBRAL ? 'acelera' : 'estable'; }
   function diagnosis(M, regLbl) {
     var parts = OURS.map(function (z) {
       var m = M[z.k]; if (!m || !isFinite(m.now)) return '';
       var g = m.gapNow - m.gapBefore;
-      return '<b>' + z.lbl + '</b> ' + verb(m.d) + ' (' + pc(m.now) + ' vs ' + pc(m.before) + ', <span class="' + cl(m.d) + '">' + pp(m.d) + '</span>); ' +
+      return '<b>' + z.lbl + '</b> ' + verb(m.d) + ' (' + pc(m.before) + ' → ' + pc(m.now) + ', ' + dTxt(m) + '); ' +
         'brecha vs B2C ' + pp(m.gapNow) + ' (antes ' + pp(m.gapBefore) + ': ' +
         (Math.abs(g) < UMBRAL ? 'se mantiene' : '<span class="' + cl(g) + '">' + (g > 0 ? 'le ganamos terreno' : 'perdemos terreno') + '</span>') + ')';
     }).filter(Boolean);
     var c = M.b2c;
     return (regLbl ? '<b>' + regLbl + '</b> · ' : '') + 'Últimas 4 semanas vs las 4 anteriores, YoY: ' + parts.join(' · ') +
-      ' · <b>B2C</b> ' + verb(c.d) + ' (' + pc(c.now) + ' vs ' + pc(c.before) + ', <span class="' + cl(c.d) + '">' + pp(c.d) + '</span>).';
+      ' · <b>B2C</b> ' + verb(c.d) + ' (' + pc(c.before) + ' → ' + pc(c.now) + ', ' + dTxt(c) + ').';
   }
 
   // ── Piezas de la slide 1 ───────────────────────────────────────────────────────────────────
@@ -194,7 +198,7 @@
       var m = M[z.k], gap = z.ref ? '<div class="ow-mom-g">referencia</div>' :
         '<div class="ow-mom-g">brecha vs B2C <b class="' + cl(m.gapNow) + '">' + pp(m.gapNow) + '</b> <span>(antes ' + pp(m.gapBefore) + ')</span></div>';
       return '<div class="ow-mom-c" style="border-top-color:' + z.c + '"><div class="ow-mom-h"><i style="background:' + z.c + '"></i>' + z.lbl +
-        ' <span>YoY 4 sem</span></div><div class="ow-mom-v">' + pc(m.now) + ' <span class="ow-mom-d ' + cl(m.d) + '">' + pp(m.d) + '</span></div>' +
+        ' <span>YoY 4 sem</span></div><div class="ow-mom-v">' + pc(m.now) + ' <span class="ow-mom-d">' + dTxt(m) + '</span></div>' +
         '<div class="ow-mom-s">antes ' + pc(m.before) + ' · ' + verb(m.d) + '</div>' + gap + '</div>';
     }).join('') + '</div>';
   }
@@ -283,7 +287,7 @@
     var org = orgT() ? 'Organic: reales de los tres negocios a TC Budget; YoY a TC Actuals LY. ' : '';
     var coi = W._exCoiBr ? 'COI Brasil = Excluir: FVM sin COI / Financial Result de Brasil. ' : '';
     return 'Semana ISO (lun–dom) · ' + wkLbl(key) + ' = ' + wkRange(key) + ' · L4W = promedio de las 4 semanas anteriores · YoY vs la misma semana del año pasado · ' +
-      'tendencia = YoY de las últimas 4 semanas · B2B en fecha de gestión · franjas = semanas con eventos de industria (B2B / B2B2C; LY = el año pasado). ' + org + coi + n.join(' · ');
+      'tendencia = YoY de las últimas 4 semanas · momentum: Δ pp y Δ % del YoY (de +64% a +28% = −36pp · −56%) · B2B en fecha de gestión · franjas = semanas con eventos de industria (B2B / B2B2C; LY = el año pasado). ' + org + coi + n.join(' · ');
   }
   function body1(S, key) {
     var mk = state.metric, keys = lastN(key, NWEEKS), M = momentum(S, key, mk), ev = eventsByWeek();
@@ -307,14 +311,14 @@
     var mk = state.metric, keys = lastN(key, NWEEKS), ev = eventsByWeek(), rows = '', worst = null;
     REG.forEach(function (rg) {
       var M = momentum(S, key, mk, rg[0]);
-      function cellB(z) { var m = M[z.k]; return '<td class="ow-v">' + pc(m.now) + '</td><td>' + pc(m.before) + '</td><td class="' + cl(m.d) + '">' + pp(m.d) + '</td>'; }
+      function cellB(z) { var m = M[z.k], r = rel(m); return '<td class="ow-v">' + pc(m.now) + '</td><td>' + pc(m.before) + '</td><td class="' + cl(m.d) + '">' + pp(m.d) + '</td><td class="ow-rel ' + cl(r) + '">' + (isFinite(r) ? pc(r) : '—') + '</td>'; }
       function cellG(z) { var m = M[z.k], g = m.gapNow - m.gapBefore; return '<td class="ow-v ' + cl(m.gapNow) + '">' + pp(m.gapNow) + '</td><td class="' + cl(g) + '">' + pp(g) + '</td>'; }
       rows += '<tr class="' + (rg[0] === 'TOT' ? 'ow-tot' : '') + '"><td class="ow-l">' + rg[1] + '</td>' + BIZ.map(cellB).join('') + OURS.map(cellG).join('') + '</tr>';
       if (rg[0] !== 'TOT') OURS.forEach(function (z) { var g = M[z.k].gapNow - M[z.k].gapBefore; if (isFinite(g) && (!worst || g < worst.g)) worst = { g: g, z: z, rg: rg, m: M[z.k] }; });
     });
-    var th = '<tr><th rowspan="2" class="ow-l">YoY ' + MET[mk] + '</th>' + BIZ.map(function (z) { return '<th colspan="3">' + z.lbl + '</th>'; }).join('') +
+    var th = '<tr><th rowspan="2" class="ow-l">YoY ' + MET[mk] + '</th>' + BIZ.map(function (z) { return '<th colspan="4">' + z.lbl + '</th>'; }).join('') +
       OURS.map(function (z) { return '<th colspan="2" class="ow-sel">Brecha ' + z.lbl + ' vs B2C</th>'; }).join('') + '</tr><tr>' +
-      BIZ.map(function () { return '<th>4 sem</th><th>antes</th><th>Δ</th>'; }).join('') + OURS.map(function () { return '<th>ahora</th><th>Δ</th>'; }).join('') + '</tr>';
+      BIZ.map(function () { return '<th>4 sem</th><th>antes</th><th>Δ pp</th><th>Δ %</th>'; }).join('') + OURS.map(function () { return '<th>ahora</th><th>Δ</th>'; }).join('') + '</tr>';
     var tot = momentum(S, key, mk);
     var dx = diagnosis(tot) + (worst && worst.g <= -UMBRAL ? ' Donde más terreno perdemos vs B2C: <b>' + worst.z.lbl + ' ' + worst.rg[1] + '</b> (brecha ' + pp(worst.m.gapBefore) + ' → ' + pp(worst.m.gapNow) + ').' : '');
     var small = REG.slice(1).map(function (rg) {
@@ -325,7 +329,7 @@
       '<div class="ow-ceo-cs4">' + small + '</div>' +
       '<div class="ow-ceo-leg">' + BIZ.map(function (z) { return '<span><i style="background:' + z.c + '"></i>' + z.lbl + (z.ref ? ' (referencia)' : '') + '</span>'; }).join('') + '</div>' +
       '<div class="ow-ceo-n">4 sem = YoY de las últimas 4 semanas (' + wkLbl(prevKey(key, 3)) + '–' + wkLbl(key) + ') · antes = las 4 anteriores (' + wkLbl(prevKey(key, 7)) + '–' + wkLbl(prevKey(key, 4)) +
-      ') · Δ en pp · Brecha = YoY del negocio − YoY de B2C en la misma región · Regiones como el Weekly (Hispa = AR, CO, CL, PE, EC; Globales = el resto). ' + notes(key).split(' · tendencia')[0] + '</div>';
+      ') · Δ pp = diferencia de YoY; Δ % = cuánto cambia el YoY en proporción (de +64% a +28% = −56%; sin dato si antes era ≤2%) · Brecha = YoY del negocio − YoY de B2C en la misma región · Regiones como el Weekly (Hispa = AR, CO, CL, PE, EC; Globales = el resto). ' + notes(key).split(' · tendencia')[0] + '</div>';
   }
   function titleOf(n) {
     if (!ready()) return n === 2 ? 'Momentum por región vs B2C' : 'Weekly Performance vs B2C';
@@ -438,7 +442,8 @@
     '.ow-mom{display:flex;flex-direction:column;gap:5px}',
     '.ow-mom-c{border:1px solid #ebe8f7;border-top:3px solid;border-radius:8px;padding:4px 10px;background:#fcfbff;display:grid;grid-template-columns:1fr auto;column-gap:8px;align-items:center}',
     '.ow-mom-h{font-size:12px;font-weight:700;grid-column:1/3}.ow-mom-h i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px}.ow-mom-h span{font-weight:400;color:#8e8e93;margin-left:4px}',
-    '.ow-mom-v{font-size:20px;font-weight:800;line-height:1.15}.ow-mom-d{font-size:13px;font-weight:700;margin-left:4px}',
+    '.ow-mom-v{font-size:20px;font-weight:800;line-height:1.15}.ow-mom-d{font-size:12.5px;font-weight:700;margin-left:4px}',
+    '.ow-ceo-t td.ow-rel{font-size:11.5px}',
     '.ow-mom-s{font-size:11px;color:#6e6e73;text-align:right}.ow-mom-g{font-size:11.5px;grid-column:1/3;color:#4a4a63}.ow-mom-g span{color:#8e8e93}',
     '.ow-ceo-t{width:100%;border-collapse:collapse;font-size:12px}',
     '.ow-ceo-t th{background:#550fed;color:#fff;font-weight:600;padding:3px 5px;text-align:right;border-left:1px solid #fff}',
