@@ -1740,10 +1740,11 @@ function setExclTBD(on) {
   if (vf && vf.style.display !== 'none') flowRebuild_(); else flowInvalidate_();
 }
 // ── COI Brasil (switch global) ───────────────────────────────────
-// Excluir = FVM ex COI BR: el FVM sin cost of installments ni efecto financiero de Brasil (columna
-// fvm_ex_coi_br de daily_sync.py, en actuals, LY y Budget/RR/Forecast). Se pisa r.fvm en las filas
-// (el total queda en r._fvmTot), así TODO lo que lee fvm lo sigue: métricas, tablas, KRs, Benchmark
-// y Flow. Weekly y OKR semanal se calculan en el servidor: van con el parámetro exCoiBr.
+// Excluir = FVM ex COI BR: se suman las filas del país RG (daily_sync.py, append_rg_rows: cost of installments
+// + efecto financiero de Brasil con signo contrario, en actuals, LY y Budget/RR/Forecast); Brasil conserva su
+// FVM completo. Incluir = RG en 0. Se pisa r.fvm en las filas RG (el valor real queda en r._fvmTot), así TODO lo
+// que lee fvm lo sigue: métricas, tablas, KRs, Benchmark y Flow. Weekly y OKR semanal se calculan en el
+// servidor: van con el parámetro exCoiBr.
 var _exCoiBr = true;   // Excluir por default (Diego, 2026-10-26)
 var _COIBR_KEYS_ = {
   b2bc:  ['actuals', 'actuals_ly', 'budget', 'runrate', 'forecast', 'budget_fy_rest', 'runrate_fy_rest', 'actuals_fy_rest', 'actuals_ly_fy_rest'],
@@ -1752,17 +1753,19 @@ var _COIBR_KEYS_ = {
   okrH2: ['b2b_gd', 'b2b_gd_ly', 'b2b_ri', 'b2b_ri_ly', 'b2b_budget_gd', 'b2b_budget_ri']
 };
 // Aplica el switch a un raw (al cargarlo y al cambiar el switch). Filas sin la columna quedan igual.
+function applyRgRows_(arr) {
+  if (!Array.isArray(arr)) return arr;
+  arr.forEach(function(r) {
+    if (r.pais !== 'RG') return;
+    if (r._fvmTot === undefined) r._fvmTot = r.fvm;
+    r.fvm = _exCoiBr ? r._fvmTot : 0;
+  });
+  return arr;
+}
 function applyCoiBr_(raw, keys) {
   if (!raw) return raw;
-  keys.forEach(function(k) {
-    var arr = raw[k];
-    if (!Array.isArray(arr)) return;
-    arr.forEach(function(r) {
-      if (r.fvm_ex_coi_br == null) return;
-      if (r._fvmTot === undefined) r._fvmTot = r.fvm;
-      r.fvm = _exCoiBr ? r.fvm_ex_coi_br : r._fvmTot;
-    });
-  });
+  keys.forEach(function(k) { applyRgRows_(raw[k]); });
+  applyRgRows_(raw._b2cExpanded); applyRgRows_(raw._b2cLyExpanded);   // B2C (se expande al vuelo: _b2cRows_ / _b2cLyRows_)
   return raw;
 }
 function fvmLabel_() { return _exCoiBr ? 'FVM ex COI BR' : 'FVM'; }
@@ -2085,9 +2088,9 @@ function _b2cRows_(raw) {
   if (!raw || !raw.b2c || !raw.b2c.cols || !raw.b2c.cols.length) return [];
   if (raw._b2cExpanded) return raw._b2cExpanded;
   var cols = raw.b2c.cols;
-  raw._b2cExpanded = raw.b2c.rows.map(function(row){
+  raw._b2cExpanded = applyRgRows_(raw.b2c.rows.map(function(row){
     var o = {}; cols.forEach(function(c,i){ o[c] = row[i]; }); return o;
-  });
+  }));
   return raw._b2cExpanded;
 }
 function computeB2C_(raw, metric, vDate, gran) {
@@ -2834,7 +2837,7 @@ function renderMetrics(all) {
     var chartDaily = d.daily;
     var isPct = def.key !== 'gb' && _b2bcMarginMode === 'pct';
     if (isPct && all.gb) chartDaily = toPctDaily_(d.daily, all.gb.daily);
-    var b2cSeries = (_showB2C_b2bc && !isPct && !(def.key === 'fvm' && _exCoiBr)) ? computeB2C_(_rawB2BC, def.key, d.viewDate, gran) : null;
+    var b2cSeries = (_showB2C_b2bc && !isPct) ? computeB2C_(_rawB2BC, def.key, d.viewDate, gran) : null;
     renderChart(def.key, def.chartId, chartDaily, d.viewDate, def.color, gran, undefined, {pctMode:isPct, b2c:b2cSeries});
     var tblGroups = (gl_tbl_period === 'ytd' && d.groups_ytd) ? d.groups_ytd : d.groups;
     renderGroupedTable3(def.tblId, tblGroups, {newFlagKey:'isNew'});
@@ -3948,7 +3951,7 @@ function renderB2BMetrics(all) {
     var chartDailyB2b = d.daily;
     var isPctB2b = def.key !== 'gb' && _b2bMarginMode === 'pct';
     if (isPctB2b && all.gb) chartDailyB2b = toPctDaily_(d.daily, all.gb.daily);
-    var b2cSeriesB2b = (_showB2C_b2b && !isPctB2b && !(def.key === 'fvm' && _exCoiBr)) ? computeB2C_(_rawB2B, def.key, d.viewDate, gran) : null;
+    var b2cSeriesB2b = (_showB2C_b2b && !isPctB2b) ? computeB2C_(_rawB2B, def.key, d.viewDate, gran) : null;
     renderChart(def.key, def.chartId, chartDailyB2b, d.viewDate, def.color, gran, _b2bCharts, {pctMode:isPctB2b, b2c:b2cSeriesB2b});
     var tblGroupsB2b = (gl_tbl_period === 'ytd' && d.groups_ytd) ? d.groups_ytd : d.groups;
     renderGroupedTableB2B_(def.tblId, tblGroupsB2b);
@@ -4061,7 +4064,7 @@ var _BENCH_ML = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 
 function _b2cLyRows_(raw) {
   if (!raw || !raw.b2c_ly || !raw.b2c_ly.cols || !raw.b2c_ly.cols.length) return [];
   if (raw._b2cLyExpanded) return raw._b2cLyExpanded;
-  raw._b2cLyExpanded = expandCompact_(raw.b2c_ly);
+  raw._b2cLyExpanded = applyRgRows_(expandCompact_(raw.b2c_ly));
   return raw._b2cLyExpanded;
 }
 

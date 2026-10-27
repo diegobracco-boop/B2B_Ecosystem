@@ -68,7 +68,8 @@
   }
 
   // ── Datos ──────────────────────────────────────────────────────────────────────────────────
-  function regionOf(pais) { return pais === 'Brasil' ? 'Brasil' : (pais === 'Mexico' ? 'Mexico' : (HISPA[pais] ? 'Hispa' : 'Globales')); }
+  // RG (ajuste COI Brasil) tiene su propio bucket: suma en TOT pero no se muestra en ninguna región
+  function regionOf(pais) { return pais === 'RG' ? 'RG' : pais === 'Brasil' ? 'Brasil' : (pais === 'Mexico' ? 'Mexico' : (HISPA[pais] ? 'Hispa' : 'Globales')); }
   // Filas diarias → {region: {semana: {gb, nr, fvm, gbY, nrY, fvmY}}} (región 'TOT' = todo); shift = años a sumar (LY)
   function byWeek(rows, shift) {
     var o = {};
@@ -87,10 +88,11 @@
   function b2cBudWeeks() {
     var o = {}, b = state.bud;
     if (!b || !b.rows) return o;
-    // COI Brasil = Excluir: el FVM del Budget sin COI / Financial Result de Brasil (b2c_budget_sync.py)
+    // COI Brasil = Excluir: se suma la fila RG del Budget (COI / Financial Result de Brasil con signo contrario, b2c_budget_sync.py)
     var c = b.cols, ia = c.indexOf('anio'), iw = c.indexOf('semana'), ip = c.indexOf('pais'), ig = c.indexOf('gross_bookings'), inr = c.indexOf('net_revenues'),
-      iv = (W._exCoiBr && c.indexOf('fvm_ex_coi_br') >= 0) ? c.indexOf('fvm_ex_coi_br') : c.indexOf('fvm');
+      iv = c.indexOf('fvm');
     b.rows.forEach(function (r) {
+      if (r[ip] === 'RG' && !W._exCoiBr) return;
       var k = r[ia] * 100 + r[iw];
       ['TOT', regionOf(r[ip])].forEach(function (reg) {
         var R = o[reg] = o[reg] || {}, x = R[k] = R[k] || { gb: 0, nr: 0, fvm: 0 };
@@ -99,16 +101,16 @@
     });
     return o;
   }
-  // B2C con el switch COI Brasil: el JSON trae fvm_ex_coi_br (daily_sync.py desde 2026-10-27) y se pisa
-  // fvm EN LAS FILAS de _b2cRows_ / _b2cLyRows_, igual que applyCoiBr_ con B2B2C / B2B (el total queda en
-  // _fvmTot). Así lo sigue todo lo que lee esas filas: esta vista y el Benchmark clásico.
+  // B2C con el switch COI Brasil: el JSON trae la fila RG (daily_sync.py append_rg_rows) y se pone fvm en 0 o
+  // en su valor EN LAS FILAS de _b2cRows_ / _b2cLyRows_, igual que applyCoiBr_ con B2B2C / B2B (el valor real queda
+  // en _fvmTot). Así lo sigue todo lo que lee esas filas: esta vista y el Benchmark clásico.
   function applyB2CCoi() {
     if (!W._rawB2BC || typeof W._b2cRows_ !== 'function') return;
     [W._b2cRows_(W._rawB2BC), W._b2cLyRows_(W._rawB2BC)].forEach(function (arr) {
       (arr || []).forEach(function (r) {
-        if (r.fvm_ex_coi_br == null) return;
+        if (r.pais !== 'RG') return;
         if (r._fvmTot === undefined) r._fvmTot = r.fvm;
-        r.fvm = W._exCoiBr ? r.fvm_ex_coi_br : r._fvmTot;
+        r.fvm = W._exCoiBr ? r._fvmTot : 0;
       });
     });
   }

@@ -110,8 +110,8 @@ function cacheGet_(key) {
 // ============================================================
 
 var WS_HISPA  = ['Argentina','Colombia','Chile','Peru','Ecuador'];
-var WS_GROUPS = ['TOTAL','Brasil','Mexico','Hispa','Globales'];
-var WS_FLAGS  = { 'TOTAL':null,'Brasil':'br','Mexico':'mx','Hispa':'hispa','Globales':'globe' };
+var WS_GROUPS = ['TOTAL','Brasil','Mexico','Hispa','Globales','RG'];
+var WS_FLAGS  = { 'TOTAL':null,'Brasil':'br','Mexico':'mx','Hispa':'hispa','Globales':'globe','RG':null };
 
 // ---- Compact-format expander ----
 
@@ -137,13 +137,18 @@ function _wsIsoWeek_(ymd) {
 }
 
 // ---- Switch "COI Brasil" del Daily ----
-// params.exCoiBr = true -> FVM ex COI BR (columna fvm_ex_coi_br de daily_sync.py: el FVM sin cost of
-// installments ni efecto financiero de Brasil). Es por ejecución: cada google.script.run arranca en false.
+// El país RG (daily_sync.py, append_rg_rows) lleva el cost of installments y el efecto financiero de Brasil con
+// signo contrario; Brasil conserva su FVM completo. params.exCoiBr = true -> FVM ex COI BR = se suman las filas RG;
+// false -> RG no cuenta. Es por ejecución: cada google.script.run arranca en false.
 var _wsExCoiBr_ = false;
 function _wsSetExCoiBr_(params) { _wsExCoiBr_ = !!(params && params.exCoiBr); }
 function _fvmOf_(r) {
-  var v = (_wsExCoiBr_ && r.fvm_ex_coi_br != null) ? r.fvm_ex_coi_br : r.fvm;
-  return parseFloat(v || 0) || 0;
+  if (r.pais === 'RG' && !_wsExCoiBr_) return 0;
+  return parseFloat(r.fvm || 0) || 0;
+}
+// Grupos del Weekly: RG (ajuste COI Brasil) solo existe con el switch en Excluir.
+function _wsGroups_() {
+  return _wsExCoiBr_ ? WS_GROUPS : WS_GROUPS.filter(function(g) { return g !== 'RG'; });
 }
 
 // ---- Row normalizer → {fecha, pais, canal, gb, rev, fvm} ----
@@ -247,9 +252,10 @@ function _wsGroupVals_(agg, year, week, group) {
   }
   if (group === 'Brasil') return wd['Brasil'] || zero;
   if (group === 'Mexico') return wd['Mexico'] || zero;
+  if (group === 'RG')     return wd['RG'] || zero;
   if (group === 'Hispa')  return _wsSumPaises_(wd, WS_HISPA);
   if (group === 'Globales') {
-    var excl = ['Brasil','Mexico'].concat(WS_HISPA);
+    var excl = ['Brasil','Mexico','RG'].concat(WS_HISPA);
     var g = { gb:0, rev:0, fvm:0 };
     Object.keys(wd).forEach(function(p) { if (excl.indexOf(p)===-1) { g.gb+=wd[p].gb; g.rev+=wd[p].rev; g.fvm+=wd[p].fvm; } });
     return g;
@@ -268,9 +274,10 @@ function _wsMonthGroupVals_(agg, ym, group) {
   }
   if (group === 'Brasil') return md['Brasil'] || zero;
   if (group === 'Mexico') return md['Mexico'] || zero;
+  if (group === 'RG')     return md['RG'] || zero;
   if (group === 'Hispa')  return _wsSumPaises_(md, WS_HISPA);
   if (group === 'Globales') {
-    var excl2 = ['Brasil','Mexico'].concat(WS_HISPA);
+    var excl2 = ['Brasil','Mexico','RG'].concat(WS_HISPA);
     var g2 = { gb:0, rev:0, fvm:0 };
     Object.keys(md).forEach(function(p) { if (excl2.indexOf(p)===-1) { g2.gb+=md[p].gb; g2.rev+=md[p].rev; g2.fvm+=md[p].fvm; } });
     return g2;
@@ -395,7 +402,7 @@ function _wsSummary_(params, conv) {
     // Brecha de crecimiento vs B2C (pp) = % vs LY propio − % vs LY de B2C (mismo criterio que Benchmark vs B2C)
     function gap_(a, b) { return (a === null || b === null) ? null : a - b; }
 
-    var rows = WS_GROUPS.map(function(group) {
+    var rows = _wsGroups_().map(function(group) {
       var weeks = last5.map(function(w) {
         var curr  = _wsGroupVals_(weekAgg,      w.year,     w.week, group);
         var ly    = _wsGroupVals_(lyWeekAgg,    w.year - 1, w.week, group);
@@ -510,16 +517,17 @@ function _wsComputeMTD_(actRows, budRows, lyRows) {
     }
     if (group==='Brasil') return budByPais['Brasil']||zero;
     if (group==='Mexico') return budByPais['Mexico']||zero;
+    if (group==='RG') return budByPais['RG']||zero;
     if (group==='Hispa') { var h={gb:0,rev:0,fvm:0}; WS_HISPA.forEach(function(p){var v=budByPais[p]||zero;h.gb+=v.gb;h.rev+=v.rev;h.fvm+=v.fvm;}); return h; }
     if (group==='Globales') {
-      var excl=['Brasil','Mexico'].concat(WS_HISPA), g={gb:0,rev:0,fvm:0};
+      var excl=['Brasil','Mexico','RG'].concat(WS_HISPA), g={gb:0,rev:0,fvm:0};
       Object.keys(budByPais).forEach(function(p){if(excl.indexOf(p)===-1){g.gb+=budByPais[p].gb;g.rev+=budByPais[p].rev;g.fvm+=budByPais[p].fvm;}});
       return g;
     }
     return null;
   }
 
-  var rows = WS_GROUPS.map(function(group) {
+  var rows = _wsGroups_().map(function(group) {
     var act = _wsMonthGroupVals_(actAgg,   lastYM, group);
     var ly  = _wsMonthGroupVals_(lyActAgg, lyYM,   group);
     var bud = getBudGroup_(group);
@@ -705,7 +713,7 @@ function sendDailyEmail_(customRecipients) {
 // ── Helpers numéricos ────────────────────────────────────────────
 
 function _eIsCore_(p) { return p==='Brasil'||p==='Mexico'||p==='Other Countries'; }
-function _eRegion_(p) { if(p==='Brasil')return 'BR'; if(p==='Mexico')return 'NAM'; return 'SAH'; }
+function _eRegion_(p) { if(p==='Brasil'||p==='RG')return 'BR'; if(p==='Mexico')return 'NAM'; return 'SAH'; }
 
 function _eSum_(arr, from, to, field) {
   var t = 0;
@@ -761,7 +769,7 @@ function _emailKRsB2BC_(raw, mStart, vDate) {
   raw.actuals.forEach(function(r){
     if(r.fecha<mStart||r.fecha>vDate)return;
     var at=r.partner==='livelo-api-hoteles'?'New':r.account_type;
-    var rg=_eRegion_(r.pais), nr=+r.net_revenues||0, fv=+r.fvm||0;
+    var rg=_eRegion_(r.pais), nr=+r.net_revenues||0, fv=(r.pais==='RG')?0:(+r.fvm||0);   // el email no aplica el switch COI Brasil: sin RG
     if(at==='New')     {kr2.act+=nr;kr2.r[rg].act+=nr;}
     else if(at==='Existing'){kr3.act+=nr;kr3.r[rg].act+=nr;}
     kr4.act+=fv;kr4.r[rg].act+=fv;
@@ -769,7 +777,7 @@ function _emailKRsB2BC_(raw, mStart, vDate) {
   raw.budget.forEach(function(r){
     if(r.fecha<mStart||r.fecha>vDate)return;
     var st=r.stage||'Existing', rg=_eRegion_(r.pais);
-    var nr=+r.net_revenue||0, fv=+r.fvm||0;
+    var nr=+r.net_revenue||0, fv=(r.pais==='RG')?0:(+r.fvm||0);
     if(st==='New')  {kr2.bud+=nr;kr2.r[rg].bud+=nr;}
     else            {kr3.bud+=nr;kr3.r[rg].bud+=nr;}
     kr4.bud+=fv;kr4.r[rg].bud+=fv;
@@ -977,7 +985,7 @@ var _OKR_MES_LABELS_   = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep',
 var _OKR_REGIONS_      = ['BR','MX/US','HISPA'];
 
 function _okrPaisToRegion_(pais) {
-  if (pais === 'Brasil') return 'BR';
+  if (pais === 'Brasil' || pais === 'RG') return 'BR';   // RG = ajuste COI Brasil: va con la región de Brasil
   if (pais === 'Mexico') return 'MX/US';
   if (_OKR_HISPA_PAISES_.indexOf(pais) !== -1) return 'HISPA';
   return 'Globales';

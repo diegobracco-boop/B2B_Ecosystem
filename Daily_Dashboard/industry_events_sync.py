@@ -215,7 +215,7 @@ def _agg_dia_pais(df, cols):
 def bajar_ly(ds, desde, hasta):
     print(f"  LY {desde} → {hasta} (queries de daily_sync.py)")
     a = ds["clean_actuals"](ds["fetch"](ds["build_actuals_query"](desde, hasta), "B2B2C LY nov-dic"))
-    b2b2c = _agg_dia_pais(a, ["gross_bookings", "net_revenues", "fvm", "fvm_ex_coi_br"])
+    b2b2c = _agg_dia_pais(a, ["gross_bookings", "net_revenues", "fvm"])
     c = ds["agg_b2c"](ds["fetch"](ds["build_b2c_query"](desde, hasta), "B2C LY nov-dic"))
     b2c = _agg_dia_pais(c, ["gross_bookings", "net_revenues", "fvm"])
     return {"b2b2c": b2b2c, "b2c": b2c}

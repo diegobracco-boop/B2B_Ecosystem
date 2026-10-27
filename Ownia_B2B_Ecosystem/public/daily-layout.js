@@ -73,9 +73,10 @@
     var map = {};
     function add(r, fvmExt) {
       var f = r.fecha; if (!f) return;
+      if (r.pais === 'RG' && !window._exCoiBr) return;   // ajuste COI Brasil: solo con el switch en Excluir
       var p = OTHER[r.pais] || r.pais;
       var nr = r.net_revenues != null ? r.net_revenues : r.net_revenue;
-      var fvm = fvmExt && window._exCoiBr && r.fvm_ex_coi_br != null ? r.fvm_ex_coi_br : r.fvm;
+      var fvm = r.fvm;
       var day = map[f] || (map[f] = {});
       var v = day[p] || (day[p] = [0, 0, 0]);
       v[0] += +r.gross_bookings || 0; v[1] += +nr || 0; v[2] += +fvm || 0;

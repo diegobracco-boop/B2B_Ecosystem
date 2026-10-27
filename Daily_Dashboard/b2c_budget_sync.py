@@ -75,19 +75,20 @@ def build(csv_path):
         raise SystemExit(f"Países del CSV sin mapear: {sin_mapa} (agregarlos a PAIS_MAP)")
     for c in ("GB", "Net_Revenues", "FVM", "COI", "Financial_Result"):
         df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0.0)
-    # Switch "COI Brasil" = Excluir: FVM de Brasil sin COI ni Financial Result, como fvm_ex_coi_br del real
-    # (daily_sync.py: fvm − (financial_result − coi_usd)). En el Budget el COI viene con signo de costo (negativo).
-    df["FVM_ex_COI_BR"] = df["FVM"] - (df["COI"] + df["Financial_Result"]) * (df["Pais"] == "BR")
-    g = df.groupby(["AnioLunes", "Semana", "Pais"], as_index=False)[["GB", "Net_Revenues", "FVM", "FVM_ex_COI_BR"]].sum()
+    # Switch "COI Brasil" = Excluir: país RG = COI + Financial Result de Brasil con signo contrario, como las
+    # filas RG del real (daily_sync.py append_rg_rows). En el Budget el COI viene con signo de costo (negativo).
+    g = df.groupby(["AnioLunes", "Semana", "Pais"], as_index=False)[["GB", "Net_Revenues", "FVM", "COI", "Financial_Result"]].sum()
     rows = []
     for r in g.itertuples(index=False):
         d0, d1 = _semana(int(r.AnioLunes), int(r.Semana))
         rows.append([int(r.AnioLunes), int(r.Semana), d0, d1, PAIS_MAP[r.Pais],
-                     round(float(r.GB), 2), round(float(r.Net_Revenues), 2), round(float(r.FVM), 2), round(float(r.FVM_ex_COI_BR), 2)])
+                     round(float(r.GB), 2), round(float(r.Net_Revenues), 2), round(float(r.FVM), 2)])
+        if r.Pais == "BR" and (r.COI + r.Financial_Result) != 0:
+            rows.append([int(r.AnioLunes), int(r.Semana), d0, d1, "RG", 0.0, 0.0, round(-float(r.COI + r.Financial_Result), 2)])
     rows.sort(key=lambda x: (x[0], x[1], x[4]))
-    # Cuadre: el agregado tiene que sumar lo mismo que el CSV
+    # Cuadre: el agregado (sin la fila de ajuste RG) tiene que sumar lo mismo que el CSV
     for i, c in ((5, "GB"), (6, "Net_Revenues"), (7, "FVM")):
-        a, b = sum(x[i] for x in rows), float(df[c].sum())
+        a, b = sum(x[i] for x in rows if x[4] != "RG"), float(df[c].sum())
         if abs(a - b) > max(10.0, abs(b) * 1e-6):
             raise SystemExit(f"Cuadre {c}: JSON {a:,.0f} vs CSV {b:,.0f}")
     anios = sorted({x[0] for x in rows})
@@ -96,10 +97,10 @@ def build(csv_path):
                  "anios": anios, "semanas": len({(x[0], x[1]) for x in rows}),
                  "desde": rows[0][2], "hasta": max(x[3] for x in rows),
                  "nota": "Budget B2C por semana ISO (recortada al año calendario) × país; todas las marcas, canales y productos. USD."},
-        "cols": ["anio", "semana", "desde", "hasta", "pais", "gross_bookings", "net_revenues", "fvm", "fvm_ex_coi_br"],
+        "cols": ["anio", "semana", "desde", "hasta", "pais", "gross_bookings", "net_revenues", "fvm"],
         "rows": rows,
     }
-    tot = {c: sum(x[i] for x in rows) / 1e6 for i, c in ((5, "GB"), (6, "NR"), (7, "FVM"))}
+    tot = {c: sum(x[i] for x in rows if x[4] != "RG") / 1e6 for i, c in ((5, "GB"), (6, "NR"), (7, "FVM"))}
     print(f"Budget B2C: {len(rows):,} filas · {payload['meta']['semanas']} semanas ({payload['meta']['desde']} a {payload['meta']['hasta']}) · "
           f"GB {tot['GB']:,.1f}M · NR {tot['NR']:,.1f}M · FVM {tot['FVM']:,.1f}M")
     return payload
