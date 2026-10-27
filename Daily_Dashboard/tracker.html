@@ -1034,6 +1034,13 @@
     text-overflow: ellipsis;
   }
   .kr-detail-box--dual .kr-detail-table th[colspan] { text-align: center; border-bottom: 1px solid #e5e7eb; }
+  /* Recognition = lo que cuenta para el KR: marco punteado violeta alrededor de sus dos columnas. */
+  .kr-detail-box--dual .kr-rk-l { border-left: 2px dashed #7c3aed !important; }
+  .kr-detail-box--dual .kr-rk-r { border-right: 2px dashed #7c3aed !important; }
+  .kr-detail-box--dual .kr-rk-t { border-top: 2px dashed #7c3aed !important; color: #550FED !important; }
+  .kr-detail-box--dual .kr-rk-b { border-bottom: 2px dashed #7c3aed !important; }
+  .kr-detail-box--dual .kr-rk-tag { display: block; font-size: 0.6rem; font-weight: 600; text-transform: none;
+    letter-spacing: 0; color: #7c3aed; white-space: nowrap; }
   .kr-detail-total td {
     border-top: 2px solid #e5e7eb;
     background: #f5f3ff;
@@ -1427,7 +1434,7 @@
         <tbody id="statusKRsH2Body"></tbody>
       </table>
     </div>
-    <div style="font-size:0.78rem;color:#9ca3af;margin-top:10px">Targets provisorios = Budget MTD · Accelerate Recurrence (solo HTML): agencias de alta frecuencia (Metabase 171400) vs target mensual de Input_OKR; mientras el mes no cierra, el Actual y el cumplimiento son Rolling L4W vs Target (el MTD arranca en 0 cada mes y queda como nota); con la foto de cierre del mes, MTD vs Target. Los recuadros por país muestran las dos columnas. Con el filtro API o HTML, los recuadros por país muestran el cumplimiento y el YoY por <strong>Recognition Date</strong> y por <strong>Gestion Date</strong> (sin la columna Actual); la tabla principal sigue por Recognition Date.</div>
+    <div style="font-size:0.78rem;color:#9ca3af;margin-top:10px">Targets provisorios = Budget MTD · Accelerate Recurrence (solo HTML): agencias de alta frecuencia (Metabase 171400) vs target mensual de Input_OKR; mientras el mes no cierra, el Actual y el cumplimiento son Rolling L4W vs Target (el MTD arranca en 0 cada mes y queda como nota); con la foto de cierre del mes, MTD vs Target. Los recuadros por país muestran las dos columnas. Con el filtro API o HTML, los recuadros por país muestran el cumplimiento y el YoY por <strong>Recognition Date</strong> y por <strong>Gestion Date</strong> (sin la columna Actual); lo que cuenta para el KR es Recognition (marcado en punteado violeta) y la tabla principal sigue por Recognition Date.</div>
     <div class="kr-detail-grid" id="statusKRsH2DetailGrid"></div>
   </div>
 </div>
@@ -3756,24 +3763,30 @@ function renderStatusKRsH2DetailBoxes_(monthFilter) {
                c: (hBud && tBud) ? Math.min(cumplRatio(tAct, tBud), 1.30) : null,
                yoy: (hLY && tLY > 0) ? (tActY / tLY - 1) : null };
     }
-    function cells(x, bold) {
+    // rk: celdas Recognition del recuadro doble, enmarcadas en punteado violeta (es la fecha que cuenta para el KR);
+    // last = última fila (cierra el marco por abajo).
+    function cells(x, bold, rk, last) {
       var y = yoyIcon(x.yoy);
-      return cumplCellHtml(x.c, x.c !== null ? (x.c * 100).toFixed(0) + '%' : '—', bold) +
-        '<td class="' + yoyColor(x.yoy) + '">' + (bold ? '<strong>' + y + '</strong>' : y) + '</td>';
+      var b = rk ? (last ? ' kr-rk-b' : '') : '';
+      var c = cumplCellHtml(x.c, x.c !== null ? (x.c * 100).toFixed(0) + '%' : '—', bold);
+      if (rk) c = c.replace('<td>', '<td class="kr-rk-l' + b + '">');
+      return c + '<td class="' + yoyColor(x.yoy) + (rk ? ' kr-rk-r' + b : '') + '">' + (bold ? '<strong>' + y + '</strong>' : y) + '</td>';
     }
     var tRi = totStat(rows);
     var totalRow = '<tr class="kr-detail-total"><td style="text-align:left;font-weight:700">TOTAL</td>' +
       (rowsGd ? '' : '<td><strong>' + (tRi.actual !== null ? fmtKRVal(tRi.actual, unit) : '—') + '</strong></td>') +
-      cells(tRi, true) + (rowsGd ? cells(totStat(rowsGd), true) : '') + '</tr>';
+      cells(tRi, true, !!rowsGd, !rows.length) + (rowsGd ? cells(totStat(rowsGd), true) : '') + '</tr>';
     var bodyRows = rows.map(function(r, i){
       return '<tr><td style="text-align:left">' + r.name + '</td>' +
              (rowsGd ? '' : '<td>' + fmtKRVal(r.actual, unit) + '</td>') +
-             cells(rowStat(r), false) + (rowsGd ? cells(rowStat(rowsGd[i]), false) : '') + '</tr>';
+             cells(rowStat(r), false, !!rowsGd, i === rows.length - 1) + (rowsGd ? cells(rowStat(rowsGd[i]), false) : '') + '</tr>';
     }).join('');
     var head = rowsGd
       ? '<tr><th rowspan="2" style="text-align:left;min-width:90px">País</th>' +
-          '<th colspan="2" title="Recognition Date">Recognition</th><th colspan="2" title="Gestion Date">Gestion</th></tr>' +
-        '<tr><th>Cumpl.</th><th>YoY</th><th>Cumpl.</th><th>YoY</th></tr>'
+          '<th colspan="2" class="kr-rk-l kr-rk-r kr-rk-t" title="Recognition Date: la fecha con la que se mide el KR">Recognition' +
+            '<span class="kr-rk-tag">cuenta para el KR</span></th>' +
+          '<th colspan="2" title="Gestion Date (referencia)">Gestion</th></tr>' +
+        '<tr><th class="kr-rk-l">Cumpl.</th><th class="kr-rk-r">YoY</th><th>Cumpl.</th><th>YoY</th></tr>'
       : '<tr><th style="text-align:left;min-width:90px">País</th><th>Actual</th><th>Cumpl.</th><th>YoY</th></tr>';
     box.innerHTML =
       '<div class="kr-detail-header"><span class="kr-num-badge">' + title + '</span></div>' +
