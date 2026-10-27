@@ -11,6 +11,8 @@
  *    YTD y H2), como la slide 4 de "Slides mensuales". El modo embebido (public/daily-embed.js) usa
  *    las mismas tablas. Arriba de las barras, la línea de NR % GB y OC % GB (el OC % GB lo manda
  *    "Slides mensuales" en la URL, &ocgb=).
+ *  - OC (portada OC y slides de OC): con Organic YES el real + Run Rate del contable pasa a TC Budget (vs LY:
+ *    TC Actuals LY), como en el P&L contable; en Apps Script el OC del Flow queda nominal.
  */
 (function () {
   'use strict';
@@ -79,9 +81,39 @@
     });
     return G;
   }
+  // OC con Organic (2026-10-27: la portada OC no cuadraba con el P&L contable, que con Organic YES lleva
+  // el OC a TC Budget). flow_oc es nominal: con Organic, el baseline del contable (real cerrado + Run Rate,
+  // escenario 'bl') se multiplica por TC Actuals / TC del target, por país y mes, como el resto del Daily
+  // (_orgFactor_ de dashboard.html; vs Forecast también TC Budget, vs Run Rate nominal). El Goal queda
+  // nominal, igual que en el P&L contable.
+  // RG (entidad de Brasil: el Budget la abre aparte, 5,2M de OC en H2 FY27; el baseline la trae dentro de
+  // Brasil) va a la región Brasil, no a Sudamérica Hispana (getRegion_ la mandaba ahí).
+  function ocOrg(cmp) {
+    var W = window, oc = W._rawB2BC && W._rawB2BC.flow_oc;
+    if (!oc || !oc.rows) return oc;
+    var t = typeof W._orgTargetFor_ === 'function' ? W._orgTargetFor_(cmp === 'bg' ? 'budget' : cmp) : '';
+    if (t === 'forecast') t = 'budget';
+    var key = t + '|' + oc.rows.length;
+    if (oc._owOrg && oc._owOrg.key === key) return oc._owOrg.oc;
+    var miss = {}, f = t ? W._orgFactor_(t, miss) : function () { return 1; }, out = {};
+    Object.keys(oc).forEach(function (k) { if (k !== '_owOrg') out[k] = oc[k]; });
+    out.rows = oc.rows.map(function (r) {
+      var p = /^rg$/i.test(r[2]) ? 'Brasil' : r[2];
+      return [r[0], r[1], p, r[1] === 'bl' ? r[3] * f(r[2], r[0]) : r[3]];
+    });
+    oc._owOrg = { key: key, oc: out };
+    return out;
+  }
+  // Corre fn con _rawB2BC.flow_oc convertido (las funciones del Daily lo leen de ahí)
+  function withOcOrg(cmp, fn, self, args) {
+    var W = window, raw = W._rawB2BC, orig = raw && raw.flow_oc, conv = ocOrg(cmp);
+    if (!raw || !conv || conv === orig) return fn.apply(self, args);
+    raw.flow_oc = conv;
+    try { return fn.apply(self, args); } finally { raw.flow_oc = orig; }
+  }
   function ocHalf(cmp, a, b) {
     var W = window, L = W._rawB2BC.meta.last_actuals_date, fy0 = +W.flFyStart_(L).substring(0, 4);
-    var oc = W._rawB2BC.flow_oc || { rows: [] }, ge = cmp === 'ly' ? 'ly' : cmp === 'runrate' ? 'rr' : 'bg', hm = {}, hasG = {}, R = {};
+    var oc = ocOrg(cmp) || { rows: [] }, ge = cmp === 'ly' ? 'ly' : cmp === 'runrate' ? 'rr' : 'bg', hm = {}, hasG = {}, R = {};
     for (var i = a; i < b; i++) { var mm = (3 + i) % 12 + 1; hm[(fy0 + (i >= 9 ? 1 : 0)) + '-' + (mm < 10 ? '0' : '') + mm] = 1; }
     function mOf(r) { return r[1] === 'ly' ? (+r[0].substring(0, 4) + 1) + r[0].substring(4, 7) : r[0].substring(0, 7); }
     (oc.rows || []).forEach(function (r) { if (r[1] === ge && hm[mOf(r)]) hasG[mOf(r)] = 1; });
@@ -172,6 +204,10 @@
       };
     }
     if (typeof W.flowOCCoverTables_ === 'function' && typeof W.flMultiPeriodTbl_ === 'function') W.flowOCCoverTables_ = ocCoverTables;
+    ['flowFY12OC_', 'flowOCClosedData_', 'flowOCH2Data_'].forEach(function (nm) {
+      var fn = W[nm];
+      if (typeof fn === 'function') W[nm] = function (cmp) { return withOcOrg(cmp, fn, this, arguments); };
+    });
     var origBuild = W.flowBuild_;
     if (typeof origBuild !== 'function') return;
     W.flowBuild_ = function () {
