@@ -725,9 +725,15 @@
   body.slides-mode #globalesContent #globalesCards {
     flex: 0 1 auto; height: 76%; min-height: 0; display: flex; flex-direction: column;
   }
-  /* Vista Tabla: arriba como Status KRs H2 (sin el centrado ni el alto fijo de las cards). */
-  body.slides-mode #globalesContent.glob-table-view #globalesWrap { justify-content: flex-start; }
-  body.slides-mode #globalesContent.glob-table-view #globalesCards { height: auto; }
+  /* Vista Tabla: como Status KRs H2 — flujo normal (sin el alto fijo de las cards) y el zoom lo fija
+     _fitKrSlide(); la tabla principal más compacta para dejarle lugar al recuadro por país. */
+  body.slides-mode #globalesContent.glob-table-view.visible { display: block; height: auto; }
+  body.slides-mode #globalesContent.glob-table-view #globalesWrap { display: block !important; }
+  body.slides-mode #globalesContent.glob-table-view #globalesCards { display: block; height: auto; }
+  body.slides-mode #globalesContent .kr-detail-grid { margin-top: 12px; align-items: stretch; }
+  body.slides-mode #globalesContent .kr-detail-box { display: flex; flex-direction: column; }
+  body.slides-mode #globalesContent .kr-detail-box > table { flex: 1 1 auto; }
+  body.slides-mode #globalesContent .kr-num-badge { white-space: nowrap; }
   body.slides-mode #globalesContent .glob-grid {
     grid-template-columns: repeat(3, 1fr);
     grid-auto-rows: 1fr;
@@ -778,7 +784,9 @@
   /* H2: la tabla principal más chica que en H1 para dejarle lugar a los 5 recuadros de detalle
      (con 1.15rem la tabla se comía la slide y el detalle quedaba diminuto). */
   body.slides-mode #statusKRsH2Table th,
-  body.slides-mode #statusKRsH2Table td { font-size: 1rem !important; padding: 5px 12px !important; }
+  body.slides-mode #statusKRsH2Table td,
+  body.slides-mode #globalesTable th,
+  body.slides-mode #globalesTable td { font-size: 1rem !important; padding: 5px 12px !important; }
   /* El límite para agrandarlos es el ancho (5 recuadros en fila): menos aire horizontal = más zoom. */
   body.slides-mode #statusKRsH2DetailGrid { gap: 8px; }
   body.slides-mode #statusKRsH2DetailGrid .kr-detail-box { padding: 8px 8px; }
@@ -1432,8 +1440,8 @@
       <select id="filterMonthGlob"></select>
     </div>
     <div class="kr-ch-group" id="globViewBtns" title="Formato de la vista (y de su slide)">
-      <button type="button" class="kr-ch-btn active" data-view="cards">Cards</button>
-      <button type="button" class="kr-ch-btn" data-view="table">Tabla</button>
+      <button type="button" class="kr-ch-btn" data-view="cards">Cards</button>
+      <button type="button" class="kr-ch-btn active" data-view="table">Tabla</button>
     </div>
   </div>
   <div id="globalesSpinner" class="spinner-wrap" style="height:200px;display:none">
@@ -3650,7 +3658,7 @@ function renderStatusKRsH2() {
 // nada: ahí los recuadros no bajan de su ancho mínimo (min-width: min-content) y pasan a otra fila.
 function fitKrDetailGrid_(grid) {
   if (!grid) return;
-  var container = grid.closest('#agenciasContent, #agenciasH2Content');
+  var container = grid.closest('#agenciasContent, #agenciasH2Content, #globalesContent');
   if (!container) return;
   _resetKrSlideFit(container);
   if (!_isSlidesMode) return;
@@ -3887,12 +3895,15 @@ function fmtGlobalTarget(v, unit) {
 // para el KR "Net Revenues API Hoteles". A TC Budget con ORGANIC YES (getActualsKR).
 // Target = budget GESTIONAL del daily (b2b_budget_ri, el mismo de la pestaña NR (RI); decisión
 // 2026-10-23): bud = mes completo, budMtd = hasta last_actuals_date (mes en curso).
+// Filtro del KR Net Revenues API Hoteles (canal API · producto Hotel): lo comparten la fila de la tabla y
+// el recuadro por país, para que el TOTAL del recuadro siga cerrando con la fila.
+function isApiHotelRow_(r, prod) { return r.parent_channel === 'API' && (prod === 'Hotel' || prod === 'Hotels'); }
 function globalesApiHotelByMonth_(meses) {
   var out = {};
   meses.forEach(function(ym){ out[ym] = { nr: 0, bud: 0, budMtd: 0 }; });
   if (!rawData) return out;
   var last = (rawData.meta && rawData.meta.last_actuals_date) || '';
-  function isApiHotel(r, p) { return r.parent_channel === 'API' && (p === 'Hotel' || p === 'Hotels'); }
+  var isApiHotel = isApiHotelRow_;
   getActualsKR('ri').forEach(function(r){
     var ym = String(r.fecha || '').substring(0, 7);
     if (!out[ym] || !isApiHotel(r, r.producto_original || '')) return;
@@ -4120,6 +4131,9 @@ function renderGlobales() {
     ? globalesTableHtml_(krsView, globYM, agg, totals[meses.indexOf(globYM)])
     : totHtml + '<div class="glob-grid">' + cards + '</div>';
   wrap.style.display = 'block';
+  var gContent = document.getElementById('globalesContent');
+  if (isTableView && document.getElementById('globalesDetailGrid')) fitKrDetailGrid_(document.getElementById('globalesDetailGrid'));
+  else _resetKrSlideFit(gContent);   // Cards: sin zoom (su layout de slide es otro)
 }
 
 // Vista Tabla del KR Global B2B API para un mes: KR · Peso · Actual · Target · Cumpl. y OVERALL, igual que
@@ -4155,7 +4169,57 @@ function globalesTableHtml_(krs, ym, agg, tot) {
   return '<div class="table-block" style="width:100%"><table class="pivot-table" id="globalesTable"><thead><tr>' +
     '<th style="min-width:210px;text-align:left">KR</th><th style="color:#6b7280">Peso</th>' +
     '<th>' + (isCur ? 'Actual MTD' : 'Actual') + '</th><th>' + 'Target' + '</th><th>Cumpl.</th>' +
-    '</tr></thead><tbody>' + body + '</tbody></table></div>';
+    '</tr></thead><tbody>' + body + '</tbody></table></div>' +
+    '<div class="kr-detail-grid" id="globalesDetailGrid">' + globalesNrDetailBox_(ym) + '</div>';
+}
+
+// Recuadro por país de Net Revenues API Hoteles (como los de Status KRs H2): mismas fuentes que la fila
+// de la tabla (globalesApiHotelByMonth_: actuals a TC Budget con Organic, budget gestional del daily), mismo
+// período (mes en curso = MTD contra el budget acumulado al último día con actuals). Es el único KR global
+// con apertura por país: los de hoteles directos son solo Other Countries y el resto no trae país.
+function globalesNrDetailBox_(ym) {
+  if (!rawData || !rawData.meta) return '';
+  var b = getPeriodBounds(ym, rawData.meta);
+  if (b.cutoff < b.from) return '';   // mes futuro
+  var isApiHotel = isApiHotelRow_;
+  var defs = FVM_DETAIL.map(function(d){ return { name: d.name, pais: d.pais.map(function(x){ return x.toLowerCase(); }), act: 0, actY: 0, bud: 0, ly: 0 }; });
+  var otros = { name: 'Otros', pais: [], act: 0, actY: 0, bud: 0, ly: 0 };
+  function bucket(pais) {
+    var k = String(pais || '').toLowerCase();
+    for (var i = 0; i < defs.length; i++) if (defs[i].pais.indexOf(k) !== -1) return defs[i];
+    return otros;
+  }
+  getActualsKR('ri').forEach(function(r){
+    if (r.fecha < b.from || r.fecha > b.cutoff || !isApiHotel(r, r.producto_original || '')) return;
+    var d = bucket(r.pais); d.act += (r.net_revenue || 0); d.actY += yv(r, 'net_revenue');
+  });
+  getGoal('ri', 'budget').forEach(function(r){
+    if (r.fecha < b.from || r.fecha > b.cutoff || !isApiHotel(r, r.producto || '')) return;
+    bucket(r.pais).bud += (r.net_revenue || 0);
+  });
+  var lyFrom = shiftYear(b.from, -1), lyCut = shiftYear(b.cutoff, -1);
+  getActualsLY('ri').forEach(function(r){
+    if (r.fecha < lyFrom || r.fecha > lyCut || !isApiHotel(r, r.producto_original || '')) return;
+    bucket(r.pais).ly += (r.net_revenue || 0);
+  });
+  var rows = defs.concat(otros.act || otros.bud || otros.ly ? [otros] : []);
+  var tot = { name: 'TOTAL', act: 0, actY: 0, bud: 0, ly: 0 };
+  rows.forEach(function(d){ tot.act += d.act; tot.actY += d.actY; tot.bud += d.bud; tot.ly += d.ly; });
+  function tr(d, bold) {
+    var c = cumplRatio(d.act, d.bud);
+    if (bold && c !== null) c = Math.min(c, 1.30);
+    var yoy = d.ly > 0 ? (d.actY / d.ly - 1) : null;
+    var w = function(x){ return bold ? '<strong>' + x + '</strong>' : x; };
+    return '<tr' + (bold ? ' class="kr-detail-total"' : '') + '><td style="text-align:left' + (bold ? ';font-weight:700' : '') + '">' + d.name + '</td>' +
+      '<td>' + w(fmtKRVal(toM(d.act), '$M')) + '</td>' +
+      cumplCellHtml(c, c !== null ? (c * 100).toFixed(0) + '%' : '—', bold) +
+      '<td class="' + yoyColor(yoy) + '">' + w(yoyIcon(yoy)) + '</td></tr>';
+  }
+  return '<div class="kr-detail-box" style="max-width:460px">' +
+    '<div class="kr-detail-header"><span class="kr-num-badge">Net Revenues API Hoteles $M</span></div>' +
+    '<table class="pivot-table kr-detail-table"><thead><tr><th style="text-align:left;min-width:90px">País</th>' +
+    '<th>Actual</th><th>Cumpl.</th><th>YoY</th></tr></thead><tbody>' +
+    tr(tot, true) + rows.map(function(d){ return tr(d, false); }).join('') + '</tbody></table></div>';
 }
 
 // ─────────────────────────────────────────────
@@ -4386,8 +4450,8 @@ document.querySelectorAll('#productPanel input[type=checkbox]').forEach(function
 document.getElementById('filterMonthKRs').addEventListener('change', renderStatusKRs);
 document.getElementById('filterMonthKRsH2').addEventListener('change', renderStatusKRsH2);
 // KR Global B2B API: formato Cards (tira mensual) o Tabla (como Status KRs H2). La slide usa el que esté elegido.
-var globView = 'cards';
-try { if (localStorage.getItem('trk_glob_view') === 'table') globView = 'table'; } catch (e) {}
+var globView = 'table';
+try { if (localStorage.getItem('trk_glob_view') === 'cards') globView = 'cards'; } catch (e) {}
 document.querySelectorAll('#globViewBtns .kr-ch-btn').forEach(function(btn) {
   btn.classList.toggle('active', btn.getAttribute('data-view') === globView);
   btn.addEventListener('click', function() {
@@ -4563,9 +4627,9 @@ window.addEventListener('resize', function() {
       var el = document.getElementById(id);
       if (el.classList.contains('visible')) _fitSlideTables(el);
     });
-    ['agenciasContent', 'agenciasH2Content'].forEach(function(id) {
+    ['agenciasContent', 'agenciasH2Content', 'globalesContent'].forEach(function(id) {
       var el = document.getElementById(id);
-      if (el.classList.contains('visible')) _fitKrSlide(el);
+      if (el.classList.contains('visible') && (id !== 'globalesContent' || el.classList.contains('glob-table-view'))) _fitKrSlide(el);
     });
     if (document.getElementById('mainContent').classList.contains('visible')) _fitBarsPivot();
   });
@@ -4810,7 +4874,7 @@ async function _captureAllSlides(onProgress, opts) {
             // SecurityError): render propio, con el zoom del contenedor anulado en
             // el clon y el área de captura escalada 1/zoom → mismo encuadre.
             console.warn('foreignObject no disponible en la slide ' + (i + 1) + '; uso el render clásico', foErr);
-            var zoomed = document.querySelector('#agenciasContent.visible, #agenciasH2Content.visible');
+            var zoomed = document.querySelector('#agenciasContent.visible, #agenciasH2Content.visible, #globalesContent.visible');
             var z = (zoomed && parseFloat(zoomed.style.zoom)) || 1;
             var natW = Math.round(rect.width / z), natH = Math.round(rect.height / z);
             canvas = await html2canvas(el, {
@@ -4820,7 +4884,7 @@ async function _captureAllSlides(onProgress, opts) {
                 stripFrame(clonedDoc);
                 var sc = clonedDoc.getElementById('slideContent');
                 if (sc) { sc.style.width = natW + 'px'; sc.style.height = natH + 'px'; sc.style.aspectRatio = 'auto'; }
-                ['agenciasContent', 'agenciasH2Content'].forEach(function(id) {
+                ['agenciasContent', 'agenciasH2Content', 'globalesContent'].forEach(function(id) {
                   var n = clonedDoc.getElementById(id);
                   if (n) n.style.zoom = 'normal';
                 });
