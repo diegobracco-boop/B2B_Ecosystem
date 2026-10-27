@@ -511,7 +511,7 @@
     }
     if (state.evState === 'idle' && typeof W.google.script.run.getIndustryEvents === 'function') {
       state.evState = 'loading';
-      W.google.script.run.withSuccessHandler(function (r) { state.ev = r; state.evState = 'ok'; refreshAll(); })
+      W.google.script.run.withSuccessHandler(function (r) { state.ev = r; state.evState = 'ok'; refreshAll(); Object.keys(_wsLast).forEach(paintEvents); })
         .withFailureHandler(function () { state.evState = 'error'; }).getIndustryEvents();
     }
     if (!W._rawB2B && state.b2bState === 'idle' && W._rawB2BC) {
@@ -524,6 +524,126 @@
         }
         state.b2bState = 'ok'; refreshAll();
       }).withFailureHandler(function () { state.b2bState = 'error'; refreshAll(); }).getRawB2B();
+    }
+  }
+
+
+  // ── Solapa Weekly y sus slides del Flow (backup para CEO / Chief), pedido de Diego 2026-10-27 ─────────
+  //  - métricas de arriba hacia abajo GB → NR → FVM → FVM %GB, cada una con "% vs LY" (el del FVM lo agrega
+  //    server/gas-extras/daily-weekly-fvm.js); sin "vs B2C" ni "% vs Bdg" (van en las slides Weekly vs B2C);
+  //  - pestañas "B2B API" y "B2B HTML" (foco en separar los dos negocios) en lugar del selector de canal;
+  //  - debajo de cada tabla, las semanas con eventos de industria (este año y el año pasado);
+  //  - Performance MTD: "% Achiev" en "—" cuando el Budget es ≤ 0 (daba −149%);
+  //  - Flow: el backup Weekly queda en 4 slides en fecha de gestión (B2B + B2B2C, B2B2C, B2B API, B2B HTML).
+  var WS_LOB_EV = { 'B2B+B2B2C': null, 'B2B2C': 'b2b2c', 'B2B': 'b2b' };
+  function weekEvents(keys, lob) {
+    var out = [], ev = state.ev && state.ev.eventos, want = WS_LOB_EV[lob];
+    if (!ev) return out;
+    keys.forEach(function (k) {
+      var cur = [], ly = [];
+      ev.forEach(function (e) {
+        if (want && e.lob !== want) return;
+        var a = new Date(e.inicio + 'T00:00:00Z'), b = new Date(e.fin + 'T00:00:00Z'), hit = { c: false, l: false };
+        for (var d = new Date(a); d <= b; d.setUTCDate(d.getUTCDate() + 1)) {
+          var wk = iso(ymd(d));
+          if (wk === k) hit.c = true;
+          if (wk + 100 === k) hit.l = true;
+        }
+        var lbl = e.familia + ' ' + (PAIS_CORTO[e.pais] || e.pais) + (want ? '' : ' (' + (e.lob === 'b2b' ? 'B2B' : 'B2B2C') + ')');
+        if (hit.c && cur.indexOf(lbl) < 0) cur.push(lbl);
+        if (hit.l && ly.indexOf(lbl) < 0) ly.push(lbl);
+      });
+      if (cur.length || ly.length) out.push('<b>' + wkLbl(k) + '</b>: ' + (cur.length ? esc(cur.join(' · ')) : '') +
+        (ly.length ? (cur.length ? ' &nbsp;|&nbsp; ' : '') + '<span class="ow-ws-ly">año pasado: ' + esc(ly.join(' · ')) + '</span>' : ''));
+    });
+    return out;
+  }
+  function eventsLine(d, lob) {
+    var keys = ((d.rows && d.rows[0] && d.rows[0].weeks) || []).map(function (w) { return w.anio * 100 + w.semana; });
+    if (state.evState !== 'ok') return state.evState === 'error' ? '' : '<span class="ow-ws-ly">Semanas con eventos: cargando…</span>';
+    var L = weekEvents(keys, lob);
+    return '<b>Semanas con eventos</b> (Industry events tracker; los del año pasado distorsionan el YoY de esa semana) — ' + (L.length ? L.join(' &nbsp;·&nbsp; ') : 'ninguna en estas semanas');
+  }
+  var _wsLast = {};   // tbodyId → { d, lob }, para re-pintar la línea cuando llegan los eventos
+  function paintEvents(tbodyId) {
+    var x = _wsLast[tbodyId], tb = document.getElementById(tbodyId);
+    if (!x || !tb) return;
+    var wrap = tb.closest('.ws-table-wrap') || tb.closest('table'), host = wrap && wrap.parentNode;
+    if (!host) return;
+    var div = host.querySelector(':scope > .ow-ws-ev');
+    if (!div) { div = document.createElement('div'); div.className = 'ow-ws-ev'; wrap.insertAdjacentElement('afterend', div); }
+    div.innerHTML = eventsLine(x.d, x.lob);
+  }
+  function weeklyTweaks() {
+    if (Array.isArray(W._WS_METRICS)) {
+      W._WS_METRICS.length = 0;
+      [
+        { key: 'gb', label: 'GB', fmt: 'M', l4wKey: 'gb', l4wFmt: 'pct', sub: [{ key: 'vsLYgb', label: '% vs LY', fmt: 'pct' }] },
+        { key: 'rev', label: 'NR', fmt: 'M', l4wKey: 'rev', l4wFmt: 'pct', sub: [{ key: 'vsLYrev', label: '% vs LY', fmt: 'pct' }] },
+        { key: 'fvm', label: 'FVM', fmt: 'M', l4wKey: 'fvm', l4wFmt: 'pct', sub: [{ key: 'vsLYfvm', label: '% vs LY', fmt: 'pct' }] },
+        { key: 'pctGb', label: 'FVM %GB', fmt: 'pct', sub: null, l4wKey: 'pctGb', l4wFmt: 'pp' },
+      ].forEach(function (m) { W._WS_METRICS.push(m); });
+    }
+    if (Array.isArray(W._WS_MTD_METRICS)) {
+      W._WS_MTD_METRICS.length = 0;
+      [{ key: 'gb', label: 'GB' }, { key: 'rev', label: 'NR' }, { key: 'fvm', label: 'FVM' }, { key: 'pctGb', label: 'FVM %GB' }].forEach(function (m) { W._WS_MTD_METRICS.push(m); });
+    }
+    // Performance MTD: sin % de cumplimiento contra un Budget ≤ 0 (o casi cero)
+    var origMtd = W._wsRenderMTDTable_;
+    if (typeof origMtd === 'function') W._wsRenderMTDTable_ = function (mtd) {
+      try {
+        (mtd && mtd.rows || []).forEach(function (r) {
+          ['gb', 'rev', 'fvm'].forEach(function (k) { var x = r[k]; if (x && !(x.budget > 0.01)) x.achievement = null; });
+        });
+      } catch (e) { /* tal cual */ }
+      return origMtd.apply(this, arguments);
+    };
+    // Tabla semanal (solapa y slides): línea de eventos debajo
+    var origRender = W._wsRenderWeekly;
+    if (typeof origRender === 'function') W._wsRenderWeekly = function (d, theadId, tbodyId) {
+      var r = origRender.apply(this, arguments), id = tbodyId || 'ws-tbody', lob = W._wsLob;
+      var m = /^flws-tbody-(\d+)$/.exec(id);
+      if (m && W.FLOW_DECK && W.FLOW_DECK[+m[1]]) lob = W.FLOW_DECK[+m[1]].lob;
+      _wsLast[id] = { d: d, lob: lob };
+      try { ensureData(); paintEvents(id); } catch (e) { console.warn('[daily-ceo-weekly] eventos weekly:', e); }
+      return r;
+    };
+    // Pestañas B2B API / B2B HTML
+    var tabB2B = document.getElementById('ws-tab-b2b');
+    if (tabB2B && !document.getElementById('ws-tab-api')) {
+      [['api', 'B2B API', 'API'], ['html', 'B2B HTML', 'Agencias afiliadas']].reverse().forEach(function (t) {
+        var b = document.createElement('button');
+        b.className = 'ws-lob-tab'; b.id = 'ws-tab-' + t[0]; b.type = 'button'; b.textContent = t[1];
+        b.title = t[0] === 'api' ? 'B2B canal API (B2B-MAY)' : 'B2B Agencias afiliadas (HTML, B2B-MIN)';
+        b.onclick = function () { W._wsChannel = t[2]; W._wsSwitchLob('B2B', true); };
+        tabB2B.insertAdjacentElement('afterend', b);
+      });
+      var origLob = W._wsSwitchLob;
+      W._wsSwitchLob = function (lob, keepCh) {
+        if (lob === 'B2B' && !keepCh) W._wsChannel = '';
+        var r = origLob.call(this, lob);
+        var ch = lob === 'B2B' ? W._wsChannel : '';
+        tabB2B.classList.toggle('active', lob === 'B2B' && !ch);
+        document.getElementById('ws-tab-api').classList.toggle('active', ch === 'API');
+        document.getElementById('ws-tab-html').classList.toggle('active', ch === 'Agencias afiliadas');
+        var ct = document.getElementById('ws-channel-toggle'); if (ct) ct.style.display = 'none';
+        return r;
+      };
+    }
+    // Flow: backup Weekly en 4 slides, fecha de gestión
+    if (Array.isArray(W.FLOW_DECK)) {
+      for (var i = W.FLOW_DECK.length - 1; i >= 0; i--) {
+        var d = W.FLOW_DECK[i];
+        if (d.kind === 'weekly' && (d.view === 'RI' || (d.lob === 'B2B' && !d.ch))) W.FLOW_DECK.splice(i, 1);
+      }
+      var wk = W.FLOW_DECK.filter(function (d) { return d.kind === 'weekly'; });
+      var order = { 'B2B+B2B2C': 0, 'B2B2C': 1, 'API': 2, 'Agencias afiliadas': 3 };
+      wk.sort(function (a, b) { return order[a.ch || a.lob] - order[b.ch || b.lob]; });
+      wk.forEach(function (d) { if (d.ch) d.name = 'Weekly — B2B ' + (d.ch === 'API' ? 'API (MAY)' : 'HTML (MIN)') + ' (GD)'; });
+      var pos = W.FLOW_DECK.findIndex(function (d) { return d.kind === 'weekly'; });
+      W.FLOW_DECK = W.FLOW_DECK.filter(function (d) { return d.kind !== 'weekly'; });
+      W.FLOW_DECK.splice(pos, 0, wk[0], wk[1], wk[2], wk[3]);
+      W.FLOW_DECK = W.FLOW_DECK.filter(Boolean);
     }
   }
 
@@ -603,6 +723,10 @@
     '.ow-ceo-leg{display:flex;gap:16px;justify-content:center;font-size:11px;color:#55555c}.ow-ceo-legn{font-style:italic;color:#8e8e93}',
     '.ow-ceo-n{font-size:10px;color:#8e8e93;line-height:1.3}',
     '.ow-ceo-slide .ow-na{color:#8e8e93;font-size:13px;text-align:center}',
+    '.ow-ws-ev{font-size:11.5px;color:#9a9ab0;line-height:1.45;margin-top:8px;padding:6px 10px;border-left:3px solid #7b5cf5;background:rgba(123,92,245,.08);border-radius:4px}',
+    '.ow-ws-ev b{color:inherit;font-weight:700}.ow-ws-ly{opacity:.75;font-style:italic}',
+    '.ws-metric-label{white-space:nowrap}',
+    '.flow-slide .ow-ws-ev{color:#4a4a63;font-size:10.5px;margin-top:4px;padding:4px 8px}',
     '.ow-drv{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;flex:1;min-height:0}',
     '.ow-drv-col{border:1px solid #ebe8f7;border-radius:8px;padding:8px 10px;background:#fcfbff;overflow:hidden}',
     '.ow-drv-h{font-size:15px;font-weight:800;color:#1d1d1f;border-bottom:2px solid #550fed;padding-bottom:4px;margin-bottom:4px}',
@@ -632,16 +756,16 @@
         { kind: 'ceo_weekly', n: 1, name: 'Weekly — vs B2C (CEO)' }, { kind: 'ceo_weekly', n: 2, name: 'Weekly — momentum por región vs B2C' },
         { kind: 'ceo_weekly', n: 3, name: 'Weekly — B2B2C: partners del momentum' }, { kind: 'ceo_weekly', n: 4, name: 'Weekly — B2B: API vs HTML' });
     }
-    // Solapa Weekly y sus slides del Flow (misma tabla, _wsRenderWeekly): solo "% vs LY" debajo de Rev y GB;
-    // "vs B2C" y "% vs Bdg" se sacan (pedido de Diego, 2026-10-27: la comparación vs B2C y vs Budget va en
-    // estas slides de Weekly vs B2C). El cálculo del servidor no cambia.
-    if (Array.isArray(W._WS_METRICS)) W._WS_METRICS.forEach(function (m) { if (m.sub) m.sub = m.sub.filter(function (x) { return /^vsLY/.test(x.key); }); });
+    weeklyTweaks();
     // El switch global: primero B2C (las filas) y después el recálculo del Daily
     var origCoi = W.setExCoiBr;
     if (typeof origCoi === 'function') W.setExCoiBr = function (on) { W._exCoiBr = !!on; try { applyB2CCoi(); } catch (e) { /* sin B2C */ } return origCoi.apply(this, arguments); };
     var origSlide = W.flowBuildSlide_;
     if (typeof origSlide === 'function') {
       W.flowBuildSlide_ = function (def, idx) {
+        if (def && def.kind === 'weekly' && def.ch) {
+          return origSlide.apply(this, arguments).replace(/Weekly Summary — B2B-(MAY|MIN) /, function (m0, g) { return 'Weekly Summary — B2B ' + (g === 'MAY' ? 'API (MAY)' : 'HTML (MIN)') + ' '; });
+        }
         if (def && def.kind === 'ceo_weekly') { W._flowSeries[idx] = []; try { ensureData(); return slideHtml(def.n || 1); } catch (e) { return '<div class="flow-slide"><p>' + esc(e.message) + '</p></div>'; } }
         return origSlide.apply(this, arguments);
       };
