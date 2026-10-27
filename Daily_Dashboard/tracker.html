@@ -981,7 +981,9 @@
     border-radius: 10px;
     padding: 12px 14px;
     min-width: 200px;
-    min-width: max(200px, min-content);   /* nunca más angosto que su tabla: si no entra, pasa a otra fila (no se pisa con el de al lado) */
+    /* nunca más angosto que su tabla: si no entra, pasa a otra fila (no se pisa con el de al lado).
+       Va solo: max(200px, min-content) es inválido (min-content no entra en max()) y el navegador lo ignoraba. */
+    min-width: min-content;
     box-shadow: 0 2px 6px rgba(99,102,241,0.07);
   }
   .kr-detail-header {
@@ -1033,6 +1035,8 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
+  /* YoY Bud. (crecimiento que pedía el budget vs LY): en itálica para no confundirlo con el YoY real. */
+  .kr-detail-table td.kr-yb { font-style: italic; }
   .kr-detail-box--dual .kr-detail-table th[colspan] { text-align: center; border-bottom: 1px solid #e5e7eb; }
   /* Recognition = lo que cuenta para el KR: marco punteado violeta alrededor de sus dos columnas. */
   .kr-detail-box--dual .kr-rk-l { border-left: 2px dashed #7c3aed !important; }
@@ -1048,7 +1052,7 @@
   }
   /* Accelerate Recurrence (Status KRs H2): 6 columnas -> más ancho que los otros recuadros,
      encabezados en 2 líneas y celdas compactas para que entre sin scroll (pantalla y slides). */
-  .kr-detail-box.kr-detail-box--recur { flex: 1.4 1 320px; }
+  .kr-detail-box.kr-detail-box--recur { flex: 1.4 1 320px; max-width: 620px; }   /* si pasa a otra fila, no se estira a todo el ancho */
   .kr-detail-box--recur .kr-detail-table { table-layout: auto; }
   .kr-detail-box--recur .kr-detail-table th { white-space: normal; line-height: 1.15; vertical-align: bottom; font-size: 0.68rem; }
   .kr-detail-box--recur .kr-detail-table td,
@@ -1434,7 +1438,7 @@
         <tbody id="statusKRsH2Body"></tbody>
       </table>
     </div>
-    <div style="font-size:0.78rem;color:#9ca3af;margin-top:10px">Targets provisorios = Budget MTD · Accelerate Recurrence (solo HTML): agencias de alta frecuencia (Metabase 171400) vs target mensual de Input_OKR; mientras el mes no cierra, el Actual y el cumplimiento son Rolling L4W vs Target (el MTD arranca en 0 cada mes y queda como nota); con la foto de cierre del mes, MTD vs Target. Los recuadros por país muestran las dos columnas. Con el filtro API o HTML, los recuadros por país muestran el cumplimiento y el YoY por <strong>Recognition Date</strong> y por <strong>Gestion Date</strong> (sin la columna Actual); lo que cuenta para el KR es Recognition (marcado en punteado violeta) y la tabla principal sigue por Recognition Date.</div>
+    <div style="font-size:0.78rem;color:#9ca3af;margin-top:10px">Targets provisorios = Budget MTD · Accelerate Recurrence (solo HTML): agencias de alta frecuencia (Metabase 171400) vs target mensual de Input_OKR; mientras el mes no cierra, el Actual y el cumplimiento son Rolling L4W vs Target (el MTD arranca en 0 cada mes y queda como nota); con la foto de cierre del mes, MTD vs Target. Los recuadros por país muestran las dos columnas. Con el filtro API o HTML, los recuadros por país muestran el cumplimiento y el YoY por <strong>Recognition Date</strong> y por <strong>Gestion Date</strong> (sin la columna Actual); lo que cuenta para el KR es Recognition (marcado en punteado violeta) y la tabla principal sigue por Recognition Date. <em>YoY Bud.</em> = crecimiento que pedía el budget vs los reales del año anterior (mismo período).</div>
     <div class="kr-detail-grid" id="statusKRsH2DetailGrid"></div>
   </div>
 </div>
@@ -3737,6 +3741,8 @@ function computeKRH2ForPaisList_(paisList, metricField, predAct, predBud, monthF
   return { actual: actual, actualY: actualY, budget: budget, ly: ly };
 }
 
+// YoY Bud. (recuadros por país): crecimiento que pedía el budget contra los reales del año anterior.
+var YB_TITLE = 'YoY Budget: crecimiento que pedía el budget vs los reales del año anterior (mismo período)';
 function renderStatusKRsH2DetailBoxes_(monthFilter) {
   var grid = document.getElementById('statusKRsH2DetailGrid');
   if (!grid) return;
@@ -3748,9 +3754,13 @@ function renderStatusKRsH2DetailBoxes_(monthFilter) {
     var box = document.createElement('div');
     box.className = 'kr-detail-box' + (rowsGd ? ' kr-detail-box--dual' : '');
     unit = unit || '$M';
+    // yb = YoY Budget: crecimiento que pedía el budget del período contra los reales del año anterior
+    // (mismo período y mismos filtros que el YoY de los reales).
     function rowStat(r) {
+      var hasLY = r.ly !== null && r.ly !== undefined && r.ly > 0;
       return { c: cumplRatio(r.actual, r.budget),
-               yoy: (r.ly !== null && r.ly !== undefined && r.ly > 0) ? (krActY(r) / r.ly - 1) : null };
+               yoy: hasLY ? (krActY(r) / r.ly - 1) : null,
+               yb: (hasLY && r.budget) ? (r.budget / r.ly - 1) : null };   // sin budget (0) → —, como el Cumpl.
     }
     function totStat(rs) {
       var tAct = 0, tActY = 0, tBud = 0, tLY = 0, hAct = false, hBud = false, hLY = false;
@@ -3761,16 +3771,18 @@ function renderStatusKRsH2DetailBoxes_(monthFilter) {
       });
       return { actual: hAct ? tAct : null,
                c: (hBud && tBud) ? Math.min(cumplRatio(tAct, tBud), 1.30) : null,
-               yoy: (hLY && tLY > 0) ? (tActY / tLY - 1) : null };
+               yoy: (hLY && tLY > 0) ? (tActY / tLY - 1) : null,
+               yb: (hBud && tBud && hLY && tLY > 0) ? (tBud / tLY - 1) : null };
     }
     // rk: celdas Recognition del recuadro doble, enmarcadas en punteado violeta (es la fecha que cuenta para el KR);
     // last = última fila (cierra el marco por abajo).
     function cells(x, bold, rk, last) {
-      var y = yoyIcon(x.yoy);
       var b = rk ? (last ? ' kr-rk-b' : '') : '';
+      var w = function(t){ return bold ? '<strong>' + t + '</strong>' : t; };
       var c = cumplCellHtml(x.c, x.c !== null ? (x.c * 100).toFixed(0) + '%' : '—', bold);
       if (rk) c = c.replace('<td>', '<td class="kr-rk-l' + b + '">');
-      return c + '<td class="' + yoyColor(x.yoy) + (rk ? ' kr-rk-r' + b : '') + '">' + (bold ? '<strong>' + y + '</strong>' : y) + '</td>';
+      return c + '<td class="' + yoyColor(x.yoy) + b + '">' + w(yoyIcon(x.yoy)) + '</td>' +
+        '<td class="kr-yb ' + yoyColor(x.yb) + (rk ? ' kr-rk-r' + b : '') + '">' + w(yoyIcon(x.yb)) + '</td>';
     }
     var tRi = totStat(rows);
     var totalRow = '<tr class="kr-detail-total"><td style="text-align:left;font-weight:700">TOTAL</td>' +
@@ -3783,11 +3795,13 @@ function renderStatusKRsH2DetailBoxes_(monthFilter) {
     }).join('');
     var head = rowsGd
       ? '<tr><th rowspan="2" style="text-align:left;min-width:90px">País</th>' +
-          '<th colspan="2" class="kr-rk-l kr-rk-r kr-rk-t" title="Recognition Date: la fecha con la que se mide el KR">Recognition' +
+          '<th colspan="3" class="kr-rk-l kr-rk-r kr-rk-t" title="Recognition Date: la fecha con la que se mide el KR">Recognition' +
             '<span class="kr-rk-tag">cuenta para el KR</span></th>' +
-          '<th colspan="2" title="Gestion Date (referencia)">Gestion</th></tr>' +
-        '<tr><th class="kr-rk-l">Cumpl.</th><th class="kr-rk-r">YoY</th><th>Cumpl.</th><th>YoY</th></tr>'
-      : '<tr><th style="text-align:left;min-width:90px">País</th><th>Actual</th><th>Cumpl.</th><th>YoY</th></tr>';
+          '<th colspan="3" title="Gestion Date (referencia)">Gestion</th></tr>' +
+        '<tr><th class="kr-rk-l">Cumpl.</th><th>YoY</th><th class="kr-rk-r" title="' + YB_TITLE + '">YoY<br>Bud.</th>' +
+          '<th>Cumpl.</th><th>YoY</th><th title="' + YB_TITLE + '">YoY<br>Bud.</th></tr>'
+      : '<tr><th style="text-align:left;min-width:90px">País</th><th>Actual</th><th>Cumpl.</th><th>YoY</th>' +
+          '<th title="' + YB_TITLE + '">YoY<br>Bud.</th></tr>';
     box.innerHTML =
       '<div class="kr-detail-header"><span class="kr-num-badge">' + title + '</span></div>' +
       '<table class="pivot-table kr-detail-table">' +
@@ -4254,16 +4268,18 @@ function globalesNrDetailBox_(ym) {
     var c = cumplRatio(d.act, d.bud);
     if (bold && c !== null) c = Math.min(c, 1.30);
     var yoy = d.ly > 0 ? (d.actY / d.ly - 1) : null;
+    var yb  = d.ly > 0 && d.bud ? (d.bud / d.ly - 1) : null;   // YoY Budget
     var w = function(x){ return bold ? '<strong>' + x + '</strong>' : x; };
     return '<tr' + (bold ? ' class="kr-detail-total"' : '') + '><td style="text-align:left' + (bold ? ';font-weight:700' : '') + '">' + d.name + '</td>' +
       '<td>' + w(fmtKRVal(toM(d.act), '$M')) + '</td>' +
       cumplCellHtml(c, c !== null ? (c * 100).toFixed(0) + '%' : '—', bold) +
-      '<td class="' + yoyColor(yoy) + '">' + w(yoyIcon(yoy)) + '</td></tr>';
+      '<td class="' + yoyColor(yoy) + '">' + w(yoyIcon(yoy)) + '</td>' +
+      '<td class="kr-yb ' + yoyColor(yb) + '">' + w(yoyIcon(yb)) + '</td></tr>';
   }
   return '<div class="kr-detail-box" style="max-width:460px">' +
     '<div class="kr-detail-header"><span class="kr-num-badge">Net Revenues API Hoteles $M</span></div>' +
     '<table class="pivot-table kr-detail-table"><thead><tr><th style="text-align:left;min-width:90px">País</th>' +
-    '<th>Actual</th><th>Cumpl.</th><th>YoY</th></tr></thead><tbody>' +
+    '<th>Actual</th><th>Cumpl.</th><th>YoY</th><th title="' + YB_TITLE + '">YoY<br>Bud.</th></tr></thead><tbody>' +
     tr(tot, true) + rows.map(function(d){ return tr(d, false); }).join('') + '</tbody></table></div>';
 }
 
