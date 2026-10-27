@@ -725,6 +725,9 @@
   body.slides-mode #globalesContent #globalesCards {
     flex: 0 1 auto; height: 76%; min-height: 0; display: flex; flex-direction: column;
   }
+  /* Vista Tabla: arriba como Status KRs H2 (sin el centrado ni el alto fijo de las cards). */
+  body.slides-mode #globalesContent.glob-table-view #globalesWrap { justify-content: flex-start; }
+  body.slides-mode #globalesContent.glob-table-view #globalesCards { height: auto; }
   body.slides-mode #globalesContent .glob-grid {
     grid-template-columns: repeat(3, 1fr);
     grid-auto-rows: 1fr;
@@ -747,21 +750,29 @@
   /* Slides: tabla principal de KRs con proporciones fijas de columna
      (KR 50% · Peso 10% · Actual 10% · Budget 10% · Cumpl. 20%) y letra más grande. */
   body.slides-mode #statusKRsTable,
+  body.slides-mode #globalesTable,
   body.slides-mode #statusKRsH2Table { table-layout: fixed !important; width: 100% !important; }
   body.slides-mode #statusKRsTable th:nth-child(1),
+  body.slides-mode #globalesTable th:nth-child(1),
   body.slides-mode #statusKRsH2Table th:nth-child(1) { width: 50% !important; min-width: 0 !important; max-width: none !important; }
   body.slides-mode #statusKRsTable th:nth-child(2),
+  body.slides-mode #globalesTable th:nth-child(2),
   body.slides-mode #statusKRsH2Table th:nth-child(2) { width: 10% !important; }
   body.slides-mode #statusKRsTable th:nth-child(3),
+  body.slides-mode #globalesTable th:nth-child(3),
   body.slides-mode #statusKRsH2Table th:nth-child(3) { width: 10% !important; }
   body.slides-mode #statusKRsTable th:nth-child(4),
+  body.slides-mode #globalesTable th:nth-child(4),
   body.slides-mode #statusKRsH2Table th:nth-child(4) { width: 10% !important; }
   body.slides-mode #statusKRsTable th:nth-child(5),
+  body.slides-mode #globalesTable th:nth-child(5),
   body.slides-mode #statusKRsH2Table th:nth-child(5) { width: 20% !important; }
   body.slides-mode #statusKRsTable th,
   body.slides-mode #statusKRsTable td,
   body.slides-mode #statusKRsH2Table th,
-  body.slides-mode #statusKRsH2Table td {
+  body.slides-mode #statusKRsH2Table td,
+  body.slides-mode #globalesTable th,
+  body.slides-mode #globalesTable td {
     font-size: 1.15rem !important; padding: 8px 12px !important; white-space: normal !important;
   }
   /* H2: la tabla principal más chica que en H1 para dejarle lugar a los 5 recuadros de detalle
@@ -1415,6 +1426,16 @@
 <!-- Vista KR Global B2B API (targets H2 FY27) -->
 <div class="agencias-content" id="globalesContent">
   <div class="tables-view-title" id="globalesTitle">KR Global B2B API</div>
+  <div class="kr-month-filter-bar">
+    <div class="filter-group" id="globMonthGroup" style="display:none">
+      <label>Mes</label>
+      <select id="filterMonthGlob"></select>
+    </div>
+    <div class="kr-ch-group" id="globViewBtns" title="Formato de la vista (y de su slide)">
+      <button type="button" class="kr-ch-btn active" data-view="cards">Cards</button>
+      <button type="button" class="kr-ch-btn" data-view="table">Tabla</button>
+    </div>
+  </div>
   <div id="globalesSpinner" class="spinner-wrap" style="height:200px;display:none">
     <div class="spinner"></div><span>Cargando targets...</span>
   </div>
@@ -3939,16 +3960,42 @@ function renderGlobales() {
   var meses  = meta.meses || [];
   var labels = meta.meses_label || meses;
 
+  // Vista Tabla: mismo formato que Status KRs H2 (KR · Peso · Actual · Target · Cumpl. + OVERALL) para un mes.
+  // Default = mes del último actual; sigue al mes en curso (aunque el daily cargue después) hasta que el usuario elige otro.
+  var selG = document.getElementById('filterMonthGlob');
+  if (!selG.options.length) {
+    meses.forEach(function(ym, i){
+      var o = document.createElement('option'); o.value = ym; o.textContent = labels[i] || ym; selG.appendChild(o);
+    });
+  }
+  if (!selG.dataset.user) {
+    var lastYM = ((rawData && rawData.meta && rawData.meta.last_actuals_date) || '').substring(0, 7);
+    selG.value = meses.indexOf(lastYM) >= 0 ? lastYM : meses[0];
+  }
+  var globYM = selG.value || meses[0];
+  var isTableView = globView === 'table' && !!globYM;   // sin meses en okr.json → Cards
+  document.getElementById('globMonthGroup').style.display = isTableView ? '' : 'none';
+  document.getElementById('globalesContent').classList.toggle('glob-table-view', isTableView);
+
   var _globTitleEl = document.getElementById('globalesTitle');
-  if (_isSlidesMode) {
+  if (_isSlidesMode && isTableView) {
+    _globTitleEl.innerHTML =
+      '<b>KR Global B2B API MTD vs Target | ' + formatYMEn(globYM) + '</b> — <i>Managerial Information</i>';
+  } else if (isTableView) {
+    var curGYM = ((rawData && rawData.meta && rawData.meta.last_actuals_date) || '').substring(0, 7);
+    _globTitleEl.textContent = 'KR Global B2B API — ' + formatYM(globYM) + (globYM === curGYM ? ' (MTD)' : '');
+  } else if (_isSlidesMode) {
     _globTitleEl.innerHTML =
       '<b>KR Global B2B API | H2 FY27</b> — <i>Managerial Information</i>';
   } else {
     _globTitleEl.textContent = 'KR Global B2B API';
   }
 
-  document.getElementById('globalesMeta').innerHTML =
-    '&#127760; ' + (meta.titulo || 'KR Global B2B API') +
+  var _gb = (isTableView && rawData && rawData.meta) ? getPeriodBounds(globYM, rawData.meta) : null;
+  if (_gb && _gb.cutoff < _gb.from) _gb = null;   // mes futuro: sin rango de datos
+  document.getElementById('globalesMeta').innerHTML = _gb
+    ? '<span class="kr-data-range">&#128197; Datos: <strong>' + _gb.from + '</strong> &rarr; <strong>' + _gb.cutoff + '</strong></span>'
+    : '&#127760; ' + (meta.titulo || 'KR Global B2B API') +
     (meta.periodo ? ' — <strong>' + meta.periodo + '</strong>' : '') +
     (meta.actualizado ? ' · act. ' + meta.actualizado : '');
 
@@ -4069,8 +4116,46 @@ function renderGlobales() {
       }).join('') + '</div></div>';
   }
 
-  grid.innerHTML = totHtml + '<div class="glob-grid">' + cards + '</div>';
+  grid.innerHTML = isTableView
+    ? globalesTableHtml_(krsView, globYM, agg, totals[meses.indexOf(globYM)])
+    : totHtml + '<div class="glob-grid">' + cards + '</div>';
   wrap.style.display = 'block';
+}
+
+// Vista Tabla del KR Global B2B API para un mes: KR · Peso · Actual · Target · Cumpl. y OVERALL, igual que
+// Status KRs H2. Cumpl. = globalesScore_ real (sin piso); OVERALL = el total ponderado de las cards (okrScore_,
+// solo KRs con dato). En el mes en curso el Target de NR API Hoteles es el budget gestional MTD.
+function globalesTableHtml_(krs, ym, agg, tot) {
+  var last = (rawData && rawData.meta && rawData.meta.last_actuals_date) || '';
+  var isCur = last.substring(0, 7) === ym;
+  var body = krs.map(function(kr){
+    var t = kr.targets ? kr.targets[ym] : null;
+    var a = globalesActual_(kr, ym, agg);
+    var tShow = t, tMtd = false;
+    if (kr.id === 'net_revenues_api_hoteles' && isCur && agg[ym] && agg[ym].budMtd) { tShow = agg[ym].budMtd / 1e6; tMtd = true; }
+    var c = a !== null ? globalesScore_(kr, ym, a, t, true, agg) : null;
+    var note = [];
+    if (kr.inverse) note.push('menos es mejor');
+    if (kr.medicion) note.push(kr.medicion.toLowerCase());
+    var peso = kr.critical_ttpp ? '0% · TTPP' : Math.round((kr.weight || 0) * 100) + '%';
+    return '<tr><td style="text-align:left">' + kr.name + ' <span style="color:#6b7280;font-size:0.72rem">(' + (kr.unit || '') + ')</span>' +
+             (note.length ? '<div style="color:#9ca3af;font-size:0.68rem">' + note.join(' · ') + '</div>' : '') + '</td>' +
+           '<td style="color:#6b7280;font-size:0.78rem">' + peso + '</td>' +
+           '<td>' + (a !== null ? fmtGlobalTarget(a, kr.unit) : '—') + '</td>' +
+           '<td>' + fmtGlobalTarget(tShow, kr.unit) + (tMtd ? ' <span style="color:#6b7280;font-size:0.68rem">MTD</span>' : '') + '</td>' +
+           cumplCellHtml(c, c !== null ? (c * 100).toFixed(0) + '%' : '—', false) + '</tr>';
+  }).join('');
+  var hasTot = tot && tot.total !== null;
+  var cov = hasTot && tot.cov < 0.999
+    ? ' <span style="color:#9ca3af;font-weight:400;font-size:0.72rem">(sobre el ' + Math.round(tot.cov * 100) + '% del peso con datos)</span>' : '';
+  body += '<tr class="row-kr-total"><td style="text-align:left">OVERALL' + cov + '</td>' +
+          '<td style="color:#6b7280;font-size:0.78rem">' + (hasTot ? Math.round(tot.cov * 100) + '%' : '100%') + '</td>' +
+          '<td>—</td><td>—</td>' +
+          cumplCellHtml(hasTot ? tot.total : null, hasTot ? (tot.total * 100).toFixed(0) + '%' : '—', false) + '</tr>';
+  return '<div class="table-block" style="width:100%"><table class="pivot-table" id="globalesTable"><thead><tr>' +
+    '<th style="min-width:210px;text-align:left">KR</th><th style="color:#6b7280">Peso</th>' +
+    '<th>' + (isCur ? 'Actual MTD' : 'Actual') + '</th><th>' + 'Target' + '</th><th>Cumpl.</th>' +
+    '</tr></thead><tbody>' + body + '</tbody></table></div>';
 }
 
 // ─────────────────────────────────────────────
@@ -4300,6 +4385,22 @@ document.querySelectorAll('#productPanel input[type=checkbox]').forEach(function
 });
 document.getElementById('filterMonthKRs').addEventListener('change', renderStatusKRs);
 document.getElementById('filterMonthKRsH2').addEventListener('change', renderStatusKRsH2);
+// KR Global B2B API: formato Cards (tira mensual) o Tabla (como Status KRs H2). La slide usa el que esté elegido.
+var globView = 'cards';
+try { if (localStorage.getItem('trk_glob_view') === 'table') globView = 'table'; } catch (e) {}
+document.querySelectorAll('#globViewBtns .kr-ch-btn').forEach(function(btn) {
+  btn.classList.toggle('active', btn.getAttribute('data-view') === globView);
+  btn.addEventListener('click', function() {
+    globView = btn.getAttribute('data-view');
+    try { localStorage.setItem('trk_glob_view', globView); } catch (e) {}
+    document.querySelectorAll('#globViewBtns .kr-ch-btn').forEach(function(b) { b.classList.toggle('active', b === btn); });
+    renderGlobales();
+  });
+});
+document.getElementById('filterMonthGlob').addEventListener('change', function() {
+  this.dataset.user = '1';
+  renderGlobales();
+});
 document.querySelectorAll('#krH2ChannelBtns .kr-ch-btn').forEach(function(btn) {
   btn.addEventListener('click', function() {
     krH2Channel = btn.getAttribute('data-ch');
