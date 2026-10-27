@@ -229,7 +229,7 @@ function writeResultCache_(key, value) {
 function clearAllCache() {
   _jsonCache_ = {};   // resetea cache en memoria de esta instancia
   var sc = CacheService.getScriptCache();
-  sc.removeAll(['okr_json_v1', 'mkt_b2b_v4', 'mkt_b2b_v4_org2_budget', 'mkt_b2b_v4_org2_forecast', _MOD_CACHE_KEY_]);  // fuerza re-check de mod times
+  sc.removeAll(['okr_json_v1', 'mkt_b2b_v4', 'mkt_b2b_v4_org3_budget', 'mkt_b2b_v4_org3_forecast', 'mkt_b2b_v4_org3_lastYear', _MOD_CACHE_KEY_]);  // fuerza re-check de mod times
   Logger.log('Cache cleared: ' + new Date());
 }
 
@@ -243,8 +243,17 @@ function getSlidesEvo(list) {
   var baseRows = readJson_(JSON_IDS.baseline);
   var rrMap  = buildMap_(readJson_(JSON_IDS.runrate));
   var budMap = buildMap_(readJson_(JSON_IDS.budget));
-  var fcMap  = buildMap_(readJson_(JSON_IDS.forecast));
   var lyMap  = buildMap_(readJson_(JSON_IDS.ly));
+  // Forecast del pedido: fcSource 'btb' = Forecast - Bridge to budget; con organic 'forecast' a TC
+  // Budget (convertGoalOrganic_), como getAllData. Se lee y arma una vez por variante.
+  var fcMaps = {};
+  function fcMapOf(p) {
+    var btb = p.fcSource === 'btb', org = p.organic === 'forecast' && !!organicTargetOf_(p), k = (btb ? 'btb' : 'fc') + (org ? '@org' : '');
+    if (fcMaps[k]) return fcMaps[k];
+    var rows = readJson_(btb ? JSON_IDS.forecastbtb : JSON_IDS.forecast);
+    if (org) { try { rows = convertGoalOrganic_(rows).rows; } catch (e) { /* sin TC: nominal */ } }
+    return (fcMaps[k] = buildMap_(rows));
+  }
   var byTarget = {};   // target organic ('' = nominal) → { map, yMap }
   function maps(t) {
     if (byTarget[t]) return byTarget[t];
@@ -259,7 +268,7 @@ function getSlidesEvo(list) {
   }
   return list.map(function(p0) {
     var p = Object.assign({}, p0, { desde: p0.desde || LAST_ACTUALS_YM, hasta: p0.hasta || LAST_ACTUALS_YM });
-    var m = maps(organicTargetOf_(p));
+    var m = maps(organicTargetOf_(p)), fcMap = fcMapOf(p);
     var evo = computeEvo_(p, m.map, rrMap, budMap, lyMap, fcMap);
     if (m.yMap) graftOrganicYoY_({ evo: evo }, { evo: computeEvo_(p, m.yMap, rrMap, budMap, lyMap, fcMap) });
     return { evo: evo };

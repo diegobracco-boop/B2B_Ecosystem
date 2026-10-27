@@ -74,7 +74,8 @@ const MODULES = [
     // servidor getIndustryEvents (server/gas-extras/daily-industry.js). El código GAS del Daily no cambia.
     // daily-embed.js: ?embed=b2b2c-cover muestra sola la portada B2B2C del Flow (la usa "Slides mensuales" del Hub).
     // daily-flow-tier.js: tabla de las slides OKR L2 (NR y FVM) del Flow por Región → Tier → Partner con YoY.
-    layout: ['daily-layout.js', 'daily-embed.js', 'daily-flow-tier.js'],
+    // daily-flow-slides.js: recuadro Organic y nota COI Brasil en cada slide del Flow; portada OC con tablas H1 / H2.
+    layout: ['daily-layout.js', 'daily-embed.js', 'daily-flow-tier.js', 'daily-flow-slides.js'],
     gasExtras: ['daily-industry.js'],
     gasUrl: GAS_EXEC + 'AKfycbwMR3zk1r4uwui8vGtcmz0OwmeehC5JM8cuJRE3H-GQMfvxXWGTkYQ3R2nVjMyeAdX_1A/exec',
   },

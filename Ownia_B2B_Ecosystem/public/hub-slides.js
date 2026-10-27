@@ -7,11 +7,13 @@
  * resultados muestran el acumulado del FY (YTD; con septiembre cerrado = H1) y el mes.
  *   1 Portada · 2 H2 vs H1 (public/hub-h2h1.js) · 3 Evolución B2B MAY · 4 B2B2C mensual vs Budget ·
  *   5 Evolución B2B MIN · 6 Resultados por negocio · 7 B2B2C + highlights · 8 B2B ·
- *   9 B2B + business levers · 10 B2B MIN por región · 11 B2B MAY por región.
+ *   9 B2B + business levers · 10 B2B MIN por región · 11 B2B MAY por región ·
+ *   12-13 Proyección (mes siguiente, los Q que faltan y el semestre) vs Budget y vs Forecast BTB.
  *   La 4 es la portada "B2B2C — Resumen mensual (OC)" del Flow del Daily a pantalla completa
  *   (<base>/daily?embed=b2b2c-cover, public/daily-embed.js): NR Farming / Hunting / TBD y FVM del
  *   Datalake, OC del contable, tablas H1 / H2. El "at risk" del título lo calcula esa página (NR) y
  *   el OC se estima con el margen OC/NR del Budget H2 de B2B2C del contable (&ocm=).
+ *   Switch "COI Brasil" del deck (default Excluir): solo afecta esa slide (&coibr=).
  *   (Pendiente: Status OKRs.)
  *
  * Datos: getAllData del Hub (los mismos números que el resto del dashboard) — `evo` trae los 12
@@ -34,7 +36,7 @@
   var REG = [['glob', 'Globales', 'other countries'], ['bra', 'Brasil', 'brasil'], ['mex', 'Mexico', 'mexico'],
     ['hisp', 'Hispa', 'argentina|chile|colombia|peru|ecuador']];
   var cache = {};
-  var panel = null, state = { month: null, data: null, notes: {}, cur: 0 };
+  var panel = null, state = { month: null, data: null, notes: {}, cur: 0, coibr: 'excl' };   // coibr: COI Brasil de la slide del Daily (Excluir, como el Daily)
 
   // ── Datos ──────────────────────────────────────────────────────────────────────────────────
   function organicOn() { var st = window._state; return !!(st && st.organic); }
@@ -46,10 +48,12 @@
     for (var i = 0; i < 12; i++) { var m = ((i + 3) % 12) + 1; out.push((i < 9 ? y - 1 : y) + '-' + (m < 10 ? '0' : '') + m); }
     return out;
   }
+  // Forecast = "Forecast - Bridge to budget" (fcSource 'btb') para las slides de proyección. Con Organic,
+  // goal 'forecast': real a TC Budget (igual que con 'budget') y el BTB también a TC Budget.
   function params(extra) {
     var m = state.month;
     return { lob: extra.lob, pais: extra.pais || 'all', producto: 'all', canal: extra.canal || 'all', desde: m, hasta: m,
-      baselineSource: 'baseline', fcSource: '', organic: organicOn() ? 'budget' : '' };
+      baselineSource: 'baseline', fcSource: 'btb', organic: organicOn() ? 'forecast' : '' };
   }
   // Todas las series en UN pedido (getSlidesEvo del Hub: lee los JSON una vez; getAllData por
   // combinación tardaba ~2,5 min en frío).
@@ -66,16 +70,16 @@
     ((evo && evo.metrics) || []).forEach(function (m) {
       out[m.id] = (m.actuals || []).map(function (a, i) {
         // actualsYoY (real a TC Actuals LY) viene solo con Organic; sin Organic el YoY es real vs LY nominal
-        return { act: a || 0, bud: (m.budget || [])[i] || 0, ly: (m.lastYear || [])[i] || 0, yoyN: m.actualsYoY ? m.actualsYoY[i] : (a || 0) };
+        return { act: a || 0, bud: (m.budget || [])[i] || 0, fc: (m.forecast || [])[i] || 0, ly: (m.lastYear || [])[i] || 0, yoyN: m.actualsYoY ? m.actualsYoY[i] : (a || 0) };
       });
     });
     return out;
   }
   function agg(arr, idx) {
-    var o = { act: 0, bud: 0, ly: 0, yoyN: 0, yoyOk: true };
+    var o = { act: 0, bud: 0, fc: 0, ly: 0, yoyN: 0, yoyOk: true };
     idx.forEach(function (i) {
       var x = arr && arr[i]; if (!x) return;
-      o.act += x.act; o.bud += x.bud; o.ly += x.ly;
+      o.act += x.act; o.bud += x.bud; o.fc += x.fc || 0; o.ly += x.ly;
       if (x.yoyN == null || !isFinite(x.yoyN)) o.yoyOk = false; else o.yoyN += x.yoyN;
     });
     o.yoy = o.ly > 0 && o.yoyOk ? (o.yoyN / o.ly - 1) * 100 : NaN;
@@ -270,11 +274,53 @@
 
   // B2B2C mensual: la portada del Flow del Daily a pantalla completa (un solo encabezado: el título
   // y el "at risk" los pone public/daily-embed.js). ocm = margen OC/NR del Budget H2 de B2B2C del
-  // contable, para estimar el OC at risk.
+  // contable, para estimar el OC at risk. coibr = switch "COI Brasil" del deck.
   function sB2B2CMonthly() {
     var b = state.data.b2b2c.s, h2 = range(6, 11), nb = agg(b.nr, h2).bud, ocm = nb ? agg(b.oc, h2).bud / nb : NaN;
-    var src = basePath() + '/daily?embed=b2b2c-cover&organic=' + (organicOn() ? 'yes' : 'no') + (isFinite(ocm) ? '&ocm=' + ocm.toFixed(4) : '');
+    var src = basePath() + '/daily?embed=b2b2c-cover&organic=' + (organicOn() ? 'yes' : 'no') + '&coibr=' + state.coibr + (isFinite(ocm) ? '&ocm=' + ocm.toFixed(4) : '');
     return '<iframe class="hs-ifr" src="' + esc(src) + '" title="B2B2C mensual vs Budget (Daily)"></iframe>';
+  }
+
+  // ── Proyección: mes siguiente al cierre, los Q que faltan y el semestre (real cerrado + Run Rate) ──
+  // vs Budget o vs "Forecast - Bridge to budget" (BTB, que llega hasta OC). Con septiembre cerrado:
+  // Oct · Q3 (oct–dic) · Q4 (ene–mar) · H2.
+  function outlookPeriods() {
+    var ci = closedIdx(), p = fyPeriods(), out = [];
+    if (ci < 0 || ci >= 11) return out;
+    function lbl(a, b) { return MES[+p[a].slice(5) - 1] + '–' + MES[+p[b].slice(5) - 1]; }
+    out.push({ name: monthLabel(p[ci + 1]), sub: 'mes siguiente', idx: [ci + 1] });
+    [[0, 2, 'Q1'], [3, 5, 'Q2'], [6, 8, 'Q3'], [9, 11, 'Q4']].forEach(function (q) {
+      if (q[1] > ci) out.push({ name: q[2], sub: lbl(q[0], q[1]) + (q[0] <= ci ? ' · Act+Proy' : ''), idx: range(q[0], q[1]) });
+    });
+    [[0, 5, 'H1'], [6, 11, 'H2']].forEach(function (h) {
+      if (h[1] > ci) out.push({ name: h[2], sub: lbl(h[0], h[1]) + (h[0] <= ci ? ' · Act+Proy' : ''), idx: range(h[0], h[1]), half: true });
+    });
+    return out;
+  }
+  var OUT_SEGS = [['total', 'Total'], ['b2b2c', 'B2B2C'], ['b2b', 'B2B'], ['min', 'B2B-MIN'], ['may', 'B2B-MAY']];
+  function sOutlook(goal) {
+    var per = outlookPeriods(), gk = goal === 'btb' ? 'fc' : 'bud', gName = goal === 'btb' ? 'Forecast BTB' : 'Budget';
+    if (!per.length) return head('Proyección vs ' + gName) + '<p class="hs-err">Con el año cerrado no hay proyección.</p>' + foot();
+    var th = '<tr><th rowspan="2"></th><th rowspan="2"></th>' + per.map(function (x) {
+      return '<th colspan="3" class="' + (x.half ? 'hs-oth' : '') + '">' + esc(x.name) + '<small>' + esc(x.sub) + '</small></th>'; }).join('') + '</tr>' +
+      '<tr>' + per.map(function (x) { return '<th class="' + (x.half ? 'hs-oth' : '') + '">Proy.</th><th class="' + (x.half ? 'hs-oth' : '') + '">Δ $</th><th class="' + (x.half ? 'hs-oth' : '') + '">Δ %</th>'; }).join('') + '</tr>';
+    var body = OUT_SEGS.map(function (sg) {
+      var s = state.data[sg[0]].s;
+      return ROWS.map(function (r, j) {
+        return '<tr class="' + (j === 0 ? 'hs-otg' : '') + (sg[0] === 'total' ? ' hs-ott' : '') + '">' +
+          (j === 0 ? '<td rowspan="3" class="hs-ots">' + sg[1] + '</td>' : '') + '<td class="hs-otm">' + r[1] + '</td>' +
+          per.map(function (x) {
+            var o = agg(s[r[0]], x.idx), g = o[gk], d = o.act - g, pct = g ? (o.act / g - 1) * 100 : NaN, h = x.half ? ' hs-oth' : '';
+            if (!g) return '<td class="hs-otv' + h + '">' + m1(o.act) + '</td><td class="' + h + '">n/d</td><td class="' + h + '">n/d</td>';
+            return '<td class="hs-otv' + h + '">' + m1(o.act) + '</td><td class="' + cls(d) + h + '">' + money(d) + '</td>' +
+              '<td class="' + cls(d) + h + '">' + (g > 0 && Math.abs(pct) < 200 ? pc(pct) : '—') + '</td>';
+          }).join('') + '</tr>';
+      }).join('');
+    }).join('');
+    var note = 'Proyección = real cerrado hasta ' + monthLabel(state.month) + ' + Run Rate · USD $M · Δ = proyección − ' + gName +
+      (goal === 'btb' ? ' · BTB: escenario "Forecast - Bridge to budget" (hasta OC)' : '') + (organicOn() ? ' · Organic: todo a TC Budget' : '');
+    return head('Proyección ' + per.map(function (x) { return x.name; }).join(' · ') + ' vs ' + gName, 'cierre ' + monthLabel(state.month)) +
+      '<table class="hs-ot"><thead>' + th + '</thead><tbody>' + body + '</tbody></table><div class="hs-otn">' + esc(note) + '</div>' + foot();
   }
 
   function slidesHtml(h2h1) {
@@ -290,6 +336,8 @@
       ['B2B levers', sB2BLevers()],
       ['B2B-MIN por región', sRegions('min')],
       ['B2B-MAY por región', sRegions('may')],
+      ['Proyección vs Budget', sOutlook('budget')],
+      ['Proyección vs Forecast BTB', sOutlook('btb')],
     ];
     return list.map(function (x, i) {
       return '<div class="hs-frame" data-i="' + i + '"><div class="hs-slide' + (i === 0 ? ' hs-s-cover' : '') + (x[2] ? ' hs-s-raw' : '') + '">' + x[1] + '</div>' +
@@ -344,7 +392,9 @@
     sel.innerHTML = p.filter(function (ym) { return !last || ym <= last; }).map(function (ym) {
       return '<option value="' + ym + '"' + (ym === state.month ? ' selected' : '') + '>' + monthLabel(ym) + '</option>';
     }).join('');
-    Array.prototype.forEach.call(panel.querySelectorAll('.hs-orgb'), function (b) { b.setAttribute('aria-pressed', String((b.dataset.o === 'yes') === organicOn())); });
+    Array.prototype.forEach.call(panel.querySelectorAll('.hs-orgb'), function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.c ? b.dataset.c === state.coibr : (b.dataset.o === 'yes') === organicOn()));
+    });
   }
 
   function ensurePanel() {
@@ -415,6 +465,16 @@
       '#hs .hs-evp{font-size:10.5px;font-weight:700;text-anchor:middle;fill:#5b4fe0}#hs .hs-evl{font-size:11px;font-weight:600;fill:#6e6e73}',
       '#hs .hs-evright{display:flex;flex-direction:column}',
       '#hs .hs-ifr{border:0;display:block;width:' + W + 'px;height:' + H + 'px}',
+      '#hs .hs-ot{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:2px}',
+      '#hs .hs-ot th{background:#550fed;color:#fff;font-weight:600;padding:4px 6px;text-align:right;border-left:1px solid #fff}',
+      '#hs .hs-ot thead tr:first-child th{text-align:center;font-size:13.5px}#hs .hs-ot th small{display:block;font-size:10px;font-weight:400;opacity:.85}',
+      '#hs .hs-ot th.hs-oth{background:#4300d2}',
+      '#hs .hs-ot td{padding:4px 6px;text-align:right;border-bottom:1px solid #eeecf6;white-space:nowrap}',
+      '#hs .hs-ot td.hs-oth{background:#f6f4fe}',
+      '#hs .hs-ot .hs-otg td{border-top:2px solid #d9d2fb}#hs .hs-ot .hs-ott td{font-weight:700}',
+      '#hs .hs-ot td.hs-ots{text-align:left;font-weight:700;color:#4300d2;font-size:14px;background:#fbfaff;border-right:1px solid #eeecf6}',
+      '#hs .hs-ot td.hs-otm{text-align:left;color:#55555c}#hs .hs-ot td.hs-otv{font-weight:600;color:#1d1d1f}',
+      '#hs .hs-otn{font-size:11px;color:#8e8e93;margin-top:8px}',
       '#hs .hs-cover{position:absolute;inset:0;background:linear-gradient(120deg,#4300d2,#550fed 60%,#7b3ff5);color:#fff;padding:180px 90px}',
       '#hs .hs-cv1{font-size:56px;font-weight:700}#hs .hs-cv2{font-size:40px;font-weight:500;opacity:.92}',
       '#hs .hs-cv3{font-size:20px;margin-top:30px;opacity:.85}#hs .hs-cvlogo{position:absolute;right:60px;bottom:40px;font-size:32px;font-weight:700}',
@@ -432,12 +492,23 @@
     panel.innerHTML = '<div class="hs-tool"><h2>Slides mensuales</h2>' +
       '<label>Cierre <select class="hs-month" aria-label="Mes cerrado"></select></label>' +
       '<div class="hs-orgw" role="group" aria-label="Organic"><span>Organic</span><button type="button" class="hs-orgb" data-o="yes">YES</button><button type="button" class="hs-orgb" data-o="no">NO</button></div>' +
+      '<div class="hs-orgw" role="group" aria-label="COI Brasil (slide del Daily)" title="Slide B2B2C mensual (Daily): FVM de Brasil sin COI / Financial Result"><span>COI Brasil</span><button type="button" class="hs-orgb hs-coib" data-c="excl">Excluir</button><button type="button" class="hs-orgb hs-coib" data-c="incl">Incluir</button></div>' +
       '<span class="hs-sp"></span><button type="button" class="hs-go hs-pres">▶ Presentar</button>' +
       '<button type="button" class="hs-pdf">Exportar PDF</button><button type="button" class="hs-close">← Volver al P&amp;L</button></div>' +
       '<div class="hs-deck"></div>';
     document.body.appendChild(panel);
     panel.querySelector('.hs-month').onchange = function () { state.month = this.value; render(); };
-    Array.prototype.forEach.call(panel.querySelectorAll('.hs-orgb'), function (b) {
+    Array.prototype.forEach.call(panel.querySelectorAll('.hs-coib'), function (b) {
+      b.onclick = function () {
+        if (b.dataset.c === state.coibr) return;
+        state.coibr = b.dataset.c;
+        syncToolbar();
+        // solo cambia la slide del Daily: se recarga su iframe
+        var f = panel.querySelector('.hs-ifr');
+        if (f && state.data) f.parentNode.innerHTML = sB2B2CMonthly();
+      };
+    });
+    Array.prototype.forEach.call(panel.querySelectorAll('.hs-orgb:not(.hs-coib)'), function (b) {
       b.onclick = function () {
         var on = b.dataset.o === 'yes';
         if (on === organicOn()) return;
