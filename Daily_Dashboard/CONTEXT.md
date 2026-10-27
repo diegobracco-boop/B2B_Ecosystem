@@ -21,7 +21,8 @@ Datalake (Treasure Data vía ODBC)
       ├── okr_h2_managerial.json
       ├── recurrencia_b2b.json ← Accelerate Recurrence (Status KRs H2 del Tracker), ver abajo
       ├── fvm_negativo.json   ← lo lee la landing FVM_Negativo/ (no este dashboard)
-      └── industry_events.json ← SOLO Ownia: solapa "Industry events tracker" (lo arma industry_events_sync.py)
+      ├── industry_events.json ← SOLO Ownia: solapa "Industry events tracker" (lo arma industry_events_sync.py)
+      └── b2c_budget_weekly.json ← SOLO Ownia: Budget B2C por semana ISO × país (lo arma b2c_budget_sync.py)
   → dashboard GAS lee los JSON y renderiza
 ```
 
@@ -34,6 +35,14 @@ fin del mes en curso). Lo arma `industry_events_sync.py`, a mano: no cambia `dai
 desde ese archivo, como `reales.py`) y se vuelve a correr solo cuando cambian los calendarios. Después:
 `py Ownia_B2B_Ecosystem/mirror/ownia_mirror.py --module daily`. El año en curso lo toma la solapa de los JSON del
 Daily que ya carga. Verificado 2026-10-24: el GB B2B2C de nov-2025 por país coincide con `actuals_ly_fy_rest`.
+
+`b2c_budget_weekly.json` (2026-10-27, solo Ownia): Budget de B2C por semana ISO (recortada al año calendario: la 1 de
+2026 es 1–4 de enero) × país, todas las marcas / canales / productos, en USD. Sale del CSV semanal que manda Planning
+(`budget_2026_b2c.csv`) con `py b2c_budget_sync.py [--csv <archivo>]`, a mano, y después
+`py Ownia_B2B_Ecosystem/mirror/ownia_mirror.py --module daily`. Lo usa la sección "Weekly · vs B2C" del Benchmark y su
+slide del Flow (`Ownia_B2B_Ecosystem/public/daily-ceo-weekly.js`, servidor `getB2CBudgetWeekly`). Verificado 2026-10-27:
+mismo perímetro que el real B2C del Daily (semanas 30–43 entre −17% y +13% del Budget). El CSV cubre ene–dic 2026: para
+ene–mar 2027 hace falta el Budget del año siguiente.
 
 `recurrencia_b2b.json`: agencias HTML de alta frecuencia por semana comercial × país. La query es copia de la
 card Metabase 171400 (`recurrencia_alta_frecuencia.sql`; si cambia en Metabase, pegar el SQL nuevo ahí). Lo arma

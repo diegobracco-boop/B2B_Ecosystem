@@ -1868,6 +1868,11 @@ a.ext-link:hover { text-decoration: underline; }
             <td><code>Daily_Dashboard/industry_events_sync.py</code></td>
             <td>Drive, carpeta DailyDashboard: <code>industry_events.json</code></td>
             <td>Cuando cambian los calendarios · manual</td></tr>
+          <tr><td>Budget B2C semanal (solo en Ownia) <span class="badge badge-manual">🆕 2026-10-27</span></td>
+            <td>CSV de Budget B2C por semana que manda Planning (<code>budget_2026_b2c.csv</code>: marca × semana ISO × país × canal × producto), agregado a semana × país (GB / NR / FVM)</td>
+            <td><code>Daily_Dashboard/b2c_budget_sync.py</code></td>
+            <td>Drive, carpeta DailyDashboard: <code>b2c_budget_weekly.json</code> (lo lee "Weekly · vs B2C" del Benchmark y su slide del Flow)</td>
+            <td>Cuando Planning manda otra versión · manual; después <code>ownia_mirror.py --module daily</code></td></tr>
           <tr><td>Moneda constante (switch ORGANIC)</td>
             <td>Tipos de cambio del plan</td>
             <td>— (se sube a mano)</td>

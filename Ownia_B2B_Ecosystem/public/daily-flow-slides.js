@@ -28,7 +28,7 @@
   function orgTarget(def) {
     var W = window;
     if (/^b2b_/.test(def.kind)) return W._flowB2BGoalType === 'rr' ? '' : 'budget';
-    if (def.kind === 'weekly' || def.kind === 'b2b2c_krs') return 'budget';
+    if (def.kind === 'weekly' || def.kind === 'b2b2c_krs' || def.kind === 'ceo_weekly') return 'budget';
     var t = typeof W._orgTargetFlow_ === 'function' ? W._orgTargetFlow_() : '';
     return t === 'forecast' ? 'budget' : t;
   }

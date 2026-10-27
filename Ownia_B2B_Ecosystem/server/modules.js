@@ -75,8 +75,9 @@ const MODULES = [
     // daily-embed.js: ?embed=b2b2c-cover muestra sola la portada B2B2C del Flow (la usa "Slides mensuales" del Hub).
     // daily-flow-tier.js: tabla de las slides OKR L2 (NR y FVM) del Flow por Región → Tier → Partner con YoY.
     // daily-flow-slides.js: recuadro Organic y nota COI Brasil en cada slide del Flow; portada OC con tablas H1 / H2.
-    layout: ['daily-layout.js', 'daily-embed.js', 'daily-flow-tier.js', 'daily-flow-slides.js'],
-    gasExtras: ['daily-industry.js'],
+    // daily-ceo-weekly.js: "Weekly · vs B2C" (vista CEO) arriba del Benchmark y como slide del Flow; va antes de daily-embed.js (agrega la slide al deck).
+    layout: ['daily-layout.js', 'daily-ceo-weekly.js', 'daily-embed.js', 'daily-flow-tier.js', 'daily-flow-slides.js'],
+    gasExtras: ['daily-industry.js', 'daily-b2c-budget.js'],
     gasUrl: GAS_EXEC + 'AKfycbwMR3zk1r4uwui8vGtcmz0OwmeehC5JM8cuJRE3H-GQMfvxXWGTkYQ3R2nVjMyeAdX_1A/exec',
   },
   {
