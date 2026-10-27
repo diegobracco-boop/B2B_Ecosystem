@@ -66,21 +66,24 @@ def _semana(anio, semana):
 
 
 def build(csv_path):
-    df = pd.read_csv(csv_path, usecols=["AnioLunes", "Semana", "Pais", "Tipo", "GB", "Net_Revenues", "FVM"], low_memory=False)
+    df = pd.read_csv(csv_path, usecols=["AnioLunes", "Semana", "Pais", "Tipo", "GB", "Net_Revenues", "FVM", "COI", "Financial_Result"], low_memory=False)
     tipos = sorted(df["Tipo"].dropna().unique())
     if tipos != ["BGT"]:
         raise SystemExit(f"Esperaba solo Tipo=BGT en el CSV y vino {tipos}")
     sin_mapa = sorted(set(df["Pais"].dropna()) - set(PAIS_MAP))
     if sin_mapa:
         raise SystemExit(f"Países del CSV sin mapear: {sin_mapa} (agregarlos a PAIS_MAP)")
-    for c in ("GB", "Net_Revenues", "FVM"):
+    for c in ("GB", "Net_Revenues", "FVM", "COI", "Financial_Result"):
         df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0.0)
-    g = df.groupby(["AnioLunes", "Semana", "Pais"], as_index=False)[["GB", "Net_Revenues", "FVM"]].sum()
+    # Switch "COI Brasil" = Excluir: FVM de Brasil sin COI ni Financial Result, como fvm_ex_coi_br del real
+    # (daily_sync.py: fvm − (financial_result − coi_usd)). En el Budget el COI viene con signo de costo (negativo).
+    df["FVM_ex_COI_BR"] = df["FVM"] - (df["COI"] + df["Financial_Result"]) * (df["Pais"] == "BR")
+    g = df.groupby(["AnioLunes", "Semana", "Pais"], as_index=False)[["GB", "Net_Revenues", "FVM", "FVM_ex_COI_BR"]].sum()
     rows = []
     for r in g.itertuples(index=False):
         d0, d1 = _semana(int(r.AnioLunes), int(r.Semana))
         rows.append([int(r.AnioLunes), int(r.Semana), d0, d1, PAIS_MAP[r.Pais],
-                     round(float(r.GB), 2), round(float(r.Net_Revenues), 2), round(float(r.FVM), 2)])
+                     round(float(r.GB), 2), round(float(r.Net_Revenues), 2), round(float(r.FVM), 2), round(float(r.FVM_ex_COI_BR), 2)])
     rows.sort(key=lambda x: (x[0], x[1], x[4]))
     # Cuadre: el agregado tiene que sumar lo mismo que el CSV
     for i, c in ((5, "GB"), (6, "Net_Revenues"), (7, "FVM")):
@@ -93,7 +96,7 @@ def build(csv_path):
                  "anios": anios, "semanas": len({(x[0], x[1]) for x in rows}),
                  "desde": rows[0][2], "hasta": max(x[3] for x in rows),
                  "nota": "Budget B2C por semana ISO (recortada al año calendario) × país; todas las marcas, canales y productos. USD."},
-        "cols": ["anio", "semana", "desde", "hasta", "pais", "gross_bookings", "net_revenues", "fvm"],
+        "cols": ["anio", "semana", "desde", "hasta", "pais", "gross_bookings", "net_revenues", "fvm", "fvm_ex_coi_br"],
         "rows": rows,
     }
     tot = {c: sum(x[i] for x in rows) / 1e6 for i, c in ((5, "GB"), (6, "NR"), (7, "FVM"))}

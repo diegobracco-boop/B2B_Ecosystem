@@ -22,7 +22,8 @@
  * industry_events.json (getIndustryEvents, el del "Industry events tracker").
  * Organic YES: los reales de los TRES negocios a TC Budget (vs Budget) y el YoY a TC Actuals LY
  * (_orgRows_, opción B) — B2C también, para comparar en la misma moneda. COI Brasil = Excluir: el FVM
- * sin COI / Financial Result de Brasil (B2C también cuando el JSON trae fvm_ex_coi_br).
+ * sin COI / Financial Result de Brasil en los tres negocios: real, LY y Budget de B2C incluidos (también en el
+ * Benchmark clásico de abajo: applyB2CCoi).
  */
 (function () {
   'use strict';
@@ -86,7 +87,9 @@
   function b2cBudWeeks() {
     var o = {}, b = state.bud;
     if (!b || !b.rows) return o;
-    var c = b.cols, ia = c.indexOf('anio'), iw = c.indexOf('semana'), ip = c.indexOf('pais'), ig = c.indexOf('gross_bookings'), inr = c.indexOf('net_revenues'), iv = c.indexOf('fvm');
+    // COI Brasil = Excluir: el FVM del Budget sin COI / Financial Result de Brasil (b2c_budget_sync.py)
+    var c = b.cols, ia = c.indexOf('anio'), iw = c.indexOf('semana'), ip = c.indexOf('pais'), ig = c.indexOf('gross_bookings'), inr = c.indexOf('net_revenues'),
+      iv = (W._exCoiBr && c.indexOf('fvm_ex_coi_br') >= 0) ? c.indexOf('fvm_ex_coi_br') : c.indexOf('fvm');
     b.rows.forEach(function (r) {
       var k = r[ia] * 100 + r[iw];
       ['TOT', regionOf(r[ip])].forEach(function (reg) {
@@ -96,15 +99,23 @@
     });
     return o;
   }
-  // B2C con el switch COI Brasil: si el JSON trae fvm_ex_coi_br (daily_sync.py desde 2026-10-27), se
-  // pisa fvm igual que applyCoiBr_ hace con B2B2C / B2B (en copias: las filas de _b2cRows_ son compartidas)
-  function b2cRows(rows) {
-    if (!rows || !rows.length || rows[0].fvm_ex_coi_br == null) return rows;
-    var ex = !!W._exCoiBr;
-    return rows.map(function (r) { var c = Object.assign({}, r); c.fvm = ex ? r.fvm_ex_coi_br : r.fvm; return c; });
+  // B2C con el switch COI Brasil: el JSON trae fvm_ex_coi_br (daily_sync.py desde 2026-10-27) y se pisa
+  // fvm EN LAS FILAS de _b2cRows_ / _b2cLyRows_, igual que applyCoiBr_ con B2B2C / B2B (el total queda en
+  // _fvmTot). Así lo sigue todo lo que lee esas filas: esta vista y el Benchmark clásico.
+  function applyB2CCoi() {
+    if (!W._rawB2BC || typeof W._b2cRows_ !== 'function') return;
+    [W._b2cRows_(W._rawB2BC), W._b2cLyRows_(W._rawB2BC)].forEach(function (arr) {
+      (arr || []).forEach(function (r) {
+        if (r.fvm_ex_coi_br == null) return;
+        if (r._fvmTot === undefined) r._fvmTot = r.fvm;
+        r.fvm = W._exCoiBr ? r.fvm_ex_coi_br : r._fvmTot;
+      });
+    });
   }
+  function b2cRows(rows) { return rows; }
   function orgT() { return (W._dlOrganic && W._fxTbl) ? 'budget' : ''; }
   function series() {
+    applyB2CCoi();
     var t = orgT(), rb = W.b2bcRaw_() || W._rawB2BC, B = W._rawB2B;
     return {
       b2b2c: { cur: byWeek(W._orgRows_(rb.actuals || [], t)), ly: byWeek(rb.actuals_ly, 1), bud: byWeek(rb.budget) },
@@ -608,6 +619,7 @@
     var origBench = W.renderBenchmark_;
     if (typeof origBench === 'function') {
       W.renderBenchmark_ = function () {
+        try { applyB2CCoi(); } catch (e) { /* sin B2C */ }
         var r = origBench.apply(this, arguments);
         try { ensureBench(); ensureData(); refreshAll(); } catch (e) { console.warn('[daily-ceo-weekly] benchmark:', e); }
         return r;
@@ -620,6 +632,9 @@
         { kind: 'ceo_weekly', n: 1, name: 'Weekly — vs B2C (CEO)' }, { kind: 'ceo_weekly', n: 2, name: 'Weekly — momentum por región vs B2C' },
         { kind: 'ceo_weekly', n: 3, name: 'Weekly — B2B2C: partners del momentum' }, { kind: 'ceo_weekly', n: 4, name: 'Weekly — B2B: API vs HTML' });
     }
+    // El switch global: primero B2C (las filas) y después el recálculo del Daily
+    var origCoi = W.setExCoiBr;
+    if (typeof origCoi === 'function') W.setExCoiBr = function (on) { W._exCoiBr = !!on; try { applyB2CCoi(); } catch (e) { /* sin B2C */ } return origCoi.apply(this, arguments); };
     var origSlide = W.flowBuildSlide_;
     if (typeof origSlide === 'function') {
       W.flowBuildSlide_ = function (def, idx) {
