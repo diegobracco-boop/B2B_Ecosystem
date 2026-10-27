@@ -108,8 +108,11 @@ pipelines (sin cambios) ──▶ Drive ──▶ mirror/ownia_mirror.py ──P
 - `/ingest/files` (GET lista, PUT sube) se protege con `Authorization: Bearer <INGEST_TOKEN>`. Sin
   `INGEST_TOKEN` configurado la ruta no existe (404).
 
-**Pendiente:** hoy el espejo se corre a mano (`py mirror/ownia_mirror.py`) después de los pipelines. Para el paralelo
-diario hay que engancharlo al final de las corridas automáticas (ver CONTEXT-MAP, scheduler del Daily).
+**Corrida diaria (2026-10-27):** `Daily_Dashboard/auto_update_reales.ps1` (Task Scheduler en la PC de Tiago) corre el
+espejo completo después de `daily_sync.py` (paso 1b). No corta la corrida si falla: Apps Script se publica igual y queda un
+AVISO en el log. Esa PC necesita `credenciales/.env.ownia` y el login de Drive de `Inputs_Planning_PnL/token_drive.json`;
+sin `.env.ownia` el paso se saltea con aviso. Las demás corridas (P&L, `/actualizar`, uploads a mano) siguen necesitando
+`py mirror/ownia_mirror.py` a mano.
 
 ## Identidad y acceso
 
