@@ -177,13 +177,17 @@
     var h1Closed = L >= y0 + '-09-30', h1L = 'H1 ' + fyL + (h1Closed ? '' : ' (Act+Proy)'), h2L = 'H2 ' + fyL + ' (Act+Proy)';
     var segRows = W.FL_SEG_.map(function (sg) { return { k: sg.k, lbl: '<i style="display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;background:' + sg.c + '"></i>' + sg.lbl }; });
     function wrap(tag, html) { return '<div class="fl-scroll-tbl" style="flex:1;min-width:0;min-height:0;overflow-y:auto"><div class="fl-tag">' + tag + '</div>' + html + '</div>'; }
-    var html = [['nr', 'NR'], ['fvm', 'FVM']].map(function (t) {
-      return wrap(t[1] + ' vs ' + cmpShort, W.flMultiPeriodTbl_('Segmento', segRows, [
-        { lbl: h1L, data: segHalf(sub, t[0], cmp, 0, 6) }, { lbl: h2L, data: segHalf(sub, t[0], cmp, 6, 12) }]));
-    }).join('');
-    var regRows = ['BR', 'SAH', 'NAM'].map(function (k) { return { k: k, lbl: (W.REGION_LABEL_ || {})[k] || k }; });
-    return html + wrap('OC vs ' + cmpShort, W.flMultiPeriodTbl_('Región', regRows, [
-      { lbl: h1L, data: ocHalf(cmp, 0, 6) }, { lbl: h2L, data: ocHalf(cmp, 6, 12) }]));
+    var html = wrap('NR vs ' + cmpShort, W.flMultiPeriodTbl_('Segmento', segRows, [
+      { lbl: h1L, data: segHalf(sub, 'nr', cmp, 0, 6) }, { lbl: h2L, data: segHalf(sub, 'nr', cmp, 6, 12) }]));
+    // OC por segmento (2026-10-27, Diego): igual que el NR. El total es el OC del P&L contable; Hunting y TBD son el FVM del
+    // gestional (Datalake) y Farming = OC contable − Hunting − TBD. Sin tabla de FVM.
+    return html + wrap('OC vs ' + cmpShort, W.flMultiPeriodTbl_('Segmento', segRows, [
+      { lbl: h1L, data: ocSegHalf(sub, cmp, 0, 6) }, { lbl: h2L, data: ocSegHalf(sub, cmp, 6, 12) }]));
+  }
+  function ocSegHalf(sub, cmp, a, b) {
+    var oc = ocHalf(cmp, a, b), fv = segHalf(sub, 'fvm', cmp, a, b), base = 0, goal = 0;
+    Object.keys(oc).forEach(function (k) { base += oc[k].base; goal += oc[k].goal; });
+    return { f: { base: base - fv.h.base - fv.t.base, goal: goal - fv.h.goal - fv.t.goal }, h: fv.h, t: fv.t };
   }
 
   // ── Portada OC: línea de % sobre GB arriba de las barras (como las slides Evolution del Hub) ──
@@ -228,6 +232,11 @@
 
   document.addEventListener('DOMContentLoaded', function () {
     var W = window;
+    // Flow semanal 100% gestional (2026-10-27, Diego): la portada "Resumen mensual (OC)" es contable (flow_oc) y vive ahora en el
+    // Flow mensual (Slides mensuales, que la embebe con ?embed=…). Fuera del modo embebido se saca del deck.
+    if (!/[?&]embed=/.test(location.search) && Array.isArray(W.FLOW_DECK)) {
+      for (var di = W.FLOW_DECK.length - 1; di >= 0; di--) if (W.FLOW_DECK[di].kind === 'cover_oc') W.FLOW_DECK.splice(di, 1);
+    }
     if (typeof W.Chart === 'function' && W.Chart.register) W.Chart.register(gbPctPlugin);
     var origBuildSlide = W.flowBuildSlide_, origChart = W.flowChart_;
     if (typeof origBuildSlide === 'function' && typeof origChart === 'function') {

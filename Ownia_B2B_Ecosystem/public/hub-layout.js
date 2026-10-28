@@ -31,7 +31,9 @@
   var LOBS = [['all', 'Consolidado'], ['b2b', 'B2B'], ['b2b2c', 'B2B2C']];
   var LOB_NAME = { all: 'Consolidado B2B + B2B2C', b2b: 'B2B', b2b2c: 'B2B2C' };
   // Pestañas a la vista (resultados); el resto en menús. Sin clasificar → Herramientas.
-  var PRIMARY = ['detailcountry', 'h2h1', 'slides', 'pnl', 'pnl_mgr', 'okr'];
+  var PRIMARY = ['detailcountry', 'h2h1', 'pnl', 'pnl_mgr', 'okr'];
+  // "Slides mensuales" ya no va como pestaña: vive en el módulo Flow (sección Mensual, contable). El deck sigue abriéndose con <base>/hub?slides=1.
+  var HIDDEN = { slides: 1 };
   var OPERATIVO = ['fixedcost', 'fvmneg', 'daily', 'industry'];
   // Nombres cortos (el nombre completo queda como tooltip).
   var SHORT = {
@@ -320,6 +322,7 @@
       if (skip[it.id]) continue;
       var key = it.id ? it.id.replace(/^nav-/, '') : '';
       if (key) byKey[key] = it;
+      if (key && HIDDEN[key]) continue;
       if (key && (PRIMARY.indexOf(key) >= 0 || OPERATIVO.indexOf(key) >= 0)) continue;
       tools.menu.appendChild(tabFrom(it, key, false));
     }

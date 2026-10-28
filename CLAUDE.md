@@ -57,6 +57,7 @@ Una vez creadas las credenciales, actualizar `RUTA_ENV` en `Daily_Dashboard/dail
 | `P&L_Profit_Sharing/` | SQL/Python → `py profit_sharing_sync.py` (sube el JSON) · GAS/HTML → `/clasp-push` |
 | `P&L_Profit_Sharing/` | SQL/Python → `py profit_sharing_sync.py` (sube el JSON) · GAS/HTML → `/clasp-push` |
 | `Proceso_Distribucion_Diaria/` | Implementar → `/distribucion-diaria` con `--dry-run` (los controles de conciliación deben dar OK) |
+| `Flow_B2B/` (módulo Flow, solo Ownia) | Implementar → `npm test` en `Ownia_B2B_Ecosystem/` → revisar en local (`npm run dev`) → sync y redeploy en Ownia cuando Diego lo pida. Sin GAS: no hay `/clasp-push`. Ver `Ownia_B2B_Ecosystem/CONTEXT.md`, "Flow" |
 | `OKR_Producto_B2B2C/` (Python) | Implementar → correr `okr_sync.py` manualmente (hace push+deploy+invalidación de cache solo) |
 | `OKR_Producto_B2B2C/` (GAS/HTML) | Implementar → `/clasp-push` desde `OKR_Producto_B2B2C/` |
 | `FVM_Negativo/` | Implementar → `/clasp-push` + sync y redeploy en Ownia (en validación ahí; sin pipeline propio: el JSON lo genera `Daily_Dashboard/daily_sync.py`; si se tocan esas queries, `/sincronizar`) |

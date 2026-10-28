@@ -251,3 +251,18 @@ En Git Bash, anteponer `MSYS_NO_PATHCONV=1` (si no, convierte `/b2b-ecosystem` e
   Hub y el Daily, revisar la memoria de la tarea en Ownia.
 - `google.script.run` serializa con JSON: un `Date` devuelto llega como string ISO (en GAS, las fechas de retorno no
   están permitidas igual).
+
+
+## Flow (módulo `flow`, 2026-10-27)
+
+Entrada propia del menú principal que junta, con la misma regla de fuentes, los dos Flow del ecosistema:
+- **Semanal = 100% gestional**: el Flow del Daily (`<base>/daily?flowdeck=1`, `public/daily-flowdeck.js`: abre el Flow sin la navegación del Daily). La portada
+  contable "B2B2C — Resumen mensual (OC)" se saca de ese deck (`public/daily-flow-slides.js`); el target de NR API Hoteles ya no cae al contable.
+- **Mensual = contable**: las Slides mensuales del Hub (`<base>/hub?slides=1&embedded=1`, `public/hub-slides.js` modo `EMB`: sin barra del Hub). Su slide 4 (portada
+  B2B2C) muestra NR y **OC por segmento**: total OC del P&L contable; Hunting y TBD = FVM gestional (Datalake); Farming = OC contable − Hunting − TBD. Sin tabla de FVM.
+- `Flow_B2B/flow.html` es el cascarón: pestañas Semanal | Mensual, iframes (mismo origen) que avisan por `postMessage({type:'flow-slide'})` en qué slide están, y un
+  cuadro de **comentarios por slide** con botón "Enviar por mail" (`mailto:` a diego.bracco@ y matias.m.sanchez@despegar.com; los borradores quedan en el navegador).
+  El mail lo manda el usuario desde su casilla: Ownia no tiene servicio de correo.
+- En Ownia se ocultan la pestaña "Slides mensuales" del Hub y la pestaña "Flow Semanal" del Daily (siguen accesibles por esos links).
+- **Acceso**: el módulo `flow` está abierto a cualquier @despegar.com, pero el Flow mensual lee los datos del Hub (`allowedUsers: EQUIPO_B2B`): quien no esté en esa lista ve el
+  semanal y un aviso en el mensual. Sumar al Chief u otras personas = agregarlos a `allowedUsers` del Hub (o abrirlo a todo el dominio, decisión sobre datos contables).

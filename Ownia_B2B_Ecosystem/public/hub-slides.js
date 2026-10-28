@@ -40,6 +40,9 @@
   var REG = [['glob', 'Globales', 'other countries'], ['bra', 'Brasil', 'brasil'], ['mex', 'Mexico', 'mexico'],
     ['hisp', 'Hispa', 'argentina|chile|colombia|peru|ecuador']];
   var cache = {};
+  // Modo embebido (módulo Flow): <base>/hub?slides=1&embedded=1. Sin la barra del Hub ni el botón de volver, y avisa al padre en qué slide está.
+  var EMB = /[?&]embedded=1\b/.test(location.search);
+  if (EMB) { var embCss = document.createElement('style'); embCss.textContent = '#ownia-hubnav,.hs-close{display:none!important}'; (document.head || document.documentElement).appendChild(embCss); }
   // B2B-MAY (API) por segmento, del contable: pedidos por país × producto y los segmentos salen por
   // suma / resta (el filtro de producto del Hub toma un solo valor). Sin solapamientos:
   //   Hoteles Brasil = brasil × hotels · Hoteles Globales = other countries × hotels · Flights & Dest. Serv. = flights + dest. serv. (todos los países)
@@ -518,9 +521,32 @@
       state.data = r[0];
       deck.innerHTML = slidesHtml(r[2], r[3]);
       fit();
+      watchSlides();
     }).catch(function (e) {
       deck.innerHTML = '<p class="hs-err">No se pudieron leer los datos: ' + esc((e && e.message) || e) + '</p>';
     });
+  }
+
+  // Embebido: informa al padre (Flow) qué slide se está viendo (la más visible del deck) para ligar los comentarios.
+  var slideIO = null;
+  function postSlide(i) {
+    var fr = panel && panel.querySelectorAll('.hs-frame');
+    if (!EMB || !fr || !fr.length || window.parent === window) return;
+    var cap = fr[i] && fr[i].querySelector('.hs-cap');
+    try { window.parent.postMessage({ type: 'flow-slide', section: 'mensual', idx: i, total: fr.length, title: cap ? cap.textContent.replace(/^\s*\d+\s*·\s*/, '') : 'Slide ' + (i + 1), month: state.month }, location.origin); } catch (e) { /* sin padre */ }
+  }
+  function watchSlides() {
+    if (!EMB || typeof IntersectionObserver === 'undefined') return;
+    if (slideIO) slideIO.disconnect();
+    var fr = panel.querySelectorAll('.hs-frame'), vis = {};
+    slideIO = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) { vis[e.target.getAttribute('data-i')] = e.isIntersecting ? e.intersectionRatio : 0; });
+      var best = -1, bv = 0;
+      Object.keys(vis).forEach(function (k) { if (vis[k] > bv) { bv = vis[k]; best = +k; } });
+      if (best >= 0) postSlide(best);
+    }, { threshold: [0.1, 0.25, 0.5, 0.75] });
+    Array.prototype.forEach.call(fr, function (f) { slideIO.observe(f); });
+    postSlide(0);
   }
 
   function syncToolbar() {
@@ -695,7 +721,7 @@
   }
 
   function place() {
-    var nav = document.getElementById('ownia-hubnav');
+    var nav = EMB ? null : document.getElementById('ownia-hubnav');
     panel.style.top = (nav ? Math.max(0, Math.round(nav.getBoundingClientRect().bottom)) : 0) + 'px';
   }
   function close() { if (panel) { unpresent(); panel.style.display = 'none'; } }

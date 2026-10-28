@@ -60,6 +60,18 @@ const MODULES = [
     gasUrl: GAS_EXEC + 'AKfycbz52txFQy-5YM2Nil_KxULzPoeZpKyA4z5LUWMGoP_8IilcwSduuwZqPF8ut_LmtceM/exec',
   },
   {
+    slug: 'flow',
+    dir: 'Flow_B2B',
+    title: 'Flow',
+    desc: 'Flow semanal (gestional) y mensual (contable) para revisar y comentar.',
+    // Solo Ownia (2026-10-27): junta el Flow semanal del Daily (gestional) y las Slides mensuales del Hub (contable) en una entrada
+    // propia del menú principal, con cuadro de comentarios por slide y envío por mail. Sin allowedUsers: cualquier @despegar.com
+    // (Diego, 2026-10-27). OJO: el Flow mensual lee los datos del Hub, que está restringido a EQUIPO_B2B: quien no esté en esa
+    // lista ve el semanal y un aviso en el mensual. Para sumar gente (p. ej. el Chief) agregarla a allowedUsers del Hub.
+    ownia: true,
+    gasUrl: '',
+  },
+  {
     slug: 'daily',
     dir: 'Daily_Dashboard',
     title: 'Daily Dashboard B2B2C + B2B',
@@ -76,7 +88,7 @@ const MODULES = [
     // daily-flow-tier.js: tabla de las slides OKR L2 (NR y FVM) del Flow por Región → Tier → Partner con YoY.
     // daily-flow-slides.js: recuadro Organic y nota COI Brasil en cada slide del Flow; portada OC con tablas H1 / H2.
     // daily-ceo-weekly.js: "Weekly · vs B2C" (vista CEO) arriba del Benchmark y como slide del Flow; va antes de daily-embed.js (agrega la slide al deck).
-    layout: ['daily-layout.js', 'daily-ceo-weekly.js', 'daily-embed.js', 'daily-flow-tier.js', 'daily-flow-slides.js'],
+    layout: ['daily-layout.js', 'daily-ceo-weekly.js', 'daily-embed.js', 'daily-flow-tier.js', 'daily-flow-slides.js', 'daily-flowdeck.js'],
     gasExtras: ['daily-industry.js', 'daily-b2c-budget.js', 'daily-weekly-fvm.js'],
     gasUrl: GAS_EXEC + 'AKfycbwMR3zk1r4uwui8vGtcmz0OwmeehC5JM8cuJRE3H-GQMfvxXWGTkYQ3R2nVjMyeAdX_1A/exec',
   },
