@@ -58,6 +58,10 @@ BUDGET_FILE_ID     = "1f2JF8pq7gtpxfdkVzbT9wvamn_ny3RBW"   # budget.json
 DAILY_B2B2C_FILE_ID = "1Ukcx4e-dwCZ2VqesWwVN_1Jnt6r2AZdX"  # daily_b2b2c_data.json (transaccional)
 RECUR_FILE_ID      = "1UI-azcvvJ9MIyOZOft94vhbBibuZ0aa0"   # recurrencia_b2b.json (Daily, recurrencia_sync.py)
 OKR_FILE_ID        = "1cEidr8aoYgm4S7ugm05Wv-SMnz8GbtUj"   # okr.json (output)
+# H1 FY27 (abr-sep 2026) está CERRADO y congelado en OKR_H1_26.json (ver okr_h1_freeze.py): okr_builder ya no lo
+# recalcula, copia esas filas tal cual. Solo se calcula de H1_END en adelante (H2).
+OKR_H1_FILE_ID     = "1wMCfuE8m8slzTN0CrWzoxJjTWOT9IMcf"   # OKR_H1_26.json
+H1_END             = "2026-09-01"                          # último Periodo de H1 (inclusive)
 
 SHEET_ID    = "1RVmTXDyyugCUXJ0f6JG_croNxWNLlOLm4eAs8F52u2c"
 SHEET_RANGE = "Input_OKR"
@@ -750,6 +754,15 @@ def build(upload=True):
 
     all_rows = rows_baseline + rows_budget + rows_hunting + rows_manual + rows_partners + rows_agencias
 
+    # H1 congelado: se descartan las filas calculadas de los períodos <= H1_END y se usan las del OKR_H1_26.json.
+    # Si no se puede leer el congelado NO se sigue (cortaría H1 o lo recalcularía con datos nuevos).
+    h1 = _download_json(svc, OKR_H1_FILE_ID, "OKR_H1_26.json (H1 congelado)")
+    if h1.get("cols") != COLS_OUT:
+        sys.exit(f"OKR_H1_26.json con columnas distintas a okr.json: {h1.get('cols')}")
+    n_calc = sum(1 for r in all_rows if str(r[0])[:10] <= H1_END)
+    all_rows = [r for r in all_rows if str(r[0])[:10] > H1_END] + h1["rows"]
+    print(f"  [H1 congelado] {len(h1['rows'])} filas de OKR_H1_26.json (se descartaron {n_calc} filas calculadas de <= {H1_END})")
+
     # Resumen
     print(f"\n  Total filas: {len(all_rows):,}")
     by_kr = defaultdict(int)
@@ -766,6 +779,7 @@ def build(upload=True):
             "budget_file_id":     BUDGET_FILE_ID,
             "daily_b2b2c_file_id": DAILY_B2B2C_FILE_ID,
             "recurrencia_file_id": RECUR_FILE_ID,
+            "okr_h1_file_id":      OKR_H1_FILE_ID,   # H1 (<= H1_END) copiado del congelado, no recalculado
             "sheet_id":   SHEET_ID,
             "filas":      len(all_rows),
         },

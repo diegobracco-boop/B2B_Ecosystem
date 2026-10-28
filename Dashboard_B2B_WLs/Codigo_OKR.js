@@ -114,13 +114,17 @@ var OKR_KR_ALIASES = {
 // budget/daily_b2b2c/gestional + la lectura en vivo de la sheet OKR.
 var OKR_FILE_ID = '1cEidr8aoYgm4S7ugm05Wv-SMnz8GbtUj';
 
-// Lee okr.json de Drive y devuelve rows {ym, escenario, lob, kr, valor}
+// H1 FY27 (abr-sep 2026) está cerrado y congelado en OKR_H1_26.json (Inputs_Planning_PnL/okr_h1_freeze.py):
+// el OKR de H1 se arma SIEMPRE de ese archivo, no de okr.json. Valores en USD nominales, sin organic.
+var OKR_H1_FILE_ID = '1wMCfuE8m8slzTN0CrWzoxJjTWOT9IMcf';
+
+// Lee okr.json de Drive (o, con fileId, otro archivo con el mismo formato) y devuelve rows {ym, escenario, lob, kr, valor}
 // Cache key incluye el lastUpdated del archivo → cuando okr_builder.py sube una
 // versión nueva, la landing la toma en el próximo request (no hay que esperar TTL).
-function readOKRJson_() {
+function readOKRJson_(fileId, cachePrefix) {
   var cache = CacheService.getScriptCache();
-  var file  = DriveApp.getFileById(OKR_FILE_ID);
-  var cKey  = 'okr_json_v3_' + file.getLastUpdated().getTime();   // v3: cachea filas ya normalizadas con OKR_KR_ALIASES (H2)
+  var file  = DriveApp.getFileById(fileId || OKR_FILE_ID);
+  var cKey  = (cachePrefix || 'okr_json_v3_') + file.getLastUpdated().getTime();   // v3: cachea filas ya normalizadas con OKR_KR_ALIASES (H2)
   var hit   = cache.get(cKey);
   if (hit) { try { return JSON.parse(hit); } catch(e) {} }
 
@@ -263,13 +267,20 @@ function computeOKR_(halfKey, rows) {
   return result;
 }
 
-// Punto de entrada público. Devuelve ambos semestres (una sola lectura de okr.json)
+// Punto de entrada público. Devuelve ambos semestres: H1 del JSON congelado (OKR_H1_26.json) y H2 de okr.json,
 // y el que abre por defecto. `okr` = el semestre por defecto (compatibilidad).
 function getOKRData() {
   try {
     var rows = readOKRJson_();
+    var rowsH1;
+    try { rowsH1 = readOKRJson_(OKR_H1_FILE_ID, 'okr_h1_v1_'); }
+    catch (e) {
+      // okr_builder.py copia el H1 congelado a okr.json, así que es el mismo dato: respaldo si el archivo no se puede leer.
+      Logger.log('getOKRData: no se pudo leer OKR_H1_26.json (' + e.message + ') — H1 de okr.json');
+      rowsH1 = rows;
+    }
     var byHalf = {};
-    Object.keys(OKR_HALVES).forEach(function(h){ byHalf[h] = computeOKR_(h, rows); });
+    Object.keys(OKR_HALVES).forEach(function(h){ byHalf[h] = computeOKR_(h, h === 'H1' ? rowsH1 : rows); });
     var def = okrDefaultHalf_();
     return { success: true, okr: byHalf[def], okrByHalf: byHalf, defaultHalf: def };
   } catch(e) {

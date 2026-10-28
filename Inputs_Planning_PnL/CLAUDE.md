@@ -60,6 +60,13 @@ CSV crudos (OneDrive\Planning-PBI - Inputs Power Bi)
   `python okr_builder.py`. Además el Hub muestra un cartel "OKR desactualizado" si `okr.json` es anterior al
   último baseline/budget. Antes se corría a mano y quedó viejo (OKR Status ≠ Cuadro Resumen P&L).
 
+- **H1 FY27 (abr-sep 2026) está congelado** (2026-10-27, decisión Diego): `okr_h1_freeze.py` guardó las filas de `okr.json`
+  con Periodo <= 2026-09-01 (Run Rate/Actuals y Budget, USD nominales, **sin organic** — el organic es nuevo de H2 y no aplica al
+  OKR contable) en Drive como `OKR_H1_26.json` (id `1wMCfuE8m8slzTN0CrWzoxJjTWOT9IMcf`). `okr_builder.py` ya NO recalcula
+  esos meses: copia las filas del congelado y calcula solo H2 (si no puede leerlo, corta). El Hub lee H1 de ese archivo
+  (`OKR_H1_FILE_ID` en `Codigo_OKR.js`). No volver a correr `okr_h1_freeze.py` (falla si el archivo existe; `--force` solo para
+  corregir a propósito).
+
 ## Archivos
 - `pnl_common.py` — rutas portables (resuelve OneDrive por usuario) + auth Drive scope completo.
 - `plana_projections_builder.py` — planas budget/forecast/RR/LRR (genérico por base).

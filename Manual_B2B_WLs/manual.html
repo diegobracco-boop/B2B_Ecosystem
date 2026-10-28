@@ -3172,7 +3172,8 @@ como-crear-agente-auditor.txt          ← cómo armar uno nuevo + lecciones de 
   ├── json_builder.py                   ← Planas → JSON canónicos (incl. forecastbtb) → sube a Drive
   ├── baseline_builder.py               ← Arma baseline_actuals+projections.json
   ├── plana_to_cube.py                  ← JSON canónicos → cubos contables (_pnl_contable*.json)
-  ├── okr_builder.py                    ← Arma okr.json (H1 + H2) para el Ecosystem Hub: contable + daily_b2b2c + GSheet Input_OKR
+  ├── okr_builder.py                    ← Arma okr.json para el Ecosystem Hub: contable + daily_b2b2c + GSheet Input_OKR. Solo calcula H2: H1 sale de OKR_H1_26.json (congelado)
+  ├── okr_h1_freeze.py                  ← Congela el H1 FY27 (abr-sep 2026) en OKR_H1_26.json (una sola vez, ya corrido)
   ├── auth_drive.py                     ← Genera token_drive.json (1 vez por persona)
   ├── run_all.bat                       ← Corre planas + json_builder + baseline_builder + sube
   ├── CLAUDE.md / CONTEXT.md            ← Doc + slash command /actualizar
