@@ -67,6 +67,16 @@ CSV crudos (OneDrive\Planning-PBI - Inputs Power Bi)
   (`OKR_H1_FILE_ID` en `Codigo_OKR.js`). No volver a correr `okr_h1_freeze.py` (falla si el archivo existe; `--force` solo para
   corregir a propósito).
 
+- **OKR H2 FY27 (oct-2026 → mar-2027)** (2026-10-27): `okr_builder.py` además de `okr.json` (Pais=Total, nominal, para el Daily y el
+  Tracker) arma **`OKR_H2_FY27.json`** (`okr_h2_builder.py`, id `1lsMF9_d1t55boO8Wr8vziMsFT9LQioov`): KRs contables abiertos por país
+  (Op. Contribution B2B2C, NR B2B, OC API/HTML, NR API Hoteles, New/Existing Account NR) + una columna `Estado`
+  (Actual / Proyeccion / MTD / Real / Manual / Budget). El Hub lo lee para aplicar **organic al leer** (USD × TC Actuals / TC Budget por país y mes,
+  solo KRs monetarios en Run Rate/Actuals; H1 nunca). Oct–mar es proyección (run rate) hasta que `actuals.json` traiga el cierre contable.
+  Hunting = NR gestional del Daily (por país: `okr_budget`/`okr_runrate` ahora traen `pais`), Existing = NR contable B2B2C − Hunting.
+  Regla del Hub: un KR sin dato en un mes toma el target (cursiva; en KRs acumulativos solo si no hay ningún dato real).
+  **Unique Buyers** (`okr_h2_builder.apply_unique_buyers`): mes cerrado = real del Datalake; mes en curso = MTD; futuros = ratio UB/orders
+  (promedio ponderado de los últimos 6 meses cerrados, hoy 0,837) × orders del Run Rate del Daily. Afecta también a `okr.json`.
+
 ## Archivos
 - `pnl_common.py` — rutas portables (resuelve OneDrive por usuario) + auth Drive scope completo.
 - `plana_projections_builder.py` — planas budget/forecast/RR/LRR (genérico por base).

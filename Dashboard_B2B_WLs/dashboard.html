@@ -388,6 +388,8 @@ td.row-sub-label,.row-sub td.row-sub-label{text-align:left;color:var(--muted);fo
 .okr-table td{padding:5px 8px;text-align:right;border-bottom:1px solid var(--border);border-right:1px solid var(--border);font-size:11px}
 .okr-table td:first-child{text-align:left;font-weight:500;padding-left:10px;color:var(--text);word-break:break-word}
 .okr-table td.td-q{border-left:2px solid var(--border2);font-weight:700}
+.okr-table td.okr-imp{font-style:italic;opacity:.7}
+.okr-note{font-size:10px;color:var(--muted);margin:2px 0 6px}
 .okr-table tr.okr-total td{font-weight:800;border-top:2px solid var(--border2);background:rgba(84,87,217,.04)}
 .okr-chip{display:inline-block;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700}
 .okr-ok  {background:#d4f4dd;color:#116329}
@@ -2068,6 +2070,7 @@ var _charts = {};
 var _okrMonthly  = false;  // false = vista trimestral; true = vista mensual
 var _okrHalf     = null;   // 'H1' | 'H2' — null hasta que llega getOKRData() (default por fecha)
 var _okrNominal  = false;  // false = % cumplimiento;  true = valores nominales (act/bud)
+var _okrOrganic  = true;   // OKR H2 contable a organic (USD x TC Actuals / TC Budget, por pais). Solo H2: H1 esta congelado y nominal
 var _okrHalfManual = false; // true si el usuario tocó los botones H1/H2; se limpia al cambiar el período
 
 // Semestre que corresponde a los meses seleccionados en el filtro de período:
@@ -4728,6 +4731,7 @@ function loadOKR() {
   google.script.run
     .withSuccessHandler(function(res) {
       _state.okrAll = (res && res.success) ? (res.okrByHalf || null) : null;
+      _state.okrInfo = (res && res.success) ? { organic: res.organic || null, h2Source: res.h2Source || '' } : null;
       var _hp = _okrHalfManual ? null : _okrHalfForPeriods_();
       if (_hp && (!_state.okrAll || _state.okrAll[_hp])) _okrHalf = _hp;
       else if (!_okrHalf) _okrHalf = (res && res.defaultHalf) || 'H1';
@@ -4735,7 +4739,12 @@ function loadOKR() {
       renderOKR(_state.okr);
     })
     .withFailureHandler(function() { renderOKR(null); })
-    .getOKRData();
+    .getOKRData({ organic: _okrOrganic ? 'budget' : '' });
+}
+function toggleOKROrganic() {
+  _okrOrganic = !_okrOrganic;
+  _state.okrAll = null;   // el slide de Cierre de Mes comparte este cache: se vuelve a pedir con el organic nuevo
+  loadOKR();
 }
 
 function setOKRHalf(h) {
@@ -4830,11 +4839,20 @@ function renderOKR(okr) {
     +'<span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em">OKR Status '+FY_TAG+' · '+_halfSel+'</span>'
     +'<div style="display:flex;gap:6px">'
     +(_state.okrAll ? _halfBtn('H1')+_halfBtn('H2') : '')
+    +(_halfSel === 'H2' ? '<button id="okr-toggle-org" class="gran-btn'+(_okrOrganic ? ' active' : '')+'" onclick="toggleOKROrganic()" style="font-size:11px" title="Organic: KRs contables en USD a TC Budget (Run Rate / Actuals x TC Actuals / TC Budget, por pais)">Organic '+(_okrOrganic ? 'Sí' : 'No')+'</button>' : '')
     +'<button id="okr-toggle-nom" class="gran-btn" onclick="toggleOKRNominal()" style="font-size:11px">'
     +(_okrNominal ? '% Cumpl.' : '$/Q Nominal')+'</button>'
     +'<button id="okr-toggle" class="gran-btn" onclick="toggleOKRView()" style="font-size:11px">'
     +(_okrMonthly ? '⇄ Trimestral' : '⇄ Mensual')+'</button>'
     +'</div></div>';
+  if (_halfSel === 'H2') {
+    var _oi = _state.okrInfo && _state.okrInfo.organic;
+    html += '<div class="okr-note">Oct–Mar: proyección (Run Rate) hasta que haya cierre contable. Sin dato → se toma igual al target (en cursiva).'
+          + (_okrOrganic && _oi && !_oi.error ? ' · Organic a TC Budget' + ((_oi.missing && _oi.missing.length) ? ' (sin TC: ' + _oi.missing.join(', ') + ')' : '') : '')
+          + (_oi && _oi.error ? ' · <span style="color:#c0392b">' + _oi.error + '</span>' : '')
+          + (_state.okrInfo && _state.okrInfo.h2Source === 'okr.json' ? ' · H2 desde okr.json (sin organic: no se pudo leer OKR_H2_FY27.json)' : '')
+          + '</div>';
+  }
 
   // 'globales' (KR Global B2B API) solo existe en H2 → en H1 okr['globales'] es undefined y se omite.
   var lobsToRender = _state.lob === 'b2b2c' ? ['b2b2c']
@@ -4876,7 +4894,13 @@ function renderOKR(okr) {
         kr.monthly.forEach(function(v, mi) {
           var qBorder = (mi % 3 === 0) ? ' td-q' : '';
           var cell = _okrNominal ? fmtOKRNominal(kr.monthlyAct[mi], kr.monthlyBud[mi], kr.pct) : fmtOKR(v);
-          html += '<td class="'+qBorder+'">'+cell+'</td>';
+          var imp = kr.monthlyImputed && kr.monthlyImputed[mi];
+          var est = kr.monthlyEstado && kr.monthlyEstado[mi];
+          var tip = imp ? 'Sin dato: se toma igual al target'
+                  : est === 'Proyeccion' ? 'Proyección (sin cierre contable)'
+                  : est === 'MTD' ? 'Mes en curso, a la fecha'
+                  : est === 'Actual' ? 'Actual (cierre contable)' : est === 'Real' ? 'Real (Datalake, mes cerrado)' : '';
+          html += '<td class="'+qBorder+(imp ? ' okr-imp' : '')+'"'+(tip ? ' title="'+tip+'"' : '')+'>'+cell+'</td>';
         });
         kr.quarterly.forEach(function(v, qi) {
           var cell = _okrNominal ? fmtOKRNominal(kr.quarterlyAct[qi], kr.quarterlyBud[qi], kr.pct) : fmtOKR(v);
@@ -6512,7 +6536,7 @@ function _cierreFetchOKR_(){
         resolve((res && res.success) ? (res.okrByHalf || null) : null);
       })
       .withFailureHandler(function(){ resolve(null); })
-      .getOKRData();
+      .getOKRData({ organic: _okrOrganic ? 'budget' : '' });
   });
 }
 function _cierreOkrHTML_(okrAll, lobKey){

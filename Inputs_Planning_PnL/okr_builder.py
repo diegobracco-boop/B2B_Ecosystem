@@ -37,6 +37,7 @@ Uso:
 """
 
 import os, sys, io, json, re, argparse
+from datetime import datetime
 from collections import defaultdict
 
 try:
@@ -46,6 +47,7 @@ except Exception:
 
 import config
 import pnl_common
+import okr_h2_builder as h2b   # OKR_H2_FY27.json + Unique Buyers proyectado
 
 DIR             = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_NAME     = "okr.json"
@@ -153,6 +155,44 @@ def _upload(local_path, svc):
     print(f"  [Drive] actualizado {OUTPUT_NAME}: id={res['id']}  size={res.get('size','?')}")
     with open(local_path, "rb") as _f:
         publish_after_drive(res, _f.read())
+
+
+H2_OUTPUT_NAME = "OKR_H2_FY27.json"
+
+
+def _upload_h2(local_path, svc):
+    """Sube OKR_H2_FY27.json a la carpeta de los canonicos (lo crea la primera vez, despues lo actualiza) + Ownia."""
+    from googleapiclient.http import MediaFileUpload
+    import sys as _sys
+    from pathlib import Path as _Path
+    _sys.path.insert(0, str(_Path(__file__).resolve().parents[1] / "Ownia_B2B_Ecosystem" / "mirror"))
+    from ownia_publish import DRIVE_FIELDS, publish_after_drive   # doble escritura Drive + Ownia
+    q = f"name='{H2_OUTPUT_NAME}' and '{DRIVE_FOLDER_ID}' in parents and trashed=false"
+    ex = svc.files().list(q=q, fields="files(id,name)").execute().get("files", [])
+    media = MediaFileUpload(local_path, mimetype="application/json", resumable=True)
+    if ex:
+        res = svc.files().update(fileId=ex[0]["id"], media_body=media, fields=DRIVE_FIELDS).execute()
+        print(f"  [Drive] actualizado {H2_OUTPUT_NAME}: id={res['id']}")
+    else:
+        res = svc.files().create(body={"name": H2_OUTPUT_NAME, "parents": [DRIVE_FOLDER_ID]},
+                                 media_body=media, fields=DRIVE_FIELDS).execute()
+        print(f"  [Drive] creado {H2_OUTPUT_NAME}: id={res['id']}  >>> copiarlo a OKR_H2_FILE_ID (Codigo_OKR.js) y a drive-manifest.json")
+    with open(local_path, "rb") as _f:
+        publish_after_drive(res, _f.read())
+
+
+def _check_h2_vs_okr(h2_rows, okr_rows):
+    """Control: los KRs contables de OKR_H2_FY27.json, sumados por pais, tienen que dar el Total de okr.json (mismo KR / mes / escenario)."""
+    tot = {}
+    for r in okr_rows:
+        tot[(r[0], r[1], r[5])] = r[6]
+    s = defaultdict(float)
+    for r in h2_rows:
+        if r[3] not in ("Total",) and r[5] in ("Op. Contribution", "Net Revenues B2B", "Operating Contribution API",
+                                                 "Operating Contribution HTML", "Net Revenues API Hoteles"):
+            s[(r[0], r[1], r[5])] += r[6]
+    bad = [(k, round(v), round(tot.get(k, 0))) for k, v in s.items() if abs(v - tot.get(k, 0)) > 1]
+    print(f"  [Control H2] KRs contables por pais vs Total de okr.json: {'OK (' + str(len(s)) + ' claves)' if not bad else 'DIFIEREN ' + str(bad[:5])}")
 
 
 # ── Sheets helper ──────────────────────────────────────────────────────────────
@@ -622,26 +662,6 @@ def _read_manual_krs(token_file):
     return rows
 
 
-def _apply_unique_buyers_actual(rows_manual, daily_json, last_actual_ym):
-    """KR Unique Buyers (H2 FY27, B2B2C): el actual de los meses cerrados H2 sale del Datalake
-    (daily_sync.py -> daily_b2b2c_data.json "unique_buyers_total": compradores unicos White Label
-    por mes) en vez de Input_OKR. El target (Budget) y los meses sin cierre siguen de la sheet.
-    Si el JSON no trae el bloque (query fallida), se deja todo como esta."""
-    tot = (daily_json or {}).get("unique_buyers_total") or {}
-    if not tot:
-        print("  [Unique Buyers] sin unique_buyers_total en daily_b2b2c_data.json — se mantiene Input_OKR")
-        return rows_manual
-    done = []
-    for r in rows_manual:
-        if r[5].lower() == "unique buyers" and r[1] == "Run Rate/Actuals":
-            ym = str(r[0])[:7]
-            if "2026-10" <= ym <= last_actual_ym and ym in tot:
-                r[6] = tot[ym]
-                done.append(ym)
-    print(f"  [Unique Buyers] actual desde Datalake para: {sorted(done) or 'ningun mes (H2 sin cierre todavia)'}")
-    return rows_manual
-
-
 def _apply_globales_hoteles_actual(rows_manual, daily_json):
     """KR Global B2B API "Hoteles Directos vendidos destino LATAM" y "% Hoteles Directos vendidos
     destino Globales" (H2 FY27): el actual sale del Datalake (daily_sync.py -> daily_b2b2c_data.json
@@ -732,7 +752,7 @@ def build(upload=True):
         last_actual_ym,
     )
     rows_manual   = _read_manual_krs(token_file)
-    rows_manual   = _apply_unique_buyers_actual(rows_manual, daily_json, last_actual_ym)
+    rows_manual, estado_ub = h2b.apply_unique_buyers(rows_manual, daily_json, last_actual_ym)
     rows_manual   = _apply_globales_hoteles_actual(rows_manual, daily_json)
     rows_manual   = _apply_recurrence_rr(rows_manual, recur_json)
     rows_manual   = _apply_globales_target_default(rows_manual)
@@ -771,6 +791,15 @@ def build(upload=True):
     for kr, n in sorted(by_kr.items()):
         print(f"    {kr}: {n}")
 
+    # OKR_H2_FY27.json: KRs de H2 abiertos por pais (organic al leer en el Hub) + Estado. Ver okr_h2_builder.py.
+    closed_until = _ym_to_periodo(last_actual_ym)
+    h2_base, nr_base = h2b.contable_by_pais(baseline_data, "Run Rate/Actuals", closed_until)
+    h2_bud,  nr_bud  = h2b.contable_by_pais(budget_data,   "Budget",           closed_until)
+    h2_hunt = h2b.hunting_farming_by_pais(daily_json, {"Run Rate/Actuals": nr_base, "Budget": nr_bud},
+                                          last_actual_ym, closed_until)
+    h2_rows = h2b.build_h2_rows(h2_base, h2_bud, h2_hunt, rows_manual, rows_partners, estado_ub, closed_until)
+    _check_h2_vs_okr(h2_rows, all_rows)
+
     payload = {
         "meta": {
             "concepto":   "okr",
@@ -794,8 +823,25 @@ def build(upload=True):
         json.dump(payload, f, ensure_ascii=False, separators=(",", ":"))
     print(f"\n  local -> {local}  ({os.path.getsize(local)/1e3:.1f} KB)")
 
+    payload_h2 = {
+        "meta": {
+            "concepto": "okr_h2_fy27",
+            "descripcion": "KRs de H2 FY27 (oct-2026 a mar-2027), contables abiertos por pais (organic al leer en el Hub), con Estado",
+            "generado": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+            "cierre_contable_hasta": closed_until,
+            "filas": len(h2_rows),
+        },
+        "cols": h2b.COLS_H2,
+        "rows": h2_rows,
+    }
+    local_h2 = os.path.join(outdir, H2_OUTPUT_NAME)
+    with open(local_h2, "w", encoding="utf-8") as f:
+        json.dump(payload_h2, f, ensure_ascii=False, separators=(",", ":"))
+    print(f"  local -> {local_h2}  ({os.path.getsize(local_h2)/1e3:.1f} KB, {len(h2_rows)} filas)")
+
     if upload:
         _upload(local, svc)
+        _upload_h2(local_h2, svc)
     else:
         print("  (--no-upload)")
 

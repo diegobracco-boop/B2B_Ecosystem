@@ -118,6 +118,67 @@ var OKR_FILE_ID = '1cEidr8aoYgm4S7ugm05Wv-SMnz8GbtUj';
 // el OKR de H1 se arma SIEMPRE de ese archivo, no de okr.json. Valores en USD nominales, sin organic.
 var OKR_H1_FILE_ID = '1wMCfuE8m8slzTN0CrWzoxJjTWOT9IMcf';
 
+// H2 FY27 (oct-2026 -> mar-2027): OKR_H2_FY27.json (Inputs_Planning_PnL/okr_h2_builder.py). Mismo formato que okr.json + Pais
+// abierto en los KRs contables y una columna Estado (Actual / Proyeccion / MTD / Real / Manual / Budget). El Hub lo usa para aplicar
+// organic (conversion por pais y mes) al leer. Si no se puede leer, H2 sale de okr.json (Pais = Total, sin organic).
+var OKR_H2_FILE_ID = '1lsMF9_d1t55boO8Wr8vziMsFT9LQioov';
+
+// KRs monetarios del contable: los unicos que se convierten con organic (el resto son conteos / %).
+var OKR_MONETARY_KRS_ = {
+  'operating contribution': true, 'net revenues b2b': true, 'operating contribution api': true,
+  'operating contribution html': true, 'net revenues api hoteles': true,
+  'new account net revenues': true, 'existing account net revenues': true
+};
+
+function readOKRH2Json_() {
+  var cache = CacheService.getScriptCache();
+  var file  = DriveApp.getFileById(OKR_H2_FILE_ID);
+  var cKey  = 'okr_h2_v1_' + file.getLastUpdated().getTime();
+  var hit   = cache.get(cKey);
+  if (hit) { try { return JSON.parse(hit); } catch(e) {} }
+  var json = JSON.parse(file.getBlob().getDataAsString());
+  var cols = json.cols;
+  var iP = cols.indexOf('Periodo'), iE = cols.indexOf('Escenario'), iL = cols.indexOf('LoB'), iPa = cols.indexOf('Pais'),
+      iK = cols.indexOf('KR'), iV = cols.indexOf('Valor'), iS = cols.indexOf('Estado');
+  var rows = json.rows.map(function(r) {
+    var krRaw = String(r[iK]||'').trim().toLowerCase();
+    return {
+      ym:        String(r[iP]||'').substring(0, 7),
+      escenario: String(r[iE]||'').trim().toLowerCase(),
+      lob:       String(r[iL]||'').trim().toLowerCase(),
+      pais:      String(r[iPa]||'').trim(),
+      kr:        OKR_KR_ALIASES[krRaw] || krRaw,
+      valor:     Number(r[iV]) || 0,
+      estado:    iS >= 0 ? String(r[iS]||'') : ''
+    };
+  });
+  try { cache.put(cKey, JSON.stringify(rows), 21600); } catch(e) {}
+  return rows;
+}
+
+// ORGANIC del OKR (H2): USD x TC Actuals(pais, mes) / TC Budget(pais, mes), solo para los KRs monetarios en "Run Rate/Actuals"
+// (el Budget ya esta a TC Budget). Mismo motor y TC que Monthly Results (readFxTable_, Codigo.js): OPS+RG usa el TC de Brasil;
+// paises sin TC (Globales, ...) quedan sin convertir. Devuelve filas nuevas (no muta las del cache) + missing.
+function applyOrganicOKR_(rows) {
+  var fx = readFxTable_();
+  var act = fx.actuals, tgt = fx.budget;
+  var paisesFx = {};
+  Object.keys(act).forEach(function(k) { paisesFx[k.split('§')[0]] = true; });
+  var missing = {};
+  var out = rows.map(function(r) {
+    if (r.escenario !== 'run rate/actuals' || !OKR_MONETARY_KRS_[r.kr]) return r;
+    var pai = _fxNorm_(r.pais);
+    pai = _FX_PAIS_ALIAS_[pai] || pai;
+    if (!pai || pai === 'total' || !paisesFx[pai]) return r;
+    var a = act[pai + '§' + r.ym], t = tgt[pai + '§' + r.ym];
+    if (!a || !t) { missing[pai + ' ' + r.ym] = true; return r; }
+    var c = Object.assign({}, r);
+    c.valor = r.valor * a / t;
+    return c;
+  });
+  return { rows: out, missing: Object.keys(missing).sort() };
+}
+
 // Lee okr.json de Drive (o, con fileId, otro archivo con el mismo formato) y devuelve rows {ym, escenario, lob, kr, valor}
 // Cache key incluye el lastUpdated del archivo → cuando okr_builder.py sube una
 // versión nueva, la landing la toma en el próximo request (no hay que esperar TTL).
@@ -149,7 +210,10 @@ function readOKRJson_(fileId, cachePrefix) {
 }
 
 // Calcular achievement por KR / período
-function computeOKR_(halfKey, rows) {
+// opts.fillTarget: un mes SIN actual pero con target toma el target como actual (cumplimiento neutro, definido por Diego
+// 2026-10-27 para H2); esos meses se marcan en monthlyImputed. Las filas pueden traer `estado` (OKR_H2_FY27.json).
+function computeOKR_(halfKey, rows, opts) {
+  opts = opts || {};
   var half     = OKR_HALVES[halfKey];
   var cfgAll   = half.config;
   var periods  = half.periods;
@@ -157,15 +221,25 @@ function computeOKR_(halfKey, rows) {
   if (!rows || !rows.length) return null;
 
   // Agregar por lob§kr§escenario§ym
-  var agg = {};
+  var agg = {}, estAgg = {};
   rows.forEach(function(r) {
     var k = r.lob+'§'+r.kr+'§'+r.escenario+'§'+r.ym;
     agg[k] = (agg[k]||0) + r.valor;
+    if (r.estado && (!estAgg[k] || r.estado === 'Proyeccion')) estAgg[k] = r.estado;
   });
 
   function getVal(lob, kr, esc, ym) {
     var v = agg[lob+'§'+kr+'§'+esc+'§'+ym];
     return v !== undefined ? v : null;
+  }
+  // Actual con la regla "sin dato = target" (solo si opts.fillTarget y el mes tiene target)
+  function getAct(lob, kr, ym, imputed) {
+    var v = getVal(lob, kr, 'run rate/actuals', ym);
+    if (v === null && opts.fillTarget) {
+      var b = getVal(lob, kr, 'budget', ym);
+      if (b !== null) { if (imputed) imputed[ym] = true; return b; }
+    }
+    return v;
   }
 
   var ESC_ACT = 'run rate/actuals';   // tal como figura en el sheet
@@ -178,7 +252,9 @@ function computeOKR_(halfKey, rows) {
 
     var krRows = cfg.krs.map(function(krDef) {
       // Valores crudos mensuales
-      var mAct = periods.map(function(ym){ return getVal(lobKey, krDef.kr, ESC_ACT, ym); });
+      var imputedMonths = {};
+      var mAct = periods.map(function(ym){ return getAct(lobKey, krDef.kr, ym, imputedMonths); });
+      var mEstado = periods.map(function(ym){ return estAgg[lobKey+'§'+krDef.kr+'§'+ESC_ACT+'§'+ym] || null; });
       var mBud = periods.map(function(ym){ return getVal(lobKey, krDef.kr, ESC_BUD, ym); });
 
       // Achievement mensual (%)
@@ -194,15 +270,20 @@ function computeOKR_(halfKey, rows) {
       //   default    → suma de los meses con dato
       function aggPair_(months) {
         var both = months.filter(function(ym) {
-          return getVal(lobKey, krDef.kr, ESC_ACT, ym) !== null && getVal(lobKey, krDef.kr, ESC_BUD, ym) !== null;
+          return getAct(lobKey, krDef.kr, ym) !== null && getVal(lobKey, krDef.kr, ESC_BUD, ym) !== null;
         });
         if (!both.length) return { a: null, b: null };
         if (krDef.cumulative) {
-          var last = both[both.length - 1];
-          return { a: getVal(lobKey, krDef.kr, ESC_ACT, last), b: getVal(lobKey, krDef.kr, ESC_BUD, last) };
+          // Stock: el último mes con actual REAL (y su budget). Solo si no hay ninguno se usa el último mes con target
+          // y el actual imputado (sin dato = target); si no, un mes futuro imputado taparía el dato real del mes en curso.
+          var realBoth = months.filter(function(ym) {
+            return getVal(lobKey, krDef.kr, ESC_ACT, ym) !== null && getVal(lobKey, krDef.kr, ESC_BUD, ym) !== null;
+          });
+          var last = (realBoth.length ? realBoth : both)[(realBoth.length ? realBoth : both).length - 1];
+          return { a: getAct(lobKey, krDef.kr, last), b: getVal(lobKey, krDef.kr, ESC_BUD, last) };
         }
         var sa = 0, sb = 0;
-        both.forEach(function(ym) { sa += getVal(lobKey, krDef.kr, ESC_ACT, ym); sb += getVal(lobKey, krDef.kr, ESC_BUD, ym); });
+        both.forEach(function(ym) { sa += getAct(lobKey, krDef.kr, ym); sb += getVal(lobKey, krDef.kr, ESC_BUD, ym); });
         return krDef.avg ? { a: sa / both.length, b: sb / both.length } : { a: sa, b: sb };
       }
       function pctOf_(p) {
@@ -225,6 +306,8 @@ function computeOKR_(halfKey, rows) {
       return { label: krDef.label, weight: krDef.weight, pct: !!krDef.pct,
                monthly: monthly, quarterly: quarterly, half: halfPct,
                monthlyAct: mAct, monthlyBud: mBud,
+               monthlyEstado: mEstado,
+               monthlyImputed: periods.map(function(ym){ return !!imputedMonths[ym]; }),
                quarterlyAct: quarterlyAct, quarterlyBud: quarterlyBud,
                halfAct: halfActVal, halfBud: halfBudVal };
     });
@@ -269,8 +352,9 @@ function computeOKR_(halfKey, rows) {
 
 // Punto de entrada público. Devuelve ambos semestres: H1 del JSON congelado (OKR_H1_FY27.json) y H2 de okr.json,
 // y el que abre por defecto. `okr` = el semestre por defecto (compatibilidad).
-function getOKRData() {
+function getOKRData(params) {
   try {
+    var orgOn = !!(params && params.organic === 'budget');
     var rows = readOKRJson_();
     var rowsH1;
     try { rowsH1 = readOKRJson_(OKR_H1_FILE_ID, 'okr_h1_v1_'); }
@@ -279,10 +363,25 @@ function getOKRData() {
       Logger.log('getOKRData: no se pudo leer OKR_H1_FY27.json (' + e.message + ') — H1 de okr.json');
       rowsH1 = rows;
     }
+    // H2: OKR_H2_FY27.json (detalle por pais, Estado, organic); si no se puede leer, okr.json (sin organic)
+    var rowsH2 = rows, h2Source = 'okr.json', organic = null;
+    try { rowsH2 = readOKRH2Json_(); h2Source = 'OKR_H2_FY27.json'; }
+    catch (e) { Logger.log('getOKRData: no se pudo leer OKR_H2_FY27.json (' + e.message + ') — H2 de okr.json'); }
+    if (orgOn && h2Source === 'OKR_H2_FY27.json') {
+      try {
+        var o = applyOrganicOKR_(rowsH2);
+        rowsH2 = o.rows;
+        organic = { target: 'budget', missing: o.missing };
+      } catch (e) {
+        organic = { target: 'budget', error: 'No se pudo leer el archivo de tipos de cambio: ' + e.message };
+      }
+    }
     var byHalf = {};
-    Object.keys(OKR_HALVES).forEach(function(h){ byHalf[h] = computeOKR_(h, h === 'H1' ? rowsH1 : rows); });
+    Object.keys(OKR_HALVES).forEach(function(h){
+      byHalf[h] = h === 'H1' ? computeOKR_(h, rowsH1) : computeOKR_(h, rowsH2, { fillTarget: true });
+    });
     var def = okrDefaultHalf_();
-    return { success: true, okr: byHalf[def], okrByHalf: byHalf, defaultHalf: def };
+    return { success: true, okr: byHalf[def], okrByHalf: byHalf, defaultHalf: def, h2Source: h2Source, organic: organic };
   } catch(e) {
     return { success: false, error: e.message };
   }

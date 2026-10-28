@@ -1321,18 +1321,19 @@ def _parse_fecha_budget(s: pd.Series) -> pd.Series:
 
 def agg_okr_stage_nr(df: pd.DataFrame) -> pd.DataFrame:
     """Bloque chico para okr_builder.py (Hunting / Existing Account Net Revenues, B2B2C):
-    NR por mes x stage (New/Existing) del AÑO FISCAL COMPLETO (abr -> mar siguiente).
+    NR por mes x pais x stage (New/Existing) del AÑO FISCAL COMPLETO (abr -> mar siguiente). El pais (2026-10-27)
+    permite convertir a organic por pais en OKR_H2_FY27.json; okr_builder suma por mes/stage, ignora esa columna.
     agg_budget() recorta al año calendario en curso (lo consume el Daily, que suma budget
     sin tope de fecha en varios lugares), asi que ene-mar del FY quedaban afuera del JSON.
     Esto NO cambia lo que ve el Daily: va en claves aparte (okr_budget / okr_runrate)."""
     if df.empty or "stage" not in df.columns:
-        return pd.DataFrame(columns=["fecha", "stage", "net_revenue"])
+        return pd.DataFrame(columns=["fecha", "pais", "stage", "net_revenue"])
     df = df.copy()
     f = _parse_fecha_budget(df["fecha"])
     fy0 = TODAY.year if TODAY.month >= 4 else TODAY.year - 1
     df = df[(f >= pd.Timestamp(fy0, 4, 1)) & (f <= pd.Timestamp(fy0 + 1, 3, 31))]
     df["fecha"] = f.loc[df.index].dt.strftime("%Y-%m-01")
-    return (df.groupby(["fecha", "stage"], as_index=False)
+    return (df.groupby(["fecha", "pais", "stage"], as_index=False)
               .agg(net_revenue=("net_revenue", "sum"))
               .round({"net_revenue": 2}))
 
