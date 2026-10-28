@@ -130,12 +130,10 @@ var OKR_MONETARY_KRS_ = {
   'new account net revenues': true, 'existing account net revenues': true, 'new product growth': true
 };
 
-// KRs que NO toman el target cuando no hay actual (Diego 2026-10-27): Deploy New Partnership = lo que diga Input_OKR, estricto;
-// Onboarded Properties y Price Competitiveness = solo target hasta definir la fuente del actual (sin cumplimiento, no pesan en el total).
+// KRs que NO toman el target cuando no hay actual (Diego 2026-10-27): Deploy New Partnership = lo que diga Input_OKR, estricto.
+// Onboarded Properties y Price Competitiveness NO van acá: hasta definir la fuente del actual, el actual = budget (100%, en cursiva).
 var OKR_NOFILL_ = {
-  'deploy new partnership': true,
-  'new onboarded properties global & regional chains': true,
-  'price competitiveness ex-latam (destino gl)': true
+  'deploy new partnership': true
 };
 
 function readOKRH2Json_() {
