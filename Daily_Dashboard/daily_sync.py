@@ -2230,6 +2230,17 @@ if recurrencia_payload is not None:
     except Exception as e:
         print(f"  WARN no se pudo subir {RECUR_FILE_NAME}: {e}")
 
+# Partners API (KR Global B2B API "Accelerate Hunting Partners API"): congela el mes anterior el primer dia habil del mes y recalcula
+# el rolling de 30 dias (ver partners_api_sync.py). No corta la sync: si falla queda el partners_api_snapshots.json anterior.
+print("\n--- Partners API (KR Global B2B API, congelado mensual) ---")
+try:
+    import partners_api_sync as _pas
+    _pas_payload = _pas.build_payload(fetch, _download_json_from_drive(_pas.SNAPSHOT_FILE_NAME) or {})
+    if _pas_payload is not None:
+        upload_to_drive(json.dumps(_pas_payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8"), _pas.SNAPSHOT_FILE_NAME)
+except (Exception, SystemExit) as e:
+    print(f"  WARN Partners API fallo ({e}) — queda el partners_api_snapshots.json anterior en Drive")
+
 # okr.json (OKR del Hub + KR Global B2B API del Daily/Tracker) toma de daily_b2b2c_data.json los
 # actuals que salen del Datalake (hoteles directos, Unique Buyers, Hunting/Existing): se regenera acá
 # para que se actualicen todos los días sin esperar a /actualizar. Si falla, avisa y no corta la sync.

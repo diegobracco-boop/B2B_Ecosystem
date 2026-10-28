@@ -77,6 +77,14 @@ CSV crudos (OneDrive\Planning-PBI - Inputs Power Bi)
   **Unique Buyers** (`okr_h2_builder.apply_unique_buyers`): mes cerrado = real del Datalake; mes en curso = MTD; futuros = ratio UB/orders
   (promedio ponderado de los últimos 6 meses cerrados, hoy 0,837) × orders del Run Rate del Daily. Afecta también a `okr.json`.
 
+- **KR "Accelerate Hunting Partners API"** (2026-10-27): ya no sale del tracker de Excel (hoja "API", cuyos actuals de ago/sep eran copia del budget)
+  ni de un override en el código. `Daily_Dashboard/partners_api_sync.py` (lo llama `daily_sync.py` en cada corrida) cuenta partners API **distintos**
+  (solo `parent_channel = 'API'`, productos no cancelados, por fecha de reserva, códigos agrupados con `OKR/Diccionario_partners_api.xlsx` de OneDrive) y
+  guarda en Drive `partners_api_snapshots.json`: cada mes se **congela** el primer día hábil del mes siguiente (nunca se recalcula) y el mes sin congelar
+  muestra el **rolling de 30 días** (Estado `Rolling30`). `okr_builder.py` lo toma de ahí. Septiembre da 489 (igual que el Excel de agencias normalizado);
+  el método anterior (reparto entre canales) daba 463, así que hay un salto de método frente al histórico. Códigos nuevos sin agrupar: aparecen en el log
+  y cuentan como partner propio hasta que se agreguen al diccionario. Congelar a mano: `python Daily_Dashboard/partners_api_sync.py --freeze AAAA-MM`.
+
 ## Archivos
 - `pnl_common.py` — rutas portables (resuelve OneDrive por usuario) + auth Drive scope completo.
 - `plana_projections_builder.py` — planas budget/forecast/RR/LRR (genérico por base).

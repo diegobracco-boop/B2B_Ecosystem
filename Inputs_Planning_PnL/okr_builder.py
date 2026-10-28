@@ -570,26 +570,6 @@ def _read_agencias_flat():
     return _read_tracker_sheet("Hoja1", "Agencias", "B2B", "Monthly Buying Agencies")
 
 
-# Actual forzado a mano mientras el tracker no trae el mes (pedido de antonella.difranco, 2026-10-23).
-# Solo completa meses que la hoja 'API' no tiene: cuando el equipo carga el real, gana el tracker.
-# Sacar la entrada cuando el mes esté cargado en el Excel.
-PARTNERS_API_ACTUAL_OVERRIDE = {"2026-10": 490}
-
-
-def _read_partners_api_actual():
-    """KR Global B2B API 'Accelerate Hunting Partners API' (2026-10-23): el ACTUAL sale de la hoja 'API'
-    del tracker (escenario Actuals, Pais=Total). El target (Budget) sigue de Input_OKR — en el tracker
-    es el mismo — para no duplicar filas (la landing suma por clave)."""
-    kr = "Accelerate Hunting Partners API"
-    rows = _read_tracker_sheet("API", "Partners API", "Globales", kr, escenarios=("Run Rate/Actuals",))
-    have = {r[0] for r in rows}
-    for ym, v in sorted(PARTNERS_API_ACTUAL_OVERRIDE.items()):
-        if _ym_to_periodo(ym) not in have:
-            rows.append([_ym_to_periodo(ym), "Run Rate/Actuals", "Globales", "Total", "Total", kr, v])
-            print(f"  [Partners API] {ym} = {v} forzado (PARTNERS_API_ACTUAL_OVERRIDE; el tracker no trae el mes)")
-    return rows
-
-
 # Target (Budget) cargado a mano mientras Input_OKR no trae las filas (pedido de antonella.difranco, 2026-10-27;
 # la Sheets API está deshabilitada en el client OAuth y no se puede escribir la sheet por código). Solo completa
 # meses que la sheet no tiene: si el equipo carga el target en Input_OKR, gana la sheet.
@@ -765,8 +745,14 @@ def build(upload=True):
     rows_manual   = _apply_globales_hoteles_actual(rows_manual, daily_json)
     rows_manual   = _apply_recurrence_rr(rows_manual, recur_json)
     rows_manual   = _apply_globales_target_default(rows_manual)
-    rows_partners = _read_partners_api_actual()
-    if rows_partners:   # el actual del tracker reemplaza cualquier fila Run Rate/Actuals de Input_OKR
+    # Partners API: actual de partners_api_snapshots.json (Daily_Dashboard/partners_api_sync.py; meses congelados + rolling 30 dias).
+    try:
+        _snap = _download_by_name(svc, DAILY_FOLDER_ID, "partners_api_snapshots.json", "partners_api_snapshots.json (Partners API)")
+    except Exception as e:
+        print(f"  WARN [Partners API] sin partners_api_snapshots.json ({e}) — el KR queda sin actual")
+        _snap = None
+    rows_partners, estado_partners = h2b.partners_api_rows(_snap)
+    if rows_partners:   # el actual del snapshot reemplaza cualquier fila Run Rate/Actuals de Input_OKR
         rows_manual = [r for r in rows_manual if not (r[1] == "Run Rate/Actuals"
                        and r[5].lower() == "accelerate hunting partners api")]
     rows_agencias = _read_agencias_flat()
@@ -814,7 +800,7 @@ def build(upload=True):
     except Exception as e:
         print(f"  WARN [New Product Growth] no se pudo calcular ({e}) — el KR queda sin datos")
     all_rows = all_rows + h2b.totals_from_rows(h2_np, h2b.NEW_PRODUCT_KR)
-    h2_rows = h2b.build_h2_rows(h2_base + h2_np, h2_bud, h2_hunt, rows_manual, rows_partners, estado_ub, closed_until)
+    h2_rows = h2b.build_h2_rows(h2_base + h2_np, h2_bud, h2_hunt, rows_manual, rows_partners, estado_ub, closed_until, estado_partners)
     _check_h2_vs_okr(h2_rows, all_rows)
 
     payload = {

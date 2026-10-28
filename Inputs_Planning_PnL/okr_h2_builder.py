@@ -303,7 +303,31 @@ def totals_from_rows(rows, kr):
     return [[f, esc, lob, "Total", "Total", kr, round(v, 2)] for (f, esc), v in sorted(acc.items())]
 
 
-def build_h2_rows(rows_baseline_h2, rows_budget_h2, rows_hunting_h2, rows_manual, rows_partners, estado_ub, closed_until):
+PARTNERS_API_KR = "Accelerate Hunting Partners API"
+
+
+def partners_api_rows(snap):
+    """Actual de "Accelerate Hunting Partners API" desde partners_api_snapshots.json (Daily_Dashboard/partners_api_sync.py): meses
+    congelados (Estado "Real", no se recalculan) y, para el mes sin congelar, el rolling de los ultimos 30 dias (Estado "Rolling30", movil).
+    Devuelve (rows en formato okr.json, estado {periodo: estado}). Sin archivo: ([], {})."""
+    rows, estado = [], {}
+    if not snap:
+        return rows, estado
+    for ym, d in sorted((snap.get("meses") or {}).items()):
+        if ym >= H2_START[:7]:
+            f = _ym_to_periodo(ym)
+            rows.append([f, RR, "Globales", "Total", "Total", PARTNERS_API_KR, round(float(d["total"]), 2)])
+            estado[f] = "Real"
+    roll = snap.get("rolling30") or {}
+    if roll.get("hasta"):
+        f = _ym_to_periodo(roll["hasta"][:7])
+        if roll["hasta"][:7] >= H2_START[:7] and f not in estado:
+            rows.append([f, RR, "Globales", "Total", "Total", PARTNERS_API_KR, round(float(roll["total"]), 2)])
+            estado[f] = "Rolling30"
+    return rows, estado
+
+
+def build_h2_rows(rows_baseline_h2, rows_budget_h2, rows_hunting_h2, rows_manual, rows_partners, estado_ub, closed_until, estado_partners=None):
     """Junta todo en el formato de OKR_H2_FY27.json (ordenado)."""
     out = list(rows_baseline_h2) + list(rows_budget_h2) + list(rows_hunting_h2)
     for r in list(rows_manual) + list(rows_partners):
@@ -314,8 +338,9 @@ def build_h2_rows(rows_baseline_h2, rows_budget_h2, rows_hunting_h2, rows_manual
             est = BUD
         elif str(kr).lower() == "unique buyers":
             est = estado_ub.get(str(f)[:10], "Manual")
-        elif str(kr).lower() == "accelerate hunting partners api" or str(kr).lower().startswith("hoteles directos") \
-                or str(kr).lower().startswith("% hoteles directos"):
+        elif str(kr).lower() == "accelerate hunting partners api":
+            est = (estado_partners or {}).get(str(f)[:10], "Manual")
+        elif str(kr).lower().startswith("hoteles directos") or str(kr).lower().startswith("% hoteles directos"):
             est = "MTD" if str(f)[:10] > closed_until else "Real"
         else:
             est = "Manual"
