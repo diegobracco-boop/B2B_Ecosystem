@@ -2085,8 +2085,10 @@ b2c_ly_compact = to_compact(df_b2c_ly) if not df_b2c_ly.empty else {"cols": [], 
 
 b2bc_payload = {
     "meta":       META,
-    "actuals":    df_act.to_dict(orient="records"),
-    "actuals_ly": df_lya.to_dict(orient="records"),
+    # actuals / actuals_ly en {cols, rows}: en records el archivo pasó los 50 MB que acepta
+    # getBlob() de Apps Script. loadFile_ (Codigo.js) y okr_builder.py los re-expanden a records.
+    "actuals":    to_compact(df_act),
+    "actuals_ly": to_compact(df_lya),
     "actuals_fy_rest":    df_acta_fy_rest.to_dict(orient="records") if not df_acta_fy_rest.empty else [],
     "actuals_ly_fy_rest": df_lya_fy_rest.to_dict(orient="records") if not df_lya_fy_rest.empty else [],
     "budget":     to_compact(df_bud),

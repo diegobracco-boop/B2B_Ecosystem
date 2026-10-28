@@ -69,10 +69,19 @@ function loadFile_(filename, cacheKey) {
   // cambia el timestamp -> clave nueva -> se lee fresco (sin esperar el TTL de 6 h).
   var key    = cacheKey + '_' + file.getLastUpdated().getTime();
   var cached = cacheGet_(key);
-  if (cached) return JSON.parse(cached);
+  if (cached) return expandRecordKeys_(JSON.parse(cached));
   var raw = file.getBlob().getDataAsString();
   cachePut_(key, raw);
-  return JSON.parse(raw);
+  return expandRecordKeys_(JSON.parse(raw));
+}
+
+// daily_sync.py publica actuals / actuals_ly en {cols, rows} para que el JSON entre en el
+// límite de 50 MB de getBlob(); acá se vuelven a records para que el resto del código no cambie.
+function expandRecordKeys_(obj) {
+  ['actuals', 'actuals_ly'].forEach(function(k) {
+    if (obj && obj[k] && obj[k].cols) obj[k] = _wsExpandCompact_(obj[k]);
+  });
+  return obj;
 }
 
 function cachePut_(key, raw) {

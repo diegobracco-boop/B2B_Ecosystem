@@ -721,6 +721,11 @@ def build(upload=True):
     baseline_data = _download_json(svc, BASELINE_FILE_ID,    "baseline_actuals+projections.json")
     budget_data   = _download_json(svc, BUDGET_FILE_ID,      "budget.json")
     daily_json    = _download_json(svc, DAILY_B2B2C_FILE_ID, "daily_b2b2c_data.json")
+    # daily_sync.py publica actuals / actuals_ly en {cols, rows} (límite de 50 MB de Apps Script)
+    for k in ("actuals", "actuals_ly"):
+        c = daily_json.get(k)
+        if isinstance(c, dict) and "cols" in c:
+            daily_json[k] = [dict(zip(c["cols"], r)) for r in c["rows"]]
     try:
         recur_json = _download_json(svc, RECUR_FILE_ID, "recurrencia_b2b.json")
     except Exception as e:
