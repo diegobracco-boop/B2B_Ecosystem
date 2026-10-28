@@ -158,6 +158,15 @@ def _upload(local_path, svc):
 
 
 H2_OUTPUT_NAME = "OKR_H2_FY27.json"
+DAILY_FOLDER_ID = "1lWzfqweyV6Kz1ERkL85ikFcmzmKwGwwh"   # carpeta de los JSON del Daily (okr_h2_managerial.json, ...)
+
+
+def _download_by_name(svc, folder_id, name, label):
+    q = f"name='{name}' and '{folder_id}' in parents and trashed=false"
+    f = svc.files().list(q=q, fields="files(id,name)").execute().get("files", [])
+    if not f:
+        raise FileNotFoundError(f"no hay '{name}' en la carpeta {folder_id}")
+    return _download_json(svc, f[0]["id"], label)
 
 
 def _upload_h2(local_path, svc):
@@ -189,7 +198,7 @@ def _check_h2_vs_okr(h2_rows, okr_rows):
     s = defaultdict(float)
     for r in h2_rows:
         if r[3] not in ("Total",) and r[5] in ("Op. Contribution", "Net Revenues B2B", "Operating Contribution API",
-                                                 "Operating Contribution HTML", "Net Revenues API Hoteles"):
+                                                 "Operating Contribution HTML", "Net Revenues API Hoteles", "New Product Growth"):
             s[(r[0], r[1], r[5])] += r[6]
     bad = [(k, round(v), round(tot.get(k, 0))) for k, v in s.items() if abs(v - tot.get(k, 0)) > 1]
     print(f"  [Control H2] KRs contables por pais vs Total de okr.json: {'OK (' + str(len(s)) + ' claves)' if not bad else 'DIFIEREN ' + str(bad[:5])}")
@@ -797,7 +806,15 @@ def build(upload=True):
     h2_bud,  nr_bud  = h2b.contable_by_pais(budget_data,   "Budget",           closed_until)
     h2_hunt = h2b.hunting_farming_by_pais(daily_json, {"Run Rate/Actuals": nr_base, "Budget": nr_bud},
                                           last_actual_ym, closed_until)
-    h2_rows = h2b.build_h2_rows(h2_base, h2_bud, h2_hunt, rows_manual, rows_partners, estado_ub, closed_until)
+    # New Product Growth (B2B) estimado: Flights + Dest. Serv. contables + % de Packages General del Daily (okr_h2_managerial.json)
+    h2_np = []
+    try:
+        mgr_json = _download_by_name(svc, DAILY_FOLDER_ID, "okr_h2_managerial.json", "okr_h2_managerial.json (apertura de Packages General)")
+        h2_np, _ = h2b.new_product_growth(baseline_data, budget_data, mgr_json, closed_until)
+    except Exception as e:
+        print(f"  WARN [New Product Growth] no se pudo calcular ({e}) — el KR queda sin datos")
+    all_rows = all_rows + h2b.totals_from_rows(h2_np, h2b.NEW_PRODUCT_KR)
+    h2_rows = h2b.build_h2_rows(h2_base + h2_np, h2_bud, h2_hunt, rows_manual, rows_partners, estado_ub, closed_until)
     _check_h2_vs_okr(h2_rows, all_rows)
 
     payload = {

@@ -48,7 +48,7 @@ var OKR_CONFIG_H2 = {
       { kr: 'net revenues b2b',               label: 'Net Revenue',                          weight: 30 },
       { kr: 'operating contribution api',     label: 'Operating Contribution API (MAY)',     weight: 20 },
       { kr: 'operating contribution html',    label: 'Operating Contribution HTML (MIN)',    weight: 20 },
-      { kr: 'new product growth',             label: 'New Product Growth (WIP)',             weight: 15 },
+      { kr: 'new product growth',             label: 'New Product Growth (estimado)',        weight: 15 },
       { kr: 'accelerate recurrence',          label: 'Accelerate Recurrence',                weight: 15 }
     ]
   },
@@ -127,7 +127,15 @@ var OKR_H2_FILE_ID = '1lsMF9_d1t55boO8Wr8vziMsFT9LQioov';
 var OKR_MONETARY_KRS_ = {
   'operating contribution': true, 'net revenues b2b': true, 'operating contribution api': true,
   'operating contribution html': true, 'net revenues api hoteles': true,
-  'new account net revenues': true, 'existing account net revenues': true
+  'new account net revenues': true, 'existing account net revenues': true, 'new product growth': true
+};
+
+// KRs que NO toman el target cuando no hay actual (Diego 2026-10-27): Deploy New Partnership = lo que diga Input_OKR, estricto;
+// Onboarded Properties y Price Competitiveness = solo target hasta definir la fuente del actual (sin cumplimiento, no pesan en el total).
+var OKR_NOFILL_ = {
+  'deploy new partnership': true,
+  'new onboarded properties global & regional chains': true,
+  'price competitiveness ex-latam (destino gl)': true
 };
 
 function readOKRH2Json_() {
@@ -235,7 +243,7 @@ function computeOKR_(halfKey, rows, opts) {
   // Actual con la regla "sin dato = target" (solo si opts.fillTarget y el mes tiene target)
   function getAct(lob, kr, ym, imputed) {
     var v = getVal(lob, kr, 'run rate/actuals', ym);
-    if (v === null && opts.fillTarget) {
+    if (v === null && opts.fillTarget && !OKR_NOFILL_[kr]) {
       var b = getVal(lob, kr, 'budget', ym);
       if (b !== null) { if (imputed) imputed[ym] = true; return b; }
     }
@@ -272,7 +280,19 @@ function computeOKR_(halfKey, rows, opts) {
         var both = months.filter(function(ym) {
           return getAct(lobKey, krDef.kr, ym) !== null && getVal(lobKey, krDef.kr, ESC_BUD, ym) !== null;
         });
-        if (!both.length) return { a: null, b: null };
+        if (!both.length) {
+          // H2: KR sin actual (a la espera de la fuente) pero con target -> se muestra el target ("— / target"), sin cumplimiento.
+          if (opts.fillTarget) {
+            var bm = months.filter(function(ym) { return getVal(lobKey, krDef.kr, ESC_BUD, ym) !== null; });
+            if (bm.length) {
+              if (krDef.cumulative) return { a: null, b: getVal(lobKey, krDef.kr, ESC_BUD, bm[bm.length - 1]) };
+              var sb0 = 0;
+              bm.forEach(function(ym) { sb0 += getVal(lobKey, krDef.kr, ESC_BUD, ym); });
+              return { a: null, b: krDef.avg ? sb0 / bm.length : sb0 };
+            }
+          }
+          return { a: null, b: null };
+        }
         if (krDef.cumulative) {
           // Stock: el último mes con actual REAL (y su budget). Solo si no hay ninguno se usa el último mes con target
           // y el actual imputado (sin dato = target); si no, un mes futuro imputado taparía el dato real del mes en curso.

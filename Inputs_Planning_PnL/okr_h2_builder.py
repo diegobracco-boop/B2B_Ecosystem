@@ -20,6 +20,9 @@ como viene; un mes cerrado pisa con el real del Datalake.
 """
 from collections import defaultdict
 
+import sys
+from pathlib import Path
+
 H2_START = "2026-10-01"
 COLS_H2 = ["Periodo", "Escenario", "LoB", "Pais", "Producto", "KR", "Valor", "Estado"]
 RR, BUD = "Run Rate/Actuals", "Budget"
@@ -200,6 +203,104 @@ def apply_unique_buyers(rows_manual, daily_json, last_actual_ym):
         out.append([_ym_to_periodo(ym), RR, "B2B2C", "Total", "Total", "Unique Buyers", v])
     print(f"  [Unique Buyers] {estado}")
     return out, estado
+
+
+# ── New Product Growth (B2B) estimado ──────────────────────────────────────────────────────────────────────
+# KR = NR de Flights + Dest. Serv. + los componentes "new product" de Packages General. La contabilidad solo abre Flights y
+# Dest. Serv.; de Packages General no sabe qué parte es Vuelos / parques / excursiones / traslados / espectáculos. Se estima:
+#   NR contable de Packages General x % new product del NR de Packages General del Daily (okr_h2_managerial.json, RI).
+#   - mes con cierre contable : el % real de ese mes.
+#   - mes proyectado          : promedio (ponderado por NR) de los ultimos 3 meses cerrados.
+#   - Budget                  : las proporciones fijas por pais del Daily (pkg_split_factors.py), como el KR gestional.
+# Mismos product_type que Daily_Dashboard/tracker.html (B2B_H2_NP_PKG_TYPES).
+NEW_PRODUCT_PKG_TYPES = {"Vuelos", "Disney", "Universal", "SeaWorld", "Busch Gardens", "Excursiones", "Traslados", "Espectáculos"}
+NEW_PRODUCT_KR = "New Product Growth"
+PCT_AVG_MONTHS = 3
+
+
+def _is_np_type(pt):
+    pt = str(pt or "")
+    return pt in NEW_PRODUCT_PKG_TYPES or pt.startswith("Espect")
+
+
+def packages_new_pct_by_month(mgr_json, key="b2b_ri"):
+    """{ym: (NR new product dentro de Packages General, NR Packages General)} del Daily (okr_h2_managerial.json)."""
+    blk = (mgr_json or {}).get(key) or {}
+    cols, rows = blk.get("cols") or [], blk.get("rows") or []
+    if not rows:
+        return {}
+    iF, iP, iT, iN = (cols.index(c) for c in ("fecha", "producto_original", "product_type", "net_revenue"))
+    out = defaultdict(lambda: [0.0, 0.0])
+    for r in rows:
+        if r[iP] != "Packages General":
+            continue
+        m = str(r[iF])[:7]
+        v = float(r[iN] or 0)
+        out[m][1] += v
+        if _is_np_type(r[iT]):
+            out[m][0] += v
+    return {m: tuple(v) for m, v in out.items()}
+
+
+def _budget_np_share():
+    """Proporcion new product de Packages General por pais en el budget (factores fijos del Daily). {pais lower: share}."""
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "Daily_Dashboard"))
+    from pkg_split_factors import PKG_SPLIT_FACTORS
+    return {str(p).lower(): sum(v for t, v in f.items() if _is_np_type(t)) for p, f in PKG_SPLIT_FACTORS.items()}
+
+
+def new_product_growth(baseline_data, budget_data, mgr_json, closed_until):
+    """Filas (formato OKR_H2_FY27.json, por pais) del KR New Product Growth, Run Rate/Actuals y Budget, solo H2.
+    Devuelve (rows, info) con info = {pct por mes, ...} para el log."""
+    pm = packages_new_pct_by_month(mgr_json)
+    cierre_ym = closed_until[:7]
+    ult = [m for m in sorted(pm) if m <= cierre_ym and pm[m][1] > 0][-PCT_AVG_MONTHS:]
+    if not ult:
+        print("  [New Product Growth] sin apertura de Packages General en el Daily (okr_h2_managerial.json) — KR sin datos")
+        return [], {}
+    avg = sum(pm[m][0] for m in ult) / sum(pm[m][1] for m in ult)
+    real = {m: pm[m][0] / pm[m][1] for m in pm if pm[m][1] > 0}
+
+    def pct(ym):
+        return real[ym] if (ym <= cierre_ym and ym in real) else avg
+
+    share_b = _budget_np_share()
+
+    def rows_for(canon, scen):
+        c = canon["cols"]
+        iL, iPr, iP, iN3, iF, iM = (c.index(x) for x in ("LoB", "Producto", "Pais", "P&L N3", "Fecha", "Monto USD"))
+        acc = defaultdict(float)
+        for r in canon["rows"]:
+            f = str(r[iF])[:10]
+            if f < H2_START or str(r[iL]).lower() != "b2b" or str(r[iN3]).lower() != "net revenue":
+                continue
+            prod, pais, v = str(r[iPr]).lower(), str(r[iP]).lower(), float(r[iM] or 0)
+            if prod in ("flights", "flight", "air", "dest. serv.", "d. services"):
+                acc[(f, pais)] += v
+            elif prod == "packages general":
+                p = share_b.get(pais, share_b.get("total", 0.0)) if scen == BUD else pct(f[:7])
+                acc[(f, pais)] += v * p
+        out = []
+        for (f, pais), v in sorted(acc.items()):
+            est = BUD if scen == BUD else _estado_rr(f, closed_until)
+            out.append([f, scen, "B2B", pais, "Total", NEW_PRODUCT_KR, round(v, 2), est])
+        return out
+
+    rows = rows_for(baseline_data, RR) + rows_for(budget_data, BUD)
+    print(f"  [New Product Growth] % new product de Packages General: promedio {ult[0]}..{ult[-1]} = {avg * 100:.1f}% "
+          f"(meses cerrados con % real: {[m for m in sorted(real) if m <= cierre_ym][-3:]}) · budget TOTAL {share_b.get('total', 0) * 100:.1f}% · {len(rows)} filas")
+    return rows, {"avg": avg, "meses": ult}
+
+
+def totals_from_rows(rows, kr):
+    """Filas Pais=Total (formato okr.json, 7 columnas) sumando por pais las filas de un KR de OKR_H2_FY27.json."""
+    acc = defaultdict(float)
+    lob = None
+    for r in rows:
+        if r[5] == kr:
+            acc[(r[0], r[1])] += r[6]
+            lob = r[2]
+    return [[f, esc, lob, "Total", "Total", kr, round(v, 2)] for (f, esc), v in sorted(acc.items())]
 
 
 def build_h2_rows(rows_baseline_h2, rows_budget_h2, rows_hunting_h2, rows_manual, rows_partners, estado_ub, closed_until):

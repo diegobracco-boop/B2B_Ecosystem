@@ -4847,7 +4847,7 @@ function renderOKR(okr) {
     +'</div></div>';
   if (_halfSel === 'H2') {
     var _oi = _state.okrInfo && _state.okrInfo.organic;
-    html += '<div class="okr-note">Oct–Mar: proyección (Run Rate) hasta que haya cierre contable. Sin dato → se toma igual al target (en cursiva).'
+    html += '<div class="okr-note">Oct–Mar: proyección (Run Rate) hasta que haya cierre contable. Sin dato → se toma igual al target (en cursiva). New Product Growth: estimado (Flights + Dest. Serv. contables + % de Packages General del Daily).'
           + (_okrOrganic && _oi && !_oi.error ? ' · Organic a TC Budget' + ((_oi.missing && _oi.missing.length) ? ' (sin TC: ' + _oi.missing.join(', ') + ')' : '') : '')
           + (_oi && _oi.error ? ' · <span style="color:#c0392b">' + _oi.error + '</span>' : '')
           + (_state.okrInfo && _state.okrInfo.h2Source === 'okr.json' ? ' · H2 desde okr.json (sin organic: no se pudo leer OKR_H2_FY27.json)' : '')
