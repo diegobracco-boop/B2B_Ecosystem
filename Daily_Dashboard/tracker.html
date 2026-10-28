@@ -4072,14 +4072,14 @@ function renderGlobales() {
   var agg  = globalesApiHotelByMonth_(meses);
   var grid = document.getElementById('globalesCards');
 
-  // NR API Hoteles: el target que se muestra es el budget gestional del daily del mes (agg.bud, $M);
-  // si el daily no trae budget para un mes, queda el de okr.json (contable).
+  // NR API Hoteles: el target que se muestra es el budget gestional del daily del mes (agg.bud, $M); 100% gestional (2026-10-27):
+  // si el daily no trae budget para un mes queda sin target (antes caía al de okr.json, contable, y se mezclaban bases).
   var krsView = globalesData.krs.map(function(kr){
     if (kr.id !== 'net_revenues_api_hoteles') return kr;
     var k = Object.assign({}, kr), tg = {};
     meses.forEach(function(ym){
       var b = agg[ym] && agg[ym].bud;
-      tg[ym] = b ? b / 1e6 : (kr.targets ? kr.targets[ym] : null);
+      tg[ym] = b ? b / 1e6 : null;
     });
     k.targets = tg;
     return k;

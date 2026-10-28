@@ -3722,8 +3722,8 @@ function renderKRsGlobales_(){
   var refYM=globalesRefYM_(meses, state_b2b.viewDate), idx=meses.indexOf(refYM);
   var vd=String(state_b2b.viewDate||'');
   var agg=_rawB2B?computeGlobalesApiHotelMonth_(_krRawB2B_(_rawB2B), refYM, vd):{nr:0,bud:0,budMtd:0};   // a TC Budget con ORGANIC YES (hay países con TC)
-  // NR es MTD → se compara contra el budget gestional acumulado al mismo corte (agg.budMtd). Sin budget
-  // diario, queda el target de okr.json prorrateado por días.
+  // NR es MTD → se compara contra el budget gestional acumulado al mismo corte (agg.budMtd). 100% gestional (2026-10-27): sin budget
+  // diario el KR queda sin target (antes caía al de okr.json, contable, prorrateado por días).
   var pp=refYM.split('-'), frac=(vd.substring(0,7)===refYM)?Number(vd.substring(8,10))/new Date(+pp[0],+pp[1],0).getDate():1;
   function pctColor(p){return p===null?'var(--text-2)':p>=100?'var(--success)':p>=80?'#f59e0b':'var(--danger)';}
   function fmtVal(v,unit){ if(v===null||v===undefined)return '—'; if(unit==='$M')return '$'+v.toFixed(1)+'M'; if(unit==='Share %'||unit==='%')return v.toFixed(1)+'%'; return Number(v).toLocaleString('es-AR'); }
@@ -3732,7 +3732,7 @@ function renderKRsGlobales_(){
     var tSc=t;
     if(kr.id==='net_revenues_api_hoteles'){                                                 // MTD del daily, $M
       a=agg.nr?agg.nr/1e6:null;
-      if(agg.bud){ t=agg.bud/1e6; tSc=agg.budMtd/1e6; } else if(t!=null) tSc=t*frac;
+      if(agg.bud){ t=agg.bud/1e6; tSc=agg.budMtd/1e6; } else { t=null; tSc=null; }
     }
     else if(kr.actuals && kr.actuals[refYM]!=null) a=kr.actuals[refYM];                  // mensual, Input_OKR
     var sc=kr.inverse?okrScore_(tSc,a):okrScore_(a,tSc), pct=sc!==null?Math.round(sc*100):null;   // regla única de OKR; inverse: menos es mejor
