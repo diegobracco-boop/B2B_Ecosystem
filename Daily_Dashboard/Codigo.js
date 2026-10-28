@@ -736,7 +736,7 @@ function sendDailyEmail_(customRecipients) {
 // ── Helpers numéricos ────────────────────────────────────────────
 
 function _eIsCore_(p) { return p==='Brasil'||p==='Mexico'||p==='Other Countries'; }
-function _eRegion_(p) { if(p==='Brasil'||p==='RG')return 'BR'; if(p==='Mexico')return 'NAM'; return 'SAH'; }
+function _eRegion_(p) { if(p==='RG')return 'RG'; if(p==='Brasil')return 'BR'; if(p==='Mexico')return 'NAM'; return 'SAH'; }
 
 function _eSum_(arr, from, to, field) {
   var t = 0;
@@ -786,7 +786,7 @@ function _eVsLYColor_(v, ref) {
 // ── Cómputos ─────────────────────────────────────────────────────
 
 function _emailKRsB2BC_(raw, mStart, vDate) {
-  var REGS=['BR','SAH','NAM'];
+  var REGS=['BR','SAH','NAM','RG'];
   function mk(){var o={};REGS.forEach(function(r){o[r]={act:0,bud:0};});return o;}
   var kr2={act:0,bud:0,r:mk()},kr3={act:0,bud:0,r:mk()},kr4={act:0,bud:0,r:mk()};
   raw.actuals.forEach(function(r){
@@ -1005,10 +1005,11 @@ function setupEmailTrigger() {
 
 var _OKR_HISPA_PAISES_ = ['Argentina','Colombia','Chile','Peru','Ecuador'];
 var _OKR_MES_LABELS_   = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-var _OKR_REGIONS_      = ['BR','MX/US','HISPA'];
+var _OKR_REGIONS_      = ['BR','MX/US','HISPA','RG'];
 
 function _okrPaisToRegion_(pais) {
-  if (pais === 'Brasil' || pais === 'RG') return 'BR';   // RG = ajuste COI Brasil: va con la región de Brasil
+  if (pais === 'RG') return 'RG';   // RG = ajuste COI Brasil: entrada propia, fuera de las regiones
+  if (pais === 'Brasil') return 'BR';
   if (pais === 'Mexico') return 'MX/US';
   if (_OKR_HISPA_PAISES_.indexOf(pais) !== -1) return 'HISPA';
   return 'Globales';

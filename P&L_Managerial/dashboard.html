@@ -1578,7 +1578,7 @@ function initMsDropdowns(){
 }
 
 // ── País chip selector ─────────────────────────────────────────────────────
-var _PAIS_ORDER = ['Brasil','Mexico','Globales','Argentina','Colombia','Chile','Peru','Ecuador','Paraguay','Uruguay'];
+var _PAIS_ORDER = ['Brasil','Mexico','Globales','Argentina','Colombia','Chile','Peru','Ecuador','Paraguay','Uruguay','RG'];
 
 function fillPaisChips(values){
   var ordered = _PAIS_ORDER.filter(function(p){ return (values||[]).indexOf(p) >= 0; });
@@ -2515,7 +2515,7 @@ function renderDetalle() {
     return '<span style="color:'+col+';font-weight:700">'+(v>=0?'+':'')+v.toFixed(1)+'%</span>';
   }
 
-  var COUNTRY_ORDER=['Brasil','Mexico',otherLabel,'Argentina','Colombia','Chile','Peru','Ecuador','Paraguay','Uruguay'];
+  var COUNTRY_ORDER=['Brasil','Mexico',otherLabel,'Argentina','Colombia','Chile','Peru','Ecuador','Paraguay','Uruguay','RG'];
   var seen={}, countries=[];
   COUNTRY_ORDER.forEach(function(c){
     var k=Object.keys(pcm).filter(function(x){return normD(x)===normD(c);})[0];

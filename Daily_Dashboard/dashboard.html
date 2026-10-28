@@ -278,6 +278,7 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
 .rtag-sah { background: rgba(86,38,233,.15); color: var(--secondary); }
 .rtag-bra { background: rgba(74,222,128,.15); color: var(--success); }
 .rtag-nam { background: rgba(255,193,7,.15); color: var(--warning); }
+.rtag-rg  { background: rgba(148,163,184,.15); color: var(--text-3); }
 
 /* ── LOB toggle ────────────────────────────────────────── */
 .lob-toggle { display: flex; gap: 2px; }
@@ -2006,6 +2007,7 @@ function isCore_(pais) {
 function getRegion_(pais) {
   if(pais === 'Brasil') return 'BR';
   if(pais === 'Mexico' || pais === 'USA') return 'NAM';
+  if(pais === 'RG') return 'RG';   // ajuste COI Brasil: entrada propia, no es Sudamérica ni Brasil
   return 'SAH';
 }
 // Mismo partner escrito distinto según la fuente (actuals vs budget/runrate/forecast): sin
@@ -2291,7 +2293,7 @@ function breakdownCountryProduct_(src, srcLY, bud, MF, mStart, vDate, lyMS, lyVD
 }
 function computeKRs_(raw, vDate) {
   var pp=vDate.split('-'), mStart=pp[0]+'-'+pp[1]+'-01';
-  var REGS=['BR','SAH','NAM'];
+  var REGS=['BR','SAH','NAM','RG'];
   function mkReg(){var o={};REGS.forEach(function(r){o[r]={act:0,bud:0};});return o;}
   var kr2={act:0,bud:0,r:mkReg()},kr3={act:0,bud:0,r:mkReg()},kr4={act:0,bud:0,r:mkReg()};
   raw.actuals.forEach(function(r){
@@ -3032,10 +3034,10 @@ function cumplColor_(p) {
   return p === null ? 'var(--text-3)' : p >= 100 ? 'var(--success)' : p >= 80 ? '#f59e0b' : 'var(--danger)';
 }
 
-var REGION_ORDER_ = ['BR','SAH','NAM'];
-var REGION_LABEL_ = {BR:'Brasil', SAH:'Sudamérica Hispana', NAM:'Norteamérica'};
-var REGION_SHORT_ = {BR:'BRA', SAH:'SAH', NAM:'NAM'};
-var REGION_TAG_   = {BR:'rtag-bra', SAH:'rtag-sah', NAM:'rtag-nam'};
+var REGION_ORDER_ = ['BR','SAH','NAM','RG'];
+var REGION_LABEL_ = {BR:'Brasil', SAH:'Sudamérica Hispana', NAM:'Norteamérica', RG:'RG'};
+var REGION_SHORT_ = {BR:'BRA', SAH:'SAH', NAM:'NAM', RG:'RG'};
+var REGION_TAG_   = {BR:'rtag-bra', SAH:'rtag-sah', NAM:'rtag-nam', RG:'rtag-rg'};
 // Valor para el YoY de una fila agrupada: valueY (a TC Actuals LY, organic opción B) si viene
 function _vy_(item) { return (item.valueY !== undefined && item.valueY !== null) ? item.valueY : item.value; }
 function groupByRegion_(groups) {
@@ -3093,11 +3095,11 @@ function renderGroupedTable3(tbodyId, groups, opts) {
     +'<td class="bk-yoy col-pct" style="color:var(--text-2)">100%</td>'
     +'</tr>';
   regions.forEach(function(reg, ri) {
-    var regId = tbodyId + '-r' + ri;
+    var regId = bkSharedId_(tbodyId) + '-r-' + reg.key;   // mismo id en GB / NR / FVM: abrir un grupo lo abre en las tres tablas
     // Region header row — colapsada por defecto
     html += '<tr class="bk-row-group bk-row-region">'
       + '<td><div class="bar-wrap">'
-      + '<button class="bk-toggle" onclick="toggleBkGroup(this,\''+regId+'\')">▾</button>'
+      + '<button class="bk-toggle" data-tg="'+regId+'" onclick="toggleBkGroup(this,\''+regId+'\')">▾</button>'
       + '<span class="rtag '+REGION_TAG_[reg.key]+'" style="margin-right:5px">'+REGION_SHORT_[reg.key]+'</span>'
       + '<span class="bk-name bk-group">'+reg.name+'</span>'
       + '</div></td>'
@@ -3105,11 +3107,11 @@ function renderGroupedTable3(tbodyId, groups, opts) {
       + '</tr>';
     // Countries — ocultos hasta expandir región
     reg.countries.forEach(function(g, ci) {
-      var cId = regId + '-c' + ci;
+      var cId = regId + '-c-' + bkSlug_(g.name);
       html += '<tr class="bk-row-group" data-grp="'+regId+'">'
         + '<td><div class="bar-wrap" style="padding-left:10px">'
         + (g.partners && g.partners.length
-            ? '<button class="bk-toggle" onclick="toggleBkGroup(this,\''+cId+'\')">▾</button>'
+            ? '<button class="bk-toggle" data-tg="'+cId+'" onclick="toggleBkGroup(this,\''+cId+'\')">▾</button>'
             : '<span class="bk-toggle"></span>')
         + '<div class="bk-name bk-group" title="'+g.name+'">'+g.name+'</div>'
         + '</div></td>'
@@ -3136,6 +3138,7 @@ function renderGroupedTable3(tbodyId, groups, opts) {
     });
   });
   tbody.innerHTML = html;
+  bkApply_(tbody);
 }
 
 function renderGroupedTable(tbodyId, groups, opts) {
@@ -3183,7 +3186,32 @@ function renderGroupedTable(tbodyId, groups, opts) {
   });
   tbody.innerHTML = html;
 }
+// Los ids de grupo de las tablas GB / NR / FVM son los mismos (prefijo sin la métrica + región / país):
+// un clic abre o cierra ese grupo en las tres a la vez.
+function bkSharedId_(tbodyId) { return String(tbodyId).replace(/-(gb|nr|fvm)$/, ''); }
+function bkSlug_(s) { return String(s).replace(/[^A-Za-z0-9_-]/g, function(c){ return '_' + c.charCodeAt(0); }); }
+// Estado abierto/cerrado por grupo (id compartido por GB / NR / FVM). Por defecto todo colapsado; lo que el
+// usuario abre se recuerda, así un cambio de filtro (que redibuja las tablas) no le vuelve a cerrar todo.
+var _bkOpen_ = {};
+function bkApply_(tbody) {
+  tbody.querySelectorAll('tr[data-grp]').forEach(function(r) {
+    var g = r.getAttribute('data-grp'), i = g.indexOf('-c-');   // fila de partner: visible solo con su región/segmento abierto
+    r.style.display = (_bkOpen_[g] && (i < 0 || _bkOpen_[g.substring(0, i)])) ? '' : 'none';
+  });
+  tbody.querySelectorAll('button[data-tg]').forEach(function(b) {
+    var o = !!_bkOpen_[b.getAttribute('data-tg')];
+    b.textContent = o ? '▾' : '▸'; b.classList.toggle('open', o);
+  });
+}
 function toggleBkGroup(btn, groupId) {
+  if (btn.hasAttribute('data-tg')) {
+    _bkOpen_[groupId] = !_bkOpen_[groupId];
+    var seen = [];
+    document.querySelectorAll('tr[data-grp], button[data-tg="'+groupId+'"]').forEach(function(el) {
+      var tb = el.closest('tbody'); if (tb && seen.indexOf(tb) < 0) { seen.push(tb); bkApply_(tb); }
+    });
+    return;
+  }
   var rows = document.querySelectorAll('tr[data-grp="'+groupId+'"]');
   if (!rows.length) return;
   var show = rows[0].style.display === 'none';
@@ -3194,6 +3222,12 @@ function toggleBkGroup(btn, groupId) {
 function expandAllTable(tbodyId, expand) {
   var tbody = document.getElementById(tbodyId);
   if (!tbody) return;
+  if (tbody.querySelector('button[data-tg]')) {
+    tbody.querySelectorAll('tr[data-grp]').forEach(function(r) { _bkOpen_[r.getAttribute('data-grp')] = expand; });
+    tbody.querySelectorAll('button[data-tg]').forEach(function(b) { _bkOpen_[b.getAttribute('data-tg')] = expand; });
+    bkApply_(tbody);
+    return;
+  }
   tbody.querySelectorAll('tr[data-grp]').forEach(function(r) { r.style.display = expand ? '' : 'none'; });
   tbody.querySelectorAll('.bk-toggle').forEach(function(btn) { btn.textContent = expand ? '▾' : '▸'; });
 }
@@ -3759,7 +3793,7 @@ function renderKRsGlobales_(){
 }
 
 function renderKRBreakdown_(krs) {
-  var REGS=['BR','SAH','NAM'];
+  var REGS=['BR','SAH','NAM','RG'];
   function cell(d){
     var pct=d.bud>0?Math.round(d.act/d.bud*100):null;
     var col=pct===null?'var(--text-3)':pct>=100?'var(--success)':pct>=80?'#f59e0b':'var(--danger)';
@@ -3895,18 +3929,18 @@ function renderGroupedTableB2B_(tbodyId, groups) {
   ];
   segs.forEach(function(seg, si) {
     if (!seg.groups.length) return;
-    var segId = tbodyId + '-seg' + si;
+    var segId = bkSharedId_(tbodyId) + '-seg-' + bkSlug_(seg.label);   // compartido entre GB / NR / FVM
     var st = segSum_(seg.groups);
     html += '<tr class="bk-row-segment"><td><div class="bar-wrap">'
-      + '<button class="bk-toggle" onclick="toggleBkGroup(this,\''+segId+'\')">▾</button>'
+      + '<button class="bk-toggle" data-tg="'+segId+'" onclick="toggleBkGroup(this,\''+segId+'\')">▾</button>'
       + '<div class="bk-name bk-group">'+seg.label+'</div>'
       + '</div></td>' + metaCols_(st.v, st.ly, st.bud, st.vY) + '</tr>';
     seg.groups.forEach(function(g, ci) {
-      var cId = segId + '-c' + ci;
+      var cId = segId + '-c-' + bkSlug_(g.name);
       html += '<tr class="bk-row-group" data-grp="'+segId+'">'
         + '<td><div class="bar-wrap" style="padding-left:10px">'
         + (g.partners && g.partners.length
-            ? '<button class="bk-toggle" onclick="toggleBkGroup(this,\''+cId+'\')">▾</button>'
+            ? '<button class="bk-toggle" data-tg="'+cId+'" onclick="toggleBkGroup(this,\''+cId+'\')">▾</button>'
             : '<span class="bk-toggle"></span>')
         + '<div class="bk-name bk-group">'+g.name+'</div>'
         + '</div></td>' + metaCols_(g.value, g.ly, g.budget||0, _vy_(g)) + '</tr>';
@@ -3919,6 +3953,7 @@ function renderGroupedTableB2B_(tbodyId, groups) {
     });
   });
   tbody.innerHTML = html;
+  bkApply_(tbody);
 }
 
 function renderB2BMetrics(all) {
@@ -4899,7 +4934,8 @@ function _wsRenderOKRRegionTable_(tableId, d, accKey, field) {
   var regions = [
     { label:'Brasil',     key:'BR'    },
     { label:'MX/US',      key:'MX/US' },
-    { label:'Sudamérica', key:'HISPA' }
+    { label:'Sudamérica', key:'HISPA' },
+    { label:'RG',         key:'RG'    }
   ];
   var thead = document.createElement('thead');
   var tr = document.createElement('tr');
@@ -5010,7 +5046,8 @@ var FLOW_MET = {
 var FLOW_RG = {
   BR:  {label:'Brasil', flag:'BR'},
   NAM: {label:'MX/US',  flag:'MX'},
-  SAH: {label:'Hispa',  flag:'SAH'}
+  SAH: {label:'Hispa',  flag:'SAH'},
+  RG:  {label:'RG',     flag:'RG'}
 };
 var FLOW_DECK = [
   {kind:'cover', name:'B2B2C — Resumen mensual'},
@@ -5250,6 +5287,9 @@ function flowFY12OC_(compKey){
             yoy:(ly>0)?(b/ly-1)*100:null, projected:!isAct};
   });
 }
+// OC: RG es entidad de Brasil (el baseline la trae dentro de Brasil, el Budget la abre aparte), así que en
+// las tablas de OC va con Brasil; en el resto del Daily RG es una entrada propia (getRegion_).
+function flowOCRegion_(pais){ return getRegion_(/^rg$/i.test(pais) ? 'Brasil' : pais); }
 // OC por región, meses CERRADOS del FY (no hay MTD de OC) vs el Goal → { data:{BR|SAH|NAM:{base,goal}}, rng }.
 function flowOCClosedData_(compKey){
   var oc=_rawB2BC.flow_oc||{rows:[],actual_months:[]}, L=_rawB2BC.meta.last_actuals_date, fyS=flFyStart_(L).substring(0,7);
@@ -5257,7 +5297,7 @@ function flowOCClosedData_(compKey){
   var ge = compKey==='ly' ? 'ly' : compKey==='runrate' ? 'rr' : 'bg', G={};
   function g(k){ return G[k]=G[k]||{base:0,goal:0}; }
   (oc.rows||[]).forEach(function(r){ var e=r[1], m=(e==='ly') ? (+r[0].substring(0,4)+1)+r[0].substring(4,7) : r[0].substring(0,7);
-    if(!closed[m]) return; var k=getRegion_(r[2]);
+    if(!closed[m]) return; var k=flowOCRegion_(r[2]);
     if(e==='bl') g(k).base+=r[3]; else if(e===ge) g(k).goal+=r[3]; });
   var ms=Object.keys(closed).sort(), rng=ms.length ? fmtChartLabel_(ms[0]+'-01','monthly')+'–'+fmtChartLabel_(ms[ms.length-1]+'-01','monthly') : 'sin meses cerrados';
   return {data:G, rng:rng};
@@ -5408,7 +5448,7 @@ function flowGroupTable_(subRaw, metricKey, comp, col1, groupByRegion, childMax,
   // depender de en cuántos países aparece — los países no son un nivel del acordeón acá.
   function kidName_(c){ if(!tierFirst) return c; var i=c.lastIndexOf('|'); return c.substring(0,i)+' ('+c.substring(i+1)+')'; }
   function hispaRank_(k){ return k.indexOf('T1|')===0 ? 0 : {T2:1, T3:2, ONB:3}[k]; }
-  var orderFull = groupByRegion ? ['BR','SAH','NAM']
+  var orderFull = groupByRegion ? ['BR','SAH','NAM','RG']
     : tierFirst ? Object.keys(G).sort(function(a,b){ // Tier-1 x partner (por baseline), Tier-2, Tier-3 + Low Value, Onboarding
         return (hispaRank_(a)-hispaRank_(b)) || (G[b].base-G[a].base); })
     : Object.keys(G).sort(function(a,b){return G[b].base-G[a].base;});
@@ -5565,7 +5605,7 @@ function flowOCH2Data_(cmp){
   for(var i=6;i<12;i++){ var mm=(3+i)%12+1; h2m[(fy0+(i>=9?1:0))+'-'+(mm<10?'0':'')+mm]=1; }
   function mOf(r){ return r[1]==='ly' ? (+r[0].substring(0,4)+1)+r[0].substring(4,7) : r[0].substring(0,7); }
   (oc.rows||[]).forEach(function(r){ if(r[1]===ge && h2m[mOf(r)]) hasG[mOf(r)]=1; });
-  (oc.rows||[]).forEach(function(r){ var m=mOf(r); if(!hasG[m]) return; var k=getRegion_(r[2]), x=R[k]=R[k]||{base:0,goal:0};
+  (oc.rows||[]).forEach(function(r){ var m=mOf(r); if(!hasG[m]) return; var k=flowOCRegion_(r[2]), x=R[k]=R[k]||{base:0,goal:0};
     if(r[1]==='bl') x.base+=r[3]; else if(r[1]===ge) x.goal+=r[3]; });
   return R;
 }
@@ -6441,7 +6481,7 @@ function flRenderB2CKRs_(idx){
   var grid=document.getElementById('b2c-krsDetailGrid-'+idx);
   if(grid){
     function box(title, stage, metric){
-      var regs=['BR','NAM','SAH'].map(function(rg){
+      var regs=['BR','NAM','SAH','RG'].map(function(rg){
         var s2=flowKRSum_(b2bcRawOrg_(_orgTargetKR_()), stage, metric, 'budget', rg);
         return { name:FLOW_RG[rg].label, act:trkToM_(s2.actual), bud:trkToM_(s2.budget) };
       });
