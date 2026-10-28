@@ -18,6 +18,8 @@ const DEMO_EQUIPO = { slug: 'demo-equipo', dir: 'Demo_Module', title: 'Demo equi
 const DEMO_LAYOUT = { slug: 'demo-layout', dir: 'Demo_Module', title: 'Demo layout', desc: 'demo', ownia: true, requiresIdentity: false, layout: ['filter-aliases.js', 'hub-layout.js'], gasUrl: '' };
 // Mismo proyecto con funciones propias de Ownia (como el Daily: gasExtras).
 const DEMO_EXTRAS = { slug: 'demo-extras', dir: 'Demo_Module', title: 'Demo extras', desc: 'demo', ownia: true, requiresIdentity: false, gasExtras: ['daily-industry.js'], gasUrl: '' };
+// Mismo proyecto con `cacheFns`: la respuesta de esas funciones se calcula una vez y se reparte ya comprimida (server/api-cache.js).
+const DEMO_CACHE = { slug: 'demo-cache', dir: 'Demo_Module', title: 'Demo cache', desc: 'demo', ownia: true, requiresIdentity: false, cacheFns: ['contador'], gasUrl: '' };
 const PENDIENTE = { slug: 'pendiente', dir: 'No_Existe', title: 'Pendiente', desc: 'x', ownia: false, gasUrl: 'https://script.google.com/x/exec' };
 
 let demoServer;
@@ -47,7 +49,7 @@ const run = (fn, args, headers, slug = 'demo') =>
   request(demoServer, 'POST', `${BASE}/api/${slug}/${fn}`, { body: { args: args || [] }, headers: { ...RUN_HEADERS, ...(headers || {}) } });
 
 before(async () => {
-  demoServer = await listen(createApp({ GAS_ROOT: FIXTURES, BASE_PATH: BASE, modules: [DEMO, DEMO_PRIV, DEMO_EQUIPO, DEMO_LAYOUT, DEMO_EXTRAS, PENDIENTE], secrets: {}, TRUSTED_IDENTITY_HEADER: 'x-test-email', CALL_TIMEOUT_MS: 300 }));
+  demoServer = await listen(createApp({ GAS_ROOT: FIXTURES, BASE_PATH: BASE, modules: [DEMO, DEMO_PRIV, DEMO_EQUIPO, DEMO_LAYOUT, DEMO_EXTRAS, DEMO_CACHE, PENDIENTE], secrets: {}, TRUSTED_IDENTITY_HEADER: 'x-test-email', CALL_TIMEOUT_MS: 300 }));
   // Sin almacén de datos: el smoke test solo abre la landing (doGet), que no lee Drive.
   realServer = await listen(createApp({ BASE_PATH: BASE, TRUSTED_IDENTITY_HEADER: 'x-test-email', fileStore: null }));
 });
@@ -55,6 +57,16 @@ before(async () => {
 after(() => {
   demoServer.close();
   realServer.close();
+});
+
+test('cache de respuestas: una función en cacheFns se ejecuta una vez; las demás, cada vez', async () => {
+  const v = async (slug, headers) => JSON.parse((await run('contador', [], headers, slug)).text).result;
+  assert.equal(await v('demo-cache'), 1);
+  assert.equal(await v('demo-cache'), 1, 'la segunda sale del cache');
+  const gz = await run('contador', [], { 'Accept-Encoding': 'gzip' }, 'demo-cache');
+  assert.equal(gz.headers['content-encoding'], 'gzip', 'con gzip se reparte el comprimido tal cual');
+  assert.equal(await v('demo'), 1);
+  assert.equal(await v('demo'), 2, 'sin cacheFns se ejecuta cada vez');
 });
 
 test('health responde sin prefijo y con prefijo', async () => {

@@ -18,6 +18,9 @@ function include(name) {
   return HtmlService.createHtmlOutputFromFile(name).getContent();
 }
 
+var _veces = 0;
+function contador() { _veces++; return _veces; }   // para probar el cache de respuestas: cada ejecución real suma uno
+
 function sumar(a, b) {
   return a + b;
 }

@@ -100,6 +100,9 @@ const MODULES = [
     // daily-ceo-weekly.js: "Weekly · vs B2C" (vista CEO) arriba del Benchmark y como slide del Flow; va antes de daily-embed.js (agrega la slide al deck).
     layout: ['daily-layout.js', 'daily-ceo-weekly.js', 'daily-embed.js', 'daily-flow-tier.js', 'daily-flow-slides.js', 'daily-flowdeck.js'],
     gasExtras: ['daily-industry.js', 'daily-b2c-budget.js', 'daily-weekly-fvm.js'],
+    // Funciones que solo leen un JSON del espejo y devuelven lo mismo para todos: se cachea la respuesta ya comprimida (server/api-cache.js).
+    // Agregar acá solo funciones que NO dependan del usuario ni de parámetros ocultos.
+    cacheFns: ['getRawB2BC', 'getRawB2B', 'getB2BData', 'getRawOKRH2', 'getRawRecurrencia', 'getRecurTargets'],
     gasUrl: GAS_EXEC + 'AKfycbwMR3zk1r4uwui8vGtcmz0OwmeehC5JM8cuJRE3H-GQMfvxXWGTkYQ3R2nVjMyeAdX_1A/exec',
   },
   {

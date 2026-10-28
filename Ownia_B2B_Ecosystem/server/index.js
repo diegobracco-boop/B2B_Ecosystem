@@ -38,6 +38,7 @@ const { resolveIdentity, describeAuthHeaders } = require('./identity');
 const { createFileStore, isValidId } = require('./file-store');
 const { ingestAllowlist, loadManifest } = require('./drive-manifest');
 const { createNotesStore } = require('./notes-store');
+const { ApiCache } = require('./api-cache');
 
 const MAX_BODY = 5 * 1024 * 1024; // google.script.run acepta payloads grandes (p.ej. capturas)
 const MAX_INGEST = 100 * 1024 * 1024; // los JSON canónicos pesan hasta ~15 MB
@@ -51,6 +52,7 @@ function createApp(opts = {}) {
   const modules = opts.modules || MODULES;
   const findModule = (slug) => modules.find((m) => m.slug === slug && m.ownia) || null;
   const projects = new Map(); // slug -> GasProject | Error
+  const apiCache = opts.apiCache !== undefined ? opts.apiCache : new ApiCache();   // respuestas de las funciones `cacheFns` (ver api-cache.js)
   const fileStore = opts.fileStore !== undefined ? opts.fileStore : createFileStore(cfg, log);
   const notesStore = opts.notesStore !== undefined ? opts.notesStore : createNotesStore(cfg);
   // Datos nuevos → se recargan los módulos. En GAS cada ejecución arranca con los globales
@@ -71,7 +73,7 @@ function createApp(opts = {}) {
   if (fileStore) {
     fileStore.onChange((ids) => {
       for (const slug of [...projects.keys()]) {
-        if (ids.some((id) => readsFile(slug, id))) projects.delete(slug);
+        if (ids.some((id) => readsFile(slug, id))) { projects.delete(slug); if (apiCache) apiCache.dropModule(slug); }
       }
     });
   }
@@ -271,6 +273,7 @@ function createApp(opts = {}) {
 
   async function handle(req, res) {
     const t0 = Date.now();
+    let cacheState;   // 'hit' | 'miss' en las funciones cacheadas de /api
     const url = new URL(req.url, 'http://local');
     let route;
     try {
@@ -281,7 +284,7 @@ function createApp(opts = {}) {
     const identity = resolveIdentity(req.headers, cfg.TRUSTED_IDENTITY_HEADER);
     res.on('finish', () => {
       if (route === '/health') return; // el ALB pega cada pocos segundos
-      log({ level: 'info', method: req.method, path: route, status: res.statusCode, ms: Date.now() - t0, user: identity.email || null });
+      log({ level: 'info', method: req.method, path: route, status: res.statusCode, ms: Date.now() - t0, user: identity.email || null, ...(cacheState ? { cache: cacheState } : {}) });
     });
 
     if (route === '/health' || route === '/healthz') {
@@ -387,6 +390,23 @@ function createApp(opts = {}) {
         }
         const args = Array.isArray(body.args) ? body.args : [];
         const reqCtx = { user: identity, userAgent: req.headers['user-agent'] || '', moduleUrl: `${publicOrigin(req)}${cfg.BASE_PATH}/${mod.slug}` };
+        // Funciones que devuelven lo mismo para todos mientras no cambien los datos (`cacheFns` del módulo): se calcula una vez y se reparte
+        // el gzip ya armado. La clave lleva el día para que no dependan de un cambio de fecha sin datos nuevos.
+        if (apiCache && Array.isArray(mod.cacheFns) && mod.cacheFns.includes(parts[2])) {
+          const key = `${mod.slug}|${parts[2]}|${JSON.stringify(args)}|${new Date().toISOString().slice(0, 10)}`;
+          let ent = apiCache.get(key);
+          cacheState = ent ? 'hit' : 'miss';
+          if (!ent) {
+            ent = apiCache.set(key, mod.slug, (async () => {
+              const result = project.call(parts[2], JSON.stringify(args), reqCtx);
+              return gzip(Buffer.from(JSON.stringify({ result: result === undefined ? null : result }), 'utf8'), { level: 4 });
+            })());
+          }
+          const gz = await ent.promise;
+          const hdrs = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' };
+          if (/\bgzip\b/i.test(String(req.headers['accept-encoding'] || ''))) return send(res, 200, { ...hdrs, 'Content-Encoding': 'gzip', Vary: 'Accept-Encoding' }, gz);
+          return send(res, 200, hdrs, (await gunzip(gz)).toString('utf8'));
+        }
         const result = project.call(parts[2], JSON.stringify(args), reqCtx);
         // Como en GAS: undefined viaja como null.
         return await sendCompressible(req, res, 200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' },
