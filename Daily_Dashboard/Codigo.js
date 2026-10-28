@@ -104,11 +104,14 @@ function cacheGet_(key) {
     var cache = CacheService.getScriptCache();
     var nStr = cache.get(key + '_n');
     if (!nStr) return null;
-    var n = parseInt(nStr), parts = [];
-    for (var i = 0; i < n; i++) {
-      var c = cache.get(key + '_' + i);
-      if (!c) return null;
-      parts.push(c);
+    // Todos los pedazos en una sola llamada: de a uno (cache.get) eran ~415 viajes y tardaba
+    // ~18 s para el JSON de B2B2C, más que leerlo de Drive; con getAll baja a ~2 s.
+    var n = parseInt(nStr), keys = [];
+    for (var i = 0; i < n; i++) keys.push(key + '_' + i);
+    var got = cache.getAll(keys), parts = [];
+    for (var j = 0; j < n; j++) {
+      if (!got[keys[j]]) return null;
+      parts.push(got[keys[j]]);
     }
     return parts.join('');
   } catch(ex) { return null; }
