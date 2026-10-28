@@ -10,7 +10,7 @@ const { DirNotes } = require('../server/notes-store');
 
 const BASE = '/b2b-ecosystem';
 const FIXTURES = path.join(__dirname, 'fixtures');
-const EQUIPO = { slug: 'demo-equipo', dir: 'Demo_Module', title: 'Demo', desc: 'demo', ownia: true, allowedUsers: ['ana@despegar.com'], gasUrl: '' };
+const EQUIPO = { slug: 'demo-equipo', dir: 'Demo_Module', title: 'Demo', desc: 'demo', ownia: true, allowedUsers: ['ana@despegar.com', 'otro@despegar.com'], noteEditors: { vistas: ['Ana@despegar.com'] }, gasUrl: '' };
 const JSON_RUN = { 'Content-Type': 'application/json', 'X-Requested-With': 'google.script.run' };
 
 let server, dir;
@@ -51,10 +51,23 @@ test('notas: se guardan por campo y se leen con autor y fecha', async () => {
   assert.deepEqual(r.json.notes, {});
 });
 
+test('notas: un scope con editores propios lo lee cualquiera del módulo pero lo escribe solo esa lista', async () => {
+  const ana = { ...JSON_RUN, 'x-test-email': 'ana@despegar.com' }, otro = { ...JSON_RUN, 'x-test-email': 'otro@despegar.com' };
+  assert.equal((await req('POST', '/notes/demo-equipo/vistas', { headers: ana, body: { field: 'u_x', text: '{}' } })).status, 200);
+  assert.equal((await req('POST', '/notes/demo-equipo/vistas', { headers: otro, body: { field: 'u_y', text: '{}' } })).status, 403);
+  const g = await req('GET', '/notes/demo-equipo/vistas', { headers: otro });
+  assert.equal(g.status, 200);
+  assert.equal(g.json.canEdit, false);
+  assert.deepEqual(Object.keys(g.json.notes), ['u_x']);
+  assert.equal((await req('GET', '/notes/demo-equipo/vistas', { headers: ana })).json.canEdit, true);
+  // los otros scopes siguen abiertos a todo el módulo
+  assert.equal((await req('POST', '/notes/demo-equipo/otro-scope', { headers: otro, body: { field: 'a', text: 'b' } })).status, 200);
+});
+
 test('notas: mismos permisos que el módulo, anti-CSRF y validación', async () => {
   // sin usuario / usuario fuera de la lista
   assert.equal((await req('GET', '/notes/demo-equipo/slides-2026-09')).status, 401);
-  assert.equal((await req('GET', '/notes/demo-equipo/slides-2026-09', { headers: { 'x-test-email': 'otro@despegar.com' } })).status, 403);
+  assert.equal((await req('GET', '/notes/demo-equipo/slides-2026-09', { headers: { 'x-test-email': 'nadie@despegar.com' } })).status, 403);
   // POST sin el header custom (form cross-site) → rechazado
   const r1 = await req('POST', '/notes/demo-equipo/slides-2026-09', { headers: { 'Content-Type': 'application/json', 'x-test-email': 'ana@despegar.com' }, body: { field: 'x', text: 'y' } });
   assert.equal(r1.status, 403);

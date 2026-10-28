@@ -42,7 +42,10 @@
   var cache = {};
   // Modo embebido (módulo Flow): <base>/hub?slides=1&embedded=1. Sin la barra del Hub ni el botón de volver, y avisa al padre en qué slide está.
   var EMB = /[?&]embedded=1\b/.test(location.search);
-  if (EMB) { var embCss = document.createElement('style'); embCss.textContent = '#ownia-hubnav,.hs-close{display:none!important}'; (document.head || document.documentElement).appendChild(embCss); }
+  // "Enviar a Google Slides" de las Slides cierre de mes no va en Ownia (2026-10-28): se reemplaza por "Descargar PPTX" del módulo Flow. En Apps Script sigue igual.
+  var embCss = document.createElement('style');
+  embCss.textContent = '#cierre-export-btn{display:none!important}' + (EMB ? '#ownia-hubnav,.hs-close{display:none!important}' : '');
+  (document.head || document.documentElement).appendChild(embCss);
   // B2B-MAY (API) por segmento, del contable: pedidos por país × producto y los segmentos salen por
   // suma / resta (el filtro de producto del Hub toma un solo valor). Sin solapamientos:
   //   Hoteles Brasil = brasil × hotels · Hoteles Globales = other countries × hotels · Flights & Dest. Serv. = flights + dest. serv. (todos los países)
@@ -526,6 +529,29 @@
       deck.innerHTML = '<p class="hs-err">No se pudieron leer los datos: ' + esc((e && e.message) || e) + '</p>';
     });
   }
+
+  // Embebido: el Flow pide las slides como imágenes (1280x720 nativo, sin el transform de pantalla) para armar el PPTX.
+  if (EMB && /[?&]slides=1\b/.test(location.search)) window.__flowExport = function () {
+    var fr = panel && panel.querySelectorAll('.hs-frame');
+    if (!fr || !fr.length || typeof window.html2canvas !== 'function') return Promise.reject(new Error('El Flow mensual todavía está cargando.'));
+    var present = panel.classList.contains('hs-present');
+    var items = Array.prototype.map.call(fr, function (f) {
+      var cap = f.querySelector('.hs-cap');
+      return { el: f.querySelector('.hs-slide'), title: cap ? cap.textContent.replace(/^\s*\d+\s*·\s*/, '') : '' };
+    });
+    items.forEach(function (it) { it.el.style.transform = 'none'; });
+    var chain = Promise.resolve([]);
+    items.forEach(function (it, i) {
+      chain = chain.then(function (acc) {
+        return window.html2canvas(it.el, { scale: 1.5, useCORS: true, backgroundColor: '#ffffff' }).then(function (c) {
+          acc.push({ img: c.toDataURL('image/jpeg', 0.88), w: c.width, h: c.height, title: it.title || ('Slide ' + (i + 1)) });
+          return acc;
+        });
+      });
+    });
+    var restore = function () { if (!present) fit(); };
+    return chain.then(function (a) { restore(); return a; }, function (e) { restore(); throw e; });
+  };
 
   // Embebido: informa al padre (Flow) qué slide se está viendo (la más visible del deck) para ligar los comentarios.
   var slideIO = null;

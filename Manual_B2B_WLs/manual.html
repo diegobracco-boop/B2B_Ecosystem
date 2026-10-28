@@ -502,6 +502,9 @@ a.ext-link:hover { text-decoration: underline; }
   <a class="nav-item" onclick="showSection('linaje')">
     <span class="nav-icon">🛤️</span> De dónde sale cada número
   </a>
+  <a class="nav-item" onclick="showSection('gantt')">
+    <span class="nav-icon">📅</span> Calendario: reuniones y MRM
+  </a>
 
   <div class="sidebar-section">Guía del equipo</div>
   <a class="nav-item" onclick="showSection('empezar')">
@@ -523,7 +526,7 @@ a.ext-link:hover { text-decoration: underline; }
     <span class="nav-icon">👥</span> Quién hace qué
   </a>
   <a class="nav-item" onclick="showSection('plan-equipo')">
-    <span class="nav-icon">🗺️</span> Plan Equipo B2B
+    <span class="nav-icon">🗺️</span> Estructura equipo
   </a>
   <a class="nav-item" onclick="showSection('gantt')">
     <span class="nav-icon">📅</span> Gantt
@@ -790,7 +793,7 @@ a.ext-link:hover { text-decoration: underline; }
             <td>Tickets de software en el portal de Soporte (referencias <a class="ext-link" href="https://jira.despegar.com/servicedesk/customer/portal/2/SOPORTE-423921" target="_blank">SOPORTE-423921 ↗</a> y <a class="ext-link" href="https://jira.despegar.com/servicedesk/customer/portal/2/SOPORTE-423923" target="_blank">SOPORTE-423923 ↗</a>).</td></tr>
         </tbody>
       </table>
-      <div class="page-sub" style="margin:14px 0 0"><strong>Regla general:</strong> <em>Jira-Sec</em> es para crear usuarios y permisos; el <em>Jira de Soporte</em> es para instalar programas. Los accesos técnicos para correr los pipelines (Datalake, VPN, Drive, clasp) están en <strong>Plan Equipo B2B → Accesos que hacen falta</strong>.</div>
+      <div class="page-sub" style="margin:14px 0 0"><strong>Regla general:</strong> <em>Jira-Sec</em> es para crear usuarios y permisos; el <em>Jira de Soporte</em> es para instalar programas. Los accesos técnicos para correr los pipelines (Datalake, VPN, Drive, clasp) están en <strong>Estructura equipo → Accesos que hacen falta</strong>.</div>
     </div>
 
     <div class="alert-box info">
@@ -1207,7 +1210,7 @@ a.ext-link:hover { text-decoration: underline; }
   <div class="section" id="sec-plan-equipo">
     <div class="page-header">
       <div class="page-tag">Guía del equipo</div>
-      <div class="page-title">Plan <span>Equipo B2B</span></div>
+      <div class="page-title">Estructura <span>equipo</span></div>
       <div class="page-sub">Quién es quién y cuáles son las tareas recurrentes del equipo B2B &amp; WLs.</div>
     </div>
 
@@ -1216,7 +1219,7 @@ a.ext-link:hover { text-decoration: underline; }
       <table class="doc-table">
         <thead><tr><th>Nombre</th><th>Rol</th><th>Área</th></tr></thead>
         <tbody>
-          <tr><td>Diego Bracco</td><td>Manager</td><td>B2B + B2B2C</td></tr>
+          <tr><td>Diego Bracco</td><td>Manager</td><td>B2B + B2B2C + Loyalty B2C</td></tr>
           <tr><td>Tiago Harari</td><td>Analista</td><td>B2B2C</td></tr>
           <tr><td>Gregorio Minetti</td><td>Analista</td><td>B2B2C</td></tr>
           <tr><td>Antonella Di Franco</td><td>Analista</td><td>B2B</td></tr>
@@ -1270,7 +1273,19 @@ a.ext-link:hover { text-decoration: underline; }
     <div class="page-header">
       <div class="page-tag">Guía del equipo</div>
       <div class="page-title">Gantt <span>FY27 (Abr'26 → Mar'27)</span></div>
-      <div class="page-sub">Guía de entregables día a día para los analistas del equipo B2B &amp; WLs — qué toca cada día del mes, alineado al año fiscal Prosus (abril a marzo).</div>
+      <div class="page-sub">Qué toca cada día del mes, alineado al año fiscal Prosus (abril a marzo): las reuniones fijas con el CEO y el CFO, la MRM y los entregables del equipo B2B &amp; WLs. Lo usan el equipo y el Chief del negocio.</div>
+    </div>
+
+    <div class="card" id="gantt-fixed">
+      <div class="card-title">📌 Reuniones y entregas fijas</div>
+      <table class="doc-table">
+        <tbody>
+          <tr><td>Weekly / presentación a revisar con el CEO</td><td>Todos los lunes a las 12 h (Argentina) tiene que estar cerrada, lista para revisar con el CEO.</td></tr>
+          <tr><td>Reunión semanal B2B &amp; WLs</td><td>Todos los martes a las 13 h (Argentina), con el CEO y el CFO.</td></tr>
+          <tr><td>MRM — Mensual de Resultados</td><td>El primer martes de cada mes.</td></tr>
+          <tr><td>Envío del material MRM</td><td>El viernes anterior al primer martes del mes (si es feriado, el día hábil previo). Reemplaza a la antigua "entrega material MRM" del 4to jueves.</td></tr>
+        </tbody>
+      </table>
     </div>
 
     <div class="card">
@@ -1304,7 +1319,7 @@ a.ext-link:hover { text-decoration: underline; }
       </div>
     </div>
 
-    <div class="alert-box info">ℹ️ "Día hábil" cuenta días de semana (lun-vie) excluyendo los feriados nacionales de Argentina marcados en rojo. Los ítems semanales (lun/mar/vie) y mensuales por posición (3er/4to jueves) no se recalculan si caen en feriado — ajustar a mano en ese caso.</div>
+    <div class="alert-box info">ℹ️ "Día hábil" cuenta días de semana (lun-vie) excluyendo los feriados nacionales de Argentina marcados en rojo. Los ítems semanales (lun/mar/vie) y mensuales por posición (3er jueves, 1er martes) no se recalculan si caen en feriado — ajustar a mano en ese caso. Única excepción: el envío del material MRM, que pasa solo al día hábil anterior.</div>
   </div>
 
   <!-- ═════════════════════════ DÍA A DÍA DEL EQUIPO ═════════════════════════ -->
@@ -3460,8 +3475,11 @@ var GANTT_ITEMS = [
   { label:'Carga de Run Rate en EPM — proyecciones 12 meses',               color:'#fb923c', quad:'do',    rule:{ type:'nth-weekday', n:3, weekday:4 } },
   { label:'Actualización resultados semanales',                             color:'#38bdf8', quad:'plan',  rule:{ type:'weekday', weekday:1 } },
   { label:'Reuniones semanales B2B y B2B2C — N2',                           color:'#22c55e', quad:'plan',  rule:{ type:'weekday', weekday:5 } },
+  { label:'Weekly / presentación cerrada para revisar con el CEO · 12 h ARG', color:'#22d3ee', quad:'do',    rule:{ type:'weekday', weekday:1 } },
+  { label:'Reunión semanal B2B & WLs con CEO y CFO · 13 h ARG',             color:'#a780ff', quad:'do',    rule:{ type:'weekday', weekday:2 } },
   { label:'Reunión semanal B2B2C Hispa & Brasil — N3',                      color:'#e879f9', quad:'deleg', rule:{ type:'weekday', weekday:2 } },
-  { label:'Entrega material MRM (mensual de resultados)',                   color:'#fbbf24', quad:'do',    rule:{ type:'nth-weekday', n:4, weekday:4 } },
+  { label:'MRM — Mensual de Resultados (1er martes del mes)',               color:'#ff5454', quad:'do',    rule:{ type:'nth-weekday', n:1, weekday:2 } },
+  { label:'Envío material MRM (viernes previo al MRM)',                     color:'#fbbf24', quad:'do',    rule:{ type:'fri-before-first-tue' } },
   { label:'Reunión revisión cierre contable con Contabilidad',              color:'#2dd4bf', quad:'do',    rule:{ type:'nth-bizday', n:5 } },
   { label:'Envío cierre transaccional vs. Run Rate de palancas de negocio', color:'#a780ff', quad:'do',    rule:{ type:'nth-bizday', n:1 } },
   { label:"Trackeo OKR H2'27",                                              color:'#a3e635', quad:'do',    rule:{ type:'date', y:2026, m:9, d:2 } }   // vie 2/10/2026 (m: 0=Ene → 9=Oct)
@@ -3523,13 +3541,48 @@ function _ganttNthBizDay(y, m, n){
   }
   return null;
 }
-function _ganttDatesForItem(item, y, m){
-  var r = item.rule;
+// Viernes anterior al 1er martes de un mes (y, m): 1er martes - 4 días. Si es feriado, el día hábil previo.
+// Puede caer en el mes anterior (martes 1 al 3) o en el mismo mes (martes 4 al 7).
+function _ganttFriBeforeFirstTue(y, m){
+  var tue = _ganttWeekdaysInMonth(y, m, 2)[0];
+  var f = new Date(y, m, tue - 4);
+  while (f.getDay() === 0 || f.getDay() === 6 || _ganttHolidayName(f.getFullYear(), f.getMonth(), f.getDate())) f.setDate(f.getDate() - 1);
+  return f;
+}
+function _ganttBaseDates(r, y, m){
   if (r.type === 'weekday') return _ganttWeekdaysInMonth(y, m, r.weekday);
-  if (r.type === 'nth-weekday') { var days = _ganttWeekdaysInMonth(y, m, r.weekday); return days[r.n - 1] ? [days[r.n - 1]] : []; }
+  if (r.type === 'weekdays') {   // varios días de la semana (ej. lunes y jueves)
+    var out = [];
+    (r.days || []).forEach(function(w){ out = out.concat(_ganttWeekdaysInMonth(y, m, w)); });
+    return out.sort(function(a, b){ return a - b; });
+  }
+  if (r.type === 'nth-weekday') {
+    var days = _ganttWeekdaysInMonth(y, m, r.weekday);
+    var pick = r.n === -1 ? days[days.length - 1] : days[r.n - 1];   // n = -1: último del mes
+    return pick ? [pick] : [];
+  }
+  if (r.type === 'monthday') { var last = new Date(y, m + 1, 0).getDate(); return r.d <= last ? [r.d] : [last]; }
   if (r.type === 'nth-bizday') { var d = _ganttNthBizDay(y, m, r.n); return d ? [d] : []; }
   if (r.type === 'date') return (r.y === y && r.m === m) ? [r.d] : [];   // evento puntual (una sola fecha)
+  if (r.type === 'fri-before-first-tue') {
+    var res = [];
+    [m, m + 1].forEach(function(mm){   // el viernes de este mes puede ser el del 1er martes de este mes o del siguiente
+      var f = _ganttFriBeforeFirstTue(new Date(y, mm, 1).getFullYear(), new Date(y, mm, 1).getMonth());
+      if (f.getFullYear() === y && f.getMonth() === m) res.push(f.getDate());
+    });
+    return res;
+  }
   return [];
+}
+function _ganttDatesForItem(item, y, m){
+  var days = _ganttBaseDates(item.rule, y, m);
+  if (item.from || item.to) {   // vigencia opcional (AAAA-MM-DD)
+    days = days.filter(function(d){
+      var iso = y + '-' + String(m + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+      return (!item.from || iso >= item.from) && (!item.to || iso <= item.to);
+    });
+  }
+  return days;
 }
 
 function ganttDefaultIndex(){
@@ -3579,7 +3632,7 @@ function ganttRenderMonth(idx){
       grid += '<div class="gantt-cal-off-x" title="No laborable">✕</div>';
     } else {
       items.forEach(function(it){
-        grid += '<div class="gantt-cal-tag" style="background:' + it.color + '3d;color:' + it.color + '" title="' + it.label + '">' + it.label + '</div>';
+        grid += '<div class="gantt-cal-tag" style="background:' + it.color + '3d;color:' + it.color + ';border-left:3px solid ' + it.color + '" title="' + it.label + '">' + it.label + '</div>';
       });
     }
     grid += '</div>';
@@ -3591,16 +3644,20 @@ function ganttRenderMonth(idx){
   document.getElementById('gantt-cal-container').innerHTML = head + grid;
 }
 
-(function ganttInit(){
-  var sel = document.getElementById('gantt-cal-select');
-  sel.innerHTML = GANTT_MONTHS.map(function(mo, i){ return '<option value="' + i + '">' + mo.label + '</option>'; }).join('');
+function ganttRefresh(){
   document.getElementById('gantt-legend').innerHTML = GANTT_ITEMS.map(function(it){
     return '<span><span class="gantt-legend-dot" style="background:' + it.color + '"></span>' + it.label + '</span>';
   }).join('') + '<span><span class="gantt-legend-dot" style="background:#f87171"></span>Feriado nacional (Argentina)</span>';
+  ganttRenderMonth(_ganttIdx);
+  eisRender();
+}
+(function ganttInit(){
+  var sel = document.getElementById('gantt-cal-select');
+  sel.innerHTML = GANTT_MONTHS.map(function(mo, i){ return '<option value="' + i + '">' + mo.label + '</option>'; }).join('');
   var def = ganttDefaultIndex();
   sel.value = def;
-  ganttRenderMonth(def);
-  eisRender();
+  _ganttIdx = def;
+  ganttRefresh();
 })();
 
 // Frecuencia legible a partir de la regla del Gantt (ej. "3er jueves del mes").
@@ -3608,8 +3665,12 @@ function eisWhen(rule){
   var DAYS = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
   var ORD  = ['', '1er', '2do', '3er', '4to', '5to'];
   if (rule.type === 'weekday')     return 'Todos los ' + DAYS[rule.weekday];
-  if (rule.type === 'nth-weekday') return ORD[rule.n] + ' ' + DAYS[rule.weekday] + ' del mes';
+  if (rule.type === 'weekdays')    return 'Todos los ' + (rule.days || []).map(function(w){ return DAYS[w]; }).join(' y ');
+  if (rule.type === 'nth-weekday') return (rule.n === -1 ? 'Último' : ORD[rule.n]) + ' ' + DAYS[rule.weekday] + ' del mes';
+  if (rule.type === 'monthday')    return 'Día ' + rule.d + ' de cada mes';
   if (rule.type === 'nth-bizday')  return ORD[rule.n] + ' día hábil del mes';
+  if (rule.type === 'fri-before-first-tue') return 'Viernes anterior al 1er martes del mes';
+  if (rule.type === 'date')        return rule.d + '/' + (rule.m + 1) + '/' + rule.y;
   return '';
 }
 function eisRender(){

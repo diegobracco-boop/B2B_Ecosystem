@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<title>Flow · B2B Ecosystem</title>
+<title>Presentaciones · B2B Ecosystem</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -18,6 +18,10 @@ body{font-family:Poppins,system-ui,sans-serif;background:#f5f5f7;color:#1d1d1f;d
 .fx-tab:hover{background:#f2f2f7}
 .fx-tab.on{background:#550fed;color:#fff}
 .fx-sp{flex:1}
+.fx-sub{display:none;gap:4px;background:#f2f2f7;border-radius:999px;padding:3px}
+.fx-sub.on{display:flex}
+.fx-pill{border:0;background:transparent;border-radius:999px;padding:5px 12px;font:600 12px Poppins,sans-serif;color:#6e6e73;cursor:pointer}
+.fx-pill.on{background:#fff;color:#550fed;box-shadow:0 1px 3px rgba(0,0,0,.12)}
 .fx-home{font-size:12px;font-weight:600;color:#6e6e73;text-decoration:none;padding:6px 10px;border-radius:8px;border:1px solid #e5e5ea}
 .fx-home:hover{color:#550fed;border-color:#550fed}
 .fx-main{flex:1;display:flex;min-height:0}
@@ -44,28 +48,36 @@ textarea:focus{border-color:#550fed;box-shadow:0 0 0 3px rgba(85,15,237,.12)}
 .fx-foot{font-size:11px;color:#8e8e93;line-height:1.5}
 .fx-count{font-size:11.5px;color:#6e6e73}
 @media (max-width:900px){.fx-side{display:none}}
+.fx-top .fx-btn{padding:7px 14px;font-size:12.5px}
 </style>
+<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
 </head>
 <body>
 <header class="fx-top">
   <span class="fx-logo">despegar</span>
-  <h1>Flow</h1>
-  <nav class="fx-tabs" role="tablist" aria-label="Flow">
+  <h1>Presentaciones</h1>
+  <nav class="fx-tabs" role="tablist" aria-label="Presentaciones">
     <button class="fx-tab on" id="tab-semanal" role="tab" data-s="semanal" title="Información gestional (Datalake): Daily, Run Rate y Budget gestional">Semanal <small>Gestional</small></button>
     <button class="fx-tab" id="tab-mensual" role="tab" data-s="mensual" title="Información contable (P&L): cierre de mes, Run Rate y Budget contable">Mensual <small>Contable</small></button>
   </nav>
+  <nav class="fx-sub" id="fx-sub" aria-label="Mensual">
+    <button class="fx-pill on" data-s="mensual" title="Slides mensuales del Hub: resultados, OKRs, evolución, proyección">Slides mensuales</button>
+    <button class="fx-pill" data-s="cierre" title="Slides cierre de mes: Consolidado, B2B y B2B2C vs Budget / Forecast, evolutivos y bridge de OC">Cierre de mes</button>
+  </nav>
   <span class="fx-sp"></span>
+  <button class="fx-btn sec" id="fx-pptx" type="button" title="Descarga las slides de esta pestaña como PowerPoint (se abre en Google Slides desde Drive); tus comentarios van como notas">⬇ Descargar PPTX</button>
   <a class="fx-home" id="fx-home" href="#" title="Volver al menú principal de B2B Ecosystem">🏠 Home</a>
 </header>
 <div class="fx-main">
   <div class="fx-frames">
-    <iframe id="f-semanal" title="Flow semanal (gestional)"></iframe>
-    <iframe id="f-mensual" title="Flow mensual (contable)"></iframe>
-    <div class="fx-note" id="fx-denied"><div><b>No tenés acceso al Flow mensual.</b><br>Es información contable del P&amp;L y está restringida al equipo B2B.<br>Pedí acceso a diego.bracco@despegar.com.</div></div>
+    <iframe id="f-semanal" title="Presentación semanal (gestional)"></iframe>
+    <iframe id="f-mensual" title="Presentación mensual (contable)"></iframe>
+    <iframe id="f-cierre" title="Slides cierre de mes (contable)"></iframe>
+    <div class="fx-note" id="fx-denied"><div><b>No tenés acceso a la presentación mensual.</b><br>Es información contable del P&amp;L y está restringida al equipo B2B.<br>Pedí acceso a diego.bracco@despegar.com.</div></div>
   </div>
   <aside class="fx-side" aria-label="Comentarios">
     <h2>Comentarios</h2>
-    <div class="fx-where" id="fx-where">Abriendo el Flow…</div>
+    <div class="fx-where" id="fx-where">Abriendo las presentaciones…</div>
     <textarea id="fx-text" placeholder="¿Qué cambiarías de este slide? ¿Qué no se entiende? ¿Qué falta o sobra?"></textarea>
     <button class="fx-btn pri" id="fx-send" type="button">✉ Enviar este comentario por mail</button>
     <button class="fx-btn sec" id="fx-all" type="button">Enviar todos mis comentarios (0)</button>
@@ -79,13 +91,14 @@ textarea:focus{border-color:#550fed;box-shadow:0 0 0 3px rgba(85,15,237,.12)}
   'use strict';
   var TO = ['diego.bracco@despegar.com', 'matias.m.sanchez@despegar.com'];
   var LS = 'flow_comments_v1';
-  var NAMES = { semanal: 'Flow semanal (gestional)', mensual: 'Flow mensual (contable)' };
+  var NAMES = { semanal: 'Presentación semanal (gestional)', mensual: 'Presentación mensual (contable)', cierre: 'Presentación mensual · Cierre de mes (contable)' };
   var base = location.pathname.replace(/\/flow\/?$/, '');
-  var SRC = { semanal: base + '/daily?flowdeck=1', mensual: base + '/hub?slides=1&embedded=1' };
+  var SRC = { semanal: base + '/daily?flowdeck=1', mensual: base + '/hub?slides=1&embedded=1', cierre: base + '/hub?cierre=1&embedded=1' };
   var home = document.getElementById('fx-home');
   home.href = base + '/';
   var sec = 'semanal';
-  var where = { semanal: null, mensual: null };   // último slide informado por cada iframe
+  var where = { semanal: null, mensual: null, cierre: null };
+  var monthly = 'mensual';   // sub-sección activa de la pestaña Mensual   // último slide informado por cada iframe
   var denied = false;
   var els = { text: document.getElementById('fx-text'), where: document.getElementById('fx-where'), all: document.getElementById('fx-all'),
               count: document.getElementById('fx-count') };
@@ -107,7 +120,7 @@ textarea:focus{border-color:#550fed;box-shadow:0 0 0 3px rgba(85,15,237,.12)}
   function refreshWhere() {
     var w = where[sec];
     if (!w) { els.where.textContent = 'Esperando que cargue el ' + NAMES[sec] + '…'; return; }
-    els.where.innerHTML = '<span class="tag' + (sec === 'mensual' ? ' c' : '') + '">' + (sec === 'mensual' ? 'Contable' : 'Gestional') + '</span>' +
+    els.where.innerHTML = '<span class="tag' + (sec !== 'semanal' ? ' c' : '') + '">' + (sec !== 'semanal' ? 'Contable' : 'Gestional') + '</span>' +
       '<b>' + esc(w.title) + '</b><br>' + (w.idx != null ? 'Slide ' + (w.idx + 1) + (w.total ? ' de ' + w.total : '') : '') + (w.month ? ' · cierre ' + esc(w.month) : '');
   }
   function showSlide() {
@@ -130,16 +143,22 @@ textarea:focus{border-color:#550fed;box-shadow:0 0 0 3px rgba(85,15,237,.12)}
   function openTab(s) {
     flushText();
     sec = s;
-    ['semanal', 'mensual'].forEach(function (k) {
-      document.getElementById('tab-' + k).classList.toggle('on', k === s);
-      var f = document.getElementById('f-' + k);
-      f.classList.toggle('on', k === s && !(k === 'mensual' && denied));
-      if (k === s && !f.getAttribute('src') && !(k === 'mensual' && denied)) f.setAttribute('src', SRC[k]);
+    if (s !== 'semanal') monthly = s;
+    var isM = s !== 'semanal';
+    document.getElementById('tab-semanal').classList.toggle('on', !isM);
+    document.getElementById('tab-mensual').classList.toggle('on', isM);
+    document.getElementById('fx-sub').classList.toggle('on', isM);
+    Array.prototype.forEach.call(document.querySelectorAll('.fx-pill'), function (b) { b.classList.toggle('on', b.dataset.s === monthly); });
+    ['semanal', 'mensual', 'cierre'].forEach(function (k) {
+      var f = document.getElementById('f-' + k), blocked = k !== 'semanal' && denied;
+      f.classList.toggle('on', k === s && !blocked);
+      if (k === s && !f.getAttribute('src') && !blocked) f.setAttribute('src', SRC[k]);
     });
-    document.getElementById('fx-denied').classList.toggle('on', s === 'mensual' && denied);
+    document.getElementById('fx-denied').classList.toggle('on', isM && denied);
     showSlide();
   }
-  Array.prototype.forEach.call(document.querySelectorAll('.fx-tab'), function (b) { b.onclick = function () { openTab(b.dataset.s); }; });
+  Array.prototype.forEach.call(document.querySelectorAll('.fx-tab'), function (b) { b.onclick = function () { openTab(b.dataset.s === 'mensual' ? monthly : 'semanal'); }; });
+  Array.prototype.forEach.call(document.querySelectorAll('.fx-pill'), function (b) { b.onclick = function () { openTab(b.dataset.s); }; });
 
   // los iframes (mismo origen) avisan en qué slide están
   window.addEventListener('message', function (ev) {
@@ -162,7 +181,7 @@ textarea:focus{border-color:#550fed;box-shadow:0 0 0 3px rgba(85,15,237,.12)}
     }
     window.location.href = url;
   }
-  var HDR = 'Flow · B2B Ecosystem · ' + location.origin + base + '/flow\n';
+  var HDR = 'Presentaciones · B2B Ecosystem · ' + location.origin + base + '/flow\n';
   function fmt(c) {
     return '■ ' + NAMES[c.section] + ' · ' + c.title + (c.month ? ' (cierre ' + c.month + ')' : '') + '\n' + c.text + '\n';
   }
@@ -170,13 +189,13 @@ textarea:focus{border-color:#550fed;box-shadow:0 0 0 3px rgba(85,15,237,.12)}
     flushText();
     var w = where[sec], o = load(), c = shown && o[shown.k];
     if (!c) { alert('Escribí un comentario en el cuadro antes de enviarlo.'); return; }
-    mailto('[Flow] ' + NAMES[c.section] + ' · ' + c.title, HDR + '\n' + fmt(c));
+    mailto('[Presentaciones] ' + NAMES[c.section] + ' · ' + c.title, HDR + '\n' + fmt(c));
   };
   els.all.onclick = function () {
     flushText();
     var o = load(), list = Object.keys(o).map(function (k) { return o[k]; }).sort(function (a, b) { return a.ts - b.ts; });
     if (!list.length) return;
-    mailto('[Flow] Comentarios (' + list.length + ')', HDR + '\n' + list.map(fmt).join('\n'));
+    mailto('[Presentaciones] Comentarios (' + list.length + ')', HDR + '\n' + list.map(fmt).join('\n'));
   };
   document.getElementById('fx-clear').onclick = function () {
     if (!Object.keys(load()).length) return;
@@ -184,13 +203,46 @@ textarea:focus{border-color:#550fed;box-shadow:0 0 0 3px rgba(85,15,237,.12)}
     save({}); els.text.value = ''; refreshCount();
   };
 
-  // el Flow mensual es contable: si el Hub (que sirve los datos) rechaza al usuario, se avisa en vez de mostrar un iframe en blanco
+  // ── PPTX ── cada iframe (mismo origen) expone __flowExport(): devuelve las slides como imágenes 16:9. Acá se arma el .pptx en el navegador;
+  // los comentarios guardados de cada slide van como notas del orador. Se abre en Google Slides subiéndolo a Drive.
+  var pptxBtn = document.getElementById('fx-pptx');
+  pptxBtn.onclick = function () {
+    var fr = document.getElementById('f-' + sec), win = fr && fr.contentWindow, label = pptxBtn.textContent;
+    if (typeof PptxGenJS === 'undefined') { alert('No se pudo cargar la librería de PowerPoint (sin acceso a internet o bloqueada).'); return; }
+    if (!win || typeof win.__flowExport !== 'function') { alert('La presentación todavía está cargando. Probá de nuevo en unos segundos.'); return; }
+    flushText();
+    pptxBtn.disabled = true; pptxBtn.textContent = '⏳ Capturando slides…';
+    var w = where[sec], month = (w && w.month) || '', comments = load();
+    win.__flowExport().then(function (slides) {
+      if (!slides.length) throw new Error('No hay slides para exportar.');
+      pptxBtn.textContent = '⏳ Armando PPTX…';
+      var p = new PptxGenJS(), W = 13.333, H = 7.5;
+      p.layout = 'LAYOUT_WIDE';
+      p.title = NAMES[sec];
+      slides.forEach(function (s) {
+        var sl = p.addSlide(), r = s.w / s.h, iw = W, ih = W / r;
+        if (ih > H) { ih = H; iw = H * r; }   // entra completa, sin deformarse
+        sl.background = { color: 'FFFFFF' };
+        sl.addImage({ data: s.img, x: (W - iw) / 2, y: (H - ih) / 2, w: iw, h: ih });
+        var c = comments[sec + '|' + (sec !== 'semanal' ? month : '') + '|' + s.title];
+        if (c && c.text) sl.addNotes(c.text);
+      });
+      var d = new Date(), pad = function (n) { return ('0' + n).slice(-2); };
+      var name = 'Presentacion_' + (sec === 'mensual' ? 'Mensual' + (month ? '_' + month : '') : sec === 'cierre' ? 'CierreDeMes' + (month ? '_' + month : '') : 'Semanal') + '_' + d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + '.pptx';
+      return p.writeFile({ fileName: name });
+    }).catch(function (e) {
+      alert('No se pudo generar el PPTX: ' + ((e && e.message) || e));
+    }).then(function () { pptxBtn.disabled = false; pptxBtn.textContent = label; });
+  };
+
+  // la presentación mensual es contable: si el Hub (que sirve los datos) rechaza al usuario, se avisa en vez de mostrar un iframe en blanco
   function checkAccess() {
     return fetch(base + '/hub', { method: 'HEAD', credentials: 'same-origin' }).then(function (r) { denied = (r.status === 403 || r.status === 401); }).catch(function () { denied = false; });
   }
   refreshCount();
   els.text.disabled = true;
-  checkAccess().then(function () { openTab('semanal'); });
+  var want = (/[?&]view=(semanal|mensual|cierre)/.exec(location.search) || [])[1] || 'semanal';   // acceso directo desde el menú
+  checkAccess().then(function () { openTab(want); });
 })();
 </script>
 </body>

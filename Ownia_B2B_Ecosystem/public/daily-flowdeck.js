@@ -13,11 +13,31 @@
   'use strict';
   var on = /[?&]flowdeck=1\b/.test(location.search);
   var css = document.createElement('style');
-  css.textContent = on
+  // "Enviar a Google Slides" (Flow y Tracker) no va en Ownia (2026-10-28): se reemplaza por "Descargar PPTX" del módulo Flow. En Apps Script sigue igual.
+  var NO_GSLIDES = '#flow-export-btn,#slidesExportLink,button[onclick*="exportSlidesToGoogle"]{display:none!important}';
+  css.textContent = NO_GSLIDES + (on
     ? '.view-nav,#daily-lob-toggle,#btn-toqan-bicia,#btn-toqan-bee,#btn-email,.ownia-home-top{display:none!important}'
-    : '#vnav-flow{display:none!important}';
+    : '#vnav-flow{display:none!important}');
   (document.head || document.documentElement).appendChild(css);
   if (!on) return;
+
+  // Captura de todas las slides para el PPTX del módulo Flow (lo llama flow.html, mismo origen): misma técnica que "Enviar a Google Slides"
+  // (html2canvas de cada .flow-slide a 1280x720, abriendo hasta nivel país sin estirar el alto) pero devuelve las imágenes en vez de subirlas.
+  window.__flowExport = function () {
+    if (!window._flowBuilt || typeof window._flowCaptureSlideImages_ !== 'function' || typeof window.html2canvas !== 'function')
+      return Promise.reject(new Error('El Flow semanal todavía está cargando.'));
+    var deck = window.FLOW_DECK || [];
+    window._flowSlidesExporting = true;
+    window.flowRebuild_();
+    var raf = function () { return new Promise(function (r) { requestAnimationFrame(r); }); };
+    var done = function () { window._flowSlidesExporting = false; window.flowRebuild_(); };
+    return raf().then(raf).then(raf).then(function () { return window._flowCaptureSlideImages_({ jpeg: true }); }).then(function (imgs) {
+      done();
+      return imgs.map(function (im, i) {
+        return im && { img: im.img, w: im.w, h: im.h, title: String((deck[i] && deck[i].name) || ('Slide ' + (i + 1))).replace(/^—\s*|\s*—$/g, '') };
+      }).filter(Boolean);
+    }).catch(function (e) { done(); throw e; });
+  };
 
   function post() {
     if (window.parent === window) return;
@@ -39,7 +59,7 @@
       var orig = window.flowUpdateCounter_;
       if (typeof orig === 'function') window.flowUpdateCounter_ = function () { var r = orig.apply(this, arguments); post(); return r; };
       var t = document.getElementById('topbar-title');
-      if (t) t.textContent = 'Flow Semanal · gestional';
+      if (t) t.textContent = 'Presentación semanal · gestional';
       waitFor(function () { return document.querySelector('#flow-track .flow-frame'); }, function () { setTimeout(post, 800); });
     });
   });

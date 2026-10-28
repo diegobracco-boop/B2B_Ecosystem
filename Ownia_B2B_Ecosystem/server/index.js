@@ -33,7 +33,7 @@ const { MODULES } = require('./modules');
 const { GasProject } = require('./gas-runtime');
 const { renderOutput } = require('./render');
 const { escapeHtml } = require('./gas-template');
-const { indexPage } = require('./index-page');
+const { indexPage, agentsPage } = require('./index-page');
 const { resolveIdentity, describeAuthHeaders } = require('./identity');
 const { createFileStore, isValidId } = require('./file-store');
 const { ingestAllowlist, loadManifest } = require('./drive-manifest');
@@ -319,6 +319,11 @@ function createApp(opts = {}) {
       return send(res, 200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }, indexPage({ modules, basePath: cfg.BASE_PATH, canOpen: (m) => mayOpen(m, identity) }));
     }
 
+    if (route === '/agentes') {
+      if (req.method !== 'GET') return sendJson(res, 405, { error: 'Método no permitido' });
+      return send(res, 200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }, agentsPage({ basePath: cfg.BASE_PATH }));
+    }
+
     const parts = route.split('/').filter(Boolean);
 
     // GET|POST /notes/<modulo>/<scope> — notas editables (mismos permisos que el módulo).
@@ -328,8 +333,12 @@ function createApp(opts = {}) {
       if (!identity.email) return unauthorized(res);
       if (!mayOpen(mod, identity)) return forbidden(res);
       try {
-        if (req.method === 'GET') return sendJson(res, 200, { notes: await notesStore.get(mod.slug, parts[2]) });
+        // Scopes con editores propios (`noteEditors` en modules.js): lo puede leer el que abre el módulo, pero escribir solo esa lista.
+        const editors = mod.noteEditors && mod.noteEditors[parts[2]];
+        const canEdit = !editors || editors.map((x) => x.toLowerCase()).includes(String(identity.email).toLowerCase());
+        if (req.method === 'GET') return sendJson(res, 200, { notes: await notesStore.get(mod.slug, parts[2]), canEdit });
         if (req.method !== 'POST') return sendJson(res, 405, { error: 'Método no permitido' });
+        if (!canEdit) return sendJson(res, 403, { error: 'No tenés permiso para editar esto' });
         // Mismo anti-CSRF que /api: JSON + header custom + same-origin.
         const ctype = String(req.headers['content-type'] || '');
         const site = req.headers['sec-fetch-site'];
