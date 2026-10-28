@@ -114,7 +114,7 @@ var OKR_KR_ALIASES = {
 // budget/daily_b2b2c/gestional + la lectura en vivo de la sheet OKR.
 var OKR_FILE_ID = '1cEidr8aoYgm4S7ugm05Wv-SMnz8GbtUj';
 
-// H1 FY27 (abr-sep 2026) está cerrado y congelado en OKR_H1_26.json (Inputs_Planning_PnL/okr_h1_freeze.py):
+// H1 FY27 (abr-sep 2026) está cerrado y congelado en OKR_H1_FY27.json (Inputs_Planning_PnL/okr_h1_freeze.py):
 // el OKR de H1 se arma SIEMPRE de ese archivo, no de okr.json. Valores en USD nominales, sin organic.
 var OKR_H1_FILE_ID = '1wMCfuE8m8slzTN0CrWzoxJjTWOT9IMcf';
 
@@ -267,7 +267,7 @@ function computeOKR_(halfKey, rows) {
   return result;
 }
 
-// Punto de entrada público. Devuelve ambos semestres: H1 del JSON congelado (OKR_H1_26.json) y H2 de okr.json,
+// Punto de entrada público. Devuelve ambos semestres: H1 del JSON congelado (OKR_H1_FY27.json) y H2 de okr.json,
 // y el que abre por defecto. `okr` = el semestre por defecto (compatibilidad).
 function getOKRData() {
   try {
@@ -276,7 +276,7 @@ function getOKRData() {
     try { rowsH1 = readOKRJson_(OKR_H1_FILE_ID, 'okr_h1_v1_'); }
     catch (e) {
       // okr_builder.py copia el H1 congelado a okr.json, así que es el mismo dato: respaldo si el archivo no se puede leer.
-      Logger.log('getOKRData: no se pudo leer OKR_H1_26.json (' + e.message + ') — H1 de okr.json');
+      Logger.log('getOKRData: no se pudo leer OKR_H1_FY27.json (' + e.message + ') — H1 de okr.json');
       rowsH1 = rows;
     }
     var byHalf = {};

@@ -1,10 +1,10 @@
 """
 okr_h1_freeze.py
-Congela el OKR H1 FY27 (abril -> septiembre 2026) en un JSON propio: OKR_H1_26.json.
+Congela el OKR H1 FY27 (abril -> septiembre 2026) en un JSON propio: OKR_H1_FY27.json.
 
 H1 es un período cerrado: no se recalcula más. Este script toma las filas de okr.json (el publicado
 en Drive hoy, tal cual) con Periodo <= 2026-09-01 — Run Rate/Actuals y Budget de todos los KRs, más los
-meses previos que usan los KRs de agencias — y las guarda en Drive como OKR_H1_26.json. Desde ahí:
+meses previos que usan los KRs de agencias — y las guarda en Drive como OKR_H1_FY27.json. Desde ahí:
   - okr_builder.py ya no calcula esos meses: los toma de este archivo (okr.json queda igual en H1).
   - el OKR del Hub lee H1 de este archivo (Codigo_OKR.js, OKR_H1_FILE_ID).
 Los valores son USD nominales, sin organic (el organic es nuevo de H2 y no aplica al OKR contable).
@@ -32,7 +32,7 @@ import config
 import pnl_common
 
 OKR_FILE_ID = "1cEidr8aoYgm4S7ugm05Wv-SMnz8GbtUj"   # okr.json (fuente a congelar)
-OUTPUT_NAME = "OKR_H1_26.json"
+OUTPUT_NAME = "OKR_H1_FY27.json"
 H1_END      = "2026-09-01"                          # último Periodo de H1 (inclusive)
 
 
@@ -49,7 +49,7 @@ def _download(svc, file_id):
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--dry-run", action="store_true")
-    ap.add_argument("--force", action="store_true", help="pisar el OKR_H1_26.json existente")
+    ap.add_argument("--force", action="store_true", help="pisar el OKR_H1_FY27.json existente")
     args = ap.parse_args()
 
     svc = pnl_common.get_drive_service()
@@ -65,7 +65,7 @@ def main():
 
     payload = {
         "meta": {
-            "concepto": "okr_h1_26",
+            "concepto": "okr_h1_fy27",
             "descripcion": "OKR H1 FY27 (abr-sep 2026) congelado: Run Rate/Actuals y Budget, USD nominales, sin organic",
             "congelado_at": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
             "fuente": "okr.json (file " + OKR_FILE_ID + ")",
