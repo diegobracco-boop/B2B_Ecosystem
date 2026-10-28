@@ -57,10 +57,21 @@ function getRawB2BC() { return loadFile_(B2BC_JSON, B2BC_CACHE_KEY); }
 function getRawB2B()  { return loadFile_(B2B_JSON,  B2B_CACHE_KEY);  }
 function getRawOKRH2() { return loadFile_(OKR_H2_JSON, OKR_H2_CACHE_KEY); }
 function getRawRecurrencia() { return loadFile_(RECUR_JSON, RECUR_CACHE_KEY); }
+// Variantes que devuelven el JSON como TEXTO (las usan dashboard.html y tracker.html): google.script.run
+// serializa los objetos campo por campo y con ~128k filas (52 MB) el arranque tardaba minutos; un string
+// viaja tal cual y el navegador lo parsea en <1 s (parseRaw_ en el HTML expande actuals/actuals_ly).
+function getRawB2BCText()        { return loadText_(B2BC_JSON,   B2BC_CACHE_KEY);   }
+function getRawB2BText()         { return loadText_(B2B_JSON,    B2B_CACHE_KEY);    }
+function getRawOKRH2Text()       { return loadText_(OKR_H2_JSON, OKR_H2_CACHE_KEY); }
+function getRawRecurrenciaText() { return loadText_(RECUR_JSON,  RECUR_CACHE_KEY);  }
 
 // ---- Internal helpers ----
 
 function loadFile_(filename, cacheKey) {
+  return expandRecordKeys_(JSON.parse(loadText_(filename, cacheKey)));
+}
+
+function loadText_(filename, cacheKey) {
   var folder = DriveApp.getFolderById(DRIVE_FOLDER_ID);
   var files  = folder.getFilesByName(filename);
   if (!files.hasNext()) throw new Error('No encontrado en Drive: ' + filename);
@@ -69,10 +80,10 @@ function loadFile_(filename, cacheKey) {
   // cambia el timestamp -> clave nueva -> se lee fresco (sin esperar el TTL de 6 h).
   var key    = cacheKey + '_' + file.getLastUpdated().getTime();
   var cached = cacheGet_(key);
-  if (cached) return expandRecordKeys_(JSON.parse(cached));
+  if (cached) return cached;
   var raw = file.getBlob().getDataAsString();
   cachePut_(key, raw);
-  return expandRecordKeys_(JSON.parse(raw));
+  return raw;
 }
 
 // daily_sync.py publica actuals / actuals_ly en {cols, rows} para que el JSON entre en el

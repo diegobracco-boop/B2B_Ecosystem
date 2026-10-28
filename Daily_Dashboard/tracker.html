@@ -5047,29 +5047,30 @@ async function exportSlidesToGoogle() {
 //  Boot
 // ─────────────────────────────────────────────
 window.addEventListener('load', () => {
+  // Los JSON llegan como texto (getRaw*Text en Codigo.js): google.script.run es muy lento con objetos grandes
   google.script.run
-    .withSuccessHandler(initDashboard)
+    .withSuccessHandler(function(t) { initDashboard(JSON.parse(t)); })
     .withFailureHandler(showError)
-    .getB2BData();
+    .getRawB2BText();
   // En paralelo: JSON de OKR H2. Si falla (no existe todavía), los KRs H2 usan el JSON principal.
   google.script.run
     .withSuccessHandler(function(d) {
-      okrH2Data = d; _okrH2Unp = {};
+      okrH2Data = JSON.parse(d); _okrH2Unp = {};
       if (rawData) { renderStatusKRsH2(); }          // llegó después del JSON principal -> re-render
     })
     .withFailureHandler(function() {})
-    .getRawOKRH2();
+    .getRawOKRH2Text();
   // Actual de Accelerate Recurrence (recurrencia_b2b.json en Drive).
   google.script.run
     .withSuccessHandler(function(d) {
-      recurData = d; _recurRows = null; recurState = 'ok';
+      recurData = JSON.parse(d); _recurRows = null; recurState = 'ok';
       if (rawData) { renderStatusKRsH2(); }
     })
     .withFailureHandler(function(e) {
       recurState = 'error'; console.error('getRawRecurrencia falló:', e);
       if (rawData) { renderStatusKRsH2(); }
     })
-    .getRawRecurrencia();
+    .getRawRecurrenciaText();
   // Target de Accelerate Recurrence por país (Input_OKR). Si falla, el KR queda sin target.
   google.script.run
     .withSuccessHandler(function(t) {

@@ -2025,6 +2025,13 @@ function applyPartnerAlias_(raw){
     (raw[k]||[]).forEach(function(r){ var a=PARTNER_ALIAS_[r.partner]; if(a) r.partner=a; });
   });
 }
+// Los JSON grandes llegan como texto (getRaw*Text en Codigo.js): se parsean acá y actuals /
+// actuals_ly, que daily_sync.py publica en {cols, rows}, vuelven a records como antes.
+function parseRaw_(t) {
+  var o = typeof t === 'string' ? JSON.parse(t) : t;
+  ['actuals', 'actuals_ly'].forEach(function(k){ if (o && o[k] && o[k].cols) o[k] = expandCompact_(o[k]); });
+  return o;
+}
 function expandCompact_(c) {
   if (!c || !c.cols) return c;
   var cols = c.cols;
@@ -2502,6 +2509,7 @@ window.onload = function() {
   // B2B2C — primary load (drives the loader)
   google.script.run
     .withSuccessHandler(function(raw) {
+      raw = parseRaw_(raw);
       raw.budget   = expandCompact_(raw.budget);
       raw.runrate  = expandCompact_(raw.runrate);
       raw.forecast = expandCompact_(raw.forecast);
@@ -2526,7 +2534,7 @@ window.onload = function() {
       recomputeB2BC_();
     })
     .withFailureHandler(showError)
-    .getRawB2BC();
+    .getRawB2BCText();
 
   // Targets/valores manuales B2B2C (Input_OKR vía okr.json): Deploy New Partnership y target de Unique Buyers.
   google.script.run
@@ -2537,6 +2545,7 @@ window.onload = function() {
   // B2B — preload silencioso en paralelo; si el tab B2B se abre antes de que llegue, loadB2B() lo maneja
   google.script.run
     .withSuccessHandler(function(raw) {
+      raw = parseRaw_(raw);
       raw.b2b_gd    = expandCompact_(raw.b2b_gd);
       raw.b2b_gd_ly = expandCompact_(raw.b2b_gd_ly);
       raw.b2b_ri    = expandCompact_(raw.b2b_ri);
@@ -2552,7 +2561,7 @@ window.onload = function() {
       if (_lob === 'b2b') recomputeB2B_();
     })
     .withFailureHandler(function(){}) // silencioso; loadB2B() reintenta si el user cambia al tab
-    .getRawB2B();
+    .getRawB2BText();
 };
 
 function fill(id, arr, placeholder, labelFn) {
@@ -3275,6 +3284,7 @@ function loadB2B() {
   document.getElementById('loader').style.display = 'flex';
   google.script.run
     .withSuccessHandler(function(raw) {
+      raw = parseRaw_(raw);
       raw.b2b_gd    = expandCompact_(raw.b2b_gd);
       raw.b2b_gd_ly = expandCompact_(raw.b2b_gd_ly);
       raw.b2b_ri    = expandCompact_(raw.b2b_ri);
@@ -3291,7 +3301,7 @@ function loadB2B() {
       recomputeB2B_();
     })
     .withFailureHandler(showError)
-    .getRawB2B();
+    .getRawB2BText();
 }
 
 // Carga (una vez) el JSON de OKR H2 y re-calcula al llegar. Si falla -> el KR H2 sigue con _rawB2B (sin componentes de paquetes).
@@ -3300,12 +3310,13 @@ function ensureOKRH2_() {
   _okrH2State = 'loading';
   google.script.run
     .withSuccessHandler(function(d) {
+      d = parseRaw_(d);
       ['b2b_gd','b2b_gd_ly','b2b_ri','b2b_ri_ly'].forEach(function(k){ d[k] = expandCompact_(d[k]); });
       _okrH2 = applyCoiBr_(d, _COIBR_KEYS_.okrH2); _okrH2State = 'loaded';
       recomputeB2B_();
     })
     .withFailureHandler(function() { _okrH2State = 'error'; })
-    .getRawOKRH2();
+    .getRawOKRH2Text();
 }
 
 function recomputeB2B_() {
@@ -3424,9 +3435,9 @@ function loadKrDetailRecur_() {
   var pend = 2;
   function done() { if (--pend === 0) { _krdRecurState = (_krdRecur ? 'loaded' : 'error'); renderKrDetail_(); } }
   google.script.run
-    .withSuccessHandler(function(d){ _krdRecur = d && d.cols ? expandCompact_(d) : null; done(); })
+    .withSuccessHandler(function(d){ d = d && parseRaw_(d); _krdRecur = d && d.cols ? expandCompact_(d) : null; done(); })
     .withFailureHandler(function(){ done(); })
-    .getRawRecurrencia();
+    .getRawRecurrenciaText();
   google.script.run
     .withSuccessHandler(function(t){ _krdRecurTgt = t || {}; done(); })
     .withFailureHandler(function(){ _krdRecurTgt = {}; done(); })
@@ -4360,13 +4371,14 @@ function renderBenchmark_() {
     _benchB2BLoading = true;
     google.script.run
       .withSuccessHandler(function(raw) {
+        raw = parseRaw_(raw);
         raw.b2b_gd = expandCompact_(raw.b2b_gd); raw.b2b_gd_ly = expandCompact_(raw.b2b_gd_ly);
         raw.b2b_ri = expandCompact_(raw.b2b_ri); raw.b2b_ri_ly = expandCompact_(raw.b2b_ri_ly);
         _rawB2B = applyCoiBr_(raw, _COIBR_KEYS_.b2b); _benchB2BLoading = false;
         if (_activeView === 'benchmark') renderBenchmark_();
       })
       .withFailureHandler(function() { _benchB2BLoading = false; })
-      .getRawB2B();
+      .getRawB2BText();
   }
   _benchPopulatePais_();
   _benchData = computeBenchmark_();
