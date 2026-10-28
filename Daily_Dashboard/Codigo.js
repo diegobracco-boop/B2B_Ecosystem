@@ -110,8 +110,8 @@ function cacheGet_(key) {
 // ============================================================
 
 var WS_HISPA  = ['Argentina','Colombia','Chile','Peru','Ecuador'];
-var WS_GROUPS = ['TOTAL','Brasil','Mexico','Hispa','Globales'];
-var WS_FLAGS  = { 'TOTAL':null,'Brasil':'br','Mexico':'mx','Hispa':'hispa','Globales':'globe' };
+var WS_GROUPS = ['TOTAL','Brasil','Mexico','Hispa','Globales','RG'];
+var WS_FLAGS  = { 'TOTAL':null,'Brasil':'br','Mexico':'mx','Hispa':'hispa','Globales':'globe','RG':null };
 
 // ---- Compact-format expander ----
 
@@ -137,13 +137,18 @@ function _wsIsoWeek_(ymd) {
 }
 
 // ---- Switch "COI Brasil" del Daily ----
-// params.exCoiBr = true -> FVM ex COI BR (columna fvm_ex_coi_br de daily_sync.py: el FVM sin cost of
-// installments ni efecto financiero de Brasil). Es por ejecución: cada google.script.run arranca en false.
+// El país RG (daily_sync.py, append_rg_rows) lleva el cost of installments y el efecto financiero de Brasil con
+// signo contrario; Brasil conserva su FVM completo. params.exCoiBr = true -> FVM ex COI BR = se suman las filas RG;
+// false -> RG no cuenta. Es por ejecución: cada google.script.run arranca en false.
 var _wsExCoiBr_ = false;
 function _wsSetExCoiBr_(params) { _wsExCoiBr_ = !!(params && params.exCoiBr); }
 function _fvmOf_(r) {
-  var v = (_wsExCoiBr_ && r.fvm_ex_coi_br != null) ? r.fvm_ex_coi_br : r.fvm;
-  return parseFloat(v || 0) || 0;
+  if (r.pais === 'RG' && !_wsExCoiBr_) return 0;
+  return parseFloat(r.fvm || 0) || 0;
+}
+// Grupos del Weekly: RG (ajuste COI Brasil) solo existe con el switch en Excluir.
+function _wsGroups_() {
+  return _wsExCoiBr_ ? WS_GROUPS : WS_GROUPS.filter(function(g) { return g !== 'RG'; });
 }
 
 // ---- Row normalizer → {fecha, pais, canal, gb, rev, fvm} ----
@@ -247,9 +252,10 @@ function _wsGroupVals_(agg, year, week, group) {
   }
   if (group === 'Brasil') return wd['Brasil'] || zero;
   if (group === 'Mexico') return wd['Mexico'] || zero;
+  if (group === 'RG')     return wd['RG'] || zero;
   if (group === 'Hispa')  return _wsSumPaises_(wd, WS_HISPA);
   if (group === 'Globales') {
-    var excl = ['Brasil','Mexico'].concat(WS_HISPA);
+    var excl = ['Brasil','Mexico','RG'].concat(WS_HISPA);
     var g = { gb:0, rev:0, fvm:0 };
     Object.keys(wd).forEach(function(p) { if (excl.indexOf(p)===-1) { g.gb+=wd[p].gb; g.rev+=wd[p].rev; g.fvm+=wd[p].fvm; } });
     return g;
@@ -268,9 +274,10 @@ function _wsMonthGroupVals_(agg, ym, group) {
   }
   if (group === 'Brasil') return md['Brasil'] || zero;
   if (group === 'Mexico') return md['Mexico'] || zero;
+  if (group === 'RG')     return md['RG'] || zero;
   if (group === 'Hispa')  return _wsSumPaises_(md, WS_HISPA);
   if (group === 'Globales') {
-    var excl2 = ['Brasil','Mexico'].concat(WS_HISPA);
+    var excl2 = ['Brasil','Mexico','RG'].concat(WS_HISPA);
     var g2 = { gb:0, rev:0, fvm:0 };
     Object.keys(md).forEach(function(p) { if (excl2.indexOf(p)===-1) { g2.gb+=md[p].gb; g2.rev+=md[p].rev; g2.fvm+=md[p].fvm; } });
     return g2;
@@ -314,6 +321,8 @@ function getWeeklySummaryData(params) {
         row.weeks.forEach(function(w, j) {
           w.vsLYgb  = y.rows[i].weeks[j].vsLYgb;
           w.vsLYrev = y.rows[i].weeks[j].vsLYrev;
+          w.vsB2Cgb  = y.rows[i].weeks[j].vsB2Cgb;    // brecha vs B2C sale del vs LY → mismo TC
+          w.vsB2Crev = y.rows[i].weeks[j].vsB2Crev;
         });
       });
       var graftMtd = function(m, my) {
@@ -327,6 +336,17 @@ function getWeeklySummaryData(params) {
     } catch (eY) { Logger.log('weekly organic YoY: ' + eY); }
     Object.keys(convY.missing).forEach(function(k) { missing[k] = true; });
   }
+  // % vs Bdg: el budget está a TC Budget → con otro target se recalcula con los actuals a TC Budget
+  if (target !== 'budget') try {
+    var convB = organicConverter_('budget'), yb = _wsSummary_(params, convB);
+    if (yb.success) res.rows.forEach(function(row, i) {
+      row.weeks.forEach(function(w, j) {
+        w.vsBudgb  = yb.rows[i].weeks[j].vsBudgb;
+        w.vsBudrev = yb.rows[i].weeks[j].vsBudrev;
+      });
+    });
+    Object.keys(convB.missing).forEach(function(k) { missing[k] = true; });
+  } catch (eB) { Logger.log('weekly organic vs Bdg: ' + eB); }
   res.organic = { target: target, missing: Object.keys(missing).sort() };
   return res;
 }
@@ -347,6 +367,10 @@ function _wsSummary_(params, conv) {
 
     var weekAgg   = _wsAggWeekly_(actRows);
     var lyWeekAgg = _wsAggWeekly_(lyRows);
+    var budWeekAgg = _wsAggWeekly_(budRows);
+    // B2C (referencia, misma serie que Benchmark vs B2C): sin canal ni organic, solo confirmation date
+    var b2cWeekAgg   = _wsAggWeekly_(_wsNormRows_(_wsExpandCompact_(b2bcRaw.b2c),    'gross_bookings', 'net_revenues'));
+    var b2cLyWeekAgg = _wsAggWeekly_(_wsNormRows_(_wsExpandCompact_(b2bcRaw.b2c_ly), 'gross_bookings', 'net_revenues'));
 
     var weekKeys = [];
     Object.keys(weekAgg).forEach(function(yr) {
@@ -375,16 +399,25 @@ function _wsSummary_(params, conv) {
       return vals.length ? vals.reduce(function(s,x){return s+x;},0)/vals.length : null;
     }
     function pctL4W_(c, l) { return (l && l !== 0) ? (c-l)/Math.abs(l)*100 : null; }
+    // Brecha de crecimiento vs B2C (pp) = % vs LY propio − % vs LY de B2C (mismo criterio que Benchmark vs B2C)
+    function gap_(a, b) { return (a === null || b === null) ? null : a - b; }
 
-    var rows = WS_GROUPS.map(function(group) {
+    var rows = _wsGroups_().map(function(group) {
       var weeks = last5.map(function(w) {
-        var curr = _wsGroupVals_(weekAgg,   w.year,     w.week, group);
-        var ly   = _wsGroupVals_(lyWeekAgg, w.year - 1, w.week, group);
+        var curr  = _wsGroupVals_(weekAgg,      w.year,     w.week, group);
+        var ly    = _wsGroupVals_(lyWeekAgg,    w.year - 1, w.week, group);
+        var bud   = _wsGroupVals_(budWeekAgg,   w.year,     w.week, group);
+        var b2c   = _wsGroupVals_(b2cWeekAgg,   w.year,     w.week, group);
+        var b2cLy = _wsGroupVals_(b2cLyWeekAgg, w.year - 1, w.week, group);
+        var vsLYgb = vsLY_(curr,ly,'gb'), vsLYrev = vsLY_(curr,ly,'rev');
         return {
           semana:w.week, anio:w.year,
           gb:  curr.gb/1e6, rev:curr.rev/1e6, fvm:curr.fvm/1e6,
           pctGb: curr.gb ? curr.fvm/curr.gb*100 : 0,
-          vsLYgb: vsLY_(curr,ly,'gb'), vsLYrev: vsLY_(curr,ly,'rev')
+          vsLYgb: vsLYgb, vsLYrev: vsLYrev,
+          vsB2Cgb:  gap_(vsLYgb,  vsLY_(b2c,b2cLy,'gb')),
+          vsB2Crev: gap_(vsLYrev, vsLY_(b2c,b2cLy,'rev')),
+          vsBudgb:  vsLY_(curr,bud,'gb'), vsBudrev: vsLY_(curr,bud,'rev')
         };
       });
       var l4wData = prevWks.map(function(w) {
@@ -484,16 +517,17 @@ function _wsComputeMTD_(actRows, budRows, lyRows) {
     }
     if (group==='Brasil') return budByPais['Brasil']||zero;
     if (group==='Mexico') return budByPais['Mexico']||zero;
+    if (group==='RG') return budByPais['RG']||zero;
     if (group==='Hispa') { var h={gb:0,rev:0,fvm:0}; WS_HISPA.forEach(function(p){var v=budByPais[p]||zero;h.gb+=v.gb;h.rev+=v.rev;h.fvm+=v.fvm;}); return h; }
     if (group==='Globales') {
-      var excl=['Brasil','Mexico'].concat(WS_HISPA), g={gb:0,rev:0,fvm:0};
+      var excl=['Brasil','Mexico','RG'].concat(WS_HISPA), g={gb:0,rev:0,fvm:0};
       Object.keys(budByPais).forEach(function(p){if(excl.indexOf(p)===-1){g.gb+=budByPais[p].gb;g.rev+=budByPais[p].rev;g.fvm+=budByPais[p].fvm;}});
       return g;
     }
     return null;
   }
 
-  var rows = WS_GROUPS.map(function(group) {
+  var rows = _wsGroups_().map(function(group) {
     var act = _wsMonthGroupVals_(actAgg,   lastYM, group);
     var ly  = _wsMonthGroupVals_(lyActAgg, lyYM,   group);
     var bud = getBudGroup_(group);
@@ -679,7 +713,7 @@ function sendDailyEmail_(customRecipients) {
 // ── Helpers numéricos ────────────────────────────────────────────
 
 function _eIsCore_(p) { return p==='Brasil'||p==='Mexico'||p==='Other Countries'; }
-function _eRegion_(p) { if(p==='Brasil')return 'BR'; if(p==='Mexico')return 'NAM'; return 'SAH'; }
+function _eRegion_(p) { if(p==='Brasil'||p==='RG')return 'BR'; if(p==='Mexico')return 'NAM'; return 'SAH'; }
 
 function _eSum_(arr, from, to, field) {
   var t = 0;
@@ -735,7 +769,7 @@ function _emailKRsB2BC_(raw, mStart, vDate) {
   raw.actuals.forEach(function(r){
     if(r.fecha<mStart||r.fecha>vDate)return;
     var at=r.partner==='livelo-api-hoteles'?'New':r.account_type;
-    var rg=_eRegion_(r.pais), nr=+r.net_revenues||0, fv=+r.fvm||0;
+    var rg=_eRegion_(r.pais), nr=+r.net_revenues||0, fv=(r.pais==='RG')?0:(+r.fvm||0);   // el email no aplica el switch COI Brasil: sin RG
     if(at==='New')     {kr2.act+=nr;kr2.r[rg].act+=nr;}
     else if(at==='Existing'){kr3.act+=nr;kr3.r[rg].act+=nr;}
     kr4.act+=fv;kr4.r[rg].act+=fv;
@@ -743,7 +777,7 @@ function _emailKRsB2BC_(raw, mStart, vDate) {
   raw.budget.forEach(function(r){
     if(r.fecha<mStart||r.fecha>vDate)return;
     var st=r.stage||'Existing', rg=_eRegion_(r.pais);
-    var nr=+r.net_revenue||0, fv=+r.fvm||0;
+    var nr=+r.net_revenue||0, fv=(r.pais==='RG')?0:(+r.fvm||0);
     if(st==='New')  {kr2.bud+=nr;kr2.r[rg].bud+=nr;}
     else            {kr3.bud+=nr;kr3.r[rg].bud+=nr;}
     kr4.bud+=fv;kr4.r[rg].bud+=fv;
@@ -951,7 +985,7 @@ var _OKR_MES_LABELS_   = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep',
 var _OKR_REGIONS_      = ['BR','MX/US','HISPA'];
 
 function _okrPaisToRegion_(pais) {
-  if (pais === 'Brasil') return 'BR';
+  if (pais === 'Brasil' || pais === 'RG') return 'BR';   // RG = ajuste COI Brasil: va con la región de Brasil
   if (pais === 'Mexico') return 'MX/US';
   if (_OKR_HISPA_PAISES_.indexOf(pais) !== -1) return 'HISPA';
   return 'Globales';
@@ -1364,6 +1398,7 @@ function getAgenciasOKR() {
 // Hoteles (Budget contable). Forma { meta, krs:[{id,name,weight,unit,inverse,targets,actuals}] }.
 //   scale:   divide el valor de okr.json (NR viene en USD → $M).
 //   inverse: menos es mejor (Price Competitiveness = % de adversidad).
+//   baseline / baseline_label / medicion: rótulos que muestra la card (no entran al score).
 var GLOBALES_KRS_DEF = [
   { id:'accelerate_hunting_partners_api', kr:'accelerate hunting partners api',                   name:'Accelerate Hunting # Partners API',                 weight:0.20, unit:'# Partners' },
   { id:'hoteles_directos_latam',          kr:'hoteles directos vendidos destino latam',           name:'Hoteles Directos vendidos destino LATAM',           weight:0.15, unit:'# Hoteles' },
@@ -1371,7 +1406,8 @@ var GLOBALES_KRS_DEF = [
   // actual: lo calcula el cliente desde el daily (API · Hoteles · todos los países), MTD
   { id:'net_revenues_api_hoteles',        kr:'net revenues api hoteles',                          name:'Net Revenues API Hoteles',                          weight:0.15, unit:'$M', scale:1e6 },
   { id:'new_onboarded_properties',        kr:'new onboarded properties global & regional chains', name:'New Onboarded Properties Global & Regional Chains', weight:0.15, unit:'# Hoteles' },
-  { id:'price_competitiveness_ex_latam',  kr:'price competitiveness ex-latam (destino gl)',       name:'Price Competitiveness ex-Latam (Destino GL)',       weight:0.20, unit:'%', inverse:true }
+  { id:'price_competitiveness_ex_latam',  kr:'price competitiveness ex-latam (destino gl)',       name:'Price Competitiveness ex-Latam (Destino GL)',       weight:0.20, unit:'%', inverse:true,
+    baseline:50, baseline_label:"Ago'26", medicion:'Medición a mes cerrado' }
 ];
 var GLOBALES_MESES = ['2026-10','2026-11','2026-12','2027-01','2027-02','2027-03'];
 var GLOBALES_MESES_LABEL = ["Oct'26","Nov'26","Dic'26","Ene'27","Feb'27","Mar'27"];
@@ -1379,7 +1415,7 @@ var GLOBALES_MESES_LABEL = ["Oct'26","Nov'26","Dic'26","Ene'27","Feb'27","Mar'27
 function getGlobalesKRTargets() {
   var file = DriveApp.getFileById(OKR_JSON_FILE_ID);
   var cache = CacheService.getScriptCache();
-  var key = 'globales_okr_v3_' + file.getLastUpdated().getTime();
+  var key = 'globales_okr_v4_' + file.getLastUpdated().getTime();
   var hit = cache.get(key);
   if (hit) { try { return JSON.parse(hit); } catch (e) {} }
   var j = JSON.parse(file.getBlob().getDataAsString());
@@ -1407,7 +1443,8 @@ function getGlobalesKRTargets() {
     // el actual de NR lo calcula el cliente desde el daily (MTD); el del okr.json es mensual contable
     if (d.id === 'net_revenues_api_hoteles') actuals = {};
     return { id: d.id, name: d.name, weight: d.weight, unit: d.unit, critical_ttpp: false,
-             inverse: !!d.inverse, targets: targets, actuals: actuals };
+             inverse: !!d.inverse, targets: targets, actuals: actuals,
+             baseline: d.baseline, baseline_label: d.baseline_label, medicion: d.medicion };
   });
   var payload = {
     meta: { titulo: 'KR Global B2B API — OKR H2 FY27', periodo: 'H2-FY27', meses: GLOBALES_MESES,

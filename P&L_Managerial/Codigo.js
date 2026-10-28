@@ -1,9 +1,7 @@
 // P&L Gestional Dashboard — Apps Script Backend v2
 // Data source: _actuals_gestional.json (generado por actuals_gestional_upload.py; mismo fileId que el _pnl_gestional_data.json original, solo cambió el nombre)
 var GESTIONAL_JSON_FILE_ID    = '1wvle0UIVZV7ocCSl8OawOfIGVz_It5kh';
-var GESTIONAL_VR_JSON_FILE_ID = '1Zd1Kzn7CkatOWnzrrfBxr9mDjIVLLKIF'; // pnl_gestional_projections_review.json
 var _gestionalJsonCache_      = null;
-var _gestionalVRJsonCache_    = null;
 
 var _EMPTY_GESTIONAL_ = {
   b2b2c:   { ac:[], ly:[], bgt:[], rr:[], fc:[], bl:[] },
@@ -14,21 +12,10 @@ var _EMPTY_GESTIONAL_ = {
 };
 
 // ── Carga y cachea el JSON gestional desde Drive ──────────────────────────
-// baselineSource: 'bl' → gestional normal | 'vr' → Projection Reviews
-function readGestionalJSON_(baselineSource) {
-  if (baselineSource === 'vr') {
-    if (_gestionalVRJsonCache_) return _gestionalVRJsonCache_;
-    try {
-      var blob = DriveApp.getFileById(GESTIONAL_VR_JSON_FILE_ID).getBlob();
-      _gestionalVRJsonCache_ = JSON.parse(blob.getDataAsString());
-    } catch(e) {
-      // Antes devolvía _EMPTY_GESTIONAL_ y ese resultado vacío quedaba cacheado 6 h con la clave
-      // del mtime (pantalla en cero). Ahora el error llega al cliente (auditoría 2026-09-25).
-      Logger.log('readGestionalJSON_ VR error: ' + e);
-      throw new Error('No se pudo leer el JSON de Projection Reviews de Drive: ' + e.message);
-    }
-    return _gestionalVRJsonCache_;
-  }
+// El escenario Projection Reviews (baseline 'vr') se sacó del proceso el 2026-10-27: se revisa en html-rr.
+// Si el JSON no se puede leer el error llega al cliente (antes se devolvía _EMPTY_GESTIONAL_ y ese resultado
+// vacío quedaba cacheado 6 h con la clave del mtime: pantalla en cero — auditoría 2026-09-25).
+function readGestionalJSON_() {
   if (_gestionalJsonCache_) return _gestionalJsonCache_;
   try {
     var blob = DriveApp.getFileById(GESTIONAL_JSON_FILE_ID).getBlob();
@@ -89,6 +76,14 @@ var _I_TP_B2B2C = 4 + METRIC_COLS.length;
 var _I_MI_TP    = _I_TP_B2B2C + 1;   // millas en ac_tp/ly_tp
 var _I_MI_MI    = _I_TP_B2B2C;       // millas en ac_mi/ly_mi
 
+// ── País RG (switch "COI Brasil") ────────────────────────────────────────
+// actuals_gestional_upload.py agrega filas pais='RG': cost_of_installments + efecto_financiero de Brasil con signo
+// contrario (Brasil conserva su FVM completo). Excluir = se suman las filas RG; Incluir = RG no cuenta.
+// Solo getData lo prende (filters.coibr === 'excl'); el resto de los endpoints (vs Accounting, vs Revenue GD)
+// reconcilian contra bases que incluyen el COI, así que cada entry point lo resetea.
+var _RG_ON_ = false;
+function _rgSkip_(row) { return row[0] === 'RG' && !_RG_ON_; }
+
 // ── Helpers de filtrado y agregación ─────────────────────────────────────
 
 // Normaliza un valor de filtro a array lowercase ([] = sin filtro)
@@ -132,6 +127,7 @@ function queryB2B2C_(section, scenarioKey, fPais, fPartner, fProduto,
   var _YAVAS_SAAS_PRODS = ['flights','packages general','hotels'];
   var rows = (section && section[scenarioKey]) || [];
   rows.forEach(function(row) {
+    if (_rgSkip_(row)) return;
     var pais = normB2B2CPais_(row[0]), partner = normB2B2CPartner_(row[1]), produto = row[2], ym = row[3];
     // Excluir NewFly en todas sus variantes (new fly, NewFly, new-fly, etc.)
     if (String(partner||'').toLowerCase().replace(/[\s\-_]/g,'') === 'newfly') return;
@@ -221,8 +217,7 @@ var _B2B2C_HUNTING_FALLBACK = ['caixa','csu','ypf','cocos','tuplus','vibe','caca
 var _b2b2cStageMap_ = null;   // {partner lowercase: 'New'|'Existing'} | false si el JSON no lo trae
 function _getB2B2CStageMap_(){
   if (_b2b2cStageMap_ === null) {
-    // Siempre del JSON gestional principal (el de Projection Reviews no lo trae).
-    try { _b2b2cStageMap_ = readGestionalJSON_('bl').b2b2c_stage || false; }
+    try { _b2b2cStageMap_ = readGestionalJSON_().b2b2c_stage || false; }
     catch (e) { Logger.log('b2b2c_stage: ' + e); _b2b2cStageMap_ = false; }
   }
   return _b2b2cStageMap_;
@@ -248,6 +243,7 @@ function queryB2B_(section, scenarioKey, fPais, fProduto,
                    outAgg, outAllPaises, outAllProdutos, ymOk, fViaje) {
   var rows = (section && section[scenarioKey]) || [];
   rows.forEach(function(row) {
+    if (_rgSkip_(row)) return;
     var pais = normB2BPais_(row[0]), produto = row[1], ym = row[2];
     if (!matchFilter_(pais,    fPais))    return;
     if (!matchFilter_(produto, fProduto)) return;
@@ -272,6 +268,7 @@ function queryB2BCanalDetail_(json, blKeyMay, bgtKey, fcstKeyMay, fPais, fProdut
   // Filas gateway: row[1] es el gateway → se filtra por gateway y se agrupa como 'Hotels'
   function procRows(rows, target) {
     (rows||[]).forEach(function(row) {
+      if (_rgSkip_(row)) return;
       var pais=normB2BPais_(row[0]), produto=row[1], ym=row[2];
       if(!matchFilter_(pais,fPais)) return;
       if(fViaje && !matchFilter_(row[_I_VJ_B2B],fViaje)) return;
@@ -399,17 +396,16 @@ function getData(filters) {
     millas:         (f.millas  || []).slice().sort(),
     lob_tipo:       (Array.isArray(f.lob_tipo) ? f.lob_tipo.slice().sort() : f.lob_tipo) || null,
     date_type:      f.date_type      || 'gd',
-    baselineSource: f.baselineSource || 'bl',
-    organic:        organicTarget_(f)
+    organic:        organicTarget_(f),
+    coibr:          f.coibr === 'excl' ? 'excl' : 'incl'
   });
   var orgTarget = organicTarget_(f);
   var ck = null;
   var tStart = Date.now();
   try {
     var t1 = DriveApp.getFileById(GESTIONAL_JSON_FILE_ID).getLastUpdated().getTime();
-    var t2 = DriveApp.getFileById(GESTIONAL_VR_JSON_FILE_ID).getLastUpdated().getTime();
     var t3 = orgTarget ? DriveApp.getFileById(FX_FILE_ID).getLastUpdated().getTime() : 0;   // xlsx de TC (organic)
-    ck = 'getdata_v7_' + t1 + '_' + t2 + '_' + t3 + '_' + Utilities.base64EncodeWebSafe(sig);
+    ck = 'getdata_v10_' + t1 + '_' + t3 + '_' + Utilities.base64EncodeWebSafe(sig);   // v10: sin baseline Projection Reviews (antes v9: switch COI Brasil, país RG)
     var hit = _readGetDataCache_(ck);
     if (hit) { Logger.log('getData HIT ' + (Date.now() - tStart) + ' ms'); return hit; }
   } catch (e) { Logger.log('getData cache probe: ' + e); }
@@ -442,9 +438,9 @@ function getData(filters) {
 
 function _computeGetData_(filters) {
   var f              = filters || {};
+  _RG_ON_            = (f['coibr'] === 'excl');
   var dateType       = (f['date_type'] === 'ri') ? 'ri' : 'gd';
-  var baselineSrc    = (f['baselineSource'] === 'vr') ? 'vr' : 'bl';
-  var json           = readGestionalJSON_(baselineSrc);
+  var json           = readGestionalJSON_();
 
   // LOBs a consultar
   var lobTipo = f['lob_tipo'];
@@ -474,33 +470,36 @@ function _computeGetData_(filters) {
 
   // Modo gateway (B2B, Hotels): baseline = Actuals de Hotels del gateway (ac_gw / ac_ri_gw),
   // LY = ly_gw recortado a los mismos meses cerrados, Budget/Forecast vacíos (no abren por
-  // gateway — la landing los muestra como n/d). Projection Reviews solo cambia la proyección
-  // (copia las *_gw del normal); si es un VR viejo sin esas secciones, se leen del JSON normal.
+  // gateway — la landing los muestra como n/d).
   var gwMode  = fGateway.length > 0 && (useMay || useMin);
-  var gwJson  = !(useMay || useMin) ? null
-              : (json.b2b_may && json.b2b_may.ac_gw) ? json : readGestionalJSON_('bl');
+  var gwJson  = !(useMay || useMin) ? null : json;
   var acGwKey = dateType === 'ri' ? 'ac_ri_gw' : 'ac_gw';
 
   // Modo apertura B2B2C (tipo de producto y/o millas): mismo esquema que gateway — baseline = Actuals
   // abiertos (ac_tp con tipo, ac_mi solo millas: Orders exactas), LY = ly_tp/ly_mi, Budget/Forecast
-  // vacíos. Si el JSON en uso no trae las secciones, se leen del normal.
+  // vacíos.
   var tpMode  = (fTipo.length > 0 || fMillas.length > 0) && useB2B2C;
   var tpKeys  = fTipo.length ? ['ac_tp', 'ly_tp'] : ['ac_mi', 'ly_mi'];
   var tpConds = fTipo.length
               ? [[_I_TP_B2B2C, fTipo]].concat(fMillas.length ? [[_I_MI_TP, fMillas]] : [])
               : [[_I_MI_MI, fMillas]];
-  var tpJson  = !useB2B2C ? null
-              : (json.b2b2c && json.b2b2c.ac_tp && json.b2b2c.ac_mi) ? json : readGestionalJSON_('bl');
+  var tpJson  = !useB2B2C ? null : json;
 
-  // ORGANIC: se convierte SOLO el baseline (bl/bl_ri y, en modo gateway, ac_gw/ac_ri_gw). Ver Codigo_organic.js.
+  // ORGANIC: se convierte el baseline (bl/bl_ri y, en modo gateway, ac_gw/ac_ri_gw) y, con Goal
+  // Forecast, también el Forecast (los dos a TC Budget). Ver Codigo_organic.js.
   var organicInfo = null, orgTarget = organicTarget_(f);
   if (orgTarget) {
     try {
-      var conv = organicConverter_(orgTarget);
+      var conv = organicConverter_(ORGANIC_FX_TARGET_[orgTarget]);
       var jsonOrg = organicGestionalJson_(json, tpMode ? [blKey, acGwKey, tpKeys[0]] : [blKey, acGwKey], conv);
       gwJson = !gwJson ? null : (gwJson === json) ? jsonOrg : organicGestionalJson_(gwJson, [acGwKey], conv);
       tpJson = !tpJson ? null : (tpJson === json) ? jsonOrg : organicGestionalJson_(tpJson, [tpKeys[0]], conv);
       json = jsonOrg;
+      if (orgTarget === 'forecast') {
+        var convG = organicConverter_('budget', 'forecast');
+        json = organicGoalJson_(json, fcKey, convG);
+        Object.keys(convG.missing).forEach(function(k) { conv.missing[k] = true; });
+      }
       organicInfo = { target: orgTarget, missing: Object.keys(conv.missing).sort() };
     } catch (e) {
       organicInfo = { target: orgTarget, error: 'No se pudo leer el archivo de tipos de cambio: ' + e.message };
@@ -727,7 +726,7 @@ function listMillas_(json) {
 }
 
 // Tipos de viaje presentes en los escenarios B2B que se filtran. Si alguna fila no trae la columna (JSON de antes
-// del 2026-10-13, o un Projection Review armado antes) devuelve [] → la landing oculta el filtro
+// del 2026-10-13) devuelve [] → la landing oculta el filtro
 // en vez de filtrar a medias (esas filas quedarían afuera).
 function listViajes_(json, useMay, useMin, scenarioKeys) {
   var vals = {}, incomplete = false;
@@ -756,10 +755,10 @@ function getFilterOptions() {
   var paises = {}, partners = {}, produtos = {};
 
   function scanB2B2C(rows) {
-    (rows || []).forEach(function(r){ if(r[0]) paises[normB2B2CPais_(r[0])]=true; if(r[1]) partners[normB2B2CPartner_(r[1])]=true; if(r[2]) produtos[r[2]]=true; });
+    (rows || []).forEach(function(r){ if(r[0] && r[0] !== 'RG') paises[normB2B2CPais_(r[0])]=true; if(r[1]) partners[normB2B2CPartner_(r[1])]=true; if(r[2]) produtos[r[2]]=true; });
   }
   function scanB2B(rows) {
-    (rows || []).forEach(function(r){ if(r[0]) paises[r[0]]=true; if(r[1]) produtos[r[1]]=true; });
+    (rows || []).forEach(function(r){ if(r[0] && r[0] !== 'RG') paises[r[0]]=true; if(r[1]) produtos[r[1]]=true; });
   }
 
   var b2b2c   = json.b2b2c   || {};
@@ -857,7 +856,8 @@ function _round2_(dict) {
 
 function _computeVsAccounting_(f) {
   f = f || {};
-  var json = readGestionalJSON_('bl');
+  _RG_ON_ = false;   // se reconcilia contra Accounting, que incluye el COI de Brasil
+  var json = readGestionalJSON_();
   var FY = YM_ORDER.map(function(y){ return YM_LABEL[y]; });
 
   // ── Filtros: país canónico + producto (lowercase) ──
@@ -1017,6 +1017,7 @@ function _gestB2BByPaisNRFVM_(section, canal, fPaisRaw, selProd, out) {
   var iNR = 3 + METRIC_COLS.indexOf('net_revenue');
   var iFV = 3 + METRIC_COLS.indexOf('npv');
   rows.forEach(function(row) {
+    if (_rgSkip_(row)) return;
     var pais = normB2BPais_(row[0]), produto = row[1], ym = row[2];
     if (!matchFilter_(pais, fPaisRaw) || !matchFilter_(produto, selProd)) return;
     var mes = YM_LABEL[ym]; if (!mes) return;
@@ -1031,11 +1032,12 @@ function _gestB2BByPaisNRFVM_(section, canal, fPaisRaw, selProd, out) {
 
 function _computeRevenueGD_(f) {
   f = f || {};
+  _RG_ON_ = false;   // se reconcilia contra Revenue GD, que incluye el COI de Brasil
   var selPais = (f.pais || []).map(function(s){ return String(s); });               // canónico: ['Argentina','Otros',...]
   var selProd = (f.produto || []).map(function(s){ return String(s).toLowerCase(); });
 
   // ── Izquierda: gestional B2B 'ac' (GD), por canal ──
-  var json = readGestionalJSON_('bl');
+  var json = readGestionalJSON_();
   var fPaisMgr = [];
   selPais.forEach(function(cp){ (_VSA_PAIS_RAW[cp] || [cp.toLowerCase()]).forEach(function(r){ fPaisMgr.push(r); }); });
   var mgrMonths = {};

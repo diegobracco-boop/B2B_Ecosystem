@@ -8,7 +8,6 @@ actuals ya salen con el país real de la transacción. La usan:
   - Daily_Dashboard/daily_sync.py               -> budget / run rate (clean_budget) y forecast
                                                    (_load_forecast_diario)
   - P&L_Managerial/actuals_gestional_upload.py  -> budget / run rate / forecast XLSX B2B2C
-  - P&L_Managerial/projections_gestional_builder.py -> forecast XLSX WLs
 
 Para corregir el país de otro partner, se toca SOLO acá y se re-corren los pipelines.
 """

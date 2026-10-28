@@ -187,7 +187,7 @@ def conectar():
 COLS_ACTUALS = [
     "fecha", "pais", "productooriginal", "channel", "partner", "viaje",
     "account_type", "region", "tier",
-    "orders", "gross_bookings", "net_revenues", "fvm", "fvm_ex_coi_br"
+    "orders", "gross_bookings", "net_revenues", "fvm"
 ]
 
 
@@ -397,7 +397,7 @@ SELECT
       + profit_sharing_naranja
       + efecto_fin_naranja
       + channel_expenses_delta    AS fvm,
-    -- COI + efecto financiero de Brasil tal como entran en el FVM: fvm_ex_coi_br = fvm - coi_fin_br (clean_actuals)
+    -- COI + efecto financiero de Brasil tal como entran en el FVM: clean_actuals arma la fila RG con -coi_fin_br
     CASE WHEN pais = 'Brasil' THEN efecto_financiero - coi ELSE 0 END AS coi_fin_br
 FROM with_ps
 """
@@ -454,7 +454,7 @@ GROUP BY lob_canal ORDER BY lob_canal
 # ── B2B ───────────────────────────────────────────────────────────────────────
 CORE_PAISES = {'Brasil', 'Mexico', 'Other Countries'}
 COLS_B2B    = ["fecha", "pais", "producto_original", "parent_channel", "viaje", "product_type",
-               "orders", "gross_bookings", "net_revenue", "fvm", "fvm_ex_coi_br"]
+               "orders", "gross_bookings", "net_revenue", "fvm"]
 
 _B2B_CONECTORES_CTE = """
 WITH conectores AS (
@@ -903,7 +903,7 @@ _B2B_OUTER_SELECT_FVM = """
         + COALESCE(efecto_financiero,0) + COALESCE(dif_fx,0) + COALESCE(currency_hedge,0)
     ) AS fvm"""
 
-# COI + efecto financiero de Brasil tal como entran en el FVM de arriba: fvm_ex_coi_br = fvm - coi_fin_br (clean_b2b)
+# COI + efecto financiero de Brasil tal como entran en el FVM de arriba: clean_b2b arma la fila RG con -coi_fin_br
 _B2B_OUTER_SELECT_COI_FIN_BR = """
     SUM(CASE WHEN pais = 'Brasil'
              THEN COALESCE(cost_of_installments,0) + COALESCE(efecto_financiero,0) ELSE 0 END) AS coi_fin_br"""
@@ -1128,10 +1128,19 @@ SELECT
     SUM(b.net_revenues_usd
         + COALESCE(be.correccion_be, 0)
         + COALESCE(mkt.monto_usd, 0))                                    AS net_revenues,
+    -- FVM = margen variable + Financial Result + Dif FX + cobertura, como el FVM de B2B2C / B2B y el
+    -- Budget B2C (Variable_Margin + Financial_Result + Dif_FX). Hasta 2026-10-27 iba sin Financial
+    -- Result ni Dif FX: en W43 daba $5,5M en vez de $4,6M (49% del NR en vez de 41%).
     SUM(b.margin_variable_net_usd
         + COALESCE(be.correccion_be, 0)
         + COALESCE(d.mktg_funds_usd, 0)
-        + COALESCE(mkt.monto_usd, 0))                                    AS margenVAr_conAA
+        + COALESCE(mkt.monto_usd, 0)
+        + COALESCE(b.financial_result_usd, 0)
+        + COALESCE(b.dif_fx_usd, 0) + COALESCE(b.dif_fx_air_usd, 0)
+        + COALESCE(b.currency_hedge_usd, 0) + COALESCE(b.currency_hedge_air_usd, 0)) AS margenVAr_conAA,
+    -- COI + efecto financiero tal como entran en el FVM (mismo criterio que coi_fin_br de B2B2C); agg_b2c
+    -- lo usa solo para Brasil: fila RG con -fin_coi (switch "COI Brasil")
+    SUM(COALESCE(b.financial_result_usd, 0) - COALESCE(b.coi_usd, 0))     AS fin_coi
 
 FROM data.analytics.bi_pnlop_fact_current_model b
 
@@ -1188,6 +1197,8 @@ def agg_b2c(df: pd.DataFrame) -> pd.DataFrame:
     df["gross_bookings"] = pd.to_numeric(df["gb"],              errors="coerce").fillna(0)
     df["net_revenues"]   = pd.to_numeric(df["net_revenues"],    errors="coerce").fillna(0)
     df["fvm"]            = pd.to_numeric(df["margenvar_conaa"], errors="coerce").fillna(0)
+    fin_coi = pd.to_numeric(df["fin_coi"], errors="coerce").fillna(0) if "fin_coi" in df.columns else 0.0
+    df = append_rg_rows(df, fin_coi if isinstance(fin_coi, pd.Series) else pd.Series(0.0, index=df.index))
     return df.groupby(["fecha", "pais"], as_index=False).agg(
         gross_bookings=("gross_bookings", "sum"),
         net_revenues  =("net_revenues",   "sum"),
@@ -1225,10 +1236,31 @@ def fetch(query: str, label: str, retries: int = 3) -> pd.DataFrame:
     raise last_err
 
 
+RG_PAIS = "RG"   # país de ajuste: COI + efecto financiero de Brasil con signo contrario (switch "COI Brasil")
+
+
+def append_rg_rows(df: pd.DataFrame, comp: pd.Series) -> pd.DataFrame:
+    """Suma las filas del país RG: por cada fila de Brasil con COI / efecto financiero (comp = lo que
+    entra al FVM de Brasil, con su signo), una fila RG con el mismo grano, FVM = -comp y el resto de
+    las métricas en 0. Brasil conserva su FVM completo; el Total ex COI Brasil es sumar la fila RG
+    (el switch "COI Brasil" del Daily: Excluir = con RG, Incluir = sin RG)."""
+    comp = pd.to_numeric(comp, errors="coerce").fillna(0)
+    mask = (df["pais"] == "Brasil") & (comp != 0)
+    if not mask.any():
+        return df
+    rg = df[mask].copy()
+    rg["pais"] = RG_PAIS
+    for c in ("orders", "gross_bookings", "net_revenues", "net_revenue"):
+        if c in rg.columns:
+            rg[c] = 0
+    rg["fvm"] = -comp[mask]
+    return pd.concat([df, rg], ignore_index=True)
+
+
 def clean_actuals(df: pd.DataFrame) -> pd.DataFrame:
     df["fecha"] = pd.to_datetime(df["fecha"]).dt.strftime("%Y-%m-%d")
-    df["fvm_ex_coi_br"] = pd.to_numeric(df["fvm"], errors="coerce").fillna(0) - pd.to_numeric(df["coi_fin_br"], errors="coerce").fillna(0)
-    for col in ["gross_bookings", "net_revenues", "fvm", "fvm_ex_coi_br"]:
+    df = append_rg_rows(df, df["coi_fin_br"])
+    for col in ["gross_bookings", "net_revenues", "fvm"]:
         df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0).round(0).astype(int)
     df["orders"]  = pd.to_numeric(df["orders"], errors="coerce").fillna(0).astype(int)
     df["partner"] = df["partner"].fillna("Sin asignar").str.strip()
@@ -1243,19 +1275,18 @@ def clean_budget(df: pd.DataFrame) -> pd.DataFrame:
     for col in numeric_cols:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
-    add_fvm_ex_coi_br(df)
-    return df
+    return add_rg_rows_proj(df)
 
 
-def add_fvm_ex_coi_br(df: pd.DataFrame) -> None:
-    """FVM ex COI BR de las proyecciones (budget / run rate / forecast): el FVM sin el cost of
-    installments ni el efecto financiero de Brasil (ambos vienen abiertos y con el signo con el
-    que suman al FVM). Va DESPUÉS de apply_pais_overrides: usa el país corregido."""
+def add_rg_rows_proj(df: pd.DataFrame) -> pd.DataFrame:
+    """Filas RG de las proyecciones (budget / run rate / forecast): el cost of installments y el efecto
+    financiero de Brasil vienen abiertos y con el signo con el que suman al FVM; RG los toma con signo
+    contrario. Va DESPUÉS de apply_pais_overrides: usa el país corregido."""
     if "fvm" not in df.columns:
-        return
+        return df
     comp = sum(pd.to_numeric(df[c], errors="coerce").fillna(0)
                for c in ("cost_of_installments", "financial_results") if c in df.columns)
-    df["fvm_ex_coi_br"] = df["fvm"] - comp * (df["pais"] == "Brasil")
+    return append_rg_rows(df, comp if isinstance(comp, pd.Series) else pd.Series(0.0, index=df.index))
 
 
 def agg_actuals(df: pd.DataFrame) -> pd.DataFrame:
@@ -1266,8 +1297,7 @@ def agg_actuals(df: pd.DataFrame) -> pd.DataFrame:
         gross_bookings=("gross_bookings", "sum"),
         net_revenues  =("net_revenues",   "sum"),
         fvm           =("fvm",            "sum"),
-        fvm_ex_coi_br =("fvm_ex_coi_br",  "sum"),
-    ).round({"gross_bookings": 2, "net_revenues": 2, "fvm": 2, "fvm_ex_coi_br": 2})
+    ).round({"gross_bookings": 2, "net_revenues": 2, "fvm": 2})
 
 
 def _parse_fecha_budget(s: pd.Series) -> pd.Series:
@@ -1291,18 +1321,19 @@ def _parse_fecha_budget(s: pd.Series) -> pd.Series:
 
 def agg_okr_stage_nr(df: pd.DataFrame) -> pd.DataFrame:
     """Bloque chico para okr_builder.py (Hunting / Existing Account Net Revenues, B2B2C):
-    NR por mes x stage (New/Existing) del AÑO FISCAL COMPLETO (abr -> mar siguiente).
+    NR por mes x pais x stage (New/Existing) del AÑO FISCAL COMPLETO (abr -> mar siguiente). El pais (2026-10-27)
+    permite convertir a organic por pais en OKR_H2_FY27.json; okr_builder suma por mes/stage, ignora esa columna.
     agg_budget() recorta al año calendario en curso (lo consume el Daily, que suma budget
     sin tope de fecha en varios lugares), asi que ene-mar del FY quedaban afuera del JSON.
     Esto NO cambia lo que ve el Daily: va en claves aparte (okr_budget / okr_runrate)."""
     if df.empty or "stage" not in df.columns:
-        return pd.DataFrame(columns=["fecha", "stage", "net_revenue"])
+        return pd.DataFrame(columns=["fecha", "pais", "stage", "net_revenue"])
     df = df.copy()
     f = _parse_fecha_budget(df["fecha"])
     fy0 = TODAY.year if TODAY.month >= 4 else TODAY.year - 1
     df = df[(f >= pd.Timestamp(fy0, 4, 1)) & (f <= pd.Timestamp(fy0 + 1, 3, 31))]
     df["fecha"] = f.loc[df.index].dt.strftime("%Y-%m-01")
-    return (df.groupby(["fecha", "stage"], as_index=False)
+    return (df.groupby(["fecha", "pais", "stage"], as_index=False)
               .agg(net_revenue=("net_revenue", "sum"))
               .round({"net_revenue": 2}))
 
@@ -1340,15 +1371,14 @@ def agg_budget(df: pd.DataFrame, fy_rest: bool = False) -> pd.DataFrame:
         gross_bookings=("gross_bookings",  "sum"),
         net_revenue   =("net_revenue",     "sum"),
         fvm           =("fvm",             "sum"),
-        fvm_ex_coi_br =("fvm_ex_coi_br",   "sum"),
-    ).round({"gross_bookings": 2, "net_revenue": 2, "fvm": 2, "fvm_ex_coi_br": 2})
+    ).round({"gross_bookings": 2, "net_revenue": 2, "fvm": 2})
 
 
 def clean_b2b(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     df["fecha"] = pd.to_datetime(df["fecha"]).dt.strftime("%Y-%m-%d")
-    df["fvm_ex_coi_br"] = pd.to_numeric(df["fvm"], errors="coerce").fillna(0) - pd.to_numeric(df["coi_fin_br"], errors="coerce").fillna(0)
-    for col in ["gross_bookings", "net_revenue", "fvm", "fvm_ex_coi_br"]:
+    df = append_rg_rows(df, df["coi_fin_br"])
+    for col in ["gross_bookings", "net_revenue", "fvm"]:
         df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0).round(0).astype(int)
     df["orders"] = pd.to_numeric(df["orders"], errors="coerce").fillna(0).astype(int)
     df["viaje"]  = df["viaje"].fillna("N/A")
@@ -1369,7 +1399,6 @@ def agg_b2b(df: pd.DataFrame) -> pd.DataFrame:
         gross_bookings=("gross_bookings",  "sum"),
         net_revenue   =("net_revenue",     "sum"),
         fvm           =("fvm",             "sum"),
-        fvm_ex_coi_br =("fvm_ex_coi_br",   "sum"),
     )
 
 
@@ -1406,8 +1435,7 @@ def agg_b2b_budget(df: pd.DataFrame, full_fy: bool = False) -> pd.DataFrame:
         gross_bookings=("gross_bookings",  "sum"),
         net_revenue   =("net_revenue",     "sum"),
         fvm           =("fvm",             "sum"),
-        fvm_ex_coi_br =("fvm_ex_coi_br",   "sum"),
-    ).round({"gross_bookings": 2, "net_revenue": 2, "fvm": 2, "fvm_ex_coi_br": 2})
+    ).round({"gross_bookings": 2, "net_revenue": 2, "fvm": 2})
 
 
 def split_pkg_budget(df: pd.DataFrame) -> pd.DataFrame:
@@ -1434,10 +1462,10 @@ def split_pkg_budget(df: pd.DataFrame) -> pd.DataFrame:
     pk = df[is_pkg].drop(columns=["product_type"]).copy()
     pk["pais_key"] = pk["pais"].where(pk["pais"].isin(PKG_SPLIT_FACTORS.keys()), "TOTAL")
     pk = pk.merge(fac, on="pais_key", how="left")
-    metrics = [c for c in ("orders", "gross_bookings", "net_revenue", "fvm", "fvm_ex_coi_br") if c in pk.columns]
+    metrics = [c for c in ("orders", "gross_bookings", "net_revenue", "fvm") if c in pk.columns]
     for c in metrics:
         pk[c] = pk[c] * pk["share"]
-    pk = pk.drop(columns=["pais_key", "share"]).round({"gross_bookings": 2, "net_revenue": 2, "fvm": 2, "fvm_ex_coi_br": 2})
+    pk = pk.drop(columns=["pais_key", "share"]).round({"gross_bookings": 2, "net_revenue": 2, "fvm": 2})
     return pd.concat([df[~is_pkg], pk[df.columns]], ignore_index=True)
 
 
@@ -1447,10 +1475,10 @@ def build_okr_h2_actuals(df: pd.DataFrame) -> dict:
     (en el resto va vacío): es lo que separa el componente Vuelos / Dest. Serv. de los paquetes. Sin orders/viaje."""
     if df is None or df.empty:
         return {"cols": [], "rows": []}
-    d = df[["fecha", "pais", "producto_original", "parent_channel", "product_type", "gross_bookings", "net_revenue", "fvm", "fvm_ex_coi_br"]].copy()
+    d = df[["fecha", "pais", "producto_original", "parent_channel", "product_type", "gross_bookings", "net_revenue", "fvm"]].copy()
     d.loc[d["producto_original"] != "Packages General", "product_type"] = ""
     d = d.groupby(["fecha", "pais", "producto_original", "parent_channel", "product_type"], as_index=False).agg(
-        gross_bookings=("gross_bookings", "sum"), net_revenue=("net_revenue", "sum"), fvm=("fvm", "sum"), fvm_ex_coi_br=("fvm_ex_coi_br", "sum"))
+        gross_bookings=("gross_bookings", "sum"), net_revenue=("net_revenue", "sum"), fvm=("fvm", "sum"))
     return to_compact(d)
 
 
@@ -1462,8 +1490,8 @@ def build_okr_h2_budget(df_clean: pd.DataFrame) -> list:
         return []
     b = split_pkg_budget(agg_b2b_budget(df_clean, full_fy=True))
     b = b.groupby(["fecha", "pais", "parent_channel", "producto", "product_type"], as_index=False).agg(
-        gross_bookings=("gross_bookings", "sum"), net_revenue=("net_revenue", "sum"), fvm=("fvm", "sum"), fvm_ex_coi_br=("fvm_ex_coi_br", "sum")
-    ).round({"gross_bookings": 2, "net_revenue": 2, "fvm": 2, "fvm_ex_coi_br": 2})
+        gross_bookings=("gross_bookings", "sum"), net_revenue=("net_revenue", "sum"), fvm=("fvm", "sum")
+    ).round({"gross_bookings": 2, "net_revenue": 2, "fvm": 2})
     return b.to_dict(orient="records")
 
 
@@ -1480,8 +1508,7 @@ def _load_forecast_diario(base: str) -> pd.DataFrame:
     for c in ("orders", "gross_bookings", "net_revenue", "fvm"):
         df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0)
     apply_pais_overrides(df)
-    add_fvm_ex_coi_br(df)
-    return df
+    return add_rg_rows_proj(df)
 
 
 def agg_forecast_b2bc(df: pd.DataFrame) -> pd.DataFrame:
@@ -1492,8 +1519,8 @@ def agg_forecast_b2bc(df: pd.DataFrame) -> pd.DataFrame:
     d = df[df["lob_canal"].str.startswith("B2B2C")]
     return d.groupby(["fecha", "pais", "producto", "partner"], as_index=False).agg(
         orders=("orders", "sum"), gross_bookings=("gross_bookings", "sum"),
-        net_revenue=("net_revenue", "sum"), fvm=("fvm", "sum"), fvm_ex_coi_br=("fvm_ex_coi_br", "sum"),
-    ).round({"gross_bookings": 2, "net_revenue": 2, "fvm": 2, "fvm_ex_coi_br": 2})
+        net_revenue=("net_revenue", "sum"), fvm=("fvm", "sum"),
+    ).round({"gross_bookings": 2, "net_revenue": 2, "fvm": 2})
 
 
 def agg_forecast_b2b(df: pd.DataFrame) -> pd.DataFrame:
@@ -1505,8 +1532,8 @@ def agg_forecast_b2b(df: pd.DataFrame) -> pd.DataFrame:
     d["parent_channel"] = d["lob_canal"].map({"B2B-MAY": "API", "B2B-MIN": "Agencias afiliadas"})
     return d.groupby(["fecha", "pais", "parent_channel", "producto"], as_index=False).agg(
         orders=("orders", "sum"), gross_bookings=("gross_bookings", "sum"),
-        net_revenue=("net_revenue", "sum"), fvm=("fvm", "sum"), fvm_ex_coi_br=("fvm_ex_coi_br", "sum"),
-    ).round({"gross_bookings": 2, "net_revenue": 2, "fvm": 2, "fvm_ex_coi_br": 2})
+        net_revenue=("net_revenue", "sum"), fvm=("fvm", "sum"),
+    ).round({"gross_bookings": 2, "net_revenue": 2, "fvm": 2})
 
 
 # Overrides New/Existing (hunting) por partner: viven en hunting_rules.py, compartido con
@@ -1829,6 +1856,7 @@ def fvm_neg_block(df: pd.DataFrame, dims: list, niveles_tx: dict) -> dict:
 def _cuadre_fvm_neg(df_neg: pd.DataFrame, nivel_tx: str, df_daily: pd.DataFrame, nombre: str) -> bool:
     """El FVM de TODAS las transacciones (fvm_total) tiene que dar igual al FVM del Daily, mes a mes."""
     neg   = df_neg[df_neg["nivel"] == nivel_tx].groupby("ym")["fvm_total"].sum()
+    df_daily = df_daily[df_daily["pais"] != RG_PAIS]   # RG = ajuste COI Brasil: no es una transacción
     daily = df_daily.assign(ym=df_daily["fecha"].str[:7]).groupby("ym")["fvm"].sum()
     ok = True
     for ym, v in neg.items():
@@ -2152,6 +2180,10 @@ print(f"OKR H2 JSON: {len(okr_h2_bytes)//1024:.0f} KB  (ri={len(okr_h2_payload['
 
 def upload_to_drive(json_bytes: bytes, filename: str, folder_id: str = DRIVE_FOLDER_ID):
     from googleapiclient.http import MediaInMemoryUpload
+    import sys as _sys
+    from pathlib import Path as _Path
+    _sys.path.insert(0, str(_Path(__file__).resolve().parents[1] / "Ownia_B2B_Ecosystem" / "mirror"))
+    from ownia_publish import DRIVE_FIELDS, publish_after_drive   # doble escritura Drive + Ownia
 
     service = _get_drive_service()
     media   = MediaInMemoryUpload(json_bytes, mimetype="application/json", resumable=False)
@@ -2163,14 +2195,15 @@ def upload_to_drive(json_bytes: bytes, filename: str, folder_id: str = DRIVE_FOL
     existing = results.get("files", [])
 
     if existing:
-        service.files().update(fileId=existing[0]["id"], media_body=media).execute()
+        res = service.files().update(fileId=existing[0]["id"], media_body=media, fields=DRIVE_FIELDS).execute()
         print(f"  OK Drive: archivo actualizado ({filename})")
     else:
-        service.files().create(
+        res = service.files().create(
             body={"name": filename, "parents": [folder_id]},
-            media_body=media, fields="id"
+            media_body=media, fields=DRIVE_FIELDS
         ).execute()
         print(f"  OK Drive: archivo creado ({filename})")
+    publish_after_drive(res, json_bytes)
 
 
 # ==============================================================================
@@ -2196,6 +2229,17 @@ if recurrencia_payload is not None:
         upload_recurrencia(recurrencia_payload, _get_drive_service())
     except Exception as e:
         print(f"  WARN no se pudo subir {RECUR_FILE_NAME}: {e}")
+
+# Partners API (KR Global B2B API "Accelerate Hunting Partners API"): congela el mes anterior el primer dia habil del mes y recalcula
+# el rolling de 30 dias (ver partners_api_sync.py). No corta la sync: si falla queda el partners_api_snapshots.json anterior.
+print("\n--- Partners API (KR Global B2B API, congelado mensual) ---")
+try:
+    import partners_api_sync as _pas
+    _pas_payload = _pas.build_payload(fetch, _download_json_from_drive(_pas.SNAPSHOT_FILE_NAME) or {})
+    if _pas_payload is not None:
+        upload_to_drive(json.dumps(_pas_payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8"), _pas.SNAPSHOT_FILE_NAME)
+except (Exception, SystemExit) as e:
+    print(f"  WARN Partners API fallo ({e}) — queda el partners_api_snapshots.json anterior en Drive")
 
 # okr.json (OKR del Hub + KR Global B2B API del Daily/Tracker) toma de daily_b2b2c_data.json los
 # actuals que salen del Datalake (hoteles directos, Unique Buyers, Hunting/Existing): se regenera acá

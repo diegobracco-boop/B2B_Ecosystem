@@ -72,6 +72,16 @@ pipelines (sin cambios) ──▶ Drive ──▶ mirror/ownia_mirror.py ──P
                                                      landing en Ownia ──DriveApp.getFileById(id)──┘
 ```
 
+- **Doble escritura (2026-10-27)** — `mirror/ownia_publish.py` (`publish_after_drive`): los pipelines que suben a Drive
+  (`daily_sync.py`, `recurrencia_sync.py`, `actuals_gestional_upload.py`, `revenue_gd_builder.py`,
+  `profit_sharing_sync.py`, `json_builder.py`, `baseline_builder.py`, `okr_builder.py`, `plana_to_cube.py`) mandan en el
+  mismo paso el MISMO contenido a `/ingest/files/<id>`, con la fecha de modificación que devolvió Drive (se pide con
+  `DRIVE_FIELDS` en el `update()`/`create()`), así que el mirror posterior ve "sin cambios". Drive sigue siendo la
+  fuente de verdad (también alimenta a los toqans). Nunca corta el pipeline: si Ownia falla avisa (`WARN Ownia`), no
+  insiste con el resto de esa corrida y se repara con `py mirror/ownia_mirror.py`. Solo publica lo que está en el
+  manifest (por id o carpeta + nombre). Hace falta `credenciales/.env.ownia` en cada PC que corre pipelines
+  (`OWNIA_URL`, `OWNIA_INGEST_TOKEN`); sin eso, o con `OWNIA_PUBLISH=off`, no hace nada. El mirror sigue haciendo falta
+  para lo que no genera un pipeline (Sheets, `tc_plana_flat.xlsx`) y como reconciliación.
 - `server/drive-manifest.json` — qué ids de Drive (y qué archivos por carpeta + nombre) lee cada módulo. **Al agregar un
   `*_FILE_ID` en el código GAS de un módulo migrado, sumarlo acá** (`test/manifest.test.js` falla si no coincide con
   el código GAS). Es también la allowlist de `/ingest`: un archivo fuera de la lista se rechaza (403) aunque el token
@@ -108,8 +118,11 @@ pipelines (sin cambios) ──▶ Drive ──▶ mirror/ownia_mirror.py ──P
 - `/ingest/files` (GET lista, PUT sube) se protege con `Authorization: Bearer <INGEST_TOKEN>`. Sin
   `INGEST_TOKEN` configurado la ruta no existe (404).
 
-**Pendiente:** hoy el espejo se corre a mano (`py mirror/ownia_mirror.py`) después de los pipelines. Para el paralelo
-diario hay que engancharlo al final de las corridas automáticas (ver CONTEXT-MAP, scheduler del Daily).
+**Corrida diaria (2026-10-27):** `Daily_Dashboard/auto_update_reales.ps1` (Task Scheduler en la PC de Tiago) corre el
+espejo completo después de `daily_sync.py` (paso 1b). No corta la corrida si falla: Apps Script se publica igual y queda un
+AVISO en el log. Esa PC necesita `credenciales/.env.ownia` y el login de Drive de `Inputs_Planning_PnL/token_drive.json`;
+sin `.env.ownia` el paso se saltea con aviso. Las demás corridas (P&L, `/actualizar`, uploads a mano) siguen necesitando
+`py mirror/ownia_mirror.py` a mano.
 
 ## Identidad y acceso
 
@@ -238,3 +251,21 @@ En Git Bash, anteponer `MSYS_NO_PATHCONV=1` (si no, convierte `/b2b-ecosystem` e
   Hub y el Daily, revisar la memoria de la tarea en Ownia.
 - `google.script.run` serializa con JSON: un `Date` devuelto llega como string ISO (en GAS, las fechas de retorno no
   están permitidas igual).
+
+
+## Flow (módulo `flow`, 2026-10-27)
+
+Entrada propia del menú principal que junta, con la misma regla de fuentes, los dos Flow del ecosistema:
+- **Semanal = 100% gestional**: el Flow del Daily (`<base>/daily?flowdeck=1`, `public/daily-flowdeck.js`: abre el Flow sin la navegación del Daily). La portada
+  contable "B2B2C — Resumen mensual (OC)" se saca de ese deck (`public/daily-flow-slides.js`); el target de NR API Hoteles ya no cae al contable.
+- **Mensual = contable**: las Slides mensuales del Hub (`<base>/hub?slides=1&embedded=1`, `public/hub-slides.js` modo `EMB`: sin barra del Hub). Su slide 4 (portada
+  B2B2C) muestra NR y **OC por segmento**: total OC del P&L contable; Hunting y TBD = FVM gestional (Datalake); Farming = OC contable − Hunting − TBD. Sin tabla de FVM.
+- `Flow_B2B/flow.html` es el cascarón: pestañas Semanal | Mensual, iframes (mismo origen) que avisan por `postMessage({type:'flow-slide'})` en qué slide están, y un
+  cuadro de **comentarios por slide** con botón "Enviar por mail" (`mailto:` a diego.bracco@ y matias.m.sanchez@despegar.com; los borradores quedan en el navegador).
+  El mail lo manda el usuario desde su casilla: Ownia no tiene servicio de correo.
+- En Ownia se ocultan la pestaña "Slides mensuales" del Hub y la pestaña "Flow Semanal" del Daily (siguen accesibles por esos links).
+- **Acceso**: el módulo `flow` está abierto a cualquier @despegar.com, pero el Flow mensual lee los datos del Hub (`allowedUsers: EQUIPO_B2B`): quien no esté en esa lista ve el
+  semanal y un aviso en el mensual. Sumar al Chief u otras personas = agregarlos a `allowedUsers` del Hub (o abrirlo a todo el dominio, decisión sobre datos contables).
+- **Descargar PPTX (2026-10-28)**: en Ownia se ocultan los botones "Enviar a Google Slides" (Flow del Daily, Tracker y Slides cierre de mes del Hub; en Apps Script siguen). El módulo Flow trae "⬇ Descargar PPTX": cada iframe expone `window.__flowExport()` (`daily-flowdeck.js`, `hub-slides.js`) con las slides como imágenes y `flow.html` arma el `.pptx` en el navegador (pptxgenjs por CDN); los comentarios de cada slide van como notas. Las slides quedan como imagen (no editables); se abre en Google Slides subiéndolo a Drive.
+- **Menú principal rediseñado (2026-10-28)**: `server/index-page.js`, estilo Apple (claro por defecto, sin intro): "Lo esencial" (Flow, Daily, P&L Dashboard, P&L Managerial, con accesos directos) y "Más tableros" en lista. Textos llanos en `COPY`. Las tarjetas de módulos en validación ya no muestran "Versión Apps Script" (`hideGasLink` en `modules.js`). El Flow acepta `?view=semanal|mensual|cierre`.
+- **Menú y Manual (2026-10-28)**: el menú vuelve a abrir con la intro "The B2B Ecosystem" y fondo oscuro (`#0F0F1E`); el claro es opcional (clave `b2b-api-theme`, compartida con el Manual). El Manual en Ownia lleva `public/manual-layout.js`: diseño oscuro/claro con botón, índice con íconos y, en el Gantt, **"Agregar tarea"** (un día, días de la semana, o una vez al mes; se guarda para todos en `/notes/manual/gantt`, campos `t_*`; quitar = texto vacío). El motor de reglas del Gantt (incluye `fri-before-first-tue` = envío del material MRM) vive en `Manual_B2B_WLs/manual.html`. El menú tiene acceso rápido "Gantt" en la fila del Manual (`/manual?view=gantt`).

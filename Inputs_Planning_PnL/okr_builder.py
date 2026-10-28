@@ -1,6 +1,6 @@
 """
 okr_builder.py
-Genera okr.json combinando cuatro fuentes:
+Genera okr.json combinando cinco fuentes:
 
   1. KRs B2B2C Op.Contribution + B2B NR Core/New Markets (mismo input contable
      que usa la landing P&L_Accounting)
@@ -25,6 +25,9 @@ Genera okr.json combinando cuatro fuentes:
      y hay que congelar el conteo del snapshot mensual.
      Vida útil hasta Sep-2026; desde Oct-2026 cambia la lógica.
 
+  5. KR "Accelerate Recurrence" (B2B, H2): target y actual de Input_OKR, salvo el mes comercial en
+     curso, cuyo actual es el Rolling L4W de recurrencia_b2b.json (Daily, card Metabase 171400).
+
 Mismo criterio que Dashboard_B2B_WLs/Codigo_OKR.js (computeOKR_), consolidado acá para
 que la landing deje de calcular todo en vivo y solo lea este JSON.
 
@@ -34,6 +37,7 @@ Uso:
 """
 
 import os, sys, io, json, re, argparse
+from datetime import datetime
 from collections import defaultdict
 
 try:
@@ -43,6 +47,7 @@ except Exception:
 
 import config
 import pnl_common
+import okr_h2_builder as h2b   # OKR_H2_FY27.json + Unique Buyers proyectado
 
 DIR             = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_NAME     = "okr.json"
@@ -53,7 +58,12 @@ GESTIONAL_FILE_ID  = "1wvle0UIVZV7ocCSl8OawOfIGVz_It5kh"   # _pnl_gestional_data
 BASELINE_FILE_ID   = "1Su36jhCMdNgC6nixxX5TyvtCI4ESG2Tv"   # baseline_actuals+projections.json
 BUDGET_FILE_ID     = "1f2JF8pq7gtpxfdkVzbT9wvamn_ny3RBW"   # budget.json
 DAILY_B2B2C_FILE_ID = "1Ukcx4e-dwCZ2VqesWwVN_1Jnt6r2AZdX"  # daily_b2b2c_data.json (transaccional)
+RECUR_FILE_ID      = "1UI-azcvvJ9MIyOZOft94vhbBibuZ0aa0"   # recurrencia_b2b.json (Daily, recurrencia_sync.py)
 OKR_FILE_ID        = "1cEidr8aoYgm4S7ugm05Wv-SMnz8GbtUj"   # okr.json (output)
+# H1 FY27 (abr-sep 2026) está CERRADO y congelado en OKR_H1_FY27.json (ver okr_h1_freeze.py): okr_builder ya no lo
+# recalcula, copia esas filas tal cual. Solo se calcula de H1_END en adelante (H2).
+OKR_H1_FILE_ID     = "1wMCfuE8m8slzTN0CrWzoxJjTWOT9IMcf"   # OKR_H1_FY27.json
+H1_END             = "2026-09-01"                          # último Periodo de H1 (inclusive)
 
 SHEET_ID    = "1RVmTXDyyugCUXJ0f6JG_croNxWNLlOLm4eAs8F52u2c"
 SHEET_RANGE = "Input_OKR"
@@ -134,11 +144,64 @@ def _download_json(svc, file_id, label):
 
 def _upload(local_path, svc):
     from googleapiclient.http import MediaFileUpload
+    import sys as _sys
+    from pathlib import Path as _Path
+    _sys.path.insert(0, str(_Path(__file__).resolve().parents[1] / "Ownia_B2B_Ecosystem" / "mirror"))
+    from ownia_publish import DRIVE_FIELDS, publish_after_drive   # doble escritura Drive + Ownia
     pnl_common.guard_shrink(svc, OKR_FILE_ID, os.path.getsize(local_path), OUTPUT_NAME)
     media = MediaFileUpload(local_path, mimetype="application/json", resumable=True)
     res = svc.files().update(fileId=OKR_FILE_ID, media_body=media,
-                              fields="id,size,modifiedTime").execute()
+                              fields=DRIVE_FIELDS + ",size").execute()
     print(f"  [Drive] actualizado {OUTPUT_NAME}: id={res['id']}  size={res.get('size','?')}")
+    with open(local_path, "rb") as _f:
+        publish_after_drive(res, _f.read())
+
+
+H2_OUTPUT_NAME = "OKR_H2_FY27.json"
+DAILY_FOLDER_ID = "1lWzfqweyV6Kz1ERkL85ikFcmzmKwGwwh"   # carpeta de los JSON del Daily (okr_h2_managerial.json, ...)
+
+
+def _download_by_name(svc, folder_id, name, label):
+    q = f"name='{name}' and '{folder_id}' in parents and trashed=false"
+    f = svc.files().list(q=q, fields="files(id,name)").execute().get("files", [])
+    if not f:
+        raise FileNotFoundError(f"no hay '{name}' en la carpeta {folder_id}")
+    return _download_json(svc, f[0]["id"], label)
+
+
+def _upload_h2(local_path, svc):
+    """Sube OKR_H2_FY27.json a la carpeta de los canonicos (lo crea la primera vez, despues lo actualiza) + Ownia."""
+    from googleapiclient.http import MediaFileUpload
+    import sys as _sys
+    from pathlib import Path as _Path
+    _sys.path.insert(0, str(_Path(__file__).resolve().parents[1] / "Ownia_B2B_Ecosystem" / "mirror"))
+    from ownia_publish import DRIVE_FIELDS, publish_after_drive   # doble escritura Drive + Ownia
+    q = f"name='{H2_OUTPUT_NAME}' and '{DRIVE_FOLDER_ID}' in parents and trashed=false"
+    ex = svc.files().list(q=q, fields="files(id,name)").execute().get("files", [])
+    media = MediaFileUpload(local_path, mimetype="application/json", resumable=True)
+    if ex:
+        res = svc.files().update(fileId=ex[0]["id"], media_body=media, fields=DRIVE_FIELDS).execute()
+        print(f"  [Drive] actualizado {H2_OUTPUT_NAME}: id={res['id']}")
+    else:
+        res = svc.files().create(body={"name": H2_OUTPUT_NAME, "parents": [DRIVE_FOLDER_ID]},
+                                 media_body=media, fields=DRIVE_FIELDS).execute()
+        print(f"  [Drive] creado {H2_OUTPUT_NAME}: id={res['id']}  >>> copiarlo a OKR_H2_FILE_ID (Codigo_OKR.js) y a drive-manifest.json")
+    with open(local_path, "rb") as _f:
+        publish_after_drive(res, _f.read())
+
+
+def _check_h2_vs_okr(h2_rows, okr_rows):
+    """Control: los KRs contables de OKR_H2_FY27.json, sumados por pais, tienen que dar el Total de okr.json (mismo KR / mes / escenario)."""
+    tot = {}
+    for r in okr_rows:
+        tot[(r[0], r[1], r[5])] = r[6]
+    s = defaultdict(float)
+    for r in h2_rows:
+        if r[3] not in ("Total",) and r[5] in ("Op. Contribution", "Net Revenues B2B", "Operating Contribution API",
+                                                 "Operating Contribution HTML", "Net Revenues API Hoteles", "New Product Growth"):
+            s[(r[0], r[1], r[5])] += r[6]
+    bad = [(k, round(v), round(tot.get(k, 0))) for k, v in s.items() if abs(v - tot.get(k, 0)) > 1]
+    print(f"  [Control H2] KRs contables por pais vs Total de okr.json: {'OK (' + str(len(s)) + ' claves)' if not bad else 'DIFIEREN ' + str(bad[:5])}")
 
 
 # ── Sheets helper ──────────────────────────────────────────────────────────────
@@ -507,24 +570,28 @@ def _read_agencias_flat():
     return _read_tracker_sheet("Hoja1", "Agencias", "B2B", "Monthly Buying Agencies")
 
 
-# Actual forzado a mano mientras el tracker no trae el mes (pedido de antonella.difranco, 2026-10-23).
-# Solo completa meses que la hoja 'API' no tiene: cuando el equipo carga el real, gana el tracker.
-# Sacar la entrada cuando el mes esté cargado en el Excel.
-PARTNERS_API_ACTUAL_OVERRIDE = {"2026-10": 490}
+# Target (Budget) cargado a mano mientras Input_OKR no trae las filas (pedido de antonella.difranco, 2026-10-27;
+# la Sheets API está deshabilitada en el client OAuth y no se puede escribir la sheet por código). Solo completa
+# meses que la sheet no tiene: si el equipo carga el target en Input_OKR, gana la sheet.
+# Price Competitiveness: baseline ago-26 = 50% (no es mes del H2, se muestra en la card del tracker).
+GLOBALES_TARGET_DEFAULT = {
+    "Price Competitiveness ex-Latam (Destino GL)": {
+        "2026-10": 48, "2026-11": 46, "2026-12": 43, "2027-01": 40, "2027-02": 37, "2027-03": 35,
+    },
+}
 
 
-def _read_partners_api_actual():
-    """KR Global B2B API 'Accelerate Hunting Partners API' (2026-10-23): el ACTUAL sale de la hoja 'API'
-    del tracker (escenario Actuals, Pais=Total). El target (Budget) sigue de Input_OKR — en el tracker
-    es el mismo — para no duplicar filas (la landing suma por clave)."""
-    kr = "Accelerate Hunting Partners API"
-    rows = _read_tracker_sheet("API", "Partners API", "Globales", kr, escenarios=("Run Rate/Actuals",))
-    have = {r[0] for r in rows}
-    for ym, v in sorted(PARTNERS_API_ACTUAL_OVERRIDE.items()):
-        if _ym_to_periodo(ym) not in have:
-            rows.append([_ym_to_periodo(ym), "Run Rate/Actuals", "Globales", "Total", "Total", kr, v])
-            print(f"  [Partners API] {ym} = {v} forzado (PARTNERS_API_ACTUAL_OVERRIDE; el tracker no trae el mes)")
-    return rows
+def _apply_globales_target_default(rows_manual):
+    have = {(r[5].lower(), str(r[0])[:7]) for r in rows_manual if str(r[1]).strip().lower() == "budget"}
+    for kr, by_ym in GLOBALES_TARGET_DEFAULT.items():
+        added = []
+        for ym, v in sorted(by_ym.items()):
+            if (kr.lower(), ym) not in have:
+                rows_manual.append([_ym_to_periodo(ym), "Budget", "Globales", "Total", "Total", kr, v])
+                added.append(ym)
+        if added:
+            print(f"  [{kr}] target por defecto (GLOBALES_TARGET_DEFAULT; Input_OKR no lo trae): {added}")
+    return rows_manual
 
 
 def _read_manual_krs(token_file):
@@ -584,26 +651,6 @@ def _read_manual_krs(token_file):
     return rows
 
 
-def _apply_unique_buyers_actual(rows_manual, daily_json, last_actual_ym):
-    """KR Unique Buyers (H2 FY27, B2B2C): el actual de los meses cerrados H2 sale del Datalake
-    (daily_sync.py -> daily_b2b2c_data.json "unique_buyers_total": compradores unicos White Label
-    por mes) en vez de Input_OKR. El target (Budget) y los meses sin cierre siguen de la sheet.
-    Si el JSON no trae el bloque (query fallida), se deja todo como esta."""
-    tot = (daily_json or {}).get("unique_buyers_total") or {}
-    if not tot:
-        print("  [Unique Buyers] sin unique_buyers_total en daily_b2b2c_data.json — se mantiene Input_OKR")
-        return rows_manual
-    done = []
-    for r in rows_manual:
-        if r[5].lower() == "unique buyers" and r[1] == "Run Rate/Actuals":
-            ym = str(r[0])[:7]
-            if "2026-10" <= ym <= last_actual_ym and ym in tot:
-                r[6] = tot[ym]
-                done.append(ym)
-    print(f"  [Unique Buyers] actual desde Datalake para: {sorted(done) or 'ningun mes (H2 sin cierre todavia)'}")
-    return rows_manual
-
-
 def _apply_globales_hoteles_actual(rows_manual, daily_json):
     """KR Global B2B API "Hoteles Directos vendidos destino LATAM" y "% Hoteles Directos vendidos
     destino Globales" (H2 FY27): el actual sale del Datalake (daily_sync.py -> daily_b2b2c_data.json
@@ -630,6 +677,37 @@ def _apply_globales_hoteles_actual(rows_manual, daily_json):
     return out
 
 
+def _apply_recurrence_rr(rows_manual, recur_json):
+    """KR B2B "Accelerate Recurrence" (H2 FY27): en el mes comercial EN CURSO el actual es el Rolling L4W
+    (roll_frecuentes_vivas de recurrencia_b2b.json, la misma query que el Status KRs H2 del Tracker: card
+    Metabase 171400), Total = suma de países, de la última semana cerrada del mes (si no hay ninguna, la
+    última que haya). Definido por diego.bracco 2026-10-27: cuando el mes cierra, el actual vuelve a salir
+    de Input_OKR (la foto de cierre queda congelada en la sheet) y los demás meses siguen de la sheet.
+    Si el JSON no está o no trae filas, queda todo como en Input_OKR."""
+    cols = (recur_json or {}).get("cols") or []
+    rows = [dict(zip(cols, r)) for r in (recur_json or {}).get("rows") or []]
+    if not rows:
+        print("  [Accelerate Recurrence] sin recurrencia_b2b.json — se mantiene Input_OKR")
+        return rows_manual
+    cerrados = {r["mes_comercial"] for r in rows if int(r["es_cierre_mes"]) == 1 and r["estado"] == "CIERRE"}
+    abiertos = sorted({r["mes_comercial"] for r in rows} - cerrados)
+    if not abiertos:
+        print("  [Accelerate Recurrence] ningún mes comercial en curso — se mantiene Input_OKR")
+        return rows_manual
+    ym = abiertos[-1]
+    del_mes = [r for r in rows if r["mes_comercial"] == ym]
+    sem = [r for r in del_mes if r["estado"] == "CIERRE"] or del_mes
+    k = max(int(r["semana_del_mes"]) for r in sem)
+    foto = [r for r in sem if int(r["semana_del_mes"]) == k]
+    v = sum(int(r["roll_frecuentes_vivas"]) for r in foto)
+    out = [r for r in rows_manual if not (r[1] == "Run Rate/Actuals" and r[5].lower() == "accelerate recurrence"
+                                          and str(r[0])[:7] == ym)]
+    out.append([_ym_to_periodo(ym), "Run Rate/Actuals", "B2B", "Total", "Total", "Accelerate Recurrence", v])
+    print(f"  [Accelerate Recurrence] {ym} en curso = Rolling L4W {v:,} (semana {k} del mes, "
+          f"{foto[0]['semana_desde']} a {foto[0]['semana_hasta']}); el resto de los meses, Input_OKR")
+    return out
+
+
 # ── Build ──────────────────────────────────────────────────────────────────────
 
 def build(upload=True):
@@ -643,6 +721,11 @@ def build(upload=True):
     baseline_data = _download_json(svc, BASELINE_FILE_ID,    "baseline_actuals+projections.json")
     budget_data   = _download_json(svc, BUDGET_FILE_ID,      "budget.json")
     daily_json    = _download_json(svc, DAILY_B2B2C_FILE_ID, "daily_b2b2c_data.json")
+    try:
+        recur_json = _download_json(svc, RECUR_FILE_ID, "recurrencia_b2b.json")
+    except Exception as e:
+        print(f"  WARN [Drive] recurrencia_b2b.json: {e} — Accelerate Recurrence queda como en Input_OKR")
+        recur_json = None
 
     last_actual_ym = gest_json.get("last_actual_ym")
     if not last_actual_ym:
@@ -658,10 +741,18 @@ def build(upload=True):
         last_actual_ym,
     )
     rows_manual   = _read_manual_krs(token_file)
-    rows_manual   = _apply_unique_buyers_actual(rows_manual, daily_json, last_actual_ym)
+    rows_manual, estado_ub = h2b.apply_unique_buyers(rows_manual, daily_json, last_actual_ym)
     rows_manual   = _apply_globales_hoteles_actual(rows_manual, daily_json)
-    rows_partners = _read_partners_api_actual()
-    if rows_partners:   # el actual del tracker reemplaza cualquier fila Run Rate/Actuals de Input_OKR
+    rows_manual   = _apply_recurrence_rr(rows_manual, recur_json)
+    rows_manual   = _apply_globales_target_default(rows_manual)
+    # Partners API: actual de partners_api_snapshots.json (Daily_Dashboard/partners_api_sync.py; meses congelados + rolling 30 dias).
+    try:
+        _snap = _download_by_name(svc, DAILY_FOLDER_ID, "partners_api_snapshots.json", "partners_api_snapshots.json (Partners API)")
+    except Exception as e:
+        print(f"  WARN [Partners API] sin partners_api_snapshots.json ({e}) — el KR queda sin actual")
+        _snap = None
+    rows_partners, estado_partners = h2b.partners_api_rows(_snap)
+    if rows_partners:   # el actual del snapshot reemplaza cualquier fila Run Rate/Actuals de Input_OKR
         rows_manual = [r for r in rows_manual if not (r[1] == "Run Rate/Actuals"
                        and r[5].lower() == "accelerate hunting partners api")]
     rows_agencias = _read_agencias_flat()
@@ -678,6 +769,15 @@ def build(upload=True):
 
     all_rows = rows_baseline + rows_budget + rows_hunting + rows_manual + rows_partners + rows_agencias
 
+    # H1 congelado: se descartan las filas calculadas de los períodos <= H1_END y se usan las del OKR_H1_FY27.json.
+    # Si no se puede leer el congelado NO se sigue (cortaría H1 o lo recalcularía con datos nuevos).
+    h1 = _download_json(svc, OKR_H1_FILE_ID, "OKR_H1_FY27.json (H1 congelado)")
+    if h1.get("cols") != COLS_OUT:
+        sys.exit(f"OKR_H1_FY27.json con columnas distintas a okr.json: {h1.get('cols')}")
+    n_calc = sum(1 for r in all_rows if str(r[0])[:10] <= H1_END)
+    all_rows = [r for r in all_rows if str(r[0])[:10] > H1_END] + h1["rows"]
+    print(f"  [H1 congelado] {len(h1['rows'])} filas de OKR_H1_FY27.json (se descartaron {n_calc} filas calculadas de <= {H1_END})")
+
     # Resumen
     print(f"\n  Total filas: {len(all_rows):,}")
     by_kr = defaultdict(int)
@@ -686,6 +786,23 @@ def build(upload=True):
     for kr, n in sorted(by_kr.items()):
         print(f"    {kr}: {n}")
 
+    # OKR_H2_FY27.json: KRs de H2 abiertos por pais (organic al leer en el Hub) + Estado. Ver okr_h2_builder.py.
+    closed_until = _ym_to_periodo(last_actual_ym)
+    h2_base, nr_base = h2b.contable_by_pais(baseline_data, "Run Rate/Actuals", closed_until)
+    h2_bud,  nr_bud  = h2b.contable_by_pais(budget_data,   "Budget",           closed_until)
+    h2_hunt = h2b.hunting_farming_by_pais(daily_json, {"Run Rate/Actuals": nr_base, "Budget": nr_bud},
+                                          last_actual_ym, closed_until)
+    # New Product Growth (B2B) estimado: Flights + Dest. Serv. contables + % de Packages General del Daily (okr_h2_managerial.json)
+    h2_np = []
+    try:
+        mgr_json = _download_by_name(svc, DAILY_FOLDER_ID, "okr_h2_managerial.json", "okr_h2_managerial.json (apertura de Packages General)")
+        h2_np, _ = h2b.new_product_growth(baseline_data, budget_data, mgr_json, closed_until)
+    except Exception as e:
+        print(f"  WARN [New Product Growth] no se pudo calcular ({e}) — el KR queda sin datos")
+    all_rows = all_rows + h2b.totals_from_rows(h2_np, h2b.NEW_PRODUCT_KR)
+    h2_rows = h2b.build_h2_rows(h2_base + h2_np, h2_bud, h2_hunt, rows_manual, rows_partners, estado_ub, closed_until, estado_partners)
+    _check_h2_vs_okr(h2_rows, all_rows)
+
     payload = {
         "meta": {
             "concepto":   "okr",
@@ -693,6 +810,8 @@ def build(upload=True):
             "baseline_file_id":   BASELINE_FILE_ID,
             "budget_file_id":     BUDGET_FILE_ID,
             "daily_b2b2c_file_id": DAILY_B2B2C_FILE_ID,
+            "recurrencia_file_id": RECUR_FILE_ID,
+            "okr_h1_file_id":      OKR_H1_FILE_ID,   # H1 (<= H1_END) copiado del congelado, no recalculado
             "sheet_id":   SHEET_ID,
             "filas":      len(all_rows),
         },
@@ -707,8 +826,25 @@ def build(upload=True):
         json.dump(payload, f, ensure_ascii=False, separators=(",", ":"))
     print(f"\n  local -> {local}  ({os.path.getsize(local)/1e3:.1f} KB)")
 
+    payload_h2 = {
+        "meta": {
+            "concepto": "okr_h2_fy27",
+            "descripcion": "KRs de H2 FY27 (oct-2026 a mar-2027), contables abiertos por pais (organic al leer en el Hub), con Estado",
+            "generado": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+            "cierre_contable_hasta": closed_until,
+            "filas": len(h2_rows),
+        },
+        "cols": h2b.COLS_H2,
+        "rows": h2_rows,
+    }
+    local_h2 = os.path.join(outdir, H2_OUTPUT_NAME)
+    with open(local_h2, "w", encoding="utf-8") as f:
+        json.dump(payload_h2, f, ensure_ascii=False, separators=(",", ":"))
+    print(f"  local -> {local_h2}  ({os.path.getsize(local_h2)/1e3:.1f} KB, {len(h2_rows)} filas)")
+
     if upload:
         _upload(local, svc)
+        _upload_h2(local_h2, svc)
     else:
         print("  (--no-upload)")
 

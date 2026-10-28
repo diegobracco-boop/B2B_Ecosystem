@@ -857,7 +857,6 @@ header .btn-refresh:hover{background:#f5f3ff !important;border-color:#c4b5fd;col
     <div class="prd-toggle">
       <button id="btn-ebl-actuals" class="prd-btn prd-active" type="button" onclick="setEpmBaselineSource('bl')">Actuals + Projections</button>
       <button id="btn-ebl-fc" class="prd-btn" type="button" onclick="setEpmBaselineSource('fc')">Forecast</button>
-      <button id="btn-ebl-vr" class="prd-btn" type="button" onclick="setEpmBaselineSource('vr')">Projection Reviews</button>
     </div>
     <span style="font-size:11px;color:#3a4048;font-weight:700;margin-left:6px">Goal:</span>
     <div class="prd-toggle">
@@ -871,8 +870,8 @@ header .btn-refresh:hover{background:#f5f3ff !important;border-color:#c4b5fd;col
     <span style="width:1px;height:18px;background:rgba(0,0,0,.15);margin:0 2px"></span>
     <span style="font-size:11px;color:#3a4048;font-weight:700">Organic:</span>
     <div class="prd-toggle" id="org-toggle">
-      <button data-o="no"  class="prd-btn prd-active" type="button" onclick="setEpmOrganic(false)">NO</button>
-      <button data-o="yes" class="prd-btn"            type="button" onclick="setEpmOrganic(true)">YES</button>
+      <button data-o="no"  class="prd-btn"            type="button" onclick="setEpmOrganic(false)">NO</button>
+      <button data-o="yes" class="prd-btn prd-active" type="button" onclick="setEpmOrganic(true)">YES</button>
     </div>
     <span id="org-note" class="org-note"></span>
     <span style="width:1px;height:18px;background:rgba(0,0,0,.15);margin:0 2px"></span>
@@ -1344,9 +1343,9 @@ function getContableFilters(){
 // Mismo switch que Monthly Results del Hub: YES = baseline × TC Actuals / TC del Goal (Budget,
 // Forecast o Actuals LY con Goal Last Year); Run Rate / Last RR no tienen TC → deshabilitado.
 // Con Goal Budget/Forecast los YoY vienen del backend a TC Actuals LY (opción B: *YoY / curY).
-var _epmOrganic = false;
+var _epmOrganic = true;   // YES por default (Diego, 2026-10-26)
 var _orgError_ = '', _orgMissing_ = [];
-var ORG_GOALS_ = { budget: 'Budget', forecast: 'Forecast', lastyear: 'Actuals LY' };
+var ORG_GOALS_ = { budget: 'Budget', forecast: 'Budget', lastyear: 'Actuals LY' };   // vs Forecast: todo a TC Budget (2026-10-26)
 function _orgGoalOk_(){ return (_activeLob === 'contable-epm') && ORG_GOALS_.hasOwnProperty(_epmGoalSource); }
 function _orgOn_(){ return _epmOrganic && _orgGoalOk_(); }
 function _orgTargetLabel_(){ return ORG_GOALS_[_epmGoalSource] || 'Budget'; }
@@ -1410,7 +1409,6 @@ function setEpmBaselineSource(src){
   _epmBaselineSource = src;
   document.getElementById('btn-ebl-actuals').classList.toggle('prd-active', src === 'bl');
   document.getElementById('btn-ebl-fc').classList.toggle('prd-active', src === 'fc');
-  document.getElementById('btn-ebl-vr').classList.toggle('prd-active', src === 'vr');
   var _bl = document.getElementById('epm-baseline-label');
   if (_bl) _bl.innerHTML = 'Baseline:&nbsp;<span style="color:#7C3AED;font-weight:700">' + _epmBaselineLabel() + '</span>';
   if (_bgContableView === 'pxq') renderPxQ();
@@ -1441,9 +1439,7 @@ function _epmGoalLabel(){
        : 'Budget';
 }
 function _epmBaselineLabel(){
-  return _epmBaselineSource === 'fc' ? 'Forecast'
-       : _epmBaselineSource === 'vr' ? 'Projection Reviews'
-       : 'Actuals + Projections';
+  return _epmBaselineSource === 'fc' ? 'Forecast' : 'Actuals + Projections';
 }
 
 function setContableView(view){
@@ -2295,7 +2291,7 @@ var _bgPeriodSel      = null;          // array de meses/quarters/halves puntual
 var _bgContableView   = 'combined';   // 'combined' | 'b2b' | 'b2b2c'
 var _bgGoalSource       = 'budget';     // vista "Model+Accounting": 'budget' | 'epm'
 var _epmGoalSource      = 'budget';     // vista "P&L Accounting" (EPM): 'budget' | 'forecast' | 'runrate' | 'lastrunrate' | 'lastyear'
-var _epmBaselineSource  = 'bl';         // vista EPM baseline: 'bl' (Actuals+Proj) | 'fc' (Forecast entero) | 'vr' (Projection Reviews)
+var _epmBaselineSource  = 'bl';         // vista EPM baseline: 'bl' (Actuals+Proj) | 'fc' (Forecast entero)
 var _qSecState        = {};           // secId → true = collapsed
 var _contCharts       = [];           // Chart.js instances for contable charts
 var _contLobCharts    = [];           // Chart.js instances for per-LOB charts in combined view

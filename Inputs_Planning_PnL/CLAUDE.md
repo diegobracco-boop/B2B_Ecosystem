@@ -60,6 +60,31 @@ CSV crudos (OneDrive\Planning-PBI - Inputs Power Bi)
   `python okr_builder.py`. Además el Hub muestra un cartel "OKR desactualizado" si `okr.json` es anterior al
   último baseline/budget. Antes se corría a mano y quedó viejo (OKR Status ≠ Cuadro Resumen P&L).
 
+- **H1 FY27 (abr-sep 2026) está congelado** (2026-10-27, decisión Diego): `okr_h1_freeze.py` guardó las filas de `okr.json`
+  con Periodo <= 2026-09-01 (Run Rate/Actuals y Budget, USD nominales, **sin organic** — el organic es nuevo de H2 y no aplica al
+  OKR contable) en Drive como `OKR_H1_FY27.json` (id `1wMCfuE8m8slzTN0CrWzoxJjTWOT9IMcf`). `okr_builder.py` ya NO recalcula
+  esos meses: copia las filas del congelado y calcula solo H2 (si no puede leerlo, corta). El Hub lee H1 de ese archivo
+  (`OKR_H1_FILE_ID` en `Codigo_OKR.js`). No volver a correr `okr_h1_freeze.py` (falla si el archivo existe; `--force` solo para
+  corregir a propósito).
+
+- **OKR H2 FY27 (oct-2026 → mar-2027)** (2026-10-27): `okr_builder.py` además de `okr.json` (Pais=Total, nominal, para el Daily y el
+  Tracker) arma **`OKR_H2_FY27.json`** (`okr_h2_builder.py`, id `1lsMF9_d1t55boO8Wr8vziMsFT9LQioov`): KRs contables abiertos por país
+  (Op. Contribution B2B2C, NR B2B, OC API/HTML, NR API Hoteles, New/Existing Account NR) + una columna `Estado`
+  (Actual / Proyeccion / MTD / Real / Manual / Budget). El Hub lo lee para aplicar **organic al leer** (USD × TC Actuals / TC Budget por país y mes,
+  solo KRs monetarios en Run Rate/Actuals; H1 nunca). Oct–mar es proyección (run rate) hasta que `actuals.json` traiga el cierre contable.
+  Hunting = NR gestional del Daily (por país: `okr_budget`/`okr_runrate` ahora traen `pais`), Existing = NR contable B2B2C − Hunting.
+  Regla del Hub: un KR sin dato en un mes toma el target (cursiva; en KRs acumulativos solo si no hay ningún dato real).
+  **Unique Buyers** (`okr_h2_builder.apply_unique_buyers`): mes cerrado = real del Datalake; mes en curso = MTD; futuros = ratio UB/orders
+  (promedio ponderado de los últimos 6 meses cerrados, hoy 0,837) × orders del Run Rate del Daily. Afecta también a `okr.json`.
+
+- **KR "Accelerate Hunting Partners API"** (2026-10-27): ya no sale del tracker de Excel (hoja "API", cuyos actuals de ago/sep eran copia del budget)
+  ni de un override en el código. `Daily_Dashboard/partners_api_sync.py` (lo llama `daily_sync.py` en cada corrida) cuenta partners API **distintos**
+  (solo `parent_channel = 'API'`, productos no cancelados, por fecha de reserva, códigos agrupados con `OKR/Diccionario_partners_api.xlsx` de OneDrive) y
+  guarda en Drive `partners_api_snapshots.json`: cada mes se **congela** el primer día hábil del mes siguiente (nunca se recalcula) y el mes sin congelar
+  muestra el **rolling de 30 días** (Estado `Rolling30`). `okr_builder.py` lo toma de ahí. Septiembre da 489 (igual que el Excel de agencias normalizado);
+  el método anterior (reparto entre canales) daba 463, así que hay un salto de método frente al histórico. Códigos nuevos sin agrupar: aparecen en el log
+  y cuentan como partner propio hasta que se agreguen al diccionario. Congelar a mano: `python Daily_Dashboard/partners_api_sync.py --freeze AAAA-MM`.
+
 ## Archivos
 - `pnl_common.py` — rutas portables (resuelve OneDrive por usuario) + auth Drive scope completo.
 - `plana_projections_builder.py` — planas budget/forecast/RR/LRR (genérico por base).

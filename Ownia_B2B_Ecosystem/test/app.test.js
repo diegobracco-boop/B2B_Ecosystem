@@ -76,10 +76,9 @@ test('portada: un módulo en validación abre Ownia solo para el equipo; al rest
   const fuera = await request(demoServer, 'GET', `${BASE}/`, { headers: { 'x-test-email': 'chief@despegar.com' } });
   assert.doesNotMatch(fuera.text, new RegExp(`href="${BASE}/demo-equipo"`));
   assert.match(fuera.text, /href="https:\/\/script\.google\.com\/y\/exec"/);
-  assert.doesNotMatch(fuera.text, /Beta · equipo B2B<\/span>/);
   const equipo = await request(demoServer, 'GET', `${BASE}/`, { headers: { 'x-test-email': 'ana@despegar.com' } });
   assert.match(equipo.text, new RegExp(`href="${BASE}/demo-equipo"`));
-  assert.match(equipo.text, /Beta · equipo B2B<\/span>/);
+  assert.doesNotMatch(equipo.text, /Beta/, 'sin etiquetas Beta en el menú (2026-10-28)');
   assert.match(equipo.text, /href="https:\/\/script\.google\.com\/y\/exec"[^>]*>Versión Apps Script/);
   // Accesos rápidos a una vista: solo en la versión de Ownia (GAS no entiende ?view=).
   assert.match(equipo.text, new RegExp(`href="${BASE}/demo-equipo\\?view=vista-b2b">B2B</a>`));

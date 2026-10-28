@@ -9,7 +9,6 @@ var CANONICAL_IDS_ = {
   rr:  '1UGg60kE397nsGAivtFqI8NX5CVFj1gqO',  // runrate.json
   lrr: '1Nk56QlEA2hKuWGhfZ1357Eds6DhU8zwC',  // lastrunrate.json
   bl:  '1Su36jhCMdNgC6nixxX5TyvtCI4ESG2Tv',  // baseline_actuals+projections.json
-  vr:  '1ReDMnuv5MGsJACvQmkP39AlQM-RvtoYy',  // projections_validation_accounting.json
   ly:  '1zd5gnMFztKiCSgeY-VmsfVOr0LQ6ftGI'   // actuals_previos_fy26.json
 };
 

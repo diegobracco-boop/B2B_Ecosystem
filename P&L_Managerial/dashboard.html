@@ -859,26 +859,27 @@ header .btn-refresh:hover{background:#f5f3ff !important;border-color:#c4b5fd;col
       <button id="year-mode-cy" class="prd-btn"            type="button" onclick="setYearMode('cy')">Calendario</button>
     </div>
     <span style="width:1px;height:18px;background:rgba(0,0,0,.15);margin:0 6px"></span>
-    <span style="font-size:11px;color:var(--muted);font-weight:700">Baseline:</span>
-    <div class="prd-toggle" id="baseline-switcher">
-      <button class="prd-btn prd-active" id="bl-btn-bl" onclick="setBaselineSource('bl')">Actuals + Projections</button>
-      <button class="prd-btn" id="bl-btn-vr" onclick="setBaselineSource('vr')">Projection Reviews</button>
-    </div>
-    <span style="width:1px;height:18px;background:rgba(0,0,0,.15);margin:0 6px"></span>
     <span style="font-size:11px;color:var(--muted);font-weight:700">Goal:</span>
     <div class="prd-toggle">
       <button id="mg-goal-budget"   class="prd-btn prd-active" type="button" onclick="setMGGoal('budget')">Budget</button>
       <button id="mg-goal-forecast" class="prd-btn"            type="button" onclick="setMGGoal('forecast')">Forecast</button>
       <button id="mg-goal-ly"       class="prd-btn"            type="button" onclick="setMGGoal('ly')">Last Year</button>
     </div>
-    <!-- ORGANIC: YES = baseline × TC Actuals / TC del Goal (Budget, Forecast o Actuals LY) -->
+    <!-- ORGANIC: YES = baseline × TC Actuals / TC Budget (Goal Budget o Forecast; con Forecast el goal también a TC Budget) o TC Actuals LY -->
     <span style="width:1px;height:18px;background:rgba(0,0,0,.15);margin:0 6px"></span>
     <span style="font-size:11px;color:var(--muted);font-weight:700">Organic:</span>
     <div class="prd-toggle" id="org-toggle">
-      <button data-o="no"  class="prd-btn prd-active" type="button" onclick="setMGOrganic(false)">NO</button>
-      <button data-o="yes" class="prd-btn"            type="button" onclick="setMGOrganic(true)">YES</button>
+      <button data-o="no"  class="prd-btn"            type="button" onclick="setMGOrganic(false)">NO</button>
+      <button data-o="yes" class="prd-btn prd-active" type="button" onclick="setMGOrganic(true)">YES</button>
     </div>
     <span id="org-note" class="org-note"></span>
+    <!-- COI Brasil: Excluir = se suma el país RG (cost of installments + efecto financiero de Brasil con signo contrario); Brasil conserva su FVM completo -->
+    <span style="width:1px;height:18px;background:rgba(0,0,0,.15);margin:0 6px"></span>
+    <span style="font-size:11px;color:var(--muted);font-weight:700" title="Excluir saca el cost of installments y el efecto financiero de Brasil del FVM: se suma el país RG (ajuste con signo contrario). Brasil conserva su FVM completo.">COI Brasil:</span>
+    <div class="prd-toggle" id="coibr-toggle">
+      <button data-c="incl" class="prd-btn prd-active" type="button" onclick="setMGCoiBr(false)">Incluir</button>
+      <button data-c="excl" class="prd-btn"            type="button" onclick="setMGCoiBr(true)">Excluir</button>
+    </div>
     <span style="width:1px;height:18px;background:rgba(0,0,0,.15);margin:0 6px"></span>
     <span style="font-size:11px;color:var(--muted);font-weight:700">Escala:</span>
     <div class="prd-toggle">
@@ -1879,7 +1880,7 @@ function _renderAllViajeChips_(){
   Object.keys(_VJ_UI).forEach(function(k){ _renderViajeChips_(k); });
   _updateStickyOffsets_();
 }
-// Las opciones vienen en cada respuesta: si cambian (ej. un Projection Review sin viaje → [])
+// Las opciones vienen en cada respuesta: si cambian (ej. un JSON sin viaje → [])
 // se re-renderiza, y si desaparecen se limpia la selección (el backend ya la ignoró).
 function _syncViajeOptions_(d){
   var vals = (d && d.filters && d.filters.viaje) || [];
@@ -2494,8 +2495,7 @@ function renderDetalle() {
   var gcm = _managerialGoal==='forecast' ? fcm : _managerialGoal==='ly' ? lcm : bcm;
   // En RI el Last Year sigue siendo GD (el JSON gestional no trae serie LY en RI): se rotula.
   var goalRowLabel = _managerialGoal==='forecast' ? 'Δ Forecast' : _managerialGoal==='ly' ? ('Δ Last Year' + (_activeDateType==='ri' ? ' (GD)' : '')) : 'Δ Budget';
-  // Fila antes "FC": ahora toma el nombre del escenario Baseline elegido en el toggle superior.
-  var baselineRowLabel = _baselineSource==='vr' ? 'Projection Reviews' : 'Actuals + Projections';
+  var baselineRowLabel = 'Actuals + Projections';
 
   var mk   = _detalleMetric==='gb'?'gross_bookings':_detalleMetric==='nr'?'net_revenue':'npv';
   // GB usa fmtK (2 decimales de M) sólo en la escala por defecto 'M'; con K/Enteros
@@ -2848,13 +2848,29 @@ function setMGGoal(goal){
 // Forecast, o Actuals LY con Goal Last Year). Budget / Forecast / LY se muestran nominales.
 // Con Goal Budget/Forecast el backend manda además `yoy` (baseline a TC Actuals LY, opción B):
 // todos los YoY se calculan con eso (_yoyOf_).
-var _mgOrganic = false;
+var _mgOrganic = true;   // YES por default (Diego, 2026-10-26)
 var _orgError_ = '', _orgMissing_ = [];
 function _mgOrgTarget_(){ return _mgOrganic ? _managerialGoal : ''; }
-function _orgTargetLabel_(){ return _managerialGoal === 'forecast' ? 'Forecast' : _managerialGoal === 'ly' ? 'Actuals LY' : 'Budget'; }
+// vs Budget y vs Forecast: todo a TC Budget (el Forecast también, 2026-10-26)
+function _orgTargetLabel_(){ return _managerialGoal === 'ly' ? 'Actuals LY' : 'Budget'; }
 // Baseline para los YoY: la versión a TC Actuals LY si vino (organic opción B), si no la que se muestra
 function _yoyOf_(d, key, fallback){ return (d && d.yoy && d.yoy[key]) ? d.yoy[key] : fallback; }
 function _reloadOrganic_(){
+  reload();
+  _invalidatePanesOnSharedChange_();
+}
+// ── COI Brasil (país RG) ─────────────────────────────────────
+// Incluir por default (Managerial cierra contra Accounting, que incluye el COI). Excluir = el servidor suma las
+// filas RG del JSON (actuals_gestional_upload.py); RG aparece como un país más y los chips de país se vuelven a armar.
+var _mgCoiBr = false;
+function setMGCoiBr(on){
+  _mgCoiBr = !!on;
+  document.querySelectorAll('#coibr-toggle button').forEach(function(b){
+    b.classList.toggle('prd-active', (b.dataset.c === 'excl') === _mgCoiBr);
+  });
+  _filtersLoadedForLob = {};   // los chips de país cambian (RG solo con Excluir)
+  _gFiltersLoadedForLob = {};
+  _dFiltersLoadedForLob = {};
   reload();
   _invalidatePanesOnSharedChange_();
 }
@@ -4347,22 +4363,6 @@ function toggleGPartner(partner){
   if(_dataG) renderTrendCharts(_dataG.months, _dataG.agg, _dataG.budget||{}, _dataG.ly||{});
 }
 
-// ── Baseline source (Run Rate/Actuals vs Projection Reviews) ─────────────
-var _baselineSource = 'bl';
-
-function setBaselineSource(src) {
-  _baselineSource = src;
-  ['bl','vr'].forEach(function(s){
-    var btn = document.getElementById('bl-btn-' + s);
-    if (btn) btn.classList.toggle('prd-active', s === src);
-  });
-  _filtersLoadedForLob = {};   // resetear filtros para que se recargen
-  _gFiltersLoadedForLob = {};
-  _dFiltersLoadedForLob = {};
-  fetchData();
-  _invalidatePanesOnSharedChange_();
-}
-
 var _MES_LABEL_SHORT = {
   '01':'Ene','02':'Feb','03':'Mar','04':'Abr','05':'May','06':'Jun',
   '07':'Jul','08':'Ago','09':'Sep','10':'Oct','11':'Nov','12':'Dic'
@@ -4391,10 +4391,9 @@ function updateActualsLegend(actualMonths) {
     ? _ymToShort(projMonths[0]) + ' – ' + _ymToShort(projMonths[projMonths.length - 1])
     : '—';
 
-  var srcLabel = _baselineSource === 'vr' ? ' &nbsp;·&nbsp; <strong>Projection Reviews</strong>' : '';
   el.innerHTML =
     '<span class="al-item"><span class="al-dot" style="background:#7C3AED"></span>Actuals: <strong>' + actLabel + '</strong></span>' +
-    '<span class="al-item"><span class="al-dot" style="background:#7C3AED;opacity:.35"></span>Proyecciones: <strong>' + projLabel + '</strong>' + srcLabel + '</span>';
+    '<span class="al-item"><span class="al-dot" style="background:#7C3AED;opacity:.35"></span>Proyecciones: <strong>' + projLabel + '</strong></span>';
   el.style.display = 'flex';
 }
 
@@ -4416,8 +4415,8 @@ function getFilters(){
     millas:         getMillasValues_('m'),
     lob_tipo:       lobTipo,
     date_type:      _activeLob === 'b2b2c' ? 'gd' : _activeDateType,
-    baselineSource: _baselineSource,
-    organic:        _mgOrgTarget_()
+    organic:        _mgOrgTarget_(),
+    coibr:          _mgCoiBr ? 'excl' : 'incl'
   };
 }
 

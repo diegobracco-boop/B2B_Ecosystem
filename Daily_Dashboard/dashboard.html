@@ -465,8 +465,8 @@ body.krd-only #section-b2b > :not(.krd-keep) { display:none !important; }
    por defecto (padding 3px + 13px/12px de fuente) se pasaba por ~35-60px del
    alto disponible y el último grupo (Globales) quedaba cortado sin aviso.
    Achicando un poco padding/fuente entra completo. */
-#view-flow .ws-panel-weekly tr.ws-metric-row td{padding:1px 8px;font-size:11px;line-height:1.15}
-#view-flow .ws-panel-weekly tr.ws-metric-row.ws-ly-row td{font-size:10px}
+#view-flow .ws-panel-weekly tr.ws-metric-row td{padding:0 8px;font-size:10px;line-height:1.05} /* 2026-10-26: con vs B2C y % vs Bdg son 10 filas por grupo */
+#view-flow .ws-panel-weekly tr.ws-metric-row.ws-ly-row td{font-size:9px}
 #view-flow .ws-panel-weekly thead tr.head-weeks th{padding:2px 4px;font-size:11px}
 /* MTD table */
 #view-weekly .ws-mtd-wrap,#view-flow .ws-mtd-wrap{border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,.12);overflow:hidden}
@@ -628,6 +628,8 @@ body.krd-only #section-b2b > :not(.krd-keep) { display:none !important; }
 .fl-tbl tr.grp td{background:#f3f1fb;font-weight:700;color:var(--fl-ink)}
 .fl-tbl tr.tot td{background:#eee9fb;font-weight:800;border-top:2px solid var(--fl-purple2)}
 .fl-tight .fl-tbl th{padding:3px 8px}.fl-tight .fl-tbl td{padding:2px 8px}.fl-tight .fl-tag{margin-bottom:2px}   /* portada OC: tablas compactas */
+.fl-tight .fl-multi th,.fl-tight .fl-multi td{padding:2px 5px;white-space:nowrap}.fl-multi th{border-radius:0!important}
+.fl-multi th.fl-psep{border-left:2px solid rgba(255,255,255,.5)}.fl-multi td.fl-psep{border-left:2px solid var(--fl-line)}   /* portada OC: MTD | YTD | H2 */
 .fl-tbl tr.fl-more td{font-style:italic;font-weight:400;color:var(--fl-ink3);border-bottom:1px solid var(--fl-line)}
 .fl-tbl tr.grp:hover td, .fl-tbl tr[onclick]:hover td{background:#e9e4fb}
 .fl-acc-caret{display:inline-block;width:10px;color:var(--fl-purple2)}
@@ -779,12 +781,12 @@ body.krd-only #section-b2b > :not(.krd-keep) { display:none !important; }
     <button class="lob-btn active" id="btn-lob-b2bc" onclick="switchLob('b2bc')">B2B2C</button>
     <button class="lob-btn" id="btn-lob-b2b" onclick="switchLob('b2b')">B2B</button>
   </div>
-  <!-- ORGANIC: YES = actuals × TC Actuals / TC del target de cada vista (ver _orgTargetFor_) -->
+  <!-- ORGANIC: YES = actuals × TC Actuals / TC del target de cada vista (ver _orgTargetFor_; vs Forecast: todo a TC Budget) -->
   <div class="org-wrap" id="org-wrap">
     <span class="org-lbl">Organic</span>
     <div class="lob-toggle" id="org-toggle">
-      <button class="lob-btn active" data-o="no"  onclick="setDailyOrganic(false)">NO</button>
-      <button class="lob-btn"        data-o="yes" onclick="setDailyOrganic(true)">YES</button>
+      <button class="lob-btn"        data-o="no"  onclick="setDailyOrganic(false)">NO</button>
+      <button class="lob-btn active" data-o="yes" onclick="setDailyOrganic(true)">YES</button>
     </div>
     <span class="org-note" id="org-note"></span>
   </div>
@@ -850,8 +852,8 @@ body.krd-only #section-b2b > :not(.krd-keep) { display:none !important; }
   <div class="dm-group" style="margin-left:4px" title="COI Brasil: Excluir saca el cost of installments y el efecto financiero de Brasil del FVM en toda la página (métricas, tablas, KRs, Benchmark, Weekly y Flow), en actuals, LY y Budget / Run Rate / Forecast. No cambian los emails ni la línea B2C.">
     <span class="dm-group-lbl">COI Brasil</span>
     <div class="dm-toggle">
-      <button class="dm-btn active" data-coibr="incl" onclick="setExCoiBr(false)">Incluir</button>
-      <button class="dm-btn" data-coibr="excl" onclick="setExCoiBr(true)">Excluir</button>
+      <button class="dm-btn" data-coibr="incl" onclick="setExCoiBr(false)">Incluir</button>
+      <button class="dm-btn active" data-coibr="excl" onclick="setExCoiBr(true)">Excluir</button>
     </div>
   </div>
   <div class="date-nav">
@@ -899,8 +901,8 @@ body.krd-only #section-b2b > :not(.krd-keep) { display:none !important; }
   <div class="dm-group" style="margin-left:4px" title="COI Brasil: Excluir saca el cost of installments y el efecto financiero de Brasil del FVM en toda la página (métricas, tablas, KRs, Benchmark, Weekly y Flow), en actuals, LY y Budget / Run Rate / Forecast. No cambian los emails ni la línea B2C.">
     <span class="dm-group-lbl">COI Brasil</span>
     <div class="dm-toggle">
-      <button class="dm-btn active" data-coibr="incl" onclick="setExCoiBr(false)">Incluir</button>
-      <button class="dm-btn" data-coibr="excl" onclick="setExCoiBr(true)">Excluir</button>
+      <button class="dm-btn" data-coibr="incl" onclick="setExCoiBr(false)">Incluir</button>
+      <button class="dm-btn active" data-coibr="excl" onclick="setExCoiBr(true)">Excluir</button>
     </div>
   </div>
   <div class="date-nav">
@@ -1672,12 +1674,12 @@ body.krd-only #section-b2b > :not(.krd-keep) { display:none !important; }
     <label class="flow-ctl-lbl" title="COI Brasil: Excluir saca el cost of installments y el efecto financiero de Brasil del FVM en toda la página (métricas, tablas, KRs, Benchmark, Weekly y Flow), en actuals, LY y Budget / Run Rate / Forecast. No cambian los emails ni la línea B2C.">COI Brasil</label>
     <select class="flow-jump" id="flow-coibr" onchange="setExCoiBr(this.value==='excl')">
       <option value="incl">Incluir</option>
-      <option value="excl">Excluir</option>
+      <option value="excl" selected>Excluir</option>
     </select>
     <label class="flow-ctl-lbl" title="YES = actuals × TC Actuals / TC del Goal (Run Rate: nominal). KRs a TC Budget. Mismo switch que el Organic de arriba.">Organic</label>
     <select class="flow-jump" id="flow-organic" onchange="setDailyOrganic(this.value==='yes')">
       <option value="no">NO</option>
-      <option value="yes">YES</option>
+      <option value="yes" selected>YES</option>
     </select>
     <span class="flow-tool-sep"></span>
     <button class="flow-pdf-btn" onclick="window.print()" title="Abre el diálogo de impresión — elegí 'Guardar como PDF'">⭳ Descargar PDF</button>
@@ -1738,11 +1740,12 @@ function setExclTBD(on) {
   if (vf && vf.style.display !== 'none') flowRebuild_(); else flowInvalidate_();
 }
 // ── COI Brasil (switch global) ───────────────────────────────────
-// Excluir = FVM ex COI BR: el FVM sin cost of installments ni efecto financiero de Brasil (columna
-// fvm_ex_coi_br de daily_sync.py, en actuals, LY y Budget/RR/Forecast). Se pisa r.fvm en las filas
-// (el total queda en r._fvmTot), así TODO lo que lee fvm lo sigue: métricas, tablas, KRs, Benchmark
-// y Flow. Weekly y OKR semanal se calculan en el servidor: van con el parámetro exCoiBr.
-var _exCoiBr = false;
+// Excluir = FVM ex COI BR: se suman las filas del país RG (daily_sync.py, append_rg_rows: cost of installments
+// + efecto financiero de Brasil con signo contrario, en actuals, LY y Budget/RR/Forecast); Brasil conserva su
+// FVM completo. Incluir = RG en 0. Se pisa r.fvm en las filas RG (el valor real queda en r._fvmTot), así TODO lo
+// que lee fvm lo sigue: métricas, tablas, KRs, Benchmark y Flow. Weekly y OKR semanal se calculan en el
+// servidor: van con el parámetro exCoiBr.
+var _exCoiBr = true;   // Excluir por default (Diego, 2026-10-26)
 var _COIBR_KEYS_ = {
   b2bc:  ['actuals', 'actuals_ly', 'budget', 'runrate', 'forecast', 'budget_fy_rest', 'runrate_fy_rest', 'actuals_fy_rest', 'actuals_ly_fy_rest'],
   b2b:   ['b2b_gd', 'b2b_gd_ly', 'b2b_ri', 'b2b_ri_ly', 'b2b_budget_gd', 'b2b_budget_ri',
@@ -1750,17 +1753,19 @@ var _COIBR_KEYS_ = {
   okrH2: ['b2b_gd', 'b2b_gd_ly', 'b2b_ri', 'b2b_ri_ly', 'b2b_budget_gd', 'b2b_budget_ri']
 };
 // Aplica el switch a un raw (al cargarlo y al cambiar el switch). Filas sin la columna quedan igual.
+function applyRgRows_(arr) {
+  if (!Array.isArray(arr)) return arr;
+  arr.forEach(function(r) {
+    if (r.pais !== 'RG') return;
+    if (r._fvmTot === undefined) r._fvmTot = r.fvm;
+    r.fvm = _exCoiBr ? r._fvmTot : 0;
+  });
+  return arr;
+}
 function applyCoiBr_(raw, keys) {
   if (!raw) return raw;
-  keys.forEach(function(k) {
-    var arr = raw[k];
-    if (!Array.isArray(arr)) return;
-    arr.forEach(function(r) {
-      if (r.fvm_ex_coi_br == null) return;
-      if (r._fvmTot === undefined) r._fvmTot = r.fvm;
-      r.fvm = _exCoiBr ? r.fvm_ex_coi_br : r._fvmTot;
-    });
-  });
+  keys.forEach(function(k) { applyRgRows_(raw[k]); });
+  applyRgRows_(raw._b2cExpanded); applyRgRows_(raw._b2cLyExpanded);   // B2C (se expande al vuelo: _b2cRows_ / _b2cLyRows_)
   return raw;
 }
 function fvmLabel_() { return _exCoiBr ? 'FVM ex COI BR' : 'FVM'; }
@@ -1789,8 +1794,9 @@ function fillPartnersB2BC_() {
 
 // ── ORGANIC ─────────────────────────────────────────────────────
 // Mismo switch que Monthly Results del Hub: YES = actuals × TC Actuals(país, mes) / TC del target.
-// Target según la comparación de cada vista: Budget → TC Budget, Forecast → TC Forecast, Last Year
-// → TC Actuals del mismo mes del año anterior; Run Rate no tiene TC → esa vista queda nominal.
+// Target según la comparación de cada vista: Budget → TC Budget, Forecast → TC Budget (y el Forecast
+// también pasa a TC Budget: USD × TC Forecast / TC Budget, ver _orgGoalRows_; definición de Diego,
+// 2026-10-26), Last Year → TC Actuals del mismo mes del año anterior; Run Rate no tiene TC → nominal.
 //   Daily B2B2C / B2B → selector "vs" de cada LOB · Flow → su Goal · Benchmark → Last Year (es una
 //   vista de crecimiento YoY) · Weekly → Budget (se calcula en el servidor, getWeeklySummaryData) ·
 //   KRs (Daily, Flow, Tracker) → Budget (_orgTargetKR_).
@@ -1809,13 +1815,14 @@ function _orgTargetFor_(cmp) {
   if (!_dlOrganic || !_fxTbl) return '';
   return (cmp === 'budget' || cmp === 'forecast' || cmp === 'ly') ? cmp : '';
 }
-function _orgTargetLabel_(t) { return t === 'forecast' ? 'Forecast' : t === 'ly' ? 'Actuals LY' : 'Budget'; }
+function _orgTargetLabel_(t) { return t === 'ly' ? 'Actuals LY' : 'Budget'; }   // vs Forecast: también TC Budget
 // Factor de un target: f(pais, 'YYYY-MM-DD') = TC Actuals / TC target (1 si el país no tiene TC o falta alguno)
 var _orgPaisesFx_ = null;
 // sink: objeto donde se anotan los país/mes con TC faltante (se muestran en la nota del switch)
-function _orgFactor_(target, sink) {
-  var act = _fxTbl.actuals, tgt = target === 'ly' ? null : _fxTbl[target];
-  if (!_orgPaisesFx_) { _orgPaisesFx_ = {}; Object.keys(act).forEach(function(k){ _orgPaisesFx_[k.split('§')[0]] = 1; }); }
+// src: TC con el que están los montos ('actuals' por default; 'forecast' para el goal Forecast).
+function _orgFactor_(target, sink, src) {
+  var act = _fxTbl[src || 'actuals'], tgt = target === 'ly' ? null : _fxTbl[target];
+  if (!_orgPaisesFx_) { _orgPaisesFx_ = {}; Object.keys(_fxTbl.actuals).forEach(function(k){ _orgPaisesFx_[k.split('§')[0]] = 1; }); }
   var memo = {};
   return function(pais, fecha) {
     var ym = String(fecha || '').substring(0, 7), mk = pais + '|' + ym;
@@ -1826,7 +1833,7 @@ function _orgFactor_(target, sink) {
       var a = act[p + '§' + ym];
       var t = tgt ? tgt[p + '§' + ym] : act[p + '§' + (+ym.substring(0, 4) - 1) + ym.substring(4)];
       if (a && t) f = a / t;
-      else sink[p + ' ' + ym + (a ? '' : ' (actuals)') + (t ? '' : ' (' + (target === 'ly' ? 'actuals LY' : target) + ')')] = 1;
+      else sink[p + ' ' + ym + (a ? '' : ' (' + (src || 'actuals') + ')') + (t ? '' : ' (' + (target === 'ly' ? 'actuals LY' : target) + ')')] = 1;
     }
     return (memo[mk] = f);
   };
@@ -1835,6 +1842,7 @@ function _orgFactor_(target, sink) {
 var _orgRowsCache_ = (typeof WeakMap !== 'undefined') ? new WeakMap() : null;
 function _orgRows_(rows, target) {
   if (!target || !rows || !rows.length) return rows;
+  if (target === 'forecast') target = 'budget';   // vs Forecast: actuals a TC Budget
   var byT = _orgRowsCache_ && _orgRowsCache_.get(rows);
   if (byT && byT[target]) { Object.keys(byT[target + '§miss']).forEach(function(k){ _orgMissing_[k] = 1; }); return byT[target]; }
   var miss = {};
@@ -1854,6 +1862,24 @@ function _orgRows_(rows, target) {
   if (_orgRowsCache_) { byT = byT || {}; byT[target] = out; byT[target + '§miss'] = miss; _orgRowsCache_.set(rows, byT); }
   return out;
 }
+// Goal Forecast con organic: filas del Forecast de TC Forecast a TC Budget (copias, cacheadas).
+// Sin campos _y: el YoY sale siempre de los actuals.
+function _orgGoalRows_(rows, target) {
+  if (target !== 'forecast' || !rows || !rows.length) return rows;
+  var byT = _orgRowsCache_ && _orgRowsCache_.get(rows);
+  if (byT && byT['goal']) { Object.keys(byT['goal§miss']).forEach(function(k){ _orgMissing_[k] = 1; }); return byT['goal']; }
+  var miss = {}, fG = _orgFactor_('budget', miss, 'forecast');
+  var out = rows.map(function(r) {
+    var g = fG(r.pais, r.fecha);
+    if (g === 1) return r;
+    var c = Object.assign({}, r);
+    _ORG_MONEY_.forEach(function(F) { if (r[F] != null) c[F] = r[F] * g; });
+    return c;
+  });
+  Object.keys(miss).forEach(function(k){ _orgMissing_[k] = 1; });
+  if (_orgRowsCache_) { byT = byT || {}; byT['goal'] = out; byT['goal§miss'] = miss; _orgRowsCache_.set(rows, byT); }
+  return out;
+}
 // Valor para el YoY: a TC Actuals LY si la fila lo trae (opción B), si no el que se muestra
 function _yv_(r, F) { var y = r[F + '_y']; return (y !== undefined) ? y : (r[F] || 0); }
 // Raws con organic aplicado a los actuals (mismas claves que el raw original)
@@ -1862,6 +1888,7 @@ function b2bcRawOrg_(target) {
   if (!target || !base) return base;
   var o = Object.assign({}, base); o.actuals = _orgRows_(base.actuals, target);
   if (base.actuals_fy_rest && base.actuals_fy_rest.length) o.actuals_fy_rest = _orgRows_(base.actuals_fy_rest, target);
+  o.forecast = _orgGoalRows_(base.forecast, target);
   return o;
 }
 function b2bRawOrg_(target) {
@@ -1869,6 +1896,8 @@ function b2bRawOrg_(target) {
   var o = Object.assign({}, _rawB2B);
   o.b2b_gd = _orgRows_(_rawB2B.b2b_gd, target);
   o.b2b_ri = _orgRows_(_rawB2B.b2b_ri, target);
+  o.b2b_forecast_gd = _orgGoalRows_(_rawB2B.b2b_forecast_gd, target);
+  o.b2b_forecast_ri = _orgGoalRows_(_rawB2B.b2b_forecast_ri, target);
   return o;
 }
 // Targets por vista
@@ -1953,7 +1982,7 @@ function _syncOrganicUI_() {
   else {
     var vt = _orgTargetVisible_();
     if (!vt.t) note.textContent = 'No disponible con ' + (vt.cmp === 'runrate' ? 'Run Rate' : vt.cmp) + ' (sin TC): datos nominales';
-    else note.textContent = 'Actuals × TC Actuals / TC ' + _orgTargetLabel_(vt.t) + (vt.t === 'ly' ? '' : ' · YoY a TC Actuals LY')
+    else note.textContent = 'Actuals × TC Actuals / TC ' + _orgTargetLabel_(vt.t) + (vt.t === 'forecast' ? ' · Forecast a TC Budget' : '') + (vt.t === 'ly' ? '' : ' · YoY a TC Actuals LY')
       + (miss.length ? ' · sin TC: ' + miss.slice(0, 4).join(', ') + (miss.length > 4 ? ' …' : '') : '');
   }
   note.title = note.textContent;
@@ -2059,9 +2088,9 @@ function _b2cRows_(raw) {
   if (!raw || !raw.b2c || !raw.b2c.cols || !raw.b2c.cols.length) return [];
   if (raw._b2cExpanded) return raw._b2cExpanded;
   var cols = raw.b2c.cols;
-  raw._b2cExpanded = raw.b2c.rows.map(function(row){
+  raw._b2cExpanded = applyRgRows_(raw.b2c.rows.map(function(row){
     var o = {}; cols.forEach(function(c,i){ o[c] = row[i]; }); return o;
-  });
+  }));
   return raw._b2cExpanded;
 }
 function computeB2C_(raw, metric, vDate, gran) {
@@ -2467,6 +2496,9 @@ function computeAllB2B_(raw, dm, vDate, gl_pai, gl_pro, gl_ch, gl_mkt, gran, com
 
 // ── Init ────────────────────────────────────────────────────────
 window.onload = function() {
+  // Organic YES por default (Diego, 2026-10-26): pide la tabla de TC ya al abrir; cuando llega,
+  // recalcula lo que ya esté cargado (_orgRefreshAll_). Se puede apagar con el switch.
+  setDailyOrganic(true);
   // B2B2C — primary load (drives the loader)
   google.script.run
     .withSuccessHandler(function(raw) {
@@ -2805,7 +2837,7 @@ function renderMetrics(all) {
     var chartDaily = d.daily;
     var isPct = def.key !== 'gb' && _b2bcMarginMode === 'pct';
     if (isPct && all.gb) chartDaily = toPctDaily_(d.daily, all.gb.daily);
-    var b2cSeries = (_showB2C_b2bc && !isPct && !(def.key === 'fvm' && _exCoiBr)) ? computeB2C_(_rawB2BC, def.key, d.viewDate, gran) : null;
+    var b2cSeries = (_showB2C_b2bc && !isPct) ? computeB2C_(_rawB2BC, def.key, d.viewDate, gran) : null;
     renderChart(def.key, def.chartId, chartDaily, d.viewDate, def.color, gran, undefined, {pctMode:isPct, b2c:b2cSeries});
     var tblGroups = (gl_tbl_period === 'ytd' && d.groups_ytd) ? d.groups_ytd : d.groups;
     renderGroupedTable3(def.tblId, tblGroups, {newFlagKey:'isNew'});
@@ -3283,12 +3315,12 @@ function recomputeB2B_() {
   var gl_pai = vb2b('b2b-sel-pais')    !== 'all' ? vb2b('b2b-sel-pais')    : null;
   var gl_pro = vb2b('b2b-sel-product') !== 'all' ? vb2b('b2b-sel-product') : null;
   var gl_ch  = vb2b('b2b-sel-channel') !== 'all' ? vb2b('b2b-sel-channel') : null;
-  var compSrc = _rawB2B['b2b_' + _b2bComparison + '_' + _b2bDateModel] || [];
+  var rawO = b2bRawOrg_(_orgTargetB2B_());   // organic: actuals a TC del target (y Forecast a TC Budget)
+  var compSrc = rawO['b2b_' + _b2bComparison + '_' + _b2bDateModel] || [];
   var compLbl = COMPARISON_LABELS[_b2bComparison];
   var compKpi = COMPARISON_KPIS[_b2bComparison];
   ['leg-b2b-gb-comp','leg-b2b-nr-comp','leg-b2b-fvm-comp'].forEach(function(id){var el=document.getElementById(id);if(el)el.textContent=compLbl;});
   ['b2b-mc-gb-bud-lbl','b2b-mc-nr-bud-lbl','b2b-mc-fvm-bud-lbl'].forEach(function(id){var el=document.getElementById(id);if(el)el.textContent=compKpi;});
-  var rawO = b2bRawOrg_(_orgTargetB2B_());   // organic: actuals a TC del target
   state_b2b.data       = computeB2B_(rawO, 'nr', _b2bDateModel, state_b2b.viewDate, gl_pai, gl_pro, gl_ch, _b2bMarket, 'daily', compSrc);
   state_b2b.allMetrics = computeAllB2B_(rawO, _b2bDateModel, state_b2b.viewDate, gl_pai, gl_pro, gl_ch, _b2bMarket, gran, compSrc);
   if(_b2bKrHalf===null && state_b2b.viewDate){ setB2BKrHalf(state_b2b.viewDate.substring(0,7) >= '2026-10' ? 'h2' : 'h1'); }
@@ -3406,7 +3438,8 @@ function krdRecurMonth_(ym) {
   if (!_krdRecur) return null;
   var rows = _krdRecur.filter(function(r){ return r.mes_comercial === ym; });
   if (!rows.length) return null;
-  var cierre = rows.filter(function(r){ return +r.es_cierre_mes === 1; });
+  // es_cierre_mes = 1 marca la última semana del mes aunque siga EN_CURSO: solo es la foto de cierre ya cerrada.
+  var cierre = rows.filter(function(r){ return +r.es_cierre_mes === 1 && r.estado === 'CIERRE'; });
   var cerradas = rows.filter(function(r){ return r.estado === 'CIERRE'; });
   var pool = cierre.length ? cierre : (cerradas.length ? cerradas : rows);
   var sem = pool.reduce(function(m, r){ return Math.max(m, +r.semana_del_mes || 0); }, 0);
@@ -3689,8 +3722,8 @@ function renderKRsGlobales_(){
   var refYM=globalesRefYM_(meses, state_b2b.viewDate), idx=meses.indexOf(refYM);
   var vd=String(state_b2b.viewDate||'');
   var agg=_rawB2B?computeGlobalesApiHotelMonth_(_krRawB2B_(_rawB2B), refYM, vd):{nr:0,bud:0,budMtd:0};   // a TC Budget con ORGANIC YES (hay países con TC)
-  // NR es MTD → se compara contra el budget gestional acumulado al mismo corte (agg.budMtd). Sin budget
-  // diario, queda el target de okr.json prorrateado por días.
+  // NR es MTD → se compara contra el budget gestional acumulado al mismo corte (agg.budMtd). 100% gestional (2026-10-27): sin budget
+  // diario el KR queda sin target (antes caía al de okr.json, contable, prorrateado por días).
   var pp=refYM.split('-'), frac=(vd.substring(0,7)===refYM)?Number(vd.substring(8,10))/new Date(+pp[0],+pp[1],0).getDate():1;
   function pctColor(p){return p===null?'var(--text-2)':p>=100?'var(--success)':p>=80?'#f59e0b':'var(--danger)';}
   function fmtVal(v,unit){ if(v===null||v===undefined)return '—'; if(unit==='$M')return '$'+v.toFixed(1)+'M'; if(unit==='Share %'||unit==='%')return v.toFixed(1)+'%'; return Number(v).toLocaleString('es-AR'); }
@@ -3699,7 +3732,7 @@ function renderKRsGlobales_(){
     var tSc=t;
     if(kr.id==='net_revenues_api_hoteles'){                                                 // MTD del daily, $M
       a=agg.nr?agg.nr/1e6:null;
-      if(agg.bud){ t=agg.bud/1e6; tSc=agg.budMtd/1e6; } else if(t!=null) tSc=t*frac;
+      if(agg.bud){ t=agg.bud/1e6; tSc=agg.budMtd/1e6; } else { t=null; tSc=null; }
     }
     else if(kr.actuals && kr.actuals[refYM]!=null) a=kr.actuals[refYM];                  // mensual, Input_OKR
     var sc=kr.inverse?okrScore_(tSc,a):okrScore_(a,tSc), pct=sc!==null?Math.round(sc*100):null;   // regla única de OKR; inverse: menos es mejor
@@ -3918,7 +3951,7 @@ function renderB2BMetrics(all) {
     var chartDailyB2b = d.daily;
     var isPctB2b = def.key !== 'gb' && _b2bMarginMode === 'pct';
     if (isPctB2b && all.gb) chartDailyB2b = toPctDaily_(d.daily, all.gb.daily);
-    var b2cSeriesB2b = (_showB2C_b2b && !isPctB2b && !(def.key === 'fvm' && _exCoiBr)) ? computeB2C_(_rawB2B, def.key, d.viewDate, gran) : null;
+    var b2cSeriesB2b = (_showB2C_b2b && !isPctB2b) ? computeB2C_(_rawB2B, def.key, d.viewDate, gran) : null;
     renderChart(def.key, def.chartId, chartDailyB2b, d.viewDate, def.color, gran, _b2bCharts, {pctMode:isPctB2b, b2c:b2cSeriesB2b});
     var tblGroupsB2b = (gl_tbl_period === 'ytd' && d.groups_ytd) ? d.groups_ytd : d.groups;
     renderGroupedTableB2B_(def.tblId, tblGroupsB2b);
@@ -3989,7 +4022,7 @@ var _trackerUrl = null, _trackerOrg = null;   // organic: el iframe se recarga c
 function _trackerSetSrc_() {
   if (!_trackerUrl || _trackerOrg === _dlOrganic) return;
   _trackerOrg = _dlOrganic;
-  document.getElementById('tracker-iframe').src = _trackerUrl + (_dlOrganic ? '&organic=1' : '');
+  document.getElementById('tracker-iframe').src = _trackerUrl + (_dlOrganic ? '&organic=1' : '&organic=0');
 }
 function trackerOpen_() {
   if (_trackerLoaded) { _trackerSetSrc_(); return; }
@@ -4031,7 +4064,7 @@ var _BENCH_ML = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 
 function _b2cLyRows_(raw) {
   if (!raw || !raw.b2c_ly || !raw.b2c_ly.cols || !raw.b2c_ly.cols.length) return [];
   if (raw._b2cLyExpanded) return raw._b2cLyExpanded;
-  raw._b2cLyExpanded = expandCompact_(raw.b2c_ly);
+  raw._b2cLyExpanded = applyRgRows_(expandCompact_(raw.b2c_ly));
   return raw._b2cLyExpanded;
 }
 
@@ -4487,11 +4520,18 @@ function _wsRender(d) {
 }
 
 // ── Weekly table ───────────────────────────────────────────────
+// sub: filas de trend debajo de la métrica (% vs LY, brecha pp vs B2C, % vs Budget) — ver _wsSummary_ en Codigo.js
 var _WS_METRICS = [
-  { key:'fvm',   label:'FVM',  fmt:'M',   lyKey:null,      l4wKey:'fvm',   l4wFmt:'pct' },
-  { key:'pctGb', label:'%/GB', fmt:'pct', lyKey:null,      l4wKey:'pctGb', l4wFmt:'pp'  },
-  { key:'rev',   label:'Rev',  fmt:'M',   lyKey:'vsLYrev', l4wKey:'rev',   l4wFmt:'pct' },
-  { key:'gb',    label:'GB',   fmt:'M',   lyKey:'vsLYgb',  l4wKey:'gb',    l4wFmt:'pct' }
+  { key:'fvm',   label:'FVM',  fmt:'M',   sub:null, l4wKey:'fvm',   l4wFmt:'pct' },
+  { key:'pctGb', label:'%/GB', fmt:'pct', sub:null, l4wKey:'pctGb', l4wFmt:'pp'  },
+  { key:'rev',   label:'Rev',  fmt:'M',   l4wKey:'rev', l4wFmt:'pct', sub:[
+    { key:'vsLYrev',  label:'% vs LY',  fmt:'pct' },
+    { key:'vsB2Crev', label:'vs B2C',   fmt:'pp'  },
+    { key:'vsBudrev', label:'% vs Bdg', fmt:'pct' } ] },
+  { key:'gb',    label:'GB',   fmt:'M',   l4wKey:'gb',  l4wFmt:'pct', sub:[
+    { key:'vsLYgb',   label:'% vs LY',  fmt:'pct' },
+    { key:'vsB2Cgb',  label:'vs B2C',   fmt:'pp'  },
+    { key:'vsBudgb',  label:'% vs Bdg', fmt:'pct' } ] }
 ];
 
 function _wsRenderWeekly(d, theadId, tbodyId) {
@@ -4507,7 +4547,7 @@ function _wsRenderWeekly(d, theadId, tbodyId) {
   tbody.innerHTML = '';
   d.rows.forEach(function(row) {
     var isTotal  = row.group === 'TOTAL';
-    var rowspan  = _WS_METRICS.reduce(function(n,m){ return n+1+(m.lyKey?1:0); }, 0);
+    var rowspan  = _WS_METRICS.reduce(function(n,m){ return n+1+(m.sub?m.sub.length:0); }, 0);
     var firstRow = true;
 
     _WS_METRICS.forEach(function(m) {
@@ -4531,18 +4571,18 @@ function _wsRenderWeekly(d, theadId, tbodyId) {
       tdW.innerHTML = _wsFmtChange(row.vsL4W[m.l4wKey], m.l4wFmt); trM.appendChild(tdW);
       tbody.appendChild(trM);
 
-      if (m.lyKey) {
+      (m.sub || []).forEach(function(s) {
         var trLY = document.createElement('tr'); trLY.className = 'ws-metric-row ws-ly-row';
         var tdLl = document.createElement('td'); tdLl.className = 'ws-metric-label';
-        tdLl.textContent = '% vs LY'; trLY.appendChild(tdLl);
+        tdLl.textContent = s.label; trLY.appendChild(tdLl);
         row.weeks.forEach(function(w) {
           var td = document.createElement('td');
-          td.innerHTML = _wsFmtChange(w[m.lyKey], 'pct'); trLY.appendChild(td);
+          td.innerHTML = _wsFmtChange(w[s.key], s.fmt); trLY.appendChild(td);
         });
         var tdLW = document.createElement('td'); tdLW.className = 'l4w-val';
         tdLW.innerHTML = '<span class="ws-neutral">—</span>'; trLY.appendChild(tdLW);
         tbody.appendChild(trLY);
-      }
+      });
     });
   });
 }
@@ -4985,8 +5025,11 @@ var FLOW_DECK = [
   {kind:'divider', flag:'WK', title:'Weekly Summary', name:'— Weekly —'},
   {kind:'weekly', lob:'B2B+B2B2C', view:'GD', name:'Weekly — B2B+B2B2C (GD)'},
   {kind:'weekly', lob:'B2B+B2B2C', view:'RI', name:'Weekly — B2B+B2B2C (RI)'},
-  {kind:'weekly', lob:'B2B',       view:'GD', name:'Weekly — B2B (GD)'},
-  {kind:'weekly', lob:'B2B',       view:'RI', name:'Weekly — B2B (RI)'},
+  // B2B abierto en MAY (canal API) y MIN (Agencias afiliadas) — ch = params.channel de getWeeklySummaryData
+  {kind:'weekly', lob:'B2B',       view:'GD', ch:'API',                name:'Weekly — B2B-MAY (GD)'},
+  {kind:'weekly', lob:'B2B',       view:'RI', ch:'API',                name:'Weekly — B2B-MAY (RI)'},
+  {kind:'weekly', lob:'B2B',       view:'GD', ch:'Agencias afiliadas', name:'Weekly — B2B-MIN (GD)'},
+  {kind:'weekly', lob:'B2B',       view:'RI', ch:'Agencias afiliadas', name:'Weekly — B2B-MIN (RI)'},
   {kind:'weekly', lob:'B2B2C',     view:'GD', name:'Weekly — B2B2C (GD)'},
   {kind:'weekly', lob:'B2B2C',     view:'RI', name:'Weekly — B2B2C (RI)'},
 
@@ -5002,6 +5045,13 @@ var FLOW_DECK = [
   {kind:'b2b_tables', dateType:'ri', name:'B2B — Tablas RI'},
   {kind:'b2b_tables', dateType:'ri', channel:'API',                name:'B2B — Tablas RI · API'},
   {kind:'b2b_tables', dateType:'ri', channel:'Agencias afiliadas', name:'B2B — Tablas RI · HTML'},
+  // B2B HTML (Agencias afiliadas) y B2B API por fecha: solo barras de NR y FVM. b2b_chart acepta `channel`.
+  {kind:'divider', flag:'RI', title:'B2B HTML — Recognition Date', name:'B2B HTML — Recognition Date'},
+  {kind:'b2b_chart', tab:'nr_ri',  channel:'Agencias afiliadas', name:'B2B HTML — Net Revenue RI'},
+  {kind:'b2b_chart', tab:'fvm_ri', channel:'Agencias afiliadas', name:'B2B HTML — FVM RI'},
+  {kind:'divider', flag:'RI', title:'B2B API — Recognition Date', name:'B2B API — Recognition Date'},
+  {kind:'b2b_chart', tab:'nr_ri',  channel:'API', name:'B2B API — Net Revenue RI'},
+  {kind:'b2b_chart', tab:'fvm_ri', channel:'API', name:'B2B API — FVM RI'},
   {kind:'divider', flag:'GD', title:'Gestion Date', name:'B2B — Gestion Date'},
   {kind:'b2b_chart', tab:'gb_gd',  name:'B2B — Gross Bookings GD'},
   {kind:'b2b_chart', tab:'nr_gd',  name:'B2B — Net Revenue GD'},
@@ -5009,6 +5059,12 @@ var FLOW_DECK = [
   {kind:'b2b_tables', dateType:'gd', name:'B2B — Tablas GD'},
   {kind:'b2b_tables', dateType:'gd', channel:'API',                name:'B2B — Tablas GD · API'},
   {kind:'b2b_tables', dateType:'gd', channel:'Agencias afiliadas', name:'B2B — Tablas GD · HTML'},
+  {kind:'divider', flag:'GD', title:'B2B HTML — Gestion Date', name:'B2B HTML — Gestion Date'},
+  {kind:'b2b_chart', tab:'nr_gd',  channel:'Agencias afiliadas', name:'B2B HTML — Net Revenue GD'},
+  {kind:'b2b_chart', tab:'fvm_gd', channel:'Agencias afiliadas', name:'B2B HTML — FVM GD'},
+  {kind:'divider', flag:'GD', title:'B2B API — Gestion Date', name:'B2B API — Gestion Date'},
+  {kind:'b2b_chart', tab:'nr_gd',  channel:'API', name:'B2B API — Net Revenue GD'},
+  {kind:'b2b_chart', tab:'fvm_gd', channel:'API', name:'B2B API — FVM GD'},
   {kind:'divider', flag:'API', title:'API & HTML — Gestion Date', name:'B2B — API vs Agencias (GD)'},
   {kind:'b2b_split', metric:'gb',  dateType:'gd', name:'B2B — GB GD · Agencias vs API'},
   {kind:'b2b_split', metric:'nr',  dateType:'gd', name:'B2B — NR GD · Agencias vs API'},
@@ -5182,9 +5238,8 @@ function flowFY12OC_(compKey){
             yoy:(ly>0)?(b/ly-1)*100:null, projected:!isAct};
   });
 }
-// Tabla por región del OC: meses CERRADOS del FY (no hay MTD de OC) vs el Goal, mismo formato que
-// la tabla Región de flowGroupTable_.
-function flowOCTable_(compKey){
+// OC por región, meses CERRADOS del FY (no hay MTD de OC) vs el Goal → { data:{BR|SAH|NAM:{base,goal}}, rng }.
+function flowOCClosedData_(compKey){
   var oc=_rawB2BC.flow_oc||{rows:[],actual_months:[]}, L=_rawB2BC.meta.last_actuals_date, fyS=flFyStart_(L).substring(0,7);
   var closed={}; (oc.actual_months||[]).forEach(function(m){ if(m>=fyS) closed[m]=1; });
   var ge = compKey==='ly' ? 'ly' : compKey==='runrate' ? 'rr' : 'bg', G={};
@@ -5192,14 +5247,8 @@ function flowOCTable_(compKey){
   (oc.rows||[]).forEach(function(r){ var e=r[1], m=(e==='ly') ? (+r[0].substring(0,4)+1)+r[0].substring(4,7) : r[0].substring(0,7);
     if(!closed[m]) return; var k=getRegion_(r[2]);
     if(e==='bl') g(k).base+=r[3]; else if(e===ge) g(k).goal+=r[3]; });
-  function cell(d){ return '<td class="'+(d>=0?'fl-pos':'fl-neg')+'">'+(d>=0?'+':'')+fmtShort(d)+'</td>'; }
-  function pctCell(b,gl){ var p=gl>0?(b/gl-1)*100:null; return '<td class="'+((b-gl)>=0?'fl-pos':'fl-neg')+'">'+(p==null?'—':(p>=0?'+':'')+Math.round(p)+'%')+'</td>'; }
-  var body='', TB=0, TG=0;
-  ['BR','SAH','NAM'].forEach(function(k){ var x=G[k]; if(!x) return; TB+=x.base; TG+=x.goal;
-    body+='<tr class="grp"><td>'+(REGION_LABEL_[k]||k)+'</td><td>'+fmtShort(x.base)+'</td>'+cell(x.base-x.goal)+pctCell(x.base,x.goal)+'</tr>'; });
-  body+='<tr class="tot"><td>Total</td><td>'+fmtShort(TB)+'</td>'+cell(TB-TG)+pctCell(TB,TG)+'</tr>';
   var ms=Object.keys(closed).sort(), rng=ms.length ? fmtChartLabel_(ms[0]+'-01','monthly')+'–'+fmtChartLabel_(ms[ms.length-1]+'-01','monthly') : 'sin meses cerrados';
-  return {html:'<table class="fl-tbl"><thead><tr><th>Región</th><th>Baseline</th><th>Delta [$]</th><th>Delta [%]</th></tr></thead><tbody>'+body+'</tbody></table>', rng:rng};
+  return {data:G, rng:rng};
 }
 
 // daily series for the selected month: v=actuals (null if future), bud=goal (comp-aware)
@@ -5470,22 +5519,74 @@ function flowGroupTable_(subRaw, metricKey, comp, col1, groupByRegion, childMax,
   return '<table class="fl-tbl"><thead><tr><th>'+(col1||'Región / País')+'</th><th>Baseline</th><th>Delta [$]</th><th>Delta [%]</th>'+(withYoY?'<th>YoY</th>':'')+'</tr></thead><tbody>'+body+'</tbody></table>';
 }
 
-// Tabla Farming / Hunting / TBD de la portada OC (pedido 2026-10-26): mismo período, comparador y
-// formato que la tabla Región de flowGroupTable_, agrupando por flSeg_ en vez de por región.
-function flowSegTable_(subRaw, metricKey, comp, period){
+// Portada OC (pedido 2026-10-26): una tabla por métrica con YTD | H2 lado a lado (OC: cerrado | H2).
+// Farming / Hunting / TBD por flSeg_; OC por región. Cada helper devuelve {clave:{base,goal}}.
+function flowSegData_(subRaw, metricKey, comp, period){
   var vDate=flowVDate_(), mStart=(period==='ytd') ? flFyStart_(vDate) : vDate.substring(0,7)+'-01';
   var lyMode=(comp==='ly'), lyMS=_flLY_(mStart), lyVD=_flLY_(vDate);
   var MF=_FLMF[metricKey], cmpArr=_flCompArr_(subRaw,comp), cmpF=_flCompField_(metricKey,comp);
   var G={f:{base:0,goal:0},h:{base:0,goal:0},t:{base:0,goal:0}};
   (subRaw.actuals||[]).forEach(function(r){ if(r.fecha<mStart||r.fecha>vDate) return; G[flSeg_(r)].base+=(r[MF]||0); });
   cmpArr.forEach(function(r){ if(lyMode){ if(r.fecha<lyMS||r.fecha>lyVD) return; } else if(r.fecha<mStart||r.fecha>vDate){ return; } G[flSeg_(r)].goal+=(r[cmpF]||0); });
+  return G;
+}
+// H2 (oct–mar): actual + proyección Run Rate vs Goal del H2 completo — mismos totales que la vieja
+// cajita "H2 (Act+Proy)" (flowFY12_ + flowHalves_: meses sin Goal quedan afuera de los dos lados).
+function flowH2SegData_(sub, mk, cmp){
+  var L=_rawB2BC.meta.last_actuals_date, fy0=+flFyStart_(L).substring(0,4);
+  var MF=_FLMF[mk], BF=_FLBMF[mk], h2=flowFY12_(sub,mk,cmp).slice(6), inH2={};
+  var G={f:{base:0,goal:0},h:{base:0,goal:0},t:{base:0,goal:0}};
+  h2.forEach(function(m){ if(m.bud==null) return; inH2[m.date.substring(0,7)]=1;
+    ['f','h','t'].forEach(function(k){ G[k].base+=m.seg[k].v+m.seg[k].p; }); });
+  var goalRows, gF;
+  if(cmp==='ly'){ var base=b2bcRaw_()||_rawB2BC; gF=MF;
+    goalRows=(sub.actuals_ly||[]).concat(sub.actuals_ly_fy_rest||[], (base.actuals||[]).filter(function(r){ return r.fecha<=L && r.fecha<fy0+'-04-01'; }));
+  } else { gF=BF; goalRows=(cmp==='runrate') ? (sub.runrate||[]).concat(sub.runrate_fy_rest||[]) : (sub.budget||[]).concat(sub.budget_fy_rest||[]); }
+  goalRows.forEach(function(r){ var m=(cmp==='ly') ? (+r.fecha.substring(0,4)+1)+r.fecha.substring(4,7) : r.fecha.substring(0,7);
+    if(inH2[m]) G[flSeg_(r)].goal+=(r[gF]||0); });
+  return G;
+}
+// OC por región del H2: baseline del contable (cerrado + Run Rate) vs Goal, meses sin Goal afuera
+function flowOCH2Data_(cmp){
+  var L=_rawB2BC.meta.last_actuals_date, fy0=+flFyStart_(L).substring(0,4);
+  var oc=_rawB2BC.flow_oc||{rows:[]}, ge=cmp==='ly' ? 'ly' : cmp==='runrate' ? 'rr' : 'bg', h2m={}, hasG={}, R={};
+  for(var i=6;i<12;i++){ var mm=(3+i)%12+1; h2m[(fy0+(i>=9?1:0))+'-'+(mm<10?'0':'')+mm]=1; }
+  function mOf(r){ return r[1]==='ly' ? (+r[0].substring(0,4)+1)+r[0].substring(4,7) : r[0].substring(0,7); }
+  (oc.rows||[]).forEach(function(r){ if(r[1]===ge && h2m[mOf(r)]) hasG[mOf(r)]=1; });
+  (oc.rows||[]).forEach(function(r){ var m=mOf(r); if(!hasG[m]) return; var k=getRegion_(r[2]), x=R[k]=R[k]||{base:0,goal:0};
+    if(r[1]==='bl') x.base+=r[3]; else if(r[1]===ge) x.goal+=r[3]; });
+  return R;
+}
+// rows: [{k, lbl(html)}]; pers: [{lbl, data}] → Baseline / Δ [$] / Δ [%] por período, lado a lado.
+function flMultiPeriodTbl_(col1, rows, pers){
   function cell(d){ return '<td class="'+(d>=0?'fl-pos':'fl-neg')+'">'+(d>=0?'+':'')+fmtShort(d)+'</td>'; }
-  function pctCell(b,g){ var p=g!==0?(b/g-1)*100:null; return '<td class="'+((b-g)>=0?'fl-pos':'fl-neg')+'">'+(p==null?'—':(p>=0?'+':'')+Math.round(p)+'%')+'</td>'; }
-  var body='', TB=0, TG=0;
-  FL_SEG_.forEach(function(sg){ var x=G[sg.k]; TB+=x.base; TG+=x.goal;
-    body+='<tr class="grp"><td><i style="display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;background:'+sg.c+'"></i>'+sg.lbl+'</td><td>'+fmtShort(x.base)+'</td>'+cell(x.base-x.goal)+pctCell(x.base,x.goal)+'</tr>'; });
-  body+='<tr class="tot"><td>Total</td><td>'+fmtShort(TB)+'</td>'+cell(TB-TG)+pctCell(TB,TG)+'</tr>';
-  return '<table class="fl-tbl"><thead><tr><th>Segmento</th><th>Baseline</th><th>Delta [$]</th><th>Delta [%]</th></tr></thead><tbody>'+body+'</tbody></table>';
+  // % solo con Goal > 0 (OC: Budget negativo da un % sin sentido → "—", como la vieja tabla de OC)
+  function pctCell(b,g){ var p=g>0?(b/g-1)*100:null; return '<td class="'+((b-g)>=0?'fl-pos':'fl-neg')+'">'+(p==null?'—':(p>=0?'+':'')+Math.round(p)+'%')+'</td>'; }
+  function trio(x){ return '<td class="fl-psep">'+fmtShort(x.base)+'</td>'+cell(x.base-x.goal)+pctCell(x.base,x.goal); }
+  var head='<tr><th rowspan="2" style="vertical-align:bottom">'+col1+'</th>'+pers.map(function(p){ return '<th colspan="3" class="fl-psep" style="text-align:center">'+p.lbl+'</th>'; }).join('')+'</tr>'
+    +'<tr>'+pers.map(function(){ return '<th class="fl-psep">Baseline</th><th>Δ [$]</th><th>Δ [%]</th>'; }).join('')+'</tr>';
+  var tot=pers.map(function(){ return {base:0,goal:0}; }), body='';
+  rows.forEach(function(rw){
+    if(!pers.some(function(p){ return p.data[rw.k]; })) return;
+    body+='<tr class="grp"><td>'+rw.lbl+'</td>'+pers.map(function(p,i){ var x=p.data[rw.k]||{base:0,goal:0}; tot[i].base+=x.base; tot[i].goal+=x.goal; return trio(x); }).join('')+'</tr>';
+  });
+  body+='<tr class="tot"><td>Total</td>'+tot.map(trio).join('')+'</tr>';
+  return '<table class="fl-tbl fl-multi"><thead>'+head+'</thead><tbody>'+body+'</tbody></table>';
+}
+function flowOCCoverTables_(sub, cmp, cmpShort){
+  var vDate=flowVDate_(), fyL=flFyLbl_(_rawB2BC.meta.last_actuals_date);
+  var segRows=FL_SEG_.map(function(sg){ return {k:sg.k, lbl:'<i style="display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;background:'+sg.c+'"></i>'+sg.lbl}; });
+  function wrap(tag, html){ return '<div class="fl-scroll-tbl" style="flex:1;min-width:0;min-height:0;overflow-y:auto"><div class="fl-tag">'+tag+'</div>'+html+'</div>'; }
+  var html=[['nr','NR'],['fvm','FVM']].map(function(t){
+    return wrap(t[1]+' vs '+cmpShort, flMultiPeriodTbl_('Segmento', segRows, [
+      {lbl:'YTD '+flFyLbl_(vDate), data:flowSegData_(sub,t[0],cmp,'ytd')},
+      {lbl:'H2 '+fyL+' (Act+Proy)', data:flowH2SegData_(sub,t[0],cmp)} ]));
+  }).join('');
+  var oc=flowOCClosedData_(cmp), regRows=['BR','SAH','NAM'].map(function(k){ return {k:k, lbl:REGION_LABEL_[k]||k}; });
+  html+=wrap('OC vs '+cmpShort, flMultiPeriodTbl_('Región', regRows, [
+    {lbl:oc.rng+' (cerrado)', data:oc.data},
+    {lbl:'H2 '+fyL+' (Act+Proy)', data:flowOCH2Data_(cmp)} ]));
+  return html;
 }
 
 // Suma actual/comparación MTD para el slide 'b2b2c_krs', filtrando por
@@ -5559,15 +5660,11 @@ function flMonthlyPeriodLbl_(vDate){ return _flMonthlyPeriod==='ytd' ? 'YTD '+fl
 function flMonthlyTables_(def, sub, cmp, cmpShort){
   var per=_flMonthlyPeriod, perLbl=flMonthlyPeriodLbl_(flowVDate_());
   if(def.kind==='cover' || def.kind==='cover_oc'){
-    var isOC=(def.kind==='cover_oc');
-    // Portada OC: NR / FVM por Farming / Hunting / TBD (flowSegTable_), sin GB (pedido 2026-10-26);
-    // la otra portada: GB / NR / FVM por región.
-    var html=(isOC ? [['nr','NR'],['fvm','FVM']] : [['gb','GB'],['nr','NR'],['fvm','FVM']]).map(function(t){
+    // Portada OC: YTD | H2 en una misma tabla (flowOCCoverTables_), sin switch; la otra portada: GB / NR / FVM por región.
+    if(def.kind==='cover_oc') return flowOCCoverTables_(sub, cmp, cmpShort);
+    return [['gb','GB'],['nr','NR'],['fvm','FVM']].map(function(t){
       return '<div class="fl-scroll-tbl" style="flex:1;min-width:0;min-height:0;overflow-y:auto"><div class="fl-tag">'+t[1]+' — '+perLbl+' vs '+cmpShort+'</div>'
-        +(isOC ? flowSegTable_(sub,t[0],cmp,per) : flowGroupTable_(sub,t[0],cmp,'Región',true,0,undefined,undefined,per))+'</div>'; }).join('');
-    if(isOC){ var ot=flowOCTable_(cmp); // OC: siempre meses cerrados (no hay MTD de OC), sin importar el switch
-      html+='<div class="fl-scroll-tbl" style="flex:1;min-width:0;min-height:0;overflow-y:auto"><div class="fl-tag">OC — '+ot.rng+' (cerrado) vs '+cmpShort+'</div>'+ot.html+'</div>'; }
-    return html;
+        +flowGroupTable_(sub,t[0],cmp,'Región',true,0,undefined,undefined,per)+'</div>'; }).join('');
   }
   var tf=(def.region==='SAH'); // Hispa: Tier → Partner (ver flowGroupTable_)
   return [['nr','NR'],['fvm','FVM']].map(function(t){
@@ -5584,7 +5681,7 @@ function flMonthlySetPeriod_(p){
   _flMonthlyPeriod=p;
   var cmp=_flowComp, cmpShort=FLOW_COMP[cmp].short;
   FLOW_DECK.forEach(function(def, i){
-    if(def.kind!=='cover' && def.kind!=='cover_oc' && def.kind!=='monthly') return;
+    if(def.kind!=='cover' && def.kind!=='monthly') return;   // cover_oc no tiene switch (YTD | H2 juntos)
     var box=document.getElementById('flmt-'+i); if(!box) return;
     box.innerHTML=flMonthlySwitch_()+flMonthlyTables_(def, flowRegionRaw_(def.kind==='monthly'?def.region:null), cmp, cmpShort);
   });
@@ -5619,7 +5716,8 @@ function flowBuildSlide_(def, idx){
       var cid='flc'+idx+'-'+mk, mon, boxes, legend;
       if(isCover){ // portada: FY completo (12 barras, actual + proyección Run Rate) + H1/H2/FY
         mon=(mk==='oc') ? flowFY12OC_(cmp) : flowFY12_(sub,mk,cmp); var hv=flowHalves_(mon), fyL=flFyLbl_(_rawB2BC.meta.last_actuals_date);
-        boxes='<div style="display:flex;flex-direction:column;gap:4px">'+flH1box_(hv.h1,cmpShort,'H1 vs ',true)
+        // portada OC sin las cajitas H1/H2/FY: el H2 va en la tabla YTD | H2 (flowOCCoverTables_, pedido 2026-10-26)
+        boxes=isOC ? '' : '<div style="display:flex;flex-direction:column;gap:4px">'+flH1box_(hv.h1,cmpShort,'H1 vs ',true)
           +flH1box_(hv.h2,cmpShort,'H2 (Act+Proy) vs ',true)+flH1box_(hv.fy,cmpShort,fyL+' (Act+Proy) vs ',true)+'</div>';
         legend=(mk==='oc') ? flLegend_(cmpLbl,true,'Actual cerrado (contable)','Run Rate contable') : isOC ? flLegendSeg_(cmpLbl) : flLegend_(cmpLbl,true);
       } else {
@@ -5632,10 +5730,10 @@ function flowBuildSlide_(def, idx){
         +'<div class="fl-canvas-wrap" style="flex:1;min-width:0;height:100%"><canvas id="'+cid+'"></canvas></div>'
         +boxes+'</div></div>';
     });
-    var tables=flMonthlySwitch_()+flMonthlyTables_(def, sub, cmp, cmpShort);
-    var body='<div class="fl-body" style="display:flex;gap:22px">'
-      +'<div style="flex:1.75;min-width:0;display:flex;flex-direction:column;gap:6px;min-height:0">'+panels+'</div>'
-      +'<div id="flmt-'+idx+'"'+(isOC?' class="fl-tight"':'')+' style="flex:1;min-width:0;display:flex;flex-direction:column;gap:'+(isOC?4:8)+'px;min-height:0">'+tables+'</div></div>';
+    var tables=(isOC?'':flMonthlySwitch_())+flMonthlyTables_(def, sub, cmp, cmpShort);
+    var body='<div class="fl-body" style="display:flex;gap:'+(isOC?16:22)+'px">'
+      +'<div style="flex:'+(isOC?1.3:1.75)+';min-width:0;display:flex;flex-direction:column;gap:6px;min-height:0">'+panels+'</div>'
+      +'<div id="flmt-'+idx+'"'+(isOC?' class="fl-tight"':'')+' style="flex:'+(isOC?2:1)+';min-width:0;display:flex;flex-direction:column;gap:'+(isOC?4:8)+'px;min-height:0">'+tables+'</div></div>';
     return '<div class="flow-slide">'+flHead_(titleTxt, brand)+body+'</div>';
   }
   if(def.kind==='okr'){
@@ -5711,8 +5809,8 @@ function flowBuildSlide_(def, idx){
   }
   if(def.kind==='weekly'){
     var lob=def.lob, view=def.view;
-    var wd=_wsCache[_wsKey_(lob, view, _orgTargetFlow_())];
-    var lobLbl=(lob==='B2B+B2B2C')?'B2B + B2B2C':lob;
+    var wd=_wsCache[_wsKey_(lob, view, _orgTargetFlow_(), def.ch)];
+    var lobLbl=(lob==='B2B+B2B2C')?'B2B + B2B2C':def.ch?(def.ch==='API'?'B2B-MAY':'B2B-MIN'):lob;
     var titleTxt='Weekly Summary — '+lobLbl+' ('+view+')';
     if(!wd || !wd.rows){
       return '<div class="flow-slide">'+flHead_(titleTxt, flLogo_())
@@ -5749,6 +5847,7 @@ function flowBuildSlide_(def, idx){
   }
   if(def.kind==='b2b_chart'){
     var tabLbl=B2B_TRK_TAB_DATA[def.tab].label;
+    if(def.channel) tabLbl+=' · '+(def.channel==='API'?'API':'HTML');
     var body='<div class="fl-body b2b-fl-body">'
       +'<div class="b2b-content-row">'
         +'<div class="b2b-chart-panel">'
@@ -5913,7 +6012,7 @@ function flowBuild_(){
 function flowRenderWeeklyTables_(){
   FLOW_DECK.forEach(function(def, idx){
     if(def.kind!=='weekly') return;
-    var wd=_wsCache[_wsKey_(def.lob, def.view, _orgTargetFlow_())];
+    var wd=_wsCache[_wsKey_(def.lob, def.view, _orgTargetFlow_(), def.ch)];
     if(!wd || !wd.rows) return;
     _wsRenderWeekly(wd, 'flws-thead-'+idx, 'flws-tbody-'+idx);
   });
@@ -6594,7 +6693,7 @@ function flowRenderB2BSlides_(){
   var monthFilter=_flowB2BMonthFilter, goalType=_flowB2BGoalType;
   FLOW_DECK.forEach(function(def, idx){
     if(def.kind==='b2b_krs'){ trkRenderStatusKRs_(idx); return; }
-    if(def.kind==='b2b_chart'){ trkRenderPivotForChart_(idx, def.tab, null, null, monthFilter, goalType); return; }
+    if(def.kind==='b2b_chart'){ trkRenderPivotForChart_(idx, def.tab, def.channel||null, null, monthFilter, goalType); return; }
     if(def.kind==='b2b_tables'){ trkRenderTablesView_(idx, def.dateType, def.channel||null, null, monthFilter, goalType); return; }
     if(def.kind==='b2b_split'){ trkRenderSplitSlide_(idx, def.metric, def.dateType, null, monthFilter, goalType); return; }
   });
@@ -6681,7 +6780,7 @@ function flowDrawCharts_(idx){
   (_flowSeries[idx]||[]).forEach(function(spec){ flowChart_(spec); });
   var def=FLOW_DECK[idx];
   if(def && def.kind==='b2b_chart'){
-    trkRenderChart_(idx, def.tab, null, null, _flowB2BMonthFilter, _flowB2BGoalType, _flowB2BGoalLabel);
+    trkRenderChart_(idx, def.tab, def.channel||null, null, _flowB2BMonthFilter, _flowB2BGoalType, _flowB2BGoalLabel);
   }
   _flowDrawn[idx]=true;
 }
@@ -6723,18 +6822,19 @@ function flowScale_(){
 // así que no hace falta re-pedirlos en cada flowRebuild_.
 var FLOW_WEEKLY_COMBOS=[
   {lob:'B2B+B2B2C',view:'GD'},{lob:'B2B+B2B2C',view:'RI'},
-  {lob:'B2B',view:'GD'},{lob:'B2B',view:'RI'},
+  {lob:'B2B',view:'GD',ch:'API'},{lob:'B2B',view:'RI',ch:'API'},
+  {lob:'B2B',view:'GD',ch:'Agencias afiliadas'},{lob:'B2B',view:'RI',ch:'Agencias afiliadas'},
   {lob:'B2B2C',view:'GD'},{lob:'B2B2C',view:'RI'}
 ];
 var _flowWeeklyReady=false;
 var _flowWeeklyReadyFor='';   // target organic con el que se pidió el Weekly del Flow ('' = nominal)
 function flowFetchWeeklyData_(cb){
   var orgT=_orgTargetFlow_();   // organic: mismo target que el resto del Flow
-  var pending=FLOW_WEEKLY_COMBOS.filter(function(c){ return !_wsCache[_wsKey_(c.lob, c.view, orgT)]; });
+  var pending=FLOW_WEEKLY_COMBOS.filter(function(c){ return !_wsCache[_wsKey_(c.lob, c.view, orgT, c.ch)]; });
   if(!pending.length){ cb(); return; }
   var done=0;
   pending.forEach(function(c){
-    var key=_wsKey_(c.lob, c.view, orgT);   // antes del pedido: si el switch COI Brasil cambia en vuelo, no se cachea con la clave nueva
+    var key=_wsKey_(c.lob, c.view, orgT, c.ch);   // antes del pedido: si el switch COI Brasil cambia en vuelo, no se cachea con la clave nueva
     google.script.run
       .withSuccessHandler(function(res){
         _wsOrgResp_(res);
@@ -6742,10 +6842,10 @@ function flowFetchWeeklyData_(cb){
         done++; if(done===pending.length) cb();
       })
       .withFailureHandler(function(e){
-        console.error('[flow] no se pudo cargar Weekly '+c.lob+'/'+c.view+':', e);
+        console.error('[flow] no se pudo cargar Weekly '+c.lob+'/'+c.view+(c.ch?'/'+c.ch:'')+':', e);
         done++; if(done===pending.length) cb();
       })
-      .getWeeklySummaryData({view:c.view, lob:c.lob, organic:orgT, exCoiBr:_exCoiBr});
+      .getWeeklySummaryData({view:c.view, lob:c.lob, organic:orgT, channel:c.ch||'', exCoiBr:_exCoiBr});
   });
 }
 function flowOpen_(){

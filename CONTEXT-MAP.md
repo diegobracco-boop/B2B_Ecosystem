@@ -70,7 +70,7 @@ El ecosistema tiene dos capas: **pipelines** (Python, generan los datos) y **lan
 - **Deploy**: `cd P&L_Accounting && clasp push`
 
 ### P&L_Managerial — vista gerencial del P&L
-- **Stack**: GAS + HTML + Python (`actuals_gestional_upload.py`, `projections_gestional_builder.py`)
+- **Stack**: GAS + HTML + Python (`actuals_gestional_upload.py`)
 - **Input**: **NO** son los JSONs canónicos de Inputs_Planning_PnL — tiene su propio pipeline "gestional", independiente y paralelo al "contable": `actuals_gestional_upload.py` consulta el Datalake (ODBC) directo para actuals/LY/budget/run-rate, y lee los modelos Forecast XLSX (WLs/API/HTML) para el forecast. Sube todo a `_actuals_gestional.json` en Drive. El switch ORGANIC lee además `tc_plana_flat.xlsx` (`FX_FILE_ID`, `Codigo_organic.js`). `projections_gestional_builder.py --wip-folder <ruta>` es una herramienta aparte que arma una vista de preview (`pnl_gestional_projections_review.json`) con números de un WIP sin publicar.
 - **Dependencia cruzada (poco obvia)**: `Inputs_Planning_PnL/okr_builder.py` LEE el JSON gestional de este módulo (mismo fileId que `_actuals_gestional.json`) — pero solo el campo `last_actual_ym`, para saber el corte de mes cerrado al construir `okr.json` de `Dashboard_B2B_WLs`. Es la única conexión real entre este módulo y `Inputs_Planning_PnL`, y va en sentido contrario al que sugiere el diagrama de arriba.
 - **Usuarios**: equipo gerencial — vista agregada para toma de decisiones

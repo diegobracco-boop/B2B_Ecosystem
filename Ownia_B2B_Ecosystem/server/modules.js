@@ -40,6 +40,12 @@ const MODULES = [
     desc: 'Manual técnico del ecosistema (solo lectura).',
     ownia: true,
     requiresIdentity: false, // estático, sin datos
+    // Solo Ownia (2026-10-28): diseño Apple-style y tareas propias del Gantt (public/manual-layout.js). El manual de Apps Script no cambia.
+    layout: 'manual-layout.js',
+    // Sección "Vista por usuario" (filtros de país y canal con los que abre cada persona): la edita solo esta lista; sumar mails acá cuando Diego dé permisos.
+    noteEditors: { vistas: ['diego.bracco@despegar.com'] },
+    quickViews: [['gantt', 'Gantt']],
+    quickInList: true,   // el acceso rápido se ve también en la lista "Más tableros" del menú
     gasUrl: GAS_EXEC + 'AKfycbwq2nohZ-c3w-OqvO1H_op4yATn6yDN4qRO9mI8gs1VkO9Jn9lCcQeTsNAceCpydJiHzg/exec',
   },
   {
@@ -51,11 +57,28 @@ const MODULES = [
     // Accounting). "Slides cierre de mes" (SlidesApp + Slides API) y los triggers (preComputeAll) siguen en GAS.
     ownia: true,
     validating: true,
+    hideGasLink: true,   // 2026-10-28: sin el link "Versión Apps Script" en la tarjeta del menú (Diego)
     allowedUsers: EQUIPO_B2B,
     // Presentación propia de Ownia (public/hub-layout.js): barra fija con el selector de LoB y las
     // secciones en vez del menú hamburguesa; precarga de los otros LoB. El HTML de GAS no cambia.
-    layout: ['filter-aliases.js', 'hub-layout.js'],
+    // Vista "H2 Budget vs H1" para dirección (public/hub-h2h1.js) y el deck "Slides mensuales"
+    // (public/hub-slides.js, textos en /notes/hub/…), 2026-10-26.
+    layout: ['filter-aliases.js', 'hub-layout.js', 'hub-h2h1.js', 'hub-slides.js', 'hub-cierre.js'],
     gasUrl: GAS_EXEC + 'AKfycbz52txFQy-5YM2Nil_KxULzPoeZpKyA4z5LUWMGoP_8IilcwSduuwZqPF8ut_LmtceM/exec',
+  },
+  {
+    slug: 'flow',
+    dir: 'Flow_B2B',
+    title: 'Presentaciones',
+    desc: 'Presentación semanal (gestional) y mensual (contable) para revisar y comentar.',
+    // Solo Ownia (2026-10-27): junta el Flow semanal del Daily (gestional) y las Slides mensuales del Hub (contable) en una entrada
+    // propia del menú principal, con cuadro de comentarios por slide y envío por mail. Sin allowedUsers: cualquier @despegar.com
+    // (Diego, 2026-10-27). OJO: el Flow mensual lee los datos del Hub, que está restringido a EQUIPO_B2B: quien no esté en esa
+    // lista ve el semanal y un aviso en el mensual. Para sumar gente (p. ej. el Chief) agregarla a allowedUsers del Hub.
+    ownia: true,
+    // Accesos directos del menú: abren esa pestaña del Flow (?view=, lo lee Flow_B2B/flow.html).
+    quickViews: [['semanal', 'Semanal'], ['mensual', 'Mensual'], ['cierre', 'Cierre de mes']],
+    gasUrl: '',
   },
   {
     slug: 'daily',
@@ -68,10 +91,15 @@ const MODULES = [
     // el 2026-10-23 para que el equipo comercial use "OKR Detail" (KRs H2 por país, sección B2B).
     ownia: true,
     validating: true,
+    hideGasLink: true,   // 2026-10-28: sin el link "Versión Apps Script" en la tarjeta del menú (Diego)
     // Solo Ownia (2026-10-24): solapa "Industry events tracker" (public/daily-layout.js) y su función de
     // servidor getIndustryEvents (server/gas-extras/daily-industry.js). El código GAS del Daily no cambia.
-    layout: 'daily-layout.js',
-    gasExtras: ['daily-industry.js'],
+    // daily-embed.js: ?embed=b2b2c-cover muestra sola la portada B2B2C del Flow (la usa "Slides mensuales" del Hub).
+    // daily-flow-tier.js: tabla de las slides OKR L2 (NR y FVM) del Flow por Región → Tier → Partner con YoY.
+    // daily-flow-slides.js: recuadro Organic y nota COI Brasil en cada slide del Flow; portada OC con tablas H1 / H2.
+    // daily-ceo-weekly.js: "Weekly · vs B2C" (vista CEO) arriba del Benchmark y como slide del Flow; va antes de daily-embed.js (agrega la slide al deck).
+    layout: ['daily-layout.js', 'daily-ceo-weekly.js', 'daily-embed.js', 'daily-flow-tier.js', 'daily-flow-slides.js', 'daily-flowdeck.js'],
+    gasExtras: ['daily-industry.js', 'daily-b2c-budget.js', 'daily-weekly-fvm.js'],
     gasUrl: GAS_EXEC + 'AKfycbwMR3zk1r4uwui8vGtcmz0OwmeehC5JM8cuJRE3H-GQMfvxXWGTkYQ3R2nVjMyeAdX_1A/exec',
   },
   {
@@ -81,6 +109,7 @@ const MODULES = [
     desc: 'Vista contable del P&L.',
     ownia: true,
     validating: true,
+    hideGasLink: true,   // 2026-10-28: sin el link "Versión Apps Script" en la tarjeta del menú (Diego)
     // Sin la portada propia del módulo: entra directo a esta vista (goToView del dashboard) y
     // se navega con los selectores del header. Ver public/ownia-nav.js.
     startView: 'contable-combined',
@@ -100,6 +129,7 @@ const MODULES = [
     desc: 'Vista gestional (FVM) B2B2C y B2B.',
     ownia: true,
     validating: true,
+    hideGasLink: true,   // 2026-10-28: sin el link "Versión Apps Script" en la tarjeta del menú (Diego)
     // Sin vista consolidada B2B + B2B2C (el módulo no la tiene): el tercer acceso es Managerial vs Accounting.
     quickViews: [['b2b', 'B2B'], ['b2b2c', 'B2B2C'], ['vsacc', 'Managerial vs Accounting']],
     allowedUsers: EQUIPO_B2B,
@@ -122,6 +152,7 @@ const MODULES = [
     // Sin allowedUsers: cualquier @despegar.com, igual que el webapp GAS (access DOMAIN).
     ownia: true,
     validating: true,
+    hideGasLink: true,   // 2026-10-28: sin el link "Versión Apps Script" en la tarjeta del menú (Diego)
     gasUrl: GAS_EXEC + 'AKfycbzGXCpL9_p70Xx7P640YgU-zOzoLG1018HG9N_pzQvrCJPHTPsUuryD_tDH1HNO41hOIg/exec',
   },
   {

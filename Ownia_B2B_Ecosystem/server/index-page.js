@@ -1,26 +1,30 @@
-// Portada de la app: menú de tableros B2B, pensado para que lo abra dirección en una notebook.
-// Estilo copiado de la portada de b2b-dashboard (main de despegar/B2B_Ecosystem_Ownia, app b2b-dashboard):
-// oscuro por defecto con toggle claro (misma clave de localStorage, así la preferencia se
-// comparte), Poppins, topbar con línea violeta, hero con degradé y tarjetas con ícono. El primer
-// grupo arma un bento con la tarjeta destacada. Intro "The B2B Ecosystem" igual a la de
-// b2b-dashboard: una vez por sesión, se saltea con clic/tecla, nunca con prefers-reduced-motion.
+// Portada de la app: menú de tableros B2B para que dirección (Chief, VPs) llegue a lo importante en un clic.
+// Rediseño 2026-10-28 (Diego): minimalista, estilo Apple, con la paleta oficial de Despegar (lila #550fed).
+// Arriba, "Lo esencial": cuatro bloques grandes con una frase clara y accesos directos; abajo, "Más tableros":
+// una lista simple. Claro por defecto (el tema oscuro se elige con el botón; misma clave de localStorage que
+// b2b-dashboard). Sin intro animada: el menú abre al instante.
 //
 // Links: los módulos en Apps Script abren su landing de Google (la productiva, en otra pestaña).
 // Los "en validación" abren la versión de Ownia solo para quien puede entrar (allowedUsers);
 // el resto va directo a GAS, así nadie de afuera del equipo choca con un 403.
 const { escapeHtml } = require('./gas-template');
 
-// Grupos por uso, en orden de prioridad (definido por el equipo, 2026-10-23). Un grupo con
-// `featured` resalta su primera tarjeta (misma altura que las demás, para que el menú entre sin
-// scrollear). Un módulo que no esté acá cae en el último grupo.
-const GROUPS = [
-  { title: 'Daily & Weekly Results', slugs: ['daily', 'api-one-pager', 'fvm-negativo'] },
-  { title: 'P&L Results', slugs: ['hub', 'pnl-accounting'] },
-  { title: 'Managerial P&L · FVM Results', slugs: ['pnl-managerial', 'profit-sharing'] },
-  { title: 'Más tableros y documentación', slugs: ['one-pager', 'okr-b2b2c', 'manual'] },
-];
+// Lo esencial para un Chief / VP, en este orden (2026-10-28). Un módulo que no esté acá ni en MORE cae en "Más tableros".
+const ESSENTIAL = ['flow', 'daily', 'hub', 'pnl-managerial'];
+const MORE = ['pnl-accounting', 'rolling-projections', 'fixed-cost', 'weekly-industry', 'agentes', 'profit-sharing', 'one-pager', 'okr-b2b2c', 'manual'];
 
-// Íconos (trazos de 24x24, mismo estilo que b2b-dashboard).
+// Accesos directos de un bloque hacia OTROS tableros (además de las vistas propias, `quickViews`). Esos tableros no se repiten en "Más tableros".
+const QUICK_LINKS = { daily: ['api-one-pager', 'fvm-negativo'] };
+
+// Textos del menú en lenguaje llano (sin jerga). Si un módulo no está acá se usa el de modules.js.
+const COPY = {
+  flow: { title: 'Presentaciones', desc: 'La revisión semanal y mensual del negocio, con comentarios por slide.' },
+  daily: { title: 'Daily', desc: 'Cómo viene el día y la semana: B2B2C y B2B contra el budget.' },
+  hub: { title: 'P&L Dashboard', desc: 'El P&L contable, los OKRs y el detalle por país.' },
+  'pnl-managerial': { title: 'P&L Managerial', desc: 'El resultado gestional (FVM) de B2B y B2B2C.' },
+};
+
+// Íconos (trazos de 24x24).
 const ICONS = {
   chart: '<path d="M4 20V13M10 20V8M16 20V11M22 20V4"/><path d="M2 20h20"/>',
   ledger: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h8M8 15h5"/>',
@@ -32,22 +36,32 @@ const ICONS = {
   target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
   book: '<path d="M4 4h6a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H4z"/><path d="M20 4h-6a3 3 0 0 0-3 3v13a2 2 0 0 1 2-2h7z"/>',
   api: '<path d="M8 8l-5 4 5 4M16 8l5 4-5 4M14 4l-4 16"/>',
+  flow: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',
+  agent: '<rect x="4" y="8" width="16" height="11" rx="3"/><path d="M12 4v4M9 13.5h.01M15 13.5h.01"/>',
+};
+const ICON_OF = {
+  'pnl-managerial': 'chart', 'pnl-accounting': 'ledger', 'profit-sharing': 'bank', hub: 'grid', daily: 'calendar',
+  'one-pager': 'globe', 'fvm-negativo': 'down', 'okr-b2b2c': 'target', manual: 'book', 'api-one-pager': 'api', flow: 'flow', 'rolling-projections': 'chart', 'fixed-cost': 'ledger', 'weekly-industry': 'globe', agentes: 'agent',
 };
 // Otras apps de Ownia que se linkean desde el menú (no son módulos de este repo: no corren acá).
+// Los links son los mismos que usa el P&L Dashboard de Apps Script (EXTERNAL_LINKS en Dashboard_B2B_WLs/dashboard.html).
 const OTHER_APPS = [
   { slug: 'api-one-pager', title: 'API One Pager', desc: 'One pager del canal API (app b2b-dashboard de Ownia).',
     url: 'https://ownia.despegar.io/b2b-dashboard' },
+  { slug: 'agentes', title: 'Agentes Toqan', desc: 'Los agentes de IA del equipo: planning, BI, comercial y optimization.', internal: 'agentes' },
+  { slug: 'weekly-industry', title: 'Weekly Industry', desc: 'KPIs semanales de industria.',
+    url: 'https://script.google.com/a/despegar.com/macros/s/AKfycbwL40pCC0y_jmTxLh9xxicIoMmHTwP2EZk8eE4KC9yzR68RdHlhvdi5x8C105pmsHl_/exec?page=industria' },
+  { slug: 'fixed-cost', title: 'Fixed Cost', desc: 'Estructura de costos fijos.',
+    url: 'https://script.google.com/a/macros/despegar.com/s/AKfycbylpy8kbuTVgiDg6xgmtrR-VemvRZlzfMMXcWnnWOjg3U0eUCmPF3XwQRuqPk-hDqRTpg/exec' },
+  { slug: 'rolling-projections', title: 'Rolling Projections', desc: 'Run Rate: análisis y proyecciones.',
+    url: 'https://ownia.despegar.io/runrate-html' },
 ];
-const ICON_OF = {
-  'pnl-managerial': 'chart', 'pnl-accounting': 'ledger', 'profit-sharing': 'bank', hub: 'grid', daily: 'calendar',
-  'one-pager': 'globe', 'fvm-negativo': 'down', 'okr-b2b2c': 'target', manual: 'book', 'api-one-pager': 'api',
-};
-const ARROW = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
-const EXTERNAL = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8"/></svg>';
+const CHEVRON_L = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>';
+const CHEVRON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>';
 
 function icon(m, size) {
   const d = ICONS[ICON_OF[m.slug]] || ICONS.grid;
-  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 }
 
 function statusOf(m) {
@@ -56,86 +70,75 @@ function statusOf(m) {
 }
 
 function links(m, basePath, canOpen) {
+  if (m.internal) return { main: `${basePath}/${m.internal}`, external: false, alt: null, beta: false };   // página propia de este menú
   if (m.url) return { main: m.url, external: true, alt: null, beta: false };   // OTHER_APPS
   const own = `${basePath}/${m.slug}`;
   const st = statusOf(m);
   if (st === 'gas' || (st === 'val' && !canOpen(m))) return { main: m.gasUrl, external: true, alt: null, beta: false };
-  return { main: own, external: false, alt: st === 'val' ? m.gasUrl : null, beta: st === 'val' };
+  return { main: own, external: false, alt: st === 'val' && !m.hideGasLink ? m.gasUrl : null, beta: st === 'val' };
 }
 
-function card(m, basePath, canOpen, { featured = false, area = '' } = {}) {
+// Partes comunes de una entrada del menú (tarjeta grande o fila de la lista).
+function parts(m, basePath, canOpen, find) {
   const l = links(m, basePath, canOpen);
-  const target = l.external ? ' target="_blank" rel="noopener"' : '';
-  const id = `card-${m.slug}`;
-  // "equipo B2B" solo si el módulo tiene lista cerrada (allowedUsers); el Daily, p.ej., lo abre cualquier @despegar.com.
-  const beta = !l.beta ? '' : m.allowedUsers
-    ? ' <span class="beta" title="Corre en Ownia en paralelo a Apps Script; solo la ve el equipo B2B">Beta · equipo B2B</span>'
-    : ' <span class="beta" title="Corre en Ownia en paralelo a Apps Script (la versión productiva sigue siendo la de Apps Script)">Beta</span>';
+  const copy = COPY[m.slug] || {};
   const alt = l.alt
     ? `<a class="alt" href="${escapeHtml(l.alt)}" target="_blank" rel="noopener">Versión Apps Script ↗</a>`
     : '';
-  const cta = `<a class="cta${featured ? ' solid' : ''}" href="${escapeHtml(l.main)}"${target}>Abrir el tablero ${l.external ? EXTERNAL : ARROW}</a>`;
   // Accesos rápidos a una vista (B2B, B2B2C…): solo en la versión de Ownia, que entiende ?view=.
   const quick = !l.external && m.quickViews
     ? `<div class="quick" role="group" aria-label="Ir directo a">${m.quickViews
       .map(([view, label]) => `<a href="${escapeHtml(`${l.main}?view=${encodeURIComponent(view)}`)}">${escapeHtml(label)}</a>`)
       .join('')}</div>`
     : '';
-  const viz = false   // sin el gráfico decorativo: la destacada ya no es la tarjeta grande del bento
-    ? `<svg class="viz" viewBox="0 0 120 72" aria-hidden="true">
-            <rect class="bar" x="6" y="44" width="14" height="22" rx="2"/><rect class="bar" x="28" y="34" width="14" height="32" rx="2"/>
-            <rect class="bar" x="50" y="38" width="14" height="28" rx="2"/><rect class="bar" x="72" y="22" width="14" height="44" rx="2"/>
-            <rect class="bar hi" x="94" y="10" width="14" height="56" rx="2"/><path class="ln" d="M6 40 L35 32 L57 30 L79 20 L101 12"/>
-          </svg>`
-    : '';
-  return `<section id="${id}" class="card${featured ? ' featured' : ''}"${area ? ` style="grid-area:${area}"` : ''} aria-labelledby="${id}-t">
-          ${viz}<div class="ico">${icon(m, featured ? 26 : 22)}</div>
-          <h3 id="${id}-t">${escapeHtml(m.title)}${beta}</h3>
-          <p>${escapeHtml(m.desc)}</p>
-          ${quick}
-          ${featured ? `<div class="cta-row">${cta}${alt}</div>` : `${cta}${alt}`}
+  // Pastillas hacia otros tableros: abren el link de ese tablero (propio o externo).
+  const extra = (QUICK_LINKS[m.slug] || []).map(find).filter(Boolean).map((t) => {
+    const tl = links(t, basePath, canOpen);
+    return `<a href="${escapeHtml(tl.main)}"${tl.external ? ' target="_blank" rel="noopener"' : ''}>${escapeHtml((COPY[t.slug] || {}).title || t.title)}</a>`;
+  }).join('');
+  return {
+    l, alt, quick: quick || extra ? quick.replace('</div>', extra + '</div>') || `<div class="quick" role="group" aria-label="Ir directo a">${extra}</div>` : '',
+    title: escapeHtml(copy.title || m.title),
+    desc: escapeHtml(copy.desc || m.desc),
+    href: escapeHtml(l.main),
+    target: l.external ? ' target="_blank" rel="noopener"' : '',
+  };
+}
+
+// Bloque grande de "Lo esencial": ícono, título, una frase, accesos directos y el link que cubre todo el bloque.
+function tile(m, basePath, canOpen, find) {
+  const p = parts(m, basePath, canOpen, find);
+  const id = `card-${m.slug}`;
+  return `<section id="${id}" class="tile" aria-labelledby="${id}-t">
+          <div class="ico">${icon(m, 28)}</div>
+          <h3 id="${id}-t">${p.title}</h3>
+          <p>${p.desc}</p>
+          ${p.quick}
+          <a class="cta" href="${p.href}"${p.target}>Abrir ${CHEVRON}</a>${p.alt}
         </section>`;
 }
 
-function grouped(modules) {
-  const used = new Set();
-  const out = GROUPS.map((g) => {
-    const items = g.slugs.map((s) => modules.find((m) => m.slug === s) || OTHER_APPS.find((m) => m.slug === s)).filter(Boolean);
-    items.forEach((m) => used.add(m.slug));
-    return { ...g, items };
-  });
-  const rest = modules.filter((m) => !used.has(m.slug));
-  if (rest.length) out[out.length - 1].items.push(...rest);
-  return out.filter((g) => g.items.length);
+// Fila de "Más tableros": título y frase corta, con el link cubriendo toda la fila.
+function row(m, basePath, canOpen, find) {
+  const p = parts(m, basePath, canOpen, find);
+  const id = `card-${m.slug}`;
+  return `<section id="${id}" class="row${m.quickInList ? ' showq' : ''}" aria-labelledby="${id}-t">
+          <div class="ico">${icon(m, 22)}</div>
+          <div class="txt"><h3 id="${id}-t">${p.title}</h3><p>${p.desc}</p>${p.quick}${p.alt}</div>
+          <a class="cta" href="${p.href}"${p.target} aria-label="Abrir ${p.title}">${CHEVRON}</a>
+        </section>`;
 }
 
-function groupHtml(g, basePath, canOpen) {
-  // La primera del grupo `featured` va resaltada pero del mismo tamaño que las demás (antes era un
-  // bento con la destacada ocupando dos filas: empujaba el resto del menú abajo del pliegue).
-  return `<div class="grid">
-        ${g.items.map((m, i) => card(m, basePath, canOpen, { featured: !!g.featured && i === 0 })).join('\n        ')}
-      </div>`;
-}
-
-function indexPage({ modules, basePath, canOpen = () => true }) {
-  const migrated = modules.filter((m) => m.ownia && !m.validating).length;
-  const validating = modules.filter((m) => m.ownia && m.validating).length;
-  const sections = grouped(modules)
-    .map((g, i) => `<div class="group reveal" style="--i:${i + 1}">
-      <h2>${escapeHtml(g.title)}</h2>
-      ${groupHtml(g, basePath, canOpen)}
-    </div>`)
-    .join('\n    ');
-
+function shell(inner, { title = 'The B2B Ecosystem · Despegar', left = '<span class="topbar-logo">despegar</span>' } = {}) {
   return `<!DOCTYPE html>
 <html lang="es-AR">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>The B2B Ecosystem · Despegar</title>
+<title>${escapeHtml(title)}</title>
 <script>
-  // Estado inicial antes del primer render (sin parpadeo): tema guardado (misma clave que
-  // b2b-dashboard: oscuro por defecto) e intro una vez por sesión, salvo prefers-reduced-motion.
+  // Estado inicial antes del primer render (sin parpadeo): oscuro por defecto, claro solo si se eligio (misma clave que b2b-dashboard)
+  // e intro una vez por sesion, salvo prefers-reduced-motion.
   (function () {
     var h = document.documentElement;
     try { if (localStorage.getItem('b2b-api-theme') === 'light') h.setAttribute('data-theme', 'light'); } catch (e) {}
@@ -147,111 +150,87 @@ function indexPage({ modules, basePath, canOpen = () => true }) {
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    --primary: #5626e9; --primary-d: rgba(86, 38, 233, .16); --secondary: #8e5ff3;
-    --bg: #0F0F1E; --surface: #1A1A2E; --segment-bg: #222238;
-    --border: rgba(255, 255, 255, .07); --border-2: rgba(255, 255, 255, .13);
-    --text: #FFFFFF; --text-2: #B8B8D1; --text-3: #8a8aa3;
-    --hover-bd: rgba(142, 95, 243, .55); --glow: rgba(86, 38, 233, .28);
-    --shadow: 0 18px 50px rgba(0, 0, 0, .5);
-    --r: 12px; --ease: cubic-bezier(0.23, 1, 0.32, 1);
-    --font: 'Poppins', -apple-system, 'Segoe UI', sans-serif;
-    --mono: 'JetBrains Mono', 'Courier New', monospace;
+    --primary: #5626e9; --secondary: #8e5ff3; --link: #a780ff;
+    --bg: #0F0F1E; --tile: #1A1A2E; --tile-hover: #222238; --line: rgba(255, 255, 255, .09);
+    --text: #FFFFFF; --text-2: #B8B8D1; --text-3: #8a8aa3; --icon: #a780ff; --glow: rgba(86, 38, 233, .28);
+    --ease: cubic-bezier(0.25, 0.1, 0.25, 1);
+    --font: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     color-scheme: dark;
   }
   :root[data-theme="light"] {
-    --primary-d: rgba(86, 38, 233, .10); --secondary: #7B4FFF;
-    --bg: #F4F4F8; --surface: #FFFFFF; --segment-bg: #F0F0F6;
-    --border: rgba(0, 0, 0, .08); --border-2: rgba(0, 0, 0, .14);
-    --text: #12111E; --text-2: #3D3B52; --text-3: #6B6B85;
-    --hover-bd: rgba(86, 38, 233, .5); --glow: rgba(86, 38, 233, .12);
-    --shadow: 0 18px 50px rgba(18, 17, 30, .16);
+    --primary: #550fed; --secondary: #7B4FFF; --link: #550fed;
+    --bg: #ffffff; --tile: #f5f5f7; --tile-hover: #ececf1; --line: rgba(0, 0, 0, .08);
+    --text: #1d1d1f; --text-2: #6e6e73; --text-3: #8e8e93; --icon: #550fed; --glow: transparent;
     color-scheme: light;
   }
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: var(--font); background: var(--bg); color: var(--text); font-size: 14px;
-    min-height: 100vh; display: flex; flex-direction: column;
-    background-image:
-      radial-gradient(900px 480px at 8% -8%, var(--glow), transparent 70%),
-      radial-gradient(700px 400px at 100% 0%, rgba(142, 95, 243, .10), transparent 70%);
-    background-repeat: no-repeat;
-  }
-  :focus-visible { outline: 2px solid var(--secondary); outline-offset: 3px; border-radius: 6px; }
+  body { font-family: var(--font); background: var(--bg); color: var(--text); font-size: 15px; line-height: 1.5; min-height: 100vh;
+         display: flex; flex-direction: column; -webkit-font-smoothing: antialiased;
+         background-image: radial-gradient(900px 480px at 8% -8%, var(--glow), transparent 70%), radial-gradient(700px 400px at 100% 0%, var(--glow), transparent 70%);
+         background-repeat: no-repeat; }
+  :focus-visible { outline: 2px solid var(--secondary); outline-offset: 3px; border-radius: 8px; }
 
-  .topbar { background: var(--surface); min-height: 52px; position: relative; display: flex; align-items: center; gap: 12px; padding: 6px 20px; }
-  .topbar::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: linear-gradient(90deg, var(--primary) 0%, transparent 55%); }
-  .topbar-logo { font-size: 16px; font-weight: 800; letter-spacing: -0.5px; }
-  .topbar-divider { width: 1px; height: 18px; background: var(--border); }
-  .topbar-title { font-size: 11px; font-weight: 500; color: var(--text-3); letter-spacing: .3px; white-space: nowrap; }
-  .topbar-right { margin-left: auto; display: flex; align-items: center; }
-  .theme-btn { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 8px; background: transparent;
-               border: 1px solid var(--border-2); color: var(--text-2); cursor: pointer; transition: border-color .2s var(--ease), color .2s var(--ease); }
-  .theme-btn:hover { border-color: var(--hover-bd); color: var(--text); }
+  .topbar { display: flex; align-items: center; padding: 20px 32px; }
+  .topbar-logo { font-size: 17px; font-weight: 600; letter-spacing: -0.02em; color: var(--text); }
+  .back { display: inline-flex; align-items: center; gap: 4px; font-size: 15px; font-weight: 500; color: var(--link); text-decoration: none; }
+  .back:hover { text-decoration: underline; }
+  .more.grp { margin-top: 40px; }
+  .theme-btn { margin-left: auto; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; background: transparent;
+               border: 0; color: var(--text-2); cursor: pointer; transition: background .2s var(--ease), color .2s var(--ease); }
+  .theme-btn:hover { background: var(--tile); color: var(--text); }
 
-  .wrap { width: 100%; max-width: 1120px; margin: 0 auto; padding: 0 24px; }
-  main { flex: 1; padding: 56px 0 48px; }
-  .hero { max-width: 640px; margin-bottom: 36px; }
-  .hero h1 { font-size: clamp(34px, 6vw, 56px); font-weight: 800; line-height: 1.04; letter-spacing: -0.035em; }
-  .hero h1 .g { background: linear-gradient(100deg, var(--secondary), var(--primary) 70%); -webkit-background-clip: text; background-clip: text; color: transparent; }
-  .hero p { margin-top: 16px; font-size: 16px; line-height: 1.6; color: var(--text-2); max-width: 50ch; }
+  .wrap { width: 100%; max-width: 1040px; margin: 0 auto; padding: 0 32px; }
+  main { flex: 1; padding: 40px 0 88px; }
+  .hero { text-align: center; margin-bottom: 56px; }
+  .hero h1 { font-size: clamp(34px, 5.4vw, 52px); font-weight: 600; line-height: 1.08; letter-spacing: -0.035em; }
+  .hero p { margin-top: 14px; font-size: 18px; color: var(--text-2); }
 
-  .group + .group { margin-top: 36px; }
-  .group h2 { font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--text-3); margin-bottom: 14px; }
-  .grid { display: grid; gap: 16px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .grid.bento { grid-template-columns: 1.55fr 1fr; grid-template-areas: "f b" "f c"; }
-
-  .card { position: relative; display: flex; flex-direction: column; gap: 10px; background: var(--surface);
-          border: 1px solid var(--border); border-radius: var(--r); padding: 24px; overflow: hidden;
-          transition: border-color .25s var(--ease), transform .25s var(--ease), box-shadow .25s var(--ease); }
-  .card .ico { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 10px; background: var(--primary-d); color: var(--secondary); margin-bottom: 6px; }
-  .card h3 { font-size: 18px; font-weight: 700; letter-spacing: -0.015em; }
-  .card p { color: var(--text-2); line-height: 1.6; font-size: 14px; max-width: 52ch; }
-  .cta { margin-top: auto; padding-top: 14px; display: inline-flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14px;
-         color: var(--secondary); text-decoration: none; width: fit-content; }
-  .cta::after { content: ''; position: absolute; inset: 0; }   /* toda la tarjeta es clickeable */
-  .cta svg { transition: transform .25s var(--ease); }
+  h2.sec { font-size: 13px; font-weight: 500; color: var(--text-3); margin: 0 4px 16px; }
+  .essential { display: grid; gap: 20px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tile { position: relative; display: flex; flex-direction: column; gap: 8px; min-height: 228px; padding: 32px; border-radius: 22px;
+          background: var(--tile); transition: background .2s var(--ease); }
+  .tile:hover { background: var(--tile-hover); }
+  .tile .ico { color: var(--icon); margin-bottom: 14px; }
+  .tile h3 { font-size: 24px; font-weight: 600; letter-spacing: -0.02em; }
+  .tile p { font-size: 15px; color: var(--text-2); max-width: 36ch; }
+  .cta { display: inline-flex; align-items: center; gap: 4px; font-size: 15px; font-weight: 500; color: var(--link); text-decoration: none; width: fit-content; }
+  .tile .cta { margin-top: auto; padding-top: 14px; }
+  .cta::after { content: ''; position: absolute; inset: 0; border-radius: inherit; }   /* todo el bloque es clickeable */
+  .cta svg { transition: transform .2s var(--ease); }
+  .tile:hover .cta svg, .row:hover .cta svg { transform: translateX(3px); }
   a.cta:focus-visible { outline: none; }
-  .card:has(a.cta:focus-visible) { outline: 2px solid var(--secondary); outline-offset: 3px; }
-  .card:hover { border-color: var(--hover-bd); transform: translateY(-3px); box-shadow: var(--shadow); }
-  .card:hover .cta svg { transform: translateX(4px); }
-  /* El link secundario queda arriba del link que cubre la tarjeta. */
+  .tile:has(a.cta:focus-visible), .row:has(a.cta:focus-visible) { outline: 2px solid var(--secondary); outline-offset: 3px; }
+  /* Accesos directos y link secundario: arriba del link que cubre el bloque. */
+  .quick { position: relative; z-index: 1; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .quick a { padding: 6px 14px; border-radius: 999px; font-size: 13px; font-weight: 500; text-decoration: none; color: var(--text);
+             background: transparent; transition: color .2s var(--ease), box-shadow .2s var(--ease); box-shadow: inset 0 0 0 1px var(--line); }
+  .quick a:hover { color: var(--link); box-shadow: inset 0 0 0 1px var(--link); }
   .alt { position: relative; z-index: 1; font-size: 12px; color: var(--text-3); text-decoration: none; width: fit-content; }
   .alt:hover { color: var(--text); text-decoration: underline; }
-  /* Accesos rápidos: arriba del link que cubre la tarjeta, como .alt. */
-  .quick { position: relative; z-index: 1; display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
-  .quick a { padding: 6px 12px; border-radius: 999px; font-size: 12.5px; font-weight: 600; text-decoration: none; color: var(--text);
-             background: var(--segment-bg); border: 1px solid var(--border-2); transition: border-color .2s var(--ease), background .2s var(--ease); }
-  .quick a:hover { border-color: var(--hover-bd); background: var(--primary-d); }
-  .beta { display: inline-block; vertical-align: 3px; margin-left: 6px; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 600;
-          color: var(--text-2); background: var(--segment-bg); border: 1px dashed var(--hover-bd); white-space: nowrap; }
 
-  .card.featured { gap: 10px; border-color: rgba(142, 95, 243, .35);
-                   background: radial-gradient(520px 260px at 100% 0%, rgba(142, 95, 243, .20), transparent 70%), var(--surface); }
-  .card.featured .ico { background: linear-gradient(135deg, var(--primary), var(--secondary)); color: #fff; }
-  .card.featured .cta-row { margin-top: auto; display: flex; flex-direction: column; gap: 10px; }
-  .cta.solid { margin-top: 0; padding: 11px 18px; color: #fff; border-radius: 8px; background: linear-gradient(135deg, var(--primary), var(--secondary)); }
-  .viz { position: absolute; right: 32px; bottom: 32px; width: 230px; height: 138px; color: var(--secondary); opacity: .9; }
-  .viz .bar { fill: currentColor; opacity: .35; }
-  .viz .bar.hi { opacity: 1; }
-  .viz .ln { fill: none; stroke: var(--text-2); stroke-width: 1.5; stroke-dasharray: 3 3; opacity: .7; }
+  .more { margin-top: 64px; }
+  .list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 48px; }
+  .row { position: relative; display: flex; align-items: center; gap: 16px; padding: 18px 4px; border-top: 1px solid var(--line); }
+  .row .ico { color: var(--icon); flex: none; }
+  .row .txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .row h3 { font-size: 16px; font-weight: 500; letter-spacing: -0.01em; }
+  .row p { font-size: 13.5px; color: var(--text-2); }
+  .row .quick { display: none; }
+  .row.showq .quick { display: flex; margin-top: 8px; }   /* los accesos directos van solo en los bloques de "Lo esencial" */
+  .row .cta { color: var(--text-3); }
+  .row:hover .cta { color: var(--link); }
 
-  footer { padding: 0 0 28px; }
-  footer .wrap { border-top: 1px solid var(--border); padding-top: 18px; font-size: 12px; color: var(--text-3); font-family: var(--mono); }
-
-  @media (max-width: 1000px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   @media (max-width: 820px) {
-    main { padding: 40px 0; }
-    .grid, .grid.bento { grid-template-columns: 1fr; grid-template-areas: none; }
-    .grid.bento .card { grid-area: auto !important; }
-    .viz { display: none; }
-  }
-  @media (max-width: 480px) {
-    .wrap { padding: 0 16px; }
-    .topbar { padding: 6px 16px; }
-    .card, .card.featured { padding: 20px; }
+    .topbar { padding: 16px 20px; }
+    .wrap { padding: 0 20px; }
+    main { padding: 24px 0 64px; }
+    .hero { margin-bottom: 36px; }
+    .hero p { font-size: 16px; }
+    .essential, .list { grid-template-columns: 1fr; }
+    .tile { min-height: 0; padding: 26px; }
   }
   /* ---------- Intro (igual que b2b-dashboard) ---------- */
   .intro { display: none; }
@@ -284,8 +263,7 @@ function indexPage({ modules, basePath, canOpen = () => true }) {
   @media (prefers-reduced-motion: reduce) {
     .intro { display: none !important; }
     .reveal { animation: none !important; transition: none !important; opacity: 1 !important; transform: none !important; }
-    .card, .cta svg { transition: none !important; }
-    .card:hover { transform: none; }
+    .tile, .cta svg, .quick a, .theme-btn { transition: none !important; }
   }
 </style>
 </head>
@@ -300,28 +278,17 @@ function indexPage({ modules, basePath, canOpen = () => true }) {
   <div class="intro-skip">Clic o cualquier tecla para saltar</div>
 </div>
 <header class="topbar">
-  <span class="topbar-logo">despegar</span>
-  <div class="topbar-divider"></div>
-  <span class="topbar-title">B2B &middot; Ecosystem</span>
-  <div class="topbar-right">
-    <button type="button" class="theme-btn" id="theme-btn" aria-label="Cambiar tema claro u oscuro" title="Cambiar tema">
-      <svg id="icon-dark" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-      <svg id="icon-light" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="display:none" aria-hidden="true"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
-    </button>
-  </div>
+  ${left}
+  <button type="button" class="theme-btn" id="theme-btn" aria-label="Cambiar tema claro u oscuro" title="Cambiar tema">
+    <svg id="icon-dark" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    <svg id="icon-light" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24" style="display:none" aria-hidden="true"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+  </button>
 </header>
 <main>
   <div class="wrap">
-    <div class="hero reveal" style="--i:0">
-      <h1>The <span class="g">B2B</span> Ecosystem</h1>
-      <p>Financial results and metrics<br>at the speed of your business</p>
-    </div>
-    ${sections}
+    ${inner}
   </div>
 </main>
-<footer class="reveal" style="--i:5">
-  <div class="wrap">Migración a Ownia: ${migrated} de ${modules.length} tableros servidos desde acá${validating ? ` · ${validating} en validación (en paralelo a Apps Script, que sigue siendo el productivo)` : ''}</div>
-</footer>
 <script>
   (function () {
     var root = document.documentElement;
@@ -431,4 +398,75 @@ function indexPage({ modules, basePath, canOpen = () => true }) {
 </html>`;
 }
 
-module.exports = { indexPage };
+function indexPage({ modules, basePath, canOpen = () => true }) {
+  const all = [...modules, ...OTHER_APPS];
+  const find = (s) => all.find((m) => m.slug === s);
+  const essential = ESSENTIAL.map(find).filter(Boolean);
+  const used = new Set([...ESSENTIAL, ...MORE, ...Object.values(QUICK_LINKS).flat()]);
+  const more = [...MORE.map(find).filter(Boolean), ...modules.filter((m) => !used.has(m.slug))];
+  return shell(`<div class="hero reveal" style="--i:0">
+      <h1>B2B Ecosystem</h1>
+      <p>Los resultados de B2B y B2B2C, en un solo lugar.</p>
+    </div>
+    <h2 class="sec reveal" style="--i:1">Lo esencial</h2>
+    <div class="essential reveal" style="--i:1">
+      ${essential.map((m) => tile(m, basePath, canOpen, find)).join('\n')}
+    </div>
+    ${more.length ? `<div class="more reveal" style="--i:2">
+      <h2 class="sec">Más tableros</h2>
+      <div class="list">
+        ${more.map((m) => row(m, basePath, canOpen, find)).join('\n')}
+      </div>
+    </div>` : ''}`);
+}
+
+// Agentes de IA (Toqan): mismos agentes y links que la sección "IA Agents" del P&L Dashboard de Apps Script (EXTERNAL_LINKS.agents).
+const AGENT_GROUPS = [
+  { title: 'AI Planning', items: [
+    ['BITUBIA', 'Agente principal', 'https://work.toqan.ai/spaces/join/279206f6-0d07-47a9-9424-faa363d21b45'],
+    ['BITUBICIA', 'B2B2C / White Labels', 'https://work.toqan.ai/spaces/join/3e38c85f-5349-44c3-9644-3342ff7e32ae'],
+    ['BITUBEE', 'B2B', 'https://work.toqan.ai/spaces/join/ff4f36f2-9621-4f28-b5c3-edc50fcbebac'],
+    ['FCA Arquitech', 'Arquitectura financiera', 'https://work.toqan.ai/spaces/join/82d3c71e-08f6-4d8e-9854-f179e39e8a85'],
+  ] },
+  { title: 'AI BI', items: [
+    ['Guru 2.0', 'Asistente avanzado', 'https://work.toqan.ai/spaces/join/c3f8e6f3-14f3-43e1-8d90-5ecbacaf5e21'],
+  ] },
+  { title: 'Development AI', items: [
+    ['COBU', 'Conversaciones', 'https://work.toqan.ai/conversations/d355f0de-5629-480c-aa8c-8c1a10a4de69'],
+  ] },
+  { title: 'Commercial B2B AI', items: [
+    ['Journalist', 'Noticias de industria', 'https://work.toqan.ai/spaces/join/8b5c49f6-1d50-4bd4-9c18-4e3af018fddb'],
+  ] },
+  { title: 'Commercial WLs AI', items: [
+    ['WL Coach', 'White Labels', 'https://work.toqan.ai/spaces/join/062f8f4b-88fc-43d0-906b-67601578859f'],
+  ] },
+  { title: 'Optimization', items: [
+    ['Incidencias', 'Gestión de incidencias', 'https://work.toqan.ai/apps/de2e15ad-7f46-45b9-9e09-bb9bc13383dc'],
+    ['Nuitee', 'Incidencias Nuitee', 'https://work.toqan.ai/apps/525bbbb8-d04c-40c3-ba73-6e15902c6ae3'],
+    ['BRG HDO', 'Best Rate Guarantee', 'https://work.toqan.ai/chats/e521612a-5c91-49ab-a7a8-5429c4506eaa'],
+    ['Apps status integraciones', 'Estado de integraciones', 'https://work.toqan.ai/apps/de2e15ad-7f46-45b9-9e09-bb9bc13383dc'],
+    ['Dash Conectores', 'Metabase · WIP Optimization', 'https://metabase.despegar.com/dashboard/6950-conectores-wip-optimization-b2b?cadena=&conector=TRAVELGATE&fecha_%28a%25C3%25B1o_-_mes%29=2026-04&id=&periodo=&pos=MX&tab=2101-m%C3%A9tricas--x-conector'],
+    ['Alta Credenciales', 'Agente de alta de credenciales', 'https://work.toqan.ai/spaces/join/11b80d95-802b-414c-8872-09f08c2b04ba'],
+  ] },
+];
+
+function agentsPage({ basePath }) {
+  const back = `<a class="back" href="${escapeHtml(basePath)}/">${CHEVRON_L} B2B Ecosystem</a>`;
+  const rowOf = ([name, sub, url]) => `<section class="row">
+          <div class="ico">${icon({ slug: 'agentes' }, 22)}</div>
+          <div class="txt"><h3>${escapeHtml(name)}</h3><p>${escapeHtml(sub)}</p></div>
+          <a class="cta" href="${escapeHtml(url)}" target="_blank" rel="noopener" aria-label="Abrir ${escapeHtml(name)}">${CHEVRON}</a>
+        </section>`;
+  return shell(`<div class="hero">
+      <h1>Agentes Toqan</h1>
+      <p>Los agentes de IA del equipo, cada uno con su link.</p>
+    </div>
+    ${AGENT_GROUPS.map((g) => `<div class="more grp">
+      <h2 class="sec">${escapeHtml(g.title)}</h2>
+      <div class="list">
+        ${g.items.map(rowOf).join('\n')}
+      </div>
+    </div>`).join('\n')}`, { title: 'Agentes Toqan · B2B Ecosystem', left: back });
+}
+
+module.exports = { indexPage, agentsPage };

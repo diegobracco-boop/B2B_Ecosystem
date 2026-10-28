@@ -80,11 +80,16 @@ def dl_json(file_id):
 
 def up_json(file_id, name, obj):
     from googleapiclient.http import MediaInMemoryUpload
+    import sys as _sys
+    from pathlib import Path as _Path
+    _sys.path.insert(0, str(_Path(__file__).resolve().parents[1] / "Ownia_B2B_Ecosystem" / "mirror"))
+    from ownia_publish import DRIVE_FIELDS, publish_after_drive   # doble escritura Drive + Ownia
     data = json.dumps(obj, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     svc = pnl_common.get_drive_service()
     media = MediaInMemoryUpload(data, mimetype="application/json", resumable=False)
-    svc.files().update(fileId=file_id, media_body=media).execute()
+    res = svc.files().update(fileId=file_id, media_body=media, fields=DRIVE_FIELDS).execute()
     print(f"  [Drive] actualizado {name} ({len(data)/1e6:.2f} MB)")
+    publish_after_drive(res, data)
 
 
 # ── lgKeys a los que aporta una fila (LOB level y producto level) ────────────

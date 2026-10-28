@@ -4,7 +4,7 @@
 // Misma regla que Monthly Results del Hub (Dashboard_B2B_WLs/Codigo.js, applyOrganic_):
 //   ORGANIC = USD × TC Actuals(país, mes) / TC Target(país, mes), solo sobre el BASELINE (todos
 //   sus meses, reales y proyectados). Goals (Budget/Forecast/RR/LRR) y el LY quedan en USD tal cual.
-//   Target según el Goal: Budget → TC Budget, Forecast → TC Forecast, Last Year → TC Actuals del
+//   Target según el Goal: Budget → TC Budget, Forecast → TC Budget, Last Year → TC Actuals del
 //   mismo mes del año anterior. Run Rate / Last RR: no aplica (organic deshabilitado).
 //   YoY ("opción B"): con Goal Budget/Forecast los YoY salen de una 2ª versión del baseline a
 //   TC Actuals LY (claves *YoY / curY de las respuestas); el LY se muestra nominal.
@@ -14,7 +14,14 @@
 // (fx.json), solo cambia readFxTable_ — y en los 4 módulos que la copian (Hub, Accounting,
 // Managerial, Daily).
 var FX_FILE_ID = '1SEh9vLWCbE6PslnUntUghhInonuLdYZ5';
-var ORGANIC_TARGETS_ = { budget: 'budget', forecast: 'forecast', lastyear: 'ly' };
+// vs Forecast: baseline Y goal a TC Budget (definición de Diego, 2026-10-26). El goal Forecast se
+// convierte con USD × TC Forecast / TC Budget (abr–jul: TC Forecast = TC Actuals, delta 0).
+var ORGANIC_TARGETS_ = { budget: 'budget', forecast: 'budget', lastyear: 'ly' };
+// Goals cuyo escenario también se convierte de TC Forecast a TC Budget → escenario del cubo.
+var ORGANIC_FC_GOALS_ = { forecast: 'fc' };
+// Escenario de goal convertido del request en curso ({ fc: 'org:…' }); lo lee fetchEPMScenarios_.
+// epmOrganicSetup_ lo resetea al principio de cada request (todas las entradas lo llaman).
+var _ORG_GOAL_SCEN_ = {};
 
 // Target organic efectivo: '' = sin organic (switch en NO o Goal sin TC).
 function organicTargetOf_(organic, goalSource) {
@@ -114,9 +121,10 @@ function _fxShiftYm_(ym, dy) { return (parseInt(ym.slice(0, 4), 10) + dy) + ym.s
 
 // Factor organic por (país, ym) para un target. País sin TC → 1 (no se convierte); país con TC
 // al que le falta el TC Actuals o el del target → 1 y queda en missing (se avisa en pantalla).
-function organicConverter_(target) {
+// src: TC con el que están los montos ('actuals' por default; 'forecast' para el Forecast).
+function organicConverter_(target, src) {
   var fx = readFxTable_();
-  var act = fx.actuals, tgt = (target === 'ly') ? null : fx[target];
+  var act = fx[src || 'actuals'], tgt = (target === 'ly') ? null : fx[target];
   var paisesFx = {};
   Object.keys(act).forEach(function(k) { paisesFx[k.split('§')[0]] = true; });
   var missing = {};
@@ -127,7 +135,7 @@ function organicConverter_(target) {
     var a = act[pai + '§' + ym];
     var t = tgt ? tgt[pai + '§' + ym] : act[pai + '§' + _fxShiftYm_(ym, -1)];
     if (!a || !t) {
-      missing[pai + ' ' + ym + (a ? '' : ' (actuals)') + (t ? '' : ' (' + (target === 'ly' ? 'actuals LY' : target) + ')')] = true;
+      missing[pai + ' ' + ym + (a ? '' : ' (' + (src || 'actuals') + ')') + (t ? '' : ' (' + (target === 'ly' ? 'actuals LY' : target) + ')')] = true;
       return 1;
     }
     return a / t;
@@ -187,16 +195,26 @@ function epmOrganicScen_(jData, src, target, conv) {
 //   yoy  = escenario para los YoY (opción B), o null si los YoY salen del mismo baseline
 //   info = { target, missing } | { target, error } | null → va al front en `organic`
 function epmOrganicSetup_(jData, organic, goalSource, baselineScen) {
+  _ORG_GOAL_SCEN_ = {};
   var target = organicTargetOf_(organic, goalSource);
   if (!target) return { bl: baselineScen, yoy: null, info: null };
   try {
-    var conv = organicConverter_(target);
-    var bl = epmOrganicScen_(jData, baselineScen, target, conv);
+    // Baseline "Forecast" (fc): sus montos están a TC Forecast, no a TC Actuals
+    var blSrc = (baselineScen === 'fc') ? 'forecast' : 'actuals';
+    var conv = organicConverter_(target, blSrc);
+    var bl = epmOrganicScen_(jData, baselineScen, target + (blSrc === 'forecast' ? '@fc' : ''), conv);
     var yoy = null, missing = conv.missing;
     if (target !== 'ly') {
-      var convY = organicConverter_('ly');
-      yoy = epmOrganicScen_(jData, baselineScen, 'ly', convY);
+      var convY = organicConverter_('ly', blSrc);
+      yoy = epmOrganicScen_(jData, baselineScen, 'ly' + (blSrc === 'forecast' ? '@fc' : ''), convY);
       Object.keys(convY.missing).forEach(function(k) { missing[k] = true; });
+    }
+    // Goal Forecast: el goal también a TC Budget
+    var gScen = ORGANIC_FC_GOALS_[goalSource];
+    if (gScen) {
+      var convG = organicConverter_('budget', 'forecast');
+      _ORG_GOAL_SCEN_[gScen] = epmOrganicScen_(jData, gScen, 'budget@fc', convG);
+      Object.keys(convG.missing).forEach(function(k) { missing[k] = true; });
     }
     return { bl: bl, yoy: yoy, info: { target: target, missing: Object.keys(missing).sort() } };
   } catch (e) {

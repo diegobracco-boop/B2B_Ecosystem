@@ -12,6 +12,8 @@
   var GOAL = 'forecastbtb';
   var LABEL = 'Forecast - Bridge to budget';
 
+  // (Organic YES por default vive en el propio dashboard.html desde 2026-10-26: GAS y Ownia.)
+
   document.addEventListener('DOMContentLoaded', function () {
     var after = document.getElementById('btn-egoal-lastrunrate');
     if (!after || typeof window.setEpmGoalSource !== 'function' || typeof window._epmGoalLabel !== 'function') {
@@ -36,7 +38,7 @@
     window._epmGoalLabel = function () {
       return window._epmGoalSource === GOAL ? LABEL : origLabel.apply(this, arguments);
     };
-    // Organic: el BTB usa el TC Forecast (ORGANIC_TARGETS_ del servidor).
-    if (window.ORG_GOALS_) window.ORG_GOALS_[GOAL] = 'Forecast';
+    // Organic: como el Forecast, todo a TC Budget (ORGANIC_TARGETS_ del servidor).
+    if (window.ORG_GOALS_) window.ORG_GOALS_[GOAL] = 'Budget';
   });
 })();

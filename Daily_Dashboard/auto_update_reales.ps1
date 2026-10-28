@@ -2,7 +2,7 @@
 auto_update_reales.ps1
 =======================
 Automatización diaria de "reales" del Daily Dashboard:
-  1) Corre daily_sync.py (Datalake -> JSON -> Drive)
+  1) Corre daily_sync.py (Datalake -> JSON -> Drive) y copia los archivos a Ownia (ownia_mirror.py)
   2) Si hay cambios de código pendientes en Daily_Dashboard/, los commitea y pushea a GitHub
   3) clasp push + clasp deploy -i <deploymentId> -> publica una versión nueva
      en el MISMO deployment (misma URL /exec)
@@ -68,6 +68,25 @@ Log "Corriendo daily_sync.py..."
 python "$dashDir\daily_sync.py" *>> $logFile
 if ($LASTEXITCODE -ne 0) { Fail "daily_sync.py falló (exit $LASTEXITCODE). No se toca git ni clasp." }
 Log "daily_sync.py OK"
+
+# ------------------------------------------------------------------
+# 1b) Copiar a Ownia los archivos de Drive que leen sus landings (Daily, FVM
+#     Negativo, okr.json del Hub, P&L…): Ownia no lee Drive, lee su propia copia
+#     (Ownia_B2B_Ecosystem/mirror/ownia_mirror.py; solo sube lo que cambió).
+#     NO corta la corrida: si falla, Apps Script se publica igual y queda el
+#     aviso en el log (se puede re-correr a mano). Necesita, en esta PC,
+#     credenciales/.env.ownia (OWNIA_URL + OWNIA_INGEST_TOKEN) y el login de
+#     Drive de Inputs_Planning_PnL/token_drive.json.
+# ------------------------------------------------------------------
+$owniaEnv = Join-Path $repoRoot "credenciales\.env.ownia"
+if (Test-Path $owniaEnv) {
+    Log "Copiando a Ownia (ownia_mirror.py)..."
+    python "$repoRoot\Ownia_B2B_Ecosystem\mirror\ownia_mirror.py" *>> $logFile
+    if ($LASTEXITCODE -ne 0) { Log "AVISO: ownia_mirror.py falló (exit $LASTEXITCODE). Ownia queda con los datos anteriores; re-correr a mano: py Ownia_B2B_Ecosystem/mirror/ownia_mirror.py" }
+    else { Log "Ownia OK" }
+} else {
+    Log "AVISO: falta credenciales\.env.ownia en esta PC: no se copian los datos a Ownia."
+}
 
 # ------------------------------------------------------------------
 # 2) Publicar cambios de código pendientes, SOLO dentro de Daily_Dashboard/.

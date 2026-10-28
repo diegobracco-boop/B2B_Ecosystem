@@ -239,11 +239,16 @@ def _emit(svc, fid, payload, upload):
     print(f"\nlocal -> {local} (+ copia en la raíz) ({os.path.getsize(local)/1e6:.2f} MB, {payload['meta']['filas']:,} filas)")
     if upload:
         from googleapiclient.http import MediaFileUpload, MediaInMemoryUpload
+        import sys as _sys
+        from pathlib import Path as _Path
+        _sys.path.insert(0, str(_Path(__file__).resolve().parents[1] / "Ownia_B2B_Ecosystem" / "mirror"))
+        from ownia_publish import DRIVE_FIELDS, publish_after_drive   # doble escritura Drive + Ownia
         pnl_common.guard_shrink(svc, fid, os.path.getsize(local), BASELINE_NAME)
         media = MediaFileUpload(local, mimetype="application/json", resumable=True)
         res = svc.files().update(fileId=fid, media_body=media,
-                                 fields="id,size,modifiedTime").execute()
+                                 fields=DRIVE_FIELDS + ",size").execute()
         print(f"[Drive] actualizado {BASELINE_NAME}: {res}")
+        publish_after_drive(res, txt.encode("utf-8"))
 
         # Carpeta comprimida — gzip(level=9) → base64 → .txt
         compressed = base64.b64encode(gzip.compress(txt.encode("utf-8"), compresslevel=9)).decode("ascii")

@@ -51,12 +51,13 @@ Una vez creadas las credenciales, actualizar `RUTA_ENV` en `Daily_Dashboard/dail
 | `Daily_Dashboard/` (GAS/HTML) | Implementar → `/clasp-push` para publicar a producción |
 | `Dashboard_B2B_WLs/` | Implementar → sync y redeploy en Ownia. **Sin `/clasp-push`**: desde 2026-10-23 la versión de Apps Script queda congelada y las mejoras (visuales y de performance) van solo a la app de Ownia (P&L Dashboard), por decisión de Diego. La capa visual propia de Ownia vive en `Ownia_B2B_Ecosystem/public/hub-layout.js` |
 | `P&L_Accounting/` | Implementar → `/clasp-push` + sync y redeploy en Ownia (en validación ahí) |
-| `P&L_Managerial/` | Implementar → `/clasp-push` + sync y redeploy en Ownia (en validación ahí). Después de correr sus pipelines: `py Ownia_B2B_Ecosystem/mirror/ownia_mirror.py` |
+| `P&L_Managerial/` | Implementar → `/clasp-push` + sync y redeploy en Ownia (en validación ahí). Los pipelines publican solos a Drive **y** a Ownia (doble escritura, `ownia_publish.py`); `ownia_mirror.py` queda para reparar un fallo y para las Sheets / xlsx |
 | `Manual_B2B_WLs/` | Implementar → `python Manual_B2B_WLs/check_manual_refs.py` → `/clasp-push` |
 | `lob_country_one_pager/` | Implementar → `/clasp-push` (combina JSONs de Inputs_Planning_PnL + Daily_Dashboard + P&L_Managerial, sin pipeline propio) |
 | `P&L_Profit_Sharing/` | SQL/Python → `py profit_sharing_sync.py` (sube el JSON) · GAS/HTML → `/clasp-push` |
 | `P&L_Profit_Sharing/` | SQL/Python → `py profit_sharing_sync.py` (sube el JSON) · GAS/HTML → `/clasp-push` |
 | `Proceso_Distribucion_Diaria/` | Implementar → `/distribucion-diaria` con `--dry-run` (los controles de conciliación deben dar OK) |
+| `Flow_B2B/` (módulo Flow, solo Ownia) | Implementar → `npm test` en `Ownia_B2B_Ecosystem/` → revisar en local (`npm run dev`) → sync y redeploy en Ownia cuando Diego lo pida. Sin GAS: no hay `/clasp-push`. Ver `Ownia_B2B_Ecosystem/CONTEXT.md`, "Flow" |
 | `OKR_Producto_B2B2C/` (Python) | Implementar → correr `okr_sync.py` manualmente (hace push+deploy+invalidación de cache solo) |
 | `OKR_Producto_B2B2C/` (GAS/HTML) | Implementar → `/clasp-push` desde `OKR_Producto_B2B2C/` |
 | `FVM_Negativo/` | Implementar → `/clasp-push` + sync y redeploy en Ownia (en validación ahí; sin pipeline propio: el JSON lo genera `Daily_Dashboard/daily_sync.py`; si se tocan esas queries, `/sincronizar`) |
