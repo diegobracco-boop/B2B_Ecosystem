@@ -100,7 +100,50 @@ def _daily_new_by_pais(block):
     return out
 
 
-def hunting_farming_by_pais(daily_json, nr_by_scen, last_actual_ym, closed_until):
+def _block_records(blk):
+    """Bloque del Daily en formato {cols, rows} o lista de dicts -> lista de dicts."""
+    if isinstance(blk, dict):
+        cols = blk.get("cols") or []
+        return [dict(zip(cols, r)) for r in blk.get("rows") or []]
+    return list(blk or [])
+
+
+def load_hunting_override(daily_json, path=None):
+    """Parche 2026-10-29 (ver hunting_override.py): Hunting proyectado desde <OKR>/hunting_rr_override.json.
+    Cada partner se clasifica New / Existing con el flag del Daily (runrate > budget > actuals, por país + partner;
+    "TBD" = New). Devuelve ({(periodo, pais Daily): NR New}, {periodo: NR New}) o (None, None) si no hay archivo."""
+    import json
+    import os
+    if path is None:
+        import pnl_common
+        path = os.path.join(pnl_common.get_base_dir(), "OKR", "hunting_rr_override.json")
+    if not os.path.exists(path):
+        return None, None
+    with open(path, encoding="utf-8") as f:
+        ov = json.load(f)
+    norm = lambda s: str(s or "").strip().lower()
+    stage = {}
+    for r in _block_records((daily_json or {}).get("actuals")):
+        stage[(norm(r.get("pais")), norm(r.get("partner")))] = r.get("account_type")
+    for k in ("budget", "runrate"):
+        for r in _block_records((daily_json or {}).get(k)):
+            stage[(norm(r.get("pais")), norm(r.get("partner")))] = r.get("stage")
+    by_pais, by_mes, sin_marca = defaultdict(float), defaultdict(float), defaultdict(float)
+    for periodo, pais, partner, v in ov["rows"]:
+        st = stage.get((norm(pais), norm(partner)), "New" if norm(partner) == "tbd" else None)
+        if st is None:
+            sin_marca[(pais, partner)] += v
+        elif st == "New":
+            by_pais[(periodo, _daily_pais(pais))] += v
+            by_mes[periodo] += v
+    m = ov.get("meta") or {}
+    print(f"  [Hunting override] {m.get('fuente')} ({m.get('generado')}): Hunting proyectado "
+          f"{ {p[:7]: round(v / 1e6, 2) for p, v in sorted(by_mes.items())} }"
+          + (f" · sin flag New/Existing (fuera): {len(sin_marca)} partners, {sum(sin_marca.values()) / 1e6:.2f}M" if sin_marca else ""))
+    return dict(by_pais), dict(by_mes)
+
+
+def hunting_farming_by_pais(daily_json, nr_by_scen, last_actual_ym, closed_until, override=None):
     """Hunting (New) = NR gestional del Daily; Existing = NR contable B2B2C - Hunting (por pais y mes).
     Misma definicion que okr_builder._compute_b2b2c_hunting_farming, abierta por pais. Solo H2."""
     corte = _ym_to_periodo(last_actual_ym)
@@ -115,12 +158,16 @@ def hunting_farming_by_pais(daily_json, nr_by_scen, last_actual_ym, closed_until
         return []
     bud_months = {k[0] for k in bud_new}
     rr_months = {k[0] for k in rr_new}
+    override = override or {}
+    ov_months = {k[0] for k in override}
 
     def hunting(scen, f, pais):
         if scen == BUD:
             return bud_new.get((f, pais), 0.0)
         if f <= corte:
             return act_new.get((f, pais), 0.0)
+        if f in ov_months:                       # parche: Hunting proyectado del export del P&L diario
+            return override.get((f, pais), 0.0)
         if f in rr_months:
             return rr_new.get((f, pais), 0.0)
         return bud_new.get((f, pais), 0.0)
@@ -137,7 +184,7 @@ def hunting_farming_by_pais(daily_json, nr_by_scen, last_actual_ym, closed_until
         for f in periodos:
             if f < H2_START or not covered(scen, f):
                 continue
-            paises = {p for (ff, p) in nr if ff == f} | {p for (ff, p) in (bud_new if scen == BUD else {**bud_new, **rr_new, **act_new}) if ff == f}
+            paises = {p for (ff, p) in nr if ff == f} | {p for (ff, p) in (bud_new if scen == BUD else {**bud_new, **rr_new, **act_new, **override}) if ff == f}
             est = BUD if scen == BUD else _estado_rr(f, closed_until)
             is_mtd = scen != BUD and f == mtd and f > corte
             for pais in sorted(paises):

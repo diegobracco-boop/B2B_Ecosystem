@@ -278,7 +278,7 @@ def _daily_new_by_periodo(block, nr_field="net_revenue"):
     return out
 
 
-def _compute_b2b2c_hunting_farming(daily_json, nr_b2b2c_by_scen, last_actual_ym):
+def _compute_b2b2c_hunting_farming(daily_json, nr_b2b2c_by_scen, last_actual_ym, override_by_mes=None):
     """
     Devuelve rows OKR para New (Hunting) / Existing (Farming) Account Net Revenues B2B2C.
 
@@ -309,9 +309,13 @@ def _compute_b2b2c_hunting_farming(daily_json, nr_b2b2c_by_scen, last_actual_ym)
     bud_new = _daily_new_by_periodo(daily_json.get("okr_budget") or daily_json.get("budget", {}))
     rr_new  = _daily_new_by_periodo(daily_json.get("okr_runrate") or daily_json.get("runrate", {}))
 
+    override_by_mes = override_by_mes or {}
+
     def hunting_proj(periodo):
         if periodo <= corte:
             return act_new.get(periodo, 0.0)
+        if periodo in override_by_mes:           # parche 2026-10-29: export del P&L diario (hunting_override.py)
+            return override_by_mes[periodo]
         if periodo in rr_new:
             return rr_new[periodo]
         return bud_new.get(periodo, 0.0)
@@ -336,7 +340,7 @@ def _compute_b2b2c_hunting_farming(daily_json, nr_b2b2c_by_scen, last_actual_ym)
     def covered(scen_label, periodo):
         if scen_label == "Budget":
             return periodo in bud_new
-        return periodo <= corte or periodo in rr_new or periodo in bud_new
+        return periodo <= corte or periodo in override_by_mes or periodo in rr_new or periodo in bud_new
 
     rows = []
     for scen_label, hunting_fn in HUNTING_BY_SCEN.items():
@@ -763,10 +767,13 @@ def build(upload=True):
     print("\n--- Calculando KRs ---")
     rows_baseline, nr_b2b2c_baseline = _compute_from_canonical(baseline_data, "Run Rate/Actuals")
     rows_budget,   nr_b2b2c_budget   = _compute_from_canonical(budget_data,   "Budget")
+    # Parche 2026-10-29: Hunting proyectado del export del P&L diario si existe <OKR>/hunting_rr_override.json
+    hunt_ov_pais, hunt_ov_mes = h2b.load_hunting_override(daily_json)
     rows_hunting  = _compute_b2b2c_hunting_farming(
         daily_json,
         {"Run Rate/Actuals": nr_b2b2c_baseline, "Budget": nr_b2b2c_budget},
         last_actual_ym,
+        hunt_ov_mes,
     )
     rows_manual   = _read_manual_krs(token_file)
     rows_manual, estado_ub = h2b.apply_unique_buyers(rows_manual, daily_json, last_actual_ym)
@@ -819,7 +826,7 @@ def build(upload=True):
     h2_base, nr_base = h2b.contable_by_pais(baseline_data, "Run Rate/Actuals", closed_until)
     h2_bud,  nr_bud  = h2b.contable_by_pais(budget_data,   "Budget",           closed_until)
     h2_hunt = h2b.hunting_farming_by_pais(daily_json, {"Run Rate/Actuals": nr_base, "Budget": nr_bud},
-                                          last_actual_ym, closed_until)
+                                          last_actual_ym, closed_until, hunt_ov_pais)
     # New Product Growth (B2B) estimado: Flights + Dest. Serv. contables + % de Packages General del Daily (okr_h2_managerial.json)
     h2_np = []
     try:
