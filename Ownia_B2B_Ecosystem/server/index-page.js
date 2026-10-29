@@ -9,8 +9,8 @@
 // el resto va directo a GAS, así nadie de afuera del equipo choca con un 403.
 const { escapeHtml } = require('./gas-template');
 
-// Lo esencial para un Chief / VP, en este orden (2026-10-28). Un módulo que no esté acá ni en MORE cae en "Más tableros".
-const ESSENTIAL = ['flow', 'daily', 'hub', 'pnl-managerial'];
+// Lo esencial para un Chief / VP, en este orden (2026-10-29: Daily, P&L Dashboard, P&L Managerial, Presentaciones). Un módulo que no esté acá ni en MORE cae en "Más tableros".
+const ESSENTIAL = ['daily', 'hub', 'pnl-managerial', 'flow'];
 const MORE = ['pnl-accounting', 'hub-consolidacion', 'marketing-b2b', 'rolling-projections', 'fixed-cost', 'weekly-industry', 'agentes', 'profit-sharing', 'one-pager', 'okr-b2b2c', 'manual'];
 
 // Accesos directos de un bloque hacia OTROS tableros (además de las vistas propias, `quickViews`). Esos tableros no se repiten en "Más tableros".
