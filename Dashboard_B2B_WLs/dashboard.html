@@ -389,6 +389,10 @@ td.row-sub-label,.row-sub td.row-sub-label{text-align:left;color:var(--muted);fo
 .okr-table td:first-child{text-align:left;font-weight:500;padding-left:10px;color:var(--text);word-break:break-word}
 .okr-table td.td-q{border-left:2px solid var(--border2);font-weight:700}
 .okr-table td.okr-imp{font-style:italic;opacity:.7}
+/* Abierto por mes: columnas al ancho de su número (sin cortar) y, si no entran, scroll horizontal en .okr-table-wrap */
+.okr-table.okr-monthly{table-layout:auto}
+.okr-table.okr-monthly th,.okr-table.okr-monthly td{padding:5px 7px;white-space:nowrap}
+.okr-table.okr-monthly td:first-child{white-space:normal;min-width:150px}
 .okr-note{font-size:10px;color:var(--muted);margin:2px 0 6px}
 .okr-table tr.okr-total td{font-weight:800;border-top:2px solid var(--border2);background:rgba(84,87,217,.04)}
 .okr-chip{display:inline-block;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700}
@@ -4248,8 +4252,9 @@ function _drawEvoMetricChart_(canvasId, d, metricId, opts) {
       afterDatasetsDraw:function(chart){
         var ctx=chart.ctx;
         chart.data.datasets.forEach(function(ds,di){
-          // Etiquetas sobre las barras de Actuals
-          if(ds.label==='Actuals'){
+          // Etiquetas sobre las barras de Real / proyección (la serie se llamaba 'Actuals'; desde el rediseño es 'Real').
+          // Negativos: debajo de la barra.
+          if(ds.label==='Real'||ds.label==='Actuals'){
             chart.getDatasetMeta(di).data.forEach(function(bar,i){
               var val=ds.data[i];
               if(val===null||val===undefined||val===0) return;
@@ -4257,7 +4262,8 @@ function _drawEvoMetricChart_(canvasId, d, metricId, opts) {
               ctx.fillStyle='#1f2328';
               ctx.font='bold 10px -apple-system,sans-serif';
               ctx.textAlign='center';
-              ctx.fillText(fmtK(val),bar.x,bar.y-4);
+              ctx.textBaseline=val<0?'top':'alphabetic';
+              ctx.fillText(fmtK(val),bar.x,val<0?bar.y+4:bar.y-4);
               ctx.restore();
             });
             return;
@@ -4269,9 +4275,10 @@ function _drawEvoMetricChart_(canvasId, d, metricId, opts) {
               if(val===null||val===undefined||val===0) return;
               ctx.save();
               ctx.fillStyle='#8c95a9';
-              ctx.font='bold 10px -apple-system,sans-serif';
+              ctx.font='bold 9px -apple-system,sans-serif';
               ctx.textAlign='center';
-              ctx.fillText(fmtK(val),bar.x,bar.y-4);
+              ctx.textBaseline=val<0?'top':'alphabetic';
+              ctx.fillText(fmtK(val),bar.x,val<0?bar.y+4:bar.y-4);
               ctx.restore();
             });
             return;
@@ -4870,7 +4877,7 @@ function renderOKR(okr) {
       : '';
 
     html += '<div class="okr-table-wrap"><div class="okr-lob-hdr">'+d.label+expandBtn+'</div>'
-           +'<table class="okr-table'+(open ? '' : ' okr-collapsed')+'"><thead><tr><th>KR</th><th title="Peso del KR en el score del objetivo">Peso</th>';
+           +'<table class="okr-table'+(_okrMonthly ? ' okr-monthly' : '')+(open ? '' : ' okr-collapsed')+'"><thead><tr><th>KR</th><th title="Peso del KR en el score del objetivo">Peso</th>';
 
     if (_okrMonthly) {
       // 12 meses + 4 Q separators
@@ -6224,6 +6231,9 @@ function insRender(tab) {
    última fila de país cortada). */
 .cierre-slide .okr-table-wrap,.cierre-slide .cierre-tbl-wrap{overflow:visible}
 .cierre-slide .okr-table-wrap{margin-bottom:14px}
+/* El slide tiene ancho fijo: la tabla mensual sigue repartiendo el ancho (sin el auto-layout de la vista) */
+.cierre-slide .okr-table.okr-monthly{table-layout:fixed}
+.cierre-slide .okr-table.okr-monthly th,.cierre-slide .okr-table.okr-monthly td{white-space:normal}
 .cierre-chart-img{width:100%;height:auto;display:block}
 .cierre-cap{font-size:11px;color:#57606a;margin-top:8px;font-style:italic}
 @media print{
