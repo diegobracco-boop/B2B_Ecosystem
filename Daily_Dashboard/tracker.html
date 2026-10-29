@@ -3179,8 +3179,10 @@ var NR_NEW_DETAIL = [
   { name: 'Peru',         pais: ['Peru'] },
   { name: 'Ecua/Uru/Par', pais: ['Ecuador', 'Uruguay', 'Paraguay'] }
 ];
+// RG = ajuste COI Brasil (filas FVM de daily_sync.py, en 0 con el switch COI Brasil = Incluir): va con
+// Brasil, como en Codigo.js. Si un país no está acá, el TOTAL de los recuadros no da el de la tabla de KRs.
 var FVM_DETAIL = [
-  { name: 'Brasil',       pais: ['Brasil'] },
+  { name: 'Brasil',       pais: ['Brasil', 'RG'] },
   { name: 'Mexico',       pais: ['Mexico'] },
   { name: 'Globales',     pais: ['Other Countries'] },
   { name: 'Argentina',    pais: ['Argentina'] },
@@ -3559,14 +3561,23 @@ function renderStatusKRsH2() {
     var tol = Math.max(1, Math.abs(t.actual) * 0.0005);
     var tolB = Math.max(1, Math.abs(t.budget) * 0.0005);
     if (Math.abs(t.actual - a.actual - h.actual) > tol || Math.abs(t.budget - a.budget - h.budget) > tolB) {
-      recWarn.push(m[0] + ': Total ' + fmtKRVal(toM(t.actual), '$M') + ' vs API+HTML ' + fmtKRVal(toM(a.actual + h.actual), '$M'));
+      recWarn.push('API + HTML no suma el Total (hay otros canales) en ' + m[0] + ': Total ' + fmtKRVal(toM(t.actual), '$M') + ' vs API+HTML ' + fmtKRVal(toM(a.actual + h.actual), '$M'));
     }
   });
+  // Los recuadros por país suman solo FVM_DETAIL: un país fuera de la lista haría que su TOTAL no dé el de esta tabla.
+  var detPais = {}, sinRecuadro = {};
+  FVM_DETAIL.forEach(function(d){ d.pais.forEach(function(p){ detPais[p.toLowerCase()] = 1; }); });
+  var krBounds = getPeriodBounds(_resolveYM(krYM), rawData.meta);
+  getKrActuals('ri').concat(getKrBudget('ri')).forEach(function(r) {
+    if (r.fecha < krBounds.from || r.fecha > krBounds.cutoff) return;
+    if ((r.fvm || r.net_revenue) && !detPais[(r.pais || '').toLowerCase()]) sinRecuadro[r.pais || '(sin país)'] = 1;
+  });
+  if (Object.keys(sinRecuadro).length) recWarn.push('países sin recuadro (el TOTAL por país no da el de la tabla): ' + Object.keys(sinRecuadro).join(', '));
   if (recWarn.length && !_isSlidesMode) {
     var w = document.createElement('span');
     w.className = 'kr-data-range';
     w.style.color = '#b45309';
-    w.innerHTML = '&#9888; API + HTML no suma el Total (hay otros canales): ' + recWarn.join(' · ');
+    w.innerHTML = '&#9888; Conciliación: ' + recWarn.join(' · ');
     metaEl.appendChild(w);
   }
   var chShow = krH2Channel;   // 'total' | 'api' | 'html'
