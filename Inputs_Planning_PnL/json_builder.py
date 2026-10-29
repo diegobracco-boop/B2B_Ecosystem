@@ -221,3 +221,7 @@ if __name__ == "__main__":
     if upload and "budget" in targets:     # okr.json deriva de budget.json: regenerarlo evita que el OKR Status quede viejo
         import okr_builder
         okr_builder.refresh_after_upload()
+    if upload and set(targets) & {"budget", "runrate", "actuals"}:   # el OC B2B2C del Daily (flow_oc) lee esos JSON
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "Daily_Dashboard"))
+        import flow_oc
+        flow_oc.refresh_in_daily_json(pnl_common.get_drive_service())

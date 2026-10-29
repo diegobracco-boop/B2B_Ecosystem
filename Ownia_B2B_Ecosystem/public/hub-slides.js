@@ -11,7 +11,7 @@
  *   12-13 Proyección (mes siguiente, los Q que faltan y el semestre) vs Budget y vs Forecast BTB, en cards.
  *   Después de la 2: "H2 vs H1 · 100% Budget" (public/hub-h2h1.js, slideBudgetHtml).
  *   Después de la 4: B2B-MAY mensual vs Budget, el mismo formato con NR y OC contable por segmento de
- *   API (Hoteles Brasil · Hoteles Globales · Flights & Dest. Serv. · Argentina · Rest of Countries, ver MAY_Q).
+ *   API (Hoteles Brasil · Hoteles Globales · Flights & Dest. Serv. · Hoteles Argentina · Rest of Countries, ver MAY_Q).
  *   La 4 es la portada "B2B2C — Resumen mensual (OC)" del Flow del Daily a pantalla completa
  *   (<base>/daily?embed=b2b2c-cover, public/daily-embed.js): NR total del contable (&nrc=…; Hunting / TBD
  *   del Datalake y Farming por diferencia), FVM Farming / Hunting / TBD del
@@ -49,14 +49,15 @@
   // B2B-MAY (API) por segmento, del contable: pedidos por país × producto y los segmentos salen por
   // suma / resta (el filtro de producto del Hub toma un solo valor). Sin solapamientos:
   //   Hoteles Brasil = brasil × hotels · Hoteles Globales = other countries × hotels · Flights & Dest. Serv. = flights + dest. serv. (todos los países)
-  //   Argentina = argentina sin flights / dest. serv. · Rest of Countries = el resto del canal.
+  //   Hoteles Argentina = argentina sin flights / dest. serv. (en la práctica es todo hotels; se llamaba "Argentina" hasta 2026-10-29)
+//   · Rest of Countries = el resto del canal.
   var MAY_Q = [['mq_hb', 'brasil', 'hotels'], ['mq_hg', 'other countries', 'hotels'], ['mq_fl', 'all', 'flights'], ['mq_ds', 'all', 'dest. serv.'],
     ['mq_ar', 'argentina', 'all'], ['mq_arfl', 'argentina', 'flights'], ['mq_ards', 'argentina', 'dest. serv.']];
   var MAY_SEGS = [
     { k: 'hb', lbl: 'API Hoteles Brasil', c: '#550fed', p: '#b7a2f8' },
     { k: 'hg', lbl: 'API Hoteles Globales', c: '#c2187a', p: '#eba6cf' },
     { k: 'fd', lbl: 'API Flights & Dest. Serv.', c: '#0f9d8a', p: '#9fd9d0' },
-    { k: 'ar', lbl: 'API Argentina', c: '#f08c1a', p: '#f8cc98' },
+    { k: 'ar', lbl: 'API Hoteles Argentina', c: '#f08c1a', p: '#f8cc98' },
     { k: 'rc', lbl: 'API Rest of Countries', c: '#3d7be0', p: '#a9c6f2' },
   ];
   var panel = null, state = { month: null, data: null, notes: {}, cur: 0, coibr: 'excl' };   // coibr: COI Brasil de la slide del Daily (Excluir, como el Daily)
@@ -410,7 +411,7 @@
     return head('B2B-MAY Monthly Performance vs Budget', 'NR y OC contable · real cerrado hasta ' + monthLabel(state.month) + ' + Run Rate · USD $M') +
       '<div class="hs-may"><div class="hs-mayl">' + leg + segChart('Net Revenues, en $M', S, tot, 'nr', state.data.may.s.gb) + segChart('Operating Contribution, en $M', S, tot, 'oc', state.data.may.s.gb) + '</div>' +
       '<div class="hs-mayr">' + segTable('NR vs Budget', S, tot, 'nr') + segTable('OC vs Budget', S, tot, 'oc') +
-      '<div class="hs-otn" style="font-size:10.5px">Flights &amp; Dest. Serv.: todos los países · Argentina: sin Flights / Dest. Serv. · Rest: resto del canal API</div></div></div>' + foot();
+      '<div class="hs-otn" style="font-size:10.5px">Flights &amp; Dest. Serv.: todos los países · Hoteles Argentina: Argentina sin Flights / Dest. Serv. (en la práctica, solo hoteles) · Rest: resto del canal API</div></div></div>' + foot();
   }
 
   // ── Proyección: mes siguiente al cierre, los Q que faltan y el semestre (real cerrado + Run Rate) ──

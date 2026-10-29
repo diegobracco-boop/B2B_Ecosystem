@@ -55,6 +55,7 @@ CSV crudos (OneDrive\Planning-PBI - Inputs Power Bi)
   está en ese orden) — si no existen, `json_builder.py forecast` corta con error. Mover el corte
   un mes: editar `FORECAST_ACTUALS_CUTOFF` en `config.py` y volver a correr `/actualizar`.
 
+- **El OC B2B2C del Daily (`flow_oc` dentro de `daily_b2b2c_data.json`) se refresca solo** (2026-10-29): al subir el baseline o `json_builder.py budget|runrate|actuals|all`, `flow_oc.refresh_in_daily_json` reemplaza solo ese bloque y lo publica (Drive + Ownia). Antes quedaba con el OC viejo hasta el próximo `daily_sync.py` (portada OC del Flow y slide 5 de Slides mensuales). Si falla, avisa (`WARN [flow_oc]`) y lo corrige el próximo sync del Daily.
 - **`okr.json` se regenera solo** (2026-10-09): deriva de `baseline` + `budget`, así que `json_builder.py budget|all` y
   `baseline_builder.py` (al subir) llaman a `okr_builder.refresh_after_upload()`. Si falla, avisa y hay que correr
   `python okr_builder.py`. Además el Hub muestra un cartel "OKR desactualizado" si `okr.json` es anterior al

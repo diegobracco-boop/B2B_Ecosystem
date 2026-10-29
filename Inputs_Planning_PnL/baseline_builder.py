@@ -267,6 +267,13 @@ def _emit(svc, fid, payload, upload):
     if upload:     # okr.json deriva del baseline: regenerarlo evita que el OKR Status quede viejo
         import okr_builder
         okr_builder.refresh_after_upload()
+        _refresh_daily_flow_oc(svc)   # idem el OC B2B2C del Daily (portada OC del Flow)
+
+
+def _refresh_daily_flow_oc(svc):
+    sys.path.insert(0, os.path.join(os.path.dirname(DIR), "Daily_Dashboard"))
+    import flow_oc
+    flow_oc.refresh_in_daily_json(svc)
 
 
 if __name__ == "__main__":
