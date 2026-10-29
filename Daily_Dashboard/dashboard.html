@@ -5055,6 +5055,10 @@ var FLOW_DECK = [
   {kind:'okr', metric:'gb', name:'OKR L2 — Gross Bookings'},
   {kind:'okr', metric:'nr', name:'OKR L2 — Net Revenues'},
   {kind:'okr', metric:'fvm', name:'OKR L2 — FVM'},
+  // Mismas slides con la tabla abierta Región → País → Partner (las de arriba: Región → Tier). 2026-10-29.
+  {kind:'okr', metric:'gb', open:'pais', name:'OKR L2 — Gross Bookings · por País'},
+  {kind:'okr', metric:'nr', open:'pais', name:'OKR L2 — Net Revenues · por País'},
+  {kind:'okr', metric:'fvm', open:'pais', name:'OKR L2 — FVM · por País'},
   {kind:'b2b2c_krs', name:'B2B2C — Status KRs'},
   {kind:'divider', region:'BR', name:'— Brasil —'},
   {kind:'monthly', region:'BR', name:'Brasil — Mensual'},
@@ -5366,9 +5370,10 @@ function flAccToggle_(tr){
 // las slides Monthly Performance, flMonthlySetPeriod_).
 // xo (opcional): {yoy:true} suma la columna YoY (actual vs actuals LY del mismo período, sin
 // importar el comparador elegido); {deep:true} (solo con groupByRegion) abre cada país en
-// acordeón País → Tier → Partner (white label) — slides OKR L2 / diarias, pedido 2026-10-26.
+// acordeón País → Tier → Partner (white label) — slides OKR L2 / diarias, pedido 2026-10-26;
+// {deep:true, pais:true}: Región → País → Partner, sin Tier (slides OKR L2 · por País, 2026-10-29).
 function flowGroupTable_(subRaw, metricKey, comp, col1, groupByRegion, childMax, topMax, tierFirst, period, xo){
-  var withYoY=!!(xo&&xo.yoy), deep=!!(xo&&xo.deep)&&!!groupByRegion;
+  var withYoY=!!(xo&&xo.yoy), deep=!!(xo&&xo.deep)&&!!groupByRegion, byPais=deep&&!!xo.pais;
   if(childMax===undefined) childMax=_flowPrinting?Infinity:8;
   if(topMax===undefined) topMax=0; // sin cap: los países ahora arrancan colapsados (1 fila c/u), no hace falta truncar la lista
   tierFirst=!!tierFirst && !groupByRegion;
@@ -5479,6 +5484,11 @@ function flowGroupTable_(subRaw, metricKey, comp, col1, groupByRegion, childMax,
       partners(x.kids, tk, ind+'&nbsp;&nbsp;', dispT); });
     return out;
   }
+  // byPais: partners de un país colgando de parentKey, ordenados por baseline
+  function partnerRows_(parentKey, c, ind, disp){
+    return Object.keys(c.pt).map(function(pl){ return c.pt[pl]; }).sort(function(a,b){return b.base-a.base;}).map(function(x){
+      return '<tr data-parent="'+parentKey+'" style="display:'+disp+'"><td>'+ind+x.name+'</td>'+cells(x)+'</tr>'; }).join('');
+  }
   order.forEach(function(k,pIdx){ var g=G[k]; if(!g)return;
     var lbl = groupByRegion ? (REGION_LABEL_[k]||k) : tierFirst ? (pIdx+1)+'.'+hispaLbl_(k) : k;
     var kids=Object.keys(g.ch).map(function(c){ var i=c.lastIndexOf('|'), kt=tierFirst ? tierOf_(c.substring(i+1), c.substring(0,i)) : tierOf_(k, c);
@@ -5488,6 +5498,21 @@ function flowGroupTable_(subRaw, metricKey, comp, col1, groupByRegion, childMax,
       // región → país → tier → partner. Región siempre visible; los países arrancan visibles y
       // colapsados. Región con un solo país (Brasil): la fila de región abre directo los tiers.
       var open=_flowPrinting, dispO=open?'table-row':'none', caretO=open?'▾':'▸', rKey='fl'+tblUid+'r'+pIdx;
+      if(byPais){
+        // Región → País → Partner, sin nivel de Tier (slides "OKR L2 · por País", pedido 2026-10-29).
+        // Región con un solo país (Brasil): la fila de región abre directo los partners.
+        if(kids.length===1){
+          body+='<tr class="grp" data-key="'+rKey+'" data-open="'+(open?'1':'0')+'" onclick="flAccToggle_(this)" style="cursor:pointer"><td><span class="fl-acc-caret">'+caretO+'</span> '+lbl+'</td>'+cells(g)+'</tr>';
+          body+=partnerRows_(rKey, kids[0], '&nbsp;&nbsp;', dispO);
+          return;
+        }
+        body+='<tr class="grp"><td>'+lbl+'</td>'+cells(g)+'</tr>';
+        kids.forEach(function(c,cIdx){ var cKey=rKey+'c'+cIdx;
+          body+='<tr data-key="'+cKey+'" data-open="'+(open?'1':'0')+'" onclick="flAccToggle_(this)" style="cursor:pointer"><td>&nbsp;&nbsp;<span class="fl-acc-caret">'+caretO+'</span> '+c.name+' <span style="font-weight:400;color:var(--fl-ink3)">('+Object.keys(c.pt).length+')</span></td>'+cells(c)+'</tr>';
+          body+=partnerRows_(cKey, c, '&nbsp;&nbsp;&nbsp;&nbsp;', dispO);
+        });
+        return;
+      }
       if(k==='SAH'){
         // Hispa: abierto por Tier en vez de por país (pedido 2026-10-26, para que entre en la slide).
         // Los tiers quedan visibles y cada uno abre sus partners, con el país al lado.
@@ -5789,13 +5814,14 @@ function flowBuildSlide_(def, idx){
     return '<div class="flow-slide">'+flHead_(titleTxt, brand)+body+'</div>';
   }
   if(def.kind==='okr'){
-    var sub=flowRegionRaw_(null), mk=def.metric;
-    var titleTxt=mesLbl+' | '+FLOW_MET[mk].label+' Performance MTD vs '+cmpLbl;
+    var sub=flowRegionRaw_(null), mk=def.metric, byPais=(def.open==='pais');
+    var titleTxt=mesLbl+' | '+FLOW_MET[mk].label+' Performance MTD vs '+cmpLbl+(byPais?' · por País':'');
     var dl=flowDaily_(sub,mk,cmp);
     var cid='flc'+idx; _flowSeries[idx].push({id:cid, series:dl, gran:'daily', opts:{labels:true}});
-    var tbl=flowGroupTable_(sub,mk,cmp,'Región / País / Tier / Partner',true,undefined,undefined,undefined,undefined,{yoy:true,deep:true});
+    var tbl=flowGroupTable_(sub,mk,cmp,byPais?'Región / País / Partner':'Región / País / Tier / Partner',true,undefined,undefined,undefined,undefined,{yoy:true,deep:true,pais:byPais});
     var body='<div class="fl-body">'
-      +'<div style="display:flex;gap:12px;align-items:center;margin-bottom:8px"><span class="fl-pill bud">vs '+cmpLbl.toUpperCase()+'</span><span class="fl-pill okr">OKR — Level 2</span></div>'
+      +'<div style="display:flex;gap:12px;align-items:center;margin-bottom:8px"><span class="fl-pill bud">vs '+cmpLbl.toUpperCase()+'</span><span class="fl-pill okr">OKR — Level 2</span>'
+      +'<span class="fl-pill okr">Apertura: Región × '+(byPais?'País':'Tier')+'</span></div>'
       +'<div style="display:flex;gap:18px;height:calc(100% - 44px)">'
       +'<div style="flex:1.55;min-width:0;display:flex;flex-direction:column;min-height:0">'+flowKpiCards_(sub,mk,cmp)
       +'<div style="font-size:13px;font-weight:700;color:var(--fl-ink2);margin:8px 0 2px">Trend vs '+cmpLbl+'</div>'
