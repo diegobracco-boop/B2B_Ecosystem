@@ -427,6 +427,9 @@
     display: none;
   }
   .tables-content.visible { display: block; }
+  .tables-content .tables-tr-btns { display: flex; justify-content: flex-end; margin: -2px 0 8px; }
+  .tables-content:not(.show-tr-bud) .tr-bud { display: none; }
+  .tables-content .tr-bud { color: #6b7280; }
   .tables-view-title {
     font-size: 13px;
     font-weight: 700;
@@ -1271,6 +1274,10 @@
 <!-- Vista con 3 tablas (sin gráfico) -->
 <div class="tables-content" id="tablesContent">
   <div class="tables-view-title" id="tablesViewTitle">Tablas por Fecha de Gestión</div>
+  <div class="kr-ch-group tables-tr-btns">
+    <button type="button" class="kr-ch-btn" id="btnTakeRateBud" onclick="toggleTakeRateBud()"
+            title="Suma a Net Revenues y FVM la columna del ratio sobre GB de la meta (Budget / Run Rate), para comparar">Ver ratio Budget</button>
+  </div>
   <div class="tables-row">
 
     <div class="table-block">
@@ -1299,6 +1306,8 @@
             <th>Delta<br>($K)</th>
             <th>Cumpl.</th>
             <th>YoY</th>
+            <th title="Net Revenues Actuals / Gross Bookings Actuals de la misma fila (— si el GB es menor a $10K)">NR/GB</th>
+            <th class="tr-bud" id="thTakeRateNR_bud" title="Net Revenues de la meta / Gross Bookings de la meta de la misma fila">NR/GB<br>Bud.</th>
           </tr>
         </thead>
         <tbody id="pivotBodyNR_t"></tbody>
@@ -1315,6 +1324,8 @@
             <th>Delta<br>($K)</th>
             <th>Cumpl.</th>
             <th>YoY</th>
+            <th title="FVM Actuals / Gross Bookings Actuals de la misma fila (— si el GB es menor a $10K)">FVM/GB</th>
+            <th class="tr-bud" id="thTakeRateFVM_bud" title="FVM de la meta / Gross Bookings de la meta de la misma fila">FVM/GB<br>Bud.</th>
           </tr>
         </thead>
         <tbody id="pivotBodyFVM_t"></tbody>
@@ -1593,6 +1604,14 @@ function fmtMc(val) {
 function fmtPct(val) {
   if (val === null || val === undefined || isNaN(val) || !isFinite(val)) return '—';
   return (val * 100).toFixed(0) + '%';
+}
+// Take rate (NR/GB, FVM/GB): son % chicos, va con un decimal. Con GB por debajo de TAKE_RATE_MIN_GB → —
+// (con GB casi en 0 el % sale ruidoso, ej. 1K de NR sobre 2K de GB = 50%).
+const TAKE_RATE_MIN_GB = 10000;   // $10K
+function fmtTakeRate(act, gb) {
+  if (!gb || Math.abs(gb) < TAKE_RATE_MIN_GB) return '—';
+  const r = act / gb;
+  return isFinite(r) ? (r * 100).toFixed(1) + '%' : '—';
 }
 
 function yoyIcon(val) {
@@ -2349,13 +2368,20 @@ function renderPivot(tab, channel, countryGroup, monthFilter) {
 // ─────────────────────────────────────────────
 //  Tables view renderer (3 tablas, sin gráfico)
 // ─────────────────────────────────────────────
-function renderTableBody(bodyEl, groups, inMillions, countryGroup) {
+// gbGroups (opcional, tablas NR y FVM): suma la columna NR/GB o FVM/GB = Actuals de la fila / GB Actuals de la misma fila,
+// y la del ratio de la meta (Budget / Run Rate de la fila / GB de la meta), que solo se ve con el botón (clase tr-bud).
+function renderTableBody(bodyEl, groups, inMillions, countryGroup, gbGroups) {
   const convert = inMillions ? toM : toK;
   const fmt     = inMillions ? fmtMc : fmtKc;
+  const sumF    = (prods, f) => Object.values(prods || {}).reduce((s, p) => s + p[f], 0);
+  const gbOf    = (country, pg, f) => (!gbGroups || !gbGroups[country]) ? 0 :
+    (pg ? sumF(gbGroups[country][pg], f) : PRODUCT_GROUP_ORDER.reduce((s, g) => s + sumF(gbGroups[country][g], f), 0));
+  const trCell  = (act, gb, goal, gbGoal) => gbGroups
+    ? '<td>' + fmtTakeRate(act, gb) + '</td><td class="tr-bud">' + fmtTakeRate(goal, gbGoal) + '</td>' : '';
 
   bodyEl.innerHTML = '';
 
-  let totalAct = 0, totalActY = 0, totalGoal = 0, totalLY = 0;
+  let totalAct = 0, totalActY = 0, totalGoal = 0, totalLY = 0, totalGB = 0, totalGBGoal = 0;
   const countryOrder = countryOrderFor(countryGroup);
 
   countryOrder.forEach(countryName => {
@@ -2369,7 +2395,8 @@ function renderTableBody(bodyEl, groups, inMillions, countryGroup) {
     });
     if (ctAct === 0 && ctGoal === 0 && !hasCountryFilter(countryGroup)) return;
 
-    totalAct += ctAct; totalActY += ctActY; totalGoal += ctGoal; totalLY += ctLY;
+    const ctGB = gbOf(countryName, null, 'act'), ctGBGoal = gbOf(countryName, null, 'goal');
+    totalAct += ctAct; totalActY += ctActY; totalGoal += ctGoal; totalLY += ctLY; totalGB += ctGB; totalGBGoal += ctGBGoal;
 
     const ctDelta = convert(ctAct - ctGoal);
     const ctCumpl = cumplRatio(ctAct, ctGoal);
@@ -2384,6 +2411,7 @@ function renderTableBody(bodyEl, groups, inMillions, countryGroup) {
       <td class="${deltaColor(ctDelta)}">${fmt(ctDelta)}</td>
       <td class="${cumplColor(ctCumpl)}">${fmtPct(ctCumpl)}</td>
       ${yoyCellHtml(ctActY, ctLY, convert, fmt)}
+      ${trCell(ctAct, ctGB, ctGoal, ctGBGoal)}
     `;
     bodyEl.appendChild(trC);
 
@@ -2407,6 +2435,7 @@ function renderTableBody(bodyEl, groups, inMillions, countryGroup) {
         <td class="${deltaColor(pgDelta)}">${fmt(pgDelta)}</td>
         <td class="${cumplColor(pgCumpl)}">${fmtPct(pgCumpl)}</td>
         ${yoyCellHtml(pgActY, pgLY, convert, fmt)}
+        ${trCell(pgAct, gbOf(countryName, pgName, 'act'), pgGoal, gbOf(countryName, pgName, 'goal'))}
       `;
       bodyEl.appendChild(trPG);
     });
@@ -2423,6 +2452,7 @@ function renderTableBody(bodyEl, groups, inMillions, countryGroup) {
     <td class="${deltaColor(tDelta)}">${fmt(tDelta)}</td>
     <td class="${cumplColor(tCumpl)}">${fmtPct(tCumpl)}</td>
     ${yoyCellHtml(totalActY, totalLY, convert, fmt)}
+    ${trCell(totalAct, totalGB, totalGoal, totalGBGoal)}
   `;
   bodyEl.appendChild(trT);
 }
@@ -2433,8 +2463,28 @@ function renderTablesView(dateType, channel, countryGroup, monthFilter) {
   const fvmGroups = buildPivotData(dateType, METRICS.fvm.field, channel, countryGroup, monthFilter);
 
   renderTableBody(document.getElementById('pivotBodyGB_t'),  gbGroups,  true,  countryGroup);
-  renderTableBody(document.getElementById('pivotBodyNR_t'),  nrGroups,  false, countryGroup);
-  renderTableBody(document.getElementById('pivotBodyFVM_t'), fvmGroups, false, countryGroup);
+  renderTableBody(document.getElementById('pivotBodyNR_t'),  nrGroups,  false, countryGroup, gbGroups);
+  renderTableBody(document.getElementById('pivotBodyFVM_t'), fvmGroups, false, countryGroup, gbGroups);
+
+  // Ratio de la meta (Budget o Run Rate, según el filtro Meta): columna oculta hasta que se pide con el botón.
+  const goalShort = goalLabelText() === 'Run Rate' ? 'RR' : 'Bud.';
+  document.getElementById('thTakeRateNR_bud').innerHTML  = 'NR/GB<br>' + goalShort;
+  document.getElementById('thTakeRateFVM_bud').innerHTML = 'FVM/GB<br>' + goalShort;
+  syncTakeRateBudBtn_();
+}
+
+let showTakeRateBud = false;
+function syncTakeRateBudBtn_() {
+  // En Slides el botón no se ve (.kr-ch-group): la columna de la meta tampoco, para no cambiar el ancho de la slide.
+  document.getElementById('tablesContent').classList.toggle('show-tr-bud', showTakeRateBud && !_isSlidesMode);
+  const btn = document.getElementById('btnTakeRateBud');
+  btn.classList.toggle('active', showTakeRateBud);
+  btn.textContent = (showTakeRateBud ? 'Ocultar' : 'Ver') + ' ratio ' + goalLabelText();
+}
+function toggleTakeRateBud() {
+  showTakeRateBud = !showTakeRateBud;
+  syncTakeRateBudBtn_();
+  if (_isSlidesMode) _fitSlideTables(document.getElementById('tablesContent'));
 }
 
 // ─────────────────────────────────────────────
