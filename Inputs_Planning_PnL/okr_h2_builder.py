@@ -125,6 +125,9 @@ def hunting_farming_by_pais(daily_json, nr_by_scen, last_actual_ym, closed_until
             return rr_new.get((f, pais), 0.0)
         return bud_new.get((f, pais), 0.0)
 
+    # Mes en curso: Hunting = MTD del Daily; Existing con el Hunting proyectado (ver okr_builder._compute_b2b2c_hunting_farming)
+    mtd = _ym_to_periodo(str((daily_json.get("meta") or {}).get("last_actuals_date", ""))[:7] or last_actual_ym)
+
     def covered(scen, f):
         return f in bud_months if scen == BUD else (f <= corte or f in rr_months or f in bud_months)
 
@@ -136,10 +139,12 @@ def hunting_farming_by_pais(daily_json, nr_by_scen, last_actual_ym, closed_until
                 continue
             paises = {p for (ff, p) in nr if ff == f} | {p for (ff, p) in (bud_new if scen == BUD else {**bud_new, **rr_new, **act_new}) if ff == f}
             est = BUD if scen == BUD else _estado_rr(f, closed_until)
+            is_mtd = scen != BUD and f == mtd and f > corte
             for pais in sorted(paises):
-                h = hunting(scen, f, pais)
-                e = nr.get((f, pais), 0.0) - h
-                rows.append([f, scen, "B2B2C", pais, "Total", "New Account Net Revenues", round(h, 2), est])
+                hp = hunting(scen, f, pais)
+                h = act_new.get((f, pais), 0.0) if is_mtd else hp
+                e = nr.get((f, pais), 0.0) - hp
+                rows.append([f, scen, "B2B2C", pais, "Total", "New Account Net Revenues", round(h, 2), "MTD" if is_mtd else est])
                 rows.append([f, scen, "B2B2C", pais, "Total", "Existing Account Net Revenues", round(e, 2), est])
     return rows
 

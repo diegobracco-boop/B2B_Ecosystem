@@ -309,12 +309,22 @@ def _compute_b2b2c_hunting_farming(daily_json, nr_b2b2c_by_scen, last_actual_ym)
     bud_new = _daily_new_by_periodo(daily_json.get("okr_budget") or daily_json.get("budget", {}))
     rr_new  = _daily_new_by_periodo(daily_json.get("okr_runrate") or daily_json.get("runrate", {}))
 
-    def hunting_rr(periodo):
+    def hunting_proj(periodo):
         if periodo <= corte:
             return act_new.get(periodo, 0.0)
         if periodo in rr_new:
             return rr_new[periodo]
         return bud_new.get(periodo, 0.0)
+
+    # Mes en curso (2026-10-29, Diego): Hunting = MTD del Daily (actuals 'New' hasta la fecha), no el Run Rate
+    # (oct-26: 1,2M MTD vs 3,2M proyectado). Existing sigue con el Run Rate: NR contable − Hunting PROYECTADO,
+    # para no cargarle la diferencia entre el MTD y el mes completo.
+    mtd = _ym_to_periodo(str((daily_json.get("meta") or {}).get("last_actuals_date", ""))[:7] or last_actual_ym)
+
+    def hunting_rr(periodo):
+        if periodo == mtd and periodo > corte:
+            return act_new.get(periodo, 0.0)
+        return hunting_proj(periodo)
 
     HUNTING_BY_SCEN = {
         "Run Rate/Actuals": hunting_rr,
@@ -338,7 +348,7 @@ def _compute_b2b2c_hunting_farming(daily_json, nr_b2b2c_by_scen, last_actual_ym)
             if not covered(scen_label, periodo):
                 continue
             hunting = hunting_fn(periodo)
-            farming = total - hunting
+            farming = total - (hunting_proj(periodo) if scen_label == "Run Rate/Actuals" else hunting)
             rows.append([periodo, scen_label, "B2B2C", "Total", "Total",
                          "New Account Net Revenues", round(hunting, 2)])
             rows.append([periodo, scen_label, "B2B2C", "Total", "Total",
