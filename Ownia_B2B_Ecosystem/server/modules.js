@@ -139,14 +139,6 @@ const MODULES = [
     gasUrl: GAS_EXEC + 'AKfycbxHyP4uIh02zTQbQ7ZFbyByCVIYuREuiMJ74PnKhQbNGbWknCG2jxOtt_onafQcg5g4/exec',
   },
   {
-    slug: 'one-pager',
-    dir: 'lob_country_one_pager',
-    title: 'Country One Pager',
-    desc: 'One-pager por LoB y país para la dirección comercial.',
-    ownia: false,
-    gasUrl: GAS_EXEC + 'AKfycbytMGsghl1TweKpYgMV2uhjTr--a9jpWkd2G3faZrF0DixD7UNu2qAq8Tbhlv_PCo0t/exec',
-  },
-  {
     slug: 'fvm-negativo',
     dir: 'FVM_Negativo',
     title: 'FVM Negativo',

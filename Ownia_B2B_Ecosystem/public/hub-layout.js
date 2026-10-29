@@ -973,7 +973,20 @@
     };
   }
 
+  // "P&L Contable" (2026-10-29, Diego): no se embebe; lleva a P&L Accounting en la misma pestaña, con la vista del LoB elegido.
+  var PNL_VIEW = { all: 'contable-combined', b2b: 'contable-b2b', b2b2c: 'contable-b2b2c' };
+  function pnlRedirect() {
+    var orig = window.goToSection;
+    if (typeof orig !== 'function') return;
+    window.goToSection = function (sec) {
+      var url = window.EXTERNAL_LINKS && window.EXTERNAL_LINKS.iframes && window.EXTERNAL_LINKS.iframes.pnl;
+      if (sec !== 'pnl' || !url) return orig.apply(this, arguments);
+      window.location.href = url + (url.indexOf('?') >= 0 ? '&' : '?') + 'view=' + (PNL_VIEW[lastLob] || PNL_VIEW.all);
+    };
+  }
+
   function hook() {
+    pnlRedirect();
     // switchLob es el único punto por el que pasan todos los cambios de sección.
     wrap('switchLob', function (tab) { if (tab && tab.dataset) setActive(tab.dataset.lob); });
     // Las secciones embebidas esconden el header: la barra pasa arriba de todo.
