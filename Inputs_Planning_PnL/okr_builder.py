@@ -776,7 +776,8 @@ def build(upload=True):
         hunt_ov_mes,
     )
     rows_manual   = _read_manual_krs(token_file)
-    rows_manual, estado_ub = h2b.apply_unique_buyers(rows_manual, daily_json, last_actual_ym)
+    rows_manual, estado_ub = h2b.apply_unique_buyers(rows_manual, daily_json, last_actual_ym,
+                                                           h2b.load_override_orders())
     rows_manual   = _apply_globales_hoteles_actual(rows_manual, daily_json)
     rows_manual   = _apply_recurrence_rr(rows_manual, recur_json)
     rows_manual   = _apply_globales_target_default(rows_manual)

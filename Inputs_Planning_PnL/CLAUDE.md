@@ -76,8 +76,9 @@ CSV crudos (OneDrive\Planning-PBI - Inputs Power Bi)
   solo KRs monetarios en Run Rate/Actuals; H1 nunca). Oct–mar es proyección (run rate) hasta que `actuals.json` traiga el cierre contable.
   Hunting = NR gestional del Daily (por país: `okr_budget`/`okr_runrate` ahora traen `pais`), Existing = NR contable B2B2C − Hunting.
   Regla del Hub: un KR sin dato en un mes toma el target (cursiva; en KRs acumulativos solo si no hay ningún dato real).
-  **Unique Buyers** (`okr_h2_builder.apply_unique_buyers`): mes cerrado = real del Datalake; mes en curso = MTD; futuros = ratio UB/orders
-  (promedio ponderado de los últimos 6 meses cerrados, hoy 0,837) × orders del Run Rate del Daily. Afecta también a `okr.json`.
+  **Unique Buyers** (`okr_h2_builder.apply_unique_buyers`): mes cerrado = real del Datalake; mes en curso = últimos N días hasta ayer con N = días del mes
+  (`unique_buyers_rolling` del Daily, `Daily_Dashboard/ub_rolling.py`, Estado "MesMovil"; sin el bloque cae al MTD); futuros = ratio UB/orders
+  (promedio ponderado de los últimos 6 meses cerrados, hoy 0,837) × orders del Run Rate (las de `hunting_rr_override.json` si existe, si no las del Daily). Afecta también a `okr.json`.
 
 - **KR "Accelerate Hunting Partners API"** (2026-10-27): ya no sale del tracker de Excel (hoja "API", cuyos actuals de ago/sep eran copia del budget)
   ni de un override en el código. `Daily_Dashboard/partners_api_sync.py` (lo llama `daily_sync.py` en cada corrida) cuenta partners API **distintos**

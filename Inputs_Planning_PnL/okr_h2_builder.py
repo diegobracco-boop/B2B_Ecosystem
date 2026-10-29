@@ -11,12 +11,15 @@ Formato: cols = Periodo, Escenario, LoB, Pais, Producto, KR, Valor, Estado
   - KRs no monetarios / manuales (Unique Buyers, Deploy New Partnership, Accelerate Recurrence, Partners API, hoteles
     directos, Onboarded Properties, Price Competitiveness): Pais = Total.
   - Estado (solo Run Rate/Actuals): "Actual" = mes con cierre contable; "Proyeccion" = todavia sin cierre (hoy oct-mar, definido
-    2026-10-27); "MTD" = mes en curso a la fecha (Unique Buyers); "Real" = Unique Buyers de un mes cerrado del Datalake;
+    2026-10-27); "MTD" = mes en curso a la fecha; "MesMovil" = Unique Buyers del mes en curso = ultimos N dias (N = dias
+    del mes) hasta ayer; "Real" = Unique Buyers de un mes cerrado del Datalake;
     "Manual" = Input_OKR / tracker. Budget: "Budget".
 
 Unique Buyers proyectado (2026-10-27): UB / orders B2B2C es muy estable (0,82-0,87 en 22 meses), asi que los meses futuros
-= ratio (promedio ponderado de los ultimos 6 meses cerrados) x orders del Run Rate del Daily; el mes en curso es el MTD tal
-como viene; un mes cerrado pisa con el real del Datalake.
+= ratio (promedio ponderado de los ultimos 6 meses cerrados) x orders del Run Rate (las del export del P&L diario si esta
+el parche hunting_rr_override.json, si no las del Daily); el mes en curso = compradores unicos de los ultimos N dias con
+N = dias del mes ("unique_buyers_rolling" del Daily, 2026-10-29; sin ese bloque, el MTD tal como viene); un mes cerrado
+pisa con el real del Datalake.
 """
 from collections import defaultdict
 
@@ -214,9 +217,22 @@ def _orders_block(block):
     return out
 
 
-def apply_unique_buyers(rows_manual, daily_json, last_actual_ym):
+def load_override_orders(path=None):
+    """Orders por mes ({'YYYY-MM': orders}) del parche hunting_rr_override.json, o None si no esta / no las trae."""
+    import json
+    import os
+    if path is None:
+        import pnl_common
+        path = os.path.join(pnl_common.get_base_dir(), "OKR", "hunting_rr_override.json")
+    if not os.path.exists(path):
+        return None
+    with open(path, encoding="utf-8") as f:
+        return (json.load(f).get("meta") or {}).get("orders_mes") or None
+
+
+def apply_unique_buyers(rows_manual, daily_json, last_actual_ym, rr_orders=None):
     """Unique Buyers (H2, B2B2C), Run Rate/Actuals: real del Datalake si el mes cerro; MTD en el mes en curso; ratio x orders del
-    Run Rate en los meses futuros. El target (Budget) sigue de Input_OKR. Devuelve (rows_manual, estado) con
+    Run Rate en los meses futuros (rr_orders {'YYYY-MM': orders} pisa las del Daily). El mes en curso usa los ultimos N dias. El target (Budget) sigue de Input_OKR. Devuelve (rows_manual, estado) con
     estado = {periodo: 'Real'|'MTD'|'Proyeccion'}. Si no hay datos del Datalake deja Input_OKR tal cual."""
     tot = (daily_json or {}).get("unique_buyers_total") or {}
     if not tot:
@@ -229,6 +245,9 @@ def apply_unique_buyers(rows_manual, daily_json, last_actual_ym):
     rr_o, bud_o = {}, {}
     for k in ("runrate", "runrate_fy_rest"):
         rr_o.update(_orders_block(daily_json.get(k) or {}))
+    if rr_orders:
+        rr_o.update(rr_orders)
+        print(f"  [Unique Buyers] orders proyectadas del parche ({', '.join(sorted(rr_orders))})")
     for k in ("budget", "budget_fy_rest"):
         bud_o.update(_orders_block(daily_json.get(k) or {}))
     cerrados = [m for m in sorted(tot) if m <= last_actual_ym and real.get(m)][-UB_RATIO_MONTHS:]
@@ -240,11 +259,17 @@ def apply_unique_buyers(rows_manual, daily_json, last_actual_ym):
 
     h2_months = sorted({str(r[0])[:7] for r in rows_manual if str(r[5]).lower() == "unique buyers"} |
                        {m for m in rr_o if m >= H2_START[:7]})
+    rolling = daily_json.get("unique_buyers_rolling") or {}
+    mes_curso = rolling.get("ym") or str((daily_json.get("meta") or {}).get("last_actuals_date") or "")[:7]
     estado, nuevos = {}, {}
     for ym in sorted(set(m for m in h2_months if m >= H2_START[:7])):
-        if ym <= last_actual_ym and ym in tot:
+        if (ym <= last_actual_ym or (mes_curso and ym < mes_curso)) and ym in tot:
             nuevos[ym], estado[_ym_to_periodo(ym)] = tot[ym], "Real"
-        elif ym in tot:                                   # mes en curso: MTD tal como viene
+        elif ym == rolling.get("ym") and rolling.get("valor"):   # mes en curso: ultimos N dias (N = dias del mes)
+            nuevos[ym], estado[_ym_to_periodo(ym)] = int(rolling["valor"]), "MesMovil"
+            print(f"  [Unique Buyers] {ym}: ultimos {rolling.get('dias')} dias {rolling.get('desde')}..{rolling.get('hasta')} = "
+                  f"{int(rolling['valor']):,} (MTD {tot.get(ym, 0):,})")
+        elif ym in tot:                                   # mes en curso sin bloque rolling: MTD tal como viene
             nuevos[ym], estado[_ym_to_periodo(ym)] = tot[ym], "MTD"
         else:
             o = rr_o.get(ym) or bud_o.get(ym)

@@ -33,6 +33,8 @@ from pais_rules import apply_pais_overrides
 from fy_rest import actuals_fy_rest_ranges, ly_fy_rest_ranges
 # OC B2B2C mensual desde los canónicos contables (slide "Monthly Performance — OC" del Flow)
 from flow_oc import CANONICAL_OC_IDS, build_flow_oc
+# Unique Buyers de los ultimos N dias (N = dias del mes) -> mes en curso del KR en okr_builder.py
+import ub_rolling
 
 warnings.filterwarnings("ignore")
 
@@ -1792,6 +1794,11 @@ except Exception as e:
     df_unique_buyers = pd.DataFrame()
     df_unique_buyers_daily = pd.DataFrame()
     unique_buyers_total = {}
+try:
+    unique_buyers_rolling = ub_rolling.build(fetch, YESTERDAY)
+except Exception as e:
+    print(f"  WARN Unique Buyers mes movil failed: {e}")
+    unique_buyers_rolling = {}
 
 print("\n--- KR Global B2B API: hoteles directos (OKR H2) ---")
 # Igual que Unique Buyers: no va a _FAILED_BLOCKS; si falla, okr_builder deja el valor de Input_OKR.
@@ -2103,6 +2110,7 @@ b2bc_payload = {
     "unique_buyers":       to_compact(df_unique_buyers) if not df_unique_buyers.empty else {"cols": [], "rows": []},
     "unique_buyers_daily": to_compact(df_unique_buyers_daily) if not df_unique_buyers_daily.empty else {"cols": [], "rows": []},   # MTD diario (pais, TOTAL) -> Daily
     "unique_buyers_total": unique_buyers_total,
+    "unique_buyers_rolling": unique_buyers_rolling,   # {ym, desde, hasta, dias, valor} -> mes en curso del KR (okr_builder.py)
     "okr_globales_hoteles": okr_globales_hoteles,   # {'YYYY-MM': {dir_latam, dir_glob, tot_glob}} -> okr_builder.py
     "b2c":        b2c_compact,
     "b2c_ly":     b2c_ly_compact,

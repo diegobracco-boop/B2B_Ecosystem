@@ -4906,7 +4906,8 @@ function renderOKR(okr) {
           var tip = imp ? 'Sin dato: se toma igual al target'
                   : est === 'Proyeccion' ? 'Proyección (sin cierre contable)'
                   : est === 'MTD' ? 'Mes en curso, a la fecha'
-                  : est === 'Rolling30' ? 'Últimos 30 días (móvil, hasta ayer); se congela el primer día hábil del mes siguiente'
+                  : est === 'MesMovil' ? 'Mes en curso: compradores únicos de los últimos N días hasta ayer (N = días del mes)'
+                  : est === 'Rolling30' ?'Últimos 30 días (móvil, hasta ayer); se congela el primer día hábil del mes siguiente'
                   : est === 'Actual' ? 'Actual (cierre contable)' : est === 'Real' ? 'Real (Datalake, mes cerrado)' : '';
           html += '<td class="'+qBorder+(imp ? ' okr-imp' : '')+'"'+(tip ? ' title="'+tip+'"' : '')+'>'+cell+'</td>';
         });
