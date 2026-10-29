@@ -158,6 +158,9 @@ def _upload(local_path, svc):
 
 
 H2_OUTPUT_NAME = "OKR_H2_FY27.json"
+# Mismo contenido con los KRs monetarios (NR / OC) de Run Rate/Actuals a TC Budget (ver okr_h2_builder.apply_organic)
+H2_ORGANIC_OUTPUT_NAME = "OKR_H2_FY27_Organic.json"   # Drive id 1CJBtvDb3O2zOIq6fdq_5NuHLoOupiwjc (se busca por nombre)
+FX_FILE_ID = "1SEh9vLWCbE6PslnUntUghhInonuLdYZ5"   # tc_plana_flat.xlsx (el mismo FX_FILE_ID del Hub, Codigo.js)
 DAILY_FOLDER_ID = "1lWzfqweyV6Kz1ERkL85ikFcmzmKwGwwh"   # carpeta de los JSON del Daily (okr_h2_managerial.json, ...)
 
 
@@ -169,23 +172,33 @@ def _download_by_name(svc, folder_id, name, label):
     return _download_json(svc, f[0]["id"], label)
 
 
-def _upload_h2(local_path, svc):
-    """Sube OKR_H2_FY27.json a la carpeta de los canonicos (lo crea la primera vez, despues lo actualiza) + Ownia."""
+def _download_bytes(svc, file_id):
+    from googleapiclient.http import MediaIoBaseDownload
+    buf = io.BytesIO()
+    dl = MediaIoBaseDownload(buf, svc.files().get_media(fileId=file_id), chunksize=8 * 1024 * 1024)
+    done = False
+    while not done:
+        _, done = dl.next_chunk()
+    return buf.getvalue()
+
+
+def _upload_h2(local_path, svc, name=H2_OUTPUT_NAME):
+    """Sube OKR_H2_FY27.json (o name) a la carpeta de los canonicos (lo crea la primera vez, despues lo actualiza) + Ownia."""
     from googleapiclient.http import MediaFileUpload
     import sys as _sys
     from pathlib import Path as _Path
     _sys.path.insert(0, str(_Path(__file__).resolve().parents[1] / "Ownia_B2B_Ecosystem" / "mirror"))
     from ownia_publish import DRIVE_FIELDS, publish_after_drive   # doble escritura Drive + Ownia
-    q = f"name='{H2_OUTPUT_NAME}' and '{DRIVE_FOLDER_ID}' in parents and trashed=false"
+    q = f"name='{name}' and '{DRIVE_FOLDER_ID}' in parents and trashed=false"
     ex = svc.files().list(q=q, fields="files(id,name)").execute().get("files", [])
     media = MediaFileUpload(local_path, mimetype="application/json", resumable=True)
     if ex:
         res = svc.files().update(fileId=ex[0]["id"], media_body=media, fields=DRIVE_FIELDS).execute()
-        print(f"  [Drive] actualizado {H2_OUTPUT_NAME}: id={res['id']}")
+        print(f"  [Drive] actualizado {name}: id={res['id']}")
     else:
-        res = svc.files().create(body={"name": H2_OUTPUT_NAME, "parents": [DRIVE_FOLDER_ID]},
+        res = svc.files().create(body={"name": name, "parents": [DRIVE_FOLDER_ID]},
                                  media_body=media, fields=DRIVE_FIELDS).execute()
-        print(f"  [Drive] creado {H2_OUTPUT_NAME}: id={res['id']}  >>> copiarlo a OKR_H2_FILE_ID (Codigo_OKR.js) y a drive-manifest.json")
+        print(f"  [Drive] creado {name}: id={res['id']}  >>> si lo lee el Hub, copiar el id a Codigo_OKR.js y a drive-manifest.json")
     with open(local_path, "rb") as _f:
         publish_after_drive(res, _f.read())
 
@@ -847,9 +860,37 @@ def build(upload=True):
         json.dump(payload_h2, f, ensure_ascii=False, separators=(",", ":"))
     print(f"  local -> {local_h2}  ({os.path.getsize(local_h2)/1e3:.1f} KB, {len(h2_rows)} filas)")
 
+    # OKR_H2_FY27_Organic.json: igual, con NR / OC de Run Rate/Actuals a TC Budget. Si falla el TC no corta el resto.
+    local_h2o = None
+    try:
+        fx = h2b.fx_from_xlsx(_download_bytes(svc, FX_FILE_ID))
+        h2_org, info = h2b.apply_organic(h2_rows, fx)
+        print(f"  [Organic] {info['convertidas']} filas a TC Budget · sin TC (quedan nominales): {info['sin_tc']}"
+              + (f" · WARN sin TC Actuals/Budget: {info['missing']}" if info["missing"] else ""))
+        payload_h2o = {
+            "meta": dict(payload_h2["meta"],
+                         concepto="okr_h2_fy27_organic",
+                         descripcion="OKR_H2_FY27.json con los KRs monetarios (NR / OC) de Run Rate/Actuals en USD organic "
+                                     "(x TC Actuals / TC Budget, por pais y mes, tc_plana_flat.xlsx). Budget y KRs no monetarios "
+                                     "(orders, unique buyers, conteos, %) sin cambios. OPS/RG con TC de Brasil; paises sin TC en USD nominales.",
+                         fx_file_id=FX_FILE_ID,
+                         organic_sin_tc=info["sin_tc"],
+                         organic_missing=info["missing"]),
+            "cols": h2b.COLS_H2,
+            "rows": h2_org,
+        }
+        local_h2o = os.path.join(outdir, H2_ORGANIC_OUTPUT_NAME)
+        with open(local_h2o, "w", encoding="utf-8") as f:
+            json.dump(payload_h2o, f, ensure_ascii=False, separators=(",", ":"))
+        print(f"  local -> {local_h2o}  ({os.path.getsize(local_h2o)/1e3:.1f} KB, {len(h2_org)} filas)")
+    except Exception as e:
+        print(f"  WARN [Organic] no se pudo armar {H2_ORGANIC_OUTPUT_NAME} ({e})")
+
     if upload:
         _upload(local, svc)
         _upload_h2(local_h2, svc)
+        if local_h2o:
+            _upload_h2(local_h2o, svc, H2_ORGANIC_OUTPUT_NAME)
     else:
         print("  (--no-upload)")
 

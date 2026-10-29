@@ -347,3 +347,82 @@ def build_h2_rows(rows_baseline_h2, rows_budget_h2, rows_hunting_h2, rows_manual
         out.append([f, esc, lob, pais, prod, kr, v, est])
     out.sort(key=lambda r: (r[0], r[1], r[2], r[5], r[3]))
     return out
+
+
+# ── Organic (OKR_H2_FY27_Organic.json) ─────────────────────────────────────────────────────────────────────
+# Mismo criterio que applyOrganicOKR_ (Dashboard_B2B_WLs/Codigo_OKR.js): USD x TC Actuals(pais, mes) / TC Budget(pais, mes),
+# solo KRs monetarios (NR / OC) en Run Rate/Actuals (el Budget ya esta a TC Budget). Orders, Unique Buyers, conteos y % no
+# se tocan. OPS / RG toman el TC de Brasil; paises sin TC (others countries, ...) y Pais=Total quedan en USD nominales.
+# TC: tc_plana_flat.xlsx (el mismo que lee readFxTable_ en el Hub).
+OKR_MONETARY_KRS = {
+    "op. contribution", "operating contribution", "net revenues b2b", "operating contribution api",
+    "operating contribution html", "net revenues api hoteles", "new account net revenues",
+    "existing account net revenues", "new product growth",
+}
+_FX_PAIS_ALIAS = {"ops": "brasil", "rg": "brasil", "ops + rg": "brasil"}
+_FX_MES = {"abr": 4, "may": 5, "jun": 6, "jul": 7, "ago": 8, "sep": 9, "sept": 9, "oct": 10, "nov": 11, "dic": 12,
+           "ene": 1, "feb": 2, "mar": 3}
+
+
+def _fx_norm(s):
+    import unicodedata
+    s = unicodedata.normalize("NFD", str(s or "").strip().lower())
+    return "".join(ch for ch in s if not unicodedata.combining(ch))
+
+
+def fx_from_xlsx(content):
+    """tc_plana_flat.xlsx (bytes) -> {'actuals': {(pais, 'YYYY-MM'): tc}, 'budget': {...}}. Columnas por header, como el Hub."""
+    import io
+    import openpyxl
+    ws = openpyxl.load_workbook(io.BytesIO(content), read_only=True, data_only=True).worksheets[0]
+    it = ws.iter_rows(values_only=True)
+    hdr = {_fx_norm(h): i for i, h in enumerate(next(it)) if h is not None}
+    for h in ("escenario", "ano", "mes", "pais", "dato"):
+        if h not in hdr:
+            raise ValueError(f'tc_plana_flat.xlsx: falta la columna "{h}"')
+    fx = {"actuals": {}, "budget": {}}
+    for r in it:
+        esc = _fx_norm(r[hdr["escenario"]])
+        if esc not in fx:
+            continue
+        mm = _FX_MES.get(_fx_norm(r[hdr["mes"]]))
+        try:
+            fy, tc = int(r[hdr["ano"]]), float(r[hdr["dato"]])
+        except (TypeError, ValueError):
+            continue
+        pais = _fx_norm(r[hdr["pais"]])
+        if not mm or not fy or not tc > 0 or not pais or pais == "euro":
+            continue
+        fx[esc][(pais, f"{fy - 1 if mm >= 4 else fy}-{mm:02d}")] = tc   # FY -> mes calendario
+    for k in fx:
+        if not fx[k]:
+            raise ValueError(f'tc_plana_flat.xlsx: no hay tipos de cambio de "{k}"')
+    return fx
+
+
+def apply_organic(h2_rows, fx):
+    """Filas de OKR_H2_FY27.json -> mismas filas con los KRs monetarios de Run Rate/Actuals a TC Budget.
+    Devuelve (rows, info) con info = {'convertidas', 'sin_tc' (paises sin TC), 'missing' (pais/mes sin TC Actuals o Budget)}."""
+    act, bud = fx["actuals"], fx["budget"]
+    paises_fx = {p for (p, _) in act}
+    out, n, sin_tc, missing = [], 0, set(), set()
+    for r in h2_rows:
+        f, esc, lob, pais, prod, kr, v, est = r
+        if esc != RR or str(kr).strip().lower() not in OKR_MONETARY_KRS:
+            out.append(list(r))
+            continue
+        p = _fx_norm(pais)
+        p = _FX_PAIS_ALIAS.get(p, p)
+        ym = str(f)[:7]
+        if not p or p == "total" or p not in paises_fx:
+            sin_tc.add(p or "(vacio)")
+            out.append(list(r))
+            continue
+        a, t = act.get((p, ym)), bud.get((p, ym))
+        if not a or not t:
+            missing.add(f"{p} {ym}")
+            out.append(list(r))
+            continue
+        out.append([f, esc, lob, pais, prod, kr, round(v * a / t, 2), est])
+        n += 1
+    return out, {"convertidas": n, "sin_tc": sorted(sin_tc), "missing": sorted(missing)}
