@@ -3181,7 +3181,7 @@ function _renderActiveFilters_(goalLabel) {
 }
 
 // ── P&L Table ─────────────────────────────────────────────
-var _pnlSplitB2B = false;   // Consolidado: true = columnas MAY / MIN en vez de una sola B2B
+var _pnlSplitB2B = true;    // Consolidado: true = columnas MAY / MIN en vez de una sola B2B (default abierto, como antes; Diego 2026-10-29)
 function togglePnLSplitB2B() { _pnlSplitB2B = !_pnlSplitB2B; renderPnL(); }
 function _pnlWithB2B_(d) {
   var gi = d.groups.indexOf('MAY'), gj = d.groups.indexOf('MIN');
