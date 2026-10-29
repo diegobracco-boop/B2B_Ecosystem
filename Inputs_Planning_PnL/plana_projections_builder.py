@@ -156,6 +156,7 @@ def read_flat_base(pattern):
     for path in paths:
         name = os.path.basename(path)
         part = pd.read_csv(path, sep=";", dtype=str, encoding="utf-8-sig")
+        part = part.dropna(how="all")   # filas en blanco (separadores de ajustes manuales)
         if len(part) == FLAT_EXPORT_ROW_LIMIT:
             sys.exit(f"{name} tiene exactamente {FLAT_EXPORT_ROW_LIMIT:,} filas = tope de la exportación "
                      f"-> la descarga vino CORTADA (última línea: '{part['linea'].iloc[-1]}'). "
