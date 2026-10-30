@@ -127,7 +127,9 @@ const MODULES = [
     // Solo Ownia (2026-10-26): escenario "Forecast - Bridge to budget" (botón "vs Forecast BTB").
     // El código GAS del módulo no cambia.
     layout: 'pnl-accounting-layout.js',
-    gasExtras: ['pnl-accounting-fbtb.js'],
+    // pnl-accounting-byprod.js: getEPMBreakdown, columnas por país / producto de la tabla Baseline vs Goal (2026-10-30). Va después de fbtb.
+    gasExtras: ['pnl-accounting-fbtb.js', 'pnl-accounting-byprod.js'],
+    cacheFns: ['getEPMBreakdown'],   // depende solo de los filtros y de los canónicos (se invalida cuando cambian)
     allowedUsers: EQUIPO_B2B,
     gasUrl: GAS_EXEC + 'AKfycby9WZK2HfAWx25M5pEMV3nntzJfEvsiT9feMn01zJQkQaI3t2GjTzOIjbFXWexnMuzklQ/exec',
   },
