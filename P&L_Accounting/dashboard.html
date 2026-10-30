@@ -2572,6 +2572,10 @@ function buildBGQHead(quarters, n){
   return h;
 }
 
+// Ejes y tooltips de los gráficos de evolución: Chart.js arma ticks como 2.8000000000000003 (coma flotante).
+// Redondeo a 2 decimales sin ceros de más (2026-10-30).
+function _axisNum_(v){ return (v===null||v===undefined||isNaN(v)) ? v : String(Math.round(v*100)/100); }
+
 // Formatos fijos para P&L Accounting: nominales respetan _numScale, Orders siempre en K
 function fmtMM(v){
   if(v===null||isNaN(v)) return '—';
@@ -3073,13 +3077,13 @@ function renderContableCharts(d){
           tooltip:{
             mode:'index', intersect:false,
             callbacks:{
-              label:function(ctx){ return ctx.dataset.label+': $'+ctx.parsed.y+scaleUnit; }
+              label:function(ctx){ return ctx.dataset.label+': $'+_axisNum_(ctx.parsed.y)+scaleUnit; }
             }
           }
         },
         scales:{
           x:{ ticks:{ color:tickColor, font:{size:10} }, grid:{ color:gridColor } },
-          y:{ ticks:{ color:tickColor, font:{size:10}, callback:function(v){ return '$'+v+scaleUnit; } }, grid:{ color:gridColor } }
+          y:{ ticks:{ color:tickColor, font:{size:10}, callback:function(v){ return '$'+_axisNum_(v)+scaleUnit; } }, grid:{ color:gridColor } }
         }
       }
     });
@@ -3804,12 +3808,12 @@ function renderLobMonthlyCharts_(container, lobName, lobData, lyAgg, lobYoY) {
           legend:{ display:true, position:'bottom', labels:{ color:tickColor, font:{size:10}, boxWidth:24, padding:8 } },
           tooltip:{
             mode:'index', intersect:false,
-            callbacks:{ label:function(ctx){ return ctx.dataset.label+': $'+ctx.parsed.y+_sU2; } }
+            callbacks:{ label:function(ctx){ return ctx.dataset.label+': $'+_axisNum_(ctx.parsed.y)+_sU2; } }
           }
         },
         scales:{
           x:{ ticks:{ color:tickColor, font:{size:10} }, grid:{ color:gridColor } },
-          y:{ ticks:{ color:tickColor, font:{size:10}, callback:function(v){ return '$'+v+_sU2; } }, grid:{ color:gridColor } }
+          y:{ ticks:{ color:tickColor, font:{size:10}, callback:function(v){ return '$'+_axisNum_(v)+_sU2; } }, grid:{ color:gridColor } }
         }
       }
     });
