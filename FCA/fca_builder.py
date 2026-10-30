@@ -47,6 +47,15 @@ PNL_MAP = {
 }
 
 
+# El Budget trae RG (OPS + RG) como país aparte y el RunRate / baseline lo imputa dentro de Brasil: comparados por
+# separado, "rg" aparece con meta y real 0 y Brasil muy arriba (falso hallazgo). Se comparan juntos.
+PAIS_JUNTOS = {"rg": "brasil + rg", "ops": "brasil + rg", "ops + rg": "brasil + rg", "brasil": "brasil + rg"}
+
+
+def pais_key(p):
+    return PAIS_JUNTOS.get(str(p).lower(), str(p))
+
+
 def unit_of(kr):
     k = kr.lower()
     if k.startswith("%") or "price competitiveness" in k:
@@ -67,7 +76,8 @@ def okr_index(okr):
         side = "rr" if esc == RR else "bud" if esc == BUD else None
         if not side:
             continue
-        e[side][ym][str(pais)] = e[side][ym].get(str(pais), 0.0) + float(v or 0)
+        k = "Total" if str(pais) == "Total" else pais_key(pais)
+        e[side][ym][k] = e[side][ym].get(k, 0.0) + float(v or 0)
         if side == "rr" and est:
             e["estado"][ym] = est
     return out
@@ -117,7 +127,7 @@ def pnl_breakdown(base, bud, ym, lob, canal, prod, nivel, top=8):
             v = r["Monto USD"]
             tot[side] += v
             agg["linea"][r["P&L N2"]][side] += v
-            agg["pais"][r["Pais"]][side] += v
+            agg["pais"][pais_key(r["Pais"])][side] += v
             agg["producto"][r["Producto"]][side] += v
     out = {"real": round(tot[0], 2), "meta": round(tot[1], 2), "brecha": round(tot[0] - tot[1], 2)}
     for d, m in agg.items():
@@ -195,6 +205,7 @@ def build(mes, umbral):
         "meta": {"concepto": "fca_input", "mes": mes, "umbral_pct": umbral, "generado": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
                  "cierre_contable_hasta": cierre, "cerrado": cerrado,
                  "nota": "Provisional: el mes no tiene cierre contable; los KRs contables son Run Rate" if not cerrado else "Mes con cierre contable",
+                 "paises": "Brasil y RG (OPS + RG) van juntos ('brasil + rg'): el Budget trae RG aparte y el RunRate lo incluye en Brasil.",
                  "fuentes": ["OKR_H2_FY27.json", "OKR_H2_FY27_Organic.json", "baseline_actuals+projections.json", "budget.json"]},
         "krs": items,
     }
