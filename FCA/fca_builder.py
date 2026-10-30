@@ -167,6 +167,13 @@ def build(mes, umbral):
         p = g and (g.get("pct") if u != "pct" else (g["pp"] / abs(meta_v) * 100 if meta_v else None))
         it["desviado"] = bool(p is not None and abs(p) >= umbral)
         it["sentido"] = None if p is None else ("por debajo de la meta" if p < 0 else "por arriba de la meta")
+        NOTAS = {"MTD": "Real a la fecha (MTD) contra la meta del mes completo: parte de la brecha son los días que faltan del mes.",
+                 "Rolling30": "Real de los últimos 30 días (móvil), no el mes calendario.",
+                 "MesMovil": "Real de los últimos N días (N = días del mes) hasta ayer: comparable con la meta mensual.",
+                 "Manual": "Valor cargado a mano (Input_OKR / tracker): validar que esté actualizado antes de la mesa.",
+                 "Proyeccion": "Run Rate (proyección), sin cierre contable."}
+        if it["estado"] in NOTAS:
+            it["nota_estado"] = NOTAS[it["estado"]]
         if it["desviado"]:
             paises = sorted(({"pais": k, "real": round(r_p.get(k, 0), 2), "meta": round(b_p.get(k, 0), 2),
                               "brecha": round(r_p.get(k, 0) - b_p.get(k, 0), 2)}
