@@ -139,7 +139,7 @@ function row(m, basePath, canOpen, find) {
 // corre en el servidor la actualización diaria del Daily (server/reales-job.js). Reemplaza al Task Scheduler de una PC.
 const REALES_BUTTON = `<button type="button" class="act-btn" id="reales-btn" aria-haspopup="dialog">
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 4v5h-5"/></svg>
-    Actualizar reales</button>`;
+    <span id="reales-btn-t">Actualizar reales</span></button>`;
 
 function realesDialog(basePath) {
   return `<dialog class="dlg" id="reales-dlg" aria-labelledby="reales-t">
@@ -153,7 +153,11 @@ function realesDialog(basePath) {
     <button type="submit" class="dlg-go" id="reales-go">Actualizar</button></div>
   </form>
   <p class="dlg-msg" id="reales-msg" role="status" aria-live="polite"></p>
-  <pre class="dlg-log" id="reales-log" hidden></pre>
+  <div class="dlg-prog" id="reales-prog" hidden>
+    <div class="dlg-bar" role="progressbar" aria-labelledby="reales-pct" aria-valuemin="0" aria-valuemax="100" id="reales-bar"><span></span></div>
+    <div class="dlg-prog-t"><span id="reales-pct"></span><span id="reales-time"></span></div>
+  </div>
+  <details class="dlg-det" id="reales-det" hidden><summary>Ver detalle</summary><pre class="dlg-log" id="reales-log"></pre></details>
 </dialog>
 <script>
   (function () {
@@ -161,6 +165,12 @@ function realesDialog(basePath) {
     var dlg = document.getElementById('reales-dlg'), btn = document.getElementById('reales-btn');
     var form = document.getElementById('reales-form'), pw = document.getElementById('reales-pw'), go = document.getElementById('reales-go');
     var msg = document.getElementById('reales-msg'), logEl = document.getElementById('reales-log'), timer = 0;
+    var prog = document.getElementById('reales-prog'), bar = document.getElementById('reales-bar'), det = document.getElementById('reales-det');
+    var btnT = document.getElementById('reales-btn-t'), shownState = '';
+    function dur(st) {
+      var s = Math.max(0, Math.round(((st.finishedAt ? Date.parse(st.finishedAt) : Date.now()) - Date.parse(st.startedAt)) / 1000));
+      return (s >= 60 ? Math.floor(s / 60) + ' min ' : '') + (s % 60) + ' s';
+    }
     function fmt(iso) {
       if (!iso) return '—';
       return new Date(iso).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
@@ -175,11 +185,27 @@ function realesDialog(basePath) {
       go.disabled = running; pw.disabled = running;
       btn.classList.toggle('busy', running);
       if (running) msg.textContent = 'Actualizando… podés cerrar esta ventana, sigue corriendo en el servidor.';
+      else if (st.state === 'ok' && st.warnings && st.warnings.length) {
+        msg.textContent = 'Listo, con ' + st.warnings.length + (st.warnings.length === 1 ? ' aviso' : ' avisos') + ': ' + st.warnings.join(' · ');
+      }
       else if (st.state === 'ok') msg.textContent = 'Listo: los tableros ya tienen los datos nuevos.';
-      else if (st.state === 'error') msg.textContent = 'La actualización falló. Mirá el detalle abajo.';
+      else if (st.state === 'error') msg.textContent = 'La actualización falló. Abrí "Ver detalle" para ver el error.';
       else if (!st.configured) msg.textContent = 'Falta configurar las credenciales en Ownia.';
       else msg.textContent = '';
-      logEl.hidden = !(st.lines && st.lines.length);
+      // Barra de avance (la calcula el servidor a partir de la salida del proceso, ver reales-job.js).
+      var p = st.progress || { pct: 0, stage: '' };
+      var pct = st.state === 'ok' ? 100 : p.pct;
+      prog.hidden = !st.startedAt;
+      prog.classList.toggle('err', st.state === 'error');
+      prog.classList.toggle('ok', st.state === 'ok');
+      bar.firstElementChild.style.width = pct + '%';
+      bar.setAttribute('aria-valuenow', String(pct));
+      document.getElementById('reales-pct').textContent = pct + '% · ' + (st.state === 'error' ? 'Falló en: ' + p.stage : p.stage);
+      document.getElementById('reales-time').textContent = st.startedAt ? dur(st) : '';
+      btnT.textContent = running ? 'Actualizando ' + pct + '%' : 'Actualizar reales';
+      det.hidden = !(st.lines && st.lines.length);
+      if (st.state === 'error' && shownState !== 'error') det.open = true;   // ante un error, el detalle a la vista
+      shownState = st.state;
       logEl.textContent = (st.lines || []).join('\\n');
       logEl.scrollTop = logEl.scrollHeight;
       clearTimeout(timer);
@@ -283,6 +309,13 @@ function shell(inner, { title = 'The B2B Ecosystem · Despegar', left = '<span c
   .dlg-go { padding: 10px 18px; border-radius: 12px; border: 0; background: var(--primary); color: #fff; font: 500 15px var(--font); cursor: pointer; }
   .dlg-go:disabled, .dlg-row input:disabled { opacity: .5; cursor: default; }
   .dlg-msg { margin-top: 14px; font-size: 14px; color: var(--text-2); min-height: 1.5em; }
+  .dlg-prog { margin-top: 6px; }
+  .dlg-bar { height: 8px; border-radius: 999px; background: var(--tile); overflow: hidden; box-shadow: inset 0 0 0 1px var(--line); }
+  .dlg-bar span { display: block; height: 100%; width: 0; border-radius: inherit; background: var(--primary); transition: width .6s var(--ease); }
+  .dlg-prog.err .dlg-bar span { background: #d93025; }
+  .dlg-prog-t { display: flex; justify-content: space-between; gap: 12px; margin-top: 8px; font-size: 13px; color: var(--text-2); font-variant-numeric: tabular-nums; }
+  .dlg-det { margin-top: 12px; font-size: 13px; color: var(--text-2); }
+  .dlg-det summary { cursor: pointer; width: fit-content; }
   .dlg-log { margin-top: 10px; max-height: 220px; overflow: auto; padding: 12px; border-radius: 12px; background: var(--tile); color: var(--text-2);
              font: 11.5px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre-wrap; word-break: break-word; }
   .theme-btn { margin-left: auto; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; background: transparent;
@@ -372,6 +405,7 @@ function shell(inner, { title = 'The B2B Ecosystem · Despegar', left = '<span c
     .reveal { animation: none !important; transition: none !important; opacity: 1 !important; transform: none !important; }
     .tile, .cta svg, .quick a, .theme-btn, .act-btn { transition: none !important; }
     .act-btn.busy svg { animation: none !important; }
+    .dlg-bar span { transition: none !important; }
   }
 </style>
 </head>

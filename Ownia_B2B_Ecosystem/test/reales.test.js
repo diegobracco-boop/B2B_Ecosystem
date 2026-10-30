@@ -108,6 +108,7 @@ test('lanzar: corre daily_sync.py con las credenciales de APP_SECRETS, una corri
   assert.equal(opts.env.DATALAKE_HOST, 'datalake.despegar.com');
   assert.equal(opts.env.OWNIA_URL, 'http://127.0.0.1:8123');
   assert.equal(opts.env.OWNIA_INGEST_TOKEN, 'tok');
+  assert.equal(opts.env.DAILY_FETCH_WORKERS, '4', 'menos consultas a la vez que en la PC (cola de Trino chica)');
   assert.equal(opts.env.REALES_PASSWORD, undefined, 'la contraseña del botón no llega al proceso');
   // ~/.clasprc.json como lo espera el pipeline (tokens.default), con el access token vencido para que lo renueve.
   assert.deepEqual(child.seen.clasp.tokens.default, { access_token: '', refresh_token: 'refresh-clasp', client_id: 'cliente.apps',
@@ -135,6 +136,57 @@ test('lanzar: corre daily_sync.py con las credenciales de APP_SECRETS, una corri
   assert.equal(st.state, 'ok');
   assert.equal(st.exitCode, 0);
   assert.equal(fs.existsSync(opts.env.HOME), false, 'la carpeta con los tokens se borra al terminar');
+});
+
+test('barra de avance: consultas hasta 80 %, después las etapas del script; nunca retrocede', () => {
+  const { newProgress, advance, EXPECTED_QUERIES } = require('../server/reales-job');
+  const p = newProgress();
+  advance(p, '  > Actuals ...');
+  assert.equal(p.stage, 'Consultando el Datalake');
+  advance(p, '  WAIT LY: cola del Datalake llena, reintento en 15s (1/12)');
+  assert.equal(p.stage, 'Datalake ocupado: esperando turno');
+  for (let i = 0; i < EXPECTED_QUERIES / 2; i++) advance(p, `  OK Q${i}: 1,234 filas en 5s`);
+  assert.equal(p.pct, 41);
+  assert.equal(p.stage, `Consultando el Datalake (${EXPECTED_QUERIES / 2} de ${EXPECTED_QUERIES})`);
+  for (let i = 0; i < EXPECTED_QUERIES + 5; i++) advance(p, `  OK Q${i}: 10 filas en 1s`);
+  assert.equal(p.pct, 80, 'más consultas de las esperadas no pasan del 80 %');
+  advance(p, '--- Agregando ---');
+  assert.deepEqual([p.pct, p.stage], [82, 'Armando los archivos']);
+  advance(p, '--- Subiendo a Google Drive ---');
+  advance(p, '  OK Drive: archivo actualizado (daily_b2b2c_data.json)');
+  advance(p, '  OK Drive: archivo actualizado (daily_b2b_data.json)');
+  assert.deepEqual([p.pct, p.stage], [91, 'Publicando en Drive y Ownia']);
+  advance(p, '  OK flow_oc: 366 filas · meses cerrados');
+  assert.equal(p.pct, 91, 'una línea que no es de consulta no mueve la barra');
+  advance(p, '  WARN B2B GD intento 1 fallo (timeout); reintentando...');
+  advance(p, '  WARN Ownia: no se pudo publicar daily_b2b_data.json (HTTP 500)');
+  advance(p, '*** AVISO: NO se pudo regenerar okr.json (timeout). ***');
+  advance(p, 'OK Completado: 30-10-2026 00:00');
+  assert.deepEqual([p.pct, p.stage], [100, 'Listo']);
+  assert.deepEqual(p.warnings, ['WARN Ownia: no se pudo publicar daily_b2b_data.json (HTTP 500)', '*** AVISO: NO se pudo regenerar okr.json (timeout). ***'],
+    'los reintentos de una consulta no son avisos');
+});
+
+test('salida cortada en pedazos: las líneas se arman enteras antes de contarlas', async () => {
+  assert.equal((await post('clave')).status, 202);
+  const { child } = spawned[spawned.length - 1];
+  child.stdout.emit('data', '  OK Actuals: 95,0');
+  child.stdout.emit('data', '39 filas en 40s\n  > L');
+  let st = JSON.parse((await request(server, 'GET', `${BASE}/reales`, { headers: ANA })).text);
+  assert.deepEqual(st.lines.filter((l) => !/^Memoria/.test(l)), ['  OK Actuals: 95,039 filas en 40s']);
+  assert.match(st.progress.stage, /Consultando el Datalake \(1 de \d+\)/);
+  child.stdout.emit('data', 'Y ...');
+  child.emit('close', 0);
+  st = JSON.parse((await request(server, 'GET', `${BASE}/reales`, { headers: ANA })).text);
+  assert.equal(st.lines[st.lines.length - 1], '  > LY ...', 'lo que quedó sin salto de línea se agrega al cerrar');
+});
+
+test('proceso cortado por el sistema (SIGKILL): error con el motivo probable', async () => {
+  assert.equal((await post('clave')).status, 202);
+  spawned[spawned.length - 1].child.emit('close', null, 'SIGKILL');
+  const st = JSON.parse((await request(server, 'GET', `${BASE}/reales`, { headers: ANA })).text);
+  assert.equal(st.state, 'error');
+  assert.match(st.lines[st.lines.length - 1], /SIGKILL.*falta de memoria/);
 });
 
 test('una corrida que sale con error queda como error', async () => {

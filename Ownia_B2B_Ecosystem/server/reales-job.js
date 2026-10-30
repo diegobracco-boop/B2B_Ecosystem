@@ -30,6 +30,51 @@ const SECRET_KEYS = ['DATALAKE_PASSWORD', 'DRIVE_CLIENT_SECRET', 'DRIVE_REFRESH_
 // Contraseña equivocada: hasta 5 intentos cada 15 minutos por usuario.
 const MAX_FAILS = 5;
 const FAIL_WINDOW_MS = 15 * 60 * 1000;
+// Consultas al Datalake de una corrida completa (líneas "OK <consulta>: N filas" de daily_sync.py; 32 el
+// 2026-10-30). Solo sirve para la barra de avance: si cambia, la barra se queda en 80 % un rato o salta.
+const EXPECTED_QUERIES = 32;
+
+// Barra de avance a partir de la salida de daily_sync.py: las consultas llevan hasta el 80 %; después,
+// las etapas fijas del script. Nunca retrocede.
+const STAGES = [
+  [/^--- Agregando ---/, 82, 'Armando los archivos'],
+  [/^--- OC B2B2C/, 85, 'Armando los archivos'],
+  [/^--- Subiendo a Google Drive ---/, 88, 'Publicando en Drive y Ownia'],
+  [/^--- Partners API/, 96, 'Últimos ajustes (Partners API y OKR)'],
+  [/^OK Completado/, 100, 'Listo'],
+];
+function newProgress() {
+  return { pct: 0, stage: 'Arrancando', queries: 0, expected: EXPECTED_QUERIES, uploads: 0, floor: 0, waiting: false, warnings: [] };
+}
+// Avisos de daily_sync.py que no cortan la corrida (p.ej. "WARN Ownia: no se pudo publicar…", "AVISO: NO se sube…"):
+// se muestran aunque termine bien. Los reintentos de una consulta ("WARN <consulta> intento N") no cuentan.
+const WARN_RE = /^\s*(\*\*\*\s*)?(WARN|AVISO)\b/;
+const RETRY_RE = /^\s*WARN .+ intento \d+ fallo/;
+function advance(p, line) {
+  if (WARN_RE.test(line) && !RETRY_RE.test(line) && p.warnings.length < 20) p.warnings.push(line.trim());
+  if (/^\s+> .+ \.\.\.$/.test(line) && p.floor === 0) p.stage = 'Consultando el Datalake';
+  if (/^\s+OK .+: [\d.,]+ filas en /.test(line)) { p.queries += 1; p.waiting = false; }
+  if (/^\s+WAIT .*cola del Datalake llena/.test(line)) p.waiting = true;
+  if (/^\s+(OK Drive:|DRY RUN:)/.test(line)) p.uploads += 1;
+  for (const [re, floor, stage] of STAGES) if (re.test(line) && floor > p.floor) { p.floor = floor; p.stage = stage; }
+  const q = 2 + 78 * Math.min(p.queries, p.expected) / p.expected;
+  const f = p.floor + (p.floor === 88 ? Math.min(p.uploads, 5) * 1.6 : 0);
+  p.pct = Math.max(p.pct, Math.round(Math.max(p.floor === 0 ? q : Math.max(q, f), f)));
+  if (p.floor === 0 && p.queries) p.stage = `Consultando el Datalake (${Math.min(p.queries, p.expected)} de ${p.expected})`;
+  if (p.waiting && p.floor === 0) p.stage = 'Datalake ocupado: esperando turno';
+  return p;
+}
+
+// Límite de memoria del contenedor (cgroup v2 o v1), para el log de la corrida. null si no se sabe.
+function containerMemoryMb() {
+  for (const f of ['/sys/fs/cgroup/memory.max', '/sys/fs/cgroup/memory/memory.limit_in_bytes']) {
+    try {
+      const v = fs.readFileSync(f, 'utf8').trim();
+      if (/^\d+$/.test(v) && Number(v) < 2 ** 50) return Math.round(Number(v) / 2 ** 20);
+    } catch (e) { /* no existe en este sistema */ }
+  }
+  return null;
+}
 
 function resolvePipelinesDir(appRoot) {
   if (process.env.PIPELINES_DIR) return path.resolve(process.env.PIPELINES_DIR);
@@ -54,7 +99,7 @@ function createRealesJob(cfg, opts = {}) {
   const pipelinesDir = opts.pipelinesDir || resolvePipelinesDir(cfg.APP_ROOT);
   const script = path.join(pipelinesDir, 'Daily_Dashboard', 'daily_sync.py');
   const secrets = cfg.secrets || {};
-  const run = { state: 'idle', startedAt: null, finishedAt: null, by: null, exitCode: null, lines: [] };
+  const run = { state: 'idle', startedAt: null, finishedAt: null, by: null, exitCode: null, lines: [], progress: newProgress() };
   const fails = new Map();   // email -> [timestamps]
   // Un traceback puede traer una credencial: los valores de los secretos (y lo que siga a Bearer / password= /
   // refresh_token) se tachan antes de guardar la línea o mandarla al log.
@@ -80,15 +125,30 @@ function createRealesJob(cfg, opts = {}) {
       if (!raw.trim()) continue;
       const line = redact(raw);
       run.lines.push(line);
+      advance(run.progress, line);
       log({ level: 'info', msg: 'reales', line });
     }
     if (run.lines.length > MAX_LINES) run.lines.splice(0, run.lines.length - MAX_LINES);
   }
 
+  // Un 'data' de stdout puede cortar una línea a la mitad: se junta hasta el salto de línea.
+  function lineReader() {
+    let rest = '';
+    return {
+      data(chunk) {
+        const parts = (rest + chunk).split(/\r?\n/);
+        rest = parts.pop();
+        if (parts.length) push(parts.join('\n'));
+      },
+      end() { if (rest) push(rest); rest = ''; },
+    };
+  }
+
   function status() {
+    const { pct, stage, warnings } = run.progress;
     return {
       state: run.state, startedAt: run.startedAt, finishedAt: run.finishedAt, by: run.by, exitCode: run.exitCode,
-      lines: run.lines.slice(-40), configured: missing().length === 0,
+      progress: { pct, stage }, warnings: warnings.slice(), lines: run.lines.slice(-40), configured: missing().length === 0,
     };
   }
 
@@ -132,6 +192,9 @@ function createRealesJob(cfg, opts = {}) {
       // Doble escritura: ownia_publish.py sube a este mismo servidor (http solo a 127.0.0.1).
       OWNIA_URL: `http://127.0.0.1:${cfg.PORT}`,
       OWNIA_INGEST_TOKEN: cfg.INGEST_TOKEN,
+      // 4 consultas a la vez y no 6 como en la PC: la cola de Trino del usuario es chica (QUERY_QUEUE_FULL en la primera
+      // corrida desde Ownia, 2026-10-30). daily_sync.py además espera y reintenta si la cola se llena igual.
+      DAILY_FETCH_WORKERS: secrets.DAILY_FETCH_WORKERS || '4',
     };
     if (secrets.DRIVE_READ_REFRESH_TOKEN) {
       env.DRIVE_READ_TOKEN_FILE = path.join(home, 'drive_read_token.json');
@@ -140,8 +203,10 @@ function createRealesJob(cfg, opts = {}) {
       fs.writeFileSync(env.DRIVE_READ_TOKEN_FILE, JSON.stringify(read), { mode: 0o600 });
     }
 
-    Object.assign(run, { state: 'running', startedAt: new Date().toISOString(), finishedAt: null, by: email, exitCode: null, lines: [] });
+    Object.assign(run, { state: 'running', startedAt: new Date().toISOString(), finishedAt: null, by: email, exitCode: null, lines: [], progress: newProgress() });
     log({ level: 'info', msg: 'reales: arranca la actualización', by: email });
+    const mem = containerMemoryMb();
+    if (mem) push(`Memoria del contenedor: ${mem.toLocaleString('es-AR')} MB`);
     let done = false;
     let timer = null;
     const finish = (code) => {
@@ -161,14 +226,24 @@ function createRealesJob(cfg, opts = {}) {
       return { ok: true, status: status() };
     }
     timer = setTimeout(() => { push(`Cortado: pasaron ${TIMEOUT_MS / 60000} minutos sin terminar.`); child.kill('SIGKILL'); }, TIMEOUT_MS);
-    child.stdout.on('data', (d) => push(d));
-    child.stderr.on('data', (d) => push(d));
+    const out = lineReader();
+    const err = lineReader();
+    // utf8 en el stream: un carácter de varios bytes cortado entre dos 'data' no se rompe.
+    for (const s of [child.stdout, child.stderr]) if (typeof s.setEncoding === 'function') s.setEncoding('utf8');
+    child.stdout.on('data', (d) => out.data(d));
+    child.stderr.on('data', (d) => err.data(d));
     child.on('error', (e) => { push(`No se pudo lanzar ${python}: ${e.message}`); finish(-1); });
-    child.on('close', (code) => finish(code === null ? -1 : code));
+    child.on('close', (code, signal) => {
+      out.end();
+      err.end();
+      // SIGKILL sin que lo pidamos = casi siempre el contenedor se quedó sin memoria.
+      if (code === null) push(`El proceso se cortó (señal ${signal || 'desconocida'})${signal === 'SIGKILL' ? ': posible falta de memoria del contenedor' : ''}.`);
+      finish(code === null ? -1 : code);
+    });
     return { ok: true, status: status() };
   }
 
   return { start, status, missing };
 }
 
-module.exports = { createRealesJob, resolvePipelinesDir };
+module.exports = { createRealesJob, resolvePipelinesDir, newProgress, advance, EXPECTED_QUERIES };

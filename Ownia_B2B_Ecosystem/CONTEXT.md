@@ -122,7 +122,13 @@ pipelines (sin cambios) ──▶ Drive ──▶ mirror/ownia_mirror.py ──P
 **Actualizar reales (2026-10-30):** botón de la portada (`server/index-page.js`), solo para `EQUIPO_B2B` y con
 contraseña (`REALES_PASSWORD`, máx. 5 intentos cada 15 min por usuario). `POST /reales` lanza en el servidor
 `pipelines/Daily_Dashboard/daily_sync.py` (`server/reales-job.js`, una corrida por vez, corte a los 45 min);
-`GET /reales` da el estado y las últimas líneas de la salida, que también van al log de la app. El pipeline va a Trino
+`GET /reales` da el estado, la barra de avance (`progress.pct` / `progress.stage`, calculados con la salida del
+script en `advance()`: las 32 consultas llevan hasta el 80 % y después Agregando → Subiendo a Drive → Completado), los
+avisos que no cortan la corrida (`warnings`: líneas WARN / AVISO, sin los reintentos) y las últimas líneas de la salida,
+que también van al log de la app. Corre con `DAILY_FETCH_WORKERS=4` (en la PC son 6): la primera corrida desde Ownia
+(2026-10-30) murió con `QUERY_QUEUE_FULL` de Trino; desde entonces `fetch()` de `daily_sync.py` espera y reintenta
+con cola llena sin gastar intentos (`QUEUE_FULL_WAITS`), y escribe la salida línea por línea (`line_buffering`).
+Al arrancar loguea la memoria del contenedor y al terminar la memoria máxima del proceso. El pipeline va a Trino
 por HTTPS (`DATALAKE_HOST`, sin ODBC), sube a Drive con el token de clasp (lo siguen leyendo las landings GAS) y a
 Ownia por `/ingest` en `127.0.0.1` (doble escritura de `ownia_publish.py`). Secretos de la app: `DATALAKE_USER`,
 `DATALAKE_PASSWORD`, `DRIVE_CLIENT_ID` / `DRIVE_CLIENT_SECRET` (cliente OAuth de clasp), `DRIVE_REFRESH_TOKEN`

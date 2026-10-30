@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 import sys, io
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+# line_buffering: cada línea sale al momento (en Ownia la lee server/reales-job.js para la barra de avance;
+# sin esto la salida llegaba toda junta al final).
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace", line_buffering=True)
 """
 daily_sync.py
 =============
@@ -54,6 +56,7 @@ DRY_RUN_DIR = os.getenv("DAILY_DRY_RUN_DIR", "")
 # Queries simultáneas contra el Datalake. Algunos usuarios tienen una cola más chica en Trino
 # (QUERY_QUEUE_FULL con 6): bajarlo con la variable de entorno DAILY_FETCH_WORKERS=3.
 FETCH_WORKERS = int(os.getenv("DAILY_FETCH_WORKERS", "6"))
+QUEUE_FULL_WAITS = 12   # esperas por cola llena (15 s, 30 s, 45 s y después 60 s: ~10 min por query como máximo)
 
 DRIVE_FOLDER_ID   = "1lWzfqweyV6Kz1ERkL85ikFcmzmKwGwwh"
 JSON_FILE_NAME    = "daily_b2b2c_data.json"
@@ -1227,11 +1230,17 @@ def fetch(query: str, label: str, retries: int = 3) -> pd.DataFrame:
     """Reintenta con conexion nueva ante cortes transitorios de red/VPN hacia el
     Datalake (visto 2026-09-24: 'abandoned by client', 'Failure when receiving
     data from the peer', fallos de SSL handshake — todos intermitentes, no
-    reproducibles con la misma query/conexion; una conexion nueva los resuelve)."""
+    reproducibles con la misma query/conexion; una conexion nueva los resuelve).
+
+    Cola llena del usuario en Trino (QUERY_QUEUE_FULL, "Too many queued queries"): no es un error de la
+    query sino que el usuario ya tiene demasiadas en cola (otras corridas, Metabase…). Se espera y se
+    reintenta sin gastar los `retries` (visto 2026-10-30 en la primera corrida desde Ownia: la LY se
+    quedó sin intentos en 15 s y cortó la sync)."""
     print(f"  > {label} ...")
     t0 = time.monotonic()
-    last_err = None
-    for attempt in range(1, retries + 1):
+    attempt, queue_waits = 0, 0
+    while True:
+        attempt += 1
         try:
             con = conectar()
             try:
@@ -1242,11 +1251,17 @@ def fetch(query: str, label: str, retries: int = 3) -> pd.DataFrame:
                   + (f" (intento {attempt})" if attempt > 1 else ""))
             return df
         except Exception as e:
-            last_err = e
-            if attempt < retries:
-                print(f"  WARN {label} intento {attempt} fallo ({e}); reintentando...")
+            if "QUERY_QUEUE_FULL" in str(e) and queue_waits < QUEUE_FULL_WAITS:
+                queue_waits += 1
+                attempt -= 1
+                espera = min(15 * queue_waits, 60)
+                print(f"  WAIT {label}: cola del Datalake llena, reintento en {espera}s ({queue_waits}/{QUEUE_FULL_WAITS})")
+                time.sleep(espera)
+                continue
+            if attempt >= retries:
+                raise
+            print(f"  WARN {label} intento {attempt} fallo ({e}); reintentando...")
             time.sleep(5)
-    raise last_err
 
 
 RG_PAIS = "RG"   # país de ajuste: COI + efecto financiero de Brasil con signo contrario (switch "COI Brasil")
@@ -2284,6 +2299,10 @@ except (Exception, SystemExit) as e:   # build() hace sys.exit si el gestional n
 
 # El email diario lo envía automáticamente el trigger de GAS (scheduledEmailSend).
 # Para configurar el trigger por primera vez: abrir el editor de GAS y correr setupEmailTrigger().
+
+if sys.platform != "win32":   # en Ownia: cuánta memoria pidió la corrida (corre en el mismo contenedor que la app)
+    import resource
+    print(f"\n  Memoria máxima del proceso: {resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024:,.0f} MB")
 
 print(f"\nOK Completado: {TODAY.strftime('%d-%m-%Y %H:%M')}")
 
