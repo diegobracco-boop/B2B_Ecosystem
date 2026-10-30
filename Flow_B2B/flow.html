@@ -50,7 +50,23 @@ textarea:focus{border-color:#550fed;box-shadow:0 0 0 3px rgba(85,15,237,.12)}
 @media (max-width:900px){.fx-side{display:none}}
 .fx-top .fx-btn{padding:7px 14px;font-size:12.5px}
 </style>
-<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+<script>
+// pptxgenjs (~480 KB) solo hace falta al exportar: se baja con el primer clic en PPTX, no al abrir (2026-10-30).
+var _pptxLib_;
+function loadPptx_() {
+  return _pptxLib_ = _pptxLib_ || new Promise(function (ok, ko) {
+    var s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js';
+    s.onload = ok; s.onerror = function () { _pptxLib_ = null; ko(); };
+    document.head.appendChild(s);
+  });
+}
+</script>
+<script>
+// html2canvas (~200 KB) solo se usa al exportar (Slides / imágenes): se baja en la primera captura, no al abrir (2026-10-30).
+// Misma firma que la librería (devuelve una Promise): al cargar, el script real pisa window.html2canvas.
+(function(){var p;window.html2canvas=function(el,o){p=p||new Promise(function(ok,ko){var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';s.onload=ok;s.onerror=function(){p=null;ko(new Error('No se pudo cargar html2canvas (sin acceso a internet o bloqueado).'));};document.head.appendChild(s);});return p.then(function(){return window.html2canvas(el,o);});};})();
+</script>
 </head>
 <body>
 <header class="fx-top">
@@ -217,12 +233,13 @@ textarea:focus{border-color:#550fed;box-shadow:0 0 0 3px rgba(85,15,237,.12)}
   var pptxBtn = document.getElementById('fx-pptx');
   pptxBtn.onclick = function () {
     var fr = document.getElementById('f-' + sec), win = fr && fr.contentWindow, label = pptxBtn.textContent;
-    if (typeof PptxGenJS === 'undefined') { alert('No se pudo cargar la librería de PowerPoint (sin acceso a internet o bloqueada).'); return; }
     if (!win || typeof win.__flowExport !== 'function') { alert('La presentación todavía está cargando. Probá de nuevo en unos segundos.'); return; }
     flushText();
     pptxBtn.disabled = true; pptxBtn.textContent = '⏳ Capturando slides…';
     var w = where[sec], month = (w && w.month) || '', comments = load();
-    win.__flowExport().then(function (slides) {
+    loadPptx_().then(function () { return win.__flowExport(); }, function () {
+      throw new Error('No se pudo cargar la librería de PowerPoint (sin acceso a internet o bloqueada).');
+    }).then(function (slides) {
       if (!slides.length) throw new Error('No hay slides para exportar.');
       pptxBtn.textContent = '⏳ Armando PPTX…';
       var p = new PptxGenJS(), W = 13.333, H = 7.5;
@@ -422,9 +439,6 @@ textarea:focus{border-color:#550fed;box-shadow:0 0 0 3px rgba(85,15,237,.12)}
 
   document.addEventListener('DOMContentLoaded', function () {
     document.body.appendChild(root);
-    var h2c = document.createElement('script');
-    h2c.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
-    document.head.appendChild(h2c);
     window.addEventListener('resize', fit);
     var sel = root.querySelector('.fc-mes');
     sel.onchange = function () { mes = sel.value; loadMonth(); };

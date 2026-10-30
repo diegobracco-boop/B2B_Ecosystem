@@ -20,6 +20,8 @@ function include(name) {
 
 var _veces = 0;
 function contador() { _veces++; return _veces; }   // para probar el cache de respuestas: cada ejecución real suma uno
+var _fallas = 0;
+function contadorFalla() { _fallas++; return { success: false, error: 'sin datos', n: _fallas }; }   // error "devuelto" (no tirado), como varias funciones GAS
 
 function sumar(a, b) {
   return a + b;

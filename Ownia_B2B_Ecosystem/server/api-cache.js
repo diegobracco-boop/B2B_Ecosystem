@@ -49,6 +49,14 @@ class ApiCache {
     }
   }
 
+  /** Descarta una entrada (si sigue siendo `e`: no borra una más nueva con la misma clave). */
+  delete(key, e) {
+    const cur = this.map.get(key);
+    if (!cur || (e && cur !== e)) return;
+    this.map.delete(key);
+    this.bytes -= cur.bytes;
+  }
+
   /** Descarta todo lo de un módulo (cambió algún archivo que lee). */
   dropModule(slug) {
     for (const [k, e] of this.map) {

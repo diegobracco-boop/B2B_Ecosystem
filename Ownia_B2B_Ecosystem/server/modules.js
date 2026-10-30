@@ -108,7 +108,10 @@ const MODULES = [
     gasExtras: ['daily-industry.js', 'daily-b2c-budget.js', 'daily-weekly-fvm.js'],
     // Funciones que solo leen un JSON del espejo y devuelven lo mismo para todos: se cachea la respuesta ya comprimida (server/api-cache.js).
     // Agregar acá solo funciones que NO dependan del usuario ni de parámetros ocultos.
-    cacheFns: ['getRawB2BC', 'getRawB2B', 'getB2BData', 'getRawOKRH2', 'getRawRecurrencia', 'getRecurTargets'],
+    // Las …Text son las que pide dashboard.html al abrir (getRawB2BCText ~8 MB comprimido): sin cache se releía y recomprimía en cada visita
+    // (~0,7 s de hilo bloqueado). getWeeklySummaryData depende solo de sus parámetros (lob, vista, canal, organic, COI BR) y del día. 2026-10-30.
+    cacheFns: ['getRawB2BC', 'getRawB2B', 'getB2BData', 'getRawOKRH2', 'getRawRecurrencia', 'getRecurTargets',
+      'getRawB2BCText', 'getRawB2BText', 'getRawOKRH2Text', 'getRawRecurrenciaText', 'getWeeklySummaryData', 'getFxTable', 'getOKRManualB2B2C'],
     gasUrl: GAS_EXEC + 'AKfycbwMR3zk1r4uwui8vGtcmz0OwmeehC5JM8cuJRE3H-GQMfvxXWGTkYQ3R2nVjMyeAdX_1A/exec',
   },
   {

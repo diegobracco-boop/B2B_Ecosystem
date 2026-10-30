@@ -9,8 +9,8 @@ function _wsFvmYoY_(params, conv) {
   var view = (params && params.view) || 'GD';
   var lob = (params && params.lob) || 'B2B+B2B2C';
   var channel = (lob === 'B2B' && params && params.channel) || '';
-  var b2bcRaw = loadFile_(B2BC_JSON, B2BC_CACHE_KEY);
-  var b2bRaw = loadFile_(B2B_JSON, B2B_CACHE_KEY);
+  var b2bcRaw = loadFileShared_(B2BC_JSON, B2BC_CACHE_KEY);
+  var b2bRaw = loadFileShared_(B2B_JSON, B2B_CACHE_KEY);
   return {
     act: _wsAggWeekly_(_wsOrg_(_wsByChannel_(_wsGetActuals_(lob, view, b2bcRaw, b2bRaw), channel), conv)),
     ly: _wsAggWeekly_(_wsByChannel_(_wsGetLY_(lob, view, b2bcRaw, b2bRaw), channel))

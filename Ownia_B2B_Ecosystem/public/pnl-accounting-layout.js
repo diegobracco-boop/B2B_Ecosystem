@@ -239,6 +239,19 @@
     '.pa-f .ms-panel{z-index:60;min-width:200px}';
   (document.head || document.documentElement).appendChild(css);
 
+  // #bg-country-blocks queda oculto (arriba): no se dibuja. Al abrir, renderCountryPnlBlocks armaba ahí 18 gráficos y ~4.000
+  // celdas invisibles, y otra vez al llegar getEPMB2BCountryDetail (2026-10-30, medido con Chrome headless). Se conserva lo que
+  // hace con las instancias viejas (destroy) por si alguna quedó de antes.
+  document.addEventListener('DOMContentLoaded', function () {
+    if (typeof W.renderCountryPnlBlocks !== 'function') return;
+    W.renderCountryPnlBlocks = function () {
+      (W._contLobCharts || []).forEach(function (c) { try { c.destroy(); } catch (e) {} });
+      W._contLobCharts = [];
+      var box = document.getElementById('bg-country-blocks');
+      if (box) box.textContent = '';
+    };
+  });
+
   document.addEventListener('DOMContentLoaded', function () {
     var hBtn = document.getElementById('btn-period-h');
     var needed = ['setBGPeriod', 'getActivePeriods_', 'renderBaselineGoalTable', 'fillBGBody', 'buildBGScenHead', 'buildBGQHead', 'getContableFilters',

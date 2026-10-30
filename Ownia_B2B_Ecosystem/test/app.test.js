@@ -19,7 +19,7 @@ const DEMO_LAYOUT = { slug: 'demo-layout', dir: 'Demo_Module', title: 'Demo layo
 // Mismo proyecto con funciones propias de Ownia (como el Daily: gasExtras).
 const DEMO_EXTRAS = { slug: 'demo-extras', dir: 'Demo_Module', title: 'Demo extras', desc: 'demo', ownia: true, requiresIdentity: false, gasExtras: ['daily-industry.js'], gasUrl: '' };
 // Mismo proyecto con `cacheFns`: la respuesta de esas funciones se calcula una vez y se reparte ya comprimida (server/api-cache.js).
-const DEMO_CACHE = { slug: 'demo-cache', dir: 'Demo_Module', title: 'Demo cache', desc: 'demo', ownia: true, requiresIdentity: false, cacheFns: ['contador'], gasUrl: '' };
+const DEMO_CACHE = { slug: 'demo-cache', dir: 'Demo_Module', title: 'Demo cache', desc: 'demo', ownia: true, requiresIdentity: false, cacheFns: ['contador', 'contadorFalla'], gasUrl: '' };
 const PENDIENTE = { slug: 'pendiente', dir: 'No_Existe', title: 'Pendiente', desc: 'x', ownia: false, gasUrl: 'https://script.google.com/x/exec' };
 
 let demoServer;
@@ -67,6 +67,25 @@ test('cache de respuestas: una función en cacheFns se ejecuta una vez; las dem�
   assert.equal(gz.headers['content-encoding'], 'gzip', 'con gzip se reparte el comprimido tal cual');
   assert.equal(await v('demo'), 1);
   assert.equal(await v('demo'), 2, 'sin cacheFns se ejecuta cada vez');
+});
+
+test('cache de respuestas: un { success: false } devuelto no se guarda (el próximo pedido vuelve a calcular)', async () => {
+  const n = async () => JSON.parse((await run('contadorFalla', [], {}, 'demo-cache')).text).result.n;
+  assert.equal(await n(), 1);
+  assert.equal(await n(), 2);
+});
+
+test('JS propios: gzip si el navegador lo acepta e inmutables con el ?v= del contenido', async () => {
+  const page = await request(demoServer, 'GET', `${BASE}/demo-layout`);
+  const src = /src="([^"]*_gas\/layout\/hub-layout\.js\?v=[^"]+)"/.exec(page.text)[1];
+  const r = await request(demoServer, 'GET', src, { headers: { 'Accept-Encoding': 'gzip, deflate, br' } });
+  assert.equal(r.status, 200);
+  assert.equal(r.headers['content-encoding'], 'gzip');
+  assert.match(r.headers['cache-control'], /immutable/);
+  const plain = await request(demoServer, 'GET', src.replace(/\?v=.*/, '?v=viejo'));
+  assert.equal(plain.headers['content-encoding'], undefined, 'sin Accept-Encoding: gzip, sin comprimir');
+  assert.equal(plain.headers['cache-control'], 'public, max-age=3600', 'con otro ?v= no se marca inmutable');
+  assert.match(plain.text, /hub|Hub/);
 });
 
 test('health responde sin prefijo y con prefijo', async () => {

@@ -9,7 +9,11 @@
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script>
+// html2canvas (~200 KB) solo se usa al exportar (Slides / imágenes): se baja en la primera captura, no al abrir (2026-10-30).
+// Misma firma que la librería (devuelve una Promise): al cargar, el script real pisa window.html2canvas.
+(function(){var p;window.html2canvas=function(el,o){p=p||new Promise(function(ok,ko){var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';s.onload=ok;s.onerror=function(){p=null;ko(new Error('No se pudo cargar html2canvas (sin acceso a internet o bloqueado).'));};document.head.appendChild(s);});return p.then(function(){return window.html2canvas(el,o);});};})();
+</script>
 <style>
 /* ── Tokens — dark ─────────────────────────────────────── */
 :root {

@@ -111,8 +111,9 @@ pipelines (sin cambios) ──▶ Drive ──▶ mirror/ownia_mirror.py ──P
   (`_gestionalJsonCache_`, `_fxCache_`…). Sin la recarga servirían datos viejos. Solo se recargan los módulos que
   leen el archivo que cambió (según `drive-manifest.json`): recargar pierde su caché en memoria, y el mirror sube
   archivos del Daily varias veces por día que el Hub no lee.
-- **Respuestas con gzip**: las de `google.script.run` y las páginas de más de 32 KB viajan comprimidas si el
-  navegador lo acepta (el Daily manda ~65 MB de JSON → ~11 MB).
+- **Respuestas con gzip**: las de `google.script.run`, la portada y las páginas de más de 4 KB viajan comprimidas si el
+  navegador lo acepta (el Daily manda ~65 MB de JSON → ~11 MB). Los JS propios (`/_gas/client.js`, `nav.js`, layouts,
+  `/_portal/ask.js`) se comprimen una vez y, pedidos con su `?v=<hash>`, van con `Cache-Control: immutable` (1 año).
 - **Todo corre en un solo hilo**: mientras una función GAS calcula, las demás requests esperan. Una función lenta en
   frío frena a todos los módulos (y pasados 55 s se corta con "Script execution timed out"). Al migrar un módulo,
   medir su carga en frío (`npm run dev` + los tiempos `ms` del log) — ver el caso del Hub en "Estado".
@@ -321,3 +322,24 @@ Entrada propia del menú principal que junta, con la misma regla de fuentes, los
 - **Menú principal rediseñado (2026-10-28)**: `server/index-page.js`, estilo Apple (claro por defecto, sin intro): "Lo esencial" (Flow, Daily, P&L Dashboard, P&L Managerial, con accesos directos) y "Más tableros" en lista. Textos llanos en `COPY`. Las tarjetas de módulos en validación ya no muestran "Versión Apps Script" (`hideGasLink` en `modules.js`). El Flow acepta `?view=semanal|mensual|cierre`.
 - **Menú y Manual (2026-10-28)**: el menú vuelve a abrir con la intro "The B2B Ecosystem" y fondo oscuro (`#0F0F1E`); el claro es opcional (clave `b2b-api-theme`, compartida con el Manual). El Manual en Ownia lleva `public/manual-layout.js`: diseño oscuro/claro con botón, índice con íconos y, en el Gantt, **"Agregar tarea"** (un día, días de la semana, o una vez al mes; se guarda para todos en `/notes/manual/gantt`, campos `t_*`; quitar = texto vacío). El motor de reglas del Gantt (incluye `fri-before-first-tue` = envío del material MRM) vive en `Manual_B2B_WLs/manual.html`. El menú tiene acceso rápido "Gantt" en la fila del Manual (`/manual?view=gantt`).
 - **Cache de respuestas (2026-10-28)**: `server/api-cache.js`. Las funciones de un módulo listadas en `cacheFns` (modules.js; hoy los `getRaw…`/`getB2BData`/`getRecurTargets` del Daily) se calculan una vez y se reparten ya comprimidas; se invalidan cuando cambia un archivo que lee el módulo y por día; tope 120 MB. Solo para funciones que no dependen del usuario. El log de cada llamada trae `cache: hit|miss`. Motivo: una respuesta grande frena el hilo único y hacía fallar el chequeo de salud (timeouts de /health con el Daily abriendo).
+- **Performance (2026-10-30, medido A/B en local con Chrome headless por CDP, mismo `_store`, HEAD vs cambios)**:
+  - Weekly del Daily / Flow (`getWeeklySummaryData`, 8 combinaciones del Flow): 17,6 s → 2,3 s con Organic, 8,0 s → 0,5 s nominal,
+    salida idéntica byte a byte. Causa: cada llamada armaba 3-4 resúmenes y cada uno hacía `JSON.parse` del JSON entero (`loadFile_`),
+    re-normalizaba las mismas filas y calculaba la semana ISO fila por fila. Ahora: `loadFileShared_` (parsea una vez por versión del
+    archivo, solo lectores que no modifican; `sendDailyEmail_` sigue con `loadFile_` porque toca `budget`), `_wsNorm_` (memo por objeto
+    de origen, WeakMap) y memo de `_wsIsoWeek_` (`Daily_Dashboard/Codigo.js`). Flow abre en ~3 s en caliente (antes ~37 s).
+  - `cacheFns` del Daily suma las `getRaw…Text` (las que pide `dashboard.html` al abrir), `getWeeklySummaryData`, `getFxTable` y
+    `getOKRManualB2B2C`. Un `{ success: false }` devuelto no se guarda en el cache (`ApiCache.delete`).
+  - html2canvas (Hub, Daily, Flow) y pptxgenjs (Flow) se bajan recién al exportar: un stub con la misma firma carga la librería en la
+    primera captura.
+  - P&L Accounting: `_srv_` deduplica pedidos en vuelo (al abrir salían dos `getEPMBaselineGoalData` idénticos) y el layout no dibuja
+    `#bg-country-blocks` (oculto): 33 → 9 gráficos, 4.279 → 1.078 `innerHTML`, DOM 6.209 → 2.272 nodos, heap 21 → 11 MB.
+  - Pendiente: el Daily sigue bajando ~12 MB comprimidos al abrir (long task ~0,5-0,7 s al parsear) y CLS alto en Daily/Hub (0,6-0,9).
+  - Re-medición (2026-10-30, Playwright + traza de Chrome DevTools, HEAD en un worktree vs copia de trabajo, mismo `_store`, servidor
+    caliente y navegador frío): JS al abrir Daily 296 → 136 KB, Hub 346 → 143 KB, Flow 451 → 136 KB, portada 108 → 50 KB total;
+    LCP del Daily 1,5 → 1,2 s; Flow termina de dibujar el Semanal en ~3 s (antes 27-35 s). El CLS de P&L Accounting (0,46) también
+    aparece en HEAD: no lo causan estos cambios. Exports probados con Playwright en las dos versiones: PPTX de Semanal (22 slides),
+    Mensual (15), Cierre (24) y FCA (12) con la misma cantidad de slides, CSV "⬇ Excel" de P&L Accounting idéntico byte a byte,
+    captura de KRs del Daily OK. pptxgenjs y html2canvas se bajan recién al clic (salvo Cierre, que usa html2canvas para armar sus
+    slides). El PPTX Mensual pasa de 25 a 15 s: antes html2canvas se volvía a bajar una vez por slide. "Mis slides" no se probó con
+    datos (el `_store` local no tiene slides armadas).

@@ -33,7 +33,7 @@ const gzip = promisify(zlib.gzip);
 
 // Respuestas grandes (el Daily manda ~65 MB de JSON) viajan con gzip si el navegador lo acepta.
 // La compresión corre en el threadpool de libuv: no frena a las otras requests.
-const GZIP_MIN_BYTES = 32 * 1024;
+const GZIP_MIN_BYTES = 4 * 1024;   // comprimir 30 KB lleva ~1 ms; con 32 KB quedaban afuera FVM y OKR (2026-10-30)
 const { MODULES, EQUIPO_B2B } = require('./modules');
 const { GasProject } = require('./gas-runtime');
 const { renderOutput } = require('./render');
@@ -173,6 +173,17 @@ function createApp(opts = {}) {
 
   function sendJson(res, status, obj) {
     send(res, status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }, JSON.stringify(obj));
+  }
+
+  // JS propios (cliente, nav, buscador, layouts): siempre se piden con ?v=<hash del contenido>, así que con el hash
+  // correcto son inmutables (un deploy que los cambia cambia la URL). Se comprimen una vez y se guardan.
+  const assetGz = new Map();
+  function sendAsset(req, res, url, version, js) {
+    const cc = url.searchParams.get('v') === version ? 'public, max-age=31536000, immutable' : 'public, max-age=3600';
+    const headers = { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': cc, Vary: 'Accept-Encoding' };
+    if (!/\bgzip\b/i.test(String(req.headers['accept-encoding'] || ''))) return send(res, 200, headers, js);
+    if (!assetGz.has(js)) assetGz.set(js, zlib.gzipSync(Buffer.from(js, 'utf8'), { level: 9 }));
+    return send(res, 200, { ...headers, 'Content-Encoding': 'gzip' }, assetGz.get(js));
   }
 
   async function sendCompressible(req, res, status, headers, body) {
@@ -324,18 +335,18 @@ function createApp(opts = {}) {
       });
     }
     if (route === '/_gas/client.js') {
-      return send(res, 200, { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'public, max-age=3600' }, clientJs);
+      return sendAsset(req, res, url, clientVersion, clientJs);
     }
     if (route === '/_gas/nav.js') {
-      return send(res, 200, { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'public, max-age=3600' }, navJs);
+      return sendAsset(req, res, url, navVersion, navJs);
     }
     if (route === '/_portal/ask.js') {
-      return send(res, 200, { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'public, max-age=3600' }, askJs);
+      return sendAsset(req, res, url, askVersion, askJs);
     }
     if (route.startsWith('/_gas/layout/')) {
       const l = layouts.get(route.slice('/_gas/layout/'.length));
       if (!l) return sendJson(res, 404, { error: 'No encontrado' });
-      return send(res, 200, { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'public, max-age=3600' }, l.js);
+      return sendAsset(req, res, url, l.version, l.js);
     }
     if (route === '/' || route === '') {
       if (req.method !== 'GET') return sendJson(res, 405, { error: 'Método no permitido' });
@@ -345,7 +356,7 @@ function createApp(opts = {}) {
         logUrl: `${cfg.BASE_PATH}/preguntas`,
         questionsUrl: isTeam(identity) ? `${cfg.BASE_PATH}/preguntas` : null,
       };
-      return send(res, 200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }, indexPage({ modules, basePath: cfg.BASE_PATH, canOpen: (m) => mayOpen(m, identity), reales: mayRunReales(identity), ask }));
+      return sendCompressible(req, res, 200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }, indexPage({ modules, basePath: cfg.BASE_PATH, canOpen: (m) => mayOpen(m, identity), reales: mayRunReales(identity), ask }));
     }
 
     if (route === '/preguntas') {
@@ -479,12 +490,17 @@ function createApp(opts = {}) {
           let ent = apiCache.get(key);
           cacheState = ent ? 'hit' : 'miss';
           if (!ent) {
+            // Varias funciones GAS devuelven el error como { success: false } en vez de tirarlo: eso no se guarda (se reintenta).
+            const flags = { noStore: false };
             ent = apiCache.set(key, mod.slug, (async () => {
               const result = project.call(parts[2], JSON.stringify(args), reqCtx);
+              if (result && result.success === false) flags.noStore = true;
               return gzip(Buffer.from(JSON.stringify({ result: result === undefined ? null : result }), 'utf8'), { level: 4 });
             })());
+            ent.flags = flags;
           }
           const gz = await ent.promise;
+          if (ent.flags && ent.flags.noStore) apiCache.delete(key, ent);
           const hdrs = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' };
           if (/\bgzip\b/i.test(String(req.headers['accept-encoding'] || ''))) return send(res, 200, { ...hdrs, 'Content-Encoding': 'gzip', Vary: 'Accept-Encoding' }, gz);
           return send(res, 200, hdrs, (await gunzip(gz)).toString('utf8'));

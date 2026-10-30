@@ -71,11 +71,30 @@ function loadFile_(filename, cacheKey) {
   return expandRecordKeys_(JSON.parse(loadText_(filename, cacheKey)));
 }
 
-function loadText_(filename, cacheKey) {
-  var folder = DriveApp.getFolderById(DRIVE_FOLDER_ID);
-  var files  = folder.getFilesByName(filename);
+// Igual que loadFile_ pero parsea una sola vez por versión del archivo y devuelve el MISMO objeto a todos:
+// solo para lectores que no lo modifican (el Weekly). getWeeklySummaryData con Organic arma 3-4 resúmenes por
+// llamada y el Flow pide 8 combinaciones: con loadFile_ eran ~30 JSON.parse de decenas de MB (2026-10-30: 17,6 s
+// → ver Ownia_B2B_Ecosystem/CONTEXT.md). En Apps Script el memo dura una ejecución; en Ownia, hasta que cambia el
+// archivo (la clave lleva el lastUpdated). sendDailyEmail_ modifica b2bcRaw.budget: tiene que seguir con loadFile_.
+var _sharedRaw_ = {};
+function loadFileShared_(filename, cacheKey) {
+  var file = _driveFile_(filename);
+  var key  = cacheKey + '_' + file.getLastUpdated().getTime();
+  var hit  = _sharedRaw_[filename];
+  if (hit && hit.key === key) return hit.obj;
+  var obj = loadFile_(filename, cacheKey);
+  _sharedRaw_[filename] = { key: key, obj: obj };
+  return obj;
+}
+
+function _driveFile_(filename) {
+  var files = DriveApp.getFolderById(DRIVE_FOLDER_ID).getFilesByName(filename);
   if (!files.hasNext()) throw new Error('No encontrado en Drive: ' + filename);
-  var file   = files.next();
+  return files.next();
+}
+
+function loadText_(filename, cacheKey) {
+  var file   = _driveFile_(filename);
   // La clave de cache incluye el lastUpdated del archivo: al subir un JSON nuevo
   // cambia el timestamp -> clave nueva -> se lee fresco (sin esperar el TTL de 6 h).
   var key    = cacheKey + '_' + file.getLastUpdated().getTime();
@@ -150,7 +169,14 @@ function _wsExpandCompact_(c) {
 
 // ---- ISO week ----
 
+// Memo por fecha: _wsAggWeekly_ la llama una vez por fila (cientos de miles) y hay pocos cientos de fechas
+// distintas. Los que llaman solo leen .week / .year.
+var _wsIsoMemo_ = {};
 function _wsIsoWeek_(ymd) {
+  return _wsIsoMemo_[ymd] || (_wsIsoMemo_[ymd] = _wsIsoWeekCalc_(ymd));
+}
+
+function _wsIsoWeekCalc_(ymd) {
   var p   = ymd.split('-');
   var d   = new Date(Date.UTC(+p[0], +p[1]-1, +p[2]));
   var day = d.getUTCDay() || 7;
@@ -189,6 +215,19 @@ function _wsNormRows_(arr, gbCol, revCol) {
   });
 }
 
+// _wsNormRows_ (con _wsExpandCompact_ antes si expand) memorizado por objeto de origen: con loadFileShared_ el
+// mismo array llega varias veces por llamada y entre las 8 del Flow. El resultado se comparte: los que lo usan
+// filtran / agregan sin modificar las filas. El WeakMap suelta todo cuando cambia el archivo (objeto nuevo).
+var _wsNormMemo_ = typeof WeakMap === 'function' ? new WeakMap() : null;
+function _wsNorm_(src, expand, gbCol, revCol) {
+  var calc = function() { return _wsNormRows_(expand ? _wsExpandCompact_(src) : src, gbCol, revCol); };
+  if (!_wsNormMemo_ || !src || typeof src !== 'object') return calc();
+  var byKey = _wsNormMemo_.get(src);
+  if (!byKey) { byKey = {}; _wsNormMemo_.set(src, byKey); }
+  var k = (expand ? 'x' : '') + '|' + gbCol + '|' + revCol + '|' + _wsExCoiBr_;   // _fvmOf_ depende del switch COI BR
+  return byKey[k] || (byKey[k] = calc());
+}
+
 // ---- Filtro de canal B2B: 'API' | 'Agencias afiliadas' (= HTML). Sin canal → todo ----
 function _wsByChannel_(rows, channel) {
   if (!channel) return rows;
@@ -200,28 +239,28 @@ function _wsByChannel_(rows, channel) {
 function _wsGetActuals_(lob, view, b2bcRaw, b2bRaw) {
   var rows = [];
   if (lob === 'B2B2C' || lob === 'B2B+B2B2C')
-    rows = rows.concat(_wsNormRows_(b2bcRaw.actuals, 'gross_bookings', 'net_revenues'));
+    rows = rows.concat(_wsNorm_(b2bcRaw.actuals, false, 'gross_bookings', 'net_revenues'));
   if (lob === 'B2B' || lob === 'B2B+B2B2C')
-    rows = rows.concat(_wsNormRows_(_wsExpandCompact_((view==='RI') ? b2bRaw.b2b_ri : b2bRaw.b2b_gd), 'gross_bookings', 'net_revenue'));
+    rows = rows.concat(_wsNorm_((view==='RI') ? b2bRaw.b2b_ri : b2bRaw.b2b_gd, true, 'gross_bookings', 'net_revenue'));
   return rows;
 }
 
 function _wsGetLY_(lob, view, b2bcRaw, b2bRaw) {
   var rows = [];
   if (lob === 'B2B2C' || lob === 'B2B+B2B2C')
-    rows = rows.concat(_wsNormRows_(b2bcRaw.actuals_ly, 'gross_bookings', 'net_revenues'));
+    rows = rows.concat(_wsNorm_(b2bcRaw.actuals_ly, false, 'gross_bookings', 'net_revenues'));
   if (lob === 'B2B' || lob === 'B2B+B2B2C')
-    rows = rows.concat(_wsNormRows_(_wsExpandCompact_((view==='RI') ? b2bRaw.b2b_ri_ly : b2bRaw.b2b_gd_ly), 'gross_bookings', 'net_revenue'));
+    rows = rows.concat(_wsNorm_((view==='RI') ? b2bRaw.b2b_ri_ly : b2bRaw.b2b_gd_ly, true, 'gross_bookings', 'net_revenue'));
   return rows;
 }
 
 function _wsGetBudget_(lob, view, b2bcRaw, b2bRaw) {
   var rows = [];
   if (lob === 'B2B2C' || lob === 'B2B+B2B2C')
-    rows = rows.concat(_wsNormRows_(_wsExpandCompact_(b2bcRaw.budget), 'gross_bookings', 'net_revenue'));
+    rows = rows.concat(_wsNorm_(b2bcRaw.budget, true, 'gross_bookings', 'net_revenue'));
   if (lob === 'B2B' || lob === 'B2B+B2B2C') {
     var b2bBudKey = (view === 'RI') ? (b2bRaw.b2b_budget_ri || []) : (b2bRaw.b2b_budget_gd || []);
-    rows = rows.concat(_wsNormRows_(b2bBudKey, 'gross_bookings', 'net_revenue'));
+    rows = rows.concat(_wsNorm_(b2bBudKey, false, 'gross_bookings', 'net_revenue'));
   }
   return rows;
 }
@@ -381,8 +420,8 @@ function _wsSummary_(params, conv) {
     // params.channel: 'API' | 'Agencias afiliadas' (HTML). Solo aplica a B2B (B2B2C es White Label, sin canal).
     var channel = (lob === 'B2B' && params && params.channel) || '';
 
-    var b2bcRaw = loadFile_(B2BC_JSON, B2BC_CACHE_KEY);
-    var b2bRaw  = loadFile_(B2B_JSON,  B2B_CACHE_KEY);
+    var b2bcRaw = loadFileShared_(B2BC_JSON, B2BC_CACHE_KEY);
+    var b2bRaw  = loadFileShared_(B2B_JSON,  B2B_CACHE_KEY);
 
     var actRows = _wsOrg_(_wsByChannel_(_wsGetActuals_(lob, view, b2bcRaw, b2bRaw), channel), conv);
     var lyRows  = _wsByChannel_(_wsGetLY_(lob, view, b2bcRaw, b2bRaw), channel);
@@ -392,8 +431,8 @@ function _wsSummary_(params, conv) {
     var lyWeekAgg = _wsAggWeekly_(lyRows);
     var budWeekAgg = _wsAggWeekly_(budRows);
     // B2C (referencia, misma serie que Benchmark vs B2C): sin canal ni organic, solo confirmation date
-    var b2cWeekAgg   = _wsAggWeekly_(_wsNormRows_(_wsExpandCompact_(b2bcRaw.b2c),    'gross_bookings', 'net_revenues'));
-    var b2cLyWeekAgg = _wsAggWeekly_(_wsNormRows_(_wsExpandCompact_(b2bcRaw.b2c_ly), 'gross_bookings', 'net_revenues'));
+    var b2cWeekAgg   = _wsAggWeekly_(_wsNorm_(b2bcRaw.b2c,    true, 'gross_bookings', 'net_revenues'));
+    var b2cLyWeekAgg = _wsAggWeekly_(_wsNorm_(b2bcRaw.b2c_ly, true, 'gross_bookings', 'net_revenues'));
 
     var weekKeys = [];
     Object.keys(weekAgg).forEach(function(yr) {
@@ -467,12 +506,12 @@ function _wsSummary_(params, conv) {
 
     var mtdData;
     if (lob === 'B2B+B2B2C') {
-      var b2bAct  = _wsOrg_(_wsNormRows_(_wsExpandCompact_((view==='RI')?b2bRaw.b2b_ri:b2bRaw.b2b_gd), 'gross_bookings','net_revenue'), conv);
-      var b2bcAct = _wsOrg_(_wsNormRows_(b2bcRaw.actuals,                                                'gross_bookings','net_revenues'), conv);
-      var b2bLY   = _wsNormRows_(_wsExpandCompact_((view==='RI')?b2bRaw.b2b_ri_ly:b2bRaw.b2b_gd_ly),'gross_bookings','net_revenue');
-      var b2bcLY  = _wsNormRows_(b2bcRaw.actuals_ly,                                                 'gross_bookings','net_revenues');
-      var b2bBud  = _wsNormRows_((view==='RI' ? b2bRaw.b2b_budget_ri : b2bRaw.b2b_budget_gd)||[],        'gross_bookings','net_revenue');
-      var b2bcBud = _wsNormRows_(_wsExpandCompact_(b2bcRaw.budget),                                  'gross_bookings','net_revenue');
+      var b2bAct  = _wsOrg_(_wsNorm_((view==='RI')?b2bRaw.b2b_ri:b2bRaw.b2b_gd, true, 'gross_bookings','net_revenue'), conv);
+      var b2bcAct = _wsOrg_(_wsNorm_(b2bcRaw.actuals, false, 'gross_bookings','net_revenues'), conv);
+      var b2bLY   = _wsNorm_((view==='RI')?b2bRaw.b2b_ri_ly:b2bRaw.b2b_gd_ly, true, 'gross_bookings','net_revenue');
+      var b2bcLY  = _wsNorm_(b2bcRaw.actuals_ly, false, 'gross_bookings','net_revenues');
+      var b2bBud  = _wsNorm_((view==='RI' ? b2bRaw.b2b_budget_ri : b2bRaw.b2b_budget_gd)||[], false, 'gross_bookings','net_revenue');
+      var b2bcBud = _wsNorm_(b2bcRaw.budget, true, 'gross_bookings','net_revenue');
       mtdData = { split:true,
         b2b2c: _wsComputeMTD_(b2bcAct, b2bcBud, b2bcLY),
         b2b:   _wsComputeMTD_(b2bAct,  b2bBud,  b2bLY) };

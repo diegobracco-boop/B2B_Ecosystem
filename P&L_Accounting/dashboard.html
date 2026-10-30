@@ -2320,6 +2320,9 @@ function _loaderDec(){ if(--_loaderPending <= 0){ _loaderPending = 0; document.g
 // lo re-parsea en cada uso, así ningún render puede mutar lo cacheado. El botón "Refrescar" lo vacía.
 // Se usa como google.script.run: _srv_().withSuccessHandler(f).withFailureHandler(g).fn(args).
 var _srvCache = {}, _srvCacheKeys = [], _SRV_CACHE_MAX = 60;
+// Pedidos en vuelo por la misma clave: el segundo espera la respuesta del primero en vez de ir al servidor
+// (al abrir salían dos getEPMBaselineGoalData idénticos: la carga inicial y, 600 ms después, el debounce de la vista). 2026-10-30.
+var _srvInflight = {};
 function _srv_(){
   var ok, fail, px, b = {
     withSuccessHandler: function(f){ ok = f; return px; },
@@ -2339,18 +2342,30 @@ function _srv_(){
         }, 0);
         return;
       }
+      if(_srvInflight[key]){ _srvInflight[key].push({ok: ok, fail: fail}); return; }
+      var waiters = _srvInflight[key] = [];
       var r = google.script.run.withSuccessHandler(function(v){
+        delete _srvInflight[key];
+        var s;
         try {
-          var s = JSON.stringify(v);
+          s = JSON.stringify(v);
           // organic con error de lectura del TC: no se cachea (el próximo intento vuelve a probar)
           if(s !== undefined && !/\\?"organic\\?":\{[^{}]*\\?"error/.test(s)){
             _srvCache[key] = s; _srvCacheKeys.push(key);
             while(_srvCacheKeys.length > _SRV_CACHE_MAX) delete _srvCache[_srvCacheKeys.shift()];
           }
         } catch(e){}
-        if(ok) ok(v);
+        // finally: si el render del primero tira, los que esperaban la misma respuesta igual la reciben
+        try { if(ok) ok(v); }
+        finally {
+          // cada uno con su copia (como el cache): un render no puede modificar lo que ve el otro
+          waiters.forEach(function(w){ if(w.ok) w.ok(s === undefined ? v : JSON.parse(s)); });
+        }
+      }).withFailureHandler(function(err){
+        delete _srvInflight[key];
+        if(fail) fail(err);
+        waiters.forEach(function(w){ if(w.fail) w.fail(err); });
       });
-      if(fail) r = r.withFailureHandler(fail);
       r[name].apply(r, args);
     };
   }});
