@@ -596,9 +596,10 @@ _B2B_PAIS_CASE = """
         END AS pais,"""
 
 # KR Global B2B API (H2 FY27) que salen del Datalake -> daily_b2b2c_data.json "okr_globales_hoteles"
-# -> okr_builder.py (el target sigue en Input_OKR). Alcance: canal API, Hoteles, país del partner
-# "Other Countries" (misma regla que _B2B_PAIS_CASE), gestion date, GB > 0. 2026-10-23: estos dos KRs de
-# hoteles SÍ van solo con Globales (sus targets se armaron así); el resto del KR Global B2B API es todo API.
+# -> okr_builder.py (el target sigue en Input_OKR). Alcance: canal API, Hoteles, gestion date, GB > 0.
+# País del partner (POS): "Hoteles Directos vendidos destino LATAM" va solo con "Other Countries" (misma regla
+# que _B2B_PAIS_CASE; 2026-10-23, su target se armó así); "% Hoteles Directos vendidos destino Globales" va con
+# TODOS los países desde 2026-10-30 (el POS no es solo Globales); el resto del KR Global B2B API es todo API.
 # Hotel directo = hotel_contract_type 'Directo' (gateways PAM / OMB / HSI) vs 'Proveedor' (EXP, HBG...).
 # "Destino LATAM / Globales" = destino del hotel (is_latam_destination), no el país del partner.
 #   dir_latam: hoteles distintos directos con destino LATAM          -> KR "Hoteles Directos vendidos destino LATAM"
@@ -608,7 +609,8 @@ OKR_GLOBALES_FROM = date(2026, 10, 1)   # arranque del H2 FY27
 _GLOBALES_PAIS_EXPR = _B2B_PAIS_CASE.strip().rsplit("AS pais", 1)[0]
 OKR_GLOBALES_HOTELES_QUERY = f"""
 SELECT date_format(fh.gestion_date, '%Y-%m') AS ym,
-    COUNT(DISTINCT CASE WHEN p.hotel_contract_type = 'Directo' AND p.is_latam_destination     THEN p.hotel_despegar_id END) AS dir_latam,
+    COUNT(DISTINCT CASE WHEN p.hotel_contract_type = 'Directo' AND p.is_latam_destination
+                         AND {_GLOBALES_PAIS_EXPR} = 'Other Countries'                     THEN p.hotel_despegar_id END) AS dir_latam,
     COUNT(DISTINCT CASE WHEN p.hotel_contract_type = 'Directo' AND NOT p.is_latam_destination THEN p.hotel_despegar_id END) AS dir_glob,
     COUNT(DISTINCT CASE WHEN NOT p.is_latam_destination THEN p.hotel_despegar_id END)                                       AS tot_glob
 FROM data.analytics.bi_sales_fact_sales_recognition fh
@@ -623,7 +625,6 @@ WHERE fh.gestion_date >= CAST('{OKR_GLOBALES_FROM}' AS DATE)
     AND fh.parent_channel = 'API'
     AND fh.buy_type_code = 'Hoteles'
     AND fh.gestion_gb * fh.confirmation_gradient > 0
-    AND {_GLOBALES_PAIS_EXPR} = 'Other Countries'
 GROUP BY 1
 ORDER BY 1
 """

@@ -4411,7 +4411,8 @@ function globalesTableHtml_(krs, ym, agg, tot) {
 // Recuadro por país de Net Revenues API Hoteles (como los de Status KRs H2): mismas fuentes que la fila
 // de la tabla (globalesApiHotelByMonth_: actuals a TC Budget con Organic, budget gestional del daily), mismo
 // período (mes en curso = MTD contra el budget acumulado al último día con actuals). Es el único KR global
-// con apertura por país: los de hoteles directos son solo Other Countries y el resto no trae país.
+// con apertura por país: los de hoteles directos (LATAM: solo Other Countries; % Globales: todos los países)
+// no traen país y el resto tampoco.
 function globalesNrDetailBox_(ym) {
   if (!rawData || !rawData.meta) return '';
   var b = getPeriodBounds(ym, rawData.meta);
