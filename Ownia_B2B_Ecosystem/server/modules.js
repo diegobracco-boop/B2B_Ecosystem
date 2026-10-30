@@ -65,6 +65,9 @@ const MODULES = [
     // (public/hub-slides.js, textos en /notes/hub/…), 2026-10-26. "Mis slides" (public/hub-builder.js, ?builder=1, 2026-10-29):
     // armador de slides propias con los datos del P&L; las recetas en /notes/hub/builder. Lo embebe Presentaciones.
     layout: ['filter-aliases.js', 'hub-layout.js', 'hub-h2h1.js', 'hub-slides.js', 'hub-cierre.js', 'hub-builder.js'],
+    // getSlidesEvo (Slides mensuales y Mis slides) depende solo de sus parámetros y de los JSON del espejo: se calcula una vez por
+    // combinación y día y se reparte comprimida (server/api-cache.js; se invalida cuando cambia un archivo que lee el Hub). 2026-10-30.
+    cacheFns: ['getSlidesEvo'],
     gasUrl: GAS_EXEC + 'AKfycbz52txFQy-5YM2Nil_KxULzPoeZpKyA4z5LUWMGoP_8IilcwSduuwZqPF8ut_LmtceM/exec',
   },
   {
