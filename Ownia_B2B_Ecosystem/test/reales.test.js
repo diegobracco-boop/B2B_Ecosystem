@@ -55,9 +55,9 @@ function request(s, method, urlPath, { body, headers } = {}) {
 const post = (password, who = 'ana@despegar.com', extra = {}) =>
   request(server, 'POST', `${BASE}/reales`, { body: { password }, headers: { ...POST_HEADERS, 'x-test-email': who, ...extra } });
 
-function makeApp(secrets, memoryMb = 4096) {
+function makeApp(secrets, memoryMb = 8192) {
   const cfg = { secrets, PORT: 8123, INGEST_TOKEN: 'tok', APP_ROOT, TIME_ZONE: 'America/Argentina/Buenos_Aires' };
-  const reales = createRealesJob(cfg, { spawn: fakeSpawn, python: 'py-falso', pipelinesDir: resolvePipelinesDir(APP_ROOT), memoryMb });
+  const reales = createRealesJob(cfg, { spawn: fakeSpawn, python: 'py-falso', pipelinesDir: resolvePipelinesDir(APP_ROOT), memoryMb, appRssMb: 900 });
   return createApp({ GAS_ROOT: FIXTURES, BASE_PATH: BASE, modules: [DEMO], secrets, TRUSTED_IDENTITY_HEADER: 'x-test-email', fileStore: null, reales, realesUsers: EQUIPO });
 }
 
@@ -123,7 +123,7 @@ test('lanzar: corre daily_sync.py con las credenciales de APP_SECRETS, una corri
   child.stdout.emit('data', Buffer.from('  OK Drive: archivo actualizado (daily_b2b2c_data.json)\n'));
   let st = JSON.parse((await request(server, 'GET', `${BASE}/reales`, { headers: ANA })).text);
   assert.equal(st.state, 'running');
-  assert.deepEqual(st.lines, ['Memoria del contenedor: 4.096 MB', '  OK Drive: archivo actualizado (daily_b2b2c_data.json)']);
+  assert.deepEqual(st.lines, ['Memoria: 8.192 MB en total, la app usa 900 MB, quedan 7.164 MB', '  OK Drive: archivo actualizado (daily_b2b2c_data.json)']);
   assert.equal(st.by, 'ana@despegar.com');
 
   // Un traceback con credenciales no llega ni al estado ni al log.
@@ -209,13 +209,13 @@ test('contraseña equivocada: después de 5 intentos, 429', async () => {
   }
 });
 
-test('contenedor con poca memoria: no arranca, avisa por qué; se puede desactivar con REALES_MIN_MEMORY_MB=0', async () => {
-  const s = await listen(makeApp(SECRETS, 1024));
-  const s0 = await listen(makeApp({ ...SECRETS, REALES_MIN_MEMORY_MB: '0' }, 1024));
+test('poca memoria libre (total menos lo que usa la app): no arranca, avisa por qué; se puede desactivar con REALES_MIN_MEMORY_MB=0', async () => {
+  const s = await listen(makeApp(SECRETS, 4096));
+  const s0 = await listen(makeApp({ ...SECRETS, REALES_MIN_MEMORY_MB: '0' }, 4096));
   try {
     const before = spawned.length;
     const st = JSON.parse((await request(s, 'GET', `${BASE}/reales`, { headers: ANA })).text);
-    assert.match(st.blocked, /1\.024 MB de memoria.*admin de Ownia/);
+    assert.match(st.blocked, /4\.096 MB de memoria; la app ya usa 900 MB y quedan 3\.068 MB.*1 vCPU \/ 8 GB/);
     const r = await request(s, 'POST', `${BASE}/reales`, { body: { password: 'clave' }, headers: { ...POST_HEADERS, ...ANA } });
     assert.equal(r.status, 503);
     assert.equal(spawned.length, before);

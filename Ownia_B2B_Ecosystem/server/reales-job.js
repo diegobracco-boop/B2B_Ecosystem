@@ -36,8 +36,11 @@ const EXPECTED_QUERIES = 32;
 // Memoria mínima del contenedor para lanzar la corrida: daily_sync.py llega a ~2,7 GB (medido el 2026-10-30) y corre al
 // lado de la app. Con menos, el sistema lo mata a mitad de camino (o peor, a Node). El tamaño por defecto de una app
 // JavaScript en Ownia es 1 GB: hace falta que un admin de Ownia la agrande (manage_app resize, p.ej. 1024 / 4096).
-// Se puede pisar con el secreto REALES_MIN_MEMORY_MB (0 = no chequear).
-const MIN_MEMORY_MB = 3584;
+// Se puede pisar con el secreto REALES_MIN_MEMORY_MB (0 = no chequear). Se compara contra lo que queda LIBRE: la memoria
+// de la tarea menos lo que ya usa la app (Node con los datos de los tableros cargados) y un margen para Caddy; con 4 GB
+// totales el proceso murió por memoria a mitad de las consultas (2026-10-30, 14:47 UTC).
+const MIN_MEMORY_MB = 3072;
+const SIDECAR_MB = 128;   // Caddy y el sistema
 
 // Barra de avance a partir de la salida de daily_sync.py: las consultas llevan hasta el 80 %; después,
 // las etapas fijas del script. Nunca retrocede.
@@ -70,7 +73,9 @@ function advance(p, line) {
   return p;
 }
 
-// Límite de memoria del contenedor (cgroup v2 o v1), para el log de la corrida. null si no se sabe.
+// Memoria disponible para la corrida: el límite del contenedor (cgroup v2 o v1) si tiene uno; si no, la de la máquina.
+// En Fargate el contenedor no tiene límite propio ("max", visto 2026-10-30) y la máquina es del tamaño de la tarea.
+// En Windows (desarrollo local) no se chequea: null.
 function containerMemoryMb() {
   for (const f of ['/sys/fs/cgroup/memory.max', '/sys/fs/cgroup/memory/memory.limit_in_bytes']) {
     try {
@@ -78,7 +83,7 @@ function containerMemoryMb() {
       if (/^\d+$/.test(v) && Number(v) < 2 ** 50) return Math.round(Number(v) / 2 ** 20);
     } catch (e) { /* no existe en este sistema */ }
   }
-  return null;
+  return process.platform === 'linux' ? Math.round(os.totalmem() / 2 ** 20) : null;
 }
 
 function resolvePipelinesDir(appRoot) {
@@ -129,12 +134,21 @@ function createRealesJob(cfg, opts = {}) {
     return out;
   }
 
+  // Memoria libre para la corrida: la de la tarea menos lo que usa la app (y un margen para Caddy). null si no se sabe.
+  function freeMemoryMb() {
+    if (memoryMb === null) return null;
+    const appMb = opts.appRssMb !== undefined ? opts.appRssMb : Math.round(process.memoryUsage().rss / 2 ** 20);
+    return { total: memoryMb, app: appMb, free: memoryMb - appMb - SIDECAR_MB };
+  }
+
   // null si alcanza la memoria (o no se puede saber); si no, el texto del motivo.
   function memoryProblem() {
-    if (!minMemoryMb || memoryMb === null || memoryMb >= minMemoryMb) return null;
-    return `El servidor de Ownia tiene ${memoryMb.toLocaleString('es-AR')} MB de memoria y la actualización necesita unos ` +
-      `${minMemoryMb.toLocaleString('es-AR')} MB. Hay que pedirle a un admin de Ownia que agrande la app b2b-ecosystem ` +
-      '(1 vCPU / 4 GB). Mientras tanto, se sigue corriendo desde una PC.';
+    const m = freeMemoryMb();
+    if (!minMemoryMb || !m || m.free >= minMemoryMb) return null;
+    const fmt = (n) => n.toLocaleString('es-AR');
+    return `El servidor de Ownia tiene ${fmt(m.total)} MB de memoria; la app ya usa ${fmt(m.app)} MB y quedan ${fmt(Math.max(m.free, 0))} MB, ` +
+      `pero la actualización necesita unos ${fmt(minMemoryMb)} MB libres. Hay que pedirle a un admin de Ownia que agrande la app ` +
+      'b2b-ecosystem (1 vCPU / 8 GB). Mientras tanto, se sigue corriendo desde una PC.';
   }
 
   function push(text) {
@@ -228,7 +242,8 @@ function createRealesJob(cfg, opts = {}) {
 
     Object.assign(run, { state: 'running', startedAt: new Date().toISOString(), finishedAt: null, by: email, exitCode: null, lines: [], progress: newProgress() });
     log({ level: 'info', msg: 'reales: arranca la actualización', by: email });
-    if (memoryMb) push(`Memoria del contenedor: ${memoryMb.toLocaleString('es-AR')} MB`);
+    const m = freeMemoryMb();
+    if (m) push(`Memoria: ${m.total.toLocaleString('es-AR')} MB en total, la app usa ${m.app.toLocaleString('es-AR')} MB, quedan ${m.free.toLocaleString('es-AR')} MB`);
     let done = false;
     let timer = null;
     const finish = (code) => {
