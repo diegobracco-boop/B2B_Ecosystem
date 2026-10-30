@@ -184,6 +184,26 @@
     draw(pe);
   }
 
+  // ── Bridge de OC de la sección (fuera de B2B + B2B2C, que tiene el suyo): mismo gráfico del dashboard
+  // (appendLobWaterfall_), con las palancas de negocio abiertas por país (by_country de la respuesta) ──
+  function sectionBridge(d) {
+    var box = document.getElementById('ow-wf');
+    if (!box) {
+      var card = document.getElementById('cont-pnl-card');
+      if (!card) return;
+      box = document.createElement('div');
+      box.id = 'ow-wf';
+      box.style.marginTop = '24px';
+      card.parentNode.insertBefore(box, card.nextSibling);
+    }
+    box.innerHTML = '';
+    if (sec === 'combined' || !d || !d.total || typeof W.appendLobWaterfall_ !== 'function') { box.style.display = 'none'; return; }
+    box.style.display = '';
+    var bc = d.by_country || {};
+    var splits = Object.keys(bc).filter(function (k) { return k !== 'Total' && hasData(bc[k]); }).map(function (k) { return { label: k, data: bc[k] }; });
+    W.appendLobWaterfall_(box, 'Sección ' + (S().title || S().lbl), d.total, splits);
+  }
+
   // ── Secciones: estado de la página según la sección ──
   function layoutSection() {
     var fr = document.getElementById('cont-filters-row'), fgP = document.getElementById('fg-cont-producto');
@@ -253,6 +273,7 @@
         W.fillMs('ms-cont-producto', hasProd() ? (d.filters.produto || []) : []);
       }
       layoutSection();
+      try { sectionBridge(d); } catch (e) { console.warn('[pnl-accounting-layout] bridge:', e); }
       if (cols === 'periodo' || W._activeLob !== 'contable-epm' || !d) {
         var r = origRender.apply(this, arguments);
         if (cols === 'periodo') setTitle(periodTitle());
@@ -310,5 +331,157 @@
     // La navegación inicial (?view=…, ownia-nav.js) pudo abrir la vista B2B / B2B2C vieja antes de esta capa: se vuelve a la consolidada
     if (W._bgContableView && W._bgContableView !== 'combined') W.setContableView('combined');
     else { layoutSection(); if (sec !== 'combined') W.debouncedFetchBG(); }   // la primera carga pudo salir antes que estos filtros
+  });
+})();
+
+/* Lectura de las tablas Baseline vs Goal (2026-10-30, auditoría): todas las .qpnl-table del P&L Accounting.
+ *  - "Concepto" fija al desplazarse en horizontal (con columnas por país / producto la tabla es ancha).
+ *  - Mostrar: Todo / Baseline / Goal / Δ (se recuerda en el navegador, pa-show).
+ *  - Debajo de cada Δ, el desvío % contra el Goal ((B − G) / |G|).
+ *  - "⬇ Excel": la tabla principal a CSV (separador ; y coma decimal, valores en USD sin redondear).
+ * Para tener los valores sin redondear, mientras corre fillBGBody los formateadores (fmtMM / fmtKK) dejan el número en una
+ * marca oculta (<i class="ow-v" data-v>) dentro de cada celda.
+ */
+(function () {
+  'use strict';
+  var W = window, SHOW = ['all', 'b', 'g', 'd'];
+  var show = 'all';
+  try { if (SHOW.indexOf(localStorage.getItem('pa-show')) >= 0) show = localStorage.getItem('pa-show'); } catch (e) { /* sin storage */ }
+
+  var css = document.createElement('style');
+  css.textContent = [
+    '.qpnl-table th:first-child,.qpnl-table td:first-child{position:sticky;left:0;z-index:2;background:#fff}',
+    '.qpnl-table thead th:first-child{z-index:3}',
+    '.qpnl-table td:first-child{box-shadow:inset -1px 0 0 #ece8f6}',
+    '.ow-dp{display:block;font-size:10px;font-weight:600;opacity:.9}',
+    '.ow-v{display:none}',
+  ].concat(['b', 'g', 'd'].map(function (k) {
+    var hide = { b: ['g', 'd'], g: ['b', 'd'], d: ['b', 'g'] }[k], sel = [];
+    hide.forEach(function (h) {
+      var th = { b: 'th-baseline', g: 'th-goal', d: 'th-delta' }[h];
+      sel.push('body.ow-show-' + k + ' .qpnl-table .' + th, 'body.ow-show-' + k + ' .qpnl-table .ph-' + h, 'body.ow-show-' + k + ' .qpnl-table .ow-' + h);
+    });
+    sel.push('body.ow-show-' + k + ' .qpnl-table .th-sep', 'body.ow-show-' + k + ' .qpnl-table .td-sep');
+    return sel.join(',') + '{display:none!important}';
+  })).join('\n');
+  (document.head || document.documentElement).appendChild(css);
+
+  function num(td) { var i = td && td.querySelector('.ow-v'); var v = i ? parseFloat(i.getAttribute('data-v')) : NaN; return isFinite(v) ? v : null; }
+  function mark(v) { return '<i class="ow-v" data-v="' + (isFinite(v) ? v : '') + '"></i>'; }
+  function pct(v) { return (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(1) + '%'; }
+
+  // Clases por bloque y Δ% en cada fila: [Concepto, B×n, sep, G×n, sep, Δ×n]
+  function decorate(tbody, n) {
+    Array.prototype.forEach.call(tbody.rows, function (tr) {
+      var c = tr.cells;
+      if (c.length !== 3 * n + 3) return;
+      for (var i = 0; i < n; i++) {
+        var b = c[1 + i], g = c[n + 2 + i], d = c[2 * n + 3 + i];
+        b.classList.add('ow-b'); g.classList.add('ow-g'); d.classList.add('ow-d');
+        var bv = num(b), gv = num(g);
+        if (bv !== null && gv !== null && Math.abs(gv) > 0.5 && !d.querySelector('.ow-dp')) {
+          var p = (bv - gv) / Math.abs(gv) * 100;
+          if (Math.abs(p) < 1000) d.insertAdjacentHTML('beforeend', '<span class="ow-dp" style="color:' + (p < 0 ? '#DC2626' : '#15803D') + '">' + pct(p) + ' vs G</span>');
+        }
+      }
+    });
+  }
+
+  function applyShow() {
+    SHOW.forEach(function (k) { document.body.classList.toggle('ow-show-' + k, k === show && k !== 'all'); });
+    SHOW.forEach(function (k) { var b = document.getElementById('pa-show-' + k); if (b) b.classList.toggle('prd-active', k === show); });
+  }
+
+  // CSV de la tabla principal: cabecera "Bloque · Columna" y valores sin redondear
+  function exportCsv() {
+    var t = document.getElementById('bg-table');
+    if (!t || !t.tBodies[0] || !t.tBodies[0].rows.length) { alert('La tabla todavía está cargando.'); return; }
+    var qRow = document.getElementById('bg-quarters-head'), ths = qRow ? Array.prototype.slice.call(qRow.cells) : [];
+    var blk = 'Baseline', head = ['Concepto'], idx = [];
+    ths.forEach(function (th, i) {
+      if (i === 0) return;
+      if (th.classList.contains('th-sep')) { blk = blk === 'Baseline' ? 'Goal' : 'Delta'; return; }
+      head.push(blk + ' · ' + th.textContent.trim());
+      idx.push(i);
+    });
+    function cell(v) { var s = String(v == null ? '' : v); return /[";\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
+    var lines = [head.map(cell).join(';')];
+    Array.prototype.forEach.call(t.tBodies[0].rows, function (tr) {
+      if (tr.cells.length !== ths.length) return;
+      var lbl = tr.cells[0].textContent.replace(/[▸▾›»]/g, '').trim();
+      lines.push([lbl].concat(idx.map(function (i) {
+        var v = num(tr.cells[i]);
+        return v === null ? '' : String(Math.round(v * 100) / 100).replace('.', ',');
+      })).map(cell).join(';'));
+    });
+    var secBtn = document.querySelector('#header-subtabs .pa-sec.cont-stab-active'), title = document.getElementById('bg-period-title');
+    var name = ('PnL_' + (secBtn ? secBtn.textContent : '') + '_' + (title ? title.textContent.split('·').slice(1).join('_') : ''))
+      .replace(/[^\w\-]+/g, '_').replace(/_+/g, '_').replace(/_$/, '') + '.csv';
+    var blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  }
+
+  function toolbar() {
+    var hdr = document.getElementById('bg-period-title');
+    if (!hdr || !hdr.parentNode || document.getElementById('pa-show-all')) return;
+    var box = document.createElement('span');
+    box.style.cssText = 'display:inline-flex;align-items:center;gap:8px;margin-left:auto';
+    var lbl = document.createElement('span');
+    lbl.style.cssText = 'font-size:11px;color:#3a4048;font-weight:700';
+    lbl.textContent = 'Mostrar:';
+    var grp = document.createElement('div');
+    grp.className = 'prd-toggle';
+    [['all', 'Todo'], ['b', 'Baseline'], ['g', 'Goal'], ['d', 'Δ']].forEach(function (o) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'prd-btn';
+      b.id = 'pa-show-' + o[0];
+      b.textContent = o[1];
+      b.addEventListener('click', function () {
+        show = o[0];
+        try { localStorage.setItem('pa-show', show); } catch (e) { /* sin storage */ }
+        applyShow();
+      });
+      grp.appendChild(b);
+    });
+    var ex = document.createElement('button');
+    ex.type = 'button';
+    ex.className = 'prd-btn';
+    ex.textContent = '⬇ Excel';
+    ex.title = 'Descarga la tabla en CSV (se abre en Excel / Google Sheets), con los valores sin redondear';
+    ex.style.cssText = 'border:1px solid #d9d3ee;border-radius:999px';
+    ex.addEventListener('click', exportCsv);
+    box.appendChild(lbl);
+    box.appendChild(grp);
+    box.appendChild(ex);
+    var p = hdr.parentNode;
+    p.style.display = 'flex';
+    p.style.alignItems = 'center';
+    p.style.flexWrap = 'wrap';
+    p.style.gap = '10px';
+    p.appendChild(box);
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    var origFill = W.fillBGBody;
+    if (typeof origFill !== 'function' || typeof W.fmtMM !== 'function' || typeof W.fmtKK !== 'function') {
+      console.warn('[pnl-accounting-layout] sin Δ% / exportar: falta fillBGBody o los formateadores');
+      return;
+    }
+    W.fillBGBody = function (tbody, quarters) {
+      var fm = W.fmtMM, fk = W.fmtKK, r;
+      W.fmtMM = function (v) { return fm.apply(this, arguments) + mark(v); };
+      W.fmtKK = function (v) { return fk.apply(this, arguments) + mark(v); };
+      try { r = origFill.apply(this, arguments); } finally { W.fmtMM = fm; W.fmtKK = fk; }
+      try { decorate(tbody, (quarters || []).length); } catch (e) { console.warn('[pnl-accounting-layout] Δ%:', e); }
+      return r;
+    };
+    toolbar();
+    applyShow();
   });
 })();

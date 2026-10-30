@@ -129,7 +129,8 @@ const MODULES = [
     layout: 'pnl-accounting-layout.js',
     // pnl-accounting-byprod.js: getEPMBreakdown, columnas por país / producto de la tabla Baseline vs Goal (2026-10-30). Va después de fbtb.
     gasExtras: ['pnl-accounting-fbtb.js', 'pnl-accounting-byprod.js'],
-    cacheFns: ['getEPMBreakdown'],   // depende solo de los filtros y de los canónicos (se invalida cuando cambian)
+    // getEPMBaselineGoalData: la carga principal (en frío ~13 s en producción); depende solo de los filtros y de los canónicos, igual que getEPMBreakdown
+    cacheFns: ['getEPMBaselineGoalData', 'getEPMBreakdown'],   // (se invalidan cuando cambia un archivo que lee el módulo)
     allowedUsers: EQUIPO_B2B,
     gasUrl: GAS_EXEC + 'AKfycby9WZK2HfAWx25M5pEMV3nntzJfEvsiT9feMn01zJQkQaI3t2GjTzOIjbFXWexnMuzklQ/exec',
   },
