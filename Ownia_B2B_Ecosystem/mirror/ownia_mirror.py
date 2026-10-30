@@ -30,6 +30,7 @@ import hashlib
 import io
 import json
 import os
+import re
 import sys
 import urllib.error
 import urllib.parse
@@ -195,7 +196,10 @@ class OwniaTarget:
     def __init__(self, cfg):
         if not cfg.get("OWNIA_URL") or not cfg.get("OWNIA_INGEST_TOKEN"):
             raise SystemExit(f"Faltan OWNIA_URL / OWNIA_INGEST_TOKEN (en {ENV_FILE} o variables de entorno)")
-        if not cfg["OWNIA_URL"].startswith("https://"):
+        # http:// solo a la misma máquina: el botón "Actualizar reales" corre el pipeline dentro del
+        # contenedor de Ownia y publica en su propio servidor (server/reales-job.js); el token no sale de ahí.
+        loopback = re.match(r"^http://(127\.0\.0\.1|localhost)(:\d+)?(/|$)", cfg["OWNIA_URL"])
+        if not cfg["OWNIA_URL"].startswith("https://") and not loopback:
             raise SystemExit("OWNIA_URL tiene que ser https:// (el token viaja en un header)")
         self.base = cfg["OWNIA_URL"].rstrip("/") + "/ingest/files"
         self.headers = {"Authorization": f"Bearer {cfg['OWNIA_INGEST_TOKEN']}", "User-Agent": "ownia-mirror"}

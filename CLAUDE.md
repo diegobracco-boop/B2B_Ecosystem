@@ -50,8 +50,8 @@ Una vez creadas las credenciales, actualizar `RUTA_ENV` en `Daily_Dashboard/dail
 | `Daily_Dashboard/` (Python) | Implementar → correr `/sincronizar` para verificar que funciona |
 | `Daily_Dashboard/` (GAS/HTML) | Implementar → `/clasp-push` para publicar a producción |
 | `Dashboard_B2B_WLs/` | Implementar → sync y redeploy en Ownia. **Sin `/clasp-push`**: desde 2026-10-23 la versión de Apps Script queda congelada y las mejoras (visuales y de performance) van solo a la app de Ownia (P&L Dashboard), por decisión de Diego. La capa visual propia de Ownia vive en `Ownia_B2B_Ecosystem/public/hub-layout.js` |
-| `P&L_Accounting/` | Implementar → `/clasp-push` + sync y redeploy en Ownia (en validación ahí) |
-| `P&L_Managerial/` | Implementar → `/clasp-push` + sync y redeploy en Ownia (en validación ahí). Los pipelines publican solos a Drive **y** a Ownia (doble escritura, `ownia_publish.py`); `ownia_mirror.py` queda para reparar un fallo y para las Sheets / xlsx |
+| `P&L_Accounting/` | Implementar → sync y redeploy en Ownia. **Productivo en Ownia desde 2026-10-30** (Tiago): la landing de Apps Script solo muestra el aviso "se mudó" con el link (`doGet` de `Codigo.js`); `/clasp-push` solo si se toca ese aviso |
+| `P&L_Managerial/` | Implementar → sync y redeploy en Ownia. **Productivo en Ownia desde 2026-10-30**, igual que P&L Accounting (Apps Script solo muestra el aviso con el link). Los pipelines publican solos a Drive **y** a Ownia (doble escritura, `ownia_publish.py`); `ownia_mirror.py` queda para reparar un fallo y para las Sheets / xlsx |
 | `Manual_B2B_WLs/` | Implementar → `python Manual_B2B_WLs/check_manual_refs.py` → `/clasp-push` |
 | `lob_country_one_pager/` | Implementar → `/clasp-push` (combina JSONs de Inputs_Planning_PnL + Daily_Dashboard + P&L_Managerial, sin pipeline propio) |
 | `P&L_Profit_Sharing/` | SQL/Python → `py profit_sharing_sync.py` (sube el JSON) · GAS/HTML → `/clasp-push` |
@@ -63,7 +63,7 @@ Una vez creadas las credenciales, actualizar `RUTA_ENV` en `Daily_Dashboard/dail
 | `FVM_Negativo/` | Implementar → `/clasp-push` + sync y redeploy en Ownia (en validación ahí; sin pipeline propio: el JSON lo genera `Daily_Dashboard/daily_sync.py`; si se tocan esas queries, `/sincronizar`) |
 | `Ownia_B2B_Ecosystem/` | Implementar → `npm test` → sync a `main` de `despegar/B2B_Ecosystem_APP` (repo propio de la app desde 2026-10-23) → redeploy con la skill `ownia-deploy` (ver su `CONTEXT.md`, "Flujo para publicar") |
 
-**Migración progresiva a Ownia** (`Ownia_B2B_Ecosystem/`): corre el código GAS de los módulos marcados `ownia: true` en `server/modules.js` sin reescribirlo. Apps Script sigue siendo productivo y no se toca. Si cambiás un módulo GAS ya migrado o en validación (hoy `Manual_B2B_WLs`, `P&L_Managerial`, `P&L_Accounting`, `Daily_Dashboard`, `Dashboard_B2B_WLs`, `FVM_Negativo`), hay que publicar en los dos lados: `/clasp-push` **y** sync + redeploy en Ownia (excepción: `Dashboard_B2B_WLs`, congelado en GAS, va solo a Ownia). Los módulos con datos leen una copia espejada de Drive: si agregás un `*_FILE_ID` / `*_FOLDER_ID` / `*_SHEET_ID` en su código GAS, sumalo a `Ownia_B2B_Ecosystem/server/drive-manifest.json`, y después de cada corrida de pipeline corré `py Ownia_B2B_Ecosystem/mirror/ownia_mirror.py`.
+**Migración progresiva a Ownia** (`Ownia_B2B_Ecosystem/`): corre el código GAS de los módulos marcados `ownia: true` en `server/modules.js` sin reescribirlo. Apps Script sigue siendo productivo y no se toca. Si cambiás un módulo GAS ya migrado o en validación (hoy `Manual_B2B_WLs`, `Daily_Dashboard`, `FVM_Negativo`), hay que publicar en los dos lados: `/clasp-push` **y** sync + redeploy en Ownia. Excepciones, solo Ownia: `Dashboard_B2B_WLs` (congelado en GAS) y `P&L_Managerial` / `P&L_Accounting` (productivos en Ownia desde 2026-10-30; en GAS solo queda el aviso). Los módulos con datos leen una copia espejada de Drive: si agregás un `*_FILE_ID` / `*_FOLDER_ID` / `*_SHEET_ID` en su código GAS, sumalo a `Ownia_B2B_Ecosystem/server/drive-manifest.json`, y después de cada corrida de pipeline corré `py Ownia_B2B_Ecosystem/mirror/ownia_mirror.py`.
 
 **Al cambiar el proceso, los IDs de Drive/deployment, los nombres de script o la arquitectura de CUALQUIER módulo, actualizar también `Manual_B2B_WLs/manual.html`** (y, si cambia un deployment ID, `Ownia_B2B_Ecosystem/server/modules.js`) — no se actualiza solo, y ya se desincronizó (scripts fantasma, IDs viejos). Correr `python Manual_B2B_WLs/check_manual_refs.py` antes de deployar el manual (chequea que los `.py` citados existan en el repo).
 
@@ -84,6 +84,8 @@ Ver [CONTEXT-MAP.md](./CONTEXT-MAP.md) para el diagrama completo. En resumen:
 - `Inputs_Planning_PnL` y `Daily_Dashboard` son los **pipelines** — generan los datos y los publican en Drive.
 - El resto son **landings** GAS — consumen los datos de Drive y los presentan al usuario.
 - Los pipelines alimentan las landings. Cambiar un pipeline puede afectar todas las landings.
+
+**Actualizar reales** (desde 2026-10-30): botón de la portada de Ownia, solo el equipo B2B y con contraseña (secreto `REALES_PASSWORD` de la app). Corre `Daily_Dashboard/daily_sync.py` en el servidor de Ownia (`Ownia_B2B_Ecosystem/server/reales-job.js`: Trino por HTTPS con `DATALAKE_HOST`, credenciales en `APP_SECRETS`) y publica en Drive y Ownia. Reemplaza al Task Scheduler de la PC de Tiago (`auto_update_reales.ps1`). Si se cambian los imports de `daily_sync.py`, revisar `requirements-pipelines.txt` y `PIPELINES` en `scripts/sync-to-ownia-repo.js`.
 
 ## Comandos disponibles
 

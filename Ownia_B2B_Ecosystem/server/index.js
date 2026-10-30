@@ -11,6 +11,8 @@
 //   PUT  <base>/ingest/files/<id>    sube/reemplaza un archivo espejado de Drive (ídem)
 //   GET  <base>/notes/<modulo>/<scope>  notas editables de una landing (solo Ownia, ver notes-store.js)
 //   POST <base>/notes/<modulo>/<scope>  guarda una nota: { field, text }
+//   GET  <base>/reales               estado de "Actualizar reales" (solo el equipo B2B, ver reales-job.js)
+//   POST <base>/reales               lanza la actualización de reales: { password }
 const config = require('./config');
 
 // Antes de cualquier Date: el proceso corre en la zona de los proyectos GAS (ver config.js).
@@ -29,7 +31,7 @@ const gzip = promisify(zlib.gzip);
 // Respuestas grandes (el Daily manda ~65 MB de JSON) viajan con gzip si el navegador lo acepta.
 // La compresión corre en el threadpool de libuv: no frena a las otras requests.
 const GZIP_MIN_BYTES = 32 * 1024;
-const { MODULES } = require('./modules');
+const { MODULES, EQUIPO_B2B } = require('./modules');
 const { GasProject } = require('./gas-runtime');
 const { renderOutput } = require('./render');
 const { escapeHtml } = require('./gas-template');
@@ -39,6 +41,7 @@ const { createFileStore, isValidId } = require('./file-store');
 const { ingestAllowlist, loadManifest } = require('./drive-manifest');
 const { createNotesStore } = require('./notes-store');
 const { ApiCache } = require('./api-cache');
+const { createRealesJob } = require('./reales-job');
 
 const MAX_BODY = 5 * 1024 * 1024; // google.script.run acepta payloads grandes (p.ej. capturas)
 const MAX_INGEST = 100 * 1024 * 1024; // los JSON canónicos pesan hasta ~15 MB
@@ -55,6 +58,10 @@ function createApp(opts = {}) {
   const apiCache = opts.apiCache !== undefined ? opts.apiCache : new ApiCache();   // respuestas de las funciones `cacheFns` (ver api-cache.js)
   const fileStore = opts.fileStore !== undefined ? opts.fileStore : createFileStore(cfg, log);
   const notesStore = opts.notesStore !== undefined ? opts.notesStore : createNotesStore(cfg);
+  // "Actualizar reales" de la portada: solo el equipo B2B (y con contraseña). Ver reales-job.js.
+  const reales = opts.reales !== undefined ? opts.reales : createRealesJob(cfg, { log });
+  const realesUsers = (opts.realesUsers || EQUIPO_B2B).map((x) => x.toLowerCase());
+  const mayRunReales = (identity) => !!reales && !!identity.email && realesUsers.includes(String(identity.email).toLowerCase());
   // Datos nuevos → se recargan los módulos. En GAS cada ejecución arranca con los globales
   // limpios; acá el contexto vive entre requests, y varios módulos memorizan el JSON en una
   // variable global (p.ej. _gestionalJsonCache_): sin esto seguirían sirviendo la versión vieja.
@@ -319,7 +326,31 @@ function createApp(opts = {}) {
     }
     if (route === '/' || route === '') {
       if (req.method !== 'GET') return sendJson(res, 405, { error: 'Método no permitido' });
-      return send(res, 200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }, indexPage({ modules, basePath: cfg.BASE_PATH, canOpen: (m) => mayOpen(m, identity) }));
+      return send(res, 200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }, indexPage({ modules, basePath: cfg.BASE_PATH, canOpen: (m) => mayOpen(m, identity), reales: mayRunReales(identity) }));
+    }
+
+    if (route === '/reales') {
+      if (!identity.email) return unauthorized(res);
+      if (!mayRunReales(identity)) return sendJson(res, 403, { error: 'Solo el equipo B2B puede actualizar los reales', name: 'Forbidden' });
+      // Fecha de los datos que ve Ownia: la del JSON principal del Daily en el almacén.
+      const daily = fileStore ? fileStore.listMeta().find((f) => f.name === 'daily_b2b2c_data.json') : null;
+      const dataUpdatedAt = daily ? new Date(daily.updatedAt).toISOString() : null;
+      if (req.method === 'GET') return sendJson(res, 200, { ...reales.status(), dataUpdatedAt });
+      if (req.method !== 'POST') return sendJson(res, 405, { error: 'Método no permitido' });
+      // Mismo anti-CSRF que /api y /notes: JSON + header custom + same-origin.
+      const ctype = String(req.headers['content-type'] || '');
+      const site = req.headers['sec-fetch-site'];
+      if (!/^application\/json\s*(;|$)/i.test(ctype) || req.headers['x-requested-with'] !== 'google.script.run' || (site && site !== 'same-origin')) {
+        return sendJson(res, 403, { error: 'Llamada rechazada', name: 'Forbidden' });
+      }
+      let body;
+      try { body = JSON.parse(await readBody(req, 4 * 1024)); } catch (e) {
+        if (e.status) return sendJson(res, e.status, { error: e.message });
+        return sendJson(res, 400, { error: 'JSON inválido' });
+      }
+      const r = reales.start(identity.email, typeof body.password === 'string' ? body.password : '');
+      if (!r.ok) return sendJson(res, r.code, { error: r.error });
+      return sendJson(res, 202, { ...r.status, dataUpdatedAt });
     }
 
     if (route === '/agentes') {

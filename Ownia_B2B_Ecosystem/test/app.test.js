@@ -291,6 +291,23 @@ for (const m of MODULES.filter((x) => x.ownia)) {
   });
 }
 
+test('P&L Accounting / Managerial (productivos en Ownia): acá abren el dashboard; en Apps Script, solo el aviso con el link', async () => {
+  const { GasProject } = require('../server/gas-runtime');
+  const { renderOutput } = require('../server/render');
+  const ev = { parameter: {}, parameters: {}, queryString: '', pathInfo: '', contextPath: '', contentLength: -1 };
+  for (const slug of ['pnl-accounting', 'pnl-managerial']) {
+    const mod = MODULES.find((m) => m.slug === slug);
+    assert.equal(mod.validating, undefined, `${slug} ya no está en validación`);
+    const own = await request(realServer, 'GET', `${BASE}/${slug}`, { headers: { 'x-test-email': 'chief@despegar.com' } });
+    assert.equal(own.status, 200, `${slug}: cualquier @despegar.com, como el webapp GAS`);
+    assert.doesNotMatch(own.text, /se mudó a Ownia/);
+    const p = new GasProject(mod, { gasRoot: config.GAS_ROOT, fileStore: null });
+    const gas = renderOutput(p.doGet(ev, { user: { email: '' }, moduleUrl: 'https://script.google.com/a/macros/despegar.com/s/X/exec' }), { clientScriptTag: '' });
+    assert.match(gas.body, /se mudó a Ownia/);
+    assert.match(gas.body, new RegExp(`href="https://ownia\\.despegar\\.io/b2b-ecosystem/${slug}"`));
+  }
+});
+
 test('Manual: mismo título que en GAS y embebible (ALLOWALL)', async () => {
   const r = await request(realServer, 'GET', `${BASE}/manual`);
   assert.match(r.text, /<title>Manual · B2B Ecosystem · Despegar<\/title>/);

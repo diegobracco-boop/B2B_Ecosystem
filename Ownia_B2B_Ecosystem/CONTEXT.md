@@ -17,8 +17,8 @@ se valida que Ownia da lo mismo (decisión del equipo, módulo por módulo).
 | Módulo | Ruta en Ownia | Estado |
 |---|---|---|
 | `Manual_B2B_WLs` | `/b2b-ecosystem/manual` | ✅ migrado (piloto: estático, sin datos) |
-| `P&L_Managerial` | `/b2b-ecosystem/pnl-managerial` | 🔁 en validación (paralelo a GAS, datos espejados) |
-| `P&L_Accounting` | `/b2b-ecosystem/pnl-accounting` | 🔁 en validación (paralelo a GAS, datos espejados) |
+| `P&L_Managerial` | `/b2b-ecosystem/pnl-managerial` | ✅ productivo desde 2026-10-30 (Tiago): cualquier @despegar.com; la landing GAS solo muestra el aviso "se mudó a Ownia" con el link (`doGet` detecta Apps Script por `ScriptApp.getService().getUrl()`) |
+| `P&L_Accounting` | `/b2b-ecosystem/pnl-accounting` | ✅ productivo desde 2026-10-30, igual que P&L Managerial |
 | `Daily_Dashboard` | `/b2b-ecosystem/daily` | 🔁 en validación (paralelo a GAS). Sin exportar a Slides ni mandar el mail (SlidesApp / MailApp): siguen en GAS. **Solo en Ownia (2026-10-24):** solapa "Industry events tracker" (`public/daily-layout.js`, `layout` en `modules.js`): YoY de los días de evento (sin pre ni post), un evento por vez con selector de evento y país, alineado por día de evento, con B2C de referencia; la lee de `industry_events.json` con `getIndustryEvents` (`server/gas-extras/daily-industry.js`, `gasExtras` en `modules.js`: funciones de servidor propias de Ownia que se cargan en el contexto del módulo, después de su código). En la misma capa, "Benchmark vs B2C" rearmada para Chief / VPs y directores de país (titular calculado, tarjetas con brecha GB/NR/FVM y B2C como tercera tarjeta, tabla por país abierta con mapa de calor y clic para filtrar, barra fija de país y período, brecha mensual por defecto; Globales = Other Countries + USA + Uruguay + Paraguay en los tres negocios, normalizado en `_benchRows_` y el selector de país, 2026-10-25): envuelve `renderBenchmark_` y compañía y reemplaza `renderBenchPaisTable_`; si se cambian esas funciones en `dashboard.html`, revisar la capa. El código GAS del Daily no cambia: el equipo lo sigue publicando con `/clasp-push` sin arrastrar esto |
 | `Dashboard_B2B_WLs` (Hub, "P&L Dashboard") | `/b2b-ecosystem/hub` | 🔁 en validación desde 2026-10-23 (paralelo a GAS, solo equipo B2B). **La versión de GAS queda congelada (2026-10-23): las mejoras van solo acá, sin `/clasp-push`.** Capa propia de Ownia en `public/hub-layout.js` (`layout` en `modules.js`): barra fija con Home + Consolidado/B2B/B2B2C (teclas 1/2/3) + pestañas (Operativo ▾ / Herramientas ▾), vista de entrada para dirección (2026-10-25, validada con el panel de clientes CEO/Chief): encabezado "Contable · real cerrado a … · proyección desde …", frase de lectura con los mayores desvíos de GB por grupo y lo que pasa con NR/OC, grilla GB/NR/OC × negocio con el formato de la presentación de dirección (2026-10-25, `deckHtml`: Consolidado = B2B-MIN, B2B-MAY, B2B2C y Total; B2B o B2B2C = total del negocio y sus grupos de países; cada celda con valor en USD $M, YoY y desvío $ y % vs Goal —vs Budget si el Goal es LY—; año a la fecha y cierre FY proyectado vs Budget en la etiqueta de la fila, de `_state.evo`; badge Organic si está activo), benchmark vs B2C en una línea (`_state.compPnl`), waterfall de GB por grupo y evolución; el resto (Cuadro Resumen con OKR, waterfalls de NR/OC, tablas, drill-down) se mueve a "Ver detalle" plegado (`foldDetail`, mueve nodos del Hub), línea de contexto con la barra "Filtrar…" (2026-10-25: se escribe "brasil b2b sep vs fc", muestra lo que entendió y lo que no, Enter aplica todo con una sola recarga; diccionario de sinónimos en `public/filter-aliases.js`, sin mayúsculas ni acentos, reutilizable en otros módulos; `layout` en `modules.js` acepta una lista de archivos que se cargan en orden) y botón Filtros (el panel se abre como cajón desde la derecha con el fondo atenuado; cierra con "Listo", Esc o clic afuera), precarga de los otros LoB y LoB sincronizado con las secciones embebidas de Ownia (P&L Contable, P&L Managerial, Daily, FVM Negativo). En `dashboard.html` (solo Ownia): Δ $ y Δ % en una fila, columna Total resaltada, leyenda de colores y OKR con el detalle de KRs desplegado ("Ocultar KRs" lo pliega al Total). También solo Ownia (2026-10-25): un solo semáforo (`_deltaState_`: verde ≥ 0%, ámbar −5% a 0%, rojo < −5%; antes las tablas tenían un gris 0–1%), un decimal debajo de 10%, Cuadro Resumen de Consolidado abierto en MAY / MIN por defecto (desde 2026-10-29, como antes) con botón "Agrupar B2B" que las junta en una columna B2B (`_pnlWithB2B_`), MAY/MIN como Mayoristas/Minoristas, y en la evolución los meses posteriores al último real rayados como proyección (antes la serie del baseline los pintaba como reales) con badge del cierre FY. "Slides cierre de mes" (SlidesApp + Slides API) y los triggers (`preComputeAll`, `keepAlive`) siguen en GAS; `getLastSync` da `null` (lo escribe un proceso de GAS en ScriptProperties). Primera carga ~4 s (sin trigger que precaliente el cache). Hasta el 2026-10-23 tardaba 40–70 s y en Ownia se cortaba a los 55 s: `queryMap_` partía con `split` todas las claves del mapa en cada una de sus cientos de llamadas; ahora usa un índice parseado una vez (`queryIndex_`, mismo resultado byte a byte) |
 | `FVM_Negativo` | `/b2b-ecosystem/fvm-negativo` | 🔁 en validación desde 2026-10-23 (paralelo a GAS, cualquier @despegar.com como el webapp GAS). Solo lee `fvm_negativo.json` de la carpeta del Daily |
@@ -118,7 +118,26 @@ pipelines (sin cambios) ──▶ Drive ──▶ mirror/ownia_mirror.py ──P
 - `/ingest/files` (GET lista, PUT sube) se protege con `Authorization: Bearer <INGEST_TOKEN>`. Sin
   `INGEST_TOKEN` configurado la ruta no existe (404).
 
-**Corrida diaria (2026-10-27):** `Daily_Dashboard/auto_update_reales.ps1` (Task Scheduler en la PC de Tiago) corre el
+**Actualizar reales (2026-10-30):** botón de la portada (`server/index-page.js`), solo para `EQUIPO_B2B` y con
+contraseña (`REALES_PASSWORD`, máx. 5 intentos cada 15 min por usuario). `POST /reales` lanza en el servidor
+`pipelines/Daily_Dashboard/daily_sync.py` (`server/reales-job.js`, una corrida por vez, corte a los 45 min);
+`GET /reales` da el estado y las últimas líneas de la salida, que también van al log de la app. El pipeline va a Trino
+por HTTPS (`DATALAKE_HOST`, sin ODBC), sube a Drive con el token de clasp (lo siguen leyendo las landings GAS) y a
+Ownia por `/ingest` en `127.0.0.1` (doble escritura de `ownia_publish.py`). Secretos de la app: `DATALAKE_USER`,
+`DATALAKE_PASSWORD`, `DRIVE_CLASP_TOKEN` (`tokens.default` de `~/.clasprc.json`), `DRIVE_READ_TOKEN`
+(`credenciales/drive_token.<usuario>.json`) y `REALES_PASSWORD`; hoy son los de Tiago. Los tokens se escriben en
+una carpeta temporal de la corrida y se borran al terminar. La imagen es Debian slim con Python
+(`requirements-pipelines.txt`) y el sync copia los `.py` a `pipelines/` (`PIPELINES` en
+`scripts/sync-to-ownia-repo.js`). `okr.json` se intenta regenerar igual que en la PC (sin el OneDrive del tracker de
+agencias); si falla, avisa y sigue: `python Inputs_Planning_PnL/okr_builder.py` a mano. Un redeploy en medio corta la corrida: se vuelve a tocar el botón
+(un corte entre subidas deja el JSON principal nuevo y los derivados de la corrida anterior, igual que si se cortaba en la PC).
+El estado de la corrida y el límite de intentos viven en memoria: válido con **una sola instancia** (hoy, desired 1); si se
+escala a más de una task, mover el lock a DynamoDB. La salida que se muestra y se loguea pasa por `redact` (tacha los
+valores de los secretos y lo que siga a Bearer / password= / refresh_token). Validado el 2026-10-30: corrida en seco
+(`DAILY_DRY_RUN_DIR`) por ODBC y por Trino en paralelo → mismas filas y valores; solo ±1 USD de redondeo en ~40 montos
+de GB entre 7 millones de valores, y filas en otro orden (no hay ORDER BY).
+
+**Corrida diaria (2026-10-27, reemplazada por el botón):** `Daily_Dashboard/auto_update_reales.ps1` (Task Scheduler en la PC de Tiago) corre el
 espejo completo después de `daily_sync.py` (paso 1b). No corta la corrida si falla: Apps Script se publica igual y queda un
 AVISO en el log. Esa PC necesita `credenciales/.env.ownia` y el login de Drive de `Inputs_Planning_PnL/token_drive.json`;
 sin `.env.ownia` el paso se saltea con aviso. Las demás corridas (P&L, `/actualizar`, uploads a mano) siguen necesitando
@@ -143,8 +162,8 @@ del ALB no es alcanzable desde la red de usuarios. Por eso `TRUSTED_IDENTITY_HEA
   identificado, el módulo responde 401. Se exige acá y no en el código GAS porque varias guardas de GAS dejan pasar
   cuando el usuario activo viene vacío (p.ej. `requireOwner_` del Daily lo toma como un trigger). Solo el Manual
   (estático) lo tiene apagado. SSO confirmado el 2026-10-21 (Cloudflare Access).
-- **Lista cerrada de usuarios** (`allowedUsers` en `server/modules.js`): los módulos en validación (P&L Managerial y
-  P&L Accounting; el Daily NO desde el 2026-10-23: lo abre cualquier @despegar.com, igual que su webapp GAS, para
+- **Lista cerrada de usuarios** (`allowedUsers` en `server/modules.js`): los módulos en validación con datos del P&L (hoy el
+  Hub; P&L Managerial y P&L Accounting hasta el 2026-10-30, cuando pasaron a productivos y abiertos a cualquier @despegar.com; el Daily NO desde el 2026-10-23: lo abre cualquier @despegar.com, igual que su webapp GAS, para
   que el equipo comercial use "OKR Detail") solo los abren las 5 cuentas del equipo B2B (`EQUIPO_B2B`); el resto recibe 403, en la landing y en
   `/api`. Decisión del equipo (2026-10-21) mientras corren en paralelo a GAS.
 - `APP_SECRETS.REQUIRE_IDENTITY = "true"` → 401 a TODA la app (portada y Manual incluidos), salvo `/health`.

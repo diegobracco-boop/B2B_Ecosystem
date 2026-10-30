@@ -41,7 +41,7 @@ El ecosistema tiene dos capas: **pipelines** (Python, generan los datos) y **lan
 
 ### Daily_Dashboard — sync diaria operativa
 - **Stack**: Python + GAS + HTML
-- **Trigger**: automático, Windows Task Scheduler, 9:45 hs (máquina de Tiago Harari)
+- **Trigger**: botón "Actualizar reales" de la portada de Ownia (desde 2026-10-30; corre en el servidor de Ownia, `Ownia_B2B_Ecosystem/server/reales-job.js`). Antes: Windows Task Scheduler, 9:45 hs, en la máquina de Tiago Harari
 - **Input**: Datalake Treasure Data (ODBC) — actuals B2B2C, actuals B2B (GD y RI), LY, budget, run rate
 - **Output**: `daily_b2b2c_data.json` + `daily_b2b_data.json` en Drive (carpeta DailyDashboard). También `fvm_negativo.json` para la landing `FVM_Negativo` (ver abajo)
 - **Al final de cada corrida** (desde 2026-10-23) llama a `Inputs_Planning_PnL/okr_builder.refresh_after_upload()` y regenera `okr.json` (Hub + KR Global B2B API), usando las credenciales de Drive de `Inputs_Planning_PnL/` (`credentials_drive.json` + `token_drive.json`). Si falla, avisa y la sync sigue.
@@ -179,8 +179,8 @@ El ecosistema tiene dos capas: **pipelines** (Python, generan los datos) y **lan
 - **Qué hace**: sirve las landings GAS desde Ownia corriendo **el mismo código** de cada proyecto Apps Script en un
   contexto `vm` con shims de los servicios de GAS (`HtmlService`, `Session`, `CacheService`, …) y un reemplazo de
   `google.script.run` en el navegador. No hay reescritura de lógica, así los números no divergen.
-- **Estado**: `Manual_B2B_WLs` migrado (`/b2b-ecosystem/manual`). **En validación** (en paralelo a GAS, que sigue
-  productivo): `P&L_Managerial` y `P&L_Accounting`. El resto sigue en GAS y la portada lo linkea. Falta shim de
+- **Estado**: `Manual_B2B_WLs` migrado (`/b2b-ecosystem/manual`). **Productivos en Ownia desde 2026-10-30** (en GAS solo queda el aviso con el
+  link): `P&L_Managerial` y `P&L_Accounting`. El resto sigue en GAS y la portada lo linkea. Falta shim de
   `SlidesApp`/`MailApp`/`SpreadsheetApp` (bloquea Hub y Daily).
 - **Datos**: lee una copia **espejada** de los mismos archivos de Drive (mismo id/nombre/fecha), en DynamoDB de Ownia (mismo patrón que `runrate-html`).
   La sube `mirror/ownia_mirror.py` (lista de archivos por módulo: `server/drive-manifest.json`); los pipelines no cambian.
@@ -199,7 +199,7 @@ Todas las credenciales viven en `credenciales/` (gitignoreado). Ver cada módulo
 ## Estado actual
 
 - **En producción**: Daily_Dashboard, Dashboard_B2B_WLs, P&L_Accounting, P&L_Managerial, Manual_B2B_WLs, `lob_country_one_pager` (B2B, en prod desde 2026-09-17), OKR_Producto_B2B2C, P&L_Profit_Sharing (desde 2026-10-13)
-- **En migración progresiva a Ownia**: `Ownia_B2B_Ecosystem` (migrado: Manual; en validación en paralelo: P&L Managerial, P&L Accounting, Daily Dashboard). Apps Script sigue productivo.
+- **En migración progresiva a Ownia**: `Ownia_B2B_Ecosystem` (migrados: Manual, P&L Managerial y P&L Accounting —productivos en Ownia desde 2026-10-30—; en validación en paralelo: Daily Dashboard, Hub, FVM Negativo). Para el resto, Apps Script sigue productivo.
 - **En construcción (Fase 2)**: repuntear las landings de P&L y Dashboard_B2B_WLs a los JSONs canónicos de Inputs_Planning_PnL como fuente única (hoy algunas todavía leen de fuentes propias)
 
 ## Relación clasp ↔ GitHub

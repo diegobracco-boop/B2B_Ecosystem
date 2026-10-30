@@ -31,10 +31,20 @@ const EXPECTED_REMOTE = /[/:]despegar\/B2B_Ecosystem_APP(\.git)?\/?$/i;
 const MIRROR_BRANCH = 'main';
 
 // Lo único que este script escribe/borra en el destino. Cualquier otra cosa se respeta.
-const APP_ENTRIES = ['server', 'public', 'test', 'scripts', 'package.json', 'package-lock.json', 'CONTEXT.md', 'Dockerfile', '.dockerignore'];
+const APP_ENTRIES = ['server', 'public', 'test', 'scripts', 'package.json', 'package-lock.json', 'CONTEXT.md', 'Dockerfile', '.dockerignore', 'requirements-pipelines.txt'];
 // .gitignore se escribe aparte: el del monorepo ignora gas/, que en el espejo SÍ se versiona.
 // README.md NO se toca: lo genera Ownia con datos de auditoría (quién/cuándo lo creó).
-const MANAGED = [...APP_ENTRIES, 'gas', 'LEEME_ESPEJO.md', '.gitignore'];
+const MANAGED = [...APP_ENTRIES, 'gas', 'pipelines', 'LEEME_ESPEJO.md', '.gitignore'];
+
+// Pipelines que corre el servidor (botón "Actualizar reales", server/reales-job.js): solo código, en
+// pipelines/<misma ruta que en el monorepo> (daily_sync.py importa por ruta relativa Inputs_Planning_PnL/
+// y Ownia_B2B_Ecosystem/mirror/). Nada de datos ni credenciales (SECRET_RE se aplica igual).
+const PIPELINES = [
+  { dir: 'Daily_Dashboard', ext: ['.py', '.sql'] },
+  { dir: 'Inputs_Planning_PnL', ext: ['.py'] },
+  { dir: `${APP_DIRNAME}/mirror`, ext: ['.py'] },
+  { dir: `${APP_DIRNAME}/server`, ext: [], files: ['drive-manifest.json'] },   // lo lee ownia_publish.py
+];
 
 // Archivos GAS que se copian (lo mismo que sube clasp; nada de .py, .md ni datos).
 const GAS_EXT = new Set(['.js', '.gs', '.html', '.json']);
@@ -99,7 +109,7 @@ function main() {
   checkTarget(target);
 
   const modules = MODULES.filter((x) => x.ownia);
-  const sources = [APP_DIRNAME, ...modules.map((m) => m.dir)];
+  const sources = [APP_DIRNAME, ...modules.map((m) => m.dir), ...PIPELINES.map((x) => x.dir)];
   const dirty = git(MONOREPO, ['status', '--porcelain', '--', ...sources]).trim();
   if (dirty) fail(`Hay cambios sin commitear en lo que se sincroniza:\n${dirty}\nCommitealos primero.`);
 
@@ -126,6 +136,14 @@ function main() {
     copied.push(m.dir);
   }
 
+  for (const pl of PIPELINES) {
+    for (const f of trackedFiles(pl.dir)) {
+      if (f.rel.includes('/') || SECRET_RE.test(f.rel)) continue;   // solo el primer nivel de la carpeta
+      if (!pl.ext.includes(path.extname(f.rel)) && !(pl.files || []).includes(f.rel)) continue;
+      copy(f.full, path.join(target, 'pipelines', pl.dir, f.rel));
+    }
+  }
+
   const sha = git(MONOREPO, ['rev-parse', 'HEAD']).trim();
   fs.mkdirSync(path.join(target, 'gas'), { recursive: true });
   fs.writeFileSync(
@@ -143,6 +161,7 @@ function main() {
       'Se regenera con `node scripts/sync-to-ownia-repo.js <clon>` desde el monorepo.',
       '',
       `Commit de origen: \`${sha}\` · Módulos GAS incluidos: ${copied.join(', ')}`,
+      `Pipelines (pipelines/, para "Actualizar reales"): ${PIPELINES.map((x) => x.dir).join(', ')}`,
       '',
       'Documentación: ver `CONTEXT.md`.',
       '',

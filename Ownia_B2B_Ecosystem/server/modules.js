@@ -21,7 +21,7 @@
 const GAS_EXEC = 'https://script.google.com/a/macros/despegar.com/s/';
 
 // Equipo B2B: los únicos que pueden abrir un módulo "en validación" (datos del P&L) mientras
-// corre en paralelo a GAS. Todas las apps de Ownia comparten el dominio ownia.despegar.io
+// corre en paralelo a GAS, y los únicos que ven el botón "Actualizar reales" de la portada. Todas las apps de Ownia comparten el dominio ownia.despegar.io
 // (aceptado por el equipo, 2026-10-21); limitar a estas cuentas acota la exposición. Un módulo
 // puede definir su propia lista con `allowedUsers`.
 const EQUIPO_B2B = [
@@ -116,9 +116,9 @@ const MODULES = [
     dir: 'P&L_Accounting',
     title: 'P&L Accounting',
     desc: 'Vista contable del P&L.',
+    // Productivo en Ownia desde 2026-10-30 (Tiago): la landing de Apps Script solo muestra el aviso "se mudó" con el
+    // link acá (doGet de Codigo.js). Sin allowedUsers: cualquier @despegar.com, igual que tenía el webapp GAS (access DOMAIN).
     ownia: true,
-    validating: true,
-    hideGasLink: true,   // 2026-10-28: sin el link "Versión Apps Script" en la tarjeta del menú (Diego)
     // Sin la portada propia del módulo: entra directo a esta vista (goToView del dashboard) y
     // se navega con los selectores del header. Ver public/ownia-nav.js.
     startView: 'contable-combined',
@@ -131,7 +131,6 @@ const MODULES = [
     gasExtras: ['pnl-accounting-fbtb.js', 'pnl-accounting-byprod.js'],
     // getEPMBaselineGoalData: la carga principal (en frío ~13 s en producción); depende solo de los filtros y de los canónicos, igual que getEPMBreakdown
     cacheFns: ['getEPMBaselineGoalData', 'getEPMBreakdown'],   // (se invalidan cuando cambia un archivo que lee el módulo)
-    allowedUsers: EQUIPO_B2B,
     gasUrl: GAS_EXEC + 'AKfycby9WZK2HfAWx25M5pEMV3nntzJfEvsiT9feMn01zJQkQaI3t2GjTzOIjbFXWexnMuzklQ/exec',
   },
   {
@@ -139,12 +138,11 @@ const MODULES = [
     dir: 'P&L_Managerial',
     title: 'P&L Managerial',
     desc: 'Vista gestional (FVM) B2B2C y B2B.',
+    // Productivo en Ownia desde 2026-10-30 (Tiago), como P&L Accounting: Apps Script solo muestra el aviso con el link.
+    // Sin allowedUsers: cualquier @despegar.com (el webapp GAS era access DOMAIN).
     ownia: true,
-    validating: true,
-    hideGasLink: true,   // 2026-10-28: sin el link "Versión Apps Script" en la tarjeta del menú (Diego)
     // Sin vista consolidada B2B + B2B2C (el módulo no la tiene): el tercer acceso es Managerial vs Accounting.
     quickViews: [['b2b', 'B2B'], ['b2b2c', 'B2B2C'], ['vsacc', 'Managerial vs Accounting']],
-    allowedUsers: EQUIPO_B2B,
     gasUrl: GAS_EXEC + 'AKfycbxHyP4uIh02zTQbQ7ZFbyByCVIYuREuiMJ74PnKhQbNGbWknCG2jxOtt_onafQcg5g4/exec',
   },
   {

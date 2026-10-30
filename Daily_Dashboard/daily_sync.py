@@ -45,6 +45,12 @@ warnings.filterwarnings("ignore")
 _win_user  = os.environ.get("USERNAME", "").lower()
 RUTA_ENV   = Path(__file__).resolve().parent.parent / "credenciales" / f".env.{_win_user}"
 DSN_NAME   = "DataLake Treasure ODBC"
+# Sin ODBC (servidor de Ownia, botón "Actualizar reales" de la portada): con DATALAKE_HOST se va directo
+# a Trino por HTTPS (mismo host, usuario y password que el DSN). En una PC con el DSN no hace falta.
+DATALAKE_HOST = os.getenv("DATALAKE_HOST", "")
+# Prueba sin publicar (p.ej. comparar ODBC contra Trino directo): DAILY_DRY_RUN_DIR=<carpeta> deja ahí los
+# JSON que se subirían y no toca Drive, Ownia ni okr.json.
+DRY_RUN_DIR = os.getenv("DAILY_DRY_RUN_DIR", "")
 # Queries simultáneas contra el Datalake. Algunos usuarios tienen una cola más chica en Trino
 # (QUERY_QUEUE_FULL con 6): bajarlo con la variable de entorno DAILY_FETCH_WORKERS=3.
 FETCH_WORKERS = int(os.getenv("DAILY_FETCH_WORKERS", "6"))
@@ -175,6 +181,11 @@ DB_PASSWORD = os.getenv("PASSWORD")
 
 
 def conectar():
+    if DATALAKE_HOST:
+        from trino.dbapi import connect
+        from trino.auth import BasicAuthentication
+        return connect(host=DATALAKE_HOST, port=443, http_scheme="https", user=DB_USER,
+                       auth=BasicAuthentication(DB_USER, DB_PASSWORD), catalog="data")
     import pyodbc
     return pyodbc.connect(
         f"DSN={DSN_NAME};UID={DB_USER};PWD={DB_PASSWORD};",
@@ -2045,7 +2056,8 @@ def _canon_reader():
     from google.oauth2.credentials import Credentials
     from google.auth.transport.requests import Request
     from googleapiclient.discovery import build
-    tok = Path(__file__).resolve().parent.parent / "credenciales" / f"drive_token.{_win_user}.json"
+    tok = Path(os.getenv("DRIVE_READ_TOKEN_FILE") or   # en Ownia lo deja ahí server/reales-job.js
+               Path(__file__).resolve().parent.parent / "credenciales" / f"drive_token.{_win_user}.json")
     if tok.exists():
         creds = Credentials.from_authorized_user_file(str(tok))
         if not creds.valid and creds.refresh_token:
@@ -2189,6 +2201,11 @@ print(f"OKR H2 JSON: {len(okr_h2_bytes)//1024:.0f} KB  (ri={len(okr_h2_payload['
 # ==============================================================================
 
 def upload_to_drive(json_bytes: bytes, filename: str, folder_id: str = DRIVE_FOLDER_ID):
+    if DRY_RUN_DIR:
+        Path(DRY_RUN_DIR).mkdir(parents=True, exist_ok=True)
+        (Path(DRY_RUN_DIR) / filename).write_bytes(json_bytes)
+        print(f"  DRY RUN: {filename} ({len(json_bytes) / 1e6:.1f} MB) -> {DRY_RUN_DIR}")
+        return
     from googleapiclient.http import MediaInMemoryUpload
     import sys as _sys
     from pathlib import Path as _Path
@@ -2234,7 +2251,9 @@ else:
     print(f"  AVISO: NO se sube {OKR_H2_JSON_FILE_NAME} (no cuadra con el JSON principal) — queda el de la corrida anterior.")
 if fvm_neg_bytes is not None:
     upload_to_drive(fvm_neg_bytes, FVM_NEG_JSON_FILE_NAME)
-if recurrencia_payload is not None:
+if recurrencia_payload is not None and DRY_RUN_DIR:
+    upload_to_drive(json.dumps(recurrencia_payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8"), RECUR_FILE_NAME)
+elif recurrencia_payload is not None:
     try:   # no corta la sync: p.ej. con el token de clasp no se puede pisar un archivo creado por otra persona
         upload_recurrencia(recurrencia_payload, _get_drive_service())
     except Exception as e:
@@ -2255,6 +2274,8 @@ except (Exception, SystemExit) as e:
 # actuals que salen del Datalake (hoteles directos, Unique Buyers, Hunting/Existing): se regenera acá
 # para que se actualicen todos los días sin esperar a /actualizar. Si falla, avisa y no corta la sync.
 try:
+    if DRY_RUN_DIR:
+        raise RuntimeError("DRY RUN: no se regenera okr.json")
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "Inputs_Planning_PnL"))
     import okr_builder
     okr_builder.refresh_after_upload()

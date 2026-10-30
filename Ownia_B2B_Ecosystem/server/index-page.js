@@ -135,7 +135,81 @@ function row(m, basePath, canOpen, find) {
         </section>`;
 }
 
-function shell(inner, { title = 'The B2B Ecosystem · Despegar', left = '<span class="topbar-logo">despegar</span>' } = {}) {
+// "Actualizar reales" (2026-10-30, Tiago): botón de la barra de arriba, solo para el equipo B2B, que pide una contraseña y
+// corre en el servidor la actualización diaria del Daily (server/reales-job.js). Reemplaza al Task Scheduler de una PC.
+const REALES_BUTTON = `<button type="button" class="act-btn" id="reales-btn" aria-haspopup="dialog">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 4v5h-5"/></svg>
+    Actualizar reales</button>`;
+
+function realesDialog(basePath) {
+  return `<dialog class="dlg" id="reales-dlg" aria-labelledby="reales-t">
+  <form method="dialog" class="dlg-x"><button type="submit" aria-label="Cerrar">&times;</button></form>
+  <h2 id="reales-t">Actualizar reales</h2>
+  <p class="dlg-sub">Trae del Datalake los reales de ayer y los publica en el Daily, el P&amp;L Managerial y el resto de los tableros (Ownia y Apps Script). Tarda unos 10 minutos.</p>
+  <dl class="dlg-meta"><dt>Datos al</dt><dd id="reales-data">…</dd><dt>Última corrida</dt><dd id="reales-last">…</dd></dl>
+  <form id="reales-form" class="dlg-form" autocomplete="off">
+    <label for="reales-pw">Contraseña</label>
+    <div class="dlg-row"><input id="reales-pw" type="password" required autocomplete="off">
+    <button type="submit" class="dlg-go" id="reales-go">Actualizar</button></div>
+  </form>
+  <p class="dlg-msg" id="reales-msg" role="status" aria-live="polite"></p>
+  <pre class="dlg-log" id="reales-log" hidden></pre>
+</dialog>
+<script>
+  (function () {
+    var api = ${JSON.stringify(`${basePath}/reales`)};
+    var dlg = document.getElementById('reales-dlg'), btn = document.getElementById('reales-btn');
+    var form = document.getElementById('reales-form'), pw = document.getElementById('reales-pw'), go = document.getElementById('reales-go');
+    var msg = document.getElementById('reales-msg'), logEl = document.getElementById('reales-log'), timer = 0;
+    function fmt(iso) {
+      if (!iso) return '—';
+      return new Date(iso).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    }
+    function show(st) {
+      document.getElementById('reales-data').textContent = fmt(st.dataUpdatedAt);
+      var last = st.startedAt ? fmt(st.startedAt) + ' · ' + (st.by || '').replace(/@.*/, '') : 'ninguna desde el último deploy';
+      if (st.state === 'ok') last += ' · OK';
+      if (st.state === 'error') last += ' · con error';
+      document.getElementById('reales-last').textContent = last;
+      var running = st.state === 'running';
+      go.disabled = running; pw.disabled = running;
+      btn.classList.toggle('busy', running);
+      if (running) msg.textContent = 'Actualizando… podés cerrar esta ventana, sigue corriendo en el servidor.';
+      else if (st.state === 'ok') msg.textContent = 'Listo: los tableros ya tienen los datos nuevos.';
+      else if (st.state === 'error') msg.textContent = 'La actualización falló. Mirá el detalle abajo.';
+      else if (!st.configured) msg.textContent = 'Falta configurar las credenciales en Ownia.';
+      else msg.textContent = '';
+      logEl.hidden = !(st.lines && st.lines.length);
+      logEl.textContent = (st.lines || []).join('\\n');
+      logEl.scrollTop = logEl.scrollHeight;
+      clearTimeout(timer);
+      if (running) timer = setTimeout(poll, 4000);
+    }
+    function poll() {
+      fetch(api, { credentials: 'same-origin', cache: 'no-store' }).then(function (r) { return r.json(); }).then(show)
+        .catch(function () { timer = setTimeout(poll, 8000); });
+    }
+    btn.addEventListener('click', function () { msg.textContent = ''; dlg.showModal(); poll(); pw.focus(); });
+    form.addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      go.disabled = true; msg.textContent = 'Arrancando…';
+      fetch(api, { method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'google.script.run' },
+        body: JSON.stringify({ password: pw.value }) })
+        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+        .then(function (x) {
+          pw.value = '';
+          if (!x.ok) { go.disabled = false; msg.textContent = x.j.error || 'No se pudo arrancar.'; return; }
+          show(x.j);
+        })
+        .catch(function () { go.disabled = false; msg.textContent = 'No se pudo conectar con el servidor.'; });
+    });
+    poll();   // si hay una corrida en curso, el botón lo muestra girando
+  })();
+</script>`;
+}
+
+function shell(inner, { title = 'The B2B Ecosystem · Despegar', left = '<span class="topbar-logo">despegar</span>', actions = '', extra = '' } = {}) {
   return `<!DOCTYPE html>
 <html lang="es-AR">
 <head>
@@ -184,6 +258,33 @@ function shell(inner, { title = 'The B2B Ecosystem · Despegar', left = '<span c
   .back { display: inline-flex; align-items: center; gap: 4px; font-size: 15px; font-weight: 500; color: var(--link); text-decoration: none; }
   .back:hover { text-decoration: underline; }
   .more.grp { margin-top: 40px; }
+  .act-btn { margin-left: auto; display: inline-flex; align-items: center; gap: 7px; padding: 7px 14px; border-radius: 999px; border: 0;
+             background: transparent; color: var(--text-2); font: 500 13px var(--font); cursor: pointer; box-shadow: inset 0 0 0 1px var(--line);
+             transition: color .2s var(--ease), box-shadow .2s var(--ease); }
+  .act-btn:hover { color: var(--link); box-shadow: inset 0 0 0 1px var(--link); }
+  .act-btn.busy svg { animation: spin 1.2s linear infinite; }
+  .act-btn + .theme-btn { margin-left: 8px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .dlg { margin: auto; width: min(520px, calc(100vw - 32px)); padding: 28px; border: 0; border-radius: 22px; background: var(--bg); color: var(--text);
+         box-shadow: 0 24px 64px rgba(0, 0, 0, .35), inset 0 0 0 1px var(--line); font-family: var(--font); }
+  .dlg::backdrop { background: rgba(0, 0, 0, .45); }
+  .dlg h2 { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; }
+  .dlg-x { position: absolute; top: 14px; right: 14px; }
+  .dlg-x button { width: 32px; height: 32px; border-radius: 50%; border: 0; background: transparent; color: var(--text-2); font-size: 22px; cursor: pointer; }
+  .dlg-x button:hover { background: var(--tile); color: var(--text); }
+  .dlg-sub { margin-top: 8px; font-size: 14px; color: var(--text-2); }
+  .dlg-meta { display: grid; grid-template-columns: auto 1fr; gap: 4px 16px; margin-top: 18px; font-size: 13.5px; }
+  .dlg-meta dt { color: var(--text-3); }
+  .dlg-form { margin-top: 20px; }
+  .dlg-form label { display: block; font-size: 13px; color: var(--text-2); margin-bottom: 6px; }
+  .dlg-row { display: flex; gap: 10px; }
+  .dlg-row input { flex: 1; min-width: 0; padding: 10px 14px; border-radius: 12px; border: 0; background: var(--tile); color: var(--text);
+                   font: 15px var(--font); box-shadow: inset 0 0 0 1px var(--line); }
+  .dlg-go { padding: 10px 18px; border-radius: 12px; border: 0; background: var(--primary); color: #fff; font: 500 15px var(--font); cursor: pointer; }
+  .dlg-go:disabled, .dlg-row input:disabled { opacity: .5; cursor: default; }
+  .dlg-msg { margin-top: 14px; font-size: 14px; color: var(--text-2); min-height: 1.5em; }
+  .dlg-log { margin-top: 10px; max-height: 220px; overflow: auto; padding: 12px; border-radius: 12px; background: var(--tile); color: var(--text-2);
+             font: 11.5px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre-wrap; word-break: break-word; }
   .theme-btn { margin-left: auto; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; background: transparent;
                border: 0; color: var(--text-2); cursor: pointer; transition: background .2s var(--ease), color .2s var(--ease); }
   .theme-btn:hover { background: var(--tile); color: var(--text); }
@@ -269,7 +370,8 @@ function shell(inner, { title = 'The B2B Ecosystem · Despegar', left = '<span c
   @media (prefers-reduced-motion: reduce) {
     .intro { display: none !important; }
     .reveal { animation: none !important; transition: none !important; opacity: 1 !important; transform: none !important; }
-    .tile, .cta svg, .quick a, .theme-btn { transition: none !important; }
+    .tile, .cta svg, .quick a, .theme-btn, .act-btn { transition: none !important; }
+    .act-btn.busy svg { animation: none !important; }
   }
 </style>
 </head>
@@ -285,6 +387,7 @@ function shell(inner, { title = 'The B2B Ecosystem · Despegar', left = '<span c
 </div>
 <header class="topbar">
   ${left}
+  ${actions}
   <button type="button" class="theme-btn" id="theme-btn" aria-label="Cambiar tema claro u oscuro" title="Cambiar tema">
     <svg id="icon-dark" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
     <svg id="icon-light" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24" style="display:none" aria-hidden="true"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
@@ -400,11 +503,12 @@ function shell(inner, { title = 'The B2B Ecosystem · Despegar', left = '<span c
     raf = requestAnimationFrame(frame);
   })();
 </script>
+${extra}
 </body>
 </html>`;
 }
 
-function indexPage({ modules, basePath, canOpen = () => true }) {
+function indexPage({ modules, basePath, canOpen = () => true, reales = false }) {
   const all = [...modules, ...OTHER_APPS];
   const find = (s) => all.find((m) => m.slug === s);
   const essential = ESSENTIAL.map(find).filter(Boolean);
@@ -423,7 +527,7 @@ function indexPage({ modules, basePath, canOpen = () => true }) {
       <div class="list">
         ${more.map((m) => row(m, basePath, canOpen, find)).join('\n')}
       </div>
-    </div>` : ''}`);
+    </div>` : ''}`, reales ? { actions: REALES_BUTTON, extra: realesDialog(basePath) } : {});
 }
 
 // Agentes de IA (Toqan): mismos agentes y links que la sección "IA Agents" del P&L Dashboard de Apps Script (EXTERNAL_LINKS.agents).

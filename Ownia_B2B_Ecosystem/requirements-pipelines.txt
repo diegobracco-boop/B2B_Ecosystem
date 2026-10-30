@@ -1,0 +1,8 @@
+# Python del contenedor de Ownia, para el botón "Actualizar reales" (Daily_Dashboard/daily_sync.py, ver
+# server/reales-job.js). trino en vez de pyodbc: en Ownia no hay DSN ODBC (DATALAKE_HOST en daily_sync.py).
+pandas==3.0.3
+trino==0.340.0
+google-api-python-client==2.198.0
+google-auth==2.56.0
+python-dotenv==1.2.2
+requests==2.34.2

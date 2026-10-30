@@ -1,0 +1,178 @@
+// "Actualizar reales" (botón de la portada, 2026-10-30, Tiago): corre en el servidor de Ownia el mismo
+// Daily_Dashboard/daily_sync.py que antes lanzaba el Task Scheduler de una PC (auto_update_reales.ps1):
+// Datalake → JSON → Drive (lo siguen leyendo las landings de Apps Script) + Ownia (doble escritura de
+// ownia_publish.py, que publica en este mismo servidor por /ingest). Así la actualización no depende de
+// ninguna PC prendida.
+//
+// - Una corrida por vez; el estado y las últimas líneas de la salida quedan en memoria para la portada
+//   (y cada línea va al log de la app). Un redeploy en medio corta la corrida: se vuelve a tocar el botón.
+// - Credenciales, todas de APP_SECRETS (manage_app_secrets de Ownia, nunca en el repo):
+//     DATALAKE_USER / DATALAKE_PASSWORD   usuario del Datalake (Trino por HTTPS, sin ODBC)
+//     DRIVE_CLASP_TOKEN                   JSON de tokens.default de ~/.clasprc.json (sube a Drive, como en la PC)
+//     DRIVE_READ_TOKEN                    JSON de credenciales/drive_token.<usuario>.json (lee los canónicos, flow_oc)
+//     REALES_PASSWORD                     la contraseña que pide el botón
+//   Los tokens se escriben en una carpeta temporal propia de la corrida (HOME del proceso) y se borran al terminar.
+// - Los .py los copia scripts/sync-to-ownia-repo.js a pipelines/ (mismas rutas que en el monorepo).
+const { spawn } = require('child_process');
+const crypto = require('crypto');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+
+const MAX_LINES = 300;
+const TIMEOUT_MS = 45 * 60 * 1000;   // en la PC tarda ~7 min
+const REQUIRED = ['DATALAKE_USER', 'DATALAKE_PASSWORD', 'DRIVE_CLASP_TOKEN', 'REALES_PASSWORD'];
+// Contraseña equivocada: hasta 5 intentos cada 15 minutos por usuario.
+const MAX_FAILS = 5;
+const FAIL_WINDOW_MS = 15 * 60 * 1000;
+
+function resolvePipelinesDir(appRoot) {
+  if (process.env.PIPELINES_DIR) return path.resolve(process.env.PIPELINES_DIR);
+  const bundled = path.join(appRoot, 'pipelines');   // repo de Ownia
+  if (fs.existsSync(bundled)) return bundled;
+  return path.resolve(appRoot, '..');                // monorepo
+}
+
+function sameSecret(a, b) {
+  const h = (s) => crypto.createHash('sha256').update(String(s)).digest();
+  return crypto.timingSafeEqual(h(a), h(b));
+}
+
+/**
+ * @param {object} cfg  config de la app (secrets, PORT, INGEST_TOKEN, APP_ROOT, TIME_ZONE)
+ * @param {object} opts { log, spawn, python, pipelinesDir } — spawn/python/pipelinesDir se pisan en los tests
+ */
+function createRealesJob(cfg, opts = {}) {
+  const log = opts.log || (() => {});
+  const spawnFn = opts.spawn || spawn;
+  const python = opts.python || process.env.PYTHON || (process.platform === 'win32' ? 'python' : 'python3');
+  const pipelinesDir = opts.pipelinesDir || resolvePipelinesDir(cfg.APP_ROOT);
+  const script = path.join(pipelinesDir, 'Daily_Dashboard', 'daily_sync.py');
+  const secrets = cfg.secrets || {};
+  const run = { state: 'idle', startedAt: null, finishedAt: null, by: null, exitCode: null, lines: [] };
+  const fails = new Map();   // email -> [timestamps]
+  // Un traceback puede traer una credencial: los valores de los secretos (y lo que siga a Bearer / password= /
+  // refresh_token) se tachan antes de guardar la línea o mandarla al log.
+  const secretValues = ['DATALAKE_PASSWORD', 'DRIVE_CLASP_TOKEN', 'DRIVE_READ_TOKEN', 'REALES_PASSWORD']
+    .map((k) => secrets[k]).concat(cfg.INGEST_TOKEN).filter((v) => typeof v === 'string' && v.length >= 6);
+  for (const k of ['DRIVE_CLASP_TOKEN', 'DRIVE_READ_TOKEN']) {
+    try {
+      const t = JSON.parse(secrets[k] || '{}');
+      for (const f of ['refresh_token', 'access_token', 'token', 'client_secret', 'id_token']) if (typeof t[f] === 'string' && t[f].length >= 6) secretValues.push(t[f]);
+    } catch (e) { /* lo informa start() */ }
+  }
+  const redact = (line) => secretValues.reduce((s, v) => s.split(v).join('***'), line)
+    .replace(/(Bearer\s+|(?:password|pwd|refresh_token|access_token|client_secret)["']?\s*[=:]\s*["']?)[^\s"',;&]+/gi, '$1***');
+
+  // Carpetas de corridas que quedaron de un proceso anterior que murió sin limpiar (tienen tokens).
+  try {
+    for (const d of fs.readdirSync(os.tmpdir())) if (/^reales-/.test(d)) fs.rmSync(path.join(os.tmpdir(), d), { recursive: true, force: true });
+  } catch (e) { /* sin permisos sobre tmp: nada que barrer */ }
+
+  function missing() {
+    const out = REQUIRED.filter((k) => !secrets[k]);
+    if (!cfg.INGEST_TOKEN) out.push('INGEST_TOKEN');
+    if (!fs.existsSync(script)) out.push('pipelines/Daily_Dashboard/daily_sync.py');
+    return out;
+  }
+
+  function push(text) {
+    for (const raw of String(text).split(/\r?\n/)) {
+      if (!raw.trim()) continue;
+      const line = redact(raw);
+      run.lines.push(line);
+      log({ level: 'info', msg: 'reales', line });
+    }
+    if (run.lines.length > MAX_LINES) run.lines.splice(0, run.lines.length - MAX_LINES);
+  }
+
+  function status() {
+    return {
+      state: run.state, startedAt: run.startedAt, finishedAt: run.finishedAt, by: run.by, exitCode: run.exitCode,
+      lines: run.lines.slice(-40), configured: missing().length === 0,
+    };
+  }
+
+  function tooManyFails(email) {
+    const now = Date.now();
+    const recent = (fails.get(email) || []).filter((t) => now - t < FAIL_WINDOW_MS);
+    fails.set(email, recent);
+    return recent.length >= MAX_FAILS;
+  }
+
+  /** Arranca una corrida. Devuelve { ok, status } o { ok: false, code, error }. */
+  function start(email, password) {
+    if (tooManyFails(email)) return { ok: false, code: 429, error: 'Demasiados intentos con la contraseña equivocada. Probá de nuevo en 15 minutos.' };
+    if (!secrets.REALES_PASSWORD || !sameSecret(password || '', secrets.REALES_PASSWORD)) {
+      if (secrets.REALES_PASSWORD) fails.get(email).push(Date.now());
+      log({ level: 'warn', msg: 'reales: contraseña equivocada', by: email });
+      return { ok: false, code: 403, error: 'Contraseña incorrecta.' };
+    }
+    const faltan = missing();
+    if (faltan.length) return { ok: false, code: 503, error: `Falta configurar en Ownia: ${faltan.join(', ')}` };
+    if (run.state === 'running') return { ok: false, code: 409, error: `Ya hay una actualización corriendo (la lanzó ${run.by}).` };
+
+    // HOME propio de la corrida: ahí van los tokens de Drive (el pipeline busca ~/.clasprc.json).
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), 'reales-'));
+    let clasp;
+    try {
+      clasp = { tokens: { default: JSON.parse(secrets.DRIVE_CLASP_TOKEN) } };
+    } catch (e) {
+      fs.rmSync(home, { recursive: true, force: true });
+      return { ok: false, code: 503, error: 'DRIVE_CLASP_TOKEN no es un JSON válido.' };
+    }
+    fs.writeFileSync(path.join(home, '.clasprc.json'), JSON.stringify(clasp), { mode: 0o600 });
+    const env = {
+      PATH: process.env.PATH || '/usr/local/bin:/usr/bin:/bin',
+      HOME: home,
+      LANG: 'C.UTF-8',
+      TZ: cfg.TIME_ZONE || process.env.TZ || 'America/Argentina/Buenos_Aires',
+      PYTHONUNBUFFERED: '1',
+      PYTHONIOENCODING: 'utf-8',
+      PYTHONDONTWRITEBYTECODE: '1',
+      // daily_sync.py lee USER / PASSWORD (las mismas variables de credenciales/.env.<usuario>).
+      USER: secrets.DATALAKE_USER,
+      PASSWORD: secrets.DATALAKE_PASSWORD,
+      USERNAME: 'ownia',
+      DATALAKE_HOST: secrets.DATALAKE_HOST || 'datalake.despegar.com',
+      // Doble escritura: ownia_publish.py sube a este mismo servidor (http solo a 127.0.0.1).
+      OWNIA_URL: `http://127.0.0.1:${cfg.PORT}`,
+      OWNIA_INGEST_TOKEN: cfg.INGEST_TOKEN,
+    };
+    if (secrets.DRIVE_READ_TOKEN) {
+      env.DRIVE_READ_TOKEN_FILE = path.join(home, 'drive_read_token.json');
+      fs.writeFileSync(env.DRIVE_READ_TOKEN_FILE, secrets.DRIVE_READ_TOKEN, { mode: 0o600 });
+    }
+
+    Object.assign(run, { state: 'running', startedAt: new Date().toISOString(), finishedAt: null, by: email, exitCode: null, lines: [] });
+    log({ level: 'info', msg: 'reales: arranca la actualización', by: email });
+    let done = false;
+    let timer = null;
+    const finish = (code) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      fs.rmSync(home, { recursive: true, force: true });
+      Object.assign(run, { state: code === 0 ? 'ok' : 'error', finishedAt: new Date().toISOString(), exitCode: code });
+      log({ level: code === 0 ? 'info' : 'error', msg: 'reales: terminó la actualización', exitCode: code, by: email });
+    };
+    let child;
+    try {
+      child = spawnFn(python, [script], { cwd: path.dirname(script), env, stdio: ['ignore', 'pipe', 'pipe'] });
+    } catch (e) {
+      push(`No se pudo lanzar ${python}: ${e.message}`);
+      finish(-1);
+      return { ok: true, status: status() };
+    }
+    timer = setTimeout(() => { push(`Cortado: pasaron ${TIMEOUT_MS / 60000} minutos sin terminar.`); child.kill('SIGKILL'); }, TIMEOUT_MS);
+    child.stdout.on('data', (d) => push(d));
+    child.stderr.on('data', (d) => push(d));
+    child.on('error', (e) => { push(`No se pudo lanzar ${python}: ${e.message}`); finish(-1); });
+    child.on('close', (code) => finish(code === null ? -1 : code));
+    return { ok: true, status: status() };
+  }
+
+  return { start, status, missing };
+}
+
+module.exports = { createRealesJob, resolvePipelinesDir };

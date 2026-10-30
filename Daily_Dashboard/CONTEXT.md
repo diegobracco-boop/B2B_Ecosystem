@@ -4,7 +4,7 @@ Script Python que corre diariamente y publica los datos operativos de B2B2C y B2
 
 ## Stack
 
-- **`daily_sync.py`** — script principal (Python). Se ejecuta automáticamente a las 9:45 via Windows Task Scheduler (desde 2026-09-25, en la máquina de Tiago Harari).
+- **`daily_sync.py`** — script principal (Python). Desde 2026-10-30 se corre con el botón "Actualizar reales" de la portada de Ownia (solo equipo B2B, con contraseña), en el servidor de Ownia: `Ownia_B2B_Ecosystem/server/reales-job.js`, conexión a Trino por HTTPS (`DATALAKE_HOST`) en vez del DSN ODBC. Prueba sin publicar: `DAILY_DRY_RUN_DIR=<carpeta> python daily_sync.py`. Antes (2026-09-25 a 2026-10-30): Windows Task Scheduler 9:45 en la máquina de Tiago Harari (`auto_update_reales.ps1`).
 - **`dashboard.html` / `dashboard_weekly.html`** — frontend GAS que lee los JSON de Drive y los presenta al equipo.
 - **`Codigo.js`** — Apps Script backend del dashboard.
 - **`auth_drive.py`** — setup inicial de credenciales OAuth Drive (correr una sola vez por persona).
