@@ -268,6 +268,8 @@ def _emit(svc, fid, payload, upload):
         import okr_builder
         okr_builder.refresh_after_upload()
         _refresh_daily_flow_oc(svc)   # idem el OC B2B2C del Daily (portada OC del Flow)
+        import organic_builder       # baseline organic (a TC Budget) para Toqan
+        organic_builder.refresh(["baseline"], svc)
 
 
 def _refresh_daily_flow_oc(svc):

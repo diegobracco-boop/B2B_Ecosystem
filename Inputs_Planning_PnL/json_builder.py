@@ -225,3 +225,8 @@ if __name__ == "__main__":
         sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "Daily_Dashboard"))
         import flow_oc
         flow_oc.refresh_in_daily_json(pnl_common.get_drive_service())
+    if upload:     # versiones organic (a TC Budget) para Toqan: organic_builder.py
+        import organic_builder
+        _org = [c for c in targets if c in organic_builder.BASES]
+        if _org:
+            organic_builder.refresh(_org)
