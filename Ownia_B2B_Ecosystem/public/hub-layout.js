@@ -184,6 +184,13 @@
     '.ohn-detail-sub{font-size:12.5px;color:#8a88a0;margin:8px 0 0}',
     '#ohn-detail{display:none;margin-top:20px}#ohn-detail-wrap.open #ohn-detail{display:block}',
     '.ohn-evo-tables{margin-bottom:20px}',
+    // Visión del OC (al final): barras como la evolución, YoY en tabla alineada con cada mes.
+    '#ohn-oc-wrap{border-top:1px solid #ebe8f3;padding-top:20px;margin-top:20px}',
+    '#ohn-oc-wrap .evo-wrap{height:280px}',
+    '.ohn-oc-tbl{border-collapse:collapse;table-layout:fixed;font-size:11px;margin-top:4px}',
+    '.ohn-oc-tbl td{padding:4px 0;text-align:center;white-space:nowrap}',
+    '.ohn-oc-tbl td:first-child{text-align:left;font-weight:700;color:#8a88a0;white-space:normal;line-height:1.15}',
+    '.ohn-oc-tbl .g{color:#1a7f37;font-weight:700}.ohn-oc-tbl .r{color:#cf222e;font-weight:700}.ohn-oc-tbl .n{color:#8a88a0}',
     '.ohn-wf-note{font-size:12px;color:#8a88a0;margin:10px 4px 0}',
     '.pnl-split-btn{margin-left:10px;font:600 11.5px Poppins,sans-serif;color:#550fed;background:none;border:1px solid #d9ccff;border-radius:999px;padding:3px 10px;cursor:pointer}',
     // Secciones embebidas: el Hub les da 100vh (sin header); acá queda la barra arriba.
@@ -952,6 +959,135 @@
       }
     }
   }
+  // ── Visión del OC (al final de la página) ──────────────────────────────────────────────────
+  // Barras mensuales de _state.evo: Actuals / Run Rate en un solo azul y Goal en gris, sin grilla ni
+  // líneas encima: el YoY % va en una tabla debajo, cada columna
+  // alineada con su mes (la geometría se toma del chartArea en cada layout del chart).
+  function renderOcEvo() {
+    var st = window._state, d = st && st.evo;
+    if (!d || !d.metrics || typeof window._groupEvo !== 'function' || typeof window.Chart !== 'function') return;
+    var m = d.metrics.filter(function (x) { return x.id === 'oc'; })[0];
+    if (!m) return;
+    var sec = document.getElementById('ohn-oc-wrap');
+    var after = document.getElementById('ohn-detail-wrap');
+    if (!sec) {
+      if (!after) return;
+      sec = document.createElement('div');
+      sec.className = 'sec';   // el Hub muestra/oculta los .sec del P&L al cambiar de sección
+      sec.id = 'ohn-oc-wrap';
+      sec.innerHTML = '<div class="evo-card"><div class="evo-hdr"><div style="display:flex;align-items:center;gap:10px">' +
+        '<h3>Operating Contribution</h3><span id="ohn-oc-badge"></span></div></div>' +
+        '<div class="evo-subtitle" id="ohn-oc-sub"></div>' +
+        '<div class="evo-wrap"><canvas id="ohn-oc-chart"></canvas></div>' +
+        '<div id="ohn-oc-yoy" style="overflow:hidden"></div></div>';
+    }
+    if (after && sec.previousSibling !== after) after.parentNode.insertBefore(sec, after.nextSibling);
+
+    var goalKey = st.goal === 'forecast' ? 'forecast' : st.goal === 'runRate' ? 'runRate' : 'budget';
+    var goalLabel = st.goal === 'lastYear' ? 'Budget' : goalOf(st)[1];
+    var grps = window._groupEvo(d, m, null, goalKey, 'M');
+    var fmt = window.fmtK || fmtMoney;
+    var isNum = function (v) { return v !== null && v !== undefined && isFinite(v); };
+    var labels = grps.map(function (g) { return g.label; });
+    var main = grps.map(function (g) { return g.actuals !== null ? g.actuals : g.runRate; });
+    var goal = grps.map(function (g) { return g.goal; });
+
+    // YoY: en organic con Goal Budget/Forecast, contra la serie a TC Actuals LY (como la tabla del Hub).
+    var yoyVal = d.periods.map(function (ym, i) {
+      if (m.actualsYoY && isNum(m.actuals[i])) return m.actualsYoY[i];
+      if (m.runRateYoY && m.runRate && isNum(m.runRate[i]) && !isNum(m.actuals[i])) return m.runRateYoY[i];
+      return null;
+    });
+    var cols = grps.map(function (g, i) {
+      var v = isNum(yoyVal[i]) ? yoyVal[i] : main[i], ly = g.lyAct;
+      var ok = isNum(v) && isNum(ly);
+      return { pct: ok && ly ? (v - ly) / Math.abs(ly) * 100 : null };
+    });
+
+    // Badge: cierre FY (real + proyección) vs Goal, mismo cálculo que la evolución del Hub.
+    var fyB = 0, fyG = 0;
+    grps.forEach(function (g) {
+      var v = g.actuals !== null ? g.actuals : g.runRate;
+      var ref = st.goal === 'forecast' ? (g.forecast || g.budget) : st.goal === 'runRate' ? g.goal : g.budget;
+      if (g.isFY && isNum(v) && isNum(ref)) { fyB += v; fyG += ref; }
+    });
+    var badge = document.getElementById('ohn-oc-badge');
+    if (fyG) {
+      var p = (fyB - fyG) / Math.abs(fyG) * 100;
+      badge.className = p >= 0 ? 'badge-ok' : 'badge-bad';
+      badge.textContent = 'FY' + String(window.FY_MONTHS[11]).slice(2, 4) + ' proyectado ' + (p >= 0 ? '+' : '') + p.toFixed(1) + '% vs ' + goalLabel;
+    } else { badge.className = ''; badge.textContent = ''; }
+    document.getElementById('ohn-oc-sub').textContent = 'Evolución mensual · Actuals / Run Rate vs ' + goalLabel +
+      ' · debajo, crecimiento YoY de cada mes';
+
+    var tbl = document.getElementById('ohn-oc-yoy');
+    var pctCell = function (c) {
+      if (!isNum(c.pct)) return '<td class="n">—</td>';
+      var a = Math.abs(c.pct);
+      return '<td class="' + (c.pct >= 0 ? 'g' : 'r') + '">' + (c.pct >= 0 ? '+' : '−') + (a < 10 ? a.toFixed(1) : a.toFixed(0)) + '%</td>';
+    };
+    tbl.innerHTML = '<table class="ohn-oc-tbl"><colgroup><col class="ohn-oc-h">' +
+      cols.map(function () { return '<col>'; }).join('') + '<col class="ohn-oc-r"></colgroup><tbody>' +
+      '<tr><td>YoY %</td>' + cols.map(pctCell).join('') + '<td></td></tr>' +
+      '</tbody></table>';
+
+    // Columnas de la tabla = categorías del eje X del chart.
+    function align(chart) {
+      var t = tbl.querySelector('table'), a = chart.chartArea;
+      if (!t || !a) return;
+      var w = chart.width, n = cols.length || 1;
+      t.style.width = w + 'px';
+      t.querySelector('.ohn-oc-h').style.width = a.left + 'px';
+      t.querySelector('.ohn-oc-r').style.width = Math.max(0, w - a.right) + 'px';
+      Array.prototype.forEach.call(t.querySelectorAll('col:not(.ohn-oc-h):not(.ohn-oc-r)'), function (c) {
+        c.style.width = ((a.right - a.left) / n) + 'px';
+      });
+    }
+
+    if (typeof window.destroyChart === 'function') window.destroyChart('ohn-oc-chart');
+    else if (window._ohnOcChart) window._ohnOcChart.destroy();
+    var canvas = document.getElementById('ohn-oc-chart');
+    var chart = new window.Chart(canvas, {
+      type: 'bar',
+      data: { labels: labels, datasets: [
+        { label: 'Actuals / Run Rate', data: main, backgroundColor: '#5457D9', borderRadius: 4, order: 2 },
+        { label: goalLabel, data: goal, backgroundColor: 'rgba(140,149,159,.3)', borderRadius: 4, order: 3 },
+      ] },
+      options: {
+        responsive: true, maintainAspectRatio: false, layout: { padding: { top: 16 } },
+        plugins: {
+          legend: { labels: { color: '#57606a', font: { size: 11 }, boxWidth: 12 } },
+          tooltip: { callbacks: { label: function (c) { return ' ' + c.dataset.label + ': ' + (isNum(c.raw) ? fmt(c.raw) : '—'); } } },
+        },
+        scales: {
+          x: { grid: { display: false }, border: { display: false }, ticks: { color: '#57606a', font: { size: 10 } } },
+          y: { grid: { display: false }, border: { display: false }, ticks: { color: '#57606a', font: { size: 10 }, callback: function (v) { return fmt(v); } } },
+        },
+      },
+      plugins: [{
+        id: 'ohnOcLabels',
+        afterLayout: align,
+        afterDatasetsDraw: function (ch) {
+          var ctx = ch.ctx;
+          [[0, '#1f2328', 'bold 10px'], [1, '#8c95a9', 'bold 9px']].forEach(function (s) {
+            var ds = ch.data.datasets[s[0]];
+            ch.getDatasetMeta(s[0]).data.forEach(function (bar, i) {
+              var v = ds.data[i];
+              if (!isNum(v) || v === 0) return;
+              ctx.save();
+              ctx.fillStyle = s[1]; ctx.font = s[2] + ' -apple-system,sans-serif'; ctx.textAlign = 'center';
+              ctx.textBaseline = v < 0 ? 'top' : 'alphabetic';
+              ctx.fillText(fmt(v), bar.x, v < 0 ? bar.y + 4 : bar.y - 4);
+              ctx.restore();
+            });
+          });
+        },
+      }],
+    });
+    if (window._charts) window._charts['ohn-oc-chart'] = chart; else window._ohnOcChart = chart;
+    align(chart);
+  }
+
   function setDetail(wrap, on) {
     wrap.classList.toggle('open', on);
     var btn = wrap.querySelector('.ohn-detail-btn');
@@ -1027,12 +1163,14 @@
     wrap('render', function () {
       renderTop();
       foldDetail();
+      renderOcEvo();
       if (askLink && window._state && window._state.pnl) setTimeout(applyAskLink, 0);   // fuera del render: puede recargar
       if (!preloaded && window._state && window._state.pnl && typeof window._preloadOtherLobs_ === 'function' && typeof window.getParams === 'function') {
         preloaded = true;
         window._preloadOtherLobs_(window.getParams());
       }
     });
+    wrap('renderEvo', renderOcEvo);   // cambio de Goal sin render completo
     wrap('toggleFiltersPanel', function () { renderTop(); syncDrawer(true); });
     wrap('renderOKR', renderTop);
     // Desplegable de país: qué incluye Globales y OPS + RG.
