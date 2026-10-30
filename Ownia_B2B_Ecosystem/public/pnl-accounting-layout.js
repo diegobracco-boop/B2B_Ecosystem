@@ -206,9 +206,10 @@
 
   // ── Secciones: estado de la página según la sección ──
   function layoutSection() {
-    var fr = document.getElementById('cont-filters-row'), fgP = document.getElementById('fg-cont-producto');
-    if (fr) fr.style.display = '';
-    if (fgP) fgP.style.display = hasProd() ? '' : 'none';
+    // País / Producto viven en la barra de controles (ver más abajo): el bloque original de filtros no se muestra
+    var fr = document.getElementById('cont-filters-row'), fgP = document.getElementById('pa-f-prod');
+    if (fr) fr.style.display = 'none';
+    if (fgP) { fgP.style.display = hasProd() ? 'inline-flex' : 'none'; if (fgP._sep) fgP._sep.style.display = fgP.style.display; }
     var wf = document.getElementById('cont-waterfall-section');
     if (wf) wf.style.display = sec === 'combined' ? '' : 'none';
     var disc = document.getElementById('cont-disclaimer');
@@ -230,7 +231,12 @@
 
   var css = document.createElement('style');
   css.textContent = '#bg-country-blocks,#cont-b2b-nav,#cont-b2b2c-nav,#cont-b2b-detail,#cont-b2b2c-detail{display:none!important}#fg-cont-lob,#cont-filters-row .fg:has(#ms-cont-canal){display:none!important}' +
-    '#header-subtabs > .header-tab:not(.pa-sec){display:none!important}';
+    '#header-subtabs > .header-tab:not(.pa-sec){display:none!important}' +
+    // País / Producto como desplegables con forma de pill en la barra de controles
+    '.pa-f{display:inline-flex;align-items:center;gap:6px}.pa-f > span{font-size:11px;color:#3a4048;font-weight:700}' +
+    '.pa-f .ms-btn{border-radius:999px;padding:6px 14px;font-size:11.5px;font-weight:600;min-width:0;background:#fff;color:#3a4048;' +
+    'border:1px solid #e3def3;box-shadow:none;gap:8px}.pa-f .ms-btn:hover,.pa-f .ms-wrap.open .ms-btn{border-color:#7C3AED;color:#5b21b6}' +
+    '.pa-f .ms-panel{z-index:60;min-width:200px}';
   (document.head || document.documentElement).appendChild(css);
 
   document.addEventListener('DOMContentLoaded', function () {
@@ -328,6 +334,25 @@
     anchor.parentNode.insertBefore(sep, anchor.nextSibling);
     sep.parentNode.insertBefore(lbl, sep.nextSibling);
     lbl.parentNode.insertBefore(grp, lbl.nextSibling);
+    // País / Producto: se mueven los multi-select del dashboard (mismos ids, mismo comportamiento) a la barra, después de Columnas
+    var after = grp;
+    [['pa-f-pais', 'País:', 'ms-cont-pais'], ['pa-f-prod', 'Producto:', 'ms-cont-producto']].forEach(function (f) {
+      var ms = document.getElementById(f[2]);
+      if (!ms) return;
+      var s2 = document.createElement('span');
+      s2.style.cssText = 'width:1px;height:18px;background:rgba(0,0,0,.15);margin:0 2px';
+      var box = document.createElement('span');
+      box.className = 'pa-f';
+      box.id = f[0];
+      var t = document.createElement('span');
+      t.textContent = f[1];
+      box.appendChild(t);
+      box.appendChild(ms);
+      after.parentNode.insertBefore(s2, after.nextSibling);
+      s2.parentNode.insertBefore(box, s2.nextSibling);
+      if (f[0] === 'pa-f-prod') box._sep = s2;
+      after = box;
+    });
     // La navegación inicial (?view=…, ownia-nav.js) pudo abrir la vista B2B / B2B2C vieja antes de esta capa: se vuelve a la consolidada
     if (W._bgContableView && W._bgContableView !== 'combined') W.setContableView('combined');
     else { layoutSection(); if (sec !== 'combined') W.debouncedFetchBG(); }   // la primera carga pudo salir antes que estos filtros
