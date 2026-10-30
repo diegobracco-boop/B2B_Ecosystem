@@ -6,8 +6,9 @@
  *  - La portada propia del módulo (#home-overlay, con su botón "⌂ Inicio") no se muestra: se entra
  *    directo a la vista `data-start-view` (goToView) y se navega con los selectores del header.
  *    `?view=<vista>` en la URL elige otra vista de entrada (los accesos rápidos del menú: B2B, B2B2C…).
- *  - Si la landing no tiene ese link, se agrega "🏠 Home": arriba del sidebar (el Manual) o al
- *    principio de la .topbar (el Daily). Dentro de un iframe (Tracker embebido) no se agrega.
+ *  - Si la landing no tiene ese link, se agrega "🏠 Home": arriba del sidebar (el Manual), al
+ *    principio de la .topbar (el Daily) o arriba del título de .header (FVM Negativo). Dentro de un
+ *    iframe (Tracker embebido) no se agrega.
  */
 (function () {
   'use strict';
@@ -28,7 +29,10 @@
     '.ownia-home-side:hover{opacity:1}' +
     '.ownia-home-top{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;margin-right:4px;border-radius:8px;' +
     'border:1px solid currentColor;font-size:12px;font-weight:600;text-decoration:none;color:inherit;opacity:.8}' +
-    '.ownia-home-top:hover{opacity:1}';
+    '.ownia-home-top:hover{opacity:1}' +
+    '.ownia-home-head{display:inline-flex;align-items:center;gap:6px;margin:0 0 10px;padding:5px 10px;border-radius:8px;' +
+    'border:1px solid currentColor;font-size:12px;font-weight:600;text-decoration:none;color:inherit;opacity:.8}' +
+    '.ownia-home-head:hover{opacity:1}';
   document.head.appendChild(css);
 
   function asHome(a) {
@@ -56,12 +60,14 @@
 
     var side = !hasHome && !embedded && document.querySelector('#sidebar .sidebar-logo');
     var top = !hasHome && !embedded && !side && document.querySelector('.topbar');
-    if (side || top) {
+    var title = !hasHome && !embedded && !side && !top && document.querySelector('.header h1');
+    if (side || top || title) {
       var a = document.createElement('a');
-      a.className = side ? 'ownia-home-side' : 'ownia-home-top';
+      a.className = side ? 'ownia-home-side' : top ? 'ownia-home-top' : 'ownia-home-head';
       asHome(a);
       if (side) side.parentNode.insertBefore(a, side.nextSibling);
-      else top.insertBefore(a, top.firstChild);
+      else if (top) top.insertBefore(a, top.firstChild);
+      else title.parentNode.insertBefore(a, title);
     }
 
     if (startView && typeof window.goToView === 'function') window.goToView(startView);
