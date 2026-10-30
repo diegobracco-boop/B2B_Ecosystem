@@ -26,7 +26,13 @@ NOT from datalake raw.b2bfc1_* (that table is outdated / projects too low).
 ym from `mes_proyectado` (GD) or `mes ri` (RI); Apr-Dec→2026, Jan-Mar→2027.
 
 Drive folder : 1wzudbo7cN9Ibiv_2OA-V0_B_un4JcJp6
-Run manually : python actuals_gestional_upload.py
+Run manually : python actuals_gestional_upload.py [--mtd]
+
+--mtd (2026-10-30): suma el mes en curso como real MTD (del 1 a ayer) para ver cómo vienen los reales. Su LY
+es el mismo período del año anterior (no el mes completo). El Budget / RR / Forecast del mes quedan del mes
+completo. `actual_months` incluye el mes (la landing lo muestra como real), pero `last_actual_ym` sigue siendo
+el último mes CERRADO: okr_builder.py lo usa como corte de actuals y no tiene que ver un mes parcial.
+La salida lleva "mtd": {ym, desde, hasta, dias, dias_mes}. La próxima corrida sin --mtd lo saca.
 """
 
 import os, json, warnings
@@ -106,6 +112,15 @@ CLOSED_SET    = {ym for ym in FY_SET if ym < CURRENT_YM}
 # Full prior FY (FY26) months, shifted back 1 year from FY27.
 LY_FULL_SET   = {f"{int(ym[:4])-1}-{ym[5:]}" for ym in FY_SET}
 LAST_ACTUAL_YM = max(CLOSED_SET) if CLOSED_SET else "0000-00"  # e.g. '2026-07'
+LAST_CLOSED_YM = LAST_ACTUAL_YM          # último mes cerrado (va en la salida como last_actual_ym, ver --mtd)
+MTD = None
+if "--mtd" in sys.argv and CURRENT_YM in FY_SET and TODAY.day > 1:
+    ACTUALS_TO = TODAY - timedelta(days=1)
+    CLOSED_SET = CLOSED_SET | {CURRENT_YM}
+    LAST_ACTUAL_YM = CURRENT_YM
+    _dm = (date(TODAY.year + (TODAY.month == 12), TODAY.month % 12 + 1, 1) - timedelta(days=1)).day
+    MTD = {"ym": CURRENT_YM, "desde": str(_first_of_current), "hasta": str(ACTUALS_TO), "dias": ACTUALS_TO.day, "dias_mes": _dm}
+    print(f"[MTD] {CURRENT_YM} real del {_first_of_current} al {ACTUALS_TO} ({ACTUALS_TO.day} de {_dm} días); LY del mismo período")
 
 METRIC_COLS = [
     "orders","gross_bookings","up_front_incentives","fees","commercial_discounts",
@@ -1481,9 +1496,20 @@ def upload_to_drive(json_bytes: bytes):
 print("\n--- B2B2C ---")
 df_b2b2c    = fetch(build_b2b2c_query(ACTUALS_FROM, ACTUALS_TO), "B2B2C actuals")
 df_b2b2c_ly = fetch(build_b2b2c_query(LY_FETCH_FROM, LY_TO),    "B2B2C LY")   # + Ene–Mar (PRE_MONTHS y su LY)
+# --mtd: el LY del mes en curso es el mismo período del año anterior (del 1 al mismo día), no el mes completo
+if MTD:
+    _ly_ym   = f"{int(MTD['ym'][:4]) - 1}-{MTD['ym'][5:]}"
+    _ly_from = date(int(_ly_ym[:4]), int(_ly_ym[5:]), 1)
+    _ly_to   = date(_ly_from.year, _ly_from.month, MTD["dias"])
+    def _ly_mtd(df, q, label):
+        new = fetch(q, label)
+        return pd.concat([df[df["Mes"].astype(str) != _ly_ym], new[new["Mes"].astype(str) == _ly_ym]], ignore_index=True)
+    df_b2b2c_ly = _ly_mtd(df_b2b2c_ly, build_b2b2c_query(_ly_from, _ly_to), f"B2B2C LY MTD {_ly_ym}")
 # Apertura por tipo de producto (product_type): solo Actuals + LY de meses cerrados y PRE_MONTHS.
 df_b2b2c_tp    = fetch(build_b2b2c_query(ACTUALS_FROM, ACTUALS_TO, by_tipo=True), "B2B2C actuals por tipo")
 df_b2b2c_tp_ly = fetch(build_b2b2c_query(LY_FETCH_FROM, LY_TO, by_tipo=True),    "B2B2C LY por tipo")
+if MTD:
+    df_b2b2c_tp_ly = _ly_mtd(df_b2b2c_tp_ly, build_b2b2c_query(_ly_from, _ly_to, by_tipo=True), f"B2B2C LY MTD por tipo {_ly_ym}")
 # Split Hunting/Farming de la landing: mismo criterio que el Daily y los OKR (hunting_rules.py).
 b2b2c_stage = hunting_rules.stage_map(fetch(hunting_rules.CARTERA_STAGE_QUERY, "Cartera stage"))
 print(f"  hunting (New): {sorted(p for p, s in b2b2c_stage.items() if s == 'New')}")
@@ -1491,6 +1517,10 @@ print(f"  hunting (New): {sorted(p for p, s in b2b2c_stage.items() if s == 'New'
 print("\n--- B2B GD ---")
 df_b2b_gd    = fetch(build_b2b_gd_query(ACTUALS_FROM, ACTUALS_TO), "B2B GD actuals")
 df_b2b_gd_ly = fetch(build_b2b_gd_query(LY_FETCH_FROM, LY_TO),     "B2B GD LY")   # + Ene–Mar (PRE_MONTHS y su LY)
+if MTD:   # LY GD del mes en curso: mismo período del año anterior
+    _new = fetch(build_b2b_gd_query(_ly_from, _ly_to), f"B2B GD LY MTD {_ly_ym}")
+    _is = lambda d: (pd.to_numeric(d["anio_gd"], errors="coerce") == _ly_from.year) & (pd.to_numeric(d["mes_gd"], errors="coerce") == _ly_from.month)
+    df_b2b_gd_ly = pd.concat([df_b2b_gd_ly[~_is(df_b2b_gd_ly)], _new[_is(_new)]], ignore_index=True)
 
 print("\n--- B2B RI ---")
 df_b2b_ri = fetch(build_b2b_ri_query(ACTUALS_FROM, ACTUALS_TO), "B2B RI actuals")
@@ -1667,7 +1697,8 @@ output = {
     "actuals_from":  str(ACTUALS_FROM),
     "actuals_to":    str(ACTUALS_TO),
     "actual_months": actual_months,
-    "last_actual_ym": LAST_ACTUAL_YM,
+    "last_actual_ym": LAST_CLOSED_YM,   # último mes cerrado (corte de okr_builder.py); con --mtd el mes en curso va en "mtd"
+    "mtd":           MTD,
     "months":        FY_MONTHS,
     "pre_months":    PRE_MONTHS,    # Ene–Mar previos al FY: solo en bl/bl_ri, ly, *_gw y *_tp (no en ac)
     "metrics":       METRIC_COLS,
