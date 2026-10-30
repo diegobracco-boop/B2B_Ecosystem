@@ -994,8 +994,10 @@
       var h = document.querySelector('header');
       document.body.classList.toggle('ohn-noheader', !!h && h.style.display === 'none');
     });
-    // Cada render del P&L: franja de KPIs y, la primera vez, precarga de los otros LoB.
-    var preloaded = false;
+    // Cada render del P&L: franja de KPIs y, la primera vez, precarga de los otros LoB. Embebido (Presentaciones: Mensual,
+    // Cierre, Mis slides) no se precarga: nadie cambia de LoB ahí y los 2 getAllData de más saturaban el contenedor
+    // junto con el Daily (2026-10-30: health check en timeout y reinicio de la app).
+    var preloaded = /[?&]embedded=1(&|$)/.test(location.search);
     wrap('_renderDataStamp_', renderStamp);
     wrap('render', function () {
       renderTop();

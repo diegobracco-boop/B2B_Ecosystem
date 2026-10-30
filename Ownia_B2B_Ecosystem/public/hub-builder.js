@@ -113,16 +113,23 @@
     out.forEach(function (q) { q.key = JSON.stringify(q.p); });
     return out;
   }
+  // De a un pedido por vez (getSlidesEvo es pesado: varios en paralelo saturan el contenedor); lo que ya está en caché no se pide.
+  var queue = Promise.resolve();
   function fetchEvo(qs) {
-    var need = [], seen = {};
-    qs.forEach(function (q) { if (!cache[q.key] && !seen[q.key]) { seen[q.key] = 1; need.push(q); } });
-    if (!need.length) return Promise.resolve();
-    return new Promise(function (resolve, reject) {
-      window.google.script.run.withSuccessHandler(function (res) {
-        need.forEach(function (q, i) { cache[q.key] = series(res[i]); });
-        resolve();
-      }).withFailureHandler(reject).getSlidesEvo(need.map(function (q) { return q.p; }));
-    });
+    var run = function () {
+      var need = [], seen = {};
+      qs.forEach(function (q) { if (!cache[q.key] && !seen[q.key]) { seen[q.key] = 1; need.push(q); } });
+      if (!need.length) return Promise.resolve();
+      return new Promise(function (resolve, reject) {
+        window.google.script.run.withSuccessHandler(function (res) {
+          need.forEach(function (q, i) { cache[q.key] = series(res[i]); });
+          resolve();
+        }).withFailureHandler(reject).getSlidesEvo(need.map(function (q) { return q.p; }));
+      });
+    };
+    var p = queue.then(run, run);
+    queue = p.catch(function () {});
+    return p;
   }
   // {gb|nr|oc: [{act,bud,fc,ly,yoyN}] alineado a fyPeriods()}
   function series(result) {
@@ -411,12 +418,17 @@
     f.querySelector('.hb-splitby').hidden = s.visual !== 'split';
     return s;
   }
-  var pvTimer = null, pvSeq = 0;
+  var pvTimer = null, pvFetch = null, pvSeq = 0;
+  // Dibuja ya con lo que hay en caché y pide los datos que falten recién cuando se deja de tocar el formulario (0,7 s).
   function preview() {
     var s = readForm(), box = modal.querySelector('.hb-pv .hb-slide'), seq = ++pvSeq;
     var draw = function () { if (seq === pvSeq) { box.innerHTML = slideHtml(s); fitPreview(); } };
     draw();
-    fetchEvo(queriesOf(s)).then(draw, function (e) { if (seq === pvSeq) box.innerHTML = '<p class="hb-msg hb-err">No se pudieron leer los datos: ' + esc((e && e.message) || e) + '</p>'; });
+    clearTimeout(pvFetch);
+    pvFetch = setTimeout(function () {
+      if (seq !== pvSeq) return;
+      fetchEvo(queriesOf(s)).then(draw, function (e) { if (seq === pvSeq) box.innerHTML = '<p class="hb-msg hb-err">No se pudieron leer los datos: ' + esc((e && e.message) || e) + '</p>'; });
+    }, 700);
   }
   function fitPreview() {
     var fr = modal.querySelector('.hb-pv'), s = fr.clientWidth / W;
