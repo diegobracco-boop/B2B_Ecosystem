@@ -34,3 +34,6 @@ Proceso_Distribucion_Diaria/.cache/
 
 # Bytecode de Python
 __pycache__/
+
+# FCA: insumos y borradores locales del agente fca-specialist
+FCA/_out/

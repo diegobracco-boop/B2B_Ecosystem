@@ -7,3 +7,10 @@ function doGet() {
     .addMetaTag('viewport', 'width=device-width,initial-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
+
+// FCA mensual de los KRs de los OKR H2 (2026-10-30): lo arma el agente fca-specialist (FCA/ en el repo) y lo publica
+// FCA/fca_publish.py en fca.json ({months: {AAAA-MM: {meta, items}}}). Lo lee la pestaña FCA (flow.html, ?fca=1).
+var FCA_FILE_ID = '1OT3RdA2Llcf21fdcvRKoMdcMTZvOJB1E';
+function getFca() {
+  return DriveApp.getFileById(FCA_FILE_ID).getBlob().getDataAsString();
+}

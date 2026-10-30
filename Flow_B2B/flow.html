@@ -59,6 +59,7 @@ textarea:focus{border-color:#550fed;box-shadow:0 0 0 3px rgba(85,15,237,.12)}
   <nav class="fx-tabs" role="tablist" aria-label="Presentaciones">
     <button class="fx-tab on" id="tab-semanal" role="tab" data-s="semanal" title="Información gestional (Datalake): Daily, Run Rate y Budget gestional">Semanal <small>Gestional</small></button>
     <button class="fx-tab" id="tab-mensual" role="tab" data-s="mensual" title="Información contable (P&L): cierre de mes, Run Rate y Budget contable">Mensual <small>Contable</small></button>
+    <button class="fx-tab" id="tab-fca" role="tab" data-s="fca" title="FCA mensual (Hecho · Causa · Acción) de los KRs de los OKR H2 fuera de meta: borrador del agente FCA Specialist, editable para la mesa">FCA <small>OKR</small></button>
     <button class="fx-tab" id="tab-builder" role="tab" data-s="builder" title="Armá tus propias slides con los datos del P&L contable: negocio, país, producto, período y contra qué comparar">Mis slides <small>Armador</small></button>
   </nav>
   <nav class="fx-sub" id="fx-sub" aria-label="Mensual">
@@ -75,6 +76,7 @@ textarea:focus{border-color:#550fed;box-shadow:0 0 0 3px rgba(85,15,237,.12)}
     <iframe id="f-mensual" title="Presentación mensual (contable)"></iframe>
     <iframe id="f-cierre" title="Slides cierre de mes (contable)"></iframe>
     <iframe id="f-builder" title="Mis slides (armador)"></iframe>
+    <iframe id="f-fca" title="FCA de los KRs (OKR H2)"></iframe>
     <div class="fx-note" id="fx-denied"><div><b>No tenés acceso a la información contable.</b><br>Es información contable del P&amp;L y está restringida al equipo B2B.<br>Pedí acceso a diego.bracco@despegar.com.</div></div>
   </div>
   <aside class="fx-side" aria-label="Comentarios">
@@ -91,17 +93,18 @@ textarea:focus{border-color:#550fed;box-shadow:0 0 0 3px rgba(85,15,237,.12)}
 <script>
 (function () {
   'use strict';
+  if (/[?&]fca=1(&|$)/.test(location.search)) return;   // modo FCA: lo arma la vista FCA al final del archivo
   var TO = ['diego.bracco@despegar.com', 'matias.m.sanchez@despegar.com'];
   var LS = 'flow_comments_v1';
   var NAMES = { semanal: 'Presentación semanal (gestional)', mensual: 'Presentación mensual (contable)', cierre: 'Presentación mensual · Cierre de mes (contable)',
-                builder: 'Mis slides (contable)' };
+                builder: 'Mis slides (contable)', fca: 'FCA · KRs OKR H2 (contable)' };
   var base = location.pathname.replace(/\/flow\/?$/, '');
   var SRC = { semanal: base + '/daily?flowdeck=1', mensual: base + '/hub?slides=1&embedded=1', cierre: base + '/hub?cierre=1&embedded=1',
-              builder: base + '/hub?builder=1&embedded=1' };   // "Mis slides": armador de slides propias (public/hub-builder.js)
+              builder: base + '/hub?builder=1&embedded=1', fca: base + '/flow?fca=1' };   // fca: la propia página en modo FCA (vista al final del archivo)   // "Mis slides": armador de slides propias (public/hub-builder.js)
   var home = document.getElementById('fx-home');
   home.href = base + '/';
   var sec = 'semanal';
-  var where = { semanal: null, mensual: null, cierre: null, builder: null };
+  var where = { semanal: null, mensual: null, cierre: null, builder: null, fca: null };
   var monthly = 'mensual';   // sub-sección activa de la pestaña Mensual   // último slide informado por cada iframe
   var denied = false;
   var els = { text: document.getElementById('fx-text'), where: document.getElementById('fx-where'), all: document.getElementById('fx-all'),
@@ -152,9 +155,10 @@ textarea:focus{border-color:#550fed;box-shadow:0 0 0 3px rgba(85,15,237,.12)}
     document.getElementById('tab-semanal').classList.toggle('on', s === 'semanal');
     document.getElementById('tab-mensual').classList.toggle('on', isM);
     document.getElementById('tab-builder').classList.toggle('on', s === 'builder');
+    document.getElementById('tab-fca').classList.toggle('on', s === 'fca');
     document.getElementById('fx-sub').classList.toggle('on', isM);
     Array.prototype.forEach.call(document.querySelectorAll('.fx-pill'), function (b) { b.classList.toggle('on', b.dataset.s === monthly); });
-    ['semanal', 'mensual', 'cierre', 'builder'].forEach(function (k) {
+    ['semanal', 'mensual', 'cierre', 'builder', 'fca'].forEach(function (k) {
       var f = document.getElementById('f-' + k), blocked = k !== 'semanal' && denied;
       f.classList.toggle('on', k === s && !blocked);
       if (k === s && !f.getAttribute('src') && !blocked) f.setAttribute('src', SRC[k]);
@@ -233,7 +237,7 @@ textarea:focus{border-color:#550fed;box-shadow:0 0 0 3px rgba(85,15,237,.12)}
         if (c && c.text) sl.addNotes(c.text);
       });
       var d = new Date(), pad = function (n) { return ('0' + n).slice(-2); };
-      var name = 'Presentacion_' + (sec === 'mensual' ? 'Mensual' + (month ? '_' + month : '') : sec === 'cierre' ? 'CierreDeMes' + (month ? '_' + month : '') : sec === 'builder' ? 'MisSlides' : 'Semanal') + '_' + d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + '.pptx';
+      var name = 'Presentacion_' + (sec === 'mensual' ? 'Mensual' + (month ? '_' + month : '') : sec === 'cierre' ? 'CierreDeMes' + (month ? '_' + month : '') : sec === 'builder' ? 'MisSlides' : sec === 'fca' ? 'FCA' + (month ? '_' + month : '') : 'Semanal') + '_' + d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + '.pptx';
       return p.writeFile({ fileName: name });
     }).catch(function (e) {
       alert('No se pudo generar el PPTX: ' + ((e && e.message) || e));
@@ -246,8 +250,199 @@ textarea:focus{border-color:#550fed;box-shadow:0 0 0 3px rgba(85,15,237,.12)}
   }
   refreshCount();
   els.text.disabled = true;
-  var want = (/[?&]view=(semanal|mensual|cierre|builder)\b/.exec(location.search) || [])[1] || 'semanal';   // acceso directo desde el menú
+  var want = (/[?&]view=(semanal|mensual|cierre|builder|fca)\b/.exec(location.search) || [])[1] || 'semanal';   // acceso directo desde el menú
   checkAccess().then(function () { openTab(want); });
+})();
+</script>
+<!-- ── FCA (2026-10-30): vista de la pestaña "FCA" (<base>/flow?fca=1, embebida en la propia página). Una slide por KR desviado
+     de los OKR H2: Hecho · Causa raíz · líneas de discusión (borrador del agente fca-specialist, FCA/ en el repo) y el acuerdo
+     de la mesa (acción, responsable, fecha). Todo editable en pantalla; lo editado se guarda para el equipo en
+     /notes/flow/fca-<mes> (server/notes-store.js) y pisa al borrador. Datos: getFca() (Codigo.js) → fca.json. ── -->
+<script>
+(function () {
+  'use strict';
+  if (!/[?&]fca=1(&|$)/.test(location.search)) return;
+  var W = 1280, H = 720, MES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+  var base = location.pathname.replace(/\/flow\/?$/, '');
+  var EMB = window.parent !== window;
+  var data = null, mes = null, notes = {}, canEdit = true;
+
+  var css = document.createElement('style');
+  css.textContent = [
+    '.fx-top,.fx-main{display:none!important}body{background:#eceef2;display:block;overflow:auto}',
+    '#fca{font-family:Poppins,system-ui,sans-serif;color:#1d1d1f}',
+    '#fca .fc-tool{position:sticky;top:0;z-index:3;display:flex;align-items:center;gap:10px;padding:10px 24px;background:#fff;border-bottom:1px solid #e3e3ea}',
+    '#fca .fc-tool h2{font-size:17px;margin:0 8px 0 0}#fca .fc-tool select,#fca .fc-tool button{font:inherit;font-size:12.5px;border:1px solid #d0d0d8;background:#fff;border-radius:8px;padding:5px 11px;cursor:pointer}',
+    '#fca .fc-sp{flex:1}#fca .fc-badge{font-size:11px;font-weight:700;border-radius:999px;padding:3px 10px;background:#fff3e0;color:#b45309}#fca .fc-badge.ok{background:#e3f3ea;color:#14663f}',
+    '#fca .fc-deck{max-width:1180px;margin:18px auto 40px;padding:0 24px}',
+    '#fca .fc-frame{position:relative;width:100%;margin-bottom:22px}',
+    '#fca .fc-slide{position:absolute;left:0;top:0;width:' + W + 'px;height:' + H + 'px;transform-origin:0 0;background:#fff;box-shadow:0 2px 12px rgba(0,0,0,.1);overflow:hidden;padding:26px 36px 28px;box-sizing:border-box;display:flex;flex-direction:column;gap:12px}',
+    '#fca .fc-head{display:flex;align-items:center;gap:12px;border-bottom:3px solid #550fed;padding-bottom:8px}',
+    '#fca .fc-title{font-size:26px;font-weight:700;color:#4300d2;flex:1;line-height:1.2}#fca .fc-logo{font-size:20px;font-weight:700;color:#550fed}',
+    '#fca .fc-tag{font-size:12px;font-weight:700;border-radius:6px;padding:3px 10px;background:#ede7ff;color:#550fed}',
+    '#fca .fc-tag.dn{background:#fde8e8;color:#c62828}#fca .fc-tag.up{background:#e3f3ea;color:#14663f}',
+    '#fca .fc-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;flex:1;min-height:0}',
+    '#fca .fc-box{border:1px solid #e1dcf7;border-radius:12px;padding:12px 14px;background:#fbfaff;display:flex;flex-direction:column;gap:6px;min-height:0;overflow:hidden}',
+    '#fca .fc-box h4{margin:0;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#550fed}',
+    '#fca .fc-txt{font-size:14.5px;line-height:1.45;outline:none;border-radius:6px;padding:2px 4px;white-space:pre-wrap}',
+    '#fca .fc-txt:focus{background:#fff;box-shadow:0 0 0 2px #550fed}#fca .fc-hecho .fc-txt{font-size:17px;font-weight:600}',
+    '#fca .fc-why{font-size:12.5px;color:#55555c;margin:0;padding-left:18px;line-height:1.45}',
+    '#fca .fc-acc{display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px}#fca .fc-acc label{font-size:11px;font-weight:700;color:#6e6e73;display:flex;flex-direction:column;gap:3px}',
+    '#fca .fc-acc .fc-txt{border:1px dashed #c9bff2;min-height:24px;background:#fff;font-size:13.5px}',
+    '#fca .fc-meta{font-size:10.5px;color:#8e8e93}#fca .fc-foot{position:absolute;right:36px;bottom:8px;font-size:11px;color:#9b9b9b}',
+    '#fca .fc-ctbl{width:100%;border-collapse:collapse;font-size:14px}#fca .fc-ctbl th{background:#550fed;color:#fff;padding:6px 8px;text-align:right}',
+    '#fca .fc-ctbl th:first-child,#fca .fc-ctbl td:first-child{text-align:left}#fca .fc-ctbl td{padding:7px 8px;border-bottom:1px solid #eeecf6;text-align:right}',
+    '#fca .fc-dn{color:#c62828;font-weight:700}#fca .fc-up{color:#15803d;font-weight:700}',
+    '#fca .fc-empty{background:#fff;border-radius:14px;padding:36px;text-align:center;color:#6e6e73;font-size:14px;line-height:1.6}',
+  ].join('\n');
+  document.head.appendChild(css);
+
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function mesLbl(m) { var p = String(m).split('-'); return MES[+p[1] - 1] + ' ' + p[0]; }
+  function fid(id) { return String(id).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 44); }
+  function pct(v) { return v == null || !isFinite(v) ? 'n/d' : (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(1) + '%'; }
+  function fmt(v, u) {
+    if (v == null || !isFinite(v)) return 'n/d';
+    if (u === 'pct') return (Math.abs(v) <= 1.5 ? (v * 100).toFixed(1) : v.toFixed(1)) + '%';
+    var a = Math.abs(v), s = v < 0 ? '−' : '';
+    if (u === 'usd') return s + 'USD ' + (a >= 1e6 ? (a / 1e6).toFixed(1) + 'M' : a >= 1e3 ? (a / 1e3).toFixed(0) + 'K' : a.toFixed(0));
+    return s + (a >= 1e3 ? Math.round(a).toLocaleString('es-AR') : (Math.round(a * 10) / 10));
+  }
+  // Texto editable: lo guardado en las notas pisa al borrador del agente
+  function ed(field, draft) {
+    var n = notes[field], txt = n ? n.text : (draft || '');
+    return '<div class="fc-txt" contenteditable="' + canEdit + '" spellcheck="false" data-field="' + field + '">' + esc(txt) + '</div>';
+  }
+  function post(field, text) {
+    return fetch(base + '/notes/flow/fca-' + mes, { method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'google.script.run' }, body: JSON.stringify({ field: field, text: text }) })
+      .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || r.status); notes[field] = j.note; }); });
+  }
+
+  function cover(m) {
+    var its = m.items || [], prov = m.meta && m.meta.provisional;
+    var rows = its.map(function (it) {
+      var c = it.brecha_pct < 0 ? 'fc-dn' : 'fc-up';
+      return '<tr><td>' + esc(it.kr) + ' <span style="color:#8e8e93">· ' + esc(it.lob) + '</span></td><td>' + fmt(it.meta, it.unidad) + '</td><td>' + fmt(it.real, it.unidad) +
+        '</td><td class="' + c + '">' + pct(it.brecha_pct) + '</td><td style="color:#8e8e93">' + esc(it.estado || '') + '</td></tr>';
+    }).join('');
+    return '<div class="fc-head"><div class="fc-title">FCA · ' + mesLbl(mes) + ' · KRs OKR H2 fuera de meta</div><div class="fc-logo">despegar</div></div>' +
+      '<div style="display:flex;gap:10px;align-items:center"><span class="fc-badge' + (prov ? '' : ' ok') + '">' + (prov ? 'Provisional · sin cierre contable' : 'Mes cerrado') + '</span>' +
+      '<span style="font-size:14px;color:#6e6e73">' + its.length + ' KRs desviados ±' + ((m.meta && m.meta.umbral_pct) || 5) + '% o más · Hecho · Causa · Acción</span></div>' +
+      '<table class="fc-ctbl"><thead><tr><th>KR</th><th>Meta</th><th>Real</th><th>Brecha</th><th>Estado</th></tr></thead><tbody>' + rows + '</tbody></table>' +
+      '<div class="fc-foot">Borrador: FCA Specialist (Lean) · revisado y editado por el equipo</div>';
+  }
+  function slide(it) {
+    var id = fid(it.id || (it.lob + '-' + it.kr)), dn = (it.brecha_pct || 0) < 0;
+    var why = (it.porques || []).length ? '<ol class="fc-why">' + it.porques.map(function (p) { return '<li>' + esc(p) + '</li>'; }).join('') + '</ol>' : '';
+    var acc = (it.acciones || []).map(function (a, i) { return '<div><b style="font-size:12px;color:#550fed">Línea ' + (i + 1) + '</b>' + ed(id + '_l' + (i + 1), a) + '</div>'; }).join('');
+    var falt = (it.datos_faltantes || []).length ? '<div class="fc-meta">Datos que faltaron: ' + esc(it.datos_faltantes.join(' · ')) + '</div>' : '';
+    return '<div class="fc-head"><div class="fc-title">' + esc(it.kr) + '</div><span class="fc-tag">' + esc(it.lob) + '</span>' +
+      '<span class="fc-tag ' + (dn ? 'dn' : 'up') + '">' + pct(it.brecha_pct) + ' vs meta</span><div class="fc-logo">despegar</div></div>' +
+      '<div class="fc-box fc-hecho"><h4>Hecho</h4>' + ed(id + '_hecho', it.hecho) + '</div>' +
+      '<div class="fc-grid"><div class="fc-box"><h4>Causa raíz (basada en datos)</h4>' + ed(id + '_causa', it.causa) + why + falt + '</div>' +
+      '<div class="fc-box"><h4>💡 Inputs para la mesa de negocio</h4>' + acc + '</div></div>' +
+      '<div class="fc-box"><h4>Acción acordada en la mesa</h4><div class="fc-acc"><label>Acción' + ed(id + '_accion', '') + '</label>' +
+      '<label>Responsable' + ed(id + '_resp', '') + '</label><label>Fecha compromiso' + ed(id + '_fecha', '') + '</label></div></div>' +
+      '<div class="fc-foot">FCA · ' + mesLbl(mes) + ' · ' + esc(it.estado || '') + '</div>';
+  }
+
+  var root = document.createElement('div');
+  root.id = 'fca';
+  root.innerHTML = '<div class="fc-tool"><h2>FCA</h2><label>Mes <select class="fc-mes"></select></label><span class="fc-state"></span>' +
+    '<span class="fc-sp"></span><span style="font-size:11.5px;color:#8e8e93">Hacé clic en cualquier texto para editarlo: se guarda para todo el equipo</span></div><div class="fc-deck"><p style="color:#6e6e73">Cargando…</p></div>';
+
+  function fit() {
+    Array.prototype.forEach.call(root.querySelectorAll('.fc-frame'), function (f) {
+      var s = f.clientWidth / W;
+      f.querySelector('.fc-slide').style.transform = 'scale(' + s + ')';
+      f.style.height = Math.round(H * s) + 'px';
+    });
+  }
+  function render() {
+    var deck = root.querySelector('.fc-deck'), m = data.months[mes];
+    var st = root.querySelector('.fc-state');
+    st.innerHTML = '<span class="fc-badge' + (m.meta && m.meta.provisional ? '' : ' ok') + '">' + (m.meta && m.meta.provisional ? 'Provisional' : 'Mes cerrado') + '</span>';
+    var list = [['Resumen', cover(m)]].concat((m.items || []).map(function (it) { return [it.kr + ' (' + it.lob + ')', slide(it)]; }));
+    deck.innerHTML = list.map(function (x, i) {
+      return '<div class="fc-frame" data-i="' + i + '" data-title="' + esc(x[0]) + '"><div class="fc-slide">' + x[1] + '</div></div>';
+    }).join('');
+    fit();
+    watch();
+  }
+  function loadMonth() {
+    return fetch(base + '/notes/flow/fca-' + mes, { credentials: 'same-origin' }).then(function (r) { return r.ok ? r.json() : { notes: {} }; })
+      .then(function (j) { notes = j.notes || {}; canEdit = j.canEdit !== false; }).catch(function () { notes = {}; }).then(render);
+  }
+  root.addEventListener('focusout', function (ev) {
+    var el = ev.target;
+    if (!el.classList || !el.classList.contains('fc-txt')) return;
+    var f = el.getAttribute('data-field'), now = el.innerText.trim(), prev = notes[f] ? notes[f].text : null;
+    if (prev === now || (prev === null && el._orig === now)) return;
+    post(f, now).catch(function (e) { alert('No se pudo guardar: ' + e.message); });
+  });
+  root.addEventListener('focusin', function (ev) { var el = ev.target; if (el.classList && el.classList.contains('fc-txt') && el._orig === undefined) el._orig = el.innerText.trim(); });
+
+  // Presentaciones: slide visible (comentarios) y captura para el PPTX
+  var io = null;
+  function post2(i) {
+    var fr = root.querySelectorAll('.fc-frame');
+    if (!EMB || !fr[i]) return;
+    try { window.parent.postMessage({ type: 'flow-slide', section: 'fca', idx: i, total: fr.length, title: fr[i].getAttribute('data-title'), month: mes }, location.origin); } catch (e) { /* sin padre */ }
+  }
+  function watch() {
+    if (!EMB || typeof IntersectionObserver === 'undefined') return;
+    if (io) io.disconnect();
+    var vis = {};
+    io = new IntersectionObserver(function (es) {
+      es.forEach(function (e) { vis[e.target.getAttribute('data-i')] = e.isIntersecting ? e.intersectionRatio : 0; });
+      var best = -1, bv = 0;
+      Object.keys(vis).forEach(function (k) { if (vis[k] > bv) { bv = vis[k]; best = +k; } });
+      if (best >= 0) post2(best);
+    }, { threshold: [0.1, 0.25, 0.5, 0.75] });
+    Array.prototype.forEach.call(root.querySelectorAll('.fc-frame'), function (f) { io.observe(f); });
+    post2(0);
+  }
+  window.__flowExport = function () {
+    var fr = root.querySelectorAll('.fc-frame');
+    if (!fr.length) return Promise.reject(new Error('No hay FCA publicados para exportar.'));
+    if (typeof window.html2canvas !== 'function') return Promise.reject(new Error('Todavía está cargando.'));
+    var chain = Promise.resolve([]);
+    Array.prototype.forEach.call(fr, function (f, i) {
+      chain = chain.then(function (acc) {
+        var el = f.querySelector('.fc-slide'); el.style.transform = 'none';
+        return window.html2canvas(el, { scale: 1.5, backgroundColor: '#ffffff' }).then(function (c) {
+          acc.push({ img: c.toDataURL('image/jpeg', 0.9), w: c.width, h: c.height, title: f.getAttribute('data-title') || ('Slide ' + (i + 1)) });
+          return acc;
+        });
+      });
+    });
+    return chain.then(function (a) { fit(); return a; }, function (e) { fit(); throw e; });
+  };
+
+  document.addEventListener('DOMContentLoaded', function () {
+    document.body.appendChild(root);
+    var h2c = document.createElement('script');
+    h2c.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+    document.head.appendChild(h2c);
+    window.addEventListener('resize', fit);
+    var sel = root.querySelector('.fc-mes');
+    sel.onchange = function () { mes = sel.value; loadMonth(); };
+    window.google.script.run.withSuccessHandler(function (txt) {
+      try { data = JSON.parse(txt || '{}'); } catch (e) { data = {}; }
+      var ms = Object.keys((data && data.months) || {}).sort().reverse();
+      if (!ms.length) {
+        root.querySelector('.fc-deck').innerHTML = '<div class="fc-empty"><b>Todavía no hay FCA publicados.</b><br>Se arman al cierre de cada mes con el agente FCA Specialist ' +
+          '(<code>/fca</code> en el repo B2B_Ecosystem) y se publican con <code>py FCA/fca_publish.py &lt;mes&gt;</code>.</div>';
+        return;
+      }
+      sel.innerHTML = ms.map(function (m) { return '<option value="' + m + '">' + mesLbl(m) + '</option>'; }).join('');
+      mes = ms[0];
+      loadMonth();
+    }).withFailureHandler(function (e) {
+      root.querySelector('.fc-deck').innerHTML = '<div class="fc-empty">No se pudo leer el FCA: ' + esc((e && e.message) || e) + '</div>';
+    }).getFca();
+  });
 })();
 </script>
 </body>
