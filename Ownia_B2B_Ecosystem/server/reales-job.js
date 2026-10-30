@@ -8,10 +8,14 @@
 //   (y cada línea va al log de la app). Un redeploy en medio corta la corrida: se vuelve a tocar el botón.
 // - Credenciales, todas de APP_SECRETS (manage_app_secrets de Ownia, nunca en el repo):
 //     DATALAKE_USER / DATALAKE_PASSWORD   usuario del Datalake (Trino por HTTPS, sin ODBC)
-//     DRIVE_CLASP_TOKEN                   JSON de tokens.default de ~/.clasprc.json (sube a Drive, como en la PC)
-//     DRIVE_READ_TOKEN                    JSON de credenciales/drive_token.<usuario>.json (lee los canónicos, flow_oc)
+//     DRIVE_CLIENT_ID / DRIVE_CLIENT_SECRET   cliente OAuth de clasp (el mismo en los dos tokens de abajo)
+//     DRIVE_REFRESH_TOKEN                 refresh_token de ~/.clasprc.json (sube a Drive, como en la PC)
+//     DRIVE_READ_REFRESH_TOKEN            refresh_token de credenciales/drive_token.<usuario>.json (drive.readonly:
+//                                         lee los canónicos para flow_oc; opcional)
 //     REALES_PASSWORD                     la contraseña que pide el botón
-//   Los tokens se escriben en una carpeta temporal propia de la corrida (HOME del proceso) y se borran al terminar.
+//   Van sueltos y no como un JSON entero: manage_app_secrets convierte en objeto un valor que parece JSON y lo
+//   rechaza. Con ellos se arman ~/.clasprc.json y el token de lectura en una carpeta temporal propia de la
+//   corrida (HOME del proceso), que se borra al terminar; el pipeline renueva el access token solo (vence en 1970).
 // - Los .py los copia scripts/sync-to-ownia-repo.js a pipelines/ (mismas rutas que en el monorepo).
 const { spawn } = require('child_process');
 const crypto = require('crypto');
@@ -21,7 +25,8 @@ const path = require('path');
 
 const MAX_LINES = 300;
 const TIMEOUT_MS = 45 * 60 * 1000;   // en la PC tarda ~7 min
-const REQUIRED = ['DATALAKE_USER', 'DATALAKE_PASSWORD', 'DRIVE_CLASP_TOKEN', 'REALES_PASSWORD'];
+const REQUIRED = ['DATALAKE_USER', 'DATALAKE_PASSWORD', 'DRIVE_CLIENT_ID', 'DRIVE_CLIENT_SECRET', 'DRIVE_REFRESH_TOKEN', 'REALES_PASSWORD'];
+const SECRET_KEYS = ['DATALAKE_PASSWORD', 'DRIVE_CLIENT_SECRET', 'DRIVE_REFRESH_TOKEN', 'DRIVE_READ_REFRESH_TOKEN', 'REALES_PASSWORD'];
 // Contraseña equivocada: hasta 5 intentos cada 15 minutos por usuario.
 const MAX_FAILS = 5;
 const FAIL_WINDOW_MS = 15 * 60 * 1000;
@@ -53,14 +58,8 @@ function createRealesJob(cfg, opts = {}) {
   const fails = new Map();   // email -> [timestamps]
   // Un traceback puede traer una credencial: los valores de los secretos (y lo que siga a Bearer / password= /
   // refresh_token) se tachan antes de guardar la línea o mandarla al log.
-  const secretValues = ['DATALAKE_PASSWORD', 'DRIVE_CLASP_TOKEN', 'DRIVE_READ_TOKEN', 'REALES_PASSWORD']
-    .map((k) => secrets[k]).concat(cfg.INGEST_TOKEN).filter((v) => typeof v === 'string' && v.length >= 6);
-  for (const k of ['DRIVE_CLASP_TOKEN', 'DRIVE_READ_TOKEN']) {
-    try {
-      const t = JSON.parse(secrets[k] || '{}');
-      for (const f of ['refresh_token', 'access_token', 'token', 'client_secret', 'id_token']) if (typeof t[f] === 'string' && t[f].length >= 6) secretValues.push(t[f]);
-    } catch (e) { /* lo informa start() */ }
-  }
+  const secretValues = SECRET_KEYS.map((k) => secrets[k]).concat(cfg.INGEST_TOKEN)
+    .filter((v) => typeof v === 'string' && v.length >= 6);
   const redact = (line) => secretValues.reduce((s, v) => s.split(v).join('***'), line)
     .replace(/(Bearer\s+|(?:password|pwd|refresh_token|access_token|client_secret)["']?\s*[=:]\s*["']?)[^\s"',;&]+/gi, '$1***');
 
@@ -114,13 +113,8 @@ function createRealesJob(cfg, opts = {}) {
 
     // HOME propio de la corrida: ahí van los tokens de Drive (el pipeline busca ~/.clasprc.json).
     const home = fs.mkdtempSync(path.join(os.tmpdir(), 'reales-'));
-    let clasp;
-    try {
-      clasp = { tokens: { default: JSON.parse(secrets.DRIVE_CLASP_TOKEN) } };
-    } catch (e) {
-      fs.rmSync(home, { recursive: true, force: true });
-      return { ok: false, code: 503, error: 'DRIVE_CLASP_TOKEN no es un JSON válido.' };
-    }
+    const client = { client_id: secrets.DRIVE_CLIENT_ID, client_secret: secrets.DRIVE_CLIENT_SECRET };
+    const clasp = { tokens: { default: { access_token: '', refresh_token: secrets.DRIVE_REFRESH_TOKEN, ...client, expiry_date: 0, token_type: 'Bearer' } } };
     fs.writeFileSync(path.join(home, '.clasprc.json'), JSON.stringify(clasp), { mode: 0o600 });
     const env = {
       PATH: process.env.PATH || '/usr/local/bin:/usr/bin:/bin',
@@ -139,9 +133,11 @@ function createRealesJob(cfg, opts = {}) {
       OWNIA_URL: `http://127.0.0.1:${cfg.PORT}`,
       OWNIA_INGEST_TOKEN: cfg.INGEST_TOKEN,
     };
-    if (secrets.DRIVE_READ_TOKEN) {
+    if (secrets.DRIVE_READ_REFRESH_TOKEN) {
       env.DRIVE_READ_TOKEN_FILE = path.join(home, 'drive_read_token.json');
-      fs.writeFileSync(env.DRIVE_READ_TOKEN_FILE, secrets.DRIVE_READ_TOKEN, { mode: 0o600 });
+      const read = { refresh_token: secrets.DRIVE_READ_REFRESH_TOKEN, ...client, token_uri: 'https://oauth2.googleapis.com/token',
+        scopes: ['https://www.googleapis.com/auth/drive.readonly'] };
+      fs.writeFileSync(env.DRIVE_READ_TOKEN_FILE, JSON.stringify(read), { mode: 0o600 });
     }
 
     Object.assign(run, { state: 'running', startedAt: new Date().toISOString(), finishedAt: null, by: email, exitCode: null, lines: [] });

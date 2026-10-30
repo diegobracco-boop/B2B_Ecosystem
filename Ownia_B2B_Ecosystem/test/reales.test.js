@@ -16,8 +16,7 @@ const DEMO = { slug: 'demo', dir: 'Demo_Module', title: 'Demo', desc: 'demo', ow
 const EQUIPO = ['ana@despegar.com'];
 const SECRETS = {
   DATALAKE_USER: 'ana.dl', DATALAKE_PASSWORD: 'pw-datalake', REALES_PASSWORD: 'clave',
-  DRIVE_CLASP_TOKEN: JSON.stringify({ refresh_token: 'r', client_id: 'c', client_secret: 's', access_token: 'a', expiry_date: 1 }),
-  DRIVE_READ_TOKEN: '{"refresh_token":"rr"}',
+  DRIVE_CLIENT_ID: 'cliente.apps', DRIVE_CLIENT_SECRET: 'secreto-cliente', DRIVE_REFRESH_TOKEN: 'refresh-clasp', DRIVE_READ_REFRESH_TOKEN: 'refresh-lectura',
 };
 const POST_HEADERS = { 'X-Requested-With': 'google.script.run', 'Content-Type': 'application/json' };
 const ANA = { 'x-test-email': 'Ana@despegar.com' };
@@ -31,7 +30,7 @@ function fakeSpawn(cmd, args, opts) {
   child.kill = () => child.emit('close', null);
   // Lo que ve el proceso al arrancar (los tokens se borran al terminar).
   const home = opts.env.HOME;
-  child.seen = { clasp: JSON.parse(fs.readFileSync(path.join(home, '.clasprc.json'), 'utf8')), read: fs.readFileSync(opts.env.DRIVE_READ_TOKEN_FILE, 'utf8') };
+  child.seen = { clasp: JSON.parse(fs.readFileSync(path.join(home, '.clasprc.json'), 'utf8')), read: JSON.parse(fs.readFileSync(opts.env.DRIVE_READ_TOKEN_FILE, 'utf8')) };
   spawned.push({ cmd, args, opts, child });
   return child;
 }
@@ -82,7 +81,7 @@ test('estado: sin identidad 401, fuera del equipo 403, equipo 200 (sin secretos 
   const st = JSON.parse(r.text);
   assert.equal(st.state, 'idle');
   assert.equal(st.configured, true);
-  assert.doesNotMatch(r.text, /pw-datalake|clave|refresh_token/);
+  assert.doesNotMatch(r.text, /pw-datalake|clave|refresh-clasp|secreto-cliente/);
 });
 
 test('lanzar: anti-CSRF, fuera del equipo y contraseña equivocada no arrancan nada', async () => {
@@ -110,8 +109,12 @@ test('lanzar: corre daily_sync.py con las credenciales de APP_SECRETS, una corri
   assert.equal(opts.env.OWNIA_URL, 'http://127.0.0.1:8123');
   assert.equal(opts.env.OWNIA_INGEST_TOKEN, 'tok');
   assert.equal(opts.env.REALES_PASSWORD, undefined, 'la contraseña del botón no llega al proceso');
-  assert.equal(child.seen.clasp.tokens.default.refresh_token, 'r', '~/.clasprc.json como lo espera el pipeline');
-  assert.equal(child.seen.read, SECRETS.DRIVE_READ_TOKEN);
+  // ~/.clasprc.json como lo espera el pipeline (tokens.default), con el access token vencido para que lo renueve.
+  assert.deepEqual(child.seen.clasp.tokens.default, { access_token: '', refresh_token: 'refresh-clasp', client_id: 'cliente.apps',
+    client_secret: 'secreto-cliente', expiry_date: 0, token_type: 'Bearer' });
+  assert.equal(child.seen.read.refresh_token, 'refresh-lectura');
+  assert.equal(child.seen.read.client_id, 'cliente.apps');
+  assert.deepEqual(child.seen.read.scopes, ['https://www.googleapis.com/auth/drive.readonly']);
 
   const otra = await post('clave');
   assert.equal(otra.status, 409, 'una corrida por vez');
@@ -123,9 +126,9 @@ test('lanzar: corre daily_sync.py con las credenciales de APP_SECRETS, una corri
   assert.equal(st.by, 'ana@despegar.com');
 
   // Un traceback con credenciales no llega ni al estado ni al log.
-  child.stderr.emit('data', Buffer.from('requests: auth failed for pw-datalake · Authorization: Bearer abcdef123 · refresh_token=r-largo-123\n'));
+  child.stderr.emit('data', Buffer.from('requests: auth failed for pw-datalake · Authorization: Bearer abcdef123 · refresh_token=r-largo-123 · refresh-clasp\n'));
   st = JSON.parse((await request(server, 'GET', `${BASE}/reales`, { headers: ANA })).text);
-  assert.equal(st.lines[1], 'requests: auth failed for *** · Authorization: Bearer *** · refresh_token=***');
+  assert.equal(st.lines[1], 'requests: auth failed for *** · Authorization: Bearer *** · refresh_token=*** · ***');
 
   child.emit('close', 0);
   st = JSON.parse((await request(server, 'GET', `${BASE}/reales`, { headers: ANA })).text);

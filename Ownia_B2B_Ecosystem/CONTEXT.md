@@ -124,8 +124,10 @@ contraseña (`REALES_PASSWORD`, máx. 5 intentos cada 15 min por usuario). `POST
 `GET /reales` da el estado y las últimas líneas de la salida, que también van al log de la app. El pipeline va a Trino
 por HTTPS (`DATALAKE_HOST`, sin ODBC), sube a Drive con el token de clasp (lo siguen leyendo las landings GAS) y a
 Ownia por `/ingest` en `127.0.0.1` (doble escritura de `ownia_publish.py`). Secretos de la app: `DATALAKE_USER`,
-`DATALAKE_PASSWORD`, `DRIVE_CLASP_TOKEN` (`tokens.default` de `~/.clasprc.json`), `DRIVE_READ_TOKEN`
-(`credenciales/drive_token.<usuario>.json`) y `REALES_PASSWORD`; hoy son los de Tiago. Los tokens se escriben en
+`DATALAKE_PASSWORD`, `DRIVE_CLIENT_ID` / `DRIVE_CLIENT_SECRET` (cliente OAuth de clasp), `DRIVE_REFRESH_TOKEN`
+(`refresh_token` de `~/.clasprc.json`), `DRIVE_READ_REFRESH_TOKEN` (el de `credenciales/drive_token.<usuario>.json`) y
+`REALES_PASSWORD`; hoy son los de Tiago. Van sueltos y no como un JSON entero porque `manage_app_secrets` convierte en
+objeto un valor que parece JSON y lo rechaza. Los tokens se escriben en
 una carpeta temporal de la corrida y se borran al terminar. La imagen es Debian slim con Python
 (`requirements-pipelines.txt`) y el sync copia los `.py` a `pipelines/` (`PIPELINES` en
 `scripts/sync-to-ownia-repo.js`). `okr.json` se intenta regenerar igual que en la PC (sin el OneDrive del tracker de
