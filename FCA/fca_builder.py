@@ -134,7 +134,12 @@ def pnl_breakdown(base, bud, ym, lob, canal, prod, nivel, top=8):
         items = [{"k": k, "real": round(v[0], 2), "meta": round(v[1], 2), "brecha": round(v[0] - v[1], 2)} for k, v in m.items()]
         items = [x for x in items if abs(x["brecha"]) >= 1]
         items.sort(key=lambda x: x["brecha"])
-        out[d] = items[:top] + [x for x in items[-top:] if x not in items[:top]]   # los que más restan y los que más suman
+        sel = items[:top] + [x for x in items[-top:] if x not in items[:top]]   # los que más restan y los que más suman
+        rest = [x for x in items if x not in sel]
+        if rest:   # el resto agrupado: la suma de la apertura cierra con la brecha total
+            sel.append({"k": "(resto: %d)" % len(rest), "real": round(sum(x["real"] for x in rest), 2),
+                        "meta": round(sum(x["meta"] for x in rest), 2), "brecha": round(sum(x["brecha"] for x in rest), 2)})
+        out[d] = sel
     return out
 
 
