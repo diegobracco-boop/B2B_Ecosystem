@@ -468,6 +468,13 @@
   #statusKRsTable tbody tr td { padding: 7px 8px; font-size: 15px !important; }
   #statusKRsTable { width: 100%; }
   #statusKRsTable td:first-child { font-weight: 600; }
+  /* Status KRs H2: cumplimiento de las semanas anteriores (columnas a la derecha del mes) */
+  #statusKRsH2Table th.kr-wk-col { font-size: 11px; white-space: nowrap; color: #6b7280; }
+  #statusKRsH2Table th.kr-wk-col .kr-wk-range { display: block; font-weight: 400; font-size: 10px; }
+  #statusKRsH2Table td.kr-wk-col .kr-cumpl-chip { font-size: 0.85em; }
+  #statusKRsH2Table .kr-wk-first { border-left: 2px solid #e5e7eb; }
+  body.slides-mode #statusKRsH2Table .kr-wk-col { display: none; }
+  .kr-detail-table td.kr-peso { color: #6b7280; }
 
   /* ── Status KRs view ── */
   /* ── Weekly view ── */
@@ -1449,7 +1456,7 @@
         <tbody id="statusKRsH2Body"></tbody>
       </table>
     </div>
-    <div style="font-size:0.78rem;color:#9ca3af;margin-top:10px">Targets provisorios = Budget MTD · Accelerate Recurrence (solo HTML): agencias de alta frecuencia (Metabase 171400) vs target mensual de Input_OKR; mientras el mes no cierra, el Actual y el cumplimiento son Rolling L4W vs Target (el MTD arranca en 0 cada mes y queda como nota); con la foto de cierre del mes, MTD vs Target. Los recuadros por país muestran las dos columnas. Con el filtro API o HTML, los recuadros por país muestran el cumplimiento y el YoY por <strong>Recognition Date</strong> y por <strong>Gestion Date</strong> (sin la columna Actual); lo que cuenta para el KR es Recognition (marcado en punteado violeta) y la tabla principal sigue por Recognition Date. <em>YoY Bud.</em> = crecimiento que pedía el budget vs los reales del año anterior (mismo período).</div>
+    <div style="font-size:0.78rem;color:#9ca3af;margin-top:10px">Targets provisorios = Budget MTD · Accelerate Recurrence (solo HTML): agencias de alta frecuencia (Metabase 171400) vs target mensual de Input_OKR; mientras el mes no cierra, el Actual y el cumplimiento son Rolling L4W vs Target (el MTD arranca en 0 cada mes y queda como nota); con la foto de cierre del mes, MTD vs Target. Los recuadros por país muestran las dos columnas. Con el filtro API o HTML, los recuadros por país muestran el cumplimiento y el YoY por <strong>Recognition Date</strong> y por <strong>Gestion Date</strong> (sin la columna Actual); lo que cuenta para el KR es Recognition (marcado en punteado violeta) y la tabla principal sigue por Recognition Date; la columna <em>Peso</em> es la participación de cada país en el actual Recognition del canal. <em>Sem NN</em> (tabla principal) = cumplimiento de cada semana cerrada del mes (lun–dom, recortada al mes), la semana sola contra su budget (Accelerate Recurrence: la foto de la semana comercial cerrada, L4W o MTD de cierre vs el target del mes, como en la columna del mes); el OVERALL semanal usa la misma ponderación. <em>YoY Bud.</em> = crecimiento que pedía el budget vs los reales del año anterior (mismo período).</div>
     <div class="kr-detail-grid" id="statusKRsH2DetailGrid"></div>
   </div>
 </div>
@@ -3423,18 +3430,41 @@ function andPred_(a, b) {
 function computeKRH2Metric_(monthFilter, metricField, predAct, predBud) {
   if (!rawData) return { actual: 0, budget: 0 };
   var bounds = getPeriodBounds(_resolveYM(monthFilter), rawData.meta);
+  return computeKRH2Range_(bounds.from, bounds.cutoff, metricField, predAct, predBud);
+}
+// Actual y budget (Recognition Date) entre dos fechas inclusive.
+function computeKRH2Range_(from, to, metricField, predAct, predBud) {
   var actual = 0, budget = 0;
   getKrActuals('ri').forEach(function(r) {
-    if (r.fecha < bounds.from || r.fecha > bounds.cutoff) return;
+    if (r.fecha < from || r.fecha > to) return;
     if (predAct && !predAct(r)) return;
     actual += (r[metricField] || 0);
   });
   getKrBudget('ri').forEach(function(r) {
-    if (r.fecha < bounds.from || r.fecha > bounds.cutoff) return;
+    if (r.fecha < from || r.fecha > to) return;
     if (predBud && !predBud(r)) return;
     budget += (r[metricField] || 0);
   });
   return { actual: actual, budget: budget };
+}
+
+// Semanas anteriores de la tabla principal de Status KRs H2 (2026-10-30, pedido de antonella.difranco):
+// semanas lun-dom ya cerradas del mes (con actuals hasta el domingo), recortadas al mes calendario.
+// Cada semana se mide sola (actual de la semana vs budget de la semana), no acumulada.
+function krH2Weeks_(krYM) {
+  var b = getPeriodBounds(krYM, rawData.meta), last = rawData.meta.last_actuals_date, out = [];
+  for (var mon = _getMonday(b.from); mon <= b.goalCutoff; mon = _addDays(mon, 7)) {
+    var sun = _addDays(mon, 6);
+    var to = sun > b.goalCutoff ? b.goalCutoff : sun;
+    if (to > last) break;
+    out.push({ mon: mon, from: mon < b.from ? b.from : mon, to: to });
+  }
+  return out;
+}
+function krH2WeekTh_(w) {
+  function dm(s){ return s.substring(8, 10) + '/' + s.substring(5, 7); }
+  return '<th class="kr-wk-col" title="Cumplimiento de la semana sola (actual vs budget de ' + dm(w.from) + ' a ' + dm(w.to) + ')">' +
+    'Sem ' + _isoWeek(w.mon) + '<span class="kr-wk-range">' + dm(w.from) + '–' + dm(w.to) + '</span></th>';
 }
 
 // ── Accelerate Recurrence (KR H2, solo HTML) ─────────────────────────────────────────────────
@@ -3512,6 +3542,19 @@ function recurH2_(krYM) {
   var w0 = wk[0];
   return { semana: sem, semanas: +w0.semanas_del_mes || null, desde: w0.semana_desde, hasta: w0.semana_hasta,
            estado: w0.estado, cierreMes: cierre.length > 0, byPais: byPais, total: tot, parcial: parcial };
+}
+// Accelerate Recurrence de una semana comercial ya cerrada del mes (la que arranca el lunes `mon`):
+// total de países, o null si esa semana no es del mes comercial krYM o no cerró.
+function recurWeek_(krYM, mon) {
+  if (!recurData) return null;
+  if (!_recurRows) _recurRows = unpack(recurData);
+  var wk = _recurRows.filter(function(r){
+    return r.mes_comercial === krYM && r.semana_desde === mon && r.estado === 'CIERRE';
+  });
+  if (!wk.length) return null;
+  var t = { mtd: 0, roll: 0, cierreMes: +wk[0].es_cierre_mes === 1 };
+  wk.forEach(function(r){ t.mtd += +r.mtd_frecuentes_vivas || 0; t.roll += +r.roll_frecuentes_vivas || 0; });
+  return t;
 }
 function recurParcialLbl_(rec) {
   var f = rec.parcial.foto || '';
@@ -3641,39 +3684,81 @@ function renderStatusKRsH2() {
   var nrCDisp = realScore_(nr.actual, nr.budget), apiCDisp = realScore_(fvmApi.actual, fvmApi.budget),
       htmlCDisp = realScore_(fvmHtml.actual, fvmHtml.budget), npCDisp = realScore_(nrfd.actual, nrfd.budget);
 
+  // Semanas anteriores: una columna de cumplimiento por semana cerrada del mes (ver krH2Weeks_).
+  var wks = krH2Weeks_(krYM);
+  var headRow = document.querySelector('#statusKRsH2Table thead tr');
+  headRow.querySelectorAll('.kr-wk-col').forEach(function(th){ th.remove(); });
+  wks.forEach(function(w){ headRow.insertAdjacentHTML('beforeend', krH2WeekTh_(w)); });
+  // Mismos filtros que la columna del mes.
+  function wkOf(field, pa, pb) {
+    return wks.map(function(w){ return computeKRH2Range_(w.from, w.to, field, pa, pb); });
+  }
+  var nrW = wkOf('net_revenue', chPred, chPred), apiW = wkOf('fvm', isAPI, isAPI),
+      htmlW = wkOf('fvm', isHTML, isHTML), npW = wkOf('net_revenue', isNPa, isNPb);
+  function wkCellHtml(cVal, cStr, title) {
+    return cumplCellHtml(cVal, cStr, false).replace('<td>', '<td class="kr-wk-col" title="' + title + '">');
+  }
+
   var tbody = document.getElementById('statusKRsH2Body');
   tbody.innerHTML = '';
+  // Separador antes de la primera semana (por clase: la fila de Recurrence sin datos usa colspan).
+  function markFirstWk() {
+    document.querySelectorAll('#statusKRsH2Table tr').forEach(function(tr){
+      var c = tr.querySelector('.kr-wk-col');
+      if (c) c.classList.add('kr-wk-first');
+    });
+  }
   // inK: FVM y New Products se muestran en miles ($K), que se leen mejor que $ 0.44 M.
-  function row(name, peso, d, cVal, inK) {
+  function row(name, peso, d, cVal, inK, wkD) {
     var hasData = (d.actual !== 0 || d.budget !== 0);
     var fmt = function(v){ return inK ? fmtKRVal(toM(v) * 1000, '$Kint') : fmtKRVal(toM(v), '$M'); };
     var actStr = hasData ? fmt(d.actual) : '—';
     var budStr = hasData ? fmt(d.budget) : '—';
     var cStr   = cVal !== null ? (cVal * 100).toFixed(0) + '%' : '—';
+    var wkHtml = (wkD || []).map(function(x){
+      var c = realScore_(x.actual, x.budget);
+      return wkCellHtml(c, c !== null ? (c * 100).toFixed(0) + '%' : '—',
+                        'Actual ' + fmt(x.actual) + ' · Budget ' + fmt(x.budget));
+    }).join('');
     var tr = document.createElement('tr');
     tr.innerHTML =
       '<td style="text-align:left">' + name + '</td>' +
       '<td style="color:#6b7280;font-size:0.78rem">' + peso + '</td>' +
       '<td>' + actStr + '</td>' +
       '<td>' + budStr + '</td>' +
-      cumplCellHtml(cVal, cStr, false);
+      cumplCellHtml(cVal, cStr, false) + wkHtml;
     return tr;
   }
   var chLbl = chShow === 'api' ? ' (API)' : chShow === 'html' ? ' (HTML)' : '';
-  tbody.appendChild(row('Net Revenues $M' + chLbl,        '30%', nr,      nrCDisp));
-  if (chShow !== 'html') tbody.appendChild(row('API FVM $K',  '20%', fvmApi,  apiCDisp, true));
-  if (chShow !== 'api')  tbody.appendChild(row('HTML FVM $K', '20%', fvmHtml, htmlCDisp, true));
-  tbody.appendChild(row('New Products Growth $K' + chLbl, '15%', nrfd,    npCDisp, true));
+  tbody.appendChild(row('Net Revenues $M' + chLbl,        '30%', nr,      nrCDisp, false, nrW));
+  if (chShow !== 'html') tbody.appendChild(row('API FVM $K',  '20%', fvmApi,  apiCDisp, true, apiW));
+  if (chShow !== 'api')  tbody.appendChild(row('HTML FVM $K', '20%', fvmHtml, htmlCDisp, true, htmlW));
+  tbody.appendChild(row('New Products Growth $K' + chLbl, '15%', nrfd,    npCDisp, true, npW));
 
   // Accelerate Recurrence — solo canal HTML: en Total y HTML (en la vista API no aplica).
   var rec = recurH2_(krYM), recC = null;
+  // Recurrence por semana: semana comercial cerrada que arranca el mismo lunes (las semanas del mes
+  // calendario que caen en otro mes comercial quedan en —). Mismo criterio que el mes: Rolling L4W vs
+  // Target salvo en la semana de cierre del mes (MTD vs Target).
+  var recTgt = recurTarget_(krYM, null);
+  var recW = wks.map(function(w){
+    var x = recurWeek_(krYM, w.mon);
+    return x ? { x: x, c: recurCumpl_(x.mtd, x.roll, recTgt, !x.cierreMes) } : null;
+  });
   if (chShow !== 'api') {
     var trRec = document.createElement('tr');
     var recName = '<td style="text-align:left">Accelerate Recurrence <span style="color:#6b7280;font-size:0.72rem">(HTML)</span></td>' +
                   '<td style="color:#6b7280;font-size:0.78rem">15%</td>';
+    var recWkHtml = recW.map(function(r){
+      if (!r) return wkCellHtml(null, '—', 'Sin semana comercial cerrada de ' + formatYM(krYM));
+      var s = r.c.shown;
+      return wkCellHtml(s, s !== null ? (s * 100).toFixed(0) + '%' + (r.c.useRoll ? ' <span style="font-size:0.68rem">L4W</span>' : '') : '—',
+        'MTD ' + fmtKRVal(r.x.mtd, 'int') + ' · L4W ' + fmtKRVal(r.x.roll, 'int') +
+        (recTgt !== null ? ' · Target ' + fmtKRVal(recTgt, 'int') : ''));
+    }).join('');
     if (!rec) {
       trRec.innerHTML = recName +
-        '<td colspan="3" style="text-align:center;color:#9ca3af;font-style:italic">' + recurNoDataMsg_() + '</td>';
+        '<td colspan="3" style="text-align:center;color:#9ca3af;font-style:italic">' + recurNoDataMsg_() + '</td>' + recWkHtml;
     } else {
       var recBud = recurTarget_(krYM, null);
       recC = recurCumpl_(rec.total.mtd, rec.total.roll, recBud, !rec.cierreMes);
@@ -3692,11 +3777,12 @@ function renderStatusKRsH2() {
       trRec.innerHTML = recName +
         '<td>' + actRec + rollNote + '</td>' +
         '<td>' + (recBud !== null ? fmtKRVal(recBud, 'int') : recurNoTargetHtml_(krYM)) + '</td>' +
-        cumplCellHtml(recC.shown, cStrRec, false);
+        cumplCellHtml(recC.shown, cStrRec, false) + recWkHtml;
     }
     tbody.appendChild(trRec);
   }
 
+  markFirstWk();
   if (chShow !== 'total') {
     // Vista filtrada: sin OVERALL (el ponderado solo aplica al Total).
     renderStatusKRsH2DetailBoxes_(krYM);
@@ -3708,19 +3794,28 @@ function renderStatusKRsH2() {
   // Overall ponderado — normaliza sobre los KRs con cumplimiento disponible
   // (Accelerate Recurrence entra cuando tiene datos y target).
   var recScore = recC ? recC.score : null;
-  var weights = [ {c:nrC,w:0.30}, {c:apiC,w:0.20}, {c:htmlC,w:0.20}, {c:npC,w:0.15}, {c:recScore,w:0.15} ];
-  var wSum = 0, wCump = 0;
-  weights.forEach(function(k){ if (k.c !== null) { wSum += k.w; wCump += k.c * k.w; } });
-  var overall = wSum > 0 ? Math.min(wCump / wSum, 1.30) : null;
+  function overallOf(scores) {   // [NR, API FVM, HTML FVM, New Products, Recurrence] (okrScore_)
+    var ws = [0.30, 0.20, 0.20, 0.15, 0.15], wSum = 0, wCump = 0;
+    scores.forEach(function(c, i){ if (c !== null) { wSum += ws[i]; wCump += c * ws[i]; } });
+    return wSum > 0 ? Math.min(wCump / wSum, 1.30) : null;
+  }
+  var overall = overallOf([nrC, apiC, htmlC, npC, recScore]);
   var overallStr = overall !== null ? (overall * 100).toFixed(0) + '%' : '—';
+  var overallWkHtml = wks.map(function(w, i){
+    var sc = function(d){ return okrScore_(d.actual, d.budget); };
+    var o = overallOf([sc(nrW[i]), sc(apiW[i]), sc(htmlW[i]), sc(npW[i]), recW[i] ? recW[i].c.score : null]);
+    return wkCellHtml(o, o !== null ? (o * 100).toFixed(0) + '%' : '—',
+                      'OVERALL ponderado de la semana' + (recW[i] ? '' : ' (excl. Recurrence)'));
+  }).join('');
   var trTotal = document.createElement('tr');
   trTotal.className = 'row-kr-total';
   trTotal.innerHTML =
     '<td style="text-align:left">OVERALL' + (recScore === null ? ' <span style="color:#9ca3af;font-weight:400;font-size:0.72rem">(excl. Recurrence)</span>' : '') + '</td>' +
     '<td style="color:#6b7280;font-size:0.78rem">' + (recScore === null ? '85%' : '100%') + '</td>' +
     '<td>—</td><td>—</td>' +
-    cumplCellHtml(overall, overallStr, false);
+    cumplCellHtml(overall, overallStr, false) + overallWkHtml;
   tbody.appendChild(trTotal);
+  markFirstWk();
 
   renderStatusKRsH2DetailBoxes_(krYM);
   wrap.style.display = 'block';
@@ -3846,16 +3941,24 @@ function renderStatusKRsH2DetailBoxes_(monthFilter) {
         '<td class="kr-yb ' + yoyColor(x.yb) + (rk ? ' kr-rk-r' + b : '') + '">' + w(yoyIcon(x.yb)) + '</td>';
     }
     var tRi = totStat(rows);
+    // Peso (solo API / HTML, 2026-10-30 pedido de antonella.difranco): participación del país en el actual
+    // Recognition del canal (ej. NR API 1M y Brasil 500k → 50%), independiente del cumplimiento y del YoY.
+    function pesoCell(act, bold) {
+      var p = (tRi.actual && act !== null && act !== undefined) ? act / tRi.actual : null;
+      var t = p === null ? '—' : (p * 100).toFixed(Math.abs(p) < 0.1 ? 1 : 0) + '%';
+      return '<td class="kr-peso">' + (bold ? '<strong>' + t + '</strong>' : t) + '</td>';
+    }
     var totalRow = '<tr class="kr-detail-total"><td style="text-align:left;font-weight:700">TOTAL</td>' +
-      (rowsGd ? '' : '<td><strong>' + (tRi.actual !== null ? fmtKRVal(tRi.actual, unit) : '—') + '</strong></td>') +
+      (rowsGd ? pesoCell(tRi.actual, true) : '<td><strong>' + (tRi.actual !== null ? fmtKRVal(tRi.actual, unit) : '—') + '</strong></td>') +
       cells(tRi, true, !!rowsGd, !rows.length) + (rowsGd ? cells(totStat(rowsGd), true) : '') + '</tr>';
     var bodyRows = rows.map(function(r, i){
       return '<tr><td style="text-align:left">' + r.name + '</td>' +
-             (rowsGd ? '' : '<td>' + fmtKRVal(r.actual, unit) + '</td>') +
+             (rowsGd ? pesoCell(r.actual) : '<td>' + fmtKRVal(r.actual, unit) + '</td>') +
              cells(rowStat(r), false, !!rowsGd, i === rows.length - 1) + (rowsGd ? cells(rowStat(rowsGd[i]), false) : '') + '</tr>';
     }).join('');
     var head = rowsGd
       ? '<tr><th rowspan="2" style="text-align:left;min-width:90px">País</th>' +
+          '<th rowspan="2" title="Participación del país en el actual Recognition del canal">Peso</th>' +
           '<th colspan="3" class="kr-rk-l kr-rk-r kr-rk-t" title="Recognition Date: la fecha con la que se mide el KR">Recognition' +
             '<span class="kr-rk-tag">cuenta para el KR</span></th>' +
           '<th colspan="3" title="Gestion Date (referencia)">Gestion</th></tr>' +
