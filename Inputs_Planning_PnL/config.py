@@ -89,6 +89,7 @@ BASES = {
     "runrate": {
         "flat_file": "Base_P&L_Contable/RunRate*.csv",   # glob: puede venir en partes
         "is_forecast": False,
+        "solo_desde_corte": True,   # si el export trae meses cerrados (FY completo), se ignoran (2026-10-30)
     },
     "lastrunrate": {
         "files": ["Run Rate/LRR - Legal Entity ALL.csv",

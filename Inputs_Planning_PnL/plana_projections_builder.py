@@ -277,6 +277,13 @@ def build(base, con_ppa=False):
     if "flat_file" in cfg:
         df = read_flat_base(cfg["flat_file"])
         print(f"  leídas {len(df):,} filas (formato plano)")
+        if cfg.get("solo_desde_corte"):
+            # 2026-10-30: el export del RunRate puede traer el FY completo (abr-mar); el RunRate del pipeline
+            # empieza después del último cierre (los meses cerrados son actuals): se vacían los anteriores.
+            viejos = [d for d in FISCAL_DATES if d <= config.LAST_CLOSED_MONTH and d in df.columns and df[d].notna().any()]
+            if viejos:
+                df[viejos] = None
+                print(f"  [RunRate] se ignoran los meses cerrados que trae el archivo: {viejos}")
     else:
         df = read_base(cfg["files"], cfg.get("only_from_all", ()))
         print(f"  leídas {len(df):,} filas (ALL+NA)")
