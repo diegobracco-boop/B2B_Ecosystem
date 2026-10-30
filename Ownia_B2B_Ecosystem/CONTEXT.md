@@ -128,7 +128,12 @@ avisos que no cortan la corrida (`warnings`: líneas WARN / AVISO, sin los reint
 que también van al log de la app. Corre con `DAILY_FETCH_WORKERS=4` (en la PC son 6): la primera corrida desde Ownia
 (2026-10-30) murió con `QUERY_QUEUE_FULL` de Trino; desde entonces `fetch()` de `daily_sync.py` espera y reintenta
 con cola llena sin gastar intentos (`QUEUE_FULL_WAITS`), y escribe la salida línea por línea (`line_buffering`).
-Al arrancar loguea la memoria del contenedor y al terminar la memoria máxima del proceso. El pipeline va a Trino
+Al arrancar loguea la memoria del contenedor y al terminar la memoria máxima del proceso.
+**Memoria (2026-10-30):** la corrida llega a ~2,7 GB (medido en la PC, modo Ownia) y el tamaño por defecto de una app
+JavaScript en Ownia es 0,5 vCPU / 1 GB. Por eso el botón no arranca si el contenedor tiene menos de 3.584 MB
+(`MIN_MEMORY_MB`, se pisa con el secreto `REALES_MIN_MEMORY_MB`; 0 = no chequear) y lo dice en el diálogo.
+Para habilitarlo, un admin de Ownia tiene que correr `manage_app(action="resize", app_name="b2b-ecosystem", cpu=1024,
+memory=4096)` (los usuarios con rol "user" no pueden). El pipeline va a Trino
 por HTTPS (`DATALAKE_HOST`, sin ODBC), sube a Drive con el token de clasp (lo siguen leyendo las landings GAS) y a
 Ownia por `/ingest` en `127.0.0.1` (doble escritura de `ownia_publish.py`). Secretos de la app: `DATALAKE_USER`,
 `DATALAKE_PASSWORD`, `DRIVE_CLIENT_ID` / `DRIVE_CLIENT_SECRET` (cliente OAuth de clasp), `DRIVE_REFRESH_TOKEN`

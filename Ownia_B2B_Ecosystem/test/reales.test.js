@@ -55,9 +55,9 @@ function request(s, method, urlPath, { body, headers } = {}) {
 const post = (password, who = 'ana@despegar.com', extra = {}) =>
   request(server, 'POST', `${BASE}/reales`, { body: { password }, headers: { ...POST_HEADERS, 'x-test-email': who, ...extra } });
 
-function makeApp(secrets) {
+function makeApp(secrets, memoryMb = 4096) {
   const cfg = { secrets, PORT: 8123, INGEST_TOKEN: 'tok', APP_ROOT, TIME_ZONE: 'America/Argentina/Buenos_Aires' };
-  const reales = createRealesJob(cfg, { spawn: fakeSpawn, python: 'py-falso', pipelinesDir: resolvePipelinesDir(APP_ROOT) });
+  const reales = createRealesJob(cfg, { spawn: fakeSpawn, python: 'py-falso', pipelinesDir: resolvePipelinesDir(APP_ROOT), memoryMb });
   return createApp({ GAS_ROOT: FIXTURES, BASE_PATH: BASE, modules: [DEMO], secrets, TRUSTED_IDENTITY_HEADER: 'x-test-email', fileStore: null, reales, realesUsers: EQUIPO });
 }
 
@@ -123,13 +123,13 @@ test('lanzar: corre daily_sync.py con las credenciales de APP_SECRETS, una corri
   child.stdout.emit('data', Buffer.from('  OK Drive: archivo actualizado (daily_b2b2c_data.json)\n'));
   let st = JSON.parse((await request(server, 'GET', `${BASE}/reales`, { headers: ANA })).text);
   assert.equal(st.state, 'running');
-  assert.deepEqual(st.lines, ['  OK Drive: archivo actualizado (daily_b2b2c_data.json)']);
+  assert.deepEqual(st.lines, ['Memoria del contenedor: 4.096 MB', '  OK Drive: archivo actualizado (daily_b2b2c_data.json)']);
   assert.equal(st.by, 'ana@despegar.com');
 
   // Un traceback con credenciales no llega ni al estado ni al log.
   child.stderr.emit('data', Buffer.from('requests: auth failed for pw-datalake · Authorization: Bearer abcdef123 · refresh_token=r-largo-123 · refresh-clasp\n'));
   st = JSON.parse((await request(server, 'GET', `${BASE}/reales`, { headers: ANA })).text);
-  assert.equal(st.lines[1], 'requests: auth failed for *** · Authorization: Bearer *** · refresh_token=*** · ***');
+  assert.equal(st.lines[st.lines.length - 1], 'requests: auth failed for *** · Authorization: Bearer *** · refresh_token=*** · ***');
 
   child.emit('close', 0);
   st = JSON.parse((await request(server, 'GET', `${BASE}/reales`, { headers: ANA })).text);
@@ -206,6 +206,25 @@ test('contraseña equivocada: después de 5 intentos, 429', async () => {
     assert.equal((await p('clave')).status, 429, 'ni con la correcta mientras dura el bloqueo');
   } finally {
     s.close();
+  }
+});
+
+test('contenedor con poca memoria: no arranca, avisa por qué; se puede desactivar con REALES_MIN_MEMORY_MB=0', async () => {
+  const s = await listen(makeApp(SECRETS, 1024));
+  const s0 = await listen(makeApp({ ...SECRETS, REALES_MIN_MEMORY_MB: '0' }, 1024));
+  try {
+    const before = spawned.length;
+    const st = JSON.parse((await request(s, 'GET', `${BASE}/reales`, { headers: ANA })).text);
+    assert.match(st.blocked, /1\.024 MB de memoria.*admin de Ownia/);
+    const r = await request(s, 'POST', `${BASE}/reales`, { body: { password: 'clave' }, headers: { ...POST_HEADERS, ...ANA } });
+    assert.equal(r.status, 503);
+    assert.equal(spawned.length, before);
+    assert.equal(JSON.parse((await request(s0, 'GET', `${BASE}/reales`, { headers: ANA })).text).blocked, null);
+    assert.equal((await request(s0, 'POST', `${BASE}/reales`, { body: { password: 'clave' }, headers: { ...POST_HEADERS, ...ANA } })).status, 202);
+    spawned[spawned.length - 1].child.emit('close', 0);
+  } finally {
+    s.close();
+    s0.close();
   }
 });
 

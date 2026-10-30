@@ -182,7 +182,7 @@ function realesDialog(basePath) {
       if (st.state === 'error') last += ' · con error';
       document.getElementById('reales-last').textContent = last;
       var running = st.state === 'running';
-      go.disabled = running; pw.disabled = running;
+      go.disabled = running || !!st.blocked; pw.disabled = running || !!st.blocked;
       btn.classList.toggle('busy', running);
       if (running) msg.textContent = 'Actualizando… podés cerrar esta ventana, sigue corriendo en el servidor.';
       else if (st.state === 'ok' && st.warnings && st.warnings.length) {
@@ -191,6 +191,7 @@ function realesDialog(basePath) {
       else if (st.state === 'ok') msg.textContent = 'Listo: los tableros ya tienen los datos nuevos.';
       else if (st.state === 'error') msg.textContent = 'La actualización falló. Abrí "Ver detalle" para ver el error.';
       else if (!st.configured) msg.textContent = 'Falta configurar las credenciales en Ownia.';
+      else if (st.blocked) msg.textContent = st.blocked;
       else msg.textContent = '';
       // Barra de avance (la calcula el servidor a partir de la salida del proceso, ver reales-job.js).
       var p = st.progress || { pct: 0, stage: '' };

@@ -33,6 +33,11 @@ const FAIL_WINDOW_MS = 15 * 60 * 1000;
 // Consultas al Datalake de una corrida completa (líneas "OK <consulta>: N filas" de daily_sync.py; 32 el
 // 2026-10-30). Solo sirve para la barra de avance: si cambia, la barra se queda en 80 % un rato o salta.
 const EXPECTED_QUERIES = 32;
+// Memoria mínima del contenedor para lanzar la corrida: daily_sync.py llega a ~2,7 GB (medido el 2026-10-30) y corre al
+// lado de la app. Con menos, el sistema lo mata a mitad de camino (o peor, a Node). El tamaño por defecto de una app
+// JavaScript en Ownia es 1 GB: hace falta que un admin de Ownia la agrande (manage_app resize, p.ej. 1024 / 4096).
+// Se puede pisar con el secreto REALES_MIN_MEMORY_MB (0 = no chequear).
+const MIN_MEMORY_MB = 3584;
 
 // Barra de avance a partir de la salida de daily_sync.py: las consultas llevan hasta el 80 %; después,
 // las etapas fijas del script. Nunca retrocede.
@@ -83,6 +88,8 @@ function resolvePipelinesDir(appRoot) {
   return path.resolve(appRoot, '..');                // monorepo
 }
 
+const secrets_ = (cfg) => cfg.secrets || {};
+
 function sameSecret(a, b) {
   const h = (s) => crypto.createHash('sha256').update(String(s)).digest();
   return crypto.timingSafeEqual(h(a), h(b));
@@ -97,6 +104,8 @@ function createRealesJob(cfg, opts = {}) {
   const spawnFn = opts.spawn || spawn;
   const python = opts.python || process.env.PYTHON || (process.platform === 'win32' ? 'python' : 'python3');
   const pipelinesDir = opts.pipelinesDir || resolvePipelinesDir(cfg.APP_ROOT);
+  const memoryMb = opts.memoryMb !== undefined ? opts.memoryMb : containerMemoryMb();   // null = no se sabe (p.ej. en local)
+  const minMemoryMb = secrets_(cfg).REALES_MIN_MEMORY_MB !== undefined ? Number(secrets_(cfg).REALES_MIN_MEMORY_MB) : MIN_MEMORY_MB;
   const script = path.join(pipelinesDir, 'Daily_Dashboard', 'daily_sync.py');
   const secrets = cfg.secrets || {};
   const run = { state: 'idle', startedAt: null, finishedAt: null, by: null, exitCode: null, lines: [], progress: newProgress() };
@@ -118,6 +127,14 @@ function createRealesJob(cfg, opts = {}) {
     if (!cfg.INGEST_TOKEN) out.push('INGEST_TOKEN');
     if (!fs.existsSync(script)) out.push('pipelines/Daily_Dashboard/daily_sync.py');
     return out;
+  }
+
+  // null si alcanza la memoria (o no se puede saber); si no, el texto del motivo.
+  function memoryProblem() {
+    if (!minMemoryMb || memoryMb === null || memoryMb >= minMemoryMb) return null;
+    return `El servidor de Ownia tiene ${memoryMb.toLocaleString('es-AR')} MB de memoria y la actualización necesita unos ` +
+      `${minMemoryMb.toLocaleString('es-AR')} MB. Hay que pedirle a un admin de Ownia que agrande la app b2b-ecosystem ` +
+      '(1 vCPU / 4 GB). Mientras tanto, se sigue corriendo desde una PC.';
   }
 
   function push(text) {
@@ -149,6 +166,7 @@ function createRealesJob(cfg, opts = {}) {
     return {
       state: run.state, startedAt: run.startedAt, finishedAt: run.finishedAt, by: run.by, exitCode: run.exitCode,
       progress: { pct, stage }, warnings: warnings.slice(), lines: run.lines.slice(-40), configured: missing().length === 0,
+      blocked: memoryProblem(),
     };
   }
 
@@ -170,6 +188,11 @@ function createRealesJob(cfg, opts = {}) {
     const faltan = missing();
     if (faltan.length) return { ok: false, code: 503, error: `Falta configurar en Ownia: ${faltan.join(', ')}` };
     if (run.state === 'running') return { ok: false, code: 409, error: `Ya hay una actualización corriendo (la lanzó ${run.by}).` };
+    const memo = memoryProblem();
+    if (memo) {
+      log({ level: 'warn', msg: 'reales: no arranca por memoria', memoryMb, minMemoryMb, by: email });
+      return { ok: false, code: 503, error: memo };
+    }
 
     // HOME propio de la corrida: ahí van los tokens de Drive (el pipeline busca ~/.clasprc.json).
     const home = fs.mkdtempSync(path.join(os.tmpdir(), 'reales-'));
@@ -205,8 +228,7 @@ function createRealesJob(cfg, opts = {}) {
 
     Object.assign(run, { state: 'running', startedAt: new Date().toISOString(), finishedAt: null, by: email, exitCode: null, lines: [], progress: newProgress() });
     log({ level: 'info', msg: 'reales: arranca la actualización', by: email });
-    const mem = containerMemoryMb();
-    if (mem) push(`Memoria del contenedor: ${mem.toLocaleString('es-AR')} MB`);
+    if (memoryMb) push(`Memoria del contenedor: ${memoryMb.toLocaleString('es-AR')} MB`);
     let done = false;
     let timer = null;
     const finish = (code) => {
@@ -226,6 +248,7 @@ function createRealesJob(cfg, opts = {}) {
       return { ok: true, status: status() };
     }
     timer = setTimeout(() => { push(`Cortado: pasaron ${TIMEOUT_MS / 60000} minutos sin terminar.`); child.kill('SIGKILL'); }, TIMEOUT_MS);
+    if (typeof timer.unref === 'function') timer.unref();   // el corte no mantiene vivo el proceso (tests, apagado)
     const out = lineReader();
     const err = lineReader();
     // utf8 en el stream: un carácter de varios bytes cortado entre dos 'data' no se rompe.
