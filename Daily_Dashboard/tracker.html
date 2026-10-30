@@ -1456,7 +1456,7 @@
         <tbody id="statusKRsH2Body"></tbody>
       </table>
     </div>
-    <div style="font-size:0.78rem;color:#9ca3af;margin-top:10px">Targets provisorios = Budget MTD · Accelerate Recurrence (solo HTML): agencias de alta frecuencia (Metabase 171400) vs target mensual de Input_OKR; mientras el mes no cierra, el Actual y el cumplimiento son Rolling L4W vs Target (el MTD arranca en 0 cada mes y queda como nota); con la foto de cierre del mes, MTD vs Target. Los recuadros por país muestran las dos columnas. Con el filtro API o HTML, los recuadros por país muestran el cumplimiento y el YoY por <strong>Recognition Date</strong> y por <strong>Gestion Date</strong> (sin la columna Actual); lo que cuenta para el KR es Recognition (marcado en punteado violeta) y la tabla principal sigue por Recognition Date; la columna <em>Peso</em> es la participación de cada país en el actual Recognition del canal. <em>Sem NN</em> (tabla principal, antes de las columnas del mes) = cumplimiento de cada semana cerrada del mes (lun–dom, recortada al mes), la semana sola contra su budget (Accelerate Recurrence: la foto de la semana comercial cerrada, L4W o MTD de cierre vs el target del mes, como en la columna del mes); el OVERALL semanal usa la misma ponderación. <em>YoY Bud.</em> = crecimiento que pedía el budget vs los reales del año anterior (mismo período).</div>
+    <div style="font-size:0.78rem;color:#9ca3af;margin-top:10px">Targets provisorios = Budget MTD · Accelerate Recurrence (solo HTML): agencias de alta frecuencia (Metabase 171400) vs target mensual de Input_OKR; mientras el mes no cierra, el Actual y el cumplimiento son Rolling L4W vs Target (el MTD arranca en 0 cada mes y queda como nota); con la foto de cierre del mes, MTD vs Target. Los recuadros por país muestran las dos columnas. Con el filtro API o HTML, los recuadros por país muestran el cumplimiento y el YoY por <strong>Recognition Date</strong> y por <strong>Gestion Date</strong> (sin la columna Actual); lo que cuenta para el KR es Recognition (marcado en punteado violeta) y la tabla principal sigue por Recognition Date; la columna <em>Peso</em> es la participación de cada país en el actual Recognition del canal (— cuando hay países con monto negativo y el total queda en cero o cerca). <em>Sem NN</em> (tabla principal, antes de las columnas del mes) = cumplimiento de cada semana cerrada del mes (lun–dom, recortada al mes), la semana sola contra su budget (Accelerate Recurrence: la foto de la semana comercial cerrada, L4W o MTD de cierre vs el target del mes, como en la columna del mes); el OVERALL semanal usa la misma ponderación. <em>YoY Bud.</em> = crecimiento que pedía el budget vs los reales del año anterior (mismo período).</div>
     <div class="kr-detail-grid" id="statusKRsH2DetailGrid"></div>
   </div>
 </div>
@@ -3948,8 +3948,15 @@ function renderStatusKRsH2DetailBoxes_(monthFilter) {
     var tRi = totStat(rows);
     // Peso (solo API / HTML, 2026-10-30 pedido de antonella.difranco): participación del país en el actual
     // Recognition del canal (ej. NR API 1M y Brasil 500k → 50%), independiente del cumplimiento y del YoY.
+    // Con total <= 0, o países negativos que pesan más del 10% de lo positivo, el % no se lee
+    // (ej. New Products · Flights API: -154% / -809% / 1063%) → "—" en todo el recuadro.
+    var posSum = 0, negSum = 0;
+    rows.forEach(function(r){ if (r.actual > 0) posSum += r.actual; else if (r.actual < 0) negSum -= r.actual; });
+    var pesoOk = tRi.actual > 0 && negSum <= 0.1 * posSum;
+    var pesoNa = 'Sin peso: hay países con monto negativo y el total queda en cero o cerca, así que el % no se puede leer';
     function pesoCell(act, bold) {
-      var p = (tRi.actual && act !== null && act !== undefined) ? act / tRi.actual : null;
+      if (!pesoOk) return '<td class="kr-peso" title="' + pesoNa + '">—</td>';
+      var p = (act !== null && act !== undefined) ? act / tRi.actual : null;
       var t = p === null ? '—' : (p * 100).toFixed(Math.abs(p) < 0.1 ? 1 : 0) + '%';
       return '<td class="kr-peso">' + (bold ? '<strong>' + t + '</strong>' : t) + '</td>';
     }
