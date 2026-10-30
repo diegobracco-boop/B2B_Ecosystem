@@ -44,36 +44,53 @@
 })();
 
 
-/* Columnas del P&L — Baseline vs Goal (2026-10-30, Diego): período "Año" junto a Mes / Quarter / Half, y selector
- * "Columnas: Período / País / Producto". Por país o producto, cada columna es el total del período elegido (Año, o
- * los meses / quarters / halves marcados en los chips; sin marcar = el FY).
- *  - B2B + B2B2C: la tabla principal pasa a una columna por país (by_country, ya viene en la respuesta) o por producto.
- *  - B2B y B2B2C: arriba del detalle se agrega un bloque "Por país / Por producto" que respeta el país y el canal elegidos.
- * Producto y el bloque de B2B / B2B2C los calcula getEPMBreakdown (server/gas-extras/pnl-accounting-byprod.js); la base
- * contable solo viene abierta por producto en B2B. Las tablas se arman con las funciones del dashboard (buildBGScenHead /
- * buildBGQHead / fillBGBody). Solo la vista EPM. ?cols=pais|prod en la URL abre directo así.
+/* P&L Accounting simplificado (2026-10-30, Diego): en Ownia el P&L carga rápido, así que en vez de muchas tablas hay
+ * una por sección y se elige con filtros.
+ *  - Secciones (arriba): B2B + B2B2C · B2B · B2B2C · API · HTML (Countries YoY sale). Todas usan la vista consolidada
+ *    del dashboard (gráficos de evolución + tabla Baseline vs Goal); la sección fija lobGroup / canal en
+ *    getContableFilters (API = canal MAY, HTML = canal MIN). El Bridge de OC queda solo en B2B + B2B2C (se arma con el
+ *    consolidado). Fuera: los bloques repetidos por LoB / país / producto.
+ *  - Filtros: la fila País (y Producto en B2B / API / HTML: la base contable de B2B2C no viene por producto).
+ *  - Período "Año" junto a Mes / Quarter / Half, y "Columnas: Período / País / Producto": por país o producto cada columna
+ *    es el total del período elegido (Año o los chips; sin marcar = el FY), solo los países / productos filtrados.
+ *    País sale de by_country (ya viene en la respuesta); producto, de getEPMBreakdown
+ *    (server/gas-extras/pnl-accounting-byprod.js, cacheado). Las tablas usan buildBGScenHead / buildBGQHead / fillBGBody.
+ * Se recuerdan en el navegador (pa-sec, pa-cols); ?sec=api y ?cols=pais|prod en la URL abren directo así.
  */
 (function () {
   'use strict';
-  var W = window, LS = 'pa-cols';
-  var cols = 'periodo', year = false, cache = {}, busy = {};
-  try { cols = { pais: 'pais', prod: 'prod' }[localStorage.getItem(LS)] || 'periodo'; } catch (e) { /* sin storage */ }
-  var qCols = /[?&]cols=(periodo|pais|prod)(&|$)/.exec(location.search);
-  if (qCols) cols = qCols[1];
+  var W = window;
+  var SECS = [
+    { k: 'combined', lbl: 'B2B + B2B2C', lob: null, canal: [] },
+    { k: 'b2b', lbl: 'B2B', lob: 'b2b', canal: [] },
+    { k: 'b2b2c', lbl: 'B2B2C', lob: 'b2b2c', canal: [] },
+    { k: 'api', lbl: 'API', lob: 'b2b', canal: ['may'], title: 'B2B MAY (API)' },
+    { k: 'html', lbl: 'HTML', lob: 'b2b', canal: ['min'], title: 'B2B MIN (HTML)' },
+  ];
+  function ls(k, ok) { try { var v = localStorage.getItem(k); return ok.indexOf(v) >= 0 ? v : null; } catch (e) { return null; } }
+  function save(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* sin storage */ } }
+  function q(name, ok) { var m = new RegExp('[?&]' + name + '=([a-z0-9]+)(&|$)').exec(location.search); return m && ok.indexOf(m[1]) >= 0 ? m[1] : null; }
+  var SEC_KEYS = SECS.map(function (s) { return s.k; }), COL_KEYS = ['periodo', 'pais', 'prod'];
+  var qView = /[?&]view=contable-(combined|b2b2c|b2b)(&|$)/.exec(location.search);   // accesos directos del menú / P&L Dashboard
+  var sec = q('sec', SEC_KEYS) || (qView && qView[1]) || ls('pa-sec', SEC_KEYS) || 'combined';
+  var cols = q('cols', COL_KEYS) || ls('pa-cols', COL_KEYS) || 'periodo';
+  var year = false, cache = {}, busy = {}, refill = true;
   var MODE_LBL = { m: 'Mes', q: 'Quarter', h: 'Semestre' };
-  var NO_PROD = 'La apertura por producto está disponible en <b>B2B</b> (Total, MAY o MIN): la base contable de B2B2C no viene abierta por producto.';
+  var EXPLICIT = ['brasil', 'mexico', 'argentina', 'colombia', 'chile', 'peru', 'ecuador', 'rg'];
 
+  function S() { for (var i = 0; i < SECS.length; i++) if (SECS[i].k === sec) return SECS[i]; return SECS[0]; }
+  function hasProd() { return S().lob === 'b2b'; }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function cap(s) { return String(s).replace(/(^|\s)\S/g, function (c) { return c.toUpperCase(); }); }
-  function btn(id, txt, title) {
+  function btn(id, txt, title, cls) {
     var b = document.createElement('button');
-    b.id = id; b.className = 'prd-btn'; b.type = 'button'; b.textContent = txt;
+    b.id = id; b.className = cls || 'prd-btn'; b.type = 'button'; b.textContent = txt;
     if (title) b.title = title;
     return b;
   }
   function fy() { return W.FY_TAG || ''; }
 
-  // Meses del período elegido (orden fiscal)
+  // ── Período ──
   function months() {
     var M = W.ALL_MONTHS_ORD_BG || [];
     var sel = (!year && W._bgPeriodSel && W._bgPeriodSel.length) ? W._bgPeriodSel : null;
@@ -89,10 +106,10 @@
     if (ms.length === 1) return ms[0];
     return ms[0] + ' a ' + ms[ms.length - 1] + ' · ' + fy();
   }
-  function setTitle(txt) { var t = document.getElementById('bg-period-title'); if (t) t.textContent = txt; }
+  function setTitle(txt) { var t = document.getElementById('bg-period-title'); if (t) t.textContent = (S().title || S().lbl) + ' · ' + txt; }
   function periodTitle() { return year ? 'Agrupado por Año · ' + fy() : 'Agrupado por ' + (MODE_LBL[W._bgPeriodMode] || 'Quarter') + ' · ' + fy(); }
 
-  // {baseline,goal:{rr,ct}} con una "columna" por entidad = suma de los meses elegidos
+  // ── Columnas por entidad (país / producto) ──
   function synth(ents, ms) {
     var out = { baseline: { rr: {}, ct: {} }, goal: { rr: {}, ct: {} } };
     ents.forEach(function (e) {
@@ -115,22 +132,13 @@
       return Object.keys(m).some(function (k) { return Object.keys(m[k] || {}).some(function (x) { return Math.abs(m[k][x] || 0) > 0.5; }); });
     });
   }
-  // Llena un thead (2 filas) y un tbody con una columna por entidad (la última, Total)
-  function fill(theadScen, theadQ, tbody, ents, ms, tableId) {
-    var keys = ents.map(function (e) { return e.key; }), n = keys.length, s = synth(ents, ms);
-    W._bgPeriodTotalMembers = null;
-    theadScen.innerHTML = W.buildBGScenHead(n);
-    theadQ.innerHTML = W.buildBGQHead(keys, n);
-    tbody.innerHTML = '';
-    W.fillBGBody(tbody, keys, s.baseline, s.goal, tableId);
+  // País de la columna (grupo del dashboard: "Peru + Ecuador", "Other Countries") contra el filtro de países
+  function paisMatch(label, sel) {
+    if (!sel.length) return true;
+    var l = label.toLowerCase();
+    if (l === 'other countries') return sel.some(function (p) { return EXPLICIT.indexOf(p) < 0; });
+    return l.split(' + ').some(function (p) { return sel.indexOf(p) >= 0; });
   }
-  function entsFrom(items, total, prod) {
-    var e = (items || []).filter(function (it) { return hasData(it.data); }).map(function (it) { return { key: prod ? cap(it.label) : it.label, g: it.data }; });
-    if (total) e.push({ key: 'Total', g: total });
-    return e;
-  }
-
-  // getEPMBreakdown con caché por filtros + dimensión; al llegar, se vuelve a dibujar
   function breakdown(f, dim) {
     var k = dim + '|' + JSON.stringify(f);
     if (cache[k]) return cache[k];
@@ -143,80 +151,116 @@
     }
     return null;
   }
-
-  // ── B2B + B2B2C: la tabla principal ──
   function renderMain(d) {
     var ms = months(), per = periodLabel(ms), head = document.getElementById('bg-scenario-head'), qh = document.getElementById('bg-quarters-head'), body = document.getElementById('bg-body');
     function msg(html) { head.innerHTML = ''; qh.innerHTML = ''; body.innerHTML = '<tr><td style="padding:22px 16px;color:var(--muted);font-size:13px;text-align:left">' + html + '</td></tr>'; }
+    function draw(ents) {
+      var keys = ents.map(function (e) { return e.key; }), n = keys.length, s = synth(ents, ms);
+      W._bgPeriodTotalMembers = null;
+      head.innerHTML = W.buildBGScenHead(n);
+      qh.innerHTML = W.buildBGQHead(keys, n);
+      body.innerHTML = '';
+      W.fillBGBody(body, keys, s.baseline, s.goal, 'bg-table');
+    }
+    var f = W.getContableFilters(), selPais = (f.pais || []).map(function (p) { return String(p).toLowerCase(); });
     document.getElementById('bg-period-label').textContent = 'Baseline (' + W._epmBaselineLabel() + ')  |  Goal: ' + W._epmGoalLabel();
     if (cols === 'pais') {
       setTitle('Abierto por País · ' + per);
-      var bc = d.by_country || {}, items = Object.keys(bc).filter(function (k) { return k !== 'Total'; }).map(function (k) { return { label: k, data: bc[k] }; });
-      return fill(head, qh, body, entsFrom(items, bc.Total || d.total), ms, 'bg-table');
+      var bc = d.by_country || {}, ents = [];
+      Object.keys(bc).forEach(function (k) { if (k !== 'Total' && hasData(bc[k]) && paisMatch(k, selPais)) ents.push({ key: k, g: bc[k] }); });
+      ents.push({ key: 'Total', g: d.total });
+      return draw(ents);
     }
     setTitle('Abierto por Producto · ' + per);
-    var r = breakdown(W.getContableFilters(), 'prod');
+    if (!hasProd()) return msg('La apertura por producto está disponible en <b>B2B</b>, <b>API</b> y <b>HTML</b>: la base contable de B2B2C no viene abierta por producto.');
+    var r = breakdown(f, 'prod');
     if (!r) return msg('Calculando el P&amp;L por producto…');
     if (r.error) return msg('No se pudo calcular por producto: ' + esc(r.error));
-    if (!r.available) return msg(NO_PROD + ' Elegí la pestaña B2B o volvé a Columnas: Período / País.');
-    fill(head, qh, body, entsFrom(r.items, d.total, true), ms, 'bg-table');
+    if (!r.available) return msg('Sin apertura por producto para esta selección.');
+    var selProd = (f.producto || []).map(function (p) { return String(p).toLowerCase(); });
+    var pe = (r.items || []).filter(function (it) { return hasData(it.data) && (!selProd.length || selProd.indexOf(String(it.label).toLowerCase()) >= 0); })
+      .map(function (it) { return { key: cap(it.label), g: it.data }; });
+    pe.push({ key: 'Total', g: d.total });
+    draw(pe);
   }
 
-  // ── B2B / B2B2C: bloque "Por país / Por producto" arriba del detalle ──
-  function renderTabBlock(view, d) {
-    var detail = document.getElementById(view === 'b2b' ? 'cont-b2b-detail' : 'cont-b2b2c-detail');
-    if (!detail || !d) return;
-    var old = document.getElementById('ow-cols-block');
-    if (old) old.remove();
-    var ms = months(), per = periodLabel(ms), sel = view === 'b2b' ? W._b2bCurrentSel : W._b2b2cCurrentSel;
-    var canal = view === 'b2b' ? W._b2bCanalFilter : 'total';
-    var f = W.getContableFilters();
-    f.lobGroup = view;
-    f.canal = (canal === 'may' || canal === 'min') ? [canal] : [];
-    f.pais = (sel && sel.pais) || [];
-    var total = canal === 'may' ? (d.may && d.may.total) : canal === 'min' ? (d.min && d.min.total) : d.total;
-    var title = (cols === 'pais' ? 'Por país' : 'Por producto') + ' · ' + ((sel && sel.label) || '') + (f.canal.length ? ' · ' + canal.toUpperCase() : '') + ' · ' + per;
-
-    var sec = document.createElement('div');
-    sec.className = 'sec';
-    sec.id = 'ow-cols-block';
-    sec.style.marginTop = '16px';
-    var t = document.createElement('div');
-    t.className = 'sec-title';
-    t.textContent = title;
-    var card = document.createElement('div');
-    card.className = 'pnl-card';
-    sec.appendChild(t);
-    sec.appendChild(card);
-    detail.insertBefore(sec, detail.firstChild);
-
-    var r = breakdown(f, cols);
-    if (!r || r.error || !r.available) {
-      card.innerHTML = '<div style="padding:18px 16px;color:var(--muted);font-size:13px">' +
-        (!r ? 'Calculando…' : r.error ? 'No se pudo calcular: ' + esc(r.error) : NO_PROD) + '</div>';
-      return;
-    }
-    var ents = entsFrom(r.items, total, cols === 'prod');
-    if (ents.length <= 1) { card.innerHTML = '<div style="padding:18px 16px;color:var(--muted);font-size:13px">Sin apertura para mostrar con esta selección.</div>'; return; }
-    var wrap = document.createElement('div');
-    wrap.style.overflowX = 'auto';
-    var tbl = document.createElement('table');
-    tbl.className = 'qpnl-table';
-    tbl.id = 'bg-table-ow-cols';
-    var thead = document.createElement('thead'), r1 = document.createElement('tr'), r2 = document.createElement('tr'), tbody = document.createElement('tbody');
-    thead.appendChild(r1); thead.appendChild(r2); tbl.appendChild(thead); tbl.appendChild(tbody);
-    wrap.appendChild(tbl);
-    card.appendChild(wrap);
-    fill(r1, r2, tbody, ents, ms, tbl.id);
+  // ── Secciones: estado de la página según la sección ──
+  function layoutSection() {
+    var fr = document.getElementById('cont-filters-row'), fgP = document.getElementById('fg-cont-producto');
+    if (fr) fr.style.display = '';
+    if (fgP) fgP.style.display = hasProd() ? '' : 'none';
+    var wf = document.getElementById('cont-waterfall-section');
+    if (wf) wf.style.display = sec === 'combined' ? '' : 'none';
+    var disc = document.getElementById('cont-disclaimer');
+    if (disc) disc.style.display = S().lob === 'b2b2c' ? 'none' : '';
+    SECS.forEach(function (s) { var b = document.getElementById('pa-sec-' + s.k); if (b) b.classList.toggle('cont-stab-active', s.k === sec); });
   }
+  function goSection(k) {
+    sec = k;
+    save('pa-sec', k);
+    refill = true;
+    ['ms-cont-pais', 'ms-cont-producto'].forEach(function (id) {
+      var w = document.getElementById(id);
+      if (w) w.querySelectorAll('.ms-option input').forEach(function (c) { c.checked = false; });
+      if (typeof W.updateMsLabel === 'function') W.updateMsLabel(id);
+    });
+    if (W._bgContableView !== 'combined') W.setContableView('combined');
+    else { layoutSection(); W.debouncedFetchBG(); }
+  }
+
+  var css = document.createElement('style');
+  css.textContent = '#bg-country-blocks,#cont-b2b-nav,#cont-b2b2c-nav,#cont-b2b-detail,#cont-b2b2c-detail{display:none!important}#fg-cont-lob,#cont-filters-row .fg:has(#ms-cont-canal){display:none!important}' +
+    '#header-subtabs > .header-tab:not(.pa-sec){display:none!important}';
+  (document.head || document.documentElement).appendChild(css);
 
   document.addEventListener('DOMContentLoaded', function () {
     var hBtn = document.getElementById('btn-period-h');
-    var needed = ['setBGPeriod', 'getActivePeriods_', 'renderBaselineGoalTable', 'fillBGBody', 'buildBGScenHead', 'buildBGQHead', 'getContableFilters', '_refreshBGViews_'];
+    var needed = ['setBGPeriod', 'getActivePeriods_', 'renderBaselineGoalTable', 'fillBGBody', 'buildBGScenHead', 'buildBGQHead', 'getContableFilters',
+      '_refreshBGViews_', 'setContableView', 'debouncedFetchBG', 'fillMs'];
     if (!hBtn || needed.some(function (f) { return typeof W[f] !== 'function'; })) {
-      console.warn('[pnl-accounting-layout] sin columnas por país / producto: falta alguna función del dashboard');
+      console.warn('[pnl-accounting-layout] sin secciones / columnas: falta alguna función del dashboard');
       return;
     }
+    // Secciones arriba (reemplazan B2B + B2B2C / B2B / B2B2C / Countries YoY)
+    var tabs = document.getElementById('header-subtabs');
+    if (tabs) SECS.forEach(function (s) {
+      var b = btn('pa-sec-' + s.k, s.lbl, s.title || s.lbl, 'header-tab pa-sec');
+      b.addEventListener('click', function () { goSection(s.k); });
+      tabs.appendChild(b);
+    });
+    var origFilters = W.getContableFilters;
+    W.getContableFilters = function () {
+      var f = origFilters.apply(this, arguments), s = S();
+      f.lobGroup = s.lob;
+      f.canal = s.canal.slice();
+      if (!hasProd()) f.producto = [];
+      return f;
+    };
+    var origView = W.setContableView;
+    W.setContableView = function (view) {
+      // Accesos directos (?view=contable-b2b / contable-b2b2c, redirección desde el P&L Dashboard): eligen la sección
+      if ((view === 'b2b' || view === 'b2b2c') && sec !== view) { sec = view; save('pa-sec', sec); refill = true; }
+      var r = origView.call(this, 'combined');   // todas las secciones usan la vista consolidada
+      layoutSection();
+      return r;
+    };
+    // Al cambiar de sección, las opciones de País / Producto son las de esa sección (vienen en la respuesta)
+    var origRender = W.renderBaselineGoalTable;
+    W.renderBaselineGoalTable = function (d) {
+      if (refill && d && d.filters) {
+        refill = false;
+        W.fillMs('ms-cont-pais', d.filters.pais || []);
+        W.fillMs('ms-cont-producto', hasProd() ? (d.filters.produto || []) : []);
+      }
+      layoutSection();
+      if (cols === 'periodo' || W._activeLob !== 'contable-epm' || !d) {
+        var r = origRender.apply(this, arguments);
+        if (cols === 'periodo') setTitle(periodTitle());
+        return r;
+      }
+      try { return renderMain(d); } catch (e) { console.warn('[pnl-accounting-layout] columnas:', e); return origRender.apply(this, arguments); }
+    };
+
     // Período "Año": una sola columna con el FY (internamente sigue en modo Quarter: la columna es "Total FYxx")
     var yBtn = btn('btn-period-y', 'Año', 'Una sola columna con el año fiscal completo');
     hBtn.parentNode.insertBefore(yBtn, hBtn.nextSibling);
@@ -228,8 +272,8 @@
       if (chips) chips.style.visibility = year ? 'hidden' : '';   // con Año no hay chips que elegir
       var r = origSet.call(this, year ? 'q' : mode);
       yBtn.classList.toggle('prd-active', year);
-      if (year) { var q = document.getElementById('btn-period-q'); if (q) q.classList.remove('prd-active'); }
-      if (year && cols === 'periodo') setTitle(periodTitle());
+      if (year) { var qb = document.getElementById('btn-period-q'); if (qb) qb.classList.remove('prd-active'); }
+      if (cols === 'periodo') setTitle(periodTitle());
       return r;
     };
     var origAP = W.getActivePeriods_;
@@ -247,15 +291,14 @@
     var grp = document.createElement('div');
     grp.className = 'prd-toggle';
     var opts = [['periodo', 'Período', 'Columnas por mes / quarter / half / año'], ['pais', 'País', 'Una columna por país, con el total del período elegido'],
-      ['prod', 'Producto', 'Una columna por producto, con el total del período elegido (solo B2B)']];
+      ['prod', 'Producto', 'Una columna por producto, con el total del período elegido (B2B, API y HTML)']];
     opts.forEach(function (o) {
       var b = btn('btn-cols-' + o[0], o[1], o[2]);
       b.classList.toggle('prd-active', o[0] === cols);
       b.addEventListener('click', function () {
         cols = o[0];
-        try { localStorage.setItem(LS, cols); } catch (e) { /* sin storage */ }
+        save('pa-cols', cols);
         opts.forEach(function (x) { document.getElementById('btn-cols-' + x[0]).classList.toggle('prd-active', x[0] === cols); });
-        if (cols === 'periodo') setTitle(periodTitle());
         W._refreshBGViews_();
       });
       grp.appendChild(b);
@@ -264,20 +307,8 @@
     anchor.parentNode.insertBefore(sep, anchor.nextSibling);
     sep.parentNode.insertBefore(lbl, sep.nextSibling);
     lbl.parentNode.insertBefore(grp, lbl.nextSibling);
-
-    var origRender = W.renderBaselineGoalTable;
-    W.renderBaselineGoalTable = function (d) {
-      if (cols === 'periodo' || W._activeLob !== 'contable-epm' || !d) return origRender.apply(this, arguments);
-      try { return renderMain(d); } catch (e) { console.warn('[pnl-accounting-layout] columnas:', e); return origRender.apply(this, arguments); }
-    };
-    [['renderB2BCountryDetail', 'b2b'], ['renderB2B2CCountryDetail', 'b2b2c']].forEach(function (p) {
-      var orig = W[p[0]];
-      if (typeof orig !== 'function') return;
-      W[p[0]] = function (d) {
-        var r = orig.apply(this, arguments);
-        if (cols !== 'periodo' && W._activeLob === 'contable-epm') { try { renderTabBlock(p[1], d); } catch (e) { console.warn('[pnl-accounting-layout] bloque columnas:', e); } }
-        return r;
-      };
-    });
+    // La navegación inicial (?view=…, ownia-nav.js) pudo abrir la vista B2B / B2B2C vieja antes de esta capa: se vuelve a la consolidada
+    if (W._bgContableView && W._bgContableView !== 'combined') W.setContableView('combined');
+    else { layoutSection(); if (sec !== 'combined') W.debouncedFetchBG(); }   // la primera carga pudo salir antes que estos filtros
   });
 })();
