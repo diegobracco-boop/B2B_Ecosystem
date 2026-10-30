@@ -697,11 +697,63 @@ def publish(payload: dict) -> None:
     print("  OK cache invalidado")
 
 
+# Ownia (2026-10-30): el dashboard corre también en Ownia (/b2b-ecosystem/okr-b2b2c) y lee el mismo payload
+# como JSON de esta carpeta de Drive (Ownia_B2B_Ecosystem/server/gas-extras/okr-payload.js), que se manda en el
+# mismo paso a Ownia (doble escritura, mirror/ownia_publish.py). Usa el login de Drive de los uploaders del P&L
+# (Inputs_Planning_PnL/token_drive.json): el drive_token de este módulo es de solo lectura.
+OWNIA_FOLDER_ID = "1lWzfqweyV6Kz1ERkL85ikFcmzmKwGwwh"
+OWNIA_JSON_NAME = "okr_tribu_producto.json"
+
+
+def publish_drive_ownia(payload: dict) -> None:
+    import sys as _sys
+    from googleapiclient.http import MediaIoBaseUpload
+    repo = os.path.dirname(SCRIPT_DIR)
+    _sys.path.insert(0, os.path.join(repo, "Inputs_Planning_PnL"))
+    _sys.path.insert(0, os.path.join(repo, "Ownia_B2B_Ecosystem", "mirror"))
+    from pnl_common import get_drive_service
+    from ownia_publish import DRIVE_FIELDS, publish_after_drive   # doble escritura Drive + Ownia
+
+    content = json.dumps(payload, ensure_ascii=False, separators=(',', ':')).encode('utf-8')
+    svc = get_drive_service()
+    q = f"name='{OWNIA_JSON_NAME}' and '{OWNIA_FOLDER_ID}' in parents and trashed=false"
+    ex = svc.files().list(q=q, fields="files(id,name)").execute().get("files", [])
+    media = MediaIoBaseUpload(io.BytesIO(content), mimetype="application/json", resumable=True)
+    if ex:
+        res = svc.files().update(fileId=ex[0]["id"], media_body=media, fields=DRIVE_FIELDS).execute()
+    else:
+        res = svc.files().create(body={"name": OWNIA_JSON_NAME, "parents": [OWNIA_FOLDER_ID]},
+                                 media_body=media, fields=DRIVE_FIELDS).execute()
+    print(f"  OK Drive: {OWNIA_JSON_NAME} ({len(content)} bytes)")
+    publish_after_drive(res, content)
+
+
 # ==============================================================================
 # 9) MAIN
 # ==============================================================================
+#   python okr_sync.py                  → Drive + Ownia + Apps Script
+#   python okr_sync.py --solo-ownia     → Drive + Ownia (sin clasp)
+#   python okr_sync.py --json <ruta>    → solo escribe el payload a un archivo (no publica nada)
 
+args = sys.argv[1:]
 payload = build_payload()
+
+if "--json" in args:
+    out = args[args.index("--json") + 1]
+    with open(out, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, separators=(',', ':'))
+    print(f"\nOK payload en {out} (sin publicar)")
+    sys.exit(0)
+
+print("\n--- Publicando en Drive + Ownia ---")
+try:
+    publish_drive_ownia(payload)
+except Exception as e:   # Ownia está en validación: un error acá no frena la publicación en Apps Script
+    print(f"  WARN Drive/Ownia: no se pudo publicar {OWNIA_JSON_NAME} ({e})")
+
+if "--solo-ownia" in args:
+    print(f"\nOK Completado (solo Drive + Ownia): {TODAY.strftime('%d-%m-%Y')}")
+    sys.exit(0)
 
 print("\n--- Publicando en Apps Script ---")
 publish(payload)

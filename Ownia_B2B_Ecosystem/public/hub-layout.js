@@ -953,13 +953,17 @@
   }
 
   // Secciones embebidas → su versión de Ownia si el módulo ya corre acá.
+  // También los OKR embebidos (EXTERNAL_LINKS.okr: el de B2B2C corre en Ownia desde 2026-10-30).
   function owniaFrames() {
-    var ext = window.EXTERNAL_LINKS && window.EXTERNAL_LINKS.iframes;
-    if (!ext) return;
-    Object.keys(ext).forEach(function (k) {
-      var m = /\/s\/([\w-]+)\/exec/.exec(ext[k] || '');
-      var dest = m && links[m[1]];
-      if (dest && dest !== home) ext[k] = dest;
+    var all = window.EXTERNAL_LINKS;
+    if (!all) return;
+    [all.iframes, all.okr].forEach(function (ext) {
+      if (!ext) return;
+      Object.keys(ext).forEach(function (k) {
+        var m = /\/s\/([\w-]+)\/exec/.exec(ext[k] || '');
+        var dest = m && links[m[1]];
+        if (dest && dest !== home) ext[k] = dest;
+      });
     });
   }
 

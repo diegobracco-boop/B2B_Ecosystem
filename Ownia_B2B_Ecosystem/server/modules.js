@@ -162,7 +162,16 @@ const MODULES = [
     dir: 'OKR_Producto_B2B2C',
     title: 'OKR Producto B2B2C',
     desc: 'OKRs de la tribu Producto B2B2C.',
-    ownia: false,
+    // En validación (2026-10-30): corre acá en paralelo a GAS. Sin allowedUsers: cualquier @despegar.com, igual que
+    // el webapp GAS (access DOMAIN). Los datos: okr_tribu_producto.json, que okr_sync.py sube a Drive y a Ownia
+    // (server/gas-extras/okr-payload.js reemplaza la lectura de okr_data.js). Mismas secciones y formatos que en
+    // GAS, con el diseño de Ownia (public/okr-layout.js). El código GAS del módulo no cambia.
+    ownia: true,
+    validating: true,
+    hideGasLink: true,
+    layout: 'okr-layout.js',
+    gasExtras: ['okr-payload.js'],
+    quickViews: [['q', 'Trimestral'], ['m', 'Mensual']],
     gasUrl: GAS_EXEC + 'AKfycbz1KVq_b2V8UBEaXvcqJmlvS8e-gd2FAwQOcBV91rABnK7Lm33fTcYMPr_f7pdqNiCI/exec',
   },
   {

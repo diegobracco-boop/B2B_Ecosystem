@@ -135,6 +135,7 @@ El ecosistema tiene dos capas: **pipelines** (Python, generan los datos) y **lan
 - **Input**: Datalake Treasure Data (ODBC), Google Sheet P&L (KR6), JSONs de Drive de Inputs_Planning_PnL (KR6)
 - **Output**: `okr_data.js` embebido en el propio deployment GAS (no un JSON separado en Drive)
 - **Deploy**: `okr_sync.py` hace `clasp push --force` + `clasp deploy --deploymentId <fijo>` automáticamente al final de cada corrida
+- **Ownia** (en validación desde 2026-10-30): `/b2b-ecosystem/okr-b2b2c`. `okr_sync.py` sube además `okr_tribu_producto.json` a Drive (carpeta del Daily) y a Ownia
 - **Consumido por**: embebido como `<iframe>` en `Dashboard_B2B_WLs/dashboard.html` (`EXTERNAL_LINKS.okr.b2b2c`)
 - **Estado**: KRs de H1 FY27 únicamente (H2 pendiente de definir por la tribu Producto)
 - **Doc detallada**: [CLAUDE.md](./OKR_Producto_B2B2C/CLAUDE.md) · [SETUP.md](./OKR_Producto_B2B2C/SETUP.md)

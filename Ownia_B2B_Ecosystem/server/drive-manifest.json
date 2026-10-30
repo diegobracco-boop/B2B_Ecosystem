@@ -80,6 +80,12 @@
       "folders": {
         "1lWzfqweyV6Kz1ERkL85ikFcmzmKwGwwh": ["fvm_negativo.json"]
       }
+    },
+    "okr-b2b2c": {
+      "files": {},
+      "folders": {
+        "1lWzfqweyV6Kz1ERkL85ikFcmzmKwGwwh": ["okr_tribu_producto.json"]
+      }
     }
   }
 }

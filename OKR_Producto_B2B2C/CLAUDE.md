@@ -56,6 +56,15 @@ clasp deploy --deploymentId AKfycbz1KVq_b2V8UBEaXvcqJmlvS8e-gd2FAwQOcBV91rABnK7L
 
 `okr_sync.py` ya hace este push+deploy+invalidación de cache automáticamente al final de cada corrida — no hace falta correrlo a mano salvo que solo hayas tocado el frontend/backend sin recalcular KRs.
 
+## Ownia (en validación desde 2026-10-30)
+
+El mismo dashboard corre también en Ownia: `https://ownia.despegar.io/b2b-ecosystem/okr-b2b2c`, en paralelo a GAS. Corre este mismo `Codigo.js` + `dashboard.html`, con el diseño de Ownia (`Ownia_B2B_Ecosystem/public/okr-layout.js`) y las mismas secciones y formatos.
+
+- **Datos**: `okr_sync.py` sube el payload como `okr_tribu_producto.json` a la carpeta de Drive `1lWzfqweyV6Kz1ERkL85ikFcmzmKwGwwh` (la del Daily) y en el mismo paso a Ownia (`ownia_publish.py`). En Ownia, `server/gas-extras/okr-payload.js` reemplaza `loadJSON_` para leer ese JSON en vez de `okr_data.js`.
+- La subida a Drive usa el login de los uploaders del P&L (`Inputs_Planning_PnL/token_drive.json`, con escritura); a Ownia, `credenciales/.env.ownia`. Si falla, avisa (`WARN`) y sigue con Apps Script.
+- `python okr_sync.py --solo-ownia` publica solo en Drive + Ownia (sin clasp). `python okr_sync.py --json <ruta>` solo escribe el payload a un archivo (para probar en local).
+- Si cambiás `Codigo.js` o `dashboard.html`: `/clasp-push` **y** sync + redeploy en Ownia (ver `Ownia_B2B_Ecosystem/CONTEXT.md`).
+
 ## Automatización
 
 Corre diariamente a las 08:00 hs via Windows Task Scheduler (tarea "OKR Sync"), igual que `Daily_Dashboard`. Ver [SETUP.md](./SETUP.md).
