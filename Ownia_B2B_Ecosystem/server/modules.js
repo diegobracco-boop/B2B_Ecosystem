@@ -62,8 +62,9 @@ const MODULES = [
     // Presentación propia de Ownia (public/hub-layout.js): barra fija con el selector de LoB y las
     // secciones en vez del menú hamburguesa; precarga de los otros LoB. El HTML de GAS no cambia.
     // Vista "H2 Budget vs H1" para dirección (public/hub-h2h1.js) y el deck "Slides mensuales"
-    // (public/hub-slides.js, textos en /notes/hub/…), 2026-10-26.
-    layout: ['filter-aliases.js', 'hub-layout.js', 'hub-h2h1.js', 'hub-slides.js', 'hub-cierre.js'],
+    // (public/hub-slides.js, textos en /notes/hub/…), 2026-10-26. "Mis slides" (public/hub-builder.js, ?builder=1, 2026-10-29):
+    // armador de slides propias con los datos del P&L; las recetas en /notes/hub/builder. Lo embebe Presentaciones.
+    layout: ['filter-aliases.js', 'hub-layout.js', 'hub-h2h1.js', 'hub-slides.js', 'hub-cierre.js', 'hub-builder.js'],
     gasUrl: GAS_EXEC + 'AKfycbz52txFQy-5YM2Nil_KxULzPoeZpKyA4z5LUWMGoP_8IilcwSduuwZqPF8ut_LmtceM/exec',
   },
   {
@@ -77,7 +78,7 @@ const MODULES = [
     // lista ve el semanal y un aviso en el mensual. Para sumar gente (p. ej. el Chief) agregarla a allowedUsers del Hub.
     ownia: true,
     // Accesos directos del menú: abren esa pestaña del Flow (?view=, lo lee Flow_B2B/flow.html).
-    quickViews: [['semanal', 'Semanal'], ['mensual', 'Mensual'], ['cierre', 'Cierre de mes']],
+    quickViews: [['semanal', 'Semanal'], ['mensual', 'Mensual'], ['cierre', 'Cierre de mes'], ['builder', 'Mis slides']],
     gasUrl: '',
   },
   {

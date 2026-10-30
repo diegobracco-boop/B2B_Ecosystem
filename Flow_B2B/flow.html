@@ -59,6 +59,7 @@ textarea:focus{border-color:#550fed;box-shadow:0 0 0 3px rgba(85,15,237,.12)}
   <nav class="fx-tabs" role="tablist" aria-label="Presentaciones">
     <button class="fx-tab on" id="tab-semanal" role="tab" data-s="semanal" title="Información gestional (Datalake): Daily, Run Rate y Budget gestional">Semanal <small>Gestional</small></button>
     <button class="fx-tab" id="tab-mensual" role="tab" data-s="mensual" title="Información contable (P&L): cierre de mes, Run Rate y Budget contable">Mensual <small>Contable</small></button>
+    <button class="fx-tab" id="tab-builder" role="tab" data-s="builder" title="Armá tus propias slides con los datos del P&L contable: negocio, país, producto, período y contra qué comparar">Mis slides <small>Armador</small></button>
   </nav>
   <nav class="fx-sub" id="fx-sub" aria-label="Mensual">
     <button class="fx-pill on" data-s="mensual" title="Slides mensuales del Hub: resultados, OKRs, evolución, proyección">Slides mensuales</button>
@@ -73,7 +74,8 @@ textarea:focus{border-color:#550fed;box-shadow:0 0 0 3px rgba(85,15,237,.12)}
     <iframe id="f-semanal" title="Presentación semanal (gestional)"></iframe>
     <iframe id="f-mensual" title="Presentación mensual (contable)"></iframe>
     <iframe id="f-cierre" title="Slides cierre de mes (contable)"></iframe>
-    <div class="fx-note" id="fx-denied"><div><b>No tenés acceso a la presentación mensual.</b><br>Es información contable del P&amp;L y está restringida al equipo B2B.<br>Pedí acceso a diego.bracco@despegar.com.</div></div>
+    <iframe id="f-builder" title="Mis slides (armador)"></iframe>
+    <div class="fx-note" id="fx-denied"><div><b>No tenés acceso a la información contable.</b><br>Es información contable del P&amp;L y está restringida al equipo B2B.<br>Pedí acceso a diego.bracco@despegar.com.</div></div>
   </div>
   <aside class="fx-side" aria-label="Comentarios">
     <h2>Comentarios</h2>
@@ -91,13 +93,15 @@ textarea:focus{border-color:#550fed;box-shadow:0 0 0 3px rgba(85,15,237,.12)}
   'use strict';
   var TO = ['diego.bracco@despegar.com', 'matias.m.sanchez@despegar.com'];
   var LS = 'flow_comments_v1';
-  var NAMES = { semanal: 'Presentación semanal (gestional)', mensual: 'Presentación mensual (contable)', cierre: 'Presentación mensual · Cierre de mes (contable)' };
+  var NAMES = { semanal: 'Presentación semanal (gestional)', mensual: 'Presentación mensual (contable)', cierre: 'Presentación mensual · Cierre de mes (contable)',
+                builder: 'Mis slides (contable)' };
   var base = location.pathname.replace(/\/flow\/?$/, '');
-  var SRC = { semanal: base + '/daily?flowdeck=1', mensual: base + '/hub?slides=1&embedded=1', cierre: base + '/hub?cierre=1&embedded=1' };
+  var SRC = { semanal: base + '/daily?flowdeck=1', mensual: base + '/hub?slides=1&embedded=1', cierre: base + '/hub?cierre=1&embedded=1',
+              builder: base + '/hub?builder=1&embedded=1' };   // "Mis slides": armador de slides propias (public/hub-builder.js)
   var home = document.getElementById('fx-home');
   home.href = base + '/';
   var sec = 'semanal';
-  var where = { semanal: null, mensual: null, cierre: null };
+  var where = { semanal: null, mensual: null, cierre: null, builder: null };
   var monthly = 'mensual';   // sub-sección activa de la pestaña Mensual   // último slide informado por cada iframe
   var denied = false;
   var els = { text: document.getElementById('fx-text'), where: document.getElementById('fx-where'), all: document.getElementById('fx-all'),
@@ -143,21 +147,22 @@ textarea:focus{border-color:#550fed;box-shadow:0 0 0 3px rgba(85,15,237,.12)}
   function openTab(s) {
     flushText();
     sec = s;
-    if (s !== 'semanal') monthly = s;
-    var isM = s !== 'semanal';
-    document.getElementById('tab-semanal').classList.toggle('on', !isM);
+    if (s === 'mensual' || s === 'cierre') monthly = s;
+    var isM = s === 'mensual' || s === 'cierre', isC = s !== 'semanal';   // isC: contable (Mensual y Mis slides leen los datos del Hub)
+    document.getElementById('tab-semanal').classList.toggle('on', s === 'semanal');
     document.getElementById('tab-mensual').classList.toggle('on', isM);
+    document.getElementById('tab-builder').classList.toggle('on', s === 'builder');
     document.getElementById('fx-sub').classList.toggle('on', isM);
     Array.prototype.forEach.call(document.querySelectorAll('.fx-pill'), function (b) { b.classList.toggle('on', b.dataset.s === monthly); });
-    ['semanal', 'mensual', 'cierre'].forEach(function (k) {
+    ['semanal', 'mensual', 'cierre', 'builder'].forEach(function (k) {
       var f = document.getElementById('f-' + k), blocked = k !== 'semanal' && denied;
       f.classList.toggle('on', k === s && !blocked);
       if (k === s && !f.getAttribute('src') && !blocked) f.setAttribute('src', SRC[k]);
     });
-    document.getElementById('fx-denied').classList.toggle('on', isM && denied);
+    document.getElementById('fx-denied').classList.toggle('on', isC && denied);
     showSlide();
   }
-  Array.prototype.forEach.call(document.querySelectorAll('.fx-tab'), function (b) { b.onclick = function () { openTab(b.dataset.s === 'mensual' ? monthly : 'semanal'); }; });
+  Array.prototype.forEach.call(document.querySelectorAll('.fx-tab'), function (b) { b.onclick = function () { openTab(b.dataset.s === 'mensual' ? monthly : b.dataset.s); }; });
   Array.prototype.forEach.call(document.querySelectorAll('.fx-pill'), function (b) { b.onclick = function () { openTab(b.dataset.s); }; });
 
   // los iframes (mismo origen) avisan en qué slide están
@@ -228,7 +233,7 @@ textarea:focus{border-color:#550fed;box-shadow:0 0 0 3px rgba(85,15,237,.12)}
         if (c && c.text) sl.addNotes(c.text);
       });
       var d = new Date(), pad = function (n) { return ('0' + n).slice(-2); };
-      var name = 'Presentacion_' + (sec === 'mensual' ? 'Mensual' + (month ? '_' + month : '') : sec === 'cierre' ? 'CierreDeMes' + (month ? '_' + month : '') : 'Semanal') + '_' + d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + '.pptx';
+      var name = 'Presentacion_' + (sec === 'mensual' ? 'Mensual' + (month ? '_' + month : '') : sec === 'cierre' ? 'CierreDeMes' + (month ? '_' + month : '') : sec === 'builder' ? 'MisSlides' : 'Semanal') + '_' + d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + '.pptx';
       return p.writeFile({ fileName: name });
     }).catch(function (e) {
       alert('No se pudo generar el PPTX: ' + ((e && e.message) || e));
@@ -241,7 +246,7 @@ textarea:focus{border-color:#550fed;box-shadow:0 0 0 3px rgba(85,15,237,.12)}
   }
   refreshCount();
   els.text.disabled = true;
-  var want = (/[?&]view=(semanal|mensual|cierre)/.exec(location.search) || [])[1] || 'semanal';   // acceso directo desde el menú
+  var want = (/[?&]view=(semanal|mensual|cierre|builder)\b/.exec(location.search) || [])[1] || 'semanal';   // acceso directo desde el menú
   checkAccess().then(function () { openTab(want); });
 })();
 </script>
