@@ -119,6 +119,18 @@ pipelines (sin cambios) ──▶ Drive ──▶ mirror/ownia_mirror.py ──P
 - `/ingest/files` (GET lista, PUT sube) se protege con `Authorization: Bearer <INGEST_TOKEN>`. Sin
   `INGEST_TOKEN` configurado la ruta no existe (404).
 
+**Buscador de la portada "¿Qué querés ver?" (2026-10-30, Tiago):** debajo del título; la persona escribe o dicta
+("cierre contable b2b", "daily b2b2c", "flow semanal", un partner) y la lleva al tablero y a la vista. Determinista, sin
+modelo: `public/portal-ask.js` (dictado → `parse` → `route` → caja; usa el diccionario de `public/filter-aliases.js`),
+servido junto con `filter-aliases.js` en `/_portal/ask.js`. Los destinos que arma `server/index-page.js` dependen de
+quién mira (el P&L Dashboard de Ownia solo para `EQUIPO_B2B`; al resto, "cierre contable" lo lleva a P&L Accounting).
+Links que entiende cada tablero: Daily `?tab=` / `?lob=` / `?pais=` / `?partner=` (`public/daily-layout.js`), Hub `?q=`
+(se aplica como la barra "Filtrar…") / `?sec=` (`public/hub-layout.js`), y los `?view=` de siempre. Partners: salen
+del `daily_b2b2c_data.json` del espejo (`server/portal-ask-data.js`). Cada pregunta se registra (`POST /preguntas`,
+almacén de notas: módulo `portada`, scope `preguntas-AAAA-MM`, y al log) y el equipo las lee en `GET /preguntas`
+(`?formato=json`). Para sumar una frase: agregarla a `test/portal-ask.test.js` y al tema de `TOPICS`. Receta:
+`.agents/skills/caja-de-preguntas/SKILL.md`.
+
 **Actualizar reales (2026-10-30):** botón de la portada (`server/index-page.js`), solo para `EQUIPO_B2B` y con
 contraseña (`REALES_PASSWORD`, máx. 5 intentos cada 15 min por usuario). `POST /reales` lanza en el servidor
 `pipelines/Daily_Dashboard/daily_sync.py` (`server/reales-job.js`, una corrida por vez, corte a los 45 min);

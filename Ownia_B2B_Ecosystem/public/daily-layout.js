@@ -518,6 +518,52 @@
   });
 })();
 
+/* Link desde el buscador de la portada (public/portal-ask.js, 2026-10-30): abre el Daily en una solapa y un LoB.
+ *   ?tab=benchmark|weekly|flow|tracker|industry   solapa (sin tab: Daily)
+ *   ?lob=b2b|b2b2c (en Weekly también all)        LoB
+ *   ?pais=<país>&partner=<partner>                 filtros de B2B2C; se eligen cuando llegan los datos (si no existen, quedan en Todos)
+ * No usa ?view=: en Apps Script ?view=tracker abre el Tracker suelto (doGet de Codigo.js).
+ */
+(function () {
+  'use strict';
+  var p;
+  try { p = new URLSearchParams(window.location.search); } catch (e) { return; }
+  var tab = p.get('tab'), lob = p.get('lob'), pais = p.get('pais'), partner = p.get('partner');
+  if (!tab && !lob && !pais && !partner) return;
+
+  // Elige la opción del <select> sin importar mayúsculas (los partners vienen escritos distinto según la fuente).
+  function pick(id, val) {
+    var sel = document.getElementById(id);
+    if (!sel || !val) return;
+    var want = String(val).toLowerCase();
+    for (var i = 0; i < sel.options.length; i++) {
+      if (sel.options[i].value.toLowerCase() === want) { sel.value = sel.options[i].value; return; }
+    }
+  }
+  document.addEventListener('DOMContentLoaded', function () {
+    // fillPartnersB2BC_ corre al llegar el B2B2C (window.onload), justo antes del primer cálculo: ahí ya están las
+    // opciones de país y partner. Se envuelve acá porque esta capa carga antes que el código del Daily.
+    var orig = window.fillPartnersB2BC_;
+    if ((pais || partner) && typeof orig === 'function') {
+      window.fillPartnersB2BC_ = function () {
+        var r = orig.apply(this, arguments);
+        if (pais) { pick('sel-pais', pais); pais = null; }
+        if (partner) { pick('sel-partner', partner); partner = null; }
+        return r;
+      };
+    }
+    try {
+      if (/^(benchmark|weekly|flow|tracker|industry)$/.test(tab || '')) window.switchMainView(tab);
+      if (tab === 'weekly') {
+        var ws = { all: 'B2B+B2B2C', b2b: 'B2B', b2b2c: 'B2B2C' }[lob];
+        if (ws && typeof window._wsSwitchLob === 'function') window._wsSwitchLob(ws);
+      } else if ((lob === 'b2b' || lob === 'b2b2c') && typeof window.switchLob === 'function') {
+        window.switchLob(lob === 'b2b2c' ? 'b2bc' : 'b2b');
+      }
+    } catch (e) { /* la capa de Ownia nunca rompe el Daily */ }
+  });
+})();
+
 /* Benchmark vs B2C en Ownia (2026-10-24, revisión UX para Chief / VPs comerciales y directores de país de
  * B2B y B2B2C). Rearma la solapa del Daily sin tocar su HTML de Apps Script: envuelve sus funciones de
  * render (renderBenchmark_, renderBenchCards_, renderBenchGrowthChart_, renderBenchMarginChart_) y

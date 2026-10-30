@@ -329,6 +329,51 @@ function shell(inner, { title = 'The B2B Ecosystem · Despegar', left = '<span c
   .hero h1 { font-size: clamp(34px, 5.4vw, 52px); font-weight: 600; line-height: 1.08; letter-spacing: -0.035em; }
   .hero p { margin-top: 14px; font-size: 18px; color: var(--text-2); }
 
+  /* Buscador "¿Qué querés ver?" (public/portal-ask.js) */
+  .ask { position: relative; max-width: 640px; margin: -24px auto 56px; z-index: 5; }
+  .ask-box { display: flex; align-items: center; gap: 10px; padding: 0 8px 0 18px; height: 54px; border-radius: 999px; background: var(--tile);
+             box-shadow: inset 0 0 0 1px var(--line); transition: box-shadow .2s var(--ease); }
+  .ask-box:focus-within { box-shadow: inset 0 0 0 1.5px var(--secondary), 0 8px 28px var(--glow); }
+  .ask-ico { color: var(--text-3); flex: none; }
+  .ask-in { flex: 1; min-width: 0; height: 100%; border: 0; background: transparent; color: var(--text); font: 16px var(--font); outline: none; }
+  .ask-in::placeholder { color: var(--text-3); }
+  .ask-in::-webkit-search-cancel-button { display: none; }
+  .ask-mic { width: 40px; height: 40px; flex: none; display: grid; place-items: center; border-radius: 50%; border: 0; background: transparent;
+             color: var(--text-2); cursor: pointer; transition: background .2s var(--ease), color .2s var(--ease); }
+  .ask-mic:hover { background: var(--tile-hover); color: var(--text); }
+  .ask-mic.rec { background: #d93025; color: #fff; animation: askPulse 1.2s ease-in-out infinite; }
+  @keyframes askPulse { 50% { box-shadow: 0 0 0 8px rgba(217, 48, 37, .18); } }
+  .ask-pop { position: absolute; left: 0; right: 0; top: calc(100% + 8px); padding: 10px; border-radius: 18px; background: var(--bg); text-align: left;
+             box-shadow: 0 18px 48px rgba(0, 0, 0, .28), inset 0 0 0 1px var(--line); }
+  .ask-hint { padding: 6px 10px; font-size: 13.5px; color: var(--text-2); }
+  .ask-bad { padding: 6px 10px; font-size: 13.5px; color: var(--text-2); }
+  .ask-bad:first-child { color: var(--text); }
+  .ask-sugg { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 8px 6px; }
+  .ask-ex, .ask-hint .ask-ex { margin: 2px 4px 2px 0; padding: 5px 12px; border-radius: 999px; border: 0; background: transparent; color: var(--text);
+            font: 500 13px var(--font); cursor: pointer; box-shadow: inset 0 0 0 1px var(--line); }
+  .ask-ex:hover { color: var(--link); box-shadow: inset 0 0 0 1px var(--link); }
+  .ask-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 10px 8px; }
+  .ask-chips span { padding: 2px 10px; border-radius: 999px; background: var(--tile); font-size: 12px; color: var(--text-2); }
+  .ask-opt { position: relative; display: flex; flex-direction: column; gap: 2px; padding: 10px 70px 10px 12px; border-radius: 12px; text-decoration: none; color: var(--text); }
+  .ask-opt.on, .ask-opt:hover { background: var(--tile); }
+  .ask-t { font-size: 15px; font-weight: 500; }
+  .ask-t i { font-style: normal; color: var(--text-2); font-weight: 400; }
+  .ask-n { font-size: 12.5px; color: var(--text-3); }
+  .ask-opt kbd { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); padding: 2px 8px; border-radius: 6px; font: 500 11px var(--font);
+                 color: var(--text-3); box-shadow: inset 0 0 0 1px var(--line); }
+  .ask-none { display: block; margin: 6px 10px 2px; padding: 0; border: 0; background: none; color: var(--text-3); font: 12.5px var(--font); cursor: pointer; }
+  .ask-none:hover { color: var(--text); text-decoration: underline; }
+  .ask-admin { margin: -44px 0 44px; text-align: center; font-size: 12px; }
+  .ask-admin a { color: var(--text-3); text-decoration: none; }
+  .ask-admin a:hover { color: var(--text); text-decoration: underline; }
+  .qtable { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  .qtable th { text-align: left; font-weight: 500; color: var(--text-3); padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  .qtable td { padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .qtable .dim, p.dim { color: var(--text-2); }
+  .qtable .miss { color: #d93025; font-weight: 500; }
+  .qbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 20px; font-size: 13.5px; color: var(--text-2); }
+  .qbar a { color: var(--link); text-decoration: none; }
+
   h2.sec { font-size: 13px; font-weight: 500; color: var(--text-3); margin: 0 4px 16px; }
   .essential { display: grid; gap: 20px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .tile { position: relative; display: flex; flex-direction: column; gap: 8px; min-height: 228px; padding: 32px; border-radius: 22px;
@@ -372,6 +417,9 @@ function shell(inner, { title = 'The B2B Ecosystem · Despegar', left = '<span c
     .hero p { font-size: 16px; }
     .essential, .list { grid-template-columns: 1fr; }
     .tile { min-height: 0; padding: 26px; }
+    .ask { margin: -12px auto 40px; }
+    .ask-admin { margin: -30px 0 30px; }
+    .qtable .opt { display: none; }
   }
   /* ---------- Intro (igual que b2b-dashboard) ---------- */
   .intro { display: none; }
@@ -543,7 +591,33 @@ ${extra}
 </html>`;
 }
 
-function indexPage({ modules, basePath, canOpen = () => true, reales = false }) {
+// Buscador "¿Qué querés ver?" (2026-10-30, Tiago): la persona escribe o dicta lo que quiere hacer y la lleva al tablero
+// y a la vista (public/portal-ask.js; receta en .agents/skills/caja-de-preguntas). Acá se arma, para quien mira, a dónde
+// abre cada tablero: `own` = versión de Ownia (entiende ?view=, ?lob=…); si no, el link tal cual (Apps Script u otra app).
+const ASK_EXAMPLES = ['cierre contable b2b', 'daily b2b2c', 'flow semanal', 'p&l managerial b2b', 'okrs', 'agentes toqan'];
+const ASK_SUGGESTIONS = ['cierre contable b2b', 'daily b2b2c', 'flow semanal', 'P&L managerial B2B', 'rolling run rate', 'fixed cost', 'okr producto', 'agentes toqan'];
+
+function askDest(all, basePath, canOpen) {
+  const dest = {};
+  for (const m of all) {
+    const l = links(m, basePath, canOpen);
+    if (!l.main) continue;
+    dest[m.slug] = { title: (COPY[m.slug] || {}).title || m.title, href: l.main, own: !l.external, external: l.external, gas: l.external && l.main === m.gasUrl };
+  }
+  return dest;
+}
+
+function askBlock(ask, dest) {
+  if (!ask) return '';
+  const cfg = { dest, partners: ask.partners || [], logUrl: ask.logUrl || null, examples: ASK_EXAMPLES, suggestions: ASK_SUGGESTIONS };
+  const json = JSON.stringify(cfg).replace(/</g, '\\u003c');
+  return `<div class="ask reveal" style="--i:0" id="ask"></div>
+    ${ask.questionsUrl ? `<p class="ask-admin reveal" style="--i:0"><a href="${escapeHtml(ask.questionsUrl)}">Ver lo que pregunta la gente</a></p>` : ''}
+    <script src="${escapeHtml(ask.js)}"></script>
+    <script>(function () { var c = ${json}; c.host = document.getElementById('ask'); if (window.PortalAsk) window.PortalAsk.mount(c); })();</script>`;
+}
+
+function indexPage({ modules, basePath, canOpen = () => true, reales = false, ask = null }) {
   const all = [...modules, ...OTHER_APPS];
   const find = (s) => all.find((m) => m.slug === s);
   const essential = ESSENTIAL.map(find).filter(Boolean);
@@ -553,6 +627,7 @@ function indexPage({ modules, basePath, canOpen = () => true, reales = false }) 
       <h1>B2B Ecosystem</h1>
       <p>Los resultados de B2B y B2B2C, en un solo lugar.</p>
     </div>
+    ${askBlock(ask, askDest(all, basePath, canOpen))}
     <h2 class="sec reveal" style="--i:1">Lo esencial</h2>
     <div class="essential reveal" style="--i:1">
       ${essential.map((m) => tile(m, basePath, canOpen, find)).join('\n')}
@@ -614,4 +689,33 @@ function agentsPage({ basePath }) {
     </div>`).join('\n')}`, { title: 'Agentes Toqan · B2B Ecosystem', left: back });
 }
 
-module.exports = { indexPage, agentsPage };
+// Lo que pregunta la gente en el buscador de la portada (solo el equipo B2B). Sirve para sumar frases al intérprete
+// (las que no entendió o donde eligieron "Ninguna de estas") y para ver qué piden que todavía no existe.
+function questionsPage({ basePath, mes, rows }) {
+  const back = `<a class="back" href="${escapeHtml(basePath)}/">${CHEVRON_L} B2B Ecosystem</a>`;
+  const prev = (() => { const [y, m] = mes.split('-').map(Number); const d = new Date(Date.UTC(y, m - 2, 1)); return d.toISOString().slice(0, 7); })();
+  const misses = rows.filter((r) => r.chosen < 0).length;
+  const fmt = (iso) => (iso ? new Date(iso).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '');
+  const destOf = (r) => {
+    if (r.chosen < 0) return `<span class="miss">${r.understood ? 'Ninguna de estas' : 'No entendió'}</span>`;
+    const p = r.params && Object.keys(r.params).length ? ' · ' + Object.entries(r.params).map(([k, v]) => `${k}=${v}`).join(' ') : '';
+    return escapeHtml(`${r.dest}${p}`) + (r.chosen > 0 ? ` <span class="dim">(opción ${r.chosen + 1})</span>` : '');
+  };
+  const body = rows.length
+    ? `<table class="qtable"><thead><tr><th>Cuándo</th><th>Quién</th><th>Pregunta</th><th>A dónde fue</th><th class="opt">Avisos / no usó</th></tr></thead><tbody>
+      ${rows.map((r) => `<tr><td class="dim">${escapeHtml(fmt(r.at))}</td><td class="dim">${escapeHtml(String(r.by || '').replace(/@.*/, ''))}</td>
+        <td>${escapeHtml(r.text || '')}${r.voice ? ' <span class="dim">🎤</span>' : ''}</td><td>${destOf(r)}</td>
+        <td class="dim opt">${escapeHtml([...(r.notes || []), ...(r.unknown && r.unknown.length ? ['No usó: ' + r.unknown.join(', ')] : [])].join(' '))}</td></tr>`).join('\n')}
+      </tbody></table>`
+    : '<p class="dim">Todavía no hay preguntas este mes.</p>';
+  return shell(`<div class="hero">
+      <h1>Preguntas del buscador</h1>
+      <p>Lo que escribe la gente en "¿Qué querés ver?" y a dónde la llevó.</p>
+    </div>
+    <div class="qbar"><span>${escapeHtml(mes)} · ${rows.length} preguntas · ${misses} sin destino</span>
+      <a href="${escapeHtml(`${basePath}/preguntas?mes=${prev}`)}">← ${escapeHtml(prev)}</a>
+      <a href="${escapeHtml(`${basePath}/preguntas?mes=${mes}&formato=json`)}">JSON</a></div>
+    ${body}`, { title: 'Preguntas · B2B Ecosystem', left: back });
+}
+
+module.exports = { indexPage, agentsPage, questionsPage };

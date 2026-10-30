@@ -97,6 +97,27 @@ test('portada: un módulo en validación abre Ownia solo para el equipo; al rest
   assert.doesNotMatch(fuera.text, /view=vista-b2b/);
 });
 
+test('buscador de la portada: caja + destinos para quien mira; preguntas: registra cualquiera, las lee solo el equipo', async () => {
+  const fuera = await request(demoServer, 'GET', `${BASE}/`, { headers: { 'x-test-email': 'chief@despegar.com' } });
+  assert.match(fuera.text, /id="ask"/);
+  assert.match(fuera.text, new RegExp(`src="${BASE}/_portal/ask\\.js\\?v=`));
+  assert.match(fuera.text, /"demo-equipo":\{[^}]*"own":false/, 'fuera de allowedUsers el destino es el link de GAS');
+  assert.doesNotMatch(fuera.text, /Ver lo que pregunta la gente/);
+  const js = await request(demoServer, 'GET', `${BASE}/_portal/ask.js`);
+  assert.match(js.text, /window\.OwniaFilters = /);
+  assert.match(js.text, /PortalAsk/);
+  const q = { text: 'daily b2b2c', understood: true, topics: ['daily'], chosen: 0, dest: 'daily', params: { lob: 'b2b2c' } };
+  const ok = await request(demoServer, 'POST', `${BASE}/preguntas`, { body: q, headers: { ...RUN_HEADERS, 'x-test-email': 'chief@despegar.com' } });
+  assert.equal(ok.status, 200);
+  assert.match(JSON.parse(ok.text).id, /^q\d{14}-[0-9a-f]{6}$/);
+  assert.equal((await request(demoServer, 'POST', `${BASE}/preguntas`, { body: q, headers: { 'x-test-email': 'chief@despegar.com' } })).status, 403, 'anti-CSRF');
+  assert.equal((await request(demoServer, 'POST', `${BASE}/preguntas`, { body: q, headers: RUN_HEADERS })).status, 401, 'sin identidad');
+  assert.equal((await request(demoServer, 'GET', `${BASE}/preguntas`, { headers: { 'x-test-email': 'chief@despegar.com' } })).status, 403);
+  const equipo = await request(demoServer, 'GET', `${BASE}/preguntas`, { headers: { 'x-test-email': EQUIPO_B2B[0] } });
+  assert.equal(equipo.status, 200);
+  assert.match(equipo.text, /Preguntas del buscador/);
+});
+
 test('doGet: template con scriptlets, include, título, meta y shim inyectados', async () => {
   const r = await request(demoServer, 'GET', `${BASE}/demo`);
   assert.equal(r.status, 200);

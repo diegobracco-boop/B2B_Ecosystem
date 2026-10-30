@@ -500,6 +500,27 @@
     return qBox;
   }
 
+  // Link desde el buscador de la portada (public/portal-ask.js, 2026-10-30): ?q=<filtros> se aplica como si se
+  // hubiera escrito en esta barra (LoB, país, período, comparación); ?sec= abre una sección (por país, H2 vs H1, OKR).
+  // Una sola vez, con el primer P&L ya cargado.
+  var askLink = (function () {
+    try {
+      var u = new URLSearchParams(window.location.search);
+      return u.get('q') || u.get('sec') ? { q: u.get('q') || '', sec: u.get('sec') || '' } : null;
+    } catch (e) { return null; }
+  })();
+  function applyAskLink() {
+    var a = askLink;
+    askLink = null;
+    if (!a) return;
+    if (a.sec === 'h2h1' && typeof window.openH2vsH1 === 'function') return window.openH2vsH1();
+    if (a.sec === 'detailcountry' || a.sec === 'okr') return window.goToSection(a.sec);
+    if (a.q) {
+      var plan = planQuery(a.q);
+      if (plan.items.length) applyPlan(plan);
+    }
+  }
+
   // Traduce el texto a cambios concretos de filtro, resueltos contra el año fiscal del tablero.
   function planQuery(text) {
     var r = window.OwniaFilters.parse(text), plan = { items: [], unknown: r.unknown.slice() };
@@ -1006,6 +1027,7 @@
     wrap('render', function () {
       renderTop();
       foldDetail();
+      if (askLink && window._state && window._state.pnl) setTimeout(applyAskLink, 0);   // fuera del render: puede recargar
       if (!preloaded && window._state && window._state.pnl && typeof window._preloadOtherLobs_ === 'function' && typeof window.getParams === 'function') {
         preloaded = true;
         window._preloadOtherLobs_(window.getParams());

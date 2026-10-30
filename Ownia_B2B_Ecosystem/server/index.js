@@ -13,6 +13,9 @@
 //   POST <base>/notes/<modulo>/<scope>  guarda una nota: { field, text }
 //   GET  <base>/reales               estado de "Actualizar reales" (solo el equipo B2B, ver reales-job.js)
 //   POST <base>/reales               lanza la actualización de reales: { password }
+//   GET  <base>/_portal/ask.js       buscador de la portada (filter-aliases.js + portal-ask.js)
+//   POST <base>/preguntas            registra una pregunta del buscador (ver portal-ask-data.js)
+//   GET  <base>/preguntas[?mes=AAAA-MM][&formato=json]  las preguntas del mes (solo el equipo B2B)
 const config = require('./config');
 
 // Antes de cualquier Date: el proceso corre en la zona de los proyectos GAS (ver config.js).
@@ -35,13 +38,14 @@ const { MODULES, EQUIPO_B2B } = require('./modules');
 const { GasProject } = require('./gas-runtime');
 const { renderOutput } = require('./render');
 const { escapeHtml } = require('./gas-template');
-const { indexPage, agentsPage } = require('./index-page');
+const { indexPage, agentsPage, questionsPage } = require('./index-page');
 const { resolveIdentity, describeAuthHeaders } = require('./identity');
 const { createFileStore, isValidId } = require('./file-store');
 const { ingestAllowlist, loadManifest } = require('./drive-manifest');
 const { createNotesStore } = require('./notes-store');
 const { ApiCache } = require('./api-cache');
 const { createRealesJob } = require('./reales-job');
+const { partnersFrom, createQuestionLog } = require('./portal-ask-data');
 
 const MAX_BODY = 5 * 1024 * 1024; // google.script.run acepta payloads grandes (p.ej. capturas)
 const MAX_INGEST = 100 * 1024 * 1024; // los JSON canónicos pesan hasta ~15 MB
@@ -62,6 +66,9 @@ function createApp(opts = {}) {
   const reales = opts.reales !== undefined ? opts.reales : createRealesJob(cfg, { log });
   const realesUsers = (opts.realesUsers || EQUIPO_B2B).map((x) => x.toLowerCase());
   const mayRunReales = (identity) => !!reales && !!identity.email && realesUsers.includes(String(identity.email).toLowerCase());
+  // Preguntas del buscador de la portada: las registra cualquiera; las lee solo el equipo B2B (misma lista que "Actualizar reales").
+  const questionLog = opts.questionLog !== undefined ? opts.questionLog : createQuestionLog(notesStore, log);
+  const isTeam = (identity) => !!identity.email && realesUsers.includes(String(identity.email).toLowerCase());
   // Datos nuevos → se recargan los módulos. En GAS cada ejecución arranca con los globales
   // limpios; acá el contexto vive entre requests, y varios módulos memorizan el JSON en una
   // variable global (p.ej. _gestionalJsonCache_): sin esto seguirían sirviendo la versión vieja.
@@ -90,6 +97,9 @@ function createApp(opts = {}) {
   const clientVersion = crypto.createHash('sha1').update(clientJs).digest('hex').slice(0, 10);
   const navJs = fs.readFileSync(path.join(cfg.APP_ROOT, 'public', 'ownia-nav.js'), 'utf8');
   const navVersion = crypto.createHash('sha1').update(navJs).digest('hex').slice(0, 10);
+  // Buscador de la portada: usa el mismo diccionario de filtros que la barra "Filtrar…" del P&L Dashboard.
+  const askJs = ['filter-aliases.js', 'portal-ask.js'].map((f) => fs.readFileSync(path.join(cfg.APP_ROOT, 'public', f), 'utf8')).join('\n');
+  const askVersion = crypto.createHash('sha1').update(askJs).digest('hex').slice(0, 10);
   // Layout propio de Ownia para un módulo (`layout` en modules.js: un archivo de public/ o una lista,
   // que se cargan en ese orden): cambia la presentación sin tocar el HTML de GAS. Se sirve en
   // /_gas/layout/<archivo>.
@@ -319,6 +329,9 @@ function createApp(opts = {}) {
     if (route === '/_gas/nav.js') {
       return send(res, 200, { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'public, max-age=3600' }, navJs);
     }
+    if (route === '/_portal/ask.js') {
+      return send(res, 200, { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'public, max-age=3600' }, askJs);
+    }
     if (route.startsWith('/_gas/layout/')) {
       const l = layouts.get(route.slice('/_gas/layout/'.length));
       if (!l) return sendJson(res, 404, { error: 'No encontrado' });
@@ -326,7 +339,45 @@ function createApp(opts = {}) {
     }
     if (route === '/' || route === '') {
       if (req.method !== 'GET') return sendJson(res, 405, { error: 'Método no permitido' });
-      return send(res, 200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }, indexPage({ modules, basePath: cfg.BASE_PATH, canOpen: (m) => mayOpen(m, identity), reales: mayRunReales(identity) }));
+      const ask = {
+        js: `${cfg.BASE_PATH}/_portal/ask.js?v=${askVersion}`,
+        partners: partnersFrom(fileStore),
+        logUrl: `${cfg.BASE_PATH}/preguntas`,
+        questionsUrl: isTeam(identity) ? `${cfg.BASE_PATH}/preguntas` : null,
+      };
+      return send(res, 200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }, indexPage({ modules, basePath: cfg.BASE_PATH, canOpen: (m) => mayOpen(m, identity), reales: mayRunReales(identity), ask }));
+    }
+
+    if (route === '/preguntas') {
+      if (!identity.email) return unauthorized(res);
+      if (req.method === 'GET') {
+        if (!isTeam(identity)) return sendJson(res, 403, { error: 'Solo el equipo B2B puede ver las preguntas', name: 'Forbidden' });
+        const mes = url.searchParams.get('mes') || new Date().toISOString().slice(0, 7);
+        try {
+          const rows = await questionLog.month(mes);
+          if (url.searchParams.get('formato') === 'json') return sendJson(res, 200, { mes, preguntas: rows });
+          return send(res, 200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }, questionsPage({ basePath: cfg.BASE_PATH, mes, rows }));
+        } catch (e) {
+          const status = e.status || 500;
+          if (status >= 500) log({ level: 'error', msg: 'preguntas: lectura falló', error: e.stack || String(e) });
+          return sendJson(res, status, { error: e.message || String(e) });
+        }
+      }
+      if (req.method !== 'POST') return sendJson(res, 405, { error: 'Método no permitido' });
+      // Mismo anti-CSRF que /api y /notes: JSON + header custom + same-origin.
+      const ctype = String(req.headers['content-type'] || '');
+      const site = req.headers['sec-fetch-site'];
+      if (!/^application\/json\s*(;|$)/i.test(ctype) || req.headers['x-requested-with'] !== 'google.script.run' || (site && site !== 'same-origin')) {
+        return sendJson(res, 403, { error: 'Llamada rechazada', name: 'Forbidden' });
+      }
+      try {
+        const body = JSON.parse(await readBody(req, 16 * 1024));
+        return sendJson(res, 200, { id: await questionLog.add(body, identity.email) });
+      } catch (e) {
+        const status = e.status || (e instanceof SyntaxError ? 400 : 500);
+        if (status >= 500) log({ level: 'error', msg: 'preguntas: registro falló', error: e.stack || String(e) });
+        return sendJson(res, status, { error: e.message || String(e) });
+      }
     }
 
     if (route === '/reales') {
