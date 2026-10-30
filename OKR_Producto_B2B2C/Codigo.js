@@ -15,7 +15,7 @@ function doGet(e) {
     return ContentService.createTextOutput(JSON.stringify(invalidateCache())).setMimeType(ContentService.MimeType.JSON);
   }
   return HtmlService.createHtmlOutputFromFile('dashboard')
-    .setTitle('OKRs Tribu Producto · H1 FY27')
+    .setTitle('OKRs Tribu Producto · FY27')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
@@ -31,7 +31,7 @@ function doGet(e) {
 function getOKRData() {
   try {
     var data = loadJSON_();
-    return { success: true, okr: data.okr, meta: data.meta };
+    return { success: true, okr: data.okr, okrH2: data.okr_h2 || null, meta: data.meta };
   } catch(e) {
     return { success: false, error: e.message };
   }

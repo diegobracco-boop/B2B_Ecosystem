@@ -137,21 +137,24 @@ def quarterly_achievement(actuals_by_ym: dict, budget_by_ym: dict, quarter: dict
             return None
         last_ym = available[-1]
         return achievement(actuals_by_ym.get(last_ym), budget_by_ym.get(last_ym))
+    # El target se suma solo en los meses con actual: con el trimestre en curso, Oct vs (Oct+Nov+Dic) daba ~1/3.
     sum_a = sum(actuals_by_ym[ym] for ym in quarter['months'] if ym in actuals_by_ym)
-    sum_b = sum(budget_by_ym[ym]  for ym in quarter['months'] if ym in budget_by_ym)
+    sum_b = sum(budget_by_ym[ym]  for ym in quarter['months'] if ym in budget_by_ym and ym in actuals_by_ym)
     has_a = any(ym in actuals_by_ym for ym in quarter['months'])
     has_b = any(ym in budget_by_ym  for ym in quarter['months'])
     return achievement(sum_a if has_a else None, sum_b if has_b else None)
 
 
-def h1_achievement(actuals_by_ym: dict, budget_by_ym: dict, cumulative: bool) -> Optional[float]:
+def h1_achievement(actuals_by_ym: dict, budget_by_ym: dict, cumulative: bool, periods: list = None) -> Optional[float]:
+    """Cumplimiento del semestre (H1 por defecto; con periods, el semestre que se pase)."""
+    periods = periods or H1_PERIODS
     if cumulative:
-        last_ym = H1_PERIODS[-1]
+        last_ym = periods[-1]
         return achievement(actuals_by_ym.get(last_ym), budget_by_ym.get(last_ym))
-    sum_a = sum(actuals_by_ym[ym] for ym in H1_PERIODS if ym in actuals_by_ym)
-    sum_b = sum(budget_by_ym[ym]  for ym in H1_PERIODS if ym in budget_by_ym)
-    has_a = any(ym in actuals_by_ym for ym in H1_PERIODS)
-    has_b = any(ym in budget_by_ym  for ym in H1_PERIODS)
+    sum_a = sum(actuals_by_ym[ym] for ym in periods if ym in actuals_by_ym)
+    sum_b = sum(budget_by_ym[ym]  for ym in periods if ym in budget_by_ym)
+    has_a = any(ym in actuals_by_ym for ym in periods)
+    has_b = any(ym in budget_by_ym  for ym in periods)
     return achievement(sum_a if has_a else None, sum_b if has_b else None)
 
 
@@ -165,27 +168,32 @@ def _quarterly_nominal(values_by_ym: dict, quarter: dict, cumulative: bool) -> O
     return round(sum(vals), 2) if vals else None
 
 
-def _h1_nominal(values_by_ym: dict, cumulative: bool) -> Optional[float]:
+def _h1_nominal(values_by_ym: dict, cumulative: bool, periods: list = None) -> Optional[float]:
+    periods = periods or H1_PERIODS
     if cumulative:
-        return values_by_ym.get(H1_PERIODS[-1])
-    vals = [values_by_ym[ym] for ym in H1_PERIODS if ym in values_by_ym]
+        return values_by_ym.get(periods[-1])
+    vals = [values_by_ym[ym] for ym in periods if ym in values_by_ym]
     return round(sum(vals), 2) if vals else None
 
 
-def build_kr_result(label: str, weight: int, actuals_by_ym: dict, budget_by_ym: dict, cumulative: bool = False, unit: str = '', source: str = '') -> dict:
-    monthly    = [achievement(actuals_by_ym.get(ym), budget_by_ym.get(ym)) for ym in H1_PERIODS]
-    quarterly  = [quarterly_achievement(actuals_by_ym, budget_by_ym, q, cumulative) for q in QUARTERS]
-    h1         = h1_achievement(actuals_by_ym, budget_by_ym, cumulative)
+def build_kr_result(label: str, weight: int, actuals_by_ym: dict, budget_by_ym: dict, cumulative: bool = False, unit: str = '', source: str = '',
+                    periods: list = None, quarters: list = None) -> dict:
+    # periods / quarters: H1 por defecto; los KRs de H2 pasan H2_PERIODS / H2_QUARTERS. 'h1' = total del semestre.
+    periods  = periods or H1_PERIODS
+    quarters = quarters or QUARTERS
+    monthly    = [achievement(actuals_by_ym.get(ym), budget_by_ym.get(ym)) for ym in periods]
+    quarterly  = [quarterly_achievement(actuals_by_ym, budget_by_ym, q, cumulative) for q in quarters]
+    h1         = h1_achievement(actuals_by_ym, budget_by_ym, cumulative, periods)
     return {
         'label': label, 'weight': weight, 'monthly': monthly, 'quarterly': quarterly, 'h1': h1,
         'unit': unit, 'source': source,
         # Valores nominales (actual/target crudos) detrás de cada %, para mostrar en el dashboard.
-        'actualMonthly':   [actuals_by_ym.get(ym) for ym in H1_PERIODS],
-        'budgetMonthly':   [budget_by_ym.get(ym)  for ym in H1_PERIODS],
-        'actualQuarterly': [_quarterly_nominal(actuals_by_ym, q, cumulative) for q in QUARTERS],
-        'budgetQuarterly': [_quarterly_nominal(budget_by_ym,  q, cumulative) for q in QUARTERS],
-        'actualH1':        _h1_nominal(actuals_by_ym, cumulative),
-        'budgetH1':        _h1_nominal(budget_by_ym,  cumulative),
+        'actualMonthly':   [actuals_by_ym.get(ym) for ym in periods],
+        'budgetMonthly':   [budget_by_ym.get(ym)  for ym in periods],
+        'actualQuarterly': [_quarterly_nominal(actuals_by_ym, q, cumulative) for q in quarters],
+        'budgetQuarterly': [_quarterly_nominal(budget_by_ym,  q, cumulative) for q in quarters],
+        'actualH1':        _h1_nominal(actuals_by_ym, cumulative, periods),
+        'budgetH1':        _h1_nominal(budget_by_ym,  cumulative, periods),
     }
 
 
@@ -571,11 +579,295 @@ def compute_kr7() -> dict:
 
 
 # ==============================================================================
+# 6b) H2 FY27 (oct-26 → mar-27) — 4 KRs, definidos 2026-10-30
+#   Strategic Partnership Activations (40%) = Deploy New Partnership del ecosistema (okr.json, Input_OKR):
+#     mismo target y actual que el OKR del Hub.
+#   Net Revenue Rewards Programs (20%), Acquisition, Retention, Repeat rate (20%) y Partner Retention Rate (20%):
+#     sheet de la tribu "OKRs_Tribu B2B2C" (H2_SHEET_ID), una pestaña por KR.
+#   Solo se muestran meses hasta el actual: Input_OKR ya trae cargados los actuals de meses futuros (= target).
+# ==============================================================================
+
+H2_PERIODS  = ['2026-10','2026-11','2026-12','2027-01','2027-02','2027-03']
+H2_QUARTERS = [
+    {'label': 'Q3', 'months': ['2026-10','2026-11','2026-12']},
+    {'label': 'Q4', 'months': ['2027-01','2027-02','2027-03']},
+]
+CUR_YM = TODAY.strftime('%Y-%m')
+
+H2_SHEET_ID  = "1x94gwcPBvxMYv3orWboEvDaQjmSS69Ab4vcoFXeHpNo"   # OKRs_Tribu B2B2C (mail de la tribu, 2026-10-30)
+H2_SHEET_URL = f"https://docs.google.com/spreadsheets/d/{H2_SHEET_ID}/edit"
+OKR_JSON_FILE_ID = "1cEidr8aoYgm4S7ugm05Wv-SMnz8GbtUj"            # okr.json (Inputs_Planning_PnL/okr_builder.py, desde Input_OKR)
+
+# Partner Retention: NR de Partners_Base cargado como texto en la sheet (no suma en su fórmula). Valor corregido
+# a mano: "462,678,100,00" → 4.626.781,00 (por el orden de la pestaña NR va entre viajes-naranja 5,5M y AP12934 5,0M).
+# Revisar con la tribu; se usa solo si la celda no es un número.
+NR_TEXT_FIX = {'latam-cl': 4626781.00}
+
+_H2_SHEET = None
+
+
+def _h2_sheet():
+    """La sheet de la tribu exportada a .xlsx por Drive (drive.readonly alcanza; la API de Sheets no está habilitada)."""
+    global _H2_SHEET
+    if _H2_SHEET is None:
+        import io as _io
+        import requests
+        import openpyxl
+        print(f"  > Descargando sheet KRs H2 {H2_SHEET_ID} ...")
+        r = requests.get(
+            f"https://www.googleapis.com/drive/v3/files/{H2_SHEET_ID}/export",
+            params={"mimeType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"},
+            headers={"Authorization": f"Bearer {_drive_access_token()}"},
+        )
+        r.raise_for_status()
+        _H2_SHEET = openpyxl.load_workbook(_io.BytesIO(r.content), data_only=True)
+    return _H2_SHEET
+
+
+def _ym(v) -> Optional[str]:
+    if v is None:
+        return None
+    if hasattr(v, 'strftime'):
+        return v.strftime('%Y-%m')
+    s = str(v).strip()
+    return s[:7] if len(s) >= 7 and s[4] == '-' else None
+
+
+def _upto_now(d: dict) -> dict:
+    return {ym: v for ym, v in d.items() if ym <= CUR_YM}
+
+
+def _num(v) -> Optional[float]:
+    if v is None or v == '':
+        return None
+    if isinstance(v, (int, float)):
+        return float(v)
+    try:
+        return float(str(v).replace(',', '.'))
+    except ValueError:
+        return None
+
+
+def compute_h2_partnerships() -> dict:
+    import requests
+    print(f"  > Descargando okr.json ({OKR_JSON_FILE_ID}) ...")
+    r = requests.get(f"https://www.googleapis.com/drive/v3/files/{OKR_JSON_FILE_ID}", params={"alt": "media"},
+                     headers={"Authorization": f"Bearer {_drive_access_token()}"})
+    r.raise_for_status()
+    js = r.json()
+    cols = js["cols"]
+    iP, iE, iL, iK, iV = (cols.index(c) for c in ("Periodo", "Escenario", "LoB", "KR", "Valor"))
+    actuals, budget = {}, {}
+    for row in js["rows"]:
+        if str(row[iL]).lower() != 'b2b2c' or str(row[iK]).strip().lower() != 'deploy new partnership':
+            continue
+        ym = str(row[iP])[:7]
+        if ym not in H2_PERIODS:
+            continue
+        esc = str(row[iE]).strip().lower()
+        if esc == 'budget':
+            budget[ym] = float(row[iV])
+        elif esc == 'run rate/actuals':
+            actuals[ym] = float(row[iV])
+    return build_kr_result(
+        'Strategic Partnership Activations (#)', 40, _upto_now(actuals), budget, cumulative=True,
+        unit='partnerships activadas (acum. H2)',
+        source=('Mismo KR que <strong>Deploy New Partnership</strong> del OKR del ecosistema (Hub y Daily): target y actual de la '
+                'sheet <code>Input_OKR</code>, vía <code>okr.json</code> (<code>Inputs_Planning_PnL/okr_builder.py</code>), '
+                '<code>LoB=B2B2C</code>. Acumulado: el trimestre toma el último mes. Se muestran solo meses hasta el actual.'),
+        periods=H2_PERIODS, quarters=H2_QUARTERS)
+
+
+def compute_h2_rewards() -> dict:
+    ws = _h2_sheet()['Rewards Programs']
+    actuals, budget = {}, {}
+    for r in range(6, 20):
+        ym = _ym(ws.cell(r, 1).value)
+        if ym not in H2_PERIODS:
+            continue
+        meta = _num(ws.cell(r, 3).value)
+        budget[ym] = (meta if meta is not None else 0.10) * 100
+        up = _num(ws.cell(r, 2).value)
+        if up is not None:
+            actuals[ym] = up * 100
+    return build_kr_result(
+        'Net Revenue Rewards Programs', 20, _upto_now(actuals), budget, cumulative=True,
+        unit='% uplift de usuarios compradores (meta ≥10% vs control)',
+        source=(f'<a href="{H2_SHEET_URL}" target="_blank">Sheet OKRs_Tribu B2B2C</a>, pestaña <code>Rewards Programs</code> '
+                '(carga manual de la tribu según los A/B tests: sesión dual y exploración sin login). Actual = '
+                '<em>Uplift usuarios compradores</em>, target = <em>Meta</em> (10%). Acumulado: el trimestre toma el último mes cargado.'),
+        periods=H2_PERIODS, quarters=H2_QUARTERS)
+
+
+def compute_h2_partner_retention() -> dict:
+    """% del NR de la tribu que generan los partners con ≥2 capabilities activas, recalculado desde la sheet.
+
+    Misma regla que la sheet (capabilities_tracking + Partners_Base): una capability activada queda activada
+    (máximo acumulado desde oct-26), y un partner suma su NR anualizado si tiene ≥2 activas ese mes. No se usa la
+    pestaña Partner Retention Rate: sus fórmulas leen la columna de otro mes y deja afuera un NR cargado como texto.
+    """
+    wb = _h2_sheet()
+    nr = {}
+    for pid, val in wb['Partners_Base'].iter_rows(min_row=2, max_col=2, values_only=True):
+        if not pid:
+            continue
+        v = _num(val) if isinstance(val, (int, float)) else None
+        if v is None:
+            if str(pid) in NR_TEXT_FIX:
+                v = NR_TEXT_FIX[str(pid)]
+                print(f"  WARN NR de {pid} cargado como texto ({val!r}): se usa {v:,.2f}")
+            else:
+                print(f"  WARN NR de {pid} no es un número ({val!r}): queda afuera")
+                continue
+        nr[str(pid)] = v
+    raw = {}   # (partner, capability) -> {ym: 0/1}
+    for pid, cap, mes, act, *_ in wb['capabilities_tracking'].iter_rows(min_row=2, max_col=5, values_only=True):
+        ym = _ym(mes)
+        if not pid or not cap or ym not in H2_PERIODS:
+            continue
+        raw.setdefault((str(pid), str(cap)), {})[ym] = 1 if (_num(act) or 0) >= 1 else 0
+    total_nr = sum(nr.values())
+    actuals, budget = {}, {}
+    for ym in H2_PERIODS:
+        budget[ym] = 50.0
+        if ym > CUR_YM:
+            continue
+        active = {}
+        for (pid, cap), by_m in raw.items():
+            on = max((v for m, v in by_m.items() if m <= ym), default=0)   # una vez prendida, queda prendida
+            active[pid] = active.get(pid, 0) + on
+        computable = sum(nr.get(pid, 0) for pid, n in active.items() if n >= 2)
+        actuals[ym] = round(computable / total_nr * 100, 2) if total_nr else None
+        print(f"  Partner Retention {ym}: {computable:,.0f} / {total_nr:,.0f} = {actuals[ym]}%")
+    return build_kr_result(
+        'Partner Retention Rate', 20, actuals, budget, cumulative=True,
+        unit='% del NR de la tribu en partners con ≥2 capabilities',
+        source=(f'<a href="{H2_SHEET_URL}" target="_blank">Sheet OKRs_Tribu B2B2C</a>: <code>capabilities_tracking</code> '
+                '(carga manual mensual) + <code>Partners_Base</code> (NR 2026 anualizado). Un partner cuenta si tiene ≥2 '
+                'capabilities activas en el mes (una vez activada, queda activada); KR = NR de esos partners / NR total. '
+                'Meta 50%. Recalculado acá: la pestaña <em>Partner Retention Rate</em> lee la columna de otro mes y deja afuera '
+                'el NR de latam-cl (cargado como texto; se toma 4.626.781).'),
+        periods=H2_PERIODS, quarters=H2_QUARTERS)
+
+
+# Query de la tribu (pestaña Intent_Users), con baseline = promedio mensual abr-26 a sep-26 (H1 FY27, decisión
+# 2026-10-30) en vez de oct-25 a mar-26. Meta: ≥8% sobre ese promedio, cada mes.
+INTENT_QUERY = """
+WITH partners AS (
+    SELECT DISTINCT partner_id
+    FROM raw.comdev_cartera_b2b2c_historic
+    WHERE estatus_tier IN ('Tier-1', 'Tier-2')
+      AND partner_homologado_2 NOT IN ('WL Hotels', 'Xcaret', 'livelo-api-hoteles')
+      AND partner_id NOT LIKE 'AG%'
+),
+insider_company_partner AS (
+    SELECT company_id, partner_id FROM (VALUES
+        ('2842', 'viajes-naranja'),
+        ('2951', 'bbva-ar'), ('2951', 'bbva-ar-premium'), ('2951', 'bbva-co'),
+        ('2951', 'bbva-pe'), ('2951', 'bbva-pe-loyalty'), ('2951', 'bbva-uy'),
+        ('5403', 'BNA'),
+        ('5416', 'BNA-canje')
+    ) AS t(company_id, partner_id)
+),
+insider_clicks AS (
+    SELECT e.event.social_id, date(from_iso8601_timestamp(e.event.created_at)) AS click_date, cp.partner_id
+    FROM data.sot.insider_email_events e
+    JOIN insider_company_partner cp ON cp.company_id = CAST(e.event.company_id AS VARCHAR)
+    WHERE e.event.event_type = 'email_click'
+      AND e.datetime >= '2026-03-31'
+      AND e.datetime <= CAST(current_date AS VARCHAR)
+      AND e.event.social_id IS NOT NULL
+),
+capabilities AS (
+    SELECT userid, date AS dt
+    FROM data.lake.bi_web_traffic
+    WHERE date >= '2026-04-01'
+      AND date <= CAST(current_date AS VARCHAR)
+      AND partner_id IN (SELECT partner_id FROM partners)
+      AND flow IN ('SEARCH', 'CHECKOUT', 'DETAIL')
+      AND (strpos(url, 'clt_apideeplinks=true') > 0 OR plataforma = 'App')
+    UNION
+    SELECT wt.userid, wt.date AS dt
+    FROM insider_clicks ic
+    JOIN data.lake.bi_web_traffic wt
+      ON wt.despegarid = ic.social_id
+     AND wt.partner_id = ic.partner_id
+     AND date_parse(wt.date, '%Y-%m-%d') BETWEEN ic.click_date AND ic.click_date + INTERVAL '1' DAY
+    WHERE wt.date >= '2026-04-01'
+      AND wt.date <= CAST(current_date AS VARCHAR)
+      AND wt.flow IN ('SEARCH', 'CHECKOUT', 'DETAIL')
+      AND wt.despegarid IS NOT NULL
+      AND wt.despegarid != ''
+    UNION
+    SELECT DISTINCT wt.userid, wt.date AS dt
+    FROM data.sot.b2b2c_generic_event db
+    JOIN data.lake.bi_web_traffic wt ON wt.pageview_id = db.pageview_id
+    WHERE db.type = 'discount_booster'
+      AND db.event = 'pageview'
+      AND (db.validation_failed IS NULL OR db.validation_failed = false)
+      AND db.event_date >= DATE '2026-10-13'
+      AND db.event_date <= current_date
+      AND wt.partner_id IN (SELECT partner_id FROM partners)
+      AND wt.flow IN ('SEARCH', 'CHECKOUT', 'DETAIL')
+      AND wt.date >= '2026-10-13'
+      AND wt.date <= CAST(current_date AS VARCHAR)
+)
+SELECT
+    substr(dt, 1, 7)       AS periodo,
+    COUNT(DISTINCT userid) AS intent_users_caps
+FROM capabilities
+GROUP BY substr(dt, 1, 7)
+ORDER BY 1
+"""
+
+INTENT_BASELINE = ['2026-04','2026-05','2026-06','2026-07','2026-08','2026-09']
+INTENT_GROWTH   = 8   # %
+
+
+def compute_h2_intent() -> dict:
+    df = fetch(INTENT_QUERY, "H2 - Intent users con growth capabilities")
+    users = {str(r['periodo']): float(r['intent_users_caps']) for _, r in df.iterrows()}
+    base = [users[ym] for ym in INTENT_BASELINE if ym in users]
+    baseline = sum(base) / len(base) if base else None
+    print(f"  Intent users baseline abr-sep 26: {baseline}")
+    target = round(baseline * (1 + INTENT_GROWTH / 100), 0) if baseline else None
+    budget = {ym: target for ym in H2_PERIODS} if target else {}
+    actuals = {ym: v for ym, v in users.items() if ym in H2_PERIODS}
+    return build_kr_result(
+        'Acquisition, Retention, Repeat rate', 20, _upto_now(actuals), budget, cumulative=False,
+        unit=f'intent users con growth capabilities (meta: baseline abr-sep 26 {baseline:,.0f} +{INTENT_GROWTH}%)' if baseline
+             else 'intent users con growth capabilities',
+        source=(f'Query de la tribu (<a href="{H2_SHEET_URL}" target="_blank">sheet OKRs_Tribu B2B2C</a>, pestaña '
+                '<code>Intent_Users</code>): usuarios únicos con intent (SEARCH / CHECKOUT / DETAIL) en partners Tier 1 y 2 '
+                'atribuidos a Deep Links, SDK, Insider o Discount Booster. Target mensual = promedio mensual abr-26 a sep-26 '
+                f'(H1 FY27) +{INTENT_GROWTH}%. El trimestre suma los meses. El mes en curso va parcial.'
+                + sql_source(INTENT_QUERY)),
+        periods=H2_PERIODS, quarters=H2_QUARTERS)
+
+
+def build_h2() -> dict:
+    print("\n--- Computando KRs H2 ---")
+    kr_list = [compute_h2_rewards(), compute_h2_partnerships(), compute_h2_intent(), compute_h2_partner_retention()]
+    totals = compute_total(kr_list, H2_PERIODS, H2_QUARTERS)
+    return {
+        "label":          "OKRs Tribu Producto · B2B2C",
+        "quarters":       [q['label'] for q in H2_QUARTERS],
+        "periods":        H2_PERIODS,
+        "krs":            kr_list,
+        "totalMonthly":   totals['totalMonthly'],
+        "totalQuarterly": totals['totalQuarterly'],
+        "h1Total":        totals['h1Total'],
+    }
+
+
+# ==============================================================================
 # 7) CONSTRUIR JSON FINAL
 # ==============================================================================
 
-def compute_total(kr_list: list) -> dict:
-    """Promedio ponderado mensual / trimestral / H1 sobre todos los KRs."""
+def compute_total(kr_list: list, periods: list = None, quarters: list = None) -> dict:
+    """Promedio ponderado mensual / trimestral / semestral sobre todos los KRs (H1 por defecto)."""
+    periods  = periods or H1_PERIODS
+    quarters = quarters or QUARTERS
     def weighted(values_by_kr):
         total_w = sum(kr['weight'] for kr in kr_list if values_by_kr(kr) is not None)
         if total_w == 0:
@@ -584,8 +876,8 @@ def compute_total(kr_list: list) -> dict:
         # el fijo 100 (en vez de total_w) subestima el total cuando algún KR todavía no tiene actual.
         return round(sum(values_by_kr(kr) * kr['weight'] for kr in kr_list if values_by_kr(kr) is not None) / total_w, 2)
 
-    total_monthly   = [weighted(lambda kr, i=i: kr['monthly'][i])   for i in range(len(H1_PERIODS))]
-    total_quarterly = [weighted(lambda kr, qi=qi: kr['quarterly'][qi]) for qi in range(len(QUARTERS))]
+    total_monthly   = [weighted(lambda kr, i=i: kr['monthly'][i])   for i in range(len(periods))]
+    total_quarterly = [weighted(lambda kr, qi=qi: kr['quarterly'][qi]) for qi in range(len(quarters))]
     h1_total        = weighted(lambda kr: kr['h1'])
     return {'totalMonthly': total_monthly, 'totalQuarterly': total_quarterly, 'h1Total': h1_total}
 
@@ -639,6 +931,10 @@ def build_payload() -> dict:
                 "totalQuarterly": totals['totalQuarterly'],
                 "h1Total":        totals['h1Total'],
             }
+        },
+        # H2 FY27: mismo formato que "okr"; el dashboard abre en H2 y tiene selector H1 | H2.
+        "okr_h2": {
+            "producto": build_h2()
         }
     }
 

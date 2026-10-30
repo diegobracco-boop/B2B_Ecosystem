@@ -44,6 +44,19 @@ Este dashboard está embebido como `<iframe>` dentro de `Dashboard_B2B_WLs/dashb
 | KR6 | Net Revenue WL Modulares | JSONs de Drive (`budget.json` / `baseline_actuals+projections.json`), filtrando `LoB=b2b2c` |
 | KR7 | Capabilities de autogestión | Simulado al 100% — pendiente conectar fuente real |
 
+## KRs H2 FY27 (oct-26 → mar-27, desde 2026-10-30)
+
+El dashboard abre en H2; el selector H1 | H2 deja ver el cierre de H1. En el payload van en `okr_h2` (H1 sigue en `okr`).
+
+| KR | Peso | Fuente |
+|---|---|---|
+| Net Revenue Rewards Programs | 20% | Sheet de la tribu [OKRs_Tribu B2B2C](https://docs.google.com/spreadsheets/d/1x94gwcPBvxMYv3orWboEvDaQjmSS69Ab4vcoFXeHpNo/edit), pestaña `Rewards Programs` (manual): uplift de compradores vs meta 10% |
+| Strategic Partnership Activations (#) | 40% | = Deploy New Partnership del ecosistema: `okr.json` (Input_OKR), target y actual, acumulado |
+| Acquisition, Retention, Repeat rate | 20% | Query de la pestaña `Intent_Users` (intent users con growth capabilities); meta = promedio mensual abr-sep 26 +8% |
+| Partner Retention Rate | 20% | Recalculado desde `capabilities_tracking` + `Partners_Base` (≥2 capabilities, no se apagan); meta 50%. No usa la pestaña `Partner Retention Rate` (fórmulas corridas de mes). NR de latam-cl cargado como texto → se toma 4.626.781 (`NR_TEXT_FIX`, confirmar con la tribu) |
+
+Solo se muestran meses hasta el actual (Input_OKR trae actuals futuros = target). La sheet se baja por Drive como `.xlsx` (la API de Sheets no está habilitada en el proyecto OAuth).
+
 ## Deploy
 
 Después de tocar `Codigo.js` o `dashboard.html`:

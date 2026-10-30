@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>OKRs Tribu Producto · H1 FY27</title>
+<title>OKRs Tribu Producto · FY27</title>
 <style>
 :root{
   --bg:#f4f5f7;--surface:#fff;--surface2:#f8f9fa;
@@ -126,16 +126,20 @@ main{padding:40px 48px;max-width:2200px;margin:0 auto}
 <header>
   <div class="logo-wrap">
     <div class="logo-main">OKRs <span>Tribu Producto</span></div>
-    <div class="logo-sub">H1 FY27 · Abril — Septiembre 2026</div>
+    <div class="logo-sub" id="half-sub">H2 FY27 · Octubre 2026 — Marzo 2027</div>
     <!-- Aviso (auditoría 2026-09-25): el pipeline okr_sync.py solo calcula H1; desde octubre
          el tablero sigue mostrando H1 hasta que la tribu Producto defina los KRs de H2. -->
     <div id="h2-pending" style="display:none;margin-top:6px;font-size:12px;font-weight:700;color:#b45309;background:#fff7cd;border:1px solid #fcd34d;border-radius:6px;padding:4px 10px">
       ⚠️ H2 FY27 (oct–mar) pendiente: los KRs del segundo semestre todavía no están definidos. Se muestra el cierre de H1.
     </div>
-    <script>(function(){ var t=new Date(); if (t >= new Date(2026, 9, 1)) document.getElementById('h2-pending').style.display='block'; })();</script>
+    <!-- 2026-10-30: H2 ya tiene KRs (okr_h2 del payload); el aviso queda solo si el payload no los trae y se ve H1. -->
   </div>
   <div class="header-right">
     <span id="last-upd"></span>
+    <div class="gran-toggle" id="half-toggle">
+      <button class="gran-btn" onclick="setHalf('h1')">H1</button>
+      <button class="gran-btn active" onclick="setHalf('h2')">H2</button>
+    </div>
     <div class="gran-toggle" id="view-toggle">
       <button class="gran-btn active" onclick="setView('q')">Trimestral</button>
       <button class="gran-btn"        onclick="setView('m')">Mensual</button>
@@ -155,8 +159,8 @@ main{padding:40px 48px;max-width:2200px;margin:0 auto}
         <span class="okr-legend-pill bad">&#10007; Atrasado &mdash; &lt;80%</span>
       </div>
     </div>
-    <div class="okr-legend-divider"></div>
-    <div class="okr-legend-ritmo-box">
+    <div class="okr-legend-divider" data-h1-only></div>
+    <div class="okr-legend-ritmo-box" data-h1-only>
       <div class="okr-legend-group-title"><span class="okr-ritmo-badge" style="margin-left:0">↗ ritmo</span>&nbsp; KRs con evaluación por avance proporcional</div>
       <p>Para estos KRs el color <strong>no compara contra el objetivo final</strong>, sino contra el avance esperado al mes actual. En junio (3/6 del período), alcanzar el 52% sobre un objetivo del 100% equivale a ir al <strong>104% del ritmo</strong> → verde.</p>
       <div class="okr-legend-ritmo-months">
@@ -177,19 +181,43 @@ main{padding:40px 48px;max-width:2200px;margin:0 auto}
 
 <script>
 // ── Estado ────────────────────────────────────────────────────
-var _okr     = null;
+var _okr     = null;    // semestre que se muestra
+var _okrH1   = null;
+var _okrH2   = null;
+var _half    = 'h2';    // H2 por defecto desde 2026-10-30; H1 queda con el selector
 var _monthly = false;   // false = trimestral, true = mensual
 
 var MON_SHORT = ['Abr','May','Jun','Jul','Ago','Sep'];
+var HALVES = {
+  h1: { mons: ['Abr','May','Jun','Jul','Ago','Sep'], sub: 'H1 FY27 · Abril — Septiembre 2026' },
+  h2: { mons: ['Oct','Nov','Dic','Ene','Feb','Mar'], sub: 'H2 FY27 · Octubre 2026 — Marzo 2027' }
+};
 var OWNER     = 'Ezequiel Yaya';
+
+// ── Semestre (H1 | H2) ────────────────────────────────────────
+function setHalf(h) {
+  if (h === 'h2' && !_okrH2) h = 'h1';   // payload viejo sin H2
+  _half = h;
+  _okr = h === 'h2' ? _okrH2 : _okrH1;
+  MON_SHORT = HALVES[h].mons;
+  document.getElementById('half-sub').textContent = HALVES[h].sub;
+  document.querySelectorAll('#half-toggle .gran-btn').forEach(function(b, i) {
+    b.classList.toggle('active', (i === 0) ? h === 'h1' : h === 'h2');
+  });
+  // La evaluación por ritmo es de los KRs de H1.
+  document.querySelectorAll('[data-h1-only]').forEach(function(el) { el.style.display = h === 'h1' ? '' : 'none'; });
+  document.getElementById('h2-pending').style.display = (h === 'h1' && !_okrH2 && new Date() >= new Date(2026, 9, 1)) ? 'block' : 'none';
+  renderOKR();
+}
 
 // ── Inicialización ────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', function() {
   google.script.run
     .withSuccessHandler(function(res) {
       if (res && res.success) {
-        _okr = res.okr;
-        renderOKR();
+        _okrH1 = res.okr;
+        _okrH2 = res.okrH2 || null;
+        setHalf(_half);
         if (res.meta && res.meta.generated_at) {
           document.getElementById('last-upd').textContent = 'Actualizado: ' + res.meta.generated_at.replace('T',' ');
         }
@@ -266,7 +294,7 @@ function buildThead(d) {
     MON_SHORT.forEach(function(ml, mi) {
       h += '<th class="'+(mi % 3 === 0 ? 'th-q' : '')+'">'+ml+'</th>';
     });
-    h += '<th class="th-q">Q1</th><th class="th-q">Q2</th>';
+    d.quarters.forEach(function(q) { h += '<th class="th-q">'+q+'</th>'; });
   } else {
     d.quarters.forEach(function(q) { h += '<th class="th-q">'+q+'</th>'; });
   }
