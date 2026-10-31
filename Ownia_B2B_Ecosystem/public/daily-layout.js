@@ -19,6 +19,14 @@
 
   var METRICS = [['gb', 'GB'], ['nr', 'Net Revenue'], ['fvm', 'FVM']];
   var LOBS = [['b2b2c', 'B2B2C'], ['b2b', 'B2B'], ['b2c', 'B2C']];
+  // Tablas de performance por día (2026-10-31, Diego): cada línea con su calendario. B2B en base GD, abierto por canal.
+  var SEGS = [
+    { key: 'b2b2c', lbl: 'B2B2C', cal: 'b2b2c' },
+    { key: 'min', lbl: 'B2B MIN · Agencias (HTML)', cal: 'b2b', channel: 'Agencias afiliadas' },
+    { key: 'api', lbl: 'B2B API', cal: 'b2b', channel: 'API' },
+    { key: 'b2c', lbl: 'B2C (referencia)', cal: 'b2b2c' },   // entra en la base del share: peso sobre toda Despegar
+  ];
+  function segOf(key) { return SEGS.filter(function (s) { return s.key === key; })[0]; }
   var OTHER = { USA: 'Other Countries', Paraguay: 'Other Countries', Uruguay: 'Other Countries' };
   var TOTAL = '__total';
   var GROUP_GAP = 10;   // eventos de la misma familia que arrancan con ≤ 10 días de diferencia = mismo grupo
@@ -60,7 +68,8 @@
     var cols = x.cols;
     return x.rows.map(function (r) { var o = {}; for (var i = 0; i < cols.length; i++) o[cols[i]] = r[i]; return o; });
   }
-  function rawFor(lob) { return lob === 'b2b' ? window._rawB2B : window._rawB2BC; }
+  function isB2b(lob) { return lob === 'b2b' || lob === 'min' || lob === 'api'; }
+  function rawFor(lob) { return isB2b(lob) ? window._rawB2B : window._rawB2BC; }
   function lastDate() {
     var r = window._rawB2BC || window._rawB2B;
     return r && r.meta ? r.meta.last_actuals_date : null;
@@ -71,8 +80,10 @@
     if (seriesCache[lob] && seriesCache[lob].key === key) return seriesCache[lob];
     var raw = rawFor(lob);
     var map = {};
+    var channel = segOf(lob) ? segOf(lob).channel : null;
     function add(r, fvmExt) {
       var f = r.fecha; if (!f) return;
+      if (channel && r.parent_channel !== channel) return;
       if (r.pais === 'RG' && !window._exCoiBr) return;   // ajuste COI Brasil: solo con el switch en Excluir
       var p = OTHER[r.pais] || r.pais;
       var nr = r.net_revenues != null ? r.net_revenues : r.net_revenue;
@@ -81,7 +92,7 @@
       var v = day[p] || (day[p] = [0, 0, 0]);
       v[0] += +r.gross_bookings || 0; v[1] += +nr || 0; v[2] += +fvm || 0;
     }
-    var srcs = lob === 'b2b' ? ['b2b_gd', 'b2b_gd_ly', 'b2b_gd_ly_ext']
+    var srcs = isB2b(lob) ? ['b2b_gd', 'b2b_gd_ly', 'b2b_gd_ly_ext']
       : lob === 'b2c' ? ['b2c', 'b2c_ly'] : ['actuals', 'actuals_ly'];
     srcs.forEach(function (k) { rowsOf(raw && raw[k]).forEach(function (r) { add(r, false); }); });
     // LY que el Daily todavía no publica (solo fechas que no tiene).
@@ -197,7 +208,9 @@
     if (!active) return;
     var body = el('iet-body');
     if (!body) return;
-    if (!lastDate() || (st.lob === 'b2b' && !window._rawB2B)) {
+    // Las tablas por día necesitan los dos JSON, sea cual sea el LoB elegido. Llegan en cualquier orden, y una serie
+    // armada antes de tiempo quedaría vacía en seriesCache.
+    if (!lastDate() || !window._rawB2B || !window._rawB2BC) {
       body.innerHTML = '<div class="iet-empty">Cargando datos del Daily…</div>';
       setTimeout(renderAll, 600);
       return;
@@ -295,19 +308,9 @@
     var pairs = st.sel.pais === TOTAL ? g.pairs : g.pairs.filter(function (p) { return p.cy.pais === st.sel.pais; });
     var single = pairs.length === 1 ? pairs[0] : null;
     var y = cyYear(), withB2c = st.lob !== 'b2c';
-    var pos = axisFor(pairs);
-    var rows = pos.map(function (ps) {
-      var s = seriesAt(st.lob, pairs, ps), b = withB2c ? seriesAt('b2c', pairs, ps) : null;
-      return { ps: ps, cy: s.cy, ly: s.ly, b2c: b ? pct(b.cy, b.ly) : null };
-    });
-    // YoY acumulado desde D1: promedio diario de cada año hasta ese día (con la misma duración, es el
-    // YoY de los totales; si un año el evento ya terminó, no se infla por sumar días de un solo lado).
-    var accC = 0, accL = 0, nC = 0, nL = 0;
-    rows.forEach(function (r) {
-      if (r.cy == null) { r.acc = null; return; }
-      accC += r.cy; nC++;
-      if (r.ly != null) { accL += r.ly; nL++; }
-      r.acc = nL ? pct(accC / nC, accL / nL) : null;
+    var rows = axisFor(pairs).map(function (ps) {
+      var s = seriesAt(st.lob, pairs, ps);
+      return { ps: ps, cy: s.cy, ly: s.ly };
     });
     var title = g.familia + ' · ' + (single ? single.cy.pais : 'Total ' + g.pairs.length + ' países');
     var sub = single
@@ -322,32 +325,95 @@
       kpi(esc(mName) + ' ' + y, fmtMoney(ks.cy)) + kpi(esc(mName) + ' ' + (y - 1), fmtMoney(ks.ly)) +
       kpi('YoY', yoyHtml(ks), pctCls(ks.yoy)) +
       (withB2c ? kpi('YoY B2C (referencia)', yoyHtml(kb), pctCls(kb.yoy)) : '') + '</div>' +
-      '<div class="iet-chart"><canvas id="iet-canvas"></canvas></div>' +
-      '<div class="iet-tbl-wrap"><table class="iet-tbl iet-days"><thead><tr><th class="l">Día</th>' +
-      (single ? '<th class="l">Fecha ' + y + '</th>' : '') + '<th>' + y + '</th>' +
-      (single ? '<th class="l">Fecha ' + (y - 1) + '</th>' : '') + '<th>' + (y - 1) + '</th><th>YoY</th><th>YoY acumulado</th>' +
-      (withB2c ? '<th>YoY B2C</th>' : '') + '</tr></thead><tbody>';
-    rows.forEach(function (r) {
-      var p = pct(r.cy, r.ly);
-      // Total: los países con evento más corto dejan de sumar; se aclara cuántos quedan ese día.
-      var nP = pairs.filter(function (q) { return r.ps.o < q.cy.dias || r.ps.o < q.ly.dias; }).length;
-      var tag = !single && nP < pairs.length ? ' <span class="iet-dim">· ' + nP + (nP === 1 ? ' país' : ' países') + '</span>' : '';
-      h += '<tr><td class="l">' + r.ps.lbl + tag + '</td>' +
-        (single ? '<td class="l iet-dim">' + fmtDay(dateAt(single.cy, r.ps)) + '</td>' : '') +
-        '<td>' + fmtMoney(r.cy) + '</td>' +
-        (single ? '<td class="l iet-dim">' + fmtDay(dateAt(single.ly, r.ps)) + '</td>' : '') +
-        '<td>' + fmtMoney(r.ly) + '</td><td class="' + pctCls(p) + '">' + fmtPct(p) + '</td>' +
-        '<td class="' + pctCls(r.acc) + '">' + fmtPct(r.acc) + '</td>' +
-        (withB2c ? '<td class="' + pctCls(r.b2c) + '">' + fmtPct(r.b2c) + '</td>' : '') + '</tr>';
-    });
-    h += '</tbody></table></div>';
+      '<div class="iet-chart"><canvas id="iet-canvas"></canvas></div>';
+    var days = segTablesHtml(pairs, y);
+    h += days.html;
     var foot = [];
-    if (noMatch) foot.push('* Sin ese evento el año pasado' + (single ? '' : ' en algún país') + ': se compara contra las mismas fechas −364 días (mismo día de la semana).');
-    if (ks.perDay) foot.push('† El evento dura distinto que el año pasado: el YoY compara el promedio diario.');
+    if (noMatch || days.noMatch) foot.push('* Sin ese evento el año pasado' + (single ? '' : ' en algún país') + ': se compara contra las mismas fechas −364 días (mismo día de la semana).');
+    if (ks.perDay || days.perDay) foot.push('† El evento dura distinto que el año pasado: el YoY compara el promedio diario.');
     if (status(pairs[0]).k === 'live') foot.push('En curso: ' + y + ' a la fecha vs los mismos días de evento de ' + (y - 1) + '.');
-    h += (foot.length ? '<div class="iet-foot">' + foot.join(' ') + '</div>' : '') + '</div>';
+    foot.push('Share = % del total B2B2C + B2B MIN + B2B API + B2C en ese día de evento; solo se calcula si las cuatro líneas tienen dato. B2B en base GD.');
+    if (days.fallback.length) foot.push('Sin este evento en su calendario, ' + days.fallback.join(' y ') + ' usa las fechas del calendario elegido.');
+    h += '<div class="iet-foot">' + foot.join(' ') + '</div></div>';
     box.innerHTML = h;
     drawChart(rows);
+  }
+
+  // Pares del evento según el calendario de la línea: mismo país y familia en fechas cercanas (El Buen Fin B2B va
+  // 3 días después que WL). Sin evento en ese calendario, las fechas del elegido (fallback).
+  function segPairs(seg, pairs) {
+    if (calLob(st.lob) === seg.cal) return pairs;
+    var all = pairsFor(seg.cal);
+    return pairs.map(function (p) {
+      var m = all.filter(function (o) {
+        return o.cy.pais === p.cy.pais && o.cy.familia === p.cy.familia && Math.abs(diffDays(o.cy.inicio, p.cy.inicio)) <= GROUP_GAP;
+      })[0];
+      return m || { cy: p.cy, ly: p.ly, fallback: true };
+    });
+  }
+
+  function shareCell(v, tot) {
+    return '<td class="iet-share">' + (v == null || !tot || tot <= 0 ? '—' : (v / tot * 100).toFixed(1) + '%') + '</td>';
+  }
+
+  // Performance por día de las líneas, alineadas por día de evento. El share compara cada línea contra la suma de
+  // todas en ese mismo día; el Total del evento suma solo los días en que todas tienen dato, para ser comparable.
+  function segTablesHtml(pairs, y) {
+    var segs = SEGS.map(function (s) { return { s: s, pairs: segPairs(s, pairs) }; });
+    var pos = axisFor(segs.reduce(function (a, x) { return a.concat(x.pairs); }, []));
+    var tot = { cy: 0, ly: 0 };
+    var perPos = pos.map(function (ps) {
+      var vals = segs.map(function (x) { return seriesAt(x.s.key, x.pairs, ps); });
+      function sum(k) { return vals.every(function (v) { return v[k] != null; }) ? vals.reduce(function (a, v) { return a + v[k]; }, 0) : null; }
+      var t = { cy: sum('cy'), ly: sum('ly') };
+      if (t.cy != null) tot.cy += t.cy;
+      if (t.ly != null) tot.ly += t.ly;
+      return { vals: vals, tot: t };
+    });
+    var out = { html: '', noMatch: false, perDay: false, fallback: [] };
+    segs.forEach(function (x, si) {
+      var ps = x.pairs, single = ps.length === 1 ? ps[0] : null, key = x.s.key, withB2c = key !== 'b2c';
+      if (ps.some(function (p) { return !p.ly.match; })) out.noMatch = true;
+      if (ps.some(function (p) { return p.fallback; })) out.fallback.push(x.s.lbl);
+      var accC = 0, accL = 0, nC = 0, nL = 0, shC = 0, shL = 0;
+      var h = '<div class="iet-seg"><div class="iet-seg-ttl">' + esc(x.s.lbl) + '</div>' +
+        '<div class="iet-tbl-wrap"><table class="iet-tbl iet-days"><thead><tr><th class="l">Día</th>' +
+        (single ? '<th class="l">Fecha ' + y + '</th>' : '') + '<th>' + y + '</th>' +
+        (single ? '<th class="l">Fecha ' + (y - 1) + '</th>' : '') + '<th>' + (y - 1) + '</th><th>YoY</th><th>YoY acumulado</th>' + (withB2c ? '<th>YoY B2C</th>' : '') +
+        '<th class="iet-share">Share ' + (y - 1) + '</th><th class="iet-share">Share ' + y + '</th></tr></thead><tbody>';
+      pos.forEach(function (o, i) {
+        var v = perPos[i].vals[si], t = perPos[i].tot, p = pct(v.cy, v.ly), b = seriesAt('b2c', ps, o);
+        // YoY acumulado desde D1: promedio diario de cada año hasta ese día (con la misma duración, es el
+        // YoY de los totales; si un año el evento ya terminó, no se infla por sumar días de un solo lado).
+        var acc = null;
+        if (v.cy != null) {
+          accC += v.cy; nC++;
+          if (v.ly != null) { accL += v.ly; nL++; }
+          acc = nL ? pct(accC / nC, accL / nL) : null;
+        }
+        if (t.cy != null) shC += v.cy;
+        if (t.ly != null) shL += v.ly;
+        // Total: los países con evento más corto dejan de sumar; se aclara cuántos quedan ese día.
+        var nP = ps.filter(function (q) { return o.o < q.cy.dias || o.o < q.ly.dias; }).length;
+        var tag = !single && nP < ps.length ? ' <span class="iet-dim">· ' + nP + (nP === 1 ? ' país' : ' países') + '</span>' : '';
+        var yb = pct(b.cy, b.ly);
+        h += '<tr><td class="l">' + o.lbl + tag + '</td>' +
+          (single ? '<td class="l iet-dim">' + fmtDay(dateAt(single.cy, o)) + '</td>' : '') +
+          '<td>' + fmtMoney(v.cy) + '</td>' +
+          (single ? '<td class="l iet-dim">' + fmtDay(dateAt(single.ly, o)) + '</td>' : '') +
+          '<td>' + fmtMoney(v.ly) + '</td><td class="' + pctCls(p) + '">' + fmtPct(p) + '</td>' +
+          '<td class="' + pctCls(acc) + '">' + fmtPct(acc) + '</td>' +
+          (withB2c ? '<td class="' + pctCls(yb) + '">' + fmtPct(yb) + '</td>' : '') +
+          shareCell(t.ly == null ? null : v.ly, t.ly) + shareCell(t.cy == null ? null : v.cy, t.cy) + '</tr>';
+      });
+      var ks = groupStats(key, { pairs: ps }), kb = groupStats(key, { pairs: ps }, 'b2c');
+      if (ks.perDay) out.perDay = true;
+      h += '<tr class="iet-total"><td class="l">Total evento</td>' + (single ? '<td></td>' : '') + '<td>' + fmtMoney(ks.cy) + '</td>' +
+        (single ? '<td></td>' : '') + '<td>' + fmtMoney(ks.ly) + '</td><td class="' + pctCls(ks.yoy) + '">' + yoyHtml(ks) + '</td><td></td>' +
+        (withB2c ? '<td class="' + pctCls(kb.yoy) + '">' + yoyHtml(kb) + '</td>' : '') + shareCell(tot.ly ? shL : null, tot.ly) + shareCell(tot.cy ? shC : null, tot.cy) + '</tr>';
+      out.html += h + '</tbody></table></div></div>';
+    });
+    return out;
   }
 
   function cssVar(n, fb) { var v = getComputedStyle(document.documentElement).getPropertyValue(n); return (v && v.trim()) || fb; }
@@ -422,6 +488,10 @@
     '.iet-foot{font-size:10px;color:var(--text-3);margin-top:10px}',
     '.iet-chart{position:relative;height:300px;margin-bottom:14px}',
     '.iet-days td:first-child{font-weight:700;color:var(--text)}',
+    '.iet-seg{margin-top:18px}',
+    '.iet-seg-ttl{font-size:12px;font-weight:700;color:var(--text);margin-bottom:6px}',
+    '.iet-total td{font-weight:700;color:var(--text);background:var(--segment-bg)}',
+    '.iet-tbl .iet-share{border-left:1px solid var(--border)}',
     '@media (max-width:700px){.iet-chart{height:220px}}',
   ].join('\n');
 
