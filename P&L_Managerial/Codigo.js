@@ -16,6 +16,7 @@ var _EMPTY_GESTIONAL_ = {
 // Si el JSON no se puede leer el error llega al cliente (antes se devolvía _EMPTY_GESTIONAL_ y ese resultado
 // vacío quedaba cacheado 6 h con la clave del mtime: pantalla en cero — auditoría 2026-09-25).
 function readGestionalJSON_() {
+  if (_weeklyOn_) return readWeeklyJSON_();
   if (_gestionalJsonCache_) return _gestionalJsonCache_;
   try {
     var blob = DriveApp.getFileById(GESTIONAL_JSON_FILE_ID).getBlob();
@@ -431,9 +432,18 @@ function getData(filters) {
   } catch (e) { Logger.log('getData cache probe: ' + e); }
   var tMiss = Date.now();
 
+  var out = _computeWithYoy_(f, orgTarget);
+  var tComp = Date.now();
+  // Si falló la lectura del TC no se cachea: el próximo intento vuelve a probar
+  if (ck && !(out.organic && out.organic.error)) _writeGetDataCache_(ck, out);
+  Logger.log('getData MISS probe=' + (tMiss - tStart) + ' ms, compute=' + (tComp - tMiss) + ' ms, write=' + (Date.now() - tComp) + ' ms');
+  return out;
+}
+
+// ORGANIC opción B: con Goal Budget/Forecast, las agregaciones del baseline a TC Actuals LY van en
+// `yoy` (el front calcula los YoY con eso; los montos que muestra siguen a TC del Goal).
+function _computeWithYoy_(f, orgTarget) {
   var out = _computeGetData_(f);
-  // ORGANIC opción B: con Goal Budget/Forecast, las agregaciones del baseline a TC Actuals LY van en
-  // `yoy` (el front calcula los YoY con eso; los montos que muestra siguen a TC del Goal).
   if (orgTarget && orgTarget !== 'ly' && out.organic && !out.organic.error) {
     var outY = _computeGetData_(Object.assign({}, f, { organic: 'ly' }));
     var det = outY.b2bCanalDetail;
@@ -449,11 +459,54 @@ function getData(filters) {
     });
     out.organic.missing.sort();
   }
-  var tComp = Date.now();
-  // Si falló la lectura del TC no se cachea: el próximo intento vuelve a probar
-  if (ck && !(out.organic && out.organic.error)) _writeGetDataCache_(ck, out);
-  Logger.log('getData MISS probe=' + (tMiss - tStart) + ' ms, compute=' + (tComp - tMiss) + ' ms, write=' + (Date.now() - tComp) + ' ms');
   return out;
+}
+
+// ── Apertura semanal (2026-11-01) ─────────────────────────────────────────
+// _actuals_gestional_weekly.json (weekly_gestional_builder.py) tiene las mismas secciones y filas que el JSON
+// mensual, con ym = "<lunes>|<ym>". Se usa el mismo _computeGetData_: durante la llamada readGestionalJSON_ lee
+// este archivo y GD_YM_LABEL lleva cada "<lunes>|<ym>" a la etiqueta de la semana. El organic usa el ym de la fila.
+// Sin Forecast (los modelos son mensuales), tipo de producto, millas ni gateway.
+var WEEKLY_JSON_NAME = '_actuals_gestional_weekly.json';
+var _weeklyOn_ = false, _weeklyCache_ = null;
+function _weekLabel_(lunes) {
+  var d = new Date(lunes + 'T00:00:00Z'), j = new Date(d.getTime() + 3 * 86400000);   // jueves de esa semana: define la semana ISO
+  var y0 = Date.UTC(j.getUTCFullYear(), 0, 1), n = Math.floor((j.getTime() - y0) / 86400000 / 7) + 1;
+  return 'S' + n + ' · ' + lunes.slice(8, 10) + '/' + lunes.slice(5, 7);
+}
+function readWeeklyJSON_() {
+  if (_weeklyCache_) return _weeklyCache_;
+  var it = DriveApp.getFolderById(REVENUE_GD_FOLDER_ID).getFilesByName(WEEKLY_JSON_NAME);
+  if (!it.hasNext()) return null;
+  _weeklyCache_ = JSON.parse(it.next().getBlob().getDataAsString());
+  return _weeklyCache_;
+}
+function getWeeklyData(filters) {
+  var f = Object.assign({}, (filters && typeof filters === 'object') ? filters : {}, { gateway: [], tipo: [], millas: [] });
+  var wk = readWeeklyJSON_();
+  if (!wk) return { weekly_missing: true };
+  var labels = {}, order = [], seen = {};
+  [['b2b2c', 3], ['b2b_may', 2], ['b2b_min', 2]].forEach(function(s) {
+    Object.keys(wk[s[0]] || {}).forEach(function(k) {
+      wk[s[0]][k].forEach(function(r) {
+        var key = r[s[1]];
+        if (labels[key]) return;
+        var lunes = key.slice(0, 10);
+        labels[key] = _weekLabel_(lunes);
+        if (!seen[lunes]) { seen[lunes] = true; order.push(key); }
+      });
+    });
+  });
+  order.sort();
+  var saveLabel = GD_YM_LABEL, saveOrder = GD_YM_ORDER, orgTarget = organicTarget_(f);
+  GD_YM_LABEL = labels; GD_YM_ORDER = order; _weeklyOn_ = true;
+  try {
+    var out = _computeWithYoy_(f, orgTarget);
+    out.weekly = { desde: wk.desde, hasta: wk.hasta, generated_at: wk.generated_at };
+    return out;
+  } finally {
+    GD_YM_LABEL = saveLabel; GD_YM_ORDER = saveOrder; _weeklyOn_ = false;
+  }
 }
 
 function _computeGetData_(filters) {

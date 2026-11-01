@@ -150,6 +150,7 @@ const MODULES = [
     ownia: true,
     // Sin vista consolidada B2B + B2B2C (el módulo no la tiene): el tercer acceso es Managerial vs Accounting.
     quickViews: [['b2b', 'B2B'], ['b2b2c', 'B2B2C'], ['vsacc', 'Managerial vs Accounting']],
+    cacheFns: ['getWeeklyData'],   // apertura semanal: depende solo de los filtros y del JSON semanal
     gasUrl: GAS_EXEC + 'AKfycbxHyP4uIh02zTQbQ7ZFbyByCVIYuREuiMJ74PnKhQbNGbWknCG2jxOtt_onafQcg5g4/exec',
   },
   {

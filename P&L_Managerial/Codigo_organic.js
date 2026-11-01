@@ -122,6 +122,7 @@ function organicConverter_(target, src) {
   Object.keys(act).forEach(function(k) { paisesFx[k.split('§')[0]] = true; });
   var missing = {};
   function f(pais, ym) {
+    ym = String(ym).slice(-7);   // apertura semanal: la fila trae "<lunes>|<ym>" y el TC es el del mes
     // Ene–Mar previos al FY (PRE_YM_, Codigo.js): no hay TC de Budget/Forecast; contra esos goals
     // quedan a TC Actuals (no hay goal con qué compararlos). Contra LY se convierten normal.
     if (tgt && !YM_LABEL[ym]) return 1;

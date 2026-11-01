@@ -523,3 +523,237 @@
     applyShow();
   });
 })();
+
+/* Barra de filtros y agrupación por owner (2026-11-01, Diego).
+ *  - Baseline, Goal y Período son desplegables; Organic y Unidades quedan en el panel "Filtros", como en P&L Managerial.
+ *    Debajo, lo que se aparta del default con su × para quitarlo. Los botones y los chips originales siguen en el DOM,
+ *    ocultos: setEpm* y setBGPeriod los actualizan por id.
+ *  - Agrupar Contable / Por owner (pa-fmt, ?fmt=owner): las mismas líneas contables reagrupadas por owner de negocio, según la
+ *    columna "P&L Managerial View" de los JSON canónicos. Es dato contable: no confundir con P&L Managerial, que es gestional.
+ *    Solo cambia cómo se agrupan: el Operating Contribution es el mismo.
+ *    La tabla llega abierta por N2, y sin B2C cada N2 cae en un solo grupo. Loyalty Program se reparte en dos grupos solo por B2C,
+ *    que este tablero no incluye: lo que queda es Fixed Cost.
+ */
+(function () {
+  'use strict';
+  var W = window;
+  var LINE = {
+    upfront: { source: 'rr', key: '_upfront_fees_rr', label: 'Up Front + Fees' },
+    cancel: { source: 'rr', key: 'cancellations', label: 'Cancellations' },
+    coi: { source: 'rr', key: 'cost_of_installments', label: 'Cost of Installments' },
+    ccp: { source: 'rr', key: 'credit_card_processing', label: 'Credit Card Processing' },
+    tpc: { source: 'rr', key: '_tpcs_rr', label: 'Third Party Commissions' },
+    outsourced: { source: 'rr', key: 'income_from_outsourced_services', label: 'Income from Outsourced Services' },
+  };
+  function ct(key, label) { return { source: 'ct', key: key, label: label }; }
+  var OWNER_STRUCTURE = [
+    { type: 'row', label: 'Orders', source: 'rr', key: 'orders', excludeSum: true, noPct: true },
+    { type: 'row', label: 'Gross Bookings', source: 'rr', key: 'gross_bookings', excludeSum: true, noPct: true },
+    { type: 'summary', label: 'Palancas', style: 'nr', id: 'own-palancas', keys: [LINE.upfront, LINE.cancel, LINE.coi, LINE.ccp, LINE.tpc, ct('cost of sales as principal', 'Cost of Sales as Principal')] },
+    { type: 'summary', label: 'Variables Regionales', style: 'cor', id: 'own-regional', keys: [
+      ct('back end incentives', 'Back End Incentives'), ct('other incentives', 'Other Incentives'), ct('breakage revenue', 'Breakage Revenue'),
+      ct('media & other revenue', 'Media & Other Revenue'), ct('media & other cost', 'Media & Other Cost'), ct('revenue from sales as principal', 'Revenue from Sales as Principal'),
+      ct('loyalty revenue', 'Loyalty Revenue'), ct('revenue taxes', 'Revenue Taxes'), ct('other transactional taxes', 'Other Transactional Taxes'),
+      ct('other taxes', 'Other Taxes'), ct('customer claims', 'Customer Claims'), ct('errors', 'Errors'), ct('frauds', 'Frauds'), ct('bad debt', 'Bad Debt'),
+      ct('intercompany transactions', 'Intercompany Transactions'),
+    ] },
+    { type: 'summary', label: 'Income from Outsourced Services', style: 'cor', id: 'own-outsourced', keys: [LINE.outsourced] },
+    { type: 'summary', label: 'Marketing', style: 'sm', id: 'own-marketing', keys: [ct('marketing-direct', 'Marketing - Direct')] },
+    { type: 'summary', label: 'Fixed Cost', style: 'sm', id: 'own-fixed', keys: [
+      ct('channels-personnel/expenses', 'Channels - Personnel/Expenses'), ct('marketing-personnel/expenses', 'Marketing - Personnel/Expenses'), ct('fulfilment center fees', 'Fulfillment Center Fees'), ct('loyalty program', 'Loyalty Program'),
+    ] },
+    { type: 'subtotal', label: '= Operating Contribution', style: 'oc' },
+  ];
+  var FMT = ['std', 'owner'], fmt = 'std';
+  try { if (FMT.indexOf(localStorage.getItem('pa-fmt')) >= 0) fmt = localStorage.getItem('pa-fmt'); } catch (e) { /* sin storage */ }
+  var qFmt = /[?&]fmt=(std|owner)(&|$)/.exec(location.search);
+  if (qFmt) fmt = qFmt[1];
+
+  var css = document.createElement('style');
+  css.textContent = '#bg-period-chips{display:none!important}' +
+    '.pa-sel{appearance:none;background:#fff url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'8\' height=\'5\'%3E%3Cpath d=\'M0 0l4 5 4-5z\' fill=\'%236b7280\'/%3E%3C/svg%3E") no-repeat right 12px center;' +
+    'border:1px solid #e3def3;border-radius:999px;padding:6px 28px 6px 14px;font-size:11.5px;font-weight:600;font-family:inherit;color:#3a4048;cursor:pointer}' +
+    '.pa-sel:hover{border-color:#7C3AED;color:#5b21b6}' +
+    '#ms-bg-period{display:inline-block}#ms-bg-period .ms-btn{border-radius:999px;padding:6px 14px;font-size:11.5px;font-weight:600;min-width:0;background:#fff;color:#3a4048;border:1px solid #e3def3;box-shadow:none;gap:8px}' +
+    '#ms-bg-period .ms-panel{z-index:60;min-width:170px}' +
+    '.pa-fb{position:relative;margin-left:auto}' +
+    '.pa-fb-btn{background:#fff;border:1px solid #e3def3;color:#3a4048;border-radius:999px;padding:6px 14px;font-size:11.5px;font-weight:600;font-family:inherit;cursor:pointer;white-space:nowrap}' +
+    '.pa-fb-btn:hover,.pa-fb.open>.pa-fb-btn{background:#f5f3ff;border-color:#a78bfa}' +
+    '.pa-fb-n{margin-left:6px;background:#7C3AED;color:#fff;border-radius:999px;padding:0 6px;font-size:10px;font-weight:700}.pa-fb-n:empty{display:none}' +
+    '.pa-fb-pop{display:none;position:absolute;right:0;top:calc(100% + 6px);z-index:320;background:#fff;border:1px solid #e3def3;border-radius:12px;box-shadow:0 12px 36px rgba(27,21,51,.16);padding:14px 16px;min-width:330px;flex-direction:column;gap:12px}' +
+    '.pa-fb.open>.pa-fb-pop{display:flex}.pa-fb-row{display:flex;align-items:center;gap:8px}.pa-fb-row>span:first-child{min-width:62px}.pa-fb-pop .org-note:empty{display:none}' +
+    '#pa-active{display:none;flex-wrap:wrap;gap:6px;align-items:center}' +
+    '.pa-chip{background:#ede9fe;border:1px solid #c4b5fd;color:#5b21b6;border-radius:999px;padding:3px 10px;font-size:11px;font-weight:600;font-family:inherit;cursor:pointer}.pa-chip:hover{border-color:#7C3AED}';
+  (document.head || document.documentElement).appendChild(css);
+
+  document.addEventListener('DOMContentLoaded', function () {
+    var top = document.getElementById('epm-goal-top'), gGoal = document.getElementById('btn-egoal-budget'), gBase = document.getElementById('btn-ebl-actuals'),
+      orgT = document.getElementById('org-toggle'), orgNote = document.getElementById('org-note'), gScale = document.getElementById('btn-scale-M'), pToggle = document.getElementById('btn-period-m');
+    var needed = ['setEpmGoalSource', 'setEpmBaselineSource', 'setEpmOrganic', 'setNumScale', 'setBGPeriod', 'renderBGPeriodChips_', 'fillBGBody', '_refreshBGViews_', 'updateMsLabel'];
+    if (!top || !gGoal || !gBase || !orgT || !gScale || !pToggle || needed.some(function (f) { return typeof W[f] !== 'function'; })) {
+      console.warn('[pnl-accounting-layout] sin barra de filtros: falta algún control del dashboard');
+      return;
+    }
+    gGoal = gGoal.parentNode; gBase = gBase.parentNode; gScale = gScale.parentNode; pToggle = pToggle.parentNode;
+
+    // ── Baseline y Goal: desplegables ──
+    function select(group, opts, value, onChange) {
+      var s = document.createElement('select');
+      s.className = 'pa-sel';
+      opts.forEach(function (o) { var x = document.createElement('option'); x.value = o[0]; x.textContent = o[1]; s.appendChild(x); });
+      s.value = value;
+      s.addEventListener('change', function () { onChange(s.value); });
+      group.parentNode.insertBefore(s, group);
+      group.style.display = 'none';
+      return s;
+    }
+    var selBase = select(gBase, [['bl', 'Actuals + Projections'], ['fc', 'Forecast']], W._epmBaselineSource || 'bl', function (v) { W.setEpmBaselineSource(v); });
+    var goalOpts = Array.prototype.map.call(gGoal.querySelectorAll('button'), function (b) { return [b.id.replace('btn-egoal-', ''), b.textContent]; });
+    var selGoal = select(gGoal, goalOpts, W._epmGoalSource || 'budget', function (v) { W.setEpmGoalSource(v); });
+    var origBase = W.setEpmBaselineSource, origGoal = W.setEpmGoalSource;
+    W.setEpmBaselineSource = function (v) { selBase.value = v; return origBase.apply(this, arguments); };
+    W.setEpmGoalSource = function (v) { selGoal.value = v; return origGoal.apply(this, arguments); };
+
+    // ── Período: desplegable (reemplaza los chips, misma selección: _bgPeriodSel) ──
+    var msP = document.createElement('div');
+    msP.className = 'ms-wrap';
+    msP.id = 'ms-bg-period';
+    msP.innerHTML = '<button class="ms-btn" type="button"><span class="ms-label">Todos</span><span class="ms-arrow">▾</span></button><div class="ms-panel"><div class="ms-options"></div></div>';
+    pToggle.parentNode.insertBefore(msP, pToggle.nextSibling);
+    msP.querySelector('.ms-btn').addEventListener('click', function (e) {
+      e.stopPropagation();
+      var open = msP.classList.contains('open');
+      document.querySelectorAll('.ms-wrap.open').forEach(function (el) { el.classList.remove('open'); });
+      fb.classList.remove('open');
+      if (!open) msP.classList.add('open');
+    });
+    function periodItems() {
+      var tag = W.FY_TAG || '';
+      if (W._bgPeriodMode === 'm') return (W.ALL_MONTHS_ORD_BG || []).slice();
+      if (W._bgPeriodMode === 'h') return ['H1 ' + tag, 'H2 ' + tag];
+      return ['Q1 ' + tag, 'Q2 ' + tag, 'Q3 ' + tag, 'Q4 ' + tag];
+    }
+    function fillPeriod() {
+      var sel = W._bgPeriodSel || [], box = msP.querySelector('.ms-options');
+      box.innerHTML = '';
+      [''].concat(periodItems()).forEach(function (v) {
+        var l = document.createElement('label'), c = document.createElement('input');
+        l.className = 'ms-option' + (v ? '' : ' ms-all');
+        c.type = 'checkbox';
+        c.value = v || '__all__';
+        c.checked = v ? sel.indexOf(v) >= 0 : !sel.length;
+        c.addEventListener('click', function (e) { e.stopPropagation(); });
+        c.addEventListener('change', function () {
+          var picks = v && c.checked ? sel.concat([v]) : sel.filter(function (x) { return x !== v; });
+          setPeriodSel(v ? picks : []);
+        });
+        l.appendChild(c);
+        l.appendChild(document.createTextNode(' ' + (v || 'Todos')));
+        box.appendChild(l);
+      });
+      W.updateMsLabel('ms-bg-period');
+    }
+    function setPeriodSel(list) {
+      W._bgPeriodSel = list.length ? list : null;
+      fillPeriod();
+      W._refreshBGViews_();
+      renderActive();
+    }
+    var origChips = W.renderBGPeriodChips_;
+    W.renderBGPeriodChips_ = function () { var r = origChips.apply(this, arguments); fillPeriod(); return r; };
+    var origPeriod = W.setBGPeriod;
+    W.setBGPeriod = function () {
+      var r = origPeriod.apply(this, arguments), y = document.getElementById('btn-period-y');
+      msP.style.display = y && y.classList.contains('prd-active') ? 'none' : '';   // con Año no hay períodos que elegir
+      renderActive();
+      return r;
+    };
+
+    // ── Panel Filtros: Organic y Unidades ──
+    var fb = document.createElement('div');
+    fb.className = 'pa-fb';
+    fb.innerHTML = '<button class="pa-fb-btn" type="button">Filtros<span class="pa-fb-n" id="pa-fb-n"></span></button><div class="pa-fb-pop"></div>';
+    var pop = fb.querySelector('.pa-fb-pop');
+    function toPanel(group, extra) {
+      var lbl = group.previousElementSibling, sep = lbl && lbl.previousElementSibling, row = document.createElement('div');
+      row.className = 'pa-fb-row';
+      if (lbl) row.appendChild(lbl);
+      row.appendChild(group);
+      pop.appendChild(row);
+      if (extra) pop.appendChild(extra);
+      if (sep && sep.tagName === 'SPAN' && !sep.textContent) sep.remove();
+    }
+    toPanel(orgT, orgNote);
+    toPanel(gScale);
+    top.appendChild(fb);
+    fb.querySelector('.pa-fb-btn').addEventListener('click', function () { fb.classList.toggle('open'); });
+    document.addEventListener('click', function (e) { if (!e.target.closest('.pa-fb')) fb.classList.remove('open'); });
+
+    // ── Filtros activos ──
+    var active = document.createElement('div');
+    active.id = 'pa-active';
+    top.parentNode.insertBefore(active, top.nextSibling);
+    function msItems(id, out) {
+      var w = document.getElementById(id);
+      if (!w) return;
+      w.querySelectorAll('.ms-option:not(.ms-all) input:checked').forEach(function (c) {
+        out.push({ l: c.value, clear: function () { c.checked = false; c.dispatchEvent(new Event('change', { bubbles: true })); renderActive(); } });
+      });
+    }
+    function renderActive() {
+      var out = [], y = document.getElementById('btn-period-y');
+      if (!(y && y.classList.contains('prd-active'))) (W._bgPeriodSel || []).forEach(function (p) {
+        out.push({ l: p, clear: function () { setPeriodSel(W._bgPeriodSel.filter(function (x) { return x !== p; })); } });
+      });
+      msItems('ms-cont-pais', out);
+      msItems('ms-cont-producto', out);
+      var hidden = 0;
+      if (!W._epmOrganic) { hidden++; out.push({ l: 'Organic: NO', clear: function () { W.setEpmOrganic(true); } }); }
+      if (W._numScale !== 'M') { hidden++; out.push({ l: 'Unidades: ' + (W._numScale === 'K' ? 'K' : 'Enteros'), clear: function () { W.setNumScale('M'); } }); }
+      active.innerHTML = '';
+      out.forEach(function (it) {
+        var b = document.createElement('button');
+        b.type = 'button'; b.className = 'pa-chip'; b.textContent = it.l + ' ×';
+        b.addEventListener('click', it.clear);
+        active.appendChild(b);
+      });
+      active.style.display = out.length ? 'flex' : 'none';
+      document.getElementById('pa-fb-n').textContent = hidden || '';
+    }
+    ['setEpmOrganic', 'setNumScale', 'renderBaselineGoalTable'].forEach(function (f) {
+      var o = W[f];
+      W[f] = function () { var r = o.apply(this, arguments); renderActive(); return r; };
+    });
+    top.addEventListener('change', renderActive);
+    fillPeriod();
+    renderActive();
+
+    // ── Agrupar: Contable / Por owner ──
+    var origFill = W.fillBGBody;
+    W.fillBGBody = function () {
+      if (fmt !== 'owner') return origFill.apply(this, arguments);
+      var std = W.CONTABLE_PNL_STRUCTURE;
+      W.CONTABLE_PNL_STRUCTURE = OWNER_STRUCTURE;
+      try { return origFill.apply(this, arguments); } finally { W.CONTABLE_PNL_STRUCTURE = std; }
+    };
+    var showAll = document.getElementById('pa-show-all');
+    if (!showAll) return;
+    var bar = showAll.parentNode.parentNode, lbl = document.createElement('span'), grp = document.createElement('div');
+    lbl.style.cssText = 'font-size:11px;color:#3a4048;font-weight:700';
+    lbl.textContent = 'Agrupar:';
+    grp.className = 'prd-toggle';
+    [['std', 'Contable', 'Net Revenues, Cost of Revenue, Sales & Marketing'], ['owner', 'Por owner', 'Las mismas líneas contables reagrupadas por owner de negocio: mismo Operating Contribution. No es P&L Managerial, que es gestional']].forEach(function (o) {
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'prd-btn' + (o[0] === fmt ? ' prd-active' : ''); b.id = 'pa-fmt-' + o[0]; b.textContent = o[1]; b.title = o[2];
+      b.addEventListener('click', function () {
+        fmt = o[0];
+        try { localStorage.setItem('pa-fmt', fmt); } catch (e) { /* sin storage */ }
+        FMT.forEach(function (k) { document.getElementById('pa-fmt-' + k).classList.toggle('prd-active', k === fmt); });
+        W._refreshBGViews_();
+      });
+      grp.appendChild(b);
+    });
+    bar.insertBefore(grp, bar.firstChild);
+    bar.insertBefore(lbl, grp);
+  });
+})();
