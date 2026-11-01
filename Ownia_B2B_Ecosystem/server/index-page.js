@@ -20,7 +20,7 @@ const QUICK_LINKS = { daily: ['api-one-pager', 'fvm-negativo'] };
 const COPY = {
   flow: { title: 'Presentaciones', desc: 'La revisión semanal y mensual del negocio, con comentarios por slide.' },
   daily: { title: 'Daily', desc: 'Cómo viene el día y la semana: B2B2C y B2B contra el budget.' },
-  hub: { title: 'P&L Dashboard', desc: 'El P&L contable, los OKRs y el detalle por país.' },
+  hub: { title: 'P&L Dashboard', desc: 'El P&L contable de B2B2C, HTML y API contra el budget.' },
   'pnl-managerial': { title: 'P&L Managerial', desc: 'El resultado gestional (FVM) de B2B y B2B2C.' },
 };
 

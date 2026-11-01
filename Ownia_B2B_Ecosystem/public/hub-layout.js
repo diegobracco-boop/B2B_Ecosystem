@@ -2,22 +2,20 @@
  * ese módulo (`layout` en server/modules.js), después de ownia-nav.js. El HTML de Apps Script no se
  * toca: desde 2026-10-23 las mejoras visuales se hacen solo acá (GAS queda congelado).
  * Pensado para su audiencia: Chief y VP Comercial (lectura rápida, reuniones, pantalla compartida).
- *  - Barra fija bajo el header (sin menú hamburguesa): selector de LoB Consolidado / B2B / B2B2C,
- *    las secciones de resultados como pestañas y lo demás en "Operativo ▾" y "Herramientas ▾".
- *    Las pestañas se arman de los botones del menú lateral (#nav-*): una sección nueva aparece sola
- *    (en "Herramientas" si no está clasificada).
+ *  - Barra fija bajo el header (sin menú hamburguesa): negocio (Consolidado / B2B2C / B2B / HTML / API)
+ *    y las pestañas de PRIMARY, armadas de los botones del menú lateral (#nav-*). Una sección nueva no
+ *    aparece sola: se suma a PRIMARY. Lo demás se abre desde el menú principal de la app.
  *  - Vista de entrada para dirección (estilo simple): frase de lectura con los mayores desvíos, grilla
  *    GB / NR / OC × negocio con el formato de la presentación de dirección (valor USD $M, YoY y desvío
- *    vs Goal; año a la fecha y cierre FY proyectado vs Budget en la etiqueta de cada fila),
- *    benchmark vs B2C en una línea, waterfall de GB por grupo y evolución. Lo demás, en "Ver detalle".
- *  - Línea de contexto con período, LoB, escenario y filtros, la barra "Filtrar…" (se escribe
- *    "brasil b2b sep vs fc" y se aplica con Enter; el diccionario está en public/filter-aliases.js)
- *    y el botón "Filtros": el panel se abre como cajón desde la derecha, encima del contenido y sin
- *    correrlo (el layout no salta); se cierra con "Listo", Esc o un clic afuera.
- *  - Los links "Consultar Bitubia/Bitubee" del header pasan a "Herramientas".
+ *    vs Goal), "¿Cómo viene el año?" (H1 / H2 / FY vs Budget), benchmark vs B2C en una línea, waterfall
+ *    de Operating Contribution y evolución con su YoY por país. Lo demás, en "Ver detalle".
+ *  - Línea de contexto con período, LoB, escenario y filtros. En la barra fija, solo en las vistas del
+ *    P&L, "Filtrar…" (se escribe "brasil b2b sep vs fc" y se aplica con Enter; el diccionario está en
+ *    public/filter-aliases.js) y el botón "Filtros": el panel se abre como cajón desde la derecha,
+ *    encima del contenido y sin correrlo (el layout no salta); se cierra con "Listo", Esc o un clic afuera.
  *  - Cambio de LoB instantáneo: apenas llegan los datos del primero se precargan los otros dos.
- *  - Teclado: 1/2/3 cambian de LoB; Esc cierra los menús.
- *  - Las secciones embebidas que ya corren en Ownia (Daily, P&L, P&L Managerial, FVM Negativo)
+ *  - Teclado: 1 a 5 cambian de negocio.
+ *  - Las secciones embebidas que ya corren en Ownia (P&L Contable, P&L Managerial)
  *    se abren desde Ownia y no desde Apps Script.
  */
 (function () {
@@ -28,18 +26,61 @@
   var home = script.getAttribute('data-home');
 
   var NAV_H = 40;   // = alto de la .lob-tabs original: el panel de filtros del Hub va a --hdr-h + 40px
-  var LOBS = [['all', 'Consolidado'], ['b2b', 'B2B'], ['b2b2c', 'B2B2C']];
+  // HTML (= B2B MIN) y API (= B2B MAY) se gestionan como negocios (2026-10-31): para el Hub son LoB b2b + canal.
+  var LOBS = [['all', 'Consolidado'], ['b2b2c', 'B2B2C'], ['b2b', 'B2B'], ['html', 'HTML'], ['api', 'API']];
+  var BIZ_CANAL = { html: 'min', api: 'may' };
   var LOB_NAME = { all: 'Consolidado B2B + B2B2C', b2b: 'B2B', b2b2c: 'B2B2C' };
-  // Pestañas a la vista (resultados); el resto en menús. Sin clasificar → Herramientas.
-  var PRIMARY = ['detailcountry', 'h2h1', 'pnl', 'pnl_mgr', 'okr'];
-  // "Slides mensuales" ya no va como pestaña: vive en el módulo Flow (sección Mensual, contable). El deck sigue abriéndose con <base>/hub?slides=1.
-  var HIDDEN = { slides: 1 };
-  var OPERATIVO = ['fixedcost', 'fvmneg', 'daily', 'industry'];
+  function bizOf(st) { return st.lob !== 'b2b' ? st.lob : st.canal === 'min' ? 'html' : st.canal === 'may' ? 'api' : 'b2b'; }
+  function bizName(st) { return { html: 'HTML (B2B MIN)', api: 'API (B2B MAY)' }[bizOf(st)] || LOB_NAME[st.lob] || ''; }
+  // Elige un negocio de la barra: el canal se marca antes, porque switchLob ya recarga con él.
+  function pickBiz(biz) {
+    var st = window._state;
+    if (!st) return;
+    var canal = BIZ_CANAL[biz] || 'all', lob = BIZ_CANAL[biz] ? 'b2b' : biz;
+    var same = st.lob === lob && st.canal === canal;
+    st.canal = canal;
+    Array.prototype.forEach.call(document.querySelectorAll('#canal-fg .canal-toggle button'), function (b) { b.classList.toggle('active', b.dataset.c === canal); });
+    if (st.lob !== lob) return window.goToSection(lob);
+    if (!same && typeof window.reload === 'function') window.reload();
+  }
+  // Accesos del menú principal (?view=<negocio>): se abre directo en ese negocio. Corre antes del loadAll del Hub, así la
+  // primera carga ya pide ese negocio; reload queda anulado para no pedir los datos dos veces.
+  function applyStartBiz() {
+    var biz = new URLSearchParams(window.location.search).get('view');
+    if (!biz || biz === 'all' || !LOBS.some(function (l) { return l[0] === biz; })) return;
+    var reload = window.reload;
+    window.reload = function () {};
+    try { pickBiz(biz); } finally { window.reload = reload; }
+  }
+  function syncBiz() {
+    var st = window._state, nav = document.getElementById('ownia-hubnav');
+    if (!st || !nav) return;
+    var cur = bizOf(st);
+    Array.prototype.forEach.call(nav.querySelectorAll('.ohn-seg [data-lob]'), function (b) { b.setAttribute('aria-pressed', String(b.dataset.lob === cur)); });
+    var span = document.querySelector('#logo-title span');
+    if (span && BIZ_CANAL[cur]) span.textContent = bizName(st);
+    else if (span && st.lob === 'b2b') span.textContent = 'B2B';
+    if (st.lob === 'b2b') preloadCanales();
+  }
+  // Cambio instantáneo también entre B2B, HTML y API: la primera vez que se entra a alguno, se precargan los otros.
+  var canalesPreloaded = false;
+  function preloadCanales() {
+    if (canalesPreloaded || /[?&]embedded=1(&|$)/.test(location.search) || typeof window.getParams !== 'function' || !window._dataCache || !window._state.pnl) return;
+    canalesPreloaded = true;
+    var base = window.getParams();
+    ['all', 'min', 'may'].forEach(function (c) {
+      if (c === base.canal) return;
+      var pp = Object.assign({}, base, { canal: c }), k = JSON.stringify(pp);
+      if (window._dataCache[k]) return;
+      window.google.script.run.withSuccessHandler(function (d) { window._dataCache[k] = d; }).withFailureHandler(function () {}).getAllData(pp);
+    });
+  }
+  // Pestañas de la barra. Por país, OKR, Operativo y Herramientas salieron del P&L Dashboard (2026-10-31): Por país era el
+  // Apps Script de lob_country_one_pager; lo demás se abre desde el menú principal. "Slides mensuales" vive en el módulo Flow
+  // (sección Mensual, contable); el deck sigue abriéndose con <base>/hub?slides=1.
+  var PRIMARY = ['h2h1', 'pnl', 'pnl_mgr'];
   // Nombres cortos (el nombre completo queda como tooltip).
-  var SHORT = {
-    detailcountry: 'Por país', h2h1: 'H2 vs H1', slides: 'Slides mensuales', fixedcost: 'Fixed Cost', pnl: 'P&L Contable', pnl_mgr: 'P&L Managerial',
-    fvmneg: 'FVM Negativo', daily: 'Daily, Weekly & MTD', industry: 'Weekly Industry', okr: 'OKR',
-  };
+  var SHORT = { h2h1: 'H2 vs H1', pnl: 'P&L Contable', pnl_mgr: 'P&L Managerial' };
   // KPIs de la franja (ids de _state.pnl.rows) y comparación según el Goal elegido.
   var KPIS = [['gb', 'Gross Bookings'], ['nr', 'Net Revenue'], ['oc', 'Operating Contribution']];
   var GOALS = {
@@ -60,10 +101,6 @@
       apply: function (w, lob) { w.goToView({ all: 'contable-combined', b2b: 'contable-b2b', b2b2c: 'contable-b2b2c' }[lob]); } },
     pnl_mgr: { id: 'pnl-mgr-frame', ready: function (w) { return typeof w.goToView === 'function'; },
       apply: function (w, lob) { if (lob !== 'all') w.goToView(lob); } },
-    daily: { id: 'daily-frame', ready: function (w) { return typeof w.switchLob === 'function'; },
-      apply: function (w, lob) { if (lob !== 'all') w.switchLob(lob === 'b2b2c' ? 'b2bc' : 'b2b'); } },
-    fvmneg: { id: 'fvmneg-frame', ready: function (w) { return typeof w.switchBiz === 'function' && !!w.DATA; },
-      apply: function (w, lob) { if (lob !== 'all') w.switchBiz(lob); } },
   };
   var lastLob = 'all';   // último LoB elegido (Consolidado / B2B / B2B2C)
 
@@ -76,7 +113,8 @@
   var css = document.createElement('style');
   css.textContent = [
     // #active-filters: los mismos chips quedan en la línea de contexto de arriba (#ohn-top).
-    '.hamburger-btn,#nav-backdrop,.filters,#filters-toggle,#ai-links,#active-filters{display:none!important}',
+    // #canal-fg: HTML y API ahora se eligen en la barra, como negocios; el toggle queda oculto para que el Hub lo siga leyendo.
+    '.hamburger-btn,#nav-backdrop,.filters,#filters-toggle,#ai-links,#active-filters,#canal-fg{display:none!important}',
     // Layout estable: el contenido no se corre por el panel de filtros (se abre encima).
     'body:not(.ohn-noheader) main{margin-left:0!important;padding-left:24px!important;padding-right:24px!important}',
     // Panel de filtros: cajón desde la derecha (al lado del botón "Filtros"), con el fondo atenuado.
@@ -98,13 +136,18 @@
     // Los desplegables de Fecha / País / Producto se abren a la izquierda del cajón, por encima.
     '#period-panel,#pais-panel,#prod-panel{z-index:330!important}',
     // Barra "Filtrar…": se escribe el filtro y se ve lo que entendió antes de aplicarlo.
-    '.ohn-q{position:relative;flex:1 1 260px;max-width:420px;margin-left:auto}',
-    '.ohn-q input{width:100%;box-sizing:border-box;border:1px solid #d9d4e6;border-radius:8px;padding:7px 12px 7px 32px;',
+    '.ohn-tools{display:flex;align-items:center;gap:6px;flex:0 100 300px;min-width:190px}',   // cede ancho antes que las pestañas
+    '.ohn-tools[hidden]{display:none}',
+    '.ohn-q{position:relative;flex:1 1 auto;min-width:0}',
+    '.ohn-q-mic{position:absolute;right:4px;top:50%;transform:translateY(-50%);border:none;background:none;color:#6b6b85;cursor:pointer;padding:3px;border-radius:6px;display:flex}',
+    '.ohn-q-mic:hover{background:#f5f2ff;color:#550fed}.ohn-q-mic.rec{color:#cf222e;background:#ffebe9}',
+    '.ohn-q-mic:focus-visible{outline:2px solid #a780ff;outline-offset:1px}',
+    '.ohn-q input{width:100%;box-sizing:border-box;border:1px solid transparent;border-radius:8px;padding:5px 30px 5px 32px;',
     '  font:13px Poppins,-apple-system,"Segoe UI",sans-serif;color:#12111e;background:#fff}',
-    '.ohn-q input:focus{outline:none;border-color:#550fed;box-shadow:0 0 0 3px rgba(85,15,237,.12)}',
+    '.ohn-q input:focus{outline:none;border-color:#a780ff;box-shadow:0 0 0 3px rgba(167,128,255,.35)}',
     '.ohn-q::before{content:"";position:absolute;left:11px;top:50%;width:10px;height:10px;margin-top:-7px;border:2px solid #8a88a0;border-radius:50%}',
     '.ohn-q::after{content:"";position:absolute;left:21px;top:50%;width:6px;height:2px;margin-top:4px;background:#8a88a0;transform:rotate(45deg)}',
-    '.ohn-q-pop{display:none;position:absolute;left:0;right:0;top:calc(100% + 6px);background:#fff;border:1px solid #ebe8f3;border-radius:12px;',
+    '.ohn-q-pop{display:none;position:absolute;left:auto;right:0;width:380px;max-width:90vw;box-sizing:border-box;top:calc(100% + 8px);background:#fff;border:1px solid #ebe8f3;border-radius:12px;',
     '  box-shadow:0 12px 32px rgba(18,17,30,.14);padding:12px 14px;z-index:305;font-size:13px;color:#3d3b52}',
     '.ohn-q.open .ohn-q-pop{display:block}',
     '.ohn-q-chips{display:flex;flex-wrap:wrap;gap:6px}',
@@ -113,7 +156,6 @@
     '.ohn-q-bad{margin-top:8px;color:#9a6700}',
     '.ohn-q-hint{margin-top:10px;font-size:12px;color:#8a88a0}',
     '.ohn-q-ex{cursor:pointer;color:#550fed;text-decoration:underline;margin-right:8px}',
-    '.ohn-filters-btn.ohn-after-q{margin-left:0}',
     '#ownia-hubnav{position:sticky;top:var(--hdr-h);z-index:299;height:' + NAV_H + 'px;display:flex;align-items:center;gap:12px;',
     '  padding:0 16px;background:linear-gradient(90deg,#2a0a8f 0%,#3d00d1 100%);border-bottom:1px solid rgba(167,128,255,.35);',
     '  font-family:Poppins,-apple-system,"Segoe UI",sans-serif}',
@@ -132,28 +174,23 @@
     '.ohn-seg button:hover{color:#fff}',
     '.ohn-seg button[aria-pressed="true"]{background:#fff;color:#3d00d1;box-shadow:0 1px 4px rgba(0,0,0,.25)}',
     '.ohn-sep{width:1px;height:22px;background:rgba(167,128,255,.4);flex:none}',
-    '.ohn-tabs{display:flex;gap:2px;flex:1;min-width:0;overflow-x:auto;scrollbar-width:thin}',
+    '.ohn-tabs{display:flex;gap:2px;flex:1 1 auto;min-width:0;overflow-x:auto;scrollbar-width:thin}',
+    // Con "Filtrar…" y "Filtros" en la barra: en notebooks las pestañas pierden el ícono para que entren todas a la vista.
+    '@media (max-width:1500px){.ohn-tabs .ohn-tab span{display:none}.ohn-seg button{padding:5px 10px}}',
+    '@media (max-width:1320px){#ownia-hubnav{gap:8px;padding:0 10px}.ohn-seg button{padding:5px 9px}.ohn-tabs .ohn-tab{padding:7px 8px}.ohn-tools{min-width:170px}}',
     '.ohn-tab{border:none;background:transparent;color:rgba(255,255,255,.78);font-size:13px;font-weight:500;padding:7px 11px;',
     '  border-radius:7px;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:6px}',
     '.ohn-tab:hover{color:#fff;background:rgba(255,255,255,.1)}',
     '.ohn-tab[aria-current="page"]{color:#fff;background:#550fed;font-weight:600}',
-    '.ohn-dd{position:relative;flex:none}',
-    '.ohn-dd > .ohn-tab.has-active{color:#fff;box-shadow:inset 0 -2px 0 #a780ff}',
-    '.ohn-menu{display:none;position:absolute;right:0;top:calc(100% + 6px);min-width:230px;background:#1d0a5e;',
-    '  border:1px solid rgba(167,128,255,.4);border-radius:10px;padding:6px;box-shadow:0 10px 28px rgba(0,0,0,.4);z-index:310}',
-    '.ohn-dd.open .ohn-menu{display:block}',
-    '.ohn-menu .ohn-tab{width:100%;justify-content:flex-start}',
-    '.ohn-menu .ohn-label{color:rgba(196,181,253,.7);font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:8px 11px 4px}',
     // Franja de contexto + KPIs (arriba del Cuadro Resumen).
     '#ohn-top{font-family:Poppins,-apple-system,"Segoe UI",sans-serif;margin:14px 0 16px}',
     '.ohn-ctx{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:13px;color:#3d3b52;margin-bottom:12px}',
     '.ohn-ctx b{color:#12111e;font-weight:600}',
     '.ohn-ctx .ohn-pill{background:#f0ebff;border:1px solid #d9ccff;border-radius:999px;padding:4px 11px}',
     '.ohn-ctx .ohn-period{font-size:15px;font-weight:700;color:#3d00d1;margin-right:4px}',
-    '.ohn-filters-btn{margin-left:auto;border:1px solid #550fed;background:#fff;color:#550fed;font:600 13px Poppins,sans-serif;',
-    '  border-radius:8px;padding:6px 14px;cursor:pointer}',
-    '.ohn-filters-btn:hover,.ohn-filters-btn[aria-expanded="true"]{background:#550fed;color:#fff}',
-    '.ohn-filters-btn:focus-visible{outline:2px solid #a780ff;outline-offset:2px}',
+    '#ownia-hubnav .ohn-filters-btn{flex:none;border:1px solid rgba(255,255,255,.35);background:transparent;color:#fff;font-size:13px;font-weight:600;',
+    '  border-radius:8px;padding:5px 12px;cursor:pointer}',
+    '#ownia-hubnav .ohn-filters-btn:hover,#ownia-hubnav .ohn-filters-btn[aria-expanded="true"]{background:#fff;color:#3d00d1}',
     // Grilla de resultados con el formato de la presentación de dirección: métricas en filas,
     // negocios en columnas; cada celda con el valor en USD $M, el YoY y el desvío vs la referencia.
     '.ohn-deck-wrap{overflow-x:auto}',
@@ -163,17 +200,27 @@
     '.ohn-deck .d-col{border:2px solid #550fed;background:#f3eeff;color:#550fed;font-weight:700;font-size:18px;text-align:center;border-radius:999px;padding:8px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.ohn-deck .d-row{background:#f4f4f7;border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;justify-content:center;gap:2px}',
     '.ohn-deck .d-row b{font-size:15px;color:#3d3b52;font-weight:600}.ohn-deck .d-row span{font-size:13px;color:#6b6b85}',
-    '.ohn-deck .d-row small{display:block;font-size:11.5px;color:#8a88a0;margin-top:2px;line-height:1.4;white-space:nowrap}.ohn-deck .d-row small i{font-style:normal;font-weight:700}',
     '.ohn-deck .d-cell{background:#fafafd;border:1px solid #ebe8f3;border-radius:12px;padding:12px 6px;text-align:center;display:flex;flex-direction:column;justify-content:center}',
     '.ohn-deck .d-val{font-size:30px;font-weight:700;color:#12111e;line-height:1.15;letter-spacing:-.01em}',
     '.ohn-deck .d-l{font-size:13px;line-height:1.5;white-space:nowrap}.ohn-deck.wide .d-l{font-size:12px}',
     '.ohn-deck .g{color:#1a7f37}.ohn-deck .a{color:#9a6700}.ohn-deck .r{color:#cf222e}.ohn-deck .n{color:#8a88a0}',
     '.k-pct{font-weight:700}.k-pct.g{color:#1a7f37}.k-pct.a{color:#9a6700}.k-pct.r{color:#cf222e}',
     '.ohn-read{font-size:15px;line-height:1.55;color:#3d3b52;margin:4px 0 16px;max-width:1100px}',
+    '.ohn-read span{display:block;margin-top:4px}',
+    // "¿Cómo viene el año?": H1 / H2 / FY vs Budget, debajo de la grilla del período.
+    '.ohn-yr{margin-top:18px}.ohn-yr h3{font-size:14px;font-weight:700;color:#12111e;margin:0 0 8px}',
+    '.ohn-yr-wrap{overflow-x:auto}.ohn-yr table{width:100%;min-width:640px;border-collapse:separate;border-spacing:0 6px}',
+    '.ohn-yr th{font-size:12.5px;font-weight:600;color:#6b6b85;text-align:center;padding:0 8px 2px}.ohn-yr th small{display:block;font-size:11px;font-weight:500;color:#8a88a0}',
+    '.ohn-yr td{background:#fafafd;border-top:1px solid #ebe8f3;border-bottom:1px solid #ebe8f3;text-align:center;padding:9px 8px;font-size:13px;color:#3d3b52}',
+    '.ohn-yr td:first-child,.ohn-yr th:first-child{text-align:left;width:230px}',
+    '.ohn-yr td:first-child{background:#f4f4f7;font-weight:600;font-size:14px;border-left:1px solid #ebe8f3;border-radius:10px 0 0 10px}',
+    '.ohn-yr td:last-child{border-right:1px solid #ebe8f3;border-radius:0 10px 10px 0}',
+    '.ohn-yr b{font-size:17px;color:#12111e;margin-right:8px}.ohn-yr .g{color:#1a7f37}.ohn-yr .a{color:#9a6700}.ohn-yr .r{color:#cf222e}.ohn-yr .n{color:#8a88a0}',
     '.ohn-read b{color:#12111e}',
     '.ohn-facts{margin:18px 0 4px;display:grid;gap:8px}',
     '.ohn-facts p{font-size:14px;color:#3d3b52;margin:0;padding-left:104px;text-indent:-104px}',
     '.ohn-facts p > span{display:inline-block;text-indent:0;width:104px;font-weight:600;color:#12111e}',
+    '.ohn-okr-note{font-style:normal;font-size:12px;color:#8a88a0;margin-left:4px}',
     '.ohn-okr-go{font:600 12px Poppins,sans-serif;color:#550fed;background:none;border:none;padding:0 0 0 6px;cursor:pointer;text-decoration:underline}',
     '.ohn-legend{font-size:11.5px;color:#8a88a0;margin-top:8px}',
     // "Ver detalle": el bloque de análisis queda plegado al final.
@@ -183,14 +230,14 @@
     '.ohn-detail-btn::after{content:" ▾"}#ohn-detail-wrap.open .ohn-detail-btn::after{content:" ▴"}',
     '.ohn-detail-sub{font-size:12.5px;color:#8a88a0;margin:8px 0 0}',
     '#ohn-detail{display:none;margin-top:20px}#ohn-detail-wrap.open #ohn-detail{display:block}',
-    '.ohn-evo-tables{margin-bottom:20px}',
-    // Visión del OC (al final): barras como la evolución, YoY en tabla alineada con cada mes.
-    '#ohn-oc-wrap{border-top:1px solid #ebe8f3;padding-top:20px;margin-top:20px}',
-    '#ohn-oc-wrap .evo-wrap{height:280px}',
-    '.ohn-oc-tbl{border-collapse:collapse;table-layout:fixed;font-size:11px;margin-top:4px}',
-    '.ohn-oc-tbl td{padding:4px 0;text-align:center;white-space:nowrap}',
-    '.ohn-oc-tbl td:first-child{text-align:left;font-weight:700;color:#8a88a0;white-space:normal;line-height:1.15}',
-    '.ohn-oc-tbl .g{color:#1a7f37;font-weight:700}.ohn-oc-tbl .r{color:#cf222e;font-weight:700}.ohn-oc-tbl .n{color:#8a88a0}',
+    // Comparación con B2C (drill-down del año): un gráfico por vez, con selector de métrica.
+    '.ohn-ddtabs{display:inline-flex;gap:2px;background:#f4f2f9;border-radius:8px;padding:2px;margin:0 0 12px}',
+    '.ohn-ddtabs button{border:none;background:none;font:600 12.5px Poppins,sans-serif;color:#6b6b85;padding:5px 12px;border-radius:6px;cursor:pointer}',
+    '.ohn-ddtabs button[aria-pressed="true"]{background:#fff;color:#3d00d1;box-shadow:0 1px 3px rgba(18,17,30,.16)}',
+    '.ohn-ddtabs button:focus-visible{outline:2px solid #a780ff;outline-offset:1px}',
+    '#drilldown-section[data-dd="gb"] #dd-card-nr,#drilldown-section[data-dd="gb"] #dd-card-oc,',
+    '#drilldown-section[data-dd="nr"] #dd-card-gb,#drilldown-section[data-dd="nr"] #dd-card-oc,',
+    '#drilldown-section[data-dd="oc"] #dd-card-gb,#drilldown-section[data-dd="oc"] #dd-card-nr{display:none}',
     '.ohn-wf-note{font-size:12px;color:#8a88a0;margin:10px 4px 0}',
     '.pnl-split-btn{margin-left:10px;font:600 11.5px Poppins,sans-serif;color:#550fed;background:none;border:1px solid #d9ccff;border-radius:999px;padding:3px 10px;cursor:pointer}',
     // Secciones embebidas: el Hub les da 100vh (sin header); acá queda la barra arriba.
@@ -206,54 +253,16 @@
     return el.textContent.replace(/\s+/g, ' ').trim();
   }
 
-  function closeMenus(except) {
-    var dds = document.querySelectorAll('#ownia-hubnav .ohn-dd.open');
-    for (var i = 0; i < dds.length; i++) {
-      if (dds[i] === except) continue;
-      dds[i].classList.remove('open');
-      dds[i].firstChild.setAttribute('aria-expanded', 'false');
-    }
-  }
-
-  function dropdown(title, onOpen) {
-    var dd = document.createElement('div');
-    dd.className = 'ohn-dd';
-    var btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'ohn-tab';
-    btn.textContent = title + ' ▾';
-    btn.setAttribute('aria-haspopup', 'true');
-    btn.setAttribute('aria-expanded', 'false');
-    var menu = document.createElement('div');
-    menu.className = 'ohn-menu';
-    btn.onclick = function (ev) {
-      ev.stopPropagation();
-      var open = !dd.classList.contains('open');
-      closeMenus(dd);
-      if (open && onOpen) onOpen(menu);
-      dd.classList.toggle('open', open);
-      btn.setAttribute('aria-expanded', String(open));
-      if (open) { var first = menu.querySelector('button'); if (first) first.focus(); }
-    };
-    dd.appendChild(btn);
-    dd.appendChild(menu);
-    return { el: dd, menu: menu };
-  }
-
-  function tabFrom(it, key, short) {
+  function tabFrom(it, key) {
     var t = document.createElement('button');
     t.type = 'button';
     t.className = 'ohn-tab';
-    if (key) t.dataset.lob = key;
+    t.dataset.lob = key;
     t.title = label(it);
     var icon = it.querySelector('span');
-    if (short && SHORT[key]) {
-      if (icon) t.appendChild(icon.cloneNode(true));
-      t.appendChild(document.createTextNode(' ' + SHORT[key]));
-    } else {
-      t.innerHTML = it.innerHTML;
-    }
-    t.onclick = function () { closeMenus(); it.click(); };
+    if (icon) t.appendChild(icon.cloneNode(true));
+    t.appendChild(document.createTextNode(' ' + SHORT[key]));
+    t.onclick = function () { it.click(); };
     return t;
   }
 
@@ -276,7 +285,7 @@
     var seg = document.createElement('div');
     seg.className = 'ohn-seg';
     seg.setAttribute('role', 'group');
-    seg.setAttribute('aria-label', 'Línea de negocio (teclas 1, 2, 3)');
+    seg.setAttribute('aria-label', 'Negocio (teclas 1 a 5)');
     LOBS.forEach(function (l, i) {
       var b = document.createElement('button');
       b.type = 'button';
@@ -284,7 +293,7 @@
       b.textContent = l[1];
       b.title = l[1] + ' (tecla ' + (i + 1) + ')';
       b.setAttribute('aria-pressed', 'false');
-      b.onclick = function () { window.goToSection(l[0]); };
+      b.onclick = function () { pickBiz(l[0]); };
       seg.appendChild(b);
     });
     nav.appendChild(seg);
@@ -294,61 +303,21 @@
 
     var tabs = document.createElement('div');
     tabs.className = 'ohn-tabs';
-    var oper = dropdown('Operativo');
-    var tools = dropdown('Herramientas', function (menu) {
-      // Consultas de IA del header (dependen del LoB): se arman al abrir el menú.
-      var old = menu.querySelectorAll('.ohn-ai');
-      for (var i = 0; i < old.length; i++) old[i].remove();
-      var box = document.getElementById('ai-links');
-      if (!box || box.style.display === 'none') return;
-      var as = box.querySelectorAll('a');
-      for (var j = as.length - 1; j >= 0; j--) {
-        if (as[j].style.display === 'none') continue;
-        var t = document.createElement('button');
-        t.type = 'button';
-        t.className = 'ohn-tab ohn-ai';
-        t.textContent = label(as[j]).replace(/^🤖\s*/, '🤖 ').replace(/CONSULTAR/i, 'Consultar');
-        t.onclick = (function (a) { return function () { closeMenus(); a.click(); }; })(as[j]);
-        menu.insertBefore(t, menu.firstChild);
-      }
+    PRIMARY.forEach(function (k) {
+      var it = document.getElementById('nav-' + k);
+      if (it) tabs.appendChild(tabFrom(it, k));
     });
 
-    var byKey = {};
-    var items = document.querySelectorAll('.filters .nav-links > .nav-item, .filters .nav-links > .nav-sublabel');
-    var skip = { 'nav-all': 1, 'nav-b2b': 1, 'nav-b2b2c': 1 };
-    for (var i = 0; i < items.length; i++) {
-      var it = items[i];
-      if (it.classList.contains('nav-sublabel')) {
-        var lb = document.createElement('div');
-        lb.className = 'ohn-label';
-        lb.textContent = label(it);
-        tools.menu.appendChild(lb);
-        continue;
-      }
-      if (!it.id && !it.classList.contains('nav-sub')) continue;   // Home: ya está "🏠 Home" del header
-      if (skip[it.id]) continue;
-      var key = it.id ? it.id.replace(/^nav-/, '') : '';
-      if (key) byKey[key] = it;
-      if (key && HIDDEN[key]) continue;
-      if (key && (PRIMARY.indexOf(key) >= 0 || OPERATIVO.indexOf(key) >= 0)) continue;
-      tools.menu.appendChild(tabFrom(it, key, false));
-    }
-    PRIMARY.forEach(function (k) { if (byKey[k]) tabs.appendChild(tabFrom(byKey[k], k, true)); });
-    OPERATIVO.forEach(function (k) { if (byKey[k]) oper.menu.appendChild(tabFrom(byKey[k], k, true)); });
-
     nav.appendChild(tabs);
-    if (oper.menu.children.length) nav.appendChild(oper.el);
-    nav.appendChild(tools.el);
+    nav.appendChild(toolsBox());
     header.parentNode.insertBefore(nav, header.nextSibling);
 
-    document.addEventListener('click', function () { closeMenus(); });
     document.addEventListener('keydown', function (ev) {
-      if (ev.key === 'Escape') { closeMenus(); return; }
       if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
       var tag = (ev.target && ev.target.tagName) || '';
       if (/^(INPUT|SELECT|TEXTAREA)$/.test(tag) || (ev.target && ev.target.isContentEditable)) return;
-      var n = { 1: 'all', 2: 'b2b', 3: 'b2b2c' }[ev.key];
-      if (n) { ev.preventDefault(); window.goToSection(n); }
+      var n = LOBS[+ev.key - 1];
+      if (n) { ev.preventDefault(); pickBiz(n[0]); }
     });
     return nav;
   }
@@ -382,15 +351,14 @@
     else { var top = document.getElementById('ohn-top'); if (top) top.style.display = 'none'; }
     var nav = document.getElementById('ownia-hubnav');
     if (!nav) return;
-    var segBtns = nav.querySelectorAll('.ohn-seg [data-lob]');
-    for (var i = 0; i < segBtns.length; i++) segBtns[i].setAttribute('aria-pressed', String(segBtns[i].dataset.lob === lob));
-    var tabs = nav.querySelectorAll('.ohn-tabs [data-lob], .ohn-menu [data-lob]');
+    var tools = nav.querySelector('.ohn-tools');
+    if (tools) tools.hidden = !LOB_NAME[lob];   // filtran el P&L: en las secciones embebidas no aplican
+    syncBiz();
+    var tabs = nav.querySelectorAll('.ohn-tabs [data-lob]');
     for (var j = 0; j < tabs.length; j++) {
       if (tabs[j].dataset.lob === lob) tabs[j].setAttribute('aria-current', 'page');
       else tabs[j].removeAttribute('aria-current');
     }
-    var dds = nav.querySelectorAll('.ohn-dd');
-    for (var k = 0; k < dds.length; k++) dds[k].firstChild.classList.toggle('has-active', !!dds[k].querySelector('[aria-current="page"]'));
   }
 
   // ── Franja de contexto + KPIs ──────────────────────────────────────────────────────────────
@@ -412,6 +380,7 @@
   function renderTop() {
     var chips = document.getElementById('active-filters');
     var st = window._state;
+    syncBiz();   // el buscador también cambia de negocio
     if (!chips || !st || !st.pnl || !st.pnl.rows) return;
     var anchor = chips.closest('.sec') || chips.parentElement;
     var top = document.getElementById('ohn-top');
@@ -428,7 +397,7 @@
     // Solo los filtros que recortan algo (los "Todos" no suman) y sin jerga ("Baseline").
     var pills = Array.prototype.map.call(chips.querySelectorAll('.af-chip'), function (c) {
       var t = c.textContent;
-      if (/:\s*Todos\s*$/.test(t)) return '';
+      if (/:\s*Todos\s*$/.test(t) || /^Canal:/.test(t)) return '';   // el canal ya es el negocio de la barra
       if (/^Baseline:/.test(t)) {
         var sel = (st.selectedPeriods || []).slice().sort(), last = st.filters && st.filters.lastActuals;
         var closed = sel.length && last && sel[sel.length - 1] <= last;
@@ -437,26 +406,15 @@
       }
       return '<span class="ohn-pill">' + c.innerHTML + '</span>';
     }).join('');
-    var open = !!st.filtersExpanded;
+    var fBtn = document.querySelector('#ownia-hubnav .ohn-filters-btn');
+    if (fBtn) fBtn.setAttribute('aria-expanded', String(!!st.filtersExpanded));
     var html = '<div class="ohn-ctx">' +
       (period ? '<span class="ohn-period">' + esc(period) + '</span>' : '') +
-      '<span class="ohn-pill"><b>' + esc(LOB_NAME[st.lob] || LOB_NAME[current] || '') + '</b></span>' + pills +
-      (window.OwniaFilters ? '<span class="ohn-q-slot"></span>' : '') +
-      '<button type="button" class="ohn-filters-btn' + (window.OwniaFilters ? ' ohn-after-q' : '') + '" aria-expanded="' + open + '" aria-controls="pnl-filters-bar">Filtros</button>' +
+      '<span class="ohn-pill"><b>' + esc(bizName(st) || LOB_NAME[current] || '') + '</b></span>' + pills +
       '</div>';
-    html += readingHtml(st, goal) + deckHtml(st, goal, period);
+    html += readingHtml(st, goal) + deckHtml(st, goal, period) + yearHtml();
     html += '<div class="ohn-facts">' + marginHtml(st) + benchHtml(st) + okrHtml(st) + '</div>';
-    // La barra "Filtrar…" es siempre el mismo nodo: un render a mitad de la escritura no la borra.
-    var qFocused = qBox && qBox.contains(document.activeElement);
     top.innerHTML = html;
-    var slot = top.querySelector('.ohn-q-slot');
-    if (slot) {
-      slot.parentNode.replaceChild(searchBox(), slot);
-      if (qFocused) qBox.querySelector('input').focus();
-    }
-    top.querySelector('.ohn-filters-btn').onclick = function () {
-      if (typeof window.toggleFiltersPanel === 'function') window.toggleFiltersPanel();   // wrap → renderTop
-    };
     var okrBtn = top.querySelector('.ohn-okr-go');
     if (okrBtn) okrBtn.onclick = function () {
       var wrap = document.getElementById('ohn-detail-wrap'), col = document.getElementById('okr-col');
@@ -469,17 +427,53 @@
   // Se escribe en lenguaje libre ("bra b2b sep vs fc"); mientras se escribe se ve lo que entendió
   // y lo que no; Enter aplica todo junto (una sola recarga) y Esc vuelve atrás.
   var qBox = null;
-  var Q_DIM = { pais: 'País', grupo: 'Países', lob: 'LoB', canal: 'Canal', goal: 'Comparar', baseline: 'Base', producto: 'Producto', periodo: 'Período' };
+  var Q_DIM = { pais: 'País', paisNot: 'Sin', grupo: 'Países', lob: 'Negocio', canal: 'Negocio', goal: 'Comparar', baseline: 'Base', producto: 'Producto', periodo: 'Período' };
   var HISPA = ['Argentina', 'Chile', 'Colombia', 'Peru', 'Ecuador'];
-  var Q_EXAMPLES = ['brasil sep', 'mx b2b vs fc', 'hoteles q2', 'globales ytd', 'hispa vs ly', 'limpiar'];
+  var Q_EXAMPLES = ['como viene brasil en sep', 'mx b2b vs fc', 'sin brasil', 'hoteles q2', 'h2 vs h1', 'limpiar'];
+  // Temas del intérprete de la portada (public/portal-ask.js) que abren una sección de este tablero. contable, accounting y
+  // hub son el P&L que ya se está mirando; lo que no está acá se abre desde Home y el preview lo dice.
+  var Q_SECTIONS = {
+    h2h1: ['h2h1', 'H2 vs H1'], managerial: ['pnl_mgr', 'P&L Managerial'], vs_contable: ['pnl_mgr', 'P&L Managerial'], benchmark: ['bench', 'Benchmark vs B2C'],
+  };
+  var Q_HERE = { contable: 1, accounting: 1, hub: 1 };
+
+  // "Filtrar…" y "Filtros" viven en la barra fija: siguen a mano al scrollear y un render no los toca.
+  function toolsBox() {
+    var box = document.createElement('div');
+    box.className = 'ohn-tools';
+    if (window.OwniaFilters) box.appendChild(searchBox());
+    var f = document.createElement('button');
+    f.type = 'button';
+    f.className = 'ohn-filters-btn';
+    f.textContent = 'Filtros';
+    f.setAttribute('aria-expanded', 'false');
+    f.setAttribute('aria-controls', 'pnl-filters-bar');
+    f.onclick = function (ev) {
+      ev.stopPropagation();
+      if (typeof window.toggleFiltersPanel === 'function') window.toggleFiltersPanel();   // wrap → renderTop
+    };
+    box.appendChild(f);
+    return box;
+  }
 
   function searchBox() {
     if (qBox) return qBox;
     qBox = document.createElement('div');
     qBox.className = 'ohn-q';
     qBox.innerHTML = '<input type="search" autocomplete="off" spellcheck="false" aria-label="Filtrar escribiendo"' +
-      ' placeholder="Filtrar… ej: brasil b2b sep vs forecast"><div class="ohn-q-pop" role="status" aria-live="polite"></div>';
+      ' placeholder="Filtrar… brasil sep vs fc"><button type="button" class="ohn-q-mic" hidden aria-label="Dictar el filtro" title="Dictar">' +
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>' +
+      '</button><div class="ohn-q-pop" role="status" aria-live="polite"></div>';
     var input = qBox.querySelector('input'), pop = qBox.querySelector('.ohn-q-pop');
+    var mic = qBox.querySelector('.ohn-q-mic');
+    function runInput() {
+      var plan = planQuery(input.value);
+      if (!plan.items.length && !plan.section) return show();
+      input.value = '';
+      input.blur();
+      qBox.classList.remove('open');
+      runPlan(plan);
+    }
     var show = function () { pop.innerHTML = previewHtml(input.value); qBox.classList.add('open'); };
     input.addEventListener('focus', show);
     input.addEventListener('input', show);
@@ -489,14 +483,47 @@
       if (ev.key === 'Escape') { input.value = ''; input.blur(); qBox.classList.remove('open'); }
       if (ev.key === 'Enter') {
         ev.preventDefault();
-        var plan = planQuery(input.value);
-        if (!plan.items.length) return show();
-        input.value = '';
-        input.blur();
-        qBox.classList.remove('open');
-        applyPlan(plan);
+        runInput();
       }
     });
+    // Dictado (Web Speech API, como la portada): al terminar de hablar se aplica solo si entendió algo; si no, queda el
+    // texto y el preview para corregir. En Firefox el botón no aparece.
+    var Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (Speech && window.PortalAsk) {
+      mic.hidden = false;
+      var rec = null, failed = false, ph = input.placeholder;
+      mic.addEventListener('mousedown', function (ev) { ev.preventDefault(); });
+      mic.addEventListener('click', function () {
+        if (rec) { rec.stop(); return; }
+        rec = new Speech();
+        rec.lang = /^pt/i.test(navigator.language || '') ? 'pt-BR' : 'es-AR';
+        rec.interimResults = true;
+        failed = false;
+        mic.classList.add('rec');
+        input.value = '';
+        input.placeholder = 'Escuchando…';
+        rec.onresult = function (e) {
+          var t = '';
+          for (var i = 0; i < e.results.length; i++) t += e.results[i][0].transcript;
+          input.value = window.PortalAsk.fixVoice(t);
+          show();
+        };
+        rec.onerror = function (e) {
+          failed = true;
+          pop.innerHTML = '<div class="ohn-q-bad">' + (e.error === 'not-allowed' || e.error === 'service-not-allowed'
+            ? 'El micrófono está bloqueado: habilitalo en los ajustes del navegador.'
+            : e.error === 'no-speech' ? 'No te escuché. Probá de nuevo.' : 'No pude usar el micrófono.') + '</div>';
+          qBox.classList.add('open');
+        };
+        rec.onend = function () {
+          mic.classList.remove('rec');
+          rec = null;
+          input.placeholder = ph;
+          if (!failed && input.value.trim()) runInput();
+        };
+        rec.start();
+      });
+    }
     pop.addEventListener('mousedown', function (ev) {
       var ex = ev.target.closest('.ohn-q-ex');
       if (!ex) return;
@@ -521,18 +548,36 @@
     askLink = null;
     if (!a) return;
     if (a.sec === 'h2h1' && typeof window.openH2vsH1 === 'function') return window.openH2vsH1();
-    if (a.sec === 'detailcountry' || a.sec === 'okr') return window.goToSection(a.sec);
     if (a.q) {
       var plan = planQuery(a.q);
-      if (plan.items.length) applyPlan(plan);
+      if (plan.items.length || plan.section) runPlan(plan);
     }
   }
 
-  // Traduce el texto a cambios concretos de filtro, resueltos contra el año fiscal del tablero.
+  // Traduce el texto a cambios concretos de filtro, resueltos contra el año fiscal del tablero. Lo lee el mismo intérprete
+  // que el buscador de la portada: sin relleno ("como viene"), con lo que el dictado escribe mal y con los temas.
   function planQuery(text) {
-    var r = window.OwniaFilters.parse(text), plan = { items: [], unknown: r.unknown.slice() };
+    var F = window.OwniaFilters, A = window.PortalAsk;
+    var a = A ? A.parse(text) : null;
+    var r = F.parse(a ? a.filterText : text);
+    var plan = { items: [], unknown: (a ? a.unknown : r.unknown).slice(), section: null, away: false };
+    if (a) {
+      // El intérprete no pasa "limpiar" en filterText: no es un filtro para mandar a otro tablero.
+      F.parse(A.fixVoice(text)).matches.forEach(function (m) { if (m.dim === 'accion') r.matches.push(m); });
+      a.topics.forEach(function (t) {
+        if (t === 'run_rate') r.matches.push({ dim: 'goal', value: 'runRate', label: 'vs Run Rate', text: 'run rate' });
+        else if (t === 'api') r.matches.push({ dim: 'canal', value: 'may', label: 'API', text: 'api' });
+        else if (Q_SECTIONS[t]) plan.section = plan.section || Q_SECTIONS[t];
+        else if (!Q_HERE[t]) plan.away = true;
+      });
+      if (a.freq) plan.away = plan.away || !a.topics.length;
+    }
     var fy = window.FY_MONTHS || [], months = [];
     r.matches.forEach(function (m) {
+      if (m.not) {
+        (m.dim === 'grupo' ? HISPA : [m.value]).forEach(function (c) { plan.items.push({ dim: 'paisNot', value: c, label: m.label }); });
+        return;
+      }
       if (m.dim === 'periodo') {
         var p = m.value, got = [];
         if (p.kind === 'month') got = fy.filter(function (ym) { return ym.slice(5) === p.mm && (!p.yy || ym.slice(2, 4) === p.yy); });
@@ -578,9 +623,27 @@
       if (it.dim === 'accion') return '<span class="ohn-q-chip">Quitar filtros de país y producto</span>';
       return '<span class="ohn-q-chip"><i>' + esc(Q_DIM[it.dim] || it.dim) + '</i>' + esc(it.label) + '</span>';
     }).join('');
-    return (chips ? '<div class="ohn-q-chips">' + chips + '</div>' : '<div>No reconocí ningún filtro.</div>') +
-      (plan.unknown.length ? '<div class="ohn-q-bad">No entendí: ' + esc(plan.unknown.join(', ')) + '</div>' : '') +
+    if (plan.section) chips += '<span class="ohn-q-chip"><i>Abrir</i>' + esc(plan.section[1]) + '</span>';
+    return (chips ? '<div class="ohn-q-chips">' + chips + '</div>' : plan.away ? '' : '<div>No reconocí ningún filtro.</div>') +
+      (plan.away ? '<div class="ohn-q-bad">Eso no está en este tablero: buscalo desde Home.</div>' : '') +
+      (plan.unknown.length ? '<div class="ohn-q-bad">No usé: ' + esc(plan.unknown.join(', ')) + '</div>' : '') +
       (chips ? '<div class="ohn-q-hint">Enter para aplicar · Esc para cancelar</div>' : '');
+  }
+
+  // Aplica los filtros y, si el texto pedía una sección, la abre.
+  function runPlan(plan) {
+    applyPlan(plan);
+    var s = plan.section && plan.section[0];
+    if (!s) return;
+    if (s === 'h2h1') { if (typeof window.openH2vsH1 === 'function') window.openH2vsH1(); return; }
+    if (s === 'bench') {
+      window.goToSection(lastLob);
+      var wrap = document.getElementById('ohn-detail-wrap'), el = document.getElementById('comp-pnl-section');
+      if (wrap && !wrap.classList.contains('open')) wrap.querySelector('.ohn-detail-btn').click();
+      if (el) setTimeout(function () { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 60);
+      return;
+    }
+    window.goToSection(s);
   }
 
   // Aplica el plan con los mismos estados que usan los filtros del Hub, y recarga una sola vez.
@@ -594,9 +657,10 @@
       window._selectedProducto = 'all';
       dataChanged = true;
     }
-    if (by.pais) {
-      var order = window.PAISES_ORDER || [];
-      window._selectedPaises = order.filter(function (p) { return by.pais.indexOf(p) >= 0; });
+    if (by.pais || by.paisNot) {
+      // "sin brasil" = todos menos Brasil; "hispa sin chile" = Hispa menos Chile.
+      var order = window.PAISES_ORDER || [], not = by.paisNot || [];
+      window._selectedPaises = order.filter(function (p) { return (!by.pais || by.pais.indexOf(p) >= 0) && not.indexOf(p) < 0; });
       dataChanged = true;
     }
     if (by.producto) { window._selectedProducto = last('producto'); dataChanged = true; }
@@ -623,9 +687,10 @@
       goalChanged = true;
     }
     var lob = by.lob ? last('lob') : null;
-    if (by.canal) {
-      // Mayoristas / Minoristas existen solo en B2B: el canal lleva a B2B.
-      st.canal = last('canal');
+    // HTML / API existen solo en B2B: el canal lleva a B2B; "b2b" a secas desde HTML o API vuelve al total de B2B.
+    var canal = by.canal ? last('canal') : lob === 'b2b' && st.canal !== 'all' ? 'all' : null;
+    if (canal) {
+      st.canal = canal;
       lob = 'b2b';
       Array.prototype.forEach.call(document.querySelectorAll('#canal-fg .canal-toggle button'), function (b) {
         b.classList.toggle('active', b.dataset.c === st.canal);
@@ -711,7 +776,7 @@
   // B2B2C y Total; B2B o B2B2C: el total del negocio y sus grupos de países (los que están en cero
   // en las tres métricas no se muestran). Cada celda: valor en USD $M, YoY y desvío vs la referencia
   // elegida (con "Last Year" elegido, el YoY ya está arriba y el desvío es vs Budget).
-  var DECK_ALL = [['MIN', 'B2B-MIN'], ['MAY', 'B2B-MAY'], ["WL's", 'B2B2C'], ['Total', 'Total']];
+  var DECK_ALL = [['MIN', 'HTML'], ['MAY', 'API'], ["WL's", 'B2B2C'], ['Total', 'Total']];
   var ABS_KEY = { budget: 'varBudAbs', runRate: 'varRRAbs', forecast: 'varFcAbs' };
   function fmtM(v) {
     var m = (+v || 0) / 1e6, d = Math.abs(m) < 1 && m !== 0 ? 2 : 1;
@@ -728,7 +793,7 @@
       if (cols.every(function (c) { return c.i >= 0; })) return cols;
     }
     var rows = st.pnl.rows.filter(function (r) { return KPIS.some(function (k) { return k[0] === r.id; }); });
-    var out = [{ i: ti, name: st.lob === 'all' ? 'Total' : LOB_NAME[st.lob] }];
+    var out = [{ i: ti, name: st.lob === 'all' ? 'Total' : bizName(st) }];
     g.slice(0, ti).forEach(function (name, i) {
       var used = rows.some(function (r) { var c = r.cols[i] || {}; return +c.actual || +c.budget || +c.lyVal; });
       if (used) out.push({ i: i, name: name === 'OPS+RG' ? 'OPS + RG' : name });
@@ -746,10 +811,7 @@
     KPIS.forEach(function (k) {
       var row = st.pnl.rows.filter(function (r) { return r.id === k[0]; })[0];
       if (!row) return;
-      var fy = fyStats(k[0]);
       html += '<div class="d-row"><b>' + esc(k[1]) + '</b><span>USD $M</span>' +
-        (fy ? '<small>Año a la fecha (' + esc(fy.ytdLbl) + '): ' + fmtM(fy.ytd) + ' <i class="' + semaforo(fy.ytdPct) + '">' + pctShort(fy.ytdPct) + '</i></small><small>' +
-          'Cierre ' + esc(fy.fyLbl) + ' proy.: ' + fmtM(fy.fy) + ' <i class="' + semaforo(fy.fyPct) + '">' + pctShort(fy.fyPct) + '</i> vs Budget</small>' : '') +
         '</div>';
       cols.forEach(function (col) {
         var c = row.cols[col.i] || {};
@@ -779,22 +841,30 @@
       var mb = by.gb.budget ? c.budget / by.gb.budget * 100 : null, ml = by.gb.lyVal ? c.lyVal / by.gb.lyVal * 100 : null;
       return name + ' <b>' + m.toFixed(1) + '%</b> del GB (' + pp(mb === null ? null : m - mb) + ' vs Budget · ' + pp(ml === null ? null : m - ml) + ' vs LY)';
     };
-    return '<p><span>Margen</span>' + one('nr', 'Net Revenue') + ' · ' + one('oc', 'OC') + '.</p>';
+    return '<p><span>Margen</span>' + one('nr', 'Net Revenue') + ' · ' + one('oc', 'Operating Contribution') + '.</p>';
   }
 
-  // OKR del semestre, una línea (el detalle está en "Ver detalle").
+  // OKR, una línea (el detalle está en "Ver detalle"). Siempre los dos semestres: H1 cerrado y H2, que es el que está en juego,
+  // aunque el período elegido sea de H1. El H2 del Hub es contable: real + proyección contra Budget.
   function okrHtml(st) {
-    var o = st.okr;
-    if (!o) return '';
+    var all = st.okrAll;
+    if (!all && !st.okr) return '';
+    // Por ahora HTML y API ven los dos OKR: el de B2B y KR Global B2B API (Diego, 2026-10-31).
     var keys = st.lob === 'b2b2c' ? ['b2b2c'] : st.lob === 'b2b' ? ['b2b', 'globales'] : ['b2b2c', 'b2b', 'globales'];
-    var parts = keys.filter(function (k) { return o[k] && isFinite(o[k].halfTotal); }).map(function (k) {
-      var v = o[k].halfTotal, cls = v >= 100 ? 'g' : v >= 80 ? 'a' : 'r';
-      return esc(o[k].label) + ' <b class="k-pct ' + cls + '">' + (v < 70 ? '&lt;70' : Math.min(v, 130).toFixed(0)) + '%</b>';
-    });
-    if (!parts.length) return '';
-    var h = window._okrHalf ? ' ' + window._okrHalf : '';
-    return '<p><span>OKR' + esc(h) + '</span>' + parts.join(' · ') +
-      ' <button type="button" class="ohn-okr-go">Ver KRs</button></p>';
+    var line = function (o) {
+      return keys.filter(function (k) { return o && o[k] && isFinite(o[k].halfTotal) && o[k].halfTotal !== null; }).map(function (k) {
+        var v = o[k].halfTotal, cls = v >= 100 ? 'g' : v >= 80 ? 'a' : 'r';
+        return esc(o[k].label) + ' <b class="k-pct ' + cls + '">' + (v < 70 ? '&lt;70' : Math.min(v, 130).toFixed(0)) + '%</b>';
+      }).join(' · ');
+    };
+    var btn = ' <button type="button" class="ohn-okr-go">Ver KRs</button>';
+    if (!all) {
+      var one = line(st.okr), h = window._okrHalf ? ' ' + window._okrHalf : '';
+      return one ? '<p><span>OKR' + esc(h) + '</span>' + one + btn + '</p>' : '';
+    }
+    var h2 = line(all.H2), h1 = line(all.H1);
+    return (h2 ? '<p><span>OKR H2</span>' + h2 + ' <i class="ohn-okr-note">real + proyección</i>' + btn + '</p>' : '') +
+      (h1 ? '<p><span>OKR H1</span>' + h1 + ' <i class="ohn-okr-note">cerrado</i>' + (h2 ? '' : btn) + '</p>' : '');
   }
 
   // Semáforo único (mismo criterio que _deltaState_ del Hub): verde ≥ 0%, ámbar −5% a 0%, rojo < −5%.
@@ -819,21 +889,69 @@
     if (!e || !e.periods || !FY || !last) return null;
     var m = (e.metrics || []).filter(function (x) { return x.id === id; })[0];
     if (!m) return null;
-    var ytd = 0, ytdB = 0, fy = 0, fyB = 0, n = 0;
+    var s = { h1: { a: 0, b: 0 }, h2: { a: 0, b: 0 }, fy: { a: 0, b: 0 } }, n = 0;
     e.periods.forEach(function (ym, i) {
       if (ym < FY[0] || ym > FY[11]) return;
       var a = m.actuals[i], b = m.budget[i];
       if (a === null || a === undefined || b === null || b === undefined) return;
-      fy += a; fyB += b; n++;
-      if (ym <= last) { ytd += a; ytdB += b; }
+      var half = ym <= FY[5] ? s.h1 : s.h2;
+      half.a += a; half.b += b; s.fy.a += a; s.fy.b += b; n++;
     });
-    if (!n || !fyB) return null;
+    if (!n || !s.fy.b) return null;
+    var done = function (x) { x.pct = x.b ? (x.a - x.b) / Math.abs(x.b) * 100 : null; x.delta = x.a - x.b; return x; };
     var mon = function (ym) { var L = window.MONTH_LABELS || {}; return String(L[ym.split('-')[1]] || '').slice(0, 3).toLowerCase(); };
     return {
-      ytd: ytd, ytdPct: ytdB ? (ytd - ytdB) / Math.abs(ytdB) * 100 : null,
-      ytdLbl: last >= FY[0] ? mon(FY[0]) + '–' + mon(last) : '',
-      fy: fy, fyPct: (fy - fyB) / Math.abs(fyB) * 100, fyLbl: 'FY' + String(FY[11]).slice(2, 4),
+      h1: done(s.h1), h2: done(s.h2), fy: done(s.fy),
+      h1Lbl: mon(FY[0]) + '–' + mon(FY[5]), h2Lbl: mon(FY[6]) + '–' + mon(FY[11]), fyLbl: 'FY' + String(FY[11]).slice(2, 4),
+      h1Open: last < FY[5], h2Started: last >= FY[6],
     };
+  }
+
+  // "¿Cómo viene el año?": H1 / H2 / año contra Budget. No depende del período elegido; sí de los filtros de país y producto.
+  function yearHtml() {
+    var rows = KPIS.map(function (k) { return [k[1], fyStats(k[0])]; }).filter(function (r) { return r[1]; });
+    if (!rows.length) return '';
+    var f = rows[0][1];
+    var cell = function (x) {
+      return '<td><b>' + fmtM(x.a) + '</b><span class="' + (x.pct === null ? 'n' : semaforo(x.pct)) + '">' +
+        (x.pct === null ? '—' : moneyDelta(x.delta) + ' (' + pctShort(x.pct) + ')') + '</span></td>';
+    };
+    return '<div class="ohn-yr"><h3>¿Cómo viene el año? <span style="font-weight:500;color:#6b6b85">vs Budget · USD $M</span></h3><div class="ohn-yr-wrap"><table><thead><tr><th></th>' +
+      '<th>H1 <small>' + esc(f.h1Lbl) + ' · ' + (f.h1Open ? 'real + proyección' : 'real') + '</small></th>' +
+      '<th>H2 <small>' + esc(f.h2Lbl) + ' · ' + (f.h2Started ? 'real + proyección' : 'proyección (Run Rate)') + '</small></th>' +
+      '<th>' + esc(f.fyLbl) + ' <small>cierre proyectado</small></th></tr></thead><tbody>' +
+      rows.map(function (r) { return '<tr><td>' + esc(r[0]) + '</td>' + cell(r[1].h1) + cell(r[1].h2) + cell(r[1].fy) + '</tr>'; }).join('') +
+      '</tbody></table></div></div>';
+  }
+
+  // Línea de la frase de lectura: el negocio (o grupo) con peor Operating Contribution, que el total puede tapar.
+  function worstLine(st, goal) {
+    var g2 = st.goal === 'lastYear' ? 'budget' : st.goal, vs = (g2 === st.goal ? goal : GOALS[g2])[1];
+    var pctKey = GOALS[g2][0], absKey = ABS_KEY[g2], ti = st.pnl.groups.length - 1;
+    var row = function (id) { return st.pnl.rows.filter(function (r) { return r.id === id; })[0]; };
+    var oc = row('oc'), nr = row('nr');
+    if (!oc) return '';
+    var worst = null;
+    deckCols(st).forEach(function (c) {
+      var x = c.i !== ti && oc.cols[c.i];
+      if (x && isFinite(x[absKey]) && isFinite(x[pctKey]) && x[pctKey] < AMBER_FROM && x[absKey] < 0 && (!worst || x[absKey] < worst.x[absKey])) worst = { c: c, x: x };
+    });
+    if (!worst) return '';
+    var part = function (name, x) { return name + ' ' + moneyDelta(x[absKey]) + ' (' + pctTxt(x[pctKey], true) + ')'; };
+    var n = nr && nr.cols[worst.c.i];
+    return '<span>Lo que más pesa en contra: <b>' + esc(worst.c.name) + '</b>, ' +
+      (n && isFinite(n[absKey]) && n[absKey] < 0 && isFinite(n[pctKey]) ? part('Net Revenue', n) + ' y ' : '') +
+      part('Operating Contribution', worst.x) + ' vs ' + esc(vs) + '.</span>';
+  }
+
+  // Línea de la frase: cómo viene el Operating Contribution en el año, para que un H1 bueno no tape un H2 flojo.
+  function yearLine() {
+    var f = fyStats('oc');
+    if (!f || f.h1.pct === null || f.h2.pct === null) return '';
+    var h2 = 'H2 ' + (f.h2Started ? 'viene' : 'proyecta') + ' ' + pctTxt(f.h2.pct, true);
+    var cover = f.h1.pct >= 0 && f.h2.pct < 0 && f.fy.pct >= 0;
+    return '<span><b>En el año</b>, Operating Contribution vs Budget: H1 ' + pctTxt(f.h1.pct, true) + ', ' + h2 + ' y cierre ' + esc(f.fyLbl) + ' ' + pctTxt(f.fy.pct, true) +
+      (cover ? ': H2 queda abajo y lo compensa lo ganado en H1.' : '.') + '</span>';
   }
 
   // Frase de lectura: desvío de GB del período con los 3 grupos que más lo explican, y qué pasa con
@@ -848,8 +966,12 @@
     var drivers = '';
     if (gbWf && gbWf.byGroup) {
       var neg = tot.gb < 0;
+      // Contra la misma referencia que el total (g.delta es siempre vs Budget). Igual que el waterfall del Hub: sin Forecast cargado, Budget.
+      var gRef = function (g) {
+        return st.goal === 'forecast' ? (g.forecast || g.budget) : st.goal === 'runRate' ? g.runRate : g.budget;
+      };
       var gs = gbWf.byGroup.map(function (g) {
-        return { label: g.label, d: st.goal === 'lastYear' ? g._yoyAbs : g.delta };
+        return { label: g.label, d: st.goal === 'lastYear' ? (g.baseYoY !== null && isFinite(g.baseYoY) ? g.baseline - g._yoyAbs : NaN) : g.baseline - (gRef(g) || 0) };
       }).filter(function (g) {
         // Solo los que pesan (≥ 10% del desvío total): "Brasil −$40K" es ruido en la frase.
         return isFinite(g.d) && (neg ? g.d < 0 : g.d > 0) && Math.abs(g.d) >= Math.abs(tot.gb) * 0.1;
@@ -865,19 +987,20 @@
     var s = '<b>Gross Bookings ' + moneyDelta(tot.gb) + ' ' + esc(vsTxt) + '</b>' + extra + drivers + '.';
     var nr = tot.nr, oc = tot.oc;
     if (isFinite(nr) && isFinite(oc)) {
-      var both = 'Net Revenue ' + moneyDelta(nr) + ' y Operating Contribution ' + moneyDelta(oc);
-      if (tot.gb < 0 && nr >= 0 && oc >= 0) s += ' ' + both + ': vendemos menos volumen que el plan, con mejor margen.';
+      var both = 'En el total, Net Revenue ' + moneyDelta(nr) + ' y Operating Contribution ' + moneyDelta(oc);
+      if (tot.gb < 0 && nr >= 0 && oc >= 0) s += ' ' + both + ': menos volumen que el plan, con mejor margen.';
       else if (tot.gb >= 0 && nr >= 0 && oc >= 0) s += ' ' + both + ': los tres indicadores le ganan al ' + esc(goal[1]) + '.';
       else if (tot.gb >= 0 && oc < 0) s += ' ' + both + ': crece el volumen, pero la rentabilidad queda abajo.';
       else s += ' ' + both + '.';
     }
-    return '<p class="ohn-read">' + s + '</p>';
+    return '<p class="ohn-read">' + s + worstLine(st, goal) + yearLine() + '</p>';
   }
 
   // Benchmark vs B2C en una línea: crecimiento del GB contra B2C y peso en Despegar (de _state.compPnl).
   function benchHtml(st) {
     var cp = st.compPnl;
     if (!cp || !cp.groups || !cp.rows) return '';
+    if (st.lob === 'b2b' && st.canal !== 'all') return '';   // con canal, ese cuadro filtra también B2C y el total: la comparación no da
     var me = { all: 'B2B + B2B2C', b2b: 'B2B', b2b2c: 'WLs (B2B2C)' }[st.lob];
     var iMe = cp.groups.indexOf(me), iB2c = cp.groups.indexOf('B2C'), iTot = cp.groups.indexOf('Total Portfolio');
     var row = function (id) { return cp.rows.filter(function (r) { return r.id === id; })[0]; };
@@ -892,7 +1015,7 @@
     var name = { all: 'B2B + B2B2C', b2b: 'B2B', b2b2c: 'B2B2C' }[st.lob];
     return '<p><span>Contra B2C</span>El GB de ' + esc(name) + ' crece ' + pctTxt(a.yoyPct) +
       ' vs ' + pctTxt(b.yoyPct) + ' de B2C' +
-      (sg !== null ? ' · somos el <b>' + sg.toFixed(0) + '%</b> del GB' + (so !== null ? ' y el <b>' + so.toFixed(0) + '%</b> del OC' : '') + ' de Despegar' : '') +
+      (sg !== null ? ' · somos el <b>' + sg.toFixed(0) + '%</b> del GB' + (so !== null ? ' y el <b>' + so.toFixed(0) + '%</b> del Operating Contribution' : '') + ' de Despegar' : '') +
       '.</p>';
   }
 
@@ -902,6 +1025,31 @@
   // mueve a un bloque plegado al final. Se mueven nodos, no se copian: el Hub los sigue llenando.
   var DETAIL_KEY = 'ohn-hub-detail';
   function detailOpen() { try { return localStorage.getItem(DETAIL_KEY) === '1'; } catch (e) { return false; } }
+  // Drill-down del año (actual, Budget y LY contra B2C): selector de métrica en vez de tres gráficos seguidos. Los tres se siguen
+  // dibujando; el selector solo elige cuál se ve. Abre en Operating Contribution, como el waterfall.
+  function setupDrillTabs() {
+    var sec = document.getElementById('drilldown-section'), grid = sec && sec.querySelector('.drilldown-grid');
+    if (!grid || sec.querySelector('.ohn-ddtabs')) return;
+    var box = document.createElement('div');
+    box.className = 'ohn-ddtabs';
+    box.setAttribute('role', 'group');
+    box.setAttribute('aria-label', 'Métrica del gráfico');
+    KPIS.forEach(function (k) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.dataset.dd = k[0];
+      b.textContent = k[1];
+      box.appendChild(b);
+    });
+    var pick = function (id) {
+      sec.setAttribute('data-dd', id);
+      Array.prototype.forEach.call(box.children, function (b) { b.setAttribute('aria-pressed', String(b.dataset.dd === id)); });
+      setTimeout(function () { window.dispatchEvent(new Event('resize')); }, 30);   // Chart.js en nodos que estaban ocultos
+    };
+    box.addEventListener('click', function (ev) { if (ev.target.dataset.dd) pick(ev.target.dataset.dd); });
+    sec.insertBefore(box, grid);
+    pick('oc');
+  }
   function foldDetail() {
     var evoSec = document.getElementById('chart-evo') && document.getElementById('chart-evo').closest('.sec');
     var main = document.querySelector('main');
@@ -912,16 +1060,16 @@
       wrap.className = 'sec';   // el Hub muestra/oculta los .sec del P&L al cambiar de sección
       wrap.id = 'ohn-detail-wrap';
       wrap.innerHTML = '<button type="button" class="ohn-detail-btn" aria-expanded="false" aria-controls="ohn-detail"></button>' +
-        '<p class="ohn-detail-sub">Cuadro Resumen y OKR · Net Revenue y Operating Contribution por grupo y por concepto · ' +
-        'evolución por país · benchmark completo vs B2C · drill-down del año</p><div id="ohn-detail"></div>';
+        '<p class="ohn-detail-sub">Cuadro Resumen y OKR · Gross Bookings y Net Revenue por grupo y por concepto · ' +
+        'benchmark completo vs B2C · evolución comparada con B2C</p><div id="ohn-detail"></div>';
       evoSec.parentNode.insertBefore(wrap, evoSec.nextSibling);
       var det = wrap.querySelector('#ohn-detail');
       var pnlSec = document.getElementById('pnl-title') && document.getElementById('pnl-title').closest('.sec');
       var more = document.createElement('div'); more.id = 'ohn-wf-more'; more.className = 'wf-grid';
-      var evoT = document.createElement('div'); evoT.className = 'evo-card ohn-evo-tables';
-      ['evo-yoy-table', 'evo-ctry-table'].forEach(function (id) { var el = document.getElementById(id); if (el) evoT.appendChild(el); });
-      [pnlSec, more, evoT, document.getElementById('comp-pnl-section'), document.getElementById('breakdown-section'),
+      // Las tablas de YoY quedan en su lugar del Hub, debajo del gráfico de evolución: se leen de corrido.
+      [pnlSec, more, document.getElementById('comp-pnl-section'), document.getElementById('breakdown-section'),
         document.getElementById('drilldown-section')].forEach(function (el) { if (el) det.appendChild(el); });
+      setupDrillTabs();
       wrap.querySelector('.ohn-detail-btn').onclick = function () {
         var on = !wrap.classList.contains('open');
         try { localStorage.setItem(DETAIL_KEY, on ? '1' : '0'); } catch (e) { /* sin storage: solo esta vista */ }
@@ -936,7 +1084,7 @@
       var gl = goalOf(st)[1], per = document.getElementById('period-label-bar');
       var sel = (st.selectedPeriods || []).slice().sort(), last = st.filters && st.filters.lastActuals;
       var base = sel.length && last && sel[sel.length - 1] <= last ? 'Real' : 'Real + proyección';
-      wfT.textContent = '¿Dónde está el desvío? ' + base + ' vs ' + gl + ' por grupo de países' + (per ? ' · ' + label(per) : '');
+      wfT.textContent = '¿Dónde está el desvío de Operating Contribution? ' + base + ' vs ' + gl + (per ? ' · ' + label(per) : '');
     }
     Array.prototype.forEach.call(document.querySelectorAll('#wf-grid td, #ohn-wf-more td'), function (td) {
       if (td.children.length) return;
@@ -944,149 +1092,24 @@
       if (t === 'Baseline YoY %') td.textContent = 'vs año pasado';
       else if (t === 'Actuals + RR') td.textContent = 'Real + proyección';
     });
-    // Waterfalls: el Hub vacía #wf-grid en cada render; el primero (GB por grupo) queda a la vista.
+    // Waterfalls: el Hub vacía #wf-grid en cada render; el de Operating Contribution queda a la vista, los otros en el detalle.
     var grid = document.getElementById('wf-grid'), more2 = document.getElementById('ohn-wf-more');
     if (grid && more2) {
       more2.innerHTML = '';
-      Array.prototype.slice.call(grid.children, 1).forEach(function (c) { more2.appendChild(c); });
-      var first = grid.children[0];
-      if (first && !first.querySelector('.ohn-wf-note') && /OPS\+RG/.test(first.textContent)) {
+      var kids = Array.prototype.slice.call(grid.children);
+      var keep = kids.filter(function (c) { return c.querySelector('#wfc-oc'); })[0] || kids[0];
+      kids.forEach(function (c) { if (c !== keep) more2.appendChild(c); });
+      if (keep && !keep.parentNode.querySelector('.ohn-wf-note')) {
         var note = document.createElement('p');
         note.className = 'ohn-wf-note';
         note.textContent = 'Hispa = Argentina, Chile, Colombia, Perú y Ecuador · Globales = Other Countries · ' +
-          'OPS+RG no es un país: son imputaciones de operaciones y regionales, por eso puede tener resultado sin volumen.';
-        first.appendChild(note);
+          'OPS+RG revierte el COI de Brasil. El Budget trae el COI y su reversión en todos los meses; el Run Rate, ninguno de los dos: ' +
+          'en los meses proyectados, Brasil y OPS+RG se compensan entre sí.';
+        keep.parentNode.appendChild(note);
       }
     }
   }
-  // ── Visión del OC (al final de la página) ──────────────────────────────────────────────────
-  // Barras mensuales de _state.evo: Actuals / Run Rate en un solo azul y Goal en gris, sin grilla ni
-  // líneas encima: el YoY % va en una tabla debajo, cada columna
-  // alineada con su mes (la geometría se toma del chartArea en cada layout del chart).
-  function renderOcEvo() {
-    var st = window._state, d = st && st.evo;
-    if (!d || !d.metrics || typeof window._groupEvo !== 'function' || typeof window.Chart !== 'function') return;
-    var m = d.metrics.filter(function (x) { return x.id === 'oc'; })[0];
-    if (!m) return;
-    var sec = document.getElementById('ohn-oc-wrap');
-    var after = document.getElementById('ohn-detail-wrap');
-    if (!sec) {
-      if (!after) return;
-      sec = document.createElement('div');
-      sec.className = 'sec';   // el Hub muestra/oculta los .sec del P&L al cambiar de sección
-      sec.id = 'ohn-oc-wrap';
-      sec.innerHTML = '<div class="evo-card"><div class="evo-hdr"><div style="display:flex;align-items:center;gap:10px">' +
-        '<h3>Operating Contribution</h3><span id="ohn-oc-badge"></span></div></div>' +
-        '<div class="evo-subtitle" id="ohn-oc-sub"></div>' +
-        '<div class="evo-wrap"><canvas id="ohn-oc-chart"></canvas></div>' +
-        '<div id="ohn-oc-yoy" style="overflow:hidden"></div></div>';
-    }
-    if (after && sec.previousSibling !== after) after.parentNode.insertBefore(sec, after.nextSibling);
 
-    var goalKey = st.goal === 'forecast' ? 'forecast' : st.goal === 'runRate' ? 'runRate' : 'budget';
-    var goalLabel = st.goal === 'lastYear' ? 'Budget' : goalOf(st)[1];
-    var grps = window._groupEvo(d, m, null, goalKey, 'M');
-    var fmt = window.fmtK || fmtMoney;
-    var isNum = function (v) { return v !== null && v !== undefined && isFinite(v); };
-    var labels = grps.map(function (g) { return g.label; });
-    var main = grps.map(function (g) { return g.actuals !== null ? g.actuals : g.runRate; });
-    var goal = grps.map(function (g) { return g.goal; });
-
-    // YoY: en organic con Goal Budget/Forecast, contra la serie a TC Actuals LY (como la tabla del Hub).
-    var yoyVal = d.periods.map(function (ym, i) {
-      if (m.actualsYoY && isNum(m.actuals[i])) return m.actualsYoY[i];
-      if (m.runRateYoY && m.runRate && isNum(m.runRate[i]) && !isNum(m.actuals[i])) return m.runRateYoY[i];
-      return null;
-    });
-    var cols = grps.map(function (g, i) {
-      var v = isNum(yoyVal[i]) ? yoyVal[i] : main[i], ly = g.lyAct;
-      var ok = isNum(v) && isNum(ly);
-      return { pct: ok && ly ? (v - ly) / Math.abs(ly) * 100 : null };
-    });
-
-    // Badge: cierre FY (real + proyección) vs Goal, mismo cálculo que la evolución del Hub.
-    var fyB = 0, fyG = 0;
-    grps.forEach(function (g) {
-      var v = g.actuals !== null ? g.actuals : g.runRate;
-      var ref = st.goal === 'forecast' ? (g.forecast || g.budget) : st.goal === 'runRate' ? g.goal : g.budget;
-      if (g.isFY && isNum(v) && isNum(ref)) { fyB += v; fyG += ref; }
-    });
-    var badge = document.getElementById('ohn-oc-badge');
-    if (fyG) {
-      var p = (fyB - fyG) / Math.abs(fyG) * 100;
-      badge.className = p >= 0 ? 'badge-ok' : 'badge-bad';
-      badge.textContent = 'FY' + String(window.FY_MONTHS[11]).slice(2, 4) + ' proyectado ' + (p >= 0 ? '+' : '') + p.toFixed(1) + '% vs ' + goalLabel;
-    } else { badge.className = ''; badge.textContent = ''; }
-    document.getElementById('ohn-oc-sub').textContent = 'Evolución mensual · Actuals / Run Rate vs ' + goalLabel +
-      ' · debajo, crecimiento YoY de cada mes';
-
-    var tbl = document.getElementById('ohn-oc-yoy');
-    var pctCell = function (c) {
-      if (!isNum(c.pct)) return '<td class="n">—</td>';
-      var a = Math.abs(c.pct);
-      return '<td class="' + (c.pct >= 0 ? 'g' : 'r') + '">' + (c.pct >= 0 ? '+' : '−') + (a < 10 ? a.toFixed(1) : a.toFixed(0)) + '%</td>';
-    };
-    tbl.innerHTML = '<table class="ohn-oc-tbl"><colgroup><col class="ohn-oc-h">' +
-      cols.map(function () { return '<col>'; }).join('') + '<col class="ohn-oc-r"></colgroup><tbody>' +
-      '<tr><td>YoY %</td>' + cols.map(pctCell).join('') + '<td></td></tr>' +
-      '</tbody></table>';
-
-    // Columnas de la tabla = categorías del eje X del chart.
-    function align(chart) {
-      var t = tbl.querySelector('table'), a = chart.chartArea;
-      if (!t || !a) return;
-      var w = chart.width, n = cols.length || 1;
-      t.style.width = w + 'px';
-      t.querySelector('.ohn-oc-h').style.width = a.left + 'px';
-      t.querySelector('.ohn-oc-r').style.width = Math.max(0, w - a.right) + 'px';
-      Array.prototype.forEach.call(t.querySelectorAll('col:not(.ohn-oc-h):not(.ohn-oc-r)'), function (c) {
-        c.style.width = ((a.right - a.left) / n) + 'px';
-      });
-    }
-
-    if (typeof window.destroyChart === 'function') window.destroyChart('ohn-oc-chart');
-    else if (window._ohnOcChart) window._ohnOcChart.destroy();
-    var canvas = document.getElementById('ohn-oc-chart');
-    var chart = new window.Chart(canvas, {
-      type: 'bar',
-      data: { labels: labels, datasets: [
-        { label: 'Actuals / Run Rate', data: main, backgroundColor: '#5457D9', borderRadius: 4, order: 2 },
-        { label: goalLabel, data: goal, backgroundColor: 'rgba(140,149,159,.3)', borderRadius: 4, order: 3 },
-      ] },
-      options: {
-        responsive: true, maintainAspectRatio: false, layout: { padding: { top: 16 } },
-        plugins: {
-          legend: { labels: { color: '#57606a', font: { size: 11 }, boxWidth: 12 } },
-          tooltip: { callbacks: { label: function (c) { return ' ' + c.dataset.label + ': ' + (isNum(c.raw) ? fmt(c.raw) : '—'); } } },
-        },
-        scales: {
-          x: { grid: { display: false }, border: { display: false }, ticks: { color: '#57606a', font: { size: 10 } } },
-          y: { grid: { display: false }, border: { display: false }, ticks: { color: '#57606a', font: { size: 10 }, callback: function (v) { return fmt(v); } } },
-        },
-      },
-      plugins: [{
-        id: 'ohnOcLabels',
-        afterLayout: align,
-        afterDatasetsDraw: function (ch) {
-          var ctx = ch.ctx;
-          [[0, '#1f2328', 'bold 10px'], [1, '#8c95a9', 'bold 9px']].forEach(function (s) {
-            var ds = ch.data.datasets[s[0]];
-            ch.getDatasetMeta(s[0]).data.forEach(function (bar, i) {
-              var v = ds.data[i];
-              if (!isNum(v) || v === 0) return;
-              ctx.save();
-              ctx.fillStyle = s[1]; ctx.font = s[2] + ' -apple-system,sans-serif'; ctx.textAlign = 'center';
-              ctx.textBaseline = v < 0 ? 'top' : 'alphabetic';
-              ctx.fillText(fmt(v), bar.x, v < 0 ? bar.y + 4 : bar.y - 4);
-              ctx.restore();
-            });
-          });
-        },
-      }],
-    });
-    if (window._charts) window._charts['ohn-oc-chart'] = chart; else window._ohnOcChart = chart;
-    align(chart);
-  }
 
   function setDetail(wrap, on) {
     wrap.classList.toggle('open', on);
@@ -1163,16 +1186,27 @@
     wrap('render', function () {
       renderTop();
       foldDetail();
-      renderOcEvo();
       if (askLink && window._state && window._state.pnl) setTimeout(applyAskLink, 0);   // fuera del render: puede recargar
       if (!preloaded && window._state && window._state.pnl && typeof window._preloadOtherLobs_ === 'function' && typeof window.getParams === 'function') {
         preloaded = true;
         window._preloadOtherLobs_(window.getParams());
       }
     });
-    wrap('renderEvo', renderOcEvo);   // cambio de Goal sin render completo
+    // El Hub titula el drill-down con el LoB; con HTML o API, el negocio.
+    wrap('renderDrilldown', function () {
+      var t = document.getElementById('drilldown-title'), st = window._state;
+      if (t && st && st.lob === 'b2b' && st.canal !== 'all') t.textContent = t.textContent.replace(/· B2B$/, '· ' + bizName(st));
+    });
     wrap('toggleFiltersPanel', function () { renderTop(); syncDrawer(true); });
     wrap('renderOKR', renderTop);
+    // Las tablas de OKR abren en H2, aunque el período sea de H1: es el semestre en juego y el único con KR Global B2B API. H1 queda en su botón.
+    var okrH2Done = /[?&]embedded=1(&|$)/.test(location.search);
+    wrap('renderOKR', function () {
+      var st = window._state;
+      if (okrH2Done || !st || !st.okrAll || !st.okrAll.H2 || typeof window.setOKRHalf !== 'function') return;
+      okrH2Done = true;
+      if (window._okrHalf !== 'H2') window.setOKRHalf('H2');
+    });
     // Desplegable de país: qué incluye Globales y OPS + RG.
     wrap('_buildPaisPanel', function () {
       var tips = { 'Other Countries': 'Globales = Other Countries (Other / Others / OT en las bases)', 'RG': 'OPS + RG: imputaciones de operaciones y regionales, no es un país' };
@@ -1196,6 +1230,7 @@
     owniaFrames();
     setupDrawer();
     hook();
+    applyStartBiz();
     if (build()) {
       var cur = document.querySelector('.lob-tab.active');
       setActive(cur ? cur.dataset.lob : 'all');

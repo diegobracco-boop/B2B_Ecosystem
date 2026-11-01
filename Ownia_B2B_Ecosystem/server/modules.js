@@ -52,19 +52,23 @@ const MODULES = [
     slug: 'hub',
     dir: 'Dashboard_B2B_WLs',
     title: 'P&L Dashboard',
-    desc: 'Portal central del equipo: P&L, OKR, Detail By Country.',
+    desc: 'El P&L contable por negocio: B2B2C, B2B, HTML y API.',
     // En validación: corre acá en paralelo a GAS (datos del P&L → solo el equipo B2B, como Managerial y
     // Accounting). "Slides cierre de mes" (SlidesApp + Slides API) y los triggers (preComputeAll) siguen en GAS.
     ownia: true,
     validating: true,
     hideGasLink: true,   // 2026-10-28: sin el link "Versión Apps Script" en la tarjeta del menú (Diego)
     allowedUsers: EQUIPO_B2B,
+    quickViews: [['all', 'Consolidado'], ['b2b2c', 'B2B2C'], ['b2b', 'B2B'], ['html', 'HTML'], ['api', 'API']],   // ?view=<negocio>: lo lee public/hub-layout.js
     // Presentación propia de Ownia (public/hub-layout.js): barra fija con el selector de LoB y las
     // secciones en vez del menú hamburguesa; precarga de los otros LoB. El HTML de GAS no cambia.
     // Vista "H2 Budget vs H1" para dirección (public/hub-h2h1.js) y el deck "Slides mensuales"
     // (public/hub-slides.js, textos en /notes/hub/…), 2026-10-26. "Mis slides" (public/hub-builder.js, ?builder=1, 2026-10-29):
     // armador de slides propias con los datos del P&L; las recetas en /notes/hub/builder. Lo embebe Presentaciones.
-    layout: ['filter-aliases.js', 'hub-layout.js', 'hub-h2h1.js', 'hub-slides.js', 'hub-cierre.js', 'hub-builder.js'],
+    // portal-ask.js: el intérprete del buscador de la portada también lee la barra "Filtrar…" (2026-10-31).
+    // hub-marketing.js: lectura de "Marketing & Media Investment" de B2B (¿se paga el marketing?), 2026-10-31.
+    layout: ['filter-aliases.js', 'portal-ask.js', 'hub-layout.js', 'hub-marketing.js', 'hub-h2h1.js', 'hub-slides.js', 'hub-cierre.js', 'hub-builder.js'],
+    gasExtras: ['hub-marketing-canal.js'],
     // getSlidesEvo (Slides mensuales y Mis slides) depende solo de sus parámetros y de los JSON del espejo: se calcula una vez por
     // combinación y día y se reparte comprimida (server/api-cache.js; se invalida cuando cambia un archivo que lee el Hub). 2026-10-30.
     cacheFns: ['getSlidesEvo'],

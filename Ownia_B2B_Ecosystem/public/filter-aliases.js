@@ -39,8 +39,8 @@
       'b2b2c': ['B2B2C', 'b2b2c', 'wl', 'wls', 'white label', 'white labels', 'marca blanca', 'partners']
     },
     canal: {
-      'may': ['Mayoristas', 'may', 'mayorista', 'mayoristas', 'wholesale'],
-      'min': ['Minoristas', 'min', 'minorista', 'minoristas', 'retail']
+      'may': ['API', 'api', 'may', 'mayorista', 'mayoristas', 'wholesale'],
+      'min': ['HTML', 'html', 'min', 'minorista', 'minoristas', 'retail']
     },
     goal: {
       'budget': ['vs Budget', 'budget', 'bud', 'bgt', 'presupuesto', 'plan', 'ppto'],
@@ -85,6 +85,9 @@
   };
   // Palabras de relleno que no son filtros ("brasil vs forecast en sep de 2026").
   var STOP = ['vs', 'contra', 'en', 'de', 'del', 'la', 'el', 'los', 'las', 'y', 'a', 'al', 'para', 'por', 'con', 'mes', 'periodo', 'pais', 'paises', 'producto', 'productos', 'lob', 'canal', 'goal', 'comparar', 'comparado', 'ver'];
+  // Exclusión de países: "sin brasil", "todos menos brasil y mexico". Sale con not: true; lo demás no se puede excluir
+  // ("sin hoteles" va a unknown: el tablero no tiene cómo, y filtrar solo hoteles sería lo contrario de lo pedido).
+  var NEG = ['sin', 'menos', 'excepto', 'salvo', 'sacando', 'quitando'];
 
   function normalize(s) {
     return String(s || '').toLowerCase()
@@ -129,13 +132,35 @@
   function parse(text) {
     var words = normalize(text).split(' ').filter(Boolean);
     var matches = [], unknown = [];
+    function hitAt(pos) {
+      for (var n = Math.min(maxWords, words.length - pos); n >= 1; n--) {
+        var k = words.slice(pos, pos + n).join(' ');
+        if (index[k]) return { n: n, k: k, list: index[k] };
+      }
+      return null;
+    }
+    function isPlace(h) { return !!h && (h.list[0].dim === 'pais' || h.list[0].dim === 'grupo'); }
     for (var i = 0; i < words.length;) {
       var pr = period(words, i);
       if (pr) { matches.push({ dim: 'periodo', value: pr.p, text: words.slice(i, i + pr.len).join(' ') }); i += pr.len; continue; }
-      var hit = null;
-      for (var n = Math.min(maxWords, words.length - i); n >= 1 && !hit; n--) {
-        var k = words.slice(i, i + n).join(' ');
-        if (index[k]) hit = { n: n, k: k, list: index[k] };
+      var hit = hitAt(i);
+      if (!hit && NEG.indexOf(words[i]) >= 0) {
+        var neg = hitAt(i + 1);
+        if (!isPlace(neg)) {
+          unknown.push(words[i] + (neg ? ' ' + neg.k : ''));
+          i += 1 + (neg ? neg.n : 0);
+          continue;
+        }
+        i++;
+        while (isPlace(neg)) {
+          matches.push({ dim: neg.list[0].dim, value: neg.list[0].value, label: neg.list[0].label, text: 'sin ' + neg.k, not: true });
+          i += neg.n;
+          var joined = (words[i] === 'y' || words[i] === 'e' || words[i] === 'ni') && isPlace(hitAt(i + 1));
+          if (!joined) break;
+          i++;
+          neg = hitAt(i);
+        }
+        continue;
       }
       if (hit) {
         var e = hit.list[0];

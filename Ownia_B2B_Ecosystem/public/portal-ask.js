@@ -66,7 +66,6 @@
     ['industry_events', /\bindustry\s+events?(\s+tracker)?\b|\beventos?\s+(de\s+)?industria\b/],
     ['weekly_industry', /\bweekly\s+industr(y|ia)\b|\bkpis?\s+de\s+industria\b|\bindustria\b|\bindustry\b/],
     ['h2h1', /\bh2\s*(vs|contra|x)?\s*h1\b|\bh2\s+budget\s+vs\s+h1\b/],
-    ['por_pais', /\bdetail\s+by\s+country\b|\b(detalle|apertura|abertura)\s+(por|x)\s+pais(es)?\b|\bpor\s+pais(es)?\b/],
     ['mis_slides', /\bmis\s+slides\b|\bminhas\s+slides\b|\barmar\s+(slides|presentacion|deck)\b|\bbuilder\b|\bslides propias\b/],
     ['cierre_slides', /\b(slides?|presentacion|apresentacao|deck)\s+(de\s+)?(cierre|fechamento)(\s+de\s+mes)?\b|\bcierre\s+de\s+mes\b|\bfechamento\s+(do\s+)?mes\b/],
     ['rolling', /\brolling(\s+projections?)?(\s+run\s*rate)?\b|\brun\s*rate\s+automatico\b|\bproyecciones\b|\bprojecoes\b|\bprojections?\b/],
@@ -131,7 +130,7 @@
   function parse(text, partners) {
     var raw = fixVoice(text);
     var s = ' ' + norm(raw) + ' ';
-    var r = { text: String(text || ''), topics: [], freq: null, lob: null, paises: [], grupo: null, periodo: [], goal: null,
+    var r = { text: String(text || ''), topics: [], freq: null, lob: null, paises: [], sinPaises: [], grupo: null, periodo: [], goal: null,
       producto: null, canal: null, partner: null, filterText: '', unknown: [], understood: false };
     if (!s.trim()) return r;
 
@@ -152,6 +151,7 @@
 
     var p = F.parse(s), keep = [];
     p.matches.forEach(function (m) {
+      if (m.not) { r.sinPaises.push(m.value); keep.push(m.text); return; }   // "sin brasil": la aplica el P&L Dashboard (va en filterText)
       if (m.dim === 'lob') r.lob = m.value;
       else if (m.dim === 'pais') { if (r.paises.indexOf(m.value) < 0) r.paises.push(m.value); }
       else if (m.dim === 'grupo') r.grupo = m.value;
@@ -165,7 +165,7 @@
     if (r.canal && !r.lob) r.lob = 'b2b';   // mayoristas / minoristas existen solo en B2B
     r.filterText = keep.join(' ');
     r.unknown = p.unknown.filter(function (w) { return FILLER.indexOf(w) < 0 && !/^\d+$/.test(w); });
-    r.understood = !!(r.topics.length || r.freq || r.lob || r.paises.length || r.grupo || r.partner || r.periodo.length || r.goal || r.producto || r.canal);
+    r.understood = !!(r.topics.length || r.freq || r.lob || r.paises.length || r.sinPaises.length || r.grupo || r.partner || r.periodo.length || r.goal || r.producto || r.canal);
     return r;
   }
 
@@ -192,6 +192,7 @@
       var n = [];
       if (r.paises.length && !can.pais) n.push('País (' + r.paises.map(function (x) { return PAIS_TXT[x] || x; }).join(', ') + ')');
       if (r.grupo && !can.pais) n.push('Países (' + r.grupo + ')');
+      if (r.sinPaises.length && !can.pais) n.push('Países (sin ' + r.sinPaises.map(function (x) { return PAIS_TXT[x] || x; }).join(', ') + ')');
       if (r.partner && !can.partner) n.push('Partner (' + r.partner + ')');
       if (r.periodo.length && !can.periodo) n.push('Período (' + r.periodo.join(', ') + ')');
       if (r.goal && !can.goal) n.push('Comparación (vs ' + GOAL_TXT[r.goal] + ')');
@@ -263,7 +264,6 @@
         case 'weekly_industry': add('weekly-industry', {}, ''); daily('industry'); break;
         case 'industry_events': daily('industry'); add('weekly-industry', {}, ''); break;
         case 'h2h1': add('hub', { sec: 'h2h1' }, 'H2 Budget vs H1'); break;
-        case 'por_pais': add('hub', { sec: 'detailcountry' }, 'Detalle por país'); break;
         case 'mis_slides': flow('builder'); break;
         case 'cierre_slides': flow('cierre'); break;
         case 'rolling': add('rolling-projections', {}, 'Run Rate'); break;
@@ -327,6 +327,7 @@
     var c = [];
     if (r.lob) c.push(LOB_TXT[r.lob]);
     r.paises.forEach(function (p) { c.push(PAIS_TXT[p] || p); });
+    r.sinPaises.forEach(function (p) { c.push('sin ' + (PAIS_TXT[p] || p)); });
     if (r.grupo) c.push(r.grupo);
     if (r.partner) c.push(r.partner);
     r.periodo.forEach(function (p) { c.push(p); });

@@ -69,7 +69,7 @@ test('sinónimos: WLs / white labels = B2B2C, portugués, gestional, cierre de m
   assert.equal(top('okr mensual'), 'okr-b2b2c {"view":"m"}');
   assert.equal(top('gantt'), 'manual {"view":"gantt"}');
   assert.equal(top('h2 vs h1'), 'hub {"sec":"h2h1"}');
-  assert.equal(top('detalle por país'), 'hub {"sec":"detailcountry"}');
+  assert.equal(top('detalle por país'), null);   // Detail By Country salió de la app de Ownia (2026-10-31)
 });
 
 test('filtros: el P&L Dashboard recibe país / período / comparación en ?q=; el resto lo avisa', () => {
@@ -121,6 +121,29 @@ test('dictado: lo que escribe el reconocimiento de voz', () => {
   assert.equal(top(fixVoice('o ka erre producto')), 'okr-b2b2c');
   assert.equal(top(fixVoice('flou semanal')), 'flow {"view":"semanal"}');
   assert.equal(fixVoice('vs badget'), 'vs budget');
+});
+
+test('excluir países: "sin brasil" no filtra Brasil', () => {
+  const F = ctx.OwniaFilters;
+  const pos = (t) => Array.from(F.parse(t).matches).filter((m) => !m.not && m.dim === 'pais').map((m) => m.value).join();
+  const neg = (t) => Array.from(F.parse(t).matches).filter((m) => m.not).map((m) => m.value).join();
+  assert.equal(pos('sin brasil'), '');
+  assert.equal(neg('sin brasil'), 'Brasil');
+  assert.equal(neg('todos menos brasil y mexico'), 'Brasil,Mexico');
+  assert.equal(neg('b2b excepto argentina ni chile'), 'Argentina,Chile');
+  assert.equal(pos('sin brasil y mexico sep'), '');
+  assert.equal(pos('sin brasil en mexico'), 'Mexico');
+  assert.equal(neg('hispa sin chile'), 'Chile');
+  // Lo que no se puede excluir no filtra: queda como no entendido.
+  assert.equal(F.parse('sin hoteles').matches.length, 0);
+  assert.equal(F.parse('sin hoteles').unknown.join(), 'sin hoteles');
+  assert.equal(F.parse('menos').unknown.join(), 'menos');
+  assert.equal(F.parse('sin filtros').matches[0].dim, 'accion');
+  // En la portada llega al P&L Dashboard como filtro, sin marcarlo como país elegido.
+  const r = parse('sin brasil', PARTNERS);
+  assert.equal(r.paises.length, 0);
+  assert.equal(r.sinPaises.join(), 'Brasil');
+  assert.equal(top('sin brasil'), 'hub {"q":"sin brasil"}');
 });
 
 test('hrefOf arma el link con los parámetros', () => {
