@@ -886,7 +886,11 @@ def build(upload=True):
     }
 
     outdir = os.path.join(DIR, "_projections_out")
-    os.makedirs(outdir, exist_ok=True)
+    try:
+        os.makedirs(outdir, exist_ok=True)
+    except PermissionError:   # en Ownia ("Actualizar reales") /app/pipelines es de solo lectura
+        import tempfile
+        outdir = tempfile.mkdtemp(prefix="okr_out_")
     local = os.path.join(outdir, OUTPUT_NAME)
     with open(local, "w", encoding="utf-8") as f:
         json.dump(payload, f, ensure_ascii=False, separators=(",", ":"))
