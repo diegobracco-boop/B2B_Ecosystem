@@ -132,6 +132,16 @@ almacén de notas: módulo `portada`, scope `preguntas-AAAA-MM`, y al log) y el 
 (`?formato=json`). Para sumar una frase: agregarla a `test/portal-ask.test.js` y al tema de `TOPICS`. Receta:
 `.agents/skills/caja-de-preguntas/SKILL.md`.
 
+**Resumen semanal (2026-11-02, Tiago):** botón de la portada al lado de "Actualizar reales" (lo ve quien puede abrir
+el Daily: cualquier @despegar.com) → `GET /resumen-semanal` (`server/resumen-semanal-page.js`). La última semana ISO
+cerrada (lunes a domingo, fecha de gestión) de B2B2C, B2B API y B2B HTML y el consolidado: un resumen en texto al estilo
+del P&L de B2C (NR y FVM vs Budget con semáforo, países que explican el desvío, YoY de GB / NR vs la tendencia de las
+L4W, FVM %GB y desvío vs Run Rate) con botón "Copiar para Slack" (`:red_circle:`, `:flag-br:`…), tarjetas GB / NR / FVM
+/ FVM %GB vs Budget, LY, L4W y RR, la serie de 13 semanas (Actual / Budget / LY) y la tabla por país. Los montos los da
+`getResumenSemanal` (`server/gas-extras/daily-resumen-semanal.js`, cargada en el Daily y en `cacheFns`): usa las mismas
+funciones que el Weekly del Daily (`_wsGetActuals_`, `_wsByChannel_`, `_wsAggWeekly_`…), así que da lo mismo que la
+solapa Weekly (verificado al dólar con la semana 43). Montos nominales (sin Organic) y COI Brasil incluido.
+
 **Actualizar reales (2026-10-30):** botón de la portada (`server/index-page.js`), solo para `EQUIPO_B2B` y con
 contraseña (`REALES_PASSWORD`, máx. 5 intentos cada 15 min por usuario). `POST /reales` lanza en el servidor
 `pipelines/Daily_Dashboard/daily_sync.py` (`server/reales-job.js`, una corrida por vez, corte a los 45 min);

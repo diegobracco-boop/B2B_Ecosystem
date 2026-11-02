@@ -11,6 +11,7 @@
 //   PUT  <base>/ingest/files/<id>    sube/reemplaza un archivo espejado de Drive (ídem)
 //   GET  <base>/notes/<modulo>/<scope>  notas editables de una landing (solo Ownia, ver notes-store.js)
 //   POST <base>/notes/<modulo>/<scope>  guarda una nota: { field, text }
+//   GET  <base>/resumen-semanal      resumen de la última semana (botón de la portada, mismos permisos que el Daily)
 //   GET  <base>/reales               estado de "Actualizar reales" (solo el equipo B2B, ver reales-job.js)
 //   POST <base>/reales               lanza la actualización de reales: { password }
 //   GET  <base>/_portal/ask.js       buscador de la portada (filter-aliases.js + portal-ask.js)
@@ -39,6 +40,7 @@ const { GasProject } = require('./gas-runtime');
 const { renderOutput } = require('./render');
 const { escapeHtml } = require('./gas-template');
 const { indexPage, agentsPage, questionsPage } = require('./index-page');
+const { resumenSemanalPage } = require('./resumen-semanal-page');
 const { resolveIdentity, describeAuthHeaders } = require('./identity');
 const { createFileStore, isValidId } = require('./file-store');
 const { ingestAllowlist, loadManifest } = require('./drive-manifest');
@@ -413,6 +415,16 @@ function createApp(opts = {}) {
       const r = reales.start(identity.email, typeof body.password === 'string' ? body.password : '');
       if (!r.ok) return sendJson(res, r.code, { error: r.error });
       return sendJson(res, 202, { ...r.status, dataUpdatedAt });
+    }
+
+    // "Resumen semanal" (botón de la portada): la página arma todo con getResumenSemanal del Daily → mismos permisos que el Daily.
+    if (route === '/resumen-semanal') {
+      if (req.method !== 'GET') return sendJson(res, 405, { error: 'Método no permitido' });
+      const daily = findModule('daily');
+      if (!daily) return sendJson(res, 404, { error: 'No encontrado' });
+      if (needsIdentity(daily) && !identity.email) return unauthorized(res);
+      if (!mayOpen(daily, identity)) return forbidden(res);
+      return sendCompressible(req, res, 200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }, resumenSemanalPage({ basePath: cfg.BASE_PATH }));
     }
 
     if (route === '/agentes') {

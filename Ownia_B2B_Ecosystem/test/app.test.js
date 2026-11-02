@@ -354,3 +354,14 @@ test('Manual: mismo título que en GAS y embebible (ALLOWALL)', async () => {
   assert.equal(r.headers['x-frame-options'], undefined);
   assert.ok(config.GAS_ROOT, 'GAS_ROOT resuelto');
 });
+
+test('Resumen semanal: botón en la portada para quien abre el Daily y página con sus mismos permisos', async () => {
+  const portada = await request(realServer, 'GET', `${BASE}/`, { headers: { 'x-test-email': 'chief@despegar.com' } });
+  assert.match(portada.text, new RegExp(`id="resumen-btn" href="${BASE}/resumen-semanal"`));
+  const anon = await request(realServer, 'GET', `${BASE}/resumen-semanal`);
+  assert.equal(anon.status, 401);
+  const r = await request(realServer, 'GET', `${BASE}/resumen-semanal`, { headers: { 'x-test-email': 'chief@despegar.com' } });
+  assert.equal(r.status, 200);
+  assert.match(r.text, new RegExp(`${BASE}/api/daily/getResumenSemanal`));
+  assert.equal((await request(realServer, 'POST', `${BASE}/resumen-semanal`, { headers: { 'x-test-email': 'chief@despegar.com' } })).status, 405);
+});

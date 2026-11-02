@@ -141,6 +141,14 @@ const REALES_BUTTON = `<button type="button" class="act-btn" id="reales-btn" ari
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 4v5h-5"/></svg>
     <span id="reales-btn-t">Actualizar reales</span></button>`;
 
+// "Resumen semanal" (2026-11-02, Tiago): al lado de "Actualizar reales", abre la página de la última semana (server/resumen-semanal-page.js).
+// Lo ve todo el que puede abrir el Daily (de ahí salen los datos).
+function resumenButton(basePath) {
+  return `<a class="act-btn" id="resumen-btn" href="${escapeHtml(basePath)}/resumen-semanal">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="M3 9h18M8 2v4M16 2v4M7 14h4M7 17h7"/></svg>
+    <span>Resumen semanal</span></a>`;
+}
+
 function realesDialog(basePath) {
   return `<dialog class="dlg" id="reales-dlg" aria-labelledby="reales-t">
   <form method="dialog" class="dlg-x"><button type="submit" aria-label="Cerrar">&times;</button></form>
@@ -290,7 +298,8 @@ function shell(inner, { title = 'The B2B Ecosystem · Despegar', left = '<span c
              transition: color .2s var(--ease), box-shadow .2s var(--ease); }
   .act-btn:hover { color: var(--link); box-shadow: inset 0 0 0 1px var(--link); }
   .act-btn.busy svg { animation: spin 1.2s linear infinite; }
-  .act-btn + .theme-btn { margin-left: 8px; }
+  .act-btn + .theme-btn, .act-btn + .act-btn { margin-left: 8px; }
+  a.act-btn { text-decoration: none; }
   @keyframes spin { to { transform: rotate(360deg); } }
   .dlg { margin: auto; width: min(520px, calc(100vw - 32px)); padding: 28px; border: 0; border-radius: 22px; background: var(--bg); color: var(--text);
          box-shadow: 0 24px 64px rgba(0, 0, 0, .35), inset 0 0 0 1px var(--line); font-family: var(--font); }
@@ -621,6 +630,7 @@ function indexPage({ modules, basePath, canOpen = () => true, reales = false, as
   const all = [...modules, ...OTHER_APPS];
   const find = (s) => all.find((m) => m.slug === s);
   const essential = ESSENTIAL.map(find).filter(Boolean);
+  const dailyMod = modules.find((m) => m.slug === 'daily' && m.ownia);
   const used = new Set([...ESSENTIAL, ...MORE, ...Object.values(QUICK_LINKS).flat()]);
   const more = [...MORE.map(find).filter(Boolean), ...modules.filter((m) => !used.has(m.slug))];
   return shell(`<div class="hero reveal" style="--i:0">
@@ -637,7 +647,10 @@ function indexPage({ modules, basePath, canOpen = () => true, reales = false, as
       <div class="list">
         ${more.map((m) => row(m, basePath, canOpen, find)).join('\n')}
       </div>
-    </div>` : ''}`, reales ? { actions: REALES_BUTTON, extra: realesDialog(basePath) } : {});
+    </div>` : ''}`, {
+    actions: (dailyMod && canOpen(dailyMod) ? resumenButton(basePath) : '') + (reales ? REALES_BUTTON : ''),
+    extra: reales ? realesDialog(basePath) : '',
+  });
 }
 
 // Agentes de IA (Toqan): mismos agentes y links que la sección "IA Agents" del P&L Dashboard de Apps Script (EXTERNAL_LINKS.agents).
@@ -718,4 +731,4 @@ function questionsPage({ basePath, mes, rows }) {
     ${body}`, { title: 'Preguntas · B2B Ecosystem', left: back });
 }
 
-module.exports = { indexPage, agentsPage, questionsPage };
+module.exports = { indexPage, agentsPage, questionsPage, shell, escapeHtml, CHEVRON_L };
