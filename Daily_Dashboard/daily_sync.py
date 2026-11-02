@@ -629,6 +629,23 @@ GROUP BY 1
 ORDER BY 1
 """
 
+# KR Global B2B API "Price Competitiveness ex-Latam (Destino GL)" (H2 FY27) -> daily_b2b2c_data.json
+# "okr_price_competitiveness" -> okr_builder.py (el target sigue en Input_OKR / GLOBALES_TARGET_DEFAULT).
+# Es la línea "Adverso Latam V2" del dashboard Metabase 9043 (card 170301, sin filtros): % de adversidad
+# ponderado por semana ISO (lun-dom), sobre la card 170299 copiada en adversidad_no_latam.sql. Solo hoteles
+# dados de alta antes del 2026-10-01 (igual que la card). El POS lo pondera la query (peso_es_latam).
+_ADVERSIDAD_SQL = (Path(__file__).resolve().parent / "adversidad_no_latam.sql").read_text(encoding="utf-8").strip().rstrip(";")
+OKR_PRICE_COMP_QUERY = f"""
+SELECT anio_semana,
+    SUM(CASE WHEN fecha_creacion < DATE '2026-10-01' THEN peso_adverso_no_latam_b2b_v2 END) AS adverso,
+    SUM(CASE WHEN fecha_creacion < DATE '2026-10-01' THEN peso_total_no_latam_b2b_v2 END)   AS total
+FROM (
+{_ADVERSIDAD_SQL}
+) adv
+GROUP BY 1
+ORDER BY 1
+"""
+
 _B2B_PROD_CASE = """
         CASE
             WHEN fh.buy_type_code = 'Actividades'           THEN 'Dest. Serv.'
@@ -1838,6 +1855,25 @@ except Exception as e:
     print(f"  WARN KR Global B2B API hoteles directos failed: {e}")
     okr_globales_hoteles = {}
 
+print("\n--- KR Global B2B API: Price Competitiveness ex-Latam (OKR H2) ---")
+# Igual que hoteles directos: si falla, okr_builder deja el valor de Input_OKR. Una entrada por semana ISO;
+# cerrada = la semana terminó (domingo <= ayer). okr_builder toma la última cerrada de cada mes (mes del lunes).
+try:
+    _pc = fetch(OKR_PRICE_COMP_QUERY, "KR Global B2B API Price Competitiveness (Metabase 170299)")
+    okr_price_competitiveness = {}
+    for r in _pc.itertuples():
+        if pd.isna(r.total) or not r.total or pd.isna(r.adverso):
+            continue
+        _anio, _sem = (int(x) for x in str(r.anio_semana).split("-"))
+        _lunes = date.fromisocalendar(_anio, _sem, 1)
+        okr_price_competitiveness[str(r.anio_semana)] = {
+            "lunes": _lunes.isoformat(), "pct": round(float(r.adverso) / float(r.total) * 100, 2),
+            "cerrada": _lunes + timedelta(days=6) <= YESTERDAY}
+    print(f"  {okr_price_competitiveness}")
+except Exception as e:
+    print(f"  WARN KR Global B2B API Price Competitiveness failed: {e}")
+    okr_price_competitiveness = {}
+
 print("\n--- Accelerate Recurrence (KR H2 B2B HTML) ---")
 # Agencias de alta frecuencia por semana comercial x pais (solo canal HTML). La query es copia de la card
 # Metabase 171400 (recurrencia_alta_frecuencia.sql). Definicion del equipo (2026-10-16): foto del mes
@@ -2140,6 +2176,7 @@ b2bc_payload = {
     "unique_buyers_total": unique_buyers_total,
     "unique_buyers_rolling": unique_buyers_rolling,   # {ym, desde, hasta, dias, valor} -> mes en curso del KR (okr_builder.py)
     "okr_globales_hoteles": okr_globales_hoteles,   # {'YYYY-MM': {dir_latam, dir_glob, tot_glob}} -> okr_builder.py
+    "okr_price_competitiveness": okr_price_competitiveness,   # {'YYYY-WW': {lunes, pct, cerrada}} -> okr_builder.py
     "b2c":        b2c_compact,
     "b2c_ly":     b2c_ly_compact,
 }

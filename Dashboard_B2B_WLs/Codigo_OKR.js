@@ -131,7 +131,8 @@ var OKR_MONETARY_KRS_ = {
 };
 
 // KRs que NO toman el target cuando no hay actual (Diego 2026-10-27): Deploy New Partnership = lo que diga Input_OKR, estricto.
-// Onboarded Properties y Price Competitiveness NO van acá: hasta definir la fuente del actual, el actual = budget (100%, en cursiva).
+// Onboarded Properties NO va acá: hasta definir la fuente del actual, el actual = budget (100%, en cursiva). Price Competitiveness tampoco:
+// su actual sale del Datalake (última semana cerrada del mes, desde 2026-11-02); el mes sin semana cerrada todavía toma el target (cursiva).
 var OKR_NOFILL_ = {
   'deploy new partnership': true
 };

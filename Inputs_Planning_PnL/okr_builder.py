@@ -704,6 +704,31 @@ def _apply_globales_hoteles_actual(rows_manual, daily_json):
     return out
 
 
+def _apply_price_comp_actual(rows_manual, daily_json):
+    """KR Global B2B API "Price Competitiveness ex-Latam (Destino GL)" (H2 FY27): el actual sale del Datalake
+    (daily_sync.py -> daily_b2b2c_data.json "okr_price_competitiveness", % adverso semanal = línea "Adverso
+    Latam V2" del dashboard Metabase 9043). Definido por antonella.difranco 2026-11-02: el actual del mes es la
+    foto de la ÚLTIMA SEMANA CERRADA del mes, y cada semana va al mes de su lunes. Un mes sin semana cerrada
+    queda sin actual. Igual que hoteles directos, se descartan todas las filas Run Rate/Actuals de la sheet
+    para este KR (el "actual" ahí era el target copiado). Si el JSON no trae el bloque, queda la sheet."""
+    pc = (daily_json or {}).get("okr_price_competitiveness") or {}
+    if not pc:
+        print("  [Price Competitiveness] sin okr_price_competitiveness en daily_b2b2c_data.json — se mantiene Input_OKR")
+        return rows_manual
+    kr = "Price Competitiveness ex-Latam (Destino GL)"
+    foto = {}   # ym -> (semana, pct) de la última semana cerrada
+    for sem, d in sorted(pc.items()):
+        if d.get("cerrada") and d["lunes"][:7] >= "2026-10":   # solo H2 (H1 está congelado)
+            foto[d["lunes"][:7]] = (sem, d["pct"])
+    out = [r for r in rows_manual if not (r[1] == "Run Rate/Actuals" and r[5].lower() == kr.lower()
+                                          and str(r[0])[:7] >= "2026-10")]
+    for ym, (sem, v) in sorted(foto.items()):
+        out.append([_ym_to_periodo(ym), "Run Rate/Actuals", "Globales", "Total", "Total", kr, v])
+    print(f"  [Price Competitiveness] actual desde Datalake (última semana cerrada del mes): "
+          f"{ {ym: f'{v}% (sem {sem})' for ym, (sem, v) in sorted(foto.items())} }")
+    return out
+
+
 def _apply_recurrence_rr(rows_manual, recur_json):
     """KR B2B "Accelerate Recurrence" (H2 FY27): en el mes comercial EN CURSO el actual es el Rolling L4W
     (roll_frecuentes_vivas de recurrencia_b2b.json, la misma query que el Status KRs H2 del Tracker: card
@@ -779,6 +804,7 @@ def build(upload=True):
     rows_manual, estado_ub = h2b.apply_unique_buyers(rows_manual, daily_json, last_actual_ym,
                                                            h2b.load_override_orders())
     rows_manual   = _apply_globales_hoteles_actual(rows_manual, daily_json)
+    rows_manual   = _apply_price_comp_actual(rows_manual, daily_json)
     rows_manual   = _apply_recurrence_rr(rows_manual, recur_json)
     rows_manual   = _apply_globales_target_default(rows_manual)
     # Partners API: actual de partners_api_snapshots.json (Daily_Dashboard/partners_api_sync.py; meses congelados + rolling 30 dias).
