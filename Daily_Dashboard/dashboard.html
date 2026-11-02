@@ -2997,11 +2997,22 @@ function renderChart(key, canvasId, daily, viewDate, accentColor, gran, chartsMa
   var budBdr = tv.budBarBdr;
   function fmtVal_(v){ return isPct ? (v != null ? (+v).toFixed(2)+'%' : '—') : fmt(v); }
   function fmtAxis_(v){ return isPct ? (+v).toFixed(1)+'%' : fmtShort(v); }
+  // Vista mensual: fila YoY debajo de cada mes (_flYoyPlugin_). En $ es % vs LY con los actuals a
+  // TC Actuals LY (vY, igual que el "vs LY" del header); en %GB es la diferencia en pp. El mes en
+  // curso compara MTD contra el mismo tramo de LY (lyDM se corta en viewDate).
+  var isMonthly = gran === 'monthly';
+  var yoyVals = !isMonthly ? null : daily.map(function(d){
+    if (d.v == null || !d.ly) return null;
+    if (isPct) return Math.round((d.v - d.ly) * 10) / 10;
+    var vy = d.vY != null ? d.vY : d.v;
+    return (vy / d.ly - 1) * 100;
+  });
 
   // Fast path: update data in-place — no canvas teardown, no re-layout
   var existing = chartsMap[key];
-  if (existing && existing._isLight === tv.isLight && existing._isPct === isPct && existing._hasB2C === hasB2C) {
+  if (existing && existing._isLight === tv.isLight && existing._isPct === isPct && existing._hasB2C === hasB2C && existing._isMonthly === isMonthly) {
     var ds = existing.data.datasets;
+    existing._flYoy = yoyVals;
     existing.data.labels  = labels;
     ds[0].data            = vals;
     ds[0].backgroundColor = barColors;
@@ -3035,10 +3046,11 @@ function renderChart(key, canvasId, daily, viewDate, accentColor, gran, chartsMa
     _scales.yB2C = { position:'right', grid:{ drawOnChartArea:false }, ticks:{ color:'#f59e0b', font:{ size:9, family:'Poppins' }, callback:function(v){ return fmtShort(v); } }, border:{ color:'transparent' } };
   }
   var chart = new Chart(ctx, {
-    plugins: [_barLabelsPlugin_],
+    plugins: [_barLabelsPlugin_, _flYoyPlugin_],
     data: { labels: labels, datasets: _datasets },
     options: {
       responsive: true,
+      layout: { padding: { bottom: isMonthly ? 14 : 0 } },
       plugins: {
         legend: { display: false },
         tooltip: { enabled: false }
@@ -3049,6 +3061,10 @@ function renderChart(key, canvasId, daily, viewDate, accentColor, gran, chartsMa
   chart._isLight      = tv.isLight;
   chart._isPct        = isPct;
   chart._hasB2C       = hasB2C;
+  chart._isMonthly    = isMonthly;
+  chart._flYoy        = yoyVals;
+  chart._flYoyPp      = isPct;
+  chart._flYoyLbl     = tv.tickColor;
   chart._tvTickColor  = tv.tickColor;
   chart._tvLabelColor = tv.isLight ? 'rgba(0,0,0,.8)' : 'rgba(255,255,255,.85)';
   chartsMap[key] = chart;
@@ -6072,16 +6088,19 @@ function flowBuildSlide_(def, idx){
 
 // Fila "% YoY" (actuals vs LY) debajo de cada columna de los gráficos mensuales de las slides
 // Monthly Performance — verde/rojo como .fl-pos/.fl-neg, "—" si el mes no tiene LY.
+// También la usa renderChart en la vista mensual de Daily, Weekly & MTD (_flYoyPp: valores en pp,
+// para el modo %GB; _flYoyLbl: color del rótulo según el tema).
 var _flYoyPlugin_={id:'flYoy', afterDraw:function(chart){
   var yoy=chart._flYoy; if(!yoy) return;
+  var pp=!!chart._flYoyPp;
   var x=chart.scales.x, ctx=chart.ctx, y0=x.bottom+2;
   ctx.save(); ctx.font='700 9px Poppins, sans-serif'; ctx.textBaseline='top';
-  ctx.textAlign='right'; ctx.fillStyle='#6b6b85'; ctx.fillText('YoY', chart.chartArea.left-4, y0);
+  ctx.textAlign='right'; ctx.fillStyle=chart._flYoyLbl||'#6b6b85'; ctx.fillText('YoY', chart.chartArea.left-4, y0);
   ctx.textAlign='center';
   yoy.forEach(function(p,i){
-    var r = p==null ? null : Math.round(p);   // color según el valor redondeado: -0,4% sale "0%" verde, no rojo
+    var r = p==null ? null : (pp ? Math.round(p*10)/10 : Math.round(p));   // color según el valor redondeado: -0,4% sale "0%" verde, no rojo
     ctx.fillStyle = r==null ? '#9a9ab0' : r>=0 ? '#15803d' : '#dc2626';
-    ctx.fillText(r==null ? '—' : (r>=0?'+':'')+r+'%', x.getPixelForValue(i), y0);
+    ctx.fillText(r==null ? '—' : (r>=0?'+':'')+(pp ? r.toFixed(1)+'pp' : r+'%'), x.getPixelForValue(i), y0);
   });
   ctx.restore();
 }};
