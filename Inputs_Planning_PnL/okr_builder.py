@@ -229,8 +229,8 @@ def _read_sheet(token_file):
         token=tok.get("token"), refresh_token=tok.get("refresh_token"),
         token_uri=tok.get("token_uri", "https://oauth2.googleapis.com/token"),
         client_id=tok.get("client_id"), client_secret=tok.get("client_secret"),
-        scopes=["https://www.googleapis.com/auth/drive",
-                "https://www.googleapis.com/auth/spreadsheets.readonly"],
+        scopes=tok.get("scopes") or ["https://www.googleapis.com/auth/drive",
+                                     "https://www.googleapis.com/auth/spreadsheets.readonly"],
     )
     if not creds.valid:
         creds.refresh(Request())
@@ -767,6 +767,10 @@ def build(upload=True):
 
     svc        = pnl_common.get_drive_service()
     token_file = os.path.join(DIR, "token_drive.json")
+    # En Ownia ("Actualizar reales") no hay token_drive.json: Input_OKR se lee con el token drive.readonly que
+    # deja server/reales-job.js (DRIVE_READ_TOKEN_FILE; alcanza para bajar la pestaña como CSV).
+    if not os.path.exists(token_file) and os.getenv("DRIVE_READ_TOKEN_FILE"):
+        token_file = os.getenv("DRIVE_READ_TOKEN_FILE")
 
     print("\n--- Descargando fuentes de Drive ---")
     gest_json     = _download_json(svc, GESTIONAL_FILE_ID,   "_pnl_gestional_data.json")

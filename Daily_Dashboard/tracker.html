@@ -473,7 +473,6 @@
   #statusKRsH2Table th.kr-wk-col .kr-wk-range { display: block; font-weight: 400; font-size: 10px; }
   #statusKRsH2Table td.kr-wk-col .kr-cumpl-chip { font-size: 0.85em; }
   #statusKRsH2Table .kr-wk-first { border-left: 2px solid #e5e7eb; }
-  body.slides-mode #statusKRsH2Table .kr-wk-col { display: none; }
   .kr-detail-table td.kr-peso { color: #6b7280; }
 
   /* ── Status KRs view ── */
@@ -769,20 +768,24 @@
   body.slides-mode #globalesTable,
   body.slides-mode #statusKRsH2Table { table-layout: fixed !important; width: 100% !important; }
   body.slides-mode #statusKRsTable th:nth-child(1),
-  body.slides-mode #globalesTable th:nth-child(1),
-  body.slides-mode #statusKRsH2Table th:nth-child(1) { width: 50% !important; min-width: 0 !important; max-width: none !important; }
+  body.slides-mode #globalesTable th:nth-child(1) { width: 50% !important; min-width: 0 !important; max-width: none !important; }
   body.slides-mode #statusKRsTable th:nth-child(2),
-  body.slides-mode #globalesTable th:nth-child(2),
-  body.slides-mode #statusKRsH2Table th:nth-child(2) { width: 10% !important; }
+  body.slides-mode #globalesTable th:nth-child(2) { width: 10% !important; }
   body.slides-mode #statusKRsTable th:nth-child(3),
-  body.slides-mode #globalesTable th:nth-child(3),
-  body.slides-mode #statusKRsH2Table th:nth-child(3) { width: 10% !important; }
+  body.slides-mode #globalesTable th:nth-child(3) { width: 10% !important; }
   body.slides-mode #statusKRsTable th:nth-child(4),
-  body.slides-mode #globalesTable th:nth-child(4),
-  body.slides-mode #statusKRsH2Table th:nth-child(4) { width: 10% !important; }
+  body.slides-mode #globalesTable th:nth-child(4) { width: 10% !important; }
   body.slides-mode #statusKRsTable th:nth-child(5),
-  body.slides-mode #globalesTable th:nth-child(5),
-  body.slides-mode #statusKRsH2Table th:nth-child(5) { width: 20% !important; }
+  body.slides-mode #globalesTable th:nth-child(5) { width: 20% !important; }
+  /* H2: entre Peso y Actual van las columnas Sem NN (cantidad variable), así que los anchos van por
+     id / primera / última y no por posición; las semanas (sin ancho) se reparten lo que sobra. */
+  body.slides-mode #statusKRsH2Table th:first-child { width: 28% !important; min-width: 0 !important; max-width: none !important; }
+  body.slides-mode #statusKRsH2Table th:nth-child(2) { width: 7% !important; }
+  body.slides-mode #krH2ThAct,
+  body.slides-mode #krH2ThBud { width: 10% !important; }
+  body.slides-mode #statusKRsH2Table th:last-child { width: 11% !important; }
+  body.slides-mode #statusKRsH2Table th.kr-wk-col { white-space: nowrap !important; }
+  body.slides-mode #statusKRsH2Table .kr-wk-col { padding-left: 4px !important; padding-right: 4px !important; }
   body.slides-mode #statusKRsTable th,
   body.slides-mode #statusKRsTable td,
   body.slides-mode #statusKRsH2Table th,
@@ -3686,8 +3689,9 @@ function renderStatusKRsH2() {
 
   // Semanas anteriores: una columna de cumplimiento por semana cerrada del mes (ver krH2Weeks_), entre
   // Peso y las columnas del mes, para leerlas en orden cronológico y terminar en el MTD.
-  // En slides no van (el CSS de slides fija el ancho de las 5 columnas por nth-child).
-  var wks = _isSlidesMode ? [] : krH2Weeks_(krYM);
+  // También van en slides (2026-11-02): ahí el CSS fija KR / Peso / Actual / Budget / Cumpl. y las semanas
+  // se reparten el resto del ancho.
+  var wks = krH2Weeks_(krYM);
   var headRow = document.querySelector('#statusKRsH2Table thead tr');
   headRow.querySelectorAll('.kr-wk-col').forEach(function(th){ th.remove(); });
   var thAct = document.getElementById('krH2ThAct');
