@@ -34,7 +34,8 @@
   var GROUP_GAP = 10;   // eventos de la misma familia que arrancan con ≤ 10 días de diferencia = mismo grupo
   var MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
-  var st = { lob: 'b2b2c', metric: 'gb', sel: null };
+  var st = { lob: 'b2b2c', metric: 'gb', sel: null, unit: 'k' };
+  try { var _u = localStorage.getItem('iet-unit'); if (/^[ukm]$/.test(_u || '')) st.unit = _u; } catch (e) { /* sin storage */ }
   var ev = null, evState = 'idle', evError = '';
   var seriesCache = {};
   var chart = null;
@@ -48,13 +49,17 @@
   function fmtDay(s) { if (!s) return '—'; var d = s2d(s); return d.getUTCDate() + ' ' + MONTHS[d.getUTCMonth()]; }
   function fmtRange(a, b) { return a === b ? fmtDay(a) : fmtDay(a) + ' – ' + fmtDay(b); }
 
+  // Un solo formato para todos los montos de la solapa, en la unidad del selector (2026-11-03, Diego):
+  // enteros $1,234,567 · miles $1,235k · millones $1.23M. Porcentajes y pp siempre con un decimal.
+  var UNITS = [['u', 'Enteros'], ['k', 'Miles'], ['m', 'Millones']];
   function fmtMoney(v) {
     if (v == null || isNaN(v)) return '—';
-    var a = Math.abs(v), s = v < 0 ? '−' : '';
-    if (a >= 1e6) return s + '$' + (a / 1e6).toFixed(a >= 1e7 ? 1 : 2) + 'M';
-    if (a >= 1e3) return s + '$' + Math.round(a / 1e3) + 'k';
-    return s + '$' + Math.round(a);
+    var a = Math.abs(v), s = v < 0 ? '−' : '', u = st.unit;
+    if (u === 'u') return s + '$' + Math.round(a).toLocaleString('en-US');
+    if (u === 'm') return s + '$' + (a / 1e6).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + 'M';
+    return s + '$' + Math.round(a / 1e3).toLocaleString('en-US') + 'k';
   }
+  function fmtPp(v) { return v == null || !isFinite(v) ? '—' : (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(1) + ' pp'; }
   function pct(a, b) { return (a == null || b == null || !b) ? null : (a / b - 1) * 100; }
   function fmtPct(p) { return p == null || !isFinite(p) ? '—' : (p > 0 ? '+' : p < 0 ? '−' : '') + Math.abs(p).toFixed(1) + '%'; }
   function pctCls(p) { return p == null || !isFinite(p) ? '' : p >= 0 ? 'iet-pos' : 'iet-neg'; }
@@ -150,12 +155,13 @@
   // pasaron este año vs los mismos del año pasado; partners nuevos con LY 0) }. Lo usan la tabla y el titular.
   function partnerAgg(ps, pos) {
     var P = {}, hasCy = pos.map(function () { return false; });
-    function slot(k) { return P[k] || (P[k] = { d: pos.map(function () { return { cy: null, ly: null }; }), cy: 0, ly: 0, lyM: 0, cyM: 0 }); }
+    function slot(k) { return P[k] || (P[k] = { d: pos.map(function () { return { cy: null, ly: null, bd: 0 }; }), cy: 0, ly: 0, lyM: 0, cyM: 0, bdM: 0 }); }
     pos.forEach(function (o, i) {
       ps.forEach(function (p) {
-        var c = pvals(p.cy.pais, dateAt(p.cy, o)), l = pvals(p.cy.pais, dateAt(p.ly, o));
+        var c = pvals(p.cy.pais, dateAt(p.cy, o)), l = pvals(p.cy.pais, dateAt(p.ly, o)), b = pbvals(p.cy.pais, dateAt(p.cy, o));
         if (c) { hasCy[i] = true; Object.keys(c).forEach(function (k) { var x = slot(k).d[i]; x.cy = (x.cy || 0) + c[k]; }); }
         if (l) Object.keys(l).forEach(function (k) { var x = slot(k).d[i]; x.ly = (x.ly || 0) + l[k]; });
+        Object.keys(b).forEach(function (k) { if (b[k]) slot(k).d[i].bd += b[k]; });
       });
     });
     Object.keys(P).forEach(function (k) {
@@ -163,7 +169,7 @@
       t.d.forEach(function (x, i) {
         if (x.cy != null) t.cy += x.cy;
         if (x.ly != null) t.ly += x.ly;
-        if (hasCy[i]) { t.lyM += x.ly || 0; t.cyM += x.cy || 0; }
+        if (hasCy[i]) { t.lyM += x.ly || 0; t.cyM += x.cy || 0; t.bdM += x.bd; }
       });
       t.delta = t.cyM - t.lyM;
     });
@@ -188,36 +194,85 @@
     names = names.filter(function (k) { var t = P[k]; return A.anyCy ? Math.abs(t.cyM) >= 1000 || Math.abs(t.lyM) >= 1000 : Math.abs(t.ly) >= 1000; });
     names.sort(A.anyCy ? function (a, b) { return Math.abs(P[b].delta) - Math.abs(P[a].delta); } : function (a, b) { return P[b].ly - P[a].ly; });
     var top = names.slice(0, PARTNER_TOP), rest = names.slice(PARTNER_TOP), lines = top.map(function (k) { return [k, P[k]]; });
-    function blank() { return { d: pos.map(function () { return { cy: null, ly: null }; }), cy: 0, ly: 0, lyM: 0, cyM: 0, delta: 0 }; }
+    function blank() { return { d: pos.map(function () { return { cy: null, ly: null, bd: 0 }; }), cy: 0, ly: 0, lyM: 0, cyM: 0, bdM: 0, delta: 0 }; }
     function addTo(R, t) {
-      t.d.forEach(function (x, i) { var r = R.d[i]; if (x.cy != null) r.cy = (r.cy || 0) + x.cy; if (x.ly != null) r.ly = (r.ly || 0) + x.ly; });
-      R.cy += t.cy; R.ly += t.ly; R.lyM += t.lyM; R.cyM += t.cyM; R.delta += t.delta;
+      t.d.forEach(function (x, i) { var r = R.d[i]; if (x.cy != null) r.cy = (r.cy || 0) + x.cy; if (x.ly != null) r.ly = (r.ly || 0) + x.ly; r.bd += x.bd; });
+      R.cy += t.cy; R.ly += t.ly; R.lyM += t.lyM; R.cyM += t.cyM; R.bdM += t.bdM; R.delta += t.delta;
     }
     if (rest.length) { var R = blank(); rest.forEach(function (k) { addTo(R, P[k]); }); lines.push(['Resto (' + rest.length + ' partners)', R]); }
     // Total: todos los partners (también los chicos que no se listan), para que cierre con la tabla de B2B2C
     var tot = blank(); Object.keys(P).forEach(function (k) { addTo(tot, P[k]); });
     function cell(x, i) {
       if (!hasCy[i]) return '<td class="iet-dim">' + (x.ly != null ? fmtMoney(x.ly) : '—') + '</td>';
-      var p = pct(x.cy, x.ly);
-      return '<td>' + fmtMoney(x.cy || 0) + '<span class="iet-pyoy ' + pctCls(p) + '">' + fmtPct(p) + '</span></td>';
+      return '<td>' + fmtMoney(x.cy || 0) + subYB(x.cy || 0, x.ly, x.bd || null) + '</td>';
     }
     function row(name, t, cls) {
-      var p = t.lyM ? pct(t.cyM, t.lyM) : null;
       return '<tr' + (cls ? ' class="' + cls + '"' : '') + '><td class="l">' + esc(name) + '</td>' + t.d.map(cell).join('') +
-        (A.anyCy ? '<td>' + fmtMoney(t.cyM) + '</td><td>' + fmtMoney(t.lyM) + '</td><td class="' + pctCls(t.delta) + '">' + (t.delta > 0 ? '+' : '') + fmtMoney(t.delta) + '</td><td class="' + pctCls(p) + '">' + fmtPct(p) + '</td>' : '') +
+        (A.anyCy ? '<td>' + fmtMoney(t.cyM) + subYB(t.cyM, t.lyM, t.bdM || null) + '</td><td>' + fmtMoney(t.lyM) + '</td><td>' + (t.bdM ? fmtMoney(t.bdM) : '—') + '</td><td class="' + pctCls(t.delta) + '">' + (t.delta > 0 ? '+' : '') + fmtMoney(t.delta) + '</td>' : '') +
         (live || !A.anyCy ? '<td class="iet-dim">' + fmtMoney(t.ly) + '</td>' : '') + '</tr>';
     }
     return '<details class="iet-seg iet-partners"><summary class="iet-seg-ttl">B2B2C por partner · por día de evento</summary>' +
       '<div class="iet-tbl-wrap"><table class="iet-tbl iet-days"><thead><tr><th class="l">Partner</th>' +
       pos.map(function (o) { return '<th>' + o.lbl + (single && dateAt(single.cy, o) ? '<span class="iet-pyoy">' + fmtDay(dateAt(single.cy, o)) + '</span>' : '') + '</th>'; }).join('') +
-      (A.anyCy ? '<th>' + y + (live ? '<span class="iet-pyoy">a la fecha</span>' : '') + '</th><th>' + (y - 1) + (live ? '<span class="iet-pyoy">mismos días</span>' : '') + '</th><th>Δ vs ' + (y - 1) + '</th><th>YoY</th>' : '') +
+      (A.anyCy ? '<th>' + y + (live ? '<span class="iet-pyoy">a la fecha</span>' : '') + '</th><th>' + (y - 1) + (live ? '<span class="iet-pyoy">mismos días</span>' : '') + '</th><th>Budget' + (live ? '<span class="iet-pyoy">a la fecha</span>' : '') + '</th><th>Δ vs ' + (y - 1) + '</th>' : '') +
       (live || !A.anyCy ? '<th>' + (y - 1) + '<span class="iet-pyoy">evento completo</span></th>' : '') + '</tr></thead><tbody>' +
       lines.map(function (l) { return row(l[0], l[1]); }).join('') + row('Total B2B2C', tot, 'iet-total') + '</tbody></table></div>' +
-      '<div class="iet-foot">Cada celda: ' + y + ' y debajo su YoY contra el mismo día de evento de ' + (y - 1) + '; en gris, días que todavía no pasaron (valor de ' + (y - 1) + '). ' +
+      '<div class="iet-foot">Cada celda: ' + y + ' y debajo su YoY contra el mismo día de evento de ' + (y - 1) + ' y su desvío vs el Budget del día (Budget por partner del Daily); en gris, días que todavía no pasaron (valor de ' + (y - 1) + '). ' +
       'Ordenados por lo que más mueven el resultado (Δ vs los mismos días de ' + (y - 1) + '); partners nuevos suman con ' + (y - 1) + ' en 0. Se listan los ' + PARTNER_TOP + ' primeros; el total incluye a todos.</div></details>';
   }
 
   var MI = { gb: 0, nr: 1, fvm: 2 };
+  // ── Budget diario (2026-11-03): B2B2C de _rawB2BC.budget (también por partner), B2B de b2b_budget_gd por canal.
+  // B2C no tiene budget diario en el Daily (solo semanal): sin "vs bdg". Mismo criterio de RG que los reales.
+  var budCache = {};
+  function buildBudget(lob) {
+    if (lob === 'b2c' || lob === 'b2b') return null;
+    var key = lob + '|' + (window._exCoiBr ? 1 : 0);
+    if (budCache[lob] && budCache[lob].key === key) return budCache[lob];
+    var b2b = isB2b(lob), raw = b2b ? window._rawB2B : window._rawB2BC, rows = rowsOf(raw && (b2b ? raw.b2b_budget_gd : raw.budget));
+    var channel = segOf(lob) ? segOf(lob).channel : null, map = {}, pmap = {}, alias = window.PARTNER_ALIAS_ || {};
+    rows.forEach(function (r) {
+      var f = r.fecha; if (!f) return;
+      if (channel && r.parent_channel !== channel) return;
+      if (r.pais === 'RG' && !window._exCoiBr) return;
+      var p = OTHER[r.pais] || r.pais, nr = r.net_revenue != null ? r.net_revenue : r.net_revenues;
+      var v3 = [+r.gross_bookings || 0, +nr || 0, +r.fvm || 0];
+      var day = map[f] || (map[f] = {}), v = day[p] || (day[p] = [0, 0, 0]);
+      v[0] += v3[0]; v[1] += v3[1]; v[2] += v3[2];
+      if (!b2b) {
+        var pt = String(r.partner || '').trim() || 'Sin asignar'; pt = alias[pt] || pt;
+        var pd = pmap[f] || (pmap[f] = {}), pp = pd[p] || (pd[p] = {}), w = pp[pt] || (pp[pt] = [0, 0, 0]);
+        w[0] += v3[0]; w[1] += v3[1]; w[2] += v3[2];
+      }
+    });
+    budCache[lob] = { key: key, map: map, pmap: pmap };
+    return budCache[lob];
+  }
+  function bval(lob, pais, fecha) {
+    var B = buildBudget(lob);
+    if (!B || !fecha) return null;
+    var d = B.map[fecha];
+    return d && d[pais] ? d[pais][MI[st.metric]] : 0;
+  }
+  // Budget de una línea en un día de evento (fechas de este año)
+  function budgetAt(lob, pairs, ps) {
+    if (lob === 'b2b') { var a = budgetAt('min', pairs, ps), b = budgetAt('api', pairs, ps); return a == null || b == null ? null : a + b; }
+    if (!buildBudget(lob)) return null;
+    var t = 0; pairs.forEach(function (p) { t += bval(lob, p.cy.pais, dateAt(p.cy, ps)) || 0; }); return t;
+  }
+  function pbvals(pais, fecha) {
+    var B = buildBudget('b2b2c'), out = {};
+    if (!B || !fecha) return out;
+    var dp = (B.pmap[fecha] || {})[pais] || {};
+    Object.keys(dp).forEach(function (k) { out[k] = dp[k][MI[st.metric]]; });
+    return out;
+  }
+  // "+35.3% YoY / −20.0% vs bdg" debajo del valor del día
+  function subYB(cy, ly, bud) {
+    var y = pct(cy, ly), b = bud ? pct(cy, bud) : null;
+    return '<span class="iet-pyoy"><span class="' + pctCls(y) + '">' + fmtPct(y) + ' YoY</span>' +
+      (bud != null ? ' / <span class="' + pctCls(b) + '">' + fmtPct(b) + ' vs bdg</span>' : '') + '</span>';
+  }
   function val(lob, pais, fecha) {
     if (!fecha) return null;
     var last = lastDate();
@@ -416,7 +471,7 @@
   function lobName(k) { return { b2b2c: 'B2B2C', b2b: 'B2B', b2c: 'B2C' }[k] || k; }
   function moneyD(v) { return (v > 0 ? '+' : '') + fmtMoney(v); }
   function listD(a) { return a.map(function (x) { return esc(x[0]) + ' (' + moneyD(x[1]) + ')'; }).join(', '); }
-  function headlineHtml(g, pairs, ks, kb, gap, y) {
+  function headlineHtml(g, pairs, ks, kb, gap, y, vb) {
     var s0 = status(pairs[0]), single = pairs.length === 1 ? pairs[0] : null, L = lobName(st.lob);
     var when = s0.k === 'live' ? 'día ' + s0.done + ' de ' + pairs[0].cy.dias : s0.k === 'done' ? 'terminado' : (s0.days ? 'empieza en ' + s0.days + ' días' : 'empieza hoy');
     var h = '<b>' + esc(g.familia + (single ? ' ' + single.cy.pais : '')) + '</b> · ' + when + ': ';
@@ -425,7 +480,8 @@
       return '<div class="iet-hl">' + h + 'en ' + (y - 1) + ' ' + L + ' vendió ' + fmtMoney(lyT) + ' en este evento.</div>';
     }
     h += L + ' ' + fmtMoney(ks.cy) + ', <b class="' + pctCls(ks.yoy) + '">' + fmtPct(ks.yoy) + '</b> vs ' + (s0.k === 'live' ? 'los mismos días de ' : '') + (y - 1);
-    if (gap != null) h += ', <b class="' + (gap < -2 ? 'iet-neg' : gap >= 0 ? 'iet-pos' : '') + '">' + Math.abs(gap).toFixed(0) + ' pp ' + (gap < 0 ? 'debajo' : 'arriba') + ' de B2C</b> (' + fmtPct(kb.yoy) + ')';
+    if (vb != null) h += ', <b class="' + pctCls(vb) + '">' + fmtPct(vb) + ' vs Budget</b>';
+    if (gap != null) h += ', <b class="' + (gap < -2 ? 'iet-neg' : gap >= 0 ? 'iet-pos' : '') + '">' + Math.abs(gap).toFixed(1) + ' pp ' + (gap < 0 ? 'debajo' : 'arriba') + ' de B2C</b> (' + fmtPct(kb.yoy) + ')';
     h += '.';
     var l2 = [];
     if (!single) {   // países que más suman / restan
@@ -449,21 +505,22 @@
   function segSummaryHtml(pairs, y, live) {
     var rows = SEGS.map(function (sg) {
       var sp = segPairs(sg, pairs), a = groupStats(sg.key, { pairs: sp }), b = sg.key !== 'b2c' ? groupStats(sg.key, { pairs: sp }, 'b2c') : null;
-      return { sg: sg, a: a, gap: b && a.yoy != null && b.yoy != null ? a.yoy - b.yoy : null };
+      var bd = segBudgetToDate(sg.key, sp);
+      return { sg: sg, a: a, gap: b && a.yoy != null && b.yoy != null ? a.yoy - b.yoy : null, vb: bd ? pct(a.cy, bd) : null };
     });
     var any = rows.some(function (r) { return r.a.cy != null; });
     var sc = 0, sl = 0;
     rows.forEach(function (r) { sc += r.a.cy || 0; sl += any ? r.a.ly : r.a.lyFull; });
     return '<div class="iet-tbl-wrap"><table class="iet-tbl iet-sum"><thead><tr><th class="l">Línea</th>' +
-      (any ? '<th>' + y + (live ? ' a la fecha' : '') + '</th><th>' + (y - 1) + (live ? ' mismos días' : '') + '</th><th>YoY</th><th>vs B2C</th><th>Share ' + y + '</th><th>Δ share</th>'
+      (any ? '<th>' + y + (live ? ' a la fecha' : '') + '</th><th>' + (y - 1) + (live ? ' mismos días' : '') + '</th><th>YoY</th><th>vs Budget</th><th>vs B2C</th><th>Share ' + y + '</th><th>Δ share</th>'
         : '<th>' + (y - 1) + ' evento completo</th><th>Share ' + (y - 1) + '</th>') + '</tr></thead><tbody>' +
       rows.map(function (r) {
         var a = r.a, shC = any && sc ? (a.cy || 0) / sc * 100 : null, shL = sl ? (any ? a.ly : a.lyFull) / sl * 100 : null;
         var dsh = shC != null && shL != null ? shC - shL : null;
         return '<tr><td class="l">' + esc(r.sg.lbl) + '</td>' + (any
-          ? '<td>' + fmtMoney(a.cy) + '</td><td>' + fmtMoney(a.ly) + '</td><td class="' + pctCls(a.yoy) + '"><b>' + yoyHtml(a) + '</b></td>' +
-            '<td class="' + (r.gap == null ? '' : r.gap < -2 ? 'iet-neg' : r.gap >= 0 ? 'iet-pos' : '') + '">' + (r.gap == null ? '—' : (r.gap > 0 ? '+' : r.gap < 0 ? '−' : '') + Math.abs(r.gap).toFixed(0) + ' pp') + '</td>' +
-            '<td>' + (shC == null ? '—' : shC.toFixed(1) + '%') + '</td><td class="' + pctCls(dsh) + '">' + (dsh == null ? '—' : (dsh > 0 ? '+' : dsh < 0 ? '−' : '') + Math.abs(dsh).toFixed(1) + ' pp') + '</td>'
+          ? '<td>' + fmtMoney(a.cy) + '</td><td>' + fmtMoney(a.ly) + '</td><td class="' + pctCls(a.yoy) + '"><b>' + yoyHtml(a) + '</b></td><td class="' + pctCls(r.vb) + '">' + fmtPct(r.vb) + '</td>' +
+            '<td class="' + (r.gap == null ? '' : r.gap < -2 ? 'iet-neg' : r.gap >= 0 ? 'iet-pos' : '') + '">' + fmtPp(r.gap) + '</td>' +
+            '<td>' + (shC == null ? '—' : shC.toFixed(1) + '%') + '</td><td class="' + pctCls(dsh) + '">' + fmtPp(dsh) + '</td>'
           : '<td>' + fmtMoney(a.lyFull) + '</td><td>' + (shL == null ? '—' : shL.toFixed(1) + '%') + '</td>') + '</tr>';
       }).join('') + '</tbody></table></div>';
   }
@@ -486,6 +543,7 @@
       : 'Suma de los países, cada uno alineado a su propio día de evento';
     var ks = groupStats(st.lob, { pairs: pairs }), kb = withB2c ? groupStats(st.lob, { pairs: pairs }, 'b2c') : null;
     var gap = kb && ks.yoy != null && kb.yoy != null ? ks.yoy - kb.yoy : null;
+    var bdK = ks.cy != null ? segBudgetToDate(st.lob, pairs) : null, vbK = bdK ? pct(ks.cy, bdK) : null;
     var mName = METRICS.filter(function (m) { return m[0] === st.metric; })[0][1];
     var noMatch = pairs.some(function (p) { return !p.ly.match; });
     var kpis = s0.k === 'next'
@@ -493,20 +551,21 @@
       : '<div class="iet-kpi iet-kpi-big"><div class="iet-kpi-lbl">YoY ' + esc(mName) + ' ' + lobName(st.lob) + (live ? ' · mismos días' : '') + '</div><div class="iet-kpi-v ' + pctCls(ks.yoy) + '">' + yoyHtml(ks) + '</div>' +
         '<div class="iet-kpi-sub">' + fmtMoney(ks.cy) + ' vs ' + fmtMoney(ks.ly) + ' en ' + (y - 1) + (live ? ' (mismos días)' : '') + '</div></div>' +
         (withB2c ? '<div class="iet-kpi"><div class="iet-kpi-lbl">vs B2C</div><div class="iet-kpi-v ' + (gap == null ? '' : gap < -2 ? 'iet-neg' : gap >= 0 ? 'iet-pos' : '') + '">' +
-          (gap == null ? '—' : (gap > 0 ? '+' : gap < 0 ? '−' : '') + Math.abs(gap).toFixed(0) + ' pp') + '</div><div class="iet-kpi-sub">B2C ' + yoyHtml(kb) + ' YoY</div></div>' : '') +
+          fmtPp(gap) + '</div><div class="iet-kpi-sub">B2C ' + yoyHtml(kb) + ' YoY</div></div>' : '') +
+        (vbK != null ? '<div class="iet-kpi"><div class="iet-kpi-lbl">vs Budget' + (live ? ' · a la fecha' : '') + '</div><div class="iet-kpi-v ' + pctCls(vbK) + '">' + fmtPct(vbK) + '</div><div class="iet-kpi-sub">Budget ' + fmtMoney(bdK) + '</div></div>' : '') +
         (live ? '<div class="iet-kpi"><div class="iet-kpi-lbl">' + (y - 1) + ' evento completo</div><div class="iet-kpi-v iet-dim">' + fmtMoney(ks.lyFull) + '</div><div class="iet-kpi-sub">' + pairs[0].cy.dias + ' días de evento</div></div>' : '');
     var days = segTablesHtml(pairs, y);
     var foot = [];
     if (noMatch || days.noMatch) foot.push('* Sin ese evento el año pasado' + (single ? '' : ' en algún país') + ': se compara contra las mismas fechas −364 días (mismo día de la semana).');
     if (ks.perDay || days.perDay) foot.push('† El evento dura distinto que el año pasado: el YoY compara el promedio diario.');
     if (live) foot.push('En curso: ' + y + ' a la fecha vs los mismos días de evento de ' + (y - 1) + '.');
-    foot.push('vs B2C = YoY de la línea menos YoY de B2C en los mismos días (pp). Share = % del total B2B2C + B2B MIN + B2B API + B2C; en el detalle por día solo se calcula si las cuatro líneas tienen dato. B2B en base GD.');
+    foot.push('vs Budget = real vs Budget diario del Daily en los mismos días (B2C no tiene Budget diario). vs B2C = YoY de la línea menos YoY de B2C en los mismos días (pp). Share = % del total B2B2C + B2B MIN + B2B API + B2C; en el detalle por día solo se calcula si las cuatro líneas tienen dato. B2B en base GD.');
     if (days.fallback.length) foot.push('Sin este evento en su calendario, ' + days.fallback.join(' y ') + ' usa las fechas del calendario elegido.');
     var h = '<div class="tcard iet-card"><div class="card-hdr"><span class="card-ttl">' + esc(title) + ' ' + statusHtml(pairs[0]) + '</span><span class="bench-sub">' + esc(sub) + '</span></div>' +
-      headlineHtml(g, pairs, ks, kb, gap, y) +
+      headlineHtml(g, pairs, ks, kb, gap, y, vbK) +
       '<div class="iet-kpis">' + kpis + '</div>' +
       '<div class="iet-seg-ttl">Por línea · ' + esc(mName) + '</div>' + segSummaryHtml(pairs, y, live) +
-      '<details class="iet-detail"' + (st.detailOpen ? ' open' : '') + '><summary>Detalle por día: gráfico, tablas por línea y por partner</summary>' +
+      '<details class="iet-detail"' + (st.detailOpen ? ' open' : '') + '><summary>Detalle por día: ' + ({ b2b2c: 'gráfico, B2B2C y por partner', b2b: 'gráfico, B2B MIN (HTML) y B2B API', b2c: 'gráfico y B2C' }[st.lob] || 'gráfico y tablas') + '</summary>' +
       '<div class="iet-chart"><canvas id="iet-canvas"></canvas></div>' + days.html + '</details>' +
       '<details class="iet-how"><summary>Cómo se calcula</summary><div class="iet-foot">' + foot.join(' ') + '</div></details></div>';
     box.innerHTML = h;
@@ -535,6 +594,8 @@
 
   // Performance por día de las líneas, alineadas por día de evento. El share compara cada línea contra la suma de
   // todas en ese mismo día; el Total del evento suma solo los días en que todas tienen dato, para ser comparable.
+  // Líneas que muestra el detalle por día según la LoB elegida (2026-11-03: con B2B2C solo B2B2C; B2C sigue de referencia)
+  var SHOW = { b2b2c: ['b2b2c'], b2b: ['min', 'api'], b2c: ['b2c'] };
   function segTablesHtml(pairs, y) {
     var segs = SEGS.map(function (s) { return { s: s, pairs: segPairs(s, pairs) }; });
     var pos = axisFor(segs.reduce(function (a, x) { return a.concat(x.pairs); }, []));
@@ -550,20 +611,22 @@
     var anyCyAll = perPos.some(function (x) { return x.tot.cy != null; });
     function lyDay(t) { return t.ly != null && (t.cy != null || !anyCyAll); }
     perPos.forEach(function (x) { if (lyDay(x.tot)) tot.ly += x.tot.ly; });
-    var liveSeg = status(pairs[0]).k === 'live';
+    var liveSeg = status(pairs[0]).k === 'live', show = SHOW[st.lob] || [st.lob];
     var out = { html: '', noMatch: false, perDay: false, fallback: [] };
     segs.forEach(function (x, si) {
       var ps = x.pairs, single = ps.length === 1 ? ps[0] : null, key = x.s.key, withB2c = key !== 'b2c';
+      if (show.indexOf(key) < 0) return;
       if (ps.some(function (p) { return !p.ly.match; })) out.noMatch = true;
       if (ps.some(function (p) { return p.fallback; })) out.fallback.push(x.s.lbl);
-      var accC = 0, accL = 0, nC = 0, nL = 0, shC = 0, shL = 0;
+      var hasBud = !!buildBudget(key);
+      var accC = 0, accL = 0, nC = 0, nL = 0, shC = 0, shL = 0, bdM = 0, bdAll = 0;
       var h = '<div class="iet-seg"><div class="iet-seg-ttl">' + esc(x.s.lbl) + '</div>' +
         '<div class="iet-tbl-wrap"><table class="iet-tbl iet-days"><thead><tr><th class="l">Día</th>' +
-        (single ? '<th class="l">Fecha ' + y + '</th>' : '') + '<th>' + y + '</th>' +
-        (single ? '<th class="l">Fecha ' + (y - 1) + '</th>' : '') + '<th>' + (y - 1) + '</th><th>YoY</th><th>YoY acumulado</th>' + (withB2c ? '<th>YoY B2C</th>' : '') +
+        (single ? '<th class="l">Fecha ' + y + '</th>' : '') + '<th>' + y + '<span class="iet-pyoy">YoY / vs Budget</span></th>' +
+        (single ? '<th class="l">Fecha ' + (y - 1) + '</th>' : '') + '<th>' + (y - 1) + '</th>' + (hasBud ? '<th>Budget</th>' : '') + '<th>YoY acumulado</th>' + (withB2c ? '<th>YoY B2C</th>' : '') +
         '<th class="iet-share">Share ' + (y - 1) + '</th><th class="iet-share">Share ' + y + '</th></tr></thead><tbody>';
       pos.forEach(function (o, i) {
-        var v = perPos[i].vals[si], t = perPos[i].tot, p = pct(v.cy, v.ly), b = seriesAt('b2c', ps, o);
+        var v = perPos[i].vals[si], t = perPos[i].tot, b = seriesAt('b2c', ps, o), bd = hasBud ? budgetAt(key, ps, o) : null;
         // YoY acumulado desde D1: promedio diario de cada año hasta ese día (con la misma duración, es el
         // YoY de los totales; si un año el evento ya terminó, no se infla por sumar días de un solo lado).
         var acc = null;
@@ -571,7 +634,9 @@
           accC += v.cy; nC++;
           if (v.ly != null) { accL += v.ly; nL++; }
           acc = nL ? pct(accC / nC, accL / nL) : null;
+          if (bd != null) bdM += bd;
         }
+        if (bd != null && (o.o < (single ? single.cy.dias : 1e9))) bdAll += bd;
         if (t.cy != null) shC += v.cy;
         if (lyDay(t)) shL += v.ly;
         // Total: los países con evento más corto dejan de sumar; se aclara cuántos quedan ese día.
@@ -580,22 +645,31 @@
         var yb = pct(b.cy, b.ly);
         h += '<tr><td class="l">' + o.lbl + tag + '</td>' +
           (single ? '<td class="l iet-dim">' + fmtDay(dateAt(single.cy, o)) + '</td>' : '') +
-          '<td>' + fmtMoney(v.cy) + '</td>' +
+          '<td>' + fmtMoney(v.cy) + (v.cy != null ? subYB(v.cy, v.ly, bd) : '') + '</td>' +
           (single ? '<td class="l iet-dim">' + fmtDay(dateAt(single.ly, o)) + '</td>' : '') +
-          '<td>' + fmtMoney(v.ly) + '</td><td class="' + pctCls(p) + '">' + fmtPct(p) + '</td>' +
+          '<td>' + fmtMoney(v.ly) + '</td>' + (hasBud ? '<td class="iet-dim">' + fmtMoney(bd) + '</td>' : '') +
           '<td class="' + pctCls(acc) + '">' + fmtPct(acc) + '</td>' +
           (withB2c ? '<td class="' + pctCls(yb) + '">' + fmtPct(yb) + '</td>' : '') +
-          shareCell(t.ly == null ? null : v.ly, t.ly) + shareCell(t.cy == null ? null : v.cy, t.cy) + '</tr>';
+          shareCell(lyDay(t) ? v.ly : null, t.ly) + shareCell(t.cy == null ? null : v.cy, t.cy) + '</tr>';
       });
       var ks = groupStats(key, { pairs: ps }), kb = groupStats(key, { pairs: ps }, 'b2c');
       if (ks.perDay) out.perDay = true;
-      h += '<tr class="iet-total"><td class="l">' + (liveSeg ? 'Total a la fecha' : 'Total evento') + '</td>' + (single ? '<td></td>' : '') + '<td>' + fmtMoney(ks.cy) + '</td>' +
-        (single ? '<td></td>' : '') + '<td>' + fmtMoney(ks.ly) + '</td><td class="' + pctCls(ks.yoy) + '">' + yoyHtml(ks) + '</td><td></td>' +
+      h += '<tr class="iet-total"><td class="l">' + (liveSeg ? 'Total a la fecha' : 'Total evento') + '</td>' + (single ? '<td></td>' : '') +
+        '<td>' + fmtMoney(ks.cy) + (ks.cy != null ? subYB(ks.cy, ks.ly, hasBud ? bdM : null) : '') + '</td>' +
+        (single ? '<td></td>' : '') + '<td>' + fmtMoney(ks.ly) + '</td>' + (hasBud ? '<td>' + fmtMoney(ks.cy != null ? bdM : bdAll) + '</td>' : '') + '<td></td>' +
         (withB2c ? '<td class="' + pctCls(kb.yoy) + '">' + yoyHtml(kb) + '</td>' : '') + shareCell(tot.ly ? shL : null, tot.ly) + shareCell(tot.cy ? shC : null, tot.cy) + '</tr>';
       out.html += h + '</tbody></table></div></div>';
       if (key === 'b2b2c') out.html += partnerTableHtml(ps, pos, y);
     });
     return out;
+  }
+
+  // Budget de una línea en los días de evento que ya pasaron este año (para "vs Budget" del resumen y los KPIs)
+  function segBudgetToDate(key, sp) {
+    if (key === 'b2c' || (key !== 'b2b' && !buildBudget(key))) return null;
+    var t = 0;
+    axisFor(sp).forEach(function (o) { if (seriesAt(key, sp, o).cy != null) t += budgetAt(key, sp, o) || 0; });
+    return t;
   }
 
   function cssVar(n, fb) { var v = getComputedStyle(document.documentElement).getPropertyValue(n); return (v && v.trim()) || fb; }
@@ -708,6 +782,7 @@
       '<div class="section-hdr-row"><div class="section-hdr">Industry events tracker</div>' +
       '<div class="iet-ctrl"><span class="iet-ctrl-lbl">LoB</span>' + toggleHtml('iet-lob', LOBS, st.lob, 'lob') +
       '<span class="iet-ctrl-lbl">Métrica</span>' + toggleHtml('iet-metric', METRICS, st.metric, 'metric') +
+      '<span class="iet-ctrl-lbl">Unidad</span>' + toggleHtml('iet-unit', UNITS, st.unit, 'unit') +
       '</div></div>' +
       '<div class="iet-ctrl iet-ctrl-ev"><span id="iet-evsel" class="iet-ctrl"></span><span class="bench-sub" id="iet-asof"></span></div>' +
       '<div id="iet-body"></div></div>';
@@ -718,6 +793,7 @@
         st[b.getAttribute('data-fn')] = b.getAttribute('data-v');
         b.parentNode.querySelectorAll('button').forEach(function (x) { x.classList.toggle('active', x === b); });
         if (b.getAttribute('data-fn') === 'lob') st.sel = null;
+        if (b.getAttribute('data-fn') === 'unit') { try { localStorage.setItem('iet-unit', st.unit); } catch (e2) { /* sin storage */ } }
         renderAll();
       }
     });
