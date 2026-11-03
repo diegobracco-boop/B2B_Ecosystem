@@ -69,9 +69,9 @@ const MODULES = [
     // (public/hub-slides.js, textos en /notes/hub/…), 2026-10-26. "Mis slides" (public/hub-builder.js, ?builder=1, 2026-10-29):
     // armador de slides propias con los datos del P&L; las recetas en /notes/hub/builder. Lo embebe Presentaciones.
     // portal-ask.js: el intérprete del buscador de la portada también lee la barra "Filtrar…" (2026-10-31).
-    // hub-marketing.js: lectura de "Marketing & Media Investment" de B2B (¿se paga el marketing?), 2026-10-31.
-    layout: ['filter-aliases.js', 'portal-ask.js', 'hub-layout.js', 'hub-marketing.js', 'hub-h2h1.js', 'hub-slides.js', 'hub-cierre.js', 'hub-builder.js'],
-    gasExtras: ['hub-marketing-canal.js'],
+    // hub-marketing.js (lectura "¿se paga el marketing?") y su gasExtra hub-marketing-canal.js se desactivaron el 2026-11-03: el
+    // gráfico + tabla de "Marketing & Media Investment" vuelven a ser los originales de Apps Script. Los archivos quedan en el repo.
+    layout: ['filter-aliases.js', 'portal-ask.js', 'hub-layout.js', 'hub-h2h1.js', 'hub-slides.js', 'hub-cierre.js', 'hub-builder.js'],
     // getSlidesEvo (Slides mensuales y Mis slides) depende solo de sus parámetros y de los JSON del espejo: se calcula una vez por
     // combinación y día y se reparte comprimida (server/api-cache.js; se invalida cuando cambia un archivo que lee el Hub). 2026-10-30.
     cacheFns: ['getSlidesEvo', 'getFvmOcBridge'],   // getFvmOcBridge: slide FVM vs OC del Flow mensual (2026-11-03)
