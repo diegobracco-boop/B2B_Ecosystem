@@ -204,21 +204,26 @@ def armar_eventos(cal, lob):
 
 # ── LY que falta (B2B2C y B2C, nov–dic) ───────────────────────────────────────
 
-def _agg_dia_pais(df, cols):
+def _agg_dia_pais(df, cols, extra=()):
     df = df.copy()
     df["pais"] = df["pais"].replace(PAIS_REAL)
-    g = df.groupby(["fecha", "pais"], as_index=False)[cols].sum().round(2)
-    g = g.sort_values(["fecha", "pais"])
-    return {"cols": ["fecha", "pais"] + cols, "rows": g[["fecha", "pais"] + cols].values.tolist()}
+    keys = ["fecha", "pais"] + list(extra)
+    for k in extra:
+        df[k] = df[k].fillna("").astype(str).str.strip()
+    g = df.groupby(keys, as_index=False)[cols].sum().round(2)
+    g = g.sort_values(keys)
+    return {"cols": keys + cols, "rows": g[keys + cols].values.tolist()}
 
 
 def bajar_ly(ds, desde, hasta):
     print(f"  LY {desde} → {hasta} (queries de daily_sync.py)")
     a = ds["clean_actuals"](ds["fetch"](ds["build_actuals_query"](desde, hasta), "B2B2C LY nov-dic"))
     b2b2c = _agg_dia_pais(a, ["gross_bookings", "net_revenues", "fvm"])
+    # Apertura por partner de la solapa (2026-11-03): el mismo LY por fecha × país × partner
+    b2b2c_partner = _agg_dia_pais(a, ["gross_bookings", "net_revenues", "fvm"], extra=["partner"])
     c = ds["agg_b2c"](ds["fetch"](ds["build_b2c_query"](desde, hasta), "B2C LY nov-dic"))
     b2c = _agg_dia_pais(c, ["gross_bookings", "net_revenues", "fvm"])
-    return {"b2b2c": b2b2c, "b2c": b2c}
+    return {"b2b2c": b2b2c, "b2b2c_partner": b2b2c_partner, "b2c": b2c}
 
 
 def main():
@@ -257,7 +262,7 @@ def main():
     }
     raw = json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     print(f"  {FILE_NAME}: {len(raw) / 1024:.0f} KB, {len(eventos)} eventos, "
-          f"B2B2C {len(ly['b2b2c']['rows'])} filas, B2C {len(ly['b2c']['rows'])} filas")
+          f"B2B2C {len(ly['b2b2c']['rows'])} filas ({len(ly['b2b2c_partner']['rows'])} por partner), B2C {len(ly['b2c']['rows'])} filas")
     if args.out:
         Path(args.out).write_bytes(raw)
         print(f"  OK guardado en {args.out}")

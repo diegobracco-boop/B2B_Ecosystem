@@ -13,6 +13,8 @@
  *    este año vs D1 del año pasado (aunque caigan en fechas distintas). Sin evento el año pasado:
  *    mismas fechas −364 días (mismo día de la semana). Si el evento dura distinto que el año pasado,
  *    el YoY compara el promedio diario (marcado con †).
+ *  - Debajo de la tabla de B2B2C (2026-11-03): apertura por partner × día de evento (partnerTableHtml), con la métrica
+ *    y el país elegidos. B2B no tiene partner en los datos del Daily.
  */
 (function () {
   'use strict';
@@ -104,6 +106,110 @@
     }
     seriesCache[lob] = { key: key, map: map };
     return seriesCache[lob];
+  }
+
+  // ── B2B2C por partner (2026-11-03, Diego): map[fecha][pais][partner] = [gb, nr, fvm] ──
+  // Mismas fuentes que buildSeries('b2b2c'); el LY de nov–dic que el Daily no publica viene en ly_ext.b2b2c_partner
+  // (industry_events_sync.py), con los nombres unificados como el Daily (PARTNER_ALIAS_).
+  var partnerCache = null;
+  function buildPartners() {
+    var key = (window._exCoiBr ? 1 : 0) + '|' + (ev ? ev.meta.generated_at : '');
+    if (partnerCache && partnerCache.key === key) return partnerCache.map;
+    var raw = window._rawB2BC, map = {}, alias = window.PARTNER_ALIAS_ || {};
+    function add(r) {
+      var f = r.fecha; if (!f) return;
+      if (r.pais === 'RG' && !window._exCoiBr) return;
+      var p = OTHER[r.pais] || r.pais, pt = String(r.partner || '').trim() || 'Sin asignar';
+      pt = alias[pt] || pt;
+      var day = map[f] || (map[f] = {}), dp = day[p] || (day[p] = {}), v = dp[pt] || (dp[pt] = [0, 0, 0]);
+      v[0] += +r.gross_bookings || 0; v[1] += +(r.net_revenues != null ? r.net_revenues : r.net_revenue) || 0; v[2] += +r.fvm || 0;
+    }
+    ['actuals', 'actuals_ly'].forEach(function (k) { rowsOf(raw && raw[k]).forEach(add); });
+    var ext = ev && ev.ly_ext && ev.ly_ext.b2b2c_partner;
+    if (ext) {
+      var have = {};
+      Object.keys(map).forEach(function (f) { have[f] = 1; });
+      rowsOf(ext).forEach(function (r) { if (!have[r.fecha]) add(r); });
+    }
+    partnerCache = { key: key, map: map };
+    return map;
+  }
+  // { partner: valor } de la métrica elegida en una fecha y país (null: fecha sin dato todavía)
+  function pvals(pais, fecha) {
+    if (!fecha) return null;
+    var last = lastDate();
+    if (last && fecha > last) return null;
+    var day = buildPartners()[fecha], out = {}, i = MI[st.metric];
+    if (!day) return null;
+    var dp = day[pais] || {};
+    Object.keys(dp).forEach(function (k) { out[k] = dp[k][i]; });
+    return out;
+  }
+  var PARTNER_TOP = 15;
+  // Tabla: partners (más vendedores primero) × días de evento; cada celda = este año y su YoY contra el mismo día de
+  // evento del año pasado. Total del partner y YoY sobre los días con dato de los dos años.
+  function partnerTableHtml(ps, pos, y) {
+    var single = ps.length === 1 ? ps[0] : null, P = {};
+    function slot(k) { return P[k] || (P[k] = { d: pos.map(function () { return { cy: null, ly: null }; }), cy: 0, ly: 0, lyM: 0, cyM: 0 }); }
+    var hasCy = pos.map(function () { return false; });
+    pos.forEach(function (o, i) {
+      ps.forEach(function (p) {
+        var c = pvals(p.cy.pais, dateAt(p.cy, o)), l = pvals(p.cy.pais, dateAt(p.ly, o));
+        if (c) { hasCy[i] = true; Object.keys(c).forEach(function (k) { var x = slot(k).d[i]; x.cy = (x.cy || 0) + c[k]; }); }
+        if (l) Object.keys(l).forEach(function (k) { var x = slot(k).d[i]; x.ly = (x.ly || 0) + l[k]; });
+      });
+    });
+    var names = Object.keys(P);
+    if (!names.length) return '';
+    names.forEach(function (k) {
+      var t = P[k];
+      t.d.forEach(function (x, i) {
+        if (x.cy != null) t.cy += x.cy;
+        if (x.ly != null) t.ly += x.ly;
+        // días ya transcurridos de este año: mismos días del año pasado (partners nuevos suman con LY 0, como el total del día)
+        if (hasCy[i]) { t.lyM += x.ly || 0; t.cyM += x.cy || 0; }
+      });
+    });
+    names.sort(function (a, b) { return (P[b].cy - P[a].cy) || (P[b].ly - P[a].ly); });
+    names = names.filter(function (k) { return Math.abs(P[k].cy) > 0.5 || Math.abs(P[k].ly) > 0.5; });
+    var top = names.slice(0, PARTNER_TOP), rest = names.slice(PARTNER_TOP), lines = top.map(function (k) { return [k, P[k]]; });
+    if (rest.length) {
+      var R = { d: pos.map(function () { return { cy: null, ly: null }; }), cy: 0, ly: 0, lyM: 0, cyM: 0 };
+      rest.forEach(function (k) {
+        var t = P[k];
+        t.d.forEach(function (x, i) { var r = R.d[i]; if (x.cy != null) r.cy = (r.cy || 0) + x.cy; if (x.ly != null) r.ly = (r.ly || 0) + x.ly; });
+        R.cy += t.cy; R.ly += t.ly; R.lyM += t.lyM; R.cyM += t.cyM;
+      });
+      lines.push(['Resto (' + rest.length + ' partners)', R]);
+    }
+    var tot = { d: pos.map(function () { return { cy: null, ly: null }; }), cy: 0, ly: 0, lyM: 0, cyM: 0 };
+    lines.forEach(function (l) {
+      var t = l[1];
+      t.d.forEach(function (x, i) { var r = tot.d[i]; if (x.cy != null) r.cy = (r.cy || 0) + x.cy; if (x.ly != null) r.ly = (r.ly || 0) + x.ly; });
+      tot.cy += t.cy; tot.ly += t.ly; tot.lyM += t.lyM; tot.cyM += t.cyM;
+    });
+    function cell(x, i) {
+      if (!hasCy[i]) return '<td class="iet-dim">' + (x.ly != null ? fmtMoney(x.ly) + '<span class="iet-pyoy">' + (y - 1) + '</span>' : '—') + '</td>';
+      var p = pct(x.cy, x.ly);
+      return '<td>' + fmtMoney(x.cy || 0) + '<span class="iet-pyoy ' + pctCls(p) + '">' + fmtPct(p) + '</span></td>';
+    }
+    // En curso: el total del año pasado son los mismos días de evento que ya pasaron este año (y aparte el evento completo)
+    var live = hasCy.some(function (h) { return !h; });
+    function row(name, t, cls) {
+      var p = t.lyM ? pct(t.cyM, t.lyM) : null;
+      return '<tr' + (cls ? ' class="' + cls + '"' : '') + '><td class="l">' + esc(name) + '</td>' + t.d.map(cell).join('') +
+        '<td>' + fmtMoney(t.cyM) + '</td><td>' + fmtMoney(t.lyM) + '</td><td class="' + pctCls(p) + '">' + fmtPct(p) + '</td>' +
+        (live ? '<td class="iet-dim">' + fmtMoney(t.ly) + '</td>' : '') + '</tr>';
+    }
+    var h = '<details class="iet-seg iet-partners" open><summary class="iet-seg-ttl">B2B2C por partner · por día de evento</summary>' +
+      '<div class="iet-tbl-wrap"><table class="iet-tbl iet-days"><thead><tr><th class="l">Partner</th>' +
+      pos.map(function (o) { return '<th>' + o.lbl + (single && dateAt(single.cy, o) ? '<span class="iet-pyoy">' + fmtDay(dateAt(single.cy, o)) + '</span>' : '') + '</th>'; }).join('') +
+      '<th>Total ' + y + (live ? '<span class="iet-pyoy">a la fecha</span>' : '') + '</th><th>Total ' + (y - 1) + (live ? '<span class="iet-pyoy">mismos días</span>' : '') + '</th><th>YoY</th>' +
+      (live ? '<th>' + (y - 1) + '<span class="iet-pyoy">evento completo</span></th>' : '') + '</tr></thead><tbody>' +
+      lines.map(function (l) { return row(l[0], l[1]); }).join('') + row('Total B2B2C', tot, 'iet-total') + '</tbody></table></div>' +
+      '<div class="iet-foot">Cada celda: ' + y + ' y debajo el YoY contra el mismo día de evento de ' + (y - 1) + '. Días que todavía no pasaron: el valor de ' + (y - 1) + ' en gris. ' +
+      'Totales: los días de evento que ya pasaron este año contra los mismos días de ' + (y - 1) + ' (los partners nuevos suman con ' + (y - 1) + ' en 0). Los ' + PARTNER_TOP + ' partners que más venden este año; el resto agrupado.</div></details>';
+    return h;
   }
 
   var MI = { gb: 0, nr: 1, fvm: 2 };
@@ -412,6 +518,7 @@
         (single ? '<td></td>' : '') + '<td>' + fmtMoney(ks.ly) + '</td><td class="' + pctCls(ks.yoy) + '">' + yoyHtml(ks) + '</td><td></td>' +
         (withB2c ? '<td class="' + pctCls(kb.yoy) + '">' + yoyHtml(kb) + '</td>' : '') + shareCell(tot.ly ? shL : null, tot.ly) + shareCell(tot.cy ? shC : null, tot.cy) + '</tr>';
       out.html += h + '</tbody></table></div></div>';
+      if (key === 'b2b2c') out.html += partnerTableHtml(ps, pos, y);
     });
     return out;
   }
@@ -463,6 +570,8 @@
   // ── Vista y navegación ──
   var CSS = [
     '#view-industry .iet-ctrl{display:flex;gap:12px;align-items:center;flex-wrap:wrap}',
+    '#view-industry .iet-pyoy{display:block;font-size:10px;font-weight:600;opacity:.85}',
+    '#view-industry .iet-partners summary{cursor:pointer}#view-industry .iet-partners .iet-tbl td,#view-industry .iet-partners .iet-tbl th{white-space:nowrap}',
     '#view-industry .iet-ctrl-lbl{font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em}',
     '.iet-card{margin-bottom:16px}',
     '.iet-empty{padding:48px 0;text-align:center;color:var(--text-3);font-size:13px}',
