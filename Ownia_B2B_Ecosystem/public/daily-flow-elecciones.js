@@ -49,6 +49,10 @@
     '.fe-msg{font-size:12.5px;line-height:1.5;color:var(--fl-ink2);background:#f3f0ff;border-radius:8px;padding:10px 12px}',
     '.fe-msg b{color:var(--fl-ink)}.fe-msg ul{margin:4px 0 0;padding-left:16px}',
     '.fe-note{font-size:10.5px;color:var(--fl-ink3);line-height:1.4}',
+    '.fe-lowb{grid-template-columns:1fr 330px}.fe-tb td{padding:5px 6px}.fe-tb .fe-m{font-weight:800;color:var(--fl-ink);vertical-align:middle;border-right:1px solid var(--fl-line)}',
+    '.fe-tb .fe-g td{border-top:2px solid #d9d2fb}.fe-tb .fe-tt td{font-weight:800;background:#fbfaff}.fe-tb small{display:inline;font-size:10.5px}',
+    '.fe-tb .fe-l{text-align:left!important;font-weight:700}',
+    '.fe-tb .fe-na{color:var(--fl-ink3);font-style:italic;font-size:11.5px}',
     '.fe-wait{font-size:13px;color:var(--fl-ink3);font-style:italic;padding:30px}',
   ].join('\n');
   (document.head || document.documentElement).appendChild(css);
@@ -62,13 +66,13 @@
   function add(d, n) { return ds(t(d) + n * DAY); }
   function ddmm(d) { return d.slice(8, 10) + '/' + d.slice(5, 7); }
 
-  // ── Series diarias de Brasil: { cy: {fecha: [gb, nr]}, ly: {fecha: [gb, nr]} } ─────────────────
+  // ── Series diarias de Brasil: { cy, ly, cyB (real a TC Budget), bud: {fecha: [gb, nr, fvm]} } ───────
   function acc(rows, filt, nrF) {
     var o = {};
     (rows || []).forEach(function (r) {
       if (r.pais !== 'Brasil' || !filt(r)) return;
-      var x = o[r.fecha] || (o[r.fecha] = [0, 0]);
-      x[0] += +r.gross_bookings || 0; x[1] += +r[nrF] || 0;
+      var x = o[r.fecha] || (o[r.fecha] = [0, 0, 0]);
+      x[0] += +r.gross_bookings || 0; x[1] += +r[nrF] || 0; x[2] += +r.fvm || 0;
     });
     return o;
   }
@@ -89,21 +93,25 @@
       .withFailureHandler(function () { fxState = 'err'; })
       .getFxTable();
   }
-  function org(rows) { return fxReady() && rows && rows.length ? W._orgRows_(rows, 'ly') : rows; }
+  function org(rows, tg) { return fxReady() && rows && rows.length ? W._orgRows_(rows, tg || 'ly') : rows; }
   function series() {
     var c = W._rawB2BC, b = W._rawB2B, ex = function (r) { return r.account_type === 'Existing'; }, all = function () { return true; };
     var s = {
-      farm: { cy: acc(org(c.actuals), ex, 'net_revenues'), ly: acc(c.actuals_ly, ex, 'net_revenues') },
+      farm: { cy: acc(org(c.actuals), ex, 'net_revenues'), ly: acc(c.actuals_ly, ex, 'net_revenues'),
+        cyB: acc(org(c.actuals, 'budget'), ex, 'net_revenues'), bud: acc(c.budget, function (r) { return r.stage === 'Existing'; }, 'net_revenue') },
       b2c: { cy: acc(org(typeof W._b2cRows_ === 'function' ? W._b2cRows_(c) : []), all, 'net_revenues'), ly: acc(typeof W._b2cLyRows_ === 'function' ? W._b2cLyRows_(c) : [], all, 'net_revenues') },
     };
     if (b2bReady()) {
       var ch = function (n) { return function (r) { return r.parent_channel === n; }; }, cy = org(b.b2b_gd);
-      s.html = { cy: acc(cy, ch('Agencias afiliadas'), 'net_revenue'), ly: acc(b.b2b_gd_ly, ch('Agencias afiliadas'), 'net_revenue') };
-      s.api = { cy: acc(cy, ch('API'), 'net_revenue'), ly: acc(b.b2b_gd_ly, ch('API'), 'net_revenue') };
+      var cyB = org(b.b2b_gd, 'budget');
+      ['html', 'api'].forEach(function (k) {
+        var f = ch(k === 'html' ? 'Agencias afiliadas' : 'API');
+        s[k] = { cy: acc(cy, f, 'net_revenue'), ly: acc(b.b2b_gd_ly, f, 'net_revenue'), cyB: acc(cyB, f, 'net_revenue'), bud: acc(b.b2b_budget_gd, f, 'net_revenue') };
+      });
     }
     return s;
   }
-  function sum(m, a, b, i) { var x = 0; for (var d = a; d <= b; d = add(d, 1)) x += (m[d] || [0, 0])[i]; return x; }
+  function sum(m, a, b, i) { var x = 0; for (var d = a; d <= b; d = add(d, 1)) x += (m[d] || [0, 0, 0])[i]; return x; }
   function yoy(s, a, b, i) { var c = sum(s.cy, a, b, i), l = sum(s.ly, add(a, -LAG), add(b, -LAG), i); return { c: c, l: l, y: l ? (c / l - 1) * 100 : NaN }; }
   // último día completo: el del Daily menos uno (el último día cargado suele venir parcial), tope 31/10
   function lastDay() {
@@ -191,10 +199,62 @@
       '<div class="fe-msg">' + msg + '</div></div><div class="fe-note">' + esc(note) + '</div></div></div>';
   }
 
+  // ── Impacto vs Budget (2026-11-03, Diego): ¿cuánto costó la desaceleración de octubre? ─────────────
+  // Por negocio B2B y métrica (GB, NR, FVM), octubre completo:
+  //   esperado = octubre del año pasado (alineado 364 días) × (1 + YoY de la tendencia previa)   [Organic, TC Actuals LY]
+  //   pérdida  = esperado − real; se pasa a TC Budget con la relación real TC Budget / real TC LY de octubre
+  //   vs Budget = real a TC Budget − Budget (como el Daily con Organic); "% del gap" = pérdida / faltante vs Budget.
+  var OCT = ['2026-10-01', '2026-10-31'], MET = ['GB', 'NR', 'FVM'];
+  function budCalc(s, m, end) {
+    var b = OCT[1] <= end ? OCT[1] : end, tr = yoy(s, BASE[0], BASE[1], m), o = yoy(s, OCT[0], b, m);
+    var exp = o.l * (1 + tr.y / 100), lossO = exp - o.c, cB = sum(s.cyB, OCT[0], b, m), rt = o.c ? cB / o.c : 1;
+    var bud = sum(s.bud, OCT[0], b, m);
+    return { tr: tr.y, y: o.y, act: cB, bud: bud, gap: cB - bud, loss: lossO * rt };
+  }
+  function htmlBud() {
+    var S = series(), end = lastDay(), B3 = BIZ.filter(function (b) { return b.k !== 'b2c'; });
+    if (!S.html || !fxReady()) return '<div class="flow-slide"><div class="fe-wait">' + (fxState === 'err' ? 'No se pudo leer la tabla de TC.' : 'Cargando datos de B2B y tipos de cambio…') + '</div></div>';
+    var rows = '', T = [];
+    MET.forEach(function (mn, m) {
+      var tot = { act: 0, bud: 0, gap: 0, loss: 0, who: [] };
+      B3.forEach(function (b, i) {
+        var r = budCalc(S[b.k], m, end);
+        ['act', 'bud', 'gap'].forEach(function (k) { tot[k] += r[k]; });
+        // solo suma lo que frenó: un negocio que creció más que su tendencia no compensa la pérdida de otro
+        if (r.loss > 0) { tot.loss += r.loss; tot.who.push(b.lbl.replace('B2B ', '').replace('WL ', '')); }
+        rows += '<tr' + (i === 0 ? ' class="fe-g"' : '') + '>' + (i === 0 ? '<td rowspan="4" class="fe-m">' + mn + '</td>' : '') + '<td class="fe-l" style="color:' + b.c + '">' + esc(b.lbl) + '</td>' +
+          '<td>' + fm(r.bud).replace('+', '') + '</td><td>' + fm(r.act).replace('+', '') + '</td><td class="' + cl(r.gap) + '">' + fm(r.gap) + ' <small>' + pc((r.act / r.bud - 1) * 100) + '</small></td>' +
+          '<td>' + pc(r.tr) + ' → <b class="' + cl(r.y - r.tr) + '">' + pc(r.y) + '</b></td>' +
+          (r.loss > 0 ? '<td class="fe-e fe-dn"><b>' + fm(-r.loss) + '</b></td>' : '<td class="fe-e fe-na">no frenó <small>(' + fm(-r.loss) + ')</small></td>') +
+          '<td>' + (r.gap < 0 && r.loss > 0 ? Math.min(999, Math.round(r.loss / -r.gap * 100)) + '%' : '—') + '</td></tr>';
+      });
+      T[m] = tot;
+      rows += '<tr class="fe-tt"><td class="fe-l">Total B2B Brasil</td><td>' + fm(tot.bud).replace('+', '') + '</td><td>' + fm(tot.act).replace('+', '') + '</td><td class="' + cl(tot.gap) + '">' + fm(tot.gap) + ' <small>' + pc((tot.act / tot.bud - 1) * 100) + '</small></td><td></td>' +
+        '<td class="fe-e ' + (tot.loss > 0 ? 'fe-dn' : '') + '"><b>' + (tot.loss > 0 ? fm(-tot.loss) : '—') + '</b></td><td>' + (tot.gap < 0 && tot.loss > 0 ? Math.min(999, Math.round(tot.loss / -tot.gap * 100)) + '%' : '—') + '</td></tr>';
+    });
+    var nr = T[1], fv = T[2], g = T[0];
+    var amt = function (x) { return x.loss > 0 ? fm(-x.loss).replace('−', '') : '$0'; }, who = nr.who.length ? nr.who : g.who;
+    var title = 'Octubre: frenar ' + (who.length > 1 ? who.slice(0, -1).join(', ') + ' y ' + who[who.length - 1] : who.join('') || 'B2B') +
+      ' costó ' + amt(nr) + ' de NR' + (nr.gap < 0 && nr.loss > 0 ? ' (' + Math.round(nr.loss / -nr.gap * 100) + '% del faltante vs Budget)' : '') + ' y ' + amt(fv) + ' de FVM';   // el GB está en la tabla (con GB no entraba en una línea)
+    var c = S.b2c, ctr = yoy(c, BASE[0], BASE[1], 1), coc = yoy(c, OCT[0], OCT[1] <= end ? OCT[1] : end, 1);
+    var msg = '<b>Cómo se calcula</b><ul>' +
+      '<li><b>Esperado</b> = octubre del año pasado × (1 + YoY de la tendencia previa, 31/8–27/9): lo que hubiéramos vendido sin la desaceleración.</li>' +
+      '<li><b>Pérdida</b> = esperado − real, solo donde octubre quedó debajo de la tendencia. "No frenó" = creció más que su tendencia: no se resta del total. <b>% del faltante</b> = qué parte del gap vs Budget explica.</li>' +
+      '<li>Ojo: B2C Brasil también frenó (NR ' + pc(ctr.y) + ' → ' + pc(coc.y) + ' YoY): parte es mercado (elecciones), no algo propio de B2B.</li>' +
+      '<li>Parte de la caída del YoY es efecto base (fines de octubre 2025 fue alto): la pérdida es un techo.</li></ul>';
+    var note = 'Daily (fecha de gestión, GD), Brasil, 1/10–' + ddmm(OCT[1] <= end ? OCT[1] : end) + '. Real y Budget a TC Budget (como el Daily con Organic); tendencias y YoY a TC Actuals LY. ' +
+      'FVM del Daily (gestional, sin el switch COI Brasil). WL Farming = Existing (Budget: stage Existing; TBD e ITAU son New). Año pasado = 364 días antes.';
+    return '<div class="flow-slide"><div class="fl-head"><div class="fl-title flm-t2" title="' + esc(title) + '"><small>Brasil · elecciones · impacto de la desaceleración de octubre vs Budget · USD Organic</small>' + esc(title) + '</div>' +
+      '<div class="fl-brand">' + (typeof W.flLogo_ === 'function' ? W.flLogo_() : '') + '</div></div><div class="fl-rule"></div>' +
+      '<div class="fl-body fe-body"><div class="fe-low fe-lowb"><table class="fe-t fe-tb"><tr><th></th><th class="fe-l">Octubre</th><th>Budget</th><th>Real</th><th>Real vs Budget</th><th>YoY tendencia → oct</th><th>Pérdida vs<br>tendencia</th><th>% del<br>faltante</th></tr>' + rows + '</table>' +
+      '<div class="fe-msg">' + msg + '</div></div><div class="fe-note">' + esc(note) + '</div></div></div>';
+  }
+
   // daily-flow-minto.js las ubica en el deck y las dibuja (W.FLOW_EXTRA): una en GB y otra en NR (pedido de Diego 2026-11-03)
-  var DEFS = [{ kind: 'br_elecciones', name: 'Brasil · elecciones (GB)' }, { kind: 'br_elecciones_nr', name: 'Brasil · elecciones (NR)' }];
+  var DEFS = [{ kind: 'br_elecciones', name: 'Brasil · elecciones (GB)' }, { kind: 'br_elecciones_nr', name: 'Brasil · elecciones (NR)' },
+    { kind: 'br_elecciones_bud', name: 'Brasil · elecciones vs Budget' }];
   function draw(m) {
-    try { loadFx(); if (!b2bReady() || !fxReady()) watchB2B(); return html(m); } catch (e) { return '<div class="flow-slide"><p style="padding:40px">No se pudo armar la slide de elecciones: ' + esc(e.message) + '</p></div>'; }
+    try { loadFx(); if (!b2bReady() || !fxReady()) watchB2B(); return m === 2 ? htmlBud() : html(m); } catch (e) { return '<div class="flow-slide"><p style="padding:40px">No se pudo armar la slide de elecciones: ' + esc(e.message) + '</p></div>'; }
   }
   W.FLOW_EXTRA = (W.FLOW_EXTRA || []).concat(DEFS.map(function (d, m) { return { def: d, html: function () { return draw(m); } }; }));
   // B2B y la tabla de TC llegan después del B2B2C: cuando llegan, se redibujan las slides (como el resumen de daily-flow-minto.js)
@@ -208,7 +268,7 @@
       DEFS.forEach(function (D, m) {
         var i = (W.FLOW_DECK || []).findIndex(function (d) { return d.kind === D.kind; });
         var fr = i >= 0 && document.querySelector('.flow-frame[data-idx="' + i + '"] .flow-slide');
-        if (fr) { try { fr.outerHTML = html(m); } catch (e) { console.warn('[daily-flow-elecciones]', e); } }
+        if (fr) { try { fr.outerHTML = m === 2 ? htmlBud() : html(m); } catch (e) { console.warn('[daily-flow-elecciones]', e); } }
       });
       if (typeof W.flowScale_ === 'function') W.flowScale_();
     }, 1500);
