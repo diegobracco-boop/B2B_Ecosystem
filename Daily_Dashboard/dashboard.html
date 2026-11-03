@@ -4171,11 +4171,12 @@ function switchMainView(view) {
 // nativo a Flow Semanal" más abajo). Este iframe sigue existiendo solo para
 // el tab standalone "Daily B2B Tracker".
 var _trackerLoaded = false;
-var _trackerUrl = null, _trackerOrg = null;   // organic: el iframe se recarga con &organic=1 (tracker.html lo lee al iniciar)
+var _trackerUrl = null, _trackerOrg = null;   // organic y COI Brasil: el iframe se recarga con &organic=1|0&coibr=excl|incl (tracker.html lo lee al iniciar)
 function _trackerSetSrc_() {
-  if (!_trackerUrl || _trackerOrg === _dlOrganic) return;
-  _trackerOrg = _dlOrganic;
-  document.getElementById('tracker-iframe').src = _trackerUrl + (_dlOrganic ? '&organic=1' : '&organic=0');
+  var st = (_dlOrganic ? '&organic=1' : '&organic=0') + (_exCoiBr ? '&coibr=excl' : '&coibr=incl');
+  if (!_trackerUrl || _trackerOrg === st) return;
+  _trackerOrg = st;
+  document.getElementById('tracker-iframe').src = _trackerUrl + st;
 }
 function trackerOpen_() {
   if (_trackerLoaded) { _trackerSetSrc_(); return; }
@@ -6232,8 +6233,10 @@ var B2B_TRK_TAB_DATA = {
   gb_gd:  { metric:'gb',  dateType:'gd', label:'GB (Gestion Date)' },
   fvm_gd: { metric:'fvm', dateType:'gd', label:'FVM (Gestion Date)' }
 };
+// RG = ajuste COI Brasil (solo FVM; en 0 con el switch en Incluir, applyCoiBr_): va con Brasil, igual que
+// tracker.html y el Weekly. Sin RG, las tablas FVM no daban el FVM ex COI BR de los KRs (2026-11-03).
 var B2B_TRK_COUNTRY_GROUPS = {
-  Brasil:['Brasil'], Mexico:['Mexico'], Globales:['Other Countries'], Colombia:['Colombia'],
+  Brasil:['Brasil','RG'], Mexico:['Mexico'], Globales:['Other Countries'], Colombia:['Colombia'],
   Argentina:['Argentina'], ROW:['Peru','Ecuador','Chile','Uruguay','Paraguay'],
   Chile:['Chile'], Peru:['Peru'], Ecuador:['Ecuador'], Uruguay:['Uruguay'], Paraguay:['Paraguay']
 };
@@ -6259,7 +6262,9 @@ var B2B_TRK_NR_NEW_DETAIL = [
   { name:'Argentina', pais:['Argentina'] }, { name:'Colombia', pais:['Colombia'] }, { name:'Chile', pais:['Chile'] },
   { name:'Peru', pais:['Peru'] }, { name:'Ecua/Uru/Par', pais:['Ecuador','Uruguay','Paraguay'] }
 ];
-var B2B_TRK_FVM_DETAIL = B2B_TRK_NR_CORE_DETAIL.concat(B2B_TRK_NR_NEW_DETAIL);
+var B2B_TRK_FVM_DETAIL = B2B_TRK_NR_CORE_DETAIL.concat(B2B_TRK_NR_NEW_DETAIL).map(function(d){   // Brasil + RG, como FVM_DETAIL del Tracker
+  return d.name === 'Brasil' ? { name:'Brasil', pais:['Brasil','RG'] } : d;
+});
 
 // ── Data access (sobre _rawB2B, ya expandido por expandCompact_ al cargar
 // la página — a diferencia de tracker.html no hace falta unpack()) ──

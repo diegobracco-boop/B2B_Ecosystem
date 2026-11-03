@@ -1519,8 +1519,11 @@ const TAB_DATA = {
   'tables_ri': { dateType: 'ri', label: 'Tablas (Recognition Date)' }
 };
 
+// RG = ajuste COI Brasil (solo FVM; GB/NR en 0): va con Brasil, igual que FVM_DETAIL y el Weekly
+// (Codigo.js). Sin RG acá, las tablas/gráficos lo descartaban y no daban el FVM ex COI BR de los KRs
+// ni del Weekly (2026-11-03). Con el switch COI Brasil en Incluir, su FVM es 0 (applyCoiBrTrk_).
 const COUNTRY_GROUPS = {
-  'Brasil':    ['Brasil'],
+  'Brasil':    ['Brasil', 'RG'],
   'Mexico':    ['Mexico'],
   'Globales':  ['Other Countries'],
   'Colombia':  ['Colombia'],
@@ -1590,6 +1593,32 @@ function unpack(compact) {
     const obj = {};
     compact.cols.forEach((c, i) => { obj[c] = r[i]; });
     return obj;
+  });
+}
+
+// ── COI Brasil (mismo switch que el Daily, _exCoiBr en dashboard.html) ──────────
+// Excluir (default) = FVM ex COI BR: las filas RG suman. Incluir = RG en 0. Embebido en el Daily
+// llega &coibr=excl|incl con el estado del switch (el iframe se recarga al cambiarlo).
+let trkExCoiBr = true;
+function applyCoiBrTrk_(data) {
+  if (!data) return;
+  Object.keys(data).forEach(k => {
+    const v = data[k];
+    if (v && v.cols && v.rows) {                       // compacto { cols, rows }
+      const iP = v.cols.indexOf('pais'), iF = v.cols.indexOf('fvm');
+      if (iP < 0 || iF < 0) return;
+      v.rows.forEach(r => {
+        if (r[iP] !== 'RG') return;
+        if (r._fvmTot === undefined) r._fvmTot = r[iF];
+        r[iF] = trkExCoiBr ? r._fvmTot : 0;
+      });
+    } else if (Array.isArray(v)) {                     // lista de objetos (budget / run rate / forecast)
+      v.forEach(r => {
+        if (!r || r.pais !== 'RG') return;
+        if (r._fvmTot === undefined) r._fvmTot = r.fvm;
+        r.fvm = trkExCoiBr ? r._fvmTot : 0;
+      });
+    }
   });
 }
 
@@ -4570,6 +4599,7 @@ function render() {
 //  Initialization
 // ─────────────────────────────────────────────
 function initDashboard(data) {
+  applyCoiBrTrk_(data);
   rawData = data;
   Object.keys(COUNTRY_GROUPS).forEach(g => { collapseState[g] = false; });
   const meta = data.meta;
@@ -4613,9 +4643,20 @@ function initDashboard(data) {
 
   render();
   // ORGANIC: YES por default (Diego, 2026-10-26). Embebido en el Daily llega &organic=1|0 con el
-  // estado del switch del Daily; solo &organic=0 lo deja en NO.
+  // estado del switch del Daily; solo &organic=0 lo deja en NO. COI Brasil: &coibr=incl → RG en 0.
   try {
-    google.script.url.getLocation(loc => { if (!(loc && loc.parameter && loc.parameter.organic === '0')) setTrkOrganic(true); });
+    google.script.url.getLocation(loc => {
+      const p = (loc && loc.parameter) || {};
+      const coi = p.coibr !== 'incl';
+      const coiChanged = coi !== trkExCoiBr;
+      if (coiChanged) {
+        trkExCoiBr = coi; applyCoiBrTrk_(rawData); applyCoiBrTrk_(okrH2Data);
+        // los memos se arman por identidad de rawData (que se mutó en el lugar): se vacían para no servir fvm viejo
+        _okrH2Unp = {}; orgActMemo = {}; krActMemo = {}; _wkLYMemo = {};
+      }
+      if (p.organic !== '0') setTrkOrganic(true);
+      else if (coiChanged) render();
+    });
   } catch (e) { setTrkOrganic(true); }
 }
 
@@ -5236,7 +5277,7 @@ window.addEventListener('load', () => {
   // En paralelo: JSON de OKR H2. Si falla (no existe todavía), los KRs H2 usan el JSON principal.
   google.script.run
     .withSuccessHandler(function(d) {
-      okrH2Data = JSON.parse(d); _okrH2Unp = {};
+      okrH2Data = JSON.parse(d); _okrH2Unp = {}; applyCoiBrTrk_(okrH2Data);
       if (rawData) { renderStatusKRsH2(); }          // llegó después del JSON principal -> re-render
     })
     .withFailureHandler(function() {})
