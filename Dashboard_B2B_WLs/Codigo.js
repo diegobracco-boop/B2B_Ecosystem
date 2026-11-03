@@ -275,6 +275,42 @@ function getSlidesEvo(list) {
   });
 }
 
+// ── Solo Ownia: slide "FVM vs OC" del Flow mensual (public/hub-slides.js, 2026-11-03, Diego) ──
+// Por qué el crecimiento YoY del FVM no llega igual al OC. Del contable (baseline = real cerrado + Run Rate; LY =
+// actuals_previos_fy26), LoB p.lob (default b2b2c), meses p.months ['AAAA-MM'…]. Con p.organic el año actual va a
+// TC Actuals LY (como el YoY organic del resto del deck). FVM = líneas con "P&L Managerial View" = palancas (cuadra con
+// el FVM gestional: oct-26 3,30M vs 3,25M); RG (país rg: ajustes regionales, p.ej. la recla del COI de Brasil) va
+// aparte. Devuelve por mes las sumas año actual / LY por grupo × línea N1 × país, solo filas del Operating Contribution.
+function getFvmOcBridge(p) {
+  p = p || {};
+  var lob = String(p.lob || 'b2b2c').toLowerCase(), months = p.months || [];
+  var base = readJson_(JSON_IDS.baseline), ly = readJson_(JSON_IDS.ly), missing = [];
+  if (p.organic) { try { var o = applyOrganic_(base, 'ly'); base = o.rows; missing = o.missing; } catch (e) { missing = ['sin tabla de TC: USD nominal']; } }
+  var want = {}, wantLy = {};
+  months.forEach(function(m) { want[m] = m; wantLy[shiftYear_(m, -1)] = m; });
+  var out = {};
+  function add(rows, sel, side) {
+    rows.forEach(function(r) {
+      if (String(r['lob'] || '').trim().toLowerCase() !== lob) return;
+      if (String(r['p&l n5'] || '').trim().toLowerCase() !== 'operating contribution') return;
+      var d = new Date(r['fecha']), ym = d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0'), m = sel[ym];
+      if (!m) return;
+      var pais = String(r['pais'] || '').trim().toLowerCase(), mv = String(r['p&l managerial view'] || '').trim().toLowerCase();
+      var g = pais === 'rg' ? 'rg' : mv === 'palancas' ? 'fvm' : mv;
+      var k = g + '§' + String(r['p&l n1'] || '').trim().toLowerCase() + '§' + pais;
+      var b = out[m] || (out[m] = {}), x = b[k] || (b[k] = [0, 0]);
+      x[side] += r['monto usd'] || 0;
+    });
+  }
+  add(base, want, 0);
+  add(ly, wantLy, 1);
+  var res = {};
+  months.forEach(function(m) {
+    res[m] = Object.keys(out[m] || {}).map(function(k) { var s = k.split('§'); return { g: s[0], n1: s[1], pais: s[2], cy: out[m][k][0], ly: out[m][k][1] }; });
+  });
+  return { lob: lob, lastActuals: LAST_ACTUALS_YM, organic: !!p.organic, missing: missing, months: res };
+}
+
 // ── ÚNICA llamada del frontend ────────────────────────────────
 // Devuelve { filters, pnl, wf, evo } en un solo round-trip
 function getAllData(params) {

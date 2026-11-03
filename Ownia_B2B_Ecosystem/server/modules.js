@@ -74,7 +74,7 @@ const MODULES = [
     gasExtras: ['hub-marketing-canal.js'],
     // getSlidesEvo (Slides mensuales y Mis slides) depende solo de sus parámetros y de los JSON del espejo: se calcula una vez por
     // combinación y día y se reparte comprimida (server/api-cache.js; se invalida cuando cambia un archivo que lee el Hub). 2026-10-30.
-    cacheFns: ['getSlidesEvo'],
+    cacheFns: ['getSlidesEvo', 'getFvmOcBridge'],   // getFvmOcBridge: slide FVM vs OC del Flow mensual (2026-11-03)
     gasUrl: GAS_EXEC + 'AKfycbz52txFQy-5YM2Nil_KxULzPoeZpKyA4z5LUWMGoP_8IilcwSduuwZqPF8ut_LmtceM/exec',
   },
   {

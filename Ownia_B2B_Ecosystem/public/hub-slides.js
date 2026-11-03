@@ -20,6 +20,7 @@
  *   Switch "COI Brasil" del deck (default Excluir): solo afecta esa slide (&coibr=).
  *   Después de "Proyección vs Forecast BTB" (2026-11-03, provisorio hasta reordenar con el material oficial): OC mensual vs Budget de B2B2C, B2B-MAY y B2B-MIN (sOcMonthly): barras
  *   baseline (real + Run Rate) vs Budget por mes, y debajo OC vs Budget %, YoY NR y YoY OC; columna FY.
+ *   Después: "B2B2C FVM vs OC" (sFvmOc, getFvmOcBridge del Hub): mes cerrado + 2 de Run Rate, FVM y OC vs año anterior y el puente del Δ OC.
  *   Al final (2026-11-03): las slides de "Mis slides" marcadas "Agregar al final del Flow mensual" (inFlow, de cualquier
  *   dueño), con el render de public/hub-builder.js (OwniaBuilder.flowSlides). Van al final para no correr los índices
  *   de las slides fijas.
@@ -521,8 +522,84 @@
       '<div class="hs-res">' + g + '</div><div class="hs-otn">' + esc(note) + '</div>' + foot();
   }
 
+  // ── FVM vs OC (2026-11-03, Diego): por qué el YoY del FVM no llega igual al OC, en el mes cerrado y los dos siguientes
+  // (Run Rate). Datos: getFvmOcBridge del Hub (contable; FVM = Managerial View "palancas"; RG aparte). Por mes: FVM y OC
+  // año actual vs LY con su YoY, y el puente del Δ OC por grupo. Borrador del "por qué" con las líneas que más mueven.
+  var FO_G = [['fvm', 'FVM (palancas)'], ['variables regionales', 'Variables regionales'], ['fixed cost', 'Costos fijos'],
+    ['marketing', 'Marketing'], ['income from outsourced services', 'Servicios tercerizados'], ['rg', 'RG (ajustes regionales)']];
+  var FO_N1 = { 'up front incentives': 'UPF', 'fees': 'fees', 'commercial discounts': 'descuentos comerciales', 'cost of installments': 'costo de cuotas (COI)',
+    'white labels / api': 'comisiones WL / API', 'credit card processing': 'procesamiento de tarjetas', 'cancellations': 'cancelaciones',
+    'channels-personnel/expenses': 'personal de canales', 'other taxes': 'otros impuestos', 'performance': 'performance (mkt)', 'branding': 'branding (mkt)',
+    'intercompany transactions': 'intercompany', 'affiliates': 'afiliados', 'vendor commissions': 'comisiones de vendedores', 'income from outsourced services': 'servicios tercerizados' };
+  var FO_PAIS = { brasil: 'Brasil', mexico: 'México', argentina: 'Argentina', chile: 'Chile', colombia: 'Colombia', peru: 'Perú', ecuador: 'Ecuador', 'others countries': 'Globales', rg: 'RG' };
+  function foMonths() { var P = fyPeriods(), ci = closedIdx(); return [P[ci], P[ci + 1], P[ci + 2]].filter(Boolean); }
+  function loadFvmOc() {
+    var p = { lob: 'b2b2c', months: foMonths(), organic: organicOn() }, key = 'fo' + JSON.stringify(p);
+    if (cache[key]) return Promise.resolve(cache[key]);
+    return new Promise(function (resolve) {
+      window.google.script.run.withSuccessHandler(function (r) { cache[key] = r; resolve(r); })
+        .withFailureHandler(function (e) { console.warn('[hub-slides] FVM vs OC:', e); resolve(null); }).getFvmOcBridge(p);
+    });
+  }
+  function foCalc(rows) {
+    var g = {}, lines = {};
+    FO_G.forEach(function (x) { g[x[0]] = { cy: 0, ly: 0 }; });
+    (rows || []).forEach(function (r) {
+      var G = g[r.g] || (g[r.g] = { cy: 0, ly: 0 }); G.cy += r.cy; G.ly += r.ly;
+      var k = r.g + '§' + r.n1, L = lines[k] || (lines[k] = { g: r.g, n1: r.n1, d: 0, by: {} });
+      L.d += r.cy - r.ly; L.by[r.pais] = (L.by[r.pais] || 0) + r.cy - r.ly;
+    });
+    var oc = { cy: 0, ly: 0 }; Object.keys(g).forEach(function (k) { oc.cy += g[k].cy; oc.ly += g[k].ly; });
+    var yy = function (x) { return x.ly > 0 ? (x.cy / x.ly - 1) * 100 : NaN; };
+    var ls = Object.keys(lines).map(function (k) {
+      var L = lines[k], top = Object.keys(L.by).sort(function (a, b) { return Math.abs(L.by[b]) - Math.abs(L.by[a]); })[0];
+      L.where = top && L.d && L.by[top] / L.d >= 0.7 && top !== 'rg' ? FO_PAIS[top] || top : '';
+      return L;
+    });
+    return { g: g, oc: oc, fvmY: yy(g.fvm), ocY: yy(oc), lines: ls };
+  }
+  function foName(L) { return (L.g === 'rg' ? 'RG · ' : '') + (FO_N1[L.n1] || L.n1) + (L.where ? ' ' + L.where : ''); }
+  function foMoney(v) { var a = Math.abs(v); return (a < 500 ? '' : v < 0 ? '−' : '+') + '$' + (a >= 1e6 ? (a / 1e6).toFixed(2) + 'M' : Math.round(a / 1e3) + 'K'); }
+  function foDraft(M, C) {
+    return M.map(function (m, i) {
+      var c = C[i], dF = c.g.fvm.cy - c.g.fvm.ly, dO = c.oc.cy - c.oc.ly;
+      var below = c.lines.filter(function (L) { return L.g !== 'fvm' && L.d < 0; }).sort(function (a, b) { return a.d - b.d; }).slice(0, 2);
+      var drag = c.lines.filter(function (L) { return L.g === 'fvm' && L.d < 0; }).sort(function (a, b) { return a.d - b.d; })[0];
+      return monthLabel(m) + ': FVM ' + pc(c.fvmY) + ' (' + foMoney(dF) + ') vs OC ' + pc(c.ocY) + ' (' + foMoney(dO) + '). ' +
+        (below.length ? 'No llega por ' + below.map(function (L) { return foName(L) + ' ' + foMoney(L.d); }).join(' y ') : 'Debajo del FVM no hay costos que crezcan') +
+        (drag ? '; dentro del FVM pesa ' + foName(drag) + ' ' + foMoney(drag.d) : '') + '.';
+    }).join('\n');
+  }
+  function sFvmOc(d) {
+    var M = foMonths();
+    if (!d || !d.months) return head('B2B2C · FVM vs Operating Contribution') + '<div class="hs-err">No se pudieron leer los datos del contable para esta slide.</div>' + foot();
+    var C = M.map(function (m) { return foCalc(d.months[m]); });
+    var gap = C.map(function (c) { return c.fvmY - c.ocY; });
+    var title = 'B2B2C: el OC crece menos que el FVM (' + M.map(function (m, i) { return MES[+m.slice(5) - 1].toLowerCase() + ' ' + pc(C[i].fvmY) + ' vs ' + pc(C[i].ocY); }).join(' · ') + ')';
+    if (gap.every(function (x) { return !(x > 0); })) title = 'B2B2C: FVM y OC crecen parecido (' + M.map(function (m, i) { return MES[+m.slice(5) - 1].toLowerCase() + ' ' + pc(C[i].ocY); }).join(' · ') + ')';
+    var cards = M.map(function (m, i) {
+      var c = C[i], dO = c.oc.cy - c.oc.ly, rr = i > 0;
+      var steps = FO_G.map(function (x) { return [x[1], c.g[x[0]].cy - c.g[x[0]].ly, x[0] === 'fvm']; });
+      var mx = Math.max.apply(null, steps.map(function (x) { return Math.abs(x[1]); }).concat([Math.abs(dO)])) || 1;
+      var bar = function (lbl, v, strong, tot) {
+        var w = Math.abs(v) / mx * 48;
+        return '<div class="hs-fob' + (strong ? ' hs-fobs' : '') + (tot ? ' hs-fobz' : '') + '"><span class="hs-fobl">' + lbl + '</span><span class="hs-fobt"><i style="' + (v < 0 ? 'right:50%' : 'left:50%') + ';width:' + w.toFixed(1) + '%" class="' + (v < 0 ? 'hs-fon' : 'hs-fop') + '"></i></span>' +
+          '<span class="hs-fobv ' + cls(v) + '">' + foMoney(v) + '</span></div>';
+      };
+      return '<div class="hs-foc"><div class="hs-foh">' + monthLabel(m) + ' <span>' + (rr ? 'Run Rate' : 'real') + '</span></div>' +
+        '<div class="hs-fok"><div><small>FVM YoY</small><b class="' + cls(c.fvmY) + '">' + pc(c.fvmY) + '</b><span>' + m1(c.g.fvm.cy) + ' vs ' + m1(c.g.fvm.ly) + ' $M</span></div>' +
+        '<div><small>OC YoY</small><b class="' + cls(c.ocY) + '">' + pc(c.ocY) + '</b><span>' + m1(c.oc.cy) + ' vs ' + m1(c.oc.ly) + ' $M</span></div></div>' +
+        '<div class="hs-fot">Δ vs año anterior (USD)</div>' + steps.map(function (x) { return bar(x[0], x[1], x[2]); }).join('') + bar('= Δ Op. Contribution', dO, true, true) + '</div>';
+    }).join('');
+    return head(title, 'Contable · real cerrado hasta ' + monthLabel(state.month) + ', después Run Rate · vs mismo mes del año anterior') +
+      '<div class="hs-fo"><div class="hs-focs">' + cards + '</div><div class="hs-foside">' + noteBox('b2b2c_fvm_oc', 'Por qué el FVM no llega igual al OC', foDraft(M, C)) + '</div></div>' +
+      '<div class="hs-otn">FVM = líneas "palancas" del P&L contable (UPF, fees, descuentos, cancelaciones, COI, tarjetas, costo de venta, comisiones WL/API); cuadra con el FVM gestional. ' +
+      'RG = ajustes regionales (país RG, p.ej. la reclasificación del COI de Brasil).' + (organicOn() ? ' Organic: el año actual a TC del año anterior.' : '') +
+      (d.missing && d.missing.length ? ' Sin TC: ' + esc(d.missing.slice(0, 3).join(', ')) + '.' : '') + '</div>' + foot();
+  }
+
   // extra: slides de "Mis slides" marcadas para el Flow mensual (hub-builder.js, OwniaBuilder.flowSlides), van al final
-  function slidesHtml(h2h1, h2h1b, extra) {
+  function slidesHtml(h2h1, h2h1b, extra, fo) {
     var list = [
       ['Portada', sCover()],
       ['H2 vs H1', h2h1 || '<div class="hs-err">No se pudo armar H2 vs H1.</div>', true],
@@ -543,6 +620,7 @@
       ['B2B2C OC mensual vs Budget', sOcMonthly('b2b2c')],
       ['B2B-MAY OC mensual vs Budget', sOcMonthly('may')],
       ['B2B-MIN OC mensual vs Budget', sOcMonthly('min')],
+      ['B2B2C FVM vs OC', sFvmOc(fo)],
     ];
     (extra || []).forEach(function (x) { list.push([x.title, x.html]); });
     return list.map(function (x, i) {
@@ -587,9 +665,9 @@
     var h2b = window.OwniaH2H1 && window.OwniaH2H1.slideBudgetHtml ? window.OwniaH2H1.slideBudgetHtml().catch(function () { return null; }) : Promise.resolve(null);
     var fb = window.OwniaBuilder && window.OwniaBuilder.flowSlides
       ? window.OwniaBuilder.flowSlides().catch(function (e) { console.warn('[hub-slides] Mis slides en el Flow:', e); return []; }) : Promise.resolve([]);
-    Promise.all([loadAll(), loadNotes(), h2, h2b, fb]).then(function (r) {
+    Promise.all([loadAll(), loadNotes(), h2, h2b, fb, loadFvmOc()]).then(function (r) {
       state.data = r[0];
-      deck.innerHTML = slidesHtml(r[2], r[3], r[4]);
+      deck.innerHTML = slidesHtml(r[2], r[3], r[4], r[5]);
       fit();
       watchSlides();
     }).catch(function (e) {
@@ -732,6 +810,18 @@
       '#hs .hs-ot td.hs-ots{text-align:left;font-weight:700;color:#4300d2;font-size:14px;background:#fbfaff;border-right:1px solid #eeecf6}',
       '#hs .hs-ot td.hs-otm{text-align:left;color:#55555c}#hs .hs-ot td.hs-otv{font-weight:600;color:#1d1d1f}',
       '#hs .hs-otn{font-size:11px;color:#8e8e93;margin-top:8px}',
+      // FVM vs OC (sFvmOc)
+      '#hs .hs-fo{display:grid;grid-template-columns:1fr 320px;gap:14px;margin-top:6px}#hs .hs-focs{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}',
+      '#hs .hs-foc{border:1px solid #e6e1fb;border-radius:10px;padding:10px 12px;background:#fbfaff}',
+      '#hs .hs-foh{font-size:17px;font-weight:700;color:#4300d2}#hs .hs-foh span{font-size:11.5px;font-weight:600;color:#8e8e93;margin-left:4px}',
+      '#hs .hs-fok{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0 10px}#hs .hs-fok div{background:#fff;border-radius:8px;padding:6px 8px;border:1px solid #eeecf6}',
+      '#hs .hs-fok small{display:block;font-size:11px;color:#6e6e73;font-weight:600}#hs .hs-fok b{display:block;font-size:26px;line-height:1.15}#hs .hs-fok span{font-size:11px;color:#8e8e93}',
+      '#hs .hs-fot{font-size:11px;font-weight:700;color:#6e6e73;margin-bottom:4px}',
+      '#hs .hs-fob{display:grid;grid-template-columns:112px 1fr 60px;align-items:center;gap:6px;font-size:11.5px;padding:4px 0;border-bottom:1px dashed #eeecf6}',
+      '#hs .hs-fobs{font-weight:700}#hs .hs-fobz{border-bottom:0;border-top:2px solid #d9d2fb;margin-top:2px}',
+      '#hs .hs-fobt{position:relative;height:12px;background:linear-gradient(#d0d0d8,#d0d0d8) 50% 0/1px 100% no-repeat}#hs .hs-fobt i{position:absolute;top:1px;height:10px;border-radius:2px}',
+      '#hs .hs-fop{background:#1a9e5a}#hs .hs-fon{background:#d4373a}#hs .hs-fobv{text-align:right;font-weight:700}',
+      '#hs .hs-foside .hs-note{height:100%}',
       // OC mensual vs Budget (sOcMonthly)
       '#hs .hs-om{display:block;width:100%;height:auto;margin-top:4px}',
       '#hs .hs-omleg{display:flex;gap:18px;align-items:center;font-size:12.5px;color:#55555c}#hs .hs-omi{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:6px;vertical-align:-1px}',
