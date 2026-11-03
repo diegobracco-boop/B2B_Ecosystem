@@ -2440,7 +2440,9 @@ function goHome() {
 
 function goToSection(lob) {
   // Estas secciones ya viven en Ownia (2026-11-02, se apaga Apps Script): el botón abre la app nueva.
-  if (OWNIA_SECTIONS[lob]) { openExt('ownia.' + OWNIA_SECTIONS[lob]); return; }
+  // SOLO en Apps Script (la página corre en *.googleusercontent.com). En Ownia este mismo código ES el Hub y las pills
+  // (Consolidado / B2B / B2B2C / API / HTML) llaman a goToSection: sin este chequeo abrían el Hub consolidado en otra pestaña.
+  if (OWNIA_SECTIONS[lob] && /\.googleusercontent\.com$/.test(location.hostname)) { openExt('ownia.' + OWNIA_SECTIONS[lob]); return; }
   document.getElementById('home-overlay').style.display = 'none';
   _closeNav();
   var tab = document.querySelector('.lob-tab[data-lob="' + lob + '"]');
