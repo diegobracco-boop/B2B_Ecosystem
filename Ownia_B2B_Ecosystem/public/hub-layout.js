@@ -120,11 +120,11 @@
     '.pnl-okr-wrap:has(.okr-monthly) .pnl-tables-col{flex:0 0 auto;max-width:100%}',
     '.pnl-okr-wrap:has(.okr-monthly) .okr-col{flex:1 1 auto;width:100%}',
     // Country & Product Performance: las tres tarjetas se reparten el ancho (columnas más juntas) en vez de armar scroll.
-    '.bkd-grid{overflow-x:visible}',
-    '.bkd-card{flex:1 1 auto;min-width:0;padding:14px 10px 16px}',
-    '.bkd-tbl{width:100%}',
-    '.bkd-tbl thead th{padding:5px 5px}',
-    '.bkd-tbl td{padding:4px 5px}',
+    // (con !important: el CSS de la página se carga después y, a igual especificidad, gana)
+    '.bkd-grid{overflow-x:visible!important;gap:10px!important}',
+    '.bkd-card{flex:1 1 auto!important;min-width:0!important;padding:14px 8px 16px!important}',
+    '.bkd-tbl{width:100%!important}',
+    '.bkd-tbl thead th,.bkd-tbl td{padding-left:4px!important;padding-right:4px!important}',
     // Layout estable: el contenido no se corre por el panel de filtros (se abre encima).
     'body:not(.ohn-noheader) main{margin-left:0!important;padding-left:24px!important;padding-right:24px!important}',
     // Panel de filtros: cajón desde la derecha (al lado del botón "Filtros"), con el fondo atenuado.
