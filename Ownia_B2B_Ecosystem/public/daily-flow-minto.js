@@ -175,6 +175,9 @@
       return d.kind === 'b2b_krs' || (d.kind === 'b2b_chart' && !d.channel && (d.tab === 'nr_ri' || d.tab === 'fvm_ri')) ||
         (d.kind === 'b2b_tables' && d.dateType === 'ri' && !!d.channel);
     }));
+    // Slides de análisis puntuales de otras capas (W.FLOW_EXTRA = [{def, html}], p.ej. daily-flow-elecciones.js): al final de la
+    // vista Ejecutiva y, en la Completa, antes del Anexo.
+    (W.FLOW_EXTRA || []).forEach(function (x) { body.push(x.def); });
     if (m === 'exec') return body;
     return body.concat([{ kind: 'divider', flag: '+', title: 'Anexo · detalle completo', name: '— Anexo —' }])
       .concat(ORIG.filter(function (d) { return body.indexOf(d) < 0; }));
@@ -257,6 +260,8 @@
         W._flowSeries[idx] = [];
         try { return summaryHtml(); } catch (e) { return '<div class="flow-slide"><p style="padding:40px">No se pudo armar el resumen: ' + esc(e.message) + '</p></div>'; }
       }
+      var extra = (W.FLOW_EXTRA || []).filter(function (x) { return x.def === def; })[0];
+      if (extra) { W._flowSeries[idx] = []; return extra.html(); }
       var html = origSlide.apply(this, arguments);
       try { var t = def && conclusion(def); if (t) html = retitle(html, t); } catch (e) { console.warn('[daily-flow-minto] título:', e); }
       return html;
