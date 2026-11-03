@@ -70,6 +70,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "Daily_Dashboard
 import hunting_rules
 # País correcto de partners B2B2C mal cargados en las proyecciones (CUTC), compartido con el Daily
 from pais_rules import apply_pais_overrides
+# lob_canal de B2B cargado como 'API'/'HTML' en vez de B2B-MAY/MIN (pasó el 2026-11-02 en raw.b2brr_*)
+from b2b_lob_rules import B2B_LOB_IN, normalize_b2b_lob
 from rg_rows import append_rg_rows   # país RG: COI + efecto financiero de Brasil con signo contrario
 _FY = _planning_cfg.CURRENT_FY                                  # 2027 = FY27 (abr-2026 → mar-2027)
 FY_MONTHS = [d[:7] for d in _planning_cfg.FISCAL_DATES]         # 'YYYY-MM', abr → mar
@@ -160,6 +162,7 @@ def fetch(query: str, label: str) -> pd.DataFrame:
         df = pd.read_sql(query, con)
     finally:
         con.close()
+    df = normalize_b2b_lob(df, query, label)   # API/HTML -> B2B-MAY/MIN (Daily_Dashboard/b2b_lob_rules.py)
     print(f"  OK {len(df):,} filas")
     # Mismo guardrail que ya usa revenue_gd_builder.py (script hermano de este
     # módulo): sin esto, una query que vuelve vacía a mitad de corrida (VPN
@@ -1032,12 +1035,12 @@ WHERE lob_canal IN ('B2B2C-ON', 'B2B2C-OFF', 'B2B2C-CALL CENTER')
 
 B2B_BUDGET_GD_QUERY = """
 SELECT * FROM raw.b2b_budget_gd
-WHERE lob_canal IN ('B2B-MAY', 'B2B-MIN')
+WHERE lob_canal IN ('B2B-MAY', 'B2B-MIN', 'API', 'HTML')
 """
 
 B2B_BUDGET_RI_QUERY = """
 SELECT * FROM raw.b2b_budget_ri
-WHERE lob_canal IN ('B2B-MAY', 'B2B-MIN')
+WHERE lob_canal IN ('B2B-MAY', 'B2B-MIN', 'API', 'HTML')
 """
 
 # ── Run Rate (near-term projection) ───────────────────────────────────────────
@@ -1049,11 +1052,11 @@ WHERE lob_canal IN ('B2B2C-ON', 'B2B2C-OFF', 'B2B2C-CALL CENTER')
 """
 B2B_RR_GD_QUERY = """
 SELECT * FROM raw.b2brr_gd
-WHERE lob_canal IN ('B2B-MAY', 'B2B-MIN')
+WHERE lob_canal IN ('B2B-MAY', 'B2B-MIN', 'API', 'HTML')
 """
 B2B_RR_RI_QUERY = """
 SELECT * FROM raw.b2brr_ri
-WHERE lob_canal IN ('B2B-MAY', 'B2B-MIN')
+WHERE lob_canal IN ('B2B-MAY', 'B2B-MIN', 'API', 'HTML')
 """
 
 # ── Forecast (FC1 datalake) — CURRENTLY UNUSED ────────────────────────────────
@@ -1068,11 +1071,11 @@ WHERE lob_canal = 'B2B2C'
 """
 B2B_FC_GD_QUERY = """
 SELECT * FROM raw.b2bfc1_gd
-WHERE lob_canal IN ('B2B-MAY', 'B2B-MIN')
+WHERE lob_canal IN ('B2B-MAY', 'B2B-MIN', 'API', 'HTML')
 """
 B2B_FC_RI_QUERY = """
 SELECT * FROM raw.b2bfc1_ri
-WHERE lob_canal IN ('B2B-MAY', 'B2B-MIN')
+WHERE lob_canal IN ('B2B-MAY', 'B2B-MIN', 'API', 'HTML')
 """
 
 

@@ -31,6 +31,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from pkg_split_factors import PKG_SPLIT_FACTORS, PKG_SPLIT_WINDOW
 # País correcto de partners B2B2C mal cargados en las proyecciones (CUTC), compartido con P&L_Managerial
 from pais_rules import apply_pais_overrides
+# lob_canal de B2B cargado como 'API'/'HTML' en vez de B2B-MAY/MIN (pasó el 2026-11-02 en raw.b2brr_*)
+from b2b_lob_rules import B2B_LOB_IN, normalize_b2b_lob
 # Tramos del año fiscal que faltan en Actuals / LY (gráfico de 12 meses de la portada del Flow)
 from fy_rest import actuals_fy_rest_ranges, ly_fy_rest_ranges
 # OC B2B2C mensual desde los canónicos contables (slide "Monthly Performance — OC" del Flow)
@@ -437,12 +439,12 @@ GROUP BY partner_homologado_2, country
 
 B2B_BUDGET_GD_QUERY = """
 SELECT * FROM raw.b2b_budget_gd
-WHERE lob_canal IN ('B2B-MAY', 'B2B-MIN')
+WHERE lob_canal IN ('B2B-MAY', 'B2B-MIN', 'API', 'HTML')
 """
 
 B2B_BUDGET_RI_QUERY = """
 SELECT * FROM raw.b2b_budget_ri
-WHERE lob_canal IN ('B2B-MAY', 'B2B-MIN')
+WHERE lob_canal IN ('B2B-MAY', 'B2B-MIN', 'API', 'HTML')
 """
 
 B2B2C_RR_QUERY = """
@@ -451,11 +453,11 @@ WHERE lob_canal IN ('B2B2C-ON', 'B2B2C-OFF', 'B2B2C-CALL CENTER')
 """
 B2B_RR_GD_QUERY = """
 SELECT * FROM raw.b2brr_gd
-WHERE lob_canal IN ('B2B-MAY', 'B2B-MIN')
+WHERE lob_canal IN ('B2B-MAY', 'B2B-MIN', 'API', 'HTML')
 """
 B2B_RR_RI_QUERY = """
 SELECT * FROM raw.b2brr_ri
-WHERE lob_canal IN ('B2B-MAY', 'B2B-MIN')
+WHERE lob_canal IN ('B2B-MAY', 'B2B-MIN', 'API', 'HTML')
 """
 
 LOB_CANAL_DIAG_QUERY = f"""
@@ -1265,6 +1267,7 @@ def fetch(query: str, label: str, retries: int = 3) -> pd.DataFrame:
                 df = pd.read_sql(query, con)
             finally:
                 con.close()
+            df = normalize_b2b_lob(df, query, label)   # API/HTML -> B2B-MAY/MIN (b2b_lob_rules.py)
             print(f"  OK {label}: {len(df):,} filas en {time.monotonic() - t0:.0f}s"
                   + (f" (intento {attempt})" if attempt > 1 else ""))
             return df
