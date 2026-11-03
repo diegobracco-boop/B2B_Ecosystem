@@ -459,6 +459,7 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
 .th-sep,.td-sep{width:4px;background:var(--border);padding:0!important;border:none}
 .th-total-b,.th-total-g,.th-total-d{background:rgba(0,0,0,.05)!important}
 .td-total-b,.td-total-g,.td-total-d{background:rgba(0,0,0,.04)!important}
+.mg-dp{display:block;font-size:10px;font-weight:600;opacity:.9}
 .qpnl-subtotal td{font-weight:800}
 .qpnl-sec-hdr td{transition:background .15s}
 .qpnl-pct-row td{font-size:10px!important;color:var(--muted)!important;padding-top:1px!important;padding-bottom:2px!important;border-top:none!important;font-style:italic}
@@ -2793,7 +2794,20 @@ function _buildMGPanel_(container, agg, goalData, title, periods, n, isLast, goa
       var td=document.createElement('td');
       td.style.cssText='text-align:right;color:'+(na?'var(--muted2)':dv<0?'#DC2626':'#15803D');
       if(isLast(p)) td.className='td-total-d';
-      td.textContent=na?'—':fmt==='K'?fmtK(dv):fmtM(dv); tr.appendChild(td);
+      td.textContent=na?'—':fmt==='K'?fmtK(dv):fmtM(dv);
+      // Δ% debajo del Δ (2026-11-02, como P&L Accounting): (B − G) / |G|. Con |G| un costo que crece da negativo (rojo).
+      // Sin % si el Goal es ~0 o el desvío es ≥ 1000% (no informa).
+      if(!na && Math.abs(gv) > 0.5){
+        var dp=dv/Math.abs(gv)*100;
+        if(Math.abs(dp) < 1000){
+          var sp=document.createElement('span');
+          sp.className='mg-dp';
+          sp.style.color=dp<0?'#DC2626':'#15803D';
+          sp.textContent=(dp>0?'+':dp<0?'−':'')+Math.abs(dp).toFixed(1)+'% vs G';
+          td.appendChild(sp);
+        }
+      }
+      tr.appendChild(td);
     });
   }
 
