@@ -18,7 +18,7 @@
  *   Datalake, OC del contable, tablas H1 / H2. El "at risk" del título lo calcula esa página (NR) y
  *   el OC se estima con el margen OC/NR del Budget H2 de B2B2C del contable (&ocm=).
  *   Switch "COI Brasil" del deck (default Excluir): solo afecta esa slide (&coibr=).
- *   Después de "B2B-MIN Evolution" (2026-11-03): OC mensual vs Budget de B2B2C, B2B-MAY y B2B-MIN (sOcMonthly): barras
+ *   Después de "Proyección vs Forecast BTB" (2026-11-03, provisorio hasta reordenar con el material oficial): OC mensual vs Budget de B2B2C, B2B-MAY y B2B-MIN (sOcMonthly): barras
  *   baseline (real + Run Rate) vs Budget por mes, y debajo OC vs Budget %, YoY NR y YoY OC; columna FY.
  *   Al final (2026-11-03): las slides de "Mis slides" marcadas "Agregar al final del Flow mensual" (inFlow, de cualquier
  *   dueño), con el render de public/hub-builder.js (OwniaBuilder.flowSlides). Van al final para no correr los índices
@@ -530,9 +530,6 @@
       ['B2B2C mensual vs Budget', sB2B2CMonthly(), true],
       ['B2B-MAY mensual vs Budget', sMayMonthly()],
       ['B2B-MIN Evolution', sEvolution('min', 'Principales oportunidades H2', 'min_opportunities')],
-      ['B2B2C OC mensual vs Budget', sOcMonthly('b2b2c')],
-      ['B2B-MAY OC mensual vs Budget', sOcMonthly('may')],
-      ['B2B-MIN OC mensual vs Budget', sOcMonthly('min')],
       ['Resultados', sResults(ytdLabel() + ' | B2B Results', [col('min'), col('may'), col('b2b2c'), col('total')])],
       ['B2B2C', sB2B2C()],
       ['B2B', sResults(ytdLabel() + ' | B2B Results', [col('b2b'), col('min'), col('may')])],
@@ -541,6 +538,10 @@
       ['B2B-MAY por región', sRegions('may')],
       ['Proyección vs Budget', sOutlook('budget'), false, 'budget'],
       ['Proyección vs Forecast BTB', sOutlook('btb'), false, 'btb'],
+      // Al final por ahora (2026-11-03): se reordena el deck cuando cierre el material oficial del mes
+      ['B2B2C OC mensual vs Budget', sOcMonthly('b2b2c')],
+      ['B2B-MAY OC mensual vs Budget', sOcMonthly('may')],
+      ['B2B-MIN OC mensual vs Budget', sOcMonthly('min')],
     ];
     (extra || []).forEach(function (x) { list.push([x.title, x.html]); });
     return list.map(function (x, i) {
