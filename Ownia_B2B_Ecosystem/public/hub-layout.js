@@ -115,6 +115,16 @@
     // #active-filters: los mismos chips quedan en la línea de contexto de arriba (#ohn-top).
     // #canal-fg: HTML y API ahora se eligen en la barra, como negocios; el toggle queda oculto para que el Hub lo siga leyendo.
     '.hamburger-btn,#nav-backdrop,.filters,#filters-toggle,#ai-links,#active-filters,#canal-fg{display:none!important}',
+    // OKR Status abierto por mes: baja debajo del P&L a todo el ancho, así entran todos los meses sin scroll horizontal.
+    '.pnl-okr-wrap:has(.okr-monthly){flex-direction:column;align-items:stretch}',
+    '.pnl-okr-wrap:has(.okr-monthly) .pnl-tables-col{flex:0 0 auto;max-width:100%}',
+    '.pnl-okr-wrap:has(.okr-monthly) .okr-col{flex:1 1 auto;width:100%}',
+    // Country & Product Performance: las tres tarjetas se reparten el ancho (columnas más juntas) en vez de armar scroll.
+    '.bkd-grid{overflow-x:visible}',
+    '.bkd-card{flex:1 1 auto;min-width:0;padding:14px 10px 16px}',
+    '.bkd-tbl{width:100%}',
+    '.bkd-tbl thead th{padding:5px 5px}',
+    '.bkd-tbl td{padding:4px 5px}',
     // Layout estable: el contenido no se corre por el panel de filtros (se abre encima).
     'body:not(.ohn-noheader) main{margin-left:0!important;padding-left:24px!important;padding-right:24px!important}',
     // Panel de filtros: cajón desde la derecha (al lado del botón "Filtros"), con el fondo atenuado.
