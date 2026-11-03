@@ -8,7 +8,8 @@
  *   - YoY alineado por día de la semana: el año pasado = 364 días antes (el domingo de elección contra un domingo sin elección).
  *   - Semanas lunes–domingo (pedido de Diego): el domingo de cada vuelta cierra su semana (28/9–4/10 y 19–25/10).
  *   - Tendencia previa = las 4 semanas lunes–domingo antes de la semana de la 1ª vuelta (31/8–27/9).
- *   - Gráficos: YoY de GB móvil 7 días, del 1/9 al último día completo (hasta el 1/11), con las dos elecciones marcadas.
+ *   - Dos slides iguales, una en GB y otra en NR.
+ *   - Gráficos: YoY móvil 7 días, del 1/9 al último día completo (hasta el 1/11), con las dos elecciones marcadas.
  *   - Tabla: YoY de GB por semana y la semana post 2ª vuelta (26/10–1/11) contra el nivel semanal previo de ESTE año (sin LY):
  *     separa la caída propia del efecto base.
  * La slide la ubica daily-flow-minto.js (W.FLOW_EXTRA): al final de la vista Ejecutiva, antes del Anexo en la Completa.
@@ -53,8 +54,8 @@
   (document.head || document.documentElement).appendChild(css);
 
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
-  function pc(v, d) { return v == null || !isFinite(v) ? 'n/d' : (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(d == null ? 0 : d) + '%'; }
-  function fm(v) { var a = Math.abs(v), s = v < 0 ? '−' : v > 0 ? '+' : ''; return s + '$' + (a >= 1e6 ? (a / 1e6).toFixed(2) + 'M' : Math.round(a / 1e3) + 'K'); }
+  function pc(v, d) { if (v == null || !isFinite(v)) return 'n/d'; var r = +v.toFixed(d == null ? 0 : d); return (r > 0 ? '+' : r < 0 ? '−' : '') + Math.abs(r).toFixed(d == null ? 0 : d) + '%'; }
+  function fm(v) { var a = Math.abs(v), s = a < 500 ? '' : v < 0 ? '−' : '+'; return s + '$' + (a >= 1e6 ? (a / 1e6).toFixed(2) + 'M' : Math.round(a / 1e3) + 'K'); }
   function cl(v) { return v == null || !isFinite(v) ? '' : v >= 0 ? 'fe-up' : 'fe-dn'; }
   function t(d) { return Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10)); }
   function ds(ms) { return new Date(ms).toISOString().slice(0, 10); }
@@ -111,10 +112,11 @@
     return d < LAST ? d : LAST;
   }
 
-  // ── Mini gráfico: YoY de GB móvil 7 días ─────────────────────────────────────────────────────
-  function panel(b, s, end, base) {
+  // ── Mini gráfico: YoY móvil 7 días de la métrica m (0 = GB, 1 = NR) ──────────────────────────
+  var ML = ['GB', 'NR'];
+  function panel(b, s, end, base, m) {
     var Wd = 280, Hd = 190, x0 = 4, x1 = Wd - 4, y0 = 14, y1 = Hd - 18, pts = [];
-    for (var d = FROM; d <= end; d = add(d, 1)) { var r = yoy(s, add(d, -6), d, 0); if (isFinite(r.y)) pts.push([d, r.y]); }
+    for (var d = FROM; d <= end; d = add(d, 1)) { var r = yoy(s, add(d, -6), d, m); if (isFinite(r.y)) pts.push([d, r.y]); }
     if (!pts.length) return '<div class="fe-p"><div class="fe-ph" style="color:' + b.c + '">' + esc(b.lbl) + '</div><div class="fe-wait">Sin datos</div></div>';
     var vs = pts.map(function (p) { return p[1]; }).concat([base, 0]), mx = Math.max.apply(null, vs), mn = Math.min.apply(null, vs), pad = (mx - mn) * 0.1 || 5;
     mx += pad; mn -= pad;
@@ -133,17 +135,17 @@
     g += '<text x="' + (X(lp[0]) - 2).toFixed(1) + '" y="' + (Y(lp[1]) - 5).toFixed(1) + '" text-anchor="end" font-size="10.5" font-weight="700" fill="' + b.c + '">' + pc(lp[1]) + '</text>';
     g += '<text x="' + x0 + '" y="' + (Hd - 4) + '" font-size="9.5" fill="#8e8e93">' + ddmm(FROM) + '</text><text x="' + x1 + '" y="' + (Hd - 4) + '" text-anchor="end" font-size="9.5" fill="#8e8e93">' + ddmm(end) + '</text>';
     g += '<text x="' + ((x0 + x1) / 2) + '" y="' + (Hd - 4) + '" text-anchor="middle" font-size="9.5" fill="#8e8e93">- - tendencia previa ' + pc(base) + '</text>';
-    return '<div class="fe-p"><div class="fe-ph" style="color:' + b.c + '">' + esc(b.lbl) + '<span>YoY GB, móvil 7 días</span></div>' +
+    return '<div class="fe-p"><div class="fe-ph" style="color:' + b.c + '">' + esc(b.lbl) + '<span>YoY ' + ML[m] + ', móvil 7 días</span></div>' +
       '<svg class="fe-svg" viewBox="0 0 ' + Wd + ' ' + Hd + '">' + g + '</svg></div>';
   }
 
   // ── Slide ──────────────────────────────────────────────────────────────────────────────────
-  function html() {
+  function html(m) {
     var S = series(), end = lastDay(), rows = '', R = {};
     BIZ.forEach(function (b) {
       var s = S[b.k];
       if (!s) { R[b.k] = null; return; }
-      var w = WEEKS.map(function (x) { return x[2] <= end ? yoy(s, x[1], x[2], 0) : null; });
+      var w = WEEKS.map(function (x) { return x[2] <= end ? yoy(s, x[1], x[2], m) : null; });
       // nivel semanal previo de ESTE año (4 semanas base) vs la semana post 2ª vuelta, en GB y NR
       var P = WEEKS[POST], lvl = function (i) { var bw = sum(s.cy, BASE[0], BASE[1], i) / 4, e = P[2] <= end ? sum(s.cy, P[1], P[2], i) : NaN; return { d: e - bw, p: (e / bw - 1) * 100 }; };
       R[b.k] = { w: w, gb: lvl(0), nr: lvl(1) };
@@ -154,7 +156,7 @@
       if (!r) { rows += '<tr><td style="color:' + b.c + '">' + esc(b.lbl) + '</td><td colspan="' + (WEEKS.length + 1) + '" class="fe-note">Cargando datos de B2B…</td></tr>'; return; }
       rows += '<tr><td style="color:' + b.c + '">' + esc(b.lbl) + '</td>' + r.w.map(function (x, i) {
         return '<td class="' + (EW[i] ? 'fe-e ' : '') + (x ? cl(x.y) : '') + '">' + (x ? pc(x.y) : '—') + '</td>';
-      }).join('') + '<td class="fe-e ' + cl(r.gb.p) + '">' + pc(r.gb.p) + '<small>GB ' + fm(r.gb.d) + ' · NR ' + fm(r.nr.d) + '</small></td></tr>';
+      }).join('') + '<td class="fe-e ' + cl((m ? r.nr : r.gb).p) + '">' + pc((m ? r.nr : r.gb).p) + '<small>GB ' + fm(r.gb.d) + ' · NR ' + fm(r.nr.d) + '</small></td></tr>';
     });
     // Conclusión con los datos: qué negocios se apartan de su tendencia en cada vuelta (semana de la elección o la siguiente, −8 pp)
     var hit = function (a, z) { return BIZ.filter(function (b) { var r = R[b.k]; if (!r || !r.w[0]) return false; return [a, z].some(function (i) { return r.w[i] && r.w[i].y - r.w[0].y <= -8; }); }); };
@@ -179,22 +181,23 @@
     var note = 'Daily (fecha de gestión, GD), Brasil, ' + cur + (isOrg ? ': el año actual a TC del año pasado, como el YoY Organic del Daily; vale para toda la slide sin importar el switch' : '') + '. ' +
       'Año pasado = 364 días antes (mismo día de la semana). WL Farming = partners Existing (TBD e ITAU son New y quedan afuera; Itau Card es Existing). ' +
       'Lun 12/10 (Aparecida) cae en día hábil del año pasado: baja ese día en HTML / API sin relación con las elecciones. Datos hasta el ' + ddmm(end) + ' (el último día cargado se excluye por venir parcial).';
-    return '<div class="flow-slide"><div class="fl-head"><div class="fl-title flm-t2" title="' + esc(title) + '"><small>Brasil · ventas diarias y las presidenciales (4/10 y 25/10) · ' + (isOrg ? 'USD Organic' : 'USD nominal') + '</small>' + esc(title) + '</div>' +
+    return '<div class="flow-slide"><div class="fl-head"><div class="fl-title flm-t2" title="' + esc(title) + '"><small>Brasil · ventas diarias y las presidenciales (4/10 y 25/10) · ' + (m ? 'Net Revenue' : 'Gross Bookings') + ' · ' + (isOrg ? 'USD Organic' : 'USD nominal') + '</small>' + esc(title) + '</div>' +
       '<div class="fl-brand">' + (typeof W.flLogo_ === 'function' ? W.flLogo_() : '') + '</div></div><div class="fl-rule"></div>' +
       '<div class="fl-body fe-body"><div class="fe-panels">' + BIZ.map(function (b) {
-        return S[b.k] ? panel(b, S[b.k], end, R[b.k].w[0].y) : '<div class="fe-p"><div class="fe-ph" style="color:' + b.c + '">' + esc(b.lbl) + '</div><div class="fe-wait">Cargando datos de B2B…</div></div>';
+        return S[b.k] ? panel(b, S[b.k], end, R[b.k].w[0].y, m) : '<div class="fe-p"><div class="fe-ph" style="color:' + b.c + '">' + esc(b.lbl) + '</div><div class="fe-wait">Cargando datos de B2B…</div></div>';
       }).join('') + '</div>' +
-      '<div class="fe-low"><table class="fe-t"><tr><th>YoY GB por semana (lun–dom)</th>' + WEEKS.map(function (x, i) { return '<th>' + (i ? x[0] : 'Tendencia<br>' + x[0]) + '</th>'; }).join('') +
+      '<div class="fe-low"><table class="fe-t"><tr><th>YoY ' + ML[m] + ' por semana (lun–dom)</th>' + WEEKS.map(function (x, i) { return '<th>' + (i ? x[0] : 'Tendencia<br>' + x[0]) + '</th>'; }).join('') +
       '<th>' + WEEKS[POST][0] + ' vs<br>nivel previo</th></tr>' + rows + '</table>' +
       '<div class="fe-msg">' + msg + '</div></div><div class="fe-note">' + esc(note) + '</div></div></div>';
   }
 
-  // daily-flow-minto.js la ubica en el deck y la dibuja (W.FLOW_EXTRA)
-  var DEF = { kind: 'br_elecciones', name: 'Brasil · elecciones' };
-  W.FLOW_EXTRA = (W.FLOW_EXTRA || []).concat([{ def: DEF, html: function () {
-    try { loadFx(); if (!b2bReady() || !fxReady()) watchB2B(); return html(); } catch (e) { return '<div class="flow-slide"><p style="padding:40px">No se pudo armar la slide de elecciones: ' + esc(e.message) + '</p></div>'; }
-  } }]);
-  // B2B y la tabla de TC llegan después del B2B2C: cuando llegan, se redibuja la slide (como el resumen de daily-flow-minto.js)
+  // daily-flow-minto.js las ubica en el deck y las dibuja (W.FLOW_EXTRA): una en GB y otra en NR (pedido de Diego 2026-11-03)
+  var DEFS = [{ kind: 'br_elecciones', name: 'Brasil · elecciones (GB)' }, { kind: 'br_elecciones_nr', name: 'Brasil · elecciones (NR)' }];
+  function draw(m) {
+    try { loadFx(); if (!b2bReady() || !fxReady()) watchB2B(); return html(m); } catch (e) { return '<div class="flow-slide"><p style="padding:40px">No se pudo armar la slide de elecciones: ' + esc(e.message) + '</p></div>'; }
+  }
+  W.FLOW_EXTRA = (W.FLOW_EXTRA || []).concat(DEFS.map(function (d, m) { return { def: d, html: function () { return draw(m); } }; }));
+  // B2B y la tabla de TC llegan después del B2B2C: cuando llegan, se redibujan las slides (como el resumen de daily-flow-minto.js)
   var timer = null;
   function watchB2B() {
     if (timer) return;
@@ -202,9 +205,12 @@
     timer = setInterval(function () {
       if (!(b2bReady() && (fxReady() || fxState === 'err')) && tries++ < 80) return;
       clearInterval(timer); timer = null;
-      var i = (W.FLOW_DECK || []).findIndex(function (d) { return d.kind === DEF.kind; });
-      var fr = i >= 0 && document.querySelector('.flow-frame[data-idx="' + i + '"] .flow-slide');
-      if (fr) { try { fr.outerHTML = html(); if (typeof W.flowScale_ === 'function') W.flowScale_(); } catch (e) { console.warn('[daily-flow-elecciones]', e); } }
+      DEFS.forEach(function (D, m) {
+        var i = (W.FLOW_DECK || []).findIndex(function (d) { return d.kind === D.kind; });
+        var fr = i >= 0 && document.querySelector('.flow-frame[data-idx="' + i + '"] .flow-slide');
+        if (fr) { try { fr.outerHTML = html(m); } catch (e) { console.warn('[daily-flow-elecciones]', e); } }
+      });
+      if (typeof W.flowScale_ === 'function') W.flowScale_();
     }, 1500);
   }
 })();

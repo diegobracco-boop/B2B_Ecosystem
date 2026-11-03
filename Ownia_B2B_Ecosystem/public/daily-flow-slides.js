@@ -31,7 +31,7 @@
   // TC de los números de una slide con Organic YES ('' = sin TC: USD nominal)
   function orgTarget(def) {
     var W = window;
-    if (def.kind === 'br_elecciones') return 'ly';   // daily-flow-elecciones.js: siempre YoY a TC Actuals LY
+    if (/^br_elecciones/.test(def.kind)) return 'ly';   // daily-flow-elecciones.js: siempre YoY a TC Actuals LY
     if (/^b2b_/.test(def.kind)) return W._flowB2BGoalType === 'rr' ? '' : 'budget';
     if (def.kind === 'weekly' || def.kind === 'b2b2c_krs' || def.kind === 'ceo_weekly') return 'budget';
     var t = typeof W._orgTargetFlow_ === 'function' ? W._orgTargetFlow_() : '';
