@@ -1,13 +1,16 @@
 /* Flow semanal · "Brasil: efecto de las elecciones de octubre 2026" (2026-11-03, Diego). Solo en <base>/daily?flowdeck=1.
  *
  * ¿La venta diaria de Brasil sintió las presidenciales (1ª vuelta dom 4/10, 2ª vuelta dom 25/10)? Para WL (B2B2C) Farming
- * (account_type Existing, como el KR3; TBD cuenta como New), B2B HTML (parent_channel 'Agencias afiliadas') y B2B API, con B2C
- * Brasil de control (no está en ramp-up: si cae lo mismo, es mercado). Datos del Daily (fecha de gestión, GD), USD.
+ * (account_type Existing, como el KR3; TBD cuenta como New; ITAU es New → afuera, Itau Card es Existing → adentro), B2B HTML
+ * (parent_channel 'Agencias afiliadas') y B2B API, con B2C Brasil de control (no está en ramp-up: si cae lo mismo, es mercado).
+ * Datos del Daily (fecha de gestión, GD) en USD Organic SIEMPRE (2026-11-03, Diego): el año actual a TC Actuals LY
+ * (_orgRows_ 'ly', = YoY Organic del Daily), sin importar el switch; si falta la tabla de TC la pide (getFxTable).
  *   - YoY alineado por día de la semana: el año pasado = 364 días antes (el domingo de elección contra un domingo sin elección).
- *   - Tendencia previa = las 4 semanas domingo-sábado antes de la 1ª vuelta (6/9–3/10).
- *   - Gráficos: YoY de GB móvil 7 días, del 1/9 al último día completo (hasta el 31/10), con las dos elecciones marcadas.
- *   - Tabla: YoY de GB por semana y, en la semana de la 2ª vuelta, la venta contra el nivel semanal previo de ESTE año (sin LY):
- *     separa la caída propia del efecto base (la semana del 26/10/2025 fue alta).
+ *   - Semanas lunes–domingo (pedido de Diego): el domingo de cada vuelta cierra su semana (28/9–4/10 y 19–25/10).
+ *   - Tendencia previa = las 4 semanas lunes–domingo antes de la semana de la 1ª vuelta (31/8–27/9).
+ *   - Gráficos: YoY de GB móvil 7 días, del 1/9 al último día completo (hasta el 1/11), con las dos elecciones marcadas.
+ *   - Tabla: YoY de GB por semana y la semana post 2ª vuelta (26/10–1/11) contra el nivel semanal previo de ESTE año (sin LY):
+ *     separa la caída propia del efecto base.
  * La slide la ubica daily-flow-minto.js (W.FLOW_EXTRA): al final de la vista Ejecutiva, antes del Anexo en la Completa.
  * Es un análisis puntual de octubre: sacarla cuando deje de hacer falta (quitar el archivo del `layout` del Daily en modules.js).
  */
@@ -15,10 +18,12 @@
   'use strict';
   if (!/[?&]flowdeck=1(&|$)/.test(location.search)) return;
   var W = window, DAY = 864e5, LAG = 364;
-  var E1 = '2026-10-04', E2 = '2026-10-25', FROM = '2026-09-01', LAST = '2026-10-31';
-  var BASE = ['2026-09-06', '2026-10-03'];
-  var WEEKS = [['Tendencia previa', BASE[0], BASE[1]], ['1ª vuelta', '2026-10-04', '2026-10-10'], ['11–17/10', '2026-10-11', '2026-10-17'],
-    ['18–24/10', '2026-10-18', '2026-10-24'], ['2ª vuelta', '2026-10-25', '2026-10-31']];
+  var E1 = '2026-10-04', E2 = '2026-10-25', FROM = '2026-09-01', LAST = '2026-11-01';
+  var BASE = ['2026-08-31', '2026-09-27'];
+  // [encabezado, desde, hasta] lunes–domingo; 1 y 4 = semanas que cierran con el domingo de cada vuelta, 2 y 5 = la semana siguiente
+  var WEEKS = [['31/8–27/9', BASE[0], BASE[1]], ['1ª vuelta<br>28/9–4/10', '2026-09-28', '2026-10-04'], ['5–11/10', '2026-10-05', '2026-10-11'],
+    ['12–18/10', '2026-10-12', '2026-10-18'], ['2ª vuelta<br>19–25/10', '2026-10-19', '2026-10-25'], ['26/10–1/11', '2026-10-26', '2026-11-01']];
+  var POST = 5;   // semana contra el nivel previo de este año
   var BIZ = [
     { k: 'farm', lbl: 'WL Farming', c: '#5b4fe0' },
     { k: 'html', lbl: 'B2B HTML', c: '#0f9d8a' },
@@ -67,16 +72,33 @@
     return o;
   }
   function b2bReady() { return !!(W._rawB2B && W._rawB2B.b2b_gd && W._rawB2B.b2b_gd_ly); }
+  // ── USD Organic: el año actual a TC Actuals LY (mismo cálculo que el YoY Organic del Daily) ──
+  var fxState = W._fxTbl ? 'ok' : 'idle';
+  function fxReady() { return !!(W._fxTbl && typeof W._orgRows_ === 'function'); }
+  function loadFx() {
+    if (fxReady()) { fxState = 'ok'; return; }
+    if (fxState !== 'idle' || !(W.google && W.google.script && W.google.script.run)) return;
+    fxState = 'loading';
+    W.google.script.run
+      .withSuccessHandler(function (res) {
+        if (!res || !res.success) { fxState = 'err'; return; }
+        if (!W._fxTbl) W._fxTbl = { actuals: res.actuals, budget: res.budget, forecast: res.forecast };
+        fxState = 'ok';
+      })
+      .withFailureHandler(function () { fxState = 'err'; })
+      .getFxTable();
+  }
+  function org(rows) { return fxReady() && rows && rows.length ? W._orgRows_(rows, 'ly') : rows; }
   function series() {
     var c = W._rawB2BC, b = W._rawB2B, ex = function (r) { return r.account_type === 'Existing'; }, all = function () { return true; };
     var s = {
-      farm: { cy: acc(c.actuals, ex, 'net_revenues'), ly: acc(c.actuals_ly, ex, 'net_revenues') },
-      b2c: { cy: acc(typeof W._b2cRows_ === 'function' ? W._b2cRows_(c) : [], all, 'net_revenues'), ly: acc(typeof W._b2cLyRows_ === 'function' ? W._b2cLyRows_(c) : [], all, 'net_revenues') },
+      farm: { cy: acc(org(c.actuals), ex, 'net_revenues'), ly: acc(c.actuals_ly, ex, 'net_revenues') },
+      b2c: { cy: acc(org(typeof W._b2cRows_ === 'function' ? W._b2cRows_(c) : []), all, 'net_revenues'), ly: acc(typeof W._b2cLyRows_ === 'function' ? W._b2cLyRows_(c) : [], all, 'net_revenues') },
     };
     if (b2bReady()) {
-      var ch = function (n) { return function (r) { return r.parent_channel === n; }; };
-      s.html = { cy: acc(b.b2b_gd, ch('Agencias afiliadas'), 'net_revenue'), ly: acc(b.b2b_gd_ly, ch('Agencias afiliadas'), 'net_revenue') };
-      s.api = { cy: acc(b.b2b_gd, ch('API'), 'net_revenue'), ly: acc(b.b2b_gd_ly, ch('API'), 'net_revenue') };
+      var ch = function (n) { return function (r) { return r.parent_channel === n; }; }, cy = org(b.b2b_gd);
+      s.html = { cy: acc(cy, ch('Agencias afiliadas'), 'net_revenue'), ly: acc(b.b2b_gd_ly, ch('Agencias afiliadas'), 'net_revenue') };
+      s.api = { cy: acc(cy, ch('API'), 'net_revenue'), ly: acc(b.b2b_gd_ly, ch('API'), 'net_revenue') };
     }
     return s;
   }
@@ -122,58 +144,67 @@
       var s = S[b.k];
       if (!s) { R[b.k] = null; return; }
       var w = WEEKS.map(function (x) { return x[2] <= end ? yoy(s, x[1], x[2], 0) : null; });
-      // nivel semanal previo de ESTE año (4 semanas base) vs la semana de la 2ª vuelta, en GB y NR
-      var lvl = function (i) { var bw = sum(s.cy, BASE[0], BASE[1], i) / 4, e = WEEKS[4][2] <= end ? sum(s.cy, WEEKS[4][1], WEEKS[4][2], i) : NaN; return { d: e - bw, p: (e / bw - 1) * 100 }; };
+      // nivel semanal previo de ESTE año (4 semanas base) vs la semana post 2ª vuelta, en GB y NR
+      var P = WEEKS[POST], lvl = function (i) { var bw = sum(s.cy, BASE[0], BASE[1], i) / 4, e = P[2] <= end ? sum(s.cy, P[1], P[2], i) : NaN; return { d: e - bw, p: (e / bw - 1) * 100 }; };
       R[b.k] = { w: w, gb: lvl(0), nr: lvl(1) };
     });
+    var EW = { 1: 1, 2: 1, 4: 1, 5: 1 };
     BIZ.forEach(function (b) {
       var r = R[b.k];
-      if (!r) { rows += '<tr><td style="color:' + b.c + '">' + esc(b.lbl) + '</td><td colspan="6" class="fe-note">Cargando datos de B2B…</td></tr>'; return; }
+      if (!r) { rows += '<tr><td style="color:' + b.c + '">' + esc(b.lbl) + '</td><td colspan="' + (WEEKS.length + 1) + '" class="fe-note">Cargando datos de B2B…</td></tr>'; return; }
       rows += '<tr><td style="color:' + b.c + '">' + esc(b.lbl) + '</td>' + r.w.map(function (x, i) {
-        return '<td class="' + (i === 1 || i === 4 ? 'fe-e ' : '') + (x ? cl(x.y) : '') + '">' + (x ? pc(x.y) : '—') + '</td>';
+        return '<td class="' + (EW[i] ? 'fe-e ' : '') + (x ? cl(x.y) : '') + '">' + (x ? pc(x.y) : '—') + '</td>';
       }).join('') + '<td class="fe-e ' + cl(r.gb.p) + '">' + pc(r.gb.p) + '<small>GB ' + fm(r.gb.d) + ' · NR ' + fm(r.nr.d) + '</small></td></tr>';
     });
-    // Conclusión con los datos: qué negocios se apartan de su tendencia en cada vuelta (±8 pp)
-    var hit = function (i) { return BIZ.filter(function (b) { var r = R[b.k]; return r && r.w[i] && r.w[0] && r.w[i].y - r.w[0].y <= -8; }); };
-    var h1 = hit(1), h2 = hit(4), names = function (l) {
-      var n = l.map(function (b) { return b.lbl.replace(' (control)', '').replace('B2B ', ''); });
+    // Conclusión con los datos: qué negocios se apartan de su tendencia en cada vuelta (semana de la elección o la siguiente, −8 pp)
+    var hit = function (a, z) { return BIZ.filter(function (b) { var r = R[b.k]; if (!r || !r.w[0]) return false; return [a, z].some(function (i) { return r.w[i] && r.w[i].y - r.w[0].y <= -8; }); }); };
+    var h1 = hit(1, 2), h2 = hit(4, 5), names = function (l) {
+      var n = l.map(function (b) { return b.lbl.replace(' (control)', '').replace('B2B ', '').replace('WL ', ''); });
       return n.length > 1 ? n.slice(0, -1).join(', ') + ' y ' + n[n.length - 1] : n.join('');
     };
-    var ctrl = h2.some(function (b) { return b.k === 'b2c'; }), h2b = h2.filter(function (b) { return b.k !== 'b2c'; });
-    var title = 'Elecciones: ' + (h1.length ? 'la 1ª vuelta afecta ' + names(h1) : 'la 1ª vuelta no se nota') + '; ' +
-      (h2b.length ? 'la 2ª frena ' + names(h2b) + (ctrl ? ' (B2C cae igual: mercado)' : '') : ctrl ? 'la 2ª solo afecta B2C' : 'la 2ª tampoco');
+    var nb = function (l) { return l.filter(function (b) { return b.k !== 'b2c'; }); }, inL = function (l, b) { return l.indexOf(b) >= 0; };
+    var b1 = nb(h1), b2 = nb(h2), ctrl = h1.concat(h2).some(function (b) { return b.k === 'b2c'; });
+    var both = b1.filter(function (b) { return inL(b2, b); }), o1 = b1.filter(function (b) { return !inL(b2, b); }), o2 = b2.filter(function (b) { return !inL(b1, b); });
+    var title = 'Elecciones: ' + (both.length
+      ? 'ambas vueltas frenan ' + names(both) + (o1.length ? ' (' + names(o1) + ' solo en la 1ª)' : '') + (o2.length ? ' (' + names(o2) + ' solo en la 2ª)' : '')
+      : (b1.length ? 'la 1ª vuelta frena ' + names(b1) : 'la 1ª vuelta no se nota') + '; ' + (b2.length ? 'la 2ª, ' + names(b2) : 'la 2ª tampoco')) +
+      (ctrl ? '; B2C igual: mercado' : '');
     var f = R.farm, h = R.html;
     var msg = '<b>Cómo leerlo</b><ul>' +
-      '<li>La tendencia previa es el YoY de las 4 semanas antes de la 1ª vuelta' + (f ? ' (WL Farming ' + pc(f.w[0].y) + (h ? ', HTML ' + pc(h.w[0].y) : '') + ')' : '') + '.</li>' +
-      '<li>Semana de la 2ª vuelta contra el <b>nivel semanal previo de este año</b> (sin año pasado): separa la caída propia del efecto base — la misma semana de 2025 fue alta.</li>' +
+      '<li>La tendencia previa es el YoY de las 4 semanas (lun–dom) antes de la semana de la 1ª vuelta' + (f ? ' (WL Farming ' + pc(f.w[0].y) + (h ? ', HTML ' + pc(h.w[0].y) : '') + ')' : '') + '.</li>' +
+      '<li>Cada domingo de elección cierra su semana; la semana siguiente muestra el arrastre.</li>' +
+      '<li>Semana post 2ª vuelta contra el <b>nivel semanal previo de este año</b> (sin año pasado): separa la caída propia del efecto base.</li>' +
       '<li>B2C es el control: no está en ramp-up; si cae igual, es mercado y no algo de B2B.</li></ul>';
-    var note = 'Daily (fecha de gestión, GD), USD nominal (el switch Organic no aplica a esta slide), Brasil. Año pasado = 364 días antes (mismo día de la semana). WL Farming = partners Existing (TBD cuenta como Hunting). ' +
+    var isOrg = fxReady(), cur = isOrg ? 'USD Organic (TC Actuals LY)' : fxState === 'err' ? 'USD nominal (no se pudo leer la tabla de TC)' : 'USD nominal (cargando TC…)';
+    var note = 'Daily (fecha de gestión, GD), Brasil, ' + cur + (isOrg ? ': el año actual a TC del año pasado, como el YoY Organic del Daily; vale para toda la slide sin importar el switch' : '') + '. ' +
+      'Año pasado = 364 días antes (mismo día de la semana). WL Farming = partners Existing (TBD e ITAU son New y quedan afuera; Itau Card es Existing). ' +
       'Lun 12/10 (Aparecida) cae en día hábil del año pasado: baja ese día en HTML / API sin relación con las elecciones. Datos hasta el ' + ddmm(end) + ' (el último día cargado se excluye por venir parcial).';
-    return '<div class="flow-slide"><div class="fl-head"><div class="fl-title flm-t2" title="' + esc(title) + '"><small>Brasil · ventas diarias de octubre y las presidenciales (4/10 y 25/10) · USD nominal (no aplica Organic)</small>' + esc(title) + '</div>' +
+    return '<div class="flow-slide"><div class="fl-head"><div class="fl-title flm-t2" title="' + esc(title) + '"><small>Brasil · ventas diarias y las presidenciales (4/10 y 25/10) · ' + (isOrg ? 'USD Organic' : 'USD nominal') + '</small>' + esc(title) + '</div>' +
       '<div class="fl-brand">' + (typeof W.flLogo_ === 'function' ? W.flLogo_() : '') + '</div></div><div class="fl-rule"></div>' +
       '<div class="fl-body fe-body"><div class="fe-panels">' + BIZ.map(function (b) {
         return S[b.k] ? panel(b, S[b.k], end, R[b.k].w[0].y) : '<div class="fe-p"><div class="fe-ph" style="color:' + b.c + '">' + esc(b.lbl) + '</div><div class="fe-wait">Cargando datos de B2B…</div></div>';
       }).join('') + '</div>' +
-      '<div class="fe-low"><table class="fe-t"><tr><th>YoY GB por semana (dom–sáb)</th><th>6/9–3/10</th><th>1ª vuelta<br>4–10/10</th><th>11–17/10</th><th>18–24/10</th><th>2ª vuelta<br>25–31/10</th><th>2ª vuelta vs<br>nivel previo</th></tr>' + rows + '</table>' +
+      '<div class="fe-low"><table class="fe-t"><tr><th>YoY GB por semana (lun–dom)</th>' + WEEKS.map(function (x, i) { return '<th>' + (i ? x[0] : 'Tendencia<br>' + x[0]) + '</th>'; }).join('') +
+      '<th>' + WEEKS[POST][0] + ' vs<br>nivel previo</th></tr>' + rows + '</table>' +
       '<div class="fe-msg">' + msg + '</div></div><div class="fe-note">' + esc(note) + '</div></div></div>';
   }
 
   // daily-flow-minto.js la ubica en el deck y la dibuja (W.FLOW_EXTRA)
   var DEF = { kind: 'br_elecciones', name: 'Brasil · elecciones' };
   W.FLOW_EXTRA = (W.FLOW_EXTRA || []).concat([{ def: DEF, html: function () {
-    try { if (!b2bReady()) watchB2B(); return html(); } catch (e) { return '<div class="flow-slide"><p style="padding:40px">No se pudo armar la slide de elecciones: ' + esc(e.message) + '</p></div>'; }
+    try { loadFx(); if (!b2bReady() || !fxReady()) watchB2B(); return html(); } catch (e) { return '<div class="flow-slide"><p style="padding:40px">No se pudo armar la slide de elecciones: ' + esc(e.message) + '</p></div>'; }
   } }]);
-  // B2B llega después del B2B2C: cuando llega, se redibuja la slide (como el resumen de daily-flow-minto.js)
+  // B2B y la tabla de TC llegan después del B2B2C: cuando llegan, se redibuja la slide (como el resumen de daily-flow-minto.js)
   var timer = null;
   function watchB2B() {
     if (timer) return;
     var tries = 0;
     timer = setInterval(function () {
-      if (!b2bReady() && tries++ < 80) return;
+      if (!(b2bReady() && (fxReady() || fxState === 'err')) && tries++ < 80) return;
       clearInterval(timer); timer = null;
       var i = (W.FLOW_DECK || []).findIndex(function (d) { return d.kind === DEF.kind; });
       var fr = i >= 0 && document.querySelector('.flow-frame[data-idx="' + i + '"] .flow-slide');
-      if (fr && b2bReady()) { try { fr.outerHTML = html(); if (typeof W.flowScale_ === 'function') W.flowScale_(); } catch (e) { console.warn('[daily-flow-elecciones]', e); } }
+      if (fr) { try { fr.outerHTML = html(); if (typeof W.flowScale_ === 'function') W.flowScale_(); } catch (e) { console.warn('[daily-flow-elecciones]', e); } }
     }, 1500);
   }
 })();
