@@ -146,12 +146,11 @@
     return out;
   }
   var PARTNER_TOP = 15;
-  // Tabla: partners (más vendedores primero) × días de evento; cada celda = este año y su YoY contra el mismo día de
-  // evento del año pasado. Total del partner y YoY sobre los días con dato de los dos años.
-  function partnerTableHtml(ps, pos, y) {
-    var single = ps.length === 1 ? ps[0] : null, P = {};
+  // Agregado por partner de un evento: P[partner] = { d: [{cy, ly}] por día, cy/ly (todos los días), cyM/lyM (días que ya
+  // pasaron este año vs los mismos del año pasado; partners nuevos con LY 0) }. Lo usan la tabla y el titular.
+  function partnerAgg(ps, pos) {
+    var P = {}, hasCy = pos.map(function () { return false; });
     function slot(k) { return P[k] || (P[k] = { d: pos.map(function () { return { cy: null, ly: null }; }), cy: 0, ly: 0, lyM: 0, cyM: 0 }); }
-    var hasCy = pos.map(function () { return false; });
     pos.forEach(function (o, i) {
       ps.forEach(function (p) {
         var c = pvals(p.cy.pais, dateAt(p.cy, o)), l = pvals(p.cy.pais, dateAt(p.ly, o));
@@ -159,57 +158,63 @@
         if (l) Object.keys(l).forEach(function (k) { var x = slot(k).d[i]; x.ly = (x.ly || 0) + l[k]; });
       });
     });
-    var names = Object.keys(P);
-    if (!names.length) return '';
-    names.forEach(function (k) {
+    Object.keys(P).forEach(function (k) {
       var t = P[k];
       t.d.forEach(function (x, i) {
         if (x.cy != null) t.cy += x.cy;
         if (x.ly != null) t.ly += x.ly;
-        // días ya transcurridos de este año: mismos días del año pasado (partners nuevos suman con LY 0, como el total del día)
         if (hasCy[i]) { t.lyM += x.ly || 0; t.cyM += x.cy || 0; }
       });
+      t.delta = t.cyM - t.lyM;
     });
-    names.sort(function (a, b) { return (P[b].cy - P[a].cy) || (P[b].ly - P[a].ly); });
-    names = names.filter(function (k) { return Math.abs(P[k].cy) > 0.5 || Math.abs(P[k].ly) > 0.5; });
+    return { P: P, hasCy: hasCy, anyCy: hasCy.some(Boolean), live: hasCy.some(Boolean) && hasCy.some(function (h) { return !h; }) };
+  }
+  // Partners que más suman / restan vs el año pasado (mismos días), para el titular
+  function partnerDrivers(ps, pos) {
+    var A = partnerAgg(ps, pos);
+    if (!A.anyCy) return null;
+    var ls = Object.keys(A.P).map(function (k) { return [k, A.P[k].delta]; });
+    return {
+      up: ls.filter(function (x) { return x[1] > 0; }).sort(function (a, b) { return b[1] - a[1]; }).slice(0, 2),
+      dn: ls.filter(function (x) { return x[1] < 0; }).sort(function (a, b) { return a[1] - b[1]; }).slice(0, 2),
+    };
+  }
+  // Tabla: partners × días de evento (cada celda = este año y su YoY contra el mismo día de evento del año pasado).
+  // Orden: los que más mueven el resultado vs el año pasado (|Δ|); antes de empezar, por venta del año pasado.
+  function partnerTableHtml(ps, pos, y) {
+    var single = ps.length === 1 ? ps[0] : null, A = partnerAgg(ps, pos), P = A.P, hasCy = A.hasCy, live = A.live;
+    var names = Object.keys(P);
+    if (!names.length) return '';
+    names = names.filter(function (k) { var t = P[k]; return A.anyCy ? Math.abs(t.cyM) >= 1000 || Math.abs(t.lyM) >= 1000 : Math.abs(t.ly) >= 1000; });
+    names.sort(A.anyCy ? function (a, b) { return Math.abs(P[b].delta) - Math.abs(P[a].delta); } : function (a, b) { return P[b].ly - P[a].ly; });
     var top = names.slice(0, PARTNER_TOP), rest = names.slice(PARTNER_TOP), lines = top.map(function (k) { return [k, P[k]]; });
-    if (rest.length) {
-      var R = { d: pos.map(function () { return { cy: null, ly: null }; }), cy: 0, ly: 0, lyM: 0, cyM: 0 };
-      rest.forEach(function (k) {
-        var t = P[k];
-        t.d.forEach(function (x, i) { var r = R.d[i]; if (x.cy != null) r.cy = (r.cy || 0) + x.cy; if (x.ly != null) r.ly = (r.ly || 0) + x.ly; });
-        R.cy += t.cy; R.ly += t.ly; R.lyM += t.lyM; R.cyM += t.cyM;
-      });
-      lines.push(['Resto (' + rest.length + ' partners)', R]);
+    function blank() { return { d: pos.map(function () { return { cy: null, ly: null }; }), cy: 0, ly: 0, lyM: 0, cyM: 0, delta: 0 }; }
+    function addTo(R, t) {
+      t.d.forEach(function (x, i) { var r = R.d[i]; if (x.cy != null) r.cy = (r.cy || 0) + x.cy; if (x.ly != null) r.ly = (r.ly || 0) + x.ly; });
+      R.cy += t.cy; R.ly += t.ly; R.lyM += t.lyM; R.cyM += t.cyM; R.delta += t.delta;
     }
-    var tot = { d: pos.map(function () { return { cy: null, ly: null }; }), cy: 0, ly: 0, lyM: 0, cyM: 0 };
-    lines.forEach(function (l) {
-      var t = l[1];
-      t.d.forEach(function (x, i) { var r = tot.d[i]; if (x.cy != null) r.cy = (r.cy || 0) + x.cy; if (x.ly != null) r.ly = (r.ly || 0) + x.ly; });
-      tot.cy += t.cy; tot.ly += t.ly; tot.lyM += t.lyM; tot.cyM += t.cyM;
-    });
+    if (rest.length) { var R = blank(); rest.forEach(function (k) { addTo(R, P[k]); }); lines.push(['Resto (' + rest.length + ' partners)', R]); }
+    // Total: todos los partners (también los chicos que no se listan), para que cierre con la tabla de B2B2C
+    var tot = blank(); Object.keys(P).forEach(function (k) { addTo(tot, P[k]); });
     function cell(x, i) {
-      if (!hasCy[i]) return '<td class="iet-dim">' + (x.ly != null ? fmtMoney(x.ly) + '<span class="iet-pyoy">' + (y - 1) + '</span>' : '—') + '</td>';
+      if (!hasCy[i]) return '<td class="iet-dim">' + (x.ly != null ? fmtMoney(x.ly) : '—') + '</td>';
       var p = pct(x.cy, x.ly);
       return '<td>' + fmtMoney(x.cy || 0) + '<span class="iet-pyoy ' + pctCls(p) + '">' + fmtPct(p) + '</span></td>';
     }
-    // En curso: el total del año pasado son los mismos días de evento que ya pasaron este año (y aparte el evento completo)
-    var live = hasCy.some(function (h) { return !h; });
     function row(name, t, cls) {
       var p = t.lyM ? pct(t.cyM, t.lyM) : null;
       return '<tr' + (cls ? ' class="' + cls + '"' : '') + '><td class="l">' + esc(name) + '</td>' + t.d.map(cell).join('') +
-        '<td>' + fmtMoney(t.cyM) + '</td><td>' + fmtMoney(t.lyM) + '</td><td class="' + pctCls(p) + '">' + fmtPct(p) + '</td>' +
-        (live ? '<td class="iet-dim">' + fmtMoney(t.ly) + '</td>' : '') + '</tr>';
+        (A.anyCy ? '<td>' + fmtMoney(t.cyM) + '</td><td>' + fmtMoney(t.lyM) + '</td><td class="' + pctCls(t.delta) + '">' + (t.delta > 0 ? '+' : '') + fmtMoney(t.delta) + '</td><td class="' + pctCls(p) + '">' + fmtPct(p) + '</td>' : '') +
+        (live || !A.anyCy ? '<td class="iet-dim">' + fmtMoney(t.ly) + '</td>' : '') + '</tr>';
     }
-    var h = '<details class="iet-seg iet-partners" open><summary class="iet-seg-ttl">B2B2C por partner · por día de evento</summary>' +
+    return '<details class="iet-seg iet-partners"><summary class="iet-seg-ttl">B2B2C por partner · por día de evento</summary>' +
       '<div class="iet-tbl-wrap"><table class="iet-tbl iet-days"><thead><tr><th class="l">Partner</th>' +
       pos.map(function (o) { return '<th>' + o.lbl + (single && dateAt(single.cy, o) ? '<span class="iet-pyoy">' + fmtDay(dateAt(single.cy, o)) + '</span>' : '') + '</th>'; }).join('') +
-      '<th>Total ' + y + (live ? '<span class="iet-pyoy">a la fecha</span>' : '') + '</th><th>Total ' + (y - 1) + (live ? '<span class="iet-pyoy">mismos días</span>' : '') + '</th><th>YoY</th>' +
-      (live ? '<th>' + (y - 1) + '<span class="iet-pyoy">evento completo</span></th>' : '') + '</tr></thead><tbody>' +
+      (A.anyCy ? '<th>' + y + (live ? '<span class="iet-pyoy">a la fecha</span>' : '') + '</th><th>' + (y - 1) + (live ? '<span class="iet-pyoy">mismos días</span>' : '') + '</th><th>Δ vs ' + (y - 1) + '</th><th>YoY</th>' : '') +
+      (live || !A.anyCy ? '<th>' + (y - 1) + '<span class="iet-pyoy">evento completo</span></th>' : '') + '</tr></thead><tbody>' +
       lines.map(function (l) { return row(l[0], l[1]); }).join('') + row('Total B2B2C', tot, 'iet-total') + '</tbody></table></div>' +
-      '<div class="iet-foot">Cada celda: ' + y + ' y debajo el YoY contra el mismo día de evento de ' + (y - 1) + '. Días que todavía no pasaron: el valor de ' + (y - 1) + ' en gris. ' +
-      'Totales: los días de evento que ya pasaron este año contra los mismos días de ' + (y - 1) + ' (los partners nuevos suman con ' + (y - 1) + ' en 0). Los ' + PARTNER_TOP + ' partners que más venden este año; el resto agrupado.</div></details>';
-    return h;
+      '<div class="iet-foot">Cada celda: ' + y + ' y debajo su YoY contra el mismo día de evento de ' + (y - 1) + '; en gris, días que todavía no pasaron (valor de ' + (y - 1) + '). ' +
+      'Ordenados por lo que más mueven el resultado (Δ vs los mismos días de ' + (y - 1) + '); partners nuevos suman con ' + (y - 1) + ' en 0. Se listan los ' + PARTNER_TOP + ' primeros; el total incluye a todos.</div></details>';
   }
 
   var MI = { gb: 0, nr: 1, fvm: 2 };
@@ -407,13 +412,70 @@
     return { cy: anyCy ? cy : null, ly: anyLy ? ly : null };
   }
 
+  // Titular en una frase con los datos del evento (2026-11-03, revisión UX para el reporte al Chief)
+  function lobName(k) { return { b2b2c: 'B2B2C', b2b: 'B2B', b2c: 'B2C' }[k] || k; }
+  function moneyD(v) { return (v > 0 ? '+' : '') + fmtMoney(v); }
+  function listD(a) { return a.map(function (x) { return esc(x[0]) + ' (' + moneyD(x[1]) + ')'; }).join(', '); }
+  function headlineHtml(g, pairs, ks, kb, gap, y) {
+    var s0 = status(pairs[0]), single = pairs.length === 1 ? pairs[0] : null, L = lobName(st.lob);
+    var when = s0.k === 'live' ? 'día ' + s0.done + ' de ' + pairs[0].cy.dias : s0.k === 'done' ? 'terminado' : (s0.days ? 'empieza en ' + s0.days + ' días' : 'empieza hoy');
+    var h = '<b>' + esc(g.familia + (single ? ' ' + single.cy.pais : '')) + '</b> · ' + when + ': ';
+    if (s0.k === 'next') {
+      var lyT = 0; pairs.forEach(function (p) { lyT += pairStats(st.lob, p).lyFull; });
+      return '<div class="iet-hl">' + h + 'en ' + (y - 1) + ' ' + L + ' vendió ' + fmtMoney(lyT) + ' en este evento.</div>';
+    }
+    h += L + ' ' + fmtMoney(ks.cy) + ', <b class="' + pctCls(ks.yoy) + '">' + fmtPct(ks.yoy) + '</b> vs ' + (s0.k === 'live' ? 'los mismos días de ' : '') + (y - 1);
+    if (gap != null) h += ', <b class="' + (gap < -2 ? 'iet-neg' : gap >= 0 ? 'iet-pos' : '') + '">' + Math.abs(gap).toFixed(0) + ' pp ' + (gap < 0 ? 'debajo' : 'arriba') + ' de B2C</b> (' + fmtPct(kb.yoy) + ')';
+    h += '.';
+    var l2 = [];
+    if (!single) {   // países que más suman / restan
+      var cs = pairs.map(function (p) { var x = pairStats(st.lob, p); return [p.cy.pais, x.cy != null && !x.perDay ? x.cy - x.ly : null]; }).filter(function (x) { return x[1] != null; });
+      var up = cs.filter(function (x) { return x[1] > 0; }).sort(function (a, b) { return b[1] - a[1]; }).slice(0, 2);
+      var dn = cs.filter(function (x) { return x[1] < 0; }).sort(function (a, b) { return a[1] - b[1]; }).slice(0, 2);
+      if (up.length || dn.length) l2.push('Por país: ' + (up.length ? 'suman ' + listD(up) : '') + (up.length && dn.length ? '; ' : '') + (dn.length ? 'restan ' + listD(dn) : '') + '.');
+    }
+    if (st.lob === 'b2b2c') {
+      var dr = partnerDrivers(pairs, axisFor(pairs));
+      if (dr && (dr.up.length || dr.dn.length)) l2.push('Partners: ' + (dr.up.length ? 'suman ' + listD(dr.up) : '') + (dr.up.length && dr.dn.length ? '; ' : '') + (dr.dn.length ? 'restan ' + listD(dr.dn) : '') + '.');
+    }
+    if (st.lob === 'b2b') {
+      var ch = ['min', 'api'].map(function (k) { var x = groupStats(k, { pairs: segPairs(segOf(k), pairs) }); return (k === 'min' ? 'HTML ' : 'API ') + fmtPct(x.yoy); });
+      l2.push('Por canal: ' + ch.join(' · ') + '.');
+    }
+    return '<div class="iet-hl">' + h + (l2.length ? '<div class="iet-hl2">' + l2.join(' ') + '</div>' : '') + '</div>';
+  }
+
+  // Resumen por línea (una fila por línea): este año, año pasado (mismos días), YoY, brecha vs B2C y share
+  function segSummaryHtml(pairs, y, live) {
+    var rows = SEGS.map(function (sg) {
+      var sp = segPairs(sg, pairs), a = groupStats(sg.key, { pairs: sp }), b = sg.key !== 'b2c' ? groupStats(sg.key, { pairs: sp }, 'b2c') : null;
+      return { sg: sg, a: a, gap: b && a.yoy != null && b.yoy != null ? a.yoy - b.yoy : null };
+    });
+    var any = rows.some(function (r) { return r.a.cy != null; });
+    var sc = 0, sl = 0;
+    rows.forEach(function (r) { sc += r.a.cy || 0; sl += any ? r.a.ly : r.a.lyFull; });
+    return '<div class="iet-tbl-wrap"><table class="iet-tbl iet-sum"><thead><tr><th class="l">Línea</th>' +
+      (any ? '<th>' + y + (live ? ' a la fecha' : '') + '</th><th>' + (y - 1) + (live ? ' mismos días' : '') + '</th><th>YoY</th><th>vs B2C</th><th>Share ' + y + '</th><th>Δ share</th>'
+        : '<th>' + (y - 1) + ' evento completo</th><th>Share ' + (y - 1) + '</th>') + '</tr></thead><tbody>' +
+      rows.map(function (r) {
+        var a = r.a, shC = any && sc ? (a.cy || 0) / sc * 100 : null, shL = sl ? (any ? a.ly : a.lyFull) / sl * 100 : null;
+        var dsh = shC != null && shL != null ? shC - shL : null;
+        return '<tr><td class="l">' + esc(r.sg.lbl) + '</td>' + (any
+          ? '<td>' + fmtMoney(a.cy) + '</td><td>' + fmtMoney(a.ly) + '</td><td class="' + pctCls(a.yoy) + '"><b>' + yoyHtml(a) + '</b></td>' +
+            '<td class="' + (r.gap == null ? '' : r.gap < -2 ? 'iet-neg' : r.gap >= 0 ? 'iet-pos' : '') + '">' + (r.gap == null ? '—' : (r.gap > 0 ? '+' : r.gap < 0 ? '−' : '') + Math.abs(r.gap).toFixed(0) + ' pp') + '</td>' +
+            '<td>' + (shC == null ? '—' : shC.toFixed(1) + '%') + '</td><td class="' + pctCls(dsh) + '">' + (dsh == null ? '—' : (dsh > 0 ? '+' : dsh < 0 ? '−' : '') + Math.abs(dsh).toFixed(1) + ' pp') + '</td>'
+          : '<td>' + fmtMoney(a.lyFull) + '</td><td>' + (shL == null ? '—' : shL.toFixed(1) + '%') + '</td>') + '</tr>';
+      }).join('') + '</tbody></table></div>';
+  }
+
+  st.detailOpen = false;
   function renderDetail(groups) {
     var g = findSel(groups);
     var box = el('iet-detail');
     if (!g || !box) return;
     var pairs = st.sel.pais === TOTAL ? g.pairs : g.pairs.filter(function (p) { return p.cy.pais === st.sel.pais; });
     var single = pairs.length === 1 ? pairs[0] : null;
-    var y = cyYear(), withB2c = st.lob !== 'b2c';
+    var y = cyYear(), withB2c = st.lob !== 'b2c', s0 = status(pairs[0]), live = s0.k === 'live';
     var rows = axisFor(pairs).map(function (ps) {
       var s = seriesAt(st.lob, pairs, ps);
       return { ps: ps, cy: s.cy, ly: s.ly };
@@ -423,26 +485,35 @@
       ? fmtRange(single.cy.inicio, single.cy.fin) + ' ' + y + ' vs ' + fmtRange(single.ly.inicio, single.ly.fin) + ' ' + (y - 1) + (single.ly.match ? '' : ' (mismas fechas −364 d)')
       : 'Suma de los países, cada uno alineado a su propio día de evento';
     var ks = groupStats(st.lob, { pairs: pairs }), kb = withB2c ? groupStats(st.lob, { pairs: pairs }, 'b2c') : null;
+    var gap = kb && ks.yoy != null && kb.yoy != null ? ks.yoy - kb.yoy : null;
     var mName = METRICS.filter(function (m) { return m[0] === st.metric; })[0][1];
     var noMatch = pairs.some(function (p) { return !p.ly.match; });
-    function kpi(lbl, v, cls) { return '<div class="iet-kpi"><div class="iet-kpi-lbl">' + lbl + '</div><div class="iet-kpi-v ' + (cls || '') + '">' + v + '</div></div>'; }
-    var h = '<div class="tcard iet-card"><div class="card-hdr"><span class="card-ttl">' + esc(title) + ' ' + statusHtml(pairs[0]) + '</span><span class="bench-sub">' + esc(sub) + '</span></div>' +
-      '<div class="iet-kpis">' +
-      kpi(esc(mName) + ' ' + y, fmtMoney(ks.cy)) + kpi(esc(mName) + ' ' + (y - 1), fmtMoney(ks.ly)) +
-      kpi('YoY', yoyHtml(ks), pctCls(ks.yoy)) +
-      (withB2c ? kpi('YoY B2C (referencia)', yoyHtml(kb), pctCls(kb.yoy)) : '') + '</div>' +
-      '<div class="iet-chart"><canvas id="iet-canvas"></canvas></div>';
+    var kpis = s0.k === 'next'
+      ? '<div class="iet-kpi iet-kpi-big"><div class="iet-kpi-lbl">' + esc(mName) + ' ' + (y - 1) + ' · evento completo</div><div class="iet-kpi-v">' + fmtMoney(ks.lyFull) + '</div></div>'
+      : '<div class="iet-kpi iet-kpi-big"><div class="iet-kpi-lbl">YoY ' + esc(mName) + ' ' + lobName(st.lob) + (live ? ' · mismos días' : '') + '</div><div class="iet-kpi-v ' + pctCls(ks.yoy) + '">' + yoyHtml(ks) + '</div>' +
+        '<div class="iet-kpi-sub">' + fmtMoney(ks.cy) + ' vs ' + fmtMoney(ks.ly) + ' en ' + (y - 1) + (live ? ' (mismos días)' : '') + '</div></div>' +
+        (withB2c ? '<div class="iet-kpi"><div class="iet-kpi-lbl">vs B2C</div><div class="iet-kpi-v ' + (gap == null ? '' : gap < -2 ? 'iet-neg' : gap >= 0 ? 'iet-pos' : '') + '">' +
+          (gap == null ? '—' : (gap > 0 ? '+' : gap < 0 ? '−' : '') + Math.abs(gap).toFixed(0) + ' pp') + '</div><div class="iet-kpi-sub">B2C ' + yoyHtml(kb) + ' YoY</div></div>' : '') +
+        (live ? '<div class="iet-kpi"><div class="iet-kpi-lbl">' + (y - 1) + ' evento completo</div><div class="iet-kpi-v iet-dim">' + fmtMoney(ks.lyFull) + '</div><div class="iet-kpi-sub">' + pairs[0].cy.dias + ' días de evento</div></div>' : '');
     var days = segTablesHtml(pairs, y);
-    h += days.html;
     var foot = [];
     if (noMatch || days.noMatch) foot.push('* Sin ese evento el año pasado' + (single ? '' : ' en algún país') + ': se compara contra las mismas fechas −364 días (mismo día de la semana).');
     if (ks.perDay || days.perDay) foot.push('† El evento dura distinto que el año pasado: el YoY compara el promedio diario.');
-    if (status(pairs[0]).k === 'live') foot.push('En curso: ' + y + ' a la fecha vs los mismos días de evento de ' + (y - 1) + '.');
-    foot.push('Share = % del total B2B2C + B2B MIN + B2B API + B2C en ese día de evento; solo se calcula si las cuatro líneas tienen dato. B2B en base GD.');
+    if (live) foot.push('En curso: ' + y + ' a la fecha vs los mismos días de evento de ' + (y - 1) + '.');
+    foot.push('vs B2C = YoY de la línea menos YoY de B2C en los mismos días (pp). Share = % del total B2B2C + B2B MIN + B2B API + B2C; en el detalle por día solo se calcula si las cuatro líneas tienen dato. B2B en base GD.');
     if (days.fallback.length) foot.push('Sin este evento en su calendario, ' + days.fallback.join(' y ') + ' usa las fechas del calendario elegido.');
-    h += '<div class="iet-foot">' + foot.join(' ') + '</div></div>';
+    var h = '<div class="tcard iet-card"><div class="card-hdr"><span class="card-ttl">' + esc(title) + ' ' + statusHtml(pairs[0]) + '</span><span class="bench-sub">' + esc(sub) + '</span></div>' +
+      headlineHtml(g, pairs, ks, kb, gap, y) +
+      '<div class="iet-kpis">' + kpis + '</div>' +
+      '<div class="iet-seg-ttl">Por línea · ' + esc(mName) + '</div>' + segSummaryHtml(pairs, y, live) +
+      '<details class="iet-detail"' + (st.detailOpen ? ' open' : '') + '><summary>Detalle por día: gráfico, tablas por línea y por partner</summary>' +
+      '<div class="iet-chart"><canvas id="iet-canvas"></canvas></div>' + days.html + '</details>' +
+      '<details class="iet-how"><summary>Cómo se calcula</summary><div class="iet-foot">' + foot.join(' ') + '</div></details></div>';
     box.innerHTML = h;
-    drawChart(rows);
+    var dt = box.querySelector('.iet-detail');
+    if (chart) { chart.destroy(); chart = null; }
+    if (dt.open) drawChart(rows);
+    dt.addEventListener('toggle', function () { st.detailOpen = dt.open; if (dt.open) drawChart(rows); else if (chart) { chart.destroy(); chart = null; } });
   }
 
   // Pares del evento según el calendario de la línea: mismo país y familia en fechas cercanas (El Buen Fin B2B va
@@ -473,9 +544,13 @@
       function sum(k) { return vals.every(function (v) { return v[k] != null; }) ? vals.reduce(function (a, v) { return a + v[k]; }, 0) : null; }
       var t = { cy: sum('cy'), ly: sum('ly') };
       if (t.cy != null) tot.cy += t.cy;
-      if (t.ly != null) tot.ly += t.ly;
       return { vals: vals, tot: t };
     });
+    // Share del total: el año pasado solo en los días que ya pasaron este año (si no, compara evento completo vs a la fecha)
+    var anyCyAll = perPos.some(function (x) { return x.tot.cy != null; });
+    function lyDay(t) { return t.ly != null && (t.cy != null || !anyCyAll); }
+    perPos.forEach(function (x) { if (lyDay(x.tot)) tot.ly += x.tot.ly; });
+    var liveSeg = status(pairs[0]).k === 'live';
     var out = { html: '', noMatch: false, perDay: false, fallback: [] };
     segs.forEach(function (x, si) {
       var ps = x.pairs, single = ps.length === 1 ? ps[0] : null, key = x.s.key, withB2c = key !== 'b2c';
@@ -498,7 +573,7 @@
           acc = nL ? pct(accC / nC, accL / nL) : null;
         }
         if (t.cy != null) shC += v.cy;
-        if (t.ly != null) shL += v.ly;
+        if (lyDay(t)) shL += v.ly;
         // Total: los países con evento más corto dejan de sumar; se aclara cuántos quedan ese día.
         var nP = ps.filter(function (q) { return o.o < q.cy.dias || o.o < q.ly.dias; }).length;
         var tag = !single && nP < ps.length ? ' <span class="iet-dim">· ' + nP + (nP === 1 ? ' país' : ' países') + '</span>' : '';
@@ -514,7 +589,7 @@
       });
       var ks = groupStats(key, { pairs: ps }), kb = groupStats(key, { pairs: ps }, 'b2c');
       if (ks.perDay) out.perDay = true;
-      h += '<tr class="iet-total"><td class="l">Total evento</td>' + (single ? '<td></td>' : '') + '<td>' + fmtMoney(ks.cy) + '</td>' +
+      h += '<tr class="iet-total"><td class="l">' + (liveSeg ? 'Total a la fecha' : 'Total evento') + '</td>' + (single ? '<td></td>' : '') + '<td>' + fmtMoney(ks.cy) + '</td>' +
         (single ? '<td></td>' : '') + '<td>' + fmtMoney(ks.ly) + '</td><td class="' + pctCls(ks.yoy) + '">' + yoyHtml(ks) + '</td><td></td>' +
         (withB2c ? '<td class="' + pctCls(kb.yoy) + '">' + yoyHtml(kb) + '</td>' : '') + shareCell(tot.ly ? shL : null, tot.ly) + shareCell(tot.cy ? shC : null, tot.cy) + '</tr>';
       out.html += h + '</tbody></table></div></div>';
@@ -572,12 +647,12 @@
     '#view-industry .iet-ctrl{display:flex;gap:12px;align-items:center;flex-wrap:wrap}',
     '#view-industry .iet-pyoy{display:block;font-size:10px;font-weight:600;opacity:.85}',
     '#view-industry .iet-partners summary{cursor:pointer}#view-industry .iet-partners .iet-tbl td,#view-industry .iet-partners .iet-tbl th{white-space:nowrap}',
-    '#view-industry .iet-ctrl-lbl{font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.07em}',
+    '#view-industry .iet-ctrl-lbl{font-size:11px;font-weight:700;color:var(--text-3)}',
     '.iet-card{margin-bottom:16px}',
     '.iet-empty{padding:48px 0;text-align:center;color:var(--text-3);font-size:13px}',
     '.iet-tbl-wrap{overflow-x:auto}',
-    '.iet-tbl{width:100%;border-collapse:collapse;font-size:12px;font-variant-numeric:tabular-nums}',
-    '.iet-tbl th{font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;text-align:right;padding:6px 10px;border-bottom:1px solid var(--border);white-space:nowrap}',
+    '.iet-tbl{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}',
+    '.iet-tbl th{font-size:11px;font-weight:700;color:var(--text-3);text-align:right;padding:6px 10px;border-bottom:1px solid var(--border);white-space:nowrap}',
     '.iet-tbl td{padding:7px 10px;text-align:right;border-bottom:1px solid var(--border);color:var(--text-2);white-space:nowrap}',
     '.iet-tbl .l{text-align:left}',
     '#view-industry .iet-ctrl-ev{margin:-4px 0 14px;justify-content:space-between}',
@@ -585,7 +660,16 @@
     '.iet-select:focus{outline:2px solid var(--primary);outline-offset:1px}',
     '.iet-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}',
     '.iet-kpi{background:var(--segment-bg);border-radius:10px;padding:10px 14px}',
-    '.iet-kpi-lbl{font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em}',
+    '.iet-kpi-lbl{font-size:11.5px;font-weight:700;color:var(--text-3)}',
+    '.iet-kpi-sub{font-size:11.5px;color:var(--text-3);margin-top:2px}',
+    '.iet-kpis{grid-template-columns:minmax(220px,1.4fr) repeat(auto-fit,minmax(150px,1fr))!important}',
+    '.iet-kpi-big .iet-kpi-v{font-size:34px;line-height:1.1}',
+    '.iet-hl{font-size:15px;line-height:1.55;color:var(--text);margin:4px 0 14px;padding:12px 16px;border-radius:10px;background:var(--segment-bg);border-left:3px solid var(--primary)}',
+    '.iet-hl2{font-size:12.5px;color:var(--text-2);margin-top:4px}',
+    '.iet-sum td:first-child{font-weight:700;color:var(--text)}.iet-sum{margin-bottom:6px}',
+    '.iet-detail,.iet-how{margin-top:14px;border-top:1px solid var(--border);padding-top:10px}',
+    '.iet-detail>summary,.iet-how>summary{cursor:pointer;font-size:12.5px;font-weight:700;color:var(--secondary)}',
+    '.iet-how>summary{color:var(--text-3);font-weight:600}',
     '.iet-kpi-v{font-size:22px;font-weight:700;color:var(--text);margin-top:2px;font-variant-numeric:tabular-nums}',
     '.iet-dim{color:var(--text-3)}',
     '.iet-pos{color:var(--success)!important}',
@@ -594,8 +678,8 @@
     '.iet-b-live{background:var(--success-l);color:var(--success)}',
     '.iet-b-next{background:var(--primary-d);color:var(--secondary)}',
     '.iet-b-done{background:var(--elevated);color:var(--text-3)}',
-    '.iet-foot{font-size:10px;color:var(--text-3);margin-top:10px}',
-    '.iet-chart{position:relative;height:300px;margin-bottom:14px}',
+    '.iet-foot{font-size:11px;line-height:1.5;color:var(--text-3);margin-top:8px}',
+    '.iet-chart{position:relative;height:240px;margin:12px 0 14px}',
     '.iet-days td:first-child{font-weight:700;color:var(--text)}',
     '.iet-seg{margin-top:18px}',
     '.iet-seg-ttl{font-size:12px;font-weight:700;color:var(--text);margin-bottom:6px}',
