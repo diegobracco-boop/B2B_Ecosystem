@@ -181,9 +181,10 @@
   function noteBox(field, title, draft) {
     var n = state.notes[field], text = n ? n.text : draft;
     var meta = n ? 'Editado por ' + esc(String(n.by || '').replace(/@.*/, '')) + ' · ' + new Date(n.at).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
-      : 'Borrador automático · hacé clic para editar';
+      : 'Borrador automático' + (state.canEdit ? ' · hacé clic para editar' : '');
+    // Solo el equipo B2B edita estos textos (noteEditors 'slides-*' del Hub); el resto los ve de solo lectura.
     return '<div class="hs-note"><div class="hs-nt">' + title + '</div>' +
-      '<div class="hs-nx' + (n ? '' : ' hs-draft') + '" contenteditable="true" spellcheck="false" data-field="' + field + '">' + esc(text).replace(/\n/g, '<br>') + '</div>' +
+      '<div class="hs-nx' + (n ? '' : ' hs-draft') + '"' + (state.canEdit ? ' contenteditable="true"' : '') + ' spellcheck="false" data-field="' + field + '">' + esc(text).replace(/\n/g, '<br>') + '</div>' +
       '<div class="hs-nm">' + meta + '</div></div>';
   }
   function basePath() { return location.pathname.replace(/\/hub(\/.*)?$/, ''); }
@@ -191,8 +192,8 @@
   function loadNotes() {
     return fetch(basePath() + '/notes/hub/' + scope(), { credentials: 'same-origin' })
       .then(function (r) { return r.ok ? r.json() : { notes: {} }; })
-      .then(function (j) { state.notes = j.notes || {}; })
-      .catch(function () { state.notes = {}; });
+      .then(function (j) { state.notes = j.notes || {}; state.canEdit = j.canEdit !== false; })
+      .catch(function () { state.notes = {}; state.canEdit = false; });
   }
   function saveNote(el) {
     var field = el.getAttribute('data-field'), text = el.innerText.replace(/ /g, ' ').trim();

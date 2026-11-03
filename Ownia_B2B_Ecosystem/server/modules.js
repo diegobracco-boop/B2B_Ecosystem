@@ -58,7 +58,10 @@ const MODULES = [
     ownia: true,
     validating: true,
     hideGasLink: true,   // 2026-10-28: sin el link "Versión Apps Script" en la tarjeta del menú (Diego)
-    allowedUsers: EQUIPO_B2B,
+    // Abierto a cualquier @despegar.com desde 2026-11-03 (Diego), como P&L Accounting / Managerial: antes solo EQUIPO_B2B y al
+    // resto el menú lo mandaba a Apps Script (sin pills). Escribir sigue siendo del equipo: los textos del Flow mensual
+    // (slides-AAAA-MM) y qué slides de "Mis slides" van al final del Flow mensual (flow). "Mis slides" (builder): cada uno las suyas.
+    noteEditors: { 'slides-*': EQUIPO_B2B, flow: EQUIPO_B2B },
     quickViews: [['all', 'Consolidado'], ['b2b2c', 'B2B2C'], ['b2b', 'B2B'], ['html', 'HTML'], ['api', 'API']],   // ?view=<negocio>: lo lee public/hub-layout.js
     // Presentación propia de Ownia (public/hub-layout.js): barra fija con el selector de LoB y las
     // secciones en vez del menú hamburguesa; precarga de los otros LoB. El HTML de GAS no cambia.
@@ -81,8 +84,8 @@ const MODULES = [
     desc: 'Presentación semanal (gestional) y mensual (contable) para revisar y comentar.',
     // Solo Ownia (2026-10-27): junta el Flow semanal del Daily (gestional) y las Slides mensuales del Hub (contable) en una entrada
     // propia del menú principal, con cuadro de comentarios por slide y envío por mail. Sin allowedUsers: cualquier @despegar.com
-    // (Diego, 2026-10-27). OJO: el Flow mensual lee los datos del Hub, que está restringido a EQUIPO_B2B: quien no esté en esa
-    // lista ve el semanal y un aviso en el mensual. Para sumar gente (p. ej. el Chief) agregarla a allowedUsers del Hub.
+    // (Diego, 2026-10-27). El Flow mensual lee los datos del Hub: desde 2026-11-03 el Hub también es para cualquier @despegar.com
+    // (antes solo EQUIPO_B2B y el resto veía un aviso en el mensual; el aviso sigue si el Hub vuelve a restringirse).
     ownia: true,
     // Accesos directos del menú: abren esa pestaña del Flow (?view=, lo lee Flow_B2B/flow.html).
     quickViews: [['semanal', 'Semanal'], ['mensual', 'Mensual'], ['cierre', 'Cierre de mes'], ['builder', 'Mis slides']],

@@ -13,7 +13,7 @@
   'use strict';
   var BUILDER = /[?&]builder=1\b/.test(location.search);
   // Flow mensual (hub-slides.js, ?slides=1): agrega al final las slides marcadas "Agregar al final del Flow mensual"
-  // (inFlow, de cualquier dueño) con window.OwniaBuilder.flowSlides(). Ahí no se arma el panel de "Mis slides".
+  // (/notes/hub/flow) con window.OwniaBuilder.flowSlides(). Ahí no se arma el panel de "Mis slides".
   var FLOWDECK = /[?&]slides=1\b/.test(location.search);
   if (!BUILDER && !FLOWDECK) return;
 
@@ -30,7 +30,10 @@
   // Países como los normaliza el Hub (_PAIS_VALUE_NORM_ de Codigo.js) y cómo se muestran (mismos nombres que el Cuadro Resumen)
   var PAIS_NORM = { 'others countries': 'other countries', others: 'other countries', ot: 'other countries', ops: 'rg', 'ops + rg': 'rg' };
   var LABEL = { 'other countries': 'Globales', rg: 'OPS + RG', 'dest. serv.': 'Dest. Serv.', 'packages general': 'Packages General' };
-  var state = { me: null, notes: {}, specs: [], team: false, cur: 0 };
+  // flow: qué slides van al final del Flow mensual (scope /notes/hub/flow, campo = id de la slide, texto '1'). Lo escribe
+  // solo el equipo B2B (noteEditors del Hub): el Hub está abierto a todo @despegar.com y no cualquiera tiene que poder
+  // sumar slides al deck del equipo. flowCanEdit = lo que devuelve el GET (canEdit).
+  var state = { me: null, notes: {}, specs: [], team: false, cur: 0, flow: {}, flowCanEdit: false };
   try { state.team = localStorage.getItem('hb-team') === '1'; } catch (e) { /* sin storage */ }
   var cache = {};
   var panel = null, modal = null;
@@ -297,12 +300,22 @@
         }).filter(Boolean).sort(function (a, b) { return (a.order || 0) - (b.order || 0); });
       });
   }
+  function loadFlow() {
+    return fetch(basePath() + '/notes/hub/flow', { credentials: 'same-origin' })
+      .then(function (r) { return r.ok ? r.json() : { notes: {}, canEdit: false }; })
+      .then(function (j) { state.flow = j.notes || {}; state.flowCanEdit = j.canEdit === true; }, function () { state.flow = {}; state.flowCanEdit = false; });
+  }
+  function inFlowOf(s) { var n = s && state.flow[s.id]; return !!(n && n.text); }
   function saveSpec(spec) {
-    var copy = Object.assign({}, spec); delete copy.id;
+    var copy = Object.assign({}, spec); delete copy.id; delete copy.inFlow;   // la marca del Flow vive en /notes/hub/flow
     return post(spec.id, JSON.stringify(copy));
   }
-  function post(field, text) {
-    return fetch(basePath() + '/notes/hub/' + SCOPE, {
+  function setFlow(spec, on) {
+    if (!state.flowCanEdit || on === inFlowOf(spec)) return Promise.resolve();
+    return post(spec.id, on ? '1' : '', 'flow').then(function (n) { state.flow[spec.id] = n; });
+  }
+  function post(field, text, scope) {
+    return fetch(basePath() + '/notes/hub/' + (scope || SCOPE), {
       method: 'POST', credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'google.script.run' },
       body: JSON.stringify({ field: field, text: text }),
@@ -343,7 +356,7 @@
             '<button type="button" data-a="del" class="hb-danger">🗑</button>'
           : '<span class="hb-by">de ' + esc(String(s.owner || '').replace(/@.*/, '')) + '</span><button type="button" data-a="dup">⧉ Copiar a mis slides</button>';
         return '<div class="hb-item" data-id="' + esc(s.id) + '" data-title="' + esc(s.title || autoTitle(s)) + '"><div class="hb-cap"><b>' + (i + 1) + '</b> · ' + esc(s.title || autoTitle(s)) +
-          (s.inFlow ? ' <span class="hb-inflow" title="Va al final del Flow mensual">· en el Flow mensual</span>' : '') + '<span class="hb-sp"></span>' + tools + '</div>' +
+          (inFlowOf(s) ? ' <span class="hb-inflow" title="Va al final del Flow mensual">· en el Flow mensual</span>' : '') + '<span class="hb-sp"></span>' + tools + '</div>' +
           '<div class="hb-frame" data-i="' + i + '"><div class="hb-slide">' + slideHtml(s) + '</div></div></div>';
       }).join('');
       fitAll();
@@ -365,7 +378,7 @@
       saveSpec(c).then(reload, fail);
     } else if (a === 'del') {
       if (!confirm('¿Borrar la slide «' + (s.title || autoTitle(s)) + '»?')) return;
-      post(s.id, '').then(reload, fail);
+      post(s.id, '').then(function () { return setFlow(s, false); }).then(reload, fail);
     } else if (a === 'share') {
       s.shared = !s.shared; saveSpec(s).then(reload, fail);
     } else if ((a === 'up' && i > 0) || (a === 'down' && i >= 0 && i < list.length - 1)) {
@@ -375,7 +388,7 @@
     }
   }
   function fail(e) { alert('No se pudo guardar: ' + ((e && e.message) || e)); }
-  function reload() { return loadSpecs().then(render); }
+  function reload() { return Promise.all([loadSpecs(), loadFlow()]).then(render); }
 
   // ── Editor ─────────────────────────────────────────────────────────────────────────────────
   var TEMPLATES = [
@@ -410,7 +423,7 @@
       '<div class="hb-fs"><div class="hb-fl">País <small>(ninguno = todos)</small></div><div class="hb-chips">' + checks('pais', paises, spec.pais || []) + '</div></div>' +
       '<div class="hb-fs"><div class="hb-fl">Producto</div><select name="prod">' + opts(prods, spec.prod || '') + '</select></div>' +
       '<label class="hb-ck hb-org"><input type="checkbox" name="organic"' + (spec.organic ? ' checked' : '') + '> Organic (todo a TC Budget)</label>' +
-      '<label class="hb-ck" title="La ve todo el que abre el Flow mensual, aunque la slide sea «Solo yo»"><input type="checkbox" name="inFlow"' + (spec.inFlow ? ' checked' : '') + '> Agregar al final del Flow mensual</label>' +
+      (state.flowCanEdit ? '<label class="hb-ck" title="La ve todo el que abre el Flow mensual, aunque la slide sea «Solo yo»"><input type="checkbox" name="inFlow"' + (inFlowOf(spec) ? ' checked' : '') + '> Agregar al final del Flow mensual</label>' : '') +
       '<label class="hb-f">Comentario en la slide<textarea name="note" maxlength="1200" rows="4" placeholder="Opcional: qué querés destacar">' + esc(spec.note) + '</textarea></label>';
     modal._spec = spec;
     modal.style.display = '';
@@ -423,7 +436,7 @@
     s.title = val('title').trim(); s.seg = val('seg'); s.metrics = all('metrics'); s.period = val('period'); s.vs = all('vs');
     s.visual = (f.querySelector('[name="visual"]:checked') || {}).value || 'kpi'; s.split = val('split') || 'pais';
     s.pais = all('pais'); s.prod = val('prod'); s.organic = !!f.querySelector('[name="organic"]').checked; s.note = val('note').trim();
-    s.inFlow = !!f.querySelector('[name="inFlow"]').checked;
+    var fl = f.querySelector('[name="inFlow"]'); s.inFlow = fl ? fl.checked : inFlowOf(s);
     f.querySelector('.hb-splitby').hidden = s.visual !== 'split';
     return s;
   }
@@ -463,7 +476,7 @@
       if (!s.metrics.length) { alert('Elegí al menos una métrica.'); return; }
       s.updated = new Date().toISOString();
       var b = this; b.disabled = true; b.textContent = 'Guardando…';
-      saveSpec(s).then(function () { closeEditor(); return reload(); }, fail).then(function () { b.disabled = false; b.textContent = 'Guardar'; });
+      saveSpec(s).then(function () { return setFlow(s, s.inFlow); }).then(function () { closeEditor(); return reload(); }, fail).then(function () { b.disabled = false; b.textContent = 'Guardar'; });
     };
     window.addEventListener('resize', function () { if (modal.style.display !== 'none') fitPreview(); });
   }
@@ -658,7 +671,7 @@
     ensurePanel();
     var who = fetch(basePath() + '/whoami', { credentials: 'same-origin' }).then(function (r) { return r.ok ? r.json() : {}; })
       .then(function (j) { state.me = String(j.email || '').toLowerCase() || null; }).catch(function () { state.me = null; });
-    Promise.all([who, loadSpecs()]).then(function () {
+    Promise.all([who, loadSpecs(), loadFlow()]).then(function () {
       render();
       if (NUEVA) openEditor(newSpec());
     }, function (e) {
@@ -679,8 +692,8 @@
   if (BUILDER) document.addEventListener('DOMContentLoaded', function () { filtersReady().then(start, function () {}); });
 
   // ── Flow mensual (2026-11-03) ──────────────────────────────────────────────────────────────
-  // hub-slides.js agrega al final del deck las slides con inFlow (de cualquier dueño: el Flow mensual es del equipo),
-  // en el orden de "Mis slides". Mismo render y mismos datos (getSlidesEvo) que acá: se recalculan solas.
+  // hub-slides.js agrega al final del deck las slides marcadas en /notes/hub/flow (las marca solo el equipo B2B; la slide
+  // puede ser de cualquier dueño), en el orden de "Mis slides". Mismo render y mismos datos (getSlidesEvo): se recalculan solas.
   function ensureFlowCss() {
     if (document.getElementById('hb-fls-css')) return;
     var css = document.createElement('style');
@@ -692,8 +705,8 @@
   if (FLOWDECK) window.OwniaBuilder = {
     // → Promise<[{ title, html }]> (vacío si no hay ninguna marcada)
     flowSlides: function () {
-      return filtersReady().then(loadSpecs).then(function () {
-        var list = state.specs.filter(function (s) { return s.inFlow; });
+      return filtersReady().then(function () { return Promise.all([loadSpecs(), loadFlow()]); }).then(function () {
+        var list = state.specs.filter(inFlowOf);
         if (!list.length) return [];
         ensureFlowCss();
         var qs = []; list.forEach(function (s) { qs = qs.concat(queriesOf(s)); });

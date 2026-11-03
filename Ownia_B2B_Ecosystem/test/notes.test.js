@@ -11,6 +11,8 @@ const { DirNotes } = require('../server/notes-store');
 const BASE = '/b2b-ecosystem';
 const FIXTURES = path.join(__dirname, 'fixtures');
 const EQUIPO = { slug: 'demo-equipo', dir: 'Demo_Module', title: 'Demo', desc: 'demo', ownia: true, allowedUsers: ['ana@despegar.com', 'otro@despegar.com'], noteEditors: { vistas: ['Ana@despegar.com'] }, gasUrl: '' };
+// Como el Hub desde 2026-11-03: abierto a todo @despegar.com, pero los textos del Flow (slides-*) y la marca "al Flow" (flow) solo la lista.
+const ABIERTO = { slug: 'demo-abierto', dir: 'Demo_Module', title: 'Demo abierto', desc: 'demo', ownia: true, noteEditors: { 'slides-*': ['Ana@despegar.com'], flow: ['ana@despegar.com'] }, gasUrl: '' };
 const JSON_RUN = { 'Content-Type': 'application/json', 'X-Requested-With': 'google.script.run' };
 
 let server, dir;
@@ -31,7 +33,7 @@ function req(method, p, { body, headers } = {}) {
 
 before(async () => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), 'notes-'));
-  const app = createApp({ GAS_ROOT: FIXTURES, BASE_PATH: BASE, modules: [EQUIPO], secrets: {}, TRUSTED_IDENTITY_HEADER: 'x-test-email', fileStore: null, notesStore: new DirNotes(dir) });
+  const app = createApp({ GAS_ROOT: FIXTURES, BASE_PATH: BASE, modules: [EQUIPO, ABIERTO], secrets: {}, TRUSTED_IDENTITY_HEADER: 'x-test-email', fileStore: null, notesStore: new DirNotes(dir) });
   server = await new Promise((resolve) => { const s = http.createServer(app.handler).listen(0, '127.0.0.1', () => resolve(s)); });
 });
 after(() => { server.close(); fs.rmSync(dir, { recursive: true, force: true }); });
@@ -62,6 +64,25 @@ test('notas: un scope con editores propios lo lee cualquiera del módulo pero lo
   assert.equal((await req('GET', '/notes/demo-equipo/vistas', { headers: ana })).json.canEdit, true);
   // los otros scopes siguen abiertos a todo el módulo
   assert.equal((await req('POST', '/notes/demo-equipo/otro-scope', { headers: otro, body: { field: 'a', text: 'b' } })).status, 200);
+});
+
+test('notas: editores por prefijo (slides-*) y por scope exacto en un módulo abierto a todo el dominio', async () => {
+  const ana = { ...JSON_RUN, 'x-test-email': 'ana@despegar.com' }, juan = { ...JSON_RUN, 'x-test-email': 'juan@despegar.com' };
+  // cualquiera abre y lee
+  const g = await req('GET', '/notes/demo-abierto/slides-2026-10', { headers: juan });
+  assert.equal(g.status, 200);
+  assert.equal(g.json.canEdit, false);
+  // slides-<cualquier mes> y flow: solo la lista
+  assert.equal((await req('POST', '/notes/demo-abierto/slides-2026-10', { headers: juan, body: { field: 'a', text: 'x' } })).status, 403);
+  assert.equal((await req('POST', '/notes/demo-abierto/slides-2027-01', { headers: juan, body: { field: 'a', text: 'x' } })).status, 403);
+  assert.equal((await req('POST', '/notes/demo-abierto/flow', { headers: juan, body: { field: 's-1', text: '1' } })).status, 403);
+  assert.equal((await req('POST', '/notes/demo-abierto/slides-2026-10', { headers: ana, body: { field: 'a', text: 'x' } })).status, 200);
+  assert.equal((await req('POST', '/notes/demo-abierto/flow', { headers: ana, body: { field: 's-1', text: '1' } })).status, 200);
+  assert.equal((await req('GET', '/notes/demo-abierto/flow', { headers: ana })).json.canEdit, true);
+  // el resto de los scopes (p.ej. builder, "Mis slides") sigue abierto a todos
+  assert.equal((await req('POST', '/notes/demo-abierto/builder', { headers: juan, body: { field: 's-2', text: '{}' } })).status, 200);
+  // "slides" sin el guion no matchea el prefijo
+  assert.equal((await req('POST', '/notes/demo-abierto/slidesx', { headers: juan, body: { field: 'a', text: 'x' } })).status, 200);
 });
 
 test('notas: mismos permisos que el módulo, anti-CSRF y validación', async () => {

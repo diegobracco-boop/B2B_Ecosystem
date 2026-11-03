@@ -56,6 +56,15 @@ function log(obj) {
   console.log(JSON.stringify({ ts: new Date().toISOString(), ...obj }));
 }
 
+// Editores de un scope de notas (`noteEditors` del módulo): clave exacta o prefijo con '*' al final. null = sin lista (edita quien abre el módulo).
+function noteEditorsFor(mod, scope) {
+  const ne = mod.noteEditors;
+  if (!ne) return null;
+  if (ne[scope]) return ne[scope];
+  const k = Object.keys(ne).find((x) => x.endsWith('*') && scope.startsWith(x.slice(0, -1)));
+  return k ? ne[k] : null;
+}
+
 function createApp(opts = {}) {
   const cfg = { ...config, ...opts };
   const modules = opts.modules || MODULES;
@@ -442,7 +451,8 @@ function createApp(opts = {}) {
       if (!mayOpen(mod, identity)) return forbidden(res);
       try {
         // Scopes con editores propios (`noteEditors` en modules.js): lo puede leer el que abre el módulo, pero escribir solo esa lista.
-        const editors = mod.noteEditors && mod.noteEditors[parts[2]];
+        // La clave puede ser el scope exacto o un prefijo terminado en '*' ('slides-*' = todos los meses del Flow mensual).
+        const editors = noteEditorsFor(mod, parts[2]);
         const canEdit = !editors || editors.map((x) => x.toLowerCase()).includes(String(identity.email).toLowerCase());
         if (req.method === 'GET') return sendJson(res, 200, { notes: await notesStore.get(mod.slug, parts[2]), canEdit });
         if (req.method !== 'POST') return sendJson(res, 405, { error: 'Método no permitido' });
