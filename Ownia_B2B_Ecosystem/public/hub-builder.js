@@ -11,7 +11,11 @@
  */
 (function () {
   'use strict';
-  if (!/[?&]builder=1\b/.test(location.search)) return;
+  var BUILDER = /[?&]builder=1\b/.test(location.search);
+  // Flow mensual (hub-slides.js, ?slides=1): agrega al final las slides marcadas "Agregar al final del Flow mensual"
+  // (inFlow, de cualquier dueño) con window.OwniaBuilder.flowSlides(). Ahí no se arma el panel de "Mis slides".
+  var FLOWDECK = /[?&]slides=1\b/.test(location.search);
+  if (!BUILDER && !FLOWDECK) return;
 
   var W = 1280, H = 720;
   var EMB = /[?&]embedded=1\b/.test(location.search);
@@ -187,9 +191,9 @@
     if (!tot) body = '<p class="hb-msg">Cargando datos…</p>';
     else if (!(spec.metrics || []).length) body = '<p class="hb-msg">Elegí al menos una métrica.</p>';
     else body = spec.visual === 'table' ? vTable(spec, tot, idx) : spec.visual === 'evo' ? vEvo(spec, tot, idx) : spec.visual === 'split' ? vSplit(spec, qs, idx) : vKpi(spec, tot, idx);
-    var note = spec.note ? '<div class="hb-note"><b>Comentario</b><div>' + esc(spec.note).replace(/\n/g, '<br>') + '</div></div>' : '';
+    var note = spec.note ? '<div class="hb-note' + (spec.note.length > 500 ? ' hb-nlong' : '') + '"><b>Comentario</b><div>' + esc(spec.note).replace(/\n/g, '<br>') + '</div></div>' : '';
     return '<div class="hb-head"><div class="hb-title">' + esc(title) + '</div><div class="hb-logo">despegar</div></div>' +
-      '<div class="hb-tags">' + tags + '</div><div class="hb-body' + (note ? ' hb-withnote' : '') + '">' + body + '</div>' + note +
+      '<div class="hb-tags">' + tags + '</div><div class="hb-body' + (note ? ' hb-withnote' : '') + (spec.visual === 'evo' ? ' hb-evob' : '') + '">' + body + '</div>' + note +
       '<div class="hb-foot">' + fyTag() + ' | Despegar · P&amp;L contable' + (lastClosed() ? ' · cierre ' + monthLabel(lastClosed()) : '') + '</div>';
   }
   function vKpi(spec, tot, idx) {
@@ -246,7 +250,9 @@
   }
   function vEvo(spec, tot, idx) {
     var p = fyPeriods(), months = idx.length > 1 ? idx : p.map(function (_, i) { return i; }), hi = idx.length === 1 ? idx[0] : -1;
-    var last = lastClosed(), n = spec.metrics.length, ch = n === 1 ? 470 : n === 2 ? 232 : 152;
+    // Con comentario el gráfico es más bajo (más apaisado): así, al achicarse para entrar (hb-evob), sigue usando todo el ancho
+    var nk = !spec.note ? 1 : spec.note.length > 500 ? 0.55 : 0.8;
+    var last = lastClosed(), n = spec.metrics.length, ch = Math.max(120, Math.round((n === 1 ? 470 : n === 2 ? 232 : 152) * nk));
     var vs = spec.vs || [];
     var legend = '<div class="hb-leg"><span><i class="hb-lr"></i>Real</span><span><i class="hb-lp"></i>Run Rate</span>' +
       (vs.indexOf('bud') >= 0 ? '<span><i class="hb-lb"></i>Budget</span>' : '') + (vs.indexOf('fc') >= 0 ? '<span><i class="hb-lf"></i>Forecast BTB</span>' : '') +
@@ -336,7 +342,8 @@
             '<button type="button" data-a="share" aria-pressed="' + !!s.shared + '" title="Las slides compartidas las ve todo el equipo en «Ver las del equipo»">' + (s.shared ? '👥 Compartida' : '🔒 Solo yo') + '</button>' +
             '<button type="button" data-a="del" class="hb-danger">🗑</button>'
           : '<span class="hb-by">de ' + esc(String(s.owner || '').replace(/@.*/, '')) + '</span><button type="button" data-a="dup">⧉ Copiar a mis slides</button>';
-        return '<div class="hb-item" data-id="' + esc(s.id) + '" data-title="' + esc(s.title || autoTitle(s)) + '"><div class="hb-cap"><b>' + (i + 1) + '</b> · ' + esc(s.title || autoTitle(s)) + '<span class="hb-sp"></span>' + tools + '</div>' +
+        return '<div class="hb-item" data-id="' + esc(s.id) + '" data-title="' + esc(s.title || autoTitle(s)) + '"><div class="hb-cap"><b>' + (i + 1) + '</b> · ' + esc(s.title || autoTitle(s)) +
+          (s.inFlow ? ' <span class="hb-inflow" title="Va al final del Flow mensual">· en el Flow mensual</span>' : '') + '<span class="hb-sp"></span>' + tools + '</div>' +
           '<div class="hb-frame" data-i="' + i + '"><div class="hb-slide">' + slideHtml(s) + '</div></div></div>';
       }).join('');
       fitAll();
@@ -352,7 +359,7 @@
     var a = b.dataset.a, list = visible().filter(mine), i = list.indexOf(s);
     if (a === 'edit') openEditor(Object.assign({}, s));
     else if (a === 'dup') {
-      var c = Object.assign({}, s, { id: uid(), owner: state.me, shared: false, order: Date.now(), created: new Date().toISOString() });
+      var c = Object.assign({}, s, { id: uid(), owner: state.me, shared: false, inFlow: false, order: Date.now(), created: new Date().toISOString() });
       if (!mine(s)) c.title = s.title || autoTitle(s);
       else c.title = (s.title || autoTitle(s)) + ' (copia)';
       saveSpec(c).then(reload, fail);
@@ -403,6 +410,7 @@
       '<div class="hb-fs"><div class="hb-fl">País <small>(ninguno = todos)</small></div><div class="hb-chips">' + checks('pais', paises, spec.pais || []) + '</div></div>' +
       '<div class="hb-fs"><div class="hb-fl">Producto</div><select name="prod">' + opts(prods, spec.prod || '') + '</select></div>' +
       '<label class="hb-ck hb-org"><input type="checkbox" name="organic"' + (spec.organic ? ' checked' : '') + '> Organic (todo a TC Budget)</label>' +
+      '<label class="hb-ck" title="La ve todo el que abre el Flow mensual, aunque la slide sea «Solo yo»"><input type="checkbox" name="inFlow"' + (spec.inFlow ? ' checked' : '') + '> Agregar al final del Flow mensual</label>' +
       '<label class="hb-f">Comentario en la slide<textarea name="note" maxlength="1200" rows="4" placeholder="Opcional: qué querés destacar">' + esc(spec.note) + '</textarea></label>';
     modal._spec = spec;
     modal.style.display = '';
@@ -415,6 +423,7 @@
     s.title = val('title').trim(); s.seg = val('seg'); s.metrics = all('metrics'); s.period = val('period'); s.vs = all('vs');
     s.visual = (f.querySelector('[name="visual"]:checked') || {}).value || 'kpi'; s.split = val('split') || 'pais';
     s.pais = all('pais'); s.prod = val('prod'); s.organic = !!f.querySelector('[name="organic"]').checked; s.note = val('note').trim();
+    s.inFlow = !!f.querySelector('[name="inFlow"]').checked;
     f.querySelector('.hb-splitby').hidden = s.visual !== 'split';
     return s;
   }
@@ -477,7 +486,7 @@
     fitAll();
   }
   // Embebido: el módulo Presentaciones pide las slides como imágenes para el PPTX
-  if (EMB) window.__flowExport = function () {
+  if (EMB && BUILDER) window.__flowExport = function () {
     var fr = panel && panel.querySelectorAll('.hb-deck .hb-frame');
     if (!fr || !fr.length) return Promise.reject(new Error('No hay slides armadas.'));
     if (typeof window.html2canvas !== 'function') return Promise.reject(new Error('Las slides todavía están cargando.'));
@@ -520,6 +529,46 @@
   }
 
   // ── Panel ──────────────────────────────────────────────────────────────────────────────────
+  // Contenido de la slide (lo que dibuja slideHtml). Con prefijo #hb en "Mis slides"; el Flow mensual usa la misma lista
+  // con prefijo .hb-fls (ensureFlowCss).
+  var SLIDE_CSS = [
+    '#hb .hb-head{display:flex;align-items:center;border-bottom:3px solid #550fed;padding-bottom:8px}',
+    '#hb .hb-title{font-size:28px;font-weight:700;color:#4300d2;flex:1;line-height:1.2}',
+    '#hb .hb-logo{font-size:22px;font-weight:700;color:#550fed;letter-spacing:-.5px}',
+    '#hb .hb-tags{display:flex;gap:10px;align-items:center;margin:10px 0 14px}',
+    '#hb .hb-tag{background:#550fed;color:#fff;font-size:13px;font-weight:600;border-radius:5px;padding:3px 12px}#hb .hb-nom{background:#8e8e93}',
+    '#hb .hb-per{font-size:14px;color:#6e6e73}',
+    '#hb .hb-body{flex:1;min-height:0;overflow:hidden}',
+    // Comentario: hasta 260 px (los largos, > 500 caracteres, en letra más chica); el gráfico de evolución se achica para dejarle lugar
+    // (hb-evob: el SVG ocupa el alto que queda, sin recortar meses ni % de abajo). Antes: tope de 120 px y el SVG cortado.
+    '#hb .hb-note{flex:none;margin-top:10px;background:#f6f4fe;border-left:4px solid #550fed;border-radius:6px;padding:8px 14px;font-size:14px;line-height:1.45;max-height:260px;overflow:hidden}',
+    '#hb .hb-nlong{font-size:12.5px;line-height:1.4}',
+    '#hb .hb-evob{display:flex;flex-direction:column}#hb .hb-evob .hb-leg,#hb .hb-evob .hb-evt{flex:none}#hb .hb-evob .hb-svg{flex:1 1 0;min-height:0;height:auto;width:100%}',
+    '#hb .hb-note b{display:block;font-size:12px;color:#4300d2;text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}',
+    '#hb .hb-foot{position:absolute;right:36px;bottom:9px;font-size:11px;color:#9b9b9b}',
+    '#hb .hb-msg{color:#6e6e73;font-size:14px;padding:20px 0}#hb .hb-err{color:#d4373a}',
+    '#hb .hb-up{color:#1a9e5a}#hb .hb-dn{color:#d4373a}',
+    '#hb .hb-kpis{display:grid;gap:18px;height:100%;align-content:center}#hb .hb-n1{grid-template-columns:minmax(0,520px);justify-content:center}',
+    '#hb .hb-n2{grid-template-columns:1fr 1fr}#hb .hb-n3{grid-template-columns:1fr 1fr 1fr}',
+    '#hb .hb-kpi{border:1px solid #e1dcf7;border-radius:14px;background:#fbfaff;padding:22px 22px 16px;text-align:center}',
+    '#hb .hb-kn{font-size:18px;font-weight:600;color:#55555c}#hb .hb-kv{font-size:54px;font-weight:700;color:#4300d2;line-height:1.15;margin-top:6px}',
+    '#hb .hb-ks{font-size:12px;color:#8e8e93;margin-bottom:12px}',
+    '#hb .hb-kl{display:grid;grid-template-columns:1fr auto;gap:0 10px;align-items:baseline;border-top:1px dashed #e1dcf7;padding:8px 4px 4px;text-align:left}',
+    '#hb .hb-kl span{font-size:14px;color:#55555c}#hb .hb-kl b{font-size:18px;text-align:right}#hb .hb-kl i{grid-column:1/3;font-style:normal;font-size:11.5px;color:#8e8e93}',
+    '#hb .hb-t{width:100%;border-collapse:collapse;font-size:14px}',
+    '#hb .hb-t th{background:#550fed;color:#fff;font-weight:600;padding:6px 8px;text-align:right;border-left:1px solid #fff}#hb .hb-t thead tr:first-child th{text-align:center}',
+    '#hb .hb-t td{padding:7px 8px;text-align:right;border-bottom:1px solid #eeecf6;white-space:nowrap}',
+    '#hb .hb-t .hb-tl{text-align:left;font-weight:600}#hb .hb-t th.hb-tl{text-align:left}#hb .hb-t td.hb-tv{font-weight:700;color:#4300d2}',
+    '#hb .hb-tbig{font-size:19px;margin-top:30px}#hb .hb-tbig td{padding:16px 10px}#hb .hb-tsm{font-size:12.5px}#hb .hb-tsm td{padding:4px 8px}',
+    '#hb .hb-t .hb-tt td{font-weight:700;border-top:2px solid #550fed;background:#f6f4fe}',
+    '#hb .hb-t th.hb-bar{width:180px}#hb .hb-t td.hb-bar{padding-left:10px}#hb .hb-bar i{display:block;height:12px;border-radius:3px;background:#a99ff2}#hb .hb-bar i.hb-neg{background:#f2a3a4}',
+    '#hb .hb-leg{display:flex;gap:16px;font-size:12px;color:#55555c;margin-bottom:4px}#hb .hb-leg i{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:5px;vertical-align:-1px}',
+    '#hb .hb-lr{background:#550fed}#hb .hb-lp{background:#a99ff2}#hb .hb-lb{background:#e6e6ec;border:1px solid #c9c9d2}#hb .hb-lf{background:#f08c1a;height:4px!important;vertical-align:3px!important}#hb .hb-ll{background:#0f9d8a;border-radius:50%!important}',
+    '#hb .hb-evt{font-size:15px;font-weight:700;margin-top:4px}#hb .hb-evt span{font-size:11px;font-weight:400;color:#6e6e73;margin-left:8px}',
+    '#hb .hb-svg{display:block;width:100%;height:auto}',
+    '#hb .hb-ev{font-size:12px;font-weight:700;text-anchor:middle;fill:#1d1d1f}#hb .hb-em{font-size:12px;text-anchor:middle;fill:#6e6e73}',
+    '#hb .hb-ec{font-size:11.5px;font-weight:700;text-anchor:middle}#hb .hb-ec.hb-up{fill:#1a9e5a}#hb .hb-ec.hb-dn{fill:#d4373a}',
+  ];
   function ensurePanel() {
     if (panel) return;
     var css = document.createElement('style');
@@ -548,38 +597,8 @@
       '#hb .hb-tpls{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:18px;text-align:left}',
       '#hb .hb-tpl{display:flex;flex-direction:column;gap:4px;padding:14px;border-radius:12px;border:1px solid #e1dcf7;background:#fbfaff}',
       '#hb .hb-tpl:hover{border-color:#550fed}#hb .hb-tpl b{color:#4300d2;font-size:14px}#hb .hb-tpl span{font-size:12px;color:#6e6e73}',
-      // contenido de la slide
-      '#hb .hb-head{display:flex;align-items:center;border-bottom:3px solid #550fed;padding-bottom:8px}',
-      '#hb .hb-title{font-size:28px;font-weight:700;color:#4300d2;flex:1;line-height:1.2}',
-      '#hb .hb-logo{font-size:22px;font-weight:700;color:#550fed;letter-spacing:-.5px}',
-      '#hb .hb-tags{display:flex;gap:10px;align-items:center;margin:10px 0 14px}',
-      '#hb .hb-tag{background:#550fed;color:#fff;font-size:13px;font-weight:600;border-radius:5px;padding:3px 12px}#hb .hb-nom{background:#8e8e93}',
-      '#hb .hb-per{font-size:14px;color:#6e6e73}',
-      '#hb .hb-body{flex:1;min-height:0;overflow:hidden}',
-      '#hb .hb-note{margin-top:10px;background:#f6f4fe;border-left:4px solid #550fed;border-radius:6px;padding:8px 14px;font-size:14px;line-height:1.45;max-height:120px;overflow:hidden}',
-      '#hb .hb-note b{display:block;font-size:12px;color:#4300d2;text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}',
-      '#hb .hb-foot{position:absolute;right:36px;bottom:9px;font-size:11px;color:#9b9b9b}',
-      '#hb .hb-up{color:#1a9e5a}#hb .hb-dn{color:#d4373a}',
-      '#hb .hb-kpis{display:grid;gap:18px;height:100%;align-content:center}#hb .hb-n1{grid-template-columns:minmax(0,520px);justify-content:center}',
-      '#hb .hb-n2{grid-template-columns:1fr 1fr}#hb .hb-n3{grid-template-columns:1fr 1fr 1fr}',
-      '#hb .hb-kpi{border:1px solid #e1dcf7;border-radius:14px;background:#fbfaff;padding:22px 22px 16px;text-align:center}',
-      '#hb .hb-kn{font-size:18px;font-weight:600;color:#55555c}#hb .hb-kv{font-size:54px;font-weight:700;color:#4300d2;line-height:1.15;margin-top:6px}',
-      '#hb .hb-ks{font-size:12px;color:#8e8e93;margin-bottom:12px}',
-      '#hb .hb-kl{display:grid;grid-template-columns:1fr auto;gap:0 10px;align-items:baseline;border-top:1px dashed #e1dcf7;padding:8px 4px 4px;text-align:left}',
-      '#hb .hb-kl span{font-size:14px;color:#55555c}#hb .hb-kl b{font-size:18px;text-align:right}#hb .hb-kl i{grid-column:1/3;font-style:normal;font-size:11.5px;color:#8e8e93}',
-      '#hb .hb-t{width:100%;border-collapse:collapse;font-size:14px}',
-      '#hb .hb-t th{background:#550fed;color:#fff;font-weight:600;padding:6px 8px;text-align:right;border-left:1px solid #fff}#hb .hb-t thead tr:first-child th{text-align:center}',
-      '#hb .hb-t td{padding:7px 8px;text-align:right;border-bottom:1px solid #eeecf6;white-space:nowrap}',
-      '#hb .hb-t .hb-tl{text-align:left;font-weight:600}#hb .hb-t th.hb-tl{text-align:left}#hb .hb-t td.hb-tv{font-weight:700;color:#4300d2}',
-      '#hb .hb-tbig{font-size:19px;margin-top:30px}#hb .hb-tbig td{padding:16px 10px}#hb .hb-tsm{font-size:12.5px}#hb .hb-tsm td{padding:4px 8px}',
-      '#hb .hb-t .hb-tt td{font-weight:700;border-top:2px solid #550fed;background:#f6f4fe}',
-      '#hb .hb-t th.hb-bar{width:180px}#hb .hb-t td.hb-bar{padding-left:10px}#hb .hb-bar i{display:block;height:12px;border-radius:3px;background:#a99ff2}#hb .hb-bar i.hb-neg{background:#f2a3a4}',
-      '#hb .hb-leg{display:flex;gap:16px;font-size:12px;color:#55555c;margin-bottom:4px}#hb .hb-leg i{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:5px;vertical-align:-1px}',
-      '#hb .hb-lr{background:#550fed}#hb .hb-lp{background:#a99ff2}#hb .hb-lb{background:#e6e6ec;border:1px solid #c9c9d2}#hb .hb-lf{background:#f08c1a;height:4px!important;vertical-align:3px!important}#hb .hb-ll{background:#0f9d8a;border-radius:50%!important}',
-      '#hb .hb-evt{font-size:15px;font-weight:700;margin-top:4px}#hb .hb-evt span{font-size:11px;font-weight:400;color:#6e6e73;margin-left:8px}',
-      '#hb .hb-svg{display:block;width:100%;height:auto}',
-      '#hb .hb-ev{font-size:12px;font-weight:700;text-anchor:middle;fill:#1d1d1f}#hb .hb-em{font-size:12px;text-anchor:middle;fill:#6e6e73}',
-      '#hb .hb-ec{font-size:11.5px;font-weight:700;text-anchor:middle}#hb .hb-ec.hb-up{fill:#1a9e5a}#hb .hb-ec.hb-dn{fill:#d4373a}',
+      '#hb .hb-inflow{font-size:11.5px;color:#550fed;font-weight:600}',
+    ].concat(SLIDE_CSS, [
       // editor
       '#hb .hb-modal{position:fixed;inset:0;z-index:5;background:rgba(20,16,40,.45);display:flex;align-items:center;justify-content:center;padding:20px}',
       '#hb .hb-dlg{background:#fff;border-radius:16px;width:min(1320px,100%);max-height:100%;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.3)}',
@@ -603,7 +622,7 @@
         '#hb{position:static;background:#fff;overflow:visible}#hb .hb-tool,#hb .hb-cap,#hb .hb-modal{display:none!important}#hb .hb-deck{max-width:none;margin:0;padding:0}' +
         '#hb .hb-item{margin:0}#hb .hb-frame{height:' + H + 'px !important;width:' + W + 'px;page-break-after:always;break-after:page}' +
         '#hb .hb-slide{transform:none !important;box-shadow:none}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}',
-    ].join('\n');
+    ]).join('\n');
     document.head.appendChild(css);
     panel = document.createElement('div');
     panel.id = 'hb';
@@ -647,11 +666,41 @@
     });
   }
   // Espera a que el Hub tenga los filtros (períodos, países, productos y último cierre)
-  document.addEventListener('DOMContentLoaded', function () {
-    var tries = 0;
-    (function go() {
-      if (window._state && window._state.filters && window._state.filters.lastActuals) start();
-      else if (tries++ < 240) setTimeout(go, 500);
-    })();
-  });
+  function filtersReady() {
+    return new Promise(function (resolve, reject) {
+      var tries = 0;
+      (function go() {
+        if (window._state && window._state.filters && window._state.filters.lastActuals) resolve();
+        else if (tries++ < 240) setTimeout(go, 500);
+        else reject(new Error('el P&L Dashboard no terminó de cargar los filtros'));
+      })();
+    });
+  }
+  if (BUILDER) document.addEventListener('DOMContentLoaded', function () { filtersReady().then(start, function () {}); });
+
+  // ── Flow mensual (2026-11-03) ──────────────────────────────────────────────────────────────
+  // hub-slides.js agrega al final del deck las slides con inFlow (de cualquier dueño: el Flow mensual es del equipo),
+  // en el orden de "Mis slides". Mismo render y mismos datos (getSlidesEvo) que acá: se recalculan solas.
+  function ensureFlowCss() {
+    if (document.getElementById('hb-fls-css')) return;
+    var css = document.createElement('style');
+    css.id = 'hb-fls-css';
+    css.textContent = ['.hb-fls{display:flex;flex-direction:column;height:100%}']
+      .concat(SLIDE_CSS.map(function (r) { return r.replace(/#hb /g, '.hb-fls '); })).join('\n');
+    document.head.appendChild(css);
+  }
+  if (FLOWDECK) window.OwniaBuilder = {
+    // → Promise<[{ title, html }]> (vacío si no hay ninguna marcada)
+    flowSlides: function () {
+      return filtersReady().then(loadSpecs).then(function () {
+        var list = state.specs.filter(function (s) { return s.inFlow; });
+        if (!list.length) return [];
+        ensureFlowCss();
+        var qs = []; list.forEach(function (s) { qs = qs.concat(queriesOf(s)); });
+        return fetchEvo(qs).then(function () {
+          return list.map(function (s) { return { title: s.title || autoTitle(s), html: '<div class="hb-fls">' + slideHtml(s) + '</div>' }; });
+        });
+      });
+    },
+  };
 })();

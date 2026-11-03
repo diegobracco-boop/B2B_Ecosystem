@@ -18,6 +18,9 @@
  *   Datalake, OC del contable, tablas H1 / H2. El "at risk" del título lo calcula esa página (NR) y
  *   el OC se estima con el margen OC/NR del Budget H2 de B2B2C del contable (&ocm=).
  *   Switch "COI Brasil" del deck (default Excluir): solo afecta esa slide (&coibr=).
+ *   Al final (2026-11-03): las slides de "Mis slides" marcadas "Agregar al final del Flow mensual" (inFlow, de cualquier
+ *   dueño), con el render de public/hub-builder.js (OwniaBuilder.flowSlides). Van al final para no correr los índices
+ *   de las slides fijas.
  *   (Pendiente: Status OKRs.)
  *
  * Datos: getAllData del Hub (los mismos números que el resto del dashboard) — `evo` trae los 12
@@ -467,7 +470,8 @@
       '<div class="hs-res">' + g + '</div><div class="hs-otn">' + esc(note) + '</div>' + foot();
   }
 
-  function slidesHtml(h2h1, h2h1b) {
+  // extra: slides de "Mis slides" marcadas para el Flow mensual (hub-builder.js, OwniaBuilder.flowSlides), van al final
+  function slidesHtml(h2h1, h2h1b, extra) {
     var list = [
       ['Portada', sCover()],
       ['H2 vs H1', h2h1 || '<div class="hs-err">No se pudo armar H2 vs H1.</div>', true],
@@ -485,6 +489,7 @@
       ['Proyección vs Budget', sOutlook('budget'), false, 'budget'],
       ['Proyección vs Forecast BTB', sOutlook('btb'), false, 'btb'],
     ];
+    (extra || []).forEach(function (x) { list.push([x.title, x.html]); });
     return list.map(function (x, i) {
       return '<div class="hs-frame" data-i="' + i + '"' + (x[3] ? ' data-out="' + x[3] + '"' : '') + '><div class="hs-slide' + (i === 0 ? ' hs-s-cover' : '') + (x[2] ? ' hs-s-raw' : '') + '">' + x[1] + '</div>' +
         '<div class="hs-cap">' + (i + 1) + ' · ' + esc(x[0]) + '</div></div>';
@@ -525,9 +530,11 @@
     syncToolbar();
     var h2 = window.OwniaH2H1 ? window.OwniaH2H1.slideHtml().catch(function () { return null; }) : Promise.resolve(null);
     var h2b = window.OwniaH2H1 && window.OwniaH2H1.slideBudgetHtml ? window.OwniaH2H1.slideBudgetHtml().catch(function () { return null; }) : Promise.resolve(null);
-    Promise.all([loadAll(), loadNotes(), h2, h2b]).then(function (r) {
+    var fb = window.OwniaBuilder && window.OwniaBuilder.flowSlides
+      ? window.OwniaBuilder.flowSlides().catch(function (e) { console.warn('[hub-slides] Mis slides en el Flow:', e); return []; }) : Promise.resolve([]);
+    Promise.all([loadAll(), loadNotes(), h2, h2b, fb]).then(function (r) {
       state.data = r[0];
-      deck.innerHTML = slidesHtml(r[2], r[3]);
+      deck.innerHTML = slidesHtml(r[2], r[3], r[4]);
       fit();
       watchSlides();
     }).catch(function (e) {
