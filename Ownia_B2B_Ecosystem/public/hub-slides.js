@@ -18,6 +18,8 @@
  *   Datalake, OC del contable, tablas H1 / H2. El "at risk" del título lo calcula esa página (NR) y
  *   el OC se estima con el margen OC/NR del Budget H2 de B2B2C del contable (&ocm=).
  *   Switch "COI Brasil" del deck (default Excluir): solo afecta esa slide (&coibr=).
+ *   Después de "B2B-MIN Evolution" (2026-11-03): OC mensual vs Budget de B2B2C, B2B-MAY y B2B-MIN (sOcMonthly): barras
+ *   baseline (real + Run Rate) vs Budget por mes, y debajo OC vs Budget %, YoY NR y YoY OC; columna FY.
  *   Al final (2026-11-03): las slides de "Mis slides" marcadas "Agregar al final del Flow mensual" (inFlow, de cualquier
  *   dueño), con el render de public/hub-builder.js (OwniaBuilder.flowSlides). Van al final para no correr los índices
  *   de las slides fijas.
@@ -277,6 +279,54 @@
       '<div class="hs-evmid">' + evoChart('Net Revenue', s, 'nr') + evoChart('Operating Contribution', s, 'oc') + '</div>' +
       '<div class="hs-evright">' + noteBox(field, noteTitle, h2Draft(c)) + '</div></div>' + foot();
   }
+  // OC mensual vs Budget (2026-11-03, Diego): una por negocio (B2B2C / B2B-MAY / B2B-MIN). Barras por mes: baseline (real cerrado
+  // oscuro, Run Rate claro) y Budget (gris), con negativos debajo de la línea de cero. Debajo: OC vs Budget %, YoY de NR y YoY de OC
+  // (real vs LY; con Organic, real a TC LY, igual que el resto del deck). Última columna: el FY.
+  function yoyOf(x) { return x && x.ly > 0 && x.yoyN != null && isFinite(x.yoyN) ? (x.yoyN / x.ly - 1) * 100 : NaN; }
+  function vsBudOf(x) { return x && x.bud > 0 ? (x.act / x.bud - 1) * 100 : NaN; }
+  function sOcMonthly(c) {
+    var s = state.data[c].s, oc = s.oc, nr = s.nr, ci = closedIdx(), P = fyPeriods();
+    var Wc = 1208, x0 = 112, fyW = 116, slot = (Wc - x0 - fyW) / 12, top = 34, bot = 318, bw = Math.min(30, slot * 0.34);
+    var vals = [0]; oc.forEach(function (x) { vals.push(x.act, x.bud); });
+    var mx = Math.max.apply(null, vals), mn = Math.min.apply(null, vals), span = (mx - mn) || 1;
+    var dec = Math.max(Math.abs(mx), Math.abs(mn)) < 2e6 ? 2 : 1;
+    var fm = function (v) { var m = v / 1e6; return (m < 0 ? '−' : '') + Math.abs(m).toFixed(dec); };
+    var y = function (v) { return top + (mx - v) / span * (bot - top); };
+    var rows = [['vs Budget', vsBudOf, oc], ['YoY NR', yoyOf, nr], ['YoY OC', yoyOf, oc]], rowY = [bot + 58, bot + 92, bot + 126];
+    var svg = '<svg viewBox="0 0 ' + Wc + ' ' + (bot + 142) + '" class="hs-om">';
+    svg += '<rect x="' + (Wc - fyW + 6) + '" y="0" width="' + (fyW - 6) + '" height="' + (bot + 142) + '" rx="8" fill="#f6f4fe"/>';
+    svg += '<line x1="' + x0 + '" x2="' + (Wc - fyW) + '" y1="' + y(0).toFixed(1) + '" y2="' + y(0).toFixed(1) + '" stroke="#c9c9d2"/>';
+    oc.forEach(function (x, i) {
+      var cx = x0 + slot * i + slot / 2, ya = y(x.act), yb = y(x.bud), y0 = y(0);
+      svg += '<rect x="' + (cx - bw - 1).toFixed(1) + '" y="' + Math.min(ya, y0).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + Math.max(1, Math.abs(ya - y0)).toFixed(1) + '" rx="2" fill="' + (i <= ci ? '#5b4fe0' : '#a99ff2') + '"/>';
+      svg += '<rect x="' + (cx + 1).toFixed(1) + '" y="' + Math.min(yb, y0).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + Math.max(1, Math.abs(yb - y0)).toFixed(1) + '" rx="2" fill="#d9dbe0"/>';
+      svg += '<text x="' + (cx - bw / 2 - 1).toFixed(1) + '" y="' + (x.act < 0 ? Math.max(ya, y0) + 14 : Math.min(ya, y0) - 5).toFixed(1) + '" class="hs-omv">' + fm(x.act) + '</text>';
+      svg += '<text x="' + (cx + bw / 2 + 1).toFixed(1) + '" y="' + (x.bud < 0 ? Math.max(yb, y0) + 14 : Math.min(yb, y0) - 5).toFixed(1) + '" class="hs-omb">' + fm(x.bud) + '</text>';
+      svg += '<text x="' + cx.toFixed(1) + '" y="' + (bot + 24) + '" class="hs-omm' + (i <= ci ? '' : ' hs-omrr') + '">' + monthLabel(P[i]) + '</text>';
+      rows.forEach(function (r, k) {
+        var v = r[1](r[2][i]);
+        svg += '<text x="' + cx.toFixed(1) + '" y="' + rowY[k] + '" class="hs-omr ' + cls(v) + '">' + (isFinite(v) && Math.abs(v) < 1000 ? pc(v) : 'n/d') + '</text>';
+      });
+    });
+    // FY: total del año (real + Run Rate) vs Budget, y YoY del año
+    var fx = Wc - fyW / 2 + 3, all = range(0, 11), ofy = agg(oc, all), nfy = agg(nr, all);
+    svg += '<text x="' + fx + '" y="' + (top + 20) + '" class="hs-omfh">' + fyTag() + '</text>';
+    svg += '<text x="' + fx + '" y="' + (top + 74) + '" class="hs-omfv">' + fm(ofy.act) + '</text><text x="' + fx + '" y="' + (top + 94) + '" class="hs-omfs">Baseline USD $M</text>';
+    svg += '<text x="' + fx + '" y="' + (top + 140) + '" class="hs-omfb">' + fm(ofy.bud) + '</text><text x="' + fx + '" y="' + (top + 158) + '" class="hs-omfs">Budget USD $M</text>';
+    svg += '<text x="' + fx + '" y="' + (bot + 24) + '" class="hs-omm">FY</text>';
+    [[ofy.vsPct], [nfy.yoy], [ofy.yoy]].forEach(function (v, k) {
+      var ok = isFinite(v[0]) && (k > 0 || ofy.bud > 0) && Math.abs(v[0]) < 1000;
+      svg += '<text x="' + fx + '" y="' + rowY[k] + '" class="hs-omr hs-omrb ' + (ok ? cls(v[0]) : '') + '">' + (ok ? pc(v[0]) : 'n/d') + '</text>';
+    });
+    rows.forEach(function (r, k) { svg += '<text x="4" y="' + rowY[k] + '" class="hs-oml">' + r[0] + '</text>'; });
+    svg += '<line x1="4" x2="' + (Wc - fyW) + '" y1="' + (bot + 36) + '" y2="' + (bot + 36) + '" stroke="#ece7fd"/></svg>';
+    var nextM = P[ci + 1];
+    return head(fyTag().replace("FY'", 'FY ') + ' | ' + SEG[c].name + ' · Operating Contribution mensual vs Budget',
+        'Baseline = real cerrado hasta ' + monthLabel(state.month) + (nextM ? ' + Run Rate desde ' + monthLabel(nextM) : '')) +
+      '<div class="hs-omleg"><span><i class="hs-omi" style="background:#5b4fe0"></i>Baseline · real</span><span><i class="hs-omi" style="background:#a99ff2"></i>Baseline · Run Rate</span>' +
+      '<span><i class="hs-omi" style="background:#d9dbe0"></i>Budget</span><span class="hs-omu">USD $M</span></div>' + svg +
+      '<div class="hs-otn">vs Budget = Baseline / Budget − 1 · YoY = real vs mismo mes del año anterior' + (organicOn() ? ' (Organic: el real a TC del año anterior)' : '') + ' · n/d: base negativa o cero</div>' + foot();
+  }
   function sResults(title, cols) { return head(title, ytdLabel() + ' · y el mes de ' + monthLabel(state.month)) + '<div class="hs-res">' + grid(cols) + '</div>' + foot(); }
   function col(k) { return { name: SEG[k].name, s: state.data[k].s }; }
   function sB2B2C() {
@@ -480,6 +530,9 @@
       ['B2B2C mensual vs Budget', sB2B2CMonthly(), true],
       ['B2B-MAY mensual vs Budget', sMayMonthly()],
       ['B2B-MIN Evolution', sEvolution('min', 'Principales oportunidades H2', 'min_opportunities')],
+      ['B2B2C OC mensual vs Budget', sOcMonthly('b2b2c')],
+      ['B2B-MAY OC mensual vs Budget', sOcMonthly('may')],
+      ['B2B-MIN OC mensual vs Budget', sOcMonthly('min')],
       ['Resultados', sResults(ytdLabel() + ' | B2B Results', [col('min'), col('may'), col('b2b2c'), col('total')])],
       ['B2B2C', sB2B2C()],
       ['B2B', sResults(ytdLabel() + ' | B2B Results', [col('b2b'), col('min'), col('may')])],
@@ -677,6 +730,16 @@
       '#hs .hs-ot td.hs-ots{text-align:left;font-weight:700;color:#4300d2;font-size:14px;background:#fbfaff;border-right:1px solid #eeecf6}',
       '#hs .hs-ot td.hs-otm{text-align:left;color:#55555c}#hs .hs-ot td.hs-otv{font-weight:600;color:#1d1d1f}',
       '#hs .hs-otn{font-size:11px;color:#8e8e93;margin-top:8px}',
+      // OC mensual vs Budget (sOcMonthly)
+      '#hs .hs-om{display:block;width:100%;height:auto;margin-top:4px}',
+      '#hs .hs-omleg{display:flex;gap:18px;align-items:center;font-size:12.5px;color:#55555c}#hs .hs-omi{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:6px;vertical-align:-1px}',
+      '#hs .hs-omu{margin-left:auto;color:#8e8e93;font-size:11.5px}',
+      '#hs .hs-omv{font-size:12.5px;font-weight:700;text-anchor:middle;fill:#1d1d1f}#hs .hs-omb{font-size:11px;text-anchor:middle;fill:#8e8e93}',
+      '#hs .hs-omm{font-size:13px;font-weight:600;text-anchor:middle;fill:#1d1d1f}#hs .hs-omrr{fill:#6e6e73;font-weight:400}',
+      '#hs .hs-omr{font-size:13.5px;font-weight:700;text-anchor:middle;fill:#6e6e73}#hs .hs-omr.hs-up{fill:#1a9e5a}#hs .hs-omr.hs-dn{fill:#d4373a}#hs .hs-omrb{font-size:15px}',
+      '#hs .hs-oml{font-size:13px;font-weight:700;fill:#4300d2}',
+      '#hs .hs-omfh{font-size:16px;font-weight:700;text-anchor:middle;fill:#4300d2}#hs .hs-omfv{font-size:30px;font-weight:700;text-anchor:middle;fill:#4300d2}',
+      '#hs .hs-omfb{font-size:22px;font-weight:600;text-anchor:middle;fill:#8e8e93}#hs .hs-omfs{font-size:10.5px;text-anchor:middle;fill:#8e8e93}',
       '#hs .hs-kq{display:flex;flex-wrap:wrap;justify-content:center;gap:2px 10px;font-size:11.5px;color:#6e6e73;margin-top:5px;border-top:1px dashed #e1dcf7;padding-top:4px}',
       '#hs .hs-may{display:grid;grid-template-columns:600px 1fr;gap:22px;margin-top:2px}',
       '#hs .hs-mayl{display:flex;flex-direction:column;gap:2px}#hs .hs-mayr{display:flex;flex-direction:column;gap:6px}',
