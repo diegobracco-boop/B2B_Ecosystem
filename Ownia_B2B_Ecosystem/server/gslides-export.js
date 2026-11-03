@@ -59,4 +59,33 @@ async function exportTrackerSlides({ secrets, gasUrl, slides, fetchFn = fetch })
   return { ok: true, count: j.count, url: j.url };
 }
 
-module.exports = { exportTrackerSlides };
+// El edge de Ownia corta las respuestas a los ~60 s y subir 11 imágenes al deck puede tardar más (504 el 2026-11-03): el POST arranca un
+// trabajo y devuelve enseguida; el Tracker consulta el avance (public/daily-tracker-gslides.js). En memoria: hay una sola instancia.
+const JOB_TTL_MS = 30 * 60 * 1000;
+
+function createSlidesJobs(deps = {}) {
+  const jobs = new Map();   // id -> { user, state: 'running' | 'done' | 'error', count, url, error, at }
+  const now = deps.now || Date.now;
+  const gc = () => { for (const [id, j] of jobs) if (now() - j.at > JOB_TTL_MS) jobs.delete(id); };
+  return {
+    start({ user, secrets, gasUrl, slides, fetchFn }) {
+      gc();
+      for (const j of jobs.values()) if (j.state === 'running') throw new Error('Hay otra exportación en curso sobre la misma presentación. Reintentá en unos segundos.');
+      const id = require('crypto').randomUUID();
+      const job = { user: user || '', state: 'running', at: now() };
+      jobs.set(id, job);
+      exportTrackerSlides({ secrets, gasUrl, slides, fetchFn }).then(
+        (o) => Object.assign(job, { state: 'done', count: o.count, url: o.url, at: now() }),
+        (e) => Object.assign(job, { state: 'error', error: e && e.message ? e.message : String(e), at: now() })
+      );
+      return id;
+    },
+    status(id, user) {
+      const j = jobs.get(String(id));
+      if (!j || j.user !== (user || '')) return { state: 'error', error: 'No se encontró la exportación (¿se reinició la app?). Volvé a intentar.' };
+      return { state: j.state, count: j.count, url: j.url, error: j.error };
+    },
+  };
+}
+
+module.exports = { exportTrackerSlides, createSlidesJobs };

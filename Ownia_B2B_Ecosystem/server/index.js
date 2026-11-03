@@ -47,7 +47,7 @@ const { ingestAllowlist, loadManifest } = require('./drive-manifest');
 const { createNotesStore } = require('./notes-store');
 const { ApiCache } = require('./api-cache');
 const { createRealesJob } = require('./reales-job');
-const { exportTrackerSlides } = require('./gslides-export');
+const { createSlidesJobs } = require('./gslides-export');
 const { partnersFrom, createQuestionLog } = require('./portal-ask-data');
 
 const MAX_BODY = 5 * 1024 * 1024; // google.script.run acepta payloads grandes (p.ej. capturas)
@@ -76,6 +76,7 @@ function createApp(opts = {}) {
   const fileStore = opts.fileStore !== undefined ? opts.fileStore : createFileStore(cfg, log);
   const notesStore = opts.notesStore !== undefined ? opts.notesStore : createNotesStore(cfg);
   // "Actualizar reales" de la portada: solo el equipo B2B (y con contraseña). Ver reales-job.js.
+  const slidesJobs = createSlidesJobs();
   const reales = opts.reales !== undefined ? opts.reales : createRealesJob(cfg, { log });
   const realesUsers = (opts.realesUsers || EQUIPO_B2B).map((x) => x.toLowerCase());
   const mayRunReales = (identity) => !!reales && !!identity.email && realesUsers.includes(String(identity.email).toLowerCase());
@@ -508,11 +509,16 @@ function createApp(opts = {}) {
         }
         const args = Array.isArray(body.args) ? body.args : [];
         // "Enviar a Google Slides" del Tracker: Ownia no tiene SlidesApp, lo hace el Apps Script del Daily (server/gslides-export.js).
+        // Es un trabajo en segundo plano (el edge corta a los ~60 s): se arranca y el Tracker consulta el estado.
         if (isSlidesExport) {
-          const out = await exportTrackerSlides({ secrets: cfg.secrets, gasUrl: mod.gasUrl, slides: args[0] && args[0].slides });
-          log({ level: 'info', module: mod.slug, fn: parts[2], user: identity.email || '', slides: out.count });
-          return sendJson(res, 200, { result: out });
+          const slides = args[0] && args[0].slides;
+          if (!Array.isArray(slides) || !slides.length) return sendJson(res, 400, { error: 'No se recibió ninguna slide para exportar.', name: 'BadRequest' });
+          let jobId;
+          try { jobId = slidesJobs.start({ user: identity.email, secrets: cfg.secrets, gasUrl: mod.gasUrl, slides, fetchFn: opts.fetchFn }); } catch (e) { return sendJson(res, 409, { error: e.message, name: 'Busy' }); }
+          log({ level: 'info', module: mod.slug, fn: parts[2], user: identity.email || '', slides: slides.length });
+          return sendJson(res, 200, { result: { started: true, jobId } });
         }
+        if (mod.slug === 'daily' && parts[2] === 'exportToGoogleSlidesStatus') return sendJson(res, 200, { result: slidesJobs.status(args[0], identity.email) });
         const reqCtx = { user: identity, userAgent: req.headers['user-agent'] || '', moduleUrl: `${publicOrigin(req)}${cfg.BASE_PATH}/${mod.slug}` };
         // Funciones que devuelven lo mismo para todos mientras no cambien los datos (`cacheFns` del módulo): se calcula una vez y se reparte
         // el gzip ya armado. La clave lleva el día para que no dependan de un cambio de fecha sin datos nuevos.

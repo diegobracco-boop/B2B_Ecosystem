@@ -43,3 +43,32 @@ test('si Google rechaza el token o Apps Script contesta HTML o ok:false, el mens
   const fail = async (url) => (url.includes('oauth2') ? res(200, JSON.stringify({ access_token: 'AT' })) : res(200, JSON.stringify({ ok: false, error: 'sin permiso de EDICIÓN' })));
   await assert.rejects(exportTrackerSlides({ secrets: SECRETS, gasUrl: GAS, slides: SLIDES, fetchFn: fail }), /sin permiso de EDICIÓN/);
 });
+
+test('trabajo en segundo plano: arranca, queda "running" y termina "done"; una exportación por vez y solo la ve quien la pidió', async () => {
+  const { createSlidesJobs } = require('../server/gslides-export');
+  let release;
+  const gate = new Promise((r) => { release = r; });
+  const fetchFn = async (url) => {
+    if (url.includes('oauth2')) return res(200, JSON.stringify({ access_token: 'AT' }));
+    await gate;
+    return res(200, JSON.stringify({ ok: true, count: 2, url: 'U' }));
+  };
+  const jobs = createSlidesJobs();
+  const id = jobs.start({ user: 'a@despegar.com', secrets: SECRETS, gasUrl: GAS, slides: SLIDES, fetchFn });
+  assert.equal(jobs.status(id, 'a@despegar.com').state, 'running');
+  assert.throws(() => jobs.start({ user: 'b@despegar.com', secrets: SECRETS, gasUrl: GAS, slides: SLIDES, fetchFn }), /otra exportación en curso/);
+  assert.equal(jobs.status(id, 'b@despegar.com').state, 'error');   // otro usuario no ve el trabajo
+  release();
+  await new Promise((r) => setTimeout(r, 20));
+  assert.deepEqual(jobs.status(id, 'a@despegar.com'), { state: 'done', count: 2, url: 'U', error: undefined });
+});
+
+test('trabajo en segundo plano: un fallo queda como error legible', async () => {
+  const { createSlidesJobs } = require('../server/gslides-export');
+  const jobs = createSlidesJobs();
+  const id = jobs.start({ user: 'a@despegar.com', secrets: {}, gasUrl: GAS, slides: SLIDES, fetchFn: async () => { throw new Error('x'); } });
+  await new Promise((r) => setTimeout(r, 20));
+  const st = jobs.status(id, 'a@despegar.com');
+  assert.equal(st.state, 'error');
+  assert.match(st.error, /credenciales de Google/);
+});
