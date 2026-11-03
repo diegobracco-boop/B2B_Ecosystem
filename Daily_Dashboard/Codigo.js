@@ -46,6 +46,21 @@ function doGet(e) {
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
+// POST: "Enviar a Google Slides" del Daily B2B Tracker cuando se usa desde Ownia (2026-11-03). Ownia no tiene SlidesApp: su servidor
+// (server/gslides-export.js) llama acá con las imágenes de las slides ya capturadas y este web app pisa la presentación fija con
+// exportToGoogleSlides. No lee datos: solo pega las imágenes que recibe. El web app es access DOMAIN: Ownia lo llama con un token
+// de Google de una cuenta del dominio. Requiere publicar una versión nueva del deployment (clasp push + deploy).
+function doPost(e) {
+  var out = function(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); };
+  try {
+    var body = JSON.parse((e && e.postData && e.postData.contents) || '{}');
+    if (body.action !== 'exportTrackerSlides') return out({ ok: false, error: 'Acción no reconocida.' });
+    return out(exportToGoogleSlides({ slides: body.slides }));
+  } catch (ex) {
+    return out({ ok: false, error: ex && ex.message ? ex.message : String(ex) });
+  }
+}
+
 // URL propia del deployment + ?view=tracker — la usa el iframe de la vista Tracker
 function getTrackerUrl() {
   return ScriptApp.getService().getUrl() + '?view=tracker';

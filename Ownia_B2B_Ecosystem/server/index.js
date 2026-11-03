@@ -47,9 +47,11 @@ const { ingestAllowlist, loadManifest } = require('./drive-manifest');
 const { createNotesStore } = require('./notes-store');
 const { ApiCache } = require('./api-cache');
 const { createRealesJob } = require('./reales-job');
+const { exportTrackerSlides } = require('./gslides-export');
 const { partnersFrom, createQuestionLog } = require('./portal-ask-data');
 
 const MAX_BODY = 5 * 1024 * 1024; // google.script.run acepta payloads grandes (p.ej. capturas)
+const MAX_SLIDES_BODY = 40 * 1024 * 1024; // "Enviar a Google Slides" del Tracker: ~11 capturas JPEG en base64
 const MAX_INGEST = 100 * 1024 * 1024; // los JSON canónicos pesan hasta ~15 MB
 
 function log(obj) {
@@ -496,7 +498,8 @@ function createApp(opts = {}) {
       let project;
       try { project = getProject(mod); } catch (e) { return sendJson(res, 500, { error: 'El módulo no pudo cargarse', name: 'LoadError' }); }
       try {
-        const raw = await readBody(req);
+        const isSlidesExport = mod.slug === 'daily' && parts[2] === 'exportToGoogleSlides';
+        const raw = await readBody(req, isSlidesExport ? MAX_SLIDES_BODY : MAX_BODY);
         let body;
         try {
           body = raw ? JSON.parse(raw) : {};
@@ -504,6 +507,12 @@ function createApp(opts = {}) {
           return sendJson(res, 400, { error: 'JSON inválido', name: 'BadRequest' });
         }
         const args = Array.isArray(body.args) ? body.args : [];
+        // "Enviar a Google Slides" del Tracker: Ownia no tiene SlidesApp, lo hace el Apps Script del Daily (server/gslides-export.js).
+        if (isSlidesExport) {
+          const out = await exportTrackerSlides({ secrets: cfg.secrets, gasUrl: mod.gasUrl, slides: args[0] && args[0].slides });
+          log({ level: 'info', module: mod.slug, fn: parts[2], user: identity.email || '', slides: out.count });
+          return sendJson(res, 200, { result: out });
+        }
         const reqCtx = { user: identity, userAgent: req.headers['user-agent'] || '', moduleUrl: `${publicOrigin(req)}${cfg.BASE_PATH}/${mod.slug}` };
         // Funciones que devuelven lo mismo para todos mientras no cambien los datos (`cacheFns` del módulo): se calcula una vez y se reparte
         // el gzip ya armado. La clave lleva el día para que no dependan de un cambio de fecha sin datos nuevos.

@@ -13,8 +13,9 @@
   'use strict';
   var on = /[?&]flowdeck=1\b/.test(location.search);
   var css = document.createElement('style');
-  // "Enviar a Google Slides" (Flow y Tracker) no va en Ownia (2026-10-28): se reemplaza por "Descargar PPTX" del módulo Flow. En Apps Script sigue igual.
-  var NO_GSLIDES = '#flow-export-btn,#slidesExportLink,button[onclick*="exportSlidesToGoogle"]{display:none!important}';
+  // "Enviar a Google Slides" del Flow no va en Ownia (2026-10-28): se reemplaza por "Descargar PPTX" del módulo Flow. En Apps Script sigue igual.
+  // El del Daily B2B Tracker sí (2026-11-03): el servidor de Ownia le pasa las capturas al Apps Script del Daily (server/gslides-export.js).
+  var NO_GSLIDES = '#flow-export-btn{display:none!important}';
   css.textContent = NO_GSLIDES + (on
     ? '.view-nav,#daily-lob-toggle,#btn-toqan-bicia,#btn-toqan-bee,#btn-email,.ownia-home-top{display:none!important}'
     : '#vnav-flow{display:none!important}');

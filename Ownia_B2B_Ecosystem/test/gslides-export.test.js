@@ -1,0 +1,45 @@
+// "Enviar a Google Slides" del Daily B2B Tracker (server/gslides-export.js): token de Google + llamada al web app de Apps Script.
+// fetch se reemplaza por uno falso: no sale ninguna request.
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const { exportTrackerSlides } = require('../server/gslides-export');
+
+const SECRETS = { DRIVE_CLIENT_ID: 'cid', DRIVE_CLIENT_SECRET: 'csecret', DRIVE_REFRESH_TOKEN: 'rt-main', DRIVE_READ_REFRESH_TOKEN: 'rt-read' };
+const SLIDES = [{ img: 'data:image/jpeg;base64,AAAA', w: 1280, h: 720 }, null];
+const GAS = 'https://script.google.com/macros/s/X/exec';
+const res = (status, body) => ({ ok: status < 400, status, json: async () => JSON.parse(body), text: async () => body });
+
+test('pide el token con el refresh de lectura y manda las slides al web app con Bearer', async () => {
+  const calls = [];
+  const fetchFn = async (url, init) => {
+    calls.push({ url, init });
+    if (url.includes('oauth2.googleapis.com')) return res(200, JSON.stringify({ access_token: 'AT' }));
+    return res(200, JSON.stringify({ ok: true, count: 2, url: 'https://docs.google.com/presentation/d/Z/edit' }));
+  };
+  const out = await exportTrackerSlides({ secrets: SECRETS, gasUrl: GAS, slides: SLIDES, fetchFn });
+  assert.deepEqual(out, { ok: true, count: 2, url: 'https://docs.google.com/presentation/d/Z/edit' });
+  assert.match(String(calls[0].init.body), /refresh_token=rt-read/);
+  assert.equal(calls[1].url, GAS);
+  assert.equal(calls[1].init.headers.Authorization, 'Bearer AT');
+  const sent = JSON.parse(calls[1].init.body);
+  assert.equal(sent.action, 'exportTrackerSlides');
+  assert.equal(sent.slides.length, 2);
+});
+
+test('sin credenciales, sin slides o sin URL: error legible y no llama a nadie', async () => {
+  const fetchFn = async () => { throw new Error('no debería llamar'); };
+  await assert.rejects(exportTrackerSlides({ secrets: {}, gasUrl: GAS, slides: SLIDES, fetchFn }), /credenciales de Google/);
+  await assert.rejects(exportTrackerSlides({ secrets: SECRETS, gasUrl: GAS, slides: [], fetchFn }), /ninguna slide/);
+  await assert.rejects(exportTrackerSlides({ secrets: SECRETS, gasUrl: '', slides: SLIDES, fetchFn }), /URL de Apps Script/);
+});
+
+test('si Google rechaza el token o Apps Script contesta HTML o ok:false, el mensaje lo dice', async () => {
+  const bad = async (url) => (url.includes('oauth2') ? res(400, JSON.stringify({ error: 'invalid_grant' })) : null);
+  await assert.rejects(exportTrackerSlides({ secrets: SECRETS, gasUrl: GAS, slides: SLIDES, fetchFn: bad }), /invalid_grant/);
+
+  const html = async (url) => (url.includes('oauth2') ? res(200, JSON.stringify({ access_token: 'AT' })) : { ok: true, status: 200, text: async () => '<html>login</html>' });
+  await assert.rejects(exportTrackerSlides({ secrets: SECRETS, gasUrl: GAS, slides: SLIDES, fetchFn: html }), /no respondió como se esperaba/);
+
+  const fail = async (url) => (url.includes('oauth2') ? res(200, JSON.stringify({ access_token: 'AT' })) : res(200, JSON.stringify({ ok: false, error: 'sin permiso de EDICIÓN' })));
+  await assert.rejects(exportTrackerSlides({ secrets: SECRETS, gasUrl: GAS, slides: SLIDES, fetchFn: fail }), /sin permiso de EDICIÓN/);
+});
