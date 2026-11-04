@@ -158,6 +158,19 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
 .fchip-icon { width: 13px; height: 13px; color: var(--text-3); flex-shrink: 0; stroke-width: 1.5; }
 .fchip select { background: none; border: none; font-size: 12px; font-family: var(--font); color: var(--text-2); cursor: pointer; outline: none; padding-right: 4px; }
 .fchip select option { background: var(--elevated); color: var(--text); }
+/* Multiselect de países (agrupado por región) */
+.msel { position: relative; }
+.msel-btn { background: none; border: none; font-size: 12px; font-family: var(--font); color: var(--text-2); cursor: pointer; outline: none; padding: 0 4px 0 0; }
+.msel-btn::after { content: '▾'; margin-left: 6px; color: var(--text-3); }
+.msel-pop { display: none; position: absolute; top: calc(100% + 10px); left: -26px; z-index: 50; min-width: 230px; max-height: 360px; overflow-y: auto;
+  background: var(--elevated); border: 1px solid var(--border); border-radius: 8px; padding: 6px; box-shadow: 0 8px 24px rgba(0,0,0,.35); }
+.msel.open .msel-pop { display: block; }
+.msel-row { display: flex; align-items: center; gap: 7px; padding: 4px 8px; font-size: 12px; color: var(--text); border-radius: 5px; cursor: pointer; white-space: nowrap; }
+.msel-row:hover { background: rgba(86,38,233,.12); }
+.msel-row.msel-region { font-weight: 700; margin-top: 2px; }
+.msel-row.msel-country { padding-left: 26px; }
+.msel-row input { accent-color: #5626e9; margin: 0; cursor: pointer; }
+.msel-clear { display: block; width: 100%; text-align: left; background: none; border: none; border-bottom: 1px solid var(--border); font: inherit; font-size: 11px; color: var(--text-3); padding: 3px 8px 6px; margin-bottom: 4px; cursor: pointer; }
 .date-nav { display: flex; align-items: center; gap: 6px; margin-left: auto; }
 .date-nav button {
   background: var(--elevated); border: 1px solid var(--border); border-radius: 8px;
@@ -824,7 +837,10 @@ body.krd-only #section-b2b > :not(.krd-keep) { display:none !important; }
   <span class="fbar-label">Filtros</span>
   <div class="fchip">
     <svg class="fchip-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-    <select id="sel-pais" onchange="reloadAll()"><option value="all">Todos los países</option></select>
+    <div class="msel" id="sel-pais">
+      <button type="button" class="msel-btn" id="sel-pais-btn" onclick="paisPopToggle_(event)">Todos los países</button>
+      <div class="msel-pop" id="sel-pais-pop"></div>
+    </div>
   </div>
   <div class="fchip">
     <svg class="fchip-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
@@ -1794,11 +1810,75 @@ function setExCoiBr(on) {
   if (_activeView === 'weekly' && typeof _wsLoadOKRIfNeeded === 'function') _wsLoadOKRIfNeeded();
 }
 // Dropdown de partners según el switch: con Excluir, TBD no se ofrece; si estaba elegido vuelve a "Todos".
-function fillPartnersB2BC_() {
+// Además se limita a los países elegidos en el filtro de países (multiselect).
+function fillPartnersCore_() {
   var prev = v('sel-partner');
-  fill('sel-partner', getPartners_(b2bcRaw_().actuals), 'Todos los partners');
+  var act = b2bcRaw_().actuals;
+  if (_selPaises.length) act = act.filter(function(r){ return _selPaises.indexOf(r.pais) >= 0; });
+  fill('sel-partner', getPartners_(act), 'Todos los partners');
   var sel = document.getElementById('sel-partner');
   if (sel && prev && prev !== 'all') { sel.value = prev; if (sel.value !== prev) sel.value = 'all'; }
+}
+function fillPartnersB2BC_() { fillPartnersCore_(); }
+
+// ── Filtro de países multiselect (agrupado por región) ───────────
+var _selPaises = [];      // [] = todos
+var _paisOpts  = [];      // países disponibles
+function paisSel_() { return _selPaises.length ? _selPaises : null; }
+function fillPaisMulti_(paises) {
+  _paisOpts  = paises.slice();
+  _selPaises = _selPaises.filter(function(p){ return _paisOpts.indexOf(p) >= 0; });
+  renderPaisPop_();
+}
+function renderPaisPop_() {
+  var pop = document.getElementById('sel-pais-pop'), btn = document.getElementById('sel-pais-btn');
+  if (!pop) return;
+  var h = '<button type="button" class="msel-clear" onclick="paisClear_()">Todos los países</button>';
+  REGION_ORDER_.forEach(function(k) {
+    var cs = _paisOpts.filter(function(p){ return getRegion_(p) === k; });
+    if (!cs.length) return;
+    var n = cs.filter(function(p){ return _selPaises.indexOf(p) >= 0; }).length;
+    h += '<label class="msel-row msel-region"><input type="checkbox" data-region="'+k+'"'+(n===cs.length?' checked':'')+(n>0&&n<cs.length?' data-ind="1"':'')+' onchange="paisToggleRegion_(\''+k+'\')">'+REGION_LABEL_[k]+'</label>';
+    cs.forEach(function(p) {
+      h += '<label class="msel-row msel-country"><input type="checkbox"'+(_selPaises.indexOf(p)>=0?' checked':'')+' onchange="paisToggle_(this.nextSibling.nodeValue)">'+p+'</label>';
+    });
+  });
+  pop.innerHTML = h;
+  pop.querySelectorAll('input[data-ind]').forEach(function(i){ i.indeterminate = true; });
+  btn.textContent = !_selPaises.length ? 'Todos los países'
+    : _selPaises.length <= 2 ? _selPaises.join(', ') : _selPaises.length + ' países';
+}
+function paisChanged_() {
+  renderPaisPop_();
+  fillPartnersCore_();
+  reloadAll();
+}
+function paisToggle_(p) {
+  var i = _selPaises.indexOf(p);
+  if (i >= 0) _selPaises.splice(i, 1); else _selPaises.push(p);
+  paisChanged_();
+}
+function paisToggleRegion_(k) {
+  var cs = _paisOpts.filter(function(p){ return getRegion_(p) === k; });
+  var all = cs.every(function(p){ return _selPaises.indexOf(p) >= 0; });
+  _selPaises = _selPaises.filter(function(p){ return cs.indexOf(p) < 0; });
+  if (!all) _selPaises = _selPaises.concat(cs);
+  paisChanged_();
+}
+function paisClear_() { _selPaises = []; paisChanged_(); }
+function paisPopToggle_(e) { e.stopPropagation(); document.getElementById('sel-pais').classList.toggle('open'); }
+document.addEventListener('click', function(e) {
+  var m = document.getElementById('sel-pais');
+  if (m && !m.contains(e.target)) m.classList.remove('open');
+});
+// Para links con ?pais=: elige el país sin importar mayúsculas (sin recalcular; lo hace el primer cálculo).
+function setPaisFilter_(val) {
+  var want = String(val || '').toLowerCase();
+  var hit = _paisOpts.filter(function(p){ return p.toLowerCase() === want; })[0];
+  if (!hit) return;
+  _selPaises = [hit];
+  renderPaisPop_();
+  fillPartnersCore_();
 }
 
 // ── ORGANIC ─────────────────────────────────────────────────────
@@ -2143,8 +2223,8 @@ function compute_(raw, metric, vDate, gl_pai, gl_par, gl_pro, gl_at, gran, compS
   var pAT={};
   raw.actuals.forEach(function(r){if(r.partner&&r.account_type)pAT[r.partner]=r.account_type;});
   seedTBDNew_(pAT);
-  function matchA(r){if(gl_pai&&r.pais!==gl_pai)return false;if(gl_par&&r.partner!==gl_par)return false;if(gl_pro&&r.productooriginal!==gl_pro)return false;if(gl_at&&r.account_type!==gl_at)return false;return true;}
-  function matchB(r){if(gl_pai&&r.pais!==gl_pai)return false;if(gl_par&&r.partner!==gl_par)return false;if(gl_pro&&r.producto!==gl_pro)return false;if(gl_at&&pAT[r.partner]!==gl_at)return false;return true;}
+  function matchA(r){if(gl_pai&&gl_pai.indexOf(r.pais)<0)return false;if(gl_par&&r.partner!==gl_par)return false;if(gl_pro&&r.productooriginal!==gl_pro)return false;if(gl_at&&r.account_type!==gl_at)return false;return true;}
+  function matchB(r){if(gl_pai&&gl_pai.indexOf(r.pais)<0)return false;if(gl_par&&r.partner!==gl_par)return false;if(gl_pro&&r.producto!==gl_pro)return false;if(gl_at&&pAT[r.partner]!==gl_at)return false;return true;}
   function sum_(arr,from,to,mFn,f){var t=0;arr.forEach(function(r){if(from&&r.fecha<from)return;if(to&&r.fecha>to)return;if(!mFn(r))return;t+=(r[f]||0);});return t;}
   var d1=sum_(raw.actuals,vDate,vDate,matchA,MF), mtd=sum_(raw.actuals,mStart,vDate,matchA,MF);
   // organic opción B: mismos acumulados con los actuals a TC Actuals LY (= d1/mtd si no hay organic)
@@ -2197,7 +2277,7 @@ function breakdownCountryPartner_(raw, MF, BMF, mStart, vDate, lyMS, lyVD, gl_pa
   }
   raw.actuals.forEach(function(r) {
     if (r.fecha<mStart || r.fecha>vDate) return;
-    if (gl_pai && r.pais!==gl_pai) return;
+    if (gl_pai && gl_pai.indexOf(r.pais)<0) return;
     if (gl_par && r.partner!==gl_par) return;
     if (gl_pro && r.productooriginal!==gl_pro) return;
     if (atReq && pAT[r.partner]!==atReq) return;
@@ -2206,7 +2286,7 @@ function breakdownCountryPartner_(raw, MF, BMF, mStart, vDate, lyMS, lyVD, gl_pa
   });
   raw.actuals_ly.forEach(function(r) {
     if (r.fecha<lyMS || r.fecha>lyVD) return;
-    if (gl_pai && r.pais!==gl_pai) return;
+    if (gl_pai && gl_pai.indexOf(r.pais)<0) return;
     if (gl_par && r.partner!==gl_par) return;
     if (gl_pro && r.productooriginal!==gl_pro) return;
     if (atReq && pAT[r.partner]!==atReq) return;
@@ -2214,7 +2294,7 @@ function breakdownCountryPartner_(raw, MF, BMF, mStart, vDate, lyMS, lyVD, gl_pa
   });
   (compSrc || raw.budget || []).forEach(function(r) {
     if (r.fecha<mStart || r.fecha>vDate) return;
-    if (gl_pai && r.pais!==gl_pai) return;
+    if (gl_pai && gl_pai.indexOf(r.pais)<0) return;
     if (gl_par && r.partner!==gl_par) return;
     if (gl_pro && r.producto!==gl_pro) return;
     if (atReq && pAT[r.partner]!==atReq) return;
@@ -2544,7 +2624,7 @@ window.onload = function() {
       _rawB2BC         = raw;
       state.viewDate   = raw.meta.last_actuals_date;
       state.meta       = raw.meta;
-      fill('sel-pais',    getPaises_(raw.actuals),   'Todos los países');
+      fillPaisMulti_(getPaises_(raw.actuals));
       fillPartnersB2BC_();
       fill('sel-product', getProducts_(raw.actuals), 'Todos los productos');
       document.getElementById('loader').style.display = 'none';
@@ -2598,7 +2678,7 @@ function recomputeB2BC_() {
   if (!_rawB2BC || !state.viewDate) return;
   var raw    = b2bcRawOrg_(_orgTargetB2BC_());   // organic: actuals a TC del target (ver _orgRows_)
   var gran   = v('sel-gran')    || 'daily';
-  var gl_pai = v('sel-pais')    !== 'all' ? v('sel-pais')    : null;
+  var gl_pai = paisSel_();   // array de países o null
   var gl_par = v('sel-partner') !== 'all' ? v('sel-partner') : null;
   var gl_pro = v('sel-product') !== 'all' ? v('sel-product') : null;
   var gl_at  = v('sel-account') !== 'all' ? v('sel-account') : null;

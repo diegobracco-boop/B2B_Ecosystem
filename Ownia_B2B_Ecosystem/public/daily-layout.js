@@ -886,7 +886,7 @@
     if ((pais || partner) && typeof orig === 'function') {
       window.fillPartnersB2BC_ = function () {
         var r = orig.apply(this, arguments);
-        if (pais) { pick('sel-pais', pais); pais = null; }
+        if (pais) { if (typeof window.setPaisFilter_ === 'function') window.setPaisFilter_(pais); pais = null; }
         if (partner) { pick('sel-partner', partner); partner = null; }
         return r;
       };
