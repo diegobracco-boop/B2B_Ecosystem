@@ -752,9 +752,9 @@ function sendDailyEmailTo(emails) {
   var ok = (emails || []).map(function(x) { return String(x || '').trim().toLowerCase(); })
     .filter(function(x) { return /^[^@\s,;]+@despegar\.com$/.test(x); });
   var bad = (emails || []).length - ok.length;
-  if (!ok.length) throw new Error('Solo se puede enviar a direcciones @despegar.com');
+  if (!ok.length) throw new Error('Solo se puede enviar a direcciones @despegar.com / @hoteldo.com');
   if (ok.length > 20) throw new Error('Máximo 20 destinatarios por envío');
-  if (bad > 0) throw new Error(bad + ' destinatario(s) no son @despegar.com — revisar la lista');
+  if (bad > 0) throw new Error(bad + ' destinatario(s) no son @despegar.com / @hoteldo.com — revisar la lista');
   sendDailyEmail_(ok);
 }
 function sendDailyEmail_(customRecipients) {

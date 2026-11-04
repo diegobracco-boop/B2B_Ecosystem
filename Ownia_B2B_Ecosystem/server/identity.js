@@ -36,7 +36,9 @@ function emailFromHeader(name, value) {
 }
 
 // Mismo alcance que `access: DOMAIN` en GAS.
-const ALLOWED_DOMAIN = '@despegar.com';
+// Hoteldo (mismo grupo) entra igual que despegar.com, 2026-11-04.
+const ALLOWED_DOMAINS = ['@despegar.com', '@hoteldo.com'];
+const ALLOWED_DOMAIN = ALLOWED_DOMAINS[0];
 
 // x-amzn-oidc-data es un JWT que habría que verificar (firma ES256 del ALB, signer, exp)
 // antes de confiar en él; hasta implementarlo no se acepta como header confiable.
@@ -46,7 +48,7 @@ function resolveIdentity(headers, trustedHeader) {
   const h = String(trustedHeader || '').toLowerCase();
   if (!h || UNVERIFIED_JWT_HEADERS.has(h)) return { email: '', source: null };
   const email = emailFromHeader(h, headers[h]);
-  return email && email.endsWith(ALLOWED_DOMAIN) ? { email, source: h } : { email: '', source: null };
+  return email && ALLOWED_DOMAINS.some((d) => email.endsWith(d)) ? { email, source: h } : { email: '', source: null };
 }
 
 // Para /whoami: qué headers de autenticación llegan (nombre + si traen un email válido).
@@ -61,4 +63,4 @@ function describeAuthHeaders(headers) {
   });
 }
 
-module.exports = { resolveIdentity, describeAuthHeaders, CANDIDATE_HEADERS, ALLOWED_DOMAIN };
+module.exports = { resolveIdentity, describeAuthHeaders, CANDIDATE_HEADERS, ALLOWED_DOMAIN, ALLOWED_DOMAINS };

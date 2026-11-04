@@ -282,6 +282,7 @@ test('Session.getActiveUser: solo con el header confiable configurado', async ()
   // Fuera del dominio no cuenta como identidad (en GAS: access DOMAIN).
   assert.deepEqual(JSON.parse((await run('quienSoy', [], { 'x-test-email': 'alguien@gmail.com' })).text), { result: '' });
   assert.equal((await request(demoServer, 'GET', `${BASE}/demo-privado`, { headers: { 'x-test-email': 'alguien@gmail.com' } })).status, 401);
+  assert.equal((await request(demoServer, 'GET', `${BASE}/demo-privado`, { headers: { 'x-test-email': 'ana@hoteldo.com' } })).status, 200);
 });
 
 test('CacheService y ScriptApp.getService().getUrl()', async () => {
