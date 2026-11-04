@@ -54,8 +54,9 @@ function doPost(e) {
   var out = function(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); };
   try {
     var body = JSON.parse((e && e.postData && e.postData.contents) || '{}');
-    if (body.action !== 'exportTrackerSlides') return out({ ok: false, error: 'Acción no reconocida.' });
-    return out(exportToGoogleSlides({ slides: body.slides }));
+    if (body.action === 'exportTrackerSlides') return out(exportToGoogleSlides({ slides: body.slides }));
+    if (body.action === 'exportWeeklySlides') return out(exportWeeklyToGoogleSlides({ slides: body.slides }));
+    return out({ ok: false, error: 'Acción no reconocida.' });
   } catch (ex) {
     return out({ ok: false, error: ex && ex.message ? ex.message : String(ex) });
   }
@@ -1586,8 +1587,20 @@ function buildFlowSlidesDeck(payload) {
 var TRACKER_SLIDES_PRESENTATION_ID = '1z58vE6Yo9N1edKUKuZoWVYj5X43gs9t3VaHCAkwrOTU';
 
 function exportToGoogleSlides(payload) {
-  payload = payload || {};
-  var slides = payload.slides || [];
+  return replaceDeckSlides_(TRACKER_SLIDES_PRESENTATION_ID, (payload || {}).slides || []);
+}
+
+// Weekly B2B-MAY (flow del Tracker, 2026-11-04): SIEMPRE pisa esta otra presentación fija con las 14 slides del deck (portada, separadores y
+// contenido, cada una como imagen 16:9). Las arma el navegador (public/daily-tracker-weekly.js) y llegan por doPost desde el servidor de Ownia.
+var WEEKLY_SLIDES_PRESENTATION_ID = 'REEMPLAZAR_CON_EL_ID_DE_LA_PRESENTACION_WEEKLY';
+
+function exportWeeklyToGoogleSlides(payload) {
+  if (/^REEMPLAZAR/.test(WEEKLY_SLIDES_PRESENTATION_ID)) throw new Error('Falta configurar WEEKLY_SLIDES_PRESENTATION_ID en Codigo.js del Daily.');
+  return replaceDeckSlides_(WEEKLY_SLIDES_PRESENTATION_ID, (payload || {}).slides || []);
+}
+
+// Borra las slides de la presentación `presId` y pone las nuevas (una imagen por slide). Compartido por el Tracker y el Weekly.
+function replaceDeckSlides_(presId, slides) {
   if (!slides.length) throw new Error('No se recibió ninguna slide para exportar.');
 
   // El deck es FIJO y compartido: serializar para que dos exports simultáneas
@@ -1598,7 +1611,7 @@ function exportToGoogleSlides(payload) {
   }
 
   try {
-    var pres = SlidesApp.openById(TRACKER_SLIDES_PRESENTATION_ID);
+    var pres = SlidesApp.openById(presId);
     var w = pres.getPageWidth(), h = pres.getPageHeight();
 
     // Insertar las nuevas ANTES de borrar las viejas (el deck nunca queda vacío)
@@ -1615,7 +1628,7 @@ function exportToGoogleSlides(payload) {
       var who = '';
       try { who = Session.getEffectiveUser().getEmail(); } catch (_) {}
       throw new Error('La cuenta que ejecuta el webapp (' + (who || 'quien hizo el último deploy') +
-        ') no tiene permiso de EDICIÓN sobre la presentación fija ' + TRACKER_SLIDES_PRESENTATION_ID +
+        ') no tiene permiso de EDICIÓN sobre la presentación fija ' + presId +
         '. Compartila como Editor con esa cuenta (detalle: ' + (e && e.message ? e.message : e) + ').');
     }
     probe.remove();

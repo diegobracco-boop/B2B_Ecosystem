@@ -357,6 +357,14 @@ function createApp(opts = {}) {
     if (route === '/_portal/ask.js') {
       return sendAsset(req, res, url, askVersion, askJs);
     }
+    // Recursos de public/weekly/ (portada, logos) para el flow "Weekly B2B-MAY" del Tracker (public/daily-tracker-weekly.js)
+    if (route.startsWith('/_gas/weekly/')) {
+      const name = route.slice('/_gas/weekly/'.length);
+      const ext = /^[\w-]+\.(png|jpg)$/.exec(name);
+      const file = ext && path.join(cfg.APP_ROOT, 'public', 'weekly', name);
+      if (!file || !fs.existsSync(file)) return sendJson(res, 404, { error: 'No encontrado' });
+      return send(res, 200, { 'Content-Type': ext[1] === 'png' ? 'image/png' : 'image/jpeg', 'Cache-Control': 'public, max-age=86400' }, fs.readFileSync(file));
+    }
     if (route.startsWith('/_gas/layout/')) {
       const l = layouts.get(route.slice('/_gas/layout/'.length));
       if (!l) return sendJson(res, 404, { error: 'No encontrado' });
@@ -499,7 +507,9 @@ function createApp(opts = {}) {
       let project;
       try { project = getProject(mod); } catch (e) { return sendJson(res, 500, { error: 'El módulo no pudo cargarse', name: 'LoadError' }); }
       try {
-        const isSlidesExport = mod.slug === 'daily' && parts[2] === 'exportToGoogleSlides';
+        const SLIDES_ACTIONS = { exportToGoogleSlides: 'exportTrackerSlides', exportWeeklyToGoogleSlides: 'exportWeeklySlides' };   // fn del Tracker -> acción del doPost de Apps Script
+        const slidesAction = mod.slug === 'daily' ? SLIDES_ACTIONS[parts[2]] : undefined;
+        const isSlidesExport = !!slidesAction;
         const raw = await readBody(req, isSlidesExport ? MAX_SLIDES_BODY : MAX_BODY);
         let body;
         try {
@@ -514,7 +524,7 @@ function createApp(opts = {}) {
           const slides = args[0] && args[0].slides;
           if (!Array.isArray(slides) || !slides.length) return sendJson(res, 400, { error: 'No se recibió ninguna slide para exportar.', name: 'BadRequest' });
           let jobId;
-          try { jobId = slidesJobs.start({ user: identity.email, secrets: cfg.secrets, gasUrl: mod.gasUrl, slides, fetchFn: opts.fetchFn }); } catch (e) { return sendJson(res, 409, { error: e.message, name: 'Busy' }); }
+          try { jobId = slidesJobs.start({ user: identity.email, secrets: cfg.secrets, gasUrl: mod.gasUrl, slides, action: slidesAction, fetchFn: opts.fetchFn }); } catch (e) { return sendJson(res, 409, { error: e.message, name: 'Busy' }); }
           log({ level: 'info', module: mod.slug, fn: parts[2], user: identity.email || '', slides: slides.length });
           return sendJson(res, 200, { result: { started: true, jobId } });
         }

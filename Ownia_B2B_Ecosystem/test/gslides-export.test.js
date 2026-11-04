@@ -72,3 +72,15 @@ test('trabajo en segundo plano: un fallo queda como error legible', async () => 
   assert.equal(st.state, 'error');
   assert.match(st.error, /credenciales de Google/);
 });
+
+test('el Weekly B2B-MAY usa su propia acción del web app (la del Tracker queda igual por defecto)', async () => {
+  const bodies = [];
+  const fetchFn = async (url, init) => {
+    if (url.includes('oauth2')) return res(200, JSON.stringify({ access_token: 'AT' }));
+    bodies.push(JSON.parse(init.body));
+    return res(200, JSON.stringify({ ok: true, count: 2, url: 'U' }));
+  };
+  await exportTrackerSlides({ secrets: SECRETS, gasUrl: GAS, slides: SLIDES, fetchFn });
+  await exportTrackerSlides({ secrets: SECRETS, gasUrl: GAS, slides: SLIDES, action: 'exportWeeklySlides', fetchFn });
+  assert.deepEqual(bodies.map((b) => b.action), ['exportTrackerSlides', 'exportWeeklySlides']);
+});
