@@ -1,11 +1,10 @@
 /* Daily B2B Tracker en Ownia: flow "Weekly B2B-MAY" (2026-11-04). Lo inyecta server/index.js en el Daily (`layout` en server/modules.js). El HTML de
  * Apps Script no se toca.
  *
- * Arma las 15 slides del deck "Commercial B2B-MAY Performance", todas con Organic YES y canal API, y las deja como PDF o las manda a una Google Slides fija:
+ * Arma las 14 slides del deck "Commercial B2B-MAY Performance", todas con Organic YES y canal API, y las deja como PDF o las manda a una Google Slides fija:
  *   1 portada · 2 Status KRs H2 (API) · 3 KR Global B2B API · 4 Hoteles pedidos por origen y destino · 5 separador
- *   6 B2B2C Pipeline H2'26 (de /_gas/weekly/pipeline.json; en Google Slides sale con objetos nativos, no imagen)
- *   7-10 MTD por país y grupo de agencias (Globales, Brasil, México, Argentina) · 11 separador
- *   12 FVM API semanas (GD y RI) · 13 Hoteles semana a semana (vs últimas 4 semanas) · 14 Tablas GD (API) · 15 Tablas RI (API)
+ *   6-9 MTD por país y grupo de agencias (Globales, Brasil, México, Argentina) · 10 separador
+ *   11 FVM API semanas (GD y RI) · 12 Hoteles semana a semana (vs últimas 4 semanas) · 13 Tablas GD (API) · 14 Tablas RI (API)
  * De dónde sale cada una:
  *   - 2, 3, 13, 14: del propio Tracker (la misma captura del modo Slides, con el canal fijado por slide).
  *   - 4, 6-9, 12: del Dashboard B2B API (/b2b-dashboard/b2b-api), en un iframe oculto del mismo origen, en tema claro.
@@ -165,60 +164,6 @@
     else { ctx.fillStyle = '#C0392B'; ctx.font = '400 28px Rubik, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('No se pudo capturar esta slide', W / 2, H / 2); }
     return Promise.resolve(jpeg(c));
   }
-  // Slide "B2B2C Pipeline" (modelo de /_gas/weekly/pipeline.json). Para el PDF sale como imagen; en Google Slides la rehace Apps Script con
-  // objetos nativos (drawPipelineSlide_ en Codigo.js del Daily): mantener las dos con el mismo diseño. Coordenadas en px del pptx (960×540).
-  function drawPipeline(m, dd) {
-    var c = newCanvas(), ctx = c.getContext('2d');
-    return loadImg(asset('logo.png')).catch(function () { return null; }).then(function (logo) {
-      var P = '#6E00E7', BLUE = '#3B82F6', GREEN = '#34A853';
-      function t(s, x, y, font, color, al) { ctx.font = font; ctx.fillStyle = color; ctx.textAlign = al || 'left'; ctx.textBaseline = 'middle'; ctx.fillText(s, x * 2, y * 2); }
-      function ul(s, x, y, font) { t(s, x, y, font, '#222'); ctx.fillRect(x * 2, y * 2 + 16, ctx.measureText(s).width, 3); }
-      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
-      t(m.title, 14, 30, '700 48px Rubik, sans-serif', P);
-      ctx.fillStyle = P; ctx.fillRect(0, 124, W, 2);
-      if (logo) ctx.drawImage(logo, 896 * 2, 2 * 2, 62 * 2, 64 * 2);
-      infoPill(ctx, dd, 64);
-      ul("Deals Pipeline - " + m.periodo, 20, 87, '700 32px Rubik, sans-serif');
-      t('Net Revenues [k USD]', 20, 108, 'italic 400 24px Rubik, sans-serif', '#222');
-      var base = 400, top = 150, x0 = 28, pitch = 66, bw = 44, mo = m.months || [];
-      var maxNr = Math.max.apply(null, mo.map(function (x) { return x.nr_k; }).concat([1])), maxD = Math.max.apply(null, mo.map(function (x) { return x.deals; }).concat([1]));
-      var pts = [];
-      mo.forEach(function (x, i) {
-        var bh = (base - top - 30) * x.nr_k / maxNr, bx = x0 + i * pitch;
-        ctx.fillStyle = BLUE; ctx.fillRect(bx * 2, (base - bh) * 2, bw * 2, bh * 2);
-        t(x.nr_txt, bx + bw / 2, base - bh + 10, '700 18px Rubik, sans-serif', '#fff', 'center');
-        t(x.label, bx + bw / 2, base + 10, '700 20px Rubik, sans-serif', '#222', 'center');
-        pts.push({ x: bx + bw / 2, y: base - 40 - (base - top - 70) * x.deals / maxD, d: x.deals });
-      });
-      ctx.strokeStyle = GREEN; ctx.lineWidth = 4; ctx.beginPath();
-      pts.forEach(function (p, i) { if (i) ctx.lineTo(p.x * 2, p.y * 2); else ctx.moveTo(p.x * 2, p.y * 2); }); ctx.stroke();
-      pts.forEach(function (p) { t(String(p.d), p.x, p.y - 12, '700 22px Rubik, sans-serif', GREEN, 'center'); });
-      ctx.fillStyle = BLUE; ctx.fillRect(140, 856, 20, 20); t('Total Net Revenues', 84, 436, '400 18px Rubik, sans-serif', '#222');
-      ctx.strokeStyle = GREEN; ctx.beginPath(); ctx.moveTo(444, 866); ctx.lineTo(488, 866); ctx.stroke(); t('# Tier 1 Deals', 248, 436, '400 18px Rubik, sans-serif', '#222');
-      if (m.note) {
-        ctx.fillStyle = '#FFE699'; ctx.fillRect(120, 904, 380, 124); ctx.strokeStyle = '#BF9000'; ctx.lineWidth = 2; ctx.strokeRect(120, 904, 380, 124);
-        m.note.split('\n').forEach(function (l, i, a) { t(l, 155, 466 + (i - (a.length - 1) / 2) * 20, 'italic 400 18px Rubik, sans-serif', '#333', 'center'); });
-      }
-      ul("Detailed Pipeline - " + m.periodo, 450, 87, '700 32px Rubik, sans-serif');
-      var cols = [['etd', 'ETD Deploy', 48, 'c'], ['partner', 'Partner', 96, 'l'], ['pais', 'País', 62, 'l'], ['solucion', 'Solución', 92, 'l'], ['nr', "NR HZ'27", 56, 'r'], ['fvm', "FVM HZ'27", 56, 'r'], ['y3', 'NR Y3', 60, 'r']];
-      var rows = (m.rows || []).concat([{ etd: '', partner: m.totals.partners, pais: '', solucion: '', nr: m.totals.nr, fvm: m.totals.fvm, y3: m.totals.y3, tot: true }]);
-      var rh = 20.5, ty = 106;
-      ctx.fillStyle = '#2E7D32'; ctx.fillRect(900, ty * 2, 940, rh * 2);
-      function row(r, y, head) {
-        var x = 450;
-        cols.forEach(function (cl) {
-          var v = head ? cl[1] : r[cl[0]], al = cl[3], px = al === 'c' ? x + cl[2] / 2 : al === 'r' ? x + cl[2] - 3 : x + 3;
-          t(v, px, y + rh / 2, (head || r.tot ? '700 ' : '400 ') + '15px Rubik, sans-serif', head ? '#fff' : '#222', al === 'c' ? 'center' : al === 'r' ? 'right' : 'left'); x += cl[2];
-        });
-      }
-      row(null, ty, true);
-      rows.forEach(function (r, i) {
-        var y = ty + rh * (i + 1);
-        ctx.fillStyle = r.tot ? '#E8F5E9' : (i % 2 ? '#F6F6F6' : '#fff'); ctx.fillRect(900, y * 2, 940, rh * 2); row(r, y, false);
-      });
-      return jpeg(c);
-    });
-  }
   function canvasImg(cv) { return loadImg(cv.toDataURL('image/png')); }
 
   // ── Capturas ──
@@ -355,9 +300,8 @@
     var fvmGd = await safe(captureDailyFvm('gd'), 'FVM GD');
     upd('Capturando el gráfico de FVM del Daily (RI)…');
     var fvmRi = await safe(captureDailyFvm('ri'), 'FVM RI');
-    var pipe = await safe(fetch(BASE + '/_gas/weekly/pipeline.json', { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }), 'Pipeline B2B2C');
     upd('Armando las slides…');
-    var R ={ x: 5, y: 86, w: 950, h: 440 };
+    var R = { x: 5, y: 86, w: 950, h: 440 };
     function body(img) { return [{ img: img, x: R.x, y: R.y, w: R.w, h: R.h }]; }
     var slides = [
       function () { return drawCover(); },
@@ -366,8 +310,6 @@
       function () { return drawContent('Hoteles pedidos por origen y destino | ' + mes + ' MTD', '', [{ img: dash.demanda, x: 27, y: 112, w: 904, h: 323 }], dd); },
       function () { return drawSeparator('TOP AGENCIAS', 'API vs LY'); }
     ];
-    var pipeIdx = slides.length;   // 6: B2B2C Pipeline, después del separador
-    slides.push(function () { return pipe ? drawPipeline(pipe, dd) : drawContent('B2B2C Pipeline', '', [{ img: null, x: 5, y: 86, w: 950, h: 440 }], dd); });
     PAISES.forEach(function (p) {
       slides.push(function () { return drawContent(mes + ' MTD Agencias vs LY ' + (p.show || p.label), '', body(dash.venta[p.label]), dd); });
     });
@@ -382,7 +324,6 @@
     slides.push(function () { return drawFull(trk[3], dd); });
     var out = [];
     for (var i = 0; i < slides.length; i++) out.push({ img: await slides[i](), w: W, h: H });
-    if (pipe) out[pipeIdx].native = { type: 'pipeline', model: pipe };   // Google Slides: objetos nativos; el PDF usa la imagen
     return out;
   }
 
@@ -428,7 +369,7 @@
       google.script.run
         .withSuccessHandler(function (r) { if (!r || !r.jobId) return fail('el servidor no confirmó el envío.'); poll(r.jobId, Date.now()); })
         .withFailureHandler(function (e) { fail(errText(e)); })
-        .exportWeeklyToGoogleSlides({ slides: slides.map(function (s) { return s.native ? { native: s.native, w: s.w, h: s.h } : s; }) });   // la nativa no lleva imagen (pesa)
+        .exportWeeklyToGoogleSlides({ slides: slides });
     } catch (e) { _exporting = false; _exportDone('Error al armar las slides: ' + errText(e)); }
   }
 
