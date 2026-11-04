@@ -174,12 +174,12 @@
       find(function (s) { return s.tab === 'tables_ri' && s.channel === 'API'; })
     ];
     if (want.some(function (x) { return !x; })) throw new Error('el Tracker no tiene alguna de las slides necesarias');
-    var tabBefore = window.activeTab, slidesBefore = window._isSlidesMode, idxBefore = window._slideIdx, caps;
+    var tabBefore = typeof activeTab !== 'undefined' ? activeTab : null, slidesBefore = window._isSlidesMode, idxBefore = window._slideIdx, caps;
     SLIDE_ORDER.splice(0, SLIDE_ORDER.length, want[0], want[1], want[2], want[3]);
     try { caps = await _captureAllSlides(function (d, t) { upd('Capturando el Tracker… ' + d + ' / ' + t); }, { jpeg: true }); }
     finally {
       SLIDE_ORDER.splice(0, SLIDE_ORDER.length, ...orig);
-      try { if (!slidesBefore && window._isSlidesMode) toggleSlidesMode(); if (tabBefore) { window.activeTab = tabBefore; document.querySelectorAll('.tab-btn').forEach(function (b) { b.classList.toggle('active', b.dataset.tab === tabBefore); }); render(); } } catch (e) { /* queda donde estaba */ }
+      try { if (!slidesBefore && window._isSlidesMode) toggleSlidesMode(); if (tabBefore) { activeTab = tabBefore; document.querySelectorAll('.tab-btn').forEach(function (b) { b.classList.toggle('active', b.dataset.tab === tabBefore); }); render(); } } catch (e) { /* queda donde estaba */ }
     }
     return Promise.all(caps.map(function (c) { return c && c.img ? loadImg(c.img) : null; }));
   }
@@ -346,7 +346,7 @@
   // ── Botón en el encabezado del Tracker ──
   function init() {
     var btn = document.getElementById('slidesModeBtn');
-    if (!btn || typeof window._captureAllSlides !== 'function' || typeof window.SLIDE_ORDER === 'undefined' || document.getElementById('weeklyBtn')) return;
+    if (!btn || typeof window._captureAllSlides !== 'function' || typeof SLIDE_ORDER === 'undefined' || document.getElementById('weeklyBtn')) return;
     var wrap = document.createElement('span');
     wrap.className = 'slides-export-wrap'; wrap.style.cssText = 'position:relative;display:inline-block;margin-left:8px';
     var b = document.createElement('button');
