@@ -55,6 +55,7 @@ import config as _planning_cfg
 import hunting_rules
 from pais_rules import apply_pais_overrides
 from rg_rows import append_rg_rows
+from b2b_lob_rules import B2B_LOB_IN, normalize_b2b_lob   # fetch() y las queries B2B de actuals_gestional_upload.py
 from dotenv import load_dotenv
 
 ROOTS = ["fetch", "build_b2b2c_query", "build_b2b_gd_query", "build_b2b_ri_query", "_build_b2b2c_rows", "_build_b2b_rows",
@@ -98,7 +99,8 @@ def _load_pipeline():
     body = sorted(nodes.values(), key=lambda n: n.lineno)
     env = {"__file__": str(UPLOAD_PY), "pd": pd, "date": date, "datetime": datetime, "timedelta": timedelta, "os": os, "sys": sys, "Path": Path,
            "_planning_cfg": _planning_cfg, "hunting_rules": hunting_rules, "apply_pais_overrides": apply_pais_overrides,
-           "append_rg_rows": append_rg_rows, "load_dotenv": load_dotenv}
+           "append_rg_rows": append_rg_rows, "load_dotenv": load_dotenv,
+           "B2B_LOB_IN": B2B_LOB_IN, "normalize_b2b_lob": normalize_b2b_lob}
     exec(compile(ast.Module(body=body, type_ignores=[]), str(UPLOAD_PY), "exec"), env)
     return env
 
