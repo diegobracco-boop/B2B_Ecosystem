@@ -15,8 +15,7 @@
  *    encima del contenido y sin correrlo (el layout no salta); se cierra con "Listo", Esc o un clic afuera.
  *  - Cambio de LoB instantáneo: apenas llegan los datos del primero se precargan los otros dos.
  *  - Teclado: 1 a 5 cambian de negocio.
- *  - Las secciones embebidas que ya corren en Ownia (P&L Contable, P&L Managerial)
- *    se abren desde Ownia y no desde Apps Script.
+ *  - P&L Contable y P&L Managerial no se embeben: el botón lleva a su sección de Ownia (pnlRedirect).
  */
 (function () {
   'use strict';
@@ -1168,14 +1167,18 @@
   }
 
   // "P&L Contable" (2026-10-29, Diego): no se embebe; lleva a P&L Accounting en la misma pestaña, con la vista del LoB elegido.
+  // "P&L Managerial" (2026-11-04, Diego): igual, lleva a P&L Managerial (?view=b2b / b2b2c de ownia-nav.js; HTML y API son
+  // B2B; Consolidado abre la vista de entrada del módulo).
   var PNL_VIEW = { all: 'contable-combined', b2b: 'contable-b2b', b2b2c: 'contable-b2b2c' };
+  var MGR_VIEW = { b2b: 'b2b', html: 'b2b', api: 'b2b', b2b2c: 'b2b2c' };
   function pnlRedirect() {
     var orig = window.goToSection;
     if (typeof orig !== 'function') return;
     window.goToSection = function (sec) {
-      var url = window.EXTERNAL_LINKS && window.EXTERNAL_LINKS.iframes && window.EXTERNAL_LINKS.iframes.pnl;
-      if (sec !== 'pnl' || !url) return orig.apply(this, arguments);
-      window.location.href = url + (url.indexOf('?') >= 0 ? '&' : '?') + 'view=' + (PNL_VIEW[lastLob] || PNL_VIEW.all);
+      var fr = window.EXTERNAL_LINKS && window.EXTERNAL_LINKS.iframes, url = fr && fr[sec];
+      if ((sec !== 'pnl' && sec !== 'pnl_mgr') || !url) return orig.apply(this, arguments);
+      var view = sec === 'pnl' ? (PNL_VIEW[lastLob] || PNL_VIEW.all) : MGR_VIEW[lastLob];
+      window.location.href = url + (view ? (url.indexOf('?') >= 0 ? '&' : '?') + 'view=' + view : '');
     };
   }
 
