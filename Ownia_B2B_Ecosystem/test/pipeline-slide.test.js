@@ -1,7 +1,7 @@
 // Modelo de "Pipeline Hunting" (server/pipeline-slide.js): criterio de la tabla de Metabase (rampa desde el mes del ETD), totales fijos y "Otros".
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { buildPipelineModel, loadPipelineModel, rampShare } = require('../server/pipeline-slide');
+const { buildPipelineModel, loadPipelineModel, modelFromStore, rampShare, DAILY_FOLDER_ID, STORE_FILE_NAME } = require('../server/pipeline-slide');
 
 test('rampa: el mes del ETD cuenta como mes 1 (coincide con la tabla de Metabase)', () => {
   const nr = (amount, cierre) => Math.round(amount * rampShare(cierre));
@@ -47,4 +47,24 @@ test('sin totales fijos, los totales salen de los deals y "Otros" de la slide es
   assert.equal(m.rows[0].partner, 'A');
   assert.equal(m.otros.label, 'Otros 1 deals');
   assert.equal(m.otrosAll.nrRaw, 0);
+});
+
+const storeWith = (buf) => ({ findByName: (folder, name) => (folder === DAILY_FOLDER_ID && name === STORE_FILE_NAME && buf ? [{ buf }] : []) });
+const raw = { periodo: "H2'26", actualizado: '2026-11-05', totales: { nr_h2: 1000000, fvm_h2: 400000 },
+  deals: [{ name: 'Nuevo', cierre: '2026-11', pais: 'Chile', amount: 2000000, fvm_ratio: 0.4 }] };
+
+test('si Actualizar reales publicó el archivo, el modelo sale de ahí (no de la foto del repo)', () => {
+  const m = modelFromStore(storeWith(Buffer.from(JSON.stringify(raw))));
+  assert.equal(m.all.length, 1);
+  assert.equal(m.rows[0].partner, 'Nuevo');
+  assert.equal(m.updated, '05.11.2026');
+  assert.match(m.title, /\+1 deals with \+1M USD|\+1 deals with \+1,0M USD/);
+});
+
+test('sin archivo en el almacén, o roto o vacío, queda la foto del repo', () => {
+  const snapshot = loadPipelineModel();
+  assert.equal(modelFromStore(null).all.length, snapshot.all.length);
+  assert.equal(modelFromStore(storeWith(null)).all.length, snapshot.all.length);
+  assert.equal(modelFromStore(storeWith(Buffer.from('no es json'))).all.length, snapshot.all.length);
+  assert.equal(modelFromStore(storeWith(Buffer.from(JSON.stringify({ deals: [] })))).all.length, snapshot.all.length);
 });

@@ -32,7 +32,7 @@ const MAX_FAILS = 5;
 const FAIL_WINDOW_MS = 15 * 60 * 1000;
 // Consultas al Datalake de una corrida completa (líneas "OK <consulta>: N filas" de daily_sync.py; 32 el
 // 2026-10-30). Solo sirve para la barra de avance: si cambia, la barra se queda en 80 % un rato o salta.
-const EXPECTED_QUERIES = 32;
+const EXPECTED_QUERIES = 32;   // +1 desde el 2026-11-04 (Pipeline Hunting): la barra llega al 80 % una consulta antes, no importa
 // Memoria mínima del contenedor para lanzar la corrida: daily_sync.py llega a ~2,7 GB (medido el 2026-10-30) y corre al
 // lado de la app. Con menos, el sistema lo mata a mitad de camino (o peor, a Node). El tamaño por defecto de una app
 // JavaScript en Ownia es 1 GB: hace falta que un admin de Ownia la agrande (manage_app resize, p.ej. 1024 / 4096).
@@ -49,6 +49,7 @@ const STAGES = [
   [/^--- OC B2B2C/, 85, 'Armando los archivos'],
   [/^--- Subiendo a Google Drive ---/, 88, 'Publicando en Drive y Ownia'],
   [/^--- Partners API/, 96, 'Últimos ajustes (Partners API y OKR)'],
+  [/^--- Pipeline B2B2C/, 97, 'Últimos ajustes (Pipeline Hunting y OKR)'],
   [/^OK Completado/, 100, 'Listo'],
 ];
 function newProgress() {

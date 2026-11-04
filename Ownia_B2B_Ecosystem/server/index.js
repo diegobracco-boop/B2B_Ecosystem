@@ -49,7 +49,7 @@ const { createNotesStore } = require('./notes-store');
 const { ApiCache } = require('./api-cache');
 const { createRealesJob } = require('./reales-job');
 const { createSlidesJobs } = require('./gslides-export');
-const { loadPipelineModel } = require('./pipeline-slide');
+const { modelFromStore } = require('./pipeline-slide');
 const { partnersFrom, createQuestionLog } = require('./portal-ask-data');
 
 const MAX_BODY = 5 * 1024 * 1024; // google.script.run acepta payloads grandes (p.ej. capturas)
@@ -361,7 +361,7 @@ function createApp(opts = {}) {
     }
     // Recursos de public/weekly/ (portada, logos) para el flow "Weekly B2B-MAY" del Tracker (public/daily-tracker-weekly.js)
     if (route === '/_gas/weekly/pipeline.json') {   // modelo de la slide "B2B2C Pipeline" (server/pipeline-slide.js)
-      try { return send(res, 200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }, JSON.stringify(loadPipelineModel())); }
+      try { return send(res, 200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }, JSON.stringify(modelFromStore(fileStore, undefined, log))); }
       catch (e) { return sendJson(res, 500, { error: 'No se pudo armar el pipeline: ' + e.message }); }
     }
     if (route.startsWith('/_gas/weekly/')) {
@@ -461,7 +461,7 @@ function createApp(opts = {}) {
       if (needsIdentity(daily) && !identity.email) return unauthorized(res);
       if (!mayOpen(daily, identity)) return forbidden(res);
       let model;
-      try { model = loadPipelineModel(); } catch (e) { return sendJson(res, 500, { error: 'No se pudo armar el pipeline: ' + e.message }); }
+      try { model = modelFromStore(fileStore, undefined, log); } catch (e) { return sendJson(res, 500, { error: 'No se pudo armar el pipeline: ' + e.message }); }
       return sendCompressible(req, res, 200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }, pipelineHuntingPage({ basePath: cfg.BASE_PATH, model }));
     }
 

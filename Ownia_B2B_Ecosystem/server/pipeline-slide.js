@@ -68,4 +68,21 @@ function loadPipelineModel(file = DATA_FILE, opts) {
   return buildPipelineModel(JSON.parse(fs.readFileSync(file, 'utf8')), opts);
 }
 
-module.exports = { buildPipelineModel, loadPipelineModel, rampShare };
+// Lo que publica "Actualizar reales" (Daily_Dashboard/pipeline_b2b2c_sync.py) en la carpeta del Daily: si está, manda; si no (o viene roto),
+// queda la foto del repo. El id de la carpeta es el mismo de DRIVE_FOLDER_ID de daily_sync.py y de drive-manifest.json.
+const DAILY_FOLDER_ID = '1lWzfqweyV6Kz1ERkL85ikFcmzmKwGwwh';
+const STORE_FILE_NAME = 'pipeline_b2b2c.json';
+function modelFromStore(fileStore, opts, log) {
+  const f = fileStore && fileStore.findByName ? fileStore.findByName(DAILY_FOLDER_ID, STORE_FILE_NAME)[0] : null;
+  if (f) {
+    try {
+      const data = JSON.parse(f.buf.toString('utf8'));
+      if (Array.isArray(data.deals) && data.deals.length) return buildPipelineModel(data, opts);
+    } catch (e) {
+      if (log) log({ level: 'warn', msg: 'pipeline_b2b2c.json ilegible, se usa la foto del repo', error: e.message });
+    }
+  }
+  return loadPipelineModel(DATA_FILE, opts);
+}
+
+module.exports = { buildPipelineModel, loadPipelineModel, modelFromStore, rampShare, DAILY_FOLDER_ID, STORE_FILE_NAME };

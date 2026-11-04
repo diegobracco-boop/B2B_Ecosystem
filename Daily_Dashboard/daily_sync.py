@@ -2326,6 +2326,17 @@ try:
 except (Exception, SystemExit) as e:
     print(f"  WARN Partners API fallo ({e}) — queda el partners_api_snapshots.json anterior en Drive")
 
+# Pipeline B2B2C (Pipeline Hunting): deals del pipeline de HubSpot para la slide del Flow y la pagina /pipeline-hunting de Ownia
+# (ver pipeline_b2b2c_sync.py). No corta la sync: si falla queda el pipeline_b2b2c.json anterior.
+print("\n--- Pipeline B2B2C (Pipeline Hunting) ---")
+try:
+    import pipeline_b2b2c_sync as _pl
+    _pl_payload = _pl.build_payload(fetch)
+    if _pl_payload is not None:
+        upload_to_drive(json.dumps(_pl_payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8"), _pl.FILE_NAME)
+except (Exception, SystemExit) as e:
+    print(f"  WARN Pipeline B2B2C fallo ({e}) — queda el pipeline_b2b2c.json anterior en Drive")
+
 # okr.json (OKR del Hub + KR Global B2B API del Daily/Tracker) toma de daily_b2b2c_data.json los
 # actuals que salen del Datalake (hoteles directos, Unique Buyers, Hunting/Existing): se regenera acá
 # para que se actualicen todos los días sin esperar a /actualizar. Si falla, avisa y no corta la sync.
