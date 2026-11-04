@@ -704,6 +704,27 @@ def _apply_globales_hoteles_actual(rows_manual, daily_json):
     return out
 
 
+GLOBALES_GB_KR = "GB · % Hoteles Directos vendidos destino Globales"   # no empieza con "% hoteles directos": okr_h2_builder no lo confunde con el KR en hoteles
+
+
+def _apply_globales_gb(rows_manual, daily_json):
+    """Vista por GB del KR "% Hoteles Directos vendidos destino Globales" (2026-11-04): fila extra "GB · % Hoteles Directos
+    vendidos destino Globales" con el actual = GB de PAM + OMB + HSI con destino no LATAM / GB de todo el inventario con destino no
+    LATAM, por mes (el mes en curso es MTD). No es un KR del OKR: no tiene target ni peso; la landing del Tracker la muestra como
+    vista alternativa del KR en hoteles (switch con clave). Si el JSON no trae el bloque, no se agrega nada."""
+    gg = (daily_json or {}).get("okr_globales_gb") or {}
+    out = [r for r in rows_manual if r[5] != GLOBALES_GB_KR]
+    n = 0
+    for ym, d in sorted(gg.items()):
+        tot = d.get("gb_tot_glob") or 0
+        if tot > 0:
+            out.append([_ym_to_periodo(ym), "Run Rate/Actuals", "Globales", "Total", "Total", GLOBALES_GB_KR,
+                        round((d.get("gb_dir_glob") or 0) / tot * 100, 2)])
+            n += 1
+    print(f"  [Globales GB] {n} meses" if n else "  [Globales GB] sin okr_globales_gb en daily_b2b2c_data.json")
+    return out
+
+
 def _apply_price_comp_actual(rows_manual, daily_json):
     """KR Global B2B API "Price Competitiveness ex-Latam (Destino GL)" (H2 FY27): el actual sale del Datalake
     (daily_sync.py -> daily_b2b2c_data.json "okr_price_competitiveness", % adverso semanal = línea "Adverso
@@ -808,6 +829,7 @@ def build(upload=True):
     rows_manual, estado_ub = h2b.apply_unique_buyers(rows_manual, daily_json, last_actual_ym,
                                                            h2b.load_override_orders())
     rows_manual   = _apply_globales_hoteles_actual(rows_manual, daily_json)
+    rows_manual   = _apply_globales_gb(rows_manual, daily_json)
     rows_manual   = _apply_price_comp_actual(rows_manual, daily_json)
     rows_manual   = _apply_recurrence_rr(rows_manual, recur_json)
     rows_manual   = _apply_globales_target_default(rows_manual)

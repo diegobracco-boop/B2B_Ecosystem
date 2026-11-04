@@ -631,6 +631,31 @@ GROUP BY 1
 ORDER BY 1
 """
 
+# Misma base que arriba, pero en GROSS BOOKINGS (vista "por GB" del KR "% Hoteles Directos vendidos destino Globales", 2026-11-04):
+#   gb_dir_glob: GB de los gateways PAM + OMB + HSI con destino NO LATAM
+#   gb_tot_glob: GB de TODO el inventario (directo y no directo) con destino NO LATAM
+# GB = gestion_gb * confirmation_gradient, SIN el filtro "> 0" del conteo de hoteles (suma neta, como el GB del resto del tablero).
+# Todos los países de venta (POS) y todos los destinos globales: no se restringe a países donde hay inventario PAM.
+OKR_GLOBALES_GB_QUERY = f"""
+SELECT date_format(fh.gestion_date, '%Y-%m') AS ym,
+    SUM(CASE WHEN NOT p.is_latam_destination AND fh.gateway_code IN ('PAM', 'OMB', 'HSI')
+             THEN fh.gestion_gb * fh.confirmation_gradient END) AS gb_dir_glob,
+    SUM(CASE WHEN NOT p.is_latam_destination THEN fh.gestion_gb * fh.confirmation_gradient END) AS gb_tot_glob
+FROM data.analytics.bi_sales_fact_sales_recognition fh
+JOIN data.analytics.bi_transactional_fact_products p
+    ON fh.product_id = p.product_id
+    AND p.reservation_year_month >= CAST('{date(OKR_GLOBALES_FROM.year - 1, OKR_GLOBALES_FROM.month, 1)}' AS DATE)
+WHERE fh.gestion_date >= CAST('{OKR_GLOBALES_FROM}' AS DATE)
+    AND fh.gestion_date <= CAST('{YESTERDAY}' AS DATE)
+    AND fh.partition_period > '2024-01-01'
+    AND fh.line_of_business_code = 'B2B'
+    AND fh.lob_gestion IN ('stg__sales_b2bnohoteldo','stg_sales__b2bhoteldo')
+    AND fh.parent_channel = 'API'
+    AND fh.buy_type_code = 'Hoteles'
+GROUP BY 1
+ORDER BY 1
+"""
+
 # KR Global B2B API "Price Competitiveness ex-Latam (Destino GL)" (H2 FY27) -> daily_b2b2c_data.json
 # "okr_price_competitiveness" -> okr_builder.py (el target sigue en Input_OKR / GLOBALES_TARGET_DEFAULT).
 # Es la línea "Adverso Latam V2" del dashboard Metabase 9043 (card 170301, sin filtros): % de adversidad
@@ -1857,6 +1882,15 @@ try:
 except Exception as e:
     print(f"  WARN KR Global B2B API hoteles directos failed: {e}")
     okr_globales_hoteles = {}
+# Vista "por GB" del mismo KR: va aparte y, si falla, no se escribe (el KR sigue en hoteles).
+try:
+    _gg = fetch(OKR_GLOBALES_GB_QUERY, "KR Global B2B API GB directos")
+    okr_globales_gb = {str(r.ym)[:7]: {"gb_dir_glob": float(r.gb_dir_glob or 0), "gb_tot_glob": float(r.gb_tot_glob or 0)}
+                       for r in _gg.itertuples()}
+    print(f"  GB: {okr_globales_gb}")
+except Exception as e:
+    print(f"  WARN KR Global B2B API GB directos failed: {e}")
+    okr_globales_gb = {}
 
 print("\n--- KR Global B2B API: Price Competitiveness ex-Latam (OKR H2) ---")
 # Igual que hoteles directos: si falla, okr_builder deja el valor de Input_OKR. Una entrada por semana ISO;
@@ -2179,6 +2213,7 @@ b2bc_payload = {
     "unique_buyers_total": unique_buyers_total,
     "unique_buyers_rolling": unique_buyers_rolling,   # {ym, desde, hasta, dias, valor} -> mes en curso del KR (okr_builder.py)
     "okr_globales_hoteles": okr_globales_hoteles,   # {'YYYY-MM': {dir_latam, dir_glob, tot_glob}} -> okr_builder.py
+    "okr_globales_gb": okr_globales_gb,             # {'YYYY-MM': {gb_dir_glob, gb_tot_glob}} -> okr_builder.py (vista por GB del KR % directos globales)
     "okr_price_competitiveness": okr_price_competitiveness,   # {'YYYY-WW': {lunes, pct, cerrada}} -> okr_builder.py
     "b2c":        b2c_compact,
     "b2c_ly":     b2c_ly_compact,

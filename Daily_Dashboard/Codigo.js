@@ -1488,13 +1488,15 @@ var GLOBALES_KRS_DEF = [
   { id:'price_competitiveness_ex_latam',  kr:'price competitiveness ex-latam (destino gl)',       name:'Price Competitiveness ex-Latam (Destino GL)',       weight:0.20, unit:'%', inverse:true,
     baseline:50, baseline_label:"Ago'26", medicion:'Medición a mes cerrado' }
 ];
+// Vista por GB de "% Hoteles Directos vendidos destino Globales" (okr_builder.py, 2026-11-04): fila extra de okr.json, sin target.
+var GLOBALES_GB_KR_LC = 'gb · % hoteles directos vendidos destino globales';
 var GLOBALES_MESES = ['2026-10','2026-11','2026-12','2027-01','2027-02','2027-03'];
 var GLOBALES_MESES_LABEL = ["Oct'26","Nov'26","Dic'26","Ene'27","Feb'27","Mar'27"];
 
 function getGlobalesKRTargets() {
   var file = DriveApp.getFileById(OKR_JSON_FILE_ID);
   var cache = CacheService.getScriptCache();
-  var key = 'globales_okr_v4_' + file.getLastUpdated().getTime();
+  var key = 'globales_okr_v5_' + file.getLastUpdated().getTime();
   var hit = cache.get(key);
   if (hit) { try { return JSON.parse(hit); } catch (e) {} }
   var j = JSON.parse(file.getBlob().getDataAsString());
@@ -1521,8 +1523,15 @@ function getGlobalesKRTargets() {
     });
     // el actual de NR lo calcula el cliente desde el daily (MTD); el del okr.json es mensual contable
     if (d.id === 'net_revenues_api_hoteles') actuals = {};
+    // vista por GB (solo este KR): mismo mes, mismo target; sin dato queda null
+    var actualsGb = null;
+    if (d.id === 'pct_hoteles_directos_globales') {
+      actualsGb = {};
+      var vg = vals[GLOBALES_GB_KR_LC] || { act: {} };
+      GLOBALES_MESES.forEach(function(ym) { actualsGb[ym] = (vg.act[ym] !== undefined) ? vg.act[ym] : null; });
+    }
     return { id: d.id, name: d.name, weight: d.weight, unit: d.unit, critical_ttpp: false,
-             inverse: !!d.inverse, targets: targets, actuals: actuals,
+             inverse: !!d.inverse, targets: targets, actuals: actuals, actuals_gb: actualsGb,
              baseline: d.baseline, baseline_label: d.baseline_label, medicion: d.medicion };
   });
   var payload = {
