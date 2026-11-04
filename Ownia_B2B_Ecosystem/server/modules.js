@@ -111,7 +111,8 @@ const MODULES = [
     // daily-ceo-weekly.js: "Weekly · vs B2C" (vista CEO) arriba del Benchmark y como slide del Flow; va antes de daily-embed.js (agrega la slide al deck).
     // daily-flow-minto.js (va última: toma el deck ya armado): en Presentaciones, resumen "La semana en 3 líneas", vista Ejecutiva /
     // Completa y títulos con la conclusión (Barbara Minto, 2026-10-30).
-    layout: ['daily-layout.js', 'daily-ceo-weekly.js', 'daily-embed.js', 'daily-flow-tier.js', 'daily-flow-slides.js', 'daily-flowdeck.js', 'daily-tracker-gslides.js', 'daily-tracker-weekly.js', 'daily-flow-minto.js', 'daily-flow-elecciones.js'],
+    // daily-excel.js: botón "Descargar Excel" de la solapa Daily (B2B2C diario por mes / país / partner), 2026-11-04.
+    layout: ['daily-layout.js', 'daily-ceo-weekly.js', 'daily-embed.js', 'daily-flow-tier.js', 'daily-flow-slides.js', 'daily-flowdeck.js', 'daily-tracker-gslides.js', 'daily-tracker-weekly.js', 'daily-flow-minto.js', 'daily-flow-elecciones.js', 'daily-excel.js'],
     // daily-resumen-semanal.js: getResumenSemanal, datos de la página "Resumen semanal" (server/resumen-semanal-page.js), 2026-11-02.
     gasExtras: ['daily-industry.js', 'daily-b2c-budget.js', 'daily-weekly-fvm.js', 'daily-resumen-semanal.js'],
     // Funciones que solo leen un JSON del espejo y devuelven lo mismo para todos: se cachea la respuesta ya comprimida (server/api-cache.js).
