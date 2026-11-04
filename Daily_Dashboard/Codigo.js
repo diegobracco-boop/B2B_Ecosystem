@@ -745,12 +745,12 @@ function requireOwner_(fn) {
 }
 
 function sendDailyEmail()          { requireOwner_('sendDailyEmail'); sendDailyEmail_(); }
-// Envío a destinatarios elegidos en el dashboard. Solo cuentas @despegar.com (el mail lleva
+// Envío a destinatarios elegidos en el dashboard. Solo cuentas @despegar.com / @hoteldo.com (el mail lleva
 // KPIs y se manda desde la cuenta que deployó): antes aceptaba cualquier dirección y se podía
 // llamar desde la consola del navegador (auditoría 2026-09-25).
 function sendDailyEmailTo(emails) {
   var ok = (emails || []).map(function(x) { return String(x || '').trim().toLowerCase(); })
-    .filter(function(x) { return /^[^@\s,;]+@despegar\.com$/.test(x); });
+    .filter(function(x) { return /^[^@\s,;]+@(despegar|hoteldo)\.com$/.test(x); });
   var bad = (emails || []).length - ok.length;
   if (!ok.length) throw new Error('Solo se puede enviar a direcciones @despegar.com / @hoteldo.com');
   if (ok.length > 20) throw new Error('Máximo 20 destinatarios por envío');
