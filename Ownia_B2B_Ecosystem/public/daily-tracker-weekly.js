@@ -29,6 +29,8 @@
     function tick() {
       tries++;
       try {
+        if (window.Chart && window.Chart.defaults) window.Chart.defaults.animation = false;
+        document.documentElement.setAttribute('data-theme', 'light');   // tema claro como el pptx; no se guarda en localStorage (no toca la preferencia de nadie)
         if (tries > 400) return post({ ready: false, error: 'el Daily no terminó de cargar' });
         if (typeof window.switchLob !== 'function' || typeof window.switchDateModel !== 'function') return setTimeout(tick, 500);
         if (step === 0) { window.switchLob('b2b'); step = 1; return setTimeout(tick, 800); }
@@ -44,7 +46,8 @@
         var cv = document.getElementById('b2b-mc-chart-fvm'), chart = cv && window.Chart && window.Chart.getChart(cv);
         var lb = chart && chart.data.labels && chart.data.labels[0];
         if (!chart || !chart.data.datasets.length || !/^W\d+/.test(String(Array.isArray(lb) ? lb[0] : lb))) return setTimeout(tick, 500);
-        setTimeout(function () { post({ ready: true, date: date }); }, 1200);   // que termine de dibujar
+        try { window._themeCache = null; window.renderB2BMetrics(window.state_b2b.allMetrics); } catch (e) { /* queda como está */ }   // vuelve a dibujar con el tema claro
+        setTimeout(function () { post({ ready: true, date: date }); }, 1500);
       } catch (e) { post({ ready: false, error: String(e && e.message || e) }); }
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { setTimeout(tick, 1500); }); else setTimeout(tick, 1500);
@@ -101,9 +104,9 @@
   function jpeg(c) { return c.toDataURL('image/jpeg', 0.9); }
   function pill(ctx, x, y, w, h, text, color, border) {
     ctx.save(); rr(ctx, x, y, w, h, 8); ctx.fillStyle = '#fff'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = border; ctx.stroke();
-    ctx.fillStyle = color; ctx.font = '700 13px Rubik, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, x + w / 2, y + h / 2 + 1); ctx.restore();
+    ctx.fillStyle = color; ctx.font = '700 17px Rubik, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, x + w / 2, y + h / 2 + 1); ctx.restore();
   }
-  function infoPill(ctx, dd, y) { if (dd.dmy) pill(ctx, 857 * 2, y * 2, 96 * 2, 18 * 2, 'Info. updated to ' + dd.dmy, '#595959', '#c9c9d4'); }
+  function infoPill(ctx, dd, y) { if (dd.dmy) pill(ctx, 797 * 2, y * 2, 156 * 2, 20 * 2, 'Info. updated to ' + dd.dmy, '#595959', '#c9c9d4'); }
 
   function drawCover() {
     var c = newCanvas(), ctx = c.getContext('2d');
@@ -157,7 +160,7 @@
   function drawFull(img, dd) {
     var c = newCanvas(), ctx = c.getContext('2d');
     ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
-    if (img) { fit(ctx, img, 0, 0, W, H, true); infoPill(ctx, dd, 40); }
+    if (img) { fit(ctx, img, 0, 0, W, H, true); infoPill(ctx, dd, 516); }
     else { ctx.fillStyle = '#C0392B'; ctx.font = '400 28px Rubik, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('No se pudo capturar esta slide', W / 2, H / 2); }
     return Promise.resolve(jpeg(c));
   }
@@ -176,7 +179,10 @@
     if (want.some(function (x) { return !x; })) throw new Error('el Tracker no tiene alguna de las slides necesarias');
     var tabBefore = typeof activeTab !== 'undefined' ? activeTab : null, slidesBefore = window._isSlidesMode, idxBefore = window._slideIdx, caps;
     SLIDE_ORDER.splice(0, SLIDE_ORDER.length, want[0], want[1], want[2], want[3]);
-    try { caps = await _captureAllSlides(function (d, t) { upd('Capturando el Tracker… ' + d + ' / ' + t); }, { jpeg: true }); }
+    try {
+      if (!window._isSlidesMode) toggleSlidesMode();
+      _goToSlide(0); await sleep(2500);   // que la primera slide se acomode al alto antes de capturar
+      caps = await _captureAllSlides(function (d, t) { upd('Capturando el Tracker… ' + d + ' / ' + t); }, { jpeg: true }); }
     finally {
       SLIDE_ORDER.splice(0, SLIDE_ORDER.length, ...orig);
       try { if (!slidesBefore && window._isSlidesMode) toggleSlidesMode(); if (tabBefore) { activeTab = tabBefore; document.querySelectorAll('.tab-btn').forEach(function (b) { b.classList.toggle('active', b.dataset.tab === tabBefore); }); render(); } } catch (e) { /* queda donde estaba */ }
@@ -190,7 +196,22 @@
     f.setAttribute('aria-hidden', 'true'); f.src = src; document.body.appendChild(f);
     return new Promise(function (res, rej) { f.onload = function () { res(f); }; f.onerror = function () { rej(new Error('no se pudo abrir ' + src)); }; });
   }
-  async function snap(el) { return canvasImg(await html2canvas(el, { scale: 1.5, backgroundColor: '#ffffff', useCORS: true, logging: false })); }
+  async function snap(el, fix) {
+    var cv = await html2canvas(el, { scale: 1.5, backgroundColor: '#ffffff', useCORS: true, logging: false });
+    if (fix) fix(cv, el, 1.5);
+    return canvasImg(cv);
+  }
+  // html2canvas dibuja mal el texto vertical (writing-mode) de "POS LATAM / POS NO-LATAM": se tapa y se vuelve a escribir rotado
+  function fixVertical(cv, root, k) {
+    var ctx = cv.getContext('2d'), rb = root.getBoundingClientRect();
+    [].forEach.call(root.querySelectorAll('.qd-row span'), function (sp) {
+      var r = sp.getBoundingClientRect(), x = (r.left - rb.left) * k, y = (r.top - rb.top) * k, w = r.width * k, h = r.height * k;
+      ctx.fillStyle = '#fff'; ctx.fillRect(x - 3, y - 3, w + 6, h + 6);
+      ctx.save(); ctx.translate(x + w / 2, y + h / 2); ctx.rotate(-Math.PI / 2);
+      ctx.fillStyle = '#6b6b85'; ctx.font = '700 ' + Math.round(10 * k) + 'px Poppins, Rubik, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(sp.textContent.trim().toUpperCase(), 0, 0); ctx.restore();
+    });
+  }
   function light(f) {                              // tablero en tema claro (como las capturas del pptx)
     var d = f.contentDocument; d.documentElement.setAttribute('data-theme', 'light'); d.dispatchEvent(new f.contentWindow.Event('themechange'));
   }
@@ -213,7 +234,7 @@
           var h = [].filter.call(d.querySelectorAll('h3'), function (e) { return /Hoteles pedidos por origen y destino/.test(e.textContent); })[0];
           return h && h.closest('.card') && h.closest('.card').querySelector('.qd-grid');
         }, 60000, 'Demanda');
-        await sleep(800); return await snap(card);
+        await sleep(800); return await snap(card, fixVertical);
       });
       // Venta: MTD por país y grupo de agencias (Abrir por Agencia · Ver Grupo · Comparar vs año pasado), un país por slide
       try {
