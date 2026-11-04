@@ -60,7 +60,7 @@ var OKR_CONFIG_H2 = {
     krs: [
       { kr: 'accelerate hunting partners api',                    label: 'Accelerate Hunting # Partners API',                  weight: 20, cumulative: true },
       { kr: 'hoteles directos vendidos destino latam',            label: 'Hoteles Directos vendidos destino LATAM',            weight: 15, cumulative: true },
-      { kr: '% hoteles directos vendidos destino globales',       label: '% Hoteles Directos vendidos destino Globales',       weight: 15, cumulative: true, pct: true },
+      { kr: '% hoteles directos vendidos destino globales',       label: '% Hoteles Directos vendidos destino Globales (GB)',  weight: 15, cumulative: true, pct: true },   // por GB desde 2026-11-04 (okrGlobalesPorGb_)
       { kr: 'net revenues api hoteles',                           label: 'Net Revenues API Hoteles',                           weight: 15 },
       { kr: 'new onboarded properties global & regional chains',  label: 'New Onboarded Properties Global & Regional Chains',  weight: 15, cumulative: true },
       { kr: 'price competitiveness ex-latam (destino gl)',        label: 'Price Competitiveness ex-Latam (Destino GL)',        weight: 20, cumulative: true, pct: true, inverse: true }
@@ -192,7 +192,7 @@ function applyOrganicOKR_(rows) {
 function readOKRJson_(fileId, cachePrefix) {
   var cache = CacheService.getScriptCache();
   var file  = DriveApp.getFileById(fileId || OKR_FILE_ID);
-  var cKey  = (cachePrefix || 'okr_json_v3_') + file.getLastUpdated().getTime();   // v3: cachea filas ya normalizadas con OKR_KR_ALIASES (H2)
+  var cKey  = (cachePrefix || 'okr_json_v4_') + file.getLastUpdated().getTime();   // v4: + KR % directos Globales por GB (okrGlobalesPorGb_)
   var hit   = cache.get(cKey);
   if (hit) { try { return JSON.parse(hit); } catch(e) {} }
 
@@ -212,8 +212,25 @@ function readOKRJson_(fileId, cachePrefix) {
     };
   });
 
+  rows = okrGlobalesPorGb_(rows);
   try { cache.put(cKey, JSON.stringify(rows), 21600); } catch(e) {}  // 6h; el key se invalida solo por ts
   return rows;
+}
+
+// "% Hoteles Directos vendidos destino Globales" se mide por GB desde el 2026-11-04 (Diego: baseline y target armados por GB).
+// OKR_H2_FY27.json ya lo trae así (okr_builder.py, _globales_pct_por_gb); okr.json no (lo lee el Tracker del Daily, que sigue
+// en hoteles): trae el KR en hoteles + la fila "GB · …". Cuando el Hub lee okr.json (respaldo de H2), el actual del KR pasa a
+// ser el de esa fila. Sin filas GB, queda en hoteles.
+var OKR_GLOBALES_PCT_KR_ = '% hoteles directos vendidos destino globales';
+var OKR_GLOBALES_GB_KR_  = 'gb · % hoteles directos vendidos destino globales';
+function okrGlobalesPorGb_(rows) {
+  var hasGb = rows.some(function(r) { return r.kr === OKR_GLOBALES_GB_KR_ && r.escenario === 'run rate/actuals'; });
+  if (!hasGb) return rows;
+  return rows.filter(function(r) {
+    return !(r.kr === OKR_GLOBALES_PCT_KR_ && r.escenario === 'run rate/actuals');
+  }).map(function(r) {
+    return r.kr === OKR_GLOBALES_GB_KR_ ? Object.assign({}, r, { kr: OKR_GLOBALES_PCT_KR_ }) : r;
+  });
 }
 
 // Calcular achievement por KR / período
