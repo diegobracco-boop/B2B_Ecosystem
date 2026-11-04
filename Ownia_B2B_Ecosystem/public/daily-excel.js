@@ -9,7 +9,9 @@
  *  - "Info": la selección, la fecha de datos y cómo leer los números.
  *
  * Datos: los mismos que ya cargó el Daily (_rawB2BC.actuals, con los alias de partner aplicados); no pide nada al
- * servidor. USD nominal: NO sigue el switch Organic (el pop-up avisa si la página está en Organic YES). Sigue los switches de la página: Partner TBD (b2bcRaw_) y COI Brasil (las filas
+ * servidor. Moneda (2026-11-04, Tiago: con Organic YES el Excel no coincidía con las métricas): por default como la
+ * página — con Organic YES los actuals van convertidos con el TC del goal elegido (b2bcRawOrg_), igual que las tarjetas —;
+ * el pop-up deja elegir USD nominal. Sigue los switches de la página: Partner TBD (b2bcRaw_) y COI Brasil (las filas
  * del país RG traen el ajuste COI Brasil cuando está en "Excluir"; con "Incluir" van en 0 y no se bajan).
  *
  * El .xlsx se arma acá mismo (Office Open XML + zip sin compresión): sin librerías ni CDN.
@@ -240,7 +242,7 @@
     I('Generado por el pipeline', meta.generated_at || '—');
     I('Filas de detalle', String(rows.length));
     info.rows.push([]);
-    I('Moneda', 'USD nominal (sin Organic): los montos tal cual los publica daily_sync.py.');
+    I('Moneda', opts.currency || 'USD nominal (Organic NO): los montos tal cual los publica daily_sync.py.');
     I('GB / NR / FVM', 'Gross Bookings, Net Revenue y FVM de actuals B2B2C (fecha de compra), sumados por día en "Resumen diario".');
     I('COI Brasil', opts.coiExcl
       ? 'Excluir (como la página): las filas del país "RG (ajuste COI Brasil)" restan el COI y el efecto financiero de Brasil del FVM; Brasil conserva su FVM completo.'
@@ -260,7 +262,26 @@
     return 'daily_b2b2c_' + sel.mes + '_' + p + '_' + q + '.xlsx';
   }
 
+  // Filas que baja el Excel según la moneda: 'page' = como la página (Organic YES convierte los actuals con el TC del
+  // goal elegido, igual que las métricas: b2bcRawOrg_ + _orgTargetB2BC_ de dashboard.html); 'nominal' = USD nominal.
+  // Devuelve { rows, organic: bool, currency: texto para la hoja Info } o null si la página no cargó.
+  function pageRows(win, mode) {
+    var base = typeof win.b2bcRaw_ === 'function' ? win.b2bcRaw_() : win._rawB2BC;
+    if (!base || !Array.isArray(base.actuals)) return null;
+    var target = typeof win._orgTargetB2BC_ === 'function' ? win._orgTargetB2BC_() : '';
+    if (mode !== 'nominal' && target && typeof win.b2bcRawOrg_ === 'function') {
+      var org = win.b2bcRawOrg_(target);
+      if (org && Array.isArray(org.actuals)) {
+        return { rows: org.actuals, organic: true, target: target, currency: 'Organic YES, como la página: actuals a ' + orgTcLabel(target) +
+          ' (TC Actuals / TC del goal, por país y mes; Orders y países sin TC no cambian). Montos con decimales: el formato de celda los redondea.' };
+      }
+    }
+    return { rows: base.actuals, organic: false, target: '', currency: 'USD nominal (Organic NO): los montos tal cual los publica daily_sync.py.' };
+  }
+  function orgTcLabel(target) { return target === 'ly' ? 'TC Actuals LY' : 'TC Budget'; }   // vs Forecast: también TC Budget
+
   var api = {
+    pageRows: pageRows, orgTcLabel: orgTcLabel,
     monthsOf: monthsOf, countriesOf: countriesOf, partnersOf: partnersOf, filterRows: filterRows,
     totals: totals, dailySummary: dailySummary, buildSheets: buildSheets, buildWorkbook: buildWorkbook,
     fileName: fileName, monthLabel: monthLabel, crc32: crc32, ALL: ALL
@@ -289,10 +310,6 @@
     '.dx-go:disabled{opacity:.5;cursor:default}'
   ].join('\n');
 
-  function rawRows() {
-    var raw = typeof root.b2bcRaw_ === 'function' ? root.b2bcRaw_() : root._rawB2BC;
-    return raw && Array.isArray(raw.actuals) ? raw.actuals : null;
-  }
   function opt(v, t, cur) { var o = document.createElement('option'); o.value = v; o.textContent = t; if (v === cur) o.selected = true; return o; }
   function fmt(n) { return '$' + Math.round(n).toLocaleString('en-US'); }
 
@@ -305,21 +322,23 @@
 
   function openPopup() {
     if (document.querySelector('.dx-back')) return;   // ya abierto
-    var rows = rawRows();
+    var pick = pageRows(root, 'page'), rows = pick && pick.rows;
     if (!rows) { alert('El Daily todavía está cargando los datos. Probá de nuevo en unos segundos.'); return; }
     var back = document.createElement('div');
     back.className = 'dx-back';
     back.innerHTML = '<div class="dx-pop" role="dialog" aria-modal="true" aria-labelledby="dx-t">' +
-      '<h3 id="dx-t">Descargar Excel · B2B2C</h3><p>Información transaccional diaria (GB, NR y FVM en USD nominal).</p>' +
+      '<h3 id="dx-t">Descargar Excel · B2B2C</h3><p>Información transaccional diaria: GB, NR y FVM por día.</p>' +
       '<label for="dx-mes">Mes</label><select id="dx-mes"></select>' +
       '<label for="dx-pais">País</label><select id="dx-pais"></select>' +
       '<label for="dx-partner">Partner</label><select id="dx-partner"></select>' +
       (otherFilters() ? '<div class="dx-org">El Excel no aplica los filtros de producto ni Existing / New que tenés en la página: baja todos.</div>' : '') +
-      (root._dlOrganic ? '<div class="dx-org">La página está en Organic YES: el Excel baja USD nominal (Organic NO), así que en países con moneda local puede no coincidir con lo que ves en pantalla.</div>' : '') +
+      (pick.organic ? '<label for="dx-mon">Moneda</label><select id="dx-mon"><option value="page">Como la página · Organic YES (' + orgTcLabel(pick.target) + ')</option>' +
+        '<option value="nominal">USD nominal · Organic NO</option></select>' : '<label>Moneda</label><div class="dx-sum" style="margin-top:0">USD nominal · Organic NO (como la página)</div>') +
       '<div class="dx-sum" id="dx-sum"></div>' +
       '<div class="dx-act"><button type="button" class="dx-cancel">Cancelar</button><button type="button" class="dx-go">' + ICON + ' Descargar</button></div></div>';
     document.body.appendChild(back);
     var $ = function (id) { return back.querySelector('#' + id); };
+    var sMon = $('dx-mon');
     var sMes = $('dx-mes'), sPais = $('dx-pais'), sPartner = $('dx-partner'), sum = $('dx-sum'), go = back.querySelector('.dx-go');
 
     // Arranca con lo que ya está filtrado en la página si es un solo país / un partner.
@@ -355,6 +374,7 @@
     sMes.onchange = function () { fillPais(); fillPartner(); preview(); };
     sPais.onchange = function () { fillPartner(); preview(); };
     sPartner.onchange = preview;
+    if (sMon) sMon.onchange = function () { pick = pageRows(root, sMon.value); rows = pick.rows; preview(); };
 
     function close() { document.removeEventListener('keydown', onKey); back.remove(); }
     function onKey(e) { if (e.key === 'Escape') close(); }
@@ -365,7 +385,7 @@
       var s = sel();
       var bytes = buildWorkbook({
         rows: rows, sel: s, meta: (root._rawB2BC && root._rawB2BC.meta) || {},
-        coiExcl: root._exCoiBr !== false, tbdExcl: !!root._b2bcExclTBD
+        coiExcl: root._exCoiBr !== false, tbdExcl: !!root._b2bcExclTBD, currency: pick.currency
       });
       var blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
       var a = document.createElement('a');

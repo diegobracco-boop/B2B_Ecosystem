@@ -204,3 +204,61 @@ test('datos reales del Daily (si está el espejo local)', { skip: !real && 'sin 
     }
   }
 });
+
+// Organic (2026-11-04: Tiago bajó Argentina noviembre y el Excel daba GB 2,83M contra $2,63M en la tarjeta, porque la
+// página estaba en Organic YES y el Excel bajaba nominal). Se corre el código de Organic del propio dashboard.html
+// (_orgFactor_, _orgRows_, b2bcRawOrg_…) con una tabla de TC de prueba, y el Excel con moneda "como la página" tiene que
+// dar lo mismo que suma la página; con "nominal", los montos crudos.
+const { GAS_ROOT } = require('../server/config');
+const DASH = path.join(GAS_ROOT, 'Daily_Dashboard', 'dashboard.html');
+test('moneda como la página (Organic YES): mismos GB / NR / FVM que la página', () => {
+  const html = fs.readFileSync(DASH, 'utf8');
+  const a = html.indexOf('var _dlOrganic = false;'), b = html.indexOf('function setDailyOrganic(');
+  assert.ok(a > 0 && b > a, 'bloque Organic en dashboard.html');
+  const page = { Object, WeakMap, String, TextEncoder };
+  page.window = page;
+  vm.createContext(page);
+  vm.runInContext(html.slice(a, b), page, { filename: 'dashboard.html#organic' });
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'public', 'daily-excel.js'), 'utf8'), page, { filename: 'daily-excel.js' });
+  // TC (moneda local por USD): Argentina se devaluó contra el Budget → factor actuals/budget = 0,93
+  vm.runInContext(`
+    _rawB2BC = { actuals: ${JSON.stringify(ROWS)}, meta: ${JSON.stringify(META)} };
+    function b2bcRaw_() { return _rawB2BC; }
+    var _b2bcComparison = 'budget';
+    _dlOrganic = true;
+    _fxTbl = {
+      actuals:  { 'argentina§2026-09': 930, 'argentina§2026-10': 1000, 'brasil§2026-09': 5.5, 'brasil§2026-10': 5.5,
+                  'argentina§2025-09': 800, 'argentina§2025-10': 850, 'brasil§2025-09': 5, 'brasil§2025-10': 5 },
+      budget:   { 'argentina§2026-09': 1000, 'argentina§2026-10': 1000, 'brasil§2026-09': 5, 'brasil§2026-10': 5 },
+      forecast: {}
+    };`, page);
+  const X2 = page.DailyExcel;
+  const pick = X2.pageRows(page, 'page');
+  assert.equal(pick.organic, true);
+  assert.match(pick.currency, /Organic YES.*TC Budget/);
+  const close = (x, y, msg) => assert.ok(Math.abs(x - y) < 1e-6, `${msg}: ${x} vs ${y}`);
+  for (const sel of [{ mes: '2026-09', pais: 'Argentina', partner: 'all' }, { mes: '2026-09', pais: 'Brasil', partner: 'Livelo' },
+    { mes: '2026-09', pais: 'all', partner: 'all' }]) {
+    // Lo que suma la página: filas organic de b2bcRawOrg_ (las de las tarjetas MTD), mismo filtro de mes/país/partner
+    const org = page.b2bcRawOrg_(page._orgTargetB2BC_()).actuals.filter((r) => r.fecha.startsWith(sel.mes)
+      && (sel.pais === 'all' || r.pais === sel.pais) && (sel.partner === 'all' || r.partner === sel.partner));
+    const want = { gb: 0, nr: 0, fvm: 0 };
+    org.forEach((r) => { want.gb += r.gross_bookings; want.nr += r.net_revenues; want.fvm += r.fvm; });
+    const book = readXlsx(X2.buildWorkbook({ rows: pick.rows, sel, meta: META, currency: pick.currency }));
+    const tot = book['Resumen diario'].at(-1);
+    close(tot[2], want.gb, `GB ${sel.pais}`); close(tot[3], want.nr, `NR ${sel.pais}`); close(tot[4], want.fvm, `FVM ${sel.pais}`);
+    const info = Object.fromEntries(book.Info.filter((r) => r.length === 2));
+    assert.match(info.Moneda, /Organic YES/);
+  }
+  // Argentina sep: 300 / 25 / 9 nominal × 0,93
+  const ar = readXlsx(X2.buildWorkbook({ rows: pick.rows, sel: { mes: '2026-09', pais: 'Argentina', partner: 'all' }, meta: META }));
+  close(ar['Resumen diario'].at(-1)[2], 279, 'GB AR organic'); close(ar['Resumen diario'].at(-1)[3], 23.25, 'NR AR organic');
+  // Nominal: los montos crudos
+  const nom = X2.pageRows(page, 'nominal');
+  assert.equal(nom.organic, false);
+  const arN = readXlsx(X2.buildWorkbook({ rows: nom.rows, sel: { mes: '2026-09', pais: 'Argentina', partner: 'all' }, meta: META }));
+  assert.equal(arN['Resumen diario'].at(-1)[2], 300);
+  // Organic NO en la página: "como la página" = nominal
+  vm.runInContext('_dlOrganic = false;', page);
+  assert.equal(X2.pageRows(page, 'page').organic, false);
+});
