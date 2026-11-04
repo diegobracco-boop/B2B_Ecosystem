@@ -167,28 +167,25 @@
   function canvasImg(cv) { return loadImg(cv.toDataURL('image/png')); }
 
   // ── Capturas ──
-  // Slides del propio Tracker: se reemplaza por un momento el contenido de SLIDE_ORDER por las que hacen falta (const: se muta, no se reasigna).
+  // Slides del propio Tracker. Se capturan en una copia limpia del Tracker (iframe oculto): en la página principal, con el export en curso, las
+  // slides de KRs (zoom + foreignObject) salían cortadas; en una página recién abierta salen bien. Dentro de la copia se reemplaza por un momento el
+  // contenido de SLIDE_ORDER por las slides que hacen falta (es const: se muta, no se reasigna) y se usa la misma captura del modo Slides.
+  var TRACKER_CAPTURE = '(async function () {' +
+    ' var orig = SLIDE_ORDER.slice(), f = function (g) { return orig.filter(g)[0]; };' +
+    ' var want = [f(function (s) { return s.tab === "agencias_h2" && s.krChannel === "api"; }), f(function (s) { return s.tab === "globales"; }),' +
+    '   f(function (s) { return s.tab === "tables_gd" && s.channel === "API"; }), f(function (s) { return s.tab === "tables_ri" && s.channel === "API"; })];' +
+    ' if (want.some(function (x) { return !x; })) throw new Error("el Tracker no tiene alguna de las slides necesarias");' +
+    ' SLIDE_ORDER.splice(0, SLIDE_ORDER.length, want[0], want[1], want[2], want[3]);' +
+    ' try { return await _captureAllSlides(null, { jpeg: true }); } finally { SLIDE_ORDER.splice(0, SLIDE_ORDER.length, ...orig); }' +
+    '})()';
   async function captureTracker() {
-    var orig = SLIDE_ORDER.slice(), find = function (f) { return orig.filter(f)[0]; };
-    var want = [
-      find(function (s) { return s.tab === 'agencias_h2' && s.krChannel === 'api'; }),
-      find(function (s) { return s.tab === 'globales'; }),
-      find(function (s) { return s.tab === 'tables_gd' && s.channel === 'API'; }),
-      find(function (s) { return s.tab === 'tables_ri' && s.channel === 'API'; })
-    ];
-    if (want.some(function (x) { return !x; })) throw new Error('el Tracker no tiene alguna de las slides necesarias');
-    var tabBefore = typeof activeTab !== 'undefined' ? activeTab : null, slidesBefore = window._isSlidesMode, idxBefore = window._slideIdx, caps;
-    SLIDE_ORDER.splice(0, SLIDE_ORDER.length, want[0], want[1], want[2], want[3]);
+    var f = await hiddenFrame('/b2b-ecosystem/daily?view=tracker&organic=1&coibr=excl'), w = f.contentWindow;
     try {
-      // Con el panel de progreso encima, la captura de las slides de KRs (zoom + foreignObject) salía cortada: se oculta mientras se captura.
-      try { hideExportOverlay(); } catch (e) { /* sin panel */ }
-      caps = await _captureAllSlides(null, { jpeg: true }); }
-    finally {
-      try { showExportOverlay('Capturando el Dashboard B2B API…'); } catch (e) { /* sin panel */ }
-      SLIDE_ORDER.splice(0, SLIDE_ORDER.length, ...orig);
-      try { if (!slidesBefore && window._isSlidesMode) toggleSlidesMode(); if (tabBefore) { activeTab = tabBefore; document.querySelectorAll('.tab-btn').forEach(function (b) { b.classList.toggle('active', b.dataset.tab === tabBefore); }); render(); } } catch (e) { /* queda donde estaba */ }
-    }
-    return Promise.all(caps.map(function (c) { return c && c.img ? loadImg(c.img) : null; }));
+      await until(function () { return typeof w._captureAllSlides === 'function' && w.eval('typeof rawData !== "undefined" && !!rawData'); }, 120000, 'el Tracker');
+      await sleep(1500);
+      var caps = await w.eval(TRACKER_CAPTURE);
+      return await Promise.all(caps.map(function (c) { return c && c.img ? loadImg(c.img) : null; }));
+    } finally { f.remove(); }
   }
 
   function hiddenFrame(src) {
