@@ -15,6 +15,8 @@
  *    el YoY compara el promedio diario (marcado con †).
  *  - Debajo de la tabla de B2B2C (2026-11-03): apertura por partner × día de evento (partnerTableHtml), con la métrica
  *    y el país elegidos. B2B no tiene partner en los datos del Daily.
+ *  - Participación vs B2C por día (2026-11-04, Tiago): en el detalle por día y en las tarjetas, línea / (línea + B2C)
+ *    en el mismo día de evento, con el cambio en pp vs el año pasado (partCell / partOf).
  */
 (function () {
   'use strict';
@@ -544,6 +546,7 @@
     var ks = groupStats(st.lob, { pairs: pairs }), kb = withB2c ? groupStats(st.lob, { pairs: pairs }, 'b2c') : null;
     var gap = kb && ks.yoy != null && kb.yoy != null ? ks.yoy - kb.yoy : null;
     var bdK = ks.cy != null ? segBudgetToDate(st.lob, pairs) : null, vbK = bdK ? pct(ks.cy, bdK) : null;
+    var pcK = kb ? partOf(ks.cy, kb.cy) : null, plK = kb ? partOf(ks.ly, kb.ly) : null, dpK = pcK != null && plK != null ? pcK - plK : null;
     var mName = METRICS.filter(function (m) { return m[0] === st.metric; })[0][1];
     var noMatch = pairs.some(function (p) { return !p.ly.match; });
     var kpis = s0.k === 'next'
@@ -552,6 +555,8 @@
         '<div class="iet-kpi-sub">' + fmtMoney(ks.cy) + ' vs ' + fmtMoney(ks.ly) + ' en ' + (y - 1) + (live ? ' (mismos días)' : '') + '</div></div>' +
         (withB2c ? '<div class="iet-kpi"><div class="iet-kpi-lbl">vs B2C</div><div class="iet-kpi-v ' + (gap == null ? '' : gap < -2 ? 'iet-neg' : gap >= 0 ? 'iet-pos' : '') + '">' +
           fmtPp(gap) + '</div><div class="iet-kpi-sub">B2C ' + yoyHtml(kb) + ' YoY</div></div>' : '') +
+        (withB2c && pcK != null ? '<div class="iet-kpi"><div class="iet-kpi-lbl">Participación vs B2C' + (live ? ' · a la fecha' : '') + '</div><div class="iet-kpi-v">' + pcK.toFixed(1) + '%</div>' +
+          '<div class="iet-kpi-sub"><span class="' + pctCls(dpK) + '">' + fmtPp(dpK) + '</span> vs ' + (y - 1) + (plK != null ? ' (' + plK.toFixed(1) + '%)' : '') + '</div></div>' : '') +
         (vbK != null ? '<div class="iet-kpi"><div class="iet-kpi-lbl">vs Budget' + (live ? ' · a la fecha' : '') + '</div><div class="iet-kpi-v ' + pctCls(vbK) + '">' + fmtPct(vbK) + '</div><div class="iet-kpi-sub">Budget ' + fmtMoney(bdK) + '</div></div>' : '') +
         (live ? '<div class="iet-kpi"><div class="iet-kpi-lbl">' + (y - 1) + ' evento completo</div><div class="iet-kpi-v iet-dim">' + fmtMoney(ks.lyFull) + '</div><div class="iet-kpi-sub">' + pairs[0].cy.dias + ' días de evento</div></div>' : '');
     var days = segTablesHtml(pairs, y);
@@ -559,7 +564,7 @@
     if (noMatch || days.noMatch) foot.push('* Sin ese evento el año pasado' + (single ? '' : ' en algún país') + ': se compara contra las mismas fechas −364 días (mismo día de la semana).');
     if (ks.perDay || days.perDay) foot.push('† El evento dura distinto que el año pasado: el YoY compara el promedio diario.');
     if (live) foot.push('En curso: ' + y + ' a la fecha vs los mismos días de evento de ' + (y - 1) + '.');
-    foot.push('vs Budget = real vs Budget diario del Daily en los mismos días (B2C no tiene Budget diario). vs B2C = YoY de la línea menos YoY de B2C en los mismos días (pp). Share = % del total B2B2C + B2B MIN + B2B API + B2C; en el detalle por día solo se calcula si las cuatro líneas tienen dato. B2B en base GD.');
+    foot.push('vs Budget = real vs Budget diario del Daily en los mismos días (B2C no tiene Budget diario). vs B2C = YoY de la línea menos YoY de B2C en los mismos días (pp). Participación vs B2C = la línea / (la línea + B2C) en los mismos días, con su cambio en pp vs el mismo día de evento de ' + (y - 1) + '. Share = % del total B2B2C + B2B MIN + B2B API + B2C; en el detalle por día solo se calcula si las cuatro líneas tienen dato. B2B en base GD.');
     if (days.fallback.length) foot.push('Sin este evento en su calendario, ' + days.fallback.join(' y ') + ' usa las fechas del calendario elegido.');
     var h = '<div class="tcard iet-card"><div class="card-hdr"><span class="card-ttl">' + esc(title) + ' ' + statusHtml(pairs[0]) + '</span><span class="bench-sub">' + esc(sub) + '</span></div>' +
       headlineHtml(g, pairs, ks, kb, gap, y, vbK) +
@@ -586,6 +591,18 @@
       })[0];
       return m || { cy: p.cy, ly: p.ly, fallback: true };
     });
+  }
+
+  // Participación vs B2C (2026-11-04, Tiago): peso de la línea sobre línea + B2C en los mismos días, y su
+  // cambio en pp contra el mismo día de evento del año pasado ("15.4% / +2.5 pp vs 2025"). Sin dato de este
+  // año (días que no pasaron), la del año pasado en gris.
+  function partOf(a, b) { return a == null || b == null || a + b <= 0 ? null : a / (a + b) * 100; }
+  function partCell(c, bc, l, bl, y) {
+    var pc = partOf(c, bc), pl = partOf(l, bl);
+    if (pc == null) return '<td class="iet-share iet-dim">' + (pl == null ? '—' : pl.toFixed(1) + '%') + '</td>';
+    var d = pl == null ? null : pc - pl;
+    return '<td class="iet-share"><b>' + pc.toFixed(1) + '%</b><span class="iet-pyoy"><span class="' + pctCls(d) + '">' + fmtPp(d) + '</span> vs ' + (y - 1) +
+      (pl == null ? '' : ' (' + pl.toFixed(1) + '%)') + '</span></td>';
   }
 
   function shareCell(v, tot) {
@@ -623,7 +640,7 @@
       var h = '<div class="iet-seg"><div class="iet-seg-ttl">' + esc(x.s.lbl) + '</div>' +
         '<div class="iet-tbl-wrap"><table class="iet-tbl iet-days"><thead><tr><th class="l">Día</th>' +
         (single ? '<th class="l">Fecha ' + y + '</th>' : '') + '<th>' + y + '<span class="iet-pyoy">YoY / vs Budget</span></th>' +
-        (single ? '<th class="l">Fecha ' + (y - 1) + '</th>' : '') + '<th>' + (y - 1) + '</th>' + (hasBud ? '<th>Budget</th>' : '') + '<th>YoY acumulado</th>' + (withB2c ? '<th>YoY B2C</th>' : '') +
+        (single ? '<th class="l">Fecha ' + (y - 1) + '</th>' : '') + '<th>' + (y - 1) + '</th>' + (hasBud ? '<th>Budget</th>' : '') + '<th>YoY acumulado</th>' + (withB2c ? '<th>YoY B2C</th><th class="iet-share" title="' + esc(x.s.lbl) + ' / (' + esc(x.s.lbl) + ' + B2C) en el mismo día, y su cambio vs el mismo día de evento de ' + (y - 1) + '">Part. vs B2C<span class="iet-pyoy">Δ pp vs ' + (y - 1) + '</span></th>' : '') +
         '<th class="iet-share">Share ' + (y - 1) + '</th><th class="iet-share">Share ' + y + '</th></tr></thead><tbody>';
       pos.forEach(function (o, i) {
         var v = perPos[i].vals[si], t = perPos[i].tot, b = seriesAt('b2c', ps, o), bd = hasBud ? budgetAt(key, ps, o) : null;
@@ -649,7 +666,7 @@
           (single ? '<td class="l iet-dim">' + fmtDay(dateAt(single.ly, o)) + '</td>' : '') +
           '<td>' + fmtMoney(v.ly) + '</td>' + (hasBud ? '<td class="iet-dim">' + fmtMoney(bd) + '</td>' : '') +
           '<td class="' + pctCls(acc) + '">' + fmtPct(acc) + '</td>' +
-          (withB2c ? '<td class="' + pctCls(yb) + '">' + fmtPct(yb) + '</td>' : '') +
+          (withB2c ? '<td class="' + pctCls(yb) + '">' + fmtPct(yb) + '</td>' + partCell(v.cy, b.cy, v.ly, b.ly, y) : '') +
           shareCell(lyDay(t) ? v.ly : null, t.ly) + shareCell(t.cy == null ? null : v.cy, t.cy) + '</tr>';
       });
       var ks = groupStats(key, { pairs: ps }), kb = groupStats(key, { pairs: ps }, 'b2c');
@@ -657,7 +674,7 @@
       h += '<tr class="iet-total"><td class="l">' + (liveSeg ? 'Total a la fecha' : 'Total evento') + '</td>' + (single ? '<td></td>' : '') +
         '<td>' + fmtMoney(ks.cy) + (ks.cy != null ? subYB(ks.cy, ks.ly, hasBud ? bdM : null) : '') + '</td>' +
         (single ? '<td></td>' : '') + '<td>' + fmtMoney(ks.ly) + '</td>' + (hasBud ? '<td>' + fmtMoney(ks.cy != null ? bdM : bdAll) + '</td>' : '') + '<td></td>' +
-        (withB2c ? '<td class="' + pctCls(kb.yoy) + '">' + yoyHtml(kb) + '</td>' : '') + shareCell(tot.ly ? shL : null, tot.ly) + shareCell(tot.cy ? shC : null, tot.cy) + '</tr>';
+        (withB2c ? '<td class="' + pctCls(kb.yoy) + '">' + yoyHtml(kb) + '</td>' + partCell(ks.cy, kb.cy, ks.ly, kb.ly, y) : '') + shareCell(tot.ly ? shL : null, tot.ly) + shareCell(tot.cy ? shC : null, tot.cy) + '</tr>';
       out.html += h + '</tbody></table></div></div>';
       if (key === 'b2b2c') out.html += partnerTableHtml(ps, pos, y);
     });
