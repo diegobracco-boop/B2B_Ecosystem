@@ -1,5 +1,5 @@
 {
- "periodo": "H2'26",
+ "periodo": "H2'27",
  "actualizado": "2026-11-04",
  "nota": "Snapshot: deals de HubSpot en etapa Pipeline con cierre oct-26 a mar-27 (query de Pipeline B2B2C) + Mercado Pago cargado a mano (WL Cashback, escenario neutro). amount = NR Y3 del deal; fvm_ratio = FVM/NR de HubSpot (null si no tiene). Los totales fijos y el evolutivo se cargaron a mano.",
  "totales": {

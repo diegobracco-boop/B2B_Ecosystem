@@ -162,7 +162,8 @@
     var body = [{ kind: 'minto_summary', name: 'La semana en 3 líneas' }]
       .concat(pick(function (d) { return d.kind === 'cover'; }))
       .concat(pick(function (d) { return d.kind === 'okr' && !d.open && (d.metric === 'nr' || d.metric === 'fvm'); }))
-      .concat(pick(function (d) { return d.kind === 'b2b2c_krs'; }));
+      // Pipeline Hunting (2026-11-04): va pegada a Status KRs, en las dos vistas (si no, cae en el Anexo)
+      .concat(pick(function (d) { return d.kind === 'b2b2c_krs' || d.kind === 'b2b2c_pipeline'; }));
     var cmpL = compLbl();
     flaggedRegions().forEach(function (f) {
       body.push({ kind: 'divider', region: f.r, title: '¿Por qué ' + regLbl(f.r) + ' viene ' + pc(f.p) + ' vs ' + cmpL + '?', name: '— ' + regLbl(f.r) + ' ' + pc(f.p) + ' —' });

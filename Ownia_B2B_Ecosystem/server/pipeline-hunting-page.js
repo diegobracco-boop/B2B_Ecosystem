@@ -1,4 +1,4 @@
-// "Pipeline Hunting" (2026-11-04): todos los deals del pipeline B2B2C H2'26 en una tabla, con un "+ Otros" que suma lo que falta para llegar
+// "Pipeline Hunting" (2026-11-04): todos los deals del pipeline B2B2C H2'27 en una tabla, con un "+ Otros" que suma lo que falta para llegar
 // a los totales de NR y FVM H2'27 (4,1 M y 1,5 M). Los montos los arma server/pipeline-slide.js (el mismo modelo de la slide del Flow).
 const { shell, escapeHtml, CHEVRON_L } = require('./index-page');
 

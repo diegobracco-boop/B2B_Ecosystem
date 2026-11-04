@@ -23,7 +23,7 @@ import pandas as pd
 BASE = Path(__file__).resolve().parent
 SQL_FILE = BASE / "pipeline_b2b2c.sql"
 FILE_NAME = "pipeline_b2b2c.json"          # en la carpeta del Daily de Drive; /ingest lo acepta por drive-manifest.json
-PERIODO = "H2'26"
+PERIODO = "H2'27"
 
 MANUAL_DEALS = [
     # amount = NR Y3 del escenario neutro; fvm_ratio = FVM Y3 / NR Y3 (693.194 / 2.626.594)

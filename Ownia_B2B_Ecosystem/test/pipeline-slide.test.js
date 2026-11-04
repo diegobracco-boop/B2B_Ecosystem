@@ -16,7 +16,7 @@ test('rampa: el mes del ETD cuenta como mes 1 (coincide con la tabla de Metabase
 test('con los datos cargados: 36 deals, totales fijos 4,1 M / 1,5 M y Mercado Pago en el top', () => {
   const m = loadPipelineModel();
   assert.equal(m.all.length, 36);
-  assert.equal(m.title, "B2B2C Pipeline | +36 deals with +4,1M USD Net Revenues H2'26");
+  assert.equal(m.title, "B2B2C Pipeline | +36 deals with +4,1M USD Net Revenues H2'27");
   assert.deepEqual(m.kpis.map((x) => x.v).slice(0, 3), ['36', '+4,1 M', '+1,5 M']);
   assert.equal(m.rows.length, 12);
   assert.equal(m.rows[0].partner, 'Cencosud');
@@ -50,7 +50,7 @@ test('sin totales fijos, los totales salen de los deals y "Otros" de la slide es
 });
 
 const storeWith = (buf) => ({ findByName: (folder, name) => (folder === DAILY_FOLDER_ID && name === STORE_FILE_NAME && buf ? [{ buf }] : []) });
-const raw = { periodo: "H2'26", actualizado: '2026-11-05', totales: { nr_h2: 1000000, fvm_h2: 400000 },
+const raw = { periodo: "H2'27", actualizado: '2026-11-05', totales: { nr_h2: 1000000, fvm_h2: 400000 },
   deals: [{ name: 'Nuevo', cierre: '2026-11', pais: 'Chile', amount: 2000000, fvm_ratio: 0.4 }] };
 
 test('si Actualizar reales publicó el archivo, el modelo sale de ahí (no de la foto del repo)', () => {

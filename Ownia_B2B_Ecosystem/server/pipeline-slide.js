@@ -49,7 +49,7 @@ function buildPipelineModel(data, { top = 12 } = {}) {
   const ev = data.evolutivo || [];
   const [d, m, y] = (data.actualizado || '').split('-').reverse();
   return {
-    title: 'B2B2C Pipeline | +' + all.length + ' deals with ' + mm(totNr).replace(' M', 'M') + ' USD Net Revenues ' + (data.periodo || "H2'26"),
+    title: 'B2B2C Pipeline | +' + all.length + ' deals with ' + mm(totNr).replace(' M', 'M') + ' USD Net Revenues ' + (data.periodo || "H2'27"),
     updated: data.actualizado ? [d, m, y].join('.') : '',
     kpis: [{ v: String(all.length), l: 'Deals en pipeline' }, { v: mm(totNr), l: "NR H2'27 USD" }, { v: mm(totFvm), l: "FVM H2'27 USD" }, { v: mm(totY3), l: 'NR Y3 USD' }],
     chart: { label: data.evolutivo_label || 'FVM [k USD]', months: ev.map((e) => ({ label: e.mes, v: e.k, txt: e.k >= 1000 ? dec(Math.round(e.k / 100) / 10) + 'M' : e.k + 'k', deals: e.deals })) },
@@ -60,7 +60,7 @@ function buildPipelineModel(data, { top = 12 } = {}) {
     // Página "Pipeline Hunting": todos los deals y un "+ Otros" con lo que falta para llegar a 4,1 M y 1,5 M.
     all,
     otrosAll: { label: '+ Otros', nr: k(totNr - sum(all, 'nr')), fvm: k(totFvm - sum(all, 'fvm')), nrRaw: totNr - sum(all, 'nr'), fvmRaw: totFvm - sum(all, 'fvm') },
-    periodo: data.periodo || "H2'26",
+    periodo: data.periodo || "H2'27",
   };
 }
 
