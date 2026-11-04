@@ -1592,7 +1592,7 @@ function exportToGoogleSlides(payload) {
 
 // Weekly B2B-MAY (flow del Tracker, 2026-11-04): SIEMPRE pisa esta otra presentación fija con las 14 slides del deck (portada, separadores y
 // contenido, cada una como imagen 16:9). Las arma el navegador (public/daily-tracker-weekly.js) y llegan por doPost desde el servidor de Ownia.
-var WEEKLY_SLIDES_PRESENTATION_ID = 'REEMPLAZAR_CON_EL_ID_DE_LA_PRESENTACION_WEEKLY';
+var WEEKLY_SLIDES_PRESENTATION_ID = '1F_eCMgsSX3jraII23u5jR0lxbfLZG8OHGcfG5OH-91k';
 
 function exportWeeklyToGoogleSlides(payload) {
   if (/^REEMPLAZAR/.test(WEEKLY_SLIDES_PRESENTATION_ID)) throw new Error('Falta configurar WEEKLY_SLIDES_PRESENTATION_ID en Codigo.js del Daily.');
