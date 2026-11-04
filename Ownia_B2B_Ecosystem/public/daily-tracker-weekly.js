@@ -197,43 +197,53 @@
 
   // Dashboard B2B API: todas con Organic YES y COI Brasil Excluir (los defaults del tablero, fijados igual)
   async function captureDash() {
-    var f = await hiddenFrame(DASH + '#venta'), w = f.contentWindow, d = f.contentDocument, out = {};
+    var out = { demanda: null, venta: {}, producto: null };
+    var f = await hiddenFrame(DASH + '#venta'), w = f.contentWindow, d = f.contentDocument;
+    // cada parte va aparte: si una falla (queda como placeholder) no se pierden las demás
+    async function part(what, fn) { try { return await fn(); } catch (e) { console.warn('[weekly] ' + what + ':', e); return null; } }
     try {
       await until(function () { return w.B2B && w.B2B.tabs && w.B2B.tabs.venta && w.B2B.state; }, 60000, 'el Dashboard B2B API');
       light(f);
       var B = w.B2B;
       // Demanda: las cuatro tarjetas de "Hoteles pedidos por origen y destino · MTD"
       upd('Capturando Demanda…');
-      B.showTab('demanda', false); light(f);
-      var card = await until(function () {
-        var h = [].filter.call(d.querySelectorAll('h3'), function (e) { return /Hoteles pedidos por origen y destino/.test(e.textContent); })[0];
-        return h && h.closest('.card') && h.closest('.card').querySelector('.qd-grid');
-      }, 60000, 'Demanda');
-      await sleep(800); out.demanda = await snap(card);
+      out.demanda = await part('Demanda', async function () {
+        B.showTab('demanda', false); light(f);
+        var card = await until(function () {
+          var h = [].filter.call(d.querySelectorAll('h3'), function (e) { return /Hoteles pedidos por origen y destino/.test(e.textContent); })[0];
+          return h && h.closest('.card') && h.closest('.card').querySelector('.qd-grid');
+        }, 60000, 'Demanda');
+        await sleep(800); return await snap(card);
+      });
       // Venta: MTD por país y grupo de agencias (Abrir por Agencia · Ver Grupo · Comparar vs año pasado), un país por slide
-      B.showTab('venta', false); light(f);
-      await until(function () { return d.querySelector('.tcard'); }, 60000, 'Venta');
-      [['vista', 'gd'], ['comp', 'budget'], ['org', 'yes'], ['coi', 'excl'], ['apertura', 'ag'], ['agrp', 'grp'], ['vshare', 'ly'], ['gran', 'd'], ['prod', 'all']].forEach(function (kv) { B.set(kv[0], kv[1]); });
-      B.state.mDesde = ''; B.state.mHasta = '';
-      out.venta = {};
+      try {
+        B.showTab('venta', false); light(f);
+        await until(function () { return d.querySelector('.tcard'); }, 60000, 'Venta');
+        [['vista', 'gd'], ['comp', 'budget'], ['org', 'yes'], ['coi', 'excl'], ['apertura', 'ag'], ['agrp', 'grp'], ['vshare', 'ly'], ['gran', 'd'], ['prod', 'all']].forEach(function (kv) { B.set(kv[0], kv[1]); });
+        B.state.mDesde = ''; B.state.mHasta = '';
+      } catch (e) { console.warn('[weekly] Venta:', e); }
       for (var i = 0; i < PAISES.length; i++) {
         upd('Capturando Venta · ' + PAISES[i].label + '…');
-        var opt = [].filter.call(d.querySelectorAll('select[data-key="dpais"] option'), function (o) { return o.textContent.trim() === PAISES[i].label; })[0];
-        if (!opt) { out.venta[PAISES[i].label] = null; continue; }
-        B.set('dpais', opt.value); light(f);
-        await until(function () { return d.querySelector('.mt-grid'); }, 30000, 'la tabla de ' + PAISES[i].label);
-        await sleep(1200);
-        var row = d.querySelector('.mt-col tr.bk-row-group');   // abre el país (no "Expandir todo": eso abre cada grupo y la tabla no entra)
-        if (row && !row.classList.contains('open')) { row.click(); await sleep(900); }
-        out.venta[PAISES[i].label] = await snap(d.querySelector('.mt-grid'));
+        out.venta[PAISES[i].label] = await part('Venta ' + PAISES[i].label, async function () {
+          var lbl = PAISES[i].label;
+          var opt = [].filter.call(d.querySelectorAll('select[data-key="dpais"] option'), function (o) { return o.textContent.trim() === lbl; })[0];
+          if (!opt) throw new Error('no hay país ' + lbl);
+          B.set('dpais', opt.value); light(f);
+          await until(function () { return d.querySelector('.mt-grid'); }, 30000, 'la tabla de ' + lbl);
+          await sleep(1200);
+          var row = d.querySelector('.mt-col tr.bk-row-group');   // abre el país (no "Expandir todo": eso abre cada grupo y la tabla no entra)
+          if (row && !row.classList.contains('open')) { row.click(); await sleep(900); }
+          return await snap(d.querySelector('.mt-grid'));
+        });
       }
-      B.set('dpais', 'all');
-      // Producto: Hoteles · Gross Bookings semana a semana · Gestión, vs últimas 4 semanas
+      try { B.set('dpais', 'all'); } catch (e) { /* sigue */ }
+      // Producto: Hoteles · Gross Bookings semana a semana · Gestión, vs últimas 4 semanas (las tres columnas solo se arman con esa opción)
       upd('Capturando Producto…');
-      B.set('vista', 'gd'); B.set('metric', 'gb'); B.showTab('producto', false); light(f);
-      await until(function () { return d.querySelector('.wk-cols'); }, 60000, 'Producto');
-      B.set('pshare', 'l4w'); await sleep(2000);
-      out.producto = await snap(d.querySelector('.wk-cols'));
+      out.producto = await part('Producto', async function () {
+        B.set('vista', 'gd'); B.set('metric', 'gb'); B.set('pshare', 'l4w'); B.showTab('producto', false); light(f);
+        await until(function () { return d.querySelector('.wk-cols'); }, 60000, 'Producto');
+        await sleep(1500); return await snap(d.querySelector('.wk-cols'));
+      });
     } finally { f.remove(); }
     return out;
   }
@@ -306,6 +316,7 @@
     try {
       showExportOverlay('Armando el Weekly B2B-MAY…');
       var slides = await buildDeck();
+      if (/[?&]wkdebug=1\b/.test(location.search)) window.__wkDeck = slides;   // para revisar las imágenes
       upd('Armando el PDF…');
       var ctor = (window.jspdf && window.jspdf.jsPDF) ? window.jspdf.jsPDF : window.jsPDF, PW = 1280, PH = 720;
       var pdf = new ctor({ orientation: 'landscape', unit: 'pt', format: [PW, PH] });
