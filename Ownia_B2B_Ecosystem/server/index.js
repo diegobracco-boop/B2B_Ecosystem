@@ -48,6 +48,7 @@ const { createNotesStore } = require('./notes-store');
 const { ApiCache } = require('./api-cache');
 const { createRealesJob } = require('./reales-job');
 const { createSlidesJobs } = require('./gslides-export');
+const { loadPipelineModel } = require('./pipeline-slide');
 const { partnersFrom, createQuestionLog } = require('./portal-ask-data');
 
 const MAX_BODY = 5 * 1024 * 1024; // google.script.run acepta payloads grandes (p.ej. capturas)
@@ -358,6 +359,10 @@ function createApp(opts = {}) {
       return sendAsset(req, res, url, askVersion, askJs);
     }
     // Recursos de public/weekly/ (portada, logos) para el flow "Weekly B2B-MAY" del Tracker (public/daily-tracker-weekly.js)
+    if (route === '/_gas/weekly/pipeline.json') {   // modelo de la slide "B2B2C Pipeline" (server/pipeline-slide.js)
+      try { return send(res, 200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }, JSON.stringify(loadPipelineModel())); }
+      catch (e) { return sendJson(res, 500, { error: 'No se pudo armar el pipeline: ' + e.message }); }
+    }
     if (route.startsWith('/_gas/weekly/')) {
       const name = route.slice('/_gas/weekly/'.length);
       const ext = /^[\w-]+\.(png|jpg)$/.exec(name);

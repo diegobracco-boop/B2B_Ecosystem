@@ -1,0 +1,32 @@
+{
+  "periodo": "H2'26",
+  "nota": "Cargado a mano de la slide del 2026-11-04. Reemplazar por el export de Metabase (mismos campos que 'deals'). 'evolutivo' (NR y deals Tier 1 por mes) no sale de la tabla de deals: viene de la misma tabla de Metabase si tiene esos campos, o se carga aparte.",
+  "no_incluido": "+20 Tier 2 - 3 deals +600k USD NR H2'26",
+  "evolutivo": [
+    { "mes": "Oct", "nr_k": 105, "deals_t1": 2 },
+    { "mes": "Nov", "nr_k": 138, "deals_t1": 8 },
+    { "mes": "Dec", "nr_k": 245, "deals_t1": 5 },
+    { "mes": "Jan", "nr_k": 364, "deals_t1": 2 },
+    { "mes": "Feb", "nr_k": 483, "deals_t1": 0 },
+    { "mes": "Mar", "nr_k": 603, "deals_t1": 0 }
+  ],
+  "deals": [
+    { "etd_deploy": "2026-10", "partner": "Kapital Bank", "pais": "México", "solucion": "WL Cerrada", "nr_hz27": 72917, "fvm_hz27": 27462, "nr_y3": 1000000 },
+    { "etd_deploy": "2026-10", "partner": "United Parks", "pais": "México", "solucion": "WL de Comisión", "nr_hz27": 31714, "fvm_hz27": 11945, "nr_y3": 434941 },
+    { "etd_deploy": "2026-11", "partner": "Visa", "pais": "México", "solucion": "WL Cerrada", "nr_hz27": 328125, "fvm_hz27": 123581, "nr_y3": 6300000 },
+    { "etd_deploy": "2026-11", "partner": "Mercado Pago", "pais": "Brasil", "solucion": "WL Profit Sharing", "nr_hz27": 243573, "fvm_hz27": 91736, "nr_y3": 4100000 },
+    { "etd_deploy": "2026-11", "partner": "Azul Pelo Mundo", "pais": "Brasil", "solucion": "WL Modular", "nr_hz27": 147917, "fvm_hz27": 55709, "nr_y3": 6340000 },
+    { "etd_deploy": "2026-11", "partner": "Universal", "pais": "Brasil", "solucion": "WL de Comisión", "nr_hz27": 52083, "fvm_hz27": 19616, "nr_y3": 1000000 },
+    { "etd_deploy": "2026-11", "partner": "Livelo (Bradesco)", "pais": "Brasil", "solucion": "API", "nr_hz27": 52083, "fvm_hz27": 19616, "nr_y3": 1000000 },
+    { "etd_deploy": "2026-11", "partner": "Iberia", "pais": "Brasil", "solucion": "WL de Comisión", "nr_hz27": 26042, "fvm_hz27": 9808, "nr_y3": 500000 },
+    { "etd_deploy": "2026-12", "partner": "Cencosud", "pais": "Chile", "solucion": "WL Canje de Puntos", "nr_hz27": 260585, "fvm_hz27": 98143, "nr_y3": 5003238 },
+    { "etd_deploy": "2026-12", "partner": "Air Canada", "pais": "Varios LATAM", "solucion": "WL de Comisión", "nr_hz27": 156375, "fvm_hz27": 58895, "nr_y3": 4500000 },
+    { "etd_deploy": "2026-12", "partner": "Toc Toc Viajes", "pais": "Uruguay", "solucion": "Agency", "nr_hz27": 73199, "fvm_hz27": 27569, "nr_y3": 2106435 },
+    { "etd_deploy": "2026-12", "partner": "STIX", "pais": "Brasil", "solucion": "WL de Acumulación", "nr_hz27": 41700, "fvm_hz27": 15705, "nr_y3": 1200000 },
+    { "etd_deploy": "2026-12", "partner": "Sicredi", "pais": "Brasil", "solucion": "WL de Acumulación", "nr_hz27": 29441, "fvm_hz27": 11088, "nr_y3": 847215 },
+    { "etd_deploy": "2027-01", "partner": "InDrive", "pais": "Colombia", "solucion": "WL Cerrada", "nr_hz27": 36422, "fvm_hz27": 13717, "nr_y3": 1048111 },
+    { "etd_deploy": "2027-01", "partner": "BBVA", "pais": "México", "solucion": "WL Cerrada", "nr_hz27": 68750, "fvm_hz27": 25893, "nr_y3": 3300000 },
+    { "etd_deploy": "2027-01", "partner": "JetSmart", "pais": "Chile", "solucion": "WL de Comisión", "nr_hz27": 27598, "fvm_hz27": 10394, "nr_y3": 529877 },
+    { "etd_deploy": "2027-01", "partner": "Disney", "pais": "Varios LATAM", "solucion": "WL de Comisión", "nr_hz27": 8333, "fvm_hz27": 3139, "nr_y3": 400000 }
+  ]
+}

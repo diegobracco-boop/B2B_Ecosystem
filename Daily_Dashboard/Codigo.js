@@ -1635,6 +1635,8 @@ function replaceDeckSlides_(presId, slides) {
 
     slides.forEach(function(entry) {
       var slide = pres.appendSlide(SlidesApp.PredefinedLayout.BLANK);
+      // Slide con objetos nativos (editable): hoy solo el "B2B2C Pipeline" del Weekly. El modelo ya viene calculado y formateado desde Ownia.
+      if (entry && entry.native && entry.native.type === 'pipeline') { drawPipelineSlide_(slide, entry.native.model, w, h); return; }
       if (!entry || !entry.img) {
         slide.insertTextBox('No se pudo capturar esta slide (revisar consola del navegador).',
                             40, h/2 - 12, w - 80, 24)
@@ -1658,6 +1660,79 @@ function replaceDeckSlides_(presId, slides) {
   } finally {
     lock.releaseLock();
   }
+}
+
+// Slide "B2B2C Pipeline" del Weekly, con objetos nativos de Slides (se edita a mano): barras de NR por mes como rectángulos, línea de deals
+// Tier 1, nota amarilla y la tabla de partners. `m` = modelo de server/pipeline-slide.js (textos ya formateados). Diseño en 960×540; `k` escala al deck.
+function drawPipelineSlide_(slide, m, w, h) {
+  var k = w / 960, PURPLE = '#6E00E7', BLUE = '#3B82F6', GREEN = '#34A853';
+  function tx(text, x, y, bw, bh, size, o) {
+    o = o || {};
+    var b = slide.insertTextBox(text, x * k, y * k, bw * k, bh * k), st = b.getText().getTextStyle();
+    st.setFontFamily('Rubik').setFontSize(size * k).setBold(!!o.bold).setItalic(!!o.italic).setUnderline(!!o.underline).setForegroundColor(o.color || '#222222');
+    if (o.align) b.getText().getParagraphStyle().setParagraphAlignment(o.align);
+    return b;
+  }
+  var CENTER = SlidesApp.ParagraphAlignment.CENTER, END = SlidesApp.ParagraphAlignment.END;
+
+  tx(m.title, 14, 8, 830, 44, 24, { bold: true, color: PURPLE });
+  var ln = slide.insertLine(SlidesApp.LineCategory.STRAIGHT, 0, 62 * k, w, 62 * k);
+  ln.getLineFill().setSolidFill(PURPLE); ln.setWeight(1);
+
+  // Izquierda: gráfico
+  tx("Deals Pipeline - " + m.periodo, 20, 74, 400, 26, 16, { bold: true, underline: true });
+  tx('Net Revenues [k USD]', 20, 98, 400, 20, 12, { italic: true });
+  var months = m.months || [], n = months.length, base = 400, top = 150, x0 = 28, pitch = 66, bw = 44;
+  var maxNr = Math.max.apply(null, months.map(function(x) { return x.nr_k; }).concat([1]));
+  var maxDeals = Math.max.apply(null, months.map(function(x) { return x.deals; }).concat([1]));
+  var pts = [];
+  months.forEach(function(mo, i) {
+    var bh = (base - top - 30) * mo.nr_k / maxNr, bx = x0 + i * pitch, by = base - bh;
+    var r = slide.insertShape(SlidesApp.ShapeType.RECTANGLE, bx * k, by * k, bw * k, bh * k);
+    r.getFill().setSolidFill(BLUE); r.getBorder().setTransparent();
+    r.getText().setText(mo.nr_txt); r.getText().getTextStyle().setFontSize(9 * k).setBold(true).setForegroundColor('#FFFFFF');
+    r.getText().getParagraphStyle().setParagraphAlignment(CENTER);
+    r.setContentAlignment(SlidesApp.ContentAlignment.TOP);
+    tx(mo.label, bx - 8, base + 2, bw + 16, 16, 10, { bold: true, align: CENTER });
+    pts.push({ x: bx + bw / 2, y: base - 40 - (base - top - 70) * mo.deals / maxDeals, d: mo.deals });
+  });
+  for (var i = 1; i < pts.length; i++) {
+    var sg = slide.insertLine(SlidesApp.LineCategory.STRAIGHT, pts[i - 1].x * k, pts[i - 1].y * k, pts[i].x * k, pts[i].y * k);
+    sg.getLineFill().setSolidFill(GREEN); sg.setWeight(2);
+  }
+  pts.forEach(function(p) { tx(String(p.d), p.x - 12, p.y - 20, 24, 16, 11, { bold: true, color: GREEN, align: CENTER }); });
+  // Leyenda
+  var lg = slide.insertShape(SlidesApp.ShapeType.RECTANGLE, 70 * k, 428 * k, 10 * k, 10 * k); lg.getFill().setSolidFill(BLUE); lg.getBorder().setTransparent();
+  tx('Total Net Revenues', 84, 424, 130, 16, 9, {});
+  var ll = slide.insertLine(SlidesApp.LineCategory.STRAIGHT, 222 * k, 433 * k, 244 * k, 433 * k); ll.getLineFill().setSolidFill(GREEN); ll.setWeight(2);
+  tx('# Tier 1 Deals', 248, 424, 110, 16, 9, {});
+  // Nota amarilla
+  if (m.note) {
+    var nt = slide.insertShape(SlidesApp.ShapeType.RECTANGLE, 60 * k, 452 * k, 190 * k, 62 * k);
+    nt.getFill().setSolidFill('#FFE699'); nt.getBorder().getLineFill().setSolidFill('#BF9000');
+    nt.getText().setText(m.note); nt.getText().getTextStyle().setFontSize(9 * k).setItalic(true).setForegroundColor('#333333');
+    nt.getText().getParagraphStyle().setParagraphAlignment(CENTER);
+  }
+
+  // Derecha: tabla de partners
+  tx("Detailed Pipeline - " + m.periodo, 450, 74, 480, 26, 16, { bold: true, underline: true });
+  var head = ['ETD Deploy', 'Partner', 'País', 'Solución', "NR HZ'27", "FVM HZ'27", 'NR Y3'];
+  var rows = [head].concat((m.rows || []).map(function(r) { return [r.etd, r.partner, r.pais, r.solucion, r.nr, r.fvm, r.y3]; }));
+  rows.push(['', m.totals.partners, '', '', m.totals.nr, m.totals.fvm, m.totals.y3]);
+  var widths = [48, 96, 62, 92, 56, 56, 60];   // suma 470
+  var table = slide.insertTable(rows.length, head.length, 450 * k, 106 * k, 470 * k, 400 * k);
+  widths.forEach(function(wd, c) { table.getColumn(c).setWidth(wd * k); });
+  rows.forEach(function(r, ri) {
+    var isHead = ri === 0, isTot = ri === rows.length - 1;
+    r.forEach(function(val, ci) {
+      var cell = table.getCell(ri, ci);
+      cell.getText().setText(val);
+      var st = cell.getText().getTextStyle();
+      st.setFontFamily('Rubik').setFontSize(8 * k).setBold(isHead || isTot).setForegroundColor(isHead ? '#FFFFFF' : '#222222');
+      cell.getFill().setSolidFill(isHead ? '#2E7D32' : (isTot ? '#E8F5E9' : '#FFFFFF'));
+      cell.getText().getParagraphStyle().setParagraphAlignment(ci >= 4 ? END : (ci === 0 ? CENTER : SlidesApp.ParagraphAlignment.START));
+    });
+  });
 }
 
 // Función sin "_" final (ver nota arriba): correrla UNA VEZ desde el editor de Apps
