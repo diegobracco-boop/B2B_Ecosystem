@@ -1,32 +1,332 @@
 {
-  "periodo": "H2'26",
-  "nota": "Cargado a mano de la slide del 2026-11-04. Reemplazar por el export de Metabase (mismos campos que 'deals'). 'evolutivo' (NR y deals Tier 1 por mes) no sale de la tabla de deals: viene de la misma tabla de Metabase si tiene esos campos, o se carga aparte.",
-  "no_incluido": "+20 Tier 2 - 3 deals +600k USD NR H2'26",
-  "evolutivo": [
-    { "mes": "Oct", "nr_k": 105, "deals_t1": 2 },
-    { "mes": "Nov", "nr_k": 138, "deals_t1": 8 },
-    { "mes": "Dec", "nr_k": 245, "deals_t1": 5 },
-    { "mes": "Jan", "nr_k": 364, "deals_t1": 2 },
-    { "mes": "Feb", "nr_k": 483, "deals_t1": 0 },
-    { "mes": "Mar", "nr_k": 603, "deals_t1": 0 }
-  ],
-  "deals": [
-    { "etd_deploy": "2026-10", "partner": "Kapital Bank", "pais": "México", "solucion": "WL Cerrada", "nr_hz27": 72917, "fvm_hz27": 27462, "nr_y3": 1000000 },
-    { "etd_deploy": "2026-10", "partner": "United Parks", "pais": "México", "solucion": "WL de Comisión", "nr_hz27": 31714, "fvm_hz27": 11945, "nr_y3": 434941 },
-    { "etd_deploy": "2026-11", "partner": "Visa", "pais": "México", "solucion": "WL Cerrada", "nr_hz27": 328125, "fvm_hz27": 123581, "nr_y3": 6300000 },
-    { "etd_deploy": "2026-11", "partner": "Mercado Pago", "pais": "Brasil", "solucion": "WL Profit Sharing", "nr_hz27": 243573, "fvm_hz27": 91736, "nr_y3": 4100000 },
-    { "etd_deploy": "2026-11", "partner": "Azul Pelo Mundo", "pais": "Brasil", "solucion": "WL Modular", "nr_hz27": 147917, "fvm_hz27": 55709, "nr_y3": 6340000 },
-    { "etd_deploy": "2026-11", "partner": "Universal", "pais": "Brasil", "solucion": "WL de Comisión", "nr_hz27": 52083, "fvm_hz27": 19616, "nr_y3": 1000000 },
-    { "etd_deploy": "2026-11", "partner": "Livelo (Bradesco)", "pais": "Brasil", "solucion": "API", "nr_hz27": 52083, "fvm_hz27": 19616, "nr_y3": 1000000 },
-    { "etd_deploy": "2026-11", "partner": "Iberia", "pais": "Brasil", "solucion": "WL de Comisión", "nr_hz27": 26042, "fvm_hz27": 9808, "nr_y3": 500000 },
-    { "etd_deploy": "2026-12", "partner": "Cencosud", "pais": "Chile", "solucion": "WL Canje de Puntos", "nr_hz27": 260585, "fvm_hz27": 98143, "nr_y3": 5003238 },
-    { "etd_deploy": "2026-12", "partner": "Air Canada", "pais": "Varios LATAM", "solucion": "WL de Comisión", "nr_hz27": 156375, "fvm_hz27": 58895, "nr_y3": 4500000 },
-    { "etd_deploy": "2026-12", "partner": "Toc Toc Viajes", "pais": "Uruguay", "solucion": "Agency", "nr_hz27": 73199, "fvm_hz27": 27569, "nr_y3": 2106435 },
-    { "etd_deploy": "2026-12", "partner": "STIX", "pais": "Brasil", "solucion": "WL de Acumulación", "nr_hz27": 41700, "fvm_hz27": 15705, "nr_y3": 1200000 },
-    { "etd_deploy": "2026-12", "partner": "Sicredi", "pais": "Brasil", "solucion": "WL de Acumulación", "nr_hz27": 29441, "fvm_hz27": 11088, "nr_y3": 847215 },
-    { "etd_deploy": "2027-01", "partner": "InDrive", "pais": "Colombia", "solucion": "WL Cerrada", "nr_hz27": 36422, "fvm_hz27": 13717, "nr_y3": 1048111 },
-    { "etd_deploy": "2027-01", "partner": "BBVA", "pais": "México", "solucion": "WL Cerrada", "nr_hz27": 68750, "fvm_hz27": 25893, "nr_y3": 3300000 },
-    { "etd_deploy": "2027-01", "partner": "JetSmart", "pais": "Chile", "solucion": "WL de Comisión", "nr_hz27": 27598, "fvm_hz27": 10394, "nr_y3": 529877 },
-    { "etd_deploy": "2027-01", "partner": "Disney", "pais": "Varios LATAM", "solucion": "WL de Comisión", "nr_hz27": 8333, "fvm_hz27": 3139, "nr_y3": 400000 }
-  ]
+ "periodo": "H2'26",
+ "actualizado": "2026-11-04",
+ "nota": "Snapshot: deals de HubSpot en etapa Pipeline con cierre oct-26 a mar-27 (query de Pipeline B2B2C) + Mercado Pago cargado a mano (WL Cashback, escenario neutro). amount = NR Y3 del deal; fvm_ratio = FVM/NR de HubSpot (null si no tiene). Los totales fijos y el evolutivo se cargaron a mano.",
+ "totales": {
+  "nr_h2": 4100000,
+  "fvm_h2": 1500000
+ },
+ "evolutivo_label": "FVM [k USD]",
+ "evolutivo": [
+  {
+   "mes": "Oct",
+   "k": 0,
+   "deals": 0
+  },
+  {
+   "mes": "Nov",
+   "k": 13,
+   "deals": 5
+  },
+  {
+   "mes": "Dec",
+   "k": 37,
+   "deals": 10
+  },
+  {
+   "mes": "Jan",
+   "k": 601,
+   "deals": 22
+  },
+  {
+   "mes": "Feb",
+   "k": 478,
+   "deals": 26
+  },
+  {
+   "mes": "Mar",
+   "k": 532,
+   "deals": 35
+  }
+ ],
+ "deals": [
+  {
+   "name": "Kayak",
+   "cierre": "2027-01",
+   "pais": "Brasil",
+   "amount": 1000770,
+   "fvm_ratio": 0.2761,
+   "src": "HubSpot"
+  },
+  {
+   "name": "JetSmart PERU  Y CHILE",
+   "cierre": "2027-02",
+   "pais": "Multi-país",
+   "amount": 529877,
+   "fvm_ratio": 0.4518,
+   "src": "HubSpot"
+  },
+  {
+   "name": "Banco del Credito de Peru",
+   "cierre": "2027-01",
+   "pais": "Perú",
+   "amount": 2646855,
+   "fvm_ratio": 0.369,
+   "src": "HubSpot"
+  },
+  {
+   "name": "Voe Livre",
+   "cierre": "2027-01",
+   "pais": "Brasil",
+   "amount": 1189182,
+   "fvm_ratio": 0.4404,
+   "src": "HubSpot"
+  },
+  {
+   "name": "Porto Seguro",
+   "cierre": "2027-02",
+   "pais": "Brasil",
+   "amount": 1000000,
+   "fvm_ratio": null,
+   "src": "HubSpot"
+  },
+  {
+   "name": "YAPE Peru",
+   "cierre": "2027-03",
+   "pais": "Perú",
+   "amount": 1500000,
+   "fvm_ratio": null,
+   "src": "HubSpot"
+  },
+  {
+   "name": "C6",
+   "cierre": "2027-03",
+   "pais": "Brasil",
+   "amount": 1251661,
+   "fvm_ratio": 0.247,
+   "src": "HubSpot"
+  },
+  {
+   "name": "Toc Toc Viajes",
+   "cierre": "2027-01",
+   "pais": "Uruguay",
+   "amount": 2106435,
+   "fvm_ratio": 0.9317,
+   "src": "HubSpot"
+  },
+  {
+   "name": "Loyalme",
+   "cierre": "2027-02",
+   "pais": "Brasil",
+   "amount": 1390984,
+   "fvm_ratio": 0.3408,
+   "src": "HubSpot"
+  },
+  {
+   "name": "Paramo",
+   "cierre": "2027-03",
+   "pais": "Colombia",
+   "amount": 131604,
+   "fvm_ratio": 0.4426,
+   "src": "HubSpot"
+  },
+  {
+   "name": "Universal",
+   "cierre": "2026-11",
+   "pais": "Brasil",
+   "amount": 1533360,
+   "fvm_ratio": 0.1906,
+   "src": "HubSpot"
+  },
+  {
+   "name": "Azul Linhas Aéreas Brasileiras SA",
+   "cierre": "2027-03",
+   "pais": "Brasil",
+   "amount": 3000000,
+   "fvm_ratio": null,
+   "src": "HubSpot"
+  },
+  {
+   "name": "Terpel",
+   "cierre": "2027-03",
+   "pais": "Colombia",
+   "amount": 563940,
+   "fvm_ratio": 0.456,
+   "src": "HubSpot"
+  },
+  {
+   "name": "Scotiabank",
+   "cierre": "2026-12",
+   "pais": "Perú",
+   "amount": 352757,
+   "fvm_ratio": 0.3565,
+   "src": "HubSpot"
+  },
+  {
+   "name": "Air Canada",
+   "cierre": "2026-12",
+   "pais": "Brasil",
+   "amount": 619417,
+   "fvm_ratio": 0.4364,
+   "src": "HubSpot"
+  },
+  {
+   "name": "BRB",
+   "cierre": "2027-01",
+   "pais": "Brasil",
+   "amount": 770940,
+   "fvm_ratio": 0.4129,
+   "src": "HubSpot"
+  },
+  {
+   "name": "Hostech",
+   "cierre": "2026-11",
+   "pais": "México",
+   "amount": 1858750,
+   "fvm_ratio": 0.0979,
+   "src": "HubSpot"
+  },
+  {
+   "name": "HSBC",
+   "cierre": "2026-12",
+   "pais": "México",
+   "amount": 4225898,
+   "fvm_ratio": 0.4617,
+   "src": "HubSpot"
+  },
+  {
+   "name": "Sky Airline",
+   "cierre": "2026-12",
+   "pais": "Argentina",
+   "amount": 94114,
+   "fvm_ratio": 0.1881,
+   "src": "HubSpot"
+  },
+  {
+   "name": "Personal",
+   "cierre": "2027-03",
+   "pais": "Argentina",
+   "amount": 590182,
+   "fvm_ratio": 0.3187,
+   "src": "HubSpot"
+  },
+  {
+   "name": "BBVA B2B2C",
+   "cierre": "2027-01",
+   "pais": "México",
+   "amount": 3300000,
+   "fvm_ratio": null,
+   "src": "HubSpot"
+  },
+  {
+   "name": "Disney",
+   "cierre": "2027-01",
+   "pais": "México",
+   "amount": 1269580,
+   "fvm_ratio": 0.5119,
+   "src": "HubSpot"
+  },
+  {
+   "name": "Esfera (Cashbanx)",
+   "cierre": "2027-01",
+   "pais": "Brasil",
+   "amount": 1200000,
+   "fvm_ratio": null,
+   "src": "HubSpot"
+  },
+  {
+   "name": "Air Europa",
+   "cierre": "2027-02",
+   "pais": "Multi-país",
+   "amount": 1772386,
+   "fvm_ratio": 0.5922,
+   "src": "HubSpot"
+  },
+  {
+   "name": "Beto Carrero",
+   "cierre": "2027-01",
+   "pais": "Brasil",
+   "amount": 38608,
+   "fvm_ratio": 0.3677,
+   "src": "HubSpot"
+  },
+  {
+   "name": "Kapital Bank",
+   "cierre": "2027-03",
+   "pais": "México",
+   "amount": 60000,
+   "fvm_ratio": null,
+   "src": "HubSpot"
+  },
+  {
+   "name": "Xcaret",
+   "cierre": "2027-03",
+   "pais": "México",
+   "amount": 500000,
+   "fvm_ratio": null,
+   "src": "HubSpot"
+  },
+  {
+   "name": "InDrive",
+   "cierre": "2027-01",
+   "pais": "Multi-país",
+   "amount": 1048111,
+   "fvm_ratio": 1.4286,
+   "src": "HubSpot"
+  },
+  {
+   "name": "Cencosud",
+   "cierre": "2026-11",
+   "pais": "Chile",
+   "amount": 5003238,
+   "fvm_ratio": 0.473,
+   "src": "HubSpot"
+  },
+  {
+   "name": "Turisgo / Record Vacations",
+   "cierre": "2026-11",
+   "pais": "México",
+   "amount": 223389,
+   "fvm_ratio": 0.668,
+   "src": "HubSpot"
+  },
+  {
+   "name": "Picpay",
+   "cierre": "2027-03",
+   "pais": "Brasil",
+   "amount": 1174837,
+   "fvm_ratio": 0.4032,
+   "src": "HubSpot"
+  },
+  {
+   "name": "Iberia WL Abierta",
+   "cierre": "2026-11",
+   "pais": "Multi-país",
+   "amount": 1244947,
+   "fvm_ratio": 0.6728,
+   "src": "HubSpot"
+  },
+  {
+   "name": "Gol Arline ARG",
+   "cierre": "2027-01",
+   "pais": "Argentina",
+   "amount": 200000,
+   "fvm_ratio": null,
+   "src": "HubSpot"
+  },
+  {
+   "name": "Grupo Karisma",
+   "cierre": "2027-01",
+   "pais": "Multi-país",
+   "amount": 694938,
+   "fvm_ratio": 0.4337,
+   "src": "HubSpot"
+  },
+  {
+   "name": "Price Shoes",
+   "cierre": "2027-03",
+   "pais": "México",
+   "amount": 0,
+   "fvm_ratio": null,
+   "src": "HubSpot"
+  },
+  {
+   "name": "Mercado Pago",
+   "cierre": "2026-12",
+   "pais": "Brasil",
+   "amount": 2626594,
+   "fvm_ratio": 0.2639,
+   "src": "Escenario neutro (manual)"
+  }
+ ]
 }

@@ -41,6 +41,7 @@ const { renderOutput } = require('./render');
 const { escapeHtml } = require('./gas-template');
 const { indexPage, agentsPage, questionsPage } = require('./index-page');
 const { resumenSemanalPage } = require('./resumen-semanal-page');
+const { pipelineHuntingPage } = require('./pipeline-hunting-page');
 const { resolveIdentity, describeAuthHeaders } = require('./identity');
 const { createFileStore, isValidId } = require('./file-store');
 const { ingestAllowlist, loadManifest } = require('./drive-manifest');
@@ -450,6 +451,18 @@ function createApp(opts = {}) {
       if (needsIdentity(daily) && !identity.email) return unauthorized(res);
       if (!mayOpen(daily, identity)) return forbidden(res);
       return sendCompressible(req, res, 200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }, resumenSemanalPage({ basePath: cfg.BASE_PATH }));
+    }
+
+    // "Pipeline Hunting": todos los deals del pipeline B2B2C (server/pipeline-slide.js). Mismos permisos que el Daily.
+    if (route === '/pipeline-hunting') {
+      if (req.method !== 'GET') return sendJson(res, 405, { error: 'Método no permitido' });
+      const daily = findModule('daily');
+      if (!daily) return sendJson(res, 404, { error: 'No encontrado' });
+      if (needsIdentity(daily) && !identity.email) return unauthorized(res);
+      if (!mayOpen(daily, identity)) return forbidden(res);
+      let model;
+      try { model = loadPipelineModel(); } catch (e) { return sendJson(res, 500, { error: 'No se pudo armar el pipeline: ' + e.message }); }
+      return sendCompressible(req, res, 200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }, pipelineHuntingPage({ basePath: cfg.BASE_PATH, model }));
     }
 
     if (route === '/agentes') {

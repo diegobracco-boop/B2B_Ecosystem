@@ -41,7 +41,7 @@
     var W = window;
     var org = !!(W._dlOrganic && W._fxTbl), coi = !!W._exCoiBr;
     (W.FLOW_DECK || []).forEach(function (def, i) {
-      if (def.kind === 'divider') return;
+      if (def.kind === 'divider' || def.kind === 'b2b2c_pipeline') return;
       var sl = document.querySelector('#flow-track .flow-frame[data-idx="' + i + '"] .flow-slide');
       if (!sl) return;
       Array.prototype.forEach.call(sl.querySelectorAll('.ow-fl-org,.ow-fl-fn'), function (e) { e.remove(); });

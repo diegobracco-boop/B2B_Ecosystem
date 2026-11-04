@@ -623,6 +623,28 @@ body.krd-only #section-b2b > :not(.krd-keep) { display:none !important; }
 .fl-kpi .k-lbl{font-size:12px;font-weight:700;color:var(--fl-ink2)}
 .fl-kpi .k-val{font-size:24px;font-weight:800;margin-top:2px}
 .fl-kpi .k-tgt{font-size:11px;color:var(--fl-ink3);margin-top:1px}
+/* B2B2C Pipeline Hunting (2026-11-04) */
+.pl-body{display:flex;flex-direction:column;gap:8px;padding-top:10px}
+.pl-top{display:flex;gap:18px;align-items:stretch}
+.pl-kpis{width:300px;display:grid;grid-template-columns:1fr 1fr;gap:10px;align-content:start}
+.pl-kpi{background:#f4f0ff;border-radius:10px;padding:10px 14px}
+.pl-kpi .v{font-size:26px;font-weight:800;color:#4300d2;line-height:1.1;white-space:nowrap}
+.pl-kpi .l{font-size:12px;color:var(--fl-ink3);margin-top:2px}
+.pl-chart{flex:1;min-width:0}
+.pl-chart-h{display:flex;gap:18px;font-size:12px;color:var(--fl-ink3);align-items:center}
+.pl-chart-h .lg{display:inline-flex;align-items:center;gap:6px}
+.pl-chart-h .lg i{display:inline-block;width:11px;height:11px;border-radius:2px}
+.pl-chart-h .lg i.ln{width:20px;height:3px;border-radius:2px;background:#12b886}
+.pl-tbl{width:100%;border-collapse:collapse;font-size:13.5px;table-layout:fixed}
+.pl-tbl th{background:#2a0a6b;color:#fff;font-weight:600;text-align:left;padding:5px 12px;font-size:13px}
+.pl-tbl td{padding:3px 12px;border-top:1px solid #eee;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pl-tbl .n{text-align:right}
+.pl-tbl th:nth-child(1){width:9%}.pl-tbl th:nth-child(2){width:30%}.pl-tbl th:nth-child(3){width:14%}.pl-tbl th:nth-child(4),.pl-tbl th:nth-child(5),.pl-tbl th:nth-child(6){width:15.6%}
+.pl-tbl td.f{color:#6e00e7;font-weight:700}.pl-tbl td.p{font-weight:600}
+.pl-tbl .lg{display:inline-block;width:18px;height:18px;margin-right:9px;vertical-align:middle}
+.pl-tbl .lg img{width:18px;height:18px;object-fit:contain;display:block}
+.pl-tbl tr.otros td{color:var(--fl-ink3);font-style:italic}
+.pl-tbl tr.tot td{background:#f4f0ff;color:#2a0a6b;font-weight:700;border-top:2px solid #6e00e7}
 .fl-kpi.hl{border-color:var(--fl-purple);background:#f3efff}
 /* chart panels */
 .fl-chart-title{font-size:14px;font-weight:800;color:var(--fl-purple);text-align:center;margin-bottom:2px}
@@ -5248,6 +5270,7 @@ var FLOW_DECK = [
   {kind:'okr', metric:'nr', open:'pais', name:'OKR L2 — Net Revenues · por País'},
   {kind:'okr', metric:'fvm', open:'pais', name:'OKR L2 — FVM · por País'},
   {kind:'b2b2c_krs', name:'B2B2C — Status KRs'},
+  {kind:'b2b2c_pipeline', name:'B2B2C — Pipeline Hunting'},   // 2026-11-04: deals del pipeline (server/pipeline-slide.js)
   {kind:'divider', region:'BR', name:'— Brasil —'},
   {kind:'monthly', region:'BR', name:'Brasil — Mensual'},
   {kind:'daily', region:'BR', metric:'nr', name:'Brasil — NR diario'},
@@ -6073,6 +6096,16 @@ function flowBuildSlide_(def, idx){
       +'</div>';
     return '<div class="flow-slide">'+flHead_('<span id="b2c-krsTitle-'+idx+'">'+mesLbl+' | B2B2C — Status KRs</span>', flLogo_())+body+'</div>';
   }
+  if(def.kind==='b2b2c_pipeline'){
+    // 2026-11-04: top 12 deals del pipeline B2B2C + evolutivo. El HTML acá solo arma contenedores con ids únicos; el contenido sale de
+    // flowRenderPipeline_() (modelo de <base>/_gas/weekly/pipeline.json, server/pipeline-slide.js: solo existe en Ownia).
+    var body='<div class="fl-body pl-body">'
+      +'<div class="pl-top"><div class="pl-kpis" id="pl-kpis-'+idx+'"></div>'
+        +'<div class="pl-chart"><div class="pl-chart-h" id="pl-chartH-'+idx+'"></div><canvas id="pl-cv-'+idx+'"></canvas></div></div>'
+      +'<table class="pl-tbl" id="pl-tbl-'+idx+'"><tbody><tr><td style="padding:30px;color:var(--fl-ink3)">Cargando el pipeline…</td></tr></tbody></table>'
+      +'</div>';
+    return '<div class="flow-slide">'+flHead_('<span id="pl-title-'+idx+'">B2B2C Pipeline</span>', flLogo_())+body+'</div>';
+  }
   if(def.kind==='weekly'){
     var lob=def.lob, view=def.view;
     var wd=_wsCache[_wsKey_(lob, view, _orgTargetFlow_(), def.ch)];
@@ -6268,6 +6301,7 @@ function flowBuild_(){
   flowRenderWeeklyTables_();
   flowRenderB2BSlides_();
   flowRenderB2B2CKRs_();
+  flowRenderPipeline_();
   _flowBuilt=true;
   flowSetupObserver_();
   return true;
@@ -6637,6 +6671,61 @@ var FL_B2C_KRS = {
     { id:'oc',    label:'Operating Contribution $M <span style="color:#6b7280;font-size:.72rem">(proxy FVM MTD)</span>', w:.40, src:'fvm' }
   ]
 };
+// ── B2B2C Pipeline Hunting (2026-11-04) ──
+// El modelo lo arma el servidor de Ownia (/_gas/weekly/pipeline.json). En Apps Script no existe: la slide avisa y sigue.
+var _flPipeModel=null, _flPipeLoading=false;
+function flPipeBase_(){ return location.pathname.replace(/\/daily(\/.*)?$/,''); }
+function flowRenderPipeline_(){
+  var idxs=[]; FLOW_DECK.forEach(function(d,i){ if(d.kind==='b2b2c_pipeline') idxs.push(i); });
+  if(!idxs.length) return;
+  if(!_flPipeModel){
+    if(_flPipeLoading) return;
+    _flPipeLoading=true;
+    fetch(flPipeBase_()+'/_gas/weekly/pipeline.json',{cache:'no-store'}).then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+      .then(function(m){ _flPipeModel=m; _flPipeLoading=false; flowRenderPipeline_(); })
+      .catch(function(){ _flPipeLoading=false; idxs.forEach(function(i){ var t=document.getElementById('pl-tbl-'+i); if(t) t.innerHTML='<tbody><tr><td style="padding:30px;color:var(--fl-ink3)">El pipeline solo está disponible en la versión de Ownia.</td></tr></tbody>'; }); });
+    return;
+  }
+  idxs.forEach(flRenderPipelineSlide_);
+}
+function flRenderPipelineSlide_(idx){
+  var m=_flPipeModel, esc=function(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); };
+  var t=document.getElementById('pl-title-'+idx); if(t) t.textContent=m.title;
+  var kp=document.getElementById('pl-kpis-'+idx);
+  if(kp) kp.innerHTML=m.kpis.map(function(k){ return '<div class="pl-kpi"><div class="v">'+esc(k.v)+'</div><div class="l">'+esc(k.l)+'</div></div>'; }).join('');
+  var hd=document.getElementById('pl-chartH-'+idx);
+  if(hd) hd.innerHTML='<span>'+esc(m.chart.label)+'</span><span class="lg"><i style="background:#5626e9"></i>Total FVM</span><span class="lg"><i class="ln"></i># Deals con NR</span>';
+  // gráfico en canvas (html2canvas lo captura mejor que un SVG)
+  var cv=document.getElementById('pl-cv-'+idx);
+  if(cv){
+    var W=820,H=170,R=2; cv.width=W*R; cv.height=H*R; cv.style.width=W+'px'; cv.style.height=H+'px';
+    var c=cv.getContext('2d'); c.scale(R,R); c.clearRect(0,0,W,H);
+    var ms=m.chart.months, n=ms.length, max=Math.max.apply(null,ms.map(function(x){return x.v;}).concat([1])), maxD=Math.max.apply(null,ms.map(function(x){return x.deals;}).concat([1]));
+    var base=H-24, pitch=W/n, bw=Math.min(78,pitch*0.6), pts=[];
+    c.textAlign='center'; c.font='600 13px Poppins, Segoe UI, sans-serif';
+    ms.forEach(function(x,i){
+      var cx=pitch*i+pitch/2, h=Math.max((base-62)*0.62*x.v/max,2);
+      c.globalAlpha=0.45+0.55*x.v/max; c.fillStyle='#5626e9'; c.fillRect(cx-bw/2,base-h,bw,h); c.globalAlpha=1;
+      c.fillStyle='#3d1aa8'; c.fillText(x.txt,cx,base-h-6);
+      c.fillStyle='#4a4a63'; c.font='500 13px Poppins, Segoe UI, sans-serif'; c.fillText(x.label,cx,H-6); c.font='600 13px Poppins, Segoe UI, sans-serif';
+      pts.push([cx,base-34-(base-62-12)*x.deals/maxD,x.deals]);
+    });
+    c.strokeStyle='#12b886'; c.lineWidth=3; c.lineJoin='round'; c.beginPath();
+    pts.forEach(function(p,i){ if(i) c.lineTo(p[0],p[1]); else c.moveTo(p[0],p[1]); }); c.stroke();
+    pts.forEach(function(p){ c.beginPath(); c.arc(p[0],p[1],5,0,Math.PI*2); c.fillStyle='#fff'; c.fill(); c.lineWidth=2.5; c.stroke(); c.fillStyle='#0b8a66'; c.fillText(p[2],p[0],p[1]-11); });
+  }
+  var tb=document.getElementById('pl-tbl-'+idx);
+  if(tb){
+    var base2=flPipeBase_()+'/_gas/weekly/';
+    var rows=m.rows.map(function(r){
+      return '<tr><td class="f">'+esc(r.fecha)+'</td><td class="p"><span class="lg">'+(r.logo?'<img src="'+base2+esc(r.logo)+'" alt="">':'')+'</span>'+esc(r.partner)+'</td><td>'+esc(r.pais)+'</td>'
+        +'<td class="n">'+esc(r.nr)+'</td><td class="n">'+esc(r.fvm)+'</td><td class="n">'+esc(r.y3)+'</td></tr>';
+    }).join('');
+    tb.innerHTML='<thead><tr><th>Fecha</th><th>Partner</th><th>País</th><th class="n">NR H2&#39;27</th><th class="n">FVM H2&#39;27</th><th class="n">NR Y3</th></tr></thead><tbody>'+rows
+      +'<tr class="otros"><td></td><td>'+esc(m.otros.label)+'</td><td></td><td class="n">'+esc(m.otros.nr)+'</td><td class="n">'+esc(m.otros.fvm)+'</td><td class="n">'+esc(m.otros.y3)+'</td></tr>'
+      +'<tr class="tot"><td></td><td>'+esc(m.total.label)+'</td><td></td><td class="n">'+esc(m.total.nr)+'</td><td class="n">'+esc(m.total.fvm)+'</td><td class="n">'+esc(m.total.y3)+'</td></tr></tbody>';
+  }
+}
 var _flB2CKrHalf=null;   // 'H1' | 'H2' elegido con el switch; null = según el mes que se mira
 function flB2CKrSetHalf_(h){
   _flB2CKrHalf=h;

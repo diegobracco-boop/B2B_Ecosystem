@@ -359,3 +359,10 @@ Entrada propia del menú principal que junta, con la misma regla de fuentes, los
     captura de KRs del Daily OK. pptxgenjs y html2canvas se bajan recién al clic (salvo Cierre, que usa html2canvas para armar sus
     slides). El PPTX Mensual pasa de 25 a 15 s: antes html2canvas se volvía a bajar una vez por slide. "Mis slides" no se probó con
     datos (el `_store` local no tiene slides armadas).
+
+## Pipeline Hunting (2026-11-04)
+Deals del pipeline B2B2C H2'26 en dos lugares, con el mismo modelo (`server/pipeline-slide.js`, datos en `public/weekly/pipeline-h2-26.json`):
+- **Página `/pipeline-hunting`** (tarjeta en "Más tableros", `server/pipeline-hunting-page.js`): todos los deals + "+ Otros" hasta los totales fijos (NR H2'27 4,1 M, FVM H2'27 1,5 M). Mismos permisos que el Daily.
+- **Slide "B2B2C — Pipeline Hunting" del Flow** (después de Status KRs, `kind:'b2b2c_pipeline'` en `Daily_Dashboard/dashboard.html`): top 12 por NR H2'27 + Otros + evolutivo de FVM. Lee `/_gas/weekly/pipeline.json`: solo anda en Ownia (en Apps Script avisa).
+- **Criterio de la tabla** (verificado contra la slide de Metabase): NR Y3 = amount del deal; NR H2'27 = NR Y3 × rampa de 36 meses acumulada desde el mes del ETD (cuenta como mes 1) hasta mar-27 / 12; FVM = NR × FVM/NR de HubSpot. La query de `Daily_Dashboard/pipeline_b2b2c.sql` arranca la rampa el mes siguiente: no usarla para los montos.
+- **Hoy es un snapshot cargado a mano** (query corrida el 2026-11-04 + Mercado Pago del escenario neutro + totales y evolutivo fijos). Para actualizarlo hay que regenerar el JSON y redeployar; los logos son favicons (`public/weekly/pl-*.png`).
