@@ -35,10 +35,12 @@ function emailFromHeader(name, value) {
   return email.includes('@') ? email : '';
 }
 
-// Mismo alcance que `access: DOMAIN` en GAS.
-// Hoteldo (mismo grupo) entra igual que despegar.com, 2026-11-04.
-const ALLOWED_DOMAINS = ['@despegar.com', '@hoteldo.com'];
+// Mismo alcance que `access: DOMAIN` en GAS, más las submarcas de Despegar que quedaron con su propio
+// dominio de mail (Diego, 2026-11-04): Hoteldo y Best Day. Ownia ya exige el login corporativo; esto solo
+// define qué mails cuentan como usuario identificado.
+const ALLOWED_DOMAINS = ['@despegar.com', '@hoteldo.com', '@bestday.com'];
 const ALLOWED_DOMAIN = ALLOWED_DOMAINS[0];
+const isAllowedEmail = (email) => ALLOWED_DOMAINS.some((d) => String(email || '').toLowerCase().endsWith(d));
 
 // x-amzn-oidc-data es un JWT que habría que verificar (firma ES256 del ALB, signer, exp)
 // antes de confiar en él; hasta implementarlo no se acepta como header confiable.
@@ -48,7 +50,7 @@ function resolveIdentity(headers, trustedHeader) {
   const h = String(trustedHeader || '').toLowerCase();
   if (!h || UNVERIFIED_JWT_HEADERS.has(h)) return { email: '', source: null };
   const email = emailFromHeader(h, headers[h]);
-  return email && ALLOWED_DOMAINS.some((d) => email.endsWith(d)) ? { email, source: h } : { email: '', source: null };
+  return email && isAllowedEmail(email) ? { email, source: h } : { email: '', source: null };
 }
 
 // Para /whoami: qué headers de autenticación llegan (nombre + si traen un email válido).
@@ -63,4 +65,4 @@ function describeAuthHeaders(headers) {
   });
 }
 
-module.exports = { resolveIdentity, describeAuthHeaders, CANDIDATE_HEADERS, ALLOWED_DOMAIN, ALLOWED_DOMAINS };
+module.exports = { resolveIdentity, describeAuthHeaders, isAllowedEmail, CANDIDATE_HEADERS, ALLOWED_DOMAIN, ALLOWED_DOMAINS };

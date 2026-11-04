@@ -192,6 +192,7 @@ del ALB no es alcanzable desde la red de usuarios. Por eso `TRUSTED_IDENTITY_HEA
 `cf-access-authenticated-user-email`. **Pendiente (recomendado):** verificar además la firma del JWT
 `cf-access-jwt-assertion` (certs del team de Cloudflare Access), por si algo llegara al ALB sin pasar por Cloudflare.
 
+- **Dominios que cuentan como usuario identificado (2026-11-04, Diego):** `@despegar.com`, `@hoteldo.com` y `@bestday.com` (`ALLOWED_DOMAINS` en `server/identity.js`): gente de las submarcas que quedó con el mail de su marca. Un mail de otro dominio llega sin identidad (401 en los módulos con datos). Que puedan pasar el login de Cloudflare Access lo define la política de Ownia, no esta app.
 - `GET /b2b-ecosystem/whoami` muestra qué headers de autenticación llegan (nombre + mail, sin tokens).
 - `APP_SECRETS.TRUSTED_IDENTITY_HEADER` = header que pone (y siempre pisa) el proxy de adelante. Sin esa config,
   `Session.getActiveUser()` devuelve `''`: un header que el cliente puede mandar a mano nunca se toma como identidad.

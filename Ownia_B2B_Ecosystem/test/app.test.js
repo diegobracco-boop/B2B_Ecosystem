@@ -283,6 +283,10 @@ test('Session.getActiveUser: solo con el header confiable configurado', async ()
   assert.deepEqual(JSON.parse((await run('quienSoy', [], { 'x-test-email': 'alguien@gmail.com' })).text), { result: '' });
   assert.equal((await request(demoServer, 'GET', `${BASE}/demo-privado`, { headers: { 'x-test-email': 'alguien@gmail.com' } })).status, 401);
   assert.equal((await request(demoServer, 'GET', `${BASE}/demo-privado`, { headers: { 'x-test-email': 'ana@hoteldo.com' } })).status, 200);
+  // Submarcas de Despegar con su propio dominio de mail (Hoteldo, Best Day) sí cuentan; un dominio parecido no.
+  assert.deepEqual(JSON.parse((await run('quienSoy', [], { 'x-test-email': 'Ana@HotelDo.com' })).text), { result: 'ana@hoteldo.com' });
+  assert.equal((await request(demoServer, 'GET', `${BASE}/demo-privado`, { headers: { 'x-test-email': 'ana@bestday.com' } })).status, 200);
+  assert.equal((await request(demoServer, 'GET', `${BASE}/demo-privado`, { headers: { 'x-test-email': 'ana@notbestday.com.ar' } })).status, 401);
 });
 
 test('CacheService y ScriptApp.getService().getUrl()', async () => {

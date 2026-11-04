@@ -169,14 +169,14 @@ function createApp(opts = {}) {
   }
 
   function unauthorized(res) {
-    return sendJson(res, 401, { error: 'Se requiere un usuario @despegar.com identificado', name: 'NoAutorizado' });
+    return sendJson(res, 401, { error: 'Se requiere un usuario de Despegar identificado (@despegar.com, @hoteldo.com o @bestday.com)', name: 'NoAutorizado' });
   }
 
   // Un módulo con datos sin identidad confiable no se sirve (ver modules.js).
   const needsIdentity = (mod) => mod.requiresIdentity !== false;
 
   // allowedUsers: lista cerrada de cuentas (p.ej. módulos en validación). Sin lista, alcanza
-  // con cualquier @despegar.com identificado.
+  // con cualquier usuario identificado (@despegar.com, @hoteldo.com, @bestday.com: identity.js).
   function mayOpen(mod, identity) {
     if (needsIdentity(mod) && !identity.email) return false;
     if (!Array.isArray(mod.allowedUsers)) return true;
