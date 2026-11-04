@@ -180,10 +180,11 @@
     var tabBefore = typeof activeTab !== 'undefined' ? activeTab : null, slidesBefore = window._isSlidesMode, idxBefore = window._slideIdx, caps;
     SLIDE_ORDER.splice(0, SLIDE_ORDER.length, want[0], want[1], want[2], want[3]);
     try {
-      if (!window._isSlidesMode) toggleSlidesMode();
-      _goToSlide(0); await sleep(2500);   // que la primera slide se acomode al alto antes de capturar
-      caps = await _captureAllSlides(function (d, t) { upd('Capturando el Tracker… ' + d + ' / ' + t); }, { jpeg: true }); }
+      // Con el panel de progreso encima, la captura de las slides de KRs (zoom + foreignObject) salía cortada: se oculta mientras se captura.
+      try { hideExportOverlay(); } catch (e) { /* sin panel */ }
+      caps = await _captureAllSlides(null, { jpeg: true }); }
     finally {
+      try { showExportOverlay('Capturando el Dashboard B2B API…'); } catch (e) { /* sin panel */ }
       SLIDE_ORDER.splice(0, SLIDE_ORDER.length, ...orig);
       try { if (!slidesBefore && window._isSlidesMode) toggleSlidesMode(); if (tabBefore) { activeTab = tabBefore; document.querySelectorAll('.tab-btn').forEach(function (b) { b.classList.toggle('active', b.dataset.tab === tabBefore); }); render(); } } catch (e) { /* queda donde estaba */ }
     }
