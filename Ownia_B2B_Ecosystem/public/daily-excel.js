@@ -2,10 +2,10 @@
  *
  * Botón en la barra de filtros de la solapa Daily (B2B2C). Abre un pop-up con mes, país y partner y baja un
  * .xlsx con la información transaccional diaria de B2B2C de esa selección:
- *  - "Resumen diario": un renglón por día del mes (hasta el último día con datos) con Órdenes, GB, NR y FVM, y Total.
+ *  - "Resumen diario": un renglón por día del mes (hasta el último día con datos) con Bookings (órdenes), GB, NR y FVM, y Total.
  *  - "Detalle": las filas de actuals de daily_sync.py como las tiene cargadas la página (alias de partner aplicados, FVM
  *    de las filas RG según el switch COI Brasil; sin las filas con todo en 0): fecha, país, región del maestro de partners
- *    (HISPA / BR / MX/US…, no la región del Daily), partner, producto, canal, viaje, tipo de cuenta, tier, órdenes, GB, NR, FVM.
+ *    (HISPA / BR / MX/US…, no la región del Daily), partner, producto, canal, viaje, tipo de cuenta, tier, Bookings (órdenes), GB, NR, FVM.
  *  - "Info": la selección, la fecha de datos y cómo leer los números.
  *
  * Datos: los mismos que ya cargó el Daily (_rawB2BC.actuals, con los alias de partner aplicados); no pide nada al
@@ -193,7 +193,7 @@
     ['Fecha', 'fecha', 'd', 12], ['País', 'pais', 's', 16], ['Región partner', 'region', 's', 14], ['Partner', 'partner', 's', 28],
     ['Producto', 'productooriginal', 's', 18], ['Canal', 'channel', 's', 14], ['Viaje', 'viaje', 's', 12],
     ['Tipo de cuenta', 'account_type', 's', 14], ['Tier', 'tier', 's', 10],
-    ['Órdenes', 'orders', 'n', 10], ['GB (USD)', 'gross_bookings', 'n', 14], ['NR (USD)', 'net_revenues', 'n', 14], ['FVM (USD)', 'fvm', 'n', 14]
+    ['Bookings', 'orders', 'n', 10], ['GB (USD)', 'gross_bookings', 'n', 14], ['NR (USD)', 'net_revenues', 'n', 14], ['FVM (USD)', 'fvm', 'n', 14]
   ];
 
   function selLabel(sel) {
@@ -213,7 +213,7 @@
     var H = function (t) { return { v: t, t: 's', s: S.head }; };
 
     var res = { name: 'Resumen diario', cols: [12, 12, 16, 16, 16], freeze: true, rows: [] };
-    res.rows.push([H('Fecha'), H('Órdenes'), H('GB (USD)'), H('NR (USD)'), H('FVM (USD)')]);
+    res.rows.push([H('Fecha'), H('Bookings'), H('GB (USD)'), H('NR (USD)'), H('FVM (USD)')]);
     days.forEach(function (d) {
       res.rows.push([{ v: d.fecha, t: 'd', s: S.date }, { v: d.orders, t: 'n', s: S.n }, { v: d.gb, t: 'n', s: S.n }, { v: d.nr, t: 'n', s: S.n }, { v: d.fvm, t: 'n', s: S.n }]);
     });
@@ -243,7 +243,7 @@
     I('Filas de detalle', String(rows.length));
     info.rows.push([]);
     I('Moneda', opts.currency || 'USD nominal (Organic NO): los montos tal cual los publica daily_sync.py.');
-    I('GB / NR / FVM', 'Gross Bookings, Net Revenue y FVM de actuals B2B2C (fecha de compra), sumados por día en "Resumen diario".');
+    I('Bookings / GB / NR / FVM', 'Bookings = órdenes (transacciones únicas por fila de daily_sync.py); Gross Bookings, Net Revenue y FVM de actuals B2B2C (fecha de compra), sumados por día en "Resumen diario".');
     I('COI Brasil', opts.coiExcl
       ? 'Excluir (como la página): las filas del país "RG (ajuste COI Brasil)" restan el COI y el efecto financiero de Brasil del FVM; Brasil conserva su FVM completo.'
       : 'Incluir (como la página): FVM completo, sin las filas de ajuste RG.');
@@ -368,7 +368,7 @@
     function preview() {
       var f = filterRows(rows, sel()), t = totals(f);
       go.disabled = !f.length;
-      sum.textContent = f.length ? f.length.toLocaleString('en-US') + ' filas · GB ' + fmt(t.gb) + ' · NR ' + fmt(t.nr) + ' · FVM ' + fmt(t.fvm) : 'Sin datos para esta selección.';
+      sum.textContent = f.length ? f.length.toLocaleString('en-US') + ' filas · Bookings ' + Math.round(t.orders).toLocaleString('en-US') + ' · GB ' + fmt(t.gb) + ' · NR ' + fmt(t.nr) + ' · FVM ' + fmt(t.fvm) : 'Sin datos para esta selección.';
     }
     fillPais(); fillPartner(); preview();
     sMes.onchange = function () { fillPais(); fillPartner(); preview(); };

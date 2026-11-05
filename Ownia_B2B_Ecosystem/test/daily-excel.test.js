@@ -108,11 +108,11 @@ function check(rows, sel, meta = META) {
   assert.equal(sum('GB (USD)'), exp.tot.gb, 'GB detalle');
   assert.equal(sum('NR (USD)'), exp.tot.nr, 'NR detalle');
   assert.equal(sum('FVM (USD)'), exp.tot.fvm, 'FVM detalle');
-  assert.equal(sum('Órdenes'), exp.tot.orders, 'órdenes detalle');
+  assert.equal(sum('Bookings'), exp.tot.orders, 'órdenes detalle');
 
   // Resumen diario: un renglón por día, cada día con su suma, y el Total
   const [rh, ...res] = book['Resumen diario'];
-  assert.deepEqual(rh, ['Fecha', 'Órdenes', 'GB (USD)', 'NR (USD)', 'FVM (USD)']);
+  assert.deepEqual(rh, ['Fecha', 'Bookings', 'GB (USD)', 'NR (USD)', 'FVM (USD)']);
   const total = res.pop();
   assert.equal(total[0], 'Total');
   assert.deepEqual(total.slice(1), [exp.tot.orders, exp.tot.gb, exp.tot.nr, exp.tot.fvm], 'Total del resumen');
