@@ -16,7 +16,9 @@
   // "Enviar a Google Slides" del Flow no va en Ownia (2026-10-28): se reemplaza por "Descargar PPTX" del módulo Flow. En Apps Script sigue igual.
   // El del Daily B2B Tracker sí (2026-11-03): el servidor de Ownia le pasa las capturas al Apps Script del Daily (server/gslides-export.js).
   var NO_GSLIDES = '#flow-export-btn{display:none!important}';
-  css.textContent = NO_GSLIDES + (on
+  // "Consultar IA" (Toqan) fuera del Daily en Ownia (2026-11-05, Diego): hay que ajustarlo por Organic antes de volver a mostrarlo.
+  var NO_AI = '#btn-toqan-bicia,#btn-toqan-bee{display:none!important}';
+  css.textContent = NO_GSLIDES + NO_AI + (on
     ? '.view-nav,#daily-lob-toggle,#btn-toqan-bicia,#btn-toqan-bee,#btn-email,.ownia-home-top{display:none!important}'
     : '#vnav-flow{display:none!important}');
   (document.head || document.documentElement).appendChild(css);
