@@ -538,7 +538,7 @@ country_factors AS (
     FROM (VALUES
         ('BR','API','Hoteles',1.00000),('MX','API','Hoteles',1.00000),
         ('O','API','Hoteles',1.11000),('AR','API','Hoteles',0.76244),
-        ('CO','API','Hoteles',0.73907),('CL','API','Hoteles',0.22390),
+        ('CO','API','Hoteles',0.80000),('CL','API','Hoteles',0.22390),
         ('PE','API','Hoteles',1.00000),('EC','API','Hoteles',1.00000),
         ('BR','Agencias afiliadas','Hoteles',0.95877),('MX','Agencias afiliadas','Hoteles',0.87797),
         ('O','Agencias afiliadas','Hoteles',0.73548),('AR','Agencias afiliadas','Hoteles',0.90000),
@@ -579,7 +579,7 @@ country_factors AS (
     FROM (VALUES
         ('BR','API','Hoteles',1.000000),('MX','API','Hoteles',1.000000),
         ('O','API','Hoteles',1.110000),('AR','API','Hoteles',0.761148),
-        ('CO','API','Hoteles',0.688685),('CL','API','Hoteles',0.217122),
+        ('CO','API','Hoteles',0.800000),('CL','API','Hoteles',0.217122),
         ('PE','API','Hoteles',1.000000),('EC','API','Hoteles',1.000000),
         ('BR','Agencias afiliadas','Hoteles',0.958768),('MX','Agencias afiliadas','Hoteles',0.877965),
         ('O','Agencias afiliadas','Hoteles',0.735475),('AR','Agencias afiliadas','Hoteles',0.900000),
