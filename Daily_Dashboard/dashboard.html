@@ -218,6 +218,8 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
 .mc-kpi-delta { font-family: var(--mono); font-size: 13px; font-weight: 600; }
 .delta-g { color: var(--success); }
 .delta-r { color: var(--danger); }
+.mc-gran { background: var(--elevated); border: 1px solid var(--border); border-radius: 6px; font-size: 11px; font-family: var(--font); color: var(--text-2); padding: 2px 4px; cursor: pointer; outline: none; }
+.mc-gran option { background: var(--elevated); color: var(--text); }
 .mc-leg { display: flex; gap: 10px; font-size: 10px; color: var(--text-3); margin-left: auto; }
 .leg-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 5px; }
 
@@ -312,6 +314,11 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
 .org-lbl  { font-size: 11px; font-weight: 700; color: var(--text-2); }
 .org-note { font-size: 10.5px; color: var(--text-3); max-width: 280px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .org-note.err { color: var(--danger); }
+.org-info { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px; border-radius: 50%; border: 1px solid var(--text-3); color: var(--text-3); font-size: 10px; font-weight: 700; font-style: italic; font-family: Georgia, serif; cursor: help; flex-shrink: 0; outline: none; }
+.org-info:hover, .org-info:focus { color: var(--text); border-color: var(--text); }
+.org-info.err { color: var(--danger); border-color: var(--danger); }
+.org-info::after { content: attr(data-tip); display: none; position: absolute; top: calc(100% + 8px); right: -8px; z-index: 60; width: max-content; max-width: 280px; padding: 7px 10px; border-radius: 7px; background: var(--elevated); border: 1px solid var(--border); color: var(--text); font: 400 11px/1.4 var(--font); font-style: normal; white-space: normal; text-align: left; box-shadow: 0 6px 18px rgba(0,0,0,.25); }
+.org-info:hover::after, .org-info:focus::after { display: block; }
 
 /* ── Date-model mini-toggle ────────────────────────────── */
 .section-hdr { font-size:11px; font-weight:700; color:var(--text-3); letter-spacing:.08em; text-transform:uppercase; margin:20px 0 10px; }
@@ -832,12 +839,37 @@ body.krd-only #section-b2b > :not(.krd-keep) { display:none !important; }
       <button class="lob-btn"        data-o="no"  onclick="setDailyOrganic(false)">NO</button>
       <button class="lob-btn active" data-o="yes" onclick="setDailyOrganic(true)">YES</button>
     </div>
-    <span class="org-note" id="org-note"></span>
+    <span class="org-note" id="org-note" style="display:none"></span>
+    <span class="org-info" id="org-info" tabindex="0" style="display:none">i</span>
   </div>
-  <a class="btn-action btn-toqan" id="btn-toqan-bicia" href="https://work.toqan.ai/spaces/join/3e38c85f-5349-44c3-9644-3342ff7e32ae" target="_blank" rel="noopener">🤖 Consultar IA</a>
+  <!-- Toggles B2B2C (antes en la barra de filtros): solo se ven en Daily B2B2C -->
+  <div id="b2bc-top-ctls" style="display:flex;align-items:center;gap:4px">
+    <div class="dm-group" style="margin-left:4px" title="Partner TBD = New partners / Hunting. Excluir lo saca de KRs, métricas, tablas, Benchmark y slides B2B2C del Flow. No cambian: Unique Buyers (es Total WL, no se abre por partner) ni las series B2C.">
+      <span class="dm-group-lbl">Partner TBD</span>
+      <div class="dm-toggle">
+        <button class="dm-btn active" id="btn-tbd-incl" onclick="setExclTBD(false)">Incluir</button>
+        <button class="dm-btn" id="btn-tbd-excl" onclick="setExclTBD(true)">Excluir</button>
+      </div>
+    </div>
+    <div class="dm-group" style="margin-left:4px" title="COI Brasil: Excluir saca el cost of installments y el efecto financiero de Brasil del FVM en toda la página (métricas, tablas, KRs, Benchmark, Weekly y Flow), en actuals, LY y Budget / Run Rate / Forecast. No cambian los emails ni la línea B2C.">
+      <span class="dm-group-lbl">COI Brasil</span>
+      <div class="dm-toggle">
+        <button class="dm-btn" data-coibr="incl" onclick="setExCoiBr(false)">Incluir</button>
+        <button class="dm-btn active" data-coibr="excl" onclick="setExCoiBr(true)">Excluir</button>
+      </div>
+    </div>
+    <div class="dm-group" style="margin-left:4px" title="Half: elige qué KRs se ven. No cambia las métricas ni las tablas de abajo.">
+      <span class="dm-group-lbl">Half FY27</span>
+      <div class="dm-toggle">
+        <button class="dm-btn active" id="btn-b2bc-kr-h1" onclick="setB2BCKrHalf('h1')">H1</button>
+        <button class="dm-btn"        id="btn-b2bc-kr-h2" onclick="setB2BCKrHalf('h2')">H2</button>
+      </div>
+    </div>
+  </div>
+  <a class="btn-action btn-toqan" id="btn-toqan-bicia" style="display:none" href="https://work.toqan.ai/spaces/join/3e38c85f-5349-44c3-9644-3342ff7e32ae" target="_blank" rel="noopener">🤖 Consultar IA</a>
   <a class="btn-action btn-toqan" id="btn-toqan-bee"   href="https://work.toqan.ai/spaces/join/ff4f36f2-9621-4f28-b5c3-edc50fcbebac" target="_blank" rel="noopener" style="display:none">🤖 Consultar IA</a>
 
-  <button class="btn-action" id="btn-email" onclick="runEmail()"     title="Enviar resumen por email">
+  <button class="btn-action" id="btn-email" style="display:none" onclick="runEmail()"     title="Enviar resumen por email">
     <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
     Enviar email
   </button>
@@ -866,54 +898,14 @@ body.krd-only #section-b2b > :not(.krd-keep) { display:none !important; }
   </div>
   <div class="fchip">
     <svg class="fchip-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
-    <select id="sel-partner" onchange="reloadAll()"><option value="all">Todos los partners</option></select>
+    <div class="msel" id="sel-partner">
+      <button type="button" class="msel-btn" id="sel-partner-btn" onclick="partPopToggle_(event)">Todos los partners</button>
+      <div class="msel-pop" id="sel-partner-pop"></div>
+    </div>
   </div>
-  <div class="fchip" title="Filtra por director del KAM (B2B API/HTML) o del partner (B2B2C)">
-    <svg class="fchip-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
-    <select id="sel-director" onchange="dirSet_(this.value)"><option value="all">Todos los directores</option></select>
-  </div>
-  <span id="dir-note-c" style="display:none;flex-basis:100%;font-size:11px;color:#b45309">Filtro de director activo: aplica a actuals B2B (API/HTML) y a B2B2C (actuals y budget). El budget, RR y Forecast de B2B no se abren por director y se ocultan; KRs H2, Weekly y B2C no se filtran.</span>
   <div class="fchip">
     <svg class="fchip-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
-    <select id="sel-product" onchange="reloadAll()"><option value="all">Todos los productos</option></select>
-  </div>
-  <div class="fchip">
-    <svg class="fchip-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-    <select id="sel-account" onchange="reloadAll()">
-      <option value="all">Existing + New</option>
-      <option value="Existing">Existing accounts</option>
-      <option value="New">New accounts</option>
-    </select>
-  </div>
-  <div class="fchip">
-    <svg class="fchip-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-    <select id="sel-gran" onchange="reloadMetrics()">
-      <option value="daily">Diario (MTD)</option>
-      <option value="weekly">Semanal</option>
-      <option value="rolling7">Last 7 Days</option>
-      <option value="monthly">Mensual</option>
-    </select>
-  </div>
-  <div class="dm-group" style="margin-left:4px" title="Partner TBD = New partners / Hunting. Excluir lo saca de KRs, métricas, tablas, Benchmark y slides B2B2C del Flow. No cambian: Unique Buyers (es Total WL, no se abre por partner) ni las series B2C.">
-    <span class="dm-group-lbl">Partner TBD</span>
-    <div class="dm-toggle">
-      <button class="dm-btn active" id="btn-tbd-incl" onclick="setExclTBD(false)">Incluir</button>
-      <button class="dm-btn" id="btn-tbd-excl" onclick="setExclTBD(true)">Excluir</button>
-    </div>
-  </div>
-  <div class="dm-group" style="margin-left:4px" title="COI Brasil: Excluir saca el cost of installments y el efecto financiero de Brasil del FVM en toda la página (métricas, tablas, KRs, Benchmark, Weekly y Flow), en actuals, LY y Budget / Run Rate / Forecast. No cambian los emails ni la línea B2C.">
-    <span class="dm-group-lbl">COI Brasil</span>
-    <div class="dm-toggle">
-      <button class="dm-btn" data-coibr="incl" onclick="setExCoiBr(false)">Incluir</button>
-      <button class="dm-btn active" data-coibr="excl" onclick="setExCoiBr(true)">Excluir</button>
-    </div>
-  </div>
-  <div class="dm-group" style="margin-left:4px" title="Half: elige qué KRs se ven. No cambia las métricas ni las tablas de abajo.">
-    <span class="dm-group-lbl">Half FY27</span>
-    <div class="dm-toggle">
-      <button class="dm-btn active" id="btn-b2bc-kr-h1" onclick="setB2BCKrHalf('h1')">H1</button>
-      <button class="dm-btn"        id="btn-b2bc-kr-h2" onclick="setB2BCKrHalf('h2')">H2</button>
-    </div>
+    <select id="sel-product" onchange="reloadAll()"><option value="all">Producto</option></select>
   </div>
   <div class="date-nav">
     <button id="btn-prev" onclick="navDay(-1)">&#8249;</button>
@@ -1091,6 +1083,9 @@ body.krd-only #section-b2b > :not(.krd-keep) { display:none !important; }
           <div class="mc-kpi"><span class="mc-kpi-lbl">vs LY</span><span class="mc-kpi-delta" id="mc-gb-vly">—</span></div>
           <div class="mc-kpi"><span class="mc-kpi-lbl" id="mc-gb-bud-lbl">vs Bdg</span><span class="mc-kpi-delta" id="mc-gb-bud">—</span></div>
         </div>
+        <select class="mc-gran" id="gran-gb" onchange="setChartGran_('gb',this.value)" title="Temporalidad del gráfico">
+          <option value="daily">Diario (MTD)</option><option value="weekly">Semanal</option><option value="rolling7">Last 7 Days</option><option value="monthly">Mensual</option>
+        </select>
         <div class="mc-leg">
           <span><span class="leg-dot" style="background:#5626e9"></span>Actual</span>
           <span><span class="leg-dot" style="background:var(--bud-line)"></span>LY</span>
@@ -1108,6 +1103,9 @@ body.krd-only #section-b2b > :not(.krd-keep) { display:none !important; }
           <div class="mc-kpi"><span class="mc-kpi-lbl">vs LY</span><span class="mc-kpi-delta" id="mc-nr-vly">—</span></div>
           <div class="mc-kpi"><span class="mc-kpi-lbl" id="mc-nr-bud-lbl">vs Bdg</span><span class="mc-kpi-delta" id="mc-nr-bud">—</span></div>
         </div>
+        <select class="mc-gran" id="gran-nr" onchange="setChartGran_('nr',this.value)" title="Temporalidad del gráfico">
+          <option value="daily">Diario (MTD)</option><option value="weekly">Semanal</option><option value="rolling7">Last 7 Days</option><option value="monthly">Mensual</option>
+        </select>
         <div class="mc-leg">
           <span><span class="leg-dot" style="background:#8e5ff3"></span>Actual</span>
           <span><span class="leg-dot" style="background:var(--bud-line)"></span>LY</span>
@@ -1129,6 +1127,9 @@ body.krd-only #section-b2b > :not(.krd-keep) { display:none !important; }
           <div class="mc-kpi"><span class="mc-kpi-lbl">vs LY</span><span class="mc-kpi-delta" id="mc-fvm-vly">—</span></div>
           <div class="mc-kpi"><span class="mc-kpi-lbl" id="mc-fvm-bud-lbl">vs Bdg</span><span class="mc-kpi-delta" id="mc-fvm-bud">—</span></div>
         </div>
+        <select class="mc-gran" id="gran-fvm" onchange="setChartGran_('fvm',this.value)" title="Temporalidad del gráfico">
+          <option value="daily">Diario (MTD)</option><option value="weekly">Semanal</option><option value="rolling7">Last 7 Days</option><option value="monthly">Mensual</option>
+        </select>
         <div class="mc-leg">
           <span><span class="leg-dot" style="background:var(--secondary)"></span>Actual</span>
           <span><span class="leg-dot" style="background:var(--bud-line)"></span>LY</span>
@@ -1843,14 +1844,63 @@ function setExCoiBr(on) {
 }
 // Dropdown de partners según el switch: con Excluir, TBD no se ofrece; si estaba elegido vuelve a "Todos".
 // Además se limita a los países elegidos en el filtro de países (multiselect).
+// Filtro de partners multiselect, agrupado por tipo de cuenta (Existing / New). El check del grupo
+// marca todos sus partners (de los países elegidos).
+var _selPartners = [];    // [] = todos
+var _partGroups  = { Existing: [], New: [] };
+function partSel_() { return _selPartners.length ? _selPartners : null; }
 function fillPartnersCore_() {
-  var prev = v('sel-partner');
   var act = b2bcRaw_().actuals;
   if (_selPaises.length) act = act.filter(function(r){ return _selPaises.indexOf(r.pais) >= 0; });
-  fill('sel-partner', getPartners_(act), 'Todos los partners');
-  var sel = document.getElementById('sel-partner');
-  if (sel && prev && prev !== 'all') { sel.value = prev; if (sel.value !== prev) sel.value = 'all'; }
+  var g = { Existing: [], New: [] };
+  getPartners_(act).forEach(function(p) {
+    var at = null;
+    act.forEach(function(r){ if (r.partner === p && r.account_type) at = r.account_type; });
+    (at === 'New' ? g.New : g.Existing).push(p);
+  });
+  _partGroups = g;
+  var all = g.Existing.concat(g.New);
+  _selPartners = _selPartners.filter(function(p){ return all.indexOf(p) >= 0; });
+  renderPartPop_();
 }
+function renderPartPop_() {
+  var pop = document.getElementById('sel-partner-pop'), btn = document.getElementById('sel-partner-btn');
+  if (!pop) return;
+  var esc = function(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); };
+  var h = '<button type="button" class="msel-clear" onclick="partClear_()">Todos los partners</button>';
+  [['Existing','Existing'],['New','New']].forEach(function(gr) {
+    var cs = _partGroups[gr[0]];
+    if (!cs.length) return;
+    var n = cs.filter(function(p){ return _selPartners.indexOf(p) >= 0; }).length;
+    h += '<label class="msel-row msel-region"><input type="checkbox"'+(n===cs.length?' checked':'')+(n>0&&n<cs.length?' data-ind="1"':'')+' onchange="partToggleGroup_(\''+gr[0]+'\')">'+gr[1]+'</label>';
+    cs.forEach(function(p) {
+      h += '<label class="msel-row msel-country"><input type="checkbox"'+(_selPartners.indexOf(p)>=0?' checked':'')+' onchange="partToggle_(this.nextSibling.nodeValue)">'+esc(p)+'</label>';
+    });
+  });
+  pop.innerHTML = h;
+  pop.querySelectorAll('input[data-ind]').forEach(function(i){ i.indeterminate = true; });
+  btn.textContent = !_selPartners.length ? 'Todos los partners'
+    : _selPartners.length <= 2 ? _selPartners.join(', ') : _selPartners.length + ' partners';
+}
+function partChanged_() { renderPartPop_(); reloadAll(); }
+function partToggle_(p) {
+  var i = _selPartners.indexOf(p);
+  if (i >= 0) _selPartners.splice(i, 1); else _selPartners.push(p);
+  partChanged_();
+}
+function partToggleGroup_(k) {
+  var cs = _partGroups[k];
+  var all = cs.every(function(p){ return _selPartners.indexOf(p) >= 0; });
+  _selPartners = _selPartners.filter(function(p){ return cs.indexOf(p) < 0; });
+  if (!all) _selPartners = _selPartners.concat(cs);
+  partChanged_();
+}
+function partClear_() { _selPartners = []; partChanged_(); }
+function partPopToggle_(e) { e.stopPropagation(); document.getElementById('sel-partner').classList.toggle('open'); }
+document.addEventListener('click', function(e) {
+  var m = document.getElementById('sel-partner');
+  if (m && !m.contains(e.target)) m.classList.remove('open');
+});
 function fillPartnersB2BC_() { fillPartnersCore_(); }
 
 // ── Filtro de países multiselect (agrupado por región) ───────────
@@ -2107,6 +2157,13 @@ function _syncOrganicUI_() {
       + (miss.length ? ' · sin TC: ' + miss.slice(0, 4).join(', ') + (miss.length > 4 ? ' …' : '') : '');
   }
   note.title = note.textContent;
+  // La explicación vive en un icono "i" (tooltip al pasar el mouse): no ocupa lugar en la barra.
+  var info = document.getElementById('org-info');
+  if (info) {
+    info.style.display = note.textContent ? '' : 'none';
+    info.setAttribute('data-tip', note.textContent);
+    info.classList.toggle('err', !!_orgError_);
+  }
 }
 
 // ── State ──────────────────────────────────────────────────────
@@ -2325,8 +2382,8 @@ function compute_(raw, metric, vDate, gl_pai, gl_par, gl_pro, gl_at, gran, compS
   var pAT={};
   raw.actuals.forEach(function(r){if(r.partner&&r.account_type)pAT[r.partner]=r.account_type;});
   seedTBDNew_(pAT);
-  function matchA(r){if(gl_pai&&gl_pai.indexOf(r.pais)<0)return false;if(gl_par&&r.partner!==gl_par)return false;if(gl_pro&&r.productooriginal!==gl_pro)return false;if(gl_at&&r.account_type!==gl_at)return false;return true;}
-  function matchB(r){if(gl_pai&&gl_pai.indexOf(r.pais)<0)return false;if(gl_par&&r.partner!==gl_par)return false;if(gl_pro&&r.producto!==gl_pro)return false;if(gl_at&&pAT[r.partner]!==gl_at)return false;return true;}
+  function matchA(r){if(gl_pai&&gl_pai.indexOf(r.pais)<0)return false;if(gl_par&&gl_par.indexOf(r.partner)<0)return false;if(gl_pro&&r.productooriginal!==gl_pro)return false;if(gl_at&&r.account_type!==gl_at)return false;return true;}
+  function matchB(r){if(gl_pai&&gl_pai.indexOf(r.pais)<0)return false;if(gl_par&&gl_par.indexOf(r.partner)<0)return false;if(gl_pro&&r.producto!==gl_pro)return false;if(gl_at&&pAT[r.partner]!==gl_at)return false;return true;}
   function sum_(arr,from,to,mFn,f){var t=0;arr.forEach(function(r){if(from&&r.fecha<from)return;if(to&&r.fecha>to)return;if(!mFn(r))return;t+=(r[f]||0);});return t;}
   var d1=sum_(raw.actuals,vDate,vDate,matchA,MF), mtd=sum_(raw.actuals,mStart,vDate,matchA,MF);
   // organic opción B: mismos acumulados con los actuals a TC Actuals LY (= d1/mtd si no hay organic)
@@ -2380,7 +2437,7 @@ function breakdownCountryPartner_(raw, MF, BMF, mStart, vDate, lyMS, lyVD, gl_pa
   raw.actuals.forEach(function(r) {
     if (r.fecha<mStart || r.fecha>vDate) return;
     if (gl_pai && gl_pai.indexOf(r.pais)<0) return;
-    if (gl_par && r.partner!==gl_par) return;
+    if (gl_par && gl_par.indexOf(r.partner)<0) return;
     if (gl_pro && r.productooriginal!==gl_pro) return;
     if (atReq && pAT[r.partner]!==atReq) return;
     var b = bucket(r.pais||'Other', r.partner||'Other');
@@ -2389,7 +2446,7 @@ function breakdownCountryPartner_(raw, MF, BMF, mStart, vDate, lyMS, lyVD, gl_pa
   raw.actuals_ly.forEach(function(r) {
     if (r.fecha<lyMS || r.fecha>lyVD) return;
     if (gl_pai && gl_pai.indexOf(r.pais)<0) return;
-    if (gl_par && r.partner!==gl_par) return;
+    if (gl_par && gl_par.indexOf(r.partner)<0) return;
     if (gl_pro && r.productooriginal!==gl_pro) return;
     if (atReq && pAT[r.partner]!==atReq) return;
     bucket(r.pais||'Other', r.partner||'Other').ly += (r[MF]||0);
@@ -2397,7 +2454,7 @@ function breakdownCountryPartner_(raw, MF, BMF, mStart, vDate, lyMS, lyVD, gl_pa
   (compSrc || raw.budget || []).forEach(function(r) {
     if (r.fecha<mStart || r.fecha>vDate) return;
     if (gl_pai && gl_pai.indexOf(r.pais)<0) return;
-    if (gl_par && r.partner!==gl_par) return;
+    if (gl_par && gl_par.indexOf(r.partner)<0) return;
     if (gl_pro && r.producto!==gl_pro) return;
     if (atReq && pAT[r.partner]!==atReq) return;
     bucket(r.pais||'Other', r.partner||'Other').budget += (r[BMF]||0);
@@ -2730,7 +2787,7 @@ window.onload = function() {
       state.meta       = raw.meta;
       fillPaisMulti_(getPaises_(raw.actuals));
       fillPartnersB2BC_();
-      fill('sel-product', getProducts_(raw.actuals), 'Todos los productos');
+      fill('sel-product', getProducts_(raw.actuals), 'Producto');
       document.getElementById('loader').style.display = 'none';
       document.getElementById('content').classList.add('loaded');
       document.getElementById('sync-info').textContent =
@@ -2781,16 +2838,17 @@ function b2bPaisGroup_(pais) { return _B2B_REST_HISPA[pais] ? 'Rest of Hispa' : 
 function recomputeB2BC_() {
   if (!_rawB2BC || !state.viewDate) return;
   var raw    = b2bcRawOrg_(_orgTargetB2BC_());   // organic: actuals a TC del target (ver _orgRows_)
-  var gran   = v('sel-gran')    || 'daily';
+  var gran   = 'daily';   // la temporalidad se elige en cada gráfico (setChartGran_)
   var gl_pai = paisSel_();   // array de países o null
-  var gl_par = v('sel-partner') !== 'all' ? v('sel-partner') : null;
+  var gl_par = partSel_();
   var gl_pro = v('sel-product') !== 'all' ? v('sel-product') : null;
-  var gl_at  = v('sel-account') !== 'all' ? v('sel-account') : null;
+  var gl_at  = null;   // Existing/New ahora se elige desde el filtro de partners
   var compSrc = raw[_b2bcComparison] || [];
   var compLbl = COMPARISON_LABELS[_b2bcComparison];
   var compKpi = COMPARISON_KPIS[_b2bcComparison];
   ['leg-b2bc-gb-comp','leg-b2bc-nr-comp','leg-b2bc-fvm-comp'].forEach(function(id){var el=document.getElementById(id);if(el)el.textContent=compLbl;});
   ['mc-gb-bud-lbl','mc-nr-bud-lbl','mc-fvm-bud-lbl'].forEach(function(id){var el=document.getElementById(id);if(el)el.textContent=compKpi;});
+  _b2bcArgs = { raw: raw, vDate: state.viewDate, pai: gl_pai, par: gl_par, pro: gl_pro, at: gl_at, comp: compSrc };
   state.data       = compute_(raw, 'nr', state.viewDate, gl_pai, gl_par, gl_pro, gl_at, 'daily', compSrc);
   state.allMetrics = computeAll_(raw, state.viewDate, gl_pai, gl_par, gl_pro, gl_at, gran, _partnerTab, compSrc);
   // KRs: con ORGANIC YES los actuals van a TC Budget (los KRs se miden vs Budget), igual que el resto del Daily
@@ -3010,8 +3068,19 @@ function toggleB2C(view) {
   }
 }
 
+// Temporalidad por gráfico (B2B2C): cada barra de GB / NR / FVM tiene su selector. KPIs y tablas siguen MTD.
+var _chartGran_ = { gb: 'daily', nr: 'daily', fvm: 'daily' };
+var _b2bcArgs = null;
+function b2bcSeries_(key, g, all) {
+  if (g === 'daily' || !_b2bcArgs) return all[key].daily;
+  var a = _b2bcArgs;
+  return compute_(a.raw, key, a.vDate, a.pai, a.par, a.pro, a.at, g, a.comp).daily;
+}
+function setChartGran_(key, g) {
+  _chartGran_[key] = g || 'daily';
+  if (state.allMetrics) renderMetrics(state.allMetrics);
+}
 function renderMetrics(all) {
-  var gran = v('sel-gran') || 'daily';
   var compKpi = COMPARISON_KPIS[_b2bcComparison];
 
   var DEFS = [
@@ -3055,9 +3124,10 @@ function renderMetrics(all) {
     mcBudEl.textContent = fmtDelta(vbdg);
     mcBudEl.className   = 'mc-kpi-delta ' + (vbdg !== null ? (vbdg >= 0 ? 'delta-g' : 'delta-r') : '');
 
-    var chartDaily = d.daily;
+    var gran = _chartGran_[def.key] || 'daily';
+    var chartDaily = b2bcSeries_(def.key, gran, all);
     var isPct = def.key !== 'gb' && _b2bcMarginMode === 'pct';
-    if (isPct && all.gb) chartDaily = toPctDaily_(d.daily, all.gb.daily);
+    if (isPct && all.gb) chartDaily = toPctDaily_(chartDaily, b2bcSeries_('gb', gran, all));
     var b2cSeries = (_showB2C_b2bc && !isPct) ? computeB2C_(_rawB2BC, def.key, d.viewDate, gran) : null;
     renderChart(def.key, def.chartId, chartDaily, d.viewDate, def.color, gran, undefined, {pctMode:isPct, b2c:b2cSeries});
     var tblGroups = (gl_tbl_period === 'ytd' && d.groups_ytd) ? d.groups_ytd : d.groups;
@@ -3516,6 +3586,8 @@ function toggleTheme() {
 var _lob = 'b2bc';
 function switchLob(lob) {
   _lob = lob;
+  // B2B2C ya no tiene filtro de director: si quedó uno elegido en B2B, se limpia para no filtrar a ciegas.
+  if (lob === 'b2bc' && _dirSel !== 'all') dirSet_('all');
   document.getElementById('section-b2bc').style.display  = (lob==='b2bc') ? '' : 'none';
   document.getElementById('content').style.padding       = (lob==='b2b')  ? '0' : '';   // vacío en B2B: sin esto su padding deja un hueco arriba de los KRs
   document.getElementById('section-b2b').style.display   = (lob==='b2b')  ? '' : 'none';
@@ -4315,7 +4387,11 @@ function updateAiAgent(lob) {
   var bicia = document.getElementById('btn-toqan-bicia');
   if (!bee || !bicia) return;
   bee.style.display   = (lob === 'b2b')  ? '' : 'none';
-  bicia.style.display = (lob === 'b2bc') ? '' : 'none';
+  bicia.style.display = 'none';   // B2B2C: sin botón Consultar IA
+  var em = document.getElementById('btn-email');
+  if (em) em.style.display = (lob === 'b2bc') ? 'none' : '';   // B2B2C: sin botón Enviar email
+  var tc = document.getElementById('b2bc-top-ctls');
+  if (tc) tc.style.display = (lob === 'b2bc') ? 'flex' : 'none';   // toggles TBD / COI / Half: solo Daily B2B2C
 }
 
 // ══ MAIN VIEW SWITCH ═══════════════════════════════════════════
@@ -4323,6 +4399,8 @@ var _activeView = 'daily';
 
 function switchMainView(view) {
   _activeView = view;
+  var _tc = document.getElementById('b2bc-top-ctls');
+  if (_tc && view !== 'daily') _tc.style.display = 'none';   // vuelve en Daily B2B2C (updateAiAgent)
   document.getElementById('view-daily').style.display     = (view === 'daily')     ? '' : 'none';
   document.getElementById('view-benchmark').style.display = (view === 'benchmark') ? '' : 'none';
   document.getElementById('view-weekly').style.display    = (view === 'weekly')    ? '' : 'none';
@@ -5081,7 +5159,9 @@ function _wsUpdateAiAgent(lob) {
   var bicia = document.getElementById('btn-toqan-bicia');
   if (!bee || !bicia) return;
   bee.style.display   = (lob === 'B2B'   || lob === 'B2B+B2B2C') ? '' : 'none';
-  bicia.style.display = (lob === 'B2B2C' || lob === 'B2B+B2B2C') ? '' : 'none';
+  bicia.style.display = 'none';   // B2B2C: sin botón Consultar IA
+  var em = document.getElementById('btn-email');
+  if (em) em.style.display = (lob === 'B2B') ? '' : 'none';   // B2B2C: sin botón Enviar email
 }
 
 function _wsSetAiAgentUI(agent) {
