@@ -1461,7 +1461,7 @@
         <tbody id="statusKRsH2Body"></tbody>
       </table>
     </div>
-    <div style="font-size:0.78rem;color:#9ca3af;margin-top:10px">Targets provisorios = Budget MTD · Accelerate Recurrence (solo HTML): agencias de alta frecuencia (Metabase 171400) vs target mensual de Input_OKR; mientras el mes no cierra, el Actual y el cumplimiento son Rolling L4W vs Target (el MTD arranca en 0 cada mes y queda como nota); con la foto de cierre del mes, MTD vs Target. Los recuadros por país muestran las dos columnas. Con el filtro API o HTML, los recuadros por país muestran el cumplimiento y el YoY por <strong>Recognition Date</strong> y por <strong>Gestion Date</strong> (sin la columna Actual); lo que cuenta para el KR es Recognition (marcado en punteado violeta) y la tabla principal sigue por Recognition Date; la columna <em>Peso</em> es la participación de cada país en el actual Recognition del canal (— cuando hay países con monto negativo y el total queda en cero o cerca). <em>Sem NN</em> (tabla principal, antes de las columnas del mes) = cumplimiento de cada semana cerrada del mes (lun–dom, recortada al mes), la semana sola contra su budget (Accelerate Recurrence: la foto de la semana comercial cerrada, L4W o MTD de cierre vs el target del mes, como en la columna del mes); el OVERALL semanal usa la misma ponderación. <em>YoY Bud.</em> = crecimiento que pedía el budget vs los reales del año anterior (mismo período).</div>
+    <div style="font-size:0.78rem;color:#9ca3af;margin-top:10px">Targets provisorios = Budget MTD · Accelerate Recurrence (solo HTML): agencias de alta frecuencia (Metabase 171400) vs target mensual de Input_OKR; mientras el mes no cierra, el Actual y el cumplimiento son Rolling L4W vs Target (el MTD arranca en 0 cada mes y queda como nota); con la foto de cierre del mes, MTD vs Target. Los recuadros por país muestran las dos columnas. Con el filtro API o HTML, los recuadros por país muestran el cumplimiento y el YoY por <strong>Recognition Date</strong> y por <strong>Gestion Date</strong> (sin la columna Actual); lo que cuenta para el KR es Recognition (marcado en punteado violeta) y la tabla principal sigue por Recognition Date; la columna <em>Peso</em> es la participación de cada país en el actual Recognition del canal (— cuando hay países con monto negativo y el total queda en cero o cerca). <em>Sem NN</em> (tabla principal, antes de las columnas del mes) = cumplimiento de cada una de las últimas 4 semanas cerradas (lun–dom completas, no móviles; pueden ser del mes anterior), la semana sola contra su budget (Accelerate Recurrence: la foto de la semana comercial cerrada, L4W o MTD de cierre vs el target del mes, como en la columna del mes); el OVERALL semanal usa la misma ponderación. <em>YoY Bud.</em> = crecimiento que pedía el budget vs los reales del año anterior (mismo período).</div>
     <div class="kr-detail-grid" id="statusKRsH2DetailGrid"></div>
   </div>
 </div>
@@ -3483,15 +3483,20 @@ function computeKRH2Range_(from, to, metricField, predAct, predBud) {
 }
 
 // Semanas anteriores de la tabla principal de Status KRs H2 (2026-10-30, pedido de antonella.difranco):
-// semanas lun-dom ya cerradas del mes (con actuals hasta el domingo), recortadas al mes calendario.
+// SIEMPRE las últimas 4 semanas lun-dom CERRADAS (con actuals hasta el domingo), completas y aunque caigan en el mes
+// anterior (2026-11-05, pedido de antonella.difranco). No son móviles: no incluyen la semana en curso. Para un mes ya
+// terminado, las 4 últimas hasta su cierre (la última puede quedar recortada al fin de mes).
 // Cada semana se mide sola (actual de la semana vs budget de la semana), no acumulada.
 function krH2Weeks_(krYM) {
   var b = getPeriodBounds(krYM, rawData.meta), last = rawData.meta.last_actuals_date, out = [];
-  for (var mon = _getMonday(b.from); mon <= b.goalCutoff; mon = _addDays(mon, 7)) {
+  var ref = b.goalCutoff < last ? b.goalCutoff : last, from0 = rawData.meta.actuals_from || '';
+  var mon = _getMonday(ref);
+  for (var i = 0; i < 8 && out.length < 4; i++, mon = _addDays(mon, -7)) {
+    if (from0 && _addDays(mon, 6) < from0) break;                 // antes del primer dato
     var sun = _addDays(mon, 6);
     var to = sun > b.goalCutoff ? b.goalCutoff : sun;
-    if (to > last) break;
-    out.push({ mon: mon, from: mon < b.from ? b.from : mon, to: to });
+    if (to > last) continue;                                      // semana en curso: no está cerrada
+    out.unshift({ mon: mon, from: mon, to: to });
   }
   return out;
 }
@@ -3582,11 +3587,12 @@ function recurH2_(krYM) {
 function recurWeek_(krYM, mon) {
   if (!recurData) return null;
   if (!_recurRows) _recurRows = unpack(recurData);
+  // Sin filtrar por mes comercial: las 4 semanas de la tabla pueden ser del mes anterior (su target es el de su mes: t.ym).
   var wk = _recurRows.filter(function(r){
-    return r.mes_comercial === krYM && r.semana_desde === mon && r.estado === 'CIERRE';
+    return r.semana_desde === mon && r.estado === 'CIERRE';
   });
   if (!wk.length) return null;
-  var t = { mtd: 0, roll: 0, cierreMes: +wk[0].es_cierre_mes === 1 };
+  var t = { mtd: 0, roll: 0, cierreMes: +wk[0].es_cierre_mes === 1, ym: wk[0].mes_comercial || krYM };
   wk.forEach(function(r){ t.mtd += +r.mtd_frecuentes_vivas || 0; t.roll += +r.roll_frecuentes_vivas || 0; });
   return t;
 }
@@ -3783,7 +3789,9 @@ function renderStatusKRsH2() {
   var recTgt = recurTarget_(krYM, null);
   var recW = wks.map(function(w){
     var x = recurWeek_(krYM, w.mon);
-    return x ? { x: x, c: recurCumpl_(x.mtd, x.roll, recTgt, !x.cierreMes) } : null;
+    if (!x) return null;
+    var tg = x.ym === krYM ? recTgt : recurTarget_(x.ym, null);   // semana del mes anterior: target de su mes
+    return { x: x, tg: tg, c: recurCumpl_(x.mtd, x.roll, tg, !x.cierreMes) };
   });
   if (chShow !== 'api') {
     var trRec = document.createElement('tr');
@@ -3794,7 +3802,7 @@ function renderStatusKRsH2() {
       var s = r.c.shown;
       return wkCellHtml(s, s !== null ? (s * 100).toFixed(0) + '%' + (r.c.useRoll ? ' <span style="font-size:0.68rem">L4W</span>' : '') : '—',
         'MTD ' + fmtKRVal(r.x.mtd, 'int') + ' · L4W ' + fmtKRVal(r.x.roll, 'int') +
-        (recTgt !== null ? ' · Target ' + fmtKRVal(recTgt, 'int') : ''));
+        (r.tg !== null ? ' · Target ' + fmtKRVal(r.tg, 'int') : ''));
     }).join('');
     if (!rec) {
       trRec.innerHTML = recName + recWkHtml +
