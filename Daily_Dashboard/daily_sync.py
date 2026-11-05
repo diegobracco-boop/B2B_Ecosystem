@@ -1989,6 +1989,18 @@ except Exception as e:
     print(f"  WARN Accelerate Recurrence failed: {e} — queda el {RECUR_FILE_NAME} anterior en Drive")
     recurrencia_payload = None
 
+print("\n--- Overs Media Sales (P&L Dashboard B2B > Marketing & Media Investment) ---")
+# Overs (sobrecomision) por mes negociado, real y forecast, en USD. La query es copia del modelo Metabase 94359 con el filtro de la
+# card 115835 (overs_media_sales.sql; ver overs_sync.py, que tambien se corre solo a mano). Va en su propio archivo,
+# overs_media_sales.json, que lee getOversData_() en Dashboard_B2B_WLs/Codigo.js. Mismo criterio que la recurrencia: no va a
+# _FAILED_BLOCKS; si la query falla queda el de la corrida anterior en Drive y la sync sigue.
+from overs_sync import build_overs, upload as upload_overs, OVERS_FILE_NAME
+try:
+    overs_payload = build_overs(fetch)
+except Exception as e:
+    print(f"  WARN Overs Media Sales failed: {e} — queda el {OVERS_FILE_NAME} anterior en Drive")
+    overs_payload = None
+
 print("\n--- FVM Negativo (landing FVM_Negativo) ---")
 # No va a _FAILED_BLOCKS: si una query falla o el FVM total no cuadra contra el del Daily,
 # NO se sube fvm_negativo.json (queda el de la corrida anterior) y el resto del Daily sigue igual.
@@ -2422,6 +2434,13 @@ elif recurrencia_payload is not None:
         upload_recurrencia(recurrencia_payload, _get_drive_service())
     except Exception as e:
         print(f"  WARN no se pudo subir {RECUR_FILE_NAME}: {e}")
+if overs_payload is not None and DRY_RUN_DIR:
+    upload_to_drive(json.dumps(overs_payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8"), OVERS_FILE_NAME)
+elif overs_payload is not None:
+    try:   # no corta la sync (mismo criterio que la recurrencia)
+        upload_overs(overs_payload, _get_drive_service())
+    except Exception as e:
+        print(f"  WARN no se pudo subir {OVERS_FILE_NAME}: {e}")
 
 # Partners API (KR Global B2B API "Accelerate Hunting Partners API"): congela el mes anterior el primer dia habil del mes y recalcula
 # el rolling de 30 dias (ver partners_api_sync.py). No corta la sync: si falla queda el partners_api_snapshots.json anterior.
