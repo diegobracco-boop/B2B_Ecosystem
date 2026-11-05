@@ -9,6 +9,7 @@
  *   2. Cuatro números: Fondos, Marketing Cost, Cobertura y Neto, contra el Goal elegido en el filtro (solo ese, no todos).
  *   3. "¿Cómo viene?": por mes, barras apiladas Media Revenue + Overs y la línea de Marketing Cost (un solo eje en USD).
  *   4. "¿Por qué difiere del Goal?": puente Neto Goal → Media Revenue → Overs → Marketing Cost → Neto.
+ *   4b. Waterfall del Marketing Cost por país: Goal → Δ de cada país → Baseline (2026-11-05).
  *   5. Plegados: la tabla mes a mes y la apertura por país (sin Overs: la base no trae país).
  * Overs no tiene Budget, Run Rate ni LY: en la meta va su Forecast (se aclara en la nota). Los datos son los de getMarketingData
  * del Hub (Total B2B, sin Channels; el switch Organic aplica al Media Revenue y al Marketing, no a los Overs).
@@ -39,7 +40,7 @@
     '#hms .hms-card{background:#fff;border:1px solid #ebe8f3;border-radius:12px;padding:16px 18px;margin-top:14px}',
     '#hms .hms-card h3{font-size:14px;font-weight:700;color:#12111e;margin:0 0 2px}',
     '#hms .hms-sub{font-size:12px;color:#8a88a0;margin:0 0 10px;line-height:1.45}',
-    '#hms .hms-chart{position:relative;height:270px}',
+    '#hms .hms-chart{position:relative;height:320px}',
     '#hms .hms-bridge{display:grid;grid-template-columns:170px 1fr 110px;gap:6px 12px;align-items:center;font-size:13px;max-width:900px}',
     '#hms .hms-bridge .lbl{color:#3d3b52}#hms .hms-bridge .lbl.t{font-weight:700;color:#12111e}',
     '#hms .hms-bridge .val{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}',
@@ -153,7 +154,7 @@
 
   function chartCardHtml(goal) {
     return '<div class="hms-card"><h3>¿Cómo viene evolucionando?</h3><p class="hms-sub">Por mes: los fondos (Media Revenue + Overs, barras apiladas) contra lo que se gasta en marketing (línea). ' +
-      'Barras claras = proyección. Pasá el mouse para ver el detalle y el ' + esc(goal) + ' de cada mes.</p><div class="hms-chart"><canvas id="hms-chart" role="img" aria-label="Fondos y Marketing Cost por mes"></canvas></div></div>';
+      'Barras claras = proyección. Debajo de cada mes, el Neto (Media Revenue + Overs − Marketing Cost). Pasá el mouse para ver el ' + esc(goal) + ' de cada mes.</p><div class="hms-chart"><canvas id="hms-chart" role="img" aria-label="Fondos y Marketing Cost por mes"></canvas></div></div>';
   }
 
   function drawChart(rows, goal) {
@@ -172,6 +173,7 @@
       ] },
       options: {
         responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+        layout: { padding: { top: 16, bottom: 26 } },
         plugins: {
           legend: { position: 'top', align: 'start', labels: { color: '#57606a', font: { size: 11 }, boxWidth: 12 } },
           tooltip: { callbacks: {
@@ -188,8 +190,138 @@
           y: { stacked: true, beginAtZero: true, grid: { color: 'rgba(0,0,0,.05)' }, border: { display: false }, ticks: { color: '#57606a', font: { size: 10 }, callback: function (v) { return money(v); } } },
         },
       },
+      plugins: [labelsPlugin(rows)],
     });
     if (W._charts) W._charts['hms-chart'] = ch;
+  }
+
+  // Etiquetas de datos: Media Revenue y Overs dentro de su tramo (si entra), el total de fondos arriba de la barra, el Marketing
+  // Cost en una pastilla junto a su punto y, debajo de cada mes, el Neto (Media Revenue + Overs − Marketing Cost).
+  function labelsPlugin(rows) {
+    var k = function (v) { var a = Math.abs(v), sg = v < 0 ? '−' : ''; return a >= 1e6 ? sg + (a / 1e6).toFixed(1) + 'M' : sg + Math.round(a / 1e3) + 'K'; };
+    return {
+      id: 'hmsLabels',
+      afterDatasetsDraw: function (chart) {
+        var ctx = chart.ctx, mMed = chart.getDatasetMeta(0), mOv = chart.getDatasetMeta(1), mCost = chart.getDatasetMeta(2);
+        ctx.save();
+        ctx.textAlign = 'center';
+        rows.forEach(function (r, i) {
+          var bm = mMed.data[i], bo = mOv.data[i];
+          ctx.font = '600 10px Poppins,-apple-system,sans-serif'; ctx.textBaseline = 'middle';
+          var pt0 = mCost.data[i];
+          [[bm, r.med, r.proj ? '#3d00d1' : '#fff'], [bo, r.ov, '#12111e']].forEach(function (x) {
+            var el = x[0];
+            if (!el || !x[1] || Math.abs(el.base - el.y) < 16) return;
+            var top = Math.min(el.y, el.base), bot = Math.max(el.y, el.base), y = (top + bot) / 2;
+            if (pt0 && r.cost && Math.abs(y - pt0.y) < 11) {   // el punto del Marketing Cost cae sobre la etiqueta: se corre a donde haya lugar
+              var below = pt0.y + 12, above = pt0.y - 12;
+              y = below + 6 <= bot ? below : above - 6 >= top ? above : null;
+            }
+            if (y === null) return;
+            ctx.fillStyle = x[2];
+            ctx.fillText(k(x[1]), el.x, y);
+          });
+          if (bo && r.fund) {   // total de fondos arriba de la barra
+            ctx.font = '700 10.5px Poppins,-apple-system,sans-serif'; ctx.textBaseline = 'bottom'; ctx.fillStyle = '#12111e';
+            ctx.fillText(k(r.fund), bo.x, Math.min(bo.y, bm.y) - 3);
+          }
+          var pt = mCost.data[i];
+          if (pt && r.cost) {   // Marketing Cost: pastilla blanca con borde del color de la serie, a la derecha de la barra
+            ctx.font = '600 9.5px Poppins,-apple-system,sans-serif'; ctx.textBaseline = 'middle';
+            var t = k(r.cost), w = ctx.measureText(t).width + 8, x0 = pt.x + (bm && bm.width ? bm.width / 2 : 7) + 3, y0 = pt.y - 8;   // fuera de la barra: no pisa las etiquetas de adentro
+            ctx.fillStyle = '#fff'; ctx.strokeStyle = C.cost; ctx.lineWidth = 1;
+            ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x0, y0, w, 15, 4); else ctx.rect(x0, y0, w, 15); ctx.fill(); ctx.stroke();
+            ctx.fillStyle = '#3d3b52'; ctx.textAlign = 'left'; ctx.fillText(t, x0 + 4, y0 + 7.5); ctx.textAlign = 'center';
+          }
+        });
+        // Fila "Neto" debajo de los meses
+        var xs = chart.scales.x, yN = xs.bottom + 12;
+        ctx.font = '700 10.5px Poppins,-apple-system,sans-serif'; ctx.textBaseline = 'middle';
+        rows.forEach(function (r, i) {
+          ctx.fillStyle = r.net >= 0 ? '#1a7f37' : '#cf222e';
+          ctx.fillText((r.net > 0 ? '+' : '') + k(r.net), xs.getPixelForValue(i), yN);
+        });
+        ctx.textAlign = 'right'; ctx.fillStyle = '#6b6b85'; ctx.font = '600 10px Poppins,-apple-system,sans-serif';
+        ctx.fillText('Neto', chart.chartArea.left - 6, yN);
+        ctx.restore();
+      },
+    };
+  }
+
+  // Waterfall del Marketing Cost: Goal → Δ de cada país → Baseline (real + proyección). Explica por país el desvío del gasto.
+  function costByCountry(d, per) {
+    var mk = W.mktGoalKey, L = W.MKT_MON_LABELS, la = lastAct();
+    var acc = function (c0) {
+      var c = W.withFcFilled(c0), o = { cost: 0, costG: 0 };
+      L.forEach(function (ym, i) {
+        if (per === 'ytd' && la && ym > la) return;
+        o.cost -= c.mktActual[i] || 0; o.costG -= (c[mk('mkt')] || [])[i] || 0;
+      });
+      return o;
+    };
+    var tot = null, list = [];
+    d.byCountry.forEach(function (c) {
+      var o = acc(c);
+      if (c.id === 'total') { tot = o; return; }
+      o.name = c.label === 'OPS+RG' ? 'OPS + RG' : c.label; o.d = o.cost - o.costG;
+      list.push(o);
+    });
+    var sd = list.reduce(function (a, o) { return a + o.d; }, 0);
+    if (tot && Math.abs((tot.cost - tot.costG) - sd) >= 1000) list.push({ name: 'Otros', d: (tot.cost - tot.costG) - sd });
+    list = list.filter(function (o) { return Math.abs(o.d) >= 500; }).sort(function (a, b) { return Math.abs(b.d) - Math.abs(a.d); });
+    return { tot: tot, list: list };
+  }
+  function costWfHtml(rows, goal) {
+    return '<div class="hms-card"><h3>¿Dónde se desvía el gasto? Marketing Cost por país</h3><p class="hms-sub">' + esc(perLabel(rows, st.per)) +
+      ': de ' + esc(goal) + ' al Baseline (real + proyección), con el aporte de cada país al desvío. Rojo = se gasta más que ' + esc(goal) + '; verde = menos.</p>' +
+      '<div class="hms-chart" style="height:300px"><canvas id="hms-wf" role="img" aria-label="Waterfall de Marketing Cost por país"></canvas></div></div>';
+  }
+  function drawCostWf(d, goal) {
+    var cv = document.getElementById('hms-wf');
+    if (!cv || typeof W.Chart !== 'function') return;
+    var w = costByCountry(d, st.per);
+    if (!w.tot) return;
+    var base = st.per === 'fy' ? 'Baseline' : 'Real';
+    var labels = [goal], data = [[0, w.tot.costG]], col = ['#9a98b0'], vals = [w.tot.costG];
+    var run = w.tot.costG;
+    w.list.forEach(function (o) {
+      labels.push(o.name); data.push([run, run + o.d]); vals.push(o.d);
+      col.push(o.d > 0 ? '#cf222e' : '#1a7f37'); run += o.d;
+    });
+    labels.push(base); data.push([0, w.tot.cost]); col.push('#550fed'); vals.push(w.tot.cost);
+    var k = function (v, sg) { var a = Math.abs(v), s2 = v < 0 ? '−' : sg && v > 0 ? '+' : ''; return s2 + '$' + (a >= 1e6 ? (a / 1e6).toFixed(2) + 'M' : Math.round(a / 1e3) + 'K'); };
+    if (typeof W.destroyChart === 'function') W.destroyChart('hms-wf');
+    var last = labels.length - 1;
+    var ch = new W.Chart(cv, {
+      type: 'bar',
+      data: { labels: labels, datasets: [{ label: 'Marketing Cost', data: data, backgroundColor: col, borderRadius: 4, borderSkipped: false, barPercentage: 0.7 }] },
+      options: {
+        responsive: true, maintainAspectRatio: false, layout: { padding: { top: 22 } },
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: function (c) { var i = c.dataIndex; return ' ' + (i === 0 || i === last ? 'Marketing Cost: ' + k(vals[i]) : 'Δ vs ' + goal + ': ' + k(vals[i], true)); } } },
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { color: '#3d3b52', font: { size: 11 } } },
+          y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,.05)' }, border: { display: false }, ticks: { color: '#57606a', font: { size: 10 }, callback: function (v) { return money(v); } } },
+        },
+      },
+      plugins: [{
+        id: 'hmsWfLabels',
+        afterDatasetsDraw: function (chart) {
+          var ctx = chart.ctx, meta = chart.getDatasetMeta(0);
+          ctx.save(); ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+          meta.data.forEach(function (el, i) {
+            var tot = i === 0 || i === last;
+            ctx.font = (tot ? '700 11px' : '600 10.5px') + ' Poppins,-apple-system,sans-serif';
+            ctx.fillStyle = tot ? '#12111e' : vals[i] > 0 ? '#cf222e' : '#1a7f37';
+            ctx.fillText(tot ? k(vals[i]) : k(vals[i], true), el.x, Math.min(el.y, el.base) - 4);
+          });
+          ctx.restore();
+        },
+      }],
+    });
+    if (W._charts) W._charts['hms-wf'] = ch;
   }
 
   // Puente Neto Goal → Neto real: cada efecto en lo que suma o resta al neto
@@ -280,13 +412,14 @@
     if (t) t.textContent = 'Marketing & Media Investment: ¿cómo se financia el marketing?';
     var more = function (k, on, off) { return '<button type="button" class="hms-more" data-more="' + k + '" aria-expanded="' + st[k] + '">' + (st[k] ? '▾ ' + on : '▸ ' + off) + '</button>'; };
     var ovNote = W._state && W._state.goal === 'forecast' ? '' : ' Overs no tiene ' + goal + ': en la meta va su Forecast.';
-    host.innerHTML = leadHtml(rows, goal) + ctxHtml(rows, goal) + tilesHtml(rows, goal) + chartCardHtml(goal) + bridgeHtml(rows, goal) +
+    host.innerHTML = leadHtml(rows, goal) + ctxHtml(rows, goal) + tilesHtml(rows, goal) + chartCardHtml(goal) + bridgeHtml(rows, goal) + costWfHtml(rows, goal) +
       more('showMonths', 'Ocultar mes a mes', 'Ver mes a mes') + (st.showMonths ? monthsHtml(rows, goal) : '') +
       ' &nbsp; ' + more('showCountries', 'Ocultar por país', 'Ver por país') + (st.showCountries ? countriesHtml(d, goal) : '') +
       '<p class="hms-note">Fondos = Media Revenue del P&L contable + Overs (sobrecomisión de Media Sales, Metabase): los dos financian el marketing. ' +
       'Marketing Cost = marketing directo, sin Channels. Overs: meses cerrados con el real; el mes en curso y los siguientes, con su forecast; no cambia con Organic.' + esc(ovNote) +
       ' Total B2B (HTML + API).</p>';
     drawChart(rows, goal);
+    drawCostWf(d, goal);
     if (orig) orig.style.display = 'none';
     host.style.display = '';
   }

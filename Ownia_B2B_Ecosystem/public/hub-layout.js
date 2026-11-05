@@ -128,7 +128,9 @@
     '.bkd-tbl{width:100%!important}',
     '.bkd-tbl thead th,.bkd-tbl td{padding-left:4px!important;padding-right:4px!important}',
     // Layout estable: el contenido no se corre por el panel de filtros (se abre encima).
-    'body:not(.ohn-noheader) main{margin-left:0!important;padding-left:24px!important;padding-right:24px!important}',
+    // 2026-11-05 (Diego): sin el tope de 1600px del Hub (en pantallas anchas dejaba un hueco a la derecha); un poco más de margen
+    // a la izquierda y menos a la derecha.
+    'body:not(.ohn-noheader) main{margin-left:0!important;max-width:none!important;padding-left:32px!important;padding-right:14px!important}',
     // Panel de filtros: cajón desde la derecha (al lado del botón "Filtros"), con el fondo atenuado.
     '#pnl-filters-bar{left:auto!important;right:0!important;width:300px!important;padding:0 20px 16px!important;gap:16px!important;',
     '  border-right:none!important;border-left:1px solid #ebe8f3!important;box-shadow:-12px 0 32px rgba(18,17,30,.14)!important;',
