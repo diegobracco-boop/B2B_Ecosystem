@@ -523,6 +523,7 @@
           raw.b2b_gd = W.expandCompact_(raw.b2b_gd); raw.b2b_gd_ly = W.expandCompact_(raw.b2b_gd_ly);
           raw.b2b_ri = W.expandCompact_(raw.b2b_ri); raw.b2b_ri_ly = W.expandCompact_(raw.b2b_ri_ly);
           W._rawB2B = W.applyCoiBr_(raw, W._COIBR_KEYS_.b2b);
+          if (W.dirApplyB2B_) { W.dirApplyB2B_(W._rawB2B); if (W.dirFillSelects_) W.dirFillSelects_(); }
         }
         state.b2bState = 'ok'; refreshAll();
       }).withFailureHandler(function () { state.b2bState = 'error'; refreshAll(); }).getRawB2B();

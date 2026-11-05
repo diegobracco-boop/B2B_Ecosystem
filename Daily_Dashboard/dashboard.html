@@ -868,6 +868,11 @@ body.krd-only #section-b2b > :not(.krd-keep) { display:none !important; }
     <svg class="fchip-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
     <select id="sel-partner" onchange="reloadAll()"><option value="all">Todos los partners</option></select>
   </div>
+  <div class="fchip" title="Filtra por director del KAM (B2B API/HTML) o del partner (B2B2C)">
+    <svg class="fchip-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+    <select id="sel-director" onchange="dirSet_(this.value)"><option value="all">Todos los directores</option></select>
+  </div>
+  <span id="dir-note-c" style="display:none;flex-basis:100%;font-size:11px;color:#b45309">Filtro de director activo: aplica a actuals B2B (API/HTML) y a B2B2C (actuals y budget). El budget, RR y Forecast de B2B no se abren por director y se ocultan; KRs H2, Weekly y B2C no se filtran.</span>
   <div class="fchip">
     <svg class="fchip-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
     <select id="sel-product" onchange="reloadAll()"><option value="all">Todos los productos</option></select>
@@ -928,6 +933,11 @@ body.krd-only #section-b2b > :not(.krd-keep) { display:none !important; }
     <svg class="fchip-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
     <select id="b2b-sel-product" onchange="reloadAllB2B()"><option value="all">Todos los productos</option></select>
   </div>
+  <div class="fchip" title="Filtra por director del KAM (B2B API/HTML) o del partner (B2B2C)">
+    <svg class="fchip-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+    <select id="b2b-sel-director" onchange="dirSet_(this.value)"><option value="all">Todos los directores</option></select>
+  </div>
+  <span id="dir-note-b" style="display:none;flex-basis:100%;font-size:11px;color:#b45309">Filtro de director activo: aplica a actuals B2B (API/HTML) y a B2B2C (actuals y budget). El budget, RR y Forecast de B2B no se abren por director y se ocultan; KRs H2, Weekly y B2C no se filtran.</span>
   <div class="fchip">
     <svg class="fchip-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg>
     <select id="b2b-sel-channel" onchange="reloadAllB2B()">
@@ -2136,6 +2146,76 @@ var PARTNER_ALIAS_ = {
   'Itau card':          'Itau Card'
   // Sicoob Acumulo NO se unifica con Sicoob: la cartera lo tiene New (Sicoob es Existing).
 };
+
+// ── Filtro de Director (B2B API/HTML + B2B2C) ───────────────────
+// B2B: el director es el del KAM de la agencia (cartera_b2b); actuals por director en los bloques *_dir de b2b.json.
+// B2B2C: el director es el del partner (farm_director, o hunt_director); mapa director_by_partner en b2bc.json.
+// Se intercambian los arrays de _rawB2B / _rawB2BC por la versión filtrada (los originales quedan en raw._dirOrig):
+// así TODO lo que lee raw.* (métricas, tablas, Benchmark, Flow) queda filtrado sin tocar cada vista.
+// El budget / RR / Forecast de B2B no traen agencia (raw.b2brr_*.partner viene vacío): con director elegido se ocultan.
+var _dirSel = 'all';
+var _DIR_NONE = 'Sin director';
+var _DIR_B2B_ACT  = ['b2b_gd', 'b2b_gd_ly', 'b2b_ri', 'b2b_ri_ly'];
+var _DIR_B2B_EXT  = ['b2b_gd_ly_ext', 'b2b_ri_ly_ext'];   // LY de nov-dic: lo lee la solapa Industry events de Ownia
+var _DIR_B2B_GOAL = ['b2b_budget_gd', 'b2b_budget_ri', 'b2b_runrate_gd', 'b2b_runrate_ri', 'b2b_forecast_gd', 'b2b_forecast_ri'];
+var _DIR_B2BC_KEYS = ['actuals', 'actuals_ly', 'budget', 'runrate', 'forecast', 'budget_fy_rest', 'runrate_fy_rest', 'actuals_fy_rest', 'actuals_ly_fy_rest'];
+function _dirOfPartner_(p) {
+  var m = (_rawB2BC && _rawB2BC.director_by_partner) || {};
+  return m[String(p || '').trim().toLowerCase()] || _DIR_NONE;
+}
+function dirApplyB2B_(raw) {
+  if (!raw) return;
+  var all = _DIR_B2B_ACT.concat(_DIR_B2B_EXT, _DIR_B2B_GOAL);
+  if (!raw._dirOrig) {
+    raw._dirOrig = {}; raw._dirRows = {};
+    all.forEach(function(k) { if (Array.isArray(raw[k])) raw._dirOrig[k] = raw[k]; });
+    _DIR_B2B_ACT.concat(_DIR_B2B_EXT).forEach(function(k) { raw._dirRows[k] = expandCompact_(raw[k + '_dir'] || {cols: [], rows: []}); });
+  }
+  if (_dirSel === 'all') {
+    all.forEach(function(k) { if (raw._dirOrig[k]) raw[k] = applyRgRows_(raw._dirOrig[k]); });
+    return;
+  }
+  _DIR_B2B_ACT.concat(_DIR_B2B_EXT).forEach(function(k) {
+    raw[k] = applyRgRows_(raw._dirRows[k].filter(function(r) { return r.director === _dirSel; }));
+  });
+  _DIR_B2B_GOAL.forEach(function(k) { if (raw._dirOrig[k]) raw[k] = []; });
+}
+function dirApplyB2BC_(raw) {
+  if (!raw) return;
+  if (!raw._dirOrig) {
+    raw._dirOrig = {};
+    _DIR_B2BC_KEYS.forEach(function(k) { if (Array.isArray(raw[k])) raw._dirOrig[k] = raw[k]; });
+  }
+  var m = raw.director_by_partner || {};
+  _DIR_B2BC_KEYS.forEach(function(k) {
+    var o = raw._dirOrig[k]; if (!o) return;
+    raw[k] = _dirSel === 'all' ? o : o.filter(function(r) { return (m[String(r.partner || '').trim().toLowerCase()] || _DIR_NONE) === _dirSel; });
+  });
+}
+function dirFillSelects_() {
+  var s = {};
+  if (_rawB2B && _rawB2B._dirRows) (_rawB2B._dirRows.b2b_gd || []).forEach(function(r) { if (r.director) s[r.director] = 1; });
+  if (_rawB2BC && _rawB2BC.director_by_partner) {
+    var m = _rawB2BC.director_by_partner; Object.keys(m).forEach(function(k) { s[m[k]] = 1; });
+  }
+  var arr = Object.keys(s).filter(function(d) { return d !== _DIR_NONE; }).sort();
+  if (s[_DIR_NONE]) arr.push(_DIR_NONE);
+  ['sel-director', 'b2b-sel-director'].forEach(function(id) {
+    var el = document.getElementById(id); if (!el) return;
+    el.innerHTML = '<option value="all">Todos los directores</option>' + arr.map(function(d) { return '<option value="' + String(d).replace(/"/g, '&quot;') + '">' + String(d).replace(/</g, '&lt;') + '</option>'; }).join('');
+    el.value = arr.indexOf(_dirSel) >= 0 ? _dirSel : 'all';
+  });
+}
+function dirSet_(val) {
+  _dirSel = val || 'all';
+  ['sel-director', 'b2b-sel-director'].forEach(function(id) { var el = document.getElementById(id); if (el) el.value = _dirSel; });
+  ['dir-note-c', 'dir-note-b'].forEach(function(id) { var el = document.getElementById(id); if (el) el.style.display = _dirSel === 'all' ? 'none' : 'block'; });
+  dirApplyB2B_(_rawB2B);
+  dirApplyB2BC_(_rawB2BC);
+  if (_rawB2BC) fillPartnersB2BC_();
+  if (_orgRowsCache_) _orgRowsCache_ = new WeakMap();
+  _orgRefreshAll_();
+}
 function applyPartnerAlias_(raw){
   ['actuals','actuals_ly','budget','runrate','forecast','budget_fy_rest','runrate_fy_rest','actuals_fy_rest','actuals_ly_fy_rest'].forEach(function(k){
     (raw[k]||[]).forEach(function(r){ var a=PARTNER_ALIAS_[r.partner]; if(a) r.partner=a; });
@@ -2643,7 +2723,9 @@ window.onload = function() {
       // Partner TBD = New partners / Hunting, aunque la cartera de ComDev no lo tenga.
       ['actuals','actuals_ly','actuals_fy_rest','actuals_ly_fy_rest'].forEach(function(k){ (raw[k]||[]).forEach(function(r){ if(isTBDPartner_(r.partner)) r.account_type='New'; }); });
       ['budget','runrate','forecast','budget_fy_rest','runrate_fy_rest'].forEach(function(k){ (raw[k]||[]).forEach(function(r){ if(isTBDPartner_(r.partner)){ r.stage='New'; _tbdPartnerNames[r.partner]=1; } }); });
+      dirApplyB2BC_(raw);
       _rawB2BC         = raw;
+      dirFillSelects_();
       state.viewDate   = raw.meta.last_actuals_date;
       state.meta       = raw.meta;
       fillPaisMulti_(getPaises_(raw.actuals));
@@ -2672,7 +2754,7 @@ window.onload = function() {
       raw.b2b_gd_ly = expandCompact_(raw.b2b_gd_ly);
       raw.b2b_ri    = expandCompact_(raw.b2b_ri);
       raw.b2b_ri_ly = expandCompact_(raw.b2b_ri_ly);
-      _rawB2B = applyCoiBr_(raw, _COIBR_KEYS_.b2b);
+      _rawB2B = applyCoiBr_(raw, _COIBR_KEYS_.b2b); dirApplyB2B_(raw); dirFillSelects_();
       state_b2b.viewDate = raw.meta.last_actuals_date;
       state_b2b.meta     = raw.meta;
       var paisSet={}, proSet={};
@@ -3468,7 +3550,7 @@ function loadB2B() {
       raw.b2b_gd_ly = expandCompact_(raw.b2b_gd_ly);
       raw.b2b_ri    = expandCompact_(raw.b2b_ri);
       raw.b2b_ri_ly = expandCompact_(raw.b2b_ri_ly);
-      _rawB2B = applyCoiBr_(raw, _COIBR_KEYS_.b2b);
+      _rawB2B = applyCoiBr_(raw, _COIBR_KEYS_.b2b); dirApplyB2B_(raw); dirFillSelects_();
       state_b2b.viewDate = raw.meta.last_actuals_date;
       state_b2b.meta     = raw.meta;
       var paisSet={}, proSet={};
@@ -4619,7 +4701,7 @@ function renderBenchmark_() {
         raw = parseRaw_(raw);
         raw.b2b_gd = expandCompact_(raw.b2b_gd); raw.b2b_gd_ly = expandCompact_(raw.b2b_gd_ly);
         raw.b2b_ri = expandCompact_(raw.b2b_ri); raw.b2b_ri_ly = expandCompact_(raw.b2b_ri_ly);
-        _rawB2B = applyCoiBr_(raw, _COIBR_KEYS_.b2b); _benchB2BLoading = false;
+        _rawB2B = applyCoiBr_(raw, _COIBR_KEYS_.b2b); dirApplyB2B_(raw); dirFillSelects_(); _benchB2BLoading = false;
         if (_activeView === 'benchmark') renderBenchmark_();
       })
       .withFailureHandler(function() { _benchB2BLoading = false; })

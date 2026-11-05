@@ -437,6 +437,31 @@ WHERE partner_homologado_2 IS NOT NULL
 GROUP BY partner_homologado_2, country
 """
 
+# Director por partner B2B2C (farm_director; si no hay, hunt_director). Por partner_id para poder elegir el
+# mas frecuente cuando un partner_homologado_2 tiene mas de un farm_director.
+DIRECTORES_B2B2C_QUERY = """
+SELECT partner_homologado_2, farm_director, hunt_director
+FROM raw.comdev_cartera_b2b2c_historic
+WHERE partner_homologado_2 IS NOT NULL
+  AND LOWER(is_current) = 'true'
+"""
+
+def build_b2b2c_director_map(df: pd.DataFrame) -> dict:
+    """{partner (strip+lower): director}. Gana farm_director (el mas frecuente si hay varios, empate = orden
+    alfabetico); sin farm, hunt_director; sin ninguno, 'Sin director'. Misma clave que cartera_map."""
+    out = {}
+    for part, g in df.groupby(df["partner_homologado_2"].astype(str).str.strip().str.lower()):
+        d = "Sin director"
+        for col in ("farm_director", "hunt_director"):
+            v = g[col].dropna().astype(str).str.strip()
+            v = v[(v != "") & (~v.str.upper().isin(["TBD", "TEST", "NONE", "NAN"]))]
+            if not v.empty:
+                cnt = v.value_counts()
+                d = sorted(cnt[cnt == cnt.max()].index)[0]
+                break
+        out[part] = d
+    return out
+
 B2B_BUDGET_GD_QUERY = """
 SELECT * FROM raw.b2b_budget_gd
 WHERE lob_canal IN ('B2B-MAY', 'B2B-MIN', 'API', 'HTML')
@@ -484,6 +509,16 @@ WITH conectores AS (
     FROM data.raw.b2b_dim_ap_by_conector agencias
     LEFT JOIN data.raw.b2b_dim_api_conectors conectores
         ON agencias.conector = conectores.conector
+    GROUP BY 1
+),
+dir_cartera AS (
+    -- Director del KAM de cada agencia (foto mas reciente de la cartera B2B de ComDev).
+    -- TBD / TEST / vacio = 'Sin director'. agency_code es unico: el join no multiplica filas.
+    SELECT agency_code,
+           MAX(CASE WHEN director IS NULL OR TRIM(director) = '' OR UPPER(TRIM(director)) IN ('TBD','TEST')
+                    THEN 'Sin director' ELSE TRIM(director) END) AS director
+    FROM data.lake.cartera_b2b
+    WHERE partition_date = (SELECT MAX(partition_date) FROM data.lake.cartera_b2b)
     GROUP BY 1
 ),
 """
@@ -877,7 +912,8 @@ _B2B_JOINS_RI = """
         AND cr.last_version = true
     LEFT JOIN data.analytics.bi_transactional_fact_products_current_state cs
         ON fh.product_id = cs.product_id
-    LEFT JOIN conectores con ON fh.partner_id = con.ap_code"""
+    LEFT JOIN conectores con ON fh.partner_id = con.ap_code
+    LEFT JOIN dir_cartera dc ON fh.partner_id = dc.agency_code"""
 
 # GD: sin join a current_state (la query GD no filtra cancelados)
 _B2B_JOINS_GD = """
@@ -907,7 +943,10 @@ _B2B_JOINS_GD = """
     LEFT JOIN data.lake.chewie_reservation cr
         ON CAST(fh.transaction_code AS VARCHAR) = cr.id
         AND cr.last_version = true
-    LEFT JOIN conectores con ON fh.partner_id = con.ap_code"""
+    LEFT JOIN conectores con ON fh.partner_id = con.ap_code
+    LEFT JOIN dir_cartera dc ON fh.partner_id = dc.agency_code"""
+
+_B2B_DIR_EXPR = "COALESCE(dc.director, 'Sin director')"
 
 _B2B_GROUP_DIMS = """
         fh.parent_channel,
@@ -1002,7 +1041,8 @@ base_metrics AS (
     SELECT
         CASE WHEN fh.parent_channel = 'API' AND fh.buy_type_code = 'Hoteles'
              THEN p.checkin_date ELSE fh.recognition_date END AS fecha_reconocimiento,
-        fh.parent_channel,"""
+        fh.parent_channel,
+        """ + _B2B_DIR_EXPR + """ AS director,"""
         + _B2B_PAIS_CASE
         + _B2B_PROD_CASE + """
         CASE WHEN fh.trip_type_code='Nac' THEN 'Domestic'
@@ -1015,18 +1055,18 @@ base_metrics AS (
     GROUP BY
         CASE WHEN fh.parent_channel = 'API' AND fh.buy_type_code = 'Hoteles'
              THEN p.checkin_date ELSE fh.recognition_date END,"""
-        + _B2B_GROUP_DIMS + """
+        + _B2B_GROUP_DIMS + ", " + _B2B_DIR_EXPR + """
 )
 SELECT
     CAST(fecha_reconocimiento AS VARCHAR) AS fecha,
-    pais, producto_original, parent_channel, viaje, product_type,
+    pais, producto_original, parent_channel, viaje, product_type, director,
     SUM(orders) AS orders,
     SUM(gross_bookings) AS gross_bookings,"""
         + _B2B_OUTER_SELECT_NR + ","
         + _B2B_OUTER_SELECT_FVM + ","
         + _B2B_OUTER_SELECT_COI_FIN_BR + """
 FROM base_metrics
-GROUP BY 1, 2, 3, 4, 5, 6
+GROUP BY 1, 2, 3, 4, 5, 6, 7
 """)
 
 
@@ -1035,7 +1075,8 @@ def build_b2b_gd_query(date_from: date, date_to: date) -> str:
 base_metrics AS (
     SELECT
         fh.gestion_date AS fecha_gestion,
-        fh.parent_channel,"""
+        fh.parent_channel,
+        """ + _B2B_DIR_EXPR + """ AS director,"""
         + _B2B_PAIS_CASE
         + _B2B_PROD_CASE + """
         CASE WHEN fh.trip_type_code='Nac' THEN 'Domestic'
@@ -1047,18 +1088,18 @@ base_metrics AS (
         + _b2b_where_gd(date_from, date_to) + """
     GROUP BY
         fh.gestion_date,"""
-        + _B2B_GROUP_DIMS + """
+        + _B2B_GROUP_DIMS + ", " + _B2B_DIR_EXPR + """
 )
 SELECT
     CAST(fecha_gestion AS VARCHAR) AS fecha,
-    pais, producto_original, parent_channel, viaje, product_type,
+    pais, producto_original, parent_channel, viaje, product_type, director,
     SUM(orders) AS orders,
     SUM(gross_bookings) AS gross_bookings,"""
         + _B2B_OUTER_SELECT_NR + ","
         + _B2B_OUTER_SELECT_FVM + ","
         + _B2B_OUTER_SELECT_COI_FIN_BR + """
 FROM base_metrics
-GROUP BY 1, 2, 3, 4, 5, 6
+GROUP BY 1, 2, 3, 4, 5, 6, 7
 """)
 
 
@@ -1461,12 +1502,27 @@ def clean_b2b(df: pd.DataFrame) -> pd.DataFrame:
     # El datalake devuelve "Espectáculos" con el acento roto por el driver ODBC: se normaliza.
     df["product_type"] = (df["product_type"].fillna("N/A").astype(str).str.strip()
                           .str.replace(r"^Espect.*$", "Espectáculos", regex=True))
-    return df[COLS_B2B]
+    df["director"] = df["director"].fillna("Sin director").astype(str)
+    return df[COLS_B2B + ["director"]]
 
 
 def agg_b2b(df: pd.DataFrame) -> pd.DataFrame:
     return df.groupby(
         ["fecha", "pais", "producto_original", "parent_channel", "viaje"],
+        as_index=False
+    ).agg(
+        orders        =("orders",         "sum"),
+        gross_bookings=("gross_bookings",  "sum"),
+        net_revenue   =("net_revenue",     "sum"),
+        fvm           =("fvm",             "sum"),
+    )
+
+
+def agg_b2b_dir(df: pd.DataFrame) -> pd.DataFrame:
+    """Igual que agg_b2b pero abierto por director (del KAM de la agencia, cartera_b2b). Bloques aparte
+    (*_dir) para no tocar el grano de los bloques existentes; el front los usa solo con un director elegido."""
+    return df.groupby(
+        ["fecha", "pais", "producto_original", "parent_channel", "viaje", "director"],
         as_index=False
     ).agg(
         orders        =("orders",         "sum"),
@@ -1648,6 +1704,7 @@ _QUERIES = {
     "B2C LY":            build_b2c_query(LY_FROM, LY_TO),
     "Budget":            BUDGET_QUERY,
     "Cartera":           CARTERA_QUERY,
+    "Directores B2B2C":  DIRECTORES_B2B2C_QUERY,
     "lob_canal values":  LOB_CANAL_DIAG_QUERY,
     "B2B Budget GD":     B2B_BUDGET_GD_QUERY,
     "B2B Budget RI":     B2B_BUDGET_RI_QUERY,
@@ -1700,6 +1757,14 @@ def _map_tier(df: pd.DataFrame, tmap_pais: dict, tmap: dict) -> pd.Series:
     by_pais = pd.Series([tmap_pais.get(k) for k in zip(p, c)], index=df.index)
     return by_pais.fillna(p.map(tmap)).fillna("Unknown")
 
+
+print("\n--- Director por partner B2B2C ---")
+try:
+    b2b2c_director_map = build_b2b2c_director_map(fetched("Directores B2B2C"))
+    print(f"  {len(b2b2c_director_map)} partners | sin director: {sum(v == 'Sin director' for v in b2b2c_director_map.values())}")
+except Exception as e:
+    b2b2c_director_map = {}
+    print(f"  AVISO: directores B2B2C no disponibles ({e!r}); el filtro de director queda sin B2B2C")
 
 print("\n--- Cartera (stage/tier para budget) ---")
 cartera_map = {}
@@ -2196,6 +2261,7 @@ b2bc_payload = {
     # actuals / actuals_ly en {cols, rows}: en records el archivo pasó los 50 MB que acepta
     # getBlob() de Apps Script. loadFile_ (Codigo.js) y okr_builder.py los re-expanden a records.
     "actuals":    to_compact(df_act),
+    "director_by_partner": b2b2c_director_map,   # filtro de director: {partner strip+lower: director}
     "actuals_ly": to_compact(df_lya),
     "actuals_fy_rest":    df_acta_fy_rest.to_dict(orient="records") if not df_acta_fy_rest.empty else [],
     "actuals_ly_fy_rest": df_lya_fy_rest.to_dict(orient="records") if not df_lya_fy_rest.empty else [],
@@ -2227,6 +2293,13 @@ b2b_payload = {
     "b2b_gd_ly":  to_compact(df_b2b_gd_ly_ag),
     "b2b_ri":     to_compact(df_b2b_ri_agg),
     "b2b_ri_ly":  to_compact(df_b2b_ri_ly_ag),
+    # filtro de director: mismos bloques abiertos por director (solo actuals; el budget B2B no trae agencia)
+    "b2b_gd_dir":    to_compact(agg_b2b_dir(df_b2b_gd)),
+    "b2b_gd_ly_dir": to_compact(agg_b2b_dir(df_b2b_gd_ly)),
+    "b2b_ri_dir":    to_compact(agg_b2b_dir(df_b2b_ri)),
+    "b2b_ri_ly_dir": to_compact(agg_b2b_dir(df_b2b_ri_ly)),
+    "b2b_gd_ly_ext_dir": to_compact(agg_b2b_dir(df_b2b_gd_ly_ext)) if not df_b2b_gd_ly_ext.empty else {"cols": [], "rows": []},
+    "b2b_ri_ly_ext_dir": to_compact(agg_b2b_dir(df_b2b_ri_ly_ext)) if not df_b2b_ri_ly_ext.empty else {"cols": [], "rows": []},
     "b2b_gd_ly_ext": to_compact(agg_b2b(df_b2b_gd_ly_ext)) if not df_b2b_gd_ly_ext.empty else {"cols": [], "rows": []},
     "b2b_ri_ly_ext": to_compact(agg_b2b(df_b2b_ri_ly_ext)) if not df_b2b_ri_ly_ext.empty else {"cols": [], "rows": []},
     "b2b_budget_gd":  df_b2b_bud_gd.to_dict(orient="records")    if not df_b2b_bud_gd.empty    else [],
