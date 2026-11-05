@@ -754,6 +754,8 @@
   body.slides-mode #globalesContent .glob-card {
     display: flex; flex-direction: column; justify-content: space-between;
   }
+  /* La nota al pie (5 renglones) no entra bajo las cards: en la slide se montaba sobre la fila de abajo. */
+  body.slides-mode #globalesContent:not(.glob-table-view) .glob-foot { display: none; }
   body.slides-mode #globalesContent .glob-name        { font-size: 15px; }
   body.slides-mode #globalesContent .glob-range .to   { font-size: 26px; }
   body.slides-mode #globalesContent .glob-range .from { font-size: 17px; }
@@ -1484,7 +1486,7 @@
   <div id="globalesWrap" style="display:none">
     <div class="status-krs-meta" id="globalesMeta"></div>
     <div id="globalesCards"></div>
-    <div style="font-size:0.78rem;color:#9ca3af;margin-top:10px">
+    <div class="glob-foot" style="font-size:0.78rem;color:#9ca3af;margin-top:10px">
       Targets del OKR H2 FY27 (fuente: <em>okr.json</em>, la misma del OKR del Hub). El <strong>actual</strong> de Net Revenues API Hoteles se computa desde el daily (canal API · producto Hoteles · todos los países) y su target es el <strong>budget gestional del daily</strong> (el mismo de la pestaña NR (RI); el mes en curso es MTD contra el budget acumulado al mismo día); los de hoteles directos y Price Competitiveness salen del Datalake (Price Competitiveness: línea "Adverso Latam V2" del Metabase 9043, foto de la última semana cerrada del mes); el resto sale de la sheet Input_OKR. En Price Competitiveness menos es mejor (% de adversidad).
     </div>
   </div>
@@ -4190,6 +4192,15 @@ function globalesApiHotelByMonth_(meses) {
 function globalesActual_(kr, ym, agg) {
   if (kr.id === 'net_revenues_api_hoteles') {                         // MTD del daily, en $M
     var d = agg[ym]; return (d && d.nr) ? d.nr / 1e6 : null;
+  }
+  // Hoteles Directos vendidos destino LATAM: el mes en curso (el del último actual del daily) muestra el mismo dato que el
+  // último mes cerrado (decisión 2026-11-05: el del mes en curso es parcial y no sirve para medir). Sin mes anterior con dato, el propio.
+  if (kr.id === 'hoteles_directos_latam' && kr.actuals) {
+    var curYM = ((rawData && rawData.meta && rawData.meta.last_actuals_date) || '').substring(0, 7);
+    if (curYM && ym === curYM) {
+      var prev = Object.keys(kr.actuals).filter(function(k){ return k < ym && kr.actuals[k] != null; }).sort().pop();
+      if (prev) return kr.actuals[prev];
+    }
   }
   return (kr.actuals && kr.actuals[ym] != null) ? kr.actuals[ym] : null;   // mensual, Input_OKR (okr.json)
 }

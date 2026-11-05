@@ -160,7 +160,8 @@
   function drawFull(img, dd) {
     var c = newCanvas(), ctx = c.getContext('2d');
     ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
-    if (img) { fit(ctx, img, 0, 0, W, H, true); infoPill(ctx, dd, 516); }
+    // La captura llega hasta abajo de todo: se achica para dejar una franja libre donde va "Info. updated" (antes lo pisaba).
+    if (img) { fit(ctx, img, 0, 0, W, H - (dd.dmy ? 52 : 0), true); infoPill(ctx, dd, 518); }
     else { ctx.fillStyle = '#C0392B'; ctx.font = '400 28px Rubik, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('No se pudo capturar esta slide', W / 2, H / 2); }
     return Promise.resolve(jpeg(c));
   }
