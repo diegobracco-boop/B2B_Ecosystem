@@ -141,6 +141,10 @@ L4W, FVM %GB y desvío vs Run Rate) con botón "Copiar para Slack" (`:red_circle
 `getResumenSemanal` (`server/gas-extras/daily-resumen-semanal.js`, cargada en el Daily y en `cacheFns`): usa las mismas
 funciones que el Weekly del Daily (`_wsGetActuals_`, `_wsByChannel_`, `_wsAggWeekly_`…), así que da lo mismo que la
 solapa Weekly (verificado al dólar con la semana 43). Montos nominales (sin Organic) y COI Brasil incluido.
+Rediseño 2026-11-05 (Tiago, estilo de los bloques Stats / Analytics de React Bits Pro, sin su código): titular calculado,
+grilla de tarjetas con dial de % del Budget de NR, tarjetas GB / NR / FVM / FVM %GB con delta y sparkline (al tocarlas
+cambian la métrica del gráfico y de los países), área de 13 semanas y barras por país (real vs marca de Budget); la tabla
+por país y la nota quedan plegadas. Vista previa con datos inventados: `node scripts/preview-resumen-semanal.js` (puerto 8099).
 
 **Actualizar reales (2026-10-30):** botón de la portada (`server/index-page.js`), solo para `EQUIPO_B2B` y con
 contraseña (`REALES_PASSWORD`, máx. 5 intentos cada 15 min por usuario). `POST /reales` lanza en el servidor
