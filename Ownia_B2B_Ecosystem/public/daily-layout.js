@@ -62,7 +62,8 @@
     return s + '$' + Math.round(a / 1e3).toLocaleString('en-US') + 'k';
   }
   function fmtPp(v) { return v == null || !isFinite(v) ? '—' : (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(1) + ' pp'; }
-  function pct(a, b) { return (a == null || b == null || !b) ? null : (a / b - 1) * 100; }
+  // Variación sobre |base|: si la base es negativa (p.ej. FVM 2025 = −1k), mejorar da % positivo
+  function pct(a, b) { return (a == null || b == null || !b) ? null : (a - b) / Math.abs(b) * 100; }
   function fmtPct(p) { return p == null || !isFinite(p) ? '—' : (p > 0 ? '+' : p < 0 ? '−' : '') + Math.abs(p).toFixed(1) + '%'; }
   function pctCls(p) { return p == null || !isFinite(p) ? '' : p >= 0 ? 'iet-pos' : 'iet-neg'; }
   function yoyHtml(s) {
