@@ -236,7 +236,7 @@
         if (r.partner && tab === 'daily') { p.lob = 'b2b2c'; p.partner = r.partner; can.partner = true; }
         if (tab === 'daily' && p.lob !== 'b2b' && r.paises.length === 1) { p.pais = r.paises[0]; can.pais = true; }
       }
-      add('daily', clean(p), sub || [{ daily: 'Daily', weekly: 'Weekly', benchmark: 'Benchmark vs B2C', tracker: 'Daily B2B Tracker', industry: 'Industry events', flow: 'Flow semanal' }[tab],
+      add('daily', clean(p), sub || [{ daily: 'Daily', weekly: 'Benchmark vs B2C · Weekly', benchmark: 'Benchmark vs B2C', tracker: 'Daily B2B Tracker', industry: 'Industry events', flow: 'Flow semanal' }[tab],
         p.lob ? LOB_TXT[p.lob] : '', p.partner || ''].filter(Boolean).join(' · '), can, notes);
     }
     function managerial() {

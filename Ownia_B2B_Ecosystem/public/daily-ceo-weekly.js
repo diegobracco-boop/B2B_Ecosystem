@@ -686,6 +686,44 @@
     syncBtns();
     W.addEventListener('resize', fitBench);
   }
+  // Weekly dentro de "Benchmark vs B2C" (2026-11-05, Diego: menos botones). El botón "Weekly" se oculta y su vista entera
+  // (Resumen Semanal, Performance MTD, OKR de B2B2C, con sus pestañas y switches) queda al final del Benchmark.
+  // switchMainView('weekly') y ?tab=weekly siguen andando: abren el Benchmark y bajan hasta el Weekly.
+  // La vista Weekly carga a TC Budget con Organic YES (_orgTargetWeekly_), como antes; el Benchmark sigue con su TC.
+  function weeklyIntoBench() {
+    var vb = document.getElementById('view-benchmark'), vw = document.getElementById('view-weekly'), orig = W.switchMainView;
+    if (!vb || !vw || typeof orig !== 'function' || orig._owWk) return;
+    var hdr = document.createElement('div');
+    hdr.id = 'ow-bench-wk-hdr';
+    hdr.innerHTML = '<div class="section-hdr" style="margin:0">Weekly Summary <span style="font-weight:400;text-transform:none;letter-spacing:0">' +
+      '(semana a semana por país y MTD · Gestion o Recognition Date)</span></div>';
+    vb.appendChild(hdr);
+    vb.appendChild(vw);
+    var nb = document.getElementById('vnav-weekly');
+    if (nb) nb.style.display = 'none';
+    var wrapped = function (view) {
+      var toWk = view === 'weekly';
+      var r = orig.call(this, toWk ? 'benchmark' : view);
+      if (W._activeView === 'benchmark') {
+        vw.style.display = '';
+        if (!W._wsLoaded && typeof W._wsLoadData === 'function') W._wsLoadData();
+        if (typeof W._wsLoadOKRIfNeeded === 'function') W._wsLoadOKRIfNeeded();
+        if (toWk) setTimeout(function () { hdr.scrollIntoView({ block: 'start' }); }, 60);
+      }
+      return r;
+    };
+    wrapped._owWk = true;
+    W.switchMainView = wrapped;
+    // Recargas que el Daily hacía solo con la solapa Weekly abierta (Organic y COI Brasil)
+    W._wsReloadForOrganic_ = function () { if (W._activeView === 'benchmark' && typeof W._wsLoadData === 'function') W._wsLoadData(); };
+    var origCoi = W.setExCoiBr;
+    if (typeof origCoi === 'function') W.setExCoiBr = function () {
+      var r = origCoi.apply(this, arguments);
+      if (W._activeView === 'benchmark' && typeof W._wsLoadOKRIfNeeded === 'function') W._wsLoadOKRIfNeeded();
+      return r;
+    };
+    if (W._activeView === 'weekly') W.switchMainView('weekly');   // un ?tab=weekly que entró antes que esta capa
+  }
   function syncBtns() {
     Array.prototype.forEach.call(document.querySelectorAll('#ow-ceo-bench [data-owm]'), function (b) { b.classList.toggle('active', b.getAttribute('data-owm') === state.metric); });
   }
@@ -693,6 +731,8 @@
   var css = document.createElement('style');
   css.textContent = [
     '#ow-ceo-bench{margin-bottom:22px}',
+    '#ow-bench-wk-hdr{padding:18px 20px 8px;border-top:1px solid var(--border);margin-top:8px}',
+    '#vnav-weekly{display:none!important}',
     '#ow-ceo-bench .ow-ceo-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:10px}',
     '#ow-ceo-bench .ow-ceo-wrap{position:relative;overflow:hidden;border-radius:8px;margin-bottom:14px}',
     '#ow-ceo-bench .ow-ceo-wrap .flow-slide{position:absolute;left:0;top:0}',
@@ -765,6 +805,7 @@
         { kind: 'ceo_weekly', n: 3, name: 'Weekly — B2B2C: partners del momentum' }, { kind: 'ceo_weekly', n: 4, name: 'Weekly — B2B: API vs HTML' });
     }
     weeklyTweaks();
+    weeklyIntoBench();
     // El switch global: primero B2C (las filas) y después el recálculo del Daily
     var origCoi = W.setExCoiBr;
     if (typeof origCoi === 'function') W.setExCoiBr = function (on) { W._exCoiBr = !!on; try { applyB2CCoi(); } catch (e) { /* sin B2C */ } return origCoi.apply(this, arguments); };
