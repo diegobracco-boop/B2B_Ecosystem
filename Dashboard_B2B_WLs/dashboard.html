@@ -3219,7 +3219,10 @@ function _pnlWithB2B_(d) {
     c.varBudAbs = c.actual - c.budget;   c.varBudPct = pct(c.actual, c.budget);
     c.varRRAbs  = c.actual - c.runRate;  c.varRRPct  = pct(c.actual, c.runRate);
     c.varFcAbs  = c.actual - c.forecast; c.varFcPct  = pct(c.actual, c.forecast);
-    c.varLYAbs  = c.actual - c.lyVal;    c.yoyPct    = pct(c.actual, c.lyVal);
+    // YoY: con Organic vs Budget/Forecast cada yoyPct viene a TC Actuals LY (graftOrganicYoY_), no del actual que
+    // se muestra (TC Budget). Se rearma el real a TC LY de MAY y MIN (ly + yoy% × |ly|) y se suma (2026-11-05).
+    var actY = function(x){ var ly = +x.lyVal || 0; return (ly && isFinite(x.yoyPct) && x.yoyPct !== null) ? ly + x.yoyPct / 100 * Math.abs(ly) : (+x.actual || 0); };
+    c.varLYAbs  = c.actual - c.lyVal;    c.yoyPct    = pct(actY(a) + actY(b), c.lyVal);
     c.sharePct  = (+a.sharePct || 0) + (+b.sharePct || 0);
     var cols = r.cols.filter(function(_, i){ return i !== gi && i !== gj; });
     cols.splice(Math.min(gi, gj), 0, c);
