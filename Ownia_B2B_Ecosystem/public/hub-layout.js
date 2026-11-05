@@ -114,10 +114,13 @@
     // #active-filters: los mismos chips quedan en la línea de contexto de arriba (#ohn-top).
     // #canal-fg: HTML y API ahora se eligen en la barra, como negocios; el toggle queda oculto para que el Hub lo siga leyendo.
     '.hamburger-btn,#nav-backdrop,.filters,#filters-toggle,#ai-links,#active-filters,#canal-fg{display:none!important}',
-    // OKR Status abierto por mes: baja debajo del P&L a todo el ancho, así entran todos los meses sin scroll horizontal.
-    '.pnl-okr-wrap:has(.okr-monthly){flex-direction:column;align-items:stretch}',
-    '.pnl-okr-wrap:has(.okr-monthly) .pnl-tables-col{flex:0 0 auto;max-width:100%}',
-    '.pnl-okr-wrap:has(.okr-monthly) .okr-col{flex:1 1 auto;width:100%}',
+    // OKR Status abierto por mes (2026-11-05, Diego): sigue a la derecha del Cuadro Resumen, en el espacio que queda, con scroll
+    // horizontal propio; el nombre del KR y el peso quedan fijos a la izquierda mientras se corren los meses.
+    '.pnl-okr-wrap:has(.okr-monthly) .okr-col{flex:1 1 0;min-width:340px}',
+    '.okr-table.okr-monthly th:first-child,.okr-table.okr-monthly td:first-child{position:sticky;left:0;z-index:2;min-width:150px;max-width:190px}',
+    '.okr-table.okr-monthly th:first-child{background:#5457D9}',
+    '.okr-table.okr-monthly td:first-child{background:var(--surface,#fff)}',
+    '.okr-table.okr-monthly tr.okr-total td:first-child{background:#f4f4fc}',
     // Country & Product Performance: las tres tarjetas se reparten el ancho (columnas más juntas) en vez de armar scroll.
     // (con !important: el CSS de la página se carga después y, a igual especificidad, gana)
     '.bkd-grid{overflow-x:visible!important;gap:10px!important}',

@@ -71,7 +71,9 @@ const MODULES = [
     // portal-ask.js: el intérprete del buscador de la portada también lee la barra "Filtrar…" (2026-10-31).
     // hub-marketing.js (lectura "¿se paga el marketing?") y su gasExtra hub-marketing-canal.js se desactivaron el 2026-11-03: el
     // gráfico + tabla de "Marketing & Media Investment" vuelven a ser los originales de Apps Script. Los archivos quedan en el repo.
-    layout: ['filter-aliases.js', 'portal-ask.js', 'hub-layout.js', 'hub-h2h1.js', 'hub-slides.js', 'hub-cierre.js', 'hub-builder.js'],
+    // hub-mkt-story.js (2026-11-05): rediseño de "Marketing & Media Investment" (Fondos = Media Revenue + Overs vs Marketing Cost,
+    // contra el Goal del filtro). Si falla, vuelve la sección original de Apps Script.
+    layout: ['filter-aliases.js', 'portal-ask.js', 'hub-layout.js', 'hub-h2h1.js', 'hub-slides.js', 'hub-cierre.js', 'hub-builder.js', 'hub-mkt-story.js'],
     // getSlidesEvo (Slides mensuales y Mis slides) depende solo de sus parámetros y de los JSON del espejo: se calcula una vez por
     // combinación y día y se reparte comprimida (server/api-cache.js; se invalida cuando cambia un archivo que lee el Hub). 2026-10-30.
     cacheFns: ['getSlidesEvo', 'getFvmOcBridge'],   // getFvmOcBridge: slide FVM vs OC del Flow mensual (2026-11-03)
