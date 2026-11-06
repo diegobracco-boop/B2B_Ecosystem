@@ -682,8 +682,8 @@ a.ext-link:hover { text-decoration: underline; }
         <div class="proj-card-icon">🤝</div>
         <div class="proj-card-name">P&amp;L Profit Sharing · Banco de Chile</div>
         <div class="proj-card-desc">P&amp;L de Banco de Chile por mes, tipo de venta (Carrito / Agencias / WLs) y punto de venta (Presencial / Call Center / online), con el reparto del FVM Base: <strong>55% a pagar a Banco de Chile</strong> y 45% para Despegar.</div>
-        <div class="proj-card-tag"><span class="badge badge-manual">🖐️ Manual (profit_sharing_sync.py)</span></div>
-        <a class="proj-card-url" href="https://script.google.com/a/macros/despegar.com/s/AKfycbyfhSHt3k0wJS39TlHYOAuRYicAy0M1pGfnarSM1RXOKECa4p1cBSlFjXU5ZXQKsYCj/exec" target="_blank">↗ Abrir landing</a>
+        <div class="proj-card-tag"><span class="badge badge-manual">App propia de Ownia (pnl-hispa)</span></div>
+        <a class="proj-card-url" href="https://ownia.despegar.io/pnl-hispa" target="_blank">↗ Abrir landing</a>
       </div>
 
       <div class="proj-card" tabindex="0" role="button" onclick="showSection('proj-runrate')">
@@ -1903,8 +1903,8 @@ a.ext-link:hover { text-decoration: underline; }
             <td>Manual</td></tr>
           <tr><td>Profit Sharing · Banco de Chile</td>
             <td>Datalake (<code>banco_chile_profit_sharing.sql</code>)</td>
-            <td><code>P&amp;L_Profit_Sharing/profit_sharing_sync.py</code></td>
-            <td>Drive: <code>banco_chile_profit_sharing.json</code></td>
+            <td>Repo <code>despegar/pnl-hispa</code>: el botón "Actualizar" de la app (o su script de sync)</td>
+            <td>App de Ownia (DynamoDB) + respaldo en el repo</td>
             <td>Manual, mensual</td></tr>
           <tr><td>Fixed Cost y Weekly Industry</td>
             <td colspan="4" class="note">Apps de Apps Script externas, embebidas en el P&amp;L Dashboard. No están en este repo: sus datos y su actualización son de sus dueños.</td></tr>
@@ -2989,13 +2989,13 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
         <div class="card-title">📍 Datos del proyecto</div>
         <table class="doc-table">
           <tbody>
-            <tr><td>Carpeta local</td><td>P&amp;L_Profit_Sharing</td></tr>
+            <tr><td>Repo / carpeta local</td><td><code>despegar/pnl-hispa</code> → <code>pnl_profit_sharing</code> (fuera de B2B_Ecosystem desde 2026-11-06)</td></tr>
             <tr><td>Apps Script ID</td><td class="mono-id">1b5J6CHJR-c-6MJcolL_YbASbb4oIILpln1odHDUdapaBcOOCUqxMhpYf</td></tr>
             <tr><td>Deployment id (prod)</td><td class="mono-id">AKfycbyfhSHt3k0wJS39TlHYOAuRYicAy0M1pGfnarSM1RXOKECa4p1cBSlFjXU5ZXQKsYCj</td></tr>
-            <tr><td>URL landing</td><td><a class="ext-link" href="https://script.google.com/a/macros/despegar.com/s/AKfycbyfhSHt3k0wJS39TlHYOAuRYicAy0M1pGfnarSM1RXOKECa4p1cBSlFjXU5ZXQKsYCj/exec" target="_blank">↗ Abrir</a></td></tr>
+            <tr><td>URL landing</td><td><a class="ext-link" href="https://ownia.despegar.io/pnl-hispa" target="_blank">↗ Abrir</a></td></tr>
             <tr><td>Fuente de datos</td><td><code>banco_chile_profit_sharing.json</code> en su carpeta de Drive propia (<code>1dwIAlZLG5C5EOWGMm_rEFFKMgGQMRWIR</code>)</td></tr>
-            <tr><td>Actualización</td><td>Manual: <code>cd P&amp;L_Profit_Sharing &amp;&amp; py profit_sharing_sync.py</code> (VPN + <code>credenciales/.env.&lt;usuario&gt;</code>)</td></tr>
-            <tr><td>Deploy</td><td><code>clasp push --force</code> + <code>clasp deploy -i &lt;id&gt;</code></td></tr>
+            <tr><td>Actualización</td><td>Botón "Actualizar" de la app (corre la query contra el Datalake), o el script de sync del repo <code>despegar/pnl-hispa</code> + redeploy en Ownia</td></tr>
+            <tr><td>Deploy</td><td>Redeploy de la app <code>pnl-hispa</code> en Ownia (la web app de Apps Script quedó discontinuada)</td></tr>
           </tbody>
         </table>
       </div>
@@ -3009,7 +3009,7 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
             <tr><td>Channel Expenses</td><td>Leases (solo Presencial, repartidos entre sus transacciones del mes) + comisiones de vendedores (1,7% del GB). Reemplaza la vendor commission.</td></tr>
             <tr><td>Ajustes</td><td>Cancellations y Loyalty × 0 · Intercompany 0,54% del GB</td></tr>
             <tr><td>Reparto</td><td>FVM Base × 55% = Profit Share a pagar · × 45% = FVM Despegar</td></tr>
-            <tr><td>Fuente única</td><td>Toda la lógica vive en <code>banco_chile_profit_sharing.sql</code>; <code>profit_sharing_sync.py</code> solo agrega y la landing solo filtra y suma</td></tr>
+            <tr><td>Fuente única</td><td>Toda la lógica vive en <code>banco_chile_profit_sharing.sql</code>; el script de sync solo agrega y la landing solo filtra y suma</td></tr>
           </tbody>
         </table>
       </div>

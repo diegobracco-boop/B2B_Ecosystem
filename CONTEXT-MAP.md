@@ -162,18 +162,11 @@ El ecosistema tiene dos capas: **pipelines** (Python, generan los datos) y **lan
 - **Deployment id (prod)**: `AKfycbzGXCpL9_p70Xx7P640YgU-zOzoLG1018HG9N_pzQvrCJPHTPsUuryD_tDH1HNO41hOIg`
 - **Consumido por**: embebido como `<iframe>` en la sección "FVM Negativo" del Hub (`Dashboard_B2B_WLs/dashboard.html`, `EXTERNAL_LINKS.iframes.fvmneg`)
 
-### P&L_Profit_Sharing — P&L de profit sharing de Banco de Chile
-- **Stack**: Python + SQL (pipeline manual) + GAS/HTML (landing). Creado 2026-10-13.
-- **Lógica**: toda en `banco_chile_profit_sharing.sql` (B2B2C Chile, partner Banco de Chile, transacciones confirmadas
-  desde may-2026). FVM_Base = NR + costos + channel expenses (leases Presencial + comisiones de vendedores 1,7% GB);
-  cancellations y loyalty × 0. Reparto: 55% Profit Share a pagar a Banco de Chile / 45% FVM Despegar.
-- **Pipeline**: `py profit_sharing_sync.py` corre el .sql, agrega a mes × tipo_venta × punto_venta × producto × viaje ×
-  estado × vendedor, verifica el cuadre contra lo crudo y sube `banco_chile_profit_sharing.json` a la carpeta de Drive
-  propia de Profit Sharing (`1dwIAlZLG5C5EOWGMm_rEFFKMgGQMRWIR`). `--no-upload` lo deja en `_out/`.
-- **Landing**: lee el JSON por nombre; filtra y suma en el frontend (no recalcula reglas de negocio).
-- **Script ID**: `1b5J6CHJR-c-6MJcolL_YbASbb4oIILpln1odHDUdapaBcOOCUqxMhpYf`
-- **Deployment id (prod)**: `AKfycbyfhSHt3k0wJS39TlHYOAuRYicAy0M1pGfnarSM1RXOKECa4p1cBSlFjXU5ZXQKsYCj`
-- **Deploy**: `cd P&L_Profit_Sharing && clasp push --force` + `clasp deploy -i <deploymentId>`
+### P&L Profit Sharing — fuera de este repo (desde 2026-11-06)
+- Era el módulo GAS `P&L_Profit_Sharing/` (creado 2026-10-13, Banco de Chile). Se borró: ahora es una app propia de Ownia,
+  repo `despegar/pnl-hispa` (carpeta local `../pnl_profit_sharing`), https://ownia.despegar.io/pnl-hispa. Se van a sumar más partners ahí.
+- La portada del Ownia de este repo linkea a esa app (`url` de `profit-sharing` en `Ownia_B2B_Ecosystem/server/modules.js`).
+- La web app GAS vieja (`AKfycbyfhSHt…`) sigue publicada hasta que se decida archivarla o dejarle el aviso "se mudó".
 
 ### Ownia_B2B_Ecosystem — el ecosistema en Ownia (migración progresiva)
 - **Stack**: Node.js (deps solo para el almacén en DynamoDB: SDK de AWS), deployado en Ownia → `https://ownia.despegar.io/b2b-ecosystem`. Creado 2026-10-21.
@@ -199,7 +192,7 @@ Todas las credenciales viven en `credenciales/` (gitignoreado). Ver cada módulo
 
 ## Estado actual
 
-- **En producción**: Daily_Dashboard, Dashboard_B2B_WLs, P&L_Accounting, P&L_Managerial, Manual_B2B_WLs, `lob_country_one_pager` (B2B, en prod desde 2026-09-17), OKR_Producto_B2B2C, P&L_Profit_Sharing (desde 2026-10-13)
+- **En producción**: Daily_Dashboard, Dashboard_B2B_WLs, P&L_Accounting, P&L_Managerial, Manual_B2B_WLs, `lob_country_one_pager` (B2B, en prod desde 2026-09-17), OKR_Producto_B2B2C, P&L Profit Sharing (app propia de Ownia, ver arriba)
 - **En migración progresiva a Ownia**: `Ownia_B2B_Ecosystem` (migrados: Manual, P&L Managerial y P&L Accounting —productivos en Ownia desde 2026-10-30—; en validación en paralelo: Daily Dashboard, Hub, FVM Negativo). Para el resto, Apps Script sigue productivo.
 - **En construcción (Fase 2)**: repuntear las landings de P&L y Dashboard_B2B_WLs a los JSONs canónicos de Inputs_Planning_PnL como fuente única (hoy algunas todavía leen de fuentes propias)
 
