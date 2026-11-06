@@ -25,6 +25,8 @@ const CSS = `<style>
   /* Entrada: suben de a uno (sin animación con prefers-reduced-motion) */
   .rs-in { animation: rsUp .6s var(--ease) both; animation-delay: var(--d, 0ms); }
   @keyframes rsUp { from { opacity: 0; transform: translateY(14px); filter: blur(4px); } to { opacity: 1; transform: none; filter: none; } }
+  #rs-root.calm .rs-in { animation: rsFade .25s ease both; animation-delay: 0ms; }   /* al cambiar de semana o negocio: sin la entrada completa */
+  @keyframes rsFade { from { opacity: .4; } to { opacity: 1; } }
   @media (prefers-reduced-motion: reduce) { .rs-in { animation: none; } .rs-ring-fg, .rs-line { transition: none !important; } }
 
   /* Titular */
@@ -42,7 +44,7 @@ const CSS = `<style>
   .rs-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
   .rs-tabs { position: relative; display: inline-flex; gap: 2px; padding: 4px; border-radius: 999px; background: var(--tile); box-shadow: inset 0 0 0 1px var(--line); }
   .rs-tabs button { position: relative; z-index: 1; padding: 8px 18px; border-radius: 999px; border: 0; background: transparent; color: var(--text-2);
-                    font: 500 14px var(--font); cursor: pointer; transition: color .25s var(--ease); }
+                    font: 500 14px var(--font); cursor: pointer; transition: color .25s var(--ease); white-space: nowrap; }
   .rs-tabs button[aria-selected="true"] { color: #fff; }
   .rs-tabs .ind { position: absolute; top: 4px; bottom: 4px; left: 0; width: 0; border-radius: 999px; background: var(--primary);
                   box-shadow: 0 6px 20px var(--glow); transition: transform .35s var(--ease), width .35s var(--ease); }
@@ -61,9 +63,8 @@ const CSS = `<style>
   .rs-card h2 { font-size: 12px; font-weight: 500; color: var(--text-3); text-transform: uppercase; letter-spacing: .08em; }
   .c-dial { grid-column: span 4; grid-row: span 2; display: flex; flex-direction: column; }
   .c-kpi { grid-column: span 4; }
-  .c-chart { grid-column: span 12; }
-  .c-bul { grid-column: span 7; }
-  .c-sum { grid-column: span 5; display: flex; flex-direction: column; }
+  .c-chart { grid-column: span 7; }
+  .c-bul { grid-column: span 5; }
 
   /* Chips de delta */
   .chip { display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -140,9 +141,28 @@ const CSS = `<style>
   .rs-bul .row .chip { justify-self: end; }
   .rs-bul .row.tot { margin-top: 4px; padding-top: 11px; border-top: 1px solid var(--line); font-weight: 600; }
 
-  /* Resumen en texto */
-  .rs-sum-t { margin-top: 14px; font-size: 15px; line-height: 1.7; color: var(--text-2); flex: 1; }
-  .rs-sum-t b { color: var(--text); font-weight: 600; }
+  /* Selector de semana */
+  .rs-weeks { display: inline-flex; gap: 2px; padding: 3px; border-radius: 999px; box-shadow: inset 0 0 0 1px var(--line); overflow-x: auto; max-width: 100%; scrollbar-width: none; }
+  .rs-weeks button { flex: none; padding: 6px 12px; border-radius: 999px; border: 0; background: transparent; color: var(--text-2); font: 500 13px var(--font);
+                     cursor: pointer; font-variant-numeric: tabular-nums; transition: background .2s, color .2s; }
+  .rs-weeks button:hover { color: var(--text); }
+  .rs-weeks button[aria-pressed="true"] { background: var(--tile-hover); color: var(--text); box-shadow: inset 0 0 0 1px var(--link); }
+  .rs-weeks button small { margin-left: 5px; font-size: 10.5px; color: var(--link); text-transform: uppercase; letter-spacing: .05em; }
+  #rs-root.busy #rs-biz { opacity: .45; pointer-events: none; transition: opacity .2s; }
+  .rs-live.off { background: var(--text-3); animation: none; }
+
+  /* Resumen en texto (arriba de las tarjetas) */
+  .c-sum { grid-column: span 12; }
+  .rs-sum-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .rs-sum-head h2 { flex: 1; }
+  .rs-ins { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 28px; margin-top: 10px; }
+  .rs-ins > div { display: grid; grid-template-columns: 22px 1fr; gap: 10px; padding: 11px 0; border-top: 1px solid var(--line); font-size: 14.5px; line-height: 1.6; color: var(--text-2); }
+  .rs-ins > div:nth-child(-n+2) { border-top: 0; }
+  .rs-ins b { color: var(--text); font-weight: 600; }
+  .rs-ins .ic { width: 22px; height: 22px; border-radius: 7px; display: grid; place-items: center; background: var(--tile-hover); color: var(--link); margin-top: 2px; }
+  .rs-ins .ic svg { width: 13px; height: 13px; }
+  .rs-ins .lb { display: block; font-size: 11.5px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: .07em; }
+  .rs-ins .watch .ic { color: var(--warn); background: var(--warn-bg); }
   .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin: 0 2px 0 4px; vertical-align: 1px; }
   .dot.g { background: var(--good); } .dot.a { background: var(--warn); } .dot.r { background: var(--crit); }
   .rs-sum-f { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
@@ -169,11 +189,13 @@ const CSS = `<style>
 
   @media (max-width: 960px) {
     .c-dial { grid-column: span 12; grid-row: auto; } .c-kpi { grid-column: span 6; }
-    .c-bul, .c-sum { grid-column: span 12; }
+    .c-bul, .c-chart { grid-column: span 12; }
+    .rs-ins { grid-template-columns: minmax(0, 1fr); } .rs-ins > div:nth-child(2) { border-top: 1px solid var(--line); }
   }
   @media (max-width: 560px) {
     .c-kpi { grid-column: span 12; }
     .rs-bul .row { grid-template-columns: 84px 1fr 62px; } .rs-bul .row .chip { display: none; }
+    .rs-tabs button { padding: 7px 11px; font-size: 13px; }
   }
 </style>`;
 
@@ -196,7 +218,7 @@ const SCRIPT = String.raw`
     Mexico: 'mx', Peru: 'pe', Uruguay: 'uy', Paraguay: 'py', USA: 'us' };
   var NAME = { Mexico: 'México', Peru: 'Perú', 'Other Countries': 'Otros países', RG: 'Ajuste COI Brasil' };
   var MES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-  var D = null, sel = 'all', metric = 'rev', bulBy = 'pais';
+  var D = null, sel = 'all', metric = 'rev', bulBy = 'pais', wk = null;   // wk: semana pedida (null = la última cerrada)
 
   // ── Números ─────────────────────────────────────────────────────────────────────────────
   function z() { return { gb: 0, rev: 0, fvm: 0 }; }
@@ -282,35 +304,80 @@ const SCRIPT = String.raw`
     return s + '.';
   }
 
-  // ── Texto del resumen (HTML para la página y texto para Slack) ─────────────────────────────
-  function summary(slack) {
-    var b = slack ? function (s) { return '*' + s + '*'; } : function (s) { return '<b>' + s + '</b>'; };
-    var A = view('all'), parts = {};
-    ['b2b2c', 'api', 'html'].forEach(function (k) { parts[k] = view(k); });
-    var T = A.T, devNR = T.cur.rev - T.bud.rev, pNR = pct(T.cur.rev, T.bud.rev), pF = pct(T.cur.fvm, T.bud.fvm);
-    var byBiz = function (fld) {
-      return ['b2b2c', 'api', 'html'].map(function (k) { var t = parts[k].T; return fp(pct(t.cur[fld], t.bud[fld]), 0) + ' ' + bizLbl(k); })
-        .join(', ').replace(/, ([^,]*)$/, ' & $1');
-    };
-    var worst = ['b2b2c', 'api', 'html'].map(function (k) { var t = parts[k].T; return { k: k, p: pct(t.cur.fvm, t.bud.fvm) }; })
-      .sort(function (a, c) { return (a.p == null ? 0 : a.p) - (c.p == null ? 0 : c.p); });
-    var yGB = pct(T.cur.gb, T.ly.gb), yNR = pct(T.cur.rev, T.ly.rev), y4 = pct(T.l4w.rev, T.l4wLy.rev);
-    var trendTxt = (yNR != null && y4 != null) ? (yNR >= y4 ? ', mejorando la tendencia vs L4Ws (' : ', por debajo de la tendencia de las L4Ws (') + 'L4W: ' + fp(y4, 0) + ' YoY en NR)' : '';
-    var growVerb = function (v) { return v >= 0 ? 'crece' : 'cae'; };
-    var p0 = 'Net Revenues del ecosistema B2B vs Budget con desvío de ' + b(sgnMoney(devNR) + ' / ' + fp(pNR, 0)) + dot(pNR, slack) +
-      ' (' + byBiz('rev') + '). FVM ' + fp(pF, 0) + dot(pF, slack) + ' vs Budget' +
-      (pF < 0 ? ', desviado principalmente por ' + worst.filter(function (w) { return w.p != null && w.p < 0; }).map(function (w) { return bizLbl(w.k) + ' (' + fp(w.p, 0) + ')'; }).join(', ').replace(/, ([^,]*)$/, ' y $1') : '') +
-      '. Vs Last Year el negocio ' + growVerb(yGB) + ' ' + fp(yGB, 0) + ' en GB y ' + fp(yNR, 0) + ' en Net Revenues' + trendTxt + '.';
-    var out = [{ k: 'all', t: p0 }];
-    ['b2b2c', 'api', 'html'].forEach(function (k) {
-      var V = parts[k], t = V.T, d = t.cur.rev - t.bud.rev, pn = pct(t.cur.rev, t.bud.rev);
-      var shC = share(t.cur), shB = share(t.bud), rN = pct(t.cur.rev, t.rr.rev), rF = pct(t.cur.fvm, t.rr.fvm);
-      var s = 'Net Revenues de ' + b(money(t.cur.rev)) + ', con un desvío de ' + b(fp(pn)) + ' vs Budget' + dot(pn, slack) + ' (' + sgnMoney(d) + '). ' +
-        drivers(V, slack) + ' FVM cerró en ' + (shC == null ? '—' : shC.toFixed(1) + '%/GB') + ', ' + fpp(shC != null && shB != null ? shC - shB : null) + ' vs Budget.';
-      if (t.rr.rev) s += ' Vs Run Rate: NR ' + fp(rN) + dot(rN, slack) + ', FVM ' + fp(rF) + dot(rF, slack) + '.';
-      out.push({ k: k, t: s });
-    });
+  // ── Resumen en texto (HTML para la página y texto para Slack) ────────────────────────────
+  // Estructura de un comentario de desvíos (skill variance-analysis del plugin Finance): resultado con $ y % vs Budget,
+  // puente (volumen de GB × take rate), dónde se explica, si se repite o es puntual, rentabilidad y qué mirar.
+  var IC = {
+    res: '<path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/>',
+    bridge: '<path d="M3 17h4V9h4v4h4V7h4v10h2"/>',
+    where: '<circle cx="12" cy="10" r="3"/><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/>',
+    trend: '<path d="M3 17l6-6 4 4 8-8M15 7h6v6"/>',
+    margin: '<circle cx="12" cy="12" r="9"/><path d="M12 7v10M9 9.5c0-1 1.3-1.8 3-1.8s3 .8 3 1.8-1.3 1.6-3 2-3 1-3 2 1.3 1.8 3 1.8 3-.8 3-1.8"/>',
+    watch: '<path d="M12 9v4M12 17h.01M10.3 3.9L2 18a2 2 0 0 0 1.7 3h16.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>',
+  };
+  function ord(n) { return n + 'ª'; }
+  function insights(k, slack) {
+    var b = slack ? function (x) { return '*' + x + '*'; } : function (x) { return '<b>' + x + '</b>'; };
+    var V = view(k), T = V.T, out = [], keys = k === 'all' ? ['b2b2c', 'api', 'html'] : [k];
+    var dev = T.cur.rev - T.bud.rev, pN = pct(T.cur.rev, T.bud.rev), yN = pct(T.cur.rev, T.ly.rev);
+
+    out.push({ k: 'res', lbl: 'Resultado', t: 'Net Revenues ' + (k === 'all' ? 'del ecosistema ' : '') + 'de ' + b(money(T.cur.rev)) + ': ' +
+      b(sgnMoney(dev) + ' / ' + fp(pN)) + ' vs Budget' + dot(pN, slack) + ' y ' + b(fp(yN)) + ' vs LY, sobre ' + money(T.cur.gb) + ' de GB (' + fp(pct(T.cur.gb, T.bud.gb)) + ' vs Budget).' });
+
+    // Puente NR vs Budget = volumen (GB a take rate de Budget) + take rate (sobre el GB real). Suma exacto el desvío.
+    var trA = T.cur.gb ? T.cur.rev / T.cur.gb : 0, trB = T.bud.gb ? T.bud.rev / T.bud.gb : 0;
+    var vol = (T.cur.gb - T.bud.gb) * trB, rate = dev - vol;
+    var main = Math.abs(vol) >= Math.abs(rate) ? 'volumen' : 'take rate';
+    var bt = 'El desvío es más de ' + b(main) + ': ' + sgnMoney(vol) + ' por volumen (GB ' + fp(pct(T.cur.gb, T.bud.gb)) + ') y ' + sgnMoney(rate) +
+      ' por take rate (' + (trA * 100).toFixed(1) + '% de NR/GB vs ' + (trB * 100).toFixed(1) + '% de Budget).';
+    if (k === 'all') bt += ' Por negocio: ' + keys.map(function (x) { var t = view(x).T; return bizLbl(x) + ' ' + sgnMoney(t.cur.rev - t.bud.rev); }).join(', ') + '.';
+    out.push({ k: 'bridge', lbl: 'Puente vs Budget', t: bt });
+
+    out.push({ k: 'where', lbl: 'Dónde', t: drivers(V, slack) || 'Ningún país explica por sí solo el desvío: está repartido.' });
+
+    // Tendencia: semanas seguidas del mismo lado del Budget y YoY de la semana vs el de las 4 anteriores
+    var tr = V.trend, side = function (w) { return w.cur.rev >= w.bud.rev ? 1 : -1; }, last = side(tr[tr.length - 1]), n = 0, m = 0, i;
+    for (i = tr.length - 1; i >= 0 && side(tr[i]) === last; i--) n++;
+    for (; i >= 0 && side(tr[i]) === -last; i--) m++;
+    var where = last < 0 ? 'debajo' : 'arriba', y4 = pct(T.l4w.rev, T.l4wLy.rev);
+    var tt = n >= 2 ? b(ord(n) + ' semana seguida ' + where) + ' del Budget' + (n >= tr.length ? ' (todas las de la serie)' : '') + '.'
+      : (m ? b('Cambio de tendencia') + ': primera semana ' + where + ' del Budget después de ' + m + (m === 1 ? ' semana' : ' semanas') + ' ' + (last < 0 ? 'arriba' : 'debajo') + '.' : 'Semana ' + where + ' del Budget.');
+    if (yN != null && y4 != null) tt += ' El YoY de NR (' + fp(yN) + ') ' + (yN >= y4 ? 'acelera' : 'se frena') + ' contra el de las 4 semanas anteriores (' + fp(y4) + ').';
+    out.push({ k: 'trend', lbl: 'Tendencia', t: tt });
+
+    var shC = share(T.cur), shB = share(T.bud), pF = pct(T.cur.fvm, T.bud.fvm), rN = pct(T.cur.rev, T.rr.rev), rF = pct(T.cur.fvm, T.rr.fvm);
+    var mt = 'FVM de ' + b(money(T.cur.fvm)) + ', ' + fp(pF) + ' vs Budget' + dot(pF, slack) + ': ' + (shC == null ? '—' : shC.toFixed(1) + '% del GB') + ', ' +
+      fpp(shC != null && shB != null ? shC - shB : null) + ' vs Budget.';
+    if (T.rr.rev) mt += ' Contra Run Rate: NR ' + fp(rN) + ', FVM ' + fp(rF) + '.';
+    out.push({ k: 'margin', lbl: 'Rentabilidad', t: mt });
+
+    // Qué mirar: países que restan más de 5% vs Budget y pesan (≥10% del desvío o ≥1% del Budget), con cuántas semanas vienen debajo
+    var budTot = Math.abs(T.bud.rev) || 1;
+    function streakOf(p) {
+      var len = (D.biz[keys[0]].streak || []).length, c = 0;
+      for (var s = len - 1; s >= 0; s--) {
+        var a = 0, bb = 0;
+        keys.forEach(function (x) { var st = (D.biz[x].streak || [])[s]; if (st && st[p]) { a += st[p][0]; bb += st[p][1]; } });
+        if (bb && a < bb) c++; else break;
+      }
+      return c;
+    }
+    var bad = Object.keys(V.by.cur).concat(Object.keys(V.by.bud)).filter(function (p, ix, a) { return a.indexOf(p) === ix && p !== 'RG'; })
+      .map(function (p) { var c = (V.by.cur[p] || z()).rev, bd = (V.by.bud[p] || z()).rev; return { p: p, d: c - bd, pc: pct(c, bd) }; })
+      .filter(function (r) { return r.pc != null && r.pc <= -5 && (Math.abs(r.d) >= Math.abs(dev) * 0.1 || Math.abs(r.d) >= budTot * 0.01); })
+      .sort(function (a, c) { return a.d - c.d; }).slice(0, 3);
+    var wt = bad.length ? bad.map(function (r) {
+      var st = streakOf(r.p);
+      return flag(r.p, slack) + b(cname(r.p)) + ' (' + fp(r.pc) + ', ' + sgnMoney(r.d) + (st >= 2 ? ' · ' + ord(st) + ' semana debajo' : '') + ')';
+    }).join(', ').replace(/, ([^,]*)$/, ' y $1') + '.' : 'Ningún país con un desvío material contra Budget (más de 5% y con peso en el total).';
+    out.push({ k: 'watch', lbl: 'Para mirar', t: wt });
     return out;
+  }
+  function insightsHtml(k) {
+    return '<div class="rs-ins">' + insights(k, false).map(function (x) {
+      return '<div class="' + x.k + '"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+        IC[x.k] + '</svg></span><p><span class="lb">' + x.lbl + '</span>' + x.t + '</p></div>';
+    }).join('') + '</div>';
   }
 
   function weekRange() {
@@ -332,20 +399,32 @@ const SCRIPT = String.raw`
   function render() {
     var A = view('all').T;
     var html = '<header class="rs-hero">' +
-      '<span class="rs-eyebrow rs-in"><span class="rs-live" aria-hidden="true"></span>' + esc(weekTitle()) + ' · reales al ' + esc(D.lastActualsDate.split('-').reverse().slice(0, 2).join('/')) + '</span>' +
+      '<span class="rs-eyebrow rs-in"><span class="rs-live' + (isLatest() ? '' : ' off') + '" aria-hidden="true"></span>' + esc(weekTitle()) +
+      (isLatest() ? ' · reales al ' + esc(D.lastActualsDate.split('-').reverse().slice(0, 2).join('/')) : ' · semana cerrada') + '</span>' +
       '<h1 class="rs-in" style="--d:60ms">' + headline(A) + '</h1>' +
       '<p class="rs-lead rs-in" style="--d:120ms">El ecosistema B2B facturó <b>' + money(A.cur.rev) + '</b> de Net Revenues sobre <b>' + money(A.cur.gb) + '</b> de Gross Bookings: ' +
       '<b>' + fp(pct(A.cur.rev, A.bud.rev)) + '</b> vs Budget y <b>' + fp(pct(A.cur.rev, A.ly.rev)) + '</b> vs el año pasado.</p></header>';
     html += '<div class="rs-bar rs-in" style="--d:180ms"><div class="rs-tabs" role="tablist" aria-label="Negocio"><span class="ind" aria-hidden="true"></span>' + BIZ.map(function (b) {
       return '<button type="button" role="tab" data-k="' + b.k + '" aria-selected="' + (b.k === sel) + '">' + esc(b.lbl) + '</button>';
     }).join('') + '</div><span class="sp"></span>' +
-      '<button type="button" class="rs-btn" id="rs-copy"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="3"/><path d="M5 15V6a3 3 0 0 1 3-3h9"/></svg><span>Copiar para Slack</span></button></div>' +
+      '<div class="rs-weeks" role="group" aria-label="Semana">' + (D.weeks || []).map(function (w, i) {
+        var a = w.from.split('-');
+        return '<button type="button" data-y="' + w.year + '" data-w="' + w.week + '" aria-pressed="' + (w.week === D.week.week && w.year === D.week.year) + '" title="Semana del ' + (+a[2]) + ' ' + MES[+a[1] - 1] + '">W' + w.week + (i === 0 ? '<small>actual</small>' : '') + '</button>';
+      }).join('') + '</div></div>' +
       '<div id="rs-biz"></div>';
     html += '<details class="rs-note"><summary>Cómo se calcula</summary><p>Semana ISO (lunes a domingo), la última completa con reales. Mismos datos que el Weekly del Daily Dashboard: fecha de gestión, ' +
       'B2B separado por canal (API / HTML = agencias afiliadas), LY = misma semana ISO del año pasado, L4W = promedio de las 4 semanas anteriores, ' +
       'Run Rate y Budget semanales del Daily. FVM con COI Brasil incluido. USD nominales. Semáforo: verde ≥ 0%, ámbar entre −5% y 0%, rojo debajo de −5%.</p></details>';
     root.innerHTML = html;
-    document.getElementById('rs-copy').onclick = copySlack;
+    Array.prototype.forEach.call(root.querySelectorAll('.rs-weeks button'), function (bt) {
+      bt.onclick = function () {
+        var y = +bt.getAttribute('data-y'), w = +bt.getAttribute('data-w');
+        if (y === D.week.year && w === D.week.week) return;
+        load(D.weeks[0].week === w && D.weeks[0].year === y ? null : { year: y, week: w });
+      };
+    });
+    var on = root.querySelector('.rs-weeks button[aria-pressed="true"]');
+    if (on) on.parentNode.scrollLeft = Math.max(0, on.offsetLeft - 40);
     Array.prototype.forEach.call(root.querySelectorAll('.rs-tabs button'), function (bt) {
       bt.onclick = function () { setSel(bt.getAttribute('data-k')); };
       bt.onkeydown = function (e) {
@@ -355,11 +434,12 @@ const SCRIPT = String.raw`
         root.querySelector('.rs-tabs button[data-k="' + sel + '"]').focus();
       };
     });
-    window.addEventListener('resize', syncTabs);
+    if (!render.bound) { window.addEventListener('resize', syncTabs); render.bound = true; }
     syncTabs();
     renderBiz(true);
   }
-  function setSel(k) { if (k === sel) return; sel = k; if (sel !== 'all') bulBy = 'pais'; syncTabs(); renderBiz(false); }
+  function isLatest() { return !D.latest || (D.latest.week === D.week.week && D.latest.year === D.week.year); }
+  function setSel(k) { if (k === sel) return; sel = k; root.classList.add('calm'); if (sel !== 'all') bulBy = 'pais'; syncTabs(); renderBiz(false); }
   function syncTabs() {
     var ind = root.querySelector('.rs-tabs .ind');
     Array.prototype.forEach.call(root.querySelectorAll('.rs-tabs button'), function (bt) {
@@ -416,8 +496,10 @@ const SCRIPT = String.raw`
 
   function renderBiz(first) {
     var V = view(sel), host = document.getElementById('rs-biz');
-    var S = summary(false).filter(function (x) { return x.k === sel; })[0];
-    var h = '<div class="rs-bento">' + dialCard(V) + ['gb', 'rev', 'fvm', 'sh'].map(function (m, i) { return kpiCard(m, V, i); }).join('');
+    var h = '<div class="rs-bento"><section class="rs-card c-sum rs-in" style="--d:40ms" aria-labelledby="rs-sum-h"><div class="rs-sum-head">' +
+      '<h2 id="rs-sum-h">La semana en pocas líneas · ' + esc(bizLbl(sel)) + '</h2>' +
+      '<button type="button" class="rs-btn" id="rs-copy"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="3"/><path d="M5 15V6a3 3 0 0 1 3-3h9"/></svg><span>Copiar para Slack</span></button></div>' +
+      insightsHtml(sel) + '</section>' + dialCard(V) + ['gb', 'rev', 'fvm', 'sh'].map(function (m, i) { return kpiCard(m, V, i); }).join('');
     h += '<section class="rs-card c-chart rs-in" style="--d:300ms" aria-labelledby="rs-ch-h"><div class="rs-chart-top"><div class="t"><h2 id="rs-ch-h">Últimas 13 semanas</h2>' +
       '<div class="big" id="rs-ch-big"></div></div>' +
       '<div class="rs-legend"><span><i style="border-color:var(--s-act)"></i>Actual</span><span><i class="dash" style="border-color:var(--s-bud)"></i>Budget</span>' +
@@ -428,12 +510,10 @@ const SCRIPT = String.raw`
         '<button type="button" data-b="neg" aria-pressed="' + (bulBy === 'neg') + '">Por negocio</button></div>' : '') +
       '</div><p class="rs-bul-sub" id="rs-bul-sub"></p><div class="rs-bul" id="rs-bul"></div>' +
       '<details class="rs-det"><summary>Ver tabla completa por país</summary><div class="rs-tbl-wrap">' + countryTable(V) + '</div></details></section>';
-    h += '<section class="rs-card c-sum rs-in" style="--d:420ms" aria-labelledby="rs-sum-h"><h2 id="rs-sum-h">La semana en pocas líneas · ' + esc(bizLbl(sel)) + '</h2>' +
-      '<p class="rs-sum-t">' + S.t + '</p><div class="rs-sum-f"><button type="button" class="rs-btn" id="rs-copy2">Copiar resumen completo</button></div></section>';
     h += '</div>';
     host.innerHTML = h;
     if (!first) Array.prototype.forEach.call(host.querySelectorAll('.rs-in'), function (el) { el.style.setProperty('--d', '0ms'); });
-    document.getElementById('rs-copy2').onclick = copySlack;
+    document.getElementById('rs-copy').onclick = copySlack;
     Array.prototype.forEach.call(host.querySelectorAll('.c-kpi'), function (bt) {
       bt.onclick = function () {
         metric = bt.getAttribute('data-m');
@@ -505,7 +585,7 @@ const SCRIPT = String.raw`
   // ── Gráfico: 13 semanas, Actual (área) / Budget (punteado) / LY ──────────────────────────
   function chart(V) {
     var host = document.getElementById('rs-plot'), m = metric, tr = V.trend;
-    var W = 1100, H = 280, L = 56, R = 70, Tp = 14, B = 30, iw = W - L - R, ih = H - Tp - B;
+    var W = 720, H = 300, L = 52, R = 62, Tp = 14, B = 30, iw = W - L - R, ih = H - Tp - B;
     var S = [{ k: 'ly', c: 'var(--s-ly)', n: 'Last Year', w: 1.6 }, { k: 'bud', c: 'var(--s-bud)', n: 'Budget', dash: '6 5', w: 1.8 }, { k: 'cur', c: 'var(--s-act)', n: 'Actual', w: 2.6 }];
     var vals = []; tr.forEach(function (w) { S.forEach(function (s) { var v = val(w[s.k], m); if (v != null) vals.push(v); }); });
     var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals) || 1; lo = Math.max(lo < 0 ? lo : 0, lo - (hi - lo) * 0.6);   // sin forzar el 0: se ven las diferencias
@@ -593,9 +673,11 @@ const SCRIPT = String.raw`
     });
   }
 
+  // Slack: el consolidado completo y de cada negocio lo esencial (resultado, dónde y qué mirar)
   function copySlack() {
-    var t = '*Resumen semanal · ' + weekTitle() + '*\n\n' + summary(true).map(function (x) {
-      return '*' + bizLbl(x.k) + '*: ' + x.t;
+    var t = '*Resumen semanal · ' + weekTitle() + '*\n\n' + BIZ.map(function (bz) {
+      var L = insights(bz.k, true).filter(function (x) { return bz.k === 'all' || x.k === 'res' || x.k === 'where' || x.k === 'watch'; });
+      return '*' + bz.lbl + '*\n' + L.map(function (x) { return '• _' + x.lbl + ':_ ' + x.t; }).join('\n');
     }).join('\n\n');
     var bt = this, lbl = bt.querySelector('span') || bt, orig = lbl.textContent;
     var ok = function () { lbl.textContent = 'Copiado ✓'; setTimeout(function () { lbl.textContent = orig; }, 1800); };
@@ -609,15 +691,29 @@ const SCRIPT = String.raw`
   }
 
   // ── Datos ───────────────────────────────────────────────────────────────────────────────
-  root.innerHTML = '<div class="rs-skel" style="height:120px;margin-bottom:20px"></div><div class="rs-skel"></div><p class="rs-state">Cargando la última semana…</p>';
-  fetch(CFG.api, { method: 'POST', credentials: 'same-origin',
-    headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'google.script.run' }, body: JSON.stringify({ args: [{}] }) })
-    .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status)); return j.result; }); })
-    .then(function (res) {
-      if (!res || !res.success) throw new Error((res && res.error) || 'Sin datos');
-      D = res; render();
-    })
-    .catch(function (e) { root.innerHTML = '<p class="rs-state">No se pudo cargar el resumen: ' + esc(e.message) + '</p>'; });
+  function load(w) {
+    var first = !D;
+    if (first) root.innerHTML = '<div class="rs-skel" style="height:120px;margin-bottom:20px"></div><div class="rs-skel"></div><p class="rs-state">Cargando la semana…</p>';
+    else root.classList.add('busy');
+    wk = w;
+    fetch(CFG.api, { method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'google.script.run' }, body: JSON.stringify({ args: [w || {}] }) })
+      .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status)); return j.result; }); })
+      .then(function (res) {
+        if (!res || !res.success) throw new Error((res && res.error) || 'Sin datos');
+        if (!first) root.classList.add('calm');
+        D = res; root.classList.remove('busy'); render();
+        try { history.replaceState(null, '', w ? '?semana=' + w.year + '-W' + w.week : location.pathname); } catch (e) { /* nada */ }
+      })
+      .catch(function (e) {
+        root.classList.remove('busy');
+        if (first) root.innerHTML = '<p class="rs-state">No se pudo cargar el resumen: ' + esc(e.message) + '</p>';
+        else alert('No se pudo cargar esa semana: ' + e.message);
+      });
+  }
+  // ?semana=2026-W43 abre esa semana (el link se puede compartir)
+  var qm = /[?&]semana=(\d{4})-W(\d{1,2})/.exec(location.search);
+  load(qm ? { year: +qm[1], week: +qm[2] } : null);
 })();
 `;
 

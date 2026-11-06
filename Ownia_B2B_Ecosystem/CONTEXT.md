@@ -145,6 +145,11 @@ Rediseño 2026-11-05 (Tiago, estilo de los bloques Stats / Analytics de React Bi
 grilla de tarjetas con dial de % del Budget de NR, tarjetas GB / NR / FVM / FVM %GB con delta y sparkline (al tocarlas
 cambian la métrica del gráfico y de los países), área de 13 semanas y barras por país (real vs marca de Budget); la tabla
 por país y la nota quedan plegadas. Vista previa con datos inventados: `node scripts/preview-resumen-semanal.js` (puerto 8099).
+2026-11-06: selector de semana (la última cerrada por defecto + las 7 anteriores; `getResumenSemanal({year, week})`,
+link `?semana=2026-W43`) y "La semana en pocas líneas" arriba de las tarjetas, armado como comentario de desvíos (skill
+`variance-analysis` del plugin Finance): Resultado, Puente vs Budget (volumen de GB × take rate, suma exacto el desvío de NR),
+Dónde, Tendencia (semanas seguidas del mismo lado del Budget y YoY vs L4W), Rentabilidad y Para mirar (países ≤ −5% con peso,
+con cuántas semanas vienen debajo: `streak` por país, NR vs Budget de las últimas 4 semanas).
 
 **Actualizar reales (2026-10-30):** botón de la portada (`server/index-page.js`), solo para `EQUIPO_B2B` y con
 contraseña (`REALES_PASSWORD`, máx. 5 intentos cada 15 min por usuario). `POST /reales` lanza en el servidor

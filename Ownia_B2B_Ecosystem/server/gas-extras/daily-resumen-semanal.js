@@ -8,8 +8,11 @@
 // parent_channel ('API' | 'Agencias afiliadas' = HTML), LY = misma semana ISO del año anterior, COI Brasil con el
 // switch del Daily (params.exCoiBr; por defecto Incluir, como abre el Daily). Sin Organic: montos nominales en USD.
 // El Run Rate es el mismo que lee el Daily (b2bcRaw.runrate y b2bRaw.b2b_runrate_gd).
+// Desde 2026-11-06 se puede pedir una de las últimas 8 semanas cerradas (params.year, params.week); sin eso, la última.
 
 var RS_WEEKS_ = 13;   // semanas de la serie (la última + 12 anteriores)
+var RS_PICK_ = 8;     // semanas cerradas que se pueden elegir en la página (la última + 7 anteriores), 2026-11-06
+var RS_STREAK_ = 4;   // semanas por país (la elegida + 3 anteriores) de NR vs Budget, para ver si un desvío se repite
 
 function _rsRunRate_(lob, b2bcRaw, b2bRaw) {
   if (lob === 'B2B2C') return _wsNorm_(b2bcRaw.runrate, true, 'gross_bookings', 'net_revenue');
@@ -62,7 +65,12 @@ function getResumenSemanal(params) {
     // Última semana completa (termina en domingo) con datos hasta lastDay
     var p = lastDay.split('-'), sun = new Date(Date.UTC(+p[0], +p[1] - 1, +p[2])), dow = sun.getUTCDay();
     if (dow !== 0) sun.setUTCDate(sun.getUTCDate() - dow);
-    var cur = _wsIsoWeekCalc_(sun.toISOString().substring(0, 10));
+    var latest = _wsIsoWeekCalc_(sun.toISOString().substring(0, 10));
+    // Semana elegida (params.year / params.week, 2026-11-06): una de las RS_PICK_ últimas cerradas; si no, la última
+    var pick = [];
+    for (var q = 0; q < RS_PICK_; q++) pick.push(_rsPrev_(latest.year, latest.week, q));
+    var want = (params && params.week) ? _rsKey_(+params.year || latest.year, +params.week) : 0;
+    var cur = pick.filter(function (w) { return _rsKey_(w.year, w.week) === want; })[0] || latest;
     var weeks = [];
     for (var i = RS_WEEKS_ - 1; i >= 0; i--) weeks.push(_rsPrev_(cur.year, cur.week, i));
     var last = weeks[weeks.length - 1];
@@ -88,7 +96,18 @@ function getResumenSemanal(params) {
         });
       }
 
+      // NR actual y Budget por país de la semana elegida y las anteriores (de la más vieja a la elegida)
+      var streak = [];
+      for (var s = RS_STREAK_; s >= 1; s--) {
+        var ws = weeks[weeks.length - s], ca = at(A, ws), cb = at(B, ws), st = {};
+        Object.keys(ca).concat(Object.keys(cb)).forEach(function (pais) {
+          st[pais] = [Math.round((ca[pais] || {}).rev || 0), Math.round((cb[pais] || {}).rev || 0)];
+        });
+        streak.push(st);
+      }
+
       biz[b.k] = {
+        streak: streak,
         cur: _rsRound_(at(A, last)),
         bud: _rsRound_(at(B, last)),
         ly: _rsRound_(at(L, last, 1)),
@@ -109,6 +128,8 @@ function getResumenSemanal(params) {
     return {
       success: true,
       week: { year: last.year, week: last.week, from: last.from, to: to.toISOString().substring(0, 10) },
+      latest: { year: latest.year, week: latest.week },
+      weeks: pick.map(function (w) { return { year: w.year, week: w.week, from: w.from }; }),
       lastActualsDate: lastDay,
       generatedAt: (b2bcRaw.meta || {}).generated_at || null,
       exCoiBr: _wsExCoiBr_,
