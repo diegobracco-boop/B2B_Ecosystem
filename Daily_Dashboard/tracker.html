@@ -3543,20 +3543,8 @@ function recurH2_(krYM) {
   var rows = _recurRows;
   rows = rows.filter(function(r){ return r.mes_comercial === krYM; });
   if (!rows.length) return null;
-  // Mes sin ninguna semana cerrada (ej. 1ª semana de noviembre en curso): el Rolling L4W es de la última semana
-  // cerrada, aunque sea del mes anterior (2026-11-06), no de la semana en curso. Se compara con el target de krYM;
-  // el MTD de esa semana es del mes anterior, así que queda en 0 (el MTD del mes nuevo arranca en 0).
-  var fuera = false;
-  if (!rows.some(function(r){ return r.estado === 'CIERRE'; })) {
-    var cerr = _recurRows.filter(function(r){ return r.estado === 'CIERRE' && r.semana_desde; });
-    if (cerr.length) {
-      var lastMon = cerr.reduce(function(m, r){ return r.semana_desde > m ? r.semana_desde : m; }, '');
-      rows = cerr.filter(function(r){ return r.semana_desde === lastMon; });
-      fuera = true;
-    }
-  }
   // es_cierre_mes = 1 marca la última semana del mes aunque siga EN_CURSO: solo es la foto de cierre ya cerrada.
-  var cierre  = fuera ? [] : rows.filter(function(r){ return +r.es_cierre_mes === 1 && r.estado === 'CIERRE'; });
+  var cierre  = rows.filter(function(r){ return +r.es_cierre_mes === 1 && r.estado === 'CIERRE'; });
   var cerradas = rows.filter(function(r){ return r.estado === 'CIERRE'; });
   var pool = cierre.length ? cierre : (cerradas.length ? cerradas : rows);
   var sem = pool.reduce(function(m, r){ return Math.max(m, +r.semana_del_mes || 0); }, 0);
@@ -3565,16 +3553,16 @@ function recurH2_(krYM) {
   wk.forEach(function(r){
     var k = normPais_(r.pais);
     byPais[k] = byPais[k] || { pais: r.pais, mtd: 0, roll: 0 };
-    byPais[k].mtd  += fuera ? 0 : +r.mtd_frecuentes_vivas  || 0;
+    byPais[k].mtd  += +r.mtd_frecuentes_vivas  || 0;
     byPais[k].roll += +r.roll_frecuentes_vivas || 0;
-    tot.mtd  += fuera ? 0 : +r.mtd_frecuentes_vivas  || 0;
+    tot.mtd  += +r.mtd_frecuentes_vivas  || 0;
     tot.roll += +r.roll_frecuentes_vivas || 0;
   });
   // Actual parcial (2026-10-23): desde la semana 3 del mes, la semana EN CURSO ya puede tener agencias
   // frecuentes (3+ semanas con compra; en las semanas 1-2 da 0 por definición) → se muestra como Actual
   // "parcial al <foto>". Solo informativo: el cumplimiento y el OVERALL siguen con la semana cerrada.
   var parcial = null;
-  if (!cierre.length && !fuera) {
+  if (!cierre.length) {
     var ec = rows.filter(function(r){
       var s = +r.semana_del_mes || 0;
       return r.estado === 'EN_CURSO' && s >= 3 && s > sem;
@@ -3592,7 +3580,7 @@ function recurH2_(krYM) {
   }
   var w0 = wk[0];
   return { semana: sem, semanas: +w0.semanas_del_mes || null, desde: w0.semana_desde, hasta: w0.semana_hasta,
-           estado: w0.estado, cierreMes: cierre.length > 0, ultimaCerrada: fuera, byPais: byPais, total: tot, parcial: parcial };
+           estado: w0.estado, cierreMes: cierre.length > 0, byPais: byPais, total: tot, parcial: parcial };
 }
 // Accelerate Recurrence de una semana comercial ya cerrada del mes (la que arranca el lunes `mon`):
 // total de países, o null si esa semana no es del mes comercial krYM o no cerró.
@@ -3636,7 +3624,6 @@ function recurCumpl_(mtd, roll, target, preferRoll) {
 }
 function recurWeekLbl_(rec) {
   function dm(s){ return s ? s.substring(8, 10) + '/' + s.substring(5, 7) : ''; }
-  if (rec.ultimaCerrada) return 'Última semana cerrada (' + dm(rec.desde) + '–' + dm(rec.hasta) + ')';
   return 'Semana ' + rec.semana + (rec.semanas ? '/' + rec.semanas : '') + ' (' + dm(rec.desde) + '–' + dm(rec.hasta) + ')' +
          (rec.cierreMes ? ' · foto de cierre del mes' : rec.estado === 'CIERRE' ? '' : ' · en curso');
 }
