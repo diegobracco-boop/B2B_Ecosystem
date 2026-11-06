@@ -3625,8 +3625,7 @@ function recurCumpl_(mtd, roll, target, preferRoll) {
 function recurWeekLbl_(rec) {
   function dm(s){ return s ? s.substring(8, 10) + '/' + s.substring(5, 7) : ''; }
   return 'Semana ' + rec.semana + (rec.semanas ? '/' + rec.semanas : '') + ' (' + dm(rec.desde) + '–' + dm(rec.hasta) + ')' +
-         (rec.cierreMes ? ' · foto de cierre del mes' : rec.estado === 'CIERRE' ? '' : ' · en curso') +
-         (rec.parcial ? ' · Actuals: semana ' + rec.parcial.semana + ' en curso, ' + recurParcialLbl_(rec) : '');
+         (rec.cierreMes ? ' · foto de cierre del mes' : rec.estado === 'CIERRE' ? '' : ' · en curso');
 }
 
 function renderStatusKRsH2() {
@@ -4082,7 +4081,7 @@ function renderStatusKRsH2DetailBoxes_(monthFilter) {
     addBox(grid, 'New Products Growth $K' + chLbl, 'net_revenue', isNPa, isNPb, '$Kint', toK);
   }
 
-  // Accelerate Recurrence (solo HTML): País | Actuals | % Cumpl. | Rolling L4W | Rolling vs Target.
+  // Accelerate Recurrence (solo HTML): País | Rolling L4W | % Cumpl. | Target.
   if (krH2Channel !== 'api') grid.appendChild(recurDetailBox_(_resolveYM(monthFilter)));
 }
 
@@ -4101,16 +4100,10 @@ function recurDetailBox_(krYM) {
   function tr(name, d, target, bold) {
     var c = recurCumpl_(d.mtd, d.roll, target);
     var b = function(s){ return bold ? '<strong>' + s + '</strong>' : s; };
-    var act = rec.parcial ? d.pmtd : d.mtd;
-    // El avance parcial va sin semáforo: a mitad de mes un % bajo no es un mal cumplimiento.
-    var cActCell = rec.parcial
-      ? '<td style="color:#6b7280">' + b(pct(realScore_(d.pmtd, target))) + '</td>'
-      : cumplCellHtml(c.mtd, pct(c.mtd), bold);
     return '<tr' + (bold ? ' class="kr-detail-total"' : '') + '><td style="text-align:left' + (bold ? ';font-weight:700' : '') + '">' + name + '</td>' +
-      '<td>' + b(fmtKRVal(act, 'int')) + '</td>' +
-      cActCell +
       '<td>' + b(fmtKRVal(d.roll, 'int')) + '</td>' +
-      cumplCellHtml(c.roll, pct(c.roll), bold) + '</tr>';
+      cumplCellHtml(c.roll, pct(c.roll), bold) +
+      '<td>' + b(target !== null && target !== undefined ? fmtKRVal(target, 'int') : '—') + '</td></tr>';
   }
   // Orden de FVM_DETAIL (Other Countries = Globales) + "No Gestionadas" (solo tiene target en Input_OKR;
   // la card no la separa). Se muestra cada fila que tenga actual o target; lo que falte va con "—".
@@ -4137,8 +4130,7 @@ function recurDetailBox_(krYM) {
       (recurTarget_(krYM, null) === null ? '<br>' + recurNoTargetHtml_(krYM) : '') + '</div>' +
     '<table class="pivot-table kr-detail-table"><thead><tr>' +
     '<th style="text-align:left">País</th>' +
-    (rec.parcial ? '<th>Actuals<br>parcial</th><th>% Avance</th>' : '<th>Actuals</th><th>% Cumpl.</th>') +
-    '<th>Rolling<br>L4W</th><th>Rolling<br>vs Target</th>' +
+    '<th>Rolling<br>L4W</th><th>% Cumpl.</th><th>Target</th>' +
     '</tr></thead><tbody>' + tr('TOTAL', rec.total, recurTarget_(krYM, null), true) + body + '</tbody></table>';
   return box;
 }
