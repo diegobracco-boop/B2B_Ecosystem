@@ -132,7 +132,7 @@
       cost('Marketing Cost · YTD', y, 'Real, marketing directo sin Channels') +
       cost('Marketing Cost · H1', h1, 'Abr – Sep · real') +
       cost('Marketing Cost · H2', h2, 'Oct – Mar · ' + (h2real ? 'real' : h2any ? 'real + proyección' : 'proyección (Run Rate)')) +
-      '<div class="hms-tile"><div class="k">Neto · YTD</div><div class="v">' + signed(y.net) + '</div><div class="d">' + dl(y.net, y.netG, true) + '</div>' +
+      '<div class="hms-tile"><div class="k">Media − Marketing · YTD</div><div class="v">' + signed(y.net) + '</div><div class="d">' + dl(y.net, y.netG, true) + '</div>' +
         '<div class="s">Media Revenue ' + money(y.med) + ' + Overs ' + money(y.ov) + ' − Marketing ' + money(y.cost) + '</div></div>' +
       '</div>';
   }
