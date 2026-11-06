@@ -11,7 +11,7 @@ const { escapeHtml } = require('./gas-template');
 
 // Lo esencial para un Chief / VP, en este orden (2026-10-29: Daily, P&L Dashboard, P&L Managerial, Presentaciones). Un módulo que no esté acá ni en MORE cae en "Más tableros".
 const ESSENTIAL = ['daily', 'hub', 'pnl-managerial', 'flow'];
-const MORE = ['pnl-accounting', 'hub-consolidacion', 'marketing-b2b', 'rolling-projections', 'fixed-cost', 'weekly-industry', 'agentes', 'profit-sharing', 'okr-b2b2c', 'pipeline-hunting', 'manual'];
+const MORE = ['pnl-accounting', 'hub-consolidacion', 'travel-partners-hub', 'marketing-b2b', 'rolling-projections', 'fixed-cost', 'weekly-industry', 'agentes', 'profit-sharing', 'okr-b2b2c', 'pipeline-hunting', 'manual'];
 
 // Accesos directos de un bloque hacia OTROS tableros (además de las vistas propias, `quickViews`). Esos tableros no se repiten en "Más tableros".
 const QUICK_LINKS = { daily: ['api-one-pager', 'fvm-negativo', 'b2b-score-producto'] };
@@ -41,7 +41,7 @@ const ICONS = {
 };
 const ICON_OF = {
   'pnl-managerial': 'chart', 'pnl-accounting': 'ledger', 'profit-sharing': 'bank', 'hub-consolidacion': 'bank', 'marketing-b2b': 'target', hub: 'grid', daily: 'calendar',
-  'fvm-negativo': 'down', 'okr-b2b2c': 'target', manual: 'book', 'api-one-pager': 'api', 'b2b-score-producto': 'target', flow: 'flow', 'rolling-projections': 'chart', 'fixed-cost': 'ledger', 'weekly-industry': 'globe', agentes: 'agent', 'pipeline-hunting': 'chart',
+  'fvm-negativo': 'down', 'okr-b2b2c': 'target', manual: 'book', 'api-one-pager': 'api', 'b2b-score-producto': 'target', 'travel-partners-hub': 'globe', flow: 'flow', 'rolling-projections': 'chart', 'fixed-cost': 'ledger', 'weekly-industry': 'globe', agentes: 'agent', 'pipeline-hunting': 'chart',
 };
 // Otras apps de Ownia que se linkean desde el menú (no son módulos de este repo: no corren acá).
 // Los links son los mismos que usa el P&L Dashboard de Apps Script (EXTERNAL_LINKS en Dashboard_B2B_WLs/dashboard.html).
@@ -64,6 +64,8 @@ const OTHER_APPS = [
     url: 'https://script.google.com/a/macros/despegar.com/s/AKfycbylpy8kbuTVgiDg6xgmtrR-VemvRZlzfMMXcWnnWOjg3U0eUCmPF3XwQRuqPk-hDqRTpg/exec' },
   { slug: 'rolling-projections', title: 'Rolling Projections', desc: 'Run Rate: análisis y proyecciones.',
     url: 'https://ownia.despegar.io/runrate-html' },
+  { slug: 'travel-partners-hub', title: 'Travel Partners HUB', desc: 'Hub de Travel Partners (app hubttpp de Ownia).',
+    url: 'https://ownia.despegar.io/hubttpp' },
 ];
 const CHEVRON_L = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>';
 const CHEVRON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>';
