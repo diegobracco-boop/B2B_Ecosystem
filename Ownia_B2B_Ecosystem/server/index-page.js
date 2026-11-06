@@ -14,7 +14,7 @@ const ESSENTIAL = ['daily', 'hub', 'pnl-managerial', 'flow'];
 const MORE = ['pnl-accounting', 'hub-consolidacion', 'marketing-b2b', 'rolling-projections', 'fixed-cost', 'weekly-industry', 'agentes', 'profit-sharing', 'okr-b2b2c', 'pipeline-hunting', 'manual'];
 
 // Accesos directos de un bloque hacia OTROS tableros (además de las vistas propias, `quickViews`). Esos tableros no se repiten en "Más tableros".
-const QUICK_LINKS = { daily: ['api-one-pager', 'fvm-negativo'] };
+const QUICK_LINKS = { daily: ['api-one-pager', 'fvm-negativo', 'b2b-score-producto'] };
 
 // Textos del menú en lenguaje llano (sin jerga). Si un módulo no está acá se usa el de modules.js.
 const COPY = {
@@ -41,7 +41,7 @@ const ICONS = {
 };
 const ICON_OF = {
   'pnl-managerial': 'chart', 'pnl-accounting': 'ledger', 'profit-sharing': 'bank', 'hub-consolidacion': 'bank', 'marketing-b2b': 'target', hub: 'grid', daily: 'calendar',
-  'fvm-negativo': 'down', 'okr-b2b2c': 'target', manual: 'book', 'api-one-pager': 'api', flow: 'flow', 'rolling-projections': 'chart', 'fixed-cost': 'ledger', 'weekly-industry': 'globe', agentes: 'agent', 'pipeline-hunting': 'chart',
+  'fvm-negativo': 'down', 'okr-b2b2c': 'target', manual: 'book', 'api-one-pager': 'api', 'b2b-score-producto': 'target', flow: 'flow', 'rolling-projections': 'chart', 'fixed-cost': 'ledger', 'weekly-industry': 'globe', agentes: 'agent', 'pipeline-hunting': 'chart',
 };
 // Otras apps de Ownia que se linkean desde el menú (no son módulos de este repo: no corren acá).
 // Los links son los mismos que usa el P&L Dashboard de Apps Script (EXTERNAL_LINKS en Dashboard_B2B_WLs/dashboard.html).
@@ -54,6 +54,8 @@ const OTHER_APPS = [
     pills: [['P&L', 'https://ownia.despegar.io/thehub/main-financials/pnl-detail'], ['Bajadas', 'https://ownia.despegar.io/consolidador-db/exports']] },
   { slug: 'api-one-pager', title: 'API One Pager', desc: 'One pager del canal API (app b2b-dashboard de Ownia).',
     url: 'https://ownia.despegar.io/b2b-dashboard' },
+  { slug: 'b2b-score-producto', title: 'B2B - Score by product', desc: 'Score de B2B por producto (Apps Script).',
+    url: 'https://script.google.com/a/macros/despegar.com/s/AKfycbxEzLOo88qtNqzNT2-rIHBm4uJefTSkREnY4D0dYIbeBI-t-ygvBMGCrUKVZImfyYHPaw/exec' },
   { slug: 'pipeline-hunting', title: 'Pipeline Hunting', desc: 'Todos los deals del pipeline B2B2C, con NR y FVM.', internal: 'pipeline-hunting' },
   { slug: 'agentes', title: 'Agentes Toqan', desc: 'Los agentes de IA del equipo: planning, BI, comercial y optimization.', internal: 'agentes' },
   { slug: 'weekly-industry', title: 'Weekly Industry', desc: 'KPIs semanales de industria.',
