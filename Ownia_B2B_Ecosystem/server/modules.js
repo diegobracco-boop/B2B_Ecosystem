@@ -196,6 +196,8 @@ const MODULES = [
     title: 'P&L Profit Sharing · Banco de Chile',
     desc: 'P&L de profit sharing de Banco de Chile.',
     ownia: false,
+    // 2026-11-06: el botón lleva a la app pnl-hispa de Ownia (antes, la landing de Apps Script de gasUrl).
+    url: 'https://ownia.despegar.io/pnl-hispa',
     gasUrl: GAS_EXEC + 'AKfycbyfhSHt3k0wJS39TlHYOAuRYicAy0M1pGfnarSM1RXOKECa4p1cBSlFjXU5ZXQKsYCj/exec',
   },
 ];
