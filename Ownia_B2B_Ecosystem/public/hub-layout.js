@@ -150,7 +150,7 @@
     // Los desplegables de Fecha / País / Producto se abren a la izquierda del cajón, por encima.
     '#period-panel,#pais-panel,#prod-panel{z-index:330!important}',
     // Barra "Filtrar…": se escribe el filtro y se ve lo que entendió antes de aplicarlo.
-    '.ohn-tools{display:flex;align-items:center;gap:6px;flex:0 100 300px;min-width:190px}',   // cede ancho antes que las pestañas
+    '.ohn-tools{display:flex;align-items:center;gap:6px;flex:0 100 300px;min-width:150px}',   // cede ancho antes que las pestañas
     '.ohn-tools[hidden]{display:none}',
     '.ohn-q{position:relative;flex:1 1 auto;min-width:0}',
     '.ohn-q-mic{position:absolute;right:4px;top:50%;transform:translateY(-50%);border:none;background:none;color:#6b6b85;cursor:pointer;padding:3px;border-radius:6px;display:flex}',
@@ -188,7 +188,21 @@
     '.ohn-seg button:hover{color:#fff}',
     '.ohn-seg button[aria-pressed="true"]{background:#fff;color:#3d00d1;box-shadow:0 1px 4px rgba(0,0,0,.25)}',
     '.ohn-sep{width:1px;height:22px;background:rgba(167,128,255,.4);flex:none}',
-    '.ohn-tabs{display:flex;gap:2px;flex:1 1 auto;min-width:0;overflow-x:auto;scrollbar-width:thin}',
+    // H2 vs H1 / P&L Contable / P&L Managerial a la derecha, pegadas a "Filtrar…" (2026-11-05).
+    '.ohn-tabs{display:flex;gap:2px;flex:none;margin-left:auto}',
+    // Fecha · Baseline · Goal · Montos en la barra
+    '.ohn-quick{display:flex;align-items:center;gap:10px;flex:0 1 auto;min-width:0}',
+    '.ohn-quick[hidden]{display:none}',
+    '#ownia-hubnav .ohn-quick .fg{display:flex!important;flex-direction:row!important;align-items:center;gap:5px;margin:0!important;padding:0!important;min-width:0;width:auto!important}',
+    '#ownia-hubnav .ohn-quick .fg > label{color:rgba(255,255,255,.75)!important;font-size:11.5px!important;font-weight:600!important;margin:0!important;white-space:nowrap;text-transform:none!important;letter-spacing:0!important}',
+    '#ownia-hubnav .ohn-quick .pf-btn,#ownia-hubnav .ohn-quick select{height:28px;min-height:0!important;border:none!important;border-radius:7px!important;background:#fff!important;color:#12111e!important;',
+    '  font:600 12.5px Poppins,-apple-system,sans-serif!important;padding:2px 8px!important;cursor:pointer;max-width:170px;width:auto!important;display:flex;align-items:center;gap:6px}',
+    '#ownia-hubnav .ohn-quick #f-baseline-bar{width:150px!important}#ownia-hubnav .ohn-quick #f-goal-bar{width:118px!important}',
+    '#ownia-hubnav .ohn-quick .pf-btn span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+    '#ownia-hubnav .ohn-quick .canal-toggle{display:flex;width:auto!important;background:rgba(255,255,255,.1);border:1px solid rgba(167,128,255,.35);border-radius:8px;padding:2px;gap:0}',
+    '#ownia-hubnav .ohn-quick .canal-toggle button{border:none;background:transparent;color:rgba(255,255,255,.8);font:600 12px Poppins,sans-serif;padding:3px 8px;border-radius:6px;cursor:pointer}',
+    '#ownia-hubnav .ohn-quick .canal-toggle button.active{background:#fff;color:#3d00d1}',
+    '@media (max-width:1700px){.ohn-tabs .ohn-tab span{display:none}#ownia-hubnav .ohn-quick .fg > label{display:none}}',
     // Con "Filtrar…" y "Filtros" en la barra: en notebooks las pestañas pierden el ícono para que entren todas a la vista.
     '@media (max-width:1500px){.ohn-tabs .ohn-tab span{display:none}.ohn-seg button{padding:5px 10px}}',
     '@media (max-width:1320px){#ownia-hubnav{gap:8px;padding:0 10px}.ohn-seg button{padding:5px 9px}.ohn-tabs .ohn-tab{padding:7px 8px}.ohn-tools{min-width:170px}}',
@@ -315,6 +329,21 @@
     sep.className = 'ohn-sep';
     nav.appendChild(sep);
 
+    // Fecha, Baseline, Goal y Montos van en la barra (2026-11-05, Diego): son los que más se tocan. Se mueven los nodos del Hub
+    // (no copias), así sus handlers siguen igual. En "Filtros" quedan País, Producto y Orgánico.
+    var quick = document.createElement('div');
+    quick.className = 'ohn-quick';
+    [document.getElementById('period-btn-bar'), document.getElementById('f-baseline-bar'), document.getElementById('f-goal-bar'),
+      document.querySelector('.numfmt-btn')].forEach(function (el) {
+      var fg = el && el.closest('.fg');
+      if (fg) quick.appendChild(fg);
+    });
+    Array.prototype.forEach.call(quick.querySelectorAll('.fg'), function (fg) {   // con la barra angosta la etiqueta se oculta: queda en el tooltip
+      var l = fg.querySelector('label');
+      if (l) fg.title = l.textContent.trim();
+    });
+    if (quick.children.length) nav.appendChild(quick);
+
     var tabs = document.createElement('div');
     tabs.className = 'ohn-tabs';
     PRIMARY.forEach(function (k) {
@@ -367,6 +396,8 @@
     if (!nav) return;
     var tools = nav.querySelector('.ohn-tools');
     if (tools) tools.hidden = !LOB_NAME[lob];   // filtran el P&L: en las secciones embebidas no aplican
+    var quick = nav.querySelector('.ohn-quick');
+    if (quick) quick.hidden = !LOB_NAME[lob];
     syncBiz();
     var tabs = nav.querySelectorAll('.ohn-tabs [data-lob]');
     for (var j = 0; j < tabs.length; j++) {
@@ -416,7 +447,7 @@
         var sel = (st.selectedPeriods || []).slice().sort(), last = st.filters && st.filters.lastActuals;
         var closed = sel.length && last && sel[sel.length - 1] <= last;
         var base = /forecast/i.test(t) && !/Actuals/.test(t) ? 'Forecast' : closed ? 'Real' : 'Real + proyección';
-        return '<span class="ohn-pill">Base: <b>' + esc(base) + '</b></span>';
+        return '<span class="ohn-pill">Baseline: <b>' + esc(base) + '</b></span>';
       }
       return '<span class="ohn-pill">' + c.innerHTML + '</span>';
     }).join('');
@@ -745,7 +776,7 @@
     foot.innerHTML = '<button type="button" class="ohn-fdone">Listo</button>';
     foot.querySelector('button').onclick = closeDrawer;
     bar.appendChild(foot);
-    var REN = { 'Baseline': 'Base', 'Goal (referencia)': 'Comparar contra', 'Nominales': 'Montos en', 'Organic': 'Orgánico (tipo de cambio constante)' };
+    var REN = { 'Baseline': 'Baseline', 'Goal (referencia)': 'Goal', 'Nominales': 'Montos', 'Organic': 'Orgánico (tipo de cambio constante)' };
     Array.prototype.forEach.call(bar.querySelectorAll('#org-toggle button'), function (b) {
       b.textContent = b.dataset.o === 'yes' ? 'Sí' : 'No';
     });
@@ -1239,8 +1270,16 @@
       Array.prototype.forEach.call(document.querySelectorAll('.numfmt-btn'), function (b) { b.classList.toggle('active', b.dataset.fmt === fmt); });
       syncDrawer();
     });
-    [['togglePeriodPanelBar', 'period-panel'], ['togglePaisPanelBar', 'pais-panel'], ['toggleProdPanelBar', 'prod-panel']].forEach(function (p) {
+    [['togglePaisPanelBar', 'pais-panel'], ['toggleProdPanelBar', 'prod-panel']].forEach(function (p) {
       wrap(p[0], function () { placeFloating(p[1]); });
+    });
+    // Fecha está en la barra: su panel se abre abajo del botón (no al costado del cajón).
+    wrap('togglePeriodPanelBar', function () {
+      var panel = document.getElementById('period-panel'), btn = document.getElementById('period-btn-bar');
+      if (!panel || !btn || panel.style.display === 'none') return;
+      var r = btn.getBoundingClientRect();
+      panel.style.top = (r.bottom + 6) + 'px';
+      panel.style.left = Math.max(8, Math.min(r.left, window.innerWidth - panel.offsetWidth - 8)) + 'px';
     });
   }
 
