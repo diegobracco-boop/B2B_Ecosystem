@@ -252,6 +252,7 @@ function shell(inner, { title = 'The B2B Ecosystem · Despegar', left = '<span c
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${escapeHtml(title)}</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%235626e9'/%3E%3Ctext x='32' y='43' text-anchor='middle' font-family='Arial,Helvetica,sans-serif' font-weight='700' font-size='30' fill='white'%3EB2B%3C/text%3E%3C/svg%3E">
 <script>
   // Estado inicial antes del primer render (sin parpadeo): oscuro por defecto, claro solo si se eligio (misma clave que b2b-dashboard)
   // e intro una vez por sesion, salvo prefers-reduced-motion.
