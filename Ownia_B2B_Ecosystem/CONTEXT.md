@@ -150,6 +150,22 @@ link `?semana=2026-W43`) y "La semana en pocas líneas" arriba de las tarjetas, 
 `variance-analysis` del plugin Finance): Resultado, Puente vs Budget (volumen de GB × take rate, suma exacto el desvío de NR),
 Dónde, Tendencia (semanas seguidas del mismo lado del Budget y YoY vs L4W), Rentabilidad y Para mirar (países ≤ −5% con peso,
 con cuántas semanas vienen debajo: `streak` por país, NR vs Budget de las últimas 4 semanas).
+2026-11-06 (pedido del CEO, one pager para explicar el delta): en "Dónde" y "Para mirar" del resumen, un partner de B2B2C
+que pesa (≥12% del desvío o ≥0,8% del Budget) se suma en todos sus países y los países muestran lo que queda. La card
+"Dónde se explica" es por país (NR, real vs marca de Budget) y, debajo de Brasil / Argentina / México / Chile en rojo
+(≤ −5%), hasta 2 partners con el mismo signo y ≥25% del desvío del país, con la causa (volumen o take rate). El backend
+manda `units` (B2B2C partner × país con los alias de `PARTNER_ALIAS_` del Daily; B2B por país, el Budget B2B no trae
+agencia) y `ustreak`. Sin botones dentro del one pager (tarjetas fijas, "Ver como tabla" abiertas), el gráfico de la serie
+es de FVM, y arriba Semanal / MTD: `mtd` por negocio
+(`getResumenSemanal({month: 'YYYY-MM'})`, el mes al último día con reales o uno de los 3 anteriores completo; LY = mismas
+fechas del año anterior, serie diaria acumulada y Budget del mes completo para la proyección lineal). Link `?vista=mtd&mes=`.
+Organic (2026-11-06): el resumen usa la regla del switch ORGANIC en Budget del Weekly: actuals a TC Budget (`cur`, L4W,
+serie, unidades, racha), vs LY con los actuals a TC Actuals LY (`curL`, `l4wL`, `cl`) y vs Run Rate con los nominales
+(`curN`). Auditado con los JSON reales de Drive (FILE_STORE_DIR local) contra `getWeeklySummaryData({organic:'budget'})`:
+W44 igual en GB / NR / FVM, % vs Budget y vs LY, Brasil y México, para B2B2C, API y HTML; unidades y días suman igual que
+los países. El dial es de FVM. Arriba, debajo de Semanal / MTD: "Exportar a Slides" (deck .pptx de 6 slides armado en el
+navegador con PptxGenJS 3.12.0 de jsdelivr: portada con tarjetas, en pocas líneas, FVM, una por negocio) y "Copiar link
+resumen semanal" (la URL de la vista actual). El partner "TBD" del Budget se muestra como "Partners nuevos (TBD)".
 
 **Actualizar reales (2026-10-30):** botón de la portada (`server/index-page.js`), solo para `EQUIPO_B2B` y con
 contraseña (`REALES_PASSWORD`, máx. 5 intentos cada 15 min por usuario). `POST /reales` lanza en el servidor
