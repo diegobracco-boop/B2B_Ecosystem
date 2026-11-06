@@ -18,7 +18,8 @@
   'use strict';
   var W = window;
   var st = { per: 'fy' };
-  var C = { med: '#550fed', ov: '#1baf7a', cost: '#eb6834' };   // validadas juntas (dataviz validate_palette: light, PASS)
+  // Overs en un violeta más claro que Media Revenue (2026-11-05, Diego): los dos son fondos. Marketing Cost en naranja.
+  var C = { med: '#550fed', ov: '#a780ff', cost: '#eb6834' };
 
   var css = document.createElement('style');
   css.textContent = [
@@ -40,7 +41,7 @@
     '#hms .hms-card{background:#fff;border:1px solid #ebe8f3;border-radius:12px;padding:16px 18px;margin-top:14px}',
     '#hms .hms-card h3{font-size:14px;font-weight:700;color:#12111e;margin:0 0 2px}',
     '#hms .hms-sub{font-size:12px;color:#8a88a0;margin:0 0 10px;line-height:1.45}',
-    '#hms .hms-chart{position:relative;height:320px}',
+    '#hms .hms-chart{position:relative;height:350px}',
     '#hms .hms-note{font-size:11.5px;color:#8a88a0;margin:10px 0 0;line-height:1.45}',
   ].join('\n');
   document.head.appendChild(css);
@@ -70,7 +71,7 @@
       var r = {
         ym: ym, proj: !!lastAct() && ym > lastAct(),
         med: c.medActual[i] || 0, ov: hasOv ? (c.oversActual[i] || 0) : 0, cost: -(c.mktActual[i] || 0),
-        medG: medG[i] || 0, ovG: hasOv ? ((c.oversForecast || [])[i] || 0) : 0, costG: -(mktG[i] || 0),
+        medG: medG[i] || 0, ovG: hasOv ? ((c.oversForecast || [])[i] || 0) : 0, costG: -(mktG[i] || 0), costLY: -((c.mktLY || [])[i] || 0),
       };
       r.fund = r.med + r.ov; r.fundG = r.medG + r.ovG; r.net = r.fund - r.cost; r.netG = r.fundG - r.costG;
       return r;
@@ -141,14 +142,25 @@
 
   function chartCardHtml(goal) {
     return '<div class="hms-card"><h3>¿Cómo viene evolucionando?</h3><p class="hms-sub">Por mes: los fondos (Media Revenue + Overs, barras apiladas) contra lo que se gasta en marketing (línea). ' +
-      'Barras claras = proyección. Debajo de cada mes, el Neto (Media Revenue + Overs − Marketing Cost). Pasá el mouse para ver el ' + esc(goal) + ' de cada mes.</p><div class="hms-chart"><canvas id="hms-chart" role="img" aria-label="Fondos y Marketing Cost por mes"></canvas></div></div>';
+      'Barras rayadas = proyección. Debajo de cada mes: el Neto (Media Revenue + Overs − Marketing Cost) y cuánto más (rojo) o menos (verde) se gasta en marketing que ' + esc(goal) + ' y que el año pasado. Pasá el mouse para ver el ' + esc(goal) + ' de cada mes.</p><div class="hms-chart"><canvas id="hms-chart" role="img" aria-label="Fondos y Marketing Cost por mes"></canvas></div></div>';
   }
 
   function drawChart(rows, goal) {
     var cv = document.getElementById('hms-chart');
     if (!cv || typeof W.Chart !== 'function') return;
     var labels = rows.map(function (r) { return monLbl(r.ym); });
-    var fade = function (hex, r) { return r.proj ? hex + '66' : hex; };
+    // Proyección: rayado del mismo color (con el violeta claro de Overs, un tono atenuado se confundía con Media Revenue)
+    var pat = {};
+    var hatch = function (hex) {
+      if (pat[hex]) return pat[hex];
+      var c = document.createElement('canvas'); c.width = c.height = 8;
+      var x = c.getContext('2d');
+      x.fillStyle = hex + '40'; x.fillRect(0, 0, 8, 8);
+      x.strokeStyle = hex; x.lineWidth = 2;
+      x.beginPath(); x.moveTo(-2, 10); x.lineTo(10, -2); x.moveTo(-2, 2); x.lineTo(2, -2); x.moveTo(6, 10); x.lineTo(10, 6); x.stroke();
+      return (pat[hex] = cv.getContext('2d').createPattern(c, 'repeat'));
+    };
+    var fade = function (hex, r) { return r.proj ? hatch(hex) : hex; };
     if (typeof W.destroyChart === 'function') W.destroyChart('hms-chart');
     var ch = new W.Chart(cv, {
       type: 'bar',
@@ -160,7 +172,7 @@
       ] },
       options: {
         responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
-        layout: { padding: { top: 16, bottom: 26 } },
+        layout: { padding: { top: 16, bottom: 58, left: 52 } },
         plugins: {
           legend: { position: 'top', align: 'start', labels: { color: '#57606a', font: { size: 11 }, boxWidth: 12 } },
           tooltip: { callbacks: {
@@ -196,7 +208,7 @@
           var bm = mMed.data[i], bo = mOv.data[i];
           ctx.font = '600 10px Poppins,-apple-system,sans-serif'; ctx.textBaseline = 'middle';
           var pt0 = mCost.data[i];
-          [[bm, r.med, r.proj ? '#3d00d1' : '#fff'], [bo, r.ov, '#12111e']].forEach(function (x) {
+          [[bm, r.med, r.proj ? '#12111e' : '#fff'], [bo, r.ov, '#12111e']].forEach(function (x) {
             var el = x[0];
             if (!el || !x[1] || Math.abs(el.base - el.y) < 16) return;
             var top = Math.min(el.y, el.base), bot = Math.max(el.y, el.base), y = (top + bot) / 2;
@@ -205,6 +217,7 @@
               y = below + 6 <= bot ? below : above - 6 >= top ? above : null;
             }
             if (y === null) return;
+            if (r.proj) { ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.strokeText(k(x[1]), el.x, y); }   // halo sobre el rayado
             ctx.fillStyle = x[2];
             ctx.fillText(k(x[1]), el.x, y);
           });
@@ -228,8 +241,21 @@
           ctx.fillStyle = r.net >= 0 ? '#1a7f37' : '#cf222e';
           ctx.fillText((r.net > 0 ? '+' : '') + k(r.net), xs.getPixelForValue(i), yN);
         });
+        // Δ del Marketing Cost vs el Goal y vs LY (más gasto = rojo)
+        var yG = yN + 16, yL = yN + 32, goalLbl = W.mktGoalLabel();
+        ctx.font = '600 10px Poppins,-apple-system,sans-serif';
+        rows.forEach(function (r, i) {
+          var x = xs.getPixelForValue(i);
+          [[r.cost - r.costG, r.costG, yG], [r.cost - r.costLY, r.costLY, yL]].forEach(function (z) {
+            if (!z[1] && !r.cost) { ctx.fillStyle = '#8a88a0'; ctx.fillText('—', x, z[2]); return; }
+            ctx.fillStyle = Math.round(z[0] / 1000) === 0 ? '#8a88a0' : z[0] > 0 ? '#cf222e' : '#1a7f37';
+            ctx.fillText((z[0] > 0 ? '+' : '') + k(z[0]), x, z[2]);
+          });
+        });
         ctx.textAlign = 'right'; ctx.fillStyle = '#6b6b85'; ctx.font = '600 10px Poppins,-apple-system,sans-serif';
         ctx.fillText('Neto', chart.chartArea.left - 6, yN);
+        ctx.fillText('Δ Mkt vs ' + goalLbl, chart.chartArea.left - 6, yG);
+        ctx.fillText('Δ Mkt vs LY', chart.chartArea.left - 6, yL);
         ctx.restore();
       },
     };
