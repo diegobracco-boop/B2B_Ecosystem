@@ -6,7 +6,7 @@
  *   Fondos = Media Revenue (P&L contable) + Overs (sobrecomisión de Media Sales, query de Metabase). Son sumables: con ese 100%
  *   se paga el Marketing Cost. Cobertura = Fondos / Marketing Cost. Neto = Fondos − Marketing Cost.
  *   1. Lectura en una frase (FY real + proyección y lo que va del año).
- *   2. Cuatro números: Fondos, Marketing Cost, Cobertura y Neto, contra el Goal elegido en el filtro (solo ese, no todos).
+ *   2. Cuatro cards (YTD real): Marketing Cost YTD, H1 y H2, y el Neto YTD, contra el Goal de la barra (solo ese).
  *   3. "¿Cómo viene?": por mes, barras apiladas Media Revenue + Overs y la línea de Marketing Cost (un solo eje en USD).
  *   4. Waterfall del Marketing Cost por país para el período de Filtros: Goal → Δ de cada país → Real (+ proyección), con el
  *      gasto, el Goal y el desvío % debajo de cada país. (El puente de Neto y las tablas mes a mes / por país se sacaron el
@@ -17,7 +17,6 @@
 (function () {
   'use strict';
   var W = window;
-  var st = { per: 'fy' };
   // Overs en un violeta más claro que Media Revenue (2026-11-05, Diego): los dos son fondos. Marketing Cost en naranja.
   var C = { med: '#550fed', ov: '#a780ff', cost: '#eb6834' };
 
@@ -27,9 +26,6 @@
     '#hms .hms-lead{font-size:15px;line-height:1.55;margin:0 0 6px;max-width:1150px}#hms .hms-lead b{color:#12111e}',
     '#hms .hms-ctx{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12px;color:#8a88a0;margin:0 0 12px}',
     '#hms .hms-goal{display:inline-flex;align-items:center;gap:6px;background:#f1ecfe;color:#3d00d1;font-weight:600;border-radius:999px;padding:3px 10px}',
-    '#hms .hms-tog{display:inline-flex;gap:2px;background:#f4f2f9;border-radius:8px;padding:2px}',
-    '#hms .hms-tog button{border:none;background:none;font:600 12px Poppins,sans-serif;color:#6b6b85;padding:3px 10px;border-radius:6px;cursor:pointer}',
-    '#hms .hms-tog button[aria-pressed="true"]{background:#fff;color:#3d00d1;box-shadow:0 1px 3px rgba(18,17,30,.16)}',
     '#hms .hms-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}',
     '@media (max-width:1000px){#hms .hms-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}',
     '#hms .hms-tile{background:#fff;border:1px solid #ebe8f3;border-radius:12px;padding:14px 16px}',
@@ -113,30 +109,31 @@
     return '<p class="hms-lead">' + s + '</p>';
   }
 
+  // Cards (2026-11-05, Diego): YTD real fijo. Marketing Cost del YTD, de H1 y de H2 (real + proyección) y el Neto del YTD.
   function ctxHtml(rows, goal) {
-    return '<div class="hms-ctx"><span class="hms-goal">vs ' + esc(goal) + '</span><span>el Goal se cambia en Filtros</span>' +
-      '<span class="hms-tog" role="group" aria-label="Período">' +
-      [['ytd', 'YTD real'], ['fy', 'FY proyectado']].map(function (p) { return '<button type="button" data-per="' + p[0] + '" aria-pressed="' + (st.per === p[0]) + '">' + p[1] + '</button>'; }).join('') +
-      '</span><span>' + esc(perLabel(rows, st.per)) + ' · Total B2B · USD</span></div>';
+    return '<div class="hms-ctx"><span class="hms-goal">vs ' + esc(goal) + '</span><span>el Goal se cambia arriba, en la barra</span>' +
+      '<span>Cards: ' + esc(perLabel(rows, 'ytd')) + ' · Total B2B · USD</span></div>';
   }
 
   function tilesHtml(rows, goal) {
-    var t = sumUp(pick(rows, st.per));
+    var y = sumUp(pick(rows, 'ytd'));
+    var h1 = sumUp(rows.slice(0, 6)), h2 = sumUp(rows.slice(6, 12));
+    var h2real = rows.slice(6, 12).every(function (r) { return !r.proj; }), h2any = rows.slice(6, 12).some(function (r) { return !r.proj; });
     var dl = function (a, b, moreIsGood) {
       var d = a - b, p = pct(a, b);
       if (!a && !b) return '<span class="n">—</span>';
       return '<span class="' + tone(moreIsGood ? d >= 0 : d <= 0) + '">' + signed(d) + (p === null ? '' : ' (' + pctTxt(p) + ')') + ' vs ' + esc(goal) + '</span>';
     };
-    var share = t.fund ? Math.round(t.ov / t.fund * 100) : 0;
+    var cost = function (k, t, sub) {
+      return '<div class="hms-tile"><div class="k">' + k + '</div><div class="v">' + money(t.cost) + '</div><div class="d">' + dl(t.cost, t.costG, false) + '</div>' +
+        '<div class="s">' + sub + ' · ' + esc(goal) + ': ' + money(t.costG) + '</div></div>';
+    };
     return '<div class="hms-tiles">' +
-      '<div class="hms-tile"><div class="k">Fondos para marketing</div><div class="v">' + money(t.fund) + '</div><div class="d">' + dl(t.fund, t.fundG, true) + '</div>' +
-        '<div class="s"><span class="hms-sw" style="background:' + C.med + '"></span>Media Revenue ' + money(t.med) + ' · <span class="hms-sw" style="background:' + C.ov + '"></span>Overs ' + money(t.ov) + ' (' + share + '%)</div></div>' +
-      '<div class="hms-tile"><div class="k">Marketing Cost</div><div class="v">' + money(t.cost) + '</div><div class="d">' + dl(t.cost, t.costG, false) + '</div>' +
-        '<div class="s">Marketing directo, sin Channels · más gasto que ' + esc(goal) + ' va en rojo</div></div>' +
-      '<div class="hms-tile"><div class="k">Cobertura</div><div class="v">' + covTxt(t.cov) + '</div><div class="d"><span class="' + tone(t.cov === null || t.covG === null ? null : t.cov >= t.covG) + '">' + esc(goal) + ': ' + covTxt(t.covG) + '</span></div>' +
-        '<div class="s">Fondos / Marketing Cost · 100% = el marketing se paga solo</div></div>' +
-      '<div class="hms-tile"><div class="k">Neto</div><div class="v">' + signed(t.net) + '</div><div class="d">' + dl(t.net, t.netG, true) + '</div>' +
-        '<div class="s">Fondos − Marketing Cost · ' + esc(goal) + ': ' + signed(t.netG) + '</div></div>' +
+      cost('Marketing Cost · YTD', y, 'Real, marketing directo sin Channels') +
+      cost('Marketing Cost · H1', h1, 'Abr – Sep · real') +
+      cost('Marketing Cost · H2', h2, 'Oct – Mar · ' + (h2real ? 'real' : h2any ? 'real + proyección' : 'proyección (Run Rate)')) +
+      '<div class="hms-tile"><div class="k">Neto · YTD</div><div class="v">' + signed(y.net) + '</div><div class="d">' + dl(y.net, y.netG, true) + '</div>' +
+        '<div class="s">Media Revenue ' + money(y.med) + ' + Overs ' + money(y.ov) + ' − Marketing ' + money(y.cost) + '</div></div>' +
       '</div>';
   }
 
@@ -375,8 +372,7 @@
       host.id = 'hms';
       section.insertBefore(host, orig);
       host.addEventListener('click', function (ev) {
-        var p = ev.target.closest('[data-per]');
-        if (p) { st.per = p.getAttribute('data-per'); render(W._mktData); }
+
       });
     }
     var total = d.byCountry.filter(function (c) { return c.id === 'total'; })[0];
@@ -384,7 +380,6 @@
     var goal = W.mktGoalLabel();
     var rows = series(total);
     d.__rows = rows;
-    if (!pick(rows, 'ytd').length && st.per === 'ytd') st.per = 'fy';
     var t = section.querySelector('.sec-title');
     if (t) t.textContent = 'Marketing & Media Investment: ¿cómo se financia el marketing?';
     var ovNote = W._state && W._state.goal === 'forecast' ? '' : ' Overs no tiene ' + goal + ': en la meta va su Forecast.';
