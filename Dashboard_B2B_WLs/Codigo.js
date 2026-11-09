@@ -48,8 +48,8 @@ var FY_END_YEAR = fyEndYear_();
 var FY_START_YM = fyMonths_()[0];    // '2026-04'
 var FY_END_YM   = fyMonths_()[11];   // '2027-03'
 
-var LAST_ACTUALS_YM = '2026-09';   // último mes con actuals reales
-var LAST_RR_YM      = '2026-10';   // 1er mes proyectado del baseline (informativo, no se usa en la lógica)
+var LAST_ACTUALS_YM = '2026-10';   // último mes con actuals reales (octubre cerró 2026-11-09, base plana Actuals_OC)
+var LAST_RR_YM      = '2026-11';   // 1er mes proyectado del baseline (informativo, no se usa en la lógica)
 
 // ── Grupos P&L Summary por LoB ────────────────────────────────
 var CANAL_GROUPS_BY_LOB = {

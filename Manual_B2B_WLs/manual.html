@@ -2140,7 +2140,7 @@ clasp deploy -i AKfycby9WZK2HfAWx25M5pEMV3nntzJfEvsiT9feMn01zJQkQaI3t2GjTzOIjbFX
         <tbody>
           <tr><td>pnl_common.py</td><td><span class="tag tag-py">Python</span></td><td>Helpers compartidos: rutas portables (resuelve OneDrive por usuario), auth Drive scope completo, paths a Glosario / Reverso AxI</td></tr>
           <tr><td>plana_projections_builder.py</td><td><span class="tag tag-py">Python</span></td><td>Genérico por base: budget / forecast / runrate / lastrunrate. Lee CSV Hyperino, parsea POV, homologa, arma la plana long</td></tr>
-          <tr><td>plana_actuals_builder.py</td><td><span class="tag tag-py">Python</span></td><td>Plana de actuals por año fiscal (combina Abr-Dic del fy-1 + Ene-Mar del fy)</td></tr>
+          <tr><td>plana_actuals_builder.py</td><td><span class="tag tag-py">Python</span></td><td>Plana de actuals por año fiscal. FY en curso: base plana <code>Actuals_OC.csv</code> + <code>Actuals_GB_Ajustes_OC.csv</code> (desde 2026-11-09). FY cerrados: xlsx (combina Abr-Dic del fy-1 + Ene-Mar del fy)</td></tr>
           <tr><td>json_builder.py</td><td><span class="tag tag-py">Python</span></td><td>Planas → JSON canónico por concepto → sube a Drive. Colapsa canal, agrega sobre Marca, filtra LOBs</td></tr>
           <tr><td>baseline_builder.py</td><td><span class="tag tag-py">Python</span></td><td>Arma <code>baseline_actuals+projections.json</code>: actuals[Abr..corte] + runrate[corte+1..Sep] + forecast[Oct..Mar]. <code>--promote-month AAAA-MM-01</code> (mensual) o <code>--rebuild</code> (entero)</td></tr>
           <tr><td>auth_drive.py</td><td><span class="tag tag-py">Python</span></td><td>Genera token_drive.json (una vez por persona)</td></tr>
@@ -3288,8 +3288,13 @@ OneDrive → Control de Gestión 2026-27 → B2B & WLs → Proyectos IA → BITU
   └── Actuals\     ← 00 - Actuals 2026 - Plana Python*.xlsx + Reverso AxI.xlsx
 
 OneDrive → Control de Gestión 2026-27 → B2B & WLs → Base_P&L_Contable\
-  └── RunRate.csv  ← Run Rate en formato plano (desde 2026-10-26; reemplaza al
-                     "RR - Legal Entity ALL/NA - 27.csv" de Hyperion)
+  ├── RunRate_OC.csv              ← Run Rate en formato plano (desde 2026-10-26; reemplaza al
+  │                                  "RR - Legal Entity ALL/NA - 27.csv" de Hyperion)
+  ├── LastRunRate_OC.csv          ← Last Run Rate plano (desde 2026-11-09; reemplaza al LRR de Hyperion)
+  ├── Actuals_OC.csv              ← Actuals del FY en curso, plano (desde 2026-11-09; el xlsx de
+  │                                  Actuals\ queda para FY cerrados)
+  ├── Actuals_GB_Ajustes_OC.csv   ← ajustes que se suman a los Actuals (GB/Orders de API abr-jun)
+  └── Forecast_Stretch_BTB_OC.csv ← Forecast Bridge to Budget
 
   (La carpeta vieja "BITUBIA\Output Toqan" era el pipeline pre-refactor con
    Toqan generando las planas — YA NO SE USA, ver secciones de proyecto.)</div>

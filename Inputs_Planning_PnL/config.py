@@ -24,6 +24,15 @@ ACTUALS_FILENAMES = {
 }
 ACTUALS_FILENAME_DEFAULT = "00 - Actuals {year} - Plana Python.xlsx"
 
+# Desde 2026-11-09 (Diego) los Actuals del FY en curso salen de la base PLANA del equipo (mismo formato
+# que el RunRate: una fila por línea x mes, ';' y coma decimal), en get_base_dir(). El xlsx de arriba
+# queda para los FY cerrados (actuals_previos). `ajustes_file`: ajustes que se SUMAN a los Actuals
+# (hoy: reclasificación de GB / Orders de API B2B-MAY entre abr y jun). Ver plana_actuals_builder.build_flat.
+ACTUALS_FLAT = {
+    "flat_file":    "Base_P&L_Contable/Actuals_OC*.csv",
+    "ajustes_file": "Base_P&L_Contable/Actuals_GB_Ajustes_OC*.csv",
+}
+
 # ── Derivados del FY (no editar) ──────────────────────────────────────────────
 _FY_PREV = CURRENT_FY - 1
 _FY_SHORT = str(CURRENT_FY)[-2:]
@@ -39,8 +48,8 @@ FISCAL_DATES = (
 # ── Dos cortes DISTINTOS (no confundir) ───────────────────────────────────────
 # LAST_CLOSED_MONTH: último mes con actuals cerrados. Se mueve cada vez que cierra un mes y
 #   define desde dónde arranca el RunRate del baseline (RUNRATE_MONTHS, abajo).
-#   Agosto cerró el 2026-09-16. Septiembre cerró el 2026-10-08.
-LAST_CLOSED_MONTH = "2026-09-01"
+#   Agosto cerró el 2026-09-16. Septiembre cerró el 2026-10-08. Octubre: 2026-11-09 (base plana Actuals_OC).
+LAST_CLOSED_MONTH = "2026-10-01"
 
 # FORECAST_ACTUALS_CUTOFF: base de la ronda de Forecast vigente. El Forecast es una foto:
 #   actuals hasta este mes + proyección del modelo Forecast después (hoy: actuals abr-jul,
@@ -91,9 +100,11 @@ BASES = {
         "is_forecast": False,
         "solo_desde_corte": True,   # si el export trae meses cerrados (FY completo), se ignoran (2026-10-30)
     },
+    # Desde 2026-11-09 el Last RunRate también viene PLANO (LastRunRate_OC.csv, mismo formato que el
+    # RunRate); reemplaza a "LRR - Legal Entity ALL/NA.csv". Trae el FY completo y se usa así (es la foto
+    # del RunRate anterior para comparar), sin vaciar los meses cerrados.
     "lastrunrate": {
-        "files": ["Run Rate/LRR - Legal Entity ALL.csv",
-                  "Run Rate/LRR - Legal Entity NA.csv"],
+        "flat_file": "Base_P&L_Contable/LastRunRate*.csv",
         "is_forecast": False,
     },
     # Escenario "Forecast - Bridge to budget" (2026-10-26): forecast stretch para cerrar la
