@@ -1334,6 +1334,7 @@ header > img{filter:brightness(0) invert(1);opacity:.92}
       <select id="f-goal-bar" onchange="switchGoalBar()">
         <option value="budget">Budget</option>
         <option value="runRate">Run Rate</option>
+        <option value="lastRunRate">Last Run Rate</option>
         <option value="forecast">Forecast</option>
         <option value="forecastBtb">Forecast - Bridge to budget</option>
         <option value="lastYear">Last Year</option>
@@ -2077,6 +2078,7 @@ var _state = {
   goal:            'budget',
   baselineSource:  'baseline',  // 'baseline' (Actuals + Projections) | 'forecast' (forecast.json entero)
   fcSource:        '',          // 'btb' = Goal "Forecast - Bridge to budget": goal 'forecast' con forecastbtb.json
+  rrSource:        '',          // 'lrr' = Goal "Last Run Rate": goal 'runRate' con lastrunrate.json
   organic:         true,        // switch ORGANIC (B2B, B2B2C, B2B+B2B2C; no aplica con Goal Run Rate). YES por default desde 2026-10-26 (Diego)
   evoMetric:       'gb',
   evoGranularity:  'M',   // 'M' | 'Q' | 'H' | 'Y'
@@ -2691,6 +2693,7 @@ function getParams() {
     canal:    _state.lob === 'b2b' ? _state.canal : 'all',
     baselineSource: _state.baselineSource || 'baseline',
     fcSource: _isFcBtb_() ? 'btb' : '',
+    rrSource: _isLrr_() ? 'lrr' : '',
     organic:  _organicTarget_()
   };
 }
@@ -2734,7 +2737,7 @@ function _syncOrganicUI_() {
   if (_orgError_) {
     note.textContent = _orgError_;
   } else if (!goalOk) {
-    note.textContent = 'No disponible con Goal Run Rate';
+    note.textContent = 'No disponible con Goal ' + _rrLabel_();
   } else if (_state.organic) {
     note.textContent = 'Actuals × TC Actuals / TC ' + _orgTargetLabel_() +
       (_state.goal === 'forecast' ? ' · Forecast a TC Budget' : '') +
@@ -2966,19 +2969,23 @@ function toggleProdPanelBar(e) {
 // compara contra el Forecast (varFc*, bridges, tarjetas) lo tome sin cambios; solo cambian los nombres.
 function _isFcBtb_() { return _state.goal === 'forecast' && _state.fcSource === 'btb'; }
 function _fcLabel_() { return _isFcBtb_() ? 'Forecast - Bridge to budget' : 'Forecast'; }
-function _goalSelValue_() { return _isFcBtb_() ? 'forecastBtb' : _state.goal; }
+// Goal "Last Run Rate" (2026-11-09): mismo criterio, es el Goal Run Rate con lastrunrate.json (rrSource 'lrr').
+function _isLrr_() { return _state.goal === 'runRate' && _state.rrSource === 'lrr'; }
+function _rrLabel_() { return _isLrr_() ? 'Last Run Rate' : 'Run Rate'; }
+function _goalSelValue_() { return _isFcBtb_() ? 'forecastBtb' : _isLrr_() ? 'lastRunRate' : _state.goal; }
 // Goal sync from bar
 function switchGoalBar() {
   var sel = document.getElementById('f-goal-bar');
   var prevOrg = _organicTarget_();
-  var prevFc  = _isFcBtb_();
-  _state.goal = sel.value === 'forecastBtb' ? 'forecast' : sel.value;
+  var prevFc  = _isFcBtb_(), prevLrr = _isLrr_();
+  _state.goal = sel.value === 'forecastBtb' ? 'forecast' : sel.value === 'lastRunRate' ? 'runRate' : sel.value;
   _state.fcSource = sel.value === 'forecastBtb' ? 'btb' : '';
+  _state.rrSource = sel.value === 'lastRunRate' ? 'lrr' : '';
   var topSel = document.getElementById('f-goal');
   if (topSel) topSel.value = _state.goal;
   if (_afterGoalChange_(prevOrg)) return;
   // Marketing & Media lee su propio forecast.json (getMarketingData): sigue contra el Forecast.
-  if (_isFcBtb_() !== prevFc) { if (_state.filters) reload(); return; }
+  if (_isFcBtb_() !== prevFc || _isLrr_() !== prevLrr) { if (_state.filters) reload(); return; }
   if (_state.pnl) renderPnL();
   if (_state.wf)  renderWf();
   if (_state.evo) renderEvo();
@@ -3092,7 +3099,7 @@ function renderCompPnL() {
     return;
   }
 
-  var goalLabel = _state.goal === 'budget' ? 'Budget' : _state.goal === 'lastYear' ? 'Last Year' : _state.goal === 'forecast' ? _fcLabel_() : 'Run Rate';
+  var goalLabel = _state.goal === 'budget' ? 'Budget' : _state.goal === 'lastYear' ? 'Last Year' : _state.goal === 'forecast' ? _fcLabel_() : _rrLabel_();
 
   // Header
   var hHtml = '<th>Métrica</th><th style="text-align:left">Indicador</th>';
@@ -3240,7 +3247,7 @@ function renderPnL() {
   var dOrig = d;
   splitB2B_ = (_state.lob === 'all' && (d.groups||[]).indexOf('MAY') >= 0) ? _pnlSplitB2B : null;
   if (splitB2B_ === false) d = _pnlWithB2B_(d);
-  var goalLabel = _state.goal === 'budget' ? 'Budget' : _state.goal === 'lastYear' ? 'Last Year' : _state.goal === 'forecast' ? _fcLabel_() : 'Run Rate';
+  var goalLabel = _state.goal === 'budget' ? 'Budget' : _state.goal === 'lastYear' ? 'Last Year' : _state.goal === 'forecast' ? _fcLabel_() : _rrLabel_();
   var pnlTitleEl = document.getElementById('pnl-title');
   if (pnlTitleEl) pnlTitleEl.innerHTML = 'Cuadro Resumen P&amp;L' + (_periodLabel_() ? '<span class="sec-chip">' + _periodLabel_() + '</span>' : '');
   _renderActiveFilters_(goalLabel);
@@ -3467,7 +3474,7 @@ function renderWf() {
   if (!d || !d.metrics) return;
 
   var goalKey   = _state.goal;
-  var goalLabel = goalKey === 'budget' ? 'Budget' : goalKey === 'lastYear' ? 'Last Year' : goalKey === 'forecast' ? _fcLabel_() : 'Run Rate';
+  var goalLabel = goalKey === 'budget' ? 'Budget' : goalKey === 'lastYear' ? 'Last Year' : goalKey === 'forecast' ? _fcLabel_() : _rrLabel_();
   var baseLabel = 'Actuals + RR';
 
   // Short period suffix for bar labels (e.g. "Jun'26" or "Abr'26 – Jun'26")
@@ -4113,7 +4120,7 @@ function _evoChartCfg_(d, metricId, opts) {
   var gbM = d.metrics.filter(function(x){ return x.id==='gb'; })[0];
 
   var goalKey   = _state.goal==='budget' ? 'budget' : _state.goal==='lastYear' ? 'budget' : _state.goal==='forecast' ? 'forecast' : 'runRate';
-  var goalLabel = _state.goal==='budget' ? 'Budget' : _state.goal==='lastYear' ? 'Last Year' : _state.goal==='forecast' ? _fcLabel_() : 'Run Rate';
+  var goalLabel = _state.goal==='budget' ? 'Budget' : _state.goal==='lastYear' ? 'Last Year' : _state.goal==='forecast' ? _fcLabel_() : _rrLabel_();
 
   var grps = _groupEvo(d, m, gbM, goalKey, opts.granularity);
   var labels   = grps.map(function(g){ return g.label; });
@@ -6424,7 +6431,7 @@ function _cierreGoalFields_(goal){
        : {abs:'varBudAbs', pct:'varBudPct'};
 }
 function _cierreGoalLabel_(goal){
-  return goal==='forecast' ? 'Forecast' : goal==='runRate' ? 'Run Rate' : 'Budget';
+  return goal==='forecast' ? 'Forecast' : goal==='runRate' ? _rrLabel_() : 'Budget';
 }
 
 // Variación de OC vs. goal (columna Total) + driver(es) materiales entre GB/NR, si los hay.

@@ -11,6 +11,7 @@ var JSON_IDS = {
   runrate:  '1UGg60kE397nsGAivtFqI8NX5CVFj1gqO',  // runrate.json
   forecast: '1crqpRTyH14fqX9XdwBTVaKN5rPbE6O84',  // forecast.json
   forecastbtb: '1anL-CsItySxuWTp4FuX69tHsAy9oz4rp',                // forecastbtb.json ("Forecast - Bridge to budget", 2026-10-26)
+  lastrunrate: '1Nk56QlEA2hKuWGhfZ1357Eds6DhU8zwC',                // lastrunrate.json (Goal "Last Run Rate", 2026-11-09)
   ly:       '1zd5gnMFztKiCSgeY-VmsfVOr0LQ6ftGI'   // actuals_previos_fy26.json
 };
 // ── ORGANIC (prueba: Monthly Results B2B, B2B2C y B2B+B2B2C) ──────────────
@@ -160,7 +161,7 @@ function _getJsonsLastMod_() {
 
 function makeCacheKey_(p) {
   return JSON.stringify({
-    v:        33,   // 33: Organic vs Forecast a TC Budget (baseline y goal). 32: ORGANIC vs Last Year + YoY organic. 31: B2B2C y B2B+B2B2C
+    v:        34,   // 34: Goal Last Run Rate (rrSource 'lrr').   // 33: Organic vs Forecast a TC Budget (baseline y goal). 32: ORGANIC vs Last Year + YoY organic. 31: B2B2C y B2B+B2B2C
     lob:      p.lob      || 'all',
     pais:     p.pais     || 'all',
     producto: p.producto || 'all',
@@ -169,6 +170,7 @@ function makeCacheKey_(p) {
     hasta:    p.hasta    || '',
     bl:       p.baselineSource || 'baseline',
     fc:       p.fcSource === 'btb' ? 'btb' : '',
+    rr:       p.rrSource === 'lrr' ? 'lrr' : '',
     org:      organicTargetOf_(p) ? p.organic : ''   // goal del organic: Budget y Forecast comparten TC pero no datos
   });
 }
@@ -330,7 +332,10 @@ function getAllData(params) {
 
   // Cache miss: cargar todos los JSONs desde Drive
   var baseRows = readJson_(JSON_IDS.baseline);
-  var rrRows   = readJson_(JSON_IDS.runrate);
+  // Goal "Last Run Rate" (2026-11-09): es el Goal Run Rate con otra fuente (lastrunrate.json, la ronda
+  // anterior del RR: trae todo el FY, así el mes que acaba de cerrar se compara contra lo proyectado).
+  // El baseline cubre todo el FY, así que blendedFromMaps_ no toma nada del rrMap y el baseline no cambia.
+  var rrRows   = readJson_(p.rrSource === 'lrr' ? JSON_IDS.lastrunrate : JSON_IDS.runrate);
   var budRows  = readJson_(JSON_IDS.budget);
   var fcRows   = readJson_(JSON_IDS.forecast);
   var lyRows   = readJson_(JSON_IDS.ly);
