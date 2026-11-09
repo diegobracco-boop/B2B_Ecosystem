@@ -478,6 +478,15 @@ function _weekLabel_(lunes, desde) {
   function dm(x) { return x.slice(8, 10) + '/' + x.slice(5, 7); }
   return 'S' + n + ' · ' + dm(ini) + '–' + dm(fin);
 }
+// Días del año pasado contra los que compara el Goal Last Year en esa semana: la misma semana corrida 364 días
+// (lunes contra lunes, ver LY_DIAS en actuals_gestional_upload.py). "03/11–09/11/2025".
+function _weekLyLabel_(lunes, desde) {
+  var D = 86400000, l = new Date(Date.parse(lunes + 'T00:00:00Z') - 364 * D);
+  var d0 = desde ? new Date(Date.parse(desde + 'T00:00:00Z') - 364 * D) : null;
+  var ini = (d0 && d0 > l) ? d0 : l, fin = new Date(l.getTime() + 6 * D);
+  function dm(x) { return x.toISOString().slice(8, 10) + '/' + x.toISOString().slice(5, 7); }
+  return dm(ini) + '–' + dm(fin) + '/' + fin.toISOString().slice(0, 4);
+}
 function readWeeklyJSON_() {
   if (_weeklyCache_) return _weeklyCache_;
   var it = DriveApp.getFolderById(REVENUE_GD_FOLDER_ID).getFilesByName(WEEKLY_JSON_NAME);
@@ -489,7 +498,7 @@ function getWeeklyData(filters) {
   var f = Object.assign({}, (filters && typeof filters === 'object') ? filters : {}, { gateway: [], tipo: [], millas: [] });
   var wk = readWeeklyJSON_();
   if (!wk) return { weekly_missing: true };
-  var labels = {}, order = [], seen = {};
+  var labels = {}, order = [], seen = {}, lyLabels = {};
   [['b2b2c', 3], ['b2b_may', 2], ['b2b_min', 2]].forEach(function(s) {
     Object.keys(wk[s[0]] || {}).forEach(function(k) {
       wk[s[0]][k].forEach(function(r) {
@@ -497,6 +506,7 @@ function getWeeklyData(filters) {
         if (labels[key]) return;
         var lunes = key.slice(0, 10);
         labels[key] = _weekLabel_(lunes, wk.desde);
+        lyLabels[labels[key]] = _weekLyLabel_(lunes, wk.desde);
         if (!seen[lunes]) { seen[lunes] = true; order.push(key); }
       });
     });
@@ -506,7 +516,7 @@ function getWeeklyData(filters) {
   GD_YM_LABEL = labels; GD_YM_ORDER = order; _weeklyOn_ = true;
   try {
     var out = _computeWithYoy_(f, orgTarget);
-    out.weekly = { desde: wk.desde, hasta: wk.hasta, generated_at: wk.generated_at };
+    out.weekly = { desde: wk.desde, hasta: wk.hasta, generated_at: wk.generated_at, ly_labels: lyLabels };
     return out;
   } finally {
     GD_YM_LABEL = saveLabel; GD_YM_ORDER = saveOrder; _weeklyOn_ = false;
