@@ -37,8 +37,8 @@ function emailFromHeader(name, value) {
 
 // Mismo alcance que `access: DOMAIN` en GAS, más las submarcas de Despegar que quedaron con su propio
 // dominio de mail (Diego, 2026-11-04): Hoteldo y Best Day. Ownia ya exige el login corporativo; esto solo
-// define qué mails cuentan como usuario identificado.
-const ALLOWED_DOMAINS = ['@despegar.com', '@hoteldo.com', '@bestday.com'];
+// define qué mails cuentan como usuario identificado. Decolar (Brasil) desde 2026-11-09 (Diego).
+const ALLOWED_DOMAINS = ['@despegar.com', '@hoteldo.com', '@bestday.com', '@decolar.com'];
 const ALLOWED_DOMAIN = ALLOWED_DOMAINS[0];
 const isAllowedEmail = (email) => ALLOWED_DOMAINS.some((d) => String(email || '').toLowerCase().endsWith(d));
 
