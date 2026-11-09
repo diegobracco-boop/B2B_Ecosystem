@@ -2013,14 +2013,16 @@ var EXTERNAL_LINKS = {
   ownia: {
     pnl_mgr: 'https://ownia.despegar.io/b2b-ecosystem/pnl-managerial',
     pnl:     'https://ownia.despegar.io/b2b-ecosystem/pnl-accounting',
-    hub:     'https://ownia.despegar.io/b2b-ecosystem/hub'
+    hub:     'https://ownia.despegar.io/b2b-ecosystem/hub',
+    daily:   'https://ownia.despegar.io/b2b-ecosystem/daily'
   },
   crm: {
     new_accounts: 'https://app.hubspot.com/reports-dashboard/50320739/view/20021851'
   }
 };
 // Sección del menú -> app de Ownia que la reemplaza (clave de EXTERNAL_LINKS.ownia).
-var OWNIA_SECTIONS = { all: 'hub', b2b: 'hub', b2b2c: 'hub', pnl: 'pnl', pnl_mgr: 'pnl_mgr' };
+// daily/weekly: el Apps Script del Daily se discontinúa (2026-11-09), el botón abre Ownia en vez del iframe.
+var OWNIA_SECTIONS = { all: 'hub', b2b: 'hub', b2b2c: 'hub', pnl: 'pnl', pnl_mgr: 'pnl_mgr', daily: 'daily', weekly: 'daily' };
 
 function openExt(key) {
   var parts = key.split('.'), url = EXTERNAL_LINKS;
