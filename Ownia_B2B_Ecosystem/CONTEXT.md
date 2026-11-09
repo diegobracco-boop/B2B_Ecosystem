@@ -168,6 +168,14 @@ los países. El dial es de FVM. Arriba, debajo de Semanal / MTD: "Exportar a Sli
 navegador con PptxGenJS 3.12.0 de jsdelivr: portada con tarjetas, en pocas líneas, FVM, una por negocio) y "Copiar link
 resumen semanal" (la URL de la vista actual). El partner "TBD" del Budget se muestra como "Partners nuevos (TBD)".
 
+**Actualizar managerial (2026-11-09, Diego):** segunda acción de la misma ventana (`kind: 'managerial'` en `POST /reales`;
+`JOBS` en `server/reales-job.js`): corre `pipelines/P&L_Managerial/actuals_gestional_upload.py` (en `PIPELINES` del sync, con
+`rg_rows.py`), que trae los reales por día y publica `_actuals_gestional.json` y `_actuals_gestional_weekly.json`. Comparte
+contraseña, límite de intentos, memoria mínima y el lock: una sola corrida a la vez entre Daily y Managerial (409 con el nombre de
+la que está corriendo). Barra propia (`MANAGERIAL_QUERIES` = 16 consultas, `MANAGERIAL_STAGES`). La ventana muestra "Daily al" y
+"Managerial al" (`managerialUpdatedAt`: fecha de `_actuals_gestional.json` en el almacén). Sin los XLSX del Forecast el script reusa
+el Forecast del último JSON publicado (ver `P&L_Managerial/CONTEXT.md`).
+
 **Actualizar reales (2026-10-30):** botón de la portada (`server/index-page.js`), solo para `EQUIPO_B2B` y con
 contraseña (`REALES_PASSWORD`, máx. 5 intentos cada 15 min por usuario). `POST /reales` lanza en el servidor
 `pipelines/Daily_Dashboard/daily_sync.py` (`server/reales-job.js`, una corrida por vez, corte a los 45 min);

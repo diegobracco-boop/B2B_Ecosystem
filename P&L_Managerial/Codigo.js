@@ -463,7 +463,7 @@ function _computeWithYoy_(f, orgTarget) {
 }
 
 // ── Apertura semanal (2026-11-01) ─────────────────────────────────────────
-// _actuals_gestional_weekly.json (weekly_gestional_builder.py) tiene las mismas secciones y filas que el JSON
+// _actuals_gestional_weekly.json (actuals_gestional_upload.py, misma corrida que el mensual desde 2026-11-09) tiene las mismas secciones y filas que el JSON
 // mensual, con ym = "<lunes>|<ym>". Se usa el mismo _computeGetData_: durante la llamada readGestionalJSON_ lee
 // este archivo y GD_YM_LABEL lleva cada "<lunes>|<ym>" a la etiqueta de la semana. El organic usa el ym de la fila.
 // Sin Forecast (los modelos son mensuales), tipo de producto, millas ni gateway.

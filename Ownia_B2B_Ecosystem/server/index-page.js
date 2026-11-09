@@ -142,6 +142,8 @@ function row(m, basePath, canOpen, find) {
 
 // "Actualizar reales" (2026-10-30, Tiago): botón de la barra de arriba, solo para el equipo B2B, que pide una contraseña y
 // corre en el servidor la actualización diaria del Daily (server/reales-job.js). Reemplaza al Task Scheduler de una PC.
+// Desde 2026-11-09 (Diego) la ventana tiene dos acciones con la misma contraseña: "Actualizar" (Daily) y
+// "Actualizar managerial" (P&L Managerial mensual + semanal). Corren de a una.
 const REALES_BUTTON = `<button type="button" class="act-btn" id="reales-btn" aria-haspopup="dialog">
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 4v5h-5"/></svg>
     <span id="reales-btn-t">Actualizar reales</span></button>`;
@@ -158,12 +160,14 @@ function realesDialog(basePath) {
   return `<dialog class="dlg" id="reales-dlg" aria-labelledby="reales-t">
   <form method="dialog" class="dlg-x"><button type="submit" aria-label="Cerrar">&times;</button></form>
   <h2 id="reales-t">Actualizar reales</h2>
-  <p class="dlg-sub">Trae del Datalake los reales de ayer y los publica en el Daily, el P&amp;L Managerial y el resto de los tableros (Ownia y Apps Script). Tarda unos 10 minutos.</p>
-  <dl class="dlg-meta"><dt>Datos al</dt><dd id="reales-data">…</dd><dt>Última corrida</dt><dd id="reales-last">…</dd></dl>
+  <p class="dlg-sub"><b>Actualizar</b> trae del Datalake los reales de ayer para el Daily, los OKR, FVM Negativo y Pipeline Hunting (unos 10 minutos).
+  <b>Actualizar managerial</b> actualiza el P&amp;L Managerial, mensual y semanal, con los reales hasta ayer (el Forecast queda el de la ronda vigente). Corren de a una.</p>
+  <dl class="dlg-meta"><dt>Daily al</dt><dd id="reales-data">…</dd><dt>Managerial al</dt><dd id="reales-mgr">…</dd><dt>Última corrida</dt><dd id="reales-last">…</dd></dl>
   <form id="reales-form" class="dlg-form" autocomplete="off">
     <label for="reales-pw">Contraseña</label>
     <div class="dlg-row"><input id="reales-pw" type="password" required autocomplete="off">
-    <button type="submit" class="dlg-go" id="reales-go">Actualizar</button></div>
+    <button type="submit" class="dlg-go" id="reales-go" data-kind="daily">Actualizar</button>
+    <button type="submit" class="dlg-go" id="reales-go-mgr" data-kind="managerial">Actualizar managerial</button></div>
   </form>
   <p class="dlg-msg" id="reales-msg" role="status" aria-live="polite"></p>
   <div class="dlg-prog" id="reales-prog" hidden>
@@ -177,6 +181,8 @@ function realesDialog(basePath) {
     var api = ${JSON.stringify(`${basePath}/reales`)};
     var dlg = document.getElementById('reales-dlg'), btn = document.getElementById('reales-btn');
     var form = document.getElementById('reales-form'), pw = document.getElementById('reales-pw'), go = document.getElementById('reales-go');
+    var goMgr = document.getElementById('reales-go-mgr'), kind = 'daily';
+    [go, goMgr].forEach(function (b) { b.addEventListener('click', function () { kind = b.getAttribute('data-kind'); }); });
     var msg = document.getElementById('reales-msg'), logEl = document.getElementById('reales-log'), timer = 0;
     var prog = document.getElementById('reales-prog'), bar = document.getElementById('reales-bar'), det = document.getElementById('reales-det');
     var btnT = document.getElementById('reales-btn-t'), shownState = '';
@@ -190,14 +196,17 @@ function realesDialog(basePath) {
     }
     function show(st) {
       document.getElementById('reales-data').textContent = fmt(st.dataUpdatedAt);
-      var last = st.startedAt ? fmt(st.startedAt) + ' · ' + (st.by || '').replace(/@.*/, '') : 'ninguna desde el último deploy';
+      document.getElementById('reales-mgr').textContent = fmt(st.managerialUpdatedAt);
+      var last = st.startedAt ? (st.kindLabel ? st.kindLabel + ' · ' : '') + fmt(st.startedAt) + ' · ' + (st.by || '').replace(/@.*/, '') : 'ninguna desde el último deploy';
       if (st.state === 'ok') last += ' · OK';
       if (st.state === 'error') last += ' · con error';
       document.getElementById('reales-last').textContent = last;
       var running = st.state === 'running';
+      var jobs = st.jobs || {};
       go.disabled = running || !!st.blocked; pw.disabled = running || !!st.blocked;
+      goMgr.disabled = running || !!st.blocked || (jobs.managerial && !jobs.managerial.configured);
       btn.classList.toggle('busy', running);
-      if (running) msg.textContent = 'Actualizando… podés cerrar esta ventana, sigue corriendo en el servidor.';
+      if (running) msg.textContent = 'Actualizando ' + (st.kindLabel || '') + '… podés cerrar esta ventana, sigue corriendo en el servidor.';
       else if (st.state === 'ok' && st.warnings && st.warnings.length) {
         msg.textContent = 'Listo, con ' + st.warnings.length + (st.warnings.length === 1 ? ' aviso' : ' avisos') + ': ' + st.warnings.join(' · ');
       }
@@ -232,17 +241,17 @@ function realesDialog(basePath) {
     btn.addEventListener('click', function () { msg.textContent = ''; dlg.showModal(); poll(); pw.focus(); });
     form.addEventListener('submit', function (ev) {
       ev.preventDefault();
-      go.disabled = true; msg.textContent = 'Arrancando…';
+      go.disabled = true; goMgr.disabled = true; msg.textContent = 'Arrancando…';
       fetch(api, { method: 'POST', credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'google.script.run' },
-        body: JSON.stringify({ password: pw.value }) })
+        body: JSON.stringify({ password: pw.value, kind: kind }) })
         .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
         .then(function (x) {
           pw.value = '';
-          if (!x.ok) { go.disabled = false; msg.textContent = x.j.error || 'No se pudo arrancar.'; return; }
+          if (!x.ok) { go.disabled = false; goMgr.disabled = false; msg.textContent = x.j.error || 'No se pudo arrancar.'; return; }
           show(x.j);
         })
-        .catch(function () { go.disabled = false; msg.textContent = 'No se pudo conectar con el servidor.'; });
+        .catch(function () { go.disabled = false; goMgr.disabled = false; msg.textContent = 'No se pudo conectar con el servidor.'; });
     });
     poll();   // si hay una corrida en curso, el botón lo muestra girando
   })();
@@ -319,8 +328,9 @@ function shell(inner, { title = 'The B2B Ecosystem · Despegar', left = '<span c
   .dlg-meta dt { color: var(--text-3); }
   .dlg-form { margin-top: 20px; }
   .dlg-form label { display: block; font-size: 13px; color: var(--text-2); margin-bottom: 6px; }
-  .dlg-row { display: flex; gap: 10px; }
-  .dlg-row input { flex: 1; min-width: 0; padding: 10px 14px; border-radius: 12px; border: 0; background: var(--tile); color: var(--text);
+  .dlg-row { display: flex; flex-wrap: wrap; gap: 10px; }
+  .dlg-row .dlg-go { flex: 1 1 auto; }
+  .dlg-row input { flex: 1 1 100%; min-width: 0; padding: 10px 14px; border-radius: 12px; border: 0; background: var(--tile); color: var(--text);
                    font: 15px var(--font); box-shadow: inset 0 0 0 1px var(--line); }
   .dlg-go { padding: 10px 18px; border-radius: 12px; border: 0; background: var(--primary); color: #fff; font: 500 15px var(--font); cursor: pointer; }
   .dlg-go:disabled, .dlg-row input:disabled { opacity: .5; cursor: default; }

@@ -84,7 +84,7 @@ Ver [CONTEXT-MAP.md](./CONTEXT-MAP.md) para el diagrama completo. En resumen:
 - El resto son **landings** GAS — consumen los datos de Drive y los presentan al usuario.
 - Los pipelines alimentan las landings. Cambiar un pipeline puede afectar todas las landings.
 
-**Actualizar reales** (desde 2026-10-30): botón de la portada de Ownia, solo el equipo B2B y con contraseña (secreto `REALES_PASSWORD` de la app). Corre `Daily_Dashboard/daily_sync.py` en el servidor de Ownia (`Ownia_B2B_Ecosystem/server/reales-job.js`: Trino por HTTPS con `DATALAKE_HOST`, credenciales en `APP_SECRETS`) y publica en Drive y Ownia. Reemplaza al Task Scheduler de la PC de Tiago (`auto_update_reales.ps1`). Si se cambian los imports de `daily_sync.py`, revisar `requirements-pipelines.txt` y `PIPELINES` en `scripts/sync-to-ownia-repo.js`.
+**Actualizar reales** (desde 2026-10-30): botón de la portada de Ownia, solo el equipo B2B y con contraseña (secreto `REALES_PASSWORD` de la app). Corre `Daily_Dashboard/daily_sync.py` en el servidor de Ownia (`Ownia_B2B_Ecosystem/server/reales-job.js`: Trino por HTTPS con `DATALAKE_HOST`, credenciales en `APP_SECRETS`) y publica en Drive y Ownia. Reemplaza al Task Scheduler de la PC de Tiago (`auto_update_reales.ps1`). Desde 2026-11-09 la misma ventana tiene **"Actualizar managerial"**: corre `P&L_Managerial/actuals_gestional_upload.py` (reales por día → mensual + semanal; Forecast reusado del último JSON si no están los XLSX); una corrida por vez entre las dos. Si se cambian sus imports, sumarlos a `PIPELINES` del sync. Si se cambian los imports de `daily_sync.py`, revisar `requirements-pipelines.txt` y `PIPELINES` en `scripts/sync-to-ownia-repo.js`.
 
 ## Comandos disponibles
 

@@ -1059,8 +1059,8 @@ a.ext-link:hover { text-decoration: underline; }
       <table class="doc-table">
         <tbody>
           <tr><td>Contable (P&amp;L Accounting)</td><td>Desde <code>Inputs_Planning_PnL</code>: <code>run_all.bat</code> → <code>python baseline_builder.py --promote-month AAAA-MM-01</code> (el mes que cerró) → <code>python plana_to_cube.py --upload</code>. Recargar la landing (Ctrl+Shift+R). Sin deploy.</td></tr>
-          <tr><td>Gestional (P&amp;L Managerial)</td><td>Desde <code>P&amp;L_Managerial</code>, con VPN: <code>python actuals_gestional_upload.py</code>. Un solo run.</td></tr>
-          <tr><td>Gestional por semana (botón Semana de P&amp;L Managerial)</td><td>Los lunes, a mano, desde <code>P&amp;L_Managerial</code> y con VPN: <code>python weekly_gestional_builder.py --upload</code>. Solo semanas completas, lunes a domingo. Concilia contra el mensual y no publica si difiere más de 0,5%.</td></tr>
+          <tr><td>Gestional (P&amp;L Managerial)</td><td>Botón "Actualizar managerial" de Ownia (ver abajo), o desde <code>P&amp;L_Managerial</code>, con VPN: <code>python actuals_gestional_upload.py</code>. Un solo run sube el mensual y el semanal.</td></tr>
+          <tr><td>P&amp;L Managerial, mensual y por semana (botón Semana)</td><td>Botón <strong>"Actualizar managerial"</strong> en la ventana de "Actualizar reales" de la portada de Ownia (equipo B2B, con contraseña): corre <code>actuals_gestional_upload.py</code> en el servidor y publica los dos archivos de una vez (los reales van por día). Solo semanas completas, lunes a domingo; el semanal no se publica si no cierra con el mensual (0,5%). El Forecast queda el de la ronda vigente: una ronda nueva se publica corriendo el script desde una PC con los XLSX y VPN.</td></tr>
           <tr><td>Daily</td><td>Se incorpora con el próximo "Actualizar reales" de la portada de Ownia.</td></tr>
         </tbody>
       </table>

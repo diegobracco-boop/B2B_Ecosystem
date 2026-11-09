@@ -189,6 +189,28 @@ test('proceso cortado por el sistema (SIGKILL): error con el motivo probable', a
   assert.match(st.lines[st.lines.length - 1], /SIGKILL.*falta de memoria/);
 });
 
+test('Actualizar managerial: corre actuals_gestional_upload.py, comparte el lock con el Daily y tiene su propia barra', async () => {
+  const r = await request(server, 'POST', `${BASE}/reales`, { body: { password: 'clave', kind: 'managerial' }, headers: { ...POST_HEADERS, ...ANA } });
+  assert.equal(r.status, 202, r.text);
+  const st0 = JSON.parse(r.text);
+  assert.equal(st0.kind, 'managerial');
+  assert.equal(st0.kindLabel, 'P&L Managerial');
+  const { args, opts, child } = spawned[spawned.length - 1];
+  assert.match(args[0].replace(/\\/g, '/'), /P&L_Managerial\/actuals_gestional_upload\.py$/);
+  assert.match(opts.cwd.replace(/\\/g, '/'), /P&L_Managerial$/);
+  assert.equal(opts.env.USER, 'ana.dl');
+  const daily = await post('clave');
+  assert.equal(daily.status, 409, 'Daily y Managerial no corren a la vez');
+  assert.match(JSON.parse(daily.text).error, /P&L Managerial/);
+  child.stdout.emit('data', '  OK B2B2C actuals: 120,000 filas en 30s\n--- Semanal ---\n');
+  const st = JSON.parse((await request(server, 'GET', `${BASE}/reales`, { headers: ANA })).text);
+  assert.deepEqual([st.progress.pct, st.progress.stage], [94, 'Armando y publicando el semanal']);
+  assert.equal(st.jobs.managerial.configured, true);
+  child.emit('close', 0);
+  const raro = await request(server, 'POST', `${BASE}/reales`, { body: { password: 'clave', kind: 'otro' }, headers: { ...POST_HEADERS, ...ANA } });
+  assert.equal(raro.status, 400);
+});
+
 test('una corrida que sale con error queda como error', async () => {
   assert.equal((await post('clave')).status, 202);
   spawned[spawned.length - 1].child.emit('close', 1);
