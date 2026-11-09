@@ -904,7 +904,7 @@ header .btn-refresh:hover{background:#f5f3ff !important;border-color:#c4b5fd;col
       <strong>Baseline</strong> = Actuals (meses cerrados) + Run Rate + Forecast
       &nbsp;·&nbsp; <strong>Budget</strong> = Proyección <?!= 'FY' + String(FY_END_YEAR).slice(-2) ?> (Abr'<?!= String(FY_END_YEAR - 1).slice(-2) ?>–Mar'<?!= String(FY_END_YEAR).slice(-2) ?>)
       &nbsp;·&nbsp; <strong>Forecast</strong> = Actuals + Forecast
-      &nbsp;·&nbsp; <strong>Last Run Rate</strong> = Run Rate de la proyección anterior
+      &nbsp;·&nbsp; <strong>Last Run Rate</strong> = Run Rate de la proyección anterior (Actuals hasta el mes previo al último cierre; desde el mes recién cerrado, lo proyectado)
       &nbsp;·&nbsp; <strong>Last Year</strong> = Actuals <?!= 'FY' + String(FY_END_YEAR - 1).slice(-2) ?> (mismo mes fiscal, un año antes)
     </span>
   </div>

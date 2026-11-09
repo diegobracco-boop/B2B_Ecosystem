@@ -159,9 +159,18 @@ function _getJsonsLastMod_() {
   return mx;
 }
 
+// Goal "Last Run Rate": la ronda anterior del RR proyectaba desde el mes que acaba de cerrar (LAST_ACTUALS_YM).
+// Antes de ese mes van los reales del baseline (en lastrunrate.json faltan ajustes posteriores, ej. el GB de API
+// abr-jun); desde ese mes, lastrunrate.json. Mismo criterio que P&L Accounting (scenCT 'lastrunrate'). 2026-11-09.
+function lastRunRateRows_(baseRows) {
+  var p = LAST_ACTUALS_YM.split('-'), corte = Date.UTC(+p[0], +p[1] - 1, 1);
+  return baseRows.filter(function(r) { return r['fecha'] < corte; })
+    .concat(readJson_(JSON_IDS.lastrunrate).filter(function(r) { return r['fecha'] >= corte; }));
+}
+
 function makeCacheKey_(p) {
   return JSON.stringify({
-    v:        34,   // 34: Goal Last Run Rate (rrSource 'lrr').   // 33: Organic vs Forecast a TC Budget (baseline y goal). 32: ORGANIC vs Last Year + YoY organic. 31: B2B2C y B2B+B2B2C
+    v:        35,   // 35: Last RR = reales antes del último cierre. 34: Goal Last Run Rate (rrSource 'lrr').   // 33: Organic vs Forecast a TC Budget (baseline y goal). 32: ORGANIC vs Last Year + YoY organic. 31: B2B2C y B2B+B2B2C
     lob:      p.lob      || 'all',
     pais:     p.pais     || 'all',
     producto: p.producto || 'all',
@@ -335,7 +344,7 @@ function getAllData(params) {
   // Goal "Last Run Rate" (2026-11-09): es el Goal Run Rate con otra fuente (lastrunrate.json, la ronda
   // anterior del RR: trae todo el FY, así el mes que acaba de cerrar se compara contra lo proyectado).
   // El baseline cubre todo el FY, así que blendedFromMaps_ no toma nada del rrMap y el baseline no cambia.
-  var rrRows   = readJson_(p.rrSource === 'lrr' ? JSON_IDS.lastrunrate : JSON_IDS.runrate);
+  var rrRows   = (p.rrSource === 'lrr') ? lastRunRateRows_(baseRows) : readJson_(JSON_IDS.runrate);
   var budRows  = readJson_(JSON_IDS.budget);
   var fcRows   = readJson_(JSON_IDS.forecast);
   var lyRows   = readJson_(JSON_IDS.ly);

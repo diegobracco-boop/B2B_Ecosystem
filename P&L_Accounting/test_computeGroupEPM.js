@@ -107,7 +107,7 @@ test('runrate: meses cerrados (<=cutoff) toman actuals, el resto toma run rate c
   });
 });
 
-test('lastrunrate: meses cerrados (<=cutoff) toman actuals, el rango con lrr toma lrr, y despues del ultimo mes con lrr cae a forecast', () => {
+test('lastrunrate: meses antes del ultimo cierre toman actuals, desde el mes recien cerrado toma lrr, y despues del ultimo mes con lrr cae a forecast', () => {
   // _epmScenMaxIdx_ mira que MESES tienen clave en el objeto (no el valor) para saber
   // hasta donde llega el run rate real -> el mock tiene que ser sparse y CONTIGUO,
   // igual que el agregado real (lastrunrate.json cubre un rango de meses seguidos;
@@ -115,17 +115,19 @@ test('lastrunrate: meses cerrados (<=cutoff) toman actuals, el rango con lrr tom
   // clave -> cae a forecast (aunque haya "hueco" en el medio de idx<=lrrMaxIdx sin
   // dato, ese mes puntual queda en 0, no en forecast — comportamiento real, no se
   // testea acá porque lastrunrate.json siempre viene contiguo en la práctica).
-  const lrrVals = { 3: 500, 4: 501 };
+  // Desde 2026-11-09 el mes recien cerrado (cutoffIdx) toma lrr: la ronda anterior lo proyectaba (antes daba
+  // delta 0 contra si mismo). idx 2, 3 y 4 tienen lrr.
+  const lrrVals = { 2: 499, 3: 500, 4: 501 };
   const lrr = { Brasil: { 'gross bookings': Object.fromEntries(
     Object.entries(lrrVals).map(([i, v]) => [ns.ALL_MONTHS_ORD_BG[i], v])
   ) } };
-  const cutoffIdx = 2;  // meses 0,1,2 = cerrados -> actuals
+  const cutoffIdx = 2;  // meses 0,1 = cerrados antes del ultimo cierre -> actuals; 2 = recien cerrado -> lrr
   const G = ns.computeGroupEPM_(actuals, rr, budget, forecast, cutoffIdx, null, { goal: 'lastrunrate', lrr });
   const got = G.goal.ct_monthly['gross bookings'];
   ns.ALL_MONTHS_ORD_BG.forEach((m, i) => {
     let esperado;
-    if (i <= cutoffIdx) esperado = 100 + i;                       // actuals
-    else if (i === 3 || i === 4) esperado = lrrVals[i];           // lrr disponible
+    if (i < cutoffIdx) esperado = 100 + i;                        // actuals
+    else if (i >= 2 && i <= 4) esperado = lrrVals[i];             // lrr (desde el mes recien cerrado)
     else esperado = 400 + i;                                      // fallback forecast (idx > lrrMaxIdx)
     assert.strictEqual(got[m], esperado, `mes ${m} (idx ${i})`);
   });
