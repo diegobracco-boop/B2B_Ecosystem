@@ -1,4 +1,4 @@
-// P&L Gestional Dashboard — Apps Script Backend v2
+﻿// P&L Gestional Dashboard — Apps Script Backend v2
 // Data source: _actuals_gestional.json (generado por actuals_gestional_upload.py; mismo fileId que el _pnl_gestional_data.json original, solo cambió el nombre)
 var GESTIONAL_JSON_FILE_ID    = '1wvle0UIVZV7ocCSl8OawOfIGVz_It5kh';
 var _gestionalJsonCache_      = null;
@@ -469,10 +469,14 @@ function _computeWithYoy_(f, orgTarget) {
 // Sin Forecast (los modelos son mensuales), tipo de producto, millas ni gateway.
 var WEEKLY_JSON_NAME = '_actuals_gestional_weekly.json';
 var _weeklyOn_ = false, _weeklyCache_ = null;
-function _weekLabel_(lunes) {
+// Etiqueta "S44 · 26/10–01/11" (lunes a domingo, 2026-11-09 Diego). desde = inicio de los datos (1/4 del FY): la
+// primera semana arranca ahí y no el lunes.
+function _weekLabel_(lunes, desde) {
   var d = new Date(lunes + 'T00:00:00Z'), j = new Date(d.getTime() + 3 * 86400000);   // jueves de esa semana: define la semana ISO
   var y0 = Date.UTC(j.getUTCFullYear(), 0, 1), n = Math.floor((j.getTime() - y0) / 86400000 / 7) + 1;
-  return 'S' + n + ' · ' + lunes.slice(8, 10) + '/' + lunes.slice(5, 7);
+  var ini = (desde && desde > lunes) ? desde : lunes, fin = new Date(d.getTime() + 6 * 86400000).toISOString().slice(0, 10);
+  function dm(x) { return x.slice(8, 10) + '/' + x.slice(5, 7); }
+  return 'S' + n + ' · ' + dm(ini) + '–' + dm(fin);
 }
 function readWeeklyJSON_() {
   if (_weeklyCache_) return _weeklyCache_;
@@ -492,7 +496,7 @@ function getWeeklyData(filters) {
         var key = r[s[1]];
         if (labels[key]) return;
         var lunes = key.slice(0, 10);
-        labels[key] = _weekLabel_(lunes);
+        labels[key] = _weekLabel_(lunes, wk.desde);
         if (!seen[lunes]) { seen[lunes] = true; order.push(key); }
       });
     });
