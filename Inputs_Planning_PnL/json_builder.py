@@ -9,6 +9,8 @@ Reglas:
 - Se sube a la carpeta Drive DRIVE_FOLDER_ID como <concepto>.json.
 - 'actuals_previos' se FRACCIONA por año fiscal: emite un JSON por FY cerrado
   (actuals_previos_fyNN.json), para lecturas más livianas desde Apps Script.
+  'all' NO lo incluye (los FY cerrados no cambian): publicarlo con `json_builder.py actuals_previos`;
+  si a un FY le faltan meses no se sube (guarda del 2026-11-09).
 - 'forecast' compone ACTUALS (meses en config.FORECAST_ACTUALS_MONTHS, hoy Abr-Jul'26)
   + el modelo Forecast crudo (resto del FY, Ago'26-Mar'27). Requiere que existan los CSV
   de actuals del FY en curso (correr plana_actuals_builder.py <CURRENT_FY> primero; en
@@ -128,6 +130,14 @@ def build(concept, upload=True):
         for fy, files in by_fy.items():
             print(f"  -- {fy}: {[os.path.basename(x) for x in files]}")
             df = _process(pd.concat([pd.read_csv(x) for x in files], ignore_index=True))
+            # Un FY cerrado tiene que venir con los 12 meses. 2026-11-09: la plana FY26 se regeneró
+            # desde "00 - Actuals 2025" (sep-dic vacíos) y pisó el LY bueno -> se perdieron los YoY.
+            n_meses = df["Fecha"].astype(str).nunique()
+            if upload and n_meses < 12:
+                print(f"  [ERROR] {fy}: la plana trae {n_meses} meses (FY cerrado = 12) -> NO se sube; "
+                      f"queda la versión publicada. Revisar la fuente de actuals de ese FY.")
+                results.append(_emit(f"actuals_previos_{fy}.json", "actuals_previos", df, False))
+                continue
             results.append(_emit(f"actuals_previos_{fy}.json", "actuals_previos", df, upload))
         return results
 
@@ -215,7 +225,9 @@ if __name__ == "__main__":
     upload = "--no-upload" not in sys.argv
     if not args or (args[0] not in CONCEPTS and args[0] != "all"):
         sys.exit(f"Uso: python json_builder.py <{'|'.join(CONCEPTS)}|all> [--no-upload]")
-    targets = list(CONCEPTS) if args[0] == "all" else [args[0]]
+    # 'all' no incluye actuals_previos: los FY cerrados no cambian y republicarlos desde planas locales
+    # viejas/incompletas pisa el LY bueno. Se publican solo pidiéndolo explícito.
+    targets = [c for c in CONCEPTS if c != "actuals_previos"] if args[0] == "all" else [args[0]]
     for c in targets:
         build(c, upload=upload)
     if upload and "budget" in targets:     # okr.json deriva de budget.json: regenerarlo evita que el OKR Status quede viejo

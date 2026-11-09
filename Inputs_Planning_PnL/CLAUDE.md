@@ -157,5 +157,9 @@ CSV crudos (OneDrive\Planning-PBI - Inputs Power Bi)
 Correr las planas + `json_builder.py all` (o `run_all.bat`), verificar la salida de
 validación (nulos, países, total) y confirmar que los 5 JSON subieron a Drive.
 Si aparece error de auth, indicar `python auth_drive.py`.
+`all` NO republica `actuals_previos_fyNN.json` (LY): los FY cerrados no cambian, y el 2026-11-09 la plana FY26
+regenerada desde "00 - Actuals 2025" (sep-dic vacíos) pisó el LY y se perdieron los YoY de sep-dic (se restauró
+la revisión de Drive del 2026-08-11). Republicarlo solo con `json_builder.py actuals_previos`; si un FY trae menos
+de 12 meses, no se sube.
 
 - **Versiones organic para Toqan (2026-10-30)**: `organic_builder.py` genera `<base>_organic.json` (actuals, baseline, runrate, forecast, forecastbtb) a TC Budget con la regla de P&L Accounting (USD × TC origen / TC Budget; origen = Actuals para real/baseline/RR, Forecast para forecast/BTB; orders y países sin TC nominales; RG/OPS con TC Brasil) y los sube a la carpeta de canónicos y a la comprimida. Se regeneran solos al final de `json_builder.py` y de `baseline_builder._emit`. El Budget no tiene versión organic (ya está a TC Budget).
