@@ -1230,18 +1230,19 @@ SELECT
     SUM(b.net_revenues_usd
         + COALESCE(be.correccion_be, 0)
         + COALESCE(mkt.monto_usd, 0))                                    AS net_revenues,
-    -- FVM = margen variable + Financial Result + Dif FX + cobertura, como el FVM de B2B2C / B2B y el
-    -- Budget B2C (Variable_Margin + Financial_Result + Dif_FX). Hasta 2026-10-27 iba sin Financial
-    -- Result ni Dif FX: en W43 daba $5,5M en vez de $4,6M (49% del NR en vez de 41%).
-    SUM(b.margin_variable_net_usd
+    -- FVM (2026-11-09, corrección del equipo B2C para cerrar con su reporte oficial): npv_net_usd ya trae
+    -- margen variable + Financial Result + Dif FX con la fórmula interna; más los fondos y la Dif FX de
+    -- Expedia PP (dif_fx_pp_exp_usd), que npv_net no incluye. W45 Argentina: 2,510.7k -> 2,636.2k (+125k).
+    -- Antes (2026-10-27 a 2026-11-09): margin_variable_net + financial_result + dif_fx(+air) + hedge(+air),
+    -- que en Argentina restaba la Dif FX de más (-135k en W45).
+    SUM(b.npv_net_usd
         + COALESCE(be.correccion_be, 0)
         + COALESCE(d.mktg_funds_usd, 0)
         + COALESCE(mkt.monto_usd, 0)
-        + COALESCE(b.financial_result_usd, 0)
-        + COALESCE(b.dif_fx_usd, 0) + COALESCE(b.dif_fx_air_usd, 0)
-        + COALESCE(b.currency_hedge_usd, 0) + COALESCE(b.currency_hedge_air_usd, 0)) AS margenVAr_conAA,
+        + COALESCE(b.dif_fx_pp_exp_usd, 0)) AS margenVAr_conAA,
     -- COI + efecto financiero tal como entran en el FVM (mismo criterio que coi_fin_br de B2B2C); agg_b2c
-    -- lo usa solo para Brasil: fila RG con -fin_coi (switch "COI Brasil")
+    -- lo usa solo para Brasil: fila RG con -fin_coi (switch "COI Brasil"). npv_net incluye el Financial
+    -- Result (Brasil W45: npv - margen variable = financial_result), así que el ajuste sigue valiendo.
     SUM(COALESCE(b.financial_result_usd, 0) - COALESCE(b.coi_usd, 0))     AS fin_coi
 
 FROM data.analytics.bi_pnlop_fact_current_model b
