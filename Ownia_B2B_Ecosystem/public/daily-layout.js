@@ -873,7 +873,8 @@
       el('view-daily').style.display = 'none';
       document.querySelectorAll('.view-nav .vnav-btn').forEach(function (x) { x.classList.toggle('active', x === b); });
       var lt = el('daily-lob-toggle'); if (lt) lt.style.display = 'none';
-      var org = el('org-wrap'); if (org) org.style.display = 'none';
+      // Organic queda visible (vive en "+ Filtros" y también aplica acá). Antes se ocultaba y nadie lo volvía a mostrar.
+      var org = el('org-wrap'); if (org) org.style.display = '';
       var t = el('topbar-title'); if (t) t.textContent = 'Industry events tracker';
       if (v) v.style.display = '';
       loadEvents();
