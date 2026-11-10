@@ -2353,8 +2353,9 @@ function _b2cRows_(raw) {
   }));
   return raw._b2cExpanded;
 }
-function computeB2C_(raw, metric, vDate, gran) {
-  var rows = _b2cRows_(raw);
+// orgT: target organic de la vista (2026-11-09): la línea B2C se convierte igual que la serie que acompaña
+function computeB2C_(raw, metric, vDate, gran, orgT) {
+  var rows = _orgRows_(_b2cRows_(raw), orgT || '');
   if (!rows.length) return null;
   var MF = {gb:'gross_bookings', nr:'net_revenues', fvm:'fvm'}[metric];
   var pp = vDate.split('-'), curYM = pp[0]+'-'+pp[1];
@@ -3128,7 +3129,7 @@ function renderMetrics(all) {
     var chartDaily = b2bcSeries_(def.key, gran, all);
     var isPct = def.key !== 'gb' && _b2bcMarginMode === 'pct';
     if (isPct && all.gb) chartDaily = toPctDaily_(chartDaily, b2bcSeries_('gb', gran, all));
-    var b2cSeries = (_showB2C_b2bc && !isPct) ? computeB2C_(_rawB2BC, def.key, d.viewDate, gran) : null;
+    var b2cSeries = (_showB2C_b2bc && !isPct) ? computeB2C_(_rawB2BC, def.key, d.viewDate, gran, _orgTargetB2BC_()) : null;
     renderChart(def.key, def.chartId, chartDaily, d.viewDate, def.color, gran, undefined, {pctMode:isPct, b2c:b2cSeries});
     var tblGroups = (gl_tbl_period === 'ytd' && d.groups_ytd) ? d.groups_ytd : d.groups;
     renderGroupedTable3(def.tblId, tblGroups, {newFlagKey:'isNew'});
@@ -4360,7 +4361,7 @@ function renderB2BMetrics(all) {
     var chartDailyB2b = d.daily;
     var isPctB2b = def.key !== 'gb' && _b2bMarginMode === 'pct';
     if (isPctB2b && all.gb) chartDailyB2b = toPctDaily_(d.daily, all.gb.daily);
-    var b2cSeriesB2b = (_showB2C_b2b && !isPctB2b) ? computeB2C_(_rawB2B, def.key, d.viewDate, gran) : null;
+    var b2cSeriesB2b = (_showB2C_b2b && !isPctB2b) ? computeB2C_(_rawB2B, def.key, d.viewDate, gran, _orgTargetB2B_()) : null;
     renderChart(def.key, def.chartId, chartDailyB2b, d.viewDate, def.color, gran, _b2bCharts, {pctMode:isPctB2b, b2c:b2cSeriesB2b});
     var tblGroupsB2b = (gl_tbl_period === 'ytd' && d.groups_ytd) ? d.groups_ytd : d.groups;
     renderGroupedTableB2B_(def.tblId, tblGroupsB2b);
@@ -4486,10 +4487,11 @@ function _b2cLyRows_(raw) {
 
 // { cur, ly, nr } — filas y nombre del campo NR (net_revenues plural en actuals/b2c, singular en b2b)
 function _benchRows_(biz) {
-  // organic: B2B2C / B2B a TC Actuals LY (vista de crecimiento YoY → target Last Year); B2C nunca se convierte
+  // organic: B2B2C / B2B / B2C a TC Actuals LY (vista de crecimiento YoY → target Last Year). B2C se convierte
+  // desde 2026-11-09 (antes no: el "vs B2C" mezclaba organic con nominal), como en Weekly · vs B2C e Industry events.
   if (biz === 'b2b2c') { var rb = b2bcRaw_(); return { cur: _orgRows_(rb.actuals || [], _orgTargetBench_()), ly: (rb.actuals_ly || []), nr: 'net_revenues' }; }   // respeta el switch Partner TBD
   if (biz === 'b2b')   return { cur: (_rawB2B ? _orgRows_(_rawB2B.b2b_gd || [], _orgTargetBench_()) : []), ly: (_rawB2B ? (_rawB2B.b2b_gd_ly || []) : []), nr: 'net_revenue' };
-  return { cur: _b2cRows_(_rawB2BC), ly: _b2cLyRows_(_rawB2BC), nr: 'net_revenues' };
+  return { cur: _orgRows_(_b2cRows_(_rawB2BC), _orgTargetBench_()), ly: _b2cLyRows_(_rawB2BC), nr: 'net_revenues' };
 }
 
 // Una sola pasada: total + desglose por país, filtrado por [from,to] y país.
