@@ -1975,6 +1975,9 @@ function setPaisFilter_(val) {
 // se muestran nominales. YoY "opción B": con target Budget/Forecast cada fila convertida trae además
 // <campo>_y = el valor a TC Actuals LY, y los YoY se calculan con eso (_yv_). Orders y países sin TC
 // (Other Countries, USA, …) no se convierten; RG/OPS usan el TC de Brasil.
+// Mes abierto (2026-11-09, opción A): el TC Actuals de los meses posteriores al último cierre es el real MTD
+// (Σ GB moneda local / Σ GB USD de B2C, fx_implicito.json), no el proyectado del archivo. Lo pisa el servidor
+// (readFxTable_, Codigo_organic.js), así que llega igual al navegador, al Weekly y a Industry events.
 var _dlOrganic = false;
 var _fxTbl = null, _fxState = 'idle';      // tabla de TC (getFxTable), se pide al prender el switch
 var _orgError_ = '', _orgMissing_ = {};
@@ -2098,7 +2101,7 @@ function setDailyOrganic(on) {
       .withSuccessHandler(function(res) {
         _fxState = 'idle';
         if (!res || !res.success) { _orgError_ = (res && res.error) || 'No se pudo leer el archivo de tipos de cambio'; _dlOrganic = false; _syncOrganicUI_(); return; }
-        _fxTbl = { actuals: res.actuals, budget: res.budget, forecast: res.forecast };
+        _fxTbl = { actuals: res.actuals, budget: res.budget, forecast: res.forecast, implicito: res.implicito || null };   // implicito: meses abiertos con TC real MTD (fx_implicito.json)
         _orgRefreshAll_();
       })
       .withFailureHandler(function(err) {
@@ -2154,6 +2157,7 @@ function _syncOrganicUI_() {
     var vt = _orgTargetVisible_();
     if (!vt.t) note.textContent = 'No disponible con ' + (vt.cmp === 'runrate' ? 'Run Rate' : vt.cmp) + ' (sin TC): datos nominales';
     else note.textContent = 'Actuals × TC Actuals / TC ' + _orgTargetLabel_(vt.t) + (vt.t === 'forecast' ? ' · Forecast a TC Budget' : '') + (vt.t === 'ly' ? '' : ' · YoY a TC Actuals LY')
+      + (_fxTbl && _fxTbl.implicito && _fxTbl.implicito.meses && _fxTbl.implicito.meses.length ? ' · TC ' + _fxTbl.implicito.meses.join(', ') + ': real MTD (GB local / GB USD)' : '')
       + (miss.length ? ' · sin TC: ' + miss.slice(0, 4).join(', ') + (miss.length > 4 ? ' …' : '') : '');
   }
   note.title = note.textContent;

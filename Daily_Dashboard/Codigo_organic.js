@@ -32,22 +32,39 @@ var _FX_PAIS_ALIAS_ = { 'ops': 'brasil', 'rg': 'brasil', 'ops + rg': 'brasil', '
 
 var _FX_MES_ = { abr:4, may:5, jun:6, jul:7, ago:8, sep:9, sept:9, oct:10, nov:11, dic:12, ene:1, feb:2, mar:3 };
 
-// Fecha de modificación del xlsx de TC, cacheada 60 s (entra en la clave del caché de resultados).
+// TC implícito del mes abierto (2026-11-09, opción A): fx_implicito.json lo publica daily_sync.py
+// (fx_implicito_sync.py) = Σ GB moneda local / Σ GB USD de las ventas B2C, por país. Pisa el TC Actuals del
+// archivo SOLO en los meses posteriores al último cierre (en el archivo son el TC proyectado del Run Rate);
+// los cerrados y el LY siguen con el oficial. Sin el archivo, todo queda como antes.
+var FX_IMPL_FILE = 'fx_implicito.json';
+function _fxImplMod_() {
+  try { return _driveFile_(FX_IMPL_FILE).getLastUpdated().getTime(); } catch (e) { return 0; }
+}
+function _fxImplicito_() {
+  try {
+    var o = JSON.parse(loadText_(FX_IMPL_FILE, 'fx_implicito'));
+    return (o && o.rates) ? o : null;
+  } catch (e) { return null; }
+}
+
+// Fecha de modificación del xlsx de TC + la del TC implícito, cacheada 60 s (entra en la clave del caché de
+// resultados: si cambia cualquiera de los dos, se recalcula).
 function _fxMod_() {
   try {
-    var hit = CacheService.getScriptCache().get('fx_mod_v1');
+    var hit = CacheService.getScriptCache().get('fx_mod_v2');
     if (hit) return Number(hit);
-    var t = DriveApp.getFileById(FX_FILE_ID).getLastUpdated().getTime();
-    CacheService.getScriptCache().put('fx_mod_v1', String(t), 60);
+    var t = DriveApp.getFileById(FX_FILE_ID).getLastUpdated().getTime() + _fxImplMod_();
+    CacheService.getScriptCache().put('fx_mod_v2', String(t), 60);
     return t;
   } catch (e) { return 0; }
 }
 
 // Lee tc_plana_flat.xlsx (xlsx = zip de XMLs) → { actuals:{'pais§ym':tc}, budget:{…}, forecast:{…} }.
 // Copia de readFxTable_ de Dashboard_B2B_WLs/Codigo.js.
-var _fxCache_ = null;
+var _fxCache_ = null, _fxCacheKey_ = null;   // en Ownia el global sobrevive entre pedidos: se valida con _fxMod_
 function readFxTable_() {
-  if (_fxCache_) return _fxCache_;
+  var ck = _fxMod_();
+  if (_fxCache_ && _fxCacheKey_ === ck) return _fxCache_;
   var blob  = DriveApp.getFileById(FX_FILE_ID).getBlob().setContentType('application/zip');
   var parts = {};
   Utilities.unzip(blob).forEach(function(b) { parts[b.getName()] = b; });
@@ -103,7 +120,19 @@ function readFxTable_() {
   ['actuals', 'budget', 'forecast'].forEach(function(k) {
     if (!Object.keys(fx[k]).length) throw new Error('no hay tipos de cambio de "' + k + '" (revisar escenario / mes / dato)');
   });
-  _fxCache_ = fx;
+  var imp = _fxImplicito_();
+  if (imp) {
+    var cerrado = String((imp.meta && imp.meta.last_closed) || '');
+    var usados = {};
+    Object.keys(imp.rates).forEach(function(k) {
+      var ym = k.split('§')[1] || '';
+      if (!(imp.rates[k] > 0) || !ym || ym <= cerrado) return;
+      fx.actuals[k] = imp.rates[k];
+      usados[ym] = 1;
+    });
+    fx.implicito = { meses: Object.keys(usados).sort(), hasta: (imp.meta && imp.meta.hasta) || '' };
+  }
+  _fxCache_ = fx; _fxCacheKey_ = ck;
   return fx;
 }
 
@@ -136,12 +165,12 @@ function organicConverter_(target) {
 // fecha de modificación del xlsx (si lo reemplazan, la clave cambia sola).
 function getFxTable() {
   try {
-    var key = 'fx_table_v1_' + _fxMod_();
+    var key = 'fx_table_v2_' + _fxMod_();
     var sc  = CacheService.getScriptCache();
     var hit = sc.get(key);
     if (hit) return JSON.parse(hit);
     var fx = readFxTable_();
-    var out = { success: true, actuals: fx.actuals, budget: fx.budget, forecast: fx.forecast };
+    var out = { success: true, actuals: fx.actuals, budget: fx.budget, forecast: fx.forecast, implicito: fx.implicito || null };
     try { sc.put(key, JSON.stringify(out), CACHE_TTL); } catch (e) {}
     return out;
   } catch (e) {

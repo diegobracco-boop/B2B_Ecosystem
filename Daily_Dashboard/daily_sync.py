@@ -2002,6 +2002,17 @@ except Exception as e:
     print(f"  WARN Overs Media Sales failed: {e} — queda el {OVERS_FILE_NAME} anterior en Drive")
     overs_payload = None
 
+# TC implícito B2C de los meses abiertos (2026-11-09): pisa el TC proyectado de tc_plana_flat en el Organic del Daily
+# (ver fx_implicito_sync.py). Mismo criterio que los Overs: si falla queda el fx_implicito.json anterior.
+print("\n--- TC implícito (Organic, mes abierto) ---")
+from fx_implicito_sync import build_fx_implicito, upload as upload_fx_impl, FX_IMPL_FILE_NAME
+try:
+    fx_impl_payload = build_fx_implicito(fetch, YESTERDAY)
+    print("  " + " | ".join(f"{d['pais']} {d['ym']} {d['tc']:,.4f}" for d in fx_impl_payload["detalle"]))
+except Exception as e:
+    print(f"  WARN TC implícito failed: {e} — queda el {FX_IMPL_FILE_NAME} anterior en Drive")
+    fx_impl_payload = None
+
 print("\n--- FVM Negativo (landing FVM_Negativo) ---")
 # No va a _FAILED_BLOCKS: si una query falla o el FVM total no cuadra contra el del Daily,
 # NO se sube fvm_negativo.json (queda el de la corrida anterior) y el resto del Daily sigue igual.
@@ -2442,6 +2453,13 @@ elif overs_payload is not None:
         upload_overs(overs_payload, _get_drive_service())
     except Exception as e:
         print(f"  WARN no se pudo subir {OVERS_FILE_NAME}: {e}")
+if fx_impl_payload is not None and DRY_RUN_DIR:
+    upload_to_drive(json.dumps(fx_impl_payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8"), FX_IMPL_FILE_NAME)
+elif fx_impl_payload is not None:
+    try:
+        upload_fx_impl(fx_impl_payload, _get_drive_service())
+    except Exception as e:
+        print(f"  WARN no se pudo subir {FX_IMPL_FILE_NAME}: {e}")
 
 # Partners API (KR Global B2B API "Accelerate Hunting Partners API"): congela el mes anterior el primer dia habil del mes y recalcula
 # el rolling de 30 dias (ver partners_api_sync.py). No corta la sync: si falla queda el partners_api_snapshots.json anterior.

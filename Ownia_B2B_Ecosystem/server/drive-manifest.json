@@ -60,7 +60,8 @@
           "recurrencia_b2b.json",
           "agencias_okr.json",
           "industry_events.json",
-          "b2c_budget_weekly.json", "pipeline_b2b2c.json"
+          "b2c_budget_weekly.json", "pipeline_b2b2c.json",
+          "fx_implicito.json"
         ]
       },
       "sheets": {
