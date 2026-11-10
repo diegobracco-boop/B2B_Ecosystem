@@ -1230,16 +1230,15 @@ SELECT
     SUM(b.net_revenues_usd
         + COALESCE(be.correccion_be, 0)
         + COALESCE(mkt.monto_usd, 0))                                    AS net_revenues,
-    -- FVM (2026-11-09, corrección del equipo B2C para cerrar con su reporte oficial): npv_net_usd ya trae
-    -- margen variable + Financial Result + Dif FX con la fórmula interna; más los fondos y la Dif FX de
-    -- Expedia PP (dif_fx_pp_exp_usd), que npv_net no incluye. W45 Argentina: 2,510.7k -> 2,636.2k (+125k).
+    -- FVM (2026-11-09) = el "NPV AS FVM" de la query oficial del equipo B2C (ACT v4): npv_net_usd + corrección
+    -- BE + mktg funds + mkt funds BD1. npv_net ya trae margen variable + Financial Result + Dif FX con la
+    -- fórmula interna (la Dif FX de Expedia PP va solo en su columna Dif_FX, no en el FVM).
     -- Antes (2026-10-27 a 2026-11-09): margin_variable_net + financial_result + dif_fx(+air) + hedge(+air),
-    -- que en Argentina restaba la Dif FX de más (-135k en W45).
+    -- que en Argentina restaba la Dif FX de más (W45: 2,510.7k vs 2,646.0k).
     SUM(b.npv_net_usd
         + COALESCE(be.correccion_be, 0)
         + COALESCE(d.mktg_funds_usd, 0)
-        + COALESCE(mkt.monto_usd, 0)
-        + COALESCE(b.dif_fx_pp_exp_usd, 0)) AS margenVAr_conAA,
+        + COALESCE(mkt.monto_usd, 0)) AS margenVAr_conAA,
     -- COI + efecto financiero tal como entran en el FVM (mismo criterio que coi_fin_br de B2B2C); agg_b2c
     -- lo usa solo para Brasil: fila RG con -fin_coi (switch "COI Brasil"). npv_net incluye el Financial
     -- Result (Brasil W45: npv - margen variable = financial_result), así que el ajuste sigue valiendo.
@@ -1262,9 +1261,8 @@ FROM data.analytics.bi_pnlop_fact_current_model b
     LEFT JOIN data.tmp.mkt_funds_bd1 mkt
         ON CAST(mkt.product_id AS VARCHAR) = CAST(p.product_id AS VARCHAR)
 
-    LEFT JOIN data.analytics.bi_pnlop_fact_pricing_model pr
-        ON CAST(pr.product_id AS VARCHAR) = CAST(p.product_id AS VARCHAR)
-        AND pr.date_reservation_year_month >= '2023-01'
+    -- Como la query oficial: sin el join a bi_pnlop_fact_pricing_model (ningún campo lo usaba). La oficial
+    -- tiene además INNER JOIN bi_transactional_fact_charges: en W45 no cambia ninguna fila, no se agrega.
 
 WHERE
     b.date_reservation_year_month  >= '2023-01'
@@ -1276,7 +1274,9 @@ WHERE
     AND t.confirmation_date        <= DATE('{date_to}')
     AND p.is_confirmed_flg = 1
     AND (t.line_of_business = 'B2C' OR t.channel = 'puntosbonus-pe')
-    AND b.gb_without_distorted_taxes_usd > 0
+    -- GB > 0, salvo Ancillaries y Traslados de Viajes Falabella Chile (como la query oficial de B2C)
+    AND (b.gb_without_distorted_taxes_usd > 0
+         OR (t.brand = 'Viajes Falabella' AND t.purchase_type IN ('Ancillaries', 'Traslados') AND t.country_code = 'CL'))
     AND t.channel <> 'internal-travel'
 
 GROUP BY 1, 2
