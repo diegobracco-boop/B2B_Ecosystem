@@ -1536,7 +1536,11 @@ header > img{filter:brightness(0) invert(1);opacity:.92}
       <div class="evo-hdr">
         <h3>Marketing Cost, Media Revenue &amp; Overs — B2B</h3>
         <div style="display:flex;align-items:center;gap:10px">
-          <div class="gran-toggle">
+          <div class="gran-toggle" id="mkt-view">
+            <button class="gran-btn active" data-v="chart" onclick="switchMktView(this)">Gráfico</button>
+            <button class="gran-btn"        data-v="table" onclick="switchMktView(this)">Tabla</button>
+          </div>
+          <div class="gran-toggle" id="mkt-expand-wrap" style="display:none">
             <button class="gran-btn" id="mkt-expand-btn" onclick="toggleMktAll()">Abrir todo ▾</button>
           </div>
           <div class="gran-toggle" id="mkt-gran">
@@ -1546,11 +1550,12 @@ header > img{filter:brightness(0) invert(1);opacity:.92}
           </div>
         </div>
       </div>
-      <div class="evo-subtitle"><?!= 'FY' + String(FY_END_YEAR).slice(-2) ?> · Abr <?!= FY_END_YEAR - 1 ?> → Mar <?!= FY_END_YEAR ?> · Actuals + Run Rate vs Goal y Forecast (gráfico) · vs Budget y Forecast (tabla)</div>
+      <div class="evo-subtitle"><?!= 'FY' + String(FY_END_YEAR).slice(-2) ?> · Abr <?!= FY_END_YEAR - 1 ?> → Mar <?!= FY_END_YEAR ?> · Gráfico: Actuals + Run Rate vs Goal y Forecast · Tabla: detalle por país vs Budget y Forecast</div>
       <!-- scroll compartido: chart + tabla se desplazan juntos -->
       <div style="overflow-x:auto;margin:8px -22px 0">
         <div id="mkt-inner" style="min-width:960px;padding:0 22px 18px">
-          <div style="position:relative;height:250px"><canvas id="chart-mkt"></canvas></div>
+          <div id="mkt-chart-wrap" style="position:relative;height:250px"><canvas id="chart-mkt"></canvas></div>
+          <div id="mkt-table-wrap" style="display:none">
           <table class="pnl-table" id="mkt-table" style="width:100%;margin-top:0;border-top:none">
             <thead><tr class="head-canals" id="mkt-head"></tr></thead>
             <tbody id="mkt-body">
@@ -1558,6 +1563,7 @@ header > img{filter:brightness(0) invert(1);opacity:.92}
             </tbody>
           </table>
           <div style="font-size:11px;color:var(--muted2);margin-top:8px;line-height:1.45">Overs (sobrecomisión de Media Sales) sale de Metabase (negociaciones con overs, por mes negociado, en USD): no tiene país ni Budget, por eso solo está en el Total y se compara contra Forecast. Los meses cerrados muestran el real; el mes en curso y los siguientes, el forecast. No se suma al Media Revenue ni cambia con el switch Organic.</div>
+          </div>
         </div>
       </div>
     </div>
@@ -5330,6 +5336,17 @@ function mktChipDelta(n) {
   if (n === null || n === undefined || isNaN(n)) return '<span style="color:var(--muted2)">—</span>';
   var cls = n >= 0 ? 'chip-pos' : 'chip-neg', ico = n >= 0 ? '▲ +' : '▼ ';
   return '<span class="chip ' + cls + '">' + ico + fmtInt(Math.abs(n)) + '</span>';
+}
+
+// Switch Gráfico / Tabla (la tabla trae el detalle por país con Δ y %). Por defecto, gráfico.
+function switchMktView(btn) {
+  var v = btn.getAttribute('data-v');
+  document.querySelectorAll('#mkt-view .gran-btn').forEach(function(b) { b.classList.toggle('active', b === btn); });
+  var isTable = v === 'table';
+  document.getElementById('mkt-chart-wrap').style.display = isTable ? 'none' : '';
+  document.getElementById('mkt-table-wrap').style.display = isTable ? '' : 'none';
+  document.getElementById('mkt-expand-wrap').style.display = isTable ? '' : 'none';
+  if (!isTable && _charts['chart-mkt']) _charts['chart-mkt'].resize();
 }
 
 function switchMktGran(btn) {
