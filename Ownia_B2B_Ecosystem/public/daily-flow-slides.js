@@ -41,7 +41,7 @@
     var W = window;
     var org = !!(W._dlOrganic && W._fxTbl), coi = !!W._exCoiBr;
     (W.FLOW_DECK || []).forEach(function (def, i) {
-      if (def.kind === 'divider' || def.kind === 'b2b2c_pipeline') return;
+      if (def.kind === 'divider' || def.kind === 'b2b2c_pipeline' || def.kind === 'wk_api' || def.kind === 'wk_html') return;   // wk_*: imágenes del Weekly (daily-flow-b2b.js)
       var sl = document.querySelector('#flow-track .flow-frame[data-idx="' + i + '"] .flow-slide');
       if (!sl) return;
       Array.prototype.forEach.call(sl.querySelectorAll('.ow-fl-org,.ow-fl-fn'), function (e) { e.remove(); });

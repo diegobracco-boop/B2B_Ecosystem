@@ -70,8 +70,9 @@
   function errText(e) { return e && e.message ? e.message : String(e); }
 
   // Fecha de los datos del Tracker ("Actuals al 2026-11-02 • Generado: …")
-  function dataDate() {
-    var m = /(\d{4})-(\d{2})-(\d{2})/.exec((document.getElementById('metaInfo') || {}).textContent || '');
+  // fallback: texto del metaInfo del Tracker cuando esta página no lo tiene (el Flow semanal arma este mismo deck fuera del Tracker).
+  function dataDate(fallback) {
+    var m = /(\d{4})-(\d{2})-(\d{2})/.exec((document.getElementById('metaInfo') || {}).textContent || fallback || '');
     return m ? { y: m[1], m: +m[2], d: m[3], dmy: m[3] + '.' + m[2] + '.' + m[1] } : { y: '', m: new Date().getMonth() + 1, d: '', dmy: '' };
   }
 
@@ -179,11 +180,13 @@
     ' SLIDE_ORDER.splice(0, SLIDE_ORDER.length, want[0], want[1], want[2], want[3]);' +
     ' try { return await _captureAllSlides(null, { jpeg: true }); } finally { SLIDE_ORDER.splice(0, SLIDE_ORDER.length, ...orig); }' +
     '})()';
+  var trkMetaText = '';
   async function captureTracker() {
     var f = await hiddenFrame('/b2b-ecosystem/daily?view=tracker&organic=1&coibr=excl'), w = f.contentWindow;
     try {
       await until(function () { return typeof w._captureAllSlides === 'function' && w.eval('typeof rawData !== "undefined" && !!rawData'); }, 120000, 'el Tracker');
       await sleep(1500);
+      try { trkMetaText = (w.document.getElementById('metaInfo') || {}).textContent || ''; } catch (e) { /* sin fecha */ }
       var caps = await w.eval(TRACKER_CAPTURE);
       return await Promise.all(caps.map(function (c) { return c && c.img ? loadImg(c.img) : null; }));
     } finally { f.remove(); }
@@ -291,10 +294,10 @@
 
   // Todas las slides del deck, en orden, como imágenes JPEG 1920×1080
   async function buildDeck() {
-    var dd = dataDate(), mes = MES[dd.m - 1] || '';
     await loadFonts();
     upd('Capturando el Tracker…');
     var trk = await safe(captureTracker(), 'Tracker') || [null, null, null, null];
+    var dd = dataDate(trkMetaText), mes = MES[dd.m - 1] || '';   // la fecha de los datos sale de la página o, si no la tiene (Flow semanal), del Tracker capturado
     upd('Capturando el Dashboard B2B API…');
     var dash = await safe(captureDash(), 'Dashboard B2B API') || { demanda: null, venta: {}, producto: null };
     upd('Capturando el gráfico de FVM del Daily (GD)…');
@@ -329,7 +332,10 @@
   }
 
   // ── Exportar ──
-  function upd(m) { try { updateExportOverlay(m); } catch (e) { /* sin overlay */ } }
+  function upd(m) {
+    try { updateExportOverlay(m); } catch (e) { /* sin overlay */ }
+    try { if (typeof window.__wkProgress === 'function') window.__wkProgress(m); } catch (e) { /* sin avance */ }
+  }
   async function exportPDF() {
     if (_exporting) return;
     _exporting = true;
@@ -394,5 +400,7 @@
     btn.parentNode.insertBefore(wrap, btn.nextSibling);
   }
   if (document.readyState === 'complete') init(); else window.addEventListener('load', init);
+  // Flow semanal (Presentaciones → Semanal): la sección "B2B API" usa estas MISMAS 14 slides (public/daily-flow-b2b.js).
+  window.__wkBuildDeck = buildDeck;
   if (window.__wkBase) window.__wkTest = { buildDeck: buildDeck };   // solo para probar en local
 })();

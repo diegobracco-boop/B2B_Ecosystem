@@ -173,13 +173,20 @@
     });
     // Weekly: en el Flow quedó solo la vista GD (daily-ceo-weekly.js saca las RI)
     body = body.concat(pick(function (d) { return (d.kind === 'weekly' && d.lob === 'B2B+B2B2C') || (d.kind === 'ceo_weekly' && d.n === 1); }));
-    body.push({ kind: 'divider', flag: 'B2B', title: 'B2B: ¿cómo vienen API y HTML?', name: '— B2B —' });
-    body = body.concat(pick(function (d) {
-      return d.kind === 'b2b_krs' || (d.kind === 'b2b_chart' && !d.channel && (d.tab === 'nr_ri' || d.tab === 'fvm_ri')) ||
-        (d.kind === 'b2b_tables' && d.dateType === 'ri' && !!d.channel);
-    }));
+    // B2B (2026-11-11): dos secciones con su carátula, B2B API (las 14 slides del Weekly B2B-MAY) y B2B HTML (pendiente); daily-flow-b2b.js.
+    // Las slides B2B del Flow de antes (Status KRs, NR / FVM RI, Tablas RI API y HTML) siguen en el Anexo de la vista Completa.
+    if (Array.isArray(W.FLOW_B2B_DECK) && W.FLOW_B2B_DECK.length) body = body.concat(W.FLOW_B2B_DECK);
+    else {
+      body.push({ kind: 'divider', flag: 'B2B', title: 'B2B: ¿cómo vienen API y HTML?', name: '— B2B —' });
+      body = body.concat(pick(function (d) {
+        return d.kind === 'b2b_krs' || (d.kind === 'b2b_chart' && !d.channel && (d.tab === 'nr_ri' || d.tab === 'fvm_ri')) ||
+          (d.kind === 'b2b_tables' && d.dateType === 'ri' && !!d.channel);
+      }));
+    }
     // Slides de análisis puntuales de otras capas (W.FLOW_EXTRA = [{def, html}], p.ej. daily-flow-elecciones.js): al final de la
     // vista Ejecutiva y, en la Completa, antes del Anexo.
+    // Con carátula propia (2026-11-11) para que no queden pegadas a la sección B2B.
+    if ((W.FLOW_EXTRA || []).length) body.push({ kind: 'divider', flag: 'BR', title: 'Brasil: elecciones y la desaceleración de octubre', name: '— Brasil · elecciones —' });
     (W.FLOW_EXTRA || []).forEach(function (x) { body.push(x.def); });
     if (m === 'exec') return body;
     return body.concat([{ kind: 'divider', flag: '+', title: 'Anexo · detalle completo', name: '— Anexo —' }])
@@ -263,6 +270,7 @@
         W._flowSeries[idx] = [];
         try { return summaryHtml(); } catch (e) { return '<div class="flow-slide"><p style="padding:40px">No se pudo armar el resumen: ' + esc(e.message) + '</p></div>'; }
       }
+      if (def && (def.kind === 'wk_api' || def.kind === 'wk_html') && typeof W.FLOW_B2B_HTML === 'function') { W._flowSeries[idx] = []; return W.FLOW_B2B_HTML(def); }   // daily-flow-b2b.js
       var extra = (W.FLOW_EXTRA || []).filter(function (x) { return x.def === def; })[0];
       if (extra) { W._flowSeries[idx] = []; return extra.html(); }
       var html = origSlide.apply(this, arguments);
