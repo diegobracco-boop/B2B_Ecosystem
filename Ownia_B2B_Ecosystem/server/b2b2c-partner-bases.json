@@ -1,0 +1,709 @@
+{
+ "actualizado": "2026-11-10",
+ "fuente": "B2B2C_Data Histórica (1).xlsx",
+ "nota": "Provisorio: valores tal cual del Excel, a validar con los equipos. Ver flags.",
+ "rows": [
+  {
+   "partner": "WL Hotels",
+   "pais": "Argentina",
+   "clientes": 20000.0,
+   "fuente": "Inferido Benchmark",
+   "industria": "Hotelero",
+   "flags": [
+    "inferido"
+   ]
+  },
+  {
+   "partner": "Awin",
+   "pais": "Brasil",
+   "clientes": 60000.0,
+   "fuente": "Inferido Benchmark",
+   "industria": "Otro",
+   "flags": [
+    "inferido"
+   ]
+  },
+  {
+   "partner": "Azul Airlines",
+   "pais": "Argentina",
+   "clientes": 1500000.0,
+   "fuente": "Inferido Benchmark",
+   "industria": "Aerolinea",
+   "flags": [
+    "inferido"
+   ]
+  },
+  {
+   "partner": "Bancolombia",
+   "pais": "Colombia",
+   "clientes": 24000000.0,
+   "fuente": "Fuente Oficial",
+   "industria": "Financiero",
+   "flags": []
+  },
+  {
+   "partner": "BBVA",
+   "pais": "Argentina",
+   "clientes": 4000000.0,
+   "fuente": "Fuente Oficial",
+   "industria": "Financiero",
+   "flags": []
+  },
+  {
+   "partner": "BBVA",
+   "pais": "Colombia",
+   "clientes": 3000000.0,
+   "fuente": "Fuente Oficial",
+   "industria": "Financiero",
+   "flags": []
+  },
+  {
+   "partner": "BBVA",
+   "pais": "Other Countries",
+   "clientes": 700000.0,
+   "fuente": "Inferido Benchmark",
+   "industria": "Financiero",
+   "flags": [
+    "inferido"
+   ]
+  },
+  {
+   "partner": "BBVA",
+   "pais": "Peru",
+   "clientes": 4000000.0,
+   "fuente": "Fuente Oficial",
+   "industria": "Financiero",
+   "flags": []
+  },
+  {
+   "partner": "BCI",
+   "pais": "Chile",
+   "clientes": 2000000.0,
+   "fuente": "Inferido Benchmark",
+   "industria": "Financiero",
+   "flags": [
+    "inferido"
+   ]
+  },
+  {
+   "partner": "BICE",
+   "pais": "Chile",
+   "clientes": 1566588.0,
+   "fuente": "Fuente Oficial",
+   "industria": "Financiero",
+   "flags": []
+  },
+  {
+   "partner": "BNA",
+   "pais": "Argentina",
+   "clientes": 15000000.0,
+   "fuente": "Inferido Benchmark",
+   "industria": "Financiero",
+   "flags": [
+    "inferido"
+   ]
+  },
+  {
+   "partner": "Bonda",
+   "pais": "Mexico",
+   "clientes": 48794.0,
+   "fuente": "Inferido Benchmark",
+   "industria": "Financiero",
+   "flags": [
+    "trafico",
+    "inferido"
+   ]
+  },
+  {
+   "partner": "Bradesco",
+   "pais": "Brasil",
+   "clientes": 110000000.0,
+   "fuente": "Inferido Benchmark",
+   "industria": "Financiero",
+   "flags": [
+    "inferido"
+   ]
+  },
+  {
+   "partner": "Buser",
+   "pais": "Brasil",
+   "clientes": 11000000.0,
+   "fuente": "Fuente Oficial",
+   "industria": "Otro",
+   "flags": []
+  },
+  {
+   "partner": "Caja Los Andes",
+   "pais": "Chile",
+   "clientes": 4300000.0,
+   "fuente": "Fuente Oficial",
+   "industria": "Financiero",
+   "flags": []
+  },
+  {
+   "partner": "Cocos",
+   "pais": "Argentina",
+   "clientes": 1500000.0,
+   "fuente": "Inferido Benchmark",
+   "industria": "Financiero",
+   "flags": [
+    "inferido"
+   ]
+  },
+  {
+   "partner": "Coppel",
+   "pais": "Mexico",
+   "clientes": 7800000.0,
+   "fuente": "Fuente Oficial",
+   "industria": "Financiero",
+   "flags": []
+  },
+  {
+   "partner": "CSU",
+   "pais": "Brasil",
+   "clientes": 10000.0,
+   "fuente": "Inferido Benchmark",
+   "industria": "Financiero",
+   "flags": [
+    "inferido"
+   ]
+  },
+  {
+   "partner": "CUTC",
+   "pais": "Other Countries",
+   "clientes": 15000000.0,
+   "fuente": "Inferido Benchmark",
+   "industria": "Otro",
+   "flags": [
+    "inferido"
+   ]
+  },
+  {
+   "partner": "Didi",
+   "pais": "Mexico",
+   "clientes": 4304411.0,
+   "fuente": "Fuente Oficial",
+   "industria": "Otro",
+   "flags": [
+    "trafico"
+   ]
+  },
+  {
+   "partner": "Elektra",
+   "pais": "Mexico",
+   "clientes": 12000000.0,
+   "fuente": "Fuente Oficial",
+   "industria": "Retail",
+   "flags": []
+  },
+  {
+   "partner": "Elo",
+   "pais": "Brasil",
+   "clientes": 42000000.0,
+   "fuente": "Fuente Oficial",
+   "industria": "Financiero",
+   "flags": [
+    "red_tarjetas"
+   ]
+  },
+  {
+   "partner": "Esfera",
+   "pais": "Brasil",
+   "clientes": 15000000.0,
+   "fuente": "Inferido Benchmark",
+   "industria": "Financiero",
+   "flags": [
+    "inferido"
+   ]
+  },
+  {
+   "partner": "ICBC",
+   "pais": "Argentina",
+   "clientes": 1000000.0,
+   "fuente": "Fuente Oficial",
+   "industria": "Financiero",
+   "flags": []
+  },
+  {
+   "partner": "Invex",
+   "pais": "Mexico",
+   "clientes": 800000.0,
+   "fuente": "Inferido Benchmark",
+   "industria": "Aerolinea",
+   "flags": [
+    "inferido"
+   ]
+  },
+  {
+   "partner": "ITAU",
+   "pais": "Brasil",
+   "clientes": 100000000.0,
+   "fuente": "Fuente Oficial",
+   "industria": "Financiero",
+   "flags": []
+  },
+  {
+   "partner": "Itau Card",
+   "pais": "Brasil",
+   "clientes": 100000000.0,
+   "fuente": "Inferido Benchmark",
+   "industria": "Financiero",
+   "flags": [
+    "inferido"
+   ]
+  },
+  {
+   "partner": "KMV",
+   "pais": "Brasil",
+   "clientes": 30000000.0,
+   "fuente": "Fuente Oficial",
+   "industria": "Otro",
+   "flags": []
+  },
+  {
+   "partner": "Latam",
+   "pais": "Colombia",
+   "clientes": 8000000.0,
+   "fuente": "Inferido Benchmark",
+   "industria": "Aerolinea",
+   "flags": [
+    "inferido"
+   ]
+  },
+  {
+   "partner": "Latam",
+   "pais": "Ecuador",
+   "clientes": 3500000.0,
+   "fuente": "Inferido Benchmark",
+   "industria": "Aerolinea",
+   "flags": [
+    "inferido"
+   ]
+  },
+  {
+   "partner": "Latam",
+   "pais": "Mexico",
+   "clientes": 17084.0,
+   "fuente": "Inferido Benchmark",
+   "industria": "Aerolinea",
+   "flags": [
+    "trafico",
+    "inferido"
+   ]
+  },
+  {
+   "partner": "Latam",
+   "pais": "Brasil",
+   "clientes": 49000000.0,
+   "fuente": "Inferido Benchmark",
+   "industria": "Aerolinea",
+   "flags": [
+    "inferido"
+   ]
+  },
+  {
+   "partner": "Latam",
+   "pais": "Chile",
+   "clientes": 18000000.0,
+   "fuente": "Inferido Benchmark",
+   "industria": "Aerolinea",
+   "flags": [
+    "inferido"
+   ]
+  },
+  {
+   "partner": "Latam",
+   "pais": "Peru",
+   "clientes": 10500000.0,
+   "fuente": "Inferido Benchmark",
+   "industria": "Aerolinea",
+   "flags": [
+    "inferido"
+   ]
+  },
+  {
+   "partner": "Latam",
+   "pais": "Argentina",
+   "clientes": 6500000.0,
+   "fuente": "Inferido Benchmark",
+   "industria": "Aerolinea",
+   "flags": [
+    "inferido"
+   ]
+  },
+  {
+   "partner": "Livelo",
+   "pais": "Brasil",
+   "clientes": 55000000.0,
+   "fuente": "Fuente Oficial",
+   "industria": "Puntos",
+   "flags": []
+  },
+  {
+   "partner": "Livelo-API",
+   "pais": "Brasil",
+   "clientes": 55000000.0,
+   "fuente": "Inferido Benchmark",
+   "industria": "Puntos",
+   "flags": [
+    "inferido"
+   ]
+  },
+  {
+   "partner": "Liverpool",
+   "pais": "Mexico",
+   "clientes": 16272593.0,
+   "fuente": "Fuente Oficial",
+   "industria": "Retail",
+   "flags": [
+    "trafico"
+   ]
+  },
+  {
+   "partner": "Macro",
+   "pais": "Argentina",
+   "clientes": 3000000.0,
+   "fuente": "Fuente Oficial",
+   "industria": "Financiero",
+   "flags": []
+  },
+  {
+   "partner": "Mastercard",
+   "pais": "Brasil",
+   "clientes": 129000000.0,
+   "fuente": "Inferido Benchmark",
+   "industria": "Financiero",
+   "flags": [
+    "red_tarjetas",
+    "inferido"
+   ]
+  },
+  {
+   "partner": "Meliuz",
+   "pais": "Brasil",
+   "clientes": 38000000.0,
+   "fuente": "Fuente Oficial",
+   "industria": "Puntos",
+   "flags": []
+  },
+  {
+   "partner": "New Fly",
+   "pais": "Argentina",
+   "clientes": 50000.0,
+   "fuente": "Inferido Benchmark",
+   "industria": "Aerolinea",
+   "flags": [
+    "inferido"
+   ]
+  },
+  {
+   "partner": "Nomad",
+   "pais": "Brasil",
+   "clientes": 3000000.0,
+   "fuente": "Fuente Oficial",
+   "industria": "Financiero",
+   "flags": []
+  },
+  {
+   "partner": "Nubank",
+   "pais": "Brasil",
+   "clientes": 100000000.0,
+   "fuente": "Fuente Oficial",
+   "industria": "Financiero",
+   "flags": []
+  },
+  {
+   "partner": "Passaporte",
+   "pais": "Brasil",
+   "clientes": 15000000.0,
+   "fuente": "Inferido Benchmark",
+   "industria": "Otro",
+   "flags": [
+    "inferido"
+   ]
+  },
+  {
+   "partner": "Rakuten",
+   "pais": "Brasil",
+   "clientes": 5000000.0,
+   "fuente": "Inferido Benchmark",
+   "industria": "Financiero",
+   "flags": [
+    "inferido"
+   ]
+  },
+  {
+   "partner": "Santander",
+   "pais": "Brasil",
+   "clientes": 15000000.0,
+   "fuente": "Fuente Oficial",
+   "industria": "Financiero",
+   "flags": []
+  },
+  {
+   "partner": "Scotiabank",
+   "pais": "Chile",
+   "clientes": 1300000.0,
+   "fuente": "Inferido Benchmark",
+   "industria": "Financiero",
+   "flags": [
+    "inferido"
+   ]
+  },
+  {
+   "partner": "Sicoob",
+   "pais": "Brasil",
+   "clientes": 100000000.0,
+   "fuente": "Fuente Oficial",
+   "industria": "Puntos",
+   "flags": [
+    "fuente_distinta"
+   ]
+  },
+  {
+   "partner": "Sicredi",
+   "pais": "Brasil",
+   "clientes": 10000000.0,
+   "fuente": "Fuente Oficial",
+   "industria": "Financiero",
+   "flags": []
+  },
+  {
+   "partner": "Sky",
+   "pais": "Chile",
+   "clientes": 1800000.0,
+   "fuente": "Fuente Oficial",
+   "industria": "Aerolinea",
+   "flags": []
+  },
+  {
+   "partner": "Sky",
+   "pais": "Peru",
+   "clientes": 1221000.0,
+   "fuente": "Fuente Oficial",
+   "industria": "Aerolinea",
+   "flags": []
+  },
+  {
+   "partner": "Suburbia",
+   "pais": "Mexico",
+   "clientes": 2000000.0,
+   "fuente": "Inferido Benchmark",
+   "industria": "Retail",
+   "flags": [
+    "inferido"
+   ]
+  },
+  {
+   "partner": "SuperClub",
+   "pais": "Argentina",
+   "clientes": 5000000.0,
+   "fuente": "Inferido Benchmark",
+   "industria": "Financiero",
+   "flags": [
+    "inferido"
+   ]
+  },
+  {
+   "partner": "TurismoCity",
+   "pais": "Argentina",
+   "clientes": 800000.0,
+   "fuente": "Inferido Benchmark",
+   "industria": "Otro",
+   "flags": [
+    "inferido"
+   ]
+  },
+  {
+   "partner": "Viajes Naranja",
+   "pais": "Argentina",
+   "clientes": 9000000.0,
+   "fuente": "Fuente Oficial",
+   "industria": "Financiero",
+   "flags": []
+  },
+  {
+   "partner": "Visa",
+   "pais": "Brasil",
+   "clientes": 68000000.0,
+   "fuente": "Inferido Benchmark",
+   "industria": "Financiero",
+   "flags": [
+    "red_tarjetas",
+    "inferido"
+   ]
+  },
+  {
+   "partner": "Vivo",
+   "pais": "Brasil",
+   "clientes": 100000000.0,
+   "fuente": "Fuente Oficial",
+   "industria": "Otro",
+   "flags": []
+  },
+  {
+   "partner": "WL Hotels",
+   "pais": "Brasil",
+   "clientes": 40000.0,
+   "fuente": "Inferido Benchmark",
+   "industria": "Hotelero",
+   "flags": [
+    "inferido"
+   ]
+  },
+  {
+   "partner": "WL Hotels",
+   "pais": "Chile",
+   "clientes": 15000.0,
+   "fuente": "Inferido Benchmark",
+   "industria": "Hotelero",
+   "flags": [
+    "inferido"
+   ]
+  },
+  {
+   "partner": "WL Hotels",
+   "pais": "Colombia",
+   "clientes": 15000.0,
+   "fuente": "Inferido Benchmark",
+   "industria": "Hotelero",
+   "flags": [
+    "inferido"
+   ]
+  },
+  {
+   "partner": "AVASA",
+   "pais": "Mexico",
+   "clientes": 48794.0,
+   "fuente": "Inferido Benchmark",
+   "industria": "Otro",
+   "flags": [
+    "trafico",
+    "inferido"
+   ]
+  },
+  {
+   "partner": "WL Hotels",
+   "pais": "Mexico",
+   "clientes": 652572.0,
+   "fuente": "Inferido Benchmark",
+   "industria": "Hotelero",
+   "flags": [
+    "trafico",
+    "inferido"
+   ]
+  },
+  {
+   "partner": "WL Hotels",
+   "pais": "Other Countries",
+   "clientes": 10000.0,
+   "fuente": "Inferido Benchmark",
+   "industria": "Hotelero",
+   "flags": [
+    "inferido"
+   ]
+  },
+  {
+   "partner": "WL Varios",
+   "pais": "Chile",
+   "clientes": 10000.0,
+   "fuente": "Inferido Benchmark",
+   "industria": "Otro",
+   "flags": [
+    "inferido"
+   ]
+  },
+  {
+   "partner": "WL Varios",
+   "pais": "Argentina",
+   "clientes": 15000.0,
+   "fuente": "Inferido Benchmark",
+   "industria": "Otro",
+   "flags": [
+    "inferido"
+   ]
+  },
+  {
+   "partner": "WL Varios",
+   "pais": "Colombia",
+   "clientes": 10000.0,
+   "fuente": "Inferido Benchmark",
+   "industria": "Otro",
+   "flags": [
+    "inferido"
+   ]
+  },
+  {
+   "partner": "WL Varios",
+   "pais": "Brasil",
+   "clientes": 25000.0,
+   "fuente": "Inferido Benchmark",
+   "industria": "Otro",
+   "flags": [
+    "inferido"
+   ]
+  },
+  {
+   "partner": "WL Varios",
+   "pais": "Mexico",
+   "clientes": 149496.0,
+   "fuente": "Inferido Benchmark",
+   "industria": "Otro",
+   "flags": [
+    "trafico",
+    "inferido"
+   ]
+  },
+  {
+   "partner": "Xcaret",
+   "pais": "Colombia",
+   "clientes": 100000.0,
+   "fuente": "Inferido Benchmark",
+   "industria": "Hotelero",
+   "flags": [
+    "inferido"
+   ]
+  },
+  {
+   "partner": "Xcaret",
+   "pais": "Mexico",
+   "clientes": 652572.0,
+   "fuente": "Fuente Oficial",
+   "industria": "Hotelero",
+   "flags": [
+    "trafico"
+   ]
+  },
+  {
+   "partner": "Xcaret",
+   "pais": "Other Countries",
+   "clientes": 500000.0,
+   "fuente": "Inferido Benchmark",
+   "industria": "Hotelero",
+   "flags": [
+    "inferido"
+   ]
+  },
+  {
+   "partner": "YaVas",
+   "pais": "Mexico",
+   "clientes": 13649951.0,
+   "fuente": "Inferido Benchmark",
+   "industria": "Aerolinea",
+   "flags": [
+    "trafico",
+    "inferido"
+   ]
+  },
+  {
+   "partner": "YPF",
+   "pais": "Argentina",
+   "clientes": 9000000.0,
+   "fuente": "Inferido Benchmark",
+   "industria": "Otro",
+   "flags": [
+    "inferido"
+   ]
+  }
+ ]
+}

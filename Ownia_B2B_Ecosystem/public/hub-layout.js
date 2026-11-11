@@ -89,6 +89,7 @@
   // Goal "Forecast - Bridge to budget": en el Hub es goal 'forecast' con fcSource 'btb' (otra fuente).
   function goalOf(st) {
     if (st.goal === 'forecast' && st.fcSource === 'btb') return ['varFcPct', 'Forecast - Bridge to budget'];
+    if (st.goal === 'runRate' && st.rrSource === 'lrr') return ['varRRPct', 'Last Run Rate'];   // ídem con lastrunrate.json
     return GOALS[st.goal] || GOALS.budget;
   }
   var AMBER_FROM = -5;   // semáforo (mismo criterio que _deltaState_ del Hub): verde ≥ 0%, ámbar −5% a 0%, rojo < −5%
@@ -727,6 +728,7 @@
     if (by.goal && last('goal') !== st.goal) {
       st.goal = last('goal');
       if (st.fcSource === 'btb') { st.fcSource = ''; dataChanged = true; }   // la barra no ofrece el BTB
+      if (st.rrSource === 'lrr') { st.rrSource = ''; dataChanged = true; }   // ni el Last Run Rate
       ['f-goal-bar', 'f-goal'].forEach(function (id) { var s = document.getElementById(id); if (s) s.value = st.goal; });
       if (typeof window._syncOrganicUI_ === 'function') window._syncOrganicUI_();
       goalChanged = true;

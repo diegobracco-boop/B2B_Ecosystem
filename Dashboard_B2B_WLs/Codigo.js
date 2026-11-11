@@ -11,6 +11,7 @@ var JSON_IDS = {
   runrate:  '1UGg60kE397nsGAivtFqI8NX5CVFj1gqO',  // runrate.json
   forecast: '1crqpRTyH14fqX9XdwBTVaKN5rPbE6O84',  // forecast.json
   forecastbtb: '1anL-CsItySxuWTp4FuX69tHsAy9oz4rp',                // forecastbtb.json ("Forecast - Bridge to budget", 2026-10-26)
+  lastrunrate: '1Nk56QlEA2hKuWGhfZ1357Eds6DhU8zwC',                // lastrunrate.json (Goal "Last Run Rate", 2026-11-09)
   ly:       '1zd5gnMFztKiCSgeY-VmsfVOr0LQ6ftGI'   // actuals_previos_fy26.json
 };
 // ── ORGANIC (prueba: Monthly Results B2B, B2B2C y B2B+B2B2C) ──────────────
@@ -48,8 +49,8 @@ var FY_END_YEAR = fyEndYear_();
 var FY_START_YM = fyMonths_()[0];    // '2026-04'
 var FY_END_YM   = fyMonths_()[11];   // '2027-03'
 
-var LAST_ACTUALS_YM = '2026-09';   // último mes con actuals reales
-var LAST_RR_YM      = '2026-10';   // 1er mes proyectado del baseline (informativo, no se usa en la lógica)
+var LAST_ACTUALS_YM = '2026-10';   // último mes con actuals reales (octubre cerró 2026-11-09, base plana Actuals_OC)
+var LAST_RR_YM      = '2026-11';   // 1er mes proyectado del baseline (informativo, no se usa en la lógica)
 
 // ── Grupos P&L Summary por LoB ────────────────────────────────
 var CANAL_GROUPS_BY_LOB = {
@@ -158,9 +159,18 @@ function _getJsonsLastMod_() {
   return mx;
 }
 
+// Goal "Last Run Rate": la ronda anterior del RR proyectaba desde el mes que acaba de cerrar (LAST_ACTUALS_YM).
+// Antes de ese mes van los reales del baseline (en lastrunrate.json faltan ajustes posteriores, ej. el GB de API
+// abr-jun); desde ese mes, lastrunrate.json. Mismo criterio que P&L Accounting (scenCT 'lastrunrate'). 2026-11-09.
+function lastRunRateRows_(baseRows) {
+  var p = LAST_ACTUALS_YM.split('-'), corte = Date.UTC(+p[0], +p[1] - 1, 1);
+  return baseRows.filter(function(r) { return r['fecha'] < corte; })
+    .concat(readJson_(JSON_IDS.lastrunrate).filter(function(r) { return r['fecha'] >= corte; }));
+}
+
 function makeCacheKey_(p) {
   return JSON.stringify({
-    v:        33,   // 33: Organic vs Forecast a TC Budget (baseline y goal). 32: ORGANIC vs Last Year + YoY organic. 31: B2B2C y B2B+B2B2C
+    v:        35,   // 35: Last RR = reales antes del último cierre. 34: Goal Last Run Rate (rrSource 'lrr').   // 33: Organic vs Forecast a TC Budget (baseline y goal). 32: ORGANIC vs Last Year + YoY organic. 31: B2B2C y B2B+B2B2C
     lob:      p.lob      || 'all',
     pais:     p.pais     || 'all',
     producto: p.producto || 'all',
@@ -169,6 +179,7 @@ function makeCacheKey_(p) {
     hasta:    p.hasta    || '',
     bl:       p.baselineSource || 'baseline',
     fc:       p.fcSource === 'btb' ? 'btb' : '',
+    rr:       p.rrSource === 'lrr' ? 'lrr' : '',
     org:      organicTargetOf_(p) ? p.organic : ''   // goal del organic: Budget y Forecast comparten TC pero no datos
   });
 }
@@ -330,7 +341,10 @@ function getAllData(params) {
 
   // Cache miss: cargar todos los JSONs desde Drive
   var baseRows = readJson_(JSON_IDS.baseline);
-  var rrRows   = readJson_(JSON_IDS.runrate);
+  // Goal "Last Run Rate" (2026-11-09): es el Goal Run Rate con otra fuente (lastrunrate.json, la ronda
+  // anterior del RR: trae todo el FY, así el mes que acaba de cerrar se compara contra lo proyectado).
+  // El baseline cubre todo el FY, así que blendedFromMaps_ no toma nada del rrMap y el baseline no cambia.
+  var rrRows   = (p.rrSource === 'lrr') ? lastRunRateRows_(baseRows) : readJson_(JSON_IDS.runrate);
   var budRows  = readJson_(JSON_IDS.budget);
   var fcRows   = readJson_(JSON_IDS.forecast);
   var lyRows   = readJson_(JSON_IDS.ly);

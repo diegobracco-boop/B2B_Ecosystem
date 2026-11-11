@@ -19,7 +19,7 @@ function _timed_(name, fn, args) {
   try {
     var mod = _canonicalsMaxMod_() + '_' + _fxMod_();
     var dig = Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, JSON.stringify(args), Utilities.Charset.UTF_8);
-    rkey = 'epm_res_v3_' + name + '_' + mod + '_' + dig.map(function(b){ return ((b & 0xff) + 0x100).toString(16).substr(1); }).join('');
+    rkey = 'epm_res_v4_' + name + '_' + mod + '_' + dig.map(function(b){ return ((b & 0xff) + 0x100).toString(16).substr(1); }).join('');
     var got = _chunkCacheGet_(rkey);
     getSt = (got && 'v' in got) ? 'hit' : 'miss';
     if (got && 'v' in got) { res = got.v; fromCache = true; _TM_.readSrc = 'result-cache'; }
@@ -34,7 +34,7 @@ function _timed_(name, fn, args) {
   }
   var total = Date.now() - t0;
   var tm = { fn: name, total: total, mod: _TM_.mod, read: _TM_.read, readSrc: _TM_.readSrc,
-             compute: fromCache ? 0 : total - _TM_.mod - _TM_.read, rget: getSt, rput: putSt, rkey: rkey ? rkey.replace('epm_res_v3_' + name + '_', '').substr(0, 30) : null };
+             compute: fromCache ? 0 : total - _TM_.mod - _TM_.read, rget: getSt, rput: putSt, rkey: rkey ? rkey.replace('epm_res_v4_' + name + '_', '').substr(0, 30) : null };
   var isStr = typeof res === 'string';
   tm.bytes = isStr ? res.length : JSON.stringify(res).length;
   Logger.log('[TIMING] ' + JSON.stringify(tm));
@@ -300,9 +300,12 @@ function computeGroupEPM_(actualsByPais, rrContByPais, budgetByPais, forecastByP
       if (scen === 'budget')            src = budget;                              // budget = todo el FY
       else if (scen === 'forecast')     src = forecast;                           // forecast = todo el FY (forecast.json tiene actuals Apr-Jun + fc Jul-Mar)
       else if (scen === 'lastyear')     src = lastyear;                           // FY26 completo, mismo mes fiscal
+      // Last RR (2026-11-09): la ronda anterior del RR proyectaba desde el mes que acaba de cerrar (cutoffIdx).
+      // Antes, actuals (en lastrunrate.json faltan ajustes posteriores, ej. GB de API abr-jun); desde el mes
+      // recién cerrado, el LRR — si no, el mes cerrado daba delta 0 contra sí mismo.
+      else if (scen === 'lastrunrate')  src = (idx < cutoffIdx) ? actuals : (idx <= lrrMaxIdx) ? lrr : forecast;
       else if (idx <= cutoffIdx)        src = actuals;                             // meses cerrados (runrate/lastrunrate)
       else if (scen === 'runrate')      src = rrCont;                             // runrate.json solo cubre desde el corte en adelante, no trae reales (2026-09-16)
-      else if (scen === 'lastrunrate')  src = (idx <= lrrMaxIdx) ? lrr : forecast; // LRR y luego forecast
       else                              src = forecast;                           // fallback
       Object.keys(src).forEach(function(n2){
         if (!out[n2]) out[n2] = {};

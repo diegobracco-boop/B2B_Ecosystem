@@ -27,7 +27,16 @@ CSV crudos (OneDrive\Planning-PBI - Inputs Power Bi)
 - **SIN PPA por default** → se suma el Reverso AxI (`Planning-PBI\Actuals\Reverso AxI.xlsx`).
   Con PPA (no suma): `--con-ppa`. Proyecciones usan hoja **Budget**; Actuals por período
   (RunRate para Oct25-Mar26, Budget para Abr26-Mar27), solo sobre meses cerrados.
-- **Realocaciones que tocan B2B se anulan** (2026-10-08, Tiago): filas `Origen = REALOCACIÓN` del xlsx
+- **Actuals del FY en curso desde la base PLANA** (2026-11-09, Diego): `Base_P&L_Contable\Actuals_OC*.csv` (mismo formato
+  que el RunRate) + `Actuals_GB_Ajustes_OC*.csv`, que se SUMA (hoy: reclasificación de GB/Orders de API B2B-MAY abr-jun,
+  neto ~0). `config.ACTUALS_FLAT`, `plana_actuals_builder.build_flat` (mismo tratamiento que el RunRate plano: exclusiones,
+  glosario, reverso AxI = SIN PPA). Solo meses <= `LAST_CLOSED_MONTH`. La base llega hasta OC (sin D&A / IT / F&A).
+  El xlsx de abajo queda solo para FY cerrados. **El plano no trae `Origen`**: las dos reglas de abajo (realocaciones y
+  PyF duplicado) ya no se aplican al FY en curso; la base plana viene como la publica Consolidación (validado: OC mensual
+  de B2B-MIN y B2B2C igual al tablero de Consolidación). Al pasar, jun-26 cambió: Intercompany de PyF -250k (FCCS) en
+  vez de -683k (Ajuste PYF) → OC jun +120k MIN / +285k B2B2C; Diego avisó a Consolidación para que lo revisen.
+  El Last RunRate también es plano (`LastRunRate_OC*.csv`, FY completo; hoy igual al RunRate, a propósito).
+- **Realocaciones que tocan B2B se anulan** (2026-10-08, Tiago; **solo FY cerrados desde 2026-11-09**): filas `Origen = REALOCACIÓN` del xlsx
   de actuals. Por (mes, país, marca, línea), si alguna pata es B2B-MAY/MIN se ponen en 0 TODAS las patas
   (B2B + contrapartida B2C/B2B2C) → total compañía igual, B2B queda "sin realocar". Las que no tocan B2B
   quedan. Ver `drop_b2b_reallocations` en `plana_actuals_builder.py`. Afecta actuals, forecast (abr-jul) y
@@ -148,5 +157,9 @@ CSV crudos (OneDrive\Planning-PBI - Inputs Power Bi)
 Correr las planas + `json_builder.py all` (o `run_all.bat`), verificar la salida de
 validación (nulos, países, total) y confirmar que los 5 JSON subieron a Drive.
 Si aparece error de auth, indicar `python auth_drive.py`.
+`all` NO republica `actuals_previos_fyNN.json` (LY): los FY cerrados no cambian, y el 2026-11-09 la plana FY26
+regenerada desde "00 - Actuals 2025" (sep-dic vacíos) pisó el LY y se perdieron los YoY de sep-dic (se restauró
+la revisión de Drive del 2026-08-11). Republicarlo solo con `json_builder.py actuals_previos`; si un FY trae menos
+de 12 meses, no se sube.
 
 - **Versiones organic para Toqan (2026-10-30)**: `organic_builder.py` genera `<base>_organic.json` (actuals, baseline, runrate, forecast, forecastbtb) a TC Budget con la regla de P&L Accounting (USD × TC origen / TC Budget; origen = Actuals para real/baseline/RR, Forecast para forecast/BTB; orders y países sin TC nominales; RG/OPS con TC Brasil) y los sube a la carpeta de canónicos y a la comprimida. Se regeneran solos al final de `json_builder.py` y de `baseline_builder._emit`. El Budget no tiene versión organic (ya está a TC Budget).

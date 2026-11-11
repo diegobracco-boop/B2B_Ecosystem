@@ -13,7 +13,7 @@
 //   POST <base>/notes/<modulo>/<scope>  guarda una nota: { field, text }
 //   GET  <base>/resumen-semanal      resumen de la última semana (botón de la portada, mismos permisos que el Daily)
 //   GET  <base>/reales               estado de "Actualizar reales" (solo el equipo B2B, ver reales-job.js)
-//   POST <base>/reales               lanza la actualización de reales: { password }
+//   POST <base>/reales               lanza la actualización: { password, kind: 'daily' | 'managerial' }
 //   GET  <base>/_portal/ask.js       buscador de la portada (filter-aliases.js + portal-ask.js)
 //   POST <base>/preguntas            registra una pregunta del buscador (ver portal-ask-data.js)
 //   GET  <base>/preguntas[?mes=AAAA-MM][&formato=json]  las preguntas del mes (solo el equipo B2B)
@@ -42,6 +42,9 @@ const { escapeHtml } = require('./gas-template');
 const { indexPage, agentsPage, questionsPage } = require('./index-page');
 const { resumenSemanalPage } = require('./resumen-semanal-page');
 const { pipelineHuntingPage } = require('./pipeline-hunting-page');
+const { trackerPage } = require('./b2b2c-tracker-page');
+const { trackerApi } = require('./b2b2c-tracker');
+const { B2B2C_TRACKER } = require('./modules');
 const { resolveIdentity, describeAuthHeaders } = require('./identity');
 const { createFileStore, isValidId } = require('./file-store');
 const { ingestAllowlist, loadManifest } = require('./drive-manifest');
@@ -169,14 +172,14 @@ function createApp(opts = {}) {
   }
 
   function unauthorized(res) {
-    return sendJson(res, 401, { error: 'Se requiere un usuario de Despegar identificado (@despegar.com, @hoteldo.com o @bestday.com)', name: 'NoAutorizado' });
+    return sendJson(res, 401, { error: 'Se requiere un usuario de Despegar identificado (@despegar.com, @decolar.com, @hoteldo.com o @bestday.com)', name: 'NoAutorizado' });
   }
 
   // Un módulo con datos sin identidad confiable no se sirve (ver modules.js).
   const needsIdentity = (mod) => mod.requiresIdentity !== false;
 
   // allowedUsers: lista cerrada de cuentas (p.ej. módulos en validación). Sin lista, alcanza
-  // con cualquier usuario identificado (@despegar.com, @hoteldo.com, @bestday.com: identity.js).
+  // con cualquier usuario identificado (@despegar.com, @decolar.com, @hoteldo.com, @bestday.com: identity.js).
   function mayOpen(mod, identity) {
     if (needsIdentity(mod) && !identity.email) return false;
     if (!Array.isArray(mod.allowedUsers)) return true;
@@ -422,10 +425,12 @@ function createApp(opts = {}) {
     if (route === '/reales') {
       if (!identity.email) return unauthorized(res);
       if (!mayRunReales(identity)) return sendJson(res, 403, { error: 'Solo el equipo B2B puede actualizar los reales', name: 'Forbidden' });
-      // Fecha de los datos que ve Ownia: la del JSON principal del Daily en el almacén.
-      const daily = fileStore ? fileStore.listMeta().find((f) => f.name === 'daily_b2b2c_data.json') : null;
-      const dataUpdatedAt = daily ? new Date(daily.updatedAt).toISOString() : null;
-      if (req.method === 'GET') return sendJson(res, 200, { ...reales.status(), dataUpdatedAt });
+      // Fecha de los datos que ve Ownia: la del JSON principal de cada corrida en el almacén (Daily y P&L Managerial).
+      const metas = fileStore ? fileStore.listMeta() : [];
+      const updatedAt = (name) => { const f = metas.find((x) => x.name === name); return f ? new Date(f.updatedAt).toISOString() : null; };
+      const dataUpdatedAt = updatedAt('daily_b2b2c_data.json');
+      const managerialUpdatedAt = updatedAt('_actuals_gestional.json');
+      if (req.method === 'GET') return sendJson(res, 200, { ...reales.status(), dataUpdatedAt, managerialUpdatedAt });
       if (req.method !== 'POST') return sendJson(res, 405, { error: 'Método no permitido' });
       // Mismo anti-CSRF que /api y /notes: JSON + header custom + same-origin.
       const ctype = String(req.headers['content-type'] || '');
@@ -438,9 +443,10 @@ function createApp(opts = {}) {
         if (e.status) return sendJson(res, e.status, { error: e.message });
         return sendJson(res, 400, { error: 'JSON inválido' });
       }
-      const r = reales.start(identity.email, typeof body.password === 'string' ? body.password : '');
+      const kind = body.kind === undefined ? 'daily' : String(body.kind);
+      const r = reales.start(identity.email, typeof body.password === 'string' ? body.password : '', kind);
       if (!r.ok) return sendJson(res, r.code, { error: r.error });
-      return sendJson(res, 202, { ...r.status, dataUpdatedAt });
+      return sendJson(res, 202, { ...r.status, dataUpdatedAt, managerialUpdatedAt });
     }
 
     // "Resumen semanal" (botón de la portada): la página arma todo con getResumenSemanal del Daily → mismos permisos que el Daily.
@@ -463,6 +469,22 @@ function createApp(opts = {}) {
       let model;
       try { model = modelFromStore(fileStore, undefined, log); } catch (e) { return sendJson(res, 500, { error: 'No se pudo armar el pipeline: ' + e.message }); }
       return sendCompressible(req, res, 200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }, pipelineHuntingPage({ basePath: cfg.BASE_PATH, model }));
+    }
+
+    // "B2B2C Tracker": funnel de tráfico + resultados de las WLs (server/b2b2c-tracker.js). Solo B2B2C_TRACKER.allowedUsers (modules.js).
+    if (route === '/b2b2c-tracker' || route === '/b2b2c-tracker/data') {
+      if (req.method !== 'GET') return sendJson(res, 405, { error: 'Método no permitido' });
+      if (!identity.email) return unauthorized(res);
+      if (!mayOpen(B2B2C_TRACKER, identity)) return sendJson(res, 403, { error: 'El B2B2C Tracker todavía está en revisión', name: 'Forbidden' });
+      if (route === '/b2b2c-tracker') {
+        return sendCompressible(req, res, 200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }, trackerPage({ basePath: cfg.BASE_PATH }));
+      }
+      let out;
+      try { out = trackerApi(fileStore, url.searchParams); } catch (e) {
+        log({ level: 'error', msg: 'b2b2c-tracker', error: e.message });
+        return sendJson(res, 500, { error: 'No se pudo armar el tracker: ' + e.message });
+      }
+      return sendCompressible(req, res, 200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }, JSON.stringify(out));
     }
 
     if (route === '/agentes') {

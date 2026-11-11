@@ -36,6 +36,8 @@ desde ese archivo, como `reales.py`) y se vuelve a correr solo cuando cambian lo
 `py Ownia_B2B_Ecosystem/mirror/ownia_mirror.py --module daily`. El año en curso lo toma la solapa de los JSON del
 Daily que ya carga. Verificado 2026-10-24: el GB B2B2C de nov-2025 por país coincide con `actuals_ly_fy_rest`.
 
+`fx_implicito.json` (2026-11-09): TC real MTD de los meses abiertos para el Organic del Daily (opción A). `fx_implicito_sync.py` (lo llama `daily_sync.py`) = Σ `c.gross_booking_local_currency` / Σ `c.gross_booking` de B2C por país (`bi_transactional_fact_charges`; no dividir por `gb_without_distorted_taxes_usd`, en AR da 7% menos). `readFxTable_` (Codigo_organic.js) pisa el TC Actuals de tc_plana_flat solo en los meses posteriores a `LAST_CLOSED_MONTH`; los cerrados y el LY siguen con el oficial (cierra con Hub y P&L).
+
 `b2c_budget_weekly.json` (2026-10-27, solo Ownia): Budget de B2C por semana ISO (recortada al año calendario: la 1 de
 2026 es 1–4 de enero) × país, todas las marcas / canales / productos, en USD. Sale del CSV semanal que manda Planning
 (`budget_2026_b2c.csv`) con `py b2c_budget_sync.py [--csv <archivo>]`, a mano, y después

@@ -657,9 +657,9 @@ a.ext-link:hover { text-decoration: underline; }
       <div class="proj-card" tabindex="0" role="button" onclick="showSection('proj-daily')">
         <div class="proj-card-icon">📆</div>
         <div class="proj-card-name">Daily Dashboard B2B2C + B2B</div>
-        <div class="proj-card-desc">Performance diaria de WLs (B2B2C) y B2B (GD + RI). Conecta con Treasure Data vía ODBC. KPIs: D-1 Actual, MTD, Budget, LY MTD. Se actualiza con el botón "Actualizar reales" de la portada de Ownia.</div>
+        <div class="proj-card-desc">Performance diaria de WLs (B2B2C) y B2B (GD + RI). Conecta con Treasure Data vía ODBC. KPIs: D-1 Actual, MTD, Budget, LY MTD. Se actualiza con el botón "Actualizar reales" de la portada de Ownia. <strong>Se usa en Ownia</strong>: la versión de Apps Script se discontinúa (desde 2026-11-09 el Hub de GAS ya no la embebe y manda a Ownia).</div>
         <div class="proj-card-tag"><span class="badge badge-manual">🔄 Botón "Actualizar reales" (Ownia)</span></div>
-        <a class="proj-card-url" href="https://script.google.com/a/macros/despegar.com/s/AKfycbwMR3zk1r4uwui8vGtcmz0OwmeehC5JM8cuJRE3H-GQMfvxXWGTkYQ3R2nVjMyeAdX_1A/exec" target="_blank">↗ Abrir landing</a>
+        <a class="proj-card-url" href="https://ownia.despegar.io/b2b-ecosystem/daily" target="_blank">↗ Abrir en Ownia</a>
       </div>
 
       <div class="proj-card" tabindex="0" role="button" onclick="showSection('proj-country')">
@@ -682,8 +682,8 @@ a.ext-link:hover { text-decoration: underline; }
         <div class="proj-card-icon">🤝</div>
         <div class="proj-card-name">P&amp;L Profit Sharing · Banco de Chile</div>
         <div class="proj-card-desc">P&amp;L de Banco de Chile por mes, tipo de venta (Carrito / Agencias / WLs) y punto de venta (Presencial / Call Center / online), con el reparto del FVM Base: <strong>55% a pagar a Banco de Chile</strong> y 45% para Despegar.</div>
-        <div class="proj-card-tag"><span class="badge badge-manual">🖐️ Manual (profit_sharing_sync.py)</span></div>
-        <a class="proj-card-url" href="https://script.google.com/a/macros/despegar.com/s/AKfycbyfhSHt3k0wJS39TlHYOAuRYicAy0M1pGfnarSM1RXOKECa4p1cBSlFjXU5ZXQKsYCj/exec" target="_blank">↗ Abrir landing</a>
+        <div class="proj-card-tag"><span class="badge badge-manual">App propia de Ownia (pnl-hispa)</span></div>
+        <a class="proj-card-url" href="https://ownia.despegar.io/pnl-hispa" target="_blank">↗ Abrir landing</a>
       </div>
 
       <div class="proj-card" tabindex="0" role="button" onclick="showSection('proj-runrate')">
@@ -1059,8 +1059,8 @@ a.ext-link:hover { text-decoration: underline; }
       <table class="doc-table">
         <tbody>
           <tr><td>Contable (P&amp;L Accounting)</td><td>Desde <code>Inputs_Planning_PnL</code>: <code>run_all.bat</code> → <code>python baseline_builder.py --promote-month AAAA-MM-01</code> (el mes que cerró) → <code>python plana_to_cube.py --upload</code>. Recargar la landing (Ctrl+Shift+R). Sin deploy.</td></tr>
-          <tr><td>Gestional (P&amp;L Managerial)</td><td>Desde <code>P&amp;L_Managerial</code>, con VPN: <code>python actuals_gestional_upload.py</code>. Un solo run.</td></tr>
-          <tr><td>Gestional por semana (botón Semana de P&amp;L Managerial)</td><td>Los lunes, a mano, desde <code>P&amp;L_Managerial</code> y con VPN: <code>python weekly_gestional_builder.py --upload</code>. Solo semanas completas, lunes a domingo. Concilia contra el mensual y no publica si difiere más de 0,5%.</td></tr>
+          <tr><td>Gestional (P&amp;L Managerial)</td><td>Botón "Actualizar managerial" de Ownia (ver abajo), o desde <code>P&amp;L_Managerial</code>, con VPN: <code>python actuals_gestional_upload.py</code>. Un solo run sube el mensual y el semanal.</td></tr>
+          <tr><td>P&amp;L Managerial, mensual y por semana (botón Semana)</td><td>Botón <strong>"Actualizar managerial"</strong> en la ventana de "Actualizar reales" de la portada de Ownia (equipo B2B, con contraseña): corre <code>actuals_gestional_upload.py</code> en el servidor y publica los dos archivos de una vez (los reales van por día). Solo semanas completas, lunes a domingo; el semanal no se publica si no cierra con el mensual (0,5%). El Forecast queda el de la ronda vigente: una ronda nueva se publica corriendo el script desde una PC con los XLSX y VPN.</td></tr>
           <tr><td>Daily</td><td>Se incorpora con el próximo "Actualizar reales" de la portada de Ownia.</td></tr>
         </tbody>
       </table>
@@ -1903,8 +1903,8 @@ a.ext-link:hover { text-decoration: underline; }
             <td>Manual</td></tr>
           <tr><td>Profit Sharing · Banco de Chile</td>
             <td>Datalake (<code>banco_chile_profit_sharing.sql</code>)</td>
-            <td><code>P&amp;L_Profit_Sharing/profit_sharing_sync.py</code></td>
-            <td>Drive: <code>banco_chile_profit_sharing.json</code></td>
+            <td>Repo <code>despegar/pnl-hispa</code>: el botón "Actualizar" de la app (o su script de sync)</td>
+            <td>App de Ownia (DynamoDB) + respaldo en el repo</td>
             <td>Manual, mensual</td></tr>
           <tr><td>Fixed Cost y Weekly Industry</td>
             <td colspan="4" class="note">Apps de Apps Script externas, embebidas en el P&amp;L Dashboard. No están en este repo: sus datos y su actualización son de sus dueños.</td></tr>
@@ -2140,7 +2140,7 @@ clasp deploy -i AKfycby9WZK2HfAWx25M5pEMV3nntzJfEvsiT9feMn01zJQkQaI3t2GjTzOIjbFX
         <tbody>
           <tr><td>pnl_common.py</td><td><span class="tag tag-py">Python</span></td><td>Helpers compartidos: rutas portables (resuelve OneDrive por usuario), auth Drive scope completo, paths a Glosario / Reverso AxI</td></tr>
           <tr><td>plana_projections_builder.py</td><td><span class="tag tag-py">Python</span></td><td>Genérico por base: budget / forecast / runrate / lastrunrate. Lee CSV Hyperino, parsea POV, homologa, arma la plana long</td></tr>
-          <tr><td>plana_actuals_builder.py</td><td><span class="tag tag-py">Python</span></td><td>Plana de actuals por año fiscal (combina Abr-Dic del fy-1 + Ene-Mar del fy)</td></tr>
+          <tr><td>plana_actuals_builder.py</td><td><span class="tag tag-py">Python</span></td><td>Plana de actuals por año fiscal. FY en curso: base plana <code>Actuals_OC.csv</code> + <code>Actuals_GB_Ajustes_OC.csv</code> (desde 2026-11-09). FY cerrados: xlsx (combina Abr-Dic del fy-1 + Ene-Mar del fy)</td></tr>
           <tr><td>json_builder.py</td><td><span class="tag tag-py">Python</span></td><td>Planas → JSON canónico por concepto → sube a Drive. Colapsa canal, agrega sobre Marca, filtra LOBs</td></tr>
           <tr><td>baseline_builder.py</td><td><span class="tag tag-py">Python</span></td><td>Arma <code>baseline_actuals+projections.json</code>: actuals[Abr..corte] + runrate[corte+1..Sep] + forecast[Oct..Mar]. <code>--promote-month AAAA-MM-01</code> (mensual) o <code>--rebuild</code> (entero)</td></tr>
           <tr><td>auth_drive.py</td><td><span class="tag tag-py">Python</span></td><td>Genera token_drive.json (una vez por persona)</td></tr>
@@ -2416,7 +2416,7 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
     <div class="page-header">
       <div class="page-tag">Proyecto</div>
       <div class="page-title">P&amp;L Dashboard <span>(B2B Ecosystem Hub)</span></div>
-      <div class="page-sub">El P&amp;L contable por negocio, para Chief y VP. En Ownia se llama <strong>P&amp;L Dashboard</strong>; en Apps Script queda congelado como <strong>B2B Ecosystem Hub</strong>, el portal con OKR, Detail By Country, Daily/Weekly embed, Organigrama y más. <strong>Datos desde JSON canónicos en Drive</strong> (mismo origen que Inputs_Planning_PnL — reemplazó a Toqan).</div>
+      <div class="page-sub">El P&amp;L contable por negocio, para Chief y VP. En Ownia se llama <strong>P&amp;L Dashboard</strong>; en Apps Script queda congelado como <strong>B2B Ecosystem Hub</strong>, el portal con OKR, Detail By Country, link al Daily de Ownia, Organigrama y más. <strong>Datos desde JSON canónicos en Drive</strong> (mismo origen que Inputs_Planning_PnL — reemplazó a Toqan).</div>
     </div>
 
     <div class="card">
@@ -2462,6 +2462,7 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
             <tr><td>B2B + B2B2C</td><td>P&L Summary, Waterfall por país, Evolución mensual, OC Concept, NR Bridge</td></tr>
             <tr><td>B2B2C</td><td>Mismo análisis filtrado por B2B2C (WLs). Apertura por Brasil / Mexico / Hispa</td></tr>
             <tr><td>B2B</td><td>Mismo análisis filtrado por B2B. Apertura por Brasil / Mexico / Globales / Hispa / OPS+RG (en el Cuadro Resumen P&L, OPS+RG es columna propia; Hispa ya no lo incluye). Toggle MAY / MIN (solo Apps Script; en Ownia son los negocios HTML y API)</td></tr>
+            <tr><td>Goal Last Run Rate <span class="badge badge-manual">🆕 2026-11-09</span></td><td>En el selector <strong>Goal</strong> del Hub, debajo de Run Rate. Compara contra <code>lastrunrate.json</code> (la ronda anterior del Run Rate, todo el FY): el mes que acaba de cerrar se ve contra lo que se había proyectado. Es el Goal Run Rate con otra fuente (<code>rrSource='lrr'</code>, como el Forecast BTB); Organic deshabilitado, igual que con Run Rate. Marketing &amp; Media sigue contra el Run Rate.</td></tr>
             <tr><td>Switch ORGANIC <span class="badge badge-manual">🆕 2026-10-15</span></td><td>En la barra de filtros de <strong>B2B, B2B2C y B2B + B2B2C</strong>: Organic NO / YES. <strong>NO</strong> = datos en USD nominales (sin cambios). <strong>YES</strong> = el baseline (Actuals + Run Rate, todos los meses) se reexpresa como <code>USD × TC Actuals(país, mes) / TC Target(país, mes)</code>, según el Goal: <strong>Budget</strong> → TC Budget · <strong>Forecast</strong> (y Forecast - Bridge to budget) → TC Budget · <strong>Last Year</strong> → TC Actuals del mismo mes del año anterior · <strong>Run Rate</strong> → switch deshabilitado (no hay TC). Los goals Budget / RR y el LY no se convierten.<br>
               <small><strong>Comparando contra el Forecast</strong> <span class="badge badge-manual">🆕 2026-10-26</span> (definición de Diego): baseline <em>y</em> goal van a TC Budget. Baseline = <code>USD × TC Actuals / TC Budget</code>; Forecast (o BTB) = <code>USD × TC Forecast / TC Budget</code>. Como en abr–jul el Forecast es real y su TC Forecast = TC Actuals (se corrigió <code>tc_plana_flat.xlsx</code> el 2026-10-26 para que coincidan), el delta vs Forecast en esos meses da 0. Aplica en el Hub, P&amp;L Accounting, P&amp;L Managerial y Daily, en Apps Script y Ownia. Backend Hub: <code>convertGoalOrganic_</code>.</small><br>
               <small><strong>YoY con Goal Budget/Forecast:</strong> los montos se muestran a TC del target, pero todos los YoY % (P&amp;L, cuadro comparativo, waterfall, breakdown, tabla "YoY por País") se calculan con el baseline a <em>TC Actuals LY</em> contra el LY nominal (decisión de la usuaria, "opción B"). Por eso la línea LY del gráfico puede no coincidir visualmente con el YoY de la tabla.<br>
@@ -2482,7 +2483,7 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
             <tr><td>Cómo cargar Input_OKR <span class="badge badge-manual">🆕 2026-09-25</span></td><td>GSheet <strong>"Input dashboard B2B+WLs"</strong>, pestaña <code>Input_OKR</code>. Una fila por mes, escenario y KR: <code>Periodo</code> (ej. 1/10/2026) · <code>Escenario</code> (<code>Budget</code> o <code>Run Rate/Actuals</code>) · <code>LoB</code> · <code>Pais</code> = Total · <code>Producto</code> = Total · <code>KR</code> · <code>Valor</code>. KRs que se leen de la sheet: Sign New Partnership, Air Net Revenue from suppliers (H1) y Deploy New Partnership, Unique Buyers, Accelerate Recurrence, Accelerate Hunting Partners API, Hoteles Directos vendidos destino LATAM, % Hoteles Directos vendidos destino Globales, New Onboarded Properties Global &amp; Regional Chains, Price Competitiveness ex-Latam (Destino GL) (H2, LoB = Globales; los % se cargan como "8%" o "8").<br>
               <small>Formato de <code>Valor</code>: punto como separador de miles ("103.000"); decimales con coma o con punto de 1–2 dígitos ("5,2" / "5.2"); se toleran <code>%</code> y <code>$</code>. Las filas repetidas (misma clave) se descartan y queda la última; las filas ilegibles se avisan en el log de <code>okr_builder.py</code> en vez de perderse. Los KRs de Globales se agrupan solos en el bloque Globales aunque la LoB diga B2B, "Hoteles Directo Vendidos…" (singular) se normaliza a "Hoteles Directos vendidos…" y "Accelerate Hunting # Partners API" a "Accelerate Hunting Partners API". <strong>Después de editar la sheet hay que correr</strong> <code>python okr_builder.py</code> (Inputs_Planning_PnL): sube <code>okr.json</code> a Drive y la landing lo toma sola (la cache se invalida por <code>lastUpdated</code>).</small></td></tr>
             <tr><td>Detail By Country</td><td><strong>Solo Apps Script: no se abre desde Ownia (2026-10-31).</strong> <strong>Es la única vista por país del Hub de GAS</strong> (2026-09-29: se eliminó la sección propia "Country One Page" para no duplicar). Embebe la landing standalone <code>lob_country_one_pager</code> vía iframe (mismo patrón que Daily/Weekly/P&L), carga lazy al entrar. URL en <code>EXTERNAL_LINKS.iframes.detailcountry</code>. El botón "P&L Bridge" de esa landing vuelve al Hub con <code>?section=b2b</code> (el Hub lee el querystring al cargar y salta directo a esa sección).</td></tr>
-            <tr><td>Daily / Weekly</td><td>iframe → Daily Dashboard B2B2C (solo Apps Script; en Ownia, tablero propio en la portada)</td></tr>
+            <tr><td>Daily / Weekly</td><td>En Apps Script, el botón abre el Daily de Ownia (<code>https://ownia.despegar.io/b2b-ecosystem/daily</code>) en otra pestaña; ya no embebe el Apps Script del Daily, que se discontinúa (2026-11-09, <code>OWNIA_SECTIONS</code> en <code>dashboard.html</code>). En Ownia, tablero propio en la portada</td></tr>
             <tr><td>Fixed Cost / Industry / News / Sources / Organigrama</td><td>Secciones informativas del equipo (solo Apps Script; en Ownia, Fixed Cost y Weekly Industry están en "Más tableros")</td></tr>
             <tr><td>B2B API <span class="badge badge-manual">🆕 2026-10-16</span></td><td>Primera card de la sección <strong>P&amp;L Managerial - FVM view</strong> del Hub. Link externo (pestaña nueva, <code>openExt('b2b_api')</code>) a <a class="ext-link" href="https://ownia.despegar.io/b2b-dashboard" target="_blank">ownia.despegar.io/b2b-dashboard</a>, fuera de este repo. Mismo patrón que <code>proyecto_rr</code>: la URL vive en <code>EXTERNAL_LINKS.b2b_api</code>.</td></tr>
             <tr><td>📸 Slides Cierre de Mes</td><td>En Ownia está en <strong>Presentaciones → Cierre de mes</strong>. En Apps Script, botón en B2B + B2B2C: preview imprimible (Consolidado/B2B/B2B2C) + export a Google Slides real. Ver card debajo.</td></tr>
@@ -2591,7 +2592,7 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
     <div class="page-header">
       <div class="page-tag">Proyecto</div>
       <div class="page-title">Daily <span>Dashboard B2B2C + B2B</span></div>
-      <div class="page-sub">Dashboard de performance diaria para WLs (B2B2C) y B2B (GD + RI). Se alimenta del datalake Treasure Data vía Python con ODBC. Se actualiza con el botón "Actualizar reales" de la portada de Ownia (desde 2026-10-30; antes, Task Scheduler 9:45 en la PC de Tiago).</div>
+      <div class="page-sub">Dashboard de performance diaria para WLs (B2B2C) y B2B (GD + RI). Se alimenta del datalake Treasure Data vía Python con ODBC. Se actualiza con el botón "Actualizar reales" de la portada de Ownia (desde 2026-10-30; antes, Task Scheduler 9:45 en la PC de Tiago). <strong>Se usa en Ownia</strong> (<a class="ext-link" href="https://ownia.despegar.io/b2b-ecosystem/daily" target="_blank">ownia.despegar.io/b2b-ecosystem/daily</a>): la versión de Apps Script se discontinúa y el Hub de GAS ya no la embebe (2026-11-09).</div>
     </div>
 
     <div class="two-col">
@@ -2989,13 +2990,13 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
         <div class="card-title">📍 Datos del proyecto</div>
         <table class="doc-table">
           <tbody>
-            <tr><td>Carpeta local</td><td>P&amp;L_Profit_Sharing</td></tr>
+            <tr><td>Repo / carpeta local</td><td><code>despegar/pnl-hispa</code> → <code>pnl_profit_sharing</code> (fuera de B2B_Ecosystem desde 2026-11-06)</td></tr>
             <tr><td>Apps Script ID</td><td class="mono-id">1b5J6CHJR-c-6MJcolL_YbASbb4oIILpln1odHDUdapaBcOOCUqxMhpYf</td></tr>
             <tr><td>Deployment id (prod)</td><td class="mono-id">AKfycbyfhSHt3k0wJS39TlHYOAuRYicAy0M1pGfnarSM1RXOKECa4p1cBSlFjXU5ZXQKsYCj</td></tr>
-            <tr><td>URL landing</td><td><a class="ext-link" href="https://script.google.com/a/macros/despegar.com/s/AKfycbyfhSHt3k0wJS39TlHYOAuRYicAy0M1pGfnarSM1RXOKECa4p1cBSlFjXU5ZXQKsYCj/exec" target="_blank">↗ Abrir</a></td></tr>
+            <tr><td>URL landing</td><td><a class="ext-link" href="https://ownia.despegar.io/pnl-hispa" target="_blank">↗ Abrir</a></td></tr>
             <tr><td>Fuente de datos</td><td><code>banco_chile_profit_sharing.json</code> en su carpeta de Drive propia (<code>1dwIAlZLG5C5EOWGMm_rEFFKMgGQMRWIR</code>)</td></tr>
-            <tr><td>Actualización</td><td>Manual: <code>cd P&amp;L_Profit_Sharing &amp;&amp; py profit_sharing_sync.py</code> (VPN + <code>credenciales/.env.&lt;usuario&gt;</code>)</td></tr>
-            <tr><td>Deploy</td><td><code>clasp push --force</code> + <code>clasp deploy -i &lt;id&gt;</code></td></tr>
+            <tr><td>Actualización</td><td>Botón "Actualizar" de la app (corre la query contra el Datalake), o el script de sync del repo <code>despegar/pnl-hispa</code> + redeploy en Ownia</td></tr>
+            <tr><td>Deploy</td><td>Redeploy de la app <code>pnl-hispa</code> en Ownia (la web app de Apps Script quedó discontinuada)</td></tr>
           </tbody>
         </table>
       </div>
@@ -3009,7 +3010,7 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
             <tr><td>Channel Expenses</td><td>Leases (solo Presencial, repartidos entre sus transacciones del mes) + comisiones de vendedores (1,7% del GB). Reemplaza la vendor commission.</td></tr>
             <tr><td>Ajustes</td><td>Cancellations y Loyalty × 0 · Intercompany 0,54% del GB</td></tr>
             <tr><td>Reparto</td><td>FVM Base × 55% = Profit Share a pagar · × 45% = FVM Despegar</td></tr>
-            <tr><td>Fuente única</td><td>Toda la lógica vive en <code>banco_chile_profit_sharing.sql</code>; <code>profit_sharing_sync.py</code> solo agrega y la landing solo filtra y suma</td></tr>
+            <tr><td>Fuente única</td><td>Toda la lógica vive en <code>banco_chile_profit_sharing.sql</code>; el script de sync solo agrega y la landing solo filtra y suma</td></tr>
           </tbody>
         </table>
       </div>
@@ -3288,8 +3289,13 @@ OneDrive → Control de Gestión 2026-27 → B2B & WLs → Proyectos IA → BITU
   └── Actuals\     ← 00 - Actuals 2026 - Plana Python*.xlsx + Reverso AxI.xlsx
 
 OneDrive → Control de Gestión 2026-27 → B2B & WLs → Base_P&L_Contable\
-  └── RunRate.csv  ← Run Rate en formato plano (desde 2026-10-26; reemplaza al
-                     "RR - Legal Entity ALL/NA - 27.csv" de Hyperion)
+  ├── RunRate_OC.csv              ← Run Rate en formato plano (desde 2026-10-26; reemplaza al
+  │                                  "RR - Legal Entity ALL/NA - 27.csv" de Hyperion)
+  ├── LastRunRate_OC.csv          ← Last Run Rate plano (desde 2026-11-09; reemplaza al LRR de Hyperion)
+  ├── Actuals_OC.csv              ← Actuals del FY en curso, plano (desde 2026-11-09; el xlsx de
+  │                                  Actuals\ queda para FY cerrados)
+  ├── Actuals_GB_Ajustes_OC.csv   ← ajustes que se suman a los Actuals (GB/Orders de API abr-jun)
+  └── Forecast_Stretch_BTB_OC.csv ← Forecast Bridge to Budget
 
   (La carpeta vieja "BITUBIA\Output Toqan" era el pipeline pre-refactor con
    Toqan generando las planas — YA NO SE USA, ver secciones de proyecto.)</div>
@@ -3400,8 +3406,8 @@ OneDrive → Control de Gestión 2026-27 → B2B & WLs → Base_P&L_Contable\
             <td>Dominio despegar.com</td>
           </tr>
           <tr>
-            <td>Daily Dashboard B2B2C + B2B</td>
-            <td><a class="ext-link" href="https://script.google.com/a/macros/despegar.com/s/AKfycbwMR3zk1r4uwui8vGtcmz0OwmeehC5JM8cuJRE3H-GQMfvxXWGTkYQ3R2nVjMyeAdX_1A/exec" target="_blank">↗ Abrir</a></td>
+            <td>Daily Dashboard B2B2C + B2B (Ownia; el Apps Script se discontinúa)</td>
+            <td><a class="ext-link" href="https://ownia.despegar.io/b2b-ecosystem/daily" target="_blank">↗ Abrir</a></td>
             <td>Dominio despegar.com</td>
           </tr>
           <tr>

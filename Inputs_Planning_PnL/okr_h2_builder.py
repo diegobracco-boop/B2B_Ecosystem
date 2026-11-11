@@ -20,6 +20,8 @@ Unique Buyers proyectado (2026-10-27): UB / orders B2B2C es muy estable (0,82-0,
 el parche hunting_rr_override.json, si no las del Daily); el mes en curso = compradores unicos de los ultimos N dias con
 N = dias del mes ("unique_buyers_rolling" del Daily, 2026-10-29; sin ese bloque, el MTD tal como viene); un mes cerrado
 pisa con el real del Datalake.
+Desde 2026-11-09 el valor del mes en curso se lleva al mes: ventana x target del mes / target de los dias de la ventana
+(cada dia = target de su mes / dias del mes), para no comparar dias de octubre contra el target de noviembre.
 """
 from collections import defaultdict
 
@@ -230,6 +232,36 @@ def load_override_orders(path=None):
         return (json.load(f).get("meta") or {}).get("orders_mes") or None
 
 
+def _ub_targets(rows_manual):
+    """{'YYYY-MM': target mensual de Unique Buyers (Budget de Input_OKR)}."""
+    out = {}
+    for r in rows_manual:
+        if r[1] == BUD and str(r[5]).lower() == "unique buyers":
+            try:
+                out[str(r[0])[:7]] = out.get(str(r[0])[:7], 0) + float(r[6])
+            except (TypeError, ValueError):
+                pass
+    return out
+
+
+def _ub_target_ventana(rows_manual, desde, hasta):
+    """Target de Unique Buyers de los dias desde..hasta (inclusive): cada dia vale target de su mes / dias del mes.
+    None si falta el target de algun mes de la ventana."""
+    import calendar
+    from datetime import date, timedelta
+    if not desde or not hasta:
+        return None
+    t = _ub_targets(rows_manual)
+    d, fin, tot = date.fromisoformat(str(desde)[:10]), date.fromisoformat(str(hasta)[:10]), 0.0
+    while d <= fin:
+        ym = f"{d.year:04d}-{d.month:02d}"
+        if not t.get(ym):
+            return None
+        tot += t[ym] / calendar.monthrange(d.year, d.month)[1]
+        d += timedelta(days=1)
+    return tot
+
+
 def apply_unique_buyers(rows_manual, daily_json, last_actual_ym, rr_orders=None):
     """Unique Buyers (H2, B2B2C), Run Rate/Actuals: real del Datalake si el mes cerro; MTD en el mes en curso; ratio x orders del
     Run Rate en los meses futuros (rr_orders {'YYYY-MM': orders} pisa las del Daily). El mes en curso usa los ultimos N dias. El target (Budget) sigue de Input_OKR. Devuelve (rows_manual, estado) con
@@ -266,9 +298,22 @@ def apply_unique_buyers(rows_manual, daily_json, last_actual_ym, rr_orders=None)
         if (ym <= last_actual_ym or (mes_curso and ym < mes_curso)) and ym in tot:
             nuevos[ym], estado[_ym_to_periodo(ym)] = tot[ym], "Real"
         elif ym == rolling.get("ym") and rolling.get("valor"):   # mes en curso: ultimos N dias (N = dias del mes)
-            nuevos[ym], estado[_ym_to_periodo(ym)] = int(rolling["valor"]), "MesMovil"
-            print(f"  [Unique Buyers] {ym}: ultimos {rolling.get('dias')} dias {rolling.get('desde')}..{rolling.get('hasta')} = "
-                  f"{int(rolling['valor']):,} (MTD {tot.get(ym, 0):,})")
+            v = int(rolling["valor"])
+            # La ventana cae casi toda en el mes anterior, que tiene otro target (estacionalidad: oct 103k vs nov 127k).
+            # Se compara contra el target de esos mismos dias (cada dia = target de su mes / dias del mes) y se lleva
+            # al mes: valor x target_mes / target_ventana. Asi el % del mes = ventana / target_ventana y el trimestre
+            # sigue sumando los targets oficiales (Diego, 2026-11-09).
+            t_win = _ub_target_ventana(rows_manual, rolling.get("desde"), rolling.get("hasta"))
+            t_mes = _ub_targets(rows_manual).get(ym)
+            if t_win and t_mes:
+                adj = round(v * t_mes / t_win)
+                print(f"  [Unique Buyers] {ym}: ultimos {rolling.get('dias')} dias {rolling.get('desde')}..{rolling.get('hasta')} = "
+                      f"{v:,} vs target de la ventana {t_win:,.0f} ({v / t_win:.1%}) -> llevado al mes {adj:,} "
+                      f"(target {t_mes:,.0f}) (MTD {tot.get(ym, 0):,})")
+                v = adj
+            else:
+                print(f"  [Unique Buyers] {ym}: ultimos {rolling.get('dias')} dias = {v:,} (sin target de la ventana: sin ajuste)")
+            nuevos[ym], estado[_ym_to_periodo(ym)] = v, "MesMovil"
         elif ym in tot:                                   # mes en curso sin bloque rolling: MTD tal como viene
             nuevos[ym], estado[_ym_to_periodo(ym)] = tot[ym], "MTD"
         else:

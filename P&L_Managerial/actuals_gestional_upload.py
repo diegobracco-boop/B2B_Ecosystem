@@ -35,7 +35,7 @@ el último mes CERRADO: okr_builder.py lo usa como corte de actuals y no tiene q
 La salida lleva "mtd": {ym, desde, hasta, dias, dias_mes}. La próxima corrida sin --mtd lo saca.
 """
 
-import os, json, warnings
+import os, json, time, warnings
 from datetime import date, timedelta, datetime
 
 import pandas as pd
@@ -56,6 +56,9 @@ RUTA_ENV        = str(Path(__file__).resolve().parent.parent / "credenciales" / 
 DSN_NAME        = "DataLake Treasure ODBC"
 DRIVE_FOLDER_ID = "1wzudbo7cN9Ibiv_2OA-V0_B_un4JcJp6"
 JSON_FILE_NAME  = "_actuals_gestional.json"
+WEEKLY_JSON_FILE_NAME = "_actuals_gestional_weekly.json"   # apertura semanal (botón Semana de la landing)
+# Prueba sin publicar: MANAGERIAL_DRY_RUN_DIR=<carpeta> deja ahí los dos JSON y no toca Drive ni Ownia.
+DRY_RUN_DIR     = os.getenv("MANAGERIAL_DRY_RUN_DIR", "")
 DRIVE_SCOPES    = ["https://www.googleapis.com/auth/drive"]
 
 # Forecast comes from the XLSX models (datalake raw.b2bfc1_* is not kept up to
@@ -88,6 +91,7 @@ FC_XLSX_DIR = next((str(r / sp) for sp in _FC_SUBPATHS for r in _ONEDRIVE_ROOTS 
                    str(_ONEDRIVE_ROOTS[0] / _FC_SUBPATHS[-1]))
 
 TODAY        = date.today()
+YESTERDAY    = TODAY - timedelta(days=1)   # las queries de reales llegan hasta acá (ver MAIN, grano diario)
 CURRENT_YM   = TODAY.strftime('%Y-%m')
 ACTUALS_FROM = date(_FY - 1, 4, 1)   # inicio del FY (abril)
 _first_of_current = date(TODAY.year, TODAY.month, 1)
@@ -147,7 +151,18 @@ DB_USER     = os.getenv("USER")
 DB_PASSWORD = os.getenv("PASSWORD")
 
 
+# Sin ODBC (servidor de Ownia, botón "Actualizar managerial" de la portada): con DATALAKE_HOST se va directo a
+# Trino por HTTPS, igual que Daily_Dashboard/daily_sync.py. En una PC con el DSN no hace falta.
+DATALAKE_HOST    = os.getenv("DATALAKE_HOST", "")
+QUEUE_FULL_WAITS = 12   # esperas por cola llena del usuario en Trino (15 s, 30 s, 45 s y después 60 s)
+
+
 def conectar():
+    if DATALAKE_HOST:
+        from trino.dbapi import connect
+        from trino.auth import BasicAuthentication
+        return connect(host=DATALAKE_HOST, port=443, http_scheme="https", user=DB_USER,
+                       auth=BasicAuthentication(DB_USER, DB_PASSWORD), catalog="data")
     import pyodbc
     return pyodbc.connect(
         f"DSN={DSN_NAME};UID={DB_USER};PWD={DB_PASSWORD};",
@@ -155,15 +170,35 @@ def conectar():
     )
 
 
-def fetch(query: str, label: str) -> pd.DataFrame:
+def fetch(query: str, label: str, retries: int = 3) -> pd.DataFrame:
+    """Reintenta con conexión nueva ante cortes de red/VPN, y con la cola de Trino llena (QUERY_QUEUE_FULL)
+    espera sin gastar intentos: mismo criterio que fetch() de Daily_Dashboard/daily_sync.py."""
     print(f"  > {label} ...")
-    con = conectar()
-    try:
-        df = pd.read_sql(query, con)
-    finally:
-        con.close()
+    t0 = time.monotonic()
+    attempt, queue_waits = 0, 0
+    while True:
+        attempt += 1
+        try:
+            con = conectar()
+            try:
+                df = pd.read_sql(query, con)
+            finally:
+                con.close()
+            break
+        except Exception as e:
+            if "QUERY_QUEUE_FULL" in str(e) and queue_waits < QUEUE_FULL_WAITS:
+                queue_waits += 1
+                attempt -= 1
+                espera = min(15 * queue_waits, 60)
+                print(f"  WAIT {label}: cola del Datalake llena, reintento en {espera}s ({queue_waits}/{QUEUE_FULL_WAITS})")
+                time.sleep(espera)
+                continue
+            if attempt >= retries:
+                raise
+            print(f"  WARN {label} intento {attempt} fallo ({e}); reintentando...")
+            time.sleep(5)
     df = normalize_b2b_lob(df, query, label)   # API/HTML -> B2B-MAY/MIN (Daily_Dashboard/b2b_lob_rules.py)
-    print(f"  OK {len(df):,} filas")
+    print(f"  OK {label}: {len(df):,} filas en {time.monotonic() - t0:.0f}s")
     # Mismo guardrail que ya usa revenue_gd_builder.py (script hermano de este
     # módulo): sin esto, una query que vuelve vacía a mitad de corrida (VPN
     # caída, tabla renombrada) no rompía nada — el pipeline seguía y subía el
@@ -184,7 +219,7 @@ def build_b2b2c_query(date_from: date, date_to: date, by_tipo: bool = False) -> 
     y no una columna más de la normal: un paquete tiene componentes de varios tipos y el
     count(distinct transaction_code) de `orders` se duplicaría al sumar las aperturas."""
     tipo_sel = "COALESCE(p.product_type, '(Sin dato)') AS tipo_producto," if by_tipo else ""
-    group_by = "1,2,3,4,5,6,7,8" if by_tipo else "1,2,3,4,5,6,7"
+    group_by = "1,2,3,4,5,6,7,8,9" if by_tipo else "1,2,3,4,5,6,7,8"
     tipo_out = "tipo_producto," if by_tipo else ""
     return f"""
 -- Canje (pago con millas/puntos, 2026-10-20): por transacción, la porción del GB pagada con millas
@@ -259,6 +294,7 @@ base AS (
       ELSE p.trip_type
     END AS viaje,
     {tipo_sel}
+    CAST(t.confirmation_date AS DATE) AS dia,   -- grano diario: de acá salen el mensual y el semanal
 
     count(distinct t.transaction_code)                  AS orders,
     sum(pnl.gb_without_distorted_taxes_usd)             AS gross_bookings,
@@ -457,7 +493,8 @@ with_ps AS (
 )
 
 SELECT
-  Mes, pais, productooriginal, partner, {tipo_out}
+  Mes, dia, pais, productooriginal, partner, {tipo_out}
+  Marca, channel, viaje,   -- parte del grano (GROUP BY): el reparto de millas (_split_millas) se hace con estas filas
   orders, gross_bookings, up_front_incentives, fees, commercial_discounts,
   back_end_incentives, media_other_revenue, cancellations, breakage_revenue,
   income_from_outsourced_services, revenue_tax, other_incentives,
@@ -538,6 +575,7 @@ base_metrics AS (
     SELECT
         CAST(YEAR(fh.gestion_date) AS VARCHAR) AS anio_gd,
         MONTH(fh.gestion_date) AS mes_gd,
+        fh.gestion_date AS dia,   -- grano diario (ya estaba en el GROUP BY)
         fh.line_of_business_code AS lob,
         fh.parent_channel,
         CASE
@@ -713,7 +751,7 @@ base_metrics AS (
 )
 
 SELECT
-    anio_gd, mes_gd, pais, producto_original, parent_channel, viaje, gateway,
+    anio_gd, mes_gd, dia, pais, producto_original, parent_channel, viaje, gateway,
     gross_bookings, orders,
     up_front_incentives, fees, commercial_discounts,
     cancellations, other_incentives, back_end_incentives, media_other_revenue,
@@ -803,6 +841,8 @@ base_metrics AS (
         AS VARCHAR) AS anio_ri,
         CASE WHEN fh.parent_channel = 'API' AND fh.buy_type_code = 'Hoteles'
              THEN MONTH(p.checkin_date) ELSE MONTH(fh.recognition_date) END AS mes_ri,
+        CASE WHEN fh.parent_channel = 'API' AND fh.buy_type_code = 'Hoteles'
+             THEN p.checkin_date ELSE fh.recognition_date END AS dia,   -- grano diario (ya estaba en el GROUP BY)
         fh.line_of_business_code AS lob,
         fh.parent_channel,
         CASE
@@ -998,7 +1038,7 @@ base_metrics AS (
 )
 
 SELECT
-    anio_ri, mes_ri, pais, producto_original, parent_channel, viaje, gateway,
+    anio_ri, mes_ri, dia, pais, producto_original, parent_channel, viaje, gateway,
     gross_bookings, orders,
     up_front_incentives, fees, commercial_discounts,
     other_incentives, revenue_tax, back_end_incentives,
@@ -1466,7 +1506,15 @@ def _get_drive_service():
     return build("drive", "v3", credentials=creds)
 
 
-def upload_to_drive(json_bytes: bytes):
+def upload_to_drive(json_bytes: bytes, file_name: str = None):
+    """Sube (o actualiza por nombre) file_name a la carpeta de Drive y lo publica en Ownia.
+    Con MANAGERIAL_DRY_RUN_DIR lo deja en esa carpeta y no toca Drive ni Ownia."""
+    file_name = file_name or JSON_FILE_NAME
+    if DRY_RUN_DIR:
+        Path(DRY_RUN_DIR).mkdir(parents=True, exist_ok=True)
+        (Path(DRY_RUN_DIR) / file_name).write_bytes(json_bytes)
+        print(f"  DRY RUN: {file_name} en {DRY_RUN_DIR} (no se sube)")
+        return
     from googleapiclient.http import MediaInMemoryUpload
     import sys as _sys
     from pathlib import Path as _Path
@@ -1475,60 +1523,164 @@ def upload_to_drive(json_bytes: bytes):
     service = _get_drive_service()
     media   = MediaInMemoryUpload(json_bytes, mimetype="application/json", resumable=False)
     results = service.files().list(
-        q=f"name='{JSON_FILE_NAME}' and '{DRIVE_FOLDER_ID}' in parents and trashed=false",
+        q=f"name='{file_name}' and '{DRIVE_FOLDER_ID}' in parents and trashed=false",
         fields="files(id,name)",
     ).execute()
     existing = results.get("files", [])
     if existing:
         res = service.files().update(fileId=existing[0]["id"], media_body=media, fields=DRIVE_FIELDS).execute()
-        print(f"  OK Drive: actualizado ({JSON_FILE_NAME})")
+        print(f"  OK Drive: actualizado ({file_name})")
     else:
         res = service.files().create(
-            body={"name": JSON_FILE_NAME, "parents": [DRIVE_FOLDER_ID]},
+            body={"name": file_name, "parents": [DRIVE_FOLDER_ID]},
             media_body=media, fields=DRIVE_FIELDS,
         ).execute()
-        print(f"  OK Drive: creado ({JSON_FILE_NAME})")
+        print(f"  OK Drive: creado ({file_name})")
     publish_after_drive(res, json_bytes)
+
+
+# ==============================================================================
+# 5b) GRANO DIARIO → MENSUAL Y SEMANAL
+# ==============================================================================
+
+# Dimensiones de las queries de reales (en minúscula). Todo lo demás es métrica y se suma; `dia` se descarta.
+_DIMS = {"mes", "anio_gd", "mes_gd", "anio_ri", "mes_ri", "pais", "productooriginal", "producto_original",
+         "partner", "parent_channel", "viaje", "gateway", "tipo_producto", "lob", "lob_canal", "marca", "channel"}
+
+
+def _sin_dia(df: pd.DataFrame) -> pd.DataFrame:
+    """Suma los días: deja el df con el mismo grano que tenían las queries por mes (las filas por día de GD y RI ya
+    venían separadas antes; en B2B2C un día por fila). Orders = count(distinct) por día: una transacción tiene una
+    sola fecha de confirmación (B2B2C), y en GD/RI ya se sumaba por día igual que ahora."""
+    dims = [c for c in df.columns if c.lower() in _DIMS]
+    mets = [c for c in df.columns if c.lower() not in _DIMS and c.lower() != "dia"]
+    d = df[dims + mets].copy()
+    for c in mets:
+        d[c] = pd.to_numeric(d[c], errors="coerce").fillna(0.0)
+    return d.groupby(dims, as_index=False, dropna=False, sort=False)[mets].sum()
+
+
+def _dia(df: pd.DataFrame) -> pd.Series:
+    col = next(c for c in df.columns if c.lower() == "dia")
+    return pd.to_datetime(df[col].astype(str).str[:10], format="%Y-%m-%d")
+
+
+def _recortar_ly_mtd(df: pd.DataFrame, d0: date, d1: date) -> pd.DataFrame:
+    """--mtd: el mes del LY queda solo del día 1 a d1 (mismo período que el MTD del año en curso)."""
+    f = _dia(df)
+    fuera = (f.dt.year == d0.year) & (f.dt.month == d0.month) & (f > pd.Timestamp(d1))
+    return df[~fuera]
+
+
+def _forecast_publicado():
+    """Proyección del Forecast tomada del último _actuals_gestional.json de Drive: las filas de fc / fc_ri posteriores
+    al corte (FC_ACTUAL_CUTOFF) son exactamente las de los modelos XLSX con que se armó (ver _stitch_forecast)."""
+    from googleapiclient.http import MediaIoBaseDownload
+    service = _get_drive_service()
+    files = service.files().list(
+        q=f"name='{JSON_FILE_NAME}' and '{DRIVE_FOLDER_ID}' in parents and trashed=false",
+        fields="files(id,modifiedTime)").execute().get("files", [])
+    if not files:
+        sys.exit(f"No están los modelos XLSX ({FC_XLSX_DIR}) ni un {JSON_FILE_NAME} publicado en Drive para tomar el Forecast. NO se sube nada.")
+    buf = io.BytesIO()
+    dl = MediaIoBaseDownload(buf, service.files().get_media(fileId=files[0]["id"]))
+    done = False
+    while not done:
+        _, done = dl.next_chunk()
+    prev = json.loads(buf.getvalue().decode("utf-8"))
+    if prev.get("metrics") != METRIC_COLS:
+        sys.exit("El JSON publicado tiene otras métricas que este script: no se puede reusar su Forecast. Correr desde una PC con los XLSX.")
+    post = lambda sec, key, i: [r for r in prev[sec].get(key, []) if r[i] > FC_ACTUAL_CUTOFF]
+    src = prev.get("forecast_source") or "XLSX (JSON publicado)"
+    print(f"  Forecast del JSON publicado el {files[0].get('modifiedTime', '?')[:10]} ({src})")
+    return (post("b2b2c", "fc", 3), post("b2b_may", "fc", 2), post("b2b_may", "fc_ri", 2), post("b2b_min", "fc", 2), src)
+
+
+# Semanal: semanas de lunes a domingo, solo completas (del inicio del FY al último domingo con datos). Filas iguales a
+# las del mensual con ym = "<lunes>|<ym>": la semana que cruza dos meses queda en dos filas (el organic usa el TC de
+# cada mes y la suma por ym concilia contra el mensual). LY = la misma semana del año anterior, 364 días antes.
+LY_DIAS = 364
+W_TO = YESTERDAY - timedelta(days=(YESTERDAY.weekday() + 1) % 7)   # último domingo con datos
+_first_monday = ACTUALS_FROM - timedelta(days=ACTUALS_FROM.weekday())
+WEEKS = [str(_first_monday + timedelta(days=7 * i)) for i in range(max((W_TO - _first_monday).days // 7 + 1, 0))]
+WEEK_SET = set(WEEKS)
+W_ALL_YM = {f"{y}-{m:02d}" for y in (_FY - 2, _FY - 1, _FY) for m in range(1, 13)}
+
+
+def _con_semana(df: pd.DataFrame, d0: date, d1: date) -> pd.DataFrame:
+    """Días de d0 a d1, con el lunes de su semana en `semana`."""
+    f = _dia(df)
+    m = (f >= pd.Timestamp(d0)) & (f <= pd.Timestamp(d1))
+    out = df[m].copy()
+    out["semana"] = (f[m] - pd.to_timedelta(f[m].dt.weekday, unit="D")).dt.strftime("%Y-%m-%d")
+    return out
+
+
+def _by_week(df: pd.DataFrame, build, i_ym: int, shift: int = 0, weeks: set = None) -> list:
+    """Arma las filas semana por semana con el armador mensual; el ym queda "<lunes>|<ym>"."""
+    out = []
+    for wk, g in df.groupby("semana"):
+        key = str(date.fromisoformat(wk) + timedelta(days=shift))
+        if weeks is not None and key not in weeks:
+            continue
+        rows = build(g.drop(columns="semana"))
+        for r in rows:
+            r[i_ym] = f"{key}|{r[i_ym]}"
+        out.extend(rows)
+    return out
+
+
+def _budget_by_week(df: pd.DataFrame, build, i_ym: int) -> list:
+    df = df.copy()
+    col = next(c for c in df.columns if c.lower() == "fecha")
+    f = _parse_fecha_budget(df[col])
+    keep = (f >= pd.Timestamp(ACTUALS_FROM)) & (f <= pd.Timestamp(W_TO))
+    df, f = df[keep], f[keep]
+    df["semana"] = (f - pd.to_timedelta(f.dt.weekday, unit="D")).dt.strftime("%Y-%m-%d")
+    return _by_week(df, build, i_ym, weeks=WEEK_SET)
 
 
 # ==============================================================================
 # 6) MAIN
 # ==============================================================================
 
-# ── Actuals ───────────────────────────────────────────────────────────────────
+# ── Actuals (grano diario) ────────────────────────────────────────────────────
+# Las queries traen el día (`dia`): los reales del FY llegan hasta AYER aunque el mensual use solo los meses
+# cerrados (los armadores filtran por CLOSED_SET), porque de los mismos datos sale el semanal (hasta el último
+# domingo). Para el mensual se suman los días (`_sin_dia`), así el JSON mensual queda igual que con las queries
+# por mes; los diarios (`*_d`) quedan para el semanal.
 print("\n--- B2B2C ---")
-df_b2b2c    = fetch(build_b2b2c_query(ACTUALS_FROM, ACTUALS_TO), "B2B2C actuals")
-df_b2b2c_ly = fetch(build_b2b2c_query(LY_FETCH_FROM, LY_TO),    "B2B2C LY")   # + Ene–Mar (PRE_MONTHS y su LY)
-# --mtd: el LY del mes en curso es el mismo período del año anterior (del 1 al mismo día), no el mes completo
-if MTD:
-    _ly_ym   = f"{int(MTD['ym'][:4]) - 1}-{MTD['ym'][5:]}"
-    _ly_from = date(int(_ly_ym[:4]), int(_ly_ym[5:]), 1)
-    _ly_to   = date(_ly_from.year, _ly_from.month, MTD["dias"])
-    def _ly_mtd(df, q, label):
-        new = fetch(q, label)
-        return pd.concat([df[df["Mes"].astype(str) != _ly_ym], new[new["Mes"].astype(str) == _ly_ym]], ignore_index=True)
-    df_b2b2c_ly = _ly_mtd(df_b2b2c_ly, build_b2b2c_query(_ly_from, _ly_to), f"B2B2C LY MTD {_ly_ym}")
+df_b2b2c_d    = fetch(build_b2b2c_query(ACTUALS_FROM, YESTERDAY), "B2B2C actuals")
+df_b2b2c_ly_d = fetch(build_b2b2c_query(LY_FETCH_FROM, LY_TO),   "B2B2C LY")   # + Ene–Mar (PRE_MONTHS y su LY)
 # Apertura por tipo de producto (product_type): solo Actuals + LY de meses cerrados y PRE_MONTHS.
-df_b2b2c_tp    = fetch(build_b2b2c_query(ACTUALS_FROM, ACTUALS_TO, by_tipo=True), "B2B2C actuals por tipo")
-df_b2b2c_tp_ly = fetch(build_b2b2c_query(LY_FETCH_FROM, LY_TO, by_tipo=True),    "B2B2C LY por tipo")
-if MTD:
-    df_b2b2c_tp_ly = _ly_mtd(df_b2b2c_tp_ly, build_b2b2c_query(_ly_from, _ly_to, by_tipo=True), f"B2B2C LY MTD por tipo {_ly_ym}")
+df_b2b2c_tp    = fetch(build_b2b2c_query(ACTUALS_FROM, YESTERDAY, by_tipo=True), "B2B2C actuals por tipo")
+df_b2b2c_tp_ly = fetch(build_b2b2c_query(LY_FETCH_FROM, LY_TO, by_tipo=True),   "B2B2C LY por tipo")
 # Split Hunting/Farming de la landing: mismo criterio que el Daily y los OKR (hunting_rules.py).
 b2b2c_stage = hunting_rules.stage_map(fetch(hunting_rules.CARTERA_STAGE_QUERY, "Cartera stage"))
 print(f"  hunting (New): {sorted(p for p, s in b2b2c_stage.items() if s == 'New')}")
 
 print("\n--- B2B GD ---")
-df_b2b_gd    = fetch(build_b2b_gd_query(ACTUALS_FROM, ACTUALS_TO), "B2B GD actuals")
-df_b2b_gd_ly = fetch(build_b2b_gd_query(LY_FETCH_FROM, LY_TO),     "B2B GD LY")   # + Ene–Mar (PRE_MONTHS y su LY)
-if MTD:   # LY GD del mes en curso: mismo período del año anterior
-    _new = fetch(build_b2b_gd_query(_ly_from, _ly_to), f"B2B GD LY MTD {_ly_ym}")
-    _is = lambda d: (pd.to_numeric(d["anio_gd"], errors="coerce") == _ly_from.year) & (pd.to_numeric(d["mes_gd"], errors="coerce") == _ly_from.month)
-    df_b2b_gd_ly = pd.concat([df_b2b_gd_ly[~_is(df_b2b_gd_ly)], _new[_is(_new)]], ignore_index=True)
+df_b2b_gd_d    = fetch(build_b2b_gd_query(ACTUALS_FROM, YESTERDAY), "B2B GD actuals")
+df_b2b_gd_ly_d = fetch(build_b2b_gd_query(LY_FETCH_FROM, LY_TO),   "B2B GD LY")   # + Ene–Mar (PRE_MONTHS y su LY)
 
 print("\n--- B2B RI ---")
-df_b2b_ri = fetch(build_b2b_ri_query(ACTUALS_FROM, ACTUALS_TO), "B2B RI actuals")
+df_b2b_ri_d = fetch(build_b2b_ri_query(ACTUALS_FROM, YESTERDAY), "B2B RI actuals")
 # (RI LY not fetched: Last Year is GD-basis only)
 df_b2b_ri_pre = fetch(build_b2b_ri_query(PRE_FROM, LY_TO), "B2B RI pre-FY (Ene–Mar)")
+
+# --mtd: el LY del mes en curso es el mismo período del año anterior (del 1 al mismo día), no el mes completo.
+# Con el grano diario alcanza con recortar los días del LY, solo en el mensual (el semanal compara semanas enteras).
+_mtd_ly = lambda df: df
+if MTD:
+    _ly_from = date(int(MTD["ym"][:4]) - 1, int(MTD["ym"][5:]), 1)
+    _ly_to   = date(_ly_from.year, _ly_from.month, MTD["dias"])
+    print(f"[MTD] LY del {_ly_from} al {_ly_to}")
+    _mtd_ly = lambda df: _recortar_ly_mtd(df, _ly_from, _ly_to)
+
+df_b2b2c, df_b2b2c_ly = _sin_dia(df_b2b2c_d), _sin_dia(_mtd_ly(df_b2b2c_ly_d))
+df_b2b2c_tp, df_b2b2c_tp_ly = _sin_dia(df_b2b2c_tp), _sin_dia(_mtd_ly(df_b2b2c_tp_ly))
+df_b2b_gd, df_b2b_gd_ly = _sin_dia(df_b2b_gd_d), _sin_dia(_mtd_ly(df_b2b_gd_ly_d))
+df_b2b_ri, df_b2b_ri_pre = _sin_dia(df_b2b_ri_d), _sin_dia(df_b2b_ri_pre)
 
 # ── Budgets ───────────────────────────────────────────────────────────────────
 print("\n--- Budgets ---")
@@ -1543,12 +1695,20 @@ df_rr_gd    = fetch(B2B_RR_GD_QUERY, "B2B run rate GD")
 df_rr_ri    = fetch(B2B_RR_RI_QUERY, "B2B run rate RI")
 
 # ── Forecast (XLSX models; datalake raw.b2bfc1_* is outdated) ─────────────────
-print("\n--- Forecast (XLSX models) ---")
-print(f"  Carpeta: {FC_XLSX_DIR}")
-fcraw_b2b2c  = _fc_xlsx_b2b2c_rows(_read_fc_xlsx("WLs - Modelo Forecast.xlsx",  "P&L",    "mes_proyectado"))
-fcraw_may    = _fc_xlsx_b2b_rows(  _read_fc_xlsx("API - Modelo Forecast.xlsx",  "P&L",    "mes_proyectado"))
-fcraw_may_ri = _fc_xlsx_b2b_rows(  _read_fc_xlsx("API - Modelo Forecast.xlsx",  "P&L RI", "mes ri"))
-fcraw_min    = _fc_xlsx_b2b_rows(  _read_fc_xlsx("HTML - Modelo Forecast.xlsx", "P&L",    "mes_proyectado"))
+# Sin la carpeta de los modelos (servidor de Ownia, o una PC sin el OneDrive de Control de Gestión) se reusa la
+# proyección del último _actuals_gestional.json publicado: el Forecast es una foto por ronda y no cambia con los
+# reales. Una ronda nueva se publica corriendo este script desde una PC con los XLSX.
+if os.path.isdir(FC_XLSX_DIR):
+    print("\n--- Forecast (XLSX models) ---")
+    print(f"  Carpeta: {FC_XLSX_DIR}")
+    fcraw_b2b2c  = _fc_xlsx_b2b2c_rows(_read_fc_xlsx("WLs - Modelo Forecast.xlsx",  "P&L",    "mes_proyectado"))
+    fcraw_may    = _fc_xlsx_b2b_rows(  _read_fc_xlsx("API - Modelo Forecast.xlsx",  "P&L",    "mes_proyectado"))
+    fcraw_may_ri = _fc_xlsx_b2b_rows(  _read_fc_xlsx("API - Modelo Forecast.xlsx",  "P&L RI", "mes ri"))
+    fcraw_min    = _fc_xlsx_b2b_rows(  _read_fc_xlsx("HTML - Modelo Forecast.xlsx", "P&L",    "mes_proyectado"))
+    FC_SOURCE    = f"XLSX {_planning_cfg.FORECAST_VERSION}"
+else:
+    print("\n--- Forecast (último JSON publicado: no está la carpeta de los modelos XLSX) ---")
+    fcraw_b2b2c, fcraw_may, fcraw_may_ri, fcraw_min, FC_SOURCE = _forecast_publicado()
 print(f"  WLs (b2b2c): {len(fcraw_b2b2c)}  API GD: {len(fcraw_may)}  API RI: {len(fcraw_may_ri)}  HTML GD: {len(fcraw_min)}")
 
 # ── Post-procesando ───────────────────────────────────────────────────────────
@@ -1705,6 +1865,7 @@ output = {
     "months":        FY_MONTHS,
     "pre_months":    PRE_MONTHS,    # Ene–Mar previos al FY: solo en bl/bl_ri, ly, *_gw y *_tp (no en ac)
     "metrics":       METRIC_COLS,
+    "forecast_source": FC_SOURCE,   # de dónde salió la proyección del Forecast (XLSX, o reusada del JSON anterior)
     "b2b2c_stage":   b2b2c_stage,   # {partner lowercase: 'New'|'Existing'} — split Hunting/Farming (Codigo.js)
     "b2b2c": {
         "ac": ac_b2b2c, "ly": ly_b2b2c, "bgt": bgt_b2b2c,
@@ -1733,5 +1894,78 @@ print(f"\n  JSON: {size_kb:.1f} KB")
 
 print("\n--- Subiendo a Google Drive ---")
 upload_to_drive(json_bytes)
+
+# ── Semanal (de los mismos datos diarios) ─────────────────────────────────────
+# Actuals, Budget y LY por semana; sin Forecast (los modelos son mensuales), tipo de producto, millas ni gateway.
+print("\n--- Semanal ---")
+if not WEEKS:
+    print("  AVISO: todavía no hay semanas completas en este FY — no se arma el semanal.")
+else:
+    _LY_W0, _LY_W1 = ACTUALS_FROM - timedelta(days=LY_DIAS), W_TO - timedelta(days=LY_DIAS)
+    print(f"  Semanas {WEEKS[0]} a {WEEKS[-1]} ({len(WEEKS)})  |  Actuals {ACTUALS_FROM} a {W_TO}  |  LY {_LY_W0} a {_LY_W1}")
+    _w_c = lambda g: _build_b2b2c_rows(g, filter_set=W_ALL_YM)
+    def _w_b(canal, y, m):
+        return lambda g: _build_b2b_rows(g, y, m, channel_filter=canal, filter_set=W_ALL_YM)
+    _wc, _wc_ly = _con_semana(df_b2b2c_d, ACTUALS_FROM, W_TO), _con_semana(df_b2b2c_ly_d, _LY_W0, _LY_W1)
+    _wgd, _wgd_ly = _con_semana(df_b2b_gd_d, ACTUALS_FROM, W_TO), _con_semana(df_b2b_gd_ly_d, _LY_W0, _LY_W1)
+    _wri = _con_semana(df_b2b_ri_d, ACTUALS_FROM, W_TO)
+    def _w_section(canal, lob):
+        return {
+            "bl":     _by_week(_wgd, _w_b(canal, "anio_gd", "mes_gd"), 2),
+            "bl_ri":  _by_week(_wri, _w_b(canal, "anio_ri", "mes_ri"), 2),
+            "bgt":    _budget_by_week(df_b2b_budget_gd, lambda g: _build_b2b_budget_rows(g, lob_filter=lob), 2),
+            "bgt_ri": _budget_by_week(df_b2b_budget_ri, lambda g: _build_b2b_budget_rows(g, lob_filter=lob), 2),
+            "ly":     _by_week(_wgd_ly, _w_b(canal, "anio_gd", "mes_gd"), 2, shift=LY_DIAS, weeks=WEEK_SET),
+        }
+    weekly = {
+        "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "weeks": WEEKS, "desde": str(ACTUALS_FROM), "hasta": str(W_TO), "ly_dias": LY_DIAS,
+        "metrics": METRIC_COLS, "b2b2c_stage": b2b2c_stage,
+        "b2b2c": {
+            "bl":  _by_week(_wc, _w_c, 3),
+            "bgt": _budget_by_week(df_b2b2c_budget, _build_b2b2c_budget_rows, 3),
+            "ly":  _by_week(_wc_ly, _w_c, 3, shift=LY_DIAS, weeks=WEEK_SET),
+        },
+        "b2b_may": _w_section("API", "B2B-MAY"),
+        "b2b_min": _w_section("Agencias afiliadas", "B2B-MIN"),
+    }
+    for _s in ("b2b2c", "b2b_may", "b2b_min"):
+        print(f"  {_s}: " + ", ".join(f"{k} {len(v):,}" for k, v in weekly[_s].items()))
+
+    # Control: las semanas de cada mes cerrado (entero antes del último domingo) suman lo mismo que el mensual.
+    _I = {m: METRIC_COLS.index(m) for m in ("gross_bookings", "net_revenue", "npv")}
+    def _tot(rows, off, iym, semanal):
+        t = {}
+        for r in rows:
+            if r[0] == "RG":
+                continue
+            d = t.setdefault(r[iym].split("|")[1] if semanal else r[iym], dict.fromkeys(_I, 0.0))
+            for m, i in _I.items():
+                d[m] += r[off + i] or 0
+        return t
+    _closed_w = [ym for ym in sorted(CLOSED_SET) if ym <= LAST_CLOSED_YM
+                 and date(int(ym[:4]) + (ym[5:] == "12"), int(ym[5:]) % 12 + 1, 1) - timedelta(days=1) <= W_TO]
+    _fallas, _max = [], 0.0
+    for sec, kw, km, off, iym in [("b2b2c", "bl", "ac", 4, 3), ("b2b_may", "bl", "ac", 3, 2), ("b2b_min", "bl", "ac", 3, 2),
+                                  ("b2b_may", "bl_ri", "ac_ri", 3, 2), ("b2b_min", "bl_ri", "ac_ri", 3, 2),
+                                  ("b2b2c", "bgt", "bgt", 4, 3), ("b2b_may", "bgt", "bgt", 3, 2), ("b2b_min", "bgt", "bgt", 3, 2),
+                                  ("b2b_may", "bgt_ri", "bgt_ri", 3, 2), ("b2b_min", "bgt_ri", "bgt_ri", 3, 2)]:
+        w, m = _tot(weekly[sec][kw], off, iym, True), _tot(output[sec][km], off, iym, False)
+        for ym in _closed_w:
+            for met in _I:
+                a, b = w.get(ym, {}).get(met, 0.0), m.get(ym, {}).get(met, 0.0)
+                dif = abs(a - b) / abs(b) if abs(b) > 1 else abs(a - b)
+                _max = max(_max, dif)
+                if dif > 0.005 and abs(a - b) > 1000:
+                    _fallas.append((sec, kw, ym, met, round(a), round(b), f"{dif:.2%}"))
+    print(f"  Control semanal vs mensual: {len(_closed_w)} meses cerrados, desvío máximo {_max:.3%}, fuera de tolerancia: {len(_fallas)}")
+    for _f in _fallas[:20]:
+        print("  DIFIERE", _f)
+    if _fallas:
+        print(f"  AVISO: NO se sube {WEEKLY_JSON_FILE_NAME} (no cierra con el mensual) — queda el de la corrida anterior.")
+    else:
+        _wb = json.dumps(weekly, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        print(f"  JSON semanal: {len(_wb) / 1024:.1f} KB")
+        upload_to_drive(_wb, WEEKLY_JSON_FILE_NAME)
 
 print(f"\nOK Completado: {TODAY.strftime('%d-%m-%Y')}")

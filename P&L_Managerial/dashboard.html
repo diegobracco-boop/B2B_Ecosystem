@@ -2584,6 +2584,11 @@ function clearMGPeriodSel_(){
   _mgRefreshViews_();
 }
 function mgGoalPeriodLabel_(p){
+  // Semana con Goal Last Year: las fechas del año pasado contra las que compara (misma semana −364 días, 2026-11-09)
+  if(_managerialGoal === 'ly' && _isWeek_()){
+    var lyl = _dataW && _dataW.weekly && _dataW.weekly.ly_labels;
+    return (lyl && lyl[p]) ? 'LY · ' + lyl[p] : p;
+  }
   if(_managerialGoal !== 'ly' || _isWeek_()) return p;
   if(p.indexOf(YEAR_TAG) >= 0) return p.replace(YEAR_TAG, yearLyTag_());
   return fyShiftLabel_(p, -1);
@@ -3002,7 +3007,7 @@ function renderManagerialBGTable(){
     var wNote = document.createElement('div');
     var ignored = getGatewayValues_().length || getTipoValues_().length || getMillasValues_().length;
     wNote.innerHTML = '<div style="margin:12px 0 10px;font-size:11.5px;color:var(--muted)">Semanas de lunes a domingo, hasta el '+escHtml(String(_dataW.weekly.hasta).split('-').reverse().join('/'))
-      + '. Last Year = misma semana del año anterior. La primera semana del FY arranca el 1/4.'
+      + '. Last Year = misma semana del año anterior, de lunes a domingo (364 días antes: la semana del 02/11–08/11/2026 se compara con la del 03/11–09/11/2025); las columnas del Goal muestran esas fechas. La primera semana del FY arranca el 1/4.'
       + (_managerialGoal === 'forecast' ? ' <b>Forecast no abre por semana:</b> para comparar usá Budget o Last Year.' : '')
       + (ignored ? ' <b>Gateway, tipo de producto y millas no abren por semana:</b> se muestra sin esos filtros.' : '') + '</div>';
     container.appendChild(wNote);

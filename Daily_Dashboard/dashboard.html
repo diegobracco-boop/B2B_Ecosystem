@@ -1975,6 +1975,9 @@ function setPaisFilter_(val) {
 // se muestran nominales. YoY "opción B": con target Budget/Forecast cada fila convertida trae además
 // <campo>_y = el valor a TC Actuals LY, y los YoY se calculan con eso (_yv_). Orders y países sin TC
 // (Other Countries, USA, …) no se convierten; RG/OPS usan el TC de Brasil.
+// Mes abierto (2026-11-09, opción A): el TC Actuals de los meses posteriores al último cierre es el real MTD
+// (Σ GB moneda local / Σ GB USD de B2C, fx_implicito.json), no el proyectado del archivo. Lo pisa el servidor
+// (readFxTable_, Codigo_organic.js), así que llega igual al navegador, al Weekly y a Industry events.
 var _dlOrganic = false;
 var _fxTbl = null, _fxState = 'idle';      // tabla de TC (getFxTable), se pide al prender el switch
 var _orgError_ = '', _orgMissing_ = {};
@@ -2098,7 +2101,7 @@ function setDailyOrganic(on) {
       .withSuccessHandler(function(res) {
         _fxState = 'idle';
         if (!res || !res.success) { _orgError_ = (res && res.error) || 'No se pudo leer el archivo de tipos de cambio'; _dlOrganic = false; _syncOrganicUI_(); return; }
-        _fxTbl = { actuals: res.actuals, budget: res.budget, forecast: res.forecast };
+        _fxTbl = { actuals: res.actuals, budget: res.budget, forecast: res.forecast, implicito: res.implicito || null };   // implicito: meses abiertos con TC real MTD (fx_implicito.json)
         _orgRefreshAll_();
       })
       .withFailureHandler(function(err) {
@@ -2154,6 +2157,7 @@ function _syncOrganicUI_() {
     var vt = _orgTargetVisible_();
     if (!vt.t) note.textContent = 'No disponible con ' + (vt.cmp === 'runrate' ? 'Run Rate' : vt.cmp) + ' (sin TC): datos nominales';
     else note.textContent = 'Actuals × TC Actuals / TC ' + _orgTargetLabel_(vt.t) + (vt.t === 'forecast' ? ' · Forecast a TC Budget' : '') + (vt.t === 'ly' ? '' : ' · YoY a TC Actuals LY')
+      + (_fxTbl && _fxTbl.implicito && _fxTbl.implicito.meses && _fxTbl.implicito.meses.length ? ' · TC ' + _fxTbl.implicito.meses.join(', ') + ': real MTD (GB local / GB USD)' : '')
       + (miss.length ? ' · sin TC: ' + miss.slice(0, 4).join(', ') + (miss.length > 4 ? ' …' : '') : '');
   }
   note.title = note.textContent;
@@ -2353,8 +2357,9 @@ function _b2cRows_(raw) {
   }));
   return raw._b2cExpanded;
 }
-function computeB2C_(raw, metric, vDate, gran) {
-  var rows = _b2cRows_(raw);
+// orgT: target organic de la vista (2026-11-09): la línea B2C se convierte igual que la serie que acompaña
+function computeB2C_(raw, metric, vDate, gran, orgT) {
+  var rows = _orgRows_(_b2cRows_(raw), orgT || '');
   if (!rows.length) return null;
   var MF = {gb:'gross_bookings', nr:'net_revenues', fvm:'fvm'}[metric];
   var pp = vDate.split('-'), curYM = pp[0]+'-'+pp[1];
@@ -3128,7 +3133,7 @@ function renderMetrics(all) {
     var chartDaily = b2bcSeries_(def.key, gran, all);
     var isPct = def.key !== 'gb' && _b2bcMarginMode === 'pct';
     if (isPct && all.gb) chartDaily = toPctDaily_(chartDaily, b2bcSeries_('gb', gran, all));
-    var b2cSeries = (_showB2C_b2bc && !isPct) ? computeB2C_(_rawB2BC, def.key, d.viewDate, gran) : null;
+    var b2cSeries = (_showB2C_b2bc && !isPct) ? computeB2C_(_rawB2BC, def.key, d.viewDate, gran, _orgTargetB2BC_()) : null;
     renderChart(def.key, def.chartId, chartDaily, d.viewDate, def.color, gran, undefined, {pctMode:isPct, b2c:b2cSeries});
     var tblGroups = (gl_tbl_period === 'ytd' && d.groups_ytd) ? d.groups_ytd : d.groups;
     renderGroupedTable3(def.tblId, tblGroups, {newFlagKey:'isNew'});
@@ -4360,7 +4365,7 @@ function renderB2BMetrics(all) {
     var chartDailyB2b = d.daily;
     var isPctB2b = def.key !== 'gb' && _b2bMarginMode === 'pct';
     if (isPctB2b && all.gb) chartDailyB2b = toPctDaily_(d.daily, all.gb.daily);
-    var b2cSeriesB2b = (_showB2C_b2b && !isPctB2b) ? computeB2C_(_rawB2B, def.key, d.viewDate, gran) : null;
+    var b2cSeriesB2b = (_showB2C_b2b && !isPctB2b) ? computeB2C_(_rawB2B, def.key, d.viewDate, gran, _orgTargetB2B_()) : null;
     renderChart(def.key, def.chartId, chartDailyB2b, d.viewDate, def.color, gran, _b2bCharts, {pctMode:isPctB2b, b2c:b2cSeriesB2b});
     var tblGroupsB2b = (gl_tbl_period === 'ytd' && d.groups_ytd) ? d.groups_ytd : d.groups;
     renderGroupedTableB2B_(def.tblId, tblGroupsB2b);
@@ -4486,10 +4491,11 @@ function _b2cLyRows_(raw) {
 
 // { cur, ly, nr } — filas y nombre del campo NR (net_revenues plural en actuals/b2c, singular en b2b)
 function _benchRows_(biz) {
-  // organic: B2B2C / B2B a TC Actuals LY (vista de crecimiento YoY → target Last Year); B2C nunca se convierte
+  // organic: B2B2C / B2B / B2C a TC Actuals LY (vista de crecimiento YoY → target Last Year). B2C se convierte
+  // desde 2026-11-09 (antes no: el "vs B2C" mezclaba organic con nominal), como en Weekly · vs B2C e Industry events.
   if (biz === 'b2b2c') { var rb = b2bcRaw_(); return { cur: _orgRows_(rb.actuals || [], _orgTargetBench_()), ly: (rb.actuals_ly || []), nr: 'net_revenues' }; }   // respeta el switch Partner TBD
   if (biz === 'b2b')   return { cur: (_rawB2B ? _orgRows_(_rawB2B.b2b_gd || [], _orgTargetBench_()) : []), ly: (_rawB2B ? (_rawB2B.b2b_gd_ly || []) : []), nr: 'net_revenue' };
-  return { cur: _b2cRows_(_rawB2BC), ly: _b2cLyRows_(_rawB2BC), nr: 'net_revenues' };
+  return { cur: _orgRows_(_b2cRows_(_rawB2BC), _orgTargetBench_()), ly: _b2cLyRows_(_rawB2BC), nr: 'net_revenues' };
 }
 
 // Una sola pasada: total + desglose por país, filtrado por [from,to] y país.

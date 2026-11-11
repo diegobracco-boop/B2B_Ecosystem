@@ -1230,18 +1230,18 @@ SELECT
     SUM(b.net_revenues_usd
         + COALESCE(be.correccion_be, 0)
         + COALESCE(mkt.monto_usd, 0))                                    AS net_revenues,
-    -- FVM = margen variable + Financial Result + Dif FX + cobertura, como el FVM de B2B2C / B2B y el
-    -- Budget B2C (Variable_Margin + Financial_Result + Dif_FX). Hasta 2026-10-27 iba sin Financial
-    -- Result ni Dif FX: en W43 daba $5,5M en vez de $4,6M (49% del NR en vez de 41%).
-    SUM(b.margin_variable_net_usd
+    -- FVM (2026-11-09) = el "NPV AS FVM" de la query oficial del equipo B2C (ACT v4): npv_net_usd + corrección
+    -- BE + mktg funds + mkt funds BD1. npv_net ya trae margen variable + Financial Result + Dif FX con la
+    -- fórmula interna (la Dif FX de Expedia PP va solo en su columna Dif_FX, no en el FVM).
+    -- Antes (2026-10-27 a 2026-11-09): margin_variable_net + financial_result + dif_fx(+air) + hedge(+air),
+    -- que en Argentina restaba la Dif FX de más (W45: 2,510.7k vs 2,646.0k).
+    SUM(b.npv_net_usd
         + COALESCE(be.correccion_be, 0)
         + COALESCE(d.mktg_funds_usd, 0)
-        + COALESCE(mkt.monto_usd, 0)
-        + COALESCE(b.financial_result_usd, 0)
-        + COALESCE(b.dif_fx_usd, 0) + COALESCE(b.dif_fx_air_usd, 0)
-        + COALESCE(b.currency_hedge_usd, 0) + COALESCE(b.currency_hedge_air_usd, 0)) AS margenVAr_conAA,
+        + COALESCE(mkt.monto_usd, 0)) AS margenVAr_conAA,
     -- COI + efecto financiero tal como entran en el FVM (mismo criterio que coi_fin_br de B2B2C); agg_b2c
-    -- lo usa solo para Brasil: fila RG con -fin_coi (switch "COI Brasil")
+    -- lo usa solo para Brasil: fila RG con -fin_coi (switch "COI Brasil"). npv_net incluye el Financial
+    -- Result (Brasil W45: npv - margen variable = financial_result), así que el ajuste sigue valiendo.
     SUM(COALESCE(b.financial_result_usd, 0) - COALESCE(b.coi_usd, 0))     AS fin_coi
 
 FROM data.analytics.bi_pnlop_fact_current_model b
@@ -1261,9 +1261,8 @@ FROM data.analytics.bi_pnlop_fact_current_model b
     LEFT JOIN data.tmp.mkt_funds_bd1 mkt
         ON CAST(mkt.product_id AS VARCHAR) = CAST(p.product_id AS VARCHAR)
 
-    LEFT JOIN data.analytics.bi_pnlop_fact_pricing_model pr
-        ON CAST(pr.product_id AS VARCHAR) = CAST(p.product_id AS VARCHAR)
-        AND pr.date_reservation_year_month >= '2023-01'
+    -- Como la query oficial: sin el join a bi_pnlop_fact_pricing_model (ningún campo lo usaba). La oficial
+    -- tiene además INNER JOIN bi_transactional_fact_charges: en W45 no cambia ninguna fila, no se agrega.
 
 WHERE
     b.date_reservation_year_month  >= '2023-01'
@@ -1275,7 +1274,9 @@ WHERE
     AND t.confirmation_date        <= DATE('{date_to}')
     AND p.is_confirmed_flg = 1
     AND (t.line_of_business = 'B2C' OR t.channel = 'puntosbonus-pe')
-    AND b.gb_without_distorted_taxes_usd > 0
+    -- GB > 0, salvo Ancillaries y Traslados de Viajes Falabella Chile (como la query oficial de B2C)
+    AND (b.gb_without_distorted_taxes_usd > 0
+         OR (t.brand = 'Viajes Falabella' AND t.purchase_type IN ('Ancillaries', 'Traslados') AND t.country_code = 'CL'))
     AND t.channel <> 'internal-travel'
 
 GROUP BY 1, 2
@@ -2001,6 +2002,17 @@ except Exception as e:
     print(f"  WARN Overs Media Sales failed: {e} — queda el {OVERS_FILE_NAME} anterior en Drive")
     overs_payload = None
 
+# TC implícito B2C de los meses abiertos (2026-11-09): pisa el TC proyectado de tc_plana_flat en el Organic del Daily
+# (ver fx_implicito_sync.py). Mismo criterio que los Overs: si falla queda el fx_implicito.json anterior.
+print("\n--- TC implícito (Organic, mes abierto) ---")
+from fx_implicito_sync import build_fx_implicito, upload as upload_fx_impl, FX_IMPL_FILE_NAME
+try:
+    fx_impl_payload = build_fx_implicito(fetch, YESTERDAY)
+    print("  " + " | ".join(f"{d['pais']} {d['ym']} {d['tc']:,.4f}" for d in fx_impl_payload["detalle"]))
+except Exception as e:
+    print(f"  WARN TC implícito failed: {e} — queda el {FX_IMPL_FILE_NAME} anterior en Drive")
+    fx_impl_payload = None
+
 print("\n--- FVM Negativo (landing FVM_Negativo) ---")
 # No va a _FAILED_BLOCKS: si una query falla o el FVM total no cuadra contra el del Daily,
 # NO se sube fvm_negativo.json (queda el de la corrida anterior) y el resto del Daily sigue igual.
@@ -2441,6 +2453,13 @@ elif overs_payload is not None:
         upload_overs(overs_payload, _get_drive_service())
     except Exception as e:
         print(f"  WARN no se pudo subir {OVERS_FILE_NAME}: {e}")
+if fx_impl_payload is not None and DRY_RUN_DIR:
+    upload_to_drive(json.dumps(fx_impl_payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8"), FX_IMPL_FILE_NAME)
+elif fx_impl_payload is not None:
+    try:
+        upload_fx_impl(fx_impl_payload, _get_drive_service())
+    except Exception as e:
+        print(f"  WARN no se pudo subir {FX_IMPL_FILE_NAME}: {e}")
 
 # Partners API (KR Global B2B API "Accelerate Hunting Partners API"): congela el mes anterior el primer dia habil del mes y recalcula
 # el rolling de 30 dias (ver partners_api_sync.py). No corta la sync: si falla queda el partners_api_snapshots.json anterior.
@@ -2463,6 +2482,17 @@ try:
         upload_to_drive(json.dumps(_pl_payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8"), _pl.FILE_NAME)
 except (Exception, SystemExit) as e:
     print(f"  WARN Pipeline B2B2C fallo ({e}) — queda el pipeline_b2b2c.json anterior en Drive")
+
+# B2B2C Tracker: funnel de tráfico semanal de las WLs para la página /b2b2c-tracker de Ownia (ver b2b2c_tracker_sync.py; los
+# resultados los toma el servidor de este mismo daily_b2b2c_data.json). No corta la sync: si falla queda el b2b2c_tracker.json anterior.
+print("\n--- B2B2C Tracker (tráfico semanal) ---")
+try:
+    import b2b2c_tracker_sync as _trk
+    _trk_payload = _trk.build_payload(fetch)
+    if _trk_payload is not None:
+        upload_to_drive(json.dumps(_trk_payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8"), _trk.FILE_NAME)
+except (Exception, SystemExit) as e:
+    print(f"  WARN B2B2C Tracker fallo ({e}) — queda el b2b2c_tracker.json anterior en Drive")
 
 # okr.json (OKR del Hub + KR Global B2B API del Daily/Tracker) toma de daily_b2b2c_data.json los
 # actuals que salen del Datalake (hoteles directos, Unique Buyers, Hunting/Existing): se regenera acá

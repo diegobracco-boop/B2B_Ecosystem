@@ -17,6 +17,10 @@
 //   rechaza. Con ellos se arman ~/.clasprc.json y el token de lectura en una carpeta temporal propia de la
 //   corrida (HOME del proceso), que se borra al terminar; el pipeline renueva el access token solo (vence en 1970).
 // - Los .py los copia scripts/sync-to-ownia-repo.js a pipelines/ (mismas rutas que en el monorepo).
+// - Dos corridas (2026-11-09, Diego), con la misma contraseña y una sola a la vez (las dos usan varios GB):
+//     daily       Daily_Dashboard/daily_sync.py: Daily, OKR, FVM Negativo, Pipeline Hunting
+//     managerial  P&L_Managerial/actuals_gestional_upload.py: P&L Managerial mensual + semanal, del mismo grano
+//                 diario. Sin los XLSX del Forecast (no están en el servidor) reusa el Forecast del último JSON.
 const { spawn } = require('child_process');
 const crypto = require('crypto');
 const fs = require('fs');
@@ -52,8 +56,28 @@ const STAGES = [
   [/^--- Pipeline B2B2C/, 97, 'Últimos ajustes (Pipeline Hunting y OKR)'],
   [/^OK Completado/, 100, 'Listo'],
 ];
-function newProgress() {
-  return { pct: 0, stage: 'Arrancando', queries: 0, expected: EXPECTED_QUERIES, uploads: 0, floor: 0, waiting: false, warnings: [] };
+// P&L Managerial (actuals_gestional_upload.py): 16 consultas (reales y LY por día, tipo de producto, cartera, budget y run rate).
+const MANAGERIAL_QUERIES = 16;
+const MANAGERIAL_STAGES = [
+  [/^--- Forecast/, 80, 'Tomando el Forecast'],
+  [/^--- Post-procesando ---/, 82, 'Armando el mensual'],
+  [/^--- Subiendo a Google Drive ---/, 88, 'Publicando el mensual en Drive y Ownia'],
+  [/^--- Semanal ---/, 94, 'Armando y publicando el semanal'],
+  [/^OK Completado/, 100, 'Listo'],
+];
+
+// Las corridas que lanza el botón. `script` es relativo a pipelines/; `dataFile`, el JSON del almacén que dice
+// "Datos al" en la ventana.
+const JOBS = {
+  daily: { label: 'Reales del Daily', script: ['Daily_Dashboard', 'daily_sync.py'], expected: EXPECTED_QUERIES, stages: STAGES,
+    dataFile: 'daily_b2b2c_data.json' },
+  managerial: { label: 'P&L Managerial', script: ['P&L_Managerial', 'actuals_gestional_upload.py'], expected: MANAGERIAL_QUERIES,
+    stages: MANAGERIAL_STAGES, dataFile: '_actuals_gestional.json' },
+};
+
+function newProgress(kind = 'daily') {
+  const job = JOBS[kind] || JOBS.daily;
+  return { pct: 0, stage: 'Arrancando', queries: 0, expected: job.expected, stages: job.stages, uploads: 0, floor: 0, waiting: false, warnings: [] };
 }
 // Avisos de daily_sync.py que no cortan la corrida (p.ej. "WARN Ownia: no se pudo publicar…", "AVISO: NO se sube…"):
 // se muestran aunque termine bien. Los reintentos de una consulta ("WARN <consulta> intento N") no cuentan.
@@ -65,7 +89,7 @@ function advance(p, line) {
   if (/^\s+OK .+: [\d.,]+ filas en /.test(line)) { p.queries += 1; p.waiting = false; }
   if (/^\s+WAIT .*cola del Datalake llena/.test(line)) p.waiting = true;
   if (/^\s+(OK Drive:|DRY RUN:)/.test(line)) p.uploads += 1;
-  for (const [re, floor, stage] of STAGES) if (re.test(line) && floor > p.floor) { p.floor = floor; p.stage = stage; }
+  for (const [re, floor, stage] of (p.stages || STAGES)) if (re.test(line) && floor > p.floor) { p.floor = floor; p.stage = stage; }
   const q = 2 + 78 * Math.min(p.queries, p.expected) / p.expected;
   const f = p.floor + (p.floor === 88 ? Math.min(p.uploads, 5) * 1.6 : 0);
   p.pct = Math.max(p.pct, Math.round(Math.max(p.floor === 0 ? q : Math.max(q, f), f)));
@@ -112,9 +136,9 @@ function createRealesJob(cfg, opts = {}) {
   const pipelinesDir = opts.pipelinesDir || resolvePipelinesDir(cfg.APP_ROOT);
   const memoryMb = opts.memoryMb !== undefined ? opts.memoryMb : containerMemoryMb();   // null = no se sabe (p.ej. en local)
   const minMemoryMb = secrets_(cfg).REALES_MIN_MEMORY_MB !== undefined ? Number(secrets_(cfg).REALES_MIN_MEMORY_MB) : MIN_MEMORY_MB;
-  const script = path.join(pipelinesDir, 'Daily_Dashboard', 'daily_sync.py');
+  const scriptOf = (kind) => path.join(pipelinesDir, ...JOBS[kind].script);
   const secrets = cfg.secrets || {};
-  const run = { state: 'idle', startedAt: null, finishedAt: null, by: null, exitCode: null, lines: [], progress: newProgress() };
+  const run = { state: 'idle', kind: null, startedAt: null, finishedAt: null, by: null, exitCode: null, lines: [], progress: newProgress() };
   const fails = new Map();   // email -> [timestamps]
   // Un traceback puede traer una credencial: los valores de los secretos (y lo que siga a Bearer / password= /
   // refresh_token) se tachan antes de guardar la línea o mandarla al log.
@@ -128,10 +152,10 @@ function createRealesJob(cfg, opts = {}) {
     for (const d of fs.readdirSync(os.tmpdir())) if (/^reales-/.test(d)) fs.rmSync(path.join(os.tmpdir(), d), { recursive: true, force: true });
   } catch (e) { /* sin permisos sobre tmp: nada que barrer */ }
 
-  function missing() {
+  function missing(kind = 'daily') {
     const out = REQUIRED.filter((k) => !secrets[k]);
     if (!cfg.INGEST_TOKEN) out.push('INGEST_TOKEN');
-    if (!fs.existsSync(script)) out.push('pipelines/Daily_Dashboard/daily_sync.py');
+    if (!fs.existsSync(scriptOf(kind))) out.push(`pipelines/${JOBS[kind].script.join('/')}`);
     return out;
   }
 
@@ -179,8 +203,10 @@ function createRealesJob(cfg, opts = {}) {
   function status() {
     const { pct, stage, warnings } = run.progress;
     return {
-      state: run.state, startedAt: run.startedAt, finishedAt: run.finishedAt, by: run.by, exitCode: run.exitCode,
+      state: run.state, kind: run.kind, kindLabel: run.kind ? JOBS[run.kind].label : null,
+      startedAt: run.startedAt, finishedAt: run.finishedAt, by: run.by, exitCode: run.exitCode,
       progress: { pct, stage }, warnings: warnings.slice(), lines: run.lines.slice(-40), configured: missing().length === 0,
+      jobs: Object.fromEntries(Object.keys(JOBS).map((k) => [k, { configured: missing(k).length === 0 }])),
       blocked: memoryProblem(),
     };
   }
@@ -192,17 +218,18 @@ function createRealesJob(cfg, opts = {}) {
     return recent.length >= MAX_FAILS;
   }
 
-  /** Arranca una corrida. Devuelve { ok, status } o { ok: false, code, error }. */
-  function start(email, password) {
+  /** Arranca una corrida (kind: 'daily' | 'managerial'). Devuelve { ok, status } o { ok: false, code, error }. */
+  function start(email, password, kind = 'daily') {
+    if (!Object.prototype.hasOwnProperty.call(JOBS, kind)) return { ok: false, code: 400, error: 'Actualización desconocida.' };
     if (tooManyFails(email)) return { ok: false, code: 429, error: 'Demasiados intentos con la contraseña equivocada. Probá de nuevo en 15 minutos.' };
     if (!secrets.REALES_PASSWORD || !sameSecret(password || '', secrets.REALES_PASSWORD)) {
       if (secrets.REALES_PASSWORD) fails.get(email).push(Date.now());
       log({ level: 'warn', msg: 'reales: contraseña equivocada', by: email });
       return { ok: false, code: 403, error: 'Contraseña incorrecta.' };
     }
-    const faltan = missing();
+    const faltan = missing(kind);
     if (faltan.length) return { ok: false, code: 503, error: `Falta configurar en Ownia: ${faltan.join(', ')}` };
-    if (run.state === 'running') return { ok: false, code: 409, error: `Ya hay una actualización corriendo (la lanzó ${run.by}).` };
+    if (run.state === 'running') return { ok: false, code: 409, error: `Ya hay una actualización corriendo (${JOBS[run.kind].label}, la lanzó ${run.by}). Las dos no pueden correr a la vez.` };
     const memo = memoryProblem();
     if (memo) {
       log({ level: 'warn', msg: 'reales: no arranca por memoria', memoryMb, minMemoryMb, by: email });
@@ -241,8 +268,8 @@ function createRealesJob(cfg, opts = {}) {
       fs.writeFileSync(env.DRIVE_READ_TOKEN_FILE, JSON.stringify(read), { mode: 0o600 });
     }
 
-    Object.assign(run, { state: 'running', startedAt: new Date().toISOString(), finishedAt: null, by: email, exitCode: null, lines: [], progress: newProgress() });
-    log({ level: 'info', msg: 'reales: arranca la actualización', by: email });
+    Object.assign(run, { state: 'running', kind, startedAt: new Date().toISOString(), finishedAt: null, by: email, exitCode: null, lines: [], progress: newProgress(kind) });
+    log({ level: 'info', msg: 'reales: arranca la actualización', kind, by: email });
     const m = freeMemoryMb();
     if (m) push(`Memoria: ${m.total.toLocaleString('es-AR')} MB en total, la app usa ${m.app.toLocaleString('es-AR')} MB, quedan ${m.free.toLocaleString('es-AR')} MB`);
     let done = false;
@@ -253,10 +280,11 @@ function createRealesJob(cfg, opts = {}) {
       clearTimeout(timer);
       fs.rmSync(home, { recursive: true, force: true });
       Object.assign(run, { state: code === 0 ? 'ok' : 'error', finishedAt: new Date().toISOString(), exitCode: code });
-      log({ level: code === 0 ? 'info' : 'error', msg: 'reales: terminó la actualización', exitCode: code, by: email });
+      log({ level: code === 0 ? 'info' : 'error', msg: 'reales: terminó la actualización', kind, exitCode: code, by: email });
     };
     let child;
     try {
+      const script = scriptOf(kind);
       child = spawnFn(python, [script], { cwd: path.dirname(script), env, stdio: ['ignore', 'pipe', 'pipe'] });
     } catch (e) {
       push(`No se pudo lanzar ${python}: ${e.message}`);
@@ -285,4 +313,4 @@ function createRealesJob(cfg, opts = {}) {
   return { start, status, missing };
 }
 
-module.exports = { createRealesJob, resolvePipelinesDir, newProgress, advance, EXPECTED_QUERIES };
+module.exports = { createRealesJob, resolvePipelinesDir, newProgress, advance, EXPECTED_QUERIES, MANAGERIAL_QUERIES, JOBS };

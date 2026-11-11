@@ -42,6 +42,8 @@ const MANAGED = [...APP_ENTRIES, 'gas', 'pipelines', 'LEEME_ESPEJO.md', '.gitign
 const PIPELINES = [
   { dir: 'Daily_Dashboard', ext: ['.py', '.sql'] },
   { dir: 'Inputs_Planning_PnL', ext: ['.py'] },
+  // Botón "Actualizar managerial" (2026-11-09): el pipeline del P&L Managerial y su helper (país RG).
+  { dir: 'P&L_Managerial', ext: [], files: ['actuals_gestional_upload.py', 'rg_rows.py'] },
   { dir: `${APP_DIRNAME}/mirror`, ext: ['.py'] },
   { dir: `${APP_DIRNAME}/server`, ext: [], files: ['drive-manifest.json'] },   // lo lee ownia_publish.py
 ];

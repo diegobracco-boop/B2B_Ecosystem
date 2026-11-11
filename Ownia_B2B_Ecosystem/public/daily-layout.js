@@ -17,6 +17,7 @@
  *    y el país elegidos. B2B no tiene partner en los datos del Daily.
  *  - Participación vs B2C por día (2026-11-04, Tiago): en el detalle por día y en las tarjetas, línea / (línea + B2C)
  *    en el mismo día de evento, con el cambio en pp vs el año pasado (partCell / partOf).
+ *  - Organic (2026-11-09, Diego): sigue el switch de "+ Filtros" (window._dlOrganic, YES por default). Ver orgF.
  */
 (function () {
   'use strict';
@@ -71,6 +72,25 @@
   }
   function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
 
+  // ── Organic (2026-11-09, Diego): el mismo switch de "+ Filtros" del Daily (window._dlOrganic, YES por default).
+  // Es una vista de crecimiento YoY, así que todo va a TC Actuals LY del mismo mes (igual que el Benchmark):
+  // reales de este año × TC Actuals / TC Actuals LY y Budget × TC Budget / TC Actuals LY; el LY queda como está.
+  // El "vs bdg" da lo mismo que comparar a TC Budget (cada país-mes se convierte igual de los dos lados).
+  // País o mes sin TC (Other Countries, USA…): sin convertir. Usa la tabla de TC que ya carga el Daily (_fxTbl).
+  function orgOn() { return !!(window._dlOrganic && window._fxTbl); }
+  function orgKey() { return orgOn() ? 'org' : 'nom'; }
+  var fxMemo = {};
+  function orgF(src, pais, fecha) {
+    if (!orgOn() || !fecha) return 1;
+    var ym = String(fecha).slice(0, 7), k = src + '|' + pais + '|' + ym;
+    if (k in fxMemo) return fxMemo[k];
+    var n = typeof window._orgNorm_ === 'function' ? window._orgNorm_(pais) : String(pais || '').trim().toLowerCase();
+    n = (window._ORG_ALIAS_ || {})[n] || n;
+    var T = window._fxTbl, a = T[src] && T[src][n + '§' + ym], l = T.actuals && T.actuals[n + '§' + (+ym.slice(0, 4) - 1) + ym.slice(4)];
+    return (fxMemo[k] = (a && l) ? a / l : 1);
+  }
+  var CY_SRC = { b2b_gd: 1, b2c: 1, actuals: 1 };   // fuentes de este año (el resto es LY)
+
   // ── Datos diarios por LoB: map[fecha][pais] = [gb, nr, fvm] ──
   function rowsOf(x) {
     if (Array.isArray(x)) return x;
@@ -86,31 +106,31 @@
   }
 
   function buildSeries(lob) {
-    var key = lob + '|' + (window._exCoiBr ? 1 : 0) + '|' + (ev ? ev.meta.generated_at : '');
+    var key = lob + '|' + (window._exCoiBr ? 1 : 0) + '|' + orgKey() + '|' + (ev ? ev.meta.generated_at : '');
     if (seriesCache[lob] && seriesCache[lob].key === key) return seriesCache[lob];
     var raw = rawFor(lob);
     var map = {};
     var channel = segOf(lob) ? segOf(lob).channel : null;
-    function add(r, fvmExt) {
+    function add(r, cy) {
       var f = r.fecha; if (!f) return;
       if (channel && r.parent_channel !== channel) return;
       if (r.pais === 'RG' && !window._exCoiBr) return;   // ajuste COI Brasil: solo con el switch en Excluir
-      var p = OTHER[r.pais] || r.pais;
+      var p = OTHER[r.pais] || r.pais, m = cy ? orgF('actuals', r.pais, f) : 1;
       var nr = r.net_revenues != null ? r.net_revenues : r.net_revenue;
       var fvm = r.fvm;
       var day = map[f] || (map[f] = {});
       var v = day[p] || (day[p] = [0, 0, 0]);
-      v[0] += +r.gross_bookings || 0; v[1] += +nr || 0; v[2] += +fvm || 0;
+      v[0] += (+r.gross_bookings || 0) * m; v[1] += (+nr || 0) * m; v[2] += (+fvm || 0) * m;
     }
     var srcs = isB2b(lob) ? ['b2b_gd', 'b2b_gd_ly', 'b2b_gd_ly_ext']
       : lob === 'b2c' ? ['b2c', 'b2c_ly'] : ['actuals', 'actuals_ly'];
-    srcs.forEach(function (k) { rowsOf(raw && raw[k]).forEach(function (r) { add(r, false); }); });
+    srcs.forEach(function (k) { rowsOf(raw && raw[k]).forEach(function (r) { add(r, !!CY_SRC[k]); }); });
     // LY que el Daily todavía no publica (solo fechas que no tiene).
     var ext = ev && ev.ly_ext && ev.ly_ext[lob];
     if (ext) {
       var have = {};
       Object.keys(map).forEach(function (f) { have[f] = 1; });
-      rowsOf(ext).forEach(function (r) { if (!have[r.fecha]) add(r, true); });
+      rowsOf(ext).forEach(function (r) { if (!have[r.fecha]) add(r, false); });
     }
     seriesCache[lob] = { key: key, map: map };
     return seriesCache[lob];
@@ -121,23 +141,23 @@
   // (industry_events_sync.py), con los nombres unificados como el Daily (PARTNER_ALIAS_).
   var partnerCache = null;
   function buildPartners() {
-    var key = (window._exCoiBr ? 1 : 0) + '|' + (ev ? ev.meta.generated_at : '');
+    var key = (window._exCoiBr ? 1 : 0) + '|' + orgKey() + '|' + (ev ? ev.meta.generated_at : '');
     if (partnerCache && partnerCache.key === key) return partnerCache.map;
     var raw = window._rawB2BC, map = {}, alias = window.PARTNER_ALIAS_ || {};
-    function add(r) {
+    function add(r, cy) {
       var f = r.fecha; if (!f) return;
       if (r.pais === 'RG' && !window._exCoiBr) return;
-      var p = OTHER[r.pais] || r.pais, pt = String(r.partner || '').trim() || 'Sin asignar';
+      var p = OTHER[r.pais] || r.pais, pt = String(r.partner || '').trim() || 'Sin asignar', m = cy ? orgF('actuals', r.pais, f) : 1;
       pt = alias[pt] || pt;
       var day = map[f] || (map[f] = {}), dp = day[p] || (day[p] = {}), v = dp[pt] || (dp[pt] = [0, 0, 0]);
-      v[0] += +r.gross_bookings || 0; v[1] += +(r.net_revenues != null ? r.net_revenues : r.net_revenue) || 0; v[2] += +r.fvm || 0;
+      v[0] += (+r.gross_bookings || 0) * m; v[1] += (+(r.net_revenues != null ? r.net_revenues : r.net_revenue) || 0) * m; v[2] += (+r.fvm || 0) * m;
     }
-    ['actuals', 'actuals_ly'].forEach(function (k) { rowsOf(raw && raw[k]).forEach(add); });
+    ['actuals', 'actuals_ly'].forEach(function (k) { rowsOf(raw && raw[k]).forEach(function (r) { add(r, k === 'actuals'); }); });
     var ext = ev && ev.ly_ext && ev.ly_ext.b2b2c_partner;
     if (ext) {
       var have = {};
       Object.keys(map).forEach(function (f) { have[f] = 1; });
-      rowsOf(ext).forEach(function (r) { if (!have[r.fecha]) add(r); });
+      rowsOf(ext).forEach(function (r) { if (!have[r.fecha]) add(r, false); });
     }
     partnerCache = { key: key, map: map };
     return map;
@@ -230,7 +250,7 @@
   var budCache = {};
   function buildBudget(lob) {
     if (lob === 'b2c' || lob === 'b2b') return null;
-    var key = lob + '|' + (window._exCoiBr ? 1 : 0);
+    var key = lob + '|' + (window._exCoiBr ? 1 : 0) + '|' + orgKey();
     if (budCache[lob] && budCache[lob].key === key) return budCache[lob];
     var b2b = isB2b(lob), raw = b2b ? window._rawB2B : window._rawB2BC, rows = rowsOf(raw && (b2b ? raw.b2b_budget_gd : raw.budget));
     var channel = segOf(lob) ? segOf(lob).channel : null, map = {}, pmap = {}, alias = window.PARTNER_ALIAS_ || {};
@@ -238,8 +258,8 @@
       var f = r.fecha; if (!f) return;
       if (channel && r.parent_channel !== channel) return;
       if (r.pais === 'RG' && !window._exCoiBr) return;
-      var p = OTHER[r.pais] || r.pais, nr = r.net_revenue != null ? r.net_revenue : r.net_revenues;
-      var v3 = [+r.gross_bookings || 0, +nr || 0, +r.fvm || 0];
+      var p = OTHER[r.pais] || r.pais, nr = r.net_revenue != null ? r.net_revenue : r.net_revenues, m = orgF('budget', r.pais, f);
+      var v3 = [(+r.gross_bookings || 0) * m, (+nr || 0) * m, (+r.fvm || 0) * m];
       var day = map[f] || (map[f] = {}), v = day[p] || (day[p] = [0, 0, 0]);
       v[0] += v3[0]; v[1] += v3[1]; v[2] += v3[2];
       if (!b2b) {
@@ -392,7 +412,7 @@
     el('iet-evsel').innerHTML = selectorsHtml(groups);
     body.innerHTML = '<div id="iet-detail"></div>';
     renderDetail(groups);
-    el('iet-asof').textContent = 'Datos al ' + fmtDay(lastDate()) + ' · ' + LOB_NOTE[st.lob];
+    el('iet-asof').textContent = 'Datos al ' + fmtDay(lastDate()) + ' · ' + LOB_NOTE[st.lob] + ' · ' + (orgOn() ? 'Organic: a TC Actuals LY' : 'Nominal (USD)');
   }
   var LOB_NOTE = {
     b2b2c: 'B2B2C · calendario de eventos WL',
@@ -566,6 +586,9 @@
     if (ks.perDay || days.perDay) foot.push('† El evento dura distinto que el año pasado: el YoY compara el promedio diario.');
     if (live) foot.push('En curso: ' + y + ' a la fecha vs los mismos días de evento de ' + (y - 1) + '.');
     foot.push('vs Budget = real vs Budget diario del Daily en los mismos días (B2C no tiene Budget diario). vs B2C = YoY de la línea menos YoY de B2C en los mismos días (pp). Participación vs B2C = la línea / (la línea + B2C) en los mismos días, con su cambio en pp vs el mismo día de evento de ' + (y - 1) + '. Share = % del total B2B2C + B2B MIN + B2B API + B2C; en el detalle por día solo se calcula si las cuatro líneas tienen dato. B2B en base GD.');
+    foot.push(orgOn()
+      ? 'Organic YES (en "+ Filtros"): ' + y + ' y su Budget van a TC Actuals de ' + (y - 1) + ' del mismo mes, así el YoY no lleva el efecto del tipo de cambio; ' + (y - 1) + ' queda como está. Países sin TC (Other Countries, USA): sin convertir.'
+      : 'Organic NO: todo en USD nominales (con el efecto del tipo de cambio).');
     if (days.fallback.length) foot.push('Sin este evento en su calendario, ' + days.fallback.join(' y ') + ' usa las fechas del calendario elegido.');
     var h = '<div class="tcard iet-card"><div class="card-hdr"><span class="card-ttl">' + esc(title) + ' ' + statusHtml(pairs[0]) + '</span><span class="bench-sub">' + esc(sub) + '</span></div>' +
       headlineHtml(g, pairs, ks, kb, gap, y, vbK) +
@@ -850,7 +873,8 @@
       el('view-daily').style.display = 'none';
       document.querySelectorAll('.view-nav .vnav-btn').forEach(function (x) { x.classList.toggle('active', x === b); });
       var lt = el('daily-lob-toggle'); if (lt) lt.style.display = 'none';
-      var org = el('org-wrap'); if (org) org.style.display = 'none';
+      // Organic queda visible (vive en "+ Filtros" y también aplica acá). Antes se ocultaba y nadie lo volvía a mostrar.
+      var org = el('org-wrap'); if (org) org.style.display = '';
       var t = el('topbar-title'); if (t) t.textContent = 'Industry events tracker';
       if (v) v.style.display = '';
       loadEvents();
@@ -859,10 +883,11 @@
     wrapped._iet = true;
     window.switchMainView = wrapped;
     // Tema y FVM ex COI BR: redibujar si la solapa está abierta.
-    ['toggleTheme', 'setExCoiBr'].forEach(function (fn) {
+    // Organic: setDailyOrganic al tocar el switch; _syncOrganicUI_ cuando llega la tabla de TC (o falla y vuelve a NO).
+    ['toggleTheme', 'setExCoiBr', 'setDailyOrganic', '_syncOrganicUI_'].forEach(function (fn) {
       var o = window[fn];
       if (typeof o !== 'function') return;
-      window[fn] = function () { var r = o.apply(this, arguments); if (active) { seriesCache = {}; renderAll(); } return r; };
+      window[fn] = function () { var r = o.apply(this, arguments); fxMemo = {}; if (active) { seriesCache = {}; renderAll(); } return r; };
     });
   }
 

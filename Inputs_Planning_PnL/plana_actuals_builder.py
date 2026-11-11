@@ -11,6 +11,7 @@ Uso:
 Default = SIN PPA -> suma Reverso AxI por período (RunRate para Oct25-Mar26, Budget para Abr26-Mar27).
 Output: actuals_fy<YY>_abr<fy-1>_mar<fy>.csv  (mismo formato que las planas de proyecciones)
 """
+import glob
 import os
 import sys
 import pandas as pd
@@ -197,8 +198,54 @@ def load_axi_actuals(g):
     return pd.concat([rr, bg], ignore_index=True)
 
 
+# ── Build desde la base PLANA (FY en curso, desde 2026-11-09) ────────────────
+def build_flat(fy, con_ppa=False):
+    """Actuals del FY en curso desde Base_P&L_Contable/Actuals_OC*.csv (config.ACTUALS_FLAT): mismo formato y
+    mismo tratamiento que el RunRate plano (plana_projections_builder: lectura, exclusiones, glosario, reverso
+    AxI), más los ajustes de Actuals_GB_Ajustes_OC*.csv, que se SUMAN. Solo meses <= LAST_CLOSED_MONTH."""
+    import plana_projections_builder as ppb
+    cfg = config.ACTUALS_FLAT
+    print(f"=== plana actuals FY{fy} desde la base plana ({'CON' if con_ppa else 'SIN'} PPA) ===")
+    keys = ["Linea P&L", "Marca", "Pais", "Producto", "LOB-CANAL"]
+    df = ppb.read_flat_base(cfg["flat_file"])
+    if glob.glob(os.path.join(pnl_common.get_base_dir(), cfg["ajustes_file"])):
+        aj = ppb.read_flat_base(cfg["ajustes_file"])
+        tot = aj[config.FISCAL_DATES].sum(min_count=1)
+        print(f"  ajustes: {len(aj):,} filas, neto por mes: " +
+              ", ".join(f"{d[:7]} {v:,.0f}" for d, v in tot.items() if pd.notna(v)))
+        df = pd.concat([df, aj], ignore_index=True)
+        df = df.groupby(keys, as_index=False, dropna=False)[config.FISCAL_DATES].sum(min_count=1)
+    else:
+        print(f"  (sin archivo de ajustes {cfg['ajustes_file']})")
+    abiertos = [d for d in config.FISCAL_DATES if d > config.LAST_CLOSED_MONTH and df[d].notna().any()]
+    if abiertos:
+        print(f"  [WARN] la base trae meses posteriores al último cierre ({config.LAST_CLOSED_MONTH}): {abiertos} -> se ignoran")
+        df[abiertos] = None
+    df = ppb.apply_exclusions(df, False)
+    g = load_glosario()
+    df = ppb.homologate(df, g)
+    plana = ppb.melt_and_group(df)
+    plana = lower_all(plana)[OUT_COLS]
+    plana = plana[plana["LoB"].isin(LOBS_KEEP)]
+    if not con_ppa:
+        axi = load_axi_actuals(g)
+        axi = axi[axi["LoB"].isin(LOBS_KEEP)]
+        base_dates = set(plana["Fecha"].unique())
+        axi = axi[axi["Fecha"].isin(base_dates)]
+        print(f"  reverso AxI (por período): {len(axi):,} filas a sumar (meses cerrados: {len(base_dates)})")
+        plana = add_axi(plana, axi)[OUT_COLS]
+    ppb.verify(plana)
+    yy = str(fy)[-2:]
+    out = os.path.join(os.path.dirname(os.path.abspath(__file__)), f"actuals_fy{yy}_abr{fy-1}_mar{fy}.csv")
+    plana.to_csv(out, index=False, encoding="utf-8")
+    print(f"\nOK -> {out}")
+    return plana
+
+
 # ── Build ────────────────────────────────────────────────────────────────────
 def build(fy, con_ppa=False, override_dir=None):
+    if fy == config.CURRENT_FY and getattr(config, "ACTUALS_FLAT", None) and not override_dir:
+        return build_flat(fy, con_ppa)
     print(f"=== plana actuals FY{fy} ({'CON' if con_ppa else 'SIN'} PPA) ===")
     prev_dates = [f"{fy-1}-{m:02d}-01" for m in range(4, 13)]   # Abr-Dic (fy-1)
     cur_dates  = [f"{fy}-{m:02d}-01" for m in (1, 2, 3)]        # Ene-Mar (fy)

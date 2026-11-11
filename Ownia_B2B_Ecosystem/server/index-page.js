@@ -8,13 +8,14 @@
 // Los "en validación" abren la versión de Ownia solo para quien puede entrar (allowedUsers);
 // el resto va directo a GAS, así nadie de afuera del equipo choca con un 403.
 const { escapeHtml } = require('./gas-template');
+const { B2B2C_TRACKER } = require('./modules');
 
 // Lo esencial para un Chief / VP, en este orden (2026-10-29: Daily, P&L Dashboard, P&L Managerial, Presentaciones). Un módulo que no esté acá ni en MORE cae en "Más tableros".
 const ESSENTIAL = ['daily', 'hub', 'pnl-managerial', 'flow'];
-const MORE = ['pnl-accounting', 'hub-consolidacion', 'marketing-b2b', 'rolling-projections', 'fixed-cost', 'weekly-industry', 'agentes', 'profit-sharing', 'okr-b2b2c', 'pipeline-hunting', 'manual'];
+const MORE = ['pnl-accounting', 'hub-consolidacion', 'travel-partners-hub', 'marketing-b2b', 'rolling-projections', 'fixed-cost', 'weekly-industry', 'agentes', 'profit-sharing', 'okr-b2b2c', 'pipeline-hunting', 'b2b2c-tracker', 'manual'];
 
 // Accesos directos de un bloque hacia OTROS tableros (además de las vistas propias, `quickViews`). Esos tableros no se repiten en "Más tableros".
-const QUICK_LINKS = { daily: ['api-one-pager', 'fvm-negativo'] };
+const QUICK_LINKS = { daily: ['api-one-pager', 'fvm-negativo', 'b2b-score-producto'] };
 
 // Textos del menú en lenguaje llano (sin jerga). Si un módulo no está acá se usa el de modules.js.
 const COPY = {
@@ -37,11 +38,12 @@ const ICONS = {
   book: '<path d="M4 4h6a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H4z"/><path d="M20 4h-6a3 3 0 0 0-3 3v13a2 2 0 0 1 2-2h7z"/>',
   api: '<path d="M8 8l-5 4 5 4M16 8l5 4-5 4M14 4l-4 16"/>',
   flow: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',
+  funnel: '<path d="M3 4h18l-7 8.5V19l-4 2v-8.5z"/>',
   agent: '<rect x="4" y="8" width="16" height="11" rx="3"/><path d="M12 4v4M9 13.5h.01M15 13.5h.01"/>',
 };
 const ICON_OF = {
   'pnl-managerial': 'chart', 'pnl-accounting': 'ledger', 'profit-sharing': 'bank', 'hub-consolidacion': 'bank', 'marketing-b2b': 'target', hub: 'grid', daily: 'calendar',
-  'fvm-negativo': 'down', 'okr-b2b2c': 'target', manual: 'book', 'api-one-pager': 'api', flow: 'flow', 'rolling-projections': 'chart', 'fixed-cost': 'ledger', 'weekly-industry': 'globe', agentes: 'agent', 'pipeline-hunting': 'chart',
+  'fvm-negativo': 'down', 'okr-b2b2c': 'target', manual: 'book', 'api-one-pager': 'api', 'b2b-score-producto': 'target', 'travel-partners-hub': 'globe', flow: 'flow', 'rolling-projections': 'chart', 'fixed-cost': 'ledger', 'weekly-industry': 'globe', agentes: 'agent', 'pipeline-hunting': 'chart', 'b2b2c-tracker': 'funnel',
 };
 // Otras apps de Ownia que se linkean desde el menú (no son módulos de este repo: no corren acá).
 // Los links son los mismos que usa el P&L Dashboard de Apps Script (EXTERNAL_LINKS en Dashboard_B2B_WLs/dashboard.html).
@@ -54,6 +56,9 @@ const OTHER_APPS = [
     pills: [['P&L', 'https://ownia.despegar.io/thehub/main-financials/pnl-detail'], ['Bajadas', 'https://ownia.despegar.io/consolidador-db/exports']] },
   { slug: 'api-one-pager', title: 'API One Pager', desc: 'One pager del canal API (app b2b-dashboard de Ownia).',
     url: 'https://ownia.despegar.io/b2b-dashboard' },
+  { slug: 'b2b-score-producto', title: 'B2B - Score by product', desc: 'Score de B2B por producto (Apps Script).',
+    url: 'https://script.google.com/a/macros/despegar.com/s/AKfycbxEzLOo88qtNqzNT2-rIHBm4uJefTSkREnY4D0dYIbeBI-t-ygvBMGCrUKVZImfyYHPaw/exec' },
+  B2B2C_TRACKER,   // página propia (server/b2b2c-tracker-page.js), con allowedUsers: solo aparece para quien la puede abrir
   { slug: 'pipeline-hunting', title: 'Pipeline Hunting', desc: 'Todos los deals del pipeline B2B2C, con NR y FVM.', internal: 'pipeline-hunting' },
   { slug: 'agentes', title: 'Agentes Toqan', desc: 'Los agentes de IA del equipo: planning, BI, comercial y optimization.', internal: 'agentes' },
   { slug: 'weekly-industry', title: 'Weekly Industry', desc: 'KPIs semanales de industria.',
@@ -62,6 +67,8 @@ const OTHER_APPS = [
     url: 'https://script.google.com/a/macros/despegar.com/s/AKfycbylpy8kbuTVgiDg6xgmtrR-VemvRZlzfMMXcWnnWOjg3U0eUCmPF3XwQRuqPk-hDqRTpg/exec' },
   { slug: 'rolling-projections', title: 'Rolling Projections', desc: 'Run Rate: análisis y proyecciones.',
     url: 'https://ownia.despegar.io/runrate-html' },
+  { slug: 'travel-partners-hub', title: 'Travel Partners HUB', desc: 'Hub de Travel Partners (app hubttpp de Ownia).',
+    url: 'https://ownia.despegar.io/hubttpp' },
 ];
 const CHEVRON_L = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>';
 const CHEVRON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>';
@@ -138,6 +145,8 @@ function row(m, basePath, canOpen, find) {
 
 // "Actualizar reales" (2026-10-30, Tiago): botón de la barra de arriba, solo para el equipo B2B, que pide una contraseña y
 // corre en el servidor la actualización diaria del Daily (server/reales-job.js). Reemplaza al Task Scheduler de una PC.
+// Desde 2026-11-09 (Diego) la ventana tiene dos acciones con la misma contraseña: "Actualizar" (Daily) y
+// "Actualizar managerial" (P&L Managerial mensual + semanal). Corren de a una.
 const REALES_BUTTON = `<button type="button" class="act-btn" id="reales-btn" aria-haspopup="dialog">
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 4v5h-5"/></svg>
     <span id="reales-btn-t">Actualizar reales</span></button>`;
@@ -154,12 +163,14 @@ function realesDialog(basePath) {
   return `<dialog class="dlg" id="reales-dlg" aria-labelledby="reales-t">
   <form method="dialog" class="dlg-x"><button type="submit" aria-label="Cerrar">&times;</button></form>
   <h2 id="reales-t">Actualizar reales</h2>
-  <p class="dlg-sub">Trae del Datalake los reales de ayer y los publica en el Daily, el P&amp;L Managerial y el resto de los tableros (Ownia y Apps Script). Tarda unos 10 minutos.</p>
-  <dl class="dlg-meta"><dt>Datos al</dt><dd id="reales-data">…</dd><dt>Última corrida</dt><dd id="reales-last">…</dd></dl>
+  <p class="dlg-sub"><b>Actualizar</b> trae del Datalake los reales de ayer para el Daily, los OKR, FVM Negativo y Pipeline Hunting (unos 10 minutos).
+  <b>Actualizar managerial</b> actualiza el P&amp;L Managerial, mensual y semanal, con los reales hasta ayer (el Forecast queda el de la ronda vigente). Corren de a una.</p>
+  <dl class="dlg-meta"><dt>Daily al</dt><dd id="reales-data">…</dd><dt>Managerial al</dt><dd id="reales-mgr">…</dd><dt>Última corrida</dt><dd id="reales-last">…</dd></dl>
   <form id="reales-form" class="dlg-form" autocomplete="off">
     <label for="reales-pw">Contraseña</label>
     <div class="dlg-row"><input id="reales-pw" type="password" required autocomplete="off">
-    <button type="submit" class="dlg-go" id="reales-go">Actualizar</button></div>
+    <button type="submit" class="dlg-go" id="reales-go" data-kind="daily">Actualizar</button>
+    <button type="submit" class="dlg-go" id="reales-go-mgr" data-kind="managerial">Actualizar managerial</button></div>
   </form>
   <p class="dlg-msg" id="reales-msg" role="status" aria-live="polite"></p>
   <div class="dlg-prog" id="reales-prog" hidden>
@@ -173,6 +184,8 @@ function realesDialog(basePath) {
     var api = ${JSON.stringify(`${basePath}/reales`)};
     var dlg = document.getElementById('reales-dlg'), btn = document.getElementById('reales-btn');
     var form = document.getElementById('reales-form'), pw = document.getElementById('reales-pw'), go = document.getElementById('reales-go');
+    var goMgr = document.getElementById('reales-go-mgr'), kind = 'daily';
+    [go, goMgr].forEach(function (b) { b.addEventListener('click', function () { kind = b.getAttribute('data-kind'); }); });
     var msg = document.getElementById('reales-msg'), logEl = document.getElementById('reales-log'), timer = 0;
     var prog = document.getElementById('reales-prog'), bar = document.getElementById('reales-bar'), det = document.getElementById('reales-det');
     var btnT = document.getElementById('reales-btn-t'), shownState = '';
@@ -186,14 +199,17 @@ function realesDialog(basePath) {
     }
     function show(st) {
       document.getElementById('reales-data').textContent = fmt(st.dataUpdatedAt);
-      var last = st.startedAt ? fmt(st.startedAt) + ' · ' + (st.by || '').replace(/@.*/, '') : 'ninguna desde el último deploy';
+      document.getElementById('reales-mgr').textContent = fmt(st.managerialUpdatedAt);
+      var last = st.startedAt ? (st.kindLabel ? st.kindLabel + ' · ' : '') + fmt(st.startedAt) + ' · ' + (st.by || '').replace(/@.*/, '') : 'ninguna desde el último deploy';
       if (st.state === 'ok') last += ' · OK';
       if (st.state === 'error') last += ' · con error';
       document.getElementById('reales-last').textContent = last;
       var running = st.state === 'running';
+      var jobs = st.jobs || {};
       go.disabled = running || !!st.blocked; pw.disabled = running || !!st.blocked;
+      goMgr.disabled = running || !!st.blocked || (jobs.managerial && !jobs.managerial.configured);
       btn.classList.toggle('busy', running);
-      if (running) msg.textContent = 'Actualizando… podés cerrar esta ventana, sigue corriendo en el servidor.';
+      if (running) msg.textContent = 'Actualizando ' + (st.kindLabel || '') + '… podés cerrar esta ventana, sigue corriendo en el servidor.';
       else if (st.state === 'ok' && st.warnings && st.warnings.length) {
         msg.textContent = 'Listo, con ' + st.warnings.length + (st.warnings.length === 1 ? ' aviso' : ' avisos') + ': ' + st.warnings.join(' · ');
       }
@@ -228,17 +244,17 @@ function realesDialog(basePath) {
     btn.addEventListener('click', function () { msg.textContent = ''; dlg.showModal(); poll(); pw.focus(); });
     form.addEventListener('submit', function (ev) {
       ev.preventDefault();
-      go.disabled = true; msg.textContent = 'Arrancando…';
+      go.disabled = true; goMgr.disabled = true; msg.textContent = 'Arrancando…';
       fetch(api, { method: 'POST', credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'google.script.run' },
-        body: JSON.stringify({ password: pw.value }) })
+        body: JSON.stringify({ password: pw.value, kind: kind }) })
         .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
         .then(function (x) {
           pw.value = '';
-          if (!x.ok) { go.disabled = false; msg.textContent = x.j.error || 'No se pudo arrancar.'; return; }
+          if (!x.ok) { go.disabled = false; goMgr.disabled = false; msg.textContent = x.j.error || 'No se pudo arrancar.'; return; }
           show(x.j);
         })
-        .catch(function () { go.disabled = false; msg.textContent = 'No se pudo conectar con el servidor.'; });
+        .catch(function () { go.disabled = false; goMgr.disabled = false; msg.textContent = 'No se pudo conectar con el servidor.'; });
     });
     poll();   // si hay una corrida en curso, el botón lo muestra girando
   })();
@@ -252,6 +268,7 @@ function shell(inner, { title = 'The B2B Ecosystem · Despegar', left = '<span c
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${escapeHtml(title)}</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%235626e9'/%3E%3Ctext x='32' y='43' text-anchor='middle' font-family='Arial,Helvetica,sans-serif' font-weight='700' font-size='30' fill='white'%3EB2B%3C/text%3E%3C/svg%3E">
 <script>
   // Estado inicial antes del primer render (sin parpadeo): oscuro por defecto, claro solo si se eligio (misma clave que b2b-dashboard)
   // e intro una vez por sesion, salvo prefers-reduced-motion.
@@ -314,8 +331,9 @@ function shell(inner, { title = 'The B2B Ecosystem · Despegar', left = '<span c
   .dlg-meta dt { color: var(--text-3); }
   .dlg-form { margin-top: 20px; }
   .dlg-form label { display: block; font-size: 13px; color: var(--text-2); margin-bottom: 6px; }
-  .dlg-row { display: flex; gap: 10px; }
-  .dlg-row input { flex: 1; min-width: 0; padding: 10px 14px; border-radius: 12px; border: 0; background: var(--tile); color: var(--text);
+  .dlg-row { display: flex; flex-wrap: wrap; gap: 10px; }
+  .dlg-row .dlg-go { flex: 1 1 auto; }
+  .dlg-row input { flex: 1 1 100%; min-width: 0; padding: 10px 14px; border-radius: 12px; border: 0; background: var(--tile); color: var(--text);
                    font: 15px var(--font); box-shadow: inset 0 0 0 1px var(--line); }
   .dlg-go { padding: 10px 18px; border-radius: 12px; border: 0; background: var(--primary); color: #fff; font: 500 15px var(--font); cursor: pointer; }
   .dlg-go:disabled, .dlg-row input:disabled { opacity: .5; cursor: default; }
@@ -628,7 +646,8 @@ function askBlock(ask, dest) {
 }
 
 function indexPage({ modules, basePath, canOpen = () => true, reales = false, ask = null }) {
-  const all = [...modules, ...OTHER_APPS];
+  // Las páginas propias con allowedUsers (B2B2C Tracker) no se muestran a quien no las puede abrir.
+  const all = [...modules, ...OTHER_APPS.filter((m) => !m.allowedUsers || canOpen(m))];
   const find = (s) => all.find((m) => m.slug === s);
   const essential = ESSENTIAL.map(find).filter(Boolean);
   const dailyMod = modules.find((m) => m.slug === 'daily' && m.ownia);
