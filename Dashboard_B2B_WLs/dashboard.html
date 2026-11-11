@@ -1562,7 +1562,7 @@ header > img{filter:brightness(0) invert(1);opacity:.92}
               <tr><td colspan="15" style="text-align:center;padding:24px;color:var(--muted2)">Cargando datos de marketing…</td></tr>
             </tbody>
           </table>
-          <div style="font-size:11px;color:var(--muted2);margin-top:8px;line-height:1.45">Overs (sobrecomisión de Media Sales) sale de Metabase (negociaciones con overs, por mes negociado, en USD): no tiene país ni Budget, por eso solo está en el Total y se compara contra Forecast. Los meses cerrados muestran el real; el mes en curso y los siguientes, el forecast. No se suma al Media Revenue ni cambia con el switch Organic.</div>
+          <div style="font-size:11px;color:var(--muted2);margin-top:8px;line-height:1.45">Overs (sobrecomisión de Media Sales) sale de Metabase (negociaciones con overs, por mes negociado, en USD): no tiene país ni Budget, por eso solo está en el Total y se compara contra Forecast. Los meses cerrados muestran el real; el mes en curso y los siguientes, el forecast. En el Total se suma al Media Revenue (real y forecast; el Budget no tiene Overs, así que el Δ vs Budget los incluye) y "o/w Overs $" muestra cuánto es; los países no tienen Overs. No cambia con el switch Organic.</div>
           </div>
         </div>
       </div>
@@ -5510,7 +5510,7 @@ function renderMktTable(d, groups, colW) {
   ];
   // Overs (sobrecomisión de Media Sales, pedido 2026-11-05): solo en el bloque Total — la base no trae país ni Budget, así que se
   // compara solo contra Forecast. Va entre Media Revenue y Mkt Cost.
-  var OVERS_METRIC = { p:'overs', label:'Overs $', cls:'', refs:['Forecast'] };
+  var OVERS_METRIC = { p:'overs', label:'o/w Overs $', cls:'', refs:['Forecast'] };
   function sum(agg, k) { return agg.reduce(function(s, g){ return s + (g[k] || 0); }, 0); }
   function pct(act, ref) { return ref ? (act - ref) / Math.abs(ref) * 100 : null; }
   // Forecast: abr–jul (antes de fcFrom) no tuvo forecast → se completa con el Actual
@@ -5530,13 +5530,24 @@ function renderMktTable(d, groups, colW) {
     }
     if (!c) return;
     c = withFcFilled(c);
+    var isTotal = cid === 'total';
+    // Overs suma al Media Revenue del bloque Total (pedido 2026-11-11), real y forecast; la fila "Overs $" queda como apertura.
+    // Budget no tiene Overs: su Media Revenue sigue siendo el del P&L.
+    var withOvers = isTotal && !!c.oversActual;
+    if (withOvers) {
+      c = Object.assign({}, c);
+      c.medActual   = (c.medActual   || []).map(function(v, i){ return (v || 0) + ((c.oversActual   || [])[i] || 0); });
+      c.medForecast = (c.medForecast || []).map(function(v, i){ return (v || 0) + ((c.oversForecast || [])[i] || 0); });
+    }
     var agg     = mktAggregate(c, groups);
     var aggFc   = mktAggregate(c, [{ label:'fc', months: fcMonths }])[0];
-    var isTotal = cid === 'total';
 
     var rows = [];
     var metrics = METRICS.slice();
-    if (isTotal && c.oversActual) metrics.splice(1, 0, OVERS_METRIC);
+    if (withOvers) {
+      metrics[0] = { p:'med', label:'Media Revenue + Overs $', cls:'' };
+      metrics.splice(1, 0, OVERS_METRIC);
+    }
     metrics.forEach(function(m) {
       var actK   = m.p + 'Actual';
       var totAct = sum(agg, actK);
