@@ -5563,7 +5563,7 @@ function renderMktTable(d, groups, colW) {
         var key    = cid + '|' + m.p + '|' + ref;
         var open   = !!_mktOpen[key];
         rows.push({ cls: m.cls + ' mkt-ref-row', attrs: ' data-mkt-toggle="'+key+'" onclick="toggleMktRef(this)"',
-                    label: '<span class="mkt-caret">'+(open ? '▾' : '▸')+'</span> '+ref+' $',
+                    label: '<span class="mkt-caret">'+(open ? '▾' : '▸')+'</span> '+ref+' $'+(withOvers && m.p === 'med' && ref === 'Budget' ? ' <small style="font-weight:500;color:var(--muted2)">(sin Overs)</small>' : ''),
                     cells: agg.map(function(g, i){ return noRef(ref, g[refK]) ? DASH : fmtInt(g[refK] || 0); }),
                     tot: noTot ? DASH : '<strong>'+fmtInt(totRef)+'</strong>' });
         rows.push({ cls: m.cls + ' mkt-detail-row', attrs: ' data-mkt-detail="'+key+'"', hidden: !open,
