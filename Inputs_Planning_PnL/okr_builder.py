@@ -725,22 +725,6 @@ def _apply_globales_gb(rows_manual, daily_json):
     return out
 
 
-def _globales_pct_por_gb(rows_manual):
-    """OKR_H2_FY27.json (P&L Dashboard / FCA): el KR "% Hoteles Directos vendidos destino Globales" se mide por GB desde el
-    2026-11-04 (Diego: el baseline y el target se armaron por GB). Su actual pasa a ser el de la fila "GB · …" de
-    _apply_globales_gb; el target sigue siendo el de Input_OKR. okr.json NO cambia (el KR queda en hoteles y la fila GB
-    aparte), porque lo lee el Tracker del Daily, que por ahora se mantiene como está. Sin filas GB, queda en hoteles."""
-    kr = "% Hoteles Directos vendidos destino Globales"
-    gb = [r for r in rows_manual if r[5] == GLOBALES_GB_KR and r[1] == "Run Rate/Actuals"]
-    if not gb:
-        print("  [Globales GB] sin filas GB: OKR_H2 queda con el KR en hoteles")
-        return rows_manual
-    out = [r for r in rows_manual if r[5] != GLOBALES_GB_KR and not (r[1] == "Run Rate/Actuals" and r[5] == kr)]
-    out += [[r[0], r[1], r[2], r[3], r[4], kr, r[6]] + list(r[7:]) for r in gb]
-    print(f"  [Globales GB] OKR_H2: {kr} por GB ({len(gb)} meses)")
-    return out
-
-
 def _apply_price_comp_actual(rows_manual, daily_json):
     """KR Global B2B API "Price Competitiveness ex-Latam (Destino GL)" (H2 FY27): el actual sale del Datalake
     (daily_sync.py -> daily_b2b2c_data.json "okr_price_competitiveness", % adverso semanal = línea "Adverso
@@ -904,8 +888,7 @@ def build(upload=True):
     except Exception as e:
         print(f"  WARN [New Product Growth] no se pudo calcular ({e}) — el KR queda sin datos")
     all_rows = all_rows + h2b.totals_from_rows(h2_np, h2b.NEW_PRODUCT_KR)
-    h2_rows = h2b.build_h2_rows(h2_base + h2_np, h2_bud, h2_hunt, _globales_pct_por_gb(rows_manual), rows_partners, estado_ub,
-                                closed_until, estado_partners)
+    h2_rows = h2b.build_h2_rows(h2_base + h2_np, h2_bud, h2_hunt, rows_manual, rows_partners, estado_ub, closed_until, estado_partners)
     _check_h2_vs_okr(h2_rows, all_rows)
 
     payload = {
