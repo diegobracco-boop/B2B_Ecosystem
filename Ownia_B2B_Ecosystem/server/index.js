@@ -471,7 +471,7 @@ function createApp(opts = {}) {
       return sendCompressible(req, res, 200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }, pipelineHuntingPage({ basePath: cfg.BASE_PATH, model }));
     }
 
-    // "B2B2C Tracker": funnel de tráfico + resultados de las WLs (server/b2b2c-tracker.js). Solo B2B2C_TRACKER.allowedUsers (modules.js).
+    // "B2B2C Tracker": funnel de tráfico + resultados de las WLs (server/b2b2c-tracker.js). Abierto a @despegar.com (WIP); si B2B2C_TRACKER trae allowedUsers (modules.js), solo esos.
     if (route === '/b2b2c-tracker' || route === '/b2b2c-tracker/data') {
       if (req.method !== 'GET') return sendJson(res, 405, { error: 'Método no permitido' });
       if (!identity.email) return unauthorized(res);

@@ -135,23 +135,23 @@ before(async () => {
 });
 after(() => server.close());
 
-test('ruta: sin identidad 401, fuera de allowedUsers 403, Diego 200 (página y datos)', async () => {
-  const ok = B2B2C_TRACKER.allowedUsers[0];
+test('ruta: sin identidad 401, cualquier @despegar.com 200 (página con cartel WIP y datos)', async () => {
+  const ok = 'otra.persona@despegar.com';
+  assert.equal(B2B2C_TRACKER.allowedUsers, undefined);
   assert.equal((await get('/b2b2c-tracker')).status, 401);
-  assert.equal((await get('/b2b2c-tracker', 'otra.persona@despegar.com')).status, 403);
-  assert.equal((await get('/b2b2c-tracker/data?gran=w', 'otra.persona@despegar.com')).status, 403);
   const page = await get('/b2b2c-tracker', ok);
   assert.equal(page.status, 200);
   assert.match(page.text, /B2B2C Tracker/);
+  assert.match(page.text, /class="tk-wip"[^>]*>WIP</);
   const data = await get('/b2b2c-tracker/data?gran=w', ok);
   assert.equal(data.status, 200);
   assert.equal(JSON.parse(data.text).defaultKey, '2026-44');
 });
 
-test('menú: "B2B2C Tracker" en Más tableros solo para quien lo puede abrir', async () => {
-  const ok = B2B2C_TRACKER.allowedUsers[0];
-  assert.match((await get('/', ok)).text, /card-b2b2c-tracker/);
-  assert.doesNotMatch((await get('/', 'otra.persona@despegar.com')).text, /b2b2c-tracker/);
+test('menú: "B2B2C Tracker" en Más tableros para cualquier @despegar.com, con "WIP" en la descripción', async () => {
+  const html = (await get('/', 'otra.persona@despegar.com')).text;
+  assert.match(html, /card-b2b2c-tracker/);
+  assert.match(html, /WIP · WLs semana a semana/);
 });
 
 test('hueco del Daily (dic sin días, solo el total mensual): el mensual lo usa; las semanas quedan sin resultados y sin marcar', () => {

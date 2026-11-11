@@ -27,6 +27,10 @@ const CSS = `<style>
     --c1: #2a78d6; --c2: #eb6834; --c3: #1baf7a; --c4: #eda100; --c5: #e87ba4; --c6: #008300; --c7: #6250d6; --c0: #b4b4bd; }
   .tk-hero h1 { font-size: clamp(30px, 4.6vw, 44px); font-weight: 600; letter-spacing: -0.03em; line-height: 1.1; }
   .tk-hero p { margin-top: 8px; color: var(--text-2); font-size: 15px; }
+  .tk-wip { display: inline-block; vertical-align: middle; margin-left: 12px; padding: 3px 10px; border-radius: 999px; font-size: 13px; font-weight: 700;
+    letter-spacing: .08em; color: #8a5a00; background: #ffe7a8; box-shadow: inset 0 0 0 1px #f0c040; }
+  .tk-wipnote { margin-top: 10px; padding: 8px 12px; border-radius: 10px; font-size: 13px; color: var(--text-2); background: var(--tile);
+    box-shadow: inset 3px 0 0 #f0c040, inset 0 0 0 1px var(--line); }
   .tk-bar { position: sticky; top: 0; z-index: 4; display: flex; flex-wrap: wrap; gap: 10px; align-items: end; padding: 14px 0; margin: 18px 0 8px;
     background: var(--bg); border-bottom: 1px solid var(--line); }
   .tk-seg { display: inline-flex; background: var(--tile); border-radius: 10px; padding: 3px; box-shadow: inset 0 0 0 1px var(--line); }
@@ -1022,8 +1026,9 @@ function trackerPage({ basePath }) {
   const cfg = JSON.stringify({ api: `${basePath}/b2b2c-tracker/data` }).replace(/</g, '\\u003c');
   return shell(`${CSS}<div id="tk-root">
     <div class="tk-hero">
-      <h1>B2B2C Tracker</h1>
+      <h1>B2B2C Tracker <span class="tk-wip" title="Work in progress">WIP</span></h1>
       <p>Las WLs semana a semana y mes a mes: funnel de tráfico, partners y resultados gestionales, contra el año pasado, la tendencia y el período anterior.</p>
+      <div class="tk-wipnote"><strong>WIP</strong> · Tablero en construcción: los números y las vistas pueden cambiar.</div>
     </div>
     <div class="tk-bar" id="tk-bar"></div>
     <div id="tk-body"><div class="tk-load">Cargando…</div></div>
