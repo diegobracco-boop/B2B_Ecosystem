@@ -8,10 +8,11 @@
 // Los "en validación" abren la versión de Ownia solo para quien puede entrar (allowedUsers);
 // el resto va directo a GAS, así nadie de afuera del equipo choca con un 403.
 const { escapeHtml } = require('./gas-template');
+const { B2B2C_TRACKER } = require('./modules');
 
 // Lo esencial para un Chief / VP, en este orden (2026-10-29: Daily, P&L Dashboard, P&L Managerial, Presentaciones). Un módulo que no esté acá ni en MORE cae en "Más tableros".
 const ESSENTIAL = ['daily', 'hub', 'pnl-managerial', 'flow'];
-const MORE = ['pnl-accounting', 'hub-consolidacion', 'travel-partners-hub', 'marketing-b2b', 'rolling-projections', 'fixed-cost', 'weekly-industry', 'agentes', 'profit-sharing', 'okr-b2b2c', 'pipeline-hunting', 'manual'];
+const MORE = ['pnl-accounting', 'hub-consolidacion', 'travel-partners-hub', 'marketing-b2b', 'rolling-projections', 'fixed-cost', 'weekly-industry', 'agentes', 'profit-sharing', 'okr-b2b2c', 'pipeline-hunting', 'b2b2c-tracker', 'manual'];
 
 // Accesos directos de un bloque hacia OTROS tableros (además de las vistas propias, `quickViews`). Esos tableros no se repiten en "Más tableros".
 const QUICK_LINKS = { daily: ['api-one-pager', 'fvm-negativo', 'b2b-score-producto'] };
@@ -37,11 +38,12 @@ const ICONS = {
   book: '<path d="M4 4h6a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H4z"/><path d="M20 4h-6a3 3 0 0 0-3 3v13a2 2 0 0 1 2-2h7z"/>',
   api: '<path d="M8 8l-5 4 5 4M16 8l5 4-5 4M14 4l-4 16"/>',
   flow: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>',
+  funnel: '<path d="M3 4h18l-7 8.5V19l-4 2v-8.5z"/>',
   agent: '<rect x="4" y="8" width="16" height="11" rx="3"/><path d="M12 4v4M9 13.5h.01M15 13.5h.01"/>',
 };
 const ICON_OF = {
   'pnl-managerial': 'chart', 'pnl-accounting': 'ledger', 'profit-sharing': 'bank', 'hub-consolidacion': 'bank', 'marketing-b2b': 'target', hub: 'grid', daily: 'calendar',
-  'fvm-negativo': 'down', 'okr-b2b2c': 'target', manual: 'book', 'api-one-pager': 'api', 'b2b-score-producto': 'target', 'travel-partners-hub': 'globe', flow: 'flow', 'rolling-projections': 'chart', 'fixed-cost': 'ledger', 'weekly-industry': 'globe', agentes: 'agent', 'pipeline-hunting': 'chart',
+  'fvm-negativo': 'down', 'okr-b2b2c': 'target', manual: 'book', 'api-one-pager': 'api', 'b2b-score-producto': 'target', 'travel-partners-hub': 'globe', flow: 'flow', 'rolling-projections': 'chart', 'fixed-cost': 'ledger', 'weekly-industry': 'globe', agentes: 'agent', 'pipeline-hunting': 'chart', 'b2b2c-tracker': 'funnel',
 };
 // Otras apps de Ownia que se linkean desde el menú (no son módulos de este repo: no corren acá).
 // Los links son los mismos que usa el P&L Dashboard de Apps Script (EXTERNAL_LINKS en Dashboard_B2B_WLs/dashboard.html).
@@ -56,6 +58,7 @@ const OTHER_APPS = [
     url: 'https://ownia.despegar.io/b2b-dashboard' },
   { slug: 'b2b-score-producto', title: 'B2B - Score by product', desc: 'Score de B2B por producto (Apps Script).',
     url: 'https://script.google.com/a/macros/despegar.com/s/AKfycbxEzLOo88qtNqzNT2-rIHBm4uJefTSkREnY4D0dYIbeBI-t-ygvBMGCrUKVZImfyYHPaw/exec' },
+  B2B2C_TRACKER,   // página propia (server/b2b2c-tracker-page.js), con allowedUsers: solo aparece para quien la puede abrir
   { slug: 'pipeline-hunting', title: 'Pipeline Hunting', desc: 'Todos los deals del pipeline B2B2C, con NR y FVM.', internal: 'pipeline-hunting' },
   { slug: 'agentes', title: 'Agentes Toqan', desc: 'Los agentes de IA del equipo: planning, BI, comercial y optimization.', internal: 'agentes' },
   { slug: 'weekly-industry', title: 'Weekly Industry', desc: 'KPIs semanales de industria.',
@@ -643,7 +646,8 @@ function askBlock(ask, dest) {
 }
 
 function indexPage({ modules, basePath, canOpen = () => true, reales = false, ask = null }) {
-  const all = [...modules, ...OTHER_APPS];
+  // Las páginas propias con allowedUsers (B2B2C Tracker) no se muestran a quien no las puede abrir.
+  const all = [...modules, ...OTHER_APPS.filter((m) => !m.allowedUsers || canOpen(m))];
   const find = (s) => all.find((m) => m.slug === s);
   const essential = ESSENTIAL.map(find).filter(Boolean);
   const dailyMod = modules.find((m) => m.slug === 'daily' && m.ownia);

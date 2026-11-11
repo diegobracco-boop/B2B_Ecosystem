@@ -61,7 +61,8 @@
           "agencias_okr.json",
           "industry_events.json",
           "b2c_budget_weekly.json", "pipeline_b2b2c.json",
-          "fx_implicito.json"
+          "fx_implicito.json",
+          "b2b2c_tracker.json"
         ]
       },
       "sheets": {

@@ -5,7 +5,8 @@
  *  1. "La semana en 3 líneas": slide de resumen al principio con la respuesta (cómo viene el mes) y los tres argumentos
  *     (B2B2C, B2B API, B2B HTML): NR y FVM MTD vs el Goal, últimos 7 días y dónde está el desvío.
  *  2. Vista Ejecutiva / Completa (switch "Vista" de la barra, se recuerda en el navegador). Ejecutiva = resumen + portada +
- *     OKR NR / FVM + KRs + solo las regiones que se desvían ±5% o más en NR (con un separador-pregunta) + Weekly RI + B2B (RI).
+ *     OKR NR / FVM + KRs + solo las regiones que se desvían ±5% o más en NR (con un separador-pregunta; mensual + NR y FVM
+ *     diarios) + Weekly RI + B2B (RI).
  *     Completa = lo mismo y, detrás de un separador "Anexo", el resto del deck en el orden de siempre.
  *  3. Títulos con la conclusión: en la portada, las slides OKR y las de cada región el título dice qué pasa (Δ vs Goal, quién
  *     lo explica y la tendencia de los últimos 7 días); el título descriptivo de antes queda chico arriba.
@@ -167,7 +168,8 @@
     var cmpL = compLbl();
     flaggedRegions().forEach(function (f) {
       body.push({ kind: 'divider', region: f.r, title: '¿Por qué ' + regLbl(f.r) + ' viene ' + pc(f.p) + ' vs ' + cmpL + '?', name: '— ' + regLbl(f.r) + ' ' + pc(f.p) + ' —' });
-      body = body.concat(pick(function (d) { return d.region === f.r && (d.kind === 'monthly' || (d.kind === 'daily' && d.metric === 'nr')); }));
+      // Mensual + NR diario + FVM diario (2026-11-10, Diego: la de FVM, mismo formato que la de NR, también en la Ejecutiva)
+      body = body.concat(pick(function (d) { return d.region === f.r && (d.kind === 'monthly' || (d.kind === 'daily' && (d.metric === 'nr' || d.metric === 'fvm'))); }));
     });
     // Weekly: en el Flow quedó solo la vista GD (daily-ceo-weekly.js saca las RI)
     body = body.concat(pick(function (d) { return (d.kind === 'weekly' && d.lob === 'B2B+B2B2C') || (d.kind === 'ceo_weekly' && d.n === 1); }));

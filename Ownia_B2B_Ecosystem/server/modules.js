@@ -202,4 +202,15 @@ const MODULES = [
   },
 ];
 
-module.exports = { MODULES, EQUIPO_B2B };
+// "B2B2C Tracker" (2026-11-10, Diego): página propia de la app (server/b2b2c-tracker-page.js), no un módulo GAS. Va en "Más tableros"
+// y por ahora solo la ve Diego, que la revisa antes de comunicarla a los equipos: para abrirla, sumar mails a allowedUsers
+// (o sacar la lista para cualquier @despegar.com). Sin permiso no aparece en el menú y la ruta da 403.
+const B2B2C_TRACKER = {
+  slug: 'b2b2c-tracker',
+  title: 'B2B2C Tracker',
+  desc: 'WLs semana a semana y mes a mes: funnel de tráfico y resultados, vs año pasado y vs tendencia.',
+  internal: 'b2b2c-tracker',
+  allowedUsers: ['diego.bracco@despegar.com'],
+};
+
+module.exports = { MODULES, EQUIPO_B2B, B2B2C_TRACKER };

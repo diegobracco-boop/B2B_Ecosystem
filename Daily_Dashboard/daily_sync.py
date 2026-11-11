@@ -2483,6 +2483,17 @@ try:
 except (Exception, SystemExit) as e:
     print(f"  WARN Pipeline B2B2C fallo ({e}) — queda el pipeline_b2b2c.json anterior en Drive")
 
+# B2B2C Tracker: funnel de tráfico semanal de las WLs para la página /b2b2c-tracker de Ownia (ver b2b2c_tracker_sync.py; los
+# resultados los toma el servidor de este mismo daily_b2b2c_data.json). No corta la sync: si falla queda el b2b2c_tracker.json anterior.
+print("\n--- B2B2C Tracker (tráfico semanal) ---")
+try:
+    import b2b2c_tracker_sync as _trk
+    _trk_payload = _trk.build_payload(fetch)
+    if _trk_payload is not None:
+        upload_to_drive(json.dumps(_trk_payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8"), _trk.FILE_NAME)
+except (Exception, SystemExit) as e:
+    print(f"  WARN B2B2C Tracker fallo ({e}) — queda el b2b2c_tracker.json anterior en Drive")
+
 # okr.json (OKR del Hub + KR Global B2B API del Daily/Tracker) toma de daily_b2b2c_data.json los
 # actuals que salen del Datalake (hoteles directos, Unique Buyers, Hunting/Existing): se regenera acá
 # para que se actualicen todos los días sin esperar a /actualizar. Si falla, avisa y no corta la sync.

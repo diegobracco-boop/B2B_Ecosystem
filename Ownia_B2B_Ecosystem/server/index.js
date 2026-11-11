@@ -42,6 +42,9 @@ const { escapeHtml } = require('./gas-template');
 const { indexPage, agentsPage, questionsPage } = require('./index-page');
 const { resumenSemanalPage } = require('./resumen-semanal-page');
 const { pipelineHuntingPage } = require('./pipeline-hunting-page');
+const { trackerPage } = require('./b2b2c-tracker-page');
+const { trackerApi } = require('./b2b2c-tracker');
+const { B2B2C_TRACKER } = require('./modules');
 const { resolveIdentity, describeAuthHeaders } = require('./identity');
 const { createFileStore, isValidId } = require('./file-store');
 const { ingestAllowlist, loadManifest } = require('./drive-manifest');
@@ -466,6 +469,22 @@ function createApp(opts = {}) {
       let model;
       try { model = modelFromStore(fileStore, undefined, log); } catch (e) { return sendJson(res, 500, { error: 'No se pudo armar el pipeline: ' + e.message }); }
       return sendCompressible(req, res, 200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }, pipelineHuntingPage({ basePath: cfg.BASE_PATH, model }));
+    }
+
+    // "B2B2C Tracker": funnel de tráfico + resultados de las WLs (server/b2b2c-tracker.js). Solo B2B2C_TRACKER.allowedUsers (modules.js).
+    if (route === '/b2b2c-tracker' || route === '/b2b2c-tracker/data') {
+      if (req.method !== 'GET') return sendJson(res, 405, { error: 'Método no permitido' });
+      if (!identity.email) return unauthorized(res);
+      if (!mayOpen(B2B2C_TRACKER, identity)) return sendJson(res, 403, { error: 'El B2B2C Tracker todavía está en revisión', name: 'Forbidden' });
+      if (route === '/b2b2c-tracker') {
+        return sendCompressible(req, res, 200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }, trackerPage({ basePath: cfg.BASE_PATH }));
+      }
+      let out;
+      try { out = trackerApi(fileStore, url.searchParams); } catch (e) {
+        log({ level: 'error', msg: 'b2b2c-tracker', error: e.message });
+        return sendJson(res, 500, { error: 'No se pudo armar el tracker: ' + e.message });
+      }
+      return sendCompressible(req, res, 200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }, JSON.stringify(out));
     }
 
     if (route === '/agentes') {
