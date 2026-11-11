@@ -339,6 +339,15 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); font
 .kr-brkdwn th { text-align:left; font-size:10px; font-weight:600; color:var(--text-3); text-transform:uppercase; letter-spacing:.06em; padding:4px 14px 8px 0; border-bottom:1px solid var(--border); }
 .kr-brkdwn td { padding:7px 14px 7px 0; border-bottom:1px solid var(--border); vertical-align:top; }
 .kr-brkdwn tr:last-child td { border-bottom:none; }
+.kr-row:has(.krb-dd) { align-items:flex-start; }
+.krb-dd { margin-top:10px; border-top:1px solid var(--border); padding-top:8px; }
+.krb-dd summary { cursor:pointer; font-size:11px; font-weight:600; color:var(--text-3); list-style:none; user-select:none; }
+.krb-dd summary::-webkit-details-marker { display:none; }
+.krb-dd summary::before { content:'▸'; display:inline-block; margin-right:6px; transition:transform .15s; }
+.krb-dd[open] summary::before { transform:rotate(90deg); }
+.krb-dd summary:hover { color:var(--text-1); }
+.krb-dd-row { display:flex; justify-content:space-between; align-items:baseline; gap:12px; padding:6px 0; border-bottom:1px solid var(--border); }
+.krb-dd-row:last-child { border-bottom:none; }
 .krb-lbl { font-weight:600; font-size:12px; color:var(--text-1); white-space:nowrap; }
 /* OKR Detail (B2B): una tabla por país, KR × mes. body.krd-only oculta el resto de la sección B2B. */
 body.krd-only #b2b-fbar > :not(.krd-keep) { display:none !important; }
@@ -1002,6 +1011,7 @@ body.krd-only #section-b2b > :not(.krd-keep) { display:none !important; }
         <div class="kr-sub-item"><span class="kr-sub-lbl">Actual</span><span id="kr3-act">—</span></div>
         <div class="kr-sub-item"><span class="kr-sub-lbl">Budget</span><span id="kr3-bud">—</span></div>
       </div>
+      <div id="kr3-brk"></div>
     </div>
     <div class="kr-card">
       <div class="kr-lbl">KR2 · Net Rev Hunting</div>
@@ -1010,6 +1020,7 @@ body.krd-only #section-b2b > :not(.krd-keep) { display:none !important; }
         <div class="kr-sub-item"><span class="kr-sub-lbl">Actual</span><span id="kr2-act">—</span></div>
         <div class="kr-sub-item"><span class="kr-sub-lbl">Budget</span><span id="kr2-bud">—</span></div>
       </div>
+      <div id="kr2-brk"></div>
     </div>
     <div class="kr-card">
       <div class="kr-lbl">KR4 · FVM Total</div>
@@ -1018,22 +1029,10 @@ body.krd-only #section-b2b > :not(.krd-keep) { display:none !important; }
         <div class="kr-sub-item"><span class="kr-sub-lbl">Actual</span><span id="kr4-act">—</span></div>
         <div class="kr-sub-item"><span class="kr-sub-lbl">Budget</span><span id="kr4-bud">—</span></div>
       </div>
+      <div id="kr4-brk"></div>
     </div>
     </div>
     <div style="font-size:11px;color:var(--text-3);margin-top:-12px;margin-bottom:20px">H1 cerrado: acumulado abr–sep 2026 vs Budget. No cambia con la fecha elegida.</div>
-  </div>
-
-  <!-- KR BREAKDOWN — por región -->
-  <div class="kr-brkdwn-card">
-  <table class="kr-brkdwn">
-    <thead><tr>
-      <th>Región</th>
-      <th>KR3 · Farming NR</th>
-      <th>KR2 · Hunting NR</th>
-      <th>KR4 · FVM</th>
-    </tr></thead>
-    <tbody id="kr-brkdwn-body"></tbody>
-  </table>
   </div>
 
   <!-- METRICAS — GB / NR / FVM -->
@@ -2889,7 +2888,7 @@ function renderB2BCKrsH1Table_(){
   if(!_rawB2BC) return;
   var raw=b2bcRawOrg_(_orgTargetKR_()), h1=computeKRs_(raw,KR_H1_TO,KR_H1_FROM);
   renderKRs(h1);
-  renderKRBreakdown_(_b2bcKrHalf==='h1'||!state.viewDate ? h1 : computeKRs_(raw,state.viewDate));
+  renderKRBreakdown_(h1);
 }
 function _ubMtdAt_(raw, fecha) {
   var ym = fecha.substring(0,7), best = null;
@@ -2910,11 +2909,11 @@ function _budOrdersShare_(raw, vDate) {
   return tot > 0 ? upto / tot : null;
 }
 function _fmtCnt_(n) { return (n == null || isNaN(n)) ? '—' : Math.round(n).toLocaleString('es-AR'); }
-function _krCardH2_(label, w, pctTxt, color, subs) {
+function _krCardH2_(label, w, pctTxt, color, subs, extra) {
   return '<div class="kr-card"><div class="kr-lbl">'+label+' <span style="color:var(--text-3);font-weight:400">· '+w+'%</span></div>'
     +'<div class="kr-pct" style="color:'+color+'">'+pctTxt+'</div><div class="kr-sub">'
     +subs.map(function(x){ return '<div class="kr-sub-item"><span class="kr-sub-lbl">'+x[0]+'</span><span>'+x[1]+'</span></div>'; }).join('')
-    +'</div></div>';
+    +'</div>'+(extra||'')+'</div>';
 }
 function renderB2CKrH2_(vDate) {
   var row = document.getElementById('b2bc-kr-h2-row'); if (!row || !_rawB2BC) return;
@@ -2940,9 +2939,9 @@ function renderB2CKrH2_(vDate) {
   row.innerHTML =
       _krCardH2_('Deploy New Partnership', 20, pt(pD), col(pD), [['Mes (Input_OKR)', _fmtCnt_(dA)], ['Target', _fmtCnt_(dB)]])
     + _krCardH2_('Unique Buyers · MTD', 15, pt(pU), col(pU), [['Acum. mes', _fmtCnt_(act)], ['Target al día', _fmtCnt_(uBd)], ['Target mes', _fmtCnt_(uB)], ['Mes ant. (al día)', _fmtCnt_(prev)]])
-    + _krCardH2_('Existing Account NR', 15, pt(pE), col(pE), [['Actual', fmt(krs.kr3.act)], ['Budget', fmt(krs.kr3.bud)]])
-    + _krCardH2_('Hunting NR', 10, pt(pH), col(pH), [['Actual', fmt(krs.kr2.act)], ['Budget', fmt(krs.kr2.bud)]])
-    + _krCardH2_('FVM (proxy Operating Contribution)', 40, pt(pO), col(pO), [['Actual', fmt(krs.kr4.act)], ['Budget', fmt(krs.kr4.bud)]]);
+    + _krCardH2_('Existing Account NR', 15, pt(pE), col(pE), [['Actual', fmt(krs.kr3.act)], ['Budget', fmt(krs.kr3.bud)]], krbDetail_('kr3h2',krs.kr3))
+    + _krCardH2_('Hunting NR', 10, pt(pH), col(pH), [['Actual', fmt(krs.kr2.act)], ['Budget', fmt(krs.kr2.bud)]], krbDetail_('kr2h2',krs.kr2))
+    + _krCardH2_('FVM (proxy Operating Contribution)', 40, pt(pO), col(pO), [['Actual', fmt(krs.kr4.act)], ['Budget', fmt(krs.kr4.bud)]], krbDetail_('kr4h2',krs.kr4));
   var note = document.getElementById('b2bc-kr-h2-note');
   if (note) note.textContent = 'Unique Buyers: acumulado del mes vs target mensual prorrateado por la distribución diaria de orders del Budget (siempre Total WL, sin filtro de país). Deploy New Partnership y los targets: Input_OKR. FVM MTD = proxy de Operating Contribution.'
     + (_b2bcExclTBD ? ' NR y FVM excluyen el partner TBD (New partners / Hunting).' : '');
@@ -4153,20 +4152,24 @@ function renderKRsGlobales_(){
   if(sub) sub.textContent='Mes de referencia: '+(labels[idx]||refYM)+'  ·  fuente: okr.json (igual que el OKR del Hub) · NR actual = daily MTD (API · Hoteles · todos los países) vs budget gestional del daily MTD · resto = valor del mes de Input_OKR · Price Competitiveness: menos es mejor.';
 }
 
-function renderKRBreakdown_(krs) {
+var _krbOpen = {};   // estado abierto/cerrado de cada desplegable (sobrevive a los re-render)
+function krbDetail_(key, k) {
   var REGS=['BR','SAH','NAM','RG'];
-  function cell(d){
+  var rows=REGS.map(function(rg){
+    var d=(k&&k.r&&k.r[rg])||{act:0,bud:0};
     var pct=d.bud>0?Math.round(d.act/d.bud*100):null;
     var col=pct===null?'var(--text-3)':pct>=100?'var(--success)':pct>=80?'#f59e0b':'var(--danger)';
-    return '<td><span class="krb-pct" style="color:'+col+'">'+(pct!==null?pct+'%':'—')+'</span>'
-      +'<div class="krb-vals">'+fmtShort(d.act)+' / '+fmtShort(d.bud)+'</div></td>';
-  }
-  var html=REGS.map(function(rg){
-    return '<tr><td class="krb-lbl">'+rg+'</td>'
-      +cell(krs.kr3.r[rg]||{act:0,bud:0})+cell(krs.kr2.r[rg]||{act:0,bud:0})+cell(krs.kr4.r[rg]||{act:0,bud:0})
-      +'</tr>';
+    return '<div class="krb-dd-row"><span class="krb-lbl">'+rg+'</span>'
+      +'<span><span class="krb-pct" style="color:'+col+'">'+(pct!==null?pct+'%':'—')+'</span> '
+      +'<span class="krb-vals">'+fmtShort(d.act)+' / '+fmtShort(d.bud)+'</span></span></div>';
   }).join('');
-  var el=document.getElementById('kr-brkdwn-body'); if(el)el.innerHTML=html;
+  return '<details class="krb-dd"'+(_krbOpen[key]?' open':'')+' ontoggle="_krbOpen['+"'"+key+"'"+']=this.open">'
+    +'<summary>Detalle por región</summary>'+rows+'</details>';
+}
+function renderKRBreakdown_(krs) {
+  ['kr3','kr2','kr4'].forEach(function(key){
+    var el=document.getElementById(key+'-brk'); if(el) el.innerHTML=krbDetail_(key+'h1',krs[key]);
+  });
 }
 function renderKRBreakdownB2B_(krs) {
   function pctColor(p){return p===null?'var(--text-3)':p>=100?'var(--success)':p>=80?'#f59e0b':'var(--danger)';}
