@@ -180,14 +180,24 @@
     ' SLIDE_ORDER.splice(0, SLIDE_ORDER.length, want[0], want[1], want[2], want[3]);' +
     ' try { return await _captureAllSlides(null, { jpeg: true }); } finally { SLIDE_ORDER.splice(0, SLIDE_ORDER.length, ...orig); }' +
     '})()';
+  // Mismas capturas para el canal HTML (Agencias afiliadas), solo para la sección "B2B HTML" del Flow semanal (no son parte del Weekly B2B-MAY):
+  // Status KRs H2 · HTML, Tablas GD · HTML y Tablas RI · HTML.
+  var TRACKER_CAPTURE_HTML = '(async function () {' +
+    ' var orig = SLIDE_ORDER.slice(), f = function (g) { return orig.filter(g)[0]; };' +
+    ' var want = [f(function (s) { return s.tab === "agencias_h2" && s.krChannel === "html"; }),' +
+    '   f(function (s) { return s.tab === "tables_gd" && s.channel === "Agencias afiliadas"; }), f(function (s) { return s.tab === "tables_ri" && s.channel === "Agencias afiliadas"; })];' +
+    ' if (want.some(function (x) { return !x; })) throw new Error("el Tracker no tiene alguna de las slides necesarias");' +
+    ' SLIDE_ORDER.splice(0, SLIDE_ORDER.length, want[0], want[1], want[2]);' +
+    ' try { return await _captureAllSlides(null, { jpeg: true }); } finally { SLIDE_ORDER.splice(0, SLIDE_ORDER.length, ...orig); }' +
+    '})()';
   var trkMetaText = '';
-  async function captureTracker() {
+  async function captureTracker(code) {
     var f = await hiddenFrame('/b2b-ecosystem/daily?view=tracker&organic=1&coibr=excl'), w = f.contentWindow;
     try {
       await until(function () { return typeof w._captureAllSlides === 'function' && w.eval('typeof rawData !== "undefined" && !!rawData'); }, 120000, 'el Tracker');
       await sleep(1500);
       try { trkMetaText = (w.document.getElementById('metaInfo') || {}).textContent || ''; } catch (e) { /* sin fecha */ }
-      var caps = await w.eval(TRACKER_CAPTURE);
+      var caps = await w.eval(code || TRACKER_CAPTURE);
       return await Promise.all(caps.map(function (c) { return c && c.img ? loadImg(c.img) : null; }));
     } finally { f.remove(); }
   }
@@ -402,5 +412,14 @@
   if (document.readyState === 'complete') init(); else window.addEventListener('load', init);
   // Flow semanal (Presentaciones → Semanal): la sección "B2B API" usa estas MISMAS 14 slides (public/daily-flow-b2b.js).
   window.__wkBuildDeck = buildDeck;
+  // Las 3 slides del Tracker en canal HTML, como imágenes 1920×1080 a pantalla completa con "Info. updated" (igual que las de API).
+  window.__wkBuildHtmlDeck = async function () {
+    await loadFonts();
+    upd('Capturando el Tracker (HTML)…');
+    var trk = await captureTracker(TRACKER_CAPTURE_HTML);
+    var dd = dataDate(trkMetaText), out = [];
+    for (var i = 0; i < 3; i++) out.push({ img: await drawFull(trk[i], dd), w: W, h: H });
+    return out;
+  };
   if (window.__wkBase) window.__wkTest = { buildDeck: buildDeck };   // solo para probar en local
 })();

@@ -33,7 +33,7 @@
     var raf = function () { return new Promise(function (r) { requestAnimationFrame(r); }); };
     var done = function () { window._flowSlidesExporting = false; window.flowRebuild_(); };
     // Las slides de B2B API son imágenes que se arman aparte (daily-flow-b2b.js): se espera a que estén (si fallan, salen con su aviso).
-    var b2b = typeof window.__flowB2BEnsure === 'function' && deck.some(function (d) { return d.kind === 'wk_api'; }) ? window.__flowB2BEnsure().catch(function () {}) : Promise.resolve();
+    var b2b = typeof window.__flowB2BEnsure === 'function' && deck.some(function (d) { return d.kind === 'wk_api' || d.kind === 'wk_html'; }) ? window.__flowB2BEnsure().catch(function () {}) : Promise.resolve();
     return b2b.then(function () {
       window._flowSlidesExporting = true;
       window.flowRebuild_();
@@ -41,7 +41,7 @@
     }).then(function () { return window._flowCaptureSlideImages_({ jpeg: true }); }).then(function (imgs) {
       done();
       return imgs.map(function (im, i) {
-        var orig = deck[i] && deck[i].kind === 'wk_api' && window.__flowB2BImage ? window.__flowB2BImage(deck[i].n) : null;   // la imagen original, sin recaptura
+        var orig = deck[i] && (deck[i].kind === 'wk_api' || deck[i].kind === 'wk_html') && window.__flowB2BImage ? window.__flowB2BImage(deck[i]) : null;   // la imagen original, sin recaptura
         if (orig) im = { img: orig, w: 1920, h: 1080 };
         return im && { img: im.img, w: im.w, h: im.h, title: String((deck[i] && deck[i].name) || ('Slide ' + (i + 1))).replace(/^—\s*|\s*—$/g, '') };
       }).filter(Boolean);
