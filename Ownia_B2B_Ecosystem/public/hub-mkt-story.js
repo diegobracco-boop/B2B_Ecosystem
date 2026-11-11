@@ -363,6 +363,40 @@
     if (W._charts) W._charts['hms-wf'] = ch;
   }
 
+  // Switch "Resumen | Tabla por país" (pedido 2026-11-11): Resumen = esta capa; Tabla = la tarjeta original del Hub (Total y detalle
+  // por país, Budget / Forecast, Overs, "Abrir todo"), que se sigue llenando aunque esté oculta.
+  var mode = 'story';
+  function applyMode() {
+    var section = document.getElementById('marketing-section');
+    if (!section) return;
+    var orig = section.querySelector('.evo-card'), host = document.getElementById('hms');
+    var isTable = mode === 'table';
+    if (host) host.style.display = isTable ? 'none' : '';
+    if (orig) orig.style.display = isTable ? '' : 'none';
+    if (isTable) {
+      var tb = document.querySelector('#mkt-view [data-v="table"]');
+      if (tb && typeof W.switchMktView === 'function') W.switchMktView(tb);
+      var vw = document.getElementById('mkt-view');
+      if (vw) vw.style.display = 'none';   // dentro de esta capa el gráfico ya es el de Resumen
+    }
+    section.querySelectorAll('#hms-switch .gran-btn').forEach(function (b) { b.classList.toggle('active', b.getAttribute('data-m') === mode); });
+  }
+  function ensureSwitch(section, before) {
+    if (document.getElementById('hms-switch')) return;
+    var sw = document.createElement('div');
+    sw.id = 'hms-switch';
+    sw.style.cssText = 'display:flex;justify-content:flex-end;margin:0 0 10px';
+    sw.innerHTML = '<div class="gran-toggle"><button class="gran-btn active" data-m="story">Resumen</button>' +
+      '<button class="gran-btn" data-m="table">Tabla por país</button></div>';
+    sw.addEventListener('click', function (ev) {
+      var b = ev.target.closest && ev.target.closest('.gran-btn');
+      if (!b) return;
+      mode = b.getAttribute('data-m');
+      applyMode();
+    });
+    section.insertBefore(sw, before);
+  }
+
   function render(d) {
     var section = document.getElementById('marketing-section');
     if (!section || !d || !d.months) return;
@@ -375,6 +409,7 @@
 
       });
     }
+    ensureSwitch(section, host);
     var total = d.byCountry.filter(function (c) { return c.id === 'total'; })[0];
     if (!total) throw new Error('sin total');
     var goal = W.mktGoalLabel();
@@ -389,8 +424,7 @@
       ' Total B2B (HTML + API).</p>';
     drawChart(rows, goal);
     drawCostWf(d, goal);
-    if (orig) orig.style.display = 'none';
-    host.style.display = '';
+    applyMode();
   }
 
   document.addEventListener('DOMContentLoaded', function () {
@@ -399,12 +433,15 @@
     W.renderMarketing = function (d) {
       try {
         render(d);
+        try { orig.apply(this, arguments); } catch (e2) { console.warn('[hub-mkt-story] tabla original:', e2); }
       } catch (e) {
         console.warn('[hub-mkt-story] se usa la sección original:', e);
         var host = document.getElementById('hms'), sec = document.getElementById('marketing-section');
         if (host) host.style.display = 'none';
         var card = sec && sec.querySelector('.evo-card');
         if (card) card.style.display = '';
+        var sw = document.getElementById('hms-switch');
+        if (sw) sw.style.display = 'none';
         orig.apply(this, arguments);
       }
     };
