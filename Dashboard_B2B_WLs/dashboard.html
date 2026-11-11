@@ -6505,7 +6505,12 @@ var CIERRE_BTN_LOB = 'all';
 var CIERRE_ACTIVE_SCOPES = [
   { key:'all',   label:'B2B + B2B2C' },
   { key:'b2b',   label:'B2B' },
-  { key:'b2b2c', label:'B2B2C' }
+  { key:'b2b2c', label:'B2B2C' },
+  // 2026-11-11: API y HTML al final, con las mismas slides que B2B / B2B2C. Son B2B filtrado por canal
+  // (API = MAY, HTML = MIN, igual que la barra de negocio de Ownia). Sin slide de OKRs: los OKR del Hub
+  // no abren por canal y saldría repetida la de B2B.
+  { key:'api',   label:'API',  lob:'b2b', canal:'may' },
+  { key:'html',  label:'HTML', lob:'b2b', canal:'min' }
 ];
 
 // Meses disponibles para el cierre: desde Abr hasta el último con actuals, más reciente primero.
@@ -6650,7 +6655,7 @@ function openCierreSlides(){
   // lob se guarda porque _cierreGenerate() lo pisa por cada scope de CIERRE_ACTIVE_SCOPES
   // (para que pnlGroupLabel()/renderShare() rendericen cada tabla con el lob correcto, ya
   // que el botón vive en una pestaña distinta a los datos que arma) y hay que restaurarlo al cerrar.
-  _cierreSnap = { lob:_state.lob, goal:_state.goal, pnl:_state.pnl, evo:_state.evo, organic:_state.organic };
+  _cierreSnap = { lob:_state.lob, canal:_state.canal, goal:_state.goal, pnl:_state.pnl, evo:_state.evo, organic:_state.organic };
   _state.organic = false;   // el deck se arma siempre con datos nominales (sin organic)
   document.getElementById('cierre-overlay').style.display = 'flex';
 
@@ -6690,7 +6695,7 @@ function _cierreGenerate(){
   // scope, solo 1 fetch del mes) — si hace falta ese corte, se puede pedir aparte
   // desde el selector de período del dashboard normal.
   var fetches = CIERRE_ACTIVE_SCOPES.map(function(scope){
-    var base = { lob:scope.key, pais:'all', producto:'all', canal:'all', baselineSource:baselineSrc };
+    var base = { lob:scope.lob || scope.key, pais:'all', producto:'all', canal:scope.canal || 'all', baselineSource:baselineSrc };
     return _cierreFetch(base, refMonth, refMonth);
   });
 
@@ -6715,12 +6720,13 @@ function _cierreGenerate(){
       steps.push(function(){
         // pnlGroupLabel()/renderShare() (dentro de renderPnL(), vía _cierrePnLHTML) y
         // renderWf()/renderOKR() leen _state.lob — hay que pisarlo antes de cada scope.
-        _state.lob = scope.key;
+        _state.lob = scope.lob || scope.key;
+        _state.canal = scope.canal || 'all';
         return _cierreDividerHTML_(scope.label, mesLbl);
       });
 
-      // 1) OKRs cumplimiento
-      steps.push(function(){ return _cierreSlide('OKRs ' + scope.label, _cierreOkrHTML_(okrData, scope.key)); });
+      // 1) OKRs cumplimiento (no en API / HTML: los OKR no abren por canal)
+      if (!scope.canal) steps.push(function(){ return _cierreSlide('OKRs ' + scope.label, _cierreOkrHTML_(okrData, scope.key)); });
 
       // 2) Cuadro resumen vs Budget / vs Forecast
       // 2026-09-25: el headline va al panel "Highlights" del deck (ver _cierreSlide), no arriba de la tabla.
@@ -6951,6 +6957,7 @@ function closeCierreSlides(){
   if (_cierreSnap){
     var snap = _cierreSnap; _cierreSnap = null;
     _state.lob  = snap.lob;
+    _state.canal = snap.canal;
     _state.goal = snap.goal;
     _state.organic = snap.organic;
     var gb = document.getElementById('f-goal-bar'); if (gb) gb.value = _goalSelValue_();

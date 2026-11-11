@@ -2,7 +2,7 @@
  * Lo inyecta server/index.js en el Hub (`layout` en server/modules.js). El HTML de Apps Script no se toca.
  *
  *   <base>/hub?cierre=1&embedded=1
- *   → abre directo el overlay "Slides Cierre de Mes" (Consolidado · B2B · B2B2C) del Hub, sin barra del Hub ni botones (imprimir / Google Slides / cerrar),
+ *   → abre directo el overlay "Slides Cierre de Mes" (Consolidado · B2B · B2B2C · API · HTML) del Hub, sin barra del Hub ni botones (imprimir / Google Slides / cerrar),
  *     conserva el selector de mes y avisa al padre (postMessage {type:'flow-slide', section:'cierre', idx, total, title, month}) en qué slide está.
  *     Expone window.__flowExport() con las slides como imágenes para el PPTX. Lo embebe Flow_B2B/flow.html (sección Mensual).
  */
