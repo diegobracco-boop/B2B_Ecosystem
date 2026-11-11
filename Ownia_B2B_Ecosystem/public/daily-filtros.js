@@ -8,7 +8,7 @@
  *     B2B2C arriba, barra de filtros de B2B y la sección "Weekly · vs B2C" del Benchmark).
  *   - Si alguno no está en su default, el botón lo marca con un punto y lo dice en el tooltip.
  * Además ordena la barra: el switch B2B2C / B2B al lado de "Daily", Benchmark vs B2C / B2B Tracker / Industry events a la derecha,
- * y Partner TBD pasa a ser un filtro más de B2B2C (al lado de "Todos los partners").
+ * y Partner TBD también vive en "+ Filtros", debajo de COI Brasil.
  * No corre en Presentaciones (?flowdeck=1) ni en los modos embebidos: el Flow tiene sus propios selectores de Organic y COI.
  */
 (function () {
@@ -34,6 +34,9 @@
     '#ow-flt-pop .org-note{max-width:none;white-space:normal}',
     // los otros COI Brasil del Daily (quedan en el DOM: setExCoiBr los sigue sincronizando)
     '.ow-flt-hidden{display:none!important}',
+    '#ow-clear{display:none;background:transparent;border:1px solid var(--border);color:var(--text-2);font:700 11px var(--font);padding:4px 10px;border-radius:20px;cursor:pointer;white-space:nowrap;margin-left:6px}',
+    '#ow-clear:hover{color:var(--text);border-color:rgba(86,38,233,.4)}',
+    '#ow-clear.show{display:inline-block}',
     // Barra: [Daily][B2B2C | B2B] [+ Filtros] … a la derecha [Benchmark vs B2C][B2B Tracker][Industry events] [tema]
     '#ow-nav-right{display:flex;align-items:center;gap:4px;margin-left:auto;flex-shrink:0}',
     '#ow-nav-right ~ .theme-btn{margin-left:8px}',
@@ -58,7 +61,13 @@
             '<button class="dm-btn" data-coibr="incl" onclick="setExCoiBr(false)">Incluir</button>' +
             '<button class="dm-btn" data-coibr="excl" onclick="setExCoiBr(true)">Excluir</button>' +
           '</div></div>' +
-        '<div class="ow-flt-help" style="margin-top:6px">Por default: Organic YES y COI Brasil Excluir.</div>' +
+        '<div class="ow-flt-row" id="ow-flt-tbd-row" title="Partner TBD = New partners / Hunting. Excluir lo saca de KRs, métricas, tablas, Benchmark y slides B2B2C del Flow.">' +
+          '<div><div class="org-lbl">Partner TBD</div><div class="ow-flt-help">Excluir saca New partners / Hunting (solo B2B2C)</div></div>' +
+          '<div class="dm-toggle">' +
+            '<button class="dm-btn" data-tbd="incl" onclick="setExclTBD(false)">Incluir</button>' +
+            '<button class="dm-btn" data-tbd="excl" onclick="setExclTBD(true)">Excluir</button>' +
+          '</div></div>' +
+        '<div class="ow-flt-help" style="margin-top:6px">Por default: Organic YES, COI Brasil Excluir y Partner TBD Incluir.</div>' +
       '</div>';
     // va donde estaba el Organic (después del switch B2B2C / B2B)
     org.parentNode.insertBefore(box, org);
@@ -67,6 +76,8 @@
 
     var btn = el('ow-flt-btn'), pop = el('ow-flt-pop');
     function place() {
+      var tc = el('b2bc-top-ctls'), tr = el('ow-flt-tbd-row');
+      if (tr) tr.style.display = (tc && tc.style.display === 'none') ? 'none' : '';
       var r = btn.getBoundingClientRect(), w = pop.offsetWidth || 300;
       pop.style.top = Math.round(r.bottom + 6) + 'px';
       pop.style.left = Math.round(Math.max(12, Math.min(r.left, W.innerWidth - w - 12))) + 'px';
@@ -106,8 +117,9 @@
     var notes = [];
     if (!W._dlOrganic) notes.push('Organic en NO');
     if (!W._exCoiBr) notes.push('COI Brasil en Incluir');
+    if (W._b2bcExclTBD) notes.push('Partner TBD en Excluir');
     box.classList.toggle('mod', notes.length > 0);
-    el('ow-flt-btn').title = notes.length ? 'Fuera del default: ' + notes.join(' · ') : 'Organic YES · COI Brasil Excluir (default)';
+    el('ow-flt-btn').title = notes.length ? 'Fuera del default: ' + notes.join(' · ') : 'Organic YES · COI Brasil Excluir · Partner TBD Incluir (default)';
   }
 
   // Barra de arriba (2026-11-05, Diego): el switch B2B2C / B2B pegado a "Daily" y el resto de las solapas a la derecha.
@@ -124,24 +136,38 @@
     theme.parentNode.insertBefore(right, theme);
   }
 
-  // Partner TBD: de switch en la barra de arriba a un filtro más de B2B2C, al lado de "Todos los partners"
-  function tbdFilter() {
-    var bi = el('btn-tbd-incl'), part = el('sel-partner');
-    var chip = part && part.closest('.fchip');
-    if (!bi || !chip || el('ow-sel-tbd')) return;
-    var grp = bi.closest('.dm-group');
+  // Partner TBD: vive en "+ Filtros" (debajo de COI Brasil); se oculta el switch original de la barra de B2B2C
+  function hideTbd() {
+    var bi = el('btn-tbd-incl'), grp = bi && bi.closest('.dm-group');
     if (grp) grp.classList.add('ow-flt-hidden');
-    var box = document.createElement('div');
-    box.className = 'fchip';
-    box.title = 'Partner TBD = New partners / Hunting. Excluir lo saca de KRs, métricas, tablas, Benchmark y slides B2B2C del Flow.';
-    box.innerHTML = '<svg class="fchip-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01"/></svg>' +
-      '<select id="ow-sel-tbd"><option value="incl">Partner TBD: Incluir</option><option value="excl">Partner TBD: Excluir</option></select>';
-    chip.insertAdjacentElement('afterend', box);
-    var sel = el('ow-sel-tbd');
-    sel.value = W._b2bcExclTBD ? 'excl' : 'incl';
-    sel.addEventListener('change', function () { if (typeof W.setExclTBD === 'function') W.setExclTBD(sel.value === 'excl'); });
   }
-  function syncTbd() { var s = el('ow-sel-tbd'); if (s) s.value = W._b2bcExclTBD ? 'excl' : 'incl'; }
+  function syncTbd() {
+    Array.prototype.forEach.call(document.querySelectorAll('#ow-flt [data-tbd]'), function (b) {
+      b.classList.toggle('active', (b.getAttribute('data-tbd') === 'excl') === !!W._b2bcExclTBD);
+    });
+    mark();
+  }
+
+  // Botón "Limpiar filtros": aparece cuando hay país, partner o producto elegidos (Daily B2B2C)
+  function activeSel() {
+    var p = el('sel-product');
+    return (W._selPaises && W._selPaises.length) || (W._selPartners && W._selPartners.length) || (p && p.value !== 'all');
+  }
+  function clearBtn() {
+    var prod = el('sel-product');
+    if (!prod || el('ow-clear')) return;
+    var b = document.createElement('button');
+    b.type = 'button'; b.id = 'ow-clear'; b.textContent = 'Limpiar filtros';
+    b.addEventListener('click', function () {
+      prod.value = 'all';
+      W._selPaises.length = 0; W._selPartners.length = 0;
+      if (typeof W.paisChanged_ === 'function') W.paisChanged_();
+      refreshClear();
+    });
+    (prod.closest('.fchip') || prod).insertAdjacentElement('afterend', b);
+    refreshClear();
+  }
+  function refreshClear() { var b = el('ow-clear'); if (b) b.classList.toggle('show', !!activeSel()); }
 
   function wrap(fn, after) {
     var o = W[fn];
@@ -153,7 +179,11 @@
     try {
       build();
       arrangeNav();
-      tbdFilter();
+      hideTbd();
+      clearBtn();
+      document.addEventListener('change', function () { setTimeout(refreshClear, 0); });
+      document.addEventListener('click', function () { setTimeout(refreshClear, 0); });
+      syncTbd();
       wrap('setExclTBD', syncTbd);
       hideOtherCoi();
       mark();

@@ -1861,6 +1861,17 @@ function fillPartnersCore_() {
   var all = g.Existing.concat(g.New);
   _selPartners = _selPartners.filter(function(p){ return all.indexOf(p) >= 0; });
   renderPartPop_();
+  fillProductCore_();
+}
+// Producto responsivo a país y partner: solo ofrece los productos que existen en la selección actual.
+function fillProductCore_() {
+  var sel = document.getElementById('sel-product'); if (!sel) return;
+  var act = b2bcRaw_().actuals || [];
+  if (_selPaises.length) act = act.filter(function(r){ return _selPaises.indexOf(r.pais) >= 0; });
+  if (_selPartners.length) act = act.filter(function(r){ return _selPartners.indexOf(r.partner) >= 0; });
+  var prev = sel.value;
+  fill('sel-product', getProducts_(act), 'Producto');
+  sel.value = Array.prototype.some.call(sel.options, function(o){ return o.value === prev; }) ? prev : 'all';
 }
 function renderPartPop_() {
   var pop = document.getElementById('sel-partner-pop'), btn = document.getElementById('sel-partner-btn');
@@ -1881,7 +1892,7 @@ function renderPartPop_() {
   btn.textContent = !_selPartners.length ? 'Todos los partners'
     : _selPartners.length <= 2 ? _selPartners.join(', ') : _selPartners.length + ' partners';
 }
-function partChanged_() { renderPartPop_(); reloadAll(); }
+function partChanged_() { renderPartPop_(); fillProductCore_(); reloadAll(); }
 function partToggle_(p) {
   var i = _selPartners.indexOf(p);
   if (i >= 0) _selPartners.splice(i, 1); else _selPartners.push(p);
@@ -2791,7 +2802,7 @@ window.onload = function() {
       state.meta       = raw.meta;
       fillPaisMulti_(getPaises_(raw.actuals));
       fillPartnersB2BC_();
-      fill('sel-product', getProducts_(raw.actuals), 'Producto');
+      fillProductCore_();
       document.getElementById('loader').style.display = 'none';
       document.getElementById('content').classList.add('loaded');
       document.getElementById('sync-info').textContent =
