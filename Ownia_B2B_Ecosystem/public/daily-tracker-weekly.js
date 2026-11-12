@@ -177,7 +177,12 @@
   // Slides del propio Tracker. Se capturan en una copia limpia del Tracker (iframe oculto): en la página principal, con el export en curso, las
   // slides de KRs (zoom + foreignObject) salían cortadas; en una página recién abierta salen bien. Dentro de la copia se reemplaza por un momento el
   // contenido de SLIDE_ORDER por las slides que hacen falta (es const: se muta, no se reasigna) y se usa la misma captura del modo Slides.
-  var TRACKER_CAPTURE = '(async function () {' +
+  // Solo en la copia oculta del Tracker (no toca el Tracker real): sin el cartel "Datos: desde → hasta" (la fecha ya va en "Info. updated"), sin la nota
+  // al pie de los KRs y con la tabla de KRs sin scroll.
+  var CAPTURE_CSS = ' var st = document.createElement("style"); st.textContent = ".kr-data-range{display:none!important}' +
+    ' #statusKRsH2Wrap .table-block,#globalesWrap .table-block{overflow:visible!important;max-height:none!important}' +
+    ' #statusKRsH2Wrap .table-block + div:not([class]):not([id]),#globalesWrap .table-block + div:not([class]):not([id]){display:none!important}"; document.head.appendChild(st);';
+  var TRACKER_CAPTURE = '(async function () {' + CAPTURE_CSS +
     ' var orig = SLIDE_ORDER.slice(), f = function (g) { return orig.filter(g)[0]; };' +
     ' var want = [f(function (s) { return s.tab === "agencias_h2" && s.krChannel === "api"; }), f(function (s) { return s.tab === "globales"; }),' +
     '   f(function (s) { return s.tab === "tables_gd" && s.channel === "API"; }), f(function (s) { return s.tab === "tables_ri" && s.channel === "API"; })];' +
@@ -187,7 +192,7 @@
     '})()';
   // Mismas capturas para el canal HTML (Agencias afiliadas), solo para la sección "B2B HTML" del Flow semanal (no son parte del Weekly B2B-MAY):
   // Status KRs H2 · HTML, Tablas GD · HTML y Tablas RI · HTML.
-  var TRACKER_CAPTURE_HTML = '(async function () {' +
+  var TRACKER_CAPTURE_HTML = '(async function () {' + CAPTURE_CSS +
     ' var orig = SLIDE_ORDER.slice(), f = function (g) { return orig.filter(g)[0]; };' +
     ' var want = [f(function (s) { return s.tab === "agencias_h2" && s.krChannel === "html"; }),' +
     '   f(function (s) { return s.tab === "tables_gd" && s.channel === "Agencias afiliadas"; }), f(function (s) { return s.tab === "tables_ri" && s.channel === "Agencias afiliadas"; })];' +
