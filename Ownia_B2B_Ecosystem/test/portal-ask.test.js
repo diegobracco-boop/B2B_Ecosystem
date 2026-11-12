@@ -16,7 +16,7 @@ const { parse, route, fixVoice, hrefOf } = ctx.PortalAsk;
 
 const PARTNERS = ['Nubank', 'Banco de Chile', 'Claro', 'Latam', 'ITAU', 'Itau Card', 'Mercado Pago', 'livelo-api-hoteles'];
 const SLUGS = ['daily', 'hub', 'pnl-managerial', 'flow', 'pnl-accounting', 'hub-consolidacion', 'marketing-b2b', 'rolling-projections', 'fixed-cost',
-  'weekly-industry', 'agentes', 'profit-sharing', 'okr-b2b2c', 'manual', 'api-one-pager', 'fvm-negativo'];
+  'weekly-industry', 'agentes', 'profit-sharing', 'okr-b2b2c', 'manual', 'api-one-pager', 'fvm-negativo', 'b2b2c-tracker'];
 const EXTERNAL = ['hub-consolidacion', 'marketing-b2b', 'rolling-projections', 'fixed-cost', 'weekly-industry', 'profit-sharing', 'api-one-pager'];
 // Equipo B2B: abre el P&L Dashboard en Ownia. Resto (p. ej. el Chief): el Hub va a Apps Script.
 function dest(team = true) {
@@ -50,6 +50,18 @@ test('frases del equipo (2026-10-30, Tiago): tablero y vista', () => {
   assert.equal(top('okrs'), 'okr-b2b2c');
   assert.equal(top('p&l managerial'), 'pnl-managerial');
   assert.equal(top('P&L Managerial B2B'), 'pnl-managerial {"view":"b2b"}');
+});
+
+test('tráfico de B2B2C / WLs: B2B2C Tracker (2026-11-12)', () => {
+  assert.equal(top('B2B2C tráfico'), 'b2b2c-tracker');
+  assert.equal(top('WLs trafico'), 'b2b2c-tracker');
+  assert.equal(top('tráfico white labels'), 'b2b2c-tracker');
+  assert.equal(top('funnel de los wls'), 'b2b2c-tracker');
+  assert.equal(top('tráfego b2b2c'), 'b2b2c-tracker');
+  assert.equal(top('trafico'), 'b2b2c-tracker');
+  assert.equal(top('b2b2c tracker'), 'b2b2c-tracker');
+  assert.equal(top('wls tracker'), 'b2b2c-tracker');
+  assert.equal(top('tracker'), 'daily {"tab":"tracker"}');
 });
 
 test('sinónimos: WLs / white labels = B2B2C, portugués, gestional, cierre de mes', () => {

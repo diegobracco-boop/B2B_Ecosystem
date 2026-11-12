@@ -82,6 +82,8 @@
     ['accounting', /\b(p\s?l\s+|pnl\s+)accounting\b|\baccounting\b/],
     ['contable', /\b(cierre|fechamento|resultado)\s+contab(le|il)\b|\b(p\s?l\s+|pnl\s+)?contab(le|il)\b|\bepm\b|\bcierre\b|\bfechamento\b/],
     ['benchmark', /\bbenchmark\b|\b(vs|contra)\s+b2c\b|\bb2c\b/],
+    // Tráfico / funnel de los WLs (2026-11-12): solo está en el B2B2C Tracker ("b2b2c tráfico", "wls tráfico", "funnel").
+    ['trafico', /\btrafic(o|os)\b|\btrafego\b|\btraffic\b|\bfunnel\b|\bembudo\b/],
     ['tracker', /\btracker\b/],
     ['weekly', /\bweekly(\s+summary)?\b|\bresumen\s+semanal\b/],
     ['presentacion', /\bflow\b|\bpresentaci(on|ones)\b|\bapresentac(ao|oes)\b|\bslides?\b|\bdeck\b|\breview\b|\brevision\b/],
@@ -281,7 +283,9 @@
           if (has('presentacion') || r.freq === 'mensual') flow('cierre');
           break;
         case 'benchmark': daily('benchmark'); break;
-        case 'tracker': daily('tracker'); break;
+        case 'trafico': add('b2b2c-tracker', {}, 'Funnel de tráfico de los WLs'); break;
+        // "tracker" con B2B2C / WLs: el B2B2C Tracker primero; el Daily B2B Tracker queda como alternativa.
+        case 'tracker': if (lob === 'b2b2c') add('b2b2c-tracker', {}, ''); daily('tracker'); break;
         case 'weekly': daily('weekly'); break;
         case 'presentacion':
           if (has('contable')) break;
