@@ -71,6 +71,8 @@ import config as _planning_cfg
 # Definición única de hunting (New/Existing por partner B2B2C), compartida con Daily_Dashboard/daily_sync.py
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "Daily_Dashboard"))
 import hunting_rules
+# Costos de B2B API con el criterio de Revenue (conectores + comisiones de terceros), igual que el Daily
+from b2b_api_costs import CONECTORES_CTE_BODY, third_party_api_sql, efecto_financiero_sql, cancelaciones_sql
 # País correcto de partners B2B2C mal cargados en las proyecciones (CUTC), compartido con el Daily
 from pais_rules import apply_pais_overrides
 # lob_canal de B2B cargado como 'API'/'HTML' en vez de B2B-MAY/MIN (pasó el 2026-11-02 en raw.b2brr_*)
@@ -517,15 +519,7 @@ FROM with_ps
 
 def build_b2b_gd_query(date_from: date, date_to: date) -> str:
     return f"""
-WITH conectores AS (
-    SELECT agencias.ap_code,
-        MAX(agencias.conector)                        AS conector,
-        MAX(COALESCE(pay_type, 'NA'))                 AS pay_type,
-        MAX(COALESCE(CAST(mulltiplier AS DOUBLE), 0)) AS mulltiplier
-    FROM data.raw.b2b_dim_ap_by_conector agencias
-    LEFT JOIN data.raw.b2b_dim_api_conectors conectores
-        ON agencias.conector = conectores.conector
-    GROUP BY 1
+WITH conectores AS ({CONECTORES_CTE_BODY}
 ),
 
 country_factors AS (
@@ -633,7 +627,7 @@ base_metrics AS (
         SUM(pnl.other_incentives_air_usd + pnl.other_incentives_non_air_usd) AS other_incentives,
         SUM(pnl.revenue_taxes_usd) AS revenue_tax,
         SUM(pnl.backend_air_usd + pnl.backend_non_air_usd) AS back_end_incentives,
-        -SUM(pnl.cancellations_usd) AS cancellations,
+{cancelaciones_sql("GD")},
         SUM(pnl.breakage_revenue_usd) AS breakage_revenue,
         -SUM(pnl.loyalty_usd) AS loyalty_usd,
         SUM(pnl.discounts_mkt_funds_usd + pnl.media_revenue_usd
@@ -652,30 +646,7 @@ base_metrics AS (
             * CASE WHEN fh.country_code = 'MX' AND fh.parent_channel = 'Agencias afiliadas'
                         AND fh.buy_type_code = 'Carrito' THEN 0.75 ELSE 1.0 END
         ) AS affiliates,
-        SUM(CASE
-                WHEN fh.partner_id IN ('AG72472','expedia','AG00044461','AG00101284') THEN 0
-                WHEN fh.parent_channel = 'API'
-                THEN fh.gestion_gb * fh.confirmation_gradient
-                     * CASE fh.country_code
-                           WHEN 'BR' THEN -0.0048 WHEN 'MX' THEN -0.0055
-                           WHEN 'AR' THEN -0.0120 WHEN 'CO' THEN -0.0100
-                           WHEN 'CL' THEN -0.034048 WHEN 'PE' THEN -0.0160
-                           WHEN 'EC' THEN  0.0000
-                           ELSE CASE WHEN fh.country_code IN ('US','PA','UY') THEN -0.0075
-                                     ELSE -0.0070 END
-                       END
-                ELSE NULL
-            END
-            - CASE
-                WHEN fh.parent_channel = 'API' AND con.pay_type = 'TX'
-                    THEN COALESCE(con.mulltiplier, 0)
-                         * COALESCE(TRY_CAST(fh.confirmation_gradient AS DECIMAL(5,5)), 1)
-                WHEN fh.parent_channel = 'API' AND con.pay_type = 'GB'
-                    THEN COALESCE(con.mulltiplier * fh.gestion_gb, 0)
-                         * COALESCE(TRY_CAST(fh.confirmation_gradient AS DECIMAL(5,5)), 1)
-                ELSE 0
-            END
-        ) AS white_labels_api,
+{third_party_api_sql("GD")},
         -SUM(pnl.mkt_cost_net_usd) AS mkt_usd,
         SUM(pnl.errors_usd) AS errors,
         SUM(pnl.ott_usd) AS other_transactional_taxes,
@@ -686,7 +657,7 @@ base_metrics AS (
                 WHEN t.country_code = 'BR'     THEN fh.gestion_gb * fh.confirmation_gradient * -0.0056
                 ELSE                                fh.gestion_gb * fh.confirmation_gradient * -0.0053
             END) AS frauds,
-        SUM(pnl.financial_result_usd) AS efecto_financiero,
+{efecto_financiero_sql("GD")},
         SUM(pnl.dif_fx_usd + pnl.dif_fx_air_usd) AS dif_fx,
         SUM(pnl.currency_hedge_usd + pnl.currency_hedge_air_usd) AS currency_hedge
 
@@ -779,15 +750,7 @@ FROM base_metrics
 
 def build_b2b_ri_query(date_from: date, date_to: date) -> str:
     return f"""
-WITH conectores AS (
-    SELECT agencias.ap_code,
-        MAX(agencias.conector)                        AS conector,
-        MAX(COALESCE(pay_type, 'NA'))                 AS pay_type,
-        MAX(COALESCE(CAST(mulltiplier AS DOUBLE), 0)) AS mulltiplier
-    FROM data.raw.b2b_dim_ap_by_conector agencias
-    LEFT JOIN data.raw.b2b_dim_api_conectors conectores
-        ON agencias.conector = conectores.conector
-    GROUP BY 1
+WITH conectores AS ({CONECTORES_CTE_BODY}
 ),
 
 country_factors AS (
@@ -903,7 +866,7 @@ base_metrics AS (
         SUM(pnl.revenue_taxes_usd / NULLIF(fh.confirmation_gradient, 0)) AS revenue_tax,
         SUM((pnl.backend_air_usd + pnl.backend_non_air_usd)
             / NULLIF(fh.confirmation_gradient, 0)) AS back_end_incentives,
-        -SUM(pnl.cancellations_usd / NULLIF(fh.confirmation_gradient, 0)) AS cancellations,
+{cancelaciones_sql("RI")},
         SUM(pnl.breakage_revenue_usd / NULLIF(fh.confirmation_gradient, 0)) AS breakage_revenue,
         -SUM(pnl.loyalty_usd / NULLIF(fh.confirmation_gradient, 0)) AS loyalty_usd,
         SUM((pnl.discounts_mkt_funds_usd + pnl.media_revenue_usd
@@ -926,27 +889,7 @@ base_metrics AS (
             * CASE WHEN fh.country_code = 'MX' AND fh.parent_channel = 'Agencias afiliadas'
                         AND fh.buy_type_code = 'Carrito' THEN 0.75 ELSE 1.0 END
         ) AS affiliates,
-        SUM(CASE
-                WHEN fh.partner_id IN ('AG72472','expedia','AG00044461','AG00101284') THEN 0
-                WHEN fh.parent_channel = 'API'
-                THEN fh.gestion_gb * CASE fh.country_code
-                        WHEN 'BR' THEN -0.0042 WHEN 'MX' THEN -0.0050
-                        WHEN 'AR' THEN -0.0120 WHEN 'CO' THEN -0.0100
-                        WHEN 'CL' THEN -0.03405 WHEN 'PE' THEN -0.0160
-                        WHEN 'EC' THEN  0.0000
-                        ELSE -0.0070 END
-                ELSE NULL
-            END
-            - CASE
-                WHEN fh.parent_channel = 'API' AND con.pay_type = 'TX'
-                    THEN COALESCE(con.mulltiplier, 0)
-                         * COALESCE(TRY_CAST(fh.confirmation_gradient AS DECIMAL(5,5)), 1)
-                WHEN fh.parent_channel = 'API' AND con.pay_type = 'GB'
-                    THEN COALESCE(con.mulltiplier * fh.gestion_gb, 0)
-                         * COALESCE(TRY_CAST(fh.confirmation_gradient AS DECIMAL(5,5)), 1)
-                ELSE 0
-            END
-        ) AS white_labels_api,
+{third_party_api_sql("RI")},
         -SUM(pnl.mkt_cost_net_usd / NULLIF(fh.confirmation_gradient, 0)) AS mkt_usd,
         SUM(pnl.errors_usd / NULLIF(fh.confirmation_gradient, 0)) AS errors,
         SUM(pnl.ott_usd / NULLIF(fh.confirmation_gradient, 0)) AS other_transactional_taxes,
@@ -957,7 +900,7 @@ base_metrics AS (
                 WHEN t.country_code = 'BR'     THEN fh.gestion_gb * -0.0056
                 ELSE                                fh.gestion_gb * -0.0053
             END) AS frauds,
-        SUM(pnl.financial_result_usd / NULLIF(fh.confirmation_gradient, 0)) AS efecto_financiero,
+{efecto_financiero_sql("RI")},
         SUM((pnl.dif_fx_usd + pnl.dif_fx_air_usd) / NULLIF(fh.confirmation_gradient, 0)) AS dif_fx,
         SUM((pnl.currency_hedge_usd + pnl.currency_hedge_air_usd)
             / NULLIF(fh.confirmation_gradient, 0)) AS currency_hedge

@@ -18,6 +18,7 @@ Uso:   python calc_pkg_split.py            (necesita VPN + credenciales del Data
 Salida: pkg_split_factors.py  (se versiona en git; daily_sync.py lo importa)
 """
 import os
+import sys
 import warnings
 from datetime import date
 
@@ -41,6 +42,10 @@ def _builder():
     el tramo de definiciones de queries B2B, igual que hacen las validaciones ad-hoc."""
     src = open(os.path.join(HERE, "daily_sync.py"), encoding="utf8").read()
     ns = {"date": date, "__name__": "x"}
+    sys.path.insert(0, HERE)   # el tramo usa b2b_api_costs.py (costos de B2B API)
+    import b2b_api_costs
+    ns.update({k: getattr(b2b_api_costs, k) for k in
+               ("CONECTORES_CTE_BODY", "third_party_api_sql", "efecto_financiero_sql", "cancelaciones_sql")})
     exec(src[src.index("_B2B_CONECTORES_CTE"):src.index("def build_b2c_query")], ns)
     return ns["build_b2b_ri_query"]
 
