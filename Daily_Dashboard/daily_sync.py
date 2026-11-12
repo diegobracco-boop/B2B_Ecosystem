@@ -1952,12 +1952,14 @@ print("\n--- Overs Media Sales (P&L Dashboard B2B > Marketing & Media Investment
 # card 115835 (overs_media_sales.sql; ver overs_sync.py, que tambien se corre solo a mano). Va en su propio archivo,
 # overs_media_sales.json, que lee getOversData_() en Dashboard_B2B_WLs/Codigo.js. Mismo criterio que la recurrencia: no va a
 # _FAILED_BLOCKS; si la query falla queda el de la corrida anterior en Drive y la sync sigue.
-from overs_sync import build_overs, upload as upload_overs, OVERS_FILE_NAME
+from overs_sync import build_overs, upload as upload_overs, mark_error as mark_overs_error, OVERS_FILE_NAME
+overs_error = None
 try:
     overs_payload = build_overs(fetch)
 except Exception as e:
-    print(f"  WARN Overs Media Sales failed: {e} — queda el {OVERS_FILE_NAME} anterior en Drive")
+    print(f"  WARN Overs Media Sales failed: {e} — queda el {OVERS_FILE_NAME} anterior en Drive (con el error anotado: el tablero lo muestra)")
     overs_payload = None
+    overs_error = str(e)
 
 # TC implícito B2C de los meses abiertos (2026-11-09): pisa el TC proyectado de tc_plana_flat en el Organic del Daily
 # (ver fx_implicito_sync.py). Mismo criterio que los Overs: si falla queda el fx_implicito.json anterior.
@@ -2410,6 +2412,15 @@ elif overs_payload is not None:
         upload_overs(overs_payload, _get_drive_service())
     except Exception as e:
         print(f"  WARN no se pudo subir {OVERS_FILE_NAME}: {e}")
+        try:   # que el tablero avise igual (si Drive tampoco deja anotar, el aviso de "desactualizado" lo cubre)
+            mark_overs_error("no se pudo subir el archivo: " + str(e), _get_drive_service())
+        except Exception:
+            pass
+elif overs_error and not DRY_RUN_DIR:
+    try:
+        mark_overs_error(overs_error, _get_drive_service())
+    except Exception as e:
+        print(f"  WARN no se pudo anotar el error de {OVERS_FILE_NAME}: {e}")
 if fx_impl_payload is not None and DRY_RUN_DIR:
     upload_to_drive(json.dumps(fx_impl_payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8"), FX_IMPL_FILE_NAME)
 elif fx_impl_payload is not None:

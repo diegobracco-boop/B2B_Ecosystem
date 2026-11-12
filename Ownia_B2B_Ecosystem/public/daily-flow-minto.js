@@ -173,7 +173,7 @@
     });
     // Weekly: en el Flow quedó solo la vista GD (daily-ceo-weekly.js saca las RI)
     body = body.concat(pick(function (d) { return (d.kind === 'weekly' && d.lob === 'B2B+B2B2C') || (d.kind === 'ceo_weekly' && d.n === 1); }));
-    // B2B (2026-11-11): dos secciones con su carátula, B2B API (las 14 slides del Weekly B2B-MAY) y B2B HTML (pendiente); daily-flow-b2b.js.
+    // B2B (2026-11-11): dos secciones con su carátula, B2B API (las del Weekly B2B-MAY menos su portada) y B2B HTML (pendiente); daily-flow-b2b.js.
     // Las slides B2B del Flow de antes (Status KRs, NR / FVM RI, Tablas RI API y HTML) siguen en el Anexo de la vista Completa.
     if (Array.isArray(W.FLOW_B2B_DECK) && W.FLOW_B2B_DECK.length) body = body.concat(W.FLOW_B2B_DECK);
     else {

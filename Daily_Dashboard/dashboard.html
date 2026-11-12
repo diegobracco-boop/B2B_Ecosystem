@@ -936,7 +936,7 @@ body.krd-only #section-b2b > :not(.krd-keep) { display:none !important; }
   </div>
   <div class="fchip" title="Filtra por director del KAM (B2B API/HTML) o del partner (B2B2C)">
     <svg class="fchip-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
-    <select id="b2b-sel-director" onchange="dirSet_(this.value)"><option value="all">Todos los directores</option></select>
+    <select id="b2b-sel-director" onchange="dirSet_(msGet_('b2b-sel-director') || 'all')"><option value="all">Todos los directores</option></select>
   </div>
   <span id="dir-note-b" style="display:none;flex-basis:100%;font-size:11px;color:#b45309">Filtro de director activo: aplica a actuals B2B (API/HTML) y a B2B2C (actuals y budget). El budget, RR y Forecast de B2B no se abren por director y se ocultan; KRs H2, Weekly y B2C no se filtran.</span>
   <div class="fchip">
@@ -945,15 +945,6 @@ body.krd-only #section-b2b > :not(.krd-keep) { display:none !important; }
       <option value="all">API + Agencias</option>
       <option value="API">API</option>
       <option value="Agencias afiliadas">Agencias afiliadas</option>
-    </select>
-  </div>
-  <div class="fchip">
-    <svg class="fchip-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-    <select id="b2b-sel-gran" onchange="reloadB2BMetrics()">
-      <option value="daily">Diario (MTD)</option>
-      <option value="weekly">Semanal</option>
-      <option value="rolling7">Last 7 Days</option>
-      <option value="monthly">Mensual</option>
     </select>
   </div>
   <div class="dm-group" style="margin-left:4px">
@@ -1387,6 +1378,9 @@ body.krd-only #section-b2b > :not(.krd-keep) { display:none !important; }
           <div class="mc-kpi"><span class="mc-kpi-lbl">vs LY</span><span class="mc-kpi-delta" id="b2b-mc-gb-vly">—</span></div>
           <div class="mc-kpi"><span class="mc-kpi-lbl" id="b2b-mc-gb-bud-lbl">vs Bdg</span><span class="mc-kpi-delta" id="b2b-mc-gb-bud">—</span></div>
         </div>
+        <select class="mc-gran" id="gran-b2b-gb" onchange="setB2BChartGran_('gb',this.value)" title="Temporalidad del gráfico">
+          <option value="daily">Diario (MTD)</option><option value="weekly">Semanal</option><option value="rolling7">Last 7 Days</option><option value="monthly">Mensual</option>
+        </select>
         <div class="mc-leg">
           <span><span class="leg-dot" style="background:#5626e9"></span>Actual</span>
           <span><span class="leg-dot" style="background:var(--bud-line)"></span>LY</span>
@@ -1404,6 +1398,9 @@ body.krd-only #section-b2b > :not(.krd-keep) { display:none !important; }
           <div class="mc-kpi"><span class="mc-kpi-lbl">vs LY</span><span class="mc-kpi-delta" id="b2b-mc-nr-vly">—</span></div>
           <div class="mc-kpi"><span class="mc-kpi-lbl" id="b2b-mc-nr-bud-lbl">vs Bdg</span><span class="mc-kpi-delta" id="b2b-mc-nr-bud">—</span></div>
         </div>
+        <select class="mc-gran" id="gran-b2b-nr" onchange="setB2BChartGran_('nr',this.value)" title="Temporalidad del gráfico">
+          <option value="daily">Diario (MTD)</option><option value="weekly">Semanal</option><option value="rolling7">Last 7 Days</option><option value="monthly">Mensual</option>
+        </select>
         <div class="mc-leg">
           <span><span class="leg-dot" style="background:#8e5ff3"></span>Actual</span>
           <span><span class="leg-dot" style="background:var(--bud-line)"></span>LY</span>
@@ -1425,6 +1422,9 @@ body.krd-only #section-b2b > :not(.krd-keep) { display:none !important; }
           <div class="mc-kpi"><span class="mc-kpi-lbl">vs LY</span><span class="mc-kpi-delta" id="b2b-mc-fvm-vly">—</span></div>
           <div class="mc-kpi"><span class="mc-kpi-lbl" id="b2b-mc-fvm-bud-lbl">vs Bdg</span><span class="mc-kpi-delta" id="b2b-mc-fvm-bud">—</span></div>
         </div>
+        <select class="mc-gran" id="gran-b2b-fvm" onchange="setB2BChartGran_('fvm',this.value)" title="Temporalidad del gráfico">
+          <option value="daily">Diario (MTD)</option><option value="weekly">Semanal</option><option value="rolling7">Last 7 Days</option><option value="monthly">Mensual</option>
+        </select>
         <div class="mc-leg">
           <span><span class="leg-dot" style="background:var(--secondary)"></span>Actual</span>
           <span><span class="leg-dot" style="background:var(--bud-line)"></span>LY</span>
@@ -1869,9 +1869,7 @@ function fillProductCore_() {
   var act = b2bcRaw_().actuals || [];
   if (_selPaises.length) act = act.filter(function(r){ return _selPaises.indexOf(r.pais) >= 0; });
   if (_selPartners.length) act = act.filter(function(r){ return _selPartners.indexOf(r.partner) >= 0; });
-  var prev = sel.value;
-  fill('sel-product', getProducts_(act), 'Producto');
-  sel.value = Array.prototype.some.call(sel.options, function(o){ return o.value === prev; }) ? prev : 'all';
+  fill('sel-product', getProducts_(act), 'Producto');   // fill() vuelve a sincronizar el multiselect y descarta lo que ya no existe
 }
 function renderPartPop_() {
   var pop = document.getElementById('sel-partner-pop'), btn = document.getElementById('sel-partner-btn');
@@ -2247,7 +2245,7 @@ function dirApplyB2B_(raw) {
     return;
   }
   _DIR_B2B_ACT.concat(_DIR_B2B_EXT).forEach(function(k) {
-    raw[k] = applyRgRows_(raw._dirRows[k].filter(function(r) { return r.director === _dirSel; }));
+    raw[k] = applyRgRows_(raw._dirRows[k].filter(function(r) { return _dirSel.indexOf(r.director) >= 0; }));
   });
   _DIR_B2B_GOAL.forEach(function(k) { if (raw._dirOrig[k]) raw[k] = []; });
 }
@@ -2260,7 +2258,7 @@ function dirApplyB2BC_(raw) {
   var m = raw.director_by_partner || {};
   _DIR_B2BC_KEYS.forEach(function(k) {
     var o = raw._dirOrig[k]; if (!o) return;
-    raw[k] = _dirSel === 'all' ? o : o.filter(function(r) { return (m[String(r.partner || '').trim().toLowerCase()] || _DIR_NONE) === _dirSel; });
+    raw[k] = _dirSel === 'all' ? o : o.filter(function(r) { return _dirSel.indexOf(m[String(r.partner || '').trim().toLowerCase()] || _DIR_NONE) >= 0; });
   });
 }
 function dirFillSelects_() {
@@ -2274,12 +2272,13 @@ function dirFillSelects_() {
   ['sel-director', 'b2b-sel-director'].forEach(function(id) {
     var el = document.getElementById(id); if (!el) return;
     el.innerHTML = '<option value="all">Todos los directores</option>' + arr.map(function(d) { return '<option value="' + String(d).replace(/"/g, '&quot;') + '">' + String(d).replace(/</g, '&lt;') + '</option>'; }).join('');
-    el.value = arr.indexOf(_dirSel) >= 0 ? _dirSel : 'all';
   });
+  if (_dirSel !== 'all') { _dirSel = _dirSel.filter(function(d) { return arr.indexOf(d) >= 0; }); if (!_dirSel.length) _dirSel = 'all'; }
+  ['sel-director', 'b2b-sel-director'].forEach(function(id) { msSet_(id, _dirSel === 'all' ? [] : _dirSel, true); });
 }
 function dirSet_(val) {
-  _dirSel = val || 'all';
-  ['sel-director', 'b2b-sel-director'].forEach(function(id) { var el = document.getElementById(id); if (el) el.value = _dirSel; });
+  _dirSel = (Array.isArray(val) && val.length) ? val : 'all';   // 'all' o array de directores
+  ['sel-director', 'b2b-sel-director'].forEach(function(id) { msSet_(id, _dirSel === 'all' ? [] : _dirSel, true); });
   ['dir-note-c', 'dir-note-b'].forEach(function(id) { var el = document.getElementById(id); if (el) el.style.display = _dirSel === 'all' ? 'none' : 'block'; });
   dirApplyB2B_(_rawB2B);
   dirApplyB2BC_(_rawB2BC);
@@ -2397,8 +2396,8 @@ function compute_(raw, metric, vDate, gl_pai, gl_par, gl_pro, gl_at, gran, compS
   var pAT={};
   raw.actuals.forEach(function(r){if(r.partner&&r.account_type)pAT[r.partner]=r.account_type;});
   seedTBDNew_(pAT);
-  function matchA(r){if(gl_pai&&gl_pai.indexOf(r.pais)<0)return false;if(gl_par&&gl_par.indexOf(r.partner)<0)return false;if(gl_pro&&r.productooriginal!==gl_pro)return false;if(gl_at&&r.account_type!==gl_at)return false;return true;}
-  function matchB(r){if(gl_pai&&gl_pai.indexOf(r.pais)<0)return false;if(gl_par&&gl_par.indexOf(r.partner)<0)return false;if(gl_pro&&r.producto!==gl_pro)return false;if(gl_at&&pAT[r.partner]!==gl_at)return false;return true;}
+  function matchA(r){if(gl_pai&&gl_pai.indexOf(r.pais)<0)return false;if(gl_par&&gl_par.indexOf(r.partner)<0)return false;if(gl_pro&&gl_pro.indexOf(r.productooriginal)<0)return false;if(gl_at&&r.account_type!==gl_at)return false;return true;}
+  function matchB(r){if(gl_pai&&gl_pai.indexOf(r.pais)<0)return false;if(gl_par&&gl_par.indexOf(r.partner)<0)return false;if(gl_pro&&gl_pro.indexOf(r.producto)<0)return false;if(gl_at&&pAT[r.partner]!==gl_at)return false;return true;}
   function sum_(arr,from,to,mFn,f){var t=0;arr.forEach(function(r){if(from&&r.fecha<from)return;if(to&&r.fecha>to)return;if(!mFn(r))return;t+=(r[f]||0);});return t;}
   var d1=sum_(raw.actuals,vDate,vDate,matchA,MF), mtd=sum_(raw.actuals,mStart,vDate,matchA,MF);
   // organic opción B: mismos acumulados con los actuals a TC Actuals LY (= d1/mtd si no hay organic)
@@ -2453,7 +2452,7 @@ function breakdownCountryPartner_(raw, MF, BMF, mStart, vDate, lyMS, lyVD, gl_pa
     if (r.fecha<mStart || r.fecha>vDate) return;
     if (gl_pai && gl_pai.indexOf(r.pais)<0) return;
     if (gl_par && gl_par.indexOf(r.partner)<0) return;
-    if (gl_pro && r.productooriginal!==gl_pro) return;
+    if (gl_pro&&gl_pro.indexOf(r.productooriginal)<0) return;
     if (atReq && pAT[r.partner]!==atReq) return;
     var b = bucket(r.pais||'Other', r.partner||'Other');
     b.value += (r[MF]||0); b.valueY += _yv_(r, MF);   // valueY: organic opción B (YoY)
@@ -2462,7 +2461,7 @@ function breakdownCountryPartner_(raw, MF, BMF, mStart, vDate, lyMS, lyVD, gl_pa
     if (r.fecha<lyMS || r.fecha>lyVD) return;
     if (gl_pai && gl_pai.indexOf(r.pais)<0) return;
     if (gl_par && gl_par.indexOf(r.partner)<0) return;
-    if (gl_pro && r.productooriginal!==gl_pro) return;
+    if (gl_pro&&gl_pro.indexOf(r.productooriginal)<0) return;
     if (atReq && pAT[r.partner]!==atReq) return;
     bucket(r.pais||'Other', r.partner||'Other').ly += (r[MF]||0);
   });
@@ -2470,7 +2469,7 @@ function breakdownCountryPartner_(raw, MF, BMF, mStart, vDate, lyMS, lyVD, gl_pa
     if (r.fecha<mStart || r.fecha>vDate) return;
     if (gl_pai && gl_pai.indexOf(r.pais)<0) return;
     if (gl_par && gl_par.indexOf(r.partner)<0) return;
-    if (gl_pro && r.producto!==gl_pro) return;
+    if (gl_pro&&gl_pro.indexOf(r.producto)<0) return;
     if (atReq && pAT[r.partner]!==atReq) return;
     bucket(r.pais||'Other', r.partner||'Other').budget += (r[BMF]||0);
   });
@@ -2517,9 +2516,9 @@ function b2bProductBucket_(pro) { return B2B_PRODUCT_BUCKET_[pro] || 'ONA'; }
 function breakdownCountryProduct_(src, srcLY, bud, MF, mStart, vDate, lyMS, lyVD, gl_pai, gl_pro, gl_ch, gl_mkt) {
   var pMap = {};
   function passFilters(pais, pro, ch) {
-    if (gl_pai && pais!==gl_pai) return false;
-    if (gl_pro && pro!==gl_pro) return false;
-    if (gl_ch && ch!==gl_ch) return false;
+    if (gl_pai&&gl_pai.indexOf(pais)<0) return false;
+    if (gl_pro&&gl_pro.indexOf(pro)<0) return false;
+    if (gl_ch&&gl_ch.indexOf(ch)<0) return false;
     if (gl_mkt && mktOf_(pais)!==gl_mkt) return false;
     return true;
   }
@@ -2541,9 +2540,9 @@ function breakdownCountryProduct_(src, srcLY, bud, MF, mStart, vDate, lyMS, lyVD
   });
   bud.forEach(function(r) {
     if (r.fecha<mStart || r.fecha>vDate) return;
-    if (gl_pai && r.pais!==gl_pai) return;
-    if (gl_pro && r.producto!==gl_pro) return;
-    if (gl_ch && r.parent_channel!==gl_ch) return;
+    if (gl_pai&&gl_pai.indexOf(r.pais)<0) return;
+    if (gl_pro&&gl_pro.indexOf(r.producto)<0) return;
+    if (gl_ch&&gl_ch.indexOf(r.parent_channel)<0) return;
     if (gl_mkt && mktOf_(r.pais)!==gl_mkt) return;
     if (!r.producto) return;
     bucket(b2bPaisGroup_(r.pais||'Other'), b2bProductBucket_(r.producto)).budget += (r[MF]||0);
@@ -2630,8 +2629,8 @@ function computeB2B_(raw, metric, dateModel, vDate, gl_pai, gl_pro, gl_ch, gl_mk
   if(!src)src=[]; if(!srcLY)srcLY=[];
   var MF={gb:'gross_bookings',nr:'net_revenue',fvm:'fvm'}[metric];
   var bud=compSrc||((raw.b2b_budget_gd&&raw.b2b_budget_gd.length)?(dateModel==='ri'?raw.b2b_budget_ri:raw.b2b_budget_gd):[]);
-  function matchA(r){if(gl_pai&&r.pais!==gl_pai)return false;if(gl_pro&&r.producto_original!==gl_pro)return false;if(gl_ch&&r.parent_channel!==gl_ch)return false;if(gl_mkt){if(mktOf_(r.pais)!==gl_mkt)return false;}return true;}
-  function matchBud(r){if(gl_pai&&r.pais!==gl_pai)return false;if(gl_pro&&r.producto!==gl_pro)return false;if(gl_ch&&r.parent_channel!==gl_ch)return false;if(gl_mkt){if(mktOf_(r.pais)!==gl_mkt)return false;}return true;}
+  function matchA(r){if(gl_pai&&gl_pai.indexOf(r.pais)<0)return false;if(gl_pro&&gl_pro.indexOf(r.producto_original)<0)return false;if(gl_ch&&gl_ch.indexOf(r.parent_channel)<0)return false;if(gl_mkt){if(mktOf_(r.pais)!==gl_mkt)return false;}return true;}
+  function matchBud(r){if(gl_pai&&gl_pai.indexOf(r.pais)<0)return false;if(gl_pro&&gl_pro.indexOf(r.producto)<0)return false;if(gl_ch&&gl_ch.indexOf(r.parent_channel)<0)return false;if(gl_mkt){if(mktOf_(r.pais)!==gl_mkt)return false;}return true;}
   function sum_(arr,from,to,mFn,f){var t=0;arr.forEach(function(r){if(from&&r.fecha<from)return;if(to&&r.fecha>to)return;if(!mFn(r))return;t+=(r[f]||0);});return t;}
   var d1=sum_(src,vDate,vDate,matchA,MF),mtd=sum_(src,mStart,vDate,matchA,MF);
   // organic opción B: mismos acumulados con los actuals a TC Actuals LY (= d1/mtd si no hay organic)
@@ -2658,16 +2657,16 @@ function computeB2B_(raw, metric, dateModel, vDate, gl_pai, gl_pro, gl_ch, gl_mk
   }
   function brkPP(){
     var map={},mapY={},lyMap={},bMap={};
-    src.forEach(function(r){if(r.fecha<mStart||r.fecha>vDate)return;if(gl_pai&&r.pais!==gl_pai)return;if(gl_pro&&r.producto_original!==gl_pro)return;if(gl_ch&&r.parent_channel!==gl_ch)return;if(gl_mkt&&mktOf_(r.pais)!==gl_mkt)return;var k=(r.pais||'Other')+'|||'+(r.producto_original||'Other');map[k]=(map[k]||0)+(r[MF]||0);mapY[k]=(mapY[k]||0)+_yv_(r,MF);});
-    srcLY.forEach(function(r){if(r.fecha<lyMS||r.fecha>lyVD)return;if(gl_pai&&r.pais!==gl_pai)return;if(gl_pro&&r.producto_original!==gl_pro)return;if(gl_ch&&r.parent_channel!==gl_ch)return;if(gl_mkt&&mktOf_(r.pais)!==gl_mkt)return;var k=(r.pais||'Other')+'|||'+(r.producto_original||'Other');lyMap[k]=(lyMap[k]||0)+(r[MF]||0);});
-    bud.forEach(function(r){if(r.fecha<mStart||r.fecha>vDate)return;if(gl_pai&&r.pais!==gl_pai)return;if(gl_pro&&r.producto!==gl_pro)return;if(gl_ch&&r.parent_channel!==gl_ch)return;if(gl_mkt&&mktOf_(r.pais)!==gl_mkt)return;if(r.producto){var k=(r.pais||'Other')+'|||'+r.producto;bMap[k]=(bMap[k]||0)+(r[MF]||0);}});
+    src.forEach(function(r){if(r.fecha<mStart||r.fecha>vDate)return;if(gl_pai&&gl_pai.indexOf(r.pais)<0)return;if(gl_pro&&gl_pro.indexOf(r.producto_original)<0)return;if(gl_ch&&gl_ch.indexOf(r.parent_channel)<0)return;if(gl_mkt&&mktOf_(r.pais)!==gl_mkt)return;var k=(r.pais||'Other')+'|||'+(r.producto_original||'Other');map[k]=(map[k]||0)+(r[MF]||0);mapY[k]=(mapY[k]||0)+_yv_(r,MF);});
+    srcLY.forEach(function(r){if(r.fecha<lyMS||r.fecha>lyVD)return;if(gl_pai&&gl_pai.indexOf(r.pais)<0)return;if(gl_pro&&gl_pro.indexOf(r.producto_original)<0)return;if(gl_ch&&gl_ch.indexOf(r.parent_channel)<0)return;if(gl_mkt&&mktOf_(r.pais)!==gl_mkt)return;var k=(r.pais||'Other')+'|||'+(r.producto_original||'Other');lyMap[k]=(lyMap[k]||0)+(r[MF]||0);});
+    bud.forEach(function(r){if(r.fecha<mStart||r.fecha>vDate)return;if(gl_pai&&gl_pai.indexOf(r.pais)<0)return;if(gl_pro&&gl_pro.indexOf(r.producto)<0)return;if(gl_ch&&gl_ch.indexOf(r.parent_channel)<0)return;if(gl_mkt&&mktOf_(r.pais)!==gl_mkt)return;if(r.producto){var k=(r.pais||'Other')+'|||'+r.producto;bMap[k]=(bMap[k]||0)+(r[MF]||0);}});
     return Object.keys(map).map(function(k){var sp=k.split('|||');return{pais:sp[0],name:sp[1],value:Math.round(map[k]*100)/100,valueY:Math.round(mapY[k]*100)/100,ly:Math.round((lyMap[k]||0)*100)/100,budget:Math.round((bMap[k]||0)*100)/100};}).sort(function(a,b){return b.value-a.value;});
   }
   function brkPais(){
     var map={},mapY={},lyMap={},bMap={};
-    src.forEach(function(r){if(r.fecha<mStart||r.fecha>vDate)return;if(gl_pai&&r.pais!==gl_pai)return;if(gl_ch&&r.parent_channel!==gl_ch)return;if(gl_mkt&&mktOf_(r.pais)!==gl_mkt)return;var k=r.pais||'Other';map[k]=(map[k]||0)+(r[MF]||0);mapY[k]=(mapY[k]||0)+_yv_(r,MF);});
-    srcLY.forEach(function(r){if(r.fecha<lyMS||r.fecha>lyVD)return;if(gl_pai&&r.pais!==gl_pai)return;if(gl_ch&&r.parent_channel!==gl_ch)return;if(gl_mkt&&mktOf_(r.pais)!==gl_mkt)return;var k=r.pais||'Other';lyMap[k]=(lyMap[k]||0)+(r[MF]||0);});
-    bud.forEach(function(r){if(r.fecha<mStart||r.fecha>vDate)return;if(gl_pai&&r.pais!==gl_pai)return;if(gl_pro&&r.producto!==gl_pro)return;if(gl_ch&&r.parent_channel!==gl_ch)return;if(gl_mkt&&mktOf_(r.pais)!==gl_mkt)return;var k=r.pais||'Other';bMap[k]=(bMap[k]||0)+(r[MF]||0);});
+    src.forEach(function(r){if(r.fecha<mStart||r.fecha>vDate)return;if(gl_pai&&gl_pai.indexOf(r.pais)<0)return;if(gl_ch&&gl_ch.indexOf(r.parent_channel)<0)return;if(gl_mkt&&mktOf_(r.pais)!==gl_mkt)return;var k=r.pais||'Other';map[k]=(map[k]||0)+(r[MF]||0);mapY[k]=(mapY[k]||0)+_yv_(r,MF);});
+    srcLY.forEach(function(r){if(r.fecha<lyMS||r.fecha>lyVD)return;if(gl_pai&&gl_pai.indexOf(r.pais)<0)return;if(gl_ch&&gl_ch.indexOf(r.parent_channel)<0)return;if(gl_mkt&&mktOf_(r.pais)!==gl_mkt)return;var k=r.pais||'Other';lyMap[k]=(lyMap[k]||0)+(r[MF]||0);});
+    bud.forEach(function(r){if(r.fecha<mStart||r.fecha>vDate)return;if(gl_pai&&gl_pai.indexOf(r.pais)<0)return;if(gl_pro&&gl_pro.indexOf(r.producto)<0)return;if(gl_ch&&gl_ch.indexOf(r.parent_channel)<0)return;if(gl_mkt&&mktOf_(r.pais)!==gl_mkt)return;var k=r.pais||'Other';bMap[k]=(bMap[k]||0)+(r[MF]||0);});
     return Object.keys(map).map(function(k){return{name:k,value:Math.round(map[k]*100)/100,valueY:Math.round(mapY[k]*100)/100,ly:Math.round((lyMap[k]||0)*100)/100,budget:Math.round((bMap[k]||0)*100)/100};}).sort(function(a,b){return b.value-a.value;});
   }
   _graftDailyY_(daily, dMY, gran, vDate, curYM);
@@ -2777,6 +2776,7 @@ function computeAllB2B_(raw, dm, vDate, gl_pai, gl_pro, gl_ch, gl_mkt, gran, com
 
 // ── Init ────────────────────────────────────────────────────────
 window.onload = function() {
+  msify_('sel-product', 'productos'); msify_('b2b-sel-pais', 'países'); msify_('b2b-sel-product', 'productos'); msify_('b2b-sel-channel', 'canales'); msify_('b2b-sel-director', 'directores');
   // Organic YES por default (Diego, 2026-10-26): pide la tabla de TC ya al abrir; cuando llega,
   // recalcula lo que ya esté cargado (_orgRefreshAll_). Se puede apagar con el switch.
   setDailyOrganic(true);
@@ -2844,6 +2844,65 @@ function fill(id, arr, placeholder, labelFn) {
   var sel = document.getElementById(id); if (!sel) return;
   sel.innerHTML = '<option value="all">' + placeholder + '</option>';
   arr.forEach(function(val) { var o = document.createElement('option'); o.value = val; o.textContent = labelFn ? labelFn(val) : val; sel.appendChild(o); });
+  msSync_(id);
+}
+
+// ── Multiselect genérico para los filtros (2026-11-12) ──────────────────────────────────────
+// Cada <select> de filtro queda oculto (sigue siendo la fuente de las opciones: fill() lo llena igual que antes) y se
+// dibuja encima el mismo desplegable con tildes que ya usan Países / Partners. El estado vive en _ms_[id] ([] = todos);
+// msGet_(id) devuelve el array elegido o null (= sin filtro). El select oculto queda con la 1ª opción elegida (o 'all').
+var _ms_ = {}, _msNoun_ = {};
+function msGet_(id) { var a = _ms_[id]; return a && a.length ? a : null; }
+function msify_(id, noun) {
+  var sel = document.getElementById(id); if (!sel || _ms_[id]) return;
+  _ms_[id] = []; _msNoun_[id] = noun;
+  var w = document.createElement('div');
+  w.className = 'msel'; w.id = 'ms-' + id; w.setAttribute('data-ms', id);
+  w.innerHTML = '<button type="button" class="msel-btn"></button><div class="msel-pop"></div>';
+  sel.style.display = 'none';
+  sel.parentNode.insertBefore(w, sel.nextSibling);
+  var pop = w.querySelector('.msel-pop');
+  w.querySelector('.msel-btn').addEventListener('click', function(e) {
+    e.stopPropagation();
+    var was = w.classList.contains('open');
+    Array.prototype.forEach.call(document.querySelectorAll('.msel[data-ms].open'), function(m) { m.classList.remove('open'); });
+    if (!was) w.classList.add('open');
+  });
+  pop.addEventListener('click', function(e) {
+    e.stopPropagation();
+    if (e.target && e.target.classList && e.target.classList.contains('msel-clear')) msSet_(id, []);
+  });
+  pop.addEventListener('change', function(e) {
+    var cb = e.target; if (!cb || cb.type !== 'checkbox') return;
+    var val = cb.getAttribute('data-v'), a = _ms_[id], i = a.indexOf(val);
+    if (cb.checked && i < 0) a.push(val); else if (!cb.checked && i >= 0) a.splice(i, 1);
+    msSync_(id, true);
+  });
+  msSync_(id);
+}
+// Cierra los desplegables al hacer clic afuera
+document.addEventListener('click', function() {
+  Array.prototype.forEach.call(document.querySelectorAll('.msel[data-ms].open'), function(m) { m.classList.remove('open'); });
+});
+function msSet_(id, arr, silent) {
+  if (!_ms_[id]) return;
+  _ms_[id] = (arr || []).slice();
+  msSync_(id, !silent);
+}
+// Redibuja el botón y la lista; con fire=true avisa el cambio (dispara el onchange del select, que recalcula)
+function msSync_(id, fire) {
+  var sel = document.getElementById(id), w = document.getElementById('ms-' + id); if (!sel || !w || !_ms_[id]) return;
+  var opts = Array.prototype.filter.call(sel.options, function(o) { return o.value !== 'all'; });
+  var vals = opts.map(function(o) { return o.value; });
+  _ms_[id] = _ms_[id].filter(function(x) { return vals.indexOf(x) >= 0; });
+  var cur = _ms_[id], first = sel.options[0] ? sel.options[0].textContent : 'Todos';
+  var lbl = {}; opts.forEach(function(o) { lbl[o.value] = o.textContent; });
+  w.querySelector('.msel-btn').textContent = !cur.length ? first : cur.length <= 2 ? cur.map(function(x) { return lbl[x]; }).join(', ') : cur.length + ' ' + _msNoun_[id];
+  var h = '<button type="button" class="msel-clear">' + first + '</button>';
+  opts.forEach(function(o) { h += '<label class="msel-row"><input type="checkbox" data-v="' + String(o.value).replace(/"/g, '&quot;') + '"' + (cur.indexOf(o.value) >= 0 ? ' checked' : '') + '>' + String(o.textContent).replace(/</g, '&lt;') + '</label>'; });
+  w.querySelector('.msel-pop').innerHTML = h;
+  sel.value = cur.length ? cur[0] : 'all';
+  if (fire) sel.dispatchEvent(new Event('change'));
 }
 function b2bPaisLabel_(val) { return val === 'Other Countries' ? 'Globales' : val; }
 var _B2B_REST_HISPA = {Peru:1, Ecuador:1, Uruguay:1, Paraguay:1};
@@ -2856,7 +2915,7 @@ function recomputeB2BC_() {
   var gran   = 'daily';   // la temporalidad se elige en cada gráfico (setChartGran_)
   var gl_pai = paisSel_();   // array de países o null
   var gl_par = partSel_();
-  var gl_pro = v('sel-product') !== 'all' ? v('sel-product') : null;
+  var gl_pro = msGet_('sel-product');   // array de productos o null
   var gl_at  = null;   // Existing/New ahora se elige desde el filtro de partners
   var compSrc = raw[_b2bcComparison] || [];
   var compLbl = COMPARISON_LABELS[_b2bcComparison];
@@ -3670,16 +3729,17 @@ function ensureOKRH2_() {
 function recomputeB2B_() {
   if (!_rawB2B || !state_b2b.viewDate) return;
   ensureOKRH2_();
-  var gran   = vb2b('b2b-sel-gran')    || 'daily';
-  var gl_pai = vb2b('b2b-sel-pais')    !== 'all' ? vb2b('b2b-sel-pais')    : null;
-  var gl_pro = vb2b('b2b-sel-product') !== 'all' ? vb2b('b2b-sel-product') : null;
-  var gl_ch  = vb2b('b2b-sel-channel') !== 'all' ? vb2b('b2b-sel-channel') : null;
+  var gran   = 'daily';   // la temporalidad se elige en cada gráfico (setB2BChartGran_)
+  var gl_pai = msGet_('b2b-sel-pais');      // arrays (o null = todos): se puede elegir más de una opción
+  var gl_pro = msGet_('b2b-sel-product');
+  var gl_ch  = msGet_('b2b-sel-channel');
   var rawO = b2bRawOrg_(_orgTargetB2B_());   // organic: actuals a TC del target (y Forecast a TC Budget)
   var compSrc = rawO['b2b_' + _b2bComparison + '_' + _b2bDateModel] || [];
   var compLbl = COMPARISON_LABELS[_b2bComparison];
   var compKpi = COMPARISON_KPIS[_b2bComparison];
   ['leg-b2b-gb-comp','leg-b2b-nr-comp','leg-b2b-fvm-comp'].forEach(function(id){var el=document.getElementById(id);if(el)el.textContent=compLbl;});
   ['b2b-mc-gb-bud-lbl','b2b-mc-nr-bud-lbl','b2b-mc-fvm-bud-lbl'].forEach(function(id){var el=document.getElementById(id);if(el)el.textContent=compKpi;});
+  _b2bArgs = { raw: rawO, dm: _b2bDateModel, vDate: state_b2b.viewDate, pai: gl_pai, pro: gl_pro, ch: gl_ch, mkt: _b2bMarket, comp: compSrc };
   state_b2b.data       = computeB2B_(rawO, 'nr', _b2bDateModel, state_b2b.viewDate, gl_pai, gl_pro, gl_ch, _b2bMarket, 'daily', compSrc);
   state_b2b.allMetrics = computeAllB2B_(rawO, _b2bDateModel, state_b2b.viewDate, gl_pai, gl_pro, gl_ch, _b2bMarket, gran, compSrc);
   if(_b2bKrHalf===null && state_b2b.viewDate){ setB2BKrHalf(state_b2b.viewDate.substring(0,7) >= '2026-10' ? 'h2' : 'h1'); }
@@ -4200,6 +4260,18 @@ function renderKRBreakdownB2B_(krs) {
 }
 
 function reloadB2B()        { recomputeB2B_(); }
+// Temporalidad por gráfico (B2B): igual que B2B2C, cada barra de GB / NR / FVM tiene su selector. KPIs y tablas siguen MTD.
+var _b2bChartGran_ = { gb: 'daily', nr: 'daily', fvm: 'daily' };
+var _b2bArgs = null;
+function b2bSeries_(key, g, all) {
+  if (g === 'daily' || !_b2bArgs) return all[key].daily;
+  var a = _b2bArgs;
+  return computeB2B_(a.raw, key, a.dm, a.vDate, a.pai, a.pro, a.ch, a.mkt, g, a.comp).daily;
+}
+function setB2BChartGran_(key, g) {
+  _b2bChartGran_[key] = g || 'daily';
+  if (state_b2b.allMetrics) renderB2BMetrics(state_b2b.allMetrics);
+}
 function reloadB2BMetrics() { if (!state_b2b.viewDate) return; recomputeB2B_(); }
 function reloadAllB2B()     { recomputeB2B_(); }
 
@@ -4339,7 +4411,6 @@ function renderGroupedTableB2B_(tbodyId, groups) {
 }
 
 function renderB2BMetrics(all) {
-  var gran = vb2b('b2b-sel-gran') || 'daily';
   var compKpi = COMPARISON_KPIS[_b2bComparison];
   var DEFS = [
     { key:'gb',  color:'#5626e9',
@@ -4376,9 +4447,10 @@ function renderB2BMetrics(all) {
     mcBudEl.textContent = fmtDelta(vbdg);
     mcBudEl.className = 'mc-kpi-delta ' + (vbdg !== null ? (vbdg >= 0 ? 'delta-g' : 'delta-r') : '');
 
-    var chartDailyB2b = d.daily;
+    var gran = _b2bChartGran_[def.key] || 'daily';
+    var chartDailyB2b = b2bSeries_(def.key, gran, all);
     var isPctB2b = def.key !== 'gb' && _b2bMarginMode === 'pct';
-    if (isPctB2b && all.gb) chartDailyB2b = toPctDaily_(d.daily, all.gb.daily);
+    if (isPctB2b && all.gb) chartDailyB2b = toPctDaily_(chartDailyB2b, b2bSeries_('gb', gran, all));
     var b2cSeriesB2b = (_showB2C_b2b && !isPctB2b) ? computeB2C_(_rawB2B, def.key, d.viewDate, gran, _orgTargetB2B_()) : null;
     renderChart(def.key, def.chartId, chartDailyB2b, d.viewDate, def.color, gran, _b2bCharts, {pctMode:isPctB2b, b2c:b2cSeriesB2b});
     var tblGroupsB2b = (gl_tbl_period === 'ytd' && d.groups_ytd) ? d.groups_ytd : d.groups;

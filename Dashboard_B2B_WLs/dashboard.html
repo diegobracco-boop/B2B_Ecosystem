@@ -1554,6 +1554,7 @@ header > img{filter:brightness(0) invert(1);opacity:.92}
       <!-- scroll compartido: chart + tabla se desplazan juntos -->
       <div style="overflow-x:auto;margin:8px -22px 0">
         <div id="mkt-inner" style="min-width:960px;padding:0 22px 18px">
+          <div id="mkt-warn" role="alert" style="display:none;margin:0 0 10px;padding:8px 12px;border-radius:8px;font-size:12px;line-height:1.4;border:1px solid rgba(214,69,69,.55);background:rgba(214,69,69,.12);color:#d64545"></div>
           <div id="mkt-chart-wrap" style="position:relative;height:250px"><canvas id="chart-mkt"></canvas></div>
           <div id="mkt-table-wrap" style="display:none">
           <table class="pnl-table" id="mkt-table" style="width:100%;margin-top:0;border-top:none">
@@ -1562,7 +1563,7 @@ header > img{filter:brightness(0) invert(1);opacity:.92}
               <tr><td colspan="15" style="text-align:center;padding:24px;color:var(--muted2)">Cargando datos de marketing…</td></tr>
             </tbody>
           </table>
-          <div style="font-size:11px;color:var(--muted2);margin-top:8px;line-height:1.45">Overs (sobrecomisión de Media Sales) sale de Metabase (negociaciones con overs, por mes negociado, en USD): no tiene país ni Budget, por eso solo está en el Total y se compara contra Forecast. Los meses cerrados muestran el real; el mes en curso y los siguientes, el forecast. En el Total se suma al Media Revenue (real y forecast; el Budget no tiene Overs, así que el Δ vs Budget los incluye) y "o/w Overs $" muestra cuánto es; los países no tienen Overs. No cambia con el switch Organic.</div>
+          <div style="font-size:11px;color:var(--muted2);margin-top:8px;line-height:1.45">Overs (sobrecomisión de Media Sales) sale de Metabase (negociaciones con overs del negocio B2B, por mes negociado, en USD): no tiene país ni Budget, por eso solo está en el Total y se compara contra Forecast. Los meses cerrados muestran el real; el mes en curso y los siguientes, el forecast. En el Total se suma al Media Revenue (real y forecast; el Budget no tiene Overs, así que el Δ vs Budget los incluye) y "o/w Overs $" muestra cuánto es; los países no tienen Overs. No cambia con el switch Organic.</div>
           </div>
         </div>
       </div>
@@ -5367,16 +5368,24 @@ function loadMarketingData() {
   google.script.run
     .withSuccessHandler(function(res) {
       if (_mktOrgKey !== orgKey) return;   // llegó tarde: ya se pidió otro target
-      if (!res || !res.success) { _mktLoaded = false; return; }
+      if (!res || !res.success) { _mktLoaded = false; mktWarn_(['No se pudieron cargar los datos de Marketing & Media' + (res && res.error ? ': ' + res.error : '') + '.']); return; }
       _mktData = res;
       renderMarketing(_mktData);
     })
-    .withFailureHandler(function() { if (_mktOrgKey === orgKey) _mktLoaded = false; })
+    .withFailureHandler(function(err) { if (_mktOrgKey === orgKey) { _mktLoaded = false; mktWarn_(['No se pudieron cargar los datos de Marketing & Media' + (err && err.message ? ': ' + err.message : '') + '.']); } })
     .getMarketingData(orgKey);
 }
 
+// Cartel de error / aviso de "Marketing & Media Investment": nada se tapa, si falla la query o el dato de Overs se dice acá.
+function mktWarn_(msgs) {
+  var w = document.getElementById('mkt-warn'); if (!w) return;
+  msgs = (msgs || []).filter(Boolean);
+  w.style.display = msgs.length ? '' : 'none';
+  w.textContent = msgs.map(function(m) { return '⚠ ' + m; }).join('  ');
+}
 function renderMarketing(d) {
   if (!d || !d.months) return;
+  mktWarn_(d.overs ? [d.overs.error, d.overs.warn] : []);
   var groups = mktGroups(_mktGran);
   var colW  = _mktGran === 'M' ? 56 : _mktGran === 'Q' ? 80 : 120;
   var innerW = 190 + groups.length * colW + 72;

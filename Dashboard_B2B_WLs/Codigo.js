@@ -240,7 +240,7 @@ function writeResultCache_(key, value) {
 function clearAllCache() {
   _jsonCache_ = {};   // resetea cache en memoria de esta instancia
   var sc = CacheService.getScriptCache();
-  sc.removeAll(['okr_json_v1', 'mkt_b2b_v4', 'mkt_b2b_v4_org3_budget', 'mkt_b2b_v4_org3_forecast', 'mkt_b2b_v4_org3_lastYear', 'mkt_b2b_v5', 'mkt_b2b_v5_org3_budget', 'mkt_b2b_v5_org3_forecast', 'mkt_b2b_v5_org3_lastYear', _MOD_CACHE_KEY_]);  // fuerza re-check de mod times
+  sc.removeAll(['okr_json_v1', 'mkt_b2b_v4', 'mkt_b2b_v4_org3_budget', 'mkt_b2b_v4_org3_forecast', 'mkt_b2b_v4_org3_lastYear', 'mkt_b2b_v5', 'mkt_b2b_v5_org3_budget', 'mkt_b2b_v5_org3_forecast', 'mkt_b2b_v5_org3_lastYear', 'mkt_b2b_v6', 'mkt_b2b_v6_org3_budget', 'mkt_b2b_v6_org3_forecast', 'mkt_b2b_v6_org3_lastYear', _MOD_CACHE_KEY_]);  // fuerza re-check de mod times
   Logger.log('Cache cleared: ' + new Date());
 }
 
@@ -632,8 +632,8 @@ function preComputeAll() {
     var fcN2   = buildN2Map_(fcRows);
     var lyN2   = buildN2Map_(lyRows);
     var mktResult = computeMarketingData_(baseN2, budN2, rrN2, fcN2, lyN2);
-    try { attachOvers_(mktResult); } catch (eOv) { Logger.log('preComputeAll: WARN Overs no se pudo agregar — ' + eOv.message); }
-    CacheService.getScriptCache().put('mkt_b2b_v5', JSON.stringify(mktResult), RESULT_CACHE_MAX_S);   // misma key que getMarketingData()
+    try { attachOvers_(mktResult); } catch (eOv) { Logger.log('preComputeAll: WARN Overs no se pudo agregar — ' + eOv.message); mktResult.overs = { error: 'No se pudieron agregar los Overs: ' + eOv.message }; }
+    CacheService.getScriptCache().put('mkt_b2b_v6', JSON.stringify(mktResult), RESULT_CACHE_MAX_S);   // misma key que getMarketingData()
   } catch (e) {
     Logger.log('preComputeAll: WARN Marketing no se pudo pre-calentar — ' + e.message);
   }
@@ -1685,7 +1685,7 @@ function computeMarketingData_(baselineN2, budN2, rrN2, fcN2, prevN2) {
 
 // ── Overs (sobrecomisión) de Media Sales — pedido 2026-11-05 ───────────────────────────────────────────────
 // El Media Revenue del P&L no trae los overs: salen de overs_media_sales.json (Daily_Dashboard/overs_sync.py: copia del modelo
-// Metabase 94359 con el filtro de la card 115835, flg_overcomission = 1), en USD por mes negociado, real y forecast. No tiene país
+// Metabase 94359 con el filtro de la card 115835, flg_overcomission = 1, y solo negocio_forecast = 'B2B'), en USD por mes negociado, real y forecast. No tiene país
 // ni Budget: va solo en el bloque Total de la tabla, y se compara contra Forecast. No sigue el switch Organic (ya viene en USD).
 var OVERS_FILENAME = 'overs_media_sales.json';
 function getOversData_() {
@@ -1700,16 +1700,21 @@ function getOversData_() {
     real[ym] = (real[ym] || 0) + (r[ci.real]     || 0);
     fc[ym]   = (fc[ym]   || 0) + (r[ci.forecast] || 0);
   });
-  return { real: real, forecast: fc, generatedAt: p.meta && p.meta.generated_at };
+  return { real: real, forecast: fc, generatedAt: p.meta && p.meta.generated_at, error: p.meta && p.meta.error, errorAt: p.meta && p.meta.error_at };
 }
 
 // Suma Overs al bloque Total. Actual = real de los meses cerrados; del mes en curso en adelante el "real" de la base es solo lo
 // acumulado hasta hoy, así que Actual usa el forecast (igual que el Media Revenue, que va como Actual + proyección).
+// Si algo falla (archivo faltante o ilegible, error anotado por la sync, datos viejos) NO se tapa: result.overs.error / .warn
+// llegan al tablero, que lo muestra como cartel en "Marketing & Media Investment".
+var OVERS_STALE_DAYS = 3;
 function attachOvers_(result) {
-  var o = getOversData_();
-  if (!o) return;
   var now = new Date();
   var cur = now.getFullYear() + '-' + ('0' + (now.getMonth() + 1)).slice(-2);
+  var o;
+  try { o = getOversData_(); }
+  catch (e) { result.overs = { error: 'No se pudo leer overs_media_sales.json: ' + e.message, mesEnCurso: cur }; return; }
+  if (!o) { result.overs = { error: 'No se encontró overs_media_sales.json en Drive: los Overs no están en la tabla. Correr "Actualizar reales".', mesEnCurso: cur }; return; }
   var act = [], fc = [];
   result.months.forEach(function(ym) {
     var f = o.forecast[ym] || 0;
@@ -1719,7 +1724,14 @@ function attachOvers_(result) {
   result.byCountry.forEach(function(c) {
     if (c.id === 'total') { c.oversActual = act; c.oversForecast = fc; }
   });
-  result.overs = { generatedAt: o.generatedAt, mesEnCurso: cur };
+  var ovErr = null, ovWarn = null;
+  if (o.error) ovErr = 'La última actualización de Overs falló (' + o.error + '). Se muestran los datos de la corrida anterior' + (o.generatedAt ? ' (' + String(o.generatedAt).substring(0, 10) + ')' : '') + '.';
+  else if (o.generatedAt) {
+    var gen = new Date(o.generatedAt);
+    if (!isNaN(gen.getTime()) && (now.getTime() - gen.getTime()) > OVERS_STALE_DAYS * 86400000)
+      ovWarn = 'Los Overs están desactualizados: última actualización ' + String(o.generatedAt).substring(0, 10) + '.';
+  }
+  result.overs = { generatedAt: o.generatedAt, mesEnCurso: cur, error: ovErr, warn: ovWarn };
 }
 
 // organic (opcional): 'budget' | 'forecast' | 'lastYear' → baseline convertido a USD organic (ver applyOrganic_).
@@ -1730,8 +1742,8 @@ function getMarketingData(organic) {
     // v4: Chile/Peru/Ecuador sumados en un bloque. v3: agregó Run Rate/Forecast (selector Goal) —
     // bumpear esta clave cada vez que cambie MKT_COUNTRIES o la agregación,
     // si no la cache vieja (6h TTL) tapa el cambio.
-    // v5: agregó Overs en el bloque Total (attachOvers_).
-    var ck  = 'mkt_b2b_v5' + (orgTarget ? '_org3_' + organic : '');   // org3: vs Forecast a TC Budget (2026-10-26)
+    // v5: agregó Overs en el bloque Total (attachOvers_). v6: result.overs.error / .warn (avisos del tablero).
+    var ck  = 'mkt_b2b_v6' + (orgTarget ? '_org3_' + organic : '');   // org3: vs Forecast a TC Budget (2026-10-26)
     var hit = sc.get(ck);
     if (hit) { try { return JSON.parse(hit); } catch(e) {} }
 
@@ -1750,7 +1762,7 @@ function getMarketingData(organic) {
 
     var result = computeMarketingData_(baselineN2, budN2, rrN2, fcN2, prevN2);
     if (orgTarget) result.organic = { target: orgTarget };
-    try { attachOvers_(result); } catch(e) { /* sin overs la tabla queda como antes */ }
+    try { attachOvers_(result); } catch(e) { result.overs = { error: 'No se pudieron agregar los Overs: ' + e.message }; }
     try { sc.put(ck, JSON.stringify(result), RESULT_CACHE_MAX_S); } catch(e) {}
     return result;
   } catch(e) {

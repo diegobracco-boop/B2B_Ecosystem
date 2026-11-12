@@ -36,10 +36,11 @@
         if (step === 0) { window.switchLob('b2b'); step = 1; return setTimeout(tick, 800); }
         if (step === 1) {
           if (!window._rawB2B || !window.state_b2b || !window.state_b2b.viewDate) return setTimeout(tick, 500);
-          var ch = document.getElementById('b2b-sel-channel'), gr = document.getElementById('b2b-sel-gran');
-          if (!ch || !gr) return setTimeout(tick, 500);
-          ch.value = 'API'; window.reloadAllB2B();
-          gr.value = 'weekly'; window.reloadB2BMetrics();
+          var ch = document.getElementById('b2b-sel-channel'), gr = document.getElementById('gran-b2b-fvm');
+          if (!ch || !gr || typeof window.setB2BChartGran_ !== 'function') return setTimeout(tick, 500);
+          if (typeof window.msSet_ === 'function') window.msSet_('b2b-sel-channel', ['API'], true); else ch.value = 'API';
+          window.reloadAllB2B();
+          ['gb', 'nr', 'fvm'].forEach(function (k) { var g = document.getElementById('gran-b2b-' + k); if (g) g.value = 'weekly'; window.setB2BChartGran_(k, 'weekly'); });
           window.switchDateModel(date);
           step = 2; return setTimeout(tick, 1500);
         }
@@ -103,11 +104,15 @@
     ctx.drawImage(img, x + (w - dw) / 2, top ? y : y + (h - dh) / 2, dw, dh);
   }
   function jpeg(c) { return c.toDataURL('image/jpeg', 0.9); }
-  function pill(ctx, x, y, w, h, text, color, border) {
-    ctx.save(); rr(ctx, x, y, w, h, 8); ctx.fillStyle = '#fff'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = border; ctx.stroke();
+  function pill(ctx, x, y, w, h, text, color, border, dashed) {
+    ctx.save(); rr(ctx, x, y, w, h, 8); ctx.fillStyle = '#fff'; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = border;
+    if (dashed) ctx.setLineDash([9, 6]);
+    ctx.stroke(); ctx.setLineDash([]);
     ctx.fillStyle = color; ctx.font = '700 17px Rubik, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, x + w / 2, y + h / 2 + 1); ctx.restore();
   }
-  function infoPill(ctx, dd, y) { if (dd.dmy) pill(ctx, 797 * 2, y * 2, 156 * 2, 20 * 2, 'Info. updated to ' + dd.dmy, '#595959', '#c9c9d4'); }
+  // "Info. updated" (2026-11-12): arriba a la derecha, justo encima del cartel "Datos: desde → hasta" de las slides de KRs (que está en x≈0,85–0,99 y
+  // y≈0,094 de la slide), con las MISMAS coordenadas en todas las slides; recuadro con línea punteada.
+  function infoPill(ctx, dd) { if (dd.dmy) pill(ctx, 1586, 54, 312, 38, 'Info. updated to ' + dd.dmy, '#595959', '#9a9aa8', true); }
 
   function drawCover() {
     var c = newCanvas(), ctx = c.getContext('2d');
@@ -147,8 +152,8 @@
       ctx.textBaseline = 'middle'; ctx.textAlign = 'left'; ctx.fillStyle = '#6E00E7';
       ctx.font = '700 48px Rubik, sans-serif'; ctx.fillText(title, 20, 73);
       if (sub) { var tw = ctx.measureText(title).width; ctx.font = 'italic 400 48px Rubik, sans-serif'; ctx.fillText(sub, 20 + tw, 73); }
-      if (logo) ctx.drawImage(logo, 896 * 2, 2 * 2, 62 * 2, 64 * 2);
-      infoPill(ctx, dd, 64);
+      if (logo) ctx.drawImage(logo, 1871, 4, 45, 46);   // chico y arriba del todo: debajo va "Info. updated"
+      infoPill(ctx, dd);
       imgs.forEach(function (it) {
         if (it.tag) pill(ctx, it.tag.x * 2, it.tag.y * 2, 117 * 2, 18 * 2, it.tag.t, '#550FED', '#3D00D1');
         if (it.img) fit(ctx, it.img, it.x * 2, it.y * 2, it.w * 2, it.h * 2, true);
@@ -161,8 +166,8 @@
   function drawFull(img, dd) {
     var c = newCanvas(), ctx = c.getContext('2d');
     ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
-    // La captura llega hasta abajo de todo: se achica para dejar una franja libre donde va "Info. updated" (antes lo pisaba).
-    if (img) { fit(ctx, img, 0, 0, W, H - (dd.dmy ? 52 : 0), true); infoPill(ctx, dd, 518); }
+    // La captura va a pantalla completa (así el cartel "Datos" queda en las mismas coordenadas en todas) y "Info. updated" se dibuja encima.
+    if (img) { fit(ctx, img, 0, 0, W, H, true); infoPill(ctx, dd); }
     else { ctx.fillStyle = '#C0392B'; ctx.font = '400 28px Rubik, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('No se pudo capturar esta slide', W / 2, H / 2); }
     return Promise.resolve(jpeg(c));
   }

@@ -2,7 +2,7 @@
  * (`layout` en server/modules.js). El HTML de Apps Script no se toca.
  *
  * Reemplaza el bloque único "B2B (API + HTML)" por dos secciones, cada una con su carátula:
- *   - B2B API: EXACTAMENTE las 14 slides del "Weekly B2B-MAY" del Daily B2B Tracker. No se rearman ni se copian: se llama al mismo generador
+ *   - B2B API: las slides (sin la portada del Weekly, que ya tiene la carátula de la sección; 2026-11-12) del "Weekly B2B-MAY" del Daily B2B Tracker. No se rearman ni se copian: se llama al mismo generador
  *     (public/daily-tracker-weekly.js → window.__wkBuildDeck), así que cualquier cambio del Weekly se ve acá sin tocar nada.
  *   - B2B HTML: las mismas slides del Tracker que en API pero con canal HTML (Agencias afiliadas): Status KRs H2, Tablas GD (GB / NR / FVM) y
  *     Tablas RI, a pantalla completa y con "Info. updated" como las de API (window.__wkBuildHtmlDeck, mismo archivo).
@@ -13,7 +13,7 @@
 (function () {
   'use strict';
   var W = window;
-  var API_NAMES = ['Portada', 'Status KRs H2 (API)', 'KR Global B2B API', 'Hoteles pedidos por origen y destino', 'Separador · Top agencias API vs LY',
+  var API_NAMES = ['Status KRs H2 (API)', 'KR Global B2B API', 'Hoteles pedidos por origen y destino', 'Separador · Top agencias API vs LY',
     'MTD Agencias vs LY · Globales', 'MTD Agencias vs LY · Brasil', 'MTD Agencias vs LY · México', 'MTD Agencias vs LY · Argentina',
     'Separador · Performance LW vs tendencia', 'FVM API · Weeks Evolution', 'LW Hoteles vs tendencia L4W', 'Tablas GD (API)', 'Tablas RI (API)'];
   var HTML_NAMES = ['Status KRs H2 (HTML)', 'Tablas GD · GB / NR / FVM (HTML)', 'Tablas RI · GB / NR / FVM (HTML)'];
@@ -32,7 +32,7 @@
 
   // Un estado por sección: idle | loading | done | error
   var SEC = {
-    wk_api: { label: 'B2B API', n: API_NAMES.length, build: function () { return W.__wkBuildDeck(); }, state: 'idle', imgs: null, error: '', msg: '' },
+    wk_api: { label: 'B2B API', n: API_NAMES.length, build: function () { return W.__wkBuildDeck().then(function (s) { return s.slice(1); }); }, state: 'idle', imgs: null, error: '', msg: '' },
     wk_html: { label: 'B2B HTML', n: HTML_NAMES.length, build: function () { return W.__wkBuildHtmlDeck(); }, state: 'idle', imgs: null, error: '', msg: '' },
   };
   var promise = null, active = null;

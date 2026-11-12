@@ -31,6 +31,7 @@
     '#ow-flt-pop .ow-flt-row + .ow-flt-row{border-top:1px solid var(--border)}',
     '#ow-flt-pop .ow-flt-help{font:400 10.5px/1.35 var(--font);color:var(--text-3);margin-top:2px}',
     '#ow-flt-pop .org-wrap{margin-left:0;flex-wrap:wrap}',
+    '#ow-flt-pop .msel-pop{left:auto;right:-10px}',
     '#ow-flt-pop .org-note{max-width:none;white-space:normal}',
     // los otros COI Brasil del Daily (quedan en el DOM: setExCoiBr los sigue sincronizando)
     '.ow-flt-hidden{display:none!important}',
@@ -67,17 +68,25 @@
             '<button class="dm-btn" data-tbd="incl" onclick="setExclTBD(false)">Incluir</button>' +
             '<button class="dm-btn" data-tbd="excl" onclick="setExclTBD(true)">Excluir</button>' +
           '</div></div>' +
-        '<div class="ow-flt-help" style="margin-top:6px">Por default: Organic YES, COI Brasil Excluir y Partner TBD Incluir.</div>' +
+        '<div class="ow-flt-row" id="ow-flt-dir-row" title="Filtra por director del KAM (B2B API/HTML) o del partner (B2B2C)">' +
+          '<div><div class="org-lbl">Director</div><div class="ow-flt-help">Solo en Daily B2B</div></div>' +
+        '</div>' +
+        '<div class="ow-flt-help" style="margin-top:6px">Por default: Organic YES, COI Brasil Excluir, Partner TBD Incluir y Director Todos.</div>' +
       '</div>';
     // va donde estaba el Organic (después del switch B2B2C / B2B)
     org.parentNode.insertBefore(box, org);
     el('ow-flt-org').appendChild(org);
+    // Director (2026-11-12): se mueve el mismo chip de la barra de B2B (con su multiselect), no una copia: se ve igual que el resto de los filtros.
+    var dirSel = el('b2b-sel-director'), dirRow = el('ow-flt-dir-row'), dirChip = dirSel && dirSel.closest('.fchip');
+    if (dirChip && dirRow) dirRow.appendChild(dirChip);
     syncCoi();
 
     var btn = el('ow-flt-btn'), pop = el('ow-flt-pop');
     function place() {
       var tc = el('b2bc-top-ctls'), tr = el('ow-flt-tbd-row');
       if (tr) tr.style.display = (tc && tc.style.display === 'none') ? 'none' : '';
+      var bf = el('b2b-fbar'), dr = el('ow-flt-dir-row');
+      if (dr) dr.style.display = (bf && bf.style.display !== 'none') ? '' : 'none';
       var r = btn.getBoundingClientRect(), w = pop.offsetWidth || 300;
       pop.style.top = Math.round(r.bottom + 6) + 'px';
       pop.style.left = Math.round(Math.max(12, Math.min(r.left, W.innerWidth - w - 12))) + 'px';
@@ -85,6 +94,7 @@
     function setOpen(on) {
       box.classList.toggle('open', on);
       btn.setAttribute('aria-expanded', on ? 'true' : 'false');
+      if (!on) Array.prototype.forEach.call(pop.querySelectorAll('.msel.open'), function (m) { m.classList.remove('open'); });
       if (on) place();
     }
     btn.addEventListener('click', function (e) { e.stopPropagation(); setOpen(!box.classList.contains('open')); });
@@ -118,8 +128,9 @@
     if (!W._dlOrganic) notes.push('Organic en NO');
     if (!W._exCoiBr) notes.push('COI Brasil en Incluir');
     if (W._b2bcExclTBD) notes.push('Partner TBD en Excluir');
+    if (Array.isArray(W._dirSel) && W._dirSel.length) notes.push('Director: ' + W._dirSel.join(', '));
     box.classList.toggle('mod', notes.length > 0);
-    el('ow-flt-btn').title = notes.length ? 'Fuera del default: ' + notes.join(' · ') : 'Organic YES · COI Brasil Excluir · Partner TBD Incluir (default)';
+    el('ow-flt-btn').title = notes.length ? 'Fuera del default: ' + notes.join(' · ') : 'Organic YES · COI Brasil Excluir · Partner TBD Incluir · Director Todos (default)';
   }
 
   // Barra de arriba (2026-11-05, Diego): el switch B2B2C / B2B pegado a "Daily" y el resto de las solapas a la derecha.
@@ -159,7 +170,7 @@
     var b = document.createElement('button');
     b.type = 'button'; b.id = 'ow-clear'; b.textContent = 'Limpiar filtros';
     b.addEventListener('click', function () {
-      prod.value = 'all';
+      if (typeof W.msSet_ === 'function') W.msSet_('sel-product', [], true); else prod.value = 'all';
       W._selPaises.length = 0; W._selPartners.length = 0;
       if (typeof W.paisChanged_ === 'function') W.paisChanged_();
       refreshClear();
@@ -189,6 +200,7 @@
       mark();
       wrap('setExCoiBr', function () { syncCoi(); hideOtherCoi(); mark(); });
       wrap('setDailyOrganic', mark);
+      wrap('dirSet_', mark);
       wrap('_syncOrganicUI_', mark);   // el Organic puede volver a NO solo (si falla la tabla de TC)
       // La sección "Weekly · vs B2C" del Benchmark arma su propio COI Brasil cada vez que se dibuja
       wrap('renderBenchmark_', hideOtherCoi);
