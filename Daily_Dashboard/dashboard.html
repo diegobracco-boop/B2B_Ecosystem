@@ -667,7 +667,9 @@ body.krd-only #section-b2b > :not(.krd-keep) { display:none !important; }
 .fl-legend{display:flex;gap:14px;justify-content:center;font-size:10px;color:var(--fl-ink3);margin-bottom:2px}
 .fl-legend span{display:inline-flex;align-items:center;gap:4px}
 .fl-legend i{width:9px;height:9px;border-radius:2px;display:inline-block}
-.fl-canvas-wrap{position:relative;width:100%;min-width:0}
+.fl-canvas-wrap{position:relative;width:100%;min-width:0;overflow:hidden}
+/* canvas fuera del flujo: su ancho intrínseco no estira el wrap (los gráficos diarios pisaban la tabla de al lado) */
+.fl-canvas-wrap>canvas{position:absolute;left:0;top:0}
 /* H1 vs target box */
 .fl-h1box{border:1.5px solid var(--fl-purple2);border-radius:10px;padding:8px 12px;text-align:center;background:#faf8ff;min-width:120px}
 .fl-h1box .h-lbl{font-size:10px;font-weight:700;color:var(--fl-ink2)}
@@ -5776,14 +5778,17 @@ function flowOCClosedData_(compKey){
 function flowDaily_(subRaw, metricKey, compKey){
   var vDate=flowVDate_(), pp=vDate.split('-'), ym=pp[0]+'-'+pp[1];
   var MF=_FLMF[metricKey], cmpArr=_flCompArr_(subRaw,compKey), cmpF=_flCompField_(metricKey,compKey);
-  var dV={}, dG={};
-  (subRaw.actuals||[]).forEach(function(r){ if(r.fecha.substring(0,7)!==ym||r.fecha>vDate)return; dV[r.fecha]=(dV[r.fecha]||0)+(r[MF]||0); });
+  var dV={}, dG={}, dY={}, dL={};
+  // dY = actuals para el YoY (_yv_, TC Actuals LY) y dL = actuals LY corridos +1 año: fila "YoY" debajo
+  // de cada día (flowChart_ con opts.yoy), siempre vs LY sin importar el Goal elegido (igual que flowMonthly_).
+  (subRaw.actuals||[]).forEach(function(r){ if(r.fecha.substring(0,7)!==ym||r.fecha>vDate)return; dV[r.fecha]=(dV[r.fecha]||0)+(r[MF]||0); dY[r.fecha]=(dY[r.fecha]||0)+_yv_(r,MF); });
+  (subRaw.actuals_ly||[]).forEach(function(r){ var cur=(+r.fecha.substring(0,4)+1)+r.fecha.substring(4); if(cur.substring(0,7)!==ym||cur>vDate)return; dL[cur]=(dL[cur]||0)+(r[MF]||0); });
   if(compKey==='ly'){ var lyYM=(+pp[0]-1)+'-'+pp[1];
     cmpArr.forEach(function(r){ if(r.fecha.substring(0,7)!==lyYM)return; var cur=(+r.fecha.substring(0,4)+1)+r.fecha.substring(4); dG[cur]=(dG[cur]||0)+(r[cmpF]||0); });
   } else { cmpArr.forEach(function(r){ if(r.fecha.substring(0,7)!==ym)return; dG[r.fecha]=(dG[r.fecha]||0)+(r[cmpF]||0); }); }
   var days=new Date(+pp[0], +pp[1], 0).getDate(), out=[];
   for(var d=1; d<=days; d++){ var ds=ym+'-'+(d<10?'0':'')+d, proj=ds>vDate;
-    out.push({date:ds, v:proj?null:Math.round((dV[ds]||0)*100)/100, bud:Math.round((dG[ds]||0)*100)/100, projected:proj}); }
+    out.push({date:ds, v:proj?null:Math.round((dV[ds]||0)*100)/100, bud:Math.round((dG[ds]||0)*100)/100, yoy:(!proj&&dL[ds])?((dY[ds]||0)/dL[ds]-1)*100:null, projected:proj}); }
   return out;
 }
 
@@ -6282,7 +6287,7 @@ function flowBuildSlide_(def, idx){
     var sub=flowRegionRaw_(null), mk=def.metric, byPais=(def.open==='pais');
     var titleTxt=mesLbl+' | '+FLOW_MET[mk].label+' Performance MTD vs '+cmpLbl+(byPais?' · por País':'');
     var dl=flowDaily_(sub,mk,cmp);
-    var cid='flc'+idx; _flowSeries[idx].push({id:cid, series:dl, gran:'daily', opts:{labels:true}});
+    var cid='flc'+idx; _flowSeries[idx].push({id:cid, series:dl, gran:'daily', opts:{labels:true, yoy:true}});
     var tbl=flowGroupTable_(sub,mk,cmp,byPais?'Región / País / Partner':'Región / País / Tier / Partner',true,undefined,undefined,undefined,undefined,{yoy:true,deep:true,pais:byPais});
     var body='<div class="fl-body">'
       +'<div style="display:flex;gap:12px;align-items:center;margin-bottom:8px"><span class="fl-pill bud">vs '+cmpLbl.toUpperCase()+'</span><span class="fl-pill okr">OKR — Level 2</span>'
@@ -6302,7 +6307,7 @@ function flowBuildSlide_(def, idx){
     var titleTxt=mesLbl+' | B2B2C '+FLOW_RG[region].label+' — '+FLOW_MET[mk].label+' Performance MTD vs '+cmpLbl;
     var brand='<span class="fl-flag">'+FLOW_RG[region].flag+'</span>'+flLogo_();
     var dl=flowDaily_(sub,mk,cmp);
-    var cid='flc'+idx; _flowSeries[idx].push({id:cid, series:dl, gran:'daily', opts:{labels:true}});
+    var cid='flc'+idx; _flowSeries[idx].push({id:cid, series:dl, gran:'daily', opts:{labels:true, yoy:true}});
     var tierFirst=(region==='SAH'); // Hispa: Tier → Partner en vez de País → Tier → Partner
     var tbl=flowGroupTable_(sub,mk,cmp,tierFirst?'Tier / Partner':'País / Tier / Partner',false,undefined,undefined,tierFirst,undefined,{yoy:true});
     var body='<div class="fl-body"><div style="display:flex;gap:18px;height:100%">'
@@ -6462,7 +6467,7 @@ var _flYoyPlugin_={id:'flYoy', afterDraw:function(chart){
   var yoy=chart._flYoy; if(!yoy) return;
   var pp=!!chart._flYoyPp;
   var x=chart.scales.x, ctx=chart.ctx, y0=x.bottom+2;
-  ctx.save(); ctx.font='700 9px Poppins, sans-serif'; ctx.textBaseline='top';
+  ctx.save(); ctx.font='700 '+(chart._flYoyFs||9)+'px Poppins, sans-serif'; ctx.textBaseline='top';
   ctx.textAlign='right'; ctx.fillStyle=chart._flYoyLbl||'#6b6b85'; ctx.fillText('YoY', chart.chartArea.left-4, y0);
   ctx.textAlign='center';
   yoy.forEach(function(p,i){
@@ -6519,7 +6524,7 @@ function flowChart_(spec){
   ch._tvLabelColor='rgba(40,30,80,.9)'; ch._isPct=false;
   // animation:false -> el constructor ya dibujó sin _flYoy; redibujar para que la fila salga
   // también en el PDF (flowRebuild_ en beforeprint) y en el export a Slides (html2canvas)
-  if(showYoy){ ch._flYoy=s.map(function(d){ return d.yoy; }); ch.draw(); }
+  if(showYoy){ ch._flYoy=s.map(function(d){ return d.yoy; }); if(gran==='daily') ch._flYoyFs=6; ch.draw(); }
   _flowCharts[spec.id]=ch;
 }
 
