@@ -81,6 +81,8 @@ Primera pasada (FY27 abr–oct, NR del Managerial; solo conversión + cross-sell
 
 **Hecho (2026-11-10)**: pestaña "Moonshot 3x" del Tracker con las tres palancas (alcance con las bases del Excel "B2B2C_Data Histórica", provisorio). Resultado inicial: 11 cuentas con techo ≥ 3x (hoy $23,9M de NR anual; +$29M realista / +$222M moonshot); la mayor, Itaú Brasil (1,1 orders por año cada 1.000 clientes contra 11 del p75 de su industria). A validar con los equipos: bases que son tráfico web (Liverpool, Didi, YaVas, WL Hotels, WL Varios, Bonda, AVASA, Xcaret, Latam MX), Sicoob (100M vs "10 Milhões"), redes de tarjetas, duplicados y faltantes (Banco de Chile, Caixa).
 
+**Rehecho (2026-11-12, Diego)**: el moonshot parte de los **usuarios del tráfico** (el mejor dato que tenemos de cada cuenta) en vez de las bases de clientes: techo = NR por usuario de los pares del país. Pestaña "Cartera" con cuadrantes (Estrellas / Apuestas / Maduras / Despriorizar) y perfil comercial (comisión % GB o profit sharing, canje, monoproducto y verticales a sumar). Primera corrida (FY27 abr–oct): 6 estrellas ($41M de NR anual: Latam BR / CL / PE, YaVas, Viajes Naranja, BBVA CO), 16 apuestas, 10 maduras ($52M), 13 a despriorizar y 4 sin tráfico (API). Pendiente: alcance contra la base real del partner cuando Comercial la valide.
+
 Vista propuesta: matriz "techo vs tamaño actual" (burbuja = NR) con los candidatos a 3x arriba a la derecha, y por partner el árbol
 de palancas (cuánto aporta cada una al 3x) con la acción y el dueño.
 

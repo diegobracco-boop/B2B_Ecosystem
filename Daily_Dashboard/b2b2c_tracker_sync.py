@@ -13,6 +13,8 @@ Criterios:
   - País = país de navegación (country). Solo los países reales de SITES: el campo trae basura de escaneos de seguridad.
   - Producto agrupado como el Daily (Carrito/Bundles/Escapadas = Paquetes, Actividades/Traslados = Servicios en destino...).
     Home y Promociones son páginas, no productos: van a 'Otros' (suman usuarios, 0 bookings).
+  - Ruta (2026-11-12) = route_type de la tabla: NAC (nacional) / INT (internacional); vacío -> '(Sin dato)' (Home, páginas y
+    algunos bookings sin paso de búsqueda). Solo existe en el tráfico: los resultados del Daily no se abren por ruta.
   - Usuarios = usuarios únicos por semana y por fila: al sumar productos, plataformas o semanas un usuario se cuenta más de una
     vez ("usuarios-semana"). Las conversiones entre pasos sí son comparables entre períodos.
   - Ojo: la tabla tiene semanas con días sin cargar (p.ej. 2025-41 a 2025-47). El servidor las detecta comparando los bookings del
@@ -33,7 +35,7 @@ DESDE_ANIO = 2025                          # el YoY de 2026 necesita 2025 comple
 SITES = ("AR", "BR", "MX", "US", "CL", "CO", "PE", "UY", "EC", "PA")
 MIN_ROWS = 1000                            # una query que devuelve menos es sospechosa: no se pisa el archivo anterior
 
-DIMS = ["partner", "site", "plataforma", "producto"]
+DIMS = ["partner", "site", "plataforma", "producto", "ruta"]
 METRICS = ["usuarios", "search", "detail", "pi", "checkout", "bookings"]
 
 
@@ -57,6 +59,7 @@ SELECT
         WHEN bwt.product_type = 'Alquileres'                              THEN 'Alquileres'
         ELSE 'Otros'
     END                                                        AS producto,
+    CASE WHEN bwt.route_type IN ('NAC', 'INT') THEN bwt.route_type ELSE '(Sin dato)' END AS ruta,
     SUM(bwt.user_count)                                        AS usuarios,
     SUM(bwt.flow_search_count)                                 AS search,
     SUM(bwt.flow_detail_count)                                 AS detail,
@@ -72,7 +75,7 @@ WHERE bwt.event_year_week BETWEEN '{DESDE_ANIO}-01' AND '{hasta_anio}-53'
   AND bwt.line_of_business = 'B2B2C'
   AND bwt.channel <> 'puntosbonus-pe'
   AND bwt.country IN ({sites})
-GROUP BY 1, 2, 3, 4, 5, 6, 7
+GROUP BY 1, 2, 3, 4, 5, 6, 7, 8
 """
 
 

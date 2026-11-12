@@ -12,8 +12,12 @@
 // Vistas (2026-11-10, Diego): "Portada" (consolidado para el Chief: Lectura y KPIs del total, puente por país y una fila por país con
 // qué lo explica, el mix y el partner que más lo mueve), un one pager por país (Lectura, KPIs, puente, embudo, top partners y mix en
 // una pantalla, imprimible en A4 apaisado) y "Detalle" (la página completa con todos los filtros). ?view=portada|pais|detalle|moonshot.
-// Moonshot (2026-11-10): ¿con qué partner pensamos en triplicar? Matriz NR actual vs multiplicador potencial y ranking de candidatos con
-// las tres palancas (alcance con la base de clientes del Excel del equipo, PROVISORIO; conversión; amplitud). Ver moonshot() del modelo.
+// Reorganización (2026-11-12, Diego: "que sea para el owner de cada país"): pestañas Portada · Cartera · un país por pestaña. "Detalle"
+// ya no existe aparte: cada país tiene todo (resumen, variación, tráfico con Nac / Int, cartera, partners y apertura) y sus propios
+// filtros (partner, producto, plataforma, Nac / Int). ?view=detalle y ?view=moonshot siguen andando (van al país y a Cartera).
+// Cartera (2026-11-12): reemplaza al Moonshot con base de clientes. Cuadrantes por NR anual × techo (NR por usuario del tráfico contra
+// sus pares): Estrellas, Apuestas, Maduras, Despriorizar; candidatas a 3x; perfil comercial del Managerial (comisión % GB o profit
+// sharing, canje de puntos / millas, monoproducto y verticales a sumar). Ver cartera() del modelo.
 // Mix de productos (2026-11-10, Diego: "¿mantenemos CvR pero con productos de menor ASP?"): ticket = Σ share de orders × ticket del
 // producto y conversión = Σ share de búsquedas × conversión del producto; cada variación se separa en mix y "dentro de cada producto"
 // (descomposición simétrica: suman exacto). En el puente, ticket y conversión se abren en esas dos partes.
@@ -158,6 +162,34 @@ const CSS = `<style>
   .tk-wf .ls { fill: var(--text-3); font-size: 11px; text-anchor: middle; }
   .tk-wf .cn { stroke: var(--text-3); stroke-dasharray: 3 3; }
   .tk-drv { color: var(--text-2); }
+  .tk-sec { scroll-margin-top: 150px; }
+  .tk-nav { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 4px; }
+  .tk-nav a { font-size: 13px; color: var(--link); text-decoration: none; padding: 4px 11px; border-radius: 999px; box-shadow: inset 0 0 0 1px var(--line); }
+  .tk-nav a:hover { background: var(--tile-hover); }
+  .op-head .own { font-size: 14px; color: var(--text-2); }
+  .op-head .own b { color: var(--text); font-weight: 600; }
+  .tk-sec > h2 .n { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--primary); color: #fff; font-size: 12.5px; margin-right: 8px; vertical-align: 2px; }
+  .q-b { display: inline-block; font-size: 11.5px; font-weight: 600; padding: 2px 9px; border-radius: 999px; color: var(--qc); box-shadow: inset 0 0 0 1.5px var(--qc); white-space: nowrap; text-transform: none; letter-spacing: 0; }
+  .q-3x { display: inline-block; font-size: 10.5px; font-weight: 700; padding: 1px 6px; border-radius: 6px; color: #fff; background: var(--tr); }
+  .q-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+  .q-card { border-top: 4px solid var(--qc); cursor: pointer; }
+  .q-card:hover { background: var(--tile-hover); }
+  .q-card.on { box-shadow: inset 0 0 0 2px var(--qc); }
+  .q-card .hd { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .q-card .a { font-size: 13px; font-weight: 600; color: var(--qc); }
+  .q-card .n { font-size: 24px; font-weight: 600; letter-spacing: -0.02em; margin: 6px 0 2px; }
+  .q-card .n span { font-size: 13px; font-weight: 400; color: var(--text-2); letter-spacing: 0; }
+  .q-card .d { font-size: 12.5px; color: var(--text-2); margin: 2px 0 8px; line-height: 1.45; }
+  .q-card .t { font-size: 12.5px; margin-top: 3px; }
+  .pf { display: inline-block; font-size: 11.5px; padding: 1px 7px; border-radius: 6px; background: var(--bg); color: var(--text-2); margin: 1px 2px 1px 0; white-space: nowrap; box-shadow: inset 0 0 0 1px var(--line); }
+  .pf.ps { color: var(--c5); } .pf.cj { color: var(--c3); } .pf.mo { color: var(--c2); } .pf.ad { color: var(--c1); }
+  .tk-t td.pfc { white-space: normal; min-width: 220px; }
+  .tk-t th.grp { text-align: center; border-bottom: 1px solid var(--line); }
+  .tk-chart .qd { font-size: 12.5px; font-weight: 600; }
+  .tk-chart .qdl { stroke: var(--text-3); stroke-dasharray: 5 4; }
+  .tk-chart .q-pt { fill-opacity: .7; stroke: var(--tile); stroke-width: 2; cursor: pointer; }
+  .tk-chart .q-pt:hover { fill-opacity: .95; }
+  @media (max-width: 960px) { .q-cards { grid-template-columns: 1fr 1fr; } }
   @media (max-width: 860px) { .tk-grid2 { grid-template-columns: 1fr; } }
   @media (max-width: 960px) { .op-row { grid-template-columns: 1fr; } }
   @media print {
@@ -165,7 +197,7 @@ const CSS = `<style>
     :root, :root[data-theme] { --bg: #fff; --tile: #f6f6f8; --tile-hover: #f6f6f8; --line: rgba(0,0,0,.12); --text: #1d1d1f; --text-2: #55555c; --text-3: #7a7a82;
       --primary: #550fed; --secondary: #7b4fff; --link: #550fed; --up: #0f8a5f; --dn: #d93a46; --ly: #8e8e93; --tr: #d98a00; color-scheme: light; }
     body { background: #fff !important; }
-    header.topbar, .tk-bar, .tk-hero, .tk-notes, .op-head .pr, .tk-chips, .tk-more { display: none !important; }
+    header.topbar, .tk-bar, .tk-hero, .tk-notes, .op-head .pr, .tk-chips, .tk-more, .tk-nav, .ms-f { display: none !important; }
     main { padding: 0 !important; } .wrap { max-width: none !important; padding: 0 !important; }
     .tk-card { box-shadow: inset 0 0 0 1px rgba(0,0,0,.12); }
     .op { zoom: .56; }   /* entra en una hoja A4 apaisada */
@@ -182,18 +214,21 @@ const SCRIPT = String.raw`(function () {
   'use strict';
   var CFG = window.TK_CFG, root = document.getElementById('tk-root');
   var Q = new URLSearchParams(location.search);
-  var FD = ['region', 'pais', 'partner', 'prod', 'plat'];
-  var FL = { region: 'Región', pais: 'País', partner: 'Partner', prod: 'Producto', plat: 'Plataforma' };
-  var S = { gran: Q.get('gran') === 'm' ? 'm' : 'w', f: {}, k: Q.get('k') || '', met: Q.get('met') || 'o', dim: Q.get('dim') || 'region',
+  var FD = ['region', 'pais', 'partner', 'prod', 'plat', 'ruta'];
+  var FL = { region: 'Región', pais: 'País', partner: 'Partner', prod: 'Producto', plat: 'Plataforma', ruta: 'Nac / Int' };
+  var FP = ['partner', 'prod', 'plat', 'ruta'];   // filtros de la página de un país (región y país los fija la pestaña)
+  var S = { gran: Q.get('gran') === 'm' ? 'm' : 'w', f: {}, k: Q.get('k') || '', met: Q.get('met') || 'o', dim: FP.indexOf(Q.get('dim')) >= 0 ? Q.get('dim') : 'partner',
     win: +(Q.get('win') || 0), cmp: Q.get('cmp') || 'tr', pm: Q.get('pm') || 's', bm: Q.get('bm') || 'nr', all: false };
   FD.forEach(function (d) { if (Q.get(d)) S.f[d] = Q.get(d); });
   var COUNTRIES = [['Brasil', 'Brasil'], ['Argentina', 'Argentina'], ['Mexico', 'México'], ['Chile', 'Chile'], ['Colombia', 'Colombia'], ['Peru', 'Perú']];
   function cLbl(v) { var x = COUNTRIES.filter(function (c) { return c[0] === v; })[0]; return x ? x[1] : v; }
-  S.view = ['portada', 'pais', 'detalle', 'moonshot'].indexOf(Q.get('view')) >= 0 ? Q.get('view') : 'portada';
-  var MOON = null, MS = { dir: Q.get('dir') || '', ind: Q.get('ind') || '', pais: Q.get('mpais') || '' };
+  var V0 = Q.get('view');   // compatibilidad: "detalle" va al país filtrado (o a la Portada) y "moonshot" a Cartera
+  S.view = V0 === 'moonshot' ? 'cartera' : V0 === 'detalle' ? (S.f.pais ? 'pais' : 'portada') : ['portada', 'pais', 'cartera'].indexOf(V0) >= 0 ? V0 : 'portada';
   if (S.view === 'pais' && !S.f.pais) S.view = 'portada';
-  if (S.view !== 'detalle') S.f = S.view === 'pais' ? { pais: S.f.pais } : {};
+  if (S.view === 'pais') delete S.f.region; else S.f = {};
+  var CART = null, CS = { dir: Q.get('dir') || '', pais: Q.get('cpais') || '', quad: Q.get('quad') || '' };
   var CT = null;   // portada: { rows: apertura por país, det: { país: { prod, part } } }
+  var RT = null;   // país: conversión por producto, Nacional e Internacional
   var DATA = null, BD = null, PART = null, EVO = null, PROD = null, seq = 0;
 
   // ── Métricas: t = tráfico [usuarios, búsqueda, detalle, PI, checkout, bookings], r = resultados [orders, GB, NR, FVM] ──
@@ -301,20 +336,21 @@ const SCRIPT = String.raw`(function () {
   }
   function syncUrl() {
     var p = new URLSearchParams(qs());
-    if (S.k) p.set('k', S.k); if (S.met !== 'o') p.set('met', S.met); if (S.dim !== 'region') p.set('dim', S.dim); if (S.win) p.set('win', S.win);
+    if (S.k) p.set('k', S.k); if (S.met !== 'o') p.set('met', S.met); if (S.dim !== 'partner') p.set('dim', S.dim); if (S.win) p.set('win', S.win);
     if (S.cmp !== 'tr') p.set('cmp', S.cmp); if (S.pm !== 's') p.set('pm', S.pm); if (S.bm !== 'nr') p.set('bm', S.bm);
     if (S.view !== 'portada') p.set('view', S.view);
-    if (S.view === 'moonshot') { ['gran', 'region', 'pais', 'partner', 'prod', 'plat'].forEach(function (k) { p.delete(k); });
-      if (MS.dir) p.set('dir', MS.dir); if (MS.ind) p.set('ind', MS.ind); if (MS.pais) p.set('mpais', MS.pais); }
+    if (S.view === 'cartera') { ['gran', 'region', 'pais', 'partner', 'prod', 'plat', 'ruta', 'k', 'cmp'].forEach(function (k) { p.delete(k); });
+      if (CS.dir) p.set('dir', CS.dir); if (CS.pais) p.set('cpais', CS.pais); }
+    if (CS.quad && S.view !== 'portada') p.set('quad', CS.quad);
     history.replaceState(null, '', location.pathname + '?' + p.toString());
   }
   function load() {
     var my = ++seq;
     document.getElementById('tk-body').innerHTML = '<div class="tk-load">Cargando…</div>';
-    if (S.view === 'moonshot') {
+    if (S.view === 'cartera') {
       renderBar();
-      getJson(CFG.api + '?view=moonshot').then(function (j) { if (my !== seq) return; MOON = j; renderMoon(); syncUrl(); })
-        .catch(function (e) { document.getElementById('tk-body').innerHTML = '<div class="tk-err">No se pudo armar el Moonshot: ' + esc(e.message) + '</div>'; });
+      loadCart().then(function () { if (my !== seq) return; renderCartera(); syncUrl(); })
+        .catch(function (e) { document.getElementById('tk-body').innerHTML = '<div class="tk-err">No se pudo armar la Cartera: ' + esc(e.message) + '</div>'; });
       return;
     }
     Promise.all([getJson(CFG.api + '?' + qs()), getJson(CFG.api + '?' + qs({ evo: '1' }))]).then(function (res) {
@@ -322,14 +358,29 @@ const SCRIPT = String.raw`(function () {
       DATA = res[0]; EVO = res[1];
       if (!S.k || (S.k !== 'ytd' && !DATA.periods.some(function (p) { return p.k === S.k; }))) S.k = DATA.defaultKey;
       renderAll(); loadPeriod();
+      if (S.jump) { var el = document.getElementById(S.jump); S.jump = null; if (el) el.scrollIntoView(); }
     }).catch(function (e) { document.getElementById('tk-body').innerHTML = '<div class="tk-err">No se pudieron cargar los datos: ' + esc(e.message) + '</div>'; });
+    loadCart().then(function () { if (my === seq) renderCartBlocks(); })
+      .catch(function (e) { ['tk-cart', 'tk-pcart'].forEach(function (id) { var b = document.getElementById(id); if (b) b.innerHTML = '<div class="tk-err">' + esc(e.message) + '</div>'; }); });
+  }
+  // La cartera no depende de filtros ni del período: se pide una vez
+  function loadCart() { return CART ? Promise.resolve(CART) : getJson(CFG.api + '?view=cartera').then(function (j) { CART = j; return j; }); }
+  function loadRuta(my) {
+    RT = null; renderRuta();
+    if (S.f.ruta) return;
+    Promise.all(['NAC', 'INT'].map(function (rt) { return getJson(CFG.api + '?' + qs({ dim: 'prod', k: S.k, ruta: rt })); })).then(function (res) {
+      if (my !== seq) return; RT = { NAC: res[0], INT: res[1] }; renderRuta();
+    }).catch(function (e) { var b = document.getElementById('tk-ruta'); if (b) b.innerHTML = '<div class="tk-err">' + esc(e.message) + '</div>'; });
   }
   // Lo que depende del período elegido: apertura y ranking de partners
   function loadPeriod() {
     var my = seq;
     ['tk-bd', 'tk-rank'].forEach(function (id) { var b = document.getElementById(id); if (b) b.innerHTML = '<div class="tk-load">Cargando…</div>'; });
-    if (S.view === 'detalle') getJson(CFG.api + '?' + qs({ dim: S.dim, k: S.k })).then(function (j) { if (my !== seq) return; BD = j; renderBd(); })
-      .catch(function (e) { var b = document.getElementById('tk-bd'); if (b) b.innerHTML = '<div class="tk-err">' + esc(e.message) + '</div>'; });
+    if (S.view === 'pais') {
+      getJson(CFG.api + '?' + qs({ dim: S.dim, k: S.k })).then(function (j) { if (my !== seq) return; BD = j; renderBd(); })
+        .catch(function (e) { var b = document.getElementById('tk-bd'); if (b) b.innerHTML = '<div class="tk-err">' + esc(e.message) + '</div>'; });
+      loadRuta(my);
+    }
     if (S.view === 'portada') loadCountries(my);
     PROD = null;
     if (!S.f.prod) getJson(CFG.api + '?' + qs({ dim: 'prod', k: S.k })).then(function (j) { if (my !== seq) return; PROD = j; renderMix(); renderBridge(); renderSummary(); })
@@ -358,35 +409,34 @@ const SCRIPT = String.raw`(function () {
   }
 
   // ── Barra de controles ──
+  function tabsHtml() {
+    var on = function (v, c) { return S.view === v && (!c || S.f.pais === c) ? ' class="on"' : ''; };
+    return '<div class="tk-vt" role="tablist"><button type="button" data-view="portada"' + on('portada') + '>Portada</button>' +
+      '<button type="button" data-view="cartera"' + on('cartera') + '>Cartera</button><span class="sep"></span>' +
+      COUNTRIES.map(function (c) { return '<button type="button" data-view="pais" data-c="' + esc(c[0]) + '"' + on('pais', c[0]) + '>' + esc(c[1]) + '</button>'; }).join('') + '</div>';
+  }
   function renderBar() {
-    if (S.view === 'moonshot') {
-      document.getElementById('tk-bar').innerHTML = '<div class="tk-vt" role="tablist"><button type="button" data-view="portada">Portada</button><button type="button" data-view="moonshot" class="on">Moonshot 3x</button><span class="sep"></span>' +
-        COUNTRIES.map(function (c) { return '<button type="button" data-view="pais" data-c="' + esc(c[0]) + '">' + esc(c[1]) + '</button>'; }).join('') +
-        '<span class="sep"></span><button type="button" data-view="detalle">Detalle</button></div>';
-      return;
-    }
+    if (S.view === 'cartera') { document.getElementById('tk-bar').innerHTML = tabsHtml(); return; }
     var o = (DATA && DATA.options) || {};
     var seg = '<div class="tk-seg" role="group" aria-label="Granularidad">' +
       [['w', 'Semanal'], ['m', 'Mensual']].map(function (g) { return '<button type="button" data-gran="' + g[0] + '" class="' + (S.gran === g[0] ? 'on' : '') + '">' + g[1] + '</button>'; }).join('') + '</div>';
-    var sels = FD.map(function (d) {
-      var opts = (o[d] || []).map(function (x) { return '<option value="' + esc(x.v) + '"' + (S.f[d] === x.v ? ' selected' : '') + '>' + esc(x.l) + '</option>'; }).join('');
+    var fds = S.view === 'pais' ? FP : [];
+    var sels = fds.map(function (d) {
+      var list = d === 'partner' ? ((o.partnerByPais || {})[S.f.pais] || []).map(function (v) { return { v: v, l: v }; }) : (o[d] || []);
+      if (S.f[d] && !list.some(function (x) { return x.v === S.f[d]; })) list = list.concat([{ v: S.f[d], l: S.f[d] }]);
+      var opts = list.map(function (x) { return '<option value="' + esc(x.v) + '"' + (S.f[d] === x.v ? ' selected' : '') + '>' + esc(x.l) + '</option>'; }).join('');
       return '<div class="tk-f"><label for="tk-f-' + d + '">' + FL[d] + '</label><select id="tk-f-' + d + '" data-f="' + d + '"><option value="">Todos</option>' + opts + '</select></div>';
     }).join('');
     var ps = DATA ? '<option value="ytd"' + (S.k === 'ytd' ? ' selected' : '') + '>' + esc(DATA.ytd.lbl) + '</option>' + DATA.periods.slice().reverse().map(function (p) {
       var tag = p.partial ? ' (en curso)' : p.flag ? ' · tráfico incompleto' : '';
       return '<option value="' + esc(p.k) + '"' + (p.k === S.k ? ' selected' : '') + '>' + esc(p.lbl + tag) + '</option>';
     }).join('') : '';
-    var any = FD.some(function (d) { return S.f[d]; });
+    var any = fds.some(function (d) { return S.f[d]; });
     var cc = S.k === 'ytd' ? [['ly', 'vs LY']] : cmps();
     var cseg = '<div class="tk-f"><label>Comparar contra</label><div class="tk-seg" role="group" aria-label="Comparar contra">' +
       cc.map(function (c) { return '<button type="button" data-cmp="' + c[0] + '" class="' + (ec() === c[0] ? 'on' : '') + '">' + c[1] + '</button>'; }).join('') + '</div></div>';
-    var vt = '<div class="tk-vt" role="tablist">' + '<button type="button" data-view="portada" class="' + (S.view === 'portada' ? 'on' : '') + '">Portada</button>' +
-      '<button type="button" data-view="moonshot" class="' + (S.view === 'moonshot' ? 'on' : '') + '">Moonshot 3x</button><span class="sep"></span>' +
-      COUNTRIES.map(function (c) { return '<button type="button" data-view="pais" data-c="' + esc(c[0]) + '" class="' + (S.view === 'pais' && S.f.pais === c[0] ? 'on' : '') + '">' + esc(c[1]) + '</button>'; }).join('') +
-      '<span class="sep"></span><button type="button" data-view="detalle" class="' + (S.view === 'detalle' ? 'on' : '') + '">Detalle</button></div>';
-    if (S.view !== 'detalle') { sels = ''; any = false; }
-    document.getElementById('tk-bar').innerHTML = vt + seg + sels +
-      '<div class="tk-f"><label for="tk-k">Período</label><select id="tk-k">' + ps + '</select></div>' + cseg +
+    document.getElementById('tk-bar').innerHTML = tabsHtml() + seg +
+      '<div class="tk-f"><label for="tk-k">Período</label><select id="tk-k">' + ps + '</select></div>' + cseg + sels +
       (any ? '<button type="button" class="tk-clear" id="tk-clear">Limpiar filtros</button>' : '');
   }
 
@@ -396,7 +446,7 @@ const SCRIPT = String.raw`(function () {
     return '<div class="tk-kpis">' + ms.map(function (m) {
       var a = val(m, p.cur);
       return '<div class="tk-card tk-kpi"><div class="l">' + M[m].l + '</div><div class="v">' + fmt(m, a) + '</div><div class="tk-d">' +
-        cmps().filter(function (c) { return S.view === 'detalle' || c[0] === ec() || c[0] === 'ly'; })
+        cmps().filter(function (c) { return S.view === 'pais' || c[0] === ec() || c[0] === 'ly'; })
           .map(function (c) { return p.ytd && c[0] !== 'ly' ? '' : '<span><i>' + c[1] + '</i>' + dtxt(delta(m, a, val(m, p[c[0]]))) + '</span>'; }).join('') + '</div></div>';
     }).join('') + '</div>';
   }
@@ -527,15 +577,6 @@ const SCRIPT = String.raw`(function () {
     var rows = PART.rows.filter(function (r) { return r.key !== 'Otros'; });
     var totS = rows.reduce(function (a, r) { return a + ((r.cur.t || [])[1] || 0); }, 0);
     var maxCr = Math.max.apply(null, rows.map(function (r) { return val('cr', r.cur) || 0; }).concat([0.0001]));
-    if (S.view === 'pais') {
-      var top = rows.slice(0, 8);
-      box.innerHTML = top.length ? '<div class="tk-tw"><table class="tk-t"><thead><tr><th class="l">Partner</th><th>Búsquedas</th><th>Conversión</th><th>Orders</th><th>NR</th><th class="l">Qué lo mueve</th></tr></thead><tbody>' +
-        top.map(function (r) {
-          var cl2 = function (m) { var a = val(m, r.cur); return '<td>' + fmt(m, a) + '<span class="s">' + dtxt(delta(m, a, val(m, r[c]))) + '</span></td>'; };
-          return '<tr><td class="l k">' + esc(r.lbl) + '</td>' + cl2('s') + cl2('cr') + cl2('o') + cl2('nr') + '<td class="l tk-drv">' + drvTxt(r[c] ? mainDriver(r.cur, r[c], 'nr') : null) + '</td></tr>';
-        }).join('') + '</tbody></table></div>' : '<div class="na">Sin partners para este país.</div>';
-      return;
-    }
     var shown = S.all ? rows : rows.slice(0, 15);
     var head = '<tr><th class="l">#</th><th class="l">Partner</th><th>Búsquedas</th><th>Share</th><th>Bookings</th><th>Conversión</th><th>Orders</th><th>NR</th><th>FVM</th><th class="l">Eficiencia</th><th class="l">Qué lo mueve</th></tr>';
     var cell = function (m, r) { var a = val(m, r.cur); return '<td>' + fmt(m, a) + '<span class="s"><i>' + cl + '</i> ' + dtxt(delta(m, a, val(m, r[c]))) + '</span></td>'; };
@@ -801,90 +842,211 @@ const SCRIPT = String.raw`(function () {
     return g + '</svg>';
   }
 
-  // ── Moonshot 3x ──
-  var FLAG_LBL = { trafico: 'base = tráfico web', fuente_distinta: 'base ≠ su fuente', red_tarjetas: 'red de tarjetas', sin_base: 'sin base', inferido: 'inferida' };
-  function msMoney(v) { return v == null ? '—' : '$' + big(v); }
-  function msX(v, hi) { return '<span class="ms-m' + (hi ? ' hi' : '') + '">' + (v >= 10 ? num(v, 0) : num(v, 1)) + 'x</span>'; }
-  function msBadges(r) {
-    return (r.flags || []).map(function (f) { return '<span class="ms-badge ' + (f === 'inferido' ? 'inf' : 'bad') + '">' + esc(FLAG_LBL[f] || f) + '</span>'; }).join('');
+  // ── Cartera: cuadrantes y moonshot 3x desde los usuarios del tráfico (2026-11-12) ──
+  var QD = {
+    estrella: { l: 'Estrellas', a: 'Crecer exponencial', d: 'Grandes y con mucho techo: el tráfico ya está, falta monetizarlo como sus pares.', c: 'var(--c3)' },
+    apuesta: { l: 'Apuestas', a: 'Validar y escalar', d: 'Chicas con mucho techo: probar la palanca y, si responde, escalar.', c: 'var(--c1)' },
+    madura: { l: 'Maduras', a: 'Defender y rentabilizar', d: 'Grandes que ya monetizan como sus pares: crecen con el mercado; cuidar margen y renovación.', c: 'var(--c4)' },
+    despriorizar: { l: 'Despriorizar', a: 'Atención estándar', d: 'Chicas y sin techo a la vista: sin inversión dedicada.', c: 'var(--c0)' },
+    sin_trafico: { l: 'Sin tráfico', a: 'No se puede medir', d: 'Venden por API o fuera del sitio: sin usuarios no hay techo.', c: 'var(--ly)' },
+  };
+  var QORD = ['estrella', 'apuesta', 'madura', 'despriorizar'];
+  var LEV = { 'conversión': 'Conversión (que compren los que ya entran)', 'valor por order': 'Valor por order (ticket y take rate)' };
+  function qBadge(q) { return '<span class="q-b" style="--qc:' + QD[q].c + '">' + esc(QD[q].l) + '</span>'; }
+  function cMoney(v) { return v == null ? '—' : '$' + big(v); }
+  function cX(v) { return v == null ? '—' : num(v, 1) + 'x'; }
+  function lower(s) { return String(s).toLowerCase(); }
+  function profile(r) {
+    var t = [];
+    if (r.ps) t.push('<span class="pf ps">Profit sharing' + (r.comision != null ? ' · ' + num(r.comision * 100, 1) + '% GB' : '') + '</span>');
+    else if (r.comision != null) t.push('<span class="pf">' + (r.comision > 0.0005 ? 'Comisión ' + num(r.comision * 100, 1) + '% GB' : 'Sin comisión') + '</span>');
+    if (r.canje != null && r.canje >= 0.05) t.push('<span class="pf cj">Canje ' + num(r.canje * 100, 0) + '% del GB</span>');
+    if (r.mono && r.topProd) t.push('<span class="pf mo">Monoproducto · ' + esc(lower(r.topProd)) + ' ' + num(r.topShare * 100, 0) + '%</span>');
+    if (r.addProds && r.addProds.length) t.push('<span class="pf ad">Sumar ' + esc(r.addProds.map(lower).join(', ')) + '</span>');
+    if (r.gb == null) t.push('<span class="pf">sin dato del Managerial</span>');
+    return t.join(' ');
   }
-  function msRows() {
-    return MOON.rows.filter(function (r) { return (!MS.dir || r.director === MS.dir) && (!MS.ind || r.industria === MS.ind) && (!MS.pais || r.pais === MS.pais); });
+  function cartRows(f) {
+    return CART.rows.filter(function (r) { return (!f.pais || r.pais === f.pais) && (!f.dir || r.director === f.dir) && (!f.quad || r.quad === f.quad); });
   }
-  function msTable(rows, full) {
-    if (!rows.length) return '<div class="na">Sin cuentas para este filtro.</div>';
-    var head = '<tr><th class="l">Partner</th><th class="l">Director</th><th>NR anual</th><th>Base</th><th>Penetración<br><span class="na" style="text-transform:none">propia · pares · p75 ind.</span></th>' +
-      '<th>Alcance</th><th>Conversión</th><th>Amplitud</th><th>Realista</th><th>Moonshot</th><th>NR potencial</th><th class="l">Palanca</th></tr>';
-    var body = rows.map(function (r) {
-      var pen = function (v) { return v == null ? '—' : num(v, v < 10 ? 1 : 0); };
-      return '<tr class="click" data-ms="' + esc(r.partner) + '" data-mp="' + esc(r.pais) + '"><td class="l k">' + esc(r.partner) + ' <span class="na">· ' + esc(cLbl(r.pais)) + '</span><span class="s na">' + esc(r.industria) + (r.topProd ? ' · ' + Math.round(r.topShare * 100) + '% ' + esc(r.topProd.toLowerCase()) : '') + '</span></td>' +
-        '<td class="l">' + esc(r.director || '—') + '</td>' +
-        '<td>' + msMoney(r.nr) + '</td>' +
-        '<td>' + (r.clientes ? big(r.clientes) : '—') + '<span class="s">' + msBadges(r) + '</span></td>' +
-        '<td>' + pen(r.pen) + '<span class="s na">' + pen(r.penPeer) + ' · ' + pen(r.penP75) + '</span></td>' +
-        '<td>' + num(r.reachR, 1) + 'x<span class="s na">' + num(r.reachM, 1) + 'x</span></td>' +
-        '<td>+' + msMoney(r.convR) + '<span class="s na">+' + msMoney(r.convM) + '</span></td>' +
-        '<td>+' + msMoney(r.xsR) + '<span class="s na">+' + msMoney(r.xsM) + '</span></td>' +
-        '<td>' + msX(r.multR, r.multR >= 3) + '</td><td>' + msX(r.multM, r.multM >= 3) + '</td>' +
-        '<td>+' + msMoney(r.potR) + '<span class="s na">+' + msMoney(r.potM) + '</span></td>' +
-        '<td class="l">' + esc(r.lever || '—') + '</td></tr>';
+  function owners(rows) {
+    var by = {};
+    rows.forEach(function (r) { if (r.director) by[r.director] = (by[r.director] || 0) + r.nr; });
+    return Object.keys(by).sort(function (a, b) { return by[b] - by[a]; });
+  }
+  function cartCards(rows, sel) {
+    var sum = function (a, f) { return a.reduce(function (s, r) { return s + (r[f] || 0); }, 0); };
+    var cards = QORD.map(function (q) {
+      var rs = rows.filter(function (r) { return r.quad === q; });
+      var top = rs.slice(0, 3).map(function (r) { return esc(r.partner) + (CS_SHOWPAIS ? ' <span class="na">' + esc(cLbl(r.pais).slice(0, 2).toUpperCase()) + '</span>' : ''); }).join(', ');
+      return '<div class="tk-card q-card' + (sel === q ? ' on' : '') + '" style="--qc:' + QD[q].c + '" data-cq="' + q + '" role="button" tabindex="0">' +
+        '<div class="hd">' + qBadge(q) + '<span class="a">' + esc(QD[q].a) + '</span></div>' +
+        '<div class="n">' + rs.length + ' <span>' + (rs.length === 1 ? 'cuenta' : 'cuentas') + ' · ' + cMoney(sum(rs, 'nr')) + ' NR anual</span></div>' +
+        '<div class="d">' + esc(QD[q].d) + '</div>' +
+        (q === 'estrella' || q === 'apuesta' ? '<div class="t">Techo moonshot <b>+' + cMoney(sum(rs, 'potM')) + '</b> · realista +' + cMoney(sum(rs, 'potR')) + '</div>' : '') +
+        '<div class="t na">' + (top || 'Ninguna') + (rs.length > 3 ? '…' : '') + '</div></div>';
     }).join('');
-    return '<div class="tk-tw"><table class="tk-t ms-t"><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div>' +
-      (full ? '<div class="sub" style="margin:8px 0 0">Arriba el escenario realista, abajo (gris) el moonshot. Clic en una fila para abrir esa cuenta en Detalle.</div>' : '');
+    var st = rows.filter(function (r) { return r.quad === 'sin_trafico'; });
+    return '<div class="q-cards">' + cards + '</div>' + (st.length ? '<div class="sub" style="margin:8px 0 0">Sin tráfico (API o fuera del sitio, no se pueden ubicar): ' +
+      st.map(function (r) { return esc(r.partner + (CS_SHOWPAIS ? ' ' + cLbl(r.pais) : '')) + ' (' + cMoney(r.nr) + ')'; }).join(', ') + '.</div>' : '');
   }
-  function msChart(rows) {
-    var pts = rows.filter(function (r) { return r.nr > 0 && r.multM >= 1; });
-    if (!pts.length) return '<div class="na">Sin cuentas.</div>';
-    var W = 1000, H = 420, padL = 56, padR = 20, padT = 16, padB = 40;
-    var xs = pts.map(function (r) { return Math.log10(r.nr); }), x0 = Math.floor(Math.min.apply(null, xs)), x1 = Math.ceil(Math.max.apply(null, xs));
-    var yMax = Math.max(4, Math.min(100, Math.max.apply(null, pts.map(function (r) { return r.multM; })))), ly1 = Math.log10(yMax * 1.15);
+  var CS_SHOWPAIS = true;
+  function cartChart(rows) {
+    var pts = rows.filter(function (r) { return r.quad !== 'sin_trafico' && r.nr > 0; });
+    if (!pts.length) return '<div class="na">Sin cuentas con tráfico.</div>';
+    var W = 1000, H = 440, padL = 56, padR = 20, padT = 22, padB = 40, cap = CART.cap;
+    var xs = pts.map(function (r) { return Math.log10(r.nr); }), x0 = Math.min(Math.floor(Math.min.apply(null, xs)), 5), x1 = Math.max(Math.ceil(Math.max.apply(null, xs)), 7);
+    var ly1 = Math.log10(cap * 1.12);
     var x = function (v) { return padL + (W - padL - padR) * (Math.log10(v) - x0) / ((x1 - x0) || 1); };
-    var y = function (v) { return padT + (H - padT - padB) * (1 - Math.log10(Math.min(v, yMax)) / ly1); };
-    var cmax = Math.max.apply(null, pts.map(function (r) { return r.clientes || 0; })) || 1, rad = function (c) { return 5 + 24 * Math.sqrt((c || 0) / cmax); };
-    var g = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="NR actual contra multiplicador potencial">';
-    [1, 2, 3, 5, 10, 20, 50, 100].filter(function (v) { return v <= yMax * 1.15; }).forEach(function (v) {
+    var y = function (v) { return padT + (H - padT - padB) * (1 - Math.log10(Math.max(1, Math.min(v, cap))) / ly1); };
+    var umax = Math.max.apply(null, pts.map(function (r) { return r.users || 0; })) || 1, rad = function (u) { return 5 + 22 * Math.sqrt((u || 0) / umax); };
+    var g = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Cuadrantes: NR anual contra techo moonshot">';
+    // Cuadrantes de fondo
+    var xb = x(CART.bigNr), yb = y(CART.hiMult);
+    [['apuesta', padL, padT, xb - padL, yb - padT], ['estrella', xb, padT, W - padR - xb, yb - padT], ['despriorizar', padL, yb, xb - padL, H - padB - yb], ['madura', xb, yb, W - padR - xb, H - padB - yb]].forEach(function (q) {
+      g += '<rect x="' + q[1].toFixed(1) + '" y="' + q[2].toFixed(1) + '" width="' + q[3].toFixed(1) + '" height="' + q[4].toFixed(1) + '" fill="' + QD[q[0]].c + '" fill-opacity=".06"/>';
+      var right = q[0] === 'estrella' || q[0] === 'madura', top = q[0] === 'estrella' || q[0] === 'apuesta';
+      g += '<text class="qd" x="' + (right ? q[1] + q[3] - 8 : q[1] + 8).toFixed(1) + '" y="' + (top ? q[2] + 16 : q[2] + q[4] - 8).toFixed(1) + '" fill="' + QD[q[0]].c + '"' + (right ? ' text-anchor="end"' : '') + '>' + esc(QD[q[0]].l + ' · ' + QD[q[0]].a) + '</text>';
+    });
+    [1, 1.5, 2, 3, 5].filter(function (v) { return v <= cap; }).forEach(function (v) {
       g += '<line class="gl" x1="' + padL + '" x2="' + (W - padR) + '" y1="' + y(v) + '" y2="' + y(v) + '"/><text class="ax" x="' + (padL - 6) + '" y="' + (y(v) + 3) + '" text-anchor="end">' + v + 'x</text>';
     });
     for (var e = x0; e <= x1; e++) { var xx = x(Math.pow(10, e)); g += '<line class="gl" x1="' + xx + '" x2="' + xx + '" y1="' + padT + '" y2="' + (H - padB) + '"/><text class="ax" x="' + xx + '" y="' + (H - padB + 14) + '" text-anchor="middle">$' + big(Math.pow(10, e)) + '</text>'; }
-    g += '<line class="ms-3x" x1="' + padL + '" x2="' + (W - padR) + '" y1="' + y(3) + '" y2="' + y(3) + '"/><text class="ms-3t" x="' + (W - padR) + '" y="' + (y(3) - 5) + '" text-anchor="end">3x</text>';
-    g += '<text class="axt" x="' + (W - padR) + '" y="' + (H - 6) + '" text-anchor="end">NR anual actual →</text><text class="axt" x="' + padL + '" y="' + (padT - 4) + '">Multiplicador moonshot (tamaño = base de clientes)</text>';
-    pts.slice().sort(function (a, b) { return (b.clientes || 0) - (a.clientes || 0); }).forEach(function (r) {
-      var cls = r.cand ? 'ms-c' : 'ms-o', cx = x(r.nr), cy = y(r.multM), rr = rad(r.clientes);
-      g += '<circle class="' + cls + '" cx="' + cx.toFixed(1) + '" cy="' + cy.toFixed(1) + '" r="' + rr.toFixed(1) + '"><title>' + esc(r.partner + ' · ' + cLbl(r.pais) + '\nNR anual: $' + big(r.nr) + '\nMultiplicador realista ' + num(r.multR, 1) + 'x · moonshot ' + num(r.multM, 1) + 'x\nPalanca: ' + (r.lever || '—') + (r.clientes ? '\nBase: ' + big(r.clientes) : '') + (r.validar ? '\nA validar: ' + r.flags.join(', ') : '')) + '</title></circle>';
-      if (r.validar) g += '<circle class="ms-v" cx="' + cx.toFixed(1) + '" cy="' + cy.toFixed(1) + '" r="' + (rr + 3).toFixed(1) + '"/>';
+    g += '<line class="qdl" x1="' + xb + '" x2="' + xb + '" y1="' + padT + '" y2="' + (H - padB) + '"/><line class="qdl" x1="' + padL + '" x2="' + (W - padR) + '" y1="' + yb + '" y2="' + yb + '"/>';
+    g += '<line class="ms-3x" x1="' + padL + '" x2="' + (W - padR) + '" y1="' + y(CART.moonX) + '" y2="' + y(CART.moonX) + '"/><text class="ms-3t" x="' + (W - padR - 4) + '" y="' + (y(CART.moonX) - 5) + '" text-anchor="end">3x</text>';
+    g += '<text class="axt" x="' + (W - padR) + '" y="' + (H - 6) + '" text-anchor="end">NR anual actual →</text><text class="axt" x="' + padL + '" y="' + (padT - 8) + '">Techo moonshot: NR por usuario del p75 de los pares (tamaño = usuarios de tráfico)</text>';
+    pts.slice().sort(function (a, b) { return (b.users || 0) - (a.users || 0); }).forEach(function (r) {
+      var cx = x(r.nr), cy = y(r.multM), rr = rad(r.users);
+      g += '<circle class="q-pt" data-ms="' + esc(r.partner) + '" data-mp="' + esc(r.pais) + '" cx="' + cx.toFixed(1) + '" cy="' + cy.toFixed(1) + '" r="' + rr.toFixed(1) + '" fill="' + QD[r.quad].c + '"><title>' + esc(r.partner + ' · ' + cLbl(r.pais) + ' (' + QD[r.quad].l + ')\nNR anual: $' + big(r.nr) +
+        '\nUsuarios por mes: ' + big((r.users || 0) / 12) + '\nNR por usuario: $' + num(r.npu, 2) + ' (mediana pares $' + num(r.p50 || 0, 2) + ', p75 $' + num(r.p75 || 0, 2) + ')' +
+        '\nTecho realista ' + num(r.multR, 1) + 'x · moonshot ' + num(r.multM, 1) + 'x\nPalanca: ' + (r.lever || '—')) + '</title></circle>';
     });
     var placed = [];
-    pts.filter(function (r) { return r.cand || r.nr >= 3e6; }).sort(function (a, b) { return y(a.multM) - y(b.multM); }).forEach(function (r) {
-      var t = r.partner + (COUNTRIES.some(function (c) { return c[0] === r.pais; }) ? ' ' + cLbl(r.pais).slice(0, 2).toUpperCase() : ''), w = t.length * 6.3;
-      var cx = x(r.nr), rr = rad(r.clientes), right = cx + rr + 3 + w <= W - padR, x0b = right ? cx + rr + 3 : cx - rr - 3 - w, yy = y(r.multM) + 4;
-      for (var k = 0; k < 6 && placed.some(function (q) { return x0b < q.x1 && x0b + w > q.x0 && Math.abs(yy - q.y) < 12; }); k++) yy += 12;
-      placed.push({ x0: x0b, x1: x0b + w, y: yy });
-      g += '<text class="bl" x="' + (right ? x0b : x0b + w).toFixed(1) + '" y="' + yy.toFixed(1) + '"' + (right ? '' : ' text-anchor="end"') + '>' + esc(t) + '</text>';
+    pts.filter(function (r) { return r.nr >= CART.bigNr || r.multM >= CART.moonX; }).sort(function (a, b) { return y(a.multM) - y(b.multM); }).forEach(function (r) {
+      var t = r.partner + (CS_SHOWPAIS ? ' ' + cLbl(r.pais).slice(0, 2).toUpperCase() : ''), w = t.length * 6.3;
+      var cx = x(r.nr), rr = rad(r.users), right = cx + rr + 3 + w <= W - padR, xb0 = right ? cx + rr + 3 : cx - rr - 3 - w, yy = y(r.multM) + 4;
+      for (var k = 0; k < 6 && placed.some(function (q) { return xb0 < q.x1 && xb0 + w > q.x0 && Math.abs(yy - q.y) < 12; }); k++) yy += 12;
+      placed.push({ x0: xb0, x1: xb0 + w, y: yy });
+      g += '<text class="bl" x="' + (right ? xb0 : xb0 + w).toFixed(1) + '" y="' + yy.toFixed(1) + '"' + (right ? '' : ' text-anchor="end"') + '>' + esc(t) + '</text>';
     });
-    return '<div class="tk-lg"><span><i style="background:var(--primary);opacity:.6"></i>Candidato a 3x</span><span><i style="background:var(--ly);opacity:.5"></i>Resto</span><span><i style="background:none;box-shadow:inset 0 0 0 1.5px var(--dn)"></i>Base a validar</span></div><div class="tk-chart">' + g + '</svg></div>';
+    return '<div class="tk-chart">' + g + '</svg></div>';
   }
-  function renderMoon() {
-    var body = document.getElementById('tk-body'); if (!MOON) return;
-    var rows = msRows(), big5 = rows.filter(function (r) { return r.nr >= MOON.minNr; });
-    var cand = big5.filter(function (r) { return r.cand; }), rest = big5.filter(function (r) { return !r.cand && !r.validar; }), val = rows.filter(function (r) { return r.validar && r.nr >= 100000; });
+  function cartTable(rows) {
+    if (!rows.length) return '<div class="na">Sin cuentas para este filtro.</div>';
+    var head = '<tr><th class="l">Cuenta</th><th class="l">Cuadrante</th><th>NR anual</th><th>Usuarios / mes</th><th>NR por usuario<br><span class="na" style="text-transform:none">propio · mediana pares</span></th>' +
+      '<th>Techo<br><span class="na" style="text-transform:none">realista · moonshot</span></th><th>NR potencial<br><span class="na" style="text-transform:none">moonshot</span></th><th class="l">Palanca</th><th class="l">Perfil comercial</th></tr>';
+    var body = rows.map(function (r) {
+      var st = r.quad === 'sin_trafico';
+      return '<tr class="click" data-ms="' + esc(r.partner) + '" data-mp="' + esc(r.pais) + '"><td class="l k">' + esc(r.partner) + (CS_SHOWPAIS ? ' <span class="na">· ' + esc(cLbl(r.pais)) + '</span>' : '') +
+        '<span class="s na">' + esc(r.director || 'Sin director') + '</span></td>' +
+        '<td class="l">' + qBadge(r.quad) + (r.cand ? ' <span class="q-3x">3x</span>' : '') + '</td>' +
+        '<td>' + cMoney(r.nr) + '<span class="s na">FVM ' + cMoney(r.fvm) + '</span></td>' +
+        '<td>' + (st ? '—' : big((r.users || 0) / 12)) + '<span class="s">' + (r.uYoY != null ? dtxt({ v: r.uYoY * 100, pp: false }) + ' <i>LY</i>' : '<span class="na">n/d</span>') + '</span></td>' +
+        '<td>' + (r.npu != null ? '$' + num(r.npu, 2) : '—') + '<span class="s na">' + (r.p50 != null ? '$' + num(r.p50, 2) + (r.peerScope === 'región' ? ' (región)' : '') : '—') + '</span></td>' +
+        '<td>' + (st ? '—' : cX(r.multR) + '<span class="s"><span class="ms-m' + (r.multM >= CART.moonX ? ' hi' : '') + '">' + cX(r.multM) + '</span></span>') + '</td>' +
+        '<td>' + (st ? '—' : '+' + cMoney(r.potM)) + '</td>' +
+        '<td class="l">' + esc(r.lever ? LEV[r.lever] || r.lever : '—') + '</td>' +
+        '<td class="l pfc">' + profile(r) + '</td></tr>';
+    }).join('');
+    return '<div class="tk-tw"><table class="tk-t ms-t"><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div>';
+  }
+  function cartReading(rows) {
+    var c3 = rows.filter(function (r) { return r.cand; }).sort(function (a, b) { return b.potM - a.potM; });
+    var est = rows.filter(function (r) { return r.quad === 'estrella'; });
+    var mono = rows.filter(function (r) { return r.addProds && r.addProds.length && r.nr >= 3e5; }).sort(function (a, b) { return b.nr - a.nr; });
+    var nr = rows.reduce(function (a, r) { return a + r.nr; }, 0);
+    var li = [];
+    li.push('<li><b>' + rows.length + ' cuentas</b> con ' + cMoney(nr) + ' de NR anual. ' + (est.length ? '<b>Estrellas</b> (crecer exponencial): ' + est.map(function (r) { return esc(r.partner + (CS_SHOWPAIS ? ' ' + cLbl(r.pais) : '')); }).join(', ') + '.' : 'Ninguna estrella: el techo está en las apuestas o en las maduras.') + '</li>');
+    if (c3.length) li.push('<li><b>Candidatas a 3x</b> (el techo moonshot triplica o más): ' + c3.slice(0, 6).map(function (r) { return esc(r.partner + (CS_SHOWPAIS ? ' ' + cLbl(r.pais) : '')) + ' (' + cX(r.multM) + ')'; }).join(', ') + (c3.length > 6 ? '…' : '') +
+      '. La palanca casi siempre es la <b>conversión</b>: mucho tráfico que compra menos que en los pares.</li>');
+    if (mono.length) li.push('<li><b>Cross-sell</b>: ' + mono.slice(0, 5).map(function (r) { return esc(r.partner + (CS_SHOWPAIS ? ' ' + cLbl(r.pais) : '')) + ' → ' + esc(r.addProds.map(lower).join(', ')); }).join(' · ') + '.</li>');
+    li.push('<li class="na">Techo = cuánto NR haría la cuenta con su mismo tráfico si lo monetizara como sus pares (mediana: realista, tope 2x; p75: moonshot, tope ' + CART.cap + 'x). Es un techo, no un forecast.</li>');
+    return '<ol>' + li.join('') + '</ol>';
+  }
+  function cartBlock(rows, sel) {
+    return '<div class="op-row one">' + cartCards(rows, sel) + '</div>' +
+      '<div class="op-row"><div class="tk-card"><h3>Mapa de la cartera</h3><div class="sub">Cada burbuja es una cuenta (partner × país). Derecha = grande (NR ≥ ' + cMoney(CART.bigNr) + ' anual); arriba = techo alto (≥ ' + CART.hiMult + 'x). Clic en una burbuja para ver la cuenta.</div>' + cartChart(rows) + '</div>' +
+      '<div class="tk-card tk-sum"><h3>Lectura</h3>' + cartReading(rows) + '</div></div>' +
+      '<div class="op-row one"><div class="tk-card"><h3>Cuentas' + (sel ? ' · ' + esc(QD[sel].l) : '') + '</h3><div class="sub">Ordenadas por NR. Perfil comercial del Managerial (' + esc(cartPeriod()) + '): comisión del partner sobre el GB (o profit sharing), canje de puntos / millas, monoproducto y verticales que venden sus pares.</div>' +
+      cartTable(sel ? rows.filter(function (r) { return r.quad === sel; }) : rows) + '</div></div>';
+  }
+  function cartPeriod() {
+    var m = function (k) { return k ? MES_C[+k.slice(5, 7) - 1] + '-' + k.slice(2, 4) : '?'; };
+    return CART.mgrFrom ? m(CART.mgrFrom) + ' a ' + m(CART.mgrTo) : 'sin datos';
+  }
+  var MES_C = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+  function renderCartera() {
+    var body = document.getElementById('tk-body'); if (!CART) return;
+    CS_SHOWPAIS = !CS.pais;
+    var all = cartRows({ pais: CS.pais, dir: CS.dir });
+    var uniq = function (f) { var o = {}; CART.rows.forEach(function (r) { if (r[f]) o[r[f]] = 1; }); return Object.keys(o).sort(); };
     var opts = function (vals, cur, lbl) { return '<option value="">' + lbl + '</option>' + vals.map(function (v) { return '<option value="' + esc(v) + '"' + (v === cur ? ' selected' : '') + '>' + esc(cLbl(v)) + '</option>'; }).join(''); };
-    var uniq = function (f) { var o = {}; MOON.rows.forEach(function (r) { if (r[f]) o[r[f]] = 1; }); return Object.keys(o).sort(); };
-    var potC = cand.reduce(function (a, r) { return a + r.potR; }, 0), potCM = cand.reduce(function (a, r) { return a + r.potM; }, 0), nrC = cand.reduce(function (a, r) { return a + r.nr; }, 0);
-    body.innerHTML = '<div class="op"><div class="op-head"><h2>Moonshot 3x</h2><span class="sub">¿Con qué partner pensamos en triplicar? · ' + esc(MOON.fy) + ' (' + esc(MOON.from.slice(8, 10) + '/' + MOON.from.slice(5, 7)) + ' a ' + esc(MOON.to.slice(8, 10) + '/' + MOON.to.slice(5, 7)) + ') anualizado</span><button type="button" class="pr" id="tk-print">Imprimir / PDF</button></div>' +
-      '<div class="ms-f"><div class="tk-f"><label>Director</label><select id="ms-dir">' + opts(uniq('director'), MS.dir, 'Todos') + '</select></div>' +
-      '<div class="tk-f"><label>Industria</label><select id="ms-ind">' + opts(uniq('industria'), MS.ind, 'Todas') + '</select></div>' +
-      '<div class="tk-f"><label>País</label><select id="ms-pais">' + opts(uniq('pais'), MS.pais, 'Todos') + '</select></div></div>' +
-      '<div class="op-row"><div class="tk-card tk-sum"><ol>' +
-      '<li><b>' + cand.length + ' cuentas</b> con techo de 3x o más (NR anual ≥ $' + big(MOON.minNr) + ', base sin marcas): hoy <b>$' + big(nrC) + '</b> de NR anual; potencial <b>+$' + big(potC) + '</b> realista y <b>+$' + big(potCM) + '</b> moonshot.</li>' +
-      (cand[0] ? '<li>La más grande: <b>' + esc(cand[0].partner + ' ' + cLbl(cand[0].pais)) + '</b> — ' + num(cand[0].pen || 0, 1) + ' orders por año cada 1.000 clientes contra ' + num(cand[0].penP75 || 0, 1) + ' del p75 de su industria; palanca: <b>' + esc(cand[0].lever || '—') + '</b>.</li>' : '') +
-      '<li>Alcance = penetración de la base (orders por año cada 1.000 clientes); conversión y amplitud contra pares del país. Realista: medianas con topes; moonshot: p75 (alcance hasta ' + MOON.reachCap + 'x, conversión hasta ' + MOON.convCap + 'x la propia).</li>' +
-      '<li><span class="dn">Bases de clientes provisorias</span> (' + esc(MOON.bases.fuente || '') + ', ' + MOON.bases.n + ' bases): ' + esc(MOON.bases.nota || '') + '</li></ol></div>' +
-      '<div class="tk-card"><h3>Cómo leerlo</h3><div class="sub" style="font-size:13.5px;line-height:1.6">Cada burbuja es una cuenta (partner × país). Arriba de la línea naranja, el techo combinado de las tres palancas triplica o más el NR de hoy. ' +
-      'El tamaño es la base de clientes del partner. Es un techo, no un forecast: sirve para elegir dónde pensar en grande y con qué palanca (alcance = llegar a más clientes de la base; conversión = que compren los que buscan; amplitud = venderles más productos).</div></div></div>' +
-      '<div class="op-row one"><div class="tk-card"><h3>NR actual vs multiplicador potencial</h3>' + msChart(big5.concat(val.filter(function (r) { return r.nr < MOON.minNr; }))) + '</div></div>' +
-      '<div class="op-row one"><div class="tk-card"><h3>Candidatos a 3x</h3>' + msTable(cand, true) + '</div></div>' +
-      '<div class="op-row one"><div class="tk-card"><h3>Resto de las cuentas grandes</h3>' + msTable(rest, false) + '</div></div>' +
-      '<div class="op-row one"><div class="tk-card"><h3>A validar</h3><div class="sub">Cuentas cuya base de clientes no se puede usar todavía (es tráfico web, no coincide con su fuente, es una red de tarjetas o falta). Su multiplicador no es confiable hasta corregir la base.</div>' + msTable(val, false) + '</div></div></div>';
+    var tm = function (k) { return k ? MES_C[+k.slice(5, 7) - 1] + '-' + k.slice(2, 4) : '?'; };
+    body.innerHTML = '<div class="op"><div class="op-head"><h2>Cartera</h2><span class="sub">¿Qué cuentas hacemos crecer exponencialmente, cuáles son maduras y cuáles despriorizamos? · ' + esc(CART.fy) + ' anualizado · tráfico ' + esc(tm(CART.tFrom) + ' a ' + tm(CART.tTo)) + '</span><button type="button" class="pr" id="tk-print">Imprimir / PDF</button></div>' +
+      '<div class="ms-f"><div class="tk-f"><label>Director</label><select id="cs-dir">' + opts(uniq('director'), CS.dir, 'Todos') + '</select></div>' +
+      '<div class="tk-f"><label>País</label><select id="cs-pais">' + opts(uniq('pais'), CS.pais, 'Todos') + '</select></div>' +
+      (CS.quad ? '<button type="button" class="tk-clear" data-cq="">Ver todos los cuadrantes</button>' : '') + '</div>' +
+      cartBlock(all, CS.quad) + '</div>';
+  }
+  // Cartera dentro de la página de un país y resumen por país en la Portada
+  function renderCartBlocks() {
+    if (!CART) return;
+    if (S.view === 'pais') {
+      var rows = cartRows({ pais: S.f.pais }), ow = document.getElementById('tk-owner'), box = document.getElementById('tk-cart');
+      var os = owners(rows);
+      if (ow) ow.innerHTML = os.length ? 'Owner: <b>' + esc(os[0]) + '</b>' + (os.length > 1 ? ' <span class="na">· también ' + esc(os.slice(1).join(', ')) + '</span>' : '') : '';
+      CS_SHOWPAIS = false;
+      if (box) box.innerHTML = rows.length ? cartBlock(rows, CS.quad) : '<div class="tk-card"><div class="na">Sin cuentas con NR anual ≥ $50K en este país.</div></div>';
+      return;
+    }
+    var tb = document.getElementById('tk-pcart'); if (!tb) return;
+    CS_SHOWPAIS = true;
+    var head = '<tr><th class="l">País</th><th class="l">Owner</th>' + QORD.map(function (q) { return '<th>' + qBadge(q) + '</th>'; }).join('') + '<th class="l">Candidatas a 3x</th></tr>';
+    var body = COUNTRIES.map(function (c) {
+      var rs = cartRows({ pais: c[0] }); if (!rs.length) return '';
+      var cell = function (q) { var x = rs.filter(function (r) { return r.quad === q; }); return '<td>' + (x.length ? x.length + '<span class="s na">' + cMoney(x.reduce(function (a, r) { return a + r.nr; }, 0)) + '</span>' : '<span class="na">—</span>') + '</td>'; };
+      var c3 = rs.filter(function (r) { return r.cand; }).sort(function (a, b) { return b.potM - a.potM; });
+      return '<tr class="click" data-cty="' + esc(c[0]) + '" data-sec="s-car"><td class="l k">' + esc(c[1]) + ' →</td><td class="l">' + esc(owners(rs)[0] || '—') + '</td>' + QORD.map(cell).join('') +
+        '<td class="l">' + (c3.length ? c3.slice(0, 3).map(function (r) { return esc(r.partner) + ' <span class="na">' + cX(r.multM) + '</span>'; }).join(', ') : '<span class="na">—</span>') + '</td></tr>';
+    }).join('');
+    tb.innerHTML = '<div class="tk-tw"><table class="tk-t tk-cty"><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div>' +
+      '<div class="sub" style="margin:8px 0 0">Cuentas por cuadrante (y su NR anual). Clic en un país para ver su cartera; la vista completa, en la pestaña Cartera.</div>';
+  }
+
+  // ── Conversión Nacional vs Internacional por producto (tráfico) ──
+  function renderRuta() {
+    var box = document.getElementById('tk-ruta'); if (!box) return;
+    if (S.f.ruta) { box.innerHTML = '<div class="na">Con Nac / Int filtrado se ve una sola ruta: sacá el filtro para comparar.</div>'; return; }
+    if (!RT) { box.innerHTML = '<div class="tk-load">Cargando…</div>'; return; }
+    var c = ec(), by = {}, tot = { NAC: null, INT: null };
+    ['NAC', 'INT'].forEach(function (rt) {
+      (RT[rt] ? RT[rt].rows : []).forEach(function (r) {
+        if (r.key === 'Otros' || !r.cur.t || !(r.cur.t[1] > 0)) return;
+        (by[r.key] || (by[r.key] = {}))[rt] = r;
+        var z = tot[rt] || (tot[rt] = { cur: [0, 0], b: [0, 0], ok: true });
+        z.cur[0] += r.cur.t[1]; z.cur[1] += r.cur.t[5];
+        if (r[c] && r[c].t) { z.b[0] += r[c].t[1]; z.b[1] += r[c].t[5]; } else z.ok = false;
+      });
+    });
+    var ks = Object.keys(by).sort(function (a, b) { var s = function (k) { return ((by[k].NAC || { cur: { t: [0, 0] } }).cur.t[1]) + ((by[k].INT || { cur: { t: [0, 0] } }).cur.t[1]); }; return s(b) - s(a); });
+    if (!ks.length) { box.innerHTML = '<div class="na">Sin tráfico con ruta para este filtro.</div>'; return; }
+    var cell = function (r) {
+      if (!r) return '<td class="na">—</td><td class="na">—</td>';
+      var cr = val('cr', r.cur), d = delta('cr', cr, val('cr', r[c]));
+      return '<td>' + big(r.cur.t[1]) + '</td><td>' + fmt('cr', cr) + '<span class="s">' + dtxt(d) + '</span></td>';
+    };
+    var tcell = function (z) {
+      if (!z) return '<td class="na">—</td><td class="na">—</td>';
+      var cr = z.cur[0] ? z.cur[1] / z.cur[0] : null, cb = z.ok && z.b[0] ? z.b[1] / z.b[0] : null;
+      return '<td>' + big(z.cur[0]) + '</td><td>' + fmt('cr', cr) + '<span class="s">' + dtxt(cr != null && cb != null ? { v: (cr - cb) * 100, pp: true } : null) + '</span></td>';
+    };
+    var shInt = function (k) { var n = by[k].NAC ? by[k].NAC.cur.t[1] : 0, i = by[k].INT ? by[k].INT.cur.t[1] : 0; return n + i ? num(i / (n + i) * 100, 0) + '%' : '—'; };
+    var head = '<tr><th class="l" rowspan="2">Producto</th><th colspan="2" class="grp">Nacional</th><th colspan="2" class="grp">Internacional</th><th rowspan="2">% búsq. Int</th></tr><tr><th>Búsquedas</th><th>Conv.</th><th>Búsquedas</th><th>Conv.</th></tr>';
+    var body = ks.map(function (k) { return '<tr><td class="l k">' + esc(k) + '</td>' + cell(by[k].NAC) + cell(by[k].INT) + '<td>' + shInt(k) + '</td></tr>'; }).join('');
+    var tn = tot.NAC ? tot.NAC.cur[0] : 0, ti = tot.INT ? tot.INT.cur[0] : 0;
+    body += '<tr><td class="l k">Total</td>' + tcell(tot.NAC) + tcell(tot.INT) + '<td>' + (tn + ti ? num(ti / (tn + ti) * 100, 0) + '%' : '—') + '</td></tr>';
+    box.innerHTML = '<div class="tk-tw"><table class="tk-t tk-rt"><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div>' +
+      '<div class="sub" style="margin:8px 0 0">Conversión búsqueda → booking por ruta del tráfico (route_type); Δ ' + esc(ecLbl()) + ' en puntos. Bookings sin búsqueda de producto quedan sin ruta y no entran. La tabla de tráfico no abre por destino puntual.</div>';
   }
 
   // ── Portada (consolidado) ──
@@ -936,7 +1098,7 @@ const SCRIPT = String.raw`(function () {
   var BDM = ['s', 'cr', 'o', 'gb', 'nr', 'fvm'];
   function renderBd() {
     var box = document.getElementById('tk-bd'); if (!box || !BD) return;
-    var noRes = BD.dim === 'plat', ms = noRes ? ['u', 's', 'c', 'b', 'cr'] : BDM, cs = BD.k === 'ytd' ? ['ly'] : ['ly', 'tr', 'pv'];
+    var noRes = BD.dim === 'plat' || BD.dim === 'ruta', ms = noRes ? ['u', 's', 'c', 'b', 'cr'] : BDM, cs = BD.k === 'ytd' ? ['ly'] : ['ly', 'tr', 'pv'];
     var head = '<tr><th class="l">' + FL[BD.dim] + '</th>' + ms.map(function (m) { return '<th>' + esc(M[m].l) + '</th>'; }).join('') + '</tr>';
     var body = BD.rows.map(function (r) {
       return '<tr class="click" data-v="' + esc(r.key) + '"><td class="l k">' + esc(r.lbl) + '</td>' + ms.map(function (m) {
@@ -944,47 +1106,44 @@ const SCRIPT = String.raw`(function () {
         return '<td>' + fmt(m, a) + '<span class="s">' + cs.map(function (c) { return '<i>' + cmpShort(c) + '</i> ' + dtxt(delta(m, a, val(m, r[c]))); }).join(' ') + '</span></td>';
       }).join('') + '</tr>';
     }).join('');
-    box.innerHTML = BD.rows.length ? '<div class="tk-tw"><table class="tk-t"><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div>' : '<div class="na">Sin filas para este filtro.</div>';
+    box.innerHTML = BD.rows.length ? '<div class="tk-tw"><table class="tk-t"><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div>' +
+      (noRes ? '<div class="sub" style="margin:8px 0 0">' + esc(FL[BD.dim]) + ' solo existe en el tráfico: por eso esta apertura no tiene resultados (orders, NR).</div>' : '') : '<div class="na">Sin filas para este filtro.</div>';
   }
 
   function renderAll() {
     renderBar();
     var p = selP(), body = document.getElementById('tk-body');
     if (!p) { body.innerHTML = '<div class="tk-err">Sin datos.</div>'; return; }
-    if (S.view !== 'detalle') {
-      var ptxt = esc(p.lbl) + (p.partial ? ' (en curso)' : '');
-      var headOp = function (title) { return '<div class="op-head"><h2>' + title + '</h2><span class="sub">' + ptxt + ' · ' + esc(ecLbl()) + ' · gestional del Daily y tráfico de las WLs</span><button type="button" class="pr" id="tk-print">Imprimir / PDF</button></div>'; };
-      var kp = '<div class="tk-card"><h3>Resultados</h3>' + kpis(p) + '</div>';
-      if (S.view === 'pais') {
-        body.innerHTML = '<div class="op">' + headOp('B2B2C ' + esc(cLbl(S.f.pais))) +
-          '<div class="op-row"><div class="tk-card tk-sum" id="tk-sum"></div>' + kp + '</div>' +
-          '<div class="op-row"><div class="tk-card"><h3>Puente ' + esc(ecLbl()) + '</h3><div id="tk-wf"></div></div>' + funnel(p, true) + '</div>' +
-          '<div class="op-row even"><div class="tk-card"><h3>Top partners</h3><div id="tk-rank"></div></div><div class="tk-card"><h3>Mix de productos</h3><div id="tk-mix"></div></div></div></div>';
-        renderSummary(); renderBridge(); renderRank(); renderMix();
-      } else {
-        body.innerHTML = '<div class="op">' + headOp('B2B2C · Portada') +
-          '<div class="op-row"><div class="tk-card tk-sum" id="tk-sum"></div>' + kp + '</div>' +
-          '<div class="op-row one"><div class="tk-card"><h3>Puente por país ' + esc(ecLbl()) + '</h3><div class="sub">Cuánto aporta cada país a la variación del total.</div><div id="tk-cwf"></div></div></div>' +
-          '<div class="op-row one"><div class="tk-card"><h3>Países</h3><div id="tk-cty"></div></div></div></div>';
-        renderSummary(); renderPortada();
-      }
+    var ptxt = esc(p.lbl) + (p.partial ? ' (en curso)' : '');
+    var kp = '<div class="tk-card"><h3>Resultados</h3>' + kpis(p) + '</div>';
+    if (S.view === 'pais') {
+      var fil = FP.filter(function (d) { return S.f[d]; }).map(function (d) { return FL[d] + ': ' + (d === 'ruta' ? ({ NAC: 'Nacional', INT: 'Internacional' }[S.f[d]] || S.f[d]) : S.f[d]); });
+      var secs = [['s-res', 'Resumen'], ['s-var', 'Qué explica la variación'], ['s-tra', 'Tráfico'], ['s-car', 'Cartera'], ['s-par', 'Partners'], ['s-ape', 'Apertura']];
+      var h2 = function (i, sub) { return '<h2><span class="n">' + (i + 1) + '</span>' + esc(secs[i][1]) + '</h2>' + (sub ? '<div class="sub">' + sub + '</div>' : ''); };
+      var tabs = FP.map(function (d) { return '<button type="button" data-dim="' + d + '" class="' + (S.dim === d ? 'on' : '') + '">' + FL[d] + '</button>'; }).join('');
+      body.innerHTML = '<div class="op"><div class="op-head"><h2>B2B2C ' + esc(cLbl(S.f.pais)) + '</h2><span class="own" id="tk-owner"></span>' +
+        '<span class="sub">' + ptxt + ' · ' + esc(ecLbl()) + (fil.length ? ' · <b>' + esc(fil.join(' · ')) + '</b>' : '') + '</span><button type="button" class="pr" id="tk-print">Imprimir / PDF</button></div>' +
+        '<nav class="tk-nav" aria-label="Secciones">' + secs.map(function (x) { return '<a href="#' + x[0] + '">' + esc(x[1]) + '</a>'; }).join('') + '</nav>' +
+        '<section class="tk-sec" id="s-res">' + h2(0, 'Qué pasó y qué lo explica, en una mirada. Gestional del Daily (nominal) y tráfico de las WLs.') +
+        '<div class="op-row"><div class="tk-card tk-sum" id="tk-sum"></div>' + kp + '</div></section>' +
+        '<section class="tk-sec" id="s-var">' + h2(1, 'Cuánto aporta cada driver a la variación, y si el ticket y la conversión se mueven por el mix de productos o dentro de cada producto.') +
+        '<div class="op-row even"><div class="tk-card"><h3>Puente ' + esc(ecLbl()) + '</h3><div id="tk-wf"></div></div><div class="tk-card"><h3>Mix de productos</h3><div id="tk-mix"></div></div></div></section>' +
+        '<section class="tk-sec" id="s-tra">' + h2(2, 'El funnel del país, la conversión de cada producto en viajes nacionales e internacionales y su evolución.') +
+        '<div class="op-row">' + funnel(p, true) + '<div class="tk-card"><h3>Conversión por producto · Nacional vs Internacional</h3><div id="tk-ruta"></div></div></div>' +
+        '<div class="op-row one">' + chart() + '</div></section>' +
+        '<section class="tk-sec" id="s-car">' + h2(3, 'Qué cuentas hacer crecer exponencialmente, cuáles son maduras y cuáles despriorizar; y el perfil comercial de cada una.') + '<div id="tk-cart"><div class="tk-load">Cargando cartera…</div></div></section>' +
+        '<section class="tk-sec" id="s-par">' + h2(4, 'Quién trae el volumen y quién convierte. Clic en un partner para filtrar el país por él.') + partnersShell() + '</section>' +
+        '<section class="tk-sec" id="s-ape">' + h2(5, 'LY = año pasado · T = tendencia · A = período anterior. Clic en una fila para filtrar por ella.') +
+        '<div class="tk-chips">' + tabs + '</div><div class="tk-card" id="tk-bd"></div></section></div>';
+      renderSummary(); renderBridge(); renderMix(); renderBd(); renderPartners(); renderRuta(); renderCartBlocks();
       return;
     }
-    var tabs = FD.map(function (d) { return '<button type="button" data-dim="' + d + '" class="' + (S.dim === d ? 'on' : '') + '">' + FL[d] + '</button>'; }).join('');
-    var periodTxt = esc(p.lbl) + (p.partial ? ' (en curso, comparado a igualdad de días)' : '');
-    var cmpTxt = p.ytd ? 'vs LY = mismo tramo del año pasado (el mes en curso cortado al mismo día).'
-      : 'vs LY = ' + mismo() + ' del año pasado · vs tend. = ' + tendLbl() + ' · vs ant. = ' + (S.gran === 'm' ? 'mes anterior' : 'semana anterior') + '.';
-    body.innerHTML =
-      '<section class="tk-sec"><h2>Lectura · ' + periodTxt + ' ' + esc(ecLbl()) + '</h2><div class="sub">Qué pasó, qué lo explica y quién lo mueve. Cambiá "Comparar contra" arriba para leerlo contra otra base.</div>' +
-      '<div class="tk-card tk-sum" id="tk-sum"></div>' +
-      '<div class="tk-card" style="margin-top:14px"><h3>Puente ' + esc(ecLbl()) + '</h3><div class="sub">Cuánto aporta cada driver a la variación.</div><div id="tk-wf"></div></div>' +
-      '<div class="tk-card" style="margin-top:14px"><h3>Mix de productos ' + esc(ecLbl()) + '</h3><div class="sub">¿La conversión y el ticket se mueven por lo que vendemos (mix) o por cómo le va a cada producto?</div><div id="tk-mix"></div></div></section>' +
-      '<section class="tk-sec"><h2>Resultados · ' + periodTxt + '</h2><div class="sub">Gestional del Daily (nominal). ' + cmpTxt + '</div>' + kpis(p) + '</section>' +
-      '<section class="tk-sec"><h2>Funnel de tráfico · ' + periodTxt + '</h2><div class="sub">Usuarios únicos por ' + per() + ' en cada paso (usuarios-semana). Las conversiones se comparan en puntos porcentuales.</div>' + funnel(p) + '</section>' +
-      '<section class="tk-sec"><h2>Evolutivo</h2><div class="sub">Clic en una barra para ver ' + (S.gran === 'm' ? 'ese mes' : 'esa semana') + ' en el resto de la página.</div>' + chart() + '</section>' +
-      '<section class="tk-sec"><h2>Partners · ' + periodTxt + '</h2><div class="sub">Quién trae el volumen y quién convierte.</div>' + partnersShell() + '</section>' +
-      '<section class="tk-sec"><h2>Apertura · ' + periodTxt + '</h2><div class="sub">LY = año pasado · T = tendencia · A = período anterior. Clic en una fila para filtrar por ella.</div><div class="tk-chips">' + tabs + '</div><div class="tk-card" id="tk-bd"></div></section>';
-    renderBd(); renderPartners(); renderBridge(); renderMix();
+    body.innerHTML = '<div class="op"><div class="op-head"><h2>B2B2C · Portada</h2><span class="sub">' + ptxt + ' · ' + esc(ecLbl()) + ' · gestional del Daily y tráfico de las WLs</span><button type="button" class="pr" id="tk-print">Imprimir / PDF</button></div>' +
+      '<div class="op-row"><div class="tk-card tk-sum" id="tk-sum"></div>' + kp + '</div>' +
+      '<div class="op-row one"><div class="tk-card"><h3>Puente por país ' + esc(ecLbl()) + '</h3><div class="sub">Cuánto aporta cada país a la variación del total.</div><div id="tk-cwf"></div></div></div>' +
+      '<div class="op-row one"><div class="tk-card"><h3>Países</h3><div id="tk-cty"></div></div></div>' +
+      '<div class="op-row one"><div class="tk-card"><h3>Cartera por país</h3><div id="tk-pcart"><div class="tk-load">Cargando cartera…</div></div></div></div></div>';
+    renderSummary(); renderPortada(); renderCartBlocks();
   }
 
   // ── Eventos ──
@@ -992,22 +1151,23 @@ const SCRIPT = String.raw`(function () {
     var t = e.target;
     if (t.dataset && t.dataset.f) { if (t.value) S.f[t.dataset.f] = t.value; else delete S.f[t.dataset.f]; load(); }
     else if (t.id === 'tk-k') { S.k = t.value; renderAll(); loadPeriod(); }
-    else if (t.id === 'ms-dir' || t.id === 'ms-ind' || t.id === 'ms-pais') { MS[t.id.slice(3)] = t.value; renderMoon(); syncUrl(); }
+    else if (t.id === 'cs-dir' || t.id === 'cs-pais') { CS[t.id.slice(3)] = t.value; renderCartera(); syncUrl(); }
     else if (t.classList.contains('tk-win')) { S.win = +t.value === 26 ? 0 : +t.value; renderAll(); syncUrl(); }
   });
   root.addEventListener('click', function (e) {
-    var b = e.target.closest('button, rect.bar, tr.click');
+    var b = e.target.closest('button, rect.bar, tr.click, .q-card, circle.q-pt');
     if (!b) return;
     if (b.dataset.view) {
-      S.view = b.dataset.view;
-      if (S.view === 'pais') S.f = { pais: b.dataset.c }; else if (S.view === 'portada') S.f = {};
+      S.view = b.dataset.view; CS.quad = '';
+      if (S.view === 'pais') S.f = { pais: b.dataset.c }; else S.f = {};
       load();
     }
     else if (b.id === 'tk-print') { window.print(); }
-    else if (b.tagName === 'TR' && b.dataset.ms) { S.view = 'detalle'; S.f = { partner: b.dataset.ms, pais: b.dataset.mp }; load(); window.scrollTo(0, 0); }
-    else if (b.tagName === 'TR' && b.dataset.cty) { S.view = 'pais'; S.f = { pais: b.dataset.cty }; load(); window.scrollTo(0, 0); }
+    else if (b.dataset.cq != null) { CS.quad = CS.quad === b.dataset.cq ? '' : b.dataset.cq; if (S.view === 'cartera') renderCartera(); else renderCartBlocks(); syncUrl(); }
+    else if (b.dataset.ms) { S.view = 'pais'; CS.quad = ''; S.f = { pais: b.dataset.mp, partner: b.dataset.ms }; load(); window.scrollTo(0, 0); }
+    else if (b.tagName === 'TR' && b.dataset.cty) { S.view = 'pais'; S.f = { pais: b.dataset.cty }; S.jump = b.dataset.sec || null; load(); window.scrollTo(0, 0); }
     else if (b.dataset.gran) { if (b.dataset.gran !== S.gran) { S.gran = b.dataset.gran; S.k = ''; S.win = 0; load(); } }
-    else if (b.id === 'tk-clear') { S.f = {}; load(); }
+    else if (b.id === 'tk-clear') { S.f = S.view === 'pais' ? { pais: S.f.pais } : {}; load(); }
     else if (b.id === 'tk-more') { S.all = !S.all; renderRank(); }
     else if (b.dataset.met) { S.met = b.dataset.met; renderAll(); syncUrl(); }
     else if (b.dataset.cmp) { S.cmp = b.dataset.cmp; renderAll(); syncUrl(); }
@@ -1016,7 +1176,7 @@ const SCRIPT = String.raw`(function () {
     else if (b.dataset.dim) { S.dim = b.dataset.dim; renderAll(); loadPeriod(); }
     else if (b.tagName === 'rect' && b.dataset.k) { S.k = b.dataset.k; renderAll(); loadPeriod(); }
     else if (b.tagName === 'TR' && b.dataset.pk) { S.f.partner = b.dataset.pk; load(); }
-    else if (b.tagName === 'TR' && BD) { S.f[BD.dim] = b.dataset.v; if (S.dim === BD.dim) S.dim = BD.dim === 'region' ? 'pais' : BD.dim === 'pais' ? 'partner' : 'prod'; load(); }
+    else if (b.tagName === 'TR' && BD && b.dataset.v != null) { S.f[BD.dim] = b.dataset.v; if (S.dim === BD.dim) S.dim = FP.filter(function (d) { return !S.f[d]; })[0] || 'partner'; load(); }
   });
   load();
 })();`;
@@ -1027,7 +1187,7 @@ function trackerPage({ basePath }) {
   return shell(`${CSS}<div id="tk-root">
     <div class="tk-hero">
       <h1>B2B2C Tracker <span class="tk-wip" title="Work in progress">WIP</span></h1>
-      <p>Las WLs semana a semana y mes a mes: funnel de tráfico, partners y resultados gestionales, contra el año pasado, la tendencia y el período anterior.</p>
+      <p>Las WLs para el owner de cada país: resultados, tráfico (con Nacional / Internacional), cartera de cuentas y partners, semana a semana y mes a mes, contra el año pasado, la tendencia y el período anterior.</p>
       <div class="tk-wipnote"><strong>WIP</strong> · Tablero en construcción: los números y las vistas pueden cambiar.</div>
     </div>
     <div class="tk-bar" id="tk-bar"></div>
@@ -1040,6 +1200,9 @@ function trackerPage({ basePath }) {
       <li><b>Comparaciones</b>: tendencia semanal = promedio de las 4 semanas anteriores; mensual = de los 3 meses anteriores. El período en curso se compara a igualdad de días (LY, tendencia y período anterior cortados en el mismo día). Acumulado = año fiscal desde abril; su tráfico, hasta el último mes cerrado.</li>
       <li><b>Pasos del funnel</b>: vienen tal cual de la tabla. Checkout puede superar a PI (la tabla cuenta usuarios en cada paso por separado): a revisar con Producto B2B2C.</li>
       <li><b>País</b>: en el tráfico es el país de navegación; en el Daily, el del partner. Los partners que venden por API (p.ej. Livelo-API) tienen resultados pero no tráfico.</li>
+      <li><b>Nacional / Internacional</b>: route_type de la tabla de tráfico (solo tráfico: los resultados no se abren por ruta). No hay apertura por destino puntual.</li>
+      <li><b>Cartera</b>: por cuenta (partner × país), acumulado del año fiscal anualizado. Techo = NR por usuario de los pares del país (de la región si hay menos de 3) aplicado a los usuarios de la cuenta: mediana = realista (tope 2x), p75 = moonshot (tope 5x). Usuarios = usuarios-semana sumados de los meses cerrados con tráfico completo (la misma vara para todas las cuentas; no son personas únicas). Grande = NR anual ≥ $1M; techo alto = 2x o más; candidata a 3x = techo moonshot ≥ 3x.</li>
+      <li><b>Perfil comercial</b>: del P&amp;L Managerial (meses cerrados del FY). Comisión = white labels / API sobre el GB (incluye el revenue sharing; en Banco de Chile, TurismoCity y Viajes Naranja es el profit sharing). Canje = parte del GB pagada con puntos / millas. Monoproducto = un producto con 80% o más de las orders; "sumar" = productos que venden sus pares del país (mediana ≥ 10% de las orders) y la cuenta casi no (&lt; 5%).</li>
     </ul>
   </div>
   <script>window.TK_CFG = ${cfg};</script>

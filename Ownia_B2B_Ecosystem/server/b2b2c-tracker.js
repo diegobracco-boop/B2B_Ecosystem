@@ -18,11 +18,12 @@
 //   - Hueco del Daily: actuals_ly llega hasta meta.ly_to y actuals arranca en meta.actuals_from (hoy falta dic-25 día a día). Ese
 //     tramo viene solo como total mensual en actuals_ly_fy_rest: entra en el mensual; en el semanal, las semanas que lo tocan
 //     quedan sin resultados (null, no cero) y no se usan para marcar tráfico incompleto ni para tendencias.
-const fs = require('fs');
-const path = require('path');
 const DAILY_FOLDER_ID = '1lWzfqweyV6Kz1ERkL85ikFcmzmKwGwwh';
 const TRAFFIC_FILE = 'b2b2c_tracker.json';
 const DAILY_FILE = 'daily_b2b2c_data.json';
+// Managerial (_actuals_gestional.json, el mismo archivo que el P&L Managerial, ver drive-manifest.json): perfil comercial de cada
+// cuenta en la Cartera (canje, profit sharing, comisión % GB).
+const MGR_FILE_ID = '1wvle0UIVZV7ocCSl8OawOfIGVz_It5kh';
 
 const SITES = {
   AR: ['Argentina', 'HISPA'], BR: ['Brasil', 'BR'], MX: ['Mexico', 'MX/US'], US: ['USA', 'MX/US'], CL: ['Chile', 'HISPA'],
@@ -35,7 +36,10 @@ const DAILY_PROD = {
 };
 const PRODS = ['Vuelos', 'Paquetes', 'Hoteles', 'Servicios en destino', 'Autos', 'Asistencia', 'Alquileres', 'Otros'];
 const GRAN = { w: { trendN: 4, minRatio: 0.7, hist: 2 }, m: { trendN: 3, minRatio: 0.85, hist: 2 } };
-const DIMS = ['region', 'pais', 'partner', 'prod', 'plat'];
+// ruta (2026-11-12): Nacional / Internacional del tráfico (route_type). Como la plataforma, solo existe en el tráfico.
+const DIMS = ['region', 'pais', 'partner', 'prod', 'plat', 'ruta'];
+const T_ONLY = new Set(['plat', 'ruta']);
+const RUTA_LBL = { NAC: 'Nacional', INT: 'Internacional' };
 const NT = 6, NR = 4;   // tráfico: usuarios, búsqueda, detalle, PI, checkout, bookings · resultados: orders, GB, NR, FVM
 const MES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
@@ -74,14 +78,15 @@ function rowsOf(block) {
 // ── Carga (se parsea una vez por versión de los archivos) ───────────────────────────────────────
 function parseTraffic(json) {
   const D = json.dims || {}, C = json.cols || [], ix = (n) => C.indexOf(n);
-  const iW = ix('yw'), iA = ix('anio'), iM = ix('mes'), iP = ix('partner'), iS = ix('site'), iPl = ix('plataforma'), iPr = ix('producto');
+  const iW = ix('yw'), iA = ix('anio'), iM = ix('mes'), iP = ix('partner'), iS = ix('site'), iPl = ix('plataforma'), iPr = ix('producto'), iR = ix('ruta');
   const iV = ['usuarios', 'search', 'detail', 'pi', 'checkout', 'bookings'].map(ix);
   const out = [];
   for (const r of json.rows || []) {
     const site = (D.site || [])[r[iS]], s = SITES[site];
     if (!s) continue;
     out.push({ w: r[iW], m: r[iA] + '-' + pad(r[iM]), partner: (D.partner || [])[r[iP]] || 'Otros', pais: s[0], region: s[1],
-      plat: (D.plataforma || [])[r[iPl]] || '(Sin dato)', prod: (D.producto || [])[r[iPr]] || 'Otros', v: iV.map((i) => +r[i] || 0) });
+      plat: (D.plataforma || [])[r[iPl]] || '(Sin dato)', prod: (D.producto || [])[r[iPr]] || 'Otros',
+      ruta: iR >= 0 ? (D.ruta || [])[r[iR]] || '(Sin dato)' : '(Sin dato)', v: iV.map((i) => +r[i] || 0) });
   }
   return out;
 }
@@ -116,14 +121,17 @@ let CACHE = { key: null, data: null };
 function loadData(fileStore) {
   const pick = (n) => (fileStore && fileStore.findByName ? fileStore.findByName(DAILY_FOLDER_ID, n)[0] : null) || null;
   const tf = pick(TRAFFIC_FILE), df = pick(DAILY_FILE);
+  const mf = (fileStore && typeof fileStore.get === 'function' ? fileStore.get(MGR_FILE_ID) : null) || null;
   const ver = (f) => (f ? `${f.meta.updatedAt}:${f.meta.sha256 || f.buf.length}` : '-');
-  const key = ver(tf) + '|' + ver(df);
+  const key = ver(tf) + '|' + ver(df) + '|' + ver(mf);
   if (CACHE.key === key) return CACHE.data;
   if (!df) throw new Error('No está daily_b2b2c_data.json en el almacén');
   const traffic = tf ? JSON.parse(tf.buf.toString('utf8')) : null;
   const daily = parseDaily(JSON.parse(df.buf.toString('utf8')));
+  let mgr = null;
+  try { mgr = mf ? parseMgr(JSON.parse(mf.buf.toString('utf8'))) : null; } catch (e) { mgr = null; }   // sin Managerial: la Cartera sale sin perfil comercial
   const data = { traffic: traffic ? parseTraffic(traffic) : [], trafficUpdated: traffic ? traffic.actualizado : null,
-    trafficTo: traffic ? traffic.hasta : null, daily: daily.rows, last: daily.last, gap: daily.gap, director: daily.director, memo: new Map() };
+    trafficTo: traffic ? traffic.hasta : null, daily: daily.rows, last: daily.last, gap: daily.gap, director: daily.director, mgr, memo: new Map() };
   data.options = buildOptions(data);
   CACHE = { key, data };
   return data;
@@ -137,8 +145,14 @@ function buildOptions(data) {
   const ordC = rank('pais', data.daily);
   const paises = [...new Set([...ordC.keys(), ...data.traffic.map((r) => r.pais)])].sort((a, b) => (ordC.get(b) || 0) - (ordC.get(a) || 0) || a.localeCompare(b));
   const plats = [...new Set(data.traffic.map((r) => r.plat))].sort();
+  const rutas = ['NAC', 'INT', '(Sin dato)'].filter((v) => data.traffic.some((r) => r.ruta === v));
+  // Partners por país (filtro Partner de la página de cada país): solo los que tienen orders o tráfico en ese país
+  const byPais = {};
+  data.daily.forEach((r) => { (byPais[r.pais] || (byPais[r.pais] = new Set())).add(r.partner); });
+  data.traffic.forEach((r) => { (byPais[r.pais] || (byPais[r.pais] = new Set())).add(r.partner); });
   return { region: REGIONS.map(([v, l]) => ({ v, l })), pais: paises.map((v) => ({ v, l: v })), partner: partners.concat('Otros').map((v) => ({ v, l: v })),
-    prod: PRODS.map((v) => ({ v, l: v })), plat: plats.map((v) => ({ v, l: v })) };
+    prod: PRODS.map((v) => ({ v, l: v })), plat: plats.map((v) => ({ v, l: v })), ruta: rutas.map((v) => ({ v, l: RUTA_LBL[v] || v })),
+    partnerByPais: Object.fromEntries(Object.entries(byPais).map(([k, s]) => [k, partners.filter((p) => s.has(p))])) };
 }
 
 // ── Agregado ────────────────────────────────────────────────────────────────────────────────────
@@ -148,7 +162,7 @@ function cleanFilters(q) {
   return f;
 }
 const matchT = (r, f) => DIMS.every((d) => !f[d] || r[d] === f[d]);
-const matchR = (r, f) => DIMS.every((d) => d === 'plat' || !f[d] || r[d] === f[d]);
+const matchR = (r, f) => DIMS.every((d) => T_ONLY.has(d) || !f[d] || r[d] === f[d]);
 
 // Suma por período (y opcionalmente por una dimensión). rc = resultados cortados en el día del último dato (para comparar el
 // período en curso a igualdad de días). keep(k) acota los períodos que se suman.
@@ -169,7 +183,7 @@ function aggregate(data, f, gran, dim, keep) {
     for (let i = 0; i < NT; i++) a.t[i] += r.v[i];
     a.hasT = true;
   }
-  if (dim !== 'plat') {
+  if (!T_ONLY.has(dim)) {
     for (const r of data.daily) {
       if (!matchR(r, f)) continue;
       if (r.d.monthly && gran !== 'm') continue;
@@ -284,7 +298,7 @@ function breakdown(data, q, gran, k, dim) {
   gran = gran === 'm' ? 'm' : 'w';
   if (!DIMS.includes(dim)) dim = 'region';
   const f = cleanFilters(q), fr = frame(data, gran);
-  const lbl = dim === 'region' ? Object.fromEntries(REGIONS) : {};
+  const lbl = dim === 'region' ? Object.fromEntries(REGIONS) : dim === 'ruta' ? RUTA_LBL : {};
   const sortRows = (rows) => rows.filter((r) => (r.cur.r && r.cur.r.some((x) => x)) || (r.cur.t && r.cur.t.some((x) => x)))
     .sort((a, b) => (((b.cur.t || [])[1] || 0) - ((a.cur.t || [])[1] || 0)) || ((b.cur.r || [0])[0] - (a.cur.r || [0])[0]));
   if (k === 'ytd') {
@@ -345,117 +359,134 @@ function memo(data, key, fn) {
   return v;
 }
 
-// ── Moonshot 3x (2026-11-10, Diego: "¿con qué partner pensamos en triplicar el negocio?") ─────────────────────────────────────
-// Tamaño de la cuenta = alcance × conversión × amplitud. Por partner × país (país del partner, como el Daily), en el acumulado del FY
-// anualizado:
-//   - Alcance: penetración = orders por año cada 1.000 clientes de la base (server/b2b2c-partner-bases.json, del Excel del equipo;
-//     PROVISORIO). Realista: mediana de pares del mismo país e industria (tope 2x). Moonshot: p75 de la industria en la región
-//     (tope 10x); "mejor" = el más penetrado de la industria, como referencia.
-//     Las bases marcadas (tráfico, fuente distinta, redes de tarjetas) no se usan como referencia de nadie.
-//   - Conversión por producto (búsqueda → booking): realista = mediana de pares del país, tope 2x la propia; moonshot = p75, tope 3x.
-//   - Amplitud (cross-sell): share de orders por producto; realista = mediana de pares del país; moonshot = p75.
-//   Multiplicador = alcance × (1 + (conversión + amplitud) / NR). Supuesto multiplicativo: es un techo, no un forecast.
-//   Candidato a 3x: NR anual >= MOON_MIN_NR, multiplicador moonshot >= 3 y base sin marcas de calidad (si no, va "a validar").
-const BASES_FILE = path.join(__dirname, 'b2b2c-partner-bases.json');
-let BASES = { mtime: 0, data: null };
-function loadBases() {
-  try {
-    const st = fs.statSync(BASES_FILE);
-    if (st.mtimeMs !== BASES.mtime) BASES = { mtime: st.mtimeMs, data: JSON.parse(fs.readFileSync(BASES_FILE, 'utf8')) };
-  } catch (e) { BASES = { mtime: 0, data: { rows: [] } }; }
-  return BASES.data;
+// ── Managerial: perfil comercial de cada cuenta (partner × país) ────────────────────────────────────────────────────────────
+// Del _actuals_gestional.json (meses cerrados del FY): GB, white_labels_api (comisión del partner: revenue sharing y, en los tres
+// partners con acuerdo, el profit sharing) y GB pagado con millas / puntos (ac_mi, "Con millas"). Filas [pais, partner, produto, ym, v...].
+const PS_PARTNERS = { 'banco de chile': 'Chile', turismocity: 'Argentina', 'viajes naranja': 'Argentina' };
+const PAIS_MGR = { Globales: 'Other Countries' };
+function parseMgr(json) {
+  const mets = json.metrics || [], iGb = mets.indexOf('gross_bookings'), iWl = mets.indexOf('white_labels_api'), iO = mets.indexOf('orders');
+  const b = (json.b2b2c || {}), out = new Map(), months = new Set();
+  if (iGb < 0 || iWl < 0) return null;
+  const get = (r) => {
+    const pais = PAIS_MGR[r[0]] || r[0], k = String(r[1]).toLowerCase() + '|' + pais;
+    let x = out.get(k);
+    if (!x) out.set(k, x = { gb: 0, wl: 0, o: 0, gbMi: 0, oMi: 0 });
+    return x;
+  };
+  (b.ac || []).forEach((r) => {
+    if (r[0] === 'RG') return;   // filas regionales (agregados), no son un país
+    const x = get(r); x.gb += +r[4 + iGb] || 0; x.wl += +r[4 + iWl] || 0; x.o += +r[4 + iO] || 0; months.add(r[3]);
+  });
+  (b.ac_mi || []).forEach((r) => {
+    if (r[0] === 'RG' || r[r.length - 1] !== 'Con millas') return;
+    const x = get(r); x.gbMi += +r[4 + iGb] || 0; x.oMi += +r[4 + iO] || 0;
+  });
+  const ms = [...months].sort();
+  return { rows: out, from: ms[0] || null, to: ms[ms.length - 1] || null };
 }
-const MOON_MIN_NR = 500000, MOON_REACH_CAP = 10, MOON_CONV_CAP = 3;
+
+// ── Cartera (2026-11-12, Diego): cuadrantes y moonshot 3x desde los usuarios del tráfico ───────────────────────────────────
+// Reemplaza al Moonshot con base de clientes (Excel del equipo): el dato más confiable que tenemos de cada cuenta es su tráfico.
+// Por partner × país (país del partner en el Daily, de navegación en el tráfico), en los meses CERRADOS y COMPLETOS de tráfico del FY:
+//   NR por usuario = NR / usuarios del tráfico (usuarios-semana sumados: misma vara para todas las cuentas).
+//   Pares = cuentas del mismo país con tráfico (si hay menos de 3, de la región). Techo realista = mediana de los pares (tope 2x la
+//   propia); moonshot = p75 (tope MOON_CAP). Multiplicador = techo / NR por usuario propio (mínimo 1): cuánto crecería la cuenta con
+//   el mismo tráfico si lo monetizara como sus pares.
+//   Palanca: el NR por usuario se abre en orders por usuario (conversión) × NR por order (valor); la que más lejos está de la
+//   mediana de los pares es la palanca. Monoproducto (un producto ≥ 80% de las orders): verticales a sumar = productos que los pares
+//   del país venden (mediana de share ≥ 10%) y la cuenta casi no (< 5%).
+// Cuadrantes: tamaño = NR anual (grande desde BIG_NR); potencial = multiplicador moonshot (alto desde HI_MULT).
+//   Estrella (grande, alto potencial): crecer exponencial · Apuesta (chica, alto): validar y escalar ·
+//   Madura (grande, bajo): defender y rentabilizar · Despriorizar (chica, baja) · Sin tráfico (API o sin sitio): no se puede medir.
+const BIG_NR = 1e6, HI_MULT = 2, MOON_X = 3, MOON_CAP = 5, MIN_USERS = 20000, MIN_NR = 50000;
+const AIRLINES = /^(latam|sky|avianca|aerol[ií]neas|gol|azul|copa|jetsmart|flybondi|aeromexico|volaris|viva)(?![a-z])/i;
 const MOON_PRODS = ['Vuelos', 'Hoteles', 'Paquetes', 'Autos', 'Servicios en destino', 'Asistencia'];
-const BAD_REF = new Set(['trafico', 'fuente_distinta', 'red_tarjetas']);
+const REGION_OF = Object.fromEntries(Object.values(SITES).map(([p, r]) => [p, r]));
 function quant(arr, q) {
   const a = arr.filter((v) => v != null && isFinite(v)).sort((x, y) => x - y);
   if (!a.length) return null;
   const i = (a.length - 1) * q, lo = Math.floor(i);
   return a[lo] + (a[Math.ceil(i)] - a[lo]) * (i - lo);
 }
-function moonshot(data) {
+function quadrant(r) {
+  if (r.npu == null) return 'sin_trafico';
+  const big = r.nr >= BIG_NR, hi = r.multM >= HI_MULT;
+  return big ? (hi ? 'estrella' : 'madura') : (hi ? 'apuesta' : 'despriorizar');
+}
+function cartera(data) {
   const frm = frame(data, 'm'), { fy, keys } = fyMonths(frm, data.last), inFY = new Set(keys);
-  const tKeys = new Set(keys.filter((k) => k !== frm.partialKey && !frm.flag[k]));   // tráfico: meses cerrados y completos
+  const tKeys = keys.filter((k) => k !== frm.partialKey && !frm.flag[k]), inT = new Set(tKeys);   // tráfico: meses cerrados y completos
+  const okLy = new Set(tKeys.filter((k) => frm.keys.includes(lyKey(k)) && !frm.flag[lyKey(k)])), lyT = new Set([...okLy].map(lyKey));   // YoY de usuarios: solo meses comparables
   const fy0 = keys[0] + '-01', days = Math.round((new Date(data.last + 'T00:00:00Z') - new Date(fy0 + 'T00:00:00Z')) / 864e5) + 1, ann = 365 / days;
   const P = new Map(), key = (p, c) => p + '|' + c;
-  const get = (p, c) => { const k = key(p, c); let x = P.get(k); if (!x) P.set(k, x = { partner: p, pais: c, o: 0, nr: 0, fvm: 0, prod: {} }); return x; };
-  const gp = (x, pr) => x.prod[pr] || (x.prod[pr] = { o: 0, nr: 0, s: 0, b: 0 });
+  const get = (p, c) => { const k = key(p, c); let x = P.get(k); if (!x) P.set(k, x = { partner: p, pais: c, o: 0, nr: 0, fvm: 0, u: 0, uC: 0, uLy: 0, oT: 0, nrT: 0, prod: {} }); return x; };
   for (const r of data.daily) {
     if (r.partner === 'Otros' || !inFY.has(r.d.m)) continue;
-    const x = get(r.partner, r.pais), q = gp(x, r.prod);
-    x.o += r.v[0]; x.nr += r.v[2]; x.fvm += r.v[3]; q.o += r.v[0]; q.nr += r.v[2];
+    const x = get(r.partner, r.pais), q = x.prod[r.prod] || (x.prod[r.prod] = 0);
+    x.o += r.v[0]; x.nr += r.v[2]; x.fvm += r.v[3]; x.prod[r.prod] = q + r.v[0];
+    if (inT.has(r.d.m)) { x.oT += r.v[0]; x.nrT += r.v[2]; }
   }
   for (const r of data.traffic) {
-    if (r.partner === 'Otros' || !tKeys.has(r.m)) continue;
-    const x = P.get(key(r.partner, r.pais)); if (!x) continue;
-    const q = gp(x, r.prod); q.s += r.v[1]; q.b += r.v[5];
+    if (r.partner === 'Otros') continue;
+    if (inT.has(r.m)) { const x = P.get(key(r.partner, r.pais)); if (x) { x.u += r.v[0]; if (okLy.has(r.m)) x.uC += r.v[0]; } }
+    else if (lyT.has(r.m)) { const x = P.get(key(r.partner, r.pais)); if (x) x.uLy += r.v[0]; }
   }
-  const bases = new Map((loadBases().rows || []).map((b) => [key(b.partner.toLowerCase(), b.pais), b]));
-  const list = [...P.values()].filter((x) => x.o * ann >= 500 && x.nr > 0).map((x) => {
-    const b = bases.get(key(x.partner.toLowerCase(), x.pais)) || null;
-    const pen = b && b.clientes > 0 ? x.o * ann / b.clientes * 1000 : null;
-    return Object.assign(x, { base: b, pen, industria: b ? b.industria : null, ref: !!(b && pen != null && !(b.flags || []).some((f) => BAD_REF.has(f))) });
+  const list = [...P.values()].filter((x) => x.nr * ann >= MIN_NR);
+  list.forEach((x) => {
+    const ok = x.u >= MIN_USERS && x.nrT > 0 && x.oT > 0;
+    x.npu = ok ? x.nrT / x.u : null; x.opu = ok ? x.oT / x.u : null; x.nrpo = ok ? x.nrT / x.oT : null;
   });
+  const mgr = data.mgr;
   const rows = list.map((x) => {
-    const peersC = list.filter((y) => y.pais === x.pais && y !== x);
-    // Alcance
-    let reachR = 1, reachM = 1, penPeer = null, penP75 = null, best = null;
-    if (x.pen != null && x.pen > 0) {
-      const refs = list.filter((y) => y !== x && y.ref && y.industria === x.industria);
-      const same = refs.filter((y) => y.pais === x.pais);
-      penPeer = quant((same.length >= 2 ? same : refs).map((y) => y.pen), 0.5);
-      penP75 = quant(refs.map((y) => y.pen), 0.75);
-      best = refs.reduce((a, y) => (!a || y.pen > a.pen ? y : a), null);
-      if (penPeer) reachR = Math.min(2, Math.max(1, penPeer / x.pen));
-      if (penP75) reachM = Math.min(MOON_REACH_CAP, Math.max(1, penP75 / x.pen));
+    const pool = (same) => list.filter((y) => y !== x && y.npu != null && (same ? y.pais === x.pais : REGION_OF[y.pais] === REGION_OF[x.pais]));
+    let peers = pool(true), peerScope = 'país';
+    if (peers.length < 3) { peers = pool(false); peerScope = 'región'; }
+    const p50 = quant(peers.map((y) => y.npu), 0.5), p75 = quant(peers.map((y) => y.npu), 0.75);
+    let multR = 1, multM = 1, lever = null;
+    if (x.npu != null && p50) {
+      multR = Math.min(2, Math.max(1, p50 / x.npu));
+      multM = p75 ? Math.min(MOON_CAP, Math.max(1, p75 / x.npu)) : multR;
+      const gC = Math.log(Math.max(1, (quant(peers.map((y) => y.opu), 0.5) || 0) / x.opu)), gV = Math.log(Math.max(1, (quant(peers.map((y) => y.nrpo), 0.5) || 0) / x.nrpo));
+      lever = gC < 0.05 && gV < 0.05 ? null : gC >= gV ? 'conversión' : 'valor por order';
     }
-    // Conversión y amplitud por producto
-    let convR = 0, convM = 0, xsR = 0, xsM = 0;
-    MOON_PRODS.forEach((pr) => {
-      const q = x.prod[pr] || { o: 0, nr: 0, s: 0, b: 0 };
-      const nrpo = q.o >= 50 ? q.nr / q.o : quant(peersC.map((y) => (y.prod[pr] && y.prod[pr].o >= 50 ? y.prod[pr].nr / y.prod[pr].o : null)), 0.5);
-      if (!nrpo || nrpo <= 0) return;
-      const crs = peersC.map((y) => (y.prod[pr] && y.prod[pr].s >= 2000 ? y.prod[pr].b / y.prod[pr].s : null));
-      if (q.s >= 2000 && q.b > 0) {
-        const own = q.b / q.s, o2b = Math.min(1, q.o / q.b), c50 = quant(crs, 0.5), c75 = quant(crs, 0.75);
-        if (c50) convR += q.s * Math.max(0, Math.min(c50, 2 * own) - own) * o2b * nrpo;
-        if (c75) convM += q.s * Math.max(0, Math.min(c75, MOON_CONV_CAP * own) - own) * o2b * nrpo;
-      }
-      const shs = peersC.map((y) => (y.prod[pr] || { o: 0 }).o / y.o), sh = q.o / x.o;
-      const s50 = quant(shs, 0.5), s75 = quant(shs, 0.75);
-      if (s50) xsR += x.o * Math.max(0, s50 - sh) * nrpo;
-      if (s75) xsM += x.o * Math.max(0, s75 - sh) * nrpo;
-    });
-    const nrA = x.nr * ann, multR = reachR * (1 + (convR + xsR) / x.nr), multM = reachM * (1 + (convM + xsM) / x.nr);
-    const lev = [['alcance', Math.log(reachM)], ['conversión', Math.log(1 + convM / x.nr)], ['amplitud', Math.log(1 + xsM / x.nr)]].sort((a, b2) => b2[1] - a[1]);
-    const prods = Object.entries(x.prod).filter(([k]) => k !== 'Otros').sort((a, b2) => b2[1].o - a[1].o);
-    return {
-      partner: x.partner, pais: x.pais, industria: x.industria || 'Sin base', director: data.director[x.partner.toLowerCase()] || null,
-      nr: nrA, fvm: x.fvm * ann, orders: x.o * ann, clientes: x.base ? x.base.clientes : null, fuente: x.base ? x.base.fuente : null,
-      flags: x.base ? x.base.flags || [] : ['sin_base'], pen: x.pen, penPeer, penP75, penBest: best ? best.pen : null, bestRef: best ? best.partner + ' ' + best.pais : null,
-      reachR, reachM, convR: convR * ann, convM: convM * ann, xsR: xsR * ann, xsM: xsM * ann, multR, multM,
-      potR: nrA * (multR - 1), potM: nrA * (multM - 1), lever: lev[0][1] > 0.01 ? lev[0][0] : null,
-      topProd: prods.length ? prods[0][0] : null, topShare: prods.length ? prods[0][1].o / x.o : null,
+    // Mix: monoproducto y verticales a sumar (pares del mismo país con volumen)
+    const share = (y, pr) => (y.o > 0 ? (y.prod[pr] || 0) / y.o : 0);
+    const prods = MOON_PRODS.map((pr) => [pr, share(x, pr)]).sort((a, b) => b[1] - a[1]);
+    const mixPeers = list.filter((y) => y !== x && y.pais === x.pais && y.o * ann >= 500);
+    const addProds = MOON_PRODS.filter((pr) => share(x, pr) < 0.05 && (quant(mixPeers.map((y) => share(y, pr)), 0.5) || 0) >= 0.1
+      && !(pr === 'Vuelos' && AIRLINES.test(x.partner)));   // a una aerolínea no se le sugiere sumar vuelos
+    // Perfil comercial (Managerial)
+    const m = mgr ? mgr.rows.get(x.partner.toLowerCase() + '|' + x.pais) : null;
+    const ps = PS_PARTNERS[x.partner.toLowerCase()] === x.pais;
+    const nrA = x.nr * ann, uA = x.u ? x.u * 12 / tKeys.length : null;
+    const r = {
+      partner: x.partner, pais: x.pais, region: REGION_OF[x.pais] || null, director: data.director[x.partner.toLowerCase()] || null,
+      nr: nrA, fvm: x.fvm * ann, orders: x.o * ann, users: uA, uYoY: x.uLy >= MIN_USERS ? x.uC / x.uLy - 1 : null, uYoYn: okLy.size,
+      npu: x.npu, opu: x.opu, nrpo: x.nrpo, p50, p75, peers: peers.length, peerScope, multR, multM, potR: nrA * (multR - 1), potM: nrA * (multM - 1), lever,
+      topProd: prods[0][1] > 0 ? prods[0][0] : null, topShare: prods[0][1], mono: prods[0][1] >= 0.8, addProds,
+      gb: m ? m.gb : null, canje: m && m.gb > 0 ? m.gbMi / m.gb : null, comision: m && m.gb > 0 ? -m.wl / m.gb : null, ps,
     };
-  }).map((r) => Object.assign(r, {
-    validar: r.flags.some((f) => BAD_REF.has(f) || f === 'sin_base'),
-    cand: r.nr >= MOON_MIN_NR && r.multM >= 3 && !r.flags.some((f) => BAD_REF.has(f) || f === 'sin_base'),
-  })).sort((a, b) => b.potM - a.potM);
-  const bd = loadBases();
-  return { fy, from: fy0, to: data.last, days, rows, minNr: MOON_MIN_NR, reachCap: MOON_REACH_CAP, convCap: MOON_CONV_CAP, bases: { actualizado: bd.actualizado, fuente: bd.fuente, nota: bd.nota, n: (bd.rows || []).length } };
+    r.quad = quadrant(r);
+    r.cand = r.quad !== 'sin_trafico' && r.multM >= MOON_X;
+    return r;
+  }).sort((a, b) => b.nr - a.nr);
+  return {
+    lyMonths: okLy.size, fy, from: fy0, to: data.last, days, tFrom: tKeys[0] || null, tTo: tKeys[tKeys.length - 1] || null, tMonths: tKeys.length,
+    mgrFrom: mgr ? mgr.from : null, mgrTo: mgr ? mgr.to : null, bigNr: BIG_NR, hiMult: HI_MULT, moonX: MOON_X, cap: MOON_CAP, minUsers: MIN_USERS, rows,
+  };
 }
 
-// Punto de entrada del servidor: ?gran=w|m&region=&pais=&partner=&prod=&plat=[&dim=&k=]
+// Punto de entrada del servidor: ?gran=w|m&region=&pais=&partner=&prod=&plat=&ruta=[&dim=&k=] · ?view=cartera
 function trackerApi(fileStore, params) {
   const data = loadData(fileStore);
   const q = {};
   DIMS.forEach((d) => { q[d] = params.get(d) || ''; });
   const gran = params.get('gran') === 'm' ? 'm' : 'w';
-  if (params.get('view') === 'moonshot') return memo(data, 'moonshot:' + BASES.mtime, () => moonshot(data));
+  if (params.get('view') === 'cartera' || params.get('view') === 'moonshot') return memo(data, 'cartera', () => cartera(data));
   const dim = params.get('dim'), k = params.get('k'), evo = params.get('evo') === '1';
   const key = JSON.stringify([gran, q, dim, k, evo]);
   return memo(data, key, () => (evo ? evoByPartner(data, q, gran) : dim ? breakdown(data, q, gran, k, dim) : series(data, q, gran)));
 }
 
-module.exports = { trackerApi, moonshot, loadData, series, breakdown, isoWeek, weekStart, DAILY_FOLDER_ID, TRAFFIC_FILE, DAILY_FILE, _reset: () => { CACHE = { key: null, data: null }; } };
+module.exports = { trackerApi, cartera, parseMgr, loadData, series, breakdown, isoWeek, weekStart, DAILY_FOLDER_ID, TRAFFIC_FILE, DAILY_FILE, _reset: () => { CACHE = { key: null, data: null }; } };

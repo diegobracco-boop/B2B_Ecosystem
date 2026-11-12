@@ -173,14 +173,66 @@ test('hueco del Daily (dic sin días, solo el total mensual): el mensual lo usa;
   assert.deepEqual(by('2026-44').cur.r, [105, 10500, 1050, 420]);
 });
 
-test('moonshot: arma una fila por partner × país, sin base queda "a validar" y nunca es candidato', () => {
+// Cartera: A, C y D en Brasil con el mismo tráfico y NR por día 1.000 / 3.000 / 2.000 (NR por usuario 1 : 3 : 2); E en Argentina sin
+// tráfico (como un partner por API). Managerial: A con 5% de comisión sobre el GB y 30% del GB con millas.
+function carteraStore() {
+  const cols = ['fecha', 'pais', 'productooriginal', 'partner', 'account_type', 'region', 'tier', 'orders', 'gross_bookings', 'net_revenues', 'fvm'];
+  const act = [];
+  for (let d = '2026-01-01'; d <= LAST; d = day(d, 1)) {
+    act.push([d, 'Brasil', 'Flights', 'A', 'Existing', 'BR', 'Tier-1', 10, 10000, 1000, 400], [d, 'Brasil', 'Hotels', 'C', 'Existing', 'BR', 'Tier-1', 10, 10000, 3000, 900],
+      [d, 'Brasil', 'Flights', 'D', 'Existing', 'BR', 'Tier-1', 5, 5000, 1000, 300], [d, 'Brasil', 'Hotels', 'D', 'Existing', 'BR', 'Tier-1', 5, 5000, 1000, 300],
+      [d, 'Argentina', 'Hotels', 'E', 'Existing', 'HISPA', 'Tier-1', 5, 5000, 500, 200]);
+  }
+  const daily = { meta: { last_actuals_date: LAST, actuals_from: '2026-01-01' }, actuals: { cols, rows: act }, actuals_ly: { cols, rows: [] } };
+  const dims = { partner: ['A', 'C', 'D'], site: ['BR'], plataforma: ['App'], producto: ['Vuelos', 'Hoteles'], ruta: ['NAC', 'INT'] };
+  const rows = [];
+  for (let w = 1; w <= 45; w++) {
+    const yw = '2026-' + String(w).padStart(2, '0'), mon = T.weekStart(yw);
+    // bookings = 2x las orders (no se marca el tráfico como incompleto); usuarios iguales para los tres; vuelos NAC, hoteles INT
+    [[0, 0, 2000, 140], [1, 1, 2000, 140], [2, 0, 1000, 70], [2, 1, 1000, 70]].forEach(([p, pr, u, b]) => rows.push([yw, +mon.slice(0, 4), +mon.slice(5, 7), p, 0, 0, pr, pr, u, 400, 200, 100, 90, b]));
+  }
+  const traffic = { actualizado: '2026-11-05', hasta: '2026-45', dims, cols: ['yw', 'anio', 'mes', 'partner', 'site', 'plataforma', 'producto', 'ruta', 'usuarios', 'search', 'detail', 'pi', 'checkout', 'bookings'], rows };
+  const metrics = ['orders', 'gross_bookings', 'white_labels_api'];
+  const mgr = { metrics, b2b2c: { ac: [['Brasil', 'A', 'Flights', '2026-04', 300, 1000, -50], ['RG', 'A', 'Flights', '2026-04', 300, 1000, -50]],
+    ac_mi: [['Brasil', 'A', 'Flights', '2026-04', 100, 300, -15, 'Con millas'], ['Brasil', 'A', 'Flights', '2026-04', 200, 700, -35, 'Sin millas']] } };
+  const files = { [T.TRAFFIC_FILE]: { buf: Buffer.from(JSON.stringify(traffic)), meta: { updatedAt: 3, sha256: 'ct' } },
+    [T.DAILY_FILE]: { buf: Buffer.from(JSON.stringify(daily)), meta: { updatedAt: 3, sha256: 'cd' } } };
+  const store = fakeStore();
+  store.findByName = (folder, name) => (files[name] ? [files[name]] : []);
+  store.get = (id) => (id === '1wvle0UIVZV7ocCSl8OawOfIGVz_It5kh' ? { buf: Buffer.from(JSON.stringify(mgr)), meta: { updatedAt: 3, sha256: 'cm' } } : null);
+  return store;
+}
+
+test('cartera: techo = NR por usuario de los pares; cuadrantes, sin tráfico y perfil comercial del Managerial', () => {
   T._reset();
-  const m = T.moonshot(T.loadData(fakeStore()));
-  assert.ok(m.rows.length >= 1);
-  const a = m.rows.find((r) => r.partner === 'A' && r.pais === 'Brasil');
-  assert.ok(a, 'A Brasil');
-  assert.deepEqual(a.flags, ['sin_base']);
-  assert.equal(a.validar, true);
-  assert.equal(a.cand, false);
-  assert.ok(a.multR >= 1 && a.multM >= a.multR);
+  const c = api(carteraStore(), 'view=cartera');
+  const by = (p) => c.rows.find((r) => r.partner === p);
+  const a = by('A'), cc = by('C'), e = by('E');
+  assert.ok(a && cc && e);
+  // A monetiza 1 contra 3 y 2 de sus pares: realista = mediana (2,5x, tope 2x); moonshot = p75 (2,75x)
+  assert.equal(a.multR, 2);
+  assert.ok(Math.abs(a.multM - 2.75) < 1e-9);
+  assert.equal(a.quad, 'apuesta', 'chica (NR < $1M) con techo ≥ 2x');
+  assert.equal(a.cand, false, 'techo < 3x');
+  assert.equal(cc.quad, 'madura', 'grande y ya monetiza mejor que sus pares');
+  assert.equal(e.quad, 'sin_trafico');
+  assert.equal(e.npu, null);
+  assert.ok(Math.abs(a.comision - 0.05) < 1e-9);
+  assert.ok(Math.abs(a.canje - 0.3) < 1e-9);
+  assert.equal(a.mono, true, '100% vuelos');
+  assert.deepEqual(a.addProds, ['Hoteles'], 'sus pares venden hoteles');
+  assert.equal(cc.gb, null, 'sin fila en el Managerial');
+  assert.equal(api(carteraStore(), 'view=moonshot').rows.length, c.rows.length, '?view=moonshot sigue andando');
+});
+
+test('Nacional / Internacional: la ruta filtra y abre solo el tráfico (los resultados no se tocan)', () => {
+  T._reset();
+  const st = carteraStore();
+  const tot = api(st, 'gran=w').periods.find((x) => x.k === '2026-44');
+  const nac = api(st, 'gran=w&ruta=NAC').periods.find((x) => x.k === '2026-44');
+  assert.deepEqual(nac.cur.r, tot.cur.r);
+  assert.equal(nac.cur.t[1], 800, 'búsquedas de A y de los vuelos de D');
+  const b = api(st, 'gran=w&dim=ruta&k=2026-44');
+  assert.deepEqual(b.rows.map((r) => r.lbl).sort(), ['Internacional', 'Nacional']);
+  assert.deepEqual(api(st, 'gran=w').options.ruta.map((x) => x.l), ['Nacional', 'Internacional']);
 });
