@@ -21,10 +21,21 @@
 // Mix de productos (2026-11-10, Diego: "¿mantenemos CvR pero con productos de menor ASP?"): ticket = Σ share de orders × ticket del
 // producto y conversión = Σ share de búsquedas × conversión del producto; cada variación se separa en mix y "dentro de cada producto"
 // (descomposición simétrica: suman exacto). En el puente, ticket y conversión se abren en esas dos partes.
-const { shell, escapeHtml, CHEVRON_L } = require('./index-page');
+const { shell, escapeHtml } = require('./index-page');
 
 const CSS = `<style>
   .wrap { max-width: 1280px; }
+  .tk-home { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 8px; border: 1px solid currentColor; font-size: 12px; font-weight: 600; text-decoration: none; color: var(--text); opacity: .8; }
+  .tk-home:hover { opacity: 1; }
+  .tk-chart .cl { fill: none; stroke: var(--primary); stroke-width: 2.5; }
+  .tk-chart .pt { fill: var(--primary); stroke: var(--tile); stroke-width: 1.5; cursor: pointer; }
+  .tk-chart .pt.sel { fill: var(--secondary); }
+  .tk-chart .pt.part { fill: var(--tile); stroke: var(--primary); }
+  .tk-chart .dl { fill: var(--text-2); font-size: 10px; text-anchor: middle; font-variant-numeric: tabular-nums; }
+  .tk-chart .dl.sel { fill: var(--text); font-weight: 600; }
+  details.tk-more-d > summary { cursor: pointer; color: var(--link); font-size: 13.5px; margin: 14px 0 0; list-style: none; }
+  details.tk-more-d > summary::before { content: '▸ '; }
+  details.tk-more-d[open] > summary::before { content: '▾ '; }
   :root { --up: #1db37a; --dn: #f0616d; --ly: #8a8aa3; --tr: #f5a524; --flag: rgba(240, 97, 109, .14);
     --c1: #3987e5; --c2: #d95926; --c3: #199e70; --c4: #c98500; --c5: #d55181; --c6: #008300; --c7: #9085e9; --c0: #6b6b80; }
   :root[data-theme="light"] { --up: #0f8a5f; --dn: #d93a46; --ly: #8e8e93; --tr: #d98a00; --flag: rgba(217, 58, 70, .1);
@@ -218,7 +229,7 @@ const SCRIPT = String.raw`(function () {
   var FL = { region: 'Región', pais: 'País', partner: 'Partner', prod: 'Producto', plat: 'Plataforma', ruta: 'Nac / Int' };
   var FP = ['partner', 'prod', 'plat', 'ruta'];   // filtros de la página de un país (región y país los fija la pestaña)
   var S = { gran: Q.get('gran') === 'm' ? 'm' : 'w', f: {}, k: Q.get('k') || '', met: Q.get('met') || 'o', dim: FP.indexOf(Q.get('dim')) >= 0 ? Q.get('dim') : 'partner',
-    win: +(Q.get('win') || 0), cmp: Q.get('cmp') || 'tr', pm: Q.get('pm') || 's', bm: Q.get('bm') || 'nr', all: false };
+    win: +(Q.get('win') || 0), cmp: Q.get('cmp') || 'tr', pm: ['u', 's', 'b'].indexOf(Q.get('pm')) >= 0 ? Q.get('pm') : 's', bm: Q.get('bm') || 'nr', all: false };
   FD.forEach(function (d) { if (Q.get(d)) S.f[d] = Q.get(d); });
   var COUNTRIES = [['Brasil', 'Brasil'], ['Argentina', 'Argentina'], ['Mexico', 'México'], ['Chile', 'Chile'], ['Colombia', 'Colombia'], ['Peru', 'Perú']];
   function cLbl(v) { var x = COUNTRIES.filter(function (c) { return c[0] === v; })[0]; return x ? x[1] : v; }
@@ -446,7 +457,7 @@ const SCRIPT = String.raw`(function () {
     return '<div class="tk-kpis">' + ms.map(function (m) {
       var a = val(m, p.cur);
       return '<div class="tk-card tk-kpi"><div class="l">' + M[m].l + '</div><div class="v">' + fmt(m, a) + '</div><div class="tk-d">' +
-        cmps().filter(function (c) { return S.view === 'pais' || c[0] === ec() || c[0] === 'ly'; })
+        cmps().filter(function (c) { return c[0] === ec() || c[0] === 'ly'; })
           .map(function (c) { return p.ytd && c[0] !== 'ly' ? '' : '<span><i>' + c[1] + '</i>' + dtxt(delta(m, a, val(m, p[c[0]]))) + '</span>'; }).join('') + '</div></div>';
     }).join('') + '</div>';
   }
@@ -523,23 +534,32 @@ const SCRIPT = String.raw`(function () {
     var sc = yScale(vals.concat(lys, trs), H, padT, padB), n = ps.length, bw = (W - padL - padR) / n, flagT = M[m].s === 't';
     var g = '<svg viewBox="0 0 ' + W + ' ' + (H + strip) + '" role="img" aria-label="Evolutivo de ' + esc(M[m].l) + '"><defs><pattern id="tk-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="var(--flag)"/><line x1="0" y1="0" x2="0" y2="6" stroke="var(--dn)" stroke-width="1.5" stroke-opacity=".5"/></pattern></defs>';
     g += grid(sc, m, padL, W - padR);
-    var every = Math.ceil(n / 14);
+    // Tráfico en barras con su etiqueta de datos; resultados (orders, GB, NR, FVM, ticket, margen) en línea (2026-11-12, Diego)
+    var every = Math.ceil(n / 14), lblEvery = n <= 30 ? 1 : 2, tip = function (p, v) {
+      return '<title>' + esc(p.lbl + (p.partial ? ' (en curso)' : '') + (flagT && p.flag ? ' · tráfico incompleto' : '') + '\n' + M[m].l + ': ' + fmt(m, v) + '\nAño pasado: ' + fmt(m, val(m, p.ly)) + '\nTendencia: ' + fmt(m, val(m, p.tr)) + '\nPeríodo anterior: ' + fmt(m, val(m, p.pv))) + '</title>';
+    };
+    var shortV = function (v) { return M[m].u === '%' ? num(v * 100, v < 0.1 ? 1 : 0) + '%' : M[m].u === '$' ? big(v) : M[m].u === '$1' ? num(v, 0) : big(v); };
+    var cur = '', pen = false, dots = '';
     ps.forEach(function (p, i) {
-      var v = vals[i], x = padL + i * bw + bw * 0.14, w = bw * 0.72;
-      var cls = 'bar' + (p.k === S.k ? ' sel' : '') + (p.partial ? ' part' : '') + (flagT && p.flag ? ' flag' : '');
-      if (v != null && isFinite(v)) {
-        var y0 = sc.y(Math.max(0, sc.mn)), y1 = sc.y(v);
-        g += '<rect class="' + cls + '" data-k="' + esc(p.k) + '" x="' + x.toFixed(1) + '" y="' + Math.min(y0, y1).toFixed(1) + '" width="' + w.toFixed(1) + '" height="' + Math.max(1, Math.abs(y0 - y1)).toFixed(1) + '" rx="3">' +
-          '<title>' + esc(p.lbl + (p.partial ? ' (en curso)' : '') + (flagT && p.flag ? ' · tráfico incompleto' : '') + '\n' + M[m].l + ': ' + fmt(m, v) + '\nAño pasado: ' + fmt(m, val(m, p.ly)) + '\nTendencia: ' + fmt(m, val(m, p.tr)) + '\nPeríodo anterior: ' + fmt(m, val(m, p.pv))) + '</title></rect>';
-      }
-      if (tick(i, n, every)) g += '<text class="ax" x="' + (padL + i * bw + bw / 2).toFixed(1) + '" y="' + (H - 8) + '" text-anchor="middle">' + esc(S.gran === 'm' ? p.lbl : p.lbl.split(' · ')[0]) + '</text>';
+      var v = vals[i], cx = padL + i * bw + bw / 2, ok = v != null && isFinite(v), sel = p.k === S.k;
+      if (flagT && ok) {
+        var x = padL + i * bw + bw * 0.14, w = bw * 0.72, y0 = sc.y(Math.max(0, sc.mn)), y1 = sc.y(v);
+        var cls = 'bar' + (sel ? ' sel' : '') + (p.partial ? ' part' : '') + (p.flag ? ' flag' : '');
+        g += '<rect class="' + cls + '" data-k="' + esc(p.k) + '" x="' + x.toFixed(1) + '" y="' + Math.min(y0, y1).toFixed(1) + '" width="' + w.toFixed(1) + '" height="' + Math.max(1, Math.abs(y0 - y1)).toFixed(1) + '" rx="3">' + tip(p, v) + '</rect>';
+        if (sel || i % lblEvery === (n - 1) % lblEvery) g += '<text class="dl' + (sel ? ' sel' : '') + '" x="' + cx.toFixed(1) + '" y="' + (Math.min(y0, y1) - 4).toFixed(1) + '">' + esc(shortV(v)) + '</text>';
+      } else if (ok) {
+        cur += (pen ? 'L' : 'M') + cx.toFixed(1) + ' ' + sc.y(v).toFixed(1); pen = true;
+        dots += '<circle class="pt' + (sel ? ' sel' : '') + (p.partial ? ' part' : '') + '" data-k="' + esc(p.k) + '" cx="' + cx.toFixed(1) + '" cy="' + sc.y(v).toFixed(1) + '" r="' + (sel ? 6 : 4) + '">' + tip(p, v) + '</circle>';
+        if (sel || i === n - 1) dots += '<text class="dl' + (sel ? ' sel' : '') + '" x="' + cx.toFixed(1) + '" y="' + (sc.y(v) - 10).toFixed(1) + '">' + esc(shortV(v)) + '</text>';
+      } else pen = false;
+      if (tick(i, n, every)) g += '<text class="ax" x="' + cx.toFixed(1) + '" y="' + (H - 8) + '" text-anchor="middle">' + esc(S.gran === 'm' ? p.lbl : p.lbl.split(' · ')[0]) + '</text>';
     });
     function line(arr, cls) {
       var d = '', pen = false;
       arr.forEach(function (v, i) { if (v == null || !isFinite(v)) { pen = false; return; } d += (pen ? 'L' : 'M') + (padL + i * bw + bw / 2).toFixed(1) + ' ' + sc.y(v).toFixed(1); pen = true; });
       return d ? '<path class="' + cls + '" d="' + d + '"/>' : '';
     }
-    g += line(lys, 'ly') + line(trs, 'tr');
+    g += line(lys, 'ly') + line(trs, 'tr') + (cur ? '<path class="cl" d="' + cur + '"/>' : '') + dots;
     if (strip) {
       g += '<text class="rowl" x="' + (padL - 6) + '" y="' + (H + 12) + '" text-anchor="end">vs LY</text><text class="rowl" x="' + (padL - 6) + '" y="' + (H + 28) + '" text-anchor="end">vs tend.</text>';
       ps.forEach(function (p, i) {
@@ -553,22 +573,22 @@ const SCRIPT = String.raw`(function () {
     g += '</svg>';
     var chips = CHIPS.map(function (grp) { return grp.map(function (k) { return '<button type="button" data-met="' + k + '" class="' + (k === m ? 'on' : '') + '">' + esc(M[k].l) + '</button>'; }).join(''); }).join('<span class="sep"></span>');
     return '<div class="tk-card"><div class="tk-chips">' + chips + '</div>' +
-      '<div class="tk-lg"><span><i style="background:var(--primary)"></i>' + (S.gran === 'm' ? 'Mes' : 'Semana') + '</span><span><i style="background:none;border-top:2px dashed var(--ly);height:0;border-radius:0"></i>Año pasado</span>' +
+      '<div class="tk-lg"><span><i style="background:var(--primary)' + (flagT ? '' : ';height:3px;border-radius:0') + '"></i>' + (S.gran === 'm' ? 'Mes' : 'Semana') + '</span><span><i style="background:none;border-top:2px dashed var(--ly);height:0;border-radius:0"></i>Año pasado</span>' +
       '<span><i style="background:var(--tr);height:2px;border-radius:0"></i>Tendencia (' + tendLbl() + ')</span>' +
       (flagT ? '<span><i style="background:var(--flag);box-shadow:inset 0 0 0 1px var(--dn)"></i>Tráfico incompleto</span>' : '') + winSel() + '</div>' +
       '<div class="tk-chart">' + g + '</div></div>';
   }
 
   // ── Partners ──
-  var PM = ['s', 'b', 'o', 'nr', 'fvm'];
+  var PM = ['u', 's', 'b'];   // barras apiladas: solo métricas de tráfico
   function partnersShell() {
     var pchips = PM.map(function (k) { return '<button type="button" data-pm="' + k + '" class="' + (S.pm === k ? 'on' : '') + '">' + esc(M[k].l) + '</button>'; }).join('');
     return '<div class="tk-card"><h3>Ranking</h3><div class="sub">Ordenado por búsquedas. Share = parte de las búsquedas del filtro. Eficiencia = conversión búsqueda → booking relativa a la mejor. "Qué lo mueve" = el driver que más explica la variación de NR ' + esc(ecLbl()) + '. Clic en una fila para filtrar.</div>' +
       '<div id="tk-rank"></div></div>' +
-      '<div class="tk-grid2"><div class="tk-card"><h3>Eficiencia: volumen vs conversión</h3><div class="sub">Cada burbuja es un partner: búsquedas (escala logarítmica) contra conversión; el tamaño son los bookings.</div><div class="tk-chart" id="tk-bub"></div></div>' +
+      '<details class="tk-more-d"><summary>Ver gráficos por partner (eficiencia, conversión y evolutivo)</summary><div class="tk-grid2"><div class="tk-card"><h3>Eficiencia: volumen vs conversión</h3><div class="sub">Cada burbuja es un partner: búsquedas (escala logarítmica) contra conversión; el tamaño son los bookings.</div><div class="tk-chart" id="tk-bub"></div></div>' +
       '<div class="tk-card"><h3>Conversión por partner</h3><div class="sub">Búsqueda → booking, ' + (S.gran === 'm' ? 'mes a mes' : 'semana a semana') + '. Sin dato en los períodos con tráfico incompleto.</div><div class="tk-chart" id="tk-crl"></div></div></div>' +
       '<div class="tk-card" style="margin-top:14px"><h3>Evolutivo por partner</h3><div class="sub">Los 7 partners con más búsquedas en la ventana; el resto suma en "Resto".</div>' +
-      '<div class="tk-chips">' + pchips + '</div><div id="tk-stk"></div></div>';
+      '<div class="tk-chips">' + pchips + '</div><div id="tk-stk"></div></div></details>';
   }
   function renderPartners() { renderRank(); renderBubbles(); renderCrLines(); renderStack(); renderSummary(); }
   function renderRank() {
@@ -803,7 +823,7 @@ const SCRIPT = String.raw`(function () {
   function renderBridge() {
     var box = document.getElementById('tk-wf'); if (!box || !DATA) return;
     var p = selP(), met = S.bm, b = bridge(p.cur, p[ec()], met);
-    var chips = ['nr', 'fvm', 'gb', 'o'].map(function (k) { return '<button type="button" data-bm="' + k + '" class="' + (S.bm === k ? 'on' : '') + '">' + esc(BM[k].l) + '</button>'; }).join('');
+    var chips = ['o', 'gb', 'nr', 'fvm'].map(function (k) { return '<button type="button" data-bm="' + k + '" class="' + (S.bm === k ? 'on' : '') + '">' + esc(BM[k].l) + '</button>'; }).join('');
     if (!b) { box.innerHTML = '<div class="tk-chips">' + chips + '</div><div class="na">Sin base para armar el puente ' + esc(ecLbl()) + '.</div>'; return; }
     var mx = mixAnalysis(), its = [];
     b.items.forEach(function (i) {
@@ -1075,7 +1095,7 @@ const SCRIPT = String.raw`(function () {
       main.forEach(function (k) { var d = dv(byK[k]); if (d == null) return; sum += d; cols.push({ l: cLbl(k), s: dplain(delta(met === 'o' ? 'o' : met, BM[met].v(byK[k].cur.r), BM[met].v(byK[k][c].r))), c: d, kind: 'd' }); });
       cols.push({ l: 'Resto', s: 'otros países', c: (v1 - v0) - sum, kind: 'd' });
       cols.push({ l: S.k === 'ytd' ? 'Acumulado' : (S.gran === 'm' ? 'Este mes' : 'Esta semana'), v: v1, kind: 'end' });
-      var chips = ['nr', 'fvm', 'gb', 'o'].map(function (k) { return '<button type="button" data-bm="' + k + '" class="' + (S.bm === k ? 'on' : '') + '">' + esc(BM[k].l) + '</button>'; }).join('');
+      var chips = ['o', 'gb', 'nr', 'fvm'].map(function (k) { return '<button type="button" data-bm="' + k + '" class="' + (S.bm === k ? 'on' : '') + '">' + esc(BM[k].l) + '</button>'; }).join('');
       wf.innerHTML = '<div class="tk-chips">' + chips + '</div><div class="tk-chart tk-wf">' + drawWF(cols, met) + '</div>';
     } else wf.innerHTML = '<div class="na">Sin base para comparar ' + esc(ecLbl()) + '.</div>';
     // Una fila por país
@@ -1095,19 +1115,19 @@ const SCRIPT = String.raw`(function () {
   }
 
   // ── Apertura ──
-  var BDM = ['s', 'cr', 'o', 'gb', 'nr', 'fvm'];
+  var BDM = ['u', 's', 'd', 'pi', 'c', 'cr'];   // la apertura es de tráfico (2026-11-12); los resultados están en Resumen y Partners
   function renderBd() {
     var box = document.getElementById('tk-bd'); if (!box || !BD) return;
-    var noRes = BD.dim === 'plat' || BD.dim === 'ruta', ms = noRes ? ['u', 's', 'c', 'b', 'cr'] : BDM, cs = BD.k === 'ytd' ? ['ly'] : ['ly', 'tr', 'pv'];
+    var ms = BDM, cs = [BD.k === 'ytd' ? 'ly' : ec()], rows = BD.rows.filter(function (r) { return r.cur.t && r.cur.t.some(function (x) { return x; }); });
     var head = '<tr><th class="l">' + FL[BD.dim] + '</th>' + ms.map(function (m) { return '<th>' + esc(M[m].l) + '</th>'; }).join('') + '</tr>';
-    var body = BD.rows.map(function (r) {
+    var body = rows.map(function (r) {
       return '<tr class="click" data-v="' + esc(r.key) + '"><td class="l k">' + esc(r.lbl) + '</td>' + ms.map(function (m) {
         var a = val(m, r.cur);
         return '<td>' + fmt(m, a) + '<span class="s">' + cs.map(function (c) { return '<i>' + cmpShort(c) + '</i> ' + dtxt(delta(m, a, val(m, r[c]))); }).join(' ') + '</span></td>';
       }).join('') + '</tr>';
     }).join('');
-    box.innerHTML = BD.rows.length ? '<div class="tk-tw"><table class="tk-t"><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div>' +
-      (noRes ? '<div class="sub" style="margin:8px 0 0">' + esc(FL[BD.dim]) + ' solo existe en el tráfico: por eso esta apertura no tiene resultados (orders, NR).</div>' : '') : '<div class="na">Sin filas para este filtro.</div>';
+    box.innerHTML = rows.length ? '<div class="tk-tw"><table class="tk-t"><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div>' +
+      '<div class="sub" style="margin:8px 0 0">Δ ' + esc(ecLbl()) + ' (conversión en puntos). CvR = búsqueda → booking. Sin las filas sin tráfico (partners por API).</div>' : '<div class="na">Sin tráfico para este filtro.</div>';
   }
 
   function renderAll() {
@@ -1133,7 +1153,7 @@ const SCRIPT = String.raw`(function () {
         '<div class="op-row one">' + chart() + '</div></section>' +
         '<section class="tk-sec" id="s-car">' + h2(3, 'Qué cuentas hacer crecer exponencialmente, cuáles son maduras y cuáles despriorizar; y el perfil comercial de cada una.') + '<div id="tk-cart"><div class="tk-load">Cargando cartera…</div></div></section>' +
         '<section class="tk-sec" id="s-par">' + h2(4, 'Quién trae el volumen y quién convierte. Clic en un partner para filtrar el país por él.') + partnersShell() + '</section>' +
-        '<section class="tk-sec" id="s-ape">' + h2(5, 'LY = año pasado · T = tendencia · A = período anterior. Clic en una fila para filtrar por ella.') +
+        '<section class="tk-sec" id="s-ape">' + h2(5, 'El funnel abierto por partner, producto, plataforma o ruta. Clic en una fila para filtrar el país por ella.') +
         '<div class="tk-chips">' + tabs + '</div><div class="tk-card" id="tk-bd"></div></section></div>';
       renderSummary(); renderBridge(); renderMix(); renderBd(); renderPartners(); renderRuta(); renderCartBlocks();
       return;
@@ -1155,7 +1175,7 @@ const SCRIPT = String.raw`(function () {
     else if (t.classList.contains('tk-win')) { S.win = +t.value === 26 ? 0 : +t.value; renderAll(); syncUrl(); }
   });
   root.addEventListener('click', function (e) {
-    var b = e.target.closest('button, rect.bar, tr.click, .q-card, circle.q-pt');
+    var b = e.target.closest('button, rect.bar, circle.pt, tr.click, .q-card, circle.q-pt');
     if (!b) return;
     if (b.dataset.view) {
       S.view = b.dataset.view; CS.quad = '';
@@ -1174,7 +1194,7 @@ const SCRIPT = String.raw`(function () {
     else if (b.dataset.pm) { S.pm = b.dataset.pm; renderAll(); syncUrl(); }
     else if (b.dataset.bm) { S.bm = b.dataset.bm; renderAll(); syncUrl(); }
     else if (b.dataset.dim) { S.dim = b.dataset.dim; renderAll(); loadPeriod(); }
-    else if (b.tagName === 'rect' && b.dataset.k) { S.k = b.dataset.k; renderAll(); loadPeriod(); }
+    else if ((b.tagName === 'rect' || b.tagName === 'circle') && b.dataset.k) { S.k = b.dataset.k; renderAll(); loadPeriod(); }
     else if (b.tagName === 'TR' && b.dataset.pk) { S.f.partner = b.dataset.pk; load(); }
     else if (b.tagName === 'TR' && BD && b.dataset.v != null) { S.f[BD.dim] = b.dataset.v; if (S.dim === BD.dim) S.dim = FP.filter(function (d) { return !S.f[d]; })[0] || 'partner'; load(); }
   });
@@ -1182,7 +1202,8 @@ const SCRIPT = String.raw`(function () {
 })();`;
 
 function trackerPage({ basePath }) {
-  const back = `<a class="back" href="${escapeHtml(basePath)}/">${CHEVRON_L} B2B Ecosystem</a>`;
+  // "🏠 Home", como en el resto de los módulos (public/ownia-nav.js)
+  const back = `<a class="tk-home" href="${escapeHtml(basePath)}/" title="Volver al menú principal de B2B Ecosystem">🏠 Home</a>`;
   const cfg = JSON.stringify({ api: `${basePath}/b2b2c-tracker/data` }).replace(/</g, '\\u003c');
   return shell(`${CSS}<div id="tk-root">
     <div class="tk-hero">
