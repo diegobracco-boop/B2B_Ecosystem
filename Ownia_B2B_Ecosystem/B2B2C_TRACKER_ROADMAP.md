@@ -130,7 +130,14 @@ Calendario de eventos (feriados, Hot Sale / Black Friday / Cyber por país, elec
 ## Pendientes / preguntas abiertas
 
 - Pedir acceso a `data.analytics.mkt_users_dim_payments` (banco, tier y BIN de la tarjeta) para el usuario del Datalake del pipeline.
-- Definir con Producto B2B2C los pasos del funnel (checkout > PI) y bookings vs orders.
+- Funnel (2026-11-12, respuesta del agente de datos + validación propia): la tabla agrega `int_tracking__fact_events`. `user_count` = usuarios
+  únicos; `flow_search/detail/pi/checkout_count` = **eventos** (pageviews; recargas y reintentos suman); `booking` = transacciones únicas.
+  PI = Passenger Info (datos de pasajeros): los partners que llevan directo al pago lo saltean → oculto en el Tracker. `route_type` = par
+  origen-destino (NAC / INT); vacío en hoteles y entradas directas. Pedir a data-pipelines-b2b un checkout deduplicado por sesión / usuario.
+- Tipo de integración: `b2b_dim_partners.type_of_white_label` NO dice SaaS / deep-link / metabuscador (trae Acumulación, Agencia, Alojamiento,
+  Beneficio Abierto, Puntos: es el modelo de negocio) y `channel_modality` es ON / OFF; `country_code` viene vacío. Hoy el Tracker lo infiere
+  ("entra sin búsqueda" = menos búsquedas que bookings). `cluster` es mejor que la `industry` del CRM pero 76% "Otro" y con valores mezclados
+  por partner (TurismoCity = Financiero): la industria sigue saliendo del Excel del equipo.
 - Peer groups: ¿país + tier, o tipo de partner (banco / aerolínea / retail / fintech)? Hay `cluster` y `type_of_white_label` en `b2b_dim_partners`.
 - Supuestos de las oportunidades (p.ej. uplift por cuotas) a validar con Comercial antes de mostrarlos como USD.
 - Quién carga y cierra las acciones (¿ejecutivo de cuenta?) y cada cuánto se revisan (¿Flow semanal?).
