@@ -3147,6 +3147,10 @@ function render() {
   renderDrilldown();
   renderCompPnL();
   _renderDataStamp_();
+  if (_state.lob === 'b2b') {   // KRs de HTML contables siguen a los filtros (canal, país, organic)
+    if (_okrOrgLoaded !== null && _okrOrgWanted_() !== _okrOrgLoaded) { _state.okrAll = null; loadOKR(); }
+    else if (_state.okr) renderOKR(_state.okr);
+  }
 }
 
 // Sello de frescura: hasta qué mes hay real, desde cuál es Run Rate y cuándo se cargaron los datos
@@ -4776,8 +4780,14 @@ function _ddToggle(metricId, seriesKey, datasetIndex, checked) {
 //  OKR
 // ══════════════════════════════════════════════════════════
 
+// Organic con el que se pide el OKR: en la vista de KRs de HTML (B2B + MIN) sigue al switch Organic de arriba, así NR/OC (cubo)
+// y New Product Growth HTML (OKR H2) salen con el mismo criterio; en el resto, al botón Organic del bloque OKR.
+var _okrOrgLoaded = null;
+function _okrOrgWanted_() { return (_state.lob === 'b2b' && _state.canal === 'min') ? !!_orgOn_() : !!_okrOrganic; }
 function loadOKR() {
   if (IS_DEMO) { renderOKR(null); return; }
+  var _wantOrg = _okrOrgWanted_();
+  _okrOrgLoaded = _wantOrg;
   google.script.run
     .withSuccessHandler(function(res) {
       _state.okrAll = (res && res.success) ? (res.okrByHalf || null) : null;
@@ -4789,7 +4799,7 @@ function loadOKR() {
       renderOKR(_state.okr);
     })
     .withFailureHandler(function() { renderOKR(null); })
-    .getOKRData({ organic: _okrOrganic ? 'budget' : '' });
+    .getOKRData({ organic: _wantOrg ? 'budget' : '' });
 }
 function toggleOKROrganic() {
   _okrOrganic = !_okrOrganic;
@@ -4864,6 +4874,62 @@ function toggleOKRBlock(lobKey) {
   btn.textContent = open ? 'Ocultar KRs ▴' : 'Ver ' + tbl.querySelectorAll('tr.okr-kr').length + ' KRs ▾';
 }
 
+// KRs de HTML (canal MIN) 100% contables, armados con las MISMAS series que el Cuadro Resumen P&L / Evolutivo
+// (baseline + budget del cubo contable filtrados por LoB B2B, Canal MIN y país; organic según el switch de arriba).
+// Net Revenue y Operating Contribution (contables, del cubo filtrado) + New Product Growth HTML (estimado) + Accelerate Recurrence (gestional);
+// pesos 30/20/15/15 (los del OKR H2), normalizados sobre los KRs con dato.
+// Devuelve un bloque con la forma de okr[lob] o null si todavía no hay datos.
+function _okrHtmlContable_(okr) {
+  var evo = _state.evo, base = okr && okr.b2b;
+  if (!evo || !evo.metrics || !base) return null;
+  var last = _state.filters && _state.filters.lastActuals;
+  var pidx = {}; (evo.periods || []).forEach(function(ym, i) { pidx[ym] = i; });
+  function metric(id) { for (var i = 0; i < evo.metrics.length; i++) if (evo.metrics[i].id === id) return evo.metrics[i]; return null; }
+  var periods = base.periods;
+  function pctOf(a, b) { return (a === null || b === null || !b) ? null : a / b * 100; }
+  function pair(arrA, arrB, idxs) {   // suma de los meses con actual y budget
+    var sa = 0, sb = 0, n = 0;
+    idxs.forEach(function(i) { if (arrA[i] !== null && arrB[i] !== null) { sa += arrA[i]; sb += arrB[i]; n++; } });
+    return n ? { a: sa, b: sb } : { a: null, b: null };
+  }
+  var qIdx = [[0, 1, 2], [3, 4, 5]], allIdx = [0, 1, 2, 3, 4, 5];
+  var defs = [
+    { id: 'nr', label: 'Net Revenue HTML (MIN)',              weight: 30 },
+    { id: 'oc', label: 'Operating Contribution HTML (MIN)',   weight: 20 }
+  ];
+  var krs = [];
+  defs.forEach(function(d) {
+    var m = metric(d.id); if (!m) return;
+    var act = periods.map(function(ym) { var v = m.actuals[pidx[ym]]; return (v === undefined || v === null) ? null : v; });
+    var bud = periods.map(function(ym) { var v = m.budget[pidx[ym]];  return (v === undefined || v === null) ? null : v; });
+    var qp = qIdx.map(function(ix) { return pair(act, bud, ix); }), hp = pair(act, bud, allIdx);
+    krs.push({ label: d.label, weight: d.weight, pct: false,
+      monthly: act.map(function(a, i) { return pctOf(a, bud[i]); }),
+      quarterly: qp.map(function(p) { return pctOf(p.a, p.b); }), half: pctOf(hp.a, hp.b),
+      monthlyAct: act, monthlyBud: bud,
+      monthlyEstado: periods.map(function(ym, i) { return act[i] === null ? null : (last && ym > last ? 'Proyeccion' : 'Actual'); }),
+      monthlyImputed: periods.map(function() { return false; }),
+      quarterlyAct: qp.map(function(p) { return p.a; }), quarterlyBud: qp.map(function(p) { return p.b; }),
+      halfAct: hp.a, halfBud: hp.b });
+  });
+  // New Product Growth HTML (estimado) y Accelerate Recurrence (gestional, solo HTML): vienen de OKR_H2 ya calculados (computeOKR_)
+  var npg = okr['b2b html'] && okr['b2b html'].krs && okr['b2b html'].krs[0];
+  if (npg) krs.push(Object.assign({}, npg, { weight: 15 }));
+  (base.krs || []).forEach(function(k) { if (k.label === 'Accelerate Recurrence') krs.push(k); });
+  if (!krs.length) return null;
+  function weighted(getPct) {   // mismo criterio que computeOKR_: <70% = 0, tope 130%, sobre el peso con dato
+    var wS = 0, wUsed = 0, wAll = 0;
+    krs.forEach(function(k) { wAll += k.weight; var p = getPct(k); if (p !== null) { wS += (p < 70 ? 0 : Math.min(p, 130)) * k.weight; wUsed += k.weight; } });
+    return { total: wUsed ? wS / wUsed : null, cov: wAll ? wUsed / wAll * 100 : 0 };
+  }
+  var tM = periods.map(function(ym, i) { return weighted(function(k) { return k.monthly[i]; }); });
+  var tQ = base.quarters.map(function(q, qi) { return weighted(function(k) { return k.quarterly[qi]; }); });
+  var tH = weighted(function(k) { return k.half; });
+  return { label: 'B2B · HTML (MIN)', half: base.half, quarters: base.quarters, periods: periods, krs: krs,
+    totalMonthly: tM.map(function(t) { return t.total; }), totalQuarterly: tQ.map(function(t) { return t.total; }), halfTotal: tH.total,
+    covMonthly: tM.map(function(t) { return t.cov; }), covQuarterly: tQ.map(function(t) { return t.cov; }), halfCov: tH.cov };
+}
+
 function renderOKR(okr) {
   var col = document.getElementById('okr-col');
   if (!col) return;
@@ -4880,6 +4946,12 @@ function renderOKR(okr) {
   var _MES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
   function monLabel_(ym){ return _MES[parseInt(String(ym).substring(5,7),10)-1] || ym; }
   var _halfSel = _okrHalf || 'H1';
+  // Con B2B + canal MIN (HTML) en H2: solo los KRs de HTML, armados con la contabilidad filtrada (ver _okrHtmlContable_)
+  var _htmlMode = false;
+  if (_state.lob === 'b2b' && _state.canal === 'min' && _halfSel === 'H2') {
+    var _hc = _okrHtmlContable_(okr);
+    if (_hc) { okr = Object.assign({}, okr, { htmlcont: _hc }); _htmlMode = true; }
+  }
   var _halfBtn = function(h){
     return '<button class="gran-btn'+(h===_halfSel?' active':'')+'" onclick="setOKRHalf(\''+h+'\')" style="font-size:11px">'+h+'</button>';
   };
@@ -4889,13 +4961,16 @@ function renderOKR(okr) {
     +'<span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em">OKR Status '+FY_TAG+' · '+_halfSel+'</span>'
     +'<div style="display:flex;gap:6px">'
     +(_state.okrAll ? _halfBtn('H1')+_halfBtn('H2') : '')
-    +(_halfSel === 'H2' ? '<button id="okr-toggle-org" class="gran-btn'+(_okrOrganic ? ' active' : '')+'" onclick="toggleOKROrganic()" style="font-size:11px" title="Organic: KRs contables en USD a TC Budget (Run Rate / Actuals x TC Actuals / TC Budget, por pais)">Organic '+(_okrOrganic ? 'Sí' : 'No')+'</button>' : '')
+    +(_halfSel === 'H2' && !_htmlMode ? '<button id="okr-toggle-org" class="gran-btn'+(_okrOrganic ? ' active' : '')+'" onclick="toggleOKROrganic()" style="font-size:11px" title="Organic: KRs contables en USD a TC Budget (Run Rate / Actuals x TC Actuals / TC Budget, por pais)">Organic '+(_okrOrganic ? 'Sí' : 'No')+'</button>' : '')
     +'<button id="okr-toggle-nom" class="gran-btn" onclick="toggleOKRNominal()" style="font-size:11px">'
     +(_okrNominal ? '% Cumpl.' : '$/Q Nominal')+'</button>'
     +'<button id="okr-toggle" class="gran-btn" onclick="toggleOKRView()" style="font-size:11px">'
     +(_okrMonthly ? '⇄ Trimestral' : '⇄ Mensual')+'</button>'
     +'</div></div>';
-  if (_halfSel === 'H2') {
+  if (_htmlMode) {
+    html += '<div class="okr-note">KRs de HTML (canal MIN) con información contable: mismas series que el Cuadro Resumen P&amp;L (baseline + Budget, filtros de arriba'
+          + (_orgOn_() ? ' · Organic a TC Budget' : ' · nominal') + '). Oct–Mar: proyección (Run Rate / Forecast) hasta que haya cierre contable. NR y OC: contables (cubo filtrado). New Product Growth: estimado (Flights + Dest. Serv. contables de MIN + % new product de Packages General de HTML del Daily). Accelerate Recurrence: gestional (no hay contable). Pesos 30 / 20 / 15 / 15.</div>';
+  } else if (_halfSel === 'H2') {
     var _oi = _state.okrInfo && _state.okrInfo.organic;
     html += '<div class="okr-note">Oct–Mar: proyección (Run Rate) hasta que haya cierre contable. Sin dato → se toma igual al target (en cursiva). New Product Growth: estimado (Flights + Dest. Serv. contables + % de Packages General del Daily).'
           + (_okrOrganic && _oi && !_oi.error ? ' · Organic a TC Budget' + ((_oi.missing && _oi.missing.length) ? ' (sin TC: ' + _oi.missing.join(', ') + ')' : '') : '')
@@ -4905,7 +4980,8 @@ function renderOKR(okr) {
   }
 
   // 'globales' (KR Global B2B API) solo existe en H2 → en H1 okr['globales'] es undefined y se omite.
-  var lobsToRender = _state.lob === 'b2b2c' ? ['b2b2c']
+  var lobsToRender = _htmlMode ? ['htmlcont']
+                   : _state.lob === 'b2b2c' ? ['b2b2c']
                    : _state.lob === 'b2b'   ? ['b2b','globales']
                    : ['b2b2c','b2b','globales'];
   // Cada bloque arranca desplegado con el detalle de KRs; en Consolidado se puede plegar al Total.

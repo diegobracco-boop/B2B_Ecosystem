@@ -345,16 +345,20 @@ def _is_np_type(pt):
     return pt in NEW_PRODUCT_PKG_TYPES or pt.startswith("Espect")
 
 
-def packages_new_pct_by_month(mgr_json, key="b2b_ri"):
-    """{ym: (NR new product dentro de Packages General, NR Packages General)} del Daily (okr_h2_managerial.json)."""
+def packages_new_pct_by_month(mgr_json, key="b2b_ri", parent_channel=None):
+    """{ym: (NR new product dentro de Packages General, NR Packages General)} del Daily (okr_h2_managerial.json).
+    parent_channel: si viene (ej. "Agencias afiliadas" = HTML), solo ese canal del Daily."""
     blk = (mgr_json or {}).get(key) or {}
     cols, rows = blk.get("cols") or [], blk.get("rows") or []
     if not rows:
         return {}
     iF, iP, iT, iN = (cols.index(c) for c in ("fecha", "producto_original", "product_type", "net_revenue"))
+    iC = cols.index("parent_channel") if parent_channel else None
     out = defaultdict(lambda: [0.0, 0.0])
     for r in rows:
         if r[iP] != "Packages General":
+            continue
+        if iC is not None and r[iC] != parent_channel:
             continue
         m = str(r[iF])[:7]
         v = float(r[iN] or 0)
@@ -371,10 +375,16 @@ def _budget_np_share():
     return {str(p).lower(): sum(v for t, v in f.items() if _is_np_type(t)) for p, f in PKG_SPLIT_FACTORS.items()}
 
 
-def new_product_growth(baseline_data, budget_data, mgr_json, closed_until):
+NEW_PRODUCT_HTML_KR = "New Product Growth HTML"
+NEW_PRODUCT_HTML_LOB = "B2B HTML"   # LoB propio: solo lo lee la vista de KRs de HTML del Hub (2026-11-13); no entra a okr.json
+
+
+def new_product_growth(baseline_data, budget_data, mgr_json, closed_until, canal=None, kr=NEW_PRODUCT_KR, lob_out="B2B",
+                       parent_channel=None):
     """Filas (formato OKR_H2_FY27.json, por pais) del KR New Product Growth, Run Rate/Actuals y Budget, solo H2.
+    canal (ej. "min") / parent_channel (ej. "Agencias afiliadas"): variante por canal (HTML), con su propio % de Packages General.
     Devuelve (rows, info) con info = {pct por mes, ...} para el log."""
-    pm = packages_new_pct_by_month(mgr_json)
+    pm = packages_new_pct_by_month(mgr_json, parent_channel=parent_channel)
     cierre_ym = closed_until[:7]
     ult = [m for m in sorted(pm) if m <= cierre_ym and pm[m][1] > 0][-PCT_AVG_MONTHS:]
     if not ult:
@@ -391,10 +401,13 @@ def new_product_growth(baseline_data, budget_data, mgr_json, closed_until):
     def rows_for(canon, scen):
         c = canon["cols"]
         iL, iPr, iP, iN3, iF, iM = (c.index(x) for x in ("LoB", "Producto", "Pais", "P&L N3", "Fecha", "Monto USD"))
+        iCa = c.index("Canal") if canal else None
         acc = defaultdict(float)
         for r in canon["rows"]:
             f = str(r[iF])[:10]
             if f < H2_START or str(r[iL]).lower() != "b2b" or str(r[iN3]).lower() != "net revenue":
+                continue
+            if iCa is not None and str(r[iCa]).lower() != canal:
                 continue
             prod, pais, v = str(r[iPr]).lower(), str(r[iP]).lower(), float(r[iM] or 0)
             if prod in ("flights", "flight", "air", "dest. serv.", "d. services"):
@@ -405,11 +418,11 @@ def new_product_growth(baseline_data, budget_data, mgr_json, closed_until):
         out = []
         for (f, pais), v in sorted(acc.items()):
             est = BUD if scen == BUD else _estado_rr(f, closed_until)
-            out.append([f, scen, "B2B", pais, "Total", NEW_PRODUCT_KR, round(v, 2), est])
+            out.append([f, scen, lob_out, pais, "Total", kr, round(v, 2), est])
         return out
 
     rows = rows_for(baseline_data, RR) + rows_for(budget_data, BUD)
-    print(f"  [New Product Growth] % new product de Packages General: promedio {ult[0]}..{ult[-1]} = {avg * 100:.1f}% "
+    print(f"  [{kr}] % new product de Packages General: promedio {ult[0]}..{ult[-1]} = {avg * 100:.1f}% "
           f"(meses cerrados con % real: {[m for m in sorted(real) if m <= cierre_ym][-3:]}) · budget TOTAL {share_b.get('total', 0) * 100:.1f}% · {len(rows)} filas")
     return rows, {"avg": avg, "meses": ult}
 
@@ -479,7 +492,7 @@ def build_h2_rows(rows_baseline_h2, rows_budget_h2, rows_hunting_h2, rows_manual
 OKR_MONETARY_KRS = {
     "op. contribution", "operating contribution", "net revenues b2b", "operating contribution api",
     "operating contribution html", "net revenues api hoteles", "new account net revenues",
-    "existing account net revenues", "new product growth",
+    "existing account net revenues", "new product growth", "new product growth html",
 }
 _FX_PAIS_ALIAS = {"ops": "brasil", "rg": "brasil", "ops + rg": "brasil"}
 _FX_MES = {"abr": 4, "may": 5, "jun": 6, "jul": 7, "ago": 8, "sep": 9, "sept": 9, "oct": 10, "nov": 11, "dic": 12,

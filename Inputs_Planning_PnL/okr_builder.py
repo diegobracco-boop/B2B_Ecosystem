@@ -881,14 +881,18 @@ def build(upload=True):
     h2_hunt = h2b.hunting_farming_by_pais(daily_json, {"Run Rate/Actuals": nr_base, "Budget": nr_bud},
                                           last_actual_ym, closed_until, hunt_ov_pais)
     # New Product Growth (B2B) estimado: Flights + Dest. Serv. contables + % de Packages General del Daily (okr_h2_managerial.json)
-    h2_np = []
+    h2_np, h2_np_html = [], []
     try:
         mgr_json = _download_by_name(svc, DAILY_FOLDER_ID, "okr_h2_managerial.json", "okr_h2_managerial.json (apertura de Packages General)")
         h2_np, _ = h2b.new_product_growth(baseline_data, budget_data, mgr_json, closed_until)
+        # Variante HTML (canal MIN, % de Packages General de Agencias afiliadas): solo para la vista de KRs de HTML del Hub
+        h2_np_html, _ = h2b.new_product_growth(baseline_data, budget_data, mgr_json, closed_until, canal="min",
+                                               kr=h2b.NEW_PRODUCT_HTML_KR, lob_out=h2b.NEW_PRODUCT_HTML_LOB,
+                                               parent_channel="Agencias afiliadas")
     except Exception as e:
         print(f"  WARN [New Product Growth] no se pudo calcular ({e}) — el KR queda sin datos")
     all_rows = all_rows + h2b.totals_from_rows(h2_np, h2b.NEW_PRODUCT_KR)
-    h2_rows = h2b.build_h2_rows(h2_base + h2_np, h2_bud, h2_hunt, rows_manual, rows_partners, estado_ub, closed_until, estado_partners)
+    h2_rows = h2b.build_h2_rows(h2_base + h2_np + h2_np_html, h2_bud, h2_hunt, rows_manual, rows_partners, estado_ub, closed_until, estado_partners)
     _check_h2_vs_okr(h2_rows, all_rows)
 
     payload = {

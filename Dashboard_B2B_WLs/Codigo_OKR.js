@@ -52,6 +52,13 @@ var OKR_CONFIG_H2 = {
       { kr: 'accelerate recurrence',          label: 'Accelerate Recurrence',                weight: 15 }
     ]
   },
+  // Solo para la vista de KRs de HTML (canal MIN) del Hub: NPG estimado de HTML (okr_h2_builder.py, LoB "B2B HTML"). No se dibuja como bloque propio.
+  'b2b html': {
+    label: 'B2B HTML',
+    krs: [
+      { kr: 'new product growth html', label: 'New Product Growth HTML (estimado)', weight: 15 }
+    ]
+  },
   // KR Global B2B API (canal API · Hoteles), redefinidos 2026-10-21. Desde 2026-10-23 todo API, salvo Hoteles Directos LATAM (solo Others Countries; % Hoteles Directos Globales: todos los países desde 2026-10-30).
   // Conteos y % son stocks / fotos del mes → cumulative (último mes). NR API Hoteles es flujo
   // (suma, target = Budget contable). Price Competitiveness = adversidad → inverse.
@@ -127,7 +134,7 @@ var OKR_H2_FILE_ID = '1lsMF9_d1t55boO8Wr8vziMsFT9LQioov';
 var OKR_MONETARY_KRS_ = {
   'operating contribution': true, 'net revenues b2b': true, 'operating contribution api': true,
   'operating contribution html': true, 'net revenues api hoteles': true,
-  'new account net revenues': true, 'existing account net revenues': true, 'new product growth': true
+  'new account net revenues': true, 'existing account net revenues': true, 'new product growth': true, 'new product growth html': true
 };
 
 // KRs que NO toman el target cuando no hay actual (Diego 2026-10-27): Deploy New Partnership = lo que diga Input_OKR, estricto.

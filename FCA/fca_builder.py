@@ -157,6 +157,8 @@ def build(mes, umbral):
 
     items = []
     for (lob, kr), e in sorted(idx.items()):
+        if lob == h2b.NEW_PRODUCT_HTML_LOB:   # variante HTML del NPG: solo para la vista de KRs de HTML del Hub, no es un KR del FCA
+            continue
         u = unit_of(kr)
         r_p, b_p = e["rr"].get(mes, {}), e["bud"].get(mes, {})
         real, meta_v = total(r_p), total(b_p)
