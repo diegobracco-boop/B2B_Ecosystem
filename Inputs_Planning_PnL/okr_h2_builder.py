@@ -462,7 +462,8 @@ def partners_api_rows(snap):
     return rows, estado
 
 
-def build_h2_rows(rows_baseline_h2, rows_budget_h2, rows_hunting_h2, rows_manual, rows_partners, estado_ub, closed_until, estado_partners=None):
+def build_h2_rows(rows_baseline_h2, rows_budget_h2, rows_hunting_h2, rows_manual, rows_partners, estado_ub, closed_until, estado_partners=None,
+                  estado_recur=None):
     """Junta todo en el formato de OKR_H2_FY27.json (ordenado)."""
     out = list(rows_baseline_h2) + list(rows_budget_h2) + list(rows_hunting_h2)
     for r in list(rows_manual) + list(rows_partners):
@@ -473,6 +474,8 @@ def build_h2_rows(rows_baseline_h2, rows_budget_h2, rows_hunting_h2, rows_manual
             est = BUD
         elif str(kr).lower() == "unique buyers":
             est = estado_ub.get(str(f)[:10], "Manual")
+        elif str(kr).lower() == "accelerate recurrence":
+            est = (estado_recur or {}).get(str(f)[:10], "Manual")   # Real = foto de cierre, MTD = Rolling L4W en curso (okr_builder)
         elif str(kr).lower() == "accelerate hunting partners api":
             est = (estado_partners or {}).get(str(f)[:10], "Manual")
         elif str(kr).lower().startswith("hoteles directos") or str(kr).lower().startswith("% hoteles directos"):

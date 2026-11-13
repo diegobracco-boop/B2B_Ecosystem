@@ -25,8 +25,8 @@ Genera okr.json combinando cinco fuentes:
      y hay que congelar el conteo del snapshot mensual.
      Vida útil hasta Sep-2026; desde Oct-2026 cambia la lógica.
 
-  5. KR "Accelerate Recurrence" (B2B, H2): target y actual de Input_OKR, salvo el mes comercial en
-     curso, cuyo actual es el Rolling L4W de recurrencia_b2b.json (Daily, card Metabase 171400).
+  5. KR "Accelerate Recurrence" (B2B, H2): target de Input_OKR; actual de recurrencia_b2b.json (Daily, card
+     Metabase 171400) para todos los meses del H2: foto de cierre si el mes cerró, Rolling L4W si está en curso.
 
 Mismo criterio que Dashboard_B2B_WLs/Codigo_OKR.js (computeOKR_), consolidado acá para
 que la landing deje de calcular todo en vivo y solo lea este JSON.
@@ -756,12 +756,25 @@ def recurrence_html_rows(rows_manual, recur_json):
     de cierre; mes sin cierre -> Rolling L4W (roll_frecuentes_vivas) de la ultima semana cerrada (si no hay, la ultima que haya).
     Total = suma de paises. El target es el de Input_OKR (el Budget de "Accelerate Recurrence" de rows_manual).
     Meses sin datos en recurrencia_b2b.json (futuros): sin actual. Devuelve filas de 8 columnas (con Estado)."""
-    cols = (recur_json or {}).get("cols") or []
-    rows = [dict(zip(cols, r)) for r in (recur_json or {}).get("rows") or []]
     out = []
     for r in rows_manual:
         if r[1] == "Budget" and str(r[5]).lower() == "accelerate recurrence" and str(r[0])[:10] >= h2b.H2_START:
             out.append([r[0], "Budget", h2b.NEW_PRODUCT_HTML_LOB, "Total", "Total", "Accelerate Recurrence HTML", r[6], "Budget"])
+    for ym, v, est in _recurrence_actuals(recur_json):
+        out.append([_ym_to_periodo(ym), "Run Rate/Actuals", h2b.NEW_PRODUCT_HTML_LOB, "Total", "Total",
+                    "Accelerate Recurrence HTML", v, est])
+    print(f"  [Accelerate Recurrence HTML] {len([o for o in out if o[1] != 'Budget'])} meses con actual (criterio del Tracker)")
+    return out
+
+
+def _recurrence_actuals(recur_json):
+    """Actual de "Accelerate Recurrence" por mes comercial del H2, con el criterio del Status KRs H2 del Tracker (recurH2_ en
+    Daily_Dashboard/tracker.html): mes con foto de cierre -> mtd_frecuentes_vivas de la foto de cierre ("Real"); mes sin cierre ->
+    Rolling L4W (roll_frecuentes_vivas) de la última semana cerrada, o de la última que haya ("MTD"). Total = suma de países.
+    Meses sin datos en recurrencia_b2b.json (futuros): no aparecen. Devuelve [(ym, valor, estado)]."""
+    cols = (recur_json or {}).get("cols") or []
+    rows = [dict(zip(cols, r)) for r in (recur_json or {}).get("rows") or []]
+    out = []
     for ym in sorted({r["mes_comercial"] for r in rows}):
         if ym < h2b.H2_START[:7]:
             continue
@@ -772,44 +785,32 @@ def recurrence_html_rows(rows_manual, recur_json):
         k = max(int(r["semana_del_mes"] or 0) for r in pool)
         wk = [r for r in pool if int(r["semana_del_mes"] or 0) == k]
         if cierre:
-            v, est = sum(int(r["mtd_frecuentes_vivas"] or 0) for r in wk), "Real"
+            out.append((ym, sum(int(r["mtd_frecuentes_vivas"] or 0) for r in wk), "Real"))
         else:
-            v, est = sum(int(r["roll_frecuentes_vivas"] or 0) for r in wk), "MTD"
-        out.append([_ym_to_periodo(ym), "Run Rate/Actuals", h2b.NEW_PRODUCT_HTML_LOB, "Total", "Total",
-                    "Accelerate Recurrence HTML", v, est])
-    print(f"  [Accelerate Recurrence HTML] {len([o for o in out if o[1] != 'Budget'])} meses con actual (criterio del Tracker)")
+            out.append((ym, sum(int(r["roll_frecuentes_vivas"] or 0) for r in wk), "MTD"))
     return out
 
 
 def _apply_recurrence_rr(rows_manual, recur_json):
-    """KR B2B "Accelerate Recurrence" (H2 FY27): en el mes comercial EN CURSO el actual es el Rolling L4W
-    (roll_frecuentes_vivas de recurrencia_b2b.json, la misma query que el Status KRs H2 del Tracker: card
-    Metabase 171400), Total = suma de países, de la última semana cerrada del mes (si no hay ninguna, la
-    última que haya). Definido por diego.bracco 2026-10-27: cuando el mes cierra, el actual vuelve a salir
-    de Input_OKR (la foto de cierre queda congelada en la sheet) y los demás meses siguen de la sheet.
+    """KR B2B "Accelerate Recurrence" (H2 FY27): el actual de TODOS los meses del H2 sale de recurrencia_b2b.json
+    (Daily, card Metabase 171400) con el criterio del Status KRs H2 del Tracker (_recurrence_actuals): mes cerrado =
+    foto de cierre; mes en curso = Rolling L4W de la última semana cerrada. Total = suma de países.
+    2026-11-13 (diego.bracco): antes, al cerrar el mes el actual volvía a Input_OKR (foto cargada a mano), pero la sheet
+    tenía el target copiado como actual (oct-26: 3.396 = target; real de la fuente 3.254). Ahora Input_OKR solo da el
+    target, y los actuales que tenga la sheet para el H2 se descartan (meses futuros: sin actual).
     Si el JSON no está o no trae filas, queda todo como en Input_OKR."""
-    cols = (recur_json or {}).get("cols") or []
-    rows = [dict(zip(cols, r)) for r in (recur_json or {}).get("rows") or []]
-    if not rows:
+    act = _recurrence_actuals(recur_json)
+    if not act:
         print("  [Accelerate Recurrence] sin recurrencia_b2b.json — se mantiene Input_OKR")
-        return rows_manual
-    cerrados = {r["mes_comercial"] for r in rows if int(r["es_cierre_mes"]) == 1 and r["estado"] == "CIERRE"}
-    abiertos = sorted({r["mes_comercial"] for r in rows} - cerrados)
-    if not abiertos:
-        print("  [Accelerate Recurrence] ningún mes comercial en curso — se mantiene Input_OKR")
-        return rows_manual
-    ym = abiertos[-1]
-    del_mes = [r for r in rows if r["mes_comercial"] == ym]
-    sem = [r for r in del_mes if r["estado"] == "CIERRE"] or del_mes
-    k = max(int(r["semana_del_mes"]) for r in sem)
-    foto = [r for r in sem if int(r["semana_del_mes"]) == k]
-    v = sum(int(r["roll_frecuentes_vivas"]) for r in foto)
-    out = [r for r in rows_manual if not (r[1] == "Run Rate/Actuals" and r[5].lower() == "accelerate recurrence"
-                                          and str(r[0])[:7] == ym)]
-    out.append([_ym_to_periodo(ym), "Run Rate/Actuals", "B2B", "Total", "Total", "Accelerate Recurrence", v])
-    print(f"  [Accelerate Recurrence] {ym} en curso = Rolling L4W {v:,} (semana {k} del mes, "
-          f"{foto[0]['semana_desde']} a {foto[0]['semana_hasta']}); el resto de los meses, Input_OKR")
-    return out
+        return rows_manual, {}
+    out = [r for r in rows_manual if not (r[1] == "Run Rate/Actuals" and str(r[5]).lower() == "accelerate recurrence"
+                                          and str(r[0])[:10] >= h2b.H2_START)]
+    for ym, v, est in act:
+        out.append([_ym_to_periodo(ym), "Run Rate/Actuals", "B2B", "Total", "Total", "Accelerate Recurrence", v])
+    print("  [Accelerate Recurrence] actual desde recurrencia_b2b.json: " +
+          ", ".join(f"{ym} {v:,} ({'cierre' if est == 'Real' else 'Rolling L4W en curso'})" for ym, v, est in act) +
+          "; Input_OKR solo da el target")
+    return out, {_ym_to_periodo(ym)[:10]: est for ym, v, est in act}   # Estado en OKR_H2: "Real" (cierre) / "MTD" (en curso)
 
 
 # ── Build ──────────────────────────────────────────────────────────────────────
@@ -862,7 +863,7 @@ def build(upload=True):
     rows_manual   = _apply_globales_hoteles_actual(rows_manual, daily_json)
     rows_manual   = _apply_globales_gb(rows_manual, daily_json)
     rows_manual   = _apply_price_comp_actual(rows_manual, daily_json)
-    rows_manual   = _apply_recurrence_rr(rows_manual, recur_json)
+    rows_manual, estado_recur = _apply_recurrence_rr(rows_manual, recur_json)
     rows_manual   = _apply_globales_target_default(rows_manual)
     # Partners API: actual de partners_api_snapshots.json (Daily_Dashboard/partners_api_sync.py; meses congelados + rolling 30 dias).
     try:
@@ -924,7 +925,7 @@ def build(upload=True):
         print(f"  WARN [New Product Growth] no se pudo calcular ({e}) — el KR queda sin datos")
     all_rows = all_rows + h2b.totals_from_rows(h2_np, h2b.NEW_PRODUCT_KR)
     h2_np_html = h2_np_html + recurrence_html_rows(rows_manual, recur_json)
-    h2_rows = h2b.build_h2_rows(h2_base + h2_np + h2_np_html, h2_bud, h2_hunt, rows_manual, rows_partners, estado_ub, closed_until, estado_partners)
+    h2_rows = h2b.build_h2_rows(h2_base + h2_np + h2_np_html, h2_bud, h2_hunt, rows_manual, rows_partners, estado_ub, closed_until, estado_partners, estado_recur)
     _check_h2_vs_okr(h2_rows, all_rows)
 
     payload = {
