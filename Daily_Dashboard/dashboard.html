@@ -5874,17 +5874,20 @@ function flowGroupTable_(subRaw, metricKey, comp, col1, groupByRegion, childMax,
     [(subRaw.budget||[]),(subRaw.runrate||[])].forEach(function(arr){ arr.forEach(function(r){ addTier_(tierByPaisPartner, tierByPartner, r); }); });
     (subRaw.actuals||[]).forEach(function(r){ addTier_(tierByPaisPartnerA, tierByPartnerA, r); });
   }
+  // Partners New (stage de la cartera, hunting) van al grupo "Onboarding" en vez de su tier (pedido
+  // de Diego 2026-11-13: Caixa y Claro son New, no Tier-2). Mismo criterio que Hispa (hispaGrp_).
   function tierOf_(pais, partner){
     var pl=String(partner||'').toLowerCase(), kp=(pais||'Other')+'|'+pl;
+    if((stA[kp]||stB[kp])==='New') return 'Onboarding';
     return tierByPaisPartner[kp]||tierByPartner[pl]||tierByPaisPartnerA[kp]||tierByPartnerA[pl]||'Low Value';
   }
-  function tierRank_(t){ var m=/^tier[\s_-]*(\d+)/i.exec(t); return m ? +m[1] : 1000; }
-  // tierFirst: New/Existing por país x partner. Primero el account_type de los reales (viene
+  function tierRank_(t){ var m=/^tier[\s_-]*(\d+)/i.exec(t); return m ? +m[1] : t==='Onboarding' ? 1100 : 1000; }
+  // New/Existing por país x partner. Primero el account_type de los reales (viene
   // por partner_id, o sea ya por país, e incluye FORCE_NEW_PARTNERS); si ese país x partner no
   // tiene reales, el stage de budget/runrate (que en daily_sync.py es a nivel partner). Un solo
   // valor por país x partner para que baseline y goal caigan siempre en el mismo grupo.
   var stA={}, stB={};
-  if(tierFirst){
+  if(tierFirst || !groupByRegion || deep){
     // partner en minúsculas, igual que el tier (budget 'Livelo-API-Hoteles' vs actuals 'livelo-api-hoteles')
     (subRaw.actuals||[]).forEach(function(r){ if(!r.partner) return; var kp=(r.pais||'Other')+'|'+String(r.partner).toLowerCase();
       if(r.account_type==='New') stA[kp]='New'; else if(!stA[kp]) stA[kp]='Existing'; });

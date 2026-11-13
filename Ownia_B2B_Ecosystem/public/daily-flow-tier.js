@@ -19,7 +19,7 @@
   var COUNTRY_SHORT = { Argentina: 'AR', Chile: 'CL', Colombia: 'CO', Peru: 'PE', Ecuador: 'EC', Uruguay: 'UY', Paraguay: 'PY', Mexico: 'MX', USA: 'US', Brasil: 'BR', 'Other Countries': 'OT' };
   var uid = 0;
 
-  function tierRank(t) { var m = /^tier[\s_-]*(\d+)/i.exec(t || ''); return m ? +m[1] : (/low/i.test(t || '') ? 900 : 1000); }
+  function tierRank(t) { var m = /^tier[\s_-]*(\d+)/i.exec(t || ''); return m ? +m[1] : t === 'Onboarding' ? 950 : (/low/i.test(t || '') ? 900 : 1000); }
 
   function table(sub, mk, comp) {
     var W = window;
@@ -37,8 +37,18 @@
     }
     [(sub.budget || []), (sub.runrate || [])].forEach(function (a) { a.forEach(function (r) { addTier(tPP, tP, r); }); });
     (sub.actuals || []).forEach(function (r) { addTier(tPPa, tPa, r); });
+    // Partners New (stage de la cartera, hunting) van a "Onboarding" en vez de su tier (2026-11-13: Caixa y
+    // Claro son New, no Tier-2). Igual que flowGroupTable_: account_type de los reales por país × partner y, si
+    // no hay reales, el stage de budget/runrate.
+    var stA = {}, stB = {};
+    function kOf(r) { return (r.pais || 'Other') + '|' + String(r.partner).toLowerCase(); }
+    (sub.actuals || []).forEach(function (r) { if (!r.partner) return; var kp = kOf(r);
+      if (r.account_type === 'New') stA[kp] = 'New'; else if (!stA[kp]) stA[kp] = 'Existing'; });
+    [(sub.budget || []), (sub.runrate || [])].forEach(function (a) { a.forEach(function (r) { if (!r.partner) return; var kp = kOf(r);
+      if (r.stage === 'New') stB[kp] = 'New'; else if (!stB[kp]) stB[kp] = 'Existing'; }); });
     function tierOf(pais, partner) {
       var pl = String(partner || '').toLowerCase(), kp = (pais || 'Other') + '|' + pl;
+      if ((stA[kp] || stB[kp]) === 'New') return 'Onboarding';
       return tPP[kp] || tP[pl] || tPPa[kp] || tPa[pl] || 'Low Value';
     }
 
