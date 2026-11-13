@@ -1184,8 +1184,11 @@ SELECT
     END AS Pais,
 
     SUM(b.gb_without_distorted_taxes_usd)                               AS gb,
+    -- 2026-11-13: SIN corrección BE. data.tmp.correccion_be está rota (Trino devuelve "JSON parsing error:
+    -- errorCode member not found" y caen B2C y B2C LY). Hasta que el equipo B2C la reponga, NR y FVM B2C
+    -- salen sin esa corrección y difieren de la query oficial (ACT v4). Al volver la tabla: reponer el
+    -- LEFT JOIN y los dos COALESCE(be.correccion_be, 0).
     SUM(b.net_revenues_usd
-        + COALESCE(be.correccion_be, 0)
         + COALESCE(mkt.monto_usd, 0))                                    AS net_revenues,
     -- FVM (2026-11-09) = el "NPV AS FVM" de la query oficial del equipo B2C (ACT v4): npv_net_usd + corrección
     -- BE + mktg funds + mkt funds BD1. npv_net ya trae margen variable + Financial Result + Dif FX con la
@@ -1193,7 +1196,6 @@ SELECT
     -- Antes (2026-10-27 a 2026-11-09): margin_variable_net + financial_result + dif_fx(+air) + hedge(+air),
     -- que en Argentina restaba la Dif FX de más (W45: 2,510.7k vs 2,646.0k).
     SUM(b.npv_net_usd
-        + COALESCE(be.correccion_be, 0)
         + COALESCE(d.mktg_funds_usd, 0)
         + COALESCE(mkt.monto_usd, 0)) AS margenVAr_conAA,
     -- COI + efecto financiero tal como entran en el FVM (mismo criterio que coi_fin_br de B2B2C); agg_b2c
@@ -1208,9 +1210,6 @@ FROM data.analytics.bi_pnlop_fact_current_model b
 
     INNER JOIN analytics.bi_transactional_fact_transactions t
         ON t.transaction_code = p.transaction_code
-
-    LEFT JOIN data.tmp.correccion_be be
-        ON CAST(be.product_id AS VARCHAR) = CAST(b.product_id AS VARCHAR)
 
     LEFT JOIN data.tmp.mktg_funds d
         ON CAST(d.product_id AS VARCHAR) = CAST(b.product_id AS VARCHAR)
