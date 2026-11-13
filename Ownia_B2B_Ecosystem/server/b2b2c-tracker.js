@@ -399,6 +399,25 @@ function parseMgr(json) {
 // Cuadrantes: tamaño = NR anual (grande desde BIG_NR); potencial = multiplicador moonshot (alto desde HI_MULT).
 //   Estrella (grande, alto potencial): crecer exponencial · Apuesta (chica, alto): validar y escalar ·
 //   Madura (grande, bajo): defender y rentabilizar · Despriorizar (chica, baja) · Sin tráfico (API o sin sitio): no se puede medir.
+// Industria de cada cuenta: del Excel "B2B2C_Data Histórica" del equipo (server/b2b2c-partner-bases.json, campo industria). La de la
+// cartera de Comercial (comdev_cartera_b2b2c_historic.industry) no sirve: Latam figura como "Bancos" y BBVA como "WL Hotels" (2026-11-12).
+const BASES_FILE = require('path').join(__dirname, 'b2b2c-partner-bases.json');
+let INDUSTRIA = null;
+function industria(partner, pais) {
+  if (!INDUSTRIA) {
+    INDUSTRIA = { exact: new Map(), any: new Map() };
+    try {
+      (JSON.parse(require('fs').readFileSync(BASES_FILE, 'utf8')).rows || []).forEach((b) => {
+        if (!b.partner || !b.industria) return;
+        const p = String(b.partner).toLowerCase();
+        INDUSTRIA.exact.set(p + '|' + b.pais, b.industria);
+        if (!INDUSTRIA.any.has(p)) INDUSTRIA.any.set(p, b.industria);
+      });
+    } catch (e) { /* sin archivo: pares por país */ }
+  }
+  const p = String(partner).toLowerCase();
+  return INDUSTRIA.exact.get(p + '|' + pais) || INDUSTRIA.any.get(p) || (AIRLINES.test(partner) ? 'Aerolinea' : null);
+}
 const BIG_NR = 1e6, HI_MULT = 2, MOON_X = 3, MOON_CAP = 5, MIN_USERS = 20000, MIN_NR = 50000;
 const AIRLINES = /^(latam|sky|avianca|aerol[ií]neas|gol|azul|copa|jetsmart|flybondi|aeromexico|volaris|viva)(?![a-z])/i;
 const MOON_PRODS = ['Vuelos', 'Hoteles', 'Paquetes', 'Autos', 'Servicios en destino', 'Asistencia'];
@@ -420,7 +439,7 @@ function cartera(data) {
   const okLy = new Set(tKeys.filter((k) => frm.keys.includes(lyKey(k)) && !frm.flag[lyKey(k)])), lyT = new Set([...okLy].map(lyKey));   // YoY de usuarios: solo meses comparables
   const fy0 = keys[0] + '-01', days = Math.round((new Date(data.last + 'T00:00:00Z') - new Date(fy0 + 'T00:00:00Z')) / 864e5) + 1, ann = 365 / days;
   const P = new Map(), key = (p, c) => p + '|' + c;
-  const get = (p, c) => { const k = key(p, c); let x = P.get(k); if (!x) P.set(k, x = { partner: p, pais: c, o: 0, nr: 0, fvm: 0, u: 0, uC: 0, uLy: 0, oT: 0, nrT: 0, prod: {} }); return x; };
+  const get = (p, c) => { const k = key(p, c); let x = P.get(k); if (!x) P.set(k, x = { partner: p, pais: c, o: 0, nr: 0, fvm: 0, u: 0, s: 0, b: 0, uC: 0, uLy: 0, oT: 0, nrT: 0, prod: {} }); return x; };
   for (const r of data.daily) {
     if (r.partner === 'Otros' || !inFY.has(r.d.m)) continue;
     const x = get(r.partner, r.pais), q = x.prod[r.prod] || (x.prod[r.prod] = 0);
@@ -429,26 +448,43 @@ function cartera(data) {
   }
   for (const r of data.traffic) {
     if (r.partner === 'Otros') continue;
-    if (inT.has(r.m)) { const x = P.get(key(r.partner, r.pais)); if (x) { x.u += r.v[0]; if (okLy.has(r.m)) x.uC += r.v[0]; } }
+    if (inT.has(r.m)) { const x = P.get(key(r.partner, r.pais)); if (x) { x.u += r.v[0]; x.s += r.v[1]; x.b += r.v[5]; if (okLy.has(r.m)) x.uC += r.v[0]; } }
     else if (lyT.has(r.m)) { const x = P.get(key(r.partner, r.pais)); if (x) x.uLy += r.v[0]; }
   }
   const list = [...P.values()].filter((x) => x.nr * ann >= MIN_NR);
   list.forEach((x) => {
     const ok = x.u >= MIN_USERS && x.nrT > 0 && x.oT > 0;
     x.npu = ok ? x.nrT / x.u : null; x.opu = ok ? x.oT / x.u : null; x.nrpo = ok ? x.nrT / x.oT : null;
+    // Deriva tráfico: entra directo a la compra (menos búsquedas que bookings, p.ej. un metabuscador): activación y conversión no se separan
+    x.deriva = ok && x.s < x.b;
+    x.spu = ok && !x.deriva ? x.s / x.u : null; x.ops = ok && !x.deriva && x.s > 0 ? x.oT / x.s : null;
+    x.ind = industria(x.partner, x.pais);
   });
   const mgr = data.mgr;
   const rows = list.map((x) => {
-    const pool = (same) => list.filter((y) => y !== x && y.npu != null && (same ? y.pais === x.pais : REGION_OF[y.pais] === REGION_OF[x.pais]));
-    let peers = pool(true), peerScope = 'país';
-    if (peers.length < 3) { peers = pool(false); peerScope = 'región'; }
+    // Pares (2026-11-12, Diego): misma industria, del país → de la región → de todos los países; sin industria (o sin 3 pares), el país → la región
+    const base = list.filter((y) => y !== x && y.npu != null);
+    const steps = [
+      [(y) => x.ind && y.ind === x.ind && y.pais === x.pais, 'industria · país'],
+      [(y) => x.ind && y.ind === x.ind && REGION_OF[y.pais] === REGION_OF[x.pais], 'industria · región'],
+      [(y) => x.ind && y.ind === x.ind, 'industria · todos los países'],
+      [(y) => y.pais === x.pais, 'país (todas las industrias)'],
+      [(y) => REGION_OF[y.pais] === REGION_OF[x.pais], 'región (todas las industrias)'],
+    ];
+    let peers = [], peerScope = null;
+    for (const [f, lbl] of steps) { peers = base.filter(f); peerScope = lbl; if (peers.length >= 3) break; }
     const p50 = quant(peers.map((y) => y.npu), 0.5), p75 = quant(peers.map((y) => y.npu), 0.75);
     let multR = 1, multM = 1, lever = null;
     if (x.npu != null && p50) {
       multR = Math.min(2, Math.max(1, p50 / x.npu));
       multM = p75 ? Math.min(MOON_CAP, Math.max(1, p75 / x.npu)) : multR;
-      const gC = Math.log(Math.max(1, (quant(peers.map((y) => y.opu), 0.5) || 0) / x.opu)), gV = Math.log(Math.max(1, (quant(peers.map((y) => y.nrpo), 0.5) || 0) / x.nrpo));
-      lever = gC < 0.05 && gV < 0.05 ? null : gC >= gV ? 'conversión' : 'valor por order';
+      // NR por usuario = búsquedas por usuario (activación) × orders por búsqueda (conversión) × NR por order (valor)
+      const gap = (own, f) => (own > 0 ? Math.log(Math.max(1, (quant(peers.map(f), 0.5) || 0) / own)) : 0);
+      const gs = x.deriva
+        ? [['conversión', gap(x.opu, (y) => y.opu)], ['valor por order', gap(x.nrpo, (y) => y.nrpo)]]
+        : [['activación', gap(x.spu, (y) => y.spu)], ['conversión', gap(x.ops, (y) => y.ops)], ['valor por order', gap(x.nrpo, (y) => y.nrpo)]];
+      gs.sort((a, b) => b[1] - a[1]);
+      lever = gs[0][1] < 0.05 ? null : gs[0][0];
     }
     // Mix: monoproducto y verticales a sumar (pares del mismo país con volumen)
     const share = (y, pr) => (y.o > 0 ? (y.prod[pr] || 0) / y.o : 0);
@@ -461,7 +497,8 @@ function cartera(data) {
     const ps = PS_PARTNERS[x.partner.toLowerCase()] === x.pais;
     const nrA = x.nr * ann, uA = x.u ? x.u * 12 / tKeys.length : null;
     const r = {
-      partner: x.partner, pais: x.pais, region: REGION_OF[x.pais] || null, director: data.director[x.partner.toLowerCase()] || null,
+      partner: x.partner, pais: x.pais, region: REGION_OF[x.pais] || null, director: data.director[x.partner.toLowerCase()] || null, industria: x.ind,
+      spu: x.spu, spuPeer: quant(peers.map((y) => y.spu), 0.5), ops: x.ops, deriva: x.deriva,
       nr: nrA, fvm: x.fvm * ann, orders: x.o * ann, users: uA, uYoY: x.uLy >= MIN_USERS ? x.uC / x.uLy - 1 : null, uYoYn: okLy.size,
       npu: x.npu, opu: x.opu, nrpo: x.nrpo, p50, p75, peers: peers.length, peerScope, multR, multM, potR: nrA * (multR - 1), potM: nrA * (multM - 1), lever,
       topProd: prods[0][1] > 0 ? prods[0][0] : null, topShare: prods[0][1], mono: prods[0][1] >= 0.8, addProds,

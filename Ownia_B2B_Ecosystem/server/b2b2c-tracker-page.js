@@ -466,7 +466,9 @@ const SCRIPT = String.raw`(function () {
   // Ancho de cada escalón en escala logarítmica (de usuarios a bookings hay ~100x: en escala lineal los últimos pasos no se verían);
   // los números van escritos. A la derecha, la conversión desde el paso anterior y sus Δ en puntos porcentuales.
   function funnel(p, compact) {
-    var steps = ['u', 's', 'd', 'pi', 'c', 'b'], t = p.cur.t;
+    // PI fuera del funnel (2026-11-12, Diego): no está claro qué mide (checkout lo supera); vuelve cuando Producto B2B2C lo valide
+    var steps = ['u', 's', 'd', 'c', 'b'], si = [0, 1, 2, 4, 5], t0 = p.cur.t, t = t0 ? si.map(function (i) { return t0[i]; }) : null;
+    var sub = function (x) { return x ? si.map(function (i) { return x[i]; }) : null; };
     if (!t) return '<div class="tk-card"><div class="na">Sin datos de tráfico para este filtro y período (p.ej. partners por API, que no pasan por el sitio).</div></div>';
     var cs = p.ytd ? [['ly', 'vs LY']] : compact ? cmps().filter(function (c) { return c[0] === ec(); }) : cmps();
     var W = compact ? 640 : 1000, top = 30, rowH = 64, FW = compact ? 330 : 470, cx = FW / 2 + 10, colX = (compact ? [520, 630] : [640, 750, 860, 970]).slice(0, 1 + cs.length);
@@ -481,7 +483,7 @@ const SCRIPT = String.raw`(function () {
       var y0 = top + i * rowH, y1 = y0 + rowH - 4, w0 = wOf(t[i]), w1 = i < steps.length - 1 ? wOf(t[i + 1]) : w0 * 0.86;
       var op = (1 - i * 0.09).toFixed(2), conv = i ? rat(t[i], t[i - 1]) : null;
       var tip = M[m].l + ': ' + num(t[i], 0) + (conv != null ? '\nConversión desde ' + M[steps[i - 1]].l.toLowerCase() + ': ' + num(conv * 100, 1) + '%' : '');
-      cs.forEach(function (c) { var b = p[c[0]].t; tip += '\n' + c[1] + ': ' + (b ? num(b[i], 0) + ' (' + dplain(delta(m, t[i], b[i])) + ')' : 'n/d'); });
+      cs.forEach(function (c) { var b = sub(p[c[0]].t); tip += '\n' + c[1] + ': ' + (b ? num(b[i], 0) + ' (' + dplain(delta(m, t[i], b[i])) + ')' : 'n/d'); });
       g += '<g class="st"><title>' + esc(tip) + '</title><path d="M' + (cx - w0 / 2).toFixed(1) + ' ' + y0 + 'L' + (cx + w0 / 2).toFixed(1) + ' ' + y0 + 'L' + (cx + w1 / 2).toFixed(1) + ' ' + y1 + 'L' + (cx - w1 / 2).toFixed(1) + ' ' + y1 + 'Z" fill="var(--primary)" fill-opacity="' + op + '"/>' +
         '<text class="sl" x="' + cx + '" y="' + (y0 + rowH / 2 - 4) + '">' + esc(M[m].l) + '</text><text class="sv" x="' + cx + '" y="' + (y0 + rowH / 2 + 14) + '">' + esc(fmt(m, t[i])) + '</text></g>';
       g += '<line class="gl" x1="' + (FW + 40) + '" x2="' + W + '" y1="' + (y1 + 2) + '" y2="' + (y1 + 2) + '"/>';
@@ -489,7 +491,7 @@ const SCRIPT = String.raw`(function () {
         var ym = y0 + rowH / 2 + 5;
         g += '<text class="cv" x="' + colX[0] + '" y="' + ym + '">' + num(conv * 100, 1) + '%</text>';
         cs.forEach(function (c, j) {
-          var b = p[c[0]].t, cb = b ? rat(b[i], b[i - 1]) : null, d = conv != null && cb != null ? { v: (conv - cb) * 100, pp: true } : null;
+          var b = sub(p[c[0]].t), cb = b ? rat(b[i], b[i - 1]) : null, d = conv != null && cb != null ? { v: (conv - cb) * 100, pp: true } : null;
           g += '<text class="dv ' + dcls(d) + '" x="' + colX[j + 1] + '" y="' + ym + '">' + dplain(d) + '</text>';
         });
       }
@@ -775,7 +777,7 @@ const SCRIPT = String.raw`(function () {
   }
 
   // ── Lectura: tres líneas con la conclusión ──
-  var STEPS = ['Usuarios', 'Búsquedas', 'Detalle', 'PI', 'Checkout', 'Bookings'];
+  var STEPS = ['Usuarios', 'Búsquedas', 'Detalle', 'PI', 'Checkout', 'Bookings'], FSTEP = [1, 2, 4, 5];   // pasos que se leen (sin PI)
   function renderSummary() {
     var box = document.getElementById('tk-sum'); if (!box || !DATA) return;
     var p = selP(), c = ec(), base = p[c], met = S.bm, out = [];
@@ -793,15 +795,15 @@ const SCRIPT = String.raw`(function () {
     // 2) Funnel: el paso cuya conversión más se movió
     if (p.cur.t && base && base.t) {
       var best = null;
-      for (var i = 2; i < 6; i++) {
-        var c1 = rat(p.cur.t[i], p.cur.t[i - 1]), c0 = rat(base.t[i], base.t[i - 1]);
+      for (var q = 1; q < FSTEP.length; q++) {
+        var i = FSTEP[q], h = FSTEP[q - 1], c1 = rat(p.cur.t[i], p.cur.t[h]), c0 = rat(base.t[i], base.t[h]);
         if (c1 == null || c0 == null) continue;
         var dv = (c1 - c0) * 100;
-        if (!best || Math.abs(dv) > Math.abs(best.dv)) best = { i: i, c1: c1, dv: dv };
+        if (!best || Math.abs(dv) > Math.abs(best.dv)) best = { i: i, h: h, c1: c1, dv: dv };
       }
       var cr1 = rat(p.cur.t[5], p.cur.t[1]), cr0 = rat(base.t[5], base.t[1]);
       out.push('Funnel: conversión búsqueda → booking <b>' + num(cr1 * 100, 2) + '%</b> (' + dtxt({ v: (cr1 - cr0) * 100, pp: true }) + ')' +
-        (best ? '; el paso que más se movió es <b>' + STEPS[best.i - 1].toLowerCase() + ' → ' + STEPS[best.i].toLowerCase() + '</b>: ' + num(best.c1 * 100, 1) + '% (' + dtxt({ v: best.dv, pp: true }) + ').' : '.'));
+        (best ? '; el paso que más se movió es <b>' + STEPS[best.h].toLowerCase() + ' → ' + STEPS[best.i].toLowerCase() + '</b>: ' + num(best.c1 * 100, 1) + '% (' + dtxt({ v: best.dv, pp: true }) + ').' : '.'));
     } else out.push('<span class="na">Funnel: el tráfico no se puede comparar ' + esc(ecLbl()) + ' en este período (en curso, incompleto o sin base).</span>');
     // 3) Partners que suman y restan
     if (PART && PART.k === S.k) {
@@ -871,7 +873,7 @@ const SCRIPT = String.raw`(function () {
     sin_trafico: { l: 'Sin tráfico', a: 'No se puede medir', d: 'Venden por API o fuera del sitio: sin usuarios no hay techo.', c: 'var(--ly)' },
   };
   var QORD = ['estrella', 'apuesta', 'madura', 'despriorizar'];
-  var LEV = { 'conversión': 'Conversión (que compren los que ya entran)', 'valor por order': 'Valor por order (ticket y take rate)' };
+  var LEV = { 'activación': 'Activación (que busquen los que entran)', 'conversión': 'Conversión (que compren los que buscan)', 'valor por order': 'Valor por order (ticket y take rate)' };
   function qBadge(q) { return '<span class="q-b" style="--qc:' + QD[q].c + '">' + esc(QD[q].l) + '</span>'; }
   function cMoney(v) { return v == null ? '—' : '$' + big(v); }
   function cX(v) { return v == null ? '—' : num(v, 1) + 'x'; }
@@ -883,6 +885,7 @@ const SCRIPT = String.raw`(function () {
     if (r.canje != null && r.canje >= 0.05) t.push('<span class="pf cj">Canje ' + num(r.canje * 100, 0) + '% del GB</span>');
     if (r.mono && r.topProd) t.push('<span class="pf mo">Monoproducto · ' + esc(lower(r.topProd)) + ' ' + num(r.topShare * 100, 0) + '%</span>');
     if (r.addProds && r.addProds.length) t.push('<span class="pf ad">Sumar ' + esc(r.addProds.map(lower).join(', ')) + '</span>');
+    if (r.deriva) t.push('<span class="pf">Entra sin búsqueda (deriva tráfico)</span>');
     if (r.gb == null) t.push('<span class="pf">sin dato del Managerial</span>');
     return t.join(' ');
   }
@@ -939,7 +942,7 @@ const SCRIPT = String.raw`(function () {
       var cx = x(r.nr), cy = y(r.multM), rr = rad(r.users);
       g += '<circle class="q-pt" data-ms="' + esc(r.partner) + '" data-mp="' + esc(r.pais) + '" cx="' + cx.toFixed(1) + '" cy="' + cy.toFixed(1) + '" r="' + rr.toFixed(1) + '" fill="' + QD[r.quad].c + '"><title>' + esc(r.partner + ' · ' + cLbl(r.pais) + ' (' + QD[r.quad].l + ')\nNR anual: $' + big(r.nr) +
         '\nUsuarios por mes: ' + big((r.users || 0) / 12) + '\nNR por usuario: $' + num(r.npu, 2) + ' (mediana pares $' + num(r.p50 || 0, 2) + ', p75 $' + num(r.p75 || 0, 2) + ')' +
-        '\nTecho realista ' + num(r.multR, 1) + 'x · moonshot ' + num(r.multM, 1) + 'x\nPalanca: ' + (r.lever || '—')) + '</title></circle>';
+        '\nTecho realista ' + num(r.multR, 1) + 'x · moonshot ' + num(r.multM, 1) + 'x (pares: ' + (r.peerScope || '—') + ')\nPalanca: ' + (r.lever || '—')) + '</title></circle>';
     });
     var placed = [];
     pts.filter(function (r) { return r.nr >= CART.bigNr || r.multM >= CART.moonX; }).sort(function (a, b) { return y(a.multM) - y(b.multM); }).forEach(function (r) {
@@ -953,16 +956,17 @@ const SCRIPT = String.raw`(function () {
   }
   function cartTable(rows) {
     if (!rows.length) return '<div class="na">Sin cuentas para este filtro.</div>';
-    var head = '<tr><th class="l">Cuenta</th><th class="l">Cuadrante</th><th>NR anual</th><th>Usuarios / mes</th><th>NR por usuario<br><span class="na" style="text-transform:none">propio · mediana pares</span></th>' +
+    var head = '<tr><th class="l">Cuenta</th><th class="l">Cuadrante</th><th>NR anual</th><th>Usuarios / mes</th><th>Búsquedas por usuario<br><span class="na" style="text-transform:none">propio · mediana pares</span></th><th>NR por usuario<br><span class="na" style="text-transform:none">propio · mediana pares</span></th>' +
       '<th>Techo<br><span class="na" style="text-transform:none">realista · moonshot</span></th><th>NR potencial<br><span class="na" style="text-transform:none">moonshot</span></th><th class="l">Palanca</th><th class="l">Perfil comercial</th></tr>';
     var body = rows.map(function (r) {
       var st = r.quad === 'sin_trafico';
       return '<tr class="click" data-ms="' + esc(r.partner) + '" data-mp="' + esc(r.pais) + '"><td class="l k">' + esc(r.partner) + (CS_SHOWPAIS ? ' <span class="na">· ' + esc(cLbl(r.pais)) + '</span>' : '') +
-        '<span class="s na">' + esc(r.director || 'Sin director') + '</span></td>' +
+        '<span class="s na">' + esc((r.industria || 'Sin industria') + ' · ' + (r.director || 'Sin director')) + '</span></td>' +
         '<td class="l">' + qBadge(r.quad) + (r.cand ? ' <span class="q-3x">3x</span>' : '') + '</td>' +
         '<td>' + cMoney(r.nr) + '<span class="s na">FVM ' + cMoney(r.fvm) + '</span></td>' +
         '<td>' + (st ? '—' : big((r.users || 0) / 12)) + '<span class="s">' + (r.uYoY != null ? dtxt({ v: r.uYoY * 100, pp: false }) + ' <i>LY</i>' : '<span class="na">n/d</span>') + '</span></td>' +
-        '<td>' + (r.npu != null ? '$' + num(r.npu, 2) : '—') + '<span class="s na">' + (r.p50 != null ? '$' + num(r.p50, 2) + (r.peerScope === 'región' ? ' (región)' : '') : '—') + '</span></td>' +
+        '<td>' + (r.spu != null ? num(r.spu * 100, 0) + '%' : '—') + '<span class="s na">' + (r.spuPeer != null ? num(r.spuPeer * 100, 0) + '%' : '—') + '</span></td>' +
+        '<td>' + (r.npu != null ? '$' + num(r.npu, 2) : '—') + '<span class="s na">' + (r.p50 != null ? '$' + num(r.p50, 2) : '—') + '</span></td>' +
         '<td>' + (st ? '—' : cX(r.multR) + '<span class="s"><span class="ms-m' + (r.multM >= CART.moonX ? ' hi' : '') + '">' + cX(r.multM) + '</span></span>') + '</td>' +
         '<td>' + (st ? '—' : '+' + cMoney(r.potM)) + '</td>' +
         '<td class="l">' + esc(r.lever ? LEV[r.lever] || r.lever : '—') + '</td>' +
@@ -987,8 +991,12 @@ const SCRIPT = String.raw`(function () {
     return '<div class="op-row one">' + cartCards(rows, sel) + '</div>' +
       '<div class="op-row"><div class="tk-card"><h3>Mapa de la cartera</h3><div class="sub">Cada burbuja es una cuenta (partner × país). Derecha = grande (NR ≥ ' + cMoney(CART.bigNr) + ' anual); arriba = techo alto (≥ ' + CART.hiMult + 'x). Clic en una burbuja para ver la cuenta.</div>' + cartChart(rows) + '</div>' +
       '<div class="tk-card tk-sum"><h3>Lectura</h3>' + cartReading(rows) + '</div></div>' +
-      '<div class="op-row one"><div class="tk-card"><h3>Cuentas' + (sel ? ' · ' + esc(QD[sel].l) : '') + '</h3><div class="sub">Ordenadas por NR. Perfil comercial del Managerial (' + esc(cartPeriod()) + '): comisión del partner sobre el GB (o profit sharing), canje de puntos / millas, monoproducto y verticales que venden sus pares.</div>' +
+      '<div class="op-row one"><div class="tk-card"><h3>Cuentas' + (sel ? ' · ' + esc(QD[sel].l) : '') + '</h3><div class="sub">Ordenadas por NR. Pares = misma industria (del país, de la región o de todos los países, lo primero con 3 o más cuentas): ' + esc(peerNote(rows)) + '. Perfil comercial del Managerial (' + esc(cartPeriod()) + '): comisión del partner sobre el GB (o profit sharing), canje de puntos / millas, monoproducto y verticales que venden sus pares.</div>' +
       cartTable(sel ? rows.filter(function (r) { return r.quad === sel; }) : rows) + '</div></div>';
+  }
+  function peerNote(rows) {
+    var by = {}; rows.forEach(function (r) { if (r.peerScope) by[r.peerScope] = (by[r.peerScope] || 0) + 1; });
+    return Object.keys(by).map(function (k) { return by[k] + ' contra ' + k; }).join(', ') || 'sin pares';
   }
   function cartPeriod() {
     var m = function (k) { return k ? MES_C[+k.slice(5, 7) - 1] + '-' + k.slice(2, 4) : '?'; };
@@ -1115,7 +1123,7 @@ const SCRIPT = String.raw`(function () {
   }
 
   // ── Apertura ──
-  var BDM = ['u', 's', 'd', 'pi', 'c', 'cr'];   // la apertura es de tráfico (2026-11-12); los resultados están en Resumen y Partners
+  var BDM = ['u', 's', 'd', 'c', 'cr'];   // la apertura es de tráfico (2026-11-12); los resultados están en Resumen y Partners
   function renderBd() {
     var box = document.getElementById('tk-bd'); if (!box || !BD) return;
     var ms = BDM, cs = [BD.k === 'ytd' ? 'ly' : ec()], rows = BD.rows.filter(function (r) { return r.cur.t && r.cur.t.some(function (x) { return x; }); });
@@ -1219,10 +1227,10 @@ function trackerPage({ basePath }) {
       <li><b>Resultados</b>: el Daily B2B2C (orders, GB, NR y FVM gestionales, nominales, sin Organic). La plataforma solo existe en el tráfico: filtrarla no cambia los resultados.</li>
       <li><b>Tráfico incompleto</b>: la tabla de tráfico tiene semanas con días sin cargar (p.ej. oct–nov 2025). Si los bookings del tráfico quedan muy por debajo de las orders del Daily, ese período se marca (rayado) y queda fuera de las comparaciones del funnel.</li>
       <li><b>Comparaciones</b>: tendencia semanal = promedio de las 4 semanas anteriores; mensual = de los 3 meses anteriores. El período en curso se compara a igualdad de días (LY, tendencia y período anterior cortados en el mismo día). Acumulado = año fiscal desde abril; su tráfico, hasta el último mes cerrado.</li>
-      <li><b>Pasos del funnel</b>: vienen tal cual de la tabla. Checkout puede superar a PI (la tabla cuenta usuarios en cada paso por separado): a revisar con Producto B2B2C.</li>
+      <li><b>Pasos del funnel</b>: vienen tal cual de la tabla. El paso "PI" no se muestra hasta validar con Producto B2B2C qué mide (checkout lo supera en casi todos los partners). Partners que derivan tráfico directo a la compra (p.ej. metabuscadores) tienen bookings sin búsqueda: su conversión no es comparable.</li>
       <li><b>País</b>: en el tráfico es el país de navegación; en el Daily, el del partner. Los partners que venden por API (p.ej. Livelo-API) tienen resultados pero no tráfico.</li>
       <li><b>Nacional / Internacional</b>: route_type de la tabla de tráfico (solo tráfico: los resultados no se abren por ruta). No hay apertura por destino puntual.</li>
-      <li><b>Cartera</b>: por cuenta (partner × país), acumulado del año fiscal anualizado. Techo = NR por usuario de los pares del país (de la región si hay menos de 3) aplicado a los usuarios de la cuenta: mediana = realista (tope 2x), p75 = moonshot (tope 5x). Usuarios = usuarios-semana sumados de los meses cerrados con tráfico completo (la misma vara para todas las cuentas; no son personas únicas). Grande = NR anual ≥ $1M; techo alto = 2x o más; candidata a 3x = techo moonshot ≥ 3x.</li>
+      <li><b>Cartera</b>: por cuenta (partner × país), acumulado del año fiscal anualizado. Techo = NR por usuario de sus pares (misma industria: del país, de la región o de todos los países, lo primero con 3 o más cuentas; sin industria, el país) aplicado a los usuarios de la cuenta. Palanca = la más lejos de los pares entre activación (búsquedas por usuario), conversión (orders por búsqueda) y valor (NR por order): mediana = realista (tope 2x), p75 = moonshot (tope 5x). Usuarios = usuarios-semana sumados de los meses cerrados con tráfico completo (la misma vara para todas las cuentas; no son personas únicas). Grande = NR anual ≥ $1M; techo alto = 2x o más; candidata a 3x = techo moonshot ≥ 3x.</li>
       <li><b>Perfil comercial</b>: del P&amp;L Managerial (meses cerrados del FY). Comisión = white labels / API sobre el GB (incluye el revenue sharing; en Banco de Chile, TurismoCity y Viajes Naranja es el profit sharing). Canje = parte del GB pagada con puntos / millas. Monoproducto = un producto con 80% o más de las orders; "sumar" = productos que venden sus pares del país (mediana ≥ 10% de las orders) y la cuenta casi no (&lt; 5%).</li>
     </ul>
   </div>
