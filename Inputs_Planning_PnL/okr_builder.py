@@ -750,6 +750,37 @@ def _apply_price_comp_actual(rows_manual, daily_json):
     return out
 
 
+def recurrence_html_rows(rows_manual, recur_json):
+    """KR "Accelerate Recurrence HTML" (LoB "B2B HTML", solo para la vista de KRs de HTML del Hub) con el MISMO criterio que el
+    Status KRs H2 del Tracker (recurH2_ en Daily_Dashboard/tracker.html): mes con foto de cierre -> mtd_frecuentes_vivas de la foto
+    de cierre; mes sin cierre -> Rolling L4W (roll_frecuentes_vivas) de la ultima semana cerrada (si no hay, la ultima que haya).
+    Total = suma de paises. El target es el de Input_OKR (el Budget de "Accelerate Recurrence" de rows_manual).
+    Meses sin datos en recurrencia_b2b.json (futuros): sin actual. Devuelve filas de 8 columnas (con Estado)."""
+    cols = (recur_json or {}).get("cols") or []
+    rows = [dict(zip(cols, r)) for r in (recur_json or {}).get("rows") or []]
+    out = []
+    for r in rows_manual:
+        if r[1] == "Budget" and str(r[5]).lower() == "accelerate recurrence" and str(r[0])[:10] >= h2b.H2_START:
+            out.append([r[0], "Budget", h2b.NEW_PRODUCT_HTML_LOB, "Total", "Total", "Accelerate Recurrence HTML", r[6], "Budget"])
+    for ym in sorted({r["mes_comercial"] for r in rows}):
+        if ym < h2b.H2_START[:7]:
+            continue
+        rs = [r for r in rows if r["mes_comercial"] == ym]
+        cierre = [r for r in rs if int(r["es_cierre_mes"]) == 1 and r["estado"] == "CIERRE"]
+        cerradas = [r for r in rs if r["estado"] == "CIERRE"]
+        pool = cierre or cerradas or rs
+        k = max(int(r["semana_del_mes"] or 0) for r in pool)
+        wk = [r for r in pool if int(r["semana_del_mes"] or 0) == k]
+        if cierre:
+            v, est = sum(int(r["mtd_frecuentes_vivas"] or 0) for r in wk), "Real"
+        else:
+            v, est = sum(int(r["roll_frecuentes_vivas"] or 0) for r in wk), "MTD"
+        out.append([_ym_to_periodo(ym), "Run Rate/Actuals", h2b.NEW_PRODUCT_HTML_LOB, "Total", "Total",
+                    "Accelerate Recurrence HTML", v, est])
+    print(f"  [Accelerate Recurrence HTML] {len([o for o in out if o[1] != 'Budget'])} meses con actual (criterio del Tracker)")
+    return out
+
+
 def _apply_recurrence_rr(rows_manual, recur_json):
     """KR B2B "Accelerate Recurrence" (H2 FY27): en el mes comercial EN CURSO el actual es el Rolling L4W
     (roll_frecuentes_vivas de recurrencia_b2b.json, la misma query que el Status KRs H2 del Tracker: card
@@ -892,6 +923,7 @@ def build(upload=True):
     except Exception as e:
         print(f"  WARN [New Product Growth] no se pudo calcular ({e}) — el KR queda sin datos")
     all_rows = all_rows + h2b.totals_from_rows(h2_np, h2b.NEW_PRODUCT_KR)
+    h2_np_html = h2_np_html + recurrence_html_rows(rows_manual, recur_json)
     h2_rows = h2b.build_h2_rows(h2_base + h2_np + h2_np_html, h2_bud, h2_hunt, rows_manual, rows_partners, estado_ub, closed_until, estado_partners)
     _check_h2_vs_okr(h2_rows, all_rows)
 

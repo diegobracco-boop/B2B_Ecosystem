@@ -4913,9 +4913,7 @@ function _okrHtmlContable_(okr) {
       halfAct: hp.a, halfBud: hp.b });
   });
   // New Product Growth HTML (estimado) y Accelerate Recurrence (gestional, solo HTML): vienen de OKR_H2 ya calculados (computeOKR_)
-  var npg = okr['b2b html'] && okr['b2b html'].krs && okr['b2b html'].krs[0];
-  if (npg) krs.push(Object.assign({}, npg, { weight: 15 }));
-  (base.krs || []).forEach(function(k) { if (k.label === 'Accelerate Recurrence') krs.push(k); });
+  ((okr['b2b html'] && okr['b2b html'].krs) || []).forEach(function(k) { krs.push(k); });
   if (!krs.length) return null;
   function weighted(getPct) {   // mismo criterio que computeOKR_: <70% = 0, tope 130%, sobre el peso con dato
     var wS = 0, wUsed = 0, wAll = 0;

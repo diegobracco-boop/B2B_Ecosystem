@@ -56,7 +56,8 @@ var OKR_CONFIG_H2 = {
   'b2b html': {
     label: 'B2B HTML',
     krs: [
-      { kr: 'new product growth html', label: 'New Product Growth HTML (estimado)', weight: 15 }
+      { kr: 'new product growth html', label: 'New Product Growth HTML (estimado)', weight: 15 },
+      { kr: 'accelerate recurrence html', label: 'Accelerate Recurrence', weight: 15 }   // mismo criterio que el Status KRs H2 del Tracker (okr_builder.recurrence_html_rows)
     ]
   },
   // KR Global B2B API (canal API · Hoteles), redefinidos 2026-10-21. Desde 2026-10-23 todo API, salvo Hoteles Directos LATAM (solo Others Countries; % Hoteles Directos Globales: todos los países desde 2026-10-30).
