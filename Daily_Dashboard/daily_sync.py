@@ -2398,11 +2398,17 @@ if _FAILED_BLOCKS:
 upload_to_drive(b2bc_bytes, JSON_FILE_NAME)
 upload_to_drive(b2b_bytes,  B2B_JSON_FILE_NAME)
 if _okr_ok:
-    upload_to_drive(okr_h2_bytes, OKR_H2_JSON_FILE_NAME)
+    try:   # no corta la sync (2026-11-13): con el token de clasp no se puede pisar un archivo creado por otra persona (403 appNotAuthorizedToFile)
+        upload_to_drive(okr_h2_bytes, OKR_H2_JSON_FILE_NAME)
+    except Exception as e:
+        print(f"  WARN no se pudo subir {OKR_H2_JSON_FILE_NAME} — queda el de la corrida anterior: {e}")
 else:
     print(f"  AVISO: NO se sube {OKR_H2_JSON_FILE_NAME} (no cuadra con el JSON principal) — queda el de la corrida anterior.")
 if fvm_neg_bytes is not None:
-    upload_to_drive(fvm_neg_bytes, FVM_NEG_JSON_FILE_NAME)
+    try:   # mismo criterio que OKR H2
+        upload_to_drive(fvm_neg_bytes, FVM_NEG_JSON_FILE_NAME)
+    except Exception as e:
+        print(f"  WARN no se pudo subir {FVM_NEG_JSON_FILE_NAME} — queda el de la corrida anterior: {e}")
 if recurrencia_payload is not None and DRY_RUN_DIR:
     upload_to_drive(json.dumps(recurrencia_payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8"), RECUR_FILE_NAME)
 elif recurrencia_payload is not None:
