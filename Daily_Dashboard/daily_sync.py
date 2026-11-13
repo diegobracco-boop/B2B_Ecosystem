@@ -2385,6 +2385,12 @@ def upload_to_drive(json_bytes: bytes, filename: str, folder_id: str = DRIVE_FOL
 # ==============================================================================
 
 print("\n--- Subiendo a Google Drive ---")
+# Opt-in (2026-11-13): SYNC_SIN_B2C=1 publica aunque fallen solo B2C / B2C LY (bloque de referencia).
+# Ojo: esos bloques salen vacíos en el JSON, o sea que la referencia B2C queda en blanco en el Daily
+# hasta la próxima corrida completa. Cualquier otro bloque fallido sigue cortando.
+if os.environ.get("SYNC_SIN_B2C") == "1" and _FAILED_BLOCKS and set(_FAILED_BLOCKS) <= {"B2C", "B2C LY"}:
+    print("\nAVISO: SYNC_SIN_B2C=1 — se publica SIN " + ", ".join(_FAILED_BLOCKS) + " (referencia B2C vacía).")
+    _FAILED_BLOCKS.clear()
 if _FAILED_BLOCKS:
     print("\nERROR: fallaron " + ", ".join(_FAILED_BLOCKS) + " — no se sube nada a Drive; "
           "quedan los JSON de la corrida anterior. Reintentar (¿VPN?).")
