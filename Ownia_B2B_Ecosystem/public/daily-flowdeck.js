@@ -26,6 +26,54 @@
 
   // Captura de todas las slides para el PPTX del módulo Flow (lo llama flow.html, mismo origen): misma técnica que "Enviar a Google Slides"
   // (html2canvas de cada .flow-slide a 1280x720, abriendo hasta nivel país sin estirar el alto) pero devuelve las imágenes en vez de subirlas.
+  // Ajuste para el PPTX (2026-11-15, Diego: slides con tablas cortadas abajo y títulos tapados). Solo al exportar, sobre el deck ya
+  // armado; al terminar flowRebuild_ lo rehace como estaba. En cada tabla con scroll que no entra en su recuadro:
+  //   1) pliega grupos abiertos (región / país / tier) empezando por el último, hasta que entre: quedan los subtotales;
+  //   2) si igual no entra, achica letra y alto de fila de cada celda en la misma proporción (hasta 60%).
+  // Títulos que no entran en una línea: baja la letra hasta que entren.
+  function fitForExport() {
+    [].forEach.call(document.querySelectorAll('#flow-track .flow-slide'), function (s) {
+      [].forEach.call(s.querySelectorAll('.fl-scroll-tbl, .ws-table-wrap'), function (w) {
+        var over = function () { return w.scrollHeight > w.clientHeight + 2; };
+        if (!w.clientHeight || !over()) return;
+        var kids = function (r) {
+          var k = r.getAttribute('data-key');
+          return [].filter.call(w.querySelectorAll('tr[data-parent]'), function (x) { return x.getAttribute('data-parent') === k && x.style.display !== 'none'; });
+        };
+        var hide = function (r) {
+          kids(r).forEach(function (x) { if (x.hasAttribute('data-key')) hide(x); x.style.display = 'none'; });
+          r.setAttribute('data-open', '0');
+          var c = r.querySelector('.fl-acc-caret'); if (c) c.textContent = '▸';
+        };
+        for (var guard = 0; over() && guard < 60; guard++) {
+          var open = [].filter.call(w.querySelectorAll('tr[data-key]'), function (r) { return r.style.display !== 'none' && kids(r).length; });
+          var cand = null;
+          for (var i = open.length - 1; i >= 0 && !cand; i--) {
+            if (kids(open[i]).every(function (k) { return !k.hasAttribute('data-key') || !kids(k).length; })) cand = open[i];
+          }
+          if (!cand) break;
+          hide(cand);
+        }
+        if (!over()) return;
+        // Letra y alto de fila de cada celda en la misma proporción (no transform: html2canvas pinta mal las tablas escaladas).
+        var cells = [].map.call(w.querySelectorAll('td, th'), function (c) {
+          var cs = getComputedStyle(c);
+          return { c: c, fs: parseFloat(cs.fontSize), pt: parseFloat(cs.paddingTop), pb: parseFloat(cs.paddingBottom) };
+        });
+        for (var k = 0.95; k >= 0.6 && over(); k -= 0.05) {
+          cells.forEach(function (x) {
+            x.c.style.fontSize = (x.fs * k) + 'px'; x.c.style.lineHeight = '1.15';
+            x.c.style.paddingTop = (x.pt * k * k) + 'px'; x.c.style.paddingBottom = (x.pb * k * k) + 'px';
+          });
+        }
+      });
+      [].forEach.call(s.querySelectorAll('.fl-title'), function (t) {
+        var fs = parseFloat(getComputedStyle(t).fontSize), min = fs * 0.7;
+        while (t.scrollWidth > t.clientWidth + 1 && fs > min) { fs -= 1; t.style.fontSize = fs + 'px'; }
+      });
+    });
+  }
+
   window.__flowExport = function () {
     if (!window._flowBuilt || typeof window._flowCaptureSlideImages_ !== 'function' || typeof window.html2canvas !== 'function')
       return Promise.reject(new Error('El Flow semanal todavía está cargando.'));
@@ -38,6 +86,9 @@
       window._flowSlidesExporting = true;
       window.flowRebuild_();
       return raf().then(raf).then(raf);
+    }).then(function () {
+      try { fitForExport(); } catch (e) { console.warn('[daily-flowdeck] ajuste para el PPTX:', e); }
+      return raf();
     }).then(function () { return window._flowCaptureSlideImages_({ jpeg: true }); }).then(function (imgs) {
       done();
       return imgs.map(function (im, i) {

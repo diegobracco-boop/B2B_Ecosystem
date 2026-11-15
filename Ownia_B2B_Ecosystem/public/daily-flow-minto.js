@@ -158,36 +158,52 @@
       .filter(function (f) { return f.p != null && Math.abs(f.p) >= THR; })
       .sort(function (a, b) { return Math.abs(b.p) - Math.abs(a.p); });
   }
+  // Orden por negocio (2026-11-15, Diego, validado contra la semanal W45): apertura total (resumen + vs B2C) y una carátula por negocio:
+  // B2B2C → B2B (total: Status KRs y API vs HTML) → B2B API → B2B HTML. Cada negocio con su Weekly (GD; daily-ceo-weekly.js saca las RI).
+  // La Weekly combinada B2B+B2B2C queda en el Anexo. Después, en la Completa, el Anexo.
   function deckFor(m) {
     var pick = function (fn) { return ORIG.filter(fn); };
-    var body = [{ kind: 'minto_summary', name: 'La semana en 3 líneas' }]
-      .concat(pick(function (d) { return d.kind === 'cover'; }))
-      .concat(pick(function (d) { return d.kind === 'okr' && !d.open && (d.metric === 'nr' || d.metric === 'fvm'); }))
-      // Pipeline Hunting (2026-11-04): va pegada a Status KRs, en las dos vistas (si no, cae en el Anexo)
-      .concat(pick(function (d) { return d.kind === 'b2b2c_krs' || d.kind === 'b2b2c_pipeline'; }));
+    var weekly = function (key) { return pick(function (d) { return d.kind === 'weekly' && (d.ch || d.lob) === key; }); };
+    var body = [{ kind: 'minto_summary', name: 'La semana en 3 líneas' }];
+    body = body.concat(pick(function (d) { return d.kind === 'ceo_weekly' && d.n === 1; }));
+    // White Labels como en la W45: Status KRs (+ Pipeline Hunting, pegada a KRs desde 2026-11-04) → OKR NR / FVM → Weekly B2B2C → portada mensual
+    body = body.concat([{ kind: 'divider', flag: 'B2B2C', title: 'White Labels', name: '— B2B2C —' }])
+      .concat(pick(function (d) { return d.kind === 'b2b2c_krs'; }))
+      .concat(pick(function (d) { return d.kind === 'b2b2c_pipeline'; }))
+      .concat(pick(function (d) { return d.kind === 'okr' && !d.open && d.metric === 'nr'; }))
+      .concat(pick(function (d) { return d.kind === 'okr' && !d.open && d.metric === 'fvm'; }))
+      .concat(weekly('B2B2C'))
+      .concat(pick(function (d) { return d.kind === 'cover'; }));
     var cmpL = compLbl();
     flaggedRegions().forEach(function (f) {
       body.push({ kind: 'divider', region: f.r, title: '¿Por qué ' + regLbl(f.r) + ' viene ' + pc(f.p) + ' vs ' + cmpL + '?', name: '— ' + regLbl(f.r) + ' ' + pc(f.p) + ' —' });
       // Mensual + NR diario + FVM diario (2026-11-10, Diego: la de FVM, mismo formato que la de NR, también en la Ejecutiva)
       body = body.concat(pick(function (d) { return d.region === f.r && (d.kind === 'monthly' || (d.kind === 'daily' && (d.metric === 'nr' || d.metric === 'fvm'))); }));
     });
-    // Weekly: en el Flow quedó solo la vista GD (daily-ceo-weekly.js saca las RI)
-    body = body.concat(pick(function (d) { return (d.kind === 'weekly' && d.lob === 'B2B+B2B2C') || (d.kind === 'ceo_weekly' && d.n === 1); }));
-    // B2B (2026-11-11): dos secciones con su carátula, B2B API (las del Weekly B2B-MAY menos su portada) y B2B HTML (pendiente); daily-flow-b2b.js.
-    // Las slides B2B del Flow de antes (Status KRs, NR / FVM RI, Tablas RI API y HTML) siguen en el Anexo de la vista Completa.
-    if (Array.isArray(W.FLOW_B2B_DECK) && W.FLOW_B2B_DECK.length) body = body.concat(W.FLOW_B2B_DECK);
-    else {
-      body.push({ kind: 'divider', flag: 'B2B', title: 'B2B: ¿cómo vienen API y HTML?', name: '— B2B —' });
-      body = body.concat(pick(function (d) {
-        return d.kind === 'b2b_krs' || (d.kind === 'b2b_chart' && !d.channel && (d.tab === 'nr_ri' || d.tab === 'fvm_ri')) ||
-          (d.kind === 'b2b_tables' && d.dateType === 'ri' && !!d.channel);
-      }));
-    }
-    // Slides de análisis puntuales de otras capas (W.FLOW_EXTRA = [{def, html}], p.ej. daily-flow-elecciones.js): al final de la
-    // vista Ejecutiva y, en la Completa, antes del Anexo.
-    // Con carátula propia (2026-11-11) para que no queden pegadas a la sección B2B.
-    if ((W.FLOW_EXTRA || []).length) body.push({ kind: 'divider', flag: 'BR', title: 'Brasil: elecciones y la desaceleración de octubre', name: '— Brasil · elecciones —' });
+    // Slides de análisis puntuales de otras capas (W.FLOW_EXTRA = [{def, html}]; la capa trae su carátula si la quiere), al final
+    // de B2B2C. Hoy no hay ninguna (Brasil · elecciones se sacó el 2026-11-15: fue de única vez).
     (W.FLOW_EXTRA || []).forEach(function (x) { body.push(x.def); });
+    // B2B total: Status KRs del Tracker (API + HTML) y la Weekly "B2B: API vs HTML".
+    body.push({ kind: 'divider', flag: 'B2B', title: 'API + HTML', name: '— B2B —' });
+    body = body.concat(pick(function (d) { return d.kind === 'b2b_krs' || (d.kind === 'ceo_weekly' && d.n === 4); }));
+    // B2B API y B2B HTML (2026-11-11): cada una con su carátula; daily-flow-b2b.js (API = Weekly B2B-MAY menos su portada).
+    // 2026-11-15 (como la W45): después de los KRs de cada canal, su Weekly; en HTML además los gráficos de NR y FVM por RI (con la
+    // tabla YTD por país y producto) antes de las Tablas GD / RI.
+    if (Array.isArray(W.FLOW_B2B_DECK) && W.FLOW_B2B_DECK.length) {
+      var htmlCharts = ['nr_ri', 'fvm_ri'].map(function (tab) {
+        return pick(function (d) { return d.kind === 'b2b_chart' && d.channel === 'Agencias afiliadas' && d.tab === tab; })[0];
+      }).filter(Boolean);
+      W.FLOW_B2B_DECK.forEach(function (d) {
+        body.push(d);
+        if (d.kind === 'wk_api' && d.n === 0) body = body.concat(weekly('API'));
+        if (d.kind === 'wk_html' && d.n === 0) body = body.concat(weekly('Agencias afiliadas'), htmlCharts);
+      });
+    } else {
+      body.push({ kind: 'divider', flag: 'API', title: 'B2B — API', name: '— B2B API —' });
+      body = body.concat(pick(function (d) { return (d.kind === 'b2b_chart' && d.channel === 'API' && /_ri$/.test(d.tab)) || (d.kind === 'b2b_tables' && d.dateType === 'ri' && d.channel === 'API'); }));
+      body.push({ kind: 'divider', flag: 'HTML', title: 'B2B — HTML', name: '— B2B HTML —' });
+      body = body.concat(pick(function (d) { return (d.kind === 'b2b_chart' && d.channel === 'Agencias afiliadas' && /_ri$/.test(d.tab)) || (d.kind === 'b2b_tables' && d.dateType === 'ri' && d.channel === 'Agencias afiliadas'); }));
+    }
     if (m === 'exec') return body;
     return body.concat([{ kind: 'divider', flag: '+', title: 'Anexo · detalle completo', name: '— Anexo —' }])
       .concat(ORIG.filter(function (d) { return body.indexOf(d) < 0; }));

@@ -576,6 +576,10 @@
     var div = host.querySelector(':scope > .ow-ws-ev');
     if (!div) { div = document.createElement('div'); div.className = 'ow-ws-ev'; wrap.insertAdjacentElement('afterend', div); }
     div.innerHTML = eventsLine(x.d, x.lob);
+    // RG fuera de la tabla (2026-11-15, Diego): queda la aclaración de que el Total sí lo incluye
+    var fn = host.querySelector(':scope > .ow-ws-fn');
+    if (x.rg && !fn) { fn = document.createElement('div'); fn.className = 'ow-ws-fn'; fn.textContent = '* Total países incluye el recupero de COI Brasil en RG'; wrap.insertAdjacentElement('afterend', fn); }
+    if (fn) fn.style.display = x.rg ? '' : 'none';
   }
   function weeklyTweaks() {
     if (Array.isArray(W._WS_METRICS)) {
@@ -604,10 +608,14 @@
     // Tabla semanal (solapa y slides): línea de eventos debajo
     var origRender = W._wsRenderWeekly;
     if (typeof origRender === 'function') W._wsRenderWeekly = function (d, theadId, tbodyId) {
-      var r = origRender.apply(this, arguments), id = tbodyId || 'ws-tbody', lob = W._wsLob;
+      // RG (ajuste COI Brasil, solo FVM) no va como bloque de país (2026-11-15, Diego): sigue sumado en TOTAL, con nota al pie
+      var isRG = function (row) { return row && String(row.group).toUpperCase() === 'RG'; };
+      var rg = !!(d && d.rows && d.rows.some(function (row) { return isRG(row) && (row.weeks || []).some(function (w) { return Math.abs(w.fvm || 0) > 1e-9; }); }));
+      if (d && d.rows && d.rows.some(isRG)) d = Object.assign({}, d, { rows: d.rows.filter(function (row) { return !isRG(row); }) });
+      var r = origRender.call(this, d, theadId, tbodyId), id = tbodyId || 'ws-tbody', lob = W._wsLob;
       var m = /^flws-tbody-(\d+)$/.exec(id);
       if (m && W.FLOW_DECK && W.FLOW_DECK[+m[1]]) lob = W.FLOW_DECK[+m[1]].lob;
-      _wsLast[id] = { d: d, lob: lob };
+      _wsLast[id] = { d: d, lob: lob, rg: rg };
       try { ensureData(); paintEvents(id); } catch (e) { console.warn('[daily-ceo-weekly] eventos weekly:', e); }
       return r;
     };
@@ -769,10 +777,17 @@
     '.ow-ws-ev{font-size:11.5px;color:#9a9ab0;line-height:1.45;margin-top:8px;padding:6px 10px;border-left:3px solid #7b5cf5;background:rgba(123,92,245,.08);border-radius:4px}',
     '.ow-ws-ev b{color:inherit;font-weight:700}.ow-ws-ly{opacity:.75;font-style:italic}',
     '.ws-metric-label{white-space:nowrap}',
-    // slides Weekly del Flow: la tabla al ancho completo (tenía anchos fijos en px y dejaba media slide vacía)
-    '#view-flow .flow-slide table.ws-table{width:100%}',
+    // slides Weekly del Flow: columnas angostas y la tabla centrada (2026-11-15, Diego: al ancho completo quedaba muy grande)
+    '#view-flow .flow-slide .ws-table-wrap{flex:0 1 auto;align-self:center;width:max-content;max-width:100%}',
+    '#view-flow .flow-slide table.ws-table{width:auto}',
+    '#view-flow .flow-slide .ws-panel-weekly thead tr.head-weeks th,#view-flow .flow-slide .ws-panel-weekly tr.ws-metric-row td{width:96px}',
+    '#view-flow .flow-slide .ws-panel-weekly thead tr.head-weeks th:first-child,#view-flow .flow-slide .ws-panel-weekly td.country-cell{width:84px;min-width:84px}',
+    '#view-flow .flow-slide .ws-panel-weekly thead tr.head-weeks th:nth-child(2),#view-flow .flow-slide .ws-panel-weekly tr.ws-metric-row td.ws-metric-label{width:78px;min-width:78px}',
+    '#view-flow .flow-slide .ws-panel-weekly thead tr.head-weeks th.l4w-col,#view-flow .flow-slide .ws-panel-weekly td.l4w-val{width:84px}',
+    '.ow-ws-fn{font-size:11px;color:#6e6e80;font-style:italic;margin-top:6px}',
+    '.flow-slide .ow-ws-fn{font-size:10.5px;margin-top:4px;align-self:center;width:max-content;max-width:100%}',
     // 7 filas por región (antes 10, el Daily las achicó a 10px): ~14px por fila entra en los 540px del panel
-    '#view-flow .flow-slide .ws-panel-weekly tr.ws-metric-row td{padding:1px 8px;font-size:11px;line-height:1.1}',
+    '#view-flow .flow-slide .ws-panel-weekly tr.ws-metric-row td{padding:1px 8px;font-size:11px;line-height:1.02}',
     '#view-flow .flow-slide .ws-panel-weekly tr.ws-metric-row.ws-ly-row td{font-size:10px}',
     '.flow-slide .ow-ws-ev{color:#4a4a63;font-size:10.5px;margin-top:4px;padding:4px 8px}',
     '.ow-drv{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;flex:1;min-height:0}',

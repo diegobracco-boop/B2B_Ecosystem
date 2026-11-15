@@ -157,7 +157,13 @@
       imgs.forEach(function (it) {
         if (it.tag) pill(ctx, it.tag.x * 2, it.tag.y * 2, 117 * 2, 18 * 2, it.tag.t, '#550FED', '#3D00D1');
         if (it.img) fit(ctx, it.img, it.x * 2, it.y * 2, it.w * 2, it.h * 2, true);
-        else { ctx.fillStyle = '#C0392B'; ctx.font = '400 28px Rubik, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('No se pudo capturar esta slide', (it.x + it.w / 2) * 2, (it.y + it.h / 2) * 2); ctx.textAlign = 'left'; }
+        else {
+          var cx = (it.x + it.w / 2) * 2, cy = (it.y + it.h / 2) * 2;
+          ctx.fillStyle = '#C0392B'; ctx.font = '400 28px Rubik, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('No se pudo capturar esta slide', cx, cy);
+          // el motivo, chico y abajo (2026-11-15: en el PPTX salían en blanco las del Dashboard B2B API sin saber por qué)
+          if (it.why) { ctx.fillStyle = '#8A8A9A'; ctx.font = '400 20px Rubik, sans-serif'; ctx.fillText(String(it.why).slice(0, 140), cx, cy + 44); }
+          ctx.textAlign = 'left';
+        }
       });
       return jpeg(c);
     });
@@ -181,7 +187,11 @@
   // al pie de los KRs y con la tabla de KRs sin scroll.
   var CAPTURE_CSS = ' var st = document.createElement("style"); st.textContent = ".kr-data-range{display:none!important}' +
     ' #statusKRsH2Wrap .table-block,#globalesWrap .table-block{overflow:visible!important;max-height:none!important}' +
-    ' #statusKRsH2Wrap .table-block + div:not([class]):not([id]),#globalesWrap .table-block + div:not([class]):not([id]){display:none!important}"; document.head.appendChild(st);';
+    ' #statusKRsH2Wrap .table-block + div:not([class]):not([id]),#globalesWrap .table-block + div:not([class]):not([id]){display:none!important}"; document.head.appendChild(st);' +
+    // Tablas GD / RI: la letra la ajusta _fitSlideTables al mostrar la slide; si en ese momento la tabla todavía no se podía medir (fuentes o
+    // datos sin terminar), quedaba en 12 px y ocupaba media slide (export del 2026-11-15, HTML). Se vuelve a ajustar antes de capturar.
+    ' var _wkGo = _goToSlide; _goToSlide = function (i) { _wkGo(i); setTimeout(function () { ["tablesContent", "splitContent"].forEach(function (id) {' +
+    '   var c = document.getElementById(id); if (c && c.classList.contains("visible")) _fitSlideTables(c); }); }, 250); };';
   var TRACKER_CAPTURE = '(async function () {' + CAPTURE_CSS +
     ' var orig = SLIDE_ORDER.slice(), f = function (g) { return orig.filter(g)[0]; };' +
     ' var want = [f(function (s) { return s.tab === "agencias_h2" && s.krChannel === "api"; }), f(function (s) { return s.tab === "globales"; }),' +
@@ -243,9 +253,21 @@
     var out = { demanda: null, venta: {}, producto: null };
     var f = await hiddenFrame(DASH + '#venta'), w = f.contentWindow, d = f.contentDocument;
     // cada parte va aparte: si una falla (queda como placeholder) no se pierden las demás
-    async function part(what, fn) { try { return await fn(); } catch (e) { console.warn('[weekly] ' + what + ':', e); return null; } }
+    async function part(what, fn) { try { return await fn(); } catch (e) { console.warn('[weekly] ' + what + ':', e); capErr[what] = (e && e.message) || String(e); return null; } }
     try {
-      await until(function () { return w.B2B && w.B2B.tabs && w.B2B.tabs.venta && w.B2B.state; }, 60000, 'el Dashboard B2B API');
+      try {
+        // 3 min: en Ownia el tablero puede estar arrancando. Si el iframe ya cargó otra cosa (sin las pestañas del tablero), corta a los 15 s.
+        var tf = Date.now();
+        var got = await until(function () {
+          if (w.B2B && w.B2B.tabs && w.B2B.tabs.venta && w.B2B.state) return 'ok';
+          var fd = f.contentDocument;
+          return Date.now() - tf > 15000 && fd && fd.readyState === 'complete' && !fd.getElementById('tabbtn-venta') ? 'otra' : null;
+        }, 180000, 'el Dashboard B2B API');
+        if (got !== 'ok') throw new Error('no es el tablero');
+      } catch (e) {   // qué abrió el iframe en vez del tablero (login, error de Ownia, app apagada…)
+        var seen = ''; try { seen = (f.contentWindow.location.pathname + ' · ' + (f.contentDocument.title || '') + ' · ' + (f.contentDocument.body ? f.contentDocument.body.innerText : '')).replace(/\s+/g, ' ').slice(0, 90); } catch (x) { seen = 'sin acceso al iframe: abrió otro dominio, ¿login?'; }
+        throw new Error('el Dashboard B2B API no cargó (' + seen + ')');
+      }
       light(f);
       var B = w.B2B;
       // Demanda: las cuatro tarjetas de "Hoteles pedidos por origen y destino · MTD"
@@ -255,13 +277,13 @@
         var card = await until(function () {
           var h = [].filter.call(d.querySelectorAll('h3'), function (e) { return /Hoteles pedidos por origen y destino/.test(e.textContent); })[0];
           return h && h.closest('.card') && h.closest('.card').querySelector('.qd-grid');
-        }, 60000, 'Demanda');
+        }, 120000, 'Demanda');
         await sleep(800); return await snap(card, fixVertical);
       });
       // Venta: MTD por país y grupo de agencias (Abrir por Agencia · Ver Grupo · Comparar vs año pasado), un país por slide
       try {
         B.showTab('venta', false); light(f);
-        await until(function () { return d.querySelector('.tcard'); }, 60000, 'Venta');
+        await until(function () { return d.querySelector('.tcard'); }, 120000, 'Venta');
         [['vista', 'gd'], ['comp', 'budget'], ['org', 'yes'], ['coi', 'excl'], ['apertura', 'ag'], ['agrp', 'grp'], ['vshare', 'ly'], ['gran', 'd'], ['prod', 'all']].forEach(function (kv) { B.set(kv[0], kv[1]); });
         B.state.mDesde = ''; B.state.mHasta = '';
       } catch (e) { console.warn('[weekly] Venta:', e); }
@@ -272,7 +294,7 @@
           var opt = [].filter.call(d.querySelectorAll('select[data-key="dpais"] option'), function (o) { return o.textContent.trim() === lbl; })[0];
           if (!opt) throw new Error('no hay país ' + lbl);
           B.set('dpais', opt.value); light(f);
-          await until(function () { return d.querySelector('.mt-grid'); }, 30000, 'la tabla de ' + lbl);
+          await until(function () { return d.querySelector('.mt-grid'); }, 60000, 'la tabla de ' + lbl);
           await sleep(1200);
           var row = d.querySelector('.mt-col tr.bk-row-group');   // abre el país (no "Expandir todo": eso abre cada grupo y la tabla no entra)
           if (row && !row.classList.contains('open')) { row.click(); await sleep(900); }
@@ -284,7 +306,7 @@
       upd('Capturando Producto…');
       out.producto = await part('Producto', async function () {
         B.set('vista', 'gd'); B.set('metric', 'gb'); B.set('pshare', 'l4w'); B.showTab('producto', false); light(f);
-        await until(function () { return d.querySelector('.wk-cols'); }, 60000, 'Producto');
+        await until(function () { return d.querySelector('.wk-cols'); }, 120000, 'Producto');
         await sleep(1500); return await snap(d.querySelector('.wk-cols'));
       });
     } finally { f.remove(); }
@@ -309,6 +331,7 @@
     } finally { f.remove(); }
   }
   var PAISES = [{ label: 'Globales' }, { label: 'Brasil' }, { label: 'Mexico', show: 'México' }, { label: 'Argentina' }];
+  var capErr = {};   // motivo de cada captura que falló (va abajo del placeholder de la slide)
 
   function safe(p, what) { return p.catch(function (e) { console.warn('[weekly] ' + what + ':', e); return null; }); }
 
@@ -319,23 +342,28 @@
     var trk = await safe(captureTracker(), 'Tracker') || [null, null, null, null];
     var dd = dataDate(trkMetaText), mes = MES[dd.m - 1] || '';   // la fecha de los datos sale de la página o, si no la tiene (Flow semanal), del Tracker capturado
     upd('Capturando el Dashboard B2B API…');
-    var dash = await safe(captureDash(), 'Dashboard B2B API') || { demanda: null, venta: {}, producto: null };
+    capErr = {};
+    var dashFail = function (e) { console.warn('[weekly] Dashboard B2B API:', e); capErr.dash = (e && e.message) || String(e); return null; };
+    var dash = await captureDash().catch(dashFail);
+    if (!dash) { upd('Reintentando el Dashboard B2B API…'); dash = await captureDash().then(function (r) { delete capErr.dash; return r; }).catch(dashFail); }
+    dash = dash || { demanda: null, venta: {}, producto: null };
+    var why = function (k) { return capErr.dash || capErr[k] || ''; };
     upd('Capturando el gráfico de FVM del Daily (GD)…');
     var fvmGd = await safe(captureDailyFvm('gd'), 'FVM GD');
     upd('Capturando el gráfico de FVM del Daily (RI)…');
     var fvmRi = await safe(captureDailyFvm('ri'), 'FVM RI');
     upd('Armando las slides…');
     var R = { x: 5, y: 86, w: 950, h: 440 };
-    function body(img) { return [{ img: img, x: R.x, y: R.y, w: R.w, h: R.h }]; }
+    function body(img, w) { return [{ img: img, x: R.x, y: R.y, w: R.w, h: R.h, why: w }]; }
     var slides = [
       function () { return drawCover(); },
       function () { return drawFull(trk[0], dd); },
       function () { return drawFull(trk[1], dd); },
-      function () { return drawContent('Hoteles pedidos por origen y destino | ' + mes + ' MTD', '', [{ img: dash.demanda, x: 27, y: 112, w: 904, h: 323 }], dd); },
+      function () { return drawContent('Hoteles pedidos por origen y destino | ' + mes + ' MTD', '', [{ img: dash.demanda, x: 27, y: 112, w: 904, h: 323, why: why('Demanda') }], dd); },
       function () { return drawSeparator('TOP AGENCIAS', 'API vs LY'); }
     ];
     PAISES.forEach(function (p) {
-      slides.push(function () { return drawContent(mes + ' MTD Agencias vs LY ' + (p.show || p.label), '', body(dash.venta[p.label]), dd); });
+      slides.push(function () { return drawContent(mes + ' MTD Agencias vs LY ' + (p.show || p.label), '', body(dash.venta[p.label], why('Venta ' + p.label)), dd); });
     });
     slides.push(function () { return drawSeparator('Performance LW', 'vs Tendencia'); });
     slides.push(function () {
@@ -343,7 +371,7 @@
         { img: fvmGd, x: 14, y: 92, w: 930, h: 211, tag: { x: 18, y: 76, t: 'by Gestion Date' } },
         { img: fvmRi, x: 24, y: 328, w: 910, h: 211, tag: { x: 18, y: 309, t: 'by Recognition Date' } }], dd);
     });
-    slides.push(function () { return drawContent('LW Hoteles vs Tendencia L4W', '', body(dash.producto), dd); });
+    slides.push(function () { return drawContent('LW Hoteles vs Tendencia L4W', '', body(dash.producto, why('Producto')), dd); });
     slides.push(function () { return drawFull(trk[2], dd); });
     slides.push(function () { return drawFull(trk[3], dd); });
     var out = [];

@@ -685,6 +685,7 @@ body.krd-only #section-b2b > :not(.krd-keep) { display:none !important; }
 .fl-tbl th{background:var(--fl-purple);color:#fff;font-weight:700;padding:5px 8px;text-align:right;font-size:10px}
 .fl-tbl th:first-child{text-align:left;border-top-left-radius:6px}
 .fl-tbl th:last-child{border-top-right-radius:6px}
+.fl-tbl th:not(:first-child){white-space:nowrap}   /* encabezados numéricos en una línea (Act / Bud, Act. YoY, Bud YoY) */
 .fl-tbl td{padding:4px 8px;text-align:right;border-bottom:1px solid var(--fl-line);color:var(--fl-ink)}
 .fl-tbl td:first-child{text-align:left;color:var(--fl-ink2)}
 .fl-tbl tr.grp td{background:#f3f1fb;font-weight:700;color:var(--fl-ink)}
@@ -5528,17 +5529,17 @@ var FLOW_DECK = [
   {kind:'b2b2c_krs', name:'B2B2C — Status KRs'},
   {kind:'b2b2c_pipeline', name:'B2B2C — Pipeline Hunting'},   // 2026-11-04: deals del pipeline (server/pipeline-slide.js)
   {kind:'divider', region:'BR', name:'— Brasil —'},
-  {kind:'monthly', region:'BR', name:'Brasil — Mensual'},
+  {kind:'monthly', region:'BR', name:'Brasil — MTD + trend semanal'},
   {kind:'daily', region:'BR', metric:'nr', name:'Brasil — NR diario'},
   {kind:'daily', region:'BR', metric:'fvm', name:'Brasil — FVM diario'},
   {kind:'tables', region:'BR', name:'Brasil — Tablas GB/NR/FVM'},
   {kind:'divider', region:'NAM', name:'— MX/US —'},
-  {kind:'monthly', region:'NAM', name:'MX/US — Mensual'},
+  {kind:'monthly', region:'NAM', name:'MX/US — MTD + trend semanal'},
   {kind:'daily', region:'NAM', metric:'nr', name:'MX/US — NR diario'},
   {kind:'daily', region:'NAM', metric:'fvm', name:'MX/US — FVM diario'},
   {kind:'tables', region:'NAM', name:'MX/US — Tablas GB/NR/FVM'},
   {kind:'divider', region:'SAH', name:'— Hispa —'},
-  {kind:'monthly', region:'SAH', name:'Hispa — Mensual'},
+  {kind:'monthly', region:'SAH', name:'Hispa — MTD + trend semanal'},
   {kind:'daily', region:'SAH', metric:'nr', name:'Hispa — NR diario'},
   {kind:'daily', region:'SAH', metric:'fvm', name:'Hispa — FVM diario'},
   {kind:'tables', region:'SAH', name:'Hispa — Tablas GB/NR/FVM'},
@@ -5672,6 +5673,52 @@ function flowMonthly_(subRaw, metricKey, compKey, vDate){
   // con Goal 0. También acota el acumulado de flowH1_ (FYTD).
   var vd=vDate||flowVDate_(), vy=+vd.substring(0,4), fyStart=(+vd.substring(5,7)>=4?vy:vy-1)+'-04', vM=vd.substring(0,7);
   return Object.keys(keys).filter(function(m){ return m>=fyStart && m<=vM; }).sort().map(function(m){ return {date:m+'-01', v:Math.round((mM[m]||0)*100)/100, bud:Math.round((bM[m]||0)*100)/100, ly:Math.round((lM[m]||0)*100)/100, yoy:lM[m]?((yM[m]||0)/lM[m]-1)*100:null, projected:false}; });
+}
+// Trend semanal de las slides de región (2026-11-15, Diego: en vez de las barras mensuales del FY): las últimas 8
+// semanas completas (lunes a domingo, como la Weekly) hasta el día que se mira. YoY contra la misma semana del año
+// pasado (364 días antes: mismos días de la semana), siempre vs LY sin importar el Goal (igual que flowMonthly_).
+function flowWeekly8_(subRaw, metricKey, compKey, vDate){
+  var MF=_FLMF[metricKey], cmpArr=_flCompArr_(subRaw,compKey), cmpF=_flCompField_(metricKey,compKey);
+  function ymd(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+  function add(ds,n){ var p=ds.split('-'); return ymd(new Date(+p[0],+p[1]-1,+p[2]+n)); }
+  var vd=vDate||flowVDate_(), cw=weekStart_(add(vd,1));   // primera semana sin completar (si vd es domingo, su semana entra)
+  var weeks=[]; for(var i=8;i>=1;i--) weeks.push(add(cw,-7*i));
+  // GF / LF: Goal y LY solo de Farming (flSeg_ = 'f': Existing según la cartera vigente; fuera Onboarding/Hunting y el Budget TBD),
+  // para la fila "YoY Bud Farming" que aísla el efecto de las cuentas nuevas (2026-11-15, Diego)
+  var from=weeks[0], V={}, Y={}, L={}, G={}, GY={}, GF={}, LF={};
+  // Organic YES: el YoY del Goal también a TC Actuals LY, como el YoY real (_yv_). El Budget (y el Forecast, que con organic
+  // ya viene a TC Budget) se pasa de TC Budget al TC real del mismo mes del año pasado: x TC Budget / TC Actuals LY.
+  var fxG=flGoalFxLY_(compKey);
+  function inR(ds){ return ds>=from && ds<cw; }
+  (subRaw.actuals||[]).forEach(function(r){ if(!inR(r.fecha)) return; var w=weekStart_(r.fecha); V[w]=(V[w]||0)+(r[MF]||0); Y[w]=(Y[w]||0)+_yv_(r,MF); });
+  (subRaw.actuals_ly||[]).forEach(function(r){ var c=add(r.fecha,364); if(!inR(c)) return; var w=weekStart_(c); L[w]=(L[w]||0)+(r[MF]||0);
+    if(flSeg_(r)==='f') LF[w]=(LF[w]||0)+(r[MF]||0); });
+  cmpArr.forEach(function(r){ var c=compKey==='ly'?add(r.fecha,364):r.fecha; if(!inR(c)) return; var w=weekStart_(c), g=r[cmpF]||0;
+    var gy=fxG ? g*fxG(r.pais, r.fecha) : g;
+    G[w]=(G[w]||0)+g; GY[w]=(GY[w]||0)+gy; if(compKey!=='ly' && flSeg_(r)==='f') GF[w]=(GF[w]||0)+gy; });
+  // yoyG: cómo era el YoY del Goal (Budget / Run Rate de la semana vs LY), la fila debajo del YoY real (2026-11-15, Diego)
+  return weeks.map(function(w){ return {date:w, v:Math.round((V[w]||0)*100)/100, bud:Math.round((G[w]||0)*100)/100, ly:Math.round((L[w]||0)*100)/100,
+    yoy:L[w]?((Y[w]||0)/L[w]-1)*100:null, yoyG:(L[w]&&GY[w]&&compKey!=='ly')?(GY[w]/L[w]-1)*100:null,
+    yoyGF:(LF[w]&&GF[w])?(GF[w]/LF[w]-1)*100:null}; });
+}
+// Cajita de las slides de región: la última semana completa vs el promedio de las 4 anteriores (L4W)
+function flWkBox_(wk){
+  var n=wk.length, last=wk[n-1], prev=wk.slice(Math.max(0,n-5),n-1), avg=prev.length?prev.reduce(function(a,d){return a+d.v;},0)/prev.length:0;
+  var p=avg?(last.v/avg-1)*100:null, ok=last.v>=avg, wl=fmtChartLabel_(last.date,'weekly')[0];
+  return '<div class="fl-h1box"><div class="h-lbl">'+wl+' vs avg L4W</div><div class="h-val'+(ok?'':' warn')+'">'+flFmt_(last.v)+(ok?' ✓':' !')+'</div>'
+    +'<div class="h-tgt">avg L4W: '+flFmt_(avg)+' ('+(p==null?'—':(p>=0?'+':'')+p.toFixed(1)+'%')+')</div></div>';
+}
+// Goal a TC Actuals LY con Organic YES, para el YoY del Goal (mismo criterio que el YoY real, _yv_): el Budget (y el Forecast,
+// que con organic ya viene a TC Budget) x TC Budget / TC real del mismo mes del año pasado. null = sin conversión.
+function flGoalFxLY_(compKey){
+  if(!_orgTargetFlow_() || (compKey!=='budget' && compKey!=='forecast') || !_fxTbl || !_fxTbl.budget) return null;
+  var memo={};
+  return function(pais, fecha){
+    var ym=String(fecha).substring(0,7), mk=pais+'|'+ym; if(mk in memo) return memo[mk];
+    var pn=_orgNorm_(pais); pn=_ORG_ALIAS_[pn]||pn;
+    var b=_fxTbl.budget[pn+'§'+ym], a=_fxTbl.actuals[pn+'§'+(+ym.substring(0,4)-1)+ym.substring(4)];
+    return (memo[mk] = (b&&a) ? b/a : 1);
+  };
 }
 function flowH1_(monthly){ var b=0,g=0; monthly.forEach(function(m){b+=m.v;g+=m.bud;}); return {base:b,goal:g}; }
 
@@ -5844,6 +5891,9 @@ function flAccToggle_(tr){
 // {deep:true, pais:true}: Región → País → Partner, sin Tier (slides OKR L2 · por País, 2026-10-29).
 function flowGroupTable_(subRaw, metricKey, comp, col1, groupByRegion, childMax, topMax, tierFirst, period, xo){
   var withYoY=!!(xo&&xo.yoy), deep=!!(xo&&xo.deep)&&!!groupByRegion, byPais=deep&&!!xo.pais;
+  // xo.ach: la columna de % es Actual / Goal (78%) en vez de Actual / Goal - 1 (-22%); xo.budYoy: columna "Bud YoY" (Goal a TC LY
+  // vs LY) a la derecha del YoY real, que pasa a llamarse "Act. YoY" (slides diarias de región, 2026-11-15, Diego)
+  var withAch=!!(xo&&xo.ach), withBY=withYoY&&!!(xo&&xo.budYoy)&&comp!=='ly', fxG=withBY?flGoalFxLY_(comp):null;
   if(childMax===undefined) childMax=_flowPrinting?Infinity:8;
   if(topMax===undefined) topMax=0; // sin cap: los países ahora arrancan colapsados (1 fila c/u), no hace falta truncar la lista
   tierFirst=!!tierFirst && !groupByRegion;
@@ -5907,10 +5957,10 @@ function flowGroupTable_(subRaw, metricKey, comp, col1, groupByRegion, childMax,
   var G={};
   function gk(r){ return groupByRegion ? getRegion_(r.pais) : tierFirst ? hispaGrp_(r) : (r.pais||'Other'); }
   function ck(r){ return groupByRegion ? (r.pais||'Other') : tierFirst ? (r.partner||'Other')+'|'+(r.pais||'Other') : (r.partner||'Other'); }
-  function grp(k){ G[k]=G[k]||{base:0,goal:0,ya:0,ly:0,ch:{}}; return G[k]; }
-  function chi(k,c){ var g=grp(k); g.ch[c]=g.ch[c]||{base:0,goal:0,ya:0,ly:0,pt:{}}; return g.ch[c]; }
+  function grp(k){ G[k]=G[k]||{base:0,goal:0,ya:0,ly:0,gy:0,ch:{}}; return G[k]; }
+  function chi(k,c){ var g=grp(k); g.ch[c]=g.ch[c]||{base:0,goal:0,ya:0,ly:0,gy:0,pt:{}}; return g.ch[c]; }
   // deep: partner dentro del país (clave en minúsculas, igual que el tier; se muestra el primer nombre visto)
-  function ptn(k,c,r){ var ch=chi(k,c), p=r.partner||'Other', pl=String(p).toLowerCase(); ch.pt[pl]=ch.pt[pl]||{name:p,base:0,goal:0,ya:0,ly:0}; return ch.pt[pl]; }
+  function ptn(k,c,r){ var ch=chi(k,c), p=r.partner||'Other', pl=String(p).toLowerCase(); ch.pt[pl]=ch.pt[pl]||{name:p,base:0,goal:0,ya:0,ly:0,gy:0}; return ch.pt[pl]; }
   function skip(k){ return tierFirst && k===null; }
   function acc(r,f,v){ var k=gk(r); if(skip(k))return; grp(k)[f]+=v; chi(k,ck(r))[f]+=v; if(deep) ptn(k,ck(r),r)[f]+=v; }
   // LY solo suma a filas que ya existen (no crea grupos/partners que solo vendieron el año pasado);
@@ -5920,7 +5970,8 @@ function flowGroupTable_(subRaw, metricKey, comp, col1, groupByRegion, childMax,
     if(deep){ var x=c.pt[String(r.partner||'Other').toLowerCase()]; if(x) x.ly+=v; } }
   // ya = actual para el YoY: _yv_ (organic a FX del LY) vs LY nominal, misma convención que flowFY12_/flowMonthly_
   (subRaw.actuals||[]).forEach(function(r){ if(r.fecha<mStart||r.fecha>vDate)return; acc(r,'base',r[MF]||0); if(withYoY) acc(r,'ya',_yv_(r,MF)); });
-  cmpArr.forEach(function(r){ if(lyMode){ if(r.fecha<lyMS||r.fecha>lyVD)return; } else if(r.fecha<mStart||r.fecha>vDate){ return; } acc(r,'goal',r[cmpF]||0); });
+  cmpArr.forEach(function(r){ if(lyMode){ if(r.fecha<lyMS||r.fecha>lyVD)return; } else if(r.fecha<mStart||r.fecha>vDate){ return; } acc(r,'goal',r[cmpF]||0);
+    if(withBY) acc(r,'gy',(r[cmpF]||0)*(fxG?fxG(r.pais,r.fecha):1)); });
   if(withYoY) (subRaw.actuals_ly||[]).forEach(function(r){ if(r.fecha<lyMS||r.fecha>lyVD)return; accLY(r,r[MF]||0); });
   // tierFirst: el país va siempre al lado del partner (Turismocity (AR) / (CO) / (CL)), sin
   // depender de en cuántos países aparece — los países no son un nivel del acordeón acá.
@@ -5933,20 +5984,22 @@ function flowGroupTable_(subRaw, metricKey, comp, col1, groupByRegion, childMax,
   var order = (topMax && orderFull.length>topMax) ? orderFull.slice(0,topMax) : orderFull;
   function cell(d){ return '<td class="'+(d>=0?'fl-pos':'fl-neg')+'">'+(d>=0?'+':'')+fmtShort(d)+'</td>'; }
   function pct(b,g){ return g!==0 ? (b/g-1)*100 : null; }
-  function pctCell(b,g){ var p=pct(b,g); return '<td class="'+((b-g)>=0?'fl-pos':'fl-neg')+'">'+(p==null?'—':(p>=0?'+':'')+Math.round(p)+'%')+'</td>'; }
+  function pctCell(b,g){ var p=pct(b,g); if(withAch) p=p==null?null:p+100;
+    return '<td class="'+((b-g)>=0?'fl-pos':'fl-neg')+'">'+(p==null?'—':(withAch?'':(p>=0?'+':''))+Math.round(p)+'%')+'</td>'; }
   function yoyCell(b,l){ var p=l>0?(b/l-1)*100:null; return '<td class="'+(p==null?'':(p>=0?'fl-pos':'fl-neg'))+'">'+(p==null?'—':(p>=0?'+':'')+Math.round(p)+'%')+'</td>'; }
   // Baseline | Delta [$] | Delta [%] (| YoY)
-  function cells(o){ return '<td>'+fmtShort(o.base)+'</td>'+cell(o.base-o.goal)+pctCell(o.base,o.goal)+(withYoY?yoyCell(o.ya,o.ly):''); }
-  var nNum=withYoY?4:3;
+  function byCell(gy,l){ var p=l>0&&gy?(gy/l-1)*100:null; return '<td style="color:var(--fl-ink3)">'+(p==null?'—':(p>=0?'+':'')+Math.round(p)+'%')+'</td>'; }
+  function cells(o){ return '<td>'+fmtShort(o.base)+'</td>'+cell(o.base-o.goal)+pctCell(o.base,o.goal)+(withYoY?yoyCell(o.ya,o.ly):'')+(withBY?byCell(o.gy,o.ly):''); }
+  var nNum=(withYoY?4:3)+(withBY?1:0);
   var tblUid=(_flAccUid++);
-  var body='',TB=0,TG=0,TYA=0;
-  orderFull.forEach(function(k){ var g=G[k]; if(!g)return; TB+=g.base; TG+=g.goal; TYA+=g.ya; }); // totales siempre sobre TODO, aunque se trunque lo visible
+  var body='',TB=0,TG=0,TYA=0,TGY=0;
+  orderFull.forEach(function(k){ var g=G[k]; if(!g)return; TB+=g.base; TG+=g.goal; TYA+=g.ya; TGY+=g.gy; }); // totales siempre sobre TODO, aunque se trunque lo visible
   // deep: filas Tier → Partner de un país, colgando de parentKey (acordeón, colapsado salvo en PDF).
   // Un país con un solo tier va directo a los partners.
   function deepRows_(parentKey, pais, c, ind, disp){
     var open=_flowPrinting, dispT=open?'table-row':'none', caret=open?'▾':'▸', byT={}, out='';
-    Object.keys(c.pt).forEach(function(pl){ var x=c.pt[pl], t=tierOf_(x.pais||pais, x.pn||x.name); (byT[t]=byT[t]||{base:0,goal:0,ya:0,ly:0,kids:[]}).kids.push(x);
-      byT[t].base+=x.base; byT[t].goal+=x.goal; byT[t].ya+=x.ya; byT[t].ly+=x.ly; });
+    Object.keys(c.pt).forEach(function(pl){ var x=c.pt[pl], t=tierOf_(x.pais||pais, x.pn||x.name); (byT[t]=byT[t]||{base:0,goal:0,ya:0,ly:0,gy:0,kids:[]}).kids.push(x);
+      byT[t].base+=x.base; byT[t].goal+=x.goal; byT[t].ya+=x.ya; byT[t].ly+=x.ly; byT[t].gy+=x.gy; });
     var tn=Object.keys(byT).sort(function(a,b){ return (tierRank_(a)-tierRank_(b)) || (byT[b].base-byT[a].base); });
     function partners(list, pk, pad, d){ list.sort(function(a,b){return b.base-a.base;}).forEach(function(x){
       out+='<tr data-parent="'+pk+'" style="display:'+d+'"><td>'+pad+x.name+'</td>'+cells(x)+'</tr>'; }); }
@@ -5965,7 +6018,7 @@ function flowGroupTable_(subRaw, metricKey, comp, col1, groupByRegion, childMax,
   order.forEach(function(k,pIdx){ var g=G[k]; if(!g)return;
     var lbl = groupByRegion ? (REGION_LABEL_[k]||k) : tierFirst ? (pIdx+1)+'.'+hispaLbl_(k) : k;
     var kids=Object.keys(g.ch).map(function(c){ var i=c.lastIndexOf('|'), kt=tierFirst ? tierOf_(c.substring(i+1), c.substring(0,i)) : tierOf_(k, c);
-      return {name:kidName_(c),base:g.ch[c].base,goal:g.ch[c].goal,ya:g.ch[c].ya,ly:g.ch[c].ly,pt:g.ch[c].pt,tier:kt};})
+      return {name:kidName_(c),base:g.ch[c].base,goal:g.ch[c].goal,ya:g.ch[c].ya,ly:g.ch[c].ly,gy:g.ch[c].gy,pt:g.ch[c].pt,tier:kt};})
       .sort(function(a,b){return b.base-a.base;});
     if(deep){
       // región → país → tier → partner. Región siempre visible; los países arrancan visibles y
@@ -6029,7 +6082,9 @@ function flowGroupTable_(subRaw, metricKey, comp, col1, groupByRegion, childMax,
       return;
     }
     var paisKey='fl'+tblUid+'p'+pIdx;
-    var fullOpen=_flowPrinting, summaryOpen=_flowSlidesExporting, paisOpen=fullOpen||summaryOpen;
+    // 2026-11-15 (Diego): el país más grande arranca abierto en sus tiers también en pantalla (al exportar, todos). Hispa (tierFirst)
+    // nunca, tampoco al exportar: ahí el grupo ya es el tier y abrirlo lista todos los partners.
+    var fullOpen=_flowPrinting, summaryOpen=_flowSlidesExporting, paisOpen=fullOpen||(!tierFirst && (pIdx===0||summaryOpen));
     var openP=paisOpen?'1':'0', dispP=paisOpen?'table-row':'none', caretP=paisOpen?'▾':'▸';
     var openT=fullOpen?'1':'0', dispT=fullOpen?'table-row':'none', caretT=fullOpen?'▾':'▸';
     body+='<tr class="grp" data-key="'+paisKey+'" data-open="'+openP+'" onclick="flAccToggle_(this)" style="cursor:pointer">'
@@ -6053,7 +6108,7 @@ function flowGroupTable_(subRaw, metricKey, comp, col1, groupByRegion, childMax,
       if(capThis){ body+='<tr class="fl-more" data-parent="'+paisKey+'" style="display:'+dispP+'"><td>&nbsp;&nbsp;+'+(kids.length-childMax)+' más</td><td colspan="'+nNum+'"></td></tr>'; }
     } else {
       tierNames.forEach(function(tn,tIdx){
-        var tKids=byTier[tn], tSum={base:0,goal:0,ya:0,ly:0}; tKids.forEach(function(c){tSum.base+=c.base;tSum.goal+=c.goal;tSum.ya+=c.ya;tSum.ly+=c.ly;});
+        var tKids=byTier[tn], tSum={base:0,goal:0,ya:0,ly:0,gy:0}; tKids.forEach(function(c){tSum.base+=c.base;tSum.goal+=c.goal;tSum.ya+=c.ya;tSum.ly+=c.ly;tSum.gy+=c.gy;});
         var tierKey=paisKey+'t'+tIdx;
         body+='<tr data-parent="'+paisKey+'" data-key="'+tierKey+'" data-open="'+openT+'" onclick="event.stopPropagation();flAccToggle_(this)" style="display:'+dispP+';cursor:pointer;font-weight:700">'
           +'<td>&nbsp;&nbsp;<span class="fl-acc-caret">'+caretT+'</span> '+tn+' <span style="font-weight:400;color:var(--fl-ink3)">('+tKids.length+')</span></td>'
@@ -6065,8 +6120,10 @@ function flowGroupTable_(subRaw, metricKey, comp, col1, groupByRegion, childMax,
     }
   });
   if(orderFull.length>order.length){ body+='<tr class="fl-more"><td>+'+(orderFull.length-order.length)+' más</td><td colspan="'+nNum+'"></td></tr>'; }
-  body+='<tr class="tot"><td>Total</td>'+cells({base:TB,goal:TG,ya:TYA,ly:TLall})+'</tr>';
-  return '<table class="fl-tbl"><thead><tr><th>'+(col1||'Región / País')+'</th><th>Baseline</th><th>Delta [$]</th><th>Delta [%]</th>'+(withYoY?'<th>YoY</th>':'')+'</tr></thead><tbody>'+body+'</tbody></table>';
+  body+='<tr class="tot"><td>Total</td>'+cells({base:TB,goal:TG,ya:TYA,ly:TLall,gy:TGY})+'</tr>';
+  var gS=(FLOW_COMP[comp]||{}).short||'Bud';
+  return '<table class="fl-tbl"><thead><tr><th>'+(col1||'Región / País')+'</th><th>Baseline</th><th>Delta [$]</th><th>'+(withAch?'Act / '+gS:'Delta [%]')+'</th>'
+    +(withYoY?'<th>'+(withBY?'Act. YoY':'YoY')+'</th>':'')+(withBY?'<th>'+gS+' YoY</th>':'')+'</tr></thead><tbody>'+body+'</tbody></table>';
 }
 
 // Portada OC (pedido 2026-10-26): una tabla por métrica con YTD | H2 lado a lado (OC: cerrado | H2).
@@ -6259,7 +6316,7 @@ function flowBuildSlide_(def, idx){
     var isCover = (def.kind!=='monthly'), isOC = (def.kind==='cover_oc');
     var region = isCover ? null : def.region;
     var sub = flowRegionRaw_(region);
-    var titleTxt = (isCover ? 'B2B2C' : FLOW_RG[region].label)+' Monthly Performance vs '+cmpLbl+(isOC?' · OC':'');
+    var titleTxt = isCover ? 'B2B2C Monthly Performance vs '+cmpLbl+(isOC?' · OC':'') : FLOW_RG[region].label+' Performance MTD y trend semanal vs '+cmpLbl;
     var brand = region ? ('<span class="fl-flag">'+FLOW_RG[region].flag+'</span>'+flLogo_()) : flLogo_();
     var panels='';
     (isOC ? ['nr','oc'] : ['gb','nr','fvm']).forEach(function(mk){   // portada OC sin GB (pedido 2026-10-26)
@@ -6271,11 +6328,11 @@ function flowBuildSlide_(def, idx){
           +flH1box_(hv.h2,cmpShort,'H2 (Act+Proy) vs ',true)+flH1box_(hv.fy,cmpShort,fyL+' (Act+Proy) vs ',true)+'</div>';
         legend=(mk==='oc') ? flLegend_(cmpLbl,true,'Actual cerrado (contable)','Run Rate contable') : isOC ? flLegendSeg_(cmpLbl) : flLegend_(cmpLbl,true);
       } else {
-        mon=flowMonthly_(sub,mk,cmp,vDate); boxes=flH1box_(flowH1_(mon), cmpShort); legend=flLegend_(cmpLbl);
+        mon=flowWeekly8_(sub,mk,cmp,vDate); boxes=flWkBox_(mon); legend=flLegend_(cmpLbl);
       }
-      _flowSeries[idx].push({id:cid, series:mon, gran:'monthly', opts:{labels:true, yoy:true, stackProj:isCover, split:isOC && mk!=='oc'}});
+      _flowSeries[idx].push({id:cid, series:mon, gran:isCover?'monthly':'weekly', opts:{labels:true, yoy:true, yoyG:!isCover && cmp!=='ly' ? 'YoY '+cmpShort : null, stackProj:isCover, split:isOC && mk!=='oc'}});
       panels+='<div style="flex:1;min-width:0;display:flex;flex-direction:column;min-height:0">'
-        +'<div class="fl-chart-title">'+FLOW_MET[mk].label+', en $</div>'+legend
+        +'<div class="fl-chart-title">'+FLOW_MET[mk].label+', en $'+(isCover?'':' · últimas 8 semanas')+'</div>'+legend
         +'<div style="display:flex;gap:10px;align-items:center;flex:1;min-width:0;min-height:0">'
         +'<div class="fl-canvas-wrap" style="flex:1;min-width:0;height:100%"><canvas id="'+cid+'"></canvas></div>'
         +boxes+'</div></div>';
@@ -6310,9 +6367,10 @@ function flowBuildSlide_(def, idx){
     var titleTxt=mesLbl+' | B2B2C '+FLOW_RG[region].label+' — '+FLOW_MET[mk].label+' Performance MTD vs '+cmpLbl;
     var brand='<span class="fl-flag">'+FLOW_RG[region].flag+'</span>'+flLogo_();
     var dl=flowDaily_(sub,mk,cmp);
-    var cid='flc'+idx; _flowSeries[idx].push({id:cid, series:dl, gran:'daily', opts:{labels:true, yoy:true}});
+    // sin la fila de YoY en el gráfico (2026-11-15, Diego): el YoY va en la tabla (Act. YoY y Bud YoY)
+    var cid='flc'+idx; _flowSeries[idx].push({id:cid, series:dl, gran:'daily', opts:{labels:true, yoy:false}});
     var tierFirst=(region==='SAH'); // Hispa: Tier → Partner en vez de País → Tier → Partner
-    var tbl=flowGroupTable_(sub,mk,cmp,tierFirst?'Tier / Partner':'País / Tier / Partner',false,undefined,undefined,tierFirst,undefined,{yoy:true});
+    var tbl=flowGroupTable_(sub,mk,cmp,tierFirst?'Tier / Partner':'País / Tier / Partner',false,undefined,undefined,tierFirst,undefined,{yoy:true, ach:true, budYoy:true});
     var body='<div class="fl-body"><div style="display:flex;gap:18px;height:100%">'
       +'<div style="flex:1.55;min-width:0;display:flex;flex-direction:column;min-height:0">'+flowKpiCards_(sub,mk,cmp)
       +'<div style="font-size:13px;font-weight:700;color:var(--fl-ink2);margin:8px 0 2px">Trend vs '+cmpLbl+'</div>'
@@ -6473,10 +6531,21 @@ var _flYoyPlugin_={id:'flYoy', afterDraw:function(chart){
   ctx.save(); ctx.font='700 '+(chart._flYoyFs||9)+'px Poppins, sans-serif'; ctx.textBaseline='top';
   ctx.textAlign='right'; ctx.fillStyle=chart._flYoyLbl||'#6b6b85'; ctx.fillText('YoY', chart.chartArea.left-4, y0);
   ctx.textAlign='center';
+  // _flYoyStagger (gráficos diarios): días impares una línea más abajo, para que la letra pueda ser más grande sin pisarse
+  var stg=!!chart._flYoyStagger, lh=(chart._flYoyFs||9)+2;
   yoy.forEach(function(p,i){
     var r = p==null ? null : (pp ? Math.round(p*10)/10 : Math.round(p));   // color según el valor redondeado: -0,4% sale "0%" verde, no rojo
     ctx.fillStyle = r==null ? '#9a9ab0' : r>=0 ? '#15803d' : '#dc2626';
-    ctx.fillText(r==null ? '—' : (r>=0?'+':'')+(pp ? r.toFixed(1)+'pp' : r+'%'), x.getPixelForValue(i), y0);
+    ctx.fillText(r==null ? '—' : (r>=0?'+':'')+(pp ? r.toFixed(1)+'pp' : r+'%'), x.getPixelForValue(i), y0+(stg&&i%2?lh:0));
+  });
+  // _flYoyRows: filas de abajo con el YoY del Goal (slides de región: total y Farming), en gris y un poco más chicas
+  var fs2=Math.max(8,(chart._flYoyFs||9)-1);
+  (chart._flYoyRows||[]).forEach(function(row,k){
+    var y1=y0+lh+2+k*(fs2+4);
+    ctx.font='600 '+fs2+'px Poppins, sans-serif'; ctx.textAlign='right'; ctx.fillStyle=chart._flYoyLbl||'#6b6b85';
+    ctx.fillText(row.lbl, chart.chartArea.left-4, y1);
+    ctx.textAlign='center'; ctx.fillStyle='#6b6b85';
+    row.vals.forEach(function(p,i){ var r=p==null?null:Math.round(p); ctx.fillText(r==null?'—':(r>=0?'+':'')+r+'%', x.getPixelForValue(i), y1); });
   });
   ctx.restore();
 }};
@@ -6517,7 +6586,7 @@ function flowChart_(spec){
     plugins:showYoy?[_barLabelsPlugin_,_flYoyPlugin_]:[_barLabelsPlugin_],
     data:{labels:labels,datasets:ds},
     options:{responsive:true,maintainAspectRatio:false,animation:false,
-      layout:{padding:{bottom:showYoy?14:0}},
+      layout:{padding:{bottom:showYoy?(gran==='daily'?24:(opts.yoyG?50:18)):0, left:opts.yoyG?20:0}},   // left: que entren los rótulos "YoY Bud" / "Farming" (YoY del Budget solo Farming)
       plugins:{legend:{display:false},tooltip:{enabled:false}},
       scales:{
         x:{stacked:stk,grid:{display:false},ticks:{color:'#6b6b85',font:{size:gran==='daily'?8:(stk?9:10)},maxRotation:0,autoSkip:false},border:{color:'transparent'}},
@@ -6527,7 +6596,9 @@ function flowChart_(spec){
   ch._tvLabelColor='rgba(40,30,80,.9)'; ch._isPct=false;
   // animation:false -> el constructor ya dibujó sin _flYoy; redibujar para que la fila salga
   // también en el PDF (flowRebuild_ en beforeprint) y en el export a Slides (html2canvas)
-  if(showYoy){ ch._flYoy=s.map(function(d){ return d.yoy; }); if(gran==='daily') ch._flYoyFs=6; ch.draw(); }
+  if(showYoy){ ch._flYoy=s.map(function(d){ return d.yoy; }); ch._flYoyFs=gran==='daily'?10:12; ch._flYoyStagger=gran==='daily';
+    if(opts.yoyG) ch._flYoyRows=[{lbl:opts.yoyG, vals:s.map(function(d){ return d.yoyG; })}, {lbl:'Farming', vals:s.map(function(d){ return d.yoyGF; })}];
+    ch.draw(); }   // antes 6 / 9 px: no se leía (2026-11-15)
   _flowCharts[spec.id]=ch;
 }
 
