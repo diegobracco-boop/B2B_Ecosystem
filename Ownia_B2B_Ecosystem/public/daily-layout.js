@@ -627,8 +627,8 @@
     dt.addEventListener('toggle', function () { st.detailOpen = dt.open; if (dt.open) drawChart(rows); else if (chart) { chart.destroy(); chart = null; } });
   }
 
-  // Pares del evento según el calendario de la línea: mismo país y familia en fechas cercanas (El Buen Fin B2B va
-  // 3 días después que WL). Sin evento en ese calendario, las fechas del elegido (fallback).
+  // Pares del evento según el calendario de la línea: mismo país y familia en fechas cercanas (por si un evento
+  // tiene fechas distintas en el calendario B2B y en el de WL). Sin evento en ese calendario, las fechas del elegido (fallback).
   function segPairs(seg, pairs) {
     if (calLob(st.lob) === seg.cal) return pairs;
     var all = pairsFor(seg.cal);
