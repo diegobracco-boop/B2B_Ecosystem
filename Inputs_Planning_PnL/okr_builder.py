@@ -603,7 +603,7 @@ def _read_agencias_flat():
 # Price Competitiveness: baseline ago-26 = 50% (no es mes del H2, se muestra en la card del tracker).
 GLOBALES_TARGET_DEFAULT = {
     "Price Competitiveness ex-Latam (Destino GL)": {
-        "2026-10": 48, "2026-11": 46, "2026-12": 43, "2027-01": 40, "2027-02": 37, "2027-03": 35,
+        "2026-10": 52.2, "2026-11": 50.1, "2026-12": 46.7, "2027-01": 42.8, "2027-02": 40.2, "2027-03": 39.2,
     },
 }
 
