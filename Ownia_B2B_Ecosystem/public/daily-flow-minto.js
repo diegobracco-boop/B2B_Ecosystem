@@ -51,6 +51,8 @@
     return s + '$' + (a >= 1e6 ? (a / 1e6).toFixed(1) + 'M' : a >= 1e3 ? Math.round(a / 1e3) + 'K' : Math.round(a));
   }
   function fd(v) { return (v > 0 ? '+' : '') + fm(v); }
+  // Actual / Target a partir del desvío (−30,2% → 69,8%), para los separadores de región (2026-11-15, Diego)
+  function pa(v) { return v == null || !isFinite(v) ? 'n/d' : (100 + v).toFixed(1).replace('.', ',') + '%'; }
   function pc(v) { return v == null || !isFinite(v) ? 'n/d' : (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(1).replace('.', ',') + '%'; }
   function cl(v) { return v == null || !isFinite(v) ? '' : v >= 0 ? 'flm-up' : 'flm-dn'; }
   function addDays(d, n) { var t = new Date(d + 'T12:00:00'); t.setDate(t.getDate() + n); return t.toISOString().slice(0, 10); }
@@ -176,7 +178,7 @@
       .concat(pick(function (d) { return d.kind === 'cover'; }));
     var cmpL = compLbl();
     flaggedRegions().forEach(function (f) {
-      body.push({ kind: 'divider', region: f.r, title: '¿Por qué ' + regLbl(f.r) + ' viene ' + pc(f.p) + ' vs ' + cmpL + '?', name: '— ' + regLbl(f.r) + ' ' + pc(f.p) + ' —' });
+      body.push({ kind: 'divider', region: f.r, title: '¿Por qué ' + regLbl(f.r) + ' está al ' + pa(f.p) + ' del ' + cmpL + '?', name: '— ' + regLbl(f.r) + ' ' + pa(f.p) + ' —' });
       // Mensual + NR diario + FVM diario (2026-11-10, Diego: la de FVM, mismo formato que la de NR, también en la Ejecutiva)
       body = body.concat(pick(function (d) { return d.region === f.r && (d.kind === 'monthly' || (d.kind === 'daily' && (d.metric === 'nr' || d.metric === 'fvm'))); }));
     });
