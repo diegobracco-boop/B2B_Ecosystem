@@ -1146,6 +1146,7 @@ body.krd-only #section-b2b > :not(.krd-keep) { display:none !important; }
         <button class="ttab active" id="ptab-all"      onclick="switchPartnerTab(this,'all')">All</button>
         <button class="ttab"        id="ptab-existing" onclick="switchPartnerTab(this,'existing')">Existing</button>
         <button class="ttab"        id="ptab-new"      onclick="switchPartnerTab(this,'new')">New</button>
+        <button class="ttab"        id="ptab-tbd"      onclick="switchPartnerTab(this,'tbd')">TBD</button>
       </div>
     </div>
     <div class="tbl-ctrl-sep"></div>
@@ -1170,7 +1171,7 @@ body.krd-only #section-b2b > :not(.krd-keep) { display:none !important; }
       <button class="bk-exp-btn" onclick="expandAllTables(['tbl-gb','tbl-nr','tbl-fvm'],false)">Collapse all</button>
     </div>
   </div>
-  <div class="tables-row" id="b2bc-tables-row">
+  <div class="tables-row show-cumpl" id="b2bc-tables-row">
 
     <!-- Gross Bookings -->
     <div class="tcard">
@@ -1771,8 +1772,24 @@ var _okrH2 = null, _okrH2State = 'idle';   // okr_h2_managerial.json (KRs H2); s
 var _b2bcExclTBD = false, _b2bcNoTBDCache = null;
 function isTBDPartner_(p) { return String(p || '').trim().toUpperCase() === 'TBD'; }
 var _tbdPartnerNames = {};   // grafías de TBD vistas al cargar (solo budget/proyecciones, sin actuals)
-// pAT (partner -> account_type) sale solo de actuals: sin esto el budget de TBD no entra en el tab "New".
-function seedTBDNew_(pAT) { Object.keys(_tbdPartnerNames).forEach(function(n){ pAT[n] = 'New'; }); }
+// pAT (partner -> account_type) sale solo de actuals: TBD no tiene actuals, así que se lo marca acá como 'TBD' (tab propio).
+// Completa pAT para que TODO partner con budget/proyección tenga categoría y Existing + New + TBD = All:
+//  - TBD va como categoría propia ('TBD'), ni Existing ni New.
+//  - Partner sin actuals (o con tipo desconocido): se clasifica por el stage de su budget / run rate; sin stage, 'New'.
+function seedTBDNew_(pAT, raw, extra) {
+  Object.keys(_tbdPartnerNames).forEach(function(n){ pAT[n] = 'TBD'; });
+  var src = raw || _rawB2BC || {};
+  var lists = ['budget','runrate','forecast','budget_fy_rest','runrate_fy_rest'].map(function(k){ return src[k] || []; });
+  if (extra) lists.push(extra);   // fuente de budget alternativa (compSrc)
+  lists.forEach(function(rows){
+    rows.forEach(function(r){
+      var p = r.partner; if (!p) return;
+      if (isTBDPartner_(p)) { pAT[p] = 'TBD'; return; }
+      if (pAT[p] === 'Existing' || pAT[p] === 'New') return;
+      pAT[p] = (r.stage === 'Existing') ? 'Existing' : 'New';
+    });
+  });
+}
 // Raw B2B2C según el switch (copia filtrada cacheada; el resto de las claves se comparten).
 function b2bcRaw_() {
   if (!_b2bcExclTBD || !_rawB2BC) return _rawB2BC;
@@ -1849,19 +1866,26 @@ function setExCoiBr(on) {
 // Filtro de partners multiselect, agrupado por tipo de cuenta (Existing / New). El check del grupo
 // marca todos sus partners (de los países elegidos).
 var _selPartners = [];    // [] = todos
-var _partGroups  = { Existing: [], New: [] };
+var _partGroups  = { Existing: [], New: [], TBD: [] };
 function partSel_() { return _selPartners.length ? _selPartners : null; }
 function fillPartnersCore_() {
-  var act = b2bcRaw_().actuals;
+  var R = b2bcRaw_(), act = R.actuals;
   if (_selPaises.length) act = act.filter(function(r){ return _selPaises.indexOf(r.pais) >= 0; });
-  var g = { Existing: [], New: [] };
-  getPartners_(act).forEach(function(p) {
-    var at = null;
-    act.forEach(function(r){ if (r.partner === p && r.account_type) at = r.account_type; });
-    (at === 'New' ? g.New : g.Existing).push(p);
+  var pAT = {};
+  R.actuals.forEach(function(r){ if (r.partner && (r.account_type === 'Existing' || r.account_type === 'New')) pAT[r.partner] = r.account_type; });
+  seedTBDNew_(pAT, R);
+  // Partners = los de actuals + los que solo tienen budget/proyección (en los países elegidos).
+  var names = {};
+  getPartners_(act).forEach(function(p){ names[p] = 1; });
+  ['budget','runrate','forecast'].forEach(function(k){
+    (R[k] || []).forEach(function(r){
+      if (r.partner && (!_selPaises.length || _selPaises.indexOf(r.pais) >= 0)) names[r.partner] = 1;
+    });
   });
+  var g = { Existing: [], New: [], TBD: [] };
+  Object.keys(names).sort().forEach(function(p){ (g[pAT[p]] || g.New).push(p); });
   _partGroups = g;
-  var all = g.Existing.concat(g.New);
+  var all = g.Existing.concat(g.New, g.TBD);
   _selPartners = _selPartners.filter(function(p){ return all.indexOf(p) >= 0; });
   renderPartPop_();
   fillProductCore_();
@@ -1879,7 +1903,7 @@ function renderPartPop_() {
   if (!pop) return;
   var esc = function(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;'); };
   var h = '<button type="button" class="msel-clear" onclick="partClear_()">Todos los partners</button>';
-  [['Existing','Existing'],['New','New']].forEach(function(gr) {
+  [['Existing','Existing'],['New','New'],['TBD','TBD']].forEach(function(gr) {
     var cs = _partGroups[gr[0]];
     if (!cs.length) return;
     var n = cs.filter(function(p){ return _selPartners.indexOf(p) >= 0; }).length;
@@ -2398,7 +2422,7 @@ function compute_(raw, metric, vDate, gl_pai, gl_par, gl_pro, gl_at, gran, compS
   var BMF = {gb:'gross_bookings',nr:'net_revenue', fvm:'fvm'}[metric];
   var pAT={};
   raw.actuals.forEach(function(r){if(r.partner&&r.account_type)pAT[r.partner]=r.account_type;});
-  seedTBDNew_(pAT);
+  seedTBDNew_(pAT, raw, compSrc);
   function matchA(r){if(gl_pai&&gl_pai.indexOf(r.pais)<0)return false;if(gl_par&&gl_par.indexOf(r.partner)<0)return false;if(gl_pro&&gl_pro.indexOf(r.productooriginal)<0)return false;if(gl_at&&r.account_type!==gl_at)return false;return true;}
   function matchB(r){if(gl_pai&&gl_pai.indexOf(r.pais)<0)return false;if(gl_par&&gl_par.indexOf(r.partner)<0)return false;if(gl_pro&&gl_pro.indexOf(r.producto)<0)return false;if(gl_at&&pAT[r.partner]!==gl_at)return false;return true;}
   function sum_(arr,from,to,mFn,f){var t=0;arr.forEach(function(r){if(from&&r.fecha<from)return;if(to&&r.fecha>to)return;if(!mFn(r))return;t+=(r[f]||0);});return t;}
@@ -2479,7 +2503,7 @@ function breakdownCountryPartner_(raw, MF, BMF, mStart, vDate, lyMS, lyVD, gl_pa
   return Object.keys(pMap).map(function(pais) {
     var allPartners = Object.keys(pMap[pais]).map(function(par) {
       var v = pMap[pais][par];
-      return { name: par, value: r2_(v.value), valueY: r2_(v.valueY), ly: r2_(v.ly), budget: r2_(v.budget), isNew: pAT[par]==='New' };
+      return { name: par, value: r2_(v.value), valueY: r2_(v.valueY), ly: r2_(v.ly), budget: r2_(v.budget), isNew: pAT[par]==='New' || pAT[par]==='TBD' };
     }).sort(function(a,b){ return b.value-a.value; });
     var tot = allPartners.reduce(function(acc,p){ acc.value+=p.value; acc.valueY+=p.valueY; acc.ly+=p.ly; acc.budget+=p.budget; return acc; }, {value:0,valueY:0,ly:0,budget:0});
     var allNew = allPartners.length > 0 && allPartners.every(function(p){ return p.isNew; });
@@ -2591,8 +2615,8 @@ function computeAll_(raw, vDate, gl_pai, gl_par, gl_pro, gl_at, gran, tab, compS
   var pp=vDate.split('-'), curYM=pp[0]+'-'+pp[1], mStart=curYM+'-01';
   var lyY=String(+pp[0]-1), lyVD=lyY+'-'+pp[1]+'-'+pp[2], lyMS=lyY+'-'+pp[1]+'-01';
   var pAT={}; raw.actuals.forEach(function(r){if(r.partner&&r.account_type)pAT[r.partner]=r.account_type;});
-  seedTBDNew_(pAT);
-  var atFilter = tab==='existing'?'Existing':(tab==='new'?'New':null);
+  seedTBDNew_(pAT, raw, compSrc);
+  var atFilter = tab==='existing'?'Existing':(tab==='new'?'New':(tab==='tbd'?'TBD':null));
   var atReq = gl_at || atFilter;
   var _budSrcB2bc = compSrc || raw.budget || [];
   var _budMinB2bc = null;
@@ -3076,7 +3100,7 @@ function navDay(dir) {
 
 // ── Partners tab ────────────────────────────────────────────────
 function switchPartnerTab(btn, tab) {
-  document.querySelectorAll('#section-b2bc .ttab').forEach(function(b){ b.classList.remove('active'); });
+  document.querySelectorAll('#section-b2bc [id^="ptab-"]').forEach(function(b){ b.classList.remove('active'); });   // solo el grupo Accounts (no Métricas ni Período)
   btn.classList.add('active');
   _partnerTab = tab;
   recomputeB2BC_();
