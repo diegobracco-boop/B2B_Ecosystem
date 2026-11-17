@@ -919,6 +919,17 @@ header .btn-refresh:hover{background:#f5f3ff !important;border-color:#c4b5fd;col
         </div>
       </div>
     </div>
+    <!-- Canal de venta (Online / Call Center / Islas / Tiendas): solo B2B2C, todos los escenarios (2026-11-17) -->
+    <div class="fb-group" id="pnl-canal-row" style="display:none">
+      <span class="fb-lbl">Canal</span>
+      <div class="ms-wrap" id="ms-canal">
+        <button class="ms-btn" type="button"><span class="ms-label">Todos</span><span class="ms-arrow">▾</span></button>
+        <div class="ms-panel">
+          <div class="ms-options"></div>
+          <div class="ms-footer"><button class="ms-clear" type="button" onclick="clearSharedMs_('ms-canal')">Limpiar selección</button></div>
+        </div>
+      </div>
+    </div>
       <!-- Tipo de producto (product_type: Vuelos, Hoteles, Disney…): solo B2B2C, Actuals + LY -->
       <div class="fb-group" id="pnl-tipo-row" style="display:none">
         <span class="fb-lbl">Tipo prod.</span>
@@ -930,11 +941,6 @@ header .btn-refresh:hover{background:#f5f3ff !important;border-color:#c4b5fd;col
       <div class="ms-footer"><button class="ms-clear" type="button" onclick="clearSharedMs_('ms-tipo')">Limpiar selección</button></div>
     </div>
   </div>
-      </div>
-      <!-- Canal de venta (Online / Call Center / Islas / Tiendas): solo B2B2C, todos los escenarios (2026-11-17) -->
-      <div class="fb-group" id="pnl-canal-row" style="display:none">
-        <span class="fb-lbl">Canal</span>
-        <div class="pais-chips" id="canal-chips"></div>
       </div>
       <!-- Millas (canje: porción del GB pagada con millas/puntos): solo B2B2C, Actuals + LY -->
       <div class="fb-group" id="pnl-millas-row" style="display:none">
@@ -1535,9 +1541,8 @@ function _activeFilterItems_(){
   if(!isGraficos) (_mgPeriodSel || []).forEach(function(p){
     out.push({ l:p, filter:true, clear:function(){ _msUncheck_('ms-period', p); _onMGPeriodMs_(); } });
   });
-  addMs('ms-pais'); addMs('ms-produto'); addMs('ms-partner'); addMs('ms-tipo', 'Tipo: '); addMs('ms-gateway', 'Gateway: ');
+  addMs('ms-pais'); addMs('ms-produto'); addMs('ms-partner'); addMs('ms-canal', 'Canal: '); addMs('ms-tipo', 'Tipo: '); addMs('ms-gateway', 'Gateway: ');
   if(_viajeSel) out.push({ l:_VIAJE_LABEL[_viajeSel] || _viajeSel, filter:true, clear:function(){ setViaje_(''); } });
-  if(_canalSel) out.push({ l:'Canal: ' + _canalSel, filter:true, clear:function(){ setCanal_(''); } });
   if(_millasSel) out.push({ l:_millasSel, filter:true, clear:function(){ setMillas_(''); } });
   if(_yearMode !== 'fy') out.push({ l:'Año calendario', clear:function(){ setYearMode('fy'); } });
   if(!_mgOrganic) out.push({ l:'Organic: NO', clear:function(){ setMGOrganic(true); } });
@@ -1573,9 +1578,8 @@ function _renderActiveFilters_(){
   document.getElementById('fb-filtros-n').textContent = nFiltros || '';
 }
 function _clearSharedFilters_(){
-  ['ms-pais','ms-produto','ms-partner','ms-tipo','ms-gateway'].forEach(function(id){ clearMs(id, false); });
+  ['ms-pais','ms-produto','ms-partner','ms-canal','ms-tipo','ms-gateway'].forEach(function(id){ clearMs(id, false); });
   _viajeSel = ''; _renderViajeChips_();
-  _canalSel = ''; _renderCanalChips_();
   _millasSel = ''; _renderMillasChips_();
   clearMGPeriodSel_();
   _onSharedFilter_();
@@ -1676,37 +1680,20 @@ function _syncViajeOptions_(d){
 }
 
 // ── Filtro Canal (B2B2C: Online / Call Center / Islas / Tiendas, 2026-11-17) ──
-// Selección única, server-side, como Viaje en B2B: Actuals, LY, Budget, Run Rate y Forecast abren por canal (los reales
-// por la transacción; Budget / RR / Forecast por lob_canal B2B2C-ON / CALL CENTER / OFF). Combinable con el resto.
+// Desplegable de selección múltiple como País / Partner, server-side: Actuals, LY, Budget, Run Rate y Forecast abren por canal
+// (los reales por la transacción; Budget / RR / Forecast por lob_canal B2B2C-ON / CALL CENTER / OFF). Combinable con el resto.
 var _canalOptions = [];    // d.filters.canal
-var _canalSel     = '';    // '' = Todos
-function getCanalValues_(){ return (_activeLob === 'b2b2c' && _canalOptions.length && _canalSel) ? [_canalSel] : []; }
+function getCanalValues_(){ return (_activeLob === 'b2b2c' && _canalOptions.length) ? getMsValues('ms-canal') : []; }
 function _renderCanalChips_(){
-  var row = document.getElementById('pnl-canal-row'), wrap = document.getElementById('canal-chips');
-  var on = _activeLob === 'b2b2c' && _canalOptions.length > 0;
-  if(row) row.style.display = on ? 'flex' : 'none';
-  if(!wrap) return;
-  wrap.innerHTML = '';
-  [''].concat(_canalOptions).forEach(function(v){
-    var btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'pais-chip' + (_canalSel === v ? ' pais-chip-active' : '');
-    btn.textContent = v || 'Todos';
-    btn.onclick = function(){ setCanal_(v); };
-    wrap.appendChild(btn);
-  });
+  var row = document.getElementById('pnl-canal-row');
+  if(row) row.style.display = (_activeLob === 'b2b2c' && _canalOptions.length > 0) ? 'flex' : 'none';
 }
-function setCanal_(v){
-  if(_canalSel === v) return;
-  _canalSel = v;
-  _renderCanalChips_();
-  _onSharedFilter_();
-}
+// Las opciones vienen en cada respuesta (orden fijo); si cambian se rearma el desplegable conservando lo elegido que siga existiendo.
 function _syncCanalOptions_(d){
   var vals = (d && d.filters && d.filters.canal) || [];
   if(vals.join('|') === _canalOptions.join('|')) return;
   _canalOptions = vals.slice();
-  if(_canalOptions.indexOf(_canalSel) < 0) _canalSel = '';
+  fillMs('ms-canal', _canalOptions, _onSharedFilter_);
   _renderCanalChips_();
   _renderActiveFilters_();
 }
@@ -4189,7 +4176,7 @@ function switchLob(lob){
   _resetTipoFilters_();
   _millasSel = '';
   _viajeSel = ''; _viajeOptions = [];
-  _canalSel = ''; _canalOptions = [];
+  clearMs('ms-canal', false); _canalOptions = [];
   updateProductoFilterVis_();
   reload();
   _invalidatePanesOnSharedChange_();
