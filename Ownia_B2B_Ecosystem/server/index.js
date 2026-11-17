@@ -53,6 +53,7 @@ const { createNotesStore } = require('./notes-store');
 const { ApiCache } = require('./api-cache');
 const { createRealesJob } = require('./reales-job');
 const { createConsolidador } = require('./consolidador');
+const { driveDimensiones } = require('./pnl-drive-dimensiones');
 const { createSlidesJobs } = require('./gslides-export');
 const { modelFromStore } = require('./pipeline-slide');
 const { partnersFrom, createQuestionLog } = require('./portal-ask-data');
@@ -460,6 +461,8 @@ function createApp(opts = {}) {
       if (!isTeam(identity)) return sendJson(res, 403, { error: 'Solo el equipo B2B puede leer el consolidador', name: 'Forbidden' });
       if (req.method !== 'GET') return sendJson(res, 405, { error: 'Método no permitido' });
       if (!consolidador) return sendJson(res, 404, { error: 'No encontrado' });
+      // Diagnóstico del lado Drive (para mapear contra la tabla): ver pnl-drive-dimensiones.js
+      if (route === '/consolidador/drive') return sendJson(res, 200, driveDimensiones(fileStore));
       const r = await consolidador.leer(route.slice('/consolidador/'.length));
       if (!r.ok) return sendJson(res, r.code, { error: r.error });
       return sendJson(res, 200, r.data);

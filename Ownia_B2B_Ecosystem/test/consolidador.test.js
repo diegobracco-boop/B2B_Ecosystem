@@ -108,3 +108,41 @@ test('sin CONSOLIDADOR_DB_NAME: 503 diciendo qué falta, sin lanzar nada', async
     assert.equal(lanzados.length, 0);
   } finally { s.close(); }
 });
+
+test('dimensiones: es una consulta válida y devuelve el JSON del Python', async () => {
+  lanzados.length = 0;
+  respuesta = { stdout: JSON.stringify({ combos: [{ scenario: 'ACT', year: 'FY27', mes: 4, filas: 10, valor: 1 }], valores: { pais: [{ valor: 'Brazil', filas: 5 }] } }) };
+  const r = await get(server, `${BASE}/consolidador/dimensiones`, ANA);
+  assert.equal(r.status, 200, r.text);
+  assert.equal(JSON.parse(r.text).valores.pais[0].valor, 'Brazil');
+  assert.equal(lanzados[0].args[1], 'dimensiones');
+});
+
+test('drive: solo el equipo, y sin almacén dice qué escenarios no están (sin lanzar Python)', async () => {
+  lanzados.length = 0;
+  assert.equal((await get(server, `${BASE}/consolidador/drive`)).status, 401);
+  assert.equal((await get(server, `${BASE}/consolidador/drive`, OTRO)).status, 403);
+  const r = await get(server, `${BASE}/consolidador/drive`, ANA);
+  assert.equal(r.status, 200, r.text);
+  const j = JSON.parse(r.text);
+  assert.deepEqual(Object.keys(j).sort(), ['ac', 'bg', 'bl', 'fbtb', 'fc', 'lrr', 'ly', 'rr']);
+  assert.match(j.ac.error, /no está en el almacén/);
+  assert.equal(lanzados.length, 0);
+});
+
+test('driveDimensiones: columnas, filas, monto por mes y valores distintos de un canónico', () => {
+  const { driveDimensiones, IDS } = require('../server/pnl-drive-dimensiones');
+  const json = { meta: { fechas: ['2026-04-01'] }, cols: ['LoB', 'Canal', 'Pais', 'Producto', 'P&L N2', 'Fecha', 'Monto USD'], rows: [
+    ['B2B', 'MAY', 'Brasil', 'Air', 'Gross Bookings', '2026-04-01', 10],
+    ['B2B', 'MIN', 'Brasil', 'Hotel', 'Gross Bookings', '2026-04-01', 5],
+    ['B2B2C', 'total', 'Chile', 'Air', 'Orders', '2026-05-01', 2],
+  ] };
+  const store = { get: (id) => (id === IDS.ac ? { meta: { updatedAt: 0 }, buf: Buffer.from(JSON.stringify(json)) } : null) };
+  const out = driveDimensiones(store);
+  assert.equal(out.ac.filas, 3);
+  assert.deepEqual(out.ac.montoPorMes, { '2026-04': 15, '2026-05': 2 });
+  assert.equal(out.ac.valores.Pais.distintos, 2);
+  assert.deepEqual(out.ac.valores.Pais.top[0], { valor: 'Brasil', filas: 2 });
+  assert.deepEqual(out.ac.fechasMeta, ['2026-04-01']);
+  assert.match(out.bg.error, /no está/);
+});

@@ -36,7 +36,24 @@ def por_pais_y_mes():
         f"SELECT pais, mes, sum(valor) AS valor FROM {TABLA} GROUP BY pais, mes")
 
 
-COMANDOS = {"versiones": versiones, "resumen": por_pais_y_mes}
+DIMENSIONES = ["pais", "lob", "channel", "product", "linea_p&l_-_nivel_2", "linea_p&l_-_nivel_3"]
+
+
+def dimensiones():
+    """Para armar y validar el mapeo contra los JSON de Drive: qué hay en la tabla, sin las filas.
+    combos = filas, suma y rango de valor por escenario/año/mes; valores = distintos de cada dimensión."""
+    c = cdb()
+    out = {"combos": c.cacheado(
+        DATASET,
+        f"SELECT scenario, year, mes, count(*) AS filas, sum(valor) AS valor FROM {TABLA} "
+        "GROUP BY scenario, year, mes ORDER BY scenario, year, mes"), "valores": {}}
+    for d in DIMENSIONES:
+        out["valores"][d] = c.cacheado(
+            DATASET, f'SELECT "{d}" AS valor, count(*) AS filas FROM {TABLA} GROUP BY "{d}" ORDER BY 2 DESC')
+    return out
+
+
+COMANDOS = {"versiones": versiones, "resumen": por_pais_y_mes, "dimensiones": dimensiones}
 
 
 def main(argv):
