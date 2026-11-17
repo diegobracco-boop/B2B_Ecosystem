@@ -1170,11 +1170,17 @@
   <button class="country-btn" data-country="CORE_MARKETS">Core Markets</button>
   <button class="country-btn" data-country="NEW_MARKETS">New Markets</button>
   <span class="country-sep-bar">|</span>
-  <button class="country-btn" data-country="Globales">Globales</button>
   <button class="country-btn" data-country="Brasil">Brasil</button>
   <button class="country-btn" data-country="Mexico">Mexico</button>
+  <button class="country-btn" data-country="Colombia">Colombia</button>
   <button class="country-btn" data-country="Argentina">Argentina</button>
-  <button class="country-btn" data-country="ROW+Colombia">ROW+Colombia</button>
+  <button class="country-btn" data-country="Globales">Globales</button>
+  <button class="country-btn" data-country="ROW">ROW</button>
+  <button class="country-btn" data-country="Chile">Chile</button>
+  <button class="country-btn" data-country="Peru">Peru</button>
+  <button class="country-btn" data-country="Ecuador">Ecuador</button>
+  <button class="country-btn" data-country="Uruguay">Uruguay</button>
+  <button class="country-btn" data-country="Paraguay">Paraguay</button>
 </div>
 
 <div class="filters">
@@ -1518,18 +1524,64 @@ const TAB_DATA = {
 // RG = ajuste COI Brasil (solo FVM; GB/NR en 0): va con Brasil, igual que FVM_DETAIL y el Weekly
 // (Codigo.js). Sin RG acá, las tablas/gráficos lo descartaban y no daban el FVM ex COI BR de los KRs
 // ni del Weekly (2026-11-03). Con el switch COI Brasil en Incluir, su FVM es 0 (applyCoiBrTrk_).
-const COUNTRY_GROUPS = {
+// Agrupación de países por canal (2026-11-18): API abre Globales, Brasil, Mexico, Argentina y ROW+Colombia; HTML
+// (Agencias afiliadas) y Total siguen con la agrupación de siempre. COUNTRY_GROUPS / MARKET_GROUPS apuntan a una u otra
+// según el canal que se está dibujando (applyGrouping_); las funciones de abajo los leen en el momento.
+const COUNTRY_GROUPS_OLD = {
+  'Brasil':    ['Brasil', 'RG'],
+  'Mexico':    ['Mexico'],
+  'Globales':  ['Other Countries'],
+  'Colombia':  ['Colombia'],
+  'Argentina': ['Argentina'],
+  'ROW':       ['Peru', 'Ecuador', 'Chile', 'Uruguay', 'Paraguay'],
+  'Chile':     ['Chile'],
+  'Peru':      ['Peru'],
+  'Ecuador':   ['Ecuador'],
+  'Uruguay':   ['Uruguay'],
+  'Paraguay':  ['Paraguay'],
+};
+const MARKET_GROUPS_OLD = {
+  'CORE_MARKETS': ['Brasil', 'Mexico', 'Globales'],
+  'NEW_MARKETS':  ['Colombia', 'Argentina', 'ROW']
+};
+const COUNTRY_GROUPS_API = {
   'Globales':  ['Other Countries'],
   'Brasil':    ['Brasil', 'RG'],
   'Mexico':    ['Mexico'],
   'Argentina': ['Argentina'],
   'ROW+Colombia': ['Colombia', 'Peru', 'Ecuador', 'Chile', 'Uruguay', 'Paraguay'],
 };
-
-const MARKET_GROUPS = {
+const MARKET_GROUPS_API = {
   'CORE_MARKETS': ['Brasil', 'Mexico', 'Globales'],
   'NEW_MARKETS':  ['Argentina', 'ROW+Colombia']
 };
+let COUNTRY_GROUPS = COUNTRY_GROUPS_OLD;
+let MARKET_GROUPS  = MARKET_GROUPS_OLD;
+var _groupsApi = false;
+var COUNTRY_BTNS_OLD = ['Brasil','Mexico','Colombia','Argentina','Globales','ROW','Chile','Peru','Ecuador','Uruguay','Paraguay'];
+var COUNTRY_BTNS_API = ['Globales','Brasil','Mexico','Argentina','ROW+Colombia'];
+// Elige la agrupación según el canal ('API' = nueva; HTML / Total = la de siempre) y rehace los botones de País.
+function applyGrouping_(channel) {
+  var api = channel === 'API';
+  if (api === _groupsApi) return;
+  _groupsApi = api;
+  COUNTRY_GROUPS = api ? COUNTRY_GROUPS_API : COUNTRY_GROUPS_OLD;
+  MARKET_GROUPS  = api ? MARKET_GROUPS_API  : MARKET_GROUPS_OLD;
+  // una selección de país que no existe en esta agrupación se descarta
+  activeCountries = activeCountries.filter(function(k){ return COUNTRY_GROUPS[k] || MARKET_GROUPS[k]; });
+  var bar = document.getElementById('countryFilterBar');
+  if (!bar) return;
+  var seps = bar.querySelectorAll('.country-sep-bar');
+  var last = seps[seps.length - 1];
+  while (last && last.nextElementSibling) last.nextElementSibling.remove();
+  (api ? COUNTRY_BTNS_API : COUNTRY_BTNS_OLD).forEach(function(k) {
+    var b = document.createElement('button');
+    b.className = 'country-btn'; b.dataset.country = k; b.textContent = k;
+    b.addEventListener('click', onCountryBtn_);
+    bar.appendChild(b);
+  });
+  syncCountryButtons();
+}
 
 const PRODUCT_GROUPS = {
   'Hotel':    ['Hotel', 'Hotels'],
@@ -1925,6 +1977,7 @@ function scopeLabel(scope) {
 }
 
 function filterByPeriod(rows, channel, scope, from, cutoff) {
+  applyGrouping_(channel);
   const { countries, products } = normScope(scope);
   const allowed = countries.length
     ? new Set(countries.flatMap(getCountriesForGroup).map(c => c.toLowerCase()))
@@ -1948,6 +2001,7 @@ function shiftYear(dateStr, delta) {
 //  Chart data builder
 // ─────────────────────────────────────────────
 function buildChartData(dateType, metricField, channel, countryGroup, monthFilter, inMillions) {
+  applyGrouping_(channel);
   const meta = rawData.meta;
   const { from, cutoff, goalFrom, goalCutoff } = getPeriodBounds(monthFilter, meta);
 
@@ -2150,6 +2204,7 @@ function renderChart(tab, channel, countryGroup, monthFilter) {
 //  Pivot data builder (shared)
 // ─────────────────────────────────────────────
 function buildPivotData(dateType, metricField, channel, countryGroup, monthFilter) {
+  applyGrouping_(channel);
   const meta = rawData.meta;
   const { from, cutoff } = getPeriodBounds(monthFilter, meta);
   const lyFrom   = shiftYear(from,   -1);
@@ -2487,6 +2542,7 @@ function renderTableBody(bodyEl, groups, inMillions, countryGroup, gbGroups) {
 }
 
 function renderTablesView(dateType, channel, countryGroup, monthFilter) {
+  applyGrouping_(channel);
   const gbGroups  = buildPivotData(dateType, METRICS.gb.field,  channel, countryGroup, monthFilter);
   const nrGroups  = buildPivotData(dateType, METRICS.nr.field,  channel, countryGroup, monthFilter);
   const fvmGroups = buildPivotData(dateType, METRICS.fvm.field, channel, countryGroup, monthFilter);
@@ -3106,8 +3162,8 @@ function renderStatusKRs() {
   // ── KR2: NR Core Markets (Brasil + Mexico + Globales) ────────
   var kr2 = computeMetricMTD(['Brasil', 'Mexico', 'Globales'], 'net_revenue', krYM);
 
-  // ── KR3: NR New Markets (Argentina + ROW+Colombia) ─────────
-  var kr3 = computeMetricMTD(['Argentina', 'ROW+Colombia'], 'net_revenue', krYM);
+  // ── KR3: NR New Markets (Argentina + Colombia + ROW) ─────────
+  var kr3 = computeMetricMTD(['Argentina', 'Colombia', 'ROW'], 'net_revenue', krYM);
 
   // ── KR4: Air NR from suppliers ────────────────────────────────
   var kr4Act = null, kr4Bud = null;
@@ -3247,18 +3303,31 @@ function renderStatusKRs() {
 
 // Country detail definitions for KR breakdown tables
 var NR_CORE_DETAIL = [
-  { name: 'Globales',     pais: ['Other Countries'] },
   { name: 'Brasil',       pais: ['Brasil'] },
-  { name: 'Mexico',       pais: ['Mexico'] }
+  { name: 'Mexico',       pais: ['Mexico'] },
+  { name: 'Globales',     pais: ['Other Countries'] }
 ];
-// Agrupación de países (2026-11): Globales, Brasil, Mexico, Argentina y ROW+Colombia.
 var NR_NEW_DETAIL = [
   { name: 'Argentina',    pais: ['Argentina'] },
-  { name: 'ROW+Colombia', pais: ['Colombia', 'Peru', 'Ecuador', 'Chile', 'Uruguay', 'Paraguay'] }
+  { name: 'Colombia',     pais: ['Colombia'] },
+  { name: 'Chile',        pais: ['Chile'] },
+  { name: 'Peru',         pais: ['Peru'] },
+  { name: 'Ecua/Uru/Par', pais: ['Ecuador', 'Uruguay', 'Paraguay'] }
 ];
 // RG = ajuste COI Brasil (filas FVM de daily_sync.py, en 0 con el switch COI Brasil = Incluir): va con
 // Brasil, como en Codigo.js. Si un país no está acá, el TOTAL de los recuadros no da el de la tabla de KRs.
 var FVM_DETAIL = [
+  { name: 'Brasil',       pais: ['Brasil', 'RG'] },
+  { name: 'Mexico',       pais: ['Mexico'] },
+  { name: 'Globales',     pais: ['Other Countries'] },
+  { name: 'Argentina',    pais: ['Argentina'] },
+  { name: 'Colombia',     pais: ['Colombia'] },
+  { name: 'Chile',        pais: ['Chile'] },
+  { name: 'Peru',         pais: ['Peru'] },
+  { name: 'Ecua/Uru/Par', pais: ['Ecuador', 'Uruguay', 'Paraguay'] }
+];
+// Canal API (2026-11-18): Globales, Brasil, Mexico, Argentina y ROW+Colombia.
+var FVM_DETAIL_API = [
   { name: 'Globales',     pais: ['Other Countries'] },
   { name: 'Brasil',       pais: ['Brasil', 'RG'] },
   { name: 'Mexico',       pais: ['Mexico'] },
@@ -4011,8 +4080,8 @@ function renderStatusKRsH2DetailBoxes_(monthFilter) {
     return box;
   }
 
-  function rowsFor(metricField, predAct, predBud, dateType) {
-    return FVM_DETAIL.map(function(def){
+  function rowsFor(metricField, predAct, predBud, dateType, defs) {
+    return (defs || (krH2Channel === 'api' ? FVM_DETAIL_API : FVM_DETAIL)).map(function(def){
       var d = computeKRH2ForPaisList_(def.pais, metricField, predAct, predBud, monthFilter, dateType);
       return { name: def.name, actual: toM(d.actual), actualY: d.actualY != null ? toM(d.actualY) : null, budget: toM(d.budget), ly: toM(d.ly) };
     });
@@ -4033,10 +4102,10 @@ function renderStatusKRsH2DetailBoxes_(monthFilter) {
   var dual = krH2Channel !== 'total';   // API / HTML: además de Recognition, Gestion Date
   // Recuadro de un KR: filas RI (y GD si dual) con la conversión de unidad; dropEmpty saca los países sin
   // dato en ninguna de las dos fechas.
-  function addBox(parent, title, metricField, pa, pb, unit, conv, dropEmpty) {
+  function addBox(parent, title, metricField, pa, pb, unit, conv, dropEmpty, defs) {
     conv = conv || function(x){ return x; };
-    var ri = conv(rowsFor(metricField, pa, pb, 'ri'));
-    var gd = dual ? conv(rowsFor(metricField, pa, pb, 'gd')) : null;
+    var ri = conv(rowsFor(metricField, pa, pb, 'ri', defs));
+    var gd = dual ? conv(rowsFor(metricField, pa, pb, 'gd', defs)) : null;
     if (dropEmpty) {
       var has = function(r){ return r.actual || r.budget || r.ly; };
       var keep = ri.map(function(r, i){ return has(r) || (gd && has(gd[i])); });
@@ -4047,7 +4116,7 @@ function renderStatusKRsH2DetailBoxes_(monthFilter) {
   }
 
   addBox(grid, 'Net Revenues $M' + chLbl, 'net_revenue', chPred, chPred);
-  if (krH2Channel !== 'html') addBox(grid, 'API FVM $K',  'fvm', isAPI,  isAPI,  '$Kint', toK);
+  if (krH2Channel !== 'html') addBox(grid, 'API FVM $K',  'fvm', isAPI,  isAPI,  '$Kint', toK, false, FVM_DETAIL_API);
   if (krH2Channel !== 'api')  addBox(grid, 'HTML FVM $K', 'fvm', isHTML, isHTML, '$Kint', toK);
   if (krH2Channel === 'api') {
     // En API, New Products se abre en Flights y Dest. Serv. (uno abajo del otro), solo con los países que
@@ -4464,7 +4533,7 @@ function globalesNrDetailBox_(ym) {
   var b = getPeriodBounds(ym, rawData.meta);
   if (b.cutoff < b.from) return '';   // mes futuro
   var isApiHotel = isApiHotelRow_;
-  var defs = FVM_DETAIL.map(function(d){ return { name: d.name, pais: d.pais.map(function(x){ return x.toLowerCase(); }), act: 0, actY: 0, bud: 0, ly: 0 }; });
+  var defs = FVM_DETAIL_API.map(function(d){ return { name: d.name, pais: d.pais.map(function(x){ return x.toLowerCase(); }), act: 0, actY: 0, bud: 0, ly: 0 }; });
   var otros = { name: 'Otros', pais: [], act: 0, actY: 0, bud: 0, ly: 0 };
   function bucket(pais) {
     var k = String(pais || '').toLowerCase();
@@ -4577,6 +4646,7 @@ function render() {
   // En Slides, una slide puede fijar su propio canal (ver SLIDE_ORDER.channel) por encima del filtro.
   const channel      = (_isSlidesMode && _slideChannel !== null) ? _slideChannel
                                                                  : document.getElementById('filterChannel').value;
+  applyGrouping_(channel);   // API abre con ROW+Colombia; HTML / Total, como siempre
   const countryGroup = currentScope();   // países + productos seleccionados
   const monthFilter  = document.getElementById('filterMonth').value;
 
@@ -4704,16 +4774,15 @@ function syncCountryButtons() {
     b.classList.toggle('active', k === '' ? activeCountries.length === 0 : activeCountries.includes(k));
   });
 }
-document.querySelectorAll('.country-btn').forEach(function(btn) {
-  btn.addEventListener('click', function() {
-    var k = btn.dataset.country;
-    if (k === '') activeCountries = [];
-    else if (activeCountries.includes(k)) activeCountries = activeCountries.filter(function(c) { return c !== k; });
-    else activeCountries = activeCountries.concat(k);
-    syncCountryButtons();
-    render();
-  });
-});
+function onCountryBtn_(ev) {
+  var k = ev.currentTarget.dataset.country;
+  if (k === '') activeCountries = [];
+  else if (activeCountries.includes(k)) activeCountries = activeCountries.filter(function(c) { return c !== k; });
+  else activeCountries = activeCountries.concat(k);
+  syncCountryButtons();
+  render();
+}
+document.querySelectorAll('.country-btn').forEach(function(btn) { btn.addEventListener('click', onCountryBtn_); });
 
 // Producto: desplegable con checkboxes (multi-selección). "Todos" limpia la selección.
 function syncProductDropdown() {
@@ -4842,9 +4911,10 @@ function _renderSplitSlide(metric, dateType) {
   var m = METRICS[metric];
   var monthFilter = document.getElementById('filterMonth').value;
   var cg = currentScope();
+  // cada panel se arma y se dibuja seguido: la agrupación de países depende del canal (API = ROW+Colombia)
   var gL = buildPivotData(dateType, m.field, 'Agencias afiliadas', cg, monthFilter);
-  var gR = buildPivotData(dateType, m.field, 'API', cg, monthFilter);
   renderTableBody(document.getElementById('pivotBodySplitL'), gL, m.inMillions, cg);
+  var gR = buildPivotData(dateType, m.field, 'API', cg, monthFilter);
   renderTableBody(document.getElementById('pivotBodySplitR'), gR, m.inMillions, cg);
 
   var dtLabel = (dateType === 'gd') ? 'Fecha de Gestión' : 'Fecha de Reconocimiento';

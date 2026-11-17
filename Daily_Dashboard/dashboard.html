@@ -3831,16 +3831,29 @@ function setB2BKrHalf(h){
 // OVERALL (solo canal Total) = ponderado con okrScore_ (piso 70%→0), igual que el Tracker.
 var KRD_FY_START = '2026-04', KRD_H2_START = '2026-10', KRD_H2_END = '2027-03';
 // flags: códigos de flagcdn.com (manda CORS, así salen en Copiar imagen / PNG); 'globe' = Globales.
-var KRD_PAISES_ = [
+// Agrupación por canal (2026-11-18): API abre Globales, Brasil, Mexico, Argentina y ROW+Colombia; HTML y Total, como siempre.
+var KRD_PAISES_OLD = [
+  { name: 'Brasil',       pais: ['Brasil'],                        flags: ['br'] },
+  { name: 'Mexico',       pais: ['Mexico'],                        flags: ['mx'] },
+  { name: 'Globales',     pais: ['Other Countries'],               flags: ['globe'] },
+  { name: 'Argentina',    pais: ['Argentina'],                     flags: ['ar'] },
+  { name: 'Colombia',     pais: ['Colombia'],                      flags: ['co'] },
+  { name: 'Chile',        pais: ['Chile'],                         flags: ['cl'] },
+  { name: 'Peru',         pais: ['Peru'],                          flags: ['pe'] },
+  { name: 'Ecua/Uru/Par', pais: ['Ecuador', 'Uruguay', 'Paraguay'], flags: ['ec', 'uy', 'py'] },
+  { name: 'RG',           pais: ['RG'],                            flags: [] }   // ajuste COI Brasil: solo FVM; sin él los países no suman al Total
+];
+var KRD_PAISES_API = [
   { name: 'Globales',     pais: ['Other Countries'],               flags: ['globe'] },
   { name: 'Brasil',       pais: ['Brasil'],                        flags: ['br'] },
   { name: 'Mexico',       pais: ['Mexico'],                        flags: ['mx'] },
   { name: 'Argentina',    pais: ['Argentina'],                     flags: ['ar'] },
   { name: 'ROW+Colombia', pais: ['Colombia', 'Peru', 'Ecuador', 'Chile', 'Uruguay', 'Paraguay'], flags: ['co', 'cl', 'pe', 'ec', 'uy', 'py'] },
-  { name: 'RG',           pais: ['RG'],                            flags: [] }   // ajuste COI Brasil: solo FVM; sin él los países no suman al Total
+  { name: 'RG',           pais: ['RG'],                            flags: [] }
 ];
+function krdPaises_() { return _krdCh === 'api' ? KRD_PAISES_API : KRD_PAISES_OLD; }
 function krdFlags_(grupo) {
-  var g = KRD_PAISES_.filter(function(x){ return x.name === grupo; })[0];
+  var g = krdPaises_().filter(function(x){ return x.name === grupo; })[0];
   if (!g || !g.flags.length) return '';
   return '<span class="krd-flags">' + g.flags.map(function(c){
     return c === 'globe' ? '<span class="krd-globe">🌎</span>'
@@ -3855,10 +3868,11 @@ function setKrDetailCh_(ch) {
   renderKrDetail_();
 }
 function krdNorm_(s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase(); }
-var _krdGrp = null;
-function krdGroupOf_(pais) {   // grupo de país de una fila (null = fuera de la lista)
-  if (!_krdGrp) { _krdGrp = {}; KRD_PAISES_.forEach(function(g){ g.pais.concat([g.name]).forEach(function(p){ _krdGrp[krdNorm_(p)] = g.name; }); }); }
-  return _krdGrp[krdNorm_(pais)] || null;
+var _krdGrpCache = {};
+function krdGroupOf_(pais) {   // grupo de país de una fila (null = fuera de la lista); depende del canal
+  var key = _krdCh === 'api' ? 'api' : 'old', m = _krdGrpCache[key];
+  if (!m) { m = _krdGrpCache[key] = {}; krdPaises_().forEach(function(g){ g.pais.concat([g.name]).forEach(function(p){ m[krdNorm_(p)] = g.name; }); }); }
+  return m[krdNorm_(pais)] || null;
 }
 function loadKrDetailRecur_() {
   if (_krdRecurState !== 'idle') return;
@@ -4145,7 +4159,7 @@ function renderKrDetail_() {
   }
   _krdTitles = [];
   var showGlobales = _krdCh !== 'html' && _globalesTargets && _globalesTargets.krs;
-  grid.innerHTML = ['TOTAL'].concat(showGlobales ? ['__globales'] : [], KRD_PAISES_.map(function(g){ return g.name; }))
+  grid.innerHTML = ['TOTAL'].concat(showGlobales ? ['__globales'] : [], krdPaises_().map(function(g){ return g.name; }))
     .filter(function(g){ return g === 'TOTAL' || g === '__globales' || (acc[g] && (g !== 'RG' || _exCoiBr)); })   // RG: con COI en Incluir vale 0
     .map(function(g, i){
       if (g === '__globales') { _krdTitles[i] = 'KR_Global_B2B_API'; return globalesCard(i); }
@@ -6724,13 +6738,33 @@ var B2B_TRK_TAB_DATA = {
 };
 // RG = ajuste COI Brasil (solo FVM; en 0 con el switch en Incluir, applyCoiBr_): va con Brasil, igual que
 // tracker.html y el Weekly. Sin RG, las tablas FVM no daban el FVM ex COI BR de los KRs (2026-11-03).
-var B2B_TRK_COUNTRY_GROUPS = {
+// Agrupación por canal (2026-11-18): API abre Globales, Brasil, Mexico, Argentina y ROW+Colombia; HTML y Total, como siempre.
+// B2B_TRK_COUNTRY_GROUPS / B2B_TRK_MARKET_GROUPS apuntan a una u otra según el canal que se dibuja (trkApplyGrouping_).
+var B2B_TRK_COUNTRY_GROUPS_OLD = {
+  Brasil:['Brasil','RG'], Mexico:['Mexico'], Globales:['Other Countries'], Colombia:['Colombia'],
+  Argentina:['Argentina'], ROW:['Peru','Ecuador','Chile','Uruguay','Paraguay'],
+  Chile:['Chile'], Peru:['Peru'], Ecuador:['Ecuador'], Uruguay:['Uruguay'], Paraguay:['Paraguay']
+};
+var B2B_TRK_MARKET_GROUPS_OLD = {
+  CORE_MARKETS:['Brasil','Mexico','Globales'], NEW_MARKETS:['Colombia','Argentina','ROW']
+};
+var B2B_TRK_COUNTRY_GROUPS_API = {
   Globales:['Other Countries'], Brasil:['Brasil','RG'], Mexico:['Mexico'], Argentina:['Argentina'],
   'ROW+Colombia':['Colombia','Peru','Ecuador','Chile','Uruguay','Paraguay']
 };
-var B2B_TRK_MARKET_GROUPS = {
+var B2B_TRK_MARKET_GROUPS_API = {
   CORE_MARKETS:['Brasil','Mexico','Globales'], NEW_MARKETS:['Argentina','ROW+Colombia']
 };
+var B2B_TRK_COUNTRY_GROUPS = B2B_TRK_COUNTRY_GROUPS_OLD;
+var B2B_TRK_MARKET_GROUPS  = B2B_TRK_MARKET_GROUPS_OLD;
+var _trkGroupsApi = false;
+function trkApplyGrouping_(channel){
+  var api = channel === 'API';
+  if(api === _trkGroupsApi) return;
+  _trkGroupsApi = api;
+  B2B_TRK_COUNTRY_GROUPS = api ? B2B_TRK_COUNTRY_GROUPS_API : B2B_TRK_COUNTRY_GROUPS_OLD;
+  B2B_TRK_MARKET_GROUPS  = api ? B2B_TRK_MARKET_GROUPS_API  : B2B_TRK_MARKET_GROUPS_OLD;
+}
 var B2B_TRK_PRODUCT_GROUPS = {
   Hotel:['Hotel','Hotels'], Air:['Air','Flights','Flight'], Packages:['Packages','Packages General','Package'],
   ONA:['Cars','Vacation Rentals','D. Services','Dest. Serv.','Insurance','Financial Services','Cruises','Buses','Ancillaries','Bundles','Other']
@@ -6744,14 +6778,20 @@ var B2B_TRK_AG_GROUPS = [
   { label:'Ecua / Uru / Par', keys:['Ecuador','Uruguay','Paraguay'] }
 ];
 var B2B_TRK_NR_CORE_DETAIL = [
-  { name:'Globales', pais:['Other Countries'] }, { name:'Brasil', pais:['Brasil'] }, { name:'Mexico', pais:['Mexico'] }
+  { name:'Brasil', pais:['Brasil'] }, { name:'Mexico', pais:['Mexico'] }, { name:'Globales', pais:['Other Countries'] }
 ];
 var B2B_TRK_NR_NEW_DETAIL = [
-  { name:'Argentina', pais:['Argentina'] }, { name:'ROW+Colombia', pais:['Colombia','Peru','Ecuador','Chile','Uruguay','Paraguay'] }
+  { name:'Argentina', pais:['Argentina'] }, { name:'Colombia', pais:['Colombia'] }, { name:'Chile', pais:['Chile'] },
+  { name:'Peru', pais:['Peru'] }, { name:'Ecua/Uru/Par', pais:['Ecuador','Uruguay','Paraguay'] }
 ];
 var B2B_TRK_FVM_DETAIL = B2B_TRK_NR_CORE_DETAIL.concat(B2B_TRK_NR_NEW_DETAIL).map(function(d){   // Brasil + RG, como FVM_DETAIL del Tracker
   return d.name === 'Brasil' ? { name:'Brasil', pais:['Brasil','RG'] } : d;
 });
+// Canal API: Globales, Brasil, Mexico, Argentina y ROW+Colombia.
+var B2B_TRK_FVM_DETAIL_API = [
+  { name:'Globales', pais:['Other Countries'] }, { name:'Brasil', pais:['Brasil','RG'] }, { name:'Mexico', pais:['Mexico'] },
+  { name:'Argentina', pais:['Argentina'] }, { name:'ROW+Colombia', pais:['Colombia','Peru','Ecuador','Chile','Uruguay','Paraguay'] }
+];
 
 // ── Data access (sobre _rawB2B, ya expandido por expandCompact_ al cargar
 // la página — a diferencia de tracker.html no hace falta unpack()) ──
@@ -6785,6 +6825,7 @@ function trkGetCountriesForGroup_(cg){
   return B2B_TRK_COUNTRY_GROUPS[cg] || [];
 }
 function trkFilterByPeriod_(rows, channel, cg, from, cutoff){
+  trkApplyGrouping_(channel);
   return rows.filter(function(r){
     if(channel && r.parent_channel!==channel) return false;
     if(cg){
@@ -6923,6 +6964,7 @@ function trkRenderChart_(idx, tab, channel, cg, monthFilter, goalType, goalLabel
 
 // ── Pivot data + render ──
 function trkBuildPivotData_(dateType, metricField, channel, cg, monthFilter, goalType){
+  trkApplyGrouping_(channel);
   var b=trkGetPeriodBounds_(monthFilter);
   var lyFrom=trkShiftYear_(b.from,-1), lyCutoff=trkShiftYear_(b.cutoff,-1);
   var actuals=trkFilterByPeriod_(trkGetActualsOrg_(dateType, goalType), channel, cg, b.from, b.cutoff);
@@ -7009,9 +7051,10 @@ function trkRenderTablesView_(idx, dateType, channel, cg, monthFilter, goalType)
 }
 function trkRenderSplitSlide_(idx, metric, dateType, cg, monthFilter, goalType){
   var m=B2B_TRK_METRICS[metric];
+  // cada panel se arma y se dibuja seguido: la agrupación de países depende del canal (API = ROW+Colombia)
   var gL=trkBuildPivotData_(dateType, m.field, 'Agencias afiliadas', cg, monthFilter, goalType);
-  var gR=trkBuildPivotData_(dateType, m.field, 'API', cg, monthFilter, goalType);
   trkRenderTableBody_(document.getElementById('b2b-splitL-'+idx), gL, m.inMillions, cg);
+  var gR=trkBuildPivotData_(dateType, m.field, 'API', cg, monthFilter, goalType);
   trkRenderTableBody_(document.getElementById('b2b-splitR-'+idx), gR, m.inMillions, cg);
   var actHdr='Actuals<br>MTD ('+m.unit+')', deltaHdr='Delta<br>('+m.unit+')';
   var elA=document.getElementById('b2b-splitActL-'+idx); if(elA) elA.innerHTML=actHdr;
@@ -7284,7 +7327,7 @@ function trkRenderStatusKRs_(idx){
       kr1Bud=(ag.budget && ag.budget.TOTAL!==undefined && ag.budget.TOTAL!==null) ? ag.budget.TOTAL : (sumBud>0?sumBud:null);
     }
     var kr2=mOrNull(trkComputeMetricMTD_(['Brasil','Mexico','Globales'],'net_revenue',krYM));
-    var kr3=mOrNull(trkComputeMetricMTD_(['Argentina','ROW+Colombia'],'net_revenue',krYM));
+    var kr3=mOrNull(trkComputeMetricMTD_(['Argentina','Colombia','ROW'],'net_revenue',krYM));
     rows.push({ name:'Agencies L4W', w:.20, a:kr1Act, b:kr1Bud, unit:'int' });
     rows.push({ name:'NR Core Markets $M', w:.40, a:kr2.a, b:kr2.b, unit:'$M' });
     rows.push({ name:'NR New Markets $M', w:.20, a:kr3.a, b:kr3.b, unit:'$M' });
@@ -7364,7 +7407,7 @@ function trkRenderStatusKRs_(idx){
       grid.appendChild(detailBox('KR5 — FVM por país', fvmRows, '$M'));
     } else {
       function byCountry(channel, metric){
-        return B2B_TRK_FVM_DETAIL.map(function(d){ var r=trkMTDByChannel_(d.pais, channel, metric, krYM); return {name:d.name,actual:trkToM_(r.actual),budget:trkToM_(r.budget)}; });
+        return (channel==='API' ? B2B_TRK_FVM_DETAIL_API : B2B_TRK_FVM_DETAIL).map(function(d){ var r=trkMTDByChannel_(d.pais, channel, metric, krYM); return {name:d.name,actual:trkToM_(r.actual),budget:trkToM_(r.budget)}; });
       }
       grid.appendChild(detailBox('Net Revenue por país', byCountry(null,'net_revenue'), '$M'));
       grid.appendChild(detailBox('FVM API (proxy OC)', byCountry('API','fvm'), '$M'));
