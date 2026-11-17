@@ -8,11 +8,11 @@
 // Los "en validación" abren la versión de Ownia solo para quien puede entrar (allowedUsers);
 // el resto va directo a GAS, así nadie de afuera del equipo choca con un 403.
 const { escapeHtml } = require('./gas-template');
-const { B2B2C_TRACKER } = require('./modules');
+const { B2B2C_TRACKER, EMBUDO_B2B } = require('./modules');
 
 // Lo esencial para un Chief / VP, en este orden (2026-10-29: Daily, P&L Dashboard, P&L Managerial, Presentaciones). Un módulo que no esté acá ni en MORE cae en "Más tableros".
 const ESSENTIAL = ['daily', 'hub', 'pnl-managerial', 'flow'];
-const MORE = ['pnl-accounting', 'hub-consolidacion', 'travel-partners-hub', 'marketing-b2b', 'rolling-projections', 'fixed-cost', 'weekly-industry', 'agentes', 'profit-sharing', 'okr-b2b2c', 'pipeline-hunting', 'b2b2c-tracker', 'manual'];
+const MORE = ['pnl-accounting', 'hub-consolidacion', 'travel-partners-hub', 'marketing-b2b', 'rolling-projections', 'fixed-cost', 'weekly-industry', 'agentes', 'profit-sharing', 'okr-b2b2c', 'pipeline-hunting', 'b2b2c-tracker', 'embudo-b2b', 'manual'];
 
 // Accesos directos de un bloque hacia OTROS tableros (además de las vistas propias, `quickViews`). Esos tableros no se repiten en "Más tableros".
 const QUICK_LINKS = { daily: ['api-one-pager', 'fvm-negativo', 'b2b-score-producto'] };
@@ -43,7 +43,7 @@ const ICONS = {
 };
 const ICON_OF = {
   'pnl-managerial': 'chart', 'pnl-accounting': 'ledger', 'profit-sharing': 'bank', 'hub-consolidacion': 'bank', 'marketing-b2b': 'target', hub: 'grid', daily: 'calendar',
-  'fvm-negativo': 'down', 'okr-b2b2c': 'target', manual: 'book', 'api-one-pager': 'api', 'b2b-score-producto': 'target', 'travel-partners-hub': 'globe', flow: 'flow', 'rolling-projections': 'chart', 'fixed-cost': 'ledger', 'weekly-industry': 'globe', agentes: 'agent', 'pipeline-hunting': 'chart', 'b2b2c-tracker': 'funnel',
+  'fvm-negativo': 'down', 'okr-b2b2c': 'target', manual: 'book', 'api-one-pager': 'api', 'b2b-score-producto': 'target', 'travel-partners-hub': 'globe', flow: 'flow', 'rolling-projections': 'chart', 'fixed-cost': 'ledger', 'weekly-industry': 'globe', agentes: 'agent', 'pipeline-hunting': 'chart', 'b2b2c-tracker': 'funnel', 'embudo-b2b': 'down',
 };
 // Otras apps de Ownia que se linkean desde el menú (no son módulos de este repo: no corren acá).
 // Los links son los mismos que usa el P&L Dashboard de Apps Script (EXTERNAL_LINKS en Dashboard_B2B_WLs/dashboard.html).
@@ -59,6 +59,7 @@ const OTHER_APPS = [
   { slug: 'b2b-score-producto', title: 'B2B - Score by product', desc: 'Score de B2B por producto (Apps Script).',
     url: 'https://script.google.com/a/macros/despegar.com/s/AKfycbxEzLOo88qtNqzNT2-rIHBm4uJefTSkREnY4D0dYIbeBI-t-ygvBMGCrUKVZImfyYHPaw/exec' },
   B2B2C_TRACKER,   // página propia (server/b2b2c-tracker-page.js), con allowedUsers: solo aparece para quien la puede abrir
+  EMBUDO_B2B,      // página propia (server/embudo-b2b-page.js), debajo del B2B2C Tracker; con allowedUsers (equipo B2B) mientras está en revisión
   { slug: 'pipeline-hunting', title: 'Pipeline Hunting', desc: 'Todos los deals del pipeline B2B2C, con NR y FVM.', internal: 'pipeline-hunting' },
   { slug: 'agentes', title: 'Agentes Toqan', desc: 'Los agentes de IA del equipo: planning, BI, comercial y optimization.', internal: 'agentes' },
   { slug: 'weekly-industry', title: 'Weekly Industry', desc: 'KPIs semanales de industria.',

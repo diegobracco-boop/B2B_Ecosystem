@@ -45,7 +45,9 @@ const { resumenSemanalPage } = require('./resumen-semanal-page');
 const { pipelineHuntingPage } = require('./pipeline-hunting-page');
 const { trackerPage } = require('./b2b2c-tracker-page');
 const { trackerApi } = require('./b2b2c-tracker');
-const { B2B2C_TRACKER } = require('./modules');
+const { B2B2C_TRACKER, EMBUDO_B2B } = require('./modules');
+const { embudoPage } = require('./embudo-b2b-page');
+const { embudoApi } = require('./embudo-b2b');
 const { resolveIdentity, describeAuthHeaders } = require('./identity');
 const { createFileStore, isValidId } = require('./file-store');
 const { ingestAllowlist, loadManifest } = require('./drive-manifest');
@@ -526,6 +528,22 @@ function createApp(opts = {}) {
       try { out = trackerApi(fileStore, url.searchParams); } catch (e) {
         log({ level: 'error', msg: 'b2b2c-tracker', error: e.message });
         return sendJson(res, 500, { error: 'No se pudo armar el tracker: ' + e.message });
+      }
+      return sendCompressible(req, res, 200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }, JSON.stringify(out));
+    }
+
+    // "Embudo B2B": vendido → cancelado / pendiente → reconocido, GD vs RI (server/embudo-b2b.js). Solo EMBUDO_B2B.allowedUsers (modules.js).
+    if (route === '/embudo-b2b' || route === '/embudo-b2b/data') {
+      if (req.method !== 'GET') return sendJson(res, 405, { error: 'Método no permitido' });
+      if (!identity.email) return unauthorized(res);
+      if (!mayOpen(EMBUDO_B2B, identity)) return sendJson(res, 403, { error: 'El Embudo B2B todavía está en revisión', name: 'Forbidden' });
+      if (route === '/embudo-b2b') {
+        return sendCompressible(req, res, 200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }, embudoPage({ basePath: cfg.BASE_PATH }));
+      }
+      let out;
+      try { out = embudoApi(fileStore, url.searchParams); } catch (e) {
+        log({ level: 'error', msg: 'embudo-b2b', error: e.message });
+        return sendJson(res, 500, { error: 'No se pudo armar el embudo: ' + e.message });
       }
       return sendCompressible(req, res, 200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }, JSON.stringify(out));
     }

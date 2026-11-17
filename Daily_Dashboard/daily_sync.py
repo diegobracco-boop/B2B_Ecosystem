@@ -2473,6 +2473,17 @@ try:
 except (Exception, SystemExit) as e:
     print(f"  WARN B2B2C Tracker fallo ({e}) — queda el b2b2c_tracker.json anterior en Drive")
 
+# Embudo B2B: lo vendido -> cancelado / pendiente -> reconocido (RI), cosecha venta -> reconocimiento y HTML por medio de pago,
+# para la página /embudo-b2b de Ownia (ver embudo_b2b_sync.py). No corta la sync: si falla queda el embudo_b2b.json anterior.
+print("\n--- Embudo B2B ---")
+try:
+    import embudo_b2b_sync as _emb
+    _emb_payload = _emb.build_payload(fetch, _B2B_PAIS_CASE, YESTERDAY)
+    if _emb_payload is not None:
+        upload_to_drive(json.dumps(_emb_payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8"), _emb.FILE_NAME)
+except (Exception, SystemExit) as e:
+    print(f"  WARN Embudo B2B fallo ({e}) — queda el embudo_b2b.json anterior en Drive")
+
 # okr.json (OKR del Hub + KR Global B2B API del Daily/Tracker) toma de daily_b2b2c_data.json los
 # actuals que salen del Datalake (hoteles directos, Unique Buyers, Hunting/Existing): se regenera acá
 # para que se actualicen todos los días sin esperar a /actualizar. Si falla, avisa y no corta la sync.
