@@ -19,9 +19,9 @@ function noise(...k) {
 // GB semanal de Budget por unidad. B2B2C: partner × país; B2B: país.
 const UNITS = {
   b2b2c: {
-    Brasil: { Livelo: 1.3e6, 'Itau Card': 0.8e6, Smiles: 0.6e6, Sicoob: 0.4e6 },
+    Brasil: { Livelo: 1.3e6, 'Itau Card': 0.8e6, Smiles: 0.6e6, Sicoob: 0.4e6, TBD: 0.5e6 },
     Argentina: { BBVA: 0.8e6, Galicia: 0.6e6, 'Viajes Naranja': 0.5e6 },
-    Mexico: { 'BBVA MX': 0.8e6, Banorte: 0.6e6 },
+    Mexico: { 'BBVA MX': 0.8e6, Banorte: 0.6e6, TBD: 0.6e6 },
     Chile: { 'Viajes Falabella': 0.55e6, 'Banco de Chile': 0.35e6 },
     Colombia: { 'Viajes Falabella': 0.4e6, Bancolombia: 0.3e6 },
     Peru: { 'Viajes Falabella': 0.28e6, Interbank: 0.17e6 },
@@ -35,6 +35,7 @@ const BIAS = { b2b2c: 0.99, api: 1.03, html: 0.95 };                            
 // Desvíos que se repiten: Falabella flojo en los tres países (se suma como partner), Livelo con take rate bajo,
 // México B2B API arriba, HTML Colombia flojo. Desde W42 Falabella cae más (cambia la explicación semana a semana).
 function weak(k, p, u, w) {
+  if (u === 'TBD') return 0;   // Budget de partners nuevos sin firmar: sin ventas
   if (k === 'b2b2c' && u === 'Viajes Falabella') return w >= 42 ? 0.78 : 0.92;
   if (k === 'b2b2c' && u === 'Galicia' && w === 43) return 0.75;
   if (k === 'api' && p === 'Mexico') return 1.09;

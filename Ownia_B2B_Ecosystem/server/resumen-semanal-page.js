@@ -132,6 +132,7 @@ const CSS = `<style>
   .rs-ctl .rs-btn { justify-content: center; background: var(--tile); }
   .rs-mode { display: inline-flex; gap: 2px; padding: 4px; border-radius: 999px; background: var(--tile); box-shadow: inset 0 0 0 1px var(--line); }
   .rs-mode button { padding: 7px 18px; border-radius: 999px; border: 0; background: transparent; color: var(--text-2); font: 600 13.5px var(--font); cursor: pointer; transition: background .2s, color .2s; }
+  .rs-ctl .rs-tbd[aria-pressed="true"] { color: var(--link); box-shadow: inset 0 0 0 1px var(--link); background: var(--spot); }
   .rs-mode button[aria-pressed="true"] { background: var(--primary); color: #fff; box-shadow: 0 6px 20px var(--glow); }
 
   /* Dónde se explica: barras por país (real vs marca de Budget) y, abajo de BR / AR / MX / CL, los partners que lo explican */
@@ -232,6 +233,9 @@ const SCRIPT = String.raw`
   var MESL = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
   // mode: 'w' = semana, 'm' = MTD. req: lo pedido al servidor (semana y mes; null = el último)
   var D = null, sel = 'all', mode = 'w', req = { week: null, month: null };
+  // exTbd: "Excluir TBD" saca el Budget de partners nuevos sin firmar (TBD) de las explicaciones (Dónde, Para mirar y
+  // los partners debajo de cada país). Los totales y las barras por país no cambian: el desvío de TBD sigue en el número.
+  var exTbd = false;
 
   // ── Números ─────────────────────────────────────────────────────────────────────────────
   function z() { return { gb: 0, rev: 0, fvm: 0 }; }
@@ -297,7 +301,7 @@ const SCRIPT = String.raw`
       var U = src.units || {};
       Object.keys(U).forEach(function (key) {
         var u = U[key];
-        units.push({ key: key, biz: bk, part: partName(u.n), pk: u.n ? u.n.toLowerCase() : '', pais: u.p, cur: u.cur, bud: u.bud, ly: u.ly, cl: u.cl || u.cur });
+        units.push({ key: key, biz: bk, tbd: isTbd(u.n), part: partName(u.n), pk: u.n ? u.n.toLowerCase() : '', pais: u.p, cur: u.cur, bud: u.bud, ly: u.ly, cl: u.cl || u.cur });
       });
       if (M) add(budMonth, b.mtd.budMonth || z());
     });
@@ -329,9 +333,14 @@ const SCRIPT = String.raw`
   function grp(t, n, key) { return { t: t, n: n, key: key, d: 0, cur: z(), bud: z(), ly: z(), cl: z(), units: [] }; }
   function push(g, u) { add(g.cur, u.cur); add(g.bud, u.bud); add(g.ly, u.ly); add(g.cl, u.cl); g.d = g.cur.rev - g.bud.rev; g.units.push(u); }
   // "TBD" es el Budget de partners nuevos todavía sin firmar (Hunting): no es un partner con ventas
-  function partName(n) { return !n ? '' : /^tbd$/i.test(String(n).trim()) ? 'Partners nuevos (TBD)' : n; }
+  function isTbd(n) { return !!n && /^tbd$/i.test(String(n).trim()); }
+  function partName(n) { return !n ? '' : isTbd(n) ? 'Partners nuevos (TBD)' : n; }
+  // Las unidades que entran en las explicaciones (sin TBD si está activo "Excluir TBD")
+  function xUnits(V) { return exTbd ? V.units.filter(function (u) { return !u.tbd; }) : V.units; }
+  // Desvío de NR vs Budget que se deja afuera de las explicaciones con "Excluir TBD"
+  function tbdGap(V, pais) { var d = 0; V.units.forEach(function (u) { if (u.tbd && (!pais || u.pais === pais)) d += (u.cur.rev || 0) - (u.bud.rev || 0); }); return d; }
   function drivers(V) {
-    var U = V.units, dev = V.T.cur.rev - V.T.bud.rev, thr = Math.max(Math.abs(dev) * 0.12, Math.abs(V.T.bud.rev) * 0.008, 1);
+    var U = xUnits(V), dev = V.T.cur.rev - V.T.bud.rev, thr = Math.max(Math.abs(dev) * 0.12, Math.abs(V.T.bud.rev) * 0.008, 1);
     var P = {};
     U.forEach(function (u) { if (u.pk) push(P[u.pk] = P[u.pk] || grp('p', u.part, 'p:' + u.pk), u); });
     var picked = Object.keys(P).map(function (k) { return P[k]; }).filter(function (g) { return Math.abs(g.d) >= thr; }).sort(byAbs).slice(0, 4);
@@ -406,6 +415,8 @@ const SCRIPT = String.raw`
     var mainD = DR.list.filter(function (g) { return g.d * sg > 0; }).slice(0, 3), comp = DR.list.filter(function (g) { return g.d * sg < 0; }).slice(0, 1);
     var lst = function (a) { return joinY(a.map(function (g) { return b(gName(g, slack)) + ' (' + (g.t === 'p' && g.units.length > 1 ? tagOf(g).replace('Partner · ', '') + ', ' : '') + sgnMoney(g.d) + ')'; })); };
     var wt = mainD.length ? (dev < 0 ? 'Lo explican ' : 'Lo empujan ') + lst(mainD) + (comp.length ? '; compensa ' + lst(comp) : '') + '.' : 'Ningún partner ni país explica por sí solo el desvío: está repartido.';
+    var tg = exTbd ? tbdGap(V) : 0;
+    if (tg) wt += ' Sin contar partners nuevos (TBD), que tienen ' + sgnMoney(tg) + ' de Budget sin firmar.';
     out.push({ k: 'where', lbl: 'Dónde', t: wt });
 
     if (M) {
@@ -480,6 +491,8 @@ const SCRIPT = String.raw`
       (mode === 'w' ? (isLatest() ? ' · reales al ' + esc(ddmm(D.lastActualsDate)) : ' · semana cerrada') : '') + '</span>' +
       '<div class="rs-ctl"><div class="rs-mode" role="group" aria-label="Vista"><button type="button" data-v="w" aria-pressed="' + (mode === 'w') + '">Semanal</button>' +
       '<button type="button" data-v="m" aria-pressed="' + (mode === 'm') + '">MTD</button></div>' +
+      '<button type="button" class="rs-btn rs-tbd" id="rs-tbd" aria-pressed="' + exTbd + '" title="Saca de las explicaciones el Budget de partners nuevos todavía sin firmar (TBD). Los totales no cambian.">' +
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg><span>Excluir TBD</span></button>' +
       '<button type="button" class="rs-btn" id="rs-deck" title="Arma un deck .pptx con el resumen y las tarjetas (se abre en Google Slides o PowerPoint)">' +
       '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg><span>Exportar a Slides</span></button>' +
       '<button type="button" class="rs-btn" id="rs-link" title="Copia el link a esta vista para mandarlo por Slack">' +
@@ -522,6 +535,9 @@ const SCRIPT = String.raw`
     Array.prototype.forEach.call(root.querySelectorAll('.rs-mode button'), function (bt) {
       bt.onclick = function () { var v = bt.getAttribute('data-v'); if (v === mode) return; mode = v; root.classList.add('calm'); render(); syncUrl(); };
     });
+    document.getElementById('rs-tbd').onclick = function () {
+      exTbd = !exTbd; this.setAttribute('aria-pressed', String(exTbd)); root.classList.add('calm'); renderBiz(false); syncUrl();
+    };
     document.getElementById('rs-copy').onclick = copySlack;
     document.getElementById('rs-link').onclick = copyLink;
     document.getElementById('rs-deck').onclick = exportDeck;
@@ -629,7 +645,7 @@ const SCRIPT = String.raw`
   var PARTNER_PAISES = ['Brasil', 'Argentina', 'Mexico', 'Chile'];
   function partnersOf(V, p, cd) {
     var P = {};
-    V.units.forEach(function (u) { if (u.pk && u.pais === p) push(P[u.pk] = P[u.pk] || grp('p', u.part, 'p:' + u.pk), u); });
+    xUnits(V).forEach(function (u) { if (u.pk && u.pais === p) push(P[u.pk] = P[u.pk] || grp('p', u.part, 'p:' + u.pk), u); });
     return Object.keys(P).map(function (k) { return P[k]; })
       .filter(function (g) { return g.d * cd > 0 && Math.abs(g.d) >= Math.abs(cd) * 0.25; }).sort(byAbs).slice(0, 2);
   }
@@ -664,7 +680,8 @@ const SCRIPT = String.raw`
     }
     var body = rows.map(function (r) { return row(r) + r.subs.map(sub).join(''); }).join('') + row({ n: 'Total', c: V.T.cur, b: V.T.bud }, 'tot');
     var subTxt = 'Net Revenues ' + (mode === 'm' ? periodo() : 'de la semana ' + D.week.week) + ' · la marca es el Budget' +
-      (V.units.some(function (u) { return u.part; }) ? ' · debajo, los partners que explican el desvío' : '') + (more ? ' · ' + more + ' más en la tabla' : '');
+      (V.units.some(function (u) { return u.part; }) ? ' · debajo, los partners que explican el desvío' : '') + (more ? ' · ' + more + ' más en la tabla' : '') +
+      (exTbd && tbdGap(V) ? ' · sin partners nuevos (TBD, ' + sgnMoney(tbdGap(V)) + ')' : '');
     return '<section class="rs-card c-bul rs-in" style="--d:360ms" aria-labelledby="rs-bul-h"><h2 id="rs-bul-h">Dónde se explica</h2>' +
       '<p class="rs-bul-sub">' + esc(subTxt) + '</p><div class="rs-bul">' + body + '</div>' +
       '<details class="rs-det" open><summary>Ver tabla completa por país</summary><div class="rs-tbl-wrap">' + countryTable(V) + '</div></details></section>';
@@ -943,6 +960,7 @@ const SCRIPT = String.raw`
     if (req.week) q.push('semana=' + req.week.year + '-W' + req.week.week);
     if (req.month) q.push('mes=' + req.month);
     if (mode === 'm') q.push('vista=mtd');
+    if (exTbd) q.push('tbd=excluir');
     try { history.replaceState(null, '', q.length ? '?' + q.join('&') : location.pathname); } catch (e) { /* nada */ }
   }
   function load(r) {
@@ -968,6 +986,7 @@ const SCRIPT = String.raw`
   }
   var qs = location.search, qw = /[?&]semana=(\d{4})-W(\d{1,2})/.exec(qs), qm = /[?&]mes=(\d{4}-\d{2})/.exec(qs);
   if (/[?&]vista=mtd/.test(qs)) mode = 'm';
+  if (/[?&]tbd=excluir/.test(qs)) exTbd = true;
   load({ week: qw ? { year: +qw[1], week: +qw[2] } : null, month: qm ? qm[1] : null });
 })();
 `;
