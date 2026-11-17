@@ -64,7 +64,8 @@ def cubo():
     n2 = "CASE WHEN \"linea_p&l\" = 'Alianzas Financieras' THEN 'Alianzas Financieras' ELSE \"linea_p&l_-_nivel_2\" END"
     rows = c.consultar(
         f"SELECT scenario, year, mes, pais, lob, channel, product, {n2} AS n2, sum(valor) AS valor "
-        f"FROM {TABLA} GROUP BY scenario, year, mes, pais, lob, channel, product, {n2}")
+        # P&L Accounting solo usa B2B y B2B2C (descarta B2C): traer B2C triplicaría el cubo sin usarse.
+        f"FROM {TABLA} WHERE lob IN ('B2B', 'B2B2C') GROUP BY scenario, year, mes, pais, lob, channel, product, {n2}")
     return {"version": c.version(DATASET), "cols": CUBO_COLS, "rows": [[r[k] for k in CUBO_COLS] for r in rows]}
 
 
@@ -78,7 +79,21 @@ def detalle():
         'GROUP BY product, "linea_p&l_-_nivel_2", "linea_p&l"')
 
 
-COMANDOS = {"versiones": versiones, "resumen": por_pais_y_mes, "dimensiones": dimensiones, "cubo": cubo, "detalle": detalle}
+def control():
+    """Control de que la tabla no mezcla versiones: la tabla no tiene columna `version`, así que si el pedido incluye más de una
+    (AS REPORTED, BIMO, PPA) se SUMARÍAN entre sí sin avisar. Gross Bookings del ACT del FY27, meses 4 a 10, por LoB, más la
+    cantidad de filas por LoB y escenario: se compara contra un valor conocido (B2B + B2B2C = 1.022.814.275 con la versión 2)."""
+    c = cdb()
+    return {
+        "gb_act_fy27_m4_10_por_lob": c.consultar(
+            f"SELECT lob, count(*) AS filas, sum(valor) AS valor FROM {TABLA} WHERE scenario = 'ACT' AND year = 'FY27' "
+            "AND mes BETWEEN 4 AND 10 AND \"linea_p&l_-_nivel_2\" = 'Gross Bookings' GROUP BY lob ORDER BY lob"),
+        "filas_por_lob_y_escenario": c.consultar(
+            f"SELECT lob, scenario, year, count(*) AS filas FROM {TABLA} GROUP BY lob, scenario, year ORDER BY lob, scenario, year"),
+    }
+
+
+COMANDOS = {"versiones": versiones, "resumen": por_pais_y_mes, "dimensiones": dimensiones, "cubo": cubo, "detalle": detalle, "control": control}
 
 
 def main(argv):

@@ -173,3 +173,11 @@ test('estado: solo el equipo, y informa la memoria (sin módulo con fuente conso
   assert.ok(j.memoriaMb.rss > 0 && j.memoriaMb.heapUsado > 0);
   assert.equal(lanzados.length, 0);
 });
+
+test('control es una consulta válida (verifica que la tabla no mezcle versiones)', async () => {
+  lanzados.length = 0;
+  respuesta = { stdout: JSON.stringify({ gb_act_fy27_m4_10_por_lob: [{ lob: 'B2B', filas: 1, valor: 2 }], filas_por_lob_y_escenario: [] }) };
+  const r = await get(server, `${BASE}/consolidador/control`, ANA);
+  assert.equal(r.status, 200, r.text);
+  assert.equal(lanzados[0].args[1], 'control');
+});
