@@ -1,10 +1,11 @@
 // Armado de los JSON canónicos desde la tabla del consolidador y comparación contra los de Drive (server/pnl-consolidador.js).
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { buildCanonicals, comparar, fechaFiscal, canalDe, mesSiguiente } = require('../server/pnl-consolidador');
+const { buildCanonicals, comparar, fechaFiscal, canalDe, mesSiguiente, cargarAjustes } = require('../server/pnl-consolidador');
 const { IDS } = require('../server/pnl-drive-dimensiones');
 
 const COLS = ['scenario', 'year', 'mes', 'pais', 'lob', 'channel', 'product', 'n2', 'valor'];
+const SIN_AJ = { cols: [], rows: [] };
 const cubo = (rows) => ({ version: 1, cols: COLS, rows });
 
 test('fechaFiscal: el mes es calendario y el año es fiscal (abril a marzo)', () => {
@@ -35,7 +36,7 @@ const FILAS = [
 ];
 
 test('buildCanonicals: cada escenario sale del escenario y año de la tabla, con el vocabulario de Drive', () => {
-  const { canon, sinMapear } = buildCanonicals(cubo(FILAS), { ultimoCerrado: '2026-10-01' });
+  const { canon, sinMapear } = buildCanonicals(cubo(FILAS), { ultimoCerrado: '2026-10-01', ajustes: SIN_AJ });
   assert.deepEqual(Object.keys(canon).sort(), ['ac', 'bg', 'bl', 'fbtb', 'fc', 'lrr', 'ly', 'rr']);
   // ac: solo hasta el último mes cerrado; bl: el ACT completo
   assert.deepEqual(canon.ac.rows, [['b2b', 'may', 'brasil', 'flights', 'gross bookings', '2026-04-01', 150]]);
@@ -53,7 +54,7 @@ test('buildCanonicals: cada escenario sale del escenario y año de la tabla, con
 });
 
 test('buildCanonicals: lo que no se puede traducir queda en sinMapear y no se pierde', () => {
-  const { canon, sinMapear } = buildCanonicals(cubo([['ACT', 'FY27', 4, 'Atlantis', 'B2B', 'MAY', 'Drones', 'Risk', 7]]));
+  const { canon, sinMapear } = buildCanonicals(cubo([['ACT', 'FY27', 4, 'Atlantis', 'B2B', 'MAY', 'Drones', 'Risk', 7]]), { ajustes: SIN_AJ });
   assert.deepEqual(sinMapear, { pais: ['Atlantis'], producto: ['Drones'], n2: ['Risk'] });
   assert.deepEqual(canon.ac.rows, [['b2b', 'may', 'atlantis', 'drones', 'risk', '2026-04-01', 7]]);
 });
@@ -124,4 +125,39 @@ test('comparar: desglose por línea y orders por mes', () => {
   assert.equal(r.porLinea.risk.soloTabla, 1);
   assert.equal(r.porLinea.orders, undefined);
   assert.deepEqual(r.ordersPorMes['2026-04'], { drive: 10, tabla: 10 });
+});
+
+const AJ = { cols: ['year', 'mes', 'pais', 'lob', 'channel', 'product', 'n2', 'valor'], rows: [
+  ['FY27', 4, 'Brazil', 'B2B', 'MAY', 'Hotel', 'Gross Bookings', -100],
+  ['FY27', 12, 'Brazil', 'B2B', 'MAY', 'Hotel', 'Gross Bookings', -999],   // posterior al último cerrado: no se aplica
+] };
+
+test('ajuste propio: se suma a ACT, FC1 y LRR del FY27 hasta el último cerrado, y no toca BGT, RR ni el año anterior', () => {
+  const base = [
+    ['ACT', 'FY27', 4, 'Brazil', 'B2B', 'MAY', 'Hotel', 'Gross Bookings', 1000],
+    ['FC1', 'FY27', 4, 'Brazil', 'B2B', 'MAY', 'Hotel', 'Gross Bookings', 1000],
+    ['LRR', 'FY27', 4, 'Brazil', 'B2B', 'MAY', 'Hotel', 'Gross Bookings', 1000],
+    ['BGT', 'FY27', 4, 'Brazil', 'B2B', 'MAY', 'Hotel', 'Gross Bookings', 1000],
+    ['RR', 'FY27', 4, 'Brazil', 'B2B', 'MAY', 'Hotel', 'Gross Bookings', 1000],
+    ['ACT', 'FY26', 4, 'Brazil', 'B2B', 'MAY', 'Hotel', 'Gross Bookings', 1000],
+  ];
+  const { canon } = buildCanonicals(cubo(base), { ultimoCerrado: '2026-10-01', rrDesde: '2026-04-01', ajustes: AJ });
+  const v = (sc) => canon[sc].rows.map((r) => r[6]);
+  for (const sc of ['ac', 'bl', 'fc', 'fbtb', 'lrr']) assert.deepEqual(v(sc), [900], sc);
+  for (const sc of ['bg', 'rr', 'ly']) assert.deepEqual(v(sc), [1000], sc);
+});
+
+test('ajuste propio: sin ajustes (o con archivo ausente) no cambia nada, y el archivo real carga', () => {
+  const base = [['ACT', 'FY27', 4, 'Brazil', 'B2B', 'MAY', 'Hotel', 'Gross Bookings', 1000]];
+  assert.deepEqual(buildCanonicals(cubo(base), { ajustes: { cols: [], rows: [] } }).canon.ac.rows[0][6], 1000);
+  const real = cargarAjustes();
+  assert.ok(real.rows.length > 0 && real.cols.includes('n2'));
+  assert.ok(real.rows.every((r) => r[real.cols.indexOf('mes')] >= 4 && r[real.cols.indexOf('mes')] <= 6));
+  assert.ok(real.rows.every((r) => ['Gross Bookings', 'Orders'].includes(r[real.cols.indexOf('n2')])));
+});
+
+test('comparar: totalPorLinea dice cuánto suma cada línea de cada lado', () => {
+  const { canon } = buildCanonicals(cubo([['BGT', 'FY27', 4, 'Chile', 'B2B', 'MAY', 'Air', 'Gross Bookings', 100]]));
+  const store = storeCon({ [IDS.bg]: drive([['b2b', 'may', 'chile', 'flights', 'x', 'gross bookings', '2026-04-01', 90]]) });
+  assert.deepEqual(comparar(canon, store).bg.totalPorLinea['gross bookings'], { drive: 90, tabla: 100 });
 });

@@ -9,7 +9,18 @@
 //   bl   = ACT del FY27 completo (en la tabla trae actuals cerrados + run rate del resto, igual que el baseline)
 //   bg   = BGT del FY27       rr = RR del FY27       lrr = LRR del FY27
 //   fc y fbtb = FC1 del FY27 (el FC1 de conso ES el Bridge to Budget: ya no hay otro forecast)
+const fs = require('fs');
+const path = require('path');
 const { IDS } = require('./pnl-drive-dimensiones');
+
+// Ajuste propio sobre los actuals (conso no lo incorpora): reclasificación de GB y Orders de API B2B-MAY, abril-junio.
+// Ver el meta de server/pnl-ajustes-actuals.json. Se suma a ACT, FC1 y LRR del FY27 en los meses <= último cerrado
+// (en la tabla, esos meses son actuals en los tres escenarios).
+const AJUSTES_PATH = path.join(__dirname, 'pnl-ajustes-actuals.json');
+const AJUSTES_ESCENARIOS = ['ACT', 'FC1', 'LRR'];
+function cargarAjustes() {
+  try { return JSON.parse(fs.readFileSync(AJUSTES_PATH, 'utf8')); } catch (e) { return { cols: [], rows: [] }; }
+}
 
 const COLS = ['LoB', 'Canal', 'Pais', 'Producto', 'P&L N2', 'Fecha', 'Monto USD'];
 
@@ -79,7 +90,16 @@ function buildCanonicals(cubo, opts = {}) {
     ['ly', 'ACT', 'FY26', () => true],
   ];
   const bySc = {};   // 'ACT|FY27' -> filas ya traducidas (agregadas)
-  for (const row of cubo.rows) {
+  const aj = opts.ajustes === undefined ? cargarAjustes() : opts.ajustes;
+  const ai = Object.fromEntries((aj.cols || []).map((c, i) => [c, i]));
+  const filas = (aj.rows || []).filter((a) => fechaFiscal(a[ai.year], a[ai.mes]) <= ultimoCerrado)
+    .flatMap((a) => AJUSTES_ESCENARIOS.map((sc) => {
+      const r = new Array(cubo.cols.length).fill(null);
+      r[ix.scenario] = sc; r[ix.year] = a[ai.year]; r[ix.mes] = a[ai.mes]; r[ix.pais] = a[ai.pais]; r[ix.lob] = a[ai.lob];
+      r[ix.channel] = a[ai.channel]; r[ix.product] = a[ai.product]; r[ix.n2] = a[ai.n2]; r[ix.valor] = a[ai.valor];
+      return r;
+    }));
+  for (const row of cubo.rows.concat(filas)) {
     const k = `${row[ix.scenario]}|${row[ix.year]}`;
     const lob = row[ix.lob];
     const pais = PAIS[row[ix.pais]] || (sinMapear.pais.add(row[ix.pais]), String(row[ix.pais]).toLowerCase());
@@ -116,6 +136,7 @@ function agregar(json, extra) {
   const gb = {};
   const prodGb = {};
   const orders = {};
+  const porLineaTot = {};
   for (const r of json.rows) {
     const lob = String(r[i.LoB]).toLowerCase();
     if (lob === 'b2c') continue;   // el módulo descarta B2C: no se compara
@@ -126,6 +147,7 @@ function agregar(json, extra) {
     const key = [lob, String(r[i.Canal]).trim().toLowerCase(), String(r[i.Pais]).trim().toLowerCase(), n2, ym].join('|');
     fino.set(key, (fino.get(key) || 0) + v);
     porMes[ym] = (porMes[ym] || 0) + v;
+    porLineaTot[n2] = (porLineaTot[n2] || 0) + v;
     if (n2 === 'orders') orders[ym] = (orders[ym] || 0) + v;
     if (n2 === 'gross bookings') {
       gb[ym] = (gb[ym] || 0) + v;
@@ -133,7 +155,7 @@ function agregar(json, extra) {
       prodGb[p] = (prodGb[p] || 0) + v;
     }
   }
-  return { fino, porMes, gb, prodGb, orders, meses: Object.keys(porMes).sort(), extra };
+  return { fino, porMes, gb, prodGb, orders, porLineaTot, meses: Object.keys(porMes).sort(), extra };
 }
 
 const redondeo = (n) => Math.round(n * 100) / 100;
@@ -177,6 +199,8 @@ function comparar(canon, fileStore, opts = {}) {
       claves: { drive: D.fino.size, tabla: T.fino.size, iguales, distintas: distintas.length - soloDrive - soloTabla, soloDrive, soloTabla },
       grossBookingsPorMes: Object.fromEntries(meses.map((m) => [m, { drive: redondeo(D.gb[m] || 0), tabla: redondeo(T.gb[m] || 0) }])),
       grossBookingsPorProducto: Object.fromEntries(Array.from(new Set([...Object.keys(D.prodGb), ...Object.keys(T.prodGb)])).sort().map((p) => [p, { drive: redondeo(D.prodGb[p] || 0), tabla: redondeo(T.prodGb[p] || 0) }])),
+      totalPorLinea: Object.fromEntries(Array.from(new Set([...Object.keys(D.porLineaTot), ...Object.keys(T.porLineaTot)])).sort()
+        .map((n) => [n, { drive: redondeo(D.porLineaTot[n] || 0), tabla: redondeo(T.porLineaTot[n] || 0) }])),
       ordersPorMes: Object.fromEntries(meses.map((m) => [m, { drive: redondeo(D.orders[m] || 0), tabla: redondeo(T.orders[m] || 0) }])),
       porLinea: Object.fromEntries(Object.entries(porN2).sort((a, b) => b[1].difAbs - a[1].difAbs).slice(0, opts.topLineas || 12)
         .map(([n, x]) => [n, { ...x, difAbs: redondeo(x.difAbs), difNeta: redondeo(x.difNeta) }])),
@@ -186,4 +210,4 @@ function comparar(canon, fileStore, opts = {}) {
   return out;
 }
 
-module.exports = { buildCanonicals, comparar, fechaFiscal, canalDe, mesSiguiente, PAIS, PRODUCTO, N2, COLS };
+module.exports = { cargarAjustes, buildCanonicals, comparar, fechaFiscal, canalDe, mesSiguiente, PAIS, PRODUCTO, N2, COLS };

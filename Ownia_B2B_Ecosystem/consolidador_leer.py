@@ -66,7 +66,17 @@ def cubo():
     return {"version": c.version(DATASET), "cols": CUBO_COLS, "rows": [[r[k] for k in CUBO_COLS] for r in rows]}
 
 
-COMANDOS = {"versiones": versiones, "resumen": por_pais_y_mes, "dimensiones": dimensiones, "cubo": cubo}
+def detalle():
+    """Para cerrar mapeos: ACT del FY27 en meses cerrados, por producto, línea nivel 2 y línea (el detalle que el nivel 2 junta).
+    Lo ve el equipo en /consolidador/detalle; las sumas se comparan con los totales por línea de /consolidador/comparar."""
+    return cdb().cacheado(
+        DATASET,
+        'SELECT product, "linea_p&l_-_nivel_2" AS n2, "linea_p&l" AS linea, count(*) AS filas, sum(valor) AS valor '
+        f"FROM {TABLA} WHERE scenario = 'ACT' AND year = 'FY27' AND mes BETWEEN 4 AND 10 "
+        'GROUP BY product, "linea_p&l_-_nivel_2", "linea_p&l"')
+
+
+COMANDOS = {"versiones": versiones, "resumen": por_pais_y_mes, "dimensiones": dimensiones, "cubo": cubo, "detalle": detalle}
 
 
 def main(argv):

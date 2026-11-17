@@ -153,3 +153,11 @@ test('cubo (la tabla entera) no se puede pedir directo: solo lo usa /comparar po
   assert.equal(r.status, 404);
   assert.equal(lanzados.length, 0);
 });
+
+test('detalle es una consulta válida', async () => {
+  lanzados.length = 0;
+  respuesta = { stdout: JSON.stringify([{ product: 'Air', n2: 'Sourcing', linea: 'Alianzas Financieras', filas: 1, valor: 2 }]) };
+  const r = await get(server, `${BASE}/consolidador/detalle`, ANA);
+  assert.equal(r.status, 200, r.text);
+  assert.equal(lanzados[0].args[1], 'detalle');
+});
