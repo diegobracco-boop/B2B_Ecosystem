@@ -76,6 +76,14 @@ var _I_VJ_B2B = 3 + METRIC_COLS.length;
 var _I_TP_B2B2C = 4 + METRIC_COLS.length;
 var _I_MI_TP    = _I_TP_B2B2C + 1;   // millas en ac_tp/ly_tp
 var _I_MI_MI    = _I_TP_B2B2C;       // millas en ac_mi/ly_mi
+// Canal de venta B2B2C (2026-11-17, Diego): Online / Call Center / Islas / Tiendas, AL FINAL de la fila.
+// bl / bgt / fc / ly / rr: [pais, partner, produto, ym, v0..v28, canal]; ac_tp / ly_tp: [.., v28, tipo, millas, canal].
+// ac_mi / ly_mi no lo llevan. Lo arma actuals_gestional_upload.py (reales por la transacción; Budget / RR / Forecast por lob_canal).
+var _I_CN_B2B2C = 4 + METRIC_COLS.length;
+var _I_CN_TP    = _I_MI_TP + 1;
+var CANALES_B2B2C_ = ['Online', 'Call Center', 'Islas / Tiendas'];
+// Filtro de canal del pedido en curso (lo prende _computeGetData_; vs Accounting / Revenue GD lo apagan, como _RG_ON_).
+var _CANAL_F_ = [];
 
 // ── País RG (switch "COI Brasil") ────────────────────────────────────────
 // actuals_gestional_upload.py agrega filas pais='RG': cost_of_installments + efecto_financiero de Brasil con signo
@@ -136,6 +144,7 @@ function queryB2B2C_(section, scenarioKey, fPais, fPartner, fProduto,
     if (!matchFilter_(partner, fPartner)) return;
     if (!matchFilter_(produto, fProduto)) return;
     if (tp && (!tp.ymOk[ym] || tp.conds.some(function(c){ return !matchFilter_(row[c[0]], c[1]); }))) return;
+    if (!tp && _CANAL_F_.length && !matchFilter_(row[_I_CN_B2B2C], _CANAL_F_)) return;
     var mes = GD_YM_LABEL[ym];
     if (!mes) return;
 
@@ -355,6 +364,7 @@ function movedToOwnia_(title, url) {
 //   viaje:     string|array  (solo B2B: 'Domestic' | 'International'; todos los escenarios, combinable con gateway)
 //   tipo:      string|array  (solo B2B2C: product_type crudo — Vuelos, Hoteles, Disney…; modo tipo: Actuals + LY, sin Budget/Forecast)
 //   millas:    string|array  (solo B2B2C: 'Con millas' | 'Sin millas' — porción del GB pagada con canje; mismo modo, combinable con tipo)
+//   canal:     string|array  (solo B2B2C: 'Online' | 'Call Center' | 'Islas / Tiendas'; todos los escenarios, combinable con todo)
 // }
 // CacheService (6h) — 2026-09-23. getData() alimenta las 3 pestañas (Managerial View,
 // Gráficos, Detalle) y no tenía NADA de cache: cada llamada releía+reparseaba el JSON
@@ -415,6 +425,7 @@ function getData(filters) {
     viaje:          (f.viaje   || []).slice().sort(),
     tipo:           (f.tipo    || []).slice().sort(),
     millas:         (f.millas  || []).slice().sort(),
+    canal:          (f.canal   || []).slice().sort(),
     lob_tipo:       (Array.isArray(f.lob_tipo) ? f.lob_tipo.slice().sort() : f.lob_tipo) || null,
     date_type:      f.date_type      || 'gd',
     organic:        organicTarget_(f),
@@ -526,6 +537,7 @@ function getWeeklyData(filters) {
 function _computeGetData_(filters) {
   var f              = filters || {};
   _RG_ON_            = (f['coibr'] === 'excl');
+  _CANAL_F_          = [];
   var dateType       = (f['date_type'] === 'ri') ? 'ri' : 'gd';
   var json           = readGestionalJSON_();
 
@@ -554,6 +566,7 @@ function _computeGetData_(filters) {
   var fViaje   = normFilter_(f['viaje']);
   var fTipo    = normFilter_(f['tipo']);
   var fMillas  = normFilter_(f['millas']);
+  var fCanal   = normFilter_(f['canal']);
 
   // Modo gateway (B2B, Hotels): baseline = Actuals de Hotels del gateway (ac_gw / ac_ri_gw),
   // LY = ly_gw recortado a los mismos meses cerrados, Budget/Forecast vacíos (no abren por
@@ -565,12 +578,19 @@ function _computeGetData_(filters) {
   // Modo apertura B2B2C (tipo de producto y/o millas): mismo esquema que gateway — baseline = Actuals
   // abiertos (ac_tp con tipo, ac_mi solo millas: Orders exactas), LY = ly_tp/ly_mi, Budget/Forecast
   // vacíos.
+  // Canal (B2B2C): opciones del JSON; si alguna fila no trae la columna (JSON de antes del 2026-11-17) no se ofrece ni se filtra.
+  var canalOpts = useB2B2C ? listCanales_(json, [blKey, bgtKey, fcKey, 'ly']) : [];
+  if (!canalOpts.length) fCanal = [];
+  // Con canal + millas sin tipo se usa ac_tp (ac_mi no abre canal): las Orders pueden contar doble si un paquete tiene varios tipos.
   var tpMode  = (fTipo.length > 0 || fMillas.length > 0) && useB2B2C;
-  var tpKeys  = fTipo.length ? ['ac_tp', 'ly_tp'] : ['ac_mi', 'ly_mi'];
-  var tpConds = fTipo.length
-              ? [[_I_TP_B2B2C, fTipo]].concat(fMillas.length ? [[_I_MI_TP, fMillas]] : [])
+  var tpByTp  = fTipo.length > 0 || fCanal.length > 0;
+  var tpKeys  = tpByTp ? ['ac_tp', 'ly_tp'] : ['ac_mi', 'ly_mi'];
+  var tpConds = tpByTp
+              ? (fTipo.length ? [[_I_TP_B2B2C, fTipo]] : []).concat(fMillas.length ? [[_I_MI_TP, fMillas]] : [])
+                  .concat(fCanal.length ? [[_I_CN_TP, fCanal]] : [])
               : [[_I_MI_MI, fMillas]];
   var tpJson  = !useB2B2C ? null : json;
+  _CANAL_F_   = fCanal;
 
   // ORGANIC: se convierte el baseline (bl/bl_ri y, en modo gateway, ac_gw/ac_ri_gw) y, con Goal
   // Forecast, también el Forecast (los dos a TC Budget). Ver Codigo_organic.js.
@@ -719,6 +739,7 @@ function _computeGetData_(filters) {
     produto:  gwMode ? ['Hotels'] : Object.keys(allProdutos).sort(),
     gateway:  gwJson ? listGateways_(gwJson, useMay, useMin) : [],
     viaje:    viajeOpts,
+    canal:    canalOpts,
     tipo:     tpJson ? listTipos_(tpJson) : [],
     millas:   tpJson ? listMillas_(tpJson) : [],
   };
@@ -748,6 +769,7 @@ function _computeGetData_(filters) {
     gateway_mode:         gwMode,
     gateway_sel:          gwMode ? (Array.isArray(f.gateway) ? f.gateway : [f.gateway]) : [],
     viaje_sel:            fViaje.length && (useMay || useMin) ? (Array.isArray(f.viaje) ? f.viaje : [f.viaje]) : [],
+    canal_sel:            fCanal.length ? (Array.isArray(f.canal) ? f.canal : [f.canal]) : [],
     tipo_mode:            tpMode,
     tipo_sel:             tpMode && fTipo.length   ? (Array.isArray(f.tipo)   ? f.tipo   : [f.tipo])   : [],
     millas_sel:           tpMode && fMillas.length ? (Array.isArray(f.millas) ? f.millas : [f.millas]) : [],
@@ -803,6 +825,25 @@ function listTipos_(json) {
     gb[t] = (gb[t] || 0) + (row[4 + _I_GB] || 0);
   });
   return Object.keys(gb).sort(function(a, b) { return (gb[b] - gb[a]) || a.localeCompare(b); });
+}
+
+// Canales de B2B2C presentes en los escenarios (orden fijo: Online, Call Center, Islas / Tiendas). Si alguna fila no trae
+// la columna (JSON de antes del 2026-11-17) devuelve [] → la landing oculta el filtro en vez de filtrar a medias.
+function listCanales_(json, scenarioKeys) {
+  var vals = {}, incomplete = false, sec = json.b2b2c || {};
+  scenarioKeys.forEach(function(k) {
+    (sec[k] || []).forEach(function(row) {
+      if (incomplete || row[0] === 'RG') return;
+      var c = row[_I_CN_B2B2C];
+      if (typeof c !== 'string' || !c) { incomplete = true; return; }
+      vals[c] = true;
+    });
+  });
+  if (incomplete) return [];
+  return Object.keys(vals).sort(function(a, b) {
+    var ia = CANALES_B2B2C_.indexOf(a), ib = CANALES_B2B2C_.indexOf(b);
+    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || a.localeCompare(b);
+  });
 }
 
 // Valores de millas presentes en ac_mi ('Con millas' primero).
@@ -950,6 +991,7 @@ function _round2_(dict) {
 function _computeVsAccounting_(f) {
   f = f || {};
   _RG_ON_ = false;   // se reconcilia contra Accounting, que incluye el COI de Brasil
+  _CANAL_F_ = [];
   var json = readGestionalJSON_();
   var FY = YM_ORDER.map(function(y){ return YM_LABEL[y]; });
 
@@ -1126,6 +1168,7 @@ function _gestB2BByPaisNRFVM_(section, canal, fPaisRaw, selProd, out) {
 function _computeRevenueGD_(f) {
   f = f || {};
   _RG_ON_ = false;   // se reconcilia contra Revenue GD, que incluye el COI de Brasil
+  _CANAL_F_ = [];
   var selPais = (f.pais || []).map(function(s){ return String(s); });               // canónico: ['Argentina','Otros',...]
   var selProd = (f.produto || []).map(function(s){ return String(s).toLowerCase(); });
 

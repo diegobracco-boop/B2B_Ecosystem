@@ -215,13 +215,38 @@ def fetch(query: str, label: str, retries: int = 3) -> pd.DataFrame:
 # 3) QUERIES
 # ==============================================================================
 
+# Canal de venta de B2B2C (2026-11-17, Diego): Online / Call Center / Islas / Tiendas, el mismo corte que el lob_canal del
+# Budget, Run Rate y Forecast (B2B2C-ON / B2B2C-CALL CENTER / B2B2C-OFF). En los reales sale de la transacción:
+#   Call Center      parent_channel 'White Label Call Center' (bestday-call-*, bestday-b2b2c-call: Televentas de Naranja y BCI,
+#                    yavas-callcenter) o agencia "... - Call Center" (Banco de Chile, AG00120475)
+#   Islas / Tiendas  parent_channel 'Islas WL' (islas de Liverpool y Elektra), canales "*-off" (latam-airlines-off,
+#                    bci-benefits-off), yavas-agencias o agencia "... - Presencial" (Banco de Chile, AG00120467): todo lo off,
+#                    islas, tiendas y agencias
+#   Online           el resto
+# La columna `canal` va AL FINAL de las filas B2B2C (ver _build_b2b2c_rows): los índices de siempre no se mueven.
+CANAL_ONLINE, CANAL_CALL, CANAL_ISLAS = "Online", "Call Center", "Islas / Tiendas"
+CANAL_B2B2C_SQL = f"""CASE
+      WHEN t.parent_channel = 'White Label Call Center'
+        OR COALESCE(t.agency_fantasy_name, '') LIKE '%Call Center%'      THEN '{CANAL_CALL}'
+      WHEN t.parent_channel = 'Islas WL' OR t.channel LIKE '%-off' OR t.channel = 'yavas-agencias'
+        OR COALESCE(t.agency_fantasy_name, '') LIKE '%Presencial%'       THEN '{CANAL_ISLAS}'
+      ELSE '{CANAL_ONLINE}'
+    END"""
+# lob_canal de Budget / Run Rate / Forecast -> canal
+CANAL_DE_LOB = {"B2B2C-ON": CANAL_ONLINE, "B2B2C-CALL CENTER": CANAL_CALL, "B2B2C-OFF": CANAL_ISLAS}
+
+
+def _canal_de_lob(s: pd.Series) -> pd.Series:
+    return s.astype(str).str.strip().str.upper().map(CANAL_DE_LOB).fillna(CANAL_ONLINE)
+
+
 def build_b2b2c_query(date_from: date, date_to: date, by_tipo: bool = False) -> str:
     """by_tipo: agrega `tipo_producto` (product_type crudo de bi_transactional_fact_products: Vuelos,
     Hoteles, Disney, Universal, Excursiones...) al grano. Es una query APARTE (secciones ac_tp/ly_tp)
     y no una columna más de la normal: un paquete tiene componentes de varios tipos y el
     count(distinct transaction_code) de `orders` se duplicaría al sumar las aperturas."""
     tipo_sel = "COALESCE(p.product_type, '(Sin dato)') AS tipo_producto," if by_tipo else ""
-    group_by = "1,2,3,4,5,6,7,8,9" if by_tipo else "1,2,3,4,5,6,7,8"
+    group_by = "1,2,3,4,5,6,7,8,9,10" if by_tipo else "1,2,3,4,5,6,7,8,9"   # + canal (2026-11-17)
     tipo_out = "tipo_producto," if by_tipo else ""
     return f"""
 -- Canje (pago con millas/puntos, 2026-10-20): por transacción, la porción del GB pagada con millas
@@ -285,6 +310,7 @@ base AS (
       ELSE t.purchase_type
     END AS productooriginal,
     t.channel AS channel,
+    {CANAL_B2B2C_SQL} AS canal,
     CASE
       WHEN t.channel = 'affiliate-livelo-api' AND t.purchase_type = 'Hoteles'
         THEN 'livelo-api-hoteles'
@@ -496,7 +522,7 @@ with_ps AS (
 
 SELECT
   Mes, dia, pais, productooriginal, partner, {tipo_out}
-  Marca, channel, viaje,   -- parte del grano (GROUP BY): el reparto de millas (_split_millas) se hace con estas filas
+  Marca, channel, canal, viaje,   -- parte del grano (GROUP BY): el reparto de millas (_split_millas) se hace con estas filas
   orders, gross_bookings, up_front_incentives, fees, commercial_discounts,
   back_end_incentives, media_other_revenue, cancellations, breakage_revenue,
   income_from_outsourced_services, revenue_tax, other_incentives,
@@ -1112,6 +1138,8 @@ def _build_b2b2c_rows(df: pd.DataFrame, filter_set: set = None, ym_shift_years: 
       Son las secciones ac_tp / ly_tp (filtro "Tipo de producto" de B2B2C en la landing).
     by_millas: abre cada fila en Con/Sin millas (canje, ver _split_millas) → `millas` como última columna
       (después del tipo si by_tipo). Secciones ac_mi / ly_mi y, junto con el tipo, ac_tp / ly_tp.
+    Canal (Online / Call Center / Islas / Tiendas, 2026-11-17) al final de todo: [.., v28, canal] en ac / ly y
+    [.., v28, tipo, millas, canal] en ac_tp / ly_tp. ac_mi / ly_mi no lo llevan (el B2B2C Tracker lee millas en la última columna).
     """
     df = df.copy()
     df.columns = [c.lower() for c in df.columns]
@@ -1142,6 +1170,10 @@ def _build_b2b2c_rows(df: pd.DataFrame, filter_set: set = None, ym_shift_years: 
     if by_millas:
         df = _split_millas(df)
         keys.append("millas")
+    by_canal = by_tipo or not by_millas
+    if by_canal:
+        df["canal"] = df["canal"].fillna(CANAL_ONLINE) if "canal" in df.columns else CANAL_ONLINE
+        keys.append("canal")
     df = df.groupby(keys, as_index=False).agg(
         {c: "sum" for c in METRIC_COLS if c in df.columns}
     )
@@ -1150,7 +1182,8 @@ def _build_b2b2c_rows(df: pd.DataFrame, filter_set: set = None, ym_shift_years: 
         vals = [round(float(row.get(c, 0) or 0), 4) for c in METRIC_COLS]
         rows.append([row["pais"], row["partner"], row["produto"], row["ym"]] + vals
                     + ([row["tipo_producto"]] if by_tipo else [])
-                    + ([row["millas"]] if by_millas else []))
+                    + ([row["millas"]] if by_millas else [])
+                    + ([row["canal"]] if by_canal else []))
     return append_rg_rows(rows, 4, METRIC_COLS)
 
 
@@ -1259,7 +1292,7 @@ def _budget_ym(df: pd.DataFrame, ym_from_proyectado: bool) -> pd.DataFrame:
 
 
 def _build_b2b2c_budget_rows(df: pd.DataFrame, ym_from_proyectado: bool = False) -> list:
-    """B2B2C budget/RR/FC → rows [pais, partner, produto, ym, v0..v28] (full waterfall)."""
+    """B2B2C budget/RR/FC → rows [pais, partner, produto, ym, v0..v28, canal] (full waterfall; canal desde lob_canal)."""
     df = df.copy()
     df.columns = [c.lower().strip() for c in df.columns]
     df = df.rename(columns=_BUDGET_RENAME)
@@ -1267,14 +1300,15 @@ def _build_b2b2c_budget_rows(df: pd.DataFrame, ym_from_proyectado: bool = False)
     df = _budget_ym(df, ym_from_proyectado)
     df["pais"] = _norm_pais(df["pais"])
     df = df[df["ym"].isin(FY_SET)]
+    df["canal"] = _canal_de_lob(df["lob_canal"]) if "lob_canal" in df.columns else CANAL_ONLINE
     df = _to_numeric(df, [c for c in METRIC_COLS if c in df.columns])
-    df = df.groupby(["pais", "partner", "produto", "ym"], as_index=False).agg(
+    df = df.groupby(["pais", "partner", "produto", "ym", "canal"], as_index=False).agg(
         {c: "sum" for c in METRIC_COLS if c in df.columns}
     )
     rows = []
     for _, row in df.iterrows():
         vals = [round(float(row.get(c, 0) or 0), 4) for c in METRIC_COLS]
-        rows.append([row["pais"], row["partner"], row["produto"], row["ym"]] + vals)
+        rows.append([row["pais"], row["partner"], row["produto"], row["ym"]] + vals + [row["canal"]])
     return append_rg_rows(rows, 4, METRIC_COLS)
 
 
@@ -1373,19 +1407,20 @@ def _read_fc_xlsx(fname: str, sheet: str, month_col: str) -> pd.DataFrame:
 
 
 def _fc_xlsx_b2b2c_rows(df: pd.DataFrame) -> list:
-    """WLs model → rows [pais, partner, produto, ym, v0..v28]."""
+    """WLs model → rows [pais, partner, produto, ym, v0..v28, canal] (canal desde lob_canal)."""
     for c in METRIC_COLS:
         if c not in df.columns:
             df[c] = 0.0
     df = _to_numeric(df, METRIC_COLS)
     apply_pais_overrides(df)
-    df = df.groupby(["pais", "partner", "produto", "ym"], as_index=False).agg(
+    df["canal"] = _canal_de_lob(df["lob_canal"]) if "lob_canal" in df.columns else CANAL_ONLINE
+    df = df.groupby(["pais", "partner", "produto", "ym", "canal"], as_index=False).agg(
         {c: "sum" for c in METRIC_COLS}
     )
     rows = []
     for _, row in df.iterrows():
         vals = [round(float(row.get(c, 0) or 0), 4) for c in METRIC_COLS]
-        rows.append([row["pais"], row["partner"], row["produto"], row["ym"]] + vals)
+        rows.append([row["pais"], row["partner"], row["produto"], row["ym"]] + vals + [row["canal"]])
     return append_rg_rows(rows, 4, METRIC_COLS)
 
 
@@ -1488,7 +1523,7 @@ def upload_to_drive(json_bytes: bytes, file_name: str = None):
 
 # Dimensiones de las queries de reales (en minúscula). Todo lo demás es métrica y se suma; `dia` se descarta.
 _DIMS = {"mes", "anio_gd", "mes_gd", "anio_ri", "mes_ri", "pais", "productooriginal", "producto_original",
-         "partner", "parent_channel", "viaje", "gateway", "tipo_producto", "lob", "lob_canal", "marca", "channel"}
+         "partner", "parent_channel", "viaje", "gateway", "tipo_producto", "lob", "lob_canal", "marca", "channel", "canal"}
 
 
 def _sin_dia(df: pd.DataFrame) -> pd.DataFrame:
@@ -1536,7 +1571,9 @@ def _forecast_publicado():
     post = lambda sec, key, i: [r for r in prev[sec].get(key, []) if r[i] > FC_ACTUAL_CUTOFF]
     src = prev.get("forecast_source") or "XLSX (JSON publicado)"
     print(f"  Forecast del JSON publicado el {files[0].get('modifiedTime', '?')[:10]} ({src})")
-    return (post("b2b2c", "fc", 3), post("b2b_may", "fc", 2), post("b2b_may", "fc_ri", 2), post("b2b_min", "fc", 2), src)
+    _n = 4 + len(METRIC_COLS)   # filas B2B2C publicadas antes del canal (2026-11-17): van a Online, como el modelo WLs (todo B2B2C-ON)
+    fc_b2b2c = [r if len(r) > _n else r + [CANAL_ONLINE] for r in post("b2b2c", "fc", 3)]
+    return (fc_b2b2c, post("b2b_may", "fc", 2), post("b2b_may", "fc_ri", 2), post("b2b_min", "fc", 2), src)
 
 
 # Semanal: semanas de lunes a domingo, solo completas (del inicio del FY al último domingo con datos). Filas iguales a
