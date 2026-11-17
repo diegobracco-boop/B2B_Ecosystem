@@ -488,7 +488,8 @@ function createApp(opts = {}) {
         return sendJson(res, 200, { versionTabla: c.data.version, filasCubo: c.data.rows.length, sinMapear, comparacion: compararCanonicos(canon, fileStore) });
       }
       const consulta = route.slice('/consolidador/'.length);
-      if (consulta === 'cubo') return sendJson(res, 404, { error: 'Consulta desconocida' });   // la tabla entera: solo la usa /comparar por dentro
+      // los cubos son la tabla entera (o casi): los usan /comparar y pnl-fuente por dentro, no se sirven por acá
+      if (consulta === 'cubo' || consulta === 'cubo_mgr' || consulta === 'cubo_hub') return sendJson(res, 404, { error: 'Consulta desconocida' });
       const r = await consolidador.leer(consulta);
       if (!r.ok) return sendJson(res, r.code, { error: r.error });
       return sendJson(res, 200, r.data);

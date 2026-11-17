@@ -7,7 +7,7 @@
 // - Se revisa la versión publicada como mucho cada CHECK_MS (la consulta es chica); si cambió, se rearma (unos 10 s).
 // - Si cambia la versión, `onChange` avisa para que se invalide el módulo y sus caches (igual que cuando cambia un archivo de Drive).
 // - Sin datos o con error NO se cae a Drive en silencio: el pedido falla con 503 y el motivo.
-const { buildCanonicals, buildManagerialActuals } = require('./pnl-consolidador');
+const { buildCanonicals, buildManagerialActuals, buildHubCanonicals } = require('./pnl-consolidador');
 
 const CHECK_MS = 60 * 1000;
 const ULTIMO_CERRADO_DEFAULT = '2026-10-01';   // último mes con actuals cerrados: se mueve a mano en cada cierre (APP_SECRETS.PNL_ULTIMO_CERRADO)
@@ -16,7 +16,7 @@ function createPnlFuente(cfg, { consolidador, log = () => {}, onChange = () => {
   const secretos = (cfg && cfg.secrets) || {};
   const pedido = secretos.PNL_ULTIMO_CERRADO;
   const ultimoCerrado = /^\d{4}-\d{2}-01$/.test(pedido || '') ? pedido : ULTIMO_CERRADO_DEFAULT;
-  const st = { mgr: null, errorMgr: null, sinMapearMgr: null, tieneColumnaVersion: null, canon: null, sinMapear: null, version: null, publicadoEn: null, construidoEn: null, revisadoEn: 0, error: null, filas: {} };
+  const st = { mgr: null, errorMgr: null, sinMapearMgr: null, hub: null, errorHub: null, sinMapearHub: null, tieneColumnaVersion: null, canon: null, sinMapear: null, version: null, publicadoEn: null, construidoEn: null, revisadoEn: 0, error: null, filas: {} };
   let enCurso = null;
 
   async function refrescar() {
@@ -25,7 +25,7 @@ function createPnlFuente(cfg, { consolidador, log = () => {}, onChange = () => {
     if (!v.data) throw Object.assign(new Error('La tabla del consolidador no está publicada (o no hay permiso): revisar APP_SECRETS.CONSOLIDADOR_DATASET'), { status: 503 });
     st.revisadoEn = now();
     // (si el actuals del Managerial había fallado, se reintenta aunque la versión sea la misma)
-    if (st.canon && !st.errorMgr && v.data.version === st.version && v.data.publicado_en === st.publicadoEn) return;
+    if (st.canon && !st.errorMgr && !st.errorHub && v.data.version === st.version && v.data.publicado_en === st.publicadoEn) return;
     const c = await consolidador.leer('cubo');
     if (!c.ok) throw Object.assign(new Error(c.error), { status: c.code });
     const { canon, sinMapear } = buildCanonicals(c.data, { ultimoCerrado, ajustes });
@@ -37,8 +37,16 @@ function createPnlFuente(cfg, { consolidador, log = () => {}, onChange = () => {
       if (!cm.ok) throw new Error(cm.error);
       mgr = buildManagerialActuals(cm.data, { ultimoCerrado, ajustes });
     } catch (e) { errorMgr = e.message || String(e); log({ level: 'error', msg: 'pnl-fuente: no se pudo armar el actuals del Managerial', error: errorMgr }); }
+    // Las 7 series del Hub (con B2C, N1/N3/N5 y la vista gestional). Mismo criterio: si falla, solo el Hub responde con el motivo.
+    let hub = null; let errorHub = null;
+    try {
+      const ch = await consolidador.leer('cubo_hub');
+      if (!ch.ok) throw new Error(ch.error);
+      hub = buildHubCanonicals(ch.data, { ultimoCerrado, ajustes });
+    } catch (e) { errorHub = e.message || String(e); log({ level: 'error', msg: 'pnl-fuente: no se pudieron armar las series del Hub', error: errorHub }); }
     const cambio = st.canon !== null;
     st.mgr = mgr ? mgr.canon : null; st.errorMgr = errorMgr; st.sinMapearMgr = mgr ? mgr.sinMapear : null;
+    st.hub = hub ? hub.canon : null; st.errorHub = errorHub; st.sinMapearHub = hub ? hub.sinMapear : null;
     st.tieneColumnaVersion = c.data.tieneColumnaVersion === undefined ? null : !!c.data.tieneColumnaVersion;
     st.canon = canon; st.sinMapear = sinMapear; st.version = v.data.version; st.publicadoEn = v.data.publicado_en; st.construidoEn = now();
     st.filas = Object.fromEntries(Object.entries(canon).map(([k, j]) => [k, j.rows.length]));
@@ -63,12 +71,13 @@ function createPnlFuente(cfg, { consolidador, log = () => {}, onChange = () => {
     ultimoCerrado,
     listo,
     /** Lo que ve el código GAS (sincrónico): null mientras no haya datos. `modificado` cambia con cada versión publicada. */
-    canon: () => (st.canon ? { canon: st.canon, modificado: Date.parse(st.publicadoEn) || st.construidoEn, actualsMgr: st.mgr, errorMgr: st.errorMgr } : null),
+    canon: () => (st.canon ? { canon: st.canon, modificado: Date.parse(st.publicadoEn) || st.construidoEn, actualsMgr: st.mgr, errorMgr: st.errorMgr, hub: st.hub, errorHub: st.errorHub } : null),
     estado: () => ({ tieneColumnaVersion: st.tieneColumnaVersion,
       advertencia: st.tieneColumnaVersion === false ? 'La tabla no abre la columna version: si el pedido incluye varias versiones (AS REPORTED, BIMO, PPA) sus montos se suman entre sí.' : null,
       listo: !!st.canon, ultimoCerrado, version: st.version, publicadoEn: st.publicadoEn,
       construidoEn: st.construidoEn ? new Date(st.construidoEn).toISOString() : null, error: st.error, filas: st.filas, sinMapear: st.sinMapear,
-      managerial: { listo: !!st.mgr, error: st.errorMgr, filas: st.mgr ? st.mgr.rows.length : 0, sinMapear: st.sinMapearMgr } }),
+      managerial: { listo: !!st.mgr, error: st.errorMgr, filas: st.mgr ? st.mgr.rows.length : 0, sinMapear: st.sinMapearMgr },
+      hub: { listo: !!st.hub, error: st.errorHub, filas: st.hub ? Object.fromEntries(Object.entries(st.hub).map(([k, j]) => [k, j.rows.length])) : {}, sinMapear: st.sinMapearHub } }),
   };
 }
 

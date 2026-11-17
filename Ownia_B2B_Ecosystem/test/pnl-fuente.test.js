@@ -21,6 +21,15 @@ const FILAS = [
 ];
 
 const SIN_AJ = { cols: [], rows: [] };
+// Todos los escenarios con B2C, línea y nivel 3 (consulta `cubo_hub`, para el Hub)
+const COLS_HUB = ['scenario', 'year', 'mes', 'pais', 'lob', 'channel', 'product', 'linea', 'n2', 'n3', 'valor'];
+const FILAS_HUB = [
+  ['ACT', 'FY27', 4, 'Brazil', 'B2B', 'MAY', 'Air', 'GB NAC', 'Gross Bookings', 'Gross Bookings', 100],
+  ['ACT', 'FY27', 4, 'Brazil', 'B2B', 'MAY', 'Air', 'Affiliates', 'Third Party Comission', 'Sales & Marketing', -4],
+  ['ACT', 'FY27', 4, 'Mexico', 'B2C', 'Site', 'Hotel', 'Fees', 'Customer Fees & Charges', 'Net Revenues', 9],
+  ['BGT', 'FY27', 5, 'Chile', 'B2B2C', 'ON', 'Hotel', 'Orders NAC', 'Orders', 'Orders', 7],
+  ['ACT', 'FY26', 4, 'Peru', 'B2B2C', 'Site', 'Cars', 'Fees', 'Customer Fees & Charges', 'Net Revenues', 2],
+];
 // ACT del FY27 con la línea y el nivel 3 (consulta `cubo_mgr`, para el P&L Managerial)
 const COLS_MGR = ['year', 'mes', 'pais', 'lob', 'channel', 'product', 'linea', 'n2', 'n3', 'valor'];
 const FILAS_MGR = [
@@ -30,12 +39,13 @@ const FILAS_MGR = [
 ];
 
 // consolidador falso: versiones + cubo, y cuántas veces se lo llamó
-function falsoConso({ version = 1, publicado = '2026-11-17T14:11:29+00:00', fallar = false, sinTabla = false, conVersion, fallarMgr = false } = {}) {
-  const f = { version, publicado, fallar, sinTabla, conVersion, fallarMgr, llamadas: [] };
+function falsoConso({ version = 1, publicado = '2026-11-17T14:11:29+00:00', fallar = false, sinTabla = false, conVersion, fallarMgr = false, fallarHub = false } = {}) {
+  const f = { version, publicado, fallar, sinTabla, conVersion, fallarMgr, fallarHub, llamadas: [] };
   f.leer = async (cmd) => {
     f.llamadas.push(cmd);
     if (f.fallar) return { ok: false, code: 502, error: 'No se pudo leer el consolidador: permission denied' };
     if (cmd === 'versiones') return { ok: true, data: f.sinTabla ? null : { dataset: 'app_b2b_ecosystem', version: f.version, publicado_en: f.publicado } };
+    if (cmd === 'cubo_hub') return f.fallarHub ? { ok: false, code: 502, error: 'No se pudo leer el consolidador: cubo_hub roto' } : { ok: true, data: { version: f.version, cols: COLS_HUB, rows: FILAS_HUB } };
     if (cmd === 'cubo_mgr') return f.fallarMgr ? { ok: false, code: 502, error: 'No se pudo leer el consolidador: cubo_mgr roto' } : { ok: true, data: { version: f.version, cols: COLS_MGR, rows: FILAS_MGR } };
     return { ok: true, data: { version: f.version, tieneColumnaVersion: f.conVersion, cols: COLS, rows: FILAS } };
   };
@@ -70,17 +80,17 @@ test('revisa la versión como mucho una vez por minuto y rearma solo si cambió'
   const avisos = [];
   const f = createPnlFuente({ secrets: {} }, { consolidador: conso, now: () => t, onChange: (v) => avisos.push(v) });
   await f.listo();
-  assert.deepEqual(conso.llamadas, ['versiones', 'cubo', 'cubo_mgr']);
+  assert.deepEqual(conso.llamadas, ['versiones', 'cubo', 'cubo_mgr', 'cubo_hub']);
   await f.listo();   // dentro del minuto: no consulta nada
-  assert.equal(conso.llamadas.length, 3);
+  assert.equal(conso.llamadas.length, 4);
   t += 61000;
   await f.listo();   // pasó el minuto, misma versión: solo revisa
-  assert.deepEqual(conso.llamadas.slice(3), ['versiones']);
+  assert.deepEqual(conso.llamadas.slice(4), ['versiones']);
   assert.deepEqual(avisos, []);
   conso.version = 2; conso.publicado = '2026-11-18T10:00:00+00:00';
   t += 61000;
   await f.listo();   // versión nueva: rearma y avisa
-  assert.deepEqual(conso.llamadas.slice(4), ['versiones', 'cubo', 'cubo_mgr']);
+  assert.deepEqual(conso.llamadas.slice(5), ['versiones', 'cubo', 'cubo_mgr', 'cubo_hub']);
   assert.deepEqual(avisos, [2]);
   assert.equal(f.canon().modificado, Date.parse('2026-11-18T10:00:00+00:00'));
 });
@@ -226,5 +236,75 @@ test('módulo real P&L Managerial sin el actuals en la fuente: falla con el moti
 
 test('el respaldo del Managerial NO recibe la fuente del consolidador (sigue leyendo Drive)', async () => {
   const p = await proyecto(mgrDrive, null);
+  assert.equal(evalEn(p, 'typeof __owniaPnlCanon_'), 'undefined');
+});
+
+// ── series del Hub ─────────────────────────────────────────────────────────────────────────────────────────────────────────
+test('listo: además arma las 7 series del Hub y las expone en canon() y en el estado', async () => {
+  const f = createPnlFuente({ secrets: {} }, { consolidador: falsoConso(), ajustes: SIN_AJ });
+  await f.listo();
+  const c = f.canon();
+  assert.equal(c.errorHub, null);
+  assert.deepEqual(Object.keys(c.hub).sort(), ['bg', 'bl', 'fbtb', 'fc', 'lrr', 'ly', 'rr']);
+  assert.equal(c.hub.bl.rows.length, 3);
+  assert.equal(f.estado().hub.listo, true);
+  assert.equal(f.estado().hub.filas.bl, 3);
+  assert.deepEqual(Object.keys(c.canon).sort(), ['ac', 'bg', 'bl', 'fbtb', 'fc', 'lrr', 'ly', 'rr']);   // no se mezcla con los canónicos del Accounting
+});
+
+test('si falla solo el cubo del Hub: Accounting y Managerial siguen, el motivo queda a la vista y se reintenta', async () => {
+  let t = 0;
+  const conso = falsoConso({ fallarHub: true });
+  const f = createPnlFuente({ secrets: {} }, { consolidador: conso, now: () => t, ajustes: SIN_AJ });
+  await f.listo();   // no lanza
+  assert.ok(f.canon().canon.ac);
+  assert.ok(f.canon().actualsMgr);
+  assert.equal(f.canon().hub, null);
+  assert.match(f.canon().errorHub, /cubo_hub roto/);
+  assert.equal(f.estado().hub.listo, false);
+  conso.fallarHub = false; t += 61000;
+  await f.listo();
+  assert.equal(f.canon().errorHub, null);
+  assert.equal(f.canon().hub.bl.rows.length, 3);
+});
+
+const hubConso = MODULES.find((m) => m.slug === 'hub');
+const hubDrive = MODULES.find((m) => m.slug === 'hub-drive');
+
+test('el Hub de todos lee las series del consolidador; el respaldo con Drive es el mismo módulo, con la misma capa visual, solo para el equipo', () => {
+  assert.equal(hubConso.dir, hubDrive.dir);
+  assert.equal(hubConso.fuente, 'consolidador');
+  assert.deepEqual(hubConso.gasExtras, ['hub-consolidador.js']);
+  assert.equal(hubDrive.fuente, undefined);
+  assert.equal(hubDrive.gasExtras, undefined);
+  assert.deepEqual(hubDrive.layout, hubConso.layout);
+  assert.equal(hubConso.allowedUsers, undefined, 'abierto a todo el dominio, como antes');
+  assert.ok(Array.isArray(hubDrive.allowedUsers) && hubDrive.allowedUsers.length > 0, 'el respaldo es solo del equipo');
+});
+
+test('módulo real Hub con fuente consolidador: readJson_ devuelve las series de la tabla con el formato de Drive, y _getJsonsLastMod_ sigue la versión', async () => {
+  const f = createPnlFuente({ secrets: {} }, { consolidador: falsoConso(), ajustes: SIN_AJ });
+  await f.listo();
+  const p = await proyecto(hubConso, f.canon());
+  assert.equal(evalEn(p, 'typeof __owniaPnlCanon_'), 'function');
+  const filas = JSON.parse(evalEn(p, 'JSON.stringify(readJson_(JSON_IDS.baseline).map(function(r){ return [r["lob"], r["canal"], r["p&l n1"], r["p&l n3"], r["p&l n5"], r["p&l managerial view"], r["fecha"], r["monto usd"]]; }))'));
+  assert.equal(filas.length, 3);
+  const fb = filas.find((r) => r[2] === 'gross bookings domestic');
+  assert.equal(fb[6], Date.UTC(2026, 3, 1), 'fecha en ms UTC, como la lee el Hub');
+  assert.equal(fb[7], 100);
+  assert.ok(filas.some((r) => r[0] === 'b2c'), 'el Hub usa B2C');
+  assert.equal(evalEn(p, 'readJson_(JSON_IDS.baseline) === readJson_(JSON_IDS.baseline)'), true, 'se memoriza en _jsonCache_ como el original');
+  assert.ok(evalEn(p, '_getJsonsLastMod_()') >= f.canon().modificado);
+  // las series se arman con el mismo vocabulario con que el Hub agrupa: buildMap_ corre sobre ellas
+  assert.ok(evalEn(p, 'Object.keys(buildMap_(readJson_(JSON_IDS.baseline)).map).length') > 0);
+});
+
+test('módulo real Hub sin las series en la fuente: falla con el motivo, no lee Drive', async () => {
+  const p = await proyecto(hubConso, { canon: {}, modificado: 1, hub: null, errorHub: 'cubo_hub roto' });
+  assert.throws(() => evalEn(p, 'readJson_(JSON_IDS.ly)'), /cubo_hub roto/);
+});
+
+test('el respaldo del Hub NO recibe la fuente del consolidador (sigue leyendo Drive)', async () => {
+  const p = await proyecto(hubDrive, null);
   assert.equal(evalEn(p, 'typeof __owniaPnlCanon_'), 'undefined');
 });

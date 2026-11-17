@@ -32,6 +32,9 @@ const EQUIPO_B2B = [
   'antonella.difranco@despegar.com',
 ];
 
+// Capa visual del Hub: la comparten `hub` y su respaldo con Drive (`hub-drive`).
+const HUB_LAYOUT = ['filter-aliases.js', 'portal-ask.js', 'hub-layout.js', 'hub-h2h1.js', 'hub-slides.js', 'hub-cierre.js', 'hub-builder.js', 'hub-mkt-story.js'];
+
 const MODULES = [
   {
     slug: 'manual',
@@ -73,11 +76,31 @@ const MODULES = [
     // gráfico + tabla de "Marketing & Media Investment" vuelven a ser los originales de Apps Script. Los archivos quedan en el repo.
     // hub-mkt-story.js (2026-11-05): rediseño de "Marketing & Media Investment" (Fondos = Media Revenue + Overs vs Marketing Cost,
     // contra el Goal del filtro). Si falla, vuelve la sección original de Apps Script.
-    layout: ['filter-aliases.js', 'portal-ask.js', 'hub-layout.js', 'hub-h2h1.js', 'hub-slides.js', 'hub-cierre.js', 'hub-builder.js', 'hub-mkt-story.js'],
+    layout: HUB_LAYOUT,
     // getSlidesEvo (Slides mensuales y Mis slides) depende solo de sus parámetros y de los JSON del espejo: se calcula una vez por
     // combinación y día y se reparte comprimida (server/api-cache.js; se invalida cuando cambia un archivo que lee el Hub). 2026-10-30.
     cacheFns: ['getSlidesEvo', 'getFvmOcBridge'],   // getFvmOcBridge: slide FVM vs OC del Flow mensual (2026-11-03)
+    // Las 7 series del P&L (baseline, budget, runrate, forecast, forecastbtb, lastrunrate, LY) salen del consolidador en vez de los JSON de Drive
+    // (server/pnl-fuente.js + gas-extras/hub-consolidador.js). OKR y FX siguen en Drive. Sin datos de conso responde 503 con el motivo (no cae a
+    // Drive); el respaldo con Drive es `hub-drive`.
+    fuente: 'consolidador',
+    gasExtras: ['hub-consolidador.js'],
     gasUrl: GAS_EXEC + 'AKfycbz52txFQy-5YM2Nil_KxULzPoeZpKyA4z5LUWMGoP_8IilcwSduuwZqPF8ut_LmtceM/exec',
+  },
+  {
+    // Respaldo con Drive del Hub: el MISMO módulo leyendo los JSON de Drive como antes, con su propio contexto y sus propios caches, solo para el
+    // equipo B2B y fuera del menú. Sirve para comparar con `hub` y como salida si hubiera que volver atrás. Se borra cuando el equipo dé por
+    // validado el cambio (junto con `pnl-accounting-drive` y `pnl-managerial-drive`).
+    slug: 'hub-drive',
+    dir: 'Dashboard_B2B_WLs',
+    title: 'P&L Dashboard (respaldo con Drive)',
+    desc: 'Respaldo: el P&L contable leyendo los JSON de Drive, como antes.',
+    ownia: true,
+    allowedUsers: EQUIPO_B2B,
+    quickViews: [['all', 'Consolidado'], ['b2b2c', 'B2B2C'], ['b2b', 'B2B'], ['html', 'HTML'], ['api', 'API']],
+    layout: HUB_LAYOUT,
+    cacheFns: ['getSlidesEvo', 'getFvmOcBridge'],
+    gasUrl: '',
   },
   {
     slug: 'flow',

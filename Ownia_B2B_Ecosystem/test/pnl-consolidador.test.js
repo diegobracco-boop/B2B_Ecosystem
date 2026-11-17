@@ -1,7 +1,7 @@
 // Armado de los JSON canónicos desde la tabla del consolidador y comparación contra los de Drive (server/pnl-consolidador.js).
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { buildCanonicals, buildManagerialActuals, nivelesMgr, comparar, fechaFiscal, canalDe, mesSiguiente, cargarAjustes } = require('../server/pnl-consolidador');
+const { buildCanonicals, buildManagerialActuals, buildHubCanonicals, nivelesMgr, comparar, fechaFiscal, canalDe, mesSiguiente, cargarAjustes } = require('../server/pnl-consolidador');
 const { IDS } = require('../server/pnl-drive-dimensiones');
 
 const COLS = ['scenario', 'year', 'mes', 'pais', 'lob', 'channel', 'product', 'n2', 'valor'];
@@ -265,4 +265,63 @@ test('buildManagerialActuals: si el ajuste trae la línea (GB NAC / GB INT), se 
   assert.deepEqual(Object.fromEntries(canon.rows.map((r) => [r[4], r[10]])), { 'gross bookings domestic': 10, 'gross bookings international': -4 });
   const ac = buildCanonicals({ cols: COLS, rows: [] }, { ultimoCerrado: '2026-10-01', ajustes }).canon.ac;
   assert.deepEqual(ac.rows.map((r) => r[6]), [6]);   // nivel 2 'gross bookings': 10 - 4
+});
+
+// ── series del Hub: N1, N2, N3, N5, vista gestional y B2C ──────────────────────────────────────────────────────────────────
+const COLS_HUB_IN = ['scenario', 'year', 'mes', 'pais', 'lob', 'channel', 'product', 'linea', 'n2', 'n3', 'valor'];
+const cuboHub = (rows) => ({ version: 1, cols: COLS_HUB_IN, rows });
+const VISTA = { affiliates: 'palancas', fees: 'palancas', 'gross bookings domestic': 'gross bookings', 'orders domestic': 'orders' };
+
+test('buildHubCanonicals: una serie por JSON del Hub, con las columnas y el vocabulario de Drive, B2C incluido', () => {
+  const { canon, sinMapear } = buildHubCanonicals(cuboHub([
+    ['ACT', 'FY27', 4, 'Brazil', 'B2B', 'MAY', 'Air', 'GB NAC', 'Gross Bookings', 'Gross Bookings', 100],
+    ['ACT', 'FY27', 4, 'Brazil', 'B2B', 'MAY', 'Air', 'Affiliates', 'Third Party Comission', 'Sales & Marketing', -4],
+    ['ACT', 'FY27', 4, 'Mexico', 'B2C', 'Site', 'Hotel', 'Fees', 'Customer Fees & Charges', 'Net Revenues', 9],
+    ['ACT', 'FY27', 4, 'Mexico', 'B2C', 'App', 'Hotel', 'Fees', 'Customer Fees & Charges', 'Net Revenues', 1],   // el canal de B2C no se abre
+    ['BGT', 'FY27', 5, 'Chile', 'B2B2C', 'ON', 'Hotel', 'Orders NAC', 'Orders', 'Orders', 7],
+    ['ACT', 'FY26', 4, 'Peru', 'B2B2C', 'Site', 'Cars', 'Fees', 'Customer Fees & Charges', 'Net Revenues', 2],
+    ['ACT', 'FY27', 12, 'Peru', 'B2B2C', 'Site', 'Cars', 'Fees', 'Customer Fees & Charges', 'Net Revenues', 3],
+  ]), { ultimoCerrado: '2026-10-01', ajustes: SIN_AJ, vista: VISTA });
+  assert.deepEqual(Object.keys(canon).sort(), ['bg', 'bl', 'fbtb', 'fc', 'lrr', 'ly', 'rr']);
+  assert.deepEqual(canon.bl.cols, ['LoB', 'Canal', 'Pais', 'Producto', 'P&L N1', 'P&L N2', 'P&L N3', 'P&L N5', 'P&L Managerial View', 'Fecha', 'Monto USD']);
+  // baseline = ACT del FY27 completo (el actual de diciembre es run rate dentro del mismo escenario)
+  assert.equal(canon.bl.rows.length, 4);
+  assert.deepEqual(canon.bl.rows.find((r) => r[4] === 'affiliates'), ['b2b', 'may', 'brasil', 'flights', 'affiliates', 'third party commissions', 'sales & marketing', 'operating contribution', 'palancas', '2026-04-01', -4]);
+  assert.deepEqual(canon.bl.rows.find((r) => r[0] === 'b2c'), ['b2c', 'total', 'mexico', 'hotels', 'fees', 'customer fees & charges', 'net revenue', 'operating contribution', 'palancas', '2026-04-01', 10]);   // 9 + 1: Site y App juntos
+  assert.deepEqual(canon.bg.rows, [['b2b2c', 'total', 'chile', 'hotels', 'orders domestic', 'orders', 'orders', 'orders', 'orders', '2026-05-01', 7]]);
+  assert.equal(canon.ly.rows.length, 1);
+  assert.deepEqual(sinMapear, { pais: [], producto: [], n2: [], n3: [] });
+});
+
+test('buildHubCanonicals: una línea sin vista en el Glosario queda con la vista vacía (el Hub la junta en "Otros") y lo que no se traduce va a sinMapear', () => {
+  const { canon, sinMapear } = buildHubCanonicals(cuboHub([
+    ['ACT', 'FY27', 4, 'Brazil', 'B2B', 'MAY', 'Air', 'Rayos', 'Rayos N2', 'Rayos N3', 1],
+  ]), { ajustes: SIN_AJ, vista: VISTA });
+  assert.equal(canon.bl.rows[0][8], '');
+  assert.deepEqual(sinMapear.n2, ['Rayos N2']);
+  assert.deepEqual(sinMapear.n3, ['Rayos N3']);
+});
+
+test('buildHubCanonicals: la vista gestional sale de pnl-vista-gestional.json (una por línea N1 del Glosario, sin líneas contradictorias)', () => {
+  const { vista } = require('../server/pnl-vista-gestional.json');
+  assert.equal(vista.affiliates, 'palancas');
+  assert.equal(vista['marketing-personnel/expenses'], 'fixed cost');
+  assert.equal(vista.branding, 'marketing');
+  assert.equal(vista['up front incentives'], 'palancas');
+  assert.equal(vista['back end incentives'], 'variables regionales');
+  const { canon } = buildHubCanonicals(cuboHub([['ACT', 'FY27', 4, 'Brazil', 'B2B', 'MAY', 'Air', 'Affiliates', 'Third Party Comission', 'Sales & Marketing', 1]]), { ajustes: SIN_AJ });
+  assert.equal(canon.bl.rows[0][8], 'palancas');   // sin pasar `vista`: usa el archivo
+});
+
+test('buildHubCanonicals: los ajustes propios entran en las series que dicen (el AxI también en el año anterior) con línea y nivel 3', () => {
+  const aj = (meta, rows) => ({ meta, cols: ['year', 'mes', 'pais', 'lob', 'channel', 'product', 'n2', 'linea', 'valor'], rows });
+  const ajustes = [
+    aj({ escenarios_por_anio: { FY27: ['ACT', 'FC1'] } }, [['FY27', 4, 'Brazil', 'B2B', 'MAY', 'Hotel', 'Gross Bookings', 'GB INT', -30]]),
+    aj({ escenarios_por_anio: { FY27: ['BGT'], FY26: ['ACT'] }, hasta_ultimo_cerrado: false }, [['FY27', 5, 'Argentina', 'B2B2C', 'ON', 'Hotel', 'O. Incentives', null, 5], ['FY26', 5, 'Argentina', 'B2B2C', 'ON', 'Hotel', 'O. Incentives', null, 9]]),
+  ];
+  const { canon } = buildHubCanonicals(cuboHub([]), { ultimoCerrado: '2026-10-01', ajustes, vista: {} });
+  assert.deepEqual(canon.bl.rows.map((r) => [r[4], r[10]]), [['gross bookings international', -30]]);
+  assert.deepEqual(canon.fc.rows.map((r) => [r[4], r[10]]), [['gross bookings international', -30]]);   // FC1 -> fc y fbtb
+  assert.deepEqual(canon.bg.rows.map((r) => [r[4], r[6], r[10]]), [['other incentives', 'net revenue', 5]]);
+  assert.deepEqual(canon.ly.rows.map((r) => [r[4], r[10]]), [['other incentives', 9]]);
 });

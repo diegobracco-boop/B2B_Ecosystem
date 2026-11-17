@@ -301,6 +301,11 @@ ya usa solo AS REPORTED apenas la columna exista y `/consolidador/estado` avisa 
   `getVsAccounting`). Su `actuals.json` lo arma `buildManagerialActuals` (pnl-consolidador.js) desde `consolidador_leer.py cubo_mgr` (solo ACT del FY27 con `linea_p&l` = N1 y nivel 3): N4 y N5
   **no están en la tabla**, se derivan del nivel 3 (Net Revenue + Cost of Revenue = Gross Profit; + Sales & Marketing = Operating Contribution). Si esa consulta falla, el Accounting sigue y
   solo el Managerial responde con el motivo (`/consolidador/estado` → `managerial`). Los ajustes propios entran con línea y nivel 3 asignados (GB y Orders a la línea nacional).
+- `server/gas-extras/hub-consolidador.js` — para el Hub (`fuente: 'consolidador'`; respaldo `hub-drive`): reemplaza `readJson_` para los 7 ids de `JSON_IDS` (baseline, budget, runrate,
+  forecast, forecastbtb, lastrunrate, ly) y `_getJsonsLastMod_`. Las series las arma `buildHubCanonicals` desde `consolidador_leer.py cubo_hub` (todos los escenarios, **con B2C**, el canal solo
+  se abre en B2B; línea = N1 y nivel 3; N5 derivado como en el Managerial). La **vista gestional** (Palancas, Variables Regionales, Fixed Cost…) no está en la tabla: es una por línea N1 en
+  el Glosario y vive en `server/pnl-vista-gestional.json` (`scripts/generar-vista-gestional.py`, falla si el Glosario da dos vistas a una línea). OKR y FX siguen en Drive (los genera Python).
+  Los cubos (`cubo`, `cubo_mgr`, `cubo_hub`) no se sirven por `/consolidador/<consulta>`.
 - Endpoints de control (equipo B2B): `/consolidador/estado` (versión, filas por escenario, sinMapear, advertencia, memoria),
   `/consolidador/comparar` (tabla contra Drive por escenario), `/consolidador/control` (¿se mezclan versiones?), `/consolidador/drive`.
 

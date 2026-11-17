@@ -92,6 +92,20 @@ function canalDe(lob, channel) {
   return 'total';
 }
 
+/** De qué escenario y año de la tabla sale cada JSON canónico, y qué meses entran. Lo comparten el Accounting y el Hub. */
+function especificacion(ultimoCerrado, rrDesde) {
+  return [   // [clave canónica, escenario de la tabla, año, filtro de mes (fecha)]
+    ['ac', 'ACT', 'FY27', (f) => f <= ultimoCerrado],
+    ['bl', 'ACT', 'FY27', () => true],
+    ['bg', 'BGT', 'FY27', () => true],
+    ['fc', 'FC1', 'FY27', () => true],
+    ['fbtb', 'FC1', 'FY27', () => true],
+    ['rr', 'RR', 'FY27', (f) => f >= rrDesde],
+    ['lrr', 'LRR', 'FY27', () => true],
+    ['ly', 'ACT', 'FY26', () => true],
+  ];
+}
+
 /**
  * @param {{cols:string[], rows:any[][]}} cubo  salida de `consolidador_leer.py cubo`
  * @param {{ultimoCerrado?:string, rrDesde?:string}} opts  último mes con actuals cerrados (AAAA-MM-01) y desde qué mes se
@@ -103,16 +117,7 @@ function buildCanonicals(cubo, opts = {}) {
   const rrDesde = opts.rrDesde || mesSiguiente(ultimoCerrado);
   const ix = Object.fromEntries(cubo.cols.map((c, i) => [c, i]));
   const sinMapear = { pais: new Set(), producto: new Set(), n2: new Set() };
-  const SPEC = [   // [clave canónica, escenario de la tabla, año, filtro de mes (fecha)]
-    ['ac', 'ACT', 'FY27', (f) => f <= ultimoCerrado],
-    ['bl', 'ACT', 'FY27', () => true],
-    ['bg', 'BGT', 'FY27', () => true],
-    ['fc', 'FC1', 'FY27', () => true],
-    ['fbtb', 'FC1', 'FY27', () => true],
-    ['rr', 'RR', 'FY27', (f) => f >= rrDesde],
-    ['lrr', 'LRR', 'FY27', () => true],
-    ['ly', 'ACT', 'FY26', () => true],
-  ];
+  const SPEC = especificacion(ultimoCerrado, rrDesde);
   const bySc = {};   // 'ACT|FY27' -> filas ya traducidas (agregadas)
   const filas = ajustesComoFilas(opts.ajustes, ultimoCerrado).map((a) => {
     const r = new Array(cubo.cols.length).fill(null);
@@ -228,6 +233,59 @@ function buildManagerialActuals(cubo, opts = {}) {
   };
 }
 
+// ── Series para el Hub (Dashboard_B2B_WLs) ──────────────────────────────────────────────────────────────────────────────────
+// El Hub lee 7 JSON (baseline, budget, runrate, forecast, forecastbtb, lastrunrate, ly) con N1, N2, N3, N5, la "Managerial View" y también B2C.
+// Mismo vocabulario de Drive que el Managerial (nivelesMgr); la vista gestional sale del Glosario (pnl-vista-gestional.json, una por línea N1).
+const COLS_HUB = ['LoB', 'Canal', 'Pais', 'Producto', 'P&L N1', 'P&L N2', 'P&L N3', 'P&L N5', 'P&L Managerial View', 'Fecha', 'Monto USD'];
+const SERIES_HUB = ['bl', 'bg', 'rr', 'fc', 'fbtb', 'lrr', 'ly'];
+function cargarVistaGestional() {
+  try { return JSON.parse(fs.readFileSync(path.join(__dirname, 'pnl-vista-gestional.json'), 'utf8')).vista || {}; } catch (e) { return {}; }
+}
+
+/**
+ * @param {{cols:string[], rows:any[][]}} cubo  salida de `consolidador_leer.py cubo_hub` (todos los escenarios; B2B, B2B2C y B2C)
+ * @param {{ultimoCerrado?:string, rrDesde?:string, ajustes?:object|object[], vista?:object}} opts
+ * @returns {{canon:object, sinMapear:object}}  una clave por serie del Hub, con el formato de los JSON de Drive
+ */
+function buildHubCanonicals(cubo, opts = {}) {
+  const ultimoCerrado = opts.ultimoCerrado || '2026-10-01';
+  const rrDesde = opts.rrDesde || mesSiguiente(ultimoCerrado);
+  const vista = opts.vista || cargarVistaGestional();
+  const ix = Object.fromEntries(cubo.cols.map((c, i) => [c, i]));
+  const sinMapear = { pais: new Set(), producto: new Set(), n2: new Set(), n3: new Set() };
+  const SPEC = especificacion(ultimoCerrado, rrDesde).filter(([k]) => SERIES_HUB.includes(k));
+  const filas = cubo.rows.map((r) => ({ scenario: r[ix.scenario], year: r[ix.year], mes: r[ix.mes], pais: r[ix.pais], lob: r[ix.lob], channel: r[ix.channel],
+    product: r[ix.product], linea: r[ix.linea], n2: r[ix.n2], n3: r[ix.n3], valor: r[ix.valor] }));
+  for (const a of ajustesComoFilas(opts.ajustes, ultimoCerrado)) {
+    const [lineaPorDefecto, n3] = AJUSTE_LINEA[a.n2] || [a.n2, ''];
+    filas.push({ ...a, linea: a.linea || lineaPorDefecto, n3 });
+  }
+  const bySc = {};   // 'ACT|FY27' -> Map(clave -> monto)
+  for (const f of filas) {
+    const pais = PAIS[f.pais] || (sinMapear.pais.add(f.pais), String(f.pais).toLowerCase());
+    const prod = PRODUCTO[f.product] || (sinMapear.producto.add(f.product), String(f.product).toLowerCase());
+    if (f.linea !== 'Alianzas Financieras' && !N2[f.n2]) sinMapear.n2.add(f.n2);
+    if (f.linea !== 'Alianzas Financieras' && f.n2 !== 'Other Tax' && !N3[f.n3]) sinMapear.n3.add(f.n3);
+    const [n1, n2, n3, , n5] = nivelesMgr(f.linea, f.n2, f.n3);
+    const key = [String(f.lob).toLowerCase(), canalDe(f.lob, f.channel), pais, prod, n1, n2, n3, n5, vista[n1] || '', fechaFiscal(f.year, f.mes)].join('\u0001');
+    const m = (bySc[`${f.scenario}|${f.year}`] = bySc[`${f.scenario}|${f.year}`] || new Map());
+    m.set(key, (m.get(key) || 0) + (Number(f.valor) || 0));
+  }
+  const canon = {};
+  for (const [clave, sc, year, filtroMes] of SPEC) {
+    const rows = [];
+    const fechas = new Set();
+    for (const [key, v] of bySc[`${sc}|${year}`] || []) {
+      const p = key.split('\u0001');
+      if (!filtroMes(p[9]) || !v) continue;
+      rows.push([...p, v]);
+      fechas.add(p[9]);
+    }
+    canon[clave] = { meta: { concepto: clave, fuente: `compartido.app_b2b_ecosystem ${sc} ${year}`, fechas: [...fechas].sort(), filas: rows.length }, cols: COLS_HUB, rows };
+  }
+  return { canon, sinMapear: Object.fromEntries(Object.entries(sinMapear).map(([k, s]) => [k, [...s].sort()])) };
+}
+
 const TOL_ABS = 1;       // USD
 const TOL_REL = 1e-6;
 
@@ -313,4 +371,4 @@ function comparar(canon, fileStore, opts = {}) {
   return out;
 }
 
-module.exports = { cargarAjustes, buildCanonicals, buildManagerialActuals, nivelesMgr, comparar, fechaFiscal, canalDe, mesSiguiente, PAIS, PRODUCTO, N2, COLS };
+module.exports = { cargarAjustes, buildCanonicals, buildManagerialActuals, buildHubCanonicals, nivelesMgr, comparar, fechaFiscal, canalDe, mesSiguiente, PAIS, PRODUCTO, N2, COLS };

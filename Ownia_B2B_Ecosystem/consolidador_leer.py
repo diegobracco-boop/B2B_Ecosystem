@@ -111,6 +111,25 @@ def cubo_managerial():
             "rows": [[r[k] for k in CUBO_MGR_COLS] for r in rows]}
 
 
+CUBO_HUB_COLS = ["scenario", "year", "mes", "pais", "lob", "channel", "product", "linea", "n2", "n3", "valor"]
+
+
+def cubo_hub():
+    """Para el Hub (Dashboard_B2B_WLs): todos los escenarios, con B2C y con el detalle que el Hub necesita (línea = N1 de Drive y nivel 3).
+    Solo B2B abre canal (MAY/MIN): en B2B2C y B2C el canal se junta en SQL para que el cubo no se multiplique por Site / App / Call Center.
+    La vista gestional y N5 no están en la tabla: se derivan en pnl-consolidador.js."""
+    c = cdb()
+    con_version = tiene_version()
+    rows = c.consultar(
+        "SELECT scenario, year, mes, pais, lob, CASE WHEN lob = 'B2B' THEN channel ELSE 'total' END AS channel, product, "
+        '"linea_p&l" AS linea, "linea_p&l_-_nivel_2" AS n2, "linea_p&l_-_nivel_3" AS n3, sum(valor) AS valor '
+        f"FROM {TABLA} WHERE lob IN ('B2B', 'B2B2C', 'B2C'){VERSION_OFICIAL if con_version else ''} "
+        "GROUP BY scenario, year, mes, pais, lob, CASE WHEN lob = 'B2B' THEN channel ELSE 'total' END, product, "
+        '"linea_p&l", "linea_p&l_-_nivel_2", "linea_p&l_-_nivel_3"')
+    return {"version": c.version(DATASET), "tieneColumnaVersion": con_version, "cols": CUBO_HUB_COLS,
+            "rows": [[r[k] for k in CUBO_HUB_COLS] for r in rows]}
+
+
 def detalle():
     """Para cerrar mapeos: ACT del FY27 en meses cerrados, por producto, línea nivel 2 y línea (el detalle que el nivel 2 junta).
     Lo ve el equipo en /consolidador/detalle; las sumas se comparan con los totales por línea de /consolidador/comparar."""
@@ -138,7 +157,7 @@ def control():
     }
 
 
-COMANDOS = {"versiones": versiones, "resumen": por_pais_y_mes, "dimensiones": dimensiones, "cubo": cubo, "cubo_mgr": cubo_managerial, "detalle": detalle, "control": control}
+COMANDOS = {"versiones": versiones, "resumen": por_pais_y_mes, "dimensiones": dimensiones, "cubo": cubo, "cubo_mgr": cubo_managerial, "cubo_hub": cubo_hub, "detalle": detalle, "control": control}
 
 
 def main(argv):
