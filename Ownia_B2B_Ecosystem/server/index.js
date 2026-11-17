@@ -54,6 +54,7 @@ const { ApiCache } = require('./api-cache');
 const { createRealesJob } = require('./reales-job');
 const { createConsolidador } = require('./consolidador');
 const { driveDimensiones } = require('./pnl-drive-dimensiones');
+const { buildCanonicals, comparar: compararCanonicos } = require('./pnl-consolidador');
 const { createSlidesJobs } = require('./gslides-export');
 const { modelFromStore } = require('./pipeline-slide');
 const { partnersFrom, createQuestionLog } = require('./portal-ask-data');
@@ -463,7 +464,17 @@ function createApp(opts = {}) {
       if (!consolidador) return sendJson(res, 404, { error: 'No encontrado' });
       // Diagnóstico del lado Drive (para mapear contra la tabla): ver pnl-drive-dimensiones.js
       if (route === '/consolidador/drive') return sendJson(res, 200, driveDimensiones(fileStore));
-      const r = await consolidador.leer(route.slice('/consolidador/'.length));
+      // Arma los canónicos desde la tabla y los compara con los de Drive (pnl-consolidador.js). ?ultimoCerrado=AAAA-MM-01&rrDesde=AAAA-MM-01
+      if (route === '/consolidador/comparar') {
+        const c = await consolidador.leer('cubo');
+        if (!c.ok) return sendJson(res, c.code, { error: c.error });
+        const q = (n) => (/^\d{4}-\d{2}-01$/.test(url.searchParams.get(n) || '') ? url.searchParams.get(n) : undefined);
+        const { canon, sinMapear } = buildCanonicals(c.data, { ultimoCerrado: q('ultimoCerrado'), rrDesde: q('rrDesde') });
+        return sendJson(res, 200, { versionTabla: c.data.version, filasCubo: c.data.rows.length, sinMapear, comparacion: compararCanonicos(canon, fileStore) });
+      }
+      const consulta = route.slice('/consolidador/'.length);
+      if (consulta === 'cubo') return sendJson(res, 404, { error: 'Consulta desconocida' });   // la tabla entera: solo la usa /comparar por dentro
+      const r = await consolidador.leer(consulta);
       if (!r.ok) return sendJson(res, r.code, { error: r.error });
       return sendJson(res, 200, r.data);
     }

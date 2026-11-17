@@ -53,7 +53,20 @@ def dimensiones():
     return out
 
 
-COMANDOS = {"versiones": versiones, "resumen": por_pais_y_mes, "dimensiones": dimensiones}
+CUBO_COLS = ["scenario", "year", "mes", "pais", "lob", "channel", "product", "n2", "valor"]
+
+
+def cubo():
+    """La tabla agregada por las dimensiones que usa el P&L Accounting (sin nivel 3 ni las columnas organic).
+    Filas como listas (no dicts) para que el JSON pese menos. Lo arma pnl-consolidador.js al formato de los canónicos."""
+    c = cdb()
+    rows = c.consultar(
+        "SELECT scenario, year, mes, pais, lob, channel, product, \"linea_p&l_-_nivel_2\" AS n2, sum(valor) AS valor "
+        f"FROM {TABLA} GROUP BY scenario, year, mes, pais, lob, channel, product, \"linea_p&l_-_nivel_2\"")
+    return {"version": c.version(DATASET), "cols": CUBO_COLS, "rows": [[r[k] for k in CUBO_COLS] for r in rows]}
+
+
+COMANDOS = {"versiones": versiones, "resumen": por_pais_y_mes, "dimensiones": dimensiones, "cubo": cubo}
 
 
 def main(argv):

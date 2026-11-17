@@ -146,3 +146,10 @@ test('driveDimensiones: columnas, filas, monto por mes y valores distintos de un
   assert.deepEqual(out.ac.fechasMeta, ['2026-04-01']);
   assert.match(out.bg.error, /no está/);
 });
+
+test('cubo (la tabla entera) no se puede pedir directo: solo lo usa /comparar por dentro', async () => {
+  lanzados.length = 0;
+  const r = await get(server, `${BASE}/consolidador/cubo`, ANA);
+  assert.equal(r.status, 404);
+  assert.equal(lanzados.length, 0);
+});

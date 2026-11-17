@@ -6,9 +6,9 @@ const { execFile } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-const COMANDOS = new Set(['versiones', 'resumen', 'dimensiones']);
+const COMANDOS = new Set(['versiones', 'resumen', 'dimensiones', 'cubo']);
 const TIMEOUT_MS = 130 * 1000;           // un poco más que el statement_timeout de 2 minutos del cliente
-const MAX_STDOUT = 32 * 1024 * 1024;
+const MAX_STDOUT = 256 * 1024 * 1024;   // el cubo (~335 mil filas) pesa decenas de MB
 
 /**
  * @param {object} cfg  config de la app (secrets, APP_ROOT)
