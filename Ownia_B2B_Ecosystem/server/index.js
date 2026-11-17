@@ -14,6 +14,7 @@
 //   GET  <base>/resumen-semanal      resumen de la última semana (botón de la portada, mismos permisos que el Daily)
 //   GET  <base>/reales               estado de "Actualizar reales" (solo el equipo B2B, ver reales-job.js)
 //   POST <base>/reales               lanza la actualización: { password, kind: 'daily' | 'managerial' }
+//   GET  <base>/consolidador/<consulta>  lee compartido.app_b2b_ecosystem a demanda: versiones | resumen (solo el equipo B2B, ver consolidador.js)
 //   GET  <base>/_portal/ask.js       buscador de la portada (filter-aliases.js + portal-ask.js)
 //   POST <base>/preguntas            registra una pregunta del buscador (ver portal-ask-data.js)
 //   GET  <base>/preguntas[?mes=AAAA-MM][&formato=json]  las preguntas del mes (solo el equipo B2B)
@@ -51,6 +52,7 @@ const { ingestAllowlist, loadManifest } = require('./drive-manifest');
 const { createNotesStore } = require('./notes-store');
 const { ApiCache } = require('./api-cache');
 const { createRealesJob } = require('./reales-job');
+const { createConsolidador } = require('./consolidador');
 const { createSlidesJobs } = require('./gslides-export');
 const { modelFromStore } = require('./pipeline-slide');
 const { partnersFrom, createQuestionLog } = require('./portal-ask-data');
@@ -88,6 +90,8 @@ function createApp(opts = {}) {
   // Preguntas del buscador de la portada: las registra cualquiera; las lee solo el equipo B2B (misma lista que "Actualizar reales").
   const questionLog = opts.questionLog !== undefined ? opts.questionLog : createQuestionLog(notesStore, log);
   const isTeam = (identity) => !!identity.email && realesUsers.includes(String(identity.email).toLowerCase());
+  // Lectura a demanda del consolidador del P&L (compartido.app_b2b_ecosystem). Ver consolidador.js.
+  const consolidador = opts.consolidador !== undefined ? opts.consolidador : createConsolidador(cfg, { log });
   // Datos nuevos → se recargan los módulos. En GAS cada ejecución arranca con los globales
   // limpios; acá el contexto vive entre requests, y varios módulos memorizan el JSON en una
   // variable global (p.ej. _gestionalJsonCache_): sin esto seguirían sirviendo la versión vieja.
@@ -447,6 +451,18 @@ function createApp(opts = {}) {
       const r = reales.start(identity.email, typeof body.password === 'string' ? body.password : '', kind);
       if (!r.ok) return sendJson(res, r.code, { error: r.error });
       return sendJson(res, 202, { ...r.status, dataUpdatedAt, managerialUpdatedAt });
+    }
+
+    // Consolidador del P&L: GET solo lectura, solo el equipo B2B. /versiones dice si la tabla está publicada; /resumen
+    // devuelve valor sumado por país y mes (el resto de la lectura se va sumando cuando una pantalla la use).
+    if (route.startsWith('/consolidador/')) {
+      if (!identity.email) return unauthorized(res);
+      if (!isTeam(identity)) return sendJson(res, 403, { error: 'Solo el equipo B2B puede leer el consolidador', name: 'Forbidden' });
+      if (req.method !== 'GET') return sendJson(res, 405, { error: 'Método no permitido' });
+      if (!consolidador) return sendJson(res, 404, { error: 'No encontrado' });
+      const r = await consolidador.leer(route.slice('/consolidador/'.length));
+      if (!r.ok) return sendJson(res, r.code, { error: r.error });
+      return sendJson(res, 200, r.data);
     }
 
     // "Resumen semanal" (botón de la portada): la página arma todo con getResumenSemanal del Daily → mismos permisos que el Daily.
