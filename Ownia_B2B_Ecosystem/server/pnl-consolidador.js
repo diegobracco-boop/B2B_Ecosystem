@@ -33,7 +33,7 @@ const N2 = {
   'Breakage Revenue': 'breakage revenue', 'Rev. Taxes': 'revenue taxes', Errors: 'errors', 'O. Transactional Taxes': 'other transactional taxes',
   'Marketing - Direct': 'marketing-direct', 'Cost of Sales as Principal': 'cost of sales as principal',
   'Media & Other Cost - Media Solutions': 'media & other cost', 'Loyalty Program': 'loyalty program', 'Fair value': 'fair value - stock based compensation',
-  'Customer Claims': 'customer claims', Frauds: 'frauds', 'Other Tax': 'other taxes', 'Income from outsourced services': 'income from outsourced services',
+  'Customer Claims': 'customer claims', Frauds: 'frauds', 'Other Tax': 'other taxes', 'Income from outsourced services': 'income from outsourced services', 'Income Services': 'income from outsourced services',
   'Loyalty Revenue': 'loyalty revenue', Equity: 'equity income / loss', 'Revenue from Sales as Principal': 'revenue from sales as principal',
 };
 
@@ -115,6 +115,7 @@ function agregar(json, extra) {
   const porMes = {};
   const gb = {};
   const prodGb = {};
+  const orders = {};
   for (const r of json.rows) {
     const lob = String(r[i.LoB]).toLowerCase();
     if (lob === 'b2c') continue;   // el módulo descarta B2C: no se compara
@@ -125,13 +126,14 @@ function agregar(json, extra) {
     const key = [lob, String(r[i.Canal]).trim().toLowerCase(), String(r[i.Pais]).trim().toLowerCase(), n2, ym].join('|');
     fino.set(key, (fino.get(key) || 0) + v);
     porMes[ym] = (porMes[ym] || 0) + v;
+    if (n2 === 'orders') orders[ym] = (orders[ym] || 0) + v;
     if (n2 === 'gross bookings') {
       gb[ym] = (gb[ym] || 0) + v;
       const p = String(r[i.Producto]).trim().toLowerCase();
       prodGb[p] = (prodGb[p] || 0) + v;
     }
   }
-  return { fino, porMes, gb, prodGb, meses: Object.keys(porMes).sort(), extra };
+  return { fino, porMes, gb, prodGb, orders, meses: Object.keys(porMes).sort(), extra };
 }
 
 const redondeo = (n) => Math.round(n * 100) / 100;
@@ -160,12 +162,24 @@ function comparar(canon, fileStore, opts = {}) {
     }
     for (const [k, vt] of T.fino) if (!D.fino.has(k)) { soloTabla++; distintas.push({ k, drive: null, tabla: vt, dif: vt }); }
     distintas.sort((a, b) => Math.abs(b.dif) - Math.abs(a.dif));
+    // Por línea (nivel 2): cuántas claves son iguales, distintas o de un solo lado, y cuánta plata mueve cada una.
+    const porN2 = {};
+    const n2De = (k) => k.split('|')[3];
+    const fila = (n) => (porN2[n] = porN2[n] || { distintas: 0, soloDrive: 0, soloTabla: 0, difAbs: 0, difNeta: 0 });
+    for (const d of distintas) {
+      const x = fila(n2De(d.k));
+      if (d.drive === null) x.soloTabla++; else if (d.tabla === null) x.soloDrive++; else x.distintas++;
+      x.difAbs += Math.abs(d.dif); x.difNeta += d.dif;
+    }
     const meses = Array.from(new Set([...D.meses, ...T.meses])).sort();
     out[sc] = {
       mesesDrive: D.meses, mesesTabla: T.meses,
       claves: { drive: D.fino.size, tabla: T.fino.size, iguales, distintas: distintas.length - soloDrive - soloTabla, soloDrive, soloTabla },
       grossBookingsPorMes: Object.fromEntries(meses.map((m) => [m, { drive: redondeo(D.gb[m] || 0), tabla: redondeo(T.gb[m] || 0) }])),
       grossBookingsPorProducto: Object.fromEntries(Array.from(new Set([...Object.keys(D.prodGb), ...Object.keys(T.prodGb)])).sort().map((p) => [p, { drive: redondeo(D.prodGb[p] || 0), tabla: redondeo(T.prodGb[p] || 0) }])),
+      ordersPorMes: Object.fromEntries(meses.map((m) => [m, { drive: redondeo(D.orders[m] || 0), tabla: redondeo(T.orders[m] || 0) }])),
+      porLinea: Object.fromEntries(Object.entries(porN2).sort((a, b) => b[1].difAbs - a[1].difAbs).slice(0, opts.topLineas || 12)
+        .map(([n, x]) => [n, { ...x, difAbs: redondeo(x.difAbs), difNeta: redondeo(x.difNeta) }])),
       mayoresDiferencias: distintas.slice(0, top).map((d) => ({ clave: d.k, drive: d.drive === null ? null : redondeo(d.drive), tabla: d.tabla === null ? null : redondeo(d.tabla), dif: redondeo(d.dif) })),
     };
   }

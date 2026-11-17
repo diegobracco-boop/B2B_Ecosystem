@@ -102,3 +102,26 @@ test('mesSiguiente y el run rate por defecto arranca el mes después del último
   assert.deepEqual(buildCanonicals(cubo(rows)).canon.rr.rows.map((r) => r[5]), ['2026-11-01']);
   assert.deepEqual(buildCanonicals(cubo(rows), { ultimoCerrado: '2026-09-01' }).canon.rr.rows.map((r) => r[5]), ['2026-10-01', '2026-11-01']);
 });
+
+test('Income Services es el mismo concepto que income from outsourced services', () => {
+  const { canon, sinMapear } = buildCanonicals(cubo([['ACT', 'FY27', 4, 'Mexico', 'B2B2C', 'ON', 'Hotel', 'Income Services', 5]]));
+  assert.equal(canon.ac.rows[0][4], 'income from outsourced services');
+  assert.deepEqual(sinMapear.n2, []);
+});
+
+test('comparar: desglose por línea y orders por mes', () => {
+  const { canon } = buildCanonicals(cubo([
+    ['BGT', 'FY27', 4, 'Chile', 'B2B', 'MAY', 'Air', 'Gross Bookings', 100],
+    ['BGT', 'FY27', 4, 'Chile', 'B2B', 'MAY', 'Air', 'Orders', 10],
+    ['BGT', 'FY27', 4, 'Chile', 'B2B', 'MAY', 'Air', 'Risk', 3],
+  ]));
+  const store = storeCon({ [IDS.bg]: drive([
+    ['b2b', 'may', 'chile', 'flights', 'x', 'gross bookings', '2026-04-01', 90],
+    ['b2b', 'may', 'chile', 'flights', 'x', 'orders', '2026-04-01', 10],
+  ]) });
+  const r = comparar(canon, store).bg;
+  assert.deepEqual(r.porLinea['gross bookings'], { distintas: 1, soloDrive: 0, soloTabla: 0, difAbs: 10, difNeta: 10 });
+  assert.equal(r.porLinea.risk.soloTabla, 1);
+  assert.equal(r.porLinea.orders, undefined);
+  assert.deepEqual(r.ordersPorMes['2026-04'], { drive: 10, tabla: 10 });
+});
