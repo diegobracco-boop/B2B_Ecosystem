@@ -532,18 +532,18 @@ function createApp(opts = {}) {
       return sendCompressible(req, res, 200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }, JSON.stringify(out));
     }
 
-    // "Embudo B2B": vendido → cancelado / pendiente → reconocido, GD vs RI (server/embudo-b2b.js). Solo EMBUDO_B2B.allowedUsers (modules.js).
-    if (route === '/embudo-b2b' || route === '/embudo-b2b/data') {
+    // "Cosechas B2B": vendido → cancelado / pendiente → reconocido, GD vs RI (server/embudo-b2b.js). Solo EMBUDO_B2B.allowedUsers (modules.js).
+    if (route === '/cosechas-b2b' || route === '/cosechas-b2b/data') {
       if (req.method !== 'GET') return sendJson(res, 405, { error: 'Método no permitido' });
       if (!identity.email) return unauthorized(res);
-      if (!mayOpen(EMBUDO_B2B, identity)) return sendJson(res, 403, { error: 'El Embudo B2B todavía está en revisión', name: 'Forbidden' });
-      if (route === '/embudo-b2b') {
+      if (!mayOpen(EMBUDO_B2B, identity)) return sendJson(res, 403, { error: 'Cosechas B2B todavía está en revisión', name: 'Forbidden' });
+      if (route === '/cosechas-b2b') {
         return sendCompressible(req, res, 200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }, embudoPage({ basePath: cfg.BASE_PATH }));
       }
       let out;
       try { out = embudoApi(fileStore, url.searchParams); } catch (e) {
         log({ level: 'error', msg: 'embudo-b2b', error: e.message });
-        return sendJson(res, 500, { error: 'No se pudo armar el embudo: ' + e.message });
+        return sendJson(res, 500, { error: 'No se pudo armar Cosechas B2B: ' + e.message });
       }
       return sendCompressible(req, res, 200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }, JSON.stringify(out));
     }

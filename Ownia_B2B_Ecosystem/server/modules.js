@@ -231,14 +231,14 @@ const B2B2C_TRACKER = {
   internal: 'b2b2c-tracker',
 };
 
-// "Embudo B2B" (2026-11-17, Diego): página propia (server/embudo-b2b-page.js): lo vendido → cancelado / pendiente → reconocido
+// "Cosechas B2B" (2026-11-17, Diego; se llamó "Embudo B2B" hasta el mismo día): página propia (server/embudo-b2b-page.js): lo vendido → cancelado / pendiente → reconocido
 // (RI), y por qué GD y RI no coinciden en un mismo mes. Va en "Más tableros", debajo del B2B2C Tracker. Mientras está en
 // revisión solo lo ve el equipo B2B (allowedUsers): para abrirlo a @despegar.com, sacar allowedUsers.
 const EMBUDO_B2B = {
-  slug: 'embudo-b2b',
-  title: 'Embudo B2B',
-  desc: 'WIP · Lo que vende B2B: cuánto se cancela, cuánto queda pendiente y cuándo se reconoce (GD vs RI).',
-  internal: 'embudo-b2b',
+  slug: 'cosechas-b2b',
+  title: 'Cosechas B2B',
+  desc: 'WIP · Ventas, cancelaciones y reconocimiento de B2B: cosechas por mes de venta y por qué GD y RI no coinciden.',
+  internal: 'cosechas-b2b',
   allowedUsers: EQUIPO_B2B,
 };
 

@@ -1,6 +1,6 @@
-// "Embudo B2B" (2026-11-17, Diego): página para seguir semana a semana / mes a mes qué pasa con lo que vende B2B (vendido →
+// "Cosechas B2B" (2026-11-17, Diego; antes "Embudo B2B"): página para seguir semana a semana / mes a mes qué pasa con lo que vende B2B (vendido →
 // cancelado / pendiente / confirmado → reconocido / a reconocer) y por qué el GD y el RI del Daily no coinciden en un mismo mes.
-// Los números los arma server/embudo-b2b.js (GET <base>/embudo-b2b/data); acá solo se dibuja. Estado en la URL
+// Los números los arma server/embudo-b2b.js (GET <base>/cosechas-b2b/data); acá solo se dibuja. Estado en la URL
 // (?pais=&canal=&producto=&desde=&hasta=&mes=) para poder compartir una vista.
 const { shell, escapeHtml } = require('./index-page');
 
@@ -156,7 +156,7 @@ const SCRIPT = `(function () {
       if (my !== seq) return;
       D = j; KEYS.forEach(function (k) { if (j.q[k]) S.f[k] = j.q[k]; else delete S.f[k]; });
       syncUrl(); render();
-    }).catch(function (e) { if (my === seq) $('eb-body').innerHTML = '<div class="eb-err">No se pudo cargar el embudo: ' + esc(e.message) + '</div>'; });
+    }).catch(function (e) { if (my === seq) $('eb-body').innerHTML = '<div class="eb-err">No se pudieron cargar los datos: ' + esc(e.message) + '</div>'; });
   }
 
   function sel(id, lbl, opts, cur) {
@@ -392,11 +392,11 @@ const SCRIPT = `(function () {
 
 function embudoPage({ basePath }) {
   const back = `<a class="eb-home" href="${escapeHtml(basePath)}/" title="Volver al menú principal de B2B Ecosystem">🏠 Home</a>`;
-  const cfg = JSON.stringify({ api: `${basePath}/embudo-b2b/data` }).replace(/</g, '\\u003c');
+  const cfg = JSON.stringify({ api: `${basePath}/cosechas-b2b/data` }).replace(/</g, '\\u003c');
   return shell(`${CSS}<div id="eb-root">
     <div class="eb-hero">
-      <h1>Embudo B2B <span class="eb-wip" title="Work in progress">WIP</span></h1>
-      <p>Qué pasa con lo que vende B2B: cuánto se vende, cuánto se cancela, cuánto queda pendiente y cuándo se reconoce como ingreso. Y por qué en un mismo mes el Daily muestra un GD y un RI tan distintos.</p>
+      <h1>Cosechas B2B <span class="eb-wip" title="Work in progress">WIP</span></h1>
+      <p><b>Ventas, cancelaciones y reconocimiento.</b> Qué pasa con lo que vende B2B: cuánto se vende, cuánto se cancela, cuánto queda pendiente y cuándo se reconoce como ingreso. Y por qué en un mismo mes el Daily muestra un GD y un RI tan distintos.</p>
       <p class="eb-note" id="eb-upd"></p>
     </div>
     <div class="eb-bar" id="eb-bar"></div>
@@ -410,7 +410,7 @@ function embudoPage({ basePath }) {
     </ul>
   </div>
   <script>window.EB_CFG = ${cfg};</script>
-  <script>${SCRIPT}</script>`, { title: 'Embudo B2B · B2B Ecosystem', left: back });
+  <script>${SCRIPT}</script>`, { title: 'Cosechas B2B · B2B Ecosystem', left: back });
 }
 
 module.exports = { embudoPage };
