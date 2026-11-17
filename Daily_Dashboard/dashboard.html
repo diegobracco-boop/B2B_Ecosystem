@@ -6665,7 +6665,7 @@ function flowBuild_(){
   var jump=document.getElementById('flow-jump');
   var html='', opts='';
   FLOW_DECK.forEach(function(def,i){
-    html+='<div class="flow-frame" data-idx="'+i+'"><div class="flow-frame-tag">'+(i+1)+' · '+def.name+'</div>'+flowBuildSlide_(def,i)+'</div>';
+    html+='<div class="flow-frame" data-idx="'+i+'">'+flowBuildSlide_(def,i)+'</div>';
     opts+='<option value="'+i+'">'+(i+1)+'. '+def.name+'</option>';
   });
   track.innerHTML=html;

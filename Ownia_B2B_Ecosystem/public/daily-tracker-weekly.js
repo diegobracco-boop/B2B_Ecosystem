@@ -233,15 +233,24 @@
     if (fix) fix(cv, el, 1.5);
     return canvasImg(cv);
   }
-  // html2canvas dibuja mal el texto vertical (writing-mode) de "POS LATAM / POS NO-LATAM": se tapa y se vuelve a escribir rotado
+  // html2canvas dibuja mal el texto vertical (writing-mode) de "POS LATAM / POS NO-LATAM" (salía espejado/al revés):
+  // se tapa y se vuelve a escribir en horizontal, en dos renglones ("POS" / "LATAM"), que se lee mejor en la slide.
   function fixVertical(cv, root, k) {
     var ctx = cv.getContext('2d'), rb = root.getBoundingClientRect();
     [].forEach.call(root.querySelectorAll('.qd-row span'), function (sp) {
-      var r = sp.getBoundingClientRect(), x = (r.left - rb.left) * k, y = (r.top - rb.top) * k, w = r.width * k, h = r.height * k;
-      ctx.fillStyle = '#fff'; ctx.fillRect(x - 3, y - 3, w + 6, h + 6);
-      ctx.save(); ctx.translate(x + w / 2, y + h / 2); ctx.rotate(-Math.PI / 2);
-      ctx.fillStyle = '#6b6b85'; ctx.font = '700 ' + Math.round(10 * k) + 'px Poppins, Rubik, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(sp.textContent.trim().toUpperCase(), 0, 0); ctx.restore();
+      var r = sp.getBoundingClientRect(), cell = (sp.parentElement || sp).getBoundingClientRect();
+      var cx = (r.left + r.width / 2 - rb.left) * k, cy = (r.top + r.height / 2 - rb.top) * k;
+      var cw = Math.max(cell.width, r.width) * k, ch = r.height * k;
+      ctx.fillStyle = '#fff'; ctx.fillRect(cx - cw / 2 - 3, cy - ch / 2 - 3, cw + 6, ch + 6);
+      var t = sp.textContent.trim().toUpperCase(), i = t.indexOf(' ');
+      var lines = i > 0 ? [t.slice(0, i), t.slice(i + 1)] : [t], px = Math.round(10 * k);
+      ctx.fillStyle = '#6b6b85'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      for (;;) {   // achica la letra hasta que la línea más larga entre en la celda
+        ctx.font = '700 ' + px + 'px Poppins, Rubik, sans-serif';
+        if (px <= 8 || Math.max.apply(null, lines.map(function (l) { return ctx.measureText(l).width; })) <= cw - 4) break;
+        px--;
+      }
+      lines.forEach(function (l, n) { ctx.fillText(l, cx, cy + (n - (lines.length - 1) / 2) * px * 1.3); });
     });
   }
   function light(f) {                              // tablero en tema claro (como las capturas del pptx)
