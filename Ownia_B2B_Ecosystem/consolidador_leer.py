@@ -1,4 +1,4 @@
-"""Lectura de compartido.app_b2b_ecosystem (consolidador del P&L) para el servidor Node.
+"""Lectura de la tabla del P&L en el consolidador (compartido.<CONSOLIDADOR_DATASET>) para el servidor Node.
 
 Lo lanza server/consolidador.js, uno por pedido, y devuelve JSON por stdout:
   python consolidador_leer.py versiones   -> estado de publicación de la tabla (o null si no está)
@@ -9,12 +9,24 @@ consolidador: si hacen falta otros datos se edita el pedido de acceso, no esta c
 Solo corre dentro de Ownia (usa el token IAM de la app): en local falla siempre.
 """
 import json
+import os
+import re
 import sys
 
 from consolidador_compartido import Consolidador
 
-DATASET = "app_b2b_ecosystem"
-TABLA = "compartido.app_b2b_ecosystem"
+
+def _dataset():
+    """Nombre del dataset/tabla del consolidador. Cada pedido aprobado que conso arma aparte lleva su propio nombre (el #166 salió como
+    `app_b2b_ecosystem_166`), así que se elige con APP_SECRETS.CONSOLIDADOR_DATASET (por defecto, el original). Solo letras, números y _."""
+    ds = str(json.loads(os.environ.get("APP_SECRETS", "{}")).get("CONSOLIDADOR_DATASET") or "app_b2b_ecosystem")
+    if not re.fullmatch(r"[a-z0-9_]{1,63}", ds):
+        raise RuntimeError("CONSOLIDADOR_DATASET inválido: solo minúsculas, números y _")
+    return ds
+
+
+DATASET = _dataset()
+TABLA = f"compartido.{DATASET}"
 _cdb = None
 
 

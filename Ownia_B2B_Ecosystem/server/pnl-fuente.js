@@ -22,7 +22,7 @@ function createPnlFuente(cfg, { consolidador, log = () => {}, onChange = () => {
   async function refrescar() {
     const v = await consolidador.leer('versiones');
     if (!v.ok) throw Object.assign(new Error(v.error), { status: v.code });
-    if (!v.data) throw Object.assign(new Error('La tabla compartido.app_b2b_ecosystem no está publicada (o no hay permiso)'), { status: 503 });
+    if (!v.data) throw Object.assign(new Error('La tabla del consolidador no está publicada (o no hay permiso): revisar APP_SECRETS.CONSOLIDADOR_DATASET'), { status: 503 });
     st.revisadoEn = now();
     if (st.canon && v.data.version === st.version && v.data.publicado_en === st.publicadoEn) return;
     const c = await consolidador.leer('cubo');
