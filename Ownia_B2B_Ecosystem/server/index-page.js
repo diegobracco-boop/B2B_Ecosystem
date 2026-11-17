@@ -12,7 +12,18 @@ const { B2B2C_TRACKER, EMBUDO_B2B } = require('./modules');
 
 // Lo esencial para un Chief / VP, en este orden (2026-10-29: Daily, P&L Dashboard, P&L Managerial, Presentaciones). Un módulo que no esté acá ni en MORE cae en "Más tableros".
 const ESSENTIAL = ['daily', 'hub', 'pnl-managerial', 'flow'];
-const MORE = ['pnl-accounting', 'hub-consolidacion', 'travel-partners-hub', 'marketing-b2b', 'rolling-projections', 'fixed-cost', 'weekly-industry', 'agentes', 'profit-sharing', 'okr-b2b2c', 'pipeline-hunting', 'b2b2c-tracker', 'cosechas-b2b', 'manual'];
+// "Más tableros" en grupos (2026-11-17, Diego), armados en filas de 5 columnas: cada grupo ocupa tantas columnas como tableros
+// tiene, así los grupos chicos comparten fila (menos scroll). "Otros tableros" junta lo que no está en ningún grupo (ni en Lo esencial
+// ni en QUICK_LINKS). Los respaldos con Drive tienen allowedUsers: "Backup" solo aparece para quien los puede abrir.
+const OTHERS = ['travel-partners-hub', 'marketing-b2b', 'pipeline-hunting', 'agentes'];   // orden de "Otros tableros"
+const MORE_ROWS = [
+  [['P&L Detail', ['pnl-accounting', 'hub-consolidacion', 'rolling-projections', 'profit-sharing', 'fixed-cost']]],
+  [['Industry', ['weekly-industry', 'monthly-industry']], ['Coming soon', ['b2b2c-tracker', 'cosechas-b2b']]],
+  [['Tribus Producto', ['okr-b2b2c']], ['Otros tableros', OTHERS]],
+  [['Manual', ['manual']], ['Backup', ['hub-drive', 'pnl-accounting-drive', 'pnl-managerial-drive']]],
+];
+const MORE_COLS = 5;
+const MORE = MORE_ROWS.flat().flatMap(([, s]) => s);
 
 // Accesos directos de un bloque hacia OTROS tableros (además de las vistas propias, `quickViews`). Esos tableros no se repiten en "Más tableros".
 const QUICK_LINKS = { daily: ['api-one-pager', 'fvm-negativo', 'b2b-score-producto'] };
@@ -44,6 +55,7 @@ const ICONS = {
 const ICON_OF = {
   'pnl-managerial': 'chart', 'pnl-accounting': 'ledger', 'profit-sharing': 'bank', 'hub-consolidacion': 'bank', 'marketing-b2b': 'target', hub: 'grid', daily: 'calendar',
   'fvm-negativo': 'down', 'okr-b2b2c': 'target', manual: 'book', 'api-one-pager': 'api', 'b2b-score-producto': 'target', 'travel-partners-hub': 'globe', flow: 'flow', 'rolling-projections': 'chart', 'fixed-cost': 'ledger', 'weekly-industry': 'globe', agentes: 'agent', 'pipeline-hunting': 'chart', 'b2b2c-tracker': 'funnel', 'cosechas-b2b': 'down',
+  'monthly-industry': 'globe', 'hub-drive': 'grid', 'pnl-accounting-drive': 'ledger', 'pnl-managerial-drive': 'chart',
 };
 // Otras apps de Ownia que se linkean desde el menú (no son módulos de este repo: no corren acá).
 // Los links son los mismos que usa el P&L Dashboard de Apps Script (EXTERNAL_LINKS en Dashboard_B2B_WLs/dashboard.html).
@@ -64,6 +76,8 @@ const OTHER_APPS = [
   { slug: 'agentes', title: 'Agentes Toqan', desc: 'Los agentes de IA del equipo: planning, BI, comercial y optimization.', internal: 'agentes' },
   { slug: 'weekly-industry', title: 'Weekly Industry', desc: 'KPIs semanales de industria.',
     url: 'https://script.google.com/a/despegar.com/macros/s/AKfycbwL40pCC0y_jmTxLh9xxicIoMmHTwP2EZk8eE4KC9yzR68RdHlhvdi5x8C105pmsHl_/exec?page=industria' },
+  { slug: 'monthly-industry', title: 'Monthly Industry', desc: 'KPIs mensuales de industria (Apps Script).',
+    url: 'https://script.google.com/a/macros/despegar.com/s/AKfycbwCgEarHTa2dSdSwTuf1Gp3OJ0rYQGjZo5jstNa8hLlDmCgXOGYDdDcV3efhl_dpij7KA/exec' },
   { slug: 'fixed-cost', title: 'Fixed Cost', desc: 'Estructura de costos fijos.',
     url: 'https://script.google.com/a/macros/despegar.com/s/AKfycbylpy8kbuTVgiDg6xgmtrR-VemvRZlzfMMXcWnnWOjg3U0eUCmPF3XwQRuqPk-hDqRTpg/exec' },
   { slug: 'rolling-projections', title: 'Rolling Projections', desc: 'Run Rate: análisis y proyecciones.',
@@ -428,6 +442,23 @@ function shell(inner, { title = 'The B2B Ecosystem · Despegar', left = '<span c
 
   .more { margin-top: 64px; }
   .list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 48px; }
+  /* "Más tableros" (2026-11-17, Diego): más ancho que el resto de la portada (hasta 1360px) y en filas de 5 columnas; cada grupo
+     ocupa tantas columnas como tableros tiene (--n), así los grupos chicos comparten fila y hay menos scroll. */
+  /* Cada grupo va en su propia tarjeta con marco (mismo fondo que los bloques de "Lo esencial"). */
+  .more-g { --mw: min(1360px, calc(100vw - 64px)); --gap: 16px; width: var(--mw); margin-left: calc(50% - var(--mw) / 2); }
+  .more-g .grow { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--gap); }
+  .more-g .grow + .grow { margin-top: var(--gap); }
+  .more-g .grp { grid-column: span var(--n); min-width: 0; padding: 16px 18px 8px; border-radius: 18px; background: var(--tile); border: 1px solid var(--line); }
+  .more-g .grp-t { font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); margin: 0 2px 4px; }
+  .more-g .list { grid-template-columns: repeat(var(--n), minmax(0, 1fr)); column-gap: 20px; }
+  .more-g .row { padding: 10px 2px; gap: 12px; border-top: 0; }
+  .more-g .row h3 { font-size: 15px; }
+  .more-g .row p { font-size: 13px; }
+  @media (max-width: 1100px) {
+    .more-g .grow { display: block; }
+    .more-g .grow + .grow, .more-g .grp + .grp { margin-top: var(--gap); }
+    .more-g .list { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+  }
   .row { position: relative; display: flex; align-items: center; gap: 16px; padding: 18px 4px; border-top: 1px solid var(--line); }
   .row .ico { color: var(--icon); flex: none; }
   .row .txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
@@ -445,6 +476,8 @@ function shell(inner, { title = 'The B2B Ecosystem · Despegar', left = '<span c
     .hero { margin-bottom: 36px; }
     .hero p { font-size: 16px; }
     .essential, .list { grid-template-columns: 1fr; }
+    .more-g { width: auto; margin-left: 0; }
+    .more-g .list { grid-template-columns: 1fr; }
     .tile { min-height: 0; padding: 26px; }
     .ask { margin: -12px auto 40px; }
     .ask-admin { margin: -30px 0 30px; }
@@ -653,7 +686,13 @@ function indexPage({ modules, basePath, canOpen = () => true, reales = false, as
   const essential = ESSENTIAL.map(find).filter(Boolean);
   const dailyMod = modules.find((m) => m.slug === 'daily' && m.ownia);
   const used = new Set([...ESSENTIAL, ...MORE, ...Object.values(QUICK_LINKS).flat()]);
-  const more = [...MORE.map(find).filter(Boolean), ...modules.filter((m) => !used.has(m.slug))];
+  // Cada grupo muestra solo lo que el usuario puede abrir (los respaldos tienen allowedUsers); un grupo vacío no aparece.
+  // Un módulo en validación con versión de Apps Script sigue apareciendo para todos: a quien no puede entrar lo manda a GAS.
+  const visible = (m) => m && (!m.allowedUsers || canOpen(m) || (statusOf(m) === 'val' && !!m.gasUrl));
+  // "Otros tableros" suma los módulos nuevos que no estén en ningún grupo; cada fila se queda con los grupos que tienen algo para mostrar.
+  const extra = modules.filter((m) => !used.has(m.slug)).map((m) => m.slug);
+  const rows = MORE_ROWS.map((r) => r.map(([title, slugs]) => [title, (title === 'Otros tableros' ? [...slugs, ...extra] : slugs).map(find).filter(visible)])
+    .filter(([, ms]) => ms.length)).filter((r) => r.length);
   return shell(`<div class="hero reveal" style="--i:0">
       <h1>B2B Ecosystem</h1>
       <p>Los resultados de B2B y B2B2C, en un solo lugar.</p>
@@ -663,11 +702,16 @@ function indexPage({ modules, basePath, canOpen = () => true, reales = false, as
     <div class="essential reveal" style="--i:1">
       ${essential.map((m) => tile(m, basePath, canOpen, find)).join('\n')}
     </div>
-    ${more.length ? `<div class="more reveal" style="--i:2">
+    ${rows.length ? `<div class="more more-g reveal" style="--i:2">
       <h2 class="sec">Más tableros</h2>
-      <div class="list">
-        ${more.map((m) => row(m, basePath, canOpen, find)).join('\n')}
-      </div>
+      ${rows.map((r) => `<div class="grow">
+        ${r.map(([title, ms]) => `<div class="grp" style="--n:${Math.min(ms.length, MORE_COLS)}">
+          <h3 class="grp-t">${escapeHtml(title)}</h3>
+          <div class="list">
+            ${ms.map((m) => row(m, basePath, canOpen, find)).join('\n')}
+          </div>
+        </div>`).join('\n')}
+      </div>`).join('\n')}
     </div>` : ''}`, {
     actions: (dailyMod && canOpen(dailyMod) ? resumenButton(basePath) : '') + (reales ? REALES_BUTTON : ''),
     extra: reales ? realesDialog(basePath) : '',
