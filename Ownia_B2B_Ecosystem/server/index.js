@@ -533,7 +533,7 @@ function createApp(opts = {}) {
       return sendCompressible(req, res, 200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }, JSON.stringify(out));
     }
 
-    // "Cosechas B2B": vendido → cancelado / pendiente → reconocido, GD vs RI (server/embudo-b2b.js). Solo EMBUDO_B2B.allowedUsers (modules.js).
+    // "Cosechas B2B": vendido → cancelado / pendiente → reconocido, GD vs RI (server/embudo-b2b.js). Abierto a todos; si EMBUDO_B2B tiene allowedUsers (modules.js), solo esas cuentas.
     if (route === '/cosechas-b2b' || route === '/cosechas-b2b/data') {
       if (req.method !== 'GET') return sendJson(res, 405, { error: 'Método no permitido' });
       if (!identity.email) return unauthorized(res);
