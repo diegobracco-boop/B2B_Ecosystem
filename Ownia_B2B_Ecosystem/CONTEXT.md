@@ -256,6 +256,7 @@ del ALB no es alcanzable desde la red de usuarios. Por eso `TRUSTED_IDENTITY_HEA
 | `EFFECTIVE_USER_EMAIL` | lo que devuelve `Session.getEffectiveUser()` (en GAS: quien deployó) |
 | `GAS_PROPERTIES` | `{ "<slug>": { "CLAVE": "valor" } }` → Propiedades del script de cada módulo |
 | `CONSOLIDADOR_DB_NAME` | nombre de la base del consolidador del P&L (`consolidador_db`); ver "Consolidador del P&L". Sin esto `/consolidador/*` da 503 |
+| `PNL_ULTIMO_CERRADO` | último mes con actuals cerrados (AAAA-MM-01, default `2026-10-01`) para el P&L desde el consolidador: **moverlo en cada cierre** |
 
 `BASE_PATH` y `PORT` los inyecta Ownia. Nada de credenciales en el código. Ownia también inyecta, por la base Aurora de la
 app, `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER` (`ownia_b2b_ecosystem`), `DB_ENGINE` y `DATABASE_URL`, y por DynamoDB
@@ -263,45 +264,63 @@ app, `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER` (`ownia_b2b_ecosystem`), `DB_ENG
 
 ## Consolidador del P&L (`compartido.app_b2b_ecosystem`, 2026-11-17)
 
-La app puede leer los números del P&L que publica el equipo de conso (EPM / cierres / runrate) **a demanda**, sin subir
-archivos ni mantener copias. Hoy es solo la conexión: **ninguna pantalla la usa todavía** y P&L Accounting sigue leyendo
-sus JSON de Drive.
+Objetivo (Diego): que **toda la info contable** salga solo del consolidador (conso: EPM / cierres / runrate), no de los JSON de
+`Inputs_Planning_PnL` en Drive. **Estado:** existe una **copia de prueba** del P&L Accounting que lee de la tabla
+(`pnl-accounting-conso`, solo `EQUIPO_B2B`, fuera del menú). El P&L Accounting de todos **sigue leyendo de Drive**. Falta activar,
+migrar Hub / Managerial / `flow_oc` (el Hub necesita nivel 3 y B2C en el cubo), los Python de OKR / FCA / `organic_builder`, y retirar el pipeline.
 
 **Qué hay detrás (fuera del repo, hay que reponerlo si se recrea la app):**
-- **Base Aurora de la app.** Se agregó el 2026-11-17 con `manage_infra(action="apply", database="aurora")` sobre la app
-  existente (sin recrear nada; la tabla DynamoDB del espejo de archivos y las notas siguen igual). La app no guarda
-  nada ahí: se necesita solo por su usuario IAM `ownia_b2b_ecosystem`, que es el que conso habilita para leer.
-- **`CONSOLIDADOR_DB_NAME=consolidador_db`** en `APP_SECRETS` (lo carga la persona con `manage_app_secrets`).
-- **Permiso de conso** sobre la tabla `compartido.app_b2b_ecosystem` para ese `DB_USER`: el pedido se edita desde el
-  link privado que da la página (`ownia.despegar.io/consolidador-db/conectar`); al aprobarse la tabla se rearma con el
-  mismo nombre y la app muestra los datos nuevos sin tocar código. El archivo `CONECTAR_AL_CONSOLIDADOR_b2b-ecosystem.md`
-  (con las instrucciones y el cliente) lo baja quien hizo el pedido desde ese link; no está en el repo.
+- **Base Aurora de la app** (2026-11-17, `manage_infra apply`). La app no guarda nada ahí: se necesita por su usuario IAM
+  `ownia_b2b_ecosystem`, que es el que conso habilita para leer. **Cuidado con la infra:** agregar Aurora le sacó al rol el permiso de
+  DynamoDB y los tableros dieron 500 entre las 13:40 y las 15:14 UTC; lo arregló Ownia. Diagnóstico rápido: `<base>/healthz` muestra
+  `files` y `error` del almacén (`/health` solo dice OK). No correr `manage_infra apply` sobre esta app sin plan previo.
+- **`CONSOLIDADOR_DB_NAME=consolidador_db`** en `APP_SECRETS`. **`PNL_ULTIMO_CERRADO`** (AAAA-MM-01, default `2026-10-01`): último mes
+  con actuals cerrados; **se mueve a mano en cada cierre**, como hoy `LAST_CLOSED_MONTH` de `Inputs_Planning_PnL/config.py`.
+- **Permiso y tabla de conso:** el pedido se edita desde el link privado (`ownia.despegar.io/consolidador-db/conectar/s/<token>`); al
+  aprobarse conso arma la tabla con el mismo nombre. El instructivo `CONECTAR_AL_CONSOLIDADOR_b2b-ecosystem.md` se baja desde ese link; no está en el repo.
 
-**Qué trae la tabla hoy** (ya filtrada y sumada por el consolidador): `version` = AS REPORTED; `scenario` = ACT, BGT, FC1,
-RR; `year` = FY26, FY27; `lob` = B2B, B2B2C. Columnas: `scenario`, `year`, `mes`, `pais`, `lob`, `product`, `channel`,
-`linea_p&l_-_nivel_3`, `linea_p&l` y `valor`. Índice: `scenario`, `year`, `mes`, `pais`, `lob`. No incluye Organic ni tipos de
-cambio.
+**La tabla** (filtrada y sumada por conso): columnas `scenario`, `year`, `mes` (mes **calendario**; el año es fiscal, abril-marzo),
+`pais`, `lob`, `product`, `channel`, `linea_p&l_-_nivel_3`, `linea_p&l_-_nivel_2`, `linea_p&l`, `valor`, `organic_vs_bgt`, `organic_vs_ly`.
+Escenarios ACT, BGT, FC1, LRR, RR; años FY26 y FY27. **Pendiente con conso:** la versión 3 (2026-11-17 18:01 UTC) trae tres versiones
+(AS REPORTED, BIMO, PPA) **sin columna `version`**, así que sus montos se SUMAN (ver el pedido #166, que la agrega). El código
+ya usa solo AS REPORTED apenas la columna exista y `/consolidador/estado` avisa mientras falte.
 
-**Pendiente (pedido editado a conso):** línea del P&L **nivel 2** (`linea_p&l_-_nivel_2`), **last runrate** y **baseline**,
-que P&L Accounting usa hoy (`P&L N2`; escenarios `lrr` y `bl` de `CANONICAL_IDS_`). Cuando se aprueben, se reemplaza la
-lectura de P&L Accounting (`assembleCanonicals_` en `Codigo_contable_epm.js`) por esta tabla. Ojo: Paraguay y Uruguay
-van a "Globales" en `PAIS_MAP_CT_`; la lista del consolidador trae `Others` y `OPS + RG`, comprobar que coincidan.
+**Cómo se lee (código):**
+- `consolidador_compartido.py` — cliente del consolidador. **Copiar sin cambios** del instructivo de conso; si sacan uno nuevo, reemplazarlo entero.
+- `consolidador_leer.py` — SQL fijo, solo `SELECT`: `versiones`, `resumen`, `dimensiones`, `detalle`, `control`, `cubo` (la tabla agregada
+  por lo que usa el P&L Accounting, solo B2B y B2B2C).
+- `server/consolidador.js` + `GET <base>/consolidador/<consulta>` (solo `EQUIPO_B2B`, solo GET): Node lanza el Python por pedido. `cubo` no
+  se puede pedir directo (es la tabla entera).
+- `server/pnl-consolidador.js` — traduce el cubo al formato y vocabulario de los 8 JSON canónicos (ac, bl, bg, fc, fbtb, rr, lrr, ly) y los compara con Drive.
+- `server/pnl-fuente.js` — los mantiene en memoria; revisa la versión publicada como mucho cada minuto y rearma si cambió (invalida el
+  módulo y sus caches). Sin datos o con error responde **503, nunca cae a Drive**.
+- `server/gas-extras/pnl-accounting-consolidador.js` — reemplaza `_readCanonical_` y `_canonicalsMaxMod_` solo en módulos con `fuente: 'consolidador'`
+  (la copia `pnl-accounting-conso` en `modules.js`). El código GAS del módulo no cambia.
+- Endpoints de control (equipo B2B): `/consolidador/estado` (versión, filas por escenario, sinMapear, advertencia, memoria),
+  `/consolidador/comparar` (tabla contra Drive por escenario), `/consolidador/control` (¿se mezclan versiones?), `/consolidador/drive`.
 
-**Código:**
-- `consolidador_compartido.py` — cliente del consolidador (pool Aurora por token IAM, `cacheado`, `iterar`). **Copiar
-  sin cambios** del archivo de conso; si sacan una versión nueva, reemplazarlo entero.
-- `consolidador_leer.py` — lo que lee la app, con SQL fijo (`versiones`, `resumen` por país y mes). Solo `SELECT`.
-- `server/consolidador.js` + ruta `GET <base>/consolidador/<consulta>` (`versiones` | `resumen`): Node lanza el script
-  Python por pedido (como `reales-job.js`; el venv `/opt/py` del Dockerfile trae `psycopg2-binary` y `boto3` por
-  `requirements-pipelines.txt`) y devuelve su JSON. Solo el equipo B2B (`EQUIPO_B2B`), solo GET, tope de 130 s.
-  Tests: `test/consolidador.test.js` (el Python se reemplaza por una función falsa).
+**Cómo se arman los escenarios:** `ac` = ACT del FY27 hasta el último mes cerrado; `bl` (baseline) = ACT del FY27 completo (actuals cerrados + run rate);
+`bg` = BGT; `rr` = RR desde el mes siguiente al último cerrado; `lrr` = LRR (la de conso es real y **difiere a propósito** del `lastrunrate.json` de Drive, que es
+igual al RR); `ly` = ACT del FY26; **`fc` y `fbtb` = FC1** (el FC1 de conso ES el Bridge to Budget; ya no existe otro forecast).
 
-**Reglas** (las del archivo de conso): solo a demanda, sin cron ni copias en la base de la app; valores de filtro como
-parámetros `%s`; columnas calculadas con alias (`sum(valor) AS valor`); si faltan datos, **editar el pedido**, no buscar
-otra tabla ni cambiar el SQL; **no se prueba en local** (sin el token IAM de Ownia siempre falla).
+**Dos ajustes propios** (la tabla es AS REPORTED y el pipeline de Drive pone estas partidas), en `server/pnl-ajustes-*.json`, se regeneran con
+`python scripts/generar-ajustes-pnl.py` desde OneDrive:
+1. `pnl-ajustes-actuals.json`: reclasificación de GB y Orders de API B2B-MAY (abril-junio, neto 0). Conso no la incorpora. Aplica a ACT y FC1.
+2. `pnl-ajustes-axi.json`: **Reverso AxI** ("SIN PPA"; `Other Incentives` de B2B y B2B2C). Hoja Budget = FY27 (suma 1.500.322) a ACT/BGT/FC1/LRR/RR en todos los meses; hoja RunRate = FY26 (748.004) al año anterior.
 
-**Probar tras un deploy:** abrir `<base>/consolidador/versiones` con sesión del equipo B2B: debe devolver
-`app_b2b_ecosystem` con su `version` y `publicado_en`.
+**Mapeos confirmados con montos** (contra Drive del 17/11): `General` = `corporate`, `Packages` = `packages general`, `Income Services` = `income from outsourced services`,
+`Alianzas Financieras` (línea) = su propio nivel 2. `D&A Other` y `Risk` no tienen equivalente en Drive.
+
+**Resultado de la comparación** (versión 2 de la tabla, con los dos ajustes): actuals y Bridge to Budget **iguales a Drive en todas las claves**; budget con 13 USD de diferencia en la OC;
+run rate: `cost of installments` +377 mil y `other taxes` +56 mil, que son **actualización de conso posterior al CSV del 3/11** (el CSV da exactamente lo de Drive), no un error de mapeo.
+La tabla trae además líneas por debajo de OC en actuals (IT, general management, finance & admin., sourcing, capitalized IT, D&A) que Drive no tiene. **D&A:** conso lo trae siempre
+positivo; Drive es inconsistente (budget negativo, año anterior positivo); el módulo no lo usa en ningún cálculo. Signo pendiente de confirmar con finanzas si se llega a mostrar.
+
+**Reglas** (las del instructivo de conso): solo a demanda, sin cron ni copias en la base de la app; valores de filtro como `%s`; columnas calculadas con alias; si faltan datos,
+**editar el pedido**, no buscar otra tabla; **no se prueba en local** (sin el token IAM de Ownia falla siempre).
+
+**Activar la fuente de conso en el P&L de todos:** poner `fuente: 'consolidador'` en `pnl-accounting` (y agregarle `pnl-accounting-consolidador.js` a `gasExtras`) y borrar `pnl-accounting-conso`.
+Antes: control sin versiones mezcladas, comparación limpia, y confirmar con conso lo del run rate. Vuelta atrás: revertir ese cambio.
 
 | Error | Causa → acción |
 |---|---|
@@ -310,6 +329,7 @@ otra tabla ni cambiar el SQL; **no se prueba en local** (sin el token IAM de Own
 | 502 `relation ... does not exist` | recién aprobado, la tabla se está publicando → esperar unos minutos |
 | 502 `PAM authentication failed` | corriendo fuera de Ownia |
 | 502 `statement timeout` | más de 2 minutos → filtrar por columnas con índice o usar `iterar()` |
+| 503 "P&L desde el consolidador: ..." en la copia de prueba | no se pudo armar desde la tabla (motivo en el mensaje); no hay respaldo en Drive |
 
 ## Repos: de dónde deploya Ownia
 
