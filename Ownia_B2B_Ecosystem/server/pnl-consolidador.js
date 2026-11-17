@@ -26,6 +26,25 @@ function cargarAjustes() {
   });
 }
 
+/** Los ajustes propios ya abiertos por escenario (una fila por escenario al que aplican), con las reglas de su `meta`.
+ *  @param {object|object[]} [ajustes] los archivos (por defecto, los de disco); en los tests se pasan a mano
+ *  @returns {{scenario:string,year:string,mes:number,pais:string,lob:string,channel:string,product:string,n2:string,valor:number}[]} */
+function ajustesComoFilas(ajustes, ultimoCerrado) {
+  const archivos = ajustes === undefined ? cargarAjustes() : (Array.isArray(ajustes) ? ajustes : [ajustes]);
+  const filas = [];
+  for (const aj of archivos) {
+    const meta = { ...AJUSTE_DEFAULT, ...(aj.meta || {}) };
+    const ai = Object.fromEntries((aj.cols || []).map((c, i) => [c, i]));
+    for (const a of aj.rows || []) {
+      if (meta.hasta_ultimo_cerrado !== false && fechaFiscal(a[ai.year], a[ai.mes]) > ultimoCerrado) continue;
+      for (const sc of meta.escenarios_por_anio[a[ai.year]] || []) {
+        filas.push({ scenario: sc, year: a[ai.year], mes: a[ai.mes], pais: a[ai.pais], lob: a[ai.lob], channel: a[ai.channel], product: a[ai.product], n2: a[ai.n2], valor: a[ai.valor] });
+      }
+    }
+  }
+  return filas;
+}
+
 const COLS = ['LoB', 'Canal', 'Pais', 'Producto', 'P&L N2', 'Fecha', 'Monto USD'];
 
 const PAIS = {
@@ -95,21 +114,12 @@ function buildCanonicals(cubo, opts = {}) {
     ['ly', 'ACT', 'FY26', () => true],
   ];
   const bySc = {};   // 'ACT|FY27' -> filas ya traducidas (agregadas)
-  const archivos = opts.ajustes === undefined ? cargarAjustes() : (Array.isArray(opts.ajustes) ? opts.ajustes : [opts.ajustes]);
-  const filas = [];
-  for (const aj of archivos) {
-    const meta = { ...AJUSTE_DEFAULT, ...(aj.meta || {}) };
-    const ai = Object.fromEntries((aj.cols || []).map((c, i) => [c, i]));
-    for (const a of aj.rows || []) {
-      if (meta.hasta_ultimo_cerrado !== false && fechaFiscal(a[ai.year], a[ai.mes]) > ultimoCerrado) continue;
-      for (const sc of meta.escenarios_por_anio[a[ai.year]] || []) {
-        const r = new Array(cubo.cols.length).fill(null);
-        r[ix.scenario] = sc; r[ix.year] = a[ai.year]; r[ix.mes] = a[ai.mes]; r[ix.pais] = a[ai.pais]; r[ix.lob] = a[ai.lob];
-        r[ix.channel] = a[ai.channel]; r[ix.product] = a[ai.product]; r[ix.n2] = a[ai.n2]; r[ix.valor] = a[ai.valor];
-        filas.push(r);
-      }
-    }
-  }
+  const filas = ajustesComoFilas(opts.ajustes, ultimoCerrado).map((a) => {
+    const r = new Array(cubo.cols.length).fill(null);
+    r[ix.scenario] = a.scenario; r[ix.year] = a.year; r[ix.mes] = a.mes; r[ix.pais] = a.pais; r[ix.lob] = a.lob;
+    r[ix.channel] = a.channel; r[ix.product] = a.product; r[ix.n2] = a.n2; r[ix.valor] = a.valor;
+    return r;
+  });
   for (const row of cubo.rows.concat(filas)) {
     const k = `${row[ix.scenario]}|${row[ix.year]}`;
     const lob = row[ix.lob];
@@ -134,6 +144,87 @@ function buildCanonicals(cubo, opts = {}) {
     canon[clave] = { meta: { concepto: clave, fuente: `compartido.app_b2b_ecosystem ${sc} ${year}`, fechas: [...fechas].sort(), filas: rows.length }, cols: COLS, rows };
   }
   return { canon, sinMapear: Object.fromEntries(Object.entries(sinMapear).map(([k, s]) => [k, [...s].sort()])) };
+}
+
+// ── Actuals para el P&L Managerial ("Managerial vs Accounting") ─────────────────────────────────────────────────────────────
+// Ese módulo lee actuals.json con los niveles N1 a N5 de Drive. La tabla trae la línea más fina (`linea_p&l` = N1), el nivel 2 y el
+// nivel 3; N4 y N5 no existen en la tabla y se derivan del nivel 3 con la regla del Glosario (solapa "Linea P&L"):
+//   Net Revenue + Cost of Revenue = Gross Profit;  Gross Profit + Sales & Marketing = Operating Contribution.
+// El tablero solo mira `n1|…`, `n3|net revenue`, `n4|gross profit` y N5 = 'operating contribution', pero se arman todos para que sea el mismo formato.
+const COLS_MGR = ['LoB', 'Canal', 'Pais', 'Producto', 'P&L N1', 'P&L N2', 'P&L N3', 'P&L N4', 'P&L N5', 'Fecha', 'Monto USD'];
+// Líneas de la tabla que Drive llama distinto (el resto coincide en minúsculas).
+const N1_LINEA = {
+  'GB NAC': 'gross bookings domestic', 'GB INT': 'gross bookings international',
+  'Orders NAC': 'orders domestic', 'Orders INT': 'orders international',
+  'Customer claims': 'customer claims', 'Income Services': 'income from outsourced services',
+  'Loyalty Personnel': 'loyalty - personnel/expenses', 'Sourcing Air': 'sourcing', 'Marketing Personnel': 'marketing-personnel/expenses',
+  Channels: 'channels-personnel/expenses', 'IT Personnel': 'it - personnel/expenses', 'Other Tax': 'other taxes',
+};
+// Nivel 3 de la tabla → el de Drive. 'tecnhology' es la errata del Glosario de Drive: se copia para que ambos lados coincidan.
+const N3 = {
+  'Net Revenues': 'net revenue', 'Cost of Revenue': 'cost of revenue', 'Sales & Marketing': 'sales & marketing',
+  'Technology and Content': 'tecnhology and content', 'General & Administrative': 'general and administrative',
+  'Gross Bookings': 'gross bookings', Orders: 'orders', 'D&A': 'd&a', Equity: 'equity income / loss', OOI: 'other operating income',
+  'Adjustments EBIT': 'adjustments ebit', 'Leases Adjustment': 'leases adjustment',
+};
+// Los ajustes propios traen solo el nivel 2: se les pone la línea y el nivel 3 que tendrían en la tabla.
+// (GB y Orders solo traen la suma de domestic + internacional: van a la línea nacional; el tablero suma las dos.)
+const AJUSTE_LINEA = {
+  'Gross Bookings': ['GB NAC', 'Gross Bookings'], Orders: ['Orders NAC', 'Orders'], 'O. Incentives': ['Other Incentives', 'Net Revenues'],
+};
+
+/** [n1..n5] de Drive (minúsculas) para una fila de la tabla. */
+function nivelesMgr(linea, n2, n3) {
+  const alianzas = linea === 'Alianzas Financieras';
+  const n1 = alianzas ? 'alianzas financieras' : (N1_LINEA[linea] || String(linea).toLowerCase());
+  const n2d = alianzas ? 'alianzas financieras' : (N2[n2] || String(n2).toLowerCase());
+  // 'Other Tax' cuenta como Sales & Marketing en el Glosario (entra en la OC); en la tabla no se sabe en qué nivel 3 cae.
+  const n3d = alianzas ? 'alianzas financieras' : (n2 === 'Other Tax' ? 'sales & marketing' : (N3[n3] || String(n3).toLowerCase()));
+  const n4 = (n3d === 'net revenue' || n3d === 'cost of revenue') ? 'gross profit' : n3d;
+  const n5 = (n4 === 'gross profit' || n3d === 'sales & marketing') ? 'operating contribution'
+    : (n3d === 'tecnhology and content' || n3d === 'general and administrative') ? 'fixed cost' : n3d;
+  return [n1, n2d, n3d, n4, n5];
+}
+
+/**
+ * @param {{cols:string[], rows:any[][]}} cubo  salida de `consolidador_leer.py cubo_mgr` (solo ACT del FY27)
+ * @param {{ultimoCerrado?:string, ajustes?:object|object[]}} opts
+ * @returns {{canon:{meta:object, cols:string[], rows:any[][]}, sinMapear:object}}  `canon` es el actuals.json de Drive (ac) con N1 a N5
+ */
+function buildManagerialActuals(cubo, opts = {}) {
+  const ultimoCerrado = opts.ultimoCerrado || '2026-10-01';
+  const ix = Object.fromEntries(cubo.cols.map((c, i) => [c, i]));
+  const sinMapear = { pais: new Set(), producto: new Set(), n2: new Set(), n3: new Set() };
+  const filas = cubo.rows.map((r) => ({ year: r[ix.year], mes: r[ix.mes], pais: r[ix.pais], lob: r[ix.lob], channel: r[ix.channel], product: r[ix.product], linea: r[ix.linea], n2: r[ix.n2], n3: r[ix.n3], valor: r[ix.valor] }));
+  for (const a of ajustesComoFilas(opts.ajustes, ultimoCerrado)) {
+    if (a.scenario !== 'ACT' || a.year !== 'FY27') continue;
+    const [linea, n3] = AJUSTE_LINEA[a.n2] || [a.n2, ''];
+    filas.push({ year: a.year, mes: a.mes, pais: a.pais, lob: a.lob, channel: a.channel, product: a.product, linea, n2: a.n2, n3, valor: a.valor });
+  }
+  const m = new Map();
+  for (const f of filas) {
+    const fecha = fechaFiscal(f.year, f.mes);
+    if (fecha > ultimoCerrado) continue;   // el resto del ACT es run rate, no actual cerrado
+    const pais = PAIS[f.pais] || (sinMapear.pais.add(f.pais), String(f.pais).toLowerCase());
+    const prod = PRODUCTO[f.product] || (sinMapear.producto.add(f.product), String(f.product).toLowerCase());
+    if (f.linea !== 'Alianzas Financieras' && !N2[f.n2]) sinMapear.n2.add(f.n2);
+    if (f.linea !== 'Alianzas Financieras' && f.n2 !== 'Other Tax' && !N3[f.n3]) sinMapear.n3.add(f.n3);
+    const [n1, n2, n3, n4, n5] = nivelesMgr(f.linea, f.n2, f.n3);
+    const key = [f.lob.toLowerCase(), canalDe(f.lob, f.channel), pais, prod, n1, n2, n3, n4, n5, fecha].join('\u0001');
+    m.set(key, (m.get(key) || 0) + (Number(f.valor) || 0));
+  }
+  const rows = [];
+  const fechas = new Set();
+  for (const [key, v] of m) {
+    if (!v) continue;
+    const p = key.split('\u0001');
+    rows.push([...p, v]);
+    fechas.add(p[9]);
+  }
+  return {
+    canon: { meta: { concepto: 'ac_mgr', fuente: 'compartido.app_b2b_ecosystem ACT FY27', fechas: [...fechas].sort(), filas: rows.length }, cols: COLS_MGR, rows },
+    sinMapear: Object.fromEntries(Object.entries(sinMapear).map(([k, s]) => [k, [...s].sort()])),
+  };
 }
 
 const TOL_ABS = 1;       // USD
@@ -221,4 +312,4 @@ function comparar(canon, fileStore, opts = {}) {
   return out;
 }
 
-module.exports = { cargarAjustes, buildCanonicals, comparar, fechaFiscal, canalDe, mesSiguiente, PAIS, PRODUCTO, N2, COLS };
+module.exports = { cargarAjustes, buildCanonicals, buildManagerialActuals, nivelesMgr, comparar, fechaFiscal, canalDe, mesSiguiente, PAIS, PRODUCTO, N2, COLS };

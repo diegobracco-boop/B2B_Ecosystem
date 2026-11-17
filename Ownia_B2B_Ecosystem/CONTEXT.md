@@ -267,7 +267,8 @@ app, `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER` (`ownia_b2b_ecosystem`), `DB_ENG
 Objetivo (Diego): que **toda la info contable** salga solo del consolidador (conso: EPM / cierres / runrate), no de los JSON de
 `Inputs_Planning_PnL` en Drive. **Estado (2026-11-17):** el **P&L Accounting de todos ya lee del consolidador** (`fuente: 'consolidador'` en
 `modules.js`). Queda `pnl-accounting-drive`: el mismo módulo leyendo de Drive como antes, solo `EQUIPO_B2B` y fuera del menú, como respaldo y
-para comparar lado a lado; se borra cuando el equipo dé por validado el cambio. Falta migrar Hub / Managerial / `flow_oc` (el Hub necesita nivel 3 y B2C en el cubo), los Python de OKR / FCA / `organic_builder`, y retirar el pipeline.
+para comparar lado a lado; se borra cuando el equipo dé por validado el cambio. **P&L Managerial (armado, sin deploy):** su parte contable ("Managerial vs Accounting") también tiene
+`fuente: 'consolidador'` y respaldo `pnl-managerial-drive`; lo gestional sigue saliendo del Datalake. Falta migrar Hub / `flow_oc` (el Hub necesita nivel 3 y B2C en el cubo), los Python de OKR / FCA / `organic_builder`, y retirar el pipeline.
 
 **Qué hay detrás (fuera del repo, hay que reponerlo si se recrea la app):**
 - **Base Aurora de la app** (2026-11-17, `manage_infra apply`). La app no guarda nada ahí: se necesita por su usuario IAM
@@ -296,6 +297,10 @@ ya usa solo AS REPORTED apenas la columna exista y `/consolidador/estado` avisa 
   módulo y sus caches). Sin datos o con error responde **503, nunca cae a Drive**.
 - `server/gas-extras/pnl-accounting-consolidador.js` — reemplaza `_readCanonical_` y `_canonicalsMaxMod_` solo en módulos con `fuente: 'consolidador'`
   (hoy `pnl-accounting`; `pnl-accounting-drive` es el respaldo con Drive en `modules.js`). El código GAS del módulo no cambia.
+- `server/gas-extras/pnl-managerial-consolidador.js` — para el P&L Managerial: reemplaza `readAccActualsJSON_` y `_accActualsStamp_` (función aparte en `Codigo.js`, para la clave de caché de
+  `getVsAccounting`). Su `actuals.json` lo arma `buildManagerialActuals` (pnl-consolidador.js) desde `consolidador_leer.py cubo_mgr` (solo ACT del FY27 con `linea_p&l` = N1 y nivel 3): N4 y N5
+  **no están en la tabla**, se derivan del nivel 3 (Net Revenue + Cost of Revenue = Gross Profit; + Sales & Marketing = Operating Contribution). Si esa consulta falla, el Accounting sigue y
+  solo el Managerial responde con el motivo (`/consolidador/estado` → `managerial`). Los ajustes propios entran con línea y nivel 3 asignados (GB y Orders a la línea nacional).
 - Endpoints de control (equipo B2B): `/consolidador/estado` (versión, filas por escenario, sinMapear, advertencia, memoria),
   `/consolidador/comparar` (tabla contra Drive por escenario), `/consolidador/control` (¿se mezclan versiones?), `/consolidador/drive`.
 

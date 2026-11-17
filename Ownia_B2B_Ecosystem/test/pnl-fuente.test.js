@@ -21,14 +21,22 @@ const FILAS = [
 ];
 
 const SIN_AJ = { cols: [], rows: [] };
+// ACT del FY27 con la línea y el nivel 3 (consulta `cubo_mgr`, para el P&L Managerial)
+const COLS_MGR = ['year', 'mes', 'pais', 'lob', 'channel', 'product', 'linea', 'n2', 'n3', 'valor'];
+const FILAS_MGR = [
+  ['FY27', 4, 'Brazil', 'B2B', 'MAY', 'Air', 'GB NAC', 'Gross Bookings', 'Gross Bookings', 100],
+  ['FY27', 4, 'Brazil', 'B2B', 'MAY', 'Air', 'Affiliates', 'Third Party Comission', 'Sales & Marketing', -4],
+  ['FY27', 11, 'Brazil', 'B2B', 'MAY', 'Air', 'GB NAC', 'Gross Bookings', 'Gross Bookings', 120],   // run rate: no entra
+];
 
 // consolidador falso: versiones + cubo, y cuántas veces se lo llamó
-function falsoConso({ version = 1, publicado = '2026-11-17T14:11:29+00:00', fallar = false, sinTabla = false, conVersion } = {}) {
-  const f = { version, publicado, fallar, sinTabla, conVersion, llamadas: [] };
+function falsoConso({ version = 1, publicado = '2026-11-17T14:11:29+00:00', fallar = false, sinTabla = false, conVersion, fallarMgr = false } = {}) {
+  const f = { version, publicado, fallar, sinTabla, conVersion, fallarMgr, llamadas: [] };
   f.leer = async (cmd) => {
     f.llamadas.push(cmd);
     if (f.fallar) return { ok: false, code: 502, error: 'No se pudo leer el consolidador: permission denied' };
     if (cmd === 'versiones') return { ok: true, data: f.sinTabla ? null : { dataset: 'app_b2b_ecosystem', version: f.version, publicado_en: f.publicado } };
+    if (cmd === 'cubo_mgr') return f.fallarMgr ? { ok: false, code: 502, error: 'No se pudo leer el consolidador: cubo_mgr roto' } : { ok: true, data: { version: f.version, cols: COLS_MGR, rows: FILAS_MGR } };
     return { ok: true, data: { version: f.version, tieneColumnaVersion: f.conVersion, cols: COLS, rows: FILAS } };
   };
   return f;
@@ -62,17 +70,17 @@ test('revisa la versión como mucho una vez por minuto y rearma solo si cambió'
   const avisos = [];
   const f = createPnlFuente({ secrets: {} }, { consolidador: conso, now: () => t, onChange: (v) => avisos.push(v) });
   await f.listo();
-  assert.deepEqual(conso.llamadas, ['versiones', 'cubo']);
+  assert.deepEqual(conso.llamadas, ['versiones', 'cubo', 'cubo_mgr']);
   await f.listo();   // dentro del minuto: no consulta nada
-  assert.equal(conso.llamadas.length, 2);
+  assert.equal(conso.llamadas.length, 3);
   t += 61000;
   await f.listo();   // pasó el minuto, misma versión: solo revisa
-  assert.deepEqual(conso.llamadas.slice(2), ['versiones']);
+  assert.deepEqual(conso.llamadas.slice(3), ['versiones']);
   assert.deepEqual(avisos, []);
   conso.version = 2; conso.publicado = '2026-11-18T10:00:00+00:00';
   t += 61000;
   await f.listo();   // versión nueva: rearma y avisa
-  assert.deepEqual(conso.llamadas.slice(3), ['versiones', 'cubo']);
+  assert.deepEqual(conso.llamadas.slice(4), ['versiones', 'cubo', 'cubo_mgr']);
   assert.deepEqual(avisos, [2]);
   assert.equal(f.canon().modificado, Date.parse('2026-11-18T10:00:00+00:00'));
 });
@@ -158,4 +166,65 @@ test('estado avisa si la tabla no abre la columna version (varias versiones se s
   await nose.listo();
   assert.equal(nose.estado().tieneColumnaVersion, null);   // un consolidador viejo que no lo informa: ni afirma ni advierte
   assert.equal(nose.estado().advertencia, null);
+});
+
+// ── actuals del P&L Managerial (N1 a N5) ───────────────────────────────────────────────────────────────────────────────────
+test('listo: además arma el actuals del Managerial (solo hasta el último mes cerrado) y lo expone en canon() y en el estado', async () => {
+  const f = createPnlFuente({ secrets: {} }, { consolidador: falsoConso(), ajustes: SIN_AJ });
+  await f.listo();
+  const c = f.canon();
+  assert.equal(c.errorMgr, null);
+  assert.equal(c.actualsMgr.rows.length, 2);   // noviembre es run rate
+  assert.deepEqual(Object.keys(c.canon).sort(), ['ac', 'bg', 'bl', 'fbtb', 'fc', 'lrr', 'ly', 'rr']);   // el actuals del Managerial no se mezcla con los canónicos del Accounting
+  assert.equal(f.estado().managerial.listo, true);
+  assert.equal(f.estado().managerial.filas, 2);
+});
+
+test('si falla solo el actuals del Managerial: el P&L Accounting sigue, el motivo queda a la vista y se reintenta en el próximo chequeo', async () => {
+  let t = 0;
+  const conso = falsoConso({ fallarMgr: true });
+  const f = createPnlFuente({ secrets: {} }, { consolidador: conso, now: () => t, ajustes: SIN_AJ });
+  await f.listo();   // no lanza
+  assert.ok(f.canon().canon.ac);
+  assert.equal(f.canon().actualsMgr, null);
+  assert.match(f.canon().errorMgr, /cubo_mgr roto/);
+  assert.equal(f.estado().managerial.listo, false);
+  conso.fallarMgr = false; t += 61000;
+  await f.listo();   // misma versión, pero reintenta porque había fallado
+  assert.equal(f.canon().errorMgr, null);
+  assert.equal(f.canon().actualsMgr.rows.length, 2);
+});
+
+const mgrConso = MODULES.find((m) => m.slug === 'pnl-managerial');
+const mgrDrive = MODULES.find((m) => m.slug === 'pnl-managerial-drive');
+
+test('el P&L Managerial de todos lee la parte contable del consolidador; el respaldo con Drive usa el mismo código y es solo del equipo', () => {
+  assert.equal(mgrConso.dir, mgrDrive.dir);
+  assert.equal(mgrConso.fuente, 'consolidador');
+  assert.deepEqual(mgrConso.gasExtras, ['pnl-managerial-consolidador.js']);
+  assert.equal(mgrDrive.fuente, undefined);
+  assert.equal(mgrDrive.gasExtras, undefined);
+  assert.equal(mgrConso.allowedUsers, undefined, 'abierto a todo el dominio, como antes');
+  assert.ok(Array.isArray(mgrDrive.allowedUsers) && mgrDrive.allowedUsers.length > 0, 'el respaldo es solo del equipo');
+});
+
+test('módulo real P&L Managerial con fuente consolidador: readAccActualsJSON_ y _accActualsStamp_ salen de la tabla', async () => {
+  const f = createPnlFuente({ secrets: {} }, { consolidador: falsoConso(), ajustes: SIN_AJ });
+  await f.listo();
+  const p = await proyecto(mgrConso, f.canon());
+  assert.equal(evalEn(p, '_accActualsStamp_()'), f.canon().modificado);
+  assert.equal(evalEn(p, 'readAccActualsJSON_().cols.indexOf("P&L N5")'), 8);
+  assert.equal(evalEn(p, 'readAccActualsJSON_().rows.length'), 2);
+  const claves = JSON.parse(evalEn(p, "(function(){ var aj = readAccActualsJSON_(); var i = aj.cols.indexOf('P&L N1'); return JSON.stringify(aj.rows.map(function(r){ return r[i]; }).sort()); })()"));
+  assert.deepEqual(claves, ['affiliates', 'gross bookings domestic']);
+});
+
+test('módulo real P&L Managerial sin el actuals en la fuente: falla con el motivo, no lee Drive', async () => {
+  const p = await proyecto(mgrConso, { canon: {}, modificado: 1, actualsMgr: null, errorMgr: 'cubo_mgr roto' });
+  assert.throws(() => evalEn(p, 'readAccActualsJSON_()'), /cubo_mgr roto/);
+});
+
+test('el respaldo del Managerial NO recibe la fuente del consolidador (sigue leyendo Drive)', async () => {
+  const p = await proyecto(mgrDrive, null);
+  assert.equal(evalEn(p, 'typeof __owniaPnlCanon_'), 'undefined');
 });

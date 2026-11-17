@@ -1,7 +1,7 @@
 // Armado de los JSON canónicos desde la tabla del consolidador y comparación contra los de Drive (server/pnl-consolidador.js).
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { buildCanonicals, comparar, fechaFiscal, canalDe, mesSiguiente, cargarAjustes } = require('../server/pnl-consolidador');
+const { buildCanonicals, buildManagerialActuals, nivelesMgr, comparar, fechaFiscal, canalDe, mesSiguiente, cargarAjustes } = require('../server/pnl-consolidador');
 const { IDS } = require('../server/pnl-drive-dimensiones');
 
 const COLS = ['scenario', 'year', 'mes', 'pais', 'lob', 'channel', 'product', 'n2', 'valor'];
@@ -203,4 +203,57 @@ test('General es corporate, Packages es packages general, y Alianzas Financieras
   ]), { ajustes: SIN_AJ });
   assert.deepEqual(canon.ac.rows.map((r) => r[3] + ':' + r[4]).sort(), ['corporate:gross bookings', 'flights:alianzas financieras', 'packages general:gross bookings']);
   assert.deepEqual(sinMapear, { pais: [], producto: [], n2: [] });
+});
+
+// ── actuals del P&L Managerial: N1 a N5 desde la línea y el nivel 3 de la tabla ────────────────────────────────────────────────
+const COLS_MGR = ['year', 'mes', 'pais', 'lob', 'channel', 'product', 'linea', 'n2', 'n3', 'valor'];
+const cuboMgr = (rows) => ({ version: 1, cols: COLS_MGR, rows });
+
+test('nivelesMgr: N1 es la línea (con el vocabulario de Drive) y N4/N5 se derivan del nivel 3', () => {
+  assert.deepEqual(nivelesMgr('GB NAC', 'Gross Bookings', 'Gross Bookings'), ['gross bookings domestic', 'gross bookings', 'gross bookings', 'gross bookings', 'gross bookings']);
+  assert.deepEqual(nivelesMgr('Orders INT', 'Orders', 'Orders'), ['orders international', 'orders', 'orders', 'orders', 'orders']);
+  assert.deepEqual(nivelesMgr('Fees', 'Customer Fees & Charges', 'Net Revenues'), ['fees', 'customer fees & charges', 'net revenue', 'gross profit', 'operating contribution']);
+  assert.deepEqual(nivelesMgr('Credit Card Processing', 'Credit Card Processing', 'Cost of Revenue'), ['credit card processing', 'credit card processing', 'cost of revenue', 'gross profit', 'operating contribution']);
+  assert.deepEqual(nivelesMgr('Affiliates', 'Third Party Comission', 'Sales & Marketing'), ['affiliates', 'third party commissions', 'sales & marketing', 'sales & marketing', 'operating contribution']);
+  assert.deepEqual(nivelesMgr('IT Personnel', 'IT Personnel', 'Technology and Content'), ['it - personnel/expenses', 'it - personnel/expenses', 'tecnhology and content', 'tecnhology and content', 'fixed cost']);
+  assert.equal(nivelesMgr('Sourcing Air', 'Sourcing', 'Technology and Content')[0], 'sourcing');
+  // Alianzas Financieras: línea propia en todos los niveles (la tabla la deja dentro de Sourcing)
+  assert.deepEqual(nivelesMgr('Alianzas Financieras', 'Sourcing', 'Technology and Content'), ['alianzas financieras', 'alianzas financieras', 'alianzas financieras', 'alianzas financieras', 'alianzas financieras']);
+  // Other Tax entra en la OC aunque la tabla no diga en qué nivel 3 cae
+  assert.deepEqual(nivelesMgr('Other Tax', 'Other Tax', 'Adjustments EBIT').slice(2), ['sales & marketing', 'sales & marketing', 'operating contribution']);
+});
+
+test('buildManagerialActuals: mismo formato de actuals.json con N1 a N5, solo hasta el último mes cerrado, sumado por clave', () => {
+  const { canon, sinMapear } = buildManagerialActuals(cuboMgr([
+    ['FY27', 4, 'Brazil', 'B2B', 'MAY', 'Air', 'GB NAC', 'Gross Bookings', 'Gross Bookings', 100],
+    ['FY27', 4, 'Brazil', 'B2B', 'MAY', 'Air', 'GB NAC', 'Gross Bookings', 'Gross Bookings', 50],     // misma clave: se suma
+    ['FY27', 4, 'Chile', 'B2B2C', 'ON', 'Hotel', 'Fees', 'Customer Fees & Charges', 'Net Revenues', 7],
+    ['FY27', 11, 'Brazil', 'B2B', 'MAY', 'Air', 'GB NAC', 'Gross Bookings', 'Gross Bookings', 999],  // run rate
+  ]), { ultimoCerrado: '2026-10-01', ajustes: SIN_AJ });
+  assert.deepEqual(canon.cols, ['LoB', 'Canal', 'Pais', 'Producto', 'P&L N1', 'P&L N2', 'P&L N3', 'P&L N4', 'P&L N5', 'Fecha', 'Monto USD']);
+  assert.deepEqual(canon.rows, [
+    ['b2b', 'may', 'brasil', 'flights', 'gross bookings domestic', 'gross bookings', 'gross bookings', 'gross bookings', 'gross bookings', '2026-04-01', 150],
+    ['b2b2c', 'total', 'chile', 'hotels', 'fees', 'customer fees & charges', 'net revenue', 'gross profit', 'operating contribution', '2026-04-01', 7],
+  ]);
+  assert.deepEqual(canon.meta.fechas, ['2026-04-01']);
+  assert.deepEqual(sinMapear, { pais: [], producto: [], n2: [], n3: [] });
+});
+
+test('buildManagerialActuals: lo que no se puede traducir queda en sinMapear', () => {
+  const { sinMapear } = buildManagerialActuals(cuboMgr([['FY27', 4, 'Atlantis', 'B2B', 'MAY', 'Drones', 'Rayos', 'Rayos N2', 'Rayos N3', 1]]), { ajustes: SIN_AJ });
+  assert.deepEqual(sinMapear, { pais: ['Atlantis'], producto: ['Drones'], n2: ['Rayos N2'], n3: ['Rayos N3'] });
+});
+
+test('buildManagerialActuals: los ajustes propios entran con línea y nivel 3 (solo ACT del FY27, hasta el último cerrado)', () => {
+  const aj = (meta, rows) => ({ meta, cols: ['year', 'mes', 'pais', 'lob', 'channel', 'product', 'n2', 'valor'], rows });
+  const ajustes = [
+    aj({ escenarios_por_anio: { FY27: ['ACT', 'FC1'] } }, [['FY27', 4, 'Brazil', 'B2B', 'MAY', 'Hotel', 'Gross Bookings', -30], ['FY27', 12, 'Brazil', 'B2B', 'MAY', 'Hotel', 'Gross Bookings', -1]]),
+    aj({ escenarios_por_anio: { FY27: ['ACT', 'BGT'], FY26: ['ACT'] }, hasta_ultimo_cerrado: false }, [['FY27', 5, 'Argentina', 'B2B2C', 'ON', 'Hotel', 'O. Incentives', 5], ['FY26', 5, 'Argentina', 'B2B2C', 'ON', 'Hotel', 'O. Incentives', 99]]),
+  ];
+  const { canon } = buildManagerialActuals(cuboMgr([['FY27', 4, 'Brazil', 'B2B', 'MAY', 'Hotel', 'GB NAC', 'Gross Bookings', 'Gross Bookings', 100]]), { ultimoCerrado: '2026-10-01', ajustes });
+  const porN1 = Object.fromEntries(canon.rows.map((r) => [r[4], r[10]]));
+  assert.equal(porN1['gross bookings domestic'], 70);        // 100 de la tabla - 30 del ajuste; el de diciembre no es cerrado
+  assert.equal(porN1['other incentives'], 5);                // el FY26 no entra en el actuals del FY27
+  const oi = canon.rows.find((r) => r[4] === 'other incentives');
+  assert.deepEqual(oi.slice(5, 9), ['other incentives', 'net revenue', 'gross profit', 'operating contribution']);
 });

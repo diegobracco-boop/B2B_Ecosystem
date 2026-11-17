@@ -11,6 +11,16 @@
         "1wzudbo7cN9Ibiv_2OA-V0_B_un4JcJp6": ["revenue_gd.json", "_actuals_gestional_weekly.json"]
       }
     },
+    "pnl-managerial-drive": {
+      "files": {
+        "1wvle0UIVZV7ocCSl8OawOfIGVz_It5kh": "_actuals_gestional.json (GESTIONAL_JSON_FILE_ID)",
+        "1PABNf4XVKdj6eXApr5_yP581ZsD_N9e-": "actuals.json (ACC_ACTUALS_FILE_ID)",
+        "1SEh9vLWCbE6PslnUntUghhInonuLdYZ5": "tc_plana_flat.xlsx (FX_FILE_ID)"
+      },
+      "folders": {
+        "1wzudbo7cN9Ibiv_2OA-V0_B_un4JcJp6": ["revenue_gd.json", "_actuals_gestional_weekly.json"]
+      }
+    },
     "pnl-accounting": {
       "files": {
         "1KHXgPykAHTJS50wI13kcz76FtLQwRnXc": "CONTABLE_JSON_FILE_ID",

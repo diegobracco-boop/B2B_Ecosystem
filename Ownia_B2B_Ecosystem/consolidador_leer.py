@@ -94,6 +94,23 @@ def cubo():
             "rows": [[r[k] for k in CUBO_COLS] for r in rows]}
 
 
+CUBO_MGR_COLS = ["year", "mes", "pais", "lob", "channel", "product", "linea", "n2", "n3", "valor"]
+
+
+def cubo_managerial():
+    """Para el P&L Managerial ("Managerial vs Accounting"): solo ACT del FY27, con el detalle que el módulo necesita y el cubo no trae:
+    la línea más fina (`linea_p&l`, el N1 de Drive) y el nivel 3. Es chico (un solo escenario). N4 y N5 NO están en la tabla: se derivan
+    del nivel 3 en pnl-consolidador.js. Los meses de run rate dentro del ACT se recortan allá, con el último mes cerrado."""
+    c = cdb()
+    con_version = tiene_version()
+    rows = c.consultar(
+        'SELECT year, mes, pais, lob, channel, product, "linea_p&l" AS linea, "linea_p&l_-_nivel_2" AS n2, "linea_p&l_-_nivel_3" AS n3, '
+        f"sum(valor) AS valor FROM {TABLA} WHERE scenario = 'ACT' AND year = 'FY27' AND lob IN ('B2B', 'B2B2C'){VERSION_OFICIAL if con_version else ''} "
+        'GROUP BY year, mes, pais, lob, channel, product, "linea_p&l", "linea_p&l_-_nivel_2", "linea_p&l_-_nivel_3"')
+    return {"version": c.version(DATASET), "tieneColumnaVersion": con_version, "cols": CUBO_MGR_COLS,
+            "rows": [[r[k] for k in CUBO_MGR_COLS] for r in rows]}
+
+
 def detalle():
     """Para cerrar mapeos: ACT del FY27 en meses cerrados, por producto, línea nivel 2 y línea (el detalle que el nivel 2 junta).
     Lo ve el equipo en /consolidador/detalle; las sumas se comparan con los totales por línea de /consolidador/comparar."""
@@ -121,7 +138,7 @@ def control():
     }
 
 
-COMANDOS = {"versiones": versiones, "resumen": por_pais_y_mes, "dimensiones": dimensiones, "cubo": cubo, "detalle": detalle, "control": control}
+COMANDOS = {"versiones": versiones, "resumen": por_pais_y_mes, "dimensiones": dimensiones, "cubo": cubo, "cubo_mgr": cubo_managerial, "detalle": detalle, "control": control}
 
 
 def main(argv):

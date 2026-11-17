@@ -887,6 +887,12 @@ function readAccActualsJSON_() {
   return _accActualsCache_;
 }
 
+// Versión de actuals.json para la clave de caché de getVsAccounting. Aparte para que Ownia la reemplace por la versión publicada
+// del consolidador (server/gas-extras/pnl-managerial-consolidador.js).
+function _accActualsStamp_() {
+  return DriveApp.getFileById(ACC_ACTUALS_FILE_ID).getLastUpdated().getTime();
+}
+
 // 'YYYY-MM-01' (o 'YYYY-MM-...') → 'Abr-26'
 function _accMes_(fecha) {
   return YM_LABEL[String(fecha || '').slice(0, 7)] || null;
@@ -918,7 +924,7 @@ function getVsAccounting(filtersJson) {
   var tStart = Date.now();
   try {
     var t1 = DriveApp.getFileById(GESTIONAL_JSON_FILE_ID).getLastUpdated().getTime();
-    var t2 = DriveApp.getFileById(ACC_ACTUALS_FILE_ID).getLastUpdated().getTime();
+    var t2 = _accActualsStamp_();
     ck = 'vsacc_v9_' + t1 + '_' + t2 + '_' + Utilities.base64EncodeWebSafe(sig);
     var hit = cache.get(ck);
     if (hit) return JSON.parse(hit);

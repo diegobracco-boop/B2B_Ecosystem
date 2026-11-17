@@ -179,8 +179,27 @@ const MODULES = [
     ownia: true,
     // Sin vista consolidada B2B + B2B2C (el módulo no la tiene): el tercer acceso es Managerial vs Accounting.
     quickViews: [['b2b', 'B2B'], ['b2b2c', 'B2B2C'], ['vsacc', 'Managerial vs Accounting']],
+    // Desde 2026-11-17 la parte contable ("Managerial vs Accounting") lee del consolidador en vez de actuals.json de Drive (los reales
+    // gestionales siguen saliendo del Datalake): ver server/pnl-fuente.js y gas-extras/pnl-managerial-consolidador.js. Sin datos de conso
+    // responde 503 con el motivo (no cae a Drive); el respaldo con Drive es `pnl-managerial-drive`.
+    fuente: 'consolidador',
+    gasExtras: ['pnl-managerial-consolidador.js'],
     cacheFns: ['getWeeklyData'],   // apertura semanal: depende solo de los filtros y del JSON semanal
     gasUrl: GAS_EXEC + 'AKfycbxHyP4uIh02zTQbQ7ZFbyByCVIYuREuiMJ74PnKhQbNGbWknCG2jxOtt_onafQcg5g4/exec',
+  },
+  {
+    // Respaldo con Drive del P&L Managerial (2026-11-17): el MISMO módulo leyendo actuals.json de Drive como antes, con su propio contexto
+    // y sus propios caches, solo para el equipo B2B y fuera del menú. Sirve para comparar lado a lado con `pnl-managerial` y como salida
+    // si hubiera que volver atrás. Se borra junto con `pnl-accounting-drive` cuando el equipo dé por validado el cambio.
+    slug: 'pnl-managerial-drive',
+    dir: 'P&L_Managerial',
+    title: 'P&L Managerial (respaldo con Drive)',
+    desc: 'Respaldo: la vista gestional con la parte contable leyendo Drive, como antes.',
+    ownia: true,
+    allowedUsers: EQUIPO_B2B,
+    quickViews: [['b2b', 'B2B'], ['b2b2c', 'B2B2C'], ['vsacc', 'Managerial vs Accounting']],
+    cacheFns: ['getWeeklyData'],
+    gasUrl: '',
   },
   {
     slug: 'fvm-negativo',
