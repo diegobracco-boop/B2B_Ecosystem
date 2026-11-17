@@ -630,6 +630,26 @@ def _apply_globales_target_override(rows_manual):
     return out
 
 
+# Actuals (Run Rate/Actuals) que PISAN lo que traiga Input_OKR (pedido de antonella.difranco, 2026-11-17: New Onboarded
+# Properties de octubre = 1620; el KR no tiene fuente automática y la sheet no se puede escribir por código). Para volver
+# a la sheet, borrar la entrada (o cargar el valor en Input_OKR y sacarla).
+GLOBALES_ACTUAL_OVERRIDE = {
+    "New Onboarded Properties Global & Regional Chains": {"2026-10": 1620},
+}
+
+
+def _apply_globales_actual_override(rows_manual):
+    out = list(rows_manual)
+    for kr, by_ym in GLOBALES_ACTUAL_OVERRIDE.items():
+        yms = set(by_ym)
+        out = [r for r in out if not (str(r[1]).strip().lower() == "run rate/actuals" and r[5].lower() == kr.lower()
+                                      and str(r[0])[:7] in yms)]
+        for ym, v in sorted(by_ym.items()):
+            out.append([_ym_to_periodo(ym), "Run Rate/Actuals", "Globales", "Total", "Total", kr, v])
+        print(f"  [{kr}] actual pisado (GLOBALES_ACTUAL_OVERRIDE): {dict(sorted(by_ym.items()))}")
+    return out
+
+
 def _apply_globales_target_default(rows_manual):
     have = {(r[5].lower(), str(r[0])[:7]) for r in rows_manual if str(r[1]).strip().lower() == "budget"}
     for kr, by_ym in GLOBALES_TARGET_DEFAULT.items():
@@ -888,6 +908,7 @@ def build(upload=True):
     rows_manual, estado_recur = _apply_recurrence_rr(rows_manual, recur_json)
     rows_manual   = _apply_globales_target_default(rows_manual)
     rows_manual   = _apply_globales_target_override(rows_manual)
+    rows_manual   = _apply_globales_actual_override(rows_manual)
     # Partners API: actual de partners_api_snapshots.json (Daily_Dashboard/partners_api_sync.py; meses congelados + rolling 30 dias).
     try:
         _snap = _download_by_name(svc, DAILY_FOLDER_ID, "partners_api_snapshots.json", "partners_api_snapshots.json (Partners API)")
