@@ -16,7 +16,7 @@ function createPnlFuente(cfg, { consolidador, log = () => {}, onChange = () => {
   const secretos = (cfg && cfg.secrets) || {};
   const pedido = secretos.PNL_ULTIMO_CERRADO;
   const ultimoCerrado = /^\d{4}-\d{2}-01$/.test(pedido || '') ? pedido : ULTIMO_CERRADO_DEFAULT;
-  const st = { canon: null, sinMapear: null, version: null, publicadoEn: null, construidoEn: null, revisadoEn: 0, error: null, filas: {} };
+  const st = { tieneColumnaVersion: null, canon: null, sinMapear: null, version: null, publicadoEn: null, construidoEn: null, revisadoEn: 0, error: null, filas: {} };
   let enCurso = null;
 
   async function refrescar() {
@@ -29,6 +29,7 @@ function createPnlFuente(cfg, { consolidador, log = () => {}, onChange = () => {
     if (!c.ok) throw Object.assign(new Error(c.error), { status: c.code });
     const { canon, sinMapear } = buildCanonicals(c.data, { ultimoCerrado, ajustes });
     const cambio = st.canon !== null;
+    st.tieneColumnaVersion = c.data.tieneColumnaVersion === undefined ? null : !!c.data.tieneColumnaVersion;
     st.canon = canon; st.sinMapear = sinMapear; st.version = v.data.version; st.publicadoEn = v.data.publicado_en; st.construidoEn = now();
     st.filas = Object.fromEntries(Object.entries(canon).map(([k, j]) => [k, j.rows.length]));
     log({ level: 'info', msg: 'pnl-fuente: canónicos armados desde el consolidador', version: st.version, publicadoEn: st.publicadoEn, ultimoCerrado });
@@ -53,7 +54,9 @@ function createPnlFuente(cfg, { consolidador, log = () => {}, onChange = () => {
     listo,
     /** Lo que ve el código GAS (sincrónico): null mientras no haya datos. `modificado` cambia con cada versión publicada. */
     canon: () => (st.canon ? { canon: st.canon, modificado: Date.parse(st.publicadoEn) || st.construidoEn } : null),
-    estado: () => ({ listo: !!st.canon, ultimoCerrado, version: st.version, publicadoEn: st.publicadoEn,
+    estado: () => ({ tieneColumnaVersion: st.tieneColumnaVersion,
+      advertencia: st.tieneColumnaVersion === false ? 'La tabla no abre la columna version: si el pedido incluye varias versiones (AS REPORTED, BIMO, PPA) sus montos se suman entre sí.' : null,
+      listo: !!st.canon, ultimoCerrado, version: st.version, publicadoEn: st.publicadoEn,
       construidoEn: st.construidoEn ? new Date(st.construidoEn).toISOString() : null, error: st.error, filas: st.filas, sinMapear: st.sinMapear }),
   };
 }

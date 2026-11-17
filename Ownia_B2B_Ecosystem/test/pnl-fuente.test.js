@@ -23,13 +23,13 @@ const FILAS = [
 const SIN_AJ = { cols: [], rows: [] };
 
 // consolidador falso: versiones + cubo, y cuántas veces se lo llamó
-function falsoConso({ version = 1, publicado = '2026-11-17T14:11:29+00:00', fallar = false, sinTabla = false } = {}) {
-  const f = { version, publicado, fallar, sinTabla, llamadas: [] };
+function falsoConso({ version = 1, publicado = '2026-11-17T14:11:29+00:00', fallar = false, sinTabla = false, conVersion } = {}) {
+  const f = { version, publicado, fallar, sinTabla, conVersion, llamadas: [] };
   f.leer = async (cmd) => {
     f.llamadas.push(cmd);
     if (f.fallar) return { ok: false, code: 502, error: 'No se pudo leer el consolidador: permission denied' };
     if (cmd === 'versiones') return { ok: true, data: f.sinTabla ? null : { dataset: 'app_b2b_ecosystem', version: f.version, publicado_en: f.publicado } };
-    return { ok: true, data: { version: f.version, cols: COLS, rows: FILAS } };
+    return { ok: true, data: { version: f.version, tieneColumnaVersion: f.conVersion, cols: COLS, rows: FILAS } };
   };
   return f;
 }
@@ -142,4 +142,19 @@ test('con fuente consolidador pero sin datos en memoria: falla, no lee Drive en 
   const p = new GasProject(twin, { gasRoot: config.GAS_ROOT, secrets: {}, log: () => {}, fileStore: null, pnlCanon: () => null });
   // __owniaPnlCanon_ devuelve null → el extra cae al original (Drive), que sin almacén falla: nunca devuelve datos de otra fuente
   assert.throws(() => evalEn(p, '_readCanonical_(CANONICAL_IDS_.ac)'));
+});
+
+test('estado avisa si la tabla no abre la columna version (varias versiones se sumarían), y no avisa si la abre', async () => {
+  const sin = createPnlFuente({ secrets: {} }, { consolidador: falsoConso({ conVersion: false }), ajustes: SIN_AJ });
+  await sin.listo();
+  assert.equal(sin.estado().tieneColumnaVersion, false);
+  assert.match(sin.estado().advertencia, /columna version.*se suman/);
+  const con = createPnlFuente({ secrets: {} }, { consolidador: falsoConso({ conVersion: true }), ajustes: SIN_AJ });
+  await con.listo();
+  assert.equal(con.estado().tieneColumnaVersion, true);
+  assert.equal(con.estado().advertencia, null);
+  const nose = createPnlFuente({ secrets: {} }, { consolidador: falsoConso(), ajustes: SIN_AJ });
+  await nose.listo();
+  assert.equal(nose.estado().tieneColumnaVersion, null);   // un consolidador viejo que no lo informa: ni afirma ni advierte
+  assert.equal(nose.estado().advertencia, null);
 });
