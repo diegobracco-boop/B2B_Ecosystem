@@ -255,8 +255,61 @@ del ALB no es alcanzable desde la red de usuarios. Por eso `TRUSTED_IDENTITY_HEA
 | `REQUIRE_IDENTITY` | ver "Identidad" |
 | `EFFECTIVE_USER_EMAIL` | lo que devuelve `Session.getEffectiveUser()` (en GAS: quien deployó) |
 | `GAS_PROPERTIES` | `{ "<slug>": { "CLAVE": "valor" } }` → Propiedades del script de cada módulo |
+| `CONSOLIDADOR_DB_NAME` | nombre de la base del consolidador del P&L (`consolidador_db`); ver "Consolidador del P&L". Sin esto `/consolidador/*` da 503 |
 
-`BASE_PATH` y `PORT` los inyecta Ownia. Nada de credenciales en el código.
+`BASE_PATH` y `PORT` los inyecta Ownia. Nada de credenciales en el código. Ownia también inyecta, por la base Aurora de la
+app, `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER` (`ownia_b2b_ecosystem`), `DB_ENGINE` y `DATABASE_URL`, y por DynamoDB
+`DYNAMODB_TABLE`/`DYNAMODB_PK`/`DYNAMODB_SK` (no se tocan con `manage_app_secrets`).
+
+## Consolidador del P&L (`compartido.app_b2b_ecosystem`, 2026-11-17)
+
+La app puede leer los números del P&L que publica el equipo de conso (EPM / cierres / runrate) **a demanda**, sin subir
+archivos ni mantener copias. Hoy es solo la conexión: **ninguna pantalla la usa todavía** y P&L Accounting sigue leyendo
+sus JSON de Drive.
+
+**Qué hay detrás (fuera del repo, hay que reponerlo si se recrea la app):**
+- **Base Aurora de la app.** Se agregó el 2026-11-17 con `manage_infra(action="apply", database="aurora")` sobre la app
+  existente (sin recrear nada; la tabla DynamoDB del espejo de archivos y las notas siguen igual). La app no guarda
+  nada ahí: se necesita solo por su usuario IAM `ownia_b2b_ecosystem`, que es el que conso habilita para leer.
+- **`CONSOLIDADOR_DB_NAME=consolidador_db`** en `APP_SECRETS` (lo carga la persona con `manage_app_secrets`).
+- **Permiso de conso** sobre la tabla `compartido.app_b2b_ecosystem` para ese `DB_USER`: el pedido se edita desde el
+  link privado que da la página (`ownia.despegar.io/consolidador-db/conectar`); al aprobarse la tabla se rearma con el
+  mismo nombre y la app muestra los datos nuevos sin tocar código. El archivo `CONECTAR_AL_CONSOLIDADOR_b2b-ecosystem.md`
+  (con las instrucciones y el cliente) lo baja quien hizo el pedido desde ese link; no está en el repo.
+
+**Qué trae la tabla hoy** (ya filtrada y sumada por el consolidador): `version` = AS REPORTED; `scenario` = ACT, BGT, FC1,
+RR; `year` = FY26, FY27; `lob` = B2B, B2B2C. Columnas: `scenario`, `year`, `mes`, `pais`, `lob`, `product`, `channel`,
+`linea_p&l_-_nivel_3`, `linea_p&l` y `valor`. Índice: `scenario`, `year`, `mes`, `pais`, `lob`. No incluye Organic ni tipos de
+cambio.
+
+**Pendiente (pedido editado a conso):** línea del P&L **nivel 2** (`linea_p&l_-_nivel_2`), **last runrate** y **baseline**,
+que P&L Accounting usa hoy (`P&L N2`; escenarios `lrr` y `bl` de `CANONICAL_IDS_`). Cuando se aprueben, se reemplaza la
+lectura de P&L Accounting (`assembleCanonicals_` en `Codigo_contable_epm.js`) por esta tabla. Ojo: Paraguay y Uruguay
+van a "Globales" en `PAIS_MAP_CT_`; la lista del consolidador trae `Others` y `OPS + RG`, comprobar que coincidan.
+
+**Código:**
+- `consolidador_compartido.py` — cliente del consolidador (pool Aurora por token IAM, `cacheado`, `iterar`). **Copiar
+  sin cambios** del archivo de conso; si sacan una versión nueva, reemplazarlo entero.
+- `consolidador_leer.py` — lo que lee la app, con SQL fijo (`versiones`, `resumen` por país y mes). Solo `SELECT`.
+- `server/consolidador.js` + ruta `GET <base>/consolidador/<consulta>` (`versiones` | `resumen`): Node lanza el script
+  Python por pedido (como `reales-job.js`; el venv `/opt/py` del Dockerfile trae `psycopg2-binary` y `boto3` por
+  `requirements-pipelines.txt`) y devuelve su JSON. Solo el equipo B2B (`EQUIPO_B2B`), solo GET, tope de 130 s.
+  Tests: `test/consolidador.test.js` (el Python se reemplaza por una función falsa).
+
+**Reglas** (las del archivo de conso): solo a demanda, sin cron ni copias en la base de la app; valores de filtro como
+parámetros `%s`; columnas calculadas con alias (`sum(valor) AS valor`); si faltan datos, **editar el pedido**, no buscar
+otra tabla ni cambiar el SQL; **no se prueba en local** (sin el token IAM de Ownia siempre falla).
+
+**Probar tras un deploy:** abrir `<base>/consolidador/versiones` con sesión del equipo B2B: debe devolver
+`app_b2b_ecosystem` con su `version` y `publicado_en`.
+
+| Error | Causa → acción |
+|---|---|
+| 503 "Falta configurar: CONSOLIDADOR_DB_NAME" | secreto sin cargar, o sin redeploy tras cargarlo |
+| 502 `permission denied` | pedido sin aprobar o `DB_USER` distinto de `ownia_b2b_ecosystem` → consultar a conso |
+| 502 `relation ... does not exist` | recién aprobado, la tabla se está publicando → esperar unos minutos |
+| 502 `PAM authentication failed` | corriendo fuera de Ownia |
+| 502 `statement timeout` | más de 2 minutos → filtrar por columnas con índice o usar `iterar()` |
 
 ## Repos: de dónde deploya Ownia
 
