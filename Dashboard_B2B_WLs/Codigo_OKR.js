@@ -100,6 +100,18 @@ var OKR_HALVES = {
 };
 
 // Semestre que abre por defecto: H2 desde el 1-oct-2026.
+// Price Competitiveness ex-Latam: cumplimiento NO lineal. Por mes, 70% = target + ventana, 100% = target,
+// 130% = target - ventana (pp de adversidad; tabla del OKR). Misma regla que pcRatio_ del Daily. Techo 130%.
+var PC_WINDOWS_ = { '2026-10':[5.6,5.6], '2026-11':[5.4,5.4], '2026-12':[5.0,5.0],
+                    '2027-01':[4.6,4.6], '2027-02':[4.3,4.3], '2027-03':[4.2,4.2] };
+function pcRatio_(ym, t, a) {
+  var w = PC_WINDOWS_[ym];
+  if (!w || typeof t !== 'number' || typeof a !== 'number' || !isFinite(t) || !isFinite(a)) return null;
+  var d = t - a;
+  var x = d >= 0 ? 1 + 0.30 * d / w[1] : 1 + 0.30 * d / w[0];
+  return Math.max(0, Math.min(x, 1.30));
+}
+
 function okrDefaultHalf_() {
   return (new Date() >= new Date(2026, 9, 1)) ? 'H2' : 'H1';
 }
@@ -273,7 +285,7 @@ function computeOKR_(halfKey, rows, opts) {
       var mBud = periods.map(function(ym){ return getVal(lobKey, krDef.kr, ESC_BUD, ym); });
 
       // Achievement mensual (%)
-      var monthly = mAct.map(function(a, i) { return pctOf_({ a: a, b: mBud[i] }); });
+      var monthly = mAct.map(function(a, i) { return pctOf_({ a: a, b: mBud[i] }, periods[i]); });
 
       // Agregación de un conjunto de meses (trimestre o semestre). Actual y Budget se comparan
       // sobre los MISMOS meses: los que tienen actual (y budget) cargado. Así un período en curso
@@ -307,14 +319,16 @@ function computeOKR_(halfKey, rows, opts) {
             return getVal(lobKey, krDef.kr, ESC_ACT, ym) !== null && getVal(lobKey, krDef.kr, ESC_BUD, ym) !== null;
           });
           var last = (realBoth.length ? realBoth : both)[(realBoth.length ? realBoth : both).length - 1];
-          return { a: getAct(lobKey, krDef.kr, last), b: getVal(lobKey, krDef.kr, ESC_BUD, last) };
+          return { a: getAct(lobKey, krDef.kr, last), b: getVal(lobKey, krDef.kr, ESC_BUD, last), ym: last };
         }
         var sa = 0, sb = 0;
         both.forEach(function(ym) { sa += getAct(lobKey, krDef.kr, ym); sb += getVal(lobKey, krDef.kr, ESC_BUD, ym); });
         return krDef.avg ? { a: sa / both.length, b: sb / both.length } : { a: sa, b: sb };
       }
-      function pctOf_(p) {
+      function pctOf_(p, ym) {
         if (p.a === null || p.b === null) return null;
+        // Price Competitiveness: cumplimiento por ventana entre puntos de adversidad (no lineal), ver pcRatio_
+        if (krDef.inverse && (ym || p.ym) && pcRatio_(ym || p.ym, p.b, p.a) !== null) return pcRatio_(ym || p.ym, p.b, p.a) * 100;
         if (krDef.inverse) return p.a !== 0 ? p.b / p.a * 100 : null;
         return p.b !== 0 ? p.a / p.b * 100 : null;
       }
@@ -323,7 +337,7 @@ function computeOKR_(halfKey, rows, opts) {
       var qPairs = quarters.map(function(q) { return aggPair_(q.months); });
       var quarterlyAct = qPairs.map(function(p) { return p.a; });
       var quarterlyBud = qPairs.map(function(p) { return p.b; });
-      var quarterly = qPairs.map(pctOf_);
+      var quarterly = qPairs.map(function(p) { return pctOf_(p); });
 
       // Valores crudos del semestre + achievement %
       var hPair = aggPair_(periods);

@@ -3832,14 +3832,11 @@ function setB2BKrHalf(h){
 var KRD_FY_START = '2026-04', KRD_H2_START = '2026-10', KRD_H2_END = '2027-03';
 // flags: códigos de flagcdn.com (manda CORS, así salen en Copiar imagen / PNG); 'globe' = Globales.
 var KRD_PAISES_ = [
+  { name: 'Globales',     pais: ['Other Countries'],               flags: ['globe'] },
   { name: 'Brasil',       pais: ['Brasil'],                        flags: ['br'] },
   { name: 'Mexico',       pais: ['Mexico'],                        flags: ['mx'] },
-  { name: 'Globales',     pais: ['Other Countries'],               flags: ['globe'] },
   { name: 'Argentina',    pais: ['Argentina'],                     flags: ['ar'] },
-  { name: 'Colombia',     pais: ['Colombia'],                      flags: ['co'] },
-  { name: 'Chile',        pais: ['Chile'],                         flags: ['cl'] },
-  { name: 'Peru',         pais: ['Peru'],                          flags: ['pe'] },
-  { name: 'Ecua/Uru/Par', pais: ['Ecuador', 'Uruguay', 'Paraguay'], flags: ['ec', 'uy', 'py'] },
+  { name: 'ROW+Colombia', pais: ['Colombia', 'Peru', 'Ecuador', 'Chile', 'Uruguay', 'Paraguay'], flags: ['co', 'cl', 'pe', 'ec', 'uy', 'py'] },
   { name: 'RG',           pais: ['RG'],                            flags: [] }   // ajuste COI Brasil: solo FVM; sin él los países no suman al Total
 ];
 function krdFlags_(grupo) {
@@ -3906,6 +3903,24 @@ function krdRecurTarget_(ym, grupo) {
     if (g === grupo) { s += +t[k] || 0; any = true; }
   });
   return any ? s : null;
+}
+// Price Competitiveness ex-Latam (KR Global B2B API): el cumplimiento NO es lineal contra el target. Cada mes tiene
+// tres puntos de adversidad (tabla del OKR): 70% = target + ventana, 100% = target, 130% = target - ventana, y el
+// cumplimiento se interpola dentro de la ventana entre puntos. Ventanas por mes [70%->100%, 100%->130%], en pp.
+// Fuera de [70%, 130%] se extrapola con la pendiente del tramo; techo 130%. Mes sin ventana -> null.
+var PC_WINDOWS_ = { '2026-10':[5.6,5.6], '2026-11':[5.4,5.4], '2026-12':[5.0,5.0],
+                    '2027-01':[4.6,4.6], '2027-02':[4.3,4.3], '2027-03':[4.2,4.2] };
+function pcRatio_(ym, t, a) {
+  var w = PC_WINDOWS_[ym];
+  if (!w || typeof t !== 'number' || typeof a !== 'number' || !isFinite(t) || !isFinite(a)) return null;
+  var d = t - a;   // >0: menos adversidad que el target
+  var x = d >= 0 ? 1 + 0.30 * d / w[1] : 1 + 0.30 * d / w[0];
+  return Math.max(0, Math.min(x, 1.30));
+}
+// real = true -> % que se muestra; false -> score de OKR (bajo 70% vale 0)
+function pcScore_(ym, t, a, real) {
+  var x = pcRatio_(ym, t, a);
+  return x === null ? null : (!real && x < 0.70 ? 0 : x);
 }
 function krdRatio_(act, bud) {
   if (act === null || act === undefined || !bud) return null;
@@ -4091,12 +4106,13 @@ function renderKrDetail_() {
         }
         if (ym > curYM) return metaCell(ym, t !== null ? fv(t) : null);
         if (a === null && t === null) return '<td' + tdCls(ym) + '><span class="krd-chip n">—</span></td>';
-        var sc = kr.inverse ? okrScore_(tSc, a) : okrScore_(a, tSc);
+        var pcK = kr.id === 'price_competitiveness_ex_latam';
+        var sc = kr.inverse ? (pcK ? pcScore_(ym, tSc, a, false) : okrScore_(tSc, a)) : okrScore_(a, tSc);
         if (sc !== null) {
           (scoreByYM[ym] = scoreByYM[ym] || []).push({ c: sc, w: w });
-          if (ym >= KRD_H2_START) last = { a: a, t: isNR ? tSc : t, sc: sc, ratio: kr.inverse ? krdRatio_(tSc, a) : krdRatio_(a, tSc) };
+          if (ym >= KRD_H2_START) last = { a: a, t: isNR ? tSc : t, sc: sc, ratio: kr.inverse ? (pcK ? pcScore_(ym, tSc, a, true) : krdRatio_(tSc, a)) : krdRatio_(a, tSc) };
         }
-        return dataCell(tdCls(ym), krdChip_(a === null ? null : kr.inverse ? krdRatio_(tSc, a) : krdRatio_(a, tSc)), fv(a), fv(isNR ? tSc : t));
+        return dataCell(tdCls(ym), krdChip_(a === null ? null : kr.inverse ? (pcK ? pcScore_(ym, tSc, a, true) : krdRatio_(tSc, a)) : krdRatio_(a, tSc)), fv(a), fv(isNR ? tSc : t));
       }).join('');
       var ytd = '<td class="krd-ytd"><span class="krd-chip n">—</span></td>';
       if (isNR && sumB) {
@@ -4238,7 +4254,7 @@ function renderKRsGlobales_(){
       if(agg.bud){ t=agg.bud/1e6; tSc=agg.budMtd/1e6; } else { t=null; tSc=null; }
     }
     else if(kr.actuals && kr.actuals[refYM]!=null) a=kr.actuals[refYM];                  // mensual, Input_OKR
-    var sc=kr.inverse?okrScore_(tSc,a):okrScore_(a,tSc), pct=sc!==null?Math.round(sc*100):null;   // regla única de OKR; inverse: menos es mejor
+    var sc=kr.inverse?(kr.id==='price_competitiveness_ex_latam'?pcScore_(refYM,tSc,a,false):okrScore_(tSc,a)):okrScore_(a,tSc), pct=sc!==null?Math.round(sc*100):null;   // regla única de OKR; inverse: menos es mejor
     return '<div class="kr-card">'+
       '<div class="kr-lbl">'+kr.name+'</div>'+
       '<div class="kr-pct" style="color:'+pctColor(pct)+'">'+(pct!==null?pct+'%':'—')+'</div>'+
@@ -6709,12 +6725,11 @@ var B2B_TRK_TAB_DATA = {
 // RG = ajuste COI Brasil (solo FVM; en 0 con el switch en Incluir, applyCoiBr_): va con Brasil, igual que
 // tracker.html y el Weekly. Sin RG, las tablas FVM no daban el FVM ex COI BR de los KRs (2026-11-03).
 var B2B_TRK_COUNTRY_GROUPS = {
-  Brasil:['Brasil','RG'], Mexico:['Mexico'], Globales:['Other Countries'], Colombia:['Colombia'],
-  Argentina:['Argentina'], ROW:['Peru','Ecuador','Chile','Uruguay','Paraguay'],
-  Chile:['Chile'], Peru:['Peru'], Ecuador:['Ecuador'], Uruguay:['Uruguay'], Paraguay:['Paraguay']
+  Globales:['Other Countries'], Brasil:['Brasil','RG'], Mexico:['Mexico'], Argentina:['Argentina'],
+  'ROW+Colombia':['Colombia','Peru','Ecuador','Chile','Uruguay','Paraguay']
 };
 var B2B_TRK_MARKET_GROUPS = {
-  CORE_MARKETS:['Brasil','Mexico','Globales'], NEW_MARKETS:['Colombia','Argentina','ROW']
+  CORE_MARKETS:['Brasil','Mexico','Globales'], NEW_MARKETS:['Argentina','ROW+Colombia']
 };
 var B2B_TRK_PRODUCT_GROUPS = {
   Hotel:['Hotel','Hotels'], Air:['Air','Flights','Flight'], Packages:['Packages','Packages General','Package'],
@@ -6729,11 +6744,10 @@ var B2B_TRK_AG_GROUPS = [
   { label:'Ecua / Uru / Par', keys:['Ecuador','Uruguay','Paraguay'] }
 ];
 var B2B_TRK_NR_CORE_DETAIL = [
-  { name:'Brasil', pais:['Brasil'] }, { name:'Mexico', pais:['Mexico'] }, { name:'Globales', pais:['Other Countries'] }
+  { name:'Globales', pais:['Other Countries'] }, { name:'Brasil', pais:['Brasil'] }, { name:'Mexico', pais:['Mexico'] }
 ];
 var B2B_TRK_NR_NEW_DETAIL = [
-  { name:'Argentina', pais:['Argentina'] }, { name:'Colombia', pais:['Colombia'] }, { name:'Chile', pais:['Chile'] },
-  { name:'Peru', pais:['Peru'] }, { name:'Ecua/Uru/Par', pais:['Ecuador','Uruguay','Paraguay'] }
+  { name:'Argentina', pais:['Argentina'] }, { name:'ROW+Colombia', pais:['Colombia','Peru','Ecuador','Chile','Uruguay','Paraguay'] }
 ];
 var B2B_TRK_FVM_DETAIL = B2B_TRK_NR_CORE_DETAIL.concat(B2B_TRK_NR_NEW_DETAIL).map(function(d){   // Brasil + RG, como FVM_DETAIL del Tracker
   return d.name === 'Brasil' ? { name:'Brasil', pais:['Brasil','RG'] } : d;
@@ -7270,7 +7284,7 @@ function trkRenderStatusKRs_(idx){
       kr1Bud=(ag.budget && ag.budget.TOTAL!==undefined && ag.budget.TOTAL!==null) ? ag.budget.TOTAL : (sumBud>0?sumBud:null);
     }
     var kr2=mOrNull(trkComputeMetricMTD_(['Brasil','Mexico','Globales'],'net_revenue',krYM));
-    var kr3=mOrNull(trkComputeMetricMTD_(['Argentina','Colombia','ROW'],'net_revenue',krYM));
+    var kr3=mOrNull(trkComputeMetricMTD_(['Argentina','ROW+Colombia'],'net_revenue',krYM));
     rows.push({ name:'Agencies L4W', w:.20, a:kr1Act, b:kr1Bud, unit:'int' });
     rows.push({ name:'NR Core Markets $M', w:.40, a:kr2.a, b:kr2.b, unit:'$M' });
     rows.push({ name:'NR New Markets $M', w:.20, a:kr3.a, b:kr3.b, unit:'$M' });

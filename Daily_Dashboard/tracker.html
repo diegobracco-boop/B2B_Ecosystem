@@ -1170,17 +1170,11 @@
   <button class="country-btn" data-country="CORE_MARKETS">Core Markets</button>
   <button class="country-btn" data-country="NEW_MARKETS">New Markets</button>
   <span class="country-sep-bar">|</span>
+  <button class="country-btn" data-country="Globales">Globales</button>
   <button class="country-btn" data-country="Brasil">Brasil</button>
   <button class="country-btn" data-country="Mexico">Mexico</button>
-  <button class="country-btn" data-country="Colombia">Colombia</button>
   <button class="country-btn" data-country="Argentina">Argentina</button>
-  <button class="country-btn" data-country="Globales">Globales</button>
-  <button class="country-btn" data-country="ROW">ROW</button>
-  <button class="country-btn" data-country="Chile">Chile</button>
-  <button class="country-btn" data-country="Peru">Peru</button>
-  <button class="country-btn" data-country="Ecuador">Ecuador</button>
-  <button class="country-btn" data-country="Uruguay">Uruguay</button>
-  <button class="country-btn" data-country="Paraguay">Paraguay</button>
+  <button class="country-btn" data-country="ROW+Colombia">ROW+Colombia</button>
 </div>
 
 <div class="filters">
@@ -1525,22 +1519,16 @@ const TAB_DATA = {
 // (Codigo.js). Sin RG acá, las tablas/gráficos lo descartaban y no daban el FVM ex COI BR de los KRs
 // ni del Weekly (2026-11-03). Con el switch COI Brasil en Incluir, su FVM es 0 (applyCoiBrTrk_).
 const COUNTRY_GROUPS = {
+  'Globales':  ['Other Countries'],
   'Brasil':    ['Brasil', 'RG'],
   'Mexico':    ['Mexico'],
-  'Globales':  ['Other Countries'],
-  'Colombia':  ['Colombia'],
   'Argentina': ['Argentina'],
-  'ROW':       ['Peru', 'Ecuador', 'Chile', 'Uruguay', 'Paraguay'],
-  'Chile':     ['Chile'],
-  'Peru':      ['Peru'],
-  'Ecuador':   ['Ecuador'],
-  'Uruguay':   ['Uruguay'],
-  'Paraguay':  ['Paraguay'],
+  'ROW+Colombia': ['Colombia', 'Peru', 'Ecuador', 'Chile', 'Uruguay', 'Paraguay'],
 };
 
 const MARKET_GROUPS = {
   'CORE_MARKETS': ['Brasil', 'Mexico', 'Globales'],
-  'NEW_MARKETS':  ['Colombia', 'Argentina', 'ROW']
+  'NEW_MARKETS':  ['Argentina', 'ROW+Colombia']
 };
 
 const PRODUCT_GROUPS = {
@@ -3118,8 +3106,8 @@ function renderStatusKRs() {
   // ── KR2: NR Core Markets (Brasil + Mexico + Globales) ────────
   var kr2 = computeMetricMTD(['Brasil', 'Mexico', 'Globales'], 'net_revenue', krYM);
 
-  // ── KR3: NR New Markets (Argentina + Colombia + ROW) ─────────
-  var kr3 = computeMetricMTD(['Argentina', 'Colombia', 'ROW'], 'net_revenue', krYM);
+  // ── KR3: NR New Markets (Argentina + ROW+Colombia) ─────────
+  var kr3 = computeMetricMTD(['Argentina', 'ROW+Colombia'], 'net_revenue', krYM);
 
   // ── KR4: Air NR from suppliers ────────────────────────────────
   var kr4Act = null, kr4Bud = null;
@@ -3259,28 +3247,23 @@ function renderStatusKRs() {
 
 // Country detail definitions for KR breakdown tables
 var NR_CORE_DETAIL = [
+  { name: 'Globales',     pais: ['Other Countries'] },
   { name: 'Brasil',       pais: ['Brasil'] },
-  { name: 'Mexico',       pais: ['Mexico'] },
-  { name: 'Globales',     pais: ['Other Countries'] }
+  { name: 'Mexico',       pais: ['Mexico'] }
 ];
+// Agrupación de países (2026-11): Globales, Brasil, Mexico, Argentina y ROW+Colombia.
 var NR_NEW_DETAIL = [
   { name: 'Argentina',    pais: ['Argentina'] },
-  { name: 'Colombia',     pais: ['Colombia'] },
-  { name: 'Chile',        pais: ['Chile'] },
-  { name: 'Peru',         pais: ['Peru'] },
-  { name: 'Ecua/Uru/Par', pais: ['Ecuador', 'Uruguay', 'Paraguay'] }
+  { name: 'ROW+Colombia', pais: ['Colombia', 'Peru', 'Ecuador', 'Chile', 'Uruguay', 'Paraguay'] }
 ];
 // RG = ajuste COI Brasil (filas FVM de daily_sync.py, en 0 con el switch COI Brasil = Incluir): va con
 // Brasil, como en Codigo.js. Si un país no está acá, el TOTAL de los recuadros no da el de la tabla de KRs.
 var FVM_DETAIL = [
+  { name: 'Globales',     pais: ['Other Countries'] },
   { name: 'Brasil',       pais: ['Brasil', 'RG'] },
   { name: 'Mexico',       pais: ['Mexico'] },
-  { name: 'Globales',     pais: ['Other Countries'] },
   { name: 'Argentina',    pais: ['Argentina'] },
-  { name: 'Colombia',     pais: ['Colombia'] },
-  { name: 'Chile',        pais: ['Chile'] },
-  { name: 'Peru',         pais: ['Peru'] },
-  { name: 'Ecua/Uru/Par', pais: ['Ecuador', 'Uruguay', 'Paraguay'] }
+  { name: 'ROW+Colombia', pais: ['Colombia', 'Peru', 'Ecuador', 'Chile', 'Uruguay', 'Paraguay'] }
 ];
 
 function renderKRDetailBoxes(monthFilter) {
@@ -4211,6 +4194,24 @@ function globalesActual_(kr, ym, agg) {
 // Competitiveness): menos es mejor → target/actual.
 // real = true → cumplimiento que se MUESTRA (realScore_: sin el piso 70%→0, techo 130%),
 // igual que las filas de Status KRs; sin real, la regla de scoring de OKR (okrScore_).
+// Price Competitiveness ex-Latam (KR Global B2B API): el cumplimiento NO es lineal contra el target. Cada mes tiene
+// tres puntos de adversidad (tabla del OKR): 70% = target + ventana, 100% = target, 130% = target - ventana, y el
+// cumplimiento se interpola dentro de la ventana entre puntos. Ventanas por mes [70%->100%, 100%->130%], en pp.
+// Fuera de [70%, 130%] se extrapola con la pendiente del tramo; techo 130%. Mes sin ventana -> null.
+var PC_WINDOWS_ = { '2026-10':[5.6,5.6], '2026-11':[5.4,5.4], '2026-12':[5.0,5.0],
+                    '2027-01':[4.6,4.6], '2027-02':[4.3,4.3], '2027-03':[4.2,4.2] };
+function pcRatio_(ym, t, a) {
+  var w = PC_WINDOWS_[ym];
+  if (!w || typeof t !== 'number' || typeof a !== 'number' || !isFinite(t) || !isFinite(a)) return null;
+  var d = t - a;   // >0: menos adversidad que el target
+  var x = d >= 0 ? 1 + 0.30 * d / w[1] : 1 + 0.30 * d / w[0];
+  return Math.max(0, Math.min(x, 1.30));
+}
+// real = true -> % que se muestra; false -> score de OKR (bajo 70% vale 0)
+function pcScore_(ym, t, a, real) {
+  var x = pcRatio_(ym, t, a);
+  return x === null ? null : (!real && x < 0.70 ? 0 : x);
+}
 function globalesScore_(kr, ym, a, t, real, agg) {
   if (typeof t !== 'number') return null;
   var last = (rawData && rawData.meta && rawData.meta.last_actuals_date) || '';
@@ -4224,7 +4225,8 @@ function globalesScore_(kr, ym, a, t, real, agg) {
     }
   }
   var f = real ? realScore_ : okrScore_;
-  return kr.inverse ? f(t, a) : f(a, t);
+  if (kr.inverse) return kr.id === 'price_competitiveness_ex_latam' ? pcScore_(ym, t, a, real) : f(t, a);
+  return f(a, t);
 }
 
 function renderGlobales() {

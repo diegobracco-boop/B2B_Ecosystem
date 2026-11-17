@@ -608,6 +608,28 @@ GLOBALES_TARGET_DEFAULT = {
 }
 
 
+# Targets (Budget) que PISAN lo que traiga Input_OKR para esos meses (pedido de antonella.difranco, 2026-11-17:
+# nuevo target de New Onboarded Properties, mismos valores que el cambio de la slide del OKR; Oct queda en 250
+# como la sheet). A diferencia de GLOBALES_TARGET_DEFAULT, acá gana este dict: para volver a la sheet, borrar la entrada.
+GLOBALES_TARGET_OVERRIDE = {
+    "New Onboarded Properties Global & Regional Chains": {
+        "2026-11": 1250, "2026-12": 2000, "2027-01": 3000, "2027-02": 4000, "2027-03": 6000,
+    },
+}
+
+
+def _apply_globales_target_override(rows_manual):
+    out = list(rows_manual)
+    for kr, by_ym in GLOBALES_TARGET_OVERRIDE.items():
+        yms = set(by_ym)
+        out = [r for r in out if not (str(r[1]).strip().lower() == "budget" and r[5].lower() == kr.lower()
+                                      and str(r[0])[:7] in yms)]
+        for ym, v in sorted(by_ym.items()):
+            out.append([_ym_to_periodo(ym), "Budget", "Globales", "Total", "Total", kr, v])
+        print(f"  [{kr}] target pisado (GLOBALES_TARGET_OVERRIDE): {sorted(yms)}")
+    return out
+
+
 def _apply_globales_target_default(rows_manual):
     have = {(r[5].lower(), str(r[0])[:7]) for r in rows_manual if str(r[1]).strip().lower() == "budget"}
     for kr, by_ym in GLOBALES_TARGET_DEFAULT.items():
@@ -865,6 +887,7 @@ def build(upload=True):
     rows_manual   = _apply_price_comp_actual(rows_manual, daily_json)
     rows_manual, estado_recur = _apply_recurrence_rr(rows_manual, recur_json)
     rows_manual   = _apply_globales_target_default(rows_manual)
+    rows_manual   = _apply_globales_target_override(rows_manual)
     # Partners API: actual de partners_api_snapshots.json (Daily_Dashboard/partners_api_sync.py; meses congelados + rolling 30 dias).
     try:
         _snap = _download_by_name(svc, DAILY_FOLDER_ID, "partners_api_snapshots.json", "partners_api_snapshots.json (Partners API)")
