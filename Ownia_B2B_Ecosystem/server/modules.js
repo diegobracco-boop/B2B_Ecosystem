@@ -149,6 +149,25 @@ const MODULES = [
     gasUrl: GAS_EXEC + 'AKfycby9WZK2HfAWx25M5pEMV3nntzJfEvsiT9feMn01zJQkQaI3t2GjTzOIjbFXWexnMuzklQ/exec',
   },
   {
+    // Copia de prueba del P&L Accounting que lee del consolidador (compartido.app_b2b_ecosystem) en vez de los JSON de Drive
+    // (2026-11-17). Mismo código y mismas pantallas, con su propio contexto y sus propios caches, solo para el equipo B2B y fuera
+    // del menú (sin allowedUsers no aparece; con él, solo para estas cuentas). Sirve para comparar lado a lado con el
+    // P&L Accounting de siempre; cuando coincida, `pnl-accounting` pasa a `fuente: 'consolidador'` y esta copia se borra.
+    slug: 'pnl-accounting-conso',
+    dir: 'P&L_Accounting',
+    title: 'P&L Accounting (consolidador)',
+    desc: 'Copia de prueba: la vista contable leyendo del consolidador.',
+    ownia: true,
+    allowedUsers: EQUIPO_B2B,
+    fuente: 'consolidador',
+    startView: 'contable-combined',
+    quickViews: [['contable-combined', 'B2B + B2B2C'], ['contable-b2b', 'B2B'], ['contable-b2b2c', 'B2B2C']],
+    layout: 'pnl-accounting-layout.js',
+    gasExtras: ['pnl-accounting-fbtb.js', 'pnl-accounting-byprod.js', 'pnl-accounting-consolidador.js'],
+    cacheFns: ['getEPMBaselineGoalData', 'getEPMBreakdown'],
+    gasUrl: '',
+  },
+  {
     slug: 'pnl-managerial',
     dir: 'P&L_Managerial',
     title: 'P&L Managerial',

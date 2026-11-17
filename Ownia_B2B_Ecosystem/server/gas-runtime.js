@@ -83,6 +83,7 @@ class GasProject {
     this.request = null; // contexto de la request en curso (las llamadas GAS son sincrónicas)
     this.timeoutMs = opts.timeoutMs || CALL_TIMEOUT_MS;
     this.fileStore = opts.fileStore || null;
+    this.pnlCanon = opts.pnlCanon || null;   // fuente del P&L desde el consolidador (pnl-fuente.js), solo módulos con `fuente: 'consolidador'`
     this._load();
   }
 
@@ -261,6 +262,8 @@ class GasProject {
     g.SpreadsheetApp = makeSpreadsheetApp(() => project.fileStore, (ms) => project._makeDate(ms), project.timeZone);
     g.XmlService = makeXmlService();
     for (const name of NOT_MIGRATED) g[name] = svc.notMigrated(name);
+    // Solo los módulos con `fuente: 'consolidador'` reciben los canónicos del consolidador (gas-extras/pnl-accounting-consolidador.js).
+    if (project.mod.fuente === 'consolidador') g.__owniaPnlCanon_ = () => (project.pnlCanon ? project.pnlCanon() : null);
     return g;
   }
 

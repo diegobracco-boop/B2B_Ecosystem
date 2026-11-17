@@ -161,3 +161,15 @@ test('detalle es una consulta válida', async () => {
   assert.equal(r.status, 200, r.text);
   assert.equal(lanzados[0].args[1], 'detalle');
 });
+
+test('estado: solo el equipo, y informa la memoria (sin módulo con fuente consolidador no hay datos)', async () => {
+  lanzados.length = 0;
+  assert.equal((await get(server, `${BASE}/consolidador/estado`)).status, 401);
+  assert.equal((await get(server, `${BASE}/consolidador/estado`, OTRO)).status, 403);
+  const r = await get(server, `${BASE}/consolidador/estado`, ANA);
+  assert.equal(r.status, 200, r.text);
+  const j = JSON.parse(r.text);
+  assert.equal(j.listo, false);
+  assert.ok(j.memoriaMb.rss > 0 && j.memoriaMb.heapUsado > 0);
+  assert.equal(lanzados.length, 0);
+});

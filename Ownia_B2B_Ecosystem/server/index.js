@@ -55,6 +55,7 @@ const { createRealesJob } = require('./reales-job');
 const { createConsolidador } = require('./consolidador');
 const { driveDimensiones } = require('./pnl-drive-dimensiones');
 const { buildCanonicals, comparar: compararCanonicos } = require('./pnl-consolidador');
+const { createPnlFuente } = require('./pnl-fuente');
 const { createSlidesJobs } = require('./gslides-export');
 const { modelFromStore } = require('./pipeline-slide');
 const { partnersFrom, createQuestionLog } = require('./portal-ask-data');
@@ -94,6 +95,11 @@ function createApp(opts = {}) {
   const isTeam = (identity) => !!identity.email && realesUsers.includes(String(identity.email).toLowerCase());
   // Lectura a demanda del consolidador del P&L (compartido.app_b2b_ecosystem). Ver consolidador.js.
   const consolidador = opts.consolidador !== undefined ? opts.consolidador : createConsolidador(cfg, { log });
+  // P&L Accounting desde el consolidador (módulos con `fuente: 'consolidador'`, ver pnl-fuente.js). Si conso publica una versión nueva,
+  // se invalidan esos módulos y sus caches como cuando cambia un archivo de Drive.
+  const modulosConso = modules.filter((m) => m.ownia && m.fuente === 'consolidador');
+  const pnlFuente = opts.pnlFuente !== undefined ? opts.pnlFuente
+    : (modulosConso.length && consolidador ? createPnlFuente(cfg, { consolidador, log, onChange: () => { for (const m of modulosConso) { projects.delete(m.slug); if (apiCache) apiCache.dropModule(m.slug); } } }) : null);
   // Datos nuevos → se recargan los módulos. En GAS cada ejecución arranca con los globales
   // limpios; acá el contexto vive entre requests, y varios módulos memorizan el JSON en una
   // variable global (p.ej. _gestionalJsonCache_): sin esto seguirían sirviendo la versión vieja.
@@ -153,7 +159,7 @@ function createApp(opts = {}) {
   function getProject(mod) {
     if (!projects.has(mod.slug)) {
       try {
-        projects.set(mod.slug, new GasProject(mod, { gasRoot: cfg.GAS_ROOT, secrets: cfg.secrets, log, timeoutMs: cfg.CALL_TIMEOUT_MS, fileStore }));
+        projects.set(mod.slug, new GasProject(mod, { gasRoot: cfg.GAS_ROOT, secrets: cfg.secrets, log, timeoutMs: cfg.CALL_TIMEOUT_MS, fileStore, pnlCanon: mod.fuente === 'consolidador' && pnlFuente ? pnlFuente.canon : null }));
         log({ level: 'info', msg: 'módulo cargado', module: mod.slug });
       } catch (e) {
         log({ level: 'error', msg: 'no se pudo cargar el módulo', module: mod.slug, error: e.stack || String(e) });
@@ -167,6 +173,8 @@ function createApp(opts = {}) {
 
   // Precarga de los módulos migrados: un error de carga se ve en los logs al arrancar.
   function warmUp() {
+    // El primer armado desde la tabla tarda unos 10 s: se adelanta al arrancar (si falla, se reintenta en el primer pedido).
+    if (pnlFuente) pnlFuente.listo().catch(() => {});
     for (const m of modules.filter((x) => x.ownia)) {
       try { getProject(m); } catch (e) { /* ya logueado */ }
     }
@@ -464,6 +472,11 @@ function createApp(opts = {}) {
       if (!consolidador) return sendJson(res, 404, { error: 'No encontrado' });
       // Diagnóstico del lado Drive (para mapear contra la tabla): ver pnl-drive-dimensiones.js
       if (route === '/consolidador/drive') return sendJson(res, 200, driveDimensiones(fileStore));
+      if (route === '/consolidador/estado') {
+        const mu = process.memoryUsage();   // para vigilar la memoria: la copia con fuente consolidador suma sus propios datos
+        return sendJson(res, 200, { ...(pnlFuente ? pnlFuente.estado() : { listo: false, motivo: 'ningún módulo usa el consolidador' }),
+          memoriaMb: { rss: Math.round(mu.rss / 2 ** 20), heapUsado: Math.round(mu.heapUsed / 2 ** 20), externa: Math.round(mu.external / 2 ** 20) } });
+      }
       // Arma los canónicos desde la tabla y los compara con los de Drive (pnl-consolidador.js). ?ultimoCerrado=AAAA-MM-01&rrDesde=AAAA-MM-01
       if (route === '/consolidador/comparar') {
         const c = await consolidador.leer('cubo');
@@ -599,6 +612,8 @@ function createApp(opts = {}) {
           return sendJson(res, 200, { result: { started: true, jobId } });
         }
         if (mod.slug === 'daily' && parts[2] === 'exportToGoogleSlidesStatus') return sendJson(res, 200, { result: slidesJobs.status(args[0], identity.email) });
+        // Módulos con `fuente: 'consolidador'`: esperar a que los canónicos estén armados (si no se pudo, 503 con el motivo: no hay respaldo en Drive).
+        if (mod.fuente === 'consolidador' && pnlFuente) await pnlFuente.listo();
         const reqCtx = { user: identity, userAgent: req.headers['user-agent'] || '', moduleUrl: `${publicOrigin(req)}${cfg.BASE_PATH}/${mod.slug}` };
         // Funciones que devuelven lo mismo para todos mientras no cambien los datos (`cacheFns` del módulo): se calcula una vez y se reparte
         // el gzip ya armado. La clave lleva el día para que no dependan de un cambio de fecha sin datos nuevos.
