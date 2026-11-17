@@ -46,6 +46,7 @@ function rateOf(k, u, sc) { return MARGIN[k][0] * (sc === 'cur' && u === 'Livelo
 
 function isoMonday(y, w) { const j4 = new Date(Date.UTC(y, 0, 4)), d = j4.getUTCDay() || 7; return new Date(Date.UTC(y, 0, 4 - d + 1 + (w - 1) * 7)); }
 const ymd = (d) => d.toISOString().substring(0, 10);
+const ymAdd = (m, n) => ymd(new Date(Date.UTC(+m.slice(0, 4), +m.slice(5, 7) - 1 + n, 1))).slice(0, 7);
 const wk = (w) => ({ year: 2026, week: w, from: ymd(isoMonday(2026, w)) });
 const isoWeekOf = (s) => { const d = new Date(s + 'T00:00:00Z'), day = d.getUTCDay() || 7, thu = new Date(d.getTime() + (4 - day) * 864e5);
   return Math.ceil(((thu - Date.UTC(thu.getUTCFullYear(), 0, 1)) / 864e5 + 1) / 7); };
@@ -94,6 +95,9 @@ function mock(params) {
   const mTo = ym === months[0] ? LAST_DAY : mEnd;
   const dayList = []; for (let d = new Date(mFrom + 'T00:00:00Z'); ymd(d) <= mTo; d = new Date(d.getTime() + 864e5)) dayList.push(ymd(d));
   const allDays = []; for (let d = new Date(mFrom + 'T00:00:00Z'); ymd(d) <= mEnd; d = new Date(d.getTime() + 864e5)) allDays.push(ymd(d));
+  const cmonths = ['2026-10', '2026-09', '2026-08', '2026-07', '2026-06', '2026-05'];
+  const mo = cmonths.includes(params && params.mo) ? params.mo : cmonths[0];
+  const mser = []; for (let i = Math.max(+mo.slice(5, 7), 6) - 1; i >= 0; i--) mser.push(ymAdd(mo, -i));
   const biz = {};
   Object.keys(UNITS).forEach((k) => {
     const U = unitsFor(k, [[W, 1]]);
@@ -116,12 +120,22 @@ function mock(params) {
     const days = dayList.map((d) => { const T = unitsFor(k, [[isoWeekOf(d), 1 / 7]]); return { d, curL: sc1(sum(byPais(T, 'cur')), 0.985), cur: sum(byPais(T, 'cur')), bud: sum(byPais(T, 'bud')), ly: sum(byPais(T, 'ly')) }; });
     o.mtd = { curL: scale(byPais(MU, 'cur'), 0.985), curN: scale(byPais(MU, 'cur'), 1.02), cur: byPais(MU, 'cur'), bud: byPais(MU, 'bud'), ly: byPais(MU, 'ly'), rr: byPais(MU, 'rr'), units: cleanUnits(MU),
       budMonth: sum(byPais(unitsFor(k, allDays.map((d) => [isoWeekOf(d), 1 / 7])), 'bud')), days };
+    // Mensual (mes cerrado): cada día = 1/7 de su semana ISO; L3M = promedio de los 3 meses anteriores
+    const MP = (m) => { const out = []; for (let d = new Date(m + '-01T00:00:00Z'); ymd(d).slice(0, 7) === m; d = new Date(d.getTime() + 864e5)) out.push([isoWeekOf(ymd(d)), 1 / 7]); return out; };
+    const MOU = unitsFor(k, MP(mo)), l3 = [3, 2, 1].map((i) => unitsFor(k, MP(ymAdd(mo, -i))));
+    const avg3 = (sc) => { const a = {}; l3.forEach((P) => Object.entries(byPais(P, sc)).forEach(([p, v]) => { const s = a[p] = a[p] || z(); s.gb += v.gb / 3; s.rev += v.rev / 3; s.fvm += v.fvm / 3; })); return a; };
+    const l3cur = avg3('cur');
+    o.monthly = { cur: byPais(MOU, 'cur'), curL: scale(byPais(MOU, 'cur'), 0.985), curN: scale(byPais(MOU, 'cur'), 1.02), bud: byPais(MOU, 'bud'), ly: byPais(MOU, 'ly'), rr: byPais(MOU, 'rr'),
+      l3m: l3cur, l3mLy: avg3('ly'), l3mL: scale(l3cur, 0.985), units: cleanUnits(MOU),
+      ustreak: [3, 2, 1, 0].map((i) => { const T = unitsFor(k, MP(ymAdd(mo, -i))), us = {}; Object.entries(T).forEach(([key, u]) => { us[key] = [Math.round(u.cur.rev), Math.round(u.bud.rev)]; }); return us; }),
+      trend: mser.map((m) => { const T = unitsFor(k, MP(m)); return { ym: m, cur: sum(byPais(T, 'cur')), curL: sc1(sum(byPais(T, 'cur')), 0.985), bud: sum(byPais(T, 'bud')), ly: sum(byPais(T, 'ly')) }; }) };
     biz[k] = o;
   });
   const from = isoMonday(2026, W), to = new Date(from.getTime() + 6 * 864e5);
   const weeks = []; for (let q = 0; q < PICK; q++) weeks.push(wk(LATEST - q));
   return { success: true, week: { year: 2026, week: W, from: ymd(from), to: ymd(to) }, latest: { year: 2026, week: LATEST }, weeks,
     month: { ym, from: mFrom, to: mTo, end: mEnd, days: +mTo.slice(8, 10), daysInMonth: +mEnd.slice(8, 10) }, months,
+    monthly: { ym: mo, from: mo + '-01', to: ymd(new Date(Date.UTC(+mo.slice(0, 4), +mo.slice(5, 7), 0))) }, cmonths,
     lastActualsDate: LAST_DAY, generatedAt: '2026-11-04T06:12:00Z', exCoiBr: false, organic: { target: 'budget', missing: [] }, biz };
 }
 

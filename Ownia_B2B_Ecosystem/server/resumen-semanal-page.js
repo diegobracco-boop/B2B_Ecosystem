@@ -19,6 +19,10 @@
 // Semanal / MTD: "Exportar a Slides" (deck .pptx para el comité ejecutivo, armado en el navegador con PptxGenJS) y
 // "Copiar link" (link a la vista que se está mirando, para mandar por Slack).
 //
+// Mensual (2026-11-17, Tiago): tercera vista, Semanal / MTD / Mensual, con el mismo formato: un mes cerrado completo
+// (uno de los últimos 6), L3M (promedio de los 3 meses anteriores) en lugar de L4W, la serie por mes del año y las
+// rachas en meses. De acá sale el deck mensual ("Exportar a Slides" con la vista Mensual). ?vista=mensual&mensual=YYYY-MM.
+//
 // Colores del gráfico: los tres primeros slots de la paleta de referencia de dataviz (azul / naranja / aqua), validados
 // todos contra todos en claro y oscuro; el Budget además va punteado. Semáforo = el del Hub (_deltaState_): verde ≥ 0%,
 // ámbar −5% a 0%, rojo < −5%.
@@ -231,8 +235,13 @@ const SCRIPT = String.raw`
   var NAME = { Mexico: 'México', Peru: 'Perú', 'Other Countries': 'Otros países', RG: 'Ajuste COI Brasil' };
   var MES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
   var MESL = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
-  // mode: 'w' = semana, 'm' = MTD. req: lo pedido al servidor (semana y mes; null = el último)
-  var D = null, sel = 'all', mode = 'w', req = { week: null, month: null };
+  // mode: 'w' = semana, 'm' = MTD, 'mo' = mes cerrado (Mensual, 2026-11-17: de acá sale el deck mensual).
+  // req: lo pedido al servidor (semana, mes MTD y mes cerrado; null = el último)
+  var D = null, sel = 'all', mode = 'w', req = { week: null, month: null, mo: null };
+  function isMo() { return mode === 'mo'; }
+  // Unidad de la serie y de las rachas: "4ª semana" / "4º mes"
+  function ordU(n) { return isMo() ? n + 'º mes' : n + 'ª semana'; }
+  function modeName() { return mode === 'm' ? 'MTD' : isMo() ? 'mensual' : 'semanal'; }
   // exTbd: "Excluir TBD" saca el Budget de partners nuevos sin firmar (TBD) de las explicaciones (Dónde, Para mirar y
   // los partners debajo de cada país). Los totales y las barras por país no cambian: el desvío de TBD sigue en el número.
   var exTbd = false;
@@ -297,6 +306,7 @@ const SCRIPT = String.raw`
     SC.forEach(function (sc) { o[sc] = {}; });
     keys.forEach(function (bk) {
       var b = D.biz[bk], src = M ? b.mtd : b;
+      if (isMo()) { var mb = b.monthly || {}; src = Object.assign({}, mb, { l4w: mb.l3m, l4wLy: mb.l3mLy, l4wL: mb.l3mL }); }   // L3M ocupa el lugar del L4W
       SC.forEach(function (sc) { var x = src[sc] || src[FB[sc]] || {}; Object.keys(x).forEach(function (p) { o[sc][p] = add(o[sc][p] || z(), x[p]); }); });
       var U = src.units || {};
       Object.keys(U).forEach(function (key) {
@@ -314,6 +324,13 @@ const SCRIPT = String.raw`
         keys.forEach(function (bk) { var x = D.biz[bk].mtd.days[i]; add(acc.cur, x.cur); add(acc.bud, x.bud); add(acc.ly, x.ly); add(acc.curL, x.curL || x.cur); });
         var a = d0.d.split('-');
         return { lbl: String(+a[2]), tip: (+a[2]) + ' ' + MES[+a[1] - 1] + ' (acumulado)', cur: add(z(), acc.cur), bud: add(z(), acc.bud), ly: add(z(), acc.ly), curL: add(z(), acc.curL) };
+      });
+    } else if (isMo()) {
+      series = D.biz[keys[0]].monthly.trend.map(function (w0, i) {
+        var mm = +w0.ym.substring(5, 7), r = { lbl: MES[mm - 1].replace(/^./, function (c) { return c.toUpperCase(); }) + (mm === 1 ? ' ' + w0.ym.substring(2, 4) : ''),
+          tip: MESL[mm - 1].replace(/^./, function (c) { return c.toUpperCase(); }) + ' ' + w0.ym.substring(0, 4), cur: z(), bud: z(), ly: z(), curL: z() };
+        keys.forEach(function (bk) { var x = D.biz[bk].monthly.trend[i]; add(r.cur, x.cur); add(r.bud, x.bud); add(r.ly, x.ly); add(r.curL, x.curL || x.cur); });
+        return r;
       });
     } else {
       series = D.biz[keys[0]].trend.map(function (w, i) {
@@ -359,10 +376,11 @@ const SCRIPT = String.raw`
   // Semanas seguidas (de la elegida hacia atrás) del mismo lado del Budget que el desvío del grupo; solo en la vista semanal
   function streakOf(g) {
     if (mode === 'm') return 0;
-    var sign = g.d < 0 ? -1 : 1, n = 0, len = (D.biz[g.units[0].biz].ustreak || []).length;
+    var UST = function (bk) { return (isMo() ? (D.biz[bk].monthly || {}).ustreak : D.biz[bk].ustreak) || []; };
+    var sign = g.d < 0 ? -1 : 1, n = 0, len = UST(g.units[0].biz).length;
     for (var s = len - 1; s >= 0; s--) {
       var a = 0, b = 0;
-      g.units.forEach(function (u) { var v = ((D.biz[u.biz].ustreak || [])[s] || {})[u.key]; if (v) { a += v[0]; b += v[1]; } });
+      g.units.forEach(function (u) { var v = (UST(u.biz)[s] || {})[u.key]; if (v) { a += v[0]; b += v[1]; } });
       if (b && (a - b) * sign > 0) n++; else break;
     }
     return n;
@@ -392,7 +410,7 @@ const SCRIPT = String.raw`
     watch: '<path d="M12 9v4M12 17h.01M10.3 3.9L2 18a2 2 0 0 0 1.7 3h16.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>',
   };
   function ord(n) { return n + 'ª'; }
-  function periodo() { return mode === 'm' ? (isCurMonth() ? 'del mes' : 'de ' + MESL[+D.month.ym.substring(5, 7) - 1]) : 'de la semana'; }
+  function periodo() { if (isMo()) return 'de ' + MESL[+D.monthly.ym.substring(5, 7) - 1]; return mode === 'm' ? (isCurMonth() ? 'del mes' : 'de ' + MESL[+D.month.ym.substring(5, 7) - 1]) : 'de la semana'; }
   function gName(g, slack) { return slack ? (g.t === 'c' ? flag(g.key.substring(2), true) : '') + g.n : esc(g.n); }
   function insights(k, slack) {
     var b = slack ? function (x) { return '*' + x + '*'; } : function (x) { return '<b>' + x + '</b>'; };
@@ -435,9 +453,10 @@ const SCRIPT = String.raw`
       for (i = tr.length - 1; i >= 0 && side(tr[i]) === last; i--) n++;
       for (; i >= 0 && side(tr[i]) === -last; i--) m++;
       var where = last < 0 ? 'debajo' : 'arriba', y4 = pct(T.l4wL.rev, T.l4wLy.rev);
-      var tt = n >= 2 ? b(ord(n) + ' semana seguida ' + where) + ' del Budget' + (n >= tr.length ? ' (todas las de la serie)' : '') + '.'
-        : (m ? b('Cambio de tendencia') + ': primera semana ' + where + ' del Budget después de ' + m + (m === 1 ? ' semana' : ' semanas') + ' ' + (last < 0 ? 'arriba' : 'debajo') + '.' : 'Semana ' + where + ' del Budget.');
-      if (yN != null && y4 != null) tt += ' El YoY de NR (' + fp(yN) + ') ' + (yN >= y4 ? 'acelera' : 'se frena') + ' contra el de las 4 semanas anteriores (' + fp(y4) + ').';
+      var MO = isMo(), u1 = MO ? 'mes' : 'semana', uN = MO ? 'meses' : 'semanas';
+      var tt = n >= 2 ? b(ordU(n) + (MO ? ' seguido ' : ' seguida ') + where) + ' del Budget' + (n >= tr.length ? (MO ? ' (todos los de la serie)' : ' (todas las de la serie)') : '') + '.'
+        : (m ? b('Cambio de tendencia') + ': ' + (MO ? 'primer mes ' : 'primera semana ') + where + ' del Budget después de ' + m + ' ' + (m === 1 ? u1 : uN) + ' ' + (last < 0 ? 'arriba' : 'debajo') + '.' : (MO ? 'Mes ' : 'Semana ') + where + ' del Budget.');
+      if (yN != null && y4 != null) tt += ' El YoY de NR (' + fp(yN) + ') ' + (yN >= y4 ? 'acelera' : 'se frena') + ' contra el de ' + (MO ? 'los 3 meses anteriores' : 'las 4 semanas anteriores') + ' (' + fp(y4) + ').';
       out.push({ k: 'trend', lbl: 'Tendencia', t: tt });
     }
 
@@ -451,7 +470,7 @@ const SCRIPT = String.raw`
     var bad = DR.list.filter(function (g) { var p = pct(g.cur.rev, g.bud.rev); return g.d < 0 && (p == null || p <= -3); }).sort(function (a, c) { return a.d - c.d; }).slice(0, 3);
     var wl = bad.length ? joinY(bad.map(function (g) {
       var st = streakOf(g);
-      return b(gName(g, slack)) + ' (' + fp(pct(g.cur.rev, g.bud.rev)) + ', ' + sgnMoney(g.d) + ', ' + causeOf(g).t.replace(/ \(.*\)$/, '') + (st >= 2 ? ' · ' + ord(st) + ' semana debajo' : '') + ')';
+      return b(gName(g, slack)) + ' (' + fp(pct(g.cur.rev, g.bud.rev)) + ', ' + sgnMoney(g.d) + ', ' + causeOf(g).t.replace(/ \(.*\)$/, '') + (st >= 2 ? ' · ' + ordU(st) + ' debajo' : '') + ')';
     })) + '.' : 'Ningún partner ni país con un desvío material contra Budget.';
     out.push({ k: 'watch', lbl: 'Para mirar', t: wl });
     return out;
@@ -468,16 +487,17 @@ const SCRIPT = String.raw`
     return +a[2] + (a[1] === c[1] ? '' : ' ' + MES[+a[1] - 1]) + '–' + +c[2] + ' ' + MES[+c[1] - 1] + ' ' + c[0];
   }
   function isCurMonth() { return D.months && D.month.ym === D.months[0]; }
-  function monthName() { var m = D.month.ym.split('-'); return MESL[+m[1] - 1].replace(/^./, function (c) { return c.toUpperCase(); }) + ' ' + m[0]; }
+  function monthName(ym) { var m = (ym || D.month.ym).split('-'); return MESL[+m[1] - 1].replace(/^./, function (c) { return c.toUpperCase(); }) + ' ' + m[0]; }
   function title() {
+    if (isMo()) return monthName(D.monthly.ym) + ' · mes cerrado';
     if (mode === 'm') return monthName() + (D.month.days < D.month.daysInMonth ? ' · MTD al ' + ddmm(D.month.to) + ' (' + D.month.days + ' de ' + D.month.daysInMonth + ' días)' : ' · mes cerrado');
     return 'Semana ' + D.week.week + ' · ' + weekRange();
   }
 
   // Titular: la lectura del período en una frase
   function headline(T) {
-    var p = pct(T.cur.rev, T.bud.rev), y = pct(T.curL.rev, T.ly.rev), pre = mode === 'm' ? 'En el mes, Net Revenues ' : 'Net Revenues ';
-    if (p == null) return mode === 'm' ? monthName() + ', <em>de un vistazo</em>.' : 'La semana ' + D.week.week + ', <em>de un vistazo</em>.';
+    var p = pct(T.cur.rev, T.bud.rev), y = pct(T.curL.rev, T.ly.rev), pre = mode === 'm' ? 'En el mes, Net Revenues ' : isMo() ? 'En ' + MESL[+D.monthly.ym.substring(5, 7) - 1] + ', Net Revenues ' : 'Net Revenues ';
+    if (p == null) return mode === 'm' ? monthName() + ', <em>de un vistazo</em>.' : isMo() ? monthName(D.monthly.ym) + ', <em>de un vistazo</em>.' : 'La semana ' + D.week.week + ', <em>de un vistazo</em>.';
     if (p >= 0) return pre + '<em>' + fp(p, 0) + ' arriba</em> del Budget.';
     if (p >= -5) return pre + '<em>cerca del Budget</em>' + (y != null && y > 0 ? ' y creciendo vs LY.' : '.');
     return pre + '<em>' + fp(p, 0) + '</em> vs Budget' + (y != null && y > 0 ? ', pero ' + fp(y, 0) + ' vs LY.' : '.');
@@ -485,12 +505,13 @@ const SCRIPT = String.raw`
 
   // ── Render ──────────────────────────────────────────────────────────────────────────────
   function render() {
-    var A = view('all').T, live = mode === 'm' ? isCurMonth() : isLatest();
+    var A = view('all').T, live = mode === 'm' ? isCurMonth() : isMo() ? false : isLatest();
     var html = '<header class="rs-hero"><div class="rs-top rs-in">' +
       '<span class="rs-eyebrow"><span class="rs-live' + (live ? '' : ' off') + '" aria-hidden="true"></span>' + esc(title()) +
       (mode === 'w' ? (isLatest() ? ' · reales al ' + esc(ddmm(D.lastActualsDate)) : ' · semana cerrada') : '') + '</span>' +
       '<div class="rs-ctl"><div class="rs-mode" role="group" aria-label="Vista"><button type="button" data-v="w" aria-pressed="' + (mode === 'w') + '">Semanal</button>' +
-      '<button type="button" data-v="m" aria-pressed="' + (mode === 'm') + '">MTD</button></div>' +
+      '<button type="button" data-v="m" aria-pressed="' + (mode === 'm') + '">MTD</button>' +
+      (D.monthly ? '<button type="button" data-v="mo" aria-pressed="' + isMo() + '">Mensual</button>' : '') + '</div>' +
       '<button type="button" class="rs-btn rs-tbd" id="rs-tbd" aria-pressed="' + exTbd + '" title="Saca de las explicaciones el Budget de partners nuevos todavía sin firmar (TBD). Los totales no cambian.">' +
       '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg><span>Excluir TBD</span></button>' +
       '<button type="button" class="rs-btn" id="rs-deck" title="Arma un deck .pptx con el resumen y las tarjetas (se abre en Google Slides o PowerPoint)">' +
@@ -498,9 +519,14 @@ const SCRIPT = String.raw`
       '<button type="button" class="rs-btn" id="rs-link" title="Copia el link a esta vista para mandarlo por Slack">' +
       '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1 1"/><path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1-1"/></svg><span>Copiar link resumen semanal</span></button></div></div>' +
       '<h1 class="rs-in" style="--d:60ms">' + headline(A) + '</h1>' +
-      '<p class="rs-lead rs-in" style="--d:120ms">' + (mode === 'm' ? 'En lo que va del mes, el' : 'El') + ' ecosistema B2B facturó <b>' + money(A.cur.rev) + '</b> de Net Revenues sobre <b>' + money(A.cur.gb) + '</b> de Gross Bookings: ' +
+      '<p class="rs-lead rs-in" style="--d:120ms">' + (mode === 'm' ? 'En lo que va del mes, el' : isMo() ? 'En ' + MESL[+D.monthly.ym.substring(5, 7) - 1] + ', el' : 'El') + ' ecosistema B2B facturó <b>' + money(A.cur.rev) + '</b> de Net Revenues sobre <b>' + money(A.cur.gb) + '</b> de Gross Bookings: ' +
       '<b>' + fp(pct(A.cur.rev, A.bud.rev)) + '</b> vs Budget y <b>' + fp(pct(A.curL.rev, A.ly.rev)) + '</b> vs el año pasado.</p></header>';
-    var chips = mode === 'm'
+    var chips = isMo()
+      ? (D.cmonths || []).map(function (ym, i) {
+        var m = ym.split('-');
+        return '<button type="button" data-mo="' + ym + '" aria-pressed="' + (ym === D.monthly.ym) + '" title="' + MESL[+m[1] - 1] + ' ' + m[0] + '">' + MES[+m[1] - 1].replace(/^./, function (c) { return c.toUpperCase(); }) + (i === 0 ? '<small>último</small>' : '') + '</button>';
+      }).join('')
+      : mode === 'm'
       ? (D.months || []).map(function (ym, i) {
         var m = ym.split('-');
         return '<button type="button" data-m="' + ym + '" aria-pressed="' + (ym === D.month.ym) + '">' + MES[+m[1] - 1].replace(/^./, function (c) { return c.toUpperCase(); }) + (i === 0 ? '<small>MTD</small>' : '') + '</button>';
@@ -512,10 +538,12 @@ const SCRIPT = String.raw`
     html += '<div class="rs-bar rs-in" style="--d:180ms"><div class="rs-tabs" role="tablist" aria-label="Negocio"><span class="ind" aria-hidden="true"></span>' + BIZ.map(function (b) {
       return '<button type="button" role="tab" data-k="' + b.k + '" aria-selected="' + (b.k === sel) + '">' + esc(b.lbl) + '</button>';
     }).join('') + '</div><span class="sp"></span>' +
-      '<div class="rs-weeks" role="group" aria-label="' + (mode === 'm' ? 'Mes' : 'Semana') + '">' + chips + '</div>' +
+      '<div class="rs-weeks" role="group" aria-label="' + (mode === 'w' ? 'Semana' : 'Mes') + '">' + chips + '</div>' +
       '<button type="button" class="rs-btn" id="rs-copy" title="Copia el resumen para pegar en Slack"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="3"/><path d="M5 15V6a3 3 0 0 1 3-3h9"/></svg><span>Copiar para Slack</span></button></div>' +
       '<div id="rs-biz"></div>';
-    html += '<p class="rs-note">' + (mode === 'm'
+    html += '<p class="rs-note">' + (isMo()
+      ? 'Mensual: el mes cerrado completo. LY = mismo mes del año anterior, L3M = promedio de los 3 meses anteriores. Budget y Run Rate del mes. '
+      : mode === 'm'
       ? 'MTD: del 1 al último día con reales del mes elegido (o el mes completo si ya cerró). LY = mismas fechas del año anterior. Budget y Run Rate de las mismas fechas. '
       : 'Semana ISO (lunes a domingo), la última completa con reales. LY = misma semana ISO del año pasado, L4W = promedio de las 4 semanas anteriores. ') +
       'Mismos datos que el Weekly del Daily Dashboard: fecha de gestión, B2B separado por canal (API / HTML = agencias afiliadas). ' +
@@ -527,9 +555,10 @@ const SCRIPT = String.raw`
     Array.prototype.forEach.call(root.querySelectorAll('.rs-weeks button'), function (bt) {
       bt.onclick = function () {
         if (bt.getAttribute('aria-pressed') === 'true') return;
-        if (mode === 'm') { var ym = bt.getAttribute('data-m'); load({ week: req.week, month: ym === D.months[0] ? null : ym }); return; }
+        if (isMo()) { var mo = bt.getAttribute('data-mo'); load({ week: req.week, month: req.month, mo: mo === D.cmonths[0] ? null : mo }); return; }
+        if (mode === 'm') { var ym = bt.getAttribute('data-m'); load({ week: req.week, month: ym === D.months[0] ? null : ym, mo: req.mo }); return; }
         var y = +bt.getAttribute('data-y'), w = +bt.getAttribute('data-w');
-        load({ week: D.weeks[0].week === w && D.weeks[0].year === y ? null : { year: y, week: w }, month: req.month });
+        load({ week: D.weeks[0].week === w && D.weeks[0].year === y ? null : { year: y, week: w }, month: req.month, mo: req.mo });
       };
     });
     Array.prototype.forEach.call(root.querySelectorAll('.rs-mode button'), function (bt) {
@@ -591,7 +620,7 @@ const SCRIPT = String.raw`
       '<div class="kpi-v" data-count="' + (v == null ? '' : v) + '" data-fmt="' + m + '">' + fmtM(m, v) + '</div>' +
       sparkSvg(V.series, m, 'sg-' + m) +
       '<div class="kpi-foot"><span>LY <b class="' + cls(dlt(T.curL, T.ly, m)) + '">' + fd(m, dlt(T.curL, T.ly, m)) + '</b></span>' +
-      (mode === 'w' ? '<span>L4W <b class="' + cls(dlt(T.cur, T.l4w, m)) + '">' + fd(m, dlt(T.cur, T.l4w, m)) + '</b></span>' : '') +
+      (mode !== 'm' ? '<span>' + (isMo() ? 'L3M' : 'L4W') + ' <b class="' + cls(dlt(T.cur, T.l4w, m)) + '">' + fd(m, dlt(T.cur, T.l4w, m)) + '</b></span>' : '') +
       '<span>RR <b class="' + cls(dlt(T.curN, T.rr, m)) + '">' + fd(m, dlt(T.curN, T.rr, m)) + '</b></span></div></section>';
   }
 
@@ -604,7 +633,7 @@ const SCRIPT = String.raw`
     if (mode === 'm') {
       var dd = D.month.days, dm = D.month.daysInMonth, proj = dd ? T.cur.fvm / dd * dm : null;
       row3 = dd < dm ? '<div><span>Proyección vs Budget del mes</span>' + chip(pct(proj, V.budMonth.fvm), 'fvm') + '</div>' : '';
-    } else row3 = '<div><span>vs promedio L4W</span>' + chip(pct(T.cur.fvm, T.l4w.fvm), 'fvm', true) + '</div>';
+    } else row3 = '<div><span>vs promedio ' + (isMo() ? 'L3M' : 'L4W') + '</span>' + chip(pct(T.cur.fvm, T.l4w.fvm), 'fvm', true) + '</div>';
     return '<section class="rs-card c-dial rs-in" style="--d:60ms" aria-label="Cumplimiento de FVM vs Budget"><h2>FVM vs Budget</h2>' +
       '<div class="rs-ring" style="--ring:' + col + '"><svg viewBox="0 0 120 120" aria-hidden="true"><circle class="rs-ring-bg" cx="60" cy="60" r="' + R + '" fill="none" stroke-width="9"/>' +
       '<circle class="rs-ring-fg" cx="60" cy="60" r="' + R + '" fill="none" stroke-width="9" stroke-linecap="round" stroke="' + col + '" ' +
@@ -617,12 +646,12 @@ const SCRIPT = String.raw`
   }
 
   function renderBiz(first) {
-    var V = view(sel), host = document.getElementById('rs-biz'), M = mode === 'm';
+    var V = view(sel), host = document.getElementById('rs-biz'), M = mode === 'm', MO = isMo();
     var h = '<div class="rs-bento"><section class="rs-card c-sum rs-in" style="--d:40ms" aria-labelledby="rs-sum-h">' +
-      '<h2 id="rs-sum-h">' + (M ? 'El mes' : 'La semana') + ' en pocas líneas · ' + esc(bizLbl(sel)) + '</h2>' +
+      '<h2 id="rs-sum-h">' + (M || MO ? 'El mes' : 'La semana') + ' en pocas líneas · ' + esc(bizLbl(sel)) + '</h2>' +
       insightsHtml(sel) + '</section>' + dialCard(V) + ['gb', 'rev', 'fvm', 'sh'].map(function (m, i) { return kpiCard(m, V, i); }).join('');
     h += '<section class="rs-card c-chart rs-in" style="--d:300ms" aria-labelledby="rs-ch-h"><div class="rs-chart-top"><div class="t"><h2 id="rs-ch-h">' +
-      (M ? 'FVM acumulado del mes' : 'Últimas 13 semanas') + '</h2><div class="big" id="rs-ch-big"></div></div>' +
+      (M ? 'FVM acumulado del mes' : MO ? 'FVM por mes' : 'Últimas 13 semanas') + '</h2><div class="big" id="rs-ch-big"></div></div>' +
       '<div class="rs-legend"><span><i style="border-color:var(--s-act)"></i>Actual</span><span><i class="dash" style="border-color:var(--s-bud)"></i>Budget</span>' +
       '<span><i style="border-color:var(--s-ly)"></i>Last Year</span></div></div><div class="rs-plot" id="rs-plot"></div>' +
       '<details class="rs-det" open><summary>Ver como tabla</summary><div class="rs-tbl-wrap" id="rs-trend-tbl"></div></details></section>';
@@ -679,7 +708,7 @@ const SCRIPT = String.raw`
         '<span class="val ' + cls(g.d) + '">' + sgnMoney(g.d) + '</span>' + chip(p, m) + '</div>';
     }
     var body = rows.map(function (r) { return row(r) + r.subs.map(sub).join(''); }).join('') + row({ n: 'Total', c: V.T.cur, b: V.T.bud }, 'tot');
-    var subTxt = 'Net Revenues ' + (mode === 'm' ? periodo() : 'de la semana ' + D.week.week) + ' · la marca es el Budget' +
+    var subTxt = 'Net Revenues ' + (mode !== 'w' ? periodo() : 'de la semana ' + D.week.week) + ' · la marca es el Budget' +
       (V.units.some(function (u) { return u.part; }) ? ' · debajo, los partners que explican el desvío' : '') + (more ? ' · ' + more + ' más en la tabla' : '') +
       (exTbd && tbdGap(V) ? ' · sin partners nuevos (TBD, ' + sgnMoney(tbdGap(V)) + ')' : '');
     return '<section class="rs-card c-bul rs-in" style="--d:360ms" aria-labelledby="rs-bul-h"><h2 id="rs-bul-h">Dónde se explica</h2>' +
@@ -739,7 +768,7 @@ const SCRIPT = String.raw`
     g += '<line id="rs-cross" y1="' + Tp + '" y2="' + (Tp + ih) + '" stroke="var(--text-3)" stroke-width="1" stroke-dasharray="3 3" visibility="hidden"/>';
     g += '<circle id="rs-cdot" r="5" fill="var(--s-act)" stroke="var(--tile)" stroke-width="2" visibility="hidden"/>';
     g += '<rect x="' + L + '" y="' + Tp + '" width="' + iw + '" height="' + ih + '" fill="transparent" id="rs-hit"/>';
-    host.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="FVM ' + (M ? 'acumulado del mes por día' : 'semanal de las últimas 13 semanas') + ': Actual, Budget y Last Year">' + g + '</svg><div class="rs-tip" id="rs-tip"></div>';
+    host.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="FVM ' + (M ? 'acumulado del mes por día' : isMo() ? 'por mes' : 'semanal de las últimas 13 semanas') + ': Actual, Budget y Last Year">' + g + '</svg><div class="rs-tip" id="rs-tip"></div>';
     var last = tr[tr.length - 1];
     document.getElementById('rs-ch-big').innerHTML = 'FVM' + (M ? (isCurMonth() ? ' MTD' : ' del mes') : '') + ' · <span class="' + cls(dlt(last.cur, last.bud, m)) + '">' + fd(m, dlt(last.cur, last.bud, m)) + '</span> <span style="font-size:14px;font-weight:500;color:var(--text-3)">vs Budget' + (M ? ' al ' + last.lbl + ' ' + MES[+D.month.ym.substring(5, 7) - 1] : ' en ' + last.lbl) + '</span>';
     requestAnimationFrame(function () { requestAnimationFrame(function () {
@@ -800,7 +829,7 @@ const SCRIPT = String.raw`
 
   // Slack: el consolidado completo y de cada negocio lo esencial (resultado, dónde y qué mirar), de la vista elegida
   function copySlack() {
-    var t = '*Resumen ' + (mode === 'm' ? 'MTD' : 'semanal') + ' · ' + title() + '*\n\n' + BIZ.map(function (bz) {
+    var t = '*Resumen ' + modeName() + ' · ' + title() + '*\n\n' + BIZ.map(function (bz) {
       var L = insights(bz.k, true).filter(function (x) { return bz.k === 'all' || x.k === 'res' || x.k === 'where' || x.k === 'watch'; });
       return '*' + bz.lbl + '*\n' + L.map(function (x) { return '• _' + x.lbl + ':_ ' + x.t; }).join('\n');
     }).join('\n\n');
@@ -857,7 +886,7 @@ const SCRIPT = String.raw`
   }
   function buildDeck() {
     var keep = sel, P = new window.PptxGenJS(), F = 'Calibri';
-    P.layout = 'LAYOUT_WIDE'; P.title = 'Resumen ' + (mode === 'm' ? 'MTD' : 'semanal') + ' · ' + title();
+    P.layout = 'LAYOUT_WIDE'; P.title = 'Resumen ' + modeName() + ' · ' + title();
     var per = mode === 'm' ? title() : title();
     function head(sl, kicker, ttl) {
       sl.background = { color: 'FFFFFF' };
@@ -885,7 +914,7 @@ const SCRIPT = String.raw`
     // 1. Portada
     sel = 'all';
     var VA = view('all'), s1 = P.addSlide();
-    head(s1, 'Comité ejecutivo · resumen ' + (mode === 'm' ? 'MTD' : 'semanal'), headline(VA.T).replace(/<\/?em>/g, ''));
+    head(s1, 'Comité ejecutivo · resumen ' + modeName(), headline(VA.T).replace(/<\/?em>/g, ''));
     s1.addText(runs(document.querySelector('.rs-lead') ? document.querySelector('.rs-lead').innerHTML : ''), { x: 0.5, y: 1.35, w: 12.3, h: 0.6, fontFace: F, fontSize: 15, color: HX.ink2 });
     kpis(s1, VA, 2.15);
     var dB = pct(VA.T.cur.fvm, VA.T.bud.fvm);
@@ -897,7 +926,7 @@ const SCRIPT = String.raw`
       [['Real', money(VA.T.cur.fvm)], ['Budget', money(VA.T.bud.fvm)], ['Δ', sgnMoney(VA.T.cur.fvm - VA.T.bud.fvm), hxState(dB)]]);
     // 2. En pocas líneas (consolidado)
     var s2 = P.addSlide();
-    head(s2, (mode === 'm' ? 'El mes' : 'La semana') + ' en pocas líneas · Consolidado', 'Qué pasó y de dónde viene el delta');
+    head(s2, (mode !== 'w' ? 'El mes' : 'La semana') + ' en pocas líneas · Consolidado', 'Qué pasó y de dónde viene el delta');
     insights('all', false).forEach(function (x, i) {
       var col = i % 2, rowi = Math.floor(i / 2), X = 0.5 + col * 6.25, Y = 1.45 + rowi * 1.8;
       s2.addShape(P.ShapeType.roundRect, { x: X, y: Y, w: 6.05, h: 1.65, fill: { color: x.k === 'watch' ? 'FFF6E5' : HX.tile }, line: { color: HX.line, width: 0.75 }, rectRadius: 0.1 });
@@ -906,7 +935,7 @@ const SCRIPT = String.raw`
     });
     // 3. FVM: serie y por negocio
     var s3 = P.addSlide(), sr = VA.series;
-    head(s3, mode === 'm' ? 'FVM acumulado del mes' : 'FVM · últimas 13 semanas', 'FVM ' + fp(pct(sr[sr.length - 1].cur.fvm, sr[sr.length - 1].bud.fvm)) + ' vs Budget' + (mode === 'm' ? ' en el mes' : ' en ' + sr[sr.length - 1].lbl));
+    head(s3, mode === 'm' ? 'FVM acumulado del mes' : isMo() ? 'FVM · por mes' : 'FVM · últimas 13 semanas', 'FVM ' + fp(pct(sr[sr.length - 1].cur.fvm, sr[sr.length - 1].bud.fvm)) + ' vs Budget' + (mode === 'm' ? ' en el mes' : ' en ' + sr[sr.length - 1].lbl));
     s3.addChart(P.ChartType.line, [
       { name: 'Actual', labels: sr.map(function (w) { return w.lbl; }), values: sr.map(function (w) { return Math.round(w.cur.fvm); }) },
       { name: 'Budget', labels: sr.map(function (w) { return w.lbl; }), values: sr.map(function (w) { return Math.round(w.bud.fvm); }) },
@@ -949,7 +978,7 @@ const SCRIPT = String.raw`
       })), { x: 7.7, y: 3.05, w: 5.15, h: 3.85, fontFace: F, valign: 'top', paraSpaceAfter: 4 });
     });
     sel = keep;
-    var fn = 'Resumen ' + (mode === 'm' ? 'MTD ' + D.month.ym : 'semanal W' + D.week.week + ' ' + D.week.year) + ' - Ecosistema B2B.pptx';
+    var fn = 'Resumen ' + (mode === 'm' ? 'MTD ' + D.month.ym : isMo() ? 'mensual ' + D.monthly.ym : 'semanal W' + D.week.week + ' ' + D.week.year) + ' - Ecosistema B2B.pptx';
     return P.writeFile({ fileName: fn });
   }
 
@@ -959,7 +988,9 @@ const SCRIPT = String.raw`
     var q = [];
     if (req.week) q.push('semana=' + req.week.year + '-W' + req.week.week);
     if (req.month) q.push('mes=' + req.month);
+    if (req.mo) q.push('mensual=' + req.mo);
     if (mode === 'm') q.push('vista=mtd');
+    if (isMo()) q.push('vista=mensual');
     if (exTbd) q.push('tbd=excluir');
     try { history.replaceState(null, '', q.length ? '?' + q.join('&') : location.pathname); } catch (e) { /* nada */ }
   }
@@ -970,6 +1001,7 @@ const SCRIPT = String.raw`
     var args = {};
     if (r.week) { args.year = r.week.year; args.week = r.week.week; }
     if (r.month) args.month = r.month;
+    if (r.mo) args.mo = r.mo;
     fetch(CFG.api, { method: 'POST', credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'google.script.run' }, body: JSON.stringify({ args: [args] }) })
       .then(function (x) { return x.json().then(function (j) { if (!x.ok) throw new Error(j.error || ('HTTP ' + x.status)); return j.result; }); })
@@ -986,8 +1018,10 @@ const SCRIPT = String.raw`
   }
   var qs = location.search, qw = /[?&]semana=(\d{4})-W(\d{1,2})/.exec(qs), qm = /[?&]mes=(\d{4}-\d{2})/.exec(qs);
   if (/[?&]vista=mtd/.test(qs)) mode = 'm';
+  if (/[?&]vista=mensual/.test(qs)) mode = 'mo';
+  var qmo = /[?&]mensual=(\d{4}-\d{2})/.exec(qs);
   if (/[?&]tbd=excluir/.test(qs)) exTbd = true;
-  load({ week: qw ? { year: +qw[1], week: +qw[2] } : null, month: qm ? qm[1] : null });
+  load({ week: qw ? { year: +qw[1], week: +qw[2] } : null, month: qm ? qm[1] : null, mo: qmo ? qmo[1] : null });
 })();
 `;
 

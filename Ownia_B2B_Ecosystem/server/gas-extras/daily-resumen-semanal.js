@@ -19,6 +19,30 @@ var RS_WEEKS_ = 13;   // semanas de la serie (la última + 12 anteriores)
 var RS_PICK_ = 8;     // semanas cerradas que se pueden elegir en la página (la última + 7 anteriores), 2026-11-06
 var RS_STREAK_ = 4;   // semanas por país (la elegida + 3 anteriores) de NR vs Budget, para ver si un desvío se repite
 var RS_MONTHS_ = 4;
+// Vista mensual (2026-11-17, Tiago: "el deck mensual que se presenta sale de acá"): uno de los últimos RS_MCLOSED_
+// meses cerrados (params.mo, 'YYYY-MM'), completo, contra Budget / LY / Run Rate del mes y el promedio de los 3 meses
+// anteriores (L3M, el equivalente al L4W); serie = los meses del año hasta el elegido (mínimo RS_MSERIES_).
+var RS_MCLOSED_ = 6;
+var RS_MSERIES_ = 6;
+function _rsYmAdd_(ym, n) { return _rsYmd_(new Date(Date.UTC(+ym.substring(0, 4), +ym.substring(5, 7) - 1 + n, 1))).substring(0, 7); }
+function _rsYmEnd_(ym) { return _rsYmd_(new Date(Date.UTC(+ym.substring(0, 4), +ym.substring(5, 7), 0))); }
+// Suma por mes y país ({ 'YYYY-MM': { pais: {gb, rev, fvm} } }); shift corre el año (LY: +1 para quedar en el mes que se compara)
+function _rsAggM_(rows, shift) {
+  var o = {};
+  (rows || []).forEach(function (r) {
+    if (!r.pais || !r.fecha) return;
+    var f = String(r.fecha), ym = (shift ? (+f.substring(0, 4) + shift) : f.substring(0, 4)) + '-' + f.substring(5, 7);
+    var m = o[ym] = o[ym] || {};
+    _rsAdd_(m[r.pais] = m[r.pais] || _rsZ_(), r);
+  });
+  return o;
+}
+// Promedio por país de los meses yms
+function _rsAvgM_(agg, yms) {
+  var o = {};
+  yms.forEach(function (ym) { var x = agg[ym] || {}; Object.keys(x).forEach(function (p) { var s = o[p] = o[p] || _rsZ_(); s.gb += x[p].gb / yms.length; s.rev += x[p].rev / yms.length; s.fvm += x[p].fvm / yms.length; }); });
+  return o;
+}
 // Organic (2026-11-06, pedido de Tiago): misma regla que el Weekly del Daily con el switch ORGANIC en Budget
 // (getWeeklySummaryData, Codigo_organic.js). Los actuals van a TC Budget (cur: todo lo que se compara contra Budget, L4W y
 // la serie); para los vs LY, los actuals a TC Actuals del año anterior (curL, l4wL, cl en las unidades; "opción B"); el
@@ -164,10 +188,21 @@ function getResumenSemanal(params) {
     var mTo = ym === months[0] ? lastDay : mEnd;
     var mLyFrom = _rsShiftYear_(mFrom, -1), mLyTo = _rsShiftYear_(mTo, -1);
 
+    // Vista mensual: meses cerrados (el del último día con reales cuenta si ese día es fin de mes)
+    var lastClosed = lastDay >= _rsYmEnd_(lastDay.substring(0, 7)) ? lastDay.substring(0, 7) : _rsYmAdd_(lastDay.substring(0, 7), -1);
+    var cmonths = [];
+    for (var cq = 0; cq < RS_MCLOSED_; cq++) cmonths.push(_rsYmAdd_(lastClosed, -cq));
+    var mo = cmonths.indexOf(String((params && params.mo) || '')) >= 0 ? String(params.mo) : cmonths[0];
+    var moFrom = mo + '-01', moEnd = _rsYmEnd_(mo), moLyFrom = _rsShiftYear_(moFrom, -1), moLyTo = _rsShiftYear_(moEnd, -1);
+    var nSer = Math.max(+mo.substring(5, 7), RS_MSERIES_), mser = [], l3 = [_rsYmAdd_(mo, -3), _rsYmAdd_(mo, -2), _rsYmAdd_(mo, -1)];
+    for (var sq = nSer - 1; sq >= 0; sq--) mser.push(_rsYmAdd_(mo, -sq));
+    var moOld = (mser[0] < l3[0] ? mser[0] : l3[0]) + '-01';
+
     // Organic: conversores a TC Budget y a TC Actuals LY. Solo se convierten los actuals desde la fecha más vieja que se usa.
     var convB = null, convL = null, orgErr = '';
     try { convB = organicConverter_('budget'); convL = organicConverter_('ly'); } catch (eo) { convB = convL = null; orgErr = 'No se pudo leer el archivo de tipos de cambio: ' + eo.message; }
     var desde = weeks[0].from < months[months.length - 1] + '-01' ? weeks[0].from : months[months.length - 1] + '-01';
+    if (moOld < desde) desde = moOld;
 
     var biz = {};
     BIZ.forEach(function (b) {
@@ -176,6 +211,10 @@ function getResumenSemanal(params) {
       var L = _wsAggWeekly_(_wsByChannel_(_wsGetLY_(b.lob, view, b2bcRaw, b2bRaw), b.ch));
       var B = _wsAggWeekly_(_wsByChannel_(_wsGetBudget_(b.lob, view, b2bcRaw, b2bRaw), b.ch));
       var R = _wsAggWeekly_(_wsByChannel_(_rsRunRate_(b.lob, b2bcRaw, b2bRaw), b.ch));
+      // Mensual: por mes y país (mismas filas que la semana)
+      var MA = _rsAggM_(_rsOrg_(A0, convB, desde)), MAL = _rsAggM_(_rsOrg_(A0, convL, desde)), MAN = _rsAggM_(_rsOrg_(A0, null, desde));
+      var ML = _rsAggM_(_wsByChannel_(_wsGetLY_(b.lob, view, b2bcRaw, b2bRaw), b.ch), 1);
+      var MB = _rsAggM_(_wsByChannel_(_wsGetBudget_(b.lob, view, b2bcRaw, b2bRaw), b.ch)), MR = _rsAggM_(_wsByChannel_(_rsRunRate_(b.lob, b2bcRaw, b2bRaw), b.ch));
       var at = function (agg, w, dy) { return (agg[w.year - (dy || 0)] || {})[w.week] || {}; };
 
       // L4W: promedio por país de las 4 semanas anteriores (con su LY, para comparar el YoY de la semana con el de la tendencia)
@@ -210,7 +249,8 @@ function getResumenSemanal(params) {
       src.A = _rsOrg_(srcN, convB, desde);
       var srcAL = _rsOrg_(srcN, convL, desde), srcAN = _rsOrg_(srcN, null, desde);
       var units = {}, mUnits = {}, mBy = { cur: {}, bud: {}, ly: {}, rr: {}, curL: {}, curN: {} }, budMonth = _rsZ_(), days = {};
-      var ust = [];
+      var ust = [], moUnits = {}, moUst = [];
+      for (var s3 = 3; s3 >= 0; s3--) { var ymx = _rsYmAdd_(mo, -s3); moUst.push({ from: ymx + '-01', to: _rsYmEnd_(ymx), u: {} }); }
       for (var s2 = RS_STREAK_; s2 >= 1; s2--) { var wsx = weeks[weeks.length - s2]; ust.push({ from: wsx.from, to: _rsAddDays_(wsx.from, 6), u: {} }); }
       var dayAcc = function (sc, shift) {
         return function (r, f) {
@@ -226,14 +266,18 @@ function getResumenSemanal(params) {
           { from: wFrom, to: wTo, fn: _rsUnitAcc_(units, 'cl') },
           { from: mFrom, to: mTo, fn: _rsPaisAcc_(mBy.curL) },
           { from: mFrom, to: mTo, fn: _rsUnitAcc_(mUnits, 'cl') },
-          { from: mFrom, to: mTo, fn: dayAcc('curL', 0) }];
+          { from: mFrom, to: mTo, fn: dayAcc('curL', 0) },
+          { from: moFrom, to: moEnd, fn: _rsUnitAcc_(moUnits, 'cl') }];
         if (sc === 'ly') return [
           { from: lyFrom, to: lyTo, fn: _rsUnitAcc_(units, 'ly') },
           { from: mLyFrom, to: mLyTo, fn: _rsPaisAcc_(mBy.ly) },
           { from: mLyFrom, to: mLyTo, fn: _rsUnitAcc_(mUnits, 'ly') },
-          { from: mLyFrom, to: mLyTo, fn: dayAcc('ly', 1) }];
+          { from: mLyFrom, to: mLyTo, fn: dayAcc('ly', 1) },
+          { from: moLyFrom, to: moLyTo, fn: _rsUnitAcc_(moUnits, 'ly') }];
         var sp = [{ from: wFrom, to: wTo, fn: _rsUnitAcc_(units, sc) }];
         ust.forEach(function (w) { sp.push({ from: w.from, to: w.to, fn: stAcc(w, sc === 'cur' ? 0 : 1) }); });
+        moUst.forEach(function (w) { sp.push({ from: w.from, to: w.to, fn: stAcc(w, sc === 'cur' ? 0 : 1) }); });
+        sp.push({ from: moFrom, to: moEnd, fn: _rsUnitAcc_(moUnits, sc) });
         sp.push({ from: mFrom, to: mTo, fn: _rsPaisAcc_(mBy[sc]) });
         sp.push({ from: mFrom, to: mTo, fn: _rsUnitAcc_(mUnits, sc) });
         sp.push({ from: mFrom, to: mTo, fn: dayAcc(sc, 0) });
@@ -247,7 +291,15 @@ function getResumenSemanal(params) {
       _rsScan_(srcAL, specsFor('cl'));
       _rsScan_(srcAN, specsFor('cn'));
 
+      var stOut = function (arr) { return arr.map(function (w) { var o = {}; Object.keys(w.u).forEach(function (k) { o[k] = [Math.round(w.u[k][0]), Math.round(w.u[k][1])]; }); return o; }); };
       biz[b.k] = {
+        monthly: {
+          cur: _rsRound_(MA[mo] || {}), curL: _rsRound_(MAL[mo] || {}), curN: _rsRound_(MAN[mo] || {}),
+          bud: _rsRound_(MB[mo] || {}), ly: _rsRound_(ML[mo] || {}), rr: _rsRound_(MR[mo] || {}),
+          l3m: _rsRound_(_rsAvgM_(MA, l3)), l3mLy: _rsRound_(_rsAvgM_(ML, l3)), l3mL: _rsRound_(_rsAvgM_(MAL, l3)),
+          units: _rsRoundUnits_(moUnits), ustreak: stOut(moUst),
+          trend: mser.map(function (ym) { return { ym: ym, cur: _rsRd_(_rsSum_(MA[ym])), curL: _rsRd_(_rsSum_(MAL[ym])), bud: _rsRd_(_rsSum_(MB[ym])), ly: _rsRd_(_rsSum_(ML[ym])) }; }),
+        },
         units: _rsRoundUnits_(units),
         ustreak: ust.map(function (w) { var o = {}; Object.keys(w.u).forEach(function (k) { o[k] = [Math.round(w.u[k][0]), Math.round(w.u[k][1])]; }); return o; }),
         mtd: {
@@ -284,6 +336,8 @@ function getResumenSemanal(params) {
       weeks: pick.map(function (w) { return { year: w.year, week: w.week, from: w.from }; }),
       month: { ym: ym, from: mFrom, to: mTo, end: mEnd, days: +mTo.substring(8, 10), daysInMonth: +mEnd.substring(8, 10) },
       months: months,
+      monthly: { ym: mo, from: moFrom, to: moEnd },
+      cmonths: cmonths,
       lastActualsDate: lastDay,
       generatedAt: (b2bcRaw.meta || {}).generated_at || null,
       exCoiBr: _wsExCoiBr_,
