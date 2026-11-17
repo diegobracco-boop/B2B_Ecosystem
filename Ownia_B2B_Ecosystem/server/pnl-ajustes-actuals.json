@@ -1,9 +1,15 @@
 {
  "meta": {
-  "fuente": "Control de Gestión - 2026-27/B2B & WLs/Base_P&L_Contable/Actuals_GB_Ajustes_OC.csv (copia del 2026-11-09)",
-  "que_es": "Reclasificación de Gross Bookings y Orders de API B2B-MAY entre abril y junio de 2026. Neto ~0. Conso NO la incorpora (confirmado 2026-11-17): se mantiene como ajuste propio sobre la tabla del consolidador.",
-  "como_actualizar": "Si cambia el CSV de origen, regenerar este archivo (mismo vocabulario que la tabla: país, producto, LoB, canal; GB INT + NAC y Orders INT + NAC ya sumados).",
-  "aplica_a": "ACT/FC1/LRR del FY27 en los meses <= último cerrado (en la tabla, esos meses son actuals en todos esos escenarios)"
+  "fuente": "Control de Gestión - 2026-27/B2B & WLs/Base_P&L_Contable/Actuals_GB_Ajustes_OC.csv",
+  "que_es": "Reclasificación de Gross Bookings y Orders de API B2B-MAY entre abril y junio de 2026. Neto ~0. Conso NO la incorpora (confirmado 2026-11-17).",
+  "como_actualizar": "python scripts/generar-ajustes-pnl.py (GB INT + NAC y Orders INT + NAC ya sumados).",
+  "escenarios_por_anio": {
+   "FY27": [
+    "ACT",
+    "FC1"
+   ]
+  },
+  "hasta_ultimo_cerrado": true
  },
  "cols": [
   "year",

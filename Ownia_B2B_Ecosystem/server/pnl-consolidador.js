@@ -13,13 +13,17 @@ const fs = require('fs');
 const path = require('path');
 const { IDS } = require('./pnl-drive-dimensiones');
 
-// Ajuste propio sobre los actuals (conso no lo incorpora): reclasificación de GB y Orders de API B2B-MAY, abril-junio.
-// Ver el meta de server/pnl-ajustes-actuals.json. Se suma a ACT y FC1 del FY27 en los meses <= último cerrado
-// (en la tabla, esos meses son actuals en los dos escenarios). El LRR de Drive no lo incluye: no se le aplica.
-const AJUSTES_PATH = path.join(__dirname, 'pnl-ajustes-actuals.json');
-const AJUSTES_ESCENARIOS = ['ACT', 'FC1'];   // el lastrunrate.json de Drive no lo trae (medido el 17/11): se replica, no se corrige
+// Ajustes propios que se suman a la tabla (la tabla es AS REPORTED y estas partidas las pone el pipeline de Drive):
+//   - pnl-ajustes-actuals.json: reclasificación de GB y Orders de API B2B-MAY, abril-junio (conso no la incorpora).
+//   - pnl-ajustes-axi.json: "Reverso AxI" (SIN PPA), hoy solo Other Incentives de B2B y B2B2C: hoja Budget -> FY27, hoja RunRate -> FY26.
+// Cada archivo dice en su `meta` a qué escenarios del año aplica (`escenarios_por_anio`) y si solo hasta el último mes cerrado
+// (`hasta_ultimo_cerrado`, por defecto sí). Se regeneran con scripts/generar-ajustes-pnl.py cuando cambian sus fuentes.
+const AJUSTES_ARCHIVOS = ['pnl-ajustes-actuals.json', 'pnl-ajustes-axi.json'];
+const AJUSTE_DEFAULT = { escenarios_por_anio: { FY27: ['ACT', 'FC1'] }, hasta_ultimo_cerrado: true };
 function cargarAjustes() {
-  try { return JSON.parse(fs.readFileSync(AJUSTES_PATH, 'utf8')); } catch (e) { return { cols: [], rows: [] }; }
+  return AJUSTES_ARCHIVOS.map((n) => {
+    try { return JSON.parse(fs.readFileSync(path.join(__dirname, n), 'utf8')); } catch (e) { return { meta: {}, cols: [], rows: [] }; }
+  });
 }
 
 const COLS = ['LoB', 'Canal', 'Pais', 'Producto', 'P&L N2', 'Fecha', 'Monto USD'];
@@ -91,15 +95,21 @@ function buildCanonicals(cubo, opts = {}) {
     ['ly', 'ACT', 'FY26', () => true],
   ];
   const bySc = {};   // 'ACT|FY27' -> filas ya traducidas (agregadas)
-  const aj = opts.ajustes === undefined ? cargarAjustes() : opts.ajustes;
-  const ai = Object.fromEntries((aj.cols || []).map((c, i) => [c, i]));
-  const filas = (aj.rows || []).filter((a) => fechaFiscal(a[ai.year], a[ai.mes]) <= ultimoCerrado)
-    .flatMap((a) => AJUSTES_ESCENARIOS.map((sc) => {
-      const r = new Array(cubo.cols.length).fill(null);
-      r[ix.scenario] = sc; r[ix.year] = a[ai.year]; r[ix.mes] = a[ai.mes]; r[ix.pais] = a[ai.pais]; r[ix.lob] = a[ai.lob];
-      r[ix.channel] = a[ai.channel]; r[ix.product] = a[ai.product]; r[ix.n2] = a[ai.n2]; r[ix.valor] = a[ai.valor];
-      return r;
-    }));
+  const archivos = opts.ajustes === undefined ? cargarAjustes() : (Array.isArray(opts.ajustes) ? opts.ajustes : [opts.ajustes]);
+  const filas = [];
+  for (const aj of archivos) {
+    const meta = { ...AJUSTE_DEFAULT, ...(aj.meta || {}) };
+    const ai = Object.fromEntries((aj.cols || []).map((c, i) => [c, i]));
+    for (const a of aj.rows || []) {
+      if (meta.hasta_ultimo_cerrado !== false && fechaFiscal(a[ai.year], a[ai.mes]) > ultimoCerrado) continue;
+      for (const sc of meta.escenarios_por_anio[a[ai.year]] || []) {
+        const r = new Array(cubo.cols.length).fill(null);
+        r[ix.scenario] = sc; r[ix.year] = a[ai.year]; r[ix.mes] = a[ai.mes]; r[ix.pais] = a[ai.pais]; r[ix.lob] = a[ai.lob];
+        r[ix.channel] = a[ai.channel]; r[ix.product] = a[ai.product]; r[ix.n2] = a[ai.n2]; r[ix.valor] = a[ai.valor];
+        filas.push(r);
+      }
+    }
+  }
   for (const row of cubo.rows.concat(filas)) {
     const k = `${row[ix.scenario]}|${row[ix.year]}`;
     const lob = row[ix.lob];

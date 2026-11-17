@@ -1,0 +1,9572 @@
+{
+ "meta": {
+  "fuente": "Planning-PBI - Inputs Power Bi/Actuals/Reverso AxI.xlsx (hojas Budget -> FY27 y RunRate -> FY26)",
+  "que_es": "Reverso AxI (SIN PPA): conso trae AS REPORTED y el pipeline saca el efecto PPA sumando esto. Hoy solo 'Other Incentives' de B2B y B2B2C. Verificado 2026-11-17: la hoja Budget suma 1.500.322 (diferencia medida contra Drive: -1.500.321) y la hoja RunRate 748.004 (LY: -748.004).",
+  "como_actualizar": "python scripts/generar-ajustes-pnl.py cuando cambie el Excel.",
+  "escenarios_por_anio": {
+   "FY27": [
+    "ACT",
+    "BGT",
+    "FC1",
+    "LRR",
+    "RR"
+   ],
+   "FY26": [
+    "ACT"
+   ]
+  },
+  "hasta_ultimo_cerrado": false
+ },
+ "cols": [
+  "year",
+  "mes",
+  "pais",
+  "lob",
+  "channel",
+  "product",
+  "n2",
+  "valor"
+ ],
+ "rows": [
+  [
+   "FY27",
+   4,
+   "Argentina",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   671.183157
+  ],
+  [
+   "FY27",
+   5,
+   "Argentina",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   671.183157
+  ],
+  [
+   "FY27",
+   6,
+   "Argentina",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   671.183157
+  ],
+  [
+   "FY27",
+   7,
+   "Argentina",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   671.183157
+  ],
+  [
+   "FY27",
+   8,
+   "Argentina",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   671.183157
+  ],
+  [
+   "FY27",
+   9,
+   "Argentina",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   671.183157
+  ],
+  [
+   "FY27",
+   10,
+   "Argentina",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   671.183157
+  ],
+  [
+   "FY27",
+   11,
+   "Argentina",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   671.183157
+  ],
+  [
+   "FY27",
+   12,
+   "Argentina",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   671.183157
+  ],
+  [
+   "FY27",
+   1,
+   "Argentina",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   716.962684
+  ],
+  [
+   "FY27",
+   2,
+   "Argentina",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   716.962684
+  ],
+  [
+   "FY27",
+   3,
+   "Argentina",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   716.962684
+  ],
+  [
+   "FY27",
+   4,
+   "Argentina",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   654.384847
+  ],
+  [
+   "FY27",
+   5,
+   "Argentina",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   654.384847
+  ],
+  [
+   "FY27",
+   6,
+   "Argentina",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   654.384847
+  ],
+  [
+   "FY27",
+   7,
+   "Argentina",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   654.384847
+  ],
+  [
+   "FY27",
+   8,
+   "Argentina",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   654.384847
+  ],
+  [
+   "FY27",
+   9,
+   "Argentina",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   654.384847
+  ],
+  [
+   "FY27",
+   10,
+   "Argentina",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   654.384847
+  ],
+  [
+   "FY27",
+   11,
+   "Argentina",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   654.384847
+  ],
+  [
+   "FY27",
+   12,
+   "Argentina",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   654.384847
+  ],
+  [
+   "FY27",
+   1,
+   "Argentina",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   663.957893
+  ],
+  [
+   "FY27",
+   2,
+   "Argentina",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   663.957893
+  ],
+  [
+   "FY27",
+   3,
+   "Argentina",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   663.957893
+  ],
+  [
+   "FY27",
+   4,
+   "Mexico",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   8417.792752
+  ],
+  [
+   "FY27",
+   5,
+   "Mexico",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   8417.792752
+  ],
+  [
+   "FY27",
+   6,
+   "Mexico",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   8417.792752
+  ],
+  [
+   "FY27",
+   7,
+   "Mexico",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   8417.792752
+  ],
+  [
+   "FY27",
+   8,
+   "Mexico",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   8417.792752
+  ],
+  [
+   "FY27",
+   9,
+   "Mexico",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   8417.792752
+  ],
+  [
+   "FY27",
+   10,
+   "Mexico",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   8417.792752
+  ],
+  [
+   "FY27",
+   11,
+   "Mexico",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   8417.792752
+  ],
+  [
+   "FY27",
+   12,
+   "Mexico",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   8417.792752
+  ],
+  [
+   "FY27",
+   1,
+   "Mexico",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   8360.721168
+  ],
+  [
+   "FY27",
+   2,
+   "Mexico",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   8360.721168
+  ],
+  [
+   "FY27",
+   3,
+   "Mexico",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   8360.721168
+  ],
+  [
+   "FY27",
+   4,
+   "Mexico",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   1795.537051
+  ],
+  [
+   "FY27",
+   5,
+   "Mexico",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   1795.537051
+  ],
+  [
+   "FY27",
+   6,
+   "Mexico",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   1795.537051
+  ],
+  [
+   "FY27",
+   7,
+   "Mexico",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   1795.537051
+  ],
+  [
+   "FY27",
+   8,
+   "Mexico",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   1795.537051
+  ],
+  [
+   "FY27",
+   9,
+   "Mexico",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   1795.537051
+  ],
+  [
+   "FY27",
+   10,
+   "Mexico",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   1795.537051
+  ],
+  [
+   "FY27",
+   11,
+   "Mexico",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   1795.537051
+  ],
+  [
+   "FY27",
+   12,
+   "Mexico",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   1795.537051
+  ],
+  [
+   "FY27",
+   1,
+   "Mexico",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   1808.904728
+  ],
+  [
+   "FY27",
+   2,
+   "Mexico",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   1808.904728
+  ],
+  [
+   "FY27",
+   3,
+   "Mexico",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   1808.904728
+  ],
+  [
+   "FY27",
+   4,
+   "Brazil",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   6644.611477
+  ],
+  [
+   "FY27",
+   5,
+   "Brazil",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   6644.611477
+  ],
+  [
+   "FY27",
+   6,
+   "Brazil",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   6644.611477
+  ],
+  [
+   "FY27",
+   7,
+   "Brazil",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   6644.611477
+  ],
+  [
+   "FY27",
+   8,
+   "Brazil",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   6644.611477
+  ],
+  [
+   "FY27",
+   9,
+   "Brazil",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   6644.611477
+  ],
+  [
+   "FY27",
+   10,
+   "Brazil",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   6644.611477
+  ],
+  [
+   "FY27",
+   11,
+   "Brazil",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   6644.611477
+  ],
+  [
+   "FY27",
+   12,
+   "Brazil",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   6644.611477
+  ],
+  [
+   "FY27",
+   1,
+   "Brazil",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   6555.54566
+  ],
+  [
+   "FY27",
+   2,
+   "Brazil",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   6555.54566
+  ],
+  [
+   "FY27",
+   3,
+   "Brazil",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   6555.54566
+  ],
+  [
+   "FY27",
+   4,
+   "Brazil",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   6275.991023
+  ],
+  [
+   "FY27",
+   5,
+   "Brazil",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   6275.991023
+  ],
+  [
+   "FY27",
+   6,
+   "Brazil",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   6275.991023
+  ],
+  [
+   "FY27",
+   7,
+   "Brazil",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   6275.991023
+  ],
+  [
+   "FY27",
+   8,
+   "Brazil",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   6275.991023
+  ],
+  [
+   "FY27",
+   9,
+   "Brazil",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   6275.991023
+  ],
+  [
+   "FY27",
+   10,
+   "Brazil",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   6275.991023
+  ],
+  [
+   "FY27",
+   11,
+   "Brazil",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   6275.991023
+  ],
+  [
+   "FY27",
+   12,
+   "Brazil",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   6275.991023
+  ],
+  [
+   "FY27",
+   1,
+   "Brazil",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   6352.542973
+  ],
+  [
+   "FY27",
+   2,
+   "Brazil",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   6352.542973
+  ],
+  [
+   "FY27",
+   3,
+   "Brazil",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   6352.542973
+  ],
+  [
+   "FY27",
+   4,
+   "Brazil",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   9.843482
+  ],
+  [
+   "FY27",
+   5,
+   "Brazil",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   9.843482
+  ],
+  [
+   "FY27",
+   6,
+   "Brazil",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   9.843482
+  ],
+  [
+   "FY27",
+   7,
+   "Brazil",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   9.843482
+  ],
+  [
+   "FY27",
+   8,
+   "Brazil",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   9.843482
+  ],
+  [
+   "FY27",
+   9,
+   "Brazil",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   9.843482
+  ],
+  [
+   "FY27",
+   10,
+   "Brazil",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   9.843482
+  ],
+  [
+   "FY27",
+   11,
+   "Brazil",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   9.843482
+  ],
+  [
+   "FY27",
+   12,
+   "Brazil",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   9.843482
+  ],
+  [
+   "FY27",
+   1,
+   "Brazil",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   9.405948
+  ],
+  [
+   "FY27",
+   2,
+   "Brazil",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   9.405948
+  ],
+  [
+   "FY27",
+   3,
+   "Brazil",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   9.405948
+  ],
+  [
+   "FY27",
+   4,
+   "Brazil",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   1.708687
+  ],
+  [
+   "FY27",
+   5,
+   "Brazil",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   1.708687
+  ],
+  [
+   "FY27",
+   6,
+   "Brazil",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   1.708687
+  ],
+  [
+   "FY27",
+   7,
+   "Brazil",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   1.708687
+  ],
+  [
+   "FY27",
+   8,
+   "Brazil",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   1.708687
+  ],
+  [
+   "FY27",
+   9,
+   "Brazil",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   1.708687
+  ],
+  [
+   "FY27",
+   10,
+   "Brazil",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   1.708687
+  ],
+  [
+   "FY27",
+   11,
+   "Brazil",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   1.708687
+  ],
+  [
+   "FY27",
+   12,
+   "Brazil",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   1.708687
+  ],
+  [
+   "FY27",
+   1,
+   "Brazil",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   1.632737
+  ],
+  [
+   "FY27",
+   2,
+   "Brazil",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   1.632737
+  ],
+  [
+   "FY27",
+   3,
+   "Brazil",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   1.632737
+  ],
+  [
+   "FY27",
+   4,
+   "Chile",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   868.164485
+  ],
+  [
+   "FY27",
+   5,
+   "Chile",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   868.164485
+  ],
+  [
+   "FY27",
+   6,
+   "Chile",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   868.164485
+  ],
+  [
+   "FY27",
+   7,
+   "Chile",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   868.164485
+  ],
+  [
+   "FY27",
+   8,
+   "Chile",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   868.164485
+  ],
+  [
+   "FY27",
+   9,
+   "Chile",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   868.164485
+  ],
+  [
+   "FY27",
+   10,
+   "Chile",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   868.164485
+  ],
+  [
+   "FY27",
+   11,
+   "Chile",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   868.164485
+  ],
+  [
+   "FY27",
+   12,
+   "Chile",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   868.164485
+  ],
+  [
+   "FY27",
+   1,
+   "Chile",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   840.198855
+  ],
+  [
+   "FY27",
+   2,
+   "Chile",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   840.198855
+  ],
+  [
+   "FY27",
+   3,
+   "Chile",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   840.198855
+  ],
+  [
+   "FY27",
+   4,
+   "Chile",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   2925.272782
+  ],
+  [
+   "FY27",
+   5,
+   "Chile",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   2925.272782
+  ],
+  [
+   "FY27",
+   6,
+   "Chile",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   2925.272782
+  ],
+  [
+   "FY27",
+   7,
+   "Chile",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   2925.272782
+  ],
+  [
+   "FY27",
+   8,
+   "Chile",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   2925.272782
+  ],
+  [
+   "FY27",
+   9,
+   "Chile",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   2925.272782
+  ],
+  [
+   "FY27",
+   10,
+   "Chile",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   2925.272782
+  ],
+  [
+   "FY27",
+   11,
+   "Chile",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   2925.272782
+  ],
+  [
+   "FY27",
+   12,
+   "Chile",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   2925.272782
+  ],
+  [
+   "FY27",
+   1,
+   "Chile",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   2889.602023
+  ],
+  [
+   "FY27",
+   2,
+   "Chile",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   2889.602023
+  ],
+  [
+   "FY27",
+   3,
+   "Chile",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   2889.602023
+  ],
+  [
+   "FY27",
+   4,
+   "Chile",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   7.137781
+  ],
+  [
+   "FY27",
+   5,
+   "Chile",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   7.137781
+  ],
+  [
+   "FY27",
+   6,
+   "Chile",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   7.137781
+  ],
+  [
+   "FY27",
+   7,
+   "Chile",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   7.137781
+  ],
+  [
+   "FY27",
+   8,
+   "Chile",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   7.137781
+  ],
+  [
+   "FY27",
+   9,
+   "Chile",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   7.137781
+  ],
+  [
+   "FY27",
+   10,
+   "Chile",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   7.137781
+  ],
+  [
+   "FY27",
+   11,
+   "Chile",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   7.137781
+  ],
+  [
+   "FY27",
+   12,
+   "Chile",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   7.137781
+  ],
+  [
+   "FY27",
+   1,
+   "Chile",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   6.820513
+  ],
+  [
+   "FY27",
+   2,
+   "Chile",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   6.820513
+  ],
+  [
+   "FY27",
+   3,
+   "Chile",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   6.820513
+  ],
+  [
+   "FY27",
+   4,
+   "Chile",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   34.730675
+  ],
+  [
+   "FY27",
+   5,
+   "Chile",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   34.730675
+  ],
+  [
+   "FY27",
+   6,
+   "Chile",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   34.730675
+  ],
+  [
+   "FY27",
+   7,
+   "Chile",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   34.730675
+  ],
+  [
+   "FY27",
+   8,
+   "Chile",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   34.730675
+  ],
+  [
+   "FY27",
+   9,
+   "Chile",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   34.730675
+  ],
+  [
+   "FY27",
+   10,
+   "Chile",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   34.730675
+  ],
+  [
+   "FY27",
+   11,
+   "Chile",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   34.730675
+  ],
+  [
+   "FY27",
+   12,
+   "Chile",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   34.730675
+  ],
+  [
+   "FY27",
+   1,
+   "Chile",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   34.007694
+  ],
+  [
+   "FY27",
+   2,
+   "Chile",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   34.007694
+  ],
+  [
+   "FY27",
+   3,
+   "Chile",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   34.007694
+  ],
+  [
+   "FY27",
+   4,
+   "Ecuador",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   5.901628
+  ],
+  [
+   "FY27",
+   5,
+   "Ecuador",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   5.901628
+  ],
+  [
+   "FY27",
+   6,
+   "Ecuador",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   5.901628
+  ],
+  [
+   "FY27",
+   7,
+   "Ecuador",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   5.901628
+  ],
+  [
+   "FY27",
+   8,
+   "Ecuador",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   5.901628
+  ],
+  [
+   "FY27",
+   9,
+   "Ecuador",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   5.901628
+  ],
+  [
+   "FY27",
+   10,
+   "Ecuador",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   5.901628
+  ],
+  [
+   "FY27",
+   11,
+   "Ecuador",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   5.901628
+  ],
+  [
+   "FY27",
+   12,
+   "Ecuador",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   5.901628
+  ],
+  [
+   "FY27",
+   1,
+   "Ecuador",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   5.966631
+  ],
+  [
+   "FY27",
+   2,
+   "Ecuador",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   5.966631
+  ],
+  [
+   "FY27",
+   3,
+   "Ecuador",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   5.966631
+  ],
+  [
+   "FY27",
+   4,
+   "Peru",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   464.474981
+  ],
+  [
+   "FY27",
+   5,
+   "Peru",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   464.474981
+  ],
+  [
+   "FY27",
+   6,
+   "Peru",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   464.474981
+  ],
+  [
+   "FY27",
+   7,
+   "Peru",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   464.474981
+  ],
+  [
+   "FY27",
+   8,
+   "Peru",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   464.474981
+  ],
+  [
+   "FY27",
+   9,
+   "Peru",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   464.474981
+  ],
+  [
+   "FY27",
+   10,
+   "Peru",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   464.474981
+  ],
+  [
+   "FY27",
+   11,
+   "Peru",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   464.474981
+  ],
+  [
+   "FY27",
+   12,
+   "Peru",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   464.474981
+  ],
+  [
+   "FY27",
+   1,
+   "Peru",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   450.382339
+  ],
+  [
+   "FY27",
+   2,
+   "Peru",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   450.382339
+  ],
+  [
+   "FY27",
+   3,
+   "Peru",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   450.382339
+  ],
+  [
+   "FY27",
+   4,
+   "Peru",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   913.510291
+  ],
+  [
+   "FY27",
+   5,
+   "Peru",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   913.510291
+  ],
+  [
+   "FY27",
+   6,
+   "Peru",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   913.510291
+  ],
+  [
+   "FY27",
+   7,
+   "Peru",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   913.510291
+  ],
+  [
+   "FY27",
+   8,
+   "Peru",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   913.510291
+  ],
+  [
+   "FY27",
+   9,
+   "Peru",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   913.510291
+  ],
+  [
+   "FY27",
+   10,
+   "Peru",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   913.510291
+  ],
+  [
+   "FY27",
+   11,
+   "Peru",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   913.510291
+  ],
+  [
+   "FY27",
+   12,
+   "Peru",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   913.510291
+  ],
+  [
+   "FY27",
+   1,
+   "Peru",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   902.213987
+  ],
+  [
+   "FY27",
+   2,
+   "Peru",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   902.213987
+  ],
+  [
+   "FY27",
+   3,
+   "Peru",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   902.213987
+  ],
+  [
+   "FY27",
+   4,
+   "Peru",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   25.814928
+  ],
+  [
+   "FY27",
+   5,
+   "Peru",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   25.814928
+  ],
+  [
+   "FY27",
+   6,
+   "Peru",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   25.814928
+  ],
+  [
+   "FY27",
+   7,
+   "Peru",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   25.814928
+  ],
+  [
+   "FY27",
+   8,
+   "Peru",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   25.814928
+  ],
+  [
+   "FY27",
+   9,
+   "Peru",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   25.814928
+  ],
+  [
+   "FY27",
+   10,
+   "Peru",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   25.814928
+  ],
+  [
+   "FY27",
+   11,
+   "Peru",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   25.814928
+  ],
+  [
+   "FY27",
+   12,
+   "Peru",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   25.814928
+  ],
+  [
+   "FY27",
+   1,
+   "Peru",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   24.736365
+  ],
+  [
+   "FY27",
+   2,
+   "Peru",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   24.736365
+  ],
+  [
+   "FY27",
+   3,
+   "Peru",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   24.736365
+  ],
+  [
+   "FY27",
+   4,
+   "Peru",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   22.391513
+  ],
+  [
+   "FY27",
+   5,
+   "Peru",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   22.391513
+  ],
+  [
+   "FY27",
+   6,
+   "Peru",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   22.391513
+  ],
+  [
+   "FY27",
+   7,
+   "Peru",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   22.391513
+  ],
+  [
+   "FY27",
+   8,
+   "Peru",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   22.391513
+  ],
+  [
+   "FY27",
+   9,
+   "Peru",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   22.391513
+  ],
+  [
+   "FY27",
+   10,
+   "Peru",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   22.391513
+  ],
+  [
+   "FY27",
+   11,
+   "Peru",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   22.391513
+  ],
+  [
+   "FY27",
+   12,
+   "Peru",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   22.391513
+  ],
+  [
+   "FY27",
+   1,
+   "Peru",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   21.834578
+  ],
+  [
+   "FY27",
+   2,
+   "Peru",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   21.834578
+  ],
+  [
+   "FY27",
+   3,
+   "Peru",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   21.834578
+  ],
+  [
+   "FY27",
+   4,
+   "Colombia",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   1406.933142
+  ],
+  [
+   "FY27",
+   5,
+   "Colombia",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   1406.933142
+  ],
+  [
+   "FY27",
+   6,
+   "Colombia",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   1406.933142
+  ],
+  [
+   "FY27",
+   7,
+   "Colombia",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   1406.933142
+  ],
+  [
+   "FY27",
+   8,
+   "Colombia",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   1406.933142
+  ],
+  [
+   "FY27",
+   9,
+   "Colombia",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   1406.933142
+  ],
+  [
+   "FY27",
+   10,
+   "Colombia",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   1406.933142
+  ],
+  [
+   "FY27",
+   11,
+   "Colombia",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   1406.933142
+  ],
+  [
+   "FY27",
+   12,
+   "Colombia",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   1406.933142
+  ],
+  [
+   "FY27",
+   1,
+   "Colombia",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   1357.492899
+  ],
+  [
+   "FY27",
+   2,
+   "Colombia",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   1357.492899
+  ],
+  [
+   "FY27",
+   3,
+   "Colombia",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   1357.492899
+  ],
+  [
+   "FY27",
+   4,
+   "Colombia",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   491.651653
+  ],
+  [
+   "FY27",
+   5,
+   "Colombia",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   491.651653
+  ],
+  [
+   "FY27",
+   6,
+   "Colombia",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   491.651653
+  ],
+  [
+   "FY27",
+   7,
+   "Colombia",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   491.651653
+  ],
+  [
+   "FY27",
+   8,
+   "Colombia",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   491.651653
+  ],
+  [
+   "FY27",
+   9,
+   "Colombia",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   491.651653
+  ],
+  [
+   "FY27",
+   10,
+   "Colombia",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   491.651653
+  ],
+  [
+   "FY27",
+   11,
+   "Colombia",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   491.651653
+  ],
+  [
+   "FY27",
+   12,
+   "Colombia",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   491.651653
+  ],
+  [
+   "FY27",
+   1,
+   "Colombia",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   477.943975
+  ],
+  [
+   "FY27",
+   2,
+   "Colombia",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   477.943975
+  ],
+  [
+   "FY27",
+   3,
+   "Colombia",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   477.943975
+  ],
+  [
+   "FY27",
+   4,
+   "Others",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   229.408462
+  ],
+  [
+   "FY27",
+   5,
+   "Others",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   229.408462
+  ],
+  [
+   "FY27",
+   6,
+   "Others",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   229.408462
+  ],
+  [
+   "FY27",
+   7,
+   "Others",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   229.408462
+  ],
+  [
+   "FY27",
+   8,
+   "Others",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   229.408462
+  ],
+  [
+   "FY27",
+   9,
+   "Others",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   229.408462
+  ],
+  [
+   "FY27",
+   10,
+   "Others",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   229.408462
+  ],
+  [
+   "FY27",
+   11,
+   "Others",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   229.408462
+  ],
+  [
+   "FY27",
+   12,
+   "Others",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   229.408462
+  ],
+  [
+   "FY27",
+   1,
+   "Others",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   228.686844
+  ],
+  [
+   "FY27",
+   2,
+   "Others",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   228.686844
+  ],
+  [
+   "FY27",
+   3,
+   "Others",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   228.686844
+  ],
+  [
+   "FY27",
+   4,
+   "Others",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   28.310203
+  ],
+  [
+   "FY27",
+   5,
+   "Others",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   28.310203
+  ],
+  [
+   "FY27",
+   6,
+   "Others",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   28.310203
+  ],
+  [
+   "FY27",
+   7,
+   "Others",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   28.310203
+  ],
+  [
+   "FY27",
+   8,
+   "Others",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   28.310203
+  ],
+  [
+   "FY27",
+   9,
+   "Others",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   28.310203
+  ],
+  [
+   "FY27",
+   10,
+   "Others",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   28.310203
+  ],
+  [
+   "FY27",
+   11,
+   "Others",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   28.310203
+  ],
+  [
+   "FY27",
+   12,
+   "Others",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   28.310203
+  ],
+  [
+   "FY27",
+   1,
+   "Others",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   28.298285
+  ],
+  [
+   "FY27",
+   2,
+   "Others",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   28.298285
+  ],
+  [
+   "FY27",
+   3,
+   "Others",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   28.298285
+  ],
+  [
+   "FY27",
+   4,
+   "Argentina",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   392.660901
+  ],
+  [
+   "FY27",
+   5,
+   "Argentina",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   392.660901
+  ],
+  [
+   "FY27",
+   6,
+   "Argentina",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   392.660901
+  ],
+  [
+   "FY27",
+   7,
+   "Argentina",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   392.660901
+  ],
+  [
+   "FY27",
+   8,
+   "Argentina",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   392.660901
+  ],
+  [
+   "FY27",
+   9,
+   "Argentina",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   392.660901
+  ],
+  [
+   "FY27",
+   10,
+   "Argentina",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   392.660901
+  ],
+  [
+   "FY27",
+   11,
+   "Argentina",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   392.660901
+  ],
+  [
+   "FY27",
+   12,
+   "Argentina",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   392.660901
+  ],
+  [
+   "FY27",
+   1,
+   "Argentina",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   422.108407
+  ],
+  [
+   "FY27",
+   2,
+   "Argentina",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   422.108407
+  ],
+  [
+   "FY27",
+   3,
+   "Argentina",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   422.108407
+  ],
+  [
+   "FY27",
+   4,
+   "Argentina",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   72.130052
+  ],
+  [
+   "FY27",
+   5,
+   "Argentina",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   72.130052
+  ],
+  [
+   "FY27",
+   6,
+   "Argentina",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   72.130052
+  ],
+  [
+   "FY27",
+   7,
+   "Argentina",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   72.130052
+  ],
+  [
+   "FY27",
+   8,
+   "Argentina",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   72.130052
+  ],
+  [
+   "FY27",
+   9,
+   "Argentina",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   72.130052
+  ],
+  [
+   "FY27",
+   10,
+   "Argentina",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   72.130052
+  ],
+  [
+   "FY27",
+   11,
+   "Argentina",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   72.130052
+  ],
+  [
+   "FY27",
+   12,
+   "Argentina",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   72.130052
+  ],
+  [
+   "FY27",
+   1,
+   "Argentina",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   77.539427
+  ],
+  [
+   "FY27",
+   2,
+   "Argentina",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   77.539427
+  ],
+  [
+   "FY27",
+   3,
+   "Argentina",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   77.539427
+  ],
+  [
+   "FY27",
+   4,
+   "Argentina",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   608.207031
+  ],
+  [
+   "FY27",
+   5,
+   "Argentina",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   608.207031
+  ],
+  [
+   "FY27",
+   6,
+   "Argentina",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   608.207031
+  ],
+  [
+   "FY27",
+   7,
+   "Argentina",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   608.207031
+  ],
+  [
+   "FY27",
+   8,
+   "Argentina",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   608.207031
+  ],
+  [
+   "FY27",
+   9,
+   "Argentina",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   608.207031
+  ],
+  [
+   "FY27",
+   10,
+   "Argentina",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   608.207031
+  ],
+  [
+   "FY27",
+   11,
+   "Argentina",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   608.207031
+  ],
+  [
+   "FY27",
+   12,
+   "Argentina",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   608.207031
+  ],
+  [
+   "FY27",
+   1,
+   "Argentina",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   591.494575
+  ],
+  [
+   "FY27",
+   2,
+   "Argentina",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   591.494575
+  ],
+  [
+   "FY27",
+   3,
+   "Argentina",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   591.494575
+  ],
+  [
+   "FY27",
+   4,
+   "Argentina",
+   "B2B2C",
+   "CallCenter",
+   "Hotel",
+   "O. Incentives",
+   0.641706
+  ],
+  [
+   "FY27",
+   5,
+   "Argentina",
+   "B2B2C",
+   "CallCenter",
+   "Hotel",
+   "O. Incentives",
+   0.641706
+  ],
+  [
+   "FY27",
+   6,
+   "Argentina",
+   "B2B2C",
+   "CallCenter",
+   "Hotel",
+   "O. Incentives",
+   0.641706
+  ],
+  [
+   "FY27",
+   7,
+   "Argentina",
+   "B2B2C",
+   "CallCenter",
+   "Hotel",
+   "O. Incentives",
+   0.641706
+  ],
+  [
+   "FY27",
+   8,
+   "Argentina",
+   "B2B2C",
+   "CallCenter",
+   "Hotel",
+   "O. Incentives",
+   0.641706
+  ],
+  [
+   "FY27",
+   9,
+   "Argentina",
+   "B2B2C",
+   "CallCenter",
+   "Hotel",
+   "O. Incentives",
+   0.641706
+  ],
+  [
+   "FY27",
+   10,
+   "Argentina",
+   "B2B2C",
+   "CallCenter",
+   "Hotel",
+   "O. Incentives",
+   0.641706
+  ],
+  [
+   "FY27",
+   11,
+   "Argentina",
+   "B2B2C",
+   "CallCenter",
+   "Hotel",
+   "O. Incentives",
+   0.641706
+  ],
+  [
+   "FY27",
+   12,
+   "Argentina",
+   "B2B2C",
+   "CallCenter",
+   "Hotel",
+   "O. Incentives",
+   0.641706
+  ],
+  [
+   "FY27",
+   1,
+   "Argentina",
+   "B2B2C",
+   "CallCenter",
+   "Hotel",
+   "O. Incentives",
+   0.68983
+  ],
+  [
+   "FY27",
+   2,
+   "Argentina",
+   "B2B2C",
+   "CallCenter",
+   "Hotel",
+   "O. Incentives",
+   0.68983
+  ],
+  [
+   "FY27",
+   3,
+   "Argentina",
+   "B2B2C",
+   "CallCenter",
+   "Hotel",
+   "O. Incentives",
+   0.68983
+  ],
+  [
+   "FY27",
+   4,
+   "Argentina",
+   "B2B2C",
+   "CallCenter",
+   "Packages",
+   "O. Incentives",
+   4.626489
+  ],
+  [
+   "FY27",
+   5,
+   "Argentina",
+   "B2B2C",
+   "CallCenter",
+   "Packages",
+   "O. Incentives",
+   4.626489
+  ],
+  [
+   "FY27",
+   6,
+   "Argentina",
+   "B2B2C",
+   "CallCenter",
+   "Packages",
+   "O. Incentives",
+   4.626489
+  ],
+  [
+   "FY27",
+   7,
+   "Argentina",
+   "B2B2C",
+   "CallCenter",
+   "Packages",
+   "O. Incentives",
+   4.626489
+  ],
+  [
+   "FY27",
+   8,
+   "Argentina",
+   "B2B2C",
+   "CallCenter",
+   "Packages",
+   "O. Incentives",
+   4.626489
+  ],
+  [
+   "FY27",
+   9,
+   "Argentina",
+   "B2B2C",
+   "CallCenter",
+   "Packages",
+   "O. Incentives",
+   4.626489
+  ],
+  [
+   "FY27",
+   10,
+   "Argentina",
+   "B2B2C",
+   "CallCenter",
+   "Packages",
+   "O. Incentives",
+   4.626489
+  ],
+  [
+   "FY27",
+   11,
+   "Argentina",
+   "B2B2C",
+   "CallCenter",
+   "Packages",
+   "O. Incentives",
+   4.626489
+  ],
+  [
+   "FY27",
+   12,
+   "Argentina",
+   "B2B2C",
+   "CallCenter",
+   "Packages",
+   "O. Incentives",
+   4.626489
+  ],
+  [
+   "FY27",
+   1,
+   "Argentina",
+   "B2B2C",
+   "CallCenter",
+   "Packages",
+   "O. Incentives",
+   4.973452
+  ],
+  [
+   "FY27",
+   2,
+   "Argentina",
+   "B2B2C",
+   "CallCenter",
+   "Packages",
+   "O. Incentives",
+   4.973452
+  ],
+  [
+   "FY27",
+   3,
+   "Argentina",
+   "B2B2C",
+   "CallCenter",
+   "Packages",
+   "O. Incentives",
+   4.973452
+  ],
+  [
+   "FY27",
+   4,
+   "Mexico",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   1139.356497
+  ],
+  [
+   "FY27",
+   5,
+   "Mexico",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   1139.356497
+  ],
+  [
+   "FY27",
+   6,
+   "Mexico",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   1139.356497
+  ],
+  [
+   "FY27",
+   7,
+   "Mexico",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   1139.356497
+  ],
+  [
+   "FY27",
+   8,
+   "Mexico",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   1139.356497
+  ],
+  [
+   "FY27",
+   9,
+   "Mexico",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   1139.356497
+  ],
+  [
+   "FY27",
+   10,
+   "Mexico",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   1139.356497
+  ],
+  [
+   "FY27",
+   11,
+   "Mexico",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   1139.356497
+  ],
+  [
+   "FY27",
+   12,
+   "Mexico",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   1139.356497
+  ],
+  [
+   "FY27",
+   1,
+   "Mexico",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   1160.767276
+  ],
+  [
+   "FY27",
+   2,
+   "Mexico",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   1160.767276
+  ],
+  [
+   "FY27",
+   3,
+   "Mexico",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   1160.767276
+  ],
+  [
+   "FY27",
+   4,
+   "Mexico",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   9207.507739
+  ],
+  [
+   "FY27",
+   5,
+   "Mexico",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   9207.507739
+  ],
+  [
+   "FY27",
+   6,
+   "Mexico",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   9207.507739
+  ],
+  [
+   "FY27",
+   7,
+   "Mexico",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   9207.507739
+  ],
+  [
+   "FY27",
+   8,
+   "Mexico",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   9207.507739
+  ],
+  [
+   "FY27",
+   9,
+   "Mexico",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   9207.507739
+  ],
+  [
+   "FY27",
+   10,
+   "Mexico",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   9207.507739
+  ],
+  [
+   "FY27",
+   11,
+   "Mexico",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   9207.507739
+  ],
+  [
+   "FY27",
+   12,
+   "Mexico",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   9207.507739
+  ],
+  [
+   "FY27",
+   1,
+   "Mexico",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   9068.468563
+  ],
+  [
+   "FY27",
+   2,
+   "Mexico",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   9068.468563
+  ],
+  [
+   "FY27",
+   3,
+   "Mexico",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   9068.468563
+  ],
+  [
+   "FY27",
+   4,
+   "Mexico",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   2813.879066
+  ],
+  [
+   "FY27",
+   5,
+   "Mexico",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   2813.879066
+  ],
+  [
+   "FY27",
+   6,
+   "Mexico",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   2813.879066
+  ],
+  [
+   "FY27",
+   7,
+   "Mexico",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   2813.879066
+  ],
+  [
+   "FY27",
+   8,
+   "Mexico",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   2813.879066
+  ],
+  [
+   "FY27",
+   9,
+   "Mexico",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   2813.879066
+  ],
+  [
+   "FY27",
+   10,
+   "Mexico",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   2813.879066
+  ],
+  [
+   "FY27",
+   11,
+   "Mexico",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   2813.879066
+  ],
+  [
+   "FY27",
+   12,
+   "Mexico",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   2813.879066
+  ],
+  [
+   "FY27",
+   1,
+   "Mexico",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   2785.776318
+  ],
+  [
+   "FY27",
+   2,
+   "Mexico",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   2785.776318
+  ],
+  [
+   "FY27",
+   3,
+   "Mexico",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   2785.776318
+  ],
+  [
+   "FY27",
+   4,
+   "Mexico",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   711.334779
+  ],
+  [
+   "FY27",
+   5,
+   "Mexico",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   711.334779
+  ],
+  [
+   "FY27",
+   6,
+   "Mexico",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   711.334779
+  ],
+  [
+   "FY27",
+   7,
+   "Mexico",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   711.334779
+  ],
+  [
+   "FY27",
+   8,
+   "Mexico",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   711.334779
+  ],
+  [
+   "FY27",
+   9,
+   "Mexico",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   711.334779
+  ],
+  [
+   "FY27",
+   10,
+   "Mexico",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   711.334779
+  ],
+  [
+   "FY27",
+   11,
+   "Mexico",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   711.334779
+  ],
+  [
+   "FY27",
+   12,
+   "Mexico",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   711.334779
+  ],
+  [
+   "FY27",
+   1,
+   "Mexico",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   685.853172
+  ],
+  [
+   "FY27",
+   2,
+   "Mexico",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   685.853172
+  ],
+  [
+   "FY27",
+   3,
+   "Mexico",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   685.853172
+  ],
+  [
+   "FY27",
+   4,
+   "Mexico",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   838.265369
+  ],
+  [
+   "FY27",
+   5,
+   "Mexico",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   838.265369
+  ],
+  [
+   "FY27",
+   6,
+   "Mexico",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   838.265369
+  ],
+  [
+   "FY27",
+   7,
+   "Mexico",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   838.265369
+  ],
+  [
+   "FY27",
+   8,
+   "Mexico",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   838.265369
+  ],
+  [
+   "FY27",
+   9,
+   "Mexico",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   838.265369
+  ],
+  [
+   "FY27",
+   10,
+   "Mexico",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   838.265369
+  ],
+  [
+   "FY27",
+   11,
+   "Mexico",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   838.265369
+  ],
+  [
+   "FY27",
+   12,
+   "Mexico",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   838.265369
+  ],
+  [
+   "FY27",
+   1,
+   "Mexico",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   839.685671
+  ],
+  [
+   "FY27",
+   2,
+   "Mexico",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   839.685671
+  ],
+  [
+   "FY27",
+   3,
+   "Mexico",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   839.685671
+  ],
+  [
+   "FY27",
+   4,
+   "Mexico",
+   "B2B2C",
+   "CallCenter",
+   "Hotel",
+   "O. Incentives",
+   361.668206
+  ],
+  [
+   "FY27",
+   5,
+   "Mexico",
+   "B2B2C",
+   "CallCenter",
+   "Hotel",
+   "O. Incentives",
+   361.668206
+  ],
+  [
+   "FY27",
+   6,
+   "Mexico",
+   "B2B2C",
+   "CallCenter",
+   "Hotel",
+   "O. Incentives",
+   361.668206
+  ],
+  [
+   "FY27",
+   7,
+   "Mexico",
+   "B2B2C",
+   "CallCenter",
+   "Hotel",
+   "O. Incentives",
+   361.668206
+  ],
+  [
+   "FY27",
+   8,
+   "Mexico",
+   "B2B2C",
+   "CallCenter",
+   "Hotel",
+   "O. Incentives",
+   361.668206
+  ],
+  [
+   "FY27",
+   9,
+   "Mexico",
+   "B2B2C",
+   "CallCenter",
+   "Hotel",
+   "O. Incentives",
+   361.668206
+  ],
+  [
+   "FY27",
+   10,
+   "Mexico",
+   "B2B2C",
+   "CallCenter",
+   "Hotel",
+   "O. Incentives",
+   361.668206
+  ],
+  [
+   "FY27",
+   11,
+   "Mexico",
+   "B2B2C",
+   "CallCenter",
+   "Hotel",
+   "O. Incentives",
+   361.668206
+  ],
+  [
+   "FY27",
+   12,
+   "Mexico",
+   "B2B2C",
+   "CallCenter",
+   "Hotel",
+   "O. Incentives",
+   361.668206
+  ],
+  [
+   "FY27",
+   1,
+   "Mexico",
+   "B2B2C",
+   "CallCenter",
+   "Hotel",
+   "O. Incentives",
+   352.04112
+  ],
+  [
+   "FY27",
+   2,
+   "Mexico",
+   "B2B2C",
+   "CallCenter",
+   "Hotel",
+   "O. Incentives",
+   352.04112
+  ],
+  [
+   "FY27",
+   3,
+   "Mexico",
+   "B2B2C",
+   "CallCenter",
+   "Hotel",
+   "O. Incentives",
+   352.04112
+  ],
+  [
+   "FY27",
+   4,
+   "Mexico",
+   "B2B2C",
+   "CallCenter",
+   "Packages",
+   "O. Incentives",
+   598.314858
+  ],
+  [
+   "FY27",
+   5,
+   "Mexico",
+   "B2B2C",
+   "CallCenter",
+   "Packages",
+   "O. Incentives",
+   598.314858
+  ],
+  [
+   "FY27",
+   6,
+   "Mexico",
+   "B2B2C",
+   "CallCenter",
+   "Packages",
+   "O. Incentives",
+   598.314858
+  ],
+  [
+   "FY27",
+   7,
+   "Mexico",
+   "B2B2C",
+   "CallCenter",
+   "Packages",
+   "O. Incentives",
+   598.314858
+  ],
+  [
+   "FY27",
+   8,
+   "Mexico",
+   "B2B2C",
+   "CallCenter",
+   "Packages",
+   "O. Incentives",
+   598.314858
+  ],
+  [
+   "FY27",
+   9,
+   "Mexico",
+   "B2B2C",
+   "CallCenter",
+   "Packages",
+   "O. Incentives",
+   598.314858
+  ],
+  [
+   "FY27",
+   10,
+   "Mexico",
+   "B2B2C",
+   "CallCenter",
+   "Packages",
+   "O. Incentives",
+   598.314858
+  ],
+  [
+   "FY27",
+   11,
+   "Mexico",
+   "B2B2C",
+   "CallCenter",
+   "Packages",
+   "O. Incentives",
+   598.314858
+  ],
+  [
+   "FY27",
+   12,
+   "Mexico",
+   "B2B2C",
+   "CallCenter",
+   "Packages",
+   "O. Incentives",
+   598.314858
+  ],
+  [
+   "FY27",
+   1,
+   "Mexico",
+   "B2B2C",
+   "CallCenter",
+   "Packages",
+   "O. Incentives",
+   598.806769
+  ],
+  [
+   "FY27",
+   2,
+   "Mexico",
+   "B2B2C",
+   "CallCenter",
+   "Packages",
+   "O. Incentives",
+   598.806769
+  ],
+  [
+   "FY27",
+   3,
+   "Mexico",
+   "B2B2C",
+   "CallCenter",
+   "Packages",
+   "O. Incentives",
+   598.806769
+  ],
+  [
+   "FY27",
+   4,
+   "Brazil",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   12016.720602
+  ],
+  [
+   "FY27",
+   5,
+   "Brazil",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   12016.720602
+  ],
+  [
+   "FY27",
+   6,
+   "Brazil",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   12016.720602
+  ],
+  [
+   "FY27",
+   7,
+   "Brazil",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   12016.720602
+  ],
+  [
+   "FY27",
+   8,
+   "Brazil",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   12016.720602
+  ],
+  [
+   "FY27",
+   9,
+   "Brazil",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   12016.720602
+  ],
+  [
+   "FY27",
+   10,
+   "Brazil",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   12016.720602
+  ],
+  [
+   "FY27",
+   11,
+   "Brazil",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   12016.720602
+  ],
+  [
+   "FY27",
+   12,
+   "Brazil",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   12016.720602
+  ],
+  [
+   "FY27",
+   1,
+   "Brazil",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   11970.23386
+  ],
+  [
+   "FY27",
+   2,
+   "Brazil",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   11970.23386
+  ],
+  [
+   "FY27",
+   3,
+   "Brazil",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   11970.23386
+  ],
+  [
+   "FY27",
+   4,
+   "Brazil",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   5315.882427
+  ],
+  [
+   "FY27",
+   5,
+   "Brazil",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   5315.882427
+  ],
+  [
+   "FY27",
+   6,
+   "Brazil",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   5315.882427
+  ],
+  [
+   "FY27",
+   7,
+   "Brazil",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   5315.882427
+  ],
+  [
+   "FY27",
+   8,
+   "Brazil",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   5315.882427
+  ],
+  [
+   "FY27",
+   9,
+   "Brazil",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   5315.882427
+  ],
+  [
+   "FY27",
+   10,
+   "Brazil",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   5315.882427
+  ],
+  [
+   "FY27",
+   11,
+   "Brazil",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   5315.882427
+  ],
+  [
+   "FY27",
+   12,
+   "Brazil",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   5315.882427
+  ],
+  [
+   "FY27",
+   1,
+   "Brazil",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   5363.430594
+  ],
+  [
+   "FY27",
+   2,
+   "Brazil",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   5363.430594
+  ],
+  [
+   "FY27",
+   3,
+   "Brazil",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   5363.430594
+  ],
+  [
+   "FY27",
+   4,
+   "Brazil",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   16873.54594
+  ],
+  [
+   "FY27",
+   5,
+   "Brazil",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   16873.54594
+  ],
+  [
+   "FY27",
+   6,
+   "Brazil",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   16873.54594
+  ],
+  [
+   "FY27",
+   7,
+   "Brazil",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   16873.54594
+  ],
+  [
+   "FY27",
+   8,
+   "Brazil",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   16873.54594
+  ],
+  [
+   "FY27",
+   9,
+   "Brazil",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   16873.54594
+  ],
+  [
+   "FY27",
+   10,
+   "Brazil",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   16873.54594
+  ],
+  [
+   "FY27",
+   11,
+   "Brazil",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   16873.54594
+  ],
+  [
+   "FY27",
+   12,
+   "Brazil",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   16873.54594
+  ],
+  [
+   "FY27",
+   1,
+   "Brazil",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   16817.661114
+  ],
+  [
+   "FY27",
+   2,
+   "Brazil",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   16817.661114
+  ],
+  [
+   "FY27",
+   3,
+   "Brazil",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   16817.661114
+  ],
+  [
+   "FY27",
+   4,
+   "Chile",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   527.568016
+  ],
+  [
+   "FY27",
+   5,
+   "Chile",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   527.568016
+  ],
+  [
+   "FY27",
+   6,
+   "Chile",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   527.568016
+  ],
+  [
+   "FY27",
+   7,
+   "Chile",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   527.568016
+  ],
+  [
+   "FY27",
+   8,
+   "Chile",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   527.568016
+  ],
+  [
+   "FY27",
+   9,
+   "Chile",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   527.568016
+  ],
+  [
+   "FY27",
+   10,
+   "Chile",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   527.568016
+  ],
+  [
+   "FY27",
+   11,
+   "Chile",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   527.568016
+  ],
+  [
+   "FY27",
+   12,
+   "Chile",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   527.568016
+  ],
+  [
+   "FY27",
+   1,
+   "Chile",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   519.635399
+  ],
+  [
+   "FY27",
+   2,
+   "Chile",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   519.635399
+  ],
+  [
+   "FY27",
+   3,
+   "Chile",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   519.635399
+  ],
+  [
+   "FY27",
+   4,
+   "Chile",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   279.837284
+  ],
+  [
+   "FY27",
+   5,
+   "Chile",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   279.837284
+  ],
+  [
+   "FY27",
+   6,
+   "Chile",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   279.837284
+  ],
+  [
+   "FY27",
+   7,
+   "Chile",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   279.837284
+  ],
+  [
+   "FY27",
+   8,
+   "Chile",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   279.837284
+  ],
+  [
+   "FY27",
+   9,
+   "Chile",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   279.837284
+  ],
+  [
+   "FY27",
+   10,
+   "Chile",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   279.837284
+  ],
+  [
+   "FY27",
+   11,
+   "Chile",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   279.837284
+  ],
+  [
+   "FY27",
+   12,
+   "Chile",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   279.837284
+  ],
+  [
+   "FY27",
+   1,
+   "Chile",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   278.891228
+  ],
+  [
+   "FY27",
+   2,
+   "Chile",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   278.891228
+  ],
+  [
+   "FY27",
+   3,
+   "Chile",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   278.891228
+  ],
+  [
+   "FY27",
+   4,
+   "Chile",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   4.519012
+  ],
+  [
+   "FY27",
+   5,
+   "Chile",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   4.519012
+  ],
+  [
+   "FY27",
+   6,
+   "Chile",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   4.519012
+  ],
+  [
+   "FY27",
+   7,
+   "Chile",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   4.519012
+  ],
+  [
+   "FY27",
+   8,
+   "Chile",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   4.519012
+  ],
+  [
+   "FY27",
+   9,
+   "Chile",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   4.519012
+  ],
+  [
+   "FY27",
+   10,
+   "Chile",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   4.519012
+  ],
+  [
+   "FY27",
+   11,
+   "Chile",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   4.519012
+  ],
+  [
+   "FY27",
+   12,
+   "Chile",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   4.519012
+  ],
+  [
+   "FY27",
+   1,
+   "Chile",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   4.360761
+  ],
+  [
+   "FY27",
+   2,
+   "Chile",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   4.360761
+  ],
+  [
+   "FY27",
+   3,
+   "Chile",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   4.360761
+  ],
+  [
+   "FY27",
+   4,
+   "Chile",
+   "B2B2C",
+   "CallCenter",
+   "Hotel",
+   "O. Incentives",
+   0.673351
+  ],
+  [
+   "FY27",
+   5,
+   "Chile",
+   "B2B2C",
+   "CallCenter",
+   "Hotel",
+   "O. Incentives",
+   0.673351
+  ],
+  [
+   "FY27",
+   6,
+   "Chile",
+   "B2B2C",
+   "CallCenter",
+   "Hotel",
+   "O. Incentives",
+   0.673351
+  ],
+  [
+   "FY27",
+   7,
+   "Chile",
+   "B2B2C",
+   "CallCenter",
+   "Hotel",
+   "O. Incentives",
+   0.673351
+  ],
+  [
+   "FY27",
+   8,
+   "Chile",
+   "B2B2C",
+   "CallCenter",
+   "Hotel",
+   "O. Incentives",
+   0.673351
+  ],
+  [
+   "FY27",
+   9,
+   "Chile",
+   "B2B2C",
+   "CallCenter",
+   "Hotel",
+   "O. Incentives",
+   0.673351
+  ],
+  [
+   "FY27",
+   10,
+   "Chile",
+   "B2B2C",
+   "CallCenter",
+   "Hotel",
+   "O. Incentives",
+   0.673351
+  ],
+  [
+   "FY27",
+   11,
+   "Chile",
+   "B2B2C",
+   "CallCenter",
+   "Hotel",
+   "O. Incentives",
+   0.673351
+  ],
+  [
+   "FY27",
+   12,
+   "Chile",
+   "B2B2C",
+   "CallCenter",
+   "Hotel",
+   "O. Incentives",
+   0.673351
+  ],
+  [
+   "FY27",
+   1,
+   "Chile",
+   "B2B2C",
+   "CallCenter",
+   "Hotel",
+   "O. Incentives",
+   0.650429
+  ],
+  [
+   "FY27",
+   2,
+   "Chile",
+   "B2B2C",
+   "CallCenter",
+   "Hotel",
+   "O. Incentives",
+   0.650429
+  ],
+  [
+   "FY27",
+   3,
+   "Chile",
+   "B2B2C",
+   "CallCenter",
+   "Hotel",
+   "O. Incentives",
+   0.650429
+  ],
+  [
+   "FY27",
+   4,
+   "Chile",
+   "B2B2C",
+   "CallCenter",
+   "Packages",
+   "O. Incentives",
+   13.964499
+  ],
+  [
+   "FY27",
+   5,
+   "Chile",
+   "B2B2C",
+   "CallCenter",
+   "Packages",
+   "O. Incentives",
+   13.964499
+  ],
+  [
+   "FY27",
+   6,
+   "Chile",
+   "B2B2C",
+   "CallCenter",
+   "Packages",
+   "O. Incentives",
+   13.964499
+  ],
+  [
+   "FY27",
+   7,
+   "Chile",
+   "B2B2C",
+   "CallCenter",
+   "Packages",
+   "O. Incentives",
+   13.964499
+  ],
+  [
+   "FY27",
+   8,
+   "Chile",
+   "B2B2C",
+   "CallCenter",
+   "Packages",
+   "O. Incentives",
+   13.964499
+  ],
+  [
+   "FY27",
+   9,
+   "Chile",
+   "B2B2C",
+   "CallCenter",
+   "Packages",
+   "O. Incentives",
+   13.964499
+  ],
+  [
+   "FY27",
+   10,
+   "Chile",
+   "B2B2C",
+   "CallCenter",
+   "Packages",
+   "O. Incentives",
+   13.964499
+  ],
+  [
+   "FY27",
+   11,
+   "Chile",
+   "B2B2C",
+   "CallCenter",
+   "Packages",
+   "O. Incentives",
+   13.964499
+  ],
+  [
+   "FY27",
+   12,
+   "Chile",
+   "B2B2C",
+   "CallCenter",
+   "Packages",
+   "O. Incentives",
+   13.964499
+  ],
+  [
+   "FY27",
+   1,
+   "Chile",
+   "B2B2C",
+   "CallCenter",
+   "Packages",
+   "O. Incentives",
+   14.61828
+  ],
+  [
+   "FY27",
+   2,
+   "Chile",
+   "B2B2C",
+   "CallCenter",
+   "Packages",
+   "O. Incentives",
+   14.61828
+  ],
+  [
+   "FY27",
+   3,
+   "Chile",
+   "B2B2C",
+   "CallCenter",
+   "Packages",
+   "O. Incentives",
+   14.61828
+  ],
+  [
+   "FY27",
+   4,
+   "Ecuador",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   351.630107
+  ],
+  [
+   "FY27",
+   5,
+   "Ecuador",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   351.630107
+  ],
+  [
+   "FY27",
+   6,
+   "Ecuador",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   351.630107
+  ],
+  [
+   "FY27",
+   7,
+   "Ecuador",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   351.630107
+  ],
+  [
+   "FY27",
+   8,
+   "Ecuador",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   351.630107
+  ],
+  [
+   "FY27",
+   9,
+   "Ecuador",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   351.630107
+  ],
+  [
+   "FY27",
+   10,
+   "Ecuador",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   351.630107
+  ],
+  [
+   "FY27",
+   11,
+   "Ecuador",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   351.630107
+  ],
+  [
+   "FY27",
+   12,
+   "Ecuador",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   351.630107
+  ],
+  [
+   "FY27",
+   1,
+   "Ecuador",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   347.234159
+  ],
+  [
+   "FY27",
+   2,
+   "Ecuador",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   347.234159
+  ],
+  [
+   "FY27",
+   3,
+   "Ecuador",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   347.234159
+  ],
+  [
+   "FY27",
+   4,
+   "Ecuador",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   48.291
+  ],
+  [
+   "FY27",
+   5,
+   "Ecuador",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   48.291
+  ],
+  [
+   "FY27",
+   6,
+   "Ecuador",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   48.291
+  ],
+  [
+   "FY27",
+   7,
+   "Ecuador",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   48.291
+  ],
+  [
+   "FY27",
+   8,
+   "Ecuador",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   48.291
+  ],
+  [
+   "FY27",
+   9,
+   "Ecuador",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   48.291
+  ],
+  [
+   "FY27",
+   10,
+   "Ecuador",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   48.291
+  ],
+  [
+   "FY27",
+   11,
+   "Ecuador",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   48.291
+  ],
+  [
+   "FY27",
+   12,
+   "Ecuador",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   48.291
+  ],
+  [
+   "FY27",
+   1,
+   "Ecuador",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   46.937487
+  ],
+  [
+   "FY27",
+   2,
+   "Ecuador",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   46.937487
+  ],
+  [
+   "FY27",
+   3,
+   "Ecuador",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   46.937487
+  ],
+  [
+   "FY27",
+   4,
+   "Ecuador",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   581.003979
+  ],
+  [
+   "FY27",
+   5,
+   "Ecuador",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   581.003979
+  ],
+  [
+   "FY27",
+   6,
+   "Ecuador",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   581.003979
+  ],
+  [
+   "FY27",
+   7,
+   "Ecuador",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   581.003979
+  ],
+  [
+   "FY27",
+   8,
+   "Ecuador",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   581.003979
+  ],
+  [
+   "FY27",
+   9,
+   "Ecuador",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   581.003979
+  ],
+  [
+   "FY27",
+   10,
+   "Ecuador",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   581.003979
+  ],
+  [
+   "FY27",
+   11,
+   "Ecuador",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   581.003979
+  ],
+  [
+   "FY27",
+   12,
+   "Ecuador",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   581.003979
+  ],
+  [
+   "FY27",
+   1,
+   "Ecuador",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   567.318138
+  ],
+  [
+   "FY27",
+   2,
+   "Ecuador",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   567.318138
+  ],
+  [
+   "FY27",
+   3,
+   "Ecuador",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   567.318138
+  ],
+  [
+   "FY27",
+   4,
+   "Peru",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   284.474428
+  ],
+  [
+   "FY27",
+   5,
+   "Peru",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   284.474428
+  ],
+  [
+   "FY27",
+   6,
+   "Peru",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   284.474428
+  ],
+  [
+   "FY27",
+   7,
+   "Peru",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   284.474428
+  ],
+  [
+   "FY27",
+   8,
+   "Peru",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   284.474428
+  ],
+  [
+   "FY27",
+   9,
+   "Peru",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   284.474428
+  ],
+  [
+   "FY27",
+   10,
+   "Peru",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   284.474428
+  ],
+  [
+   "FY27",
+   11,
+   "Peru",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   284.474428
+  ],
+  [
+   "FY27",
+   12,
+   "Peru",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   284.474428
+  ],
+  [
+   "FY27",
+   1,
+   "Peru",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   279.18233
+  ],
+  [
+   "FY27",
+   2,
+   "Peru",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   279.18233
+  ],
+  [
+   "FY27",
+   3,
+   "Peru",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   279.18233
+  ],
+  [
+   "FY27",
+   4,
+   "Peru",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   80.387877
+  ],
+  [
+   "FY27",
+   5,
+   "Peru",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   80.387877
+  ],
+  [
+   "FY27",
+   6,
+   "Peru",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   80.387877
+  ],
+  [
+   "FY27",
+   7,
+   "Peru",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   80.387877
+  ],
+  [
+   "FY27",
+   8,
+   "Peru",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   80.387877
+  ],
+  [
+   "FY27",
+   9,
+   "Peru",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   80.387877
+  ],
+  [
+   "FY27",
+   10,
+   "Peru",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   80.387877
+  ],
+  [
+   "FY27",
+   11,
+   "Peru",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   80.387877
+  ],
+  [
+   "FY27",
+   12,
+   "Peru",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   80.387877
+  ],
+  [
+   "FY27",
+   1,
+   "Peru",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   79.896955
+  ],
+  [
+   "FY27",
+   2,
+   "Peru",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   79.896955
+  ],
+  [
+   "FY27",
+   3,
+   "Peru",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   79.896955
+  ],
+  [
+   "FY27",
+   4,
+   "Peru",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   13.443964
+  ],
+  [
+   "FY27",
+   5,
+   "Peru",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   13.443964
+  ],
+  [
+   "FY27",
+   6,
+   "Peru",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   13.443964
+  ],
+  [
+   "FY27",
+   7,
+   "Peru",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   13.443964
+  ],
+  [
+   "FY27",
+   8,
+   "Peru",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   13.443964
+  ],
+  [
+   "FY27",
+   9,
+   "Peru",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   13.443964
+  ],
+  [
+   "FY27",
+   10,
+   "Peru",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   13.443964
+  ],
+  [
+   "FY27",
+   11,
+   "Peru",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   13.443964
+  ],
+  [
+   "FY27",
+   12,
+   "Peru",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   13.443964
+  ],
+  [
+   "FY27",
+   1,
+   "Peru",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   13.428705
+  ],
+  [
+   "FY27",
+   2,
+   "Peru",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   13.428705
+  ],
+  [
+   "FY27",
+   3,
+   "Peru",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   13.428705
+  ],
+  [
+   "FY27",
+   4,
+   "Colombia",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   2240.66641
+  ],
+  [
+   "FY27",
+   5,
+   "Colombia",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   2240.66641
+  ],
+  [
+   "FY27",
+   6,
+   "Colombia",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   2240.66641
+  ],
+  [
+   "FY27",
+   7,
+   "Colombia",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   2240.66641
+  ],
+  [
+   "FY27",
+   8,
+   "Colombia",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   2240.66641
+  ],
+  [
+   "FY27",
+   9,
+   "Colombia",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   2240.66641
+  ],
+  [
+   "FY27",
+   10,
+   "Colombia",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   2240.66641
+  ],
+  [
+   "FY27",
+   11,
+   "Colombia",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   2240.66641
+  ],
+  [
+   "FY27",
+   12,
+   "Colombia",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   2240.66641
+  ],
+  [
+   "FY27",
+   1,
+   "Colombia",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   2221.744558
+  ],
+  [
+   "FY27",
+   2,
+   "Colombia",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   2221.744558
+  ],
+  [
+   "FY27",
+   3,
+   "Colombia",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   2221.744558
+  ],
+  [
+   "FY27",
+   4,
+   "Colombia",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   324.501202
+  ],
+  [
+   "FY27",
+   5,
+   "Colombia",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   324.501202
+  ],
+  [
+   "FY27",
+   6,
+   "Colombia",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   324.501202
+  ],
+  [
+   "FY27",
+   7,
+   "Colombia",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   324.501202
+  ],
+  [
+   "FY27",
+   8,
+   "Colombia",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   324.501202
+  ],
+  [
+   "FY27",
+   9,
+   "Colombia",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   324.501202
+  ],
+  [
+   "FY27",
+   10,
+   "Colombia",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   324.501202
+  ],
+  [
+   "FY27",
+   11,
+   "Colombia",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   324.501202
+  ],
+  [
+   "FY27",
+   12,
+   "Colombia",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   324.501202
+  ],
+  [
+   "FY27",
+   1,
+   "Colombia",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   320.590357
+  ],
+  [
+   "FY27",
+   2,
+   "Colombia",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   320.590357
+  ],
+  [
+   "FY27",
+   3,
+   "Colombia",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   320.590357
+  ],
+  [
+   "FY27",
+   4,
+   "Colombia",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   876.244202
+  ],
+  [
+   "FY27",
+   5,
+   "Colombia",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   876.244202
+  ],
+  [
+   "FY27",
+   6,
+   "Colombia",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   876.244202
+  ],
+  [
+   "FY27",
+   7,
+   "Colombia",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   876.244202
+  ],
+  [
+   "FY27",
+   8,
+   "Colombia",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   876.244202
+  ],
+  [
+   "FY27",
+   9,
+   "Colombia",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   876.244202
+  ],
+  [
+   "FY27",
+   10,
+   "Colombia",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   876.244202
+  ],
+  [
+   "FY27",
+   11,
+   "Colombia",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   876.244202
+  ],
+  [
+   "FY27",
+   12,
+   "Colombia",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   876.244202
+  ],
+  [
+   "FY27",
+   1,
+   "Colombia",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   858.409023
+  ],
+  [
+   "FY27",
+   2,
+   "Colombia",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   858.409023
+  ],
+  [
+   "FY27",
+   3,
+   "Colombia",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   858.409023
+  ],
+  [
+   "FY27",
+   4,
+   "Others",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   395.521708
+  ],
+  [
+   "FY27",
+   5,
+   "Others",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   395.521708
+  ],
+  [
+   "FY27",
+   6,
+   "Others",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   395.521708
+  ],
+  [
+   "FY27",
+   7,
+   "Others",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   395.521708
+  ],
+  [
+   "FY27",
+   8,
+   "Others",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   395.521708
+  ],
+  [
+   "FY27",
+   9,
+   "Others",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   395.521708
+  ],
+  [
+   "FY27",
+   10,
+   "Others",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   395.521708
+  ],
+  [
+   "FY27",
+   11,
+   "Others",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   395.521708
+  ],
+  [
+   "FY27",
+   12,
+   "Others",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   395.521708
+  ],
+  [
+   "FY27",
+   1,
+   "Others",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   388.195648
+  ],
+  [
+   "FY27",
+   2,
+   "Others",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   388.195648
+  ],
+  [
+   "FY27",
+   3,
+   "Others",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   388.195648
+  ],
+  [
+   "FY27",
+   4,
+   "Others",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   0.252074
+  ],
+  [
+   "FY27",
+   5,
+   "Others",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   0.252074
+  ],
+  [
+   "FY27",
+   6,
+   "Others",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   0.252074
+  ],
+  [
+   "FY27",
+   7,
+   "Others",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   0.252074
+  ],
+  [
+   "FY27",
+   8,
+   "Others",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   0.252074
+  ],
+  [
+   "FY27",
+   9,
+   "Others",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   0.252074
+  ],
+  [
+   "FY27",
+   10,
+   "Others",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   0.252074
+  ],
+  [
+   "FY27",
+   11,
+   "Others",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   0.252074
+  ],
+  [
+   "FY27",
+   12,
+   "Others",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   0.252074
+  ],
+  [
+   "FY27",
+   1,
+   "Others",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   0.24087
+  ],
+  [
+   "FY27",
+   2,
+   "Others",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   0.24087
+  ],
+  [
+   "FY27",
+   3,
+   "Others",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   0.24087
+  ],
+  [
+   "FY27",
+   4,
+   "Others",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   36513.78786
+  ],
+  [
+   "FY27",
+   5,
+   "Others",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   36513.78786
+  ],
+  [
+   "FY27",
+   6,
+   "Others",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   36513.78786
+  ],
+  [
+   "FY27",
+   7,
+   "Others",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   36513.78786
+  ],
+  [
+   "FY27",
+   8,
+   "Others",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   36513.78786
+  ],
+  [
+   "FY27",
+   9,
+   "Others",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   36513.78786
+  ],
+  [
+   "FY27",
+   10,
+   "Others",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   36513.78786
+  ],
+  [
+   "FY27",
+   11,
+   "Others",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   36513.78786
+  ],
+  [
+   "FY27",
+   12,
+   "Others",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   36513.78786
+  ],
+  [
+   "FY27",
+   1,
+   "Others",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   35529.670921
+  ],
+  [
+   "FY27",
+   2,
+   "Others",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   35529.670921
+  ],
+  [
+   "FY27",
+   3,
+   "Others",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   35529.670921
+  ],
+  [
+   "FY26",
+   10,
+   "Argentina",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   671.183157
+  ],
+  [
+   "FY26",
+   11,
+   "Argentina",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   671.183157
+  ],
+  [
+   "FY26",
+   12,
+   "Argentina",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   671.183157
+  ],
+  [
+   "FY26",
+   1,
+   "Argentina",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   716.962684
+  ],
+  [
+   "FY26",
+   2,
+   "Argentina",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   716.962684
+  ],
+  [
+   "FY26",
+   3,
+   "Argentina",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   716.962684
+  ],
+  [
+   "FY26",
+   10,
+   "Argentina",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   654.384847
+  ],
+  [
+   "FY26",
+   11,
+   "Argentina",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   654.384847
+  ],
+  [
+   "FY26",
+   12,
+   "Argentina",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   654.384847
+  ],
+  [
+   "FY26",
+   1,
+   "Argentina",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   663.957893
+  ],
+  [
+   "FY26",
+   2,
+   "Argentina",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   663.957893
+  ],
+  [
+   "FY26",
+   3,
+   "Argentina",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   663.957893
+  ],
+  [
+   "FY26",
+   10,
+   "Mexico",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   8417.792752
+  ],
+  [
+   "FY26",
+   11,
+   "Mexico",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   8417.792752
+  ],
+  [
+   "FY26",
+   12,
+   "Mexico",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   8417.792752
+  ],
+  [
+   "FY26",
+   1,
+   "Mexico",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   8360.721168
+  ],
+  [
+   "FY26",
+   2,
+   "Mexico",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   8360.721168
+  ],
+  [
+   "FY26",
+   3,
+   "Mexico",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   8360.721168
+  ],
+  [
+   "FY26",
+   10,
+   "Mexico",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   1795.537051
+  ],
+  [
+   "FY26",
+   11,
+   "Mexico",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   1795.537051
+  ],
+  [
+   "FY26",
+   12,
+   "Mexico",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   1795.537051
+  ],
+  [
+   "FY26",
+   1,
+   "Mexico",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   1808.904728
+  ],
+  [
+   "FY26",
+   2,
+   "Mexico",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   1808.904728
+  ],
+  [
+   "FY26",
+   3,
+   "Mexico",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   1808.904728
+  ],
+  [
+   "FY26",
+   10,
+   "Brazil",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   6644.611477
+  ],
+  [
+   "FY26",
+   11,
+   "Brazil",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   6644.611477
+  ],
+  [
+   "FY26",
+   12,
+   "Brazil",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   6644.611477
+  ],
+  [
+   "FY26",
+   1,
+   "Brazil",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   6555.54566
+  ],
+  [
+   "FY26",
+   2,
+   "Brazil",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   6555.54566
+  ],
+  [
+   "FY26",
+   3,
+   "Brazil",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   6555.54566
+  ],
+  [
+   "FY26",
+   10,
+   "Brazil",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   6275.991023
+  ],
+  [
+   "FY26",
+   11,
+   "Brazil",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   6275.991023
+  ],
+  [
+   "FY26",
+   12,
+   "Brazil",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   6275.991023
+  ],
+  [
+   "FY26",
+   1,
+   "Brazil",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   6352.542973
+  ],
+  [
+   "FY26",
+   2,
+   "Brazil",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   6352.542973
+  ],
+  [
+   "FY26",
+   3,
+   "Brazil",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   6352.542973
+  ],
+  [
+   "FY26",
+   10,
+   "Brazil",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   9.843482
+  ],
+  [
+   "FY26",
+   11,
+   "Brazil",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   9.843482
+  ],
+  [
+   "FY26",
+   12,
+   "Brazil",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   9.843482
+  ],
+  [
+   "FY26",
+   1,
+   "Brazil",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   9.405948
+  ],
+  [
+   "FY26",
+   2,
+   "Brazil",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   9.405948
+  ],
+  [
+   "FY26",
+   3,
+   "Brazil",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   9.405948
+  ],
+  [
+   "FY26",
+   10,
+   "Brazil",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   1.708687
+  ],
+  [
+   "FY26",
+   11,
+   "Brazil",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   1.708687
+  ],
+  [
+   "FY26",
+   12,
+   "Brazil",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   1.708687
+  ],
+  [
+   "FY26",
+   1,
+   "Brazil",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   1.632737
+  ],
+  [
+   "FY26",
+   2,
+   "Brazil",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   1.632737
+  ],
+  [
+   "FY26",
+   3,
+   "Brazil",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   1.632737
+  ],
+  [
+   "FY26",
+   10,
+   "Chile",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   868.164485
+  ],
+  [
+   "FY26",
+   11,
+   "Chile",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   868.164485
+  ],
+  [
+   "FY26",
+   12,
+   "Chile",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   868.164485
+  ],
+  [
+   "FY26",
+   1,
+   "Chile",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   840.198855
+  ],
+  [
+   "FY26",
+   2,
+   "Chile",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   840.198855
+  ],
+  [
+   "FY26",
+   3,
+   "Chile",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   840.198855
+  ],
+  [
+   "FY26",
+   10,
+   "Chile",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   2925.272782
+  ],
+  [
+   "FY26",
+   11,
+   "Chile",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   2925.272782
+  ],
+  [
+   "FY26",
+   12,
+   "Chile",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   2925.272782
+  ],
+  [
+   "FY26",
+   1,
+   "Chile",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   2889.602023
+  ],
+  [
+   "FY26",
+   2,
+   "Chile",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   2889.602023
+  ],
+  [
+   "FY26",
+   3,
+   "Chile",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   2889.602023
+  ],
+  [
+   "FY26",
+   10,
+   "Chile",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   7.137781
+  ],
+  [
+   "FY26",
+   11,
+   "Chile",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   7.137781
+  ],
+  [
+   "FY26",
+   12,
+   "Chile",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   7.137781
+  ],
+  [
+   "FY26",
+   1,
+   "Chile",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   6.820513
+  ],
+  [
+   "FY26",
+   2,
+   "Chile",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   6.820513
+  ],
+  [
+   "FY26",
+   3,
+   "Chile",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   6.820513
+  ],
+  [
+   "FY26",
+   10,
+   "Chile",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   34.730675
+  ],
+  [
+   "FY26",
+   11,
+   "Chile",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   34.730675
+  ],
+  [
+   "FY26",
+   12,
+   "Chile",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   34.730675
+  ],
+  [
+   "FY26",
+   1,
+   "Chile",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   34.007694
+  ],
+  [
+   "FY26",
+   2,
+   "Chile",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   34.007694
+  ],
+  [
+   "FY26",
+   3,
+   "Chile",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   34.007694
+  ],
+  [
+   "FY26",
+   10,
+   "Ecuador",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   5.901628
+  ],
+  [
+   "FY26",
+   11,
+   "Ecuador",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   5.901628
+  ],
+  [
+   "FY26",
+   12,
+   "Ecuador",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   5.901628
+  ],
+  [
+   "FY26",
+   1,
+   "Ecuador",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   5.966631
+  ],
+  [
+   "FY26",
+   2,
+   "Ecuador",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   5.966631
+  ],
+  [
+   "FY26",
+   3,
+   "Ecuador",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   5.966631
+  ],
+  [
+   "FY26",
+   10,
+   "Peru",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   464.474981
+  ],
+  [
+   "FY26",
+   11,
+   "Peru",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   464.474981
+  ],
+  [
+   "FY26",
+   12,
+   "Peru",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   464.474981
+  ],
+  [
+   "FY26",
+   1,
+   "Peru",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   450.382339
+  ],
+  [
+   "FY26",
+   2,
+   "Peru",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   450.382339
+  ],
+  [
+   "FY26",
+   3,
+   "Peru",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   450.382339
+  ],
+  [
+   "FY26",
+   10,
+   "Peru",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   913.510291
+  ],
+  [
+   "FY26",
+   11,
+   "Peru",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   913.510291
+  ],
+  [
+   "FY26",
+   12,
+   "Peru",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   913.510291
+  ],
+  [
+   "FY26",
+   1,
+   "Peru",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   902.213987
+  ],
+  [
+   "FY26",
+   2,
+   "Peru",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   902.213987
+  ],
+  [
+   "FY26",
+   3,
+   "Peru",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   902.213987
+  ],
+  [
+   "FY26",
+   10,
+   "Peru",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   25.814928
+  ],
+  [
+   "FY26",
+   11,
+   "Peru",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   25.814928
+  ],
+  [
+   "FY26",
+   12,
+   "Peru",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   25.814928
+  ],
+  [
+   "FY26",
+   1,
+   "Peru",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   24.736365
+  ],
+  [
+   "FY26",
+   2,
+   "Peru",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   24.736365
+  ],
+  [
+   "FY26",
+   3,
+   "Peru",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   24.736365
+  ],
+  [
+   "FY26",
+   10,
+   "Peru",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   22.391513
+  ],
+  [
+   "FY26",
+   11,
+   "Peru",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   22.391513
+  ],
+  [
+   "FY26",
+   12,
+   "Peru",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   22.391513
+  ],
+  [
+   "FY26",
+   1,
+   "Peru",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   21.834578
+  ],
+  [
+   "FY26",
+   2,
+   "Peru",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   21.834578
+  ],
+  [
+   "FY26",
+   3,
+   "Peru",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   21.834578
+  ],
+  [
+   "FY26",
+   10,
+   "Colombia",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   1406.933142
+  ],
+  [
+   "FY26",
+   11,
+   "Colombia",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   1406.933142
+  ],
+  [
+   "FY26",
+   12,
+   "Colombia",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   1406.933142
+  ],
+  [
+   "FY26",
+   1,
+   "Colombia",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   1357.492899
+  ],
+  [
+   "FY26",
+   2,
+   "Colombia",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   1357.492899
+  ],
+  [
+   "FY26",
+   3,
+   "Colombia",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   1357.492899
+  ],
+  [
+   "FY26",
+   10,
+   "Colombia",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   491.651653
+  ],
+  [
+   "FY26",
+   11,
+   "Colombia",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   491.651653
+  ],
+  [
+   "FY26",
+   12,
+   "Colombia",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   491.651653
+  ],
+  [
+   "FY26",
+   1,
+   "Colombia",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   477.943975
+  ],
+  [
+   "FY26",
+   2,
+   "Colombia",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   477.943975
+  ],
+  [
+   "FY26",
+   3,
+   "Colombia",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   477.943975
+  ],
+  [
+   "FY26",
+   10,
+   "Others",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   229.408462
+  ],
+  [
+   "FY26",
+   11,
+   "Others",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   229.408462
+  ],
+  [
+   "FY26",
+   12,
+   "Others",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   229.408462
+  ],
+  [
+   "FY26",
+   1,
+   "Others",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   228.686844
+  ],
+  [
+   "FY26",
+   2,
+   "Others",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   228.686844
+  ],
+  [
+   "FY26",
+   3,
+   "Others",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   228.686844
+  ],
+  [
+   "FY26",
+   10,
+   "Others",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   28.310203
+  ],
+  [
+   "FY26",
+   11,
+   "Others",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   28.310203
+  ],
+  [
+   "FY26",
+   12,
+   "Others",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   28.310203
+  ],
+  [
+   "FY26",
+   1,
+   "Others",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   28.298285
+  ],
+  [
+   "FY26",
+   2,
+   "Others",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   28.298285
+  ],
+  [
+   "FY26",
+   3,
+   "Others",
+   "B2B2C",
+   "ON",
+   "Packages",
+   "O. Incentives",
+   28.298285
+  ],
+  [
+   "FY26",
+   10,
+   "Argentina",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   392.660901
+  ],
+  [
+   "FY26",
+   11,
+   "Argentina",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   392.660901
+  ],
+  [
+   "FY26",
+   12,
+   "Argentina",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   392.660901
+  ],
+  [
+   "FY26",
+   1,
+   "Argentina",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   422.108407
+  ],
+  [
+   "FY26",
+   2,
+   "Argentina",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   422.108407
+  ],
+  [
+   "FY26",
+   3,
+   "Argentina",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   422.108407
+  ],
+  [
+   "FY26",
+   10,
+   "Argentina",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   72.130052
+  ],
+  [
+   "FY26",
+   11,
+   "Argentina",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   72.130052
+  ],
+  [
+   "FY26",
+   12,
+   "Argentina",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   72.130052
+  ],
+  [
+   "FY26",
+   1,
+   "Argentina",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   77.539427
+  ],
+  [
+   "FY26",
+   2,
+   "Argentina",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   77.539427
+  ],
+  [
+   "FY26",
+   3,
+   "Argentina",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   77.539427
+  ],
+  [
+   "FY26",
+   10,
+   "Argentina",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   608.207031
+  ],
+  [
+   "FY26",
+   11,
+   "Argentina",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   608.207031
+  ],
+  [
+   "FY26",
+   12,
+   "Argentina",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   608.207031
+  ],
+  [
+   "FY26",
+   1,
+   "Argentina",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   591.494575
+  ],
+  [
+   "FY26",
+   2,
+   "Argentina",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   591.494575
+  ],
+  [
+   "FY26",
+   3,
+   "Argentina",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   591.494575
+  ],
+  [
+   "FY26",
+   10,
+   "Argentina",
+   "B2B2C",
+   "CallCenter",
+   "Hotel",
+   "O. Incentives",
+   0.641706
+  ],
+  [
+   "FY26",
+   11,
+   "Argentina",
+   "B2B2C",
+   "CallCenter",
+   "Hotel",
+   "O. Incentives",
+   0.641706
+  ],
+  [
+   "FY26",
+   12,
+   "Argentina",
+   "B2B2C",
+   "CallCenter",
+   "Hotel",
+   "O. Incentives",
+   0.641706
+  ],
+  [
+   "FY26",
+   1,
+   "Argentina",
+   "B2B2C",
+   "CallCenter",
+   "Hotel",
+   "O. Incentives",
+   0.68983
+  ],
+  [
+   "FY26",
+   2,
+   "Argentina",
+   "B2B2C",
+   "CallCenter",
+   "Hotel",
+   "O. Incentives",
+   0.68983
+  ],
+  [
+   "FY26",
+   3,
+   "Argentina",
+   "B2B2C",
+   "CallCenter",
+   "Hotel",
+   "O. Incentives",
+   0.68983
+  ],
+  [
+   "FY26",
+   10,
+   "Argentina",
+   "B2B2C",
+   "CallCenter",
+   "Packages",
+   "O. Incentives",
+   4.626489
+  ],
+  [
+   "FY26",
+   11,
+   "Argentina",
+   "B2B2C",
+   "CallCenter",
+   "Packages",
+   "O. Incentives",
+   4.626489
+  ],
+  [
+   "FY26",
+   12,
+   "Argentina",
+   "B2B2C",
+   "CallCenter",
+   "Packages",
+   "O. Incentives",
+   4.626489
+  ],
+  [
+   "FY26",
+   1,
+   "Argentina",
+   "B2B2C",
+   "CallCenter",
+   "Packages",
+   "O. Incentives",
+   4.973452
+  ],
+  [
+   "FY26",
+   2,
+   "Argentina",
+   "B2B2C",
+   "CallCenter",
+   "Packages",
+   "O. Incentives",
+   4.973452
+  ],
+  [
+   "FY26",
+   3,
+   "Argentina",
+   "B2B2C",
+   "CallCenter",
+   "Packages",
+   "O. Incentives",
+   4.973452
+  ],
+  [
+   "FY26",
+   10,
+   "Mexico",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   1139.356497
+  ],
+  [
+   "FY26",
+   11,
+   "Mexico",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   1139.356497
+  ],
+  [
+   "FY26",
+   12,
+   "Mexico",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   1139.356497
+  ],
+  [
+   "FY26",
+   1,
+   "Mexico",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   1160.767276
+  ],
+  [
+   "FY26",
+   2,
+   "Mexico",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   1160.767276
+  ],
+  [
+   "FY26",
+   3,
+   "Mexico",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   1160.767276
+  ],
+  [
+   "FY26",
+   10,
+   "Mexico",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   9207.507739
+  ],
+  [
+   "FY26",
+   11,
+   "Mexico",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   9207.507739
+  ],
+  [
+   "FY26",
+   12,
+   "Mexico",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   9207.507739
+  ],
+  [
+   "FY26",
+   1,
+   "Mexico",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   9068.468563
+  ],
+  [
+   "FY26",
+   2,
+   "Mexico",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   9068.468563
+  ],
+  [
+   "FY26",
+   3,
+   "Mexico",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   9068.468563
+  ],
+  [
+   "FY26",
+   10,
+   "Mexico",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   2813.879066
+  ],
+  [
+   "FY26",
+   11,
+   "Mexico",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   2813.879066
+  ],
+  [
+   "FY26",
+   12,
+   "Mexico",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   2813.879066
+  ],
+  [
+   "FY26",
+   1,
+   "Mexico",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   2785.776318
+  ],
+  [
+   "FY26",
+   2,
+   "Mexico",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   2785.776318
+  ],
+  [
+   "FY26",
+   3,
+   "Mexico",
+   "B2B2C",
+   "ON",
+   "Hotel",
+   "O. Incentives",
+   2785.776318
+  ],
+  [
+   "FY26",
+   10,
+   "Mexico",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   711.334779
+  ],
+  [
+   "FY26",
+   11,
+   "Mexico",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   711.334779
+  ],
+  [
+   "FY26",
+   12,
+   "Mexico",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   711.334779
+  ],
+  [
+   "FY26",
+   1,
+   "Mexico",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   685.853172
+  ],
+  [
+   "FY26",
+   2,
+   "Mexico",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   685.853172
+  ],
+  [
+   "FY26",
+   3,
+   "Mexico",
+   "B2B2C",
+   "OFF",
+   "Hotel",
+   "O. Incentives",
+   685.853172
+  ],
+  [
+   "FY26",
+   10,
+   "Mexico",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   838.265369
+  ],
+  [
+   "FY26",
+   11,
+   "Mexico",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   838.265369
+  ],
+  [
+   "FY26",
+   12,
+   "Mexico",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   838.265369
+  ],
+  [
+   "FY26",
+   1,
+   "Mexico",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   839.685671
+  ],
+  [
+   "FY26",
+   2,
+   "Mexico",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   839.685671
+  ],
+  [
+   "FY26",
+   3,
+   "Mexico",
+   "B2B2C",
+   "OFF",
+   "Packages",
+   "O. Incentives",
+   839.685671
+  ],
+  [
+   "FY26",
+   10,
+   "Mexico",
+   "B2B2C",
+   "CallCenter",
+   "Hotel",
+   "O. Incentives",
+   361.668206
+  ],
+  [
+   "FY26",
+   11,
+   "Mexico",
+   "B2B2C",
+   "CallCenter",
+   "Hotel",
+   "O. Incentives",
+   361.668206
+  ],
+  [
+   "FY26",
+   12,
+   "Mexico",
+   "B2B2C",
+   "CallCenter",
+   "Hotel",
+   "O. Incentives",
+   361.668206
+  ],
+  [
+   "FY26",
+   1,
+   "Mexico",
+   "B2B2C",
+   "CallCenter",
+   "Hotel",
+   "O. Incentives",
+   352.04112
+  ],
+  [
+   "FY26",
+   2,
+   "Mexico",
+   "B2B2C",
+   "CallCenter",
+   "Hotel",
+   "O. Incentives",
+   352.04112
+  ],
+  [
+   "FY26",
+   3,
+   "Mexico",
+   "B2B2C",
+   "CallCenter",
+   "Hotel",
+   "O. Incentives",
+   352.04112
+  ],
+  [
+   "FY26",
+   10,
+   "Mexico",
+   "B2B2C",
+   "CallCenter",
+   "Packages",
+   "O. Incentives",
+   598.314858
+  ],
+  [
+   "FY26",
+   11,
+   "Mexico",
+   "B2B2C",
+   "CallCenter",
+   "Packages",
+   "O. Incentives",
+   598.314858
+  ],
+  [
+   "FY26",
+   12,
+   "Mexico",
+   "B2B2C",
+   "CallCenter",
+   "Packages",
+   "O. Incentives",
+   598.314858
+  ],
+  [
+   "FY26",
+   1,
+   "Mexico",
+   "B2B2C",
+   "CallCenter",
+   "Packages",
+   "O. Incentives",
+   598.806769
+  ],
+  [
+   "FY26",
+   2,
+   "Mexico",
+   "B2B2C",
+   "CallCenter",
+   "Packages",
+   "O. Incentives",
+   598.806769
+  ],
+  [
+   "FY26",
+   3,
+   "Mexico",
+   "B2B2C",
+   "CallCenter",
+   "Packages",
+   "O. Incentives",
+   598.806769
+  ],
+  [
+   "FY26",
+   10,
+   "Brazil",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   12016.720602
+  ],
+  [
+   "FY26",
+   11,
+   "Brazil",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   12016.720602
+  ],
+  [
+   "FY26",
+   12,
+   "Brazil",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   12016.720602
+  ],
+  [
+   "FY26",
+   1,
+   "Brazil",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   11970.23386
+  ],
+  [
+   "FY26",
+   2,
+   "Brazil",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   11970.23386
+  ],
+  [
+   "FY26",
+   3,
+   "Brazil",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   11970.23386
+  ],
+  [
+   "FY26",
+   10,
+   "Brazil",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   5315.882427
+  ],
+  [
+   "FY26",
+   11,
+   "Brazil",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   5315.882427
+  ],
+  [
+   "FY26",
+   12,
+   "Brazil",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   5315.882427
+  ],
+  [
+   "FY26",
+   1,
+   "Brazil",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   5363.430594
+  ],
+  [
+   "FY26",
+   2,
+   "Brazil",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   5363.430594
+  ],
+  [
+   "FY26",
+   3,
+   "Brazil",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   5363.430594
+  ],
+  [
+   "FY26",
+   10,
+   "Brazil",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   16873.54594
+  ],
+  [
+   "FY26",
+   11,
+   "Brazil",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   16873.54594
+  ],
+  [
+   "FY26",
+   12,
+   "Brazil",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   16873.54594
+  ],
+  [
+   "FY26",
+   1,
+   "Brazil",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   16817.661114
+  ],
+  [
+   "FY26",
+   2,
+   "Brazil",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   16817.661114
+  ],
+  [
+   "FY26",
+   3,
+   "Brazil",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   16817.661114
+  ],
+  [
+   "FY26",
+   10,
+   "Chile",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   527.568016
+  ],
+  [
+   "FY26",
+   11,
+   "Chile",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   527.568016
+  ],
+  [
+   "FY26",
+   12,
+   "Chile",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   527.568016
+  ],
+  [
+   "FY26",
+   1,
+   "Chile",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   519.635399
+  ],
+  [
+   "FY26",
+   2,
+   "Chile",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   519.635399
+  ],
+  [
+   "FY26",
+   3,
+   "Chile",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   519.635399
+  ],
+  [
+   "FY26",
+   10,
+   "Chile",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   279.837284
+  ],
+  [
+   "FY26",
+   11,
+   "Chile",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   279.837284
+  ],
+  [
+   "FY26",
+   12,
+   "Chile",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   279.837284
+  ],
+  [
+   "FY26",
+   1,
+   "Chile",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   278.891228
+  ],
+  [
+   "FY26",
+   2,
+   "Chile",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   278.891228
+  ],
+  [
+   "FY26",
+   3,
+   "Chile",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   278.891228
+  ],
+  [
+   "FY26",
+   10,
+   "Chile",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   4.519012
+  ],
+  [
+   "FY26",
+   11,
+   "Chile",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   4.519012
+  ],
+  [
+   "FY26",
+   12,
+   "Chile",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   4.519012
+  ],
+  [
+   "FY26",
+   1,
+   "Chile",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   4.360761
+  ],
+  [
+   "FY26",
+   2,
+   "Chile",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   4.360761
+  ],
+  [
+   "FY26",
+   3,
+   "Chile",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   4.360761
+  ],
+  [
+   "FY26",
+   10,
+   "Chile",
+   "B2B2C",
+   "CallCenter",
+   "Hotel",
+   "O. Incentives",
+   0.673351
+  ],
+  [
+   "FY26",
+   11,
+   "Chile",
+   "B2B2C",
+   "CallCenter",
+   "Hotel",
+   "O. Incentives",
+   0.673351
+  ],
+  [
+   "FY26",
+   12,
+   "Chile",
+   "B2B2C",
+   "CallCenter",
+   "Hotel",
+   "O. Incentives",
+   0.673351
+  ],
+  [
+   "FY26",
+   1,
+   "Chile",
+   "B2B2C",
+   "CallCenter",
+   "Hotel",
+   "O. Incentives",
+   0.650429
+  ],
+  [
+   "FY26",
+   2,
+   "Chile",
+   "B2B2C",
+   "CallCenter",
+   "Hotel",
+   "O. Incentives",
+   0.650429
+  ],
+  [
+   "FY26",
+   3,
+   "Chile",
+   "B2B2C",
+   "CallCenter",
+   "Hotel",
+   "O. Incentives",
+   0.650429
+  ],
+  [
+   "FY26",
+   10,
+   "Chile",
+   "B2B2C",
+   "CallCenter",
+   "Packages",
+   "O. Incentives",
+   13.964499
+  ],
+  [
+   "FY26",
+   11,
+   "Chile",
+   "B2B2C",
+   "CallCenter",
+   "Packages",
+   "O. Incentives",
+   13.964499
+  ],
+  [
+   "FY26",
+   12,
+   "Chile",
+   "B2B2C",
+   "CallCenter",
+   "Packages",
+   "O. Incentives",
+   13.964499
+  ],
+  [
+   "FY26",
+   1,
+   "Chile",
+   "B2B2C",
+   "CallCenter",
+   "Packages",
+   "O. Incentives",
+   14.61828
+  ],
+  [
+   "FY26",
+   2,
+   "Chile",
+   "B2B2C",
+   "CallCenter",
+   "Packages",
+   "O. Incentives",
+   14.61828
+  ],
+  [
+   "FY26",
+   3,
+   "Chile",
+   "B2B2C",
+   "CallCenter",
+   "Packages",
+   "O. Incentives",
+   14.61828
+  ],
+  [
+   "FY26",
+   10,
+   "Ecuador",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   351.630107
+  ],
+  [
+   "FY26",
+   11,
+   "Ecuador",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   351.630107
+  ],
+  [
+   "FY26",
+   12,
+   "Ecuador",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   351.630107
+  ],
+  [
+   "FY26",
+   1,
+   "Ecuador",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   347.234159
+  ],
+  [
+   "FY26",
+   2,
+   "Ecuador",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   347.234159
+  ],
+  [
+   "FY26",
+   3,
+   "Ecuador",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   347.234159
+  ],
+  [
+   "FY26",
+   10,
+   "Ecuador",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   48.291
+  ],
+  [
+   "FY26",
+   11,
+   "Ecuador",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   48.291
+  ],
+  [
+   "FY26",
+   12,
+   "Ecuador",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   48.291
+  ],
+  [
+   "FY26",
+   1,
+   "Ecuador",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   46.937487
+  ],
+  [
+   "FY26",
+   2,
+   "Ecuador",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   46.937487
+  ],
+  [
+   "FY26",
+   3,
+   "Ecuador",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   46.937487
+  ],
+  [
+   "FY26",
+   10,
+   "Ecuador",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   581.003979
+  ],
+  [
+   "FY26",
+   11,
+   "Ecuador",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   581.003979
+  ],
+  [
+   "FY26",
+   12,
+   "Ecuador",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   581.003979
+  ],
+  [
+   "FY26",
+   1,
+   "Ecuador",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   567.318138
+  ],
+  [
+   "FY26",
+   2,
+   "Ecuador",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   567.318138
+  ],
+  [
+   "FY26",
+   3,
+   "Ecuador",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   567.318138
+  ],
+  [
+   "FY26",
+   10,
+   "Peru",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   284.474428
+  ],
+  [
+   "FY26",
+   11,
+   "Peru",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   284.474428
+  ],
+  [
+   "FY26",
+   12,
+   "Peru",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   284.474428
+  ],
+  [
+   "FY26",
+   1,
+   "Peru",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   279.18233
+  ],
+  [
+   "FY26",
+   2,
+   "Peru",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   279.18233
+  ],
+  [
+   "FY26",
+   3,
+   "Peru",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   279.18233
+  ],
+  [
+   "FY26",
+   10,
+   "Peru",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   80.387877
+  ],
+  [
+   "FY26",
+   11,
+   "Peru",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   80.387877
+  ],
+  [
+   "FY26",
+   12,
+   "Peru",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   80.387877
+  ],
+  [
+   "FY26",
+   1,
+   "Peru",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   79.896955
+  ],
+  [
+   "FY26",
+   2,
+   "Peru",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   79.896955
+  ],
+  [
+   "FY26",
+   3,
+   "Peru",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   79.896955
+  ],
+  [
+   "FY26",
+   10,
+   "Peru",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   13.443964
+  ],
+  [
+   "FY26",
+   11,
+   "Peru",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   13.443964
+  ],
+  [
+   "FY26",
+   12,
+   "Peru",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   13.443964
+  ],
+  [
+   "FY26",
+   1,
+   "Peru",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   13.428705
+  ],
+  [
+   "FY26",
+   2,
+   "Peru",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   13.428705
+  ],
+  [
+   "FY26",
+   3,
+   "Peru",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   13.428705
+  ],
+  [
+   "FY26",
+   10,
+   "Colombia",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   2240.66641
+  ],
+  [
+   "FY26",
+   11,
+   "Colombia",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   2240.66641
+  ],
+  [
+   "FY26",
+   12,
+   "Colombia",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   2240.66641
+  ],
+  [
+   "FY26",
+   1,
+   "Colombia",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   2221.744558
+  ],
+  [
+   "FY26",
+   2,
+   "Colombia",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   2221.744558
+  ],
+  [
+   "FY26",
+   3,
+   "Colombia",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   2221.744558
+  ],
+  [
+   "FY26",
+   10,
+   "Colombia",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   324.501202
+  ],
+  [
+   "FY26",
+   11,
+   "Colombia",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   324.501202
+  ],
+  [
+   "FY26",
+   12,
+   "Colombia",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   324.501202
+  ],
+  [
+   "FY26",
+   1,
+   "Colombia",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   320.590357
+  ],
+  [
+   "FY26",
+   2,
+   "Colombia",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   320.590357
+  ],
+  [
+   "FY26",
+   3,
+   "Colombia",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   320.590357
+  ],
+  [
+   "FY26",
+   10,
+   "Colombia",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   876.244202
+  ],
+  [
+   "FY26",
+   11,
+   "Colombia",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   876.244202
+  ],
+  [
+   "FY26",
+   12,
+   "Colombia",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   876.244202
+  ],
+  [
+   "FY26",
+   1,
+   "Colombia",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   858.409023
+  ],
+  [
+   "FY26",
+   2,
+   "Colombia",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   858.409023
+  ],
+  [
+   "FY26",
+   3,
+   "Colombia",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   858.409023
+  ],
+  [
+   "FY26",
+   10,
+   "Others",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   395.521708
+  ],
+  [
+   "FY26",
+   11,
+   "Others",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   395.521708
+  ],
+  [
+   "FY26",
+   12,
+   "Others",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   395.521708
+  ],
+  [
+   "FY26",
+   1,
+   "Others",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   388.195648
+  ],
+  [
+   "FY26",
+   2,
+   "Others",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   388.195648
+  ],
+  [
+   "FY26",
+   3,
+   "Others",
+   "B2B",
+   "MIN",
+   "Hotel",
+   "O. Incentives",
+   388.195648
+  ],
+  [
+   "FY26",
+   10,
+   "Others",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   0.252074
+  ],
+  [
+   "FY26",
+   11,
+   "Others",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   0.252074
+  ],
+  [
+   "FY26",
+   12,
+   "Others",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   0.252074
+  ],
+  [
+   "FY26",
+   1,
+   "Others",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   0.24087
+  ],
+  [
+   "FY26",
+   2,
+   "Others",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   0.24087
+  ],
+  [
+   "FY26",
+   3,
+   "Others",
+   "B2B",
+   "MIN",
+   "Packages",
+   "O. Incentives",
+   0.24087
+  ],
+  [
+   "FY26",
+   10,
+   "Others",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   36513.78786
+  ],
+  [
+   "FY26",
+   11,
+   "Others",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   36513.78786
+  ],
+  [
+   "FY26",
+   12,
+   "Others",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   36513.78786
+  ],
+  [
+   "FY26",
+   1,
+   "Others",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   35529.670921
+  ],
+  [
+   "FY26",
+   2,
+   "Others",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   35529.670921
+  ],
+  [
+   "FY26",
+   3,
+   "Others",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "O. Incentives",
+   35529.670921
+  ]
+ ]
+}
