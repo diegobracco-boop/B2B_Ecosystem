@@ -1,7 +1,7 @@
 // Armado de los JSON canónicos desde la tabla del consolidador y comparación contra los de Drive (server/pnl-consolidador.js).
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { buildCanonicals, comparar, fechaFiscal, canalDe } = require('../server/pnl-consolidador');
+const { buildCanonicals, comparar, fechaFiscal, canalDe, mesSiguiente } = require('../server/pnl-consolidador');
 const { IDS } = require('../server/pnl-drive-dimensiones');
 
 const COLS = ['scenario', 'year', 'mes', 'pais', 'lob', 'channel', 'product', 'n2', 'valor'];
@@ -29,7 +29,7 @@ const FILAS = [
   ['ACT', 'FY27', 12, 'Brazil', 'B2B', 'MAY', 'Air', 'Gross Bookings', 70],    // run rate dentro del ACT: no es actual cerrado
   ['BGT', 'FY27', 4, 'OPS + RG', 'B2B2C', 'ON', 'Hotel', 'Third Party Comission', -5],
   ['FC1', 'FY27', 8, 'Others', 'B2B', 'MIN', 'General', 'Orders', 9],
-  ['RR', 'FY27', 4, 'Chile', 'B2B2C', 'Site', 'Cars', 'Orders', 3],
+  ['RR', 'FY27', 11, 'Chile', 'B2B2C', 'Site', 'Cars', 'Orders', 3],
   ['LRR', 'FY27', 5, 'Peru', 'B2B2C', 'Call Center', 'Buses', 'Orders', 4],
   ['ACT', 'FY26', 1, 'Mexico', 'B2B', 'MIN', 'D. Services', 'Orders', 8],
 ];
@@ -93,4 +93,12 @@ test('comparar: tolerancia de 1 USD y relativa', () => {
   const { canon } = buildCanonicals(cubo([['BGT', 'FY27', 4, 'Chile', 'B2B', 'MAY', 'Air', 'Gross Bookings', 1000000.4]]));
   const store = storeCon({ [IDS.bg]: drive([['b2b', 'may', 'chile', 'flights', 'x', 'gross bookings', '2026-04-01', 1000000]]) });
   assert.equal(comparar(canon, store).bg.claves.iguales, 1);
+});
+
+test('mesSiguiente y el run rate por defecto arranca el mes después del último cerrado', () => {
+  assert.equal(mesSiguiente('2026-10-01'), '2026-11-01');
+  assert.equal(mesSiguiente('2026-12-01'), '2027-01-01');
+  const rows = [['RR', 'FY27', 10, 'Chile', 'B2B', 'MAY', 'Air', 'Orders', 1], ['RR', 'FY27', 11, 'Chile', 'B2B', 'MAY', 'Air', 'Orders', 2]];
+  assert.deepEqual(buildCanonicals(cubo(rows)).canon.rr.rows.map((r) => r[5]), ['2026-11-01']);
+  assert.deepEqual(buildCanonicals(cubo(rows), { ultimoCerrado: '2026-09-01' }).canon.rr.rows.map((r) => r[5]), ['2026-10-01', '2026-11-01']);
 });

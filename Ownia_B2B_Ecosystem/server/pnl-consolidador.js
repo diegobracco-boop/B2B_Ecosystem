@@ -44,6 +44,12 @@ function fechaFiscal(year, mes) {
   return `${y}-${String(mes).padStart(2, '0')}-01`;
 }
 
+/** '2026-10-01' → '2026-11-01'. */
+function mesSiguiente(fecha) {
+  const [y, m] = fecha.split('-').map(Number);
+  return m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, '0')}-01`;
+}
+
 /** Los JSON solo abren MAY/MIN en B2B; B2B2C (y cualquier otro canal) va a 'total'. */
 function canalDe(lob, channel) {
   if (lob === 'B2B' && channel === 'MAY') return 'may';
@@ -54,12 +60,12 @@ function canalDe(lob, channel) {
 /**
  * @param {{cols:string[], rows:any[][]}} cubo  salida de `consolidador_leer.py cubo`
  * @param {{ultimoCerrado?:string, rrDesde?:string}} opts  último mes con actuals cerrados (AAAA-MM-01) y desde qué mes se
- *        toma el run rate (por defecto todos los meses que traiga la tabla)
+ *        toma el run rate (por defecto el mes siguiente al último cerrado, como el runrate.json de Drive)
  * @returns {{canon:object, sinMapear:object}}
  */
 function buildCanonicals(cubo, opts = {}) {
   const ultimoCerrado = opts.ultimoCerrado || '2026-10-01';
-  const rrDesde = opts.rrDesde || null;
+  const rrDesde = opts.rrDesde || mesSiguiente(ultimoCerrado);
   const ix = Object.fromEntries(cubo.cols.map((c, i) => [c, i]));
   const sinMapear = { pais: new Set(), producto: new Set(), n2: new Set() };
   const SPEC = [   // [clave canónica, escenario de la tabla, año, filtro de mes (fecha)]
@@ -68,7 +74,7 @@ function buildCanonicals(cubo, opts = {}) {
     ['bg', 'BGT', 'FY27', () => true],
     ['fc', 'FC1', 'FY27', () => true],
     ['fbtb', 'FC1', 'FY27', () => true],
-    ['rr', 'RR', 'FY27', (f) => !rrDesde || f >= rrDesde],
+    ['rr', 'RR', 'FY27', (f) => f >= rrDesde],
     ['lrr', 'LRR', 'FY27', () => true],
     ['ly', 'ACT', 'FY26', () => true],
   ];
@@ -166,4 +172,4 @@ function comparar(canon, fileStore, opts = {}) {
   return out;
 }
 
-module.exports = { buildCanonicals, comparar, fechaFiscal, canalDe, PAIS, PRODUCTO, N2, COLS };
+module.exports = { buildCanonicals, comparar, fechaFiscal, canalDe, mesSiguiente, PAIS, PRODUCTO, N2, COLS };
