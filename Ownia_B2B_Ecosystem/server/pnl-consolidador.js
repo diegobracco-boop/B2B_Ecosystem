@@ -14,10 +14,10 @@ const path = require('path');
 const { IDS } = require('./pnl-drive-dimensiones');
 
 // Ajuste propio sobre los actuals (conso no lo incorpora): reclasificación de GB y Orders de API B2B-MAY, abril-junio.
-// Ver el meta de server/pnl-ajustes-actuals.json. Se suma a ACT, FC1 y LRR del FY27 en los meses <= último cerrado
-// (en la tabla, esos meses son actuals en los tres escenarios).
+// Ver el meta de server/pnl-ajustes-actuals.json. Se suma a ACT y FC1 del FY27 en los meses <= último cerrado
+// (en la tabla, esos meses son actuals en los dos escenarios). El LRR de Drive no lo incluye: no se le aplica.
 const AJUSTES_PATH = path.join(__dirname, 'pnl-ajustes-actuals.json');
-const AJUSTES_ESCENARIOS = ['ACT', 'FC1', 'LRR'];
+const AJUSTES_ESCENARIOS = ['ACT', 'FC1'];   // el lastrunrate.json de Drive no lo trae (medido el 17/11): se replica, no se corrige
 function cargarAjustes() {
   try { return JSON.parse(fs.readFileSync(AJUSTES_PATH, 'utf8')); } catch (e) { return { cols: [], rows: [] }; }
 }
@@ -28,10 +28,11 @@ const PAIS = {
   Argentina: 'argentina', Brazil: 'brasil', Chile: 'chile', Colombia: 'colombia', Ecuador: 'ecuador',
   Mexico: 'mexico', Peru: 'peru', Others: 'others countries', 'OPS + RG': 'rg',
 };
-// Hipótesis a confirmar con la comparación: 'General' y 'Packages' van al mismo producto de los JSON.
+// Confirmado con montos (comparación del 17/11): 'General' de la tabla suma exacto lo que Drive llama 'corporate' (306.714 de GB) y
+// 'Packages' suma exacto 'packages general'.
 const PRODUCTO = {
   Air: 'flights', Hotel: 'hotels', Cars: 'cars', Insurance: 'insurance', 'D. Services': 'dest. serv.',
-  'Vacation Rentals': 'vacation rentals', Cruise: 'cruises', Buses: 'buses', Packages: 'packages general', General: 'packages general',
+  'Vacation Rentals': 'vacation rentals', Cruise: 'cruises', Buses: 'buses', Packages: 'packages general', General: 'corporate',
 };
 const N2 = {
   'Fulfillment Center Fees': 'fulfilment center fees', Sourcing: 'sourcing', Orders: 'orders', 'Gross Bookings': 'gross bookings',
@@ -42,7 +43,7 @@ const N2 = {
   'Capitalized IT': 'capitalized it', 'Bad Debt': 'bad debt', 'Third Party Comission': 'third party commissions',
   'Back End Incentives': 'back end incentives', 'Cost of Installments': 'cost of installments', 'Media & Other revenue': 'media & other revenue',
   'Breakage Revenue': 'breakage revenue', 'Rev. Taxes': 'revenue taxes', Errors: 'errors', 'O. Transactional Taxes': 'other transactional taxes',
-  'Marketing - Direct': 'marketing-direct', 'Cost of Sales as Principal': 'cost of sales as principal',
+  'Marketing - Direct': 'marketing-direct', 'Alianzas Financieras': 'alianzas financieras', 'Cost of Sales as Principal': 'cost of sales as principal',
   'Media & Other Cost - Media Solutions': 'media & other cost', 'Loyalty Program': 'loyalty program', 'Fair value': 'fair value - stock based compensation',
   'Customer Claims': 'customer claims', Frauds: 'frauds', 'Other Tax': 'other taxes', 'Income from outsourced services': 'income from outsourced services', 'Income Services': 'income from outsourced services',
   'Loyalty Revenue': 'loyalty revenue', Equity: 'equity income / loss', 'Revenue from Sales as Principal': 'revenue from sales as principal',

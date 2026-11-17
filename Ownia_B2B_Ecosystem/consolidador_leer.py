@@ -60,9 +60,11 @@ def cubo():
     """La tabla agregada por las dimensiones que usa el P&L Accounting (sin nivel 3 ni las columnas organic).
     Filas como listas (no dicts) para que el JSON pese menos. Lo arma pnl-consolidador.js al formato de los canónicos."""
     c = cdb()
+    # Drive separa "alianzas financieras" de Sourcing: en la tabla es una línea (nivel 4) dentro de nivel 2 = Sourcing.
+    n2 = "CASE WHEN \"linea_p&l\" = 'Alianzas Financieras' THEN 'Alianzas Financieras' ELSE \"linea_p&l_-_nivel_2\" END"
     rows = c.consultar(
-        "SELECT scenario, year, mes, pais, lob, channel, product, \"linea_p&l_-_nivel_2\" AS n2, sum(valor) AS valor "
-        f"FROM {TABLA} GROUP BY scenario, year, mes, pais, lob, channel, product, \"linea_p&l_-_nivel_2\"")
+        f"SELECT scenario, year, mes, pais, lob, channel, product, {n2} AS n2, sum(valor) AS valor "
+        f"FROM {TABLA} GROUP BY scenario, year, mes, pais, lob, channel, product, {n2}")
     return {"version": c.version(DATASET), "cols": CUBO_COLS, "rows": [[r[k] for k in CUBO_COLS] for r in rows]}
 
 

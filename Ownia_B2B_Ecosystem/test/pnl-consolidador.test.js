@@ -45,7 +45,7 @@ test('buildCanonicals: cada escenario sale del escenario y año de la tabla, con
   assert.deepEqual(canon.bg.rows, [['b2b2c', 'total', 'rg', 'hotels', 'third party commissions', '2026-04-01', -5]]);
   // el FC1 de conso es el Bridge to Budget: alimenta fc y fbtb por igual
   assert.deepEqual(canon.fc.rows, canon.fbtb.rows);
-  assert.deepEqual(canon.fc.rows, [['b2b', 'min', 'others countries', 'packages general', 'orders', '2026-08-01', 9]]);
+  assert.deepEqual(canon.fc.rows, [['b2b', 'min', 'others countries', 'corporate', 'orders', '2026-08-01', 9]]);
   assert.equal(canon.rr.rows[0][1], 'total');
   assert.equal(canon.lrr.rows[0][3], 'buses');
   assert.deepEqual(canon.ly.rows, [['b2b', 'min', 'mexico', 'dest. serv.', 'orders', '2026-01-01', 8]]);
@@ -132,7 +132,7 @@ const AJ = { cols: ['year', 'mes', 'pais', 'lob', 'channel', 'product', 'n2', 'v
   ['FY27', 12, 'Brazil', 'B2B', 'MAY', 'Hotel', 'Gross Bookings', -999],   // posterior al último cerrado: no se aplica
 ] };
 
-test('ajuste propio: se suma a ACT, FC1 y LRR del FY27 hasta el último cerrado, y no toca BGT, RR ni el año anterior', () => {
+test('ajuste propio: se suma a ACT y FC1 del FY27 hasta el último cerrado, y no toca BGT, RR, LRR ni el año anterior', () => {
   const base = [
     ['ACT', 'FY27', 4, 'Brazil', 'B2B', 'MAY', 'Hotel', 'Gross Bookings', 1000],
     ['FC1', 'FY27', 4, 'Brazil', 'B2B', 'MAY', 'Hotel', 'Gross Bookings', 1000],
@@ -143,8 +143,8 @@ test('ajuste propio: se suma a ACT, FC1 y LRR del FY27 hasta el último cerrado,
   ];
   const { canon } = buildCanonicals(cubo(base), { ultimoCerrado: '2026-10-01', rrDesde: '2026-04-01', ajustes: AJ });
   const v = (sc) => canon[sc].rows.map((r) => r[6]);
-  for (const sc of ['ac', 'bl', 'fc', 'fbtb', 'lrr']) assert.deepEqual(v(sc), [900], sc);
-  for (const sc of ['bg', 'rr', 'ly']) assert.deepEqual(v(sc), [1000], sc);
+  for (const sc of ['ac', 'bl', 'fc', 'fbtb']) assert.deepEqual(v(sc), [900], sc);
+  for (const sc of ['bg', 'rr', 'ly', 'lrr']) assert.deepEqual(v(sc), [1000], sc);   // el LRR de Drive no trae el ajuste
 });
 
 test('ajuste propio: sin ajustes (o con archivo ausente) no cambia nada, y el archivo real carga', () => {
@@ -160,4 +160,14 @@ test('comparar: totalPorLinea dice cuánto suma cada línea de cada lado', () =>
   const { canon } = buildCanonicals(cubo([['BGT', 'FY27', 4, 'Chile', 'B2B', 'MAY', 'Air', 'Gross Bookings', 100]]));
   const store = storeCon({ [IDS.bg]: drive([['b2b', 'may', 'chile', 'flights', 'x', 'gross bookings', '2026-04-01', 90]]) });
   assert.deepEqual(comparar(canon, store).bg.totalPorLinea['gross bookings'], { drive: 90, tabla: 100 });
+});
+
+test('General es corporate, Packages es packages general, y Alianzas Financieras es línea propia', () => {
+  const { canon, sinMapear } = buildCanonicals(cubo([
+    ['ACT', 'FY27', 4, 'Brazil', 'B2B', 'MAY', 'General', 'Gross Bookings', 3],
+    ['ACT', 'FY27', 4, 'Brazil', 'B2B', 'MAY', 'Packages', 'Gross Bookings', 4],
+    ['ACT', 'FY27', 4, 'Brazil', 'B2B2C', 'ON', 'Air', 'Alianzas Financieras', 5],
+  ]), { ajustes: SIN_AJ });
+  assert.deepEqual(canon.ac.rows.map((r) => r[3] + ':' + r[4]).sort(), ['corporate:gross bookings', 'flights:alianzas financieras', 'packages general:gross bookings']);
+  assert.deepEqual(sinMapear, { pais: [], producto: [], n2: [] });
 });
