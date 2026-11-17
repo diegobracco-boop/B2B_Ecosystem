@@ -310,6 +310,50 @@ const SCRIPT = `(function () {
       'Real − gradiente en puntos: positivo = se cancela más de lo que el GD descuenta. En el período elegido puede haber ventas que todavía se cancelen.</p></div>';
   }
 
+  // Conciliación GD -> RI del mes: cascada + serie de meses
+  var CONC_COL = { gd: '--primary', grad: '--muted', vendido: '--muted', canc: '--dn', pend: '--warn', despues: '--c1', previas: '--up', ajuste: '--ref', ri: '--up' };
+  function renderConc() {
+    var c = D.conciliacion, p = c.mes, by = {}; p.pasos.forEach(function (x) { by[x.k] = x.v; });
+    var lead = '<p class="sub" style="font-size:14px;color:var(--text-2);margin-bottom:12px">En <b>' + esc(mes(p.mes)) + '</b>, de <b>' + usd(p.gd) + '</b> por GD se llega a <b>' + usd(p.ri) + '</b> por RI. ' +
+      'El gradiente descuenta ' + pc(p.pctGrad) + ' de lo vendido, pero se cancela ' + pc(p.pctCanc) + '; además quedan ' + usd(-by.pend) + ' pendientes y ' + usd(-by.despues) +
+      ' confirmados que se reconocen en otro mes, y entran ' + usd(by.previas) + ' de ventas anteriores.</p>';
+    var tbl = '<details style="margin-top:12px"' + (c.serie.length ? ' open' : '') + '><summary style="cursor:pointer;color:var(--link);font-size:13.5px">Serie de meses</summary><div class="eb-tw" style="margin-top:10px"><table class="eb-t"><thead><tr><th class="l">Mes</th>' +
+      ['GD (× grad.)', '+ gradiente', '= vendido', '− cancelado', '− pendiente', '− se reconoce en otro mes', '+ de ventas anteriores', '± ajuste', '= RI', 'RI / GD'].map(function (h) { return '<th>' + h + '</th>'; }).join('') + '</tr></thead><tbody>' +
+      c.serie.slice().reverse().map(function (s) {
+        var b = {}; s.pasos.forEach(function (x) { b[x.k] = x.v; });
+        return '<tr' + (s.mes === p.mes ? ' style="font-weight:600"' : '') + '><td class="l">' + esc(mes(s.mes)) + '</td>' +
+          ['gd', 'grad', 'vendido', 'canc', 'pend', 'despues', 'previas', 'ajuste', 'ri'].map(function (k) { return '<td>' + usd(b[k]).replace('US$ ', '') + '</td>'; }).join('') +
+          '<td>' + pc(s.gd ? s.ri / s.gd * 100 : null) + '</td></tr>';
+      }).join('') + '</tbody></table></div></details>';
+    return lead + '<div class="eb-card"><div class="eb-ch" id="eb-conc"></div>' + tbl +
+      '<p class="eb-note">Cierra exacto: cada paso sale de las mismas tablas que el GD y el RI del Daily. "Se reconoce en otro mes" = confirmado que viaja después (o todavía no viajó). "De ventas anteriores" = lo que el RI del mes toma de ventas de meses previos. ' +
+      'El ajuste es lo que el RI tomó de ventas del mismo mes que hoy figuran canceladas (canceladas después de reconocerse). Con los filtros de país, canal y producto, y el mes elegido abajo en "Mes".</p></div>';
+  }
+  function drawConc() {
+    var box = $('eb-conc'); if (!box) return;
+    var P = D.conciliacion.mes.pasos, W = Math.max(320, box.clientWidth || 700), H = 320, m = { t: 22, r: 10, b: 64, l: 10 };
+    var run = 0, bars = P.map(function (x) {
+      var y0, y1;
+      if (x.tipo === 'total' || x.tipo === 'sub') { y0 = 0; y1 = x.v; run = x.v; }
+      else { y0 = run; y1 = run + x.v; run = y1; }
+      return { x: x, lo: Math.min(y0, y1), hi: Math.max(y0, y1) };
+    });
+    var max = 0; bars.forEach(function (b) { max = Math.max(max, b.hi); });
+    var bw = (W - m.l - m.r) / bars.length, Y = function (v) { return m.t + (1 - v / (max || 1)) * (H - m.t - m.b); };
+    var s = '<line class="gl" x1="' + m.l + '" x2="' + (W - m.r) + '" y1="' + Y(0) + '" y2="' + Y(0) + '"/>';
+    bars.forEach(function (b, i) {
+      var x = m.l + i * bw + bw * 0.14, w = bw * 0.72, col = CONC_COL[b.x.k] || '--primary';
+      s += '<rect x="' + x + '" y="' + Y(b.hi) + '" width="' + w + '" height="' + Math.max(1, Y(b.lo) - Y(b.hi)) + '" rx="3" style="fill:var(' + col + ')' + (b.x.tipo === 'sub' ? ';fill-opacity:.55' : '') + '"><title>' + esc(b.x.lbl + ': ' + usd(b.x.v)) + '</title></rect>';
+      if (i < bars.length - 1) { var nxt = bars[i + 1].x.tipo; var yl = Y(b.x.tipo === 'menos' ? b.lo : b.hi); if (nxt !== 'total' && nxt !== 'sub') s += '<line x1="' + (x + w) + '" x2="' + (x + bw) + '" y1="' + yl + '" y2="' + yl + '" style="stroke:var(--text-3);stroke-dasharray:2 2"/>'; }
+      s += '<text class="ax" x="' + (x + w / 2) + '" y="' + (Y(b.hi) - 6) + '" text-anchor="middle" style="fill:var(--text);font-weight:600">' + (b.x.v < 0 ? '−' : b.x.tipo === 'mas' && b.x.v > 0 ? '+' : '') + usd(Math.abs(b.x.v)).replace('US$ ', '') + '</text>';
+      var words = b.x.lbl.replace(/^[=+−±] /, '').split(' '), lines = [], cur = '';
+      words.forEach(function (wd) { if ((cur + ' ' + wd).trim().length > Math.max(8, Math.floor(bw / 6.2))) { lines.push(cur.trim()); cur = wd; } else cur += ' ' + wd; });
+      lines.push(cur.trim());
+      lines.slice(0, 4).forEach(function (ln, li) { s += '<text class="ax" x="' + (x + w / 2) + '" y="' + (H - m.b + 14 + li * 12) + '" text-anchor="middle">' + esc(ln) + '</text>'; });
+    });
+    box.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Conciliación de GD a RI del mes, en cascada">' + s + '</svg>';
+  }
+
   var ORIG_COL = ['--primary', '--c3', '--c4', '--c5', '--c6'];
   var ETAPA_COL = { 'Cancelado': '--dn', 'Pendiente': '--warn', 'Reconocido': '--up', 'A reconocer': '--c1' };
   function renderPuente() {
@@ -364,10 +408,12 @@ const SCRIPT = `(function () {
       '<section class="eb-sec" id="cosecha"><h2>Cosecha: cuánto tarda en reconocerse lo vendido</h2>' +
       '<p class="sub">Aging entre la fecha de venta (booking) y la de reconocimiento, para lo confirmado de cada mes de venta del período.</p>' + renderCosecha() + '</section>' +
       '<section class="eb-sec" id="gd-vs-ri"><h2>Por qué en un mismo mes el GD y el RI no coinciden</h2>' + renderPuente() + '</section>' +
+      '<section class="eb-sec" id="conciliacion"><h2>Conciliación GD → RI del mes</h2>' + renderConc() + '</section>' +
       '<section class="eb-sec" id="pagos"><h2>HTML: cancelación por medio de pago</h2>' +
       '<p class="sub">Qué medios de pago se cancelan más, y si el gradiente lo anticipa.</p>' + renderPagos() + '</section>' +
       '<section class="eb-sec" id="paises"><h2>Por país</h2>' + renderPaises() + '</section>';
     drawGrad();
+    drawConc();
     $('eb-upd').textContent = 'Datos hasta el ' + D.hasta.split('-').reverse().join('/') + ' · ventas desde ' + mes((D.desdeDatos || '').slice(0, 7));
   }
 
@@ -386,7 +432,7 @@ const SCRIPT = `(function () {
     }
     else if (b.dataset.pais) { if (S.f.pais === b.dataset.pais) delete S.f.pais; else S.f.pais = b.dataset.pais; load(); }
   });
-  var rt; window.addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(function () { if (D) drawGrad(); }, 150); });
+  var rt; window.addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(function () { if (D) { drawGrad(); drawConc(); } }, 150); });
   load();
 })();`;
 

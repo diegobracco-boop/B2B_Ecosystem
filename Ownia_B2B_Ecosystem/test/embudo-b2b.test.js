@@ -147,3 +147,17 @@ test('pagos: agrupa medios de pago y calcula la cancelación por medio (solo HTM
   assert.strictEqual(by['Total HTML'].canc, 10);
   assert.strictEqual(api('canal=API').pagos.aplica, false);
 });
+
+test('conciliacion: de GD a RI del mes cierra exacto', () => {
+  const c = api('mes=2026-10').conciliacion;
+  const p = Object.fromEntries(c.mes.pasos.map((x) => [x.k, x.v]));
+  assert.strictEqual(p.gd, 133);
+  assert.strictEqual(p.vendido, 200);
+  assert.strictEqual(p.canc, -60);
+  assert.strictEqual(p.pend, -5);
+  assert.strictEqual(p.despues, -(135 - 95));      // confirmado 135, reconocido en oct 95 (cosecha)
+  assert.strictEqual(p.previas, 70);              // RI de oct de ventas anteriores (30 + 20 + 20)
+  assert.strictEqual(p.ri, 160);
+  assert.strictEqual(c.mes.cierre, 0);
+  assert.ok(c.serie.length >= 1);
+});

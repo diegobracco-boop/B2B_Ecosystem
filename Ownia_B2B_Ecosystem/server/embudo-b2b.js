@@ -236,6 +236,54 @@ function pagos(data, q) {
   return { aplica: true, rows };
 }
 
+// Conciliación GD -> RI de un mes (2026-11-17, Diego: "por qué si por GD tengo > 1,5 M al mes, por RI tengo ~0,8 M").
+// Identidad exacta, con las mismas tablas:
+//   GD del mes (vendido × gradiente)
+//   + lo que descuenta el gradiente              = vendido bruto del mes
+//   − cancelado (de lo vendido en el mes)
+//   − pendiente de confirmar
+//   − confirmado que se reconoce en otro mes (después, o todavía no viajó)
+//   + reconocido en el mes de ventas de meses anteriores
+//   ± ajuste: lo que el RI del mes toma de sus propias ventas y no está confirmado hoy (cancelado después de reconocerse)
+//   = RI del mes
+function conciliacionMes(data, q, mes) {
+  const ok = filtro(q);
+  const v = { gd: 0, vendido: 0, canc: 0, pend: 0, conf: 0 };
+  data.coh.forEach((r) => {
+    if (r.mes_venta !== mes || !ok(r)) return;
+    v.gd += r.gb_gd; v.vendido += r.gb_bruto;
+    if (r.etapa === 'Cancelado') v.canc += r.gb_bruto;
+    else if (r.etapa === 'Pendiente') v.pend += r.gb_bruto;
+    else v.conf += r.gb_bruto;
+  });
+  let confMismo = 0;
+  data.cos.forEach((r) => { if (r.mes_venta === mes && r.mes_ri === mes && ok(r)) confMismo += r.gb_bruto; });
+  let ri = 0, riMismo = 0;
+  data.ri.forEach((r) => {
+    if (r.mes_ri !== mes || !ok(r)) return;
+    ri += r.gb_ri;
+    if (r.mes_venta === mes) riMismo += r.gb_ri;
+  });
+  const pasos = [
+    { k: 'gd', lbl: 'GB GD del Daily (× gradiente)', v: v.gd, tipo: 'total' },
+    { k: 'grad', lbl: '+ Lo que descuenta el gradiente', v: v.vendido - v.gd, tipo: 'mas' },
+    { k: 'vendido', lbl: '= Vendido bruto del mes', v: v.vendido, tipo: 'sub' },
+    { k: 'canc', lbl: '− Cancelado', v: -v.canc, tipo: 'menos' },
+    { k: 'pend', lbl: '− Pendiente de confirmar', v: -v.pend, tipo: 'menos' },
+    { k: 'despues', lbl: '− Confirmado que se reconoce en otro mes', v: -(v.conf - confMismo), tipo: 'menos' },
+    { k: 'previas', lbl: '+ Reconocido en el mes de ventas anteriores', v: ri - riMismo, tipo: 'mas' },
+    { k: 'ajuste', lbl: '± Ajuste (cancelado después de reconocerse)', v: riMismo - confMismo, tipo: 'mas' },
+    { k: 'ri', lbl: '= RI del Daily', v: ri, tipo: 'total' },
+  ];
+  return { mes, pasos, gd: v.gd, ri, vendido: v.vendido, pctCanc: pct(v.canc, v.vendido), pctGrad: pct(v.vendido - v.gd, v.vendido),
+    cierre: Math.round(pasos.slice(1, 8).reduce((s, p) => (p.tipo === 'sub' ? s : s + p.v), v.gd) - ri) };
+}
+
+function conciliacion(data, q) {
+  const meses = data.meses.filter((m) => m <= q.mes).slice(-8);
+  return { mes: conciliacionMes(data, q, q.mes), serie: meses.map((m) => conciliacionMes(data, q, m)) };
+}
+
 // Período por defecto: año fiscal (abril) a la fecha; mes del puente: el último mes cerrado.
 function defaults(data) {
   const last = data.meses[data.meses.length - 1] || '';
@@ -265,11 +313,11 @@ function embudoApi(fileStore, params) {
     q, hasta: data.hasta, actualizado: data.actualizado, desdeDatos: data.desde,
     options: { paises: data.paises, canales: CANALES, productos: PRODUCTOS, meses: data.meses },
     embudo: embudo(data, q), gradiente: gradiente(data, q), cosecha: cosecha(data, q), puente: puente(data, q), paises: paises(data, q),
-    pagos: pagos(data, q),
+    pagos: pagos(data, q), conciliacion: conciliacion(data, q),
   };
   if (data.memo.size > 200) data.memo.clear();
   data.memo.set(key, out);
   return out;
 }
 
-module.exports = { embudoApi, loadData, parse, embudo, gradiente, cosecha, pagos, medio, puente, paises, defaults, DAILY_FOLDER_ID, FILE_NAME, _reset: () => { CACHE = { key: null, data: null }; } };
+module.exports = { embudoApi, loadData, parse, embudo, gradiente, conciliacion, cosecha, pagos, medio, puente, paises, defaults, DAILY_FOLDER_ID, FILE_NAME, _reset: () => { CACHE = { key: null, data: null }; } };
