@@ -265,9 +265,9 @@ app, `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER` (`ownia_b2b_ecosystem`), `DB_ENG
 ## Consolidador del P&L (`compartido.app_b2b_ecosystem`, 2026-11-17)
 
 Objetivo (Diego): que **toda la info contable** salga solo del consolidador (conso: EPM / cierres / runrate), no de los JSON de
-`Inputs_Planning_PnL` en Drive. **Estado:** existe una **copia de prueba** del P&L Accounting que lee de la tabla
-(`pnl-accounting-conso`, solo `EQUIPO_B2B`, fuera del menú). El P&L Accounting de todos **sigue leyendo de Drive**. Falta activar,
-migrar Hub / Managerial / `flow_oc` (el Hub necesita nivel 3 y B2C en el cubo), los Python de OKR / FCA / `organic_builder`, y retirar el pipeline.
+`Inputs_Planning_PnL` en Drive. **Estado (2026-11-17):** el **P&L Accounting de todos ya lee del consolidador** (`fuente: 'consolidador'` en
+`modules.js`). Queda `pnl-accounting-drive`: el mismo módulo leyendo de Drive como antes, solo `EQUIPO_B2B` y fuera del menú, como respaldo y
+para comparar lado a lado; se borra cuando el equipo dé por validado el cambio. Falta migrar Hub / Managerial / `flow_oc` (el Hub necesita nivel 3 y B2C en el cubo), los Python de OKR / FCA / `organic_builder`, y retirar el pipeline.
 
 **Qué hay detrás (fuera del repo, hay que reponerlo si se recrea la app):**
 - **Base Aurora de la app** (2026-11-17, `manage_infra apply`). La app no guarda nada ahí: se necesita por su usuario IAM
@@ -295,7 +295,7 @@ ya usa solo AS REPORTED apenas la columna exista y `/consolidador/estado` avisa 
 - `server/pnl-fuente.js` — los mantiene en memoria; revisa la versión publicada como mucho cada minuto y rearma si cambió (invalida el
   módulo y sus caches). Sin datos o con error responde **503, nunca cae a Drive**.
 - `server/gas-extras/pnl-accounting-consolidador.js` — reemplaza `_readCanonical_` y `_canonicalsMaxMod_` solo en módulos con `fuente: 'consolidador'`
-  (la copia `pnl-accounting-conso` en `modules.js`). El código GAS del módulo no cambia.
+  (hoy `pnl-accounting`; `pnl-accounting-drive` es el respaldo con Drive en `modules.js`). El código GAS del módulo no cambia.
 - Endpoints de control (equipo B2B): `/consolidador/estado` (versión, filas por escenario, sinMapear, advertencia, memoria),
   `/consolidador/comparar` (tabla contra Drive por escenario), `/consolidador/control` (¿se mezclan versiones?), `/consolidador/drive`.
 
@@ -319,8 +319,10 @@ positivo; Drive es inconsistente (budget negativo, año anterior positivo); el m
 **Reglas** (las del instructivo de conso): solo a demanda, sin cron ni copias en la base de la app; valores de filtro como `%s`; columnas calculadas con alias; si faltan datos,
 **editar el pedido**, no buscar otra tabla; **no se prueba en local** (sin el token IAM de Ownia falla siempre).
 
-**Activar la fuente de conso en el P&L de todos:** poner `fuente: 'consolidador'` en `pnl-accounting` (y agregarle `pnl-accounting-consolidador.js` a `gasExtras`) y borrar `pnl-accounting-conso`.
-Antes: control sin versiones mezcladas, comparación limpia, y confirmar con conso lo del run rate. Vuelta atrás: revertir ese cambio.
+**Activado el 2026-11-17** en `pnl-accounting` (`fuente: 'consolidador'` + `pnl-accounting-consolidador.js` en `gasExtras`). **Vuelta atrás:** quitar ambos de `pnl-accounting` en `modules.js`
+y redeployar (`pnl-accounting-drive` ya muestra cómo quedaba). Sin datos de conso, el P&L Accounting responde 503 con el motivo: **no cae a Drive en silencio**.
+**La tabla vigente es `compartido.app_b2b_ecosystem_166`** (la elige `APP_SECRETS.CONSOLIDADOR_DATASET`); la original `app_b2b_ecosystem` suma versiones, no usarla.
+Cambios que ve el usuario respecto de Drive: run rate de noviembre a marzo (la OC, entre 0,2 % y 2,6 %), la LRR (la de conso es real) y algunas líneas del año anterior.
 
 | Error | Causa → acción |
 |---|---|

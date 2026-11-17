@@ -105,15 +105,16 @@ test('si ya había datos y el consolidador falla después, sigue sirviendo los �
 });
 
 // ── el código GAS real del módulo ──────────────────────────────────────────────────────────────────────────────────────────
-const twin = MODULES.find((m) => m.slug === 'pnl-accounting-conso');
-const orig = MODULES.find((m) => m.slug === 'pnl-accounting');
+const conso = MODULES.find((m) => m.slug === 'pnl-accounting');            // el de todos: desde 2026-11-17 lee del consolidador
+const drive = MODULES.find((m) => m.slug === 'pnl-accounting-drive');      // respaldo con Drive, solo el equipo
 
-test('la copia usa los mismos archivos GAS que el módulo original y sumó el extra del consolidador', () => {
-  assert.equal(twin.dir, orig.dir);
-  assert.equal(twin.fuente, 'consolidador');
-  assert.equal(orig.fuente, undefined);
-  assert.deepEqual(twin.gasExtras, [...orig.gasExtras, 'pnl-accounting-consolidador.js']);
-  assert.ok(Array.isArray(twin.allowedUsers) && twin.allowedUsers.length > 0, 'solo el equipo');
+test('el P&L Accounting de todos lee del consolidador; el respaldo con Drive usa el mismo código y es solo del equipo', () => {
+  assert.equal(conso.dir, drive.dir);
+  assert.equal(conso.fuente, 'consolidador');
+  assert.equal(drive.fuente, undefined);
+  assert.deepEqual(conso.gasExtras, [...drive.gasExtras, 'pnl-accounting-consolidador.js']);
+  assert.equal(conso.allowedUsers, undefined, 'abierto a todo el dominio, como antes');
+  assert.ok(Array.isArray(drive.allowedUsers) && drive.allowedUsers.length > 0, 'el respaldo es solo del equipo');
 });
 
 async function proyecto(mod, canon) {
@@ -123,7 +124,7 @@ const evalEn = (p, code) => vm.runInContext(code, p.context);
 
 test('módulo real con fuente consolidador: _readCanonical_ y _canonicalsMaxMod_ salen de la tabla, y assembleCanonicals_ corre', async () => {
   const { canon } = buildCanonicals({ cols: COLS, rows: FILAS }, { ajustes: { cols: [], rows: [] } });
-  const p = await proyecto(twin, { canon, modificado: 4242 });
+  const p = await proyecto(conso, { canon, modificado: 4242 });
   assert.equal(evalEn(p, 'typeof __owniaPnlCanon_'), 'function');
   assert.equal(evalEn(p, '_canonicalsMaxMod_()'), 4242);
   assert.equal(evalEn(p, '_readCanonical_(CANONICAL_IDS_.bg).meta.concepto'), 'bg');
@@ -133,13 +134,13 @@ test('módulo real con fuente consolidador: _readCanonical_ y _canonicalsMaxMod_
   assert.ok(out.length > 0, 'el ensamblado del módulo corre con los canónicos de la tabla');
 });
 
-test('el módulo original NO recibe la fuente del consolidador (sigue leyendo Drive)', async () => {
-  const p = await proyecto(orig, null);
+test('el respaldo con Drive NO recibe la fuente del consolidador (sigue leyendo Drive)', async () => {
+  const p = await proyecto(drive, null);
   assert.equal(evalEn(p, 'typeof __owniaPnlCanon_'), 'undefined');
 });
 
 test('con fuente consolidador pero sin datos en memoria: falla, no lee Drive en silencio', async () => {
-  const p = new GasProject(twin, { gasRoot: config.GAS_ROOT, secrets: {}, log: () => {}, fileStore: null, pnlCanon: () => null });
+  const p = new GasProject(conso, { gasRoot: config.GAS_ROOT, secrets: {}, log: () => {}, fileStore: null, pnlCanon: () => null });
   // __owniaPnlCanon_ devuelve null → el extra cae al original (Drive), que sin almacén falla: nunca devuelve datos de otra fuente
   assert.throws(() => evalEn(p, '_readCanonical_(CANONICAL_IDS_.ac)'));
 });

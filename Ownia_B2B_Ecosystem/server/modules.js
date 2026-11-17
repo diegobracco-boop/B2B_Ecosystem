@@ -143,27 +143,29 @@ const MODULES = [
     // El código GAS del módulo no cambia.
     layout: 'pnl-accounting-layout.js',
     // pnl-accounting-byprod.js: getEPMBreakdown, columnas por país / producto de la tabla Baseline vs Goal (2026-10-30). Va después de fbtb.
-    gasExtras: ['pnl-accounting-fbtb.js', 'pnl-accounting-byprod.js'],
+    // Desde 2026-11-17 lee del consolidador (compartido.<CONSOLIDADOR_DATASET>) en vez de los JSON de Drive: ver server/pnl-fuente.js.
+    // Sin datos de conso responde 503 con el motivo (no cae a Drive en silencio); el respaldo con Drive es `pnl-accounting-drive`.
+    fuente: 'consolidador',
+    gasExtras: ['pnl-accounting-fbtb.js', 'pnl-accounting-byprod.js', 'pnl-accounting-consolidador.js'],
     // getEPMBaselineGoalData: la carga principal (en frío ~13 s en producción); depende solo de los filtros y de los canónicos, igual que getEPMBreakdown
     cacheFns: ['getEPMBaselineGoalData', 'getEPMBreakdown'],   // (se invalidan cuando cambia un archivo que lee el módulo)
     gasUrl: GAS_EXEC + 'AKfycby9WZK2HfAWx25M5pEMV3nntzJfEvsiT9feMn01zJQkQaI3t2GjTzOIjbFXWexnMuzklQ/exec',
   },
   {
-    // Copia de prueba del P&L Accounting que lee del consolidador (compartido.app_b2b_ecosystem) en vez de los JSON de Drive
-    // (2026-11-17). Mismo código y mismas pantallas, con su propio contexto y sus propios caches, solo para el equipo B2B y fuera
-    // del menú (sin allowedUsers no aparece; con él, solo para estas cuentas). Sirve para comparar lado a lado con el
-    // P&L Accounting de siempre; cuando coincida, `pnl-accounting` pasa a `fuente: 'consolidador'` y esta copia se borra.
-    slug: 'pnl-accounting-conso',
+    // Respaldo con Drive del P&L Accounting (2026-11-17): el MISMO módulo leyendo los JSON canónicos de Drive como antes, con su propio
+    // contexto y sus propios caches, solo para el equipo B2B y fuera del menú. Sirve para comparar lado a lado con `pnl-accounting` (que desde
+    // hoy lee del consolidador) y como salida si hubiera que volver atrás. Se borra cuando el equipo dé por validado el cambio y Drive deje de
+    // alimentar estos archivos (ver "Consolidador del P&L" en CONTEXT.md).
+    slug: 'pnl-accounting-drive',
     dir: 'P&L_Accounting',
-    title: 'P&L Accounting (consolidador)',
-    desc: 'Copia de prueba: la vista contable leyendo del consolidador.',
+    title: 'P&L Accounting (respaldo con Drive)',
+    desc: 'Respaldo: la vista contable leyendo los JSON de Drive, como antes.',
     ownia: true,
     allowedUsers: EQUIPO_B2B,
-    fuente: 'consolidador',
     startView: 'contable-combined',
     quickViews: [['contable-combined', 'B2B + B2B2C'], ['contable-b2b', 'B2B'], ['contable-b2b2c', 'B2B2C']],
     layout: 'pnl-accounting-layout.js',
-    gasExtras: ['pnl-accounting-fbtb.js', 'pnl-accounting-byprod.js', 'pnl-accounting-consolidador.js'],
+    gasExtras: ['pnl-accounting-fbtb.js', 'pnl-accounting-byprod.js'],
     cacheFns: ['getEPMBaselineGoalData', 'getEPMBreakdown'],
     gasUrl: '',
   },

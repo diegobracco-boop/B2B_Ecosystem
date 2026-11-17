@@ -1,6 +1,6 @@
 // Solo Ownia: P&L Accounting leyendo del consolidador en vez de los JSON de Drive (2026-11-17).
 // Se carga en el proyecto del P&L Accounting (gasExtras en server/modules.js), DESPUÉS de su código y de los otros extras, y
-// solo en los módulos con `fuente: 'consolidador'` (la copia `pnl-accounting-conso`): reemplaza la lectura de los canónicos por
+// solo en los módulos con `fuente: 'consolidador'` (hoy `pnl-accounting`; `pnl-accounting-drive` es el respaldo con Drive): reemplaza la lectura de los canónicos por
 // los que arma server/pnl-fuente.js desde compartido.app_b2b_ecosystem, con el mismo formato y el vocabulario de Drive, así el
 // resto del módulo (assembleCanonicals_, los cálculos, organic) corre idéntico y sin tocar su código.
 //  - _readCanonical_(fileId): devuelve el canónico del escenario de ese id (CANONICAL_IDS_ incluye fbtb por pnl-accounting-fbtb.js);
