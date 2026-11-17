@@ -38,7 +38,7 @@ function ajustesComoFilas(ajustes, ultimoCerrado) {
     for (const a of aj.rows || []) {
       if (meta.hasta_ultimo_cerrado !== false && fechaFiscal(a[ai.year], a[ai.mes]) > ultimoCerrado) continue;
       for (const sc of meta.escenarios_por_anio[a[ai.year]] || []) {
-        filas.push({ scenario: sc, year: a[ai.year], mes: a[ai.mes], pais: a[ai.pais], lob: a[ai.lob], channel: a[ai.channel], product: a[ai.product], n2: a[ai.n2], valor: a[ai.valor] });
+        filas.push({ scenario: sc, year: a[ai.year], mes: a[ai.mes], pais: a[ai.pais], lob: a[ai.lob], channel: a[ai.channel], product: a[ai.product], n2: a[ai.n2], linea: ai.linea === undefined ? null : a[ai.linea], valor: a[ai.valor] });
       }
     }
   }
@@ -168,7 +168,7 @@ const N3 = {
   'Adjustments EBIT': 'adjustments ebit', 'Leases Adjustment': 'leases adjustment',
 };
 // Los ajustes propios traen solo el nivel 2: se les pone la línea y el nivel 3 que tendrían en la tabla.
-// (GB y Orders solo traen la suma de domestic + internacional: van a la línea nacional; el tablero suma las dos.)
+// La línea sale del propio ajuste si la trae (GB NAC / GB INT / Orders NAC / Orders INT, como pnl-ajustes-actuals.json); si no, esta de acá.
 const AJUSTE_LINEA = {
   'Gross Bookings': ['GB NAC', 'Gross Bookings'], Orders: ['Orders NAC', 'Orders'], 'O. Incentives': ['Other Incentives', 'Net Revenues'],
 };
@@ -198,7 +198,8 @@ function buildManagerialActuals(cubo, opts = {}) {
   const filas = cubo.rows.map((r) => ({ year: r[ix.year], mes: r[ix.mes], pais: r[ix.pais], lob: r[ix.lob], channel: r[ix.channel], product: r[ix.product], linea: r[ix.linea], n2: r[ix.n2], n3: r[ix.n3], valor: r[ix.valor] }));
   for (const a of ajustesComoFilas(opts.ajustes, ultimoCerrado)) {
     if (a.scenario !== 'ACT' || a.year !== 'FY27') continue;
-    const [linea, n3] = AJUSTE_LINEA[a.n2] || [a.n2, ''];
+    const [lineaPorDefecto, n3] = AJUSTE_LINEA[a.n2] || [a.n2, ''];
+    const linea = a.linea || lineaPorDefecto;
     filas.push({ year: a.year, mes: a.mes, pais: a.pais, lob: a.lob, channel: a.channel, product: a.product, linea, n2: a.n2, n3, valor: a.valor });
   }
   const m = new Map();

@@ -257,3 +257,12 @@ test('buildManagerialActuals: los ajustes propios entran con línea y nivel 3 (s
   const oi = canon.rows.find((r) => r[4] === 'other incentives');
   assert.deepEqual(oi.slice(5, 9), ['other incentives', 'net revenue', 'gross profit', 'operating contribution']);
 });
+
+test('buildManagerialActuals: si el ajuste trae la línea (GB NAC / GB INT), se respeta; el Accounting sigue sumando por nivel 2', () => {
+  const ajustes = { meta: { escenarios_por_anio: { FY27: ['ACT'] } }, cols: ['year', 'mes', 'pais', 'lob', 'channel', 'product', 'n2', 'linea', 'valor'],
+    rows: [['FY27', 6, 'Brazil', 'B2B', 'MAY', 'Hotel', 'Gross Bookings', 'GB NAC', 10], ['FY27', 6, 'Brazil', 'B2B', 'MAY', 'Hotel', 'Gross Bookings', 'GB INT', -4]] };
+  const { canon } = buildManagerialActuals(cuboMgr([]), { ultimoCerrado: '2026-10-01', ajustes });
+  assert.deepEqual(Object.fromEntries(canon.rows.map((r) => [r[4], r[10]])), { 'gross bookings domestic': 10, 'gross bookings international': -4 });
+  const ac = buildCanonicals({ cols: COLS, rows: [] }, { ultimoCerrado: '2026-10-01', ajustes }).canon.ac;
+  assert.deepEqual(ac.rows.map((r) => r[6]), [6]);   // nivel 2 'gross bookings': 10 - 4
+});

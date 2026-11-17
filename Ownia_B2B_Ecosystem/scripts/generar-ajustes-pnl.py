@@ -36,8 +36,8 @@ def onedrive(arg):
     sys.exit("No encuentro la carpeta de OneDrive: pasala con --onedrive")
 
 
-def escribir(nombre, meta, rows):
-    out = {"meta": meta, "cols": COLS, "rows": rows}
+def escribir(nombre, meta, rows, cols=COLS):
+    out = {"meta": meta, "cols": cols, "rows": rows}
     ruta = os.path.join(SERVER, nombre)
     with open(ruta, "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, indent=1)
@@ -56,16 +56,17 @@ def ajustes_api(od):
         if not r:
             continue
         d = dict(zip(hdr, r))
-        key = (d["year"], int(d["mes"]), PAIS.get(d["pais"], d["pais"]), d["lob"], d["channel"], d["product"], d["nivel_2"])
+        # La línea (GB NAC / GB INT / Orders NAC / Orders INT) se conserva: el P&L Accounting suma por nivel 2 y el Managerial abre domestic / internacional.
+        key = (d["year"], int(d["mes"]), PAIS.get(d["pais"], d["pais"]), d["lob"], d["channel"], d["product"], d["nivel_2"], d["linea"])
         agg[key] = agg.get(key, 0.0) + float(d["total"].replace(",", "."))
     meta = {
         "fuente": "Control de Gestión - 2026-27/B2B & WLs/Base_P&L_Contable/Actuals_GB_Ajustes_OC.csv",
         "que_es": "Reclasificación de Gross Bookings y Orders de API B2B-MAY entre abril y junio de 2026. Neto ~0. Conso NO la incorpora (confirmado 2026-11-17).",
-        "como_actualizar": "python scripts/generar-ajustes-pnl.py (GB INT + NAC y Orders INT + NAC ya sumados).",
+        "como_actualizar": "python scripts/generar-ajustes-pnl.py (una fila por línea: GB NAC, GB INT, Orders NAC y Orders INT).",
         "escenarios_por_anio": {"FY27": ["ACT", "FC1"]},   # el lastrunrate.json de Drive no lo trae (medido el 2026-11-17)
         "hasta_ultimo_cerrado": True,
     }
-    escribir("pnl-ajustes-actuals.json", meta, [[*k, round(v, 6)] for k, v in agg.items() if abs(v) > 1e-9])
+    escribir("pnl-ajustes-actuals.json", meta, [[*k, round(v, 6)] for k, v in agg.items() if abs(v) > 1e-9], COLS[:-1] + ["linea", "valor"])   # la clave termina en la línea: va antes del valor
 
 
 def hoja_axi(wb, hoja, anio):

@@ -2,7 +2,7 @@
  "meta": {
   "fuente": "Control de Gestión - 2026-27/B2B & WLs/Base_P&L_Contable/Actuals_GB_Ajustes_OC.csv",
   "que_es": "Reclasificación de Gross Bookings y Orders de API B2B-MAY entre abril y junio de 2026. Neto ~0. Conso NO la incorpora (confirmado 2026-11-17).",
-  "como_actualizar": "python scripts/generar-ajustes-pnl.py (GB INT + NAC y Orders INT + NAC ya sumados).",
+  "como_actualizar": "python scripts/generar-ajustes-pnl.py (una fila por línea: GB NAC, GB INT, Orders NAC y Orders INT).",
   "escenarios_por_anio": {
    "FY27": [
     "ACT",
@@ -19,6 +19,7 @@
   "channel",
   "product",
   "n2",
+  "linea",
   "valor"
  ],
  "rows": [
@@ -30,7 +31,19 @@
    "MAY",
    "Hotel",
    "Gross Bookings",
-   -136398.26
+   "GB NAC",
+   -176.21
+  ],
+  [
+   "FY27",
+   4,
+   "Argentina",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "Gross Bookings",
+   "GB INT",
+   -136222.05
   ],
   [
    "FY27",
@@ -40,7 +53,19 @@
    "MAY",
    "Hotel",
    "Gross Bookings",
-   -387661.8642
+   "GB NAC",
+   -291401.3793
+  ],
+  [
+   "FY27",
+   4,
+   "Brazil",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "Gross Bookings",
+   "GB INT",
+   -96260.4849
   ],
   [
    "FY27",
@@ -50,7 +75,19 @@
    "MAY",
    "Hotel",
    "Gross Bookings",
-   -1226.016191
+   "GB NAC",
+   348.52
+  ],
+  [
+   "FY27",
+   4,
+   "Chile",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "Gross Bookings",
+   "GB INT",
+   -1574.536191
   ],
   [
    "FY27",
@@ -60,7 +97,19 @@
    "MAY",
    "Hotel",
    "Gross Bookings",
-   -75048.257345
+   "GB NAC",
+   -6953.463885
+  ],
+  [
+   "FY27",
+   4,
+   "Colombia",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "Gross Bookings",
+   "GB INT",
+   -68094.79346
   ],
   [
    "FY27",
@@ -70,6 +119,7 @@
    "MAY",
    "Hotel",
    "Gross Bookings",
+   "GB INT",
    4173.19
   ],
   [
@@ -80,7 +130,19 @@
    "MAY",
    "Hotel",
    "Gross Bookings",
-   -1683334.7036
+   "GB NAC",
+   -1518690.776
+  ],
+  [
+   "FY27",
+   4,
+   "Mexico",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "Gross Bookings",
+   "GB INT",
+   -164643.9276
   ],
   [
    "FY27",
@@ -90,7 +152,19 @@
    "MAY",
    "Hotel",
    "Gross Bookings",
-   -2163696.33
+   "GB NAC",
+   -67688.96
+  ],
+  [
+   "FY27",
+   4,
+   "Others",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "Gross Bookings",
+   "GB INT",
+   -2096007.37
   ],
   [
    "FY27",
@@ -100,6 +174,7 @@
    "MAY",
    "Hotel",
    "Gross Bookings",
+   "GB NAC",
    1054.44
   ],
   [
@@ -110,7 +185,19 @@
    "MAY",
    "Hotel",
    "Gross Bookings",
-   -383880.653986
+   "GB NAC",
+   -4189.833986
+  ],
+  [
+   "FY27",
+   5,
+   "Argentina",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "Gross Bookings",
+   "GB INT",
+   -379690.82
   ],
   [
    "FY27",
@@ -120,7 +207,19 @@
    "MAY",
    "Hotel",
    "Gross Bookings",
-   -2266219.262
+   "GB NAC",
+   -1229711.776
+  ],
+  [
+   "FY27",
+   5,
+   "Brazil",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "Gross Bookings",
+   "GB INT",
+   -1036507.486
   ],
   [
    "FY27",
@@ -130,7 +229,19 @@
    "MAY",
    "Hotel",
    "Gross Bookings",
-   -5217.66094
+   "GB NAC",
+   -110.939475
+  ],
+  [
+   "FY27",
+   5,
+   "Chile",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "Gross Bookings",
+   "GB INT",
+   -5106.721465
   ],
   [
    "FY27",
@@ -140,7 +251,19 @@
    "MAY",
    "Hotel",
    "Gross Bookings",
-   -191151.20234
+   "GB NAC",
+   -26400.68084
+  ],
+  [
+   "FY27",
+   5,
+   "Colombia",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "Gross Bookings",
+   "GB INT",
+   -164750.5215
   ],
   [
    "FY27",
@@ -150,6 +273,7 @@
    "MAY",
    "Hotel",
    "Gross Bookings",
+   "GB INT",
    -13313.12
   ],
   [
@@ -160,7 +284,19 @@
    "MAY",
    "Hotel",
    "Gross Bookings",
-   -3799205.0443
+   "GB NAC",
+   -3353121.653
+  ],
+  [
+   "FY27",
+   5,
+   "Mexico",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "Gross Bookings",
+   "GB INT",
+   -446083.3913
   ],
   [
    "FY27",
@@ -170,7 +306,19 @@
    "MAY",
    "Hotel",
    "Gross Bookings",
-   -4791061.56
+   "GB NAC",
+   -159709.15
+  ],
+  [
+   "FY27",
+   5,
+   "Others",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "Gross Bookings",
+   "GB INT",
+   -4631352.41
   ],
   [
    "FY27",
@@ -180,7 +328,19 @@
    "MAY",
    "Hotel",
    "Gross Bookings",
-   520278.913986
+   "GB NAC",
+   4366.043986
+  ],
+  [
+   "FY27",
+   6,
+   "Argentina",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "Gross Bookings",
+   "GB INT",
+   515912.87
   ],
   [
    "FY27",
@@ -190,7 +350,19 @@
    "MAY",
    "Hotel",
    "Gross Bookings",
-   2653881.127
+   "GB NAC",
+   1521113.156
+  ],
+  [
+   "FY27",
+   6,
+   "Brazil",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "Gross Bookings",
+   "GB INT",
+   1132767.971
   ],
   [
    "FY27",
@@ -200,7 +372,19 @@
    "MAY",
    "Hotel",
    "Gross Bookings",
-   6443.677131
+   "GB NAC",
+   -237.580525
+  ],
+  [
+   "FY27",
+   6,
+   "Chile",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "Gross Bookings",
+   "GB INT",
+   6681.257656
   ],
   [
    "FY27",
@@ -210,7 +394,19 @@
    "MAY",
    "Hotel",
    "Gross Bookings",
-   266199.45963
+   "GB NAC",
+   33354.14473
+  ],
+  [
+   "FY27",
+   6,
+   "Colombia",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "Gross Bookings",
+   "GB INT",
+   232845.3149
   ],
   [
    "FY27",
@@ -220,6 +416,7 @@
    "MAY",
    "Hotel",
    "Gross Bookings",
+   "GB INT",
    9139.93
   ],
   [
@@ -230,7 +427,19 @@
    "MAY",
    "Hotel",
    "Gross Bookings",
-   5482539.747
+   "GB NAC",
+   4871812.428
+  ],
+  [
+   "FY27",
+   6,
+   "Mexico",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "Gross Bookings",
+   "GB INT",
+   610727.319
   ],
   [
    "FY27",
@@ -240,7 +449,19 @@
    "MAY",
    "Hotel",
    "Gross Bookings",
-   6954757.89
+   "GB NAC",
+   227398.11
+  ],
+  [
+   "FY27",
+   6,
+   "Others",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "Gross Bookings",
+   "GB INT",
+   6727359.78
   ],
   [
    "FY27",
@@ -250,6 +471,7 @@
    "MAY",
    "Hotel",
    "Gross Bookings",
+   "GB NAC",
    -1054.44
   ],
   [
@@ -260,7 +482,19 @@
    "MAY",
    "Hotel",
    "Orders",
-   -122.0
+   "Orders NAC",
+   -1.0
+  ],
+  [
+   "FY27",
+   4,
+   "Argentina",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "Orders",
+   "Orders INT",
+   -121.0
   ],
   [
    "FY27",
@@ -270,7 +504,41 @@
    "MAY",
    "Hotel",
    "Orders",
-   -792.0
+   "Orders NAC",
+   -828.0
+  ],
+  [
+   "FY27",
+   4,
+   "Brazil",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "Orders",
+   "Orders INT",
+   36.0
+  ],
+  [
+   "FY27",
+   4,
+   "Chile",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "Orders",
+   "Orders NAC",
+   2.0
+  ],
+  [
+   "FY27",
+   4,
+   "Chile",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "Orders",
+   "Orders INT",
+   -2.0
   ],
   [
    "FY27",
@@ -280,7 +548,19 @@
    "MAY",
    "Hotel",
    "Orders",
-   -91.0
+   "Orders NAC",
+   -21.0
+  ],
+  [
+   "FY27",
+   4,
+   "Colombia",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "Orders",
+   "Orders INT",
+   -70.0
   ],
   [
    "FY27",
@@ -290,6 +570,7 @@
    "MAY",
    "Hotel",
    "Orders",
+   "Orders INT",
    2.0
   ],
   [
@@ -300,7 +581,19 @@
    "MAY",
    "Hotel",
    "Orders",
-   -1967.0
+   "Orders NAC",
+   -1789.0
+  ],
+  [
+   "FY27",
+   4,
+   "Mexico",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "Orders",
+   "Orders INT",
+   -178.0
   ],
   [
    "FY27",
@@ -310,7 +603,19 @@
    "MAY",
    "Hotel",
    "Orders",
-   -2698.0
+   "Orders NAC",
+   -51.0
+  ],
+  [
+   "FY27",
+   4,
+   "Others",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "Orders",
+   "Orders INT",
+   -2647.0
   ],
   [
    "FY27",
@@ -320,7 +625,19 @@
    "MAY",
    "Hotel",
    "Orders",
-   -337.0
+   "Orders NAC",
+   -13.0
+  ],
+  [
+   "FY27",
+   5,
+   "Argentina",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "Orders",
+   "Orders INT",
+   -324.0
   ],
   [
    "FY27",
@@ -330,7 +647,19 @@
    "MAY",
    "Hotel",
    "Orders",
-   -5985.0
+   "Orders NAC",
+   -4986.0
+  ],
+  [
+   "FY27",
+   5,
+   "Brazil",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "Orders",
+   "Orders INT",
+   -999.0
   ],
   [
    "FY27",
@@ -340,7 +669,19 @@
    "MAY",
    "Hotel",
    "Orders",
-   -13.0
+   "Orders NAC",
+   -1.0
+  ],
+  [
+   "FY27",
+   5,
+   "Chile",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "Orders",
+   "Orders INT",
+   -12.0
   ],
   [
    "FY27",
@@ -350,7 +691,19 @@
    "MAY",
    "Hotel",
    "Orders",
-   -300.0
+   "Orders NAC",
+   -92.0
+  ],
+  [
+   "FY27",
+   5,
+   "Colombia",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "Orders",
+   "Orders INT",
+   -208.0
   ],
   [
    "FY27",
@@ -360,6 +713,7 @@
    "MAY",
    "Hotel",
    "Orders",
+   "Orders INT",
    -21.0
   ],
   [
@@ -370,7 +724,19 @@
    "MAY",
    "Hotel",
    "Orders",
-   -4941.0
+   "Orders NAC",
+   -4383.0
+  ],
+  [
+   "FY27",
+   5,
+   "Mexico",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "Orders",
+   "Orders INT",
+   -558.0
   ],
   [
    "FY27",
@@ -380,7 +746,19 @@
    "MAY",
    "Hotel",
    "Orders",
-   -7216.0
+   "Orders NAC",
+   -248.0
+  ],
+  [
+   "FY27",
+   5,
+   "Others",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "Orders",
+   "Orders INT",
+   -6968.0
   ],
   [
    "FY27",
@@ -390,7 +768,19 @@
    "MAY",
    "Hotel",
    "Orders",
-   459.0
+   "Orders NAC",
+   14.0
+  ],
+  [
+   "FY27",
+   6,
+   "Argentina",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "Orders",
+   "Orders INT",
+   445.0
   ],
   [
    "FY27",
@@ -400,7 +790,19 @@
    "MAY",
    "Hotel",
    "Orders",
-   6777.0
+   "Orders NAC",
+   5814.0
+  ],
+  [
+   "FY27",
+   6,
+   "Brazil",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "Orders",
+   "Orders INT",
+   963.0
   ],
   [
    "FY27",
@@ -410,7 +812,19 @@
    "MAY",
    "Hotel",
    "Orders",
-   13.0
+   "Orders NAC",
+   -1.0
+  ],
+  [
+   "FY27",
+   6,
+   "Chile",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "Orders",
+   "Orders INT",
+   14.0
   ],
   [
    "FY27",
@@ -420,7 +834,19 @@
    "MAY",
    "Hotel",
    "Orders",
-   391.0
+   "Orders NAC",
+   113.0
+  ],
+  [
+   "FY27",
+   6,
+   "Colombia",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "Orders",
+   "Orders INT",
+   278.0
   ],
   [
    "FY27",
@@ -430,6 +856,7 @@
    "MAY",
    "Hotel",
    "Orders",
+   "Orders INT",
    19.0
   ],
   [
@@ -440,7 +867,19 @@
    "MAY",
    "Hotel",
    "Orders",
-   6908.0
+   "Orders NAC",
+   6172.0
+  ],
+  [
+   "FY27",
+   6,
+   "Mexico",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "Orders",
+   "Orders INT",
+   736.0
   ],
   [
    "FY27",
@@ -450,7 +889,19 @@
    "MAY",
    "Hotel",
    "Orders",
-   9914.0
+   "Orders NAC",
+   299.0
+  ],
+  [
+   "FY27",
+   6,
+   "Others",
+   "B2B",
+   "MAY",
+   "Hotel",
+   "Orders",
+   "Orders INT",
+   9615.0
   ]
  ]
 }
