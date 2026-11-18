@@ -306,6 +306,13 @@ ya usa solo AS REPORTED apenas la columna exista y `/consolidador/estado` avisa 
   se abre en B2B; línea = N1 y nivel 3; N5 derivado como en el Managerial). La **vista gestional** (Palancas, Variables Regionales, Fixed Cost…) no está en la tabla: es una por línea N1 en
   el Glosario y vive en `server/pnl-vista-gestional.json` (`scripts/generar-vista-gestional.py`, falla si el Glosario da dos vistas a una línea). OKR y FX siguen en Drive (los genera Python).
   Los cubos (`cubo`, `cubo_mgr`, `cubo_hub`) no se sirven por `/consolidador/<consulta>`.
+- `GET /ingest/canon/<ac|bl|bg|rr|fc|fbtb|lrr|ly>` + `mirror/pnl_conso.py` — **los scripts Python leen el P&L del consolidador, no de Drive** (2026-11-18). Sirve las series del Hub
+  (`pnl-fuente.serie`; `ac` = baseline hasta el último mes cerrado) en el formato de los JSON de Drive, con el token de `/ingest` (503 con el motivo si no hay datos). `pnl_conso.read_canonical(file_id)`
+  traduce el ID de Drive a la serie; `None` si el ID no es un canónico (okr.json, el JSON del Daily…). **No cae a Drive en silencio**: lanza `ConsoError`; `PNL_FUENTE=drive` es la salida de emergencia
+  explícita. Migrados: `okr_builder._download_json` (cubre okr_builder, okr_h2_builder, organic_builder y fca_builder), `flow_oc.load_canonical` (y `daily_sync._canon_reader`) y
+  `okr_sync.fetch_pnl_from_drive`. Los scripts de PC necesitan `credenciales/.env.ownia` (OWNIA_URL, OWNIA_INGEST_TOKEN), como ya pide la doble escritura. Tests: `mirror/test_pnl_conso.py` (lo lanza `npm test`).
+  **Ojo:** el pipeline viejo (`Inputs_Planning_PnL`: json_builder, baseline_builder) sigue generando los JSON en Drive pero ya nadie los lee; sus hooks (`organic_builder.refresh`, `okr_builder.refresh_after_upload`)
+  leen del consolidador, no de lo que acaba de subir. OKR y flow_oc se refrescan con cada `daily_sync` ("Actualizar reales"); conso al publicar NO dispara nada.
 - Endpoints de control (equipo B2B): `/consolidador/estado` (versión, filas por escenario, sinMapear, advertencia, memoria),
   `/consolidador/comparar` (tabla contra Drive por escenario), `/consolidador/control` (¿se mezclan versiones?), `/consolidador/drive`.
 

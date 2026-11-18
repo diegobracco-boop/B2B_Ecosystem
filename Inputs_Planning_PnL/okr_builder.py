@@ -128,7 +128,22 @@ GLOBALES_PRODUCTOS = {"hotels", "hotel"}
 
 # ── Drive helpers ──────────────────────────────────────────────────────────────
 
+def _conso():
+    """pnl_conso (Ownia_B2B_Ecosystem/mirror): desde 2026-11-18 los canónicos del P&L salen del consolidador, no de Drive."""
+    import sys as _sys
+    from pathlib import Path as _Path
+    _sys.path.insert(0, str(_Path(__file__).resolve().parents[1] / "Ownia_B2B_Ecosystem" / "mirror"))
+    import pnl_conso
+    return pnl_conso
+
+
 def _download_json(svc, file_id, label):
+    # Los canónicos del P&L (baseline, budget, actuals, runrate, forecast, ...) vienen del consolidador; el resto (okr.json, el JSON del
+    # Daily, ...) sigue en Drive. Si el consolidador no responde esto LANZA: no se cae a Drive en silencio (PNL_FUENTE=drive es la salida
+    # de emergencia explícita).
+    data = _conso().read_canonical(file_id, label)
+    if data is not None:
+        return data
     from googleapiclient.http import MediaIoBaseDownload
     buf = io.BytesIO()
     dl  = MediaIoBaseDownload(buf, svc.files().get_media(fileId=file_id),

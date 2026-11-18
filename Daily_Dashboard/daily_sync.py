@@ -36,7 +36,7 @@ from b2b_lob_rules import B2B_LOB_IN, normalize_b2b_lob
 # Tramos del año fiscal que faltan en Actuals / LY (gráfico de 12 meses de la portada del Flow)
 from fy_rest import actuals_fy_rest_ranges, ly_fy_rest_ranges
 # OC B2B2C mensual desde los canónicos contables (slide "Monthly Performance — OC" del Flow)
-from flow_oc import CANONICAL_OC_IDS, build_flow_oc
+from flow_oc import CANONICAL_OC_IDS, build_flow_oc, load_canonical
 # Unique Buyers de los ultimos N dias (N = dias del mes) -> mes en curso del KR en okr_builder.py
 import ub_rolling
 # Costos de B2B API con el criterio de Revenue (conectores + comisiones de terceros), compartido con P&L_Managerial
@@ -2188,7 +2188,7 @@ _forecast_b2b_ri_records = df_forecast_b2b_ri.to_dict(orient="records") if not d
 # Se lee con credenciales/drive_token.<usuario>.json (drive.readonly, el mismo de okr_sync.py): el
 # fallback de _get_drive_service (token de clasp, scope drive.file) NO puede leer los canónicos de
 # Inputs_Planning_PnL. No crítico: si falla, se reusa el flow_oc de la corrida anterior.
-def _canon_reader():
+def _drive_canon_reader():
     from google.oauth2.credentials import Credentials
     from google.auth.transport.requests import Request
     from googleapiclient.discovery import build
@@ -2202,6 +2202,14 @@ def _canon_reader():
     else:
         svc = _get_drive_service()
     return lambda k: json.loads(svc.files().get_media(fileId=CANONICAL_OC_IDS[k]).execute())
+
+def _canon_reader():
+    # Desde 2026-11-18 los canónicos contables salen del consolidador (mirror/pnl_conso.py), con el mismo formato que los JSON de Drive.
+    # Drive solo con PNL_FUENTE=drive (salida de emergencia explícita); si el consolidador no responde, load_canonical lanza.
+    if os.getenv("PNL_FUENTE", "").strip().lower() == "drive":
+        return _drive_canon_reader()
+    return lambda k: load_canonical(k)
+
 
 print("\n--- OC B2B2C (canónicos contables) ---")
 try:

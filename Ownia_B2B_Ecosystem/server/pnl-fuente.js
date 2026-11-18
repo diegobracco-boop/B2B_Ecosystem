@@ -67,8 +67,26 @@ function createPnlFuente(cfg, { consolidador, log = () => {}, onChange = () => {
     }
   }
 
+  /**
+   * Una serie canónica para los scripts Python (OKR, FCA, flow_oc, organic), con el MISMO formato y vocabulario que los JSON de Drive que
+   * leían antes (ver /ingest/canon en index.js). Es la del Hub: trae también N1, N2, N3, N5 y la vista gestional.
+   * 'ac' (actuals cerrados) no se guarda aparte: es el baseline (ACT del FY27) hasta el último mes cerrado, igual que en buildCanonicals.
+   * @returns {{meta:object, cols:string[], rows:any[][]}|null} null si no hay datos de esa serie
+   */
+  function serie(key) {
+    if (!st.hub) return null;
+    if (key !== 'ac') return st.hub[key] || null;
+    const bl = st.hub.bl;
+    if (!bl) return null;
+    const iF = bl.cols.indexOf('Fecha');
+    const rows = bl.rows.filter((r) => r[iF] <= ultimoCerrado);
+    const fechas = [...new Set(rows.map((r) => r[iF]))].sort();
+    return { meta: { ...bl.meta, concepto: 'ac', fechas, filas: rows.length }, cols: bl.cols, rows };
+  }
+
   return {
     ultimoCerrado,
+    serie,
     listo,
     /** Lo que ve el código GAS (sincrónico): null mientras no haya datos. `modificado` cambia con cada versión publicada. */
     canon: () => (st.canon ? { canon: st.canon, modificado: Date.parse(st.publicadoEn) || st.construidoEn, actualsMgr: st.mgr, errorMgr: st.errorMgr, hub: st.hub, errorHub: st.errorHub } : null),

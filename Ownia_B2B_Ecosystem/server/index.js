@@ -334,6 +334,29 @@ function createApp(opts = {}) {
     }
   }
 
+  // Series canónicas para los scripts Python (okr_builder, organic_builder, fca_builder, flow_oc, okr_sync): lo que antes bajaban de Drive por
+  // ID, ahora sale del consolidador (pnl-fuente.js), en el mismo formato. GET /ingest/canon/<ac|bl|bg|rr|fc|fbtb|lrr|ly>, con el mismo token que
+  // /ingest/files. Si no hay datos responde 503 con el motivo: los scripts NO caen a Drive en silencio.
+  const CANON_KEYS = ['ac', 'bl', 'bg', 'rr', 'fc', 'fbtb', 'lrr', 'ly'];
+  async function handleCanon(req, res, route) {
+    if (!cfg.INGEST_TOKEN || !pnlFuente || !pnlFuente.serie) return sendJson(res, 404, { error: 'No encontrado' });
+    if (!tokenOk(req)) return sendJson(res, 401, { error: 'Token inválido', name: 'NoAutorizado' });
+    if (req.method !== 'GET') return sendJson(res, 405, { error: 'Método no permitido' });
+    const key = route.slice('/ingest/canon/'.length);
+    if (!CANON_KEYS.includes(key)) return sendJson(res, 400, { error: `Serie inválida: ${CANON_KEYS.join(', ')}` });
+    try {
+      await pnlFuente.listo();
+      const j = pnlFuente.serie(key);
+      if (!j) return sendJson(res, 503, { error: `El consolidador no armó la serie "${key}"${pnlFuente.estado().hub.error ? `: ${pnlFuente.estado().hub.error}` : ''}` });
+      const body = Buffer.from(JSON.stringify(j), 'utf8');
+      const headers = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' };
+      if (/\bgzip\b/i.test(String(req.headers['accept-encoding'] || ''))) return send(res, 200, { ...headers, 'Content-Encoding': 'gzip' }, zlib.gzipSync(body, { level: 6 }));
+      return send(res, 200, headers, body);
+    } catch (e) {
+      return sendJson(res, e.status || 500, { error: e.message || String(e) });
+    }
+  }
+
   async function handle(req, res) {
     const t0 = Date.now();
     let cacheState;   // 'hit' | 'miss' en las funciones cacheadas de /api
@@ -360,6 +383,7 @@ function createApp(opts = {}) {
     }
     // Antes del chequeo de identidad: lo usa un script (el espejo), no una persona.
     if (route === '/ingest/files' || route.startsWith('/ingest/files/')) return handleIngest(req, res, route);
+    if (route.startsWith('/ingest/canon/')) return handleCanon(req, res, route);
     if (cfg.REQUIRE_IDENTITY && !identity.email) return unauthorized(res);
     if (route === '/whoami') {
       return sendJson(res, 200, {

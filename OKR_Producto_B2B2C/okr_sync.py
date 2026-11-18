@@ -498,22 +498,33 @@ def _drive_access_token() -> str:
     return creds.token
 
 
+def _read_conso(file_id: str):
+    """El canónico del P&L desde el consolidador (mirror/pnl_conso.py), o None si PNL_FUENTE=drive. Si no responde, lanza."""
+    import sys as _sys
+    _sys.path.insert(0, os.path.join(os.path.dirname(SCRIPT_DIR), "Ownia_B2B_Ecosystem", "mirror"))
+    import pnl_conso
+    return pnl_conso.read_canonical(file_id, file_id)
+
+
 def fetch_pnl_from_drive(file_id: str, lob: str, pnl2_substr: str) -> dict:
-    """Suma 'Monto USD' por mes (YYYY-MM) desde un JSON de Drive.
+    """Suma 'Monto USD' por mes (YYYY-MM) de un canónico del P&L. Desde 2026-11-18 sale del consolidador (el nombre quedó por historia);
+    con PNL_FUENTE=drive baja el JSON de Drive como antes.
 
     Filtra por LoB (col 0) y P&L N2 contains pnl2_substr (col 5), case-insensitive.
     Usa drive_token.json (scope drive.readonly) — generado con setup_drive_token.py.
     """
-    import requests
-    print(f"  > Descargando Drive file {file_id} ...")
-    token = _drive_access_token()
-    r = requests.get(
-        f"https://www.googleapis.com/drive/v3/files/{file_id}",
-        params={"alt": "media"},
-        headers={"Authorization": f"Bearer {token}"},
-    )
-    r.raise_for_status()
-    data = r.json()
+    data = _read_conso(file_id)
+    if data is None:   # PNL_FUENTE=drive: Drive como antes
+        import requests
+        print(f"  > Descargando Drive file {file_id} ...")
+        token = _drive_access_token()
+        r = requests.get(
+            f"https://www.googleapis.com/drive/v3/files/{file_id}",
+            params={"alt": "media"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        r.raise_for_status()
+        data = r.json()
 
     cols      = data["cols"]
     lob_idx   = cols.index("LoB")
@@ -553,9 +564,9 @@ def compute_kr6() -> dict:
     actuals = {ym: v for ym, v in actuals_raw.items() if ym in H1_PERIODS}
     budget  = {ym: v for ym, v in budget_raw.items()  if ym in H1_PERIODS}
     source  = (
-        f'<a href="{DRIVE_FOLDER_URL}" target="_blank">Carpeta Drive PnL JSONs</a> — '
-        f'<code>baseline_actuals+projections.json</code> (actuals + proyecciones meses futuros) '
-        f'y <code>budget.json</code>, filtrando <code>LoB=b2b2c</code> · '
+        f'Consolidador (P&amp;L contable de conso) — '
+        f'baseline (actuals + proyecciones meses futuros) '
+        f'y budget, filtrando <code>LoB=b2b2c</code> · '
         f'<code>P&amp;L N2 contains "income from outsourced"</code>.'
     )
     return build_kr_result(

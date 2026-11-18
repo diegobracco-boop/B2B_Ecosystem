@@ -32,6 +32,22 @@ _PAIS = {
 }
 
 
+def load_canonical(k, dl=None):
+    """El canónico `k` ('ac', 'bl', 'bg', 'rr', 'ly') como dict. Desde 2026-11-18 sale del consolidador (mirror/pnl_conso.py); `dl(file_id)`
+    -> bytes de Drive solo se usa con PNL_FUENTE=drive (salida de emergencia explícita). Si el consolidador no responde, lanza."""
+    import json
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "Ownia_B2B_Ecosystem" / "mirror"))
+    import pnl_conso
+    data = pnl_conso.read_canonical(CANONICAL_OC_IDS[k], k)
+    if data is not None:
+        return data
+    if dl is None:
+        raise RuntimeError(f"PNL_FUENTE=drive pero no hay lector de Drive para el canónico '{k}'")
+    return json.loads(dl(CANONICAL_OC_IDS[k]))
+
+
 def _pais(p) -> str:
     return _PAIS.get(str(p).strip().lower(), "Other Countries")
 
@@ -89,7 +105,7 @@ def refresh_in_daily_json(svc) -> None:
 
         raw = dl(DAILY_B2B2C_FILE_ID)
         data = json.loads(raw)
-        new_oc = build_flow_oc(lambda k: json.loads(dl(CANONICAL_OC_IDS[k])))
+        new_oc = build_flow_oc(lambda k: load_canonical(k, dl))
         if new_oc == data.get("flow_oc"):
             print("  [flow_oc] daily_b2b2c_data.json ya tenia el OC al dia")
             return
