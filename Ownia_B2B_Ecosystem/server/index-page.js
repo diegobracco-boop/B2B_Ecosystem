@@ -20,9 +20,8 @@ const OTHERS = ['travel-partners-hub', 'marketing-b2b', 'pipeline-hunting', 'age
 const HIDDEN = ['hub-drive', 'pnl-accounting-drive', 'pnl-managerial-drive'];
 const MORE_ROWS = [
   [['P&L Detail', ['pnl-accounting', 'hub-consolidacion', 'rolling-projections', 'profit-sharing', 'fixed-cost']]],
-  [['Industry', ['weekly-industry', 'monthly-industry']], ['Coming soon', ['b2b2c-tracker', 'cosechas-b2b']]],
-  [['Tribus Producto', ['okr-b2b2c']], ['Otros tableros', OTHERS]],
-  [['Manual', ['manual']]],
+  [['Industry', ['weekly-industry', 'monthly-industry']], ['Coming soon', ['b2b2c-tracker', 'cosechas-b2b']], ['Tribus Producto', ['okr-b2b2c']]],
+  [['Manual', ['manual']], ['Otros tableros', OTHERS]],
 ];
 const MORE_COLS = 5;
 const MORE = MORE_ROWS.flat().flatMap(([, s]) => s);
