@@ -57,6 +57,16 @@ GAP_MAX = 1
 MERGE_MAX = 10
 PRE_POST_DEFAULT = 3   # si el calendario no marca pre/post pegado al evento
 
+# Correcciones a mano que pisan lo que dice el calendario: (lob, país, familia, año) → campos a pisar.
+#   inicio: "YYYY-MM-DD"; pre / post: cantidad de días (0 = sin pre/post). Lo que no se pisa sigue igual.
+# Se aplican al bloque cuya familia (la primera del nombre) coincide y que contiene el año; el fin y el
+# nombre ("Black Friday + Cyber Monday") quedan como los arma el calendario.
+OVERRIDES = {
+    # 2026-11-18 (Diego): el Black Friday de Argentina B2B2C arranca el lun 23/11 (el calendario lo
+    # tiene desde el vie 27/11). Sin pre; el post queda como lo marca el calendario.
+    ("b2b2c", "Argentina", "Black Friday", 2026): {"inicio": "2026-11-23", "pre": 0},
+}
+
 
 def _defs_daily_sync():
     src = DAILY_SYNC.read_text(encoding="utf-8")
@@ -185,6 +195,17 @@ def armar_eventos(cal, lob):
             n_post = 0
             while n_post < 7 and (fin + timedelta(days=n_post + 1)) in post:
                 n_post += 1
+            pre_v = n_pre or PRE_POST_DEFAULT
+            post_v = n_post or PRE_POST_DEFAULT
+            pre_cal, post_cal = bool(n_pre), bool(n_post)
+            ov = OVERRIDES.get((lob, pais, familias[0], int(ini.year)))
+            if ov:
+                if "inicio" in ov:
+                    ini = pd.Timestamp(ov["inicio"])
+                if "pre" in ov:
+                    pre_v, pre_cal = ov["pre"], True
+                if "post" in ov:
+                    post_v, post_cal = ov["post"], True
             out.append({
                 "lob": lob,
                 "pais": pais,
@@ -194,10 +215,10 @@ def armar_eventos(cal, lob):
                 "inicio": ini.strftime("%Y-%m-%d"),
                 "fin": fin.strftime("%Y-%m-%d"),
                 "dias": (fin - ini).days + 1,
-                "pre": n_pre or PRE_POST_DEFAULT,
-                "post": n_post or PRE_POST_DEFAULT,
-                "pre_cal": bool(n_pre),
-                "post_cal": bool(n_post),
+                "pre": pre_v,
+                "post": post_v,
+                "pre_cal": pre_cal,
+                "post_cal": post_cal,
             })
     return out
 
