@@ -633,7 +633,7 @@ a.ext-link:hover { text-decoration: underline; }
       <div class="proj-card" tabindex="0" role="button" onclick="showSection('proj-pnl')">
         <div class="proj-card-icon">📋</div>
         <div class="proj-card-name">P&amp;L Accounting</div>
-        <div class="proj-card-desc">Landing del P&amp;L Contable (Operating Contribution) B2B + B2B2C · FY27. Baseline vs Goal seleccionable. Se alimenta de Inputs_Planning_PnL (la vista visible lee los JSON canónicos directo; la vista oculta lee el cubo). Las vistas Managerial se movieron a P&amp;L Managerial.</div>
+        <div class="proj-card-desc">Landing del P&amp;L Contable (Operating Contribution) B2B + B2B2C · FY27. Baseline vs Goal seleccionable. Desde el 2026-11-17 se alimenta del <strong>consolidador</strong> (la tabla de conso), no de los JSON de Inputs_Planning_PnL; los respaldos con Drive existen pero no tienen botón: si el equipo ve una inconsistencia, se contrasta con el tablero anterior. Las vistas Managerial se movieron a P&amp;L Managerial.</div>
         <div class="proj-card-tag"><span class="badge badge-manual">🔄 Actualización manual</span></div>
         <a class="proj-card-url" href="https://script.google.com/a/macros/despegar.com/s/AKfycby9WZK2HfAWx25M5pEMV3nntzJfEvsiT9feMn01zJQkQaI3t2GjTzOIjbFXWexnMuzklQ/exec" target="_blank">↗ Abrir landing</a>
       </div>
@@ -649,8 +649,8 @@ a.ext-link:hover { text-decoration: underline; }
       <div class="proj-card" tabindex="0" role="button" onclick="showSection('proj-ecosystem')">
         <div class="proj-card-icon">🏢</div>
         <div class="proj-card-name">P&amp;L Dashboard (B2B Ecosystem Hub)</div>
-        <div class="proj-card-desc">El P&amp;L contable por negocio (Consolidado, B2B2C, B2B, HTML y API): waterfall de Operating Contribution, evolución, OKR y marketing. Datos desde <strong>JSON canónicos en Drive</strong> (mismo origen que Inputs_Planning_PnL). La versión que evoluciona es la de Ownia; la de Apps Script (portal con Detail By Country, Daily, Organigrama y más) está congelada.</div>
-        <div class="proj-card-tag"><span class="badge badge-manual">🔄 JSON Drive (Inputs_Planning_PnL)</span></div>
+        <div class="proj-card-desc">El P&amp;L contable por negocio (Consolidado, B2B2C, B2B, HTML y API): waterfall de Operating Contribution, evolución, OKR y marketing. Desde el 2026-11-17 las series del P&amp;L (baseline, budget, run rate, forecast, Bridge to budget, Last Run Rate y año anterior) salen del <strong>consolidador</strong>; el OKR y los tipos de cambio siguen en Drive. La versión que evoluciona es la de Ownia; la de Apps Script (portal con Detail By Country, Daily, Organigrama y más) está congelada.</div>
+        <div class="proj-card-tag"><span class="badge badge-manual">🔄 Consolidador (P&amp;L) · Drive (OKR, TC)</span></div>
         <a class="proj-card-url" href="https://script.google.com/a/macros/despegar.com/s/AKfycbz52txFQy-5YM2Nil_KxULzPoeZpKyA4z5LUWMGoP_8IilcwSduuwZqPF8ut_LmtceM/exec" target="_blank">↗ Abrir landing</a>
       </div>
 
@@ -1058,7 +1058,7 @@ a.ext-link:hover { text-decoration: underline; }
       <div class="card-title">📅 Cerró un mes (llegaron los actuals)</div>
       <table class="doc-table">
         <tbody>
-          <tr><td>Contable (P&amp;L Accounting)</td><td>Desde <code>Inputs_Planning_PnL</code>: <code>run_all.bat</code> → <code>python baseline_builder.py --promote-month AAAA-MM-01</code> (el mes que cerró) → <code>python plana_to_cube.py --upload</code>. Recargar la landing (Ctrl+Shift+R). Sin deploy.</td></tr>
+          <tr><td>Contable (P&amp;L Accounting)</td><td>Desde el <strong>consolidador</strong>: cuando conso publica una versión nueva la landing se renueva sola (revisa cada ~1 min). Al cerrar un mes hay que mover el secreto <code>PNL_ULTIMO_CERRADO</code> de la app (<code>AAAA-MM-01</code>, el último mes cerrado) y redeployar; sin eso el mes nuevo se sigue tratando como run rate. Los ajustes propios (reclasificación de GB/Orders de API B2B-MAY y Reverso AxI) se regeneran con <code>scripts/generar-ajustes-pnl.py</code>. Sin clasp. El procedimiento anterior con Drive (<code>Inputs_Planning_PnL</code>: <code>run_all.bat</code> + <code>baseline_builder.py --promote-month</code>) quedó solo como referencia: los respaldos con Drive no tienen botón.</td></tr>
           <tr><td>Gestional (P&amp;L Managerial)</td><td>Botón "Actualizar managerial" de Ownia (ver abajo), o desde <code>P&amp;L_Managerial</code>, con VPN: <code>python actuals_gestional_upload.py</code>. Un solo run sube el mensual y el semanal.</td></tr>
           <tr><td>P&amp;L Managerial, mensual y por semana (botón Semana)</td><td>Botón <strong>"Actualizar managerial"</strong> en la ventana de "Actualizar reales" de la portada de Ownia (equipo B2B, con contraseña): corre <code>actuals_gestional_upload.py</code> en el servidor y publica los dos archivos de una vez (los reales van por día). Solo semanas completas, lunes a domingo; el semanal no se publica si no cierra con el mensual (0,5%). El Forecast queda el de la ronda vigente: una ronda nueva se publica corriendo el script desde una PC con los XLSX y VPN.</td></tr>
           <tr><td>Daily</td><td>Se incorpora con el próximo "Actualizar reales" de la portada de Ownia.</td></tr>
@@ -1181,7 +1181,7 @@ a.ext-link:hover { text-decoration: underline; }
         <thead><tr><th>Módulo</th><th>Cómo se actualiza</th><th>Corre en…</th></tr></thead>
         <tbody>
           <tr><td>Inputs Planning P&amp;L</td><td>Manual, con el cierre mensual (equipo de Planning)</td><td>La máquina de quien lo corre (rutas locales en el script)</td></tr>
-          <tr><td>P&amp;L Accounting</td><td>Datos: al reprocesar Inputs_Planning_PnL. Código: manual + deploy</td><td>—</td></tr>
+          <tr><td>P&amp;L Accounting</td><td>Datos: los publica el consolidador (la landing se renueva sola); ajustes propios con <code>scripts/generar-ajustes-pnl.py</code>. Código: manual + deploy</td><td>—</td></tr>
           <tr><td>P&amp;L Managerial</td><td>Datos: <code>actuals_gestional_upload.py</code> manual (VPN). Código: manual + deploy</td><td>Cualquier máquina con <code>credenciales/.env.&lt;usuario&gt;</code> + VPN + OneDrive con los modelos Forecast XLSX</td></tr>
           <tr><td>B2B Ecosystem Hub</td><td>Datos: JSON canónicos de Drive (automático por <code>lastMod</code>). Código: manual + deploy</td><td>—</td></tr>
           <tr><td>Daily Dashboard</td><td><strong>Botón "Actualizar reales"</strong> en la portada de Ownia (desde 2026-10-30): solo el equipo B2B, con contraseña; corre <code>daily_sync.py</code> en el servidor de Ownia (<code>server/reales-job.js</code>)</td><td>Servidor de Ownia (antes: Task Scheduler en la máquina de Tiago Harari)</td></tr>
@@ -2230,7 +2230,7 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
             <tr><td>Actualización</td><td><span class="badge badge-manual">Manual</span></td></tr>
             <tr><td>Cubo EPM (visible)</td><td class="mono-id">ID: 1Rx6YYnFH5S...</td></tr>
             <tr><td>Cubo Model+Acct (oculto)</td><td class="mono-id">ID: 1KHXgPykA...</td></tr>
-            <tr><td>Fuente (canónicos)</td><td class="mono-id">Drive 1XqQPL... (Inputs_Planning_PnL)</td></tr>
+            <tr><td>Fuente (canónicos)</td><td class="mono-id">Consolidador: tabla <code>compartido.app_b2b_ecosystem_166</code> (secreto <code>CONSOLIDADOR_DATASET</code>). Antes: Drive 1XqQPL... (Inputs_Planning_PnL)</td></tr>
           </tbody>
         </table>
       </div>
@@ -2307,7 +2307,7 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
       <table class="doc-table">
         <thead><tr><th>Qué cambió</th><th>Pasos</th></tr></thead>
         <tbody>
-          <tr><td><strong>DATOS</strong> (números)</td><td>1) En <code>Inputs_Planning_PnL</code>: <code>run_all.bat</code> (planas + json_builder all) + <code>python baseline_builder.py --promote-month AAAA-MM-01</code> si cerró un mes. 2) <code>python plana_to_cube.py --upload</code> (rearma y sube los cubos). 3) En la landing: <strong>Ctrl+Shift+R</strong>. NO requiere clasp/deploy.</td></tr>
+          <tr><td><strong>DATOS</strong> (números)</td><td>Desde el 2026-11-17 los publica el <strong>consolidador</strong>: la landing detecta la versión nueva sola (~1 min) y se recarga con <strong>Ctrl+Shift+R</strong>. Si cerró un mes: mover <code>PNL_ULTIMO_CERRADO</code> (<code>AAAA-MM-01</code>) y redeployar la app. Ajustes propios: <code>scripts/generar-ajustes-pnl.py</code>. NO requiere clasp. <em>Antes (con Drive):</em> <code>run_all.bat</code> + <code>baseline_builder.py --promote-month AAAA-MM-01</code> + <code>plana_to_cube.py --upload</code>.</td></tr>
           <tr><td><strong>CÓDIGO</strong> (.js / .html)</td><td>Desde <code>P&amp;L_Accounting</code>: <code>clasp push</code> (→ /dev) y luego <code>clasp deploy -i AKfycby9WZK... -d "desc"</code>. ⚠️ El deployment publicado queda congelado; SIEMPRE redeployar con <code>-i</code> tras el push.</td></tr>
         </tbody>
       </table>
@@ -2377,7 +2377,7 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
           <tbody>
             <tr><td>Forecast (FC)</td><td>Modelos Forecast XLSX (WLs, API, HTML) → JSON gestional</td><td><code>actuals_gestional_upload.py</code> (lee <code>FC_XLSX_DIR</code>)</td></tr>
             <tr><td>Actuals / LY / Budget / Run rate</td><td>Treasure Data (ODBC) — B2B2C + B2B GD + B2B RI. Las queries B2B GD/RI están <strong>alineadas a <code>daily_sync.py</code></strong> (versión oficial): RI reconoce por check-in para todo <code>parent_channel='API'</code>; B2B-MIN tiene serie RI (toggle RI aplica a MIN); fórmulas de componentes idénticas al Daily (GB/NR/FVM coinciden al centavo)</td><td><code>actuals_gestional_upload.py</code></td></tr>
-            <tr><td>Reconciliación (vista "Managerial vs Accounting")</td><td><code>actuals.json</code> canónico — folder Drive <code>1XqQPL...</code> (fileId <code>1PABNf4XVKdj6eXApr5_yP581ZsD_N9e-</code>), lo genera Inputs_Planning_PnL</td><td><code>Codigo.js</code> → <code>getVsAccounting()</code> (solo lectura, NO toca pipelines)</td></tr>
+            <tr><td>Reconciliación (vista "Managerial vs Accounting")</td><td>Desde el 2026-11-17: el actuals (ACT FY27 hasta el último mes cerrado) de la tabla del <strong>consolidador</strong>, con N1 a N5 (N4 y N5 se derivan del nivel 3). Antes: <code>actuals.json</code> canónico — folder Drive <code>1XqQPL...</code> (fileId <code>1PABNf4XVKdj6eXApr5_yP581ZsD_N9e-</code>), lo genera Inputs_Planning_PnL</td><td><code>Codigo.js</code> → <code>getVsAccounting()</code> (solo lectura, NO toca pipelines)</td></tr>
             <tr><td>Revenue GD (modo "Actuals GD vs Revenue")</td><td>Treasure Data (ODBC) — modelo de revenue B2B independiente (<code>bi_transactional_fact_*</code> + <code>lake.b2b_rev_pnl_sales_detail</code> + <code>lake.b2b_b2b2c_revenue_pnl_model</code>, basis <code>gestion_date</code>). Mapeo de líneas P&amp;L en <strong>borrador</strong> — ver <code>CONTEXT.md</code> del módulo y <code>reconciliacion_actuals_gd_vs_revenue.md</code></td><td><code>revenue_gd_builder.py</code> (tool aparte, no forma parte del refresh regular)</td></tr>
             <tr><td>LY estático en <code>ly_data.js</code></td><td colspan="2">⚠️ No usado — nada en <code>Codigo.js</code>/<code>dashboard.html</code> lo referencia. El LY real que se ve en la landing es el dinámico que calcula <code>actuals_gestional_upload.py</code> en cada run.</td></tr>
           </tbody>
@@ -2447,7 +2447,7 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
             <tr><td>Apps Script ID</td><td class="mono-id">1fLnpsEh2dBAuPusbO...</td></tr>
             <tr><td>Spreadsheet ID</td><td class="mono-id">1RVmTXDyyugCUXJ0f6JG... (solo Organigrama)</td></tr>
             <tr><td>URL landing</td><td><a class="ext-link" href="https://script.google.com/a/macros/despegar.com/s/AKfycbz52txFQy-5YM2Nil_KxULzPoeZpKyA4z5LUWMGoP_8IilcwSduuwZqPF8ut_LmtceM/exec" target="_blank">↗ Abrir</a></td></tr>
-            <tr><td>Fuente de datos</td><td><span class="badge badge-manual">JSON Drive (Inputs_Planning_PnL)</span></td></tr>
+            <tr><td>Fuente de datos</td><td><span class="badge badge-manual">Consolidador (series del P&amp;L, en Ownia) · Drive (OKR, TC)</span></td></tr>
             <tr><td>JSON IDs</td><td class="mono-id">baseline / budget / runrate / forecast / ly (actuals_previos_fy26)</td></tr>
             <tr><td>Tipos de cambio (ORGANIC) <span class="badge badge-manual">🆕 2026-10-15</span></td><td><code>tc_plana_flat.xlsx</code> subido a Drive (<code>FX_FILE_ID</code> = <span class="mono-id">1SEh9vLWCbE6PslnUntUghhInonuLdYZ5</span>), copia del xlsx de OneDrive <em>Control de Gestión - Documentos\Planeamiento\2026-27\B2B &amp; WLs</em>. <strong>Fuente provisoria y manual:</strong> si cambia el de OneDrive, hay que volver a subirlo a Drive (mismo archivo / mismo ID). El Hub corre como <code>USER_ACCESSING</code>: cada usuario necesita permiso de lectura sobre el xlsx (si no, el switch muestra el error y vuelve a NO). A futuro: pasarlo al pipeline (<code>fx.json</code>).</td></tr>
             <tr><td>LAST_ACTUALS_YM</td><td class="mono-id">2026-09 (actualizar mensual)</td></tr>
@@ -2575,8 +2575,8 @@ run_all.bat</div>Genera las 6 planas + los 6 JSON y los sube a Drive. FY27 se co
       <table class="doc-table">
         <thead><tr><th>Regla</th><th>Detalle</th></tr></thead>
         <tbody>
-          <tr><td>Fuente de datos</td><td>JSON canónicos de Drive (Inputs_Planning_PnL). El Spreadsheet 1RVmTXDyyugCUXJ0f6JG... se usa <strong>solo para el tab Organigrama</strong>. Toqan ya no alimenta este dashboard</td></tr>
-          <tr><td>Baseline</td><td>Viene de <code>baseline_actuals+projections.json</code> (pre-computado en Inputs_Planning_PnL). Dentro del código: <code>LAST_ACTUALS_YM</code> (último mes real) y <code>LAST_RR_YM</code> deben actualizarse mensualmente + bump de <code>v:</code> en <code>makeCacheKey_</code> para invalidar el cache viejo.</td></tr>
+          <tr><td>Fuente de datos</td><td>Series del P&amp;L: desde el 2026-11-17, en Ownia, la tabla del <strong>consolidador</strong> (<code>server/pnl-fuente.js</code> + <code>gas-extras/hub-consolidador.js</code>; B2C incluido; la "Managerial View" sale del Glosario, <code>server/pnl-vista-gestional.json</code>); en Apps Script (congelado) siguen los JSON canónicos de Drive (Inputs_Planning_PnL). OKR y tipos de cambio: Drive. El Spreadsheet 1RVmTXDyyugCUXJ0f6JG... se usa <strong>solo para el tab Organigrama</strong>. Toqan ya no alimenta este dashboard</td></tr>
+          <tr><td>Baseline</td><td>En Ownia viene del consolidador (ACT del FY27: reales cerrados + run rate); en Apps Script (congelado) sigue siendo <code>baseline_actuals+projections.json</code> (pre-computado en Inputs_Planning_PnL). Dentro del código: <code>LAST_ACTUALS_YM</code> (último mes real) y <code>LAST_RR_YM</code> deben actualizarse mensualmente (en Ownia, junto con el secreto <code>PNL_ULTIMO_CERRADO</code>: son dos pasos y los dos hacen falta) + bump de <code>v:</code> en <code>makeCacheKey_</code> para invalidar el cache viejo.</td></tr>
           <tr><td>OC</td><td>Operating Contribution = NR + COR + S&amp;M (costos con signo negativo en el JSON)</td></tr>
           <tr><td>Canal</td><td>B2B2C y B2C siempre normalizados a canal 'all'. B2B abre MAY / MIN</td></tr>
           <tr><td>Cache</td><td>CacheService (6h TTL), chunking de 90KB. Clave versionada (<code>makeCacheKey_</code>, <code>v:</code> se bumpea a mano al cambiar la lógica de agregación — hoy <code>v:28</code>) + lob/pais/producto/canal/desde/hasta. <code>getCountryPageData</code> (backend del Country One Pager) usa su propia clave (<code>v:27</code>, <code>_ctryPageCacheKey_</code> en <code>Codigo_country_page.js</code>). Marketing usa una key fija sin auto-invalidación (<code>mkt_b2b_v4</code>, bumpear el sufijo a mano si cambia <code>computeMarketingData_</code> — <code>clearAllCache()</code> también hay que mantenerla sincronizada con esa key). Auto-invalidación (el resto): si algún JSON de Drive cambió desde la última escritura de cache, el entry se descarta y se recomputa.</td></tr>

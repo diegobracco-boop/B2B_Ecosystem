@@ -40,8 +40,9 @@ def repo_py_files():
 
 def cited_py_files(html):
     # nombres tipo foo_bar.py. Deben empezar con letra (así se descartan globs
-    # como plana_*_builder.py, que el regex vería como "_builder.py").
-    return sorted(set(re.findall(r"(?<![\w*])([A-Za-z][A-Za-z0-9_]*\.py)", html)))
+    # como plana_*_builder.py, que el regex vería como "_builder.py"). Acepta guiones (generar-ajustes-pnl.py): sin eso
+    # el nombre se cortaba en el último guion y se buscaba un "pnl.py" que no existe.
+    return sorted(set(re.findall(r"(?<![\w*-])([A-Za-z][A-Za-z0-9_-]*\.py)", html)))
 
 
 def main():

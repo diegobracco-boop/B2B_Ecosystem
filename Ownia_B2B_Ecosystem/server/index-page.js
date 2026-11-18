@@ -14,13 +14,15 @@ const { B2B2C_TRACKER, EMBUDO_B2B } = require('./modules');
 const ESSENTIAL = ['daily', 'hub', 'pnl-managerial', 'flow'];
 // "Más tableros" en grupos (2026-11-17, Diego), armados en filas de 5 columnas: cada grupo ocupa tantas columnas como tableros
 // tiene, así los grupos chicos comparten fila (menos scroll). "Otros tableros" junta lo que no está en ningún grupo (ni en Lo esencial
-// ni en QUICK_LINKS). Los respaldos con Drive tienen allowedUsers: "Backup" solo aparece para quien los puede abrir.
+// ni en QUICK_LINKS). Los respaldos con Drive (HIDDEN) NO tienen botón ni aparecen en el buscador: quedan ocultos (2026-11-18, Diego); si el
+// equipo ve una inconsistencia se valida contra los tableros viejos. Siguen registrados en modules.js (allowedUsers) solo para abrirlos por la URL directa.
 const OTHERS = ['travel-partners-hub', 'marketing-b2b', 'pipeline-hunting', 'agentes'];   // orden de "Otros tableros"
+const HIDDEN = ['hub-drive', 'pnl-accounting-drive', 'pnl-managerial-drive'];
 const MORE_ROWS = [
   [['P&L Detail', ['pnl-accounting', 'hub-consolidacion', 'rolling-projections', 'profit-sharing', 'fixed-cost']]],
   [['Industry', ['weekly-industry', 'monthly-industry']], ['Coming soon', ['b2b2c-tracker', 'cosechas-b2b']]],
   [['Tribus Producto', ['okr-b2b2c']], ['Otros tableros', OTHERS]],
-  [['Manual', ['manual']], ['Backup', ['hub-drive', 'pnl-accounting-drive', 'pnl-managerial-drive']]],
+  [['Manual', ['manual']]],
 ];
 const MORE_COLS = 5;
 const MORE = MORE_ROWS.flat().flatMap(([, s]) => s);
@@ -681,7 +683,7 @@ function askBlock(ask, dest) {
 
 function indexPage({ modules, basePath, canOpen = () => true, reales = false, ask = null }) {
   // Las páginas propias con allowedUsers (B2B2C Tracker) no se muestran a quien no las puede abrir.
-  const all = [...modules, ...OTHER_APPS.filter((m) => !m.allowedUsers || canOpen(m))];
+  const all = [...modules, ...OTHER_APPS.filter((m) => !m.allowedUsers || canOpen(m))].filter((m) => !HIDDEN.includes(m.slug));
   const find = (s) => all.find((m) => m.slug === s);
   const essential = ESSENTIAL.map(find).filter(Boolean);
   const dailyMod = modules.find((m) => m.slug === 'daily' && m.ownia);
@@ -690,7 +692,7 @@ function indexPage({ modules, basePath, canOpen = () => true, reales = false, as
   // Un módulo en validación con versión de Apps Script sigue apareciendo para todos: a quien no puede entrar lo manda a GAS.
   const visible = (m) => m && (!m.allowedUsers || canOpen(m) || (statusOf(m) === 'val' && !!m.gasUrl));
   // "Otros tableros" suma los módulos nuevos que no estén en ningún grupo; cada fila se queda con los grupos que tienen algo para mostrar.
-  const extra = modules.filter((m) => !used.has(m.slug)).map((m) => m.slug);
+  const extra = modules.filter((m) => !used.has(m.slug) && !HIDDEN.includes(m.slug)).map((m) => m.slug);
   const rows = MORE_ROWS.map((r) => r.map(([title, slugs]) => [title, (title === 'Otros tableros' ? [...slugs, ...extra] : slugs).map(find).filter(visible)])
     .filter(([, ms]) => ms.length)).filter((r) => r.length);
   return shell(`<div class="hero reveal" style="--i:0">
