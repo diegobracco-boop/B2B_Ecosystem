@@ -159,10 +159,13 @@ test('los archivos reales de ajustes cargan y dicen a qué se aplican', () => {
   assert.ok(api.rows.every((r) => r[api.cols.indexOf('mes')] >= 4 && r[api.cols.indexOf('mes')] <= 6));
   assert.ok(api.rows.every((r) => ['Gross Bookings', 'Orders'].includes(r[api.cols.indexOf('n2')])));
   assert.deepEqual(api.meta.escenarios_por_anio, { FY27: ['ACT', 'FC1'] });
-  // Reverso AxI: solo Other Incentives de B2B/B2B2C; FY27 desde la hoja Budget (1.500.322) y FY26 desde RunRate (748.004)
-  assert.ok(axi.rows.every((r) => r[axi.cols.indexOf('n2')] === 'O. Incentives' && ['B2B', 'B2B2C'].includes(r[axi.cols.indexOf('lob')])));
+  // Reverso AxI: Other Incentives de B2B/B2B2C/B2C y Loyalty - Deferred Revenue In (solo B2C). Sin B2C (lo único que usan Accounting y Managerial),
+  // FY27 sale de la hoja Budget (1.500.322) y FY26 de RunRate (748.004).
+  const iLob = axi.cols.indexOf('lob'), iN2 = axi.cols.indexOf('n2');
+  assert.ok(axi.rows.every((r) => (['B2B', 'B2B2C'].includes(r[iLob]) && r[iN2] === 'O. Incentives') || (r[iLob] === 'B2C' && ['O. Incentives', 'Loyalty Revenue'].includes(r[iN2]))));
+  assert.ok(axi.rows.some((r) => r[iLob] === 'B2C' && r[iN2] === 'Loyalty Revenue'), 'el Hub usa B2C');
   const tot = {};
-  for (const r of axi.rows) tot[r[0]] = (tot[r[0]] || 0) + r[axi.cols.indexOf('valor')];
+  for (const r of axi.rows) if (r[iLob] !== 'B2C') tot[r[0]] = (tot[r[0]] || 0) + r[axi.cols.indexOf('valor')];
   assert.equal(Math.round(tot.FY27), 1500322);
   assert.equal(Math.round(tot.FY26), 748004);
   assert.deepEqual(axi.meta.escenarios_por_anio, { FY27: ['ACT', 'BGT', 'FC1', 'LRR', 'RR'], FY26: ['ACT'] });
@@ -290,7 +293,7 @@ test('buildHubCanonicals: una serie por JSON del Hub, con las columnas y el voca
   assert.deepEqual(canon.bl.rows.find((r) => r[0] === 'b2c'), ['b2c', 'total', 'mexico', 'hotels', 'fees', 'customer fees & charges', 'net revenue', 'operating contribution', 'palancas', '2026-04-01', 10]);   // 9 + 1: Site y App juntos
   assert.deepEqual(canon.bg.rows, [['b2b2c', 'total', 'chile', 'hotels', 'orders domestic', 'orders', 'orders', 'orders', 'orders', '2026-05-01', 7]]);
   assert.equal(canon.ly.rows.length, 1);
-  assert.deepEqual(sinMapear, { pais: [], producto: [], n2: [], n3: [] });
+  assert.deepEqual(sinMapear, { pais: [], producto: [], n2: [], n3: [], linea: [] });
 });
 
 test('buildHubCanonicals: una línea sin vista en el Glosario queda con la vista vacía (el Hub la junta en "Otros") y lo que no se traduce va a sinMapear', () => {
@@ -324,4 +327,49 @@ test('buildHubCanonicals: los ajustes propios entran en las series que dicen (el
   assert.deepEqual(canon.fc.rows.map((r) => [r[4], r[10]]), [['gross bookings international', -30]]);   // FC1 -> fc y fbtb
   assert.deepEqual(canon.bg.rows.map((r) => [r[4], r[6], r[10]]), [['other incentives', 'net revenue', 5]]);
   assert.deepEqual(canon.ly.rows.map((r) => [r[4], r[10]]), [['other incentives', 9]]);
+});
+
+// ── Hub vs Drive (2026-11-18): comparación contra hub-drive, causas encontradas ────────────────────────────────────────────────
+test('nivelesMgr: las líneas que el Glosario junta bajo un mismo N1 (IOF, Banking Tax, IVA no recuperable…) salen con ese N1', () => {
+  for (const linea of ['IOF', 'Banking Tax', 'IVA no recuperable ARG', 'ingresos brutos factoring']) {
+    assert.equal(nivelesMgr(linea, 'O. Transactional Taxes', 'Cost of Revenue')[0], 'other transactional taxes', linea);
+  }
+  assert.equal(nivelesMgr('Fees', 'Customer Fees & Charges', 'Net Revenues')[0], 'fees');                     // el resto no cambia
+  assert.equal(nivelesMgr('IT Personnel', 'IT Personnel', 'Technology and Content')[0], 'it - personnel/expenses');   // el override propio sigue primero
+});
+
+test('buildHubCanonicals: una línea sin vista en el Glosario toma la de su N2 (no cae en "Otros"); si tampoco, queda vacía y se informa', () => {
+  const { canon, sinMapear } = buildHubCanonicals(cuboHub([
+    ['BGT', 'FY27', 4, 'Brazil', 'B2B', 'MAY', 'Air', 'IOF', 'O. Transactional Taxes', 'Cost of Revenue', -5],            // el Glosario la conoce (IOF)
+    ['BGT', 'FY27', 4, 'Brazil', 'B2B', 'MAY', 'Air', 'Impuesto nuevo', 'O. Transactional Taxes', 'Cost of Revenue', -7],   // el Glosario no, pero su N2 tiene una sola vista
+    ['BGT', 'FY27', 4, 'Brazil', 'B2B', 'MAY', 'Air', 'Rayos', 'Rayos N2', 'Rayos N3', -1],                                 // ni línea ni N2
+  ]), { ajustes: SIN_AJ });   // sin pasar `vista`: usa el archivo del Glosario
+  const vistas = Object.fromEntries(canon.bg.rows.map((r) => [r[4], r[8]]));
+  assert.equal(vistas['other transactional taxes'], 'variables regionales');
+  assert.equal(vistas['impuesto nuevo'], 'variables regionales');
+  assert.equal(vistas.rayos, '');
+  assert.deepEqual(sinMapear.linea, ['Rayos']);
+});
+
+test('buildHubCanonicals: las filas salen en el orden de los JSON de Drive (LoB, canal, país, producto, N1, …, fecha)', () => {
+  const { canon } = buildHubCanonicals(cuboHub([
+    ['ACT', 'FY27', 5, 'Mexico', 'B2C', 'Site', 'Hotel', 'Fees', 'Customer Fees & Charges', 'Net Revenues', 1],
+    ['ACT', 'FY27', 4, 'Brazil', 'B2B', 'MIN', 'Air', 'Fees', 'Customer Fees & Charges', 'Net Revenues', 2],
+    ['ACT', 'FY27', 4, 'Brazil', 'B2B', 'MAY', 'Air', 'Affiliates', 'Third Party Comission', 'Sales & Marketing', 3],
+    ['ACT', 'FY27', 4, 'Brazil', 'B2B', 'MAY', 'Air', 'Fees', 'Customer Fees & Charges', 'Net Revenues', 4],
+  ]), { ajustes: SIN_AJ, vista: VISTA });
+  assert.deepEqual(canon.bl.rows.map((r) => [r[0], r[1], r[4]]), [['b2b', 'may', 'affiliates'], ['b2b', 'may', 'fees'], ['b2b', 'min', 'fees'], ['b2c', 'total', 'fees']]);
+});
+
+test('ajustes de B2C (Reverso AxI): entran en el Hub con su línea y nivel 3, y NO en el Accounting ni en el Managerial (que no usan B2C)', () => {
+  const aj = { meta: { escenarios_por_anio: { FY27: ['ACT', 'BGT'] }, hasta_ultimo_cerrado: false }, cols: ['year', 'mes', 'pais', 'lob', 'channel', 'product', 'n2', 'valor'],
+    rows: [['FY27', 5, 'Mexico', 'B2C', 'Site', 'Hotel', 'Loyalty Revenue', 40], ['FY27', 5, 'Mexico', 'B2C', 'Site', 'Hotel', 'O. Incentives', 6], ['FY27', 5, 'Mexico', 'B2B', 'MAY', 'Hotel', 'O. Incentives', 3]] };
+  const hub = buildHubCanonicals(cuboHub([]), { ultimoCerrado: '2026-10-01', ajustes: aj, vista: { 'loyalty - deferred revenue in': 'variables regionales', 'other incentives': 'variables regionales' } });
+  const b2c = hub.canon.bg.rows.filter((r) => r[0] === 'b2c');
+  assert.deepEqual(b2c.map((r) => [r[4], r[6], r[7], r[8], r[10]]).sort(), [['loyalty - deferred revenue in', 'net revenue', 'operating contribution', 'variables regionales', 40], ['other incentives', 'net revenue', 'operating contribution', 'variables regionales', 6]]);
+  const acc = buildCanonicals({ cols: COLS, rows: [] }, { ultimoCerrado: '2026-10-01', ajustes: aj });
+  assert.ok(acc.canon.bg.rows.every((r) => r[0] !== 'b2c'), 'el Accounting no recibe B2C');
+  assert.equal(acc.canon.bg.rows.length, 1);   // solo el B2B
+  const mgr = buildManagerialActuals(cuboMgr([]), { ultimoCerrado: '2026-10-01', ajustes: aj });
+  assert.ok(mgr.canon.rows.every((r) => r[0] !== 'b2c'), 'el Managerial no recibe B2C');
 });

@@ -24,7 +24,7 @@ import sys
 MMM = {"jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6, "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12}
 PAIS = {"Brasil": "Brazil", "Brazil": "Brazil"}
 # Línea del Reverso AxI -> línea nivel 2 de la tabla. Si aparece una que no está acá, se corta: no se pierde en silencio.
-N2_AXI = {"Other Incentives": "O. Incentives"}
+N2_AXI = {"Other Incentives": "O. Incentives", "Loyalty - Deferred Revenue In": "Loyalty Revenue"}   # la segunda es solo de B2C
 COLS = ["year", "mes", "pais", "lob", "channel", "product", "n2", "valor"]
 SERVER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "server")
 
@@ -81,8 +81,8 @@ def hoja_axi(wb, hoja, anio):
         if r is None or not r[ic["linea p&l"]]:
             continue
         lob = str(r[ic["lob"]])
-        if not lob.upper().startswith("B2B"):
-            continue   # el pipeline solo conserva B2B y B2B2C (LOBS_KEEP)
+        if not lob.upper().startswith(("B2B", "B2C")):
+            continue   # el pipeline conserva B2B, B2B2C y B2C (LOBS_KEEP de pnl_common.py): el Hub usa B2C
         linea = str(r[ic["linea p&l"]]).strip()
         if linea not in N2_AXI:
             sys.exit(f"Reverso AxI ({hoja}): la línea '{linea}' de {lob} no está mapeada a la tabla (N2_AXI). Agregala acá.")
@@ -104,7 +104,7 @@ def ajustes_axi(od):
     agg.update(hoja_axi(wb, "RunRate", "FY26"))
     meta = {
         "fuente": "Planning-PBI - Inputs Power Bi/Actuals/Reverso AxI.xlsx (hojas Budget -> FY27 y RunRate -> FY26)",
-        "que_es": "Reverso AxI (SIN PPA): conso trae AS REPORTED y el pipeline saca el efecto PPA sumando esto. Hoy solo 'Other Incentives' de B2B y B2B2C. "
+        "que_es": "Reverso AxI (SIN PPA): conso trae AS REPORTED y el pipeline saca el efecto PPA sumando esto. Hoy 'Other Incentives' de B2B, B2B2C y B2C, y 'Loyalty - Deferred Revenue In' de B2C (el Accounting y el Managerial no usan B2C: solo el Hub). "
                   "Verificado 2026-11-17: la hoja Budget suma 1.500.322 (diferencia medida contra Drive: -1.500.321) y la hoja RunRate 748.004 (LY: -748.004).",
         "como_actualizar": "python scripts/generar-ajustes-pnl.py cuando cambie el Excel.",
         "escenarios_por_anio": {"FY27": ["ACT", "BGT", "FC1", "LRR", "RR"], "FY26": ["ACT"]},

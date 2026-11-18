@@ -9,3 +9,5 @@ requests==2.34.2
 # Lectura del consolidador del P&L (consolidador_compartido.py): Aurora por IAM.
 psycopg2-binary==2.9.10
 boto3==1.35.99
+# Tipos de cambio (tc_plana_flat.xlsx) del OKR H2 y del organic: sin esto no se arma OKR_H2_FY27_Organic.json (aviso del 2026-11-18).
+openpyxl==3.1.5

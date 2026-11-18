@@ -119,7 +119,7 @@ function buildCanonicals(cubo, opts = {}) {
   const sinMapear = { pais: new Set(), producto: new Set(), n2: new Set() };
   const SPEC = especificacion(ultimoCerrado, rrDesde);
   const bySc = {};   // 'ACT|FY27' -> filas ya traducidas (agregadas)
-  const filas = ajustesComoFilas(opts.ajustes, ultimoCerrado).map((a) => {
+  const filas = ajustesComoFilas(opts.ajustes, ultimoCerrado).filter((a) => a.lob !== 'B2C').map((a) => {
     const r = new Array(cubo.cols.length).fill(null);
     r[ix.scenario] = a.scenario; r[ix.year] = a.year; r[ix.mes] = a.mes; r[ix.pais] = a.pais; r[ix.lob] = a.lob;
     r[ix.channel] = a.channel; r[ix.product] = a.product; r[ix.n2] = a.n2; r[ix.valor] = a.valor;
@@ -176,12 +176,13 @@ const N3 = {
 // La línea sale del propio ajuste si la trae (GB NAC / GB INT / Orders NAC / Orders INT, como pnl-ajustes-actuals.json); si no, esta de acá.
 const AJUSTE_LINEA = {
   'Gross Bookings': ['GB NAC', 'Gross Bookings'], Orders: ['Orders NAC', 'Orders'], 'O. Incentives': ['Other Incentives', 'Net Revenues'],
+  'Loyalty Revenue': ['Loyalty - Deferred Revenue In', 'Net Revenues'],   // Reverso AxI de B2C
 };
 
 /** [n1..n5] de Drive (minúsculas) para una fila de la tabla. */
 function nivelesMgr(linea, n2, n3) {
   const alianzas = linea === 'Alianzas Financieras';
-  const n1 = alianzas ? 'alianzas financieras' : (N1_LINEA[linea] || String(linea).toLowerCase());
+  const n1 = alianzas ? 'alianzas financieras' : (N1_LINEA[linea] || cargarGlosario().n1PorLinea[String(linea).toLowerCase()] || String(linea).toLowerCase());
   const n2d = alianzas ? 'alianzas financieras' : (N2[n2] || String(n2).toLowerCase());
   // 'Other Tax' cuenta como Sales & Marketing en el Glosario (entra en la OC); en la tabla no se sabe en qué nivel 3 cae.
   const n3d = alianzas ? 'alianzas financieras' : (n2 === 'Other Tax' ? 'sales & marketing' : (N3[n3] || String(n3).toLowerCase()));
@@ -202,7 +203,7 @@ function buildManagerialActuals(cubo, opts = {}) {
   const sinMapear = { pais: new Set(), producto: new Set(), n2: new Set(), n3: new Set() };
   const filas = cubo.rows.map((r) => ({ year: r[ix.year], mes: r[ix.mes], pais: r[ix.pais], lob: r[ix.lob], channel: r[ix.channel], product: r[ix.product], linea: r[ix.linea], n2: r[ix.n2], n3: r[ix.n3], valor: r[ix.valor] }));
   for (const a of ajustesComoFilas(opts.ajustes, ultimoCerrado)) {
-    if (a.scenario !== 'ACT' || a.year !== 'FY27') continue;
+    if (a.scenario !== 'ACT' || a.year !== 'FY27' || a.lob === 'B2C') continue;   // el Managerial vs Accounting no usa B2C
     const [lineaPorDefecto, n3] = AJUSTE_LINEA[a.n2] || [a.n2, ''];
     const linea = a.linea || lineaPorDefecto;
     filas.push({ year: a.year, mes: a.mes, pais: a.pais, lob: a.lob, channel: a.channel, product: a.product, linea, n2: a.n2, n3, valor: a.valor });
@@ -238,9 +239,17 @@ function buildManagerialActuals(cubo, opts = {}) {
 // Mismo vocabulario de Drive que el Managerial (nivelesMgr); la vista gestional sale del Glosario (pnl-vista-gestional.json, una por línea N1).
 const COLS_HUB = ['LoB', 'Canal', 'Pais', 'Producto', 'P&L N1', 'P&L N2', 'P&L N3', 'P&L N5', 'P&L Managerial View', 'Fecha', 'Monto USD'];
 const SERIES_HUB = ['bl', 'bg', 'rr', 'fc', 'fbtb', 'lrr', 'ly'];
-function cargarVistaGestional() {
-  try { return JSON.parse(fs.readFileSync(path.join(__dirname, 'pnl-vista-gestional.json'), 'utf8')).vista || {}; } catch (e) { return {}; }
+let glosarioCache = null;
+/** Lo del Glosario que la tabla no trae (scripts/generar-vista-gestional.py): vista por N1, N1 por nombre crudo de línea y vista por N2. */
+function cargarGlosario() {
+  if (!glosarioCache) {
+    let g = {};
+    try { g = JSON.parse(fs.readFileSync(path.join(__dirname, 'pnl-vista-gestional.json'), 'utf8')); } catch (e) { g = {}; }
+    glosarioCache = { vista: g.vista || {}, n1PorLinea: g.n1_por_linea || {}, vistaPorN2: g.vista_por_n2 || {} };
+  }
+  return glosarioCache;
 }
+function cargarVistaGestional() { return cargarGlosario().vista; }
 
 /**
  * @param {{cols:string[], rows:any[][]}} cubo  salida de `consolidador_leer.py cubo_hub` (todos los escenarios; B2B, B2B2C y B2C)
@@ -250,9 +259,11 @@ function cargarVistaGestional() {
 function buildHubCanonicals(cubo, opts = {}) {
   const ultimoCerrado = opts.ultimoCerrado || '2026-10-01';
   const rrDesde = opts.rrDesde || mesSiguiente(ultimoCerrado);
-  const vista = opts.vista || cargarVistaGestional();
+  const gl = cargarGlosario();
+  const vista = opts.vista || gl.vista;
+  const vistaPorN2 = opts.vista ? (opts.vistaPorN2 || {}) : gl.vistaPorN2;   // línea que el Glosario no conoce: la vista de su N2
   const ix = Object.fromEntries(cubo.cols.map((c, i) => [c, i]));
-  const sinMapear = { pais: new Set(), producto: new Set(), n2: new Set(), n3: new Set() };
+  const sinMapear = { pais: new Set(), producto: new Set(), n2: new Set(), n3: new Set(), linea: new Set() };
   const SPEC = especificacion(ultimoCerrado, rrDesde).filter(([k]) => SERIES_HUB.includes(k));
   const filas = cubo.rows.map((r) => ({ scenario: r[ix.scenario], year: r[ix.year], mes: r[ix.mes], pais: r[ix.pais], lob: r[ix.lob], channel: r[ix.channel],
     product: r[ix.product], linea: r[ix.linea], n2: r[ix.n2], n3: r[ix.n3], valor: r[ix.valor] }));
@@ -267,7 +278,9 @@ function buildHubCanonicals(cubo, opts = {}) {
     if (f.linea !== 'Alianzas Financieras' && !N2[f.n2]) sinMapear.n2.add(f.n2);
     if (f.linea !== 'Alianzas Financieras' && f.n2 !== 'Other Tax' && !N3[f.n3]) sinMapear.n3.add(f.n3);
     const [n1, n2, n3, , n5] = nivelesMgr(f.linea, f.n2, f.n3);
-    const key = [String(f.lob).toLowerCase(), canalDe(f.lob, f.channel), pais, prod, n1, n2, n3, n5, vista[n1] || '', fechaFiscal(f.year, f.mes)].join('\u0001');
+    const vw = vista[n1] || vistaPorN2[n2] || '';
+    if (!vw) sinMapear.linea.add(f.linea);   // sin vista gestional: el Hub la junta en "Otros"
+    const key = [String(f.lob).toLowerCase(), canalDe(f.lob, f.channel), pais, prod, n1, n2, n3, n5, vw, fechaFiscal(f.year, f.mes)].join('\u0001');
     const m = (bySc[`${f.scenario}|${f.year}`] = bySc[`${f.scenario}|${f.year}`] || new Map());
     m.set(key, (m.get(key) || 0) + (Number(f.valor) || 0));
   }
@@ -281,6 +294,8 @@ function buildHubCanonicals(cubo, opts = {}) {
       rows.push([...p, v]);
       fechas.add(p[9]);
     }
+    // Mismo orden que los JSON de Drive (LoB, canal, país, producto, N1…, fecha): el Hub arma sus conceptos en el orden en que aparecen las filas.
+    rows.sort((a, b) => { for (let i = 0; i < 10; i++) { if (a[i] < b[i]) return -1; if (a[i] > b[i]) return 1; } return 0; });
     canon[clave] = { meta: { concepto: clave, fuente: `compartido.app_b2b_ecosystem ${sc} ${year}`, fechas: [...fechas].sort(), filas: rows.length }, cols: COLS_HUB, rows };
   }
   return { canon, sinMapear: Object.fromEntries(Object.entries(sinMapear).map(([k, s]) => [k, [...s].sort()])) };
@@ -371,4 +386,4 @@ function comparar(canon, fileStore, opts = {}) {
   return out;
 }
 
-module.exports = { cargarAjustes, buildCanonicals, buildManagerialActuals, buildHubCanonicals, nivelesMgr, comparar, fechaFiscal, canalDe, mesSiguiente, PAIS, PRODUCTO, N2, COLS };
+module.exports = { cargarGlosario, cargarAjustes, buildCanonicals, buildManagerialActuals, buildHubCanonicals, nivelesMgr, comparar, fechaFiscal, canalDe, mesSiguiente, PAIS, PRODUCTO, N2, COLS };
