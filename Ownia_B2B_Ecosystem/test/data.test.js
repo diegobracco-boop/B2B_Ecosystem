@@ -311,3 +311,76 @@ test('DynamoBackend: si la tabla frena por throughput, espera y reintenta en vez
   assert.ok(otra.get('jsonFile000000000002').buf.equals(big));
   assert.ok(meta.chunks > 1);
 });
+
+// ── Arranque con DynamoDB frenando (2026-11-18): el almacén quedaba vacío minutos y los tableros daban 500 ─────────────────────────────
+test('DynamoBackend: si la tabla frena por throughput al LEER, espera y reintenta en vez de fallar', async () => {
+  const client = fakeDynamo();
+  const escritor = new FileStore(new DynamoBackend('tabla', { client }));
+  const buf = Buffer.from(JSON.stringify({ hola: 'mundo' }));
+  await escritor.put({ id: 'jsonFile000000000003', name: 'z.json', updatedAt: 5 }, buf);
+
+  const send = client.send;
+  let frenos = 4;
+  client.send = async (cmd) => {
+    if (cmd.constructor.name === 'QueryCommand' && frenos > 0) {
+      frenos--;
+      const e = new Error('Throughput exceeds the maximum OnDemandThroughput configured on table or index');
+      e.name = 'ThrottlingException';
+      throw e;
+    }
+    return send(cmd);
+  };
+  const lector = new FileStore(new DynamoBackend('tabla', { client, retryMs: 1 }));
+  await lector.refresh();
+  assert.equal(frenos, 0, 'reintentó las lecturas frenadas');
+  assert.ok(lector.get('jsonFile000000000003').buf.equals(buf));
+});
+
+// Backend en memoria que cuenta lecturas y puede fallar a pedido.
+function backendContando(archivos) {
+  const b = { lecturas: {}, fallar: new Set() };
+  b.list = async () => archivos.map((a) => ({ id: a.id, name: a.id, updatedAt: 1, sha256: a.sha, size: a.buf.length, chunks: 1 }));
+  b.read = async (meta) => {
+    b.lecturas[meta.id] = (b.lecturas[meta.id] || 0) + 1;
+    if (b.fallar.has(meta.id)) throw new Error('falla a propósito');
+    return archivos.find((a) => a.id === meta.id).buf;
+  };
+  return b;
+}
+
+test('FileStore.refresh: si falla a mitad de camino, el próximo intento retoma lo ya leído (no empieza de cero)', async () => {
+  const archivos = ['jsonFile000000000011', 'jsonFile000000000012', 'jsonFile000000000013']
+    .map((id, i) => ({ id, sha: `sha${i}`, buf: Buffer.from(`contenido ${i}`) }));
+  const b = backendContando(archivos);
+  b.fallar.add('jsonFile000000000013');
+  const store = new FileStore(b, { retryInitialMs: 0 });
+  await assert.rejects(store.refresh(), /falla a propósito/);
+  assert.ok(!store.get('jsonFile000000000011'), 'atómico: no aplica nada si falló');
+  b.fallar.clear();
+  await store.refresh();
+  assert.equal(b.lecturas.jsonFile000000000011, 1, 'el primero no se vuelve a leer');
+  assert.equal(b.lecturas.jsonFile000000000012, 1);
+  assert.equal(b.lecturas.jsonFile000000000013, 2, 'solo el que había fallado se reintenta');
+  assert.equal(store.files.size, 3);
+  assert.equal(store._carry.size, 0, 'lo conservado se libera al terminar bien');
+});
+
+test('FileStore.retryUntilLoaded: con la carga inicial fallida reintenta solo, sin esperar al polling, hasta que carga', async () => {
+  const archivos = [{ id: 'jsonFile000000000021', sha: 'sha', buf: Buffer.from('x') }];
+  const b = backendContando(archivos);
+  b.fallar.add('jsonFile000000000021');
+  const store = new FileStore(b, { retryInitialMs: 5 });
+  await assert.rejects(store.refresh());
+  store.retryUntilLoaded();
+  await new Promise((r) => setTimeout(r, 40));   // sigue fallando: reintentó más de una vez
+  assert.ok(b.lecturas.jsonFile000000000021 >= 2, `lecturas: ${b.lecturas.jsonFile000000000021}`);
+  assert.equal(store.lastRefresh, null);
+  b.fallar.clear();
+  await new Promise((r) => setTimeout(r, 60));
+  assert.notEqual(store.lastRefresh, null, 'cargó solo');
+  assert.equal(store.get('jsonFile000000000021').buf.toString(), 'x');
+  store.stop();
+  // ya cargado: no programa nada
+  store.retryUntilLoaded();
+  assert.equal(store._retryTimer, null);
+});

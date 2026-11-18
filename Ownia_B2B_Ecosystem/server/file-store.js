@@ -122,7 +122,8 @@ class DynamoBackend {
     const items = [];
     let ExclusiveStartKey;
     do {
-      const r = await this.doc.send(new this.cmd.QueryCommand({
+      // Con espera exponencial como las escrituras: la tabla tiene un tope de OnDemandThroughput y el arranque lee todo de golpe.
+      const r = await this._send(new this.cmd.QueryCommand({
         TableName: this.table,
         KeyConditionExpression: 'pk = :pk',
         ExpressionAttributeValues: { ':pk': pk },
@@ -210,6 +211,10 @@ class FileStore {
     this.lastError = null;
     this._refreshing = null;
     this._timer = null;
+    // Lo ya leído en un refresh que falló a mitad de camino (clave id|sha256): el próximo intento sigue desde ahí en vez de empezar de cero.
+    this._carry = new Map();
+    this._retryTimer = null;
+    this.retryInitialMs = opts.retryInitialMs != null ? opts.retryInitialMs : 10000;
   }
 
   onChange(fn) {
@@ -239,11 +244,15 @@ class FileStore {
         seen.add(meta.id);
         const cur = this.files.get(meta.id);
         if (cur && cur.meta.updatedAt === meta.updatedAt && cur.meta.sha256 === meta.sha256) continue;
-        loaded.push({ meta, buf: await this.backend.read(meta) });
+        const key = `${meta.id}|${meta.sha256}`;
+        let buf = this._carry.get(key);
+        if (!buf) { buf = await this.backend.read(meta); this._carry.set(key, buf); }
+        loaded.push({ meta, buf });
       }
       const removed = Array.from(this.files.keys()).filter((id) => !seen.has(id));
       for (const f of loaded) this.files.set(f.meta.id, f);
       for (const id of removed) this.files.delete(id);
+      this._carry.clear();
       this.lastRefresh = new Date().toISOString();
       this.lastError = null;
       const changed = [...loaded.map((f) => f.meta.id), ...removed];
@@ -258,6 +267,22 @@ class FileStore {
     return this._refreshing;
   }
 
+  /**
+   * Si la carga inicial falló y todavía no hay nada cargado, reintenta cada `retryInitialMs` (no espera al polling de 60 s): con el almacén
+   * vacío los módulos que leen archivos de Drive responden 500. Cada intento retoma lo ya leído (`_carry`).
+   */
+  retryUntilLoaded() {
+    if (this.lastRefresh !== null || this._retryTimer || !this.retryInitialMs) return;
+    this._retryTimer = setTimeout(() => {
+      this._retryTimer = null;
+      this.refresh().catch((e) => {
+        this.log({ level: 'error', msg: 'file-store: reintento de la carga inicial falló', error: String(e) });
+        this.retryUntilLoaded();
+      });
+    }, this.retryInitialMs);
+    this._retryTimer.unref();
+  }
+
   startPolling(ms) {
     if (this._timer || !ms) return;
     this._timer = setInterval(() => {
@@ -269,6 +294,8 @@ class FileStore {
   stop() {
     if (this._timer) clearInterval(this._timer);
     this._timer = null;
+    if (this._retryTimer) clearTimeout(this._retryTimer);
+    this._retryTimer = null;
   }
 
   /** Guarda (o reemplaza) un archivo. `meta.updatedAt` = modifiedTime de Drive en ms. */

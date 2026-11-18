@@ -730,6 +730,7 @@ function createApp(opts = {}) {
       await fileStore.refresh();
     } catch (e) {
       log({ level: 'error', msg: 'file-store: carga inicial falló', error: e.stack || String(e) });
+      fileStore.retryUntilLoaded();   // no esperar al polling de 60 s con el almacén vacío
     }
     fileStore.startPolling(cfg.FILE_STORE_POLL_MS);
   }
