@@ -153,6 +153,15 @@ http.createServer((req, res) => {
       }, 250);
     });
   }
+  // Eventos de industria del Daily (inventados, misma forma que getIndustryEvents)
+  if (url === `${BASE}/api/daily/getIndustryEvents`) {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ result: { eventos: [
+      { lob: 'b2b2c', pais: 'Mexico', nombre: 'El Buen Fin', inicio: '2026-10-29', fin: '2026-11-02' },
+      { lob: 'b2b', pais: 'Mexico', nombre: 'El Buen Fin', inicio: '2026-10-29', fin: '2026-11-02' },
+      { lob: 'b2b2c', pais: 'Argentina', nombre: 'Cyber Monday', inicio: '2026-11-02', fin: '2026-11-08' },
+    ] } }));
+  }
   // Calendario de acciones comerciales (inventado, misma forma que server/acciones-comerciales.js)
   if (url === `${BASE}/api/acciones-comerciales`) {
     const it = (pais, partner, tier, week, name, weeks, brief) => ({ pais, code: '', partner, tier, year: 2026, week, name, weeks, brief });
@@ -162,6 +171,8 @@ http.createServer((req, res) => {
       it('Colombia', 'Viajes Falabella', 'Tier 2', 44, 'SEMANA USA', [43, 44], 'Hasta 40% de descuento en destinos de Estados Unidos y Canada + hasta 15% de ahorro vuelo + hotel'),
       it('Argentina', 'BBVA', 'Tier 1', 44, 'CYBER WEEK', [44], ''),
       it('Brasil', 'Livelo', 'Tier 1', 45, 'BLACK FRIDAY', [45], ''),
+      it('Mexico', 'Banorte', 'Tier 1', 44, 'BUEN FIN', [44, 45], ''),
+      it('Mexico', 'BBVA MX', 'Tier 1', 44, 'BUEN FIN', [44, 45], ''),
     ];
     res.writeHead(200, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({ ok: true, items }));

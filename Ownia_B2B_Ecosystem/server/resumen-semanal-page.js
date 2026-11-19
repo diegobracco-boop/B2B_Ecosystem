@@ -296,15 +296,27 @@ const CSS = `<style>
   .rs-rl { gap: 0 !important; }
   .rs-rg { display: grid; grid-template-columns: 4px minmax(0, 1fr) auto; gap: 0 12px; padding: clamp(8px, 1.4vh, 14px) 0 6px; border-top: 1px solid var(--line); }
   .rs-rl > .rs-rg:first-child { border-top: 0; padding-top: 2px; }
-  .rs-rg .sev { grid-row: 1 / span 2; border-radius: 4px; background: var(--crit); }
+  .rs-rg .sev { grid-row: 1 / span 3; border-radius: 4px; background: var(--crit); }
   .rs-rg.a .sev { background: var(--warn); } .rs-rg.g .sev { background: var(--good); }
   .rs-rg .nm { font-size: clamp(15px, 2.2vh, 19px); font-weight: 600; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .rs-rg .nm small { font-weight: 400; color: var(--text-3); font-size: 11.5px; margin-left: 8px; }
+  .rs-rg .kv, .rs-rp .kv { display: inline-grid; grid-template-columns: auto auto auto; align-items: center; gap: 2px 8px; justify-items: end; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .rs-rg .kv { grid-row: 1; grid-column: 3; }
+  .rs-rg .kv .k, .rs-rp .kv .k { font-size: 10.5px; font-weight: 600; letter-spacing: .06em; color: var(--text-3); justify-self: start; }
+  .rs-rg .kv .dv { font-size: clamp(14px, 2vh, 18px); font-weight: 600; }
+  .rs-rp .kv { grid-template-columns: auto auto auto auto auto auto; }
+  .rs-rp .kv .dv { font-weight: 600; font-size: 12.5px; }
+  .rs-ev { grid-column: 2 / -1; display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .rs-ev .ev { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; padding: 3px 9px; border-radius: 999px; font-size: 11.5px; color: var(--text-2);
+               background: color-mix(in srgb, var(--link) 12%, transparent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rs-ev .ev b { color: var(--text); font-weight: 600; }
+  .rs-ev .ev svg { width: 12px; height: 12px; flex: none; color: var(--link); }
+  .rs-ev .ev.none { background: color-mix(in srgb, var(--warn) 12%, transparent); } .rs-ev .ev.none svg { color: var(--warn); }
   .rs-rg .amt { display: flex; align-items: center; gap: 8px; font-size: clamp(16px, 2.4vh, 22px); font-weight: 600; font-variant-numeric: tabular-nums; color: var(--crit); white-space: nowrap; }
   .rs-rg.g .amt { color: var(--good); } .rs-rg.a .amt { color: var(--warn); }
   .rs-rg .why { grid-column: 2 / -1; margin-top: 3px; font-size: 12.5px; line-height: 1.45; color: var(--text-2); }
   .rs-rg .why b { color: var(--text); font-weight: 600; }
-  .rs-rp { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 2px 10px; margin: 0 0 6px 16px; padding: 7px 10px; border-radius: 10px;
+  .rs-rp { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 2px 10px; margin: 0 0 6px 16px; padding: 7px 10px; border-radius: 10px;
            background: color-mix(in srgb, var(--bg) 35%, transparent); box-shadow: inset 0 0 0 1px var(--line); font-size: 13px; font-variant-numeric: tabular-nums; }
   .rs-rp .pn { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .rs-rp .pn small { font-weight: 500; color: var(--text-3); font-size: 11px; }
@@ -914,12 +926,12 @@ const SCRIPT = String.raw`
   function regOf(pais) { return pais === 'Brasil' || pais === 'RG' ? 'br' : pais === 'Mexico' ? 'mx' : 'hispa'; }
   function regionData(V) {
     var R = {};
-    REG.forEach(function (r) { R[r.k] = { k: r.k, n: r.n, cur: z(), bud: z(), paises: [], tbd: 0, parts: {} }; });
+    REG.forEach(function (r) { R[r.k] = { k: r.k, n: r.n, cur: z(), bud: z(), paises: [], tbd: 0, tbdR: 0, parts: {} }; });
     ['cur', 'bud'].forEach(function (sc) { Object.keys(V.by[sc]).forEach(function (p) { var r = R[regOf(p)]; add(r[sc], V.by[sc][p]); if (sc === 'cur' && r.paises.indexOf(p) < 0 && p !== 'RG') r.paises.push(p); }); });
     var isB2b2c = V.units.some(function (u) { return u.part; });
     V.units.forEach(function (u) {
       var r = R[regOf(u.pais)];
-      if (u.tbd) { r.tbd += (u.cur.fvm || 0) - (u.bud.fvm || 0); if (exTbd) { r.bud.gb -= u.bud.gb || 0; r.bud.rev -= u.bud.rev || 0; r.bud.fvm -= u.bud.fvm || 0; } return; }
+      if (u.tbd) { r.tbd += (u.cur.fvm || 0) - (u.bud.fvm || 0); r.tbdR += (u.cur.rev || 0) - (u.bud.rev || 0); if (exTbd) { r.bud.gb -= u.bud.gb || 0; r.bud.rev -= u.bud.rev || 0; r.bud.fvm -= u.bud.fvm || 0; } return; }
       var key = isB2b2c ? u.pk : u.pais;
       if (!key || u.pais === 'RG') return;
       var g = r.parts[key] = r.parts[key] || { n: isB2b2c ? u.part : cname(u.pais), isP: isB2b2c, units: [], cur: z(), bud: z() };
@@ -935,13 +947,56 @@ const SCRIPT = String.raw`
     }).filter(function (o) { return o.cur.gb || o.bud.gb; }).sort(function (a, b) { return a.d - b.d; });
   }
   // Una línea: quién explica el desvío de la región (partners o TBD que pesan ≥10% del desvío) y el GB
+  // Δ$ y Δ% vs Budget de una métrica: "−$76K −93%"
+  function dd(c, b, m) { var d = (c[m] || 0) - (b[m] || 0), p = pct(c[m], b[m]); return '<span class="dv ' + cls(d) + '">' + sgnMoney(d) + '</span>' + chip(p, m); }
+  function ddTxt(c, b, m) { var d = (c[m] || 0) - (b[m] || 0), p = pct(c[m], b[m]); return sgnMoney(d) + (p == null ? '' : ' / ' + fp(p)); }
+  // Una línea: quién explica el desvío de FVM de la región (partners o TBD que pesan ≥10%), con su FVM y NR vs Budget, y el GB
   function regionExplain(o) {
     var pg = pct(o.cur.gb, o.bud.gb), base = Math.abs(o.d) || 1;
-    var c = o.list.map(function (g) { return { t: '<b>' + esc(g.n) + '</b>', d: g.d }; });
-    if (!exTbd && o.tbd < 0) c.push({ t: 'partners nuevos sin firmar', d: o.tbd });
+    var c = o.list.map(function (g) { return { t: '<b>' + esc(g.n) + '</b> (FVM ' + ddTxt(g.cur, g.bud, 'fvm') + ' · NR ' + ddTxt(g.cur, g.bud, 'rev') + ')', d: g.d }; });
+    if (!exTbd && o.tbd < 0) c.push({ t: 'partners nuevos sin firmar (FVM ' + sgnMoney(o.tbd) + ' · NR ' + sgnMoney(o.tbdR) + ')', d: o.tbd });
     c = c.filter(function (x) { return x.d < 0 && Math.abs(x.d) >= base * 0.1; }).sort(function (a, b) { return a.d - b.d; }).slice(0, 2);
-    var who = c.length ? (o.d < 0 ? 'Lo explican ' : 'Restan ') + joinY(c.map(function (x) { return x.t + ' (' + sgnMoney(x.d) + ')'; })) + '. ' : (o.d < 0 ? 'Desvío repartido, sin un partner que lo explique solo. ' : '');
-    return (o.d < 0 ? '' : '<b>Arriba del Budget.</b> ') + who + 'GB ' + fp(pg) + ' vs Budget.';
+    var who = c.length ? (o.d < 0 ? 'Lo explican ' : 'Restan ') + joinY(c.map(function (x) { return x.t; })) + '. ' : (o.d < 0 ? 'Desvío repartido, sin un partner que lo explique solo. ' : '');
+    return (o.d < 0 ? '' : '<b>Arriba del Budget en FVM.</b> ') + who + 'GB ' + fp(pg) + ' vs Budget.';
+  }
+  // Eventos de industria del Daily (solapa Industry events) que tocan el período, por LoB
+  var EVT = null;
+  function periodRange() { return mode === 'w' ? [D.week.from, D.week.to] : mode === 'm' ? [D.month.from, D.month.to] : [D.monthly.from, D.monthly.to]; }
+  function ddmon(s) { return (+s.substring(8, 10)) + ' ' + MES[+s.substring(5, 7) - 1]; }
+  function eventsOf(paises) {
+    if (!EVT) return [];
+    var lob = sel === 'b2b2c' ? 'b2b2c' : 'b2b', R = periodRange(), by = {};
+    EVT.filter(function (e) { return e.lob === lob && paises.indexOf(e.pais) >= 0 && e.inicio <= R[1] && e.fin >= R[0]; }).forEach(function (e) {
+      var k = nrm(e.nombre) + '|' + e.inicio, o = by[k] = by[k] || { n: e.nombre, a: e.inicio, b: e.fin, ps: [] };
+      if (o.ps.indexOf(e.pais) < 0) o.ps.push(e.pais);
+    });
+    return Object.keys(by).map(function (k) { return by[k]; });
+  }
+  // Acciones comerciales del calendario en los países de la región y el período: campaña → semanas y partners
+  function regionActions(paises) {
+    if (!ACC) return [];
+    var W = periodWeeks(), by = {};
+    ACC.filter(function (it) { return paises.indexOf(it.pais) >= 0 && W.indexOf(it.year + '-' + it.week) >= 0; }).forEach(function (it) {
+      var k = nrm(it.name).replace(/\s+/g, ' ').trim(), o = by[k] = by[k] || { name: it.name, weeks: [], ps: [], brief: it.brief };
+      (it.weeks || [it.week]).forEach(function (w) { if (o.weeks.indexOf(w) < 0) o.weeks.push(w); });
+      var pn = it.partner + (paises.length > 1 ? ' ' + it.code : '');
+      if (o.ps.indexOf(pn) < 0) o.ps.push(pn);
+      if (!o.brief && it.brief) o.brief = it.brief;
+    });
+    return Object.keys(by).map(function (k) { return by[k]; }).sort(function (a, b) { return b.ps.length - a.ps.length; });
+  }
+  function wkLbl(ws) { ws = ws.slice().sort(function (x, y) { return x - y; }); return 'W' + ws[0] + (ws.length > 1 ? '–W' + ws[ws.length - 1] : ''); }
+  var CAL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>';
+  function regionEvHtml(o) {
+    var ps = o.paises.concat(o.k === 'br' ? ['Brasil'] : []);
+    var E = eventsOf(ps), A = regionActions(ps), parts = [];
+    E.forEach(function (e) { parts.push('<span class="ev">' + CAL + '<b>' + esc(e.n) + '</b> ' + esc(ddmon(e.a) + (e.b !== e.a ? '–' + ddmon(e.b) : '')) + (o.k === 'hispa' ? ' · ' + esc(e.ps.map(cname).join(', ')) : '') + '</span>'); });
+    A.slice(0, 2).forEach(function (a) {
+      var who = a.ps.length > 3 ? a.ps.slice(0, 3).join(', ') + ' +' + (a.ps.length - 3) : a.ps.join(', ');
+      parts.push('<span class="ev ac" title="' + esc(a.name + ' (' + wkLbl(a.weeks) + '): ' + a.ps.join(', ') + (a.brief ? ' · ' + a.brief : '')) + '">' + MEGA + '<b>' + esc(a.name) + '</b> ' + wkLbl(a.weeks) + ' · ' + esc(who) + '</span>');
+    });
+    if (!parts.length && ACC) parts.push('<span class="ev none">' + MEGA + 'Sin acción comercial ni evento ' + esc(periodo()) + '</span>');
+    return parts.length ? '<div class="rs-ev">' + parts.join('') + '</div>' : '';
   }
   function watchCard(V) {
     var RD = regionData(V), isB2b2c = V.units.some(function (u) { return u.part; });
@@ -950,22 +1005,23 @@ const SCRIPT = String.raw`
       var pf = pct(o.cur.fvm, o.bud.fvm), sev = o.d >= 0 ? 'g' : (pf != null && pf > -5 ? 'a' : 'r');
       var maxN = o.k === 'hispa' ? 3 : 2;
       var head = '<div class="rs-rg ' + sev + '"><span class="sev"></span><div class="nm">' + esc(o.n) + (o.k === 'hispa' && o.paises.length ? '<small>' + esc(o.paises.map(cname).join(', ')) + '</small>' : '') + '</div>' +
-        '<div class="amt">' + sgnMoney(o.d) + chip(pf, 'fvm') + '</div><p class="why">' + regionExplain(o) + '</p></div>';
+        '<div class="kv"><span class="k">FVM</span>' + dd(o.cur, o.bud, 'fvm') + '<span class="k">NR</span>' + dd(o.cur, o.bud, 'rev') + '</div>' +
+        '<p class="why">' + regionExplain(o) + '</p>' + regionEvHtml(o) + '</div>';
       var rows = o.list.slice(0, maxN).map(function (g, ix) {
-        var pp = pct(g.cur.fvm, g.bud.fvm), A = g.isP ? actionsFor(g.n, uniqP(g.units)) : null;
-        var act = !A ? '' : '<span class="ac' + (A.list.length ? '' : ' none') + '" title="' + esc(actionText(A, uniqP(g.units).length > 1)) + '">' + MEGA + '<span>' + esc(A.list.length ? actionText(A, uniqP(g.units).length > 1) : 'Sin acción comercial ' + periodo()) + '</span></span>';
+        var A = g.isP ? actionsFor(g.n, uniqP(g.units)) : null, multi = uniqP(g.units).length > 1;
+        var act = !A ? '' : '<span class="ac' + (A.list.length ? '' : ' none') + '" title="' + esc(actionText(A, multi)) + '">' + MEGA + '<span>' + esc(A.list.length ? actionText(A, multi) : 'Sin acción comercial ' + periodo()) + '</span></span>';
         // Prioridad para recortar: primero los terceros de cada región, después los segundos; los partners con acción duran más
         return '<div class="rs-rp" data-pr="' + ((ix + 1) * 10 + (A ? 0 : 5) + ri) + '"><span class="pn">' + esc(g.n) + (A && A.tier ? ' <small>' + esc(A.tier) + '</small>' : '') + '</span>' +
-          '<span class="pv neg">' + sgnMoney(g.d) + '</span>' + chip(pp, 'fvm') + act + '</div>';
+          '<span class="kv"><span class="k">FVM</span>' + dd(g.cur, g.bud, 'fvm') + '<span class="k">NR</span>' + dd(g.cur, g.bud, 'rev') + '</span>' + act + '</div>';
       }).join('');
       return head + rows;
     }).join('');
     return '<section class="rs-card rs-watch rs-in" style="--d:80ms" aria-labelledby="rs-w-h"><div class="rs-wh">' +
       '<span class="ag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z"/></svg></span>' +
-      '<div><h2 id="rs-w-h">Para mirar</h2><div class="by"><span class="rs-live" aria-hidden="true"></span>Revisé ' + Object.keys(n).length + ' ' + (isB2b2c ? 'partners' : 'países') + ' · FVM vs Budget ' + esc(periodo()) +
+      '<div><h2 id="rs-w-h">Para mirar</h2><div class="by"><span class="rs-live" aria-hidden="true"></span>Revisé ' + Object.keys(n).length + ' ' + (isB2b2c ? 'partners' : 'países') + ' · FVM y NR vs Budget ' + esc(periodo()) +
       (exTbd && tbdGap(V) ? ' · sin TBD' : '') + '</div></div></div>' +
       '<div class="rs-wl rs-rl" data-fit>' + body + '</div>' +
-      '<div class="rs-wfoot">Por región, ordenado por impacto en FVM vs Budget · debajo, ' + (isB2b2c ? 'los partners' : 'los países') + ' que más restan' + (isB2b2c ? ' y su acción comercial' : '') + '</div></section>';
+      '<div class="rs-wfoot">Por región, ordenado por impacto en FVM vs Budget · Δ en $ y % vs Budget · eventos del Daily y acciones del calendario de Marketing</div></section>';
   }
   function watchCardOld(V) {
     var W = watchData(V), all = W.bad.concat(W.good), mx = 0;
@@ -1372,6 +1428,14 @@ const SCRIPT = String.raw`
       ACC = j.items;
       if (D) { root.classList.add('calm'); renderBiz(false); }
     }).catch(function () { /* sin calendario: Para mirar sigue igual */ });
+    fetch(CFG.api.replace(/getResumenSemanal$/, 'getIndustryEvents'), { method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'google.script.run' }, body: JSON.stringify({ args: [] }) })
+      .then(function (x) { return x.ok ? x.json() : null; }).then(function (j) {
+        var r = j && j.result;
+        if (!r || !Array.isArray(r.eventos)) return;
+        EVT = r.eventos;
+        if (D) { root.classList.add('calm'); renderBiz(false); }
+      }).catch(function () { /* sin eventos */ });
   }
   function load(r) {
     var first = !D;

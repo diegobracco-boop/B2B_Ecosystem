@@ -76,11 +76,15 @@ function parseCalendar(buf) {
       const code = String((sh.cells.get(`${r},2`) || {}).v || '').trim().toUpperCase(), partner = clean((sh.cells.get(`${r},3`) || {}).v);
       if (!PAIS[code] || !partner) continue;
       const tier = clean((sh.cells.get(`${r},4`) || {}).v);
-      cols.forEach((k) => {
-        const x = cellAt(sh, r, k.c);
-        if (!x || x.v === '' || x.v == null) return;
-        const name = clean(x.v), m = mergeOf(sh, r, k.c);
-        const span = m ? cols.filter((q) => q.c >= m.c1 && q.c <= m.c2).map((q) => q.week) : [k.week];
+      // Nombre por semana (mirando celdas combinadas); una campaña = semanas seguidas con el mismo nombre (BUEN FIN W46–W47)
+      const names = cols.map((k) => { const x = cellAt(sh, r, k.c); return x && x.v !== '' && x.v != null ? clean(x.v) : ''; });
+      cols.forEach((k, ix) => {
+        if (!names[ix]) return;
+        const name = names[ix];
+        let a = ix, z = ix;
+        while (a > 0 && norm(names[a - 1]) === norm(name)) a--;
+        while (z < cols.length - 1 && norm(names[z + 1]) === norm(name)) z++;
+        const span = cols.slice(a, z + 1).map((q) => q.week);
         const key = `${code}|${norm(partner)}|${k.year}|${k.week}`;
         if (seen.has(key)) return;
         seen.add(key);
