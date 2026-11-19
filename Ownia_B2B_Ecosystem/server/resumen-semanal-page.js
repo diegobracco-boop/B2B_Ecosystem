@@ -293,6 +293,26 @@ const CSS = `<style>
   .rs-wi .act b { color: var(--text); font-weight: 600; margin-right: 3px; }
   .rs-wi .act.none { background: color-mix(in srgb, var(--warn) 10%, transparent); }
   .rs-wi .act.none svg { color: var(--warn); }
+  .rs-rl { gap: 0 !important; }
+  .rs-rg { display: grid; grid-template-columns: 4px minmax(0, 1fr) auto; gap: 0 12px; padding: clamp(8px, 1.4vh, 14px) 0 6px; border-top: 1px solid var(--line); }
+  .rs-rl > .rs-rg:first-child { border-top: 0; padding-top: 2px; }
+  .rs-rg .sev { grid-row: 1 / span 2; border-radius: 4px; background: var(--crit); }
+  .rs-rg.a .sev { background: var(--warn); } .rs-rg.g .sev { background: var(--good); }
+  .rs-rg .nm { font-size: clamp(15px, 2.2vh, 19px); font-weight: 600; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rs-rg .nm small { font-weight: 400; color: var(--text-3); font-size: 11.5px; margin-left: 8px; }
+  .rs-rg .amt { display: flex; align-items: center; gap: 8px; font-size: clamp(16px, 2.4vh, 22px); font-weight: 600; font-variant-numeric: tabular-nums; color: var(--crit); white-space: nowrap; }
+  .rs-rg.g .amt { color: var(--good); } .rs-rg.a .amt { color: var(--warn); }
+  .rs-rg .why { grid-column: 2 / -1; margin-top: 3px; font-size: 12.5px; line-height: 1.45; color: var(--text-2); }
+  .rs-rg .why b { color: var(--text); font-weight: 600; }
+  .rs-rp { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 2px 10px; margin: 0 0 6px 16px; padding: 7px 10px; border-radius: 10px;
+           background: color-mix(in srgb, var(--bg) 35%, transparent); box-shadow: inset 0 0 0 1px var(--line); font-size: 13px; font-variant-numeric: tabular-nums; }
+  .rs-rp .pn { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rs-rp .pn small { font-weight: 500; color: var(--text-3); font-size: 11px; }
+  .rs-rp .pv { font-weight: 600; }
+  .rs-rp .ac { grid-column: 1 / -1; display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rs-rp .ac > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rs-rp .ac svg { width: 13px; height: 13px; flex: none; color: var(--link); }
+  .rs-rp .ac.none svg { color: var(--warn); }
   .rs-dots { display: inline-flex; gap: 3px; align-items: center; }
   .rs-dots i { width: 9px; height: 9px; border-radius: 3px; background: var(--good); opacity: .9; }
   .rs-dots i.r { background: var(--crit); }
@@ -621,8 +641,10 @@ const SCRIPT = String.raw`
   }
 
   // Titular: la lectura del período en una frase
-  function headline(T) {
-    var p = pct(T.cur.rev, T.bud.rev), y = pct(T.curL.rev, T.ly.rev), pre = mode === 'm' ? 'En el mes, Net Revenues ' : isMo() ? 'En ' + MESL[+D.monthly.ym.substring(5, 7) - 1] + ', Net Revenues ' : 'Net Revenues ';
+  function headline(T, m) {
+    m = m || 'rev';
+    var lbl = m === 'fvm' ? 'FVM ' : 'Net Revenues ';
+    var p = pct(T.cur[m], T.bud[m]), y = pct(T.curL[m], T.ly[m]), pre = mode === 'm' ? 'En el mes, ' + lbl : isMo() ? 'En ' + MESL[+D.monthly.ym.substring(5, 7) - 1] + ', ' + lbl : lbl;
     if (p == null) return mode === 'm' ? monthName() + ', <em>de un vistazo</em>.' : isMo() ? monthName(D.monthly.ym) + ', <em>de un vistazo</em>.' : 'La semana ' + D.week.week + ', <em>de un vistazo</em>.';
     if (p >= 0) return pre + '<em>' + fp(p, 0) + ' arriba</em> del Budget.';
     if (p >= -5) return pre + '<em>cerca del Budget</em>' + (y != null && y > 0 ? ' y creciendo vs LY.' : '.');
@@ -885,7 +907,67 @@ const SCRIPT = String.raw`
       '<div class="imp"><span class="bar"><i data-w="' + (Math.abs(g.d) / mx * 100).toFixed(1) + '"></i></span></div>' +
       actionHtml(L) + '</div>';
   }
+  // ── Para mirar por región (2026-11-19): Hispa (todo lo que no es Brasil ni México), Brasil y México, ordenadas por
+  // impacto en FVM vs Budget. Cada región: su desvío de FVM, una línea que lo explica y los partners principales que
+  // restan (en B2B, los países de Hispa), con la acción comercial del período.
+  var REG = [{ k: 'hispa', n: 'Hispa' }, { k: 'br', n: 'Brasil' }, { k: 'mx', n: 'México' }];
+  function regOf(pais) { return pais === 'Brasil' || pais === 'RG' ? 'br' : pais === 'Mexico' ? 'mx' : 'hispa'; }
+  function regionData(V) {
+    var R = {};
+    REG.forEach(function (r) { R[r.k] = { k: r.k, n: r.n, cur: z(), bud: z(), paises: [], tbd: 0, parts: {} }; });
+    ['cur', 'bud'].forEach(function (sc) { Object.keys(V.by[sc]).forEach(function (p) { var r = R[regOf(p)]; add(r[sc], V.by[sc][p]); if (sc === 'cur' && r.paises.indexOf(p) < 0 && p !== 'RG') r.paises.push(p); }); });
+    var isB2b2c = V.units.some(function (u) { return u.part; });
+    V.units.forEach(function (u) {
+      var r = R[regOf(u.pais)];
+      if (u.tbd) { r.tbd += (u.cur.fvm || 0) - (u.bud.fvm || 0); if (exTbd) { r.bud.gb -= u.bud.gb || 0; r.bud.rev -= u.bud.rev || 0; r.bud.fvm -= u.bud.fvm || 0; } return; }
+      var key = isB2b2c ? u.pk : u.pais;
+      if (!key || u.pais === 'RG') return;
+      var g = r.parts[key] = r.parts[key] || { n: isB2b2c ? u.part : cname(u.pais), isP: isB2b2c, units: [], cur: z(), bud: z() };
+      g.units.push(u); add(g.cur, u.cur); add(g.bud, u.bud);
+    });
+    return REG.map(function (r) {
+      var o = R[r.k];
+      o.d = o.cur.fvm - o.bud.fvm;
+      o.list = Object.keys(o.parts).map(function (k) { var g = o.parts[k]; g.d = g.cur.fvm - g.bud.fvm; return g; })
+        .filter(function (g) { var pp = pct(g.cur.fvm, g.bud.fvm); return g.d < 0 && (pp == null || pp <= -3) && Math.abs(g.d) >= Math.max(Math.abs(o.d), Math.abs(o.bud.fvm) * 0.02) * 0.08; })
+        .sort(function (a, b) { return a.d - b.d; });
+      return o;
+    }).filter(function (o) { return o.cur.gb || o.bud.gb; }).sort(function (a, b) { return a.d - b.d; });
+  }
+  // Una línea: quién explica el desvío de la región (partners o TBD que pesan ≥10% del desvío) y el GB
+  function regionExplain(o) {
+    var pg = pct(o.cur.gb, o.bud.gb), base = Math.abs(o.d) || 1;
+    var c = o.list.map(function (g) { return { t: '<b>' + esc(g.n) + '</b>', d: g.d }; });
+    if (!exTbd && o.tbd < 0) c.push({ t: 'partners nuevos sin firmar', d: o.tbd });
+    c = c.filter(function (x) { return x.d < 0 && Math.abs(x.d) >= base * 0.1; }).sort(function (a, b) { return a.d - b.d; }).slice(0, 2);
+    var who = c.length ? (o.d < 0 ? 'Lo explican ' : 'Restan ') + joinY(c.map(function (x) { return x.t + ' (' + sgnMoney(x.d) + ')'; })) + '. ' : (o.d < 0 ? 'Desvío repartido, sin un partner que lo explique solo. ' : '');
+    return (o.d < 0 ? '' : '<b>Arriba del Budget.</b> ') + who + 'GB ' + fp(pg) + ' vs Budget.';
+  }
   function watchCard(V) {
+    var RD = regionData(V), isB2b2c = V.units.some(function (u) { return u.part; });
+    var n = {}; xUnits(V).forEach(function (u) { n[u.pk || u.pais] = 1; });
+    var body = RD.map(function (o, ri) {
+      var pf = pct(o.cur.fvm, o.bud.fvm), sev = o.d >= 0 ? 'g' : (pf != null && pf > -5 ? 'a' : 'r');
+      var maxN = o.k === 'hispa' ? 3 : 2;
+      var head = '<div class="rs-rg ' + sev + '"><span class="sev"></span><div class="nm">' + esc(o.n) + (o.k === 'hispa' && o.paises.length ? '<small>' + esc(o.paises.map(cname).join(', ')) + '</small>' : '') + '</div>' +
+        '<div class="amt">' + sgnMoney(o.d) + chip(pf, 'fvm') + '</div><p class="why">' + regionExplain(o) + '</p></div>';
+      var rows = o.list.slice(0, maxN).map(function (g, ix) {
+        var pp = pct(g.cur.fvm, g.bud.fvm), A = g.isP ? actionsFor(g.n, uniqP(g.units)) : null;
+        var act = !A ? '' : '<span class="ac' + (A.list.length ? '' : ' none') + '" title="' + esc(actionText(A, uniqP(g.units).length > 1)) + '">' + MEGA + '<span>' + esc(A.list.length ? actionText(A, uniqP(g.units).length > 1) : 'Sin acción comercial ' + periodo()) + '</span></span>';
+        // Prioridad para recortar: primero los terceros de cada región, después los segundos; los partners con acción duran más
+        return '<div class="rs-rp" data-pr="' + ((ix + 1) * 10 + (A ? 0 : 5) + ri) + '"><span class="pn">' + esc(g.n) + (A && A.tier ? ' <small>' + esc(A.tier) + '</small>' : '') + '</span>' +
+          '<span class="pv neg">' + sgnMoney(g.d) + '</span>' + chip(pp, 'fvm') + act + '</div>';
+      }).join('');
+      return head + rows;
+    }).join('');
+    return '<section class="rs-card rs-watch rs-in" style="--d:80ms" aria-labelledby="rs-w-h"><div class="rs-wh">' +
+      '<span class="ag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z"/></svg></span>' +
+      '<div><h2 id="rs-w-h">Para mirar</h2><div class="by"><span class="rs-live" aria-hidden="true"></span>Revisé ' + Object.keys(n).length + ' ' + (isB2b2c ? 'partners' : 'países') + ' · FVM vs Budget ' + esc(periodo()) +
+      (exTbd && tbdGap(V) ? ' · sin TBD' : '') + '</div></div></div>' +
+      '<div class="rs-wl rs-rl" data-fit>' + body + '</div>' +
+      '<div class="rs-wfoot">Por región, ordenado por impacto en FVM vs Budget · debajo, ' + (isB2b2c ? 'los partners' : 'los países') + ' que más restan' + (isB2b2c ? ' y su acción comercial' : '') + '</div></section>';
+  }
+  function watchCardOld(V) {
     var W = watchData(V), all = W.bad.concat(W.good), mx = 0;
     all.forEach(function (g) { mx = Math.max(mx, Math.abs(g.d)); }); mx = mx || 1;
     var n = {}; xUnits(V).forEach(function (u) { n[u.pk || u.pais] = 1; });
@@ -900,14 +982,14 @@ const SCRIPT = String.raw`
       '<div class="rs-wl" data-fit>' + body + '</div>' +
       (W.bad.length ? '<div class="rs-wfoot">Ordenado por impacto en Net Revenues vs Budget' + (mode !== 'm' ? ' · cuadraditos: últim' + (isMo() ? 'os meses' : 'as semanas') + ', rojo = debajo' : '') + '</div>' : '') + '</section>';
   }
-  // Puente NR vs Budget en barras: volumen (GB a take rate de Budget) y take rate (sobre el GB real)
+  // Desvío de FVM vs Budget y cuánto viene del volumen (GB a margen de Budget). Sin take rate (pedido 2026-11-19).
   function bridgeHtml(T) {
-    var dev = T.cur.rev - T.bud.rev, trB = T.bud.gb ? T.bud.rev / T.bud.gb : 0, vol = (T.cur.gb - T.bud.gb) * trB, rate = dev - vol;
-    var mx = Math.max(Math.abs(vol), Math.abs(rate)) || 1;
+    var dev = T.cur.fvm - T.bud.fvm, mB = T.bud.gb ? T.bud.fvm / T.bud.gb : 0, vol = (T.cur.gb - T.bud.gb) * mB;
+    var mx = Math.max(Math.abs(dev), Math.abs(vol)) || 1;
     function bar(v) { return '<span class="bt"><i class="' + (v < 0 ? 'neg' : 'pos') + '" style="width:' + (Math.abs(v) / mx * 50).toFixed(1) + '%"></i></span>'; }
-    return '<div class="rs-bridge"><span class="t">Desvío de NR vs Budget<b class="' + cls(dev) + '">' + sgnMoney(dev) + '</b></span>' +
-      '<span>Volumen (GB ' + fp(pct(T.cur.gb, T.bud.gb)) + ')</span>' + bar(vol) + '<span class="' + cls(vol) + '">' + sgnMoney(vol) + '</span>' +
-      '<span>Take rate</span>' + bar(rate) + '<span class="' + cls(rate) + '">' + sgnMoney(rate) + '</span></div>';
+    return '<div class="rs-bridge"><span class="t">Desvío de FVM vs Budget<b class="' + cls(dev) + '">' + sgnMoney(dev) + '</b></span>' +
+      '<span>FVM (' + fp(pct(T.cur.fvm, T.bud.fvm)) + ')</span>' + bar(dev) + '<span class="' + cls(dev) + '">' + sgnMoney(dev) + '</span>' +
+      '<span>Por volumen (GB ' + fp(pct(T.cur.gb, T.bud.gb)) + ')</span>' + bar(vol) + '<span class="' + cls(vol) + '">' + sgnMoney(vol) + '</span></div>';
   }
   function trendLine(k) {
     var x = insights(k, false).filter(function (o) { return o.k === 'trend'; })[0];
@@ -919,7 +1001,7 @@ const SCRIPT = String.raw`
     var ey = '<span class="rs-eyebrow"><span class="rs-live' + (live ? '' : ' off') + '" aria-hidden="true"></span>' + esc(title()) +
       (mode === 'w' ? (isLatest() ? ' · reales al ' + esc(ddmm(D.lastActualsDate)) : ' · semana cerrada') : '') + '</span>';
     var h = '<div class="rs-main"><div class="rs-head"><div class="rs-hl rs-in" style="--d:20ms">' + ey +
-      '<h1><span class="lob">' + esc(bizLbl(sel)) + '</span>' + headline(T) + '</h1>' + bridgeHtml(T) + '</div>' +
+      '<h1><span class="lob">' + esc(bizLbl(sel)) + '</span>' + headline(T, 'fvm') + '</h1>' + bridgeHtml(T) + '</div>' +
       '<div class="rs-kpis">' + ['gb', 'rev', 'fvm', 'sh'].map(function (m, i) { return kpiCard(m, V, i); }).join('') + '</div></div>';
     h += watchCard(V);
     var tl = trendLine(sel);
