@@ -12,6 +12,7 @@
 //   GET  <base>/notes/<modulo>/<scope>  notas editables de una landing (solo Ownia, ver notes-store.js)
 //   POST <base>/notes/<modulo>/<scope>  guarda una nota: { field, text }
 //   GET  <base>/resumen-semanal      resumen de la última semana (botón de la portada, mismos permisos que el Daily)
+//   GET  <base>/api/acciones-comerciales  calendario de acciones comerciales B2B2C (Drive) para el Resumen semanal
 //   GET  <base>/reales               estado de "Actualizar reales" (solo el equipo B2B, ver reales-job.js)
 //   POST <base>/reales               lanza la actualización: { password, kind: 'daily' | 'managerial' }
 //   GET  <base>/consolidador/<consulta>  lee compartido.app_b2b_ecosystem a demanda: versiones | resumen (solo el equipo B2B, ver consolidador.js)
@@ -59,6 +60,7 @@ const { driveDimensiones } = require('./pnl-drive-dimensiones');
 const { buildCanonicals, comparar: compararCanonicos } = require('./pnl-consolidador');
 const { createPnlFuente } = require('./pnl-fuente');
 const { createSlidesJobs } = require('./gslides-export');
+const { createAcciones } = require('./acciones-comerciales');
 const { modelFromStore } = require('./pipeline-slide');
 const { partnersFrom, createQuestionLog } = require('./portal-ask-data');
 
@@ -89,6 +91,7 @@ function createApp(opts = {}) {
   const notesStore = opts.notesStore !== undefined ? opts.notesStore : createNotesStore(cfg);
   // "Actualizar reales" de la portada: solo el equipo B2B (y con contraseña). Ver reales-job.js.
   const slidesJobs = createSlidesJobs();
+  const acciones = createAcciones({ secrets: () => cfg.secrets, fetchFn: opts.fetchFn });   // calendario de acciones comerciales de B2B2C (Resumen semanal)
   const reales = opts.reales !== undefined ? opts.reales : createRealesJob(cfg, { log });
   const realesUsers = (opts.realesUsers || EQUIPO_B2B).map((x) => x.toLowerCase());
   const mayRunReales = (identity) => !!reales && !!identity.email && realesUsers.includes(String(identity.email).toLowerCase());
@@ -527,6 +530,15 @@ function createApp(opts = {}) {
       if (needsIdentity(daily) && !identity.email) return unauthorized(res);
       if (!mayOpen(daily, identity)) return forbidden(res);
       return sendCompressible(req, res, 200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }, resumenSemanalPage({ basePath: cfg.BASE_PATH }));
+    }
+    // Acciones comerciales de B2B2C (calendario de Marketing en Drive) para "Para mirar" del Resumen semanal: mismos permisos que el Daily.
+    if (route === '/api/acciones-comerciales') {
+      if (req.method !== 'GET') return sendJson(res, 405, { error: 'Método no permitido' });
+      const daily = findModule('daily');
+      if (!daily) return sendJson(res, 404, { error: 'No encontrado' });
+      if (needsIdentity(daily) && !identity.email) return unauthorized(res);
+      if (!mayOpen(daily, identity)) return forbidden(res);
+      return sendJson(res, 200, await acciones.get());
     }
 
     // "Pipeline Hunting": todos los deals del pipeline B2B2C (server/pipeline-slide.js). Mismos permisos que el Daily.

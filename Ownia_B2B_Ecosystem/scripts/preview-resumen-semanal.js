@@ -153,6 +153,19 @@ http.createServer((req, res) => {
       }, 250);
     });
   }
+  // Calendario de acciones comerciales (inventado, misma forma que server/acciones-comerciales.js)
+  if (url === `${BASE}/api/acciones-comerciales`) {
+    const it = (pais, partner, tier, week, name, weeks, brief) => ({ pais, code: '', partner, tier, year: 2026, week, name, weeks, brief });
+    const items = [
+      it('Brasil', 'Livelo', 'Tier 1', 40, 'Semana Europa', [40, 41], 'Hasta 45% de descuento en destinos de Europa'),
+      it('Chile', 'Viajes Falabella', 'Tier 1', 44, 'Halloween', [44], ''),
+      it('Colombia', 'Viajes Falabella', 'Tier 2', 44, 'SEMANA USA', [43, 44], 'Hasta 40% de descuento en destinos de Estados Unidos y Canada + hasta 15% de ahorro vuelo + hotel'),
+      it('Argentina', 'BBVA', 'Tier 1', 44, 'CYBER WEEK', [44], ''),
+      it('Brasil', 'Livelo', 'Tier 1', 45, 'BLACK FRIDAY', [45], ''),
+    ];
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ ok: true, items }));
+  }
   if (url === `${BASE}/resumen-semanal` || url === '/' || url === `${BASE}/`) {
     // Se recarga en cada request: los cambios al .js se ven con F5, sin reiniciar
     delete require.cache[require.resolve('../server/resumen-semanal-page')];

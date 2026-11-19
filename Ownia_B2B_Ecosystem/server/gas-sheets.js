@@ -109,7 +109,16 @@ function parseWorkbook(buf) {
         if (col > lastCol) lastCol = col;
       }
     }
-    sheets.push({ name: attr(s, 'name'), cells, lastRow, lastCol });
+    // Celdas combinadas (las usa el calendario de acciones comerciales: una campaña de dos semanas es una celda combinada)
+    const merges = [];
+    const mc = ws && kid(ws, 'mergeCells');
+    for (const m of mc ? kids(mc, 'mergeCell') : []) {
+      const [a, z] = String(attr(m, 'ref') || '').split(':');
+      if (!a || !z) continue;
+      const p1 = parseRef(a), p2 = parseRef(z);
+      merges.push({ r1: p1.row, c1: p1.col, r2: p2.row, c2: p2.col });
+    }
+    sheets.push({ name: attr(s, 'name'), cells, lastRow, lastCol, merges });
   }
   return { sheets };
 }

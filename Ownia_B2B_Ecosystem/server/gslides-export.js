@@ -88,4 +88,4 @@ function createSlidesJobs(deps = {}) {
   };
 }
 
-module.exports = { exportTrackerSlides, createSlidesJobs };
+module.exports = { exportTrackerSlides, createSlidesJobs, accessToken };

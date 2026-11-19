@@ -23,6 +23,10 @@
 // (uno de los últimos 6), L3M (promedio de los 3 meses anteriores) en lugar de L4W, la serie por mes del año y las
 // rachas en meses. De acá sale el deck mensual ("Exportar a Slides" con la vista Mensual). ?vista=mensual&mensual=YYYY-MM.
 //
+// Una sola pantalla (2026-11-19, pedido del CEO: "prohibido scroll"): por LoB (sin consolidado en pantalla), "Para mirar"
+// como foco a la izquierda y los gráficos a la derecha; las tablas, en un diálogo. En los partners de "Para mirar" que
+// restan, la acción comercial del período según el calendario de Marketing (server/acciones-comerciales.js).
+//
 // Colores del gráfico: los tres primeros slots de la paleta de referencia de dataviz (azul / naranja / aqua), validados
 // todos contra todos en claro y oscuro; el Budget además va punteado. Semáforo = el del Hub (_deltaState_): verde ≥ 0%,
 // ámbar −5% a 0%, rojo < −5%.
@@ -214,6 +218,123 @@ const CSS = `<style>
     .rs-mode button { padding: 6px 14px; }
     .rs-tabs button { padding: 7px 11px; font-size: 13px; }
   }
+  /* ── Una sola pantalla (2026-11-19, pedido del CEO: "prohibido scroll"). En escritorio todo entra en la ventana:
+     barra (negocio, período, herramientas), cabecera (titular, puente y KPIs), "Para mirar" a la izquierda y los dos
+     gráficos a la derecha. Las listas se recortan solas para entrar (fitLists); las tablas quedan en "Tablas". */
+  .rs-bar1 { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; min-width: 0; }
+  .rs-bar1 .sp { flex: 1; }
+  .rs-bar1 .rs-weeks { min-width: 0; flex: 0 1 auto; }
+  .rs-bar1 .rs-tabs, .rs-bar1 .rs-mode, .rs-bar1 .rs-pill, .rs-bar1 .rs-tools { flex: none; }
+  .rs-tools { display: inline-flex; gap: 6px; }
+  .rs-ib { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; border: 0; background: var(--tile); color: var(--text-2);
+           cursor: pointer; box-shadow: inset 0 0 0 1px var(--line); transition: color .2s, box-shadow .2s, background .2s; position: relative; }
+  .rs-ib:hover { color: var(--link); box-shadow: inset 0 0 0 1px var(--link); }
+  .rs-ib.ok { color: var(--good); box-shadow: inset 0 0 0 1px var(--good); }
+  .rs-ib:disabled { opacity: .5; cursor: progress; }
+  .rs-pill { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px; border-radius: 999px; border: 0; background: var(--tile); color: var(--text-2);
+             font: 500 12.5px var(--font); cursor: pointer; box-shadow: inset 0 0 0 1px var(--line); white-space: nowrap; }
+  .rs-pill[aria-pressed="true"] { color: var(--link); box-shadow: inset 0 0 0 1px var(--link); background: var(--spot); }
+
+  .rs-main { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 14px; }
+  .rs-head { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 14px; align-items: stretch; }
+  .rs-hl { display: flex; flex-direction: column; justify-content: center; min-width: 0; }
+  .rs-hl .rs-eyebrow { align-self: flex-start; }
+  .rs-hl h1 { margin-top: 10px; font-size: clamp(22px, 3.4vh, 34px); font-weight: 600; letter-spacing: -0.03em; line-height: 1.12; }
+  .rs-hl h1 em { font-style: normal; background: linear-gradient(92deg, var(--link), var(--secondary) 55%, #e48bff); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .rs-hl .lob { display: inline-block; margin-right: 8px; font-size: .62em; vertical-align: .22em; padding: 2px 10px; border-radius: 999px; background: var(--tile-hover); color: var(--text-2); font-weight: 600; letter-spacing: 0; }
+  /* Puente: el desvío de NR vs Budget en volumen y take rate (barras divergentes) */
+  .rs-bridge { margin-top: 10px; display: grid; grid-template-columns: auto minmax(60px, 1fr) auto; gap: 4px 10px; align-items: center; font-size: 12.5px; color: var(--text-2); font-variant-numeric: tabular-nums; max-width: 520px; }
+  .rs-bridge .t { grid-column: 1 / -1; color: var(--text-3); font-size: 11.5px; text-transform: uppercase; letter-spacing: .07em; font-weight: 600; }
+  .rs-bridge .t b { color: var(--text); text-transform: none; letter-spacing: 0; font-size: 13px; margin-left: 4px; }
+  .rs-bridge .bt { position: relative; height: 8px; border-radius: 999px; background: var(--tile-hover); }
+  .rs-bridge .bt i { position: absolute; top: 0; bottom: 0; border-radius: 999px; }
+  .rs-bridge .bt i.neg { right: 50%; background: var(--crit); } .rs-bridge .bt i.pos { left: 50%; background: var(--good); }
+  .rs-bridge .bt::after { content: ''; position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px; background: var(--text-3); }
+  .rs-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+  .rs-main .c-kpi, .rs-main .c-chart, .rs-main .c-bul, .rs-main .rs-watch { grid-column: auto; grid-row: auto; }   /* sin los spans del bento viejo */
+  .rs-kpis .c-kpi { padding: 14px 16px; border-radius: 18px; }
+  .rs-kpis .kpi-top .k { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .rs-kpis .kpi-v { font-size: clamp(20px, 3vh, 28px); margin-top: 2px; }
+  .rs-kpis .kpi-spark { height: clamp(18px, 3.2vh, 34px); margin-top: 6px; }
+  .rs-kpis .kpi-foot { margin-top: 6px; gap: 8px; font-size: 11.5px; }
+
+  /* Para mirar: el foco de la pantalla */
+  .rs-watch { display: flex; flex-direction: column; min-height: 0; padding: 18px 20px;
+              background: linear-gradient(160deg, color-mix(in srgb, var(--crit) 9%, var(--tile)) 0%, var(--tile) 55%); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--crit) 35%, var(--line)), 0 18px 48px -24px color-mix(in srgb, var(--crit) 60%, transparent); }
+  .rs-watch.calmw { background: linear-gradient(160deg, color-mix(in srgb, var(--good) 9%, var(--tile)) 0%, var(--tile) 55%); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--good) 35%, var(--line)); }
+  .rs-wh { display: flex; align-items: center; gap: 10px; }
+  .rs-wh .ag { width: 30px; height: 30px; border-radius: 10px; display: grid; place-items: center; color: #fff; background: linear-gradient(135deg, var(--primary), #e0457b); box-shadow: 0 6px 18px var(--glow); flex: none; }
+  .rs-wh .ag svg { width: 16px; height: 16px; }
+  .rs-wh h2 { font-size: 15px !important; color: var(--text) !important; text-transform: none !important; letter-spacing: -0.01em !important; font-weight: 600 !important; }
+  .rs-wh .by { font-size: 11.5px; color: var(--text-3); }
+  .rs-wh .by .rs-live { display: inline-block; vertical-align: 1px; margin-right: 5px; width: 6px; height: 6px; }
+  .rs-wl { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+  .rs-wi { display: grid; grid-template-columns: 4px minmax(0, 1fr) auto; gap: 0 14px; padding: clamp(10px, 1.6vh, 18px) 16px clamp(10px, 1.6vh, 18px) 0; border-radius: 14px; background: color-mix(in srgb, var(--bg) 35%, transparent); box-shadow: inset 0 0 0 1px var(--line); }
+  .rs-wi .sev { grid-row: 1 / span 3; border-radius: 0 4px 4px 0; background: var(--crit); }
+  .rs-wi.a .sev { background: var(--warn); } .rs-wi.g .sev { background: var(--good); }
+  .rs-wi .nm { font-size: clamp(14px, 2.1vh, 19px); font-weight: 600; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rs-wi .nm small { font-weight: 400; color: var(--text-3); font-size: 12px; margin-left: 6px; }
+  .rs-wi .amt { text-align: right; font-size: clamp(16px, 2.6vh, 26px); font-weight: 600; font-variant-numeric: tabular-nums; color: var(--crit); white-space: nowrap; }
+  .rs-wi.g .amt { color: var(--good); } .rs-wi.a .amt { color: var(--warn); }
+  .rs-wi .meta { grid-column: 2 / -1; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 6px; font-size: 12px; color: var(--text-2); }
+  .rs-wi .tag { padding: 2px 9px; border-radius: 999px; background: var(--tile-hover); color: var(--text-2); white-space: nowrap; }
+  .rs-wi .imp { grid-column: 2 / -1; margin-top: 8px; display: flex; align-items: center; gap: 10px; font-size: 11.5px; color: var(--text-3); white-space: nowrap; }
+  .rs-wi .imp .bar { flex: 1; height: 5px; border-radius: 999px; background: var(--tile-hover); overflow: hidden; }
+  .rs-wi .imp .bar i { display: block; height: 100%; width: 0; border-radius: inherit; background: var(--crit); transition: width 1s var(--ease); }
+  .rs-wi.a .imp .bar i { background: var(--warn); } .rs-wi.g .imp .bar i { background: var(--good); }
+  .rs-wi .act { grid-column: 2 / -1; margin-top: 8px; display: flex; align-items: flex-start; gap: 7px; font-size: 12px; line-height: 1.45; color: var(--text-2);
+                 padding: 6px 9px; border-radius: 10px; background: color-mix(in srgb, var(--link) 10%, transparent); }
+  .rs-wi .act svg { width: 14px; height: 14px; flex: none; margin-top: 1px; color: var(--link); }
+  .rs-wi .act span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .rs-wi .act b { color: var(--text); font-weight: 600; margin-right: 3px; }
+  .rs-wi .act.none { background: color-mix(in srgb, var(--warn) 10%, transparent); }
+  .rs-wi .act.none svg { color: var(--warn); }
+  .rs-dots { display: inline-flex; gap: 3px; align-items: center; }
+  .rs-dots i { width: 9px; height: 9px; border-radius: 3px; background: var(--good); opacity: .9; }
+  .rs-dots i.r { background: var(--crit); }
+  .rs-dots i.n { background: var(--tile-hover); }
+  .rs-wempty { margin-top: 14px; font-size: 15px; color: var(--text-2); }
+  .rs-wfoot { margin-top: 10px; font-size: 11.5px; color: var(--text-3); }
+
+  /* Gráficos de la derecha */
+  .rs-right { display: grid; grid-template-rows: minmax(0, .9fr) minmax(0, 1.1fr); gap: 14px; min-height: 0; }
+  .rs-main .c-chart, .rs-main .c-bul { display: flex; flex-direction: column; min-height: 0; padding: 16px 20px; }
+  .rs-ch-h { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .rs-ch-h h2 { flex: none; }
+  .rs-ch-h .big { font-size: 15px; font-weight: 600; }
+  .rs-ch-h .rs-legend { margin-left: auto; font-size: 11.5px; gap: 12px; }
+  .rs-trendp { margin-top: 4px; font-size: 12.5px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rs-trendp b { color: var(--text); font-weight: 600; }
+  .rs-main .rs-plot { flex: 1; min-height: 0; margin-top: 6px; }
+  .rs-main .rs-plot svg { height: 100%; }
+  .rs-main .rs-bul { flex: 1; min-height: 0; overflow: hidden; margin-top: 8px; align-content: start; }
+  .rs-main .rs-bul .row { padding: 4px 0; font-size: 13px; }
+  .rs-main .rs-bul .row.sub { padding: 0 0 3px; }
+  .rs-main .rs-bul .row.tot { padding-top: 7px; }
+
+  /* Tablas (fuera de la pantalla) */
+  .rs-dlg { width: min(1100px, calc(100vw - 48px)); max-height: calc(100vh - 64px); padding: 26px 28px; }
+  .rs-dlg h3 { margin: 18px 0 4px; font-size: 13px; color: var(--text-3); text-transform: uppercase; letter-spacing: .07em; font-weight: 600; }
+
+  @media (min-width: 1000px) and (min-height: 600px) {
+    html, body { height: 100%; overflow: hidden; }
+    body { min-height: 0; }
+    .topbar { padding: 10px 24px; }
+    main { padding: 0 0 16px; min-height: 0; display: flex; }
+    main > .wrap { max-width: 1720px; padding: 0 24px; display: flex; flex-direction: column; min-height: 0; flex: 1; }
+    #rs-root { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+    #rs-biz { flex: 1; min-height: 0; }
+    .rs-main { height: 100%; grid-template-rows: auto minmax(0, 1fr); }
+    .rs-watch, .rs-right { min-height: 0; }
+  }
+  @media (max-width: 999px), (max-height: 599px) {
+    .rs-head { grid-template-columns: minmax(0, 1fr); }
+    .rs-main { grid-template-columns: minmax(0, 1fr); }
+    .rs-right { grid-template-rows: auto auto; }
+    .rs-main .rs-plot { height: 260px; flex: none; }
+    .rs-bar1 { flex-wrap: wrap; }
+  }
+  @media (max-width: 640px) { .rs-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 </style>`;
 
 // El script de la página: pide los datos al Daily y arma todo. Sin dependencias.
@@ -237,7 +358,7 @@ const SCRIPT = String.raw`
   var MESL = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
   // mode: 'w' = semana, 'm' = MTD, 'mo' = mes cerrado (Mensual, 2026-11-17: de acá sale el deck mensual).
   // req: lo pedido al servidor (semana, mes MTD y mes cerrado; null = el último)
-  var D = null, sel = 'all', mode = 'w', req = { week: null, month: null, mo: null };
+  var D = null, sel = 'b2b2c', mode = 'w', req = { week: null, month: null, mo: null };
   function isMo() { return mode === 'mo'; }
   // Unidad de la serie y de las rachas: "4ª semana" / "4º mes"
   function ordU(n) { return isMo() ? n + 'º mes' : n + 'ª semana'; }
@@ -290,6 +411,7 @@ const SCRIPT = String.raw`
     if (!slack) return '';
     return f ? ':flag-' + f + ': ' : (p === 'Other Countries' ? ':earth_americas: ' : '');
   }
+  function LOBS() { return BIZ.filter(function (b) { return b.k !== 'all'; }); }   // pestañas: por LoB, sin consolidado (2026-11-19)
   function bizLbl(k) { return BIZ.filter(function (x) { return x.k === k; })[0].lbl; }
   function joinY(a) { return a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' y ' + a[a.length - 1]; }
   function byAbs(a, b) { return Math.abs(b.d) - Math.abs(a.d); }
@@ -504,53 +626,46 @@ const SCRIPT = String.raw`
   }
 
   // ── Render ──────────────────────────────────────────────────────────────────────────────
+  // Una pantalla (2026-11-19): barra con negocio, período y herramientas; abajo, el negocio elegido (renderBiz)
+  var ICO = {
+    copy: '<rect x="9" y="9" width="12" height="12" rx="3"/><path d="M5 15V6a3 3 0 0 1 3-3h9"/>',
+    deck: '<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/>',
+    link: '<path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1 1"/><path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1-1"/>',
+    tbl: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 4v16"/>',
+    tbd: '<circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/>',
+  };
+  function svgI(k, sz) { return '<svg width="' + (sz || 15) + '" height="' + (sz || 15) + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICO[k] + '</svg>'; }
+  function cap(t) { return t.replace(/^./, function (c) { return c.toUpperCase(); }); }
   function render() {
-    var A = view('all').T, live = mode === 'm' ? isCurMonth() : isMo() ? false : isLatest();
-    var html = '<header class="rs-hero"><div class="rs-top rs-in">' +
-      '<span class="rs-eyebrow"><span class="rs-live' + (live ? '' : ' off') + '" aria-hidden="true"></span>' + esc(title()) +
-      (mode === 'w' ? (isLatest() ? ' · reales al ' + esc(ddmm(D.lastActualsDate)) : ' · semana cerrada') : '') + '</span>' +
-      '<div class="rs-ctl"><div class="rs-mode" role="group" aria-label="Vista"><button type="button" data-v="w" aria-pressed="' + (mode === 'w') + '">Semanal</button>' +
-      '<button type="button" data-v="m" aria-pressed="' + (mode === 'm') + '">MTD</button>' +
-      (D.monthly ? '<button type="button" data-v="mo" aria-pressed="' + isMo() + '">Mensual</button>' : '') + '</div>' +
-      '<button type="button" class="rs-btn rs-tbd" id="rs-tbd" aria-pressed="' + exTbd + '" title="Saca de las explicaciones el Budget de partners nuevos todavía sin firmar (TBD). Los totales no cambian.">' +
-      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg><span>Excluir TBD</span></button>' +
-      '<button type="button" class="rs-btn" id="rs-deck" title="Arma un deck .pptx con el resumen y las tarjetas (se abre en Google Slides o PowerPoint)">' +
-      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg><span>Exportar a Slides</span></button>' +
-      '<button type="button" class="rs-btn" id="rs-link" title="Copia el link a esta vista para mandarlo por Slack">' +
-      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1 1"/><path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1-1"/></svg><span>Copiar link resumen semanal</span></button></div></div>' +
-      '<h1 class="rs-in" style="--d:60ms">' + headline(A) + '</h1>' +
-      '<p class="rs-lead rs-in" style="--d:120ms">' + (mode === 'm' ? 'En lo que va del mes, el' : isMo() ? 'En ' + MESL[+D.monthly.ym.substring(5, 7) - 1] + ', el' : 'El') + ' ecosistema B2B facturó <b>' + money(A.cur.rev) + '</b> de Net Revenues sobre <b>' + money(A.cur.gb) + '</b> de Gross Bookings: ' +
-      '<b>' + fp(pct(A.cur.rev, A.bud.rev)) + '</b> vs Budget y <b>' + fp(pct(A.curL.rev, A.ly.rev)) + '</b> vs el año pasado.</p></header>';
     var chips = isMo()
       ? (D.cmonths || []).map(function (ym, i) {
         var m = ym.split('-');
-        return '<button type="button" data-mo="' + ym + '" aria-pressed="' + (ym === D.monthly.ym) + '" title="' + MESL[+m[1] - 1] + ' ' + m[0] + '">' + MES[+m[1] - 1].replace(/^./, function (c) { return c.toUpperCase(); }) + (i === 0 ? '<small>último</small>' : '') + '</button>';
+        return '<button type="button" data-mo="' + ym + '" aria-pressed="' + (ym === D.monthly.ym) + '" title="' + MESL[+m[1] - 1] + ' ' + m[0] + '">' + cap(MES[+m[1] - 1]) + (i === 0 ? '<small>último</small>' : '') + '</button>';
       }).join('')
       : mode === 'm'
       ? (D.months || []).map(function (ym, i) {
         var m = ym.split('-');
-        return '<button type="button" data-m="' + ym + '" aria-pressed="' + (ym === D.month.ym) + '">' + MES[+m[1] - 1].replace(/^./, function (c) { return c.toUpperCase(); }) + (i === 0 ? '<small>MTD</small>' : '') + '</button>';
+        return '<button type="button" data-m="' + ym + '" aria-pressed="' + (ym === D.month.ym) + '">' + cap(MES[+m[1] - 1]) + (i === 0 ? '<small>MTD</small>' : '') + '</button>';
       }).join('')
       : (D.weeks || []).map(function (w, i) {
         var a = w.from.split('-');
         return '<button type="button" data-y="' + w.year + '" data-w="' + w.week + '" aria-pressed="' + (w.week === D.week.week && w.year === D.week.year) + '" title="Semana del ' + (+a[2]) + ' ' + MES[+a[1] - 1] + '">W' + w.week + (i === 0 ? '<small>actual</small>' : '') + '</button>';
       }).join('');
-    html += '<div class="rs-bar rs-in" style="--d:180ms"><div class="rs-tabs" role="tablist" aria-label="Negocio"><span class="ind" aria-hidden="true"></span>' + BIZ.map(function (b) {
+    var html = '<div class="rs-bar1 rs-in"><div class="rs-tabs" role="tablist" aria-label="Negocio"><span class="ind" aria-hidden="true"></span>' + LOBS().map(function (b) {
       return '<button type="button" role="tab" data-k="' + b.k + '" aria-selected="' + (b.k === sel) + '">' + esc(b.lbl) + '</button>';
     }).join('') + '</div><span class="sp"></span>' +
+      '<div class="rs-mode" role="group" aria-label="Vista"><button type="button" data-v="w" aria-pressed="' + (mode === 'w') + '">Semanal</button>' +
+      '<button type="button" data-v="m" aria-pressed="' + (mode === 'm') + '">MTD</button>' +
+      (D.monthly ? '<button type="button" data-v="mo" aria-pressed="' + isMo() + '">Mensual</button>' : '') + '</div>' +
       '<div class="rs-weeks" role="group" aria-label="' + (mode === 'w' ? 'Semana' : 'Mes') + '">' + chips + '</div>' +
-      '<button type="button" class="rs-btn" id="rs-copy" title="Copia el resumen para pegar en Slack"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="3"/><path d="M5 15V6a3 3 0 0 1 3-3h9"/></svg><span>Copiar para Slack</span></button></div>' +
-      '<div id="rs-biz"></div>';
-    html += '<p class="rs-note">' + (isMo()
-      ? 'Mensual: el mes cerrado completo. LY = mismo mes del año anterior, L3M = promedio de los 3 meses anteriores. Budget y Run Rate del mes. '
-      : mode === 'm'
-      ? 'MTD: del 1 al último día con reales del mes elegido (o el mes completo si ya cerró). LY = mismas fechas del año anterior. Budget y Run Rate de las mismas fechas. '
-      : 'Semana ISO (lunes a domingo), la última completa con reales. LY = misma semana ISO del año pasado, L4W = promedio de las 4 semanas anteriores. ') +
-      'Mismos datos que el Weekly del Daily Dashboard: fecha de gestión, B2B separado por canal (API / HTML = agencias afiliadas). ' +
-      'Las aperturas por partner son de B2B2C (el Budget de B2B no trae agencia: B2B se abre por país). FVM con COI Brasil incluido. ' +
-      (D.organic && D.organic.target ? 'Organic, como el switch ORGANIC en Budget del Daily: actuals a TC Budget; los vs LY con los actuals a TC del año anterior; contra el Run Rate, actuals nominales. '
-        : 'USD nominales' + (D.organic && D.organic.error ? ' (no se pudo aplicar organic: ' + esc(D.organic.error) + ')' : '') + '. ') +
-      'Semáforo: verde ≥ 0%, ámbar entre −5% y 0%, rojo debajo de −5%.</p>';
+      '<button type="button" class="rs-pill" id="rs-tbd" aria-pressed="' + exTbd + '" title="Saca de las explicaciones el Budget de partners nuevos todavía sin firmar (TBD). Los totales no cambian.">' + svgI('tbd', 13) + 'Excluir TBD</button>' +
+      '<span class="rs-tools">' +
+      '<button type="button" class="rs-ib" id="rs-tbl" title="Tablas por país y de la serie" aria-label="Ver tablas">' + svgI('tbl') + '</button>' +
+      '<button type="button" class="rs-ib" id="rs-copy" title="Copiar el resumen para pegar en Slack" aria-label="Copiar para Slack">' + svgI('copy') + '</button>' +
+      '<button type="button" class="rs-ib" id="rs-deck" title="Exportar a Slides: deck .pptx de esta vista (Google Slides o PowerPoint)" aria-label="Exportar a Slides">' + svgI('deck') + '</button>' +
+      '<button type="button" class="rs-ib" id="rs-link" title="Copiar el link a esta vista" aria-label="Copiar link">' + svgI('link') + '</button></span></div>' +
+      '<div id="rs-biz"></div>' +
+      '<dialog class="dlg rs-dlg" id="rs-dlg"><form method="dialog" class="dlg-x"><button aria-label="Cerrar">×</button></form><h2 id="rs-dlg-h">Tablas</h2><div id="rs-dlg-b"></div></dialog>';
     root.innerHTML = html;
     Array.prototype.forEach.call(root.querySelectorAll('.rs-weeks button'), function (bt) {
       bt.onclick = function () {
@@ -570,23 +685,49 @@ const SCRIPT = String.raw`
     document.getElementById('rs-copy').onclick = copySlack;
     document.getElementById('rs-link').onclick = copyLink;
     document.getElementById('rs-deck').onclick = exportDeck;
+    document.getElementById('rs-tbl').onclick = openTables;
     var on = root.querySelector('.rs-weeks button[aria-pressed="true"]');
     if (on) on.parentNode.scrollLeft = Math.max(0, on.offsetLeft - 40);
     Array.prototype.forEach.call(root.querySelectorAll('.rs-tabs button'), function (bt) {
       bt.onclick = function () { setSel(bt.getAttribute('data-k')); };
       bt.onkeydown = function (e) {
         if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
-        var i = BIZ.findIndex(function (b) { return b.k === sel; }) + (e.key === 'ArrowRight' ? 1 : -1);
-        setSel(BIZ[(i + BIZ.length) % BIZ.length].k);
+        var L = LOBS(), i = L.findIndex(function (b) { return b.k === sel; }) + (e.key === 'ArrowRight' ? 1 : -1);
+        setSel(L[(i + L.length) % L.length].k);
         root.querySelector('.rs-tabs button[data-k="' + sel + '"]').focus();
       };
     });
-    if (!render.bound) { window.addEventListener('resize', syncTabs); render.bound = true; }
+    if (!render.bound) {
+      var tm = null;
+      window.addEventListener('resize', function () { syncTabs(); clearTimeout(tm); tm = setTimeout(function () { if (D) { root.classList.add('calm'); renderBiz(false); } }, 160); });
+      render.bound = true;
+    }
     syncTabs();
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(syncTabs);
     renderBiz(true);
   }
+  // Nota de método (va en el diálogo de tablas)
+  function noteText() {
+    return (isMo()
+      ? 'Mensual: el mes cerrado completo. LY = mismo mes del año anterior, L3M = promedio de los 3 meses anteriores. Budget y Run Rate del mes. '
+      : mode === 'm'
+      ? 'MTD: del 1 al último día con reales del mes elegido (o el mes completo si ya cerró). LY = mismas fechas del año anterior. Budget y Run Rate de las mismas fechas. '
+      : 'Semana ISO (lunes a domingo), la última completa con reales. LY = misma semana ISO del año pasado, L4W = promedio de las 4 semanas anteriores. ') +
+      'Mismos datos que el Weekly del Daily Dashboard: fecha de gestión, B2B separado por canal (API / HTML = agencias afiliadas). ' +
+      'Las aperturas por partner son de B2B2C (el Budget de B2B no trae agencia: B2B se abre por país). FVM con COI Brasil incluido. ' +
+      (D.organic && D.organic.target ? 'Organic, como el switch ORGANIC en Budget del Daily: actuals a TC Budget; los vs LY con los actuals a TC del año anterior; contra el Run Rate, actuals nominales. '
+        : 'USD nominales' + (D.organic && D.organic.error ? ' (no se pudo aplicar organic: ' + esc(D.organic.error) + ')' : '') + '. ') +
+      'Semáforo: verde ≥ 0%, ámbar entre −5% y 0%, rojo debajo de −5%.';
+  }
+  function openTables() {
+    var V = view(sel), dlg = document.getElementById('rs-dlg');
+    document.getElementById('rs-dlg-h').textContent = bizLbl(sel) + ' · ' + title();
+    document.getElementById('rs-dlg-b').innerHTML = '<h3>Por país</h3><div class="rs-tbl-wrap">' + countryTable(V) + '</div>' +
+      '<h3>' + (mode === 'm' ? 'Por día (acumulado)' : isMo() ? 'Por mes' : 'Por semana') + ' · FVM</h3><div class="rs-tbl-wrap">' + trendTable(V) + '</div><p class="rs-note">' + noteText() + '</p>';
+    if (dlg.showModal) dlg.showModal(); else dlg.setAttribute('open', '');
+  }
   function isLatest() { return !D.latest || (D.latest.week === D.week.week && D.latest.year === D.week.year); }
-  function setSel(k) { if (k === sel) return; sel = k; root.classList.add('calm'); syncTabs(); renderBiz(false); }
+  function setSel(k) { if (k === sel) return; sel = k; root.classList.add('calm'); syncTabs(); renderBiz(false); syncUrl(); }
   function syncTabs() {
     var ind = root.querySelector('.rs-tabs .ind');
     Array.prototype.forEach.call(root.querySelectorAll('.rs-tabs button'), function (bt) {
@@ -645,27 +786,146 @@ const SCRIPT = String.raw`
       '<div><span>vs Run Rate</span>' + chip(pct(T.curN.fvm, T.rr.fvm), 'fvm') + '</div></div></section>';
   }
 
+  // Lo que el negocio tiene "para mirar": las líneas que restan (como el texto de Para mirar) y la que más compensa
+  function watchData(V) {
+    var DR = drivers(V), dev = DR.dev;
+    var bad = DR.list.filter(function (g) { var p = pct(g.cur.rev, g.bud.rev); return g.d < 0 && (p == null || p <= -3); }).sort(function (a, c) { return a.d - c.d; }).slice(0, 4);
+    var good = DR.list.filter(function (g) { return g.d > 0; }).sort(function (a, c) { return c.d - a.d; }).slice(0, 1);
+    return { dev: dev, bad: bad, good: good };
+  }
+  // Racha de las últimas semanas / meses: un cuadradito por período, rojo si quedó debajo del Budget
+  function dotsOf(g) {
+    if (mode === 'm') return '';
+    var UST = function (bk) { return (isMo() ? (D.biz[bk].monthly || {}).ustreak : D.biz[bk].ustreak) || []; };
+    var len = UST(g.units[0].biz).length, out = '';
+    for (var s = 0; s < len; s++) {
+      var a = 0, b = 0;
+      g.units.forEach(function (u) { var v = (UST(u.biz)[s] || {})[u.key]; if (v) { a += v[0]; b += v[1]; } });
+      out += '<i class="' + (!b ? 'n' : a < b ? 'r' : '') + '"></i>';
+    }
+    return '<span class="rs-dots" title="Últim' + (isMo() ? 'os ' + len + ' meses' : 'as ' + len + ' semanas') + ' (rojo = debajo del Budget)">' + out + '</span>';
+  }
+  // ── Acciones comerciales (calendario de Marketing B2B2C, server/acciones-comerciales.js): solo para los partners de
+  // "Para mirar" que restan. Si el partner está en el calendario se muestra la acción del período (o que no tuvo ninguna).
+  var ACC = null;   // [{pais, partner, tier, year, week, name, weeks, brief}] o null mientras no llegó
+  function nrm(x) { return String(x == null ? '' : x).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); }
+  function pKey(x) { return nrm(x).replace(/\b(viajes|travel|card|pass)\b/g, '').replace(/[^a-z0-9]/g, ''); }
+  function pMatch(a, b) { var A = pKey(a), B = pKey(b); return !!A && !!B && (A === B || (A.length >= 3 && B.indexOf(A) >= 0) || (B.length >= 3 && A.indexOf(B) >= 0)); }
+  // Semanas ISO del período elegido ('YYYY-Www')
+  function periodWeeks() {
+    function wk(ymd) { var d = new Date(ymd + 'T00:00:00Z'), day = d.getUTCDay() || 7, t = new Date(d.getTime() + (4 - day) * 864e5);
+      return t.getUTCFullYear() + '-' + Math.ceil(((t - Date.UTC(t.getUTCFullYear(), 0, 1)) / 864e5 + 1) / 7); }
+    if (mode === 'w') return [D.week.year + '-' + D.week.week];
+    var from = mode === 'm' ? D.month.from : D.monthly.from, to = mode === 'm' ? D.month.to : D.monthly.to, out = [];
+    for (var d = new Date(from + 'T00:00:00Z'); d.toISOString().slice(0, 10) <= to; d = new Date(d.getTime() + 864e5)) { var k = wk(d.toISOString().slice(0, 10)); if (out.indexOf(k) < 0) out.push(k); }
+    return out;
+  }
+  function actionsOf(g) {
+    if (!ACC || g.t !== 'p') return null;
+    var ps = g.units.map(function (u) { return u.pais; });
+    var rows = ACC.filter(function (it) { return ps.indexOf(it.pais) >= 0 && pMatch(it.partner, g.n); });
+    if (!rows.length) return null;   // el partner no está en el calendario: no se dice nada
+    var W = periodWeeks(), by = {};
+    rows.filter(function (it) { return W.indexOf(it.year + '-' + it.week) >= 0; }).forEach(function (it) {
+      var k = nrm(it.name).replace(/\s+/g, ' ').trim(), o = by[k] = by[k] || { name: it.name, weeks: [], brief: it.brief, paises: [] };
+      (it.weeks || [it.week]).forEach(function (w) { if (o.weeks.indexOf(w) < 0) o.weeks.push(w); });
+      if (o.paises.indexOf(it.pais) < 0) o.paises.push(it.pais);
+      if (!o.brief && it.brief) o.brief = it.brief;
+    });
+    var tier = rows.map(function (r) { return r.tier; }).filter(function (t) { return /tier/i.test(t || ''); }).sort()[0] || '';
+    return { list: Object.keys(by).map(function (k) { return by[k]; }), tier: tier };
+  }
+  var MEGA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>';
+  function actionHtml(g) {
+    var A = actionsOf(g);
+    if (!A) return '';
+    var multi = g.units.map(function (u) { return u.pais; }).filter(function (x, i, a) { return a.indexOf(x) === i; }).length > 1;
+    if (!A.list.length) return '<div class="act none">' + MEGA + '<span>Sin acción comercial en el calendario ' + esc(periodo()) + '</span></div>';
+    var full = A.list.map(function (a) {
+      var ws = a.weeks.slice().sort(function (x, y) { return x - y; });
+      return a.name + ' (W' + ws[0] + (ws.length > 1 ? '–W' + ws[ws.length - 1] : '') + (multi ? ', ' + a.paises.map(cname).join(' / ') : '') + ')' + (a.brief ? ': ' + a.brief : '');
+    }).join(' · ');
+    return '<div class="act" title="' + esc(full) + '">' + MEGA + '<span><b>Acción comercial</b> ' + esc(full) + '</span></div>';
+  }
+  function watchItem(g, mx, dev, kind) {
+    var p = pct(g.cur.rev, g.bud.rev), st = streakOf(g), c = causeOf(g).t.replace(/ \(.*\)$/, '');
+    var sev = kind === 'g' ? 'g' : (p != null && p > -5 ? 'a' : 'r');
+    var sub = g.t === 'p' && g.units.length > 1 ? tagOf(g).replace('Partner · ', '') : g.t === 'p' ? cname(g.units[0].pais) : (g.excl && g.excl.length ? 'sin ' + joinY(g.excl) : '');
+    var share = dev && kind !== 'g' && dev < 0 ? Math.round(Math.abs(g.d / dev) * 100) : null;
+    return '<div class="rs-wi ' + sev + '" data-pr="' + (kind === 'g' ? 99 : 0) + '"><span class="sev"></span>' +
+      '<div class="nm" title="' + esc(g.n) + '">' + (kind === 'g' ? 'Compensa: ' : '') + esc(g.n) + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</div>' +
+      '<div class="amt">' + sgnMoney(g.d) + '</div>' +
+      '<div class="meta">' + chip(p, 'rev') + '<span class="tag">' + esc(c) + '</span>' + (function () { var A = kind === 'g' ? null : actionsOf(g); return A && A.tier ? '<span class="tag">' + esc(A.tier) + '</span>' : ''; })() +
+      (st >= 2 ? '<span class="tag">' + ordU(st) + (kind === 'g' ? ' arriba' : ' debajo') + '</span>' : '') + dotsOf(g) + '</div>' +
+      '<div class="imp"><span class="bar"><i data-w="' + (Math.abs(g.d) / mx * 100).toFixed(1) + '"></i></span>' + (share != null ? 'explica ' + Math.min(share, 999) + '% del desvío' : '') + '</div>' +
+      (kind === 'g' ? '' : actionHtml(g)) + '</div>';
+  }
+  function watchCard(V) {
+    var W = watchData(V), all = W.bad.concat(W.good), mx = 0;
+    all.forEach(function (g) { mx = Math.max(mx, Math.abs(g.d)); }); mx = mx || 1;
+    var n = {}; xUnits(V).forEach(function (u) { n[u.pk || u.pais] = 1; });
+    var nUnits = Object.keys(n).length, isB2b2c = V.units.some(function (u) { return u.part; });
+    var tg = exTbd ? tbdGap(V) : 0;
+    var body = W.bad.length ? W.bad.map(function (g) { return watchItem(g, mx, W.dev, 'b'); }).join('') + W.good.map(function (g) { return watchItem(g, mx, W.dev, 'g'); }).join('')
+      : '<p class="rs-wempty">Nada material para mirar: ningún ' + (isB2b2c ? 'partner ni país' : 'país') + ' se desvía más de 3% del Budget.</p>';
+    return '<section class="rs-card rs-watch rs-in' + (W.bad.length ? '' : ' calmw') + '" style="--d:80ms" aria-labelledby="rs-w-h"><div class="rs-wh">' +
+      '<span class="ag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z"/></svg></span>' +
+      '<div><h2 id="rs-w-h">Para mirar</h2><div class="by"><span class="rs-live" aria-hidden="true"></span>Revisé ' + nUnits + ' ' + (isB2b2c ? 'partners' : 'países') + ' contra Budget ' + esc(periodo()) +
+      (tg ? ' · sin TBD (' + sgnMoney(tg) + ')' : '') + '</div></div></div>' +
+      '<div class="rs-wl" data-fit>' + body + '</div>' +
+      (W.bad.length ? '<div class="rs-wfoot">Ordenado por impacto en Net Revenues vs Budget' + (mode !== 'm' ? ' · cuadraditos: últim' + (isMo() ? 'os meses' : 'as semanas') + ', rojo = debajo' : '') + '</div>' : '') + '</section>';
+  }
+  // Puente NR vs Budget en barras: volumen (GB a take rate de Budget) y take rate (sobre el GB real)
+  function bridgeHtml(T) {
+    var dev = T.cur.rev - T.bud.rev, trB = T.bud.gb ? T.bud.rev / T.bud.gb : 0, vol = (T.cur.gb - T.bud.gb) * trB, rate = dev - vol;
+    var mx = Math.max(Math.abs(vol), Math.abs(rate)) || 1;
+    function bar(v) { return '<span class="bt"><i class="' + (v < 0 ? 'neg' : 'pos') + '" style="width:' + (Math.abs(v) / mx * 50).toFixed(1) + '%"></i></span>'; }
+    return '<div class="rs-bridge"><span class="t">Desvío de NR vs Budget<b class="' + cls(dev) + '">' + sgnMoney(dev) + '</b></span>' +
+      '<span>Volumen (GB ' + fp(pct(T.cur.gb, T.bud.gb)) + ')</span>' + bar(vol) + '<span class="' + cls(vol) + '">' + sgnMoney(vol) + '</span>' +
+      '<span>Take rate</span>' + bar(rate) + '<span class="' + cls(rate) + '">' + sgnMoney(rate) + '</span></div>';
+  }
+  function trendLine(k) {
+    var x = insights(k, false).filter(function (o) { return o.k === 'trend'; })[0];
+    return x ? x.t.split(/(?<=\.)\s/)[0] : '';
+  }
   function renderBiz(first) {
-    var V = view(sel), host = document.getElementById('rs-biz'), M = mode === 'm', MO = isMo();
-    var h = '<div class="rs-bento"><section class="rs-card c-sum rs-in" style="--d:40ms" aria-labelledby="rs-sum-h">' +
-      '<h2 id="rs-sum-h">' + (M || MO ? 'El mes' : 'La semana') + ' en pocas líneas · ' + esc(bizLbl(sel)) + '</h2>' +
-      insightsHtml(sel) + '</section>' + dialCard(V) + ['gb', 'rev', 'fvm', 'sh'].map(function (m, i) { return kpiCard(m, V, i); }).join('');
-    h += '<section class="rs-card c-chart rs-in" style="--d:300ms" aria-labelledby="rs-ch-h"><div class="rs-chart-top"><div class="t"><h2 id="rs-ch-h">' +
-      (M ? 'FVM acumulado del mes' : MO ? 'FVM por mes' : 'Últimas 13 semanas') + '</h2><div class="big" id="rs-ch-big"></div></div>' +
-      '<div class="rs-legend"><span><i style="border-color:var(--s-act)"></i>Actual</span><span><i class="dash" style="border-color:var(--s-bud)"></i>Budget</span>' +
-      '<span><i style="border-color:var(--s-ly)"></i>Last Year</span></div></div><div class="rs-plot" id="rs-plot"></div>' +
-      '<details class="rs-det" open><summary>Ver como tabla</summary><div class="rs-tbl-wrap" id="rs-trend-tbl"></div></details></section>';
-    h += bulCard(V);
-    h += '</div>';
+    var V = view(sel), T = V.T, host = document.getElementById('rs-biz'), M = mode === 'm', MO = isMo();
+    var live = M ? isCurMonth() : MO ? false : isLatest();
+    var ey = '<span class="rs-eyebrow"><span class="rs-live' + (live ? '' : ' off') + '" aria-hidden="true"></span>' + esc(title()) +
+      (mode === 'w' ? (isLatest() ? ' · reales al ' + esc(ddmm(D.lastActualsDate)) : ' · semana cerrada') : '') + '</span>';
+    var h = '<div class="rs-main"><div class="rs-head"><div class="rs-hl rs-in" style="--d:20ms">' + ey +
+      '<h1><span class="lob">' + esc(bizLbl(sel)) + '</span>' + headline(T) + '</h1>' + bridgeHtml(T) + '</div>' +
+      '<div class="rs-kpis">' + ['gb', 'rev', 'fvm', 'sh'].map(function (m, i) { return kpiCard(m, V, i); }).join('') + '</div></div>';
+    h += watchCard(V);
+    var tl = trendLine(sel);
+    h += '<div class="rs-right"><section class="rs-card c-chart rs-in" style="--d:160ms" aria-labelledby="rs-ch-h"><div class="rs-ch-h"><h2 id="rs-ch-h">' +
+      (M ? 'FVM acumulado del mes' : MO ? 'FVM por mes' : 'FVM · últimas 13 semanas') + '</h2><span class="big" id="rs-ch-big"></span>' +
+      '<span class="rs-legend"><span><i style="border-color:var(--s-act)"></i>Actual</span><span><i class="dash" style="border-color:var(--s-bud)"></i>Budget</span>' +
+      '<span><i style="border-color:var(--s-ly)"></i>LY</span></span></div>' + (tl ? '<p class="rs-trendp">' + tl + '</p>' : '') + '<div class="rs-plot" id="rs-plot"></div></section>';
+    h += bulCard(V) + '</div></div>';
     host.innerHTML = h;
     if (!first) Array.prototype.forEach.call(host.querySelectorAll('.rs-in'), function (el) { el.style.setProperty('--d', '0ms'); });
     spotlight(host);
     countUp(host);
+    fitLists(host);
     requestAnimationFrame(function () {
-      Array.prototype.forEach.call(host.querySelectorAll('.rs-ring-fg'), function (c) { c.style.strokeDashoffset = c.getAttribute('data-off'); });
-      requestAnimationFrame(function () { Array.prototype.forEach.call(host.querySelectorAll('.rs-bul .fill'), function (f) { f.style.width = f.getAttribute('data-w') + '%'; }); });
+      requestAnimationFrame(function () { Array.prototype.forEach.call(host.querySelectorAll('.rs-bul .fill, .rs-wi .bar i'), function (f) { f.style.width = f.getAttribute('data-w') + '%'; }); });
     });
     chart(V);
+  }
+  // Recorta las listas para que entren sin scroll: saca primero lo de menor prioridad (data-pr más alto; a igual
+  // prioridad, lo de más abajo). Lo que no tiene data-pr (el Total) no se saca nunca.
+  function fitLists(scope) {
+    Array.prototype.forEach.call(scope.querySelectorAll('[data-fit]'), function (el) {
+      var guard = 40;
+      while (el.scrollHeight > el.clientHeight + 1 && guard--) {
+        var c = Array.prototype.filter.call(el.children, function (x) { return x.hasAttribute('data-pr'); });
+        if (!c.length) break;
+        var pick = c[0];
+        c.forEach(function (x) { if (+x.getAttribute('data-pr') >= +pick.getAttribute('data-pr')) pick = x; });
+        pick.parentNode.removeChild(pick);
+      }
+    });
   }
 
   // ── Dónde se explica: NR por país (barra = real, marca = Budget; color = semáforo vs Budget). Abajo de Brasil,
@@ -694,9 +954,9 @@ const SCRIPT = String.raw`
   function bulCard(V) {
     var m = 'rev', BR = bulRows(V), rows = BR.rows, more = BR.more;
     var mx = 0; rows.forEach(function (r) { mx = Math.max(mx, r.c.rev || 0, r.b.rev || 0); }); mx = mx * 1.04 || 1;
-    function row(r, cl) {
+    function row(r, cl, ix) {
       var c = r.c.rev, b = r.b.rev, d = pct(c, b), s = state(d) || 'g';
-      return '<div class="row' + (cl ? ' ' + cl : '') + '"><span class="nm" title="' + esc(r.n) + '">' + esc(r.n) + '</span>' +
+      return '<div class="row' + (cl ? ' ' + cl : '') + '"' + (cl ? '' : ' data-pr="' + (10 + ix) + '"') + '><span class="nm" title="' + esc(r.n) + '">' + esc(r.n) + '</span>' +
         (cl ? '<span class="rs-bul-sub" style="margin:0">' + money(b) + ' de Budget</span>' :
           '<span class="trk" role="img" aria-label="' + esc(r.n) + ': ' + money(c) + ' contra ' + money(b) + ' de Budget">' +
           '<span class="fill ' + s + '" data-w="' + (Math.max(0, c || 0) / mx * 100).toFixed(1) + '"></span><span class="tick" style="left:' + (Math.max(0, b || 0) / mx * 100).toFixed(1) + '%"></span></span>') +
@@ -704,16 +964,15 @@ const SCRIPT = String.raw`
     }
     function sub(g) {
       var p = pct(g.cur.rev, g.bud.rev);
-      return '<div class="row sub"><span class="nm" title="' + esc(g.n) + '">' + esc(g.n) + '</span><span class="why">' + esc(causeOf(g).t.replace(/ \(.*\)$/, '')) + '</span>' +
+      return '<div class="row sub" data-pr="50"><span class="nm" title="' + esc(g.n) + '">' + esc(g.n) + '</span><span class="why">' + esc(causeOf(g).t.replace(/ \(.*\)$/, '')) + '</span>' +
         '<span class="val ' + cls(g.d) + '">' + sgnMoney(g.d) + '</span>' + chip(p, m) + '</div>';
     }
-    var body = rows.map(function (r) { return row(r) + r.subs.map(sub).join(''); }).join('') + row({ n: 'Total', c: V.T.cur, b: V.T.bud }, 'tot');
+    var body = rows.map(function (r, ix) { return row(r, '', ix) + r.subs.map(sub).join(''); }).join('') + row({ n: 'Total', c: V.T.cur, b: V.T.bud }, 'tot');
     var subTxt = 'Net Revenues ' + (mode !== 'w' ? periodo() : 'de la semana ' + D.week.week) + ' · la marca es el Budget' +
-      (V.units.some(function (u) { return u.part; }) ? ' · debajo, los partners que explican el desvío' : '') + (more ? ' · ' + more + ' más en la tabla' : '') +
+      (V.units.some(function (u) { return u.part; }) ? ' · debajo, los partners que explican el desvío' : '') + (more ? ' · ' + more + ' más en Tablas' : '') +
       (exTbd && tbdGap(V) ? ' · sin partners nuevos (TBD, ' + sgnMoney(tbdGap(V)) + ')' : '');
-    return '<section class="rs-card c-bul rs-in" style="--d:360ms" aria-labelledby="rs-bul-h"><h2 id="rs-bul-h">Dónde se explica</h2>' +
-      '<p class="rs-bul-sub">' + esc(subTxt) + '</p><div class="rs-bul">' + body + '</div>' +
-      '<details class="rs-det" open><summary>Ver tabla completa por país</summary><div class="rs-tbl-wrap">' + countryTable(V) + '</div></details></section>';
+    return '<section class="rs-card c-bul rs-in" style="--d:220ms" aria-labelledby="rs-bul-h"><h2 id="rs-bul-h">Dónde se explica · NR por país</h2>' +
+      '<p class="rs-bul-sub">' + esc(subTxt) + '</p><div class="rs-bul" data-fit>' + body + '</div></section>';
   }
 
   function countryTable(V) {
@@ -738,12 +997,12 @@ const SCRIPT = String.raw`
   // ── Gráfico de FVM: 13 semanas (o el mes acumulado por día), Actual (área) / Budget (punteado) / LY ─────────
   function chart(V) {
     var host = document.getElementById('rs-plot'), m = 'fvm', tr = V.series, M = mode === 'm';
-    var W = 720, H = 300, L = 52, R = 62, Tp = 14, B = 30, iw = W - L - R, ih = H - Tp - B;
+    var W = Math.max(320, Math.round(host.clientWidth || 720)), H = Math.max(140, Math.round(host.clientHeight || 300)), L = 52, R = 62, Tp = 10, B = 24, iw = W - L - R, ih = H - Tp - B;
     var S = [{ k: 'ly', c: 'var(--s-ly)', n: 'Last Year', w: 1.6 }, { k: 'bud', c: 'var(--s-bud)', n: 'Budget', dash: '6 5', w: 1.8 }, { k: 'cur', c: 'var(--s-act)', n: 'Actual', w: 2.6 }];
     var vals = []; tr.forEach(function (w) { S.forEach(function (s) { var v = val(w[s.k], m); if (v != null) vals.push(v); }); });
     var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals) || 1;
     lo = M ? Math.min(0, lo) : Math.max(lo < 0 ? lo : 0, lo - (hi - lo) * 0.6);   // semanas: sin forzar el 0, se ven las diferencias; el acumulado arranca en 0
-    var step = niceStep((hi - lo) / 4); lo = Math.floor(lo / step) * step; hi = Math.ceil(hi / step) * step;
+    var step = niceStep((hi - lo) / (H < 200 ? 3 : 4)); lo = Math.floor(lo / step) * step; hi = Math.ceil(hi / step) * step;
     var x = function (i) { return L + (tr.length === 1 ? iw / 2 : i * iw / (tr.length - 1)); };
     var y = function (v) { return Tp + ih - ((v == null ? lo : v) - lo) / (hi - lo) * ih; };
     var g = '<defs><linearGradient id="rs-area" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--s-act);stop-opacity:.32"/><stop offset="1" style="stop-color:var(--s-act);stop-opacity:0"/></linearGradient></defs>';
@@ -770,7 +1029,7 @@ const SCRIPT = String.raw`
     g += '<rect x="' + L + '" y="' + Tp + '" width="' + iw + '" height="' + ih + '" fill="transparent" id="rs-hit"/>';
     host.innerHTML = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="FVM ' + (M ? 'acumulado del mes por día' : isMo() ? 'por mes' : 'semanal de las últimas 13 semanas') + ': Actual, Budget y Last Year">' + g + '</svg><div class="rs-tip" id="rs-tip"></div>';
     var last = tr[tr.length - 1];
-    document.getElementById('rs-ch-big').innerHTML = 'FVM' + (M ? (isCurMonth() ? ' MTD' : ' del mes') : '') + ' · <span class="' + cls(dlt(last.cur, last.bud, m)) + '">' + fd(m, dlt(last.cur, last.bud, m)) + '</span> <span style="font-size:14px;font-weight:500;color:var(--text-3)">vs Budget' + (M ? ' al ' + last.lbl + ' ' + MES[+D.month.ym.substring(5, 7) - 1] : ' en ' + last.lbl) + '</span>';
+    document.getElementById('rs-ch-big').innerHTML = '<span class="' + cls(dlt(last.cur, last.bud, m)) + '">' + fd(m, dlt(last.cur, last.bud, m)) + '</span> <span style="font-size:12.5px;font-weight:500;color:var(--text-3)">vs Budget' + (M ? ' al ' + last.lbl + ' ' + MES[+D.month.ym.substring(5, 7) - 1] : ' en ' + last.lbl) + '</span>';
     requestAnimationFrame(function () { requestAnimationFrame(function () {
       Array.prototype.forEach.call(host.querySelectorAll('.rs-line'), function (p) { p.style.strokeDashoffset = '0'; });
     }); });
@@ -792,7 +1051,10 @@ const SCRIPT = String.raw`
     var hit = document.getElementById('rs-hit');
     hit.addEventListener('mousemove', move);
     hit.addEventListener('mouseleave', function () { tip.style.display = 'none'; cross.setAttribute('visibility', 'hidden'); cdot.setAttribute('visibility', 'hidden'); });
-    document.getElementById('rs-trend-tbl').innerHTML = '<table class="rs-tbl"><thead><tr><th>' + (M ? 'Día (acum.)' : 'Semana') + '</th><th>FVM</th><th>Budget</th><th>vs Bud</th><th>LY</th><th>vs LY</th></tr></thead><tbody>' +
+  }
+  function trendTable(V) {
+    var m = 'fvm', tr = V.series, M = mode === 'm';
+    return '<table class="rs-tbl"><thead><tr><th>' + (M ? 'Día (acum.)' : isMo() ? 'Mes' : 'Semana') + '</th><th>FVM</th><th>Budget</th><th>vs Bud</th><th>LY</th><th>vs LY</th></tr></thead><tbody>' +
       tr.map(function (w) { return '<tr><td>' + esc(w.lbl) + '</td><td>' + fmtM(m, val(w.cur, m)) + '</td><td>' + fmtM(m, val(w.bud, m)) + '</td><td class="' + cls(dlt(w.cur, w.bud, m)) + '">' + fd(m, dlt(w.cur, w.bud, m)) +
         '</td><td>' + fmtM(m, val(w.ly, m)) + '</td><td class="' + cls(dlt(w.curL, w.ly, m)) + '">' + fd(m, dlt(w.curL, w.ly, m)) + '</td></tr>'; }).join('') + '</tbody></table>';
   }
@@ -833,11 +1095,11 @@ const SCRIPT = String.raw`
       var L = insights(bz.k, true).filter(function (x) { return bz.k === 'all' || x.k === 'res' || x.k === 'where' || x.k === 'watch'; });
       return '*' + bz.lbl + '*\n' + L.map(function (x) { return '• _' + x.lbl + ':_ ' + x.t; }).join('\n');
     }).join('\n\n');
-    var bt = this, lbl = bt.querySelector('span') || bt, orig = lbl.textContent;
-    var ok = function () { lbl.textContent = 'Copiado ✓'; setTimeout(function () { lbl.textContent = orig; }, 1800); };
+    var bt = this, ok = function () { flash(bt); };
     if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(ok, function () { fallback(t); ok(); });
     else { fallback(t); ok(); }
   }
+  function flash(bt) { bt.classList.add('ok'); var t0 = bt.title; bt.title = 'Copiado ✓'; setTimeout(function () { bt.classList.remove('ok'); bt.title = t0; }, 1600); }
   function fallback(t) {
     var ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select();
     try { document.execCommand('copy'); } catch (e) { /* nada */ }
@@ -847,8 +1109,7 @@ const SCRIPT = String.raw`
   // Link a la vista que se está mirando (semana o mes, Semanal / MTD): con un click abre esto mismo
   function copyLink() {
     var url = location.origin + location.pathname + location.search;
-    var lbl = this.querySelector('span'), orig = lbl.textContent;
-    var ok = function () { lbl.textContent = 'Link copiado ✓'; setTimeout(function () { lbl.textContent = orig; }, 1800); };
+    var bt = this, ok = function () { flash(bt); };
     if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(ok, function () { fallback(url); ok(); });
     else { fallback(url); ok(); }
   }
@@ -876,13 +1137,13 @@ const SCRIPT = String.raw`
   }
   function plain(html) { return runs(html).map(function (r) { return r.text; }).join(''); }
   function exportDeck() {
-    var bt = this, lbl = bt.querySelector('span'), orig = lbl.textContent;
-    lbl.textContent = 'Armando el deck…'; bt.disabled = true;
+    var bt = this;
+    bt.disabled = true;
     loadPptx().then(function () {
       buildDeck();
-      lbl.textContent = 'Deck descargado ✓';
-    }).catch(function (e) { alert('No se pudo armar el deck: ' + e.message); lbl.textContent = orig; })
-      .then(function () { setTimeout(function () { lbl.textContent = orig; bt.disabled = false; }, 2000); });
+      flash(bt);
+    }).catch(function (e) { alert('No se pudo armar el deck: ' + e.message); })
+      .then(function () { bt.disabled = false; });
   }
   function buildDeck() {
     var keep = sel, P = new window.PptxGenJS(), F = 'Calibri';
@@ -915,7 +1176,9 @@ const SCRIPT = String.raw`
     sel = 'all';
     var VA = view('all'), s1 = P.addSlide();
     head(s1, 'Comité ejecutivo · resumen ' + modeName(), headline(VA.T).replace(/<\/?em>/g, ''));
-    s1.addText(runs(document.querySelector('.rs-lead') ? document.querySelector('.rs-lead').innerHTML : ''), { x: 0.5, y: 1.35, w: 12.3, h: 0.6, fontFace: F, fontSize: 15, color: HX.ink2 });
+    var lead = (mode === 'm' ? 'En lo que va del mes, el' : isMo() ? 'En ' + MESL[+D.monthly.ym.substring(5, 7) - 1] + ', el' : 'El') + ' ecosistema B2B facturó <b>' + money(VA.T.cur.rev) + '</b> de Net Revenues sobre <b>' + money(VA.T.cur.gb) + '</b> de Gross Bookings: <b>' +
+      fp(pct(VA.T.cur.rev, VA.T.bud.rev)) + '</b> vs Budget y <b>' + fp(pct(VA.T.curL.rev, VA.T.ly.rev)) + '</b> vs el año pasado.';
+    s1.addText(runs(lead), { x: 0.5, y: 1.35, w: 12.3, h: 0.6, fontFace: F, fontSize: 15, color: HX.ink2 });
     kpis(s1, VA, 2.15);
     var dB = pct(VA.T.cur.fvm, VA.T.bud.fvm);
     s1.addText([{ text: 'Por negocio (NR vs Budget · FVM vs Budget)', options: { bold: true, color: HX.ink, breakLine: true } }].concat(['b2b2c', 'api', 'html'].map(function (k, i) {
@@ -992,7 +1255,16 @@ const SCRIPT = String.raw`
     if (mode === 'm') q.push('vista=mtd');
     if (isMo()) q.push('vista=mensual');
     if (exTbd) q.push('tbd=excluir');
+    if (sel !== 'b2b2c') q.push('lob=' + sel);
     try { history.replaceState(null, '', q.length ? '?' + q.join('&') : location.pathname); } catch (e) { /* nada */ }
+  }
+  function loadAcciones() {
+    if (!CFG.acc) return;
+    fetch(CFG.acc, { credentials: 'same-origin' }).then(function (x) { return x.ok ? x.json() : null; }).then(function (j) {
+      if (!j || !Array.isArray(j.items)) return;
+      ACC = j.items;
+      if (D) { root.classList.add('calm'); renderBiz(false); }
+    }).catch(function () { /* sin calendario: Para mirar sigue igual */ });
   }
   function load(r) {
     var first = !D;
@@ -1021,13 +1293,15 @@ const SCRIPT = String.raw`
   if (/[?&]vista=mensual/.test(qs)) mode = 'mo';
   var qmo = /[?&]mensual=(\d{4}-\d{2})/.exec(qs);
   if (/[?&]tbd=excluir/.test(qs)) exTbd = true;
+  var ql = /[?&]lob=(b2b2c|api|html)\b/.exec(qs); if (ql) sel = ql[1];
   load({ week: qw ? { year: +qw[1], week: +qw[2] } : null, month: qm ? qm[1] : null, mo: qmo ? qmo[1] : null });
+  loadAcciones();
 })();
 `;
 
 function resumenSemanalPage({ basePath }) {
   const back = `<a class="back" href="${escapeHtml(basePath)}/">${CHEVRON_L} B2B Ecosystem</a>`;
-  const cfg = JSON.stringify({ api: `${basePath}/api/daily/getResumenSemanal` }).replace(/</g, '\\u003c');
+  const cfg = JSON.stringify({ api: `${basePath}/api/daily/getResumenSemanal`, acc: `${basePath}/api/acciones-comerciales` }).replace(/</g, '\\u003c');
   return shell(`${CSS}<div id="rs-root" class="viz-root"></div>
     <script>window.RS_CFG = ${cfg};</script>
     <script>${SCRIPT}</script>`, { title: 'Resumen semanal · B2B Ecosystem', left: back });
