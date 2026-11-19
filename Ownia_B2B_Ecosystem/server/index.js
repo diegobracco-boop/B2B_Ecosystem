@@ -561,14 +561,26 @@ function createApp(opts = {}) {
       if (!daily) return sendJson(res, 404, { error: 'No encontrado' });
       if (needsIdentity(daily) && !identity.email) return unauthorized(res);
       if (!mayOpen(daily, identity)) return forbidden(res);
-      if (req.method === 'GET') return sendJson(res, 200, { enabled: !!resumenAgent && resumenAgent.enabled() });
+      if (req.method === 'GET') {
+        const q = new URL(req.url, 'http://x').searchParams;
+        if (!q.get('request_id')) return sendJson(res, 200, { enabled: !!resumenAgent && resumenAgent.enabled() });
+        // Respuesta de Toqan (polling): el navegador pregunta cada pocos segundos hasta que termina
+        if (!resumenAgent || !resumenAgent.poll) return sendJson(res, 503, { error: 'El agente no está disponible.' });
+        try { return sendJson(res, 200, await resumenAgent.poll({ conversationId: q.get('conversation_id'), requestId: q.get('request_id') })); } catch (e) {
+          if (!e.status || e.status >= 500) log({ level: 'error', route, error: e.stack || String(e) });
+          return sendJson(res, e.status || 500, { error: e.message || String(e) });
+        }
+      }
       if (req.method !== 'POST') return sendJson(res, 405, { error: 'Método no permitido' });
       if (!/^application\/json\s*(;|$)/i.test(String(req.headers['content-type'] || '')) || req.headers['x-requested-with'] !== 'resumen-semanal' || (req.headers['sec-fetch-site'] && req.headers['sec-fetch-site'] !== 'same-origin')) return sendJson(res, 403, { error: 'Llamada rechazada' });
       if (!resumenAgent) return sendJson(res, 503, { error: 'El agente no está disponible.' });
       let body;
       try { body = JSON.parse(await readBody(req, 64 * 1024) || '{}'); } catch (e) { if (e.status === 413) throw e; return sendJson(res, 400, { error: 'JSON inválido' }); }
       try {
-        const out = await resumenAgent.ask({ messages: body.messages, context: body.context, user: identity.email || '' });
+        const toqan = resumenAgent.provider && resumenAgent.provider() === 'toqan';
+        const out = toqan
+          ? await resumenAgent.start({ question: body.question, conversationId: body.conversationId, refresh: body.refresh === true, context: body.context, user: identity.email || '' })
+          : await resumenAgent.ask({ messages: body.messages, context: body.context, user: identity.email || '' });
         return sendJson(res, 200, out);
       } catch (e) {
         if (!e.status || e.status >= 500) log({ level: 'error', route, error: e.stack || String(e) });

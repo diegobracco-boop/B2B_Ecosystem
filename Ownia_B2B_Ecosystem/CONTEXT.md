@@ -171,10 +171,10 @@ resumen semanal" (la URL de la vista actual). El partner "TBD" del Budget se mue
 **Agente "Preguntale a Claude" del Resumen semanal (2026-11-19, Tiago):** botón ✦ en la barra de la página → consola a la
 derecha (cajón, `askToggle` en `resumen-semanal-page.js`) que contesta en lenguaje natural preguntas tipo CFO ("¿cuánto se viene
 cerrando la brecha de FVM vs Budget en B2B2C?"). `POST /api/resumen-semanal/ask` (`server/resumen-agent.js`, mismos permisos
-que el Daily y mismo anti-CSRF que el export a Slides): llama a la API de Anthropic con **una sola herramienta**,
+que el Daily y mismo anti-CSRF que el export a Slides): llama a **Toqan** (`TOQAN_API_KEY`, atada a un Agente de Toqan: se le manda el extracto en el primer mensaje y se consulta la respuesta con polling) o, sin esa clave, a la API de Anthropic con **una sola herramienta**,
 `consultar_resumen`, que ejecuta `getResumenSemanal` y devuelve un extracto en USD K (serie semanal de 13 semanas actual / Budget / LY,
 semana y mes por país, MTD, mensual, COI Brasil). Claude no lee Drive ni el repo ni escribe nada: solo ve lo que ve la página, así
-no diverge. **Requiere `ANTHROPIC_API_KEY` en APP_SECRETS** (opcional `ANTHROPIC_MODEL`, por defecto `claude-sonnet-5-5`); sin
+no diverge. **Requiere `TOQAN_API_KEY` (o `ANTHROPIC_API_KEY`) en APP_SECRETS** (opcional `ANTHROPIC_MODEL`, por defecto `claude-sonnet-5-5`); sin
 la clave la consola avisa. Límites: 4 vueltas de herramienta, 10 mensajes de historial, 20 preguntas / 10 min por usuario, 50 s.
 Las preguntas y los números del extracto salen a la API de Anthropic: confirmar con seguridad / legal antes de abrirlo a todos.
 

@@ -96,3 +96,31 @@ test('ruta /api/resumen-semanal/ask: permisos, anti-CSRF y respuesta', async () 
     assert.equal((await req('PUT', me)).status, 405);
   } finally { s.close(); }
 });
+
+test('Toqan: start manda el extracto en la primera pregunta, continúa sin él y poll devuelve la respuesta', async () => {
+  const calls = [];
+  let polls = 0;
+  const fetchFn = async (url, init) => {
+    calls.push({ url, init });
+    const ok = (j) => ({ ok: true, status: 200, json: async () => j });
+    if (url.endsWith('/create_conversation')) return ok({ conversation_id: 'c1', request_id: 'r1' });
+    if (url.endsWith('/continue_conversation')) return ok({ conversation_id: 'c1', request_id: 'r2' });
+    return ok(++polls === 1 ? { status: 'in_progress' } : { status: 'finished', answer: 'hola' });
+  };
+  const ag = createResumenAgent({ secrets: { TOQAN_API_KEY: 'sk_t' }, fetchFn, fetchData: async () => PAYLOAD });
+  assert.equal(ag.provider(), 'toqan');
+  const a = await ag.start({ question: '¿brecha FVM?', context: { week: '2026-W44' }, user: 't@despegar.com' });
+  assert.deepEqual(a, { conversationId: 'c1', requestId: 'r1', pending: true });
+  assert.equal(calls[0].url, 'https://api.toqan.ai/api/create_conversation');
+  assert.equal(calls[0].init.headers['X-Api-Key'], 'sk_t');
+  const msg = JSON.parse(calls[0].init.body).user_message;
+  assert.match(msg, /EXTRACTO DEL RESUMEN SEMANAL/);
+  assert.match(msg, /PREGUNTA: ¿brecha FVM\?/);
+  const b = await ag.start({ question: 'y en NR?', conversationId: 'c1', refresh: false, user: 't@despegar.com' });
+  assert.equal(b.requestId, 'r2');
+  assert.equal(JSON.parse(calls[1].init.body).user_message, 'y en NR?');
+  assert.deepEqual(await ag.poll({ conversationId: 'c1', requestId: 'r1' }), { pending: true });
+  assert.deepEqual(await ag.poll({ conversationId: 'c1', requestId: 'r1' }), { answer: 'hola', conversationId: 'c1' });
+  await assert.rejects(ag.poll({ conversationId: '../x', requestId: 'r1' }), (e) => e.status === 400);
+  await assert.rejects(ag.start({ question: 'x', conversationId: 'a b', user: 'u' }), (e) => e.status === 400);
+});

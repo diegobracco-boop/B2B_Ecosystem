@@ -1547,7 +1547,7 @@ const SCRIPT = String.raw`
       });
   }
   // ── Preguntale a Claude: consola a la derecha, contesta con los mismos números de la página (server/resumen-agent.js) ──
-  var askEl = null, askMsgs = [], askBusy = false;
+  var askEl = null, askMsgs = [], askBusy = false, askConv = null, askCtxKey = '';
   var ASK_SUG = [
     '¿Cuánto se viene cerrando la brecha de FVM vs Budget en B2B2C semana a semana?',
     '¿Qué países explican el desvío de NR vs Budget del mes en B2B2C?',
@@ -1628,10 +1628,21 @@ const SCRIPT = String.raw`
     askMsgs.push({ role: 'user', content: text });
     askAdd('u', esc(text).replace(/\n/g, '<br>'));
     var wait = askAdd('a', '<span class="ra-dots"><span></span><span></span><span></span></span>');
+    var ctx = askContext(), key = [ctx.week, ctx.month, ctx.mo].join('|'), refresh = !askConv || key !== askCtxKey;
+    var done = function (j) { askMsgs.push({ role: 'assistant', content: j.answer }); wait.innerHTML = askMd(j.answer); };
+    var pollAns = function (j, n) {
+      return new Promise(function (ok) { setTimeout(ok, n ? 2500 : 1500); }).then(function () {
+        if (n > 60) throw new Error('Tardó demasiado: probá de nuevo.');
+        return fetch(CFG.ask + '?conversation_id=' + encodeURIComponent(j.conversationId) + '&request_id=' + encodeURIComponent(j.requestId), { credentials: 'same-origin' })
+          .then(function (x) { return x.json().catch(function () { return {}; }).then(function (r) { if (!x.ok) throw new Error(r.error || ('HTTP ' + x.status)); return r; }); })
+          .then(function (r) { return r.pending ? pollAns(j, n + 1) : r; });
+      });
+    };
     fetch(CFG.ask, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'resumen-semanal' },
-      body: JSON.stringify({ messages: askMsgs, context: askContext() }) })
+      body: JSON.stringify({ messages: askMsgs, question: text, conversationId: askConv, refresh: refresh, context: ctx }) })
       .then(function (x) { return x.json().catch(function () { return {}; }).then(function (j) { if (!x.ok) throw new Error(j.error || ('HTTP ' + x.status)); return j; }); })
-      .then(function (j) { askMsgs.push({ role: 'assistant', content: j.answer }); wait.innerHTML = askMd(j.answer); })
+      .then(function (j) { return j.pending ? pollAns(j, 0).then(function (r) { askConv = j.conversationId; askCtxKey = key; return r; }) : j; })
+      .then(done)
       .catch(function (e) { askMsgs.pop(); wait.className = 'ra-m a err'; wait.textContent = e.message; })
       .then(function () { askBusy = false; go.disabled = false; var lg = askLog(); lg.scrollTop = lg.scrollHeight; ta.focus(); });
   }

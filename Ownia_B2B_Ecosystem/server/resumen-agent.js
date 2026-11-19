@@ -6,6 +6,7 @@
 // ejecuta getResumenSemanal del Daily —la función que arma la página— y devuelve un extracto compacto. Claude no ve el
 // repo ni Drive ni puede escribir nada: solo lee lo que esa función ya entrega, así no puede divergir de la página.
 //
+// Con TOQAN_API_KEY el modelo lo pone Toqan (start / poll); con ANTHROPIC_API_KEY, la API de Anthropic con la herramienta.
 // Límites: 4 vueltas de herramienta por pregunta, 10 mensajes de historial, 20 preguntas cada 10 min por usuario, 50 s de tope.
 const API = 'https://api.anthropic.com/v1/messages';
 const DEFAULT_MODEL = 'claude-sonnet-5-5';
@@ -15,18 +16,23 @@ const MAX_MSG_CHARS = 2000;
 const RATE_N = 20;
 const RATE_MS = 10 * 60 * 1000;
 const TIMEOUT_MS = 50000;
+const TOQAN = 'https://api.toqan.ai/api';
+const ID_RE = /^[\w-]{1,100}$/;
+const MAX_Q = 1000;
 
 const BIZ_LABEL = { b2b2c: 'B2B2C', api: 'B2B API', html: 'B2B HTML (agencias afiliadas)' };
 
 const SYSTEM = `Sos el analista del "Resumen semanal" del Ecosistema B2B de Despegar (B2B2C, B2B API y B2B HTML). Contestás en español rioplatense, a gente de dirección (CEO, CFO, Chiefs): directo, con números y la conclusión primero.
 
 Reglas:
-- Todo número sale de la herramienta consultar_resumen. Si no está en lo que devolvió, decilo; nunca inventes ni estimes cifras. Si hace falta otra semana o mes, volvé a llamar a la herramienta.
+- Todo número sale del extracto del Resumen que tenés (abajo o devuelto por la herramienta). Si no está, decilo; nunca inventes ni estimes cifras.
 - Los montos son USD nominales. GB = gross bookings, NR = net revenue, FVM = fee / valor marginal. "Brecha vs Budget" = actual − Budget (en USD) y en % sobre el Budget en valor absoluto. YoY = vs LY (misma semana ISO del año anterior). RR = Run Rate. L4W = promedio de las 4 semanas anteriores; L3M = de los 3 meses anteriores.
 - Los actuals vienen a tipo de cambio Budget (organic) salvo que el extracto diga lo contrario; mencioná si hay un aviso de datos (organic.error, monedas sin mapear).
 - Para "cómo se viene cerrando la brecha" usá la serie semanal (trend: 13 semanas con actual, Budget y LY): contá la brecha semana a semana, decí si se achica o se agranda, la tendencia y el promedio reciente. Mostrá la serie en una tabla corta.
 - Formato: Markdown simple (negritas, listas, tablas chicas). Montos en USD K o M con 1 decimal. Sin preámbulo ni cierre de cortesía. Cerrá con 1 línea de qué mirar si hay un desvío relevante.
 - Si la pregunta no se puede contestar con estos datos (otro negocio, P&L contable, causas comerciales que no están), decilo en una línea y proponé qué sí podés mostrar.`;
+
+const SYSTEM_ANTHROPIC = SYSTEM + '\n- Si hace falta otra semana o mes, volvé a llamar a la herramienta consultar_resumen.';
 
 const TOOLS = [{
   name: 'consultar_resumen',
@@ -97,7 +103,9 @@ function createResumenAgent({ secrets, fetchData, fetchFn, log = () => {} }) {
   const doFetch = fetchFn || ((...a) => fetch(...a));
   const hits = new Map();   // usuario -> marcas de tiempo
   const cfg = () => (typeof secrets === 'function' ? secrets() : secrets) || {};
-  const enabled = () => !!cfg().ANTHROPIC_API_KEY;
+  // Toqan (TOQAN_API_KEY, atada a un Agente de Toqan) tiene prioridad; si no, Anthropic directo (ANTHROPIC_API_KEY).
+  const provider = () => (cfg().TOQAN_API_KEY ? 'toqan' : cfg().ANTHROPIC_API_KEY ? 'anthropic' : '');
+  const enabled = () => !!provider();
 
   function allow(user) {
     const now = Date.now(), arr = (hits.get(user) || []).filter((t) => now - t < RATE_MS);
@@ -113,15 +121,59 @@ function createResumenAgent({ secrets, fetchData, fetchFn, log = () => {} }) {
     return j;
   }
 
+
+  async function toqanCall(path, init) {
+    const ac = new AbortController(), t = setTimeout(() => ac.abort(), 20000);
+    try {
+      const r = await doFetch(TOQAN + path, { ...init, signal: ac.signal, headers: { 'content-type': 'application/json', 'X-Api-Key': cfg().TOQAN_API_KEY } });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw Object.assign(new Error((j && j.message) || (typeof j === 'string' ? j : '') || `Toqan HTTP ${r.status}`), { status: r.status === 429 ? 429 : 502 });
+      return j;
+    } catch (e) {
+      if (e.name === 'AbortError') throw Object.assign(new Error('Toqan no respondió a tiempo.'), { status: 504 });
+      throw e;
+    } finally { clearTimeout(t); }
+  }
+
+  // Toqan no tiene herramientas ni historial propio acá: se le manda el extracto en el primer mensaje (y cuando cambia la vista
+  // abierta) y se sigue la conversación con continue_conversation. Devuelve ids; la respuesta se pide con poll() (el edge corta a ~60 s).
+  async function start({ question, conversationId, refresh, context, user }) {
+    const q = typeof question === 'string' ? question.trim().slice(0, MAX_Q) : '';
+    if (!q) throw Object.assign(new Error('Falta la pregunta.'), { status: 400 });
+    if (conversationId != null && !ID_RE.test(String(conversationId))) throw Object.assign(new Error('Conversación inválida.'), { status: 400 });
+    if (!allow(user || '?')) throw Object.assign(new Error('Demasiadas preguntas seguidas: probá de nuevo en unos minutos.'), { status: 429 });
+    let message = q;
+    if (refresh || !conversationId) {
+      const c = context && typeof context === 'object' ? context : {};
+      const res = await fetchData(paramsFrom({ semana: c.week, mes_mtd: c.month, mes_cerrado: c.mo }));
+      if (!res || !res.success) throw Object.assign(new Error('No se pudieron leer los datos del Resumen: ' + ((res && res.error) || 'sin datos')), { status: 502 });
+      message = SYSTEM + '\n\nEXTRACTO DEL RESUMEN SEMANAL (JSON, USD miles; es la única fuente de datos):\n' + JSON.stringify(digest(res)) + '\n\nPREGUNTA: ' + q;
+    }
+    const j = conversationId
+      ? await toqanCall('/continue_conversation', { method: 'POST', body: JSON.stringify({ conversation_id: String(conversationId), user_message: message }) })
+      : await toqanCall('/create_conversation', { method: 'POST', body: JSON.stringify({ user_message: message }) });
+    log({ level: 'info', msg: 'resumen-agent toqan', user, chars: message.length, refresh: !!(refresh || !conversationId) });
+    return { conversationId: j.conversation_id, requestId: j.request_id, pending: true };
+  }
+
+  async function poll({ conversationId, requestId }) {
+    if (!ID_RE.test(String(conversationId || '')) || !ID_RE.test(String(requestId || ''))) throw Object.assign(new Error('Consulta inválida.'), { status: 400 });
+    const j = await toqanCall(`/get_answer?conversation_id=${encodeURIComponent(conversationId)}&request_id=${encodeURIComponent(requestId)}`, { method: 'GET' });
+    if (j.status === 'finished') return { answer: String(j.answer || '').trim() || 'No pude armar una respuesta.', conversationId };
+    if (j.status === 'error') throw Object.assign(new Error('Toqan no pudo contestar: probá de nuevo.'), { status: 502 });
+    return { pending: true };
+  }
+
   // context: { view, week, month, mo, lob } = lo que la persona tiene abierto en la página (solo orienta; los datos salen de la herramienta)
   async function ask({ messages, context, user }) {
-    if (!enabled()) throw Object.assign(new Error('El agente no está configurado (falta ANTHROPIC_API_KEY en los secrets de la app).'), { status: 503 });
+    if (!enabled()) throw Object.assign(new Error('El agente no está configurado (falta TOQAN_API_KEY o ANTHROPIC_API_KEY en los secrets de la app).'), { status: 503 });
+    if (provider() !== 'anthropic') throw Object.assign(new Error('Este agente usa Toqan: usar start / poll.'), { status: 500 });
     const msgs = cleanMessages(messages);
     if (!msgs.length || msgs[msgs.length - 1].role !== 'user') throw Object.assign(new Error('Falta la pregunta.'), { status: 400 });
     if (!allow(user || '?')) throw Object.assign(new Error('Demasiadas preguntas seguidas: probá de nuevo en unos minutos.'), { status: 429 });
 
     const ctx = context && typeof context === 'object' ? context : {};
-    const system = SYSTEM + `\n\nLa persona tiene abierta la página en: ${['vista', 'semana', 'mes', 'mensual', 'negocio'].map((n, i) => { const v = ctx[['view', 'week', 'month', 'mo', 'lob'][i]]; return v ? `${n} ${String(v).slice(0, 20)}` : ''; }).filter(Boolean).join(', ') || 'la última semana cerrada'}. Hoy es ${new Date().toISOString().slice(0, 10)}.`;
+    const system = SYSTEM_ANTHROPIC + `\n\nLa persona tiene abierta la página en: ${['vista', 'semana', 'mes', 'mensual', 'negocio'].map((n, i) => { const v = ctx[['view', 'week', 'month', 'mo', 'lob'][i]]; return v ? `${n} ${String(v).slice(0, 20)}` : ''; }).filter(Boolean).join(', ') || 'la última semana cerrada'}. Hoy es ${new Date().toISOString().slice(0, 10)}.`;
     const ac = new AbortController(), timer = setTimeout(() => ac.abort(), TIMEOUT_MS);
     const convo = msgs.map((m) => ({ role: m.role, content: m.content }));
     const used = [];
@@ -155,7 +207,7 @@ function createResumenAgent({ secrets, fetchData, fetchFn, log = () => {} }) {
     } finally { clearTimeout(timer); }
   }
 
-  return { ask, enabled };
+  return { ask, start, poll, enabled, provider };
 }
 
 module.exports = { createResumenAgent, digest, paramsFrom, cleanMessages };
