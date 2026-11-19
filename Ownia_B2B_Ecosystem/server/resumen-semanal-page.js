@@ -407,7 +407,7 @@ const SCRIPT = String.raw`
   function z() { return { gb: 0, rev: 0, fvm: 0 }; }
   function add(a, b) { a.gb += b.gb || 0; a.rev += b.rev || 0; a.fvm += b.fvm || 0; return a; }
   function tot(byPais) { var t = z(); Object.keys(byPais || {}).forEach(function (p) { add(t, byPais[p]); }); return t; }
-  function pct(a, b) { return b ? (a / b - 1) * 100 : null; }
+  function pct(a, b) { return b ? (a - b) / Math.abs(b) * 100 : null; }   // sobre |b|, como el Daily (vsLY_): con base negativa no da vuelta el signo
   function share(v) { return v.gb ? v.fvm / v.gb * 100 : null; }
   function val(o, m) { return m === 'sh' ? share(o) : o[m]; }
   function dlt(a, b, m) { var x = val(a, m), y = val(b, m); return x == null || y == null ? null : m === 'sh' ? x - y : pct(x, y); }
