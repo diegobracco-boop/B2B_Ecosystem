@@ -329,6 +329,34 @@ function getResumenSemanal(params) {
       };
     });
 
+    // COI Brasil (2026-11-19, auditoría del Resumen vs Daily): con el switch COI en Incluir (el de siempre) las filas RG no
+    // cuentan, y el FVM de Brasil real y de Budget ya trae el costo de cuotas. Para explicar el desvío de FVM de Brasil se
+    // manda el COI del período (real y Budget, en positivo = costo): RG lleva ese costo con signo contrario. Actuals a TC
+    // Budget de Brasil, como el resto. Con el switch en Excluir ya está dentro del FVM (país RG) y no hace falta.
+    if (!_wsExCoiBr_) {
+      var prevCoi = _wsExCoiBr_;
+      try {
+        _wsSetExCoiBr_({ exCoiBr: true });
+        BIZ.forEach(function (b) {
+          var rgA = (_wsByChannel_(_wsGetActuals_(b.lob, view, b2bcRaw, b2bRaw), b.ch) || []).filter(function (r) { return r.pais === 'RG'; });
+          var rgB = (_wsByChannel_(_wsGetBudget_(b.lob, view, b2bcRaw, b2bRaw), b.ch) || []).filter(function (r) { return r.pais === 'RG'; });
+          var o = { w: { cur: 0, bud: 0 }, m: { cur: 0, bud: 0 }, mo: { cur: 0, bud: 0 } };
+          var rng = { w: [wFrom, wTo], m: [mFrom, mTo], mo: [moFrom, moEnd] };
+          var put = function (rows, sc, isAct) {
+            rows.forEach(function (r) {
+              var f = String(r.fecha || '').substring(0, 10), v = r.fvm || 0;
+              if (isAct && convB) v *= convB.f('Brasil', f.substring(0, 7));
+              Object.keys(rng).forEach(function (k) { if (f >= rng[k][0] && f <= rng[k][1]) o[k][sc] += v; });
+            });
+          };
+          put(rgA, 'cur', true); put(rgB, 'bud', false);
+          Object.keys(o).forEach(function (k) { o[k].cur = Math.round(o[k].cur); o[k].bud = Math.round(o[k].bud); });
+          biz[b.k].coi = o;
+        });
+      } catch (eCoi) { /* sin el dato de COI: el desvío de Brasil queda sin esa línea */ }
+      _wsSetExCoiBr_({ exCoiBr: prevCoi });
+    }
+
     return {
       success: true,
       week: { year: last.year, week: last.week, from: last.from, to: to.toISOString().substring(0, 10) },

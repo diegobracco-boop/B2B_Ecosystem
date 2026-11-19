@@ -922,8 +922,11 @@ const SCRIPT = String.raw`
   // ── Para mirar por región (2026-11-19): Hispa (todo lo que no es Brasil ni México), Brasil y México, ordenadas por
   // impacto en FVM vs Budget. Cada región: su desvío de FVM, una línea que lo explica y los partners principales que
   // restan (en B2B, los países de Hispa), con la acción comercial del período.
-  var REG = [{ k: 'hispa', n: 'Hispa' }, { k: 'br', n: 'Brasil' }, { k: 'mx', n: 'México' }];
-  function regOf(pais) { return pais === 'Brasil' || pais === 'RG' ? 'br' : pais === 'Mexico' ? 'mx' : 'hispa'; }
+  // Mismas regiones que el Weekly del Daily (WS_HISPA / WS_GROUPS en Daily_Dashboard/Codigo.js): Hispa = Argentina, Colombia,
+  // Chile, Perú y Ecuador; Globales = el resto (USA, Uruguay, Otros países…). Así cada región concilia con el Daily.
+  var HISPA = ['Argentina', 'Colombia', 'Chile', 'Peru', 'Ecuador'];
+  var REG = [{ k: 'hispa', n: 'Hispa' }, { k: 'br', n: 'Brasil' }, { k: 'mx', n: 'México' }, { k: 'glob', n: 'Globales' }];
+  function regOf(pais) { return pais === 'Brasil' || pais === 'RG' ? 'br' : pais === 'Mexico' ? 'mx' : HISPA.indexOf(pais) >= 0 ? 'hispa' : 'glob'; }
   function regionData(V) {
     var R = {};
     REG.forEach(function (r) { R[r.k] = { k: r.k, n: r.n, cur: z(), bud: z(), paises: [], tbd: 0, tbdR: 0, parts: {} }; });
@@ -957,8 +960,21 @@ const SCRIPT = String.raw`
     if (!exTbd && o.tbd < 0) c.push({ t: 'partners nuevos sin firmar (FVM ' + sgnMoney(o.tbd) + ' · NR ' + sgnMoney(o.tbdR) + ')', d: o.tbd });
     c = c.filter(function (x) { return x.d < 0 && Math.abs(x.d) >= base * 0.1; }).sort(function (a, b) { return a.d - b.d; }).slice(0, 2);
     var who = c.length ? (o.d < 0 ? 'Lo explican ' : 'Restan ') + joinY(c.map(function (x) { return x.t; })) + '. ' : (o.d < 0 ? 'Desvío repartido, sin un partner que lo explique solo. ' : '');
-    return (o.d < 0 ? '' : '<b>Arriba del Budget en FVM.</b> ') + who + 'GB ' + fp(pg) + ' vs Budget.';
+    return (o.d < 0 ? '' : '<b>Arriba del Budget en FVM.</b> ') + who + coiTxt(o) + 'GB ' + fp(pg) + ' vs Budget.';
   }
+  // COI Brasil (costo de cuotas): el FVM de Brasil ya lo descuenta, real y Budget. Si el real se aleja del Budget, explica
+  // buena parte del desvío de FVM de Brasil (2026-11-19, auditoría vs Daily: W46 FVM +70% = COI $115K vs $210K de Budget).
+  function coiTxt(o) {
+    if (o.k !== 'br') return '';
+    var key = mode === 'w' ? 'w' : mode === 'm' ? 'm' : 'mo', c = { cur: 0, bud: 0 }, any = false;
+    V_KEYS().forEach(function (bk) { var x = D.biz[bk].coi && D.biz[bk].coi[key]; if (x) { c.cur += x.cur; c.bud += x.bud; any = true; } });
+    if (!any || (!c.cur && !c.bud)) return '';
+    var eff = c.bud - c.cur;   // menos costo que el presupuestado = más FVM
+    if (Math.abs(eff) < Math.max(Math.abs(o.d) * 0.1, 1)) return '';
+    var exP = pct(o.cur.fvm + c.cur, o.bud.fvm + c.bud);
+    return 'COI Brasil (costo de cuotas) <b>' + money(c.cur) + '</b> vs ' + money(c.bud) + ' de Budget: <b class="' + cls(eff) + '">' + sgnMoney(eff) + '</b> de FVM; sin COI, FVM ' + fp(exP) + ' vs Budget. ';
+  }
+  function V_KEYS() { return sel === 'all' ? ['b2b2c', 'api', 'html'] : [sel]; }
   // Eventos de industria del Daily (solapa Industry events) que tocan el período, por LoB
   var EVT = null;
   function periodRange() { return mode === 'w' ? [D.week.from, D.week.to] : mode === 'm' ? [D.month.from, D.month.to] : [D.monthly.from, D.monthly.to]; }
@@ -974,7 +990,7 @@ const SCRIPT = String.raw`
   }
   // Acciones comerciales del calendario en los países de la región y el período: campaña → semanas y partners
   function regionActions(paises) {
-    if (!ACC) return [];
+    if (!ACC || sel !== 'b2b2c') return [];   // el calendario es de Marketing B2B2C (White Labels)
     var W = periodWeeks(), by = {};
     ACC.filter(function (it) { return paises.indexOf(it.pais) >= 0 && W.indexOf(it.year + '-' + it.week) >= 0; }).forEach(function (it) {
       var k = nrm(it.name).replace(/\s+/g, ' ').trim(), o = by[k] = by[k] || { name: it.name, weeks: [], ps: [], brief: it.brief };
@@ -995,7 +1011,7 @@ const SCRIPT = String.raw`
       var who = a.ps.length > 3 ? a.ps.slice(0, 3).join(', ') + ' +' + (a.ps.length - 3) : a.ps.join(', ');
       parts.push('<span class="ev ac" title="' + esc(a.name + ' (' + wkLbl(a.weeks) + '): ' + a.ps.join(', ') + (a.brief ? ' · ' + a.brief : '')) + '">' + MEGA + '<b>' + esc(a.name) + '</b> ' + wkLbl(a.weeks) + ' · ' + esc(who) + '</span>');
     });
-    if (!parts.length && ACC) parts.push('<span class="ev none">' + MEGA + 'Sin acción comercial ni evento ' + esc(periodo()) + '</span>');
+    if (!parts.length && (sel === 'b2b2c' ? ACC : EVT)) parts.push('<span class="ev none">' + MEGA + 'Sin acción comercial ni evento ' + esc(periodo()) + '</span>');
     return parts.length ? '<div class="rs-ev">' + parts.join('') + '</div>' : '';
   }
   function watchCard(V) {
@@ -1004,7 +1020,7 @@ const SCRIPT = String.raw`
     var body = RD.map(function (o, ri) {
       var pf = pct(o.cur.fvm, o.bud.fvm), sev = o.d >= 0 ? 'g' : (pf != null && pf > -5 ? 'a' : 'r');
       var maxN = o.k === 'hispa' ? 3 : 2;
-      var head = '<div class="rs-rg ' + sev + '"><span class="sev"></span><div class="nm">' + esc(o.n) + (o.k === 'hispa' && o.paises.length ? '<small>' + esc(o.paises.map(cname).join(', ')) + '</small>' : '') + '</div>' +
+      var head = '<div class="rs-rg ' + sev + '"><span class="sev"></span><div class="nm">' + esc(o.n) + ((o.k === 'hispa' || o.k === 'glob') && o.paises.length ? '<small>' + esc(o.paises.map(cname).join(', ')) + '</small>' : '') + '</div>' +
         '<div class="kv"><span class="k">FVM</span>' + dd(o.cur, o.bud, 'fvm') + '<span class="k">NR</span>' + dd(o.cur, o.bud, 'rev') + '</div>' +
         '<p class="why">' + regionExplain(o) + '</p>' + regionEvHtml(o) + '</div>';
       var rows = o.list.slice(0, maxN).map(function (g, ix) {
