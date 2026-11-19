@@ -957,7 +957,7 @@ const SCRIPT = String.raw`
         .filter(function (g) { var pp = pct(g.cur.fvm, g.bud.fvm); return g.d < 0 && (pp == null || pp <= -3) && Math.abs(g.d) >= Math.max(Math.abs(o.d), Math.abs(o.bud.fvm) * 0.02) * 0.08; })
         .sort(function (a, b) { return a.d - b.d; });
       return o;
-    }).filter(function (o) { return o.cur.gb || o.bud.gb; }).sort(function (a, b) { return a.d - b.d; });
+    }).filter(function (o) { return o.k !== 'glob' && (o.cur.gb || o.bud.gb); }).sort(function (a, b) { return Math.abs(b.d) - Math.abs(a.d); });   // solo Hispa, Brasil y México; el mayor desvío (en valor absoluto) primero
   }
   // Una línea: quién explica el desvío de la región (partners o TBD que pesan ≥10% del desvío) y el GB
   // Δ$ y Δ% vs Budget de una métrica: "−$76K −93%"
