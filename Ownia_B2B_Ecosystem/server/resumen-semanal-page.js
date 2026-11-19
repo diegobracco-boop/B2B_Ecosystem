@@ -147,6 +147,13 @@ const CSS = `<style>
   .rs-bul-sub { margin-top: 4px; font-size: 12.5px; color: var(--text-3); }
   .rs-bul { margin-top: 14px; display: grid; gap: 2px; }
   .rs-bul .row { display: grid; grid-template-columns: 112px 1fr 76px 62px; align-items: center; gap: 12px; padding: 7px 0; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+  .rs-bul .row.duo { grid-template-columns: 96px minmax(0,1fr) 54px 58px minmax(0,1fr) 54px 58px; gap: 10px; }
+  .rs-bul .row.duo.tot .tb { grid-column: auto; }
+  .rs-bul-hd { display: grid; grid-template-columns: 96px minmax(0,1fr) 54px 58px minmax(0,1fr) 54px 58px; gap: 10px; margin-top: 12px; font-size: 11px; letter-spacing: .06em; color: var(--text-3); }
+  .rs-bul-hd b { font-weight: 600; }
+  .rs-bul-hd b:nth-child(2) { grid-column: 2 / 5; }
+  .rs-bul-hd b:nth-child(3) { grid-column: 5 / 8; }
+  .rs-bul .row.sub { grid-template-columns: 112px 1fr 76px 62px; }
   .rs-bul .nm { color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .rs-bul .trk { position: relative; height: 10px; border-radius: 999px; background: var(--tile-hover); }
   .rs-bul .fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; width: 0; transition: width 1s var(--ease); }
@@ -215,6 +222,9 @@ const CSS = `<style>
   @media (max-width: 560px) {
     .c-kpi { grid-column: span 12; }
     .rs-bul .row { grid-template-columns: 84px 1fr 62px; } .rs-bul .row .chip { display: none; }
+    .rs-bul .row.duo { grid-template-columns: 70px minmax(0,1fr) 46px minmax(0,1fr) 46px; gap: 6px; }
+    .rs-bul-hd { grid-template-columns: 70px minmax(0,1fr) 46px minmax(0,1fr) 46px; gap: 6px; }
+    .rs-bul-hd b:nth-child(2) { grid-column: 2 / 4; } .rs-bul-hd b:nth-child(3) { grid-column: 4 / 6; }
     .rs-mode button { padding: 6px 14px; }
     .rs-tabs button { padding: 7px 11px; font-size: 13px; }
   }
@@ -1132,14 +1142,21 @@ const SCRIPT = String.raw`
   }
   function bulCard(V) {
     var m = 'rev', BR = bulRows(V), rows = BR.rows, more = BR.more;
-    var mx = 0; rows.forEach(function (r) { mx = Math.max(mx, r.c.rev || 0, r.b.rev || 0); }); mx = mx * 1.04 || 1;
+    // Cada fila se parte en dos barras a lo ancho: FVM y NR, cada una con su escala y su marca de Budget
+    var MX = { fvm: 0, rev: 0 };
+    rows.forEach(function (r) { ['fvm', 'rev'].forEach(function (k) { MX[k] = Math.max(MX[k], r.c[k] || 0, r.b[k] || 0); }); });
+    ['fvm', 'rev'].forEach(function (k) { MX[k] = MX[k] * 1.04 || 1; });
+    function half(r, k, lbl) {
+      var c = r.c[k], b = r.b[k], d = pct(c, b), s = state(d) || 'g';
+      return '<span class="trk" role="img" aria-label="' + esc(r.n) + ' ' + lbl + ': ' + money(c) + ' contra ' + money(b) + ' de Budget">' +
+        '<span class="fill ' + s + '" data-w="' + (Math.max(0, c || 0) / MX[k] * 100).toFixed(1) + '"></span><span class="tick" style="left:' + (Math.max(0, b || 0) / MX[k] * 100).toFixed(1) + '%"></span></span>' +
+        '<span class="val">' + money(c) + '</span>' + chip(d, k);
+    }
     function row(r, cl, ix) {
-      var c = r.c.rev, b = r.b.rev, d = pct(c, b), s = state(d) || 'g';
-      return '<div class="row' + (cl ? ' ' + cl : '') + '"' + (cl ? '' : ' data-pr="' + (10 + ix) + '"') + '><span class="nm" title="' + esc(r.n) + '">' + esc(r.n) + '</span>' +
-        (cl ? '<span class="rs-bul-sub" style="margin:0">' + money(b) + ' de Budget</span>' :
-          '<span class="trk" role="img" aria-label="' + esc(r.n) + ': ' + money(c) + ' contra ' + money(b) + ' de Budget">' +
-          '<span class="fill ' + s + '" data-w="' + (Math.max(0, c || 0) / mx * 100).toFixed(1) + '"></span><span class="tick" style="left:' + (Math.max(0, b || 0) / mx * 100).toFixed(1) + '%"></span></span>') +
-        '<span class="val">' + money(c) + '</span>' + chip(d, m) + '</div>';
+      return '<div class="row duo' + (cl ? ' ' + cl : '') + '"' + (cl ? '' : ' data-pr="' + (10 + ix) + '"') + '><span class="nm" title="' + esc(r.n) + '">' + esc(r.n) + '</span>' +
+        (cl ? '<span class="rs-bul-sub tb" style="margin:0">' + money(r.b.fvm) + ' de Budget</span><span class="val">' + money(r.c.fvm) + '</span>' + chip(pct(r.c.fvm, r.b.fvm), 'fvm') +
+              '<span class="rs-bul-sub tb" style="margin:0">' + money(r.b.rev) + ' de Budget</span><span class="val">' + money(r.c.rev) + '</span>' + chip(pct(r.c.rev, r.b.rev), 'rev') :
+          half(r, 'fvm', 'FVM') + half(r, 'rev', 'NR')) + '</div>';
     }
     function sub(g) {
       var p = pct(g.cur.rev, g.bud.rev);
@@ -1150,8 +1167,8 @@ const SCRIPT = String.raw`
     var subTxt = 'Net Revenues ' + (mode !== 'w' ? periodo() : 'de la semana ' + D.week.week) + ' · la marca es el Budget' +
       (V.units.some(function (u) { return u.part; }) ? ' · debajo, los partners que explican el desvío' : '') + (more ? ' · ' + more + ' más en Tablas' : '') +
       (exTbd && tbdGap(V) ? ' · sin partners nuevos (TBD, ' + sgnMoney(tbdGap(V)) + ')' : '');
-    return '<section class="rs-card c-bul rs-in" style="--d:220ms" aria-labelledby="rs-bul-h"><h2 id="rs-bul-h">Dónde se explica · NR por país</h2>' +
-      '<p class="rs-bul-sub">' + esc(subTxt) + '</p><div class="rs-bul" data-fit>' + body + '</div></section>';
+    return '<section class="rs-card c-bul rs-in" style="--d:220ms" aria-labelledby="rs-bul-h"><h2 id="rs-bul-h">Dónde se explica · FVM y NR por país</h2>' +
+      '<p class="rs-bul-sub">' + esc(subTxt) + '</p><div class="rs-bul-hd"><span></span><b>FVM</b><b>NR</b></div><div class="rs-bul" data-fit>' + body + '</div></section>';
   }
 
   function countryTable(V) {
