@@ -119,6 +119,18 @@
     flex-wrap: wrap;
   }
   .filter-group { display: flex; align-items: center; gap: 8px; }
+  /* Switch "Países API: Todos por separado" (canal API) */
+  .api-all-sw { display:inline-flex; align-items:center; gap:7px; padding:4px 10px 4px 4px; border:1px solid #d1d5db;
+    border-radius:999px; background:#fff; color:#374151; font-size:12px; cursor:pointer; white-space:nowrap; }
+  .api-all-knob { width:28px; height:16px; border-radius:999px; background:#d1d5db; position:relative; transition:background .15s; flex:none; }
+  .api-all-knob::after { content:''; position:absolute; top:2px; left:2px; width:12px; height:12px; border-radius:50%; background:#fff; transition:left .15s; }
+  .api-all-sw[aria-pressed="true"] { border-color:#550FED; color:#550FED; font-weight:600; }
+  .api-all-sw[aria-pressed="true"] .api-all-knob { background:#550FED; }
+  .api-all-sw[aria-pressed="true"] .api-all-knob::after { left:14px; }
+  .api-all-pwd { display:inline-flex; align-items:center; gap:4px; }
+  .api-all-pwd input { width:120px; padding:4px 8px; border:1px solid #d1d5db; border-radius:6px; font-size:12px; }
+  .api-all-pwd button { padding:4px 8px; border:1px solid #d1d5db; border-radius:6px; background:#fff; font-size:12px; cursor:pointer; }
+  .api-all-err { font-size:11px; color:#dc2626; }
   .filter-group label { font-size: 10px; color: #9ca3af; font-weight: 700; white-space: nowrap; text-transform: uppercase; letter-spacing: 0.8px; }
   .filter-group select {
     background: #f9fafb;
@@ -1192,6 +1204,20 @@
       <option value="Agencias afiliadas">Agencias afiliadas</option>
     </select>
   </div>
+  <!-- Canal API: switch para abrir ROW+Colombia en todos los países por separado (con contraseña) -->
+  <div class="filter-group" id="filterGroupApiAll" style="display:none">
+    <label>Países API</label>
+    <button type="button" class="api-all-sw" id="apiAllToggle" aria-pressed="false"
+            title="Canal API: abre ROW+Colombia en Colombia, Chile, Peru, Ecuador, Uruguay y Paraguay (pide contraseña)">
+      <span class="api-all-knob"></span><span class="api-all-lbl">Todos por separado</span>
+    </button>
+    <span id="apiAllPwdBox" class="api-all-pwd" style="display:none">
+      <input type="password" id="apiAllPwdInput" placeholder="Contraseña" autocomplete="off">
+      <button type="button" id="apiAllPwdOk">OK</button>
+      <button type="button" id="apiAllPwdCancel" title="Cancelar">✕</button>
+      <span id="apiAllPwdErr" class="api-all-err"></span>
+    </span>
+  </div>
   <div class="filter-group" id="filterGroupProduct">
     <label>Producto</label>
     <div class="ms-dropdown" id="productDropdown">
@@ -1555,18 +1581,42 @@ const MARKET_GROUPS_API = {
   'CORE_MARKETS': ['Brasil', 'Mexico', 'Globales'],
   'NEW_MARKETS':  ['Argentina', 'ROW+Colombia']
 };
+// Switch "Países API: Todos por separado" (2026-11-19, pedido de antonella.difranco): en canal API abre ROW+Colombia en
+// cada país (Colombia, Chile, Peru, Ecuador, Uruguay, Paraguay). Prenderlo pide contraseña; arranca apagado en cada carga.
+const COUNTRY_GROUPS_API_ALL = {
+  'Globales':  ['Other Countries'],
+  'Brasil':    ['Brasil', 'RG'],
+  'Mexico':    ['Mexico'],
+  'Argentina': ['Argentina'],
+  'Colombia':  ['Colombia'],
+  'Chile':     ['Chile'],
+  'Peru':      ['Peru'],
+  'Ecuador':   ['Ecuador'],
+  'Uruguay':   ['Uruguay'],
+  'Paraguay':  ['Paraguay'],
+};
+const MARKET_GROUPS_API_ALL = {
+  'CORE_MARKETS': ['Brasil', 'Mexico', 'Globales'],
+  'NEW_MARKETS':  ['Argentina', 'Colombia', 'Chile', 'Peru', 'Ecuador', 'Uruguay', 'Paraguay']
+};
 let COUNTRY_GROUPS = COUNTRY_GROUPS_OLD;
 let MARKET_GROUPS  = MARKET_GROUPS_OLD;
-var _groupsApi = false;
+var _groupsMode = 'old';         // 'old' (HTML / Total) | 'api' (ROW+Colombia) | 'api_all' (API, todos por separado)
+var _apiAllCountries = false;    // estado del switch
 var COUNTRY_BTNS_OLD = ['Brasil','Mexico','Colombia','Argentina','Globales','ROW','Chile','Peru','Ecuador','Uruguay','Paraguay'];
 var COUNTRY_BTNS_API = ['Globales','Brasil','Mexico','Argentina','ROW+Colombia'];
-// Elige la agrupación según el canal ('API' = nueva; HTML / Total = la de siempre) y rehace los botones de País.
+var COUNTRY_BTNS_API_ALL = Object.keys(COUNTRY_GROUPS_API_ALL);
+// Elige la agrupación según el canal ('API' = nueva, o todos por separado con el switch; HTML / Total = la de siempre)
+// y rehace los botones de País.
 function applyGrouping_(channel) {
-  var api = channel === 'API';
-  if (api === _groupsApi) return;
-  _groupsApi = api;
-  COUNTRY_GROUPS = api ? COUNTRY_GROUPS_API : COUNTRY_GROUPS_OLD;
-  MARKET_GROUPS  = api ? MARKET_GROUPS_API  : MARKET_GROUPS_OLD;
+  var mode = channel === 'API' ? (_apiAllCountries ? 'api_all' : 'api') : 'old';
+  if (mode === _groupsMode) return;
+  _groupsMode = mode;
+  var api = mode !== 'old';
+  COUNTRY_GROUPS = mode === 'api_all' ? COUNTRY_GROUPS_API_ALL : api ? COUNTRY_GROUPS_API : COUNTRY_GROUPS_OLD;
+  MARKET_GROUPS  = mode === 'api_all' ? MARKET_GROUPS_API_ALL  : api ? MARKET_GROUPS_API  : MARKET_GROUPS_OLD;
+  // países que aparecen por primera vez como fila (switch prendido): abiertos, como Brasil / Mexico al iniciar
+  if (mode === 'api_all') COUNTRY_BTNS_API_ALL.forEach(function(g){ if (collapseState[g] === undefined) collapseState[g] = false; });
   // una selección de país que no existe en esta agrupación se descarta
   activeCountries = activeCountries.filter(function(k){ return COUNTRY_GROUPS[k] || MARKET_GROUPS[k]; });
   var bar = document.getElementById('countryFilterBar');
@@ -1574,7 +1624,7 @@ function applyGrouping_(channel) {
   var seps = bar.querySelectorAll('.country-sep-bar');
   var last = seps[seps.length - 1];
   while (last && last.nextElementSibling) last.nextElementSibling.remove();
-  (api ? COUNTRY_BTNS_API : COUNTRY_BTNS_OLD).forEach(function(k) {
+  (mode === 'api_all' ? COUNTRY_BTNS_API_ALL : api ? COUNTRY_BTNS_API : COUNTRY_BTNS_OLD).forEach(function(k) {
     var b = document.createElement('button');
     b.className = 'country-btn'; b.dataset.country = k; b.textContent = k;
     b.addEventListener('click', onCountryBtn_);
@@ -3334,6 +3384,10 @@ var FVM_DETAIL_API = [
   { name: 'Argentina',    pais: ['Argentina'] },
   { name: 'ROW+Colombia', pais: ['Colombia', 'Peru', 'Ecuador', 'Chile', 'Uruguay', 'Paraguay'] }
 ];
+// Con el switch "Países API: Todos por separado", ROW+Colombia se abre en cada país.
+var FVM_DETAIL_API_ALL = FVM_DETAIL_API.slice(0, 4).concat(
+  ['Colombia', 'Chile', 'Peru', 'Ecuador', 'Uruguay', 'Paraguay'].map(function(p){ return { name: p, pais: [p] }; }));
+function fvmDetailApi_() { return _apiAllCountries ? FVM_DETAIL_API_ALL : FVM_DETAIL_API; }
 
 function renderKRDetailBoxes(monthFilter) {
   var grid = document.getElementById('statusKRsDetailGrid');
@@ -4081,7 +4135,7 @@ function renderStatusKRsH2DetailBoxes_(monthFilter) {
   }
 
   function rowsFor(metricField, predAct, predBud, dateType, defs) {
-    return (defs || (krH2Channel === 'api' ? FVM_DETAIL_API : FVM_DETAIL)).map(function(def){
+    return (defs || (krH2Channel === 'api' ? fvmDetailApi_() : FVM_DETAIL)).map(function(def){
       var d = computeKRH2ForPaisList_(def.pais, metricField, predAct, predBud, monthFilter, dateType);
       return { name: def.name, actual: toM(d.actual), actualY: d.actualY != null ? toM(d.actualY) : null, budget: toM(d.budget), ly: toM(d.ly) };
     });
@@ -4116,7 +4170,7 @@ function renderStatusKRsH2DetailBoxes_(monthFilter) {
   }
 
   addBox(grid, 'Net Revenues $M' + chLbl, 'net_revenue', chPred, chPred);
-  if (krH2Channel !== 'html') addBox(grid, 'API FVM $K',  'fvm', isAPI,  isAPI,  '$Kint', toK, false, FVM_DETAIL_API);
+  if (krH2Channel !== 'html') addBox(grid, 'API FVM $K',  'fvm', isAPI,  isAPI,  '$Kint', toK, false, fvmDetailApi_());
   if (krH2Channel !== 'api')  addBox(grid, 'HTML FVM $K', 'fvm', isHTML, isHTML, '$Kint', toK);
   if (krH2Channel === 'api') {
     // En API, New Products se abre en Flights y Dest. Serv. (uno abajo del otro), solo con los países que
@@ -4533,7 +4587,7 @@ function globalesNrDetailBox_(ym) {
   var b = getPeriodBounds(ym, rawData.meta);
   if (b.cutoff < b.from) return '';   // mes futuro
   var isApiHotel = isApiHotelRow_;
-  var defs = FVM_DETAIL_API.map(function(d){ return { name: d.name, pais: d.pais.map(function(x){ return x.toLowerCase(); }), act: 0, actY: 0, bud: 0, ly: 0 }; });
+  var defs = fvmDetailApi_().map(function(d){ return { name: d.name, pais: d.pais.map(function(x){ return x.toLowerCase(); }), act: 0, actY: 0, bud: 0, ly: 0 }; });
   var otros = { name: 'Otros', pais: [], act: 0, actY: 0, bud: 0, ly: 0 };
   function bucket(pais) {
     var k = String(pais || '').toLowerCase();
@@ -4597,6 +4651,7 @@ function render() {
   const isAgenciasH2View= activeTab === 'agencias_h2';
   const isGlobalesView  = activeTab === 'globales';
   const isWeeklyView    = activeTab === 'weekly_gd' || activeTab === 'weekly_ri';
+  syncApiAllUI_();
 
   // La vista split solo se usa en modo Slides; en render normal siempre se oculta.
   document.getElementById('splitContent').classList.remove('visible');
@@ -4836,8 +4891,68 @@ document.querySelectorAll('#krH2ChannelBtns .kr-ch-btn').forEach(function(btn) {
     document.querySelectorAll('#krH2ChannelBtns .kr-ch-btn').forEach(function(b) {
       b.classList.toggle('active', b === btn);
     });
+    syncApiAllUI_();
     renderStatusKRsH2();
   });
+});
+
+// ── Switch "Países API: Todos por separado" (con contraseña) ──
+// Se muestra donde hay apertura por país del canal API: tablas/gráficos con Canal = API, Status KRs H2 en API o Total
+// y KR Global B2B API. Es una barrera liviana en el navegador (se guarda el SHA-256 de la clave, no la clave):
+// no protege datos, solo evita que se prenda sin querer. Desbloqueado una vez, no se vuelve a pedir en la pestaña.
+var API_ALL_PWD_SHA256 = 'e63601bbc6fdd78577d09ed334fdcc28e169f86b46a7ab06199487859f00a174';
+var _apiAllUnlocked = false;
+try { _apiAllUnlocked = sessionStorage.getItem('trk_api_all_ok') === '1'; } catch (e) {}
+function syncApiAllUI_() {
+  var g = document.getElementById('filterGroupApiAll');
+  if (!g) return;
+  var show = activeTab === 'globales' ||
+             (activeTab === 'agencias_h2' ? krH2Channel !== 'html'   // Total también: muestra el recuadro "API FVM $K"
+              : activeTab !== 'agencias' && document.getElementById('filterChannel').value === 'API');
+  g.style.display = show ? '' : 'none';
+  if (!show) hideApiAllPwd_();
+  var t = document.getElementById('apiAllToggle');
+  t.setAttribute('aria-pressed', _apiAllCountries ? 'true' : 'false');
+}
+function setApiAllCountries_(on) {
+  _apiAllCountries = on;
+  hideApiAllPwd_();
+  syncApiAllUI_();
+  render();
+}
+function hideApiAllPwd_() {
+  var box = document.getElementById('apiAllPwdBox');
+  if (box) box.style.display = 'none';
+  var inp = document.getElementById('apiAllPwdInput'); if (inp) inp.value = '';
+  var err = document.getElementById('apiAllPwdErr'); if (err) err.textContent = '';
+}
+function sha256Hex_(s) {
+  if (!(window.crypto && crypto.subtle && window.TextEncoder)) return Promise.reject(new Error('sin crypto'));
+  return crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)).then(function(buf) {
+    return Array.from(new Uint8Array(buf)).map(function(b){ return b.toString(16).padStart(2, '0'); }).join('');
+  });
+}
+function submitApiAllPwd_() {
+  var inp = document.getElementById('apiAllPwdInput'), err = document.getElementById('apiAllPwdErr');
+  sha256Hex_(inp.value).then(function(h) {
+    if (h !== API_ALL_PWD_SHA256) { err.textContent = 'Contraseña incorrecta'; inp.select(); return; }
+    _apiAllUnlocked = true;
+    try { sessionStorage.setItem('trk_api_all_ok', '1'); } catch (e) {}
+    setApiAllCountries_(true);
+  }, function() { err.textContent = 'El navegador no permite validar la contraseña'; });
+}
+document.getElementById('apiAllToggle').addEventListener('click', function() {
+  if (_apiAllCountries) { setApiAllCountries_(false); return; }   // apagar no pide contraseña
+  if (_apiAllUnlocked)  { setApiAllCountries_(true);  return; }
+  var box = document.getElementById('apiAllPwdBox');
+  box.style.display = box.style.display === 'none' ? '' : 'none';
+  if (box.style.display !== 'none') document.getElementById('apiAllPwdInput').focus();
+});
+document.getElementById('apiAllPwdOk').addEventListener('click', submitApiAllPwd_);
+document.getElementById('apiAllPwdCancel').addEventListener('click', hideApiAllPwd_);
+document.getElementById('apiAllPwdInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') submitApiAllPwd_();
+  else if (e.key === 'Escape') hideApiAllPwd_();
 });
 
 document.getElementById('btnClear').addEventListener('click', () => {
