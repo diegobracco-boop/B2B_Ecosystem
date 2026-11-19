@@ -285,7 +285,11 @@ const CSS = `<style>
   .rs-wi .act { grid-column: 2 / -1; margin-top: 8px; display: flex; align-items: flex-start; gap: 7px; font-size: 12px; line-height: 1.45; color: var(--text-2);
                  padding: 6px 9px; border-radius: 10px; background: color-mix(in srgb, var(--link) 10%, transparent); }
   .rs-wi .act svg { width: 14px; height: 14px; flex: none; margin-top: 1px; color: var(--link); }
-  .rs-wi .act span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .rs-wi .act > div { min-width: 0; display: grid; gap: 2px; }
+  .rs-wi .act > div > span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .rs-wi .act em { font-style: normal; font-weight: 600; }
+  .rs-wi .shr { margin-left: auto; font-size: 11.5px; color: var(--text-3); white-space: nowrap; }
+  @media (max-height: 900px) { .rs-wi .imp { display: none; } .rs-wi .act > div > span { -webkit-line-clamp: 1; } }
   .rs-wi .act b { color: var(--text); font-weight: 600; margin-right: 3px; }
   .rs-wi .act.none { background: color-mix(in srgb, var(--warn) 10%, transparent); }
   .rs-wi .act.none svg { color: var(--warn); }
@@ -820,11 +824,11 @@ const SCRIPT = String.raw`
     for (var d = new Date(from + 'T00:00:00Z'); d.toISOString().slice(0, 10) <= to; d = new Date(d.getTime() + 864e5)) { var k = wk(d.toISOString().slice(0, 10)); if (out.indexOf(k) < 0) out.push(k); }
     return out;
   }
-  function actionsOf(g) {
-    if (!ACC || g.t !== 'p') return null;
-    var ps = g.units.map(function (u) { return u.pais; });
-    var rows = ACC.filter(function (it) { return ps.indexOf(it.pais) >= 0 && pMatch(it.partner, g.n); });
-    if (!rows.length) return null;   // el partner no está en el calendario: no se dice nada
+  // Acciones del calendario para un partner (nombre del Daily) en esos países, en el período elegido. null = no está en el calendario.
+  function actionsFor(name, ps) {
+    if (!ACC || !name) return null;
+    var rows = ACC.filter(function (it) { return ps.indexOf(it.pais) >= 0 && pMatch(it.partner, name); });
+    if (!rows.length) return null;
     var W = periodWeeks(), by = {};
     rows.filter(function (it) { return W.indexOf(it.year + '-' + it.week) >= 0; }).forEach(function (it) {
       var k = nrm(it.name).replace(/\s+/g, ' ').trim(), o = by[k] = by[k] || { name: it.name, weeks: [], brief: it.brief, paises: [] };
@@ -835,30 +839,51 @@ const SCRIPT = String.raw`
     var tier = rows.map(function (r) { return r.tier; }).filter(function (t) { return /tier/i.test(t || ''); }).sort()[0] || '';
     return { list: Object.keys(by).map(function (k) { return by[k]; }), tier: tier };
   }
+  function uniqP(units) { return units.map(function (u) { return u.pais; }).filter(function (x, i, a) { return a.indexOf(x) === i; }); }
+  // Qué partners de la línea llevan acción: el partner mismo, o en una línea de país (B2B2C) sus 2 partners que más restan y están en el calendario
+  function actionLines(g) {
+    if (!ACC) return [];
+    if (g.t === 'p') { if (g.units.every(function (u) { return u.tbd; })) return []; var A = actionsFor(g.n, uniqP(g.units)); return A ? [{ g: g, A: A, multi: uniqP(g.units).length > 1 }] : []; }
+    var P = {};
+    g.units.forEach(function (u) { if (u.pk && !u.tbd) push(P[u.pk] = P[u.pk] || grp('p', u.part, 'p:' + u.pk), u); });
+    return Object.keys(P).map(function (k) { return P[k]; }).filter(function (x) { return x.d < 0; }).sort(function (a, b) { return a.d - b.d; })
+      .map(function (x) { return { g: x, A: actionsFor(x.n, uniqP(x.units)), multi: false, sub: true }; }).filter(function (x) { return x.A; }).slice(0, 2);
+  }
   var MEGA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>';
-  function actionHtml(g) {
-    var A = actionsOf(g);
-    if (!A) return '';
-    var multi = g.units.map(function (u) { return u.pais; }).filter(function (x, i, a) { return a.indexOf(x) === i; }).length > 1;
-    if (!A.list.length) return '<div class="act none">' + MEGA + '<span>Sin acción comercial en el calendario ' + esc(periodo()) + '</span></div>';
-    var full = A.list.map(function (a) {
+  function actionText(A, multi) {
+    if (!A.list.length) return 'sin acción comercial en el calendario ' + periodo();
+    return A.list.map(function (a) {
       var ws = a.weeks.slice().sort(function (x, y) { return x - y; });
       return a.name + ' (W' + ws[0] + (ws.length > 1 ? '–W' + ws[ws.length - 1] : '') + (multi ? ', ' + a.paises.map(cname).join(' / ') : '') + ')' + (a.brief ? ': ' + a.brief : '');
     }).join(' · ');
-    return '<div class="act" title="' + esc(full) + '">' + MEGA + '<span><b>Acción comercial</b> ' + esc(full) + '</span></div>';
   }
-  function watchItem(g, mx, dev, kind) {
+  function actionHtml(L) {
+    if (!L.length) return '';
+    var none = L.every(function (x) { return !x.A.list.length; });
+    var rows = L.map(function (x) {
+      var t = actionText(x.A, x.multi);
+      return '<span title="' + esc((x.sub ? x.g.n + ': ' : '') + t) + '">' + (x.sub ? '<b>' + esc(x.g.n) + '</b> <em class="' + cls(x.g.d) + '">' + sgnMoney(x.g.d) + '</em>' + (x.A.tier ? ' · ' + esc(x.A.tier) : '') + ': '
+        : (x.A.list.length ? '<b>Acción comercial</b> ' : '')) + esc(x.sub ? t : cap(t)) + '</span>';
+    }).join('');
+    return '<div class="act' + (none ? ' none' : '') + '">' + MEGA + '<div>' + rows + '</div></div>';
+  }
+  function watchItem(g, mx, dev, kind, ix) {
     var p = pct(g.cur.rev, g.bud.rev), st = streakOf(g), c = causeOf(g).t.replace(/ \(.*\)$/, '');
     var sev = kind === 'g' ? 'g' : (p != null && p > -5 ? 'a' : 'r');
     var sub = g.t === 'p' && g.units.length > 1 ? tagOf(g).replace('Partner · ', '') : g.t === 'p' ? cname(g.units[0].pais) : (g.excl && g.excl.length ? 'sin ' + joinY(g.excl) : '');
     var share = dev && kind !== 'g' && dev < 0 ? Math.round(Math.abs(g.d / dev) * 100) : null;
-    return '<div class="rs-wi ' + sev + '" data-pr="' + (kind === 'g' ? 99 : 0) + '"><span class="sev"></span>' +
+    var L = kind === 'g' ? [] : actionLines(g), own = L.length && !L[0].sub ? L[0].A : null;
+    var isTbd = g.t === 'p' && g.units.every(function (u) { return u.tbd; });
+    // Prioridad para recortar (fitLists saca primero el número más alto): las que traen acción comercial quedan, TBD sale primero
+    var pr = kind === 'g' ? 99 : isTbd ? 50 : (L.length ? 0 : 10) + (ix || 0);
+    return '<div class="rs-wi ' + sev + '" data-pr="' + pr + '"><span class="sev"></span>' +
       '<div class="nm" title="' + esc(g.n) + '">' + (kind === 'g' ? 'Compensa: ' : '') + esc(g.n) + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</div>' +
       '<div class="amt">' + sgnMoney(g.d) + '</div>' +
-      '<div class="meta">' + chip(p, 'rev') + '<span class="tag">' + esc(c) + '</span>' + (function () { var A = kind === 'g' ? null : actionsOf(g); return A && A.tier ? '<span class="tag">' + esc(A.tier) + '</span>' : ''; })() +
-      (st >= 2 ? '<span class="tag">' + ordU(st) + (kind === 'g' ? ' arriba' : ' debajo') + '</span>' : '') + dotsOf(g) + '</div>' +
-      '<div class="imp"><span class="bar"><i data-w="' + (Math.abs(g.d) / mx * 100).toFixed(1) + '"></i></span>' + (share != null ? 'explica ' + Math.min(share, 999) + '% del desvío' : '') + '</div>' +
-      (kind === 'g' ? '' : actionHtml(g)) + '</div>';
+      '<div class="meta">' + chip(p, 'rev') + '<span class="tag">' + esc(c) + '</span>' + (own && own.tier ? '<span class="tag">' + esc(own.tier) + '</span>' : '') +
+      (st >= 2 ? '<span class="tag">' + ordU(st) + (kind === 'g' ? ' arriba' : ' debajo') + '</span>' : '') + dotsOf(g) +
+      (share != null ? '<span class="shr">explica ' + Math.min(share, 999) + '%</span>' : '') + '</div>' +
+      '<div class="imp"><span class="bar"><i data-w="' + (Math.abs(g.d) / mx * 100).toFixed(1) + '"></i></span></div>' +
+      actionHtml(L) + '</div>';
   }
   function watchCard(V) {
     var W = watchData(V), all = W.bad.concat(W.good), mx = 0;
@@ -866,7 +891,7 @@ const SCRIPT = String.raw`
     var n = {}; xUnits(V).forEach(function (u) { n[u.pk || u.pais] = 1; });
     var nUnits = Object.keys(n).length, isB2b2c = V.units.some(function (u) { return u.part; });
     var tg = exTbd ? tbdGap(V) : 0;
-    var body = W.bad.length ? W.bad.map(function (g) { return watchItem(g, mx, W.dev, 'b'); }).join('') + W.good.map(function (g) { return watchItem(g, mx, W.dev, 'g'); }).join('')
+    var body = W.bad.length ? W.bad.map(function (g, ix) { return watchItem(g, mx, W.dev, 'b', ix); }).join('') + W.good.map(function (g) { return watchItem(g, mx, W.dev, 'g'); }).join('')
       : '<p class="rs-wempty">Nada material para mirar: ningún ' + (isB2b2c ? 'partner ni país' : 'país') + ' se desvía más de 3% del Budget.</p>';
     return '<section class="rs-card rs-watch rs-in' + (W.bad.length ? '' : ' calmw') + '" style="--d:80ms" aria-labelledby="rs-w-h"><div class="rs-wh">' +
       '<span class="ag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z"/></svg></span>' +
