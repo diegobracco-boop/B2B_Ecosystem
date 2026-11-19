@@ -51,8 +51,9 @@ ene–mar 2027 hace falta el Budget del año siguiente.
 (export de la plataforma de cruceros) y suma filas `Brasil · Agencias afiliadas · Cruises` a `b2b_gd` / `b2b_ri`
 (y por lo tanto al Tracker y al OKR H2). Confirmadas sin prueba; GD = Data Confirmacao, RI = Data Embarque (hasta ayer);
 Total en BRL → USD con el TC implícito B2C de Brasil del mes de confirmación (Cotacao ≠ 1 = ya viene en USD).
-**Solo GB y órdenes**: NR y FVM en 0 (el CSV no trae el ingreso de Despegar). Sin LY, budget ni run rate. Carga única:
-para reemplazar el archivo, `py cruceros_sync.py <csv> --upload`; para probar con un CSV local, `CRUCEROS_CSV=<ruta>`.
+**Solo GB y órdenes**: NR y FVM en 0 (el CSV no trae el ingreso de Despegar). Sin LY, budget ni run rate. **Cuando llega un export nuevo** (completo, reemplaza al anterior):
+`py cruceros_sync.py <csv>` (resumen) → `py cruceros_sync.py <csv> --upload` → "Actualizar reales" en Ownia; sin commit
+ni redeploy (receta en el manual, "Recetas por tarea"). Para probar con un CSV local, `CRUCEROS_CSV=<ruta>`.
 Si falta o falla, WARN y el Daily sigue sin cruceros. El P&L Managerial no lo incluye.
 
 `recurrencia_b2b.json`: agencias HTML de alta frecuencia por semana comercial × país. La query es copia de la

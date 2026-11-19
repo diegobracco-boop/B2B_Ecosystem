@@ -86,6 +86,8 @@ Ver [CONTEXT-MAP.md](./CONTEXT-MAP.md) para el diagrama completo. En resumen:
 
 **Actualizar reales** (desde 2026-10-30): botón de la portada de Ownia, solo el equipo B2B y con contraseña (secreto `REALES_PASSWORD` de la app). Corre `Daily_Dashboard/daily_sync.py` en el servidor de Ownia (`Ownia_B2B_Ecosystem/server/reales-job.js`: Trino por HTTPS con `DATALAKE_HOST`, credenciales en `APP_SECRETS`) y publica en Drive y Ownia. Reemplaza al Task Scheduler de la PC de Tiago (`auto_update_reales.ps1`). Desde 2026-11-09 la misma ventana tiene **"Actualizar managerial"**: corre `P&L_Managerial/actuals_gestional_upload.py` (reales por día → mensual + semanal; Forecast reusado del último JSON si no están los XLSX); una corrida por vez entre las dos. Si se cambian sus imports, sumarlos a `PIPELINES` del sync. Si se cambian los imports de `daily_sync.py`, revisar `requirements-pipelines.txt` y `PIPELINES` en `scripts/sync-to-ownia-repo.js`.
 
+**Se actualizó la data de cruceros** (llegó un `booking-report-*.csv` nuevo de la plataforma de cruceros): no es un cambio de código. Correr `py Daily_Dashboard/cruceros_sync.py "<csv>"` para ver el resumen (si el total cae mucho, es un export parcial: frenar y consultar), después el mismo comando con `--upload` (pisa `cruceros_booking_report.csv` en la carpeta DailyDashboard de Drive) y pedirle al usuario que toque "Actualizar reales" en Ownia. Sin commit, clasp ni redeploy. Nunca commitear el CSV (datos de pasajeros). Reglas de negocio: `Daily_Dashboard/CONTEXT.md` y el manual, "Recetas por tarea".
+
 ## Comandos disponibles
 
 - `/actualizar` — regenerar planas + JSONs canónicos (Inputs_Planning_PnL)

@@ -1087,6 +1087,22 @@ a.ext-link:hover { text-decoration: underline; }
     </div>
 
     <div class="card">
+      <div class="card-title">🚢 Llegó un export nuevo de Cruceros <span class="badge badge-manual">🆕 2026-11-19</span></div>
+      <p style="font-size:13px;margin:0 0 10px">Los reales de <strong>Cruceros B2B Brasil</strong> no están en el Datalake: salen del export de la plataforma de cruceros (<code>booking-report-AAAA-MM-DDThh_mm_ss.csv</code>). El Daily lee siempre el último archivo subido a Drive (<code>cruceros_booking_report.csv</code>, carpeta DailyDashboard). Si nadie lo sube, cruceros se queda con los datos viejos.</p>
+      <table class="doc-table">
+        <thead><tr><th>Paso</th><th>Qué hacer</th></tr></thead>
+        <tbody>
+          <tr><td><strong>1. Bajar el CSV</strong></td><td>Pedir o bajar el export <strong>completo</strong> (todas las reservas desde el inicio, no solo las nuevas): el archivo nuevo <strong>reemplaza</strong> al anterior, no se suma.</td></tr>
+          <tr><td><strong>2. Ver el resumen</strong></td><td>Desde la carpeta del repo: <code>py Daily_Dashboard/cruceros_sync.py "&lt;ruta al csv&gt;"</code>. Muestra cuántas reservas confirmadas toma y el GB por mes (con un TC de referencia). Si el total cae mucho contra el export anterior, probablemente sea un export parcial: no subirlo.</td></tr>
+          <tr><td><strong>3. Subirlo a Drive</strong></td><td>El mismo comando con <code>--upload</code> al final: <code>py Daily_Dashboard/cruceros_sync.py "&lt;ruta al csv&gt;" --upload</code>. Pisa <code>cruceros_booking_report.csv</code> en la carpeta del Daily. Necesita el <code>token_drive.json</code> de <code>Daily_Dashboard/</code>.</td></tr>
+          <tr><td><strong>4. Actualizar el Daily</strong></td><td>Botón <strong>"Actualizar reales"</strong> de la portada de Ownia. No hace falta commit, clasp ni redeploy: cambia el dato, no el código.</td></tr>
+          <tr><td><strong>5. Chequear</strong></td><td>En el Daily: Brasil · Agencias afiliadas · producto <strong>Cruises</strong> (dentro de ONA). Solo trae GB y órdenes (NR y FVM en 0), sin LY ni Budget.</td></tr>
+          <tr><td><strong>Reglas</strong></td><td>Cuenta solo reservas <em>Confirmado</em> y saca las de prueba. GD = fecha de confirmación; RI = fecha de embarque. BRL → USD con el TC implícito B2C de Brasil del mes (las reservas con <em>Cotacao</em> ≠ 1 ya vienen en USD). No commitear el CSV: tiene datos de pasajeros (está en <code>.gitignore</code>).</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
       <div class="card-title">🧮 Inicio de mes: proyección de Over Commissions <span class="badge badge-manual">🆕 2026-09-29</span></div>
       <p style="font-size:13px;margin:0 0 10px">Los <strong>overs</strong> (sobrecomisiones) son incentivos que se pagan a las agencias según el volumen de ventas que alcanzan. Se estima cuánto se va a pagar en el año y se provisiona todos los meses; como es una estimación, hay que ajustarla mes a mes si el volumen real difiere de lo proyectado (por ejemplo, cuando se había proyectado que muchas agencias llegaban a ciertos niveles por sus check-ins y las ventas terminan siendo menores). Es parte de la rutina de <strong>inicio de mes</strong> de B2B.</p>
       <table class="doc-table">
@@ -1865,7 +1881,7 @@ a.ext-link:hover { text-decoration: underline; }
             <td>Export de la plataforma de cruceros (<code>booking-report-*.csv</code>), no está en el Datalake. Solo reservas Confirmadas sin prueba; GD = fecha de confirmación, RI = fecha de embarque; Total BRL → USD con el TC implícito B2C de Brasil; NR y FVM en 0</td>
             <td><code>Daily_Dashboard/cruceros_sync.py</code> (lo llama <code>daily_sync.py</code>; suma filas Brasil · Agencias afiliadas · Cruises a <code>b2b_gd</code> / <code>b2b_ri</code>)</td>
             <td>Lee <code>cruceros_booking_report.csv</code> de la carpeta DailyDashboard de Drive</td>
-            <td>Carga única por ahora: para reemplazarlo, <code>py Daily_Dashboard/cruceros_sync.py &lt;csv&gt; --upload</code></td></tr>
+            <td>Cada vez que llega un export nuevo · manual: <code>py Daily_Dashboard/cruceros_sync.py &lt;csv&gt; --upload</code> + "Actualizar reales" (ver Recetas por tarea)</td></tr>
           <tr><td>Run Rate diario (la meta del día en el Daily)</td>
             <td>Run Rate mensual de los modelos WLs / API / HTML + factores de <em>Estacionalidad Diaria</em> (OneDrive)</td>
             <td><code>Proceso_Distribucion_Diaria</code> (<code>/distribucion-diaria</code>)</td>

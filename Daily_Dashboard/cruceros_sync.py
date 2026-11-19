@@ -13,7 +13,7 @@ Fecha: GD = Data Confirmacao; RI = Data Embarque (solo embarques hasta ayer).
 Moneda: Cotacao = 1 → Total en BRL, se pasa a USD con el TC implícito B2C de Brasil del mes de confirmación
 (misma query que fx_implicito_sync.py). Cotacao != 1 (Princess, Holland America) → el Total ya viene en USD.
 
-Carga única por ahora: el CSV vive en la carpeta de Drive del Daily como CRUCEROS_CSV_NAME. Para cambiarlo:
+El CSV vive en la carpeta de Drive del Daily como CRUCEROS_CSV_NAME. Para cambiarlo:
     py cruceros_sync.py <ruta_csv> --upload     (sube/pisa el archivo en Drive)
     py cruceros_sync.py <ruta_csv>              (solo muestra el resumen, sin Datalake: TC fijo de referencia)
 Para probar daily_sync con un CSV local sin tocar Drive: CRUCEROS_CSV=<ruta> en el entorno.
