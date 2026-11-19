@@ -1803,6 +1803,19 @@ df_b2b_ri_puro = df_b2b_ri
 df_b2b_ri    = ri_ds_api_desde_gd(df_b2b_ri,    df_b2b_gd,    "actuals")
 df_b2b_ri_ly = ri_ds_api_desde_gd(df_b2b_ri_ly, df_b2b_gd_ly, "LY")
 
+# Cruceros B2B Brasil (2026-11-19, pedido de antonella.difranco): no está en el Datalake, sale del CSV de la plataforma
+# de cruceros en la carpeta de Drive del Daily (cruceros_sync.py). Solo GB y órdenes (NR/FVM 0), Agencias afiliadas.
+# Va después de FVM Negativo (df_b2b_ri_puro) y de Dest. Serv. API; sin LY. Si falla, el Daily sigue sin cruceros.
+print("\n--- Cruceros (CSV) ---")
+try:
+    from cruceros_sync import build as build_cruceros
+    from recurrencia_sync import drive_service as _cru_drive
+    _cru_gd, _cru_ri = build_cruceros(fetch, None if os.getenv("CRUCEROS_CSV") else _cru_drive(), ACTUALS_FROM, YESTERDAY)
+    df_b2b_gd = pd.concat([df_b2b_gd, _cru_gd], ignore_index=True)
+    df_b2b_ri = pd.concat([df_b2b_ri, _cru_ri], ignore_index=True)
+except Exception as e:
+    print(f"  WARN cruceros: {e} — el Daily sigue sin cruceros")
+
 # LY ext: no crítico (solo el YoY de las semanas proyectadas). Si falla, el Tracker muestra "—".
 def _fetched_ly_ext(label: str) -> pd.DataFrame:
     try:

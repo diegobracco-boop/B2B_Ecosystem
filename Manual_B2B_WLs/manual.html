@@ -1861,6 +1861,11 @@ a.ext-link:hover { text-decoration: underline; }
             <td><code>Daily_Dashboard/daily_sync.py</code></td>
             <td>Drive, carpeta DailyDashboard: <code>daily_b2b2c_data.json</code>, <code>daily_b2b_data.json</code></td>
             <td>Botón "Actualizar reales" de la portada de Ownia (equipo B2B)</td></tr>
+          <tr><td>Cruceros B2B Brasil (reales del Daily, desde 2026-11-19)</td>
+            <td>Export de la plataforma de cruceros (<code>booking-report-*.csv</code>), no está en el Datalake. Solo reservas Confirmadas sin prueba; GD = fecha de confirmación, RI = fecha de embarque; Total BRL → USD con el TC implícito B2C de Brasil; NR y FVM en 0</td>
+            <td><code>Daily_Dashboard/cruceros_sync.py</code> (lo llama <code>daily_sync.py</code>; suma filas Brasil · Agencias afiliadas · Cruises a <code>b2b_gd</code> / <code>b2b_ri</code>)</td>
+            <td>Lee <code>cruceros_booking_report.csv</code> de la carpeta DailyDashboard de Drive</td>
+            <td>Carga única por ahora: para reemplazarlo, <code>py Daily_Dashboard/cruceros_sync.py &lt;csv&gt; --upload</code></td></tr>
           <tr><td>Run Rate diario (la meta del día en el Daily)</td>
             <td>Run Rate mensual de los modelos WLs / API / HTML + factores de <em>Estacionalidad Diaria</em> (OneDrive)</td>
             <td><code>Proceso_Distribucion_Diaria</code> (<code>/distribucion-diaria</code>)</td>

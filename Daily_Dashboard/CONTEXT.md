@@ -46,6 +46,15 @@ slide del Flow (`Ownia_B2B_Ecosystem/public/daily-ceo-weekly.js`, servidor `getB
 mismo perímetro que el real B2C del Daily (semanas 30–43 entre −17% y +13% del Budget). El CSV cubre ene–dic 2026: para
 ene–mar 2027 hace falta el Budget del año siguiente.
 
+**Cruceros B2B Brasil (2026-11-19, antonella.difranco)**: no está en el Datalake. `cruceros_sync.py` (lo llama
+`daily_sync.py` después del reemplazo Dest. Serv. API) lee `cruceros_booking_report.csv` de la carpeta del Daily en Drive
+(export de la plataforma de cruceros) y suma filas `Brasil · Agencias afiliadas · Cruises` a `b2b_gd` / `b2b_ri`
+(y por lo tanto al Tracker y al OKR H2). Confirmadas sin prueba; GD = Data Confirmacao, RI = Data Embarque (hasta ayer);
+Total en BRL → USD con el TC implícito B2C de Brasil del mes de confirmación (Cotacao ≠ 1 = ya viene en USD).
+**Solo GB y órdenes**: NR y FVM en 0 (el CSV no trae el ingreso de Despegar). Sin LY, budget ni run rate. Carga única:
+para reemplazar el archivo, `py cruceros_sync.py <csv> --upload`; para probar con un CSV local, `CRUCEROS_CSV=<ruta>`.
+Si falta o falla, WARN y el Daily sigue sin cruceros. El P&L Managerial no lo incluye.
+
 `recurrencia_b2b.json`: agencias HTML de alta frecuencia por semana comercial × país. La query es copia de la
 card Metabase 171400 (`recurrencia_alta_frecuencia.sql`; si cambia en Metabase, pegar el SQL nuevo ahí). Lo arma
 `recurrencia_sync.py`, que `daily_sync.py` llama en cada corrida (subida no fatal) y que también se corre solo para
