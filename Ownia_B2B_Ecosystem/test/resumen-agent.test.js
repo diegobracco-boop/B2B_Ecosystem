@@ -124,3 +124,9 @@ test('Toqan: start manda el extracto en la primera pregunta, continúa sin él y
   await assert.rejects(ag.poll({ conversationId: '../x', requestId: 'r1' }), (e) => e.status === 400);
   await assert.rejects(ag.start({ question: 'x', conversationId: 'a b', user: 'u' }), (e) => e.status === 400);
 });
+
+test('Toqan: poll saca el razonamiento <think> de la respuesta', async () => {
+  const fetchFn = async () => ({ ok: true, status: 200, json: async () => ({ status: 'finished', answer: '<think>pensando…</think>La brecha se achicó.' }) });
+  const ag = createResumenAgent({ secrets: { TOQAN_API_KEY: 'k' }, fetchFn, fetchData: async () => PAYLOAD });
+  assert.equal((await ag.poll({ conversationId: 'c1', requestId: 'r1' })).answer, 'La brecha se achicó.');
+});

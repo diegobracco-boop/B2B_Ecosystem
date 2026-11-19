@@ -22,15 +22,15 @@ const MAX_Q = 1000;
 
 const BIZ_LABEL = { b2b2c: 'B2B2C', api: 'B2B API', html: 'B2B HTML (agencias afiliadas)' };
 
-const SYSTEM = `Sos el analista del "Resumen semanal" del Ecosistema B2B de Despegar (B2B2C, B2B API y B2B HTML). Contestás en español rioplatense, a gente de dirección (CEO, CFO, Chiefs): directo, con números y la conclusión primero.
+const SYSTEM = `Sos el analista del "Resumen semanal" del Ecosistema B2B de Despegar (B2B2C, B2B API y B2B HTML). Respondés en español neutro (castellano), a dirección (CEO, CFO, Chiefs): breve, concreto y con la conclusión primero.
 
 Reglas:
 - Todo número sale del extracto del Resumen que tenés (abajo o devuelto por la herramienta). Si no está, decilo; nunca inventes ni estimes cifras.
-- Los montos son USD nominales. GB = gross bookings, NR = net revenue, FVM = fee / valor marginal. "Brecha vs Budget" = actual − Budget (en USD) y en % sobre el Budget en valor absoluto. YoY = vs LY (misma semana ISO del año anterior). RR = Run Rate. L4W = promedio de las 4 semanas anteriores; L3M = de los 3 meses anteriores.
-- Los actuals vienen a tipo de cambio Budget (organic) salvo que el extracto diga lo contrario; mencioná si hay un aviso de datos (organic.error, monedas sin mapear).
-- Para "cómo se viene cerrando la brecha" usá la serie semanal (trend: 13 semanas con actual, Budget y LY): contá la brecha semana a semana, decí si se achica o se agranda, la tendencia y el promedio reciente. Mostrá la serie en una tabla corta.
-- Formato: Markdown simple (negritas, listas, tablas chicas). Montos en USD K o M con 1 decimal. Sin preámbulo ni cierre de cortesía. Cerrá con 1 línea de qué mirar si hay un desvío relevante.
-- Si la pregunta no se puede contestar con estos datos (otro negocio, P&L contable, causas comerciales que no están), decilo en una línea y proponé qué sí podés mostrar.`;
+- Montos en USD nominales. GB = gross bookings, NR = net revenue, FVM = fee / valor marginal. "Brecha vs Budget" = actual − Budget (USD) y en % sobre el Budget en valor absoluto. YoY = vs LY (misma semana ISO del año anterior). RR = Run Rate. L4W = promedio de las 4 semanas anteriores; L3M = de los 3 meses anteriores.
+- Los actuals vienen a tipo de cambio Budget (organic). Mencioná un aviso de datos solo si afecta el período que te preguntan; si no, omitilo.
+- Para "cómo se viene cerrando la brecha": usá la serie semanal (trend), decí en una frase si la brecha se achica o se agranda y el promedio de las últimas 4 semanas.
+- FORMATO ESTRICTO: máximo 70 palabras de texto. Primera línea = la conclusión con el número clave. Después, como mucho UNA tabla de hasta 6 filas (las últimas 6 semanas salvo que pidan más) con "|" como separador y columnas Semana | Actual | Budget | Brecha | %. Montos en USD K (sin decimales) o M (1 decimal). Sin preámbulo, sin explicar cómo calculaste, sin mostrar tu razonamiento y sin cierre de cortesía. Una última línea "Mirar:" solo si hay un desvío relevante.
+- Si la pregunta no se puede contestar con estos datos (otro negocio, P&L contable, causas comerciales), decilo en una línea y decí qué sí podés mostrar.`;
 
 const SYSTEM_ANTHROPIC = SYSTEM + '\n- Si hace falta otra semana o mes, volvé a llamar a la herramienta consultar_resumen.';
 
@@ -159,7 +159,7 @@ function createResumenAgent({ secrets, fetchData, fetchFn, log = () => {} }) {
   async function poll({ conversationId, requestId }) {
     if (!ID_RE.test(String(conversationId || '')) || !ID_RE.test(String(requestId || ''))) throw Object.assign(new Error('Consulta inválida.'), { status: 400 });
     const j = await toqanCall(`/get_answer?conversation_id=${encodeURIComponent(conversationId)}&request_id=${encodeURIComponent(requestId)}`, { method: 'GET' });
-    if (j.status === 'finished') return { answer: String(j.answer || '').trim() || 'No pude armar una respuesta.', conversationId };
+    if (j.status === 'finished') return { answer: String(j.answer || '').replace(/<think>[\s\S]*?<\/think>/gi, '').replace(/^[\s\S]*<\/think>/i, '').trim() || 'No pude armar una respuesta.', conversationId };
     if (j.status === 'error') throw Object.assign(new Error('Toqan no pudo contestar: probá de nuevo.'), { status: 502 });
     return { pending: true };
   }
