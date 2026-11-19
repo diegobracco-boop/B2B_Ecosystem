@@ -744,7 +744,7 @@ const SCRIPT = String.raw`
       '<div class="rs-weeks" role="group" aria-label="' + (mode === 'w' ? 'Semana' : 'Mes') + '">' + chips + '</div>' +
       '<button type="button" class="rs-pill" id="rs-tbd" aria-pressed="' + exTbd + '" title="Saca de las explicaciones el Budget de partners nuevos todavía sin firmar (TBD). Los totales no cambian.">' + svgI('tbd', 13) + 'Excluir TBD</button>' +
       '<span class="rs-tools">' +
-      '<button type="button" class="rs-ib" id="rs-ask" title="Preguntale a Claude sobre estos números" aria-label="Preguntale a Claude">' + svgI('spark') + '</button>' +
+      '<button type="button" class="rs-ib" id="rs-ask" title="Chatea con un agente sobre estos números" aria-label="Chatea con un agente">' + svgI('spark') + '</button>' +
       '<button type="button" class="rs-ib" id="rs-tbl" title="Tablas por país y de la serie" aria-label="Ver tablas">' + svgI('tbl') + '</button>' +
       '<button type="button" class="rs-ib" id="rs-copy" title="Copiar el resumen para pegar en Slack" aria-label="Copiar para Slack">' + svgI('copy') + '</button>' +
       '<button type="button" class="rs-ib" id="rs-deck" title="Exportar a Google Slides: deck de esta vista" aria-label="Exportar a Slides">' + svgI('deck') + '</button>' +
@@ -1590,8 +1590,8 @@ const SCRIPT = String.raw`
   }
   function askBuild() {
     askEl = document.createElement('aside');
-    askEl.className = 'ra-panel'; askEl.setAttribute('aria-label', 'Preguntale a Claude');
-    askEl.innerHTML = '<div class="ra-head"><h2>Preguntale a Claude<small>Contesta con los números de este Resumen</small></h2><button type="button" class="ra-x" aria-label="Cerrar">×</button></div>' +
+    askEl.className = 'ra-panel'; askEl.setAttribute('aria-label', 'Chatea con un agente');
+    askEl.innerHTML = '<div class="ra-head"><h2>Chatea con un agente<small>Contesta con los números de este Resumen</small></h2><button type="button" class="ra-x" aria-label="Cerrar">×</button></div>' +
       '<div class="ra-log" id="ra-log" aria-live="polite"></div>' +
       '<form class="ra-form" id="ra-form"><textarea id="ra-in" rows="1" maxlength="1000" placeholder="Preguntá lo que preguntaría un CFO…" aria-label="Pregunta"></textarea>' +
       '<button type="submit" class="ra-send" id="ra-go" aria-label="Enviar">' + svgI('spark', 16) + '</button></form>' +
