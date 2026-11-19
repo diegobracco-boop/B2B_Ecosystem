@@ -16,7 +16,7 @@
 // (mes al último día con reales, o meses cerrados).
 // Organic (2026-11-06): montos con el switch ORGANIC en Budget del Weekly del Daily (actuals a TC Budget; vs LY con
 // los actuals a TC del año anterior = curL; vs Run Rate con los nominales = curN). El dial es de FVM. Abajo de
-// Semanal / MTD: "Exportar a Slides" (deck .pptx para el comité ejecutivo, armado en el navegador con PptxGenJS) y
+// Semanal / MTD: "Exportar a Slides" (deck para el comité ejecutivo: se arma en el navegador con PptxGenJS y se sube a Google Slides vía el Apps Script del Daily) y
 // "Copiar link" (link a la vista que se está mirando, para mandar por Slack).
 //
 // Mensual (2026-11-17, Tiago): tercera vista, Semanal / MTD / Mensual, con el mismo formato: un mes cerrado completo
@@ -710,7 +710,7 @@ const SCRIPT = String.raw`
       '<span class="rs-tools">' +
       '<button type="button" class="rs-ib" id="rs-tbl" title="Tablas por país y de la serie" aria-label="Ver tablas">' + svgI('tbl') + '</button>' +
       '<button type="button" class="rs-ib" id="rs-copy" title="Copiar el resumen para pegar en Slack" aria-label="Copiar para Slack">' + svgI('copy') + '</button>' +
-      '<button type="button" class="rs-ib" id="rs-deck" title="Exportar a Slides: deck .pptx de esta vista (Google Slides o PowerPoint)" aria-label="Exportar a Slides">' + svgI('deck') + '</button>' +
+      '<button type="button" class="rs-ib" id="rs-deck" title="Exportar a Google Slides: deck de esta vista" aria-label="Exportar a Slides">' + svgI('deck') + '</button>' +
       '<button type="button" class="rs-ib" id="rs-link" title="Copiar el link a esta vista" aria-label="Copiar link">' + svgI('link') + '</button></span></div>' +
       '<div id="rs-biz"></div>' +
       '<dialog class="dlg rs-dlg" id="rs-dlg"><form method="dialog" class="dlg-x"><button aria-label="Cerrar">×</button></form><h2 id="rs-dlg-h">Tablas</h2><div id="rs-dlg-b"></div></dialog>';
@@ -1335,11 +1335,27 @@ const SCRIPT = String.raw`
   function exportDeck() {
     var bt = this;
     bt.disabled = true;
-    loadPptx().then(function () {
-      buildDeck();
-      flash(bt);
-    }).catch(function (e) { alert('No se pudo armar el deck: ' + e.message); })
-      .then(function () { bt.disabled = false; });
+    var t0 = bt.title;
+    function msg(t) { bt.title = t; }
+    function done() { bt.disabled = false; setTimeout(function () { bt.title = t0; }, 4000); }
+    function fail(e) { alert('No se pudo exportar a Google Slides: ' + (e && e.message ? e.message : e)); msg(t0); bt.disabled = false; }
+    msg('Armando el deck…');
+    loadPptx().then(function () { return buildDeck(); }).then(function (b64) {
+      msg('Subiendo a Google Slides…');
+      return fetch(CFG.slides, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'resumen-semanal' }, body: JSON.stringify({ pptx: b64, name: deckName() }) })
+        .then(function (r) { return r.json().then(function (j) { if (!r.ok || !j.jobId) throw new Error(j.error || 'el servidor no confirmó el envío'); return j.jobId; }); });
+    }).then(function (id) {
+      var t = Date.now();
+      (function poll() {
+        if (Date.now() - t > 10 * 60 * 1000) return fail(new Error('tardó demasiado; revisá tu Drive y reintentá'));
+        fetch(CFG.slides + '?job=' + encodeURIComponent(id), { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (st) {
+          if (st.state === 'done') { msg('Listo ✓ abrí la presentación'); window.open(st.url, '_blank'); return done(); }
+          if (st.state === 'error') return fail(new Error(st.error));
+          msg('Subiendo a Google Slides… ' + Math.round((Date.now() - t) / 1000) + ' s');
+          setTimeout(poll, 3000);
+        }).catch(function () { setTimeout(poll, 6000); });
+      })();
+    }).catch(fail);
   }
   function buildDeck() {
     var keep = sel, P = new window.PptxGenJS(), F = 'Calibri';
@@ -1437,9 +1453,9 @@ const SCRIPT = String.raw`
       })), { x: 7.7, y: 3.05, w: 5.15, h: 3.85, fontFace: F, valign: 'top', paraSpaceAfter: 4 });
     });
     sel = keep;
-    var fn = 'Resumen ' + (mode === 'm' ? 'MTD ' + D.month.ym : isMo() ? 'mensual ' + D.monthly.ym : 'semanal W' + D.week.week + ' ' + D.week.year) + ' - Ecosistema B2B.pptx';
-    return P.writeFile({ fileName: fn });
+    return P.write({ outputType: 'base64' });
   }
+  function deckName() { return 'Resumen ' + (mode === 'm' ? 'MTD ' + D.month.ym : isMo() ? 'mensual ' + D.monthly.ym : 'semanal W' + D.week.week + ' ' + D.week.year) + ' - Ecosistema B2B'; }
 
   // ── Datos ───────────────────────────────────────────────────────────────────────────────
   // ?semana=2026-W43, ?mes=2026-10 y ?vista=mtd abren eso (el link se puede compartir)
@@ -1505,7 +1521,7 @@ const SCRIPT = String.raw`
 
 function resumenSemanalPage({ basePath }) {
   const back = `<a class="back" href="${escapeHtml(basePath)}/">${CHEVRON_L} B2B Ecosystem</a>`;
-  const cfg = JSON.stringify({ api: `${basePath}/api/daily/getResumenSemanal`, acc: `${basePath}/api/acciones-comerciales` }).replace(/</g, '\\u003c');
+  const cfg = JSON.stringify({ api: `${basePath}/api/daily/getResumenSemanal`, acc: `${basePath}/api/acciones-comerciales`, slides: `${basePath}/api/resumen-semanal/slides` }).replace(/</g, '\\u003c');
   return shell(`${CSS}<div id="rs-root" class="viz-root"></div>
     <script>window.RS_CFG = ${cfg};</script>
     <script>${SCRIPT}</script>`, { title: 'Resumen semanal · B2B Ecosystem', left: back });

@@ -531,6 +531,24 @@ function createApp(opts = {}) {
       if (!mayOpen(daily, identity)) return forbidden(res);
       return sendCompressible(req, res, 200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }, resumenSemanalPage({ basePath: cfg.BASE_PATH }));
     }
+    // "Exportar a Slides" del Resumen semanal: el navegador manda el .pptx (base64) y el Apps Script del Daily lo convierte a Google Slides
+    // en el Drive de la cuenta del web app (acción importPptxToSlides). Trabajo en segundo plano: POST arranca, GET ?job= consulta.
+    if (route === '/api/resumen-semanal/slides') {
+      const daily = findModule('daily');
+      if (!daily) return sendJson(res, 404, { error: 'No encontrado' });
+      if (needsIdentity(daily) && !identity.email) return unauthorized(res);
+      if (!mayOpen(daily, identity)) return forbidden(res);
+      if (req.method === 'GET') return sendJson(res, 200, slidesJobs.status(new URL(req.url, 'http://x').searchParams.get('job'), identity.email));
+      if (req.method !== 'POST') return sendJson(res, 405, { error: 'Método no permitido' });
+      if (!/^application\/json\s*(;|$)/i.test(String(req.headers['content-type'] || '')) || req.headers['x-requested-with'] !== 'resumen-semanal' || (req.headers['sec-fetch-site'] && req.headers['sec-fetch-site'] !== 'same-origin')) return sendJson(res, 403, { error: 'Llamada rechazada' });
+      let body;
+      try { body = JSON.parse(await readBody(req, MAX_SLIDES_BODY) || '{}'); } catch (e) { if (e.status === 413) throw e; return sendJson(res, 400, { error: 'JSON inválido' }); }
+      if (typeof body.pptx !== 'string' || body.pptx.length < 100) return sendJson(res, 400, { error: 'No se recibió el deck para exportar.' });
+      let job;
+      try { job = slidesJobs.start({ user: identity.email, secrets: cfg.secrets, gasUrl: daily.gasUrl, action: 'importPptxToSlides', payload: { pptx: body.pptx, name: String(body.name || 'Resumen semanal - Ecosistema B2B').slice(0, 150) }, fetchFn: opts.fetchFn }); } catch (e) { return sendJson(res, 409, { error: e.message }); }
+      log({ level: 'info', route, user: identity.email || '' });
+      return sendJson(res, 200, { started: true, jobId: job });
+    }
     // Acciones comerciales de B2B2C (calendario de Marketing en Drive) para "Para mirar" del Resumen semanal: mismos permisos que el Daily.
     if (route === '/api/acciones-comerciales') {
       if (req.method !== 'GET') return sendJson(res, 405, { error: 'Método no permitido' });

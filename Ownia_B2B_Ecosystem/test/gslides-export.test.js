@@ -84,3 +84,15 @@ test('el Weekly B2B-MAY usa su propia acción del web app (la del Tracker queda 
   await exportTrackerSlides({ secrets: SECRETS, gasUrl: GAS, slides: SLIDES, action: 'exportWeeklySlides', fetchFn });
   assert.deepEqual(bodies.map((b) => b.action), ['exportTrackerSlides', 'exportWeeklySlides']);
 });
+
+test('payload (pptx del Resumen semanal): se manda al Apps Script en lugar de slides, sin exigir slides', async () => {
+  let sent;
+  const fetchFn = async (url, o) => {
+    if (url.includes('oauth2')) return res(200, JSON.stringify({ access_token: 'AT' }));
+    sent = JSON.parse(o.body);
+    return res(200, JSON.stringify({ ok: true, count: 0, url: 'U' }));
+  };
+  const out = await exportTrackerSlides({ secrets: SECRETS, gasUrl: GAS, action: 'importPptxToSlides', payload: { pptx: 'QUJD', name: 'N' }, fetchFn });
+  assert.equal(out.url, 'U');
+  assert.deepEqual(sent, { action: 'importPptxToSlides', pptx: 'QUJD', name: 'N' });
+});

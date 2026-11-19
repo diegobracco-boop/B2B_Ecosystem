@@ -28,8 +28,9 @@ async function accessToken(secrets, fetchFn) {
  * @param {object} o { secrets, gasUrl, slides: [{img, w, h} | null] , fetchFn }
  * @returns {Promise<{ok:true,count:number,url:string}>}
  */
-async function exportTrackerSlides({ secrets, gasUrl, slides, action = 'exportTrackerSlides', fetchFn = fetch }) {
-  if (!Array.isArray(slides) || !slides.length) throw new Error('No se recibió ninguna slide para exportar.');
+async function exportTrackerSlides({ secrets, gasUrl, slides, action = 'exportTrackerSlides', payload, fetchFn = fetch }) {
+  // `payload` (p. ej. el .pptx del Resumen semanal): reemplaza a `slides` en el cuerpo que recibe el doPost.
+  if (!payload && (!Array.isArray(slides) || !slides.length)) throw new Error('No se recibió ninguna slide para exportar.');
   if (!gasUrl) throw new Error('El Daily no tiene URL de Apps Script configurada.');
   const token = await accessToken(secrets || {}, fetchFn);
   const ctl = new AbortController();
@@ -42,7 +43,7 @@ async function exportTrackerSlides({ secrets, gasUrl, slides, action = 'exportTr
       redirect: 'follow',
       signal: ctl.signal,
       headers: { 'Content-Type': 'text/plain;charset=utf-8', Authorization: 'Bearer ' + token },
-      body: JSON.stringify({ action, slides }),
+      body: JSON.stringify(payload ? Object.assign({ action }, payload) : { action, slides }),
     });
     text = await r.text();
   } catch (e) {
@@ -68,13 +69,13 @@ function createSlidesJobs(deps = {}) {
   const now = deps.now || Date.now;
   const gc = () => { for (const [id, j] of jobs) if (now() - j.at > JOB_TTL_MS) jobs.delete(id); };
   return {
-    start({ user, secrets, gasUrl, slides, action, fetchFn }) {
+    start({ user, secrets, gasUrl, slides, action, payload, fetchFn }) {
       gc();
       for (const j of jobs.values()) if (j.state === 'running') throw new Error('Hay otra exportación en curso sobre la misma presentación. Reintentá en unos segundos.');
       const id = require('crypto').randomUUID();
       const job = { user: user || '', state: 'running', at: now() };
       jobs.set(id, job);
-      exportTrackerSlides({ secrets, gasUrl, slides, action, fetchFn }).then(
+      exportTrackerSlides({ secrets, gasUrl, slides, action, payload, fetchFn }).then(
         (o) => Object.assign(job, { state: 'done', count: o.count, url: o.url, at: now() }),
         (e) => Object.assign(job, { state: 'error', error: e && e.message ? e.message : String(e), at: now() })
       );

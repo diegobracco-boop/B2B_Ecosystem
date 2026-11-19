@@ -56,10 +56,20 @@ function doPost(e) {
     var body = JSON.parse((e && e.postData && e.postData.contents) || '{}');
     if (body.action === 'exportTrackerSlides') return out(exportToGoogleSlides({ slides: body.slides }));
     if (body.action === 'exportWeeklySlides') return out(exportWeeklyToGoogleSlides({ slides: body.slides }));
+    if (body.action === 'importPptxToSlides') return out(importPptxToSlides_(body));
     return out({ ok: false, error: 'Acción no reconocida.' });
   } catch (ex) {
     return out({ ok: false, error: ex && ex.message ? ex.message : String(ex) });
   }
+}
+
+// "Exportar a Slides" del Resumen semanal (Ownia): recibe el .pptx en base64 y lo convierte a una Google Slides NUEVA en el Drive de la cuenta
+// del web app (Drive avanzado v3, scope drive: ver appsscript.json). Requiere clasp push + nuevo deployment.
+function importPptxToSlides_(body) {
+  if (!body || !body.pptx) throw new Error('No se recibió el deck para exportar.');
+  var blob = Utilities.newBlob(Utilities.base64Decode(body.pptx), 'application/vnd.openxmlformats-officedocument.presentationml.presentation', 'resumen.pptx');
+  var f = Drive.Files.create({ name: String(body.name || 'Resumen semanal - Ecosistema B2B'), mimeType: 'application/vnd.google-apps.presentation' }, blob, { fields: 'id' });
+  return { ok: true, count: 0, url: 'https://docs.google.com/presentation/d/' + f.id + '/edit' };
 }
 
 // URL propia del deployment + ?view=tracker — la usa el iframe de la vista Tracker
