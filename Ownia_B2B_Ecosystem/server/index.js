@@ -60,6 +60,7 @@ const { driveDimensiones } = require('./pnl-drive-dimensiones');
 const { buildCanonicals, comparar: compararCanonicos } = require('./pnl-consolidador');
 const { createPnlFuente } = require('./pnl-fuente');
 const { createSlidesJobs } = require('./gslides-export');
+const { createResumenAgent } = require('./resumen-agent');
 const { createAcciones } = require('./acciones-comerciales');
 const { modelFromStore } = require('./pipeline-slide');
 const { partnersFrom, createQuestionLog } = require('./portal-ask-data');
@@ -92,6 +93,11 @@ function createApp(opts = {}) {
   // "Actualizar reales" de la portada: solo el equipo B2B (y con contraseña). Ver reales-job.js.
   const slidesJobs = createSlidesJobs();
   const acciones = createAcciones({ secrets: () => cfg.secrets, fetchFn: opts.fetchFn });   // calendario de acciones comerciales de B2B2C (Resumen semanal)
+  // Agente del Resumen semanal ("Preguntale a Claude"): contesta con getResumenSemanal del Daily. Ver resumen-agent.js.
+  const resumenAgent = opts.resumenAgent !== undefined ? opts.resumenAgent : createResumenAgent({
+    secrets: () => cfg.secrets, fetchFn: opts.fetchFn, log,
+    fetchData: async (p) => { const d = findModule('daily'); return getProject(d).call('getResumenSemanal', JSON.stringify([p]), { user: {}, userAgent: 'resumen-agent', moduleUrl: '' }); },
+  });
   const reales = opts.reales !== undefined ? opts.reales : createRealesJob(cfg, { log });
   const realesUsers = (opts.realesUsers || EQUIPO_B2B).map((x) => x.toLowerCase());
   const mayRunReales = (identity) => !!reales && !!identity.email && realesUsers.includes(String(identity.email).toLowerCase());
@@ -548,6 +554,26 @@ function createApp(opts = {}) {
       try { job = slidesJobs.start({ user: identity.email, secrets: cfg.secrets, gasUrl: daily.gasUrl, action: 'importPptxToSlides', payload: { pptx: body.pptx, name: String(body.name || 'Resumen semanal - Ecosistema B2B').slice(0, 150) }, fetchFn: opts.fetchFn }); } catch (e) { return sendJson(res, 409, { error: e.message }); }
       log({ level: 'info', route, user: identity.email || '' });
       return sendJson(res, 200, { started: true, jobId: job });
+    }
+    // "Preguntale a Claude" del Resumen semanal: consola de preguntas en lenguaje natural. Mismos permisos y anti-CSRF que el resto.
+    if (route === '/api/resumen-semanal/ask') {
+      const daily = findModule('daily');
+      if (!daily) return sendJson(res, 404, { error: 'No encontrado' });
+      if (needsIdentity(daily) && !identity.email) return unauthorized(res);
+      if (!mayOpen(daily, identity)) return forbidden(res);
+      if (req.method === 'GET') return sendJson(res, 200, { enabled: !!resumenAgent && resumenAgent.enabled() });
+      if (req.method !== 'POST') return sendJson(res, 405, { error: 'Método no permitido' });
+      if (!/^application\/json\s*(;|$)/i.test(String(req.headers['content-type'] || '')) || req.headers['x-requested-with'] !== 'resumen-semanal' || (req.headers['sec-fetch-site'] && req.headers['sec-fetch-site'] !== 'same-origin')) return sendJson(res, 403, { error: 'Llamada rechazada' });
+      if (!resumenAgent) return sendJson(res, 503, { error: 'El agente no está disponible.' });
+      let body;
+      try { body = JSON.parse(await readBody(req, 64 * 1024) || '{}'); } catch (e) { if (e.status === 413) throw e; return sendJson(res, 400, { error: 'JSON inválido' }); }
+      try {
+        const out = await resumenAgent.ask({ messages: body.messages, context: body.context, user: identity.email || '' });
+        return sendJson(res, 200, out);
+      } catch (e) {
+        if (!e.status || e.status >= 500) log({ level: 'error', route, error: e.stack || String(e) });
+        return sendJson(res, e.status || 500, { error: e.message || String(e) });
+      }
     }
     // Acciones comerciales de B2B2C (calendario de Marketing en Drive) para "Para mirar" del Resumen semanal: mismos permisos que el Daily.
     if (route === '/api/acciones-comerciales') {

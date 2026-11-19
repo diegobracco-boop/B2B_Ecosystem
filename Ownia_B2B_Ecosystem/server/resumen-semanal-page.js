@@ -362,6 +362,41 @@ const CSS = `<style>
   .rs-dlg { width: min(1100px, calc(100vw - 48px)); max-height: calc(100vh - 64px); padding: 26px 28px; }
   .rs-dlg h3 { margin: 18px 0 4px; font-size: 13px; color: var(--text-3); text-transform: uppercase; letter-spacing: .07em; font-weight: 600; }
 
+  /* Consola del agente (Preguntale a Claude): cajón a la derecha, fuera de #rs-root para que sobreviva al render */
+  .ra-panel { position: fixed; top: 0; right: 0; bottom: 0; width: min(420px, 100vw); z-index: 60; display: flex; flex-direction: column; background: var(--bg); color: var(--text);
+              box-shadow: -1px 0 0 var(--line), -24px 0 60px rgba(0,0,0,.28); transform: translateX(105%); transition: transform .28s var(--ease); visibility: hidden; }
+  .ra-panel.open { transform: none; visibility: visible; }
+  .ra-head { display: flex; align-items: center; gap: 10px; padding: 16px 18px; border-bottom: 1px solid var(--line); }
+  .ra-head h2 { margin: 0; font-size: 15px; font-weight: 600; flex: 1; }
+  .ra-head small { display: block; font-size: 11.5px; font-weight: 400; color: var(--text-3); }
+  .ra-x { width: 30px; height: 30px; border-radius: 50%; border: 0; background: var(--tile); color: var(--text-2); font-size: 18px; line-height: 1; cursor: pointer; }
+  .ra-x:hover { color: var(--link); }
+  .ra-log { flex: 1; overflow-y: auto; padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }
+  .ra-m { max-width: 92%; padding: 10px 13px; border-radius: 16px; font-size: 13.5px; line-height: 1.5; overflow-wrap: anywhere; }
+  .ra-m.u { align-self: flex-end; background: var(--primary); color: #fff; border-bottom-right-radius: 5px; }
+  .ra-m.a { align-self: flex-start; max-width: 100%; background: var(--tile); border-bottom-left-radius: 5px; }
+  .ra-m.err { color: var(--crit); }
+  .ra-m p { margin: 0 0 8px; } .ra-m p:last-child { margin-bottom: 0; }
+  .ra-m ul { margin: 0 0 8px; padding-left: 18px; }
+  .ra-m table { border-collapse: collapse; margin: 6px 0 8px; font-size: 12px; font-variant-numeric: tabular-nums; display: block; overflow-x: auto; }
+  .ra-m th, .ra-m td { padding: 3px 8px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+  .ra-m th:first-child, .ra-m td:first-child { text-align: left; }
+  .ra-m th { color: var(--text-3); font-weight: 600; }
+  .ra-dots span { display: inline-block; width: 6px; height: 6px; margin: 0 2px; border-radius: 50%; background: var(--text-3); animation: raDot 1s infinite ease-in-out; }
+  .ra-dots span:nth-child(2) { animation-delay: .15s; } .ra-dots span:nth-child(3) { animation-delay: .3s; }
+  @keyframes raDot { 0%, 80%, 100% { opacity: .25; } 40% { opacity: 1; } }
+  .ra-sug { display: flex; flex-direction: column; gap: 7px; }
+  .ra-sug p { margin: 0 0 2px; font-size: 12px; color: var(--text-3); }
+  .ra-sug button { text-align: left; padding: 9px 12px; border-radius: 12px; border: 0; background: var(--tile); color: var(--text-2); font: 500 12.5px var(--font); cursor: pointer; box-shadow: inset 0 0 0 1px var(--line); }
+  .ra-sug button:hover { color: var(--link); box-shadow: inset 0 0 0 1px var(--link); }
+  .ra-form { display: flex; gap: 8px; align-items: flex-end; padding: 12px 18px 16px; border-top: 1px solid var(--line); }
+  .ra-form textarea { flex: 1; resize: none; max-height: 120px; padding: 10px 12px; border-radius: 14px; border: 0; background: var(--tile); color: var(--text); font: 13.5px var(--font); box-shadow: inset 0 0 0 1px var(--line); outline: none; }
+  .ra-form textarea:focus { box-shadow: inset 0 0 0 1px var(--link); }
+  .ra-send { width: 38px; height: 38px; flex: none; border-radius: 50%; border: 0; background: var(--primary); color: #fff; cursor: pointer; display: grid; place-items: center; }
+  .ra-send:disabled { opacity: .45; cursor: progress; }
+  .ra-foot { padding: 0 18px 12px; font-size: 11px; color: var(--text-3); }
+  @media (prefers-reduced-motion: reduce) { .ra-panel { transition: none; } }
+
   @media (min-width: 1000px) and (min-height: 600px) {
     html, body { height: 100%; overflow: hidden; }
     body { min-height: 0; }
@@ -680,6 +715,7 @@ const SCRIPT = String.raw`
     deck: '<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/>',
     link: '<path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1 1"/><path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1-1"/>',
     tbl: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 4v16"/>',
+    spark: '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z"/>',
     tbd: '<circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/>',
   };
   function svgI(k, sz) { return '<svg width="' + (sz || 15) + '" height="' + (sz || 15) + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICO[k] + '</svg>'; }
@@ -708,6 +744,7 @@ const SCRIPT = String.raw`
       '<div class="rs-weeks" role="group" aria-label="' + (mode === 'w' ? 'Semana' : 'Mes') + '">' + chips + '</div>' +
       '<button type="button" class="rs-pill" id="rs-tbd" aria-pressed="' + exTbd + '" title="Saca de las explicaciones el Budget de partners nuevos todavía sin firmar (TBD). Los totales no cambian.">' + svgI('tbd', 13) + 'Excluir TBD</button>' +
       '<span class="rs-tools">' +
+      '<button type="button" class="rs-ib" id="rs-ask" title="Preguntale a Claude sobre estos números" aria-label="Preguntale a Claude">' + svgI('spark') + '</button>' +
       '<button type="button" class="rs-ib" id="rs-tbl" title="Tablas por país y de la serie" aria-label="Ver tablas">' + svgI('tbl') + '</button>' +
       '<button type="button" class="rs-ib" id="rs-copy" title="Copiar el resumen para pegar en Slack" aria-label="Copiar para Slack">' + svgI('copy') + '</button>' +
       '<button type="button" class="rs-ib" id="rs-deck" title="Exportar a Google Slides: deck de esta vista" aria-label="Exportar a Slides">' + svgI('deck') + '</button>' +
@@ -730,6 +767,7 @@ const SCRIPT = String.raw`
     document.getElementById('rs-tbd').onclick = function () {
       exTbd = !exTbd; this.setAttribute('aria-pressed', String(exTbd)); root.classList.add('calm'); renderBiz(false); syncUrl();
     };
+    document.getElementById('rs-ask').onclick = function () { askToggle(); };
     document.getElementById('rs-copy').onclick = copySlack;
     document.getElementById('rs-link').onclick = copyLink;
     document.getElementById('rs-deck').onclick = exportDeck;
@@ -1508,6 +1546,95 @@ const SCRIPT = String.raw`
         else alert('No se pudo cargar: ' + e.message);
       });
   }
+  // ── Preguntale a Claude: consola a la derecha, contesta con los mismos números de la página (server/resumen-agent.js) ──
+  var askEl = null, askMsgs = [], askBusy = false;
+  var ASK_SUG = [
+    '¿Cuánto se viene cerrando la brecha de FVM vs Budget en B2B2C semana a semana?',
+    '¿Qué países explican el desvío de NR vs Budget del mes en B2B2C?',
+    '¿Vamos a llegar al Budget del mes? Proyectá con el Run Rate y el ritmo actual.',
+    'Comparame B2B API vs B2B HTML: GB, NR y FVM contra Budget y LY.',
+    '¿Qué es lo más preocupante de la semana para un CFO?'
+  ];
+  function askMd(t) {
+    var inl = function (x) { return esc(x).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>'); };
+    var isRow = function (l) { return /^\s*\|/.test(l); }, isLi = function (l) { return /^\s*[-*•]\s+/.test(l); };
+    var cells = function (r) { return r.replace(/^\s*\||\|\s*$/g, '').split('|').map(function (c) { return c.trim(); }); };
+    var lines = String(t).split('\n'), out = [], i = 0;
+    while (i < lines.length) {
+      var l = lines[i];
+      if (isRow(l)) {
+        var rows = [];
+        while (i < lines.length && isRow(lines[i])) { rows.push(lines[i]); i++; }
+        var hd = cells(rows[0]), body = rows.slice(1).filter(function (r) { return !/^[\s|:-]+$/.test(r); });
+        out.push('<table><thead><tr>' + hd.map(function (c) { return '<th>' + inl(c) + '</th>'; }).join('') + '</tr></thead><tbody>' +
+          body.map(function (r) { return '<tr>' + cells(r).map(function (c) { return '<td>' + inl(c) + '</td>'; }).join('') + '</tr>'; }).join('') + '</tbody></table>');
+      } else if (isLi(l)) {
+        var li = [];
+        while (i < lines.length && isLi(lines[i])) { li.push('<li>' + inl(lines[i].replace(/^\s*[-*•]\s+/, '')) + '</li>'); i++; }
+        out.push('<ul>' + li.join('') + '</ul>');
+      } else if (!l.trim()) { i++; }
+      else {
+        var para = [];
+        while (i < lines.length && lines[i].trim() && !isRow(lines[i]) && !isLi(lines[i])) { para.push(inl(lines[i].replace(/^#+\s*/, ''))); i++; }
+        out.push('<p>' + para.join('<br>') + '</p>');
+      }
+    }
+    return out.join('');
+  }
+  function askLog() { return askEl.querySelector('#ra-log'); }
+  function askShowSug() {
+    var box = document.createElement('div'); box.className = 'ra-sug'; box.id = 'ra-sug';
+    box.innerHTML = '<p>Probá con:</p>' + ASK_SUG.map(function (q, i) { return '<button type="button" data-i="' + i + '">' + esc(q) + '</button>'; }).join('');
+    Array.prototype.forEach.call(box.querySelectorAll('button'), function (b) { b.onclick = function () { askSend(ASK_SUG[+b.getAttribute('data-i')]); }; });
+    askLog().appendChild(box);
+  }
+  function askBuild() {
+    askEl = document.createElement('aside');
+    askEl.className = 'ra-panel'; askEl.setAttribute('aria-label', 'Preguntale a Claude');
+    askEl.innerHTML = '<div class="ra-head"><h2>Preguntale a Claude<small>Contesta con los números de este Resumen</small></h2><button type="button" class="ra-x" aria-label="Cerrar">×</button></div>' +
+      '<div class="ra-log" id="ra-log" aria-live="polite"></div>' +
+      '<form class="ra-form" id="ra-form"><textarea id="ra-in" rows="1" maxlength="1000" placeholder="Preguntá lo que preguntaría un CFO…" aria-label="Pregunta"></textarea>' +
+      '<button type="submit" class="ra-send" id="ra-go" aria-label="Enviar">' + svgI('spark', 16) + '</button></form>' +
+      '<div class="ra-foot">Respuestas de IA sobre los datos del Resumen: verificá antes de decidir.</div>';
+    document.body.appendChild(askEl);
+    askEl.querySelector('.ra-x').onclick = function () { askToggle(false); };
+    var ta = askEl.querySelector('#ra-in');
+    ta.addEventListener('input', function () { ta.style.height = 'auto'; ta.style.height = Math.min(120, ta.scrollHeight) + 'px'; });
+    ta.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); askSend(ta.value); } });
+    askEl.querySelector('#ra-form').onsubmit = function (e) { e.preventDefault(); askSend(ta.value); };
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && askEl.classList.contains('open')) askToggle(false); });
+    askShowSug();
+  }
+  function askAdd(cls, html) {
+    var d = document.createElement('div'); d.className = 'ra-m ' + cls; d.innerHTML = html;
+    var lg = askLog(); lg.appendChild(d); lg.scrollTop = lg.scrollHeight; return d;
+  }
+  function askToggle(force) {
+    if (!askEl) askBuild();
+    var open = typeof force === 'boolean' ? force : !askEl.classList.contains('open');
+    askEl.classList.toggle('open', open);
+    if (open) setTimeout(function () { var t = askEl.querySelector('#ra-in'); if (t) t.focus(); }, 280);
+  }
+  function askContext() {
+    return { view: mode === 'w' ? 'semanal' : mode === 'm' ? 'MTD' : 'mensual', week: D && D.week ? D.week.year + '-W' + D.week.week : '', month: D && D.month ? D.month.ym : '', mo: D && D.monthly ? D.monthly.ym : '', lob: sel };
+  }
+  function askSend(text) {
+    text = String(text || '').trim();
+    if (!text || askBusy) return;
+    askBusy = true;
+    var sg = askEl.querySelector('#ra-sug'); if (sg) sg.remove();
+    var ta = askEl.querySelector('#ra-in'), go = askEl.querySelector('#ra-go');
+    ta.value = ''; ta.style.height = 'auto'; go.disabled = true;
+    askMsgs.push({ role: 'user', content: text });
+    askAdd('u', esc(text).replace(/\n/g, '<br>'));
+    var wait = askAdd('a', '<span class="ra-dots"><span></span><span></span><span></span></span>');
+    fetch(CFG.ask, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'resumen-semanal' },
+      body: JSON.stringify({ messages: askMsgs, context: askContext() }) })
+      .then(function (x) { return x.json().catch(function () { return {}; }).then(function (j) { if (!x.ok) throw new Error(j.error || ('HTTP ' + x.status)); return j; }); })
+      .then(function (j) { askMsgs.push({ role: 'assistant', content: j.answer }); wait.innerHTML = askMd(j.answer); })
+      .catch(function (e) { askMsgs.pop(); wait.className = 'ra-m a err'; wait.textContent = e.message; })
+      .then(function () { askBusy = false; go.disabled = false; var lg = askLog(); lg.scrollTop = lg.scrollHeight; ta.focus(); });
+  }
   var qs = location.search, qw = /[?&]semana=(\d{4})-W(\d{1,2})/.exec(qs), qm = /[?&]mes=(\d{4}-\d{2})/.exec(qs);
   if (/[?&]vista=mtd/.test(qs)) mode = 'm';
   if (/[?&]vista=mensual/.test(qs)) mode = 'mo';
@@ -1521,7 +1648,7 @@ const SCRIPT = String.raw`
 
 function resumenSemanalPage({ basePath }) {
   const back = `<a class="back" href="${escapeHtml(basePath)}/">${CHEVRON_L} B2B Ecosystem</a>`;
-  const cfg = JSON.stringify({ api: `${basePath}/api/daily/getResumenSemanal`, acc: `${basePath}/api/acciones-comerciales`, slides: `${basePath}/api/resumen-semanal/slides` }).replace(/</g, '\\u003c');
+  const cfg = JSON.stringify({ api: `${basePath}/api/daily/getResumenSemanal`, acc: `${basePath}/api/acciones-comerciales`, slides: `${basePath}/api/resumen-semanal/slides`, ask: `${basePath}/api/resumen-semanal/ask` }).replace(/</g, '\\u003c');
   return shell(`${CSS}<div id="rs-root" class="viz-root"></div>
     <script>window.RS_CFG = ${cfg};</script>
     <script>${SCRIPT}</script>`, { title: 'Resumen semanal · B2B Ecosystem', left: back });
