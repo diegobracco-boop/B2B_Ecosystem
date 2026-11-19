@@ -1463,6 +1463,45 @@ def clean_b2b(df: pd.DataFrame) -> pd.DataFrame:
     return df[COLS_B2B + ["director"]]
 
 
+# Dest. Serv. de API: Recognition = Gestion (2026-11-19, pedido de antonella.difranco). En RI, Dest. Serv. reconoce
+# por fecha de check-in y quedaba muy por debajo del GD (nov-26 MTD: NR 44K RI vs 72K GD). Las filas RI de API x
+# Dest. Serv. se reemplazan por las GD del mismo bloque (reales, LY, budget, run rate, forecast), antes de agregar:
+# así lo toman igual el Tracker, el Daily y el OKR H2. El resto de los productos y canales sigue con su RI.
+DS_API_PRODUCTOS = {"Dest. Serv.", "D. Services", "Actividades"}
+
+
+def _mask_ds_api(df: pd.DataFrame) -> pd.Series:
+    prod_col = "producto_original" if "producto_original" in df.columns else "producto"
+    if "parent_channel" in df.columns:
+        canal = df["parent_channel"] == "API"
+    elif "lob_canal" in df.columns:
+        canal = df["lob_canal"].isin(["B2B-MAY", "API"])
+    else:
+        return pd.Series(False, index=df.index)
+    return canal & df[prod_col].astype(str).str.strip().isin(DS_API_PRODUCTOS)
+
+
+def ri_ds_api_desde_gd(df_ri: pd.DataFrame, df_gd: pd.DataFrame, label: str) -> pd.DataFrame:
+    """Devuelve df_ri con las filas de API x Dest. Serv. reemplazadas por las de df_gd. Si falta alguno de
+    los dos (query caída / vacía) deja el RI como vino: mejor RI propio que un hueco."""
+    if df_ri is None or df_ri.empty or df_gd is None or df_gd.empty:
+        print(f"  WARN Dest. Serv. API RI=GD ({label}): falta RI o GD, queda el RI como vino")
+        return df_ri
+    m_ri, m_gd = _mask_ds_api(df_ri), _mask_ds_api(df_gd)
+    faltan = [c for c in df_ri.columns if c not in df_gd.columns]
+    if faltan:
+        print(f"  WARN Dest. Serv. API RI=GD ({label}): el GD no trae {faltan}, queda el RI como vino")
+        return df_ri
+    if not m_gd.any() and m_ri.any():
+        print(f"  WARN Dest. Serv. API RI=GD ({label}): el GD no trae filas de Dest. Serv. API, queda el RI como vino")
+        return df_ri
+    out = pd.concat([df_ri[~m_ri], df_gd.loc[m_gd, list(df_ri.columns)]], ignore_index=True)
+    nr = "net_revenue" if "net_revenue" in df_ri.columns else None
+    if nr:
+        print(f"  Dest. Serv. API RI=GD ({label}): NR RI {df_ri.loc[m_ri, nr].sum():,.0f} -> {df_gd.loc[m_gd, nr].sum():,.0f}")
+    return out
+
+
 def agg_b2b(df: pd.DataFrame) -> pd.DataFrame:
     return df.groupby(
         ["fecha", "pais", "producto_original", "parent_channel", "viaje"],
@@ -1758,6 +1797,11 @@ df_b2b_gd_ly = clean_b2b(fetched("B2B GD LY"))
 print("\n--- B2B RI ---")
 df_b2b_ri    = clean_b2b(fetched("B2B RI actuals"))
 df_b2b_ri_ly = clean_b2b(fetched("B2B RI LY"))
+# FVM Negativo (más abajo) cuadra su query RI pura contra el RI del Daily: se le pasa el RI SIN el reemplazo de
+# Dest. Serv. API (esa pestaña sigue 100% por Recognition, a nivel transacción).
+df_b2b_ri_puro = df_b2b_ri
+df_b2b_ri    = ri_ds_api_desde_gd(df_b2b_ri,    df_b2b_gd,    "actuals")
+df_b2b_ri_ly = ri_ds_api_desde_gd(df_b2b_ri_ly, df_b2b_gd_ly, "LY")
 
 # LY ext: no crítico (solo el YoY de las semanas proyectadas). Si falla, el Tracker muestra "—".
 def _fetched_ly_ext(label: str) -> pd.DataFrame:
@@ -1784,6 +1828,8 @@ def _fetched_fy_rest(prefix: str, n: int) -> pd.DataFrame:
 df_act_fy_rest = _fetched_fy_rest("Actuals FY rest", len(ACT_FY_REST_RANGES))
 df_ly_fy_rest  = _fetched_fy_rest("LY FY rest", len(LY_FY_REST_RANGES))
 df_b2b_ri_ly_ext = _fetched_ly_ext("B2B RI LY ext")
+if not df_b2b_ri_ly_ext.empty and not df_b2b_gd_ly_ext.empty:
+    df_b2b_ri_ly_ext = ri_ds_api_desde_gd(df_b2b_ri_ly_ext, df_b2b_gd_ly_ext, "LY ext")
 
 print("\n--- Budget LOB diagnostic ---")
 try:
@@ -1808,6 +1854,7 @@ except Exception as e:
     print(f"  WARN B2B budget RI query failed: {e}")
     _FAILED_BLOCKS.append('B2B Budget RI')
     df_b2b_budget_ri = pd.DataFrame()
+df_b2b_budget_ri = ri_ds_api_desde_gd(df_b2b_budget_ri, df_b2b_budget_gd, "budget")
 
 print("\n--- Run Rate B2B2C ---")
 try:
@@ -1835,6 +1882,7 @@ except Exception as e:
     print(f"  WARN B2B RR RI query failed: {e}")
     _FAILED_BLOCKS.append('B2B Run Rate RI')
     df_b2b_rr_ri = pd.DataFrame()
+df_b2b_rr_ri = ri_ds_api_desde_gd(df_b2b_rr_ri, df_b2b_rr_gd, "run rate")
 
 print("\n--- B2C (referencia) ---")
 try:
@@ -1862,6 +1910,8 @@ except Exception as e:
     print(f"  WARN Forecast diario failed: {e}")
     df_forecast_gd = pd.DataFrame()
     df_forecast_ri = pd.DataFrame()
+if not df_forecast_ri.empty and not df_forecast_gd.empty:
+    df_forecast_ri = ri_ds_api_desde_gd(df_forecast_ri, df_forecast_gd, "forecast")
 
 print("\n--- Unique Buyers (KR H2 White Labels) ---")
 # No va a _FAILED_BLOCKS: si falla, el JSON sale sin el bloque y okr_builder cae al valor de Input_OKR.
@@ -2029,7 +2079,7 @@ try:
     _neg_ri  = clean_fvm_neg(fetched("FVM Neg B2B RI"), FVM_NEG_DIMS_B2B)
     _neg_b2c = clean_fvm_neg(fetched("FVM Neg B2B2C"),  FVM_NEG_DIMS_B2B2C)
     _cuadres = [_cuadre_fvm_neg(_neg_gd,  "tx",         df_b2b_gd,  "B2B GD"),
-                _cuadre_fvm_neg(_neg_ri,  "tx",         df_b2b_ri,  "B2B RI"),
+                _cuadre_fvm_neg(_neg_ri,  "tx",         df_b2b_ri_puro, "B2B RI"),
                 _cuadre_fvm_neg(_neg_b2c, "tx_partner", df_actuals, "B2B2C")]
     if all(_cuadres):
         _niveles_b2b = {"tx": ["pais", "parent_channel", "producto_original"]}

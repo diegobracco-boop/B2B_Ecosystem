@@ -728,7 +728,9 @@
   body.slides-mode #agenciasH2Content .kr-num-badge { white-space: nowrap; }
   /* País completo (en pantalla se corta a 80px con "…": "Ecua / Uru / Par"). */
   body.slides-mode #agenciasContent .kr-detail-table td:first-child,
-  body.slides-mode #agenciasContent .kr-detail-table th:first-child { max-width: none; width: auto; }
+  body.slides-mode #agenciasContent .kr-detail-table th:first-child,
+  body.slides-mode #agenciasH2Content .kr-detail-table td:first-child,
+  body.slides-mode #agenciasH2Content .kr-detail-table th:first-child { max-width: none; width: auto; }
   /* KR Global B2B API en slides: 6 cards en 2 filas (3 + 3) que LLENAN el alto del
      slide (sin espacio muerto arriba/abajo). El grid ocupa el espacio restante
      bajo el título; las filas se reparten en partes iguales y cada card estira
@@ -4008,6 +4010,7 @@ function _fitKrSlide(container) {
   var z = _fitMax(function(z) {
     container.style.zoom = z;
     if (container.getBoundingClientRect().bottom > maxBottom()) return false;
+    if (grid.scrollWidth > grid.clientWidth + 1) return false;        // algún recuadro se sale por la derecha
     var boxes = grid.children;
     for (var i = 0; i < boxes.length; i++) {
       if (boxes[i].offsetTop !== boxes[0].offsetTop) return false;   // se partió en dos filas
@@ -5335,6 +5338,12 @@ async function _captureAllSlides(onProgress, opts) {
         // marco va arriba a la izquierda. Globales (sin zoom) va por el mismo camino.
         var isKRSlide = (slide.tab === 'agencias' || slide.tab === 'agencias_h2' || slide.tab === 'globales');
         if (isKRSlide) {
+          // El zoom de estas slides lo fija _fitKrSlide en un requestAnimationFrame, que el navegador NO corre con la
+          // pestaña en segundo plano: el Flow semanal arma estas capturas en un iframe oculto durante un par de minutos y,
+          // si en ese rato se cambiaba de pestaña, la slide salía sin ajustar (recuadros cortados a la derecha y abajo,
+          // slide 26 del Semanal, 2026-11-19). Se ajusta acá, sincrónico, justo antes de capturar.
+          var _krBox = document.querySelector('#agenciasContent.visible, #agenciasH2Content.visible, #globalesContent.visible.glob-table-view');
+          if (_krBox) _fitKrSlide(_krBox);
           var rect = el.getBoundingClientRect();
           try {
             canvas = await html2canvas(el, {
