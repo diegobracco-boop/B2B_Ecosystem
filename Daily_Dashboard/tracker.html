@@ -2348,14 +2348,16 @@ function cumplColor(pct) {
 // Igual que cumplColor pero devuelve clases de FONDO pastel. Se usa solo en las
 // celdas de cumplimiento de Status KRs (tabla resumen + detail boxes). Las tablas
 // pivote NR/GB/FVM siguen usando cumplColor (color en la letra).
-// KRs: el corte de 80% se mira sobre el % REDONDEADO (el que se muestra): 79,5%–79,9% se ve "80%" y va amarillo,
-// no rojo (2026-11-20, pedido de antonella.difranco). Lo comparten cumplBg y globCumplClass_ (KR Global B2B API).
-function krBajo80_(pct) { return Math.round(pct * 100) < 80; }
+// KRs: los cortes de 80% y 100% se miran sobre el % REDONDEADO (el que se muestra): 79,5%–79,9% se ve "80%" y va
+// amarillo; 99,5%–99,9% se ve "100%" y va verde (2026-11-20, pedido de antonella.difranco). Lo comparten cumplBg y
+// globCumplClass_ (KR Global B2B API).
+function krBajo80_(pct)  { return Math.round(pct * 100) < 80; }
+function krBajo100_(pct) { return Math.round(pct * 100) < 100; }
 function cumplBg(pct) {
   if (pct === null || pct === undefined) return '';
   if (!isFinite(pct) || isNaN(pct)) return '';
   if (krBajo80_(pct)) return 'kr-cumpl-red';
-  if (pct < 1.00) return 'kr-cumpl-yellow';
+  if (krBajo100_(pct)) return 'kr-cumpl-yellow';
   return 'kr-cumpl-green';
 }
 
@@ -4475,7 +4477,7 @@ function renderGlobales() {
   function globCumplClass_(rat){
     if (rat === null || rat === undefined || !isFinite(rat) || isNaN(rat)) return 'neutral';
     if (krBajo80_(rat)) return 'red';
-    if (rat < 1.00) return 'yellow';
+    if (krBajo100_(rat)) return 'yellow';
     return 'green';
   }
 

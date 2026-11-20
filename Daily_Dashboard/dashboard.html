@@ -6869,11 +6869,15 @@ function trkCumplColor_(pct){
   if(pct===null||pct===undefined||!isFinite(pct)||isNaN(pct)) return '';
   if(pct<0.80) return 'cell-red'; if(pct<1.00) return 'cell-yellow'; return 'cell-green';
 }
-// KRs (slides B2B del Flow): el corte de 80% se mira sobre el % redondeado que se muestra (79,5%–79,9% = "80%" amarillo),
-// igual que cumplBg del tracker (2026-11-20). Las tablas de performance por país siguen con trkCumplColor_.
+// KRs (slides B2B del Flow): los cortes de 80% y 100% se miran sobre el % redondeado que se muestra (79,5%–79,9% = "80%"
+// amarillo; 99,5%–99,9% = "100%" verde), igual que cumplBg del tracker (2026-11-20). Las tablas de performance por país
+// siguen con trkCumplColor_.
 function trkKrCumplColor_(pct){
   if(pct===null||pct===undefined||!isFinite(pct)||isNaN(pct)) return '';
-  return trkCumplColor_(Math.round(pct*100)<80 ? 0 : Math.max(pct, 0.80));
+  var r=Math.round(pct*100);
+  if(r<80) return 'cell-red';
+  if(r<100) return 'cell-yellow';
+  return 'cell-green';
 }
 // Regla ÚNICA de cumplimiento de OKR del ecosistema (decisión de Diego 2026-09-25, igual que
 // el OKR del Hub, Codigo_OKR.js): actual / budget; por debajo de 70% cuenta 0; techo 130%.
