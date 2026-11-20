@@ -1,5 +1,5 @@
 -- =============================================================================
--- COPIA de la card Metabase 171400 "Alta_frecuencia_Semanal" (2026-10-16).
+-- COPIA de la card Metabase 171400 "Alta_frecuencia_Semanal" (v2, 2026-11-19: cancelaciones desde BO).
 -- La corre daily_sync.py contra el Datalake (KR Accelerate Recurrence, Status KRs H2 del Tracker).
 -- Si cambia la definicion en Metabase, pegar aca el SQL nuevo tal cual (sin ';' final).
 -- =============================================================================
@@ -15,8 +15,13 @@
 --                           roll_frecuentes = 3 o mas de las 4; roll_4de4 = las 4.
 --   LY:  los mismos bloques para la semana equivalente del anio anterior (mismo mes comercial, misma
 --        semana del mes), a SU foto. Sirve para el YoY semana a semana sin madurez distinta.
--- Lecturas: *_conf = confirmadas a la foto (confirmation_date <= foto y no cancelada);
---           *_vivas = activas + confirmadas a la foto (no cancelada: cancelation_date IS NULL o > foto).
+-- Lecturas: *_conf = confirmadas a la foto (confirmation_date <= foto y no cancelada a la foto);
+--           *_vivas = no canceladas a la foto.
+-- CANCELACION (v2): la fecha de cancelacion sale de BO (channels_bo_product/sale), con el mismo criterio
+--   que kr_alta_frecuencia_por_pais: la orden esta viva si algun producto esta EMITTED/ACTIVE; si no, se
+--   toma la ultima fecha de cancelacion de sus productos. La tabla de hechos queda solo como respaldo
+--   (ordenes sin BO), porque no registra cancelaciones de BO de HTML Hoteles (oct-26: 1.965 ordenes
+--   canceladas en BO figuran 'Confirmado' con cancelation_date nula -> +49 AF).
 -- OBJETIVO: no esta en el lake; se joinea afuera por (mes_comercial, pais) desde la proyeccion vigente
 --           (_proyeccion_pais_com*.csv / Objetivos_Pais_Comercial*.xlsx). La foto del mes se compara con el
 --           objetivo del mes; el rolling es seguimiento, no se compara con objetivo.
@@ -24,7 +29,7 @@
 -- Semana = semana comercial de la FECHA DE RESERVA. Agencia = partner_data_id (WLAG -> AG). Pais = pais con
 -- mas ordenes de la agencia. Calendario Calendario.xlsx embebido (agregar filas para extender).
 -- roll_completo = 0 en las 3 primeras semanas de la base (mar-25), donde la ventana de 4 no esta completa.
--- Fuente: data.analytics.bi_transactional_fact_transactions. Sin ';' final. ~3 min.
+-- Fuente: data.analytics.bi_transactional_fact_transactions + lake.channels_bo_product/sale. Sin ';' final.
 -- =============================================================================
 WITH cal AS (
     SELECT periodo, desde, hasta, n_sem
@@ -69,17 +74,31 @@ sem AS (
     CROSS JOIN UNNEST(sequence(1, c.n_sem)) AS t (k)
     WHERE date_add('day', 7 * (k - 1), c.desde) <= current_date
 ),
+-- estado por transaccion desde BO (mismo criterio que kr_alta_frecuencia_por_pais)
+bo AS (
+    SELECT CAST(s.transaction_id AS VARCHAR) AS tx_code,
+           max(CASE WHEN if(p.status = '', 'ACTIVE', p.status) IN ('EMITTED', 'ACTIVE') THEN 1 ELSE 0 END) AS viva_hoy,
+           max(CASE WHEN p.status = 'CANCELED' THEN CAST(p.cancelled AS DATE) END)                     AS ult_cancelacion
+    FROM lake.channels_bo_product p
+    JOIN lake.channels_bo_sale s ON s.id = p.sale_id
+    WHERE s.created >= DATE '2025-02-01'
+    GROUP BY 1
+),
 ord AS (
-    SELECT CASE WHEN partner_data_id LIKE 'WLAG%' THEN substr(partner_data_id, 3) ELSE partner_data_id END AS agencia_id,
-           country_code, transaction_code,
-           CAST(reservation_date AS DATE)  AS rd,
-           CAST(confirmation_date AS DATE) AS cd,
-           CAST(cancelation_date AS DATE)  AS xd
-    FROM data.analytics.bi_transactional_fact_transactions
-    WHERE reservation_year_month >= DATE '2025-03-01'   -- particion: literal (con subquery el driver falla)
-      AND reservation_date >= DATE '2025-03-03'
-      AND parent_channel = 'Agencias afiliadas'
-      AND line_of_business = 'B2B'
+    SELECT CASE WHEN t.partner_data_id LIKE 'WLAG%' THEN substr(t.partner_data_id, 3) ELSE t.partner_data_id END AS agencia_id,
+           t.country_code, t.transaction_code,
+           CAST(t.reservation_date AS DATE)  AS rd,
+           CAST(t.confirmation_date AS DATE) AS cd,
+           CASE WHEN b.tx_code IS NULL THEN CAST(t.cancelation_date AS DATE)   -- sin BO: respaldo tabla de hechos
+                WHEN b.viva_hoy = 1   THEN NULL                               -- algun producto EMITTED/ACTIVE: viva
+                ELSE coalesce(b.ult_cancelacion, CAST(t.cancelation_date AS DATE))
+           END AS xd
+    FROM data.analytics.bi_transactional_fact_transactions t
+    LEFT JOIN bo b ON b.tx_code = CAST(t.transaction_code AS VARCHAR)
+    WHERE t.reservation_year_month >= DATE '2025-03-01'   -- particion: literal (con subquery el driver falla)
+      AND t.reservation_date >= DATE '2025-03-03'
+      AND t.parent_channel = 'Agencias afiliadas'
+      AND t.line_of_business = 'B2B'
 ),
 pais AS (
     SELECT agencia_id, country_code
@@ -116,22 +135,22 @@ m AS (
                 WHEN 'AR' THEN 'Argentina' WHEN 'CL' THEN 'Chile'  WHEN 'PE' THEN 'Peru'
                 ELSE 'Other Countries' END AS pais,
            -- MTD confirmadas
-           COUNT(DISTINCT CASE WHEN a.tipo = 'MTD' AND a.sc >= 1 THEN a.agencia_id END)        AS mtd_compradoras_conf,
-           COUNT(DISTINCT CASE WHEN a.tipo = 'MTD' AND a.sc >= 3 THEN a.agencia_id END)        AS mtd_frecuentes_conf,
-           COUNT(DISTINCT CASE WHEN a.tipo = 'MTD' AND a.sc = a.semana THEN a.agencia_id END)  AS mtd_todas_conf,
+           count_if(a.tipo = 'MTD' AND a.sc >= 1)        AS mtd_compradoras_conf,
+           count_if(a.tipo = 'MTD' AND a.sc >= 3)        AS mtd_frecuentes_conf,
+           count_if(a.tipo = 'MTD' AND a.sc = a.semana)  AS mtd_todas_conf,
            -- MTD vivas
-           COUNT(DISTINCT CASE WHEN a.tipo = 'MTD' AND a.sv >= 1 THEN a.agencia_id END)        AS mtd_compradoras_vivas,
-           COUNT(DISTINCT CASE WHEN a.tipo = 'MTD' AND a.sv >= 3 THEN a.agencia_id END)        AS mtd_frecuentes_vivas,
-           COUNT(DISTINCT CASE WHEN a.tipo = 'MTD' AND a.sv = a.semana THEN a.agencia_id END)  AS mtd_todas_vivas,
+           count_if(a.tipo = 'MTD' AND a.sv >= 1)        AS mtd_compradoras_vivas,
+           count_if(a.tipo = 'MTD' AND a.sv >= 3)        AS mtd_frecuentes_vivas,
+           count_if(a.tipo = 'MTD' AND a.sv = a.semana)  AS mtd_todas_vivas,
            -- ROLL confirmadas
-           COUNT(DISTINCT CASE WHEN a.tipo = 'ROLL' AND a.sc >= 1 THEN a.agencia_id END)       AS roll_compradoras_conf,
-           COUNT(DISTINCT CASE WHEN a.tipo = 'ROLL' AND a.sc >= 3 THEN a.agencia_id END)       AS roll_frecuentes_conf,
-           COUNT(DISTINCT CASE WHEN a.tipo = 'ROLL' AND a.sc = 4 THEN a.agencia_id END)        AS roll_4de4_conf,
+           count_if(a.tipo = 'ROLL' AND a.sc >= 1)       AS roll_compradoras_conf,
+           count_if(a.tipo = 'ROLL' AND a.sc >= 3)       AS roll_frecuentes_conf,
+           count_if(a.tipo = 'ROLL' AND a.sc = 4)        AS roll_4de4_conf,
            -- ROLL vivas
-           COUNT(DISTINCT CASE WHEN a.tipo = 'ROLL' AND a.sv >= 1 THEN a.agencia_id END)       AS roll_compradoras_vivas,
-           COUNT(DISTINCT CASE WHEN a.tipo = 'ROLL' AND a.sv >= 3 THEN a.agencia_id END)       AS roll_frecuentes_vivas,
-           COUNT(DISTINCT CASE WHEN a.tipo = 'ROLL' AND a.sv = 4 THEN a.agencia_id END)        AS roll_4de4_vivas
-    FROM ag a
+           count_if(a.tipo = 'ROLL' AND a.sv >= 1)       AS roll_compradoras_vivas,
+           count_if(a.tipo = 'ROLL' AND a.sv >= 3)       AS roll_frecuentes_vivas,
+           count_if(a.tipo = 'ROLL' AND a.sv = 4)        AS roll_4de4_vivas
+    FROM ag a   -- ag es unica por (periodo, semana, tipo, agencia): count_if = count distinct
     LEFT JOIN pais p ON p.agencia_id = a.agencia_id
     GROUP BY 1, 2, 3
 )

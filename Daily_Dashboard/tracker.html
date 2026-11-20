@@ -4214,10 +4214,10 @@ function recurDetailBox_(krYM) {
       cumplCellHtml(c.roll, pct(c.roll), bold) +
       '<td>' + b(target !== null && target !== undefined ? fmtKRVal(target, 'int') : '—') + '</td></tr>';
   }
-  // Orden de FVM_DETAIL (Other Countries = Globales) + "No Gestionadas" (solo tiene target en Input_OKR;
-  // la card no la separa). Se muestra cada fila que tenga actual o target; lo que falte va con "—".
+  // Orden de FVM_DETAIL (Other Countries = Globales). "No Gestionadas" ya no es fila: getRecurTargets() reparte
+  // su target entre los países. Se muestra cada fila que tenga actual o target; lo que falte va con "—".
   // Países de la card o de la sheet que no estén en la lista van al final.
-  var defs = FVM_DETAIL.concat([{ name: 'No Gestionadas', pais: ['No Gestionadas'] }]);
+  var defs = FVM_DETAIL;
   var tgtKeys = Object.keys((recurTargets && recurTargets[krYM]) || {}).filter(function(k){ return normPais_(k) !== 'total'; });
   var used = {}, body = '';
   function rowFor(name, paisNames) {

@@ -1737,8 +1737,41 @@ function getOKRManualB2B2C() {
 var INPUT_OKR_SHEET_ID = '1RVmTXDyyugCUXJ0f6JG_croNxWNLlOLm4eAs8F52u2c';   // "Input dashboard B2B+WLs"
 // Cache 1 h, pero solo si trae el mes en curso: un resultado sin ese mes (sheet a medio cargar, lectura vacía)
 // quedó pegado una hora el 2026-10-19 y el KR se vio sin target aunque la sheet estaba bien.
+// "No Gestionadas" ya no es una fila propia (2026-11-20): su target se reparte entre los países según el
+// país de cada agencia no gestionada (Excel "B2B _ Metas H2 '26", hoja "Detalle por país", Tipo = NO
+// Gestionadas, por Pais_agrup). Se reparte el valor de la sheet con esos pesos (resto mayor, suma exacta)
+// y se suma a la fila del país. Meses sin pesos: se usa el último mes cargado.
+var RECUR_NOGEST_PESOS = {
+  '2026-10': { 'Brasil': 382, 'Mexico': 8,  'Peru': 4, 'Other Countries': 4, 'Argentina': 1, 'Chile': 1 },
+  '2026-11': { 'Brasil': 380, 'Mexico': 11, 'Peru': 4, 'Other Countries': 4, 'Argentina': 1, 'Chile': 1 },
+  '2026-12': { 'Brasil': 376, 'Mexico': 10, 'Peru': 4, 'Other Countries': 4, 'Argentina': 1, 'Chile': 1 },
+  '2027-01': { 'Brasil': 383, 'Mexico': 11, 'Peru': 4, 'Other Countries': 4, 'Argentina': 1, 'Chile': 1 },
+  '2027-02': { 'Brasil': 378, 'Mexico': 10, 'Peru': 4, 'Other Countries': 4, 'Argentina': 1, 'Chile': 1 },
+  '2027-03': { 'Brasil': 383, 'Mexico': 11, 'Peru': 4, 'Other Countries': 4, 'Argentina': 1, 'Chile': 1 }
+};
+var RECUR_PAIS_ALIAS = { 'other countries': ['other countries', 'globales'] };
+function normRecurPais_(s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase(); }
+function repartirNoGestionadas_(rp, ym) {
+  var ngKey = Object.keys(rp).filter(function(k) { return normRecurPais_(k) === 'no gestionadas'; })[0];
+  if (!ngKey) return;
+  var total = +rp[ngKey] || 0;
+  delete rp[ngKey];
+  var meses = Object.keys(RECUR_NOGEST_PESOS).sort(), mes = meses[0];
+  meses.forEach(function(m) { if (m <= ym) mes = m; });
+  var pesos = RECUR_NOGEST_PESOS[mes], paises = Object.keys(pesos);
+  var suma = paises.reduce(function(s, p) { return s + pesos[p]; }, 0);
+  if (!total || !suma) return;
+  var partes = paises.map(function(p) { var x = total * pesos[p] / suma; return { p: p, n: Math.floor(x), r: x - Math.floor(x) }; });
+  var falta = Math.round(total) - partes.reduce(function(s, x) { return s + x.n; }, 0);
+  partes.slice().sort(function(a, b) { return b.r - a.r; }).slice(0, Math.max(0, falta)).forEach(function(x) { x.n++; });
+  partes.forEach(function(x) {
+    var alias = RECUR_PAIS_ALIAS[normRecurPais_(x.p)] || [normRecurPais_(x.p)];
+    var k = Object.keys(rp).filter(function(kk) { return alias.indexOf(normRecurPais_(kk)) !== -1; })[0] || x.p;
+    rp[k] = (+rp[k] || 0) + x.n;
+  });
+}
 function getRecurTargets() {
-  var cache = CacheService.getScriptCache(), key = 'recur_targets_v1';
+  var cache = CacheService.getScriptCache(), key = 'recur_targets_v2';
   var curYM = Utilities.formatDate(new Date(), 'America/Argentina/Buenos_Aires', 'yyyy-MM');
   var hit = cache.get(key);
   if (hit) { try { var c = JSON.parse(hit); if (c[curYM]) return c; } catch (e) {} }
@@ -1761,6 +1794,7 @@ function getRecurTargets() {
     out[ym] = out[ym] || {};
     out[ym][pais] = v;   // una fila por mes x país (si se repite, queda la última)
   });
+  Object.keys(out).forEach(function(ym) { repartirNoGestionadas_(out[ym], ym); });
   if (out[curYM]) { try { cache.put(key, JSON.stringify(out), 3600); } catch (e) {} }
   return out;
 }
