@@ -397,7 +397,7 @@ const CSS = `<style>
   .ra-foot { padding: 0 18px 12px; font-size: 11px; color: var(--text-3); }
   @media (prefers-reduced-motion: reduce) { .ra-panel { transition: none; } }
 
-  @media (min-width: 1000px) and (min-height: 600px) {
+  @media (min-width: 1000px) and (min-height: 820px) {
     html, body { height: 100%; overflow: hidden; }
     body { min-height: 0; }
     .topbar { padding: 10px 24px; }
@@ -407,6 +407,15 @@ const CSS = `<style>
     #rs-biz { flex: 1; min-height: 0; }
     .rs-main { height: 100%; grid-template-rows: auto minmax(0, 1fr); }
     .rs-watch, .rs-right { min-height: 0; }
+  }
+  /* Notebook (alto < 820px): dos columnas, pero la página scrollea y las tarjetas toman su alto (nada recortado) */
+  @media (min-width: 1000px) and (max-height: 819px) {
+    .rs-main { grid-template-rows: auto auto; }
+    .rs-main .rs-plot { height: 230px; flex: none; }
+    .rs-main .rs-plot svg { height: 230px; }
+    .rs-right { grid-template-rows: auto auto; }
+    .rs-wl, .rs-main .rs-bul { overflow: visible; }
+    .rs-wi .imp { display: none; }
   }
   @media (max-width: 999px), (max-height: 599px) {
     .rs-head { grid-template-columns: minmax(0, 1fr); }
@@ -1104,12 +1113,11 @@ const SCRIPT = String.raw`
   }
   // Desvío de FVM vs Budget y cuánto viene del volumen (GB a margen de Budget). Sin take rate (pedido 2026-11-19).
   function bridgeHtml(T) {
-    var dev = T.cur.fvm - T.bud.fvm, mB = T.bud.gb ? T.bud.fvm / T.bud.gb : 0, vol = (T.cur.gb - T.bud.gb) * mB;
-    var mx = Math.max(Math.abs(dev), Math.abs(vol)) || 1;
+    var dev = T.cur.fvm - T.bud.fvm, mx = Math.abs(dev) || 1;
     function bar(v) { return '<span class="bt"><i class="' + (v < 0 ? 'neg' : 'pos') + '" style="width:' + (Math.abs(v) / mx * 50).toFixed(1) + '%"></i></span>'; }
     return '<div class="rs-bridge"><span class="t">Desvío de FVM vs Budget<b class="' + cls(dev) + '">' + sgnMoney(dev) + '</b></span>' +
       '<span>FVM (' + fp(pct(T.cur.fvm, T.bud.fvm)) + ')</span>' + bar(dev) + '<span class="' + cls(dev) + '">' + sgnMoney(dev) + '</span>' +
-      '<span>Por volumen (GB ' + fp(pct(T.cur.gb, T.bud.gb)) + ')</span>' + bar(vol) + '<span class="' + cls(vol) + '">' + sgnMoney(vol) + '</span></div>';
+      '</div>';
   }
   function trendLine(k) {
     var x = insights(k, false).filter(function (o) { return o.k === 'trend'; })[0];
