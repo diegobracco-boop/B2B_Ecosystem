@@ -29,6 +29,7 @@ from dotenv import load_dotenv
 # Proporciones fijas de apertura del NR de Packages General (solo Budget). Generado por calc_pkg_split.py.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from pkg_split_factors import PKG_SPLIT_FACTORS, PKG_SPLIT_WINDOW
+from ds_ticket_split_factors import DS_TICKET_SHARE   # Tickets dentro de Dest. Serv. (budget OKR H2), ver calc_ds_ticket_split.py
 # País correcto de partners B2B2C mal cargados en las proyecciones (CUTC), compartido con P&L_Managerial
 from pais_rules import apply_pais_overrides
 # lob_canal de B2B cargado como 'API'/'HTML' en vez de B2B-MAY/MIN (pasó el 2026-11-02 en raw.b2brr_*)
@@ -905,6 +906,18 @@ _B2B_JOINS_GD = """
 
 _B2B_DIR_EXPR = "COALESCE(dc.director, 'Sin director')"
 
+# Tickets dentro de Dest. Serv. (KR New Products Growth, switch "Dest. Serv. abierto" del Tracker, 2026-11-20): entradas
+# a parques (destination_service_ticket_type: DISNEY / UNIVERSAL / SEAWORLD / BUSCH_GARDENS) y shows / entradas sueltas
+# (destination_service_activity_type = 'TICKET'). Excursiones (TOUR), traslados y alquileres = 0. En el resto de los
+# productos esos campos vienen NULL -> 0. En Packages General (Carrito) la marca sale del product_type (Disney / Universal /
+# SeaWorld / Busch Gardens / Espectáculos), igual que en el budget (split_ds_ticket_budget): así ds_ticket es función de
+# product_type y no abre grupos nuevos, que inflarían orders (COUNT DISTINCT por grupo + SUM; medido oct-2026: +0,4%).
+_B2B_DS_TICKET_EXPR = ("CASE WHEN fh.buy_type_code = 'Carrito' THEN "
+                       "CASE WHEN p.product_type IN ('Disney','Universal','SeaWorld','Busch Gardens') "
+                       "OR p.product_type LIKE 'Espect%' THEN 1 ELSE 0 END "
+                       "WHEN p.destination_service_ticket_type IS NOT NULL "
+                       "OR p.destination_service_activity_type = 'TICKET' THEN 1 ELSE 0 END")
+
 _B2B_GROUP_DIMS = """
         fh.parent_channel,
         CASE
@@ -937,7 +950,8 @@ _B2B_GROUP_DIMS = """
         CASE WHEN fh.trip_type_code='Nac' THEN 'Domestic'
              WHEN fh.trip_type_code='Int' THEN 'International'
              ELSE fh.trip_type_code END,
-        p.product_type"""
+        p.product_type,
+        """ + _B2B_DS_TICKET_EXPR
 
 _B2B_OUTER_SELECT_NR = """
     SUM(
@@ -1005,7 +1019,8 @@ base_metrics AS (
         CASE WHEN fh.trip_type_code='Nac' THEN 'Domestic'
              WHEN fh.trip_type_code='Int' THEN 'International'
              ELSE fh.trip_type_code END AS viaje,
-        p.product_type AS product_type,"""
+        p.product_type AS product_type,
+        """ + _B2B_DS_TICKET_EXPR + """ AS ds_ticket,"""
         + _B2B_COMPONENTS_RI
         + _B2B_JOINS_RI
         + _b2b_where_ri(date_from, date_to) + """
@@ -1016,14 +1031,14 @@ base_metrics AS (
 )
 SELECT
     CAST(fecha_reconocimiento AS VARCHAR) AS fecha,
-    pais, producto_original, parent_channel, viaje, product_type, director,
+    pais, producto_original, parent_channel, viaje, product_type, director, ds_ticket,
     SUM(orders) AS orders,
     SUM(gross_bookings) AS gross_bookings,"""
         + _B2B_OUTER_SELECT_NR + ","
         + _B2B_OUTER_SELECT_FVM + ","
         + _B2B_OUTER_SELECT_COI_FIN_BR + """
 FROM base_metrics
-GROUP BY 1, 2, 3, 4, 5, 6, 7
+GROUP BY 1, 2, 3, 4, 5, 6, 7, 8
 """)
 
 
@@ -1039,7 +1054,8 @@ base_metrics AS (
         CASE WHEN fh.trip_type_code='Nac' THEN 'Domestic'
              WHEN fh.trip_type_code='Int' THEN 'International'
              ELSE fh.trip_type_code END AS viaje,
-        p.product_type AS product_type,"""
+        p.product_type AS product_type,
+        """ + _B2B_DS_TICKET_EXPR + """ AS ds_ticket,"""
         + _B2B_COMPONENTS_GD
         + _B2B_JOINS_GD
         + _b2b_where_gd(date_from, date_to) + """
@@ -1049,14 +1065,14 @@ base_metrics AS (
 )
 SELECT
     CAST(fecha_gestion AS VARCHAR) AS fecha,
-    pais, producto_original, parent_channel, viaje, product_type, director,
+    pais, producto_original, parent_channel, viaje, product_type, director, ds_ticket,
     SUM(orders) AS orders,
     SUM(gross_bookings) AS gross_bookings,"""
         + _B2B_OUTER_SELECT_NR + ","
         + _B2B_OUTER_SELECT_FVM + ","
         + _B2B_OUTER_SELECT_COI_FIN_BR + """
 FROM base_metrics
-GROUP BY 1, 2, 3, 4, 5, 6, 7
+GROUP BY 1, 2, 3, 4, 5, 6, 7, 8
 """)
 
 
@@ -1460,7 +1476,9 @@ def clean_b2b(df: pd.DataFrame) -> pd.DataFrame:
     df["product_type"] = (df["product_type"].fillna("N/A").astype(str).str.strip()
                           .str.replace(r"^Espect.*$", "Espectáculos", regex=True))
     df["director"] = df["director"].fillna("Sin director").astype(str)
-    return df[COLS_B2B + ["director"]]
+    # ds_ticket: 1 = Tickets dentro de Dest. Serv. (ver _B2B_DS_TICKET_EXPR). Las filas RG (ajuste COI Brasil) lo heredan de la fila de Brasil que copian.
+    df["ds_ticket"] = pd.to_numeric(df["ds_ticket"], errors="coerce").fillna(0).astype(int) if "ds_ticket" in df.columns else 0
+    return df[COLS_B2B + ["director", "ds_ticket"]]
 
 
 # Dest. Serv. de API: Recognition = Gestion (2026-11-19, pedido de antonella.difranco). En RI, Dest. Serv. reconoce
@@ -1603,9 +1621,46 @@ def build_okr_h2_actuals(df: pd.DataFrame) -> dict:
         return {"cols": [], "rows": []}
     d = df[["fecha", "pais", "producto_original", "parent_channel", "product_type", "gross_bookings", "net_revenue", "fvm"]].copy()
     d.loc[d["producto_original"] != "Packages General", "product_type"] = ""
-    d = d.groupby(["fecha", "pais", "producto_original", "parent_channel", "product_type"], as_index=False).agg(
+    # ds_ticket (Tickets dentro de Dest. Serv., switch "Dest. Serv. abierto" del Tracker). Las filas de cruceros_sync no lo traen -> 0.
+    d["ds_ticket"] = (pd.to_numeric(df["ds_ticket"], errors="coerce").fillna(0).astype(int)
+                      if "ds_ticket" in df.columns else 0)
+    d = d.groupby(["fecha", "pais", "producto_original", "parent_channel", "product_type", "ds_ticket"], as_index=False).agg(
         gross_bookings=("gross_bookings", "sum"), net_revenue=("net_revenue", "sum"), fvm=("fvm", "sum"))
     return to_compact(d)
+
+
+# product_type de Packages General que cuentan como Tickets en el budget (los componentes ya vienen abiertos por
+# split_pkg_budget): parques y shows. Excursiones y Traslados = resto (en los actuals la marca sale de cada producto).
+DS_TICKET_PKG_TYPES = {"Disney", "Universal", "SeaWorld", "Busch Gardens"}
+
+
+def split_ds_ticket_budget(b: pd.DataFrame) -> pd.DataFrame:
+    """Agrega ds_ticket (1 = Tickets dentro de Dest. Serv.) al budget del JSON de OKR H2, para el switch "Dest. Serv.
+    abierto" del KR New Products Growth. Dest. Serv. se parte en dos filas (Tickets / resto) con la proporción FIJA de
+    ds_ticket_split_factors.py (por canal x país -> canal -> total); los componentes de Packages General se marcan por
+    product_type. Los totales no cambian (el cuadre del OKR H2 lo controla)."""
+    b = b.copy()
+    b["ds_ticket"] = 0
+    pt = b["product_type"].astype(str)
+    b.loc[(b["producto"] == "Packages General") & (pt.isin(DS_TICKET_PKG_TYPES) | pt.str.startswith("Espect")), "ds_ticket"] = 1
+    es_ds = b["producto"].isin(["Dest. Serv.", "D. Services"])
+    if not es_ds.any():
+        return b
+
+    def share(ch, pais):
+        for k in ((ch, pais), (ch, "TOTAL"), ("TOTAL", "TOTAL")):
+            if k in DS_TICKET_SHARE:
+                return DS_TICKET_SHARE[k]
+        return 0.0
+
+    ds = b[es_ds]
+    sh = ds.apply(lambda r: share(r.get("parent_channel"), r.get("pais")), axis=1)
+    met = [c for c in ("orders", "gross_bookings", "net_revenue", "fvm") if c in ds.columns]
+    tk, rs = ds.copy(), ds.copy()
+    tk[met] = tk[met].mul(sh, axis=0)
+    rs[met] = rs[met].mul(1 - sh, axis=0)
+    tk["ds_ticket"], rs["ds_ticket"] = 1, 0
+    return pd.concat([b[~es_ds], tk, rs], ignore_index=True)
 
 
 def build_okr_h2_budget(df_clean: pd.DataFrame) -> list:
@@ -1614,8 +1669,8 @@ def build_okr_h2_budget(df_clean: pd.DataFrame) -> list:
     Año fiscal completo (abr -> mar): las metas del H2 llegan hasta marzo."""
     if df_clean is None or df_clean.empty:
         return []
-    b = split_pkg_budget(agg_b2b_budget(df_clean, full_fy=True))
-    b = b.groupby(["fecha", "pais", "parent_channel", "producto", "product_type"], as_index=False).agg(
+    b = split_ds_ticket_budget(split_pkg_budget(agg_b2b_budget(df_clean, full_fy=True)))
+    b = b.groupby(["fecha", "pais", "parent_channel", "producto", "product_type", "ds_ticket"], as_index=False).agg(
         gross_bookings=("gross_bookings", "sum"), net_revenue=("net_revenue", "sum"), fvm=("fvm", "sum")
     ).round({"gross_bookings": 2, "net_revenue": 2, "fvm": 2})
     return b.to_dict(orient="records")

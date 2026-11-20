@@ -1484,6 +1484,12 @@
       <button type="button" class="kr-ch-btn" data-ch="api">API</button>
       <button type="button" class="kr-ch-btn" data-ch="html">HTML</button>
     </div>
+    <!-- New Products Growth: Dest. Serv. cerrado (un solo bloque) o abierto en Tickets / resto -->
+    <div class="kr-ch-group" id="krDsBtns" title="New Products Growth: ver Dest. Serv. como un solo bloque o abierto en Tickets (parques + shows/entradas) y resto (excursiones, traslados)">
+      <span class="partners-api-lbl">Dest. Serv.</span>
+      <button type="button" class="kr-ch-btn active" data-ds="0">Cerrado</button>
+      <button type="button" class="kr-ch-btn" data-ds="1">Abierto</button>
+    </div>
   </div>
   <div id="statusKRsH2Spinner" class="spinner-wrap" style="height:200px;display:none">
     <div class="spinner"></div><span>Cargando KRs...</span>
@@ -3594,6 +3600,19 @@ function npKindOf_(prod, productType) {
   if (prod === 'Packages General' && isNewProductPkgType_(productType)) return productType === 'Vuelos' ? 'flights' : 'ds';
   return null;
 }
+// Switch "Dest. Serv. abierto" (2026-11-20, pedido de antonella.difranco): Dest. Serv. se abre en Tickets (ds_ticket = 1:
+// parques + shows / entradas sueltas) y resto. ds_ticket viene en okr_h2_managerial.json: en los actuals sale de cada
+// producto (daily_sync.py, _B2B_DS_TICKET_EXPR) y en el budget de una proporción fija (calc_ds_ticket_split.py).
+// npKey: 'flights' | 'ds' | 'ds_tickets' | 'ds_resto'.
+// Arranca siempre cerrado (no se recuerda): el Flow Semanal captura estas slides desde una copia oculta del Tracker y
+// así salen iguales para todos.
+var krDsOpen = false;
+function npMatch_(prod, productType, dsTicket, npKey) {
+  var k = npKindOf_(prod, productType);
+  if (npKey === 'flights' || npKey === 'ds') return k === npKey;
+  if (k !== 'ds') return false;
+  return (Number(dsTicket) === 1) === (npKey === 'ds_tickets');
+}
 
 // Filtro de canal de la vista Status KRs H2: 'total' | 'api' | 'html'.
 var krH2Channel = 'total';
@@ -4219,14 +4238,27 @@ function renderStatusKRsH2DetailBoxes_(monthFilter) {
     // tienen datos y en $K (en API son montos chicos). La tabla principal sigue mostrando el conjunto.
     var npCol = document.createElement('div');
     npCol.className = 'kr-detail-column';
-    [['flights', 'New Products · Flights $K (API)'], ['ds', 'New Products · Dest. Serv. $K (API)']].forEach(function(k){
-      var pa = andPred_(function(r){ return npKindOf_(r.producto_original, r.product_type) === k[0]; }, chPred);
-      var pb = andPred_(function(r){ return npKindOf_(r.producto, r.product_type) === k[0]; }, chPred);
+    var npBoxes = [['flights', 'New Products · Flights $K (API)']].concat(krDsOpen
+      ? [['ds_tickets', 'New Products · Dest. Serv. · Tickets $K (API)'], ['ds_resto', 'New Products · Dest. Serv. · resto $K (API)']]
+      : [['ds', 'New Products · Dest. Serv. $K (API)']]);
+    npBoxes.forEach(function(k){
+      var pa = andPred_(function(r){ return npMatch_(r.producto_original, r.product_type, r.ds_ticket, k[0]); }, chPred);
+      var pb = andPred_(function(r){ return npMatch_(r.producto, r.product_type, r.ds_ticket, k[0]); }, chPred);
       addBox(npCol, k[1], 'net_revenue', pa, pb, '$K', toK, true);
     });
     grid.appendChild(npCol);
   } else {
     addBox(grid, 'New Products Growth $K' + chLbl, 'net_revenue', isNPa, isNPb, '$Kint', toK);
+    if (krDsOpen) {   // Dest. Serv. abierto: Tickets y resto, uno abajo del otro (subconjuntos de New Products)
+      var dsCol = document.createElement('div');
+      dsCol.className = 'kr-detail-column';
+      [['ds_tickets', 'New Products · Dest. Serv. · Tickets $K' + chLbl], ['ds_resto', 'New Products · Dest. Serv. · resto $K' + chLbl]].forEach(function(k){
+        var pa = andPred_(function(r){ return npMatch_(r.producto_original, r.product_type, r.ds_ticket, k[0]); }, chPred);
+        var pb = andPred_(function(r){ return npMatch_(r.producto, r.product_type, r.ds_ticket, k[0]); }, chPred);
+        addBox(dsCol, k[1], 'net_revenue', pa, pb, '$Kint', toK, true);
+      });
+      grid.appendChild(dsCol);
+    }
   }
 
   // Accelerate Recurrence (solo HTML): País | Rolling L4W | % Cumpl. | Target.
@@ -4934,6 +4966,20 @@ document.querySelectorAll('#krH2ChannelBtns .kr-ch-btn').forEach(function(btn) {
       b.classList.toggle('active', b === btn);
     });
     syncApiAllUI_();
+    renderStatusKRsH2();
+  });
+});
+// Switch Dest. Serv. cerrado / abierto (New Products Growth). Arranca cerrado en cada carga.
+function syncDsBtns_() {
+  document.querySelectorAll('#krDsBtns .kr-ch-btn').forEach(function(b) {
+    b.classList.toggle('active', (b.getAttribute('data-ds') === '1') === krDsOpen);
+  });
+}
+syncDsBtns_();
+document.querySelectorAll('#krDsBtns .kr-ch-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    krDsOpen = btn.getAttribute('data-ds') === '1';
+    syncDsBtns_();
     renderStatusKRsH2();
   });
 });
