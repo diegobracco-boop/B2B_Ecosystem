@@ -131,6 +131,22 @@
   .api-all-pwd input { width:120px; padding:4px 8px; border:1px solid #d1d5db; border-radius:6px; font-size:12px; }
   .api-all-pwd button { padding:4px 8px; border:1px solid #d1d5db; border-radius:6px; background:#fff; font-size:12px; cursor:pointer; }
   .api-all-err { font-size:11px; color:#dc2626; }
+  /* KR Accelerate Hunting # Partners API: partners por país (fuera de las slides) */
+  .partners-api-box { margin-top:16px; max-width:760px; }
+  .partners-api-head { display:flex; flex-wrap:wrap; align-items:center; gap:10px; }
+  .partners-api-lbl { font-size:10px; color:#9ca3af; font-weight:700; text-transform:uppercase; letter-spacing:.8px; margin-right:6px; }
+  #partnersApiPeriod { padding:4px 8px; border:1px solid #d1d5db; border-radius:6px; font-size:12px; }
+  .partners-api-note { font-size:11.5px; color:#6b7280; margin:10px 0 6px; line-height:1.4; }
+  .partners-api-table { width:100%; border-collapse:collapse; font-size:12.5px; margin-top:6px; }
+  .partners-api-table th { text-align:right; font-size:10.5px; text-transform:uppercase; letter-spacing:.4px; color:#550FED;
+    background:#F3F0FE; padding:6px 8px; border-bottom:2px solid #7c3aed; }
+  .partners-api-table th:first-child, .partners-api-table td:first-child { text-align:left; }
+  .partners-api-table td { text-align:right; padding:4px 8px; border-bottom:1px solid #f3f4f6; }
+  .partners-api-table tr.pa-country td { background:#FAF8FF; font-weight:700; color:#550FED; cursor:pointer; }
+  .partners-api-table tr.pa-total td { font-weight:800; border-top:2px solid #7c3aed; }
+  .partners-api-table td.pa-name { padding-left:22px; }
+  .partners-api-table td.pa-cod { color:#9ca3af; font-size:11px; text-align:left; }
+  body.slides-mode #partnersApiBox { display:none !important; }
   .filter-group label { font-size: 10px; color: #9ca3af; font-weight: 700; white-space: nowrap; text-transform: uppercase; letter-spacing: 0.8px; }
   .filter-group select {
     background: #f9fafb;
@@ -1514,6 +1530,24 @@
   <div id="globalesWrap" style="display:none">
     <div class="status-krs-meta" id="globalesMeta"></div>
     <div id="globalesCards"></div>
+    <!-- KR Accelerate Hunting # Partners API: partners por país (con contraseña, se valida en el servidor) -->
+    <div class="kr-detail-box partners-api-box" id="partnersApiBox">
+      <div class="partners-api-head">
+        <span class="kr-num-badge">Accelerate Hunting # Partners API · Partners por país</span>
+        <button type="button" class="api-all-sw" id="partnersApiBtn" title="Muestra qué partners cuentan en el KR, abiertos por país (pide contraseña)">🔒 Ver partners por país</button>
+        <span id="partnersApiPwdBox" class="api-all-pwd" style="display:none">
+          <input type="password" id="partnersApiPwdInput" placeholder="Contraseña" autocomplete="off">
+          <button type="button" id="partnersApiPwdOk">OK</button>
+          <button type="button" id="partnersApiPwdCancel" title="Cancelar">✕</button>
+          <span id="partnersApiErr" class="api-all-err"></span>
+        </span>
+        <span id="partnersApiPeriodBox" style="display:none">
+          <label class="partners-api-lbl" for="partnersApiPeriod">Período</label>
+          <select id="partnersApiPeriod"></select>
+        </span>
+      </div>
+      <div id="partnersApiBody"></div>
+    </div>
     <div class="glob-foot" style="font-size:0.78rem;color:#9ca3af;margin-top:10px">
       Targets del OKR H2 FY27 (fuente: <em>okr.json</em>, la misma del OKR del Hub). El <strong>actual</strong> de Net Revenues API Hoteles se computa desde el daily (canal API · producto Hoteles · todos los países) y su target es el <strong>budget gestional del daily</strong> (el mismo de la pestaña NR (RI); el mes en curso es MTD contra el budget acumulado al mismo día); los de hoteles directos y Price Competitiveness salen del Datalake (Price Competitiveness: línea "Adverso Latam V2" del Metabase 9043, foto de la última semana cerrada del mes); el resto sale de la sheet Input_OKR. En Price Competitiveness menos es mejor (% de adversidad).
     </div>
@@ -4951,6 +4985,106 @@ document.getElementById('apiAllToggle').addEventListener('click', function() {
   box.style.display = box.style.display === 'none' ? '' : 'none';
   if (box.style.display !== 'none') document.getElementById('apiAllPwdInput').focus();
 });
+// ── KR Accelerate Hunting # Partners API: partners por país (2026-11-20) ──
+// getPartnersApiDetail(pwd) valida la contraseña en el servidor y recién ahí devuelve el detalle de partners_api_snapshots.json.
+// La clave no se guarda: el servidor devuelve todos los períodos de una vez, y "Ocultar" borra el detalle de memoria.
+var _paData = null, _paOpen = {};
+function _paEsc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function(c) { return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]; }); }
+function _paFmt(v, d) { return (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString('es-AR', { minimumFractionDigits: d || 0, maximumFractionDigits: d || 0 }); }
+function _paHidePwd() {
+  document.getElementById('partnersApiPwdBox').style.display = 'none';
+  document.getElementById('partnersApiPwdInput').value = '';
+  document.getElementById('partnersApiErr').textContent = '';
+}
+function _paRender() {
+  var body = document.getElementById('partnersApiBody');
+  var sel = document.getElementById('partnersApiPeriod');
+  var p = _paData && _paData.periodos && _paData.periodos[Number(sel.value) || 0];
+  if (!p) { body.innerHTML = '<div class="partners-api-note">Sin datos de partners API.</div>'; return; }
+  var rango = p.desde ? (p.desde + ' → ' + p.hasta) : (p.congelado_el ? 'congelado el ' + p.congelado_el : '');
+  var note = '<div class="partners-api-note"><b>' + _paEsc(p.label) + '</b>' + (rango ? ' · ' + _paEsc(rango) : '') +
+    ' · <b>' + _paFmt(p.total) + ' partners</b>. Un partner cuenta una vez: si opera en varios países, se reparte entre ellos según sus reservas ' +
+    '(columna Peso; la suma por país da el KR por país). País = el del partner en el Datalake (o el forzado en el diccionario).</div>';
+  var paises = Object.keys(p.por_pais || {}).sort(function(a, b) { return (p.por_pais[b] || 0) - (p.por_pais[a] || 0); });
+  if (!p.detalle) {
+    body.innerHTML = note + '<div class="partners-api-note">' + (p.desde
+        ? 'Todavía no hay detalle por partner: se arma en la próxima corrida de "Actualizar reales". Por ahora, solo el total por país.'
+        : 'Este mes se congeló antes de que se guardara el detalle por partner: solo hay el total por país.') + '</div>' +
+      '<table class="partners-api-table"><thead><tr><th>País</th><th>Partners (peso)</th></tr></thead><tbody>' +
+      paises.map(function(k) { return '<tr><td>' + _paEsc(k) + '</td><td>' + _paFmt(p.por_pais[k], 1) + '</td></tr>'; }).join('') +
+      '<tr class="pa-total"><td>TOTAL</td><td>' + _paFmt(p.total) + '</td></tr></tbody></table>';
+    return;
+  }
+  var c = p.detalle_cols || ['partner', 'pais', 'reservas', 'peso', 'codigos'];
+  var iN = c.indexOf('partner'), iP = c.indexOf('pais'), iR = c.indexOf('reservas'), iW = c.indexOf('peso'), iC = c.indexOf('codigos');
+  var byPais = {};
+  p.detalle.forEach(function(r) { (byPais[r[iP]] = byPais[r[iP]] || []).push(r); });
+  Object.keys(byPais).forEach(function(k) { if (paises.indexOf(k) < 0) paises.push(k); });
+  var totRes = 0, rows = '';
+  paises.forEach(function(k) {
+    var list = (byPais[k] || []).slice().sort(function(a, b) { return b[iR] - a[iR]; });
+    var res = list.reduce(function(s, r) { return s + (r[iR] || 0); }, 0); totRes += res;
+    var open = !!_paOpen[k];
+    rows += '<tr class="pa-country" data-pais="' + _paEsc(k) + '"><td>' + (open ? '▼ ' : '▶ ') + _paEsc(k) + ' <span style="font-weight:400;color:#6b7280">(' + list.length + ')</span></td>' +
+      '<td></td><td>' + _paFmt(res) + '</td><td>' + _paFmt(p.por_pais[k], 1) + '</td></tr>';
+    if (open) list.forEach(function(r) {
+      rows += '<tr><td class="pa-name">' + _paEsc(r[iN]) + '</td><td class="pa-cod">' + _paEsc(r[iC]) + '</td><td>' + _paFmt(r[iR]) + '</td><td>' + _paFmt(r[iW], 2) + '</td></tr>';
+    });
+  });
+  body.innerHTML = note +
+    '<div style="margin:4px 0"><button type="button" class="api-all-pwd" id="paExpandAll" style="border:1px solid #d1d5db;border-radius:6px;background:#fff;font-size:12px;padding:3px 8px;cursor:pointer">' +
+    (paises.every(function(k) { return _paOpen[k]; }) ? 'Colapsar todos' : 'Expandir todos') + '</button></div>' +
+    '<table class="partners-api-table"><thead><tr><th>País / Partner</th><th style="text-align:left">Códigos</th><th>Reservas</th><th>Peso (partners)</th></tr></thead><tbody>' +
+    rows + '<tr class="pa-total"><td>TOTAL</td><td></td><td>' + _paFmt(totRes) + '</td><td>' + _paFmt(p.total) + '</td></tr></tbody></table>' +
+    (p.sin_diccionario && p.sin_diccionario.length ? '<div class="partners-api-note">Códigos sin diccionario (cuentan como partner propio): ' + _paEsc(p.sin_diccionario.join(', ')) + '</div>' : '');
+  body.querySelectorAll('tr.pa-country').forEach(function(tr) {
+    tr.addEventListener('click', function() { var k = tr.getAttribute('data-pais'); _paOpen[k] = !_paOpen[k]; _paRender(); });
+  });
+  document.getElementById('paExpandAll').addEventListener('click', function() {
+    var all = paises.every(function(k) { return _paOpen[k]; });
+    paises.forEach(function(k) { _paOpen[k] = !all; }); _paRender();
+  });
+}
+function _paSubmit() {
+  var inp = document.getElementById('partnersApiPwdInput'), err = document.getElementById('partnersApiErr');
+  var pwd = inp.value;
+  err.textContent = 'Validando…';
+  google.script.run
+    .withSuccessHandler(function(res) {
+      if (!res || !res.ok) { err.textContent = (res && res.error) || 'No se pudo validar'; inp.select(); return; }
+      _paData = res;
+      _paHidePwd();
+      document.getElementById('partnersApiBtn').textContent = '🔓 Ocultar partners por país';
+      var sel = document.getElementById('partnersApiPeriod');
+      sel.innerHTML = (res.periodos || []).map(function(p, i) {
+        var lbl = /^\d{4}-\d{2}$/.test(p.label) ? formatYM(p.label) : p.label;
+        return '<option value="' + i + '">' + _paEsc(lbl) + '</option>';
+      }).join('');
+      document.getElementById('partnersApiPeriodBox').style.display = '';
+      _paRender();
+    })
+    .withFailureHandler(function(e) { err.textContent = 'Error: ' + (e && e.message ? e.message : e); })
+    .getPartnersApiDetail(pwd);
+}
+document.getElementById('partnersApiBtn').addEventListener('click', function() {
+  if (_paData) {   // ocultar: se borra el detalle de memoria (para volver a verlo se pide de nuevo la clave)
+    _paData = null; _paOpen = {};
+    document.getElementById('partnersApiBody').innerHTML = '';
+    document.getElementById('partnersApiPeriodBox').style.display = 'none';
+    this.textContent = '🔒 Ver partners por país';
+    return;
+  }
+  var box = document.getElementById('partnersApiPwdBox');
+  box.style.display = box.style.display === 'none' ? '' : 'none';
+  if (box.style.display !== 'none') document.getElementById('partnersApiPwdInput').focus();
+});
+document.getElementById('partnersApiPwdOk').addEventListener('click', _paSubmit);
+document.getElementById('partnersApiPwdCancel').addEventListener('click', _paHidePwd);
+document.getElementById('partnersApiPwdInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') _paSubmit(); else if (e.key === 'Escape') _paHidePwd();
+});
+document.getElementById('partnersApiPeriod').addEventListener('change', function() { _paOpen = {}; _paRender(); });
+
 document.getElementById('apiAllPwdOk').addEventListener('click', submitApiAllPwd_);
 document.getElementById('apiAllPwdCancel').addEventListener('click', hideApiAllPwd_);
 document.getElementById('apiAllPwdInput').addEventListener('keydown', function(e) {

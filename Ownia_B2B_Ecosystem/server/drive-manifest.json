@@ -109,7 +109,8 @@
           "b2c_budget_weekly.json", "pipeline_b2b2c.json",
           "fx_implicito.json",
           "b2b2c_tracker.json",
-          "embudo_b2b.json"
+          "embudo_b2b.json",
+          "partners_api_snapshots.json"
         ]
       },
       "sheets": {

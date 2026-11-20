@@ -1554,6 +1554,31 @@ function getGlobalesKRTargets() {
   return payload;
 }
 
+// KR "Accelerate Hunting # Partners API": tabla "Partners por país" del Tracker (2026-11-20, pedido de antonella.difranco).
+// Lee partners_api_snapshots.json (Daily_Dashboard/partners_api_sync.py: meses congelados + últimos 30 días, con el detalle
+// partner x país desde 2026-11-20; los meses congelados antes no lo traen y no se recalculan). El detalle solo sale si la
+// contraseña es correcta: se compara el SHA-256 acá en el servidor (no viaja al navegador sin la clave).
+var PARTNERS_API_FILE = 'partners_api_snapshots.json';
+var PARTNERS_API_PWD_SHA256 = 'e63601bbc6fdd78577d09ed334fdcc28e169f86b46a7ab06199487859f00a174';
+function sha256Hex_(s) {
+  return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(s), Utilities.Charset.UTF_8)
+    .map(function(b) { return ('0' + (b & 0xff).toString(16)).slice(-2); }).join('');
+}
+function getPartnersApiDetail(pwd) {
+  if (sha256Hex_(pwd || '') !== PARTNERS_API_PWD_SHA256) return { ok: false, error: 'Contraseña incorrecta' };
+  var j = JSON.parse(_driveFile_(PARTNERS_API_FILE).getBlob().getDataAsString());
+  function pick(r, label) {
+    if (!r) return null;
+    return { label: label, total: r.total, por_pais: r.por_pais || {}, detalle_cols: r.detalle_cols || null,
+             detalle: r.detalle || null, desde: r.desde || null, hasta: r.hasta || null,
+             congelado_el: r.congelado_el || null, sin_diccionario: r.sin_diccionario || [] };
+  }
+  var meses = j.meses || {}, out = [];
+  if (j.rolling30) out.push(pick(j.rolling30, 'Últimos 30 días'));
+  Object.keys(meses).sort().reverse().forEach(function(ym) { out.push(pick(meses[ym], ym)); });
+  return { ok: true, generated_at: (j.meta && j.meta.generated_at) || null, periodos: out };
+}
+
 // ============================================================
 // Flow Semanal — "Enviar a Google Slides"
 // Mismo patrón que Dashboard_B2B_WLs (Slides cierre de mes): el cliente captura

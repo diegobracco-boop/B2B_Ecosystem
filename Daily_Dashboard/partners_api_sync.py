@@ -97,8 +97,17 @@ def contar(df, nombres, paises):
     g["peso"] = g["n"] / g.groupby("nombre")["n"].transform("sum")
     por_pais = g.groupby("pais")["peso"].sum().round(3).sort_values(ascending=False).to_dict()
     sin = sorted(c for c in d["agency_code"].unique() if c not in nombres)
+    # Detalle por partner x pais (tabla "Partners por pais" del KR en el Tracker, 2026-11-20): nombre como figura en el
+    # diccionario (o el codigo si no esta), reservas no canceladas, peso del partner en ese pais (la suma de pesos de
+    # un pais da su por_pais) y los codigos agrupados. [nombre, pais, reservas, peso, "COD1,COD2"]
+    d["nombre_vis"] = d["agency_code"].map(nombres).fillna(d["agency_code"]).astype(str).str.split().str.join(" ")
+    vis = d.groupby("nombre")["nombre_vis"].first()
+    cods = d.groupby(["nombre", "pais"])["agency_code"].agg(lambda s: ",".join(sorted(set(s))))
+    detalle = [[vis[r.nombre], r.pais, int(r.n), round(float(r.peso), 3), cods[(r.nombre, r.pais)]]
+               for r in g.sort_values(["pais", "n"], ascending=[True, False]).itertuples()]
     return {"total": float(g["nombre"].nunique()), "por_pais": por_pais, "partners": int(g["nombre"].nunique()),
-            "codigos": int(d["agency_code"].nunique()), "sin_diccionario": sin}
+            "codigos": int(d["agency_code"].nunique()), "sin_diccionario": sin,
+            "detalle_cols": ["partner", "pais", "reservas", "peso", "codigos"], "detalle": detalle}
 
 
 def _mes_rango(ym):
