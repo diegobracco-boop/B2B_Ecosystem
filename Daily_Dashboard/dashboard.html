@@ -6869,6 +6869,12 @@ function trkCumplColor_(pct){
   if(pct===null||pct===undefined||!isFinite(pct)||isNaN(pct)) return '';
   if(pct<0.80) return 'cell-red'; if(pct<1.00) return 'cell-yellow'; return 'cell-green';
 }
+// KRs (slides B2B del Flow): el corte de 80% se mira sobre el % redondeado que se muestra (79,5%–79,9% = "80%" amarillo),
+// igual que cumplBg del tracker (2026-11-20). Las tablas de performance por país siguen con trkCumplColor_.
+function trkKrCumplColor_(pct){
+  if(pct===null||pct===undefined||!isFinite(pct)||isNaN(pct)) return '';
+  return trkCumplColor_(Math.round(pct*100)<80 ? 0 : Math.max(pct, 0.80));
+}
 // Regla ÚNICA de cumplimiento de OKR del ecosistema (decisión de Diego 2026-09-25, igual que
 // el OKR del Hub, Codigo_OKR.js): actual / budget; por debajo de 70% cuenta 0; techo 130%.
 // Devuelve ratio (1 = 100%) o null si no hay dato. Solo para KRs — las tablas de performance
@@ -7196,10 +7202,10 @@ function flRenderB2CKRs_(idx){
       return '<tr><td style="text-align:left">'+r.k.label+'</td>'
         +'<td style="color:#6b7280;font-size:.78rem">'+Math.round(r.k.w*100)+'%</td>'
         +'<td>'+trkFmtKRVal_(r.act,unit)+'</td><td>'+trkFmtKRVal_(r.bud,unit)+'</td>'
-        +'<td class="'+trkCumplColor_(r.c)+'">'+(r.c===null?'—':(r.c*100).toFixed(0)+'%')+'</td></tr>';
+        +'<td class="'+trkKrCumplColor_(r.c)+'">'+(r.c===null?'—':(r.c*100).toFixed(0)+'%')+'</td></tr>';
     }).join('');
     html+='<tr class="row-kr-total"><td style="text-align:left">OVERALL ('+half+')</td><td style="color:#6b7280;font-size:.78rem">100%</td>'
-      +'<td>—</td><td>—</td><td class="'+(overall!==null?trkCumplColor_(overall):'')+'">'+(overall!==null?(overall*100).toFixed(0)+'%':'—')+'</td></tr>';
+      +'<td>—</td><td>—</td><td class="'+(overall!==null?trkKrCumplColor_(overall):'')+'">'+(overall!==null?(overall*100).toFixed(0)+'%':'—')+'</td></tr>';
     tbody.innerHTML=html;
   }
 
@@ -7216,12 +7222,12 @@ function flRenderB2CKRs_(idx){
       var body=regs.map(function(r){
         var c=trkCumplRatio_(r.act,r.bud);
         return '<tr><td style="text-align:left">'+r.name+'</td><td>'+trkFmtKRVal_(r.act,'$M')+'</td><td>'+trkFmtKRVal_(r.bud,'$M')+'</td>'
-          +'<td class="'+trkCumplColor_(c)+'">'+(c!==null?(c*100).toFixed(0)+'%':'—')+'</td></tr>';
+          +'<td class="'+trkKrCumplColor_(c)+'">'+(c!==null?(c*100).toFixed(0)+'%':'—')+'</td></tr>';
       }).join('');
       return '<div class="b2b-kr-detail-box"><div class="b2b-kr-detail-header"><span class="b2b-kr-num-badge">'+title+'</span></div>'
         +'<table class="b2b-pivot-table b2b-kr-detail-table"><thead><tr><th style="text-align:left;min-width:90px">Región</th><th>Actual</th><th>Budget</th><th>Cumpl.</th></tr></thead>'
         +'<tbody><tr class="kr-detail-total"><td style="text-align:left;font-weight:700">TOTAL</td><td><strong>'+trkFmtKRVal_(tA,'$M')+'</strong></td><td><strong>'+trkFmtKRVal_(tB,'$M')+'</strong></td>'
-        +'<td class="'+trkCumplColor_(tc)+'"><strong>'+(tc!==null?(tc*100).toFixed(0)+'%':'—')+'</strong></td></tr>'+body+'</tbody></table></div>';
+        +'<td class="'+trkKrCumplColor_(tc)+'"><strong>'+(tc!==null?(tc*100).toFixed(0)+'%':'—')+'</strong></td></tr>'+body+'</tbody></table></div>';
     }
     grid.innerHTML=box(half==='H1' ? 'New Account NR' : 'Hunting NR', 'New', 'nr')
       +box('Existing Account NR', 'Existing', 'nr')
@@ -7361,14 +7367,14 @@ function trkRenderStatusKRs_(idx){
       tr.innerHTML='<td style="text-align:left">'+r.name+'</td>'
         +'<td style="color:#6b7280;font-size:.78rem">'+(r.w!==null?Math.round(r.w*100)+'%':'—')+'</td>'
         +'<td>'+trkFmtKRVal_(r.a,r.unit)+'</td><td>'+trkFmtKRVal_(r.b,r.unit)+'</td>'
-        +'<td class="'+trkCumplColor_(r.c)+'">'+(r.c===null?'—':(r.c*100).toFixed(0)+'%')+'</td>';
+        +'<td class="'+trkKrCumplColor_(r.c)+'">'+(r.c===null?'—':(r.c*100).toFixed(0)+'%')+'</td>';
       return tr;
     }
     rows.forEach(function(r){ tbody.appendChild(row(r,false)); });
     extraRows.forEach(function(r){ tbody.appendChild(row(r,true)); });
     var trTotal=document.createElement('tr'); trTotal.className='row-kr-total';
     trTotal.innerHTML='<td style="text-align:left">OVERALL ('+half+')</td><td style="color:#6b7280;font-size:.78rem">100%</td>'
-      +'<td>—</td><td>—</td><td class="'+(overall!==null?trkCumplColor_(overall):'')+'">'+(overall!==null?(overall*100).toFixed(0)+'%':'—')+'</td>';
+      +'<td>—</td><td>—</td><td class="'+(overall!==null?trkKrCumplColor_(overall):'')+'">'+(overall!==null?(overall*100).toFixed(0)+'%':'—')+'</td>';
     tbody.appendChild(trTotal);
   }
 
@@ -7381,7 +7387,7 @@ function trkRenderStatusKRs_(idx){
       var rowsHtml=rws.map(function(r){
         var c=trkCumplRatio_(r.actual,r.budget);
         return '<tr><td style="text-align:left">'+r.name+'</td><td>'+trkFmtKRVal_(r.actual,unit)+'</td><td>'+trkFmtKRVal_(r.budget,unit)+'</td>'
-          +'<td class="'+trkCumplColor_(c)+'">'+(c!==null?(c*100).toFixed(0)+'%':'—')+'</td></tr>';
+          +'<td class="'+trkKrCumplColor_(c)+'">'+(c!==null?(c*100).toFixed(0)+'%':'—')+'</td></tr>';
       }).join('');
       var totalAct=0, totalBud=0, hasAct=false, hasBud=false;
       rws.forEach(function(r){
@@ -7392,7 +7398,7 @@ function trkRenderStatusKRs_(idx){
       var totalRow='<tr class="kr-detail-total"><td style="text-align:left;font-weight:700">TOTAL</td>'
         +'<td><strong>'+(hasAct?trkFmtKRVal_(totalAct,unit):'—')+'</strong></td>'
         +'<td><strong>'+(hasBud?trkFmtKRVal_(totalBud,unit):'—')+'</strong></td>'
-        +'<td class="'+trkCumplColor_(tc)+'"><strong>'+(tc!==null?(tc*100).toFixed(0)+'%':'—')+'</strong></td></tr>';
+        +'<td class="'+trkKrCumplColor_(tc)+'"><strong>'+(tc!==null?(tc*100).toFixed(0)+'%':'—')+'</strong></td></tr>';
       box.innerHTML='<div class="b2b-kr-detail-header"><span class="b2b-kr-num-badge">'+title+'</span></div>'
         +'<table class="b2b-pivot-table b2b-kr-detail-table"><thead><tr><th style="text-align:left;min-width:90px">País</th><th>Actual</th><th>Budget</th><th>Cumpl.</th></tr></thead>'
         +'<tbody>'+totalRow+rowsHtml+'</tbody></table>';
