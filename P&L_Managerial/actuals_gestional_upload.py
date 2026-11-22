@@ -602,7 +602,7 @@ base_metrics AS (
             WHEN fh.partner_id IN ('AP12142','AP12961','AP12767','AP12539','AP12792',
                 'AP12149','AP12148','AG00015606','AP13029','AP13030',
                 'AP13091','AP13104','AG00015611') THEN 'Paraguay'
-            WHEN fh.partner_id = 'AP13248' OR fh.country_code = 'CL' THEN 'Chile'
+            WHEN fh.partner_id IN ('AP13248','AP13422') OR fh.country_code = 'CL' THEN 'Chile'
             WHEN fh.country_code IN ('MX','BR','CO','AR','EC','PE','UY') THEN
                 CASE fh.country_code
                     WHEN 'MX' THEN 'Mexico' WHEN 'BR' THEN 'Brasil'
@@ -722,7 +722,7 @@ base_metrics AS (
         CASE WHEN fh.partner_id IN ('AP12142','AP12961','AP12767','AP12539','AP12792',
                 'AP12149','AP12148','AG00015606','AP13029','AP13030',
                 'AP13091','AP13104','AG00015611') THEN 'Paraguay'
-             WHEN fh.partner_id = 'AP13248' OR fh.country_code = 'CL' THEN 'Chile'
+             WHEN fh.partner_id IN ('AP13248','AP13422') OR fh.country_code = 'CL' THEN 'Chile'
              WHEN fh.country_code IN ('MX','BR','CO','AR','EC','PE','UY') THEN
                  CASE fh.country_code WHEN 'MX' THEN 'Mexico' WHEN 'BR' THEN 'Brasil'
                      WHEN 'CO' THEN 'Colombia' WHEN 'AR' THEN 'Argentina'
@@ -838,7 +838,7 @@ base_metrics AS (
             WHEN fh.partner_id IN ('AP12142','AP12961','AP12767','AP12539','AP12792',
                 'AP12149','AP12148','AG00015606','AP13029','AP13030',
                 'AP13091','AP13104','AG00015611') THEN 'Paraguay'
-            WHEN fh.partner_id = 'AP13248' OR fh.country_code = 'CL' THEN 'Chile'
+            WHEN fh.partner_id IN ('AP13248','AP13422') OR fh.country_code = 'CL' THEN 'Chile'
             WHEN fh.country_code IN ('MX','BR','CO','AR','EC','PE','UY') THEN
                 CASE fh.country_code
                     WHEN 'MX' THEN 'Mexico' WHEN 'BR' THEN 'Brasil'
@@ -980,7 +980,7 @@ base_metrics AS (
         CASE WHEN fh.partner_id IN ('AP12142','AP12961','AP12767','AP12539','AP12792',
                 'AP12149','AP12148','AG00015606','AP13029','AP13030',
                 'AP13091','AP13104','AG00015611') THEN 'Paraguay'
-             WHEN fh.partner_id = 'AP13248' OR fh.country_code = 'CL' THEN 'Chile'
+             WHEN fh.partner_id IN ('AP13248','AP13422') OR fh.country_code = 'CL' THEN 'Chile'
              WHEN fh.country_code IN ('MX','BR','CO','AR','EC','PE','UY') THEN
                  CASE fh.country_code WHEN 'MX' THEN 'Mexico' WHEN 'BR' THEN 'Brasil'
                      WHEN 'CO' THEN 'Colombia' WHEN 'AR' THEN 'Argentina'
