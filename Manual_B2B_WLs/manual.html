@@ -1081,7 +1081,7 @@ a.ext-link:hover { text-decoration: underline; }
       <table class="doc-table">
         <tbody>
           <tr><td>Apertura diaria</td><td>Con VPN: <code>/distribucion-diaria</code>. Antes de correr, definir: <strong>1)</strong> escenario a distribuir, <strong>2)</strong> hasta qué fecha se toman reales (normalmente ayer), <strong>3)</strong> desde qué mes arranca la base, <strong>4)</strong> carpeta de los P&amp;L planos. Revisar la tabla de reales/remanente y el ritmo GB/día.</td></tr>
-          <tr><td>Carga</td><td><strong>Reemplazar</strong> (no agregar) a mano el contenido de <code>raw.b2brr_gd</code> / <code>raw.b2brr_ri</code> con los CSV. El Daily lo toma en la próxima corrida (o <code>/sincronizar</code>).</td></tr>
+          <tr><td>Carga</td><td>Antes, revisar <code>lob_canal</code>: <code>B2B2C</code> a secas va como <code>B2B2C-ON</code> (si no, el Daily y el Managerial lo descartan sin error). <strong>Reemplazar</strong> (no agregar) a mano el contenido de <code>raw.b2brr_gd</code> / <code>raw.b2brr_ri</code> con los CSV. El Daily lo toma en la próxima corrida (o <code>/sincronizar</code>).</td></tr>
         </tbody>
       </table>
     </div>

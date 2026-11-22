@@ -4,6 +4,16 @@ Este repo contiene pipelines de datos y landings de Google Apps Script para el e
 
 **Onboarding de una persona nueva del equipo:** mandarla a la capa "Guía del equipo" del manual (`Manual_B2B_WLs` → Empezá por acá / Glosario / ¿Qué landing uso? / Recetas por tarea / Quién hace qué). Para dirección: la capa "Para dirección" (Panorama + Arquitectura global).
 
+## ⚠️ En curso desde 2026-11-22: recarga del Run Rate (borrar este bloque al cerrarla)
+
+Avisale al usuario si va a hacer algo de esto. Detalle y pasos: `Proceso_Distribucion_Diaria/CONTEXT.md`, "En curso".
+
+- **No correr desde una PC, hasta que Diego lo cierre:** `okr_builder.py`, `organic_builder.py` ni lo que los dispara al terminar:
+  `/actualizar` (`json_builder.py`, `baseline_builder.py`) y `/sincronizar` (`daily_sync.py`, `auto_update_reales.ps1`).
+  Los reales se actualizan solo con "Actualizar reales" de Ownia.
+- **No correr "Actualizar managerial"** hasta que `raw.b2brr_gd` / `raw.b2brr_ri` estén recargadas y verificadas.
+- El Run Rate del Daily y lo que deriva de él en los KRs todavía no es el de la última ronda.
+
 ## Al iniciar una sesión — identificar al usuario
 
 **Al comienzo de cada conversación, preguntá quién es el usuario** (si no se presentó). Los usuarios del equipo son:

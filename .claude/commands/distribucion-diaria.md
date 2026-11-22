@@ -58,7 +58,9 @@ Mostrarle al usuario el resumen de las 4 respuestas y pedir confirmación antes 
    archivo con el mismo nombre, se mueve a `V. Anteriores/`.
    Pasarle las rutas.
 
-5. Recordar el paso manual: **reemplazar** (no agregar) el contenido de la tabla del escenario
+5. Antes de la carga, revisar `lob_canal` en los CSV de GD y RI: `B2B2C` a secas va como `B2B2C-ON`
+   (si no, el Daily y el Managerial lo descartan sin error; ver "Antes de cargar" en CONTEXT.md).
+   Recordar el paso manual: **reemplazar** (no agregar) el contenido de la tabla del escenario
    (run rate → `raw.b2brr_gd` / `raw.b2brr_ri`; budget → `raw.b2b_budget_gd` / `_ri`; forecast →
    confirmar tabla con el usuario). Las tablas necesitan las columnas `loyalty_usd` y `mkt_usd` (al final).
    Después de la carga, el Daily lo toma en la próxima corrida de `daily_sync.py` (o `/sincronizar`).

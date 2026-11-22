@@ -1,5 +1,19 @@
 # Proceso_Distribucion_Diaria — distribución diaria del Run Rate B2B + B2B2C
 
+## En curso (2026-11-22) — borrar al cerrar
+
+La última ronda de Run Rate todavía no está en `raw.b2brr_gd` / `raw.b2brr_ri`. En orden:
+
+1. [x] Copias de los CSV con el `lob_canal` corregido (ver "Antes de cargar"). Las tiene Diego; no cargar los originales.
+2. [ ] Carga manual de las copias, reemplazando las dos tablas.
+3. [ ] Verificar las tablas: filas = CSV, primer mes = el del CSV y ningún `lob_canal` fuera de los válidos.
+4. [ ] Repetir "Actualizar reales" y validar Hunting / Existing.
+5. [ ] "Actualizar managerial".
+6. [ ] Retirar `hunting_rr_override.json` si Hunting cerró (decide Diego). Hasta entonces no correr `okr_builder` desde una PC
+   (tampoco vía `/sincronizar` ni `/actualizar`, que lo disparan): ese archivo pisa el Run Rate de la tabla.
+7. [ ] Decidir los `*_organic.json`: con la fuente en el consolidador `organic_builder` les cambia columnas y líneas.
+   Hasta entonces no regenerarlos (tampoco vía `/actualizar`).
+
 ## Qué hace
 
 Toma las proyecciones **mensuales** del Run Rate (modelos Excel de WLs, API y HTML) y las abre a
@@ -69,6 +83,16 @@ python distribucion_diaria.py --base RI ...   # mismas definiciones
   del escenario — run rate → `raw.b2brr_gd` / `_ri`; budget → `raw.b2b_budget_gd` / `_ri`.
 - Columnas del modelo ignoradas con aviso: las que están a la derecha de la primera columna sin
   encabezado (cálculos auxiliares) y `bimo` (HTML; no entra en el FVM del modelo).
+
+## Antes de cargar un Run Rate (venga de este script o de otro export)
+
+- **`lob_canal = 'B2B2C'` a secas → `'B2B2C-ON'`** (decisión de Diego, 2026-11-22: se corrige el dato, no las queries).
+  Suele ser el partner TBD. El Daily y el P&L Managerial solo leen `B2B2C-ON`, `B2B2C-OFF` y `B2B2C-CALL CENTER`:
+  cualquier otro valor de B2B2C (`B2B2C`, `TBD`) **se pierde sin dar error**.
+- El script no hace ese reemplazo: revisar los valores de `lob_canal` del CSV en cada ronda, en GD y en RI.
+- No completar los meses sin TBD del Run Rate con los de Budget o Forecast: los escenarios no tienen por qué coincidir.
+- No guardar el CSV desde Excel (cambia fechas y decimales).
+- Para controlar la carga, consultar la tabla **sin** filtrar por `lob_canal`: con el filtro del Daily estas filas no se ven.
 
 ## Reglas de negocio
 
