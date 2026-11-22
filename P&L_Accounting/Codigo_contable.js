@@ -571,7 +571,7 @@ var CHART_NR_KEYS = [
 // COR = sum of cost of revenue line items
 var CHART_COR_KEYS = [
   'cost of sales as principal','cost of installments','credit card processing',
-  'customer claims','errors','bad debt','fulfilment center fees',
+  'customer claims','frauds','errors','bad debt','fulfilment center fees',
   'media & other cost','other transactional taxes','intercompany transactions'
 ];
 // S&M = sum of sales & marketing line items
@@ -588,7 +588,7 @@ var CHART_NR_CT_KEYS = [
 ];
 // Complement: COR rr-sourced = cost_of_installments + credit_card_processing
 var CHART_COR_CT_KEYS = [
-  'cost of sales as principal','customer claims','errors','bad debt',
+  'cost of sales as principal','customer claims','frauds','errors','bad debt',
   'fulfilment center fees','media & other cost','other transactional taxes',
   'intercompany transactions'
 ];
@@ -624,6 +624,7 @@ function buildChartFromMonthly_(rrM, ctM) {
             + rr_('credit_card_processing', mo)
             + ct_('cost of sales as principal', mo)
             + ct_('customer claims', mo)
+            + ct_('frauds', mo)
             + ct_('errors', mo)
             + ct_('bad debt', mo)
             + ct_('fulfilment center fees', mo)
