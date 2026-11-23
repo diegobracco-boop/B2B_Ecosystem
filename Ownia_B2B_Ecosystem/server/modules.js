@@ -207,7 +207,7 @@ const MODULES = [
     // responde 503 con el motivo (no cae a Drive); el respaldo con Drive es `pnl-managerial-drive`.
     fuente: 'consolidador',
     gasExtras: ['pnl-managerial-consolidador.js'],
-    cacheFns: ['getWeeklyData'],   // apertura semanal: depende solo de los filtros y del JSON semanal
+    cacheFns: ['getWeeklyData', 'getDailyData'],   // aperturas semanal y diaria: dependen solo de los filtros y de su JSON
     gasUrl: GAS_EXEC + 'AKfycbxHyP4uIh02zTQbQ7ZFbyByCVIYuREuiMJ74PnKhQbNGbWknCG2jxOtt_onafQcg5g4/exec',
   },
   {
@@ -221,7 +221,7 @@ const MODULES = [
     ownia: true,
     allowedUsers: EQUIPO_B2B,
     quickViews: [['b2b', 'B2B'], ['b2b2c', 'B2B2C'], ['vsacc', 'Managerial vs Accounting']],
-    cacheFns: ['getWeeklyData'],
+    cacheFns: ['getWeeklyData', 'getDailyData'],
     gasUrl: '',
   },
   {

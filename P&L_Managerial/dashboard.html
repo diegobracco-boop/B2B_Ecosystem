@@ -857,6 +857,7 @@ header .btn-refresh:hover{background:#f5f3ff !important;border-color:#c4b5fd;col
       <div class="prd-toggle">
         <!-- De más granular a más agrupado (2026-11-04, Diego) -->
         <button id="mg-period-w" class="prd-btn"            type="button" onclick="setMGPeriod('week')" title="Lunes a domingo, solo semanas completas. Sin Forecast, tipo de producto, millas ni gateway.">Semana</button>
+        <button id="mg-period-d" class="prd-btn"            type="button" onclick="setMGPeriod('day')" title="Mes anterior y mes en curso, hasta ayer. Sin Forecast, tipo de producto, millas ni gateway.">Día</button>
         <button id="mg-period-m" class="prd-btn"            type="button" onclick="setMGPeriod('month')">Mes</button>
         <button id="mg-period-q" class="prd-btn prd-active" type="button" onclick="setMGPeriod('quarter')">Quarter</button>
         <button id="mg-period-h" class="prd-btn"            type="button" onclick="setMGPeriod('half')">Half</button>
@@ -1105,7 +1106,7 @@ var _bgFiltersInitialized = false;
 var _activeCanal = 'all';         // 'all' | 'may' | 'min'
 var _mgSecState = {};             // secId → true = collapsed
 var _managerialGoal = 'budget';   // 'budget' | 'forecast' | 'ly'
-var _managerialBGPeriod = 'quarter'; // 'month' | 'quarter' | 'half' | 'week'
+var _managerialBGPeriod = 'quarter'; // 'month' | 'quarter' | 'half' | 'week' | 'day'
 var _numScale = 'M';                 // 'M' | 'K' | 'raw' — escala de valores nominales
 var _mgPeriodSel = null;             // array de meses/quarters/halves puntuales elegidos, o null = todos
 var _gActiveTab = 'total';        // 'total'|'brasil'|'mexico'|'argentina'|'colombia'|'chile'|'peru'|'ecuador'|'other'
@@ -1119,11 +1120,17 @@ var _dataG = null;                // Trend view — su propio _data
 var _gFetchSeq = 0;
 var _dataD = null;                // Detalle — su propio _data
 var _dFetchSeq = 0;
-var _dataW = null;                // Semana: su propio _data (getWeeklyData, solo la pestaña P&L)
+var _dataW = null;                // Semana / Día: su propio _data (getWeeklyData / getDailyData, solo la pestaña P&L); _dataW._mode = 'week' | 'day'
 var _wFetchSeq = 0, _wPending = '';
 var MG_WEEKS_DEFAULT = 8;         // sin elegir semanas: las últimas 8
-function _isWeek_(){ return _managerialBGPeriod === 'week'; }
-function _goalNaTxt_(D){ return _isWeek_() ? 'semana' : (D && D.tipo_mode ? _tpAperturaLbl_(D) : 'gateway'); }
+var MG_DAYS_DEFAULT = 7;          // sin elegir días: los últimos 7 (2026-11-23)
+// _isWeek_: apertura fina (Semana o Día, 2026-11-23): las dos usan el mismo camino (su JSON, sin Forecast, sin Detalle)
+function _isWeek_(){ return _managerialBGPeriod === 'week' || _managerialBGPeriod === 'day'; }
+function _isDay_(){ return _managerialBGPeriod === 'day'; }
+function _subDefault_(){ return _isDay_() ? MG_DAYS_DEFAULT : MG_WEEKS_DEFAULT; }
+function _subDefaultLbl_(){ return _isDay_() ? 'Últimos ' + MG_DAYS_DEFAULT + ' días' : 'Últimas ' + MG_WEEKS_DEFAULT; }
+function _subInfo_(){ return _dataW && (_dataW.weekly || _dataW.daily); }   // {desde, hasta, ly_labels}
+function _goalNaTxt_(D){ return _isWeek_() ? (_isDay_() ? 'día' : 'semana') : (D && D.tipo_mode ? _tpAperturaLbl_(D) : 'gateway'); }
 var _gatewayOptions = [];         // gateways de Hotels (B2B) — llegan en d.filters.gateway
 
 var MES_LABEL_C = {};   // mes calendario (1-12) → 'Abr-26'
@@ -1199,8 +1206,9 @@ function updateProductoFilterVis_(){
   if(fbPeriod) fbPeriod.style.display = isGraficos ? 'none' : 'flex';
   // Detalle no abre por semana
   var isDetalle = document.getElementById('tab-detalle') && document.getElementById('tab-detalle').classList.contains('active');
-  var wBtn = document.getElementById('mg-period-w');
-  if(wBtn) wBtn.style.display = isDetalle ? 'none' : '';
+  ['mg-period-w', 'mg-period-d'].forEach(function(id){   // Semana y Día no abren en Detalle
+    var b = document.getElementById(id); if(b) b.style.display = isDetalle ? 'none' : '';
+  });
   _syncGatewayRow_();
   _renderViajeChips_();
   _renderCanalChips_();
@@ -2566,9 +2574,9 @@ function _mgFilterPeriods_(full){
 
 function mgGetPeriods_(){
   var mode = _managerialBGPeriod;
-  if(mode === 'week'){
+  if(_isWeek_()){   // Semana o Día
     var wks = (_dataW && _dataW.months) || [];
-    return (_mgPeriodSel && _mgPeriodSel.length ? _mgFilterPeriods_(wks) : wks.slice(-MG_WEEKS_DEFAULT)).concat([MG_TOTAL_LABEL]);
+    return (_mgPeriodSel && _mgPeriodSel.length ? _mgFilterPeriods_(wks) : wks.slice(-_subDefault_())).concat([MG_TOTAL_LABEL]);
   }
   if(mode === 'month') return _mgFilterPeriods_((_data.months||[]).filter(inYearMode_)).concat([MG_TOTAL_LABEL]);
   if(mode === 'half')  return _mgFilterPeriods_(HALVES.map(function(h){ return h.label; })).concat([MG_TOTAL_LABEL]);
@@ -2584,14 +2592,14 @@ function renderMGPeriodChips_(){
   if(!_mgPeriodSel) clearMs('ms-period', false);
   fillMs('ms-period', items, _onMGPeriodMs_);
   var all = document.querySelector('#ms-period .ms-all');
-  if(all) all.lastChild.textContent = _isWeek_() ? ' Últimas ' + MG_WEEKS_DEFAULT : ' Todos';
+  if(all) all.lastChild.textContent = _isWeek_() ? ' ' + _subDefaultLbl_() : ' Todos';
   _mgPeriodLabel_();
   _renderActiveFilters_();
 }
-// Con Semana, "sin elegir" no son todas las semanas sino las últimas
+// Con Semana / Día, "sin elegir" no son todas las semanas / días sino los últimos
 function _mgPeriodLabel_(){
   if(!_isWeek_() || getMsValues('ms-period').length) return;
-  document.querySelector('#ms-period .ms-label').textContent = 'Últimas ' + MG_WEEKS_DEFAULT;
+  document.querySelector('#ms-period .ms-label').textContent = _subDefaultLbl_();
 }
 
 function _mgRefreshViews_(){
@@ -2615,9 +2623,9 @@ function clearMGPeriodSel_(){
   _mgRefreshViews_();
 }
 function mgGoalPeriodLabel_(p){
-  // Semana con Goal Last Year: las fechas del año pasado contra las que compara (misma semana −364 días, 2026-11-09)
+  // Semana / Día con Goal Last Year: las fechas del año pasado contra las que compara (−364 días, 2026-11-09)
   if(_managerialGoal === 'ly' && _isWeek_()){
-    var lyl = _dataW && _dataW.weekly && _dataW.weekly.ly_labels;
+    var lyl = _subInfo_() && _subInfo_().ly_labels;
     return (lyl && lyl[p]) ? 'LY · ' + lyl[p] : p;
   }
   if(_managerialGoal !== 'ly' || _isWeek_()) return p;
@@ -2725,6 +2733,7 @@ function setMGPeriod(mode){
   document.getElementById('mg-period-q').classList.toggle('prd-active', mode === 'quarter');
   document.getElementById('mg-period-h').classList.toggle('prd-active', mode === 'half');
   document.getElementById('mg-period-w').classList.toggle('prd-active', mode === 'week');
+  document.getElementById('mg-period-d').classList.toggle('prd-active', mode === 'day');
   if(_data) updateActualsLegend(_data.actual_months || []);
   renderMGPeriodChips_();
   _mgRefreshViews_();
@@ -3010,13 +3019,13 @@ function renderManagerialBGTable(){
   var container = document.getElementById('mg-tables-container');
   if(!container) return;
   var week = _isWeek_();
-  if(week && !_dataW){
-    container.innerHTML = '<div class="pnl-card" style="padding:18px;color:var(--muted)">Cargando semanas…</div>';
+  if(week && (!_dataW || _dataW._mode !== _managerialBGPeriod)){
+    container.innerHTML = '<div class="pnl-card" style="padding:18px;color:var(--muted)">Cargando '+(_isDay_() ? 'días' : 'semanas')+'…</div>';
     fetchDataW();
     return;
   }
-  if(week && _dataW.weekly_missing){
-    container.innerHTML = '<div class="pnl-card" style="padding:18px;color:var(--muted)">La apertura semanal todavía no está generada.</div>';
+  if(week && (_dataW.weekly_missing || _dataW.daily_missing)){
+    container.innerHTML = '<div class="pnl-card" style="padding:18px;color:var(--muted)">La apertura '+(_isDay_() ? 'diaria' : 'semanal')+' todavía no está generada.</div>';
     return;
   }
   var _data_ = _data;
@@ -3037,10 +3046,15 @@ function renderManagerialBGTable(){
   if(week){
     var wNote = document.createElement('div');
     var ignored = getGatewayValues_().length || getTipoValues_().length || getMillasValues_().length;
-    wNote.innerHTML = '<div style="margin:12px 0 10px;font-size:11.5px;color:var(--muted)">Semanas de lunes a domingo, hasta el '+escHtml(String(_dataW.weekly.hasta).split('-').reverse().join('/'))
-      + '. Last Year = misma semana del año anterior, de lunes a domingo (364 días antes: la semana del 02/11–08/11/2026 se compara con la del 03/11–09/11/2025); las columnas del Goal muestran esas fechas. La primera semana del FY arranca el 1/4.'
-      + (_managerialGoal === 'forecast' ? ' <b>Forecast no abre por semana:</b> para comparar usá Budget o Last Year.' : '')
-      + (ignored ? ' <b>Gateway, tipo de producto y millas no abren por semana:</b> se muestra sin esos filtros.' : '') + '</div>';
+    var _sub = _subInfo_(), _hasta = escHtml(String(_sub.hasta).split('-').reverse().join('/')), _por = _isDay_() ? 'día' : 'semana';
+    wNote.innerHTML = '<div style="margin:12px 0 10px;font-size:11.5px;color:var(--muted)">'
+      + (_isDay_()
+          ? 'Días del '+escHtml(String(_sub.desde).split('-').reverse().join('/'))+' al '+_hasta
+            + '. Last Year = el mismo día de la semana del año anterior (364 días antes: el lunes 02/11/2026 se compara con el lunes 03/11/2025); las columnas del Goal muestran esas fechas.'
+          : 'Semanas de lunes a domingo, hasta el '+_hasta
+            + '. Last Year = misma semana del año anterior, de lunes a domingo (364 días antes: la semana del 02/11–08/11/2026 se compara con la del 03/11–09/11/2025); las columnas del Goal muestran esas fechas. La primera semana del FY arranca el 1/4.')
+      + (_managerialGoal === 'forecast' ? ' <b>Forecast no abre por '+_por+':</b> para comparar usá Budget o Last Year.' : '')
+      + (ignored ? ' <b>Gateway, tipo de producto y millas no abren por '+_por+':</b> se muestra sin esos filtros.' : '') + '</div>';
     container.appendChild(wNote);
   }
   if(_data_.gateway_mode || _data_.tipo_mode){
@@ -4321,18 +4335,20 @@ function fetchData(){
     .getData(reqFilters);
 }
 
-// ── Semana — fetch independiente: se pide al elegir Semana; un cambio de filtros lo invalida ──
+// ── Semana / Día — fetch independiente: se pide al elegir Semana o Día; un cambio de filtros lo invalida ──
 function fetchDataW(){
-  var f = getFilters(), key = JSON.stringify(f);
+  var mode = _isDay_() ? 'day' : 'week';
+  var f = getFilters(), key = mode + '|' + JSON.stringify(f);
   if(key === _wPending) return;   // ya está en camino
   _wPending = key;
   var reqLob = _activeLob, reqId = ++_wFetchSeq;
-  google.script.run
+  var run = google.script.run
     .withSuccessHandler(function(d){
       if(reqId !== _wFetchSeq || reqLob !== _activeLob) return;
       _wPending = '';
-      _dataW = d;
-      if(!_isWeek_()) return;
+      _dataW = d || {};
+      _dataW._mode = mode;
+      if(_managerialBGPeriod !== mode) return;
       renderMGPeriodChips_();
       try{ renderManagerialBGTable(); }catch(e){ if(window.console) console.error('[render:semana]', e); }
     })
@@ -4340,9 +4356,9 @@ function fetchDataW(){
       if(reqId !== _wFetchSeq) return;
       _wPending = '';
       var c = document.getElementById('mg-tables-container');
-      if(c) c.innerHTML = '<div class="error-msg">Error cargando semanas: '+escHtml((err && err.message) || String(err))+'</div>';
-    })
-    .getWeeklyData(f);
+      if(c) c.innerHTML = '<div class="error-msg">Error cargando '+(mode === 'day' ? 'días' : 'semanas')+': '+escHtml((err && err.message) || String(err))+'</div>';
+    });
+  if(mode === 'day') run.getDailyData(f); else run.getWeeklyData(f);
 }
 
 // ── Trend view — fetch independiente ────────────────────────────────────────

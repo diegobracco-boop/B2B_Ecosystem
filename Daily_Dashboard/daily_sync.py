@@ -34,6 +34,8 @@ from ds_ticket_split_factors import DS_TICKET_SHARE   # Tickets dentro de Dest. 
 from pais_rules import apply_pais_overrides
 # lob_canal de B2B cargado como 'API'/'HTML' en vez de B2B-MAY/MIN (pasó el 2026-11-02 en raw.b2brr_*)
 from b2b_lob_rules import B2B_LOB_IN, normalize_b2b_lob
+# Canal de venta B2B2C (Online / Call Center / Islas / Tiendas), compartido con P&L_Managerial
+from canal_rules import CANAL_B2B2C_SQL, canal_de_lob, CANAL_ONLINE
 # Tramos del año fiscal que faltan en Actuals / LY (gráfico de 12 meses de la portada del Flow)
 from fy_rest import actuals_fy_rest_ranges, ly_fy_rest_ranges
 # OC B2B2C mensual desde los canónicos contables (slide "Monthly Performance — OC" del Flow)
@@ -207,7 +209,7 @@ def conectar():
 
 COLS_ACTUALS = [
     "fecha", "pais", "productooriginal", "channel", "partner", "viaje",
-    "account_type", "region", "tier",
+    "account_type", "region", "tier", "canal",
     "orders", "gross_bookings", "net_revenues", "fvm"
 ]
 
@@ -217,7 +219,7 @@ def build_actuals_query(date_from: date, date_to: date, por_transaccion: bool = 
     # evaluar el FVM de cada transacción. El default deja la query del Daily intacta.
     tx_col   = "\n    t.transaction_code AS tx," if por_transaccion else ""
     tx_out   = " tx," if por_transaccion else ""
-    group_by = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10" if por_transaccion else "1, 2, 3, 4, 5, 6, 7, 8, 9"
+    group_by = "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11" if por_transaccion else "1, 2, 3, 4, 5, 6, 7, 8, 9, 10"
     return f"""
 WITH base AS (
 SELECT
@@ -261,6 +263,8 @@ SELECT
     COALESCE(di.stage, 'Unknown') AS account_type,
     COALESCE(di.region, 'Unknown') AS region,
     COALESCE(di.estatus_tier, 'Unknown') AS tier,
+    -- canal de venta (filtro Canal del Daily B2B2C, 2026-11-23): Daily_Dashboard/canal_rules.py
+    {CANAL_B2B2C_SQL} AS canal,
     COUNT(DISTINCT t.transaction_code) AS orders,
     SUM(CASE WHEN t.channel IN ('yavas-callcenter','yavas-wl','yavas-agencias')
               AND t.purchase_type IN ('Carrito','Hoteles','Alquileres','Vuelos')
@@ -408,7 +412,7 @@ with_ps AS (
 )
 
 SELECT
-    fecha,{tx_out} pais, productooriginal, channel, partner, viaje, account_type, region, tier,
+    fecha,{tx_out} pais, productooriginal, channel, partner, viaje, account_type, region, tier, canal,
     orders,
     gross_bookings,
     net_revenues,
@@ -1353,6 +1357,7 @@ def clean_actuals(df: pd.DataFrame) -> pd.DataFrame:
     df["orders"]  = pd.to_numeric(df["orders"], errors="coerce").fillna(0).astype(int)
     df["partner"] = df["partner"].fillna("Sin asignar").str.strip()
     df["viaje"]   = df["viaje"].fillna("N/A")
+    df["canal"]   = df["canal"].fillna(CANAL_ONLINE) if "canal" in df.columns else CANAL_ONLINE
     return df[COLS_ACTUALS]
 
 
@@ -1379,7 +1384,7 @@ def add_rg_rows_proj(df: pd.DataFrame) -> pd.DataFrame:
 
 def agg_actuals(df: pd.DataFrame) -> pd.DataFrame:
     return df.groupby(
-        ["fecha", "pais", "productooriginal", "partner", "account_type", "region", "tier"], as_index=False
+        ["fecha", "pais", "productooriginal", "partner", "account_type", "region", "tier", "canal"], as_index=False
     ).agg(
         orders        =("orders",        "sum"),
         gross_bookings=("gross_bookings", "sum"),
@@ -1449,7 +1454,9 @@ def agg_budget(df: pd.DataFrame, fy_rest: bool = False) -> pd.DataFrame:
         & df["producto"].isin(["Packages General", "Flights", "Hotels", "Vacation Rentals"])
     )
     df.loc[_yavas_gb0, "gross_bookings"] = 0
-    group_cols = ["fecha", "pais", "producto", "partner"]
+    # canal (filtro Canal del Daily B2B2C, 2026-11-23): sale del lob_canal; sin lob_canal, Online
+    df["canal"] = canal_de_lob(df["lob_canal"]) if "lob_canal" in df.columns else CANAL_ONLINE
+    group_cols = ["fecha", "pais", "producto", "partner", "canal"]
     if "stage" in df.columns:
         group_cols.append("stage")
     if "tier" in df.columns:
@@ -1697,8 +1704,9 @@ def agg_forecast_b2bc(df: pd.DataFrame) -> pd.DataFrame:
     el mismo B2B2C (mismo modelo/factores), así que alcanza con una sola base."""
     if df.empty:
         return df
-    d = df[df["lob_canal"].str.startswith("B2B2C")]
-    return d.groupby(["fecha", "pais", "producto", "partner"], as_index=False).agg(
+    d = df[df["lob_canal"].str.startswith("B2B2C")].copy()
+    d["canal"] = canal_de_lob(d["lob_canal"])   # filtro Canal del Daily B2B2C
+    return d.groupby(["fecha", "pais", "producto", "partner", "canal"], as_index=False).agg(
         orders=("orders", "sum"), gross_bookings=("gross_bookings", "sum"),
         net_revenue=("net_revenue", "sum"), fvm=("fvm", "sum"),
     ).round({"gross_bookings": 2, "net_revenue": 2, "fvm": 2})

@@ -159,23 +159,27 @@
     mark();
   }
 
-  // Botón "Limpiar filtros": aparece cuando hay país, partner o producto elegidos (Daily B2B2C)
+  // Botón "Limpiar filtros": aparece cuando hay país, partner, producto o canal elegidos (Daily B2B2C)
   function activeSel() {
     var p = el('sel-product');
-    return (W._selPaises && W._selPaises.length) || (W._selPartners && W._selPartners.length) || (p && p.value !== 'all');
+    return (W._selPaises && W._selPaises.length) || (W._selPartners && W._selPartners.length) || (p && p.value !== 'all')
+      || (W._canalSel && W._canalSel !== 'all');
   }
   function clearBtn() {
-    var prod = el('sel-product');
+    var prod = el('sel-product'), canal = el('sel-canal');
     if (!prod || el('ow-clear')) return;
     var b = document.createElement('button');
     b.type = 'button'; b.id = 'ow-clear'; b.textContent = 'Limpiar filtros';
     b.addEventListener('click', function () {
       if (typeof W.msSet_ === 'function') W.msSet_('sel-product', [], true); else prod.value = 'all';
+      // Canal (2026-11-23): canalSet_ ya recalcula; si no hay otro filtro, alcanza con eso
+      if (W._canalSel && W._canalSel !== 'all' && typeof W.canalSet_ === 'function') W.canalSet_('all');
       W._selPaises.length = 0; W._selPartners.length = 0;
       if (typeof W.paisChanged_ === 'function') W.paisChanged_();
       refreshClear();
     });
-    (prod.closest('.fchip') || prod).insertAdjacentElement('afterend', b);
+    var anchor = canal || prod;
+    (anchor.closest('.fchip') || anchor).insertAdjacentElement('afterend', b);
     refreshClear();
   }
   function refreshClear() { var b = el('ow-clear'); if (b) b.classList.toggle('show', !!activeSel()); }

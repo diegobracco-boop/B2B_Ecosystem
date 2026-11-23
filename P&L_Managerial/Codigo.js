@@ -17,6 +17,7 @@ var _EMPTY_GESTIONAL_ = {
 // vacío quedaba cacheado 6 h con la clave del mtime: pantalla en cero — auditoría 2026-09-25).
 function readGestionalJSON_() {
   if (_weeklyOn_) return readWeeklyJSON_();
+  if (_dailyOn_) return readDailyJSON_();
   if (_gestionalJsonCache_) return _gestionalJsonCache_;
   try {
     var blob = DriveApp.getFileById(GESTIONAL_JSON_FILE_ID).getBlob();
@@ -531,6 +532,58 @@ function getWeeklyData(filters) {
     return out;
   } finally {
     GD_YM_LABEL = saveLabel; GD_YM_ORDER = saveOrder; _weeklyOn_ = false;
+  }
+}
+
+// ── Apertura diaria (2026-11-23, Diego) ───────────────────────────────────
+// _actuals_gestional_daily.json (actuals_gestional_upload.py, misma corrida): igual que el semanal, con ym = "<día>|<ym>".
+// Solo el mes anterior y el mes en curso hasta ayer. Sin Forecast, tipo de producto, millas ni gateway.
+var DAILY_JSON_NAME = '_actuals_gestional_daily.json';
+var _dailyOn_ = false, _dailyCache_ = null;
+var _DIAS_SEM_ = ['Do', 'Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá'];
+// Etiqueta "Lu 03/11"
+function _dayLabel_(dia) {
+  var d = new Date(dia + 'T00:00:00Z');
+  return _DIAS_SEM_[d.getUTCDay()] + ' ' + dia.slice(8, 10) + '/' + dia.slice(5, 7);
+}
+// Día del año pasado contra el que compara el Goal Last Year: el mismo día de la semana, 364 días antes. "04/11/2025".
+function _dayLyLabel_(dia) {
+  var l = new Date(Date.parse(dia + 'T00:00:00Z') - 364 * 86400000).toISOString();
+  return l.slice(8, 10) + '/' + l.slice(5, 7) + '/' + l.slice(0, 4);
+}
+function readDailyJSON_() {
+  if (_dailyCache_) return _dailyCache_;
+  var it = DriveApp.getFolderById(REVENUE_GD_FOLDER_ID).getFilesByName(DAILY_JSON_NAME);
+  if (!it.hasNext()) return null;
+  _dailyCache_ = JSON.parse(it.next().getBlob().getDataAsString());
+  return _dailyCache_;
+}
+function getDailyData(filters) {
+  var f = Object.assign({}, (filters && typeof filters === 'object') ? filters : {}, { gateway: [], tipo: [], millas: [] });
+  var dj = readDailyJSON_();
+  if (!dj) return { daily_missing: true };
+  var labels = {}, order = [], seen = {}, lyLabels = {};
+  [['b2b2c', 3], ['b2b_may', 2], ['b2b_min', 2]].forEach(function(s) {
+    Object.keys(dj[s[0]] || {}).forEach(function(k) {
+      dj[s[0]][k].forEach(function(r) {
+        var key = r[s[1]];
+        if (labels[key]) return;
+        var dia = key.slice(0, 10);
+        labels[key] = _dayLabel_(dia);
+        lyLabels[labels[key]] = _dayLyLabel_(dia);
+        if (!seen[dia]) { seen[dia] = true; order.push(key); }
+      });
+    });
+  });
+  order.sort();
+  var saveLabel = GD_YM_LABEL, saveOrder = GD_YM_ORDER, orgTarget = organicTarget_(f);
+  GD_YM_LABEL = labels; GD_YM_ORDER = order; _dailyOn_ = true;
+  try {
+    var out = _computeWithYoy_(f, orgTarget);
+    out.daily = { desde: dj.desde, hasta: dj.hasta, generated_at: dj.generated_at, ly_labels: lyLabels };
+    return out;
+  } finally {
+    GD_YM_LABEL = saveLabel; GD_YM_ORDER = saveOrder; _dailyOn_ = false;
   }
 }
 

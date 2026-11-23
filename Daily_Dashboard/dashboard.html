@@ -839,6 +839,9 @@ body.krd-only #section-b2b > :not(.krd-keep) { display:none !important; }
     <button class="vnav-btn"        id="vnav-weekly" onclick="switchMainView('weekly')">Weekly</button>
     <button class="vnav-btn"        id="vnav-flow"   onclick="switchMainView('flow')">Flow Semanal</button>
     <button class="vnav-btn"        id="vnav-tracker" onclick="switchMainView('tracker')">Daily B2B Tracker</button>
+    <!-- Reporte de Power BI de B2B2C (2026-11-23, Diego): link externo, abre en otra pestaña -->
+    <a class="vnav-btn" id="vnav-pbi-b2bc" style="text-decoration:none" target="_blank" rel="noopener" title="Abre el reporte de Power BI de B2B2C en otra pestaña"
+       href="https://app.powerbi.com/groups/me/apps/272dfe2d-6f61-44f4-a576-b7582f81d866/reports/856b750b-d3e6-48e3-870b-8e098b3701fc/1c00bf91210cd4a2aa6b?experience=power-bi">PBI B2B2C ↗</a>
   </div>
   <div id="daily-lob-toggle" class="lob-toggle" style="margin-left:6px">
     <button class="lob-btn active" id="btn-lob-b2bc" onclick="switchLob('b2bc')">B2B2C</button>
@@ -918,6 +921,16 @@ body.krd-only #section-b2b > :not(.krd-keep) { display:none !important; }
   <div class="fchip">
     <svg class="fchip-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
     <select id="sel-product" onchange="reloadAll()"><option value="all">Producto</option></select>
+  </div>
+  <!-- Canal de venta B2B2C (2026-11-23): mismo corte que el lob_canal de Budget / RR / Forecast. Ver canalSet_ -->
+  <div class="fchip" title="Canal de venta: Online, Call Center o Islas / Tiendas (lo off: islas, tiendas, agencias presenciales). Filtra actuals, LY, Budget, Run Rate y Forecast de B2B2C en toda la página (KRs, métricas, tablas, Benchmark y Flow). No se filtran Unique Buyers, Weekly ni los emails.">
+    <svg class="fchip-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 9l9-6 9 6v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M9 21V12h6v9"/></svg>
+    <select id="sel-canal" onchange="canalSet_(msGet_('sel-canal') || 'all')">
+      <option value="all">Canal</option>
+      <option value="Online">Online</option>
+      <option value="Call Center">Call Center</option>
+      <option value="Islas / Tiendas">Islas / Tiendas</option>
+    </select>
   </div>
   <div class="date-nav">
     <button id="btn-prev" onclick="navDay(-1)">&#8249;</button>
@@ -2276,6 +2289,7 @@ function dirApplyB2B_(raw) {
   });
   _DIR_B2B_GOAL.forEach(function(k) { if (raw._dirOrig[k]) raw[k] = []; });
 }
+// También aplica el filtro Canal (_canalSel): los dos filtran las mismas claves de B2B2C desde el original.
 function dirApplyB2BC_(raw) {
   if (!raw) return;
   if (!raw._dirOrig) {
@@ -2285,8 +2299,25 @@ function dirApplyB2BC_(raw) {
   var m = raw.director_by_partner || {};
   _DIR_B2BC_KEYS.forEach(function(k) {
     var o = raw._dirOrig[k]; if (!o) return;
-    raw[k] = _dirSel === 'all' ? o : o.filter(function(r) { return _dirSel.indexOf(m[String(r.partner || '').trim().toLowerCase()] || _DIR_NONE) >= 0; });
+    raw[k] = (_dirSel === 'all' && _canalSel === 'all') ? o : o.filter(function(r) {
+      if (_dirSel !== 'all' && _dirSel.indexOf(m[String(r.partner || '').trim().toLowerCase()] || _DIR_NONE) < 0) return false;
+      return _canalSel === 'all' || _canalSel.indexOf(_canalOf_(r)) >= 0;
+    });
   });
+  _b2bcNoTBDCache = null;   // la copia sin TBD se arma desde raw[k]: hay que rehacerla
+}
+// ── Canal de venta B2B2C (2026-11-23) ───────────────────────────
+// Online / Call Center / Islas / Tiendas: en actuals sale de la transacción y en Budget / RR / Forecast del lob_canal
+// (Daily_Dashboard/canal_rules.py). Filas sin canal (JSON anterior al filtro, Forecast reusado) cuentan como Online.
+var _canalSel = 'all';
+function _canalOf_(r) { return r.canal || 'Online'; }
+function canalSet_(val) {
+  _canalSel = (Array.isArray(val) && val.length) ? val : 'all';   // 'all' o array de canales
+  msSet_('sel-canal', _canalSel === 'all' ? [] : _canalSel, true);
+  dirApplyB2BC_(_rawB2BC);
+  if (_rawB2BC) fillPartnersB2BC_();
+  if (_orgRowsCache_) _orgRowsCache_ = new WeakMap();
+  _orgRefreshAll_();
 }
 function dirFillSelects_() {
   var s = {};
@@ -2803,7 +2834,7 @@ function computeAllB2B_(raw, dm, vDate, gl_pai, gl_pro, gl_ch, gl_mkt, gran, com
 
 // ── Init ────────────────────────────────────────────────────────
 window.onload = function() {
-  msify_('sel-product', 'productos'); msify_('b2b-sel-pais', 'países'); msify_('b2b-sel-product', 'productos'); msify_('b2b-sel-channel', 'canales'); msify_('b2b-sel-director', 'directores');
+  msify_('sel-product', 'productos'); msify_('sel-canal', 'canales'); msify_('b2b-sel-pais', 'países'); msify_('b2b-sel-product', 'productos'); msify_('b2b-sel-channel', 'canales'); msify_('b2b-sel-director', 'directores');
   // Organic YES por default (Diego, 2026-10-26): pide la tabla de TC ya al abrir; cuando llega,
   // recalcula lo que ya esté cargado (_orgRefreshAll_). Se puede apagar con el switch.
   setDailyOrganic(true);

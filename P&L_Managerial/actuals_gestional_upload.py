@@ -57,6 +57,7 @@ DSN_NAME        = "DataLake Treasure ODBC"
 DRIVE_FOLDER_ID = "1wzudbo7cN9Ibiv_2OA-V0_B_un4JcJp6"
 JSON_FILE_NAME  = "_actuals_gestional.json"
 WEEKLY_JSON_FILE_NAME = "_actuals_gestional_weekly.json"   # apertura semanal (botón Semana de la landing)
+DAILY_JSON_FILE_NAME  = "_actuals_gestional_daily.json"    # apertura diaria (botón Día, 2026-11-23): mes anterior + mes en curso
 # Prueba sin publicar: MANAGERIAL_DRY_RUN_DIR=<carpeta> deja ahí los dos JSON y no toca Drive ni Ownia.
 DRY_RUN_DIR     = os.getenv("MANAGERIAL_DRY_RUN_DIR", "")
 DRIVE_SCOPES    = ["https://www.googleapis.com/auth/drive"]
@@ -216,28 +217,10 @@ def fetch(query: str, label: str, retries: int = 3) -> pd.DataFrame:
 # ==============================================================================
 
 # Canal de venta de B2B2C (2026-11-17, Diego): Online / Call Center / Islas / Tiendas, el mismo corte que el lob_canal del
-# Budget, Run Rate y Forecast (B2B2C-ON / B2B2C-CALL CENTER / B2B2C-OFF). En los reales sale de la transacción:
-#   Call Center      parent_channel 'White Label Call Center' (bestday-call-*, bestday-b2b2c-call: Televentas de Naranja y BCI,
-#                    yavas-callcenter) o agencia "... - Call Center" (Banco de Chile, AG00120475)
-#   Islas / Tiendas  parent_channel 'Islas WL' (islas de Liverpool y Elektra), canales "*-off" (latam-airlines-off,
-#                    bci-benefits-off), yavas-agencias o agencia "... - Presencial" (Banco de Chile, AG00120467): todo lo off,
-#                    islas, tiendas y agencias
-#   Online           el resto
+# Budget, Run Rate y Forecast. La regla vive en Daily_Dashboard/canal_rules.py (compartida con el filtro Canal del Daily).
 # La columna `canal` va AL FINAL de las filas B2B2C (ver _build_b2b2c_rows): los índices de siempre no se mueven.
-CANAL_ONLINE, CANAL_CALL, CANAL_ISLAS = "Online", "Call Center", "Islas / Tiendas"
-CANAL_B2B2C_SQL = f"""CASE
-      WHEN t.parent_channel = 'White Label Call Center'
-        OR COALESCE(t.agency_fantasy_name, '') LIKE '%Call Center%'      THEN '{CANAL_CALL}'
-      WHEN t.parent_channel = 'Islas WL' OR t.channel LIKE '%-off' OR t.channel = 'yavas-agencias'
-        OR COALESCE(t.agency_fantasy_name, '') LIKE '%Presencial%'       THEN '{CANAL_ISLAS}'
-      ELSE '{CANAL_ONLINE}'
-    END"""
-# lob_canal de Budget / Run Rate / Forecast -> canal
-CANAL_DE_LOB = {"B2B2C-ON": CANAL_ONLINE, "B2B2C-CALL CENTER": CANAL_CALL, "B2B2C-OFF": CANAL_ISLAS}
-
-
-def _canal_de_lob(s: pd.Series) -> pd.Series:
-    return s.astype(str).str.strip().str.upper().map(CANAL_DE_LOB).fillna(CANAL_ONLINE)
+from canal_rules import CANAL_ONLINE, CANAL_CALL, CANAL_ISLAS, CANAL_B2B2C_SQL, CANAL_DE_LOB
+from canal_rules import canal_de_lob as _canal_de_lob
 
 
 def build_b2b2c_query(date_from: date, date_to: date, by_tipo: bool = False) -> str:
@@ -1620,6 +1603,34 @@ def _budget_by_week(df: pd.DataFrame, build, i_ym: int) -> list:
     return _by_week(df, build, i_ym, weeks=WEEK_SET)
 
 
+# Diario (2026-11-23, Diego): período "Día" del P&L Managerial. Mismo armado que el semanal, con el día en lugar del
+# lunes: ym = "<día>|<ym>". Solo el mes anterior y el mes en curso hasta ayer (todo el FY por día pesa demasiado).
+# LY = el mismo día de la semana del año anterior (364 días antes), como el semanal.
+_prev_m = date(YESTERDAY.year, YESTERDAY.month, 1) - timedelta(days=1)
+D_FROM = max(date(_prev_m.year, _prev_m.month, 1), ACTUALS_FROM)
+DAYS = [str(D_FROM + timedelta(days=i)) for i in range(max((YESTERDAY - D_FROM).days + 1, 0))]
+DAY_SET = set(DAYS)
+
+
+def _con_dia(df: pd.DataFrame, d0: date, d1: date) -> pd.DataFrame:
+    """Días de d0 a d1, con el día en `semana` (la columna que agrupa _by_week)."""
+    f = _dia(df)
+    m = (f >= pd.Timestamp(d0)) & (f <= pd.Timestamp(d1))
+    out = df[m].copy()
+    out["semana"] = f[m].dt.strftime("%Y-%m-%d")
+    return out
+
+
+def _budget_by_day(df: pd.DataFrame, build, i_ym: int) -> list:
+    df = df.copy()
+    col = next(c for c in df.columns if c.lower() == "fecha")
+    f = _parse_fecha_budget(df[col])
+    keep = (f >= pd.Timestamp(D_FROM)) & (f <= pd.Timestamp(YESTERDAY))
+    df, f = df[keep], f[keep]
+    df["semana"] = f.dt.strftime("%Y-%m-%d")
+    return _by_week(df, build, i_ym, weeks=DAY_SET)
+
+
 # ==============================================================================
 # 6) MAIN
 # ==============================================================================
@@ -1947,5 +1958,77 @@ else:
         _wb = json.dumps(weekly, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
         print(f"  JSON semanal: {len(_wb) / 1024:.1f} KB")
         upload_to_drive(_wb, WEEKLY_JSON_FILE_NAME)
+
+# ── Diario (de los mismos datos diarios, 2026-11-23) ──────────────────────────
+# Mes anterior + mes en curso hasta ayer. Mismas secciones que el semanal (Actuals, Budget, LY; sin Forecast).
+print("\n--- Diario ---")
+if not DAYS:
+    print("  AVISO: no hay días para armar el diario.")
+else:
+    _LY_D0, _LY_D1 = D_FROM - timedelta(days=LY_DIAS), YESTERDAY - timedelta(days=LY_DIAS)
+    print(f"  Días {DAYS[0]} a {DAYS[-1]} ({len(DAYS)})  |  LY {_LY_D0} a {_LY_D1}")
+    _d_c = lambda g: _build_b2b2c_rows(g, filter_set=W_ALL_YM)
+    def _d_b(canal, y, m):
+        return lambda g: _build_b2b_rows(g, y, m, channel_filter=canal, filter_set=W_ALL_YM)
+    _dc, _dc_ly = _con_dia(df_b2b2c_d, D_FROM, YESTERDAY), _con_dia(df_b2b2c_ly_d, _LY_D0, _LY_D1)
+    _dgd, _dgd_ly = _con_dia(df_b2b_gd_d, D_FROM, YESTERDAY), _con_dia(df_b2b_gd_ly_d, _LY_D0, _LY_D1)
+    _dri = _con_dia(df_b2b_ri_d, D_FROM, YESTERDAY)
+    def _d_section(canal, lob):
+        return {
+            "bl":     _by_week(_dgd, _d_b(canal, "anio_gd", "mes_gd"), 2),
+            "bl_ri":  _by_week(_dri, _d_b(canal, "anio_ri", "mes_ri"), 2),
+            "bgt":    _budget_by_day(df_b2b_budget_gd, lambda g: _build_b2b_budget_rows(g, lob_filter=lob), 2),
+            "bgt_ri": _budget_by_day(df_b2b_budget_ri, lambda g: _build_b2b_budget_rows(g, lob_filter=lob), 2),
+            "ly":     _by_week(_dgd_ly, _d_b(canal, "anio_gd", "mes_gd"), 2, shift=LY_DIAS, weeks=DAY_SET),
+        }
+    daily = {
+        "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "days": DAYS, "desde": str(D_FROM), "hasta": str(YESTERDAY), "ly_dias": LY_DIAS,
+        "metrics": METRIC_COLS, "b2b2c_stage": b2b2c_stage,
+        "b2b2c": {
+            "bl":  _by_week(_dc, _d_c, 3),
+            "bgt": _budget_by_day(df_b2b2c_budget, _build_b2b2c_budget_rows, 3),
+            "ly":  _by_week(_dc_ly, _d_c, 3, shift=LY_DIAS, weeks=DAY_SET),
+        },
+        "b2b_may": _d_section("API", "B2B-MAY"),
+        "b2b_min": _d_section("Agencias afiliadas", "B2B-MIN"),
+    }
+    for _s in ("b2b2c", "b2b_may", "b2b_min"):
+        print(f"  {_s}: " + ", ".join(f"{k} {len(v):,}" for k, v in daily[_s].items()))
+
+    # Control: los días de cada mes cerrado que entra entero suman lo mismo que el mensual.
+    _I = {m: METRIC_COLS.index(m) for m in ("gross_bookings", "net_revenue", "npv")}
+    def _tot_d(rows, off, iym, por_dia):
+        t = {}
+        for r in rows:
+            if r[0] == "RG":
+                continue
+            d = t.setdefault(r[iym].split("|")[1] if por_dia else r[iym], dict.fromkeys(_I, 0.0))
+            for m, i in _I.items():
+                d[m] += r[off + i] or 0
+        return t
+    _closed_d = [ym for ym in sorted(CLOSED_SET) if ym <= LAST_CLOSED_YM and ym + "-01" >= str(D_FROM)]
+    _fallas_d, _max_d = [], 0.0
+    for sec, kd, km, off, iym in [("b2b2c", "bl", "ac", 4, 3), ("b2b_may", "bl", "ac", 3, 2), ("b2b_min", "bl", "ac", 3, 2),
+                                  ("b2b_may", "bl_ri", "ac_ri", 3, 2), ("b2b_min", "bl_ri", "ac_ri", 3, 2),
+                                  ("b2b2c", "bgt", "bgt", 4, 3), ("b2b_may", "bgt", "bgt", 3, 2), ("b2b_min", "bgt", "bgt", 3, 2),
+                                  ("b2b_may", "bgt_ri", "bgt_ri", 3, 2), ("b2b_min", "bgt_ri", "bgt_ri", 3, 2)]:
+        dd, mm = _tot_d(daily[sec][kd], off, iym, True), _tot_d(output[sec][km], off, iym, False)
+        for ym in _closed_d:
+            for met in _I:
+                a, b = dd.get(ym, {}).get(met, 0.0), mm.get(ym, {}).get(met, 0.0)
+                dif = abs(a - b) / abs(b) if abs(b) > 1 else abs(a - b)
+                _max_d = max(_max_d, dif)
+                if dif > 0.005 and abs(a - b) > 1000:
+                    _fallas_d.append((sec, kd, ym, met, round(a), round(b), f"{dif:.2%}"))
+    print(f"  Control diario vs mensual: {len(_closed_d)} meses cerrados, desvío máximo {_max_d:.3%}, fuera de tolerancia: {len(_fallas_d)}")
+    for _f in _fallas_d[:20]:
+        print("  DIFIERE", _f)
+    if _fallas_d:
+        print(f"  AVISO: NO se sube {DAILY_JSON_FILE_NAME} (no cierra con el mensual) — queda el de la corrida anterior.")
+    else:
+        _db = json.dumps(daily, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        print(f"  JSON diario: {len(_db) / 1024:.1f} KB")
+        upload_to_drive(_db, DAILY_JSON_FILE_NAME)
 
 print(f"\nOK Completado: {TODAY.strftime('%d-%m-%Y')}")
