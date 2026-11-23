@@ -8,6 +8,7 @@ Solo SELECT, con SQL fijo (nada del pedido llega al SQL). La tabla ya viene filt
 consolidador: si hacen falta otros datos se edita el pedido de acceso, no esta consulta.
 Solo corre dentro de Ownia (usa el token IAM de la app): en local falla siempre.
 """
+import io
 import json
 import os
 import re
@@ -160,7 +161,46 @@ def control():
     }
 
 
-COMANDOS = {"versiones": versiones, "resumen": por_pais_y_mes, "dimensiones": dimensiones, "cubo": cubo, "cubo_mgr": cubo_managerial, "cubo_hub": cubo_hub, "detalle": detalle, "control": control}
+RR_MESES = (11, 12, 1, 2, 3)   # run rate del FY27: noviembre a marzo (el último mes cerrado es octubre)
+
+
+def rr_excel():
+    """El run rate (escenario RR del FY27, noviembre a marzo) tal como lo deja la tabla, para revisarlo en Excel: B2B y B2B2C (lo que
+    usa el P&L Accounting), solo AS REPORTED si la tabla abre la versión, todas las columnas y sin sumar. Dos hojas: Resumen (nivel 2 por
+    LoB y mes) y Detalle (las filas). Va en base64 dentro del JSON (el servidor lo manda como archivo, GET /consolidador/rr-excel)."""
+    import base64
+    import pandas as pd
+    c = cdb()
+    con_version = tiene_version()
+    meses = ", ".join(str(m) for m in RR_MESES)
+    rows = c.consultar(
+        f"SELECT * FROM {TABLA} WHERE scenario = 'RR' AND year = 'FY27' AND mes IN ({meses}) "
+        f"AND lob IN ('B2B', 'B2B2C'){VERSION_OFICIAL if con_version else ''}")
+    df = pd.DataFrame(rows)
+    if df.empty:
+        raise RuntimeError("la tabla no trae filas de RR FY27 noviembre a marzo")
+    orden = {m: i for i, m in enumerate(RR_MESES)}
+    df = df.sort_values(by=["lob", "channel", "pais", "product", "linea_p&l_-_nivel_2", "linea_p&l", "mes"],
+                        key=lambda s: s.map(orden) if s.name == "mes" else s.astype(str)).reset_index(drop=True)
+    nombre_mes = {11: "nov-26", 12: "dic-26", 1: "ene-27", 2: "feb-27", 3: "mar-27"}
+    res = (df.assign(mes_lbl=df["mes"].map(nombre_mes))
+             .pivot_table(index=["lob", "linea_p&l_-_nivel_2"], columns="mes_lbl", values="valor", aggfunc="sum", fill_value=0))
+    res = res[[nombre_mes[m] for m in RR_MESES if nombre_mes[m] in res.columns]]
+    res["Total nov-mar"] = res.sum(axis=1)
+    buf = io.BytesIO()
+    with pd.ExcelWriter(buf, engine="openpyxl") as xw:
+        res.reset_index().to_excel(xw, sheet_name="Resumen", index=False)
+        df.to_excel(xw, sheet_name="Detalle", index=False)
+        info = pd.DataFrame({"campo": ["tabla", "version publicada", "filtro", "filas"],
+                             "valor": [TABLA, str(c.version(DATASET)),
+                                       "scenario RR, year FY27, mes 11 a 3, lob B2B y B2B2C" + (", version AS REPORTED" if con_version else ""),
+                                       len(df)]})
+        info.to_excel(xw, sheet_name="Info", index=False)
+    return {"archivo": f"consolidador_RR_FY27_nov-mar_v{c.version(DATASET)}.xlsx", "filas": len(df),
+            "xlsx_b64": base64.b64encode(buf.getvalue()).decode("ascii")}
+
+
+COMANDOS = {"rr_excel": rr_excel, "versiones": versiones, "resumen": por_pais_y_mes, "dimensiones": dimensiones, "cubo": cubo, "cubo_mgr": cubo_managerial, "cubo_hub": cubo_hub, "detalle": detalle, "control": control}
 
 
 def main(argv):

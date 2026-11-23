@@ -520,9 +520,18 @@ function createApp(opts = {}) {
         const { canon, sinMapear } = buildCanonicals(c.data, { ultimoCerrado: q('ultimoCerrado'), rrDesde: q('rrDesde') });
         return sendJson(res, 200, { versionTabla: c.data.version, filasCubo: c.data.rows.length, sinMapear, comparacion: compararCanonicos(canon, fileStore) });
       }
+      // El run rate (RR FY27, nov a mar, B2B y B2B2C) tal como lo deja la tabla, en Excel (consolidador_leer.py rr_excel, 2026-11-23)
+      if (route === '/consolidador/rr-excel') {
+        const r = await consolidador.leer('rr_excel');
+        if (!r.ok) return sendJson(res, r.code, { error: r.error });
+        const buf = Buffer.from(r.data.xlsx_b64, 'base64');
+        res.writeHead(200, { 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'Content-Disposition': `attachment; filename="${String(r.data.archivo).replace(/[^\w.\-]/g, '_')}"`, 'Content-Length': buf.length, 'Cache-Control': 'no-store' });
+        return res.end(buf);
+      }
       const consulta = route.slice('/consolidador/'.length);
       // los cubos son la tabla entera (o casi): los usan /comparar y pnl-fuente por dentro, no se sirven por acá
-      if (consulta === 'cubo' || consulta === 'cubo_mgr' || consulta === 'cubo_hub') return sendJson(res, 404, { error: 'Consulta desconocida' });
+      if (consulta === 'cubo' || consulta === 'cubo_mgr' || consulta === 'cubo_hub' || consulta === 'rr_excel') return sendJson(res, 404, { error: 'Consulta desconocida' });
       const r = await consolidador.leer(consulta);
       if (!r.ok) return sendJson(res, r.code, { error: r.error });
       return sendJson(res, 200, r.data);
