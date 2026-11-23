@@ -27,7 +27,7 @@ const MORE_COLS = 5;
 const MORE = MORE_ROWS.flat().flatMap(([, s]) => s);
 
 // Accesos directos de un bloque hacia OTROS tableros (además de las vistas propias, `quickViews`). Esos tableros no se repiten en "Más tableros".
-const QUICK_LINKS = { daily: ['api-one-pager', 'fvm-negativo', 'b2b-score-producto'] };
+const QUICK_LINKS = { daily: ['api-one-pager', 'fvm-negativo', 'b2b-score-producto', 'pbi-b2b2c'] };
 
 // Textos del menú en lenguaje llano (sin jerga). Si un módulo no está acá se usa el de modules.js.
 const COPY = {
@@ -55,7 +55,7 @@ const ICONS = {
 };
 const ICON_OF = {
   'pnl-managerial': 'chart', 'pnl-accounting': 'ledger', 'profit-sharing': 'bank', 'hub-consolidacion': 'bank', 'marketing-b2b': 'target', hub: 'grid', daily: 'calendar',
-  'fvm-negativo': 'down', 'okr-b2b2c': 'target', manual: 'book', 'api-one-pager': 'api', 'b2b-score-producto': 'target', 'travel-partners-hub': 'globe', flow: 'flow', 'rolling-projections': 'chart', 'fixed-cost': 'ledger', 'weekly-industry': 'globe', agentes: 'agent', 'pipeline-hunting': 'chart', 'b2b2c-tracker': 'funnel', 'cosechas-b2b': 'down',
+  'fvm-negativo': 'down', 'okr-b2b2c': 'target', manual: 'book', 'api-one-pager': 'api', 'b2b-score-producto': 'target', 'pbi-b2b2c': 'chart', 'travel-partners-hub': 'globe', flow: 'flow', 'rolling-projections': 'chart', 'fixed-cost': 'ledger', 'weekly-industry': 'globe', agentes: 'agent', 'pipeline-hunting': 'chart', 'b2b2c-tracker': 'funnel', 'cosechas-b2b': 'down',
   'monthly-industry': 'globe', 'hub-drive': 'grid', 'pnl-accounting-drive': 'ledger', 'pnl-managerial-drive': 'chart',
 };
 // Otras apps de Ownia que se linkean desde el menú (no son módulos de este repo: no corren acá).
@@ -71,6 +71,9 @@ const OTHER_APPS = [
     url: 'https://ownia.despegar.io/b2b-dashboard' },
   { slug: 'b2b-score-producto', title: 'B2B - Score by product', desc: 'Score de B2B por producto (Apps Script).',
     url: 'https://script.google.com/a/macros/despegar.com/s/AKfycbxEzLOo88qtNqzNT2-rIHBm4uJefTSkREnY4D0dYIbeBI-t-ygvBMGCrUKVZImfyYHPaw/exec' },
+  // Reporte de Power BI de B2B2C (2026-11-23, Diego): pill del bloque Daily, después de Score by product.
+  { slug: 'pbi-b2b2c', title: 'PBI B2B2C', desc: 'Reporte de Power BI de B2B2C.',
+    url: 'https://app.powerbi.com/groups/me/apps/272dfe2d-6f61-44f4-a576-b7582f81d866/reports/856b750b-d3e6-48e3-870b-8e098b3701fc/1c00bf91210cd4a2aa6b?experience=power-bi' },
   B2B2C_TRACKER,   // página propia (server/b2b2c-tracker-page.js), con allowedUsers: solo aparece para quien la puede abrir
   EMBUDO_B2B,      // página propia (server/embudo-b2b-page.js), debajo del B2B2C Tracker; con allowedUsers (equipo B2B) mientras está en revisión
   { slug: 'pipeline-hunting', title: 'Pipeline Hunting', desc: 'Todos los deals del pipeline B2B2C, con NR y FVM.', internal: 'pipeline-hunting' },
