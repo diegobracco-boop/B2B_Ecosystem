@@ -22,6 +22,16 @@ function getEPMBreakdown(filtersJson, dim) {
     return slim(computeGroupEPM_(s.ac, s.rr, s.bg, s.fc, cutoffIdx, pais, { goal: goalSource, lrr: s.lrr, baseline: s.bl, ly: s.ly }));
   }
   var out = [];
+  // Por LoB (2026-11-23, solo la sección B2B + B2B2C): una columna por LoB o por LoB y canal, con los mismos filtros de país y producto
+  if (dim === 'lob' || dim === 'lobcanal') {
+    var rawProd = f.produto || f.producto || [];
+    var prodArr = Array.isArray(rawProd) ? rawProd : (rawProd ? [rawProd] : []);
+    var lobs = dim === 'lob' ? [['B2B2C', 'b2b2c'], ['B2B', 'b2b']] : [['B2B2C', 'b2b2c'], ['B2B-MIN', 'b2b_min'], ['B2B-MAY', 'b2b_may']];
+    lobs.forEach(function (l) {
+      out.push({ label: l[0], data: group(fetchEPMScenarios_(jData, l[1], baselineScen, prodArr.length ? prodArr : null), userPais) });
+    });
+    return { available: true, lgKey: lgKey, items: out };
+  }
   if (dim === 'pais') {
     var s = fetchEPMScenarios_(jData, lgKey, baselineScen, null);
     var groups = Array.isArray(userPais)

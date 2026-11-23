@@ -61,16 +61,18 @@
   'use strict';
   var W = window;
   var SECS = [
+    // Orden pedido 2026-11-23: B2B + B2B2C, B2B2C, B2B, HTML, API
     { k: 'combined', lbl: 'B2B + B2B2C', lob: null, canal: [] },
-    { k: 'b2b', lbl: 'B2B', lob: 'b2b', canal: [] },
     { k: 'b2b2c', lbl: 'B2B2C', lob: 'b2b2c', canal: [] },
-    { k: 'api', lbl: 'API', lob: 'b2b', canal: ['may'], title: 'B2B MAY (API)' },
+    { k: 'b2b', lbl: 'B2B', lob: 'b2b', canal: [] },
     { k: 'html', lbl: 'HTML', lob: 'b2b', canal: ['min'], title: 'B2B MIN (HTML)' },
+    { k: 'api', lbl: 'API', lob: 'b2b', canal: ['may'], title: 'B2B MAY (API)' },
   ];
   function ls(k, ok) { try { var v = localStorage.getItem(k); return ok.indexOf(v) >= 0 ? v : null; } catch (e) { return null; } }
   function save(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* sin storage */ } }
   function q(name, ok) { var m = new RegExp('[?&]' + name + '=([a-z0-9]+)(&|$)').exec(location.search); return m && ok.indexOf(m[1]) >= 0 ? m[1] : null; }
-  var SEC_KEYS = SECS.map(function (s) { return s.k; }), COL_KEYS = ['periodo', 'pais', 'prod'];
+  // Columnas LoB / LoB canal (2026-11-23): solo en B2B + B2B2C; en las otras secciones esas columnas valen como Período
+  var SEC_KEYS = SECS.map(function (s) { return s.k; }), COL_KEYS = ['periodo', 'pais', 'prod', 'lob', 'lobcanal'], COL_LOB = ['lob', 'lobcanal'];
   var qView = /[?&]view=contable-(combined|b2b2c|b2b)(&|$)/.exec(location.search);   // accesos directos del menú / P&L Dashboard
   var sec = q('sec', SEC_KEYS) || (qView && qView[1]) || ls('pa-sec', SEC_KEYS) || 'combined';
   var cols = q('cols', COL_KEYS) || ls('pa-cols', COL_KEYS) || 'periodo';
@@ -79,7 +81,8 @@
   var EXPLICIT = ['brasil', 'mexico', 'argentina', 'colombia', 'chile', 'peru', 'ecuador', 'rg'];
 
   function S() { for (var i = 0; i < SECS.length; i++) if (SECS[i].k === sec) return SECS[i]; return SECS[0]; }
-  function hasProd() { return true; }   // B2B2C y el consolidado también abren por producto (2026-11-23)
+  function hasProd() { return true; }
+  function colsEff() { return COL_LOB.indexOf(cols) >= 0 && sec !== 'combined' ? 'periodo' : cols; }   // B2B2C y el consolidado también abren por producto (2026-11-23)
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function cap(s) { return String(s).replace(/(^|\s)\S/g, function (c) { return c.toUpperCase(); }); }
   function btn(id, txt, title, cls) {
@@ -164,7 +167,18 @@
     }
     var f = W.getContableFilters(), selPais = (f.pais || []).map(function (p) { return String(p).toLowerCase(); });
     document.getElementById('bg-period-label').textContent = 'Baseline (' + W._epmBaselineLabel() + ')  |  Goal: ' + W._epmGoalLabel();
-    if (cols === 'pais') {
+    if (COL_LOB.indexOf(colsEff()) >= 0) {
+      var byLob = colsEff() === 'lob';
+      setTitle('Abierto por ' + (byLob ? 'LoB' : 'LoB y canal') + ' · ' + per);
+      var rl = breakdown(f, colsEff());
+      if (!rl) return msg('Calculando el P&amp;L por ' + (byLob ? 'LoB' : 'LoB y canal') + '…');
+      if (rl.error) return msg('No se pudo calcular por LoB: ' + esc(rl.error));
+      if (!rl.available) return msg('Sin apertura por LoB para esta selección.');
+      var le = (rl.items || []).filter(function (it) { return hasData(it.data); }).map(function (it) { return { key: it.label, g: it.data }; });
+      le.push({ key: 'Total', g: d.total });
+      return draw(le);
+    }
+    if (colsEff() === 'pais') {
       setTitle('Abierto por País · ' + per);
       var bc = d.by_country || {}, ents = [];
       Object.keys(bc).forEach(function (k) { if (k !== 'Total' && hasData(bc[k]) && paisMatch(k, selPais)) ents.push({ key: k, g: bc[k] }); });
@@ -203,8 +217,19 @@
     W.appendLobWaterfall_(box, 'Sección ' + (S().title || S().lbl), d.total, splits);
   }
 
+  // Botones de "Columnas": LoB / LoB canal solo se ven en B2B + B2B2C; el activo es el que aplica en la sección
+  function colButtons() {
+    COL_KEYS.forEach(function (k) {
+      var b = document.getElementById('btn-cols-' + k);
+      if (!b) return;
+      b.style.display = COL_LOB.indexOf(k) >= 0 && sec !== 'combined' ? 'none' : '';
+      b.classList.toggle('prd-active', k === colsEff());
+    });
+  }
+
   // ── Secciones: estado de la página según la sección ──
   function layoutSection() {
+    colButtons();
     // País / Producto viven en la barra de controles (ver más abajo): el bloque original de filtros no se muestra
     var fr = document.getElementById('cont-filters-row'), fgP = document.getElementById('pa-f-prod');
     if (fr) fr.style.display = 'none';
@@ -292,9 +317,9 @@
       }
       layoutSection();
       try { sectionBridge(d); } catch (e) { console.warn('[pnl-accounting-layout] bridge:', e); }
-      if (cols === 'periodo' || W._activeLob !== 'contable-epm' || !d) {
+      if (colsEff() === 'periodo' || W._activeLob !== 'contable-epm' || !d) {
         var r = origRender.apply(this, arguments);
-        if (cols === 'periodo') setTitle(periodTitle());
+        if (colsEff() === 'periodo') setTitle(periodTitle());
         return r;
       }
       try { return renderMain(d); } catch (e) { console.warn('[pnl-accounting-layout] columnas:', e); return origRender.apply(this, arguments); }
@@ -312,7 +337,7 @@
       var r = origSet.call(this, year ? 'q' : mode);
       yBtn.classList.toggle('prd-active', year);
       if (year) { var qb = document.getElementById('btn-period-q'); if (qb) qb.classList.remove('prd-active'); }
-      if (cols === 'periodo') setTitle(periodTitle());
+      if (colsEff() === 'periodo') setTitle(periodTitle());
       return r;
     };
     var origAP = W.getActivePeriods_;
@@ -330,18 +355,20 @@
     var grp = document.createElement('div');
     grp.className = 'prd-toggle';
     var opts = [['periodo', 'Período', 'Columnas por mes / quarter / half / año'], ['pais', 'País', 'Una columna por país, con el total del período elegido'],
-      ['prod', 'Producto', 'Una columna por producto, con el total del período elegido']];
+      ['prod', 'Producto', 'Una columna por producto, con el total del período elegido'],
+      ['lob', 'LoB', 'B2B2C y B2B, con el total del período elegido (solo en B2B + B2B2C)'],
+      ['lobcanal', 'LoB canal', 'B2B2C, B2B-MIN (HTML) y B2B-MAY (API), con el total del período elegido (solo en B2B + B2B2C)']];
     opts.forEach(function (o) {
       var b = btn('btn-cols-' + o[0], o[1], o[2]);
-      b.classList.toggle('prd-active', o[0] === cols);
       b.addEventListener('click', function () {
         cols = o[0];
         save('pa-cols', cols);
-        opts.forEach(function (x) { document.getElementById('btn-cols-' + x[0]).classList.toggle('prd-active', x[0] === cols); });
+        colButtons();
         W._refreshBGViews_();
       });
       grp.appendChild(b);
     });
+    colButtons();
     var anchor = hBtn.parentNode;
     anchor.parentNode.insertBefore(sep, anchor.nextSibling);
     sep.parentNode.insertBefore(lbl, sep.nextSibling);
