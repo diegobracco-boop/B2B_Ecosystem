@@ -74,6 +74,13 @@ function _readCanonical_(fileId) {
   return JSON.parse(DriveApp.getFileById(fileId).getBlob().getDataAsString());
 }
 
+// Apertura de Other Incentives (2026-11-23): la línea (P&L N1 del JSON: gds / vcc / other incentives) va a una clave aparte, además de
+// sumar en 'other incentives'. El tablero (OI_CHILDREN en dashboard.html) la muestra debajo del agrupador; ninguna suma la lee.
+function OI_SUB_KEY_(n1) {
+  var s = String(n1 || '').trim().toLowerCase();
+  return 'other incentives|' + (s.indexOf('gds') >= 0 ? 'gds' : s.indexOf('vcc') >= 0 ? 'vcc' : 'other');
+}
+
 // Ensambla los 7 JSON canónicos en la estructura data[lgKey][pais][sc][n2][ym]=monto
 // que espera el resto del backend (jsonScenarioToByPais_, computeGroupEPM_, etc.).
 function assembleCanonicals_() {
@@ -98,6 +105,7 @@ function assembleCanonicals_() {
     var iP   = cols.indexOf('Pais'),     iPr = cols.indexOf('Producto');
     var iN2  = cols.indexOf('P&L N2'),   iF  = cols.indexOf('Fecha');
     var iM   = cols.indexOf('Monto USD');
+    var iN1  = cols.indexOf('P&L N1');   // solo para abrir Other Incentives (OI_SUB_KEY_)
 
     if (sc === 'ac') {
       var seen = {};
@@ -120,6 +128,10 @@ function assembleCanonicals_() {
       if (!v) return;
       var prod = String(r[iPr]).trim().toLowerCase();
       var rawPais = ORG_SPLIT_SC[sc] ? _fxNorm_(r[iP]) : null;
+      // Other Incentives entra entero en su clave y, además, en la de su línea (GDS / VCC / resto): la tabla suma solo la entera
+      var keys = [n2];
+      if (n2 === 'other incentives' && iN1 >= 0) keys.push(OI_SUB_KEY_(r[iN1]));
+      keys.forEach(function(n2) {
       if (rawPais && rawPais !== _fxNorm_(pais)) {
         lgkeysForCT_(lob, canal).forEach(function(lg) { addSplit(split, [lg, pais, rawPais], sc, n2, ym, v); });
         prodLgkeysForCT_(lob, canal).forEach(function(lg) { addSplit(splitP, [lg, pais, prod, rawPais], sc, n2, ym, v); });
@@ -140,6 +152,7 @@ function assembleCanonicals_() {
         if (!dbp[lg][pais][prod][sc])       dbp[lg][pais][prod][sc] = {};
         if (!dbp[lg][pais][prod][sc][n2])   dbp[lg][pais][prod][sc][n2] = {};
         dbp[lg][pais][prod][sc][n2][ym]     = (dbp[lg][pais][prod][sc][n2][ym] || 0) + v;
+      });
       });
     });
   });

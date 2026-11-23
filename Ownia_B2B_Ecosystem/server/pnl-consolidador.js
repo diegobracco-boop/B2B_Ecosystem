@@ -45,7 +45,13 @@ function ajustesComoFilas(ajustes, ultimoCerrado) {
   return filas;
 }
 
-const COLS = ['LoB', 'Canal', 'Pais', 'Producto', 'P&L N2', 'Fecha', 'Monto USD'];
+// 'P&L N1' va al final (así no se corren las posiciones de siempre) y solo viene lleno en Other Incentives: es la línea de la tabla
+// (gds / vcc / other incentives) con la que el tablero abre ese agrupador (2026-11-23). En el resto de las filas va vacío.
+const COLS = ['LoB', 'Canal', 'Pais', 'Producto', 'P&L N2', 'Fecha', 'Monto USD', 'P&L N1'];
+/** La línea (N1) de una fila de Other Incentives, en minúsculas; vacía en las demás. Sin línea (Reverso AxI) va a Other Incentives. */
+function lineaOI(n2, linea) {
+  return n2 === 'O. Incentives' ? String(linea || 'Other Incentives').trim().toLowerCase() : '';
+}
 
 const PAIS = {
   Argentina: 'argentina', Brazil: 'brasil', Chile: 'chile', Colombia: 'colombia', Ecuador: 'ecuador',
@@ -123,6 +129,7 @@ function buildCanonicals(cubo, opts = {}) {
     const r = new Array(cubo.cols.length).fill(null);
     r[ix.scenario] = a.scenario; r[ix.year] = a.year; r[ix.mes] = a.mes; r[ix.pais] = a.pais; r[ix.lob] = a.lob;
     r[ix.channel] = a.channel; r[ix.product] = a.product; r[ix.n2] = a.n2; r[ix.valor] = a.valor;
+    if (ix.n1 !== undefined) r[ix.n1] = a.linea;
     return r;
   });
   for (const row of cubo.rows.concat(filas)) {
@@ -132,7 +139,8 @@ function buildCanonicals(cubo, opts = {}) {
     const prod = PRODUCTO[row[ix.product]] || (sinMapear.producto.add(row[ix.product]), String(row[ix.product]).toLowerCase());
     const n2 = N2[row[ix.n2]] || (sinMapear.n2.add(row[ix.n2]), String(row[ix.n2]).toLowerCase());
     const fecha = fechaFiscal(row[ix.year], row[ix.mes]);
-    const key = [lob, canalDe(lob, row[ix.channel]), pais, prod, n2, fecha].join('\u0001');
+    const n1 = lineaOI(row[ix.n2], ix.n1 === undefined ? null : row[ix.n1]);
+    const key = [lob, canalDe(lob, row[ix.channel]), pais, prod, n2, fecha, n1].join('\u0001');
     const m = (bySc[k] = bySc[k] || new Map());
     m.set(key, (m.get(key) || 0) + (Number(row[ix.valor]) || 0));
   }
@@ -141,9 +149,9 @@ function buildCanonicals(cubo, opts = {}) {
     const rows = [];
     const fechas = new Set();
     for (const [key, v] of bySc[`${sc}|${year}`] || []) {
-      const [lob, canal, pais, prod, n2, fecha] = key.split('\u0001');
+      const [lob, canal, pais, prod, n2, fecha, n1] = key.split('\u0001');
       if (!filtroMes(fecha) || !v) continue;
-      rows.push([lob.toLowerCase(), canal, pais, prod, n2, fecha, v]);
+      rows.push([lob.toLowerCase(), canal, pais, prod, n2, fecha, v, n1]);
       fechas.add(fecha);
     }
     canon[clave] = { meta: { concepto: clave, fuente: `compartido.app_b2b_ecosystem ${sc} ${year}`, fechas: [...fechas].sort(), filas: rows.length }, cols: COLS, rows };

@@ -546,12 +546,15 @@
     outsourced: { source: 'rr', key: 'income_from_outsourced_services', label: 'Income from Outsourced Services' },
   };
   function ct(key, label) { return { source: 'ct', key: key, label: label }; }
+  // Other Incentives abre en GDS / VCC / Other, como en la vista contable (OI_CHILDREN de dashboard.html, 2026-11-23)
+  var OI = ct('other incentives', 'Other Incentives');
+  OI.children = [ct('other incentives|gds', 'GDS'), ct('other incentives|vcc', 'VCC'), ct('other incentives|other', 'Other Incentives')];
   var OWNER_STRUCTURE = [
     { type: 'row', label: 'Orders', source: 'rr', key: 'orders', excludeSum: true, noPct: true },
     { type: 'row', label: 'Gross Bookings', source: 'rr', key: 'gross_bookings', excludeSum: true, noPct: true },
     { type: 'summary', label: 'Palancas', style: 'nr', id: 'own-palancas', keys: [LINE.upfront, LINE.cancel, LINE.coi, LINE.ccp, LINE.tpc, ct('cost of sales as principal', 'Cost of Sales as Principal')] },
     { type: 'summary', label: 'Variables Regionales', style: 'cor', id: 'own-regional', keys: [
-      ct('back end incentives', 'Back End Incentives'), ct('other incentives', 'Other Incentives'), ct('breakage revenue', 'Breakage Revenue'),
+      ct('back end incentives', 'Back End Incentives'), OI, ct('breakage revenue', 'Breakage Revenue'),
       ct('media & other revenue', 'Media & Other Revenue'), ct('media & other cost', 'Media & Other Cost'), ct('revenue from sales as principal', 'Revenue from Sales as Principal'),
       ct('loyalty revenue', 'Loyalty Revenue'), ct('revenue taxes', 'Revenue Taxes'), ct('other transactional taxes', 'Other Transactional Taxes'),
       ct('other taxes', 'Other Taxes'), ct('customer claims', 'Customer Claims'), ct('errors', 'Errors'), ct('frauds', 'Frauds'), ct('bad debt', 'Bad Debt'),

@@ -303,6 +303,10 @@ ya usa solo AS REPORTED apenas la columna exista y `/consolidador/estado` avisa 
 - `server/consolidador.js` + `GET <base>/consolidador/<consulta>` (solo `EQUIPO_B2B`, solo GET): Node lanza el Python por pedido. `cubo` no
   se puede pedir directo (es la tabla entera).
 - `server/pnl-consolidador.js` — traduce el cubo al formato y vocabulario de los 8 JSON canónicos (ac, bl, bg, fc, fbtb, rr, lrr, ly) y los compara con Drive.
+  Other Incentives viene abierto por línea (`n1` del cubo → columna `P&L N1`, al final y solo llena en ese nivel 2: gds / vcc / other incentives;
+  el Reverso AxI sin línea va a other incentives). `assembleCanonicals_` (Codigo_contable_epm.js) suma además cada línea en `other incentives|gds|vcc|other`
+  y el tablero las muestra al desplegar Other Incentives (`OI_CHILDREN`, también en "Por owner"); el agrupador sigue sumando la clave entera (2026-11-23).
+  Los JSON de Drive traen `P&L N1`, así que `pnl-accounting-drive` también abre.
 - `server/pnl-fuente.js` — los mantiene en memoria; revisa la versión publicada como mucho cada minuto y rearma si cambió (invalida el
   módulo y sus caches). Sin datos o con error responde **503, nunca cae a Drive**.
 - `server/gas-extras/pnl-accounting-consolidador.js` — reemplaza `_readCanonical_` y `_canonicalsMaxMod_` solo en módulos con `fuente: 'consolidador'`

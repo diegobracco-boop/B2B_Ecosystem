@@ -75,7 +75,7 @@ def dimensiones():
     return out
 
 
-CUBO_COLS = ["scenario", "year", "mes", "pais", "lob", "channel", "product", "n2", "valor"]
+CUBO_COLS = ["scenario", "year", "mes", "pais", "lob", "channel", "product", "n2", "n1", "valor"]
 
 
 def cubo():
@@ -85,11 +85,14 @@ def cubo():
     con_version = tiene_version()
     # Drive separa "alianzas financieras" de Sourcing: en la tabla es una línea (nivel 4) dentro de nivel 2 = Sourcing.
     n2 = "CASE WHEN \"linea_p&l\" = 'Alianzas Financieras' THEN 'Alianzas Financieras' ELSE \"linea_p&l_-_nivel_2\" END"
+    # Other Incentives se abre en sus líneas (GDS / VCC / Other Incentives, 2026-11-23): solo ese nivel 2 trae la línea; el resto va vacío
+    # para que el cubo no crezca.
+    n1 = "CASE WHEN \"linea_p&l_-_nivel_2\" = 'O. Incentives' THEN lower(\"linea_p&l\") ELSE '' END"
     rows = c.consultar(
-        f"SELECT scenario, year, mes, pais, lob, channel, product, {n2} AS n2, sum(valor) AS valor "
+        f"SELECT scenario, year, mes, pais, lob, channel, product, {n2} AS n2, {n1} AS n1, sum(valor) AS valor "
         # P&L Accounting solo usa B2B y B2B2C (descarta B2C): traer B2C triplicaría el cubo sin usarse.
         f"FROM {TABLA} WHERE lob IN ('B2B', 'B2B2C'){VERSION_OFICIAL if con_version else ''} "
-        f"GROUP BY scenario, year, mes, pais, lob, channel, product, {n2}")
+        f"GROUP BY scenario, year, mes, pais, lob, channel, product, {n2}, {n1}")
     return {"version": c.version(DATASET), "tieneColumnaVersion": con_version, "cols": CUBO_COLS,
             "rows": [[r[k] for k in CUBO_COLS] for r in rows]}
 

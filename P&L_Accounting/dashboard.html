@@ -467,6 +467,9 @@ main{padding:20px 28px;max-width:1800px;margin:0 auto}
 .qpnl-sec-hdr .cont-arrow{display:inline-block;transition:transform .2s}
 .qpnl-sec-hdr.q-collapsed .cont-arrow{transform:none}
 .qpnl-sec-hdr:not(.q-collapsed) .cont-arrow{transform:rotate(90deg)}
+.qpnl-open-row .cont-arrow{display:inline-block;transition:transform .2s}
+.qpnl-open-row:not(.q-collapsed) .cont-arrow{transform:rotate(90deg)}
+.qpnl-open-row:hover td{filter:brightness(.97)}
 
 /* ── Alertas tab ──────────────────────────────────────────────────────────── */
 .al-chip{display:inline-flex;align-items:center;padding:3px 8px;border-radius:99px;font-size:11px;font-weight:700;margin:2px 2px}
@@ -1544,6 +1547,14 @@ function setContableView(view){
 var B2B_REGION_ORDER    = ['Brasil','Globales','Mexico','Hispa','RG - COI'];
 var B2B_HISPA_COUNTRIES = ['Argentina','Colombia','Chile','Peru','Ecuador'];
 
+// Apertura de Other Incentives (2026-11-23): las líneas del agrupador (claves que arma assembleCanonicals_ con la línea P&L N1).
+// Solo se muestran: el agrupador sigue sumando 'other incentives' entero. Sin esas claves en los datos (otra fuente) no se abre.
+var OI_CHILDREN = [
+  {source:'ct', key:'other incentives|gds',   label:'GDS'},
+  {source:'ct', key:'other incentives|vcc',   label:'VCC'},
+  {source:'ct', key:'other incentives|other', label:'Other Incentives'}
+];
+
 var CONTABLE_PNL_STRUCTURE = [
   {type:'row', label:'Orders',        source:'rr', key:'orders',        excludeSum:true, noPct:true},
   {type:'row', label:'Gross Bookings',source:'rr', key:'gross_bookings',excludeSum:true, noPct:true},
@@ -1552,7 +1563,7 @@ var CONTABLE_PNL_STRUCTURE = [
     {source:'ct', key:'revenue from sales as principal', label:'Revenue from Sales as Principal'},
     {source:'rr', key:'_upfront_fees_rr',                 label:'Up Front + Fees'},
     {source:'ct', key:'back end incentives',             label:'Back End Incentives'},
-    {source:'ct', key:'other incentives',                label:'Other Incentives'},
+    {source:'ct', key:'other incentives',                label:'Other Incentives', children:OI_CHILDREN},
     {source:'ct', key:'breakage revenue',                label:'Breakage Revenue'},
     {source:'ct', key:'media & other revenue',           label:'Media & Other Revenue'},
     {source:'rr', key:'income_from_outsourced_services', label:'Income from Outsourced Services'},
@@ -2444,7 +2455,15 @@ function toggleQSec(secId, tableId){
   var key = tid + '::' + secId;
   _qSecState[key] = !_qSecState[key];
   var collapsed = _qSecState[key];
-  document.querySelectorAll('#'+tid+' tr[data-qsec="'+secId+'"]').forEach(function(r){ r.style.display = collapsed ? 'none' : ''; });
+  document.querySelectorAll('#'+tid+' tr[data-qsec="'+secId+'"]').forEach(function(r){
+    // una hija (GDS / VCC…) se ve solo si su sección también está abierta
+    var par = r.dataset.qpar;
+    r.style.display = (collapsed || (par && _qSecState[tid+'::'+par])) ? 'none' : '';
+  });
+  // al abrir / cerrar la sección, sus hijas siguen el estado de su propia línea
+  document.querySelectorAll('#'+tid+' tr[data-qpar="'+secId+'"]').forEach(function(r){
+    r.style.display = (collapsed || _qSecState[tid+'::'+r.dataset.qsec]) ? 'none' : '';
+  });
   var hdr = document.querySelector('#'+tid+' tr[data-qhdr="'+secId+'"]');
   if(hdr) hdr.classList.toggle('q-collapsed', collapsed);
 }
@@ -2728,6 +2747,36 @@ function fillBGBody(tbody, quarters, baseline, goal, tableId){
         quarters.forEach(function(q){ bkV[q]=getQVal(k,q,bRR,bCT); gkV[q]=getQVal(k,q,gRR,gCT); });
         appendCells(subTr, bkV, gkV, null, true, (k.key==='orders'?fmtKK:fmtMM));
         tbody.appendChild(subTr);
+
+        // Línea con apertura (Other Incentives → GDS / VCC / Other): se despliega con un clic; las hijas no suman al agrupador
+        var kids = (k.children || []).filter(function(c){ return bCT[c.key] || gCT[c.key]; });
+        if(!kids.length) return;
+        var subId = node.id + '--' + k.key.replace(/[^a-z0-9]+/gi, '_');
+        var subKey = tableId + '::' + subId;
+        if(_qSecState[subKey] === undefined) _qSecState[subKey] = true;
+        var subCollapsed = _qSecState[subKey];
+        subTr.classList.add('qpnl-open-row');
+        if(subCollapsed) subTr.classList.add('q-collapsed');
+        subTr.dataset.qhdr = subId;
+        subTr.style.cursor = 'pointer';
+        subTr.title = 'Abrir / cerrar el detalle de ' + k.label;
+        subLbl.innerHTML = '<span class="cont-arrow" style="margin-right:4px;font-size:9px">▸</span>' + subLbl.innerHTML;
+        (function(sid, tid2){ subTr.onclick = function(){ toggleQSec(sid, tid2); }; })(subId, tableId);
+        kids.forEach(function(c){
+          var kTr = document.createElement('tr');
+          kTr.className = 'qpnl-row qpnl-child';
+          kTr.dataset.qsec = subId;
+          kTr.dataset.qpar = node.id;
+          if(collapsed || subCollapsed) kTr.style.display = 'none';
+          var kLbl = document.createElement('td');
+          kLbl.style.cssText = 'padding-left:40px;color:var(--muted);font-size:.95em';
+          kLbl.textContent = c.label;
+          kTr.appendChild(kLbl);
+          var bcV={}, gcV={};
+          quarters.forEach(function(q){ bcV[q]=getQVal(c,q,bRR,bCT); gcV[q]=getQVal(c,q,gRR,gCT); });
+          appendCells(kTr, bcV, gcV, null, true, fmtMM);
+          tbody.appendChild(kTr);
+        });
       });
 
     } else if(node.type === 'subtotal'){

@@ -39,24 +39,42 @@ test('buildCanonicals: cada escenario sale del escenario y año de la tabla, con
   const { canon, sinMapear } = buildCanonicals(cubo(FILAS), { ultimoCerrado: '2026-10-01', ajustes: SIN_AJ });
   assert.deepEqual(Object.keys(canon).sort(), ['ac', 'bg', 'bl', 'fbtb', 'fc', 'lrr', 'ly', 'rr']);
   // ac: solo hasta el último mes cerrado; bl: el ACT completo
-  assert.deepEqual(canon.ac.rows, [['b2b', 'may', 'brasil', 'flights', 'gross bookings', '2026-04-01', 150]]);
+  assert.deepEqual(canon.ac.rows, [['b2b', 'may', 'brasil', 'flights', 'gross bookings', '2026-04-01', 150, '']]);
   assert.equal(canon.bl.rows.length, 2);
   assert.deepEqual(canon.bl.meta.fechas, ['2026-04-01', '2026-12-01']);
-  assert.deepEqual(canon.bg.rows, [['b2b2c', 'total', 'rg', 'hotels', 'third party commissions', '2026-04-01', -5]]);
+  assert.deepEqual(canon.bg.rows, [['b2b2c', 'total', 'rg', 'hotels', 'third party commissions', '2026-04-01', -5, '']]);
   // el FC1 de conso es el Bridge to Budget: alimenta fc y fbtb por igual
   assert.deepEqual(canon.fc.rows, canon.fbtb.rows);
-  assert.deepEqual(canon.fc.rows, [['b2b', 'min', 'others countries', 'corporate', 'orders', '2026-08-01', 9]]);
+  assert.deepEqual(canon.fc.rows, [['b2b', 'min', 'others countries', 'corporate', 'orders', '2026-08-01', 9, '']]);
   assert.equal(canon.rr.rows[0][1], 'total');
   assert.equal(canon.lrr.rows[0][3], 'buses');
-  assert.deepEqual(canon.ly.rows, [['b2b', 'min', 'mexico', 'dest. serv.', 'orders', '2026-01-01', 8]]);
+  assert.deepEqual(canon.ly.rows, [['b2b', 'min', 'mexico', 'dest. serv.', 'orders', '2026-01-01', 8, '']]);
   assert.deepEqual(sinMapear, { pais: [], producto: [], n2: [] });
-  assert.deepEqual(canon.ac.cols, ['LoB', 'Canal', 'Pais', 'Producto', 'P&L N2', 'Fecha', 'Monto USD']);
+  assert.deepEqual(canon.ac.cols, ['LoB', 'Canal', 'Pais', 'Producto', 'P&L N2', 'Fecha', 'Monto USD', 'P&L N1']);
 });
 
 test('buildCanonicals: lo que no se puede traducir queda en sinMapear y no se pierde', () => {
   const { canon, sinMapear } = buildCanonicals(cubo([['ACT', 'FY27', 4, 'Atlantis', 'B2B', 'MAY', 'Drones', 'Risk', 7]]), { ajustes: SIN_AJ });
   assert.deepEqual(sinMapear, { pais: ['Atlantis'], producto: ['Drones'], n2: ['Risk'] });
-  assert.deepEqual(canon.ac.rows, [['b2b', 'may', 'atlantis', 'drones', 'risk', '2026-04-01', 7]]);
+  assert.deepEqual(canon.ac.rows, [['b2b', 'may', 'atlantis', 'drones', 'risk', '2026-04-01', 7, '']]);
+});
+
+test('buildCanonicals: Other Incentives sale abierto por línea (P&L N1, al final); el Reverso AxI sin línea va a other incentives', () => {
+  const C1 = ['scenario', 'year', 'mes', 'pais', 'lob', 'channel', 'product', 'n2', 'n1', 'valor'];
+  const rows = [
+    ['ACT', 'FY27', 4, 'Chile', 'B2B', 'MAY', 'Hotel', 'O. Incentives', 'gds', 10],
+    ['ACT', 'FY27', 4, 'Chile', 'B2B', 'MAY', 'Hotel', 'O. Incentives', 'vcc', 20],
+    ['ACT', 'FY27', 4, 'Chile', 'B2B', 'MAY', 'Hotel', 'O. Incentives', 'other incentives', 30],
+    ['ACT', 'FY27', 4, 'Chile', 'B2B', 'MAY', 'Hotel', 'Gross Bookings', '', 500],
+  ];
+  const aj = { meta: { escenarios_por_anio: { FY27: ['ACT'] } }, cols: ['year', 'mes', 'pais', 'lob', 'channel', 'product', 'n2', 'valor'],
+    rows: [['FY27', 4, 'Chile', 'B2B', 'MAY', 'Hotel', 'O. Incentives', -5]] };
+  const { canon } = buildCanonicals({ version: 1, cols: C1, rows }, { ultimoCerrado: '2026-10-01', ajustes: aj });
+  const porN1 = Object.fromEntries(canon.ac.rows.map((r) => [r[4] + '|' + r[7], r[6]]));
+  assert.deepEqual(porN1, { 'other incentives|gds': 10, 'other incentives|vcc': 20, 'other incentives|other incentives': 25, 'gross bookings|': 500 });
+  // sin la columna en el cubo (versión anterior de consolidador_leer.py), todo Other Incentives queda como una sola línea
+  const sinN1 = buildCanonicals(cubo([['ACT', 'FY27', 4, 'Chile', 'B2B', 'MAY', 'Hotel', 'O. Incentives', 7]]), { ajustes: SIN_AJ }).canon.ac.rows;
+  assert.deepEqual(sinN1.map((r) => r[7]), ['other incentives']);
 });
 
 test('buildCanonicals: rrDesde recorta el run rate', () => {
