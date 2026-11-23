@@ -4,8 +4,8 @@
 // módulo y de pnl-accounting-fbtb.js (usa su fetchEPMScenarios_, que ya trae el Forecast BTB).
 //
 // Mismo cálculo que getEPMBaselineGoalData (baseline, goal, organic), una vez por país o producto, y devuelve solo
-// las series mensuales: el navegador suma los meses del período elegido. La base contable solo viene abierta por
-// producto para B2B (data_by_prod: b2b, b2b_may, b2b_min); por producto en B2B2C / consolidado devuelve available: false.
+// las series mensuales: el navegador suma los meses del período elegido. Por producto lee data_by_prod, que desde 2026-11-23
+// trae todas las LoB (b2b, b2b_may, b2b_min, b2b2c y el consolidado 'all'); si faltara la clave devuelve available: false.
 function getEPMBreakdown(filtersJson, dim) {
   var f = filtersJson || {};
   var jData = readEPMJSON_();

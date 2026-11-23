@@ -408,7 +408,7 @@ function getEPMBaselineGoalData_raw_(filtersJson) {
   var org = epmOrganicSetup_(jData, filters.organic, goalSource, baselineScen);
   baselineScen = org.bl;
 
-  var prodFilter = (userProduto && (lgKey !== 'b2b2c') && jData.data_by_prod) ? userProduto : null;
+  var prodFilter = (userProduto && jData.data_by_prod) ? userProduto : null;
   var s = fetchEPMScenarios_(jData, lgKey, baselineScen, prodFilter);
 
   var _epmOpts = { goal: goalSource, lrr: s.lrr, baseline: s.bl, ly: s.ly };

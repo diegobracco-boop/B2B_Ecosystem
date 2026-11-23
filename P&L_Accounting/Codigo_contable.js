@@ -46,12 +46,14 @@ function lgkeysForCT_(lob, canal) {
   return [];
 }
 
-// LoB/Canal → lgKeys para data_by_prod (sin rollup 'all'; solo B2B tiene apertura por producto)
+// LoB/Canal → lgKeys para data_by_prod. Desde 2026-11-23 también B2B2C y el consolidado ('all'): la base contable (consolidador
+// y JSON de Drive) trae producto en las dos LoB; antes solo se abría B2B.
 function prodLgkeysForCT_(lob, canal) {
+  if (lob === 'b2b2c') return ['b2b2c', 'all'];
   if (lob === 'b2b') {
-    if (canal === 'may') return ['b2b_may', 'b2b'];
-    if (canal === 'min') return ['b2b_min', 'b2b'];
-    return ['b2b'];
+    if (canal === 'may') return ['b2b_may', 'b2b', 'all'];
+    if (canal === 'min') return ['b2b_min', 'b2b', 'all'];
+    return ['b2b', 'all'];
   }
   return [];
 }
@@ -335,8 +337,8 @@ function buildBGFiltersFromJSON_(jData, lgKey) {
   var canals = [];
   if (jd['b2b_may']) canals.push('MAY');
   if (jd['b2b_min']) canals.push('MIN');
-  // Produtos solo disponibles para B2B (B2B2C no tiene apertura de producto)
-  var products = (lgKey !== 'b2b2c') ? (((jData || {}).products || {})[lgKey] || []) : [];
+  // Productos de la LoB elegida (B2B, B2B2C o las dos)
+  var products = ((jData || {}).products || {})[lgKey] || [];
   return { lob: lobs, canal: canals, pais: paises, produto: products };
 }
 

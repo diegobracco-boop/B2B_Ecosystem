@@ -307,6 +307,8 @@ ya usa solo AS REPORTED apenas la columna exista y `/consolidador/estado` avisa 
   el Reverso AxI sin línea va a other incentives). `assembleCanonicals_` (Codigo_contable_epm.js) suma además cada línea en `other incentives|gds|vcc|other`
   y el tablero las muestra al desplegar Other Incentives (`OI_CHILDREN`, también en "Por owner"); el agrupador sigue sumando la clave entera (2026-11-23).
   Los JSON de Drive traen `P&L N1`, así que `pnl-accounting-drive` también abre.
+  Por producto (filtro Producto y "Columnas: Producto") en todas las secciones, B2B2C y B2B + B2B2C incluidas: `prodLgkeysForCT_` arma
+  `data_by_prod` también para `b2b2c` y `all` (antes solo B2B; la base contable siempre trajo producto en B2B2C) (2026-11-23).
 - `server/pnl-fuente.js` — los mantiene en memoria; revisa la versión publicada como mucho cada minuto y rearma si cambió (invalida el
   módulo y sus caches). Sin datos o con error responde **503, nunca cae a Drive**.
 - `server/gas-extras/pnl-accounting-consolidador.js` — reemplaza `_readCanonical_` y `_canonicalsMaxMod_` solo en módulos con `fuente: 'consolidador'`

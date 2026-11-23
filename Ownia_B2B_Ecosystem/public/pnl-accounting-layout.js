@@ -50,7 +50,7 @@
  *    del dashboard (gráficos de evolución + tabla Baseline vs Goal); la sección fija lobGroup / canal en
  *    getContableFilters (API = canal MAY, HTML = canal MIN). El Bridge de OC queda solo en B2B + B2B2C (se arma con el
  *    consolidado). Fuera: los bloques repetidos por LoB / país / producto.
- *  - Filtros: la fila País (y Producto en B2B / API / HTML: la base contable de B2B2C no viene por producto).
+ *  - Filtros: la fila País y Producto (en todas las secciones desde 2026-11-23: B2B2C también viene por producto).
  *  - Período "Año" junto a Mes / Quarter / Half, y "Columnas: Período / País / Producto": por país o producto cada columna
  *    es el total del período elegido (Año o los chips; sin marcar = el FY), solo los países / productos filtrados.
  *    País sale de by_country (ya viene en la respuesta); producto, de getEPMBreakdown
@@ -79,7 +79,7 @@
   var EXPLICIT = ['brasil', 'mexico', 'argentina', 'colombia', 'chile', 'peru', 'ecuador', 'rg'];
 
   function S() { for (var i = 0; i < SECS.length; i++) if (SECS[i].k === sec) return SECS[i]; return SECS[0]; }
-  function hasProd() { return S().lob === 'b2b'; }
+  function hasProd() { return true; }   // B2B2C y el consolidado también abren por producto (2026-11-23)
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function cap(s) { return String(s).replace(/(^|\s)\S/g, function (c) { return c.toUpperCase(); }); }
   function btn(id, txt, title, cls) {
@@ -172,7 +172,6 @@
       return draw(ents);
     }
     setTitle('Abierto por Producto · ' + per);
-    if (!hasProd()) return msg('La apertura por producto está disponible en <b>B2B</b>, <b>API</b> y <b>HTML</b>: la base contable de B2B2C no viene abierta por producto.');
     var r = breakdown(f, 'prod');
     if (!r) return msg('Calculando el P&amp;L por producto…');
     if (r.error) return msg('No se pudo calcular por producto: ' + esc(r.error));
@@ -331,7 +330,7 @@
     var grp = document.createElement('div');
     grp.className = 'prd-toggle';
     var opts = [['periodo', 'Período', 'Columnas por mes / quarter / half / año'], ['pais', 'País', 'Una columna por país, con el total del período elegido'],
-      ['prod', 'Producto', 'Una columna por producto, con el total del período elegido (B2B, API y HTML)']];
+      ['prod', 'Producto', 'Una columna por producto, con el total del período elegido']];
     opts.forEach(function (o) {
       var b = btn('btn-cols-' + o[0], o[1], o[2]);
       b.classList.toggle('prd-active', o[0] === cols);
