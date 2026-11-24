@@ -58,13 +58,17 @@ MERGE_MAX = 10
 PRE_POST_DEFAULT = 3   # si el calendario no marca pre/post pegado al evento
 
 # Correcciones a mano que pisan lo que dice el calendario: (lob, país, familia, año) → campos a pisar.
-#   inicio: "YYYY-MM-DD"; pre / post: cantidad de días (0 = sin pre/post). Lo que no se pisa sigue igual.
+#   inicio / fin: "YYYY-MM-DD"; pre / post: cantidad de días (0 = sin pre/post). Lo que no se pisa sigue igual.
 # Se aplican al bloque cuya familia (la primera del nombre) coincide y que contiene el año; el fin y el
-# nombre ("Black Friday + Cyber Monday") quedan como los arma el calendario.
+# nombre ("Black Friday + Cyber Monday") quedan como los arma el calendario (salvo que se pise inicio/fin).
 OVERRIDES = {
     # 2026-11-18 (Diego): el Black Friday de Argentina B2B2C arranca el lun 23/11 (el calendario lo
     # tiene desde el vie 27/11). Sin pre; el post queda como lo marca el calendario.
     ("b2b2c", "Argentina", "Black Friday", 2026): {"inicio": "2026-11-23", "pre": 0},
+    # 2026-11-24: Colombia lun 23/11 al 30/11; Chile y Perú lun 23/11 al dom 6/12. Sin pre; post como el calendario.
+    ("b2b2c", "Colombia", "Black Friday", 2026): {"inicio": "2026-11-23", "fin": "2026-11-30", "pre": 0},
+    ("b2b2c", "Chile", "Black Friday", 2026): {"inicio": "2026-11-23", "fin": "2026-12-06", "pre": 0},
+    ("b2b2c", "Peru", "Black Friday", 2026): {"inicio": "2026-11-23", "fin": "2026-12-06", "pre": 0},
 }
 
 
@@ -202,6 +206,8 @@ def armar_eventos(cal, lob):
             if ov:
                 if "inicio" in ov:
                     ini = pd.Timestamp(ov["inicio"])
+                if "fin" in ov:
+                    fin = pd.Timestamp(ov["fin"])
                 if "pre" in ov:
                     pre_v, pre_cal = ov["pre"], True
                 if "post" in ov:
