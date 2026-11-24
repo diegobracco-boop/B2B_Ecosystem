@@ -176,6 +176,8 @@
       .concat(pick(function (d) { return d.kind === 'okr' && !d.open && d.metric === 'fvm'; }))
       .concat(weekly('B2B2C'))
       .concat(pick(function (d) { return d.kind === 'cover'; }));
+    // Capas con at:'cover' van pegadas a la portada (daily-flow-yoy.js: NR y FVM evolutivo y YoY, 2026-11-23)
+    (W.FLOW_EXTRA || []).forEach(function (x) { if (x.at === 'cover') body.push(x.def); });
     var cmpL = compLbl();
     flaggedRegions().forEach(function (f) {
       body.push({ kind: 'divider', region: f.r, title: '¿Por qué ' + regLbl(f.r) + ' está al ' + pa(f.p) + ' del ' + cmpL + '?', name: '— ' + regLbl(f.r) + ' ' + pa(f.p) + ' —' });
@@ -184,7 +186,7 @@
     });
     // Slides de análisis puntuales de otras capas (W.FLOW_EXTRA = [{def, html}]; la capa trae su carátula si la quiere), al final
     // de B2B2C. Hoy no hay ninguna (Brasil · elecciones se sacó el 2026-11-15: fue de única vez).
-    (W.FLOW_EXTRA || []).forEach(function (x) { body.push(x.def); });
+    (W.FLOW_EXTRA || []).forEach(function (x) { if (!x.at) body.push(x.def); });
     // B2B total: Status KRs del Tracker (API + HTML) y la Weekly "B2B: API vs HTML".
     body.push({ kind: 'divider', flag: 'B2B', title: 'API + HTML', name: '— B2B —' });
     body = body.concat(pick(function (d) { return d.kind === 'b2b_krs' || (d.kind === 'ceo_weekly' && d.n === 4); }));
@@ -290,7 +292,7 @@
       }
       if (def && (def.kind === 'wk_api' || def.kind === 'wk_html') && typeof W.FLOW_B2B_HTML === 'function') { W._flowSeries[idx] = []; return W.FLOW_B2B_HTML(def); }   // daily-flow-b2b.js
       var extra = (W.FLOW_EXTRA || []).filter(function (x) { return x.def === def; })[0];
-      if (extra) { W._flowSeries[idx] = []; return extra.html(); }
+      if (extra) { W._flowSeries[idx] = []; return extra.html(idx); }   // la capa puede sumar gráficos a _flowSeries[idx]
       var html = origSlide.apply(this, arguments);
       try { var t = def && conclusion(def); if (t) html = retitle(html, t); } catch (e) { console.warn('[daily-flow-minto] título:', e); }
       return html;

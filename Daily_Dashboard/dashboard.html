@@ -6629,7 +6629,9 @@ var _flYoyPlugin_={id:'flYoy', afterDraw:function(chart){
     ctx.font='600 '+fs2+'px Poppins, sans-serif'; ctx.textAlign='right'; ctx.fillStyle=chart._flYoyLbl||'#6b6b85';
     ctx.fillText(row.lbl, chart.chartArea.left-4, y1);
     ctx.textAlign='center'; ctx.fillStyle='#6b6b85';
-    row.vals.forEach(function(p,i){ var r=p==null?null:Math.round(p); ctx.fillText(r==null?'—':(r>=0?'+':'')+r+'%', x.getPixelForValue(i), y1); });
+    row.vals.forEach(function(p,i){ var r=p==null?null:Math.round(p);
+      if(row.colored) ctx.fillStyle = r==null ? '#9a9ab0' : r>=0 ? '#15803d' : '#dc2626';   // colored: verde / rojo como la fila YoY
+      ctx.fillText(r==null?'—':(r>=0?'+':'')+r+'%', x.getPixelForValue(i), y1); });
   });
   ctx.restore();
 }};
@@ -6645,6 +6647,9 @@ function flowChart_(spec){
   var base  =s.map(function(d){return stk?(d.v||null):(d.projected?null:d.v);});
   var goal  =s.map(function(d){return d.bud!=null?d.bud:null;});
   var showYoy=!!opts.yoy;
+  // Filas extra debajo del YoY: opts.yoyRows = [{lbl, key, colored}] (daily-flow-yoy.js: "Farming"); con opts.yoyG, las de las
+  // slides de región (YoY del Goal total y Farming)
+  var xRows=opts.yoyRows || (opts.yoyG ? [{lbl:opts.yoyG, key:'yoyG'}, {lbl:'Farming', key:'yoyGF'}] : []);
   var ds=[
       {type:'bar',label:'Baseline',data:base,backgroundColor:'rgba(86,38,233,.9)',borderRadius:2,order:2,_showLabels:opts.labels!==false,barPercentage:.92,categoryPercentage:.7},
       {type:'bar',label:'Goal',data:goal,backgroundColor:'rgba(190,190,208,.65)',borderRadius:2,order:3,barPercentage:.92,categoryPercentage:.7}
@@ -6670,7 +6675,7 @@ function flowChart_(spec){
     plugins:showYoy?[_barLabelsPlugin_,_flYoyPlugin_]:[_barLabelsPlugin_],
     data:{labels:labels,datasets:ds},
     options:{responsive:true,maintainAspectRatio:false,animation:false,
-      layout:{padding:{bottom:showYoy?(gran==='daily'?24:(opts.yoyG?50:18)):0, left:opts.yoyG?20:0}},   // left: que entren los rótulos "YoY Bud" / "Farming" (YoY del Budget solo Farming)
+      layout:{padding:{bottom:showYoy?(gran==='daily'?24:18+16*xRows.length):0, left:xRows.length?20:0}},   // left: que entren los rótulos "YoY Bud" / "Farming" (YoY del Budget solo Farming)
       plugins:{legend:{display:false},tooltip:{enabled:false}},
       scales:{
         x:{stacked:stk,grid:{display:false},ticks:{color:'#6b6b85',font:{size:gran==='daily'?8:(stk?9:10)},maxRotation:0,autoSkip:false},border:{color:'transparent'}},
@@ -6681,7 +6686,7 @@ function flowChart_(spec){
   // animation:false -> el constructor ya dibujó sin _flYoy; redibujar para que la fila salga
   // también en el PDF (flowRebuild_ en beforeprint) y en el export a Slides (html2canvas)
   if(showYoy){ ch._flYoy=s.map(function(d){ return d.yoy; }); ch._flYoyFs=gran==='daily'?10:12; ch._flYoyStagger=gran==='daily';
-    if(opts.yoyG) ch._flYoyRows=[{lbl:opts.yoyG, vals:s.map(function(d){ return d.yoyG; })}, {lbl:'Farming', vals:s.map(function(d){ return d.yoyGF; })}];
+    if(xRows.length) ch._flYoyRows=xRows.map(function(x){ return {lbl:x.lbl, colored:!!x.colored, vals:s.map(function(d){ return d[x.key]; })}; });
     ch.draw(); }   // antes 6 / 9 px: no se leía (2026-11-15)
   _flowCharts[spec.id]=ch;
 }
