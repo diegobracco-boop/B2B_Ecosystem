@@ -5,7 +5,9 @@
  *  - "Resumen diario": un renglón por día del mes (hasta el último día con datos) con Bookings (órdenes), GB, NR y FVM, y Total.
  *  - "Detalle": las filas de actuals de daily_sync.py como las tiene cargadas la página (alias de partner aplicados, FVM
  *    de las filas RG según el switch COI Brasil; sin las filas con todo en 0): fecha, país, región del maestro de partners
- *    (HISPA / BR / MX/US…, no la región del Daily), partner, producto, canal, viaje, tipo de cuenta, tier, Bookings (órdenes), GB, NR, FVM.
+ *    (HISPA / BR / MX/US…, no la región del Daily), partner, producto, canal de venta (Online / Call Center / Islas / Tiendas, el del
+ *    filtro Canal), channel de origen, viaje, tipo de cuenta, tier, Bookings (órdenes), GB, NR, FVM.
+ *  - Canal (2026-11-24, Diego): el pop-up deja elegir el canal de venta; arranca con el del filtro Canal de la página si es uno solo.
  *  - "Info": la selección, la fecha de datos y cómo leer los números.
  *
  * Datos: los mismos que ya cargó el Daily (_rawB2BC.actuals, con los alias de partner aplicados); no pide nada al
@@ -28,6 +30,7 @@
   function num(v) { var n = Number(v); return isFinite(n) ? n : 0; }
   function monthOf(fecha) { return String(fecha || '').slice(0, 7); }
   function monthLabel(mes) { var m = /^(\d{4})-(\d{2})$/.exec(mes || ''); return m ? MONTHS[+m[2] - 1] + ' ' + m[1] : mes; }
+  function canalOf(r) { return r.canal || 'Online'; }   // como _canalOf_ de dashboard.html: filas sin canal cuentan como Online
   function isZero(r) { return !num(r.orders) && !num(r.gross_bookings) && !num(r.net_revenues) && !num(r.fvm); }
   function uniqSorted(arr) { var s = {}; arr.forEach(function (x) { if (x) s[x] = 1; }); return Object.keys(s).sort(function (a, b) { return a.localeCompare(b); }); }
 
@@ -35,18 +38,25 @@
   function countriesOf(rows, mes) {
     return uniqSorted(rows.filter(function (r) { return (!mes || monthOf(r.fecha) === mes) && !isZero(r); }).map(function (r) { return r.pais; }));
   }
-  function partnersOf(rows, mes, pais) {
+  function partnersOf(rows, mes, pais, canal) {
     return uniqSorted(rows.filter(function (r) {
-      return (!mes || monthOf(r.fecha) === mes) && (!pais || pais === ALL || r.pais === pais) && !isZero(r);
+      return (!mes || monthOf(r.fecha) === mes) && (!pais || pais === ALL || r.pais === pais)
+        && (!canal || canal === ALL || canalOf(r) === canal) && !isZero(r);
     }).map(function (r) { return r.partner; }));
   }
+  function canalesOf(rows, mes, pais) {
+    return uniqSorted(rows.filter(function (r) {
+      return (!mes || monthOf(r.fecha) === mes) && (!pais || pais === ALL || r.pais === pais) && !isZero(r);
+    }).map(canalOf));
+  }
 
-  // sel = { mes: 'AAAA-MM', pais: 'all' | país, partner: 'all' | partner }. Las filas con todo en 0 no aportan y no se bajan.
+  // sel = { mes: 'AAAA-MM', pais: 'all' | país, canal: 'all' | canal, partner: 'all' | partner }. Las filas con todo en 0 no se bajan.
   function filterRows(rows, sel) {
     sel = sel || {};
     return rows.filter(function (r) {
       return monthOf(r.fecha) === sel.mes
         && (!sel.pais || sel.pais === ALL || r.pais === sel.pais)
+        && (!sel.canal || sel.canal === ALL || canalOf(r) === sel.canal)
         && (!sel.partner || sel.partner === ALL || r.partner === sel.partner)
         && !isZero(r);
     }).sort(function (a, b) {
@@ -191,7 +201,7 @@
 
   var DETAIL_COLS = [
     ['Fecha', 'fecha', 'd', 12], ['País', 'pais', 's', 16], ['Región partner', 'region', 's', 14], ['Partner', 'partner', 's', 28],
-    ['Producto', 'productooriginal', 's', 18], ['Canal', 'channel', 's', 14], ['Viaje', 'viaje', 's', 12],
+    ['Producto', 'productooriginal', 's', 18], ['Canal', 'canal', 's', 14], ['Channel (origen)', 'channel', 's', 24], ['Viaje', 'viaje', 's', 12],
     ['Tipo de cuenta', 'account_type', 's', 14], ['Tier', 'tier', 's', 10],
     ['Bookings', 'orders', 'n', 10], ['GB (USD)', 'gross_bookings', 'n', 14], ['NR (USD)', 'net_revenues', 'n', 14], ['FVM (USD)', 'fvm', 'n', 14]
   ];
@@ -199,6 +209,7 @@
   function selLabel(sel) {
     return {
       pais: !sel.pais || sel.pais === ALL ? 'Todos los países' : sel.pais,
+      canal: !sel.canal || sel.canal === ALL ? 'Todos los canales' : sel.canal,
       partner: !sel.partner || sel.partner === ALL ? 'Todos los partners' : sel.partner
     };
   }
@@ -223,7 +234,7 @@
     det.rows.push(DETAIL_COLS.map(function (c) { return H(c[0]); }));
     rows.forEach(function (r) {
       det.rows.push(DETAIL_COLS.map(function (c) {
-        var v = r[c[1]];
+        var v = c[1] === 'canal' ? canalOf(r) : r[c[1]];
         if (c[2] === 'n') return { v: num(v), t: 'n', s: S.n };
         if (c[2] === 'd') return { v: v, t: 'd', s: S.date };
         return { v: c[1] === 'pais' && v === RG ? 'RG (ajuste COI Brasil)' : v, t: 's' };
@@ -237,12 +248,14 @@
     info.rows.push([]);
     I('Mes', monthLabel(sel.mes));
     I('País', lbl.pais);
+    I('Canal', lbl.canal + (opts.pageCanal ? ' (la página filtra Canal: ' + opts.pageCanal + ')' : ''));
     I('Partner', lbl.partner);
     I('Datos al', meta.last_actuals_date || '—');
     I('Generado por el pipeline', meta.generated_at || '—');
     I('Filas de detalle', String(rows.length));
     info.rows.push([]);
     I('Moneda', opts.currency || 'USD nominal (Organic NO): los montos tal cual los publica daily_sync.py.');
+    I('Canal / Channel', 'Canal = canal de venta del filtro Canal del Daily (Online / Call Center / Islas / Tiendas, mismo corte que el lob_canal de Budget / RR / Forecast). Channel (origen) = el channel de la transacción.');
     I('Bookings / GB / NR / FVM', 'Bookings = órdenes (transacciones únicas por fila de daily_sync.py); Gross Bookings, Net Revenue y FVM de actuals B2B2C (fecha de compra), sumados por día en "Resumen diario".');
     I('COI Brasil', opts.coiExcl
       ? 'Excluir (como la página): las filas del país "RG (ajuste COI Brasil)" restan el COI y el efecto financiero de Brasil del FVM; Brasil conserva su FVM completo.'
@@ -259,7 +272,8 @@
   function fileName(sel) {
     var p = !sel.pais || sel.pais === ALL ? 'todos-paises' : slug(sel.pais);
     var q = !sel.partner || sel.partner === ALL ? 'todos-partners' : slug(sel.partner);
-    return 'daily_b2b2c_' + sel.mes + '_' + p + '_' + q + '.xlsx';
+    var c = !sel.canal || sel.canal === ALL ? '' : '_' + slug(sel.canal);
+    return 'daily_b2b2c_' + sel.mes + '_' + p + c + '_' + q + '.xlsx';
   }
 
   // Filas que baja el Excel según la moneda: 'page' = como la página (Organic YES convierte los actuals con el TC del
@@ -282,7 +296,7 @@
 
   var api = {
     pageRows: pageRows, orgTcLabel: orgTcLabel,
-    monthsOf: monthsOf, countriesOf: countriesOf, partnersOf: partnersOf, filterRows: filterRows,
+    monthsOf: monthsOf, countriesOf: countriesOf, canalesOf: canalesOf, partnersOf: partnersOf, filterRows: filterRows, canalOf: canalOf,
     totals: totals, dailySummary: dailySummary, buildSheets: buildSheets, buildWorkbook: buildWorkbook,
     fileName: fileName, monthLabel: monthLabel, crc32: crc32, ALL: ALL
   };
@@ -330,6 +344,7 @@
       '<h3 id="dx-t">Descargar Excel · B2B2C</h3><p>Información transaccional diaria: GB, NR y FVM por día.</p>' +
       '<label for="dx-mes">Mes</label><select id="dx-mes"></select>' +
       '<label for="dx-pais">País</label><select id="dx-pais"></select>' +
+      '<label for="dx-canal">Canal</label><select id="dx-canal"></select>' +
       '<label for="dx-partner">Partner</label><select id="dx-partner"></select>' +
       (otherFilters() ? '<div class="dx-org">El Excel no aplica los filtros de producto ni Existing / New que tenés en la página: baja todos.</div>' : '') +
       (pick.organic ? '<label for="dx-mon">Moneda</label><select id="dx-mon"><option value="page">Como la página · Organic YES (' + orgTcLabel(pick.target) + ')</option>' +
@@ -339,11 +354,14 @@
     document.body.appendChild(back);
     var $ = function (id) { return back.querySelector('#' + id); };
     var sMon = $('dx-mon');
-    var sMes = $('dx-mes'), sPais = $('dx-pais'), sPartner = $('dx-partner'), sum = $('dx-sum'), go = back.querySelector('.dx-go');
+    var sMes = $('dx-mes'), sPais = $('dx-pais'), sCanal = $('dx-canal'), sPartner = $('dx-partner'), sum = $('dx-sum'), go = back.querySelector('.dx-go');
 
     // Arranca con lo que ya está filtrado en la página si es un solo país / un partner.
     var pagePais = Array.isArray(root._selPaises) && root._selPaises.length === 1 ? root._selPaises[0] : ALL;
     var pp = document.getElementById('sel-partner'), pagePartner = pp && pp.value && pp.value !== 'all' ? pp.value : ALL;
+    // Canal: la página ya filtra las filas por su filtro Canal (dirApplyB2BC_); si es uno solo, arranca con ese
+    var pageCanales = Array.isArray(root._canalSel) ? root._canalSel : [];
+    var pageCanal = pageCanales.length === 1 ? pageCanales[0] : ALL;
     var lastMes = root._rawB2BC && root._rawB2BC.meta ? monthOf(root._rawB2BC.meta.last_actuals_date) : '';
 
     monthsOf(rows).forEach(function (m) { sMes.appendChild(opt(m, monthLabel(m).replace(/^./, function (c) { return c.toUpperCase(); }), lastMes)); });
@@ -356,23 +374,32 @@
       var ok = Array.prototype.some.call(sPais.options, function (o) { return o.value === cur; });
       sPais.value = ok ? cur : ALL;
     }
+    function fillCanal() {
+      var cur = sCanal.value || pageCanal;
+      sCanal.innerHTML = '';
+      sCanal.appendChild(opt(ALL, pageCanales.length > 1 ? 'Los del filtro de la página (' + pageCanales.join(', ') + ')' : 'Todos los canales', cur));
+      canalesOf(rows, sMes.value, sPais.value).forEach(function (c) { sCanal.appendChild(opt(c, c, cur)); });
+      var ok = Array.prototype.some.call(sCanal.options, function (o) { return o.value === cur; });
+      sCanal.value = ok ? cur : ALL;
+    }
     function fillPartner() {
       var cur = sPartner.value || pagePartner;
       sPartner.innerHTML = '';
       sPartner.appendChild(opt(ALL, 'Todos los partners', cur));
-      partnersOf(rows, sMes.value, sPais.value).forEach(function (p) { sPartner.appendChild(opt(p, p, cur)); });
+      partnersOf(rows, sMes.value, sPais.value, sCanal.value).forEach(function (p) { sPartner.appendChild(opt(p, p, cur)); });
       var ok = Array.prototype.some.call(sPartner.options, function (o) { return o.value === cur; });
       sPartner.value = ok ? cur : ALL;   // el partner elegido no está en ese país / mes: vuelve a "Todos"
     }
-    function sel() { return { mes: sMes.value, pais: sPais.value, partner: sPartner.value }; }
+    function sel() { return { mes: sMes.value, pais: sPais.value, canal: sCanal.value, partner: sPartner.value }; }
     function preview() {
       var f = filterRows(rows, sel()), t = totals(f);
       go.disabled = !f.length;
       sum.textContent = f.length ? f.length.toLocaleString('en-US') + ' filas · Bookings ' + Math.round(t.orders).toLocaleString('en-US') + ' · GB ' + fmt(t.gb) + ' · NR ' + fmt(t.nr) + ' · FVM ' + fmt(t.fvm) : 'Sin datos para esta selección.';
     }
-    fillPais(); fillPartner(); preview();
-    sMes.onchange = function () { fillPais(); fillPartner(); preview(); };
-    sPais.onchange = function () { fillPartner(); preview(); };
+    fillPais(); fillCanal(); fillPartner(); preview();
+    sMes.onchange = function () { fillPais(); fillCanal(); fillPartner(); preview(); };
+    sPais.onchange = function () { fillCanal(); fillPartner(); preview(); };
+    sCanal.onchange = function () { fillPartner(); preview(); };
     sPartner.onchange = preview;
     if (sMon) sMon.onchange = function () { pick = pageRows(root, sMon.value); rows = pick.rows; preview(); };
 
@@ -385,7 +412,8 @@
       var s = sel();
       var bytes = buildWorkbook({
         rows: rows, sel: s, meta: (root._rawB2BC && root._rawB2BC.meta) || {},
-        coiExcl: root._exCoiBr !== false, tbdExcl: !!root._b2bcExclTBD, currency: pick.currency
+        coiExcl: root._exCoiBr !== false, tbdExcl: !!root._b2bcExclTBD, currency: pick.currency,
+        pageCanal: pageCanales.length ? pageCanales.join(', ') : ''
       });
       var blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
       var a = document.createElement('a');
@@ -404,7 +432,7 @@
     var st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st);
     var b = document.createElement('button');
     b.type = 'button'; b.id = 'dx-btn'; b.className = 'dx-btn';
-    b.title = 'Bajar a Excel la información diaria de B2B2C (GB, NR, FVM) por mes, país y partner';
+    b.title = 'Bajar a Excel la información diaria de B2B2C (GB, NR, FVM) por mes, país, canal y partner';
     b.innerHTML = ICON + 'Descargar Excel';
     b.onclick = openPopup;
     fbar.appendChild(b);

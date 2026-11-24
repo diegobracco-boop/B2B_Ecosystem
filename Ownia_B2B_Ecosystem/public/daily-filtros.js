@@ -129,9 +129,11 @@
     if (!W._exCoiBr) notes.push('COI Brasil en Incluir');
     if (W._b2bcExclTBD) notes.push('Partner TBD en Excluir');
     if (Array.isArray(W._dirSel) && W._dirSel.length) notes.push('Director: ' + W._dirSel.join(', '));
+    if (W._numFmtNote_) notes.push(W._numFmtNote_);   // daily-numfmt.js: unidad / decimales fuera de Auto
     box.classList.toggle('mod', notes.length > 0);
-    el('ow-flt-btn').title = notes.length ? 'Fuera del default: ' + notes.join(' · ') : 'Organic YES · COI Brasil Excluir · Partner TBD Incluir · Director Todos (default)';
+    el('ow-flt-btn').title = notes.length ? 'Fuera del default: ' + notes.join(' · ') : 'Organic YES · COI Brasil Excluir · Partner TBD Incluir · Director Todos · Números Auto (default)';
   }
+  W._owFltMark_ = function () { try { mark(); } catch (e) { /* la capa nunca rompe el Daily */ } };
 
   // Barra de arriba (2026-11-05, Diego): el switch B2B2C / B2B pegado a "Daily" y el resto de las solapas a la derecha.
   // Los botones son los mismos (switchMainView los sigue prendiendo por id); solo cambian de lugar.

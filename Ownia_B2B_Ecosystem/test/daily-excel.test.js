@@ -262,3 +262,27 @@ test('moneda como la página (Organic YES): mismos GB / NR / FVM que la página'
   vm.runInContext('_dlOrganic = false;', page);
   assert.equal(X2.pageRows(page, 'page').organic, false);
 });
+
+test('canal de venta (2026-11-24): columna Canal (sin canal = Online) además del channel de origen, y filtro por canal', () => {
+  const rows = [
+    { ...R('2026-09-01', 'Mexico', 'Suburbia', 100, 10, 1), canal: 'Call Center', channel: 'bestday-call-suburbia' },
+    { ...R('2026-09-01', 'Mexico', 'Suburbia', 300, 30, 3), canal: 'Online', channel: 'bestday-b2b2c-xcaret' },
+    { ...R('2026-09-02', 'Mexico', 'Liverpool', 50, 5, 1), canal: 'Islas / Tiendas' },
+    R('2026-09-02', 'Mexico', 'Viejo', 7, 1, 0),   // fila de un JSON anterior al filtro Canal: cuenta como Online
+  ];
+  assert.deepEqual([...X.canalesOf(rows, '2026-09', 'Mexico')], ['Call Center', 'Islas / Tiendas', 'Online']);
+  assert.deepEqual([...X.partnersOf(rows, '2026-09', 'Mexico', 'Online')], ['Suburbia', 'Viejo']);
+  const sel = { mes: '2026-09', pais: 'Mexico', canal: 'Online', partner: 'all' };
+  assert.deepEqual(X.filterRows(rows, sel).map((r) => r.gross_bookings), [300, 7]);
+  const book = readXlsx(X.buildWorkbook({ rows, sel, meta: META, coiExcl: true, pageCanal: '' }));
+  const [head, ...det] = book.Detalle;
+  assert.ok(head.indexOf('Canal') >= 0 && head.indexOf('Channel (origen)') === head.indexOf('Canal') + 1);
+  assert.deepEqual(det.map((r) => r[head.indexOf('Canal')]), ['Online', 'Online']);
+  assert.deepEqual(det.map((r) => r[head.indexOf('Channel (origen)')]), ['bestday-b2b2c-xcaret', 'API']);
+  assert.equal(book['Resumen diario'].at(-1)[2], 307, 'el resumen suma solo el canal elegido');
+  assert.ok(book.Info.some((r) => r[0] === 'Canal' && r[1] === 'Online'));
+  assert.equal(X.fileName(sel), 'daily_b2b2c_2026-09_Mexico_Online_todos-partners.xlsx');
+  const todos = readXlsx(X.buildWorkbook({ rows, sel: { ...sel, canal: 'all' }, meta: META, coiExcl: true, pageCanal: 'Online, Call Center' }));
+  assert.equal(todos.Detalle.length - 1, 4);
+  assert.ok(todos.Info.some((r) => r[0] === 'Canal' && /Todos los canales \(la página filtra Canal: Online, Call Center\)/.test(r[1])));
+});
