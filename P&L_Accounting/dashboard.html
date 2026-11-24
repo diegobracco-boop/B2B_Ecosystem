@@ -2652,7 +2652,7 @@ function fillBGBody(tbody, quarters, baseline, goal, tableId){
       else if(v<0) td.style.color='var(--red)';
       if(i===n-1) td.className='td-total-b';
       var pct = (showPct && gbBQ[q]) ? v/gbBQ[q]*100 : null;
-      td.innerHTML = fmtFn(v) + (pct!==null ? '<span class="cell-pct">'+fmtPct(pct)+'% GB</span>' : '');
+      td.innerHTML = fmtFn(v) + (pct!==null ? '<span class="cell-pct">'+fmtPct(pct)+' GB</span>' : '');
       tr.appendChild(td);
     });
     var s1=document.createElement('td'); s1.className='td-sep'; tr.appendChild(s1);
@@ -2662,7 +2662,7 @@ function fillBGBody(tbody, quarters, baseline, goal, tableId){
       else if(v<0) td.style.color='var(--red)';
       if(i===n-1) td.className='td-total-g';
       var pct = (showPct && gbGQ[q]) ? v/gbGQ[q]*100 : null;
-      td.innerHTML = fmtFn(v) + (pct!==null ? '<span class="cell-pct">'+fmtPct(pct)+'% GB</span>' : '');
+      td.innerHTML = fmtFn(v) + (pct!==null ? '<span class="cell-pct">'+fmtPct(pct)+' GB</span>' : '');
       tr.appendChild(td);
     });
     var s2=document.createElement('td'); s2.className='td-sep'; tr.appendChild(s2);
