@@ -6,9 +6,14 @@ KR "Accelerate Hunting Partners API" (H2 FY27, KR Global B2B API): cantidad de p
 
 Definicion (2026-10-27, Diego):
   - Solo canal API (parent_channel = 'API'); las agencias afiliadas quedan afuera (ya no hay reparto entre canales).
-  - Un partner cuenta UNA vez por mes: se agrupan sus codigos con el diccionario (Diccionario_partners_api.xlsx, hoja Partners;
-    p. ej. Hotelbeds = 10 codigos) y se cuentan los partners con al menos un producto NO cancelado (Confirmado o Activo) reservado en el mes.
-  - Los codigos que no estan en el diccionario cuentan como partner propio (con el codigo como nombre) y se avisan.
+  - Un partner cuenta UNA vez por mes: se agrupan sus codigos por agency_group_code de la cartera B2B (misma logica que la pregunta
+    de Metabase 148050 "B2B Cartera Agencias Actual": raw.cartera_b2b_v1, sin tests, COALESCE(group_code, agency_code)) y se cuentan
+    los grupos con al menos un producto NO cancelado (Confirmado o Activo) reservado en el mes.
+    Desde 2026-11-24 (antonella.difranco): antes se agrupaba por nombre_final del Excel Diccionario_partners_api.xlsx del SharePoint,
+    que el servidor de Ownia ("Actualizar reales") no puede leer. Con la cartera el conteo baja (22/10-20/11: 524 -> 483) porque la
+    cartera junta en un grupo codigos que el Excel contaba por separado (p. ej. Welcomebeds, Zumata/Rakuten).
+  - Los codigos que no estan en la cartera cuentan como partner propio (con el codigo como nombre) y se avisan (sin_cartera).
+  - Pais: el de la venta (country_code); PAIS_FORZADO fuerza los partners de Paraguay (misma lista que daily_sync.py) y KUALITY.
   - Fecha = booking_date (fecha de reserva), igual que la query del Excel de agencias (Metabase 88479).
 
 Congelado (el estado de las ordenes muta con el tiempo: se cancelan despues):
@@ -37,11 +42,10 @@ from pathlib import Path
 import pandas as pd
 
 BASE = Path(__file__).resolve().parent
-sys.path.insert(0, str(BASE.parent / "Inputs_Planning_PnL"))
-import pnl_common  # noqa: E402
+sys.path.insert(0, str(BASE.parent / "Inputs_Planning_PnL"))   # recurrencia_sync (uso suelto) importa pnl_common
 
 SNAPSHOT_FILE_NAME = "partners_api_snapshots.json"
-DICT_PATH = os.path.join(pnl_common.get_base_dir(), "OKR", "Diccionario_partners_api.xlsx")
+AGRUPACION = "agency_group_code de raw.cartera_b2b_v1 (Metabase 148050 B2B Cartera Agencias Actual)"
 DESDE = "2026-10"          # primer mes que se congela
 FREEZE_MAX_DAY = 7         # el congelado automatico solo corre en los primeros 7 dias del mes
 ROLLING_DAYS = 30
@@ -49,64 +53,78 @@ ROLLING_DAYS = 30
 PAIS_NOMBRE = {"AR": "Argentina", "BR": "Brasil", "CL": "Chile", "CO": "Colombia", "EC": "Ecuador", "MX": "Mexico",
                "PE": "Peru", "UY": "Uruguay", "PY": "Paraguay", "OT": "Globales"}
 
+# Pais forzado por codigo (era la hoja Paises del Excel). Paraguay = misma lista que _B2B_GROUP_DIMS de daily_sync.py;
+# AP13248 (KUALITY) y AP13422 operan para Chile.
+PAIS_FORZADO = {c: "PY" for c in ("AP12142", "AP12961", "AP12767", "AP12539", "AP12792", "AP12149", "AP12148",
+                                  "AG00015606", "AP13029", "AP13030", "AP13091", "AP13104", "AG00015611")}
+PAIS_FORZADO.update({"AP13248": "CL", "AP13422": "CL"})
+
 # Misma poblacion que la query del Excel de agencias (Metabase 88479): ventas reconocidas B2B por fecha de reserva, solo API.
 # Se omiten los joins a charges / pricing de la query original: no filtran, solo repiten filas y aca se cuentan partners distintos.
+# cartera = Metabase 148050 "B2B Cartera Agencias Actual" (una fila por agency_code, sin tests).
 SQL = """
-SELECT date_format(fv.booking_date, '%Y-%m')                                            AS ym,
-       if(fv.country_code in ('AR','CO','EC','PE','BR','CL','MX','UY'), fv.country_code, 'OT') AS country,
-       CASE WHEN length(fv.partner_id) > 0 THEN fv.partner_id ELSE fv.channel END       AS agency_code,
-       fv.product_status                                                                AS product_status,
-       COUNT(*)                                                                         AS n
-FROM analytics.bi_sales_fact_sales_recognition fv
-LEFT JOIN analytics.bi_pnlop_fact_current_model pnl
-       ON fv.product_id = pnl.product_id AND pnl.date_reservation_year_month > '2021-01'
-WHERE fv.booking_date >= DATE '{ini}' AND fv.booking_date < DATE '{fin_excl}'
-  AND pnl.line_of_business = 'B2B'
-  AND fv.partition_period > '2021-01'
-  AND fv.parent_channel = 'API'
-GROUP BY 1, 2, 3, 4
+WITH cartera AS (
+    SELECT c.agency_code,
+           max(coalesce(c.group_code, c.agency_code)) AS agency_group_code,
+           max(coalesce(c.group_name, c.ag_name))     AS agency_group_name
+    FROM (SELECT *, ROW_NUMBER() OVER (PARTITION BY agency_code ORDER BY director DESC) AS rn
+          FROM raw.cartera_b2b_v1
+          WHERE ag_name NOT LIKE '%Test%' AND kam NOT LIKE '%test%' AND kam NOT LIKE '%TEST%'
+            AND agency_code <> 'agency_code' AND agency_code <> '') c
+    WHERE rn = 1
+    GROUP BY 1
+),
+ventas AS (
+    SELECT date_format(fv.booking_date, '%Y-%m')                                            AS ym,
+           if(fv.country_code in ('AR','CO','EC','PE','BR','CL','MX','UY'), fv.country_code, 'OT') AS country,
+           CASE WHEN length(fv.partner_id) > 0 THEN fv.partner_id ELSE fv.channel END       AS agency_code,
+           fv.product_status                                                                AS product_status,
+           COUNT(*)                                                                         AS n
+    FROM analytics.bi_sales_fact_sales_recognition fv
+    LEFT JOIN analytics.bi_pnlop_fact_current_model pnl
+           ON fv.product_id = pnl.product_id AND pnl.date_reservation_year_month > '2021-01'
+    WHERE fv.booking_date >= DATE '{ini}' AND fv.booking_date < DATE '{fin_excl}'
+      AND pnl.line_of_business = 'B2B'
+      AND fv.partition_period > '2021-01'
+      AND fv.parent_channel = 'API'
+    GROUP BY 1, 2, 3, 4
+)
+SELECT v.ym, v.country, v.agency_code, v.product_status, v.n, c.agency_group_code, c.agency_group_name
+FROM ventas v
+LEFT JOIN cartera c ON TRIM(c.agency_code) = TRIM(v.agency_code)
 """
 
 
-def load_dictionary(path=DICT_PATH):
-    """(nombre_final por codigo, pais forzado por codigo). Falla si el archivo no esta: no se congela con un diccionario vacio."""
-    if not os.path.exists(path):
-        raise FileNotFoundError(f"no encuentro el diccionario de partners API: {path}")
-    p = pd.read_excel(path, sheet_name="Partners", engine="openpyxl")
-    pa = pd.read_excel(path, sheet_name="Paises", engine="openpyxl")
-    nombres = dict(zip(p["partner_code"].astype(str).str.strip(), p["nombre_final"].astype(str).str.strip()))
-    paises = dict(zip(pa["partner_code"].astype(str).str.strip(), pa["pais"].astype(str).str.strip()))
-    return nombres, paises
-
-
-def contar(df, nombres, paises):
-    """df de SQL (ym, country, agency_code, product_status, n) -> {total, por_pais, partners, codigos, sin_diccionario}.
-    total = partners distintos (por nombre final) con algun producto no cancelado; por_pais reparte la unidad de cada partner entre sus
-    paises en proporcion a sus reservas, asi la suma por pais da el total."""
+def contar(df):
+    """df de SQL (ym, country, agency_code, product_status, n, agency_group_code, agency_group_name) ->
+    {total, por_pais, partners, codigos, sin_cartera, detalle}. total = grupos de la cartera distintos con algun producto no cancelado
+    (codigo fuera de la cartera = grupo propio); por_pais reparte la unidad de cada partner entre sus paises en proporcion a sus
+    reservas, asi la suma por pais da el total."""
     d = df.copy()
     d["agency_code"] = d["agency_code"].astype(str).str.strip()
     d["n"] = pd.to_numeric(d["n"], errors="coerce").fillna(0)
     d = d[d["product_status"].astype(str).str.strip().str.lower() != "cancelado"]
     if d.empty:
-        return {"total": 0.0, "por_pais": {}, "partners": 0, "codigos": 0, "sin_diccionario": []}
-    # el nombre se normaliza (sin espacios de mas, sin distinguir mayusculas): "TripsnStay" y "Tripsnstay " son el mismo partner (como el Excel)
-    d["nombre"] = d["agency_code"].map(nombres).fillna(d["agency_code"]).astype(str).str.split().str.join(" ").str.casefold()
-    d["pais"] = d.apply(lambda r: paises.get(r["agency_code"], r["country"]), axis=1)
-    d["pais"] = d["pais"].map(lambda c: PAIS_NOMBRE.get(c, c))
-    g = d.groupby(["nombre", "pais"], as_index=False)["n"].sum()
-    g["peso"] = g["n"] / g.groupby("nombre")["n"].transform("sum")
+        return {"total": 0.0, "por_pais": {}, "partners": 0, "codigos": 0, "sin_cartera": []}
+    gc = d["agency_group_code"].where(d["agency_group_code"].notna(), None)
+    fuera = gc.isna() | (gc.astype(str).str.strip() == "")
+    d["grupo"] = gc.astype(str).str.strip().where(~fuera, d["agency_code"])
+    d["nombre_vis"] = (d["agency_group_name"].where(~fuera & d["agency_group_name"].notna(), d["agency_code"])
+                       .astype(str).str.split().str.join(" "))
+    d["pais"] = d["agency_code"].map(PAIS_FORZADO).fillna(d["country"]).map(lambda c: PAIS_NOMBRE.get(c, c))
+    g = d.groupby(["grupo", "pais"], as_index=False)["n"].sum()
+    g["peso"] = g["n"] / g.groupby("grupo")["n"].transform("sum")
     por_pais = g.groupby("pais")["peso"].sum().round(3).sort_values(ascending=False).to_dict()
-    sin = sorted(c for c in d["agency_code"].unique() if c not in nombres)
-    # Detalle por partner x pais (tabla "Partners por pais" del KR en el Tracker, 2026-11-20): nombre como figura en el
-    # diccionario (o el codigo si no esta), reservas no canceladas, peso del partner en ese pais (la suma de pesos de
-    # un pais da su por_pais) y los codigos agrupados. [nombre, pais, reservas, peso, "COD1,COD2"]
-    d["nombre_vis"] = d["agency_code"].map(nombres).fillna(d["agency_code"]).astype(str).str.split().str.join(" ")
-    vis = d.groupby("nombre")["nombre_vis"].first()
-    cods = d.groupby(["nombre", "pais"])["agency_code"].agg(lambda s: ",".join(sorted(set(s))))
-    detalle = [[vis[r.nombre], r.pais, int(r.n), round(float(r.peso), 3), cods[(r.nombre, r.pais)]]
+    sin = sorted(d.loc[fuera, "agency_code"].unique())
+    # Detalle por partner x pais (tabla "Partners por pais" del KR en el Tracker): nombre del grupo en la cartera (o el codigo si
+    # no esta), reservas no canceladas, peso del partner en ese pais (la suma de pesos de un pais da su por_pais) y los codigos
+    # agrupados. [nombre, pais, reservas, peso, "COD1,COD2"]
+    vis = d.groupby("grupo")["nombre_vis"].first()
+    cods = d.groupby(["grupo", "pais"])["agency_code"].agg(lambda s: ",".join(sorted(set(s))))
+    detalle = [[vis[r.grupo], r.pais, int(r.n), round(float(r.peso), 3), cods[(r.grupo, r.pais)]]
                for r in g.sort_values(["pais", "n"], ascending=[True, False]).itertuples()]
-    return {"total": float(g["nombre"].nunique()), "por_pais": por_pais, "partners": int(g["nombre"].nunique()),
-            "codigos": int(d["agency_code"].nunique()), "sin_diccionario": sin,
+    return {"total": float(g["grupo"].nunique()), "por_pais": por_pais, "partners": int(g["grupo"].nunique()),
+            "codigos": int(d["agency_code"].nunique()), "sin_cartera": sin, "agrupacion": "cartera",
             "detalle_cols": ["partner", "pais", "reservas", "peso", "codigos"], "detalle": detalle}
 
 
@@ -117,16 +135,16 @@ def _mes_rango(ym):
     return ini, fin_excl
 
 
-def contar_mes(fetch, ym, nombres, paises):
+def contar_mes(fetch, ym):
     ini, fin = _mes_rango(ym)
     df = fetch(SQL.format(ini=ini, fin_excl=fin).strip().rstrip(";"), f"Partners API {ym}")
-    return contar(df, nombres, paises)
+    return contar(df)
 
 
-def contar_rolling(fetch, hoy, nombres, paises):
+def contar_rolling(fetch, hoy):
     ini, fin = hoy - timedelta(days=ROLLING_DAYS), hoy       # ultimos 30 dias cerrados: hoy-30 .. ayer
     df = fetch(SQL.format(ini=ini, fin_excl=fin).strip().rstrip(";"), f"Partners API ultimos {ROLLING_DAYS} dias")
-    r = contar(df, nombres, paises)
+    r = contar(df)
     r.update({"desde": str(ini), "hasta": str(fin - timedelta(days=1)), "calculado_at": datetime.now().strftime("%Y-%m-%dT%H:%M:%S")})
     return r
 
@@ -138,34 +156,30 @@ def _mes_anterior(hoy):
 
 def build_payload(fetch, prev, hoy=None):
     """Devuelve el JSON a publicar: los meses ya congelados SE CONSERVAN TAL CUAL (nunca se recalculan), se congela el mes anterior si
-    corresponde y se recalcula el rolling de 30 dias. Si falta el diccionario no se hace nada (None)."""
+    corresponde y se recalcula el rolling de 30 dias."""
     hoy = hoy or date.today()
     prev = prev or {}
-    try:
-        nombres, paises = load_dictionary()
-    except Exception as e:
-        print(f"  WARN [Partners API] {e} — no se congela ni se calcula el rolling")
-        return None
     meses = dict(prev.get("meses") or {})
     ym = _mes_anterior(hoy)
     if ym >= DESDE and ym not in meses:
         if hoy.weekday() < 5 and hoy.day <= FREEZE_MAX_DAY:
-            r = contar_mes(fetch, ym, nombres, paises)
+            r = contar_mes(fetch, ym)
             r.update({"congelado_at": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"), "congelado_el": str(hoy)})
             meses[ym] = r
             print(f"  [Partners API] {ym} CONGELADO el {hoy}: {r['total']:.0f} partners ({r['codigos']} codigos, "
-                  f"{len(r['sin_diccionario'])} sin diccionario)")
+                  f"{len(r['sin_cartera'])} fuera de la cartera)")
         else:
             print(f"  AVISO [Partners API] {ym} sin congelar y hoy ({hoy}) no es dia habil de los primeros {FREEZE_MAX_DAY} del mes: "
                   f"congelarlo a mano  (python Daily_Dashboard/partners_api_sync.py --freeze {ym})")
-    roll = contar_rolling(fetch, hoy, nombres, paises)
-    sin = roll["sin_diccionario"]
+    roll = contar_rolling(fetch, hoy)
+    sin = roll["sin_cartera"]
     print(f"  [Partners API] ultimos {ROLLING_DAYS} dias ({roll['desde']} .. {roll['hasta']}): {roll['total']:.0f} partners"
-          + (f" · {len(sin)} codigos sin diccionario (agruparlos en Diccionario_partners_api.xlsx): {sin[:6]}" if sin else ""))
+          + (f" · {len(sin)} codigos fuera de la cartera B2B (cuentan como partner propio): {sin[:6]}" if sin else ""))
     return {
         "meta": {"generated_at": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
-                 "definicion": "partners API distintos (por nombre final) con al menos un producto no cancelado reservado en el mes; congelado el primer dia habil del mes siguiente",
-                 "diccionario": DICT_PATH},
+                 "definicion": "partners API distintos (por grupo de la cartera B2B) con al menos un producto no cancelado reservado en el mes; congelado el primer dia habil del mes siguiente",
+                 "agrupacion": AGRUPACION,
+                 "agrupacion_desde": "2026-11-24 (antes: nombre_final de Diccionario_partners_api.xlsx; los meses congelados antes de esa fecha quedan con ese criterio)"},
         "meses": meses,
         "rolling30": roll,
     }
@@ -211,13 +225,12 @@ def _drive_upload(svc, payload):
 if __name__ == "__main__":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
     args = sys.argv[1:]
-    nombres, paises = load_dictionary()
     if "--validate" in args:
         ym = args[args.index("--validate") + 1]
-        r = contar_mes(_fetch_standalone, ym, nombres, paises)
-        print(f"\n{ym}: {r['total']:.0f} partners distintos · {r['codigos']} codigos · {len(r['sin_diccionario'])} sin diccionario")
+        r = contar_mes(_fetch_standalone, ym)
+        print(f"\n{ym}: {r['total']:.0f} partners distintos · {r['codigos']} codigos · {len(r['sin_cartera'])} fuera de la cartera")
         print("por pais:", r["por_pais"])
-        print("sin diccionario:", r["sin_diccionario"][:20])
+        print("fuera de la cartera:", r["sin_cartera"][:20])
     elif "--publish" in args:
         from recurrencia_sync import drive_service
         svc = drive_service()
@@ -225,7 +238,7 @@ if __name__ == "__main__":
         if payload is not None:
             _drive_upload(svc, payload)
     elif "--rolling" in args:
-        r = contar_rolling(_fetch_standalone, date.today(), nombres, paises)
+        r = contar_rolling(_fetch_standalone, date.today())
         print(f"\nultimos {ROLLING_DAYS} dias ({r['desde']} .. {r['hasta']}): {r['total']:.0f} partners · por pais: {r['por_pais']}")
     elif "--freeze" in args:
         ym = args[args.index("--freeze") + 1]
@@ -236,7 +249,7 @@ if __name__ == "__main__":
         prev = _drive_download(svc)
         if ym in (prev.get("meses") or {}):
             sys.exit(f"{ym} ya esta congelado ({prev['meses'][ym].get('congelado_el')}): no se vuelve a tocar")
-        r = contar_mes(_fetch_standalone, ym, nombres, paises)
+        r = contar_mes(_fetch_standalone, ym)
         r.update({"congelado_at": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"), "congelado_el": str(date.today()) + " (a mano)"})
         prev.setdefault("meses", {})[ym] = r
         prev.setdefault("meta", {})["generated_at"] = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")

@@ -5087,7 +5087,12 @@ function _paRender() {
     (paises.every(function(k) { return _paOpen[k]; }) ? 'Colapsar todos' : 'Expandir todos') + '</button></div>' +
     '<table class="partners-api-table"><thead><tr><th>País / Partner</th><th style="text-align:left">Códigos</th><th>Reservas</th><th>Peso (partners)</th></tr></thead><tbody>' +
     rows + '<tr class="pa-total"><td>TOTAL</td><td></td><td>' + _paFmt(totRes) + '</td><td>' + _paFmt(p.total) + '</td></tr></tbody></table>' +
-    (p.sin_diccionario && p.sin_diccionario.length ? '<div class="partners-api-note">Códigos sin diccionario (cuentan como partner propio): ' + _paEsc(p.sin_diccionario.join(', ')) + '</div>' : '');
+    // Desde 2026-11-24 los códigos se agrupan con la cartera B2B (Metabase 148050); los meses congelados antes, con el diccionario Excel.
+    (p.agrupacion === 'cartera'
+      ? '<div class="partners-api-note">Partners agrupados por grupo de la cartera B2B (Metabase 148050).' +
+        (p.sin_cartera && p.sin_cartera.length ? ' Códigos fuera de la cartera (cuentan como partner propio): ' + _paEsc(p.sin_cartera.join(', ')) : '') + '</div>'
+      : '<div class="partners-api-note">Mes congelado con el diccionario de partners (Excel, criterio hasta el 2026-11-24).' +
+        (p.sin_diccionario && p.sin_diccionario.length ? ' Códigos sin diccionario (cuentan como partner propio): ' + _paEsc(p.sin_diccionario.join(', ')) : '') + '</div>');
   body.querySelectorAll('tr.pa-country').forEach(function(tr) {
     tr.addEventListener('click', function() { var k = tr.getAttribute('data-pais'); _paOpen[k] = !_paOpen[k]; _paRender(); });
   });

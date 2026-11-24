@@ -1571,7 +1571,8 @@ function getPartnersApiDetail(pwd) {
     if (!r) return null;
     return { label: label, total: r.total, por_pais: r.por_pais || {}, detalle_cols: r.detalle_cols || null,
              detalle: r.detalle || null, desde: r.desde || null, hasta: r.hasta || null,
-             congelado_el: r.congelado_el || null, sin_diccionario: r.sin_diccionario || [] };
+             congelado_el: r.congelado_el || null, sin_diccionario: r.sin_diccionario || [],
+             sin_cartera: r.sin_cartera || null, agrupacion: r.agrupacion || 'diccionario' };
   }
   var meses = j.meses || {}, out = [];
   if (j.rolling30) out.push(pick(j.rolling30, 'Últimos 30 días'));
