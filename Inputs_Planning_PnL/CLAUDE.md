@@ -91,7 +91,8 @@ CSV crudos (OneDrive\Planning-PBI - Inputs Power Bi)
 
 - **KR "Accelerate Hunting Partners API"** (2026-10-27): ya no sale del tracker de Excel (hoja "API", cuyos actuals de ago/sep eran copia del budget)
   ni de un override en el código. `Daily_Dashboard/partners_api_sync.py` (lo llama `daily_sync.py` en cada corrida) cuenta partners API **distintos**
-  (solo `parent_channel = 'API'`, productos no cancelados, por fecha de reserva, códigos agrupados con `OKR/Diccionario_partners_api.xlsx` de OneDrive) y
+  (solo `parent_channel = 'API'`, productos no cancelados, por fecha de reserva, códigos agrupados por `agency_group_code` de `raw.cartera_b2b_v1`, la lógica de Metabase 148050, desde el 2026-11-24;
+  antes, con `OKR/Diccionario_partners_api.xlsx` de OneDrive, que el servidor de Ownia no lee; octubre se recongeló con la cartera: 475, antes 516) y
   guarda en Drive `partners_api_snapshots.json`: cada mes se **congela** el primer día hábil del mes siguiente (nunca se recalcula) y el mes sin congelar
   muestra el **rolling de 30 días** (Estado `Rolling30`). `okr_builder.py` lo toma de ahí. Septiembre da 489 (igual que el Excel de agencias normalizado);
   el método anterior (reparto entre canales) daba 463, así que hay un salto de método frente al histórico. Códigos nuevos sin agrupar: aparecen en el log
