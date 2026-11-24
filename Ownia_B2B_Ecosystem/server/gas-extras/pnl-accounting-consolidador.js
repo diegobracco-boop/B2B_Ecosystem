@@ -6,6 +6,9 @@
 //  - _readCanonical_(fileId): devuelve el canónico del escenario de ese id (CANONICAL_IDS_ incluye fbtb por pnl-accounting-fbtb.js);
 //  - _canonicalsMaxMod_(): la versión publicada de la tabla, así los caches del módulo se renuevan solos cuando conso publica.
 // Si el host todavía no tiene datos NO se cae a Drive: falla (el servidor espera a tenerlos antes de atender, ver pnl-fuente.js).
+// LRR_DESDE_DRIVE_ (2026-11-24): el escenario LRR de la tabla no es la ronda del 3/11 (sep y oct vienen proyectados), así que el
+// Last Run Rate sale de lastrunrate.json de Drive (= LastRunRate_OC). Volver a false cuando conso cargue la ronda correcta.
+var LRR_DESDE_DRIVE_ = true;
 var _consOrigRead_ = _readCanonical_;
 var _consOrigMaxMod_ = _canonicalsMaxMod_;
 
@@ -18,11 +21,15 @@ _readCanonical_ = function (fileId) {
   if (!f) return _consOrigRead_(fileId);
   var key = null;
   Object.keys(CANONICAL_IDS_).forEach(function (k) { if (CANONICAL_IDS_[k] === fileId) key = k; });
+  if (key === 'lrr' && LRR_DESDE_DRIVE_) return _consOrigRead_(fileId);
   if (!key || !f.canon[key]) throw new Error('El consolidador no arma el escenario "' + key + '"');
   return f.canon[key];
 };
 
 _canonicalsMaxMod_ = function () {
   var f = _consFuente_();
-  return f ? f.modificado : _consOrigMaxMod_();
+  if (!f) return _consOrigMaxMod_();
+  var lrr = 0;   // con el LRR desde Drive, los caches también se renuevan cuando cambia lastrunrate.json
+  if (LRR_DESDE_DRIVE_) { try { lrr = DriveApp.getFileById(CANONICAL_IDS_.lrr).getLastUpdated().getTime(); } catch (e) {} }
+  return Math.max(f.modificado, lrr);
 };

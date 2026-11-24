@@ -6,6 +6,9 @@
 //    `monto usd` numérico). Cualquier otro id va al original;
 //  - _getJsonsLastMod_(): la versión publicada de la tabla (y el xlsx de TC, que sigue en Drive), así los caches del Hub se renuevan solos.
 // Si el host todavía no tiene las series NO se cae a Drive: falla con el motivo (el servidor espera a tenerlas antes de atender, ver pnl-fuente.js).
+// LRR_DESDE_DRIVE_ (2026-11-24): igual que en pnl-accounting-consolidador.js, el Goal "Last Run Rate" sale de lastrunrate.json de Drive
+// (= LastRunRate_OC) y no del escenario LRR de la tabla, que no es la ronda del 3/11. Volver a false cuando conso cargue la ronda correcta.
+var LRR_DESDE_DRIVE_ = true;
 var _hubOrigReadJson_ = readJson_;
 var _hubOrigLastMod_ = _getJsonsLastMod_;
 
@@ -21,7 +24,7 @@ readJson_ = function (fileId) {
   if (!f) return _hubOrigReadJson_(fileId);
   var clave = null;
   Object.keys(_HUB_SERIES_).forEach(function (k) { if (JSON_IDS[k] === fileId) clave = _HUB_SERIES_[k]; });
-  if (!clave) return _hubOrigReadJson_(fileId);
+  if (!clave || (clave === 'lrr' && LRR_DESDE_DRIVE_)) return _hubOrigReadJson_(fileId);
   if (_jsonCache_[fileId]) return _jsonCache_[fileId];
   if (!f.hub || !f.hub[clave]) throw new Error('El consolidador no armó la serie "' + clave + '" del Hub' + (f.errorHub ? ': ' + f.errorHub : ''));
   var src = f.hub[clave];
@@ -44,5 +47,6 @@ _getJsonsLastMod_ = function () {
   if (!f) return _hubOrigLastMod_();
   var fx = 0;
   try { fx = DriveApp.getFileById(FX_FILE_ID).getLastUpdated().getTime(); } catch (e) {}
+  if (LRR_DESDE_DRIVE_) { try { fx = Math.max(fx, DriveApp.getFileById(JSON_IDS.lastrunrate).getLastUpdated().getTime()); } catch (e) {} }
   return Math.max(f.modificado, fx);
 };

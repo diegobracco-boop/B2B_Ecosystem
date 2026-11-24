@@ -296,6 +296,8 @@ Escenarios ACT, BGT, FC1, LRR, RR; años FY26 y FY27. **Pendiente con conso:** l
 (AS REPORTED, BIMO, PPA) **sin columna `version`**, así que sus montos se SUMAN (ver el pedido #166, que la agrega). El código
 ya usa solo AS REPORTED apenas la columna exista y `/consolidador/estado` avisa mientras falte.
 
+**LRR desde Drive (2026-11-24, Diego):** el escenario `LRR` de la tabla no es la ronda del RR que usa el equipo (`LastRunRate_OC`: septiembre y octubre vienen proyectados y no cerrados). Hasta que conso cargue la ronda correcta, el Last Run Rate del P&L Accounting y el Goal "Last Run Rate" del Hub salen de `lastrunrate.json` de Drive: `LRR_DESDE_DRIVE_ = true` en `gas-extras/pnl-accounting-consolidador.js` y `gas-extras/hub-consolidador.js` (los caches siguen también la fecha del archivo). Las otras series siguen en la tabla. Para volver: poner las dos en `false`. `/ingest/canon/lrr` sigue dando el de la tabla (ningún script lo usa).
+
 **Cómo se lee (código):**
 - `consolidador_compartido.py` — cliente del consolidador. **Copiar sin cambios** del instructivo de conso; si sacan uno nuevo, reemplazarlo entero.
 - `consolidador_leer.py` — SQL fijo, solo `SELECT`: `versiones`, `resumen`, `dimensiones`, `detalle`, `control`, `cubo` (la tabla agregada

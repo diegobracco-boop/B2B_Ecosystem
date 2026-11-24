@@ -135,14 +135,14 @@ test('el P&L Accounting de todos lee del consolidador; el respaldo con Drive usa
   assert.ok(Array.isArray(drive.allowedUsers) && drive.allowedUsers.length > 0, 'el respaldo es solo del equipo');
 });
 
-async function proyecto(mod, canon) {
-  return new GasProject(mod, { gasRoot: config.GAS_ROOT, secrets: {}, log: () => {}, fileStore: null, pnlCanon: canon ? () => canon : null });
+async function proyecto(mod, canon, fileStore = null) {
+  return new GasProject(mod, { gasRoot: config.GAS_ROOT, secrets: {}, log: () => {}, fileStore, pnlCanon: canon ? () => canon : null });
 }
 const evalEn = (p, code) => vm.runInContext(code, p.context);
 
 test('módulo real con fuente consolidador: _readCanonical_ y _canonicalsMaxMod_ salen de la tabla, y assembleCanonicals_ corre', async () => {
   const { canon } = buildCanonicals({ cols: COLS, rows: FILAS }, { ajustes: { cols: [], rows: [] } });
-  const p = await proyecto(conso, { canon, modificado: 4242 });
+  const p = await proyecto(conso, { canon, modificado: 4242 }, almacenLrr(1));   // el LRR sale de Drive (LRR_DESDE_DRIVE_)
   assert.equal(evalEn(p, 'typeof __owniaPnlCanon_'), 'function');
   assert.equal(evalEn(p, '_canonicalsMaxMod_()'), 4242);
   assert.equal(evalEn(p, '_readCanonical_(CANONICAL_IDS_.bg).meta.concepto'), 'bg');
@@ -307,4 +307,39 @@ test('módulo real Hub sin las series en la fuente: falla con el motivo, no lee 
 test('el respaldo del Hub NO recibe la fuente del consolidador (sigue leyendo Drive)', async () => {
   const p = await proyecto(hubDrive, null);
   assert.equal(evalEn(p, 'typeof __owniaPnlCanon_'), 'undefined');
+});
+
+// ── LRR desde Drive mientras conso no cargue la ronda correcta (LRR_DESDE_DRIVE_, 2026-11-24) ─────────────────────────────────
+// Almacén mínimo con solo lastrunrate.json: lo demás tiene que seguir saliendo de la tabla.
+const LRR_ID = '1Nk56QlEA2hKuWGhfZ1357Eds6DhU8zwC';
+function almacenLrr(updatedAt) {
+  const j = { meta: { concepto: 'lastrunrate' }, cols: ['LoB', 'Canal', 'Pais', 'Producto', 'P&L N2', 'Fecha', 'Monto USD'],
+    rows: [['b2b2c', 'total', 'brasil', 'hotels', 'gross bookings', '2026-11-01', 777]] };
+  const entry = { buf: Buffer.from(JSON.stringify(j)), meta: { id: LRR_ID, name: 'lastrunrate.json', mimeType: 'application/json', updatedAt } };
+  return { get: (id) => (id === LRR_ID ? entry : null), findByName: () => [], inFolder: () => [], hasFolder: () => false, listMeta: () => [] };
+}
+
+test('P&L Accounting: el LRR sale de lastrunrate.json de Drive, el resto de la tabla, y el cache sigue también al archivo', async () => {
+  const { canon } = buildCanonicals({ cols: COLS, rows: FILAS }, { ajustes: { cols: [], rows: [] } });
+  const p = new GasProject(conso, { gasRoot: config.GAS_ROOT, secrets: {}, log: () => {}, fileStore: almacenLrr(9999), pnlCanon: () => ({ canon, modificado: 4242 }) });
+  assert.equal(evalEn(p, 'LRR_DESDE_DRIVE_'), true);
+  assert.equal(evalEn(p, '_readCanonical_(CANONICAL_IDS_.lrr).meta.concepto'), 'lastrunrate');
+  assert.equal(evalEn(p, '_readCanonical_(CANONICAL_IDS_.lrr).rows[0][6]'), 777);
+  assert.equal(evalEn(p, '_readCanonical_(CANONICAL_IDS_.bg).meta.concepto'), 'bg', 'el resto sigue en la tabla');
+  assert.equal(evalEn(p, '_canonicalsMaxMod_()'), 9999, 'si cambia lastrunrate.json se renuevan los caches');
+  evalEn(p, 'LRR_DESDE_DRIVE_ = false');
+  assert.equal(evalEn(p, '_readCanonical_(CANONICAL_IDS_.lrr).meta.concepto'), 'lrr', 'apagado vuelve al LRR de la tabla');
+  assert.equal(evalEn(p, '_canonicalsMaxMod_()'), 4242);
+});
+
+test('Hub: el Goal Last Run Rate sale de lastrunrate.json de Drive, el resto de la tabla', async () => {
+  const f = createPnlFuente({ secrets: {} }, { consolidador: falsoConso(), ajustes: SIN_AJ });
+  await f.listo();
+  const p = new GasProject(hubConso, { gasRoot: config.GAS_ROOT, secrets: {}, log: () => {}, fileStore: almacenLrr(9e12), pnlCanon: f.canon });
+  const filas = JSON.parse(evalEn(p, 'JSON.stringify(readJson_(JSON_IDS.lastrunrate))'));
+  assert.equal(filas.length, 1);
+  assert.equal(filas[0]['monto usd'], 777);
+  assert.equal(filas[0]['fecha'], Date.UTC(2026, 10, 1));
+  assert.ok(evalEn(p, 'readJson_(JSON_IDS.baseline).length') > 0, 'el resto sigue en la tabla');
+  assert.equal(evalEn(p, '_getJsonsLastMod_()'), 9e12);
 });
