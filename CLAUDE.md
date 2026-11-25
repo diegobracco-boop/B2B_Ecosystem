@@ -11,7 +11,8 @@ Avisale al usuario si va a hacer algo de esto. Detalle y pasos: `Proceso_Distrib
 - **No correr desde una PC, hasta que Diego lo cierre:** `okr_builder.py`, `organic_builder.py` ni lo que los dispara al terminar:
   `/actualizar` (`json_builder.py`, `baseline_builder.py`) y `/sincronizar` (`daily_sync.py`, `auto_update_reales.ps1`).
   Los reales se actualizan solo con "Actualizar reales" de Ownia.
-- **No correr "Actualizar managerial"** hasta que `raw.b2brr_gd` / `raw.b2brr_ri` estén recargadas y verificadas.
+- Tablas del Run Rate cargadas y verificadas (2026-11-25); el TBD (`B2B2C` a secas) lo leen las queries como B2B2C-ON.
+  **"Actualizar reales" y "Actualizar managerial" recién después del redeploy** que lleva esa regla.
 - El Run Rate del Daily y lo que deriva de él en los KRs todavía no es el de la última ronda.
 
 ## Al iniciar una sesión — identificar al usuario

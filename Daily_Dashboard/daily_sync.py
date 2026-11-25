@@ -33,7 +33,7 @@ from ds_ticket_split_factors import DS_TICKET_SHARE   # Tickets dentro de Dest. 
 # País correcto de partners B2B2C mal cargados en las proyecciones (CUTC), compartido con P&L_Managerial
 from pais_rules import apply_pais_overrides
 # lob_canal de B2B cargado como 'API'/'HTML' en vez de B2B-MAY/MIN (pasó el 2026-11-02 en raw.b2brr_*)
-from b2b_lob_rules import B2B_LOB_IN, normalize_b2b_lob
+from b2b_lob_rules import B2B_LOB_IN, B2B2C_LOB_IN, normalize_b2b_lob
 # Canal de venta B2B2C (Online / Call Center / Islas / Tiendas), compartido con P&L_Managerial
 from canal_rules import CANAL_B2B2C_SQL, canal_de_lob, CANAL_ONLINE
 # Tramos del año fiscal que faltan en Actuals / LY (gráfico de 12 meses de la portada del Flow)
@@ -479,9 +479,10 @@ SELECT * FROM raw.b2b_budget_ri
 WHERE lob_canal IN ('B2B-MAY', 'B2B-MIN', 'API', 'HTML')
 """
 
-B2B2C_RR_QUERY = """
+# 'B2B2C' a secas (partner TBD del RR del 20/11) se lee como B2B2C-ON: b2b_lob_rules.py (Diego, 2026-11-25)
+B2B2C_RR_QUERY = f"""
 SELECT * FROM raw.b2brr_gd
-WHERE lob_canal IN ('B2B2C-ON', 'B2B2C-OFF', 'B2B2C-CALL CENTER')
+WHERE {B2B2C_LOB_IN}
 """
 B2B_RR_GD_QUERY = """
 SELECT * FROM raw.b2brr_gd

@@ -4,10 +4,11 @@
 
 La última ronda de Run Rate todavía no está en `raw.b2brr_gd` / `raw.b2brr_ri`. En orden:
 
-1. [x] Copias de los CSV con el `lob_canal` corregido (ver "Antes de cargar"). Las tiene Diego; no cargar los originales.
-2. [ ] Carga manual de las copias, reemplazando las dos tablas.
-3. [ ] Verificar las tablas: filas = CSV, primer mes = el del CSV y ningún `lob_canal` fuera de los válidos.
-4. [ ] Repetir "Actualizar reales" y validar Hunting / Existing.
+1. [x] ~~Copias de los CSV con el `lob_canal` corregido~~: reemplazado el 2026-11-25 por la regla en el código (ver "Antes de cargar").
+2. [x] Tablas cargadas con los CSV del 20/11 (los originales, sin corregir).
+3. [x] Verificado 2026-11-25: filas = CSV, nov-26 → mar-27; las filas `B2B2C` a secas
+   (partner TBD, ene-mar) que las queries ahora leen como `B2B2C-ON`.
+4. [ ] Redeploy de Ownia (los botones corren el código del servidor), después repetir "Actualizar reales" y validar Hunting / Existing.
 5. [ ] "Actualizar managerial".
 6. [ ] Retirar `hunting_rr_override.json` si Hunting cerró (decide Diego). Hasta entonces no correr `okr_builder` desde una PC
    (tampoco vía `/sincronizar` ni `/actualizar`, que lo disparan): ese archivo pisa el Run Rate de la tabla.
@@ -86,10 +87,10 @@ python distribucion_diaria.py --base RI ...   # mismas definiciones
 
 ## Antes de cargar un Run Rate (venga de este script o de otro export)
 
-- **`lob_canal = 'B2B2C'` a secas → `'B2B2C-ON'`** (decisión de Diego, 2026-11-22: se corrige el dato, no las queries).
-  Suele ser el partner TBD. El Daily y el P&L Managerial solo leen `B2B2C-ON`, `B2B2C-OFF` y `B2B2C-CALL CENTER`:
-  cualquier otro valor de B2B2C (`B2B2C`, `TBD`) **se pierde sin dar error**.
-- El script no hace ese reemplazo: revisar los valores de `lob_canal` del CSV en cada ronda, en GD y en RI.
+- **`lob_canal = 'B2B2C'` a secas = `'B2B2C-ON'`** (Diego, 2026-11-25; antes, el 22/11, se corregía el dato). Suele ser el
+  partner TBD. Lo resuelven las queries de Run Rate B2B2C del Daily y del P&L Managerial (`B2B2C_LOB_IN` y `normalize_b2b_lob`
+  de `Daily_Dashboard/b2b_lob_rules.py`, con un AVISO en el log): el CSV se puede cargar así. Cualquier **otro** valor de B2B2C
+  (p.ej. `TBD`) se sigue perdiendo sin dar error: revisar los valores de `lob_canal` del CSV en cada ronda, en GD y en RI.
 - No completar los meses sin TBD del Run Rate con los de Budget o Forecast: los escenarios no tienen por qué coincidir.
 - No guardar el CSV desde Excel (cambia fechas y decimales).
 - Para controlar la carga, consultar la tabla **sin** filtrar por `lob_canal`: con el filtro del Daily estas filas no se ven.

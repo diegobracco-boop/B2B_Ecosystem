@@ -77,7 +77,7 @@ from b2b_api_costs import CONECTORES_CTE_BODY, third_party_api_sql, efecto_finan
 # País correcto de partners B2B2C mal cargados en las proyecciones (CUTC), compartido con el Daily
 from pais_rules import apply_pais_overrides
 # lob_canal de B2B cargado como 'API'/'HTML' en vez de B2B-MAY/MIN (pasó el 2026-11-02 en raw.b2brr_*)
-from b2b_lob_rules import B2B_LOB_IN, normalize_b2b_lob
+from b2b_lob_rules import B2B_LOB_IN, B2B2C_LOB_IN, normalize_b2b_lob
 from rg_rows import append_rg_rows   # país RG: COI + efecto financiero de Brasil con signo contrario
 _FY = _planning_cfg.CURRENT_FY                                  # 2027 = FY27 (abr-2026 → mar-2027)
 FY_MONTHS = [d[:7] for d in _planning_cfg.FISCAL_DATES]         # 'YYYY-MM', abr → mar
@@ -1038,9 +1038,10 @@ WHERE lob_canal IN ('B2B-MAY', 'B2B-MIN', 'API', 'HTML')
 # ── Run Rate (near-term projection) ───────────────────────────────────────────
 # Same layout as budget; ym from `fecha` (already FY27). escenario partitions by
 # lob_canal (B2B2C-* → 'BAU'; B2B-MAY/MIN → NULL), so lob_canal filter isolates.
-B2B2C_RR_QUERY = """
+# 'B2B2C' a secas (partner TBD del RR del 20/11) se lee como B2B2C-ON: b2b_lob_rules.py (Diego, 2026-11-25)
+B2B2C_RR_QUERY = f"""
 SELECT * FROM raw.b2brr_gd
-WHERE lob_canal IN ('B2B2C-ON', 'B2B2C-OFF', 'B2B2C-CALL CENTER')
+WHERE {B2B2C_LOB_IN}
 """
 B2B_RR_GD_QUERY = """
 SELECT * FROM raw.b2brr_gd
