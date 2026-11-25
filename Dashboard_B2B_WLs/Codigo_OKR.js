@@ -73,8 +73,50 @@ var OKR_CONFIG_H2 = {
       { kr: 'new onboarded properties global & regional chains',  label: 'New Onboarded Properties Global & Regional Chains',  weight: 15, cumulative: true },
       { kr: 'price competitiveness ex-latam (destino gl)',        label: 'Price Competitiveness ex-Latam (Destino GL)',        weight: 20, cumulative: true, pct: true, inverse: true }
     ]
+  },
+  // KR Global B2B API — set NUEVO en propuesta (slide "B2B PoS Global API Hotels · Become a Global Bedbank", owner JP Martorell,
+  // 2026-11-25, pedido de antonella.difranco). La landing muestra 'globales' o 'globales_nuevos' según el switch "KRs vigentes |
+  // KRs nuevos" (localStorage 'okr_glob_set'); el vigente no se toca. PLACEHOLDER: no está en okr.json, las filas las arma
+  // globalesNuevosRows_ (targets de GLOBALES_NUEVOS_TARGETS; actual provisorio del KR vigente equivalente donde hay uno).
+  // Mismos KRs y targets que GLOBALES_KRS_NUEVOS_DEF del Daily (Daily_Dashboard/Codigo.js): si cambian, cambiar los dos.
+  'globales_nuevos': {
+    label: 'KR Global B2B API · nuevos (propuesta)',
+    krs: [
+      { kr: 'grow +44% api global clients portfolio',  label: 'Grow +44% API Global Clients Portfolio',  weight: 20, cumulative: true },
+      { kr: '+6k new direct properties',               label: '+6k New Direct Properties',               weight: 20, cumulative: true },
+      { kr: 'price competitiveness destino globales',  label: 'Price Competitiveness Destino Globales',  weight: 20, cumulative: true, pct: true, inverse: true },
+      { kr: 'sales density on top 100 hotels',         label: 'Sales Density on Top 100 Hotels',         weight: 20, cumulative: true, pct: true },
+      { kr: 'oc - costos atribuibles',                 label: 'OC - Costos atribuibles',                 weight: 20 }
+    ]
   }
 };
+
+// Targets (Budget) del set nuevo, de la slide. OC - Costos atribuibles: TBD (sin filas). actual_de: KR vigente (lob 'globales') del
+// que se copia el actual mientras no haya fuente propia (mismos targets en la slide).
+var GLOBALES_NUEVOS_TARGETS = {
+  'grow +44% api global clients portfolio': { t: { '2026-10':150, '2026-11':160, '2026-12':170, '2027-01':180, '2027-02':190, '2027-03':200 } },
+  '+6k new direct properties':              { t: { '2026-10':250, '2026-11':1250, '2026-12':2000, '2027-01':3000, '2027-02':4000, '2027-03':6000 },
+                                              actual_de: 'new onboarded properties global & regional chains' },
+  'price competitiveness destino globales': { t: { '2026-10':52.2, '2026-11':50.1, '2026-12':46.7, '2027-01':42.8, '2027-02':40.2, '2027-03':39.2 },
+                                              actual_de: 'price competitiveness ex-latam (destino gl)' },
+  'sales density on top 100 hotels':        { t: { '2026-10':16, '2026-11':17, '2026-12':18, '2027-01':18.5, '2027-02':19.5, '2027-03':20 } }
+};
+
+// Filas del set nuevo (lob 'globales_nuevos') para computeOKR_: Budget = targets de la slide; Run Rate/Actuals = copia de las filas
+// del KR vigente de actual_de (las mismas que ve el bloque vigente). Los KRs sin fuente quedan sin actual (OKR_NOFILL_: no toman el target).
+function globalesNuevosRows_(rows) {
+  var out = [];
+  Object.keys(GLOBALES_NUEVOS_TARGETS).forEach(function(kr) {
+    var d = GLOBALES_NUEVOS_TARGETS[kr];
+    Object.keys(d.t).forEach(function(ym) { out.push({ ym: ym, escenario: 'budget', lob: 'globales_nuevos', kr: kr, valor: d.t[ym] }); });
+    if (!d.actual_de) return;
+    (rows || []).forEach(function(r) {
+      if (r.lob === 'globales' && r.kr === d.actual_de && r.escenario === 'run rate/actuals')
+        out.push(Object.assign({}, r, { lob: 'globales_nuevos', kr: kr }));
+    });
+  });
+  return out;
+}
 
 // Semestres del FY (arranca en abril). Q1 abr-jun · Q2 jul-sep · Q3 oct-dic · Q4 ene-mar.
 // Los meses salen de fyMonths_() (Codigo.js); OKR_CONFIG_H1/H2 son los KRs de cada semestre.
@@ -154,7 +196,14 @@ var OKR_MONETARY_KRS_ = {
 // Onboarded Properties NO va acá: hasta definir la fuente del actual, el actual = budget (100%, en cursiva). Price Competitiveness tampoco:
 // su actual sale del Datalake (última semana cerrada del mes, desde 2026-11-02); el mes sin semana cerrada todavía toma el target (cursiva).
 var OKR_NOFILL_ = {
-  'deploy new partnership': true
+  'deploy new partnership': true,
+  // Set nuevo del KR Global B2B API (placeholder): sin fuente todavía; sin actual se ve "— / target", no un 100% falso.
+  // Los dos con actual provisorio tampoco: un mes sin dato del KR vigente queda "—", igual que en el Daily y el Tracker.
+  'grow +44% api global clients portfolio': true,
+  '+6k new direct properties': true,
+  'price competitiveness destino globales': true,
+  'sales density on top 100 hotels': true,
+  'oc - costos atribuibles': true
 };
 
 function readOKRH2Json_() {
@@ -417,6 +466,7 @@ function getOKRData(params) {
         organic = { target: 'budget', error: 'No se pudo leer el archivo de tipos de cambio: ' + e.message };
       }
     }
+    rowsH2 = rowsH2.concat(globalesNuevosRows_(rowsH2));   // set nuevo del KR Global B2B API (switch de la landing)
     var byHalf = {};
     Object.keys(OKR_HALVES).forEach(function(h){
       byHalf[h] = h === 'H1' ? computeOKR_(h, rowsH1) : computeOKR_(h, rowsH2, { fillTarget: true });

@@ -26,6 +26,8 @@
   function paintSwitch() {
     var sw = document.getElementById('krgb-sw');
     if (!sw) return;
+    // Con el set de KRs nuevos (switch "KRs vigentes | KRs nuevos" del Tracker) este KR no está: el switch no aplica.
+    sw.style.display = kr() ? 'inline-flex' : 'none';
     [].forEach.call(sw.querySelectorAll('button'), function (b) { b.classList.toggle('active', (b.dataset.v === 'gb') === gbOn); });
     var hint = sw.querySelector('.krgb-hint'), k = kr();
     hint.textContent = gbOn && k && !hasGb(k) ? 'Sin datos por GB todavía: falta correr "Actualizar reales"' : '';
@@ -38,7 +40,7 @@
     if (!anchor || !anchor.parentNode) return;
     var sw = document.createElement('span');
     sw.id = 'krgb-sw';
-    sw.style.cssText = 'display:inline-flex;align-items:center;gap:6px;margin-left:14px;font-size:0.78rem;color:#6b7280';
+    sw.style.cssText = 'display:none;align-items:center;gap:6px;margin-left:14px;font-size:0.78rem;color:#6b7280';
     sw.title = '% Hoteles Directos vendidos destino Globales: por cantidad de hoteles (default) o por gross bookings (PAM + OMB + HSI sobre todo el inventario, destinos no LATAM)';
     sw.innerHTML = '<span style="font-weight:600">KR % directos Globales</span>' +
       '<span class="tab-toggle"><button type="button" class="ttab active" data-v="hot">Hoteles</button>' +

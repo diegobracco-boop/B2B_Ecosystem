@@ -1311,7 +1311,7 @@ body.krd-only #section-b2b > :not(.krd-keep) { display:none !important; }
 
     <!-- KR Global B2B API (H2 FY27): debajo de los KRs principales, también cuentan para el mapa y el bono -->
     <div id="b2b-kr-globales">
-      <div class="section-hdr" style="margin-bottom:10px">KR Global B2B API</div>
+      <div class="section-hdr" style="margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span id="b2b-kr-globales-title">KR Global B2B API</span><span id="b2b-kr-globales-set"></span></div>
       <div class="kr-row" id="b2b-kr-globales-row"></div>
       <div id="b2b-kr-globales-sub" style="font-size:11px;color:var(--text-3);margin-top:-12px;margin-bottom:20px"></div>
     </div>
@@ -4167,12 +4167,16 @@ function renderKrDetail_() {
         ytdScores.push({ c: last.sc, w: w });
         ytd = dataCell(' class="krd-ytd"', krdChip_(last.ratio), fv(last.a), fv(last.t));
       }
+      var exG = kr.placeholder ? [kr.owner ? 'owner ' + kr.owner : '', kr.end_game ? 'End Game ' + kr.end_game : '',
+        kr.actual_provisorio ? 'actual provisorio: «' + kr.actual_provisorio + '»' : 'actual sin fuente todavía'].filter(Boolean).join(' · ') : '';
       return '<tr><td><div class="krd-kr-name">' + kr.name + '<span class="krd-w">' + Math.round(w * 100) + '%</span></div>' +
-        '<div class="krd-kr-meta">' + kr.unit + (kr.inverse ? ' · menos es mejor' : '') + '</div></td>' + cells + ytd + '</tr>';
+        '<div class="krd-kr-meta">' + kr.unit + (kr.inverse ? ' · menos es mejor' : '') + (exG ? ' · ' + exG : '') + '</div></td>' + cells + ytd + '</tr>';
     }).join('') + overallRow(scoreByYM, ytdScores);
-    return cardHtml(idx, 'KR Global B2B API', 'Canal API · total, sin apertura por país', body);
+    var gNew = globIsNuevos_();
+    return cardHtml(idx, 'KR Global B2B API' + (gNew ? ' · nuevos (propuesta)' : ''),
+      gNew ? 'Propuesta: targets de la slide del OKR, actuals sin fuente todavía' : 'Canal API · total, sin apertura por país', body, globSetSwitchHtml_());
   }
-  function cardHtml(idx, titleHtml, subTxt, body) {
+  function cardHtml(idx, titleHtml, subTxt, body, extraActions) {
     var grp = '<tr class="krd-grp"><th></th>' +
       (_krdH1 ? '<th class="krd-grp-h1" colspan="' + h1Months.length + '">H1 FY27</th>' : '') +
       '<th colspan="' + h2Months.length + '"' + (_krdH1 ? ' class="krd-h2start"' : '') + '>H2 FY27 · metas octubre – marzo</th><th class="krd-ytd"></th></tr>';
@@ -4182,7 +4186,7 @@ function renderKrDetail_() {
     return '<div class="krd-card" id="krd-card-' + idx + '">' +
       '<div class="krd-card-hdr"><div><div class="krd-title">' + titleHtml + '</div>' +
       '<div class="krd-title-sub">OKRs H2 FY27 · ' + subTxt + ' · datos al ' + fmtDate(vDate) + '</div></div>' +
-      '<div class="krd-actions" data-html2canvas-ignore="true">' +
+      '<div class="krd-actions" data-html2canvas-ignore="true">' + (extraActions || '') +
       '<button class="krd-act-btn" onclick="krdCopy_(' + idx + ')">Copiar imagen</button>' +
       '<button class="krd-act-btn" onclick="krdPng_(' + idx + ')">PNG</button></div></div>' +
       '<table class="krd-tbl' + (_krdH1 ? ' krd-compact' : '') + '" style="min-width:' + (210 + (months.length + 1) * (_krdH1 ? 78 : 92)) + 'px"><colgroup><col class="krd-col-kr"></colgroup>' +
@@ -4236,12 +4240,29 @@ function krdCopy_(idx) {
 
 // ── KR Global B2B API (targets H2 FY27 desde okr.json en Drive) ──
 var _globalesTargets=null;
+// Switch "KRs vigentes | KRs nuevos (propuesta)" (2026-11-25): _globalesAll = payload de getGlobalesKRTargets (vigente + .nuevos,
+// el set nuevo es placeholder: targets de la slide, actuals sin fuente salvo los provisorios); _globalesTargets = el set que se dibuja.
+// Se guarda en localStorage 'okr_glob_set' (misma clave que el Tracker y el Hub).
+var _globalesAll=null, _globSet='vigentes';
+try{ if(localStorage.getItem('okr_glob_set')==='nuevos') _globSet='nuevos'; }catch(e){}
+function globIsNuevos_(){ return _globSet==='nuevos' && !!(_globalesAll && _globalesAll.nuevos); }
+function applyGlobSet_(){ _globalesTargets = globIsNuevos_() ? _globalesAll.nuevos : _globalesAll; }
+function globSetSwitchHtml_(){
+  if(!_globalesAll || !_globalesAll.nuevos) return '';
+  var b=function(v,l){ var on=(globIsNuevos_()?'nuevos':'vigentes')===v;
+    return '<button type="button" onclick="setGlobSet_(\''+v+'\')" style="font-size:11px;padding:3px 9px;border-radius:6px;cursor:pointer;border:1px solid '+(on?'#550FED':'var(--border,#d1d5db)')+';background:'+(on?'#550FED':'transparent')+';color:'+(on?'#fff':'var(--text-2)')+';font-weight:'+(on?'600':'400')+'">'+l+'</button>'; };
+  return '<span style="display:inline-flex;gap:4px;text-transform:none;letter-spacing:0" title="KRs vigentes o el set nuevo en propuesta (targets de la slide; actuals sin fuente todavía, salvo los provisorios)">'+b('vigentes','KRs vigentes')+b('nuevos','KRs nuevos (propuesta)')+'</span>';
+}
+function setGlobSet_(v){
+  _globSet=v; try{ localStorage.setItem('okr_glob_set', v); }catch(e){}
+  if(_globalesAll){ applyGlobSet_(); renderKRsGlobales_(); renderKrDetail_(); }
+}
 function loadGlobalesTargets_(){
   if(_globalesTargets){ renderKRsGlobales_(); return; }
   var cont=document.getElementById('b2b-kr-globales-row');
   if(cont)cont.innerHTML='<div style="color:var(--text-3);font-size:12px;padding:8px">Cargando targets del KR Global B2B API…</div>';
   google.script.run
-    .withSuccessHandler(function(d){ _globalesTargets=d; renderKRsGlobales_(); renderKrDetail_(); })
+    .withSuccessHandler(function(d){ _globalesAll=d; applyGlobSet_(); renderKRsGlobales_(); renderKrDetail_(); })
     .withFailureHandler(function(){ var c=document.getElementById('b2b-kr-globales-row'); if(c)c.innerHTML='<div style="color:var(--danger);font-size:12px;padding:8px">No se pudieron cargar los targets del KR Global B2B API (okr.json).</div>'; })
     .getGlobalesKRTargets();
 }
@@ -4284,6 +4305,9 @@ function renderKRsGlobales_(){
   }
   var meta=_globalesTargets.meta||{}, meses=meta.meses||[], labels=meta.meses_label||meses;
   var refYM=globalesRefYM_(meses, state_b2b.viewDate), idx=meses.indexOf(refYM);
+  var ttl=document.getElementById('b2b-kr-globales-title'), swc=document.getElementById('b2b-kr-globales-set');
+  if(ttl) ttl.textContent='KR Global B2B API'+(globIsNuevos_()?' · nuevos (propuesta)':'');
+  if(swc) swc.innerHTML=globSetSwitchHtml_();
   var vd=String(state_b2b.viewDate||'');
   var agg=_rawB2B?computeGlobalesApiHotelMonth_(_krRawB2B_(_rawB2B), refYM, vd):{nr:0,bud:0,budMtd:0};   // a TC Budget con ORGANIC YES (hay países con TC)
   // NR es MTD → se compara contra el budget gestional acumulado al mismo corte (agg.budMtd). 100% gestional (2026-10-27): sin budget
@@ -4300,14 +4324,17 @@ function renderKRsGlobales_(){
     }
     else if(kr.actuals && kr.actuals[refYM]!=null) a=kr.actuals[refYM];                  // mensual, Input_OKR
     var sc=kr.inverse?(kr.id==='price_competitiveness_ex_latam'?pcScore_(refYM,tSc,a,false):okrScore_(tSc,a)):okrScore_(a,tSc), pct=sc!==null?Math.round(sc*100):null;   // regla única de OKR; inverse: menos es mejor
-    return '<div class="kr-card">'+
-      '<div class="kr-lbl">'+kr.name+'</div>'+
+    var ex=kr.placeholder?[kr.calc, kr.owner?'owner '+kr.owner:'', kr.end_game?'End Game '+kr.end_game:'',
+      kr.actual_provisorio?'actual provisorio: «'+kr.actual_provisorio+'»':'actual sin fuente todavía'].filter(Boolean).join(' · '):'';
+    return '<div class="kr-card"'+(ex?' title="'+ex.replace(/"/g,'&quot;')+'"':'')+'>'+
+      '<div class="kr-lbl">'+kr.name+(kr.placeholder?' <span style="color:var(--text-3);font-weight:400">('+Math.round((kr.weight>1?kr.weight/100:kr.weight)*100)+'%)</span>':'')+'</div>'+
       '<div class="kr-pct" style="color:'+pctColor(pct)+'">'+(pct!==null?pct+'%':'—')+'</div>'+
       '<div class="kr-sub">'+
         '<div class="kr-sub-item"><span class="kr-sub-lbl">Actual</span><span>'+fmtVal(a,kr.unit)+'</span></div>'+
         '<div class="kr-sub-item"><span class="kr-sub-lbl">Target</span><span>'+fmtVal(t,kr.unit)+'</span></div>'+
       '</div></div>';
   }).join('');
+  if(sub && meta.placeholder){ sub.textContent='Mes de referencia: '+(labels[idx]||refYM)+'  ·  ⚠️ Propuesta «'+(meta.objetivo||'')+'» (owner '+(meta.owner||'')+'): targets de la slide del OKR; actual sin fuente todavía (—), salvo +6k New Direct Properties y Price Competitiveness, que por ahora toman el del KR vigente equivalente. Pasá el mouse por cada card para ver cálculo, owner y End Game.'; return; }
   if(sub) sub.textContent='Mes de referencia: '+(labels[idx]||refYM)+'  ·  fuente: okr.json (igual que el OKR del Hub) · NR actual = daily MTD (API · Hoteles · todos los países) vs budget gestional del daily MTD · resto = valor del mes de Input_OKR · Price Competitiveness: menos es mejor.';
 }
 

@@ -406,6 +406,8 @@
   .glob-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
   .glob-name { font-weight: 700; font-size: 13px; color: #1f2937; line-height: 1.25; }
   .glob-unit { font-size: 10px; color: #9ca3af; margin-top: 2px; text-transform: uppercase; letter-spacing: .3px; }
+  .glob-unit.glob-extra { text-transform: none; letter-spacing: 0; color: #6b7280; }
+  .glob-placeholder-note { margin-top: 6px; padding: 6px 10px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; color: #92400e; font-size: 11px; }
   .glob-peso { background: #f0ecfe; color: #550FED; font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
   .glob-peso.crit { background: #f3f4f6; color: #7c3aed; }
   .glob-range { display: flex; align-items: baseline; gap: 8px; margin: 12px 0 4px; }
@@ -1527,6 +1529,11 @@
     <div class="kr-ch-group" id="globViewBtns" title="Formato de la vista (y de su slide)">
       <button type="button" class="kr-ch-btn" data-view="cards">Cards</button>
       <button type="button" class="kr-ch-btn active" data-view="table">Tabla</button>
+    </div>
+    <!-- Set de KRs: vigentes (los de hoy) o nuevos (propuesta de la slide B2B PoS Global API Hotels, placeholder). Se recuerda en el navegador. -->
+    <div class="kr-ch-group" id="globSetBtns" style="display:none" title="KRs vigentes o el set nuevo en propuesta (placeholder: targets de la slide, actuals sin fuente todavía)">
+      <button type="button" class="kr-ch-btn active" data-set="vigentes">KRs vigentes</button>
+      <button type="button" class="kr-ch-btn" data-set="nuevos">KRs nuevos (propuesta)</button>
     </div>
   </div>
   <div id="globalesSpinner" class="spinner-wrap" style="height:200px;display:none">
@@ -4323,7 +4330,8 @@ function loadGlobales() {
   globalesState = 'loading';
   google.script.run
     .withSuccessHandler(function(data) {
-      globalesData  = data;
+      globalesDataAll = data;
+      applyGlobSet_();
       globalesState = 'loaded';
       renderGlobales();
     })
@@ -4332,6 +4340,38 @@ function loadGlobales() {
       renderGlobales();
     })
     .getGlobalesKRTargets();
+}
+
+// Switch "KRs vigentes | KRs nuevos (propuesta)" (2026-11-25): globalesDataAll = payload de getGlobalesKRTargets (vigente + .nuevos);
+// globalesData = el set que se dibuja (todo lo demás de la pestaña, la slide y las capas de Ownia leen globalesData). La elección se
+// guarda en localStorage 'okr_glob_set' (misma clave que el Daily y el Hub). Sin .nuevos en el payload (servidor viejo): solo vigentes.
+var globalesDataAll = null;
+var globSet = 'vigentes';
+try { if (localStorage.getItem('okr_glob_set') === 'nuevos') globSet = 'nuevos'; } catch (e) {}
+function globIsNuevos_() { return globSet === 'nuevos' && !!(globalesDataAll && globalesDataAll.nuevos); }
+function applyGlobSet_() {
+  globalesData = globIsNuevos_() ? globalesDataAll.nuevos : globalesDataAll;
+  var g = document.getElementById('globSetBtns');
+  if (!g) return;
+  g.style.display = (globalesDataAll && globalesDataAll.nuevos) ? '' : 'none';
+  g.querySelectorAll('.kr-ch-btn').forEach(function(b) { b.classList.toggle('active', b.getAttribute('data-set') === (globIsNuevos_() ? 'nuevos' : 'vigentes')); });
+  var pa = document.getElementById('partnersApiBox');   // partners por país: es del KR vigente Accelerate Hunting # Partners API
+  if (pa) pa.style.display = globIsNuevos_() ? 'none' : '';
+}
+
+// Datos extra de los KRs del set nuevo (cálculo, owner, rótulo de la slide, End Game, de dónde sale el actual). Vacío en los vigentes.
+function globKrExtraTxt_(kr) {
+  if (!kr.placeholder) return '';
+  var p = [];
+  if (kr.tag) p.push(kr.tag);
+  if (kr.calc) p.push(kr.calc);
+  if (kr.owner) p.push('owner ' + kr.owner);
+  if (kr.end_game) p.push('End Game ' + kr.end_game);
+  p.push(kr.actual_provisorio ? 'actual provisorio: el de «' + kr.actual_provisorio + '»' : 'actual sin fuente todavía');
+  return p.join(' · ');
+}
+function globKrExtra_(kr) {
+  return kr.placeholder ? '<div class="glob-unit glob-extra">' + globKrExtraTxt_(kr) + '</div>' : '';
 }
 
 function fmtGlobalTarget(v, unit) {
@@ -4467,17 +4507,18 @@ function renderGlobales() {
   document.getElementById('globalesContent').classList.toggle('glob-table-view', isTableView);
 
   var _globTitleEl = document.getElementById('globalesTitle');
+  var _gNew = globIsNuevos_(), _gSuf = _gNew ? ' · nuevos (propuesta)' : '';
   if (_isSlidesMode && isTableView) {
     _globTitleEl.innerHTML =
-      '<b>KR Global B2B API MTD vs Target | ' + formatYMEn(globYM) + '</b> — <i>Managerial Information</i>';
+      '<b>KR Global B2B API' + (_gNew ? ' (new, proposal)' : '') + ' MTD vs Target | ' + formatYMEn(globYM) + '</b> — <i>Managerial Information</i>';
   } else if (isTableView) {
     var curGYM = ((rawData && rawData.meta && rawData.meta.last_actuals_date) || '').substring(0, 7);
-    _globTitleEl.textContent = 'KR Global B2B API — ' + formatYM(globYM) + (globYM === curGYM ? ' (MTD)' : '');
+    _globTitleEl.textContent = 'KR Global B2B API' + _gSuf + ' — ' + formatYM(globYM) + (globYM === curGYM ? ' (MTD)' : '');
   } else if (_isSlidesMode) {
     _globTitleEl.innerHTML =
-      '<b>KR Global B2B API | H2 FY27</b> — <i>Managerial Information</i>';
+      '<b>KR Global B2B API' + (_gNew ? ' (new, proposal)' : '') + ' | H2 FY27</b> — <i>Managerial Information</i>';
   } else {
-    _globTitleEl.textContent = 'KR Global B2B API';
+    _globTitleEl.textContent = 'KR Global B2B API' + _gSuf;
   }
 
   var _gb = (isTableView && rawData && rawData.meta) ? getPeriodBounds(globYM, rawData.meta) : null;
@@ -4487,6 +4528,11 @@ function renderGlobales() {
     : '&#127760; ' + (meta.titulo || 'KR Global B2B API') +
     (meta.periodo ? ' — <strong>' + meta.periodo + '</strong>' : '') +
     (meta.actualizado ? ' · act. ' + meta.actualizado : '');
+  if (meta.placeholder) {
+    document.getElementById('globalesMeta').innerHTML += '<div class="glob-placeholder-note">&#9888;&#65039; Propuesta' +
+      (meta.objetivo ? ' «' + meta.objetivo + '»' : '') + (meta.owner ? ' · owner ' + meta.owner : '') +
+      '. Targets de la slide del OKR; los actuals todavía no tienen fuente (—), salvo los marcados como provisorios, que toman el del KR vigente equivalente.</div>';
+  }
 
   var agg  = globalesApiHotelByMonth_(meses);
   var grid = document.getElementById('globalesCards');
@@ -4525,7 +4571,7 @@ function renderGlobales() {
       '<div class="glob-name">' + kr.name + '</div>' +
       '<div class="glob-unit">' + (kr.unit || '') +
       (typeof kr.baseline === 'number' ? ' · Baseline ' + (kr.baseline_label || '') + ': ' + fmtGlobalTarget(kr.baseline, kr.unit) : '') +
-      (kr.medicion ? ' · ' + kr.medicion : '') + '</div></div>' + peso + '</div>';
+      (kr.medicion ? ' · ' + kr.medicion : '') + '</div>' + globKrExtra_(kr) + '</div>' + peso + '</div>';
 
     // Valores de target definidos (para recorrido inicial→final).
     var tv = meses.map(function(ym){ var t = kr.targets ? kr.targets[ym] : null; return (typeof t === 'number') ? t : null; });
@@ -4629,8 +4675,11 @@ function globalesTableHtml_(krs, ym, agg, tot) {
     var note = [];
     if (kr.inverse) note.push('menos es mejor');
     if (kr.medicion) note.push(kr.medicion.toLowerCase());
+    // Set nuevo: en la tabla, owner y de dónde sale el actual (el detalle completo, en el tooltip del nombre y en las Cards)
+    if (kr.placeholder) note.push((kr.owner ? 'owner ' + kr.owner + ' · ' : '') + (kr.actual_provisorio ? 'actual provisorio (KR vigente)' : 'actual sin fuente'));
     var peso = kr.critical_ttpp ? '0% · TTPP' : Math.round((kr.weight || 0) * 100) + '%';
-    return '<tr><td style="text-align:left">' + kr.name + ' <span style="color:#6b7280;font-size:0.72rem">(' + (kr.unit || '') + ')</span>' +
+    return '<tr><td style="text-align:left"' + (kr.placeholder ? ' title="' + globKrExtraTxt_(kr).replace(/"/g, '&quot;') + '"' : '') + '>' +
+             kr.name + ' <span style="color:#6b7280;font-size:0.72rem">(' + (kr.unit || '') + ')</span>' +
              (note.length ? '<div style="color:#9ca3af;font-size:0.68rem">' + note.join(' · ') + '</div>' : '') + '</td>' +
            '<td style="color:#6b7280;font-size:0.78rem">' + peso + '</td>' +
            '<td>' + (a !== null ? fmtGlobalTarget(a, kr.unit) : '—') + '</td>' +
@@ -4648,7 +4697,8 @@ function globalesTableHtml_(krs, ym, agg, tot) {
     '<th style="min-width:210px;text-align:left">KR</th><th style="color:#6b7280">Peso</th>' +
     '<th>' + (isCur ? 'Actual MTD' : 'Actual') + '</th><th>' + 'Target' + '</th><th>Cumpl.</th>' +
     '</tr></thead><tbody>' + body + '</tbody></table></div>' +
-    '<div class="kr-detail-grid" id="globalesDetailGrid">' + globalesNrDetailBox_(ym) + '</div>';
+    '<div class="kr-detail-grid" id="globalesDetailGrid">' +
+    (krs.some(function(k){ return k.id === 'net_revenues_api_hoteles'; }) ? globalesNrDetailBox_(ym) : '') + '</div>';   // set nuevo: no tiene NR API Hoteles
 }
 
 // Recuadro por país de Net Revenues API Hoteles (como los de Status KRs H2): mismas fuentes que la fila
@@ -4952,6 +5002,14 @@ document.querySelectorAll('#globViewBtns .kr-ch-btn').forEach(function(btn) {
     globView = btn.getAttribute('data-view');
     try { localStorage.setItem('trk_glob_view', globView); } catch (e) {}
     document.querySelectorAll('#globViewBtns .kr-ch-btn').forEach(function(b) { b.classList.toggle('active', b === btn); });
+    renderGlobales();
+  });
+});
+document.querySelectorAll('#globSetBtns .kr-ch-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    globSet = btn.getAttribute('data-set');
+    try { localStorage.setItem('okr_glob_set', globSet); } catch (e) {}
+    if (globalesDataAll) applyGlobSet_();
     renderGlobales();
   });
 });

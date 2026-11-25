@@ -4861,6 +4861,32 @@ function fmtOKRNominal(act, bud, pct) {
     + '</div>';
 }
 
+// KR Global B2B API: switch "KRs vigentes | KRs nuevos (propuesta)" (2026-11-25). getOKRData devuelve los dos bloques ('globales' y
+// 'globales_nuevos', placeholder de la slide B2B PoS Global API Hotels); se dibuja uno. Se guarda en localStorage 'okr_glob_set'
+// (misma clave que el Daily y el Tracker). hub-layout.js (Ownia) lee window._okrGlobKey_ para su resumen de una línea.
+var _okrGlobSet = 'vigentes';
+try { if (localStorage.getItem('okr_glob_set') === 'nuevos') _okrGlobSet = 'nuevos'; } catch (e) {}
+function _okrGlobKey_(okr) {
+  return (_okrGlobSet === 'nuevos' && (!okr || okr.globales_nuevos)) ? 'globales_nuevos' : 'globales';
+}
+window._okrGlobKey_ = _okrGlobKey_;
+function setOKRGlobSet(v) {
+  _okrGlobSet = v;
+  try { localStorage.setItem('okr_glob_set', v); } catch (e) {}
+  if (_state.okr) renderOKR(_state.okr);
+}
+function _okrGlobSwitch_(okr) {
+  if (!okr || !okr.globales || !okr.globales_nuevos) return '';
+  var cur = _okrGlobKey_(okr) === 'globales_nuevos' ? 'nuevos' : 'vigentes';
+  var b = function(v, l) {
+    // El encabezado del bloque es violeta: el inactivo va en blanco con borde (el gran-btn inactivo no se leía ahí)
+    return '<button type="button" class="gran-btn' + (cur === v ? ' active' : '') + '" onclick="event.stopPropagation();setOKRGlobSet(\'' + v + '\')" style="font-size:10px;padding:2px 8px'
+      + (cur === v ? '' : ';background:transparent;color:#fff;border:1px solid rgba(255,255,255,.6)') + '">' + l + '</button>';
+  };
+  return '<span class="okr-glob-set" style="display:inline-flex;gap:4px;margin-left:10px;vertical-align:middle" title="KRs vigentes o el set nuevo en propuesta (targets de la slide; actuals sin fuente todavía, salvo +6k New Direct Properties y Price Competitiveness, que toman el del KR vigente equivalente)">'
+    + b('vigentes', 'KRs vigentes') + b('nuevos', 'KRs nuevos (propuesta)') + '</span>';
+}
+
 // Bloques de OKR plegados a mano en Consolidado (por defecto todos desplegados, con el detalle de KRs).
 var _okrOpen = {};
 function toggleOKRBlock(lobKey) {
@@ -4978,10 +5004,12 @@ function renderOKR(okr) {
   }
 
   // 'globales' (KR Global B2B API) solo existe en H2 → en H1 okr['globales'] es undefined y se omite.
+  // El bloque del KR Global B2B API es el vigente o el nuevo (propuesta), según el switch de su encabezado.
+  var _gk = _okrGlobKey_(okr);
   var lobsToRender = _htmlMode ? ['htmlcont']
                    : _state.lob === 'b2b2c' ? ['b2b2c']
-                   : _state.lob === 'b2b'   ? ['b2b','globales']
-                   : ['b2b2c','b2b','globales'];
+                   : _state.lob === 'b2b'   ? ['b2b',_gk]
+                   : ['b2b2c','b2b',_gk];
   // Cada bloque arranca desplegado con el detalle de KRs; en Consolidado se puede plegar al Total.
   var multi = lobsToRender.length > 1;
   lobsToRender.forEach(function(lobKey) {
@@ -4993,7 +5021,10 @@ function renderOKR(okr) {
         +(open ? 'Ocultar KRs ▴' : 'Ver '+d.krs.length+' KRs ▾')+'</button>'
       : '';
 
-    html += '<div class="okr-table-wrap"><div class="okr-lob-hdr">'+d.label+expandBtn+'</div>'
+    var globSw = (lobKey === 'globales' || lobKey === 'globales_nuevos') ? _okrGlobSwitch_(okr) : '';
+    var globNote = lobKey === 'globales_nuevos'
+      ? '<div class="okr-note" style="margin:4px 0 6px">Propuesta «Become a Global Bedbank» (owner JP Martorell): targets de la slide del OKR. Los actuals todavía no tienen fuente (—), salvo +6k New Direct Properties y Price Competitiveness, que por ahora toman el del KR vigente equivalente. OC - Costos atribuibles: target TBD.</div>' : '';
+    html += '<div class="okr-table-wrap"><div class="okr-lob-hdr">'+d.label+globSw+expandBtn+'</div>'+globNote
            +'<table class="okr-table'+(_okrMonthly ? ' okr-monthly' : '')+(open ? '' : ' okr-collapsed')+'"><thead><tr><th>KR</th><th title="Peso del KR en el score del objetivo">Peso</th>';
 
     if (_okrMonthly) {

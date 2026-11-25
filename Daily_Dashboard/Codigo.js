@@ -1503,10 +1503,58 @@ var GLOBALES_GB_KR_LC = 'gb · % hoteles directos vendidos destino globales';
 var GLOBALES_MESES = ['2026-10','2026-11','2026-12','2027-01','2027-02','2027-03'];
 var GLOBALES_MESES_LABEL = ["Oct'26","Nov'26","Dic'26","Ene'27","Feb'27","Mar'27"];
 
+// KR Global B2B API — set NUEVO en propuesta (slide "B2B PoS Global API Hotels · Become a Global Bedbank", owner JP Martorell,
+// 2026-11-25, pedido de antonella.difranco). Convive con el vigente (GLOBALES_KRS_DEF) detrás de un switch "Vigentes | Nuevos" en
+// cada vista hasta que confirmen qué set queda; el vigente no se toca. PLACEHOLDER: los targets son los de la slide (en el código,
+// no en Input_OKR) y todavía no hay fuente para los actuals. Dos KRs toman PROVISORIAMENTE el actual del KR vigente equivalente
+// (actual_de; mismos targets): +6k New Direct Properties ← New Onboarded Properties y Price Competitiveness ← el vigente (por eso
+// conserva el id: así le aplica la escala no lineal de pcRatio_). Al definir las fuentes, reemplazar actual_de por la real.
+//   end_game: target "End Game" de la slide (texto, no entra al score) · tag: rótulo de la slide (Scope + Ambition, New KR...).
+var GLOBALES_NUEVOS_META = { titulo: 'KR Global B2B API — nuevos (propuesta) · B2B PoS Global API Hotels', objetivo: 'Become a Global Bedbank',
+                             owner: 'Juan Pablo Martorell' };
+var GLOBALES_KRS_NUEVOS_DEF = [
+  { id:'grow_api_global_clients', name:'Grow +44% API Global Clients Portfolio', calc:'Buyer Agencies Hoteles API PoS Global',
+    weight:0.20, unit:'# Partners', owner:'Paola Peñarete', tag:'Scope + Ambition', baseline:139, baseline_label:"Sep'26", end_game:'500',
+    targets:{ '2026-10':150, '2026-11':160, '2026-12':170, '2027-01':180, '2027-02':190, '2027-03':200 } },
+  { id:'new_direct_properties', name:'+6k New Direct Properties', calc:'Incremental Direct Properties (New Direct Props.)',
+    weight:0.20, unit:'# Hoteles', owner:'Ivan Lovisolo', tag:'Ambition', baseline:0, baseline_label:"Sep'26", end_game:'100.000',
+    targets:{ '2026-10':250, '2026-11':1250, '2026-12':2000, '2027-01':3000, '2027-02':4000, '2027-03':6000 },
+    actual_de:'new_onboarded_properties' },
+  { id:'price_competitiveness_ex_latam', name:'Price Competitiveness Destino Globales',
+    calc:'Adversidad Hoteles Directos Farm Destino GL ponderado por POS (LATAM 50% / No LATAM 50%)',
+    weight:0.20, unit:'%', inverse:true, owner:'Ivan Lovisolo', baseline:53, baseline_label:"Sep'26", end_game:'20%',
+    medicion:'Medición a mes cerrado',
+    targets:{ '2026-10':52.2, '2026-11':50.1, '2026-12':46.7, '2027-01':42.8, '2027-02':40.2, '2027-03':39.2 },
+    actual_de:'price_competitiveness_ex_latam' },
+  { id:'sales_density_top100', name:'Sales Density on Top 100 Hotels', calc:'% Selling Top 50 PoS Global Clients x Top 100 Hotels',
+    weight:0.20, unit:'%', owner:'Jordan', tag:'New KR', baseline:15, baseline_label:"Sep'26 (742 / 5.000)", end_game:'TBD',
+    targets:{ '2026-10':16, '2026-11':17, '2026-12':18, '2027-01':18.5, '2027-02':19.5, '2027-03':20 } },
+  { id:'oc_costos_atribuibles', name:'OC - Costos atribuibles', calc:'OC - Costos atribuibles',
+    weight:0.20, unit:'$M', owner:'Paola Peñarete', tag:'For Discussion', end_game:'50M (solo POS Global)', targets:{} }
+];
+
+// Arma el set nuevo con la misma forma que los krs vigentes ({id,name,weight,unit,inverse,targets,actuals,...}). vigentes = krs ya
+// armados del set vigente (para los actual_de). Sin actual_de, actuals = {} (todos null): el KR se ve con target y "—".
+function buildGlobalesNuevos_(vigentes) {
+  var byId = {};
+  (vigentes || []).forEach(function(k) { byId[k.id] = k; });
+  return GLOBALES_KRS_NUEVOS_DEF.map(function(d) {
+    var targets = {}, actuals = {}, src = d.actual_de ? byId[d.actual_de] : null;
+    GLOBALES_MESES.forEach(function(ym) {
+      targets[ym] = (d.targets && typeof d.targets[ym] === 'number') ? d.targets[ym] : null;
+      actuals[ym] = (src && src.actuals && src.actuals[ym] != null) ? src.actuals[ym] : null;
+    });
+    return { id: d.id, name: d.name, weight: d.weight, unit: d.unit, critical_ttpp: false, inverse: !!d.inverse,
+             targets: targets, actuals: actuals, actuals_gb: null, baseline: d.baseline, baseline_label: d.baseline_label,
+             medicion: d.medicion, calc: d.calc, owner: d.owner, tag: d.tag || null, end_game: d.end_game || null,
+             placeholder: true, actual_provisorio: src ? src.name : null };
+  });
+}
+
 function getGlobalesKRTargets() {
   var file = DriveApp.getFileById(OKR_JSON_FILE_ID);
   var cache = CacheService.getScriptCache();
-  var key = 'globales_okr_v5_' + file.getLastUpdated().getTime();
+  var key = 'globales_okr_v6_' + file.getLastUpdated().getTime();   // v6: suma el set nuevo (payload.nuevos)
   var hit = cache.get(key);
   if (hit) { try { return JSON.parse(hit); } catch (e) {} }
   var j = JSON.parse(file.getBlob().getDataAsString());
@@ -1548,7 +1596,15 @@ function getGlobalesKRTargets() {
     meta: { titulo: 'KR Global B2B API — OKR H2 FY27', periodo: 'H2-FY27', meses: GLOBALES_MESES,
             meses_label: GLOBALES_MESES_LABEL, actualizado: file.getLastUpdated().toISOString().substring(0, 10),
             nota: 'Fuente: okr.json (sheet Input_OKR + contable), misma que el OKR del Hub.' },
-    krs: krs
+    krs: krs,
+    // Set nuevo en propuesta (switch "Vigentes | Nuevos" de cada vista). Misma forma que el payload vigente.
+    nuevos: {
+      meta: { titulo: GLOBALES_NUEVOS_META.titulo, objetivo: GLOBALES_NUEVOS_META.objetivo, owner: GLOBALES_NUEVOS_META.owner,
+              periodo: 'H2-FY27', meses: GLOBALES_MESES, meses_label: GLOBALES_MESES_LABEL,
+              actualizado: file.getLastUpdated().toISOString().substring(0, 10), placeholder: true,
+              nota: 'Propuesta: targets de la slide del OKR; sin fuente de actuals todavía (salvo los marcados como provisorios).' },
+      krs: buildGlobalesNuevos_(krs)
+    }
   };
   try { cache.put(key, JSON.stringify(payload), 21600); } catch (e) {}
   return payload;

@@ -897,7 +897,9 @@
     var all = st.okrAll;
     if (!all && !st.okr) return '';
     // Por ahora HTML y API ven los dos OKR: el de B2B y KR Global B2B API (Diego, 2026-10-31).
-    var keys = st.lob === 'b2b2c' ? ['b2b2c'] : st.lob === 'b2b' ? ['b2b', 'globales'] : ['b2b2c', 'b2b', 'globales'];
+    // KR Global B2B API: el vigente o el nuevo en propuesta, según el switch de la tabla de OKR (window._okrGlobKey_ del Hub, 2026-11-25).
+    var gk = typeof window._okrGlobKey_ === 'function' ? window._okrGlobKey_(all ? all.H2 : st.okr) : 'globales';
+    var keys = st.lob === 'b2b2c' ? ['b2b2c'] : st.lob === 'b2b' ? ['b2b', gk] : ['b2b2c', 'b2b', gk];
     var line = function (o) {
       return keys.filter(function (k) { return o && o[k] && isFinite(o[k].halfTotal) && o[k].halfTotal !== null; }).map(function (k) {
         var v = o[k].halfTotal, cls = v >= 100 ? 'g' : v >= 80 ? 'a' : 'r';
