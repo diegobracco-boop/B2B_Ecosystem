@@ -4390,16 +4390,13 @@ function fmtGlobalTarget(v, unit) {
 function isApiHotelRow_(r, prod) { return r.parent_channel === 'API' && (prod === 'Hotel' || prod === 'Hotels'); }
 function globalesApiHotelByMonth_(meses) {
   var out = {};
-  meses.forEach(function(ym){ out[ym] = { nr: 0, bud: 0, budMtd: 0, ocG: 0 }; });
+  meses.forEach(function(ym){ out[ym] = { nr: 0, bud: 0, budMtd: 0 }; });
   if (!rawData) return out;
   var last = (rawData.meta && rawData.meta.last_actuals_date) || '';
   var isApiHotel = isApiHotelRow_;
   getActualsKR('ri').forEach(function(r){
     var ym = String(r.fecha || '').substring(0, 7);
-    if (!out[ym]) return;
-    // OC gestional del set nuevo (OC - Costos atribuibles, por ahora solo OC): FVM del canal API con PoS Global (Other Countries)
-    if (r.parent_channel === 'API' && r.pais === 'Other Countries') out[ym].ocG += (r.fvm || 0);
-    if (!isApiHotel(r, r.producto_original || '')) return;
+    if (!out[ym] || !isApiHotel(r, r.producto_original || '')) return;
     out[ym].nr += (r.net_revenue || 0);
   });
   getGoal('ri', 'budget').forEach(function(r){
@@ -4411,26 +4408,8 @@ function globalesApiHotelByMonth_(meses) {
   return out;
 }
 
-// OC del set nuevo (kr.oc_gestional): el mes usa el dato GESTIONAL si no tiene cierre contable y ya empezó (mes en curso o pasado sin
-// cierre). Mes en curso gestional → MTD: el target (Budget contable del mes) se prorratea por días para comparar.
-function ocUsaGestional_(kr, ym) {
-  var cur = ((rawData && rawData.meta && rawData.meta.last_actuals_date) || '').substring(0, 7);
-  return !!kr.oc_gestional && !(kr.actuals && kr.actuals[ym] != null) && !!cur && ym <= cur;
-}
-function ocTargetMtd_(t, ym) {
-  var last = (rawData && rawData.meta && rawData.meta.last_actuals_date) || '';
-  if (typeof t !== 'number' || last.substring(0, 7) !== ym) return t;
-  var p = ym.split('-');
-  return t * Number(last.substring(8, 10)) / new Date(+p[0], +p[1], 0).getDate();
-}
-
 // Actual del KR para un mes (o null si el KR no tiene fuente cableada / sin datos).
 function globalesActual_(kr, ym, agg) {
-  if (kr.oc_gestional) {   // cierre contable si lo hay; si no, gestional (mes en curso o pasado sin cierre); futuro: null
-    if (kr.actuals && kr.actuals[ym] != null) return kr.actuals[ym];
-    var g = agg[ym];
-    return (ocUsaGestional_(kr, ym) && g && g.ocG) ? g.ocG / 1e6 : null;
-  }
   if (kr.id === 'net_revenues_api_hoteles') {                         // MTD del daily, en $M
     var d = agg[ym]; return (d && d.nr) ? d.nr / 1e6 : null;
   }
@@ -4482,7 +4461,6 @@ function globalesScore_(kr, ym, a, t, real, agg) {
       t = t * Number(last.substring(8, 10)) / new Date(+p[0], +p[1], 0).getDate();
     }
   }
-  if (ocUsaGestional_(kr, ym)) t = ocTargetMtd_(t, ym);   // OC gestional del mes en curso: MTD vs Budget prorrateado
   var f = real ? realScore_ : okrScore_;
   if (kr.inverse) return kr.id === 'price_competitiveness_ex_latam' ? pcScore_(ym, t, a, real) : f(t, a);
   return f(a, t);
@@ -4553,8 +4531,8 @@ function renderGlobales() {
   if (meta.placeholder) {
     document.getElementById('globalesMeta').innerHTML += '<div class="glob-placeholder-note">&#9888;&#65039; Propuesta' +
       (meta.objetivo ? ' «' + meta.objetivo + '»' : '') + (meta.owner ? ' · owner ' + meta.owner : '') +
-      '. Targets de la slide del OKR. OC - Costos atribuibles es por ahora <b>solo OC</b> (sin costos atribuibles), PoS Global: mes cerrado = cierre contable; ' +
-      'mes en curso o sin cierre = gestional (FVM API), con el target prorrateado al día; target = Budget contable de OC API Globales; End Game 50M por todo el H2. ' +
+      '. Targets de la slide del OKR. OC - Costos atribuibles es por ahora <b>solo OC</b> (sin costos atribuibles), OC API de PoS Global tomado como en el contable: ' +
+      'mes con cierre = cierre contable, sin cierre = Run Rate; target = Budget contable de OC API Globales; End Game 50M por todo el H2. ' +
       'Con fuente: Grow API Global Clients y OC; ' +
       'provisorios (toman el del KR vigente equivalente): +6k New Direct Properties y Price Competitiveness; sin fuente todavía (—): Sales Density.</div>';
   }
@@ -4696,7 +4674,6 @@ function globalesTableHtml_(krs, ym, agg, tot) {
     var a = globalesActual_(kr, ym, agg);
     var tShow = t, tMtd = false;
     if (kr.id === 'net_revenues_api_hoteles' && isCur && agg[ym] && agg[ym].budMtd) { tShow = agg[ym].budMtd / 1e6; tMtd = true; }
-    if (isCur && ocUsaGestional_(kr, ym) && typeof t === 'number') { tShow = ocTargetMtd_(t, ym); tMtd = true; }
     var c = a !== null ? globalesScore_(kr, ym, a, t, true, agg) : null;
     var note = [];
     if (kr.inverse) note.push('menos es mejor');

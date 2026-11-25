@@ -5023,7 +5023,7 @@ function renderOKR(okr) {
 
     var globSw = (lobKey === 'globales' || lobKey === 'globales_nuevos') ? _okrGlobSwitch_(okr) : '';
     var globNote = lobKey === 'globales_nuevos'
-      ? '<div class="okr-note" style="margin:4px 0 6px">Propuesta «Become a Global Bedbank» (owner JP Martorell): targets de la slide del OKR. Solo PoS Global. Grow API Global Clients: partners API que compran hoteles con PoS Global (mes en curso = últimos 30 días). OC - Costos atribuibles: por ahora solo OC, sin costos atribuibles (OC API de Globales: mes cerrado = cierre contable; mes en curso o sin cierre = gestional, con el target prorrateado al día en el mes en curso; target = Budget contable; End Game 50M por todo el H2). +6k New Direct Properties y Price Competitiveness toman por ahora el del KR vigente equivalente. Sales Density: sin fuente todavía (—).</div>' : '';
+      ? '<div class="okr-note" style="margin:4px 0 6px">Propuesta «Become a Global Bedbank» (owner JP Martorell): targets de la slide del OKR. Solo PoS Global. Grow API Global Clients: partners API que compran hoteles con PoS Global (mes en curso = últimos 30 días). OC - Costos atribuibles: por ahora solo OC, sin costos atribuibles (OC API de Globales, como el contable: mes con cierre = cierre contable, sin cierre = Run Rate; target = Budget contable; End Game 50M por todo el H2). +6k New Direct Properties y Price Competitiveness toman por ahora el del KR vigente equivalente. Sales Density: sin fuente todavía (—).</div>' : '';
     html += '<div class="okr-table-wrap"><div class="okr-lob-hdr">'+d.label+globSw+expandBtn+'</div>'+globNote
            +'<table class="okr-table'+(_okrMonthly ? ' okr-monthly' : '')+(open ? '' : ' okr-collapsed')+'"><thead><tr><th>KR</th><th title="Peso del KR en el score del objetivo">Peso</th>';
 
@@ -5054,7 +5054,6 @@ function renderOKR(okr) {
           var tip = imp ? 'Sin dato: se toma igual al target'
                   : est === 'Proyeccion' ? 'Proyección (sin cierre contable)'
                   : est === 'MTD' ? 'Mes en curso, a la fecha'
-                  : est === 'Gestional' ? 'Información gestional (el mes todavía no tiene cierre contable)'
                   : est === 'MesMovil' ? 'Mes en curso: compradores únicos de los últimos N días hasta ayer (N = días del mes), llevados al mes con el target: valor × target del mes / target de esos días (el % es ventana vs target de la ventana)'
                   : est === 'Rolling30' ?'Últimos 30 días (móvil, hasta ayer); se congela el primer día hábil del mes siguiente'
                   : est === 'Actual' ? 'Actual (cierre contable)' : est === 'Real' ? 'Real (Datalake, mes cerrado)' : '';

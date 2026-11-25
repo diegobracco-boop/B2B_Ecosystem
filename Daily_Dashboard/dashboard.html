@@ -4149,11 +4149,7 @@ function renderKrDetail_() {
           a = g.nr ? g.nr / 1e6 : null; t = g.bud ? g.bud / 1e6 : null; tSc = g.budMtd ? g.budMtd / 1e6 : null;
           if (ym <= curYM) { sumA += g.nr; sumB += g.budMtd; }
         }
-        if (kr.oc_gestional && h2Months.indexOf(ym) !== -1) {   // OC Globales: cierre contable o gestional (MTD, target prorrateado)
-          var oc = globalesOcMes_(kr, _rawB2B ? rawKr : null, ym, vDate);
-          a = oc.a; tSc = oc.tSc;
-          if (ym <= curYM && a !== null && tSc !== null) { sumA += a * 1e6; sumB += tSc * 1e6; }
-        }
+        if (kr.id === 'oc_costos_atribuibles' && ym <= curYM && a !== null && t !== null) { sumA += a * 1e6; sumB += t * 1e6; }   // OC: flujo, H2 acum. = suma
         if (ym > curYM) return metaCell(ym, t !== null ? fv(t) : null);
         if (a === null && t === null) return '<td' + tdCls(ym) + '><span class="krd-chip n">—</span></td>';
         var pcK = kr.id === 'price_competitiveness_ex_latam';
@@ -4162,13 +4158,13 @@ function renderKrDetail_() {
           (scoreByYM[ym] = scoreByYM[ym] || []).push({ c: sc, w: w });
           if (ym >= KRD_H2_START) last = { a: a, t: isNR ? tSc : t, sc: sc, ratio: kr.inverse ? (pcK ? pcScore_(ym, tSc, a, true) : krdRatio_(tSc, a)) : krdRatio_(a, tSc) };
         }
-        return dataCell(tdCls(ym), krdChip_(a === null ? null : kr.inverse ? (pcK ? pcScore_(ym, tSc, a, true) : krdRatio_(tSc, a)) : krdRatio_(a, tSc)), fv(a), fv((isNR || kr.oc_gestional) ? tSc : t));
+        return dataCell(tdCls(ym), krdChip_(a === null ? null : kr.inverse ? (pcK ? pcScore_(ym, tSc, a, true) : krdRatio_(tSc, a)) : krdRatio_(a, tSc)), fv(a), fv(isNR ? tSc : t));
       }).join('');
       var ytd = '<td class="krd-ytd"><span class="krd-chip n">—</span></td>';
-      if ((isNR || kr.oc_gestional) && sumB) {   // flujos: H2 acum. = suma (NR y OC)
+      if ((isNR || kr.id === 'oc_costos_atribuibles') && sumB) {   // flujos: H2 acum. = suma (NR y OC)
         ytdScores.push({ c: okrScore_(sumA, sumB), w: w });
         ytd = dataCell(' class="krd-ytd"', krdChip_(krdRatio_(sumA, sumB)), fv(sumA / 1e6), fv(sumB / 1e6));
-      } else if (!isNR && !kr.oc_gestional && last) {
+      } else if (!isNR && kr.id !== 'oc_costos_atribuibles' && last) {
         ytdScores.push({ c: last.sc, w: w });
         ytd = dataCell(' class="krd-ytd"', krdChip_(last.ratio), fv(last.a), fv(last.t));
       }
@@ -4281,10 +4277,9 @@ function computeGlobalesApiHotelMonth_(raw, ym, upTo){
   var from=ym+'-01', end=ym+'-'+String(new Date(+pp[0],+pp[1],0).getDate()).padStart(2,'0'), to=end;
   if(upTo && upTo<to) to=upTo;
   function apiHotel(r,p){ return r.parent_channel==='API' && (p==='Hotel'||p==='Hotels'); }
-  var nr=0, bud=0, budMtd=0, ocG=0;
+  var nr=0, bud=0, budMtd=0;
   src.forEach(function(r){
     if(r.fecha<from||r.fecha>to)return;
-    if(r.parent_channel==='API' && r.pais==='Other Countries') ocG+=(r.fvm||0);   // OC gestional (FVM API Globales) del set nuevo
     if(!apiHotel(r, r.producto_original||''))return;
     nr+=(r.net_revenue||0);
   });
@@ -4293,20 +4288,7 @@ function computeGlobalesApiHotelMonth_(raw, ym, upTo){
     bud+=(r.net_revenue||0);
     if(r.fecha<=to) budMtd+=(r.net_revenue||0);
   });
-  return {nr:nr, bud:bud, budMtd:budMtd, ocG:ocG};
-}
-
-// OC del set nuevo (kr.oc_gestional, "OC - Costos atribuibles" = por ahora solo OC de Globales): mes con cierre contable = kr.actuals;
-// mes en curso o pasado sin cierre = gestional (FVM API Other Countries, MTD); futuro = null. Devuelve {a, t, tSc} en $M:
-// en el mes en curso gestional el target para el score (tSc) es el Budget contable prorrateado por días.
-function globalesOcMes_(kr, raw, ym, upTo){
-  var t=kr.targets?kr.targets[ym]:null; if(t===undefined) t=null;
-  if(kr.actuals && kr.actuals[ym]!=null) return {a:kr.actuals[ym], t:t, tSc:t};
-  var cur=String(upTo||'').substring(0,7);
-  if(!raw || !cur || ym>cur) return {a:null, t:t, tSc:t};
-  var g=computeGlobalesApiHotelMonth_(raw, ym, upTo), tSc=t;
-  if(ym===cur && t!==null){ var p=ym.split('-'); tSc=t*Number(String(upTo).substring(8,10))/new Date(+p[0],+p[1],0).getDate(); }
-  return {a:g.ocG?g.ocG/1e6:null, t:t, tSc:tSc};
+  return {nr:nr, bud:bud, budMtd:budMtd};
 }
 
 function globalesRefYM_(meses, viewDate){
@@ -4341,7 +4323,6 @@ function renderKRsGlobales_(){
       a=agg.nr?agg.nr/1e6:null;
       if(agg.bud){ t=agg.bud/1e6; tSc=agg.budMtd/1e6; } else { t=null; tSc=null; }
     }
-    else if(kr.oc_gestional){ var oc=globalesOcMes_(kr, _rawB2B?_krRawB2B_(_rawB2B):null, refYM, vd); a=oc.a; tSc=oc.tSc; }   // OC Globales: contable o gestional MTD
     else if(kr.actuals && kr.actuals[refYM]!=null) a=kr.actuals[refYM];                  // mensual, Input_OKR
     var sc=kr.inverse?(kr.id==='price_competitiveness_ex_latam'?pcScore_(refYM,tSc,a,false):okrScore_(tSc,a)):okrScore_(a,tSc), pct=sc!==null?Math.round(sc*100):null;   // regla única de OKR; inverse: menos es mejor
     var ex=kr.placeholder?[kr.calc, kr.owner?'owner '+kr.owner:'', kr.end_game?'End Game '+kr.end_game:'',
@@ -4354,7 +4335,7 @@ function renderKRsGlobales_(){
         '<div class="kr-sub-item"><span class="kr-sub-lbl">Target</span><span>'+fmtVal(t,kr.unit)+'</span></div>'+
       '</div></div>';
   }).join('');
-  if(sub && meta.placeholder){ sub.textContent='Mes de referencia: '+(labels[idx]||refYM)+'  ·  ⚠️ Propuesta «'+(meta.objetivo||'')+'» (owner '+(meta.owner||'')+'): targets de la slide del OKR. Con fuente: Grow API Global Clients (partners API, hoteles, PoS Global) y OC - Costos atribuibles, que por ahora es solo OC, sin costos atribuibles (OC API de Globales: mes cerrado = cierre contable, mes en curso o sin cierre = gestional; target = Budget contable, prorrateado al día en el mes en curso; End Game 50M por todo el H2); +6k New Direct Properties y Price Competitiveness toman por ahora el del KR vigente; Sales Density, sin fuente (—). Pasá el mouse por cada card para ver cálculo, owner y End Game.'; return; }
+  if(sub && meta.placeholder){ sub.textContent='Mes de referencia: '+(labels[idx]||refYM)+'  ·  ⚠️ Propuesta «'+(meta.objetivo||'')+'» (owner '+(meta.owner||'')+'): targets de la slide del OKR. Con fuente: Grow API Global Clients (partners API, hoteles, PoS Global) y OC - Costos atribuibles, que por ahora es solo OC, sin costos atribuibles (OC API de Globales, como en el contable: mes con cierre = cierre contable, sin cierre = Run Rate; target = Budget contable; End Game 50M por todo el H2); +6k New Direct Properties y Price Competitiveness toman por ahora el del KR vigente; Sales Density, sin fuente (—). Pasá el mouse por cada card para ver cálculo, owner y End Game.'; return; }
   if(sub) sub.textContent='Mes de referencia: '+(labels[idx]||refYM)+'  ·  fuente: okr.json (igual que el OKR del Hub) · NR actual = daily MTD (API · Hoteles · todos los países) vs budget gestional del daily MTD · resto = valor del mes de Input_OKR · Price Competitiveness: menos es mejor.';
 }
 

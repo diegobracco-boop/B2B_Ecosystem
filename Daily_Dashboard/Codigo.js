@@ -1533,14 +1533,13 @@ var GLOBALES_KRS_NUEVOS_DEF = [
     weight:0.20, unit:'%', owner:'Jordan', tag:'New KR', baseline:15, baseline_label:"Sep'26 (742 / 5.000)", end_game:'TBD',
     targets:{ '2026-10':16, '2026-11':17, '2026-12':18, '2027-01':18.5, '2027-02':19.5, '2027-03':20 } },
   // "Solo globales; OC - costos atribuibles = solo OC por ahora" (2026-11-25, definido por antonella.difranco): canal API (MAY), país
-  // Others Countries. Actual: mes con cierre contable = el OC del cierre (filas Estado "Actual" de OKR_H2_FY27.json); mes en curso o mes
-  // pasado todavía sin cierre = GESTIONAL (FVM API de Other Countries de okr_h2_managerial.json, lo suma el cliente: kr.oc_gestional);
-  // meses futuros sin actual (no se usa el Run Rate). Target = Budget contable de OC API Others Countries (la slide dice TBD por mes);
-  // en el mes en curso el cliente lo prorratea por días. End Game: 50M por todo el H2. Es solo OC: todavía sin los costos atribuibles.
-  { id:'oc_costos_atribuibles', name:'OC - Costos atribuibles (por ahora solo OC)', calc:'Por ahora solo OC (sin costos atribuibles): OC API · PoS Global',
+  // Others Countries, de OKR_H2_FY27.json. Se toma IGUAL que las secciones contables: mes con cierre contable = el OC del cierre (Estado
+  // "Actual"); mes sin cierre = el Run Rate (Estado "Proyeccion"). Target = Budget contable de OC API Others Countries (la slide dice TBD
+  // por mes). End Game: 50M por todo el H2. Es solo OC: todavía sin los costos atribuibles.
+  { id:'oc_costos_atribuibles', name:'OC - Costos atribuibles (por ahora solo OC)', calc:'Por ahora solo OC (sin costos atribuibles): OC API · PoS Global, contable',
     weight:0.20, unit:'$M', owner:'Paola Peñarete', tag:'For Discussion', end_game:'50M (todo el H2, solo POS Global)', targets:{},
-    actual_fuente:'oc_api_globales', target_fuente:'oc_api_globales', oc_gestional:true,
-    medicion:'Mes cerrado: cierre contable · mes en curso o sin cierre: gestional (FVM) · target = Budget contable' }
+    actual_fuente:'oc_api_globales', target_fuente:'oc_api_globales',
+    medicion:'Mes con cierre: cierre contable · sin cierre: Run Rate · target = Budget contable' }
 ];
 var OKR_H2_FY27_FILE_ID = '1lsMF9_d1t55boO8Wr8vziMsFT9LQioov';   // OKR_H2_FY27.json (mismo id que OKR_H2_FILE_ID del Hub)
 
@@ -1560,14 +1559,13 @@ function globalesNuevosFuentes_() {
     var hf = DriveApp.getFileById(OKR_H2_FY27_FILE_ID), hj = JSON.parse(hf.getBlob().getDataAsString());
     out.ts.push(hf.getLastUpdated().getTime());
     var c = hj.cols, iP = c.indexOf('Periodo'), iE = c.indexOf('Escenario'), iPa = c.indexOf('Pais'), iK = c.indexOf('KR'), iV = c.indexOf('Valor'),
-        iS = c.indexOf('Estado'), iL = c.indexOf('LoB');
+        iL = c.indexOf('LoB');
     (hj.rows || []).forEach(function(row) {
       if (String(row[iK]).trim().toLowerCase() !== 'operating contribution api') return;
       if (iL >= 0 && String(row[iL]).trim().toLowerCase() !== 'b2b') return;   // mismo filtro que el Hub (globalesNuevosRows_)
       var pa = String(row[iPa]).trim().toLowerCase();
       if (pa !== 'others countries' && pa !== 'other countries') return;
-      var ym = String(row[iP]).substring(0, 7), esc = String(row[iE]).toLowerCase().indexOf('budget') >= 0 ? 'bud' : 'act';
-      if (esc === 'act' && iS >= 0 && String(row[iS]) !== 'Actual') return;   // solo el cierre contable (la Proyeccion = Run Rate no va)
+      var ym = String(row[iP]).substring(0, 7), esc = String(row[iE]).toLowerCase().indexOf('budget') >= 0 ? 'bud' : 'act';   // act = cierre contable (Actual) o Run Rate (Proyeccion), como en el contable
       var s = out.oc_api_globales[esc];
       s[ym] = (s[ym] || 0) + (Number(row[iV]) || 0) / 1e6;
     });
@@ -1594,7 +1592,7 @@ function buildGlobalesNuevos_(vigentes, fuentes) {
     return { id: d.id, name: d.name, weight: d.weight, unit: d.unit, critical_ttpp: false, inverse: !!d.inverse,
              targets: targets, actuals: actuals, actuals_gb: null, baseline: d.baseline, baseline_label: d.baseline_label,
              medicion: d.medicion, calc: d.calc, owner: d.owner, tag: d.tag || null, end_game: d.end_game || null,
-             placeholder: true, actual_provisorio: src ? src.name : null, con_fuente: !!d.actual_fuente, oc_gestional: !!d.oc_gestional };
+             placeholder: true, actual_provisorio: src ? src.name : null, con_fuente: !!d.actual_fuente };
   });
 }
 
