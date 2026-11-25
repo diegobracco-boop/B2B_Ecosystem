@@ -1505,10 +1505,10 @@ var GLOBALES_MESES_LABEL = ["Oct'26","Nov'26","Dic'26","Ene'27","Feb'27","Mar'27
 
 // KR Global B2B API — set NUEVO en propuesta (slide "B2B PoS Global API Hotels · Become a Global Bedbank", owner JP Martorell,
 // 2026-11-25, pedido de antonella.difranco). Convive con el vigente (GLOBALES_KRS_DEF) detrás de un switch "Vigentes | Nuevos" en
-// cada vista hasta que confirmen qué set queda; el vigente no se toca. PLACEHOLDER: los targets son los de la slide (en el código,
-// no en Input_OKR) y todavía no hay fuente para los actuals. Dos KRs toman PROVISORIAMENTE el actual del KR vigente equivalente
-// (actual_de; mismos targets): +6k New Direct Properties ← New Onboarded Properties y Price Competitiveness ← el vigente (por eso
-// conserva el id: así le aplica la escala no lineal de pcRatio_). Al definir las fuentes, reemplazar actual_de por la real.
+// cada vista hasta que confirmen qué set queda; el vigente no se toca. Los targets son los de la slide (en el código, no en Input_OKR).
+// Actuals: actual_fuente = fuente propia (globalesNuevosFuentes_: Grow ← partners API, +6k New Direct Properties ← altas de Sourcing,
+// OC ← OKR_H2_FY27.json); actual_de = PROVISORIO, el actual del KR vigente equivalente (hoy solo Price Competitiveness, que por eso
+// conserva el id: así le aplica la escala no lineal de pcRatio_); sin ninguno de los dos (Sales Density), sin actual.
 //   end_game: target "End Game" de la slide (texto, no entra al score) · tag: rótulo de la slide (Scope + Ambition, New KR...).
 var GLOBALES_NUEVOS_META = { titulo: 'KR Global B2B API — nuevos (propuesta) · B2B PoS Global API Hotels', objetivo: 'Become a Global Bedbank',
                              owner: 'Juan Pablo Martorell' };
@@ -1519,10 +1519,12 @@ var GLOBALES_KRS_NUEVOS_DEF = [
     weight:0.20, unit:'# Partners', owner:'Paola Peñarete', tag:'Scope + Ambition', baseline:139, baseline_label:"Sep'26", end_game:'500',
     targets:{ '2026-10':150, '2026-11':160, '2026-12':170, '2027-01':180, '2027-02':190, '2027-03':200 },
     actual_fuente:'partners_hoteles_global', medicion:'Mes en curso: últimos 30 días' },
-  { id:'new_direct_properties', name:'+6k New Direct Properties', calc:'Incremental Direct Properties (New Direct Props.)',
+  // actual_fuente 'altas_directas': altas_directas_okr.json (altas_directas_sync.py, reporte semanal de altas de Sourcing, cadenas NO
+  // Latam): mes cerrado = última semana completa del mes; mes en curso = última semana del mes (RR). Oct-26 = semana 44.
+  { id:'new_direct_properties', name:'+6k New Direct Properties', calc:'Altas de cadenas NO Latam (reporte semanal de Sourcing)',
     weight:0.20, unit:'# Hoteles', owner:'Ivan Lovisolo', tag:'Ambition', baseline:0, baseline_label:"Sep'26", end_game:'100.000',
     targets:{ '2026-10':250, '2026-11':1250, '2026-12':2000, '2027-01':3000, '2027-02':4000, '2027-03':6000 },
-    actual_de:'new_onboarded_properties' },
+    actual_fuente:'altas_directas', medicion:'Mes cerrado: última semana completa · mes en curso: última semana' },
   { id:'price_competitiveness_ex_latam', name:'Price Competitiveness Destino Globales',
     calc:'Adversidad Hoteles Directos Farm Destino GL ponderado por POS (LATAM 50% / No LATAM 50%)',
     weight:0.20, unit:'%', inverse:true, owner:'Ivan Lovisolo', baseline:53, baseline_label:"Sep'26", end_game:'20%',
@@ -1542,11 +1544,17 @@ var GLOBALES_KRS_NUEVOS_DEF = [
     medicion:'Mes con cierre: cierre contable · sin cierre: Run Rate · target = Budget contable' }
 ];
 var OKR_H2_FY27_FILE_ID = '1lsMF9_d1t55boO8Wr8vziMsFT9LQioov';   // OKR_H2_FY27.json (mismo id que OKR_H2_FILE_ID del Hub)
+var ALTAS_DIRECTAS_FILE = 'altas_directas_okr.json';   // altas_directas_sync.py (carpeta de los JSON del Daily)
 
 // Series mensuales de las fuentes del set nuevo: { partners_hoteles_global: {act:{ym:v}}, oc_api_globales: {act:{ym:$M}, bud:{ym:$M}} }.
 // Cada fuente que no se pueda leer queda vacía (el KR se ve con "—"), sin romper el resto.
 function globalesNuevosFuentes_() {
-  var out = { partners_hoteles_global: { act: {}, bud: {} }, oc_api_globales: { act: {}, bud: {} }, ts: [] };
+  var out = { partners_hoteles_global: { act: {}, bud: {} }, oc_api_globales: { act: {}, bud: {} }, altas_directas: { act: {}, bud: {} }, ts: [] };
+  try {
+    var af = _driveFile_(ALTAS_DIRECTAS_FILE), aj = JSON.parse(af.getBlob().getDataAsString()), am = aj.meses || {};
+    out.ts.push(af.getLastUpdated().getTime());
+    Object.keys(am).forEach(function(ym) { if (typeof am[ym].valor === 'number') out.altas_directas.act[ym] = am[ym].valor; });
+  } catch (e) { Logger.log('globalesNuevosFuentes_: altas directas ' + e.message); }
   try {
     var pf = _driveFile_(PARTNERS_API_FILE), pj = JSON.parse(pf.getBlob().getDataAsString());
     out.ts.push(pf.getLastUpdated().getTime());
@@ -1603,6 +1611,7 @@ function getGlobalesKRTargets() {
   var tsN = [];
   try { tsN.push(_driveFile_(PARTNERS_API_FILE).getLastUpdated().getTime()); } catch (e) {}
   try { tsN.push(DriveApp.getFileById(OKR_H2_FY27_FILE_ID).getLastUpdated().getTime()); } catch (e) {}
+  try { tsN.push(_driveFile_(ALTAS_DIRECTAS_FILE).getLastUpdated().getTime()); } catch (e) {}
   var key = 'globales_okr_v7_' + file.getLastUpdated().getTime() + '_' + tsN.join('_');
   var hit = cache.get(key);
   if (hit) { try { return JSON.parse(hit); } catch (e) {} }
@@ -1651,7 +1660,7 @@ function getGlobalesKRTargets() {
       meta: { titulo: GLOBALES_NUEVOS_META.titulo, objetivo: GLOBALES_NUEVOS_META.objetivo, owner: GLOBALES_NUEVOS_META.owner,
               periodo: 'H2-FY27', meses: GLOBALES_MESES, meses_label: GLOBALES_MESES_LABEL,
               actualizado: file.getLastUpdated().toISOString().substring(0, 10), placeholder: true,
-              nota: 'Propuesta: targets de la slide del OKR. Con fuente: Grow API Global Clients (partners API) y OC (contable, solo Globales); provisorios: +6k New Direct Properties y Price Competitiveness; sin fuente: Sales Density.' },
+              nota: 'Propuesta: targets de la slide del OKR. Con fuente: Grow API Global Clients (partners API), +6k New Direct Properties (altas de Sourcing) y OC (contable, solo Globales); provisorio: Price Competitiveness; sin fuente: Sales Density.' },
       krs: buildGlobalesNuevos_(krs, globalesNuevosFuentes_())
     }
   };

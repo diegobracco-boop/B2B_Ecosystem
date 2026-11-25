@@ -2831,6 +2831,17 @@ try:
 except (Exception, SystemExit) as e:
     print(f"  WARN Partners API fallo ({e}) — queda el partners_api_snapshots.json anterior en Drive")
 
+# Altas directas (KR "+6k New Direct Properties" del set nuevo del KR Global B2B API): reporte semanal de altas de Sourcing, cadenas
+# NO Latam; mes cerrado = ultima semana completa, mes en curso = ultima semana (ver altas_directas_sync.py). No corta la sync.
+print("\n--- Altas directas (KR +6k New Direct Properties) ---")
+try:
+    import altas_directas_sync as _alt
+    _alt_payload = _alt.build_payload(fetch)
+    if _alt_payload is not None:
+        upload_to_drive(json.dumps(_alt_payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8"), _alt.FILE_NAME)
+except (Exception, SystemExit) as e:
+    print(f"  WARN Altas directas fallo ({e}) — queda el altas_directas_okr.json anterior en Drive")
+
 # Pipeline B2B2C (Pipeline Hunting): deals del pipeline de HubSpot para la slide del Flow y la pagina /pipeline-hunting de Ownia
 # (ver pipeline_b2b2c_sync.py). No corta la sync: si falla queda el pipeline_b2b2c.json anterior.
 print("\n--- Pipeline B2B2C (Pipeline Hunting) ---")

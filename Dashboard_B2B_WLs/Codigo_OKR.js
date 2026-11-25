@@ -77,7 +77,7 @@ var OKR_CONFIG_H2 = {
   // KR Global B2B API — set NUEVO en propuesta (slide "B2B PoS Global API Hotels · Become a Global Bedbank", owner JP Martorell,
   // 2026-11-25, pedido de antonella.difranco). La landing muestra 'globales' o 'globales_nuevos' según el switch "KRs vigentes |
   // KRs nuevos" (localStorage 'okr_glob_set'); el vigente no se toca. PLACEHOLDER: no está en okr.json, las filas las arma
-  // globalesNuevosRows_ (targets de GLOBALES_NUEVOS_TARGETS; actual provisorio del KR vigente equivalente donde hay uno).
+  // globalesNuevosRows_ (targets de GLOBALES_NUEVOS_TARGETS; actuals de las fuentes propias o, provisorio, del KR vigente equivalente).
   // Mismos KRs y targets que GLOBALES_KRS_NUEVOS_DEF del Daily (Daily_Dashboard/Codigo.js): si cambian, cambiar los dos.
   'globales_nuevos': {
     label: 'KR Global B2B API · nuevos (propuesta)',
@@ -91,12 +91,11 @@ var OKR_CONFIG_H2 = {
   }
 };
 
-// Targets (Budget) del set nuevo, de la slide. OC - Costos atribuibles: TBD (sin filas). actual_de: KR vigente (lob 'globales') del
-// que se copia el actual mientras no haya fuente propia (mismos targets en la slide).
+// Targets (Budget) del set nuevo, de la slide (el de OC sale del Budget contable, ver globalesNuevosRows_). actual_de: KR vigente
+// (lob 'globales') del que se copia el actual mientras no haya fuente propia (hoy solo Price Competitiveness).
 var GLOBALES_NUEVOS_TARGETS = {
   'grow +44% api global clients portfolio': { t: { '2026-10':150, '2026-11':160, '2026-12':170, '2027-01':180, '2027-02':190, '2027-03':200 } },
-  '+6k new direct properties':              { t: { '2026-10':250, '2026-11':1250, '2026-12':2000, '2027-01':3000, '2027-02':4000, '2027-03':6000 },
-                                              actual_de: 'new onboarded properties global & regional chains' },
+  '+6k new direct properties':              { t: { '2026-10':250, '2026-11':1250, '2026-12':2000, '2027-01':3000, '2027-02':4000, '2027-03':6000 } },
   'price competitiveness destino globales': { t: { '2026-10':52.2, '2026-11':50.1, '2026-12':46.7, '2027-01':42.8, '2027-02':40.2, '2027-03':39.2 },
                                               actual_de: 'price competitiveness ex-latam (destino gl)' },
   'sales density on top 100 hotels':        { t: { '2026-10':16, '2026-11':17, '2026-12':18, '2027-01':18.5, '2027-02':19.5, '2027-03':20 } }
@@ -110,6 +109,25 @@ var GLOBALES_NUEVOS_TARGETS = {
 // Mismas fuentes que el Daily (globalesNuevosFuentes_ en Daily_Dashboard/Codigo.js).
 var PARTNERS_API_FOLDER_ID = '1lWzfqweyV6Kz1ERkL85ikFcmzmKwGwwh';   // carpeta de los JSON del Daily (misma que WEEKLY_INSIGHTS_FOLDER_ID)
 var PARTNERS_API_FILENAME  = 'partners_api_snapshots.json';
+// +6k New Direct Properties: altas_directas_okr.json (Daily_Dashboard/altas_directas_sync.py, reporte semanal de altas de Sourcing,
+// cadenas NO Latam). Mes cerrado = última semana completa del mes (Estado Real); mes en curso = última semana del mes (MTD, el RR).
+var ALTAS_DIRECTAS_FILENAME = 'altas_directas_okr.json';
+function globalesNuevosAltasRows_() {
+  var out = [];
+  try {
+    var files = DriveApp.getFolderById(PARTNERS_API_FOLDER_ID).getFilesByName(ALTAS_DIRECTAS_FILENAME);
+    if (!files.hasNext()) return out;
+    var meses = JSON.parse(files.next().getBlob().getDataAsString()).meses || {};
+    Object.keys(meses).forEach(function(ym) {
+      var m = meses[ym];
+      if (typeof m.valor !== 'number') return;
+      out.push({ ym: ym, escenario: 'run rate/actuals', lob: 'globales_nuevos', kr: '+6k new direct properties',
+                 valor: m.valor, estado: m.estado === 'Cierre' ? 'Real' : 'MTD' });
+    });
+  } catch (e) { Logger.log('globalesNuevosAltasRows_: ' + e.message); }
+  return out;
+}
+
 function globalesNuevosPartnersRows_() {
   var out = [];
   try {
@@ -133,7 +151,7 @@ function globalesNuevosPartnersRows_() {
 // Filas del set nuevo (lob 'globales_nuevos') para computeOKR_: Budget = targets de la slide; Run Rate/Actuals = copia de las filas
 // del KR vigente de actual_de (las mismas que ve el bloque vigente). Los KRs sin fuente quedan sin actual (OKR_NOFILL_: no toman el target).
 function globalesNuevosRows_(rows) {
-  var out = globalesNuevosPartnersRows_();
+  var out = globalesNuevosPartnersRows_().concat(globalesNuevosAltasRows_());
   // OC - Costos atribuibles = por ahora solo OC (sin costos atribuibles): OC API · Others Countries (solo OKR_H2_FY27.json trae el país),
   // tomado IGUAL que el contable: Budget = target; Run Rate/Actuals = cierre contable (Estado "Actual") o Run Rate (Estado "Proyeccion").
   (rows || []).forEach(function(r) {
