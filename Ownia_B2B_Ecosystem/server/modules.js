@@ -33,7 +33,8 @@ const EQUIPO_B2B = [
 ];
 
 // Capa visual del Hub: la comparten `hub` y su respaldo con Drive (`hub-drive`).
-const HUB_LAYOUT = ['filter-aliases.js', 'portal-ask.js', 'hub-layout.js', 'hub-h2h1.js', 'hub-slides.js', 'hub-cierre.js', 'hub-builder.js', 'hub-mkt-story.js'];
+// oc-bridge.js: bridge de OC del P&L Accounting como lógica pura (sección B2B del Flow mensual, 2026-11-25); va antes de hub-slides.js.
+const HUB_LAYOUT = ['filter-aliases.js', 'portal-ask.js', 'hub-layout.js', 'hub-h2h1.js', 'oc-bridge.js', 'hub-slides.js', 'hub-cierre.js', 'hub-builder.js', 'hub-mkt-story.js'];
 
 const MODULES = [
   {
@@ -174,7 +175,8 @@ const MODULES = [
     fuente: 'consolidador',
     gasExtras: ['pnl-accounting-fbtb.js', 'pnl-accounting-byprod.js', 'pnl-accounting-consolidador.js'],
     // getEPMBaselineGoalData: la carga principal (en frío ~13 s en producción); depende solo de los filtros y de los canónicos, igual que getEPMBreakdown
-    cacheFns: ['getEPMBaselineGoalData', 'getEPMBreakdown'],   // (se invalidan cuando cambia un archivo que lee el módulo)
+    // getEPMB2BCountryDetail: la vista B2B y el OC Bridge de la sección B2B del Flow mensual (2026-11-25); depende solo de sus parámetros
+    cacheFns: ['getEPMBaselineGoalData', 'getEPMBreakdown', 'getEPMB2BCountryDetail'],   // (se invalidan cuando cambia un archivo que lee el módulo)
     gasUrl: GAS_EXEC + 'AKfycby9WZK2HfAWx25M5pEMV3nntzJfEvsiT9feMn01zJQkQaI3t2GjTzOIjbFXWexnMuzklQ/exec',
   },
   {
@@ -192,7 +194,7 @@ const MODULES = [
     quickViews: [['contable-combined', 'B2B + B2B2C'], ['contable-b2b', 'B2B'], ['contable-b2b2c', 'B2B2C']],
     layout: 'pnl-accounting-layout.js',
     gasExtras: ['pnl-accounting-fbtb.js', 'pnl-accounting-byprod.js'],
-    cacheFns: ['getEPMBaselineGoalData', 'getEPMBreakdown'],
+    cacheFns: ['getEPMBaselineGoalData', 'getEPMBreakdown', 'getEPMB2BCountryDetail'],
     gasUrl: '',
   },
   {

@@ -24,6 +24,10 @@
  *   Al final (2026-11-03): las slides de "Mis slides" marcadas "Agregar al final del Flow mensual" (inFlow, de cualquier
  *   dueño), con el render de public/hub-builder.js (OwniaBuilder.flowSlides). Van al final para no correr los índices
  *   de las slides fijas.
+ *   Sección B2B (2026-11-25, para el VP comercial; switch "Sección: Todo | B2B" del deck, &seccion=b2b en el link): portada, P&L H2 por quarter
+ *   (Q3 · Q4 · H2) y debajo H1 · H2 · FY de B2B, API (MAY) y HTML (MIN) en cards GB / NR / OC vs Budget y YoY (sB2BPnl), y el OC Bridge Q3 / Q4
+ *   del P&L Accounting (sB2BBridge: getEPMB2BCountryDetail de ese módulo + public/oc-bridge.js, Budget → palancas por región, incentivos
+ *   regionales, marketing, costos fijos, resto → Baseline). Con "Todo" va después de "B2B2C FVM vs OC"; con "B2B" el deck es solo eso.
  *   (Pendiente: Status OKRs.)
  *
  * Datos: getAllData del Hub (los mismos números que el resto del dashboard) — `evo` trae los 12
@@ -70,6 +74,10 @@
   // outDetail: en las slides de Proyección, el detalle del mes siguiente y de cada Q debajo del semestre (Diego 2026-10-29:
   // por defecto sin detalle; el switch "Detalle Q" lo agrega). Se recuerda en el navegador.
   try { state.outDetail = localStorage.getItem('hs-outdetail') === '1'; } catch (e) { state.outDetail = false; }
+  // section: 'all' (todo el deck) | 'b2b' (solo la sección B2B). Se recuerda en el navegador; &seccion=b2b en el link la fuerza.
+  try { state.section = localStorage.getItem('hs-section') === 'b2b' ? 'b2b' : 'all'; } catch (e) { state.section = 'all'; }
+  var secQ = /[?&]seccion=(b2b|all)\b/.exec(location.search);
+  if (secQ) state.section = secQ[1];
 
   // ── Datos ──────────────────────────────────────────────────────────────────────────────────
   function organicOn() { var st = window._state; return !!(st && st.organic); }
@@ -598,8 +606,155 @@
       (d.missing && d.missing.length ? ' Sin TC: ' + esc(d.missing.slice(0, 3).join(', ')) + '.' : '') + '</div>' + foot();
   }
 
+  // ── Sección B2B (2026-11-25, Diego, para el VP comercial): P&L H2 por quarter + H1 / H2 / FY de B2B, API y HTML, y el bridge
+  // de OC del P&L Accounting para Q3 y Q4. Con el switch "Sección: B2B" el deck muestra solo estas slides (y el PPTX / PDF sale solo con ellas).
+  var B2B_NAMES = { b2b: 'B2B', may: 'B2B API (MAY)', min: 'B2B HTML (MIN)' };
+  // Estado de un período: real, Run Rate o mezcla (con el mes de corte del deck)
+  function perSub(idx) {
+    var ci = closedIdx(), P = fyPeriods(), closed = idx.filter(function (i) { return i <= ci; });
+    var lbl = MES[+P[idx[0]].slice(5) - 1] + '–' + MES[+P[idx[idx.length - 1]].slice(5) - 1];
+    if (closed.length === idx.length) return lbl + ' · real';
+    if (!closed.length) return lbl + ' · Run Rate';
+    return lbl + ' · real ' + (closed.length === 1 ? MES[+P[closed[0]].slice(5) - 1].toLowerCase() : 'a ' + MES[+P[closed[closed.length - 1]].slice(5) - 1].toLowerCase()) + ' + RR';
+  }
+  function pcell(s, mk, idx) {
+    var o = agg(s[mk], idx), g = agg(s.gb, idx);
+    var mg = mk === 'gb' || !g.act ? '' : ' · <span class="hs-pcm">' + (o.act / g.act * 100).toFixed(1) + '% GB' + (g.bud ? ' (Bud ' + (o.bud / g.bud * 100).toFixed(1) + '%)' : '') + '</span>';
+    return '<div class="hs-pc"><div class="hs-pcv">' + m1(o.act) + '</div>' +
+      '<div class="hs-pcl"><span class="' + cls(o.vsAbs) + '">' + money(o.vsAbs) + pcIf(o) + '</span> vs Bud</div>' +
+      '<div class="hs-pcl hs-pcl2"><span class="' + cls(o.yoy) + '">' + (Math.abs(o.yoy) < 500 ? pc(o.yoy) : 'n/d') + '</span> YoY' + mg + '</div></div>';
+  }
+  function pgrid(tag, s, pers) {
+    return '<div class="hs-pg"><div class="hs-pgt">' + tag + '</div>' +
+      pers.map(function (p) { return '<div class="hs-pgh' + (p.hi ? ' hs-pghi' : '') + '"><b>' + p.name + '</b><span>' + perSub(p.idx) + '</span></div>'; }).join('') +
+      ROWS.map(function (r) {
+        return '<div class="hs-pgl">' + r[1] + '</div>' + pers.map(function (p) { return '<div class="' + (p.hi ? 'hs-pghic' : '') + '">' + pcell(s, r[0], p.idx) + '</div>'; }).join('');
+      }).join('') + '</div>';
+  }
+  function b2bPnlDraft(s) {
+    var q3 = agg(s.oc, range(6, 8)), q4 = agg(s.oc, range(9, 11)), h2 = agg(s.oc, range(6, 11)), fy = agg(s.oc, range(0, 11)), n2 = agg(s.nr, range(6, 11));
+    return 'H2: NR ' + money(n2.vsAbs) + pcIf(n2) + ' y OC ' + money(h2.vsAbs) + pcIf(h2) + ' vs Budget.\n' +
+      'OC por quarter: Q3 ' + money(q3.vsAbs) + ', Q4 ' + money(q4.vsAbs) + ' vs Budget.\n' +
+      'Año: OC ' + m1(fy.act) + 'M, ' + money(fy.vsAbs) + pcIf(fy) + ' vs Budget, ' + pc(fy.yoy) + ' YoY.';
+  }
+  function sB2BPnl(c) {
+    var s = state.data[c].s;
+    var top = [{ name: 'Q3', idx: range(6, 8) }, { name: 'Q4', idx: range(9, 11) }, { name: 'H2', idx: range(6, 11), hi: true }];
+    var bot = [{ name: 'H1', idx: range(0, 5) }, { name: 'H2', idx: range(6, 11) }, { name: fyTag().replace("FY'", 'FY'), idx: range(0, 11), hi: true }];
+    return head(B2B_NAMES[c] + ' · P&L H2 por quarter y el año', 'USD $M · real cerrado hasta ' + monthLabel(state.month) + ' + Run Rate · vs Budget y YoY') +
+      '<div class="hs-pnl"><div class="hs-pnlm">' + pgrid('H2 por quarter', s, top) + pgrid('Cómo resulta el año', s, bot) + '</div>' +
+      '<div class="hs-pnls">' + noteBox('b2bsec_pnl_' + c, 'Lectura', b2bPnlDraft(s)) + '</div></div>' +
+      '<div class="hs-otn">vs Bud = Δ $ y % contra Budget · YoY = vs mismo período del año anterior' + (organicOn() ? ' (Organic: el real a TC del año anterior)' : '') + ' · % GB = margen sobre Gross Bookings</div>' + foot();
+  }
+
+  // Bridge de OC del P&L Accounting (getEPMB2BCountryDetail de ese módulo, lógica en public/oc-bridge.js): Budget → Baseline por grupos.
+  // <base>/api/pnl-accounting/<fn> (desde el respaldo hub-drive, el respaldo pnl-accounting-drive: misma fuente que el Hub)
+  function acctApi(fn) {
+    var m = /^(.*)\/hub(-drive)?(\/|$)/.exec(location.pathname);
+    return (m ? m[1] : basePath()) + '/api/pnl-accounting' + (m && m[2] ? m[2] : '') + '/' + fn;
+  }
+  function loadB2BBridge() {
+    var args = [{ label: 'Total B2B', pais: null, goalSource: 'budget', baselineSource: 'bl', organic: organicOn() }], key = 'br' + JSON.stringify(args);
+    if (cache[key]) return Promise.resolve(cache[key]);
+    return fetch(acctApi('getEPMB2BCountryDetail'), {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'google.script.run' }, body: JSON.stringify({ args: args }),
+    }).then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || r.status); return j.result; }); })
+      .then(function (res) { var d = typeof res === 'string' ? JSON.parse(res) : res; cache[key] = d; return d; })
+      .catch(function (e) { console.warn('[hub-slides] bridge B2B:', e); return { error: (e && e.message) || String(e) }; });
+  }
+  function wrap2(t) { var i = t.indexOf(' '); return i < 0 ? [t] : [t.slice(0, i), t.slice(i + 1)]; }
+  function m2(v) { var m = Math.round(v / 1e4) / 100; return (m > 0 ? '+' : m < 0 ? '−' : '') + Math.abs(m).toFixed(2); }
+  function bridgeSvg(r) {
+    var Wc = 922, Hc = 254, x0 = 6, top = 32, bot = 198;
+    var bars = [{ lbl: 'Budget', end: true, v: r.goalOC }].concat(r.steps.map(function (s) { return { lbl: s.label.replace(/^Palancas /, '').replace(' - ', '-'), d: s.delta, pal: /^Palancas /.test(s.label) }; }))
+      .concat([{ lbl: 'Baseline', end: true, base: true, v: r.baselineOC }]);
+    var cum = r.goalOC, lv = [r.goalOC, r.baselineOC];
+    bars.forEach(function (b) { if (b.end) return; b.a = cum; cum += b.d; b.b = cum; lv.push(b.a, b.b); });
+    var lo = Math.min.apply(null, lv), hi = Math.max.apply(null, lv), span = (hi - lo) || 1;
+    var floor = lo > 0 ? Math.max(0, lo - span * 0.6) : lo - span * 0.1, ceil = hi + span * 0.08;
+    var y = function (v) { return top + (ceil - v) / (ceil - floor) * (bot - top); };
+    var slot = (Wc - x0) / bars.length, bw = Math.min(46, slot * 0.62);
+    var svg = '<svg viewBox="0 0 ' + Wc + ' ' + Hc + '" class="hs-brs">';
+    var pal = bars.map(function (b, i) { return b.pal ? i : -1; }).filter(function (i) { return i >= 0; });
+    if (pal.length) {
+      var px = x0 + slot * pal[0] + 2, pw = slot * pal.length - 4;
+      svg += '<rect x="' + px.toFixed(1) + '" y="4" width="' + pw.toFixed(1) + '" height="' + (Hc - 8) + '" rx="8" fill="#f6f4fe"/>' +
+        '<text x="' + (px + pw / 2).toFixed(1) + '" y="20" class="hs-brg">Palancas de negocio · por región</text>';
+    }
+    bars.forEach(function (b, i) {
+      var cx = x0 + slot * i + slot / 2, ya, yb, fill, txt, ty;
+      if (b.end) {
+        ya = y(b.v); yb = bot; fill = b.base ? '#550fed' : '#b9bcc6'; txt = m1(b.v); ty = ya - 6;
+      } else {
+        ya = y(Math.max(b.a, b.b)); yb = y(Math.min(b.a, b.b)); fill = b.d >= 0 ? '#1a9e5a' : '#d4373a'; txt = m2(b.d);
+        ty = b.d >= 0 ? ya - 6 : yb + 14;
+        if (i < bars.length - 1) {
+          var nx = x0 + slot * (i + 1) + slot / 2 - bw / 2, ly = y(b.b);
+          svg += '<line x1="' + (cx + bw / 2).toFixed(1) + '" x2="' + nx.toFixed(1) + '" y1="' + ly.toFixed(1) + '" y2="' + ly.toFixed(1) + '" stroke="#b5b5c0" stroke-dasharray="3 2"/>';
+        }
+      }
+      if (i === 0) { var gy = y(r.goalOC); svg += '<line x1="' + (cx + bw / 2).toFixed(1) + '" x2="' + (x0 + slot * 1.5 - bw / 2).toFixed(1) + '" y1="' + gy.toFixed(1) + '" y2="' + gy.toFixed(1) + '" stroke="#b5b5c0" stroke-dasharray="3 2"/>'; }
+      svg += '<rect x="' + (cx - bw / 2).toFixed(1) + '" y="' + ya.toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + Math.max(1.5, yb - ya).toFixed(1) + '" rx="2" fill="' + fill + '"/>';
+      if (b.end && floor > 0) svg += '<path d="M' + (cx - bw / 2 - 3) + ' ' + (bot - 14) + ' l' + (bw + 6) + ' -6 M' + (cx - bw / 2 - 3) + ' ' + (bot - 8) + ' l' + (bw + 6) + ' -6" stroke="#fff" stroke-width="3"/>';
+      svg += '<text x="' + cx.toFixed(1) + '" y="' + ty.toFixed(1) + '" class="hs-brv' + (b.end ? ' hs-brve' : '') + '">' + txt + '</text>';
+      wrap2(b.lbl).forEach(function (t, k) { svg += '<text x="' + cx.toFixed(1) + '" y="' + (bot + 18 + k * 14) + '" class="hs-brl' + (b.end ? ' hs-brle' : '') + '">' + esc(t) + '</text>'; });
+    });
+    svg += '<line x1="' + x0 + '" x2="' + Wc + '" y1="' + bot + '" y2="' + bot + '" stroke="#c9c9d2"/></svg>';
+    return svg;
+  }
+  function brTop(s) {
+    var ds = s.details.filter(function (x) { return !x.pxq; }).sort(function (a, b) { return Math.abs(b.delta) - Math.abs(a.delta); })[0];
+    return ds && Math.abs(ds.delta) >= 5e3 ? ds : null;
+  }
+  function bridgeTable(r) {
+    var rows = r.steps.map(function (s) {
+      var vol = s.details.filter(function (x) { return x.pxq; }), t = brTop(s);
+      return '<tr><td class="hs-btl">' + esc(s.label) + '</td><td class="hs-btv ' + cls(s.delta) + '">' + m2(s.delta) + '</td>' +
+        (vol.length ? '<td class="' + cls(vol[0].delta) + '">' + m2(vol[0].delta) + '</td><td class="' + cls(vol[1].delta) + '">' + m2(vol[1].delta) + '</td>' : '<td>—</td><td>—</td>') +
+        '<td class="hs-btd">' + (t ? esc(t.label) + ' <b class="' + cls(t.delta) + '">' + m2(t.delta) + '</b>' : '') + '</td></tr>';
+    }).join('');
+    return '<table class="hs-bt"><thead><tr><th class="hs-btl">Grupo</th><th>Δ vs Bud</th><th>Efecto vol. (GB)</th><th>Efecto margen</th><th class="hs-btd">Mayor apertura</th></tr></thead><tbody>' + rows + '</tbody></table>';
+  }
+  function bridgeDraft(r, qn) {
+    var d = r.baselineOC - r.goalOC, st = r.steps.slice().sort(function (a, b) { return a.delta - b.delta; });
+    var neg = st.filter(function (s) { return s.delta < 0; }).slice(0, 3), pos = st.filter(function (s) { return s.delta > 0; }).reverse().slice(0, 2);
+    var one = function (s) { var t = brTop(s); return s.label + ' ' + m2(s.delta) + 'M' + (t ? ' (' + t.label + ' ' + m2(t.delta) + 'M)' : ''); };
+    return qn + ': OC ' + m1(r.baselineOC) + 'M vs Budget ' + m1(r.goalOC) + 'M (' + m2(d) + 'M' + (r.goalOC > 0 ? ', ' + pc((r.baselineOC / r.goalOC - 1) * 100) : '') + ').\n' +
+      (neg.length ? 'Restan: ' + neg.map(one).join('; ') + '.\n' : '') + (pos.length ? 'Suman: ' + pos.map(one).join('; ') + '.' : '');
+  }
+  function sB2BBridge(d, qi) {
+    var qn = 'Q' + (qi + 1), title = 'B2B · OC Bridge ' + qn + ' · Baseline vs Budget';
+    var qk = d && d.quarters && d.quarters[qi];
+    if (!d || d.error || !qk || !d.total || !window.OcBridge) {
+      return head(title) + '<div class="hs-err">No se pudo leer el P&L Accounting para el bridge' + (d && d.error ? ': ' + esc(d.error) : '') + '.</div>' + foot();
+    }
+    var r = window.OcBridge.compute(d.total, [qk], window.OcBridge.b2bSplits(d)), dl = r.baselineOC - r.goalOC;
+    return head(title, perSub(range(qi * 3, qi * 3 + 2)) + ' · USD $M · Δ OC ' + '<b class="' + cls(dl) + '">' + m2(dl) + 'M</b>' + (r.goalOC > 0 ? ' (' + pc((r.baselineOC / r.goalOC - 1) * 100) + ')' : '')) +
+      '<div class="hs-br"><div class="hs-brm">' + bridgeSvg(r) + bridgeTable(r) + '</div>' +
+      '<div class="hs-brs2">' + noteBox('b2bsec_bridge_' + qn.toLowerCase(), 'Lectura', bridgeDraft(r, qn)) + '</div></div>' +
+      '<div class="hs-otn hs-btn">Mismo bridge que el P&L Accounting (B2B, Baseline vs Budget). Palancas: UPF + fees + descuentos, COI, tarjetas, TPCs, costo de venta; Iniciativas = MAY flights / dest. serv. y MIN cruceros · ' +
+      'Incentivos Regionales: back-end, other incentives, media revenue · Marketing: directo + media cost · Fixed Cost: P&amp;E de canales y marketing, fulfilment · Efecto vol. = Δ GB × margen del Budget.' + (organicOn() ? ' Organic: todo a TC Budget.' : '') + '</div>' + foot();
+  }
+  function sB2BCover() {
+    var p = state.month.split('-');
+    return '<div class="hs-cover"><div class="hs-cv1">B2B Business Performance</div><div class="hs-cv2">H2 por quarter · API y HTML · OC Bridge</div>' +
+      '<div class="hs-cv3">' + MES_EN[+p[1] - 1] + ' ' + p[0] + ' close · vs Budget</div><div class="hs-cvlogo">despegar</div></div>';
+  }
+  function b2bSection(br) {
+    return [
+      ['B2B · Portada', sB2BCover(), false, null, true],
+      ['B2B · P&L H2 por quarter', sB2BPnl('b2b')],
+      ['B2B API · P&L H2 por quarter', sB2BPnl('may')],
+      ['B2B HTML · P&L H2 por quarter', sB2BPnl('min')],
+      ['B2B · OC Bridge Q3', sB2BBridge(br, 2)],
+      ['B2B · OC Bridge Q4', sB2BBridge(br, 3)],
+    ];
+  }
+
   // extra: slides de "Mis slides" marcadas para el Flow mensual (hub-builder.js, OwniaBuilder.flowSlides), van al final
-  function slidesHtml(h2h1, h2h1b, extra, fo) {
+  function slidesHtml(h2h1, h2h1b, extra, fo, br) {
+    if (state.section === 'b2b') return framesHtml(b2bSection(br));
     var list = [
       ['Portada', sCover()],
       ['H2 vs H1', h2h1 || '<div class="hs-err">No se pudo armar H2 vs H1.</div>', true],
@@ -621,10 +776,14 @@
       ['B2B-MAY OC mensual vs Budget', sOcMonthly('may')],
       ['B2B-MIN OC mensual vs Budget', sOcMonthly('min')],
       ['B2B2C FVM vs OC', sFvmOc(fo)],
-    ];
+    ].concat(b2bSection(br));   // sección B2B (2026-11-25): después del deck fijo, antes de las de Mis slides
     (extra || []).forEach(function (x) { list.push([x.title, x.html]); });
+    return framesHtml(list);
+  }
+  // list: [título, html, raw (sin padding), data-out (slides de Proyección), portada]
+  function framesHtml(list) {
     return list.map(function (x, i) {
-      return '<div class="hs-frame" data-i="' + i + '"' + (x[3] ? ' data-out="' + x[3] + '"' : '') + '><div class="hs-slide' + (i === 0 ? ' hs-s-cover' : '') + (x[2] ? ' hs-s-raw' : '') + '">' + x[1] + '</div>' +
+      return '<div class="hs-frame" data-i="' + i + '"' + (x[3] ? ' data-out="' + x[3] + '"' : '') + '><div class="hs-slide' + (i === 0 || x[4] ? ' hs-s-cover' : '') + (x[2] ? ' hs-s-raw' : '') + '">' + x[1] + '</div>' +
         '<div class="hs-cap">' + (i + 1) + ' · ' + esc(x[0]) + '</div></div>';
     }).join('');
   }
@@ -665,9 +824,11 @@
     var h2b = window.OwniaH2H1 && window.OwniaH2H1.slideBudgetHtml ? window.OwniaH2H1.slideBudgetHtml().catch(function () { return null; }) : Promise.resolve(null);
     var fb = window.OwniaBuilder && window.OwniaBuilder.flowSlides
       ? window.OwniaBuilder.flowSlides().catch(function (e) { console.warn('[hub-slides] Mis slides en el Flow:', e); return []; }) : Promise.resolve([]);
-    Promise.all([loadAll(), loadNotes(), h2, h2b, fb, loadFvmOc()]).then(function (r) {
+    // Sección B2B: solo lo que usan sus slides (P&L del Hub, notas y el bridge del P&L Accounting)
+    var b2bOnly = state.section === 'b2b', none = Promise.resolve(null);
+    Promise.all([loadAll(), loadNotes(), b2bOnly ? none : h2, b2bOnly ? none : h2b, b2bOnly ? Promise.resolve([]) : fb, b2bOnly ? none : loadFvmOc(), loadB2BBridge()]).then(function (r) {
       state.data = r[0];
-      deck.innerHTML = slidesHtml(r[2], r[3], r[4], r[5]);
+      deck.innerHTML = slidesHtml(r[2], r[3], r[4], r[5], r[6]);
       fit();
       watchSlides();
     }).catch(function (e) {
@@ -726,7 +887,8 @@
       return '<option value="' + ym + '"' + (ym === state.month ? ' selected' : '') + '>' + monthLabel(ym) + '</option>';
     }).join('');
     Array.prototype.forEach.call(panel.querySelectorAll('.hs-orgb'), function (b) {
-      b.setAttribute('aria-pressed', String(b.dataset.c ? b.dataset.c === state.coibr
+      b.setAttribute('aria-pressed', String(b.dataset.s ? b.dataset.s === state.section
+        : b.dataset.c ? b.dataset.c === state.coibr
         : b.dataset.d ? (b.dataset.d === 'yes') === !!state.outDetail
         : (b.dataset.o === 'yes') === organicOn()));
     });
@@ -832,6 +994,27 @@
       '#hs .hs-oml{font-size:13px;font-weight:700;fill:#4300d2}',
       '#hs .hs-omfh{font-size:16px;font-weight:700;text-anchor:middle;fill:#4300d2}#hs .hs-omfv{font-size:30px;font-weight:700;text-anchor:middle;fill:#4300d2}',
       '#hs .hs-omfb{font-size:22px;font-weight:600;text-anchor:middle;fill:#8e8e93}#hs .hs-omfs{font-size:10.5px;text-anchor:middle;fill:#8e8e93}',
+      // Sección B2B: P&L H2 por quarter (sB2BPnl) y OC Bridge (sB2BBridge)
+      '#hs .hs-pnl{display:grid;grid-template-columns:1fr 268px;gap:16px;margin-top:2px}#hs .hs-pnlm{display:flex;flex-direction:column;gap:12px}',
+      '#hs .hs-pnls{display:flex;flex-direction:column}#hs .hs-pnls .hs-note{height:100%}',
+      '#hs .hs-pg{display:grid;grid-template-columns:126px repeat(3,1fr);gap:6px 10px;align-items:stretch}',
+      '#hs .hs-pgt{display:flex;align-items:flex-end;font-size:14px;font-weight:700;color:#4300d2;padding-bottom:4px}',
+      '#hs .hs-pgh{background:#7b5cf5;color:#fff;border-radius:8px;padding:4px 8px;text-align:center;line-height:1.2}#hs .hs-pgh b{display:block;font-size:16px}#hs .hs-pgh span{font-size:11px;opacity:.9}',
+      '#hs .hs-pgh.hs-pghi{background:#550fed}',
+      '#hs .hs-pgl{display:flex;align-items:center;font-size:14.5px;font-weight:700;color:#1d1d1f}',
+      '#hs .hs-pc{height:100%;box-sizing:border-box;border:1px solid #e1dcf7;border-radius:9px;padding:5px 8px;text-align:center;background:#fbfaff}',
+      '#hs .hs-pghic .hs-pc{background:#f1edfe;border-color:#b9a8f7}',
+      '#hs .hs-pcv{font-size:22px;font-weight:700;color:#4300d2;line-height:1.1}#hs .hs-pcl{font-size:12.5px;font-weight:600;color:#55555c;line-height:1.35}',
+      '#hs .hs-pcl2{font-size:11.5px}#hs .hs-pcm{font-weight:400;color:#8e8e93}',
+      '#hs .hs-br{display:grid;grid-template-columns:1fr 270px;gap:16px;margin-top:2px}#hs .hs-brm{display:flex;flex-direction:column;gap:4px}',
+      '#hs .hs-brs2{display:flex;flex-direction:column}#hs .hs-brs2 .hs-note{height:100%}',
+      '#hs .hs-brs{display:block;width:100%;height:auto}',
+      '#hs .hs-brv{font-size:12px;font-weight:700;text-anchor:middle;fill:#1d1d1f}#hs .hs-brve{font-size:14px;fill:#4300d2}',
+      '#hs .hs-brl{font-size:11.5px;text-anchor:middle;fill:#55555c}#hs .hs-brle{font-weight:700;fill:#1d1d1f}#hs .hs-brg{font-size:11.5px;font-weight:700;text-anchor:middle;fill:#550fed}',
+      '#hs .hs-bt{width:100%;border-collapse:collapse;font-size:11.5px}',
+      '#hs .hs-btn{max-width:1000px;margin-top:6px}',
+      '#hs .hs-bt th{background:#550fed;color:#fff;font-weight:600;padding:3px 6px;text-align:right}#hs .hs-bt td{padding:2px 6px;text-align:right;border-bottom:1px solid #eeecf6;white-space:nowrap}',
+      '#hs .hs-bt .hs-btl{text-align:left;font-weight:600}#hs .hs-bt .hs-btv{font-weight:700}#hs .hs-bt td.hs-btd{text-align:left;color:#55555c}#hs .hs-bt th.hs-btd,#hs .hs-bt th.hs-btl{text-align:left}',
       '#hs .hs-kq{display:flex;flex-wrap:wrap;justify-content:center;gap:2px 10px;font-size:11.5px;color:#6e6e73;margin-top:5px;border-top:1px dashed #e1dcf7;padding-top:4px}',
       '#hs .hs-may{display:grid;grid-template-columns:600px 1fr;gap:22px;margin-top:2px}',
       '#hs .hs-mayl{display:flex;flex-direction:column;gap:2px}#hs .hs-mayr{display:flex;flex-direction:column;gap:6px}',
@@ -860,6 +1043,7 @@
     panel.style.display = 'none';
     panel.innerHTML = '<div class="hs-tool"><h2>Slides mensuales</h2>' +
       '<label>Cierre <select class="hs-month" aria-label="Mes cerrado"></select></label>' +
+      '<div class="hs-orgw" role="group" aria-label="Sección" title="B2B: solo la sección B2B (P&amp;L H2 por quarter de B2B, API y HTML y el OC Bridge Q3 / Q4); el PPTX y el PDF salen solo con esas"><span>Sección</span><button type="button" class="hs-orgb hs-secb" data-s="all">Todo</button><button type="button" class="hs-orgb hs-secb" data-s="b2b">B2B</button></div>' +
       '<div class="hs-orgw" role="group" aria-label="Organic"><span>Organic</span><button type="button" class="hs-orgb" data-o="yes">YES</button><button type="button" class="hs-orgb" data-o="no">NO</button></div>' +
       '<div class="hs-orgw" role="group" aria-label="COI Brasil (slide del Daily)" title="Slide B2B2C mensual (Daily): FVM de Brasil sin COI / Financial Result"><span>COI Brasil</span><button type="button" class="hs-orgb hs-coib" data-c="excl">Excluir</button><button type="button" class="hs-orgb hs-coib" data-c="incl">Incluir</button></div>' +
       '<div class="hs-orgw" role="group" aria-label="Detalle por mes y Q (slides de Proyección)" title="Slides de Proyección: debajo del semestre, el mes siguiente y cada Q"><span>Detalle Q</span><button type="button" class="hs-orgb hs-detb" data-d="yes">YES</button><button type="button" class="hs-orgb hs-detb" data-d="no">NO</button></div>' +
@@ -891,7 +1075,16 @@
         });
       };
     });
-    Array.prototype.forEach.call(panel.querySelectorAll('.hs-orgb:not(.hs-coib):not(.hs-detb)'), function (b) {
+    Array.prototype.forEach.call(panel.querySelectorAll('.hs-secb'), function (b) {
+      b.onclick = function () {
+        if (b.dataset.s === state.section) return;
+        state.section = b.dataset.s;
+        try { localStorage.setItem('hs-section', state.section); } catch (e) { /* sin storage */ }
+        state.cur = 0;
+        render();
+      };
+    });
+    Array.prototype.forEach.call(panel.querySelectorAll('.hs-orgb:not(.hs-coib):not(.hs-detb):not(.hs-secb)'), function (b) {
       b.onclick = function () {
         var on = b.dataset.o === 'yes';
         if (on === organicOn()) return;
