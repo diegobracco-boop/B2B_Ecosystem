@@ -287,6 +287,8 @@ test('Session.getActiveUser: solo con el header confiable configurado', async ()
   assert.deepEqual(JSON.parse((await run('quienSoy', [], { 'x-test-email': 'Ana@HotelDo.com' })).text), { result: 'ana@hoteldo.com' });
   assert.equal((await request(demoServer, 'GET', `${BASE}/demo-privado`, { headers: { 'x-test-email': 'ana@bestday.com' } })).status, 200);
   assert.equal((await request(demoServer, 'GET', `${BASE}/demo-privado`, { headers: { 'x-test-email': 'ana@decolar.com' } })).status, 200);
+  assert.equal((await request(demoServer, 'GET', `${BASE}/demo-privado`, { headers: { 'x-test-email': 'ana@viajesfalabella.com' } })).status, 200);
+  assert.equal((await request(demoServer, 'GET', `${BASE}/demo-privado`, { headers: { 'x-test-email': 'ana@viajesfalabella.com.ar' } })).status, 401);
   assert.equal((await request(demoServer, 'GET', `${BASE}/demo-privado`, { headers: { 'x-test-email': 'ana@notdecolar.com' } })).status, 401);
   assert.equal((await request(demoServer, 'GET', `${BASE}/demo-privado`, { headers: { 'x-test-email': 'ana@notbestday.com.ar' } })).status, 401);
 });
