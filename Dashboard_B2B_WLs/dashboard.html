@@ -4883,7 +4883,7 @@ function _okrGlobSwitch_(okr) {
     return '<button type="button" class="gran-btn' + (cur === v ? ' active' : '') + '" onclick="event.stopPropagation();setOKRGlobSet(\'' + v + '\')" style="font-size:10px;padding:2px 8px'
       + (cur === v ? '' : ';background:transparent;color:#fff;border:1px solid rgba(255,255,255,.6)') + '">' + l + '</button>';
   };
-  return '<span class="okr-glob-set" style="display:inline-flex;gap:4px;margin-left:10px;vertical-align:middle" title="KRs vigentes o el set nuevo en propuesta (targets de la slide; actuals sin fuente todavía, salvo Price Competitiveness, que toma el del KR vigente)">'
+  return '<span class="okr-glob-set" style="display:inline-flex;gap:4px;margin-left:10px;vertical-align:middle" title="KRs vigentes o el set nuevo en propuesta (targets de la slide; Sales Density todavía sin fuente)">'
     + b('vigentes', 'KRs vigentes') + b('nuevos', 'KRs nuevos (propuesta)') + '</span>';
 }
 
@@ -5023,7 +5023,7 @@ function renderOKR(okr) {
 
     var globSw = (lobKey === 'globales' || lobKey === 'globales_nuevos') ? _okrGlobSwitch_(okr) : '';
     var globNote = lobKey === 'globales_nuevos'
-      ? '<div class="okr-note" style="margin:4px 0 6px">Propuesta «Become a Global Bedbank» (owner JP Martorell): targets de la slide del OKR. Solo PoS Global. Grow API Global Clients: partners API que compran hoteles con PoS Global (mes en curso = últimos 30 días). OC - Costos atribuibles: por ahora solo OC, sin costos atribuibles (OC API de Globales, como el contable: mes con cierre = cierre contable, sin cierre = Run Rate; target = Budget contable; End Game 50M por todo el H2). +6k New Direct Properties: altas de cadenas NO Latam del reporte semanal de Sourcing (mes cerrado = última semana completa; mes en curso = última semana). Price Competitiveness toma por ahora el del KR vigente. Sales Density: sin fuente todavía (—).</div>' : '';
+      ? '<div class="okr-note" style="margin:4px 0 6px">Propuesta «Become a Global Bedbank» (owner JP Martorell): targets de la slide del OKR. Solo PoS Global. Grow API Global Clients: partners API que compran hoteles con PoS Global (mes en curso = últimos 30 días). OC - Costos atribuibles: por ahora solo OC, sin costos atribuibles (OC API de Globales, como el contable: mes con cierre = cierre contable, sin cierre = Run Rate; target = Budget contable; End Game 50M por todo el H2). +6k New Direct Properties: altas de cadenas NO Latam del reporte semanal de Sourcing (mes cerrado = última semana completa; mes en curso = última semana). Price Competitiveness: % de adversidad del mes de la pregunta Metabase 180311 (mes cerrado = cierre, mes en curso = RR). Sales Density: sin fuente todavía (—).</div>' : '';
     html += '<div class="okr-table-wrap"><div class="okr-lob-hdr">'+d.label+globSw+expandBtn+'</div>'+globNote
            +'<table class="okr-table'+(_okrMonthly ? ' okr-monthly' : '')+(open ? '' : ' okr-collapsed')+'"><thead><tr><th>KR</th><th title="Peso del KR en el score del objetivo">Peso</th>';
 

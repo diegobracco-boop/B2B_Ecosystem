@@ -2842,6 +2842,17 @@ try:
 except (Exception, SystemExit) as e:
     print(f"  WARN Altas directas fallo ({e}) — queda el altas_directas_okr.json anterior en Drive")
 
+# Price Competitiveness mensual (KR "Price Competitiveness Destino Globales" del set nuevo del KR Global B2B API): pregunta Metabase
+# 180311 sobre la card 178823; mes terminado = cierre, mes en curso = RR (ver price_comp_mensual_sync.py). No corta la sync.
+print("\n--- Price Competitiveness mensual (KR nuevo, Metabase 180311) ---")
+try:
+    import price_comp_mensual_sync as _pcm
+    _pcm_payload = _pcm.build_payload(fetch)
+    if _pcm_payload is not None:
+        upload_to_drive(json.dumps(_pcm_payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8"), _pcm.FILE_NAME)
+except (Exception, SystemExit) as e:
+    print(f"  WARN Price Comp mensual fallo ({e}) — queda el price_comp_globales_okr.json anterior en Drive")
+
 # Pipeline B2B2C (Pipeline Hunting): deals del pipeline de HubSpot para la slide del Flow y la pagina /pipeline-hunting de Ownia
 # (ver pipeline_b2b2c_sync.py). No corta la sync: si falla queda el pipeline_b2b2c.json anterior.
 print("\n--- Pipeline B2B2C (Pipeline Hunting) ---")

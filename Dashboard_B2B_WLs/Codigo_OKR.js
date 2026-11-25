@@ -92,12 +92,11 @@ var OKR_CONFIG_H2 = {
 };
 
 // Targets (Budget) del set nuevo, de la slide (el de OC sale del Budget contable, ver globalesNuevosRows_). actual_de: KR vigente
-// (lob 'globales') del que se copia el actual mientras no haya fuente propia (hoy solo Price Competitiveness).
+// (lob 'globales') del que se copia el actual mientras no haya fuente propia (hoy ninguno: todos tienen fuente o están sin dato).
 var GLOBALES_NUEVOS_TARGETS = {
   'grow +44% api global clients portfolio': { t: { '2026-10':150, '2026-11':160, '2026-12':170, '2027-01':180, '2027-02':190, '2027-03':200 } },
   '+6k new direct properties':              { t: { '2026-10':250, '2026-11':1250, '2026-12':2000, '2027-01':3000, '2027-02':4000, '2027-03':6000 } },
-  'price competitiveness destino globales': { t: { '2026-10':52.2, '2026-11':50.1, '2026-12':46.7, '2027-01':42.8, '2027-02':40.2, '2027-03':39.2 },
-                                              actual_de: 'price competitiveness ex-latam (destino gl)' },
+  'price competitiveness destino globales': { t: { '2026-10':52.2, '2026-11':50.1, '2026-12':46.7, '2027-01':42.8, '2027-02':40.2, '2027-03':39.2 } },
   'sales density on top 100 hotels':        { t: { '2026-10':16, '2026-11':17, '2026-12':18, '2027-01':18.5, '2027-02':19.5, '2027-03':20 } }
 };
 
@@ -128,6 +127,25 @@ function globalesNuevosAltasRows_() {
   return out;
 }
 
+// Price Competitiveness Destino Globales: price_comp_globales_okr.json (Daily_Dashboard/price_comp_mensual_sync.py = pregunta Metabase
+// 180311): % de adversidad del mes; mes terminado = cierre (Real), mes en curso = RR (MTD). Inverse con la escala de pcRatio_.
+var PRICE_COMP_FILENAME = 'price_comp_globales_okr.json';
+function globalesNuevosPriceCompRows_() {
+  var out = [];
+  try {
+    var files = DriveApp.getFolderById(PARTNERS_API_FOLDER_ID).getFilesByName(PRICE_COMP_FILENAME);
+    if (!files.hasNext()) return out;
+    var meses = JSON.parse(files.next().getBlob().getDataAsString()).meses || {};
+    Object.keys(meses).forEach(function(ym) {
+      var m = meses[ym];
+      if (typeof m.pct !== 'number') return;
+      out.push({ ym: ym, escenario: 'run rate/actuals', lob: 'globales_nuevos', kr: 'price competitiveness destino globales',
+                 valor: m.pct, estado: m.estado === 'Cierre' ? 'Real' : 'MTD' });
+    });
+  } catch (e) { Logger.log('globalesNuevosPriceCompRows_: ' + e.message); }
+  return out;
+}
+
 function globalesNuevosPartnersRows_() {
   var out = [];
   try {
@@ -151,7 +169,7 @@ function globalesNuevosPartnersRows_() {
 // Filas del set nuevo (lob 'globales_nuevos') para computeOKR_: Budget = targets de la slide; Run Rate/Actuals = copia de las filas
 // del KR vigente de actual_de (las mismas que ve el bloque vigente). Los KRs sin fuente quedan sin actual (OKR_NOFILL_: no toman el target).
 function globalesNuevosRows_(rows) {
-  var out = globalesNuevosPartnersRows_().concat(globalesNuevosAltasRows_());
+  var out = globalesNuevosPartnersRows_().concat(globalesNuevosAltasRows_(), globalesNuevosPriceCompRows_());
   // OC - Costos atribuibles = por ahora solo OC (sin costos atribuibles): OC API · Others Countries (solo OKR_H2_FY27.json trae el país),
   // tomado IGUAL que el contable: Budget = target; Run Rate/Actuals = cierre contable (Estado "Actual") o Run Rate (Estado "Proyeccion").
   (rows || []).forEach(function(r) {
