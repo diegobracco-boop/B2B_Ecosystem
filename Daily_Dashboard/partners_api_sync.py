@@ -79,6 +79,7 @@ ventas AS (
            if(fv.country_code in ('AR','CO','EC','PE','BR','CL','MX','UY'), fv.country_code, 'OT') AS country,
            CASE WHEN length(fv.partner_id) > 0 THEN fv.partner_id ELSE fv.channel END       AS agency_code,
            fv.product_status                                                                AS product_status,
+           fv.buy_type_code                                                                 AS buy_type,
            COUNT(*)                                                                         AS n
     FROM analytics.bi_sales_fact_sales_recognition fv
     LEFT JOIN analytics.bi_pnlop_fact_current_model pnl
@@ -87,9 +88,9 @@ ventas AS (
       AND pnl.line_of_business = 'B2B'
       AND fv.partition_period > '2021-01'
       AND fv.parent_channel = 'API'
-    GROUP BY 1, 2, 3, 4
+    GROUP BY 1, 2, 3, 4, 5
 )
-SELECT v.ym, v.country, v.agency_code, v.product_status, v.n, c.agency_group_code, c.agency_group_name
+SELECT v.ym, v.country, v.agency_code, v.product_status, v.buy_type, v.n, c.agency_group_code, c.agency_group_name
 FROM ventas v
 LEFT JOIN cartera c ON TRIM(c.agency_code) = TRIM(v.agency_code)
 """
@@ -105,7 +106,7 @@ def contar(df):
     d["n"] = pd.to_numeric(d["n"], errors="coerce").fillna(0)
     d = d[d["product_status"].astype(str).str.strip().str.lower() != "cancelado"]
     if d.empty:
-        return {"total": 0.0, "por_pais": {}, "partners": 0, "codigos": 0, "sin_cartera": []}
+        return {"total": 0.0, "por_pais": {}, "partners": 0, "codigos": 0, "sin_cartera": [], "hoteles_global": 0}
     gc = d["agency_group_code"].where(d["agency_group_code"].notna(), None)
     fuera = gc.isna() | (gc.astype(str).str.strip() == "")
     d["grupo"] = gc.astype(str).str.strip().where(~fuera, d["agency_code"])
@@ -125,7 +126,22 @@ def contar(df):
                for r in g.sort_values(["pais", "n"], ascending=[True, False]).itertuples()]
     return {"total": float(g["grupo"].nunique()), "por_pais": por_pais, "partners": int(g["grupo"].nunique()),
             "codigos": int(d["agency_code"].nunique()), "sin_cartera": sin, "agrupacion": "cartera",
-            "detalle_cols": ["partner", "pais", "reservas", "peso", "codigos"], "detalle": detalle}
+            "detalle_cols": ["partner", "pais", "reservas", "peso", "codigos"], "detalle": detalle,
+            "hoteles_global": contar_hoteles_global(d)}
+
+
+# KR "Grow +44% API Global Clients Portfolio" del set NUEVO del KR Global B2B API (propuesta, 2026-11-25, antonella.difranco):
+# "Buyer Agencies Hoteles API PoS Global" = partners (grupos de la cartera, misma agrupacion que el KR vigente) con al menos un
+# producto de Hoteles no cancelado reservado en el periodo y vendido con PoS Global (country_code fuera de los paises abiertos = 'OT',
+# despues de PAIS_FORZADO: los partners de Paraguay no cuentan). Cuenta entera (no se reparte entre paises como por_pais).
+# Validado 2026-11-25: sep-26 = 130 y oct-26 = 136 (la slide del OKR dice baseline 139 en sep; la diferencia, ~7%, es la misma que dio
+# pasar del Excel del SharePoint a la cartera: el 139 se armo probablemente con la agrupacion vieja).
+def contar_hoteles_global(d):
+    """d = filas ya filtradas sin canceladas, con columnas grupo y pais (nombre). None si la query no trae buy_type."""
+    if "buy_type" not in d.columns:
+        return None
+    h = d[(d["buy_type"].astype(str).str.strip() == "Hoteles") & (d["pais"] == PAIS_NOMBRE["OT"])]
+    return int(h["grupo"].nunique())
 
 
 def _mes_rango(ym):
@@ -171,9 +187,17 @@ def build_payload(fetch, prev, hoy=None):
         else:
             print(f"  AVISO [Partners API] {ym} sin congelar y hoy ({hoy}) no es dia habil de los primeros {FREEZE_MAX_DAY} del mes: "
                   f"congelarlo a mano  (python Daily_Dashboard/partners_api_sync.py --freeze {ym})")
+    # Meses congelados antes de que existiera "hoteles_global" (KR nuevo, 2026-11-25): se calcula UNA vez y se agrega solo ese campo;
+    # el resto del mes congelado (total, por_pais, detalle del KR vigente) no se toca. Queda marcado con la fecha en que se calculo.
+    for ym_c in sorted(meses):
+        if ym_c >= DESDE and meses[ym_c].get("hoteles_global") is None:
+            r = contar_mes(fetch, ym_c)
+            meses[ym_c] = dict(meses[ym_c], hoteles_global=r.get("hoteles_global"), hoteles_global_calculado_el=str(hoy))
+            print(f"  [Partners API] {ym_c} (congelado): agrego clientes hoteles PoS Global = {r.get('hoteles_global')} (calculado el {hoy})")
     roll = contar_rolling(fetch, hoy)
     sin = roll["sin_cartera"]
     print(f"  [Partners API] ultimos {ROLLING_DAYS} dias ({roll['desde']} .. {roll['hasta']}): {roll['total']:.0f} partners"
+          f" · clientes hoteles PoS Global {roll.get('hoteles_global')}"
           + (f" · {len(sin)} codigos fuera de la cartera B2B (cuentan como partner propio): {sin[:6]}" if sin else ""))
     return {
         "meta": {"generated_at": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
@@ -230,6 +254,7 @@ if __name__ == "__main__":
         r = contar_mes(_fetch_standalone, ym)
         print(f"\n{ym}: {r['total']:.0f} partners distintos · {r['codigos']} codigos · {len(r['sin_cartera'])} fuera de la cartera")
         print("por pais:", r["por_pais"])
+        print("clientes hoteles PoS Global (KR nuevo Grow API Global Clients):", r.get("hoteles_global"))
         print("fuera de la cartera:", r["sin_cartera"][:20])
     elif "--publish" in args:
         from recurrencia_sync import drive_service

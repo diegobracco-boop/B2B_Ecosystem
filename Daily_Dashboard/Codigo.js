@@ -1513,9 +1513,12 @@ var GLOBALES_MESES_LABEL = ["Oct'26","Nov'26","Dic'26","Ene'27","Feb'27","Mar'27
 var GLOBALES_NUEVOS_META = { titulo: 'KR Global B2B API — nuevos (propuesta) · B2B PoS Global API Hotels', objetivo: 'Become a Global Bedbank',
                              owner: 'Juan Pablo Martorell' };
 var GLOBALES_KRS_NUEVOS_DEF = [
+  // actual_fuente 'partners_hoteles_global': partners_api_snapshots.json (partners_api_sync.py, campo hoteles_global): mes congelado =
+  // su valor; mes sin congelar = últimos 30 días (como el KR vigente). Sep-26 da 130 con la cartera (la slide dice 139, ver el .py).
   { id:'grow_api_global_clients', name:'Grow +44% API Global Clients Portfolio', calc:'Buyer Agencies Hoteles API PoS Global',
     weight:0.20, unit:'# Partners', owner:'Paola Peñarete', tag:'Scope + Ambition', baseline:139, baseline_label:"Sep'26", end_game:'500',
-    targets:{ '2026-10':150, '2026-11':160, '2026-12':170, '2027-01':180, '2027-02':190, '2027-03':200 } },
+    targets:{ '2026-10':150, '2026-11':160, '2026-12':170, '2027-01':180, '2027-02':190, '2027-03':200 },
+    actual_fuente:'partners_hoteles_global', medicion:'Mes en curso: últimos 30 días' },
   { id:'new_direct_properties', name:'+6k New Direct Properties', calc:'Incremental Direct Properties (New Direct Props.)',
     weight:0.20, unit:'# Hoteles', owner:'Ivan Lovisolo', tag:'Ambition', baseline:0, baseline_label:"Sep'26", end_game:'100.000',
     targets:{ '2026-10':250, '2026-11':1250, '2026-12':2000, '2027-01':3000, '2027-02':4000, '2027-03':6000 },
@@ -1529,32 +1532,80 @@ var GLOBALES_KRS_NUEVOS_DEF = [
   { id:'sales_density_top100', name:'Sales Density on Top 100 Hotels', calc:'% Selling Top 50 PoS Global Clients x Top 100 Hotels',
     weight:0.20, unit:'%', owner:'Jordan', tag:'New KR', baseline:15, baseline_label:"Sep'26 (742 / 5.000)", end_game:'TBD',
     targets:{ '2026-10':16, '2026-11':17, '2026-12':18, '2027-01':18.5, '2027-02':19.5, '2027-03':20 } },
-  { id:'oc_costos_atribuibles', name:'OC - Costos atribuibles', calc:'OC - Costos atribuibles',
-    weight:0.20, unit:'$M', owner:'Paola Peñarete', tag:'For Discussion', end_game:'50M (solo POS Global)', targets:{} }
+  // "Solo globales; OC - costos atribuibles = solo OC por ahora" (2026-11-25, definido por antonella.difranco): canal API (MAY), país
+  // Others Countries. Actual: mes con cierre contable = el OC del cierre (filas Estado "Actual" de OKR_H2_FY27.json); mes en curso o mes
+  // pasado todavía sin cierre = GESTIONAL (FVM API de Other Countries de okr_h2_managerial.json, lo suma el cliente: kr.oc_gestional);
+  // meses futuros sin actual (no se usa el Run Rate). Target = Budget contable de OC API Others Countries (la slide dice TBD por mes);
+  // en el mes en curso el cliente lo prorratea por días. End Game: 50M por todo el H2. Es solo OC: todavía sin los costos atribuibles.
+  { id:'oc_costos_atribuibles', name:'OC - Costos atribuibles (por ahora solo OC)', calc:'Por ahora solo OC (sin costos atribuibles): OC API · PoS Global',
+    weight:0.20, unit:'$M', owner:'Paola Peñarete', tag:'For Discussion', end_game:'50M (todo el H2, solo POS Global)', targets:{},
+    actual_fuente:'oc_api_globales', target_fuente:'oc_api_globales', oc_gestional:true,
+    medicion:'Mes cerrado: cierre contable · mes en curso o sin cierre: gestional (FVM) · target = Budget contable' }
 ];
+var OKR_H2_FY27_FILE_ID = '1lsMF9_d1t55boO8Wr8vziMsFT9LQioov';   // OKR_H2_FY27.json (mismo id que OKR_H2_FILE_ID del Hub)
+
+// Series mensuales de las fuentes del set nuevo: { partners_hoteles_global: {act:{ym:v}}, oc_api_globales: {act:{ym:$M}, bud:{ym:$M}} }.
+// Cada fuente que no se pueda leer queda vacía (el KR se ve con "—"), sin romper el resto.
+function globalesNuevosFuentes_() {
+  var out = { partners_hoteles_global: { act: {}, bud: {} }, oc_api_globales: { act: {}, bud: {} }, ts: [] };
+  try {
+    var pf = _driveFile_(PARTNERS_API_FILE), pj = JSON.parse(pf.getBlob().getDataAsString());
+    out.ts.push(pf.getLastUpdated().getTime());
+    var act = out.partners_hoteles_global.act, meses = pj.meses || {};
+    Object.keys(meses).forEach(function(ym) { if (typeof meses[ym].hoteles_global === 'number') act[ym] = meses[ym].hoteles_global; });
+    var r = pj.rolling30;
+    if (r && typeof r.hoteles_global === 'number' && r.hasta && act[r.hasta.substring(0, 7)] === undefined) act[r.hasta.substring(0, 7)] = r.hoteles_global;
+  } catch (e) { Logger.log('globalesNuevosFuentes_: partners ' + e.message); }
+  try {
+    var hf = DriveApp.getFileById(OKR_H2_FY27_FILE_ID), hj = JSON.parse(hf.getBlob().getDataAsString());
+    out.ts.push(hf.getLastUpdated().getTime());
+    var c = hj.cols, iP = c.indexOf('Periodo'), iE = c.indexOf('Escenario'), iPa = c.indexOf('Pais'), iK = c.indexOf('KR'), iV = c.indexOf('Valor'),
+        iS = c.indexOf('Estado'), iL = c.indexOf('LoB');
+    (hj.rows || []).forEach(function(row) {
+      if (String(row[iK]).trim().toLowerCase() !== 'operating contribution api') return;
+      if (iL >= 0 && String(row[iL]).trim().toLowerCase() !== 'b2b') return;   // mismo filtro que el Hub (globalesNuevosRows_)
+      var pa = String(row[iPa]).trim().toLowerCase();
+      if (pa !== 'others countries' && pa !== 'other countries') return;
+      var ym = String(row[iP]).substring(0, 7), esc = String(row[iE]).toLowerCase().indexOf('budget') >= 0 ? 'bud' : 'act';
+      if (esc === 'act' && iS >= 0 && String(row[iS]) !== 'Actual') return;   // solo el cierre contable (la Proyeccion = Run Rate no va)
+      var s = out.oc_api_globales[esc];
+      s[ym] = (s[ym] || 0) + (Number(row[iV]) || 0) / 1e6;
+    });
+  } catch (e) { Logger.log('globalesNuevosFuentes_: OKR_H2_FY27 ' + e.message); }
+  return out;
+}
 
 // Arma el set nuevo con la misma forma que los krs vigentes ({id,name,weight,unit,inverse,targets,actuals,...}). vigentes = krs ya
 // armados del set vigente (para los actual_de). Sin actual_de, actuals = {} (todos null): el KR se ve con target y "—".
-function buildGlobalesNuevos_(vigentes) {
+function buildGlobalesNuevos_(vigentes, fuentes) {
   var byId = {};
   (vigentes || []).forEach(function(k) { byId[k.id] = k; });
+  fuentes = fuentes || {};
   return GLOBALES_KRS_NUEVOS_DEF.map(function(d) {
     var targets = {}, actuals = {}, src = d.actual_de ? byId[d.actual_de] : null;
+    var fa = d.actual_fuente ? (fuentes[d.actual_fuente] || {}).act || {} : null;
+    var ft = d.target_fuente ? (fuentes[d.target_fuente] || {}).bud || {} : null;
     GLOBALES_MESES.forEach(function(ym) {
-      targets[ym] = (d.targets && typeof d.targets[ym] === 'number') ? d.targets[ym] : null;
-      actuals[ym] = (src && src.actuals && src.actuals[ym] != null) ? src.actuals[ym] : null;
+      targets[ym] = (d.targets && typeof d.targets[ym] === 'number') ? d.targets[ym]
+                  : (ft && typeof ft[ym] === 'number') ? ft[ym] : null;
+      actuals[ym] = fa ? (typeof fa[ym] === 'number' ? fa[ym] : null)
+                  : (src && src.actuals && src.actuals[ym] != null) ? src.actuals[ym] : null;
     });
     return { id: d.id, name: d.name, weight: d.weight, unit: d.unit, critical_ttpp: false, inverse: !!d.inverse,
              targets: targets, actuals: actuals, actuals_gb: null, baseline: d.baseline, baseline_label: d.baseline_label,
              medicion: d.medicion, calc: d.calc, owner: d.owner, tag: d.tag || null, end_game: d.end_game || null,
-             placeholder: true, actual_provisorio: src ? src.name : null };
+             placeholder: true, actual_provisorio: src ? src.name : null, con_fuente: !!d.actual_fuente, oc_gestional: !!d.oc_gestional };
   });
 }
 
 function getGlobalesKRTargets() {
   var file = DriveApp.getFileById(OKR_JSON_FILE_ID);
   var cache = CacheService.getScriptCache();
-  var key = 'globales_okr_v6_' + file.getLastUpdated().getTime();   // v6: suma el set nuevo (payload.nuevos)
+  // v7: el set nuevo lee además partners_api_snapshots.json y OKR_H2_FY27.json → su lastUpdated entra en la clave
+  var tsN = [];
+  try { tsN.push(_driveFile_(PARTNERS_API_FILE).getLastUpdated().getTime()); } catch (e) {}
+  try { tsN.push(DriveApp.getFileById(OKR_H2_FY27_FILE_ID).getLastUpdated().getTime()); } catch (e) {}
+  var key = 'globales_okr_v7_' + file.getLastUpdated().getTime() + '_' + tsN.join('_');
   var hit = cache.get(key);
   if (hit) { try { return JSON.parse(hit); } catch (e) {} }
   var j = JSON.parse(file.getBlob().getDataAsString());
@@ -1602,8 +1653,8 @@ function getGlobalesKRTargets() {
       meta: { titulo: GLOBALES_NUEVOS_META.titulo, objetivo: GLOBALES_NUEVOS_META.objetivo, owner: GLOBALES_NUEVOS_META.owner,
               periodo: 'H2-FY27', meses: GLOBALES_MESES, meses_label: GLOBALES_MESES_LABEL,
               actualizado: file.getLastUpdated().toISOString().substring(0, 10), placeholder: true,
-              nota: 'Propuesta: targets de la slide del OKR; sin fuente de actuals todavía (salvo los marcados como provisorios).' },
-      krs: buildGlobalesNuevos_(krs)
+              nota: 'Propuesta: targets de la slide del OKR. Con fuente: Grow API Global Clients (partners API) y OC (contable, solo Globales); provisorios: +6k New Direct Properties y Price Competitiveness; sin fuente: Sales Density.' },
+      krs: buildGlobalesNuevos_(krs, globalesNuevosFuentes_())
     }
   };
   try { cache.put(key, JSON.stringify(payload), 21600); } catch (e) {}

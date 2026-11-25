@@ -86,7 +86,7 @@ var OKR_CONFIG_H2 = {
       { kr: '+6k new direct properties',               label: '+6k New Direct Properties',               weight: 20, cumulative: true },
       { kr: 'price competitiveness destino globales',  label: 'Price Competitiveness Destino Globales',  weight: 20, cumulative: true, pct: true, inverse: true },
       { kr: 'sales density on top 100 hotels',         label: 'Sales Density on Top 100 Hotels',         weight: 20, cumulative: true, pct: true },
-      { kr: 'oc - costos atribuibles',                 label: 'OC - Costos atribuibles',                 weight: 20 }
+      { kr: 'oc - costos atribuibles',                 label: 'OC - Costos atribuibles (por ahora solo OC)', weight: 20 }
     ]
   }
 };
@@ -102,10 +102,83 @@ var GLOBALES_NUEVOS_TARGETS = {
   'sales density on top 100 hotels':        { t: { '2026-10':16, '2026-11':17, '2026-12':18, '2027-01':18.5, '2027-02':19.5, '2027-03':20 } }
 };
 
+// KRs del set nuevo con fuente propia (2026-11-25, "solo globales"):
+//   - OC - Costos atribuibles = por ahora solo OC: Operating Contribution API (lob b2b) con país Others Countries, de OKR_H2_FY27.json
+//     (Budget = target, Run Rate/Actuals = actual, con su Estado). Sin OKR_H2_FY27.json (fallback a okr.json, sin país) queda sin dato.
+//   - Grow +44% API Global Clients Portfolio: partners_api_snapshots.json (Daily_Dashboard/partners_api_sync.py, campo hoteles_global):
+//     mes congelado = Real; mes sin congelar = últimos 30 días (Rolling30), igual que el KR vigente Accelerate Hunting # Partners API.
+// Mismas fuentes que el Daily (globalesNuevosFuentes_ en Daily_Dashboard/Codigo.js).
+var PARTNERS_API_FOLDER_ID = '1lWzfqweyV6Kz1ERkL85ikFcmzmKwGwwh';   // carpeta de los JSON del Daily (misma que WEEKLY_INSIGHTS_FOLDER_ID)
+var PARTNERS_API_FILENAME  = 'partners_api_snapshots.json';
+function globalesNuevosPartnersRows_() {
+  var out = [];
+  try {
+    var files = DriveApp.getFolderById(PARTNERS_API_FOLDER_ID).getFilesByName(PARTNERS_API_FILENAME);
+    if (!files.hasNext()) return out;
+    var j = JSON.parse(files.next().getBlob().getDataAsString()), meses = j.meses || {}, seen = {};
+    Object.keys(meses).forEach(function(ym) {
+      if (typeof meses[ym].hoteles_global !== 'number') return;
+      seen[ym] = true;
+      out.push({ ym: ym, escenario: 'run rate/actuals', lob: 'globales_nuevos', kr: 'grow +44% api global clients portfolio',
+                 valor: meses[ym].hoteles_global, estado: 'Real' });
+    });
+    var r = j.rolling30;
+    if (r && typeof r.hoteles_global === 'number' && r.hasta && !seen[r.hasta.substring(0, 7)])
+      out.push({ ym: r.hasta.substring(0, 7), escenario: 'run rate/actuals', lob: 'globales_nuevos', kr: 'grow +44% api global clients portfolio',
+                 valor: r.hoteles_global, estado: 'Rolling30' });
+  } catch (e) { Logger.log('globalesNuevosPartnersRows_: ' + e.message); }
+  return out;
+}
+
+// OC gestional de Globales por mes (USD): FVM del canal API con país Other Countries de okr_h2_managerial.json (la base de los KRs H2
+// managerial del Daily, la misma del KR "FVM API"). { last: 'AAAA-MM-DD' (último día con actuals), byYM: {ym: usd} }. Sin archivo: null.
+var OKR_H2_MANAGERIAL_FILENAME = 'okr_h2_managerial.json';
+function ocGestionalGlobales_() {
+  try {
+    var files = DriveApp.getFolderById(PARTNERS_API_FOLDER_ID).getFilesByName(OKR_H2_MANAGERIAL_FILENAME);
+    if (!files.hasNext()) return null;
+    var f = files.next(), cache = CacheService.getScriptCache(), key = 'oc_gest_glob_v1_' + f.getLastUpdated().getTime();
+    var hit = cache.get(key);
+    if (hit) { try { return JSON.parse(hit); } catch (e) {} }
+    var j = JSON.parse(f.getBlob().getDataAsString()), ri = j.b2b_ri || {}, c = ri.cols || [];
+    var iF = c.indexOf('fecha'), iP = c.indexOf('pais'), iC = c.indexOf('parent_channel'), iV = c.indexOf('fvm'), byYM = {};
+    (ri.rows || []).forEach(function(r) {
+      if (r[iC] !== 'API' || r[iP] !== 'Other Countries') return;
+      var ym = String(r[iF]).substring(0, 7);
+      byYM[ym] = (byYM[ym] || 0) + (Number(r[iV]) || 0);
+    });
+    var out = { last: (j.meta && j.meta.last_actuals_date) || '', byYM: byYM };
+    try { cache.put(key, JSON.stringify(out), 21600); } catch (e) {}
+    return out;
+  } catch (e) { Logger.log('ocGestionalGlobales_: ' + e.message); return null; }
+}
+
 // Filas del set nuevo (lob 'globales_nuevos') para computeOKR_: Budget = targets de la slide; Run Rate/Actuals = copia de las filas
 // del KR vigente de actual_de (las mismas que ve el bloque vigente). Los KRs sin fuente quedan sin actual (OKR_NOFILL_: no toman el target).
 function globalesNuevosRows_(rows) {
-  var out = [];
+  var out = globalesNuevosPartnersRows_();
+  // OC - Costos atribuibles = por ahora solo OC (sin costos atribuibles), OC API · Others Countries (solo OKR_H2_FY27.json trae el país).
+  // Mes con cierre contable (Estado "Actual") = ese OC; mes en curso o pasado sin cierre = GESTIONAL (ocGestionalGlobales_), y en el mes
+  // en curso el Budget se prorratea por días (MTD vs MTD); meses futuros sin actual (no se usa el Run Rate). Target = Budget contable.
+  var isOC = function(r) { return r.lob === 'b2b' && r.kr === 'operating contribution api' && /^others? countries$/.test(String(r.pais || '').toLowerCase()); };
+  var bud = {}, cierre = {};
+  (rows || []).forEach(function(r) {
+    if (!isOC(r)) return;
+    if (r.escenario === 'budget') bud[r.ym] = (bud[r.ym] || 0) + r.valor;
+    else if (r.estado === 'Actual') cierre[r.ym] = (cierre[r.ym] || 0) + r.valor;
+  });
+  var g = ocGestionalGlobales_(), cur = g ? String(g.last).substring(0, 7) : '';
+  var KR_OC = 'oc - costos atribuibles';
+  Object.keys(bud).forEach(function(ym) {
+    var b = bud[ym];
+    if (cierre[ym] !== undefined) {
+      out.push({ ym: ym, escenario: 'run rate/actuals', lob: 'globales_nuevos', kr: KR_OC, valor: cierre[ym], estado: 'Actual' });
+    } else if (g && cur && ym <= cur && g.byYM[ym] !== undefined) {
+      out.push({ ym: ym, escenario: 'run rate/actuals', lob: 'globales_nuevos', kr: KR_OC, valor: g.byYM[ym], estado: ym === cur ? 'MTD' : 'Gestional' });
+      if (ym === cur) { var p = ym.split('-'); b = b * Number(String(g.last).substring(8, 10)) / new Date(+p[0], +p[1], 0).getDate(); }
+    }
+    out.push({ ym: ym, escenario: 'budget', lob: 'globales_nuevos', kr: KR_OC, valor: b });
+  });
   Object.keys(GLOBALES_NUEVOS_TARGETS).forEach(function(kr) {
     var d = GLOBALES_NUEVOS_TARGETS[kr];
     Object.keys(d.t).forEach(function(ym) { out.push({ ym: ym, escenario: 'budget', lob: 'globales_nuevos', kr: kr, valor: d.t[ym] }); });
@@ -203,7 +276,7 @@ var OKR_NOFILL_ = {
   '+6k new direct properties': true,
   'price competitiveness destino globales': true,
   'sales density on top 100 hotels': true,
-  'oc - costos atribuibles': true
+  'oc - costos atribuibles': true   // con dato todos los meses (Run Rate); igual sin dato no toma el target
 };
 
 function readOKRH2Json_() {
