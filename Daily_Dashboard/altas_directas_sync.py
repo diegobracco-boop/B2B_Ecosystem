@@ -93,7 +93,9 @@ def build_payload(fetch, hoy=None):
         return None
     meses = valores_por_mes(semanas, hoy)
     print(f"  [Altas directas] semanas: {[(s['semana'], s['altas']) for s in semanas]}")
-    print(f"  [Altas directas] por mes: {{{', '.join(f'{k}: {v['valor']} (sem {v['semana']}, {v['estado']})' for k, v in meses.items())}}}")
+    # Sin f-strings anidados con las mismas comillas: el servidor de Ownia corre un Python < 3.12 y no los acepta.
+    resumen = ", ".join("%s: %s (sem %s, %s)" % (k, v["valor"], v["semana"], v["estado"]) for k, v in meses.items())
+    print("  [Altas directas] por mes: {" + resumen + "}")
     return {
         "meta": {"generated_at": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"), "fuente": TABLA,
                  "filtro": "segmento = 'NO Latam' AND tipo_hotel = 'cadena'",
