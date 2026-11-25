@@ -1048,6 +1048,7 @@ body.krd-only #section-b2b > :not(.krd-keep) { display:none !important; }
         <button class="dm-btn active" id="btn-b2bc-comp-bud" onclick="switchComparison('b2bc','budget')">Budget</button>
         <button class="dm-btn" id="btn-b2bc-comp-rr" onclick="switchComparison('b2bc','runrate')">Run Rate</button>
         <button class="dm-btn" id="btn-b2bc-comp-fc" onclick="switchComparison('b2bc','forecast')">Forecast</button>
+        <button class="dm-btn" id="btn-b2bc-comp-lrr" onclick="switchComparison('b2bc','lastrunrate')" title="Last Run Rate: la ronda anterior del Run Rate (raw.b2blrr_gd)">Last RR</button>
       </div>
     </div>
     <div style="min-width:80px"></div>
@@ -1354,6 +1355,7 @@ body.krd-only #section-b2b > :not(.krd-keep) { display:none !important; }
         <button class="dm-btn active" id="btn-b2b-comp-bud" onclick="switchComparison('b2b','budget')">Budget</button>
         <button class="dm-btn" id="btn-b2b-comp-rr" onclick="switchComparison('b2b','runrate')">Run Rate</button>
         <button class="dm-btn" id="btn-b2b-comp-fc" onclick="switchComparison('b2b','forecast')">Forecast</button>
+        <button class="dm-btn" id="btn-b2b-comp-lrr" onclick="switchComparison('b2b','lastrunrate')" title="Last Run Rate: la ronda anterior del Run Rate (raw.b2blrr_gd / raw.b2blrr_ri)">Last RR</button>
       </div>
     </div>
     <div style="min-width:80px"></div>
@@ -1789,7 +1791,7 @@ var _tbdPartnerNames = {};   // grafías de TBD vistas al cargar (solo budget/pr
 function seedTBDNew_(pAT, raw, extra) {
   Object.keys(_tbdPartnerNames).forEach(function(n){ pAT[n] = 'TBD'; });
   var src = raw || _rawB2BC || {};
-  var lists = ['budget','runrate','forecast','budget_fy_rest','runrate_fy_rest'].map(function(k){ return src[k] || []; });
+  var lists = ['budget','runrate','forecast','lastrunrate','budget_fy_rest','runrate_fy_rest'].map(function(k){ return src[k] || []; });
   if (extra) lists.push(extra);   // fuente de budget alternativa (compSrc)
   lists.forEach(function(rows){
     rows.forEach(function(r){
@@ -1834,9 +1836,9 @@ function setExclTBD(on) {
 // servidor: van con el parámetro exCoiBr.
 var _exCoiBr = true;   // Excluir por default (Diego, 2026-10-26)
 var _COIBR_KEYS_ = {
-  b2bc:  ['actuals', 'actuals_ly', 'budget', 'runrate', 'forecast', 'budget_fy_rest', 'runrate_fy_rest', 'actuals_fy_rest', 'actuals_ly_fy_rest'],
+  b2bc:  ['actuals', 'actuals_ly', 'budget', 'runrate', 'forecast', 'lastrunrate', 'budget_fy_rest', 'runrate_fy_rest', 'actuals_fy_rest', 'actuals_ly_fy_rest'],
   b2b:   ['b2b_gd', 'b2b_gd_ly', 'b2b_ri', 'b2b_ri_ly', 'b2b_budget_gd', 'b2b_budget_ri',
-          'b2b_runrate_gd', 'b2b_runrate_ri', 'b2b_forecast_gd', 'b2b_forecast_ri'],
+          'b2b_runrate_gd', 'b2b_runrate_ri', 'b2b_forecast_gd', 'b2b_forecast_ri', 'b2b_lastrunrate_gd', 'b2b_lastrunrate_ri'],
   okrH2: ['b2b_gd', 'b2b_gd_ly', 'b2b_ri', 'b2b_ri_ly', 'b2b_budget_gd', 'b2b_budget_ri']
 };
 // Aplica el switch a un raw (al cargarlo y al cambiar el switch). Filas sin la columna quedan igual.
@@ -1887,7 +1889,7 @@ function fillPartnersCore_() {
   // Partners = los de actuals + los que solo tienen budget/proyección (en los países elegidos).
   var names = {};
   getPartners_(act).forEach(function(p){ names[p] = 1; });
-  ['budget','runrate','forecast'].forEach(function(k){
+  ['budget','runrate','forecast','lastrunrate'].forEach(function(k){
     (R[k] || []).forEach(function(r){
       if (r.partner && (!_selPaises.length || _selPaises.indexOf(r.pais) >= 0)) names[r.partner] = 1;
     });
@@ -2200,7 +2202,7 @@ function _syncOrganicUI_() {
   else if (!_dlOrganic) note.textContent = '';
   else {
     var vt = _orgTargetVisible_();
-    if (!vt.t) note.textContent = 'No disponible con ' + (vt.cmp === 'runrate' ? 'Run Rate' : vt.cmp) + ' (sin TC): datos nominales';
+    if (!vt.t) note.textContent = 'No disponible con ' + (vt.cmp === 'runrate' ? 'Run Rate' : vt.cmp === 'lastrunrate' ? 'Last Run Rate' : vt.cmp) + ' (sin TC): datos nominales';
     else note.textContent = 'Actuals × TC Actuals / TC ' + _orgTargetLabel_(vt.t) + (vt.t === 'forecast' ? ' · Forecast a TC Budget' : '') + (vt.t === 'ly' ? '' : ' · YoY a TC Actuals LY')
       + (_fxTbl && _fxTbl.implicito && _fxTbl.implicito.meses && _fxTbl.implicito.meses.length ? ' · TC ' + _fxTbl.implicito.meses.join(', ') + ': real MTD (GB local / GB USD)' : '')
       + (miss.length ? ' · sin TC: ' + miss.slice(0, 4).join(', ') + (miss.length > 4 ? ' …' : '') : '');
@@ -2263,8 +2265,8 @@ var _dirSel = 'all';
 var _DIR_NONE = 'Sin director';
 var _DIR_B2B_ACT  = ['b2b_gd', 'b2b_gd_ly', 'b2b_ri', 'b2b_ri_ly'];
 var _DIR_B2B_EXT  = ['b2b_gd_ly_ext', 'b2b_ri_ly_ext'];   // LY de nov-dic: lo lee la solapa Industry events de Ownia
-var _DIR_B2B_GOAL = ['b2b_budget_gd', 'b2b_budget_ri', 'b2b_runrate_gd', 'b2b_runrate_ri', 'b2b_forecast_gd', 'b2b_forecast_ri'];
-var _DIR_B2BC_KEYS = ['actuals', 'actuals_ly', 'budget', 'runrate', 'forecast', 'budget_fy_rest', 'runrate_fy_rest', 'actuals_fy_rest', 'actuals_ly_fy_rest'];
+var _DIR_B2B_GOAL = ['b2b_budget_gd', 'b2b_budget_ri', 'b2b_runrate_gd', 'b2b_runrate_ri', 'b2b_forecast_gd', 'b2b_forecast_ri', 'b2b_lastrunrate_gd', 'b2b_lastrunrate_ri'];
+var _DIR_B2BC_KEYS = ['actuals', 'actuals_ly', 'budget', 'runrate', 'forecast', 'lastrunrate', 'budget_fy_rest', 'runrate_fy_rest', 'actuals_fy_rest', 'actuals_ly_fy_rest'];
 function _dirOfPartner_(p) {
   var m = (_rawB2BC && _rawB2BC.director_by_partner) || {};
   return m[String(p || '').trim().toLowerCase()] || _DIR_NONE;
@@ -2342,7 +2344,7 @@ function dirSet_(val) {
   _orgRefreshAll_();
 }
 function applyPartnerAlias_(raw){
-  ['actuals','actuals_ly','budget','runrate','forecast','budget_fy_rest','runrate_fy_rest','actuals_fy_rest','actuals_ly_fy_rest'].forEach(function(k){
+  ['actuals','actuals_ly','budget','runrate','forecast','lastrunrate','budget_fy_rest','runrate_fy_rest','actuals_fy_rest','actuals_ly_fy_rest'].forEach(function(k){
     (raw[k]||[]).forEach(function(r){ var a=PARTNER_ALIAS_[r.partner]; if(a) r.partner=a; });
   });
 }
@@ -2842,6 +2844,7 @@ window.onload = function() {
       raw.budget   = expandCompact_(raw.budget);
       raw.runrate  = expandCompact_(raw.runrate);
       raw.forecast = expandCompact_(raw.forecast);
+      raw.lastrunrate = expandCompact_(raw.lastrunrate || {cols:[],rows:[]});   // Goal Last RR (JSON anterior: vacío)
       raw.budget_fy_rest  = expandCompact_(raw.budget_fy_rest  || {cols:[],rows:[]});   // ene-mar (mensual), solo portada del Flow
       raw.runrate_fy_rest = expandCompact_(raw.runrate_fy_rest || {cols:[],rows:[]});
       raw.unique_buyers_daily = expandCompact_(raw.unique_buyers_daily || {cols:[],rows:[]});
@@ -2849,7 +2852,7 @@ window.onload = function() {
       applyPartnerAlias_(raw);
       // Partner TBD = New partners / Hunting, aunque la cartera de ComDev no lo tenga.
       ['actuals','actuals_ly','actuals_fy_rest','actuals_ly_fy_rest'].forEach(function(k){ (raw[k]||[]).forEach(function(r){ if(isTBDPartner_(r.partner)) r.account_type='New'; }); });
-      ['budget','runrate','forecast','budget_fy_rest','runrate_fy_rest'].forEach(function(k){ (raw[k]||[]).forEach(function(r){ if(isTBDPartner_(r.partner)){ r.stage='New'; _tbdPartnerNames[r.partner]=1; } }); });
+      ['budget','runrate','forecast','lastrunrate','budget_fy_rest','runrate_fy_rest'].forEach(function(k){ (raw[k]||[]).forEach(function(r){ if(isTBDPartner_(r.partner)){ r.stage='New'; _tbdPartnerNames[r.partner]=1; } }); });
       dirApplyB2BC_(raw);
       _rawB2BC         = raw;
       dirFillSelects_();
@@ -3735,10 +3738,10 @@ var state_b2b = { viewDate: null, data: null, meta: null, allMetrics: null };
 var _b2bCharts = { gb: null, nr: null, fvm: null };
 var _b2bDateModel  = 'gd';
 var _b2bMarket     = null;
-var _b2bcComparison = 'budget'; // 'budget' | 'runrate' | 'forecast'
+var _b2bcComparison = 'budget'; // 'budget' | 'runrate' | 'forecast' | 'lastrunrate'
 var _b2bComparison  = 'budget';
-var COMPARISON_LABELS = { budget: 'Budget', runrate: 'Run Rate', forecast: 'Forecast' };
-var COMPARISON_KPIS   = { budget: 'vs Bdg',  runrate: 'vs RR',   forecast: 'vs Fcst' };
+var COMPARISON_LABELS = { budget: 'Budget', runrate: 'Run Rate', forecast: 'Forecast', lastrunrate: 'Last Run Rate' };
+var COMPARISON_KPIS   = { budget: 'vs Bdg',  runrate: 'vs RR',   forecast: 'vs Fcst', lastrunrate: 'vs LRR' };
 
 // ── B2B Load (one-time fetch) ────────────────────────────────────
 function loadB2B() {
@@ -4361,21 +4364,22 @@ function reloadB2BMetrics() { if (!state_b2b.viewDate) return; recomputeB2B_(); 
 function reloadAllB2B()     { recomputeB2B_(); }
 
 function switchComparison(lob, val) {
-  var lblShort = { budget: 'Delta vs BDG', runrate: 'Delta vs RR', forecast: 'Delta vs FCST' }[val];
+  var lblShort = { budget: 'Delta vs BDG', runrate: 'Delta vs RR', forecast: 'Delta vs FCST', lastrunrate: 'Delta vs LRR' }[val];
+  var btnKey = { budget: 'bud', runrate: 'rr', forecast: 'fc', lastrunrate: 'lrr' }[val];
   if (lob === 'b2bc') {
     _b2bcComparison = val;
-    ['bud','rr','fc'].forEach(function(k){
+    ['bud','rr','fc','lrr'].forEach(function(k){
       var el = document.getElementById('btn-b2bc-comp-'+k);
-      if (el) el.classList.toggle('active', k===(val==='budget'?'bud':val==='runrate'?'rr':'fc'));
+      if (el) el.classList.toggle('active', k===btnKey);
     });
     ['gb','nr','fvm'].forEach(function(m){ var el=document.getElementById('b2bc-th-delta-'+m); if(el) el.textContent=lblShort; });
     recomputeB2BC_();
     _syncOrganicUI_();
   } else {
     _b2bComparison = val;
-    ['bud','rr','fc'].forEach(function(k){
+    ['bud','rr','fc','lrr'].forEach(function(k){
       var el = document.getElementById('btn-b2b-comp-'+k);
-      if (el) el.classList.toggle('active', k===(val==='budget'?'bud':val==='runrate'?'rr':'fc'));
+      if (el) el.classList.toggle('active', k===btnKey);
     });
     ['gb','nr','fvm'].forEach(function(m){ var el=document.getElementById('b2b-th-delta-'+m); if(el) el.textContent=lblShort; });
     recomputeB2B_();

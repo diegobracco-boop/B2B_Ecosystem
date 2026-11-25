@@ -492,6 +492,12 @@ SELECT * FROM raw.b2brr_ri
 WHERE lob_canal IN ('B2B-MAY', 'B2B-MIN', 'API', 'HTML')
 """
 
+# Last Run Rate (2026-11-25): la ronda anterior del Run Rate, mismo formato que raw.b2brr_*.
+# Goal "Last Run Rate" del Daily (B2B y B2B2C, GD y RI). Sin datos -> claves vacías, no corta.
+B2B2C_LRR_QUERY = B2B2C_RR_QUERY.replace("raw.b2brr_gd", "raw.b2blrr_gd")
+B2B_LRR_GD_QUERY = B2B_RR_GD_QUERY.replace("raw.b2brr_gd", "raw.b2blrr_gd")
+B2B_LRR_RI_QUERY = B2B_RR_RI_QUERY.replace("raw.b2brr_ri", "raw.b2blrr_ri")
+
 LOB_CANAL_DIAG_QUERY = f"""
 SELECT lob_canal, COUNT(*) AS n,
        SUM(CAST(net_revenue AS DOUBLE)) AS nr_sum,
@@ -1912,6 +1918,9 @@ _QUERIES = {
     "B2B2C Run Rate":    B2B2C_RR_QUERY,
     "B2B Run Rate GD":   B2B_RR_GD_QUERY,
     "B2B Run Rate RI":   B2B_RR_RI_QUERY,
+    "B2B2C Last RR":     B2B2C_LRR_QUERY,
+    "B2B Last RR GD":    B2B_LRR_GD_QUERY,
+    "B2B Last RR RI":    B2B_LRR_RI_QUERY,
     "FVM Neg B2B GD":    build_b2b_fvm_neg_query("gd", FVM_NEG_FROM, YESTERDAY),
     "FVM Neg B2B RI":    build_b2b_fvm_neg_query("ri", FVM_NEG_FROM, YESTERDAY),
     "FVM Neg B2B2C":     build_b2b2c_fvm_neg_query(FVM_NEG_FROM, YESTERDAY),
@@ -2104,6 +2113,23 @@ except Exception as e:
     _FAILED_BLOCKS.append('B2B Run Rate RI')
     df_b2b_rr_ri = pd.DataFrame()
 df_b2b_rr_ri = ri_ds_api_desde_gd(df_b2b_rr_ri, df_b2b_rr_gd, "run rate")
+
+# Last Run Rate: mismo tratamiento que el Run Rate. Si falla no va a _FAILED_BLOCKS
+# (es un goal más de comparación; el Daily sigue sin él).
+print("\n--- Last Run Rate (B2B2C / B2B GD / B2B RI) ---")
+def _fetch_lrr(label):
+    try:
+        return clean_budget(fetched(label))
+    except Exception as e:
+        print(f"  WARN {label} query failed: {e}")
+        return pd.DataFrame()
+df_b2bc_lrr   = _fetch_lrr("B2B2C Last RR")
+if not df_b2bc_lrr.empty and 'partner' in df_b2bc_lrr.columns:
+    df_b2bc_lrr["stage"] = _map_stage(df_b2bc_lrr["partner"], cartera_map)
+    df_b2bc_lrr["tier"]  = _map_tier(df_b2bc_lrr, tier_map_pais, tier_map)
+df_b2b_lrr_gd = _fetch_lrr("B2B Last RR GD")
+df_b2b_lrr_ri = _fetch_lrr("B2B Last RR RI")
+df_b2b_lrr_ri = ri_ds_api_desde_gd(df_b2b_lrr_ri, df_b2b_lrr_gd, "last run rate")
 
 print("\n--- B2C (referencia) ---")
 try:
@@ -2432,6 +2458,9 @@ df_okr_bud      = agg_okr_stage_nr(df_budget)
 df_okr_rr       = agg_okr_stage_nr(df_b2bc_rr)
 df_b2b_rr_gd_agg = agg_b2b_budget(df_b2b_rr_gd)   if not df_b2b_rr_gd.empty        else pd.DataFrame()
 df_b2b_rr_ri_agg = agg_b2b_budget(df_b2b_rr_ri)   if not df_b2b_rr_ri.empty        else pd.DataFrame()
+df_b2bc_lrr_agg   = agg_budget(df_b2bc_lrr)        if not df_b2bc_lrr.empty         else pd.DataFrame()
+df_b2b_lrr_gd_agg = agg_b2b_budget(df_b2b_lrr_gd)  if not df_b2b_lrr_gd.empty       else pd.DataFrame()
+df_b2b_lrr_ri_agg = agg_b2b_budget(df_b2b_lrr_ri)  if not df_b2b_lrr_ri.empty       else pd.DataFrame()
 df_forecast_b2bc    = agg_forecast_b2bc(df_forecast_ri)  # B2B2C: RI == GD, misma base
 df_forecast_b2b_gd  = agg_forecast_b2b(df_forecast_gd)
 df_forecast_b2b_ri  = agg_forecast_b2b(df_forecast_ri)
@@ -2598,6 +2627,7 @@ b2bc_payload = {
     "budget":     to_compact(df_bud),
     "runrate":    to_compact(df_b2bc_rr_agg) if not df_b2bc_rr_agg.empty else {"cols": [], "rows": []},
     "forecast":   _forecast_b2bc_compact,
+    "lastrunrate": to_compact(df_b2bc_lrr_agg) if not df_b2bc_lrr_agg.empty else {"cols": [], "rows": []},   # raw.b2blrr_gd
     # Resto del FY fuera del año calendario (mensual) -> gráfico de 12 meses de la portada del Flow
     "flow_oc":    _flow_oc,   # OC B2B2C mensual (contable), slide "Monthly Performance — OC" del Flow
     "budget_fy_rest":  to_compact(df_bud_fy_rest) if not df_bud_fy_rest.empty else {"cols": [], "rows": []},
@@ -2638,6 +2668,8 @@ b2b_payload = {
     "b2b_runrate_ri": df_b2b_rr_ri_agg.to_dict(orient="records") if not df_b2b_rr_ri_agg.empty else [],
     "b2b_forecast_gd": _forecast_b2b_gd_records,
     "b2b_forecast_ri": _forecast_b2b_ri_records,
+    "b2b_lastrunrate_gd": df_b2b_lrr_gd_agg.to_dict(orient="records") if not df_b2b_lrr_gd_agg.empty else [],
+    "b2b_lastrunrate_ri": df_b2b_lrr_ri_agg.to_dict(orient="records") if not df_b2b_lrr_ri_agg.empty else [],
 }
 
 b2bc_str   = json.dumps(b2bc_payload, ensure_ascii=False, separators=(",", ":"))
