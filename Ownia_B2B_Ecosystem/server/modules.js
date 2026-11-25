@@ -236,6 +236,9 @@ const MODULES = [
     ownia: true,
     validating: true,
     hideGasLink: true,   // 2026-10-28: sin el link "Versión Apps Script" en la tarjeta del menú (Diego)
+    // Solo Ownia (2026-11-24): "¿En qué transacciones perdemos?" — FVM negativo por medio de pago, cuotas, aerolínea y
+    // hotel (bloque `aperturas` del JSON, daily_sync.py). public/fvm-aperturas.js; el dashboard.html de GAS no cambia.
+    layout: 'fvm-aperturas.js',
     gasUrl: GAS_EXEC + 'AKfycbzGXCpL9_p70Xx7P640YgU-zOzoLG1018HG9N_pzQvrCJPHTPsUuryD_tDH1HNO41hOIg/exec',
   },
   {

@@ -1179,6 +1179,148 @@ HAVING GROUPING({dims}) <> 0 OR {_FVM_NEG_HAVING}
 
 
 # ------------------------------------------------------------------------------
+# FVM Negativo — APERTURAS (solo Ownia: public/fvm-aperturas.js, 2026-11-24, Diego).
+# ¿En qué tipo de transacciones perdemos? Misma transacción y mismo FVM que arriba (criterio
+# transacción: negativa si la suma de sus productos en el mes da < 0), abierta por atributos de la tx:
+#   medio_pago: analytics.prd_payment_methods_fact.payment_method_ch_ev (una fila por tx; NULL en B2B = pago
+#               con la cuenta de la agencia)
+#   cuotas:     MAX(analytics.mkt_users_fact_payments.dues) de la tx (una tx puede tener varios pagos); -1 = sin dato
+#   aerolinea:  solo vuelos standalone (producto Flights): products.flight_validatin_carrier ('Varias' si hay más de una)
+#   hotel:      solo hoteles standalone (producto Hotels): products.hotel_name. Muchos hoteles: el set 'hotel' trae solo
+#               los que tienen alguna tx negativa en el mes, y 'hotel_total' el total del producto para armar "Otros"
+#               en Python (top por país).
+# Una fila por tx y mes en `por_tx`, así COUNT(*) son transacciones exactas y sumables entre filas.
+# ------------------------------------------------------------------------------
+_FVM_APERT_SELECT = """
+SELECT
+    CASE WHEN GROUPING(medio_pago) = 0 THEN 'medio_pago'
+         WHEN GROUPING(cuotas)     = 0 THEN 'cuotas'
+         WHEN GROUPING(aerolinea)  = 0 THEN 'aerolinea'
+         WHEN GROUPING(hotel)      = 0 THEN 'hotel'
+         ELSE 'hotel_total' END AS apertura,
+    anio, mes, pais, producto,
+    CASE WHEN GROUPING(medio_pago) = 0 THEN medio_pago
+         WHEN GROUPING(cuotas)     = 0 THEN CAST(cuotas AS VARCHAR)
+         WHEN GROUPING(aerolinea)  = 0 THEN aerolinea
+         WHEN GROUPING(hotel)      = 0 THEN hotel END AS valor,
+    SUM(CASE WHEN fvm < 0 THEN fvm END) AS fvm_neg,
+    COUNT(CASE WHEN fvm < 0 THEN 1 END) AS tx_neg,
+    COUNT(*)                            AS tx_total,
+    SUM(fvm)                            AS fvm_total
+FROM con_pago
+GROUP BY GROUPING SETS (
+    (anio, mes, pais, producto, medio_pago),
+    (anio, mes, pais, producto, cuotas),
+    (anio, mes, pais, producto, aerolinea),
+    (anio, mes, pais, producto, hotel),
+    (anio, mes, pais, producto)
+)
+HAVING (GROUPING(medio_pago) = 0 OR GROUPING(cuotas) = 0)
+    OR (GROUPING(aerolinea) = 0 AND producto = 'Flights')
+    OR (GROUPING(hotel) = 0 AND producto = 'Hotels' AND COUNT(CASE WHEN fvm < 0 THEN 1 END) > 0)
+    OR (GROUPING(medio_pago) + GROUPING(cuotas) + GROUPING(aerolinea) + GROUPING(hotel) = 4 AND producto = 'Hotels')
+"""
+
+
+def _fvm_apert_pago_cte(tx_ref: str) -> str:
+    """con_pago: por_tx + medio de pago + cuotas. tx_ref = columna con el transaction_code (varchar)."""
+    return f"""
+con_pago AS (
+    SELECT x.*, COALESCE(pm.medio, 'N/A') AS medio_pago, COALESCE(du.cuotas, -1) AS cuotas
+    FROM por_tx x
+    LEFT JOIN (
+        SELECT transaction_code, MAX(payment_method_ch_ev) AS medio
+        FROM data.analytics.prd_payment_methods_fact
+        WHERE reservation_year_month >= DATE '2024-01-01'
+        GROUP BY 1
+    ) pm ON pm.transaction_code = {tx_ref}
+    LEFT JOIN (
+        SELECT transaction_code, MAX(dues) AS cuotas
+        FROM data.analytics.mkt_users_fact_payments
+        WHERE reservation_year_month >= '2024-01'
+        GROUP BY 1
+    ) du ON du.transaction_code = {tx_ref}
+)"""
+
+
+def build_b2b_fvm_apert_query(vista: str, date_from: date, date_to: date) -> str:
+    if vista == "gd":
+        ctes, comps, joins = _B2B_CTEs_GD, _B2B_COMPONENTS_GD, _B2B_JOINS_GD
+        fecha, where = "fh.gestion_date", _b2b_where_gd(date_from, date_to)
+    else:
+        ctes, comps, joins = _B2B_CTEs_RI, _B2B_COMPONENTS_RI, _B2B_JOINS_RI
+        fecha = ("CASE WHEN fh.parent_channel = 'API' AND fh.buy_type_code = 'Hoteles'"
+                 " THEN p.checkin_date ELSE fh.recognition_date END")
+        where = _b2b_where_ri(date_from, date_to)
+    return (ctes + f"""
+base_metrics AS (
+    SELECT
+        {fecha} AS fecha,
+        fh.transaction_code AS tx,
+        fh.parent_channel,"""
+        + _B2B_PAIS_CASE
+        + _B2B_PROD_CASE + """
+        CASE WHEN p.product_type = 'Vuelos'  THEN p.flight_validatin_carrier END AS carrier,
+        CASE WHEN p.product_type = 'Hoteles' THEN p.hotel_name END AS hotel_name,"""
+        + comps + joins + where + """
+    GROUP BY 1, 2, 3, 4, 5, 6, 7
+),
+por_tx AS (
+    SELECT YEAR(fecha) AS anio, MONTH(fecha) AS mes, CAST(tx AS VARCHAR) AS tx, pais,
+           producto_original AS producto,
+           CASE WHEN producto_original = 'Flights'
+                THEN CASE WHEN COUNT(DISTINCT carrier) > 1 THEN 'Varias' ELSE MAX(carrier) END END AS aerolinea,
+           CASE WHEN producto_original = 'Hotels' THEN MAX(hotel_name) END AS hotel,"""
+        + _B2B_OUTER_SELECT_FVM + """
+    FROM base_metrics
+    GROUP BY 1, 2, 3, 4, 5
+),"""
+        + _fvm_apert_pago_cte("x.tx") + _FVM_APERT_SELECT)
+
+
+def build_b2b2c_fvm_apert_query(date_from: date, date_to: date) -> str:
+    # B2B2C: la tx puede traer más de un producto (ej. la asistencia que se agrega en el checkout de un vuelo):
+    # se queda con el de mayor GB como producto de la tx, así cada tx cuenta una sola vez y su FVM es el de la tx entera.
+    # Aerolínea / hotel salen de products (el query del Daily no los trae).
+    return f"""
+WITH a AS (
+{build_actuals_query(date_from, date_to, por_transaccion=True)}
+),
+por_tx_base AS (
+    SELECT YEAR(fecha) AS anio, MONTH(fecha) AS mes, tx, pais,
+           MAX_BY(productooriginal, ABS(COALESCE(gross_bookings, 0))) AS producto,
+           SUM(fvm) AS fvm
+    FROM a
+    GROUP BY 1, 2, 3, 4
+),
+attrs AS (
+    SELECT p.transaction_code,
+           CASE WHEN COUNT(DISTINCT CASE WHEN p.product_type = 'Vuelos' THEN p.flight_validatin_carrier END) > 1
+                THEN 'Varias'
+                ELSE MAX(CASE WHEN p.product_type = 'Vuelos' THEN p.flight_validatin_carrier END) END AS carrier,
+           MAX(CASE WHEN p.product_type = 'Hoteles' THEN p.hotel_name END) AS hotel_name
+    FROM data.analytics.bi_transactional_fact_products p
+    JOIN data.analytics.bi_transactional_fact_transactions t
+      ON t.transaction_code = p.transaction_code
+     AND t.reservation_year_month >= CAST('2023-01-01' AS DATE)
+    WHERE p.reservation_year_month >= CAST('2023-01-01' AS DATE)
+      AND p.is_confirmed_flg = 1
+      AND t.line_of_business = 'B2B2C'
+      AND t.confirmation_date >= DATE('{date_from}')
+      AND t.confirmation_date <= DATE('{date_to}')
+    GROUP BY 1
+),
+por_tx AS (
+    SELECT b.anio, b.mes, b.tx, b.pais, b.producto,
+           CASE WHEN b.producto = 'Flights' THEN at.carrier END    AS aerolinea,
+           CASE WHEN b.producto = 'Hotels'  THEN at.hotel_name END AS hotel,
+           b.fvm
+    FROM por_tx_base b
+    LEFT JOIN attrs at ON at.transaction_code = b.tx
+),""" + _fvm_apert_pago_cte("x.tx") + _FVM_APERT_SELECT
+
+
+# ------------------------------------------------------------------------------
 # B2C — serie de referencia (línea opcional "vs B2C" en los evolutivos).
 # Query provista y validada por el equipo (julio 2026). Solo se parametriza el
 # rango de confirmation_date; el resto de los filtros de fecha son cotas de los
@@ -1773,6 +1915,9 @@ _QUERIES = {
     "FVM Neg B2B GD":    build_b2b_fvm_neg_query("gd", FVM_NEG_FROM, YESTERDAY),
     "FVM Neg B2B RI":    build_b2b_fvm_neg_query("ri", FVM_NEG_FROM, YESTERDAY),
     "FVM Neg B2B2C":     build_b2b2c_fvm_neg_query(FVM_NEG_FROM, YESTERDAY),
+    "FVM Apert B2B GD":  build_b2b_fvm_apert_query("gd", FVM_NEG_FROM, YESTERDAY),
+    "FVM Apert B2B RI":  build_b2b_fvm_apert_query("ri", FVM_NEG_FROM, YESTERDAY),
+    "FVM Apert B2B2C":   build_b2b2c_fvm_apert_query(FVM_NEG_FROM, YESTERDAY),
 }
 print(f"  Lanzando {len(_QUERIES)} queries ({FETCH_WORKERS} en paralelo)...")
 _pool = ThreadPoolExecutor(max_workers=FETCH_WORKERS)
@@ -2149,6 +2294,63 @@ def _cuadre_fvm_neg(df_neg: pd.DataFrame, nivel_tx: str, df_daily: pd.DataFrame,
     return ok
 
 
+FVM_APERT_TOP_HOTELES = 40   # por país, por FVM negativo de todo el período; el resto va a "Otros hoteles"
+FVM_APERT_OTROS_HOTEL = "Otros hoteles"
+
+
+def clean_fvm_apert(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.copy()
+    df["ym"] = (pd.to_numeric(df["anio"]).astype(int).astype(str) + "-"
+                + pd.to_numeric(df["mes"]).astype(int).astype(str).str.zfill(2))
+    for c in ("fvm_neg", "fvm_total"):
+        df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0).round(2)
+    for c in ("tx_neg", "tx_total"):
+        df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0).astype(int)
+    for c in ("pais", "producto", "valor"):
+        df[c] = df[c].fillna("N/A").astype(str).str.strip()
+    return df
+
+
+def fvm_apert_block(df: pd.DataFrame) -> dict:
+    """{apertura: compact(ym, pais, producto, valor, fvm_neg, tx_neg, tx_total, fvm_total)}. Hotel: top por país +
+    "Otros hoteles" = total del producto (hotel_total) menos los del top, así cada apertura suma el total de su producto."""
+    cols = ["ym", "pais", "producto", "valor", "fvm_neg", "tx_neg", "tx_total", "fvm_total"]
+    out = {}
+    for ap in ("medio_pago", "cuotas", "aerolinea"):
+        out[ap] = to_compact(df[df["apertura"] == ap][cols].sort_values(["ym", "fvm_neg"]))
+    h = df[df["apertura"] == "hotel"]
+    rank = h.groupby(["pais", "valor"])["fvm_neg"].sum().reset_index().sort_values("fvm_neg")
+    top = rank.groupby("pais").head(FVM_APERT_TOP_HOTELES)[["pais", "valor"]]
+    kept = h.merge(top, on=["pais", "valor"])
+    met = ["fvm_neg", "tx_neg", "tx_total", "fvm_total"]
+    tot = df[df["apertura"] == "hotel_total"].groupby(["ym", "pais", "producto"])[met].sum()
+    otros = tot.sub(kept.groupby(["ym", "pais", "producto"])[met].sum(), fill_value=0).reset_index()
+    otros["valor"] = FVM_APERT_OTROS_HOTEL
+    hot = pd.concat([kept[cols], otros[cols]], ignore_index=True)
+    hot = hot[(hot["tx_total"] > 0) | (hot["fvm_neg"].round(0) != 0)]
+    hot["fvm_neg"] = hot["fvm_neg"].round(2)
+    hot["fvm_total"] = hot["fvm_total"].round(2)
+    out["hotel"] = to_compact(hot.sort_values(["ym", "fvm_neg"]))
+    return out
+
+
+def _cuadre_fvm_apert(df_ap: pd.DataFrame, df_neg: pd.DataFrame, nivel_tx: str, nombre: str) -> bool:
+    """Las aperturas son la misma transacción que el bloque principal: por mes, el FVM total, el FVM negativo y las
+    tx negativas de 'medio_pago' (toda tx tiene uno, N/A incluido) tienen que dar igual que el nivel tx del bloque."""
+    met = ["fvm_total", "fvm_neg", "tx_neg"]
+    ap = df_ap[df_ap["apertura"] == "medio_pago"].groupby("ym")[met].sum()
+    ng = df_neg[df_neg["nivel"] == nivel_tx].groupby("ym")[met].sum()
+    diff = ap.sub(ng, fill_value=0).abs()
+    # mismas tolerancias que _cuadre_fvm_neg: las dos queries corren en paralelo y cada fila viene redondeada
+    tol = ng.reindex(diff.index).fillna(0).abs().mul(1e-4).clip(lower=1000.0)
+    bad = diff[(diff["fvm_total"] > tol["fvm_total"]) | (diff["fvm_neg"] > tol["fvm_neg"])
+               | (diff["tx_neg"] > ng.reindex(diff.index)["tx_neg"].fillna(0).mul(1e-3).clip(lower=2))]
+    for ym, r in bad.iterrows():
+        print(f"  ERROR cuadre aperturas FVM Negativo {nombre} {ym}: dif FVM {r['fvm_total']:,.0f}"
+              f" / FVM neg {r['fvm_neg']:,.0f} / tx neg {r['tx_neg']:,.0f}")
+    return bad.empty
+
+
 fvm_neg_bytes = None
 try:
     _neg_gd  = clean_fvm_neg(fetched("FVM Neg B2B GD"), FVM_NEG_DIMS_B2B)
@@ -2174,6 +2376,18 @@ try:
                                     {"tx_producto": ["pais", "partner", "producto"],
                                      "tx_partner":  ["pais", "partner"]}),
         }
+        # Aperturas (solo Ownia): si fallan o no cuadran, el JSON sale igual sin ellas (la landing muestra el aviso).
+        try:
+            for _bk, _lbl, _ng, _nv in (("b2b_gd", "FVM Apert B2B GD", _neg_gd, "tx"),
+                                        ("b2b_ri", "FVM Apert B2B RI", _neg_ri, "tx"),
+                                        ("b2b2c",  "FVM Apert B2B2C",  _neg_b2c, "tx_partner")):
+                _ap = clean_fvm_apert(fetched(_lbl))
+                if _cuadre_fvm_apert(_ap, _ng, _nv, _bk):
+                    fvm_neg_payload[_bk]["aperturas"] = fvm_apert_block(_ap)
+                else:
+                    print(f"  AVISO: {_bk} sin aperturas (no cuadran con el FVM Negativo)")
+        except Exception as e:
+            print(f"  WARN aperturas FVM Negativo failed: {e} — el JSON sale sin aperturas")
         fvm_neg_bytes = json.dumps(fvm_neg_payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
         for _k, _d in (("GD", _neg_gd), ("RI", _neg_ri), ("B2B2C", _neg_b2c)):
             _t = _d[_d["nivel"] != "detalle"]
