@@ -63,7 +63,7 @@ var CANAL_GROUPS_BY_LOB = {
   'b2b2c': [
     { id:'brasil', label:'Brasil', lobFilter:'b2b2c', canalFilter:null, paisFilter:'brasil', paisExclude:null, lobExclude:null },
     { id:'mexico', label:'Mexico', lobFilter:'b2b2c', canalFilter:null, paisFilter:'mexico', paisExclude:null, lobExclude:null },
-    { id:'hispa',  label:'Hispa',  lobFilter:'b2b2c', canalFilter:null, paisFilter:null, paisExclude:['brasil','mexico','ops','rg','ops + rg'], lobExclude:null },
+    { id:'hispa',  label:'Hispa',  lobFilter:'b2b2c', canalFilter:null, paisFilter:null, paisExclude:['brasil','mexico','other countries','usa','uruguay','paraguay','ops','rg','ops + rg'], lobExclude:null },
     { id:'opsrg',  label:'OPS+RG', lobFilter:'b2b2c', canalFilter:null, paisFilter:null, paisExclude:null, paisMultiFilter:['ops','rg','ops + rg'], lobExclude:null },
     { id:'total',  label:'Total',  lobFilter:'b2b2c', canalFilter:null, paisFilter:null, paisExclude:null, lobExclude:null }
   ],
@@ -71,7 +71,7 @@ var CANAL_GROUPS_BY_LOB = {
     { id:'brasil', label:'Brasil',          lobFilter:'b2b', canalFilter:null, paisFilter:'brasil',          paisExclude:null, lobExclude:null },
     { id:'mexico', label:'Mexico',          lobFilter:'b2b', canalFilter:null, paisFilter:'mexico',          paisExclude:null, lobExclude:null },
     { id:'other',  label:'Globales', lobFilter:'b2b', canalFilter:null, paisFilter:'other countries', paisExclude:null, lobExclude:null },
-    { id:'hispa',  label:'Hispa',           lobFilter:'b2b', canalFilter:null, paisFilter:null, paisExclude:['brasil','mexico','other countries','ops','rg','ops + rg'], lobExclude:null },
+    { id:'hispa',  label:'Hispa',           lobFilter:'b2b', canalFilter:null, paisFilter:null, paisExclude:['brasil','mexico','other countries','usa','uruguay','paraguay','ops','rg','ops + rg'], lobExclude:null },
     { id:'opsrg',  label:'OPS+RG',          lobFilter:'b2b', canalFilter:null, paisFilter:null, paisExclude:null, paisMultiFilter:['ops','rg','ops + rg'], lobExclude:null },
     { id:'total',  label:'Total',           lobFilter:'b2b', canalFilter:null, paisFilter:null, paisExclude:null, lobExclude:null }
   ]
@@ -84,20 +84,20 @@ var WF_GROUPS_BY_LOB = {
     { label:'Brasil',          paisFilter:'brasil',          paisExclude:null,                                                              paisMultiFilter:null },
     { label:'Mexico',          paisFilter:'mexico',          paisExclude:null,                                                              paisMultiFilter:null },
     { label:'Globales', paisFilter:'other countries', paisExclude:null,                                                              paisMultiFilter:null },
-    { label:'Hispa',           paisFilter:null,              paisExclude:['brasil','mexico','other countries','ops','rg','ops + rg'],        paisMultiFilter:null },
+    { label:'Hispa',           paisFilter:null,              paisExclude:['brasil','mexico','other countries','usa','uruguay','paraguay','ops','rg','ops + rg'],        paisMultiFilter:null },
     { label:'OPS+RG',          paisFilter:null,              paisExclude:null,                                                              paisMultiFilter:['ops','rg','ops + rg'] }
   ],
   'b2b2c': [
     { label:'Brasil',          paisFilter:'brasil',          paisExclude:null,                                                              paisMultiFilter:null },
     { label:'Mexico',          paisFilter:'mexico',          paisExclude:null,                                                              paisMultiFilter:null },
-    { label:'Hispa',           paisFilter:null,              paisExclude:['brasil','mexico','ops','rg','ops + rg'],                         paisMultiFilter:null },
+    { label:'Hispa',           paisFilter:null,              paisExclude:['brasil','mexico','other countries','usa','uruguay','paraguay','ops','rg','ops + rg'],                         paisMultiFilter:null },
     { label:'OPS+RG',          paisFilter:null,              paisExclude:null,                                                              paisMultiFilter:['ops','rg','ops + rg'] }
   ],
   'b2b': [
     { label:'Brasil',          paisFilter:'brasil',          paisExclude:null,                                                              paisMultiFilter:null },
     { label:'Mexico',          paisFilter:'mexico',          paisExclude:null,                                                              paisMultiFilter:null },
     { label:'Globales', paisFilter:'other countries', paisExclude:null,                                                              paisMultiFilter:null },
-    { label:'Hispa',           paisFilter:null,              paisExclude:['brasil','mexico','other countries','ops','rg','ops + rg'],        paisMultiFilter:null },
+    { label:'Hispa',           paisFilter:null,              paisExclude:['brasil','mexico','other countries','usa','uruguay','paraguay','ops','rg','ops + rg'],        paisMultiFilter:null },
     { label:'OPS+RG',          paisFilter:null,              paisExclude:null,                                                              paisMultiFilter:['ops','rg','ops + rg'] }
   ]
 };
@@ -1549,7 +1549,7 @@ function computeEvo_(p, actMap, rrMap, budMap, actPrevMap, fcMap) {
     { label:'Brasil',   gf:{ paisFilter:'brasil',          paisExclude:null } },
     { label:'Mexico',   gf:{ paisFilter:'mexico',          paisExclude:null } },
     { label:'Globales', gf:{ paisFilter:'other countries', paisExclude:null } },
-    { label:'Hispa',    gf:{ paisFilter:null, paisExclude:['brasil','mexico','other countries','ops','rg','ops + rg'] } },
+    { label:'Hispa',    gf:{ paisFilter:null, paisExclude:['brasil','mexico','other countries','usa','uruguay','paraguay','ops','rg','ops + rg'] } },
     { label:'OPS+RG',   gf:{ paisMultiFilter:['ops','rg','ops + rg'] } }
   ] : [
     { label:'Brasil',            gf:{ paisFilter:'brasil',    paisExclude:null } },
