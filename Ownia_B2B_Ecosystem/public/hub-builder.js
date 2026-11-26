@@ -24,7 +24,7 @@
   var SEGS = [['total', 'B2B + B2B2C', { lob: 'all' }], ['b2b2c', 'B2B2C', { lob: 'b2b2c' }], ['b2b', 'B2B', { lob: 'b2b' }],
     ['min', 'B2B-MIN (HTML)', { lob: 'b2b', canal: 'min' }], ['may', 'B2B-MAY (API)', { lob: 'b2b', canal: 'may' }]];
   var METRICS = [['gb', 'Gross Bookings'], ['nr', 'Net Revenue'], ['oc', 'Operating Contribution']];
-  var VS = [['bud', 'Budget'], ['fc', 'Forecast BTB'], ['ly', 'Last Year']];
+  var VS = [['bud', 'Budget'], ['fc', 'Forecast'], ['ly', 'Last Year']];
   var VISUALS = [['kpi', 'KPIs'], ['table', 'Tabla'], ['evo', 'Evolución mensual'], ['split', 'Apertura']];
   var SCOPE = 'builder';
   // Países como los normaliza el Hub (_PAIS_VALUE_NORM_ de Codigo.js) y cómo se muestran (mismos nombres que el Cuadro Resumen)
@@ -258,7 +258,7 @@
     var last = lastClosed(), n = spec.metrics.length, ch = Math.max(120, Math.round((n === 1 ? 470 : n === 2 ? 232 : 152) * nk));
     var vs = spec.vs || [];
     var legend = '<div class="hb-leg"><span><i class="hb-lr"></i>Real</span><span><i class="hb-lp"></i>Run Rate</span>' +
-      (vs.indexOf('bud') >= 0 ? '<span><i class="hb-lb"></i>Budget</span>' : '') + (vs.indexOf('fc') >= 0 ? '<span><i class="hb-lf"></i>Forecast BTB</span>' : '') +
+      (vs.indexOf('bud') >= 0 ? '<span><i class="hb-lb"></i>Budget</span>' : '') + (vs.indexOf('fc') >= 0 ? '<span><i class="hb-lf"></i>Forecast</span>' : '') +
       (vs.indexOf('ly') >= 0 ? '<span><i class="hb-ll"></i>Last Year</span>' : '') + '</div>';
     return legend + spec.metrics.map(function (k) {
       var arr = tot[k] || [], cw = 1180, padL = 8, padT = 22, padB = 36, plotH = ch - padT - padB;

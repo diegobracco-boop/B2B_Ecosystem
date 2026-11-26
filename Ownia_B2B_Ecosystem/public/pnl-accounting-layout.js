@@ -5,9 +5,13 @@
  * Escenario "Forecast - Bridge to budget" (2026-10-26): botón "vs Forecast BTB" en el selector de
  * comparación de la vista EPM, al lado de "vs Last RR". El cálculo lo hace el servidor con el goal
  * 'forecastbtb' (server/gas-extras/pnl-accounting-fbtb.js).
+ * APAGADO 2026-11-25 (Diego): con el consolidador Forecast y Bridge to budget son el mismo FC1, queda solo "vs Forecast".
+ * Para volver a mostrarlo (p. ej. si llega un "Forecast ex. boost" y hay que distinguirlos): FBTB_BOTON = true.
  */
 (function () {
   'use strict';
+  var FBTB_BOTON = false;
+  if (!FBTB_BOTON) return;
 
   var GOAL = 'forecastbtb';
   var LABEL = 'Forecast - Bridge to budget';

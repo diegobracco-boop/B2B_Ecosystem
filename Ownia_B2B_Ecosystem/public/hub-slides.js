@@ -512,7 +512,7 @@
       (subs ? '<div class="hs-kq">' + subs + '</div>' : '') + '</div>';
   }
   function sOutlook(goal) {
-    var per = outlookPeriods(), gk = goal === 'btb' ? 'fc' : 'bud', gName = goal === 'btb' ? 'Forecast BTB' : 'Budget', gShort = goal === 'btb' ? 'BTB' : 'Budget';
+    var per = outlookPeriods(), gk = goal === 'btb' ? 'fc' : 'bud', gName = goal === 'btb' ? 'Forecast' : 'Budget', gShort = goal === 'btb' ? 'Forecast' : 'Budget';
     if (!per.length) return head('Proyección vs ' + gName) + '<p class="hs-err">Con el año cerrado no hay proyección.</p>' + foot();
     var main = per.filter(function (x) { return x.half; }).slice(-1)[0] || per[per.length - 1];
     var cols = OUT_COLS.map(function (c) { return { name: c[1], s: state.data[c[0]].s }; });
@@ -525,7 +525,7 @@
     var rest = per.filter(function (x) { return x !== main; });
     var note = 'Proyección = real cerrado hasta ' + monthLabel(state.month) + ' + Run Rate · Δ = proyección − ' + gName + ' · ' + main.name + ' = ' + main.sub +
       (state.outDetail ? ' · abajo, ' + rest.map(function (x) { return x.name + ' (' + x.sub + ')'; }).join(', ') : '') +
-      (goal === 'btb' ? ' · BTB: escenario "Forecast - Bridge to budget" (hasta OC)' : '') + (organicOn() ? ' · Organic: todo a TC Budget' : '');
+      (goal === 'btb' ? ' · Forecast: Bridge to budget (hasta OC)' : '') + (organicOn() ? ' · Organic: todo a TC Budget' : '');
     return head(main.name + ' proyectado vs ' + gName + (state.outDetail ? ' · ' + rest.map(function (x) { return x.name; }).join(' · ') : ''), 'cierre ' + monthLabel(state.month)) +
       '<div class="hs-res">' + g + '</div><div class="hs-otn">' + esc(note) + '</div>' + foot();
   }
@@ -770,7 +770,7 @@
       ['B2B-MIN por región', sRegions('min')],
       ['B2B-MAY por región', sRegions('may')],
       ['Proyección vs Budget', sOutlook('budget'), false, 'budget'],
-      ['Proyección vs Forecast BTB', sOutlook('btb'), false, 'btb'],
+      ['Proyección vs Forecast', sOutlook('btb'), false, 'btb'],
       // Al final por ahora (2026-11-03): se reordena el deck cuando cierre el material oficial del mes
       ['B2B2C OC mensual vs Budget', sOcMonthly('b2b2c')],
       ['B2B-MAY OC mensual vs Budget', sOcMonthly('may')],

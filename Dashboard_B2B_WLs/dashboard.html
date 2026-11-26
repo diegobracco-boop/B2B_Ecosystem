@@ -1336,7 +1336,6 @@ header > img{filter:brightness(0) invert(1);opacity:.92}
         <option value="runRate">Run Rate</option>
         <option value="lastRunRate">Last Run Rate</option>
         <option value="forecast">Forecast</option>
-        <option value="forecastBtb">Forecast - Bridge to budget</option>
         <option value="lastYear">Last Year</option>
       </select>
     </div>
@@ -2974,6 +2973,7 @@ function toggleProdPanelBar(e) {
 // Goal "Forecast - Bridge to budget" (2026-10-26): es el Goal Forecast con otra fuente
 // (forecastbtb.json, ver fcSource en getAllData). _state.goal queda 'forecast' para que todo lo que ya
 // compara contra el Forecast (varFc*, bridges, tarjetas) lo tome sin cambios; solo cambian los nombres.
+// 2026-11-25 (Diego): la opción salió del selector. Con el consolidador Forecast y Bridge to budget son el mismo FC1: queda solo "Forecast".
 function _isFcBtb_() { return _state.goal === 'forecast' && _state.fcSource === 'btb'; }
 function _fcLabel_() { return _isFcBtb_() ? 'Forecast - Bridge to budget' : 'Forecast'; }
 // Goal "Last Run Rate" (2026-11-09): mismo criterio, es el Goal Run Rate con lastrunrate.json (rrSource 'lrr').
