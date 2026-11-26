@@ -86,7 +86,7 @@ var OKR_CONFIG_H2 = {
       { kr: '+6k new direct properties',               label: '+6k New Direct Properties',               weight: 20, cumulative: true },
       { kr: 'price competitiveness destino globales',  label: 'Price Competitiveness Destino Globales',  weight: 20, cumulative: true, pct: true, inverse: true },
       { kr: 'sales density on top 100 hotels',         label: 'Sales Density on Top 100 Hotels',         weight: 20, cumulative: true, pct: true },
-      { kr: 'oc - costos atribuibles',                 label: 'OC - Costos atribuibles (por ahora solo OC)', weight: 20 }
+      { kr: 'oc - costos atribuibles',                 label: 'Operating Contribution', weight: 20 }
     ]
   }
 };

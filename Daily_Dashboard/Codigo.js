@@ -1544,7 +1544,7 @@ var GLOBALES_KRS_NUEVOS_DEF = [
   // Others Countries, de OKR_H2_FY27.json. Se toma IGUAL que las secciones contables: mes con cierre contable = el OC del cierre (Estado
   // "Actual"); mes sin cierre = el Run Rate (Estado "Proyeccion"). Target = Budget contable de OC API Others Countries (la slide dice TBD
   // por mes). End Game: 50M por todo el H2. Es solo OC: todavía sin los costos atribuibles.
-  { id:'oc_costos_atribuibles', name:'OC - Costos atribuibles (por ahora solo OC)', calc:'Por ahora solo OC (sin costos atribuibles): OC API · PoS Global, contable',
+  { id:'oc_costos_atribuibles', name:'Operating Contribution', calc:'OC API · PoS Global, contable',
     weight:0.20, unit:'$M', owner:'Paola Peñarete', tag:'For Discussion', end_game:'50M (todo el H2, solo POS Global)', targets:{},
     actual_fuente:'oc_api_globales', target_fuente:'oc_api_globales',
     medicion:'Mes con cierre: cierre contable · sin cierre: Run Rate · target = Budget contable' }
@@ -1632,7 +1632,7 @@ function getGlobalesKRTargets() {
   try { tsN.push(_driveFile_(ALTAS_DIRECTAS_FILE).getLastUpdated().getTime()); } catch (e) {}
   try { tsN.push(_driveFile_(PRICE_COMP_FILE).getLastUpdated().getTime()); } catch (e) {}
   try { tsN.push(_driveFile_(SALES_DENSITY_FILE).getLastUpdated().getTime()); } catch (e) {}
-  var key = 'globales_okr_v7_' + file.getLastUpdated().getTime() + '_' + tsN.join('_');
+  var key = 'globales_okr_v8_' + file.getLastUpdated().getTime() + '_' + tsN.join('_');
   var hit = cache.get(key);
   if (hit) { try { return JSON.parse(hit); } catch (e) {} }
   var j = JSON.parse(file.getBlob().getDataAsString());
