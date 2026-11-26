@@ -146,6 +146,25 @@ function globalesNuevosPriceCompRows_() {
   return out;
 }
 
+// Sales Density on Top 100 Hotels: sales_density_okr.json (Daily_Dashboard/sales_density_sync.py, raw.b2b_kpi_sales_density mensual):
+// % duplas vendidas / posibles; mes terminado = cierre (Real), mes en curso = MTD proyectado al mes (MTD).
+var SALES_DENSITY_FILENAME = 'sales_density_okr.json';
+function globalesNuevosSalesDensityRows_() {
+  var out = [];
+  try {
+    var files = DriveApp.getFolderById(PARTNERS_API_FOLDER_ID).getFilesByName(SALES_DENSITY_FILENAME);
+    if (!files.hasNext()) return out;
+    var meses = JSON.parse(files.next().getBlob().getDataAsString()).meses || {};
+    Object.keys(meses).forEach(function(ym) {
+      var m = meses[ym];
+      if (typeof m.pct !== 'number') return;
+      out.push({ ym: ym, escenario: 'run rate/actuals', lob: 'globales_nuevos', kr: 'sales density on top 100 hotels',
+                 valor: m.pct, estado: m.estado === 'Cierre' ? 'Real' : 'MTD' });
+    });
+  } catch (e) { Logger.log('globalesNuevosSalesDensityRows_: ' + e.message); }
+  return out;
+}
+
 function globalesNuevosPartnersRows_() {
   var out = [];
   try {
@@ -169,7 +188,7 @@ function globalesNuevosPartnersRows_() {
 // Filas del set nuevo (lob 'globales_nuevos') para computeOKR_: Budget = targets de la slide; Run Rate/Actuals = copia de las filas
 // del KR vigente de actual_de (las mismas que ve el bloque vigente). Los KRs sin fuente quedan sin actual (OKR_NOFILL_: no toman el target).
 function globalesNuevosRows_(rows) {
-  var out = globalesNuevosPartnersRows_().concat(globalesNuevosAltasRows_(), globalesNuevosPriceCompRows_());
+  var out = globalesNuevosPartnersRows_().concat(globalesNuevosAltasRows_(), globalesNuevosPriceCompRows_(), globalesNuevosSalesDensityRows_());
   // OC - Costos atribuibles = por ahora solo OC (sin costos atribuibles): OC API · Others Countries (solo OKR_H2_FY27.json trae el país),
   // tomado IGUAL que el contable: Budget = target; Run Rate/Actuals = cierre contable (Estado "Actual") o Run Rate (Estado "Proyeccion").
   (rows || []).forEach(function(r) {

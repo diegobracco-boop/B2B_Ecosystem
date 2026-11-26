@@ -1508,7 +1508,7 @@ var GLOBALES_MESES_LABEL = ["Oct'26","Nov'26","Dic'26","Ene'27","Feb'27","Mar'27
 // cada vista hasta que confirmen qué set queda; el vigente no se toca. Los targets son los de la slide (en el código, no en Input_OKR).
 // Actuals: actual_fuente = fuente propia (globalesNuevosFuentes_: Grow ← partners API, +6k New Direct Properties ← altas de Sourcing,
 // OC ← OKR_H2_FY27.json, Price Competitiveness ← Metabase 180311, que conserva el id del vigente para la escala no lineal de pcRatio_);
-// actual_de = PROVISORIO, el actual del KR vigente equivalente (hoy ninguno); sin ninguno de los dos (Sales Density), sin actual.
+// Sales Density ← raw.b2b_kpi_sales_density; actual_de = PROVISORIO, el actual del KR vigente equivalente (hoy ninguno).
 //   end_game: target "End Game" de la slide (texto, no entra al score) · tag: rótulo de la slide (Scope + Ambition, New KR...).
 var GLOBALES_NUEVOS_META = { titulo: 'KR Global B2B API — nuevos (propuesta) · B2B PoS Global API Hotels', objetivo: 'Become a Global Bedbank',
                              owner: 'Juan Pablo Martorell' };
@@ -1536,7 +1536,10 @@ var GLOBALES_KRS_NUEVOS_DEF = [
     actual_fuente:'price_comp_mensual' },
   { id:'sales_density_top100', name:'Sales Density on Top 100 Hotels', calc:'% Selling Top 50 PoS Global Clients x Top 100 Hotels',
     weight:0.20, unit:'%', owner:'Jordan', tag:'New KR', baseline:15, baseline_label:"Sep'26 (742 / 5.000)", end_game:'TBD',
-    targets:{ '2026-10':16, '2026-11':17, '2026-12':18, '2027-01':18.5, '2027-02':19.5, '2027-03':20 } },
+    targets:{ '2026-10':16, '2026-11':17, '2026-12':18, '2027-01':18.5, '2027-02':19.5, '2027-03':20 },
+    // actual_fuente 'sales_density': sales_density_okr.json (sales_density_sync.py, raw.b2b_kpi_sales_density mensual): mes terminado =
+    // cierre; mes en curso = MTD proyectado al mes (duplas MTD x días del mes / días con dato, Diego 2026-11-25).
+    actual_fuente:'sales_density', medicion:'Mes cerrado: cierre · mes en curso: MTD proyectado al mes' },
   // "Solo globales; OC - costos atribuibles = solo OC por ahora" (2026-11-25, definido por antonella.difranco): canal API (MAY), país
   // Others Countries, de OKR_H2_FY27.json. Se toma IGUAL que las secciones contables: mes con cierre contable = el OC del cierre (Estado
   // "Actual"); mes sin cierre = el Run Rate (Estado "Proyeccion"). Target = Budget contable de OC API Others Countries (la slide dice TBD
@@ -1549,16 +1552,22 @@ var GLOBALES_KRS_NUEVOS_DEF = [
 var OKR_H2_FY27_FILE_ID = '1lsMF9_d1t55boO8Wr8vziMsFT9LQioov';   // OKR_H2_FY27.json (mismo id que OKR_H2_FILE_ID del Hub)
 var ALTAS_DIRECTAS_FILE = 'altas_directas_okr.json';   // altas_directas_sync.py (carpeta de los JSON del Daily)
 var PRICE_COMP_FILE = 'price_comp_globales_okr.json';   // price_comp_mensual_sync.py (carpeta de los JSON del Daily)
+var SALES_DENSITY_FILE = 'sales_density_okr.json';   // sales_density_sync.py (carpeta de los JSON del Daily)
 
 // Series mensuales de las fuentes del set nuevo: { partners_hoteles_global: {act:{ym:v}}, oc_api_globales: {act:{ym:$M}, bud:{ym:$M}} }.
 // Cada fuente que no se pueda leer queda vacía (el KR se ve con "—"), sin romper el resto.
 function globalesNuevosFuentes_() {
-  var out = { partners_hoteles_global: { act: {}, bud: {} }, oc_api_globales: { act: {}, bud: {} }, altas_directas: { act: {}, bud: {} }, price_comp_mensual: { act: {}, bud: {} }, ts: [] };
+  var out = { partners_hoteles_global: { act: {}, bud: {} }, oc_api_globales: { act: {}, bud: {} }, altas_directas: { act: {}, bud: {} }, price_comp_mensual: { act: {}, bud: {} }, sales_density: { act: {}, bud: {} }, ts: [] };
   try {
     var cf = _driveFile_(PRICE_COMP_FILE), cm = JSON.parse(cf.getBlob().getDataAsString()).meses || {};
     out.ts.push(cf.getLastUpdated().getTime());
     Object.keys(cm).forEach(function(ym) { if (typeof cm[ym].pct === 'number') out.price_comp_mensual.act[ym] = cm[ym].pct; });
   } catch (e) { Logger.log('globalesNuevosFuentes_: price comp mensual ' + e.message); }
+  try {
+    var sf = _driveFile_(SALES_DENSITY_FILE), sm = JSON.parse(sf.getBlob().getDataAsString()).meses || {};
+    out.ts.push(sf.getLastUpdated().getTime());
+    Object.keys(sm).forEach(function(ym) { if (typeof sm[ym].pct === 'number') out.sales_density.act[ym] = sm[ym].pct; });
+  } catch (e) { Logger.log('globalesNuevosFuentes_: sales density ' + e.message); }
   try {
     var af = _driveFile_(ALTAS_DIRECTAS_FILE), aj = JSON.parse(af.getBlob().getDataAsString()), am = aj.meses || {};
     out.ts.push(af.getLastUpdated().getTime());
@@ -1622,6 +1631,7 @@ function getGlobalesKRTargets() {
   try { tsN.push(DriveApp.getFileById(OKR_H2_FY27_FILE_ID).getLastUpdated().getTime()); } catch (e) {}
   try { tsN.push(_driveFile_(ALTAS_DIRECTAS_FILE).getLastUpdated().getTime()); } catch (e) {}
   try { tsN.push(_driveFile_(PRICE_COMP_FILE).getLastUpdated().getTime()); } catch (e) {}
+  try { tsN.push(_driveFile_(SALES_DENSITY_FILE).getLastUpdated().getTime()); } catch (e) {}
   var key = 'globales_okr_v7_' + file.getLastUpdated().getTime() + '_' + tsN.join('_');
   var hit = cache.get(key);
   if (hit) { try { return JSON.parse(hit); } catch (e) {} }
@@ -1670,7 +1680,7 @@ function getGlobalesKRTargets() {
       meta: { titulo: GLOBALES_NUEVOS_META.titulo, objetivo: GLOBALES_NUEVOS_META.objetivo, owner: GLOBALES_NUEVOS_META.owner,
               periodo: 'H2-FY27', meses: GLOBALES_MESES, meses_label: GLOBALES_MESES_LABEL,
               actualizado: file.getLastUpdated().toISOString().substring(0, 10), placeholder: true,
-              nota: 'Propuesta: targets de la slide del OKR. Con fuente: Grow API Global Clients (partners API), +6k New Direct Properties (altas de Sourcing), Price Competitiveness (Metabase 180311) y OC (contable, solo Globales); sin fuente: Sales Density.' },
+              nota: 'Propuesta: targets de la slide del OKR. Con fuente: Grow API Global Clients (partners API), +6k New Direct Properties (altas de Sourcing), Price Competitiveness (Metabase 180311), Sales Density (raw.b2b_kpi_sales_density) y OC (contable, solo Globales).' },
       krs: buildGlobalesNuevos_(krs, globalesNuevosFuentes_())
     }
   };

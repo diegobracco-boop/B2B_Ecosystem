@@ -2854,6 +2854,17 @@ try:
 except (Exception, SystemExit) as e:
     print(f"  WARN Price Comp mensual fallo ({e}) — queda el price_comp_globales_okr.json anterior en Drive")
 
+# Sales Density (KR "Sales Density on Top 100 Hotels" del set nuevo del KR Global B2B API): raw.b2b_kpi_sales_density mensual;
+# mes terminado = cierre, mes en curso = MTD proyectado al mes (ver sales_density_sync.py). No corta la sync.
+print("\n--- Sales Density (KR nuevo, top 100 hoteles x top 50 clientes) ---")
+try:
+    import sales_density_sync as _sd
+    _sd_payload = _sd.build_payload(fetch)
+    if _sd_payload is not None:
+        upload_to_drive(json.dumps(_sd_payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8"), _sd.FILE_NAME)
+except (Exception, SystemExit) as e:
+    print(f"  WARN Sales Density fallo ({e}) — queda el sales_density_okr.json anterior en Drive")
+
 # Pipeline B2B2C (Pipeline Hunting): deals del pipeline de HubSpot para la slide del Flow y la pagina /pipeline-hunting de Ownia
 # (ver pipeline_b2b2c_sync.py). No corta la sync: si falla queda el pipeline_b2b2c.json anterior.
 print("\n--- Pipeline B2B2C (Pipeline Hunting) ---")
