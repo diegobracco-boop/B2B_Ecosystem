@@ -191,6 +191,9 @@
     return out;
   }
   var PARTNER_TOP = 15;
+  // Partners que se listan siempre, aunque no entren en el top (2026-11-26: pidieron ver Cocos en el listado)
+  var PARTNER_PIN = [/cocos/i];
+  function isPinned(k) { return PARTNER_PIN.some(function (re) { return re.test(k); }); }
   // Agregado por partner de un evento: P[partner] = { d: [{cy, ly}] por día, cy/ly (todos los días), cyM/lyM (días que ya
   // pasaron este año vs los mismos del año pasado; partners nuevos con LY 0) }. Lo usan la tabla y el titular.
   function partnerAgg(ps, pos) {
@@ -233,9 +236,9 @@
     var single = ps.length === 1 ? ps[0] : null, A = partnerAgg(ps, pos), P = A.P, hasCy = A.hasCy, live = A.live;
     var names = Object.keys(P);
     if (!names.length) return '';
-    names = names.filter(function (k) { var t = P[k]; return A.anyCy ? Math.abs(t.cyM) >= 1000 || Math.abs(t.lyM) >= 1000 : Math.abs(t.ly) >= 1000; });
+    names = names.filter(function (k) { var t = P[k]; return isPinned(k) || (A.anyCy ? Math.abs(t.cyM) >= 1000 || Math.abs(t.lyM) >= 1000 : Math.abs(t.ly) >= 1000); });
     names.sort(A.anyCy ? function (a, b) { return Math.abs(P[b].delta) - Math.abs(P[a].delta); } : function (a, b) { return P[b].ly - P[a].ly; });
-    var top = names.slice(0, PARTNER_TOP), rest = names.slice(PARTNER_TOP), lines = top.map(function (k) { return [k, P[k]]; });
+    var top = names.filter(function (k, i) { return i < PARTNER_TOP || isPinned(k); }), rest = names.filter(function (k, i) { return i >= PARTNER_TOP && !isPinned(k); }), lines = top.map(function (k) { return [k, P[k]]; });
     function blank() { return { d: pos.map(function () { return { cy: null, cyD: null, ly: null, bd: 0, bdD: 0 }; }), cy: 0, ly: 0, lyM: 0, cyM: 0, cyDM: 0, bdM: 0, bdDM: 0, delta: 0 }; }
     function addTo(R, t) {
       t.d.forEach(function (x, i) { var r = R.d[i]; if (x.cy != null) { r.cy = (r.cy || 0) + x.cy; r.cyD = (r.cyD || 0) + (x.cyD || 0); } if (x.ly != null) r.ly = (r.ly || 0) + x.ly; r.bd += x.bd; r.bdD += x.bdD; });
@@ -260,7 +263,7 @@
       (live || !A.anyCy ? '<th>' + (y - 1) + '<span class="iet-pyoy">evento completo</span></th>' : '') + '</tr></thead><tbody>' +
       lines.map(function (l) { return row(l[0], l[1]); }).join('') + row('Total B2B2C', tot, 'iet-total') + '</tbody></table></div>' +
       '<div class="iet-foot">Cada celda: ' + y + ' y debajo su YoY contra el mismo día de evento de ' + (y - 1) + ' y su desvío vs el Budget del día (Budget por partner del Daily); en gris, días que todavía no pasaron (valor de ' + (y - 1) + '). ' +
-      'Ordenados por lo que más mueven el resultado (Δ vs los mismos días de ' + (y - 1) + '); partners nuevos suman con ' + (y - 1) + ' en 0. Se listan los ' + PARTNER_TOP + ' primeros; el total incluye a todos.</div></details>';
+      'Ordenados por lo que más mueven el resultado (Δ vs los mismos días de ' + (y - 1) + '); partners nuevos suman con ' + (y - 1) + ' en 0. Se listan los ' + PARTNER_TOP + ' primeros (y Cocos siempre); el total incluye a todos.</div></details>';
   }
 
   var MI = { gb: 0, nr: 1, fvm: 2 };
