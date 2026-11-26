@@ -405,3 +405,39 @@ test('ajustes de B2C (Reverso AxI): entran en el Hub con su línea y nivel 3, y 
   const mgr = buildManagerialActuals(cuboMgr([]), { ultimoCerrado: '2026-10-01', ajustes: aj });
   assert.ok(mgr.canon.rows.every((r) => r[0] !== 'b2c'), 'el Managerial no recibe B2C');
 });
+
+// ── Fixed cost de API redistribuido por país (2026-11-26): solo RR y proyecciones del ACT, solo meses abiertos, con nivel 3 ──────
+const AJ_FC = (rows) => ({ meta: { escenarios_por_anio: { FY27: ['ACT', 'RR'] }, hasta_ultimo_cerrado: false, solo_meses_abiertos: true },
+  cols: ['year', 'mes', 'pais', 'lob', 'channel', 'product', 'n2', 'linea', 'n3', 'valor'], rows });
+
+test('ajuste solo_meses_abiertos: se suma al RR y al ACT de los meses no cerrados; cuando el mes cierra, manda el actual', () => {
+  const ajustes = AJ_FC([['FY27', 11, 'Brazil', 'B2B', 'MAY', 'Hotel', 'Channels', 'Channels', 'Sales & Marketing', 40], ['FY27', 11, 'Others', 'B2B', 'MAY', 'Hotel', 'Channels', 'Channels', 'Sales & Marketing', -40]]);
+  const base = [['ACT', 'FY27', 11, 'Brazil', 'B2B', 'MAY', 'Hotel', 'Channels', -100], ['RR', 'FY27', 11, 'Brazil', 'B2B', 'MAY', 'Hotel', 'Channels', -100], ['ACT', 'FY27', 11, 'Others', 'B2B', 'MAY', 'Hotel', 'Channels', -10], ['RR', 'FY27', 11, 'Others', 'B2B', 'MAY', 'Hotel', 'Channels', -10]];
+  const abierto = buildCanonicals(cubo(base), { ultimoCerrado: '2026-10-01', ajustes }).canon;
+  const por = (rows) => Object.fromEntries(rows.map((r) => [r[2], r[6]]));
+  assert.deepEqual(por(abierto.rr.rows), { brasil: -60, 'others countries': -50 });
+  assert.deepEqual(por(abierto.bl.rows), { brasil: -60, 'others countries': -50 });
+  assert.equal(abierto.ac.rows.length, 0, 'noviembre todavía no es actual');
+  const cerrado = buildCanonicals(cubo(base), { ultimoCerrado: '2026-11-01', ajustes }).canon;
+  assert.deepEqual(por(cerrado.ac.rows), { brasil: -100, 'others countries': -10 }, 'con noviembre cerrado no se toca el actual');
+  assert.deepEqual(por(cerrado.bl.rows), { brasil: -100, 'others countries': -10 });
+});
+
+test('ajuste con n3: el Hub lo pone en su nivel 3 (Cost of Revenue / Sales & Marketing) y entra en la Operating Contribution', () => {
+  const ajustes = AJ_FC([['FY27', 12, 'Mexico', 'B2B', 'MAY', 'Hotel', 'Fulfillment Center Fees', 'Customer Service', 'Cost of Revenue', -7]]);
+  const { canon } = buildHubCanonicals(cuboHub([]), { ultimoCerrado: '2026-10-01', ajustes, vista: {} });
+  assert.deepEqual(canon.rr.rows.map((r) => [r[4], r[5], r[6], r[7], r[10]]), [['customer service', 'fulfilment center fees', 'cost of revenue', 'operating contribution', -7]]);
+});
+
+test('el archivo real del fixed cost de API: solo B2B-MAY, nov a mar, 3 líneas, y suma 0 por línea y mes', () => {
+  const fc = cargarAjustes()[2];
+  const i = (k) => fc.cols.indexOf(k);
+  assert.ok(fc.rows.length > 0);
+  assert.deepEqual(fc.meta.escenarios_por_anio, { FY27: ['ACT', 'RR'] });
+  assert.equal(fc.meta.solo_meses_abiertos, true);
+  assert.ok(fc.rows.every((r) => r[i('lob')] === 'B2B' && r[i('channel')] === 'MAY' && [11, 12, 1, 2, 3].includes(r[i('mes')])));
+  assert.ok(fc.rows.every((r) => ['Channels', 'Fulfillment Center Fees', 'Marketing Personnel'].includes(r[i('n2')]) && r[i('n3')]));
+  const tot = {};
+  for (const r of fc.rows) tot[r[i('n2')] + r[i('mes')]] = (tot[r[i('n2')] + r[i('mes')]] || 0) + r[i('valor')];
+  assert.ok(Object.values(tot).every((v) => Math.abs(v) < 0.01), 'redistribuye: no cambia el total');
+});

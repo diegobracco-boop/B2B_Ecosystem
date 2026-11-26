@@ -16,9 +16,13 @@ const { IDS } = require('./pnl-drive-dimensiones');
 // Ajustes propios que se suman a la tabla (la tabla es AS REPORTED y estas partidas las pone el pipeline de Drive):
 //   - pnl-ajustes-actuals.json: reclasificación de GB y Orders de API B2B-MAY, abril-junio (conso no la incorpora).
 //   - pnl-ajustes-axi.json: "Reverso AxI" (SIN PPA), hoy solo Other Incentives de B2B y B2B2C: hoja Budget -> FY27, hoja RunRate -> FY26.
-// Cada archivo dice en su `meta` a qué escenarios del año aplica (`escenarios_por_anio`) y si solo hasta el último mes cerrado
-// (`hasta_ultimo_cerrado`, por defecto sí). Se regeneran con scripts/generar-ajustes-pnl.py cuando cambian sus fuentes.
-const AJUSTES_ARCHIVOS = ['pnl-ajustes-actuals.json', 'pnl-ajustes-axi.json'];
+//   - pnl-ajustes-rr-fixedcost.json (2026-11-26, Diego): fixed cost de API B2B-MAY nov-mar (Channels, Fulfillment Center Fees, Marketing
+//     Personnel) redistribuido por país con el peso de los actuals abr-oct; total por línea y mes igual. Se suma al RR y a las proyecciones
+//     del ACT, solo en meses todavía no cerrados. Se le pasó a conso para su reporte (no toca el consolidador).
+// Cada archivo dice en su `meta` a qué escenarios del año aplica (`escenarios_por_anio`), si solo hasta el último mes cerrado
+// (`hasta_ultimo_cerrado`, por defecto sí) o solo después (`solo_meses_abiertos`). Puede traer `n3` (nivel 3 de la tabla) para el Hub.
+// Los dos primeros se regeneran con scripts/generar-ajustes-pnl.py cuando cambian sus fuentes.
+const AJUSTES_ARCHIVOS = ['pnl-ajustes-actuals.json', 'pnl-ajustes-axi.json', 'pnl-ajustes-rr-fixedcost.json'];
 const AJUSTE_DEFAULT = { escenarios_por_anio: { FY27: ['ACT', 'FC1'] }, hasta_ultimo_cerrado: true };
 function cargarAjustes() {
   return AJUSTES_ARCHIVOS.map((n) => {
@@ -37,8 +41,9 @@ function ajustesComoFilas(ajustes, ultimoCerrado) {
     const ai = Object.fromEntries((aj.cols || []).map((c, i) => [c, i]));
     for (const a of aj.rows || []) {
       if (meta.hasta_ultimo_cerrado !== false && fechaFiscal(a[ai.year], a[ai.mes]) > ultimoCerrado) continue;
+      if (meta.solo_meses_abiertos === true && fechaFiscal(a[ai.year], a[ai.mes]) <= ultimoCerrado) continue;   // el mes ya cerró: manda el actual
       for (const sc of meta.escenarios_por_anio[a[ai.year]] || []) {
-        filas.push({ scenario: sc, year: a[ai.year], mes: a[ai.mes], pais: a[ai.pais], lob: a[ai.lob], channel: a[ai.channel], product: a[ai.product], n2: a[ai.n2], linea: ai.linea === undefined ? null : a[ai.linea], valor: a[ai.valor] });
+        filas.push({ scenario: sc, year: a[ai.year], mes: a[ai.mes], pais: a[ai.pais], lob: a[ai.lob], channel: a[ai.channel], product: a[ai.product], n2: a[ai.n2], linea: ai.linea === undefined ? null : a[ai.linea], n3: ai.n3 === undefined ? null : a[ai.n3], valor: a[ai.valor] });
       }
     }
   }
@@ -221,7 +226,7 @@ function buildManagerialActuals(cubo, opts = {}) {
     if (a.scenario !== 'ACT' || a.year !== 'FY27' || a.lob === 'B2C') continue;   // el Managerial vs Accounting no usa B2C
     const [lineaPorDefecto, n3] = AJUSTE_LINEA[a.n2] || [a.n2, ''];
     const linea = a.linea || lineaPorDefecto;
-    filas.push({ year: a.year, mes: a.mes, pais: a.pais, lob: a.lob, channel: a.channel, product: a.product, linea, n2: a.n2, n3, valor: a.valor });
+    filas.push({ year: a.year, mes: a.mes, pais: a.pais, lob: a.lob, channel: a.channel, product: a.product, linea, n2: a.n2, n3: a.n3 || n3, valor: a.valor });
   }
   const m = new Map();
   for (const f of filas) {
@@ -284,7 +289,7 @@ function buildHubCanonicals(cubo, opts = {}) {
     product: r[ix.product], linea: r[ix.linea], n2: r[ix.n2], n3: r[ix.n3], valor: r[ix.valor] }));
   for (const a of ajustesComoFilas(opts.ajustes, ultimoCerrado)) {
     const [lineaPorDefecto, n3] = AJUSTE_LINEA[a.n2] || [a.n2, ''];
-    filas.push({ ...a, linea: a.linea || lineaPorDefecto, n3 });
+    filas.push({ ...a, linea: a.linea || lineaPorDefecto, n3: a.n3 || n3 });
   }
   const bySc = {};   // 'ACT|FY27' -> Map(clave -> monto)
   for (const f of filas) {
