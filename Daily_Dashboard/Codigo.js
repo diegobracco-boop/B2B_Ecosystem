@@ -1510,7 +1510,7 @@ var GLOBALES_MESES_LABEL = ["Oct'26","Nov'26","Dic'26","Ene'27","Feb'27","Mar'27
 // OC ← OKR_H2_FY27.json, Price Competitiveness ← Metabase 180311, que conserva el id del vigente para la escala no lineal de pcRatio_);
 // Sales Density ← raw.b2b_kpi_sales_density; actual_de = PROVISORIO, el actual del KR vigente equivalente (hoy ninguno).
 //   end_game: target "End Game" de la slide (texto, no entra al score) · tag: rótulo de la slide (Scope + Ambition, New KR...).
-var GLOBALES_NUEVOS_META = { titulo: 'KR Global B2B API — nuevos (propuesta) · B2B PoS Global API Hotels', objetivo: 'Become a Global Bedbank',
+var GLOBALES_NUEVOS_META = { titulo: 'KR Global B2B API · B2B PoS Global API Hotels', objetivo: 'Become a Global Bedbank',
                              owner: 'Juan Pablo Martorell' };
 var GLOBALES_KRS_NUEVOS_DEF = [
   // actual_fuente 'partners_hoteles_global': partners_api_snapshots.json (partners_api_sync.py, campo hoteles_global): mes congelado =
@@ -1680,7 +1680,7 @@ function getGlobalesKRTargets() {
       meta: { titulo: GLOBALES_NUEVOS_META.titulo, objetivo: GLOBALES_NUEVOS_META.objetivo, owner: GLOBALES_NUEVOS_META.owner,
               periodo: 'H2-FY27', meses: GLOBALES_MESES, meses_label: GLOBALES_MESES_LABEL,
               actualizado: file.getLastUpdated().toISOString().substring(0, 10), placeholder: true,
-              nota: 'Propuesta: targets de la slide del OKR. Con fuente: Grow API Global Clients (partners API), +6k New Direct Properties (altas de Sourcing), Price Competitiveness (Metabase 180311), Sales Density (raw.b2b_kpi_sales_density) y OC (contable, solo Globales).' },
+              nota: 'Set oficial desde 2026-11-25. Fuentes: Grow API Global Clients (partners API), +6k New Direct Properties (altas de Sourcing), Price Competitiveness (Metabase 180311), Sales Density (raw.b2b_kpi_sales_density) y OC (contable, solo Globales).' },
       krs: buildGlobalesNuevos_(krs, globalesNuevosFuentes_())
     }
   };

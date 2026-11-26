@@ -4346,14 +4346,14 @@ function loadGlobales() {
 // globalesData = el set que se dibuja (todo lo demás de la pestaña, la slide y las capas de Ownia leen globalesData). La elección se
 // guarda en localStorage 'okr_glob_set' (misma clave que el Daily y el Hub). Sin .nuevos en el payload (servidor viejo): solo vigentes.
 var globalesDataAll = null;
-var globSet = 'vigentes';
-try { if (localStorage.getItem('okr_glob_set') === 'nuevos') globSet = 'nuevos'; } catch (e) {}
+// 2026-11-25 (Diego): el set nuevo es el OFICIAL. Sin switch y sin leer okr_glob_set; el vigente queda en el código de respaldo.
+var globSet = 'nuevos';
 function globIsNuevos_() { return globSet === 'nuevos' && !!(globalesDataAll && globalesDataAll.nuevos); }
 function applyGlobSet_() {
   globalesData = globIsNuevos_() ? globalesDataAll.nuevos : globalesDataAll;
   var g = document.getElementById('globSetBtns');
   if (!g) return;
-  g.style.display = (globalesDataAll && globalesDataAll.nuevos) ? '' : 'none';
+  g.style.display = 'none';   // sin switch: el set nuevo es el oficial
   g.querySelectorAll('.kr-ch-btn').forEach(function(b) { b.classList.toggle('active', b.getAttribute('data-set') === (globIsNuevos_() ? 'nuevos' : 'vigentes')); });
   var pa = document.getElementById('partnersApiBox');   // partners por país: es del KR vigente Accelerate Hunting # Partners API
   if (pa) pa.style.display = globIsNuevos_() ? 'none' : '';
@@ -4507,16 +4507,16 @@ function renderGlobales() {
   document.getElementById('globalesContent').classList.toggle('glob-table-view', isTableView);
 
   var _globTitleEl = document.getElementById('globalesTitle');
-  var _gNew = globIsNuevos_(), _gSuf = _gNew ? ' · nuevos (propuesta)' : '';
+  var _gNew = globIsNuevos_(), _gSuf = '';
   if (_isSlidesMode && isTableView) {
     _globTitleEl.innerHTML =
-      '<b>KR Global B2B API' + (_gNew ? ' (new, proposal)' : '') + ' MTD vs Target | ' + formatYMEn(globYM) + '</b> — <i>Managerial Information</i>';
+      '<b>KR Global B2B API' + '' + ' MTD vs Target | ' + formatYMEn(globYM) + '</b> — <i>Managerial Information</i>';
   } else if (isTableView) {
     var curGYM = ((rawData && rawData.meta && rawData.meta.last_actuals_date) || '').substring(0, 7);
     _globTitleEl.textContent = 'KR Global B2B API' + _gSuf + ' — ' + formatYM(globYM) + (globYM === curGYM ? ' (MTD)' : '');
   } else if (_isSlidesMode) {
     _globTitleEl.innerHTML =
-      '<b>KR Global B2B API' + (_gNew ? ' (new, proposal)' : '') + ' | H2 FY27</b> — <i>Managerial Information</i>';
+      '<b>KR Global B2B API' + '' + ' | H2 FY27</b> — <i>Managerial Information</i>';
   } else {
     _globTitleEl.textContent = 'KR Global B2B API' + _gSuf;
   }
@@ -4529,9 +4529,9 @@ function renderGlobales() {
     (meta.periodo ? ' — <strong>' + meta.periodo + '</strong>' : '') +
     (meta.actualizado ? ' · act. ' + meta.actualizado : '');
   if (meta.placeholder) {
-    document.getElementById('globalesMeta').innerHTML += '<div class="glob-placeholder-note">&#9888;&#65039; Propuesta' +
+    document.getElementById('globalesMeta').innerHTML += '<div class="glob-placeholder-note">Objetivo' +
       (meta.objetivo ? ' «' + meta.objetivo + '»' : '') + (meta.owner ? ' · owner ' + meta.owner : '') +
-      '. Targets de la slide del OKR. OC - Costos atribuibles es por ahora <b>solo OC</b> (sin costos atribuibles), OC API de PoS Global tomado como en el contable: ' +
+      '. OC - Costos atribuibles es por ahora <b>solo OC</b> (sin costos atribuibles), OC API de PoS Global tomado como en el contable: ' +
       'mes con cierre = cierre contable, sin cierre = Run Rate; target = Budget contable de OC API Globales; End Game 50M por todo el H2. ' +
       'Con fuente: Grow API Global Clients, OC y +6k New Direct Properties (altas de Sourcing: mes cerrado = última semana completa, mes en curso = última semana); ' +
       'Price Competitiveness: % de adversidad del mes de la pregunta Metabase 180311 (mes cerrado = cierre, mes en curso = RR); Sales Density: duplas vendidas top 50 clientes × top 100 hoteles sobre 5.000 (mes cerrado = cierre, mes en curso = MTD proyectado al mes).</div>';

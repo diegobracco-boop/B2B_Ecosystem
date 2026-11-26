@@ -4174,8 +4174,8 @@ function renderKrDetail_() {
         '<div class="krd-kr-meta">' + kr.unit + (kr.inverse ? ' · menos es mejor' : '') + (exG ? ' · ' + exG : '') + '</div></td>' + cells + ytd + '</tr>';
     }).join('') + overallRow(scoreByYM, ytdScores);
     var gNew = globIsNuevos_();
-    return cardHtml(idx, 'KR Global B2B API' + (gNew ? ' · nuevos (propuesta)' : ''),
-      gNew ? 'Propuesta: targets de la slide del OKR' :'Canal API · total, sin apertura por país', body, globSetSwitchHtml_());
+    return cardHtml(idx, 'KR Global B2B API',
+      gNew ? 'PoS Global · Become a Global Bedbank' :'Canal API · total, sin apertura por país', body, globSetSwitchHtml_());
   }
   function cardHtml(idx, titleHtml, subTxt, body, extraActions) {
     var grp = '<tr class="krd-grp"><th></th>' +
@@ -4244,11 +4244,12 @@ var _globalesTargets=null;
 // Switch "KRs vigentes | KRs nuevos (propuesta)" (2026-11-25): _globalesAll = payload de getGlobalesKRTargets (vigente + .nuevos,
 // el set nuevo es placeholder: targets de la slide, actuals sin fuente salvo los provisorios); _globalesTargets = el set que se dibuja.
 // Se guarda en localStorage 'okr_glob_set' (misma clave que el Tracker y el Hub).
-var _globalesAll=null, _globSet='vigentes';
-try{ if(localStorage.getItem('okr_glob_set')==='nuevos') _globSet='nuevos'; }catch(e){}
+// 2026-11-25 (Diego): el set nuevo es el OFICIAL. Sin switch y sin leer okr_glob_set; el vigente queda en el código de respaldo.
+var _globalesAll=null, _globSet='nuevos';
 function globIsNuevos_(){ return _globSet==='nuevos' && !!(_globalesAll && _globalesAll.nuevos); }
 function applyGlobSet_(){ _globalesTargets = globIsNuevos_() ? _globalesAll.nuevos : _globalesAll; }
 function globSetSwitchHtml_(){
+  return '';   // sin switch: el set nuevo es el oficial
   if(!_globalesAll || !_globalesAll.nuevos) return '';
   var b=function(v,l){ var on=(globIsNuevos_()?'nuevos':'vigentes')===v;
     return '<button type="button" onclick="setGlobSet_(\''+v+'\')" style="font-size:11px;padding:3px 9px;border-radius:6px;cursor:pointer;border:1px solid '+(on?'#550FED':'var(--border,#d1d5db)')+';background:'+(on?'#550FED':'transparent')+';color:'+(on?'#fff':'var(--text-2)')+';font-weight:'+(on?'600':'400')+'">'+l+'</button>'; };
@@ -4307,7 +4308,7 @@ function renderKRsGlobales_(){
   var meta=_globalesTargets.meta||{}, meses=meta.meses||[], labels=meta.meses_label||meses;
   var refYM=globalesRefYM_(meses, state_b2b.viewDate), idx=meses.indexOf(refYM);
   var ttl=document.getElementById('b2b-kr-globales-title'), swc=document.getElementById('b2b-kr-globales-set');
-  if(ttl) ttl.textContent='KR Global B2B API'+(globIsNuevos_()?' · nuevos (propuesta)':'');
+  if(ttl) ttl.textContent='KR Global B2B API';
   if(swc) swc.innerHTML=globSetSwitchHtml_();
   var vd=String(state_b2b.viewDate||'');
   var agg=_rawB2B?computeGlobalesApiHotelMonth_(_krRawB2B_(_rawB2B), refYM, vd):{nr:0,bud:0,budMtd:0};   // a TC Budget con ORGANIC YES (hay países con TC)
@@ -4335,7 +4336,7 @@ function renderKRsGlobales_(){
         '<div class="kr-sub-item"><span class="kr-sub-lbl">Target</span><span>'+fmtVal(t,kr.unit)+'</span></div>'+
       '</div></div>';
   }).join('');
-  if(sub && meta.placeholder){ sub.textContent='Mes de referencia: '+(labels[idx]||refYM)+'  ·  ⚠️ Propuesta «'+(meta.objetivo||'')+'» (owner '+(meta.owner||'')+'): targets de la slide del OKR. Con fuente: Grow API Global Clients (partners API, hoteles, PoS Global) y OC - Costos atribuibles, que por ahora es solo OC, sin costos atribuibles (OC API de Globales, como en el contable: mes con cierre = cierre contable, sin cierre = Run Rate; target = Budget contable; End Game 50M por todo el H2); +6k New Direct Properties: altas de Sourcing (mes cerrado = última semana completa, mes en curso = última semana); Price Competitiveness: % de adversidad del mes de la pregunta Metabase 180311 (mes cerrado = cierre, mes en curso = RR); Sales Density: duplas vendidas top 50 clientes × top 100 hoteles sobre 5.000 (mes cerrado = cierre, mes en curso = MTD proyectado al mes). Pasá el mouse por cada card para ver cálculo, owner y End Game.'; return; }
+  if(sub && meta.placeholder){ sub.textContent='Mes de referencia: '+(labels[idx]||refYM)+'  ·  Objetivo «'+(meta.objetivo||'')+'» (owner '+(meta.owner||'')+'). Fuentes: Grow API Global Clients (partners API, hoteles, PoS Global) y OC - Costos atribuibles, que por ahora es solo OC, sin costos atribuibles (OC API de Globales, como en el contable: mes con cierre = cierre contable, sin cierre = Run Rate; target = Budget contable; End Game 50M por todo el H2); +6k New Direct Properties: altas de Sourcing (mes cerrado = última semana completa, mes en curso = última semana); Price Competitiveness: % de adversidad del mes de la pregunta Metabase 180311 (mes cerrado = cierre, mes en curso = RR); Sales Density: duplas vendidas top 50 clientes × top 100 hoteles sobre 5.000 (mes cerrado = cierre, mes en curso = MTD proyectado al mes). Pasá el mouse por cada card para ver cálculo, owner y End Game.'; return; }
   if(sub) sub.textContent='Mes de referencia: '+(labels[idx]||refYM)+'  ·  fuente: okr.json (igual que el OKR del Hub) · NR actual = daily MTD (API · Hoteles · todos los países) vs budget gestional del daily MTD · resto = valor del mes de Input_OKR · Price Competitiveness: menos es mejor.';
 }
 

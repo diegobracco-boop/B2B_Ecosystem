@@ -80,7 +80,7 @@ var OKR_CONFIG_H2 = {
   // globalesNuevosRows_ (targets de GLOBALES_NUEVOS_TARGETS; actuals de las fuentes propias o, provisorio, del KR vigente equivalente).
   // Mismos KRs y targets que GLOBALES_KRS_NUEVOS_DEF del Daily (Daily_Dashboard/Codigo.js): si cambian, cambiar los dos.
   'globales_nuevos': {
-    label: 'KR Global B2B API · nuevos (propuesta)',
+    label: 'KR Global B2B API',
     krs: [
       { kr: 'grow +44% api global clients portfolio',  label: 'Grow +44% API Global Clients Portfolio',  weight: 20, cumulative: true },
       { kr: '+6k new direct properties',               label: '+6k New Direct Properties',               weight: 20, cumulative: true },

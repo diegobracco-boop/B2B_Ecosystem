@@ -4864,8 +4864,8 @@ function fmtOKRNominal(act, bud, pct) {
 // KR Global B2B API: switch "KRs vigentes | KRs nuevos (propuesta)" (2026-11-25). getOKRData devuelve los dos bloques ('globales' y
 // 'globales_nuevos', placeholder de la slide B2B PoS Global API Hotels); se dibuja uno. Se guarda en localStorage 'okr_glob_set'
 // (misma clave que el Daily y el Tracker). hub-layout.js (Ownia) lee window._okrGlobKey_ para su resumen de una línea.
-var _okrGlobSet = 'vigentes';
-try { if (localStorage.getItem('okr_glob_set') === 'nuevos') _okrGlobSet = 'nuevos'; } catch (e) {}
+// 2026-11-25 (Diego): el set nuevo es el OFICIAL. Sin switch y sin leer okr_glob_set; el vigente queda en el código de respaldo.
+var _okrGlobSet = 'nuevos';
 function _okrGlobKey_(okr) {
   return (_okrGlobSet === 'nuevos' && (!okr || okr.globales_nuevos)) ? 'globales_nuevos' : 'globales';
 }
@@ -4876,6 +4876,7 @@ function setOKRGlobSet(v) {
   if (_state.okr) renderOKR(_state.okr);
 }
 function _okrGlobSwitch_(okr) {
+  return '';   // sin switch: el set nuevo es el oficial
   if (!okr || !okr.globales || !okr.globales_nuevos) return '';
   var cur = _okrGlobKey_(okr) === 'globales_nuevos' ? 'nuevos' : 'vigentes';
   var b = function(v, l) {
@@ -5023,7 +5024,7 @@ function renderOKR(okr) {
 
     var globSw = (lobKey === 'globales' || lobKey === 'globales_nuevos') ? _okrGlobSwitch_(okr) : '';
     var globNote = lobKey === 'globales_nuevos'
-      ? '<div class="okr-note" style="margin:4px 0 6px">Propuesta «Become a Global Bedbank» (owner JP Martorell): targets de la slide del OKR. Solo PoS Global. Grow API Global Clients: partners API que compran hoteles con PoS Global (mes en curso = últimos 30 días). OC - Costos atribuibles: por ahora solo OC, sin costos atribuibles (OC API de Globales, como el contable: mes con cierre = cierre contable, sin cierre = Run Rate; target = Budget contable; End Game 50M por todo el H2). +6k New Direct Properties: altas de cadenas NO Latam del reporte semanal de Sourcing (mes cerrado = última semana completa; mes en curso = última semana). Price Competitiveness: % de adversidad del mes de la pregunta Metabase 180311 (mes cerrado = cierre, mes en curso = RR). Sales Density: duplas vendidas top 50 clientes × top 100 hoteles sobre 5.000 (mes cerrado = cierre, mes en curso = MTD proyectado al mes).</div>' : '';
+      ? '<div class="okr-note" style="margin:4px 0 6px">Objetivo «Become a Global Bedbank» (owner JP Martorell). Solo PoS Global. Grow API Global Clients: partners API que compran hoteles con PoS Global (mes en curso = últimos 30 días). OC - Costos atribuibles: por ahora solo OC, sin costos atribuibles (OC API de Globales, como el contable: mes con cierre = cierre contable, sin cierre = Run Rate; target = Budget contable; End Game 50M por todo el H2). +6k New Direct Properties: altas de cadenas NO Latam del reporte semanal de Sourcing (mes cerrado = última semana completa; mes en curso = última semana). Price Competitiveness: % de adversidad del mes de la pregunta Metabase 180311 (mes cerrado = cierre, mes en curso = RR). Sales Density: duplas vendidas top 50 clientes × top 100 hoteles sobre 5.000 (mes cerrado = cierre, mes en curso = MTD proyectado al mes).</div>' : '';
     html += '<div class="okr-table-wrap"><div class="okr-lob-hdr">'+d.label+globSw+expandBtn+'</div>'+globNote
            +'<table class="okr-table'+(_okrMonthly ? ' okr-monthly' : '')+(open ? '' : ' okr-collapsed')+'"><thead><tr><th>KR</th><th title="Peso del KR en el score del objetivo">Peso</th>';
 
