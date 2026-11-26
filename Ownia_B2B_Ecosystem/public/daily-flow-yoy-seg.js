@@ -8,9 +8,12 @@
  *     los dos años, así Existentes compara las mismas cuentas.
  *   - Gráficos: flowFY12_ con Goal = LY (barra gris = LY del mes; tono claro = proyección Run Rate). Debajo: YoY total y YoY
  *     Existentes.
- *   - Tablas: YTD (abril al último día con datos vs los mismos días del LY, sin proyección) y H2 (Act+Proy). Real = actual (Organic: _yv_, a TC Actuals LY, como el YoY del resto del deck) +
- *     proyección Run Rate. Crecimiento Budget = Budget − LY (Organic: Budget a TC Actuals LY, flGoalFxLY_, como "YoY Bud" de
- *     las slides de región). Gap = crecimiento real − crecimiento Budget (= Real − Budget). Meses sin LY entero quedan afuera.
+ *   - Tablas: YTD (abril al último día con datos vs los mismos días del LY, sin proyección) y H2 (Act+Proy). Todo Organic a
+ *     TC Budget (2026-11-26: antes iba a TC Actuals LY y el Budget convertido inflaba el gap, NR H2 −10,2M vs −7,0M oficial):
+ *     Real = actuals del Flow + Run Rate, Budget tal cual, LY / flGoalFxLY_. Gap = Real − Budget = el oficial del Flow (check()
+ *     lo controla contra flowSegData_ / flowH2SegData_). Crecimiento Budget = Budget − LY. Meses sin LY entero quedan afuera.
+ *   - TBD = partner TBD del Budget (lugar para partners por firmar: no tiene actuals) + cuentas New firmadas sin meta. Su real
+ *     a la fecha es chico por construcción; lo que suma en H2 Act+Proy es el TBD que el Run Rate proyecta.
  *   - Lectura armada con los números: crecimiento de Existentes y cuánto del gap explican Onboarding y TBD, con los partners
  *     Onboarding más atrasados en H2.
  * La ubica daily-flow-minto.js (W.FLOW_EXTRA con at:'cover', después de daily-flow-yoy.js). No pide datos.
@@ -36,7 +39,7 @@
     '.ys-tbl .ys-sub th{background:#ece6ff;color:#3d2a8a;font-size:9.5px}',
     '.ys-pos{color:var(--fl-green);font-weight:700}.ys-neg{color:var(--fl-red);font-weight:700}',
     '.ys-sw{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px}',
-    '.ys-notes{font-size:11.5px;line-height:1.4;color:var(--fl-ink2);border-top:1px solid var(--fl-line);padding-top:6px}',
+    '.ys-notes{font-size:11px;line-height:1.35;color:var(--fl-ink2);border-top:1px solid var(--fl-line);padding-top:6px}',
     '.ys-notes p{margin:0 0 5px}.ys-notes b{color:#3d2a8a}',
   ].join('\n');
   (document.head || document.documentElement).appendChild(css);
@@ -51,37 +54,46 @@
   function segColor(k) { var g = W.FL_SEG_.filter(function (x) { return x.k === k; })[0]; return g ? g.c : '#999'; }
 
   // Por métrica: serie del gráfico (flowFY12_ vs LY + yoyF) y, por período, {seg: {real, ly, bud}} y Onboarding por partner
+  // Organic: TODO a la misma moneda que el "vs Budget" oficial del Flow (con Organic YES y Goal Budget, actuals a TC Budget).
+  // Real = actuals del Flow (flowRegionRaw_, ya convertidos) + Run Rate; Budget tal cual; LY (nominal en el JSON) pasado a TC
+  // Budget del mes equivalente: LY × TC Actuals LY / TC Budget = LY / flGoalFxLY_. Así Real − Budget da el gap oficial y el
+  // YoY es a moneda constante (TC Budget en los dos años). Sin Organic (fxG null) todo queda nominal.
+  function lyFx(fxG, pais, fechaCur) { if (!fxG) return 1; var f = fxG(pais, fechaCur); return f ? 1 / f : 1; }
   function build(mk) {
     var sub = W.flowRegionRaw_(null), L = W._rawB2BC.meta.last_actuals_date, fy0 = +W.flFyStart_(L).slice(0, 4);
     var MF = W._FLMF[mk], BF = W._FLBMF[mk], fy = W.flowFY12_(sub, mk, 'ly'), fxG = W.flGoalFxLY_('budget');
     var ok = {}; fy.forEach(function (d) { if (d.bud != null) ok[d.date.slice(0, 7)] = 1; });   // meses con LY entero
-    var R = {}, LY = {}, B = {}, PR = {};   // R/LY/B[seg][mes]; PR[partner Onboarding][mes] = {r, b}
-    SEGS.forEach(function (k) { R[k] = {}; LY[k] = {}; B[k] = {}; });
+    var R = {}, RA = {}, LY = {}, B = {}, BA = {}, PR = {};   // R/LY/B[seg][mes]; RA / BA: real y Budget hasta el último día con datos; PR[partner Onboarding][mes] = {r, b}
+    SEGS.forEach(function (k) { R[k] = {}; RA[k] = {}; LY[k] = {}; B[k] = {}; BA[k] = {}; });
     function add(o, m, v) { if (ok[m]) o[m] = (o[m] || 0) + (v || 0); }
     function addP(r, m, f, v) { if (!ok[m] || W.flSeg_(r) !== 'h') return; var p = r.partner, x = PR[p] = PR[p] || {}; x[m] = x[m] || { r: 0, b: 0 }; x[m][f] += v || 0; }
     (sub.actuals || []).concat(sub.actuals_fy_rest || []).forEach(function (r) {
-      if (r.fecha > L) return; var m = r.fecha.slice(0, 7), v = W._yv_(r, MF); add(R[W.flSeg_(r)], m, v); addP(r, m, 'r', v);
+      if (r.fecha > L) return; var m = r.fecha.slice(0, 7), v = r[MF] || 0; add(R[W.flSeg_(r)], m, v); add(RA[W.flSeg_(r)], m, v); addP(r, m, 'r', v);
     });
     (sub.runrate || []).concat(sub.runrate_fy_rest || []).forEach(function (r) {
       if (r.fecha <= L) return; var m = r.fecha.slice(0, 7); add(R[W.flSeg_(r)], m, r[BF]); addP(r, m, 'r', r[BF]);
     });
-    // LY como flowFY12_: actuals_ly + actuals_ly_fy_rest + ene–mar del año calendario en curso, corridos +1 año (nominal)
-    function addLY(r) { add(LY[W.flSeg_(r)], (+r.fecha.slice(0, 4) + 1) + r.fecha.slice(4, 7), r[MF]); }
+    // LY como flowFY12_: actuals_ly + actuals_ly_fy_rest + ene–mar del año calendario en curso, corridos +1 año, a TC Budget
+    function addLY(r) { var cur = (+r.fecha.slice(0, 4) + 1) + r.fecha.slice(4); add(LY[W.flSeg_(r)], cur.slice(0, 7), (r[MF] || 0) * lyFx(fxG, r.pais, cur)); }
     (sub.actuals_ly || []).concat(sub.actuals_ly_fy_rest || []).forEach(addLY);
     ((W.b2bcRaw_ && W.b2bcRaw_()) || W._rawB2BC).actuals.forEach(function (r) { if (r.fecha <= L && r.fecha < fy0 + '-04-01') addLY(r); });
     (sub.budget || []).concat(sub.budget_fy_rest || []).forEach(function (r) {
-      var m = r.fecha.slice(0, 7), g = (r[BF] || 0) * (fxG ? fxG(r.pais, r.fecha) : 1); add(B[W.flSeg_(r)], m, g); addP(r, m, 'b', g);
+      var m = r.fecha.slice(0, 7), g = r[BF] || 0; add(B[W.flSeg_(r)], m, g); if (r.fecha <= L) add(BA[W.flSeg_(r)], m, g); addP(r, m, 'b', g);
     });
+    // Gráfico en la misma moneda que las tablas: barra gris = LY a TC Budget, YoY y YoY Existentes contra ese LY
     fy.forEach(function (d) {
-      var m = d.date.slice(0, 7);
-      d.yoyF = d.yoy != null && LY.f[m] ? (R.f[m] || 0) / LY.f[m] * 100 - 100 : null;
+      var m = d.date.slice(0, 7); if (!ok[m]) { d.yoy = null; d.yoyF = null; return; }
+      var ly = 0, re = 0; SEGS.forEach(function (k) { ly += LY[k][m] || 0; re += R[k][m] || 0; });
+      d.bud = Math.round(ly * 100) / 100;
+      d.yoy = ly ? re / ly * 100 - 100 : null;
+      d.yoyF = LY.f[m] ? (R.f[m] || 0) / LY.f[m] * 100 - 100 : null;
     });
     var cur = L.slice(0, 7);
     function period(ms) {
       var o = {}, n = 0, proj = false;
-      SEGS.forEach(function (k) { o[k] = { real: 0, ly: 0, bud: 0 }; });
+      SEGS.forEach(function (k) { o[k] = { real: 0, act: 0, ly: 0, bud: 0, budAct: 0 }; });
       ms.forEach(function (m) { if (!ok[m]) return; n++; if (m >= cur) proj = true;
-        SEGS.forEach(function (k) { o[k].real += R[k][m] || 0; o[k].ly += LY[k][m] || 0; o[k].bud += B[k][m] || 0; }); });
+        SEGS.forEach(function (k) { o[k].real += R[k][m] || 0; o[k].act += RA[k][m] || 0; o[k].budAct += BA[k][m] || 0; o[k].ly += LY[k][m] || 0; o[k].bud += B[k][m] || 0; }); });
       var parts = Object.keys(PR).map(function (p) { var x = { p: p, r: 0, b: 0 }; ms.forEach(function (m) { var y = PR[p][m]; if (y) { x.r += y.r; x.b += y.b; } }); x.gap = x.r - x.b; return x; });
       return { seg: o, n: n, proj: proj, parts: parts };
     }
@@ -96,10 +108,11 @@
     var o = {}, PR = {};
     SEGS.forEach(function (k) { o[k] = { real: 0, ly: 0, bud: 0 }; });
     function addP(r, f, v) { if (W.flSeg_(r) !== 'h') return; var x = PR[r.partner] = PR[r.partner] || { p: r.partner, r: 0, b: 0 }; x[f] += v || 0; }
-    (sub.actuals || []).forEach(function (r) { if (r.fecha < from || r.fecha > L) return; var v = W._yv_(r, MF); o[W.flSeg_(r)].real += v; addP(r, 'r', v); });
-    (sub.actuals_ly || []).forEach(function (r) { if (r.fecha > lyMax) lyMax = r.fecha; if (r.fecha < lyFrom || r.fecha > lyTo) return; o[W.flSeg_(r)].ly += r[MF] || 0; });
+    (sub.actuals || []).forEach(function (r) { if (r.fecha < from || r.fecha > L) return; var v = r[MF] || 0; o[W.flSeg_(r)].real += v; addP(r, 'r', v); });
+    (sub.actuals_ly || []).forEach(function (r) { if (r.fecha > lyMax) lyMax = r.fecha; if (r.fecha < lyFrom || r.fecha > lyTo) return;
+      o[W.flSeg_(r)].ly += (r[MF] || 0) * lyFx(fxG, r.pais, (+r.fecha.slice(0, 4) + 1) + r.fecha.slice(4)); });
     (sub.budget || []).concat(sub.budget_fy_rest || []).forEach(function (r) {
-      if (r.fecha < from || r.fecha > L) return; var g = (r[BF] || 0) * (fxG ? fxG(r.pais, r.fecha) : 1); o[W.flSeg_(r)].bud += g; addP(r, 'b', g);
+      if (r.fecha < from || r.fecha > L) return; var g = r[BF] || 0; o[W.flSeg_(r)].bud += g; addP(r, 'b', g);
     });
     var parts = Object.keys(PR).map(function (p) { var x = PR[p]; x.gap = x.r - x.b; return x; });
     return { seg: o, n: 1, proj: false, parts: parts, lyOk: lyMax >= lyTo, to: L };
@@ -142,17 +155,37 @@
     out.push('<p><b>NR de Existentes ' + nrRitmo(yy(nY.f), yy(nH.f)) + ':</b> ' + pc(yy(nY.f)) + ' ' + ytdLbl + ' → ' + pc(yy(nH.f)) + ' en H2, ' + money(nH.f.real - nH.f.bud) + ' vs el crecimiento del Budget en H2 (' +
       pc(yy(nH.f)) + ' real vs ' + pc(pct(nH.f.bud, nH.f.ly)) + ' Budget).</p>');
     var tH = sum(S.nr.h2), gT = nH.t.real - nH.t.bud, gH = nH.h.real - nH.h.bud;
-    out.push('<p><b>El gap de NR vs Budget en H2 (' + money(tH.real - tH.bud) + ') está en las cuentas nuevas:</b> TBD ' + money(gT) + ' (el Budget asumía ' + money(nH.t.bud - nH.t.ly) +
-      ' de partners por firmar; lo firmado fuera del plan suma ' + W.fmtShort(nH.t.real) + ') y Onboarding ' + money(gH) + ' (crece ' + money(nH.h.real - nH.h.ly) + ' vs ' + money(nH.h.bud - nH.h.ly) + ' esperado).</p>');
+    out.push('<p><b>El gap de NR vs Budget en H2 (' + money(tH.real - tH.bud) + ') está en las cuentas nuevas:</b> TBD ' + money(gT) + ' (Budget de partners por firmar ' + W.fmtShort(nH.t.bud) + '; real a la fecha ' + W.fmtShort(nH.t.act) +
+      ' y ' + W.fmtShort(nH.t.real - nH.t.act) + ' proyectado por el Run Rate) y Onboarding ' + money(gH) + ' (crece ' + money(nH.h.real - nH.h.ly) + ' vs ' + money(nH.h.bud - nH.h.ly) + ' esperado).</p>');
+    // Cómo se arma el gap de H2: lo que ya pasó (oct → último día) vs lo que pone la proyección Run Rate (resto del H2)
+    function split(per) { var a = 0, ba = 0, r = 0, b = 0; SEGS.forEach(function (k) { var x = per.seg[k]; a += x.act; ba += x.budAct; r += x.real; b += x.bud; });
+      return { tot: r - b, act: a - ba, proj: (r - a) - (b - ba) }; }
+    var gN = split(S.nr.h2), gF = split(S.fvm.h2), Lm = dLbl(W._rawB2BC.meta.last_actuals_date);
+    out.push('<p><b>De dónde sale el gap de H2 vs Budget:</b> NR ' + money(gN.tot) + ' = ' + money(gN.act) + ' real de oct a ' + Lm + ' ' + money(gN.proj) + ' de la proyección Run Rate; FVM ' +
+      money(gF.tot) + ' = ' + money(gF.act) + ' real ' + money(gF.proj) + ' de la proyección' + (gF.act < 0 && gF.tot > 0 ? ' (lo que ya pasó viene abajo del Budget: el positivo depende del Run Rate de lo que falta)' : '') + '.</p>');
     var lag = S.nr.h2.parts.filter(function (x) { return x.gap < 0; }).sort(function (a, b) { return a.gap - b.gap; }).slice(0, 5);
     if (lag.length) out.push('<p><b>Onboarding más atrasado en H2</b> (NR real vs Budget): ' + lag.map(function (x) { return esc(x.p) + ' ' + money(x.gap); }).join(', ') + '.</p>');
-    out.push('<p style="color:var(--fl-ink3);font-size:10px">YTD = abril al último día con datos vs los mismos días del LY (sin proyección). H2 = actual + proyección Run Rate, meses con LY completo. ' +
-      'Δ YoY Bud = Budget − LY · Gap = Real − Budget. Existentes = mismas cuentas los dos años (cartera vigente). Organic.' + (S.nr.ytd.lyOk ? '' : ' ⚠ El LY diario no cubre todo el YTD.') + '</p>');
+    out.push('<p style="color:var(--fl-ink3);font-size:10px">YTD = abr → último día vs mismos días del LY. H2 = actual + Run Rate. ' +
+      'Δ YoY Bud = Budget − LY · Gap = Real − Budget. Existentes = mismas cuentas los dos años. ' + (W._orgTargetFlow_() === 'budget' ? 'Organic: todo a TC Budget (gap = oficial del Flow).' : 'Montos sin Organic a TC Budget.') + (S.nr.ytd.lyOk ? '' : ' ⚠ El LY diario no cubre todo el YTD.') + '</p>');
     return '<div class="ys-notes">' + out.join('') + '</div>';
+  }
+
+  // Control: Real y Budget por segmento tienen que dar lo mismo que los números oficiales del Flow vs Budget
+  // (flowSegData_ YTD y flowH2SegData_ H2). Si no, avisa en consola; W._ysCheck queda con el detalle.
+  function check(S) {
+    var sub = W.flowRegionRaw_(null), bad = [];
+    MK.forEach(function (mk) {
+      [['ytd', W.flowSegData_(sub, mk, 'budget', 'ytd')], ['h2', W.flowH2SegData_(sub, mk, 'budget')]].forEach(function (x) {
+        SEGS.forEach(function (k) { var a = S[mk][x[0]].seg[k], o = x[1][k];
+          if (Math.abs(a.real - o.base) > 1000 || Math.abs(a.bud - o.goal) > 1000) bad.push(mk + ' ' + x[0] + ' ' + k + ': slide ' + Math.round(a.real) + '/' + Math.round(a.bud) + ' vs Flow ' + Math.round(o.base) + '/' + Math.round(o.goal)); });
+      });
+    });
+    W._ysCheck = bad; if (bad.length) console.warn('[daily-flow-yoy-seg] no concilia con el Flow:', bad);
   }
 
   function html(idx) {
     var S = {}; MK.forEach(function (mk) { S[mk] = build(mk); });
+    check(S);
     var fyL = W.flFyLbl_(W._rawB2BC.meta.last_actuals_date), n2 = S.nr.h2.seg;
     var L = W._rawB2BC.meta.last_actuals_date, ytdLbl = 'YTD a ' + dLbl(L);
     // Título con el formato del equipo: "FY 27 WLs | Farming acelera el FVM en H2 al +79% vs un YTD al +19% con un NR creciendo en línea"
