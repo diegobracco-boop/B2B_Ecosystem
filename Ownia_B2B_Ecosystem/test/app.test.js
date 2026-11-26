@@ -137,6 +137,20 @@ test('buscador de la portada: caja + destinos para quien mira; preguntas: regist
   assert.match(equipo.text, /Preguntas del buscador/);
 });
 
+test('uso: cada pedido con usuario queda registrado; lo lee solo el equipo B2B', async () => {
+  await request(demoServer, 'GET', `${BASE}/demo`, { headers: { 'x-test-email': 'uso-test@despegar.com' } });
+  await run('sumar', [1, 2], { 'x-test-email': 'uso-test@despegar.com' });
+  assert.equal((await request(demoServer, 'GET', `${BASE}/uso`)).status, 401, 'sin identidad');
+  assert.equal((await request(demoServer, 'GET', `${BASE}/uso`, { headers: { 'x-test-email': 'chief@despegar.com' } })).status, 403);
+  const r = await request(demoServer, 'GET', `${BASE}/uso`, { headers: { 'x-test-email': EQUIPO_B2B[0] } });
+  assert.equal(r.status, 200);
+  const u = JSON.parse(r.text).dias[0].usuarios.find((x) => x.user === 'uso-test@despegar.com');
+  assert.ok(u, 'aparece el usuario');
+  assert.equal(u.rutas['page:/demo'].n, 1);
+  assert.equal(u.rutas['api:demo/sumar'].n, 1);
+  assert.equal((await request(demoServer, 'GET', `${BASE}/uso?dia=ayer`, { headers: { 'x-test-email': EQUIPO_B2B[0] } })).status, 400);
+});
+
 test('doGet: template con scriptlets, include, título, meta y shim inyectados', async () => {
   const r = await request(demoServer, 'GET', `${BASE}/demo`);
   assert.equal(r.status, 200);

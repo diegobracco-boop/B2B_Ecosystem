@@ -19,6 +19,7 @@
 //   GET  <base>/_portal/ask.js       buscador de la portada (filter-aliases.js + portal-ask.js)
 //   POST <base>/preguntas            registra una pregunta del buscador (ver portal-ask-data.js)
 //   GET  <base>/preguntas[?mes=AAAA-MM][&formato=json]  las preguntas del mes (solo el equipo B2B)
+//   GET  <base>/uso[?dia=AAAA-MM-DD | ?desde=…&hasta=…]  uso de la app por usuario y página/función (solo el equipo B2B, ver usage-log.js)
 const config = require('./config');
 
 // Antes de cualquier Date: el proceso corre en la zona de los proyectos GAS (ver config.js).
@@ -64,6 +65,7 @@ const { createResumenAgent } = require('./resumen-agent');
 const { createAcciones } = require('./acciones-comerciales');
 const { modelFromStore } = require('./pipeline-slide');
 const { partnersFrom, createQuestionLog } = require('./portal-ask-data');
+const { createUsageLog } = require('./usage-log');
 
 const MAX_BODY = 5 * 1024 * 1024; // google.script.run acepta payloads grandes (p.ej. capturas)
 const MAX_SLIDES_BODY = 40 * 1024 * 1024; // "Enviar a Google Slides" del Tracker: ~11 capturas JPEG en base64
@@ -104,6 +106,8 @@ function createApp(opts = {}) {
   // Preguntas del buscador de la portada: las registra cualquiera; las lee solo el equipo B2B (misma lista que "Actualizar reales").
   const questionLog = opts.questionLog !== undefined ? opts.questionLog : createQuestionLog(notesStore, log);
   const isTeam = (identity) => !!identity.email && realesUsers.includes(String(identity.email).toLowerCase());
+  // Uso de la app (páginas y funciones por usuario y día) para pensar mejoras; lo lee solo el equipo B2B. Ver usage-log.js.
+  const usageLog = opts.usageLog !== undefined ? opts.usageLog : createUsageLog(notesStore, { log });
   // Lectura a demanda del consolidador del P&L (compartido.app_b2b_ecosystem). Ver consolidador.js.
   const consolidador = opts.consolidador !== undefined ? opts.consolidador : createConsolidador(cfg, { log });
   // P&L Accounting desde el consolidador (módulos con `fuente: 'consolidador'`, ver pnl-fuente.js). Si conso publica una versión nueva,
@@ -369,6 +373,7 @@ function createApp(opts = {}) {
   async function handle(req, res) {
     const t0 = Date.now();
     let cacheState;   // 'hit' | 'miss' en las funciones cacheadas de /api
+    let usoArgs = null;   // args de google.script.run, para registrar los filtros elegidos (usage-log.js)
     const url = new URL(req.url, 'http://local');
     let route;
     try {
@@ -380,6 +385,7 @@ function createApp(opts = {}) {
     res.on('finish', () => {
       if (route === '/health') return; // el ALB pega cada pocos segundos
       log({ level: 'info', method: req.method, path: route, status: res.statusCode, ms: Date.now() - t0, user: identity.email || null, ...(cacheState ? { cache: cacheState } : {}) });
+      if (usageLog) { try { usageLog.registrar({ method: req.method, route, status: res.statusCode, ms: Date.now() - t0, user: identity.email, args: usoArgs }); } catch (e) { /* el uso nunca rompe un pedido */ } }
     });
 
     if (route === '/health' || route === '/healthz') {
@@ -437,6 +443,23 @@ function createApp(opts = {}) {
         questionsUrl: isTeam(identity) ? `${cfg.BASE_PATH}/preguntas` : null,
       };
       return sendCompressible(req, res, 200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' }, indexPage({ modules, basePath: cfg.BASE_PATH, canOpen: (m) => mayOpen(m, identity), reales: mayRunReales(identity), ask }));
+    }
+
+    if (route === '/uso') {
+      if (!identity.email) return unauthorized(res);
+      if (req.method !== 'GET') return sendJson(res, 405, { error: 'Método no permitido' });
+      if (!isTeam(identity)) return sendJson(res, 403, { error: 'Solo el equipo B2B puede ver el uso', name: 'Forbidden' });
+      if (!usageLog) return sendJson(res, 404, { error: 'No encontrado' });
+      try {
+        const desde = url.searchParams.get('desde'), hasta = url.searchParams.get('hasta');
+        if (desde || hasta) return sendJson(res, 200, await usageLog.leerRango(desde || hasta, hasta || desde));
+        const dia = url.searchParams.get('dia') || usageLog.hoy();
+        return sendJson(res, 200, { dias: [{ dia, usuarios: await usageLog.leerDia(dia) }] });
+      } catch (e) {
+        const status = e.status || 500;
+        if (status >= 500) log({ level: 'error', msg: 'uso: lectura falló', error: e.stack || String(e) });
+        return sendJson(res, status, { error: e.message || String(e) });
+      }
     }
 
     if (route === '/preguntas') {
@@ -721,6 +744,7 @@ function createApp(opts = {}) {
           return sendJson(res, 400, { error: 'JSON inválido', name: 'BadRequest' });
         }
         const args = Array.isArray(body.args) ? body.args : [];
+        usoArgs = args;   // el registro de uso guarda solo los filtros cortos (ver usage-log.js, resumenFiltros)
         // "Enviar a Google Slides" del Tracker: Ownia no tiene SlidesApp, lo hace el Apps Script del Daily (server/gslides-export.js).
         // Es un trabajo en segundo plano (el edge corta a los ~60 s): se arranca y el Tracker consulta el estado.
         if (isSlidesExport) {
@@ -812,11 +836,17 @@ function createApp(opts = {}) {
     fileStore.startPolling(cfg.FILE_STORE_POLL_MS);
   }
 
-  return { handler, warmUp, startData, fileStore };
+  return { handler, warmUp, startData, fileStore, usageLog };
 }
 
 if (require.main === module) {
   const app = createApp();
+  // Al apagar (deploy nuevo): se escribe el uso pendiente antes de salir (hasta 5 s).
+  process.once('SIGTERM', () => {
+    const fin = () => process.exit(0);
+    setTimeout(fin, 5000).unref();
+    (app.usageLog ? app.usageLog.flush() : Promise.resolve()).catch(() => {}).then(fin);
+  });
   app.startData().then(() => app.warmUp());
   http.createServer(app.handler).listen(config.PORT, () => {
     log({ level: 'info', msg: 'b2b-ecosystem escuchando', port: config.PORT, basePath: config.BASE_PATH, gasRoot: config.GAS_ROOT, tz: process.env.TZ, tzOffsetMin: new Date().getTimezoneOffset() });

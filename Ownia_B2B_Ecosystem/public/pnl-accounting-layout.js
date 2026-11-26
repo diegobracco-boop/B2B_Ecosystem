@@ -176,7 +176,8 @@
       setTitle('Abierto por ' + (byLob ? 'LoB' : 'LoB y canal') + ' · ' + per);
       var rl = breakdown(f, colsEff());
       if (!rl) return msg('Calculando el P&amp;L por ' + (byLob ? 'LoB' : 'LoB y canal') + '…');
-      if (rl.error) return msg('No se pudo calcular por LoB: ' + esc(rl.error));
+      // Un error no queda en el cache: Reintentar (o volver a elegir la vista) lo pide de nuevo (2026-11-26)
+      if (rl.error) { delete cache[colsEff() + '|' + JSON.stringify(f)]; return msg('No se pudo calcular por LoB: ' + esc(rl.error) + ' · <a href="#" onclick="window._refreshBGViews_();return false">Reintentar</a>'); }
       if (!rl.available) return msg('Sin apertura por LoB para esta selección.');
       var le = (rl.items || []).filter(function (it) { return hasData(it.data); }).map(function (it) { return { key: it.label, g: it.data }; });
       le.push({ key: 'Total', g: d.total });
@@ -192,7 +193,7 @@
     setTitle('Abierto por Producto · ' + per);
     var r = breakdown(f, 'prod');
     if (!r) return msg('Calculando el P&amp;L por producto…');
-    if (r.error) return msg('No se pudo calcular por producto: ' + esc(r.error));
+    if (r.error) { delete cache['prod|' + JSON.stringify(f)]; return msg('No se pudo calcular por producto: ' + esc(r.error) + ' · <a href="#" onclick="window._refreshBGViews_();return false">Reintentar</a>'); }
     if (!r.available) return msg('Sin apertura por producto para esta selección.');
     var selProd = (f.producto || []).map(function (p) { return String(p).toLowerCase(); });
     var pe = (r.items || []).filter(function (it) { return hasData(it.data) && (!selProd.length || selProd.indexOf(String(it.label).toLowerCase()) >= 0); })
