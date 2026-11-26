@@ -7,7 +7,7 @@
 // Cómo se arman los escenarios (a confirmar con la comparación contra Drive):
 //   ac   = ACT del FY27 hasta el último mes cerrado            ly  = ACT del FY26
 //   bl   = ACT del FY27 completo (en la tabla trae actuals cerrados + run rate del resto, igual que el baseline)
-//   bg   = BGT del FY27       rr = RR del FY27       lrr = LRR del FY27
+//   bg   = BGT del FY27       rr = RR del FY27       lrr = ACT del FY27 hasta el último cerrado + LRR después
 //   fc y fbtb = FC1 del FY27 (el FC1 de conso ES el Bridge to Budget: ya no hay otro forecast)
 const fs = require('fs');
 const path = require('path');
@@ -98,19 +98,24 @@ function canalDe(lob, channel) {
   return 'total';
 }
 
-/** De qué escenario y año de la tabla sale cada JSON canónico, y qué meses entran. Lo comparten el Accounting y el Hub. */
+/** De qué escenario y año de la tabla sale cada JSON canónico, y qué meses entran. Lo comparten el Accounting y el Hub.
+ *  El Last Run Rate (2026-11-25, Diego) es actuals hasta el último mes cerrado y el LRR de la tabla desde el mes siguiente, como lo
+ *  muestra el Hub de conso: así no depende de qué base cargó conso en el LRR para los meses ya cerrados. */
 function especificacion(ultimoCerrado, rrDesde) {
-  return [   // [clave canónica, escenario de la tabla, año, filtro de mes (fecha)]
-    ['ac', 'ACT', 'FY27', (f) => f <= ultimoCerrado],
-    ['bl', 'ACT', 'FY27', () => true],
-    ['bg', 'BGT', 'FY27', () => true],
-    ['fc', 'FC1', 'FY27', () => true],
-    ['fbtb', 'FC1', 'FY27', () => true],
-    ['rr', 'RR', 'FY27', (f) => f >= rrDesde],
-    ['lrr', 'LRR', 'FY27', () => true],
-    ['ly', 'ACT', 'FY26', () => true],
+  const todos = () => true;
+  return [   // [clave canónica, [[escenario de la tabla, año, filtro de mes (fecha)], …]]
+    ['ac', [['ACT', 'FY27', (f) => f <= ultimoCerrado]]],
+    ['bl', [['ACT', 'FY27', todos]]],
+    ['bg', [['BGT', 'FY27', todos]]],
+    ['fc', [['FC1', 'FY27', todos]]],
+    ['fbtb', [['FC1', 'FY27', todos]]],
+    ['rr', [['RR', 'FY27', (f) => f >= rrDesde]]],
+    ['lrr', [['ACT', 'FY27', (f) => f <= ultimoCerrado], ['LRR', 'FY27', (f) => f > ultimoCerrado]]],
+    ['ly', [['ACT', 'FY26', todos]]],
   ];
 }
+
+const fuenteDe = (partes) => 'compartido.app_b2b_ecosystem ' + partes.map(([sc, year]) => `${sc} ${year}`).join(' + ');
 
 /**
  * @param {{cols:string[], rows:any[][]}} cubo  salida de `consolidador_leer.py cubo`
@@ -145,16 +150,18 @@ function buildCanonicals(cubo, opts = {}) {
     m.set(key, (m.get(key) || 0) + (Number(row[ix.valor]) || 0));
   }
   const canon = {};
-  for (const [clave, sc, year, filtroMes] of SPEC) {
+  for (const [clave, partes] of SPEC) {
     const rows = [];
     const fechas = new Set();
-    for (const [key, v] of bySc[`${sc}|${year}`] || []) {
-      const [lob, canal, pais, prod, n2, fecha, n1] = key.split('\u0001');
-      if (!filtroMes(fecha) || !v) continue;
-      rows.push([lob.toLowerCase(), canal, pais, prod, n2, fecha, v, n1]);
-      fechas.add(fecha);
+    for (const [sc, year, filtroMes] of partes) {
+      for (const [key, v] of bySc[`${sc}|${year}`] || []) {
+        const [lob, canal, pais, prod, n2, fecha, n1] = key.split('\u0001');
+        if (!filtroMes(fecha) || !v) continue;
+        rows.push([lob.toLowerCase(), canal, pais, prod, n2, fecha, v, n1]);
+        fechas.add(fecha);
+      }
     }
-    canon[clave] = { meta: { concepto: clave, fuente: `compartido.app_b2b_ecosystem ${sc} ${year}`, fechas: [...fechas].sort(), filas: rows.length }, cols: COLS, rows };
+    canon[clave] = { meta: { concepto: clave, fuente: fuenteDe(partes), fechas: [...fechas].sort(), filas: rows.length }, cols: COLS, rows };
   }
   return { canon, sinMapear: Object.fromEntries(Object.entries(sinMapear).map(([k, s]) => [k, [...s].sort()])) };
 }
@@ -293,18 +300,20 @@ function buildHubCanonicals(cubo, opts = {}) {
     m.set(key, (m.get(key) || 0) + (Number(f.valor) || 0));
   }
   const canon = {};
-  for (const [clave, sc, year, filtroMes] of SPEC) {
+  for (const [clave, partes] of SPEC) {
     const rows = [];
     const fechas = new Set();
-    for (const [key, v] of bySc[`${sc}|${year}`] || []) {
-      const p = key.split('\u0001');
-      if (!filtroMes(p[9]) || !v) continue;
-      rows.push([...p, v]);
-      fechas.add(p[9]);
+    for (const [sc, year, filtroMes] of partes) {
+      for (const [key, v] of bySc[`${sc}|${year}`] || []) {
+        const p = key.split('\u0001');
+        if (!filtroMes(p[9]) || !v) continue;
+        rows.push([...p, v]);
+        fechas.add(p[9]);
+      }
     }
     // Mismo orden que los JSON de Drive (LoB, canal, país, producto, N1…, fecha): el Hub arma sus conceptos en el orden en que aparecen las filas.
     rows.sort((a, b) => { for (let i = 0; i < 10; i++) { if (a[i] < b[i]) return -1; if (a[i] > b[i]) return 1; } return 0; });
-    canon[clave] = { meta: { concepto: clave, fuente: `compartido.app_b2b_ecosystem ${sc} ${year}`, fechas: [...fechas].sort(), filas: rows.length }, cols: COLS_HUB, rows };
+    canon[clave] = { meta: { concepto: clave, fuente: fuenteDe(partes), fechas: [...fechas].sort(), filas: rows.length }, cols: COLS_HUB, rows };
   }
   return { canon, sinMapear: Object.fromEntries(Object.entries(sinMapear).map(([k, s]) => [k, [...s].sort()])) };
 }

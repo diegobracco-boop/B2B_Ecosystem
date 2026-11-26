@@ -8,7 +8,9 @@
 // Si el host todavía no tiene datos NO se cae a Drive: falla (el servidor espera a tenerlos antes de atender, ver pnl-fuente.js).
 // LRR_DESDE_DRIVE_ (2026-11-24): el escenario LRR de la tabla no es la ronda del 3/11 (sep y oct vienen proyectados), así que el
 // Last Run Rate sale de lastrunrate.json de Drive (= LastRunRate_OC). Volver a false cuando conso cargue la ronda correcta.
-var LRR_DESDE_DRIVE_ = true;
+// 2026-11-25: false. El LRR del consolidador ahora es actuals hasta el último cerrado + LRR de la tabla desde el mes siguiente
+// (especificacion en pnl-consolidador.js); en nov-mar ya coincide con lastrunrate.json. Con true vuelve a leer Drive.
+var LRR_DESDE_DRIVE_ = false;
 var _consOrigRead_ = _readCanonical_;
 var _consOrigMaxMod_ = _canonicalsMaxMod_;
 

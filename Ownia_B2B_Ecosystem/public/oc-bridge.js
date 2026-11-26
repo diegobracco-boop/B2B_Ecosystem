@@ -20,7 +20,8 @@
   };
   var GROUPS = [
     { label: 'Palancas de Negocio', items: [{ source: 'rr', key: '_upfront_fees_rr' }, { source: 'rr', key: 'cost_of_installments' },
-      { source: 'rr', key: 'credit_card_processing' }, { source: 'rr', key: '_tpcs_rr' }, { source: 'ct', key: 'cost of sales as principal' }] },
+      { source: 'rr', key: 'credit_card_processing' }, { source: 'rr', key: '_tpcs_rr' }, { source: 'ct', key: 'cost of sales as principal' },
+      { source: 'rr', key: 'income_from_outsourced_services' }] },
     { label: 'Incentivos Regionales', items: [{ source: 'ct', key: 'back end incentives' }, { source: 'ct', key: 'other incentives' }, { source: 'ct', key: 'media & other revenue' }] },
     { label: 'Marketing Inv.', items: [{ source: 'ct', key: 'marketing-direct' }, { source: 'ct', key: 'media & other cost' }] },
     { label: 'Fixed Cost', items: [{ source: 'ct', key: 'channels-personnel/expenses' }, { source: 'ct', key: 'marketing-personnel/expenses' }, { source: 'ct', key: 'fulfilment center fees' }] },

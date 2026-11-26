@@ -733,7 +733,7 @@
     return head(title, perSub(range(qi * 3, qi * 3 + 2)) + ' · USD $M · Δ OC ' + '<b class="' + cls(dl) + '">' + m2(dl) + 'M</b>' + (r.goalOC > 0 ? ' (' + pc((r.baselineOC / r.goalOC - 1) * 100) + ')' : '')) +
       '<div class="hs-br"><div class="hs-brm">' + bridgeSvg(r) + bridgeTable(r) + '</div>' +
       '<div class="hs-brs2">' + noteBox('b2bsec_bridge_' + qn.toLowerCase(), 'Lectura', bridgeDraft(r, qn)) + '</div></div>' +
-      '<div class="hs-otn hs-btn">Mismo bridge que el P&L Accounting (B2B, Baseline vs Budget). Palancas: UPF + fees + descuentos, COI, tarjetas, TPCs, costo de venta; Iniciativas = MAY flights / dest. serv. y MIN cruceros · ' +
+      '<div class="hs-otn hs-btn">Mismo bridge que el P&L Accounting (B2B, Baseline vs Budget). Palancas: UPF + fees + descuentos, COI, tarjetas, TPCs, costo de venta, servicios tercerizados; Iniciativas = MAY flights / dest. serv. y MIN cruceros · ' +
       'Incentivos Regionales: back-end, other incentives, media revenue · Marketing: directo + media cost · Fixed Cost: P&amp;E de canales y marketing, fulfilment · Efecto vol. = Δ GB × margen del Budget.' + (organicOn() ? ' Organic: todo a TC Budget.' : '') + '</div>' + foot();
   }
   function sB2BCover() {

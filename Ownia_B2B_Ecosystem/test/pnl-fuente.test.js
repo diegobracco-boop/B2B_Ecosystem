@@ -309,7 +309,7 @@ test('el respaldo del Hub NO recibe la fuente del consolidador (sigue leyendo Dr
   assert.equal(evalEn(p, 'typeof __owniaPnlCanon_'), 'undefined');
 });
 
-// ── LRR desde Drive mientras conso no cargue la ronda correcta (LRR_DESDE_DRIVE_, 2026-11-24) ─────────────────────────────────
+// ── LRR desde Drive (LRR_DESDE_DRIVE_, 2026-11-24): apagado desde el 2026-11-25, el LRR de la tabla ya es actuals + LRR; queda de respaldo ──
 // Almacén mínimo con solo lastrunrate.json: lo demás tiene que seguir saliendo de la tabla.
 const LRR_ID = '1Nk56QlEA2hKuWGhfZ1357Eds6DhU8zwC';
 function almacenLrr(updatedAt) {
@@ -319,23 +319,26 @@ function almacenLrr(updatedAt) {
   return { get: (id) => (id === LRR_ID ? entry : null), findByName: () => [], inFolder: () => [], hasFolder: () => false, listMeta: () => [] };
 }
 
-test('P&L Accounting: el LRR sale de lastrunrate.json de Drive, el resto de la tabla, y el cache sigue también al archivo', async () => {
+test('P&L Accounting: el LRR sale de la tabla; con LRR_DESDE_DRIVE_ = true, de lastrunrate.json (y el cache sigue también al archivo)', async () => {
   const { canon } = buildCanonicals({ cols: COLS, rows: FILAS }, { ajustes: { cols: [], rows: [] } });
   const p = new GasProject(conso, { gasRoot: config.GAS_ROOT, secrets: {}, log: () => {}, fileStore: almacenLrr(9999), pnlCanon: () => ({ canon, modificado: 4242 }) });
-  assert.equal(evalEn(p, 'LRR_DESDE_DRIVE_'), true);
+  assert.equal(evalEn(p, 'LRR_DESDE_DRIVE_'), false);
+  assert.equal(evalEn(p, '_readCanonical_(CANONICAL_IDS_.lrr).meta.concepto'), 'lrr');
+  assert.equal(evalEn(p, '_canonicalsMaxMod_()'), 4242);
+  evalEn(p, 'LRR_DESDE_DRIVE_ = true');
   assert.equal(evalEn(p, '_readCanonical_(CANONICAL_IDS_.lrr).meta.concepto'), 'lastrunrate');
   assert.equal(evalEn(p, '_readCanonical_(CANONICAL_IDS_.lrr).rows[0][6]'), 777);
   assert.equal(evalEn(p, '_readCanonical_(CANONICAL_IDS_.bg).meta.concepto'), 'bg', 'el resto sigue en la tabla');
   assert.equal(evalEn(p, '_canonicalsMaxMod_()'), 9999, 'si cambia lastrunrate.json se renuevan los caches');
-  evalEn(p, 'LRR_DESDE_DRIVE_ = false');
-  assert.equal(evalEn(p, '_readCanonical_(CANONICAL_IDS_.lrr).meta.concepto'), 'lrr', 'apagado vuelve al LRR de la tabla');
-  assert.equal(evalEn(p, '_canonicalsMaxMod_()'), 4242);
 });
 
-test('Hub: el Goal Last Run Rate sale de lastrunrate.json de Drive, el resto de la tabla', async () => {
+test('Hub: el Goal Last Run Rate sale de la tabla; con LRR_DESDE_DRIVE_ = true, de lastrunrate.json', async () => {
   const f = createPnlFuente({ secrets: {} }, { consolidador: falsoConso(), ajustes: SIN_AJ });
   await f.listo();
   const p = new GasProject(hubConso, { gasRoot: config.GAS_ROOT, secrets: {}, log: () => {}, fileStore: almacenLrr(9e12), pnlCanon: f.canon });
+  assert.equal(evalEn(p, 'LRR_DESDE_DRIVE_'), false);
+  assert.ok(evalEn(p, '_getJsonsLastMod_()') < 9e12, 'apagado no sigue a lastrunrate.json');
+  evalEn(p, 'LRR_DESDE_DRIVE_ = true');
   const filas = JSON.parse(evalEn(p, 'JSON.stringify(readJson_(JSON_IDS.lastrunrate))'));
   assert.equal(filas.length, 1);
   assert.equal(filas[0]['monto usd'], 777);

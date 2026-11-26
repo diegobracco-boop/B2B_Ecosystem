@@ -47,7 +47,9 @@ test('buildCanonicals: cada escenario sale del escenario y año de la tabla, con
   assert.deepEqual(canon.fc.rows, canon.fbtb.rows);
   assert.deepEqual(canon.fc.rows, [['b2b', 'min', 'others countries', 'corporate', 'orders', '2026-08-01', 9, '']]);
   assert.equal(canon.rr.rows[0][1], 'total');
-  assert.equal(canon.lrr.rows[0][3], 'buses');
+  // lrr: actuals hasta el último cerrado + LRR de la tabla después (el LRR de mayo, mes cerrado, no entra)
+  assert.deepEqual(canon.lrr.rows, canon.ac.rows);
+  assert.equal(canon.lrr.meta.fuente, 'compartido.app_b2b_ecosystem ACT FY27 + LRR FY27');
   assert.deepEqual(canon.ly.rows, [['b2b', 'min', 'mexico', 'dest. serv.', 'orders', '2026-01-01', 8, '']]);
   assert.deepEqual(sinMapear, { pais: [], producto: [], n2: [] });
   assert.deepEqual(canon.ac.cols, ['LoB', 'Canal', 'Pais', 'Producto', 'P&L N2', 'Fecha', 'Monto USD', 'P&L N1']);
@@ -161,8 +163,20 @@ test('ajuste propio: se suma a ACT y FC1 del FY27 hasta el último cerrado, y no
   ];
   const { canon } = buildCanonicals(cubo(base), { ultimoCerrado: '2026-10-01', rrDesde: '2026-04-01', ajustes: AJ });
   const v = (sc) => canon[sc].rows.map((r) => r[6]);
-  for (const sc of ['ac', 'bl', 'fc', 'fbtb']) assert.deepEqual(v(sc), [900], sc);
-  for (const sc of ['bg', 'rr', 'ly', 'lrr']) assert.deepEqual(v(sc), [1000], sc);   // el LRR de Drive no trae el ajuste
+  for (const sc of ['ac', 'bl', 'fc', 'fbtb', 'lrr']) assert.deepEqual(v(sc), [900], sc);   // abril cerrado: el lrr es el ACT, con el ajuste
+  for (const sc of ['bg', 'rr', 'ly']) assert.deepEqual(v(sc), [1000], sc);
+});
+
+test('lrr: actuals hasta el último mes cerrado y el LRR de la tabla desde el mes siguiente', () => {
+  const base = [
+    ['ACT', 'FY27', 10, 'Brazil', 'B2B', 'MAY', 'Hotel', 'Gross Bookings', 146],
+    ['LRR', 'FY27', 10, 'Brazil', 'B2B', 'MAY', 'Hotel', 'Gross Bookings', 180],   // octubre proyectado en el LRR: no entra
+    ['ACT', 'FY27', 11, 'Brazil', 'B2B', 'MAY', 'Hotel', 'Gross Bookings', 999],   // run rate dentro del ACT: no entra
+    ['LRR', 'FY27', 11, 'Brazil', 'B2B', 'MAY', 'Hotel', 'Gross Bookings', 192],
+  ];
+  const { canon } = buildCanonicals(cubo(base), { ultimoCerrado: '2026-10-01', ajustes: SIN_AJ });
+  assert.deepEqual(canon.lrr.rows.map((r) => [r[5], r[6]]), [['2026-10-01', 146], ['2026-11-01', 192]]);
+  assert.deepEqual(canon.lrr.meta.fechas, ['2026-10-01', '2026-11-01']);
 });
 
 test('ajuste propio: sin ajustes (o con archivo ausente) no cambia nada', () => {

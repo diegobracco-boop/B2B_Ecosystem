@@ -1637,7 +1637,8 @@ var WF_PALANCAS = [
     {source:'rr', key:'cost_of_installments'},
     {source:'rr', key:'credit_card_processing'},
     {source:'rr', key:'_tpcs_rr'},
-    {source:'ct', key:'cost of sales as principal'}
+    {source:'ct', key:'cost of sales as principal'},
+    {source:'rr', key:'income_from_outsourced_services'}   // 2026-11-25, Diego: va en Palancas (antes caía en Resto)
   ]},
   { label: 'Incentivos Regionales', items: [
     {source:'ct', key:'back end incentives'},
@@ -3761,7 +3762,7 @@ function appendLobWaterfall_(container, lobName, data, splitPalancas) {
   var footnoteDiv = document.createElement('div');
   footnoteDiv.style.cssText = 'margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.06);font-size:9px;color:#475569;line-height:1.55';
   footnoteDiv.innerHTML =
-    '<strong style="color:#64748B">Palancas de Negocio:</strong> up front incentives, commercial discount fees, cost of installments, CC processing, TPCs, cost of sales (principal). &nbsp;·&nbsp; ' +
+    '<strong style="color:#64748B">Palancas de Negocio:</strong> up front incentives, commercial discount fees, cost of installments, CC processing, TPCs, cost of sales (principal), income from outsourced services. &nbsp;·&nbsp; ' +
     '<strong style="color:#64748B">Incentivos Regionales:</strong> back-end incentivos, other incentivos, media &amp; other revenue. &nbsp;·&nbsp; ' +
     '<strong style="color:#64748B">Marketing Inv.:</strong> marketing direct, media &amp; other cost. &nbsp;·&nbsp; ' +
     '<strong style="color:#64748B">Fixed Cost:</strong> channels P&amp;E, marketing P&amp;E, fulfilment center.';

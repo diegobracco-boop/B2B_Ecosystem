@@ -559,6 +559,7 @@
  *    Solo cambia cómo se agrupan: el Operating Contribution es el mismo.
  *    La tabla llega abierta por N2, y sin B2C cada N2 cae en un solo grupo. Loyalty Program se reparte en dos grupos solo por B2C,
  *    que este tablero no incluye: lo que queda es Fixed Cost.
+ *    Income from Outsourced Services va en Palancas (2026-11-25, Diego), aunque el Glosario lo deje como grupo propio; también en los bridges.
  */
 (function () {
   'use strict';
@@ -578,7 +579,7 @@
   var OWNER_STRUCTURE = [
     { type: 'row', label: 'Orders', source: 'rr', key: 'orders', excludeSum: true, noPct: true },
     { type: 'row', label: 'Gross Bookings', source: 'rr', key: 'gross_bookings', excludeSum: true, noPct: true },
-    { type: 'summary', label: 'Palancas', style: 'nr', id: 'own-palancas', keys: [LINE.upfront, LINE.cancel, LINE.coi, LINE.ccp, LINE.tpc, ct('cost of sales as principal', 'Cost of Sales as Principal')] },
+    { type: 'summary', label: 'Palancas', style: 'nr', id: 'own-palancas', keys: [LINE.upfront, LINE.cancel, LINE.coi, LINE.ccp, LINE.tpc, ct('cost of sales as principal', 'Cost of Sales as Principal'), LINE.outsourced] },
     { type: 'summary', label: 'Variables Regionales', style: 'cor', id: 'own-regional', keys: [
       ct('back end incentives', 'Back End Incentives'), OI, ct('breakage revenue', 'Breakage Revenue'),
       ct('media & other revenue', 'Media & Other Revenue'), ct('media & other cost', 'Media & Other Cost'), ct('revenue from sales as principal', 'Revenue from Sales as Principal'),
@@ -586,7 +587,6 @@
       ct('other taxes', 'Other Taxes'), ct('customer claims', 'Customer Claims'), ct('errors', 'Errors'), ct('frauds', 'Frauds'), ct('bad debt', 'Bad Debt'),
       ct('intercompany transactions', 'Intercompany Transactions'),
     ] },
-    { type: 'summary', label: 'Income from Outsourced Services', style: 'cor', id: 'own-outsourced', keys: [LINE.outsourced] },
     { type: 'summary', label: 'Marketing', style: 'sm', id: 'own-marketing', keys: [ct('marketing-direct', 'Marketing - Direct')] },
     { type: 'summary', label: 'Fixed Cost', style: 'sm', id: 'own-fixed', keys: [
       ct('channels-personnel/expenses', 'Channels - Personnel/Expenses'), ct('marketing-personnel/expenses', 'Marketing - Personnel/Expenses'), ct('fulfilment center fees', 'Fulfillment Center Fees'), ct('loyalty program', 'Loyalty Program'),
