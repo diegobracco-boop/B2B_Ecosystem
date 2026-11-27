@@ -578,6 +578,73 @@ function getOKRData(params) {
   }
 }
 
+// ── Detalle por país (botón "Ver detalle por país" del OKR Status, H2) ── 2026-11-27, pedido de antonella.difranco.
+// Mismo motor que getOKRData (computeOKR_ sobre OKR_H2_FY27.json, con o sin organic), filtrando las filas por grupo de país.
+// Grupos como el OKR Detail del Daily (KRD_PAISES_OLD / KRD_PAISES_API en Daily_Dashboard/dashboard.html): la landing elige la lista
+// según el canal (API agrupa 'ROW+Colombia'). Solo abren los KRs contables (los que OKR_H2_FY27.json trae por país); los que vienen
+// con Pais = Total (Recurrence, Deploy New Partnership, Unique Buyers, KR Global B2B API salvo NR API Hoteles) quedan solo en el Total.
+var OKR_PAIS_GRUPOS_ = [
+  { name: 'Brasil',       pais: ['brasil'],                            flags: ['br'] },
+  { name: 'Mexico',       pais: ['mexico'],                            flags: ['mx'] },
+  { name: 'Globales',     pais: ['others countries'],                  flags: ['globe'] },
+  { name: 'Argentina',    pais: ['argentina'],                         flags: ['ar'] },
+  { name: 'Colombia',     pais: ['colombia'],                          flags: ['co'] },
+  { name: 'Chile',        pais: ['chile'],                             flags: ['cl'] },
+  { name: 'Peru',         pais: ['peru'],                              flags: ['pe'] },
+  { name: 'Ecua/Uru/Par', pais: ['ecuador', 'uruguay', 'paraguay'],    flags: ['ec', 'uy', 'py'] },
+  { name: 'ROW+Colombia', pais: ['colombia', 'peru', 'ecuador', 'chile', 'uruguay', 'paraguay'], flags: ['co', 'cl', 'pe', 'ec', 'uy', 'py'] },
+  { name: 'RG',           pais: ['rg'],                                flags: [] }   // ajuste COI Brasil (solo OC HTML / Op. Contribution)
+];
+function okrPaisNorm_(p) {
+  var s = String(p || '').normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase();
+  return s === 'other countries' ? 'others countries' : s;
+}
+// Saca los KRs sin ningún dato (ni actual ni target) y los bloques que quedan vacíos: achica el payload de los países.
+function okrPaisStrip_(res) {
+  if (!res) return null;
+  var out = {};
+  Object.keys(res).forEach(function(lob) {
+    var blk = res[lob];
+    var krs = (blk.krs || []).filter(function(k) {
+      return (k.monthlyAct || []).concat(k.monthlyBud || []).some(function(v) { return v !== null && v !== undefined; });
+    });
+    if (krs.length) out[lob] = Object.assign({}, blk, { krs: krs });
+  });
+  return out;
+}
+function getOKRByPais(params) {
+  try {
+    var orgOn = !!(params && params.organic === 'budget');
+    var rows = readOKRH2Json_(), organic = null;
+    if (orgOn) {
+      try { var o = applyOrganicOKR_(rows); rows = o.rows; organic = { target: 'budget', missing: o.missing }; }
+      catch (e) { organic = { target: 'budget', error: 'No se pudo leer el archivo de tipos de cambio: ' + e.message }; }
+    }
+    var LOBS = { 'b2b': true, 'b2b api': true, 'b2b html': true, 'b2b2c': true };
+    function soloLobs(res) { var o = {}; Object.keys(res || {}).forEach(function(l) { if (LOBS[l]) o[l] = res[l]; }); return o; }
+    var total = soloLobs(computeOKR_('H2', rows, { fillTarget: true }));
+    var conPais = rows.filter(function(r) { var p = okrPaisNorm_(r.pais); return p && p !== 'total'; });
+    var known = {}, groups = [];
+    OKR_PAIS_GRUPOS_.forEach(function(g) {
+      var set = {}; g.pais.forEach(function(p) { set[p] = true; known[p] = true; });
+      var sub = conPais.filter(function(r) { return set[okrPaisNorm_(r.pais)]; });
+      if (!sub.length) return;
+      var okr = okrPaisStrip_(soloLobs(computeOKR_('H2', sub, { fillTarget: true })));
+      if (okr && Object.keys(okr).length) groups.push({ name: g.name, flags: g.flags, okr: okr });
+    });
+    // Países que no están en ningún grupo (no debería haber): se juntan en "Otros" para que la suma por país cierre con el Total.
+    var otros = conPais.filter(function(r) { return !known[okrPaisNorm_(r.pais)]; });
+    if (otros.length) {
+      var oo = okrPaisStrip_(soloLobs(computeOKR_('H2', otros, { fillTarget: true })));
+      var nombres = {}; otros.forEach(function(r) { nombres[r.pais] = true; });
+      if (oo && Object.keys(oo).length) groups.push({ name: 'Otros', flags: [], okr: oo, paises: Object.keys(nombres) });
+    }
+    return { success: true, total: total, groups: groups, organic: organic };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
 // ── Debug: ejecutar manualmente desde el editor para diagnosticar ──
 function diagOKR() {
   var rows = readOKRJson_();
