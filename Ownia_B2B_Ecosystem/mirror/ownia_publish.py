@@ -14,8 +14,11 @@ Uso, en el punto de subida de cada pipeline (res = respuesta de Drive pedida con
 
 Reglas:
   - Nunca corta el pipeline: Drive ya quedó bien. Si Ownia falla, avisa por pantalla; el mirror
-    (`py Ownia_B2B_Ecosystem/mirror/ownia_mirror.py`) lo repara después. Tras el primer error no
-    insiste con el resto de los archivos de esa corrida (evita esperas por cada uno).
+    (`py Ownia_B2B_Ecosystem/mirror/ownia_mirror.py`) lo repara después. Tras un error de config o
+    de permiso no insiste con el resto de los archivos de esa corrida (evita esperas por cada uno).
+    Si el error es que el almacén está saturado (DynamoDB "Throughput exceeds…", 500/503, timeout),
+    reintenta ese archivo una vez y sigue con los demás (2026-11-27: un b2b2c_tracker.json frenado
+    dejaba a okr.json / OKR_H2_FY27.json solo en Drive).
   - Solo publica lo que está en `server/drive-manifest.json` (por id, o por carpeta + nombre): lo
     demás (p. ej. las copias comprimidas) se ignora sin ruido, igual que /ingest lo rechazaría.
   - Config: `credenciales/.env.ownia` (OWNIA_URL, OWNIA_INGEST_TOKEN) o variables de entorno. Sin
@@ -23,7 +26,9 @@ Reglas:
 """
 import json
 import os
+import re
 import sys
+import time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -33,6 +38,13 @@ MANIFEST = HERE.parent / "server" / "drive-manifest.json"
 DRIVE_FIELDS = "id,name,mimeType,modifiedTime,parents"
 
 _state = {"off": False, "target": None, "allow": None}
+RETRY_S = 30   # espera antes del único reintento cuando el almacén está saturado
+
+
+def _saturado(e) -> bool:
+    """Error momentáneo del almacén (no de config ni de permiso): conviene reintentar y seguir con los demás archivos."""
+    s = str(e)
+    return bool(re.search(r"throughput|throttl|respondió 50[023]\b|timed out|timeout", s, re.I))
 
 
 def _allowlist():
@@ -75,10 +87,23 @@ def publish_after_drive(res: dict, content: bytes, name: str = None) -> bool:
             "modifiedTime": modified,
             "updatedAt": int(datetime.fromisoformat(modified.replace("Z", "+00:00")).timestamp() * 1000),
         }
-        _target().put(f, content)
+        for intento in range(2):
+            try:
+                _target().put(f, content)
+                break
+            except (Exception, SystemExit) as e:
+                if intento == 0 and _saturado(e):
+                    print(f"  WAIT Ownia: almacén saturado con {fname}, reintento en {RETRY_S}s")
+                    time.sleep(RETRY_S)
+                    continue
+                raise
         print(f"  OK Ownia: {fname} ({len(content) / 1e6:.1f} MB)")
         return True
     except (Exception, SystemExit) as e:   # SystemExit: el cliente del mirror aborta así ante un error HTTP
+        if _saturado(e):   # momentáneo: este archivo queda en Drive, los siguientes se intentan igual
+            print(f"  WARN Ownia: no se pudo publicar {res.get('name') or name} ({e}) — quedó en Drive; "
+                  f"correr ownia_mirror.py para repararlo. Se sigue con el resto de los archivos.")
+            return False
         _state["off"] = True
         print(f"  WARN Ownia: no se pudo publicar {res.get('name') or name} ({e}) — quedó en Drive; "
               f"correr ownia_mirror.py para repararlo. No se intenta con el resto de esta corrida.")
