@@ -136,10 +136,11 @@
     // a la izquierda y menos a la derecha.
     'body:not(.ohn-noheader) main{margin-left:0!important;max-width:none!important;padding-left:32px!important;padding-right:14px!important}',
     // Panel de filtros: cajón desde la derecha (al lado del botón "Filtros"), con el fondo atenuado.
-    '#pnl-filters-bar{left:auto!important;right:0!important;width:300px!important;padding:0 20px 16px!important;gap:16px!important;',
+    // top: el Hub lo pone en --hdr-h + 40px; con la barra en dos filas (laptop) va debajo de su alto real.
+    '#pnl-filters-bar{top:calc(var(--hdr-h) + var(--ohn-nav-h,' + NAV_H + 'px))!important;left:auto!important;right:0!important;width:300px!important;padding:0 20px 16px!important;gap:16px!important;',
     '  border-right:none!important;border-left:1px solid #ebe8f3!important;box-shadow:-12px 0 32px rgba(18,17,30,.14)!important;',
     '  z-index:320!important;background:#fff!important;font-family:Poppins,-apple-system,"Segoe UI",sans-serif}',
-    '#ohn-fback{display:none;position:fixed;left:0;right:0;bottom:0;top:calc(var(--hdr-h) + ' + NAV_H + 'px);background:rgba(18,17,30,.16);z-index:315}',
+    '#ohn-fback{display:none;position:fixed;left:0;right:0;bottom:0;top:calc(var(--hdr-h) + var(--ohn-nav-h,' + NAV_H + 'px));background:rgba(18,17,30,.16);z-index:315}',
     'body.ohn-fopen #ohn-fback{display:block}',
     '.ohn-fhead{position:sticky;top:0;z-index:1;background:#fff;display:flex;align-items:center;justify-content:space-between;padding:16px 0 10px;border-bottom:1px solid #f0edf7}',
     '.ohn-fhead b{font-size:16px;font-weight:600;color:#12111e}',
@@ -179,7 +180,7 @@
     '  font-family:Poppins,-apple-system,"Segoe UI",sans-serif}',
     'body.ohn-noheader #ownia-hubnav{position:fixed;top:0;left:0;right:0}',
     // El Hub corre el contenido 28px a la derecha en las secciones embebidas (lugar del ☰).
-    'body.ohn-noheader main{padding:' + NAV_H + 'px 0 0 0!important;margin-left:0!important}',
+    'body.ohn-noheader main{padding:var(--ohn-nav-h,' + NAV_H + 'px) 0 0 0!important;margin-left:0!important}',
     '#ownia-hubnav button{font-family:inherit}',
     '#ownia-hubnav button:focus-visible{outline:2px solid #a780ff;outline-offset:1px}',
     '.ohn-home{flex:none;color:#fff;text-decoration:none;font-size:13px;font-weight:600;padding:5px 12px;border-radius:8px;',
@@ -209,6 +210,11 @@
     '@media (max-width:1700px){.ohn-tabs .ohn-tab span{display:none}#ownia-hubnav .ohn-quick .fg > label{display:none}}',
     // Con "Filtrar…" y "Filtros" en la barra: en notebooks las pestañas pierden el ícono para que entren todas a la vista.
     '@media (max-width:1500px){.ohn-tabs .ohn-tab span{display:none}.ohn-seg button{padding:5px 10px}}',
+    // Laptop (2026-11-27): en una fila la barra de Fecha · Baseline · Goal · Montos quedaba con ~320px y cortaba los textos
+    // ("Octubre '2", "Real + proyec", la E de los montos). Debajo de 1500px pasa a una segunda fila con su ancho completo;
+    // el alto real de la barra va a --ohn-nav-h (ResizeObserver) para los offsets que antes asumían 40px.
+    '@media (max-width:1500px){#ownia-hubnav{height:auto!important;min-height:' + NAV_H + 'px;flex-wrap:wrap;row-gap:6px;padding-top:5px!important;padding-bottom:5px!important}' +
+    '.ohn-quick{order:10;flex:1 0 100%!important;flex-wrap:wrap;row-gap:6px}#ownia-hubnav .ohn-quick .fg{flex:none}.ohn-sep{display:none}}',
     '@media (max-width:1320px){#ownia-hubnav{gap:8px;padding:0 10px}.ohn-seg button{padding:5px 9px}.ohn-tabs .ohn-tab{padding:7px 8px}.ohn-tools{min-width:170px}}',
     '.ohn-tab{border:none;background:transparent;color:rgba(255,255,255,.78);font-size:13px;font-weight:500;padding:7px 11px;',
     '  border-radius:7px;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:6px}',
@@ -226,6 +232,10 @@
     // Grilla de resultados con el formato de la presentación de dirección: métricas en filas,
     // negocios en columnas; cada celda con el valor en USD $M, el YoY y el desvío vs la referencia.
     '.ohn-deck-wrap{overflow-x:auto}',
+    // Laptop (2026-11-27): "+$279K (+467%) vs Budget" en una línea forzaba la grilla unos px más ancha (scroll lateral y
+    // "vs Budg" cortado). Las celdas pueden achicarse y, debajo de 1500px, esa línea baja en dos.
+    '.ohn-deck > *{min-width:0}@media (max-width:1500px){.ohn-deck .d-l,.ohn-deck.wide .d-l{white-space:normal!important}' +
+    '.ohn-deck .d-col{font-size:14px!important;white-space:normal!important;line-height:1.2;border-radius:16px!important}}',
     '.ohn-deck{display:grid;gap:8px;min-width:720px;max-width:1280px}',   // 2026-11-05: más compacta (en pantallas anchas se leía muy estirada)
     '.ohn-deck .d-org{align-self:center;justify-self:start;background:#1a7f37;color:#fff;font-weight:700;font-size:13px;border-radius:8px;padding:5px 12px}',
     '.ohn-deck .d-period{background:#8a8a93;color:#fff;font-weight:700;font-size:15px;text-align:center;border-radius:999px;padding:4px 12px}',
@@ -274,8 +284,8 @@
     '.pnl-split-btn{margin-left:10px;font:600 11.5px Poppins,sans-serif;color:#550fed;background:none;border:1px solid #d9ccff;border-radius:999px;padding:3px 10px;cursor:pointer}',
     // Secciones embebidas: el Hub les da 100vh (sin header); acá queda la barra arriba.
     '#daily-frame,#weekly-frame,#fixedcost-frame,#news-frame,#industry-frame,#pnl-frame,#pnl-mgr-frame,',
-    '#detailcountry-frame,#fvmneg-frame{height:calc(100vh - ' + NAV_H + 'px)!important}',
-    '#okr-frame-b2b2c,#okr-frame-b2b{height:calc(100vh - ' + (NAV_H + 42) + 'px)!important}',
+    '#detailcountry-frame,#fvmneg-frame{height:calc(100vh - var(--ohn-nav-h,' + NAV_H + 'px))!important}',
+    '#okr-frame-b2b2c,#okr-frame-b2b{height:calc(100vh - var(--ohn-nav-h,' + NAV_H + 'px) - 42px)!important}',
   ].join('\n');
   document.head.appendChild(css);
 
@@ -303,6 +313,10 @@
     if (!header || document.getElementById('ownia-hubnav')) return null;
     var nav = document.createElement('nav');
     nav.id = 'ownia-hubnav';
+    if (window.ResizeObserver) new ResizeObserver(function () {
+      var hh = Math.round(nav.getBoundingClientRect().height);   // oculta (cierre / slides EMB) → queda el valor de antes, no 0
+      if (hh > 0) document.documentElement.style.setProperty('--ohn-nav-h', hh + 'px');
+    }).observe(nav);
     nav.setAttribute('aria-label', 'Secciones del P&L Dashboard');
 
     if (home) {
