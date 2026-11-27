@@ -198,7 +198,8 @@
       '<div class="hs-nx' + (n ? '' : ' hs-draft') + '"' + (state.canEdit ? ' contenteditable="true"' : '') + ' spellcheck="false" data-field="' + field + '">' + esc(text).replace(/\n/g, '<br>') + '</div>' +
       '<div class="hs-nm">' + meta + '</div></div>';
   }
-  function basePath() { return location.pathname.replace(/\/hub(\/.*)?$/, ''); }
+  // /hub-drive = el respaldo con Drive (también sirve para revisar en local, donde no hay consolidador)
+  function basePath() { return location.pathname.replace(/\/hub(-drive)?(\/.*)?$/, ''); }
   function scope() { return 'slides-' + state.month; }
   function loadNotes() {
     return fetch(basePath() + '/notes/hub/' + scope(), { credentials: 'same-origin' })
@@ -294,17 +295,18 @@
   // NR y OC mensual vs Budget y LY (2026-11-03, Diego; rediseño 2026-11-27): una por negocio (White Labels / API / HTML). Dos
   // paneles, Net Revenue arriba y Operating Contribution abajo, con tres barras por mes: LY (gris claro), Baseline (violeta
   // Despegar; rayada en los meses de Run Rate) y Budget (violeta claro); negativos debajo de la línea de cero. Debajo de cada
-  // panel, el YoY % (real vs LY; con Organic, real a TC LY, igual que el resto del deck). Última columna: el FY.
+  // panel, el YoY % (real vs LY; con Organic, real a TC LY, igual que el resto del deck). Última columna: el FY. Etiqueta en las tres
+  // barras y, debajo de OC, un cuadro de Highlights editable (2026-11-27).
   function yoyOf(x) { return x && x.ly > 0 && x.yoyN != null && isFinite(x.yoyN) ? (x.yoyN / x.ly - 1) * 100 : NaN; }
   var OM_NAME = { b2b2c: 'White Labels', may: 'API (MAY)', min: 'HTML (MIN)' };
   var OM_C = { ly: '#d9dbe0', base: '#5626e9', bud: '#c4b8f7' };
   function omPanel(c, k, arr, lbl, ci, P) {
-    var Wc = 1208, x0 = 112, fyW = 116, slot = (Wc - x0 - fyW) / 12, top = 26, bot = 196, Hs = bot + 52, bw = Math.min(19, slot * 0.25);
+    var Wc = 1208, x0 = 112, fyW = 116, slot = (Wc - x0 - fyW) / 12, top = 30, bot = 164, Hs = bot + 52, bw = Math.min(22, slot * 0.27);
     var vals = [0]; arr.forEach(function (x) { vals.push(x.act, x.bud, x.ly); });
     var mx = Math.max.apply(null, vals), mn = Math.min.apply(null, vals), span = (mx - mn) || 1;
     var dec = Math.max(Math.abs(mx), Math.abs(mn)) < 2e6 ? 2 : 1;
     var fm = function (v) { var m = v / 1e6; return (m < 0 ? '−' : '') + Math.abs(m).toFixed(dec); };
-    var y = function (v) { return top + (mx - v) / span * (bot - top); };
+    var pb = mn < 0 ? 14 : 0, y = function (v) { return top + (mx - v) / span * (bot - pb - top); };
     var hid = 'hsh-' + c + '-' + k;
     var svg = '<svg viewBox="0 0 ' + Wc + ' ' + Hs + '" class="hs-om"><defs><pattern id="' + hid + '" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)">' +
       '<rect width="6" height="6" fill="#efeafd"/><line x1="0" y1="0" x2="0" y2="6" stroke="' + OM_C.base + '" stroke-width="3"/></pattern></defs>';
@@ -320,18 +322,22 @@
       svg += bar(xb - bw - 2, x.ly, OM_C.ly);
       svg += bar(xb, x.act, proj ? 'url(#' + hid + ')' : OM_C.base, proj ? ' stroke="' + OM_C.base + '" stroke-width="1"' : '');
       svg += bar(xb + bw + 2, x.bud, OM_C.bud);
-      var ya = y(x.act), y0 = y(0);
-      svg += '<text x="' + cx.toFixed(1) + '" y="' + (x.act < 0 ? Math.max(ya, y0) + 13 : Math.min(ya, y0) - 4).toFixed(1) + '" class="hs-omv">' + fm(x.act) + '</text>';
+      // Etiqueta en las tres barras (2026-11-27, Diego): LY y Budget en gris, Baseline en negrita
+      var y0 = y(0);
+      [[xb - bw - 2, x.ly, 'hs-omb'], [xb, x.act, 'hs-omv'], [xb + bw + 2, x.bud, 'hs-omb']].forEach(function (b) {
+        var yv = y(b[1]);
+        svg += '<text x="' + (b[0] + bw / 2).toFixed(1) + '" y="' + (b[1] < 0 ? Math.max(yv, y0) + 12 : Math.min(yv, y0) - 4).toFixed(1) + '" class="' + b[2] + '">' + fm(b[1]) + '</text>';
+      });
       svg += '<text x="' + cx.toFixed(1) + '" y="' + (bot + 17) + '" class="hs-omm' + (proj ? ' hs-omrr' : '') + '">' + monthLabel(P[i]) + '</text>';
       var v = yoyOf(x);
       svg += '<text x="' + cx.toFixed(1) + '" y="' + (bot + 44) + '" class="hs-omr ' + cls(v) + '">' + (isFinite(v) && Math.abs(v) < 1000 ? pc(v) : 'n/d') + '</text>';
     });
     var fx = Wc - fyW / 2 + 3, fy = agg(arr, range(0, 11)), okY = isFinite(fy.yoy) && Math.abs(fy.yoy) < 1000, okB = fy.bud > 0 && isFinite(fy.vsPct);
     svg += '<text x="' + fx + '" y="' + (top + 8) + '" class="hs-omfh">' + fyTag() + '</text>';
-    svg += '<text x="' + fx + '" y="' + (top + 46) + '" class="hs-omfv">' + fm(fy.act) + '</text><text x="' + fx + '" y="' + (top + 62) + '" class="hs-omfs">Baseline</text>';
-    svg += '<text x="' + fx + '" y="' + (top + 96) + '" class="hs-omfb">' + fm(fy.bud) + '</text><text x="' + fx + '" y="' + (top + 111) + '" class="hs-omfs">Budget' +
+    svg += '<text x="' + fx + '" y="' + (top + 40) + '" class="hs-omfv">' + fm(fy.act) + '</text><text x="' + fx + '" y="' + (top + 54) + '" class="hs-omfs">Baseline</text>';
+    svg += '<text x="' + fx + '" y="' + (top + 80) + '" class="hs-omfb">' + fm(fy.bud) + '</text><text x="' + fx + '" y="' + (top + 93) + '" class="hs-omfs">Budget' +
       (okB ? ' · <tspan class="' + (fy.vsPct >= 0 ? 'hs-omfu' : 'hs-omfd') + '">' + pc(fy.vsPct) + '</tspan>' : '') + '</text>';
-    svg += '<text x="' + fx + '" y="' + (top + 140) + '" class="hs-omfl">' + fm(fy.ly) + '</text><text x="' + fx + '" y="' + (top + 154) + '" class="hs-omfs">LY</text>';
+    svg += '<text x="' + fx + '" y="' + (top + 116) + '" class="hs-omfl">' + fm(fy.ly) + '</text><text x="' + fx + '" y="' + (top + 128) + '" class="hs-omfs">LY</text>';
     svg += '<text x="' + fx + '" y="' + (bot + 17) + '" class="hs-omm">FY</text>';
     svg += '<text x="' + fx + '" y="' + (bot + 44) + '" class="hs-omr hs-omrb ' + (okY ? cls(fy.yoy) : '') + '">' + (okY ? pc(fy.yoy) : 'n/d') + '</text>';
     svg += '<text x="4" y="' + (bot + 44) + '" class="hs-oml">YoY %</text>';
@@ -345,8 +351,10 @@
         'Baseline = real cerrado hasta ' + monthLabel(state.month) + (nextM ? ' + Run Rate desde ' + monthLabel(nextM) : '')) +
       '<div class="hs-omleg"><span><i class="hs-omi" style="background:' + OM_C.ly + '"></i>LY</span>' +
       '<span><i class="hs-omi" style="background:' + OM_C.base + '"></i>Baseline · real</span><span><i class="hs-omi" style="' + hatch + '"></i>Baseline · Run Rate</span>' +
-      '<span><i class="hs-omi" style="background:' + OM_C.bud + '"></i>Budget</span><span class="hs-omu">USD $M · rótulo = Baseline</span></div>' +
+      '<span><i class="hs-omi" style="background:' + OM_C.bud + '"></i>Budget</span><span class="hs-omu">USD $M</span></div>' +
       omPanel(c, 'nr', s.nr, 'Net Revenue', ci, P) + omPanel(c, 'oc', s.oc, 'Operating Contribution', ci, P) +
+      // Highlights (2026-11-27, Diego): cuadro editable debajo de OC, guardado por mes como el resto de los textos del deck
+      '<div class="hs-omhl">' + noteBox('om_' + c + '_highlights', 'Highlights', '') + '</div>' +
       '<div class="hs-otn">YoY = real vs mismo mes del año anterior' + (organicOn() ? ' (Organic: el real a TC del año anterior)' : '') +
       ' · FY = real + Run Rate; Budget % = Baseline / Budget − 1 · n/d: base negativa o cero</div>' + foot();
   }
@@ -1013,9 +1021,10 @@
       '#hs .hs-om{display:block;width:100%;height:auto;margin-top:4px}',
       '#hs .hs-omleg{display:flex;gap:18px;align-items:center;font-size:12.5px;color:#55555c}#hs .hs-omi{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:6px;vertical-align:-1px}',
       '#hs .hs-omu{margin-left:auto;color:#8e8e93;font-size:11.5px}',
-      '#hs .hs-omv{font-size:12.5px;font-weight:700;text-anchor:middle;fill:#1d1d1f}#hs .hs-omb{font-size:11px;text-anchor:middle;fill:#8e8e93}',
+      '#hs .hs-omv{font-size:12.5px;font-weight:700;text-anchor:middle;fill:#1d1d1f}#hs .hs-omb{font-size:11px;text-anchor:middle;fill:#8e8e93}#hs .hs-om .hs-omv{font-size:10.5px;letter-spacing:-.2px}#hs .hs-om .hs-omb{font-size:9.5px;letter-spacing:-.2px}',
       '#hs .hs-omm{font-size:13px;font-weight:600;text-anchor:middle;fill:#1d1d1f}#hs .hs-omrr{fill:#6e6e73;font-weight:400}',
       '#hs .hs-omr{font-size:13.5px;font-weight:700;text-anchor:middle;fill:#6e6e73}#hs .hs-omr.hs-up{fill:#1a9e5a}#hs .hs-omr.hs-dn{fill:#d4373a}#hs .hs-omrb{font-size:15px}',
+      '#hs .hs-omhl{height:92px;display:flex;flex-direction:column;margin-top:2px}#hs .hs-omhl .hs-note{height:100%}#hs .hs-omhl .hs-nt{font-size:13px;margin-bottom:2px}#hs .hs-omhl .hs-nx{font-size:13px;line-height:1.4;padding:6px 10px}#hs .hs-omhl .hs-nm{display:none}',
       '#hs .hs-oml{font-size:13px;font-weight:700;fill:#4300d2}#hs .hs-omt{font-size:14.5px;font-weight:800;fill:#1d1d1f}',
       '#hs .hs-omfl{font-size:18px;font-weight:600;text-anchor:middle;fill:#a1a1a8}#hs .hs-omfu{fill:#1a9e5a;font-weight:700}#hs .hs-omfd{fill:#d4373a;font-weight:700}',
       '#hs .hs-omfh{font-size:16px;font-weight:700;text-anchor:middle;fill:#4300d2}#hs .hs-omfv{font-size:30px;font-weight:700;text-anchor:middle;fill:#4300d2}',
