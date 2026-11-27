@@ -4940,7 +4940,7 @@ function _okrHtmlContable_(okr) {
       halfAct: hp.a, halfBud: hp.b });
   });
   // New Product Growth HTML (estimado) y Accelerate Recurrence (gestional, solo HTML): vienen de OKR_H2 ya calculados (computeOKR_)
-  ((okr['b2b html'] && okr['b2b html'].krs) || []).forEach(function(k) { krs.push(k); });
+  ((okr['b2b html'] && okr['b2b html'].krs) || []).forEach(function(k) { if (k.label !== 'Net Revenue HTML (MIN)') krs.push(k); });   // el NR sale del cubo filtrado (arriba)
   if (!krs.length) return null;
   function weighted(getPct) {   // mismo criterio que computeOKR_: <70% = 0, tope 130%, sobre el peso con dato
     var wS = 0, wUsed = 0, wAll = 0;
@@ -4953,6 +4953,54 @@ function _okrHtmlContable_(okr) {
   return { label: 'B2B · HTML (MIN)', half: base.half, quarters: base.quarters, periods: periods, krs: krs,
     totalMonthly: tM.map(function(t) { return t.total; }), totalQuarterly: tQ.map(function(t) { return t.total; }), halfTotal: tH.total,
     covMonthly: tM.map(function(t) { return t.cov; }), covQuarterly: tQ.map(function(t) { return t.cov; }), halfCov: tH.cov };
+}
+
+// Switch Total | API | HTML del cuadro B2B (2026-11-27, pedido de antonella.difranco; mismos KRs que el OKR Detail del Daily):
+//   API  = Net Revenue API (30) + Operating Contribution API (20) + New Product Growth API estimado (15). Sin Accelerate Recurrence (es de HTML).
+//   HTML = Net Revenue HTML (30) + Operating Contribution HTML (20) + New Product Growth HTML estimado (15) + Accelerate Recurrence HTML (15).
+// NR y NPG por canal vienen de OKR_H2_FY27.json (bloques 'b2b api' / 'b2b html' de OKR_CONFIG_H2); el OC, del bloque 'b2b'. Total ponderado
+// con el mismo criterio que computeOKR_ (<70% = 0, tope 130%, sobre el peso con dato). Solo H2. Se recuerda por navegador (localStorage).
+var _okrB2bCh = 'total';
+try { _okrB2bCh = localStorage.getItem('okr_b2b_canal') || 'total'; } catch (e) {}
+function setOKRB2bCh(ch) {
+  _okrB2bCh = ch;
+  try { localStorage.setItem('okr_b2b_canal', ch); } catch (e) {}
+  if (_state.okr) renderOKR(_state.okr);
+}
+function _okrB2bCanal_(okr, ch) {
+  var base = okr && okr.b2b;
+  if (!base || ch === 'total') return null;
+  var other = okr[ch === 'api' ? 'b2b api' : 'b2b html'];
+  if (!other || !other.krs) return null;
+  function find(blk, lbl) { var r = null; ((blk && blk.krs) || []).forEach(function(k) { if (k.label === lbl) r = k; }); return r; }
+  function conDato(k) { return !!(k && (k.monthlyAct || []).some(function(v) { return v !== null && v !== undefined; })); }
+  var picks = ch === 'api'
+    ? [find(other, 'Net Revenue API (MAY)'), find(base, 'Operating Contribution API (MAY)'), find(other, 'New Product Growth API (estimado)')]
+    : [find(other, 'Net Revenue HTML (MIN)'), find(base, 'Operating Contribution HTML (MIN)'), find(other, 'New Product Growth HTML (estimado)'),
+       conDato(find(other, 'Accelerate Recurrence')) ? find(other, 'Accelerate Recurrence') : find(base, 'Accelerate Recurrence')];
+  var w = ch === 'api' ? [30, 20, 15] : [30, 20, 15, 15];
+  var krs = [];
+  picks.forEach(function(k, i) { if (k) krs.push(Object.assign({}, k, { weight: w[i] })); });
+  if (!krs.length) return null;
+  function weighted(getPct) {
+    var wS = 0, wUsed = 0, wAll = 0;
+    krs.forEach(function(k) { wAll += k.weight; var p = getPct(k); if (p !== null && p !== undefined) { wS += (p < 70 ? 0 : Math.min(p, 130)) * k.weight; wUsed += k.weight; } });
+    return { total: wUsed ? wS / wUsed : null, cov: wAll ? wUsed / wAll * 100 : 0 };
+  }
+  var tM = base.periods.map(function(ym, i) { return weighted(function(k) { return k.monthly[i]; }); });
+  var tQ = base.quarters.map(function(q, qi) { return weighted(function(k) { return k.quarterly[qi]; }); });
+  var tH = weighted(function(k) { return k.half; });
+  return { label: base.label, half: base.half, quarters: base.quarters, periods: base.periods, krs: krs,
+    totalMonthly: tM.map(function(t) { return t.total; }), totalQuarterly: tQ.map(function(t) { return t.total; }), halfTotal: tH.total,
+    covMonthly: tM.map(function(t) { return t.cov; }), covQuarterly: tQ.map(function(t) { return t.cov; }), halfCov: tH.cov };
+}
+function _okrB2bChSwitch_() {
+  var b = function(v, l) {   // encabezado violeta: el inactivo en blanco con borde (igual que el switch que tenía el KR Global B2B API)
+    return '<button type="button" class="gran-btn' + (_okrB2bCh === v ? ' active' : '') + '" onclick="event.stopPropagation();setOKRB2bCh(\'' + v + '\')" style="font-size:10px;padding:2px 8px'
+      + (_okrB2bCh === v ? '' : ';background:transparent;color:#fff;border:1px solid rgba(255,255,255,.6)') + '">' + l + '</button>';
+  };
+  return '<span class="okr-b2b-ch" style="display:inline-flex;gap:4px;margin-left:10px;vertical-align:middle" title="KRs de B2B: total, solo canal API (MAY) o solo HTML (MIN)">'
+    + b('total', 'Total') + b('api', 'API') + b('html', 'HTML') + '</span>';
 }
 
 function renderOKR(okr) {
@@ -5013,8 +5061,12 @@ function renderOKR(okr) {
                    : ['b2b2c','b2b',_gk];
   // Cada bloque arranca desplegado con el detalle de KRs; en Consolidado se puede plegar al Total.
   var multi = lobsToRender.length > 1;
+  // El switch aparece cuando OKR_H2_FY27.json ya trae los KRs por canal (NR / NPG de API), es decir después de un "Actualizar reales" con okr_h2_builder nuevo
+  function _blkHasData_(blk) { return !!(blk && (blk.krs || []).some(function(k) { return (k.monthlyAct || []).some(function(v) { return v !== null && v !== undefined; }); })); }
+  var _b2bChOn = !_htmlMode && _halfSel === 'H2' && !!(okr && okr.b2b) && _blkHasData_(okr['b2b api']);
+  var _b2bChBlk = _b2bChOn ? _okrB2bCanal_(okr, _okrB2bCh) : null;
   lobsToRender.forEach(function(lobKey) {
-    var d = okr[lobKey];
+    var d = (lobKey === 'b2b' && _b2bChBlk) ? _b2bChBlk : okr[lobKey];
     if (!d) return;
     var open = !multi || _okrOpen[lobKey] !== false;
     var expandBtn = multi
@@ -5023,6 +5075,7 @@ function renderOKR(okr) {
       : '';
 
     var globSw = (lobKey === 'globales' || lobKey === 'globales_nuevos') ? _okrGlobSwitch_(okr) : '';
+    if (lobKey === 'b2b' && _b2bChOn) globSw = _okrB2bChSwitch_();
     var globNote = lobKey === 'globales_nuevos'
       ? '<div class="okr-note" style="margin:4px 0 6px">Objetivo «Become a Global Bedbank» (owner JP Martorell). Solo PoS Global. Grow API Global Clients: partners API que compran hoteles con PoS Global (mes en curso = últimos 30 días). Operating Contribution (OC API de Globales, como el contable: mes con cierre = cierre contable, sin cierre = Run Rate; target = Budget contable; End Game 50M por todo el H2). +6k New Direct Properties: altas de cadenas NO Latam del reporte semanal de Sourcing (mes cerrado = última semana completa; mes en curso = última semana). Price Competitiveness: % de adversidad del mes de la pregunta Metabase 180311 (mes cerrado = cierre, mes en curso = RR). Sales Density: duplas vendidas top 50 clientes × top 100 hoteles sobre 5.000 (mes cerrado = cierre, mes en curso = MTD proyectado al mes).</div>' : '';
     html += '<div class="okr-table-wrap"><div class="okr-lob-hdr">'+d.label+globSw+expandBtn+'</div>'+globNote

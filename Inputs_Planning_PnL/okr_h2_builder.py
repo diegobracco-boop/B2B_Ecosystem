@@ -50,6 +50,14 @@ def _daily_pais(p):
     return _DAILY_PAIS.get(k, k)
 
 
+# Variantes por canal del cuadro B2B del Hub (switch Total | API | HTML, 2026-11-27; la de HTML desde 2026-11-13). LoB propios: no entran a
+# okr.json ni a la suma de B2B, y el FCA los saltea.
+NEW_PRODUCT_HTML_LOB = "B2B HTML"
+B2B_API_LOB = "B2B API"
+NR_API_KR, NR_HTML_KR = "Net Revenues B2B API", "Net Revenues B2B HTML"
+NEW_PRODUCT_API_KR = "New Product Growth API"
+
+
 def _ym_to_periodo(ym):
     return str(ym)[:7] + "-01"
 
@@ -78,6 +86,11 @@ def contable_by_pais(canon_data, scen_label, closed_until):
             nr_b2b2c[(f, pais)] += m
         if lob == "b2b" and n3 == "net revenue":
             acc[("B2B", "Net Revenues B2B", "Total", f, pais)] += m
+            # NR por canal (2026-11-27): solo para el switch Total | API | HTML del cuadro B2B del Hub. LoB propio para no sumarse a B2B.
+            if canal == "may":
+                acc[(B2B_API_LOB, NR_API_KR, "API", f, pais)] += m
+            elif canal == "min":
+                acc[(NEW_PRODUCT_HTML_LOB, NR_HTML_KR, "HTML", f, pais)] += m
             if canal == "may" and prod in ("hotels", "hotel"):
                 acc[("Globales", "Net Revenues API Hoteles", "Hotels", f, pais)] += m
         if lob == "b2b" and n5 == "operating contribution":
@@ -376,7 +389,6 @@ def _budget_np_share():
 
 
 NEW_PRODUCT_HTML_KR = "New Product Growth HTML"
-NEW_PRODUCT_HTML_LOB = "B2B HTML"   # LoB propio: solo lo lee la vista de KRs de HTML del Hub (2026-11-13); no entra a okr.json
 
 
 def new_product_growth(baseline_data, budget_data, mgr_json, closed_until, canal=None, kr=NEW_PRODUCT_KR, lob_out="B2B",
@@ -387,10 +399,11 @@ def new_product_growth(baseline_data, budget_data, mgr_json, closed_until, canal
     pm = packages_new_pct_by_month(mgr_json, parent_channel=parent_channel)
     cierre_ym = closed_until[:7]
     ult = [m for m in sorted(pm) if m <= cierre_ym and pm[m][1] > 0][-PCT_AVG_MONTHS:]
-    if not ult:
+    if not ult and parent_channel != "API":   # HTML sin Packages General en el Daily: como antes, sin datos (no subestimar)
         print("  [New Product Growth] sin apertura de Packages General en el Daily (okr_h2_managerial.json) — KR sin datos")
         return [], {}
-    avg = sum(pm[m][0] for m in ult) / sum(pm[m][1] for m in ult)
+    # API sin Packages General en el Daily (casi no vende paquetes): solo Flights + Dest. Serv. (% de Packages = 0)
+    avg = sum(pm[m][0] for m in ult) / sum(pm[m][1] for m in ult) if ult else 0.0
     real = {m: pm[m][0] / pm[m][1] for m in pm if pm[m][1] > 0}
 
     def pct(ym):
@@ -422,6 +435,9 @@ def new_product_growth(baseline_data, budget_data, mgr_json, closed_until, canal
         return out
 
     rows = rows_for(baseline_data, RR) + rows_for(budget_data, BUD)
+    if not ult:
+        print(f"  [{kr}] sin Packages General del canal en el Daily: solo Flights + Dest. Serv. · {len(rows)} filas")
+        return rows, {"avg": 0.0, "meses": []}
     print(f"  [{kr}] % new product de Packages General: promedio {ult[0]}..{ult[-1]} = {avg * 100:.1f}% "
           f"(meses cerrados con % real: {[m for m in sorted(real) if m <= cierre_ym][-3:]}) · budget TOTAL {share_b.get('total', 0) * 100:.1f}% · {len(rows)} filas")
     return rows, {"avg": avg, "meses": ult}
@@ -552,6 +568,7 @@ OKR_MONETARY_KRS = {
     "op. contribution", "operating contribution", "net revenues b2b", "operating contribution api",
     "operating contribution html", "net revenues api hoteles", "new account net revenues",
     "existing account net revenues", "new product growth", "new product growth html",
+    "net revenues b2b api", "net revenues b2b html", "new product growth api",
 }
 _FX_PAIS_ALIAS = {"ops": "brasil", "rg": "brasil", "ops + rg": "brasil"}
 _FX_MES = {"abr": 4, "may": 5, "jun": 6, "jul": 7, "ago": 8, "sep": 9, "sept": 9, "oct": 10, "nov": 11, "dic": 12,

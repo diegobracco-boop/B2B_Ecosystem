@@ -157,7 +157,7 @@ def build(mes, umbral):
 
     items = []
     for (lob, kr), e in sorted(idx.items()):
-        if lob == h2b.NEW_PRODUCT_HTML_LOB:   # variante HTML del NPG: solo para la vista de KRs de HTML del Hub, no es un KR del FCA
+        if lob in (h2b.NEW_PRODUCT_HTML_LOB, h2b.B2B_API_LOB):   # variantes por canal: solo para el switch API / HTML del Hub, no son KRs del FCA
             continue
         u = unit_of(kr)
         r_p, b_p = e["rr"].get(mes, {}), e["bud"].get(mes, {})

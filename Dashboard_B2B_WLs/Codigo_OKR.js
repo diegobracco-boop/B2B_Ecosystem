@@ -53,9 +53,19 @@ var OKR_CONFIG_H2 = {
     ]
   },
   // Solo para la vista de KRs de HTML (canal MIN) del Hub: NPG estimado de HTML (okr_h2_builder.py, LoB "B2B HTML"). No se dibuja como bloque propio.
+  // Switch Total | API | HTML del cuadro B2B (2026-11-27, como el OKR Detail del Daily): 'b2b api' y 'b2b html' traen NR y New Product Growth
+  // del canal (okr_h2_builder.py, LoB propios); el OC de cada canal es el de 'b2b'. La landing arma la vista (_okrB2bCanal_ en dashboard.html).
+  'b2b api': {
+    label: 'B2B API',
+    krs: [
+      { kr: 'net revenues b2b api',   label: 'Net Revenue API (MAY)',              weight: 30 },
+      { kr: 'new product growth api', label: 'New Product Growth API (estimado)',  weight: 15 }
+    ]
+  },
   'b2b html': {
     label: 'B2B HTML',
     krs: [
+      { kr: 'net revenues b2b html', label: 'Net Revenue HTML (MIN)', weight: 30 },
       { kr: 'new product growth html', label: 'New Product Growth HTML (estimado)', weight: 15 },
       { kr: 'accelerate recurrence html', label: 'Accelerate Recurrence', weight: 15 }   // mismo criterio que el Status KRs H2 del Tracker (okr_builder.recurrence_html_rows)
     ]
@@ -278,7 +288,8 @@ var OKR_H2_FILE_ID = '1lsMF9_d1t55boO8Wr8vziMsFT9LQioov';
 var OKR_MONETARY_KRS_ = {
   'operating contribution': true, 'net revenues b2b': true, 'operating contribution api': true,
   'operating contribution html': true, 'net revenues api hoteles': true,
-  'new account net revenues': true, 'existing account net revenues': true, 'new product growth': true, 'new product growth html': true
+  'new account net revenues': true, 'existing account net revenues': true, 'new product growth': true, 'new product growth html': true,
+  'net revenues b2b api': true, 'net revenues b2b html': true, 'new product growth api': true   // switch API / HTML del cuadro B2B (2026-11-27)
 };
 
 // KRs que NO toman el target cuando no hay actual (Diego 2026-10-27): Deploy New Partnership = lo que diga Input_OKR, estricto.

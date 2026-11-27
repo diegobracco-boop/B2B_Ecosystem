@@ -105,6 +105,11 @@ CSV crudos (OneDrive\Planning-PBI - Inputs Power Bi)
   de la carpeta del Daily; OC = Operating Contribution API de others countries, en USD). Targets copiados de `GLOBALES_KRS_NUEVOS_DEF`
   (`Daily_Dashboard/Codigo.js`): si cambian allá, cambiarlos en `GLOBALES_NUEVOS_TARGETS`. Los tableros no leen estas filas (usan sus listas fijas).
 
+- **KRs B2B por canal en `OKR_H2_FY27.json`** (2026-11-27, switch Total | API | HTML del OKR Status del Hub): `contable_by_pais` suma
+  `Net Revenues B2B API` (LoB `B2B API`) y `Net Revenues B2B HTML` (LoB `B2B HTML`); `new_product_growth(canal="may", parent_channel="API")`
+  arma `New Product Growth API` (sin Packages General de API en el Daily: solo Flights + Dest. Serv.). LoB propios: no entran a okr.json, ni a
+  la suma de B2B, ni al FCA (`fca_builder` los saltea).
+
 ## Archivos
 - `pnl_common.py` — rutas portables (resuelve OneDrive por usuario) + auth Drive scope completo.
 - `plana_projections_builder.py` — planas budget/forecast/RR/LRR (genérico por base).
