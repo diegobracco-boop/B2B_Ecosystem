@@ -34,7 +34,8 @@ const EQUIPO_B2B = [
 
 // Capa visual del Hub: la comparten `hub` y su respaldo con Drive (`hub-drive`).
 // oc-bridge.js: bridge de OC del P&L Accounting como lógica pura (sección B2B del Flow mensual, 2026-11-25); va antes de hub-slides.js.
-const HUB_LAYOUT = ['filter-aliases.js', 'portal-ask.js', 'hub-layout.js', 'hub-h2h1.js', 'oc-bridge.js', 'hub-slides.js', 'hub-cierre.js', 'hub-builder.js', 'hub-mkt-story.js'];
+// hub-krs-rr.js (2026-11-27): botón "Ver detalle" del OKR Status → ventana slide "KRs HTML · RR" (backend Dashboard_B2B_WLs/Codigo_krs_rr.js).
+const HUB_LAYOUT = ['filter-aliases.js', 'portal-ask.js', 'hub-layout.js', 'hub-h2h1.js', 'oc-bridge.js', 'hub-slides.js', 'hub-cierre.js', 'hub-builder.js', 'hub-mkt-story.js', 'hub-krs-rr.js'];
 
 const MODULES = [
   {

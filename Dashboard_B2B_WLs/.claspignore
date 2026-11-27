@@ -1,0 +1,2 @@
+# Tests de Node: no son código de Apps Script (Ownia también respeta este archivo al cargar el módulo, server/gas-runtime.js)
+test_*.js

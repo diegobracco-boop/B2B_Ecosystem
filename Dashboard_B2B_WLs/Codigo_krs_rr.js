@@ -1,5 +1,7 @@
 // ============================================================
-// Codigo_krs_rr.js — P&L Accounting · vista "KRs HTML · RR" (2026-11-27)
+// Codigo_krs_rr.js — P&L Dashboard (Hub) · "KRs HTML · RR" (2026-11-27; se mudó del P&L Accounting el mismo día)
+// Botón "Ver detalle" del OKR Status: ventana con formato slide (public/hub-krs-rr.js). Solo se usa en Ownia: el Apps Script
+// del Hub está congelado desde 2026-10-23 (sin clasp push).
 // ============================================================
 // Replica la tabla "Status KRs H2" + los recuadros por país del Daily B2B Tracker con el filtro de canal HTML
 // (Daily_Dashboard/tracker.html: renderStatusKRsH2 / renderStatusKRsH2DetailBoxes_ / recurDetailBox_), pero midiendo
@@ -14,7 +16,8 @@
 //   Input_OKR (sheet)       → target de Accelerate Recurrence (copia de getRecurTargets de Daily_Dashboard/Codigo.js)
 // Organic (switch de la vista, YES por default): el RR se convierte como los reales del Tracker y como el RR en las
 // vistas Semanas del Daily (_wkOrgRows): × TC Actuals / TC Budget del mes; el YoY con × TC Actuals / TC Actuals LY
-// (opción B). Budget y LY quedan nominales. TC de tc_plana_flat.xlsx (organicConverter_, Codigo_organic.js).
+// (opción B). Budget y LY quedan nominales. TC de tc_plana_flat.xlsx (readFxTable_ del Hub, Codigo.js;
+// krsRROrganicConv_ es la copia de organicConverter_ de P&L_Accounting/Codigo_organic.js).
 //
 // ⚠ MANTENER EN SINCRONÍA con Daily_Dashboard/tracker.html: las definiciones de los KRs (New Products, canal HTML,
 // grupos de país, okrScore_/realScore_/cumplRatio, pesos, reglas de Peso, Accelerate Recurrence) están COPIADAS acá
@@ -435,8 +438,34 @@ function krsRRTargets_() {
   } catch (e) { return { state: 'error', targets: null, err: (e && e.message) || String(e) }; }
 }
 
+// Factor organic por (país, ym): copia de organicConverter_ (P&L_Accounting/Codigo_organic.js) sobre readFxTable_ / _fxNorm_
+// del Hub (Codigo.js), con el alias de regiones del P&L Accounting (el del Hub no trae 'ops+rg'). target 'budget' = TC Actuals /
+// TC Budget del mes; 'ly' = TC Actuals / TC Actuals del mismo mes del año anterior. País sin TC → 1; país con TC al que le
+// falta uno → 1 y queda en missing.
+var KRS_RR_FX_ALIAS = { 'ops': 'brasil', 'rg': 'brasil', 'ops + rg': 'brasil', 'ops+rg': 'brasil' };
+function krsRROrganicConv_(target) {
+  var fx = readFxTable_();
+  var act = fx.actuals, tgt = (target === 'ly') ? null : fx[target];
+  var paisesFx = {};
+  Object.keys(act).forEach(function(k) { paisesFx[k.split('§')[0]] = true; });
+  var missing = {};
+  function f(pais, ym) {
+    var pai = _fxNorm_(pais);
+    pai = KRS_RR_FX_ALIAS[pai] || pai;
+    if (!paisesFx[pai]) return 1;
+    var a = act[pai + '§' + ym];
+    var t = tgt ? tgt[pai + '§' + ym] : act[pai + '§' + _krsShiftYm_(ym, -1)];
+    if (!a || !t) {
+      missing[pai + ' ' + ym + (a ? '' : ' (actuals)') + (t ? '' : ' (' + (target === 'ly' ? 'actuals LY' : target) + ')')] = true;
+      return 1;
+    }
+    return a / t;
+  }
+  return { f: f, missing: missing };
+}
+
 /**
- * Endpoint de la vista "KRs HTML · RR" (google.script.run desde dashboard.html).
+ * Endpoint de la ventana "KRs HTML · RR" (google.script.run desde public/hub-krs-rr.js, Ownia).
  * ym: 'YYYY-MM' (vacío → mes en curso si el RR lo cubre, si no el primero que cubra). organic: bool (default true).
  */
 function getKRsHtmlRR(ym, organic) {
@@ -449,7 +478,7 @@ function getKRsHtmlRR(ym, organic) {
   var convB = null, convY = null;
   if (org.on) {
     try {
-      var cB = organicConverter_('budget'), cY = organicConverter_('ly');
+      var cB = krsRROrganicConv_('budget'), cY = krsRROrganicConv_('ly');
       convB = cB.f; convY = cY.f;
       org._m = [cB.missing, cY.missing];
     } catch (e) { org.on = false; org.error = 'No se pudo leer el archivo de tipos de cambio: ' + ((e && e.message) || e); }

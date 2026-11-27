@@ -34,12 +34,7 @@
         "1SEh9vLWCbE6PslnUntUghhInonuLdYZ5": "tc_plana_flat.xlsx (FX_FILE_ID)",
         "1anL-CsItySxuWTp4FuX69tHsAy9oz4rp": "forecastbtb.json (CANONICAL_IDS_.fbtb, server/gas-extras/pnl-accounting-fbtb.js)"
       },
-      "folders": {
-        "1lWzfqweyV6Kz1ERkL85ikFcmzmKwGwwh": ["daily_b2b_data.json", "okr_h2_managerial.json", "recurrencia_b2b.json"]
-      },
-      "sheets": {
-        "1RVmTXDyyugCUXJ0f6JG_croNxWNLlOLm4eAs8F52u2c": "Input dashboard B2B+WLs → Input_OKR (KRS_RR_INPUT_OKR_SHEET_ID: target de Accelerate Recurrence de la vista KRs HTML · RR; la carpeta del Daily es KRS_RR_DAILY_FOLDER_ID, Codigo_krs_rr.js)"
-      }
+      "folders": {}
     },
     "pnl-accounting-drive": {
       "files": {
@@ -54,12 +49,7 @@
         "1SEh9vLWCbE6PslnUntUghhInonuLdYZ5": "tc_plana_flat.xlsx (FX_FILE_ID)",
         "1anL-CsItySxuWTp4FuX69tHsAy9oz4rp": "forecastbtb.json (CANONICAL_IDS_.fbtb, server/gas-extras/pnl-accounting-fbtb.js)"
       },
-      "folders": {
-        "1lWzfqweyV6Kz1ERkL85ikFcmzmKwGwwh": ["daily_b2b_data.json", "okr_h2_managerial.json", "recurrencia_b2b.json"]
-      },
-      "sheets": {
-        "1RVmTXDyyugCUXJ0f6JG_croNxWNLlOLm4eAs8F52u2c": "Input dashboard B2B+WLs → Input_OKR (KRS_RR_INPUT_OKR_SHEET_ID: target de Accelerate Recurrence de la vista KRs HTML · RR; la carpeta del Daily es KRS_RR_DAILY_FOLDER_ID, Codigo_krs_rr.js)"
-      }
+      "folders": {}
     },
     "hub": {
       "files": {
@@ -76,10 +66,10 @@
         "1Nk56QlEA2hKuWGhfZ1357Eds6DhU8zwC": "lastrunrate.json (JSON_IDS.lastrunrate)"
       },
       "folders": {
-        "1lWzfqweyV6Kz1ERkL85ikFcmzmKwGwwh": ["weekly_insights.json", "overs_media_sales.json", "partners_api_snapshots.json", "altas_directas_okr.json", "price_comp_globales_okr.json", "sales_density_okr.json"]
+        "1lWzfqweyV6Kz1ERkL85ikFcmzmKwGwwh": ["weekly_insights.json", "overs_media_sales.json", "partners_api_snapshots.json", "altas_directas_okr.json", "price_comp_globales_okr.json", "sales_density_okr.json", "daily_b2b_data.json", "okr_h2_managerial.json", "recurrencia_b2b.json"]
       },
       "sheets": {
-        "1RVmTXDyyugCUXJ0f6JG_croNxWNLlOLm4eAs8F52u2c": "Input dashboard B2B+WLs → Organigrama (SPREADSHEET_ID)"
+        "1RVmTXDyyugCUXJ0f6JG_croNxWNLlOLm4eAs8F52u2c": "Input dashboard B2B+WLs → Organigrama (SPREADSHEET_ID) e Input_OKR (KRS_RR_INPUT_OKR_SHEET_ID: target de Accelerate Recurrence de la ventana KRs HTML · RR del OKR Status, Codigo_krs_rr.js; daily_b2b_data / okr_h2_managerial / recurrencia_b2b de la carpeta del Daily son de esa misma ventana)"
       }
     },
     "hub-drive": {
@@ -97,10 +87,10 @@
         "1Nk56QlEA2hKuWGhfZ1357Eds6DhU8zwC": "lastrunrate.json (JSON_IDS.lastrunrate)"
       },
       "folders": {
-        "1lWzfqweyV6Kz1ERkL85ikFcmzmKwGwwh": ["weekly_insights.json", "overs_media_sales.json", "partners_api_snapshots.json", "altas_directas_okr.json", "price_comp_globales_okr.json", "sales_density_okr.json"]
+        "1lWzfqweyV6Kz1ERkL85ikFcmzmKwGwwh": ["weekly_insights.json", "overs_media_sales.json", "partners_api_snapshots.json", "altas_directas_okr.json", "price_comp_globales_okr.json", "sales_density_okr.json", "daily_b2b_data.json", "okr_h2_managerial.json", "recurrencia_b2b.json"]
       },
       "sheets": {
-        "1RVmTXDyyugCUXJ0f6JG_croNxWNLlOLm4eAs8F52u2c": "Input dashboard B2B+WLs → Organigrama (SPREADSHEET_ID)"
+        "1RVmTXDyyugCUXJ0f6JG_croNxWNLlOLm4eAs8F52u2c": "Input dashboard B2B+WLs → Organigrama (SPREADSHEET_ID) e Input_OKR (KRS_RR_INPUT_OKR_SHEET_ID: target de Accelerate Recurrence de la ventana KRs HTML · RR del OKR Status, Codigo_krs_rr.js; daily_b2b_data / okr_h2_managerial / recurrencia_b2b de la carpeta del Daily son de esa misma ventana)"
       }
     },
     "daily": {

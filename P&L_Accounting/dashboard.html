@@ -836,7 +836,6 @@ header .btn-refresh:hover{background:#f5f3ff !important;border-color:#c4b5fd;col
     <button id="cont-stab-b2b"      class="header-tab"                  type="button" onclick="setContableView('b2b')">B2B</button>
     <button id="cont-stab-b2b2c"    class="header-tab"                  type="button" onclick="setContableView('b2b2c')">B2B2C</button>
     <button id="cont-stab-countries-yoy" class="header-tab"             type="button" onclick="setContableView('countries-yoy')">Countries YoY</button>
-    <button id="cont-stab-krs-rr" class="header-tab"                    type="button" onclick="setContableView('krs-rr')" title="KRs H2 del canal HTML con el Run Rate del mes completo vs Budget">KRs HTML · RR</button>
   </div>
   <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
     <span id="last-upd"></span>
@@ -1090,58 +1089,6 @@ header .btn-refresh:hover{background:#f5f3ff !important;border-color:#c4b5fd;col
       .yoy-per-bud{font-size:9px;font-weight:700;color:#9b4dde;margin-top:3px;padding-top:3px;border-top:1px dashed #ece1f8}
     </style>
     <div id="yoy-cards"></div>
-  </div>
-
-  <!-- ── KRs HTML · RR: Status KRs H2 del Daily B2B Tracker (canal HTML) con el Run Rate del mes completo (Codigo_krs_rr.js) ── -->
-  <div class="sec" id="cont-krs-rr-sec" style="display:none">
-    <div class="sec-title" style="margin-bottom:6px">KRs HTML · Run Rate vs Budget</div>
-    <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Los KRs H2 del canal HTML (Agencias afiliadas · B2B-MIN) del Daily B2B Tracker, medidos con el <b>Run Rate vigente del mes completo</b> (Recognition Date) en vez de los reales: RR mes vs Budget mes. Mismas definiciones y mismos países que la vista HTML de "Status KRs H2"; Accelerate Recurrence es el mismo número que muestra el Tracker.</div>
-    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
-      <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Mes</span>
-      <select id="krr-month" class="krr-sel" onchange="setKrsRRMonth(this.value)"></select>
-      <span style="width:1px;height:18px;background:rgba(0,0,0,.15);margin:0 2px"></span>
-      <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Organic</span>
-      <div class="prd-toggle">
-        <button id="krr-org-yes" class="prd-btn prd-active" type="button" onclick="setKrsRROrganic(true)" title="RR × TC Actuals / TC Budget del mes (como los reales en el Tracker); YoY a TC Actuals LY">YES</button>
-        <button id="krr-org-no"  class="prd-btn"            type="button" onclick="setKrsRROrganic(false)" title="RR en USD tal cual">NO</button>
-      </div>
-    </div>
-    <style>
-      body.cont-view-krs-rr #epm-goal-top,body.cont-view-krs-rr #epm-scenario-note{display:none!important}
-      #cont-krs-rr-sec{max-width:100%;overflow-x:hidden}
-      .krr-sel{appearance:auto;border:1px solid #e3def3;border-radius:999px;padding:5px 12px;font-size:12px;font-weight:600;font-family:inherit;color:#3a4048;background:#fff;cursor:pointer}
-      .krr-meta{font-size:11px;color:#6b7280;margin-bottom:12px;display:flex;flex-wrap:wrap;gap:4px 14px}
-      .krr-meta .warn{color:#b45309}
-      .krr-card{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:12px 14px;box-shadow:0 2px 6px rgba(99,102,241,.07)}
-      .krr-table{width:100%;border-collapse:collapse;font-size:12px}
-      .krr-table thead th{background:linear-gradient(to bottom,#ede9fe,#f3f0fe);color:#550FED;font-weight:700;padding:5px 6px;text-align:right;border-bottom:2px solid #7c3aed;white-space:nowrap;font-size:11px;text-transform:uppercase;letter-spacing:.3px}
-      .krr-table thead th:first-child{text-align:left}
-      .krr-table td{padding:4px 6px;border-bottom:1px solid #f3f4f6;text-align:right;white-space:nowrap;color:#374151;font-variant-numeric:tabular-nums}
-      .krr-table td:first-child{text-align:left}
-      .krr-table tbody tr:hover{background:#faf7ff}
-      .krr-sum{max-width:780px}
-      .krr-sum td{font-size:13px;padding:6px 8px}
-      .krr-sum tr.krr-overall td{font-weight:700;color:#1f2937;border-top:2px solid #550FED;background:#F9FAFB}
-      .krr-peso{color:#6b7280;font-size:.78rem}
-      .krr-note{color:#6b7280;font-size:.72rem}
-      .krr-chip{display:inline-block;padding:1px 8px;border-radius:5px;border:1.5px dashed;font-weight:600;line-height:1.4}
-      .krr-red{background:#fbe0e0;color:#a01a1a;border-color:#d34a4a}
-      .krr-yellow{background:#fdf1cf;color:#8a5a00;border-color:#c99a2e}
-      .krr-green{background:#d9f2e1;color:#2f7d4f;border-color:#4fae74}
-      .krr-neg{color:#E82525!important}.krr-pos{color:#599E6B!important}
-      .krr-grid{display:flex;flex-wrap:wrap;gap:12px;margin-top:22px;align-items:flex-start}
-      .krr-box{flex:1 1 230px;min-width:min-content;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:10px 10px;box-shadow:0 2px 6px rgba(99,102,241,.07)}
-      .krr-box.krr-box--rec{flex-grow:0}
-      .krr-box-hd{font-size:.75rem;font-weight:800;color:#1e1b4b;margin-bottom:10px;padding-bottom:8px;border-bottom:3px solid #6366f1;display:flex;align-items:center;gap:8px}
-      .krr-badge{background:linear-gradient(135deg,#6366f1 0%,#4f46e5 100%);color:#fff;border-radius:6px;padding:4px 12px;font-size:.95rem;font-weight:800;letter-spacing:.03em;box-shadow:0 2px 4px rgba(99,102,241,.35);line-height:1.3}
-      .krr-box .krr-table th{font-weight:600;color:#6b7280;background:#f9fafb;font-size:.72rem;border-bottom:1px solid #e5e7eb;text-transform:none;letter-spacing:0;padding:4px 6px}
-      .krr-box .krr-table td{font-size:.82rem;padding:4px 5px}
-      .krr-box .krr-table td:first-child,.krr-box .krr-table th:first-child{max-width:80px;width:80px;overflow:hidden;text-overflow:ellipsis}
-      .krr-box .krr-table td.krr-yb{font-style:italic}
-      .krr-box .krr-table tr.krr-tot td{font-weight:700;background:#F9FAFB;border-bottom:1px solid #e5e7eb}
-      .krr-box .krr-table td.krr-pesocell{color:#6b7280}
-    </style>
-    <div id="krr-body"></div>
   </div>
 
 </div>
@@ -1407,7 +1354,6 @@ function _orgOn_(){ return _epmOrganic && _orgGoalOk_(); }
 function _orgTargetLabel_(){ return ORG_GOALS_[_epmGoalSource] || 'Budget'; }
 // Recarga la vista actual (mismo camino que un cambio de Goal)
 function _reloadEpmView_(){
-  if (_bgContableView === 'krs-rr') return;   // no depende de Goal / Baseline / Organic del P&L (tiene su propio switch)
   if (_bgContableView === 'pxq') renderPxQ();
   else if (_bgContableView === 'countries-yoy') renderCountriesYoY();
   else {
@@ -1501,29 +1447,24 @@ function _epmBaselineLabel(){
 
 function setContableView(view){
   _bgContableView = view;
-  ['combined','b2b','b2b2c','countries-yoy','krs-rr'].forEach(function(v){
+  ['combined','b2b','b2b2c','countries-yoy'].forEach(function(v){
     var el = document.getElementById('cont-stab-'+v);
     if(el) el.classList.toggle('cont-stab-active', v===view);
   });
   document.querySelectorAll('.pxq-pill').forEach(function(el){
     el.classList.toggle('cont-stab-active', view==='pxq');
   });
-  // KRs HTML · RR: Baseline / Goal / Período no aplican → la barra de arriba se oculta (CSS: body.cont-view-krs-rr)
-  document.body.classList.toggle('cont-view-krs-rr', view==='krs-rr');
   var _pxqSec = document.getElementById('cont-pxq-sec');
   var _yoySec = document.getElementById('cont-countries-yoy-sec');
-  var _krrSec = document.getElementById('cont-krs-rr-sec');
-  if(view === 'pxq' || view === 'countries-yoy' || view === 'krs-rr'){
+  if(view === 'pxq' || view === 'countries-yoy'){
     ['bg-charts-section','cont-pnl-sec','cont-b2b-nav','cont-b2b2c-nav','cont-b2b-detail','cont-b2b2c-detail','bg-country-blocks','cont-filters-row','cont-disclaimer'].forEach(function(id){var e=document.getElementById(id); if(e) e.style.display='none';});
     if(_pxqSec) _pxqSec.style.display = (view==='pxq') ? '' : 'none';
     if(_yoySec) _yoySec.style.display = (view==='countries-yoy') ? '' : 'none';
-    if(_krrSec) _krrSec.style.display = (view==='krs-rr') ? '' : 'none';
-    if(view==='pxq') renderPxQ(); else if(view==='krs-rr') renderKrsRR(); else renderCountriesYoY();
+    if(view==='pxq') renderPxQ(); else renderCountriesYoY();
     return;
   }
   if(_pxqSec) _pxqSec.style.display = 'none';
   if(_yoySec) _yoySec.style.display = 'none';
-  if(_krrSec) _krrSec.style.display = 'none';
   var _pnlSecEl = document.getElementById('cont-pnl-sec');
   if(_pnlSecEl) _pnlSecEl.style.display = '';
   var disc = document.getElementById('cont-disclaimer');
@@ -2370,7 +2311,7 @@ var _contLobCharts    = [];           // Chart.js instances for per-LOB charts i
 // Anti-carrera: cada tipo de llamada al servidor tiene un contador; una respuesta solo se
 // pinta si sigue siendo la ultima pedida (si no, el usuario ya cambio de seleccion y pintarla
 // mostraria numeros de una seleccion vieja). El loader se apaga recien cuando no queda ninguna en vuelo.
-var _reqSeq = {bg:0, bgB2b:0, b2b:0, b2b2c:0, pxq:0, yoy:0, krr:0};
+var _reqSeq = {bg:0, bgB2b:0, b2b:0, b2b2c:0, pxq:0, yoy:0};
 var _loaderPending = 0;
 // Medición (temporal): compara tiempo total del cliente vs. tramos del servidor. _timing lo agrega _timed_ en el backend.
 function _logTiming_(tag, res, t0){
@@ -2477,7 +2418,7 @@ function fetchBGData(){
         renderCountryPnlBlocks(d);
         renderContableCharts(d);
         renderWaterfalls(d);
-        if(_bgContableView==='pxq'||_bgContableView==='countries-yoy'||_bgContableView==='krs-rr') setContableView(_bgContableView);
+        if(_bgContableView==='pxq'||_bgContableView==='countries-yoy') setContableView(_bgContableView);
         _contableIds.forEach(function(id){ updateMsLabel(id); });
         if (_bgContableView === 'combined' && !_b2bCountryData) {
           var _seqB = ++_reqSeq.bgB2b;
@@ -3053,151 +2994,6 @@ function renderCountriesYoY(){
     .withFailureHandler(function(err){ if(_seq !== _reqSeq.yoy) return; cont.innerHTML='<span style="color:#CF222E;font-size:12px">Error: '+((err&&err.message)||err)+'</span>'; })
     .getEPMCountriesYoY(_yoyLob, _epmGoalSource, _epmBaselineSource, _orgOn_());
 }
-// ── KRs HTML · RR ────────────────────────────────────────────────────────────
-// Status KRs H2 del Daily B2B Tracker (canal HTML) con el Run Rate del mes completo vs Budget. El cálculo vive en el
-// servidor (computeKRsHtmlRR_, Codigo_krs_rr.js); acá solo se dibuja, con el mismo look que el Tracker (chips de
-// cumplimiento, recuadros por país). ⚠ SYNC con Daily_Dashboard/tracker.html (renderStatusKRsH2 /
-// renderStatusKRsH2DetailBoxes_ / recurDetailBox_): umbrales de color (krBajo80_/krBajo100_), formatos y columnas.
-var _krsRRYm = '', _krsRROrganic = true, _krsRRLast = null;
-function setKrsRRMonth(ym){ _krsRRYm = ym; renderKrsRR(); }
-function setKrsRROrganic(on){
-  _krsRROrganic = !!on;
-  document.getElementById('krr-org-yes').classList.toggle('prd-active', _krsRROrganic);
-  document.getElementById('krr-org-no').classList.toggle('prd-active', !_krsRROrganic);
-  renderKrsRR();
-}
-function renderKrsRR(){
-  var body = document.getElementById('krr-body');
-  if(!body) return;
-  body.innerHTML = '<span style="color:var(--muted);font-size:12px">Calculando…</span>';
-  var _seq = ++_reqSeq.krr, _t0 = Date.now();
-  _srv_()
-    .withSuccessHandler(function(r){ if(_seq !== _reqSeq.krr) return; _logTiming_('krs-rr', r, _t0); try{ _renderKrsRR_(r); }catch(e){ body.innerHTML='<span style="color:#CF222E;font-size:12px">Error KRs HTML · RR: '+e+'</span>'; } })
-    .withFailureHandler(function(err){ if(_seq !== _reqSeq.krr) return; body.innerHTML='<span style="color:#CF222E;font-size:12px">Error: '+((err&&err.message)||err)+'</span>'; })
-    .getKRsHtmlRR(_krsRRYm, _krsRROrganic);
-}
-var _KRR_MESES_ = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-function _krrYmLbl_(ym){ return ym ? _KRR_MESES_[+ym.substring(5,7)-1] + ' ' + ym.substring(0,4) : '—'; }
-function _krrEsc_(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
-// fmtKRVal del Tracker (montos en USD: '$M' en millones, '$Kint' en miles enteros, 'int' enteros)
-function _krrFmt_(v, unit){
-  if(v === null || v === undefined || isNaN(v)) return '—';
-  if(unit === 'int')   return Math.round(v).toLocaleString('es-AR');
-  if(unit === '$M')    return '$ ' + (v / 1e6).toFixed(2) + ' M';
-  if(unit === '$Kint') return '$ ' + (Math.round(v / 1e3) || 0).toLocaleString('es-AR') + ' K';
-  return String(v);
-}
-function _krrPct_(c){ return (c === null || c === undefined || !isFinite(c)) ? '—' : (c * 100).toFixed(0) + '%'; }
-// cumplBg / cumplCellHtml del Tracker
-function _krrChipCls_(p){
-  if(p === null || p === undefined || !isFinite(p) || isNaN(p)) return '';
-  var r = Math.round(p * 100);
-  return r < 80 ? 'krr-red' : r < 100 ? 'krr-yellow' : 'krr-green';
-}
-function _krrCumplTd_(p, text, bold, title){
-  var inner = bold ? '<strong>' + text + '</strong>' : text, cls = _krrChipCls_(p);
-  var t = title ? ' title="' + _krrEsc_(title) + '"' : '';
-  return '<td' + t + '>' + (cls ? '<span class="krr-chip ' + cls + '">' + inner + '</span>' : inner) + '</td>';
-}
-// yoyIcon / yoyColor del Tracker
-function _krrYoy_(v){
-  if(v === null || v === undefined || isNaN(v) || !isFinite(v)) return '—';
-  var p = v * 100;
-  return (p < 0 ? '▼' : p < 10 ? '▶' : '▲') + ' ' + Math.abs(p).toFixed(0) + '%';
-}
-function _krrYoyCls_(v){ return (v === null || v === undefined || isNaN(v) || !isFinite(v)) ? '' : (v < 0 ? 'krr-neg' : 'krr-pos'); }
-function _renderKrsRR_(r){
-  _krsRRLast = r;
-  _krsRRYm = r.ym;
-  var sel = document.getElementById('krr-month');
-  sel.innerHTML = (r.months || []).map(function(m){
-    return '<option value="' + m + '"' + (m === r.ym ? ' selected' : '') + '>' + _krrYmLbl_(m) + (m === r.currentYm ? ' (en curso)' : '') + '</option>';
-  }).join('');
-  var org = r.organic || {};
-  document.getElementById('krr-org-yes').classList.toggle('prd-active', !!org.on);
-  document.getElementById('krr-org-no').classList.toggle('prd-active', !org.on);
-  var meta = r.meta || {};
-  var m = [];
-  m.push('&#128197; <b>' + _krrYmLbl_(r.ym) + '</b> · RR del mes completo (b2b_runrate_ri) vs Budget del mes (' + _krrEsc_(meta.budgetSource) + ')');
-  if(meta.generated_at) m.push('Datos del Daily: ' + _krrEsc_(String(meta.generated_at).replace('T', ' ').substring(0, 16)));
-  if(org.error) m.push('<span class="warn">' + _krrEsc_(org.error) + ' · RR nominal</span>');
-  else if(org.on) m.push('Organic: RR × TC Actuals / TC Budget · YoY a TC Actuals LY' + (org.missing && org.missing.length ? ' · sin TC: ' + _krrEsc_(org.missing.slice(0, 4).join(', ')) + (org.missing.length > 4 ? ' …' : '') : ''));
-  else m.push('Organic: NO (RR en USD tal cual)');
-  if(!r.lyAvailable) m.push('<span class="warn">YoY en —: el JSON del Daily no trae los reales de ' + _krrYmLbl_(r.lyYm) + ' completos (LY hasta ' + _krrEsc_(meta.ly_to || 's/d') + ')</span>');
-  (r.warnings || []).forEach(function(w){ m.push('<span class="warn">&#9888; ' + _krrEsc_(w) + '</span>'); });
-
-  // Tabla principal: KR | Peso | RR mes | Budget mes | Cumpl. (realScore_) + OVERALL (okrScore_)
-  var rows = (r.krs || []).map(function(k){
-    var has = k.rr !== 0 || k.bud !== 0;
-    return '<tr><td>' + _krrEsc_(k.name) + '</td><td class="krr-peso">' + Math.round(k.peso * 100) + '%</td>' +
-      '<td>' + (has ? _krrFmt_(k.rr, k.unit) : '—') + '</td><td>' + (has ? _krrFmt_(k.bud, k.unit) : '—') + '</td>' +
-      _krrCumplTd_(k.cumpl, _krrPct_(k.cumpl), false) + '</tr>';
-  });
-  var rc = r.recur || {};
-  var recName = '<td>Accelerate Recurrence <span class="krr-note">(HTML)</span></td><td class="krr-peso">15%</td>';
-  var noTgt = rc.targetsState === 'error' ? 'Sin target: no se pudo leer Input_OKR' + (rc.targetsErr ? ' (' + _krrEsc_(rc.targetsErr) + ')' : '') : 'Sin target en Input_OKR para ' + _krrYmLbl_(r.ym);
-  if(!rc.cumpl){
-    rows.push('<tr>' + recName + '<td colspan="3" style="text-align:center;color:#9ca3af;font-style:italic">' +
-      (rc.state === 'error' ? 'Sin datos todavía (falta recurrencia_b2b.json en Drive)' : 'Sin datos de alta frecuencia para el mes') + '</td></tr>');
-  } else {
-    var c = rc.cumpl, tot = rc.total || {};
-    var parcLbl = rc.parcial ? 'parcial al ' + String(rc.parcial.foto || '').substring(8, 10) + '/' + String(rc.parcial.foto || '').substring(5, 7) : '';
-    var mtdTxt = rc.parcial ? _krrFmt_(rc.parcial.total, 'int') + ' ' + parcLbl : _krrFmt_(tot.mtd, 'int');
-    var act = c.useRoll
-      ? _krrFmt_(tot.roll, 'int') + ' <span class="krr-note">L4W</span> <span class="krr-note" title="Mes sin cerrar: cumplimiento = Rolling L4W vs Target">· MTD ' + mtdTxt + '</span>'
-      : rc.parcial ? _krrFmt_(rc.parcial.total, 'int') + ' <span class="krr-note">' + parcLbl + '</span>' : _krrFmt_(tot.mtd, 'int');
-    var cTxt = c.shown !== null ? _krrPct_(c.shown) + (c.useRoll ? ' <span style="font-size:.68rem">L4W</span>' : '') : '—';
-    rows.push('<tr>' + recName + '<td>' + act + '</td><td>' + (rc.target !== null ? _krrFmt_(rc.target, 'int') :
-      '<span style="color:#9ca3af;font-size:.72rem;font-style:italic">' + noTgt + '</span>') + '</td>' + _krrCumplTd_(c.shown, cTxt, false) + '</tr>');
-  }
-  var ov = r.overall || {};
-  rows.push('<tr class="krr-overall"><td>OVERALL' + (ov.exclRecur ? ' <span class="krr-note" style="font-weight:400">(excl. Recurrence)</span>' : '') + '</td>' +
-    '<td class="krr-peso" title="Ponderado sobre los KRs del canal HTML (el Tracker pondera también API FVM 20%): se normaliza sobre lo que suman sus pesos">' + Math.round((ov.pesoSum || 0) * 100) + '%</td>' +
-    '<td>—</td><td>—</td>' + _krrCumplTd_(ov.value, _krrPct_(ov.value), false) + '</tr>');
-  var sum = '<div class="krr-card krr-sum"><table class="krr-table"><thead><tr><th>KR</th><th>Peso</th><th>RR mes</th><th>Budget mes</th><th>Cumpl.</th></tr></thead><tbody>' + rows.join('') + '</tbody></table></div>';
-
-  // Recuadros por KR: País | Peso | Cumpl. | YoY | YoY Bud. (como el recuadro HTML del Tracker, solo Recognition)
-  var YB = 'YoY Budget: crecimiento que pedía el budget vs los reales del año anterior (mismo mes)';
-  var boxes = (r.boxes || []).map(function(b){
-    var pesoNa = 'Sin peso: hay países con monto negativo y el total queda en cero o cerca, así que el % no se puede leer';
-    function pesoTd(p, bold){
-      if(!b.pesoOk) return '<td class="krr-pesocell" title="' + pesoNa + '">—</td>';
-      var t = (p === null || p === undefined) ? '—' : (p * 100).toFixed(Math.abs(p) < 0.1 ? 1 : 0) + '%';
-      return '<td class="krr-pesocell">' + (bold ? '<strong>' + t + '</strong>' : t) + '</td>';
-    }
-    function cells(x, bold){
-      var w = function(t){ return bold ? '<strong>' + t + '</strong>' : t; };
-      return _krrCumplTd_(x.c, _krrPct_(x.c), bold, 'RR ' + _krrFmt_(x.rr, b.unit) + ' · Budget ' + _krrFmt_(x.bud, b.unit)) +
-        '<td class="' + _krrYoyCls_(x.yoy) + '">' + w(_krrYoy_(x.yoy)) + '</td>' +
-        '<td class="krr-yb ' + _krrYoyCls_(x.yb) + '">' + w(_krrYoy_(x.yb)) + '</td>';
-    }
-    var tr = '<tr class="krr-tot"><td>TOTAL</td>' + pesoTd(b.total.peso, true) + cells(b.total, true) + '</tr>' +
-      b.rows.map(function(x){ return '<tr><td title="' + _krrEsc_(x.name) + '">' + _krrEsc_(x.name) + '</td>' + pesoTd(x.peso) + cells(x) + '</tr>'; }).join('');
-    return '<div class="krr-box"><div class="krr-box-hd"><span class="krr-badge">' + _krrEsc_(b.title) + '</span></div>' +
-      '<table class="krr-table"><thead><tr><th>País</th><th title="Participación del país en el RR del canal">Peso</th><th>Cumpl.</th><th>YoY</th><th title="' + YB + '">YoY<br>Bud.</th></tr></thead>' +
-      '<tbody>' + tr + '</tbody></table></div>';
-  });
-  // Accelerate Recurrence: País | Rolling L4W | % Cumpl. | Target (recurDetailBox_)
-  var rb = '<div class="krr-box krr-box--rec"><div class="krr-box-hd"><span class="krr-badge">Accelerate Recurrence (HTML)</span></div>';
-  if(!rc.cumpl){
-    rb += '<div style="padding:8px 2px;color:#9ca3af;font-size:.78rem;font-style:italic">' + (rc.state === 'error' ? 'Sin datos todavía (falta recurrencia_b2b.json en Drive)' : 'Sin datos de alta frecuencia para el mes') + '</div></div>';
-  } else {
-    var rtr = function(x, bold){
-      var b2 = function(s){ return bold ? '<strong>' + s + '</strong>' : s; };
-      return '<tr' + (bold ? ' class="krr-tot"' : '') + '><td title="' + _krrEsc_(x.name) + '">' + _krrEsc_(x.name) + '</td><td>' + b2(_krrFmt_(x.roll, 'int')) + '</td>' +
-        _krrCumplTd_(x.c, _krrPct_(x.c), bold) + '<td>' + b2(x.target !== null && x.target !== undefined ? _krrFmt_(x.target, 'int') : '—') + '</td></tr>';
-    };
-    rb += '<div style="padding:2px 2px 8px;color:#6b7280;font-size:.72rem">Agencias de alta frecuencia · ' + _krrEsc_(rc.week) +
-      (rc.target === null ? '<br><span style="color:#9ca3af;font-style:italic">' + noTgt + '</span>' : '') + '</div>' +
-      '<table class="krr-table"><thead><tr><th>País</th><th>Rolling<br>L4W</th><th>% Cumpl.</th><th>Target</th></tr></thead><tbody>' +
-      rtr({ name: 'TOTAL', roll: rc.totalRow.roll, c: rc.totalRow.c, target: rc.totalRow.target }, true) +
-      (rc.rows || []).map(function(x){ return rtr(x, false); }).join('') + '</tbody></table></div>';
-  }
-  boxes.push(rb);
-  document.getElementById('krr-body').innerHTML = '<div class="krr-meta">' + m.map(function(x){ return '<span>' + x + '</span>'; }).join('') + '</div>' +
-    sum + '<div class="krr-grid">' + boxes.join('') + '</div>';
-}
-
 function _fmtExecUSD_(v){
   if(v==null||isNaN(v)) return '—';
   var s=v<0?'-':'', a=Math.abs(v);

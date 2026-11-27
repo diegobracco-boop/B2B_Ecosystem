@@ -1,4 +1,5 @@
-// test_krsHtmlRR.js — tests de computeKRsHtmlRR_ (P&L Accounting, vista "KRs HTML · RR", Codigo_krs_rr.js).
+// test_krsHtmlRR.js — tests de computeKRsHtmlRR_ (P&L Dashboard / Hub, ventana "KRs HTML · RR" del OKR Status, Codigo_krs_rr.js).
+// No se carga en Ownia ni en Apps Script: lo excluye .claspignore (test_*.js).
 //
 // Node puro, sin dependencias. Corre:
 //   node test_krsHtmlRR.js
