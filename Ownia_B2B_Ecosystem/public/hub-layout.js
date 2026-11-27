@@ -115,6 +115,9 @@
     // #active-filters: los mismos chips quedan en la línea de contexto de arriba (#ohn-top).
     // #canal-fg: HTML y API ahora se eligen en la barra, como negocios; el toggle queda oculto para que el Hub lo siga leyendo.
     '.hamburger-btn,#nav-backdrop,.filters,#filters-toggle,#ai-links,#active-filters,#canal-fg{display:none!important}',
+    // Laptop (2026-11-27): los dos OC Bridge iban lado a lado sí o sí y la tabla "por concepto" (543px) no entraba en su
+    // card (512px): empujaba toda la página de costado. Si no entran los dos, el segundo pasa abajo a todo el ancho.
+    '.wf-oc-row{flex-wrap:wrap!important}.wf-oc-row .chart-card{flex:1 1 560px!important}',
     // OKR Status abierto por mes (2026-11-05, Diego): sigue a la derecha del Cuadro Resumen, en el espacio que queda, con scroll
     // horizontal propio; el nombre del KR y el peso quedan fijos a la izquierda mientras se corren los meses.
     '.pnl-okr-wrap:has(.okr-monthly) .okr-col{flex:1 1 0;min-width:340px}',
