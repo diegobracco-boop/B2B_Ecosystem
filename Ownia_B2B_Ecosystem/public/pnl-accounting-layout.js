@@ -842,6 +842,7 @@
   window.addEventListener('resize', fitSoon);
   document.addEventListener('DOMContentLoaded', function () {
     new MutationObserver(fitSoon).observe(document.body, { childList: true, subtree: true });
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitSoon);   // las webfonts cambian los anchos
     fitSoon();
   });
 })();
