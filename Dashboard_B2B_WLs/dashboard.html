@@ -437,6 +437,31 @@ td.row-sub-label,.row-sub td.row-sub-label{text-align:left;color:var(--muted);fo
 .okrp-tbl tr.tot td{font-weight:800;border-top:2px solid var(--border2);background:rgba(84,87,217,.05)}
 .okrp-empty{padding:40px;text-align:center;color:var(--muted2);font-size:13px}
 @media (max-width:700px){#okrp-ov{padding:0}#okrp-ov .okrp-box{border-radius:0}}
+/* Formato slide: una lámina 16:9 (1280×720) con todos los países, para copiar como imagen y pegar en Slides */
+.okrp-slide-tools{display:flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:flex-end;margin-bottom:10px}
+.okrp-slide-tools button{font-weight:700;font-size:12px;padding:5px 11px;border-radius:7px;border:1px solid #5457D9;background:#5457D9;color:#fff;cursor:pointer;white-space:nowrap}
+.okrp-slide-tools button.sec{background:transparent;color:#5457D9}
+.okrp-slide-wrap{overflow:hidden;position:relative}
+.okrp-slide{width:1280px;height:720px;box-sizing:border-box;background:#fff;color:#1f1d3a;padding:34px 44px 26px;display:flex;flex-direction:column;font-family:inherit;border:1px solid var(--border);transform-origin:top left}
+.okrp-slide .s-kicker{font-size:13px;font-weight:700;color:#5457D9;letter-spacing:.08em;text-transform:uppercase}
+.okrp-slide .s-title{font-size:30px;font-weight:800;margin:4px 0 2px;color:#1E1B4B}
+.okrp-slide .s-sub{font-size:14px;color:#6b6890;margin-bottom:16px}
+.okrp-slide table{width:100%;border-collapse:collapse;flex:0 0 auto}
+.okrp-slide th{background:#1E1B4B;color:#fff;font-size:12px;font-weight:700;padding:8px 8px;text-align:center;vertical-align:bottom;line-height:1.25}
+.okrp-slide th:first-child{text-align:left;border-radius:8px 0 0 0}
+.okrp-slide th:last-child{border-radius:0 8px 0 0;background:#5457D9}
+.okrp-slide th .w{display:block;font-weight:500;font-size:10px;color:rgba(255,255,255,.7);margin-top:2px}
+.okrp-slide td{padding:5px 8px;text-align:center;border-bottom:1px solid #e6e5f0;font-size:13px}
+.okrp-slide td:first-child{text-align:left;font-weight:700;font-size:14px;white-space:nowrap}
+.okrp-slide td:last-child{background:#f4f4fc}
+.okrp-slide tr.s-tot td{background:#eef0fb;border-bottom:2px solid #c9c8e6;font-weight:800}
+.okrp-slide tr.s-tot td:last-child{background:#e3e4f8}
+.okrp-slide .okr-chip{font-size:13px;padding:3px 9px}
+.okrp-slide .s-v{font-size:10px;color:#8a88a0;margin-top:2px;white-space:nowrap}
+.okrp-slide .s-na{color:#b8b6cc}
+.okrp-slide .okrp-flags img{width:20px;height:15px;box-shadow:0 0 0 1px #ddd}
+.okrp-slide .s-foot{margin-top:auto;padding-top:10px;font-size:10.5px;color:#8a88a0;line-height:1.45;border-top:1px solid #e6e5f0}
+.okrp-slide.dense td{padding:3px 8px}.okrp-slide.dense .s-v{font-size:9px}.okrp-slide.dense td:first-child{font-size:13px}
 
 /* ── Loader ──────────────────────────────────────────────── */
 #loader{position:fixed;inset:0;background:rgba(240,242,245,.96);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:999}
@@ -5269,6 +5294,8 @@ function setOKRPaisOpt(k, v) {
   if (k === 'lob') _okrpLob = v;
   else if (k === 'ch') _okrpCh = v;
   else if (k === 'view') _okrpMonthly = v === 'm';
+  else if (k === 'mode') _okrpMode = v;
+  else if (k === 'per') _okrpPer = v;
   else if (k === 'org') {
     if ((v === 'si') !== !!_okrOrganic) toggleOKROrganic();   // el OKR Status de atrás queda con el mismo organic
     _okrpLoad_();
@@ -5319,6 +5346,92 @@ function _okrpTable_(d) {
   h += '<td class="q"' + cov(d.halfCov) + '>' + fmtOKR(d.halfTotal) + '</td></tr></tbody></table>';
   return h;
 }
+// ── Formato slide (2026-11-27, pedido de antonella.difranco): todos los países en una lámina 16:9 para pegar en Slides.
+// Filas = Total + países, columnas = KRs + Total ponderado, para un período (H2 acumulado, un trimestre o un mes).
+// "Copiar imagen" / "PNG" con html2canvas (se baja al primer uso, ver el cargador del principio del archivo).
+var _okrpMode = 'tablas', _okrpPer = 'h2';
+function _okrpPerVal_(d, kr) {   // {v, a, b} del KR (o, sin kr, el total ponderado) en el período elegido
+  var m = /^([mq])(\d)$/.exec(_okrpPer), i = m ? +m[2] : -1;
+  if (!kr) return { v: m ? (m[1] === 'm' ? d.totalMonthly[i] : d.totalQuarterly[i]) : d.halfTotal,
+                    cov: m ? (m[1] === 'm' ? (d.covMonthly || [])[i] : (d.covQuarterly || [])[i]) : d.halfCov };
+  if (!m) return { v: kr.half, a: kr.halfAct, b: kr.halfBud };
+  if (m[1] === 'q') return { v: kr.quarterly[i], a: kr.quarterlyAct[i], b: kr.quarterlyBud[i] };
+  return { v: kr.monthly[i], a: kr.monthlyAct[i], b: kr.monthlyBud[i], imp: kr.monthlyImputed && kr.monthlyImputed[i] };
+}
+function _okrpPerOpts_(d) {
+  var MES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  var o = [['h2', d.half]];
+  d.quarters.forEach(function(q, i) { o.push(['q' + i, q]); });
+  d.periods.forEach(function(ym, i) { o.push(['m' + i, MES[+String(ym).substring(5, 7) - 1] + ' ' + String(ym).substring(2, 4)]); });
+  return o;
+}
+function _okrpSlide_(tot, rows, soloTot, lobLbl) {
+  var perLbl = (_okrpPerOpts_(tot).filter(function(o) { return o[0] === _okrpPer; })[0] || [0, tot.half])[1];
+  var perTxt = _okrpPer === 'h2' ? perLbl + ' acumulado (oct → hoy, con proyección)' : /^q/.test(_okrpPer) ? perLbl : perLbl + ' (mes)';
+  var krs = tot.krs.map(function(k) { return k.label; });
+  function cellKr(d, lbl) {
+    var kr = null; (d.krs || []).forEach(function(k) { if (k.label === lbl) kr = k; });
+    if (!kr) return '<td><span class="s-na">—</span></td>';
+    var p = _okrpPerVal_(d, kr);
+    if ((p.a === null || p.a === undefined) && (p.b === null || p.b === undefined)) return '<td><span class="s-na">—</span></td>';
+    return '<td>' + fmtOKR(p.v) + '<div class="s-v"' + (p.imp ? ' style="font-style:italic"' : '') + '>' + _okrpN_(p.a, kr.pct) + ' / ' + _okrpN_(p.b, kr.pct) + '</div></td>';
+  }
+  function row(name, flagsHtml, d, cls) {
+    var t = _okrpPerVal_(d);
+    return '<tr' + (cls ? ' class="' + cls + '"' : '') + '><td>' + flagsHtml + ' ' + name + '</td>'
+      + krs.map(function(l) { return cellKr(d, l); }).join('')
+      + '<td>' + fmtOKR(t.v) + '</td></tr>';
+  }
+  var body = row('Total ' + lobLbl, '', tot, 's-tot') + rows.map(function(r) { return row(r.name, _okrpFlags_(r.flags), r.d); }).join('');
+  var chLbl = _okrpLob === 'b2b2c' ? '' : ' · ' + (_okrpCh === 'api' ? 'Canal API (MAY)' : _okrpCh === 'html' ? 'Canal HTML (MIN)' : 'Total API + HTML');
+  return '<div class="okrp-slide' + (rows.length > 8 ? ' dense' : '') + '" id="okrp-slide">'
+    + '<div class="s-kicker">OKR H2 ' + FY_TAG + ' · ' + lobLbl + chLbl + '</div>'
+    + '<div class="s-title">Cumplimiento de KRs por país</div>'
+    + '<div class="s-sub">' + perTxt + ' · ' + (_okrOrganic ? 'Organic a TC Budget' : 'USD nominal') + ' · actual / target</div>'
+    + '<table><thead><tr><th>País</th>'
+    + tot.krs.map(function(k) { return '<th>' + k.label + '<span class="w">peso ' + k.weight + '%</span></th>'; }).join('')
+    + '<th>Total ponderado</th></tr></thead><tbody>' + body + '</tbody></table>'
+    + '<div class="s-foot">Cumplimiento = actual vs target (tope 130%; debajo de 70% suma 0 en el ponderado). Contable: cierre contable o proyección (Run Rate) hasta el cierre; sin dato = target (en cursiva). '
+    + 'El total ponderado de cada país se normaliza sobre el peso de los KRs con dato.'
+    + (soloTot.length ? ' Solo en el Total (sin apertura por país): ' + soloTot.join(', ') + '.' : '') + '</div></div>';
+}
+function _okrpSlideCanvas_() {
+  var el = document.getElementById('okrp-slide');
+  if (!el) return Promise.reject(new Error('No hay slide'));
+  // En pantalla la lámina va escalada para entrar en la ventana; la captura sale siempre a 1280×720 (sin el transform).
+  return html2canvas(el, { backgroundColor: '#ffffff', scale: 2, useCORS: true, width: 1280, height: 720, windowWidth: 1400,
+    onclone: function(doc) { var c = doc.getElementById('okrp-slide'); if (c) { c.style.transform = 'none'; c.parentNode.style.height = 'auto'; } } });
+}
+function _okrpFitSlide_() {   // escala la lámina al ancho disponible (nunca la agranda)
+  var el = document.getElementById('okrp-slide'), wrap = el && el.parentNode;
+  if (!wrap) return;
+  var s = Math.min(1, wrap.clientWidth / 1280);
+  el.style.transform = s < 1 ? 'scale(' + s + ')' : '';
+  wrap.style.height = Math.ceil(720 * s) + 'px';
+  if (s >= 1) el.style.margin = '0 auto'; else el.style.margin = '';
+}
+window.addEventListener('resize', function() { if (_okrpMode === 'slide') _okrpFitSlide_(); });
+function _okrpSlideName_() {
+  return 'OKR_por_pais_' + (_okrpLob === 'b2b2c' ? 'WL' : 'B2B_' + _okrpCh) + '_' + _okrpPer + (_okrOrganic ? '_organic' : '') + '.png';
+}
+function okrpSlidePng() {
+  _okrpSlideCanvas_().then(function(cv) {
+    var a = document.createElement('a'); a.download = _okrpSlideName_(); a.href = cv.toDataURL('image/png'); a.click();
+  }, function(e) { alert(e.message || e); });
+}
+// Copia la lámina como imagen para pegarla en Slides; si el navegador no deja (permisos, iframe), descarga el PNG.
+function okrpSlideCopy(btn) {
+  var txt = btn ? btn.textContent : '';
+  if (btn) btn.textContent = 'Generando…';
+  _okrpSlideCanvas_().then(function(cv) {
+    cv.toBlob(function(blob) {
+      var ok = function() { if (btn) { btn.textContent = '¡Copiada!'; setTimeout(function() { btn.textContent = txt; }, 1500); } };
+      var fallback = function() { if (btn) btn.textContent = txt; okrpSlidePng(); };
+      try { navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]).then(ok, fallback); }
+      catch (e) { fallback(); }
+    });
+  }, function(e) { if (btn) btn.textContent = txt; alert(e.message || e); });
+}
 function _okrpFlags_(flags) {
   if (!flags || !flags.length) return '';
   return '<span class="okrp-flags">' + flags.map(function(c) {
@@ -5344,7 +5457,8 @@ function _okrpRender_() {
     + (_okrpLob === 'b2b2c' ? 'White Labels' : 'B2B · ' + chLbl) + ' · ' + (_okrOrganic ? 'Organic a TC Budget' : 'USD nominal') + '</small></h3>'
     + sw('lob', _okrpLob, [['b2b', 'B2B'], ['b2b2c', 'White Labels']])
     + (_okrpLob === 'b2b' && hasCh ? sw('ch', _okrpCh, [['total', 'Total'], ['api', 'API'], ['html', 'HTML']]) : '')
-    + sw('view', _okrpMonthly ? 'm' : 'q', [['m', 'Mensual'], ['q', 'Trimestral']])
+    + sw('mode', _okrpMode, [['tablas', 'Tablas'], ['slide', 'Slide']])
+    + (_okrpMode === 'slide' ? '' : sw('view', _okrpMonthly ? 'm' : 'q', [['m', 'Mensual'], ['q', 'Trimestral']]))
     + sw('org', _okrOrganic ? 'si' : 'no', [['no', 'Nominal'], ['si', 'Organic']])
     + '<button type="button" class="okrp-close" onclick="closeOKRPais()" title="Cerrar (Esc)" aria-label="Cerrar">✕</button></div>';
   var body;
@@ -5354,16 +5468,27 @@ function _okrpRender_() {
     var tot = _okrpBlock_(res.total);
     var byName = {}; (res.groups || []).forEach(function(g) { byName[g.name] = g; });
     var names = (_okrpLob === 'b2b' && _okrpCh === 'api') ? OKRP_GRUPOS_API : OKRP_GRUPOS_OLD;
-    var cards = [], conPais = {};
+    var cards = [], conPais = {}, slideRows = [];
     names.forEach(function(n) {
       var g = byName[n], d = g && _okrpBlock_(g.okr);
       if (!d || !d.krs || !d.krs.length) return;
       d.krs.forEach(function(k) { conPais[k.label] = true; });
+      slideRows.push({ name: n === 'RG' ? 'RG (COI Brasil)' : n, flags: g.flags, d: d });
       var sub = n === 'RG' ? 'ajuste COI Brasil' : n === 'Globales' ? 'Others Countries' : n === 'Otros' ? (g.paises || []).join(', ') : '';
       cards.push('<div class="okrp-card"><div class="okrp-card-hdr">' + _okrpFlags_(g.flags) + n + (sub ? ' <small>· ' + sub + '</small>' : '') + '</div>' + _okrpTable_(d) + '</div>');
     });
     var soloTot = tot ? tot.krs.filter(function(k) { return !conPais[k.label]; }).map(function(k) { return k.label; }) : [];
     var orgInfo = res.organic;
+    if (_okrpMode === 'slide' && tot) {
+      if (!_okrpPerOpts_(tot).some(function(o) { return o[0] === _okrpPer; })) _okrpPer = 'h2';
+      body = '<div class="okrp-slide-tools"><span style="font-size:11px;color:var(--muted);margin-right:auto">Período:</span>'
+        + _okrpPerOpts_(tot).map(function(o) {
+            return '<button type="button" class="' + (o[0] === _okrpPer ? '' : 'sec') + '" onclick="setOKRPaisOpt(\'per\',\'' + o[0] + '\')">' + o[1] + '</button>';
+          }).join('')
+        + '<span style="width:12px"></span><button type="button" onclick="okrpSlideCopy(this)" title="Copia la slide como imagen para pegarla en Google Slides / PowerPoint">📋 Copiar imagen</button>'
+        + '<button type="button" class="sec" onclick="okrpSlidePng()">PNG</button></div>'
+        + '<div class="okrp-slide-wrap">' + _okrpSlide_(tot, slideRows, soloTot, _okrpLob === 'b2b2c' ? 'White Labels' : 'B2B') + '</div>';
+    } else
     body = '<p class="okrp-note"><b>Cómo leerlo:</b> cada celda muestra el % de cumplimiento (actual vs target; tope 130%, debajo de 70% suma 0) y abajo "actual / target". '
       + 'Mismo cálculo que el OKR Status: Oct–Mar con proyección (Run Rate) hasta que haya cierre contable; sin dato se toma igual al target (en cursiva). '
       + 'El <b>Total ponderado</b> de cada país usa los pesos de los KRs que tienen apertura por país (se normaliza sobre el peso con dato: pasá el mouse para ver cuánto cubre). '
@@ -5377,6 +5502,7 @@ function _okrpRender_() {
   var scroll = ov.querySelector('.okrp-body'), st = scroll ? scroll.scrollTop : 0;
   ov.innerHTML = '<div class="okrp-box">' + top + '<div class="okrp-body">' + body + '</div></div>';
   var nb = ov.querySelector('.okrp-body'); if (nb) nb.scrollTop = st;
+  if (_okrpMode === 'slide') _okrpFitSlide_();
 }
 
 // ══════════════════════════════════════════════════════════
