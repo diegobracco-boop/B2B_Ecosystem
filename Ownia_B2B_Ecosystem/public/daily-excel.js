@@ -100,23 +100,24 @@
   // Excel: días desde 1899-12-30.
   function dateSerial(fecha) { var p = fecha.split('-'); return Math.round((Date.UTC(+p[0], +p[1] - 1, +p[2]) - Date.UTC(1899, 11, 30)) / 86400000); }
 
-  // Estilos: 0 normal · 1 encabezado · 2 número #,##0 · 3 número en negrita · 4 fecha · 5 texto en negrita
-  var S = { txt: 0, head: 1, n: 2, nb: 3, date: 4, b: 5 };
+  // Estilos: 0 normal · 1 encabezado · 2 número #,##0 · 3 número en negrita · 4 fecha · 5 texto en negrita · 6 porcentaje (Tabla adhoc)
+  var S = { txt: 0, head: 1, n: 2, nb: 3, date: 4, b: 5, pct: 6 };
   var STYLES = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
     '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
-    '<numFmts count="1"><numFmt numFmtId="164" formatCode="yyyy-mm-dd"/></numFmts>' +
+    '<numFmts count="2"><numFmt numFmtId="164" formatCode="yyyy-mm-dd"/><numFmt numFmtId="165" formatCode="+0.0%;-0.0%;0.0%"/></numFmts>' +
     '<fonts count="3"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts>' +
     '<fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>' +
     '<fill><patternFill patternType="solid"><fgColor rgb="FF5626E9"/><bgColor indexed="64"/></patternFill></fill></fills>' +
     '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>' +
     '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
-    '<cellXfs count="6">' +
+    '<cellXfs count="7">' +
     '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>' +
     '<xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/>' +
     '<xf numFmtId="3" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>' +
     '<xf numFmtId="3" fontId="2" fillId="0" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1"/>' +
     '<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>' +
     '<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/>' +
+    '<xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>' +
     '</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
 
   // cells: [{v, t:'s'|'n'|'d', s}] ; sheet = {name, cols:[ancho], rows:[[cell]], freeze:bool, filter:'A1:M1'}
@@ -298,7 +299,9 @@
     pageRows: pageRows, orgTcLabel: orgTcLabel,
     monthsOf: monthsOf, countriesOf: countriesOf, canalesOf: canalesOf, partnersOf: partnersOf, filterRows: filterRows, canalOf: canalOf,
     totals: totals, dailySummary: dailySummary, buildSheets: buildSheets, buildWorkbook: buildWorkbook,
-    fileName: fileName, monthLabel: monthLabel, crc32: crc32, ALL: ALL
+    fileName: fileName, monthLabel: monthLabel, crc32: crc32, ALL: ALL,
+    // Libro desde hojas ya armadas ({name, cols, rows: [[{v, t, s}]], freeze}); lo usa la Tabla adhoc (daily-adhoc.js)
+    workbookFromSheets: function (sheets) { return zip(workbookFiles(sheets)); }, STYLE: S
   };
   root.DailyExcel = api;
 

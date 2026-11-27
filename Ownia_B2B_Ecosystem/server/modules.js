@@ -140,9 +140,10 @@ const MODULES = [
     // daily-flow-minto.js (va última: toma el deck ya armado): en Presentaciones, resumen "La semana en 3 líneas", vista Ejecutiva /
     // Completa y títulos con la conclusión (Barbara Minto, 2026-10-30).
     // daily-excel.js: botón "Descargar Excel" de la solapa Daily (B2B2C diario por mes / país / partner), 2026-11-04.
+    // daily-adhoc.js: solapa "Tabla adhoc" (foto de un día de B2B2C / B2B MAY / B2B MIN vs Budget, Run Rate y LY), 2026-11-27; va antes de daily-filtros.js (su pill queda al lado de Benchmark).
     // daily-filtros.js (va última: envuelve renderBenchmark_ después de daily-ceo-weekly.js): botón "+ Filtros" con Organic y COI Brasil, 2026-11-05.
     // daily-numfmt.js (después de daily-filtros.js: agrega su fila a "+ Filtros"): unidad y decimales de los montos, 2026-11-24.
-    layout: ['daily-layout.js', 'daily-ceo-weekly.js', 'daily-embed.js', 'daily-flow-tier.js', 'daily-flow-slides.js', 'daily-flowdeck.js', 'daily-tracker-gslides.js', 'daily-tracker-weekly.js', 'daily-tracker-krgb.js', 'daily-flow-b2b.js', 'daily-flow-yoy.js', 'daily-flow-yoy-seg.js', 'daily-flow-minto.js', 'daily-excel.js', 'daily-filtros.js', 'daily-numfmt.js'],
+    layout: ['daily-layout.js', 'daily-ceo-weekly.js', 'daily-embed.js', 'daily-flow-tier.js', 'daily-flow-slides.js', 'daily-flowdeck.js', 'daily-tracker-gslides.js', 'daily-tracker-weekly.js', 'daily-tracker-krgb.js', 'daily-flow-b2b.js', 'daily-flow-yoy.js', 'daily-flow-yoy-seg.js', 'daily-flow-minto.js', 'daily-excel.js', 'daily-adhoc.js', 'daily-filtros.js', 'daily-numfmt.js'],
     // daily-resumen-semanal.js: getResumenSemanal, datos de la página "Resumen semanal" (server/resumen-semanal-page.js), 2026-11-02.
     gasExtras: ['daily-industry.js', 'daily-b2c-budget.js', 'daily-weekly-fvm.js', 'daily-resumen-semanal.js'],
     // Funciones que solo leen un JSON del espejo y devuelven lo mismo para todos: se cachea la respuesta ya comprimida (server/api-cache.js).
