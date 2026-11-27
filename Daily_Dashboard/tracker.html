@@ -43,6 +43,7 @@
     border-bottom: 1px solid #e5e7eb;
     padding: 0 20px;
     display: flex;
+    flex-wrap: wrap;   /* en pantallas < ~1360px la última pestaña empujaba toda la página hacia el costado */
     gap: 2px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.04);
   }
@@ -3572,6 +3573,10 @@ function renderKRDetailBoxes(monthFilter) {
 // variantes de nombre que usa el ecosistema (ver PRODUCT_GROUPS) porque el budget
 // NO viene normalizado (puede traer 'Air'/'D. Services') mientras que actuals trae
 // 'Flights'/'Dest. Serv.'. Si se filtrara por string exacto, el budget caería a 0.
+// ⚠ SYNC (2026-11-27): la lógica de los KRs H2 del canal HTML (B2B_H2_NR_PRODS_TRK, B2B_H2_NP_PKG_TYPES, isNewProduct*_, FVM_DETAIL,
+// okrScore_/realScore_/cumplRatio, pesos del OVERALL, reglas de Peso de los recuadros, recurH2_/recurTarget_/recurCumpl_) está copiada en
+// P&L_Accounting/Codigo_krs_rr.js (vista "KRs HTML · RR" del P&L Accounting: los mismos KRs con el Run Rate). Si cambia acá, cambiarla allá;
+// P&L_Accounting/test_krsHtmlRR.js compara las dos copias.
 var B2B_H2_NR_PRODS_TRK = { 'Air': 1, 'Flights': 1, 'Flight': 1, 'D. Services': 1, 'Dest. Serv.': 1 };
 
 // product_type (bi_transactional_fact_products) que cuentan como "New Products" cuando vienen DENTRO de

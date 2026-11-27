@@ -34,7 +34,12 @@
         "1SEh9vLWCbE6PslnUntUghhInonuLdYZ5": "tc_plana_flat.xlsx (FX_FILE_ID)",
         "1anL-CsItySxuWTp4FuX69tHsAy9oz4rp": "forecastbtb.json (CANONICAL_IDS_.fbtb, server/gas-extras/pnl-accounting-fbtb.js)"
       },
-      "folders": {}
+      "folders": {
+        "1lWzfqweyV6Kz1ERkL85ikFcmzmKwGwwh": ["daily_b2b_data.json", "okr_h2_managerial.json", "recurrencia_b2b.json"]
+      },
+      "sheets": {
+        "1RVmTXDyyugCUXJ0f6JG_croNxWNLlOLm4eAs8F52u2c": "Input dashboard B2B+WLs → Input_OKR (KRS_RR_INPUT_OKR_SHEET_ID: target de Accelerate Recurrence de la vista KRs HTML · RR; la carpeta del Daily es KRS_RR_DAILY_FOLDER_ID, Codigo_krs_rr.js)"
+      }
     },
     "pnl-accounting-drive": {
       "files": {
@@ -49,7 +54,12 @@
         "1SEh9vLWCbE6PslnUntUghhInonuLdYZ5": "tc_plana_flat.xlsx (FX_FILE_ID)",
         "1anL-CsItySxuWTp4FuX69tHsAy9oz4rp": "forecastbtb.json (CANONICAL_IDS_.fbtb, server/gas-extras/pnl-accounting-fbtb.js)"
       },
-      "folders": {}
+      "folders": {
+        "1lWzfqweyV6Kz1ERkL85ikFcmzmKwGwwh": ["daily_b2b_data.json", "okr_h2_managerial.json", "recurrencia_b2b.json"]
+      },
+      "sheets": {
+        "1RVmTXDyyugCUXJ0f6JG_croNxWNLlOLm4eAs8F52u2c": "Input dashboard B2B+WLs → Input_OKR (KRS_RR_INPUT_OKR_SHEET_ID: target de Accelerate Recurrence de la vista KRs HTML · RR; la carpeta del Daily es KRS_RR_DAILY_FOLDER_ID, Codigo_krs_rr.js)"
+      }
     },
     "hub": {
       "files": {

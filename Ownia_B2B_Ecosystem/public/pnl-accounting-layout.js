@@ -233,7 +233,13 @@
   }
 
   // ── Secciones: estado de la página según la sección ──
+  // "KRs HTML · RR" (2026-11-27) no es una sección de la tabla: es la vista propia 'krs-rr' del dashboard (setContableView), que
+  // oculta todo lo demás; acá solo se marca su botón.
+  function krsOn() { return W._bgContableView === 'krs-rr'; }
   function layoutSection() {
+    var kb = document.getElementById('pa-sec-krsrr');
+    if (kb) kb.classList.toggle('cont-stab-active', krsOn());
+    if (krsOn()) { SECS.forEach(function (s) { var b = document.getElementById('pa-sec-' + s.k); if (b) b.classList.remove('cont-stab-active'); }); return; }
     colButtons();
     // País / Producto viven en la barra de controles (ver más abajo): el bloque original de filtros no se muestra
     var fr = document.getElementById('cont-filters-row'), fgP = document.getElementById('pa-f-prod');
@@ -261,6 +267,7 @@
   var css = document.createElement('style');
   css.textContent = '#bg-country-blocks,#cont-b2b-nav,#cont-b2b2c-nav,#cont-b2b-detail,#cont-b2b2c-detail{display:none!important}#fg-cont-lob,#cont-filters-row .fg:has(#ms-cont-canal){display:none!important}' +
     '#header-subtabs > .header-tab:not(.pa-sec){display:none!important}' +
+    'body.cont-view-krs-rr #pa-active{display:none!important}' +
     // País / Producto como desplegables con forma de pill en la barra de controles
     '.pa-f{display:inline-flex;align-items:center;gap:6px}.pa-f > span{font-size:11px;color:#3a4048;font-weight:700}' +
     '.pa-f .ms-btn{border-radius:999px;padding:6px 14px;font-size:11.5px;font-weight:600;min-width:0;background:#fff;color:#3a4048;' +
@@ -296,6 +303,11 @@
       b.addEventListener('click', function () { goSection(s.k); });
       tabs.appendChild(b);
     });
+    if (tabs && document.getElementById('cont-krs-rr-sec')) {
+      var kb = btn('pa-sec-krsrr', 'KRs HTML · RR', 'KRs H2 del canal HTML con el Run Rate del mes completo vs Budget (Status KRs H2 del Daily B2B Tracker)', 'header-tab pa-sec');
+      kb.addEventListener('click', function () { W.setContableView('krs-rr'); });
+      tabs.appendChild(kb);
+    }
     var origFilters = W.getContableFilters;
     W.getContableFilters = function () {
       var f = origFilters.apply(this, arguments), s = S();
@@ -308,7 +320,8 @@
     W.setContableView = function (view) {
       // Accesos directos (?view=contable-b2b / contable-b2b2c, redirección desde el P&L Dashboard): eligen la sección
       if ((view === 'b2b' || view === 'b2b2c') && sec !== view) { sec = view; save('pa-sec', sec); refill = true; }
-      var r = origView.call(this, 'combined');   // todas las secciones usan la vista consolidada
+      // KRs HTML · RR: vista propia del dashboard (no usa la tabla Baseline vs Goal ni los filtros de sección)
+      var r = origView.call(this, view === 'krs-rr' ? 'krs-rr' : 'combined');   // el resto de las secciones usan la vista consolidada
       layoutSection();
       return r;
     };
@@ -398,7 +411,9 @@
       after = box;
     });
     // La navegación inicial (?view=…, ownia-nav.js) pudo abrir la vista B2B / B2B2C vieja antes de esta capa: se vuelve a la consolidada
-    if (W._bgContableView && W._bgContableView !== 'combined') W.setContableView('combined');
+    // ?sec=krsrr abre directo la vista KRs HTML · RR
+    if (/[?&]sec=krsrr(&|$)/.test(location.search)) W.setContableView('krs-rr');
+    else if (W._bgContableView && W._bgContableView !== 'combined') W.setContableView('combined');
     else { layoutSection(); if (sec !== 'combined') W.debouncedFetchBG(); }   // la primera carga pudo salir antes que estos filtros
   });
 })();
