@@ -98,6 +98,13 @@ CSV crudos (OneDrive\Planning-PBI - Inputs Power Bi)
   el método anterior (reparto entre canales) daba 463, así que hay un salto de método frente al histórico. Códigos nuevos sin agrupar: aparecen en el log
   y cuentan como partner propio hasta que se agreguen al diccionario. Congelar a mano: `python Daily_Dashboard/partners_api_sync.py --freeze AAAA-MM`.
 
+- **KR Global B2B API, set nuevo, en `okr.json` y `OKR_H2_FY27.json`** (2026-11-27, antonella.difranco): `okr_h2_builder.globales_nuevos_rows`
+  suma los 5 KRs (Grow +44% API Global Clients Portfolio, +6k New Direct Properties, Price Competitiveness Destino Globales, Sales Density
+  on Top 100 Hotels, Operating Contribution) con LoB `Globales`, País/Producto `Total`, para quien los toma de esos archivos. Fuentes = las
+  del Daily (`partners_api_snapshots.json` hoteles_global, `altas_directas_okr.json`, `price_comp_globales_okr.json`, `sales_density_okr.json`
+  de la carpeta del Daily; OC = Operating Contribution API de others countries, en USD). Targets copiados de `GLOBALES_KRS_NUEVOS_DEF`
+  (`Daily_Dashboard/Codigo.js`): si cambian allá, cambiarlos en `GLOBALES_NUEVOS_TARGETS`. Los tableros no leen estas filas (usan sus listas fijas).
+
 ## Archivos
 - `pnl_common.py` — rutas portables (resuelve OneDrive por usuario) + auth Drive scope completo.
 - `plana_projections_builder.py` — planas budget/forecast/RR/LRR (genérico por base).

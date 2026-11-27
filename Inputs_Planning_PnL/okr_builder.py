@@ -987,6 +987,23 @@ def build(upload=True):
     h2_rows = h2b.build_h2_rows(h2_base + h2_np + h2_np_html, h2_bud, h2_hunt, rows_manual, rows_partners, estado_ub, closed_until, estado_partners, estado_recur)
     _check_h2_vs_okr(h2_rows, all_rows)
 
+    # KR Global B2B API, set nuevo (2026-11-27): mismas fuentes que el Daily (archivos de la carpeta del Daily, los genera daily_sync.py
+    # antes de llamar a este builder) + el OC API de others countries de arriba. Se suman a okr.json y OKR_H2_FY27.json con LoB 'Globales'.
+    def _daily_file(name):
+        try:
+            return _download_by_name(svc, DAILY_FOLDER_ID, name, name + " (KR Global B2B API nuevo)")
+        except Exception as e:
+            print(f"  WARN [Globales nuevo] sin {name} ({e}) — ese KR queda sin actual")
+            return None
+    gn_okr, gn_h2 = h2b.globales_nuevos_rows(_snap, _daily_file("altas_directas_okr.json"), _daily_file("price_comp_globales_okr.json"),
+                                             _daily_file("sales_density_okr.json"), h2_base, h2_bud)
+    all_rows = all_rows + gn_okr
+    h2_rows = sorted(h2_rows + gn_h2, key=lambda r: (r[0], r[1], r[2], r[5], r[3]))
+    _gn = defaultdict(int)
+    for r in gn_okr:
+        _gn[(r[5], r[1])] += 1
+    print("  [Globales nuevo] " + ", ".join("%s %s: %d" % (k, e[:6], n) for (k, e), n in sorted(_gn.items())))
+
     payload = {
         "meta": {
             "concepto":   "okr",

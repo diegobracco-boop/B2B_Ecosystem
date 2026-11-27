@@ -441,6 +441,62 @@ def totals_from_rows(rows, kr):
 PARTNERS_API_KR = "Accelerate Hunting Partners API"
 
 
+# ── KR Global B2B API, set NUEVO (oficial desde 2026-11-26) ───────────────────────────────────────────────────────
+# Los calculan el Daily / Tracker (Daily_Dashboard/Codigo.js, GLOBALES_KRS_NUEVOS_DEF) y el Hub desde archivos propios. Desde
+# 2026-11-27 (pedido de antonella.difranco) también van a okr.json y OKR_H2_FY27.json con LoB 'Globales', Pais/Producto 'Total',
+# en el mismo lugar que el set anterior, para quien los toma de esos archivos. Mismas fuentes y reglas que el Daily; los targets
+# son los de la slide (copiados de GLOBALES_KRS_NUEVOS_DEF: si cambian allá, cambiarlos acá). OC en USD (no $M), como el resto.
+GN_GROW, GN_ALTAS, GN_PRICE, GN_DENSITY, GN_OC = ("Grow +44% API Global Clients Portfolio", "+6k New Direct Properties",
+                                                  "Price Competitiveness Destino Globales", "Sales Density on Top 100 Hotels",
+                                                  "Operating Contribution")
+GLOBALES_NUEVOS_TARGETS = {
+    GN_GROW:    {"2026-10": 150, "2026-11": 160, "2026-12": 170, "2027-01": 180, "2027-02": 190, "2027-03": 200},
+    GN_ALTAS:   {"2026-10": 250, "2026-11": 1250, "2026-12": 2000, "2027-01": 3000, "2027-02": 4000, "2027-03": 6000},
+    GN_PRICE:   {"2026-10": 52.2, "2026-11": 50.1, "2026-12": 46.7, "2027-01": 42.8, "2027-02": 40.2, "2027-03": 39.2},
+    GN_DENSITY: {"2026-10": 16, "2026-11": 17, "2026-12": 18, "2027-01": 18.5, "2027-02": 19.5, "2027-03": 20},
+}
+_GN_ESTADO = {"Cierre": "Real", "Proyeccion": "Proyeccion"}   # estados de los *_sync.py -> Estado de OKR_H2_FY27.json
+
+
+def globales_nuevos_rows(snap, altas, price, density, h2_base, h2_bud):
+    """Filas de los 5 KRs del set nuevo. Devuelve (rows en formato okr.json [7 columnas], rows en formato OKR_H2_FY27.json [8]).
+    snap = partners_api_snapshots.json (hoteles_global: meses congelados "Real" + rolling 30 dias "Rolling30");
+    altas / price / density = altas_directas_okr.json / price_comp_globales_okr.json / sales_density_okr.json ({meses: {ym: ...}});
+    h2_base / h2_bud = filas de contable_by_pais: el OC es "Operating Contribution API" (b2b) de others countries, Estado
+    Actual (cierre contable) / Proyeccion (Run Rate) / Budget, igual que las secciones contables. Una fuente que falta queda sin filas."""
+    h2 = []
+
+    def add(ym, esc, kr, v, est):
+        if ym >= H2_START[:7] and v is not None:
+            h2.append([_ym_to_periodo(ym), esc, "Globales", "Total", "Total", kr, round(float(v), 2), est])
+
+    for kr, by_ym in GLOBALES_NUEVOS_TARGETS.items():
+        for ym, v in by_ym.items():
+            add(ym, BUD, kr, v, BUD)
+    if snap:
+        for ym, d in sorted((snap.get("meses") or {}).items()):
+            if isinstance(d.get("hoteles_global"), (int, float)):
+                add(ym, RR, GN_GROW, d["hoteles_global"], "Real")
+        roll = snap.get("rolling30") or {}
+        ym = str(roll.get("hasta") or "")[:7]
+        if ym and isinstance(roll.get("hoteles_global"), (int, float)) and not any(r[0][:7] == ym and r[1] == RR and r[5] == GN_GROW for r in h2):
+            add(ym, RR, GN_GROW, roll["hoteles_global"], "Rolling30")
+    for src, kr, campo in ((altas, GN_ALTAS, "valor"), (price, GN_PRICE, "pct"), (density, GN_DENSITY, "pct")):
+        for ym, d in sorted(((src or {}).get("meses") or {}).items()):
+            add(ym, RR, kr, d.get(campo), _GN_ESTADO.get(d.get("estado"), "Manual"))
+    oc = defaultdict(float)
+    est_oc = {}
+    for r in list(h2_base) + list(h2_bud):
+        f, esc, lob, pais, _prod, kr, v, est = r
+        if kr == "Operating Contribution API" and str(lob).lower() == "b2b" and str(pais).lower() in ("others countries", "other countries"):
+            oc[(str(f)[:7], esc)] += v
+            est_oc[(str(f)[:7], esc)] = est
+    for (ym, esc), v in sorted(oc.items()):
+        add(ym, esc, GN_OC, v, est_oc[(ym, esc)])
+    h2.sort(key=lambda r: (r[0], r[1], r[5]))
+    return [r[:7] for r in h2], h2
+
+
 def partners_api_rows(snap):
     """Actual de "Accelerate Hunting Partners API" desde partners_api_snapshots.json (Daily_Dashboard/partners_api_sync.py): meses
     congelados (Estado "Real", no se recalculan) y, para el mes sin congelar, el rolling de los ultimos 30 dias (Estado "Rolling30", movil).
