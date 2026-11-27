@@ -1465,6 +1465,12 @@ header > img{filter:brightness(0) invert(1);opacity:.92}
             <input type="checkbox" id="evo-ly-toggle" onchange="toggleEvoLY(this)" style="cursor:pointer">
             Incluir Last Year
           </label>
+          <!-- Cómo se dibuja el Last Year (2026-11-27): línea punteada o tercera columna junto a Real y Goal -->
+          <select id="evo-ly-mode" onchange="setEvoLYMode(this.value)" disabled title="Cómo se agrega el Last Year: como línea o como tercera columna"
+                  style="font-size:11px;color:#57606a;border:1px solid #d0d7de;border-radius:6px;padding:1px 4px;background:#fff;cursor:pointer">
+            <option value="line">como línea</option>
+            <option value="bar">como columna</option>
+          </select>
         </div>
       </div>
       <div class="evo-subtitle" id="evo-subtitle">Evolución mensual · Abr 2026 → último dato disponible</div>
@@ -2089,6 +2095,7 @@ var _state = {
   evoMetric:       'gb',
   evoGranularity:  'M',   // 'M' | 'Q' | 'H' | 'Y'
   evoShowLY:       false, // incluir serie "Last Year" en el gráfico de evolución
+  evoLYMode:       'line', // 'line' (punteada) | 'bar' (tercera columna); se recuerda por navegador (localStorage 'evo_ly_mode')
   bkdView:         'pais', // 'pais' | 'producto'
   numFmt:          'M',   // 'M' | 'K' | 'raw'
   selectedPeriods: [],  // se inicializa al recibir lastActuals del backend
@@ -2683,8 +2690,16 @@ function switchEvo(btn) {
 
 function toggleEvoLY(cb) {
   _state.evoShowLY = cb.checked;
+  var sel = document.getElementById('evo-ly-mode');
+  if (sel) { sel.disabled = !cb.checked; sel.value = _state.evoLYMode; }
   if (_state.evo) renderEvo();
 }
+function setEvoLYMode(v) {
+  _state.evoLYMode = v === 'bar' ? 'bar' : 'line';
+  try { localStorage.setItem('evo_ly_mode', _state.evoLYMode); } catch (e) {}
+  if (_state.evo) renderEvo();
+}
+try { var _lyM = localStorage.getItem('evo_ly_mode'); if (_lyM === 'bar' || _lyM === 'line') _state.evoLYMode = _lyM; } catch (e) {}
 
 function getParams() {
   var sel = _state.selectedPeriods;
@@ -4204,7 +4219,14 @@ function _evoChartCfg_(d, metricId, opts) {
       });
     }
   }
-  if (_state.evoShowLY && _state.goal!=='lastYear') {
+  if (_state.evoShowLY && _state.goal!=='lastYear' && _state.evoLYMode === 'bar') {
+    // Tercera columna (después de Real y Goal), en verde azulado para no confundirla con el Goal gris
+    datasets.push({
+      label: 'Last Year', data: grps.map(function(g){ return g.lyAct; }),
+      type:'bar', yAxisID:'y', _lyBar:true,
+      backgroundColor:'rgba(20,184,166,.45)', borderColor:'rgba(13,148,136,.9)', borderWidth:1, borderRadius:4, order:4
+    });
+  } else if (_state.evoShowLY && _state.goal!=='lastYear') {
     datasets.push({
       label: 'Last Year', data: grps.map(function(g){ return g.lyAct; }),
       type:'line', yAxisID:'y',
@@ -4308,6 +4330,21 @@ function _drawEvoMetricChart_(canvasId, d, metricId, opts) {
               ctx.save();
               ctx.fillStyle='#1f2328';
               ctx.font='bold 10px -apple-system,sans-serif';
+              ctx.textAlign='center';
+              ctx.textBaseline=val<0?'top':'alphabetic';
+              ctx.fillText(fmtK(val),bar.x,val<0?bar.y+4:bar.y-4);
+              ctx.restore();
+            });
+            return;
+          }
+          // Etiquetas sobre la columna de Last Year (modo "como columna")
+          if(ds._lyBar){
+            chart.getDatasetMeta(di).data.forEach(function(bar,i){
+              var val=ds.data[i];
+              if(val===null||val===undefined||val===0) return;
+              ctx.save();
+              ctx.fillStyle='#0f766e';
+              ctx.font='bold 9px -apple-system,sans-serif';
               ctx.textAlign='center';
               ctx.textBaseline=val<0?'top':'alphabetic';
               ctx.fillText(fmtK(val),bar.x,val<0?bar.y+4:bar.y-4);
