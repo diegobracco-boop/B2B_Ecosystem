@@ -268,6 +268,10 @@
   css.textContent = '#bg-country-blocks,#cont-b2b-nav,#cont-b2b2c-nav,#cont-b2b-detail,#cont-b2b2c-detail{display:none!important}#fg-cont-lob,#cont-filters-row .fg:has(#ms-cont-canal){display:none!important}' +
     '#header-subtabs > .header-tab:not(.pa-sec){display:none!important}' +
     'body.cont-view-krs-rr #pa-active{display:none!important}' +
+    // Laptop (< ~1480px): las pestañas centradas en absoluto tapaban el título y los botones del header;
+    // pasan a una segunda fila del header, centradas.
+    '@media (max-width:1480px){header{flex-wrap:wrap;row-gap:8px;height:auto!important;padding-top:10px!important;padding-bottom:10px!important}header > div:first-child{order:1}' +
+    'header > div:last-child{order:2}#header-subtabs{position:static!important;transform:none!important;order:3;margin:0 auto}}' +
     // País / Producto como desplegables con forma de pill en la barra de controles
     '.pa-f{display:inline-flex;align-items:center;gap:6px}.pa-f > span{font-size:11px;color:#3a4048;font-weight:700}' +
     '.pa-f .ms-btn{border-radius:999px;padding:6px 14px;font-size:11.5px;font-weight:600;min-width:0;background:#fff;color:#3a4048;' +
@@ -804,5 +808,40 @@
     });
     bar.insertBefore(grp, bar.firstChild);
     bar.insertBefore(lbl, grp);
+  });
+
+  // ── Ajuste al ancho (laptop, 2026-11-27): lo que no entra se achica en vez de scrollear de costado ──
+  // En un monitor grande no cambia nada (zoom 1). En una laptop (~1230px) la tabla principal medía 1554px en 1149
+  // disponibles y las filas de badges de los gráficos se salían de su card. Se achica con `zoom` hasta FIT_MIN;
+  // si con eso tampoco entra, queda el scroll como antes. Tablas y filas de texto, nunca canvas/svg (gráficos).
+  var FIT_MIN = 0.6;
+  function fitAll() {
+    var fitted = document.querySelectorAll('[data-pa-fit]');
+    for (var i = 0; i < fitted.length; i++) { fitted[i].style.zoom = ''; fitted[i].removeAttribute('data-pa-fit'); }
+    var boxes = document.querySelectorAll('.pnl-card, .pnl-card div[style*="overflow"]');
+    for (var j = 0; j < boxes.length; j++) {
+      var box = boxes[j];
+      if (!box.offsetParent || box.scrollWidth <= box.clientWidth + 2) continue;
+      var br = box.getBoundingClientRect(), avail = box.clientWidth;
+      var kids = box.querySelectorAll('table, div');
+      for (var k = 0; k < kids.length; k++) {
+        var el = kids[k];
+        if (el.hasAttribute('data-pa-fit') || el.closest('[data-pa-fit]') || el.querySelector('canvas, svg')) continue;
+        var r = el.getBoundingClientRect();
+        if (!r.width || r.right <= br.right + 1) continue;
+        var pr = el.parentElement.getBoundingClientRect();
+        if (pr.right > br.right + 1 && el.parentElement !== box && box.contains(el.parentElement) && !el.parentElement.querySelector('canvas, svg')) continue;  // ya lo achica un ancestro
+        var room = avail - (r.left - br.left) + box.scrollLeft;
+        var z = Math.max(FIT_MIN, Math.min(1, (room - 4) / r.width));
+        if (z < 1) { el.style.zoom = z.toFixed(3); el.setAttribute('data-pa-fit', ''); }
+      }
+    }
+  }
+  var fitT = null;
+  function fitSoon() { clearTimeout(fitT); fitT = setTimeout(fitAll, 150); }
+  window.addEventListener('resize', fitSoon);
+  document.addEventListener('DOMContentLoaded', function () {
+    new MutationObserver(fitSoon).observe(document.body, { childList: true, subtree: true });
+    fitSoon();
   });
 })();
