@@ -10,7 +10,9 @@
  *   9 B2B + business levers · 10 B2B MIN por región · 11 B2B MAY por región ·
  *   12-13 Proyección (mes siguiente, los Q que faltan y el semestre) vs Budget y vs Forecast BTB, en cards.
  *   Después de la 2: "H2 vs H1 · 100% Budget" (public/hub-h2h1.js, slideBudgetHtml).
- *   Después de la 4: B2B-MAY mensual vs Budget, el mismo formato con NR y OC contable por segmento de
+ *   Después de la 4 (2026-11-27): "B2B2C NR por trimestre" × Total / Hispa / Brasil / México-US, slide del Daily embebida
+ *   (<base>/daily?embed=flow&slide=b2b2c_nrq-<región>, public/daily-flow-nrq.js): existentes / nuevas / TBD, real + proyección vs Budget.
+ *   Después: B2B-MAY mensual vs Budget, el mismo formato con NR y OC contable por segmento de
  *   API (Hoteles Brasil · Hoteles Globales · Flights & Dest. Serv. · Hoteles Argentina · Rest of Countries, ver MAY_Q).
  *   La 4 es la portada "B2B2C — Resumen mensual (OC)" del Flow del Daily a pantalla completa
  *   (<base>/daily?embed=b2b2c-cover, public/daily-embed.js): NR total del contable (&nrc=…; Hunting / TBD
@@ -18,7 +20,7 @@
  *   Datalake, OC del contable, tablas H1 / H2. El "at risk" del título lo calcula esa página (NR) y
  *   el OC se estima con el margen OC/NR del Budget H2 de B2B2C del contable (&ocm=).
  *   Switch "COI Brasil" del deck (default Excluir): solo afecta esa slide (&coibr=).
- *   Después de "Proyección vs Forecast BTB" (2026-11-03, provisorio hasta reordenar con el material oficial): OC mensual vs Budget de B2B2C, B2B-MAY y B2B-MIN (sOcMonthly): barras
+ *   Después de "Proyección vs Forecast BTB" (2026-11-03, provisorio hasta reordenar con el material oficial): NR y OC mensual vs Budget y LY de White Labels, API y HTML (sOcMonthly; desde 2026-11-27 NR arriba y OC abajo, con LY): barras
  *   baseline (real + Run Rate) vs Budget por mes, y debajo OC vs Budget %, YoY NR y YoY OC; columna FY.
  *   Después: "B2B2C FVM vs OC" (sFvmOc, getFvmOcBridge del Hub): mes cerrado + 2 de Run Rate, FVM y OC vs año anterior y el puente del Δ OC.
  *   Al final (2026-11-03): las slides de "Mis slides" marcadas "Agregar al final del Flow mensual" (inFlow, de cualquier
@@ -289,53 +291,64 @@
       '<div class="hs-evmid">' + evoChart('Net Revenue', s, 'nr') + evoChart('Operating Contribution', s, 'oc') + '</div>' +
       '<div class="hs-evright">' + noteBox(field, noteTitle, h2Draft(c)) + '</div></div>' + foot();
   }
-  // OC mensual vs Budget (2026-11-03, Diego): una por negocio (B2B2C / B2B-MAY / B2B-MIN). Barras por mes: baseline (real cerrado
-  // oscuro, Run Rate claro) y Budget (gris), con negativos debajo de la línea de cero. Debajo: OC vs Budget %, YoY de NR y YoY de OC
-  // (real vs LY; con Organic, real a TC LY, igual que el resto del deck). Última columna: el FY.
+  // NR y OC mensual vs Budget y LY (2026-11-03, Diego; rediseño 2026-11-27): una por negocio (White Labels / API / HTML). Dos
+  // paneles, Net Revenue arriba y Operating Contribution abajo, con tres barras por mes: LY (gris claro), Baseline (violeta
+  // Despegar; rayada en los meses de Run Rate) y Budget (violeta claro); negativos debajo de la línea de cero. Debajo de cada
+  // panel, el YoY % (real vs LY; con Organic, real a TC LY, igual que el resto del deck). Última columna: el FY.
   function yoyOf(x) { return x && x.ly > 0 && x.yoyN != null && isFinite(x.yoyN) ? (x.yoyN / x.ly - 1) * 100 : NaN; }
-  function vsBudOf(x) { return x && x.bud > 0 ? (x.act / x.bud - 1) * 100 : NaN; }
-  function sOcMonthly(c) {
-    var s = state.data[c].s, oc = s.oc, nr = s.nr, ci = closedIdx(), P = fyPeriods();
-    var Wc = 1208, x0 = 112, fyW = 116, slot = (Wc - x0 - fyW) / 12, top = 34, bot = 318, bw = Math.min(30, slot * 0.34);
-    var vals = [0]; oc.forEach(function (x) { vals.push(x.act, x.bud); });
+  var OM_NAME = { b2b2c: 'White Labels', may: 'API (MAY)', min: 'HTML (MIN)' };
+  var OM_C = { ly: '#d9dbe0', base: '#5626e9', bud: '#c4b8f7' };
+  function omPanel(c, k, arr, lbl, ci, P) {
+    var Wc = 1208, x0 = 112, fyW = 116, slot = (Wc - x0 - fyW) / 12, top = 26, bot = 196, Hs = bot + 52, bw = Math.min(19, slot * 0.25);
+    var vals = [0]; arr.forEach(function (x) { vals.push(x.act, x.bud, x.ly); });
     var mx = Math.max.apply(null, vals), mn = Math.min.apply(null, vals), span = (mx - mn) || 1;
     var dec = Math.max(Math.abs(mx), Math.abs(mn)) < 2e6 ? 2 : 1;
     var fm = function (v) { var m = v / 1e6; return (m < 0 ? '−' : '') + Math.abs(m).toFixed(dec); };
     var y = function (v) { return top + (mx - v) / span * (bot - top); };
-    var rows = [['vs Budget', vsBudOf, oc], ['YoY NR', yoyOf, nr], ['YoY OC', yoyOf, oc]], rowY = [bot + 58, bot + 92, bot + 126];
-    var svg = '<svg viewBox="0 0 ' + Wc + ' ' + (bot + 142) + '" class="hs-om">';
-    svg += '<rect x="' + (Wc - fyW + 6) + '" y="0" width="' + (fyW - 6) + '" height="' + (bot + 142) + '" rx="8" fill="#f6f4fe"/>';
+    var hid = 'hsh-' + c + '-' + k;
+    var svg = '<svg viewBox="0 0 ' + Wc + ' ' + Hs + '" class="hs-om"><defs><pattern id="' + hid + '" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)">' +
+      '<rect width="6" height="6" fill="#efeafd"/><line x1="0" y1="0" x2="0" y2="6" stroke="' + OM_C.base + '" stroke-width="3"/></pattern></defs>';
+    svg += '<rect x="' + (Wc - fyW + 6) + '" y="0" width="' + (fyW - 6) + '" height="' + Hs + '" rx="8" fill="#f6f4fe"/>';
+    svg += '<text x="4" y="16" class="hs-oml hs-omt">' + lbl + '</text>';
     svg += '<line x1="' + x0 + '" x2="' + (Wc - fyW) + '" y1="' + y(0).toFixed(1) + '" y2="' + y(0).toFixed(1) + '" stroke="#c9c9d2"/>';
-    oc.forEach(function (x, i) {
-      var cx = x0 + slot * i + slot / 2, ya = y(x.act), yb = y(x.bud), y0 = y(0);
-      svg += '<rect x="' + (cx - bw - 1).toFixed(1) + '" y="' + Math.min(ya, y0).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + Math.max(1, Math.abs(ya - y0)).toFixed(1) + '" rx="2" fill="' + (i <= ci ? '#5b4fe0' : '#a99ff2') + '"/>';
-      svg += '<rect x="' + (cx + 1).toFixed(1) + '" y="' + Math.min(yb, y0).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + Math.max(1, Math.abs(yb - y0)).toFixed(1) + '" rx="2" fill="#d9dbe0"/>';
-      svg += '<text x="' + (cx - bw / 2 - 1).toFixed(1) + '" y="' + (x.act < 0 ? Math.max(ya, y0) + 14 : Math.min(ya, y0) - 5).toFixed(1) + '" class="hs-omv">' + fm(x.act) + '</text>';
-      svg += '<text x="' + (cx + bw / 2 + 1).toFixed(1) + '" y="' + (x.bud < 0 ? Math.max(yb, y0) + 14 : Math.min(yb, y0) - 5).toFixed(1) + '" class="hs-omb">' + fm(x.bud) + '</text>';
-      svg += '<text x="' + cx.toFixed(1) + '" y="' + (bot + 24) + '" class="hs-omm' + (i <= ci ? '' : ' hs-omrr') + '">' + monthLabel(P[i]) + '</text>';
-      rows.forEach(function (r, k) {
-        var v = r[1](r[2][i]);
-        svg += '<text x="' + cx.toFixed(1) + '" y="' + rowY[k] + '" class="hs-omr ' + cls(v) + '">' + (isFinite(v) && Math.abs(v) < 1000 ? pc(v) : 'n/d') + '</text>';
-      });
+    function bar(x, v, fill, extra) {
+      var yv = y(v), y0 = y(0);
+      return '<rect x="' + x.toFixed(1) + '" y="' + Math.min(yv, y0).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + Math.max(1, Math.abs(yv - y0)).toFixed(1) + '" rx="2" fill="' + fill + '"' + (extra || '') + '/>';
+    }
+    arr.forEach(function (x, i) {
+      var cx = x0 + slot * i + slot / 2, proj = i > ci, xb = cx - bw / 2;
+      svg += bar(xb - bw - 2, x.ly, OM_C.ly);
+      svg += bar(xb, x.act, proj ? 'url(#' + hid + ')' : OM_C.base, proj ? ' stroke="' + OM_C.base + '" stroke-width="1"' : '');
+      svg += bar(xb + bw + 2, x.bud, OM_C.bud);
+      var ya = y(x.act), y0 = y(0);
+      svg += '<text x="' + cx.toFixed(1) + '" y="' + (x.act < 0 ? Math.max(ya, y0) + 13 : Math.min(ya, y0) - 4).toFixed(1) + '" class="hs-omv">' + fm(x.act) + '</text>';
+      svg += '<text x="' + cx.toFixed(1) + '" y="' + (bot + 17) + '" class="hs-omm' + (proj ? ' hs-omrr' : '') + '">' + monthLabel(P[i]) + '</text>';
+      var v = yoyOf(x);
+      svg += '<text x="' + cx.toFixed(1) + '" y="' + (bot + 44) + '" class="hs-omr ' + cls(v) + '">' + (isFinite(v) && Math.abs(v) < 1000 ? pc(v) : 'n/d') + '</text>';
     });
-    // FY: total del año (real + Run Rate) vs Budget, y YoY del año
-    var fx = Wc - fyW / 2 + 3, all = range(0, 11), ofy = agg(oc, all), nfy = agg(nr, all);
-    svg += '<text x="' + fx + '" y="' + (top + 20) + '" class="hs-omfh">' + fyTag() + '</text>';
-    svg += '<text x="' + fx + '" y="' + (top + 74) + '" class="hs-omfv">' + fm(ofy.act) + '</text><text x="' + fx + '" y="' + (top + 94) + '" class="hs-omfs">Baseline USD $M</text>';
-    svg += '<text x="' + fx + '" y="' + (top + 140) + '" class="hs-omfb">' + fm(ofy.bud) + '</text><text x="' + fx + '" y="' + (top + 158) + '" class="hs-omfs">Budget USD $M</text>';
-    svg += '<text x="' + fx + '" y="' + (bot + 24) + '" class="hs-omm">FY</text>';
-    [[ofy.vsPct], [nfy.yoy], [ofy.yoy]].forEach(function (v, k) {
-      var ok = isFinite(v[0]) && (k > 0 || ofy.bud > 0) && Math.abs(v[0]) < 1000;
-      svg += '<text x="' + fx + '" y="' + rowY[k] + '" class="hs-omr hs-omrb ' + (ok ? cls(v[0]) : '') + '">' + (ok ? pc(v[0]) : 'n/d') + '</text>';
-    });
-    rows.forEach(function (r, k) { svg += '<text x="4" y="' + rowY[k] + '" class="hs-oml">' + r[0] + '</text>'; });
-    svg += '<line x1="4" x2="' + (Wc - fyW) + '" y1="' + (bot + 36) + '" y2="' + (bot + 36) + '" stroke="#ece7fd"/></svg>';
-    var nextM = P[ci + 1];
-    return head(fyTag().replace("FY'", 'FY ') + ' | ' + SEG[c].name + ' · Operating Contribution mensual vs Budget',
+    var fx = Wc - fyW / 2 + 3, fy = agg(arr, range(0, 11)), okY = isFinite(fy.yoy) && Math.abs(fy.yoy) < 1000, okB = fy.bud > 0 && isFinite(fy.vsPct);
+    svg += '<text x="' + fx + '" y="' + (top + 8) + '" class="hs-omfh">' + fyTag() + '</text>';
+    svg += '<text x="' + fx + '" y="' + (top + 46) + '" class="hs-omfv">' + fm(fy.act) + '</text><text x="' + fx + '" y="' + (top + 62) + '" class="hs-omfs">Baseline</text>';
+    svg += '<text x="' + fx + '" y="' + (top + 96) + '" class="hs-omfb">' + fm(fy.bud) + '</text><text x="' + fx + '" y="' + (top + 111) + '" class="hs-omfs">Budget' +
+      (okB ? ' · <tspan class="' + (fy.vsPct >= 0 ? 'hs-omfu' : 'hs-omfd') + '">' + pc(fy.vsPct) + '</tspan>' : '') + '</text>';
+    svg += '<text x="' + fx + '" y="' + (top + 140) + '" class="hs-omfl">' + fm(fy.ly) + '</text><text x="' + fx + '" y="' + (top + 154) + '" class="hs-omfs">LY</text>';
+    svg += '<text x="' + fx + '" y="' + (bot + 17) + '" class="hs-omm">FY</text>';
+    svg += '<text x="' + fx + '" y="' + (bot + 44) + '" class="hs-omr hs-omrb ' + (okY ? cls(fy.yoy) : '') + '">' + (okY ? pc(fy.yoy) : 'n/d') + '</text>';
+    svg += '<text x="4" y="' + (bot + 44) + '" class="hs-oml">YoY %</text>';
+    svg += '<line x1="4" x2="' + (Wc - fyW) + '" y1="' + (bot + 26) + '" y2="' + (bot + 26) + '" stroke="#ece7fd"/></svg>';
+    return svg;
+  }
+  function sOcMonthly(c) {
+    var s = state.data[c].s, ci = closedIdx(), P = fyPeriods(), nextM = P[ci + 1];
+    var hatch = 'background:repeating-linear-gradient(45deg,' + OM_C.base + ' 0 2px,#efeafd 2px 4.5px);outline:1px solid ' + OM_C.base;
+    return head(fyTag().replace("FY'", 'FY ') + ' | ' + (OM_NAME[c] || SEG[c].name) + ' · NR y OC mensual vs Budget y LY',
         'Baseline = real cerrado hasta ' + monthLabel(state.month) + (nextM ? ' + Run Rate desde ' + monthLabel(nextM) : '')) +
-      '<div class="hs-omleg"><span><i class="hs-omi" style="background:#5b4fe0"></i>Baseline · real</span><span><i class="hs-omi" style="background:#a99ff2"></i>Baseline · Run Rate</span>' +
-      '<span><i class="hs-omi" style="background:#d9dbe0"></i>Budget</span><span class="hs-omu">USD $M</span></div>' + svg +
-      '<div class="hs-otn">vs Budget = Baseline / Budget − 1 · YoY = real vs mismo mes del año anterior' + (organicOn() ? ' (Organic: el real a TC del año anterior)' : '') + ' · n/d: base negativa o cero</div>' + foot();
+      '<div class="hs-omleg"><span><i class="hs-omi" style="background:' + OM_C.ly + '"></i>LY</span>' +
+      '<span><i class="hs-omi" style="background:' + OM_C.base + '"></i>Baseline · real</span><span><i class="hs-omi" style="' + hatch + '"></i>Baseline · Run Rate</span>' +
+      '<span><i class="hs-omi" style="background:' + OM_C.bud + '"></i>Budget</span><span class="hs-omu">USD $M · rótulo = Baseline</span></div>' +
+      omPanel(c, 'nr', s.nr, 'Net Revenue', ci, P) + omPanel(c, 'oc', s.oc, 'Operating Contribution', ci, P) +
+      '<div class="hs-otn">YoY = real vs mismo mes del año anterior' + (organicOn() ? ' (Organic: el real a TC del año anterior)' : '') +
+      ' · FY = real + Run Rate; Budget % = Baseline / Budget − 1 · n/d: base negativa o cero</div>' + foot();
   }
   function sResults(title, cols) { return head(title, ytdLabel() + ' · y el mes de ' + monthLabel(state.month)) + '<div class="hs-res">' + grid(cols) + '</div>' + foot(); }
   function col(k) { return { name: SEG[k].name, s: state.data[k].s }; }
@@ -378,6 +391,13 @@
       '&nrcl=' + closedIdx();
     var src = basePath() + '/daily?embed=b2b2c-cover&organic=' + (organicOn() ? 'yes' : 'no') + '&coibr=' + state.coibr + (isFinite(ocm) ? '&ocm=' + ocm.toFixed(4) : '') + '&ocgb=' + ocgb + '&nrgb=' + nrgb + nrq;
     return '<iframe class="hs-ifr" src="' + esc(src) + '" title="B2B2C mensual vs Budget (Daily)"></iframe>';
+  }
+
+  // B2B2C NR por trimestre según origen de la cuenta (2026-11-27): la slide del Daily (public/daily-flow-nrq.js) para una
+  // cartera: '' = Total, 'SAH' = Hispa, 'BR' = Brasil, 'NAM' = México / US. Respeta Organic y COI Brasil del deck.
+  function sNrQuarter(region) {
+    var src = basePath() + '/daily?embed=flow&slide=b2b2c_nrq' + (region ? '-' + region : '') + '&organic=' + (organicOn() ? 'yes' : 'no') + '&coibr=' + state.coibr;
+    return '<iframe class="hs-ifr hs-ifr-nrq" data-region="' + esc(region) + '" src="' + esc(src) + '" title="B2B2C NR por trimestre (Daily)"></iframe>';
   }
 
   // ── B2B-MAY mensual vs Budget: como la slide 4 (B2B2C), con NR y OC por segmento de API ─────────
@@ -761,6 +781,11 @@
       ['H2 vs H1 · 100% Budget', h2h1b || '<div class="hs-err">No se pudo armar H2 vs H1 Budget.</div>', true],
       ['B2B-MAY Evolution', sEvolution('may', 'Principales desafíos H2', 'may_challenges')],
       ['B2B2C mensual vs Budget', sB2B2CMonthly(), true],
+      // NR por trimestre según origen de la cuenta (2026-11-27): Total, Hispa, Brasil y México / US
+      ['B2B2C NR por trimestre · Total', sNrQuarter(''), true],
+      ['B2B2C NR por trimestre · Hispa', sNrQuarter('SAH'), true],
+      ['B2B2C NR por trimestre · Brasil', sNrQuarter('BR'), true],
+      ['B2B2C NR por trimestre · México / US', sNrQuarter('NAM'), true],
       ['B2B-MAY mensual vs Budget', sMayMonthly()],
       ['B2B-MIN Evolution', sEvolution('min', 'Principales oportunidades H2', 'min_opportunities')],
       ['Resultados', sResults(ytdLabel() + ' | B2B Results', [col('min'), col('may'), col('b2b2c'), col('total')])],
@@ -772,9 +797,9 @@
       ['Proyección vs Budget', sOutlook('budget'), false, 'budget'],
       ['Proyección vs Forecast', sOutlook('btb'), false, 'btb'],
       // Al final por ahora (2026-11-03): se reordena el deck cuando cierre el material oficial del mes
-      ['B2B2C OC mensual vs Budget', sOcMonthly('b2b2c')],
-      ['B2B-MAY OC mensual vs Budget', sOcMonthly('may')],
-      ['B2B-MIN OC mensual vs Budget', sOcMonthly('min')],
+      ['White Labels NR y OC mensual vs Budget y LY', sOcMonthly('b2b2c')],
+      ['API NR y OC mensual vs Budget y LY', sOcMonthly('may')],
+      ['HTML NR y OC mensual vs Budget y LY', sOcMonthly('min')],
       ['B2B2C FVM vs OC', sFvmOc(fo)],
     ].concat(b2bSection(br));   // sección B2B (2026-11-25): después del deck fijo, antes de las de Mis slides
     (extra || []).forEach(function (x) { list.push([x.title, x.html]); });
@@ -991,7 +1016,8 @@
       '#hs .hs-omv{font-size:12.5px;font-weight:700;text-anchor:middle;fill:#1d1d1f}#hs .hs-omb{font-size:11px;text-anchor:middle;fill:#8e8e93}',
       '#hs .hs-omm{font-size:13px;font-weight:600;text-anchor:middle;fill:#1d1d1f}#hs .hs-omrr{fill:#6e6e73;font-weight:400}',
       '#hs .hs-omr{font-size:13.5px;font-weight:700;text-anchor:middle;fill:#6e6e73}#hs .hs-omr.hs-up{fill:#1a9e5a}#hs .hs-omr.hs-dn{fill:#d4373a}#hs .hs-omrb{font-size:15px}',
-      '#hs .hs-oml{font-size:13px;font-weight:700;fill:#4300d2}',
+      '#hs .hs-oml{font-size:13px;font-weight:700;fill:#4300d2}#hs .hs-omt{font-size:14.5px;font-weight:800;fill:#1d1d1f}',
+      '#hs .hs-omfl{font-size:18px;font-weight:600;text-anchor:middle;fill:#a1a1a8}#hs .hs-omfu{fill:#1a9e5a;font-weight:700}#hs .hs-omfd{fill:#d4373a;font-weight:700}',
       '#hs .hs-omfh{font-size:16px;font-weight:700;text-anchor:middle;fill:#4300d2}#hs .hs-omfv{font-size:30px;font-weight:700;text-anchor:middle;fill:#4300d2}',
       '#hs .hs-omfb{font-size:22px;font-weight:600;text-anchor:middle;fill:#8e8e93}#hs .hs-omfs{font-size:10.5px;text-anchor:middle;fill:#8e8e93}',
       // Sección B2B: P&L H2 por quarter (sB2BPnl) y OC Bridge (sB2BBridge)
@@ -1058,8 +1084,9 @@
         state.coibr = b.dataset.c;
         syncToolbar();
         // solo cambia la slide del Daily: se recarga su iframe
-        var f = panel.querySelector('.hs-ifr');
+        var f = panel.querySelector('.hs-ifr:not(.hs-ifr-nrq)');
         if (f && state.data) f.parentNode.innerHTML = sB2B2CMonthly();
+        Array.prototype.forEach.call(panel.querySelectorAll('.hs-ifr-nrq'), function (n) { n.parentNode.innerHTML = sNrQuarter(n.getAttribute('data-region') || ''); });
       };
     });
     Array.prototype.forEach.call(panel.querySelectorAll('.hs-detb'), function (b) {
