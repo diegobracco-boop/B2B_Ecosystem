@@ -139,6 +139,9 @@
       REG.forEach(function (r) { keys.push(c + '_' + r[0]); list.push(params({ lob: 'b2b', canal: c, pais: r[2] })); });
     });
     MAY_Q.forEach(function (q) { keys.push(q[0]); list.push(params({ lob: 'b2b', canal: 'may', pais: q[1], producto: q[2] })); });
+    // Títulos de las slides NR y OC mensual (omTitle): siempre con crecimiento orgánico. Con Organic apagado se piden aparte las
+    // tres series con Organic (mismo pedido); con Organic prendido, omTitle usa las del deck.
+    if (!organicOn()) ['b2b2c', 'may', 'min'].forEach(function (k) { var p = params(SEG[k]); p.organic = 'forecast'; keys.push('org_' + k); list.push(p); });
     return callEvo(list).then(function (res) {
       var d = {};
       keys.forEach(function (k, i) { d[k] = { s: series(res[i]), raw: res[i] }; });
@@ -344,10 +347,37 @@
     svg += '<line x1="4" x2="' + (Wc - fyW) + '" y1="' + (bot + 26) + '" y2="' + (bot + 26) + '" stroke="#ece7fd"/></svg>';
     return svg;
   }
+  // Título "inspirador" (2026-11-27, Diego): cuenta lo positivo del crecimiento orgánico (real a TC del año anterior, aunque el
+  // deck esté en nominal) con el FY = real cerrado + Run Rate. Elige solo, en este orden, la primera historia que dé positiva:
+  //   1. NR y OC crecen y el OC más rápido · 2. NR crece con racha de 3+ meses cerrados seguidos creciendo · 3. NR crece (+ US$ vs LY)
+  //   4. solo el OC crece · 5. el último mes cerrado crece · 6. los meses de Run Rate crecen. Nunca muestra un YoY negativo; si nada
+  //   crece, queda el título descriptivo.
+  var OM_SHORT = { b2b2c: 'White Labels', may: 'API', min: 'HTML' };
+  function omTitle(c) {
+    var d = state.data[organicOn() ? c : 'org_' + c] || state.data[c], s = d.s, ci = closedIdx(), n = OM_SHORT[c] || SEG[c].name;
+    var ok = function (v) { return isFinite(v) && v > 0 && v < 1000; };
+    var p = function (v) { return pc(v, v < 10 ? 1 : 0); };
+    var fyN = agg(s.nr, range(0, 11)), fyO = agg(s.oc, range(0, 11)), gN = fyN.yoy, gO = fyO.yoy;
+    var streak = 0;
+    for (var i = ci; i >= 0; i--) { if (ok(yoyOf(s.nr[i]))) streak++; else break; }
+    var lastM = ci >= 0 ? yoyOf(s.nr[ci]) : NaN, rr = agg(s.nr, range(ci + 1, 11)).yoy;
+    var usd = fyN.yoyOk ? money(fyN.yoyN - fyN.ly).replace('+$', '+US$ ') : '';
+    if (ok(gN) && ok(gO) && gO > gN) return n + ': NR ' + p(gN) + ' orgánico en el FY y el OC crece aún más (' + p(gO) + ')';
+    if (ok(gN) && streak >= 3) return n + ': NR ' + p(gN) + ' orgánico en el FY, ' + streak + ' meses seguidos creciendo';
+    if (ok(gN)) return n + ': NR ' + p(gN) + ' orgánico en el FY' + (usd ? ' (' + usd + ' vs LY)' : '') + (ok(gO) ? ' · OC ' + p(gO) : '');
+    if (ok(gO)) return n + ': el OC crece ' + p(gO) + ' orgánico en el FY';
+    if (ok(lastM)) return n + ': ' + MES[+state.month.slice(5) - 1].toLowerCase() + ' cerró con NR ' + p(lastM) + ' orgánico vs LY';
+    if (ci < 11 && ok(rr)) return n + ': el Run Rate proyecta NR ' + p(rr) + ' orgánico vs LY';
+    return '';
+  }
   function sOcMonthly(c) {
     var s = state.data[c].s, ci = closedIdx(), P = fyPeriods(), nextM = P[ci + 1];
     var hatch = 'background:repeating-linear-gradient(45deg,' + OM_C.base + ' 0 2px,#efeafd 2px 4.5px);outline:1px solid ' + OM_C.base;
-    return head(fyTag().replace("FY'", 'FY ') + ' | ' + (OM_NAME[c] || SEG[c].name) + ' · NR y OC mensual vs Budget y LY',
+    var desc = fyTag().replace("FY'", 'FY ') + ' | ' + (OM_NAME[c] || SEG[c].name) + ' · NR y OC mensual vs Budget y LY', t = '';
+    try { t = omTitle(c); } catch (e) { console.warn('[hub-slides] título NR y OC mensual:', e); }
+    // títulos largos, un poco más chicos para que entren en una línea al lado del logo
+    return head(t ? '<span' + (t.length > 52 ? ' style="font-size:25px"' : '') + '>' + esc(t) + '</span>' : desc,
+        (t ? desc + ' · ' : '') +
         'Baseline = real cerrado hasta ' + monthLabel(state.month) + (nextM ? ' + Run Rate desde ' + monthLabel(nextM) : '')) +
       '<div class="hs-omleg"><span><i class="hs-omi" style="background:' + OM_C.ly + '"></i>LY</span>' +
       '<span><i class="hs-omi" style="background:' + OM_C.base + '"></i>Baseline · real</span><span><i class="hs-omi" style="' + hatch + '"></i>Baseline · Run Rate</span>' +
