@@ -147,6 +147,85 @@ test('Excel: hoja "Por país" con una fila por negocio × país × métrica y au
   assert.equal(pr.length - 1, 5 * 4);
   const gbAr = pr.find(r => r[0].v === 'B2B2C' && r[1].v === 'Argentina' && r[2].v === 'GB');
   assert.equal(gbAr[3].v, 1500); assert.equal(gbAr[4].v, 2000);
-  assert.equal(sh[1].filter, 'A1:M' + pr.length);
+  assert.equal(sh[1].filter, 'A1:P' + pr.length);
+  assert.equal(pr[0].length, 16);
+  assert.ok(X.workbookFromSheets(sh).length > 1000);
+});
+
+// B2C de referencia: mismas filas (fecha, país) que el Benchmark, sin Orders
+const b2cRow = (fecha, pais, gb, nr, fvm) => ({ fecha, pais, gross_bookings: gb, net_revenues: nr, fvm });
+function withB2C() {
+  const f = fixture();
+  f.b2b2c.act.push(Object.assign(b2bc(D, 1, 100, 10, 5), { pais: 'Brasil' }));
+  f.b2b2c.ly.push(Object.assign(b2bc(LY, 1, 50, 10, 5), { pais: 'Brasil' }));
+  f.b2b.act.push(Object.assign(b2b(D, 'API', 0, 0, 0, -3), { pais: 'RG' }));
+  f.b2c = {
+    cur: [b2cRow(D, 'Argentina', 1100, 110, 55), b2cRow(D, 'Brasil', 2000, 200, 100), b2cRow('2026-11-27', 'Brasil', 9e6, 9e6, 9e6)],
+    ly: [b2cRow(LY, 'Argentina', 1000, 100, 50), b2cRow(LY, 'Brasil', 1000, 100, 50)],
+  };
+  return f;
+}
+
+test('varios días: suma Real / Budget / RR de los días y el LY de los mismos días del año anterior', () => {
+  const f = fixture();
+  const D2 = '2026-11-25', LY2 = '2025-11-26';
+  f.b2b2c.bud.push(b2bc(D2, 1, 100, 10, 5, 'net_revenue'));
+  f.b2b2c.ly.push(b2bc(LY2, 1, 400, 40, 4));
+  const r = A.computeTables(f, [D, D2], [LY, LY2]);
+  assert.equal(r.b2b2c.real.gb, 1500 + 9999); assert.equal(r.b2b2c.bud.gb, 2100); assert.equal(r.b2b2c.ly.gb, 1400);
+  assert.equal(A.computeTables(f, D, LY).b2b2c.real.gb, 1500);   // un día suelto sigue funcionando
+  assert.equal(A.lyDate('2026-11-26'), '2025-11-27');             // mismo día de la semana (jue → jue, semana 48)
+  assert.equal(A.lyDate('2026-11-26', 'cal'), '2025-11-26');
+  assert.equal(A.lyDate('2028-02-29', 'cal'), '2027-02-28');
+  assert.deepEqual(Array.from(A.lyDates(['2026-11-27', '2026-11-26'])), ['2025-11-27', '2025-11-28']);
+  assert.equal(A.isoWeek('2026-11-26'), 48); assert.equal(A.isoWeek('2026-01-01'), 1); assert.equal(A.isoWeek('2027-01-01'), 53);
+  assert.equal(A.fechasLabel([D]), 'jue 26/11/2026');
+  assert.equal(A.fechasLabel(['2026-11-23', '2026-11-24', '2026-11-25']), 'lun 23/11 – mié 25/11/2026 (3 días)');
+  assert.equal(A.fechasLabel(['2026-11-02', '2026-11-05']), '2 días: 02/11, 05/11/2026');
+});
+
+test('Part. vs B2C: negocio / (negocio + B2C) en los mismos días y países, y su Δ pp vs LY; Orders sin B2C', () => {
+  const r = A.computeTables(withB2C(), D, LY);
+  assert.equal(r.b2c.cur.gb, 3100); assert.equal(r.b2c.ly.gb, 2000);
+  const v = A.partB2C(r.b2b2c, r.b2c, 'gb');   // B2B2C 1600 / (1600 + 3100); LY 1050 / (1050 + 2000)
+  assert.equal(v.cur.toFixed(4), (1600 / 4700).toFixed(4));
+  assert.equal(v.ly.toFixed(4), (1050 / 3050).toFixed(4));
+  assert.equal(v.d.toFixed(4), (1600 / 4700 - 1050 / 3050).toFixed(4));
+  assert.equal(A.partB2C(r.b2b2c, r.b2c, 'orders'), null);
+  const ar = A.computeTables(withB2C(), D, LY, ['Argentina']);
+  assert.equal(ar.b2c.cur.gb, 1100);   // B2C filtrado por el mismo país
+  assert.equal(A.partB2C(ar.b2b2c, ar.b2c, 'gb').cur.toFixed(4), (1500 / 2600).toFixed(4));
+  const noB2c = A.computeTables(fixture(), D, LY);
+  assert.equal(noB2c.b2c, null); assert.equal(A.partB2C(noB2c.b2b2c, noB2c.b2c, 'gb'), null);
+  // Excel: las tres columnas nuevas al final (participación, la del LY y el Δ pp)
+  const X = ctx.DailyExcel;
+  const rows = A.buildSheets(r, D, LY, X.STYLE, [])[0].rows;
+  const gb = rows[rows.findIndex(x => x[0] && /^B2B2C/.test(x[0].v)) + 3];
+  assert.equal(gb[0].v, 'GB'); assert.equal(gb[11].v.toFixed(4), v.cur.toFixed(4)); assert.equal(gb[12].v.toFixed(4), v.ly.toFixed(4));
+  assert.equal(gb[13].v.toFixed(4), v.d.toFixed(4));
+  const ord = rows[rows.findIndex(x => x[0] && /^B2B2C/.test(x[0].v)) + 2];
+  assert.equal(ord[0].v, 'Orders'); assert.equal(ord[13], null);
+});
+
+test('Summary Comité: TOTAL = BRASIL (con RG) + RESTO, por LoB, y su Excel', () => {
+  const f = withB2C();
+  const segs = A.computeComite(f, D, LY);
+  assert.equal(segs.map(s => s.lbl).join('|'), 'TOTAL|BRASIL|RESTO');
+  const [tot, br, re] = segs.map(s => s.res);
+  for (const lob of ['total', 'b2b2c', 'may', 'min']) {
+    for (const k of ['orders', 'gb', 'nr', 'fvm']) {
+      const s = (br[lob] && br[lob].real ? br[lob].real[k] : 0) + (re[lob] && re[lob].real ? re[lob].real[k] : 0);
+      assert.equal(s, tot[lob].real[k], lob + ' ' + k);
+    }
+  }
+  assert.equal(br.may.real.fvm, 10 - 3);   // Brasil API + RG
+  assert.equal(re.b2b2c.real.gb, 1500); assert.equal(br.b2b2c.real.gb, 100);
+  assert.equal(br.b2c.cur.gb, 2000); assert.equal(re.b2c.cur.gb, 1100);
+  const X = ctx.DailyExcel;
+  const sh = A.buildComiteSheets(segs, 'min', D, LY, X.STYLE, ['nota']);
+  assert.equal(sh.map(s => s.name).join('|'), 'Summary Comité|Info');
+  const titles = sh[0].rows.filter(x => x.length === 1).map(x => x[0].v);
+  assert.match(titles[1], /^LoB MIN/); assert.match(titles[2], /^LoB Total/);
+  assert.equal(sh[0].rows[3].length, 2 + 13);
   assert.ok(X.workbookFromSheets(sh).length > 1000);
 });
