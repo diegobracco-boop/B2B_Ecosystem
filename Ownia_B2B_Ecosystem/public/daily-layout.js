@@ -9,10 +9,9 @@
  *  - Datos: los mismos JSON que ya carga el Daily (_rawB2BC, _rawB2B; B2B en base GD). El LY de
  *    nov–dic que el Daily todavía no publica viene en industry_events.json (ly_ext); si el Daily ya
  *    tiene esa fecha, manda el del Daily.
- *  - Solo los días de evento (sin pre ni post, por pedido de Diego), alineados por día de evento: D1 de
- *    este año vs D1 del año pasado (aunque caigan en fechas distintas). Sin evento el año pasado:
- *    mismas fechas −364 días (mismo día de la semana). Si el evento dura distinto que el año pasado,
- *    el YoY compara el promedio diario (marcado con †).
+ *  - Solo los días de evento (sin pre ni post, por pedido de Diego). Cada día se compara contra el mismo día
+ *    de la semana del año pasado (como la tabla adhoc): las fechas de este año corridas las semanas que mejor
+ *    calzan con el evento del año pasado (−364 d por default; ver lyShift). Sin evento el año pasado: −364 días.
  *  - Debajo de la tabla de B2B2C (2026-11-03): apertura por partner × día de evento (partnerTableHtml), con la métrica
  *    y el país elegidos. B2B no tiene partner en los datos del Daily.
  *  - Participación vs B2C por día (2026-11-04, Tiago): en el detalle por día y en las tarjetas, línea / (línea + B2C)
@@ -338,6 +337,19 @@
 
   // Par evento de este año ↔ evento del año pasado (misma familia y país; si hay varios, el más cercano
   // por día del año). Sin match: mismas fechas −364 días.
+  // Días del año pasado (2026-11-28): cada día se compara contra el MISMO día de la semana, como la tabla adhoc
+  // (jue 26/11/2026 vs jue 27/11/2025). Antes se alineaba D1 con D1 del evento del año pasado y, si arrancaban
+  // en distinto día de la semana (Black Friday 2026 desde el lun 23/11 por override), quedaba corrido.
+  // La ventana del año pasado = las fechas de este año corridas N semanas (52 por default), eligiendo las N que
+  // mejor calzan con el evento del año pasado (por si el evento se mudó de semana, p.ej. Hot Sale).
+  function lyShift(e, o) {
+    var best = -364, bestD = 1e9;
+    for (var w = 50; w <= 54; w++) {
+      var s = -7 * w, d = Math.abs(diffDays(addDays(e.inicio, s), o.inicio)) + Math.abs(diffDays(addDays(e.fin, s), o.fin));
+      if (d < bestD || (d === bestD && s === -364)) { best = s; bestD = d; }
+    }
+    return best;
+  }
   function pairsFor(lob) {
     var cl = calLob(lob), y = cyYear();
     var all = (ev.eventos || []).filter(function (e) { return e.lob === cl; });
@@ -348,8 +360,8 @@
         var d = Math.abs(diffDays(addDays(o.inicio, 364), e.inicio));
         if (d < bestD) { best = o; bestD = d; }
       });
-      var ly = best ? { inicio: best.inicio, fin: best.fin, dias: best.dias, match: true }
-        : { inicio: addDays(e.inicio, -364), fin: addDays(e.fin, -364), dias: e.dias, match: false };
+      var sh = best ? lyShift(e, best) : -364;
+      var ly = { inicio: addDays(e.inicio, sh), fin: addDays(e.fin, sh), dias: e.dias, match: !!best };
       return { cy: e, ly: ly };
     });
   }
